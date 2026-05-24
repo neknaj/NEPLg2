@@ -16,8 +16,8 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/resource/borrow_state" as *
-//: fn main <()*>i32> ():
-//:     let state <SelfhostBorrowState> selfhost_borrow_state_unborrowed
+//: fn main %impure fn () i32 \():
+//:     let state %SelfhostBorrowState selfhost_borrow_state_unborrowed
 //:     if selfhost_borrow_state_is_unborrowed state 0 1
 //: ```
 
@@ -30,15 +30,15 @@
 //: - 未 borrow、shared borrow 中、mutable borrow 中を enum として分け、同時に mutable と shared が立つような不正状態を型で作れないようにします。
 pub enum SelfhostBorrowState:
     Unborrowed
-    Shared <i32>
+    Shared %i32
     Mutable
 
 impl Clone for SelfhostBorrowState:
-    fn clone <(&SelfhostBorrowState)->SelfhostBorrowState> (self):
+    fn clone %fn &SelfhostBorrowState SelfhostBorrowState \self:
         *self
 
 impl Copy for SelfhostBorrowState:
-    fn copy_mark <(SelfhostBorrowState)->SelfhostBorrowState> (self):
+    fn copy_mark %fn SelfhostBorrowState SelfhostBorrowState \self:
         self
 
 //: SelfhostBorrowRequestKind: borrow state に対する操作
@@ -49,27 +49,27 @@ pub enum SelfhostBorrowRequestKind:
     EndMutable
 
 impl Clone for SelfhostBorrowRequestKind:
-    fn clone <(&SelfhostBorrowRequestKind)->SelfhostBorrowRequestKind> (self):
+    fn clone %fn &SelfhostBorrowRequestKind SelfhostBorrowRequestKind \self:
         *self
 
 impl Copy for SelfhostBorrowRequestKind:
-    fn copy_mark <(SelfhostBorrowRequestKind)->SelfhostBorrowRequestKind> (self):
+    fn copy_mark %fn SelfhostBorrowRequestKind SelfhostBorrowRequestKind \self:
         self
 
 //: selfhost_borrow_state_unborrowed: borrow が存在しない初期状態を[返/かえ]す
-pub fn selfhost_borrow_state_unborrowed <()->SelfhostBorrowState> ():
+pub fn selfhost_borrow_state_unborrowed %fn () SelfhostBorrowState \():
     SelfhostBorrowState::Unborrowed
 
 //: selfhost_borrow_state_shared: shared borrow 状態を[作/つく]る
-pub fn selfhost_borrow_state_shared <(i32)->SelfhostBorrowState> (count):
+pub fn selfhost_borrow_state_shared %fn i32 SelfhostBorrowState \count:
     SelfhostBorrowState::Shared count
 
 //: selfhost_borrow_state_mutable: mutable borrow 状態を[返/かえ]す
-pub fn selfhost_borrow_state_mutable <()->SelfhostBorrowState> ():
+pub fn selfhost_borrow_state_mutable %fn () SelfhostBorrowState \():
     SelfhostBorrowState::Mutable
 
 //: selfhost_borrow_state_is_unborrowed: borrow が存在しない状態か[返/かえ]す
-pub fn selfhost_borrow_state_is_unborrowed <(SelfhostBorrowState)->bool> (state):
+pub fn selfhost_borrow_state_is_unborrowed %fn SelfhostBorrowState bool \state:
     match state:
         SelfhostBorrowState::Unborrowed:
             true
@@ -79,5 +79,5 @@ pub fn selfhost_borrow_state_is_unborrowed <(SelfhostBorrowState)->bool> (state)
             false
 
 //: selfhost_borrow_shared_count_is_valid: shared borrow count が有効か[返/かえ]す
-pub fn selfhost_borrow_shared_count_is_valid <(i32)->bool> (count):
+pub fn selfhost_borrow_shared_count_is_valid %fn i32 bool \count:
     gt count 0

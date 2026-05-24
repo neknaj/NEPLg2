@@ -16,27 +16,27 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
+fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTreeMap i32 i32 \r:
     match r:
         Result::Ok m:
             m
         Result::Err e:
-            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
             btreemap_insert_error_owner<i32,i32> e
 
-fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
-    let mut m <BTreeMap<i32,i32>> unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
-    let mut i <i32> n;
+fn build_desc_map %impure fn i32 BTreeMap i32 i32 \n:
+    let mut m %BTreeMap i32 i32 unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
+    let mut i %i32 n;
     while gt i 0:
         do:
-            let k <i32> sub i 1;
+            let k %i32 sub i 1;
             set m must_map sorted_array_map_insert<i32,i32> m k mul k 10;
             set i sub i 1;
     m
 
-fn main <()*>i32> ():
-    let m <BTreeMap<i32,i32>> build_desc_map 32;
-    let ok <bool> eq sorted_array_map_len<i32,i32> &m 32;
+fn main %impure fn () i32 \():
+    let m %BTreeMap i32 i32 build_desc_map 32;
+    let ok %bool eq sorted_array_map_len<i32,i32> &m 32;
     sorted_array_map_free<i32,i32> m;
     if ok 0 1
 ```
@@ -54,27 +54,27 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
+fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTreeMap i32 i32 \r:
     match r:
         Result::Ok m:
             m
         Result::Err e:
-            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
             btreemap_insert_error_owner<i32,i32> e
 
-fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
-    let mut m <BTreeMap<i32,i32>> unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
-    let mut i <i32> n;
+fn build_desc_map %impure fn i32 BTreeMap i32 i32 \n:
+    let mut m %BTreeMap i32 i32 unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
+    let mut i %i32 n;
     while gt i 0:
         do:
-            let k <i32> sub i 1;
+            let k %i32 sub i 1;
             set m must_map sorted_array_map_insert<i32,i32> m k mul k 10;
             set i sub i 1;
     m
 
-fn main <()*>i32> ():
-    let m <BTreeMap<i32,i32>> build_desc_map 128;
-    let ok <bool> eq sorted_array_map_len<i32,i32> &m 128;
+fn main %impure fn () i32 \():
+    let m %BTreeMap i32 i32 build_desc_map 128;
+    let ok %bool eq sorted_array_map_len<i32,i32> &m 128;
     sorted_array_map_free<i32,i32> m;
     if ok 0 1
 ```
@@ -93,27 +93,27 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
+fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTreeMap i32 i32 \r:
     match r:
         Result::Ok m:
             m
         Result::Err e:
-            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
             btreemap_insert_error_owner<i32,i32> e
 
-fn build_desc_map <(i32)*>BTreeMap<i32,i32>> (n):
-    let mut m <BTreeMap<i32,i32>> unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
-    let mut i <i32> n;
+fn build_desc_map %impure fn i32 BTreeMap i32 i32 \n:
+    let mut m %BTreeMap i32 i32 unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
+    let mut i %i32 n;
     while gt i 0:
         do:
-            let k <i32> sub i 1;
+            let k %i32 sub i 1;
             set m must_map sorted_array_map_insert<i32,i32> m k mul k 10;
             set i sub i 1;
     m
 
-fn main <()*>i32> ():
-    let m <BTreeMap<i32,i32>> build_desc_map 128;
-    let value <Option<i32>> sorted_array_map_get<i32,i32> &m 64;
+fn main %impure fn () i32 \():
+    let m %BTreeMap i32 i32 build_desc_map 128;
+    let value %Option i32 sorted_array_map_get<i32,i32> &m 64;
     sorted_array_map_free<i32,i32> m;
     match value:
         Option::Some v:
@@ -135,27 +135,27 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
+fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 \r:
     match r:
         Result::Ok s:
             s
         Result::Err e:
-            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            let _d %Diag btreeset_insert_error_diag<i32> &e
             btreeset_insert_error_owner<i32> e
 
-fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
-    let mut s <BTreeSet<i32>> unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
-    let mut i <i32> n;
+fn build_desc_set %impure fn i32 BTreeSet i32 \n:
+    let mut s %BTreeSet i32 unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
+    let mut i %i32 n;
     while gt i 0:
         do:
-            let k <i32> sub i 1;
+            let k %i32 sub i 1;
             set s must_set sorted_array_set_insert<i32> s k;
             set i sub i 1;
     s
 
-fn main <()*>i32> ():
-    let s <BTreeSet<i32>> build_desc_set 32;
-    let ok <bool> eq sorted_array_set_len<i32> &s 32;
+fn main %impure fn () i32 \():
+    let s %BTreeSet i32 build_desc_set 32;
+    let ok %bool eq sorted_array_set_len<i32> &s 32;
     sorted_array_set_free<i32> s;
     if ok 0 1
 ```
@@ -173,27 +173,27 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
+fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 \r:
     match r:
         Result::Ok s:
             s
         Result::Err e:
-            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            let _d %Diag btreeset_insert_error_diag<i32> &e
             btreeset_insert_error_owner<i32> e
 
-fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
-    let mut s <BTreeSet<i32>> unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
-    let mut i <i32> n;
+fn build_desc_set %impure fn i32 BTreeSet i32 \n:
+    let mut s %BTreeSet i32 unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
+    let mut i %i32 n;
     while gt i 0:
         do:
-            let k <i32> sub i 1;
+            let k %i32 sub i 1;
             set s must_set sorted_array_set_insert<i32> s k;
             set i sub i 1;
     s
 
-fn main <()*>i32> ():
-    let s <BTreeSet<i32>> build_desc_set 128;
-    let ok <bool> eq sorted_array_set_len<i32> &s 128;
+fn main %impure fn () i32 \():
+    let s %BTreeSet i32 build_desc_set 128;
+    let ok %bool eq sorted_array_set_len<i32> &s 128;
     sorted_array_set_free<i32> s;
     if ok 0 1
 ```
@@ -211,27 +211,27 @@ neplg2:test
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
+fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 \r:
     match r:
         Result::Ok s:
             s
         Result::Err e:
-            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            let _d %Diag btreeset_insert_error_diag<i32> &e
             btreeset_insert_error_owner<i32> e
 
-fn build_desc_set <(i32)*>BTreeSet<i32>> (n):
-    let mut s <BTreeSet<i32>> unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
-    let mut i <i32> n;
+fn build_desc_set %impure fn i32 BTreeSet i32 \n:
+    let mut s %BTreeSet i32 unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
+    let mut i %i32 n;
     while gt i 0:
         do:
-            let k <i32> sub i 1;
+            let k %i32 sub i 1;
             set s must_set sorted_array_set_insert<i32> s k;
             set i sub i 1;
     s
 
-fn main <()*>i32> ():
-    let s <BTreeSet<i32>> build_desc_set 128;
-    let ok <bool> sorted_array_set_contains<i32> &s 64;
+fn main %impure fn () i32 \():
+    let s %BTreeSet i32 build_desc_set 128;
+    let ok %bool sorted_array_set_contains<i32> &s 64;
     sorted_array_set_free<i32> s;
     if ok 0 1
 ```

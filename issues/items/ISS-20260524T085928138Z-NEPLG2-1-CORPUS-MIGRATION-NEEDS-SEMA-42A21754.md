@@ -55,6 +55,7 @@ LLM/手動判断が必要なもの:
 - `some<i32>` / `unwrap_ok<T,E>` / `Result::Ok<T,E>` などの明示 generic call。
 - 期待型が不足しているため `%T` 注釈の追加が必要な call。
 - `let f (x):` や `apply 10 (x):` の function literal と旧 tuple fixture の区別。
+- 関数を返す関数型を `%fn A (fn B C)` として grouping する必要がある箇所。
 - owner-preserving callback signature、borrowed predicate、effect `*` が絡む stdlib API。
 - selfhost parser/compiler 実装側の source string fixture。
 
@@ -63,6 +64,14 @@ LLM/手動判断が必要なもの:
 - branch: `feature/neplg21-syntax-migration-20260524`
 - frontend 親 issue: `ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30`
 - doc 親 issue: `ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC`
+- mechanical migration:
+  - `nodesrc/neplg21_syntax_migrate.js` を追加し、balanced `<TypeExpr>` 型注釈、function/lambda 引数外形、doc/test corpus の大半を `%` / `\` 構文へ移行した。
+  - migrator は string literal 内を変換対象から外し、関数を返す旧関数型は戻り値側を grouping して変換する。
+  - `#intrinsic "..." <...>` は compiler-owned directive syntax として保持し、`#extern` signature は `%...` を受理する。
+  - `node nodesrc/neplg21_syntax_migrate.js --check` は idempotence check として通過している。
+- remaining:
+  - executable/comment/doc を合わせた generic postfix 形式はまだ多数残る。これは単純削除ではなく、呼び出し先 signature と expected type を見て `%T` 注釈を補う semantic rewrite として継続する。
+  - selfhost source string fixture には旧構文の期待文字列が残る。これは selfhost parser の NEPLg2.1 対応と同じ単位で更新する。
 
 ## 検証
 

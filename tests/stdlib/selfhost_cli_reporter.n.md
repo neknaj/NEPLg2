@@ -19,12 +19,12 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let span <SelfhostSourceSpan> source_span_new 1 10 15
-    let label <SelfhostDiagnosticLabel> selfhost_diag_label_new span "token"
-    let diag <SelfhostDiagnostic> selfhost_diag_with_note selfhost_diag_with_primary_label selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "second" label "fix it"
-    let human <str> selfhost_cli_render_diagnostic_human &diag
-    let json <str> selfhost_cli_render_diagnostic_json &diag
+fn main %impure fn () i32 \():
+    let span %SelfhostSourceSpan source_span_new 1 10 15
+    let label %SelfhostDiagnosticLabel selfhost_diag_label_new span "token"
+    let diag %SelfhostDiagnostic selfhost_diag_with_note selfhost_diag_with_primary_label selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "second" label "fix it"
+    let human %str selfhost_cli_render_diagnostic_human &diag
+    let json %str selfhost_cli_render_diagnostic_json &diag
     let checks:
         checks_new
         |> checks_push assert_str_eq "error[parser.token.index_unavailable]: second\n  --> file 1:10..15\n  = label: token\n  = note: fix it\n" human
@@ -48,8 +48,8 @@ exit_code: 0
 #import "neplg2/core/infra/diag" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "bad input"
+fn main %impure fn () i32 \():
+    let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "bad input"
     match selfhost_cli_write_json_diagnostic_stdout diag:
         Result::Err _e:
             1
@@ -80,16 +80,16 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let span <SelfhostSourceSpan> source_span_new 1 10 15
-    let label <SelfhostDiagnosticLabel> selfhost_diag_label_new span "token"
-    let diag0 <SelfhostDiagnostic> selfhost_diag_warning SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "first"
-    let diag1 <SelfhostDiagnostic> selfhost_diag_with_note selfhost_diag_with_primary_label selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "second" label "fix it"
-    let diagnostics0 <SelfhostDiagnostics> unwrap_ok selfhost_diagnostics_new
-    let diagnostics1 <SelfhostDiagnostics> unwrap_ok selfhost_diagnostics_push diagnostics0 diag0
-    let diagnostics2 <SelfhostDiagnostics> unwrap_ok selfhost_diagnostics_push diagnostics1 diag1
-    let human <str> selfhost_cli_render_diagnostics_human &diagnostics2
-    let json <str> selfhost_cli_render_diagnostics_json &diagnostics2
+fn main %impure fn () i32 \():
+    let span %SelfhostSourceSpan source_span_new 1 10 15
+    let label %SelfhostDiagnosticLabel selfhost_diag_label_new span "token"
+    let diag0 %SelfhostDiagnostic selfhost_diag_warning SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "first"
+    let diag1 %SelfhostDiagnostic selfhost_diag_with_note selfhost_diag_with_primary_label selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "second" label "fix it"
+    let diagnostics0 %SelfhostDiagnostics unwrap_ok selfhost_diagnostics_new
+    let diagnostics1 %SelfhostDiagnostics unwrap_ok selfhost_diagnostics_push diagnostics0 diag0
+    let diagnostics2 %SelfhostDiagnostics unwrap_ok selfhost_diagnostics_push diagnostics1 diag1
+    let human %str selfhost_cli_render_diagnostics_human &diagnostics2
+    let json %str selfhost_cli_render_diagnostics_json &diagnostics2
     selfhost_diagnostics_free diagnostics2
     let checks:
         checks_new

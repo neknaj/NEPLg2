@@ -356,6 +356,8 @@ fn token_kind_name(kind: &TokenKind) -> &'static str {
         TokenKind::Comma => "Comma",
         TokenKind::LAngle => "LAngle",
         TokenKind::RAngle => "RAngle",
+        TokenKind::Percent => "Percent",
+        TokenKind::Backslash => "Backslash",
         TokenKind::Arrow(_) => "Arrow",
         TokenKind::PathSep => "PathSep",
         TokenKind::At => "At",
@@ -3166,7 +3168,7 @@ fn compile_wasm_with_entry_and_profile_and_stdlib(
 
     #[cfg(target_arch = "wasm32")]
     web_sys::console::log_1(&format!("Loader context contains {} files", sources.len()).into());
-    
+
     let mut loader = Loader::new(stdlib_root);
     let mut provider = |path: &PathBuf| {
         sources
@@ -3338,7 +3340,7 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) -> String {
             reset = RESET,
             message = d.message
         ));
-        
+
         // 位置ポインタ
         out.push_str(&format!(
             " {blue}-->{reset} {path}:{line}:{col}\n",

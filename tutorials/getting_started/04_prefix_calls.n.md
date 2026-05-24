@@ -17,15 +17,15 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn double <(i32)->i32> (x):
+fn double %fn i32 i32 \x:
     mul x 2
 
-fn add_five <(i32)->i32> (x):
+fn add_five %fn i32 i32 \x:
     add x 5
 
-fn main <()*>i32> ():
-    let prefix <i32> double add_five 10
-    let piped <i32>:
+fn main %impure fn () i32 \():
+    let prefix %i32 double add_five 10
+    let piped %i32:
         10
         |> add_five
         |> double

@@ -22,5 +22,5 @@
 //: - [明示呼/めいじよ]びと auto drop の[両方/りょうほう]が[走/はし]ると double free になるため、compiler [側/がわ]の move/drop [規則/きそく]と[整合/せいごう]している[必要/ひつよう]があります。
 trait Drop:
     #capability drop
-    fn drop <(&Self)*>()> (self):
+    fn drop %impure fn &Self () \self:
         ()

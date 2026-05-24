@@ -28,8 +28,8 @@ stdout: mlstr:
 #import "neplg2/core/syntax/parser/module_parser" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let source <str> "//: doc\n#entry main\n#target std\n#import \"core/result\" as *\nfn main <()->i32> ():\n    0\nstruct Pair:\nenum Maybe:\ntrait Show:\nimpl Show for Pair:\n#wasm:\n    i32.const 0\n"
+fn main %impure fn () i32 \():
+    let source %str "//: doc\n#entry main\n#target std\n#import \"core/result\" as *\nfn main <()->i32> ():\n    0\nstruct Pair:\nenum Maybe:\ntrait Show:\nimpl Show for Pair:\n#wasm:\n    i32.const 0\n"
     let mut checks checks_new
     match selfhost_parse_module_source source:
         Result::Ok ast:
@@ -80,20 +80,20 @@ stdout: mlstr:
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "std/test" as *
 
-fn check_duplicate_directive <(SelfhostModuleItemKind)*>Result<(),str>> (kind):
+fn check_duplicate_directive %impure fn SelfhostModuleItemKind Result () str \kind:
     match selfhost_module_ast_new:
         Result::Ok ast0:
-            let span1 <SelfhostSourceSpan> source_span_new 0 0 7
-            let span2 <SelfhostSourceSpan> source_span_new 0 8 15
-            let item1 <SelfhostModuleItem> selfhost_module_item_new kind span1 "first"
+            let span1 %SelfhostSourceSpan source_span_new 0 0 7
+            let span2 %SelfhostSourceSpan source_span_new 0 8 15
+            let item1 %SelfhostModuleItem selfhost_module_item_new kind span1 "first"
             match selfhost_module_ast_push ast0 item1:
                 Result::Ok ast1:
-                    let item2 <SelfhostModuleItem> selfhost_module_item_new kind span2 "second"
+                    let item2 %SelfhostModuleItem selfhost_module_item_new kind span2 "second"
                     match selfhost_module_ast_push ast1 item2:
                         Result::Ok ast2:
                             match selfhost_check_module_ast &ast2:
                                 Result::Err diag:
-                                    let result <Result<(),str>> check_str_eq "checker.module.directive_duplicate" selfhost_diag_code_name diag.code
+                                    let result %Result () str check_str_eq "checker.module.directive_duplicate" selfhost_diag_code_name diag.code
                                     selfhost_module_ast_free ast2
                                     result
                                 Result::Ok _summary:
@@ -106,7 +106,7 @@ fn check_duplicate_directive <(SelfhostModuleItemKind)*>Result<(),str>> (kind):
         Result::Err _e:
             Result<(),str>::Err "module AST allocation failed"
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     let checks1 checks_push checks0 check_duplicate_directive SelfhostModuleItemKind::EntryDirective
     let checks2 checks_push checks1 check_duplicate_directive SelfhostModuleItemKind::TargetDirective
@@ -133,12 +133,12 @@ stdout: mlstr:
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match selfhost_module_ast_new:
         Result::Ok ast0:
-            let span <SelfhostSourceSpan> source_span_new 0 0 12
-            let item <SelfhostModuleItem> selfhost_module_item_new SelfhostModuleItemKind::WasmText span "i32.const 0"
+            let span %SelfhostSourceSpan source_span_new 0 0 12
+            let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::WasmText span "i32.const 0"
             match selfhost_module_ast_push ast0 item:
                 Result::Ok ast:
                     match selfhost_check_module_ast &ast:
@@ -181,12 +181,12 @@ stdout: mlstr:
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match selfhost_module_ast_new:
         Result::Ok ast0:
-            let span <SelfhostSourceSpan> source_span_new 0 0 24
-            let item <SelfhostModuleItem> selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl span "fn main <()->i32> ():"
+            let span %SelfhostSourceSpan source_span_new 0 0 24
+            let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl span "fn main <()->i32> \():"
             match selfhost_module_ast_push ast0 item:
                 Result::Ok ast:
                     match selfhost_check_module_ast &ast:

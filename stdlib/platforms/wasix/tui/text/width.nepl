@@ -29,14 +29,14 @@ pub enum TuiTextByteKind:
     Invalid
 
 impl Clone for TuiTextByteKind:
-    fn clone <(&TuiTextByteKind)->TuiTextByteKind> (kind):
+    fn clone %fn &TuiTextByteKind TuiTextByteKind \kind:
         *kind
 
 impl Copy for TuiTextByteKind:
-    fn copy_mark <(TuiTextByteKind)->TuiTextByteKind> (kind):
+    fn copy_mark %fn TuiTextByteKind TuiTextByteKind \kind:
         kind
 
-pub fn str_byte_at <(str,i32)*>i32> (s, i):
+pub fn str_byte_at %impure fn str impure fn i32 i32 \s\i:
     match checked_string_byte_at s i:
         Option::Some b:
             b
@@ -47,7 +47,7 @@ pub fn str_byte_at <(str,i32)*>i32> (s, i):
 //:
 //: [目的/もくてき]:
 //: - `str_display_width`、`line_clip_to_cols`、`text_wrap_lines`、TUI buffer の char step を同じ分類に揃えます。
-pub fn tui_text_byte_kind <(i32)->TuiTextByteKind> (b):
+pub fn tui_text_byte_kind %fn i32 TuiTextByteKind \b:
     if:
         lt b 128
         then:
@@ -71,7 +71,7 @@ pub fn tui_text_byte_kind <(i32)->TuiTextByteKind> (b):
                                     TuiTextByteKind::Invalid
 
 //: tui_text_byte_len: 分類済み byte kind から次の byte offset へ進む長さを返す
-pub fn tui_text_byte_len <(TuiTextByteKind)->i32> (kind):
+pub fn tui_text_byte_len %fn TuiTextByteKind i32 \kind:
     match kind:
         TuiTextByteKind::Ascii:
             1
@@ -85,7 +85,7 @@ pub fn tui_text_byte_len <(TuiTextByteKind)->i32> (kind):
             1
 
 //: tui_text_byte_width: 分類済み byte kind から端末表示幅を返す
-pub fn tui_text_byte_width <(TuiTextByteKind)->i32> (kind):
+pub fn tui_text_byte_width %fn TuiTextByteKind i32 \kind:
     match kind:
         TuiTextByteKind::Ascii:
             1
@@ -98,13 +98,13 @@ pub fn tui_text_byte_width <(TuiTextByteKind)->i32> (kind):
         TuiTextByteKind::Invalid:
             1
 
-pub fn tui_skip_csi <(str,i32,i32)*>i32> (s, n, i):
-    let mut j <i32> i;
-    let mut done <bool> false;
+pub fn tui_skip_csi %impure fn str impure fn i32 impure fn i32 i32 \s\n\i:
+    let mut j %i32 i;
+    let mut done %bool false;
     while and lt j n not done:
         do:
-            let c <i32> str_byte_at s j;
-            let is_final <bool> and ge c 64 lt c 127;
+            let c %i32 str_byte_at s j;
+            let is_final %bool and ge c 64 lt c 127;
             if:
                 is_final
                 then:
@@ -114,15 +114,15 @@ pub fn tui_skip_csi <(str,i32,i32)*>i32> (s, n, i):
             set j add j 1;
     j
 
-pub fn tui_skip_osc <(str,i32,i32)*>i32> (s, n, i):
-    let mut j <i32> i;
-    let mut done <bool> false;
+pub fn tui_skip_osc %impure fn str impure fn i32 impure fn i32 i32 \s\n\i:
+    let mut j %i32 i;
+    let mut done %bool false;
     while and lt j n not done:
         do:
-            let c <i32> str_byte_at s j;
-            let next <i32> add j 1;
-            let has_next <bool> lt next n;
-            let is_st <bool> and eq c '\x1B' and has_next eq str_byte_at s next '\\';
+            let c %i32 str_byte_at s j;
+            let next %i32 add j 1;
+            let has_next %bool lt next n;
+            let is_st %bool and eq c '\x1B' and has_next eq str_byte_at s next '\\';
             if:
                 is_st
                 then:
@@ -132,12 +132,12 @@ pub fn tui_skip_osc <(str,i32,i32)*>i32> (s, n, i):
                     set j add j 1;
     j
 
-pub fn tui_skip_escape_sequence <(str,i32,i32)*>i32> (s, n, i):
-    let next <i32> add i 1;
+pub fn tui_skip_escape_sequence %impure fn str impure fn i32 impure fn i32 i32 \s\n\i:
+    let next %i32 add i 1;
     if:
         lt next n
         then:
-            let marker <i32> str_byte_at s next;
+            let marker %i32 str_byte_at s next;
             if:
                 eq marker '['
                 then:
@@ -167,19 +167,19 @@ pub fn tui_skip_escape_sequence <(str,i32,i32)*>i32> (s, n, i):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn str_display_width <(str)*>i32> (s):
-    let n <i32> len s;
-    let mut i <i32> 0;
-    let mut w <i32> 0;
+pub fn str_display_width %impure fn str i32 \s:
+    let n %i32 len s;
+    let mut i %i32 0;
+    let mut w %i32 0;
     while lt i n:
         do:
-            let b <i32> str_byte_at s i;
+            let b %i32 str_byte_at s i;
             if:
                 eq b '\x1B'
                 then:
                     set i tui_skip_escape_sequence s n i
                 else:
-                    let kind <TuiTextByteKind> tui_text_byte_kind b;
+                    let kind %TuiTextByteKind tui_text_byte_kind b;
                     set i add i tui_text_byte_len kind;
                     set w add w tui_text_byte_width kind;
     w

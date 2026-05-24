@@ -25,15 +25,15 @@
 #import "alloc/string" as *
 #import "alloc/string/byte_index" as *
 
-pub fn hashkey_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
+pub fn hashkey_bytes_loop %fn str fn i32 fn i32 fn Fnv1a32 Fnv1a32 \s\n\idx\h:
     if:
         ge idx n
         then h
         else:
             match checked_string_byte_at s idx:
                 Option::Some b:
-                    let next_idx <i32> add idx 1
-                    let next_h <Fnv1a32> fnv1a32_update h b
+                    let next_idx %i32 add idx 1
+                    let next_h %Fnv1a32 fnv1a32_update h b
                     hashkey_bytes_loop s n next_idx next_h
                 Option::None:
                     h
@@ -41,62 +41,62 @@ pub fn hashkey_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
 //: ## HashKey
 //: hash collection が key に[要求/ようきゅう]する[同値性/どうちせい]と hash [計算/けいさん]
 trait HashKey:
-    fn eq <(Self,Self)->bool> (a, b):
+    fn eq %fn Self fn Self bool \a\b:
         false
 
-    fn hash32 <(Self)->i32> (self):
+    fn hash32 %fn Self i32 \self:
         0
 
 //: ## hashkey_eq
 //: `HashKey` trait [経由/けいゆ]で key [比較/ひかく]する
-pub fn hashkey_eq <.T: HashKey> <(.T,.T)->bool> (a, b):
+pub fn hashkey_eq <.T: HashKey> %fn .T fn .T bool \a\b:
     HashKey::eq a b
 
 //: ## hashkey_hash32
 //: `HashKey` trait [経由/けいゆ]で 32-bit hash を[得/え]る
-pub fn hashkey_hash32 <.T: HashKey> <(.T)->i32> (x):
+pub fn hashkey_hash32 <.T: HashKey> %fn .T i32 \x:
     HashKey::hash32 x
 
 impl HashKey for bool:
-    fn eq <(bool,bool)->bool> (a, b):
+    fn eq %fn bool fn bool bool \a\b:
         if a then b else not b
 
-    fn hash32 <(bool)->i32> (self):
-        let k <i32> cast self;
+    fn hash32 %fn bool i32 \self:
+        let k %i32 cast self;
         mix xor k -1640531527
 
 impl HashKey for i32:
-    fn eq <(i32,i32)->bool> (a, b):
+    fn eq %fn i32 fn i32 bool \a\b:
         eq a b
 
-    fn hash32 <(i32)->i32> (self):
+    fn hash32 %fn i32 i32 \self:
         mix xor self -1640531527
 
 impl HashKey for u8:
-    fn eq <(u8,u8)->bool> (a, b):
+    fn eq %fn u8 fn u8 bool \a\b:
         eq a b
 
-    fn hash32 <(u8)->i32> (self):
-        let k <i32> cast self;
+    fn hash32 %fn u8 i32 \self:
+        let k %i32 cast self;
         mix xor k -1640531527
 
 impl HashKey for i64:
-    fn eq <(i64,i64)->bool> (a, b):
+    fn eq %fn i64 fn i64 bool \a\b:
         eq a b
 
-    fn hash32 <(i64)->i32> (self):
-        let lo <i32> cast self;
-        let hi64 <i64> shr_u self <i64> cast 32;
-        let hi <i32> cast hi64;
-        let folded <i32> xor lo hi;
+    fn hash32 %fn i64 i32 \self:
+        let lo %i32 cast self;
+        let hi64 %i64 shr_u self %i64 cast 32;
+        let hi %i32 cast hi64;
+        let folded %i32 xor lo hi;
         mix xor folded -1640531527
 
 impl HashKey for str:
-    fn eq <(str,str)->bool> (a, b):
+    fn eq %fn str fn str bool \a\b:
         str_eq a b
 
-    fn hash32 <(str)->i32> (self):
-        let n <i32> len self;
-        let h0 <Fnv1a32> new_fnv1a32;
-        let h1 <Fnv1a32> hashkey_bytes_loop self n 0 h0;
+    fn hash32 %fn str i32 \self:
+        let n %i32 len self;
+        let h0 %Fnv1a32 new_fnv1a32;
+        let h1 %Fnv1a32 hashkey_bytes_loop self n 0 h0;
         mix fnv1a32_finalize h1

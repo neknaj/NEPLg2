@@ -23,7 +23,7 @@ stdout: mlstr:
 #import "neplg2/core/resource/borrow_state" as *
 #import "std/test" as *
 
-fn check_shared_one <(Result<SelfhostBorrowState,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_shared_one %fn Result SelfhostBorrowState SelfhostProofRefutation Result () str \result:
     match result:
         Result::Ok state:
             match state:
@@ -36,7 +36,7 @@ fn check_shared_one <(Result<SelfhostBorrowState,SelfhostProofRefutation>)->Resu
         Result::Err _refutation:
             Result<(),str>::Err "expected borrow access proof"
 
-fn check_unborrowed <(Result<SelfhostBorrowState,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_unborrowed %fn Result SelfhostBorrowState SelfhostProofRefutation Result () str \result:
     match result:
         Result::Ok state:
             match state:
@@ -49,7 +49,7 @@ fn check_unborrowed <(Result<SelfhostBorrowState,SelfhostProofRefutation>)->Resu
         Result::Err _refutation:
             Result<(),str>::Err "expected borrow access proof"
 
-fn check_mutable_while_shared <(SelfhostBorrowAccessError)->Result<(),str>> (reason):
+fn check_mutable_while_shared %fn SelfhostBorrowAccessError Result () str \reason:
     match reason:
         SelfhostBorrowAccessError::MutableBorrowWhileShared:
             Result<(),str>::Ok ()
@@ -64,7 +64,7 @@ fn check_mutable_while_shared <(SelfhostBorrowAccessError)->Result<(),str>> (rea
         SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow:
             Result<(),str>::Err "expected mutable while shared"
 
-fn check_shared_while_mutable <(SelfhostBorrowAccessError)->Result<(),str>> (reason):
+fn check_shared_while_mutable %fn SelfhostBorrowAccessError Result () str \reason:
     match reason:
         SelfhostBorrowAccessError::SharedBorrowWhileMutable:
             Result<(),str>::Ok ()
@@ -79,7 +79,7 @@ fn check_shared_while_mutable <(SelfhostBorrowAccessError)->Result<(),str>> (rea
         SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow:
             Result<(),str>::Err "expected shared while mutable"
 
-fn check_invalid_shared_count <(SelfhostBorrowAccessError)->Result<(),str>> (reason):
+fn check_invalid_shared_count %fn SelfhostBorrowAccessError Result () str \reason:
     match reason:
         SelfhostBorrowAccessError::InvalidSharedBorrowCount:
             Result<(),str>::Ok ()
@@ -94,7 +94,7 @@ fn check_invalid_shared_count <(SelfhostBorrowAccessError)->Result<(),str>> (rea
         SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow:
             Result<(),str>::Err "expected invalid shared count"
 
-fn check_borrow_refutation <(SelfhostProofRefutation,(SelfhostBorrowAccessError)->Result<(),str>)->Result<(),str>> (refutation, checker):
+fn check_borrow_refutation %fn SelfhostProofRefutation fn fn SelfhostBorrowAccessError Result () str Result () str \refutation\checker:
     match refutation:
         SelfhostProofRefutation::BorrowAccessInvalid issue:
             checker issue.reason
@@ -127,18 +127,18 @@ fn check_borrow_refutation <(SelfhostProofRefutation,(SelfhostBorrowAccessError)
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected borrow access refutation"
 
-fn check_borrow_error <(Result<SelfhostBorrowState,SelfhostProofRefutation>,(SelfhostBorrowAccessError)->Result<(),str>)->Result<(),str>> (result, checker):
+fn check_borrow_error %fn Result SelfhostBorrowState SelfhostProofRefutation fn fn SelfhostBorrowAccessError Result () str Result () str \result\checker:
     match result:
         Result::Err refutation:
             check_borrow_refutation refutation checker
         Result::Ok _state:
             Result<(),str>::Err "borrow conflict was accepted"
 
-fn main <()*>i32> ():
-    let span <SelfhostSourceSpan> source_span_new 0 0 4
-    let start_shared <SelfhostBorrowAccessFact> selfhost_borrow_access_fact_new SelfhostBorrowRequestKind::StartShared span
-    let start_mut <SelfhostBorrowAccessFact> selfhost_borrow_access_fact_new SelfhostBorrowRequestKind::StartMutable span
-    let end_shared <SelfhostBorrowAccessFact> selfhost_borrow_access_fact_new SelfhostBorrowRequestKind::EndShared span
+fn main %impure fn () i32 \():
+    let span %SelfhostSourceSpan source_span_new 0 0 4
+    let start_shared %SelfhostBorrowAccessFact selfhost_borrow_access_fact_new SelfhostBorrowRequestKind::StartShared span
+    let start_mut %SelfhostBorrowAccessFact selfhost_borrow_access_fact_new SelfhostBorrowRequestKind::StartMutable span
+    let end_shared %SelfhostBorrowAccessFact selfhost_borrow_access_fact_new SelfhostBorrowRequestKind::EndShared span
     let checks0 checks_new
     let checks1 checks_push checks0 check_shared_one selfhost_proof_borrow_access SelfhostBorrowState::Unborrowed start_shared
     let checks2 checks_push checks1 check_borrow_error (selfhost_proof_borrow_access (SelfhostBorrowState::Shared 1) start_mut) check_mutable_while_shared

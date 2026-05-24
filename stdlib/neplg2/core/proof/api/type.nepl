@@ -15,14 +15,14 @@
 #import "neplg2/core/ty/ty" as *
 
 //: selfhost_proof_query_type_kind_compatible: type kind compatibility query を[作/つく]る
-fn selfhost_proof_query_type_kind_compatible <(SelfhostTypeKind,SelfhostTypeKindFact)->SelfhostProofQuery> (expected, fact):
-    let proof_fact <SelfhostProofFact> SelfhostProofFact::TypeKindObserved fact
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::TypeKindCompatible expected
+fn selfhost_proof_query_type_kind_compatible %fn SelfhostTypeKind fn SelfhostTypeKindFact SelfhostProofQuery \expected\fact:
+    let proof_fact %SelfhostProofFact SelfhostProofFact::TypeKindObserved fact
+    let obligation %SelfhostProofObligation SelfhostProofObligation::TypeKindCompatible expected
     selfhost_proof_query_new proof_fact obligation
 
 //: selfhost_proof_type_kind_compatible: observed type kind が expected kind と互換か typed result として[返/かえ]す
-pub fn selfhost_proof_type_kind_compatible <(SelfhostTypeKind,SelfhostTypeKindFact)->Result<SelfhostTypeKind,SelfhostProofRefutation>> (expected, fact):
-    let query <SelfhostProofQuery> selfhost_proof_query_type_kind_compatible expected fact
+pub fn selfhost_proof_type_kind_compatible %fn SelfhostTypeKind fn SelfhostTypeKindFact Result SelfhostTypeKind SelfhostProofRefutation \expected\fact:
+    let query %SelfhostProofQuery selfhost_proof_query_type_kind_compatible expected fact
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:
@@ -52,14 +52,14 @@ pub fn selfhost_proof_type_kind_compatible <(SelfhostTypeKind,SelfhostTypeKindFa
             Result<SelfhostTypeKind,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_trait_impl_non_overlapping: trait impl coherence query を[作/つく]る
-fn selfhost_proof_query_trait_impl_non_overlapping <(SelfhostTraitImplPairFact)->SelfhostProofQuery> (fact):
-    let proof_fact <SelfhostProofFact> SelfhostProofFact::TraitImplPairObserved fact
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::TraitImplNonOverlapping
+fn selfhost_proof_query_trait_impl_non_overlapping %fn SelfhostTraitImplPairFact SelfhostProofQuery \fact:
+    let proof_fact %SelfhostProofFact SelfhostProofFact::TraitImplPairObserved fact
+    let obligation %SelfhostProofObligation SelfhostProofObligation::TraitImplNonOverlapping
     selfhost_proof_query_new proof_fact obligation
 
 //: selfhost_proof_trait_impl_non_overlapping: candidate impl が existing impl と overlap しないか typed result として[返/かえ]す
-pub fn selfhost_proof_trait_impl_non_overlapping <(SelfhostTraitImplPairFact)->Result<SelfhostTraitImplRelation,SelfhostProofRefutation>> (fact):
-    let query <SelfhostProofQuery> selfhost_proof_query_trait_impl_non_overlapping fact
+pub fn selfhost_proof_trait_impl_non_overlapping %fn SelfhostTraitImplPairFact Result SelfhostTraitImplRelation SelfhostProofRefutation \fact:
+    let query %SelfhostProofQuery selfhost_proof_query_trait_impl_non_overlapping fact
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:

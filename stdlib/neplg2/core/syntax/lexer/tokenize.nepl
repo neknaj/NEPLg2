@@ -20,34 +20,34 @@
 #import "neplg2/core/syntax/lexer/token_build" as *
 
 //: lex_push: token を token buffer へ[追加/ついか]する
-pub fn lex_push <(Vec<SelfhostToken>,SelfhostToken)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, token):
+pub fn lex_push %impure fn Vec SelfhostToken impure fn SelfhostToken Result Vec SelfhostToken LexDiagnostic \tokens\token:
     match push<SelfhostToken> tokens token:
         Result::Ok out:
             Result<Vec<SelfhostToken>,LexDiagnostic>::Ok out
         Result::Err e:
-            let returned <Vec<SelfhostToken>> vec_push_error_vec<SelfhostToken> e
+            let returned %Vec SelfhostToken vec_push_error_vec<SelfhostToken> e
             free<SelfhostToken> returned
-            let span <SelfhostSourceSpan> field::get token "span"
+            let span %SelfhostSourceSpan field::get token "span"
             Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer token buffer allocation failed"
 
 //: lex_push_structural: `Indent` / `Dedent` / EOF などの structural token を[追加/ついか]する
-pub fn lex_push_structural <(Vec<SelfhostToken>,TokenKind,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, kind, file_id, offset):
+pub fn lex_push_structural %impure fn Vec SelfhostToken impure fn TokenKind impure fn i32 impure fn i32 Result Vec SelfhostToken LexDiagnostic \tokens\kind\file_id\offset:
     lex_push tokens lex_structural_token kind file_id offset
 
 //: lex_fail_indent: indent stack と token buffer を[解放/かいほう]して indent diagnostic を[返/かえ]す
-pub fn lex_fail_indent <(Vec<SelfhostToken>,Vec<i32>,i32,i32,str)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, stack, file_id, offset, message):
+pub fn lex_fail_indent %impure fn Vec SelfhostToken impure fn Vec i32 impure fn i32 impure fn i32 impure fn str Result Vec SelfhostToken LexDiagnostic \tokens\stack\file_id\offset\message:
     free<SelfhostToken> tokens
     free<i32> stack
     Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset message
 
 
 //: lex_finish_eof: EOF 前に残った indent level を Dedent で[閉/と]じる
-pub fn lex_finish_eof <(Vec<SelfhostToken>,Vec<i32>,i32,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (tokens, stack, file_id, offset):
-    let stack_len <i32> len<i32> &stack
+pub fn lex_finish_eof %impure fn Vec SelfhostToken impure fn Vec i32 impure fn i32 impure fn i32 Result Vec SelfhostToken LexDiagnostic \tokens\stack\file_id\offset:
+    let stack_len %i32 len<i32> &stack
     if:
         gt stack_len 1
         then:
-            let next_stack <Vec<i32>> lex_stack_drop_top stack
+            let next_stack %Vec i32 lex_stack_drop_top stack
             match lex_push_structural tokens TokenKind::Dedent file_id offset:
                 Result::Ok out:
                     lex_finish_eof out next_stack file_id offset
@@ -59,7 +59,7 @@ pub fn lex_finish_eof <(Vec<SelfhostToken>,Vec<i32>,i32,i32)*>Result<Vec<Selfhos
             lex_push_structural tokens TokenKind::Eof file_id offset
 
 //: lex_dedent_to: current line の indent level に合うまで Dedent を[生成/せいせい]する
-pub fn lex_dedent_to <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, target_width, at_line_start, raw_mode, raw_base, pending_raw_mode):
+pub fn lex_dedent_to %impure fn str impure fn i32 impure fn i32 impure fn i32 impure fn Vec SelfhostToken impure fn Vec i32 impure fn i32 impure fn i32 impure fn bool impure fn SelfhostLexerRawMode impure fn i32 impure fn SelfhostLexerRawMode Result Vec SelfhostToken LexDiagnostic \source\n\file_id\idx\tokens\stack\indent_unit\target_width\at_line_start\raw_mode\raw_base\pending_raw_mode:
     match lex_stack_top_result &stack file_id idx:
         Result::Err diag:
             free<SelfhostToken> tokens
@@ -76,7 +76,7 @@ pub fn lex_dedent_to <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool,
                         then:
                             lex_fail_indent tokens stack file_id idx "indentation level does not match any previous indent"
                         else:
-                            let next_stack <Vec<i32>> lex_stack_drop_top stack
+                            let next_stack %Vec i32 lex_stack_drop_top stack
                             match lex_push_structural tokens TokenKind::Dedent file_id idx:
                                 Result::Ok out:
                                     lex_dedent_to source n file_id idx out next_stack indent_unit target_width at_line_start raw_mode raw_base pending_raw_mode
@@ -85,15 +85,15 @@ pub fn lex_dedent_to <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,i32,bool,
                                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
 
 //: lex_line_start: 行頭の offside rule と raw block state を[処理/しょり]する
-pub fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, raw_mode, raw_base, pending_raw_mode):
-    let content_start <i32> lex_line_content_start source n idx
+pub fn lex_line_start %impure fn str impure fn i32 impure fn i32 impure fn i32 impure fn Vec SelfhostToken impure fn Vec i32 impure fn i32 impure fn SelfhostLexerRawMode impure fn i32 impure fn SelfhostLexerRawMode Result Vec SelfhostToken LexDiagnostic \source\n\file_id\idx\tokens\stack\indent_unit\raw_mode\raw_base\pending_raw_mode:
+    let content_start %i32 lex_line_content_start source n idx
     if:
         lex_line_is_blank_or_comment source n content_start
         then:
             lex_all_loop source n file_id idx tokens stack indent_unit true true raw_mode raw_base pending_raw_mode
         else:
-            let indent_width <i32> lex_line_indent_width source n idx indent_unit 0
-            let next_indent_unit <i32> lex_indent_directive_unit source n content_start indent_unit
+            let indent_width %i32 lex_line_indent_width source n idx indent_unit 0
+            let next_indent_unit %i32 lex_indent_directive_unit source n content_start indent_unit
             match lex_stack_top_result &stack file_id idx:
                 Result::Err diag:
                     free<SelfhostToken> tokens
@@ -108,7 +108,7 @@ pub fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,Selfhost
                                 then:
                                     lex_fail_indent tokens stack file_id idx "expected indented raw block"
                                 else:
-                                    let expected_base <i32> add current indent_unit
+                                    let expected_base %i32 add current indent_unit
                                     match push<i32> stack expected_base:
                                         Result::Ok next_stack:
                                             match lex_push_structural tokens TokenKind::Indent file_id idx:
@@ -118,7 +118,7 @@ pub fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,Selfhost
                                                     free<i32> next_stack
                                                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
                                         Result::Err e:
-                                            let returned_stack <Vec<i32>> vec_push_error_vec<i32> e
+                                            let returned_stack %Vec i32 vec_push_error_vec<i32> e
                                             free<i32> returned_stack
                                             free<SelfhostToken> tokens
                                             Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory source_span_empty file_id idx "lexer indent stack allocation failed"
@@ -148,7 +148,7 @@ pub fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,Selfhost
                                                                     free<i32> next_stack
                                                                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
                                                         Result::Err e:
-                                                            let returned_stack <Vec<i32>> vec_push_error_vec<i32> e
+                                                            let returned_stack %Vec i32 vec_push_error_vec<i32> e
                                                             free<i32> returned_stack
                                                             free<SelfhostToken> tokens
                                                             Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory source_span_empty file_id idx "lexer indent stack allocation failed"
@@ -163,7 +163,7 @@ pub fn lex_line_start <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,Selfhost
                                                     lex_all_loop source n file_id idx tokens stack next_indent_unit true true SelfhostLexerRawMode::None 0 SelfhostLexerRawMode::None
 
 //: lex_all_loop: EOF まで token を[集/あつ]め、offside structural token を[挿入/そうにゅう]する
-pub fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,SelfhostLexerRawMode,i32,SelfhostLexerRawMode)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, n, file_id, idx, tokens, stack, indent_unit, at_line_start, line_checked, raw_mode, raw_base, pending_raw_mode):
+pub fn lex_all_loop %impure fn str impure fn i32 impure fn i32 impure fn i32 impure fn Vec SelfhostToken impure fn Vec i32 impure fn i32 impure fn bool impure fn bool impure fn SelfhostLexerRawMode impure fn i32 impure fn SelfhostLexerRawMode Result Vec SelfhostToken LexDiagnostic \source\n\file_id\idx\tokens\stack\indent_unit\at_line_start\line_checked\raw_mode\raw_base\pending_raw_mode:
     if:
         ge idx n
         then:
@@ -177,7 +177,7 @@ pub fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,
                     if:
                         and at_line_start lex_raw_mode_is_active raw_mode
                         then:
-                            let raw_token <SelfhostToken> lex_raw_token source n file_id idx raw_mode
+                            let raw_token %SelfhostToken lex_raw_token source n file_id idx raw_mode
                             match lex_push tokens raw_token:
                                 Result::Ok out:
                                     lex_all_loop source n file_id selfhost_token_end raw_token out stack indent_unit false true raw_mode raw_base pending_raw_mode
@@ -185,7 +185,7 @@ pub fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,
                                     free<i32> stack
                                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err diag
                         else:
-                            let token <SelfhostToken> lex_next source n file_id idx
+                            let token %SelfhostToken lex_next source n file_id idx
                             if:
                                 selfhost_token_is_error token
                                 then:
@@ -200,8 +200,8 @@ pub fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,
                                         else:
                                             match lex_push tokens token:
                                                 Result::Ok out:
-                                                    let token_pending <SelfhostLexerRawMode> lex_token_pending_raw_mode token
-                                                    let next_pending <SelfhostLexerRawMode> if lex_raw_mode_is_active token_pending token_pending pending_raw_mode
+                                                    let token_pending %SelfhostLexerRawMode lex_token_pending_raw_mode token
+                                                    let next_pending %SelfhostLexerRawMode if lex_raw_mode_is_active token_pending token_pending pending_raw_mode
                                                     if:
                                                         selfhost_token_is_newline token
                                                         then:
@@ -216,7 +216,7 @@ pub fn lex_all_loop <(str,i32,i32,i32,Vec<SelfhostToken>,Vec<i32>,i32,bool,bool,
 //:
 //: [注意/ちゅうい]:
 //: - 成功時の `Vec<SelfhostToken>` は caller が `free<SelfhostToken>` してください。
-pub fn lex_all_with_file_id <(str,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source, file_id):
+pub fn lex_all_with_file_id %impure fn str impure fn i32 Result Vec SelfhostToken LexDiagnostic \source\file_id:
     match new<SelfhostToken>:
         Result::Ok tokens:
             match new<i32>:
@@ -225,22 +225,22 @@ pub fn lex_all_with_file_id <(str,i32)*>Result<Vec<SelfhostToken>,LexDiagnostic>
                         Result::Ok stack:
                             lex_all_loop source string_access::len source file_id 0 tokens stack 4 true false SelfhostLexerRawMode::None 0 SelfhostLexerRawMode::None
                         Result::Err e:
-                            let returned_stack <Vec<i32>> vec_push_error_vec<i32> e
+                            let returned_stack %Vec i32 vec_push_error_vec<i32> e
                             free<i32> returned_stack
                             free<SelfhostToken> tokens
-                            let span <SelfhostSourceSpan> source_span_empty file_id 0
+                            let span %SelfhostSourceSpan source_span_empty file_id 0
                             Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer indent stack allocation failed"
                 Result::Err _e:
                     free<SelfhostToken> tokens
-                    let span <SelfhostSourceSpan> source_span_empty file_id 0
+                    let span %SelfhostSourceSpan source_span_empty file_id 0
                     Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer indent stack allocation failed"
         Result::Err _e:
-            let span <SelfhostSourceSpan> source_span_empty file_id 0
+            let span %SelfhostSourceSpan source_span_empty file_id 0
             Result<Vec<SelfhostToken>,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::OutOfMemory span "lexer token buffer allocation failed"
 
 //: lex_all: source text 全体を token stream へ[変換/へんかん]する
 //:
 //: [注意/ちゅうい]:
 //: - single-source 互換の wrapper です。複数 file loader からは `lex_all_with_file_id` を[使/つか]ってください。
-pub fn lex_all <(str)*>Result<Vec<SelfhostToken>,LexDiagnostic>> (source):
+pub fn lex_all %impure fn str Result Vec SelfhostToken LexDiagnostic \source:
     lex_all_with_file_id source 0

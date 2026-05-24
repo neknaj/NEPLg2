@@ -45,11 +45,11 @@
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     debug "sample";
 //: ```
 #if[profile=debug]
-pub fn debug <(str)*>()> (s):
+pub fn debug %impure fn str () \s:
     print s;
     ()
 
@@ -84,11 +84,11 @@ pub fn debug <(str)*>()> (s):
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     debug_color AnsiColor::Red "sample";
 //: ```
 #if[profile=debug]
-pub fn debug_color <(AnsiColor,str)*>()> (color, s):
+pub fn debug_color %impure fn AnsiColor impure fn str () \color\s:
     print_color color s;
     ()
 
@@ -123,11 +123,11 @@ pub fn debug_color <(AnsiColor,str)*>()> (color, s):
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     debugln "sample";
 //: ```
 #if[profile=debug]
-pub fn debugln <(str)*>()> (s):
+pub fn debugln %impure fn str () \s:
     println s;
     ()
 
@@ -162,10 +162,10 @@ pub fn debugln <(str)*>()> (s):
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     debugln_color AnsiColor::Red "sample";
 //: ```
 #if[profile=debug]
-pub fn debugln_color <(AnsiColor,str)*>()> (color, s):
+pub fn debugln_color %impure fn AnsiColor impure fn str () \color\s:
     println_color color s;
     ()

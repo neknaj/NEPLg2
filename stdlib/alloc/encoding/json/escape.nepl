@@ -31,7 +31,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_escape_kind <(i32)->JsonEscapeKind> (ch):
+pub fn json_escape_kind %fn i32 JsonEscapeKind \ch:
     match ch:
         '\\':
             JsonEscapeKind::Backslash
@@ -63,10 +63,10 @@ pub fn json_escape_kind <(i32)->JsonEscapeKind> (ch):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn json_escape <(str)->str> (s):
+pub fn json_escape %fn str str \s:
     let mut out sb::string_builder_new;
-    let n <i32> string::len s;
-    let mut i <i32> 0;
+    let n %i32 string::len s;
+    let mut i %i32 0;
     while lt i n:
         do:
             match string_byte_index::checked_string_byte_at s i:
@@ -106,7 +106,7 @@ pub fn json_escape <(str)->str> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn json_quote_string <(str)->str> (s):
+pub fn json_quote_string %fn str str \s:
     let mut out sb::string_builder_new;
     set out sb::sb_append out "\"";
     set out sb::sb_append out json_escape s;
@@ -121,7 +121,7 @@ pub fn json_quote_string <(str)->str> (s):
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/encoding/json/escape" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let checks checks_push checks_new assert_str_eq "\"a\\nb\"" json_quote_string "a\nb"
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown

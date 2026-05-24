@@ -22,7 +22,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - 分岐は `StdErrorKind` の全 variant を明示し、enum 追加時に match の網羅性検査が効く形を維持します。
-pub fn string_builder_error <(StdErrorKind)->str> (kind):
+pub fn string_builder_error %fn StdErrorKind str \kind:
     match kind:
         StdErrorKind::Failure:
             "string.builder failure"
@@ -54,7 +54,7 @@ pub fn string_builder_error <(StdErrorKind)->str> (kind):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(log needed)
-pub fn string_builder_next_capacity <(i32,i32)->Result<i32,str>> (cap, needed):
+pub fn string_builder_next_capacity %fn i32 fn i32 Result i32 str \cap\needed:
     match byte_builder_next_capacity cap needed:
         Result::Ok next:
             Result<i32,str>::Ok next
@@ -71,7 +71,7 @@ pub fn string_builder_next_capacity <(i32,i32)->Result<i32,str>> (cap, needed):
 //:
 //: [注意/ちゅうい]:
 //: - capacity は byte 数です。負数は `Result::Err` になります。
-pub fn string_builder_with_capacity_result <(i32)->Result<StringBuilder,str>> (capacity):
+pub fn string_builder_with_capacity_result %fn i32 Result StringBuilder str \capacity:
     match byte_builder_with_capacity capacity:
         Result::Ok bytes:
             Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
@@ -85,12 +85,12 @@ pub fn string_builder_with_capacity_result <(i32)->Result<StringBuilder,str>> (c
 //:
 //: [実装/じっそう]:
 //: - grow と cleanup は `byte_builder_reserve` に委譲します。
-pub fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, additional):
+pub fn string_builder_reserve_result %fn StringBuilder fn i32 Result StringBuilder str \sb\additional:
     match byte_builder_reserve string_builder_into_byte_builder sb additional:
         Result::Ok bytes:
             Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
         Result::Err e:
-            let kind <StdErrorKind> byte_builder_error_kind &e
+            let kind %StdErrorKind byte_builder_error_kind &e
             byte_builder_error_free e
             Result<StringBuilder,str>::Err string_builder_error kind
 
@@ -101,14 +101,14 @@ pub fn string_builder_reserve_result <(StringBuilder,i32)->Result<StringBuilder,
 //:
 //: [注意/ちゅうい]:
 //: - `string_builder_new` は失敗時に空 builder fallback を返します。
-pub fn string_builder_new_result <()->Result<StringBuilder,str>> ():
+pub fn string_builder_new_result %fn () Result StringBuilder str \():
     match byte_builder_new:
         Result::Ok bytes:
             Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
         Result::Err e:
             Result<StringBuilder,str>::Err string_builder_error e
 
-pub fn string_builder_new <()->StringBuilder> ():
+pub fn string_builder_new %fn () StringBuilder \():
     match string_builder_new_result:
         Result::Ok sb:
             sb

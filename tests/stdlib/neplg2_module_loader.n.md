@@ -24,12 +24,12 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn item_at <(&SelfhostModuleAst,i32)->SelfhostModuleItem> (ast, idx):
+fn item_at %fn &SelfhostModuleAst fn i32 SelfhostModuleItem \ast\idx:
     unwrap<SelfhostModuleItem> selfhost_module_ast_get ast idx
 
-fn main <()*>i32> ():
-    let source_main <str> "fn main <()->i32> ():\n    0\n"
-    let source_helper <str> "//: helper\nfn helper <()->i32> ():\n    1\n"
+fn main %impure fn () i32 \():
+    let source_main %str "fn main <()->i32> ():\n    0\n"
+    let source_helper %str "//: helper\nfn helper <()->i32> ():\n    1\n"
     let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs0:
@@ -39,12 +39,12 @@ fn main <()*>i32> ():
                         Result::Ok vfs2:
                             match selfhost_load_module &vfs2 "helper.nepl":
                                 Result::Ok loaded:
-                                    let ast_ref <&SelfhostModuleAst> selfhost_loaded_module_ast &loaded
-                                    let item_len <i32> selfhost_module_ast_len ast_ref
-                                    let item <SelfhostModuleItem> item_at ast_ref 1
-                                    let kind_name <str> selfhost_module_item_kind_name item.kind
-                                    let span_file_id <i32> item.span.file_id
-                                    let path <str> selfhost_loaded_module_path &loaded
+                                    let ast_ref %&SelfhostModuleAst selfhost_loaded_module_ast &loaded
+                                    let item_len %i32 selfhost_module_ast_len ast_ref
+                                    let item %SelfhostModuleItem item_at ast_ref 1
+                                    let kind_name %str selfhost_module_item_kind_name item.kind
+                                    let span_file_id %i32 item.span.file_id
+                                    let path %str selfhost_loaded_module_path &loaded
                                     let checks1 checks_push checks0 check_eq_i32 2 item_len
                                     let checks2 checks_push checks1 check_str_eq "helper.nepl" path
                                     let checks3 checks_push checks2 check_str_eq "FunctionDecl" kind_name
@@ -93,14 +93,14 @@ stdout: mlstr:
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
 
-fn check_missing_note <(TestReport, Option<str>)*>TestReport> (checks, note):
+fn check_missing_note %impure fn TestReport impure fn Option str TestReport \checks\note:
     match note:
         Option::Some text:
             checks_push checks check_str_eq "missing.nepl" text
         Option::None:
             checks_push checks Result<(),str>::Err "missing file diagnostic note was absent"
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs:

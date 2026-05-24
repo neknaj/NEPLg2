@@ -15,7 +15,7 @@ stdout: "test_report name=\"math_main\" count=27 failed=0\nassertion index=0 sta
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let report:
         test_report_new "math_main"
         |> test_report_push assert_eq_i32 "add 1 2" 3 add 1 2

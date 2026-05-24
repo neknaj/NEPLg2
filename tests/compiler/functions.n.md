@@ -12,10 +12,10 @@ ret: 42
 #target core
 #import "core/math" as *
 
-fn inc <(i32)->i32> (x):
+fn inc %fn i32 i32 \x:
     add x 1
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     inc 41
 ```
 
@@ -32,10 +32,10 @@ ret: 42
 #target core
 #import "core/math" as *
 
-let inc <(i32)->i32> (x):
+let inc %fn i32 i32 \x:
     add x 1
 
-let main <()->i32> ():
+let main %fn () i32 \():
     inc 41
 ```
 
@@ -55,7 +55,7 @@ ret: 42
 let inc (x):
     add x 1
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     inc 41
 ```
 
@@ -72,10 +72,10 @@ ret: 20
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    fn double <(i32)->i32> (x):
+fn main %fn () i32 \():
+    fn double %fn i32 i32 \x:
         mul x 2
-    
+
     double 10
 ```
 
@@ -90,13 +90,13 @@ ret: 30
 #target core
 #import "core/math" as *
 
-fn add_nums <(i32, i32)->i32> (a, b):
+fn add_nums %fn i32 fn i32 i32 \a\b:
     add a b
 
 fn plus add_nums;
 fn plus @add_nums;
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     plus 10 20
 ```
 
@@ -111,13 +111,13 @@ ret: 25
 #target core
 #import "core/math" as *
 
-fn square <(i32)->i32> (x):
+fn square %fn i32 i32 \x:
     mul x x
 
-fn apply <(i32, (i32)->i32)->i32> (val, func):
+fn apply %fn i32 fn fn i32 i32 i32 \val\func:
     func val
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     apply 5 square
     apply 5 @square
 ```
@@ -134,7 +134,7 @@ diag_code: resolve.alias.target_not_found
 
 fn plus missing;
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -149,13 +149,13 @@ ret: 15
 #target core
 #import "core/math" as *
 
-fn add_op <(i32, i32)->i32> (a, b):
+fn add_op %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn sub_op <(i32, i32)->i32> (a, b):
+fn sub_op %fn i32 fn i32 i32 \a\b:
     sub a b
 
-fn get_op <(bool)->(i32, i32)->i32> (con):
+fn get_op %fn bool (fn i32 fn i32 i32) \con:
     if:
         cond con
         then:
@@ -165,7 +165,7 @@ fn get_op <(bool)->(i32, i32)->i32> (con):
             sub_op
             @sub_op
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let f get_op true
     f 10 5
 ```
@@ -181,10 +181,10 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let f <(i32)->i32> (x):
+fn main %fn () i32 \():
+    let f %fn i32 i32 \x:
         add x 1
-    
+
     f 10
 ```
 
@@ -198,10 +198,10 @@ ret: 123
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let f <()->i32> ():
+fn main %fn () i32 \():
+    let f %fn () i32 \():
         123
-    
+
     f
 ```
 
@@ -216,13 +216,13 @@ ret: 120
 #target core
 #import "core/math" as *
 
-fn fact <(i32)->i32> (n):
+fn fact %fn i32 i32 \n:
     if le n 1:
         1
     else:
         mul n fact sub n 1
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     fact 5
 ```
 
@@ -237,10 +237,10 @@ ret: 30
 #target core
 #import "core/math" as *
 
-fn apply <(i32, (i32)->i32)->i32> (val, func):
+fn apply %fn i32 fn fn i32 i32 i32 \val\func:
     func val
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     // 関数リテラルを直接引数として渡す
     apply 10 (x):
         mul x 3
@@ -257,11 +257,11 @@ ret: 15
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let y <i32> 10;
+fn main %fn () i32 \():
+    let y %i32 10;
 
     // ネストされた関数が外側のスコープの変数 'y' をキャプチャする
-    fn add_y <(i32)->i32> (x):
+    fn add_y %fn i32 i32 \x:
         add x y
 
     add_y 5
@@ -278,8 +278,8 @@ ret: 15
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let y <i32> 10;
+fn main %fn () i32 \():
+    let y %i32 10;
 
     // ネストされた関数が外側のスコープの変数 'y' をキャプチャする
     let add_y (x):
@@ -299,19 +299,19 @@ ret: 15
 #target core
 #import "core/math" as *
 
-fn add_op <(i32, i32)->i32> (a, b):
+fn add_op %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn sub_op <(i32, i32)->i32> (a, b):
+fn sub_op %fn i32 fn i32 i32 \a\b:
     sub a b
 
-fn get_op <(bool)->(i32, i32)->i32> (con):
+fn get_op %fn bool (fn i32 fn i32 i32) \con:
     if:
         cond con
         then @add_op
         else @sub_op
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let f get_op true
     f 10 5
 ```
@@ -327,13 +327,13 @@ ret: 120
 #target core
 #import "core/math" as *
 
-fn fact <(i32)->i32> (n):
+fn fact %fn i32 i32 \n:
     if:
         cond le n 1
         then 1
         else mul n fact sub n 1
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     fact 5
 ```
 
@@ -348,7 +348,7 @@ ret: 15
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let y 10;
     fn add_y (x):
         add x y
@@ -366,7 +366,7 @@ diag_code: type.function_value.capturing_unsupported
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let y 10;
     fn add_y (x):
         add x y
@@ -384,8 +384,8 @@ diag_code: type.function_ref.requires_callable
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let x <i32> 1;
+fn main %fn () i32 \():
+    let x %i32 1;
     let f @x;
     0
 ```
@@ -400,8 +400,8 @@ diag_code: type.variable.type_args_not_allowed
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let x <i32> 1;
+fn main %fn () i32 \():
+    let x %i32 1;
     x<i32>
 ```
 
@@ -416,10 +416,10 @@ diag_codes: type.overload.no_match, type.return.mismatch
 #target core
 #import "core/math" as *
 
-fn apply <(i32,(i32)->i32)->i32> (val, func):
+fn apply %fn i32 fn fn i32 i32 i32 \val\func:
     func val
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let y 10;
     fn add_y (x):
         add x y
@@ -438,15 +438,15 @@ diag_codes: effect.pure.calls_impure, type.return.mismatch
 #import "std/stdio" as *
 
 // 副作用を持つ非純粋関数
-fn impure_print <(i32)*>i32> (x):
+fn impure_print %impure fn i32 i32 \x:
     println_i32 x;
     x
 
 // 純粋関数から非純粋関数を呼び出す (エラーになるべき)
-fn pure_caller <(i32)->i32> (x):
+fn pure_caller %fn i32 i32 \x:
     impure_print x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     pure_caller 1
 ```
 
@@ -463,16 +463,16 @@ ret: 50
 #import "core/math" as *
 
 // 純粋関数
-fn pure_mul <(i32, i32)->i32> (a, b):
+fn pure_mul %fn i32 fn i32 i32 \a\b:
     mul a b
 
 // 非純粋関数から純粋関数を呼び出す (これはOK)
-fn impure_caller <(i32)*>i32> (x):
-    let res <i32> pure_mul x 10;
+fn impure_caller %impure fn i32 i32 \x:
+    let res %i32 pure_mul x 10;
     println_i32 res;
     res
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     impure_caller 5
 ```
 
@@ -487,10 +487,10 @@ ret: 70
 #target core
 #import "core/math" as *
 
-fn inc <(i32)->i32> (x):
+fn inc %fn i32 i32 \x:
     add x 1
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     // sub 100 (mul (inc 5) (add 2 3))
     // sub 100 (mul 6 5)
     // sub 100 30

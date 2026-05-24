@@ -4,26 +4,26 @@
 
 //: SelfhostTypeId: type arena 内の stable index
 pub struct SelfhostTypeId:
-    index <i32>
+    index %i32
 
 impl Clone for SelfhostTypeId:
-    fn clone <(&SelfhostTypeId)->SelfhostTypeId> (self):
+    fn clone %fn &SelfhostTypeId SelfhostTypeId \self:
         *self
 
 impl Copy for SelfhostTypeId:
-    fn copy_mark <(SelfhostTypeId)->SelfhostTypeId> (self):
+    fn copy_mark %fn SelfhostTypeId SelfhostTypeId \self:
         self
 
 
 //: selfhost_type_id_new: TypeId を[作/つく]る
-pub fn selfhost_type_id_new <(i32)->SelfhostTypeId> (index):
+pub fn selfhost_type_id_new %fn i32 SelfhostTypeId \index:
     SelfhostTypeId index
 
 //: selfhost_type_id_index: TypeId の arena index を[返/かえ]す
-pub fn selfhost_type_id_index <(SelfhostTypeId)->i32> (type_id):
+pub fn selfhost_type_id_index %fn SelfhostTypeId i32 \type_id:
     type_id.index
 
 //: selfhost_type_id_eq: TypeId が同じ arena index か[返/かえ]す
-pub fn selfhost_type_id_eq <(SelfhostTypeId,SelfhostTypeId)->bool> (a, b):
+pub fn selfhost_type_id_eq %fn SelfhostTypeId fn SelfhostTypeId bool \a\b:
     eq a.index b.index
 

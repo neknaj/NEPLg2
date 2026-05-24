@@ -12,8 +12,8 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let y <i32> block:
+fn main %fn () i32 \():
+    let y %i32 block:
         add 1 2;
         add 3 4
         add 5 6
@@ -31,7 +31,7 @@ diag_code: type.return.mismatch
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add 1 2;
 ```
 
@@ -46,7 +46,7 @@ diag_code: type.stack.extra_values
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add 1 2 3;
     0
 ```
@@ -62,7 +62,7 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add 1 2;;
     add 3 4;;;
     add 5 6
@@ -79,7 +79,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add 1 block:
         add 2 3
 ```
@@ -94,7 +94,7 @@ ret: 10
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if true 10 20
 ```
 
@@ -108,7 +108,7 @@ ret: 10
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if true then 10 else 20
 ```
 
@@ -122,7 +122,7 @@ ret: 10
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if true:
         then 10
         else 20
@@ -139,7 +139,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if true:
         then:
             add 1 2
@@ -158,7 +158,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if:
         lt 1 2
         10
@@ -176,7 +176,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if:
         cond lt 1 2
         then 10
@@ -194,7 +194,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if:
         lt 1 2
         then 10
@@ -211,7 +211,7 @@ ret: 0
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if true 0 if true 1 2
 ```
 
@@ -225,7 +225,7 @@ ret: 1
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if false then 0 else if true then 1 else 2
 ```
 
@@ -240,8 +240,8 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let mut x <i32> 0;
+fn main %impure fn () i32 \():
+    let mut x %i32 0;
 
     while lt x 10:
         set x add x 1;
@@ -260,8 +260,8 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let mut x <i32> 0;
+fn main %impure fn () i32 \():
+    let mut x %i32 0;
 
     while lt x 10:
         do:
@@ -284,8 +284,8 @@ ret: 101
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let x <i32> 7;
+fn main %fn () i32 \():
+    let x %i32 7;
     add 100 if lt x 10 1 2
 ```
 
@@ -300,8 +300,8 @@ ret: 101
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let x <i32> 7;
+fn main %fn () i32 \():
+    let x %i32 7;
     add 100:
         if:
             lt x 10
@@ -320,17 +320,17 @@ ret: 5
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let a <i32> if true 1 2;
-    let b <i32> if true then 1 else 2;
-    let c <i32> if true:
+fn main %fn () i32 \():
+    let a %i32 if true 1 2;
+    let b %i32 if true then 1 else 2;
+    let c %i32 if true:
         then 1
         else 2
-    let d <i32> if:
+    let d %i32 if:
         true
         1
         2
-    let e <i32> if:
+    let e %i32 if:
         cond:
             true
         then:
@@ -351,8 +351,8 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> block: // trailing comment is allowed
+fn main %fn () i32 \():
+    let v %i32 block: // trailing comment is allowed
         add 1 2
     v
 ```
@@ -368,7 +368,7 @@ diag_code: parser.token.expected
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     block: add 1 2
 ```
 
@@ -383,7 +383,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add:
         add 1 2
         add 3 4
@@ -400,8 +400,8 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let mut i <i32> 0;
+fn main %impure fn () i32 \():
+    let mut i %i32 0;
     while cond lt i 3 do set i add i 1;
     i
 ```
@@ -417,8 +417,8 @@ ret: 4
 #target core
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let mut i <i32> 0;
+fn main %impure fn () i32 \():
+    let mut i %i32 0;
     while:
         cond:
             lt i 4
@@ -438,8 +438,8 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let f <(i32)->i32> (x):
+fn main %fn () i32 \():
+    let f %fn i32 i32 \x:
         add x 1
     f 5
 ```
@@ -455,13 +455,13 @@ ret: 8
 #target core
 #import "core/math" as *
 
-fn inc <(i32)->i32> (x):
+fn inc %fn i32 i32 \x:
     add x 1
 
-fn apply <(i32,(i32)->i32)->i32> (x, f):
+fn apply %fn i32 fn fn i32 i32 i32 \x\f:
     f x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     apply 7 @inc
 ```
 
@@ -476,8 +476,8 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let result <i32>:
+fn main %fn () i32 \():
+    let result %i32:
         add 1 add 2 3
         |> add 4
     result
@@ -493,7 +493,7 @@ ret: 99
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     block block block 99
 ```
 
@@ -507,7 +507,7 @@ diag_code: parser.token.unexpected
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     block block:
         1
 ```
@@ -522,7 +522,7 @@ diag_code: parser.token.expected
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if:
         true
         1
@@ -539,7 +539,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     block let a 1; add a 2
 ```
 
@@ -553,8 +553,8 @@ diag_code: type.annotation.mismatch
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let x <i32> block let a 1; a;
+fn main %fn () i32 \():
+    let x %i32 block let a 1; a;
     x
 ```
 
@@ -569,8 +569,8 @@ diag_code: type.stack.extra_values
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let _u <()> block:
+fn main %fn () i32 \():
+    let _u %() block:
         add 1 2 add 3 4
     0
 ```
@@ -586,7 +586,7 @@ ret: 2
 #target core
 #import "core/field" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let t Tuple:
         1
         2
@@ -604,8 +604,8 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> <i32> add 1 2;
+fn main %fn () i32 \():
+    let v %i32 %i32 add 1 2;
     v
 ```
 
@@ -620,8 +620,8 @@ ret: 9
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let f <()->i32> ():
+fn main %fn () i32 \():
+    let f %fn () i32 \():
         add 4 5
     f
 ```

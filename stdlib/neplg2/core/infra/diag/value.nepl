@@ -8,63 +8,63 @@
 
 //: SelfhostDiagnosticLabel: primary label の span と[説明/せつめい]
 pub struct SelfhostDiagnosticLabel:
-    span <SelfhostSourceSpan>
-    message <str>
+    span %SelfhostSourceSpan
+    message %str
 
 impl Clone for SelfhostDiagnosticLabel:
-    fn clone <(&SelfhostDiagnosticLabel)->SelfhostDiagnosticLabel> (self):
+    fn clone %fn &SelfhostDiagnosticLabel SelfhostDiagnosticLabel \self:
         *self
 
 impl Copy for SelfhostDiagnosticLabel:
-    fn copy_mark <(SelfhostDiagnosticLabel)->SelfhostDiagnosticLabel> (self):
+    fn copy_mark %fn SelfhostDiagnosticLabel SelfhostDiagnosticLabel \self:
         self
 
 //: SelfhostDiagnostic: compiler stage を[横断/おうだん]して[運/はこ]ぶ diagnostic
 pub struct SelfhostDiagnostic:
-    severity <SelfhostDiagSeverity>
-    code <SelfhostDiagnosticCode>
-    message <str>
-    primary_label <Option<SelfhostDiagnosticLabel>>
-    note <Option<str>>
+    severity %SelfhostDiagSeverity
+    code %SelfhostDiagnosticCode
+    message %str
+    primary_label %Option SelfhostDiagnosticLabel
+    note %Option str
 
 impl Clone for SelfhostDiagnostic:
-    fn clone <(&SelfhostDiagnostic)->SelfhostDiagnostic> (self):
+    fn clone %fn &SelfhostDiagnostic SelfhostDiagnostic \self:
         *self
 
 impl Copy for SelfhostDiagnostic:
-    fn copy_mark <(SelfhostDiagnostic)->SelfhostDiagnostic> (self):
+    fn copy_mark %fn SelfhostDiagnostic SelfhostDiagnostic \self:
         self
 
 //: selfhost_diag_label_new: primary label [値/あたい]を[作/つく]る
-pub fn selfhost_diag_label_new <(SelfhostSourceSpan,str)->SelfhostDiagnosticLabel> (span, message):
+pub fn selfhost_diag_label_new %fn SelfhostSourceSpan fn str SelfhostDiagnosticLabel \span\message:
     SelfhostDiagnosticLabel span message
 
 //: selfhost_diag_new: diagnostic [値/あたい]を[作/つく]る
-pub fn selfhost_diag_new <(SelfhostDiagSeverity,SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (severity, code, message):
+pub fn selfhost_diag_new %fn SelfhostDiagSeverity fn SelfhostDiagnosticCode fn str SelfhostDiagnostic \severity\code\message:
     SelfhostDiagnostic severity code message none<SelfhostDiagnosticLabel> none<str>
 
 //: selfhost_diag_info: info diagnostic を[作/つく]る
-pub fn selfhost_diag_info <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
+pub fn selfhost_diag_info %fn SelfhostDiagnosticCode fn str SelfhostDiagnostic \code\message:
     selfhost_diag_new SelfhostDiagSeverity::Info code message
 
 //: selfhost_diag_warning: warning diagnostic を[作/つく]る
-pub fn selfhost_diag_warning <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
+pub fn selfhost_diag_warning %fn SelfhostDiagnosticCode fn str SelfhostDiagnostic \code\message:
     selfhost_diag_new SelfhostDiagSeverity::Warning code message
 
 //: selfhost_diag_error: error diagnostic を[作/つく]る
-pub fn selfhost_diag_error <(SelfhostDiagnosticCode,str)->SelfhostDiagnostic> (code, message):
+pub fn selfhost_diag_error %fn SelfhostDiagnosticCode fn str SelfhostDiagnostic \code\message:
     selfhost_diag_new SelfhostDiagSeverity::Error code message
 
 //: selfhost_diag_with_primary_label: diagnostic に primary label を[付/つ]ける
-pub fn selfhost_diag_with_primary_label <(SelfhostDiagnostic,SelfhostDiagnosticLabel)->SelfhostDiagnostic> (diag, label):
+pub fn selfhost_diag_with_primary_label %fn SelfhostDiagnostic fn SelfhostDiagnosticLabel SelfhostDiagnostic \diag\label:
     SelfhostDiagnostic field::get diag "severity" field::get diag "code" field::get diag "message" some<SelfhostDiagnosticLabel> label field::get diag "note"
 
 //: selfhost_diag_with_note: diagnostic に note を[付/つ]ける
-pub fn selfhost_diag_with_note <(SelfhostDiagnostic,str)->SelfhostDiagnostic> (diag, note):
+pub fn selfhost_diag_with_note %fn SelfhostDiagnostic fn str SelfhostDiagnostic \diag\note:
     SelfhostDiagnostic field::get diag "severity" field::get diag "code" field::get diag "message" field::get diag "primary_label" some<str> note
 
 //: selfhost_diag_is_error: error severity か[返/かえ]す
-pub fn selfhost_diag_is_error <(SelfhostDiagnostic)->bool> (diag):
+pub fn selfhost_diag_is_error %fn SelfhostDiagnostic bool \diag:
     match field::get diag "severity":
         SelfhostDiagSeverity::Error:
             true

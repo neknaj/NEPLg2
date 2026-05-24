@@ -15,12 +15,12 @@
 //:| #import "core/cast" as *
 //:| #import "core/math/i64/bitwise/binary" as *
 //:| #import "core/math/i64/compare" as *
-//: fn main <()*>()> ():
-//:     let a <i64> cast 14;
-//:     let b <i64> cast 11;
-//:     assert eq and a b <i64> cast 10;
-//:     assert eq or a b <i64> cast 15;
-//:     assert eq xor a b <i64> cast 5;
+//: fn main %impure fn () () \():
+//:     let a %i64 cast 14;
+//:     let b %i64 cast 11;
+//:     assert eq and a b %i64 cast 10;
+//:     assert eq or a b %i64 cast 15;
+//:     assert eq xor a b %i64 cast 5;
 //: ```
 
 #indent 4
@@ -38,7 +38,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn and <(i64,i64)->i64> (a,b):
+pub fn and %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -65,7 +65,7 @@ pub fn and <(i64,i64)->i64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn or <(i64,i64)->i64> (a,b):
+pub fn or %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -92,7 +92,7 @@ pub fn or <(i64,i64)->i64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn xor <(i64,i64)->i64> (a,b):
+pub fn xor %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a

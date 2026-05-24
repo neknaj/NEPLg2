@@ -25,16 +25,16 @@
 //: ### [目的/もくてき]
 //: - `insert` と `remove` の共通本体です。
 //: - storage 欠損や vertex 範囲外は owner-preserving error に変換します。
-pub fn adjacency_matrix_update <(AdjacencyMatrix,i32,i32,bool)*>Result<AdjacencyMatrix, AdjacencyMatrixUpdateError>> (g, from, to, set_edge):
-    let nverts <i32> *field::get_ref &g "nverts"
+pub fn adjacency_matrix_update %impure fn AdjacencyMatrix impure fn i32 impure fn i32 impure fn bool Result AdjacencyMatrix AdjacencyMatrixUpdateError \g\from\to\set_edge:
+    let nverts %i32 *field::get_ref &g "nverts"
     if:
         adjacency_matrix_valid_edge nverts from to
         then:
-            let result <Result<(), Diag>> block:
-                let bits <&Vec<u8>> field::get_ref &g "bits"
-                let bit_idx <i32> adjacency_matrix_bit_index nverts from to
-                let byte_idx <i32> adjacency_matrix_byte_index bit_idx
-                let mask <i32> adjacency_matrix_mask bit_idx
+            let result %Result () Diag block:
+                let bits %&Vec u8 field::get_ref &g "bits"
+                let bit_idx %i32 adjacency_matrix_bit_index nverts from to
+                let byte_idx %i32 adjacency_matrix_byte_index bit_idx
+                let mask %i32 adjacency_matrix_mask bit_idx
                 if:
                     adjacency_matrix_write_masked bits byte_idx mask set_edge
                     then:
@@ -45,11 +45,11 @@ pub fn adjacency_matrix_update <(AdjacencyMatrix,i32,i32,bool)*>Result<Adjacency
                 Result::Ok _unit:
                     ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> g
                 Result::Err d:
-                    let e <AdjacencyMatrixUpdateError> AdjacencyMatrixUpdateError g d
+                    let e %AdjacencyMatrixUpdateError AdjacencyMatrixUpdateError g d
                     err<AdjacencyMatrix, AdjacencyMatrixUpdateError> e
         else:
-            let d <Diag> adjacency_matrix_vertex_diag
-            let e <AdjacencyMatrixUpdateError> AdjacencyMatrixUpdateError g d
+            let d %Diag adjacency_matrix_vertex_diag
+            let e %AdjacencyMatrixUpdateError AdjacencyMatrixUpdateError g d
             err<AdjacencyMatrix, AdjacencyMatrixUpdateError> e
 
 //: ## insert
@@ -62,14 +62,14 @@ pub fn adjacency_matrix_update <(AdjacencyMatrix,i32,i32,bool)*>Result<Adjacency
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let g <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 4;
-//:     let g1 <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> insert g 2 0;
-//:     let ok <bool> unwrap_ok<bool, Diag> contains &g1 2 0;
+//: fn main %impure fn () i32 \():
+//:     let g %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 4;
+//:     let g1 %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> insert g 2 0;
+//:     let ok %bool unwrap_ok<bool, Diag> contains &g1 2 0;
 //:     free g1
 //:     if ok 1 0
 //: ```
-pub fn insert <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, AdjacencyMatrixUpdateError>> (g, from, to):
+pub fn insert %impure fn AdjacencyMatrix impure fn i32 impure fn i32 Result AdjacencyMatrix AdjacencyMatrixUpdateError \g\from\to:
     adjacency_matrix_update g from to true
 
 //: ## remove
@@ -82,14 +82,14 @@ pub fn insert <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, AdjacencyMatri
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let g <AdjacencyMatrix>:
+//: fn main %impure fn () i32 \():
+//:     let g %AdjacencyMatrix:
 //:         unwrap_ok<AdjacencyMatrix, Diag> new 4
 //:         |> insert 2 0 |> uwok
 //:         |> remove 2 0 |> uwok
-//:     let ok <bool> unwrap_ok<bool, Diag> contains &g 2 0;
+//:     let ok %bool unwrap_ok<bool, Diag> contains &g 2 0;
 //:     free g
 //:     if not ok 1 0
 //: ```
-pub fn remove <(AdjacencyMatrix,i32,i32)*>Result<AdjacencyMatrix, AdjacencyMatrixUpdateError>> (g, from, to):
+pub fn remove %impure fn AdjacencyMatrix impure fn i32 impure fn i32 Result AdjacencyMatrix AdjacencyMatrixUpdateError \g\from\to:
     adjacency_matrix_update g from to false

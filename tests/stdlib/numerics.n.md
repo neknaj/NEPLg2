@@ -14,10 +14,10 @@ stdout: "test_report name=\"test_i32_literals_decimal\" count=1 failed=0\nassert
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let a 123;
     let b -45;
-    let actual <i32> add a b
+    let actual %i32 add a b
     let report:
         test_report_new "test_i32_literals_decimal"
         |> test_report_push assert_eq_i32 "decimal literal sum" 78 actual
@@ -38,12 +38,12 @@ stdout: "test_report name=\"test_i32_literals_hex\" count=1 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let a 0x10;      // 16
     let b 0xFF;      // 255
     let c 0x0;       // 0
-    let bc <i32> add b c;
-    let actual <i32> add a bc
+    let bc %i32 add b c;
+    let actual %i32 add a bc
     let report:
         test_report_new "test_i32_literals_hex"
         |> test_report_push assert_eq_i32 "hex literal sum" 271 actual
@@ -65,13 +65,13 @@ stdout: "test_report name=\"test_f32_literals\" count=1 failed=0\nassertion inde
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let a 1.5;
     let b -0.5;
     let c 10.0;
-    let ab <f32> add a b;
-    let res <f32> mul ab c;
-    let actual <i32> cast res
+    let ab %f32 add a b;
+    let res %f32 mul ab c;
+    let actual %i32 cast res
     let report:
         test_report_new "test_f32_literals"
         |> test_report_push assert_eq_i32 "f32 arithmetic cast result" 10 actual
@@ -93,11 +93,11 @@ stdout: "test_report name=\"test_u8_literals_and_wrapping_add\" count=1 failed=0
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let a <u8> cast 255;
-    let b <u8> cast 1;
-    let c <u8> add a b;
-    let actual <i32> cast c
+fn main %impure fn () i32 \():
+    let a %u8 cast 255;
+    let b %u8 cast 1;
+    let c %u8 add a b;
+    let actual %i32 cast c
     let report:
         test_report_new "test_u8_literals_and_wrapping_add"
         |> test_report_push assert_eq_i32 "u8 wrapping add" 0 actual
@@ -119,11 +119,11 @@ stdout: "test_report name=\"test_u8_wrapping_sub\" count=1 failed=0\nassertion i
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let a <u8> cast 0;
-    let b <u8> cast 1;
-    let c <u8> sub a b;
-    let actual <i32> cast c
+fn main %impure fn () i32 \():
+    let a %u8 cast 0;
+    let b %u8 cast 1;
+    let c %u8 sub a b;
+    let actual %i32 cast c
     let report:
         test_report_new "test_u8_wrapping_sub"
         |> test_report_push assert_eq_i32 "u8 wrapping sub" 255 actual
@@ -145,11 +145,11 @@ stdout: "test_report name=\"test_u8_wrapping_mul\" count=1 failed=0\nassertion i
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let a <u8> cast 16;
-    let b <u8> cast 17;
-    let c <u8> mul a b;
-    let actual <i32> cast c
+fn main %impure fn () i32 \():
+    let a %u8 cast 16;
+    let b %u8 cast 17;
+    let c %u8 mul a b;
+    let actual %i32 cast c
     let report:
         test_report_new "test_u8_wrapping_mul"
         |> test_report_push assert_eq_i32 "u8 wrapping mul" 16 actual
@@ -171,14 +171,14 @@ stdout: "test_report name=\"test_u8_division_and_remainder\" count=3 failed=0\na
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let a <u8> cast 200;
-    let b <u8> cast 20;
-    let div_res <u8> div_u a b; // 10
-    let rem_res <u8> rem_u a b; // 0
-    let d <i32> cast div_res;
-    let r <i32> cast rem_res;
-    let total <i32> add d r
+fn main %impure fn () i32 \():
+    let a %u8 cast 200;
+    let b %u8 cast 20;
+    let div_res %u8 div_u a b; // 10
+    let rem_res %u8 rem_u a b; // 0
+    let d %i32 cast div_res;
+    let r %i32 cast rem_res;
+    let total %i32 add d r
     let report:
         test_report_new "test_u8_division_and_remainder"
         |> test_report_push assert_eq_i32 "u8 division" 10 d
@@ -202,16 +202,16 @@ stdout: "test_report name=\"test_u8_comparisons\" count=6 failed=0\nassertion in
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let a <u8> cast 10;
-    let b <u8> cast 20;
-    let c <u8> cast 10;
-    let ok_lt <bool> lt_u a b
-    let ok_le <bool> le_u a c
-    let ok_gt <bool> gt_u b a
-    let ok_ge <bool> ge_u b c
-    let ok_eq <bool> eq a c
-    let ok_ne <bool> ne a b
+fn main %impure fn () i32 \():
+    let a %u8 cast 10;
+    let b %u8 cast 20;
+    let c %u8 cast 10;
+    let ok_lt %bool lt_u a b
+    let ok_le %bool le_u a c
+    let ok_gt %bool gt_u b a
+    let ok_ge %bool ge_u b c
+    let ok_eq %bool eq a c
+    let ok_ne %bool ne a b
     let report:
         test_report_new "test_u8_comparisons"
         |> test_report_push assert "lt_u" ok_lt
@@ -237,7 +237,7 @@ stdout: "test_report name=\"test_bitwise_operations\" count=4 failed=0\nassertio
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let a 0xC; // 12
     let b 0xA; // 10
     // and: 1000 (8)
@@ -247,8 +247,8 @@ fn main <()*>i32> ():
     let r_and and a b;
     let r_or  or a b;
     let r_xor xor a b;
-    let rx <i32> add r_or r_xor;
-    let total <i32> add r_and rx
+    let rx %i32 add r_or r_xor;
+    let total %i32 add r_and rx
     let report:
         test_report_new "test_bitwise_operations"
         |> test_report_push assert_eq_i32 "bitwise and" 8 r_and
@@ -272,7 +272,7 @@ stdout: "test_report name=\"test_shift_operations\" count=4 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let a 8;
     let b -16;
     // shl 8 1 -> 16
@@ -282,8 +282,8 @@ fn main <()*>i32> ():
     let r_shl shl a 1;
     let r_shr_s shr_s b 2;
     let r_shr_u shr_u a 1;
-    let rr <i32> add r_shr_s r_shr_u;
-    let total <i32> add r_shl rr
+    let rr %i32 add r_shr_s r_shr_u;
+    let total %i32 add r_shl rr
     let report:
         test_report_new "test_shift_operations"
         |> test_report_push assert_eq_i32 "shift left" 16 r_shl
@@ -307,13 +307,13 @@ stdout: "test_report name=\"test_f32_comparisons\" count=6 failed=0\nassertion i
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let ok_lt <bool> lt 1.0 2.0
-    let ok_le <bool> le 2.0 2.0
-    let ok_gt <bool> gt 3.0 2.0
-    let ok_ge <bool> ge 3.0 3.0
-    let ok_eq <bool> eq 4.0 4.0
-    let ok_ne <bool> ne 4.0 5.0
+fn main %impure fn () i32 \():
+    let ok_lt %bool lt 1.0 2.0
+    let ok_le %bool le 2.0 2.0
+    let ok_gt %bool gt 3.0 2.0
+    let ok_ge %bool ge 3.0 3.0
+    let ok_eq %bool eq 4.0 4.0
+    let ok_ne %bool ne 4.0 5.0
     let report:
         test_report_new "test_f32_comparisons"
         |> test_report_push assert "f32 lt" ok_lt

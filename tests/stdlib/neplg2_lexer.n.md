@@ -39,22 +39,22 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
+fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
-    let token <SelfhostToken> token_at tokens idx
-    let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> selfhost_token_lexeme source token
+fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
+    let token %SelfhostToken token_at tokens idx
+    let kind_name %str token_kind_name field::get token "kind"
+    let lexeme %str selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main <()*>i32> ():
-    let source <str> "#entry main\nfn main <()*>i32> ():\n    42\n"
+fn main %impure fn () i32 \():
+    let source %str "#entry main\nfn main <()*>i32> ():\n    42\n"
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len<SelfhostToken> &tokens
+            let token_len %i32 len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 19 token_len
             let checks2 check_token checks1 source &tokens 0 "DirEntry" "main"
             let checks3 check_token checks2 source &tokens 2 "KwFn" "fn"
@@ -68,7 +68,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks9
             checks_exit_code shown
         Result::Err diag:
-            let _msg <str> field::get diag "message"
+            let _msg %str field::get diag "message"
             let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -113,22 +113,22 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
+fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
-    let token <SelfhostToken> token_at tokens idx
-    let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> selfhost_token_lexeme source token
+fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
+    let token %SelfhostToken token_at tokens idx
+    let kind_name %str token_kind_name field::get token "kind"
+    let lexeme %str selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main <()*>i32> ():
-    let source <str> "a:\n    b:\n        c\n    d\nz"
+fn main %impure fn () i32 \():
+    let source %str "a:\n    b:\n        c\n    d\nz"
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len<SelfhostToken> &tokens
+            let token_len %i32 len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 16 token_len
             let checks2 check_token checks1 source &tokens 3 "Indent" ""
             let checks3 check_token checks2 source &tokens 7 "Indent" ""
@@ -142,7 +142,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks9
             checks_exit_code shown
         Result::Err diag:
-            let _msg <str> field::get diag "message"
+            let _msg %str field::get diag "message"
             let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -172,15 +172,15 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
+fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match lex_all_with_file_id "#entry main\n" 7:
         Result::Ok tokens:
-            let token <SelfhostToken> token_at &tokens 0
-            let span <SelfhostSourceSpan> field::get token "span"
+            let token %SelfhostToken token_at &tokens 0
+            let span %SelfhostSourceSpan field::get token "span"
             let checks1 checks_push checks0 check_eq_i32 7 field::get span "file_id"
             free<SelfhostToken> tokens
             match lex_all_with_file_id "a:\n   b\n" 11:
@@ -190,7 +190,7 @@ fn main <()*>i32> ():
                     let shown checks_print_report checks2
                     checks_exit_code shown
                 Result::Err diag:
-                    let err_span <SelfhostSourceSpan> field::get diag "span"
+                    let err_span %SelfhostSourceSpan field::get diag "span"
                     let checks2 checks_push checks1 check_eq_i32 11 field::get err_span "file_id"
                     let shown checks_print_report checks2
                     checks_exit_code shown
@@ -233,22 +233,22 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
+fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
-    let token <SelfhostToken> token_at tokens idx
-    let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> selfhost_token_lexeme source token
+fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
+    let token %SelfhostToken token_at tokens idx
+    let kind_name %str token_kind_name field::get token "kind"
+    let lexeme %str selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main <()*>i32> ():
-    let source <str> "#indent 2\nfn:\n  1\n"
+fn main %impure fn () i32 \():
+    let source %str "#indent 2\nfn:\n  1\n"
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len<SelfhostToken> &tokens
+            let token_len %i32 len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 10 token_len
             let checks2 check_token checks1 source &tokens 0 "DirIndentWidth" "#indent 2"
             let checks3 check_token checks2 source &tokens 5 "Indent" ""
@@ -259,7 +259,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks6
             checks_exit_code shown
         Result::Err diag:
-            let _msg <str> field::get diag "message"
+            let _msg %str field::get diag "message"
             let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -289,7 +289,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match lex_all "a:\n    b\n  c\n":
         Result::Ok tokens:
@@ -298,8 +298,8 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let code_name <str> selfhost_lexer_diag_code_name field::get diag "code"
-            let span <SelfhostSourceSpan> field::get diag "span"
+            let code_name %str selfhost_lexer_diag_code_name field::get diag "code"
+            let span %SelfhostSourceSpan field::get diag "span"
             let checks1:
                 checks0
                 |> checks_push check_str_eq "lexer.indent.level_mismatch" code_name
@@ -333,7 +333,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match lex_all "a:\n   b\n":
         Result::Ok tokens:
@@ -342,8 +342,8 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let code_name <str> selfhost_lexer_diag_code_name field::get diag "code"
-            let span <SelfhostSourceSpan> field::get diag "span"
+            let code_name %str selfhost_lexer_diag_code_name field::get diag "code"
+            let span %SelfhostSourceSpan field::get diag "span"
             let checks1:
                 checks0
                 |> checks_push check_str_eq "lexer.indent.level_mismatch" code_name
@@ -377,7 +377,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match lex_all "name // skip this\n$":
         Result::Ok tokens:
@@ -386,8 +386,8 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let code_name <str> selfhost_lexer_diag_code_name field::get diag "code"
-            let span <SelfhostSourceSpan> field::get diag "span"
+            let code_name %str selfhost_lexer_diag_code_name field::get diag "code"
+            let span %SelfhostSourceSpan field::get diag "span"
             let checks1:
                 checks0
                 |> checks_push check_str_eq "lexer.token.unknown" code_name
@@ -421,7 +421,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match lex_all "\"abc":
         Result::Ok tokens:
@@ -430,8 +430,8 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let code_name <str> selfhost_lexer_diag_code_name field::get diag "code"
-            let span <SelfhostSourceSpan> field::get diag "span"
+            let code_name %str selfhost_lexer_diag_code_name field::get diag "code"
+            let span %SelfhostSourceSpan field::get diag "span"
             let checks1:
                 checks0
                 |> checks_push check_str_eq "lexer.string.unterminated" code_name
@@ -466,16 +466,16 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
+fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
-    let source <str> "'\\n' 'a'"
+    let source %str "'\\n' 'a'"
     match lex_all source:
         Result::Ok tokens:
-            let t0 <SelfhostToken> token_at &tokens 0
-            let t1 <SelfhostToken> token_at &tokens 1
+            let t0 %SelfhostToken token_at &tokens 0
+            let t1 %SelfhostToken token_at &tokens 1
             let checks1:
                 checks0
                 |> checks_push check_str_eq "CharLiteral" token_kind_name field::get t0 "kind"
@@ -486,7 +486,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let _msg <str> field::get diag "message"
+            let _msg %str field::get diag "message"
             let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -515,7 +515,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match lex_all "'abc":
         Result::Ok tokens:
@@ -524,8 +524,8 @@ fn main <()*>i32> ():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
-            let code_name <str> selfhost_lexer_diag_code_name field::get diag "code"
-            let span <SelfhostSourceSpan> field::get diag "span"
+            let code_name %str selfhost_lexer_diag_code_name field::get diag "code"
+            let span %SelfhostSourceSpan field::get diag "span"
             let checks1:
                 checks0
                 |> checks_push check_str_eq "lexer.char.invalid" code_name
@@ -597,22 +597,22 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
+fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
-    let token <SelfhostToken> token_at tokens idx
-    let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> selfhost_token_lexeme source token
+fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
+    let token %SelfhostToken token_at tokens idx
+    let kind_name %str token_kind_name field::get token "kind"
+    let lexeme %str selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main <()*>i32> ():
-    let source <str> "#target core\n#import \"std/test\" as *\n#use \"std/prelude\"\n#if[target=core]\n#if[profile=debug]\n#capability io\n#prelude \"std/prelude\"\n#no_prelude\n#intrinsic \"unreachable\" <> ()\nfn main <()->i32> ():\n    let mut x 0x2a;\n    set x 1.5;\n    if cond true then 'a' else \"s\"\n    Result::Ok x\n"
+fn main %impure fn () i32 \():
+    let source %str "#target core\n#import \"std/test\" as *\n#use \"std/prelude\"\n#if[target=core]\n#if[profile=debug]\n#capability io\n#prelude \"std/prelude\"\n#no_prelude\n#intrinsic \"unreachable\" <> ()\nfn main <()->i32> ():\n    let mut x 0x2a;\n    set x 1.5;\n    if cond true then 'a' else \"s\"\n    Result::Ok x\n"
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len<SelfhostToken> &tokens
+            let token_len %i32 len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 62 token_len
             let checks2 check_token checks1 source &tokens 0 "DirTarget" "#target core"
             let checks3 check_token checks2 source &tokens 2 "DirImport" "#import \"std/test\" as *"
@@ -638,7 +638,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks21
             checks_exit_code shown
         Result::Err diag:
-            let _msg <str> field::get diag "message"
+            let _msg %str field::get diag "message"
             let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -674,22 +674,22 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
+fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
-    let token <SelfhostToken> token_at tokens idx
-    let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> selfhost_token_lexeme source token
+fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
+    let token %SelfhostToken token_at tokens idx
+    let kind_name %str token_kind_name field::get token "kind"
+    let lexeme %str selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main <()*>i32> ():
-    let source <str> "//: module doc\n/// item doc\n##: text\n"
+fn main %impure fn () i32 \():
+    let source %str "//: module doc\n/// item doc\n##: text\n"
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len<SelfhostToken> &tokens
+            let token_len %i32 len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 7 token_len
             let checks2 check_token checks1 source &tokens 0 "DocComment" "//: module doc"
             let checks3 check_token checks2 source &tokens 2 "DocComment" "/// item doc"
@@ -699,7 +699,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks5
             checks_exit_code shown
         Result::Err diag:
-            let _msg <str> field::get diag "message"
+            let _msg %str field::get diag "message"
             let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -745,22 +745,22 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn token_at <(&Vec<SelfhostToken>,i32)->SelfhostToken> (tokens, idx):
+fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn check_token <(TestReport, str, &Vec<SelfhostToken>, i32, str, str)*>TestReport> (checks, source, tokens, idx, expected_kind, expected_lexeme):
-    let token <SelfhostToken> token_at tokens idx
-    let kind_name <str> token_kind_name field::get token "kind"
-    let lexeme <str> selfhost_token_lexeme source token
+fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
+    let token %SelfhostToken token_at tokens idx
+    let kind_name %str token_kind_name field::get token "kind"
+    let lexeme %str selfhost_token_lexeme source token
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main <()*>i32> ():
-    let source <str> "//: doc\n##: text\n#wasm:\n    local.get 0\n#llvmir:\n    ret i32 0\n"
+fn main %impure fn () i32 \():
+    let source %str "//: doc\n##: text\n#wasm:\n    local.get 0\n#llvmir:\n    ret i32 0\n"
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len <i32> len<SelfhostToken> &tokens
+            let token_len %i32 len<SelfhostToken> &tokens
             let checks1 checks_push checks0 check_eq_i32 17 token_len
             let checks2 check_token checks1 source &tokens 4 "DirWasm" "#wasm:"
             let checks3 check_token checks2 source &tokens 6 "Indent" ""
@@ -775,7 +775,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks10
             checks_exit_code shown
         Result::Err diag:
-            let _msg <str> field::get diag "message"
+            let _msg %str field::get diag "message"
             let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown

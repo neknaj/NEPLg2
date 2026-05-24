@@ -30,8 +30,8 @@
 //:| #target std
 //:| #import "alloc/string/utf8" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let is_ascii <bool> match string_utf8_lead_kind 65:
+//: fn main %impure fn () i32 \():
+//:     let is_ascii %bool match string_utf8_lead_kind 65:
 //:         StringUtf8LeadKind::Ascii:
 //:             true
 //:         _:
@@ -49,13 +49,13 @@ pub enum StringUtf8LeadKind:
     Four
     Invalid
 
-pub fn string_utf8_in_range <(i32,i32,i32)->bool> (b, lo, hi):
+pub fn string_utf8_in_range %fn i32 fn i32 fn i32 bool \b\lo\hi:
     and ge b lo le b hi
 
-pub fn string_utf8_is_continuation <(i32)->bool> (b):
+pub fn string_utf8_is_continuation %fn i32 bool \b:
     string_utf8_in_range b 128 191
 
-pub fn string_utf8_lead_kind <(i32)->StringUtf8LeadKind> (b):
+pub fn string_utf8_lead_kind %fn i32 StringUtf8LeadKind \b:
     if:
         le b 127
         then:
@@ -78,20 +78,20 @@ pub fn string_utf8_lead_kind <(i32)->StringUtf8LeadKind> (b):
                                 else:
                                     StringUtf8LeadKind::Invalid
 
-fn string_utf8_byte_at_checked <(MemPtr<u8>,i32,i32)->Result<i32,str>> (data, byte_len, idx):
+fn string_utf8_byte_at_checked %fn MemPtr u8 fn i32 fn i32 Result i32 str \data\byte_len\idx:
     if:
         or lt idx 0 le byte_len idx
         then:
             Result<i32,str>::Err "string.utf8 index out of range"
         else:
-            let ptr <MemPtr<u8>> mem_ptr_add data idx
+            let ptr %MemPtr u8 mem_ptr_add data idx
             match load_u8 ptr:
                 Option::Some b:
                     Result<i32,str>::Ok b
                 Option::None:
                     Result<i32,str>::Err "string.utf8 invalid pointer"
 
-fn string_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(),str>> (data, i, byte_len):
+fn string_utf8_validate_two %fn MemPtr u8 fn i32 fn i32 Result () str \data\i\byte_len:
     if:
         gt add i 2 byte_len
         then:
@@ -108,7 +108,7 @@ fn string_utf8_validate_two <(MemPtr<u8>,i32,i32)->Result<(),str>> (data, i, byt
                         else:
                             Result<(),str>::Err "string.utf8 invalid continuation"
 
-fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
+fn string_utf8_validate_three %fn MemPtr u8 fn i32 fn i32 fn i32 Result () str \data\i\byte_len\b0:
     if:
         gt add i 3 byte_len
         then:
@@ -122,7 +122,7 @@ fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, 
                         Result::Err e:
                             Result<(),str>::Err e
                         Result::Ok b2:
-                            let first_ok <bool>:
+                            let first_ok %bool:
                                 if:
                                     eq b0 224
                                     then:
@@ -141,7 +141,7 @@ fn string_utf8_validate_three <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, 
                                 else:
                                     Result<(),str>::Err "string.utf8 invalid three-byte sequence"
 
-fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i, byte_len, b0):
+fn string_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result () str \data\i\byte_len\b0:
     if:
         gt add i 4 byte_len
         then:
@@ -159,7 +159,7 @@ fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i
                                 Result::Err e:
                                     Result<(),str>::Err e
                                 Result::Ok b3:
-                                    let first_ok <bool>:
+                                    let first_ok %bool:
                                         if:
                                             eq b0 240
                                             then:
@@ -205,10 +205,10 @@ fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let s <str> "nep"
-//:     let data <MemPtr<u8>> string_data_ptr s
-//:     let valid <bool> match string_utf8_validate_mem data len s:
+//: fn main %impure fn () i32 \():
+//:     let s %str "nep"
+//:     let data %MemPtr u8 string_data_ptr s
+//:     let valid %bool match string_utf8_validate_mem data len s:
 //:         Result::Err _e:
 //:             false
 //:         Result::Ok _:
@@ -219,15 +219,15 @@ fn string_utf8_validate_four <(MemPtr<u8>,i32,i32,i32)->Result<(),str>> (data, i
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn string_utf8_validate_mem <(MemPtr<u8>,i32)->Result<(),str>> (data, byte_len):
+pub fn string_utf8_validate_mem %fn MemPtr u8 fn i32 Result () str \data\byte_len:
     if:
         lt byte_len 0
         then:
             Result<(),str>::Err "string.utf8 invalid length"
         else:
-            let mut i <i32> 0
-            let mut done <i32> 0
-            let mut res <Result<(),str>> Result<(),str>::Ok ()
+            let mut i %i32 0
+            let mut done %i32 0
+            let mut res %Result () str Result<(),str>::Ok ()
             while eq done 0:
                 do:
                     if:

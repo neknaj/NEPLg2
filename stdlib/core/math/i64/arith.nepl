@@ -16,10 +16,10 @@
 //:| #import "core/cast" as *
 //:| #import "core/math/i64/arith" as *
 //:| #import "core/math/i64/compare" as *
-//: fn main <()*>()> ():
-//:     let a <i64> cast 40;
-//:     let b <i64> cast 2;
-//:     assert eq add a b <i64> cast 42;
+//: fn main %impure fn () () \():
+//:     let a %i64 cast 40;
+//:     let b %i64 cast 2;
+//:     assert eq add a b %i64 cast 42;
 //: ```
 
 #indent 4
@@ -45,17 +45,17 @@
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main <()*>()> ():
-//:     let a <i64> cast 40;
-//:     let b <i64> cast 2;
-//:     let r0 <i64> add a b;
-//:     assert eq r0 <i64> cast 42;
-//:     let a <i64> cast 0;
-//:     let b <i64> cast 7;
-//:     let r1 <i64> add a b;
+//: fn main %impure fn () () \():
+//:     let a %i64 cast 40;
+//:     let b %i64 cast 2;
+//:     let r0 %i64 add a b;
+//:     assert eq r0 %i64 cast 42;
+//:     let a %i64 cast 0;
+//:     let b %i64 cast 7;
+//:     let r1 %i64 add a b;
 //:     assert eq r1 b;
 //: ```
-pub fn add <(i64,i64)->i64> (a,b):
+pub fn add %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -90,17 +90,17 @@ pub fn add <(i64,i64)->i64> (a,b):
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main <()*>()> ():
-//:     let a <i64> cast 44;
-//:     let b <i64> cast 2;
-//:     let r0 <i64> sub a b;
-//:     assert eq r0 <i64> cast 42;
-//:     let z <i64> cast 0;
-//:     let one <i64> cast 1;
-//:     let r1 <i64> sub z one;
+//: fn main %impure fn () () \():
+//:     let a %i64 cast 44;
+//:     let b %i64 cast 2;
+//:     let r0 %i64 sub a b;
+//:     assert eq r0 %i64 cast 42;
+//:     let z %i64 cast 0;
+//:     let one %i64 cast 1;
+//:     let r1 %i64 sub z one;
 //:     assert lt r1 z;
 //: ```
-pub fn sub <(i64,i64)->i64> (a,b):
+pub fn sub %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -135,17 +135,17 @@ pub fn sub <(i64,i64)->i64> (a,b):
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main <()*>()> ():
-//:     let a <i64> cast 6;
-//:     let b <i64> cast 7;
-//:     let r0 <i64> mul a b;
-//:     assert eq r0 <i64> cast 42;
-//:     let z <i64> cast 0;
-//:     let n <i64> cast 999;
-//:     let r1 <i64> mul z n;
+//: fn main %impure fn () () \():
+//:     let a %i64 cast 6;
+//:     let b %i64 cast 7;
+//:     let r0 %i64 mul a b;
+//:     assert eq r0 %i64 cast 42;
+//:     let z %i64 cast 0;
+//:     let n %i64 cast 999;
+//:     let r1 %i64 mul z n;
 //:     assert eq r1 z;
 //: ```
-pub fn mul <(i64,i64)->i64> (a,b):
+pub fn mul %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -181,17 +181,17 @@ pub fn mul <(i64,i64)->i64> (a,b):
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main <()*>()> ():
-//:     let n9 <i64> cast -9;
-//:     let p9 <i64> cast 9;
-//:     let p3 <i64> cast 3;
-//:     let n3 <i64> cast -3;
-//:     let p <i64> div_s n9 p3;
-//:     let q <i64> div_s p9 n3;
-//:     assert eq p <i64> cast -3;
-//:     assert eq q <i64> cast -3;
+//: fn main %impure fn () () \():
+//:     let n9 %i64 cast -9;
+//:     let p9 %i64 cast 9;
+//:     let p3 %i64 cast 3;
+//:     let n3 %i64 cast -3;
+//:     let p %i64 div_s n9 p3;
+//:     let q %i64 div_s p9 n3;
+//:     assert eq p %i64 cast -3;
+//:     assert eq q %i64 cast -3;
 //: ```
-pub fn div_s <(i64,i64)->i64> (a,b):
+pub fn div_s %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -226,17 +226,17 @@ pub fn div_s <(i64,i64)->i64> (a,b):
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main <()*>()> ():
-//:     let a <i64> cast 100;
-//:     let b <i64> cast 9;
-//:     let r0 <i64> div_u a b;
-//:     assert eq r0 <i64> cast 11;
-//:     let a <i64> cast 9;
-//:     let b <i64> cast 10;
-//:     let r1 <i64> div_u a b;
-//:     assert eq r1 <i64> cast 0;
+//: fn main %impure fn () () \():
+//:     let a %i64 cast 100;
+//:     let b %i64 cast 9;
+//:     let r0 %i64 div_u a b;
+//:     assert eq r0 %i64 cast 11;
+//:     let a %i64 cast 9;
+//:     let b %i64 cast 10;
+//:     let r1 %i64 div_u a b;
+//:     assert eq r1 %i64 cast 0;
 //: ```
-pub fn div_u <(i64,i64)->i64> (a,b):
+pub fn div_u %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -272,16 +272,16 @@ pub fn div_u <(i64,i64)->i64> (a,b):
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main <()*>()> ():
-//:     let n10 <i64> cast -10;
-//:     let p10 <i64> cast 10;
-//:     let p3 <i64> cast 3;
-//:     let a <i64> rem_s n10 p3;
-//:     let b <i64> rem_s p10 p3;
-//:     assert eq a <i64> cast -1;
-//:     assert eq b <i64> cast 1;
+//: fn main %impure fn () () \():
+//:     let n10 %i64 cast -10;
+//:     let p10 %i64 cast 10;
+//:     let p3 %i64 cast 3;
+//:     let a %i64 rem_s n10 p3;
+//:     let b %i64 rem_s p10 p3;
+//:     assert eq a %i64 cast -1;
+//:     assert eq b %i64 cast 1;
 //: ```
-pub fn rem_s <(i64,i64)->i64> (a,b):
+pub fn rem_s %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -316,17 +316,17 @@ pub fn rem_s <(i64,i64)->i64> (a,b):
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main <()*>()> ():
-//:     let a <i64> cast 100;
-//:     let b <i64> cast 9;
-//:     let r0 <i64> rem_u a b;
-//:     assert eq r0 <i64> cast 1;
-//:     let a <i64> cast 9;
-//:     let b <i64> cast 10;
-//:     let r1 <i64> rem_u a b;
+//: fn main %impure fn () () \():
+//:     let a %i64 cast 100;
+//:     let b %i64 cast 9;
+//:     let r0 %i64 rem_u a b;
+//:     assert eq r0 %i64 cast 1;
+//:     let a %i64 cast 9;
+//:     let b %i64 cast 10;
+//:     let r1 %i64 rem_u a b;
 //:     assert eq r1 a;
 //: ```
-pub fn rem_u <(i64,i64)->i64> (a,b):
+pub fn rem_u %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a

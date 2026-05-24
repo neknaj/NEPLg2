@@ -25,7 +25,7 @@
 //: - [型/かた]ごとの[意味論/いみろん]に[応/おう]じて impl する[必要/ひつよう]があります。
 //: - [利用者/りようしゃ]は `Stringify` と[違/ちが]い、「[表示/ひょうじ]が[同/おな]じ」ことと「[等値/とうち]」を[混同/こんどう]しないでください。
 trait Eq:
-    fn eq <(Self,Self)->bool> (a, b):
+    fn eq %fn Self fn Self bool \a\b:
         false
 
 //: eq_by_trait: trait [経由/けいゆ]で[等値比較/とうちひかく]する
@@ -39,7 +39,7 @@ trait Eq:
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/traits/eq" as *
-//:| fn main <()*>i32> ():
+//:| fn main %impure fn () i32 \():
 //:     assert eq_by_trait 10 10;
 //:     assert not eq_by_trait 10 11;
 //:     0
@@ -50,7 +50,7 @@ trait Eq:
 //:
 //: [計算量/けいさんりょう]:
 //: - impl に[依存/いぞん]します。
-pub fn eq_by_trait <.T: Eq> <(.T,.T)->bool> (a, b):
+pub fn eq_by_trait <.T: Eq> %fn .T fn .T bool \a\b:
     Eq::eq a b
 
 //: ne_by_trait: trait [経由/けいゆ]の[非等値/ひとうち]比較
@@ -63,33 +63,33 @@ pub fn eq_by_trait <.T: Eq> <(.T,.T)->bool> (a, b):
 //:
 //: [計算量/けいさんりょう]:
 //: - impl に[依存/いぞん]します。
-pub fn ne_by_trait <.T: Eq> <(.T,.T)->bool> (a, b):
+pub fn ne_by_trait <.T: Eq> %fn .T fn .T bool \a\b:
     not Eq::eq a b
 
 impl Eq for bool:
-    fn eq <(bool,bool)->bool> (a, b):
+    fn eq %fn bool fn bool bool \a\b:
         if a then b else not b
 
 impl Eq for i32:
-    fn eq <(i32,i32)->bool> (a, b):
+    fn eq %fn i32 fn i32 bool \a\b:
         eq a b
 
 impl Eq for u8:
-    fn eq <(u8,u8)->bool> (a, b):
+    fn eq %fn u8 fn u8 bool \a\b:
         eq a b
 
 impl Eq for i64:
-    fn eq <(i64,i64)->bool> (a, b):
+    fn eq %fn i64 fn i64 bool \a\b:
         eq a b
 
 impl Eq for f32:
-    fn eq <(f32,f32)->bool> (a, b):
+    fn eq %fn f32 fn f32 bool \a\b:
         eq a b
 
 impl Eq for f64:
-    fn eq <(f64,f64)->bool> (a, b):
+    fn eq %fn f64 fn f64 bool \a\b:
         eq a b
 
 impl Eq for str:
-    fn eq <(str,str)->bool> (a, b):
+    fn eq %fn str fn str bool \a\b:
         str_eq a b

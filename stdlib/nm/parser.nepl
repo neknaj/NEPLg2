@@ -19,9 +19,9 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/parser" as *
-//: fn main <()*>i32> ():
-//:     let d <Document> parse_markdown "# T\n\nx\n";
-//:     let j <str> document_to_json d;
+//: fn main %impure fn () i32 \():
+//:     let d %Document parse_markdown "# T\n\nx\n";
+//:     let j %str document_to_json d;
 //:     if and str_starts_with j "{\"t\":\"doc\"" gt len j 0 0 1
 //: ```
 

@@ -25,14 +25,14 @@
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let ok0 <bool> eq align8 0 0;
-//:     let ok1 <bool> eq align8 1 8;
-//:     let ok2 <bool> eq align8 8 8;
-//:     let ok3 <bool> eq align8 9 16;
-//:     let ok01 <bool> and ok0 ok1;
-//:     let ok23 <bool> and ok2 ok3;
-//:     let ok <bool> and ok01 ok23;
+//: fn main %impure fn () i32 \():
+//:     let ok0 %bool eq align8 0 0;
+//:     let ok1 %bool eq align8 1 8;
+//:     let ok2 %bool eq align8 8 8;
+//:     let ok3 %bool eq align8 9 16;
+//:     let ok01 %bool and ok0 ok1;
+//:     let ok23 %bool and ok2 ok3;
+//:     let ok %bool and ok01 ok23;
 //:     if ok 1 0
 //: ```
 //:
@@ -44,10 +44,10 @@
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<i32> 1:
 //:         Result::Ok region:
-//:             let p <MemPtr<i32>> region_ptr &region
+//:             let p %MemPtr i32 region_ptr &region
 //:             match store_i32 p 123:
 //:                 Result::Ok _:
 //:                     match load_i32 p:
@@ -80,10 +80,10 @@
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<i32> 2:
 //:         Result::Ok region:
-//:             let ok <bool> eq region_size &region 8;
+//:             let ok %bool eq region_size &region 8;
 //:             match dealloc_region<i32> region:
 //:                 Result::Ok _:
 //:                     if ok 1 0

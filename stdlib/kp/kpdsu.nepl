@@ -33,13 +33,13 @@ pub #import "alloc/collections/disjoint_set/types" as @merge
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main <()*> ()> ():
-//:     let d0 <DisjointSet> unwrap_ok<DisjointSet, Diag> dsu_new 5;
-//:     let d1 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> dsu_unite d0 0 1;
-//:     let d2 <DisjointSet> unwrap_ok<DisjointSet, DisjointSetUpdateError> dsu_unite d1 1 2;
-//:     let same02 <bool> unwrap_ok<bool, Diag> dsu_same &d2 0 2;
-//:     let same03 <bool> unwrap_ok<bool, Diag> dsu_same &d2 0 3;
-//:     let sz <i32> unwrap_ok<i32, Diag> dsu_size &d2 0;
+//: fn main %impure fn () () \():
+//:     let d0 %DisjointSet unwrap_ok<DisjointSet, Diag> dsu_new 5;
+//:     let d1 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> dsu_unite d0 0 1;
+//:     let d2 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> dsu_unite d1 1 2;
+//:     let same02 %bool unwrap_ok<bool, Diag> dsu_same &d2 0 2;
+//:     let same03 %bool unwrap_ok<bool, Diag> dsu_same &d2 0 3;
+//:     let sz %i32 unwrap_ok<i32, Diag> dsu_size &d2 0;
 //:     print_i32 if same02 then 1 else 0;
 //:     print " ";
 //:     print_i32 if same03 then 1 else 0;
@@ -52,28 +52,28 @@ pub #import "alloc/collections/disjoint_set/types" as @merge
 //:
 //: ### [失敗/しっぱい]
 //: - `n < 0` や[確保/かくほ]失敗は `Diag` として返します。
-pub fn dsu_new <(i32)*>Result<DisjointSet, Diag>> (n):
+pub fn dsu_new %impure fn i32 Result DisjointSet Diag \n:
     uf::new n
 
 //: dsu_free: DSU owner を[解放/かいほう]する
-pub fn dsu_free <(DisjointSet)*>()> (dsu):
+pub fn dsu_free %impure fn DisjointSet () \dsu:
     uf::free dsu
 
 //: dsu_find: `x` の[代表元/だいひょうげん]を[返/かえ]す
 //:
 //: ### [注意/ちゅうい]
 //: - query として扱うため、path compression による更新は行いません。
-pub fn dsu_find <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, x):
+pub fn dsu_find %impure fn &DisjointSet impure fn i32 Result i32 Diag \dsu\x:
     uf::find dsu x
 
 //: dsu_same: `a` と `b` が[同/おな]じ[集合/しゅうごう]かを[返/かえ]す
-pub fn dsu_same <(&DisjointSet,i32,i32)*>Result<bool, Diag>> (dsu, a, b):
+pub fn dsu_same %impure fn &DisjointSet impure fn i32 impure fn i32 Result bool Diag \dsu\a\b:
     uf::same dsu a b
 
 //: dsu_unite: `a` と `b` の[集合/しゅうごう]を[併合/へいごう]した owner を[返/かえ]す
-pub fn dsu_unite <(DisjointSet,i32,i32)*>Result<DisjointSet, DisjointSetUpdateError>> (dsu, a, b):
+pub fn dsu_unite %impure fn DisjointSet impure fn i32 impure fn i32 Result DisjointSet DisjointSetUpdateError \dsu\a\b:
     uf::union dsu a b
 
 //: dsu_size: `x` が[属/ぞく]する[集合/しゅうごう]の[大/おお]きさを[返/かえ]す
-pub fn dsu_size <(&DisjointSet,i32)*>Result<i32, Diag>> (dsu, x):
+pub fn dsu_size %impure fn &DisjointSet impure fn i32 Result i32 Diag \dsu\x:
     uf::size dsu x

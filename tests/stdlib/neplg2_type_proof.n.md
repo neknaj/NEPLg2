@@ -19,7 +19,7 @@ stdout: mlstr:
 #import "neplg2/core/ty/ty" as *
 #import "std/test" as *
 
-fn check_i32_kind <(Result<SelfhostTypeKind,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_i32_kind %fn Result SelfhostTypeKind SelfhostProofRefutation Result () str \result:
     match result:
         Result::Ok kind:
             match kind:
@@ -50,7 +50,7 @@ fn check_i32_kind <(Result<SelfhostTypeKind,SelfhostProofRefutation>)->Result<()
         Result::Err _refutation:
             Result<(),str>::Err "expected type kind proof"
 
-fn check_bool_i32_mismatch <(Result<SelfhostTypeKind,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_bool_i32_mismatch %fn Result SelfhostTypeKind SelfhostProofRefutation Result () str \result:
     match result:
         Result::Err refutation:
             match refutation:
@@ -135,10 +135,10 @@ fn check_bool_i32_mismatch <(Result<SelfhostTypeKind,SelfhostProofRefutation>)->
         Result::Ok _kind:
             Result<(),str>::Err "bool kind was accepted as i32"
 
-fn main <()*>i32> ():
-    let span <SelfhostSourceSpan> source_span_new 0 0 3
-    let i32_fact <SelfhostTypeKindFact> selfhost_type_kind_fact_new SelfhostTypeKind::I32 span
-    let bool_fact <SelfhostTypeKindFact> selfhost_type_kind_fact_new SelfhostTypeKind::Bool span
+fn main %impure fn () i32 \():
+    let span %SelfhostSourceSpan source_span_new 0 0 3
+    let i32_fact %SelfhostTypeKindFact selfhost_type_kind_fact_new SelfhostTypeKind::I32 span
+    let bool_fact %SelfhostTypeKindFact selfhost_type_kind_fact_new SelfhostTypeKind::Bool span
     let checks0 checks_new
     let checks1 checks_push checks0 check_i32_kind selfhost_proof_type_kind_compatible SelfhostTypeKind::I32 i32_fact
     let checks2 checks_push checks1 check_bool_i32_mismatch selfhost_proof_type_kind_compatible SelfhostTypeKind::I32 bool_fact

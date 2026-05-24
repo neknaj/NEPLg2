@@ -20,11 +20,11 @@ pub enum SelfhostPrimitiveTypeKind:
     Never
 
 impl Clone for SelfhostPrimitiveTypeKind:
-    fn clone <(&SelfhostPrimitiveTypeKind)->SelfhostPrimitiveTypeKind> (self):
+    fn clone %fn &SelfhostPrimitiveTypeKind SelfhostPrimitiveTypeKind \self:
         *self
 
 impl Copy for SelfhostPrimitiveTypeKind:
-    fn copy_mark <(SelfhostPrimitiveTypeKind)->SelfhostPrimitiveTypeKind> (self):
+    fn copy_mark %fn SelfhostPrimitiveTypeKind SelfhostPrimitiveTypeKind \self:
         self
 
 //: SelfhostTypeKind: S3 初期段階で扱う型の分類
@@ -43,11 +43,11 @@ pub enum SelfhostTypeKind:
     Function
 
 impl Clone for SelfhostTypeKind:
-    fn clone <(&SelfhostTypeKind)->SelfhostTypeKind> (self):
+    fn clone %fn &SelfhostTypeKind SelfhostTypeKind \self:
         *self
 
 impl Copy for SelfhostTypeKind:
-    fn copy_mark <(SelfhostTypeKind)->SelfhostTypeKind> (self):
+    fn copy_mark %fn SelfhostTypeKind SelfhostTypeKind \self:
         self
 
 
@@ -55,7 +55,7 @@ impl Copy for SelfhostTypeKind:
 //:
 //: [目的/もくてき]:
 //: - arena の primitive payload は `SelfhostPrimitiveTypeKind` に限定し、外部 API では従来通り `SelfhostTypeKind` として参照できるようにします。
-pub fn selfhost_primitive_type_kind_to_type_kind <(SelfhostPrimitiveTypeKind)->SelfhostTypeKind> (kind):
+pub fn selfhost_primitive_type_kind_to_type_kind %fn SelfhostPrimitiveTypeKind SelfhostTypeKind \kind:
     match kind:
         SelfhostPrimitiveTypeKind::Error:
             SelfhostTypeKind::Error

@@ -17,7 +17,7 @@ diag_codes: parser.token.expected
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     block:
     1
     0
@@ -35,7 +35,7 @@ diag_codes: lexer.indent.width_mismatch
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     block:
       1
     0
@@ -54,7 +54,7 @@ diag_codes: parser.token.unexpected
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let x add:
         1
             2
@@ -64,7 +64,7 @@ fn main <()->i32> ():
 ## block_colon_after_must_be_comment_only
 
 plan.md では `block:` の後ろには「空白とコメントしか使えない」と明記されています。
-同一行に式を続けた場合はエラーを期待します（単行ブロックは `block <...>` の形式で書くべきです）。
+同一行に式を続けた場合はエラーを期待します（単行ブロックは `block %...` の形式で書くべきです）。
 
 neplg2:test[compile_fail]
 diag_codes: parser.token.expected
@@ -74,7 +74,7 @@ diag_codes: parser.token.expected
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     block: add 1 2
 ```
 
@@ -91,8 +91,8 @@ diag_codes: type.stack.extra_values
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    <()> block:
+fn main %fn () i32 \():
+    %() block:
         add 1 2 add 3 4
         ()
     0
@@ -111,7 +111,7 @@ diag_codes: parser.token.unexpected
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let result:
         add 1 2
             |> add 3
@@ -131,7 +131,7 @@ diag_codes: parser.token.unexpected
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     // 単行 block の中で while の複行ブロックを始めるのは不可
     block while lt 0 1:
         0

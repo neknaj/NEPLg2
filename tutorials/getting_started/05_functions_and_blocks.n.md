@@ -18,7 +18,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn clamp_0_10 <(i32)->i32> (x):
+fn clamp_0_10 %fn i32 i32 \x:
     if:
         lt x 0
         then:
@@ -31,11 +31,11 @@ fn clamp_0_10 <(i32)->i32> (x):
                 else:
                     x
 
-fn score <(i32)->i32> (raw):
-    let adjusted <i32> add raw 3
+fn score %fn i32 i32 \raw:
+    let adjusted %i32 add raw 3
     clamp_0_10 adjusted
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks:
         checks_new
         |> checks_push assert_eq_i32 0 score -10

@@ -18,9 +18,9 @@
 //: [読/よ]み[側/がわ]に[使/つか]える stream source を[表/あらわ]す enum
 pub enum ReadStream:
     Stdio
-    Fs <str>
-    Text <str>
-    Bytes <ByteBuf>
+    Fs %str
+    Text %str
+    Bytes %ByteBuf
 
 //: ## WriteStream
 //: [書/か]き[側/がわ]に[使/つか]える stream sink を[表/あらわ]す enum

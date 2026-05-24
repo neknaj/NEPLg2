@@ -27,12 +27,12 @@ stdout: mlstr:
 #import "core/field" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match source_text_new 7 "sample.nepl" "alpha\nbeta\n":
         Result::Ok text:
-            let text_len <i32> source_text_len &text
-            let line_count <i32> source_text_line_count &text
+            let text_len %i32 source_text_len &text
+            let line_count %i32 source_text_line_count &text
             let checks1:
                 checks0
                 |> checks_push check_eq_i32 11 text_len
@@ -40,8 +40,8 @@ fn main <()*>i32> ():
             let checks2:
                 match source_text_location_for_offset &text 6:
                     Option::Some loc:
-                        let loc_line <i32> field::get loc "line"
-                        let loc_column <i32> field::get loc "column"
+                        let loc_line %i32 field::get loc "line"
+                        let loc_column %i32 field::get loc "column"
                         checks1
                         |> checks_push check_eq_i32 1 loc_line
                         |> checks_push check_eq_i32 0 loc_column
@@ -50,8 +50,8 @@ fn main <()*>i32> ():
             let checks3:
                 match source_text_location_for_offset &text 11:
                     Option::Some loc:
-                        let loc_line <i32> field::get loc "line"
-                        let loc_column <i32> field::get loc "column"
+                        let loc_line %i32 field::get loc "line"
+                        let loc_column %i32 field::get loc "column"
                         checks2
                         |> checks_push check_eq_i32 2 loc_line
                         |> checks_push check_eq_i32 0 loc_column
@@ -91,7 +91,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match source_text_new 3 "crlf.nepl" "a\r\nbc\r\nd":
         Result::Ok text:
@@ -145,7 +145,7 @@ stdout: mlstr:
 #import "neplg2/core/infra/text" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match source_text_new 2 "range.nepl" "abc":
         Result::Ok text:
@@ -192,19 +192,19 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
-    let mut sb <StringBuilder> unwrap_ok string_builder_new_result
-    let mut i <i32> 0
+fn main %impure fn () i32 \():
+    let mut sb %StringBuilder unwrap_ok string_builder_new_result
+    let mut i %i32 0
     while lt i 4096:
         do:
             set sb unwrap_ok sb_append_result sb "x\n"
             set i add i 1
-    let source <str> unwrap_ok sb_build_result sb
+    let source %str unwrap_ok sb_build_result sb
     let checks0 checks_new
     match source_text_new 11 "large.nepl" source:
         Result::Ok text:
-            let text_len <i32> source_text_len &text
-            let line_count <i32> source_text_line_count &text
+            let text_len %i32 source_text_len &text
+            let line_count %i32 source_text_line_count &text
             let checks1:
                 checks0
                 |> checks_push check_eq_i32 8192 text_len
@@ -212,8 +212,8 @@ fn main <()*>i32> ():
             let checks2:
                 match source_text_location_for_offset &text 8192:
                     Option::Some loc:
-                        let loc_line <i32> field::get loc "line"
-                        let loc_column <i32> field::get loc "column"
+                        let loc_line %i32 field::get loc "line"
+                        let loc_column %i32 field::get loc "column"
                         checks1
                         |> checks_push check_eq_i32 4096 loc_line
                         |> checks_push check_eq_i32 0 loc_column
@@ -222,8 +222,8 @@ fn main <()*>i32> ():
             let checks3:
                 match source_text_line_span &text 4095:
                     Option::Some span:
-                        let span_start <i32> field::get span "start"
-                        let span_end <i32> field::get span "end"
+                        let span_start %i32 field::get span "start"
+                        let span_end %i32 field::get span "end"
                         checks2
                         |> checks_push check_eq_i32 8190 span_start
                         |> checks_push check_eq_i32 8191 span_end

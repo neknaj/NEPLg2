@@ -28,53 +28,53 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + h) （n: テキスト長, h: 描画高さ）
-pub fn buffer_set_wrapped_text <(i32,i32,i32,i32,str)*>()> (b, start_row, cols, height, text):
+pub fn buffer_set_wrapped_text %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn str () \b\start_row\cols\height\text:
     if:
         and gt height 0 gt cols 0
         then:
-            let n <i32> len text;
-            let mut i <i32> 0;
-            let mut line_start <i32> 0;
-            let mut line_w <i32> 0;
-            let mut row_i <i32> 0;
+            let n %i32 len text;
+            let mut i %i32 0;
+            let mut line_start %i32 0;
+            let mut line_w %i32 0;
+            let mut row_i %i32 0;
             while and lt i n lt row_i height:
                 do:
-                    let row <i32> add start_row row_i;
-                    let b0 <i32> str_byte_at text i;
+                    let row %i32 add start_row row_i;
+                    let b0 %i32 str_byte_at text i;
                     if:
                         eq b0 '\n'
                         then:
-                            let s0 <str> str_slice text line_start i;
-                            let s0c <str> line_clip_to_cols s0 cols;
-                            let s0p <str> line_pad_to_cols s0c cols;
+                            let s0 %str str_slice text line_start i;
+                            let s0c %str line_clip_to_cols s0 cols;
+                            let s0p %str line_pad_to_cols s0c cols;
                             buffer_set_line b row s0p;
                             set i add i 1;
                             set line_start i;
                             set line_w 0;
                             set row_i add row_i 1;
                         else:
-                            let kind <TuiTextByteKind> tui_text_byte_kind b0;
-                            let ch_len <i32> tui_text_byte_len kind;
-                            let ch_w <i32> tui_text_byte_width kind;
-                            let next_w <i32> add line_w ch_w;
+                            let kind %TuiTextByteKind tui_text_byte_kind b0;
+                            let ch_len %i32 tui_text_byte_len kind;
+                            let ch_w %i32 tui_text_byte_width kind;
+                            let next_w %i32 add line_w ch_w;
                             if:
                                 lt cols next_w
                                 then:
                                     if:
                                         eq i line_start
                                         then:
-                                            let s1 <str> str_slice text line_start add i ch_len;
-                                            let s1c <str> line_clip_to_cols s1 cols;
-                                            let s1p <str> line_pad_to_cols s1c cols;
+                                            let s1 %str str_slice text line_start add i ch_len;
+                                            let s1c %str line_clip_to_cols s1 cols;
+                                            let s1p %str line_pad_to_cols s1c cols;
                                             buffer_set_line b row s1p;
                                             set i add i ch_len;
                                             set line_start i;
                                             set line_w 0;
                                             set row_i add row_i 1;
                                         else:
-                                            let s2 <str> str_slice text line_start i;
-                                            let s2c <str> line_clip_to_cols s2 cols;
-                                            let s2p <str> line_pad_to_cols s2c cols;
+                                            let s2 %str str_slice text line_start i;
+                                            let s2c %str line_clip_to_cols s2 cols;
+                                            let s2p %str line_pad_to_cols s2c cols;
                                             buffer_set_line b row s2p;
                                             set line_start i;
                                             set line_w 0;
@@ -85,10 +85,10 @@ pub fn buffer_set_wrapped_text <(i32,i32,i32,i32,str)*>()> (b, start_row, cols, 
             if:
                 lt row_i height
                 then:
-                    let row2 <i32> add start_row row_i;
-                    let s3 <str> str_slice text line_start n;
-                    let s3c <str> line_clip_to_cols s3 cols;
-                    let s3p <str> line_pad_to_cols s3c cols;
+                    let row2 %i32 add start_row row_i;
+                    let s3 %str str_slice text line_start n;
+                    let s3c %str line_clip_to_cols s3 cols;
+                    let s3p %str line_pad_to_cols s3c cols;
                     buffer_set_line b row2 s3p;
                     set row_i add row_i 1;
                 else:

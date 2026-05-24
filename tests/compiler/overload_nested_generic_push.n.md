@@ -21,13 +21,13 @@ stdout: "test_report name=\"nested_generic_push_direct\" count=1 failed=0\nasser
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let v0 <Vec<Result<(),str>>> unwrap_ok new<Result<(),str>>;
-    let r <Result<(),str>> Result::Ok ();
-    let v1 <Vec<Result<(),str>>> uwok push v0 r;
-    let n <i32> len<Result<(),str>> &v1;
+fn main %impure fn () i32 \():
+    let v0 %Vec Result () str unwrap_ok new<Result<(),str>>;
+    let r %Result () str Result::Ok ();
+    let v1 %Vec Result () str uwok push v0 r;
+    let n %i32 len<Result<(),str>> &v1;
     free<Result<(),str>> v1;
-    let actual <i32> if eq n 1 1 0
+    let actual %i32 if eq n 1 1 0
     let report:
         test_report_new "nested_generic_push_direct"
         |> test_report_push assert_eq_i32 "direct nested generic push length" 1 actual
@@ -53,14 +53,14 @@ stdout: "test_report name=\"nested_generic_push_pipe\" count=1 failed=0\nasserti
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let v <Vec<Result<(),str>>>:
+fn main %impure fn () i32 \():
+    let v %Vec Result () str:
         unwrap_ok new<Result<(),str>>
         |> push (Result::Ok ()) |> uwok
         |> push (Result::Err "oops") |> uwok
-    let n <i32> len<Result<(),str>> &v;
+    let n %i32 len<Result<(),str>> &v;
     free<Result<(),str>> v;
-    let actual <i32> if eq n 2 1 0
+    let actual %i32 if eq n 2 1 0
     let report:
         test_report_new "nested_generic_push_pipe"
         |> test_report_push assert_eq_i32 "pipe nested generic push length" 1 actual

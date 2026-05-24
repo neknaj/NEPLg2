@@ -25,15 +25,15 @@
 //: ### [目的/もくてき]
 //: - `insert` と `remove` の共通本体です。
 //: - storage 欠損や index 範囲外は owner-preserving error に変換します。
-pub fn bitset_update <(BitSet,i32,bool)*>Result<BitSet, BitSetUpdateError>> (bs, idx, set_bit):
-    let nbits <i32> *field::get_ref &bs "nbits"
+pub fn bitset_update %impure fn BitSet impure fn i32 impure fn bool Result BitSet BitSetUpdateError \bs\idx\set_bit:
+    let nbits %i32 *field::get_ref &bs "nbits"
     if:
         bitset_valid_index idx nbits
         then:
-            let result <Result<(), Diag>> block:
-                let bits <&Vec<u8>> field::get_ref &bs "bits"
-                let byte_idx <i32> bitset_byte_index idx
-                let mask <i32> bitset_mask idx
+            let result %Result () Diag block:
+                let bits %&Vec u8 field::get_ref &bs "bits"
+                let byte_idx %i32 bitset_byte_index idx
+                let mask %i32 bitset_mask idx
                 if:
                     bitset_write_masked bits byte_idx mask set_bit
                     then:
@@ -44,11 +44,11 @@ pub fn bitset_update <(BitSet,i32,bool)*>Result<BitSet, BitSetUpdateError>> (bs,
                 Result::Ok _unit:
                     ok<BitSet, BitSetUpdateError> bs
                 Result::Err d:
-                    let e <BitSetUpdateError> BitSetUpdateError bs d
+                    let e %BitSetUpdateError BitSetUpdateError bs d
                     err<BitSet, BitSetUpdateError> e
         else:
-            let d <Diag> bitset_index_diag
-            let e <BitSetUpdateError> BitSetUpdateError bs d
+            let d %Diag bitset_index_diag
+            let e %BitSetUpdateError BitSetUpdateError bs d
             err<BitSet, BitSetUpdateError> e
 
 //: ## insert
@@ -61,14 +61,14 @@ pub fn bitset_update <(BitSet,i32,bool)*>Result<BitSet, BitSetUpdateError>> (bs,
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 16;
-//:     let bs1 <BitSet> unwrap_ok<BitSet, BitSetUpdateError> insert bs 3;
-//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs1 3;
+//: fn main %impure fn () i32 \():
+//:     let bs %BitSet unwrap_ok<BitSet, Diag> new 16;
+//:     let bs1 %BitSet unwrap_ok<BitSet, BitSetUpdateError> insert bs 3;
+//:     let ok %bool unwrap_ok<bool, Diag> contains &bs1 3;
 //:     free bs1
 //:     if ok 1 0
 //: ```
-pub fn insert <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
+pub fn insert %impure fn BitSet impure fn i32 Result BitSet BitSetUpdateError \bs\idx:
     bitset_update bs idx true
 
 //: ## remove
@@ -81,14 +81,14 @@ pub fn insert <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bs <BitSet>:
+//: fn main %impure fn () i32 \():
+//:     let bs %BitSet:
 //:         unwrap_ok<BitSet, Diag> new 16
 //:         |> insert 3 |> uwok
 //:         |> remove 3 |> uwok
-//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 3;
+//:     let ok %bool unwrap_ok<bool, Diag> contains &bs 3;
 //:     free bs
 //:     if not ok 1 0
 //: ```
-pub fn remove <(BitSet,i32)*>Result<BitSet, BitSetUpdateError>> (bs, idx):
+pub fn remove %impure fn BitSet impure fn i32 Result BitSet BitSetUpdateError \bs\idx:
     bitset_update bs idx false

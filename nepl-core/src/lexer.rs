@@ -37,6 +37,8 @@ pub enum TokenKind {
     Comma,
     LAngle,
     RAngle,
+    Percent,
+    Backslash,
     Arrow(Effect), // -> (Pure) or *> (Impure)
     PathSep,       // ::
     At,            // @
@@ -632,7 +634,7 @@ impl LexState {
                 span,
             });
         } else if body.starts_with("extern") {
-            // format: extern ["pub"] "env" "sym" fn name <signature>
+            // format: extern ["pub"] "env" "sym" fn name <signature-or-%signature>
             let span = Span::new(
                 self.file_id,
                 line_offset as u32,
@@ -653,7 +655,7 @@ impl LexState {
                 let module = parts[0].trim_matches('"').to_string();
                 let name = parts[1].trim_matches('"').to_string();
                 let func = parts[3].to_string();
-                let sig_start = body.find('<');
+                let sig_start = body.find('<').or_else(|| body.find('%'));
                 let sig = if let Some(idx) = sig_start {
                     body[idx..].to_string()
                 } else {
@@ -754,6 +756,14 @@ impl LexState {
                 }
                 b',' => {
                     self.push_token(TokenKind::Comma, offset + i, offset + i + 1);
+                    i += 1;
+                }
+                b'%' => {
+                    self.push_token(TokenKind::Percent, offset + i, offset + i + 1);
+                    i += 1;
+                }
+                b'\\' => {
+                    self.push_token(TokenKind::Backslash, offset + i, offset + i + 1);
                     i += 1;
                 }
                 b';' => {

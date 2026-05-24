@@ -15,16 +15,16 @@ stdout: "test_report name=\"btreeset_insert_and_len\" count=1 failed=0\nassertio
 #import "std/test" as *
 #import "core/result" as *
 
-fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
+fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 \r:
     match r:
         Result::Ok s:
             s
         Result::Err e:
-            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            let _d %Diag btreeset_insert_error_diag<i32> &e
             btreeset_insert_error_owner<i32> e
 
-fn main <()*>i32> ():
-    let s0 <BTreeSet<i32>>:
+fn main %impure fn () i32 \():
+    let s0 %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
         |> must_set
@@ -32,7 +32,7 @@ fn main <()*>i32> ():
         |> must_set
         |> insert<i32> 3
         |> must_set
-    let s0_len <i32> len<i32> &s0;
+    let s0_len %i32 len<i32> &s0;
     free<i32> s0;
 
     let report:
@@ -57,16 +57,16 @@ stdout: "test_report name=\"btreeset_insert_growth_boundary\" count=1 failed=0\n
 #import "std/test" as *
 #import "core/result" as *
 
-fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
+fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 \r:
     match r:
         Result::Ok s:
             s
         Result::Err e:
-            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            let _d %Diag btreeset_insert_error_diag<i32> &e
             btreeset_insert_error_owner<i32> e
 
-fn main <()*>i32> ():
-    let s0 <BTreeSet<i32>>:
+fn main %impure fn () i32 \():
+    let s0 %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 0
         |> must_set
@@ -86,7 +86,7 @@ fn main <()*>i32> ():
         |> must_set
         |> insert<i32> 8
         |> must_set
-    let s0_contains_8 <bool> contains<i32> &s0 8;
+    let s0_contains_8 %bool contains<i32> &s0 8;
     free<i32> s0;
 
     let report:
@@ -112,42 +112,42 @@ stdout: "test_report name=\"btreeset_contains_and_remove\" count=3 failed=0\nass
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
+fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 \r:
     match r:
         Result::Ok s:
             s
         Result::Err e:
-            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            let _d %Diag btreeset_insert_error_diag<i32> &e
             btreeset_insert_error_owner<i32> e
 
-fn main <()*>i32> ():
-    let s0 <BTreeSet<i32>>:
+fn main %impure fn () i32 \():
+    let s0 %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 1
         |> must_set
-    let s0_contains_1 <bool> contains<i32> &s0 1;
+    let s0_contains_1 %bool contains<i32> &s0 1;
     free<i32> s0;
 
-    let s1 <BTreeSet<i32>>:
+    let s1 %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 1
         |> must_set
         |> remove<i32> 1
-    let s1_missing_1 <bool> not contains<i32> &s1 1;
+    let s1_missing_1 %bool not contains<i32> &s1 1;
     free<i32> s1;
 
-    let s2 <BTreeSet<i32>>:
+    let s2 %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 1
         |> must_set
         |> remove<i32> 1
-    let s2_len <i32> len<i32> &s2;
+    let s2_len %i32 len<i32> &s2;
     free<i32> s2;
 
     let report:
@@ -174,22 +174,22 @@ stdout: "test_report name=\"btreeset_duplicate_insert\" count=1 failed=0\nassert
 #import "std/test" as *
 #import "core/result" as *
 
-fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
+fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 \r:
     match r:
         Result::Ok s:
             s
         Result::Err e:
-            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            let _d %Diag btreeset_insert_error_diag<i32> &e
             btreeset_insert_error_owner<i32> e
 
-fn main <()*>i32> ():
-    let s0 <BTreeSet<i32>>:
+fn main %impure fn () i32 \():
+    let s0 %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 3
         |> must_set
         |> insert<i32> 3
         |> must_set
-    let s0_len <i32> len<i32> &s0;
+    let s0_len %i32 len<i32> &s0;
     free<i32> s0;
 
     let report:
@@ -214,23 +214,23 @@ stdout: "test_report name=\"btreeset_borrowed_reads_keep_owner\" count=2 failed=
 #import "std/test" as *
 #import "core/result" as *
 
-fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
+fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 \r:
     match r:
         Result::Ok s:
             s
         Result::Err e:
-            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            let _d %Diag btreeset_insert_error_diag<i32> &e
             btreeset_insert_error_owner<i32> e
 
-fn main <()*>i32> ():
-    let s <BTreeSet<i32>>:
+fn main %impure fn () i32 \():
+    let s %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 2
         |> must_set
         |> insert<i32> 1
         |> must_set
-    let s_len <i32> len<i32> &s;
-    let s_contains_1 <bool> contains<i32> &s 1;
+    let s_len %i32 len<i32> &s;
+    let s_contains_1 %bool contains<i32> &s 1;
     free s;
 
     let report:

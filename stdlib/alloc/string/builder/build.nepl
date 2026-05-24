@@ -32,10 +32,10 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(total_bytes)
-pub fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
+pub fn sb_build_result %fn StringBuilder Result str str \sb:
     match byte_builder_finish string_builder_into_byte_builder sb:
         Result::Err e:
-            let kind <StdErrorKind> byte_builder_error_kind &e
+            let kind %StdErrorKind byte_builder_error_kind &e
             byte_builder_error_free e
             Result<str,str>::Err string_builder_error kind
         Result::Ok bytes:
@@ -45,7 +45,7 @@ pub fn sb_build_result <(StringBuilder)->Result<str,str>> (sb):
                 Result::Err e:
                     Result<str,str>::Err string_builder_error e
 
-pub fn sb_build <(StringBuilder)->str> (sb):
+pub fn sb_build %fn StringBuilder str \sb:
     match sb_build_result sb:
         Result::Ok out:
             out

@@ -29,11 +29,11 @@
 //:| #import "alloc/collections/segment_tree" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let st <SegmentTree> unwrap_ok<SegmentTree, Diag> new 3;
+//: fn main %impure fn () i32 \():
+//:     let st %SegmentTree unwrap_ok<SegmentTree, Diag> new 3;
 //:     free st;
 //:     0
 //: ```
-pub fn free <(SegmentTree)->()> (st):
-    let data <Vec<i32>> field::get st "data"
+pub fn free %fn SegmentTree () \st:
+    let data %Vec i32 field::get st "data"
     vec::free<i32> data

@@ -14,8 +14,8 @@ ret: 8
 #import "core/math" as *
 #import "alloc/string" as *
 
-fn main <()->i32> ():
-    let len <i32> 7;
+fn main %fn () i32 \():
+    let len %i32 7;
     add len 1
 ```
 
@@ -29,9 +29,9 @@ ret: 14
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let x <i32> 10;
-    let y <i32> block let x <i32> 3; add x 1
+fn main %fn () i32 \():
+    let x %i32 10;
+    let y %i32 block let x %i32 3; add x 1
     add x y
 ```
 
@@ -45,10 +45,10 @@ ret: 7
 #target core
 #import "core/math" as *
 
-fn add <(i32,i32)->i32> (a, b):
+fn add %fn i32 fn i32 i32 \a\b:
     sub a b
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add 10 3
 ```
 
@@ -62,11 +62,11 @@ ret: 14
 #target core
 #import "core/math" as *
 
-fn f <(i32)->i32> (x):
+fn f %fn i32 i32 \x:
     add x 1
 
-fn main <()->i32> ():
-    fn f <(i32)->i32> (x):
+fn main %fn () i32 \():
+    fn f %fn i32 i32 \x:
         mul x 2
     add f 3 f 4
 ```
@@ -83,11 +83,11 @@ ret: 12
 #target core
 #import "core/math" as *
 
-fn calc <(i32)->i32> (x):
-    let x <i32> add x 10;
+fn calc %fn i32 i32 \x:
+    let x %i32 add x 10;
     sub x 3
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     calc 5
 ```
 
@@ -101,12 +101,12 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let x <i32> 10;
-    let y <i32> if:
+fn main %fn () i32 \():
+    let x %i32 10;
+    let y %i32 if:
         true
         then:
-            let x <i32> 1;
+            let x %i32 1;
             x
         else:
             0
@@ -124,8 +124,8 @@ ret: 8
 #import "core/result" as result
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let result <i32> 3;
+fn main %fn () i32 \():
+    let result %i32 3;
     add result 5
 ```
 
@@ -139,11 +139,11 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn plus <(i32,i32)->i32> (a, b):
+fn plus %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn main <()->i32> ():
-    let plus <i32> 9;
+fn main %fn () i32 \():
+    let plus %i32 9;
     plus plus 1
 ```
 
@@ -157,11 +157,11 @@ ret: 123
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let x <i32> 1;
-    let y <i32> block:
+fn main %fn () i32 \():
+    let x %i32 1;
+    let y %i32 block:
         let x 2;
-        let z <i32> block:
+        let z %i32 block:
             let x 3;
             x
         add mul x 10 z
@@ -178,12 +178,12 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let mut i <i32> 0;
-    let x <i32> 10;
+fn main %fn () i32 \():
+    let mut i %i32 0;
+    let x %i32 10;
     while lt i 1:
         do:
-            let x <i32> 3;
+            let x %i32 3;
             set i add i x;
     x
 ```
@@ -201,9 +201,9 @@ ret: 11
 #import "core/math" as *
 #import "core/option" as *
 
-fn main <()->i32> ():
-    let x <i32> 10;
-    let y <i32> match Option::Some<i32> 1:
+fn main %fn () i32 \():
+    let x %i32 10;
+    let y %i32 match Option::Some<i32> 1:
         Option::Some x:
             add x 10
         Option::None:
@@ -223,10 +223,10 @@ ret: 8
 #target core
 #import "core/math" as *
 
-fn plus_one_from <(i32)->i32> (add):
+fn plus_one_from %fn i32 i32 \add:
     add add 1
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     plus_one_from 7
 ```
 
@@ -242,9 +242,9 @@ ret: 9
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let y <i32> add x 4
-    let x <i32> 5
+fn main %fn () i32 \():
+    let y %i32 add x 4
+    let x %i32 5
     y
 ```
 
@@ -258,9 +258,9 @@ diag_codes: resolve.identifier.undefined, type.stack.extra_values, type.return.m
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add x 4
-    let mut x <i32> 5
+    let mut x %i32 5
 ```
 
 ## hoist_nested_fn_allows_forward_reference
@@ -273,9 +273,9 @@ ret: 7
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     call_before 6
-    fn call_before <(i32)->i32> (x):
+    fn call_before %fn i32 i32 \x:
         add x 1
 ```
 
@@ -289,15 +289,15 @@ ret: 31
 #target core
 #import "core/math" as *
 
-fn f <(i32)->i32> (x):
+fn f %fn i32 i32 \x:
     add x 1
 
-fn g <(i32)->i32> (x):
-    fn f <(i32)->i32> (y):
+fn g %fn i32 i32 \x:
+    fn f %fn i32 i32 \y:
         mul y 10
     f x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add g 3 f 0
 ```
 
@@ -312,9 +312,9 @@ ret: 15
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let len <i32> 5;
-    let sum <i32> add len 10;
+fn main %fn () i32 \():
+    let len %i32 5;
+    let sum %i32 add len 10;
     sum
 ```
 
@@ -328,9 +328,9 @@ diag_code: resolve.shadow.no_shadow_violation
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let noshadow x <i32> 1;
-    let x <i32> 2;
+fn main %fn () i32 \():
+    let noshadow x %i32 1;
+    let x %i32 2;
     add x 1
 ```
 
@@ -344,13 +344,13 @@ ret: 2
 #target core
 #import "core/math" as *
 
-fn f <(i32)->i32> (x):
+fn f %fn i32 i32 \x:
     add x 1
 
-fn f <(i32)->i32> (x):
+fn f %fn i32 i32 \x:
     add x 2
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     f 0
 ```
 
@@ -364,13 +364,13 @@ diag_code: resolve.shadow.no_shadow_violation
 #target core
 #import "core/math" as *
 
-fn noshadow f <(i32)->i32> (x):
+fn noshadow f %fn i32 i32 \x:
     add x 1
 
-fn f <(i32)->i32> (x):
+fn f %fn i32 i32 \x:
     add x 2
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     f 0
 ```
 
@@ -384,13 +384,13 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn noshadow f <(i32)->i32> (x):
+fn noshadow f %fn i32 i32 \x:
     add x 1
 
-fn f <(f32)->i32> (_x):
+fn f %fn f32 i32 \_x:
     100
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     f 2
 ```
 
@@ -404,10 +404,10 @@ diag_code: resolve.shadow.no_shadow_violation
 #target std
 #import "std/test" as *
 
-fn assert_eq_i32 <(i32,i32)->TestAssertion> (_a, _b):
+fn assert_eq_i32 %fn i32 fn i32 TestAssertion \_a\_b:
     test_assertion_ok "override"
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     ()
 ```
 
@@ -422,10 +422,10 @@ stdout: "test_report name=\"std_test_noshadow_allows_overload_with_different_sig
 #target std
 #import "std/test" as *
 
-fn assert_eq_i32 <(str,str)*>()> (_a, _b):
+fn assert_eq_i32 %impure fn str impure fn str () \_a\_b:
     ()
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let report:
         test_report_new "std_test_noshadow_allows_overload_with_different_signature"
         |> test_report_push assert_eq_i32 "std overload remains available" 0 0
@@ -443,10 +443,10 @@ diag_code: resolve.shadow.no_shadow_violation
 #target std
 #import "std/stdio" as *
 
-fn print <(str)*>()> (_s):
+fn print %impure fn str () \_s:
     ()
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     ()
 ```
 
@@ -460,10 +460,10 @@ ret: 0
 #target std
 #import "std/stdio" as *
 
-fn read_line <(i32)->str> (_v):
+fn read_line %fn i32 str \_v:
     "ok"
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -476,8 +476,8 @@ diag_codes: parser.token.unexpected
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let mut noshadow x <i32> 1;
+fn main %fn () i32 \():
+    let mut noshadow x %i32 1;
     x
 ```
 
@@ -493,10 +493,10 @@ ret: 6
 #import "core/result" as result
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let base <i32> 1;
-    let v <i32> block:
-        let result <i32> 5;
+fn main %fn () i32 \():
+    let base %i32 1;
+    let v %i32 block:
+        let result %i32 5;
         result
     add base v
 ```

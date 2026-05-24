@@ -21,8 +21,8 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/html_escape" as *
-//: fn main <()*>i32> ():
-//:     let escaped <str> escape_html "<a b=\"c&d\">'"
+//: fn main %impure fn () i32 \():
+//:     let escaped %str escape_html "<a b=\"c&d\">'"
 //:     if str_eq escaped "&lt;a b=&quot;c&amp;d&quot;&gt;&#39;" 0 1
 //: ```
 
@@ -51,7 +51,7 @@ pub enum HtmlEscapeKind:
     Apostrophe
     Plain
 
-pub fn html_escape_kind <(i32)->HtmlEscapeKind> (ch):
+pub fn html_escape_kind %fn i32 HtmlEscapeKind \ch:
     match ch:
         '&':
             HtmlEscapeKind::Amp
@@ -77,10 +77,10 @@ pub fn html_escape_kind <(i32)->HtmlEscapeKind> (ch):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn escape_html <(str)->str> (s):
-    let mut sb <StringBuilder> string_builder_new;
-    let n <i32> len s;
-    let mut i <i32> 0;
+pub fn escape_html %fn str str \s:
+    let mut sb %StringBuilder string_builder_new;
+    let n %i32 len s;
+    let mut i %i32 0;
     while lt i n:
         do:
             match checked_string_byte_at s i:

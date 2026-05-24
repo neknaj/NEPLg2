@@ -17,7 +17,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn roundtrip_text <(str)*>Result<str,str>> (text):
+fn roundtrip_text %impure fn str Result str str \text:
     match io_bytebuf_from_str_result text:
         Result::Err _e:
             Result<str,str>::Err "encode failed"
@@ -28,14 +28,14 @@ fn roundtrip_text <(str)*>Result<str,str>> (text):
                 Result::Ok out:
                     Result<str,str>::Ok out
 
-fn expect_text <(Result<str,str>,str)->Result<(),str>> (got, expected):
+fn expect_text %fn Result str str fn str Result () str \got\expected:
     match got:
         Result::Ok out:
             check_str_eq expected out
         Result::Err msg:
             Result<(),str>::Err msg
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks:
         checks_new
         |> checks_push expect_text roundtrip_text "NEPL" "NEPL"

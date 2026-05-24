@@ -22,8 +22,8 @@
 //:| #target std
 //:| #import "alloc/string/scanner" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let text <str> "ab\ncd\r\nef"
+//: fn main %impure fn () i32 \():
+//:     let text %str "ab\ncd\r\nef"
 //:     if:
 //:         eq str_find_byte_range "abc" -5 99 'b' 1
 //:         then:
@@ -61,14 +61,14 @@
 //:
 //: [注意/ちゅうい]:
 //: - この helper は公開しません。scanner 利用者は range helper / byte classification helper を使います。
-fn scanner_string_addr <(str)->i32> (s):
+fn scanner_string_addr %fn str i32 \s:
     #intrinsic "str_addr" <> (s)
 
 //: scanner_str_byte_len: scanner 用の byte length 取得 helper
 //:
 //: [目的/もくてき]:
 //: - `str` layout の先頭 4 byte にある長さ header を読み、range 丸めの上限として使います。
-pub fn scanner_str_byte_len <(str)->i32> (s):
+pub fn scanner_str_byte_len %fn str i32 \s:
     load_i32 scanner_string_addr s
 
 //: scanner_string_byte_at_checked_raw: 範囲確認済み index の byte を scanner 内部で読む
@@ -76,22 +76,22 @@ pub fn scanner_str_byte_len <(str)->i32> (s):
 //: [注意/ちゅうい]:
 //: - `idx` は必ず `0 <= idx < scanner_str_byte_len(s)` を満たす前提です。
 //: - この helper は公開しません。scanner 利用者は範囲を正規化する public helper を使います。
-fn scanner_string_byte_at_checked_raw <(str,i32)->i32> (s, idx):
-    load_u8 <i32> add scanner_string_addr s <i32> add 4 idx
+fn scanner_string_byte_at_checked_raw %fn str fn i32 i32 \s\idx:
+    load_u8 %i32 add scanner_string_addr s %i32 add 4 idx
 
-pub fn scanner_byte_is_ascii_digit <(i32)->bool> (b):
+pub fn scanner_byte_is_ascii_digit %fn i32 bool \b:
     and ge b '0' le b '9'
 
-pub fn scanner_byte_is_ascii_upper <(i32)->bool> (b):
+pub fn scanner_byte_is_ascii_upper %fn i32 bool \b:
     and ge b 'A' le b 'Z'
 
-pub fn scanner_byte_is_ascii_lower <(i32)->bool> (b):
+pub fn scanner_byte_is_ascii_lower %fn i32 bool \b:
     and ge b 'a' le b 'z'
 
-pub fn scanner_byte_is_ascii_alpha <(i32)->bool> (b):
+pub fn scanner_byte_is_ascii_alpha %fn i32 bool \b:
     or scanner_byte_is_ascii_upper b scanner_byte_is_ascii_lower b
 
-pub fn scanner_byte_is_ascii_inline_space <(i32)->bool> (b):
+pub fn scanner_byte_is_ascii_inline_space %fn i32 bool \b:
     match b:
         ' ':
             true
@@ -103,29 +103,29 @@ pub fn scanner_byte_is_ascii_inline_space <(i32)->bool> (b):
             false
 
 //: str_byte_is_ascii_digit: byte が ASCII digit か判定する
-pub fn str_byte_is_ascii_digit <(i32)->bool> (b):
+pub fn str_byte_is_ascii_digit %fn i32 bool \b:
     scanner_byte_is_ascii_digit b
 
 //: str_byte_is_ascii_upper: byte が ASCII 大文字か判定する
-pub fn str_byte_is_ascii_upper <(i32)->bool> (b):
+pub fn str_byte_is_ascii_upper %fn i32 bool \b:
     scanner_byte_is_ascii_upper b
 
 //: str_byte_is_ascii_lower: byte が ASCII 小文字か判定する
-pub fn str_byte_is_ascii_lower <(i32)->bool> (b):
+pub fn str_byte_is_ascii_lower %fn i32 bool \b:
     scanner_byte_is_ascii_lower b
 
 //: str_byte_is_ascii_alpha: byte が ASCII alphabet か判定する
-pub fn str_byte_is_ascii_alpha <(i32)->bool> (b):
+pub fn str_byte_is_ascii_alpha %fn i32 bool \b:
     scanner_byte_is_ascii_alpha b
 
 //: str_byte_is_ascii_alnum: byte が ASCII alphabet / digit か判定する
-pub fn str_byte_is_ascii_alnum <(i32)->bool> (b):
+pub fn str_byte_is_ascii_alnum %fn i32 bool \b:
     or scanner_byte_is_ascii_alpha b scanner_byte_is_ascii_digit b
 
 //: str_byte_is_ascii_hex_digit: byte が ASCII 16 進 digit か判定する
-pub fn str_byte_is_ascii_hex_digit <(i32)->bool> (b):
-    let lower <bool> and ge b 'a' le b 'f'
-    let upper <bool> and ge b 'A' le b 'F'
+pub fn str_byte_is_ascii_hex_digit %fn i32 bool \b:
+    let lower %bool and ge b 'a' le b 'f'
+    let upper %bool and ge b 'A' le b 'F'
     or scanner_byte_is_ascii_digit b or lower upper
 
 //: str_byte_is_ascii_inline_space: 1 行内で読み飛ばす ASCII 空白 byte か判定する
@@ -136,7 +136,7 @@ pub fn str_byte_is_ascii_hex_digit <(i32)->bool> (b):
 //: [注意/ちゅうい]:
 //: - LF は行境界なので含めません。
 //: - CRLF 入力の CR は行末直前に残ることがあるため含めます。
-pub fn str_byte_is_ascii_inline_space <(i32)->bool> (b):
+pub fn str_byte_is_ascii_inline_space %fn i32 bool \b:
     scanner_byte_is_ascii_inline_space b
 
 //: str_find_byte_range: byte 範囲から needle を探す
@@ -154,10 +154,10 @@ pub fn str_byte_is_ascii_inline_space <(i32)->bool> (b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(end - start)
-pub fn str_find_byte_range <(str,i32,i32,i32)->i32> (s, start, end, needle):
-    let n <i32> scanner_str_byte_len s
-    let mut i <i32> start
-    let mut limit <i32> end
+pub fn str_find_byte_range %fn str fn i32 fn i32 fn i32 i32 \s\start\end\needle:
+    let n %i32 scanner_str_byte_len s
+    let mut i %i32 start
+    let mut limit %i32 end
     if:
         lt i 0
         then set i 0
@@ -171,7 +171,7 @@ pub fn str_find_byte_range <(str,i32,i32,i32)->i32> (s, start, end, needle):
         then:
             -1
         else:
-            let mut found <i32> -1
+            let mut found %i32 -1
             while and lt i limit lt found 0:
                 do:
                     if:
@@ -191,10 +191,10 @@ pub fn str_find_byte_range <(str,i32,i32,i32)->i32> (s, start, end, needle):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(line_length)
-pub fn str_line_end <(str,i32)->i32> (s, start):
-    let n <i32> scanner_str_byte_len s
-    let mut i <i32> start
-    let mut done <bool> false
+pub fn str_line_end %fn str fn i32 i32 \s\start:
+    let n %i32 scanner_str_byte_len s
+    let mut i %i32 start
+    let mut done %bool false
     if:
         lt i 0
         then set i 0
@@ -219,8 +219,8 @@ pub fn str_line_end <(str,i32)->i32> (s, start):
 //: [注意/ちゅうい]:
 //: - `line_end` が LF を指している場合だけ 1 byte 進めます。
 //: - EOF や LF 以外を指している場合は、範囲内に丸めた同じ位置を返します。
-pub fn str_next_line_pos <(str,i32)->i32> (s, line_end):
-    let n <i32> scanner_str_byte_len s
+pub fn str_next_line_pos %fn str fn i32 i32 \s\line_end:
+    let n %i32 scanner_str_byte_len s
     if:
         lt line_end 0
         then:
@@ -237,11 +237,11 @@ pub fn str_next_line_pos <(str,i32)->i32> (s, line_end):
                         else line_end
 
 //: str_skip_inline_space_range: inline space を読み飛ばした offset を返す
-pub fn str_skip_inline_space_range <(str,i32,i32)->i32> (s, start, end):
-    let n <i32> scanner_str_byte_len s
-    let mut i <i32> start
-    let mut limit <i32> end
-    let mut done <bool> false
+pub fn str_skip_inline_space_range %fn str fn i32 fn i32 i32 \s\start\end:
+    let n %i32 scanner_str_byte_len s
+    let mut i %i32 start
+    let mut limit %i32 end
+    let mut done %bool false
     if:
         lt i 0
         then set i 0
@@ -259,11 +259,11 @@ pub fn str_skip_inline_space_range <(str,i32,i32)->i32> (s, start, end):
     i
 
 //: str_word_end_inline_space_range: inline space までの word end offset を返す
-pub fn str_word_end_inline_space_range <(str,i32,i32)->i32> (s, start, end):
-    let n <i32> scanner_str_byte_len s
-    let mut i <i32> start
-    let mut limit <i32> end
-    let mut done <bool> false
+pub fn str_word_end_inline_space_range %fn str fn i32 fn i32 i32 \s\start\end:
+    let n %i32 scanner_str_byte_len s
+    let mut i %i32 start
+    let mut limit %i32 end
+    let mut done %bool false
     if:
         lt i 0
         then set i 0

@@ -14,8 +14,8 @@
 //:| #import "core/mem" as *
 //:| #import "core/mem/internal" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let p <MemPtr<i32>> mem_ptr_wrap 16
+//: fn main %impure fn () i32 \():
+//:     let p %MemPtr i32 mem_ptr_wrap 16
 //:     if eq mem_ptr_addr p 16 1 0
 //: ```
 
@@ -39,10 +39,10 @@
 //:| #import "core/mem" as *
 //:| #import "core/mem/internal" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if eq mem_ptr_addr mem_ptr_wrap<i32> 32 32 1 0
 //: ```
-pub fn mem_ptr_wrap <.T> <(i32)->MemPtr<.T>> (raw):
+pub fn mem_ptr_wrap <.T> %fn i32 MemPtr .T \raw:
     MemPtr raw
 
 //: mem_ptr_addr: MemPtr から raw address view を取り出す
@@ -62,11 +62,11 @@ pub fn mem_ptr_wrap <.T> <(i32)->MemPtr<.T>> (raw):
 //:| #import "core/mem" as *
 //:| #import "core/mem/internal" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let p <MemPtr<u8>> mem_ptr_wrap 64
+//: fn main %impure fn () i32 \():
+//:     let p %MemPtr u8 mem_ptr_wrap 64
 //:     if eq mem_ptr_addr p 64 1 0
 //: ```
-pub fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
+pub fn mem_ptr_addr <.T> %fn MemPtr .T i32 \p:
     get p "raw"
 
 //: region_token_raw_ref: RegionToken の raw owner identity を内部境界で借用する
@@ -78,7 +78,7 @@ pub fn mem_ptr_addr <.T> <(MemPtr<.T>)->i32> (p):
 //: 注意(重要):
 //: - 返される参照は non-owning raw view の構築や owner-consuming raw boundary へ渡すための内部表現です。
 //: - caller はこの raw identity を public API result として返してはいけません。
-pub fn region_token_raw_ref <.T> <(&RegionToken<.T>)->&i32> (token):
+pub fn region_token_raw_ref <.T> %fn &RegionToken .T &i32 \token:
     #intrinsic "get_field_ref" <> (token,"raw")
 
 //: region_new: RegionToken を構築する
@@ -102,18 +102,18 @@ pub fn region_token_raw_ref <.T> <(&RegionToken<.T>)->&i32> (token):
 //:| #import "core/mem/internal" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match allocator::alloc 4:
 //:         Result::Err _e:
 //:             0
 //:         Result::Ok raw:
-//:             let token <RegionToken<u8>> region_new<u8> raw 4
-//:             let ok <i32> if eq region_size &token 4 1 0
+//:             let token %RegionToken u8 region_new<u8> raw 4
+//:             let ok %i32 if eq region_size &token 4 1 0
 //:             match dealloc_region<u8> token:
 //:                 Result::Err _cleanup:
 //:                     0
 //:                 Result::Ok _:
 //:                     ok
 //: ```
-pub fn region_new <.T> <(i32,i32)->RegionToken<.T>> (raw, size):
+pub fn region_new <.T> %fn i32 fn i32 RegionToken .T \raw\size:
     RegionToken raw size

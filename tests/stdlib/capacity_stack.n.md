@@ -14,14 +14,14 @@ stdout: "test_report name=\"stage1_recursive_depth_64\" count=1 failed=0\nassert
 #import "core/math" as *
 #import "std/test" as *
 
-fn depth <(i32,i32)->i32> (n, acc):
+fn depth %fn i32 fn i32 i32 \n\acc:
     if le n 0:
         acc
     else:
         depth sub n 1 add acc 1
 
-fn main <()*>i32> ():
-    let actual <i32> depth 64 0
+fn main %impure fn () i32 \():
+    let actual %i32 depth 64 0
     let report:
         test_report_new "stage1_recursive_depth_64"
         |> test_report_push assert_eq_i32 "recursive depth" 64 actual
@@ -41,14 +41,14 @@ stdout: "test_report name=\"stage2_recursive_depth_512\" count=1 failed=0\nasser
 #import "core/math" as *
 #import "std/test" as *
 
-fn depth <(i32,i32)->i32> (n, acc):
+fn depth %fn i32 fn i32 i32 \n\acc:
     if le n 0:
         acc
     else:
         depth sub n 1 add acc 1
 
-fn main <()*>i32> ():
-    let actual <i32> depth 512 0
+fn main %impure fn () i32 \():
+    let actual %i32 depth 512 0
     let report:
         test_report_new "stage2_recursive_depth_512"
         |> test_report_push assert_eq_i32 "recursive depth" 512 actual
@@ -71,14 +71,14 @@ stdout: "test_report name=\"stage3_vec_growth_4096\" count=1 failed=0\nassertion
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let mut v <Vec<i32>> uwok new<i32>;
-    let mut i <i32> 0;
+fn main %impure fn () i32 \():
+    let mut v %Vec i32 uwok new<i32>;
+    let mut i %i32 0;
     while lt i 4096:
         do:
             set v uwok push<i32> v i;
             set i add i 1;
-    let actual <i32> len<i32> &v
+    let actual %i32 len<i32> &v
     free<i32> v
     let report:
         test_report_new "stage3_vec_growth_4096"
@@ -102,17 +102,17 @@ stdout: "test_report name=\"stage4_mem_block_store_load\" count=4 failed=0\nasse
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let n <i32> 1024;
-    let mut a <i32> -1;
-    let mut b <i32> -1;
-    let mut c <i32> -1;
+fn main %impure fn () i32 \():
+    let n %i32 1024;
+    let mut a %i32 -1;
+    let mut b %i32 -1;
+    let mut c %i32 -1;
     match alloc_region<i32> n:
         Result::Err _e:
             ()
         Result::Ok region:
-            let mid_off <i32> mul 512 4
-            let last_off <i32> mul 1023 4
+            let mid_off %i32 mul 512 4
+            let last_off %i32 mul 1023 4
             match region_ptr_at<i32, i32> &region 0:
                 Result::Err _:
                     ()
@@ -157,7 +157,7 @@ fn main <()*>i32> ():
                     ()
                 Result::Err _:
                     ()
-    let total <i32> add add a b c
+    let total %i32 add add a b c
     let report:
         test_report_new "stage4_mem_block_store_load"
         |> test_report_push assert_eq_i32 "first loaded value" 0 a
@@ -181,15 +181,15 @@ stdout: "test_report name=\"stage5_string_builder_len_3000\" count=1 failed=0\na
 #import "alloc/string" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let mut sb <StringBuilder> string_builder_new;
-    let mut i <i32> 0;
+fn main %impure fn () i32 \():
+    let mut sb %StringBuilder string_builder_new;
+    let mut i %i32 0;
     while lt i 1500:
         do:
             set sb sb_append sb "ab";
             set i add i 1;
-    let out <str> sb_build sb;
-    let actual <i32> len out
+    let out %str sb_build sb;
+    let actual %i32 len out
     let report:
         test_report_new "stage5_string_builder_len_3000"
         |> test_report_push assert_eq_i32 "string builder length" 3000 actual
@@ -218,29 +218,29 @@ enum Kind:
     B
 
 impl Clone for Kind:
-    fn clone <(&Kind)->Kind> (x):
+    fn clone %fn &Kind Kind \x:
         *x
 
 impl Copy for Kind:
-    fn copy_mark <(Kind)->Kind> (x):
+    fn copy_mark %fn Kind Kind \x:
         x
 
-fn depth <(i32)->i32> (n):
+fn depth %fn i32 i32 \n:
     if le n 0:
         0
     else:
         add 1 depth sub n 1
 
-fn main <()*>i32> ():
-    let mut v <Vec<Kind>> uwok new<Kind>;
+fn main %impure fn () i32 \():
+    let mut v %Vec Kind uwok new<Kind>;
     set v uwok push<Kind> v Kind::A;
     set v uwok push<Kind> v Kind::B;
     set v uwok push<Kind> v Kind::A;
     set v uwok push<Kind> v Kind::B;
     set v uwok push<Kind> v Kind::A;
-    let n <i32> len<Kind> &v;
+    let n %i32 len<Kind> &v;
     free<Kind> v
-    let total <i32> add n depth 10
+    let total %i32 add n depth 10
     let report:
         test_report_new "stage6_enum_vec_recursive_mix"
         |> test_report_push assert_eq_i32 "enum vec length" 5 n

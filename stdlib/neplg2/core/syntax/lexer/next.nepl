@@ -14,14 +14,14 @@
 #import "neplg2/core/syntax/lexer/token_build" as *
 
 //: lex_next: 指定 offset 以降の 1 token を[返/かえ]す
-pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
-    let start <i32> lex_skip_trivia source n idx
+pub fn lex_next %fn str fn i32 fn i32 fn i32 SelfhostToken \source\n\file_id\idx:
+    let start %i32 lex_skip_trivia source n idx
     if:
         ge start n
         then:
             selfhost_token_new TokenKind::Eof source_span_empty file_id start
         else:
-            let ch <i32> lex_byte_or_end source start
+            let ch %i32 lex_byte_or_end source start
             match ch:
                 '\n':
                     lex_structural_token TokenKind::Newline file_id start
@@ -29,7 +29,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     if:
                         lt add start 2 n
                         then:
-                            let next <i32> lex_byte_or_end source add start 1
+                            let next %i32 lex_byte_or_end source add start 1
                             if:
                                 and eq next '#' eq lex_byte_or_end source add start 2 ':'
                                 then:
@@ -50,7 +50,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     if:
                         lt add start 1 n
                         then:
-                            let next <i32> lex_byte_or_end source add start 1
+                            let next %i32 lex_byte_or_end source add start 1
                             if:
                                 eq next ':'
                                 then:
@@ -65,7 +65,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     if:
                         lt add start 1 n
                         then:
-                            let next <i32> lex_byte_or_end source add start 1
+                            let next %i32 lex_byte_or_end source add start 1
                             if:
                                 eq next '>'
                                 then:
@@ -84,8 +84,12 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     lex_token_slice TokenKind::LAngle source file_id start add start 1
                 '>':
                     lex_token_slice TokenKind::RAngle source file_id start add start 1
+                '%':
+                    lex_token_slice TokenKind::Percent source file_id start add start 1
+                '\\':
+                    lex_token_slice TokenKind::Backslash source file_id start add start 1
                 '*':
-                    let arrow_end <i32> lex_skip_horizontal source n add start 1
+                    let arrow_end %i32 lex_skip_horizontal source n add start 1
                     if:
                         lt arrow_end n
                         then:
@@ -98,7 +102,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                         else:
                             lex_token_slice TokenKind::Star source file_id start add start 1
                 '-':
-                    let arrow_end <i32> lex_skip_horizontal source n add start 1
+                    let arrow_end %i32 lex_skip_horizontal source n add start 1
                     if:
                         lt arrow_end n
                         then:
@@ -118,7 +122,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                         else:
                             lex_token_slice TokenKind::Unknown source file_id start add start 1
                 '"':
-                    let close <i32> lex_string_end source n add start 1
+                    let close %i32 lex_string_end source n add start 1
                     if:
                         lt close 0
                         then:
@@ -126,7 +130,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                         else:
                             lex_token_slice TokenKind::StringLiteral source file_id start add close 1
                 '\'':
-                    let close <i32> lex_char_end source n add start 1
+                    let close %i32 lex_char_end source n add start 1
                     if:
                         lt close 0
                         then:
@@ -137,7 +141,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                     if:
                         lex_is_ident_start ch
                         then:
-                            let end <i32> lex_ident_end source n add start 1
+                            let end %i32 lex_ident_end source n add start 1
                             lex_ident_or_keyword_token source file_id start end
                         else:
                             if:
@@ -146,14 +150,14 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                                     if:
                                         and eq ch '0' lt add start 1 n
                                         then:
-                                            let next <i32> lex_byte_or_end source add start 1
+                                            let next %i32 lex_byte_or_end source add start 1
                                             if:
                                                 or eq next 'x' eq next 'X'
                                                 then:
-                                                    let end <i32> lex_hex_int_end source n add start 2
+                                                    let end %i32 lex_hex_int_end source n add start 2
                                                     lex_token_slice TokenKind::IntLiteral source file_id start end
                                                 else:
-                                                    let end <i32> lex_number_end_loop source n add start 1 false
+                                                    let end %i32 lex_number_end_loop source n add start 1 false
                                                     if:
                                                         lex_range_has_dot source start end
                                                         then:
@@ -161,7 +165,7 @@ pub fn lex_next <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, idx):
                                                         else:
                                                             lex_token_slice TokenKind::IntLiteral source file_id start end
                                         else:
-                                            let end <i32> lex_number_end_loop source n add start 1 false
+                                            let end %i32 lex_number_end_loop source n add start 1 false
                                             if:
                                                 lex_range_has_dot source start end
                                                 then:

@@ -34,15 +34,15 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main <()*> ()> ():
-//:     let data <Vec<i32>>:
+//: fn main %impure fn () () \():
+//:     let data %Vec i32:
 //:         unwrap_ok v::new<i32>
 //:         |> v::push<i32> 1 |> unwrap_ok
 //:         |> v::push<i32> 2 |> unwrap_ok
 //:         |> v::push<i32> 3 |> unwrap_ok
 //:         |> v::push<i32> 4 |> unwrap_ok
 //:         |> v::push<i32> 5 |> unwrap_ok
-//:     let pref <PrefixI32> unwrap_ok<PrefixI32, Diag> prefix_build_vec_i32 data;
+//:     let pref %PrefixI32 unwrap_ok<PrefixI32, Diag> prefix_build_vec_i32 data;
 //:     print_i32 unwrap_ok<i32, Diag> prefix_sum_i32 &pref 0 3;
 //:     print " ";
 //:     println_i32 unwrap_ok<i32, Diag> prefix_sum_i32 &pref 1 5;
@@ -57,24 +57,24 @@
 //: [注意/ちゅうい]:
 //: - `data` は公開利用者が直接組み立てる field ではありません。`prefix_build_vec_i32` で作り、`prefix_sum_i32` と `prefix_free_i32` で扱います。
 pub struct PrefixI32:
-    data <Vec<i32>>
+    data %Vec i32
 
-fn prefix_diag_capacity <()*>Diag> ():
+fn prefix_diag_capacity %impure fn () Diag \():
     diag_error StdErrorKind::CapacityExceeded "prefix length exceeds i32 capacity"
 
-fn prefix_diag_range <()*>Diag> ():
+fn prefix_diag_range %impure fn () Diag \():
     diag_error StdErrorKind::IndexOutOfBounds "prefix range out of bounds"
 
-fn prefix_diag_std_error <(StdErrorKind)*>Diag> (kind):
+fn prefix_diag_std_error %impure fn StdErrorKind Diag \kind:
     diag_error kind "prefix storage operation failed"
 
-fn prefix_build_loop_i32 <(&Vec<i32>,&Vec<i32>,i32,i32,i32)*>Result<(), Diag>> (input, pref, n, idx, acc):
+fn prefix_build_loop_i32 %impure fn &Vec i32 impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 Result () Diag \input\pref\n\idx\acc:
     if:
         lt idx n
         then:
             match vec::get<i32> input idx:
                 Option::Some cur:
-                    let next_acc <i32> add acc cur
+                    let next_acc %i32 add acc cur
                     vec::replace<i32> pref add idx 1 next_acc;
                     prefix_build_loop_i32 input pref n add idx 1 next_acc
                 Option::None:
@@ -88,15 +88,15 @@ fn prefix_build_loop_i32 <(&Vec<i32>,&Vec<i32>,i32,i32,i32)*>Result<(), Diag>> (
 //: - 入力 `Vec<i32>` の長さを読み、`n+1` 個の初期化済み prefix buffer を `Vec` API で確保します。
 //: - 構築中の読み書きも `Vec` API を通すため、この module は raw storage identity を公開面にも実装面にも保持しません。
 //: - 成功・失敗のどちらでも入力 `Vec<i32>` owner をこの関数内で閉じます。
-pub fn prefix_build_vec_i32 <(Vec<i32>)*>Result<PrefixI32, Diag>> (input):
-    let n <i32> vec::len<i32> &input
+pub fn prefix_build_vec_i32 %impure fn Vec i32 Result PrefixI32 Diag \input:
+    let n %i32 vec::len<i32> &input
     if:
         gt n 2147483646
         then:
             vec::free<i32> input
             diag_err<PrefixI32> prefix_diag_capacity
         else:
-            let pref_len <i32> add n 1
+            let pref_len %i32 add n 1
             match vec::filled<i32> pref_len 0:
                 Result::Ok pref_data:
                     match prefix_build_loop_i32 &input &pref_data n 0 0:
@@ -116,9 +116,9 @@ pub fn prefix_build_vec_i32 <(Vec<i32>)*>Result<PrefixI32, Diag>> (input):
 //: [仕様/しよう]:
 //: - `0 <= l <= r <= 元の長さ` のとき、`a[l] + ... + a[r-1]` を返します。
 //: - 範囲外は `Diag` を返し、raw load や `unreachable` には落としません。
-pub fn prefix_sum_i32 <(&PrefixI32,i32,i32)*>Result<i32, Diag>> (pref, l, r):
-    let data <&Vec<i32>> field::get_ref pref "data"
-    let pref_len <i32> vec::len<i32> data
+pub fn prefix_sum_i32 %impure fn &PrefixI32 impure fn i32 impure fn i32 Result i32 Diag \pref\l\r:
+    let data %&Vec i32 field::get_ref pref "data"
+    let pref_len %i32 vec::len<i32> data
     if:
         and and le 0 l le l r lt r pref_len
         then:
@@ -135,5 +135,5 @@ pub fn prefix_sum_i32 <(&PrefixI32,i32,i32)*>Result<i32, Diag>> (pref, l, r):
             diag_err<i32> prefix_diag_range
 
 //: prefix_free_i32: 累積和ハンドルの buffer owner を解放する
-pub fn prefix_free_i32 <(PrefixI32)->()> (pref):
+pub fn prefix_free_i32 %fn PrefixI32 () \pref:
     vec::free<i32> field::get pref "data"

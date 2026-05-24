@@ -12,7 +12,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "core/mem/raw" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     mem_size
 //: ```
 
@@ -37,7 +37,7 @@
 //:
 //: 計算量:
 //: - O(1)
-pub fn mem_size <()->i32> ():
+pub fn mem_size %fn () i32 \():
     #if[target=wasm]
     #wasm:
         memory.size
@@ -63,7 +63,7 @@ pub fn mem_size <()->i32> ():
 //:
 //: 計算量:
 //: - O(1)
-pub fn mem_grow <(i32)->i32> (pages):
+pub fn mem_grow %fn i32 i32 \pages:
     #if[target=wasm]
     #wasm:
         local.get $pages
@@ -86,7 +86,7 @@ pub fn mem_grow <(i32)->i32> (pages):
             ret i32 -1
         }
 
-pub fn load_i32 <(i32)->i32> (p):
+pub fn load_i32 %fn i32 i32 \p:
     #if[target=wasm]
     #wasm:
         local.get $p
@@ -119,7 +119,7 @@ pub fn load_i32 <(i32)->i32> (p):
 //:
 //: 計算量:
 //: - O(1)
-pub fn store_i32 <(i32,i32)->()> (p, v):
+pub fn store_i32 %fn i32 fn i32 () \p\v:
     #if[target=wasm]
     #wasm:
         local.get $p
@@ -153,7 +153,7 @@ pub fn store_i32 <(i32,i32)->()> (p, v):
 //:
 //: 計算量:
 //: - O(1)
-pub fn load_u8 <(i32)->i32> (p):
+pub fn load_u8 %fn i32 i32 \p:
     #if[target=wasm]
     #wasm:
         local.get $p
@@ -187,7 +187,7 @@ pub fn load_u8 <(i32)->i32> (p):
 //:
 //: 計算量:
 //: - O(1)
-pub fn store_u8 <(i32,i32)->()> (p, v):
+pub fn store_u8 %fn i32 fn i32 () \p\v:
     #if[target=wasm]
     #wasm:
         local.get $p
@@ -224,7 +224,7 @@ pub fn store_u8 <(i32,i32)->()> (p, v):
 //:
 //: 計算量:
 //: - O(len)
-pub fn mem_copy <(i32,i32,i32)->()> (dst, src, len):
+pub fn mem_copy %fn i32 fn i32 fn i32 () \dst\src\len:
     #if[target=wasm]
     #wasm:
         local.get $dst
@@ -275,7 +275,7 @@ pub fn mem_copy <(i32,i32,i32)->()> (dst, src, len):
 //:
 //: 計算量:
 //: - O(len)
-pub fn mem_move <(i32,i32,i32)->()> (dst, src, len):
+pub fn mem_move %fn i32 fn i32 fn i32 () \dst\src\len:
     #if[target=wasm]
     #wasm:
         local.get $dst
@@ -333,15 +333,15 @@ pub fn mem_move <(i32,i32,i32)->()> (dst, src, len):
 //:| #entry main
 //:| #target std
 //:| #import "core/mem/raw" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     memset_u8 8 1 65
 //:     0
 //: ```
-pub fn memset_u8 <(i32,i32,i32)->()> (ptr, len, value):
-    let mut i <i32> 0;
+pub fn memset_u8 %fn i32 fn i32 fn i32 () \ptr\len\value:
+    let mut i %i32 0;
     while lt i len:
         do:
-            let dst_ptr <i32> add ptr i;
+            let dst_ptr %i32 add ptr i;
             store_u8 dst_ptr value;
             set i add i 1;
 
@@ -358,7 +358,7 @@ pub fn memset_u8 <(i32,i32,i32)->()> (ptr, len, value):
 //:
 //: 計算量:
 //: - O(len)
-pub fn fill_u8 <(i32,i32,i32)->()> (ptr, len, value):
+pub fn fill_u8 %fn i32 fn i32 fn i32 () \ptr\len\value:
     memset_u8 ptr len value
 
 //: fill_i32: `i32` 配列を同じ値で埋める
@@ -381,15 +381,15 @@ pub fn fill_u8 <(i32,i32,i32)->()> (ptr, len, value):
 //:| #entry main
 //:| #target std
 //:| #import "core/mem/raw" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     fill_i32 8 1 42
 //:     0
 //: ```
-pub fn fill_i32 <(i32,i32,i32)->()> (ptr, count, value):
-    let mut i <i32> 0;
+pub fn fill_i32 %fn i32 fn i32 fn i32 () \ptr\count\value:
+    let mut i %i32 0;
     while lt i count:
         do:
-            store_i32 <i32> add ptr <i32> mul i 4 value;
+            store_i32 %i32 add ptr %i32 mul i 4 value;
             set i add i 1;
 
 //: load: 任意型をロードする
@@ -405,7 +405,7 @@ pub fn fill_i32 <(i32,i32,i32)->()> (ptr, count, value):
 //:
 //: 計算量:
 //: - O(1)
-pub fn load <.T> <(i32)->.T> (ptr):
+pub fn load <.T> %fn i32 .T \ptr:
     #intrinsic "load" <.T> (ptr)
 
 //: store: 任意型をストアする
@@ -421,5 +421,5 @@ pub fn load <.T> <(i32)->.T> (ptr):
 //:
 //: 計算量:
 //: - O(1)
-pub fn store <.T> <(i32,.T)->()> (ptr, val):
+pub fn store <.T> %fn i32 fn .T () \ptr\val:
     #intrinsic "store" <.T> (ptr, val)

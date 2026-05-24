@@ -9,11 +9,11 @@
 #indent 4
 
 #if[target=wasm]
-#extern "wasi_snapshot_preview1" "args_sizes_get" fn args_sizes_get <(i32,i32)*>i32>
+#extern "wasi_snapshot_preview1" "args_sizes_get" fn args_sizes_get %impure fn i32 impure fn i32 i32
 #if[target=wasm]
-#extern "wasi_snapshot_preview1" "args_get" fn args_get <(i32,i32)*>i32>
+#extern "wasi_snapshot_preview1" "args_get" fn args_get %impure fn i32 impure fn i32 i32
 #if[target=llvm]
-#extern "c" "syscall" fn __cli_syscall <(i64,i64,i64,i64,i64,i64,i64)*>i64>
+#extern "c" "syscall" fn __cli_syscall %impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 i64
 
 #import "alloc/string" as *
 #import "alloc/string/storage" as *
@@ -28,11 +28,11 @@
 #import "std/env/cliarg/cstr" as cstr
 
 struct CliArgSizes:
-    argc <i32>
-    buf_size <i32>
+    argc %i32
+    buf_size %i32
 
-fn cli_args_sizes_result <(MemPtr<u8>)*>Result<CliArgSizes,i32>> (meta):
-    let meta_raw <i32> mem_ptr_addr meta
+fn cli_args_sizes_result %impure fn MemPtr u8 Result CliArgSizes i32 \meta:
+    let meta_raw %i32 mem_ptr_addr meta
     if:
         le meta_raw 0
         then:
@@ -40,14 +40,14 @@ fn cli_args_sizes_result <(MemPtr<u8>)*>Result<CliArgSizes,i32>> (meta):
         else:
             store_i32 meta_raw 0
             store_i32 add meta_raw 4 0
-            let errno <i32> args_sizes_get meta_raw add meta_raw 4
+            let errno %i32 args_sizes_get meta_raw add meta_raw 4
             if:
                 ne errno 0
                 then:
                     Result<CliArgSizes,i32>::Err errno
                 else:
-                    let argc <i32> load_i32 meta_raw
-                    let buf_size <i32> load_i32 add meta_raw 4
+                    let argc %i32 load_i32 meta_raw
+                    let buf_size %i32 load_i32 add meta_raw 4
                     if:
                         or lt argc 0 lt buf_size 0
                         then:
@@ -55,14 +55,14 @@ fn cli_args_sizes_result <(MemPtr<u8>)*>Result<CliArgSizes,i32>> (meta):
                         else:
                             Result<CliArgSizes,i32>::Ok CliArgSizes argc buf_size
 
-fn cli_zero_u8_buffer_result <(MemPtr<u8>,i32)->Result<(),i32>> (buf, size):
+fn cli_zero_u8_buffer_result %fn MemPtr u8 fn i32 Result () i32 \buf\size:
     if:
         lt size 0
         then:
             Result<(),i32>::Err 1
         else:
-            let mut i <i32> 0
-            let mut err <i32> 0
+            let mut i %i32 0
+            let mut err %i32 0
             while and eq err 0 lt i size:
                 do:
                     match store_u8 mem_ptr_add buf i 0:
@@ -78,21 +78,21 @@ fn cli_zero_u8_buffer_result <(MemPtr<u8>,i32)->Result<(),i32>> (buf, size):
                 else:
                     Result<(),i32>::Err err
 
-fn cli_zero_i32_slots_result <(MemPtr<u8>,i32)->Result<(),i32>> (base, byte_size):
-    let raw <i32> mem_ptr_addr base
+fn cli_zero_i32_slots_result %fn MemPtr u8 fn i32 Result () i32 \base\byte_size:
+    let raw %i32 mem_ptr_addr base
     if:
         or le raw 0 lt byte_size 0
         then:
             Result<(),i32>::Err 1
         else:
-            let mut off <i32> 0
+            let mut off %i32 0
             while lt off byte_size:
                 do:
                     store_i32 add raw off 0
                     set off add off 4
             Result<(),i32>::Ok ()
 
-fn cli_load_u8_result <(MemPtr<u8>,i32)->Result<i32,i32>> (base, off):
+fn cli_load_u8_result %fn MemPtr u8 fn i32 Result i32 i32 \base\off:
     match load_u8 mem_ptr_add base off:
         Option::Some b:
             Result<i32,i32>::Ok b
@@ -113,17 +113,17 @@ fn cli_load_u8_result <(MemPtr<u8>,i32)->Result<i32,i32>> (base, off):
 //:
 //: 計算量:
 //: - O(1)
-pub fn cliarg_count_result <()*>Result<i32,i32>> ():
+pub fn cliarg_count_result %impure fn () Result i32 i32 \():
     match alloc_region<u8> 8:
         Result::Err _:
             Result<i32,i32>::Err 1
         Result::Ok meta_region:
-            let meta <MemPtr<u8>> region_ptr &meta_region
-            let res <Result<i32,i32>> match cli_args_sizes_result meta:
+            let meta %MemPtr u8 region_ptr &meta_region
+            let res %Result i32 i32 match cli_args_sizes_result meta:
                 Result::Err e:
                     Result<i32,i32>::Err e
                 Result::Ok sizes:
-                    let argc <i32> get sizes "argc"
+                    let argc %i32 get sizes "argc"
                     Result<i32,i32>::Ok argc
             match dealloc_region<u8> meta_region:
                 Result::Ok _:
@@ -148,29 +148,29 @@ pub fn cliarg_count_result <()*>Result<i32,i32>> ():
 //:
 //: 計算量:
 //: - O(total_bytes + len(argv[idx]))
-pub fn cliarg_get_checked <(i32)*>Option<str>> (idx):
+pub fn cliarg_get_checked %impure fn i32 Option str \idx:
     match alloc_region<u8> 8:
         Result::Err _:
             none<str>
         Result::Ok meta_region:
-            let meta <MemPtr<u8>> region_ptr &meta_region
-            let res <Option<str>> match cli_args_sizes_result meta:
+            let meta %MemPtr u8 region_ptr &meta_region
+            let res %Option str match cli_args_sizes_result meta:
                 Result::Err _:
                     none<str>
                 Result::Ok sizes:
-                    let argc <i32> get sizes "argc"
-                    let buf_size <i32> get sizes "buf_size"
+                    let argc %i32 get sizes "argc"
+                    let buf_size %i32 get sizes "buf_size"
                     if:
                         or lt idx 0 or ge idx argc le buf_size 0
                         then:
                             none<str>
                         else:
-                            let argv_size <i32> mul argc 4
+                            let argv_size %i32 mul argc 4
                             match alloc_region<u8> argv_size:
                                 Result::Err _:
                                     none<str>
                                 Result::Ok argv_region:
-                                    let argv <MemPtr<u8>> region_ptr &argv_region
+                                    let argv %MemPtr u8 region_ptr &argv_region
                                     match alloc_region<u8> buf_size:
                                         Result::Err _:
                                             match dealloc_region<u8> argv_region:
@@ -180,11 +180,11 @@ pub fn cliarg_get_checked <(i32)*>Option<str>> (idx):
                                                     ()
                                             none<str>
                                         Result::Ok argv_buf_region:
-                                            let argv_buf <MemPtr<u8>> region_ptr &argv_buf_region
-                                            let argv_raw <i32> mem_ptr_addr argv
-                                            let argv_buf_raw <i32> mem_ptr_addr argv_buf
-                                            let arg_slot_raw <i32> add argv_raw mul idx 4
-                                            let inner <Option<str>> if:
+                                            let argv_buf %MemPtr u8 region_ptr &argv_buf_region
+                                            let argv_raw %i32 mem_ptr_addr argv
+                                            let argv_buf_raw %i32 mem_ptr_addr argv_buf
+                                            let arg_slot_raw %i32 add argv_raw mul idx 4
+                                            let inner %Option str if:
                                                 or le argv_raw 0 le argv_buf_raw 0
                                                 then:
                                                     none<str>
@@ -198,25 +198,25 @@ pub fn cliarg_get_checked <(i32)*>Option<str>> (idx):
                                                                     none<str>
                                                                 Result::Ok _:
                                                                     store_i32 arg_slot_raw 0
-                                                                    let errno2 <i32> args_get argv_raw argv_buf_raw
+                                                                    let errno2 %i32 args_get argv_raw argv_buf_raw
                                                                     if:
                                                                         ne errno2 0
                                                                         then:
                                                                             none<str>
                                                                         else:
-                                                                            let arg_ptr <i32> load_i32 arg_slot_raw
+                                                                            let arg_ptr %i32 load_i32 arg_slot_raw
                                                                             if:
                                                                                 le arg_ptr 0
                                                                                 then:
                                                                                     none<str>
                                                                                 else:
-                                                                                    let arg_offset <i32> sub arg_ptr argv_buf_raw
+                                                                                    let arg_offset %i32 sub arg_ptr argv_buf_raw
                                                                                     if:
                                                                                         or lt arg_offset 0 ge arg_offset buf_size
                                                                                         then:
                                                                                             none<str>
                                                                                         else:
-                                                                                            let arg_max_len <i32> sub buf_size arg_offset
+                                                                                            let arg_max_len %i32 sub buf_size arg_offset
                                                                                             match cstr::cstr_to_str_bounded_result mem_ptr_wrap arg_ptr arg_max_len:
                                                                                                 Result::Ok arg:
                                                                                                     some<str> arg
@@ -241,16 +241,16 @@ pub fn cliarg_get_checked <(i32)*>Option<str>> (idx):
             res
 
 #if[target=llvm]
-fn __cli_copy_to_cstr <(str)*>Result<RegionToken<u8>,i32>> (s):
-    let byte_len <i32> len s;
-    let src <i32> mem_ptr_addr string_data_ptr s;
-    let size <i32> add byte_len 1;
+fn __cli_copy_to_cstr %impure fn str Result RegionToken u8 i32 \s:
+    let byte_len %i32 len s;
+    let src %i32 mem_ptr_addr string_data_ptr s;
+    let size %i32 add byte_len 1;
     match alloc_region<u8> size:
         Result::Err e:
             Result<RegionToken<u8>,i32>::Err e
         Result::Ok dst_region:
-            let dst <MemPtr<u8>> region_ptr &dst_region
-            let mut i <i32> 0;
+            let dst %MemPtr u8 region_ptr &dst_region
+            let mut i %i32 0;
             while lt i byte_len:
                 do:
                     match store_u8 mem_ptr_add dst i load_u8 add src i:
@@ -267,14 +267,14 @@ fn __cli_copy_to_cstr <(str)*>Result<RegionToken<u8>,i32>> (s):
             Result<RegionToken<u8>,i32>::Ok dst_region
 
 #if[target=llvm]
-fn __cli_open_cmdline <()*>i32> ():
-    let path <str> "/proc/self/cmdline";
+fn __cli_open_cmdline %impure fn () i32 \():
+    let path %str "/proc/self/cmdline";
     match __cli_copy_to_cstr path:
         Result::Err _:
             -1
         Result::Ok cpath_region:
-            let cpath <MemPtr<u8>> region_ptr &cpath_region
-            let fd64 <i64> __cli_syscall <i64> cast 257 <i64> cast -100 <i64> cast mem_ptr_addr cpath <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0;
+            let cpath %MemPtr u8 region_ptr &cpath_region
+            let fd64 %i64 __cli_syscall %i64 cast 257 %i64 cast -100 %i64 cast mem_ptr_addr cpath %i64 cast 0 %i64 cast 0 %i64 cast 0 %i64 cast 0;
             match dealloc_region<u8> cpath_region:
                 Result::Ok _:
                     ()
@@ -282,36 +282,36 @@ fn __cli_open_cmdline <()*>i32> ():
                     ()
             if:
                 cond:
-                    lt fd64 <i64> cast 0
+                    lt fd64 %i64 cast 0
                 then -1
-                else <i32> cast fd64
+                else %i32 cast fd64
 
 #if[target=llvm]
-fn __cli_read_cmdline <(MemPtr<u8>,i32)*>i32> (buf, cap):
-    let fd <i32> __cli_open_cmdline;
+fn __cli_read_cmdline %impure fn MemPtr u8 impure fn i32 i32 \buf\cap:
+    let fd %i32 __cli_open_cmdline;
     if:
         cond:
             lt fd 0
         then:
             -1
         else:
-            let n64 <i64> __cli_syscall <i64> cast 0 <i64> cast fd <i64> cast mem_ptr_addr buf <i64> cast cap <i64> cast 0 <i64> cast 0 <i64> cast 0;
-            __cli_syscall <i64> cast 3 <i64> cast fd <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0;
+            let n64 %i64 __cli_syscall %i64 cast 0 %i64 cast fd %i64 cast mem_ptr_addr buf %i64 cast cap %i64 cast 0 %i64 cast 0 %i64 cast 0;
+            __cli_syscall %i64 cast 3 %i64 cast fd %i64 cast 0 %i64 cast 0 %i64 cast 0 %i64 cast 0 %i64 cast 0;
             if:
                 cond:
-                    lt n64 <i64> cast 0
+                    lt n64 %i64 cast 0
                 then -1
-                else <i32> cast n64
+                else %i32 cast n64
 
 #if[target=llvm]
-fn args_sizes_get <(i32,i32)*>i32> (argc_ptr, buf_ptr):
-    let cap <i32> 65536;
+fn args_sizes_get %impure fn i32 impure fn i32 i32 \argc_ptr\buf_ptr:
+    let cap %i32 65536;
     match alloc_region<u8> cap:
         Result::Err _:
             1
         Result::Ok tmp_region:
-            let tmp <MemPtr<u8>> region_ptr &tmp_region
-            let n <i32> __cli_read_cmdline tmp cap;
+            let tmp %MemPtr u8 region_ptr &tmp_region
+            let n %i32 __cli_read_cmdline tmp cap;
             if:
                 cond:
                     lt n 0
@@ -323,9 +323,9 @@ fn args_sizes_get <(i32,i32)*>i32> (argc_ptr, buf_ptr):
                             ();
                     1
                 else:
-                    let mut argc <i32> 0;
-                    let mut i <i32> 0;
-                    let mut err <i32> 0;
+                    let mut argc %i32 0;
+                    let mut i %i32 0;
+                    let mut err %i32 0;
                     while and eq err 0 lt i n:
                         do:
                             match cli_load_u8_result tmp i:
@@ -352,16 +352,16 @@ fn args_sizes_get <(i32,i32)*>i32> (argc_ptr, buf_ptr):
                     if eq err 0 0 err
 
 #if[target=llvm]
-fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
-    let cap <i32> 65536;
+fn args_get %impure fn i32 impure fn i32 i32 \argv_ptr\argv_buf:
+    let cap %i32 65536;
     match alloc_region<u8> cap:
         Result::Err _:
             1
         Result::Ok tmp_region:
-            let tmp <MemPtr<u8>> region_ptr &tmp_region
-            let argv_buf_ptr <MemPtr<u8>> mem_ptr_wrap argv_buf
-            let argv_ptr_i32 <MemPtr<i32>> mem_ptr_wrap argv_ptr
-            let n <i32> __cli_read_cmdline tmp cap;
+            let tmp %MemPtr u8 region_ptr &tmp_region
+            let argv_buf_ptr %MemPtr u8 mem_ptr_wrap argv_buf
+            let argv_ptr_i32 %MemPtr i32 mem_ptr_wrap argv_ptr
+            let n %i32 __cli_read_cmdline tmp cap;
             if:
                 cond:
                     lt n 0
@@ -373,8 +373,8 @@ fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
                             ();
                     1
                 else:
-                    let mut err <i32> 0;
-                    let mut i <i32> 0;
+                    let mut err %i32 0;
+                    let mut i %i32 0;
                     while and eq err 0 lt i n:
                         do:
                             match cli_load_u8_result tmp i:
@@ -388,7 +388,7 @@ fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
                                     set err e
                             set i add i 1;
 
-                    let mut argi <i32> 0;
+                    let mut argi %i32 0;
                     if:
                         and eq err 0 lt 0 n
                         then:
@@ -399,7 +399,7 @@ fn args_get <(i32,i32)*>i32> (argv_ptr, argv_buf):
                                     set err 1
                         else ()
 
-                    let mut j <i32> 0;
+                    let mut j %i32 0;
                     while and eq err 0 lt j n:
                         do:
                             match cli_load_u8_result argv_buf_ptr j:

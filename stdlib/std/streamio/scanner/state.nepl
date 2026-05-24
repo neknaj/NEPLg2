@@ -35,8 +35,8 @@
 //: - buffer と cursor storage の[解放/かいほう]は owner を[消費/しょうひ]する `close` が[担当/たんとう]します。
 //: - [別々/べつべつ]に `open` した scanner [同士/どうし]は[状態/じょうたい]を[共有/きょうゆう]しないので、[複数/ふくすう]の stream を[同時/どうじ]に[維持/いじ]できます。
 pub struct StreamScanner:
-    bytes <ByteBuf>
-    cursor <Vec<i32>>
+    bytes %ByteBuf
+    cursor %Vec i32
 
 //: ## stream_scanner_byte_at
 //: scanner buffer の byte を安全な範囲内で読む
@@ -44,7 +44,7 @@ pub struct StreamScanner:
 //: ### [目的/もくてき]
 //: - scanner が所有する `ByteBuf` を borrowed view として読み、tokenizer が raw address を直接扱わないようにします。
 //: - 呼び出し側の境界確認漏れや低レベル load 失敗は byte `0` として扱い、scanner の sentinel と同じ意味に丸めます。
-pub fn stream_scanner_byte_at <(&ByteBuf,i32)->i32> (bytes, pos):
+pub fn stream_scanner_byte_at %fn &ByteBuf fn i32 i32 \bytes\pos:
     match io_bytebuf_byte_at bytes pos:
         Option::Some byte:
             byte
@@ -57,8 +57,8 @@ pub fn stream_scanner_byte_at <(&ByteBuf,i32)->i32> (bytes, pos):
 //: ### [目的/もくてき]
 //: - borrowed scanner API から cursor だけを更新するため、position は dedicated typed cursor storage に保持します。
 //: - cursor storage の破損は `Result` として返し、public facade が必要に応じて sentinel へ丸めます。
-pub fn stream_scanner_load_pos_result <(&StreamScanner)->Result<i32,str>> (sc):
-    let cursor <&Vec<i32>> get_ref sc "cursor";
+pub fn stream_scanner_load_pos_result %fn &StreamScanner Result i32 str \sc:
+    let cursor %&Vec i32 get_ref sc "cursor";
     match vec::get<i32> cursor 0:
         Option::Some pos:
             Result<i32,str>::Ok pos
@@ -70,7 +70,7 @@ pub fn stream_scanner_load_pos_result <(&StreamScanner)->Result<i32,str>> (sc):
 //:
 //: ### [注意/ちゅうい]
 //: - 既存の scanner API は `Result` を返さないため、cursor storage が壊れている場合は 0 に丸めます。
-pub fn stream_scanner_load_pos <(&StreamScanner)->i32> (sc):
+pub fn stream_scanner_load_pos %fn &StreamScanner i32 \sc:
     match stream_scanner_load_pos_result sc:
         Result::Ok v:
             v
@@ -82,8 +82,8 @@ pub fn stream_scanner_load_pos <(&StreamScanner)->i32> (sc):
 //:
 //: ### [目的/もくてき]
 //: - `read &sc` のような borrowed API で scanner owner を移動せず、typed cursor position だけを scanner state boundary として更新します。
-pub fn stream_scanner_store_pos_result <(&StreamScanner,i32)*>Result<(),str>> (sc, pos):
-    let cursor <&Vec<i32>> get_ref sc "cursor";
+pub fn stream_scanner_store_pos_result %impure fn &StreamScanner impure fn i32 Result () str \sc\pos:
+    let cursor %&Vec i32 get_ref sc "cursor";
     match vec::get<i32> cursor 0:
         Option::Some _old:
             vec::replace<i32> cursor 0 pos
@@ -93,7 +93,7 @@ pub fn stream_scanner_store_pos_result <(&StreamScanner,i32)*>Result<(),str>> (s
 
 //: ## stream_scanner_store_pos
 //: scanner cursor position を書く互換 facade
-pub fn stream_scanner_store_pos <(&StreamScanner,i32)*>()> (sc, pos):
+pub fn stream_scanner_store_pos %impure fn &StreamScanner impure fn i32 () \sc\pos:
     match stream_scanner_store_pos_result sc pos:
         Result::Ok _:
             ()
@@ -102,8 +102,8 @@ pub fn stream_scanner_store_pos <(&StreamScanner,i32)*>()> (sc, pos):
 
 //: ## stream_scanner_len
 //: scanner input byte length を返す
-pub fn stream_scanner_len <(&StreamScanner)->i32> (sc):
-    let bytes <&ByteBuf> get_ref sc "bytes";
+pub fn stream_scanner_len %fn &StreamScanner i32 \sc:
+    let bytes %&ByteBuf get_ref sc "bytes";
     io_bytebuf_len_ref bytes
 
 //: ## stream_scanner_slice_to_str_result
@@ -113,10 +113,10 @@ pub fn stream_scanner_len <(&StreamScanner)->i32> (sc):
 //: - token parser が `ByteBuf` の raw pointer を直接取り出さず、slice-to-string の raw boundary をこの module に閉じます。
 //: - `ByteBuf` owner は借用のまま保持し、返る `str` は新しい owned string です。
 //: - 入力は `ReadStream::Bytes` や file 由来の任意 byte 列でもあり得るため、`str` 化の直前に UTF-8 として検証します。
-pub fn stream_scanner_slice_to_str_result <(&StreamScanner,i32,i32)*>Result<str,str>> (sc, start, tlen):
-    let bytes <&ByteBuf> get_ref sc "bytes";
-    let len <i32> io_bytebuf_len_ref bytes;
-    let end <i32> add start tlen;
+pub fn stream_scanner_slice_to_str_result %impure fn &StreamScanner impure fn i32 impure fn i32 Result str str \sc\start\tlen:
+    let bytes %&ByteBuf get_ref sc "bytes";
+    let len %i32 io_bytebuf_len_ref bytes;
+    let end %i32 add start tlen;
     if:
         or or or lt start 0 lt tlen 0 lt end start gt end len
         then:
@@ -142,15 +142,15 @@ pub fn stream_scanner_slice_to_str_result <(&StreamScanner,i32,i32)*>Result<str,
 //:
 //: ### [目的/もくてき]
 //: - input buffer owner とは別に、borrowed scanner API が更新する 1 element の typed cursor storage を確保します。
-pub fn stream_scanner_cursor_new <()->Result<Vec<i32>,str>> ():
+pub fn stream_scanner_cursor_new %fn () Result Vec i32 str \():
     match vec::filled<i32> 1 0:
         Result::Err _e:
             Result<Vec<i32>,str>::Err "streamio.scanner cursor alloc failed"
         Result::Ok cursor:
             Result<Vec<i32>,str>::Ok cursor
 
-pub fn scanner_from_bytes <(ByteBuf)*>Result<StreamScanner,str>> (bytes):
-    let len <i32> io_bytebuf_len_ref &bytes;
+pub fn scanner_from_bytes %impure fn ByteBuf Result StreamScanner str \bytes:
+    let len %i32 io_bytebuf_len_ref &bytes;
     match io_bytebuf_ptr_ref &bytes:
         Option::None:
             if:

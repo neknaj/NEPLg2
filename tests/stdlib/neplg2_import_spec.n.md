@@ -25,19 +25,19 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
     match selfhost_import_spec_parse_lexeme source_span_new 0 0 26 "#import \"core/result\" as *":
         Result::Ok first:
             match selfhost_import_spec_parse_lexeme source_span_new 0 27 54 "#import \"std/test\" as test":
                 Result::Ok second:
-                    let first_span <SelfhostSourceSpan> selfhost_import_spec_span first
-                    let first_wildcard <bool> selfhost_import_spec_is_wildcard first
-                    let second_wildcard <bool> selfhost_import_spec_is_wildcard second
-                    let first_path <str> selfhost_import_spec_path "#import \"core/result\" as *" first
-                    let first_alias <str> selfhost_import_spec_alias "#import \"core/result\" as *" first
-                    let second_path <str> selfhost_import_spec_path "#import \"std/test\" as test" second
-                    let second_alias <str> selfhost_import_spec_alias "#import \"std/test\" as test" second
+                    let first_span %SelfhostSourceSpan selfhost_import_spec_span first
+                    let first_wildcard %bool selfhost_import_spec_is_wildcard first
+                    let second_wildcard %bool selfhost_import_spec_is_wildcard second
+                    let first_path %str selfhost_import_spec_path "#import \"core/result\" as *" first
+                    let first_alias %str selfhost_import_spec_alias "#import \"core/result\" as *" first
+                    let second_path %str selfhost_import_spec_path "#import \"std/test\" as test" second
+                    let second_alias %str selfhost_import_spec_alias "#import \"std/test\" as test" second
                     let checks1 checks_push checks0 check_str_eq "core/result" first_path
                     let checks2 checks_push checks1 check_str_eq "*" first_alias
                     let checks3 checks_push checks2 check first_wildcard
@@ -77,9 +77,9 @@ stdout: mlstr:
 #import "neplg2/core/module/import_spec" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
-    let span <SelfhostSourceSpan> source_span_new 3 0 7
+    let span %SelfhostSourceSpan source_span_new 3 0 7
     match selfhost_import_spec_parse_lexeme span "#import":
         Result::Ok _spec:
             let checks1 checks_push checks0 Result<(),str>::Err "malformed import was accepted"
@@ -112,9 +112,9 @@ stdout: mlstr:
 #import "neplg2/core/module/import_spec" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks0 checks_new
-    let span <SelfhostSourceSpan> source_span_new 4 0 32
+    let span %SelfhostSourceSpan source_span_new 4 0 32
     match selfhost_import_spec_parse_lexeme span "#import \"core/result\" as * extra":
         Result::Ok _spec:
             let checks1 checks_push checks0 Result<(),str>::Err "trailing import text was accepted"

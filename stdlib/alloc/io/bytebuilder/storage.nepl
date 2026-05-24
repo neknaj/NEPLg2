@@ -14,7 +14,7 @@
 //:| #target std
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match byte_builder_new:
 //:         Result::Ok b:
 //:             byte_builder_free b
@@ -44,7 +44,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - capacity が 0 の[場合/ばあい]は[確保/かくほ]せず空 builder を[返/かえ]します。
-pub fn byte_builder_with_capacity <(i32)->Result<ByteBuilder, StdErrorKind>> (capacity):
+pub fn byte_builder_with_capacity %fn i32 Result ByteBuilder StdErrorKind \capacity:
     if:
         lt capacity 0
         then:
@@ -65,7 +65,7 @@ pub fn byte_builder_with_capacity <(i32)->Result<ByteBuilder, StdErrorKind>> (ca
 //:
 //: [目的/もくてき]:
 //: - 小さな byte列構築で最初の append ごとの確保を避けます。
-pub fn byte_builder_new <()->Result<ByteBuilder, StdErrorKind>> ():
+pub fn byte_builder_new %fn () Result ByteBuilder StdErrorKind \():
     byte_builder_with_capacity 64
 
 //: byte_builder_dealloc_owned_region: builder が所有する byte 領域 token を解放する
@@ -85,7 +85,7 @@ pub fn byte_builder_new <()->Result<ByteBuilder, StdErrorKind>> ():
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let checks0 checks_new
 //:     let checks match alloc_region_bytes<u8> 4:
 //:         Result::Ok region:
@@ -96,7 +96,7 @@ pub fn byte_builder_new <()->Result<ByteBuilder, StdErrorKind>> ():
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown
 //: ```
-pub fn byte_builder_dealloc_owned_region <(RegionToken<u8>)->()> (region):
+pub fn byte_builder_dealloc_owned_region %fn RegionToken u8 () \region:
     match dealloc_region<u8> region:
         Result::Ok _:
             ()
@@ -111,14 +111,14 @@ pub fn byte_builder_dealloc_owned_region <(RegionToken<u8>)->()> (region):
 //: [注意/ちゅうい]:
 //: - 成功時は返った `RegionToken<u8>` が storage owner です。
 //: - 失敗時は旧 token を `RegionReallocError` に戻し、caller が builder error payload へ包み直します。
-pub fn byte_builder_realloc_region_or_keep <(RegionToken<u8>,i32)->Result<RegionToken<u8>, RegionReallocError<u8>>> (region, new_cap):
+pub fn byte_builder_realloc_region_or_keep %fn RegionToken u8 fn i32 Result RegionToken u8 RegionReallocError u8 \region\new_cap:
     realloc_region_bytes_keep<u8> region new_cap
 
 //: byte_builder_free: builder が保持する storage を解放する
 //:
 //: [目的/もくてき]:
 //: - builder の `RegionToken<u8>` を取り出し、token の size に従って owned storage を解放します。
-pub fn byte_builder_free <(ByteBuilder)->()> (builder):
+pub fn byte_builder_free %fn ByteBuilder () \builder:
     match get builder "storage":
         ByteBuilderStorage::Empty:
             ()
@@ -137,8 +137,8 @@ pub fn byte_builder_free <(ByteBuilder)->()> (builder):
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let invalid <i32> sub 0 1
+//: fn main %impure fn () i32 \():
+//:     let invalid %i32 sub 0 1
 //:     match byte_builder_reserve byte_builder_empty invalid:
 //:         Result::Ok b:
 //:             byte_builder_free b
@@ -147,7 +147,7 @@ pub fn byte_builder_free <(ByteBuilder)->()> (builder):
 //:             byte_builder_error_free e
 //:             0
 //: ```
-pub fn byte_builder_error_free <(ByteBuilderError)->()> (e):
+pub fn byte_builder_error_free %fn ByteBuilderError () \e:
     byte_builder_free byte_builder_error_builder e
 
 //: byte_builder_bytebuf_error_free: `ByteBuilderByteBufError` の 2 owner を閉じる
@@ -164,15 +164,15 @@ pub fn byte_builder_error_free <(ByteBuilderError)->()> (e):
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let invalid <StdErrorKind> StdErrorKind::InvalidOperation
-//:     let e <ByteBuilderByteBufError> ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
+//: fn main %impure fn () i32 \():
+//:     let invalid %StdErrorKind StdErrorKind::InvalidOperation
+//:     let e %ByteBuilderByteBufError ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
 //:     byte_builder_bytebuf_error_free e
 //:     0
 //: ```
-pub fn byte_builder_bytebuf_error_free <(ByteBuilderByteBufError)->()> (e):
-    let builder <ByteBuilder> get e "builder"
-    let bytes <ByteBuf> get e "bytes"
+pub fn byte_builder_bytebuf_error_free %fn ByteBuilderByteBufError () \e:
+    let builder %ByteBuilder get e "builder"
+    let bytes %ByteBuf get e "bytes"
     byte_builder_free builder
     io_bytebuf_free bytes
 
@@ -183,18 +183,18 @@ pub fn byte_builder_bytebuf_error_free <(ByteBuilderByteBufError)->()> (e):
 //:
 //: [注意/ちゅうい]:
 //: - overflow または増加しない値になった場合は `CapacityExceeded` を返します。
-pub fn byte_builder_next_capacity <(i32,i32)->Result<i32, StdErrorKind>> (cap, needed):
-    let mut next <i32>:
+pub fn byte_builder_next_capacity %fn i32 fn i32 Result i32 StdErrorKind \cap\needed:
+    let mut next %i32:
         if:
             le cap 0
             then:
                 8
             else:
                 cap
-    let mut failed <i32> 0
+    let mut failed %i32 0
     while and lt next needed eq failed 0:
         do:
-            let doubled <i32> mul next 2
+            let doubled %i32 mul next 2
             if:
                 le doubled next
                 then:
@@ -215,15 +215,15 @@ pub fn byte_builder_next_capacity <(i32,i32)->Result<i32, StdErrorKind>> (cap, n
 //:
 //: [注意/ちゅうい]:
 //: - 失敗時は `ByteBuilderError` に builder owner を[戻/もど]します。
-pub fn byte_builder_reserve <(ByteBuilder,i32)->Result<ByteBuilder, ByteBuilderError>> (builder, additional):
-    let len0 <i32> get builder "len"
-    let cap0 <i32> get builder "cap"
+pub fn byte_builder_reserve %fn ByteBuilder fn i32 Result ByteBuilder ByteBuilderError \builder\additional:
+    let len0 %i32 get builder "len"
+    let cap0 %i32 get builder "cap"
     if:
         lt additional 0
         then:
             Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError builder StdErrorKind::InvalidOperation
         else:
-            let needed <i32> add len0 additional
+            let needed %i32 add len0 additional
             if:
                 or lt needed len0 le needed cap0
                 then:
@@ -270,5 +270,5 @@ pub fn byte_builder_reserve <(ByteBuilder,i32)->Result<ByteBuilder, ByteBuilderE
                                                         Result::Ok next_region:
                                                             Result<ByteBuilder, ByteBuilderError>::Ok byte_builder_from_owned_region next_region len0 next_cap
                                                         Result::Err e:
-                                                            let old_region <RegionToken<u8>> region_realloc_error_region<u8> e
+                                                            let old_region %RegionToken u8 region_realloc_error_region<u8> e
                                                             Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned old_region) len0 cap0) StdErrorKind::OutOfMemory

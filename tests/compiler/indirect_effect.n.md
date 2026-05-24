@@ -10,12 +10,12 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #target core
 
-fn impure_id <(i32)*>i32> (x):
+fn impure_id %impure fn i32 i32 \x:
     x
 
-fn call_callback <((i32)*>i32, i32)->i32> (callback, value):
+fn call_callback %fn impure fn i32 i32 fn i32 i32 \callback\value:
     callback value
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     call_callback @impure_id 1
 ```

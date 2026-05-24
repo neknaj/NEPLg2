@@ -46,6 +46,9 @@ impl<'a> BlockChecker<'a> {
         if self.trait_bound_satisfied(bound, inferred_arg) {
             return SelectedFunctionTraitBoundResolution::Satisfied;
         }
+        if self.trait_bound_satisfied_by_impl_pattern(bound, inferred_arg) {
+            return SelectedFunctionTraitBoundResolution::Satisfied;
+        }
         if self.is_concrete_type(inferred_arg) {
             SelectedFunctionTraitBoundResolution::Unsatisfied
         } else {

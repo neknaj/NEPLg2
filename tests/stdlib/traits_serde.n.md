@@ -23,11 +23,11 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/cast" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     set checks checks_push checks check_str_eq "true" serialize true;
     set checks checks_push checks check_str_eq "42" serialize 42;
-    set checks checks_push checks check_str_eq "9001" serialize <i64> cast 9001;
+    set checks checks_push checks check_str_eq "9001" serialize %i64 cast 9001;
     set checks checks_push checks check_str_eq "abc" serialize "abc";
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -56,7 +56,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
 
     match deserialize<i32> "42":

@@ -19,16 +19,16 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn point_or_zero <(Option<i32>)->i32> (value):
+fn point_or_zero %fn Option i32 i32 \value:
     match value:
         Option::Some n:
             n
         Option::None:
             0
 
-fn main <()*>i32> ():
-    let a <Option<i32>> some<i32> 42
-    let b <Option<i32>> none<i32>
+fn main %impure fn () i32 \():
+    let a %Option i32 some<i32> 42
+    let b %Option i32 none<i32>
     let checks:
         checks_new
         |> checks_push assert_eq_i32 42 point_or_zero a

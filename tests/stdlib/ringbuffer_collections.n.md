@@ -28,22 +28,22 @@ stdout: "test_report name=\"ringbuffer_pipe_usage\" count=2 failed=0\nassertion 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let rb <RingBuffer<i32>>:
+fn main %impure fn () i32 \():
+    let rb %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push 4
         |> uwok
         |> push 9
         |> uwok
-    let size <i32> len<i32> &rb;
+    let size %i32 len<i32> &rb;
     free<i32> rb
-    let rb2 <RingBuffer<i32>>:
+    let rb2 %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push 4
         |> uwok
         |> push 9
         |> uwok
-    let ok1 <bool> match rb2 |> pop:
+    let ok1 %bool match rb2 |> pop:
         Option::Some v:
             eq v 4
         Option::None:
@@ -81,21 +81,21 @@ stdout: "test_report name=\"ringbuffer_grow_clear_free\" count=1 failed=0\nasser
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let rb_clear <RingBuffer<i32>>:
+fn main %impure fn () i32 \():
+    let rb_clear %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> with_capacity<i32> 1
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> clear
-    let ok0 <bool> is_empty<i32> &rb_clear;
+    let ok0 %bool is_empty<i32> &rb_clear;
     free<i32> rb_clear
-    let rb0 <RingBuffer<i32>>:
+    let rb0 %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> with_capacity<i32> 1
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> clear
     free<i32> rb0
-    let rb1 <RingBuffer<i32>>:
+    let rb1 %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> with_capacity<i32> 1
         |> push 12 |> uwok
     free<i32> rb1

@@ -22,14 +22,14 @@ stdout: "test_report name=\"default_prelude_supplies_copy_impls\" count=1 failed
 #import "core/math" as *
 #import "std/test" as *
 
-fn clone_left <.T: Copy> <(.T, (.T)->i32)->i32> (x, f):
+fn clone_left <.T: Copy> %fn .T fn fn .T i32 i32 \x\f:
     f x
 
-fn as_i32 <(i32)->i32> (x):
+fn as_i32 %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let actual <i32> clone_left 7 @as_i32
+fn main %impure fn () i32 \():
+    let actual %i32 clone_left 7 @as_i32
     let report:
         test_report_new "default_prelude_supplies_copy_impls"
         |> test_report_push assert_eq_i32 "default prelude copy clone" 7 actual
@@ -50,14 +50,14 @@ stdout: "test_report name=\"explicit_prelude_survives_no_prelude\" count=1 faile
 #no_prelude
 #import "std/test" as *
 
-fn clone_left <.T: Copy> <(.T, (.T)->i32)->i32> (x, f):
+fn clone_left <.T: Copy> %fn .T fn fn .T i32 i32 \x\f:
     f x
 
-fn as_i32 <(i32)->i32> (x):
+fn as_i32 %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let actual <i32> clone_left 11 @as_i32
+fn main %impure fn () i32 \():
+    let actual %i32 clone_left 11 @as_i32
     let report:
         test_report_new "explicit_prelude_survives_no_prelude"
         |> test_report_push assert_eq_i32 "explicit prelude copy clone" 11 actual
@@ -75,13 +75,13 @@ diag_code: type.trait_bound.unknown
 #indent 4
 #no_prelude
 
-fn clone_left <.T: Copy> <(.T, (.T)->i32)->i32> (x, f):
+fn clone_left <.T: Copy> %fn .T fn fn .T i32 i32 \x\f:
     f x
 
-fn as_i32 <(i32)->i32> (x):
+fn as_i32 %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     clone_left 3 @as_i32
 ```
 
@@ -108,11 +108,11 @@ stdout: "test_report name=\"generic_mem_ptr_copy_impl\" count=1 failed=0\nassert
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let p mem_ptr_wrap<i32> 32;
     let a mem_ptr_addr p;
     let b mem_ptr_addr p;
-    let actual <i32> if eq add a b 64 1 0
+    let actual %i32 if eq add a b 64 1 0
     let report:
         test_report_new "generic_mem_ptr_copy_impl"
         |> test_report_push assert_eq_i32 "generic MemPtr copy address sum" 1 actual

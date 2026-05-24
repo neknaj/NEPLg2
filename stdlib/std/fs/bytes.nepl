@@ -30,7 +30,7 @@
 //:
 //: 計算量:
 //: - O(1)
-pub fn fs_std_error_to_errno <(StdErrorKind)->i32> (kind):
+pub fn fs_std_error_to_errno %fn StdErrorKind i32 \kind:
     match kind:
         StdErrorKind::Failure:
             5
@@ -70,7 +70,7 @@ pub fn fs_std_error_to_errno <(StdErrorKind)->i32> (kind):
 //:
 //: 計算量:
 //: - O(n)
-pub fn fs_bytes_to_string_result <(ByteBuf)*>Result<str,i32>> (buf):
+pub fn fs_bytes_to_string_result %impure fn ByteBuf Result str i32 \buf:
     match io_bytebuf_to_str_result buf:
         Result::Ok text:
             Result<str,i32>::Ok text
@@ -110,11 +110,11 @@ pub fn fs_bytes_to_string_result <(ByteBuf)*>Result<str,i32>> (buf):
 //:| #import "std/fs/bytes" as *
 //:| #import "alloc/io" as *
 //:| #import "alloc/string" as *
-//: fn main <()*>i32> ():
-//:     let text <str> fs_bytes_to_string io_bytebuf_from_str "A";
+//: fn main %impure fn () i32 \():
+//:     let text %str fs_bytes_to_string io_bytebuf_from_str "A";
 //:     if str_eq text "A" 0 1
 //: ```
-pub fn fs_bytes_to_string <(ByteBuf)*>str> (buf):
+pub fn fs_bytes_to_string %impure fn ByteBuf str \buf:
     match fs_bytes_to_string_result buf:
         Result::Ok text:
             text
@@ -135,7 +135,7 @@ pub fn fs_bytes_to_string <(ByteBuf)*>str> (buf):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn fs_bytes_to_utf8_string_result <(ByteBuf)*>Result<str,i32>> (buf):
+pub fn fs_bytes_to_utf8_string_result %impure fn ByteBuf Result str i32 \buf:
     match text_bytebuf_to_utf8_str_result buf:
         Result::Ok text:
             Result<str,i32>::Ok text

@@ -20,7 +20,7 @@
 //:
 //: [実装/じっそう]:
 //: - `w[i-16] + sigma0(w[i-15]) + w[i-7] + sigma1(w[i-2])` を 32-bit word として[加算/かさん]します。
-pub fn sha256_schedule_word <(&Vec<i32>,i32)->Result<i32, StdErrorKind>> (w, i):
+pub fn sha256_schedule_word %fn &Vec i32 fn i32 Result i32 StdErrorKind \w\i:
     match get<i32> w sub i 2:
         Option::None:
             Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
@@ -37,24 +37,24 @@ pub fn sha256_schedule_word <(&Vec<i32>,i32)->Result<i32, StdErrorKind>> (w, i):
                                 Option::None:
                                     Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
                                 Option::Some w16:
-                                    let s0 <i32> sha256_small_sigma0 w15
-                                    let s1 <i32> sha256_small_sigma1 w2
-                                    let a <i32> add w16 s0
-                                    let b <i32> add a w7
+                                    let s0 %i32 sha256_small_sigma0 w15
+                                    let s1 %i32 sha256_small_sigma1 w2
+                                    let a %i32 add w16 s0
+                                    let b %i32 add a w7
                                     Result<i32, StdErrorKind>::Ok add b s1
 
 //: sha256_build_schedule_loop: 1 block の 64 word schedule を[作/つく]る
 //:
 //: [実装/じっそう]:
 //: - 先頭 16 word は padded block から[読/よ]み、残りは schedule recurrence で[追加/ついか]します。
-pub fn sha256_build_schedule_loop <(&Vec<i32>,i32,i32,i32,i32,Vec<i32>)*>Result<Vec<i32>, StdErrorKind>> (buf, msg_len, total_len, block_start, i, w):
-    let mut out <Vec<i32>> w
-    let mut idx <i32> i
-    let mut failed <bool> false
-    let mut failure <StdErrorKind> StdErrorKind::OutOfMemory
+pub fn sha256_build_schedule_loop %impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn Vec i32 Result Vec i32 StdErrorKind \buf\msg_len\total_len\block_start\i\w:
+    let mut out %Vec i32 w
+    let mut idx %i32 i
+    let mut failed %bool false
+    let mut failure %StdErrorKind StdErrorKind::OutOfMemory
     while and lt idx 64 not failed:
         do:
-            let word_result <Result<i32, StdErrorKind>>:
+            let word_result %Result i32 StdErrorKind:
                 if:
                     lt idx 16
                     then:
@@ -86,7 +86,7 @@ pub fn sha256_build_schedule_loop <(&Vec<i32>,i32,i32,i32,i32,Vec<i32>)*>Result<
 //:
 //: [注意/ちゅうい]:
 //: - [返/かえ]った `Vec<i32>` は block compression [後/ご]に `free` してください。
-pub fn sha256_build_schedule <(&Vec<i32>,i32,i32,i32)*>Result<Vec<i32>, StdErrorKind>> (buf, msg_len, total_len, block_start):
+pub fn sha256_build_schedule %impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 Result Vec i32 StdErrorKind \buf\msg_len\total_len\block_start:
     match with_capacity<i32> 64:
         Result::Err e:
             Result<Vec<i32>, StdErrorKind>::Err e

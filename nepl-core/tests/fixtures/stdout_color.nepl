@@ -4,7 +4,7 @@
 
 #import "std/stdio" as *
 
-fn main <()*> ()> ():
-    print_color ansi_red "red";
+fn main %impure fn () () \():
+    print_color AnsiColor::Red "red";
     print " ";
-    println_color ansi_green "green";
+    println_color AnsiColor::Green "green";

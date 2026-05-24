@@ -17,9 +17,9 @@
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error/diag" as *
 //:| #import "alloc/diag/error/diags" as *
-//: fn main <()*>i32> ():
-//:     let d <Diag> diag_error StdErrorKind::EmptyCollection "empty"
-//:     let ds <Diags> diags_one d
+//: fn main %impure fn () i32 \():
+//:     let d %Diag diag_error StdErrorKind::EmptyCollection "empty"
+//:     let ds %Diags diags_one d
 //:     let checks checks_push checks_new assert diags_has_errors ds
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown
@@ -39,12 +39,12 @@
 //:
 //: [目的/もくてき]:
 //: - `Diags` [構築/こうちく]で allocation failure が[起/お]きても trap せず、[空/から]の[診断群/しんだんぐん]へ[丸/まる]めます。
-pub fn diag_empty_diag_vec <()->Vec<Diag>> ():
+pub fn diag_empty_diag_vec %fn () Vec Diag \():
     v::vec_empty<Diag>
 
 //: diags_new: [空/から]の `Diags` を[作/つく]る
-pub fn diags_new <()*>Diags> ():
-    let mut items <Vec<Diag>> diag_empty_diag_vec;
+pub fn diags_new %impure fn () Diags \():
+    let mut items %Vec Diag diag_empty_diag_vec;
     match v::new<Diag>:
         Result::Ok items0:
             set items items0
@@ -53,7 +53,7 @@ pub fn diags_new <()*>Diags> ():
     Diags items
 
 //: diags_one: `Diag` 1 [件/けん]から `Diags` を[作/つく]る
-pub fn diags_one <(Diag)*>Diags> (d):
+pub fn diags_one %impure fn Diag Diags \d:
     match v::new<Diag>:
         Result::Ok items0:
             match v::push<Diag> items0 d:
@@ -66,7 +66,7 @@ pub fn diags_one <(Diag)*>Diags> (d):
             Diags diag_empty_diag_vec
 
 //: diags_push: `Diags` に `Diag` を 1 [件/けん][追加/ついか]する
-pub fn diags_push <(Diags,Diag)*>Diags> (ds, d):
+pub fn diags_push %impure fn Diags impure fn Diag Diags \ds\d:
     match v::push<Diag> field::get ds "items" d:
         Result::Ok items:
             Diags items
@@ -75,34 +75,34 @@ pub fn diags_push <(Diags,Diag)*>Diags> (ds, d):
             Diags diag_empty_diag_vec
 
 //: diags_len: [診断/しんだん][件数/けんすう]を[返/かえ]す
-pub fn diags_len <(&Diags)->i32> (ds):
-    let items <&Vec<Diag>> field::get_ref ds "items";
+pub fn diags_len %fn &Diags i32 \ds:
+    let items %&Vec Diag field::get_ref ds "items";
     v::len<Diag> items
 
-pub fn diags_len <(Diags)->i32> (ds):
-    let n <i32> diags_len &ds
+pub fn diags_len %fn Diags i32 \ds:
+    let n %i32 diags_len &ds
     diags_free ds
     n
 
 //: diags_has_errors: error level の[診断/しんだん]を 1 [件/けん]でも[含/ふく]むか[判定/はんてい]する
-pub fn diags_has_errors <(&Diags)->bool> (ds):
-    let items <&Vec<Diag>> field::get_ref ds "items";
-    let items_len <i32> v::len<Diag> items;
+pub fn diags_has_errors %fn &Diags bool \ds:
+    let items %&Vec Diag field::get_ref ds "items";
+    let items_len %i32 v::len<Diag> items;
     diags_has_errors_loop items items_len 0
 
-pub fn diags_has_errors <(Diags)->bool> (ds):
-    let ok <bool> diags_has_errors &ds
+pub fn diags_has_errors %fn Diags bool \ds:
+    let ok %bool diags_has_errors &ds
     diags_free ds
     ok
 
-pub fn diags_has_errors_loop <(&Vec<Diag>,i32,i32)->bool> (items, n, i):
+pub fn diags_has_errors_loop %fn &Vec Diag fn i32 fn i32 bool \items\n\i:
     if:
         ge i n
         then false
         else:
             match v::get<Diag> items i:
                 Option::Some d:
-                    let level <DiagLevel> diag_level d;
+                    let level %DiagLevel diag_level d;
                     match level:
                         DiagLevel::Error:
                             true
@@ -120,5 +120,5 @@ pub fn diags_has_errors_loop <(&Vec<Diag>,i32,i32)->bool> (items, n, i):
 //: [目的/もくてき]:
 //: - `Diags` を[値/あたい]として[消費/しょうひ]し、`items` の backing storage を[閉/と]じます。
 //: - `Diag` 本体は Copy な text fragment だけを[保持/ほじ]するため、要素ごとの drop traversal は[行/おこな]いません。
-pub fn diags_free <(Diags)->()> (ds):
+pub fn diags_free %fn Diags () \ds:
     v::free<Diag> field::get ds "items"

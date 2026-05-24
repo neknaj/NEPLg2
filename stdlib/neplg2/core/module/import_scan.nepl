@@ -32,18 +32,18 @@
 //:| #import "core/result" as *
 //:| #import "neplg2/core/module/import_scan" as *
 //:| #import "std/test" as *
-//: fn record_at <(&Vec<SelfhostImportRecord>,i32)->SelfhostImportRecord> (records, idx):
+//: fn record_at %fn &Vec SelfhostImportRecord fn i32 SelfhostImportRecord \records\idx:
 //:     unwrap<SelfhostImportRecord> v::get<SelfhostImportRecord> records idx
 //:
-//: fn main <()*>i32> ():
-//:     match selfhost_scan_module_imports_with_file_id "#import \"./util\" as util\n#import \"core/result\" as *\n    #import \"ignored\" as inner\nfn main <()->i32> ():\n    0\n" 0:
+//: fn main %impure fn () i32 \():
+//:     match selfhost_scan_module_imports_with_file_id "#import \"./util\" as util\n#import \"core/result\" as *\n    #import \"ignored\" as inner\nfn main %fn () i32 ():\n    0\n" 0:
 //:         Result::Ok records:
-//:             let r0 <SelfhostImportRecord> record_at &records 0
-//:             let r1 <SelfhostImportRecord> record_at &records 1
-//:             let report0 <TestReport> test_report_new "selfhost_import_scan_basic"
-//:             let report1 <TestReport> test_report_push report0 assert_eq_i32 "count" 2 v::len<SelfhostImportRecord> &records
-//:             let report2 <TestReport> test_report_push report1 assert_str_eq "first" "./util" r0.path
-//:             let report3 <TestReport> test_report_push report2 assert_str_eq "second" "core/result" r1.path
+//:             let r0 %SelfhostImportRecord record_at &records 0
+//:             let r1 %SelfhostImportRecord record_at &records 1
+//:             let report0 %TestReport test_report_new "selfhost_import_scan_basic"
+//:             let report1 %TestReport test_report_push report0 assert_eq_i32 "count" 2 v::len<SelfhostImportRecord> &records
+//:             let report2 %TestReport test_report_push report1 assert_str_eq "first" "./util" r0.path
+//:             let report3 %TestReport test_report_push report2 assert_str_eq "second" "core/result" r1.path
 //:             v::free<SelfhostImportRecord> records
 //:             test_report_exit_code test_report_print_stdout report3
 //:         Result::Err _diag:
@@ -65,7 +65,7 @@
 #import "core/field" as *
 #import "core/math" as *
 
-fn selfhost_import_scan_byte_or_end <(str,i32)->i32> (source, idx):
+fn selfhost_import_scan_byte_or_end %fn str fn i32 i32 \source\idx:
     match string_byte_index::checked_string_byte_at source idx:
         Option::Some b:
             b
@@ -78,35 +78,35 @@ fn selfhost_import_scan_byte_or_end <(str,i32)->i32> (source, idx):
 //: - import directive の span、解決対象 path、alias、wildcard かどうかを[保持/ほじ]します。
 //: - graph stage は AST item index ではなくこの record を使うため、module parser へ依存しません。
 pub struct SelfhostImportRecord:
-    span <SelfhostSourceSpan>
-    path <str>
-    alias <str>
-    is_wildcard <bool>
+    span %SelfhostSourceSpan
+    path %str
+    alias %str
+    is_wildcard %bool
 
 impl Clone for SelfhostImportRecord:
-    fn clone <(&SelfhostImportRecord)->SelfhostImportRecord> (self):
+    fn clone %fn &SelfhostImportRecord SelfhostImportRecord \self:
         *self
 
 impl Copy for SelfhostImportRecord:
-    fn copy_mark <(SelfhostImportRecord)->SelfhostImportRecord> (self):
+    fn copy_mark %fn SelfhostImportRecord SelfhostImportRecord \self:
         self
 
 //: selfhost_import_record_new: import record を[作/つく]る
-pub fn selfhost_import_record_new <(SelfhostSourceSpan,str,str,bool)->SelfhostImportRecord> (span, path, alias, is_wildcard):
+pub fn selfhost_import_record_new %fn SelfhostSourceSpan fn str fn str fn bool SelfhostImportRecord \span\path\alias\is_wildcard:
     SelfhostImportRecord span path alias is_wildcard
 
 //: selfhost_import_scan_oom_diag: import scan 中の allocation failure を diagnostic にする
-pub fn selfhost_import_scan_oom_diag <(SelfhostSourceSpan)->SelfhostDiagnostic> (span):
+pub fn selfhost_import_scan_oom_diag %fn SelfhostSourceSpan SelfhostDiagnostic \span:
     selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::OutOfMemory "import scanner ran out of memory"
 
 //: selfhost_import_scan_line_end: 行末 byte offset を[返/かえ]す
-pub fn selfhost_import_scan_line_end <(str,i32,i32)->i32> (source, n, idx):
+pub fn selfhost_import_scan_line_end %fn str fn i32 fn i32 i32 \source\n\idx:
     if:
         ge idx n
         then:
             idx
         else:
-            let ch <i32> selfhost_import_scan_byte_or_end source idx
+            let ch %i32 selfhost_import_scan_byte_or_end source idx
             if:
                 or eq ch '\n' eq ch '\r'
                 then:
@@ -115,17 +115,17 @@ pub fn selfhost_import_scan_line_end <(str,i32,i32)->i32> (source, n, idx):
                     selfhost_import_scan_line_end source n add idx 1
 
 //: selfhost_import_scan_next_line: 次の行頭 byte offset を[返/かえ]す
-pub fn selfhost_import_scan_next_line <(str,i32,i32)->i32> (source, n, idx):
+pub fn selfhost_import_scan_next_line %fn str fn i32 fn i32 i32 \source\n\idx:
     if:
         ge idx n
         then:
             idx
         else:
-            let ch <i32> selfhost_import_scan_byte_or_end source idx
+            let ch %i32 selfhost_import_scan_byte_or_end source idx
             if:
                 eq ch '\r'
                 then:
-                    let next <i32> add idx 1
+                    let next %i32 add idx 1
                     if:
                         and lt next n eq selfhost_import_scan_byte_or_end source next '\n'
                         then:
@@ -141,42 +141,42 @@ pub fn selfhost_import_scan_next_line <(str,i32,i32)->i32> (source, n, idx):
                             selfhost_import_scan_next_line source n add idx 1
 
 //: selfhost_import_scan_is_import_line: 行頭から `#import` directive が始まるか[返/かえ]す
-pub fn selfhost_import_scan_is_import_line <(str,i32,i32)->bool> (source, line_start, line_end):
+pub fn selfhost_import_scan_is_import_line %fn str fn i32 fn i32 bool \source\line_start\line_end:
     if:
         not string_search::str_starts_with_at source line_start "#import"
         then:
             false
         else:
-            let after <i32> add line_start 7
+            let after %i32 add line_start 7
             if:
                 ge after line_end
                 then:
                     false
                 else:
-                    let ch <i32> selfhost_import_scan_byte_or_end source after
+                    let ch %i32 selfhost_import_scan_byte_or_end source after
                     or eq ch ' ' eq ch '\t'
 
 //: selfhost_import_record_from_line: top-level import directive 行から record を[作/つく]る
-pub fn selfhost_import_record_from_line <(str,i32,i32,i32)*>Result<SelfhostImportRecord, SelfhostDiagnostic>> (source, file_id, line_start, line_end):
-    let span <SelfhostSourceSpan> source_span_new file_id line_start line_end
-    let lexeme <str> string_slice::str_slice source line_start line_end
+pub fn selfhost_import_record_from_line %impure fn str impure fn i32 impure fn i32 impure fn i32 Result SelfhostImportRecord SelfhostDiagnostic \source\file_id\line_start\line_end:
+    let span %SelfhostSourceSpan source_span_new file_id line_start line_end
+    let lexeme %str string_slice::str_slice source line_start line_end
     match selfhost_import_spec_parse_lexeme_with_item_index span lexeme 0:
         Result::Ok spec:
-            let path <str> selfhost_import_spec_path lexeme spec
-            let alias <str> selfhost_import_spec_alias lexeme spec
+            let path %str selfhost_import_spec_path lexeme spec
+            let alias %str selfhost_import_spec_alias lexeme spec
             Result<SelfhostImportRecord, SelfhostDiagnostic>::Ok selfhost_import_record_new selfhost_import_spec_span spec path alias selfhost_import_spec_is_wildcard spec
         Result::Err diag:
             Result<SelfhostImportRecord, SelfhostDiagnostic>::Err diag
 
 //: selfhost_scan_module_imports_loop: source text から import record を[集/あつ]める
-pub fn selfhost_scan_module_imports_loop <(str,i32,i32,i32,Vec<SelfhostImportRecord>)*>Result<Vec<SelfhostImportRecord>, SelfhostDiagnostic>> (source, file_id, n, line_start, out):
+pub fn selfhost_scan_module_imports_loop %impure fn str impure fn i32 impure fn i32 impure fn i32 impure fn Vec SelfhostImportRecord Result Vec SelfhostImportRecord SelfhostDiagnostic \source\file_id\n\line_start\out:
     if:
         ge line_start n
         then:
             Result<Vec<SelfhostImportRecord>, SelfhostDiagnostic>::Ok out
         else:
-            let line_end <i32> selfhost_import_scan_line_end source n line_start
-            let next_line <i32> selfhost_import_scan_next_line source n line_start
+            let line_end %i32 selfhost_import_scan_line_end source n line_start
+            let next_line %i32 selfhost_import_scan_next_line source n line_start
             if:
                 selfhost_import_scan_is_import_line source line_start line_end
                 then:
@@ -195,7 +195,7 @@ pub fn selfhost_scan_module_imports_loop <(str,i32,i32,i32,Vec<SelfhostImportRec
                     selfhost_scan_module_imports_loop source file_id n next_line out
 
 //: selfhost_scan_module_imports_with_file_id: source text から import record を[集/あつ]める
-pub fn selfhost_scan_module_imports_with_file_id <(str,i32)*>Result<Vec<SelfhostImportRecord>, SelfhostDiagnostic>> (source, file_id):
+pub fn selfhost_scan_module_imports_with_file_id %impure fn str impure fn i32 Result Vec SelfhostImportRecord SelfhostDiagnostic \source\file_id:
     match v::new<SelfhostImportRecord>:
         Result::Ok out:
             selfhost_scan_module_imports_loop source file_id string_access::len source 0 out
@@ -203,5 +203,5 @@ pub fn selfhost_scan_module_imports_with_file_id <(str,i32)*>Result<Vec<Selfhost
             Result<Vec<SelfhostImportRecord>, SelfhostDiagnostic>::Err selfhost_import_scan_oom_diag source_span_empty 0 0
 
 //: selfhost_scan_module_imports: single-file 互換の import scanner
-pub fn selfhost_scan_module_imports <(str)*>Result<Vec<SelfhostImportRecord>, SelfhostDiagnostic>> (source):
+pub fn selfhost_scan_module_imports %impure fn str Result Vec SelfhostImportRecord SelfhostDiagnostic \source:
     selfhost_scan_module_imports_with_file_id source 0

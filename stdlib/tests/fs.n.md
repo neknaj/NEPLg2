@@ -17,11 +17,11 @@ stdout: "test_report name=\"fs_main\" count=1 failed=0\nassertion index=0 status
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let report:
         match fs_read_to_string "__definitely_missing_file__.txt":
             Result::Ok s:
-                let _drop <()> test_consume_str s;
+                let _drop %() test_consume_str s;
                 test_report_new "fs_main"
                 |> test_report_push test_assertion_failed AssertionKind::Bool "missing file returns error" "true" "false" "fs_read_to_string unexpectedly succeeded"
             Result::Err e:

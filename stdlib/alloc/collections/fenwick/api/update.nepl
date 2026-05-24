@@ -19,13 +19,13 @@
 
 //: ## fenwick_add_ok
 //: 更新に[成功/せいこう]した `Fenwick` owner を `Result::Ok` へ[包/つつ]む
-pub fn fenwick_add_ok <(Fenwick)->Result<Fenwick, FenwickAddError>> (fw):
+pub fn fenwick_add_ok %fn Fenwick Result Fenwick FenwickAddError \fw:
     ok<Fenwick, FenwickAddError> fw
 
 //: ## fenwick_add_err
 //: update [失敗/しっぱい]を owner-preserving error に[変換/へんかん]する
-pub fn fenwick_add_err <(Fenwick,Diag)->Result<Fenwick, FenwickAddError>> (fw, d):
-    let e <FenwickAddError> FenwickAddError fw d
+pub fn fenwick_add_err %fn Fenwick fn Diag Result Fenwick FenwickAddError \fw\d:
+    let e %FenwickAddError FenwickAddError fw d
     err<Fenwick, FenwickAddError> e
 
 //: ## add
@@ -45,22 +45,22 @@ pub fn fenwick_add_err <(Fenwick,Diag)->Result<Fenwick, FenwickAddError>> (fw, d
 //:| #import "alloc/collections/fenwick" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let fw <Fenwick>:
+//: fn main %impure fn () i32 \():
+//:     let fw %Fenwick:
 //:         unwrap_ok<Fenwick, Diag> new 4
 //:         |> add 0 2 |> uwok
 //:         |> add 3 5 |> uwok
-//:     let total <i32> unwrap_ok<i32, Diag> sum_range &fw 0 4;
+//:     let total %i32 unwrap_ok<i32, Diag> sum_range &fw 0 4;
 //:     free fw
 //:     if eq total 7 1 0
 //: ```
-pub fn add <(Fenwick,i32,i32)*>Result<Fenwick, FenwickAddError>> (fw, idx, delta):
-    let n <i32> *field::get_ref &fw "n"
+pub fn add %impure fn Fenwick impure fn i32 impure fn i32 Result Fenwick FenwickAddError \fw\idx\delta:
+    let n %i32 *field::get_ref &fw "n"
     if:
         and le 0 idx lt idx n
         then:
-            let result <Result<(), Diag>> block:
-                let bit <&Vec<i32>> field::get_ref &fw "bit"
+            let result %Result () Diag block:
+                let bit %&Vec i32 field::get_ref &fw "bit"
                 if:
                     fenwick_add_storage bit n idx delta
                     then:
@@ -73,5 +73,5 @@ pub fn add <(Fenwick,i32,i32)*>Result<Fenwick, FenwickAddError>> (fw, idx, delta
                 Result::Err d:
                     fenwick_add_err fw d
         else:
-            let d <Diag> fenwick_diag_index
+            let d %Diag fenwick_diag_index
             fenwick_add_err fw d

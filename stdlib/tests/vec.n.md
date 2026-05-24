@@ -18,17 +18,17 @@ stdout: "test_report name=\"vec_main\" count=10 failed=0\nassertion index=0 stat
 #import "std/test" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
-    let v0_empty <Vec<i32>> unwrap_ok new<i32>;
-    let v0_is_empty <bool> is_empty<i32> &v0_empty;
-    let v0_cap <Vec<i32>> unwrap_ok with_capacity<i32> 2;
-    let v0_cap_starts_empty <bool> is_empty<i32> &v0_cap;
+fn main %impure fn () i32 \():
+    let v0_empty %Vec i32 unwrap_ok new<i32>;
+    let v0_is_empty %bool is_empty<i32> &v0_empty;
+    let v0_cap %Vec i32 unwrap_ok with_capacity<i32> 2;
+    let v0_cap_starts_empty %bool is_empty<i32> &v0_cap;
 
     let v2:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
-    let v2_len <i32> len<i32> &v2;
+    let v2_len %i32 len<i32> &v2;
 
     let v6:
         unwrap_ok new<i32>
@@ -38,7 +38,7 @@ fn main <()*>i32> ():
         |> unwrap_ok
         |> push<i32> 30
         |> unwrap_ok
-    let v6_len <i32> len<i32> &v6;
+    let v6_len %i32 len<i32> &v6;
 
     let g2:
         unwrap_ok new<i32>
@@ -46,7 +46,7 @@ fn main <()*>i32> ():
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    let mut g2_value <i32> -1;
+    let mut g2_value %i32 -1;
     match get<i32> &g2 0:
         Option::Some x:
             set g2_value x
@@ -67,7 +67,7 @@ fn main <()*>i32> ():
         |> push<i32> 20
         |> unwrap_ok
     replace<i32> &s2_ref 0 11;
-    let mut s2_ref_value <i32> -1;
+    let mut s2_ref_value %i32 -1;
     match get<i32> &s2_ref 0:
         Option::Some x:
             set s2_ref_value x
@@ -78,20 +78,20 @@ fn main <()*>i32> ():
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
-    let o1_none <bool> is_none<i32> get<i32> &o1 2;
+    let o1_none %bool is_none<i32> get<i32> &o1 2;
 
     let p1:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
-    let p1_none <bool> is_none<i32> get<i32> &p1 -1;
+    let p1_none %bool is_none<i32> get<i32> &p1 -1;
 
-    let u8_65 <u8> cast 65;
+    let u8_65 %u8 cast 65;
     let b1:
         unwrap_ok new<u8>
         |> push<u8> u8_65
         |> unwrap_ok
-    let mut b1_value <i32> -1;
+    let mut b1_value %i32 -1;
     match get<u8> &b1 0:
         Option::Some x:
             set b1_value cast x
@@ -143,103 +143,103 @@ stdout: "test_report name=\"vec_functional_helpers\" count=8 failed=0\nassertion
 #import "std/test" as *
 #import "core/field" as *
 
-fn inc <(i32)->i32> (x):
+fn inc %fn i32 i32 \x:
     add x 1
 
-fn is_even <(i32)->bool> (x):
+fn is_even %fn i32 bool \x:
     eq rem_s x 2 0
 
-fn add_acc <(i32,i32)->i32> (acc, x):
+fn add_acc %fn i32 fn i32 i32 \acc\x:
     add acc x
 
-fn gt_two <(i32)->bool> (x):
+fn gt_two %fn i32 bool \x:
     gt x 2
 
-fn lt_four <(i32)->bool> (x):
+fn lt_four %fn i32 bool \x:
     lt x 4
 
-fn main <()*>i32> ():
-    let mapped_src <Vec<i32>>:
+fn main %impure fn () i32 \():
+    let mapped_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
-    let mapped <Vec<i32>> unwrap_ok map<i32,i32> mapped_src inc;
-    let mut mapped_value <i32> -1;
+    let mapped %Vec i32 unwrap_ok map<i32,i32> mapped_src inc;
+    let mut mapped_value %i32 -1;
     match get<i32> &mapped 2:
         Option::Some x:
             set mapped_value x
         Option::None:
             ()
 
-    let filtered_len_src <Vec<i32>>:
+    let filtered_len_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let filtered_len <Vec<i32>> unwrap_ok filter<i32> filtered_len_src is_even;
-    let filtered_len_value <i32> len<i32> &filtered_len;
-    let filtered_get_src <Vec<i32>>:
+    let filtered_len %Vec i32 unwrap_ok filter<i32> filtered_len_src is_even;
+    let filtered_len_value %i32 len<i32> &filtered_len;
+    let filtered_get_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let filtered_get <Vec<i32>> unwrap_ok filter<i32> filtered_get_src is_even;
-    let mut filtered_value <i32> -1;
+    let filtered_get %Vec i32 unwrap_ok filter<i32> filtered_get_src is_even;
+    let mut filtered_value %i32 -1;
     match get<i32> &filtered_get 1:
         Option::Some x:
             set filtered_value x
         Option::None:
             ()
 
-    let folded_src <Vec<i32>>:
+    let folded_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let folded_sum <i32> fold<i32,i32> &folded_src 0 add_acc;
+    let folded_sum %i32 fold<i32,i32> &folded_src 0 add_acc;
 
-    let reduced_src <Vec<i32>>:
+    let reduced_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let mut reduced_value <i32> -1;
+    let mut reduced_value %i32 -1;
     match reduce<i32> &reduced_src add_acc:
         Option::Some x:
             set reduced_value x
         Option::None:
             ()
 
-    let find_src <Vec<i32>>:
+    let find_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
-    let mut find_value <i32> -1;
+    let mut find_value %i32 -1;
     match find<i32> &find_src gt_two:
         Option::Some x:
             set find_value x
         Option::None:
             ()
 
-    let any_src <Vec<i32>>:
+    let any_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
-    let any_value <bool> any<i32> &any_src gt_two;
+    let any_value %bool any<i32> &any_src gt_two;
 
-    let all_src <Vec<i32>>:
+    let all_src %Vec i32:
         unwrap_ok new<i32>
         |> push 2 |> uwok
         |> push 4 |> uwok
         |> push 6 |> uwok
-    let all_value <bool> all<i32> &all_src is_even;
+    let all_value %bool all<i32> &all_src is_even;
 
     free<i32> mapped;
     free<i32> filtered_len;
@@ -281,47 +281,47 @@ stdout: "test_report name=\"vec_partition_helpers\" count=4 failed=0\nassertion 
 #import "std/test" as *
 #import "core/field" as *
 
-fn is_even <(i32)->bool> (x):
+fn is_even %fn i32 bool \x:
     eq rem_s x 2 0
 
-fn main <()*>i32> ():
-    let partition_even_len_src <Vec<i32>>:
+fn main %impure fn () i32 \():
+    let partition_even_len_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_even_len unwrap_ok partition<i32> partition_even_len_src is_even;
-    let evens_len_value <i32> vec_partition_matched_len<i32> &parts_even_len;
-    let partition_even_get_src <Vec<i32>>:
+    let evens_len_value %i32 vec_partition_matched_len<i32> &parts_even_len;
+    let partition_even_get_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_even_get unwrap_ok partition<i32> partition_even_get_src is_even;
-    let mut evens_get_value <i32> -1;
+    let mut evens_get_value %i32 -1;
     match vec_partition_matched_get<i32> &parts_even_get 1:
         Option::Some x:
             set evens_get_value x
         Option::None:
             ()
-    let partition_odds_len_src <Vec<i32>>:
+    let partition_odds_len_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_odds_len unwrap_ok partition<i32> partition_odds_len_src is_even;
-    let odds_len_value <i32> vec_partition_rest_len<i32> &parts_odds_len;
-    let partition_odds_get_src <Vec<i32>>:
+    let odds_len_value %i32 vec_partition_rest_len<i32> &parts_odds_len;
+    let partition_odds_get_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_odds_get unwrap_ok partition<i32> partition_odds_get_src is_even;
-    let mut odds_get_value <i32> -1;
+    let mut odds_get_value %i32 -1;
     match vec_partition_rest_get<i32> &parts_odds_get 0:
         Option::Some x:
             set odds_get_value x
@@ -359,19 +359,19 @@ stdout: "test_report name=\"vec_prefix_helpers\" count=1 failed=0\nassertion ind
 #import "core/result" as *
 #import "std/test" as *
 
-fn lt_four <(i32)->bool> (x):
+fn lt_four %fn i32 bool \x:
     lt x 4
 
-fn main <()*>i32> ():
-    let take_src <Vec<i32>>:
+fn main %impure fn () i32 \():
+    let take_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 5 |> uwok
         |> push 6 |> uwok
-    let taken <Vec<i32>> unwrap_ok take_while<i32> take_src lt_four;
-    let taken_len <i32> len<i32> &taken;
+    let taken %Vec i32 unwrap_ok take_while<i32> take_src lt_four;
+    let taken_len %i32 len<i32> &taken;
     free<i32> taken;
 
     let report:
@@ -399,19 +399,19 @@ stdout: "test_report name=\"vec_drop_while_helper\" count=1 failed=0\nassertion 
 #import "std/test" as *
 #import "core/field" as *
 
-fn lt_four <(i32)->bool> (x):
+fn lt_four %fn i32 bool \x:
     lt x 4
 
-fn main <()*>i32> ():
-    let drop_src <Vec<i32>>:
+fn main %impure fn () i32 \():
+    let drop_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 5 |> uwok
         |> push 6 |> uwok
-    let dropped <Vec<i32>> unwrap_ok drop_while<i32> drop_src lt_four;
-    let mut dropped_first <i32> -1;
+    let dropped %Vec i32 unwrap_ok drop_while<i32> drop_src lt_four;
+    let mut dropped_first %i32 -1;
     match get<i32> &dropped 0:
         Option::Some x:
             set dropped_first x
@@ -442,18 +442,18 @@ stdout: "test_report name=\"vec_count_helper\" count=1 failed=0\nassertion index
 #import "core/result" as *
 #import "std/test" as *
 
-fn is_even <(i32)->bool> (x):
+fn is_even %fn i32 bool \x:
     eq rem_s x 2 0
 
-fn main <()*>i32> ():
-    let count_src <Vec<i32>>:
+fn main %impure fn () i32 \():
+    let count_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
         |> push 5 |> uwok
-    let even_count <i32> count<i32> &count_src is_even;
+    let even_count %i32 count<i32> &count_src is_even;
     free<i32> count_src;
     let report:
         test_report_new "vec_count_helper"

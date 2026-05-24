@@ -36,11 +36,11 @@ pub enum SelfhostProofEvidenceKind:
     EffectAllowed
 
 impl Clone for SelfhostProofEvidenceKind:
-    fn clone <(&SelfhostProofEvidenceKind)->SelfhostProofEvidenceKind> (self):
+    fn clone %fn &SelfhostProofEvidenceKind SelfhostProofEvidenceKind \self:
         *self
 
 impl Copy for SelfhostProofEvidenceKind:
-    fn copy_mark <(SelfhostProofEvidenceKind)->SelfhostProofEvidenceKind> (self):
+    fn copy_mark %fn SelfhostProofEvidenceKind SelfhostProofEvidenceKind \self:
         self
 
 //: SelfhostProofEvidence: proof が[成立/せいりつ]したときに返す typed evidence
@@ -49,30 +49,30 @@ impl Copy for SelfhostProofEvidenceKind:
 //: - 成功した proof が何を証明したかを enum payload として残し、caller が証明の種類を match で確認できるようにします。
 pub enum SelfhostProofEvidence:
     SourceSpanValid
-    RawBackendTransition <SelfhostRawBackendState>
-    ModuleDirectiveTransition <SelfhostModuleDirectiveState>
-    ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationHeader>
-    TypeKindCompatible <SelfhostTypeKind>
-    TraitImplNonOverlapping <SelfhostTraitImplRelation>
-    LifetimeOutlives <SelfhostLifetimeRelation>
-    ResourceCellTransition <SelfhostResourceCellState>
-    OwnerTransition <SelfhostOwnerState>
-    ResourceBorrowAccess <SelfhostBorrowState>
-    EffectAllowed <SelfhostEffectContext>
+    RawBackendTransition %SelfhostRawBackendState
+    ModuleDirectiveTransition %SelfhostModuleDirectiveState
+    ModuleDeclarationHeaderAvailable %SelfhostModuleDeclarationHeader
+    TypeKindCompatible %SelfhostTypeKind
+    TraitImplNonOverlapping %SelfhostTraitImplRelation
+    LifetimeOutlives %SelfhostLifetimeRelation
+    ResourceCellTransition %SelfhostResourceCellState
+    OwnerTransition %SelfhostOwnerState
+    ResourceBorrowAccess %SelfhostBorrowState
+    EffectAllowed %SelfhostEffectContext
 
 impl Clone for SelfhostProofEvidence:
-    fn clone <(&SelfhostProofEvidence)->SelfhostProofEvidence> (self):
+    fn clone %fn &SelfhostProofEvidence SelfhostProofEvidence \self:
         *self
 
 impl Copy for SelfhostProofEvidence:
-    fn copy_mark <(SelfhostProofEvidence)->SelfhostProofEvidence> (self):
+    fn copy_mark %fn SelfhostProofEvidence SelfhostProofEvidence \self:
         self
 
 //: selfhost_proof_evidence_kind: evidence から kind を[取/と]り[出/だ]す
 //:
 //: [目的/もくてき]:
 //: - payload を捨てて証明の種類だけを比較するときも、文字列 code ではなく enum の exhaustive match を使います。
-pub fn selfhost_proof_evidence_kind <(SelfhostProofEvidence)->SelfhostProofEvidenceKind> (evidence):
+pub fn selfhost_proof_evidence_kind %fn SelfhostProofEvidence SelfhostProofEvidenceKind \evidence:
     match evidence:
         SelfhostProofEvidence::SourceSpanValid:
             SelfhostProofEvidenceKind::SourceSpanValid

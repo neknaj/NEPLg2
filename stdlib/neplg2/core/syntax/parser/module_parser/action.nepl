@@ -3,7 +3,7 @@
 #import "./state" as *
 
 //: selfhost_parser_token_action: token kind から parser loop action を[選/えら]ぶ
-pub fn selfhost_parser_token_action <(TokenKind)->SelfhostParserTokenAction> (kind):
+pub fn selfhost_parser_token_action %fn TokenKind SelfhostParserTokenAction \kind:
     match kind:
         TokenKind::Indent:
             SelfhostParserTokenAction::Indent
@@ -28,6 +28,10 @@ pub fn selfhost_parser_token_action <(TokenKind)->SelfhostParserTokenAction> (ki
         TokenKind::LAngle:
             SelfhostParserTokenAction::Regular
         TokenKind::RAngle:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Percent:
+            SelfhostParserTokenAction::Regular
+        TokenKind::Backslash:
             SelfhostParserTokenAction::Regular
         TokenKind::Arrow:
             SelfhostParserTokenAction::Regular

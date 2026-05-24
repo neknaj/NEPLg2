@@ -22,7 +22,7 @@
 //: - `items` の末尾が論理上の先頭です。
 //: - `items` は `List` が[所有/しょゆう]し、不要になったら `free` で[閉/と]じます。
 pub struct List<.T>:
-    items <Vec<.T>>
+    items %Vec .T
 
 //: ## ListPushError
 //: `cons` / `push` の grow [失敗/しっぱい]で[戻/もど]る error payload
@@ -42,15 +42,15 @@ pub struct List<.T>:
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <ListPushError<i32>> ListPushError<i32> lst d0;
+//: fn main %impure fn () i32 \():
+//:     let lst %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %ListPushError i32 ListPushError<i32> lst d0;
 //:     0
 //: ```
 pub struct ListPushError<.T>:
-    list <List<.T>>
-    diag <Diag>
+    list %List .T
+    diag %Diag
 
 //: ## ListTransformError
 //: `map` / `filter` の変換[失敗/しっぱい]で[戻/もど]る error payload
@@ -73,15 +73,15 @@ pub struct ListPushError<.T>:
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <ListTransformError<i32>> ListTransformError<i32> lst d0;
+//: fn main %impure fn () i32 \():
+//:     let lst %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %ListTransformError i32 ListTransformError<i32> lst d0;
 //:     0
 //: ```
 pub struct ListTransformError<.T>:
-    list <List<.T>>
-    diag <Diag>
+    list %List .T
+    diag %Diag
 
 //: ## list_push_error_diag
 //: push [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
@@ -97,13 +97,13 @@ pub struct ListTransformError<.T>:
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <ListPushError<i32>> ListPushError<i32> lst d0;
+//: fn main %impure fn () i32 \():
+//:     let lst %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %ListPushError i32 ListPushError<i32> lst d0;
 //:     0
 //: ```
-pub fn list_push_error_diag <.T> <(&ListPushError<.T>)->Diag> (e):
+pub fn list_push_error_diag <.T> %fn &ListPushError .T Diag \e:
     *field::get_ref e "diag"
 
 //: ## list_push_error_list
@@ -123,13 +123,13 @@ pub fn list_push_error_diag <.T> <(&ListPushError<.T>)->Diag> (e):
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <ListPushError<i32>> ListPushError<i32> lst d0;
+//: fn main %impure fn () i32 \():
+//:     let lst %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %ListPushError i32 ListPushError<i32> lst d0;
 //:     0
 //: ```
-pub fn list_push_error_list <.T: Copy> <(ListPushError<.T>)->List<.T>> (e):
+pub fn list_push_error_list <.T: Copy> %fn ListPushError .T List .T \e:
     field::get e "list"
 
 //: ## list_transform_error_diag
@@ -150,13 +150,13 @@ pub fn list_push_error_list <.T: Copy> <(ListPushError<.T>)->List<.T>> (e):
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <ListTransformError<i32>> ListTransformError<i32> lst d0;
+//: fn main %impure fn () i32 \():
+//:     let lst %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %ListTransformError i32 ListTransformError<i32> lst d0;
 //:     0
 //: ```
-pub fn list_transform_error_diag <.T> <(&ListTransformError<.T>)->Diag> (e):
+pub fn list_transform_error_diag <.T> %fn &ListTransformError .T Diag \e:
     *field::get_ref e "diag"
 
 //: ## list_transform_error_list
@@ -177,11 +177,11 @@ pub fn list_transform_error_diag <.T> <(&ListTransformError<.T>)->Diag> (e):
 //: #import "alloc/collections/list" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <ListTransformError<i32>> ListTransformError<i32> lst d0;
+//: fn main %impure fn () i32 \():
+//:     let lst %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %ListTransformError i32 ListTransformError<i32> lst d0;
 //:     0
 //: ```
-pub fn list_transform_error_list <.T: Copy> <(ListTransformError<.T>)->List<.T>> (e):
+pub fn list_transform_error_list <.T: Copy> %fn ListTransformError .T List .T \e:
     field::get e "list"

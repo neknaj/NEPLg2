@@ -18,11 +18,11 @@ pub enum SelfhostHirExprKind:
     If
 
 impl Clone for SelfhostHirExprKind:
-    fn clone <(&SelfhostHirExprKind)->SelfhostHirExprKind> (self):
+    fn clone %fn &SelfhostHirExprKind SelfhostHirExprKind \self:
         *self
 
 impl Copy for SelfhostHirExprKind:
-    fn copy_mark <(SelfhostHirExprKind)->SelfhostHirExprKind> (self):
+    fn copy_mark %fn SelfhostHirExprKind SelfhostHirExprKind \self:
         self
 
 //: SelfhostHirExpr: HIR expression record
@@ -34,47 +34,47 @@ impl Copy for SelfhostHirExprKind:
 //: - child range や literal 値は `SelfhostHirExprPayload` を match した後でだけ読めます。
 //: - 後続の symbol table / string table 導入までは、Var / Call / StrLiteral payload に `str` を直接保持します。
 pub struct SelfhostHirCallExpr:
-    name <str>
-    args <SelfhostHirChildRange>
+    name %str
+    args %SelfhostHirChildRange
 
 impl Clone for SelfhostHirCallExpr:
-    fn clone <(&SelfhostHirCallExpr)->SelfhostHirCallExpr> (self):
+    fn clone %fn &SelfhostHirCallExpr SelfhostHirCallExpr \self:
         *self
 
 impl Copy for SelfhostHirCallExpr:
-    fn copy_mark <(SelfhostHirCallExpr)->SelfhostHirCallExpr> (self):
+    fn copy_mark %fn SelfhostHirCallExpr SelfhostHirCallExpr \self:
         self
 
 pub enum SelfhostHirExprPayload:
     Error
     Unit
-    BoolLiteral <bool>
-    I32Literal <i32>
-    StrLiteral <str>
-    Var <str>
-    Call <SelfhostHirCallExpr>
-    Block <SelfhostHirChildRange>
-    If <SelfhostHirChildRange>
+    BoolLiteral %bool
+    I32Literal %i32
+    StrLiteral %str
+    Var %str
+    Call %SelfhostHirCallExpr
+    Block %SelfhostHirChildRange
+    If %SelfhostHirChildRange
 
 impl Clone for SelfhostHirExprPayload:
-    fn clone <(&SelfhostHirExprPayload)->SelfhostHirExprPayload> (self):
+    fn clone %fn &SelfhostHirExprPayload SelfhostHirExprPayload \self:
         *self
 
 impl Copy for SelfhostHirExprPayload:
-    fn copy_mark <(SelfhostHirExprPayload)->SelfhostHirExprPayload> (self):
+    fn copy_mark %fn SelfhostHirExprPayload SelfhostHirExprPayload \self:
         self
 
 pub struct SelfhostHirExpr:
-    ty <SelfhostTypeId>
-    span <SelfhostSourceSpan>
-    payload <SelfhostHirExprPayload>
+    ty %SelfhostTypeId
+    span %SelfhostSourceSpan
+    payload %SelfhostHirExprPayload
 
 impl Clone for SelfhostHirExpr:
-    fn clone <(&SelfhostHirExpr)->SelfhostHirExpr> (self):
+    fn clone %fn &SelfhostHirExpr SelfhostHirExpr \self:
         *self
 
 impl Copy for SelfhostHirExpr:
-    fn copy_mark <(SelfhostHirExpr)->SelfhostHirExpr> (self):
+    fn copy_mark %fn SelfhostHirExpr SelfhostHirExpr \self:
         self
 
 //: selfhost_hir_expr_kind_eq: expression kind が同じ分類か[返/かえ]す
@@ -82,7 +82,7 @@ impl Copy for SelfhostHirExpr:
 //: [目的/もくてき]:
 //: - HIR expression kind を numeric tag に落とさず、variant を直接 match して比較します。
 //: - expression kind 追加時に比較分岐を明示的に更新する形を保ちます。
-pub fn selfhost_hir_expr_kind_eq <(SelfhostHirExprKind,SelfhostHirExprKind)->bool> (a, b):
+pub fn selfhost_hir_expr_kind_eq %fn SelfhostHirExprKind fn SelfhostHirExprKind bool \a\b:
     match a:
         SelfhostHirExprKind::Error:
             match b:
@@ -266,47 +266,47 @@ pub fn selfhost_hir_expr_kind_eq <(SelfhostHirExprKind,SelfhostHirExprKind)->boo
                     true
 
 //: selfhost_hir_expr_new: expression record を[作/つく]る
-pub fn selfhost_hir_expr_new <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirExprPayload)->SelfhostHirExpr> (ty, span, payload):
+pub fn selfhost_hir_expr_new %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostHirExprPayload SelfhostHirExpr \ty\span\payload:
     SelfhostHirExpr ty span payload
 
 //: selfhost_hir_expr_error: error expression record を[作/つく]る
-pub fn selfhost_hir_expr_error <(SelfhostTypeId,SelfhostSourceSpan)->SelfhostHirExpr> (ty, span):
+pub fn selfhost_hir_expr_error %fn SelfhostTypeId fn SelfhostSourceSpan SelfhostHirExpr \ty\span:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::Error
 
 //: selfhost_hir_expr_unit: unit expression record を[作/つく]る
-pub fn selfhost_hir_expr_unit <(SelfhostTypeId,SelfhostSourceSpan)->SelfhostHirExpr> (ty, span):
+pub fn selfhost_hir_expr_unit %fn SelfhostTypeId fn SelfhostSourceSpan SelfhostHirExpr \ty\span:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::Unit
 
 //: selfhost_hir_expr_bool_literal: bool literal expression record を[作/つく]る
-pub fn selfhost_hir_expr_bool_literal <(SelfhostTypeId,SelfhostSourceSpan,bool)->SelfhostHirExpr> (ty, span, value):
+pub fn selfhost_hir_expr_bool_literal %fn SelfhostTypeId fn SelfhostSourceSpan fn bool SelfhostHirExpr \ty\span\value:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::BoolLiteral value
 
 //: selfhost_hir_expr_i32_literal: i32 literal expression record を[作/つく]る
-pub fn selfhost_hir_expr_i32_literal <(SelfhostTypeId,SelfhostSourceSpan,i32)->SelfhostHirExpr> (ty, span, value):
+pub fn selfhost_hir_expr_i32_literal %fn SelfhostTypeId fn SelfhostSourceSpan fn i32 SelfhostHirExpr \ty\span\value:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::I32Literal value
 
 //: selfhost_hir_expr_str_literal: str literal expression record を[作/つく]る
-pub fn selfhost_hir_expr_str_literal <(SelfhostTypeId,SelfhostSourceSpan,str)->SelfhostHirExpr> (ty, span, value):
+pub fn selfhost_hir_expr_str_literal %fn SelfhostTypeId fn SelfhostSourceSpan fn str SelfhostHirExpr \ty\span\value:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::StrLiteral value
 
 //: selfhost_hir_expr_var: variable reference expression record を[作/つく]る
-pub fn selfhost_hir_expr_var <(SelfhostTypeId,SelfhostSourceSpan,str)->SelfhostHirExpr> (ty, span, name):
+pub fn selfhost_hir_expr_var %fn SelfhostTypeId fn SelfhostSourceSpan fn str SelfhostHirExpr \ty\span\name:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::Var name
 
 //: selfhost_hir_expr_call: call expression record を[作/つく]る
-pub fn selfhost_hir_expr_call <(SelfhostTypeId,SelfhostSourceSpan,str,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, name, args):
+pub fn selfhost_hir_expr_call %fn SelfhostTypeId fn SelfhostSourceSpan fn str fn SelfhostHirChildRange SelfhostHirExpr \ty\span\name\args:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::Call SelfhostHirCallExpr name args
 
 //: selfhost_hir_expr_block: block expression record を[作/つく]る
-pub fn selfhost_hir_expr_block <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, children):
+pub fn selfhost_hir_expr_block %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostHirChildRange SelfhostHirExpr \ty\span\children:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::Block children
 
 //: selfhost_hir_expr_if: if expression record を[作/つく]る
-pub fn selfhost_hir_expr_if <(SelfhostTypeId,SelfhostSourceSpan,SelfhostHirChildRange)->SelfhostHirExpr> (ty, span, branches):
+pub fn selfhost_hir_expr_if %fn SelfhostTypeId fn SelfhostSourceSpan fn SelfhostHirChildRange SelfhostHirExpr \ty\span\branches:
     selfhost_hir_expr_new ty span SelfhostHirExprPayload::If branches
 
 //: selfhost_hir_expr_kind: expression record の kind を[返/かえ]す
-pub fn selfhost_hir_expr_kind <(&SelfhostHirExpr)->SelfhostHirExprKind> (expr):
+pub fn selfhost_hir_expr_kind %fn &SelfhostHirExpr SelfhostHirExprKind \expr:
     match *field::get_ref expr "payload":
         SelfhostHirExprPayload::Error:
             SelfhostHirExprKind::Error
@@ -328,7 +328,7 @@ pub fn selfhost_hir_expr_kind <(&SelfhostHirExpr)->SelfhostHirExprKind> (expr):
             SelfhostHirExprKind::If
 
 //: selfhost_hir_expr_child_range: expression record の child 範囲を[返/かえ]す
-pub fn selfhost_hir_expr_child_range <(&SelfhostHirExpr)->SelfhostHirChildRange> (expr):
+pub fn selfhost_hir_expr_child_range %fn &SelfhostHirExpr SelfhostHirChildRange \expr:
     match *field::get_ref expr "payload":
         SelfhostHirExprPayload::Error:
             selfhost_hir_child_range_empty

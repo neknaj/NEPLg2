@@ -27,6 +27,6 @@
 //:
 //: [目的/もくてき]:
 //: - `println` の基本的な使い方を示します。
-fn main <()*>()> ():
+fn main %impure fn () () \():
     println "Hello World!";
     println "こんにちは世界!";

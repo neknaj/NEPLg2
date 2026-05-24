@@ -11,7 +11,7 @@ diag_code: type.intrinsic.unknown
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     #intrinsic "rv_core_007_unknown" <> ()
     0
 ```
@@ -26,10 +26,10 @@ diag_code: type.field.invalid_access
 #indent 4
 
 struct Pair:
-    x <i32>
-    y <i32>
+    x %i32
+    y %i32
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let p Pair 1 2;
     #intrinsic "get_field" <> (p,"z")
 ```
@@ -43,7 +43,7 @@ diag_code: backend.wasm.raw_line_parse_error
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     #wasm:
         i32.rv_core_007_invalid
 ```

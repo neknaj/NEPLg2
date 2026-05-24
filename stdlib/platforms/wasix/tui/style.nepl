@@ -20,9 +20,9 @@
 //:
 //: [注意/ちゅうい]:
 //: - 色シーケンス自体は `str_display_width` で幅0として扱われます。
-pub fn style_text <(AnsiTextStyle,str)*>str> (style, s):
-    let prefix <str> ansi_text_style_code style;
-    let p <str> concat prefix s;
+pub fn style_text %impure fn AnsiTextStyle impure fn str str \style\s:
+    let prefix %str ansi_text_style_code style;
+    let p %str concat prefix s;
     concat p ansi_reset_code
 
 //: hyperlink_text: OSC8 でハイパーリンク付き文字列を作る
@@ -35,8 +35,8 @@ pub fn style_text <(AnsiTextStyle,str)*>str> (style, s):
 //:
 //: [注意/ちゅうい]:
 //: - OSC8 非対応端末ではリンクとして機能しません。
-pub fn hyperlink_text <(str,str)*>str> (url, text):
-    let open <str> concat3 "\x1b]8;;" url "\x1b\\";
-    let close <str> "\x1b]8;;\x1b\\";
-    let t <str> concat open text;
+pub fn hyperlink_text %impure fn str impure fn str str \url\text:
+    let open %str concat3 "\x1b]8;;" url "\x1b\\";
+    let close %str "\x1b]8;;\x1b\\";
+    let t %str concat open text;
     concat t close

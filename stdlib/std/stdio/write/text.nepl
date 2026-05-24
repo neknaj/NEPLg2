@@ -12,10 +12,10 @@
 
 //: ## stdio_write_str_result
 //: `str` を stdout へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
-pub fn stdio_write_str_result <(str)*>Result<(), StdErrorKind>> (s):
+pub fn stdio_write_str_result %impure fn str Result () StdErrorKind \s:
     stdio_write_fd_str_result 1 s
 
 //: ## stdio_write_stderr_str_result
 //: `str` を stderr へ[書/か]き[出/だ]し、失敗を `Result` で[返/かえ]す
-pub fn stdio_write_stderr_str_result <(str)*>Result<(), StdErrorKind>> (s):
+pub fn stdio_write_stderr_str_result %impure fn str Result () StdErrorKind \s:
     stdio_write_fd_str_result 2 s

@@ -12,8 +12,8 @@ ret: 0
 #target core
     #import "core/math" as *
 
-fn main <()->i32> ():
-    let a <i32> if true 0 1;
+fn main %fn () i32 \():
+    let a %i32 if true 0 1;
     a
 ```
 
@@ -28,8 +28,8 @@ ret: 0
 #target core
     #import "core/math" as *
 
-fn main <()->i32> ():
-    let b <i32> if true then 0 else 1;
+fn main %fn () i32 \():
+    let b %i32 if true then 0 else 1;
     b
 ```
 
@@ -44,8 +44,8 @@ ret: 0
 #target core
     #import "core/math" as *
 
-fn main <()->i32> ():
-    let c <i32> if:
+fn main %fn () i32 \():
+    let c %i32 if:
         true
         0
         1
@@ -63,8 +63,8 @@ ret: 0
 #target core
     #import "core/math" as *
 
-fn main <()->i32> ():
-    let d <i32> if:
+fn main %fn () i32 \():
+    let d %i32 if:
         cond true
         then 0
         else 1
@@ -82,8 +82,8 @@ ret: 0
 #target core
     #import "core/math" as *
 
-fn main <()->i32> ():
-    let e <i32> if:
+fn main %fn () i32 \():
+    let e %i32 if:
         true
         then:
             0
@@ -103,8 +103,8 @@ ret: 0
 #target core
     #import "core/math" as *
 
-fn main <()->i32> ():
-    let f <i32> if true 0 if true 1 2;
+fn main %fn () i32 \():
+    let f %i32 if true 0 if true 1 2;
     f
 ```
 
@@ -119,8 +119,8 @@ ret: 10
 #target core
     #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         lt 1 2
         10
         20
@@ -138,8 +138,8 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         true
         add 1 2
         add 3 4
@@ -157,8 +157,8 @@ ret: 7
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond lt 2 3
         7
         8
@@ -176,8 +176,8 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond true
         then:
             11
@@ -197,8 +197,8 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond true
         then:
             // ここはthen:によるblock
@@ -223,8 +223,8 @@ ret: 21
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         true
         then:
             21
@@ -243,8 +243,8 @@ ret: 31
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond lt 1 2
         then:
             31
@@ -263,8 +263,8 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let x <i32> if false 0 1;
+fn main %fn () i32 \():
+    let x %i32 if false 0 1;
     x
 ```
 
@@ -279,8 +279,8 @@ ret: 200
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let x <i32> if:
+fn main %fn () i32 \():
+    let x %i32 if:
         false
         100
         200
@@ -298,8 +298,8 @@ ret: 66
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let x <i32> if:
+fn main %fn () i32 \():
+    let x %i32 if:
         cond lt 2 1
         then:
             55
@@ -318,8 +318,8 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         true
         then 11
         else:
@@ -338,8 +338,8 @@ ret: 12
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         false
         then 11
         else:
@@ -358,8 +358,8 @@ ret: 21
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond lt 1 2
         then 21
         else:
@@ -378,8 +378,8 @@ ret: 22
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond lt 2 1
         then 21
         else:
@@ -398,9 +398,9 @@ ret: 77
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let a <i32> 77;
-    let v <i32> if:
+fn main %fn () i32 \():
+    let a %i32 77;
+    let v %i32 if:
         true
         then a
         else:
@@ -419,13 +419,13 @@ ret: 115
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let a <i32> 5;
-    let v <i32> if:
+fn main %fn () i32 \():
+    let a %i32 5;
+    let v %i32 if:
         false
         then 1
         else:
-            let b <i32> add a 10;
+            let b %i32 add a 10;
             add b 100
     v
 ```
@@ -441,12 +441,12 @@ ret: 30
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         true
         then:
-            let x <i32> 10;
-            let y <i32> 20;
+            let x %i32 10;
+            let y %i32 20;
             add x y
         else:
             0
@@ -464,14 +464,14 @@ ret: 12
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         false
         then:
             0
         else:
-            let x <i32> 3;
-            let y <i32> 4;
+            let x %i32 3;
+            let y %i32 4;
             mul x y
     v
 ```
@@ -487,8 +487,8 @@ ret: 9
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond and lt 1 2 lt 3 4
         then 9
         else 10
@@ -506,8 +506,8 @@ ret: 100
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if and lt 1 2 lt 3 4 100 200;
+fn main %fn () i32 \():
+    let v %i32 if and lt 1 2 lt 3 4 100 200;
     v
 ```
 
@@ -522,8 +522,8 @@ ret: 8
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if or lt 2 1 eq 1 2 then 7 else 8;
+fn main %fn () i32 \():
+    let v %i32 if or lt 2 1 eq 1 2 then 7 else 8;
     v
 ```
 
@@ -538,7 +538,7 @@ ret: 123
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if true 123 456
 ```
 
@@ -553,7 +553,7 @@ ret: 33
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if:
         lt 1 2
         33
@@ -571,7 +571,7 @@ ret: 102
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add 100 if false 1 2
 ```
 
@@ -586,8 +586,8 @@ ret: 2
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         true
         then:
             if:
@@ -611,8 +611,8 @@ ret: 7
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         false
         then:
             0
@@ -632,8 +632,8 @@ ret: 2
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if false 0 if false 1 if true 2 3;
+fn main %fn () i32 \():
+    let v %i32 if false 0 if false 1 if true 2 3;
     v
 ```
 
@@ -648,8 +648,8 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         lt 10 20
         add 1 2
         mul 3 4
@@ -667,10 +667,10 @@ ret: 190
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let mut x <i32> 0;
+fn main %fn () i32 \():
+    let mut x %i32 0;
 
-    let y <i32> if:
+    let y %i32 if:
         true
         then:
             set x 9;
@@ -693,10 +693,10 @@ ret: 280
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let mut x <i32> 0;
+fn main %fn () i32 \():
+    let mut x %i32 0;
 
-    let y <i32> if:
+    let y %i32 if:
         false
         then:
             set x 9;
@@ -719,8 +719,8 @@ ret: 2
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond eq 1 2
         then:
             1
@@ -739,8 +739,8 @@ ret: 40
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond eq 1 2
         then 1
         else:
@@ -762,8 +762,8 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         lt 1 2
         then:
             if true 1 2
@@ -786,8 +786,8 @@ ret: 70
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         lt 5 6
         then 70
         else 80
@@ -805,8 +805,8 @@ ret: 80
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond lt 6 5
         then 70
         else 80
@@ -824,8 +824,8 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         and lt 1 2 or eq 0 1 eq 2 2
         then:
             1
@@ -845,8 +845,8 @@ ret: 2
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         true
         if false 1 2
         if true 3 4
@@ -863,7 +863,7 @@ diag_codes: parser.identifier.reserved_keyword
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let cond 1;
     cond
 ```
@@ -878,10 +878,10 @@ diag_codes: parser.identifier.reserved_keyword, parser.token.unexpected
 #indent 4
 #target core
 
-fn then <()->i32> ():
+fn then %fn () i32 \():
     1
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     then
 ```
 
@@ -896,7 +896,7 @@ diag_codes: parser.identifier.reserved_keyword
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let let 1;
     let fn 2;
     add let fn
@@ -913,7 +913,7 @@ diag_codes: parser.identifier.reserved_keyword
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let else 1;
     let do 2;
     add else do
@@ -930,8 +930,8 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if lt 1 2:
+fn main %fn () i32 \():
+    let v %i32 if lt 1 2:
         then 10
         else 20
     v
@@ -948,8 +948,8 @@ ret: 40
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if cond lt 2 1:
+fn main %fn () i32 \():
+    let v %i32 if cond lt 2 1:
         then 30
         else 40
     v
@@ -965,8 +965,8 @@ diag_codes: parser.token.unexpected
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         then 1
         cond true
         else 2
@@ -983,8 +983,8 @@ diag_codes: parser.token.unexpected
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond true
         then 1
         then 2
@@ -1001,8 +1001,8 @@ diag_codes: parser.token.unexpected
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond true
         cond false
         then 2
@@ -1020,8 +1020,8 @@ diag_codes: parser.token.expected
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond true
         then 1
     v
@@ -1038,8 +1038,8 @@ diag_codes: parser.token.expected
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond true
         else 1
     v
@@ -1056,8 +1056,8 @@ diag_codes: parser.token.expected
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond false
         else 1
     v
@@ -1073,8 +1073,8 @@ diag_codes: parser.token.unexpected
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         then 1
         cond true
         else 0
@@ -1092,8 +1092,8 @@ ret: 42
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         cond true
         then:
             if:
@@ -1116,9 +1116,9 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let mut x <i32> 0;
-    let v <i32> if:
+fn main %fn () i32 \():
+    let mut x %i32 0;
+    let v %i32 if:
         true
         then:
             if:
@@ -1142,8 +1142,8 @@ ret: 9
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         false
         then 1
         else:
@@ -1164,7 +1164,7 @@ diag_code: type.if.condition_mismatch
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if 1 10 20
 ```
 
@@ -1178,8 +1178,8 @@ diag_code: type.while.body_mismatch
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let mut i <i32> 0;
+fn main %fn () i32 \():
+    let mut i %i32 0;
     while lt i 3:
         add i 1
     0
@@ -1195,8 +1195,8 @@ diag_codes: type.annotation.mismatch, type.return.mismatch
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32> if:
+fn main %fn () i32 \():
+    let v %i32 if:
         true
         then:
             add 1 2;

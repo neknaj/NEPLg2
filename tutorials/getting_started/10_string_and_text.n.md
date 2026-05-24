@@ -19,15 +19,15 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn expect_str_ok <(Result<str,str>,str)->Result<(),str>> (got, expected):
+fn expect_str_ok %fn Result str str fn str Result () str \got\expected:
     match got:
         Result::Ok text:
             check_str_eq expected text
         Result::Err msg:
             Result<(),str>::Err msg
 
-fn main <()*>i32> ():
-    let text <str> "Aあ"
+fn main %impure fn () i32 \():
+    let text %str "Aあ"
     let checks:
         checks_new
         |> checks_push assert_eq_i32 4 str_byte_len text

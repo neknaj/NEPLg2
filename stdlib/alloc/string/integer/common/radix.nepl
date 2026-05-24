@@ -24,7 +24,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn digit_to_char_lower <(i32)->i32> (v):
+pub fn digit_to_char_lower %fn i32 i32 \v:
     if:
         lt v 10
         then:
@@ -48,7 +48,7 @@ pub fn digit_to_char_lower <(i32)->i32> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn digit_from_char <(i32)->Result<i32,i32>> (ch):
+pub fn digit_from_char %fn i32 Result i32 i32 \ch:
     if:
         and ge ch '0' le ch '9'
         then:
@@ -80,7 +80,7 @@ pub fn digit_from_char <(i32)->Result<i32,i32>> (ch):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn validate_radix <(i32)->Result<i32,i32>> (radix):
+pub fn validate_radix %fn i32 Result i32 i32 \radix:
     if:
         or or eq radix 2 eq radix 8 or eq radix 10 eq radix 16
         then:

@@ -28,9 +28,9 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let empty <Vec<i32>> unwrap_ok with_capacity<i32> 0;
-//:     let empty_ok <bool> match data_mem_view<i32> &empty:
+//: fn main %impure fn () i32 \():
+//:     let empty %Vec i32 unwrap_ok with_capacity<i32> 0;
+//:     let empty_ok %bool match data_mem_view<i32> &empty:
 //:         VecDataView::Empty:
 //:             true
 //:         VecDataView::Data _ptr:
@@ -38,8 +38,8 @@
 //:         VecDataView::Invalid _reason:
 //:             false
 //:     free<i32> empty;
-//:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let data_ok <bool> match data_mem_view<i32> &v:
+//:     let v %Vec i32 unwrap_ok new<i32>;
+//:     let data_ok %bool match data_mem_view<i32> &v:
 //:         VecDataView::Empty:
 //:             false
 //:         VecDataView::Data _ptr:
@@ -51,8 +51,8 @@
 //: ```
 pub enum VecDataView<.T>:
     Empty
-    Data <MemPtr<.T>>
-    Invalid <VecCopyInvariantInvalid>
+    Data %MemPtr .T
+    Invalid %VecCopyInvariantInvalid
 
 //: ## data_mem_view
 //: [内部/ないぶ]データ[領域/りょういき]を typed data view として[返/かえ]す
@@ -85,9 +85,9 @@ pub enum VecDataView<.T>:
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>> unwrap_ok with_capacity<i32> 0;
-//:     let ok <bool> match data_mem_view<i32> &v:
+//: fn main %impure fn () i32 \():
+//:     let v %Vec i32 unwrap_ok with_capacity<i32> 0;
+//:     let ok %bool match data_mem_view<i32> &v:
 //:         VecDataView::Empty:
 //:             true
 //:         VecDataView::Data _p:
@@ -105,15 +105,15 @@ pub enum VecDataView<.T>:
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //: struct NonCopyPayload:
-//:     value <i32>
-//: fn main <()*>i32> ():
-//:     let v <Vec<NonCopyPayload>> vec_empty<NonCopyPayload>;
-//:     let _view <VecDataView<NonCopyPayload>> data_mem_view<NonCopyPayload> &v;
+//:     value %i32
+//: fn main %impure fn () i32 \():
+//:     let v %Vec NonCopyPayload vec_empty<NonCopyPayload>;
+//:     let _view %VecDataView NonCopyPayload data_mem_view<NonCopyPayload> &v;
 //:     0
 //: ```
-pub fn data_mem_view <.T: Copy> <(&Vec<.T>)->VecDataView<.T>> (v):
-    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-    let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
+pub fn data_mem_view <.T: Copy> %fn &Vec .T VecDataView .T \v:
+    let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
+    let v_storage %&VecStorage .T field::get_ref v_buffer "storage"
     match vec_buffer_current_copy_invariant<.T> v_buffer:
         VecCopyInvariant::Invalid reason:
             VecDataView<.T>::Invalid reason

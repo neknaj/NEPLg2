@@ -26,24 +26,24 @@ stdout: "test_report name=\"adjacency_matrix_pipe_usage\" count=4 failed=0\nasse
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let g0 <AdjacencyMatrix>:
+fn main %impure fn () i32 \():
+    let g0 %AdjacencyMatrix:
         unwrap_ok<AdjacencyMatrix, Diag> new 6
         |> insert 1 3 |> uwok
         |> insert 3 5 |> uwok
         |> insert 5 1 |> uwok
         |> remove 3 5 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> contains &g0 1 3;
-    let ok1 <bool> not unwrap_ok<bool, Diag> contains &g0 3 5;
-    let size <i32> len &g0;
+    let ok0 %bool unwrap_ok<bool, Diag> contains &g0 1 3;
+    let ok1 %bool not unwrap_ok<bool, Diag> contains &g0 3 5;
+    let size %i32 len &g0;
     free g0
-    let g2 <AdjacencyMatrix>:
+    let g2 %AdjacencyMatrix:
         unwrap_ok<AdjacencyMatrix, Diag> new 6
         |> insert 1 3 |> uwok
         |> insert 3 5 |> uwok
         |> insert 5 1 |> uwok
         |> clear
-    let ok3 <bool> not unwrap_ok<bool, Diag> contains &g2 5 1;
+    let ok3 %bool not unwrap_ok<bool, Diag> contains &g2 5 1;
     free g2
     let report:
         test_report_new "adjacency_matrix_pipe_usage"
@@ -78,12 +78,12 @@ stdout: "test_report name=\"adjacency_matrix_free_releases_owned_storage\" count
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let g0 <AdjacencyMatrix>:
+fn main %impure fn () i32 \():
+    let g0 %AdjacencyMatrix:
         unwrap_ok<AdjacencyMatrix, Diag> new 6
         |> insert 1 3 |> uwok
     free g0
-    let g1 <AdjacencyMatrix>:
+    let g1 %AdjacencyMatrix:
         unwrap_ok<AdjacencyMatrix, Diag> new 6
         |> insert 2 4 |> uwok
     free g1
@@ -119,27 +119,27 @@ stdout: "test_report name=\"adjacency_matrix_update_error_recovers_owner\" count
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let g0 <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 6;
-    let ok0 <bool>:
+fn main %impure fn () i32 \():
+    let g0 %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 6;
+    let ok0 %bool:
         match insert g0 6 0:
             Result::Ok next:
                 free next
                 false
             Result::Err e:
-                let recovered <AdjacencyMatrix> adjacency_matrix_update_error_owner e
-                let ok <bool> eq len &recovered 6
+                let recovered %AdjacencyMatrix adjacency_matrix_update_error_owner e
+                let ok %bool eq len &recovered 6
                 free recovered
                 ok
-    let g1 <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 6;
-    let ok1 <bool>:
+    let g1 %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 6;
+    let ok1 %bool:
         match remove g1 2 9:
             Result::Ok next:
                 free next
                 false
             Result::Err e:
-                let recovered <AdjacencyMatrix> adjacency_matrix_update_error_owner e
-                let ok <bool> eq len &recovered 6
+                let recovered %AdjacencyMatrix adjacency_matrix_update_error_owner e
+                let ok %bool eq len &recovered 6
                 free recovered
                 ok
     let report:
@@ -173,13 +173,13 @@ stdout: "test_report name=\"adjacency_matrix_non_positive_length_rejected\" coun
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match new 0:
         Result::Ok g:
             free g
             0
         Result::Err d:
-            let name <str> diag_std_error_kind_str d
+            let name %str diag_std_error_kind_str d
             let report:
                 test_report_new "adjacency_matrix_non_positive_length_rejected"
                 |> test_report_push assert_str_eq "non-positive length error" "CapacityExceeded" name

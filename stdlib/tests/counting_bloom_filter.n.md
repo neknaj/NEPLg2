@@ -17,22 +17,22 @@ stdout: "test_report name=\"counting_bloom_filter_insert_remove_contains\" count
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let bf0 <CountingBloomFilter<i32, DefaultHash32>>:
+fn main %impure fn () i32 \():
+    let bf0 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 4
         |> insert 9
         |> insert 15
-    let ok0 <bool> contains &bf0 9;
-    let size0 <i32> len &bf0;
+    let ok0 %bool contains &bf0 9;
+    let size0 %i32 len &bf0;
     free bf0
-    let bf1 <CountingBloomFilter<i32, DefaultHash32>>:
+    let bf1 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 4
         |> insert 9
         |> insert 15
         |> remove 9
-    let size1 <i32> len &bf1;
+    let size1 %i32 len &bf1;
     free bf1
     let report:
         test_report_new "counting_bloom_filter_insert_remove_contains"
@@ -60,12 +60,12 @@ stdout: "test_report name=\"counting_bloom_filter_clear\" count=1 failed=0\nasse
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let bf0 <CountingBloomFilter<i32, DefaultHash32>>:
+fn main %impure fn () i32 \():
+    let bf0 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 7
         |> clear
-    let ok0 <bool> not contains &bf0 7;
+    let ok0 %bool not contains &bf0 7;
     free bf0
     let report:
         test_report_new "counting_bloom_filter_clear"

@@ -19,10 +19,10 @@
 //:
 //: [目的/もくてき]:
 //: - 文字単位差分時に、ANSI/OSC8 を含む行を安全に全行更新へフォールバックするために使います。
-pub fn line_has_escape <(str)*>bool> (s):
-    let n <i32> len s;
-    let mut i <i32> 0;
-    let mut found <bool> false;
+pub fn line_has_escape %impure fn str bool \s:
+    let n %i32 len s;
+    let mut i %i32 0;
+    let mut found %bool false;
     while and lt i n not found:
         do:
             if:
@@ -49,17 +49,17 @@ pub fn line_has_escape <(str)*>bool> (s):
 //: [注意/ちゅうい]:
 //: - UTF-8 文字幅は `str_display_width` による近似です。
 //: - 差分開始位置はバイト基準で探索し、カーソル列は表示幅換算で計算します。
-pub fn buffer_present_diff <(i32)*>()> (b):
-    let cols <i32> load_i32 b;
-    let rows <i32> load_i32 add b 4;
-    let curr <i32> load_i32 add b 8;
-    let prev <i32> load_i32 add b 12;
-    let mut i <i32> 0;
+pub fn buffer_present_diff %impure fn i32 () \b:
+    let cols %i32 load_i32 b;
+    let rows %i32 load_i32 add b 4;
+    let curr %i32 load_i32 add b 8;
+    let prev %i32 load_i32 add b 12;
+    let mut i %i32 0;
     while lt i rows:
         do:
-            let off <i32> mul i 4;
-            let c <str> load<str> add curr off;
-            let p <str> load<str> add prev off;
+            let off %i32 mul i 4;
+            let c %str load<str> add curr off;
+            let p %str load<str> add prev off;
             if:
                 not str_eq c p
                 then:
@@ -69,11 +69,11 @@ pub fn buffer_present_diff <(i32)*>()> (b):
                             move_cursor 1 add i 1;
                             print line_pad_to_cols c cols;
                         else:
-                            let lc <i32> len c;
-                            let lp <i32> len p;
-                            let minlen <i32> if lt lc lp lc lp;
-                            let mut d <i32> 0;
-                            let mut found <bool> false;
+                            let lc %i32 len c;
+                            let lp %i32 len p;
+                            let minlen %i32 if lt lc lp lc lp;
+                            let mut d %i32 0;
+                            let mut found %bool false;
                             while and lt d minlen not found:
                                 do:
                                     if:
@@ -82,13 +82,13 @@ pub fn buffer_present_diff <(i32)*>()> (b):
                                             set d add d 1
                                         else:
                                             set found true;
-                            let prefix <str> str_slice c 0 d;
-                            let prefix_w <i32> str_display_width prefix;
-                            let col0 <i32> add prefix_w 1;
-                            let tail <str> str_slice c d lc;
-                            let remain_base <i32> sub cols col0;
-                            let remain_cols <i32> add remain_base 1;
-                            let tail_padded <str> line_pad_to_cols tail remain_cols;
+                            let prefix %str str_slice c 0 d;
+                            let prefix_w %i32 str_display_width prefix;
+                            let col0 %i32 add prefix_w 1;
+                            let tail %str str_slice c d lc;
+                            let remain_base %i32 sub cols col0;
+                            let remain_cols %i32 add remain_base 1;
+                            let tail_padded %str line_pad_to_cols tail remain_cols;
                             move_cursor col0 add i 1;
                             print tail_padded;
                     store<str> add prev off c;

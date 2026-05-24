@@ -23,7 +23,7 @@ pub #import "./test/report" as @merge
 //:| #indent 4
 //:| #target std
 //:| #import "std/test" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     test_assertion_exit_code assert_eq_i32 1 1
 //: ```
 //:

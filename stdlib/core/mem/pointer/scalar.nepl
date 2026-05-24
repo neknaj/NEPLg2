@@ -13,13 +13,13 @@
 //:| #import "core/mem" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<i32> 1:
 //:         Result::Ok region:
-//:             let p <MemPtr<i32>> region_ptr &region
+//:             let p %MemPtr i32 region_ptr &region
 //:             match store_i32 p 12:
 //:                 Result::Ok _:
-//:                     let v <i32> match load_i32 p:
+//:                     let v %i32 match load_i32 p:
 //:                         Option::Some n:
 //:                             n
 //:                         Option::None:
@@ -50,8 +50,8 @@
 //:
 //: 目的:
 //: - 無効ポインタを `Option::None` として扱います。
-pub fn load_i32 <(MemPtr<i32>)->Option<i32>> (p):
-    let raw <i32> mem_ptr_addr p;
+pub fn load_i32 %fn MemPtr i32 Option i32 \p:
+    let raw %i32 mem_ptr_addr p;
     if:
         lt raw 1
         then:
@@ -63,8 +63,8 @@ pub fn load_i32 <(MemPtr<i32>)->Option<i32>> (p):
 //:
 //: 目的:
 //: - 無効ポインタを `Result::Err` として返し、未定義動作を避けます。
-pub fn store_i32 <(MemPtr<i32>,i32)->Result<(),str>> (p, v):
-    let raw <i32> mem_ptr_addr p;
+pub fn store_i32 %fn MemPtr i32 fn i32 Result () str \p\v:
+    let raw %i32 mem_ptr_addr p;
     if:
         lt raw 1
         then:
@@ -77,8 +77,8 @@ pub fn store_i32 <(MemPtr<i32>,i32)->Result<(),str>> (p, v):
 //:
 //: 目的:
 //: - 無効ポインタを `Option::None` として扱います。
-pub fn load_u8 <(MemPtr<u8>)->Option<i32>> (p):
-    let raw <i32> mem_ptr_addr p;
+pub fn load_u8 %fn MemPtr u8 Option i32 \p:
+    let raw %i32 mem_ptr_addr p;
     if:
         lt raw 1
         then:
@@ -90,8 +90,8 @@ pub fn load_u8 <(MemPtr<u8>)->Option<i32>> (p):
 //:
 //: 目的:
 //: - 無効ポインタを `Result::Err` として返し、未定義動作を避けます。
-pub fn store_u8 <(MemPtr<u8>,i32)->Result<(),str>> (p, v):
-    let raw <i32> mem_ptr_addr p;
+pub fn store_u8 %fn MemPtr u8 fn i32 Result () str \p\v:
+    let raw %i32 mem_ptr_addr p;
     if:
         lt raw 1
         then:

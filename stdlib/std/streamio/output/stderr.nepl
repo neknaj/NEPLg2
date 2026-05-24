@@ -15,7 +15,7 @@
 
 //: ## write_bytes_result
 //: `StderrStream` へ byte [列/れつ]を[書/か]き、失敗を `Result` で[返/かえ]す
-pub fn write_bytes_result <(StderrStream, ByteBuf)*>Result<StderrStream, StdErrorKind>> (stream, bytes):
+pub fn write_bytes_result %impure fn StderrStream impure fn ByteBuf Result StderrStream StdErrorKind \stream\bytes:
     match stdio_write_stderr_bytes_result bytes:
         Result::Ok _:
             Result<StderrStream, StdErrorKind>::Ok stream
@@ -24,7 +24,7 @@ pub fn write_bytes_result <(StderrStream, ByteBuf)*>Result<StderrStream, StdErro
 
 //: ## write_str_result
 //: `StderrStream` へ text を[書/か]き、失敗を `Result` で[返/かえ]す
-pub fn write_str_result <(StderrStream, str)*>Result<StderrStream, StdErrorKind>> (stream, text):
+pub fn write_str_result %impure fn StderrStream impure fn str Result StderrStream StdErrorKind \stream\text:
     match stdio_write_stderr_str_result text:
         Result::Ok _:
             Result<StderrStream, StdErrorKind>::Ok stream
@@ -33,52 +33,52 @@ pub fn write_str_result <(StderrStream, str)*>Result<StderrStream, StdErrorKind>
 
 //: ## flush_result
 //: `StderrStream` の[保留中/ほりゅうちゅう][出力/しゅつりょく]を[反映/はんえい]する
-pub fn flush_result <(StderrStream)*>Result<StderrStream, StdErrorKind>> (stream):
+pub fn flush_result %impure fn StderrStream Result StderrStream StdErrorKind \stream:
     Result::Ok stream
 
 impl ByteWriter for StderrStream:
-    fn write_bytes <(StderrStream, ByteBuf)*>Result<StderrStream, StdErrorKind>> (stream, bytes):
+    fn write_bytes %impure fn StderrStream impure fn ByteBuf Result StderrStream StdErrorKind \stream\bytes:
         write_bytes_result stream bytes
 
 impl TextWriter for StderrStream:
-    fn write_str <(StderrStream, str)*>Result<StderrStream, StdErrorKind>> (stream, text):
+    fn write_str %impure fn StderrStream impure fn str Result StderrStream StdErrorKind \stream\text:
         write_str_result stream text
 
 impl Flush for StderrStream:
-    fn flush <(StderrStream)*>Result<StderrStream, StdErrorKind>> (stream):
+    fn flush %impure fn StderrStream Result StderrStream StdErrorKind \stream:
         flush_result stream
 
 impl Close for StderrStream:
-    fn close <(StderrStream)*>Result<(), StdErrorKind>> (_stream):
+    fn close %impure fn StderrStream Result () StdErrorKind \_stream:
         Result::Ok ()
 
 //: ## StderrWritable
 //: `StderrStream` へ[書/か]き[込/こ]める[値/あたい]の[能力/のうりょく]
 trait StderrWritable:
-    fn emit <(StderrStream,Self)*>Result<StderrStream, StdErrorKind>> (stream, value):
+    fn emit %impure fn StderrStream impure fn Self Result StderrStream StdErrorKind \stream\value:
         Result::Err StdErrorKind::InvalidOperation
 
 impl StderrWritable for ByteBuf:
-    fn emit <(StderrStream,ByteBuf)*>Result<StderrStream, StdErrorKind>> (stream, value):
+    fn emit %impure fn StderrStream impure fn ByteBuf Result StderrStream StdErrorKind \stream\value:
         io_write_bytes stream value
 
 impl StderrWritable for str:
-    fn emit <(StderrStream,str)*>Result<StderrStream, StdErrorKind>> (stream, value):
+    fn emit %impure fn StderrStream impure fn str Result StderrStream StdErrorKind \stream\value:
         io_write_str stream value
 
 //: ## write
 //: `StderrStream` へ byte [列/れつ]や text を[書/か]く
-pub fn write <.T: StderrWritable> <(StderrStream,.T)*>Result<StderrStream, StdErrorKind>> (stream, value):
+pub fn write <.T: StderrWritable> %impure fn StderrStream impure fn .T Result StderrStream StdErrorKind \stream\value:
     StderrWritable::emit stream value
 
 //: ## write
 //: pipe [終端/しゅうたん]から `StderrStream` へ byte [列/れつ]や text を[書/か]く overload
-pub fn write <.T: StderrWritable> <(.T, StderrStream)*>Result<StderrStream, StdErrorKind>> (value, stream):
+pub fn write <.T: StderrWritable> %impure fn .T impure fn StderrStream Result StderrStream StdErrorKind \value\stream:
     StderrWritable::emit stream value
 
 //: ## writeln
 //: `StderrStream` へ text と `\n` を[続/つづ]けて[書/か]く
-pub fn writeln <(StderrStream, str)*>Result<StderrStream, StdErrorKind>> (stream, text):
+pub fn writeln %impure fn StderrStream impure fn str Result StderrStream StdErrorKind \stream\text:
     match io_write_str stream text:
         Result::Ok stream1:
             io_write_str stream1 "\n"
@@ -87,7 +87,7 @@ pub fn writeln <(StderrStream, str)*>Result<StderrStream, StdErrorKind>> (stream
 
 //: ## writeln
 //: pipe [終端/しゅうたん]から `StderrStream` へ text と `\n` を[続/つづ]けて[書/か]く overload
-pub fn writeln <(str, StderrStream)*>Result<StderrStream, StdErrorKind>> (text, stream):
+pub fn writeln %impure fn str impure fn StderrStream Result StderrStream StdErrorKind \text\stream:
     match io_write_str stream text:
         Result::Ok stream1:
             io_write_str stream1 "\n"
@@ -96,10 +96,10 @@ pub fn writeln <(str, StderrStream)*>Result<StderrStream, StdErrorKind>> (text, 
 
 //: ## flush
 //: `StderrStream` の[保留中/ほりゅうちゅう][出力/しゅつりょく]を[反映/はんえい]する
-pub fn flush <(StderrStream)*>Result<StderrStream, StdErrorKind>> (stream):
+pub fn flush %impure fn StderrStream Result StderrStream StdErrorKind \stream:
     io_flush stream
 
 //: ## close
 //: `StderrStream` を[閉/と]じる
-pub fn close <(StderrStream)*>Result<(), StdErrorKind>> (stream):
+pub fn close %impure fn StderrStream Result () StdErrorKind \stream:
     io_close stream

@@ -15,9 +15,9 @@ stdout: "test_report name=\"char_variable_casts_to_code_point\" count=1 failed=0
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let c <char> 'A'
-    let actual <i32> cast c
+fn main %impure fn () i32 \():
+    let c %char 'A'
+    let actual %i32 cast c
     let report:
         test_report_new "char_variable_casts_to_code_point"
         |> test_report_push assert_eq_i32 "char A code point" 65 actual
@@ -38,9 +38,9 @@ stdout: "test_report name=\"checked_code_point_can_cast_to_char\" count=1 failed
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let c <char> cast 65
-    let actual <i32> match c:
+fn main %impure fn () i32 \():
+    let c %char cast 65
+    let actual %i32 match c:
         'A':
             1
         _:

@@ -14,12 +14,12 @@
 //:| #target core
 //:| #import "core/cast" as *
 //:| #import "core/math/f64" as *
-//: fn main <()->i32> ():
-//:     let one <f64> cast 1;
-//:     let two <f64> cast 2;
-//:     let six <f64> cast 6;
-//:     let a <f64> add one two;
-//:     let b <f64> mul a two;
+//: fn main %fn () i32 \():
+//:     let one %f64 cast 1;
+//:     let two %f64 cast 2;
+//:     let six %f64 cast 6;
+//:     let a %f64 add one two;
+//:     let b %f64 mul a two;
 //:     if eq b six 0 1
 //: ```
 

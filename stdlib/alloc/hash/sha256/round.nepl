@@ -15,7 +15,7 @@
 //: [実装/じっそう]:
 //: - round index を `match` し、SHA-256 の 64 [個/こ]の K constant を[返/かえ]します。
 //: - constant は 32-bit word として signed i32 literal に[変換/へんかん]しています。
-pub fn sha256_k <(i32)->Result<i32, StdErrorKind>> (i):
+pub fn sha256_k %fn i32 Result i32 StdErrorKind \i:
     match i:
         0:
             Result<i32, StdErrorKind>::Ok 1116352408
@@ -152,44 +152,44 @@ pub fn sha256_k <(i32)->Result<i32, StdErrorKind>> (i):
 //:
 //: [実装/じっそう]:
 //: - `(x & y) ^ (~x & z)` を i32 word 上で[計算/けいさん]します。
-pub fn sha256_ch <(i32,i32,i32)->i32> (x, y, z):
-    let not_x <i32> xor x -1
+pub fn sha256_ch %fn i32 fn i32 fn i32 i32 \x\y\z:
+    let not_x %i32 xor x -1
     xor and x y and not_x z
 
 //: sha256_maj: SHA-256 の majority [関数/かんすう]
 //:
 //: [実装/じっそう]:
 //: - `(x & y) ^ (x & z) ^ (y & z)` を i32 word 上で[計算/けいさん]します。
-pub fn sha256_maj <(i32,i32,i32)->i32> (x, y, z):
-    let xy <i32> and x y
-    let xz <i32> and x z
-    let yz <i32> and y z
+pub fn sha256_maj %fn i32 fn i32 fn i32 i32 \x\y\z:
+    let xy %i32 and x y
+    let xz %i32 and x z
+    let yz %i32 and y z
     xor xor xy xz yz
 
 //: sha256_big_sigma0: compression 用の大文字 Sigma0
-pub fn sha256_big_sigma0 <(i32)->i32> (x):
-    let a <i32> rotr x 2
-    let b <i32> rotr x 13
-    let c <i32> rotr x 22
+pub fn sha256_big_sigma0 %fn i32 i32 \x:
+    let a %i32 rotr x 2
+    let b %i32 rotr x 13
+    let c %i32 rotr x 22
     xor xor a b c
 
 //: sha256_big_sigma1: compression 用の大文字 Sigma1
-pub fn sha256_big_sigma1 <(i32)->i32> (x):
-    let a <i32> rotr x 6
-    let b <i32> rotr x 11
-    let c <i32> rotr x 25
+pub fn sha256_big_sigma1 %fn i32 i32 \x:
+    let a %i32 rotr x 6
+    let b %i32 rotr x 11
+    let c %i32 rotr x 25
     xor xor a b c
 
 //: sha256_small_sigma0: message schedule 用の小文字 sigma0
-pub fn sha256_small_sigma0 <(i32)->i32> (x):
-    let a <i32> rotr x 7
-    let b <i32> rotr x 18
-    let c <i32> shr_u x 3
+pub fn sha256_small_sigma0 %fn i32 i32 \x:
+    let a %i32 rotr x 7
+    let b %i32 rotr x 18
+    let c %i32 shr_u x 3
     xor xor a b c
 
 //: sha256_small_sigma1: message schedule 用の小文字 sigma1
-pub fn sha256_small_sigma1 <(i32)->i32> (x):
-    let a <i32> rotr x 17
-    let b <i32> rotr x 19
-    let c <i32> shr_u x 10
+pub fn sha256_small_sigma1 %fn i32 i32 \x:
+    let a %i32 rotr x 17
+    let b %i32 rotr x 19
+    let c %i32 shr_u x 10
     xor xor a b c

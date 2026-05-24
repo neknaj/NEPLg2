@@ -26,7 +26,7 @@
 //: - `lt` は strict less-than です。[等/ひと]しい[場合/ばあい]は `false` を[返/かえ]します。
 //: - [全順序/ぜんじゅんじょ]が[必要/ひつよう]な[文脈/ぶんみゃく]では、impl [側/がわ]が[推移律/すいいりつ]や[反対称性/はんたいしょうせい]を[満/み]たすようにしてください。
 trait Ord:
-    fn lt <(Self,Self)->bool> (a, b):
+    fn lt %fn Self fn Self bool \a\b:
         false
 
 //: ord_lt: trait [経由/けいゆ]で strict less-than を[調/しら]べる
@@ -40,61 +40,61 @@ trait Ord:
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/traits/ord" as *
-//:| fn main <()*>i32> ():
+//:| fn main %impure fn () i32 \():
 //:     assert ord_lt 2 3;
 //:     assert not ord_lt 3 3;
 //:     0
 //: ```
-pub fn ord_lt <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn ord_lt <.T: Ord> %fn .T fn .T bool \a\b:
     Ord::lt a b
 
 //: ord_le: trait [経由/けいゆ]で `a <= b` を[構成/こうせい]する
 //:
 //: [実装/じっそう]:
 //: - `not (b < a)` として[求/もと]めます。
-pub fn ord_le <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn ord_le <.T: Ord> %fn .T fn .T bool \a\b:
     not Ord::lt b a
 
 //: ord_gt: trait [経由/けいゆ]で `a > b` を[構成/こうせい]する
 //:
 //: [実装/じっそう]:
 //: - `b < a` として[求/もと]めます。
-pub fn ord_gt <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn ord_gt <.T: Ord> %fn .T fn .T bool \a\b:
     Ord::lt b a
 
 //: ord_ge: trait [経由/けいゆ]で `a >= b` を[構成/こうせい]する
 //:
 //: [実装/じっそう]:
 //: - `not (a < b)` として[求/もと]めます。
-pub fn ord_ge <.T: Ord> <(.T,.T)->bool> (a, b):
+pub fn ord_ge <.T: Ord> %fn .T fn .T bool \a\b:
     not Ord::lt a b
 
 impl Ord for i32:
-    fn lt <(i32,i32)->bool> (a, b):
+    fn lt %fn i32 fn i32 bool \a\b:
         lt a b
 
 impl Ord for u8:
-    fn lt <(u8,u8)->bool> (a, b):
-        let ai <i32> cast a
-        let bi <i32> cast b
+    fn lt %fn u8 fn u8 bool \a\b:
+        let ai %i32 cast a
+        let bi %i32 cast b
         lt ai bi
 
 impl Ord for i64:
-    fn lt <(i64,i64)->bool> (a, b):
+    fn lt %fn i64 fn i64 bool \a\b:
         lt a b
 
 impl Ord for i128:
-    fn lt <(i128,i128)->bool> (a, b):
+    fn lt %fn i128 fn i128 bool \a\b:
         lt a b
 
 impl Ord for f32:
-    fn lt <(f32,f32)->bool> (a, b):
+    fn lt %fn f32 fn f32 bool \a\b:
         lt a b
 
 impl Ord for f64:
-    fn lt <(f64,f64)->bool> (a, b):
+    fn lt %fn f64 fn f64 bool \a\b:
         lt a b
 
 impl Ord for bool:
-    fn lt <(bool,bool)->bool> (a, b):
+    fn lt %fn bool fn bool bool \a\b:
         and not a b

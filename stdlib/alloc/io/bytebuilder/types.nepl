@@ -15,7 +15,7 @@
 //:| #target std
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     if eq byte_builder_len byte_builder_empty 0 1 0
 //: ```
 
@@ -38,7 +38,7 @@
 //: - `Owned` payload だけが storage owner token を[保持/ほじ]するため、空 builder と owner token の不正な組み合わせを source type で[表現/ひょうげん]できません。
 pub enum ByteBuilderStorage:
     Empty
-    Owned <RegionToken<u8>>
+    Owned %RegionToken u8
 
 //: ## ByteBuilder
 //: growable な[所有/しょゆう] byte buffer builder
@@ -53,9 +53,9 @@ pub enum ByteBuilderStorage:
 //: - 失敗時は `ByteBuilderError` に builder owner を[戻/もど]し、caller が cleanup や[再試行/さいしこう]を[選/えら]べるようにします。
 //: - `storage` は `ByteBuilderStorage::Empty` または `ByteBuilderStorage::Owned(region)` です。payload pointer が必要な処理は `Owned` branch の参照から非所有 view を取り出します。
 pub struct ByteBuilder:
-    storage <ByteBuilderStorage>
-    len <i32>
-    cap <i32>
+    storage %ByteBuilderStorage
+    len %i32
+    cap %i32
 
 //: ## ByteBuilderError
 //: owner-consuming builder API の[失敗/しっぱい] payload
@@ -72,14 +72,14 @@ pub struct ByteBuilder:
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let invalid <i32> sub 0 1
+//: fn main %impure fn () i32 \():
+//:     let invalid %i32 sub 0 1
 //:     match byte_builder_reserve byte_builder_empty invalid:
 //:         Result::Ok b:
 //:             byte_builder_free b
 //:             1
 //:         Result::Err e:
-//:             let kind <StdErrorKind> byte_builder_error_kind &e
+//:             let kind %StdErrorKind byte_builder_error_kind &e
 //:             byte_builder_error_free e
 //:             match kind:
 //:                 StdErrorKind::InvalidOperation:
@@ -92,8 +92,8 @@ pub struct ByteBuilder:
 //:                     1
 //: ```
 pub struct ByteBuilderError:
-    builder <ByteBuilder>
-    error <StdErrorKind>
+    builder %ByteBuilder
+    error %StdErrorKind
 
 //: ## ByteBuilderByteBufError
 //: `ByteBuf` を[消費/しょうひ]する append の[失敗/しっぱい] payload
@@ -111,11 +111,11 @@ pub struct ByteBuilderError:
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     // owner-backed error payload は ordinary source から直接構築できない。
-//:     let invalid <StdErrorKind> StdErrorKind::InvalidOperation
-//:     let e <ByteBuilderByteBufError> ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
-//:     let kind <StdErrorKind> byte_builder_bytebuf_error_kind &e
+//:     let invalid %StdErrorKind StdErrorKind::InvalidOperation
+//:     let e %ByteBuilderByteBufError ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
+//:     let kind %StdErrorKind byte_builder_bytebuf_error_kind &e
 //:     byte_builder_bytebuf_error_free e
 //:     match kind:
 //:         StdErrorKind::InvalidOperation:
@@ -124,9 +124,9 @@ pub struct ByteBuilderError:
 //:             1
 //: ```
 pub struct ByteBuilderByteBufError:
-    builder <ByteBuilder>
-    bytes <ByteBuf>
-    error <StdErrorKind>
+    builder %ByteBuilder
+    bytes %ByteBuf
+    error %StdErrorKind
 
 //: byte_builder_error_kind: builder error の kind を借用して読む
 //:
@@ -141,14 +141,14 @@ pub struct ByteBuilderByteBufError:
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let invalid <i32> sub 0 1
+//: fn main %impure fn () i32 \():
+//:     let invalid %i32 sub 0 1
 //:     match byte_builder_reserve byte_builder_empty invalid:
 //:         Result::Ok b:
 //:             byte_builder_free b
 //:             1
 //:         Result::Err e:
-//:             let kind <StdErrorKind> byte_builder_error_kind &e
+//:             let kind %StdErrorKind byte_builder_error_kind &e
 //:             byte_builder_error_free e
 //:             match kind:
 //:                 StdErrorKind::InvalidOperation:
@@ -156,7 +156,7 @@ pub struct ByteBuilderByteBufError:
 //:                 _:
 //:                     1
 //: ```
-pub fn byte_builder_error_kind <(&ByteBuilderError)->StdErrorKind> (e):
+pub fn byte_builder_error_kind %fn &ByteBuilderError StdErrorKind \e:
     *get_ref e "error"
 
 //: byte_builder_error_builder: builder error から owner を取り戻す
@@ -171,18 +171,18 @@ pub fn byte_builder_error_kind <(&ByteBuilderError)->StdErrorKind> (e):
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let invalid <i32> sub 0 1
+//: fn main %impure fn () i32 \():
+//:     let invalid %i32 sub 0 1
 //:     match byte_builder_reserve byte_builder_empty invalid:
 //:         Result::Ok b:
 //:             byte_builder_free b
 //:             1
 //:         Result::Err e:
-//:             let b <ByteBuilder> byte_builder_error_builder e
+//:             let b %ByteBuilder byte_builder_error_builder e
 //:             byte_builder_free b
 //:             0
 //: ```
-pub fn byte_builder_error_builder <(ByteBuilderError)->ByteBuilder> (e):
+pub fn byte_builder_error_builder %fn ByteBuilderError ByteBuilder \e:
     get e "builder"
 
 //: byte_builder_bytebuf_error_kind: bytebuf append error の kind を借用して読む
@@ -199,11 +199,11 @@ pub fn byte_builder_error_builder <(ByteBuilderError)->ByteBuilder> (e):
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     // error payload は `byte_builder_push_bytebuf` の Err branch から得る。
-//:     let invalid <StdErrorKind> StdErrorKind::InvalidOperation
-//:     let e <ByteBuilderByteBufError> ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
-//:     let kind <StdErrorKind> byte_builder_bytebuf_error_kind &e
+//:     let invalid %StdErrorKind StdErrorKind::InvalidOperation
+//:     let e %ByteBuilderByteBufError ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
+//:     let kind %StdErrorKind byte_builder_bytebuf_error_kind &e
 //:     byte_builder_bytebuf_error_free e
 //:     match kind:
 //:         StdErrorKind::InvalidOperation:
@@ -211,7 +211,7 @@ pub fn byte_builder_error_builder <(ByteBuilderError)->ByteBuilder> (e):
 //:         _:
 //:             1
 //: ```
-pub fn byte_builder_bytebuf_error_kind <(&ByteBuilderByteBufError)->StdErrorKind> (e):
+pub fn byte_builder_bytebuf_error_kind %fn &ByteBuilderByteBufError StdErrorKind \e:
     *get_ref e "error"
 
 //: byte_builder_empty: storage を持たない空 builder を返す
@@ -221,7 +221,7 @@ pub fn byte_builder_bytebuf_error_kind <(&ByteBuilderByteBufError)->StdErrorKind
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)。
-pub fn byte_builder_empty <()->ByteBuilder> ():
+pub fn byte_builder_empty %fn () ByteBuilder \():
     ByteBuilder ByteBuilderStorage::Empty 0 0
 
 //: byte_builder_from_owned_region: 所有 byte 領域 token を `ByteBuilder` に包む
@@ -232,7 +232,7 @@ pub fn byte_builder_empty <()->ByteBuilder> ():
 //: [注意/ちゅうい]:
 //: - `cap0` は正でなければなりません。空 builder は `byte_builder_empty` を使ってください。
 //: - 呼び出し後、`region` は返った builder が所有します。
-pub fn byte_builder_from_owned_region <(RegionToken<u8>,i32,i32)->ByteBuilder> (region, len0, cap0):
+pub fn byte_builder_from_owned_region %fn RegionToken u8 fn i32 fn i32 ByteBuilder \region\len0\cap0:
     ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0
 
 //: byte_builder_with_len: builder の storage owner を保ったまま length だけ更新する
@@ -242,21 +242,21 @@ pub fn byte_builder_from_owned_region <(RegionToken<u8>,i32,i32)->ByteBuilder> (
 //:
 //: [注意/ちゅうい]:
 //: - `new_len` は `cap` 以下でなければなりません。capacity 確保は呼び出し前に `byte_builder_reserve` で済ませます。
-pub fn byte_builder_with_len <(ByteBuilder,i32)->ByteBuilder> (builder, new_len):
-    let cap0 <i32> get builder "cap"
+pub fn byte_builder_with_len %fn ByteBuilder fn i32 ByteBuilder \builder\new_len:
+    let cap0 %i32 get builder "cap"
     ByteBuilder get builder "storage" new_len cap0
 
-pub fn byte_builder_data_ptr_ref <(&ByteBuilder)->MemPtr<u8>> (builder):
-    let storage_ref <&ByteBuilderStorage> get_ref builder "storage"
+pub fn byte_builder_data_ptr_ref %fn &ByteBuilder MemPtr u8 \builder:
+    let storage_ref %&ByteBuilderStorage get_ref builder "storage"
     match storage_ref:
         ByteBuilderStorage::Empty:
             mem_ptr_wrap 0
         ByteBuilderStorage::Owned region:
             region_ptr region
 
-pub fn byte_builder_ptr_ref <(&ByteBuilder)->Option<MemPtr<u8>>> (builder):
-    let cap0 <i32> *get_ref builder "cap"
-    let storage_ref <&ByteBuilderStorage> get_ref builder "storage"
+pub fn byte_builder_ptr_ref %fn &ByteBuilder Option MemPtr u8 \builder:
+    let cap0 %i32 *get_ref builder "cap"
+    let storage_ref %&ByteBuilderStorage get_ref builder "storage"
     match storage_ref:
         ByteBuilderStorage::Empty:
             none<MemPtr<u8>>
@@ -275,5 +275,5 @@ pub fn byte_builder_ptr_ref <(&ByteBuilder)->Option<MemPtr<u8>>> (builder):
 //:
 //: [注意/ちゅうい]:
 //: - builder は by-value で受け取ります。後続でも使う場合は caller 側で所有権の流れを分けてください。
-pub fn byte_builder_len <(ByteBuilder)->i32> (builder):
+pub fn byte_builder_len %fn ByteBuilder i32 \builder:
     get builder "len"

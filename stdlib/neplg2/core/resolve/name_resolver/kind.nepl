@@ -16,11 +16,11 @@ pub enum SelfhostDefKind:
     Builtin
 
 impl Clone for SelfhostDefKind:
-    fn clone <(&SelfhostDefKind)->SelfhostDefKind> (self):
+    fn clone %fn &SelfhostDefKind SelfhostDefKind \self:
         *self
 
 impl Copy for SelfhostDefKind:
-    fn copy_mark <(SelfhostDefKind)->SelfhostDefKind> (self):
+    fn copy_mark %fn SelfhostDefKind SelfhostDefKind \self:
         self
 
 
@@ -29,7 +29,7 @@ impl Copy for SelfhostDefKind:
 //: [目的/もくてき]:
 //: - DefKind を i32 tag に変換せず、名前空間の分類を enum match で直接比較します。
 //: - variant 追加時に比較分岐の更新漏れを見つけやすい形にします。
-pub fn selfhost_def_kind_eq <(SelfhostDefKind,SelfhostDefKind)->bool> (a, b):
+pub fn selfhost_def_kind_eq %fn SelfhostDefKind fn SelfhostDefKind bool \a\b:
     match a:
         SelfhostDefKind::Function:
             match b:

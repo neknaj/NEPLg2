@@ -17,33 +17,33 @@ stdout: "test_report name=\"binary_heap_push_peek_pop\" count=3 failed=0\nassert
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let hp0 <BinaryHeap<i32>>:
+fn main %impure fn () i32 \():
+    let hp0 %BinaryHeap i32:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
         |> push 7 |> uwok
-    let size0 <i32> len<i32> &hp0;
+    let size0 %i32 len<i32> &hp0;
     free<i32> hp0;
-    let hp1 <BinaryHeap<i32>>:
+    let hp1 %BinaryHeap i32:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
-    let ok1 <bool> match peek<i32> &hp1:
+    let ok1 %bool match peek<i32> &hp1:
         Option::Some v:
             eq v 9
         Option::None:
             false
     free<i32> hp1;
-    let hp2 <BinaryHeap<i32>>:
+    let hp2 %BinaryHeap i32:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
         |> push 7 |> uwok
-    let ok2 <bool> match pop hp2:
+    let ok2 %bool match pop hp2:
         Option::Some v:
             eq v 9
         Option::None:
@@ -74,12 +74,12 @@ stdout: "test_report name=\"binary_heap_empty_and_capacity\" count=2 failed=0\na
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 8;
-    let ok0 <bool> is_empty<i32> &hp0;
+fn main %impure fn () i32 \():
+    let hp0 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 8;
+    let ok0 %bool is_empty<i32> &hp0;
     free<i32> hp0;
-    let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
-    let ok1 <bool> match pop hp1:
+    let hp1 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+    let ok1 %bool match pop hp1:
         Option::Some _:
             false
         Option::None:
@@ -109,14 +109,14 @@ stdout: "test_report name=\"binary_heap_borrowed_reads_preserve_owner\" count=2 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let hp <BinaryHeap<i32>>:
+fn main %impure fn () i32 \():
+    let hp %BinaryHeap i32:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
-    let ok_len <bool> eq len<i32> &hp 3;
-    let ok_peek <bool> match peek<i32> &hp:
+    let ok_len %bool eq len<i32> &hp 3;
+    let ok_peek %bool match peek<i32> &hp:
         Option::Some v:
             eq v 9
         Option::None:
@@ -147,22 +147,22 @@ stdout: "test_report name=\"binary_heap_pop_max_returns_owner\" count=3 failed=0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let hp0 <BinaryHeap<i32>>:
+fn main %impure fn () i32 \():
+    let hp0 %BinaryHeap i32:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
-    let popped <BinaryHeapPop<i32>> pop_max<i32> hp0;
-    let item <Option<i32>> binary_heap_pop_item<i32> &popped;
-    let hp1 <BinaryHeap<i32>> binary_heap_pop_heap<i32> popped;
-    let ok_item <bool> match item:
+    let popped %BinaryHeapPop i32 pop_max<i32> hp0;
+    let item %Option i32 binary_heap_pop_item<i32> &popped;
+    let hp1 %BinaryHeap i32 binary_heap_pop_heap<i32> popped;
+    let ok_item %bool match item:
         Option::Some v:
             eq v 9
         Option::None:
             false
-    let ok_len <bool> eq len<i32> &hp1 2;
-    let ok_peek <bool> match peek<i32> &hp1:
+    let ok_len %bool eq len<i32> &hp1 2;
+    let ok_peek %bool match peek<i32> &hp1:
         Option::Some v:
             eq v 4
         Option::None:
@@ -194,25 +194,25 @@ stdout: "test_report name=\"binary_heap_grow_preserves_order\" count=2 failed=0\
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let hp0 <BinaryHeap<i32>>:
+fn main %impure fn () i32 \():
+    let hp0 %BinaryHeap i32:
         unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 1
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
         |> push 7 |> uwok
-    let p0 <BinaryHeapPop<i32>> pop_max<i32> hp0;
-    let item0 <Option<i32>> binary_heap_pop_item<i32> &p0;
-    let hp1 <BinaryHeap<i32>> binary_heap_pop_heap<i32> p0;
-    let p1 <BinaryHeapPop<i32>> pop_max<i32> hp1;
-    let item1 <Option<i32>> binary_heap_pop_item<i32> &p1;
-    let hp2 <BinaryHeap<i32>> binary_heap_pop_heap<i32> p1;
-    let ok0 <bool> match item0:
+    let p0 %BinaryHeapPop i32 pop_max<i32> hp0;
+    let item0 %Option i32 binary_heap_pop_item<i32> &p0;
+    let hp1 %BinaryHeap i32 binary_heap_pop_heap<i32> p0;
+    let p1 %BinaryHeapPop i32 pop_max<i32> hp1;
+    let item1 %Option i32 binary_heap_pop_item<i32> &p1;
+    let hp2 %BinaryHeap i32 binary_heap_pop_heap<i32> p1;
+    let ok0 %bool match item0:
         Option::Some v:
             eq v 9
         Option::None:
             false
-    let ok1 <bool> match item1:
+    let ok1 %bool match item1:
         Option::Some v:
             eq v 7
         Option::None:

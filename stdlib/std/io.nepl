@@ -22,7 +22,7 @@
 //:| #target std
 //:| #import "std/io" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match write WriteStream::Stdio "io facade\n":
 //:         Result::Ok out:
 //:             match flush out:
@@ -47,13 +47,13 @@ pub #import "std/iotarget" as *
 //: ## TargetWritable
 //: category target へ[書/か]き[込/こ]める[値/あたい]の[能力/のうりょく]
 trait TargetWritable:
-    fn write_target <(WriteStream,Self)*>Result<WriteStream, StdErrorKind>> (target, value):
+    fn write_target %impure fn WriteStream impure fn Self Result WriteStream StdErrorKind \target\value:
         Result::Err StdErrorKind::InvalidOperation
 
 //: ## TargetReadable
 //: category target から[読/よ]み[出/だ]せる[値/あたい]の[能力/のうりょく]
 trait TargetReadable:
-    fn read_target <(ReadStream)*>Result<Self, StdErrorKind>> (target):
+    fn read_target %impure fn ReadStream Result Self StdErrorKind \target:
         Result::Err StdErrorKind::InvalidOperation
 
 //: ## read
@@ -74,7 +74,7 @@ trait TargetReadable:
 //: ### [計算量/けいさんりょう]
 //: - [各/かく] backend に[依存/いそん]します。
 impl TargetReadable for ByteBuf:
-    fn read_target <(ReadStream)*>Result<ByteBuf, StdErrorKind>> (target):
+    fn read_target %impure fn ReadStream Result ByteBuf StdErrorKind \target:
         match target:
             ReadStream::Stdio:
                 io_read_all_bytes StdinStream ()
@@ -90,7 +90,7 @@ impl TargetReadable for ByteBuf:
                 Result<ByteBuf, StdErrorKind>::Ok bytes
 
 impl TargetReadable for str:
-    fn read_target <(ReadStream)*>Result<str, StdErrorKind>> (target):
+    fn read_target %impure fn ReadStream Result str StdErrorKind \target:
         match target:
             ReadStream::Stdio:
                 io_read_all_text StdinStream ()
@@ -107,11 +107,11 @@ impl TargetReadable for str:
 
 //: ## read
 //: category target から byte [列/れつ]や text を[読/よ]む facade
-pub fn read <.T: TargetReadable> <(ReadStream)*>Result<.T, StdErrorKind>> (target):
+pub fn read <.T: TargetReadable> %impure fn ReadStream Result .T StdErrorKind \target:
     TargetReadable::read_target target
 
 impl TargetWritable for ByteBuf:
-    fn write_target <(WriteStream,ByteBuf)*>Result<WriteStream, StdErrorKind>> (target, value):
+    fn write_target %impure fn WriteStream impure fn ByteBuf Result WriteStream StdErrorKind \target\value:
         match target:
             WriteStream::Stdio:
                 match io_write_bytes StdoutStream () value:
@@ -128,7 +128,7 @@ impl TargetWritable for ByteBuf:
             WriteStream::Fs:
                 Result<WriteStream, StdErrorKind>::Err StdErrorKind::IoError
 impl TargetWritable for str:
-    fn write_target <(WriteStream,str)*>Result<WriteStream, StdErrorKind>> (target, value):
+    fn write_target %impure fn WriteStream impure fn str Result WriteStream StdErrorKind \target\value:
         match target:
             WriteStream::Stdio:
                 match io_write_str StdoutStream () value:
@@ -149,17 +149,17 @@ impl TargetWritable for str:
 //:
 //: ### [目的/もくてき]
 //: - `write WriteStream::Stdio data` と `data |> write WriteStream::Stdio` を 1 [個/こ]の `write` へ[集約/しゅうやく]し、公開面に型 suffix を[残/のこ]しません。
-pub fn write <.T: TargetWritable> <(WriteStream,.T)*>Result<WriteStream, StdErrorKind>> (target, value):
+pub fn write <.T: TargetWritable> %impure fn WriteStream impure fn .T Result WriteStream StdErrorKind \target\value:
     TargetWritable::write_target target value
 
 //: ## write
 //: pipe [終端/しゅうたん]から category target へ byte [列/れつ]や text を[書/か]く overload
-pub fn write <.T: TargetWritable> <(.T, WriteStream)*>Result<WriteStream, StdErrorKind>> (value, target):
+pub fn write <.T: TargetWritable> %impure fn .T impure fn WriteStream Result WriteStream StdErrorKind \value\target:
     TargetWritable::write_target target value
 
 //: ## writeln
 //: category target へ text と `\n` を[続/つづ]けて[書/か]く facade
-pub fn writeln <(WriteStream, str)*>Result<WriteStream, StdErrorKind>> (target, text):
+pub fn writeln %impure fn WriteStream impure fn str Result WriteStream StdErrorKind \target\text:
     match write target text:
         Result::Ok target1:
             write target1 "\n"
@@ -168,7 +168,7 @@ pub fn writeln <(WriteStream, str)*>Result<WriteStream, StdErrorKind>> (target, 
 
 //: ## writeln
 //: pipe [終端/しゅうたん]から category target へ text と `\n` を[続/つづ]けて[書/か]く overload
-pub fn writeln <(str, WriteStream)*>Result<WriteStream, StdErrorKind>> (text, target):
+pub fn writeln %impure fn str impure fn WriteStream Result WriteStream StdErrorKind \text\target:
     writeln target text
 
 //: ## flush
@@ -179,7 +179,7 @@ pub fn writeln <(str, WriteStream)*>Result<WriteStream, StdErrorKind>> (text, ta
 //:
 //: ### [実装/じっそう]
 //: - `WriteStream::Stdio` は `StdoutStream`、`WriteStream::Stderr` は `StderrStream` の flush に[委譲/いじょう]します。
-pub fn flush <(WriteStream)*>Result<WriteStream, StdErrorKind>> (target):
+pub fn flush %impure fn WriteStream Result WriteStream StdErrorKind \target:
     match target:
         WriteStream::Stdio:
             match io_flush StdoutStream ():
@@ -203,7 +203,7 @@ pub fn flush <(WriteStream)*>Result<WriteStream, StdErrorKind>> (target):
 //:
 //: ### [注意/ちゅうい]
 //: - [現在/げんざい]の `stdout` / `stderr` close は no-op です。
-pub fn close <(WriteStream)*>Result<(), StdErrorKind>> (target):
+pub fn close %impure fn WriteStream Result () StdErrorKind \target:
     match target:
         WriteStream::Stdio:
             io_close StdoutStream ()

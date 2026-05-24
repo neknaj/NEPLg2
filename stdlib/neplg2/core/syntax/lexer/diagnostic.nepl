@@ -8,20 +8,20 @@
 #import "neplg2/core/infra/span" as *
 
 pub struct LexDiagnostic:
-    code <SelfhostLexerDiagnosticCode>
-    span <SelfhostSourceSpan>
-    message <str>
+    code %SelfhostLexerDiagnosticCode
+    span %SelfhostSourceSpan
+    message %str
 
 impl Clone for LexDiagnostic:
-    fn clone <(&LexDiagnostic)->LexDiagnostic> (self):
+    fn clone %fn &LexDiagnostic LexDiagnostic \self:
         *self
 
 impl Copy for LexDiagnostic:
-    fn copy_mark <(LexDiagnostic)->LexDiagnostic> (self):
+    fn copy_mark %fn LexDiagnostic LexDiagnostic \self:
         self
 
 //: lex_diag_new: lexer diagnostic を[構築/こうちく]する
-pub fn lex_diag_new <(SelfhostLexerDiagnosticCode,SelfhostSourceSpan,str)->LexDiagnostic> (code, span, message):
+pub fn lex_diag_new %fn SelfhostLexerDiagnosticCode fn SelfhostSourceSpan fn str LexDiagnostic \code\span\message:
     LexDiagnostic code span message
 
 //: SelfhostLexerRawMode: raw backend text block の lexer state

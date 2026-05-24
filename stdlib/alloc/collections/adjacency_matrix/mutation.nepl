@@ -11,13 +11,13 @@
 #import "core/option" as *
 #import "./storage" as *
 
-pub fn adjacency_matrix_write_masked <(&Vec<u8>,i32,i32,bool)*>bool> (bits, byte_idx, mask, set_bit):
+pub fn adjacency_matrix_write_masked %impure fn &Vec u8 impure fn i32 impure fn i32 impure fn bool bool \bits\byte_idx\mask\set_bit:
     match adjacency_matrix_byte_at bits byte_idx:
         Option::Some cur:
-            let set_value <i32> or cur mask
-            let clear_mask <i32> xor mask 255
-            let clear_value <i32> and cur clear_mask
-            let next <i32> if:
+            let set_value %i32 or cur mask
+            let clear_mask %i32 xor mask 255
+            let clear_value %i32 and cur clear_mask
+            let next %i32 if:
                 set_bit
                 then set_value
                 else clear_value

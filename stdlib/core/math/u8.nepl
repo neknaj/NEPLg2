@@ -14,17 +14,17 @@
 //:| #target core
 //:| #import "core/cast" as *
 //:| #import "core/math/u8" as *
-//: fn main <()->i32> ():
-//:     let a <u8> cast 255;
-//:     let b <u8> cast 1;
-//:     let wrapped <u8> add a b;
-//:     let twenty <u8> cast 20;
-//:     let two_hundred <u8> cast 200;
-//:     let ten <u8> div_u two_hundred twenty;
+//: fn main %fn () i32 \():
+//:     let a %u8 cast 255;
+//:     let b %u8 cast 1;
+//:     let wrapped %u8 add a b;
+//:     let twenty %u8 cast 20;
+//:     let two_hundred %u8 cast 200;
+//:     let ten %u8 div_u two_hundred twenty;
 //:     if:
-//:         eq wrapped <u8> cast 0
+//:         eq wrapped %u8 cast 0
 //:         then:
-//:             if eq ten <u8> cast 10 0 1
+//:             if eq ten %u8 cast 10 0 1
 //:         else:
 //:             1
 //: ```

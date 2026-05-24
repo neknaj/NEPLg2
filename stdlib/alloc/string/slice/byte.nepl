@@ -33,10 +33,10 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(end - start)
-pub fn str_slice_result <(str,i32,i32)->Result<str,str>> (s, start, end):
-    let n <i32> len s;
-    let mut s0 <i32> start;
-    let mut e0 <i32> end;
+pub fn str_slice_result %fn str fn i32 fn i32 Result str str \s\start\end:
+    let n %i32 len s;
+    let mut s0 %i32 start;
+    let mut e0 %i32 end;
     if:
         lt s0 0
         then set s0 0
@@ -49,16 +49,16 @@ pub fn str_slice_result <(str,i32,i32)->Result<str,str>> (s, start, end):
         lt n e0
         then set e0 n
         else ()
-    let out_len <i32> sub e0 s0;
+    let out_len %i32 sub e0 s0;
     if:
         and str_utf8_is_boundary s s0 str_utf8_is_boundary s e0
         then:
-            let src <MemPtr<u8>> mem_ptr_add string_data_ptr s s0
+            let src %MemPtr u8 mem_ptr_add string_data_ptr s s0
             string_from_mem_unchecked_result src out_len
         else:
             Result<str,str>::Err "string.slice invalid utf8 boundary"
 
-pub fn str_slice <(str,i32,i32)->str> (s, start, end):
+pub fn str_slice %fn str fn i32 fn i32 str \s\start\end:
     match str_slice_result s start end:
         Result::Ok out:
             out

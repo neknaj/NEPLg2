@@ -26,7 +26,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/hashmap/types" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match HashMapBucketState::Tombstone:
 //:         HashMapBucketState::Empty:
 //:             1
@@ -41,11 +41,11 @@ pub enum HashMapBucketState:
     Tombstone
 
 impl Clone for HashMapBucketState:
-    fn clone <(&HashMapBucketState)->HashMapBucketState> (state):
+    fn clone %fn &HashMapBucketState HashMapBucketState \state:
         *state
 
 impl Copy for HashMapBucketState:
-    fn copy_mark <(HashMapBucketState)->HashMapBucketState> (state):
+    fn copy_mark %fn HashMapBucketState HashMapBucketState \state:
         state
 
 //: ## HashMapInsertSlotState
@@ -59,7 +59,7 @@ impl Copy for HashMapBucketState:
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/hashmap/types" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match HashMapInsertSlotState::EmptySlot:
 //:         HashMapInsertSlotState::EmptySlot:
 //:             0
@@ -71,11 +71,11 @@ pub enum HashMapInsertSlotState:
     TombstoneSlot
 
 impl Clone for HashMapInsertSlotState:
-    fn clone <(&HashMapInsertSlotState)->HashMapInsertSlotState> (state):
+    fn clone %fn &HashMapInsertSlotState HashMapInsertSlotState \state:
         *state
 
 impl Copy for HashMapInsertSlotState:
-    fn copy_mark <(HashMapInsertSlotState)->HashMapInsertSlotState> (state):
+    fn copy_mark %fn HashMapInsertSlotState HashMapInsertSlotState \state:
         state
 
 //: ## HashMapInsertSlot
@@ -91,13 +91,13 @@ impl Copy for HashMapInsertSlotState:
 //:| #import "alloc/collections/hashmap/types" as *
 //:| #import "core/field" as field
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let slot <HashMapInsertSlot> HashMapInsertSlot 3 HashMapInsertSlotState::EmptySlot;
+//: fn main %impure fn () i32 \():
+//:     let slot %HashMapInsertSlot HashMapInsertSlot 3 HashMapInsertSlotState::EmptySlot;
 //:     if eq field::get slot "index" 3 0 1
 //: ```
 pub struct HashMapInsertSlot:
-    index <i32>
-    state <HashMapInsertSlotState>
+    index %i32
+    state %HashMapInsertSlotState
 
 //: ## HashMapStorage
 //: HashMap の backing storage
@@ -108,9 +108,9 @@ pub struct HashMapInsertSlot:
 //: ### [注意/ちゅうい]
 //: - `states.len == keys.len == values.len == cap` を内部不変条件とします。
 pub struct HashMapStorage<.K,.V>:
-    states <Vec<HashMapBucketState>>
-    keys <Vec<Option<.K>>>
-    values <Vec<Option<.V>>>
+    states %Vec HashMapBucketState
+    keys %Vec Option .K
+    values %Vec Option .V
 
 //: ## HashMap
 //: hash map [本体/ほんたい]
@@ -118,11 +118,11 @@ pub struct HashMapStorage<.K,.V>:
 //: ### [目的/もくてき]
 //: - [要素数/ようそすう]・[容量/ようりょう]・tombstone 数・storage・hasher をまとめて[保持/ほじ]します。
 pub struct HashMap<.K,.V,.H>:
-    count <i32>
-    cap <i32>
-    tombstones <i32>
-    storage <HashMapStorage<.K,.V>>
-    hasher <.H>
+    count %i32
+    cap %i32
+    tombstones %i32
+    storage %HashMapStorage .K .V
+    hasher %.H
 
 //: ## HashMapUpdateError
 //: owner-consuming update の[失敗/しっぱい]で[戻/もど]る error payload
@@ -143,15 +143,15 @@ pub struct HashMap<.K,.V,.H>:
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hm <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
-//:     let d0 <Diag> diag_key_not_found;
-//:     let e <HashMapUpdateError<i32,i32,DefaultHash32>> HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
+//: fn main %impure fn () i32 \():
+//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let d0 %Diag diag_key_not_found;
+//:     let e %HashMapUpdateError i32 i32 DefaultHash32 HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
 //:     0
 //: ```
 pub struct HashMapUpdateError<.K,.V,.H>:
-    owner <HashMap<.K,.V,.H>>
-    diag <Diag>
+    owner %HashMap .K .V .H
+    diag %Diag
 
 //: ## hashmap_update_error_diag
 //: update [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
@@ -168,13 +168,13 @@ pub struct HashMapUpdateError<.K,.V,.H>:
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hm <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
-//:     let d0 <Diag> diag_key_not_found;
-//:     let e <HashMapUpdateError<i32,i32,DefaultHash32>> HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
+//: fn main %impure fn () i32 \():
+//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let d0 %Diag diag_key_not_found;
+//:     let e %HashMapUpdateError i32 i32 DefaultHash32 HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
 //:     0
 //: ```
-pub fn hashmap_update_error_diag <.K,.V,.H> <(&HashMapUpdateError<.K,.V,.H>)->Diag> (e):
+pub fn hashmap_update_error_diag <.K,.V,.H> %fn &HashMapUpdateError .K .V .H Diag \e:
     *field::get_ref e "diag"
 
 //: ## hashmap_update_error_owner
@@ -195,11 +195,11 @@ pub fn hashmap_update_error_diag <.K,.V,.H> <(&HashMapUpdateError<.K,.V,.H>)->Di
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hm <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
-//:     let d0 <Diag> diag_key_not_found;
-//:     let e <HashMapUpdateError<i32,i32,DefaultHash32>> HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
+//: fn main %impure fn () i32 \():
+//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let d0 %Diag diag_key_not_found;
+//:     let e %HashMapUpdateError i32 i32 DefaultHash32 HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
 //:     0
 //: ```
-pub fn hashmap_update_error_owner <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> <(HashMapUpdateError<.K,.V,.H>)->HashMap<.K,.V,.H>> (e):
+pub fn hashmap_update_error_owner <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn HashMapUpdateError .K .V .H HashMap .K .V .H \e:
     field::get e "owner"

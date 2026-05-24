@@ -27,11 +27,11 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/diag" as *
-//: fn main <()*>i32> ():
-//:     let d <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "message"
+//: fn main %impure fn () i32 \():
+//:     let d %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "message"
 //:     match selfhost_diagnostics_one d:
 //:         Result::Ok ds:
-//:             let n <i32> selfhost_diagnostics_len &ds
+//:             let n %i32 selfhost_diagnostics_len &ds
 //:             selfhost_diagnostics_free ds
 //:             if eq n 1 0 1
 //:         Result::Err _e:

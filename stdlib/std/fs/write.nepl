@@ -18,7 +18,7 @@
 //:| #import "std/fs/read" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match fs_write_to_string "tmp/fs_write_to_string_doctest_facade.txt" "fs write facade":
 //:         Result::Err _e:
 //:             1

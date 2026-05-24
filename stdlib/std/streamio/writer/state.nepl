@@ -27,23 +27,23 @@
 //: - target kind は stdout/stderr を[保持/ほじ]し、flush [時/じ]に[対応/たいおう]する fd へ[流/なが]します。
 //: - [各/かく] writer は[独立/どくりつ]した buffer を[持/も]つため、[複数/ふくすう]の reader / writer を[同時/どうじ]に[保持/ほじ]できます。
 pub struct StreamWriter:
-    builder <ByteBuilder>
-    target <StreamWriterTargetKind>
-    marker <(i32)->i32>
+    builder %ByteBuilder
+    target %StreamWriterTargetKind
+    marker %fn i32 i32
 
 pub enum StreamWriterTargetKind:
     Stdout
     Stderr
 
 impl Clone for StreamWriterTargetKind:
-    fn clone <(&StreamWriterTargetKind)->StreamWriterTargetKind> (target):
+    fn clone %fn &StreamWriterTargetKind StreamWriterTargetKind \target:
         *target
 
 impl Copy for StreamWriterTargetKind:
-    fn copy_mark <(StreamWriterTargetKind)->StreamWriterTargetKind> (target):
+    fn copy_mark %fn StreamWriterTargetKind StreamWriterTargetKind \target:
         target
 
-pub fn stream_writer_noncopy_marker <(i32)->i32> (x):
+pub fn stream_writer_noncopy_marker %fn i32 i32 \x:
     x
 
 //: ## stream_writer_new
@@ -52,7 +52,7 @@ pub fn stream_writer_noncopy_marker <(i32)->i32> (x):
 //: ### [目的/もくてき]
 //: - `StreamWriter` は非 Copy の owning struct として `ByteBuilder` と target enum を保持します。
 //: - raw pointer owner は writer state へ直接持たず、byte storage の所有権境界を `ByteBuilder` に集約します。
-pub fn stream_writer_new <(StreamWriterTargetKind)*>Result<StreamWriter,str>> (target):
+pub fn stream_writer_new %impure fn StreamWriterTargetKind Result StreamWriter str \target:
     match byte_builder_with_capacity 4096:
         Result::Ok builder:
             Result<StreamWriter,str>::Ok StreamWriter builder target @stream_writer_noncopy_marker
@@ -65,8 +65,8 @@ pub fn stream_writer_new <(StreamWriterTargetKind)*>Result<StreamWriter,str>> (t
 //: ### [注意/ちゅうい]
 //: - 公開 API 名 `close` は `std/streamio/writer` root が所有します。この helper は state layout を知る実装境界です。
 //: - 未 flush の[内容/ないよう]は[捨/す]てられます。[必要/ひつよう]なら[先/さき]に root の `flush` を[呼/よ]んでください。
-pub fn stream_writer_close_impl <(StreamWriter)*>()> (w):
-    let builder <ByteBuilder> get w "builder";
+pub fn stream_writer_close_impl %impure fn StreamWriter () \w:
+    let builder %ByteBuilder get w "builder";
     byte_builder_free builder
     ()
 
@@ -78,10 +78,10 @@ pub fn stream_writer_close_impl <(StreamWriter)*>()> (w):
 //:
 //: ### [計算量/けいさんりょう]
 //: - [現在/げんざい]の[書/か]き[込/こ]み[長/なが]さを n として O(n) です。
-pub fn drain_impl <(StreamWriter)*>StreamWriter> (w):
-    let target <StreamWriterTargetKind> *get_ref &w "target";
-    let builder <ByteBuilder> get w "builder";
-    let write_len <i32> *get_ref &builder "len";
+pub fn drain_impl %impure fn StreamWriter StreamWriter \w:
+    let target %StreamWriterTargetKind *get_ref &w "target";
+    let builder %ByteBuilder get w "builder";
+    let write_len %i32 *get_ref &builder "len";
     if:
         le write_len 0
         then:
@@ -107,12 +107,12 @@ pub fn drain_impl <(StreamWriter)*>StreamWriter> (w):
 //:
 //: ### [注意/ちゅうい]
 //: - need が capacity を[超/こ]える case は[呼/よ]び[出/だ]し[側/がわ]で[避/さ]けてください。この[版/ばん]では buffer [拡張/かくちょう]ではなく flush を[選/えら]びます。
-pub fn reserve_impl <(StreamWriter,i32)*>StreamWriter> (w, need):
-    let target <StreamWriterTargetKind> *get_ref &w "target";
-    let builder <ByteBuilder> get w "builder";
-    let cap <i32> *get_ref &builder "cap";
-    let write_len <i32> *get_ref &builder "len";
-    let required <i32> add write_len need;
+pub fn reserve_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\need:
+    let target %StreamWriterTargetKind *get_ref &w "target";
+    let builder %ByteBuilder get w "builder";
+    let cap %i32 *get_ref &builder "cap";
+    let write_len %i32 *get_ref &builder "len";
+    let required %i32 add write_len need;
     if:
         le required cap
         then:
@@ -125,10 +125,10 @@ pub fn reserve_impl <(StreamWriter,i32)*>StreamWriter> (w, need):
 //:
 //: ### [計算量/けいさんりょう]
 //: - [通常/つうじょう]は O(1) で、flush が[入/はい]ると O(len) です。
-pub fn push_u8_impl <(StreamWriter,i32)*>StreamWriter> (w, b):
-    let w1 <StreamWriter> reserve_impl w 1;
-    let target <StreamWriterTargetKind> *get_ref &w1 "target";
-    let builder <ByteBuilder> get w1 "builder";
+pub fn push_u8_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\b:
+    let w1 %StreamWriter reserve_impl w 1;
+    let target %StreamWriterTargetKind *get_ref &w1 "target";
+    let builder %ByteBuilder get w1 "builder";
     match byte_builder_push_u8 builder b:
         Result::Ok next_builder:
             StreamWriter next_builder target @stream_writer_noncopy_marker
@@ -138,5 +138,5 @@ pub fn push_u8_impl <(StreamWriter,i32)*>StreamWriter> (w, b):
 
 //: ## push_newline_impl
 //: [改行/かいぎょう] `\n` を 1 byte [出力/しゅつりょく]する
-pub fn push_newline_impl <(StreamWriter)*>StreamWriter> (w):
+pub fn push_newline_impl %impure fn StreamWriter StreamWriter \w:
     push_u8_impl w 10

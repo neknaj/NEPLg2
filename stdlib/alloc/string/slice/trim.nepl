@@ -33,7 +33,7 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/string/slice/trim" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let report:
 //:         test_report_new "string_trim_doc"
 //:         |> test_report_push assert_str_eq "suffix cr removed" "abc" str_trim_suffix_cr "abc\r"
@@ -45,8 +45,8 @@
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn str_trim_suffix_cr <(str)->str> (s):
-    let n <i32> len s
+pub fn str_trim_suffix_cr %fn str str \s:
+    let n %i32 len s
     if:
         and gt n 0 string_byte_eq s sub n 1 '\r'
         then str_slice s 0 sub n 1
@@ -65,10 +65,10 @@ pub fn str_trim_suffix_cr <(str)->str> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(end - start)
-pub fn str_slice_trim_suffix_cr <(str,i32,i32)->str> (s, start, end):
-    let n <i32> len s
-    let mut s0 <i32> start
-    let mut e0 <i32> end
+pub fn str_slice_trim_suffix_cr %fn str fn i32 fn i32 str \s\start\end:
+    let n %i32 len s
+    let mut s0 %i32 start
+    let mut e0 %i32 end
     if:
         lt s0 0
         then set s0 0
@@ -101,11 +101,11 @@ pub fn str_slice_trim_suffix_cr <(str,i32,i32)->str> (s, start, end):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn str_trim <(str)->str> (s):
-    let n <i32> len s;
-    let mut start <i32> 0;
-    let mut end <i32> n;
-    let mut done <i32> 0;
+pub fn str_trim %fn str str \s:
+    let n %i32 len s;
+    let mut start %i32 0;
+    let mut end %i32 n;
+    let mut done %i32 0;
     while eq done 0:
         do:
             if:
@@ -115,24 +115,24 @@ pub fn str_trim <(str)->str> (s):
                         Option::Some b:
                             if:
                                 str_is_space b
-                                then set start <i32> add start 1
+                                then set start %i32 add start 1
                                 else set done 1
                         Option::None:
                             set done 1
                 else:
                     set done 1
-    let mut done2 <i32> 0;
+    let mut done2 %i32 0;
     while eq done2 0:
         do:
             if:
                 lt start end
                 then:
-                    let idx <i32> sub end 1;
+                    let idx %i32 sub end 1;
                     match checked_string_byte_at s idx:
                         Option::Some b:
                             if:
                                 str_is_space b
-                                then set end <i32> sub end 1
+                                then set end %i32 sub end 1
                                 else set done2 1
                         Option::None:
                             set done2 1

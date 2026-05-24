@@ -47,9 +47,9 @@
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //:| #import "core/field" as *
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok push v0 9;
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec i32 unwrap_ok new<i32>;
+//:     let v1 %Vec i32 unwrap_ok push v0 9;
 //:     match get<i32> &v1 0:
 //:         Option::Some x:
 //:             free<i32> v1;
@@ -58,10 +58,10 @@
 //:             free<i32> v1;
 //:             1
 //: ```
-pub fn get <.T: Copy> <(&Vec<.T>,i32)->Option<.T>> (v, idx):
-    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-    let v_len <i32> *field::get_ref v_buffer "len"
-    let v_storage <&VecStorage<.T>> field::get_ref v_buffer "storage"
+pub fn get <.T: Copy> %fn &Vec .T fn i32 Option .T \v\idx:
+    let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
+    let v_len %i32 *field::get_ref v_buffer "len"
+    let v_storage %&VecStorage .T field::get_ref v_buffer "storage"
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
             none<.T>

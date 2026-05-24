@@ -18,22 +18,22 @@
 //:
 //: [実装/じっそう]:
 //: - `byte` の lower 8 bit を push し、[確保/かくほ][失敗/しっぱい]は `StdErrorKind::OutOfMemory` として[返/かえ]します。
-pub fn sha256_push_byte <(Vec<i32>,i32)*>Result<Vec<i32>, StdErrorKind>> (out, byte):
+pub fn sha256_push_byte %impure fn Vec i32 impure fn i32 Result Vec i32 StdErrorKind \out\byte:
     match push<i32> out and byte 255:
         Result::Err e:
-            let error <StdErrorKind> field::get e "error"
-            let returned <Vec<i32>> field::get e "vec"
+            let error %StdErrorKind field::get e "error"
+            let returned %Vec i32 field::get e "vec"
             free<i32> returned
             Result<Vec<i32>, StdErrorKind>::Err error
         Result::Ok next:
             Result<Vec<i32>, StdErrorKind>::Ok next
 
 //: sha256_push_word_be: 32-bit word を big-endian byte として digest output に[追加/ついか]する
-pub fn sha256_push_word_be <(Vec<i32>,i32)*>Result<Vec<i32>, StdErrorKind>> (out, word):
-    let b0 <i32> and shr_u word 24 255
-    let b1 <i32> and shr_u word 16 255
-    let b2 <i32> and shr_u word 8 255
-    let b3 <i32> and word 255
+pub fn sha256_push_word_be %impure fn Vec i32 impure fn i32 Result Vec i32 StdErrorKind \out\word:
+    let b0 %i32 and shr_u word 24 255
+    let b1 %i32 and shr_u word 16 255
+    let b2 %i32 and shr_u word 8 255
+    let b3 %i32 and word 255
     match sha256_push_byte out b0:
         Result::Err e:
             Result<Vec<i32>, StdErrorKind>::Err e
@@ -52,7 +52,7 @@ pub fn sha256_push_word_be <(Vec<i32>,i32)*>Result<Vec<i32>, StdErrorKind>> (out
 //:
 //: [実装/じっそう]:
 //: - `h0`..`h7` を big-endian で[連結/れんけつ]します。
-pub fn sha256_state_to_digest <(Sha256State)*>Result<Vec<i32>, StdErrorKind>> (state):
+pub fn sha256_state_to_digest %impure fn Sha256State Result Vec i32 StdErrorKind \state:
     match with_capacity<i32> 32:
         Result::Err e:
             Result<Vec<i32>, StdErrorKind>::Err e

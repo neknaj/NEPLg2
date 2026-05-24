@@ -22,8 +22,8 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/json_escape" as *
-//: fn main <()*>i32> ():
-//:     let escaped <str> json_escape "a\t\"b\\c"
+//: fn main %impure fn () i32 \():
+//:     let escaped %str json_escape "a\t\"b\\c"
 //:     if str_eq escaped "a\\t\\\"b\\\\c" 0 1
 //: ```
 
@@ -44,7 +44,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_escape_byte_into <(StringBuilder,i32)->StringBuilder> (sb, ch):
+pub fn json_escape_byte_into %fn StringBuilder fn i32 StringBuilder \sb\ch:
     match ch:
         '\\':
             sb_append sb "\\\\"
@@ -74,10 +74,10 @@ pub fn json_escape_byte_into <(StringBuilder,i32)->StringBuilder> (sb, ch):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn json_escape_into <(StringBuilder,str)->StringBuilder> (sb, s):
-    let n <i32> len s;
-    let mut out <StringBuilder> sb;
-    let mut i <i32> 0;
+pub fn json_escape_into %fn StringBuilder fn str StringBuilder \sb\s:
+    let n %i32 len s;
+    let mut out %StringBuilder sb;
+    let mut i %i32 0;
     while lt i n:
         do:
             match checked_string_byte_at s i:
@@ -98,8 +98,8 @@ pub fn json_escape_into <(StringBuilder,str)->StringBuilder> (sb, s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn json_escape_builder_into <(StringBuilder,StringBuilder)->StringBuilder> (sb, src):
-    let text <str> sb_build src;
+pub fn json_escape_builder_into %fn StringBuilder fn StringBuilder StringBuilder \sb\src:
+    let text %str sb_build src;
     json_escape_into sb text
 
 //: json_escape: JSON 文字列用に byte を escape する
@@ -112,5 +112,5 @@ pub fn json_escape_builder_into <(StringBuilder,StringBuilder)->StringBuilder> (
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn json_escape <(str)->str> (s):
+pub fn json_escape %fn str str \s:
     sb_build json_escape_into string_builder_new s

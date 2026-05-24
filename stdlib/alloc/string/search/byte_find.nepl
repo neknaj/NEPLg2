@@ -27,15 +27,15 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(sep_len)
-pub fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
-    let mut i <i32> 0;
-    let mut ok <i32> 1;
+pub fn str_match_at %fn str fn str fn i32 fn i32 bool \s\sep\pos\sep_len:
+    let mut i %i32 0;
+    let mut ok %i32 1;
     while lt i sep_len:
         do:
-            let rd_off <i32> add pos i;
+            let rd_off %i32 add pos i;
             if:
                 string_bytes_eq s rd_off sep i
-                then set i <i32> add i 1
+                then set i %i32 add i 1
                 else:
                     set ok 0
                     set i sep_len
@@ -66,7 +66,7 @@ pub fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/string" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let report:
 //:         test_report_new "str_find_doc"
 //:         |> test_report_push assert_eq_i32 "middle" 2 str_find "abcabc" "ca"
@@ -76,9 +76,9 @@ pub fn str_match_at <(str,str,i32,i32)->bool> (s, sep, pos, sep_len):
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn str_find <(str,str)->i32> (s, pat):
-    let s_len <i32> len s
-    let pat_len <i32> len pat
+pub fn str_find %fn str fn str i32 \s\pat:
+    let s_len %i32 len s
+    let pat_len %i32 len pat
     if:
         eq pat_len 0
         then:
@@ -89,10 +89,10 @@ pub fn str_find <(str,str)->i32> (s, pat):
                 then:
                     -1
                 else:
-                    let mut i <i32> 0
-                    let mut found <i32> -1
-                    let mut done <i32> 0
-                    let mut scan_end <i32> pat_len
+                    let mut i %i32 0
+                    let mut found %i32 -1
+                    let mut done %i32 0
+                    let mut scan_end %i32 pat_len
                     while and eq done 0 le scan_end s_len:
                         do:
                             if:

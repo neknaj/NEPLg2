@@ -17,7 +17,7 @@
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<i32> 1:
 //:         Result::Ok region:
 //:             match dealloc_region<i32> region:

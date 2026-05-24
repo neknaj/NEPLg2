@@ -23,16 +23,16 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn expect_char <(Result<char,str>,i32)->Result<(),str>> (got, expected_code):
+fn expect_char %fn Result char str fn i32 Result () str \got\expected_code:
     match got:
         Result::Ok c:
             check_eq_i32 expected_code char_to_i32 c
         Result::Err msg:
             Result<(),str>::Err msg
 
-fn main <()*>i32> ():
-    let a <char> 'A'
-    let hira <char> 'あ'
+fn main %impure fn () i32 \():
+    let a %char 'A'
+    let hira %char 'あ'
     let checks:
         checks_new
         |> checks_push assert_eq_i32 65 char_to_i32 a

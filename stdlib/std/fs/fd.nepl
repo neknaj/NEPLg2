@@ -34,22 +34,22 @@
 //:
 //: 計算量:
 //: - O(1)
-pub fn fs_open_with_flags <(str,i32,i64)*>Result<i32,i32>> (path, oflags, rights):
+pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 i32 \path\oflags\rights:
     match alloc_region<u8> 4:
         Result::Err _e:
             Result<i32,i32>::Err 12
         Result::Ok fd_out_region:
-            let fd_out_buf <MemPtr<u8>> region_ptr &fd_out_region
-            let fd_out_raw <i32> mem_ptr_addr fd_out_buf
-            let res <Result<i32,i32>> if:
+            let fd_out_buf %MemPtr u8 region_ptr &fd_out_region
+            let fd_out_raw %i32 mem_ptr_addr fd_out_buf
+            let res %Result i32 i32 if:
                 le fd_out_raw 0
                 then:
                     Result<i32,i32>::Err fs_errno_inval
                 else:
                     store_i32 fd_out_raw 0
-                    let path_ptr <i32> mem_ptr_addr string_data_ptr path
-                    let path_len <i32> len path
-                    let errno <i32> wasi_path_open 3 0 path_ptr path_len oflags rights rights 0 fd_out_raw
+                    let path_ptr %i32 mem_ptr_addr string_data_ptr path
+                    let path_len %i32 len path
+                    let errno %i32 wasi_path_open 3 0 path_ptr path_len oflags rights rights 0 fd_out_raw
                     if:
                         eq errno 0
                         then:
@@ -95,14 +95,14 @@ pub fn fs_open_with_flags <(str,i32,i64)*>Result<i32,i32>> (path, oflags, rights
 //:| #target std
 //:| #import "std/fs" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match fs_open_read "tests/fixtures/fs/read_sample.txt":
 //:         Result::Ok _fd:
 //:             0
 //:         Result::Err _e:
 //:             1
 //: ```
-pub fn fs_open_read <(str)*>Result<i32,i32>> (path):
+pub fn fs_open_read %impure fn str Result i32 i32 \path:
     fs_open_with_flags path 0 fs_right_fd_read
 
 //: fs_open_write: ファイルを書き込み専用で開く
@@ -136,7 +136,7 @@ pub fn fs_open_read <(str)*>Result<i32,i32>> (path):
 //:| #target std
 //:| #import "std/fs" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match fs_open_write "tmp/fs_open_write_doctest.txt":
 //:         Result::Ok fd:
 //:             match fs_close fd:
@@ -147,7 +147,7 @@ pub fn fs_open_read <(str)*>Result<i32,i32>> (path):
 //:         Result::Err _e:
 //:             1
 //: ```
-pub fn fs_open_write <(str)*>Result<i32,i32>> (path):
+pub fn fs_open_write %impure fn str Result i32 i32 \path:
     fs_open_with_flags path fs_oflags_create_truncate fs_right_fd_write
 
 //: fs_close: fd を閉じる
@@ -163,8 +163,8 @@ pub fn fs_open_write <(str)*>Result<i32,i32>> (path):
 //:
 //: 計算量:
 //: - O(1)
-pub fn fs_close <(i32)*>Result<(),i32>> (fd):
-    let errno <i32> wasi_fd_close fd
+pub fn fs_close %impure fn i32 Result () i32 \fd:
+    let errno %i32 wasi_fd_close fd
     if:
         eq errno 0
         then:

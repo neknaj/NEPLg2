@@ -12,17 +12,17 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
-pub fn fenwick_sum_prefix_storage <(&Vec<i32>,i32)->Option<i32>> (bit, r):
-    let mut i <i32> r
-    let mut acc <i32> 0
-    let mut valid <bool> true
+pub fn fenwick_sum_prefix_storage %fn &Vec i32 fn i32 Option i32 \bit\r:
+    let mut i %i32 r
+    let mut acc %i32 0
+    let mut valid %bool true
     while and lt 0 i valid:
         do:
             match fenwick_load_owned bit i:
                 Option::Some v:
                     set acc add acc v
-                    let neg_i <i32> sub 0 i
-                    let lb <i32> and i neg_i
+                    let neg_i %i32 sub 0 i
+                    let lb %i32 and i neg_i
                     set i sub i lb
                 Option::None:
                     set valid false

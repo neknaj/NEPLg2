@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/math/i32/compare" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     assert eq 7 7;
 //:     assert lt_u 0 -1;
 //: ```
@@ -42,7 +42,7 @@
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     assert eq 7 7;
 //:     assert ne 7 8;
 //:     assert lt -1 0;
@@ -54,7 +54,7 @@
 //:     assert ge 9 9;
 //:     assert ge_u -1 -1;
 //: ```
-pub fn eq <(i32,i32)->bool> (a,b):
+pub fn eq %fn i32 fn i32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -82,7 +82,7 @@ pub fn eq <(i32,i32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ne <(i32,i32)->bool> (a,b):
+pub fn ne %fn i32 fn i32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -110,7 +110,7 @@ pub fn ne <(i32,i32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn lt <(i32,i32)->bool> (a,b):
+pub fn lt %fn i32 fn i32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -138,7 +138,7 @@ pub fn lt <(i32,i32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn lt_u <(i32,i32)->bool> (a,b):
+pub fn lt_u %fn i32 fn i32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -166,7 +166,7 @@ pub fn lt_u <(i32,i32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn le <(i32,i32)->bool> (a,b):
+pub fn le %fn i32 fn i32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -194,7 +194,7 @@ pub fn le <(i32,i32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn le_u <(i32,i32)->bool> (a,b):
+pub fn le_u %fn i32 fn i32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -222,7 +222,7 @@ pub fn le_u <(i32,i32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn gt <(i32,i32)->bool> (a,b):
+pub fn gt %fn i32 fn i32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -250,7 +250,7 @@ pub fn gt <(i32,i32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn gt_u <(i32,i32)->bool> (a,b):
+pub fn gt_u %fn i32 fn i32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -278,7 +278,7 @@ pub fn gt_u <(i32,i32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ge <(i32,i32)->bool> (a,b):
+pub fn ge %fn i32 fn i32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -306,7 +306,7 @@ pub fn ge <(i32,i32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ge_u <(i32,i32)->bool> (a,b):
+pub fn ge_u %fn i32 fn i32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a

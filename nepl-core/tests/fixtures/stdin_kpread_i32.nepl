@@ -6,10 +6,10 @@
 #import "std/iotarget" as *
 #import "std/stdio" as *
 
-fn main <()*> ()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <i32> read &sc;
-    let b <i32> read &sc;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let a %i32 read &sc;
+    let b %i32 read &sc;
     close sc;
     println_i32 a;
     println_i32 b;

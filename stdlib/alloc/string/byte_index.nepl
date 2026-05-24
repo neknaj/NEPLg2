@@ -26,7 +26,7 @@
 //: [注意/ちゅうい]:
 //: - public にしません。外部 module は constructor も field も直接使えません。
 struct StringByteIndex:
-    value <i32>
+    value %i32
 
 //: checked_string_byte_index: byte index の範囲証明を作る
 //:
@@ -43,26 +43,26 @@ struct StringByteIndex:
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let ok0 <bool> match checked_string_byte_index "AZ" 0:
+//: fn main %impure fn () i32 \():
+//:     let ok0 %bool match checked_string_byte_index "AZ" 0:
 //:         Option::Some proof:
 //:             eq string_byte_at_checked "AZ" proof 'A'
 //:         Option::None:
 //:             false
-//:     let ok1 <bool> match checked_string_byte_index "AZ" 1:
+//:     let ok1 %bool match checked_string_byte_index "AZ" 1:
 //:         Option::Some proof:
 //:             eq string_byte_at_checked "AZ" proof 'Z'
 //:         Option::None:
 //:             false
-//:     let rejected <bool> match checked_string_byte_index "AZ" 2:
+//:     let rejected %bool match checked_string_byte_index "AZ" 2:
 //:         Option::Some proof:
 //:             false
 //:         Option::None:
 //:             true
 //:     if and ok0 and ok1 rejected 0 1
 //: ```
-pub fn checked_string_byte_index <(str,i32)->Option<StringByteIndex>> (s, idx):
-    let n <i32> string_access::len s
+pub fn checked_string_byte_index %fn str fn i32 Option StringByteIndex \s\idx:
+    let n %i32 string_access::len s
     if:
         lt idx 0
         then:
@@ -79,14 +79,14 @@ pub fn checked_string_byte_index <(str,i32)->Option<StringByteIndex>> (s, idx):
 //:
 //: [目的/もくてき]:
 //: - raw read 実装だけが、証明済み index の数値表現を取り出せるようにします。
-fn string_byte_index_value <(StringByteIndex)->i32> (idx):
+fn string_byte_index_value %fn StringByteIndex i32 \idx:
     field::get idx "value"
 
 //: string_byte_access_addr: `str` の内部アドレスを byte index module 内部で取り出す
 //:
 //: [目的/もくてき]:
 //: - witness を受け取った byte reader だけが、`str` の基底 raw address を使えるようにします。
-fn string_byte_access_addr <(str)->i32> (s):
+fn string_byte_access_addr %fn str i32 \s:
     #intrinsic "str_addr" <> (s)
 
 //: string_byte_at_checked: witness で証明済みの byte index を読む
@@ -96,9 +96,9 @@ fn string_byte_access_addr <(str)->i32> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn string_byte_at_checked <(str,StringByteIndex)->i32> (s, idx):
-    let raw_idx <i32> string_byte_index_value idx
-    load_u8 <i32> add string_byte_access_addr s <i32> add 4 raw_idx
+pub fn string_byte_at_checked %fn str fn StringByteIndex i32 \s\idx:
+    let raw_idx %i32 string_byte_index_value idx
+    load_u8 %i32 add string_byte_access_addr s %i32 add 4 raw_idx
 
 //: checked_string_byte_at: 範囲確認済み byte を `Option` で読む
 //:
@@ -116,14 +116,14 @@ pub fn string_byte_at_checked <(str,StringByteIndex)->i32> (s, idx):
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match checked_string_byte_at "AZ" 1:
 //:         Option::Some b:
 //:             if eq b 'Z' 0 1
 //:         Option::None:
 //:             1
 //: ```
-pub fn checked_string_byte_at <(str,i32)->Option<i32>> (s, idx):
+pub fn checked_string_byte_at %fn str fn i32 Option i32 \s\idx:
     match checked_string_byte_index s idx:
         Option::Some proof:
             some<i32> string_byte_at_checked s proof
@@ -145,10 +145,10 @@ pub fn checked_string_byte_at <(str,i32)->Option<i32>> (s, idx):
 //:| #target std
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if and string_byte_eq "AZ" 0 'A' not string_byte_eq "AZ" 2 'Z' 0 1
 //: ```
-pub fn string_byte_eq <(str,i32,i32)->bool> (s, idx, expected):
+pub fn string_byte_eq %fn str fn i32 fn i32 bool \s\idx\expected:
     match checked_string_byte_at s idx:
         Option::Some actual:
             eq actual expected
@@ -169,10 +169,10 @@ pub fn string_byte_eq <(str,i32,i32)->bool> (s, idx, expected):
 //:| #target std
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if and string_bytes_eq "AZ" 0 "A" 0 not string_bytes_eq "AZ" 1 "A" 0 0 1
 //: ```
-pub fn string_bytes_eq <(str,i32,str,i32)->bool> (a, a_idx, b, b_idx):
+pub fn string_bytes_eq %fn str fn i32 fn str fn i32 bool \a\a_idx\b\b_idx:
     match checked_string_byte_at a a_idx:
         Option::Some ba:
             match checked_string_byte_at b b_idx:
@@ -199,14 +199,14 @@ pub fn string_bytes_eq <(str,i32,str,i32)->bool> (a, a_idx, b, b_idx):
 //:| #import "alloc/string/byte_index" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match string_bytes_cmp "A" 0 "Z" 0:
 //:         Option::Some ord:
 //:             if lt ord 0 0 1
 //:         Option::None:
 //:             1
 //: ```
-pub fn string_bytes_cmp <(str,i32,str,i32)->Option<i32>> (a, a_idx, b, b_idx):
+pub fn string_bytes_cmp %fn str fn i32 fn str fn i32 Option i32 \a\a_idx\b\b_idx:
     match checked_string_byte_at a a_idx:
         Option::Some ba:
             match checked_string_byte_at b b_idx:

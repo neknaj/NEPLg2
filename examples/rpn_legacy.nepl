@@ -4,7 +4,7 @@
 //: stdout: mlstr:
 //:     ##: RPN REPL
 //:     ##: enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.
-//:     ##: 
+//:     ##:
 //:     ##: > ok: result = 3
 //:     ##: > bye
 //:
@@ -44,8 +44,8 @@
 //:
 //: [目的/もくてき]:
 //: - REPL の利用者向けエラーを `error: <msg>` 形式で標準出力へ出します。
-fn print_error <(str)*>()> (msg):
-    let label_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Red;
+fn print_error %impure fn str () \msg:
+    let label_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Red;
     print_style label_style "error:";
     print " ";
     println_color AnsiColor::Red msg;
@@ -54,17 +54,17 @@ fn print_error <(str)*>()> (msg):
 //:
 //: [目的/もくてき]:
 //: - 各入力行の先頭に `> ` を表示します。
-fn print_prompt <()*>()> ():
-    let prompt_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Green;
+fn print_prompt %impure fn () () \():
+    let prompt_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Green;
     print_style prompt_style "> ";
 
 //: print_result: 計算結果を表示する
 //:
 //: [目的/もくてき]:
 //: - `ok: result = <val>` 形式で 1 行の結果を出力します。
-fn print_result <(i32)*>()> (val):
-    let ok_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Green;
-    let value_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Cyan;
+fn print_result %impure fn i32 () \val:
+    let ok_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Green;
+    let value_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Cyan;
     print_style ok_style "ok";
     print_color AnsiColor::Gray ": result = ";
     print_style_start value_style;
@@ -78,12 +78,12 @@ fn print_result <(i32)*>()> (val):
 //: - 計算途中の `push` 失敗を panic にせず、利用者へ `out of memory` として表示します。
 //: - `push` は Stack owner を消費して更新後 owner を返すため、成功時だけ次の owner を返します。
 //: - 失敗時は `StackPushError` から owner を回収して閉じ、REPL 状態には失敗だけを残します。
-fn push_or_report <(Stack<i32>,i32)*>Result<Stack<i32>,str>> (stack, val):
+fn push_or_report %impure fn Stack i32 impure fn i32 Result Stack i32 str \stack\val:
     match stk::push<i32> stack val:
         Result::Ok next_stack:
             ok<Stack<i32>,str> next_stack
         Result::Err e:
-            let returned <Stack<i32>> stk::stack_push_error_stack<i32> e
+            let returned %Stack i32 stk::stack_push_error_stack<i32> e
             stk::free<i32> returned;
             print_error "out of memory";
             err<Stack<i32>,str> "out of memory"
@@ -93,24 +93,24 @@ fn push_or_report <(Stack<i32>,i32)*>Result<Stack<i32>,str>> (stack, val):
 //: [目的/もくてき]:
 //: - `+` `-` `*` を適用し、結果を同じ stack に積み直します。
 //: - stack が不足する場合はエラーを表示し、stack をそのまま返します。
-fn apply_op <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
+fn apply_op %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token:
     if:
         lt stk::len<i32> &stack 2
         then:
             print_error "stack underflow";
             ok<Stack<i32>,str> stack
         else:
-            let popped_b <StackPop<i32>> stk::pop_top<i32> stack
-            let b_opt <Option<i32>> stk::stack_pop_item<i32> &popped_b
-            let stack_b <Stack<i32>> stk::stack_pop_stack<i32> popped_b
+            let popped_b %StackPop i32 stk::pop_top<i32> stack
+            let b_opt %Option i32 stk::stack_pop_item<i32> &popped_b
+            let stack_b %Stack i32 stk::stack_pop_stack<i32> popped_b
             match b_opt:
                 Option::Some b:
-                    let popped_a <StackPop<i32>> stk::pop_top<i32> stack_b
-                    let a_opt <Option<i32>> stk::stack_pop_item<i32> &popped_a
-                    let stack_a <Stack<i32>> stk::stack_pop_stack<i32> popped_a
+                    let popped_a %StackPop i32 stk::pop_top<i32> stack_b
+                    let a_opt %Option i32 stk::stack_pop_item<i32> &popped_a
+                    let stack_a %Stack i32 stk::stack_pop_stack<i32> popped_a
                     match a_opt:
                         Option::Some a:
-                            let res <i32>:
+                            let res %i32:
                                 if:
                                     string_search::str_eq token "+"
                                     then add a b
@@ -132,13 +132,13 @@ fn apply_op <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
 //: [目的/もくてき]:
 //: - 数値 token は stack に積み、演算子 token は `apply_op` へ渡します。
 //: - 空 token や解析不能 token は、REPL 全体を落とさず値として処理します。
-fn process_token <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
+fn process_token %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token:
     if:
         string_search::str_eq token ""
         then:
             ok<Stack<i32>,str> stack
         else:
-            let is_op <bool> or or string_search::str_eq token "+" string_search::str_eq token "-" string_search::str_eq token "*";
+            let is_op %bool or or string_search::str_eq token "+" string_search::str_eq token "-" string_search::str_eq token "*";
             if:
                 is_op
                 then:
@@ -151,14 +151,14 @@ fn process_token <(Stack<i32>,str)*>Result<Stack<i32>,str>> (stack, token):
                             print_error "unknown token";
                             ok<Stack<i32>,str> stack
 
-fn process_token_state <(Result<Stack<i32>,str>,str)*>Result<Stack<i32>,str>> (state, token):
+fn process_token_state %impure fn Result Stack i32 str impure fn str Result Stack i32 str \state\token:
     match state:
         Result::Ok stack:
             process_token stack token
         Result::Err msg:
             err<Stack<i32>,str> msg
 
-fn token_error_state <(Result<Stack<i32>,str>,str)*>Result<Stack<i32>,str>> (state, msg):
+fn token_error_state %impure fn Result Stack i32 str impure fn str Result Stack i32 str \state\msg:
     match state:
         Result::Ok stack:
             stk::free<i32> stack;
@@ -171,19 +171,19 @@ fn token_error_state <(Result<Stack<i32>,str>,str)*>Result<Stack<i32>,str>> (sta
 //: [目的/もくてき]:
 //: - スペース区切りの RPN 式を評価し、結果または stack 個数エラーを表示します。
 //: - token 配列を作らず、処理中の `Stack<i32>` owner だけを明示的に受け渡します。
-fn eval_line <(str)*>()> (line):
-    let trimmed <str> string_slice::str_trim line;
-    let n <i32> string_access::len trimmed;
+fn eval_line %impure fn str () \line:
+    let trimmed %str string_slice::str_trim line;
+    let n %i32 string_access::len trimmed;
 
     match stk::new<i32>:
         Result::Ok stack0:
-            let mut stack_state <Result<Stack<i32>,str>> ok<Stack<i32>,str> stack0;
-            let mut start <i32> 0;
-            let mut i <i32> 0;
+            let mut stack_state %Result Stack i32 str ok<Stack<i32>,str> stack0;
+            let mut start %i32 0;
+            let mut i %i32 0;
             while le i n:
                 do:
-                    let is_end <bool> eq i n
-                    let is_sep <bool> if:
+                    let is_end %bool eq i n
+                    let is_sep %bool if:
                         is_end
                         then:
                             true
@@ -208,13 +208,13 @@ fn eval_line <(str)*>()> (line):
 
             match stack_state:
                 Result::Ok stack:
-                    let sp <i32> stk::len<i32> &stack;
+                    let sp %i32 stk::len<i32> &stack;
                     if:
                         eq sp 1
                         then:
-                            let popped <StackPop<i32>> stk::pop_top<i32> stack
-                            let val_opt <Option<i32>> stk::stack_pop_item<i32> &popped
-                            let next_stack <Stack<i32>> stk::stack_pop_stack<i32> popped
+                            let popped %StackPop i32 stk::pop_top<i32> stack
+                            let val_opt %Option i32 stk::stack_pop_item<i32> &popped
+                            let next_stack %Stack i32 stk::stack_pop_stack<i32> popped
                             match val_opt:
                                 Option::Some val:
                                     print_result val
@@ -239,21 +239,21 @@ fn eval_line <(str)*>()> (line):
 //:
 //: [目的/もくてき]:
 //: - 初期バナーを表示し、EOF 相当の空入力まで 1 行ずつ評価します。
-fn main <()*>()> ():
-    let title_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Cyan;
+fn main %impure fn () () \():
+    let title_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Cyan;
     println_style title_style "RPN REPL";
     println_color AnsiColor::Gray "enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.";
     println "";
 
-    let mut running <bool> true;
+    let mut running %bool true;
     while running:
         do:
             print_prompt;
-            let input <str> read_line;
+            let input %str read_line;
             if:
                 eq string_access::len input 0
                 then:
-                    let bye_style <AnsiTextStyle> ansi_bold_color_style AnsiColor::Yellow;
+                    let bye_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Yellow;
                     println_style bye_style "bye";
                     set running false;
                 else:

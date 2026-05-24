@@ -20,68 +20,68 @@ stdout: "test_report name=\"hashset_str_main\" count=8 failed=0\nassertion index
 #import "core/result" as *
 #import "std/test" as *
 
-fn must_hss <(Result<HashSet<str,DefaultHash32>, Diag>)*>HashSet<str,DefaultHash32>> (r):
+fn must_hss %impure fn Result HashSet str DefaultHash32 Diag HashSet str DefaultHash32 \r:
     unwrap_ok<HashSet<str,DefaultHash32>, Diag> r
 
-fn must_hss <(Result<HashSet<str,DefaultHash32>, HashSetUpdateError<str,DefaultHash32>>)*>HashSet<str,DefaultHash32>> (r):
+fn must_hss %impure fn Result HashSet str DefaultHash32 HashSetUpdateError str DefaultHash32 HashSet str DefaultHash32 \r:
     match r:
         Result::Ok hs:
             hs
         Result::Err e:
-            let hs <HashSet<str,DefaultHash32>> hashset_update_error_owner<str,DefaultHash32> e;
+            let hs %HashSet str DefaultHash32 hashset_update_error_owner<str,DefaultHash32> e;
             free hs;
             #intrinsic "unreachable" <> ()
 
-fn main <()*>i32> ():
-    let hs0 <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
-    let hs0_len <i32> len &hs0;
+fn main %impure fn () i32 \():
+    let hs0 %HashSet str DefaultHash32 must_hss new DefaultHash32;
+    let hs0_len %i32 len &hs0;
     free hs0;
 
-    let hs1 <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
-    let hs1_has <bool> contains &hs1 "foo";
+    let hs1 %HashSet str DefaultHash32 must_hss new DefaultHash32;
+    let hs1_has %bool contains &hs1 "foo";
     free hs1;
 
-    let hs2 <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
-    let hs2 <HashSet<str,DefaultHash32>> must_hss insert hs2 "foo";
-    let hs2 <HashSet<str,DefaultHash32>> must_hss insert hs2 "bar";
-    let hs2 <HashSet<str,DefaultHash32>> must_hss insert hs2 "foo";
-    let hs2_len <i32> len &hs2;
+    let hs2 %HashSet str DefaultHash32 must_hss new DefaultHash32;
+    let hs2 %HashSet str DefaultHash32 must_hss insert hs2 "foo";
+    let hs2 %HashSet str DefaultHash32 must_hss insert hs2 "bar";
+    let hs2 %HashSet str DefaultHash32 must_hss insert hs2 "foo";
+    let hs2_len %i32 len &hs2;
     free hs2;
 
-    let hs2a <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
-    let hs2a <HashSet<str,DefaultHash32>> must_hss insert hs2a "foo";
-    let hs2a <HashSet<str,DefaultHash32>> must_hss insert hs2a "bar";
-    let hs2a_has <bool> contains &hs2a "foo";
+    let hs2a %HashSet str DefaultHash32 must_hss new DefaultHash32;
+    let hs2a %HashSet str DefaultHash32 must_hss insert hs2a "foo";
+    let hs2a %HashSet str DefaultHash32 must_hss insert hs2a "bar";
+    let hs2a_has %bool contains &hs2a "foo";
     free hs2a;
 
-    let hs2b <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
-    let hs2b <HashSet<str,DefaultHash32>> must_hss insert hs2b "foo";
-    let hs2b <HashSet<str,DefaultHash32>> must_hss insert hs2b "bar";
-    let hs2b_has <bool> contains &hs2b "bar";
+    let hs2b %HashSet str DefaultHash32 must_hss new DefaultHash32;
+    let hs2b %HashSet str DefaultHash32 must_hss insert hs2b "foo";
+    let hs2b %HashSet str DefaultHash32 must_hss insert hs2b "bar";
+    let hs2b_has %bool contains &hs2b "bar";
     free hs2b;
 
-    let s1 <str> concat "a" "b";
-    let s2 <str> concat "a" "b";
-    let hs3 <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
-    let hs3 <HashSet<str,DefaultHash32>> must_hss insert hs3 s1;
-    let hs3_has <bool> contains &hs3 s2;
+    let s1 %str concat "a" "b";
+    let s2 %str concat "a" "b";
+    let hs3 %HashSet str DefaultHash32 must_hss new DefaultHash32;
+    let hs3 %HashSet str DefaultHash32 must_hss insert hs3 s1;
+    let hs3_has %bool contains &hs3 s2;
     free hs3;
 
-    let hs4 <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
-    let hs4 <HashSet<str,DefaultHash32>> must_hss insert hs4 "foo";
-    let hs4 <HashSet<str,DefaultHash32>> must_hss remove hs4 "foo";
-    let hs4_has <bool> contains &hs4 "foo";
+    let hs4 %HashSet str DefaultHash32 must_hss new DefaultHash32;
+    let hs4 %HashSet str DefaultHash32 must_hss insert hs4 "foo";
+    let hs4 %HashSet str DefaultHash32 must_hss remove hs4 "foo";
+    let hs4_has %bool contains &hs4 "foo";
     free hs4;
 
-    let hs5 <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
-    let hs5 <HashSet<str,DefaultHash32>> must_hss insert hs5 "foo";
-    let hs5_is_err <bool>:
+    let hs5 %HashSet str DefaultHash32 must_hss new DefaultHash32;
+    let hs5 %HashSet str DefaultHash32 must_hss insert hs5 "foo";
+    let hs5_is_err %bool:
         match remove hs5 "zzz":
             Result::Ok hs:
                 free hs;
                 false
             Result::Err e:
-                let hs <HashSet<str,DefaultHash32>> hashset_update_error_owner<str,DefaultHash32> e;
+                let hs %HashSet str DefaultHash32 hashset_update_error_owner<str,DefaultHash32> e;
                 free hs;
                 true
 
@@ -116,21 +116,21 @@ stdout: "test_report name=\"hashset_str_free_smoke\" count=1 failed=0\nassertion
 #import "core/result" as *
 #import "std/test" as *
 
-fn must_hss <(Result<HashSet<str,DefaultHash32>, Diag>)*>HashSet<str,DefaultHash32>> (r):
+fn must_hss %impure fn Result HashSet str DefaultHash32 Diag HashSet str DefaultHash32 \r:
     unwrap_ok<HashSet<str,DefaultHash32>, Diag> r
 
-fn must_hss <(Result<HashSet<str,DefaultHash32>, HashSetUpdateError<str,DefaultHash32>>)*>HashSet<str,DefaultHash32>> (r):
+fn must_hss %impure fn Result HashSet str DefaultHash32 HashSetUpdateError str DefaultHash32 HashSet str DefaultHash32 \r:
     match r:
         Result::Ok hs:
             hs
         Result::Err e:
-            let hs <HashSet<str,DefaultHash32>> hashset_update_error_owner<str,DefaultHash32> e;
+            let hs %HashSet str DefaultHash32 hashset_update_error_owner<str,DefaultHash32> e;
             free hs;
             #intrinsic "unreachable" <> ()
 
-fn main <()*>i32> ():
-    let hsf <HashSet<str,DefaultHash32>> must_hss new DefaultHash32;
-    let hsf <HashSet<str,DefaultHash32>> must_hss insert hsf "x";
+fn main %impure fn () i32 \():
+    let hsf %HashSet str DefaultHash32 must_hss new DefaultHash32;
+    let hsf %HashSet str DefaultHash32 must_hss insert hsf "x";
     free hsf;
     let report:
         test_report_new "hashset_str_free_smoke"

@@ -11,10 +11,10 @@ diag_code: type.trait_capability.unknown
 
 trait BadCap:
     #capability cpoy
-    fn f <(Self)->Self> (x):
+    fn f %fn Self Self \x:
         x
 
-fn main <()->()> ():
+fn main %fn () () \():
     ()
 ```
 
@@ -29,9 +29,9 @@ diag_code: type.trait_method.type_params_unsupported
 #import "core/field" as *
 
 trait Boxy:
-    fn get <.T> <(Self)->.T> (x):
+    fn get <.T> %fn Self .T \x:
         x
 
-fn main <()->()> ():
+fn main %fn () () \():
     ()
 ```

@@ -18,7 +18,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn validate_port <(i32)->Result<i32,str>> (port):
+fn validate_port %fn i32 Result i32 str \port:
     if:
         lt port 1
         then:
@@ -31,21 +31,21 @@ fn validate_port <(i32)->Result<i32,str>> (port):
                 else:
                     Result<i32,str>::Ok port
 
-fn expect_port <(i32,i32)->Result<(),str>> (input, expected):
+fn expect_port %fn i32 fn i32 Result () str \input\expected:
     match validate_port input:
         Result::Ok port:
             check_eq_i32 expected port
         Result::Err msg:
             Result<(),str>::Err msg
 
-fn expect_port_error <(i32,str)->Result<(),str>> (input, expected):
+fn expect_port_error %fn i32 fn str Result () str \input\expected:
     match validate_port input:
         Result::Ok port:
             Result<(),str>::Err "expected validation error"
         Result::Err msg:
             check_str_eq expected msg
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks:
         checks_new
         |> checks_push expect_port 8080 8080

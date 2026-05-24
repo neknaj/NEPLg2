@@ -21,16 +21,16 @@
 
 //: ## sparse_set_update_ok
 //: update [後/ご]の[長/なが]さで `SparseSet` owner を[再構築/さいこうちく]する
-pub fn sparse_set_update_ok <(SparseSet,i32)->Result<SparseSet, SparseSetUpdateError>> (s, next_len):
-    let n <i32> field::get s "n"
-    let dense <Vec<i32>> field::get s "dense"
-    let sparse <Vec<i32>> field::get s "sparse"
+pub fn sparse_set_update_ok %fn SparseSet fn i32 Result SparseSet SparseSetUpdateError \s\next_len:
+    let n %i32 field::get s "n"
+    let dense %Vec i32 field::get s "dense"
+    let sparse %Vec i32 field::get s "sparse"
     ok<SparseSet, SparseSetUpdateError> SparseSet n next_len dense sparse
 
 //: ## sparse_set_update_err
 //: update [失敗/しっぱい]を owner-preserving error に[変換/へんかん]する
-pub fn sparse_set_update_err <(SparseSet,Diag)->Result<SparseSet, SparseSetUpdateError>> (s, d):
-    let e <SparseSetUpdateError> SparseSetUpdateError s d
+pub fn sparse_set_update_err %fn SparseSet fn Diag Result SparseSet SparseSetUpdateError \s\d:
+    let e %SparseSetUpdateError SparseSetUpdateError s d
     err<SparseSet, SparseSetUpdateError> e
 
 //: ## insert
@@ -44,28 +44,28 @@ pub fn sparse_set_update_err <(SparseSet,Diag)->Result<SparseSet, SparseSetUpdat
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let s <SparseSet>:
+//: fn main %impure fn () i32 \():
+//:     let s %SparseSet:
 //:         unwrap_ok<SparseSet, Diag> new 8
 //:         |> insert 3 |> uwok
 //:         |> insert 5 |> uwok
-//:     let observed_len <i32> len &s;
-//:     let ok <bool> eq observed_len 2;
+//:     let observed_len %i32 len &s;
+//:     let ok %bool eq observed_len 2;
 //:     free s
 //:     if ok 1 0
 //: ```
-pub fn insert <(SparseSet,i32)*>Result<SparseSet, SparseSetUpdateError>> (s, value):
-    let n <i32> *field::get_ref &s "n"
-    let len0 <i32> *field::get_ref &s "len0"
+pub fn insert %impure fn SparseSet impure fn i32 Result SparseSet SparseSetUpdateError \s\value:
+    let n %i32 *field::get_ref &s "n"
+    let len0 %i32 *field::get_ref &s "len0"
     if:
         not sparse_set_valid_index value n
         then:
-            let d <Diag> sparse_set_diag_index
+            let d %Diag sparse_set_diag_index
             sparse_set_update_err s d
         else:
-            let result <Result<i32, Diag>> block:
-                let dense <&Vec<i32>> field::get_ref &s "dense"
-                let sparse <&Vec<i32>> field::get_ref &s "sparse"
+            let result %Result i32 Diag block:
+                let dense %&Vec i32 field::get_ref &s "dense"
+                let sparse %&Vec i32 field::get_ref &s "sparse"
                 match sparse_set_insert_storage n dense sparse len0 value:
                     Option::Some next_len:
                         ok<i32, Diag> next_len
@@ -88,29 +88,29 @@ pub fn insert <(SparseSet,i32)*>Result<SparseSet, SparseSetUpdateError>> (s, val
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let s <SparseSet>:
+//: fn main %impure fn () i32 \():
+//:     let s %SparseSet:
 //:         unwrap_ok<SparseSet, Diag> new 8
 //:         |> insert 3 |> uwok
 //:         |> insert 5 |> uwok
 //:         |> remove 3 |> uwok
-//:     let observed_len <i32> len &s;
-//:     let ok <bool> eq observed_len 1;
+//:     let observed_len %i32 len &s;
+//:     let ok %bool eq observed_len 1;
 //:     free s
 //:     if ok 1 0
 //: ```
-pub fn remove <(SparseSet,i32)*>Result<SparseSet, SparseSetUpdateError>> (s, value):
-    let n <i32> *field::get_ref &s "n"
-    let len0 <i32> *field::get_ref &s "len0"
+pub fn remove %impure fn SparseSet impure fn i32 Result SparseSet SparseSetUpdateError \s\value:
+    let n %i32 *field::get_ref &s "n"
+    let len0 %i32 *field::get_ref &s "len0"
     if:
         not sparse_set_valid_index value n
         then:
-            let d <Diag> sparse_set_diag_index
+            let d %Diag sparse_set_diag_index
             sparse_set_update_err s d
         else:
-            let result <Result<i32, Diag>> block:
-                let dense <&Vec<i32>> field::get_ref &s "dense"
-                let sparse <&Vec<i32>> field::get_ref &s "sparse"
+            let result %Result i32 Diag block:
+                let dense %&Vec i32 field::get_ref &s "dense"
+                let sparse %&Vec i32 field::get_ref &s "sparse"
                 match sparse_set_remove_storage n dense sparse len0 value:
                     Option::Some next_len:
                         ok<i32, Diag> next_len

@@ -17,12 +17,12 @@
 //:| #import "core/char" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let a <char> 'A'
-//:     let hira <char> '\u{3042}'
-//:     let valid <Result<char,str>> char_from_i32_result 0x3042
-//:     let surrogate <Result<char,str>> char_from_i32_result 0xD800
-//:     let too_large <Result<char,str>> char_from_i32_result 0x110000
+//: fn main %impure fn () i32 \():
+//:     let a %char 'A'
+//:     let hira %char '\u{3042}'
+//:     let valid %Result char str char_from_i32_result 0x3042
+//:     let surrogate %Result char str char_from_i32_result 0xD800
+//:     let too_large %Result char str char_from_i32_result 0x110000
 //:     let report:
 //:         test_report_new "core_char_basic"
 //:         |> test_report_push assert_eq_i32 "ascii codepoint" 65 char_to_i32 a
@@ -49,18 +49,18 @@
 //: [目的/もくてき]:
 //: - 旧 tuple type を使わず、decode した `char` と次 byte offset を名前付き field で返します。
 pub struct CharUtf8Step:
-    value <char>
-    next <i32>
+    value %char
+    next %i32
 
 impl Clone for CharUtf8Step:
-    fn clone <(&CharUtf8Step)->CharUtf8Step> (x):
+    fn clone %fn &CharUtf8Step CharUtf8Step \x:
         *x
 
 impl Copy for CharUtf8Step:
-    fn copy_mark <(CharUtf8Step)->CharUtf8Step> (x):
+    fn copy_mark %fn CharUtf8Step CharUtf8Step \x:
         x
 
-pub fn char_utf8_step_new <(char,i32)->CharUtf8Step> (value, next):
+pub fn char_utf8_step_new %fn char fn i32 CharUtf8Step \value\next:
     CharUtf8Step value next
 
 //: char_to_i32: char の Unicode scalar value を i32 code point として返す
@@ -70,7 +70,7 @@ pub fn char_utf8_step_new <(char,i32)->CharUtf8Step> (value, next):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn char_to_i32 <(char)->i32> (c):
+pub fn char_to_i32 %fn char i32 \c:
     cast c
 
 //: char_is_valid_scalar_code: i32 が Unicode scalar value として妥当か判定する
@@ -80,7 +80,7 @@ pub fn char_to_i32 <(char)->i32> (c):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn char_is_valid_scalar_code <(i32)->bool> (code):
+pub fn char_is_valid_scalar_code %fn i32 bool \code:
     and:
         and ge code 0 le code 0x10FFFF
         not and ge code 0xD800 le code 0xDFFF
@@ -95,7 +95,7 @@ pub fn char_is_valid_scalar_code <(i32)->bool> (code):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn char_from_i32_result <(i32)->Result<char,str>> (code):
+pub fn char_from_i32_result %fn i32 Result char str \code:
     if:
         char_is_valid_scalar_code code
         then:
@@ -113,8 +113,8 @@ pub fn char_from_i32_result <(i32)->Result<char,str>> (code):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn char_to_u8_result <(char)->Result<i32,str>> (c):
-    let code <i32> char_to_i32 c
+pub fn char_to_u8_result %fn char Result i32 str \c:
+    let code %i32 char_to_i32 c
     if:
         and ge code 0 le code 255
         then:
@@ -123,44 +123,44 @@ pub fn char_to_u8_result <(char)->Result<i32,str>> (c):
             Result<i32,str>::Err "char.not byte"
 
 //: char_is_ascii: char が ASCII 範囲か判定する
-pub fn char_is_ascii <(char)->bool> (c):
+pub fn char_is_ascii %fn char bool \c:
     le char_to_i32 c 0x7F
 
 //: char_is_ascii_digit: char が ASCII 数字か判定する
-pub fn char_is_ascii_digit <(char)->bool> (c):
-    let code <i32> char_to_i32 c
+pub fn char_is_ascii_digit %fn char bool \c:
+    let code %i32 char_to_i32 c
     and ge code '0' le code '9'
 
 //: char_is_ascii_upper: char が ASCII 大文字か判定する
-pub fn char_is_ascii_upper <(char)->bool> (c):
-    let code <i32> char_to_i32 c
+pub fn char_is_ascii_upper %fn char bool \c:
+    let code %i32 char_to_i32 c
     and ge code 'A' le code 'Z'
 
 //: char_is_ascii_lower: char が ASCII 小文字か判定する
-pub fn char_is_ascii_lower <(char)->bool> (c):
-    let code <i32> char_to_i32 c
+pub fn char_is_ascii_lower %fn char bool \c:
+    let code %i32 char_to_i32 c
     and ge code 'a' le code 'z'
 
 //: char_is_ascii_alpha: char が ASCII 英字か判定する
-pub fn char_is_ascii_alpha <(char)->bool> (c):
+pub fn char_is_ascii_alpha %fn char bool \c:
     or char_is_ascii_upper c char_is_ascii_lower c
 
 //: char_is_ascii_alnum: char が ASCII 英数字か判定する
-pub fn char_is_ascii_alnum <(char)->bool> (c):
+pub fn char_is_ascii_alnum %fn char bool \c:
     or char_is_ascii_alpha c char_is_ascii_digit c
 
 //: char_is_ascii_hex_digit: char が ASCII 16 進数字か判定する
-pub fn char_is_ascii_hex_digit <(char)->bool> (c):
-    let code <i32> char_to_i32 c
-    let lower <bool> and ge code 'a' le code 'f'
-    let upper <bool> and ge code 'A' le code 'F'
+pub fn char_is_ascii_hex_digit %fn char bool \c:
+    let code %i32 char_to_i32 c
+    let lower %bool and ge code 'a' le code 'f'
+    let upper %bool and ge code 'A' le code 'F'
     or char_is_ascii_digit c or lower upper
 
 //: char_is_ascii_whitespace: char が ASCII 空白文字か判定する
 //:
 //: [目的/もくてき]:
 //: - space、tab、LF、CR、form feed、vertical tab を文字として分類します。
-pub fn char_is_ascii_whitespace <(char)->bool> (c):
+pub fn char_is_ascii_whitespace %fn char bool \c:
     match c:
         ' ':
             true
@@ -181,8 +181,8 @@ pub fn char_is_ascii_whitespace <(char)->bool> (c):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn char_utf8_len <(char)->i32> (c):
-    let code <i32> char_to_i32 c
+pub fn char_utf8_len %fn char i32 \c:
+    let code %i32 char_to_i32 c
     if:
         le code 0x7F
         then:
@@ -200,15 +200,15 @@ pub fn char_utf8_len <(char)->i32> (c):
                         else:
                             4
 
-pub fn char_utf8_cont_byte <(i32)->i32> (bits):
+pub fn char_utf8_cont_byte %fn i32 i32 \bits:
     or 0x80 and bits 0x3F
 
 //: char_utf8_byte0: UTF-8 encode 後の 1 byte 目を返す
 //:
 //: [注意/ちゅうい]:
 //: - `char_utf8_len` で必要 byte 数を確認してから使ってください。
-pub fn char_utf8_byte0 <(char)->i32> (c):
-    let code <i32> char_to_i32 c
+pub fn char_utf8_byte0 %fn char i32 \c:
+    let code %i32 char_to_i32 c
     if:
         le code 0x7F
         then:
@@ -227,8 +227,8 @@ pub fn char_utf8_byte0 <(char)->i32> (c):
                             or 0xF0 shr_u code 18
 
 //: char_utf8_byte1: UTF-8 encode 後の 2 byte 目を返す
-pub fn char_utf8_byte1 <(char)->i32> (c):
-    let code <i32> char_to_i32 c
+pub fn char_utf8_byte1 %fn char i32 \c:
+    let code %i32 char_to_i32 c
     if:
         le code 0x7FF
         then:
@@ -242,8 +242,8 @@ pub fn char_utf8_byte1 <(char)->i32> (c):
                     char_utf8_cont_byte shr_u code 12
 
 //: char_utf8_byte2: UTF-8 encode 後の 3 byte 目を返す
-pub fn char_utf8_byte2 <(char)->i32> (c):
-    let code <i32> char_to_i32 c
+pub fn char_utf8_byte2 %fn char i32 \c:
+    let code %i32 char_to_i32 c
     if:
         le code 0xFFFF
         then:
@@ -252,5 +252,5 @@ pub fn char_utf8_byte2 <(char)->i32> (c):
             char_utf8_cont_byte shr_u code 6
 
 //: char_utf8_byte3: UTF-8 encode 後の 4 byte 目を返す
-pub fn char_utf8_byte3 <(char)->i32> (c):
+pub fn char_utf8_byte3 %fn char i32 \c:
     char_utf8_cont_byte char_to_i32 c

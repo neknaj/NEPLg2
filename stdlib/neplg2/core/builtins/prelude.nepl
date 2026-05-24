@@ -30,7 +30,7 @@
 //:| #import "core/option" as *
 //:| #import "neplg2/core/builtins/prelude" as *
 //:| #import "neplg2/core/ty/ty" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     selfhost_prelude_stage0
 //: ```
 

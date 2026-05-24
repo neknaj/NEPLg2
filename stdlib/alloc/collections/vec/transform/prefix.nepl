@@ -32,9 +32,9 @@
 //:
 //: ### [実装/じっそう]
 //: - `p` が true の間だけ index を[進/すす]め、最初の false または `len` に[到達/とうたつ]した位置を[返/かえ]します。
-fn vec_take_while_len <.T: Copy> <(&Vec<.T>, i32, (.T)->bool)->i32> (v, len0, p):
-    let mut i <i32> 0
-    let mut active <bool> true
+fn vec_take_while_len <.T: Copy> %fn &Vec .T fn i32 fn fn .T bool i32 \v\len0\p:
+    let mut i %i32 0
+    let mut active %bool true
     while and active lt i len0:
         do:
             match vec_get::get<.T> v i:
@@ -53,8 +53,8 @@ fn vec_take_while_len <.T: Copy> <(&Vec<.T>, i32, (.T)->bool)->i32> (v, len0, p)
 //:
 //: ### [目的/もくてき]
 //: - prefix / suffix copy を `get<T: Copy>` と private raw write の組み合わせに[限定/げんてい]し、raw load の結果を owner-producing API へ直接[渡/わた]さないようにします。
-fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (src, out_data, src_from, count):
-    let mut i <i32> 0
+fn vec_copy_range_to_raw <.T: Copy> %fn &Vec .T fn MemPtr .T fn i32 fn i32 () \src\out_data\src_from\count:
+    let mut i %i32 0
     while lt i count:
         do:
             match vec_get::get<.T> src add src_from i:
@@ -88,42 +88,42 @@ fn vec_copy_range_to_raw <.T: Copy> <(&Vec<.T>, MemPtr<.T>, i32, i32)->()> (src,
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn lt_three <(i32)->bool> (x):
+//: fn lt_three %fn i32 bool \x:
 //:     lt x 3
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
-//:     let ys <Vec<i32>> unwrap_ok take_while<i32> xs lt_three;
-//:     let observed_len <i32> len<i32> &ys
-//:     let ok <bool> eq observed_len 2
+//:     let ys %Vec i32 unwrap_ok take_while<i32> xs lt_three;
+//:     let observed_len %i32 len<i32> &ys
+//:     let ok %bool eq observed_len 2
 //:     free<i32> ys;
 //:     if ok 0 1
 //: ```
-pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
-    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
-    let src_len <i32> *field::get_ref v_buffer_ref "len"
+pub fn take_while <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformError .T \v\p:
+    let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
+    let src_len %i32 *field::get_ref v_buffer_ref "len"
     match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
         VecCopyInvariant::Invalid _reason:
             Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
-            let keep_len <i32> vec_take_while_len<.T> &v src_len p
+            let keep_len %i32 vec_take_while_len<.T> &v src_len p
             match vec_storage::with_capacity<.T> keep_len:
                 Result::Err e:
                     Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
                 Result::Ok out0:
-                    let out_buffer_ref <&OwnedBuffer<.T>> field::get_ref &out0 "buffer"
-                    let out_cap <i32> *field::get_ref out_buffer_ref "cap"
+                    let out_buffer_ref %&OwnedBuffer .T field::get_ref &out0 "buffer"
+                    let out_cap %i32 *field::get_ref out_buffer_ref "cap"
                     match data_mem_view<.T> &out0:
                         VecDataView::Empty:
                             if:
                                 eq keep_len 0
                                 then:
                                     vec_cleanup::free<.T> v
-                                    let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
-                                    let out_storage <VecStorage<.T>> field::get out_buffer "storage"
+                                    let out_buffer %OwnedBuffer .T field::get out0 "buffer"
+                                    let out_storage %VecStorage .T field::get out_buffer "storage"
                                     Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
                                 else:
                                     vec_cleanup::free<.T> out0
@@ -134,8 +134,8 @@ pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransfor
                         VecDataView::Data out_data:
                             vec_copy_range_to_raw<.T> &v out_data 0 keep_len
                             vec_cleanup::free<.T> v
-                            let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
-                            let out_storage <VecStorage<.T>> field::get out_buffer "storage"
+                            let out_buffer %OwnedBuffer .T field::get out0 "buffer"
+                            let out_storage %VecStorage .T field::get out_buffer "storage"
                             Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
 
 //: drop_while: [条件/じょうけん]が[成/な]り[立/た]つ[先頭/せんとう][連続部分/れんぞくぶぶん]を[捨/す]てる
@@ -164,15 +164,15 @@ pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransfor
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "core/field" as *
-//: fn lt_three <(i32)->bool> (x):
+//: fn lt_three %fn i32 bool \x:
 //:     lt x 3
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
-//:     let ys <Vec<i32>> unwrap_ok drop_while<i32> xs lt_three;
+//:     let ys %Vec i32 unwrap_ok drop_while<i32> xs lt_three;
 //:     match get<i32> &ys 0:
 //:         Option::Some x:
 //:             free<i32> ys;
@@ -181,29 +181,29 @@ pub fn take_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransfor
 //:             free<i32> ys;
 //:             1
 //: ```
-pub fn drop_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
-    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
-    let src_len <i32> *field::get_ref v_buffer_ref "len"
+pub fn drop_while <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformError .T \v\p:
+    let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
+    let src_len %i32 *field::get_ref v_buffer_ref "len"
     match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
         VecCopyInvariant::Invalid _reason:
             Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
-            let drop_len <i32> vec_take_while_len<.T> &v src_len p
-            let keep_len <i32> sub src_len drop_len
+            let drop_len %i32 vec_take_while_len<.T> &v src_len p
+            let keep_len %i32 sub src_len drop_len
             match vec_storage::with_capacity<.T> keep_len:
                 Result::Err e:
                     Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
                 Result::Ok out0:
-                    let out_buffer_ref <&OwnedBuffer<.T>> field::get_ref &out0 "buffer"
-                    let out_cap <i32> *field::get_ref out_buffer_ref "cap"
+                    let out_buffer_ref %&OwnedBuffer .T field::get_ref &out0 "buffer"
+                    let out_cap %i32 *field::get_ref out_buffer_ref "cap"
                     match data_mem_view<.T> &out0:
                         VecDataView::Empty:
                             if:
                                 eq keep_len 0
                                 then:
                                     vec_cleanup::free<.T> v
-                                    let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
-                                    let out_storage <VecStorage<.T>> field::get out_buffer "storage"
+                                    let out_buffer %OwnedBuffer .T field::get out0 "buffer"
+                                    let out_storage %VecStorage .T field::get out_buffer "storage"
                                     Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
                                 else:
                                     vec_cleanup::free<.T> out0
@@ -214,6 +214,6 @@ pub fn drop_while <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransfor
                         VecDataView::Data out_data:
                             vec_copy_range_to_raw<.T> &v out_data drop_len keep_len
                             vec_cleanup::free<.T> v
-                            let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
-                            let out_storage <VecStorage<.T>> field::get out_buffer "storage"
+                            let out_buffer %OwnedBuffer .T field::get out0 "buffer"
+                            let out_storage %VecStorage .T field::get out_buffer "storage"
                             Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)

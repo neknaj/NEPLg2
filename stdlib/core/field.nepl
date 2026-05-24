@@ -12,7 +12,7 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| fn main <()*>i32> ():
+//:| fn main %impure fn () i32 \():
 //:     ()
 //:     0
 //: ```
@@ -35,7 +35,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn get <.T,.I,.R> <(.T,.I)->.R> (obj,idx):
+pub fn get <.T,.I,.R> %fn .T fn .I .R \obj\idx:
     #intrinsic "get_field" <> (obj,idx)
 
 // get_ref: [参照/さんしょう]からフィールドへの[参照/さんしょう]を[取得/しゅとく]します
@@ -55,7 +55,7 @@ pub fn get <.T,.I,.R> <(.T,.I)->.R> (obj,idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn get_ref <.T,.I,.R> <(&.T,.I)->&.R> (obj,idx):
+pub fn get_ref <.T,.I,.R> %fn &.T fn .I &.R \obj\idx:
     #intrinsic "get_field_ref" <> (obj,idx)
 
 //: put: aggregate field を書き換える
@@ -73,5 +73,5 @@ pub fn get_ref <.T,.I,.R> <(&.T,.I)->&.R> (obj,idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn put <.T,.I,.V> <(.T,.I,.V)->()> (obj,idx,val):
+pub fn put <.T,.I,.V> %fn .T fn .I fn .V () \obj\idx\val:
     #intrinsic "set_field" <> (obj,idx,val)

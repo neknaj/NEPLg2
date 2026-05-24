@@ -14,7 +14,7 @@ stdout: "test_report name=\"string_len_and_concat\" count=2 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let s:
         "hello"
         |> concat "world"
@@ -41,7 +41,7 @@ stdout: "test_report name=\"string_trim_and_slice\" count=3 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let src "  fn main(a: i32)  ";
     let trimmed str_trim src;
     let part str_slice trimmed 3 7;
@@ -68,21 +68,21 @@ stdout: "test_report name=\"string_split_and_builder\" count=2 failed=0\nasserti
 #import "core/field" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let first <StrSplitStep> str_split_next "a--b--c" "--" 0
-    let second <StrSplitStep> str_split_next "a--b--c" "--" get first "next"
-    let msg <str>:
+fn main %impure fn () i32 \():
+    let first %StrSplitStep str_split_next "a--b--c" "--" 0
+    let second %StrSplitStep str_split_next "a--b--c" "--" get first "next"
+    let msg %str:
         string_builder_new
         |> sb_append "Error: "
         |> sb_append_i32 404
         |> sb_append " Not Found"
         |> sb_build
-    let second_is_b <bool> match get second "kind":
+    let second_is_b %bool match get second "kind":
         StrSplitStepKind::Done:
             false
         StrSplitStepKind::Part:
-            let second_start <i32> get second "start"
-            let second_end <i32> get second "end"
+            let second_start %i32 get second "start"
+            let second_end %i32 get second "end"
             str_range_eq "a--b--c" second_start second_end "b"
     let report:
         test_report_new "string_split_and_builder"
@@ -106,7 +106,7 @@ stdout: "test_report name=\"string_byte_at\" count=3 failed=0\nassertion index=0
 #import "core/option" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let report:
         test_report_new "string_byte_at"
         |> test_report_push assert_eq_i32 "byte 0" 65 unwrap_or<i32> byte_at "AZ" 0 -1
@@ -133,7 +133,7 @@ stdout: "test_report name=\"string_find_byte_index\" count=7 failed=0\nassertion
 #import "core/option" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let report:
         test_report_new "string_find_byte_index"
         |> test_report_push assert_eq_i32 "empty pattern" 0 unwrap_or<i32> find "abc" "" -1
@@ -165,24 +165,24 @@ stdout: "test_report name=\"string_result_allocation_apis\" count=4 failed=0\nas
 #import "std/test" as *
 #import "core/field" as *
 
-fn assert_str_result_ok <(str,Result<str,str>,str)->TestAssertion> (label, got, expected):
+fn assert_str_result_ok %fn str fn Result str str fn str TestAssertion \label\got\expected:
     match got:
         Result::Ok actual:
             assert_str_eq label expected actual
         Result::Err e:
             test_assertion_failed AssertionKind::StrEq label expected e concat label e
 
-fn split_middle_is_b <(str,StrSplitStep)->bool> (source, step):
+fn split_middle_is_b %fn str fn StrSplitStep bool \source\step:
     match get step "kind":
         StrSplitStepKind::Done:
             false
         StrSplitStepKind::Part:
-            let mid_start <i32> get step "start"
-            let mid_end <i32> get step "end"
+            let mid_start %i32 get step "start"
+            let mid_end %i32 get step "end"
             str_range_eq source mid_start mid_end "b"
 
-fn main <()*>i32> ():
-    let builder_result <Result<str,str>>:
+fn main %impure fn () i32 \():
+    let builder_result %Result str str:
         match string_builder_new_result:
             Result::Err e:
                 Result<str,str>::Err e
@@ -229,9 +229,9 @@ stdout: "test_report name=\"string_utf8_mem_result\" count=3 failed=0\nassertion
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut report test_report_new "string_utf8_mem_result";
-    let src <str> "こんにちは";
+    let src %str "こんにちは";
     match string_from_utf8_mem_result string_data_ptr src len src:
         Result::Ok copied:
             set report test_report_push report assert "copy valid utf8" test_str_eq src copied
@@ -241,7 +241,7 @@ fn main <()*>i32> ():
         Result::Err e:
             set report test_report_push report test_assertion_fail "invalid buffer alloc" e
         Result::Ok region:
-            let data <MemPtr<u8>> region_ptr &region
+            let data %MemPtr u8 region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
                     set report test_report_push report test_assertion_fail "invalid leading byte store" e
@@ -279,26 +279,26 @@ stdout: "test_report name=\"string_to_f64_parser\" count=11 failed=0\nassertion 
 #import "core/result" as *
 #import "std/test" as *
 
-fn assert_f64_ok <(str,Result<f64,i32>,f64)->TestAssertion> (label, got, expected):
+fn assert_f64_ok %fn str fn Result f64 i32 fn f64 TestAssertion \label\got\expected:
     match got:
         Result::Ok actual:
             assert label eq actual expected
         Result::Err _e:
             test_assertion_fail label "rejected"
 
-fn assert_f64_err <(str,Result<f64,i32>)->TestAssertion> (label, got):
+fn assert_f64_err %fn str fn Result f64 i32 TestAssertion \label\got:
     match got:
         Result::Ok _actual:
             test_assertion_fail label "accepted"
         Result::Err _e:
             assert label true
 
-fn main <()*>i32> ():
-    let expected_integer <f64> <f64> cast 123;
-    let expected_signed_fraction <f64> div <f64> cast -3 <f64> cast 2;
-    let expected_leading_fraction <f64> div <f64> cast 1 <f64> cast 2;
-    let expected_integer_exp <f64> <f64> cast 100;
-    let expected_fraction_exp <f64> <f64> cast 125;
+fn main %impure fn () i32 \():
+    let expected_integer %f64 %f64 cast 123;
+    let expected_signed_fraction %f64 div %f64 cast -3 %f64 cast 2;
+    let expected_leading_fraction %f64 div %f64 cast 1 %f64 cast 2;
+    let expected_integer_exp %f64 %f64 cast 100;
+    let expected_fraction_exp %f64 %f64 cast 125;
     let report:
         test_report_new "string_to_f64_parser"
         |> test_report_push assert_f64_ok "integer" (to_f64 "123") expected_integer
@@ -333,21 +333,21 @@ stdout: "test_report name=\"string_slice_utf8_boundary\" count=5 failed=0\nasser
 #import "core/result" as *
 #import "std/test" as *
 
-fn assert_slice_ok <(str,Result<str,str>,str)->TestAssertion> (label, got, expected):
+fn assert_slice_ok %fn str fn Result str str fn str TestAssertion \label\got\expected:
     match got:
         Result::Ok actual:
             assert label test_str_eq expected actual
         Result::Err e:
             test_assertion_failed AssertionKind::Bool label "true" "false" concat label e
 
-fn assert_slice_err <(str,Result<str,str>)->TestAssertion> (label, got):
+fn assert_slice_err %fn str fn Result str str TestAssertion \label\got:
     match got:
         Result::Ok actual:
             test_assertion_failed AssertionKind::Bool label "true" "false" actual
         Result::Err _e:
             assert label true
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let report:
         test_report_new "string_slice_utf8_boundary"
         |> test_report_push assert_slice_ok "full character" (str_slice_result "あ" 0 3) "あ"

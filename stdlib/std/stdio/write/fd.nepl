@@ -36,7 +36,7 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
-fn stdio_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32, StdErrorKind>> (fd, iov, nwritten, data, data_len):
+fn stdio_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8 impure fn MemPtr u8 impure fn i32 Result i32 StdErrorKind \fd\iov\nwritten\data\data_len:
     if:
         math::lt data_len 0
         then:
@@ -47,13 +47,13 @@ fn stdio_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Resul
                 then:
                     Result<i32, StdErrorKind>::Ok 0
                 else:
-                    let iov_raw <i32> mem_ptr_addr iov
-                    let nwritten_raw <i32> mem_ptr_addr nwritten
-                    let data_raw <i32> mem_ptr_addr data
-                    let invalid_iov <bool> math::le iov_raw 0
-                    let invalid_nwritten <bool> math::le nwritten_raw 0
-                    let invalid_data <bool> math::le data_raw 0
-                    let invalid_scratch <bool> math::or invalid_iov invalid_nwritten
+                    let iov_raw %i32 mem_ptr_addr iov
+                    let nwritten_raw %i32 mem_ptr_addr nwritten
+                    let data_raw %i32 mem_ptr_addr data
+                    let invalid_iov %bool math::le iov_raw 0
+                    let invalid_nwritten %bool math::le nwritten_raw 0
+                    let invalid_data %bool math::le data_raw 0
+                    let invalid_scratch %bool math::or invalid_iov invalid_nwritten
                     if:
                         math::or invalid_scratch invalid_data
                         then:
@@ -62,7 +62,7 @@ fn stdio_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Resul
                             store_i32 iov_raw data_raw
                             store_i32 math::add iov_raw 4 data_len
                             store_i32 nwritten_raw 0
-                            let errno <i32> stdio_fd_write_raw fd iov_raw 1 nwritten_raw
+                            let errno %i32 stdio_fd_write_raw fd iov_raw 1 nwritten_raw
                             if:
                                 math::ne errno 0
                                 then:
@@ -89,7 +89,7 @@ fn stdio_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Resul
 //:
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
-fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (fd, data, data_len):
+fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Result () StdErrorKind \fd\data\data_len:
     if:
         math::le data_len 0
         then:
@@ -99,7 +99,7 @@ fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (f
                 Result::Err iov_alloc_error:
                     Result<(), StdErrorKind>::Err StdErrorKind::IoError
                 Result::Ok iov_region:
-                    let iov <MemPtr<u8>> region_ptr &iov_region
+                    let iov %MemPtr u8 region_ptr &iov_region
                     match alloc_region<u8> 4:
                         Result::Err nwritten_alloc_error:
                             match dealloc_region<u8> iov_region:
@@ -109,10 +109,10 @@ fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (f
                                     ()
                             Result<(), StdErrorKind>::Err StdErrorKind::IoError
                         Result::Ok nwritten_region:
-                            let nwritten <MemPtr<u8>> region_ptr &nwritten_region
-                            let mut off <i32> 0;
-                            let mut done <i32> 0;
-                            let mut failed <i32> 0;
+                            let nwritten %MemPtr u8 region_ptr &nwritten_region
+                            let mut off %i32 0;
+                            let mut done %i32 0;
+                            let mut failed %i32 0;
                             while math::eq done 0:
                                 do:
                                     if:
@@ -169,14 +169,14 @@ fn stdio_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(), StdErrorKind>> (f
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "std/stdio/write/fd" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match stdio_write_fd_str_result 1 "fd-str":
 //:         Result::Ok wrote:
 //:             0
 //:         Result::Err error:
 //:             1
 //: ```
-pub fn stdio_write_fd_str_result <(i32,str)*>Result<(), StdErrorKind>> (fd, s):
+pub fn stdio_write_fd_str_result %impure fn i32 impure fn str Result () StdErrorKind \fd\s:
     stdio_write_fd_mem_result fd string_storage::string_data_ptr s string::len s
 
 //: ## stdio_write_fd_bytebuf_result
@@ -197,16 +197,16 @@ pub fn stdio_write_fd_str_result <(i32,str)*>Result<(), StdErrorKind>> (fd, s):
 //:| #import "alloc/io" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/write/fd" as *
-//: fn main <()*>i32> ():
-//:     let bytes <ByteBuf> io_bytebuf_from_str "bytebuf"
+//: fn main %impure fn () i32 \():
+//:     let bytes %ByteBuf io_bytebuf_from_str "bytebuf"
 //:     match stdio_write_fd_bytebuf_result 1 bytes:
 //:         Result::Ok wrote:
 //:             0
 //:         Result::Err error:
 //:             1
 //: ```
-pub fn stdio_write_fd_bytebuf_result <(i32,ByteBuf)*>Result<(), StdErrorKind>> (fd, bytes):
-    let data_len <i32> io_bytebuf_len_ref &bytes;
+pub fn stdio_write_fd_bytebuf_result %impure fn i32 impure fn ByteBuf Result () StdErrorKind \fd\bytes:
+    let data_len %i32 io_bytebuf_len_ref &bytes;
     if:
         math::le data_len 0
         then:
@@ -215,7 +215,7 @@ pub fn stdio_write_fd_bytebuf_result <(i32,ByteBuf)*>Result<(), StdErrorKind>> (
         else:
             match io_bytebuf_ptr_ref &bytes:
                 Option::Some data:
-                    let result <Result<(), StdErrorKind>> stdio_write_fd_mem_result fd data data_len;
+                    let result %Result () StdErrorKind stdio_write_fd_mem_result fd data data_len;
                     io_bytebuf_free bytes;
                     result
                 Option::None:
@@ -232,8 +232,8 @@ pub fn stdio_write_fd_bytebuf_result <(i32,ByteBuf)*>Result<(), StdErrorKind>> (
 //: ### [注意/ちゅうい]
 //: - この関数は builder を消費しません。caller は成功/失敗にかかわらず builder owner を保持します。
 //: - `ByteBuilderStorage::Empty` で正の `byte_len` を指定した場合は `InvalidOperation` として拒否します。
-pub fn stdio_write_fd_bytebuilder_prefix_result <(i32,&ByteBuilder,i32)*>Result<(), StdErrorKind>> (fd, builder, byte_len):
-    let builder_len <i32> *get_ref builder "len";
+pub fn stdio_write_fd_bytebuilder_prefix_result %impure fn i32 impure fn &ByteBuilder impure fn i32 Result () StdErrorKind \fd\builder\byte_len:
+    let builder_len %i32 *get_ref builder "len";
     if:
         math::lt byte_len 0
         then:
@@ -268,22 +268,22 @@ pub fn stdio_write_fd_bytebuilder_prefix_result <(i32,&ByteBuilder,i32)*>Result<
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "std/stdio/write/fd" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match stdio_write_fd_byte_result 1 'Z':
 //:         Result::Ok wrote:
 //:             0
 //:         Result::Err error:
 //:             1
 //: ```
-pub fn stdio_write_fd_byte_result <(i32,i32)*>Result<(), StdErrorKind>> (fd, b):
+pub fn stdio_write_fd_byte_result %impure fn i32 impure fn i32 Result () StdErrorKind \fd\b:
     match alloc_region<u8> 1:
         Result::Err _e:
             Result<(), StdErrorKind>::Err StdErrorKind::OutOfMemory
         Result::Ok region:
-            let out <MemPtr<u8>> region_ptr &region
+            let out %MemPtr u8 region_ptr &region
             match store_u8 out b:
                 Result::Ok stored_byte:
-                    let result <Result<(), StdErrorKind>> stdio_write_fd_mem_result fd out 1;
+                    let result %Result () StdErrorKind stdio_write_fd_mem_result fd out 1;
                     match dealloc_region<u8> region:
                         Result::Ok released_after_write:
                             result

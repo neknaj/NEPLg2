@@ -14,14 +14,14 @@
 #import "neplg2/core/syntax/ast/module_ast" as *
 
 //: selfhost_proof_query_raw_backend_transition: raw backend transition query を[作/つく]る
-fn selfhost_proof_query_raw_backend_transition <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->SelfhostProofQuery> (state, item):
-    let fact <SelfhostProofFact> SelfhostProofFact::RawBackendItemObserved item
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::RawBackendTransition state
+fn selfhost_proof_query_raw_backend_transition %fn SelfhostRawBackendState fn SelfhostRawBackendItemFact SelfhostProofQuery \state\item:
+    let fact %SelfhostProofFact SelfhostProofFact::RawBackendItemObserved item
+    let obligation %SelfhostProofObligation SelfhostProofObligation::RawBackendTransition state
     selfhost_proof_query_new fact obligation
 
 //: selfhost_proof_raw_backend_transition: raw backend transition の evidence を next state として[取/と]り[出/だ]す
-pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostRawBackendItemFact)->Result<SelfhostRawBackendState,SelfhostProofRefutation>> (state, item):
-    let query <SelfhostProofQuery> selfhost_proof_query_raw_backend_transition state item
+pub fn selfhost_proof_raw_backend_transition %fn SelfhostRawBackendState fn SelfhostRawBackendItemFact Result SelfhostRawBackendState SelfhostProofRefutation \state\item:
+    let query %SelfhostProofQuery selfhost_proof_query_raw_backend_transition state item
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:
@@ -51,14 +51,14 @@ pub fn selfhost_proof_raw_backend_transition <(SelfhostRawBackendState,SelfhostR
             Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_module_directive_transition: module directive transition query を[作/つく]る
-fn selfhost_proof_query_module_directive_transition <(SelfhostModuleDirectiveState,SelfhostModuleDirectiveFact)->SelfhostProofQuery> (state, item):
-    let fact <SelfhostProofFact> SelfhostProofFact::ModuleDirectiveObserved item
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::ModuleDirectiveTransition state
+fn selfhost_proof_query_module_directive_transition %fn SelfhostModuleDirectiveState fn SelfhostModuleDirectiveFact SelfhostProofQuery \state\item:
+    let fact %SelfhostProofFact SelfhostProofFact::ModuleDirectiveObserved item
+    let obligation %SelfhostProofObligation SelfhostProofObligation::ModuleDirectiveTransition state
     selfhost_proof_query_new fact obligation
 
 //: selfhost_proof_module_directive_transition: module directive transition の evidence を next state として[取/と]り[出/だ]す
-pub fn selfhost_proof_module_directive_transition <(SelfhostModuleDirectiveState,SelfhostModuleDirectiveFact)->Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>> (state, item):
-    let query <SelfhostProofQuery> selfhost_proof_query_module_directive_transition state item
+pub fn selfhost_proof_module_directive_transition %fn SelfhostModuleDirectiveState fn SelfhostModuleDirectiveFact Result SelfhostModuleDirectiveState SelfhostProofRefutation \state\item:
+    let query %SelfhostProofQuery selfhost_proof_query_module_directive_transition state item
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:
@@ -88,9 +88,9 @@ pub fn selfhost_proof_module_directive_transition <(SelfhostModuleDirectiveState
             Result<SelfhostModuleDirectiveState,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_module_declaration_header: declaration header availability query を[作/つく]る
-fn selfhost_proof_query_module_declaration_header <(SelfhostModuleDeclarationKind,SelfhostModuleDeclarationFact)->SelfhostProofQuery> (kind, fact):
-    let proof_fact <SelfhostProofFact> SelfhostProofFact::ModuleDeclarationObserved fact
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::ModuleDeclarationHeaderAvailable kind
+fn selfhost_proof_query_module_declaration_header %fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationFact SelfhostProofQuery \kind\fact:
+    let proof_fact %SelfhostProofFact SelfhostProofFact::ModuleDeclarationObserved fact
+    let obligation %SelfhostProofObligation SelfhostProofObligation::ModuleDeclarationHeaderAvailable kind
     selfhost_proof_query_new proof_fact obligation
 
 //: selfhost_proof_module_declaration_header: declaration header availability の typed result を[返/かえ]す
@@ -98,8 +98,8 @@ fn selfhost_proof_query_module_declaration_header <(SelfhostModuleDeclarationKin
 //: [目的/もくてき]:
 //: - parser が観測した declaration header evidence と、checker が要求する declaration kind を照合します。
 //: - header が欠けている場合や span/head が不整合な場合は typed refutation を返し、caller は診断変換だけを行います。
-pub fn selfhost_proof_module_declaration_header <(SelfhostModuleDeclarationKind,SelfhostModuleDeclarationFact)->Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>> (kind, fact):
-    let query <SelfhostProofQuery> selfhost_proof_query_module_declaration_header kind fact
+pub fn selfhost_proof_module_declaration_header %fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationFact Result SelfhostModuleDeclarationHeader SelfhostProofRefutation \kind\fact:
+    let query %SelfhostProofQuery selfhost_proof_query_module_declaration_header kind fact
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:

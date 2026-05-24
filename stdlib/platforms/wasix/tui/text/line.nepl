@@ -24,8 +24,8 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn line_pad_to_cols <(str,i32)*>str> (s, cols):
-    let w <i32> str_display_width s;
+pub fn line_pad_to_cols %impure fn str impure fn i32 str \s\cols:
+    let w %i32 str_display_width s;
     if:
         lt w cols
         then:
@@ -48,24 +48,24 @@ pub fn line_pad_to_cols <(str,i32)*>str> (s, cols):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn line_clip_to_cols <(str,i32)*>str> (s, cols):
+pub fn line_clip_to_cols %impure fn str impure fn i32 str \s\cols:
     if:
         lt cols 1
         then:
             ""
         else:
-            let n <i32> len s;
-            let mut i <i32> 0;
-            let mut end <i32> 0;
-            let mut w <i32> 0;
-            let mut done <bool> false;
+            let n %i32 len s;
+            let mut i %i32 0;
+            let mut end %i32 0;
+            let mut w %i32 0;
+            let mut done %bool false;
             while and lt i n not done:
                 do:
-                    let b <i32> str_byte_at s i;
-                    let kind <TuiTextByteKind> tui_text_byte_kind b;
-                    let ch_len <i32> tui_text_byte_len kind;
-                    let ch_w <i32> tui_text_byte_width kind;
-                    let next_w <i32> add w ch_w;
+                    let b %i32 str_byte_at s i;
+                    let kind %TuiTextByteKind tui_text_byte_kind b;
+                    let ch_len %i32 tui_text_byte_len kind;
+                    let ch_w %i32 tui_text_byte_width kind;
+                    let next_w %i32 add w ch_w;
                     if:
                         lt cols next_w
                         then:

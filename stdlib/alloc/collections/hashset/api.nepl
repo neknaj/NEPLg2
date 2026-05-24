@@ -14,11 +14,11 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 1;
-//:     let found <bool> contains<i32, DefaultHash32> &hs1 1;
-//:     let ok <i32> if found 0 1;
+//: fn main %impure fn () i32 \():
+//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 1;
+//:     let found %bool contains<i32, DefaultHash32> &hs1 1;
+//:     let ok %i32 if found 0 1;
 //:     free hs1;
 //:     ok
 //: ```
@@ -57,15 +57,15 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let observed_len <i32> len<i32, DefaultHash32> &hs;
-//:     let empty <bool> eq observed_len 0;
-//:     let ok <i32> if empty 0 1;
+//: fn main %impure fn () i32 \():
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let observed_len %i32 len<i32, DefaultHash32> &hs;
+//:     let empty %bool eq observed_len 0;
+//:     let ok %i32 if empty 0 1;
 //:     free hs;
 //:     ok
 //: ```
-pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H)*>Result<HashSet<.T,.H>, Diag>> (hasher):
+pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H Result HashSet .T .H Diag \hasher:
     hashset_new_with_capacity<.T,.H> hasher 16
 
 //: ## with_capacity
@@ -83,15 +83,15 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H)*>Result<HashSet<.T,.H>, 
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> with_capacity DefaultHash32 4;
-//:     let observed_len <i32> len<i32, DefaultHash32> &hs;
-//:     let empty <bool> eq observed_len 0;
-//:     let ok <i32> if empty 0 1;
+//: fn main %impure fn () i32 \():
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> with_capacity DefaultHash32 4;
+//:     let observed_len %i32 len<i32, DefaultHash32> &hs;
+//:     let empty %bool eq observed_len 0;
+//:     let ok %i32 if empty 0 1;
 //:     free hs;
 //:     ok
 //: ```
-pub fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<HashSet<.T,.H>, Diag>> (hasher, requested):
+pub fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure fn i32 Result HashSet .T .H Diag \hasher\requested:
     hashset_new_with_capacity<.T,.H> hasher requested
 
 //: ## insert
@@ -114,35 +114,35 @@ pub fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<Ha
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 7;
-//:     let found <bool> contains<i32, DefaultHash32> &hs1 7;
-//:     let ok <i32> if found 0 1;
+//: fn main %impure fn () i32 \():
+//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 7;
+//:     let found %bool contains<i32, DefaultHash32> &hs1 7;
+//:     let ok %i32 if found 0 1;
 //:     free hs1;
 //:     ok
 //: ```
-pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>> (hs, key):
+pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H impure fn .T Result HashSet .T .H HashSetUpdateError .T .H \hs\key:
     match hashset_prepare_insert<.T,.H> hs key:
         Result::Err e:
             Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Err e
         Result::Ok ready:
-            let count0 <i32> *field::get_ref &ready "count"
-            let cap0 <i32> *field::get_ref &ready "cap"
-            let tombstones0 <i32> *field::get_ref &ready "tombstones"
-            let hasher <.H> *field::get_ref &ready "hasher"
-            let storage <HashSetStorage<.T>> field::get ready "storage"
-            let existing <i32> hashset_find_present<.T,.H> &storage cap0 hasher key
+            let count0 %i32 *field::get_ref &ready "count"
+            let cap0 %i32 *field::get_ref &ready "cap"
+            let tombstones0 %i32 *field::get_ref &ready "tombstones"
+            let hasher %.H *field::get_ref &ready "hasher"
+            let storage %HashSetStorage .T field::get ready "storage"
+            let existing %i32 hashset_find_present<.T,.H> &storage cap0 hasher key
             if:
                 not lt existing 0
                 then:
                     Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok HashSet<.T,.H> count0 cap0 tombstones0 storage hasher
                 else:
-                    let slot <HashSetInsertSlot> hashset_find_insert_slot<.T,.H> &storage cap0 hasher key
-                    let slot_idx <i32> field::get slot "index"
-                    let slot_state <HashSetInsertSlotState> field::get slot "state"
+                    let slot %HashSetInsertSlot hashset_find_insert_slot<.T,.H> &storage cap0 hasher key
+                    let slot_idx %i32 field::get slot "index"
+                    let slot_state %HashSetInsertSlotState field::get slot "state"
                     hashset_store_full<.T> &storage slot_idx key
-                    let next_tombstones <i32>:
+                    let next_tombstones %i32:
                         match slot_state:
                             HashSetInsertSlotState::EmptySlot:
                                 tombstones0
@@ -168,18 +168,18 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Resul
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 2;
-//:     let found <bool> contains<i32, DefaultHash32> &hs1 2;
-//:     let ok <i32> if found 0 1;
+//: fn main %impure fn () i32 \():
+//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 2;
+//:     let found %bool contains<i32, DefaultHash32> &hs1 2;
+//:     let ok %i32 if found 0 1;
 //:     free hs1;
 //:     ok
 //: ```
-pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bool> (hs, key):
-    let cap0 <i32> *field::get_ref hs "cap"
-    let hasher <.H> *field::get_ref hs "hasher"
-    let storage <&HashSetStorage<.T>> field::get_ref hs "storage"
+pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &HashSet .T .H fn .T bool \hs\key:
+    let cap0 %i32 *field::get_ref hs "cap"
+    let hasher %.H *field::get_ref hs "hasher"
+    let storage %&HashSetStorage .T field::get_ref hs "storage"
     not lt hashset_find_present<.T,.H> storage cap0 hasher key 0
 
 //: ## remove
@@ -202,22 +202,22 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&HashSet<.T,.H>,.T)->bo
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hs0 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hs1 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 3;
-//:     let hs2 <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> remove hs1 3;
-//:     let found <bool> contains<i32, DefaultHash32> &hs2 3;
-//:     let ok <i32> if found 1 0;
+//: fn main %impure fn () i32 \():
+//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 3;
+//:     let hs2 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> remove hs1 3;
+//:     let found %bool contains<i32, DefaultHash32> &hs2 3;
+//:     let ok %i32 if found 1 0;
 //:     free hs2;
 //:     ok
 //: ```
-pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>> (hs, key):
-    let count0 <i32> *field::get_ref &hs "count"
-    let cap0 <i32> *field::get_ref &hs "cap"
-    let tombstones0 <i32> *field::get_ref &hs "tombstones"
-    let hasher <.H> *field::get_ref &hs "hasher"
-    let storage <HashSetStorage<.T>> field::get hs "storage"
-    let idx <i32> hashset_find_present<.T,.H> &storage cap0 hasher key
+pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H impure fn .T Result HashSet .T .H HashSetUpdateError .T .H \hs\key:
+    let count0 %i32 *field::get_ref &hs "count"
+    let cap0 %i32 *field::get_ref &hs "cap"
+    let tombstones0 %i32 *field::get_ref &hs "tombstones"
+    let hasher %.H *field::get_ref &hs "hasher"
+    let storage %HashSetStorage .T field::get hs "storage"
+    let idx %i32 hashset_find_present<.T,.H> &storage cap0 hasher key
     if:
         lt idx 0
         then:
@@ -244,15 +244,15 @@ pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>,.T)*>Resul
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let observed_len <i32> len<i32, DefaultHash32> &hs;
-//:     let empty <bool> eq observed_len 0;
-//:     let ok <i32> if empty 0 1;
+//: fn main %impure fn () i32 \():
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let observed_len %i32 len<i32, DefaultHash32> &hs;
+//:     let empty %bool eq observed_len 0;
+//:     let ok %i32 if empty 0 1;
 //:     free hs;
 //:     ok
 //: ```
-pub fn len <.T,.H> <(&HashSet<.T,.H>)->i32> (hs):
+pub fn len <.T,.H> %fn &HashSet .T .H i32 \hs:
     *field::get_ref hs "count"
 
 //: ## free
@@ -275,11 +275,11 @@ pub fn len <.T,.H> <(&HashSet<.T,.H>)->i32> (hs):
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hs <HashSet<i32, DefaultHash32>> unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//: fn main %impure fn () i32 \():
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     free hs;
 //:     0
 //: ```
-pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSet<.T,.H>)->()> (hs):
-    let storage <HashSetStorage<.T>> field::get hs "storage"
+pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn HashSet .T .H () \hs:
+    let storage %HashSetStorage .T field::get hs "storage"
     hashset_free_storage<.T> storage

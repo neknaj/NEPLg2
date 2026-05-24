@@ -35,21 +35,21 @@
 //:| #import "std/test" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/resolve/name_resolver" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let checks0 checks_new
 //:     match selfhost_name_scope_new:
 //:         Result::Ok scope0:
-//:             let span <SelfhostSourceSpan> source_span_new 0 1 2
-//:             let first <SelfhostNameBinding> selfhost_name_binding_pending "x" SelfhostDefKind::Local span
+//:             let span %SelfhostSourceSpan source_span_new 0 1 2
+//:             let first %SelfhostNameBinding selfhost_name_binding_pending "x" SelfhostDefKind::Local span
 //:             match selfhost_name_scope_add_binding scope0 first:
 //:                 Result::Ok add1:
-//:                     let first_id <SelfhostDefId> selfhost_name_scope_add_result_def_id &add1
-//:                     let scope1 <SelfhostNameScope> selfhost_name_scope_add_result_into_scope add1
-//:                     let second <SelfhostNameBinding> selfhost_name_binding_pending "x" SelfhostDefKind::Param span
+//:                     let first_id %SelfhostDefId selfhost_name_scope_add_result_def_id &add1
+//:                     let scope1 %SelfhostNameScope selfhost_name_scope_add_result_into_scope add1
+//:                     let second %SelfhostNameBinding selfhost_name_binding_pending "x" SelfhostDefKind::Param span
 //:                     match selfhost_name_scope_add_binding scope1 second:
 //:                         Result::Ok add2:
-//:                             let second_id <SelfhostDefId> selfhost_name_scope_add_result_def_id &add2
-//:                             let scope2 <SelfhostNameScope> selfhost_name_scope_add_result_into_scope add2
+//:                             let second_id %SelfhostDefId selfhost_name_scope_add_result_def_id &add2
+//:                             let scope2 %SelfhostNameScope selfhost_name_scope_add_result_into_scope add2
 //:                             let checks1 checks_push checks0 check_eq_i32 0 selfhost_def_id_index first_id
 //:                             let checks2 checks_push checks1 check_eq_i32 1 selfhost_def_id_index second_id
 //:                             match selfhost_name_scope_find &scope2 "x":
@@ -94,21 +94,21 @@
 //:| #import "std/test" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/resolve/name_resolver" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let checks0 checks_new
 //:     match selfhost_name_scope_new:
 //:         Result::Ok scope0:
-//:             let span <SelfhostSourceSpan> source_span_new 0 10 14
-//:             let local_binding <SelfhostNameBinding> selfhost_name_binding_pending "Item" SelfhostDefKind::Local span
+//:             let span %SelfhostSourceSpan source_span_new 0 10 14
+//:             let local_binding %SelfhostNameBinding selfhost_name_binding_pending "Item" SelfhostDefKind::Local span
 //:             match selfhost_name_scope_add_binding scope0 local_binding:
 //:                 Result::Ok add1:
-//:                     let local_id <SelfhostDefId> selfhost_name_scope_add_result_def_id &add1
-//:                     let scope1 <SelfhostNameScope> selfhost_name_scope_add_result_into_scope add1
-//:                     let struct_binding <SelfhostNameBinding> selfhost_name_binding_pending "Item" SelfhostDefKind::Struct span
+//:                     let local_id %SelfhostDefId selfhost_name_scope_add_result_def_id &add1
+//:                     let scope1 %SelfhostNameScope selfhost_name_scope_add_result_into_scope add1
+//:                     let struct_binding %SelfhostNameBinding selfhost_name_binding_pending "Item" SelfhostDefKind::Struct span
 //:                     match selfhost_name_scope_add_binding scope1 struct_binding:
 //:                         Result::Ok add2:
-//:                             let struct_id <SelfhostDefId> selfhost_name_scope_add_result_def_id &add2
-//:                             let scope2 <SelfhostNameScope> selfhost_name_scope_add_result_into_scope add2
+//:                             let struct_id %SelfhostDefId selfhost_name_scope_add_result_def_id &add2
+//:                             let scope2 %SelfhostNameScope selfhost_name_scope_add_result_into_scope add2
 //:                             match selfhost_name_scope_find &scope2 "Item":
 //:                                 Option::Some latest:
 //:                                     let checks1 checks_push checks0 check selfhost_name_binding_def_id_eq latest struct_id

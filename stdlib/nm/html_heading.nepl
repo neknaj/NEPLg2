@@ -21,11 +21,11 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/html_heading" as *
-//: fn main <()*>i32> ():
-//:     let sb0 <StringBuilder> string_builder_new
-//:     let sb1 <StringBuilder> nm_append_heading_open sb0 2
-//:     let sb2 <StringBuilder> sb_append sb1 "T"
-//:     let out <str> sb_build nm_append_heading_close sb2 2
+//: fn main %impure fn () i32 \():
+//:     let sb0 %StringBuilder string_builder_new
+//:     let sb1 %StringBuilder nm_append_heading_open sb0 2
+//:     let sb2 %StringBuilder sb_append sb1 "T"
+//:     let out %str sb_build nm_append_heading_close sb2 2
 //:     if str_eq out "<h2>T</h2>" 0 1
 //: ```
 
@@ -51,7 +51,7 @@ pub enum HtmlHeadingKind:
     H5
     H6
 
-pub fn html_heading_kind <(i32)->HtmlHeadingKind> (level):
+pub fn html_heading_kind %fn i32 HtmlHeadingKind \level:
     match level:
         1:
             HtmlHeadingKind::H1
@@ -73,7 +73,7 @@ pub fn html_heading_kind <(i32)->HtmlHeadingKind> (level):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nm_append_heading_open <(StringBuilder,i32)->StringBuilder> (sb, level):
+pub fn nm_append_heading_open %fn StringBuilder fn i32 StringBuilder \sb\level:
     match html_heading_kind level:
         HtmlHeadingKind::H1:
             sb_append sb "<h1>"
@@ -95,7 +95,7 @@ pub fn nm_append_heading_open <(StringBuilder,i32)->StringBuilder> (sb, level):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nm_append_heading_close <(StringBuilder,i32)->StringBuilder> (sb, level):
+pub fn nm_append_heading_close %fn StringBuilder fn i32 StringBuilder \sb\level:
     match html_heading_kind level:
         HtmlHeadingKind::H1:
             sb_append sb "</h1>"

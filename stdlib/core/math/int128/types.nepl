@@ -14,8 +14,8 @@
 //:| #import "core/field" as *
 //:| #import "core/math/convert/width" as *
 //:| #import "core/math/int128/types" as *
-//: fn main <()->i32> ():
-//:     let v <u128> u128 extend_s_i32_to_i64 0 extend_s_i32_to_i64 9;
+//: fn main %fn () i32 \():
+//:     let v %u128 u128 extend_s_i32_to_i64 0 extend_s_i32_to_i64 9;
 //:     wrap_i64_to_i32 get v "lo"
 //: ```
 
@@ -23,10 +23,10 @@
 
 //: u128: u128 相当（上位/下位 64-bit）
 pub struct u128:
-    hi <i64>
-    lo <i64>
+    hi %i64
+    lo %i64
 
 //: i128: i128 相当（上位/下位 64-bit, 2 の補数）
 pub struct i128:
-    hi <i64>
-    lo <i64>
+    hi %i64
+    lo %i64

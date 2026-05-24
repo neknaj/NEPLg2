@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-24T09:04:54.279Z",
+  "generated_at": "2026-05-24T10:59:15.457Z",
   "counts": {
-    "total": 1247,
-    "open": 9,
+    "total": 1248,
+    "open": 10,
     "resolved": 1238,
     "by_area": {
       "core": {
-        "total": 609,
-        "open": 2,
+        "total": 610,
+        "open": 3,
         "resolved": 607
       },
       "doc": {
@@ -153,6 +153,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30.md"
+    },
+    {
+      "id": "ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92",
+      "title": "NEPLg2.1 prefix type apps need kind resolver",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-05-24",
+      "updated": "2026-05-24",
+      "target": "nepl-core/src/parser.rs, nepl-core/src/typecheck/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92.md"
     },
     {
       "id": "ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC",

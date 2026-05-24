@@ -16,24 +16,24 @@ stdout: "test_report name=\"option_main\" count=10 failed=0\nassertion index=0 s
 #import "core/result" as *
 #import "std/test" as *
 
-fn positive_double <(i32)->Option<i32>> (x):
+fn positive_double %fn i32 Option i32 \x:
     if gt x 0:
         then some<i32> mul x 2
         else none<i32>
 
-fn main <()*>i32> ():
-    let some_is_some <bool> is_some<i32> some<i32> 42;
-    let some_is_none <bool> is_none<i32> some<i32> 42;
-    let none_is_none <bool> is_none<i32> none<i32>;
-    let none_is_some <bool> is_some<i32> none<i32>;
-    let unwrap_some <i32> unwrap<i32> some<i32> 99;
-    let unwrap_or_some <i32> unwrap_or<i32> some<i32> 10 5;
-    let unwrap_or_none <i32> unwrap_or<i32> none<i32> 5;
-    let and_then_some <i32> unwrap<i32> and_then<i32,i32> some<i32> 6 positive_double;
-    let and_then_none <bool> is_none<i32> and_then<i32,i32> some<i32> -1 positive_double;
-    let original <Option<i32>> some<i32> 77
-    let copied <Option<i32>> *&original
-    let copied_value <i32> unwrap<i32> copied;
+fn main %impure fn () i32 \():
+    let some_is_some %bool is_some<i32> some<i32> 42;
+    let some_is_none %bool is_none<i32> some<i32> 42;
+    let none_is_none %bool is_none<i32> none<i32>;
+    let none_is_some %bool is_some<i32> none<i32>;
+    let unwrap_some %i32 unwrap<i32> some<i32> 99;
+    let unwrap_or_some %i32 unwrap_or<i32> some<i32> 10 5;
+    let unwrap_or_none %i32 unwrap_or<i32> none<i32> 5;
+    let and_then_some %i32 unwrap<i32> and_then<i32,i32> some<i32> 6 positive_double;
+    let and_then_none %bool is_none<i32> and_then<i32,i32> some<i32> -1 positive_double;
+    let original %Option i32 some<i32> 77
+    let copied %Option i32 *&original
+    let copied_value %i32 unwrap<i32> copied;
 
     let report:
         test_report_new "option_main"

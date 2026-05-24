@@ -25,13 +25,13 @@
 
 //: ## new
 //: [空/から]の queue を[作/つく]る
-pub fn new <.T: Copy> <()*>Result<Queue<.T>, Diag>> ():
+pub fn new <.T: Copy> %impure fn () Result Queue .T Diag \():
     with_capacity<.T> 8
 
 //: ## with_capacity
 //: [初期/しょき][容量/ようりょう]を[指定/してい]して queue を[作/つく]る
-pub fn with_capacity <.T: Copy> <(i32)*>Result<Queue<.T>, Diag>> (cap):
-    let cap0 <i32> queue_normalize_capacity cap
+pub fn with_capacity <.T: Copy> %impure fn i32 Result Queue .T Diag \cap:
+    let cap0 %i32 queue_normalize_capacity cap
     match queue_alloc_slots<.T> cap0:
         Result::Err d:
             err<Queue<.T>, Diag> d
@@ -40,25 +40,25 @@ pub fn with_capacity <.T: Copy> <(i32)*>Result<Queue<.T>, Diag>> (cap):
 
 //: ## len
 //: `Queue` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-pub fn len <.T> <(&Queue<.T>)->i32> (q):
+pub fn len <.T> %fn &Queue .T i32 \q:
     *field::get_ref q "len"
 
 //: ## is_empty
 //: `Queue` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
-pub fn is_empty <.T> <(&Queue<.T>)->bool> (q):
+pub fn is_empty <.T> %fn &Queue .T bool \q:
     eq len<.T> q 0
 
 //: ## push
 //: [末尾/まつび]へ[追加/ついか]する
-pub fn push <.T: Copy> <(Queue<.T>,.T)*>Result<Queue<.T>, QueuePushError<.T>>> (q, item):
-    let len0 <i32> *field::get_ref &q "len"
-    let cap0 <i32> *field::get_ref &q "cap"
-    let head0 <i32> *field::get_ref &q "head"
-    let items <Vec<Option<.T>>> field::get q "items"
+pub fn push <.T: Copy> %impure fn Queue .T impure fn .T Result Queue .T QueuePushError .T \q\item:
+    let len0 %i32 *field::get_ref &q "len"
+    let cap0 %i32 *field::get_ref &q "cap"
+    let head0 %i32 *field::get_ref &q "head"
+    let items %Vec Option .T field::get q "items"
     if:
         eq len0 cap0
         then:
-            let new_cap <i32> mul cap0 2
+            let new_cap %i32 mul cap0 2
             match queue_alloc_slots<.T> new_cap:
                 Result::Err d:
                     Result::Err<Queue<.T>, QueuePushError<.T>> QueuePushError<.T> (Queue<.T> len0 cap0 head0 items) d
@@ -68,60 +68,60 @@ pub fn push <.T: Copy> <(Queue<.T>,.T)*>Result<Queue<.T>, QueuePushError<.T>>> (
                     vec::free<Option<.T>> items
                     Result::Ok<Queue<.T>, QueuePushError<.T>> Queue<.T> add len0 1 new_cap 0 new_items
         else:
-            let tail <i32> queue_tail_index head0 len0 cap0
+            let tail %i32 queue_tail_index head0 len0 cap0
             queue_store_slot<.T> &items tail some<.T> item
             Result::Ok<Queue<.T>, QueuePushError<.T>> Queue<.T> add len0 1 cap0 head0 items
 
 //: ## pop_front
 //: [先頭/せんとう]を[取/と]り[出/だ]し、[更新後/こうしんご]の queue と[値/あたい]を[返/かえ]す
-pub fn pop_front <.T: Copy> <(Queue<.T>)*>QueuePop<.T>> (q):
-    let len0 <i32> *field::get_ref &q "len"
-    let cap0 <i32> *field::get_ref &q "cap"
-    let head0 <i32> *field::get_ref &q "head"
-    let items <Vec<Option<.T>>> field::get q "items"
+pub fn pop_front <.T: Copy> %impure fn Queue .T QueuePop .T \q:
+    let len0 %i32 *field::get_ref &q "len"
+    let cap0 %i32 *field::get_ref &q "cap"
+    let head0 %i32 *field::get_ref &q "head"
+    let items %Vec Option .T field::get q "items"
     if:
         eq len0 0
         then:
-            let next_q <Queue<.T>> Queue<.T> 0 cap0 head0 items
+            let next_q %Queue .T Queue<.T> 0 cap0 head0 items
             QueuePop<.T> next_q none<.T>
         else:
-            let item <Option<.T>> queue_item_at<.T> &items head0
+            let item %Option .T queue_item_at<.T> &items head0
             queue_store_slot<.T> &items head0 none<.T>
-            let next_len <i32> sub len0 1
-            let next_head <i32> queue_next_index head0 cap0
-            let next_q <Queue<.T>> Queue<.T> next_len cap0 next_head items
+            let next_len %i32 sub len0 1
+            let next_head %i32 queue_next_index head0 cap0
+            let next_q %Queue .T Queue<.T> next_len cap0 next_head items
             QueuePop<.T> next_q item
 
 //: ## pop
 //: queue を[消費/しょうひ]して[先頭/せんとう]の[値/あたい]だけを[返/かえ]す
-pub fn pop <.T: Copy> <(Queue<.T>)*>Option<.T>> (q):
-    let p <QueuePop<.T>> pop_front<.T> q
-    let item <Option<.T>> queue_pop_item<.T> &p
+pub fn pop <.T: Copy> %impure fn Queue .T Option .T \q:
+    let p %QueuePop .T pop_front<.T> q
+    let item %Option .T queue_pop_item<.T> &p
     free<.T> queue_pop_queue<.T> p
     item
 
 //: ## peek
 //: `Queue` を[移動/いどう]せずに[先頭/せんとう]を[読/よ]む
-pub fn peek <.T: Copy> <(&Queue<.T>)->Option<.T>> (q):
-    let len0 <i32> *field::get_ref q "len"
+pub fn peek <.T: Copy> %fn &Queue .T Option .T \q:
+    let len0 %i32 *field::get_ref q "len"
     if:
         eq len0 0
         then:
             none<.T>
         else:
-            let head0 <i32> *field::get_ref q "head"
-            let items <&Vec<Option<.T>>> field::get_ref q "items"
+            let head0 %i32 *field::get_ref q "head"
+            let items %&Vec Option .T field::get_ref q "items"
             queue_item_at<.T> items head0
 
 //: ## clear
 //: [内容/ないよう]を[空/から]にする
-pub fn clear <.T: Copy> <(Queue<.T>)*>Queue<.T>> (q):
-    let cap0 <i32> *field::get_ref &q "cap"
-    let items <Vec<Option<.T>>> field::get q "items"
+pub fn clear <.T: Copy> %impure fn Queue .T Queue .T \q:
+    let cap0 %i32 *field::get_ref &q "cap"
+    let items %Vec Option .T field::get q "items"
     queue_clear_slots_loop<.T> &items cap0 0
     Queue<.T> 0 cap0 0 items
 
 //: ## free
 //: queue が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> <(Queue<.T>)->()> (q):
+pub fn free <.T: Copy> %fn Queue .T () \q:
     vec::free<Option<.T>> field::get q "items"

@@ -22,10 +22,10 @@
 //: ## RingBuffer
 //: FIFO ring buffer の owner
 pub struct RingBuffer<.T>:
-    len <i32>
-    cap <i32>
-    head <i32>
-    items <Vec<Option<.T>>>
+    len %i32
+    cap %i32
+    head %i32
+    items %Vec Option .T
 
 //: ## RingBufferPushError
 //: `push` の grow [失敗/しっぱい]で[戻/もど]る error payload
@@ -45,15 +45,15 @@ pub struct RingBuffer<.T>:
 //: #import "alloc/collections/ringbuffer" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let rb <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <RingBufferPushError<i32>> RingBufferPushError<i32> rb d0;
+//: fn main %impure fn () i32 \():
+//:     let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %RingBufferPushError i32 RingBufferPushError<i32> rb d0;
 //:     0
 //: ```
 pub struct RingBufferPushError<.T>:
-    buffer <RingBuffer<.T>>
-    diag <Diag>
+    buffer %RingBuffer .T
+    diag %Diag
 
 //: ## ringbuffer_push_error_diag
 //: push [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
@@ -69,13 +69,13 @@ pub struct RingBufferPushError<.T>:
 //: #import "alloc/collections/ringbuffer" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let rb <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <RingBufferPushError<i32>> RingBufferPushError<i32> rb d0;
+//: fn main %impure fn () i32 \():
+//:     let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %RingBufferPushError i32 RingBufferPushError<i32> rb d0;
 //:     0
 //: ```
-pub fn ringbuffer_push_error_diag <.T> <(&RingBufferPushError<.T>)->Diag> (e):
+pub fn ringbuffer_push_error_diag <.T> %fn &RingBufferPushError .T Diag \e:
     *field::get_ref e "diag"
 
 //: ## ringbuffer_push_error_buffer
@@ -95,13 +95,13 @@ pub fn ringbuffer_push_error_diag <.T> <(&RingBufferPushError<.T>)->Diag> (e):
 //: #import "alloc/collections/ringbuffer" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let rb <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <RingBufferPushError<i32>> RingBufferPushError<i32> rb d0;
+//: fn main %impure fn () i32 \():
+//:     let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %RingBufferPushError i32 RingBufferPushError<i32> rb d0;
 //:     0
 //: ```
-pub fn ringbuffer_push_error_buffer <.T: Copy> <(RingBufferPushError<.T>)->RingBuffer<.T>> (e):
+pub fn ringbuffer_push_error_buffer <.T: Copy> %fn RingBufferPushError .T RingBuffer .T \e:
     field::get e "buffer"
 
 //: ## RingBufferPop
@@ -110,8 +110,8 @@ pub fn ringbuffer_push_error_buffer <.T: Copy> <(RingBufferPushError<.T>)->RingB
 //: ### [目的/もくてき]
 //: - [更新後/こうしんご]の buffer owner と[取/と]り[出/だ]した[値/あたい]を[同時/どうじ]に[返/かえ]します。
 pub struct RingBufferPop<.T>:
-    buffer <RingBuffer<.T>>
-    item <Option<.T>>
+    buffer %RingBuffer .T
+    item %Option .T
 
 //: ## ringbuffer_pop_item
 //: `RingBufferPop` を[借用/しゃくよう]し、[取/と]り[出/だ]した[値/あたい]を[読/よ]む
@@ -127,20 +127,20 @@ pub struct RingBufferPop<.T>:
 //: #import "core/math" as *
 //: #import "core/option" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let rb0 <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
-//:     let rb1 <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>> push<i32> rb0 7;
-//:     let p <RingBufferPop<i32>> pop_front<i32> rb1;
-//:     let ok <bool> match ringbuffer_pop_item<i32> &p:
+//: fn main %impure fn () i32 \():
+//:     let rb0 %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let rb1 %RingBuffer i32 unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>> push<i32> rb0 7;
+//:     let p %RingBufferPop i32 pop_front<i32> rb1;
+//:     let ok %bool match ringbuffer_pop_item<i32> &p:
 //:         Option::Some v:
 //:             eq v 7
 //:         Option::None:
 //:             false
-//:     let rb2 <RingBuffer<i32>> ringbuffer_pop_buffer<i32> p;
+//:     let rb2 %RingBuffer i32 ringbuffer_pop_buffer<i32> p;
 //:     free<i32> rb2;
 //:     if ok 1 0
 //: ```
-pub fn ringbuffer_pop_item <.T: Copy> <(&RingBufferPop<.T>)->Option<.T>> (p):
+pub fn ringbuffer_pop_item <.T: Copy> %fn &RingBufferPop .T Option .T \p:
     *field::get_ref p "item"
 
 //: ## ringbuffer_pop_buffer
@@ -155,14 +155,14 @@ pub fn ringbuffer_pop_item <.T: Copy> <(&RingBufferPop<.T>)->Option<.T>> (p):
 //: #import "alloc/collections/ringbuffer" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let rb0 <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
-//:     let rb1 <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>> push<i32> rb0 7;
-//:     let p <RingBufferPop<i32>> pop_front<i32> rb1;
-//:     let rb2 <RingBuffer<i32>> ringbuffer_pop_buffer<i32> p;
-//:     let ok <bool> is_empty<i32> &rb2;
+//: fn main %impure fn () i32 \():
+//:     let rb0 %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let rb1 %RingBuffer i32 unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>> push<i32> rb0 7;
+//:     let p %RingBufferPop i32 pop_front<i32> rb1;
+//:     let rb2 %RingBuffer i32 ringbuffer_pop_buffer<i32> p;
+//:     let ok %bool is_empty<i32> &rb2;
 //:     free<i32> rb2;
 //:     if ok 1 0
 //: ```
-pub fn ringbuffer_pop_buffer <.T: Copy> <(RingBufferPop<.T>)->RingBuffer<.T>> (p):
+pub fn ringbuffer_pop_buffer <.T: Copy> %fn RingBufferPop .T RingBuffer .T \p:
     field::get p "buffer"

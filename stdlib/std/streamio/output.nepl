@@ -12,8 +12,8 @@
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "std/streamio/output" as *
-//: fn main <()*>i32> ():
-//:     let r <Result<StdoutStream, StdErrorKind>> flush StdoutStream ();
+//: fn main %impure fn () i32 \():
+//:     let r %Result StdoutStream StdErrorKind flush StdoutStream ();
 //:     match r:
 //:         Result::Ok _s:
 //:             0

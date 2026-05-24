@@ -21,16 +21,16 @@ stdout: mlstr:
 #import "core/field" as *
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32 }
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let xs0 <List<i32>>:
+    let xs0 %List i32:
         unwrap_ok<List<i32>, Diag> new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
     set checks checks_push checks check_eq_i32 3 len<i32> &xs0;
     free<i32> xs0;
-    let xs1 <List<i32>>:
+    let xs1 %List i32:
         unwrap_ok<List<i32>, Diag> new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
@@ -66,15 +66,15 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32 }
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let s0 <Stack<i32>>:
+    let s0 %Stack i32:
         unwrap_ok<Stack<i32>, Diag> new<i32>
         |> push<i32> 10 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
         |> push<i32> 20 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
     set checks checks_push checks check_eq_i32 2 len<i32> &s0;
     free<i32> s0;
-    let s1 <Stack<i32>>:
+    let s1 %Stack i32:
         unwrap_ok<Stack<i32>, Diag> new<i32>
         |> push<i32> 10 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
         |> push<i32> 20 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
@@ -109,17 +109,17 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/field" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
+fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTreeMap i32 i32 \r:
     match r:
         Result::Ok m:
             m
         Result::Err e:
-            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
             btreemap_insert_error_owner<i32,i32> e
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let m0 <BTreeMap<i32,i32>>:
+    let m0 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
@@ -127,7 +127,7 @@ fn main <()*>i32> ():
         |> must_map
     set checks checks_push checks check_eq_i32 2 len<i32,i32> &m0;
     free<i32,i32> m0;
-    let m1 <BTreeMap<i32,i32>>:
+    let m1 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
@@ -139,7 +139,7 @@ fn main <()*>i32> ():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "pipe btreemap get failed";
     free<i32,i32> m1;
-    let m2 <BTreeMap<i32,i32>>:
+    let m2 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
@@ -171,17 +171,17 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/math" as *
 
-fn must_set <(Result<BTreeSet<i32>, BTreeSetInsertError<i32>>)*>BTreeSet<i32>> (r):
+fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 \r:
     match r:
         Result::Ok s:
             s
         Result::Err e:
-            let _d <Diag> btreeset_insert_error_diag<i32> &e
+            let _d %Diag btreeset_insert_error_diag<i32> &e
             btreeset_insert_error_owner<i32> e
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let s0 <BTreeSet<i32>>:
+    let s0 %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
         |> must_set
@@ -189,7 +189,7 @@ fn main <()*>i32> ():
         |> must_set
     set checks checks_push checks check contains<i32> &s0 5;
     free<i32> s0;
-    let s1 <BTreeSet<i32>>:
+    let s1 %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
         |> must_set
@@ -197,7 +197,7 @@ fn main <()*>i32> ():
         |> must_set
     set checks checks_push checks check_eq_i32 2 len<i32> &s1;
     free<i32> s1;
-    let s2 <BTreeSet<i32>>:
+    let s2 %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
         |> insert<i32> 5
         |> must_set
@@ -232,25 +232,25 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/field" as *
 
-fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, Diag>)*>HashMap<i32,i32,DefaultHash32>> (r):
+fn must_hm %impure fn Result HashMap i32 i32 DefaultHash32 Diag HashMap i32 i32 DefaultHash32 \r:
     match r:
         Result::Ok hm:
             hm
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
-fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>>)*>HashMap<i32,i32,DefaultHash32>> (r):
+fn must_hm %impure fn Result HashMap i32 i32 DefaultHash32 HashMapUpdateError i32 i32 DefaultHash32 HashMap i32 i32 DefaultHash32 \r:
     match r:
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm <HashMap<i32,i32,DefaultHash32>> hashmap_update_error_owner<i32,i32,DefaultHash32> e;
+            let hm %HashMap i32 i32 DefaultHash32 hashmap_update_error_owner<i32,i32,DefaultHash32> e;
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let hm0 <HashMap<i32,i32,DefaultHash32>>:
+    let hm0 %HashMap i32 i32 DefaultHash32:
         must_hm new DefaultHash32
         |> insert 7 70
         |> must_hm
@@ -258,7 +258,7 @@ fn main <()*>i32> ():
         |> must_hm
     set checks checks_push checks check_eq_i32 2 len &hm0;
     free hm0;
-    let hm1 <HashMap<i32,i32,DefaultHash32>>:
+    let hm1 %HashMap i32 i32 DefaultHash32:
         must_hm new DefaultHash32
         |> insert 7 70
         |> must_hm
@@ -270,7 +270,7 @@ fn main <()*>i32> ():
         Option::None:
             set checks checks_push checks Result<(),str>::Err "pipe hashmap get failed";
     free hm1;
-    let hm2 <HashMap<i32,i32,DefaultHash32>>:
+    let hm2 %HashMap i32 i32 DefaultHash32:
         must_hm new DefaultHash32
         |> insert 7 70
         |> must_hm
@@ -301,24 +301,24 @@ stdout: mlstr:
 #import "alloc/diag/error" as *
 #import "core/result" as *
 
-fn must_hs <(Result<HashSet<i32,DefaultHash32>,Diag>)*>HashSet<i32,DefaultHash32>> (r):
+fn must_hs %impure fn Result HashSet i32 DefaultHash32 Diag HashSet i32 DefaultHash32 \r:
     unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
 
-fn must_hs <(Result<HashSet<i32,DefaultHash32>,HashSetUpdateError<i32,DefaultHash32>>)*>HashSet<i32,DefaultHash32>> (r):
+fn must_hs %impure fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 DefaultHash32 HashSet i32 DefaultHash32 \r:
     match r:
         Result::Ok hs:
             hs
         Result::Err e:
-            let hs <HashSet<i32,DefaultHash32>> hashset_update_error_owner<i32,DefaultHash32> e;
+            let hs %HashSet i32 DefaultHash32 hashset_update_error_owner<i32,DefaultHash32> e;
             free hs;
             #intrinsic "unreachable" <> ()
 
-fn new_hs <()*>Result<HashSet<i32,DefaultHash32>,Diag>> ():
+fn new_hs %impure fn () Result HashSet i32 DefaultHash32 Diag \():
     new DefaultHash32
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let hs0 <HashSet<i32,DefaultHash32>>:
+    let hs0 %HashSet i32 DefaultHash32:
         new_hs
         |> must_hs
         |> insert 4
@@ -327,7 +327,7 @@ fn main <()*>i32> ():
         |> must_hs
     set checks checks_push checks check_eq_i32 2 len &hs0;
     free hs0;
-    let hs1 <HashSet<i32,DefaultHash32>>:
+    let hs1 %HashSet i32 DefaultHash32:
         new_hs
         |> must_hs
         |> insert 4
@@ -360,15 +360,15 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32 }
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let rb <RingBuffer<i32>>:
+    let rb %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push 11 |> uwok
         |> push 22 |> uwok
     set checks checks_push checks check_eq_i32 2 len<i32> &rb;
     free<i32> rb;
-    let rb2 <RingBuffer<i32>>:
+    let rb2 %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push 11 |> uwok
         |> push 22 |> uwok
@@ -402,15 +402,15 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32 }
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let q <Queue<i32>>:
+    let q %Queue i32:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push 3 |> uwok
         |> push 4 |> uwok
     set checks checks_push checks check_eq_i32 2 len<i32> &q;
     free<i32> q;
-    let q2 <Queue<i32>>:
+    let q2 %Queue i32:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push 3 |> uwok
         |> push 4 |> uwok

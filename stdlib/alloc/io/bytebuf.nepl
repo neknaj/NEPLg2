@@ -33,7 +33,7 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let checks0 checks_new
 //:     let checks match io_bytebuf_from_str_result "AB":
 //:         Result::Ok bytes:
@@ -63,7 +63,7 @@
 //: - `Owned` payload だけが storage owner token を[保持/ほじ]するため、空 buffer と owner token の不正な組み合わせを source type で[表現/ひょうげん]できません。
 pub enum ByteBufStorage:
     Empty
-    Owned <RegionToken<u8>>
+    Owned %RegionToken u8
 
 //: ## ByteBuf
 //: [連続/れんぞく]した raw byte buffer を[所有/しょゆう]する handle
@@ -76,29 +76,29 @@ pub enum ByteBufStorage:
 //: - `len` が正のときだけ `Owned(region)` が `len` byte の[所有領域/しょゆうりょういき]を[指/さ]します。空 buffer は owner payload を[持/も]ちません。
 //: - [使/つか]い[終/お]わったら `io_bytebuf_free` で[解放/かいほう]してください。
 pub struct ByteBuf:
-    storage <ByteBufStorage>
-    len <i32>
+    storage %ByteBufStorage
+    len %i32
 
-pub fn io_bytebuf_empty <()->ByteBuf> ():
+pub fn io_bytebuf_empty %fn () ByteBuf \():
     ByteBuf ByteBufStorage::Empty 0
 
-pub fn io_bytebuf_len <(&ByteBuf)->i32> (buf):
+pub fn io_bytebuf_len %fn &ByteBuf i32 \buf:
     *get_ref buf "len"
 
-pub fn io_bytebuf_len_ref <(&ByteBuf)->i32> (buf):
+pub fn io_bytebuf_len_ref %fn &ByteBuf i32 \buf:
     *get_ref buf "len"
 
-pub fn io_bytebuf_data_ptr_ref <(&ByteBuf)->MemPtr<u8>> (buf):
-    let storage_ref <&ByteBufStorage> get_ref buf "storage"
+pub fn io_bytebuf_data_ptr_ref %fn &ByteBuf MemPtr u8 \buf:
+    let storage_ref %&ByteBufStorage get_ref buf "storage"
     match storage_ref:
         ByteBufStorage::Empty:
             mem_ptr_wrap 0
         ByteBufStorage::Owned region:
             region_ptr region
 
-pub fn io_bytebuf_ptr_ref <(&ByteBuf)->Option<MemPtr<u8>>> (buf):
-    let byte_len <i32> *get_ref buf "len"
-    let storage_ref <&ByteBufStorage> get_ref buf "storage"
+pub fn io_bytebuf_ptr_ref %fn &ByteBuf Option MemPtr u8 \buf:
+    let byte_len %i32 *get_ref buf "len"
+    let storage_ref %&ByteBufStorage get_ref buf "storage"
     match storage_ref:
         ByteBufStorage::Empty:
             none<MemPtr<u8>>
@@ -110,7 +110,7 @@ pub fn io_bytebuf_ptr_ref <(&ByteBuf)->Option<MemPtr<u8>>> (buf):
                 else:
                     some<MemPtr<u8>> io_bytebuf_data_ptr_ref buf
 
-pub fn io_bytebuf_storage_size <(i32)->i32> (byte_len):
+pub fn io_bytebuf_storage_size %fn i32 i32 \byte_len:
     if:
         le byte_len 0
         then:
@@ -118,8 +118,8 @@ pub fn io_bytebuf_storage_size <(i32)->i32> (byte_len):
         else:
             byte_len
 
-pub fn io_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (buf, idx):
-    let n <i32> io_bytebuf_len_ref buf
+pub fn io_bytebuf_byte_at %fn &ByteBuf fn i32 Option i32 \buf\idx:
+    let n %i32 io_bytebuf_len_ref buf
     if:
         or lt idx 0 ge idx n
         then:
@@ -127,7 +127,7 @@ pub fn io_bytebuf_byte_at <(&ByteBuf,i32)->Option<i32>> (buf, idx):
         else:
             load_u8 mem_ptr_add io_bytebuf_data_ptr_ref buf idx
 
-pub fn io_bytebuf_free <(ByteBuf)->()> (buf):
+pub fn io_bytebuf_free %fn ByteBuf () \buf:
     match get buf "storage":
         ByteBufStorage::Empty:
             ()
@@ -152,7 +152,7 @@ pub fn io_bytebuf_free <(ByteBuf)->()> (buf):
 //:
 //: [計算量/けいさんりょう]:
 //: - 確保器に依存します。平均 O(1)、free list 探索時は最悪 O(n) です。
-pub fn io_bytebuf_alloc_region <(i32)->Result<RegionToken<u8>, StdErrorKind>> (byte_len):
+pub fn io_bytebuf_alloc_region %fn i32 Result RegionToken u8 StdErrorKind \byte_len:
     if:
         lt byte_len 0
         then:
@@ -177,7 +177,7 @@ pub fn io_bytebuf_alloc_region <(i32)->Result<RegionToken<u8>, StdErrorKind>> (b
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn io_bytebuf_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
+pub fn io_bytebuf_region_ptr %fn &RegionToken u8 MemPtr u8 \region:
     region_ptr region
 
 //: io_bytebuf_finish_region: 確保済み領域を `ByteBuf` として確定する
@@ -195,7 +195,7 @@ pub fn io_bytebuf_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (region):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn io_bytebuf_finish_region <(RegionToken<u8>,i32)->ByteBuf> (region, byte_len):
+pub fn io_bytebuf_finish_region %fn RegionToken u8 fn i32 ByteBuf \region\byte_len:
     if:
         le byte_len 0
         then:
@@ -224,8 +224,8 @@ pub fn io_bytebuf_finish_region <(RegionToken<u8>,i32)->ByteBuf> (region, byte_l
 //:
 //: [計算量/けいさんりょう]:
 //: - 入力長 n に対して O(n) です。
-pub fn io_bytebuf_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
-    let byte_len <i32> len text
+pub fn io_bytebuf_from_str_result %fn str Result ByteBuf StdErrorKind \text:
+    let byte_len %i32 len text
     if:
         eq byte_len 0
         then:
@@ -235,7 +235,7 @@ pub fn io_bytebuf_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
                 Result::Err e:
                     Result<ByteBuf, StdErrorKind>::Err e
                 Result::Ok region:
-                    let out_data <MemPtr<u8>> io_bytebuf_region_ptr &region
+                    let out_data %MemPtr u8 io_bytebuf_region_ptr &region
                     mem_copy mem_ptr_addr out_data mem_ptr_addr string_data_ptr text byte_len
                     Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region byte_len
 
@@ -252,7 +252,7 @@ pub fn io_bytebuf_from_str_result <(str)->Result<ByteBuf, StdErrorKind>> (text):
 //:
 //: [計算量/けいさんりょう]:
 //: - 入力長 n に対して O(n) です。
-pub fn io_bytebuf_from_str <(str)->ByteBuf> (text):
+pub fn io_bytebuf_from_str %fn str ByteBuf \text:
     match io_bytebuf_from_str_result text:
         Result::Ok buf:
             buf
@@ -275,14 +275,14 @@ pub fn io_bytebuf_from_str <(str)->ByteBuf> (text):
 //:
 //: [計算量/けいさんりょう]:
 //: - 入力長 n に対して O(n) です。
-pub fn io_bytebuf_to_str_result <(ByteBuf)->Result<str, StdErrorKind>> (buf):
-    let byte_len <i32> io_bytebuf_len_ref &buf
+pub fn io_bytebuf_to_str_result %fn ByteBuf Result str StdErrorKind \buf:
+    let byte_len %i32 io_bytebuf_len_ref &buf
     if:
         le byte_len 0
         then:
             Result<str, StdErrorKind>::Ok ""
         else:
-            let data <MemPtr<u8>> io_bytebuf_data_ptr_ref &buf
+            let data %MemPtr u8 io_bytebuf_data_ptr_ref &buf
             if:
                 le mem_ptr_addr data 0
                 then:
@@ -317,7 +317,7 @@ pub fn io_bytebuf_to_str_result <(ByteBuf)->Result<str, StdErrorKind>> (buf):
 //:
 //: [計算量/けいさんりょう]:
 //: - 入力長 n に対して O(n) です。
-pub fn io_bytebuf_to_str <(ByteBuf)->str> (buf):
+pub fn io_bytebuf_to_str %fn ByteBuf str \buf:
     match io_bytebuf_to_str_result buf:
         Result::Ok text:
             text

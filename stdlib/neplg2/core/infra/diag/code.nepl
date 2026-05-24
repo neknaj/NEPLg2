@@ -9,11 +9,11 @@ pub enum SelfhostDiagSeverity:
     Error
 
 impl Clone for SelfhostDiagSeverity:
-    fn clone <(&SelfhostDiagSeverity)->SelfhostDiagSeverity> (self):
+    fn clone %fn &SelfhostDiagSeverity SelfhostDiagSeverity \self:
         *self
 
 impl Copy for SelfhostDiagSeverity:
-    fn copy_mark <(SelfhostDiagSeverity)->SelfhostDiagSeverity> (self):
+    fn copy_mark %fn SelfhostDiagSeverity SelfhostDiagSeverity \self:
         self
 
 //: SelfhostDiagnosticCode: self-host compiler diagnostic の[内部/ないぶ][識別子/しきべつし]
@@ -22,19 +22,19 @@ impl Copy for SelfhostDiagSeverity:
 //: - Rust compiler diagnostic redesign と[同/おな]じく、内部では[数値/すうち]や[自由/じゆう]文字列ではなく[階層/かいそう] enum を[保持/ほじ]します。
 //: - stable string は `selfhost_diag_code_name` の exhaustive match でだけ[作/つく]り、JSON / human reporter がそれを[使/つか]います。
 pub enum SelfhostDiagnosticCode:
-    Loader <SelfhostLoaderDiagnosticCode>
-    Lexer <SelfhostLexerDiagnosticCode>
-    Parser <SelfhostParserDiagnosticCode>
-    Resolve <SelfhostResolveDiagnosticCode>
-    Checker <SelfhostCheckerDiagnosticCode>
-    Cli <SelfhostCliDiagnosticCode>
+    Loader %SelfhostLoaderDiagnosticCode
+    Lexer %SelfhostLexerDiagnosticCode
+    Parser %SelfhostParserDiagnosticCode
+    Resolve %SelfhostResolveDiagnosticCode
+    Checker %SelfhostCheckerDiagnosticCode
+    Cli %SelfhostCliDiagnosticCode
 
 impl Clone for SelfhostDiagnosticCode:
-    fn clone <(&SelfhostDiagnosticCode)->SelfhostDiagnosticCode> (self):
+    fn clone %fn &SelfhostDiagnosticCode SelfhostDiagnosticCode \self:
         *self
 
 impl Copy for SelfhostDiagnosticCode:
-    fn copy_mark <(SelfhostDiagnosticCode)->SelfhostDiagnosticCode> (self):
+    fn copy_mark %fn SelfhostDiagnosticCode SelfhostDiagnosticCode \self:
         self
 
 //: SelfhostLoaderDiagnosticCode: source loading / artifact I/O diagnostic の[分類/ぶんるい]
@@ -45,11 +45,11 @@ pub enum SelfhostLoaderDiagnosticCode:
     VfsBuildFailed
 
 impl Clone for SelfhostLoaderDiagnosticCode:
-    fn clone <(&SelfhostLoaderDiagnosticCode)->SelfhostLoaderDiagnosticCode> (self):
+    fn clone %fn &SelfhostLoaderDiagnosticCode SelfhostLoaderDiagnosticCode \self:
         *self
 
 impl Copy for SelfhostLoaderDiagnosticCode:
-    fn copy_mark <(SelfhostLoaderDiagnosticCode)->SelfhostLoaderDiagnosticCode> (self):
+    fn copy_mark %fn SelfhostLoaderDiagnosticCode SelfhostLoaderDiagnosticCode \self:
         self
 
 //: SelfhostLexerDiagnosticCode: self-host lexer diagnostic の[分類/ぶんるい]
@@ -61,11 +61,11 @@ pub enum SelfhostLexerDiagnosticCode:
     OutOfMemory
 
 impl Clone for SelfhostLexerDiagnosticCode:
-    fn clone <(&SelfhostLexerDiagnosticCode)->SelfhostLexerDiagnosticCode> (self):
+    fn clone %fn &SelfhostLexerDiagnosticCode SelfhostLexerDiagnosticCode \self:
         *self
 
 impl Copy for SelfhostLexerDiagnosticCode:
-    fn copy_mark <(SelfhostLexerDiagnosticCode)->SelfhostLexerDiagnosticCode> (self):
+    fn copy_mark %fn SelfhostLexerDiagnosticCode SelfhostLexerDiagnosticCode \self:
         self
 
 //: SelfhostParserDiagnosticCode: self-host parser / directive parser diagnostic の[分類/ぶんるい]
@@ -84,11 +84,11 @@ pub enum SelfhostParserDiagnosticCode:
     ImportAstIndex
 
 impl Clone for SelfhostParserDiagnosticCode:
-    fn clone <(&SelfhostParserDiagnosticCode)->SelfhostParserDiagnosticCode> (self):
+    fn clone %fn &SelfhostParserDiagnosticCode SelfhostParserDiagnosticCode \self:
         *self
 
 impl Copy for SelfhostParserDiagnosticCode:
-    fn copy_mark <(SelfhostParserDiagnosticCode)->SelfhostParserDiagnosticCode> (self):
+    fn copy_mark %fn SelfhostParserDiagnosticCode SelfhostParserDiagnosticCode \self:
         self
 
 //: SelfhostResolveDiagnosticCode: import path / module graph resolve diagnostic の[分類/ぶんるい]
@@ -102,11 +102,11 @@ pub enum SelfhostResolveDiagnosticCode:
     ModuleGraphInternal
 
 impl Clone for SelfhostResolveDiagnosticCode:
-    fn clone <(&SelfhostResolveDiagnosticCode)->SelfhostResolveDiagnosticCode> (self):
+    fn clone %fn &SelfhostResolveDiagnosticCode SelfhostResolveDiagnosticCode \self:
         *self
 
 impl Copy for SelfhostResolveDiagnosticCode:
-    fn copy_mark <(SelfhostResolveDiagnosticCode)->SelfhostResolveDiagnosticCode> (self):
+    fn copy_mark %fn SelfhostResolveDiagnosticCode SelfhostResolveDiagnosticCode \self:
         self
 
 //: SelfhostCheckerDiagnosticCode: checker / typed validation diagnostic の[分類/ぶんるい]
@@ -120,11 +120,11 @@ pub enum SelfhostCheckerDiagnosticCode:
     ModuleDirectiveDuplicate
 
 impl Clone for SelfhostCheckerDiagnosticCode:
-    fn clone <(&SelfhostCheckerDiagnosticCode)->SelfhostCheckerDiagnosticCode> (self):
+    fn clone %fn &SelfhostCheckerDiagnosticCode SelfhostCheckerDiagnosticCode \self:
         *self
 
 impl Copy for SelfhostCheckerDiagnosticCode:
-    fn copy_mark <(SelfhostCheckerDiagnosticCode)->SelfhostCheckerDiagnosticCode> (self):
+    fn copy_mark %fn SelfhostCheckerDiagnosticCode SelfhostCheckerDiagnosticCode \self:
         self
 
 //: SelfhostCliDiagnosticCode: CLI option / usage diagnostic の[分類/ぶんるい]
@@ -132,15 +132,15 @@ pub enum SelfhostCliDiagnosticCode:
     MissingInput
 
 impl Clone for SelfhostCliDiagnosticCode:
-    fn clone <(&SelfhostCliDiagnosticCode)->SelfhostCliDiagnosticCode> (self):
+    fn clone %fn &SelfhostCliDiagnosticCode SelfhostCliDiagnosticCode \self:
         *self
 
 impl Copy for SelfhostCliDiagnosticCode:
-    fn copy_mark <(SelfhostCliDiagnosticCode)->SelfhostCliDiagnosticCode> (self):
+    fn copy_mark %fn SelfhostCliDiagnosticCode SelfhostCliDiagnosticCode \self:
         self
 
 //: selfhost_diag_severity_name: severity の[安定/あんてい]した[名前/なまえ]を[返/かえ]す
-pub fn selfhost_diag_severity_name <(SelfhostDiagSeverity)->str> (severity):
+pub fn selfhost_diag_severity_name %fn SelfhostDiagSeverity str \severity:
     match severity:
         SelfhostDiagSeverity::Info:
             "info"
@@ -150,7 +150,7 @@ pub fn selfhost_diag_severity_name <(SelfhostDiagSeverity)->str> (severity):
             "error"
 
 //: selfhost_loader_diag_code_name: loader diagnostic code の stable string を[返/かえ]す
-pub fn selfhost_loader_diag_code_name <(SelfhostLoaderDiagnosticCode)->str> (code):
+pub fn selfhost_loader_diag_code_name %fn SelfhostLoaderDiagnosticCode str \code:
     match code:
         SelfhostLoaderDiagnosticCode::FileNotFound:
             "loader.source.file_not_found"
@@ -162,7 +162,7 @@ pub fn selfhost_loader_diag_code_name <(SelfhostLoaderDiagnosticCode)->str> (cod
             "loader.vfs.build_failed"
 
 //: selfhost_lexer_diag_code_name: lexer diagnostic code の stable string を[返/かえ]す
-pub fn selfhost_lexer_diag_code_name <(SelfhostLexerDiagnosticCode)->str> (code):
+pub fn selfhost_lexer_diag_code_name %fn SelfhostLexerDiagnosticCode str \code:
     match code:
         SelfhostLexerDiagnosticCode::TokenUnknown:
             "lexer.token.unknown"
@@ -176,7 +176,7 @@ pub fn selfhost_lexer_diag_code_name <(SelfhostLexerDiagnosticCode)->str> (code)
             "lexer.out_of_memory"
 
 //: selfhost_parser_diag_code_name: parser diagnostic code の stable string を[返/かえ]す
-pub fn selfhost_parser_diag_code_name <(SelfhostParserDiagnosticCode)->str> (code):
+pub fn selfhost_parser_diag_code_name %fn SelfhostParserDiagnosticCode str \code:
     match code:
         SelfhostParserDiagnosticCode::RawBlockExpectedIndent:
             "parser.raw_block.expected_indent"
@@ -204,7 +204,7 @@ pub fn selfhost_parser_diag_code_name <(SelfhostParserDiagnosticCode)->str> (cod
             "parser.import.ast_index"
 
 //: selfhost_resolve_diag_code_name: resolve diagnostic code の stable string を[返/かえ]す
-pub fn selfhost_resolve_diag_code_name <(SelfhostResolveDiagnosticCode)->str> (code):
+pub fn selfhost_resolve_diag_code_name %fn SelfhostResolveDiagnosticCode str \code:
     match code:
         SelfhostResolveDiagnosticCode::ModulePathOutOfMemory:
             "resolve.import_path.out_of_memory"
@@ -222,7 +222,7 @@ pub fn selfhost_resolve_diag_code_name <(SelfhostResolveDiagnosticCode)->str> (c
             "resolve.import_graph.internal"
 
 //: selfhost_checker_diag_code_name: checker diagnostic code の stable string を[返/かえ]す
-pub fn selfhost_checker_diag_code_name <(SelfhostCheckerDiagnosticCode)->str> (code):
+pub fn selfhost_checker_diag_code_name %fn SelfhostCheckerDiagnosticCode str \code:
     match code:
         SelfhostCheckerDiagnosticCode::ModuleItemIndex:
             "checker.module.item_index"
@@ -240,7 +240,7 @@ pub fn selfhost_checker_diag_code_name <(SelfhostCheckerDiagnosticCode)->str> (c
             "checker.module.directive_duplicate"
 
 //: selfhost_cli_diag_code_name: CLI diagnostic code の stable string を[返/かえ]す
-pub fn selfhost_cli_diag_code_name <(SelfhostCliDiagnosticCode)->str> (code):
+pub fn selfhost_cli_diag_code_name %fn SelfhostCliDiagnosticCode str \code:
     match code:
         SelfhostCliDiagnosticCode::MissingInput:
             "cli.input.missing"
@@ -250,7 +250,7 @@ pub fn selfhost_cli_diag_code_name <(SelfhostCliDiagnosticCode)->str> (code):
 //: [目的/もくてき]:
 //: - 内部 enum を CLI / JSON / doctest 用の[安定/あんてい]した文字列へ変換します。
 //: - ここでは wildcard arm を使わず、category と下位 code の match 網羅性を[効/き]かせます。
-pub fn selfhost_diag_code_name <(SelfhostDiagnosticCode)->str> (code):
+pub fn selfhost_diag_code_name %fn SelfhostDiagnosticCode str \code:
     match code:
         SelfhostDiagnosticCode::Loader loader_code:
             selfhost_loader_diag_code_name loader_code

@@ -9,6 +9,6 @@ diag_code: type.literal.int_invalid
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     999999999999999999999999999999
 ```

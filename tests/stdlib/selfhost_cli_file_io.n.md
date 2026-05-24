@@ -19,8 +19,8 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let path <str> "tmp/selfhost_file_io_read_root.nepl"
+fn main %impure fn () i32 \():
+    let path %str "tmp/selfhost_file_io_read_root.nepl"
     match fs_write_to_string path "fn main <()->i32> ():\n    0\n":
         Result::Err _e:
             1
@@ -29,7 +29,7 @@ fn main <()*>i32> ():
                 Result::Err _diag:
                     2
                 Result::Ok vfs:
-                    let file_count <i32> selfhost_vfs_len &vfs
+                    let file_count %i32 selfhost_vfs_len &vfs
                     selfhost_vfs_free vfs
                     let checks:
                         checks_new
@@ -59,7 +59,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match selfhost_cli_file_io_read_root_vfs "__selfhost_file_io_missing_source__.nepl":
         Result::Ok vfs:
             selfhost_vfs_free vfs
@@ -90,8 +90,8 @@ stdout: mlstr:
 #import "std/fs" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let path <str> "tmp/selfhost_file_io_text_artifact.txt"
+fn main %impure fn () i32 \():
+    let path %str "tmp/selfhost_file_io_text_artifact.txt"
     match selfhost_cli_file_io_write_text_artifact path "artifact text\n":
         Result::Err _diag:
             1
@@ -125,8 +125,8 @@ stdout: mlstr:
 #import "std/fs" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let path <str> "tmp/selfhost_file_io_binary_artifact.bin"
+fn main %impure fn () i32 \():
+    let path %str "tmp/selfhost_file_io_binary_artifact.bin"
     match io_bytebuf_from_str_result "A\x00B":
         Result::Err _e:
             1
@@ -139,7 +139,7 @@ fn main <()*>i32> ():
                         Result::Err _e:
                             3
                         Result::Ok read_buf:
-                            let text <str> fs_bytes_to_string read_buf
+                            let text %str fs_bytes_to_string read_buf
                             let checks:
                                 checks_new
                                 |> checks_push assert_str_eq "A\x00B" text

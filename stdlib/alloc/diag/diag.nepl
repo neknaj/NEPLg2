@@ -29,55 +29,55 @@
 #import "core/field" as *
 
 //: kind_str: `Diag` の kind を[人間/にんげん]向けの[短/みじか]い[識別子/しきべつし]へ[変換/へんかん]する
-pub fn kind_str <(&Diag)->str> (d):
-    let k <&DiagKind> field::get_ref d "kind";
-    let level_name <str> diag_level_str *field::get_ref k "level";
+pub fn kind_str %fn &Diag str \d:
+    let k %&DiagKind field::get_ref d "kind";
+    let level_name %str diag_level_str *field::get_ref k "level";
     match *field::get_ref k "std_error":
         Option::Some stdk:
-            let std_name <str> std_error_kind_str stdk;
-            let l1 <str> concat level_name "[";
-            let l2 <str> concat l1 std_name;
+            let std_name %str std_error_kind_str stdk;
+            let l1 %str concat level_name "[";
+            let l2 %str concat l1 std_name;
             concat l2 "]"
         Option::None:
             match *field::get_ref k "local_kind":
                 Option::Some local:
-                    let l1 <str> concat level_name "[";
-                    let l2 <str> concat l1 local;
+                    let l1 %str concat level_name "[";
+                    let l2 %str concat l1 local;
                     concat l2 "]"
                 Option::None:
                     level_name
 
-pub fn kind_str <(Diag)->str> (d):
+pub fn kind_str %fn Diag str \d:
     kind_str &d
 
 //: span_to_string: `Span` を `file:start-end` へ[整形/せいけい]する
-pub fn span_to_string <(Span)->str> (sp):
-    let fid <str> from_i32 get sp "file_id";
-    let s <str> from_i32 get sp "start";
-    let e <str> from_i32 get sp "end";
-    let t0 <str> concat fid ":";
-    let t1 <str> concat t0 s;
-    let t2 <str> concat t1 "-";
+pub fn span_to_string %fn Span str \sp:
+    let fid %str from_i32 get sp "file_id";
+    let s %str from_i32 get sp "start";
+    let e %str from_i32 get sp "end";
+    let t0 %str concat fid ":";
+    let t1 %str concat t0 s;
+    let t2 %str concat t1 "-";
     concat t2 e
 
 //: diag_to_string: `Diag` を[表示/ひょうじ]しやすい[文字列/もじれつ]へ[変換/へんかん]する
-pub fn diag_to_string <(&Diag)->str> (d):
-    let ks <str> kind_str d;
-    let h0 <str> concat ks ": ";
-    let message <str> *field::get_ref d "message";
-    let mut out <str> concat h0 message;
+pub fn diag_to_string %fn &Diag str \d:
+    let ks %str kind_str d;
+    let h0 %str concat ks ": ";
+    let message %str *field::get_ref d "message";
+    let mut out %str concat h0 message;
     set out concat out "\n";
 
     match *field::get_ref d "span":
         Option::Some sp:
-            let sp_s <str> span_to_string sp;
-            let l0 <str> concat "at " sp_s;
+            let sp_s %str span_to_string sp;
+            let l0 %str concat "at " sp_s;
             set out concat out l0;
             set out concat out "\n";
         Option::None:
             ()
 
-    let notes <str> *field::get_ref d "notes";
+    let notes %str *field::get_ref d "notes";
     if:
         gt len notes 0
         then:
@@ -86,7 +86,7 @@ pub fn diag_to_string <(&Diag)->str> (d):
         else:
             ()
 
-    let help <str> *field::get_ref d "help";
+    let help %str *field::get_ref d "help";
     if:
         gt len help 0
         then:
@@ -98,53 +98,53 @@ pub fn diag_to_string <(&Diag)->str> (d):
 
     match *field::get_ref d "source":
         Option::Some src:
-            let s0 <str> concat out "source: ";
-            let s1 <str> concat s0 src;
+            let s0 %str concat out "source: ";
+            let s1 %str concat s0 src;
             concat s1 "\n"
         Option::None:
             out
-pub fn diag_to_string <(Diag)->str> (d):
+pub fn diag_to_string %fn Diag str \d:
     diag_to_string &d
 //: diags_to_string: `Diags` を[改行/かいぎょう][区切/くぎ]りで[連結/れんけつ]する
-pub fn diags_to_string <(&Diags)->str> (ds):
-    let items <&Vec<Diag>> field::get_ref ds "items";
-    let items_len <i32> v::len<Diag> items;
+pub fn diags_to_string %fn &Diags str \ds:
+    let items %&Vec Diag field::get_ref ds "items";
+    let items_len %i32 v::len<Diag> items;
     diags_to_string_loop items items_len 0 ""
 
-pub fn diags_to_string <(Diags)->str> (ds):
-    let s <str> diags_to_string &ds
+pub fn diags_to_string %fn Diags str \ds:
+    let s %str diags_to_string &ds
     diags_free ds
     s
 
-pub fn diags_to_string_loop <(&Vec<Diag>,i32,i32,str)->str> (items, n, i, acc):
+pub fn diags_to_string_loop %fn &Vec Diag fn i32 fn i32 fn str str \items\n\i\acc:
     if:
         ge i n
         then acc
         else:
             match v::get<Diag> items i:
                 Option::Some d:
-                    let one <str> diag_to_string d;
-                    let next <str> concat acc one;
+                    let one %str diag_to_string d;
+                    let next %str concat acc one;
                     diags_to_string_loop items n add i 1 next
                 Option::None:
                     acc
 
 #if[target=std]
-pub fn diag_print <(Diag)*>()> (d):
-    let s <str> diag_to_string d;
+pub fn diag_print %impure fn Diag () \d:
+    let s %str diag_to_string d;
     print s
 
 #if[target=std]
-pub fn diag_println <(Diag)*>()> (d):
-    let s <str> diag_to_string d;
+pub fn diag_println %impure fn Diag () \d:
+    let s %str diag_to_string d;
     println s
 
 #if[target=std]
-pub fn diags_print <(Diags)*>()> (ds):
-    let s <str> diags_to_string ds;
+pub fn diags_print %impure fn Diags () \ds:
+    let s %str diags_to_string ds;
     print s
 
 #if[target=std]
-pub fn diags_println <(Diags)*>()> (ds):
-    let s <str> diags_to_string ds;
+pub fn diags_println %impure fn Diags () \ds:
+    let s %str diags_to_string ds;
     println s

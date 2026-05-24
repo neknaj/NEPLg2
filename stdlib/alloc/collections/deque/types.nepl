@@ -22,10 +22,10 @@
 //: ## Deque
 //: [両端/りょうたん] queue の owner
 pub struct Deque<.T>:
-    len <i32>
-    cap <i32>
-    head <i32>
-    items <Vec<Option<.T>>>
+    len %i32
+    cap %i32
+    head %i32
+    items %Vec Option .T
 
 //: ## DequePushError
 //: `push_front` / `push_back` の grow [失敗/しっぱい]で[戻/もど]る error payload
@@ -41,20 +41,20 @@ pub struct Deque<.T>:
 //:| #import "alloc/collections/deque" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let dq0 <Deque<i32>> unwrap_ok new<i32>;
+//: fn main %impure fn () i32 \():
+//:     let dq0 %Deque i32 unwrap_ok new<i32>;
 //:     match push_back<i32> dq0 7:
 //:         Result::Ok dq1:
 //:             free<i32> dq1;
 //:             0
 //:         Result::Err e:
-//:             let dq2 <Deque<i32>> deque_push_error_deque<i32> e;
+//:             let dq2 %Deque i32 deque_push_error_deque<i32> e;
 //:             free<i32> dq2;
 //:             1
 //: ```
 pub struct DequePushError<.T>:
-    deque <Deque<.T>>
-    diag <Diag>
+    deque %Deque .T
+    diag %Diag
 
 //: ## deque_push_error_diag
 //: push [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
@@ -66,19 +66,19 @@ pub struct DequePushError<.T>:
 //:| #import "alloc/collections/deque" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let dq0 <Deque<i32>> unwrap_ok new<i32>;
+//: fn main %impure fn () i32 \():
+//:     let dq0 %Deque i32 unwrap_ok new<i32>;
 //:     match push_front<i32> dq0 7:
 //:         Result::Ok dq1:
 //:             free<i32> dq1;
 //:             0
 //:         Result::Err e:
-//:             let _d <Diag> deque_push_error_diag<i32> &e;
-//:             let dq2 <Deque<i32>> deque_push_error_deque<i32> e;
+//:             let _d %Diag deque_push_error_diag<i32> &e;
+//:             let dq2 %Deque i32 deque_push_error_deque<i32> e;
 //:             free<i32> dq2;
 //:             1
 //: ```
-pub fn deque_push_error_diag <.T> <(&DequePushError<.T>)->Diag> (e):
+pub fn deque_push_error_diag <.T> %fn &DequePushError .T Diag \e:
     *field::get_ref e "diag"
 
 //: ## deque_push_error_deque
@@ -94,18 +94,18 @@ pub fn deque_push_error_diag <.T> <(&DequePushError<.T>)->Diag> (e):
 //:| #import "alloc/collections/deque" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let dq0 <Deque<i32>> unwrap_ok with_capacity<i32> 1;
+//: fn main %impure fn () i32 \():
+//:     let dq0 %Deque i32 unwrap_ok with_capacity<i32> 1;
 //:     match push_back<i32> dq0 7:
 //:         Result::Ok dq1:
 //:             free<i32> dq1;
 //:             0
 //:         Result::Err e:
-//:             let dq2 <Deque<i32>> deque_push_error_deque<i32> e;
+//:             let dq2 %Deque i32 deque_push_error_deque<i32> e;
 //:             free<i32> dq2;
 //:             1
 //: ```
-pub fn deque_push_error_deque <.T: Copy> <(DequePushError<.T>)->Deque<.T>> (e):
+pub fn deque_push_error_deque <.T: Copy> %fn DequePushError .T Deque .T \e:
     field::get e "deque"
 
 //: ## DequePop
@@ -115,5 +115,5 @@ pub fn deque_push_error_deque <.T: Copy> <(DequePushError<.T>)->Deque<.T>> (e):
 //: - [更新後/こうしんご]の deque owner と[取/と]り[出/だ]した[値/あたい]を[同時/どうじ]に[返/かえ]します。
 //: - 利用側は `deque_pop_item` で item を[読/よ]み、`deque_pop_deque` で[次/つぎ]の deque owner を[受/う]け[取/と]ります。
 pub struct DequePop<.T>:
-    deque <Deque<.T>>
-    item <Option<.T>>
+    deque %Deque .T
+    item %Option .T

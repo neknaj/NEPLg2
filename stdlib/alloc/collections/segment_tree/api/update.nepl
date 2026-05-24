@@ -20,13 +20,13 @@
 
 //: ## seg_update_ok
 //: 更新に[成功/せいこう]した `SegmentTree` owner を `Result::Ok` へ[包/つつ]む
-pub fn seg_update_ok <(SegmentTree)->Result<SegmentTree, SegmentTreeUpdateError>> (st):
+pub fn seg_update_ok %fn SegmentTree Result SegmentTree SegmentTreeUpdateError \st:
     ok<SegmentTree, SegmentTreeUpdateError> st
 
 //: ## seg_update_err
 //: update [失敗/しっぱい]を owner-preserving error に[変換/へんかん]する
-pub fn seg_update_err <(SegmentTree,Diag)->Result<SegmentTree, SegmentTreeUpdateError>> (st, d):
-    let e <SegmentTreeUpdateError> SegmentTreeUpdateError st d
+pub fn seg_update_err %fn SegmentTree fn Diag Result SegmentTree SegmentTreeUpdateError \st\d:
+    let e %SegmentTreeUpdateError SegmentTreeUpdateError st d
     err<SegmentTree, SegmentTreeUpdateError> e
 
 //: ## replace
@@ -39,21 +39,21 @@ pub fn seg_update_err <(SegmentTree,Diag)->Result<SegmentTree, SegmentTreeUpdate
 //:| #import "alloc/collections/segment_tree" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let st0 <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
-//:     let st1 <SegmentTree> unwrap_ok<SegmentTree, SegmentTreeUpdateError> replace st0 1 5;
-//:     let total <i32> unwrap_ok<i32, Diag> sum_range &st1 0 4;
+//: fn main %impure fn () i32 \():
+//:     let st0 %SegmentTree unwrap_ok<SegmentTree, Diag> new 4;
+//:     let st1 %SegmentTree unwrap_ok<SegmentTree, SegmentTreeUpdateError> replace st0 1 5;
+//:     let total %i32 unwrap_ok<i32, Diag> sum_range &st1 0 4;
 //:     free st1
 //:     if eq total 5 1 0
 //: ```
-pub fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> (st, idx, value):
-    let n <i32> *field::get_ref &st "n"
-    let base <i32> *field::get_ref &st "base"
+pub fn replace %impure fn SegmentTree impure fn i32 impure fn i32 Result SegmentTree SegmentTreeUpdateError \st\idx\value:
+    let n %i32 *field::get_ref &st "n"
+    let base %i32 *field::get_ref &st "base"
     if:
         and le 0 idx lt idx n
         then:
-            let result <Result<(), Diag>> block:
-                let data <&Vec<i32>> field::get_ref &st "data"
+            let result %Result () Diag block:
+                let data %&Vec i32 field::get_ref &st "data"
                 if:
                     not seg_storage_has_expected_len data base
                     then:
@@ -71,7 +71,7 @@ pub fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateErro
                 Result::Err d:
                     seg_update_err st d
         else:
-            let d <Diag> seg_diag_index
+            let d %Diag seg_diag_index
             seg_update_err st d
 
 //: ## add
@@ -84,23 +84,23 @@ pub fn replace <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateErro
 //:| #import "alloc/collections/segment_tree" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let st <SegmentTree>:
+//: fn main %impure fn () i32 \():
+//:     let st %SegmentTree:
 //:         unwrap_ok<SegmentTree, Diag> new 4
 //:         |> add 0 2 |> uwok
 //:         |> add 3 5 |> uwok
-//:     let total <i32> unwrap_ok<i32, Diag> sum_range &st 0 4;
+//:     let total %i32 unwrap_ok<i32, Diag> sum_range &st 0 4;
 //:     free st
 //:     if eq total 7 1 0
 //: ```
-pub fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> (st, idx, delta):
-    let n <i32> *field::get_ref &st "n"
-    let base <i32> *field::get_ref &st "base"
+pub fn add %impure fn SegmentTree impure fn i32 impure fn i32 Result SegmentTree SegmentTreeUpdateError \st\idx\delta:
+    let n %i32 *field::get_ref &st "n"
+    let base %i32 *field::get_ref &st "base"
     if:
         and le 0 idx lt idx n
         then:
-            let result <Result<(), Diag>> block:
-                let data <&Vec<i32>> field::get_ref &st "data"
+            let result %Result () Diag block:
+                let data %&Vec i32 field::get_ref &st "data"
                 if:
                     not seg_storage_has_expected_len data base
                     then:
@@ -118,5 +118,5 @@ pub fn add <(SegmentTree,i32,i32)*>Result<SegmentTree, SegmentTreeUpdateError>> 
                 Result::Err d:
                     seg_update_err st d
         else:
-            let d <Diag> seg_diag_index
+            let d %Diag seg_diag_index
             seg_update_err st d

@@ -26,15 +26,15 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn text_bytebuf_to_utf8_str_result <(ByteBuf)*>Result<str, StdErrorKind>> (buf):
-    let byte_len <i32> io_bytebuf_len_ref &buf
+pub fn text_bytebuf_to_utf8_str_result %impure fn ByteBuf Result str StdErrorKind \buf:
+    let byte_len %i32 io_bytebuf_len_ref &buf
     if:
         le byte_len 0
         then:
             io_bytebuf_free buf
             Result<str, StdErrorKind>::Ok ""
         else:
-            let data <MemPtr<u8>> io_bytebuf_data_ptr_ref &buf
+            let data %MemPtr u8 io_bytebuf_data_ptr_ref &buf
             match text_utf8_validate_mem data byte_len:
                 Result::Ok _:
                     io_bytebuf_to_str_result buf

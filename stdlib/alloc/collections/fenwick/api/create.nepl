@@ -32,20 +32,20 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let fw <Fenwick> unwrap_ok<Fenwick, Diag> new 5;
-//:     let observed_len <i32> len &fw;
-//:     let ok <bool> eq observed_len 5;
+//: fn main %impure fn () i32 \():
+//:     let fw %Fenwick unwrap_ok<Fenwick, Diag> new 5;
+//:     let observed_len %i32 len &fw;
+//:     let ok %bool eq observed_len 5;
 //:     free fw
 //:     if ok 1 0
 //: ```
-pub fn new <(i32)*>Result<Fenwick, Diag>> (n):
+pub fn new %impure fn i32 Result Fenwick Diag \n:
     if:
         lt n 0
         then:
             diag_err<Fenwick> fenwick_diag_len
         else:
-            let bit_len <i32> add n 1
+            let bit_len %i32 add n 1
             match fenwick_alloc_bit bit_len:
                 Result::Err d:
                     err<Fenwick, Diag> d

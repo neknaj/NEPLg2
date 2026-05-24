@@ -21,9 +21,9 @@
 //: ## Stack
 //: LIFO stack の owner
 pub struct Stack<.T>:
-    len <i32>
-    cap <i32>
-    items <Vec<Option<.T>>>
+    len %i32
+    cap %i32
+    items %Vec Option .T
 
 //: ## StackPushError
 //: `push` の grow [失敗/しっぱい]で[戻/もど]る error payload
@@ -43,15 +43,15 @@ pub struct Stack<.T>:
 //: #import "alloc/collections/stack" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <StackPushError<i32>> StackPushError<i32> s d0;
+//: fn main %impure fn () i32 \():
+//:     let s %Stack i32 unwrap_ok<Stack<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %StackPushError i32 StackPushError<i32> s d0;
 //:     0
 //: ```
 pub struct StackPushError<.T>:
-    stack <Stack<.T>>
-    diag <Diag>
+    stack %Stack .T
+    diag %Diag
 
 //: ## stack_push_error_diag
 //: push [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
@@ -67,13 +67,13 @@ pub struct StackPushError<.T>:
 //: #import "alloc/collections/stack" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <StackPushError<i32>> StackPushError<i32> s d0;
+//: fn main %impure fn () i32 \():
+//:     let s %Stack i32 unwrap_ok<Stack<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %StackPushError i32 StackPushError<i32> s d0;
 //:     0
 //: ```
-pub fn stack_push_error_diag <.T> <(&StackPushError<.T>)->Diag> (e):
+pub fn stack_push_error_diag <.T> %fn &StackPushError .T Diag \e:
     *field::get_ref e "diag"
 
 //: ## stack_push_error_stack
@@ -93,13 +93,13 @@ pub fn stack_push_error_diag <.T> <(&StackPushError<.T>)->Diag> (e):
 //: #import "alloc/collections/stack" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let s <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <StackPushError<i32>> StackPushError<i32> s d0;
+//: fn main %impure fn () i32 \():
+//:     let s %Stack i32 unwrap_ok<Stack<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %StackPushError i32 StackPushError<i32> s d0;
 //:     0
 //: ```
-pub fn stack_push_error_stack <.T: Copy> <(StackPushError<.T>)->Stack<.T>> (e):
+pub fn stack_push_error_stack <.T: Copy> %fn StackPushError .T Stack .T \e:
     field::get e "stack"
 
 //: ## StackPop
@@ -118,12 +118,12 @@ pub fn stack_push_error_stack <.T: Copy> <(StackPushError<.T>)->Stack<.T>> (e):
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let st0 <Stack<i32>> unwrap_ok new<i32>;
-//:     let st1 <Stack<i32>> unwrap_ok push<i32> st0 7;
-//:     let p <StackPop<i32>> pop_top<i32> st1;
-//:     let item <Option<i32>> stack_pop_item<i32> &p;
-//:     let st2 <Stack<i32>> stack_pop_stack<i32> p;
+//: fn main %impure fn () i32 \():
+//:     let st0 %Stack i32 unwrap_ok new<i32>;
+//:     let st1 %Stack i32 unwrap_ok push<i32> st0 7;
+//:     let p %StackPop i32 pop_top<i32> st1;
+//:     let item %Option i32 stack_pop_item<i32> &p;
+//:     let st2 %Stack i32 stack_pop_stack<i32> p;
 //:     free<i32> st2;
 //:     match item:
 //:         Option::Some x:
@@ -132,5 +132,5 @@ pub fn stack_push_error_stack <.T: Copy> <(StackPushError<.T>)->Stack<.T>> (e):
 //:             1
 //: ```
 pub struct StackPop<.T>:
-    stack <Stack<.T>>
-    item <Option<.T>>
+    stack %Stack .T
+    item %Option .T

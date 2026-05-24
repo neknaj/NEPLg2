@@ -12,11 +12,11 @@ stdout: "test_report name=\"math_i32_overload_add_sub_mul\" count=1 failed=0\nas
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let a <i32> add 40 2;
-    let b <i32> sub a 5;
-    let c <i32> mul b 2;
-    let actual <i32> add c -37
+fn main %impure fn () i32 \():
+    let a %i32 add 40 2;
+    let b %i32 sub a 5;
+    let c %i32 mul b 2;
+    let actual %i32 add c -37
     let report:
         test_report_new "math_i32_overload_add_sub_mul"
         |> test_report_push assert_eq_i32 "i32 arithmetic result" 37 actual
@@ -37,8 +37,8 @@ stdout: "test_report name=\"math_facade_qualified_alias_reexports_i32_arith\" co
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> math::add math::add 3 4 math::mul 3 4
+fn main %impure fn () i32 \():
+    let actual %i32 math::add math::add 3 4 math::mul 3 4
     let report:
         test_report_new "math_facade_qualified_alias_reexports_i32_arith"
         |> test_report_push assert_eq_i32 "qualified facade arithmetic" 19 actual
@@ -59,15 +59,15 @@ stdout: "test_report name=\"math_i64_overload_add_sub_mul\" count=1 failed=0\nas
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let a <i64> cast 40;
-    let b <i64> cast 2;
-    let five <i64> cast 5;
-    let two <i64> cast 2;
-    let c <i64> add a b;
-    let d <i64> sub c five;
-    let e <i64> mul d two;
-    let actual <i32> cast e;
+fn main %impure fn () i32 \():
+    let a %i64 cast 40;
+    let b %i64 cast 2;
+    let five %i64 cast 5;
+    let two %i64 cast 2;
+    let c %i64 add a b;
+    let d %i64 sub c five;
+    let e %i64 mul d two;
+    let actual %i32 cast e;
     let report:
         test_report_new "math_i64_overload_add_sub_mul"
         |> test_report_push assert_eq_i32 "i64 arithmetic cast result" 74 actual
@@ -88,18 +88,18 @@ stdout: "test_report name=\"math_i128_overload_add_sub_mul\" count=1 failed=0\na
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let a64 <i64> cast 40;
-    let b64 <i64> cast 2;
-    let a <i128> cast a64;
-    let b <i128> cast b64;
-    let three64 <i64> cast 3;
-    let two64 <i64> cast 2;
-    let c <i128> add a b;
-    let d <i128> sub c <i128> cast three64;
-    let e <i128> mul d <i128> cast two64;
-    let out64 <i64> cast e;
-    let actual <i32> <i32> cast out64
+fn main %impure fn () i32 \():
+    let a64 %i64 cast 40;
+    let b64 %i64 cast 2;
+    let a %i128 cast a64;
+    let b %i128 cast b64;
+    let three64 %i64 cast 3;
+    let two64 %i64 cast 2;
+    let c %i128 add a b;
+    let d %i128 sub c %i128 cast three64;
+    let e %i128 mul d %i128 cast two64;
+    let out64 %i64 cast e;
+    let actual %i32 %i32 cast out64
     let report:
         test_report_new "math_i128_overload_add_sub_mul"
         |> test_report_push assert_eq_i32 "i128 arithmetic cast result" 78 actual
@@ -120,12 +120,12 @@ stdout: "test_report name=\"cast_overload_numeric_roundtrip\" count=1 failed=0\n
 #import "core/cast" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let a32 <i32> 123;
-    let a64 <i64> cast a32;
-    let a128 <i128> cast a64;
-    let b64 <i64> cast a128;
-    let actual <i32> cast b64
+fn main %impure fn () i32 \():
+    let a32 %i32 123;
+    let a64 %i64 cast a32;
+    let a128 %i128 cast a64;
+    let b64 %i64 cast a128;
+    let actual %i32 cast b64
     let report:
         test_report_new "cast_overload_numeric_roundtrip"
         |> test_report_push assert_eq_i32 "numeric cast roundtrip" 123 actual
@@ -145,7 +145,7 @@ diag_code: type.overload.ambiguous
 #target core
 #import "core/cast" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let v cast 1
     0
 ```

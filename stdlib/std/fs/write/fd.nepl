@@ -38,7 +38,7 @@
 //:
 //: 計算量:
 //: - O(1)
-fn fs_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32,i32>> (fd, iov, nwritten, data, data_len):
+fn fs_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8 impure fn MemPtr u8 impure fn i32 Result i32 i32 \fd\iov\nwritten\data\data_len:
     if:
         lt data_len 0
         then:
@@ -49,9 +49,9 @@ fn fs_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i
                 then:
                     Result<i32,i32>::Ok 0
                 else:
-                    let iov_raw <i32> mem_ptr_addr iov
-                    let nwritten_raw <i32> mem_ptr_addr nwritten
-                    let data_raw <i32> mem_ptr_addr data
+                    let iov_raw %i32 mem_ptr_addr iov
+                    let nwritten_raw %i32 mem_ptr_addr nwritten
+                    let data_raw %i32 mem_ptr_addr data
                     if:
                         or or le iov_raw 0 le nwritten_raw 0 le data_raw 0
                         then:
@@ -60,7 +60,7 @@ fn fs_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i
                             store_i32 iov_raw data_raw
                             store_i32 add iov_raw 4 data_len
                             store_i32 nwritten_raw 0
-                            let errno <i32> wasi_fd_write fd iov_raw 1 nwritten_raw
+                            let errno %i32 wasi_fd_write fd iov_raw 1 nwritten_raw
                             if:
                                 ne errno 0
                                 then:
@@ -85,7 +85,7 @@ fn fs_fd_write_from_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data_len):
+fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Result () i32 \fd\data\data_len:
     if:
         le data_len 0
         then:
@@ -95,7 +95,7 @@ fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data
                 Result::Err _e:
                     Result<(),i32>::Err 12
                 Result::Ok iov_region:
-                    let iov_buf <MemPtr<u8>> region_ptr &iov_region
+                    let iov_buf %MemPtr u8 region_ptr &iov_region
                     match alloc_region<u8> 4:
                         Result::Err _e:
                             match dealloc_region<u8> iov_region:
@@ -105,10 +105,10 @@ fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data
                                     ()
                             Result<(),i32>::Err 12
                         Result::Ok nwritten_region:
-                            let nwritten_buf <MemPtr<u8>> region_ptr &nwritten_region
-                            let mut off <i32> 0
-                            let mut done <i32> 0
-                            let mut err <i32> 0
+                            let nwritten_buf %MemPtr u8 region_ptr &nwritten_region
+                            let mut off %i32 0
+                            let mut done %i32 0
+                            let mut err %i32 0
                             while eq done 0:
                                 do:
                                     if:
@@ -159,15 +159,15 @@ fn fs_write_fd_mem_result <(i32,MemPtr<u8>,i32)*>Result<(),i32>> (fd, data, data
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-pub fn fs_write_fd_bytes <(i32,ByteBuf)*>Result<(),i32>> (fd, bytes):
-    let data_len <i32> io_bytebuf_len_ref &bytes
+pub fn fs_write_fd_bytes %impure fn i32 impure fn ByteBuf Result () i32 \fd\bytes:
+    let data_len %i32 io_bytebuf_len_ref &bytes
     if:
         le data_len 0
         then:
             io_bytebuf_free bytes
             Result<(),i32>::Ok ()
         else:
-            let data <MemPtr<u8>> io_bytebuf_data_ptr_ref &bytes
-            let result <Result<(),i32>> fs_write_fd_mem_result fd data data_len
+            let data %MemPtr u8 io_bytebuf_data_ptr_ref &bytes
+            let result %Result () i32 fs_write_fd_mem_result fd data data_len
             io_bytebuf_free bytes
             result

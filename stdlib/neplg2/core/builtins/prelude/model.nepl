@@ -16,11 +16,11 @@ pub enum SelfhostBuiltinKind:
     MemStoreI32
 
 impl Clone for SelfhostBuiltinKind:
-    fn clone <(&SelfhostBuiltinKind)->SelfhostBuiltinKind> (self):
+    fn clone %fn &SelfhostBuiltinKind SelfhostBuiltinKind \self:
         *self
 
 impl Copy for SelfhostBuiltinKind:
-    fn copy_mark <(SelfhostBuiltinKind)->SelfhostBuiltinKind> (self):
+    fn copy_mark %fn SelfhostBuiltinKind SelfhostBuiltinKind \self:
         self
 
 //: SelfhostBuiltinUnarySignature: 1 引数 builtin function の signature
@@ -28,15 +28,15 @@ impl Copy for SelfhostBuiltinKind:
 //: [目的/もくてき]:
 //: - 存在する引数だけを payload として保持し、未使用 slot や sentinel type を builtin metadata から排除します。
 pub struct SelfhostBuiltinUnarySignature:
-    arg0 <SelfhostTypeKind>
-    result <SelfhostTypeKind>
+    arg0 %SelfhostTypeKind
+    result %SelfhostTypeKind
 
 impl Clone for SelfhostBuiltinUnarySignature:
-    fn clone <(&SelfhostBuiltinUnarySignature)->SelfhostBuiltinUnarySignature> (self):
+    fn clone %fn &SelfhostBuiltinUnarySignature SelfhostBuiltinUnarySignature \self:
         *self
 
 impl Copy for SelfhostBuiltinUnarySignature:
-    fn copy_mark <(SelfhostBuiltinUnarySignature)->SelfhostBuiltinUnarySignature> (self):
+    fn copy_mark %fn SelfhostBuiltinUnarySignature SelfhostBuiltinUnarySignature \self:
         self
 
 //: SelfhostBuiltinBinarySignature: 2 引数 builtin function の signature
@@ -44,16 +44,16 @@ impl Copy for SelfhostBuiltinUnarySignature:
 //: [目的/もくてき]:
 //: - binary builtin の引数列と戻り値を、arity と常に一致する payload として保持します。
 pub struct SelfhostBuiltinBinarySignature:
-    arg0 <SelfhostTypeKind>
-    arg1 <SelfhostTypeKind>
-    result <SelfhostTypeKind>
+    arg0 %SelfhostTypeKind
+    arg1 %SelfhostTypeKind
+    result %SelfhostTypeKind
 
 impl Clone for SelfhostBuiltinBinarySignature:
-    fn clone <(&SelfhostBuiltinBinarySignature)->SelfhostBuiltinBinarySignature> (self):
+    fn clone %fn &SelfhostBuiltinBinarySignature SelfhostBuiltinBinarySignature \self:
         *self
 
 impl Copy for SelfhostBuiltinBinarySignature:
-    fn copy_mark <(SelfhostBuiltinBinarySignature)->SelfhostBuiltinBinarySignature> (self):
+    fn copy_mark %fn SelfhostBuiltinBinarySignature SelfhostBuiltinBinarySignature \self:
         self
 
 //: SelfhostBuiltinTernarySignature: 3 引数 builtin function の signature
@@ -61,17 +61,17 @@ impl Copy for SelfhostBuiltinBinarySignature:
 //: [目的/もくてき]:
 //: - ternary builtin の引数列と戻り値を、余分な field を持たない payload として保持します。
 pub struct SelfhostBuiltinTernarySignature:
-    arg0 <SelfhostTypeKind>
-    arg1 <SelfhostTypeKind>
-    arg2 <SelfhostTypeKind>
-    result <SelfhostTypeKind>
+    arg0 %SelfhostTypeKind
+    arg1 %SelfhostTypeKind
+    arg2 %SelfhostTypeKind
+    result %SelfhostTypeKind
 
 impl Clone for SelfhostBuiltinTernarySignature:
-    fn clone <(&SelfhostBuiltinTernarySignature)->SelfhostBuiltinTernarySignature> (self):
+    fn clone %fn &SelfhostBuiltinTernarySignature SelfhostBuiltinTernarySignature \self:
         *self
 
 impl Copy for SelfhostBuiltinTernarySignature:
-    fn copy_mark <(SelfhostBuiltinTernarySignature)->SelfhostBuiltinTernarySignature> (self):
+    fn copy_mark %fn SelfhostBuiltinTernarySignature SelfhostBuiltinTernarySignature \self:
         self
 
 //: SelfhostBuiltinSignature: builtin function の arity-specific signature
@@ -80,16 +80,16 @@ impl Copy for SelfhostBuiltinTernarySignature:
 //: - builtin signature を固定長 slot ではなく enum payload で表し、arity と引数 payload の不一致を構造上作れないようにします。
 //: - accessor はこの enum を match するため、新しい arity を追加した場合に処理漏れを静的に発見しやすくします。
 pub enum SelfhostBuiltinSignature:
-    Unary <SelfhostBuiltinUnarySignature>
-    Binary <SelfhostBuiltinBinarySignature>
-    Ternary <SelfhostBuiltinTernarySignature>
+    Unary %SelfhostBuiltinUnarySignature
+    Binary %SelfhostBuiltinBinarySignature
+    Ternary %SelfhostBuiltinTernarySignature
 
 impl Clone for SelfhostBuiltinSignature:
-    fn clone <(&SelfhostBuiltinSignature)->SelfhostBuiltinSignature> (self):
+    fn clone %fn &SelfhostBuiltinSignature SelfhostBuiltinSignature \self:
         *self
 
 impl Copy for SelfhostBuiltinSignature:
-    fn copy_mark <(SelfhostBuiltinSignature)->SelfhostBuiltinSignature> (self):
+    fn copy_mark %fn SelfhostBuiltinSignature SelfhostBuiltinSignature \self:
         self
 
 //: SelfhostBuiltinFunction: builtin function registry の 1 件
@@ -101,17 +101,17 @@ impl Copy for SelfhostBuiltinSignature:
 //: - 引数列は `SelfhostBuiltinSignature` の payload に集約し、存在しない引数 slot を表現しません。
 //: - `pure` は現行 Rust builtin registry の effect を固定するための field です。Resource IR 側で effect model が変わった場合はこの registry も同時に更新します。
 pub struct SelfhostBuiltinFunction:
-    name <str>
-    kind <SelfhostBuiltinKind>
-    signature <SelfhostBuiltinSignature>
-    pure <bool>
+    name %str
+    kind %SelfhostBuiltinKind
+    signature %SelfhostBuiltinSignature
+    pure %bool
 
 impl Clone for SelfhostBuiltinFunction:
-    fn clone <(&SelfhostBuiltinFunction)->SelfhostBuiltinFunction> (self):
+    fn clone %fn &SelfhostBuiltinFunction SelfhostBuiltinFunction \self:
         *self
 
 impl Copy for SelfhostBuiltinFunction:
-    fn copy_mark <(SelfhostBuiltinFunction)->SelfhostBuiltinFunction> (self):
+    fn copy_mark %fn SelfhostBuiltinFunction SelfhostBuiltinFunction \self:
         self
 
 //: SelfhostPrimitiveTypeName: primitive type の canonical name
@@ -120,13 +120,13 @@ impl Copy for SelfhostBuiltinFunction:
 //: - primitive type の名前解決と表示に使う canonical name を `SelfhostTypeKind` と対応付けます。
 //: - source parser が `()` のような専用 token で扱う型でも、registry 上の canonical name は `unit` として保持します。
 pub struct SelfhostPrimitiveTypeName:
-    name <str>
-    kind <SelfhostTypeKind>
+    name %str
+    kind %SelfhostTypeKind
 
 impl Clone for SelfhostPrimitiveTypeName:
-    fn clone <(&SelfhostPrimitiveTypeName)->SelfhostPrimitiveTypeName> (self):
+    fn clone %fn &SelfhostPrimitiveTypeName SelfhostPrimitiveTypeName \self:
         *self
 
 impl Copy for SelfhostPrimitiveTypeName:
-    fn copy_mark <(SelfhostPrimitiveTypeName)->SelfhostPrimitiveTypeName> (self):
+    fn copy_mark %fn SelfhostPrimitiveTypeName SelfhostPrimitiveTypeName \self:
         self

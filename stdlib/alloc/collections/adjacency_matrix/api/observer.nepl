@@ -25,7 +25,7 @@
 //: ### [仕様/しよう]
 //: - `AdjacencyMatrix` owner は[消費/しょうひ]しません。
 //: - caller は `len` [後/ご]も同じ `AdjacencyMatrix` を[使/つか]い、不要になったら `free` できます。
-pub fn len <(&AdjacencyMatrix)->i32> (g):
+pub fn len %fn &AdjacencyMatrix i32 \g:
     *field::get_ref g "nverts"
 
 //: ## contains
@@ -38,23 +38,23 @@ pub fn len <(&AdjacencyMatrix)->i32> (g):
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let g <AdjacencyMatrix>:
+//: fn main %impure fn () i32 \():
+//:     let g %AdjacencyMatrix:
 //:         unwrap_ok<AdjacencyMatrix, Diag> new 4
 //:         |> insert 1 3 |> uwok
-//:     let ok <bool> unwrap_ok<bool, Diag> contains &g 1 3;
+//:     let ok %bool unwrap_ok<bool, Diag> contains &g 1 3;
 //:     free g
 //:     if ok 1 0
 //: ```
-pub fn contains <(&AdjacencyMatrix,i32,i32)*>Result<bool, Diag>> (g, from, to):
-    let nverts <i32> *field::get_ref g "nverts"
+pub fn contains %impure fn &AdjacencyMatrix impure fn i32 impure fn i32 Result bool Diag \g\from\to:
+    let nverts %i32 *field::get_ref g "nverts"
     if:
         adjacency_matrix_valid_edge nverts from to
         then:
-            let bits <&Vec<u8>> field::get_ref g "bits"
-            let bit_idx <i32> adjacency_matrix_bit_index nverts from to
-            let byte_idx <i32> adjacency_matrix_byte_index bit_idx
-            let mask <i32> adjacency_matrix_mask bit_idx
+            let bits %&Vec u8 field::get_ref g "bits"
+            let bit_idx %i32 adjacency_matrix_bit_index nverts from to
+            let byte_idx %i32 adjacency_matrix_byte_index bit_idx
+            let mask %i32 adjacency_matrix_mask bit_idx
             match adjacency_matrix_byte_at bits byte_idx:
                 Option::Some cur:
                     ok<bool, Diag> ne and cur mask 0

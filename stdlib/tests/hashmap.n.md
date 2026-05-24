@@ -20,66 +20,66 @@ stdout: "test_report name=\"hashmap_main\" count=14 failed=0\nassertion index=0 
 #import "std/test" as *
 #import "core/field" as *
 
-fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, Diag>)*>HashMap<i32,i32,DefaultHash32>> (r):
+fn must_hm %impure fn Result HashMap i32 i32 DefaultHash32 Diag HashMap i32 i32 DefaultHash32 \r:
     match r:
         Result::Ok hm:
             hm
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
-fn must_hm <(Result<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>>)*>HashMap<i32,i32,DefaultHash32>> (r):
+fn must_hm %impure fn Result HashMap i32 i32 DefaultHash32 HashMapUpdateError i32 i32 DefaultHash32 HashMap i32 i32 DefaultHash32 \r:
     match r:
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm <HashMap<i32,i32,DefaultHash32>> hashmap_update_error_owner<i32,i32,DefaultHash32> e;
+            let hm %HashMap i32 i32 DefaultHash32 hashmap_update_error_owner<i32,i32,DefaultHash32> e;
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main <()*> i32> ():
-    let hm0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let hm0_len <i32> len &hm0;
+fn main %impure fn () i32 \():
+    let hm0 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let hm0_len %i32 len &hm0;
     free hm0;
 
-    let hm1 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let hm1_has <bool> contains &hm1 1;
+    let hm1 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let hm1_has %bool contains &hm1 1;
     free hm1;
 
-    let hm2 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let hm2_none <bool> is_none<i32> get &hm2 1;
+    let hm2 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let hm2_none %bool is_none<i32> get &hm2 1;
     free hm2;
 
-    let a0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let a1 <HashMap<i32,i32,DefaultHash32>> must_hm insert a0 10 100;
-    let a2 <HashMap<i32,i32,DefaultHash32>> must_hm insert a1 5 50;
-    let a3 <HashMap<i32,i32,DefaultHash32>> must_hm insert a2 20 200;
-    let a3_len <i32> len &a3;
+    let a0 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let a1 %HashMap i32 i32 DefaultHash32 must_hm insert a0 10 100;
+    let a2 %HashMap i32 i32 DefaultHash32 must_hm insert a1 5 50;
+    let a3 %HashMap i32 i32 DefaultHash32 must_hm insert a2 20 200;
+    let a3_len %i32 len &a3;
     free a3;
 
-    let a4 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let a4 <HashMap<i32,i32,DefaultHash32>> must_hm insert a4 10 100;
-    let a4 <HashMap<i32,i32,DefaultHash32>> must_hm insert a4 5 50;
-    let a4 <HashMap<i32,i32,DefaultHash32>> must_hm insert a4 20 200;
-    let a4_has <bool> contains &a4 10;
+    let a4 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let a4 %HashMap i32 i32 DefaultHash32 must_hm insert a4 10 100;
+    let a4 %HashMap i32 i32 DefaultHash32 must_hm insert a4 5 50;
+    let a4 %HashMap i32 i32 DefaultHash32 must_hm insert a4 20 200;
+    let a4_has %bool contains &a4 10;
     free a4;
 
-    let a5 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let a5 <HashMap<i32,i32,DefaultHash32>> must_hm insert a5 10 100;
-    let a5 <HashMap<i32,i32,DefaultHash32>> must_hm insert a5 5 50;
-    let a5 <HashMap<i32,i32,DefaultHash32>> must_hm insert a5 20 200;
-    let a5_has <bool> contains &a5 5;
+    let a5 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let a5 %HashMap i32 i32 DefaultHash32 must_hm insert a5 10 100;
+    let a5 %HashMap i32 i32 DefaultHash32 must_hm insert a5 5 50;
+    let a5 %HashMap i32 i32 DefaultHash32 must_hm insert a5 20 200;
+    let a5_has %bool contains &a5 5;
     free a5;
 
-    let a6 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let a6 <HashMap<i32,i32,DefaultHash32>> must_hm insert a6 10 100;
-    let a6 <HashMap<i32,i32,DefaultHash32>> must_hm insert a6 5 50;
-    let a6 <HashMap<i32,i32,DefaultHash32>> must_hm insert a6 20 200;
-    let a6_has <bool> contains &a6 2;
+    let a6 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let a6 %HashMap i32 i32 DefaultHash32 must_hm insert a6 10 100;
+    let a6 %HashMap i32 i32 DefaultHash32 must_hm insert a6 5 50;
+    let a6 %HashMap i32 i32 DefaultHash32 must_hm insert a6 20 200;
+    let a6_has %bool contains &a6 2;
     free a6;
 
-    let b0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let b1 <HashMap<i32,i32,DefaultHash32>> must_hm insert b0 5 50;
-    let mut b1_value <i32> -1;
+    let b0 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let b1 %HashMap i32 i32 DefaultHash32 must_hm insert b0 5 50;
+    let mut b1_value %i32 -1;
     match get &b1 5:
         Option::Some v:
             set b1_value v
@@ -87,10 +87,10 @@ fn main <()*> i32> ():
             ()
     free b1;
 
-    let c0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let c1 <HashMap<i32,i32,DefaultHash32>> must_hm insert c0 5 50;
-    let c2 <HashMap<i32,i32,DefaultHash32>> must_hm insert c1 5 55;
-    let mut c2_value <i32> -1;
+    let c0 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let c1 %HashMap i32 i32 DefaultHash32 must_hm insert c0 5 50;
+    let c2 %HashMap i32 i32 DefaultHash32 must_hm insert c1 5 55;
+    let mut c2_value %i32 -1;
     match get &c2 5:
         Option::Some v:
             set c2_value v
@@ -98,40 +98,40 @@ fn main <()*> i32> ():
             ()
     free c2;
 
-    let c3 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let c3 <HashMap<i32,i32,DefaultHash32>> must_hm insert c3 5 50;
-    let c3 <HashMap<i32,i32,DefaultHash32>> must_hm insert c3 5 55;
-    let c3_len <i32> len &c3;
+    let c3 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let c3 %HashMap i32 i32 DefaultHash32 must_hm insert c3 5 50;
+    let c3 %HashMap i32 i32 DefaultHash32 must_hm insert c3 5 55;
+    let c3_len %i32 len &c3;
     free c3;
 
-    let d0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let d1 <HashMap<i32,i32,DefaultHash32>> must_hm insert d0 10 100;
-    let d2 <HashMap<i32,i32,DefaultHash32>> must_hm insert d1 20 200;
-    let d3 <HashMap<i32,i32,DefaultHash32>> must_hm remove d2 10;
-    let d3_len <i32> len &d3;
+    let d0 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let d1 %HashMap i32 i32 DefaultHash32 must_hm insert d0 10 100;
+    let d2 %HashMap i32 i32 DefaultHash32 must_hm insert d1 20 200;
+    let d3 %HashMap i32 i32 DefaultHash32 must_hm remove d2 10;
+    let d3_len %i32 len &d3;
     free d3;
 
-    let d4 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let d4 <HashMap<i32,i32,DefaultHash32>> must_hm insert d4 10 100;
-    let d4 <HashMap<i32,i32,DefaultHash32>> must_hm insert d4 20 200;
-    let d4 <HashMap<i32,i32,DefaultHash32>> must_hm remove d4 10;
-    let d4_has <bool> contains &d4 10;
+    let d4 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let d4 %HashMap i32 i32 DefaultHash32 must_hm insert d4 10 100;
+    let d4 %HashMap i32 i32 DefaultHash32 must_hm insert d4 20 200;
+    let d4 %HashMap i32 i32 DefaultHash32 must_hm remove d4 10;
+    let d4_has %bool contains &d4 10;
     free d4;
 
-    let e0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let e1 <HashMap<i32,i32,DefaultHash32>> must_hm insert e0 10 100;
-    let missing_err <bool>:
+    let e0 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let e1 %HashMap i32 i32 DefaultHash32 must_hm insert e0 10 100;
+    let missing_err %bool:
         match remove e1 999:
             Result::Ok hm:
                 free hm;
                 false
             Result::Err e:
-                let hm <HashMap<i32,i32,DefaultHash32>> hashmap_update_error_owner<i32,i32,DefaultHash32> e;
+                let hm %HashMap i32 i32 DefaultHash32 hashmap_update_error_owner<i32,i32,DefaultHash32> e;
                 free hm;
                 true
 
-    let f0 <HashMap<i32,i32,DefaultHash32>> must_hm new DefaultHash32;
-    let f1 <HashMap<i32,i32,DefaultHash32>> must_hm insert f0 1 1;
+    let f0 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
+    let f1 %HashMap i32 i32 DefaultHash32 must_hm insert f0 1 1;
     free f1;
 
     let report:

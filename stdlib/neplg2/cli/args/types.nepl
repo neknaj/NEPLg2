@@ -24,9 +24,9 @@
 //:| #target std
 //:| #import "core/field" as *
 //:| #import "neplg2/cli/args/types" as *
-//: fn main <()*>i32> ():
-//:     let emit <SelfhostCliEmitSet> SelfhostCliEmitSet true false false true false;
-//:     let ok <bool> and get emit "wasm" get emit "llvm";
+//: fn main %impure fn () i32 \():
+//:     let emit %SelfhostCliEmitSet SelfhostCliEmitSet true false false true false;
+//:     let ok %bool and get emit "wasm" get emit "llvm";
 //:     if ok 0 1
 //: ```
 
@@ -45,11 +45,11 @@ pub enum SelfhostCliTarget:
     Llvm
 
 impl Clone for SelfhostCliTarget:
-    fn clone <(&SelfhostCliTarget)->SelfhostCliTarget> (self):
+    fn clone %fn &SelfhostCliTarget SelfhostCliTarget \self:
         *self
 
 impl Copy for SelfhostCliTarget:
-    fn copy_mark <(SelfhostCliTarget)->SelfhostCliTarget> (self):
+    fn copy_mark %fn SelfhostCliTarget SelfhostCliTarget \self:
         self
 
 //: SelfhostCliEmit: self-host compiler の出力形式
@@ -66,11 +66,11 @@ pub enum SelfhostCliEmit:
     All
 
 impl Clone for SelfhostCliEmit:
-    fn clone <(&SelfhostCliEmit)->SelfhostCliEmit> (self):
+    fn clone %fn &SelfhostCliEmit SelfhostCliEmit \self:
         *self
 
 impl Copy for SelfhostCliEmit:
-    fn copy_mark <(SelfhostCliEmit)->SelfhostCliEmit> (self):
+    fn copy_mark %fn SelfhostCliEmit SelfhostCliEmit \self:
         self
 
 //: SelfhostCliEmitSet: self-host compiler が 1 回の実行で出力する artifact set
@@ -82,18 +82,18 @@ impl Copy for SelfhostCliEmit:
 //: [注意/ちゅうい]:
 //: - output path と複数 artifact の具体的な file naming は artifact writer 側で決めます。
 pub struct SelfhostCliEmitSet:
-    wasm <bool>
-    wat <bool>
-    wat_min <bool>
-    llvm <bool>
-    llvm_min <bool>
+    wasm %bool
+    wat %bool
+    wat_min %bool
+    llvm %bool
+    llvm_min %bool
 
 impl Clone for SelfhostCliEmitSet:
-    fn clone <(&SelfhostCliEmitSet)->SelfhostCliEmitSet> (self):
+    fn clone %fn &SelfhostCliEmitSet SelfhostCliEmitSet \self:
         *self
 
 impl Copy for SelfhostCliEmitSet:
-    fn copy_mark <(SelfhostCliEmitSet)->SelfhostCliEmitSet> (self):
+    fn copy_mark %fn SelfhostCliEmitSet SelfhostCliEmitSet \self:
         self
 
 //: SelfhostCliProfile: compile profile の指定
@@ -102,11 +102,11 @@ pub enum SelfhostCliProfile:
     Release
 
 impl Clone for SelfhostCliProfile:
-    fn clone <(&SelfhostCliProfile)->SelfhostCliProfile> (self):
+    fn clone %fn &SelfhostCliProfile SelfhostCliProfile \self:
         *self
 
 impl Copy for SelfhostCliProfile:
-    fn copy_mark <(SelfhostCliProfile)->SelfhostCliProfile> (self):
+    fn copy_mark %fn SelfhostCliProfile SelfhostCliProfile \self:
         self
 
 //: SelfhostCliErrorKind: CLI parser が返す usage error の分類
@@ -134,15 +134,15 @@ pub enum SelfhostCliErrorKind:
 //: - `run_args_start` は parser に渡した引数列の index です。`selfhost_cli_parse_argv` の場合は argv[0] を含む index になります。
 //: - `input` は `-i/--input` と positional input のどちらから来ても同じ field に格納します。
 pub struct SelfhostCliOptions:
-    check <bool>
-    run <bool>
-    attach_source <bool>
-    lib <bool>
-    verbose <bool>
-    emit <SelfhostCliEmitSet>
-    target <Option<SelfhostCliTarget>>
-    profile <Option<SelfhostCliProfile>>
-    stdlib_root <Option<str>>
-    output <Option<str>>
-    input <Option<str>>
-    run_args_start <Option<i32>>
+    check %bool
+    run %bool
+    attach_source %bool
+    lib %bool
+    verbose %bool
+    emit %SelfhostCliEmitSet
+    target %Option SelfhostCliTarget
+    profile %Option SelfhostCliProfile
+    stdlib_root %Option str
+    output %Option str
+    input %Option str
+    run_args_start %Option i32

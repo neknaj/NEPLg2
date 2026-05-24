@@ -16,10 +16,10 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/resource/lifetime" as *
-//: fn main <()*>i32> ():
-//:     let root <SelfhostLifetimePosition> selfhost_lifetime_position_new (selfhost_lifetime_id_new 0) 0
-//:     let child <SelfhostLifetimePosition> selfhost_lifetime_position_new (selfhost_lifetime_id_new 1) 2
-//:     let relation <SelfhostLifetimeRelation> selfhost_lifetime_relation_from_scope_path root child SelfhostLifetimeScopePathKind::SubjectAncestorOfRequired
+//: fn main %impure fn () i32 \():
+//:     let root %SelfhostLifetimePosition selfhost_lifetime_position_new (selfhost_lifetime_id_new 0) 0
+//:     let child %SelfhostLifetimePosition selfhost_lifetime_position_new (selfhost_lifetime_id_new 1) 2
+//:     let relation %SelfhostLifetimeRelation selfhost_lifetime_relation_from_scope_path root child SelfhostLifetimeScopePathKind::SubjectAncestorOfRequired
 //:     if selfhost_lifetime_relation_proves_outlives relation 0 1
 //: ```
 
@@ -28,30 +28,30 @@
 
 //: SelfhostLifetimeId: lifetime arena 内の stable index
 pub struct SelfhostLifetimeId:
-    index <i32>
+    index %i32
 
 impl Clone for SelfhostLifetimeId:
-    fn clone <(&SelfhostLifetimeId)->SelfhostLifetimeId> (self):
+    fn clone %fn &SelfhostLifetimeId SelfhostLifetimeId \self:
         *self
 
 impl Copy for SelfhostLifetimeId:
-    fn copy_mark <(SelfhostLifetimeId)->SelfhostLifetimeId> (self):
+    fn copy_mark %fn SelfhostLifetimeId SelfhostLifetimeId \self:
         self
 
 //: selfhost_lifetime_id_new: lifetime id を[作/つく]る
-pub fn selfhost_lifetime_id_new <(i32)->SelfhostLifetimeId> (index):
+pub fn selfhost_lifetime_id_new %fn i32 SelfhostLifetimeId \index:
     SelfhostLifetimeId index
 
 //: selfhost_lifetime_id_index: lifetime id の index を[返/かえ]す
-pub fn selfhost_lifetime_id_index <(SelfhostLifetimeId)->i32> (lifetime):
+pub fn selfhost_lifetime_id_index %fn SelfhostLifetimeId i32 \lifetime:
     lifetime.index
 
 //: selfhost_lifetime_id_is_valid: lifetime id が有効か[返/かえ]す
-pub fn selfhost_lifetime_id_is_valid <(SelfhostLifetimeId)->bool> (lifetime):
+pub fn selfhost_lifetime_id_is_valid %fn SelfhostLifetimeId bool \lifetime:
     ge lifetime.index 0
 
 //: selfhost_lifetime_id_eq: lifetime id が同じか[返/かえ]す
-pub fn selfhost_lifetime_id_eq <(SelfhostLifetimeId,SelfhostLifetimeId)->bool> (left, right):
+pub fn selfhost_lifetime_id_eq %fn SelfhostLifetimeId fn SelfhostLifetimeId bool \left\right:
     eq left.index right.index
 
 //: SelfhostLifetimePosition: source scope graph 上の lifetime 位置
@@ -60,23 +60,23 @@ pub fn selfhost_lifetime_id_eq <(SelfhostLifetimeId,SelfhostLifetimeId)->bool> (
 //: - source lowering が観測した lifetime id と lexical scope depth を保持します。
 //: - 小さい depth は外側 scope の候補ですが、depth だけでは ancestry proof になりません。
 pub struct SelfhostLifetimePosition:
-    lifetime <SelfhostLifetimeId>
-    scope_depth <i32>
+    lifetime %SelfhostLifetimeId
+    scope_depth %i32
 
 impl Clone for SelfhostLifetimePosition:
-    fn clone <(&SelfhostLifetimePosition)->SelfhostLifetimePosition> (self):
+    fn clone %fn &SelfhostLifetimePosition SelfhostLifetimePosition \self:
         *self
 
 impl Copy for SelfhostLifetimePosition:
-    fn copy_mark <(SelfhostLifetimePosition)->SelfhostLifetimePosition> (self):
+    fn copy_mark %fn SelfhostLifetimePosition SelfhostLifetimePosition \self:
         self
 
 //: selfhost_lifetime_position_new: lifetime position を[作/つく]る
-pub fn selfhost_lifetime_position_new <(SelfhostLifetimeId,i32)->SelfhostLifetimePosition> (lifetime, scope_depth):
+pub fn selfhost_lifetime_position_new %fn SelfhostLifetimeId fn i32 SelfhostLifetimePosition \lifetime\scope_depth:
     SelfhostLifetimePosition lifetime scope_depth
 
 //: selfhost_lifetime_position_is_valid: source scope position が有効か[返/かえ]す
-pub fn selfhost_lifetime_position_is_valid <(SelfhostLifetimePosition)->bool> (position):
+pub fn selfhost_lifetime_position_is_valid %fn SelfhostLifetimePosition bool \position:
     and selfhost_lifetime_id_is_valid position.lifetime ge position.scope_depth 0
 
 //: SelfhostLifetimeScopePathKind: source scope graph が観測した 2 lifetime 間の path 関係
@@ -91,11 +91,11 @@ pub enum SelfhostLifetimeScopePathKind:
     Unrelated
 
 impl Clone for SelfhostLifetimeScopePathKind:
-    fn clone <(&SelfhostLifetimeScopePathKind)->SelfhostLifetimeScopePathKind> (self):
+    fn clone %fn &SelfhostLifetimeScopePathKind SelfhostLifetimeScopePathKind \self:
         *self
 
 impl Copy for SelfhostLifetimeScopePathKind:
-    fn copy_mark <(SelfhostLifetimeScopePathKind)->SelfhostLifetimeScopePathKind> (self):
+    fn copy_mark %fn SelfhostLifetimeScopePathKind SelfhostLifetimeScopePathKind \self:
         self
 
 //: SelfhostLifetimeRelation: 2 つの lifetime の outlives 関係
@@ -112,11 +112,11 @@ pub enum SelfhostLifetimeRelation:
     Unrelated
 
 impl Clone for SelfhostLifetimeRelation:
-    fn clone <(&SelfhostLifetimeRelation)->SelfhostLifetimeRelation> (self):
+    fn clone %fn &SelfhostLifetimeRelation SelfhostLifetimeRelation \self:
         *self
 
 impl Copy for SelfhostLifetimeRelation:
-    fn copy_mark <(SelfhostLifetimeRelation)->SelfhostLifetimeRelation> (self):
+    fn copy_mark %fn SelfhostLifetimeRelation SelfhostLifetimeRelation \self:
         self
 
 //: selfhost_lifetime_relation_from_scope_path: source scope graph path から outlives 関係を[導出/どうしゅつ]する
@@ -126,7 +126,7 @@ impl Copy for SelfhostLifetimeRelation:
 //: - subject が required の ancestor であることを source scope graph が示す場合だけ outlives evidence にします。
 //: - required が subject の ancestor である場合は subject が短い lifetime として拒否対象にします。
 //: - graph で接続できない場合は `Unrelated` として保持します。
-pub fn selfhost_lifetime_relation_from_scope_path <(SelfhostLifetimePosition,SelfhostLifetimePosition,SelfhostLifetimeScopePathKind)->SelfhostLifetimeRelation> (subject, required, path):
+pub fn selfhost_lifetime_relation_from_scope_path %fn SelfhostLifetimePosition fn SelfhostLifetimePosition fn SelfhostLifetimeScopePathKind SelfhostLifetimeRelation \subject\required\path:
     if:
         selfhost_lifetime_position_is_valid subject
         then:
@@ -152,7 +152,7 @@ pub fn selfhost_lifetime_relation_from_scope_path <(SelfhostLifetimePosition,Sel
 //: [注意/ちゅうい]:
 //: - 互換用の小さな helper ですが、異なる id の lifetime では `Unrelated` を返します。
 //: - outlives proof には `selfhost_lifetime_relation_from_scope_path` を使い、source scope graph の path evidence を渡してください。
-pub fn selfhost_lifetime_relation_from_positions <(SelfhostLifetimePosition,SelfhostLifetimePosition)->SelfhostLifetimeRelation> (subject, required):
+pub fn selfhost_lifetime_relation_from_positions %fn SelfhostLifetimePosition fn SelfhostLifetimePosition SelfhostLifetimeRelation \subject\required:
     if:
         selfhost_lifetime_position_is_valid subject
         then:
@@ -166,7 +166,7 @@ pub fn selfhost_lifetime_relation_from_positions <(SelfhostLifetimePosition,Self
             SelfhostLifetimeRelation::InvalidSubject
 
 //: selfhost_lifetime_relation_proves_outlives: relation が outlives 証明になるか[返/かえ]す
-pub fn selfhost_lifetime_relation_proves_outlives <(SelfhostLifetimeRelation)->bool> (relation):
+pub fn selfhost_lifetime_relation_proves_outlives %fn SelfhostLifetimeRelation bool \relation:
     match relation:
         SelfhostLifetimeRelation::SameLifetime:
             true
@@ -189,9 +189,9 @@ pub enum SelfhostLifetimeUseKind:
     ReferenceAssignment
 
 impl Clone for SelfhostLifetimeUseKind:
-    fn clone <(&SelfhostLifetimeUseKind)->SelfhostLifetimeUseKind> (self):
+    fn clone %fn &SelfhostLifetimeUseKind SelfhostLifetimeUseKind \self:
         *self
 
 impl Copy for SelfhostLifetimeUseKind:
-    fn copy_mark <(SelfhostLifetimeUseKind)->SelfhostLifetimeUseKind> (self):
+    fn copy_mark %fn SelfhostLifetimeUseKind SelfhostLifetimeUseKind \self:
         self

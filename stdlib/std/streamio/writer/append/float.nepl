@@ -17,23 +17,23 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `NaN` / `inf` は[未対応/みたいおう]です。
-pub fn append_f64_fixed_impl <(StreamWriter,f64,i32)*>StreamWriter> (w, v, precision):
-    let mut x <f64> v;
-    let zero <f64> cast 0;
-    let is_neg <bool> lt x zero;
-    let mut ww <StreamWriter> w;
+pub fn append_f64_fixed_impl %impure fn StreamWriter impure fn f64 impure fn i32 StreamWriter \w\v\precision:
+    let mut x %f64 v;
+    let zero %f64 cast 0;
+    let is_neg %bool lt x zero;
+    let mut ww %StreamWriter w;
     if:
         is_neg
         then:
             set ww push_u8_impl ww 45;
-            let nx <f64> neg x;
+            let nx %f64 neg x;
             set x nx;
             ()
         else:
             ();
 
-    let int_part <i64> cast x;
-    let int_u <u64> cast int_part;
+    let int_part %i64 cast x;
+    let int_u %u64 cast int_part;
     set ww append_u64_impl ww int_u;
 
     if:
@@ -42,34 +42,34 @@ pub fn append_f64_fixed_impl <(StreamWriter,f64,i32)*>StreamWriter> (w, v, preci
             ww
         else:
             set ww push_u8_impl ww 46;
-            let int_as_f64 <f64> cast int_part;
-            let mut frac <f64> sub x int_as_f64;
-            let ten <f64> cast 10;
-            let mut i <i32> 0;
+            let int_as_f64 %f64 cast int_part;
+            let mut frac %f64 sub x int_as_f64;
+            let ten %f64 cast 10;
+            let mut i %i32 0;
             while lt i precision:
                 do:
-                    let frac10 <f64> mul frac ten;
+                    let frac10 %f64 mul frac ten;
                     set frac frac10;
-                    let digit <i32> cast frac;
+                    let digit %i32 cast frac;
                     set ww push_u8_impl ww add '0' digit;
-                    let digit_f <f64> cast digit;
-                    let next_frac <f64> sub frac digit_f;
+                    let digit_f %f64 cast digit;
+                    let next_frac %f64 sub frac digit_f;
                     set frac next_frac;
                     set i add i 1;
             ww
 
 //: ## append_f64_impl
 //: `f64` を[小数点以下/しょうすうてんいか] 6 [桁/けた]で[追記/ついき]する
-pub fn append_f64_impl <(StreamWriter,f64)*>StreamWriter> (w, v):
+pub fn append_f64_impl %impure fn StreamWriter impure fn f64 StreamWriter \w\v:
     append_f64_fixed_impl w v 6
 
 //: ## append_f32_fixed_impl
 //: `f32` を[固定/こてい][小数点/しょうすうてん]で[追記/ついき]する
-pub fn append_f32_fixed_impl <(StreamWriter,f32,i32)*>StreamWriter> (w, v, precision):
-    let v64 <f64> cast v;
+pub fn append_f32_fixed_impl %impure fn StreamWriter impure fn f32 impure fn i32 StreamWriter \w\v\precision:
+    let v64 %f64 cast v;
     append_f64_fixed_impl w v64 precision
 
 //: ## append_f32_impl
 //: `f32` を[小数点以下/しょうすうてんいか] 6 [桁/けた]で[追記/ついき]する
-pub fn append_f32_impl <(StreamWriter,f32)*>StreamWriter> (w, v):
+pub fn append_f32_impl %impure fn StreamWriter impure fn f32 StreamWriter \w\v:
     append_f32_fixed_impl w v 6

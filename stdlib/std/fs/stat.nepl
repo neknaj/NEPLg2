@@ -13,7 +13,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "std/fs/stat" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if fs_exists "__definitely_missing_fs_stat_case__.txt" then 1 else 0
 //: ```
 
@@ -46,7 +46,7 @@
 //:
 //: 計算量:
 //: - path 正規化 O(n) と host stat 1 回
-pub fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
+pub fn fs_path_filetype %impure fn str Result i32 i32 \path:
     match fs_normalize_relative_builder path:
         Result::Err e:
             Result<i32,i32>::Err e
@@ -56,22 +56,22 @@ pub fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
                     string_builder_free normalized
                     Result<i32,i32>::Err 12
                 Result::Ok stat_region:
-                    let stat_buf <MemPtr<u8>> region_ptr &stat_region
-                    let path_len <i32> string_builder_len_ref &normalized
-                    let path_ptr <i32> match string_builder_ptr_ref &normalized:
+                    let stat_buf %MemPtr u8 region_ptr &stat_region
+                    let path_len %i32 string_builder_len_ref &normalized
+                    let path_ptr %i32 match string_builder_ptr_ref &normalized:
                         Option::None:
                             0
                         Option::Some data:
                             mem_ptr_addr data
-                    let stat_raw <i32> mem_ptr_addr stat_buf
+                    let stat_raw %i32 mem_ptr_addr stat_buf
                     store_u8 add stat_raw 16 0;
-                    let errno <i32> if:
+                    let errno %i32 if:
                         le path_ptr 0
                         then:
                             fs_errno_inval
                         else:
                             wasi_path_filestat_get 3 0 path_ptr path_len stat_raw
-                    let res <Result<i32,i32>> if:
+                    let res %Result i32 i32 if:
                         eq errno 0
                         then:
                             Result<i32,i32>::Ok load_u8 add stat_raw 16
@@ -98,7 +98,7 @@ pub fn fs_path_filetype <(str)*>Result<i32,i32>> (path):
 //:
 //: 計算量:
 //: - host stat 1 回
-pub fn fs_exists <(str)*>bool> (path):
+pub fn fs_exists %impure fn str bool \path:
     match fs_path_filetype path:
         Result::Ok _kind:
             true
@@ -115,7 +115,7 @@ pub fn fs_exists <(str)*>bool> (path):
 //:
 //: 計算量:
 //: - host stat 1 回
-pub fn fs_is_file <(str)*>bool> (path):
+pub fn fs_is_file %impure fn str bool \path:
     match fs_path_filetype path:
         Result::Ok kind:
             eq kind fs_filetype_regular_file
@@ -132,7 +132,7 @@ pub fn fs_is_file <(str)*>bool> (path):
 //:
 //: 計算量:
 //: - host stat 1 回
-pub fn fs_is_dir <(str)*>bool> (path):
+pub fn fs_is_dir %impure fn str bool \path:
     match fs_path_filetype path:
         Result::Ok kind:
             eq kind fs_filetype_directory

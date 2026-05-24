@@ -16,7 +16,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/ty/effect" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if selfhost_effect_kind_eq SelfhostEffectKind::Pure SelfhostEffectKind::Pure 0 1
 //: ```
 
@@ -35,11 +35,11 @@ pub enum SelfhostEffectKind:
     Nondet
 
 impl Clone for SelfhostEffectKind:
-    fn clone <(&SelfhostEffectKind)->SelfhostEffectKind> (self):
+    fn clone %fn &SelfhostEffectKind SelfhostEffectKind \self:
         *self
 
 impl Copy for SelfhostEffectKind:
-    fn copy_mark <(SelfhostEffectKind)->SelfhostEffectKind> (self):
+    fn copy_mark %fn SelfhostEffectKind SelfhostEffectKind \self:
         self
 
 //: SelfhostEffectEscapeState: internal effect が safe surface へ漏れないことの証明状態
@@ -52,11 +52,11 @@ pub enum SelfhostEffectEscapeState:
     MayEscape
 
 impl Clone for SelfhostEffectEscapeState:
-    fn clone <(&SelfhostEffectEscapeState)->SelfhostEffectEscapeState> (self):
+    fn clone %fn &SelfhostEffectEscapeState SelfhostEffectEscapeState \self:
         *self
 
 impl Copy for SelfhostEffectEscapeState:
-    fn copy_mark <(SelfhostEffectEscapeState)->SelfhostEffectEscapeState> (self):
+    fn copy_mark %fn SelfhostEffectEscapeState SelfhostEffectEscapeState \self:
         self
 
 //: SelfhostEffectContext: effect を許可する surface / boundary context
@@ -69,15 +69,15 @@ pub enum SelfhostEffectContext:
     UnsafeBoundary
 
 impl Clone for SelfhostEffectContext:
-    fn clone <(&SelfhostEffectContext)->SelfhostEffectContext> (self):
+    fn clone %fn &SelfhostEffectContext SelfhostEffectContext \self:
         *self
 
 impl Copy for SelfhostEffectContext:
-    fn copy_mark <(SelfhostEffectContext)->SelfhostEffectContext> (self):
+    fn copy_mark %fn SelfhostEffectContext SelfhostEffectContext \self:
         self
 
 //: selfhost_effect_kind_eq: effect kind が同じ分類か[返/かえ]す
-pub fn selfhost_effect_kind_eq <(SelfhostEffectKind,SelfhostEffectKind)->bool> (left, right):
+pub fn selfhost_effect_kind_eq %fn SelfhostEffectKind fn SelfhostEffectKind bool \left\right:
     match left:
         SelfhostEffectKind::Pure:
             match right:

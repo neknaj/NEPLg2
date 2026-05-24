@@ -25,15 +25,15 @@ pub #import "./float/parse" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //:| #import "core/cast" as *
-//: fn assert_f64_ok <(str,Result<f64,i32>,f64)->TestAssertion> (label, got, expected):
+//: fn assert_f64_ok %fn str fn Result f64 i32 fn f64 TestAssertion \label\got\expected:
 //:     match got:
 //:         Result::Ok actual:
 //:             assert label eq actual expected
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::Bool label "true" "false" "float parse failed unexpectedly"
 //:
-//: fn main <()*>i32> ():
-//:     let expected <f64> div <f64> cast 5 <f64> cast 4
+//: fn main %impure fn () i32 \():
+//:     let expected %f64 div %f64 cast 5 %f64 cast 4
 //:     let report:
 //:         test_report_new "string_float_facade_doc"
 //:         |> test_report_push assert_str_eq "format f64" "1.25" from_f64 expected

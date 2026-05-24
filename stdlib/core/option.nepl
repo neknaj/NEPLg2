@@ -25,7 +25,7 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/option" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let report:
 //:         test_report_new "core_option_basic"
 //:         |> test_report_push assert "some is present" is_some some 123
@@ -45,10 +45,10 @@
 //:| #import "std/test" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn inc <(i32)->i32> (x):
+//: fn inc %fn i32 i32 \x:
 //:     add x 1
 //:
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let a0 map<i32,i32> some<i32> 9 inc;
 //:     let a1 map<i32,i32> some<i32> 9 inc;
 //:     let b map<i32,i32> none<i32> inc;
@@ -70,12 +70,12 @@
 //:| #import "std/test" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn positive_double <(i32)->Option<i32>> (x):
+//: fn positive_double %fn i32 Option i32 \x:
 //:     if gt x 0:
 //:         then some mul x 2
 //:         else none<i32>
 //:
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let a and_then<i32,i32> some<i32> 3 positive_double;
 //:     let b and_then<i32,i32> some<i32> -1 positive_double;
 //:     let report:
@@ -103,7 +103,7 @@
 //: - O(1)
 pub enum Option<.T>:
     None
-    Some <.T>
+    Some %.T
 
 //: Option<Copy>: payload が Copy なら Option も Copy として扱う
 //:
@@ -113,11 +113,11 @@ pub enum Option<.T>:
 //: 注意:
 //: - `.T` が Copy でない場合は shallow copy を避けるため、この impl は使えません。
 impl<.T: Copy> Clone for Option<.T>:
-    fn clone <(&Option<.T>)->Option<.T>> (x):
+    fn clone %fn &Option .T Option .T \x:
         *x
 
 impl<.T: Copy> Copy for Option<.T>:
-    fn copy_mark <(Option<.T>)->Option<.T>> (x):
+    fn copy_mark %fn Option .T Option .T \x:
         x
 
 //: none: None を作る
@@ -133,7 +133,7 @@ impl<.T: Copy> Copy for Option<.T>:
 //:
 //: 計算量:
 //: - O(1)
-pub fn none <.T> <()->Option<.T>> ():
+pub fn none <.T> %fn () Option .T \():
     Option<.T>::None
 
 //: some: 値を包んで返す
@@ -149,7 +149,7 @@ pub fn none <.T> <()->Option<.T>> ():
 //:
 //: 計算量:
 //: - O(1)
-pub fn some <.T> <(.T)->Option<.T>> (v):
+pub fn some <.T> %fn .T Option .T \v:
     Option<.T>::Some v
 
 //: is_some: 値があるか判定する
@@ -165,7 +165,7 @@ pub fn some <.T> <(.T)->Option<.T>> (v):
 //:
 //: 計算量:
 //: - O(1)
-pub fn is_some <.T> <(Option<.T>)->bool> (o):
+pub fn is_some <.T> %fn Option .T bool \o:
     match o:
         Option::Some v:
             true
@@ -185,7 +185,7 @@ pub fn is_some <.T> <(Option<.T>)->bool> (o):
 //:
 //: 計算量:
 //: - O(1)
-pub fn is_none <.T> <(Option<.T>)->bool> (o):
+pub fn is_none <.T> %fn Option .T bool \o:
     match o:
         Option::Some v:
             false
@@ -205,7 +205,7 @@ pub fn is_none <.T> <(Option<.T>)->bool> (o):
 //:
 //: 計算量:
 //: - O(1)
-pub fn unwrap <.T> <(Option<.T>)->.T> (o):
+pub fn unwrap <.T> %fn Option .T .T \o:
     match o:
         Option::Some v:
             v
@@ -225,7 +225,7 @@ pub fn unwrap <.T> <(Option<.T>)->.T> (o):
 //:
 //: 計算量:
 //: - O(1)
-pub fn unwrap_or <.T> <(Option<.T>,.T)->.T> (o, default):
+pub fn unwrap_or <.T> %fn Option .T fn .T .T \o\default:
     match o:
         Option::Some v:
             v
@@ -245,7 +245,7 @@ pub fn unwrap_or <.T> <(Option<.T>,.T)->.T> (o, default):
 //:
 //: 計算量:
 //: - O(1)
-pub fn map <.T,.U> <(Option<.T>, (.T)->.U)->Option<.U>> (o, f):
+pub fn map <.T,.U> %fn Option .T fn fn .T .U Option .U \o\f:
     match o:
         Option::Some v:
             some<.U> f v
@@ -265,7 +265,7 @@ pub fn map <.T,.U> <(Option<.T>, (.T)->.U)->Option<.U>> (o, f):
 //:
 //: 計算量:
 //: - O(1)
-pub fn and_then <.T,.U> <(Option<.T>, (.T)->Option<.U>)->Option<.U>> (o, f):
+pub fn and_then <.T,.U> %fn Option .T fn fn .T Option .U Option .U \o\f:
     match o:
         Option::Some v:
             f v

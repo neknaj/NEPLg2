@@ -19,7 +19,7 @@
 #import "alloc/string/access" as *
 #import "alloc/string/byte_index" as *
 
-fn float_parse_byte_or_invalid <(str,i32)->i32> (s, idx):
+fn float_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
     match checked_string_byte_at s idx:
         Option::Some b:
             b
@@ -37,22 +37,22 @@ fn float_parse_byte_or_invalid <(str,i32)->i32> (s, idx):
 //:| #import "alloc/string/float/parse" as *
 //:| #import "core/math" as *
 //:| #import "core/cast" as *
-//: fn assert_f64_ok <(str,Result<f64,i32>,f64)->TestAssertion> (label, got, expected):
+//: fn assert_f64_ok %fn str fn Result f64 i32 fn f64 TestAssertion \label\got\expected:
 //:     match got:
 //:         Result::Ok actual:
 //:             assert label eq actual expected
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::Bool label "true" "false" "float parse failed unexpectedly"
 //:
-//: fn assert_f64_err <(str,Result<f64,i32>)->TestAssertion> (label, got):
+//: fn assert_f64_err %fn str fn Result f64 i32 TestAssertion \label\got:
 //:     match got:
 //:         Result::Ok _:
 //:             test_assertion_failed AssertionKind::Bool label "true" "false" "invalid float accepted unexpectedly"
 //:         Result::Err _:
 //:             assert label true
 //:
-//: fn main <()*>i32> ():
-//:     let expected <f64> <f64> cast 125
+//: fn main %impure fn () i32 \():
+//:     let expected %f64 %f64 cast 125
 //:     let report:
 //:         test_report_new "string_float_parse_doc"
 //:         |> test_report_push assert_f64_ok "parse scientific" (to_f64 "1.25e2") expected
@@ -76,24 +76,24 @@ fn float_parse_byte_or_invalid <(str,i32)->i32> (s, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + |exponent|)
-pub fn to_f64 <(str)->Result<f64,i32>> (s):
-    let n <i32> len s;
-    let mut i <i32> 0;
-    let mut ok <i32> 1;
-    let mut neg <i32> 0;
-    let mut int_part <f64> cast 0;
-    let mut frac_part <f64> cast 0;
-    let mut frac_scale <f64> cast 1;
-    let mut has_digit <i32> 0;
-    let ten <f64> cast 10;
-    let mut out_res <Result<f64,i32>> Result::Err<f64,i32> 1;
+pub fn to_f64 %fn str Result f64 i32 \s:
+    let n %i32 len s;
+    let mut i %i32 0;
+    let mut ok %i32 1;
+    let mut neg %i32 0;
+    let mut int_part %f64 cast 0;
+    let mut frac_part %f64 cast 0;
+    let mut frac_scale %f64 cast 1;
+    let mut has_digit %i32 0;
+    let ten %f64 cast 10;
+    let mut out_res %Result f64 i32 Result::Err<f64,i32> 1;
 
     if:
         eq n 0
         then:
             set ok 0;
         else:
-            let first <i32> float_parse_byte_or_invalid s 0;
+            let first %i32 float_parse_byte_or_invalid s 0;
             if:
                 eq first '-'
                 then:
@@ -107,21 +107,21 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                         else:
                             ();
 
-            let mut done_int <i32> 0;
+            let mut done_int %i32 0;
             while and eq ok 1 eq done_int 0:
                 do:
                     if:
                         lt i n
                         then:
-                            let b <i32> float_parse_byte_or_invalid s i;
-                            let d <i32> sub b '0';
+                            let b %i32 float_parse_byte_or_invalid s i;
+                            let d %i32 sub b '0';
                             if:
                                 and ge d 0 le d 9
                                 then:
                                     set has_digit 1;
-                                    let scaled <f64> mul int_part ten;
-                                    let dv <f64> cast d;
-                                    let next_int <f64> add scaled dv;
+                                    let scaled %f64 mul int_part ten;
+                                    let dv %f64 cast d;
+                                    let next_int %f64 add scaled dv;
                                     set int_part next_int;
                                     set i add i 1;
                                 else:
@@ -129,11 +129,11 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                         else:
                             set done_int 1;
 
-            let mut has_dot <i32> 0;
+            let mut has_dot %i32 0;
             if:
                 and eq ok 1 lt i n
                 then:
-                    let dot <i32> float_parse_byte_or_invalid s i;
+                    let dot %i32 float_parse_byte_or_invalid s i;
                     if:
                         eq dot '.'
                         then:
@@ -147,23 +147,23 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                 eq has_dot 1
                 then:
                     set i add i 1;
-                    let mut done_frac <i32> 0;
+                    let mut done_frac %i32 0;
                     while and eq ok 1 eq done_frac 0:
                         do:
                             if:
                                 lt i n
                                 then:
-                                    let b <i32> float_parse_byte_or_invalid s i;
-                                    let d <i32> sub b '0';
+                                    let b %i32 float_parse_byte_or_invalid s i;
+                                    let d %i32 sub b '0';
                                     if:
                                         and ge d 0 le d 9
                                         then:
                                             set has_digit 1;
-                                            let next_scale <f64> div frac_scale ten;
+                                            let next_scale %f64 div frac_scale ten;
                                             set frac_scale next_scale;
-                                            let dv <f64> cast d;
-                                            let addv <f64> mul dv frac_scale;
-                                            let next_frac <f64> add frac_part addv;
+                                            let dv %f64 cast d;
+                                            let addv %f64 mul dv frac_scale;
+                                            let next_frac %f64 add frac_part addv;
                                             set frac_part next_frac;
                                             set i add i 1;
                                         else:
@@ -173,13 +173,13 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                 else:
                     ();
 
-            let mut exp_val <i32> 0;
-            let mut exp_neg <i32> 0;
-            let mut has_exp <i32> 0;
+            let mut exp_val %i32 0;
+            let mut exp_neg %i32 0;
+            let mut has_exp %i32 0;
             if:
                 and eq ok 1 lt i n
                 then:
-                    let eb <i32> float_parse_byte_or_invalid s i;
+                    let eb %i32 float_parse_byte_or_invalid s i;
                     if:
                         or eq eb 'e' eq eb 'E'
                         then:
@@ -196,7 +196,7 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                     if:
                         lt i n
                         then:
-                            let sb <i32> float_parse_byte_or_invalid s i;
+                            let sb %i32 float_parse_byte_or_invalid s i;
                             if:
                                 eq sb '-'
                                 then:
@@ -212,20 +212,20 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                         else:
                             set ok 0;
 
-                    let mut exp_digits <i32> 0;
-                    let mut done_exp <i32> 0;
+                    let mut exp_digits %i32 0;
+                    let mut done_exp %i32 0;
                     while and eq ok 1 eq done_exp 0:
                         do:
                             if:
                                 lt i n
                                 then:
-                                    let b <i32> float_parse_byte_or_invalid s i;
-                                    let d <i32> sub b '0';
+                                    let b %i32 float_parse_byte_or_invalid s i;
+                                    let d %i32 sub b '0';
                                     if:
                                         and ge d 0 le d 9
                                         then:
                                             set exp_digits 1;
-                                            set exp_val <i32> add <i32> mul exp_val 10 d;
+                                            set exp_val %i32 add %i32 mul exp_val 10 d;
                                             set i add i 1;
                                         else:
                                             set done_exp 1;
@@ -254,17 +254,17 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                 else:
                     ();
 
-            let mut out <f64> add int_part frac_part;
-            let mut k <i32> 0;
+            let mut out %f64 add int_part frac_part;
+            let mut k %i32 0;
             while and eq ok 1 lt k exp_val:
                 do:
                     if:
                         eq exp_neg 1
                         then:
-                            let next_out <f64> div out ten;
+                            let next_out %f64 div out ten;
                             set out next_out;
                         else:
-                            let next_out <f64> mul out ten;
+                            let next_out %f64 mul out ten;
                             set out next_out;
                     set k add k 1;
 
@@ -274,8 +274,8 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
                     if:
                         eq neg 1
                         then:
-                            let zero <f64> cast 0;
-                            let signed_out <f64> sub zero out;
+                            let zero %f64 cast 0;
+                            let signed_out %f64 sub zero out;
                             set out_res Result::Ok<f64,i32> signed_out;
                         else:
                             set out_res Result::Ok<f64,i32> out;
@@ -297,9 +297,9 @@ pub fn to_f64 <(str)->Result<f64,i32>> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - `to_f64` に従います。
-pub fn to_f32 <(str)->Result<f32,i32>> (s):
+pub fn to_f32 %fn str Result f32 i32 \s:
     match to_f64 s:
         Result::Ok v64:
-            Result::Ok<f32,i32> <f32> cast v64
+            Result::Ok<f32,i32> %f32 cast v64
         Result::Err e:
             Result::Err<f32,i32> e

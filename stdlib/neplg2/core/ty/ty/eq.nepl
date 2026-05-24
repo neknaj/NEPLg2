@@ -14,13 +14,13 @@
 //: [注意/ちゅうい]:
 //: - `first_a` / `first_b` は arena 内部の argument table offset です。
 //: - 呼び出し側で function record の `arg_count` が同じであることを確認してから使います。
-pub fn selfhost_type_arena_function_args_equal <(&SelfhostTypeArena,i32,i32,i32,i32)->bool> (arena, first_a, first_b, n, idx):
+pub fn selfhost_type_arena_function_args_equal %fn &SelfhostTypeArena fn i32 fn i32 fn i32 fn i32 bool \arena\first_a\first_b\n\idx:
     if:
         ge idx n
         then:
             true
         else:
-            let function_args <&Vec<SelfhostTypeId>> field::get_ref arena "function_args"
+            let function_args %&Vec SelfhostTypeId field::get_ref arena "function_args"
             match v::get<SelfhostTypeId> function_args add first_a idx:
                 Option::Some arg_a:
                     match v::get<SelfhostTypeId> function_args add first_b idx:
@@ -41,13 +41,13 @@ pub fn selfhost_type_arena_function_args_equal <(&SelfhostTypeArena,i32,i32,i32,
 //: [実装/じっそう]:
 //: - primitive type は `SelfhostTypeKind` が一致すれば同形とします。
 //: - function type は arity、各引数 TypeId の構造、戻り値 TypeId の構造を比較します。
-pub fn selfhost_type_arena_records_equal <(&SelfhostTypeArena,SelfhostTypeRecord,SelfhostTypeRecord)->bool> (arena, a, b):
+pub fn selfhost_type_arena_records_equal %fn &SelfhostTypeArena fn SelfhostTypeRecord fn SelfhostTypeRecord bool \arena\a\b:
     match a:
         SelfhostTypeRecord::Primitive a_kind:
             match b:
                 SelfhostTypeRecord::Primitive b_kind:
-                    let a_general <SelfhostTypeKind> selfhost_primitive_type_kind_to_type_kind a_kind
-                    let b_general <SelfhostTypeKind> selfhost_primitive_type_kind_to_type_kind b_kind
+                    let a_general %SelfhostTypeKind selfhost_primitive_type_kind_to_type_kind a_kind
+                    let b_general %SelfhostTypeKind selfhost_primitive_type_kind_to_type_kind b_kind
                     selfhost_type_kind_eq a_general b_general
                 SelfhostTypeRecord::Function _b_function:
                     false
@@ -70,7 +70,7 @@ pub fn selfhost_type_arena_records_equal <(&SelfhostTypeArena,SelfhostTypeRecord
 //: [注意/ちゅうい]:
 //: - `TypeId` は arena-local なので、別 arena の `TypeId` を混ぜないでください。
 //: - invalid TypeId や範囲外 TypeId は、同じ invalid index 同士でも false です。
-pub fn selfhost_type_arena_types_equal <(&SelfhostTypeArena,SelfhostTypeId,SelfhostTypeId)->bool> (arena, a, b):
+pub fn selfhost_type_arena_types_equal %fn &SelfhostTypeArena fn SelfhostTypeId fn SelfhostTypeId bool \arena\a\b:
     match selfhost_type_arena_get_record arena a:
         Option::Some record_a:
             match selfhost_type_arena_get_record arena b:

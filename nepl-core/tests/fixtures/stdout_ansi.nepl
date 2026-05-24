@@ -4,5 +4,5 @@
 
 #import "std/stdio" as *
 
-fn main <()*> ()> ():
+fn main %impure fn () () \():
     println "\x1b[31mred\x1b[0m";

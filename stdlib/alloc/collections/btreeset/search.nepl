@@ -32,9 +32,9 @@
 //:| #target std
 //:| #import "alloc/collections/btreeset/search" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let same <bool> btreeset_key_eq<i32> 7 7
-//:     let diff <bool> btreeset_key_eq<i32> 7 9
+//: fn main %impure fn () i32 \():
+//:     let same %bool btreeset_key_eq<i32> 7 7
+//:     let diff %bool btreeset_key_eq<i32> 7 9
 //:     let report:
 //:         test_report_new "btreeset_key_eq_doc"
 //:         |> test_report_push assert_eq_i32 "same keys compare equal" 1 if same 1 0
@@ -42,14 +42,14 @@
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn btreeset_key_eq <.T: Ord&Copy> <(.T,.T)->bool> (a, b):
+pub fn btreeset_key_eq <.T: Ord&Copy> %fn .T fn .T bool \a\b:
     and not ord_lt a b not ord_lt b a
 
-pub fn btreeset_lower_bound <.T: Ord&Copy> <(&Vec<Option<.T>>,.T,i32,i32)->i32> (keys, key, low, high):
+pub fn btreeset_lower_bound <.T: Ord&Copy> %fn &Vec Option .T fn .T fn i32 fn i32 i32 \keys\key\low\high:
     if:
         lt low high
         then:
-            let mid <i32> div_s add low high 2
+            let mid %i32 div_s add low high 2
             match btreeset_key_at<.T> keys mid:
                 Option::Some saved:
                     if:
@@ -60,7 +60,7 @@ pub fn btreeset_lower_bound <.T: Ord&Copy> <(&Vec<Option<.T>>,.T,i32,i32)->i32> 
                     mid
         else low
 
-pub fn btreeset_is_at <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32,.T)->bool> (keys, len0, idx, key):
+pub fn btreeset_is_at <.T: Ord&Copy> %fn &Vec Option .T fn i32 fn i32 fn .T bool \keys\len0\idx\key:
     if:
         lt idx len0
         then:
@@ -71,8 +71,8 @@ pub fn btreeset_is_at <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32,.T)->bool> (keys
                     false
         else false
 
-pub fn btreeset_lower_bound_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,.T,i32,i32)->i32> (storage, key, low, high):
+pub fn btreeset_lower_bound_storage <.T: Ord&Copy> %fn &BTreeSetStorage .T fn .T fn i32 fn i32 i32 \storage\key\low\high:
     btreeset_lower_bound<.T> btreeset_storage_keys<.T> storage key low high
 
-pub fn btreeset_is_at_storage <.T: Ord&Copy> <(&BTreeSetStorage<.T>,i32,i32,.T)->bool> (storage, len0, idx, key):
+pub fn btreeset_is_at_storage <.T: Ord&Copy> %fn &BTreeSetStorage .T fn i32 fn i32 fn .T bool \storage\len0\idx\key:
     btreeset_is_at<.T> btreeset_storage_keys<.T> storage len0 idx key

@@ -17,15 +17,15 @@ stdout: "test_report name=\"concrete_target_may_quantify_trait_arguments\" count
 #import "std/test" as *
 
 trait Mapper<.T>:
-    fn map <(Self,.T)->i32> (_self, _value):
+    fn map %fn Self fn .T i32 \_self\_value:
         0
 
 impl<.T> Mapper<.T> for i32:
-    fn map <(i32,.T)->i32> (_self, _value):
+    fn map %fn i32 fn .T i32 \_self\_value:
         7
 
-fn main <()*>i32> ():
-    let actual <i32> Mapper::map 0 123
+fn main %impure fn () i32 \():
+    let actual %i32 Mapper::map 0 123
     let report:
         test_report_new "concrete_target_may_quantify_trait_arguments"
         |> test_report_push assert_eq_i32 "concrete impl generic trait arg dispatch" 7 actual
@@ -47,16 +47,16 @@ diag_code: type.impl.target_not_concrete
 #target core
 
 trait Marker:
-    fn mark <(Self)->i32> (_self):
+    fn mark %fn Self i32 \_self:
         0
 
 struct Box<.T>:
-    value <.T>
+    value %.T
 
 impl<.T> Marker for Box<.T>:
-    fn mark <(Box<.T>)->i32> (_self):
+    fn mark %fn Box .T i32 \_self:
         1
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```

@@ -43,18 +43,18 @@
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*> ()> ():
-//:     let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-//:     let g <DenseGraph> unwrap_ok<DenseGraph, Diag> dense_graph_read_undirected_1indexed &sc;
-//:     let dist <Vec<i32>> unwrap_ok<Vec<i32>, Diag> dense_graph_bfs_dist &g 0;
-//:     let n <i32> dense_graph_len &g;
-//:     let mut i <i32> 0;
+//: fn main %impure fn () () \():
+//:     let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+//:     let g %DenseGraph unwrap_ok<DenseGraph, Diag> dense_graph_read_undirected_1indexed &sc;
+//:     let dist %Vec i32 unwrap_ok<Vec<i32>, Diag> dense_graph_bfs_dist &g 0;
+//:     let n %i32 dense_graph_len &g;
+//:     let mut i %i32 0;
 //:     while lt i n:
 //:         do:
 //:             if lt 0 i:
 //:                 then print " "
 //:                 else ()
-//:             let d <i32> match v::get<i32> &dist i:
+//:             let d %i32 match v::get<i32> &dist i:
 //:                 Option::Some x:
 //:                     x
 //:                 Option::None:
@@ -74,44 +74,44 @@
 //: - `AdjacencyMatrix` owner を KP 用 API の型として包みます。
 //: - raw matrix address を public field として見せないことで、free obligation を型に残します。
 pub struct DenseGraph:
-    matrix <AdjacencyMatrix>
+    matrix %AdjacencyMatrix
 
 //: DenseGraphUpdateError
 //: graph 更新失敗時に owner を返す error
 pub struct DenseGraphUpdateError:
-    graph <DenseGraph>
-    diag <Diag>
+    graph %DenseGraph
+    diag %Diag
 
 //: dense_graph_update_error_diag: 更新失敗の診断を owner を動かさず読む
-pub fn dense_graph_update_error_diag <(&DenseGraphUpdateError)->Diag> (e):
+pub fn dense_graph_update_error_diag %fn &DenseGraphUpdateError Diag \e:
     *field::get_ref e "diag"
 
 //: dense_graph_update_error_graph: 更新失敗で戻された graph owner を取り出す
-pub fn dense_graph_update_error_graph <(DenseGraphUpdateError)->DenseGraph> (e):
+pub fn dense_graph_update_error_graph %fn DenseGraphUpdateError DenseGraph \e:
     field::get e "graph"
 
-fn dense_graph_diag_vertex <()*>Diag> ():
+fn dense_graph_diag_vertex %impure fn () Diag \():
     diag_error StdErrorKind::IndexOutOfBounds "dense graph vertex out of bounds"
 
-fn dense_graph_diag_input <()*>Diag> ():
+fn dense_graph_diag_input %impure fn () Diag \():
     diag_error StdErrorKind::InvalidOperation "dense graph input is invalid"
 
-fn dense_graph_diag_storage <()*>Diag> ():
+fn dense_graph_diag_storage %impure fn () Diag \():
     diag_error StdErrorKind::InvalidOperation "dense graph storage invariant failed"
 
-fn dense_graph_diag_std_error <(StdErrorKind)*>Diag> (kind):
+fn dense_graph_diag_std_error %impure fn StdErrorKind Diag \kind:
     diag_error kind "dense graph storage operation failed"
 
-fn dense_graph_matrix_error <(AdjacencyMatrixUpdateError)->Result<DenseGraph, DenseGraphUpdateError>> (e):
-    let d <Diag> am::adjacency_matrix_update_error_diag &e
-    let matrix <AdjacencyMatrix> am::adjacency_matrix_update_error_owner e
+fn dense_graph_matrix_error %fn AdjacencyMatrixUpdateError Result DenseGraph DenseGraphUpdateError \e:
+    let d %Diag am::adjacency_matrix_update_error_diag &e
+    let matrix %AdjacencyMatrix am::adjacency_matrix_update_error_owner e
     err<DenseGraph, DenseGraphUpdateError> DenseGraphUpdateError DenseGraph matrix d
 
 //: dense_graph_new: 頂点数 `n` の空グラフを作る
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n^2)
-pub fn dense_graph_new <(i32)*>Result<DenseGraph, Diag>> (n):
+pub fn dense_graph_new %impure fn i32 Result DenseGraph Diag \n:
     match am::new n:
         Result::Ok matrix:
             ok<DenseGraph, Diag> DenseGraph matrix
@@ -119,17 +119,17 @@ pub fn dense_graph_new <(i32)*>Result<DenseGraph, Diag>> (n):
             err<DenseGraph, Diag> d
 
 //: dense_graph_free: graph owner を解放する
-pub fn dense_graph_free <(DenseGraph)->()> (g):
+pub fn dense_graph_free %fn DenseGraph () \g:
     am::free field::get g "matrix"
 
 //: dense_graph_len: 頂点数を返す
-pub fn dense_graph_len <(&DenseGraph)->i32> (g):
-    let matrix <&AdjacencyMatrix> field::get_ref g "matrix"
+pub fn dense_graph_len %fn &DenseGraph i32 \g:
+    let matrix %&AdjacencyMatrix field::get_ref g "matrix"
     am::len matrix
 
 //: dense_graph_has_edge: 辺 `(from, to)` の有無を返す
-pub fn dense_graph_has_edge <(&DenseGraph,i32,i32)*>Result<bool, Diag>> (g, from, to):
-    let matrix <&AdjacencyMatrix> field::get_ref g "matrix"
+pub fn dense_graph_has_edge %impure fn &DenseGraph impure fn i32 impure fn i32 Result bool Diag \g\from\to:
+    let matrix %&AdjacencyMatrix field::get_ref g "matrix"
     am::contains matrix from to
 
 //: dense_graph_add_undirected: 無向辺 `(u, v)` を追加する
@@ -137,8 +137,8 @@ pub fn dense_graph_has_edge <(&DenseGraph,i32,i32)*>Result<bool, Diag>> (g, from
 //: ### [注意/ちゅうい]
 //: - 更新 API なので `DenseGraph` owner を消費し、成功時に更新後 owner を返します。
 //: - 範囲外頂点は `DenseGraphUpdateError` として owner を戻します。
-pub fn dense_graph_add_undirected <(DenseGraph,i32,i32)*>Result<DenseGraph, DenseGraphUpdateError>> (g, u, vtx):
-    let matrix <AdjacencyMatrix> field::get g "matrix"
+pub fn dense_graph_add_undirected %impure fn DenseGraph impure fn i32 impure fn i32 Result DenseGraph DenseGraphUpdateError \g\u\vtx:
+    let matrix %AdjacencyMatrix field::get g "matrix"
     match am::insert matrix u vtx:
         Result::Ok matrix_uv:
             match am::insert matrix_uv vtx u:
@@ -159,9 +159,9 @@ pub fn dense_graph_add_undirected <(DenseGraph,i32,i32)*>Result<DenseGraph, Dens
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n^2 + m)
-pub fn dense_graph_read_undirected_1indexed <(&StreamScanner)*>Result<DenseGraph, Diag>> (sc):
-    let n <i32> read sc
-    let m <i32> read sc
+pub fn dense_graph_read_undirected_1indexed %impure fn &StreamScanner Result DenseGraph Diag \sc:
+    let n %i32 read sc
+    let m %i32 read sc
     if:
         or lt n 1 lt m 0
         then:
@@ -171,15 +171,15 @@ pub fn dense_graph_read_undirected_1indexed <(&StreamScanner)*>Result<DenseGraph
                 Result::Err d:
                     err<DenseGraph, Diag> d
                 Result::Ok initial:
-                    let mut graph <DenseGraph> initial
-                    let mut i <i32> 0
-                    let mut failed <bool> false
+                    let mut graph %DenseGraph initial
+                    let mut i %i32 0
+                    let mut failed %bool false
                     while and lt i m not failed:
                         do:
-                            let u1 <i32> read sc
-                            let v1 <i32> read sc
-                            let u <i32> sub u1 1
-                            let vtx <i32> sub v1 1
+                            let u1 %i32 read sc
+                            let v1 %i32 read sc
+                            let u %i32 sub u1 1
+                            let vtx %i32 sub v1 1
                             match dense_graph_add_undirected graph u vtx:
                                 Result::Ok next:
                                     set graph next
@@ -206,30 +206,30 @@ pub fn dense_graph_read_undirected_1indexed <(&StreamScanner)*>Result<DenseGraph
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(n^2)（密行列の隣接走査）
-pub fn dense_graph_bfs_dist <(&DenseGraph,i32)*>Result<Vec<i32>, Diag>> (g, start):
-    let n <i32> dense_graph_len g
+pub fn dense_graph_bfs_dist %impure fn &DenseGraph impure fn i32 Result Vec i32 Diag \g\start:
+    let n %i32 dense_graph_len g
     if:
         not and le 0 start lt start n
         then:
             diag_err<Vec<i32>> dense_graph_diag_vertex
         else:
-            let unvisited <i32> sub 0 1
+            let unvisited %i32 sub 0 1
             match v::filled<i32> n unvisited:
                 Result::Err e:
-                    let d <Diag> dense_graph_diag_std_error e
+                    let d %Diag dense_graph_diag_std_error e
                     err<Vec<i32>, Diag> d
                 Result::Ok dist:
                     match v::filled<i32> n 0:
                         Result::Err e:
                             v::free<i32> dist
-                            let d <Diag> dense_graph_diag_std_error e
+                            let d %Diag dense_graph_diag_std_error e
                             err<Vec<i32>, Diag> d
                         Result::Ok queue:
                             v::replace<i32> &dist start 0
                             v::replace<i32> &queue 0 start
-                            let mut head <i32> 0
-                            let mut tail <i32> 1
-                            let mut failed <bool> false
+                            let mut head %i32 0
+                            let mut tail %i32 1
+                            let mut failed %bool false
                             while and lt head tail not failed:
                                 do:
                                     match v::get<i32> &queue head:
@@ -237,7 +237,7 @@ pub fn dense_graph_bfs_dist <(&DenseGraph,i32)*>Result<Vec<i32>, Diag>> (g, star
                                             set head add head 1
                                             match v::get<i32> &dist node:
                                                 Option::Some node_dist:
-                                                    let mut to <i32> 0
+                                                    let mut to %i32 0
                                                     while and lt to n not failed:
                                                         do:
                                                             match dense_graph_has_edge g node to:

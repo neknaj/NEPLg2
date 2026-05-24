@@ -14,7 +14,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "core/math/convert" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     wrap extend_s 7
 //: ```
 
@@ -27,42 +27,42 @@ pub #import "./convert/reinterpret" as @merge
 //:
 //: [目的/もくてき]:
 //: - 型名 prefix を使わずに符号拡張を呼び出せるようにします。
-pub fn extend_s <(i32)->i64> (a):
+pub fn extend_s %fn i32 i64 \a:
     extend_s_i32_to_i64 a
 
 //: wrap: i64 を i32 へ切り詰める
 //:
 //: [目的/もくてき]:
 //: - 型名 prefix を使わずに切り詰め変換を呼び出せるようにします。
-pub fn wrap <(i64)->i32> (a):
+pub fn wrap %fn i64 i32 \a:
     wrap_i64_to_i32 a
 
 //: convert_s: 符号付き整数を浮動小数へ変換する
 //:
 //: [目的/もくてき]:
 //: - 変換関数を型オーバーロードで統一します。
-pub fn convert_s <(i32)->f64> (a):
+pub fn convert_s %fn i32 f64 \a:
     convert_s_i32_to_f64 a
-pub fn convert_s <(i64)->f64> (a):
+pub fn convert_s %fn i64 f64 \a:
     convert_s_i64_to_f64 a
-pub fn convert_s <(i64)->f32> (a):
+pub fn convert_s %fn i64 f32 \a:
     convert_s_i64_to_f32 a
 
 //: trunc_s: 浮動小数を符号付き整数へ切り捨て変換する
 //:
 //: [目的/もくてき]:
 //: - 切り捨て変換を型オーバーロードで統一します。
-pub fn trunc_s <(f64)->i32> (a):
+pub fn trunc_s %fn f64 i32 \a:
     trunc_s_f64_to_i32 a
-pub fn trunc_s <(f64)->i64> (a):
+pub fn trunc_s %fn f64 i64 \a:
     trunc_s_f64_to_i64 a
-pub fn trunc_s <(f32)->i64> (a):
+pub fn trunc_s %fn f32 i64 \a:
     trunc_s_f32_to_i64 a
 
 //: promote: f32 を f64 に拡張する
-pub fn promote <(f32)->f64> (a):
+pub fn promote %fn f32 f64 \a:
     promote_f32_to_f64 a
 
 //: demote: f64 を f32 に縮小する
-pub fn demote <(f64)->f32> (a):
+pub fn demote %fn f64 f32 \a:
     demote_f64_to_f32 a

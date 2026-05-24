@@ -8,11 +8,11 @@
 
 #import "core/math" as *
 
-pub fn bloom_byte_len <(i32)->i32> (nbits):
+pub fn bloom_byte_len %fn i32 i32 \nbits:
     div_s add nbits 7 8
 
-pub fn bloom_byte_index <(i32)->i32> (bit_idx):
+pub fn bloom_byte_index %fn i32 i32 \bit_idx:
     div_s bit_idx 8
 
-pub fn bloom_bit_mask <(i32)->i32> (bit_idx):
+pub fn bloom_bit_mask %fn i32 i32 \bit_idx:
     shl 1 rem_s bit_idx 8

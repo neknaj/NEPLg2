@@ -16,9 +16,9 @@
 
 //: ## bitset_fill_value
 //: [内部/ないぶ] byte storage を[指定/してい] byte で[埋/う]める
-pub fn bitset_fill_value <(BitSet,i32)*>BitSet> (bs, byte_value):
-    let nbytes <i32> *field::get_ref &bs "nbytes"
-    let bits <&Vec<u8>> field::get_ref &bs "bits"
+pub fn bitset_fill_value %impure fn BitSet impure fn i32 BitSet \bs\byte_value:
+    let nbytes %i32 *field::get_ref &bs "nbytes"
+    let bits %&Vec u8 field::get_ref &bs "bits"
     bitset_fill_bytes bits nbytes byte_value
     bs
 
@@ -32,16 +32,16 @@ pub fn bitset_fill_value <(BitSet,i32)*>BitSet> (bs, byte_value):
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bs <BitSet>:
+//: fn main %impure fn () i32 \():
+//:     let bs %BitSet:
 //:         unwrap_ok<BitSet, Diag> new 16
 //:         |> insert 2 |> uwok
 //:         |> clear
-//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 2;
+//:     let ok %bool unwrap_ok<bool, Diag> contains &bs 2;
 //:     free bs
 //:     if not ok 1 0
 //: ```
-pub fn clear <(BitSet)*>BitSet> (bs):
+pub fn clear %impure fn BitSet BitSet \bs:
     bitset_fill_value bs 0
 
 //: ## fill
@@ -54,12 +54,12 @@ pub fn clear <(BitSet)*>BitSet> (bs):
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bs <BitSet> unwrap_ok<BitSet, Diag> new 10;
-//:     let bs1 <BitSet> fill bs;
-//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs1 9;
+//: fn main %impure fn () i32 \():
+//:     let bs %BitSet unwrap_ok<BitSet, Diag> new 10;
+//:     let bs1 %BitSet fill bs;
+//:     let ok %bool unwrap_ok<bool, Diag> contains &bs1 9;
 //:     free bs1
 //:     if ok 1 0
 //: ```
-pub fn fill <(BitSet)*>BitSet> (bs):
+pub fn fill %impure fn BitSet BitSet \bs:
     bitset_fill_value bs 255

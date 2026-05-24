@@ -13,7 +13,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/option" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match json_as_string json_string "hello":
         Option::Some s:
             if str_eq s "hello" 1 0
@@ -35,10 +35,10 @@ ret: 2
 #import "core/result" as *
 #import "alloc/string" as *
 
-fn main <()*>i32> ():
-    let arr0 <JsonArray> unwrap_ok json_array_new;
-    let arr1 <JsonArray> unwrap_ok json_array_push arr0 json_number 1;
-    let arr2 <JsonArray> unwrap_ok json_array_push arr1 json_bool true;
+fn main %impure fn () i32 \():
+    let arr0 %JsonArray unwrap_ok json_array_new;
+    let arr1 %JsonArray unwrap_ok json_array_push arr0 json_number 1;
+    let arr2 %JsonArray unwrap_ok json_array_push arr1 json_bool true;
     match json_as_array json_array arr2:
         Option::Some xs:
             if str_eq json_serialize json_array xs "[1,true]" 2 0
@@ -59,14 +59,14 @@ ret: 1
 #import "alloc/string" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let arr0 <JsonArray> unwrap_ok json_array_new;
-    let arr1 <JsonArray> unwrap_ok json_array_push arr0 json_number 1;
-    let arr2 <JsonArray> unwrap_ok json_array_push arr1 json_bool true;
-    let obj0 <JsonObject> unwrap_ok json_object_new;
-    let obj1 <JsonObject> unwrap_ok json_object_push obj0 "name" json_string "nepl";
-    let obj2 <JsonObject> unwrap_ok json_object_push obj1 "items" json_array arr2;
-    let out <str> json_serialize json_object obj2;
+fn main %impure fn () i32 \():
+    let arr0 %JsonArray unwrap_ok json_array_new;
+    let arr1 %JsonArray unwrap_ok json_array_push arr0 json_number 1;
+    let arr2 %JsonArray unwrap_ok json_array_push arr1 json_bool true;
+    let obj0 %JsonObject unwrap_ok json_object_new;
+    let obj1 %JsonObject unwrap_ok json_object_push obj0 "name" json_string "nepl";
+    let obj2 %JsonObject unwrap_ok json_object_push obj1 "items" json_array arr2;
+    let out %str json_serialize json_object obj2;
     if str_eq out "{\"name\":\"nepl\",\"items\":[1,true]}" 1 0
 ```
 
@@ -82,8 +82,8 @@ ret: 1
 #import "alloc/encoding/json" as *
 #import "alloc/string" as *
 
-fn main <()*>i32> ():
-    let out <str> json_serialize json_string "a\"b\\c\n";
+fn main %impure fn () i32 \():
+    let out %str json_serialize json_string "a\"b\\c\n";
     if str_eq out "\"a\\\"b\\\\c\\n\"" 1 0
 ```
 
@@ -98,8 +98,8 @@ diag_codes: type.overload.no_match
 
 #import "alloc/encoding/json" as *
 
-fn main <()*>i32> ():
-    let _v <JsonValue> json_string 0;
+fn main %impure fn () i32 \():
+    let _v %JsonValue json_string 0;
     0
 ```
 
@@ -114,8 +114,8 @@ diag_codes: type.overload.no_match
 
 #import "alloc/encoding/json" as *
 
-fn main <()*>i32> ():
-    let _v <JsonValue> json_object 0;
+fn main %impure fn () i32 \():
+    let _v %JsonValue json_object 0;
     0
 ```
 
@@ -130,7 +130,7 @@ diag_codes: type.overload.no_match
 
 #import "alloc/encoding/json" as *
 
-fn main <()*>i32> ():
-    let _v <JsonValue> json_array 0;
+fn main %impure fn () i32 \():
+    let _v %JsonValue json_array 0;
     0
 ```

@@ -22,7 +22,7 @@
 #import "alloc/string/slice" as *
 #import "./common" as *
 
-fn integer_parse_byte_or_invalid <(str,i32)->i32> (s, idx):
+fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
     match checked_string_byte_at s idx:
         Option::Some b:
             b
@@ -41,21 +41,21 @@ fn integer_parse_byte_or_invalid <(str,i32)->i32> (s, idx):
 //:| #import "alloc/string/integer/format" as *
 //:| #import "core/math" as *
 //:| #import "core/cast" as *
-//: fn assert_i32_ok <(str,Result<i32,i32>,i32)->TestAssertion> (label, got, expected):
+//: fn assert_i32_ok %fn str fn Result i32 i32 fn i32 TestAssertion \label\got\expected:
 //:     match got:
 //:         Result::Ok actual:
 //:             assert_eq_i32 label expected actual
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "integer parse failed unexpectedly"
 //:
-//: fn assert_i128_ok_i32 <(str,Result<i128,i32>,i32)->TestAssertion> (label, got, expected):
+//: fn assert_i128_ok_i32 %fn str fn Result i128 i32 fn i32 TestAssertion \label\got\expected:
 //:     match got:
 //:         Result::Ok actual:
-//:             assert_eq_i32 label expected <i32> cast actual
+//:             assert_eq_i32 label expected %i32 cast actual
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "i128 parse failed unexpectedly"
 //:
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let report:
 //:         test_report_new "string_integer_parse_doc"
 //:         |> test_report_push assert_i32_ok "parse hex i32" (to_i32_radix "2a" 16) 42
@@ -79,7 +79,7 @@ fn integer_parse_byte_or_invalid <(str,i32)->i32> (s, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn to_i32 <(str)->Result<i32,i32>> (s):
+pub fn to_i32 %fn str Result i32 i32 \s:
     match to_i32_radix s 10:
         Result::Ok v:
             Result::Ok<i32,i32> v
@@ -102,13 +102,13 @@ pub fn to_i32 <(str)->Result<i32,i32>> (s):
 //
 // 計算量:
 // - O(n)  (n は入力文字列長)
-pub fn to_i32_radix <(str,i32)->Result<i32,i32>> (s, radix):
+pub fn to_i32_radix %fn str fn i32 Result i32 i32 \s\radix:
     match to_i64_radix s radix:
         Result::Ok v64:
             if:
-                and ge v64 <i64> cast -2147483648 le v64 <i64> cast 2147483647
+                and ge v64 %i64 cast -2147483648 le v64 %i64 cast 2147483647
                 then:
-                    Result::Ok<i32,i32> <i32> cast v64
+                    Result::Ok<i32,i32> %i32 cast v64
                 else:
                     Result::Err<i32,i32> 1
         Result::Err e:
@@ -128,7 +128,7 @@ pub fn to_i32_radix <(str,i32)->Result<i32,i32>> (s, radix):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn to_i64 <(str)->Result<i64,i32>> (s):
+pub fn to_i64 %fn str Result i64 i32 \s:
     to_i64_radix s 10
 
 // i128_fits_i64: i128 が i64 の表現域に収まるかを判定する
@@ -145,18 +145,18 @@ pub fn to_i64 <(str)->Result<i64,i32>> (s):
 //
 // 計算量:
 // - O(1)
-pub fn i128_fits_i64 <(i128)->bool> (v):
-    let hi <i64> get v "hi";
-    let lo <i64> get v "lo";
+pub fn i128_fits_i64 %fn i128 bool \v:
+    let hi %i64 get v "hi";
+    let lo %i64 get v "lo";
     if:
-        eq hi <i64> cast 0
+        eq hi %i64 cast 0
         then:
-            not lt lo <i64> cast 0
+            not lt lo %i64 cast 0
         else:
             if:
-                eq hi <i64> cast -1
+                eq hi %i64 cast -1
                 then:
-                    lt lo <i64> cast 0
+                    lt lo %i64 cast 0
                 else:
                     false
 
@@ -177,13 +177,13 @@ pub fn i128_fits_i64 <(i128)->bool> (v):
 //
 // 計算量:
 // - O(n)  (n は入力文字列長)
-pub fn to_i64_radix <(str,i32)->Result<i64,i32>> (s, radix):
+pub fn to_i64_radix %fn str fn i32 Result i64 i32 \s\radix:
     match to_i128_radix s radix:
         Result::Ok v128:
             if:
                 i128_fits_i64 v128
                 then:
-                    Result::Ok<i64,i32> <i64> cast v128
+                    Result::Ok<i64,i32> %i64 cast v128
                 else:
                     Result::Err<i64,i32> 1
         Result::Err e:
@@ -202,7 +202,7 @@ pub fn to_i64_radix <(str,i32)->Result<i64,i32>> (s, radix):
 //
 // 計算量:
 // - O(n)
-pub fn to_u128 <(str)->Result<u128,i32>> (s):
+pub fn to_u128 %fn str Result u128 i32 \s:
     to_u128_radix s 10
 
 // to_u128_radix: 指定基数の文字列を u128 に変換する
@@ -221,24 +221,24 @@ pub fn to_u128 <(str)->Result<u128,i32>> (s):
 //
 // 計算量:
 // - O(n)
-pub fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
+pub fn to_u128_radix %fn str fn i32 Result u128 i32 \s\radix:
     match validate_radix radix:
         Result::Err e:
             Result::Err<u128,i32> e
         Result::Ok _:
-            let n <i32> len s;
-            let mut i <i32> 0;
-            let mut res <u128> u128_zero;
-            let mut ok <i32> 1;
-            let max_qr <U128DivRem> u128_divrem_small u128_max radix;
-            let max_quotient <u128> get max_qr "quotient";
-            let max_remainder <i32> get max_qr "remainder";
+            let n %i32 len s;
+            let mut i %i32 0;
+            let mut res %u128 u128_zero;
+            let mut ok %i32 1;
+            let max_qr %U128DivRem u128_divrem_small u128_max radix;
+            let max_quotient %u128 get max_qr "quotient";
+            let max_remainder %i32 get max_qr "remainder";
             if:
                 eq n 0
                 then:
                     set ok 0;
                 else:
-                    let first <i32> integer_parse_byte_or_invalid s 0;
+                    let first %i32 integer_parse_byte_or_invalid s 0;
                     if:
                         eq first '-'
                         then:
@@ -246,7 +246,7 @@ pub fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
                         else:
                             while lt i n:
                                 do:
-                                    let digit_chr <i32> integer_parse_byte_or_invalid s i;
+                                    let digit_chr %i32 integer_parse_byte_or_invalid s i;
                                     match digit_from_char digit_chr:
                                         Result::Ok digit:
                                             if:
@@ -286,8 +286,8 @@ pub fn to_u128_radix <(str,i32)->Result<u128,i32>> (s, radix):
 //
 // 計算量:
 // - O(1)
-pub fn i128_positive_magnitude_allowed <(u128)->bool> (mag):
-    not lt get mag "hi" <i64> cast 0
+pub fn i128_positive_magnitude_allowed %fn u128 bool \mag:
+    not lt get mag "hi" %i64 cast 0
 
 // i128_negative_magnitude_allowed: 負 i128 として許される大きさかを判定する
 //
@@ -303,14 +303,14 @@ pub fn i128_positive_magnitude_allowed <(u128)->bool> (mag):
 //
 // 計算量:
 // - O(1)
-pub fn i128_negative_magnitude_allowed <(u128)->bool> (mag):
+pub fn i128_negative_magnitude_allowed %fn u128 bool \mag:
     if:
-        not lt get mag "hi" <i64> cast 0
+        not lt get mag "hi" %i64 cast 0
         then:
             true
         else:
-            let min_hi <i64> shl <i64> cast 1 <i64> cast 63;
-            and eq get mag "hi" min_hi eq get mag "lo" <i64> cast 0
+            let min_hi %i64 shl %i64 cast 1 %i64 cast 63;
+            and eq get mag "hi" min_hi eq get mag "lo" %i64 cast 0
 
 // i128_magnitude_allowed: 符号に応じて i128 の magnitude 範囲を判定する
 //
@@ -325,7 +325,7 @@ pub fn i128_negative_magnitude_allowed <(u128)->bool> (mag):
 //
 // 計算量:
 // - O(1)
-pub fn i128_magnitude_allowed <(u128,bool)->bool> (mag, neg):
+pub fn i128_magnitude_allowed %fn u128 fn bool bool \mag\neg:
     if:
         neg
         then:
@@ -346,7 +346,7 @@ pub fn i128_magnitude_allowed <(u128,bool)->bool> (mag, neg):
 //
 // 計算量:
 // - O(n)
-pub fn to_i128 <(str)->Result<i128,i32>> (s):
+pub fn to_i128 %fn str Result i128 i32 \s:
     to_i128_radix s 10
 
 // to_i128_radix: 指定基数の文字列を i128 に変換する
@@ -365,16 +365,16 @@ pub fn to_i128 <(str)->Result<i128,i32>> (s):
 //
 // 計算量:
 // - O(n)
-pub fn to_i128_radix <(str,i32)->Result<i128,i32>> (s, radix):
-    let n <i32> len s;
+pub fn to_i128_radix %fn str fn i32 Result i128 i32 \s\radix:
+    let n %i32 len s;
     if:
         eq n 0
         then:
             Result::Err<i128,i32> 1
         else:
-            let first <i32> integer_parse_byte_or_invalid s 0;
-            let neg <bool> eq first '-';
-            let body <str> if neg:
+            let first %i32 integer_parse_byte_or_invalid s 0;
+            let neg %bool eq first '-';
+            let body %str if neg:
                 then str_slice s 1 n
                 else s
             match to_u128_radix body radix:
@@ -382,7 +382,7 @@ pub fn to_i128_radix <(str,i32)->Result<i128,i32>> (s, radix):
                     if:
                         i128_magnitude_allowed mag neg
                         then:
-                            let base <i128> i128_from_u128_bits mag;
+                            let base %i128 i128_from_u128_bits mag;
                             if:
                                 neg
                                 then:

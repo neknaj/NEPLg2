@@ -16,7 +16,7 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/diag/error/types" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let checks checks_push checks_new assert_str_eq "warn" diag_level_str DiagLevel::Warn
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown
@@ -44,11 +44,11 @@ pub enum DiagLevel:
     Error
 
 impl Clone for DiagLevel:
-    fn clone <(&DiagLevel)->DiagLevel> (level):
+    fn clone %fn &DiagLevel DiagLevel \level:
         *level
 
 impl Copy for DiagLevel:
-    fn copy_mark <(DiagLevel)->DiagLevel> (level):
+    fn copy_mark %fn DiagLevel DiagLevel \level:
         level
 
 //: Span: [診断/しんだん][位置/いち]
@@ -62,16 +62,16 @@ impl Copy for DiagLevel:
 //: [計算量/けいさんりょう]:
 //: - O(1)
 pub struct Span:
-    file_id <i32>
-    start <i32>
-    end <i32>
+    file_id %i32
+    start %i32
+    end %i32
 
 impl Clone for Span:
-    fn clone <(&Span)->Span> (sp):
+    fn clone %fn &Span Span \sp:
         *sp
 
 impl Copy for Span:
-    fn copy_mark <(Span)->Span> (sp):
+    fn copy_mark %fn Span Span \sp:
         sp
 
 //: DiagKind: [診断/しんだん]の[分類/ぶんるい]
@@ -86,16 +86,16 @@ impl Copy for Span:
 //: [計算量/けいさんりょう]:
 //: - O(1)
 pub struct DiagKind:
-    level <DiagLevel>
-    std_error <Option<StdErrorKind>>
-    local_kind <Option<str>>
+    level %DiagLevel
+    std_error %Option StdErrorKind
+    local_kind %Option str
 
 impl Clone for DiagKind:
-    fn clone <(&DiagKind)->DiagKind> (kind):
+    fn clone %fn &DiagKind DiagKind \kind:
         *kind
 
 impl Copy for DiagKind:
-    fn copy_mark <(DiagKind)->DiagKind> (kind):
+    fn copy_mark %fn DiagKind DiagKind \kind:
         kind
 
 //: Diag: [単一/たんいつ]の[診断/しんだん]
@@ -113,19 +113,19 @@ impl Copy for DiagKind:
 //: [計算量/けいさんりょう]:
 //: - [構築/こうちく]は O(1) です。
 pub struct Diag:
-    kind <DiagKind>
-    message <str>
-    span <Option<Span>>
-    notes <str>
-    help <str>
-    source <Option<str>>
+    kind %DiagKind
+    message %str
+    span %Option Span
+    notes %str
+    help %str
+    source %Option str
 
 impl Clone for Diag:
-    fn clone <(&Diag)->Diag> (d):
+    fn clone %fn &Diag Diag \d:
         *d
 
 impl Copy for Diag:
-    fn copy_mark <(Diag)->Diag> (d):
+    fn copy_mark %fn Diag Diag \d:
         d
 
 //: Diags: [複数/ふくすう]の[診断/しんだん]を[順序/じゅんじょ][付/づ]きで[保持/ほじ]する struct
@@ -139,10 +139,10 @@ impl Copy for Diag:
 //: [計算量/けいさんりょう]:
 //: - [構築/こうちく]は O(1) です。
 pub struct Diags:
-    items <Vec<Diag>>
+    items %Vec Diag
 
 //: diag_level_str: `DiagLevel` を[文字列/もじれつ]へ[変換/へんかん]する
-pub fn diag_level_str <(DiagLevel)->str> (level):
+pub fn diag_level_str %fn DiagLevel str \level:
     match level:
         DiagLevel::Log:
             "log"

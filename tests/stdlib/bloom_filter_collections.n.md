@@ -28,22 +28,22 @@ stdout: "test_report name=\"bloom_filter_pipe_usage\" count=3 failed=0\nassertio
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let bf0 <BloomFilter<i32, DefaultHash32>>:
+fn main %impure fn () i32 \():
+    let bf0 %BloomFilter i32 DefaultHash32:
         unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
         |> insert 3
         |> insert 8
         |> insert 21
-    let ok0 <bool> contains &bf0 8;
-    let size0 <i32> len &bf0;
+    let ok0 %bool contains &bf0 8;
+    let size0 %i32 len &bf0;
     free bf0
-    let bf1 <BloomFilter<i32, DefaultHash32>>:
+    let bf1 %BloomFilter i32 DefaultHash32:
         unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
         |> insert 3
         |> insert 8
         |> insert 21
         |> clear
-    let ok2 <bool> not contains &bf1 8;
+    let ok2 %bool not contains &bf1 8;
     free bf1
     let report:
         test_report_new "bloom_filter_pipe_usage"
@@ -78,12 +78,12 @@ stdout: "test_report name=\"bloom_filter_free_releases_owned_storage\" count=1 f
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let bf0 <BloomFilter<i32, DefaultHash32>>:
+fn main %impure fn () i32 \():
+    let bf0 %BloomFilter i32 DefaultHash32:
         unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
         |> insert 8
     free bf0
-    let bf1 <BloomFilter<i32, DefaultHash32>>:
+    let bf1 %BloomFilter i32 DefaultHash32:
         unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
         |> insert 21
     free bf1

@@ -19,50 +19,50 @@ stdout: "test_report name=\"ringbuffer_push_pop\" count=5 failed=0\nassertion in
 #import "core/field" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let rb0 <RingBuffer<i32>>:
+fn main %impure fn () i32 \():
+    let rb0 %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push<i32> 10
         |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
         |> push<i32> 20
         |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
-    let size0 <i32> len<i32> &rb0;
+    let size0 %i32 len<i32> &rb0;
     free<i32> rb0
-    let rb1 <RingBuffer<i32>>:
+    let rb1 %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push<i32> 10
         |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
         |> push<i32> 20
         |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
-    let ok1 <bool> match peek<i32> &rb1:
+    let ok1 %bool match peek<i32> &rb1:
         Option::Some v:
             eq v 10
         Option::None:
             false
     free<i32> rb1
-    let rb2 <RingBuffer<i32>>:
+    let rb2 %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push<i32> 10
         |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
-    let ok2 <bool> match pop<i32> rb2:
+    let ok2 %bool match pop<i32> rb2:
         Option::Some v:
             eq v 10
         Option::None:
             false
-    let rb3 <RingBuffer<i32>>:
+    let rb3 %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
         |> push<i32> 30
         |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
         |> push<i32> 40
         |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
-    let p0 <RingBufferPop<i32>> pop_front<i32> rb3
-    let ok3 <bool> match ringbuffer_pop_item<i32> &p0:
+    let p0 %RingBufferPop i32 pop_front<i32> rb3
+    let ok3 %bool match ringbuffer_pop_item<i32> &p0:
         Option::Some v:
             eq v 30
         Option::None:
             false
-    let rb4 <RingBuffer<i32>> ringbuffer_pop_buffer<i32> p0
-    let ok4 <bool>:
+    let rb4 %RingBuffer i32 ringbuffer_pop_buffer<i32> p0
+    let ok4 %bool:
         match peek<i32> &rb4:
             Option::Some v:
                 and eq len<i32> &rb4 1 eq v 40
@@ -96,9 +96,9 @@ stdout: "test_report name=\"ringbuffer_pop_empty\" count=1 failed=0\nassertion i
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let rb <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
-    let ok <bool> match pop<i32> rb:
+fn main %impure fn () i32 \():
+    let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+    let ok %bool match pop<i32> rb:
         Option::Some _:
             false
         Option::None:

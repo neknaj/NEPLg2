@@ -15,16 +15,16 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn is_even <(i32)->bool> (x):
+//: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let ys <Vec<i32>> unwrap_ok filter<i32> xs is_even;
-//:     let observed_len <i32> len<i32> &ys;
-//:     let ok <bool> eq observed_len 1;
+//:     let ys %Vec i32 unwrap_ok filter<i32> xs is_even;
+//:     let observed_len %i32 len<i32> &ys;
+//:     let ok %bool eq observed_len 1;
 //:     free<i32> ys;
 //:     if ok 0 1
 //: ```

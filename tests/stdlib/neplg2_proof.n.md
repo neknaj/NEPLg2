@@ -18,14 +18,14 @@ stdout: mlstr:
 #import "neplg2/core/proof" as *
 #import "std/test" as *
 
-fn check_span_proven <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_span_proven %fn Result () SelfhostProofRefutation Result () str \result:
     match result:
         Result::Ok _:
             Result<(),str>::Ok ()
         Result::Err _refutation:
             Result<(),str>::Err "expected span proof"
 
-fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_span_invalid %fn Result () SelfhostProofRefutation Result () str \result:
     match result:
         Result::Err refutation:
             match refutation:
@@ -62,9 +62,9 @@ fn check_span_invalid <(Result<(),SelfhostProofRefutation>)->Result<(),str>> (re
         Result::Ok _:
             Result<(),str>::Err "invalid span was accepted"
 
-fn main <()*>i32> ():
-    let valid <SelfhostSourceSpan> source_span_new 0 0 4
-    let invalid <SelfhostSourceSpan> source_span_new 0 5 2
+fn main %impure fn () i32 \():
+    let valid %SelfhostSourceSpan source_span_new 0 0 4
+    let invalid %SelfhostSourceSpan source_span_new 0 5 2
     let checks0 checks_new
     let checks1 checks_push checks0 check_span_proven selfhost_proof_source_span_valid valid
     let checks2 checks_push checks1 check_span_invalid selfhost_proof_source_span_valid invalid
@@ -89,7 +89,7 @@ stdout: mlstr:
 #import "neplg2/core/proof" as *
 #import "std/test" as *
 
-fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation):
+fn check_domain_mismatch %fn SelfhostProofRefutation Result () str \refutation:
     match refutation:
         SelfhostProofRefutation::FactObligationMismatch mismatch:
             match mismatch.fact_domain:
@@ -154,11 +154,11 @@ fn check_domain_mismatch <(SelfhostProofRefutation)->Result<(),str>> (refutation
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected fact/obligation mismatch"
 
-fn main <()*>i32> ():
-    let span <SelfhostSourceSpan> source_span_new 0 0 5
-    let raw_item <SelfhostRawBackendItemFact> selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmBlock span
-    let fact <SelfhostProofFact> SelfhostProofFact::RawBackendItemObserved raw_item
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::SourceSpanValid span
+fn main %impure fn () i32 \():
+    let span %SelfhostSourceSpan source_span_new 0 0 5
+    let raw_item %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmBlock span
+    let fact %SelfhostProofFact SelfhostProofFact::RawBackendItemObserved raw_item
+    let obligation %SelfhostProofObligation SelfhostProofObligation::SourceSpanValid span
     let checks0 checks_new
     match selfhost_proof_solve selfhost_proof_query_new fact obligation:
         SelfhostProofResult::Refuted refutation:
@@ -191,7 +191,7 @@ stdout: mlstr:
 #import "neplg2/core/resource/move_state" as *
 #import "std/test" as *
 
-fn check_initialized <(SelfhostResourceCellState)->Result<(),str>> (state):
+fn check_initialized %fn SelfhostResourceCellState Result () str \state:
     match state:
         SelfhostResourceCellState::Initialized:
             Result<(),str>::Ok ()
@@ -202,7 +202,7 @@ fn check_initialized <(SelfhostResourceCellState)->Result<(),str>> (state):
         SelfhostResourceCellState::Dropped:
             Result<(),str>::Err "expected initialized cell"
 
-fn check_moved <(SelfhostResourceCellState)->Result<(),str>> (state):
+fn check_moved %fn SelfhostResourceCellState Result () str \state:
     match state:
         SelfhostResourceCellState::Moved:
             Result<(),str>::Ok ()
@@ -213,7 +213,7 @@ fn check_moved <(SelfhostResourceCellState)->Result<(),str>> (state):
         SelfhostResourceCellState::Dropped:
             Result<(),str>::Err "expected moved cell"
 
-fn check_drop_after_move <(SelfhostProofRefutation)->Result<(),str>> (refutation):
+fn check_drop_after_move %fn SelfhostProofRefutation Result () str \refutation:
     match refutation:
         SelfhostProofRefutation::TypeKindMismatch _issue:
             Result<(),str>::Err "expected resource transition refutation"
@@ -262,11 +262,11 @@ fn check_drop_after_move <(SelfhostProofRefutation)->Result<(),str>> (refutation
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected resource transition refutation"
 
-fn main <()*>i32> ():
-    let span <SelfhostSourceSpan> source_span_new 0 0 4
-    let init_event <SelfhostResourceCellEventFact> selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::Initialize span
-    let move_event <SelfhostResourceCellEventFact> selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::MoveOut span
-    let drop_event <SelfhostResourceCellEventFact> selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::Drop span
+fn main %impure fn () i32 \():
+    let span %SelfhostSourceSpan source_span_new 0 0 4
+    let init_event %SelfhostResourceCellEventFact selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::Initialize span
+    let move_event %SelfhostResourceCellEventFact selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::MoveOut span
+    let drop_event %SelfhostResourceCellEventFact selfhost_resource_cell_event_fact_new SelfhostResourceCellEventKind::Drop span
     let checks0 checks_new
     match selfhost_proof_resource_cell_transition selfhost_resource_cell_state_initial init_event:
         Result::Ok state1:
@@ -313,7 +313,7 @@ stdout: mlstr:
 #import "neplg2/core/proof" as *
 #import "std/test" as *
 
-fn check_none_seen <(SelfhostModuleDirectiveState)->Result<(),str>> (state):
+fn check_none_seen %fn SelfhostModuleDirectiveState Result () str \state:
     match state:
         SelfhostModuleDirectiveState::NoneSeen:
             Result<(),str>::Ok ()
@@ -324,7 +324,7 @@ fn check_none_seen <(SelfhostModuleDirectiveState)->Result<(),str>> (state):
         SelfhostModuleDirectiveState::EntryAndTargetSeen _seen:
             Result<(),str>::Err "expected no singleton directive"
 
-fn check_target_seen <(SelfhostModuleDirectiveState)->Result<(),str>> (state):
+fn check_target_seen %fn SelfhostModuleDirectiveState Result () str \state:
     match state:
         SelfhostModuleDirectiveState::TargetSeen _target_span:
             Result<(),str>::Ok ()
@@ -335,7 +335,7 @@ fn check_target_seen <(SelfhostModuleDirectiveState)->Result<(),str>> (state):
         SelfhostModuleDirectiveState::EntryAndTargetSeen _seen:
             Result<(),str>::Err "expected target directive"
 
-fn check_both_seen <(SelfhostModuleDirectiveState)->Result<(),str>> (state):
+fn check_both_seen %fn SelfhostModuleDirectiveState Result () str \state:
     match state:
         SelfhostModuleDirectiveState::EntryAndTargetSeen _seen:
             Result<(),str>::Ok ()
@@ -346,7 +346,7 @@ fn check_both_seen <(SelfhostModuleDirectiveState)->Result<(),str>> (state):
         SelfhostModuleDirectiveState::TargetSeen _target_span:
             Result<(),str>::Err "expected entry and target directives"
 
-fn check_duplicate_target <(SelfhostProofRefutation)->Result<(),str>> (refutation):
+fn check_duplicate_target %fn SelfhostProofRefutation Result () str \refutation:
     match refutation:
         SelfhostProofRefutation::ModuleDirectiveDuplicate duplicate:
             match duplicate.kind:
@@ -385,19 +385,19 @@ fn check_duplicate_target <(SelfhostProofRefutation)->Result<(),str>> (refutatio
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected duplicate target"
 
-fn main <()*>i32> ():
-    let span1 <SelfhostSourceSpan> source_span_new 0 0 7
-    let span2 <SelfhostSourceSpan> source_span_new 0 8 15
+fn main %impure fn () i32 \():
+    let span1 %SelfhostSourceSpan source_span_new 0 0 7
+    let span2 %SelfhostSourceSpan source_span_new 0 8 15
     let checks0 checks_new
-    let other_item <SelfhostModuleDirectiveFact> selfhost_module_directive_fact_new SelfhostModuleDirectiveKind::Other span1
+    let other_item %SelfhostModuleDirectiveFact selfhost_module_directive_fact_new SelfhostModuleDirectiveKind::Other span1
     match selfhost_proof_module_directive_transition SelfhostModuleDirectiveState::NoneSeen other_item:
         Result::Ok state0:
             let checks1 checks_push checks0 check_none_seen state0
-            let target_item <SelfhostModuleDirectiveFact> selfhost_module_directive_fact_new SelfhostModuleDirectiveKind::Target span1
+            let target_item %SelfhostModuleDirectiveFact selfhost_module_directive_fact_new SelfhostModuleDirectiveKind::Target span1
             match selfhost_proof_module_directive_transition state0 target_item:
                 Result::Ok state1:
                     let checks2 checks_push checks1 check_target_seen state1
-                    let entry_item <SelfhostModuleDirectiveFact> selfhost_module_directive_fact_new SelfhostModuleDirectiveKind::Entry span2
+                    let entry_item %SelfhostModuleDirectiveFact selfhost_module_directive_fact_new SelfhostModuleDirectiveKind::Entry span2
                     match selfhost_proof_module_directive_transition state1 entry_item:
                         Result::Ok state2:
                             let checks3 checks_push checks2 check_both_seen state2
@@ -444,7 +444,7 @@ stdout: mlstr:
 #import "neplg2/core/proof" as *
 #import "std/test" as *
 
-fn check_open_empty_wasm <(SelfhostRawBackendState)->Result<(),str>> (state):
+fn check_open_empty_wasm %fn SelfhostRawBackendState Result () str \state:
     match state:
         SelfhostRawBackendState::OpenEmpty open_block:
             match open_block.kind:
@@ -457,7 +457,7 @@ fn check_open_empty_wasm <(SelfhostRawBackendState)->Result<(),str>> (state):
         SelfhostRawBackendState::OpenReady _kind:
             Result<(),str>::Err "expected empty block"
 
-fn check_open_ready_wasm <(SelfhostRawBackendState)->Result<(),str>> (state):
+fn check_open_ready_wasm %fn SelfhostRawBackendState Result () str \state:
     match state:
         SelfhostRawBackendState::OpenReady kind:
             match kind:
@@ -470,7 +470,7 @@ fn check_open_ready_wasm <(SelfhostRawBackendState)->Result<(),str>> (state):
         SelfhostRawBackendState::OpenEmpty _open_block:
             Result<(),str>::Err "expected ready block"
 
-fn check_normal <(SelfhostRawBackendState)->Result<(),str>> (state):
+fn check_normal %fn SelfhostRawBackendState Result () str \state:
     match state:
         SelfhostRawBackendState::Normal:
             Result<(),str>::Ok ()
@@ -479,7 +479,7 @@ fn check_normal <(SelfhostRawBackendState)->Result<(),str>> (state):
         SelfhostRawBackendState::OpenReady _kind:
             Result<(),str>::Err "expected normal state"
 
-fn check_raw_text_refutation <(SelfhostProofRefutation)->Result<(),str>> (refutation):
+fn check_raw_text_refutation %fn SelfhostProofRefutation Result () str \refutation:
     match refutation:
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
             Result<(),str>::Ok ()
@@ -512,18 +512,18 @@ fn check_raw_text_refutation <(SelfhostProofRefutation)->Result<(),str>> (refuta
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected text-without-block refutation"
 
-fn main <()*>i32> ():
-    let span <SelfhostSourceSpan> source_span_new 0 0 5
+fn main %impure fn () i32 \():
+    let span %SelfhostSourceSpan source_span_new 0 0 5
     let checks0 checks_new
-    let block_item <SelfhostRawBackendItemFact> selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmBlock span
+    let block_item %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmBlock span
     match selfhost_proof_raw_backend_transition SelfhostRawBackendState::Normal block_item:
         Result::Ok state1:
             let checks1 checks_push checks0 check_open_empty_wasm state1
-            let text_item <SelfhostRawBackendItemFact> selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmText span
+            let text_item %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::WasmText span
             match selfhost_proof_raw_backend_transition state1 text_item:
                 Result::Ok state2:
                     let checks2 checks_push checks1 check_open_ready_wasm state2
-                    let end_item <SelfhostRawBackendItemFact> selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::StreamEnd span
+                    let end_item %SelfhostRawBackendItemFact selfhost_raw_backend_item_fact_new SelfhostRawBackendItemKind::StreamEnd span
                     match selfhost_proof_raw_backend_transition state2 end_item:
                         Result::Ok state3:
                             let checks3 checks_push checks2 check_normal state3
@@ -572,7 +572,7 @@ stdout: mlstr:
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "std/test" as *
 
-fn check_header_proven <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_header_proven %fn Result SelfhostModuleDeclarationHeader SelfhostProofRefutation Result () str \result:
     match result:
         Result::Ok header:
             match header.kind:
@@ -589,7 +589,7 @@ fn check_header_proven <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRef
         Result::Err _refutation:
             Result<(),str>::Err "expected declaration header proof"
 
-fn check_header_missing <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_header_missing %fn Result SelfhostModuleDeclarationHeader SelfhostProofRefutation Result () str \result:
     match result:
         Result::Err refutation:
             match refutation:
@@ -626,7 +626,7 @@ fn check_header_missing <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
         Result::Ok _header:
             Result<(),str>::Err "missing declaration header was accepted"
 
-fn check_header_invalid <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_header_invalid %fn Result SelfhostModuleDeclarationHeader SelfhostProofRefutation Result () str \result:
     match result:
         Result::Err refutation:
             match refutation:
@@ -663,22 +663,22 @@ fn check_header_invalid <(Result<SelfhostModuleDeclarationHeader,SelfhostProofRe
         Result::Ok _header:
             Result<(),str>::Err "invalid declaration header was accepted"
 
-fn main <()*>i32> ():
-    let header_span <SelfhostSourceSpan> source_span_new 0 0 24
-    let keyword_span <SelfhostSourceSpan> source_span_new 0 0 2
-    let head_span <SelfhostSourceSpan> source_span_new 0 3 7
-    let head <SelfhostModuleDeclarationHead> selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name head_span
-    let header <SelfhostModuleDeclarationHeader> selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private header_span keyword_span some<SelfhostModuleDeclarationHead> head
-    let valid_fact <SelfhostModuleDeclarationFact> selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some<SelfhostModuleDeclarationHeader> header header_span
-    let missing_fact <SelfhostModuleDeclarationFact> selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl none<SelfhostModuleDeclarationHeader> header_span
-    let invalid_header <SelfhostModuleDeclarationHeader> selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Struct SelfhostModuleDeclarationVisibility::Private header_span keyword_span some<SelfhostModuleDeclarationHead> head
-    let invalid_fact <SelfhostModuleDeclarationFact> selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some<SelfhostModuleDeclarationHeader> invalid_header header_span
-    let impl_header_span <SelfhostSourceSpan> source_span_new 0 0 22
-    let impl_keyword_span <SelfhostSourceSpan> source_span_new 0 4 8
-    let impl_head_span <SelfhostSourceSpan> source_span_new 0 9 13
-    let impl_head <SelfhostModuleDeclarationHead> selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name impl_head_span
-    let public_impl_header <SelfhostModuleDeclarationHeader> selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public impl_header_span impl_keyword_span some<SelfhostModuleDeclarationHead> impl_head
-    let public_impl_fact <SelfhostModuleDeclarationFact> selfhost_module_declaration_fact_new SelfhostModuleItemKind::ImplDecl some<SelfhostModuleDeclarationHeader> public_impl_header impl_header_span
+fn main %impure fn () i32 \():
+    let header_span %SelfhostSourceSpan source_span_new 0 0 24
+    let keyword_span %SelfhostSourceSpan source_span_new 0 0 2
+    let head_span %SelfhostSourceSpan source_span_new 0 3 7
+    let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name head_span
+    let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private header_span keyword_span some<SelfhostModuleDeclarationHead> head
+    let valid_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some<SelfhostModuleDeclarationHeader> header header_span
+    let missing_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl none<SelfhostModuleDeclarationHeader> header_span
+    let invalid_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Struct SelfhostModuleDeclarationVisibility::Private header_span keyword_span some<SelfhostModuleDeclarationHead> head
+    let invalid_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::FunctionDecl some<SelfhostModuleDeclarationHeader> invalid_header header_span
+    let impl_header_span %SelfhostSourceSpan source_span_new 0 0 22
+    let impl_keyword_span %SelfhostSourceSpan source_span_new 0 4 8
+    let impl_head_span %SelfhostSourceSpan source_span_new 0 9 13
+    let impl_head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name impl_head_span
+    let public_impl_header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public impl_header_span impl_keyword_span some<SelfhostModuleDeclarationHead> impl_head
+    let public_impl_fact %SelfhostModuleDeclarationFact selfhost_module_declaration_fact_new SelfhostModuleItemKind::ImplDecl some<SelfhostModuleDeclarationHeader> public_impl_header impl_header_span
     let checks0 checks_new
     let checks1 checks_push checks0 check_header_proven selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function valid_fact
     let checks2 checks_push checks1 check_header_missing selfhost_proof_module_declaration_header SelfhostModuleDeclarationKind::Function missing_fact

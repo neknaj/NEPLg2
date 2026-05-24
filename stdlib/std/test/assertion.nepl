@@ -17,9 +17,9 @@
 //:
 //: [実装/じっそう]:
 //: - 長さ一致を確認し、byte [単位/たんい]で[比較/ひかく]します。
-pub fn test_str_eq <(str,str)->bool> (a,b):
-    let la <i32> len a
-    let lb <i32> len b
+pub fn test_str_eq %fn str fn str bool \a\b:
+    let la %i32 len a
+    let lb %i32 len b
     if:
         eq la lb
         then:
@@ -27,7 +27,7 @@ pub fn test_str_eq <(str,str)->bool> (a,b):
         else:
             false
 
-pub fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,total,i):
+pub fn test_str_eq_loop %fn str fn str fn i32 fn i32 bool \a\b\total\i:
     if:
         eq i total
         then:
@@ -41,7 +41,7 @@ pub fn test_str_eq_loop <(str,str,i32,i32)->bool> (a,b,total,i):
                     false
 
 //: assert: bool 条件を[構造化/こうぞうか] assertion にする
-pub fn noshadow assert <(str,bool)->TestAssertion> (label, okv):
+pub fn noshadow assert %fn str fn bool TestAssertion \label\okv:
     if:
         okv
         then:
@@ -49,41 +49,41 @@ pub fn noshadow assert <(str,bool)->TestAssertion> (label, okv):
         else:
             test_assertion_failed AssertionKind::Bool label "true" "false" "check failed"
 
-pub fn noshadow assert <(bool)->TestAssertion> (okv):
+pub fn noshadow assert %fn bool TestAssertion \okv:
     assert "assert" okv
 
 //: assert_eq_i32: i32 の[等値/とうち] assertion を[作/つく]る
-pub fn noshadow assert_eq_i32 <(str,i32,i32)->TestAssertion> (label, expected, actual):
-    let se <str> from_i32 expected
-    let sa <str> from_i32 actual
+pub fn noshadow assert_eq_i32 %fn str fn i32 fn i32 TestAssertion \label\expected\actual:
+    let se %str from_i32 expected
+    let sa %str from_i32 actual
     if:
         eq expected actual
         then:
             test_assertion_passed AssertionKind::EqI32 label se sa
         else:
-            let m0 <str> concat "assert_eq_i32 failed: expected=" se
-            let m1 <str> concat m0 " actual="
-            let m2 <str> concat m1 sa
+            let m0 %str concat "assert_eq_i32 failed: expected=" se
+            let m1 %str concat m0 " actual="
+            let m2 %str concat m1 sa
             test_assertion_failed AssertionKind::EqI32 label se sa m2
 
-pub fn noshadow assert_eq_i32 <(i32,i32)->TestAssertion> (expected, actual):
+pub fn noshadow assert_eq_i32 %fn i32 fn i32 TestAssertion \expected\actual:
     assert_eq_i32 "assert_eq_i32" expected actual
 
 //: assert_ne_bool: bool が[等/ひと]しくないことを[検査/けんさ]する
-pub fn assert_ne_bool <(str,bool,bool)->TestAssertion> (label, a, b):
-    let sa <str> from_bool a
-    let sb <str> from_bool b
-    let actual0 <str> concat sa " vs "
-    let actual <str> concat actual0 sb
+pub fn assert_ne_bool %fn str fn bool fn bool TestAssertion \label\a\b:
+    let sa %str from_bool a
+    let sb %str from_bool b
+    let actual0 %str concat sa " vs "
+    let actual %str concat actual0 sb
     if:
         a
         then:
             if:
                 b
                 then:
-                    let m0 <str> concat "assert_ne failed: a=" sa
-                    let m1 <str> concat m0 " b="
-                    let m2 <str> concat m1 sb
+                    let m0 %str concat "assert_ne failed: a=" sa
+                    let m1 %str concat m0 " b="
+                    let m2 %str concat m1 sb
                     test_assertion_failed AssertionKind::NeBool label "different" actual m2
                 else:
                     test_assertion_passed AssertionKind::NeBool label "different" actual
@@ -93,59 +93,59 @@ pub fn assert_ne_bool <(str,bool,bool)->TestAssertion> (label, a, b):
                 then:
                     test_assertion_passed AssertionKind::NeBool label "different" actual
                 else:
-                    let m0 <str> concat "assert_ne failed: a=" sa
-                    let m1 <str> concat m0 " b="
-                    let m2 <str> concat m1 sb
+                    let m0 %str concat "assert_ne failed: a=" sa
+                    let m1 %str concat m0 " b="
+                    let m2 %str concat m1 sb
                     test_assertion_failed AssertionKind::NeBool label "different" actual m2
 
-pub fn noshadow assert_ne <(str,bool,bool)->TestAssertion> (label, a, b):
+pub fn noshadow assert_ne %fn str fn bool fn bool TestAssertion \label\a\b:
     assert_ne_bool label a b
 
-pub fn noshadow assert_ne <(bool,bool)->TestAssertion> (a, b):
+pub fn noshadow assert_ne %fn bool fn bool TestAssertion \a\b:
     assert_ne_bool "assert_ne" a b
 
 //: assert_str_eq: str の[等値/とうち] assertion を[作/つく]る
-pub fn noshadow assert_str_eq <(str,str,str)->TestAssertion> (label, expected, actual):
+pub fn noshadow assert_str_eq %fn str fn str fn str TestAssertion \label\expected\actual:
     if:
         test_str_eq expected actual
         then:
             test_assertion_passed AssertionKind::StrEq label expected actual
         else:
-            let m0 <str> concat "assert_str_eq failed: expected=\"" expected
-            let m1 <str> concat m0 "\" actual=\""
-            let m2 <str> concat m1 actual
-            let m3 <str> concat m2 "\""
+            let m0 %str concat "assert_str_eq failed: expected=\"" expected
+            let m1 %str concat m0 "\" actual=\""
+            let m2 %str concat m1 actual
+            let m3 %str concat m2 "\""
             test_assertion_failed AssertionKind::StrEq label expected actual m3
 
-pub fn noshadow assert_str_eq <(str,str)->TestAssertion> (expected, actual):
+pub fn noshadow assert_str_eq %fn str fn str TestAssertion \expected\actual:
     assert_str_eq "assert_str_eq" expected actual
 
 //: assert_ok_i32: `Result<i32,i32>` が Ok であることを[検査/けんさ]する
-pub fn noshadow assert_ok_i32 <(str,Result<i32,i32>)->TestAssertion> (label, r):
+pub fn noshadow assert_ok_i32 %fn str fn Result i32 i32 TestAssertion \label\r:
     match r:
         Result::Ok v:
             test_assertion_passed AssertionKind::OkI32 label "Ok" from_i32 v
         Result::Err e:
-            let se <str> from_i32 e
-            let actual <str> concat "Err " se
-            let msg <str> concat "assert_ok_i32 failed: Err=" se
+            let se %str from_i32 e
+            let actual %str concat "Err " se
+            let msg %str concat "assert_ok_i32 failed: Err=" se
             test_assertion_failed AssertionKind::OkI32 label "Ok" actual msg
 
-pub fn noshadow assert_ok_i32 <(Result<i32,i32>)->TestAssertion> (r):
+pub fn noshadow assert_ok_i32 %fn Result i32 i32 TestAssertion \r:
     assert_ok_i32 "assert_ok_i32" r
 
 //: assert_err_i32: `Result<i32,i32>` が Err であることを[検査/けんさ]する
-pub fn noshadow assert_err_i32 <(str,Result<i32,i32>)->TestAssertion> (label, r):
+pub fn noshadow assert_err_i32 %fn str fn Result i32 i32 TestAssertion \label\r:
     match r:
         Result::Ok v:
-            let sv <str> from_i32 v
-            let actual <str> concat "Ok " sv
-            let msg <str> concat "assert_err_i32 failed: Ok=" sv
+            let sv %str from_i32 v
+            let actual %str concat "Ok " sv
+            let msg %str concat "assert_err_i32 failed: Ok=" sv
             test_assertion_failed AssertionKind::ErrI32 label "Err" actual msg
         Result::Err e:
             test_assertion_passed AssertionKind::ErrI32 label "Err" from_i32 e
 
-pub fn noshadow assert_err_i32 <(Result<i32,i32>)->TestAssertion> (r):
+pub fn noshadow assert_err_i32 %fn Result i32 i32 TestAssertion \r:
     assert_err_i32 "assert_err_i32" r
 
 //: check: bool 条件を quiet な Result にする
@@ -153,7 +153,7 @@ pub fn noshadow assert_err_i32 <(Result<i32,i32>)->TestAssertion> (r):
 //: [注意/ちゅうい]:
 //: - 移行中の helper 用です。新しい canonical report では `assert` が返す `TestAssertion` を[優先/ゆうせん]します。
 //: - quiet helper は `TestAssertion` を中間生成しません。失敗時だけ message 文字列を作り、成功時は所有 `str` を作らないことで Resource IR の owner 境界を単純に保ちます。
-pub fn check <(bool)->Result<(),str>> (okv):
+pub fn check %fn bool Result () str \okv:
     if:
         okv
         then:
@@ -161,29 +161,29 @@ pub fn check <(bool)->Result<(),str>> (okv):
         else:
             Result<(),str>::Err "check failed"
 
-pub fn check_eq_i32 <(i32,i32)->Result<(),str>> (expected, actual):
+pub fn check_eq_i32 %fn i32 fn i32 Result () str \expected\actual:
     if:
         eq expected actual
         then:
             Result<(),str>::Ok ()
         else:
-            let se <str> from_i32 expected
-            let sa <str> from_i32 actual
-            let m0 <str> concat "check_eq_i32 failed: expected=" se
-            let m1 <str> concat m0 " actual="
+            let se %str from_i32 expected
+            let sa %str from_i32 actual
+            let m0 %str concat "check_eq_i32 failed: expected=" se
+            let m1 %str concat m0 " actual="
             Result<(),str>::Err concat m1 sa
 
-pub fn check_ne <(bool,bool)->Result<(),str>> (a, b):
+pub fn check_ne %fn bool fn bool Result () str \a\b:
     if:
         a
         then:
             if:
                 b
                 then:
-                    let sa <str> from_bool a
-                    let sb <str> from_bool b
-                    let m0 <str> concat "check_ne failed: a=" sa
-                    let m1 <str> concat m0 " b="
+                    let sa %str from_bool a
+                    let sb %str from_bool b
+                    let m0 %str concat "check_ne failed: a=" sa
+                    let m1 %str concat m0 " b="
                     Result<(),str>::Err concat m1 sb
                 else:
                     Result<(),str>::Ok ()
@@ -193,31 +193,31 @@ pub fn check_ne <(bool,bool)->Result<(),str>> (a, b):
                 then:
                     Result<(),str>::Ok ()
                 else:
-                    let sa <str> from_bool a
-                    let sb <str> from_bool b
-                    let m0 <str> concat "check_ne failed: a=" sa
-                    let m1 <str> concat m0 " b="
+                    let sa %str from_bool a
+                    let sb %str from_bool b
+                    let m0 %str concat "check_ne failed: a=" sa
+                    let m1 %str concat m0 " b="
                     Result<(),str>::Err concat m1 sb
 
-pub fn check_str_eq <(str,str)->Result<(),str>> (expected, actual):
+pub fn check_str_eq %fn str fn str Result () str \expected\actual:
     if:
         test_str_eq expected actual
         then:
             Result<(),str>::Ok ()
         else:
-            let m0 <str> concat "check_str_eq failed: expected=\"" expected
-            let m1 <str> concat m0 "\" actual=\""
-            let m2 <str> concat m1 actual
+            let m0 %str concat "check_str_eq failed: expected=\"" expected
+            let m1 %str concat m0 "\" actual=\""
+            let m2 %str concat m1 actual
             Result<(),str>::Err concat m2 "\""
 
-pub fn check_ok_i32 <(Result<i32,i32>)->Result<(),str>> (r):
+pub fn check_ok_i32 %fn Result i32 i32 Result () str \r:
     match r:
         Result::Ok _:
             Result<(),str>::Ok ()
         Result::Err e:
             Result<(),str>::Err concat "check_ok_i32 failed: Err=" from_i32 e
 
-pub fn check_err_i32 <(Result<i32,i32>)->Result<(),str>> (r):
+pub fn check_err_i32 %fn Result i32 i32 Result () str \r:
     match r:
         Result::Ok v:
             Result<(),str>::Err concat "check_err_i32 failed: Ok=" from_i32 v

@@ -20,24 +20,24 @@ stdout: mlstr:
 #import "core/math" as *
 
 trait SizeCode:
-    fn size_code <(Self)->i32> (x):
+    fn size_code %fn Self i32 \x:
         0
 
 impl SizeCode for i32:
-    fn size_code <(i32)->i32> (x):
+    fn size_code %fn i32 i32 \x:
         if lt x 10 then 1 else 2
 
-fn option_code <(Option<i32>)->i32> (value):
+fn option_code %fn Option i32 i32 \value:
     match value:
         Option::Some inner:
             SizeCode::size_code inner
         Option::None:
             0
 
-fn main <()*>i32> ():
-    let small <Option<i32>> Option<i32>::Some 3
-    let large <Option<i32>> Option<i32>::Some 30
-    let empty <Option<i32>> Option<i32>::None
+fn main %impure fn () i32 \():
+    let small %Option i32 Option<i32>::Some 3
+    let large %Option i32 Option<i32>::Some 30
+    let empty %Option i32 Option<i32>::None
     let checks:
         checks_new
         |> checks_push assert_eq_i32 1 option_code small

@@ -21,8 +21,8 @@ exit_code: 0
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let args <Vec<str>>:
+fn main %impure fn () i32 \():
+    let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "--target" |> uwok
         |> v::push<str> "std" |> uwok
@@ -33,17 +33,17 @@ fn main <()*>i32> ():
             v::free<str> args;
             1
         Result::Ok options:
-            let vfs0 <SelfhostVirtualFileSystem> unwrap_ok selfhost_vfs_new
-            let vfs1 <SelfhostVirtualFileSystem> unwrap_ok selfhost_vfs_add vfs0 "main.nepl" "fn main <()->i32> ():\n    0\n"
+            let vfs0 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
+            let vfs1 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_add vfs0 "main.nepl" "fn main <()->i32> \():\n    0\n"
             match selfhost_cli_driver_compile_vfs &vfs1 options:
                 Result::Err _e:
                     selfhost_vfs_free vfs1
                     v::free<str> args;
                     2
                 Result::Ok result:
-                    let exit_code <i32> selfhost_cli_driver_result_exit_code &result
-                    let diagnostics <&SelfhostDiagnostics> selfhost_cli_driver_result_diagnostics &result
-                    let diag_len <i32> selfhost_diagnostics_len diagnostics
+                    let exit_code %i32 selfhost_cli_driver_result_exit_code &result
+                    let diagnostics %&SelfhostDiagnostics selfhost_cli_driver_result_diagnostics &result
+                    let diag_len %i32 selfhost_diagnostics_len diagnostics
                     selfhost_cli_driver_result_free result
                     selfhost_vfs_free vfs1
                     v::free<str> args;
@@ -71,15 +71,15 @@ stdout: "[{\"severity\":\"error\",\"code\":\"cli.input.missing\",\"message\":\"i
 #import "neplg2/core/module/loader" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let options <SelfhostCliOptions> selfhost_cli_default_options
-    let vfs <SelfhostVirtualFileSystem> unwrap_ok selfhost_vfs_new
+fn main %impure fn () i32 \():
+    let options %SelfhostCliOptions selfhost_cli_default_options
+    let vfs %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
     match selfhost_cli_driver_compile_vfs &vfs options:
         Result::Err _e:
             selfhost_vfs_free vfs
             1
         Result::Ok result:
-            let exit_code <i32> selfhost_cli_driver_result_exit_code &result
+            let exit_code %i32 selfhost_cli_driver_result_exit_code &result
             match selfhost_cli_driver_write_json_stdout &result:
                 Result::Err _e:
                     selfhost_cli_driver_result_free result
@@ -114,8 +114,8 @@ exit_code: 0
 #import "std/test" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let args <Vec<str>>:
+fn main %impure fn () i32 \():
+    let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "-i" |> uwok
         |> v::push<str> "missing.nepl" |> uwok
@@ -124,16 +124,16 @@ fn main <()*>i32> ():
             v::free<str> args;
             1
         Result::Ok options:
-            let vfs <SelfhostVirtualFileSystem> unwrap_ok selfhost_vfs_new
+            let vfs %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
             match selfhost_cli_driver_compile_vfs &vfs options:
                 Result::Err _e:
                     selfhost_vfs_free vfs
                     v::free<str> args;
                     2
                 Result::Ok result:
-                    let exit_code <i32> selfhost_cli_driver_result_exit_code &result
-                    let diagnostics <&SelfhostDiagnostics> selfhost_cli_driver_result_diagnostics &result
-                    let json <str> selfhost_cli_render_diagnostics_json diagnostics
+                    let exit_code %i32 selfhost_cli_driver_result_exit_code &result
+                    let diagnostics %&SelfhostDiagnostics selfhost_cli_driver_result_diagnostics &result
+                    let json %str selfhost_cli_render_diagnostics_json diagnostics
                     selfhost_cli_driver_result_free result
                     selfhost_vfs_free vfs
                     v::free<str> args;

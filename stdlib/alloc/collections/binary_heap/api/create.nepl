@@ -25,14 +25,14 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hp <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
-//:     let observed_len <i32> len<i32> &hp
-//:     let ok <bool> eq observed_len 0
+//: fn main %impure fn () i32 \():
+//:     let hp %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+//:     let observed_len %i32 len<i32> &hp
+//:     let ok %bool eq observed_len 0
 //:     free<i32> hp
 //:     if ok 1 0
 //: ```
-pub fn new <.T: Copy> <()*>Result<BinaryHeap<.T>, Diag>> ():
+pub fn new <.T: Copy> %impure fn () Result BinaryHeap .T Diag \():
     with_capacity<.T> 8
 
 //: ## with_capacity
@@ -46,16 +46,16 @@ pub fn new <.T: Copy> <()*>Result<BinaryHeap<.T>, Diag>> ():
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 16;
-//:     let observed_len0 <i32> len<i32> &hp0;
-//:     let ok0 <bool> eq observed_len0 0;
-//:     let ok1 <bool> eq cap<i32> &hp0 16;
+//: fn main %impure fn () i32 \():
+//:     let hp0 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 16;
+//:     let observed_len0 %i32 len<i32> &hp0;
+//:     let ok0 %bool eq observed_len0 0;
+//:     let ok1 %bool eq cap<i32> &hp0 16;
 //:     free<i32> hp0;
 //:     if and ok0 ok1 1 0
 //: ```
-pub fn with_capacity <.T: Copy> <(i32)*>Result<BinaryHeap<.T>, Diag>> (cap):
-    let cap0 <i32> heap_normalize_capacity cap
+pub fn with_capacity <.T: Copy> %impure fn i32 Result BinaryHeap .T Diag \cap:
+    let cap0 %i32 heap_normalize_capacity cap
     match heap_alloc_slots<.T> cap0:
         Result::Ok items:
             ok<BinaryHeap<.T>, Diag> BinaryHeap<.T> 0 cap0 items

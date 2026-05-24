@@ -26,7 +26,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/hashset/types" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match HashSetBucketState::Full:
 //:         HashSetBucketState::Empty:
 //:             1
@@ -41,11 +41,11 @@ pub enum HashSetBucketState:
     Tombstone
 
 impl Clone for HashSetBucketState:
-    fn clone <(&HashSetBucketState)->HashSetBucketState> (state):
+    fn clone %fn &HashSetBucketState HashSetBucketState \state:
         *state
 
 impl Copy for HashSetBucketState:
-    fn copy_mark <(HashSetBucketState)->HashSetBucketState> (state):
+    fn copy_mark %fn HashSetBucketState HashSetBucketState \state:
         state
 
 //: ## HashSetInsertSlotState
@@ -59,7 +59,7 @@ impl Copy for HashSetBucketState:
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/hashset/types" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match HashSetInsertSlotState::TombstoneSlot:
 //:         HashSetInsertSlotState::EmptySlot:
 //:             1
@@ -71,11 +71,11 @@ pub enum HashSetInsertSlotState:
     TombstoneSlot
 
 impl Clone for HashSetInsertSlotState:
-    fn clone <(&HashSetInsertSlotState)->HashSetInsertSlotState> (state):
+    fn clone %fn &HashSetInsertSlotState HashSetInsertSlotState \state:
         *state
 
 impl Copy for HashSetInsertSlotState:
-    fn copy_mark <(HashSetInsertSlotState)->HashSetInsertSlotState> (state):
+    fn copy_mark %fn HashSetInsertSlotState HashSetInsertSlotState \state:
         state
 
 //: ## HashSetInsertSlot
@@ -91,13 +91,13 @@ impl Copy for HashSetInsertSlotState:
 //:| #import "alloc/collections/hashset/types" as *
 //:| #import "core/field" as field
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let slot <HashSetInsertSlot> HashSetInsertSlot 5 HashSetInsertSlotState::TombstoneSlot;
+//: fn main %impure fn () i32 \():
+//:     let slot %HashSetInsertSlot HashSetInsertSlot 5 HashSetInsertSlotState::TombstoneSlot;
 //:     if eq field::get slot "index" 5 0 1
 //: ```
 pub struct HashSetInsertSlot:
-    index <i32>
-    state <HashSetInsertSlotState>
+    index %i32
+    state %HashSetInsertSlotState
 
 //: ## HashSetStorage
 //: HashSet の backing storage
@@ -108,8 +108,8 @@ pub struct HashSetInsertSlot:
 //: ### [注意/ちゅうい]
 //: - `states.len == keys.len == cap` を内部不変条件とします。
 pub struct HashSetStorage<.T>:
-    states <Vec<HashSetBucketState>>
-    keys <Vec<Option<.T>>>
+    states %Vec HashSetBucketState
+    keys %Vec Option .T
 
 //: ## HashSet
 //: hash set [本体/ほんたい]
@@ -117,11 +117,11 @@ pub struct HashSetStorage<.T>:
 //: ### [目的/もくてき]
 //: - [要素数/ようそすう]・[容量/ようりょう]・tombstone 数・storage・hasher をまとめて[保持/ほじ]します。
 pub struct HashSet<.T,.H>:
-    count <i32>
-    cap <i32>
-    tombstones <i32>
-    storage <HashSetStorage<.T>>
-    hasher <.H>
+    count %i32
+    cap %i32
+    tombstones %i32
+    storage %HashSetStorage .T
+    hasher %.H
 
 //: ## HashSetUpdateError
 //: owner-consuming update の[失敗/しっぱい]で[戻/もど]る error payload
@@ -142,15 +142,15 @@ pub struct HashSet<.T,.H>:
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hs <HashSet<i32,DefaultHash32>> unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
-//:     let d0 <Diag> diag_key_not_found;
-//:     let e <HashSetUpdateError<i32,DefaultHash32>> HashSetUpdateError<i32,DefaultHash32> hs d0;
+//: fn main %impure fn () i32 \():
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let d0 %Diag diag_key_not_found;
+//:     let e %HashSetUpdateError i32 DefaultHash32 HashSetUpdateError<i32,DefaultHash32> hs d0;
 //:     0
 //: ```
 pub struct HashSetUpdateError<.T,.H>:
-    owner <HashSet<.T,.H>>
-    diag <Diag>
+    owner %HashSet .T .H
+    diag %Diag
 
 //: ## hashset_update_error_diag
 //: update [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
@@ -167,13 +167,13 @@ pub struct HashSetUpdateError<.T,.H>:
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hs <HashSet<i32,DefaultHash32>> unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
-//:     let d0 <Diag> diag_key_not_found;
-//:     let e <HashSetUpdateError<i32,DefaultHash32>> HashSetUpdateError<i32,DefaultHash32> hs d0;
+//: fn main %impure fn () i32 \():
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let d0 %Diag diag_key_not_found;
+//:     let e %HashSetUpdateError i32 DefaultHash32 HashSetUpdateError<i32,DefaultHash32> hs d0;
 //:     0
 //: ```
-pub fn hashset_update_error_diag <.T,.H> <(&HashSetUpdateError<.T,.H>)->Diag> (e):
+pub fn hashset_update_error_diag <.T,.H> %fn &HashSetUpdateError .T .H Diag \e:
     *field::get_ref e "diag"
 
 //: ## hashset_update_error_owner
@@ -194,11 +194,11 @@ pub fn hashset_update_error_diag <.T,.H> <(&HashSetUpdateError<.T,.H>)->Diag> (e
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hs <HashSet<i32,DefaultHash32>> unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
-//:     let d0 <Diag> diag_key_not_found;
-//:     let e <HashSetUpdateError<i32,DefaultHash32>> HashSetUpdateError<i32,DefaultHash32> hs d0;
+//: fn main %impure fn () i32 \():
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let d0 %Diag diag_key_not_found;
+//:     let e %HashSetUpdateError i32 DefaultHash32 HashSetUpdateError<i32,DefaultHash32> hs d0;
 //:     0
 //: ```
-pub fn hashset_update_error_owner <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(HashSetUpdateError<.T,.H>)->HashSet<.T,.H>> (e):
+pub fn hashset_update_error_owner <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn HashSetUpdateError .T .H HashSet .T .H \e:
     field::get e "owner"

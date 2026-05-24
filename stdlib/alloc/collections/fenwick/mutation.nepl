@@ -12,16 +12,16 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
-pub fn fenwick_add_storage <(&Vec<i32>,i32,i32,i32)*>bool> (bit, n, idx, delta):
-    let mut i <i32> add idx 1
-    let mut valid <bool> true
+pub fn fenwick_add_storage %impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 bool \bit\n\idx\delta:
+    let mut i %i32 add idx 1
+    let mut valid %bool true
     while and le i n valid:
         do:
             match fenwick_load_owned bit i:
                 Option::Some cur:
                     fenwick_store_owned bit i add cur delta
-                    let neg_i <i32> sub 0 i
-                    let lb <i32> and i neg_i
+                    let neg_i %i32 sub 0 i
+                    let lb %i32 and i neg_i
                     set i add i lb
                 Option::None:
                     set valid false

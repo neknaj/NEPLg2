@@ -29,7 +29,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn json_null <()->JsonValue> ():
+pub fn json_null %fn () JsonValue \():
     JsonValue::Null
 
 //: json_bool: bool 値を JSON Bool に変換する
@@ -45,7 +45,7 @@ pub fn json_null <()->JsonValue> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn json_bool <(bool)->JsonValue> (v):
+pub fn json_bool %fn bool JsonValue \v:
     if:
         v
         then:
@@ -66,7 +66,7 @@ pub fn json_bool <(bool)->JsonValue> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn json_number <(i32)->JsonValue> (n):
+pub fn json_number %fn i32 JsonValue \n:
     JsonValue::Number n
 
 //: json_string: str を JSON String として保持する
@@ -82,7 +82,7 @@ pub fn json_number <(i32)->JsonValue> (n):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn json_string <(str)->JsonValue> (s):
+pub fn json_string %fn str JsonValue \s:
     JsonValue::String s
 
 //: json_array_new: 空の JSON array builder を作る
@@ -98,7 +98,7 @@ pub fn json_string <(str)->JsonValue> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_array_new <()->Result<JsonArray, StdErrorKind>> ():
+pub fn json_array_new %fn () Result JsonArray StdErrorKind \():
     Result<JsonArray, StdErrorKind>::Ok JsonArray ""
 
 //: json_array_push: JSON array builder へ要素を追加する
@@ -114,11 +114,11 @@ pub fn json_array_new <()->Result<JsonArray, StdErrorKind>> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - ならし O(1)、再確保時 O(n)
-pub fn json_array_push <(JsonArray,JsonValue)->Result<JsonArray, StdErrorKind>> (arr, value):
-    let body <str> get arr "items"
-    let sep <str> if str_eq body "" "" ","
-    let body_sep <str> concat body sep
-    let value_text <str> json_serialize value
+pub fn json_array_push %fn JsonArray fn JsonValue Result JsonArray StdErrorKind \arr\value:
+    let body %str get arr "items"
+    let sep %str if str_eq body "" "" ","
+    let body_sep %str concat body sep
+    let value_text %str json_serialize value
     Result<JsonArray, StdErrorKind>::Ok JsonArray concat body_sep value_text
 
 //: json_array: JsonArray を JSON Array として保持する
@@ -134,7 +134,7 @@ pub fn json_array_push <(JsonArray,JsonValue)->Result<JsonArray, StdErrorKind>> 
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn json_array <(JsonArray)->JsonValue> (arr):
+pub fn json_array %fn JsonArray JsonValue \arr:
     JsonValue::Array arr
 
 //: json_member: object member を作る
@@ -150,7 +150,7 @@ pub fn json_array <(JsonArray)->JsonValue> (arr):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_member <(str,JsonValue)->JsonMember> (key, value):
+pub fn json_member %fn str fn JsonValue JsonMember \key\value:
     JsonMember key value
 
 //: json_object_new: 空の JSON object builder を作る
@@ -166,7 +166,7 @@ pub fn json_member <(str,JsonValue)->JsonMember> (key, value):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn json_object_new <()->Result<JsonObject, StdErrorKind>> ():
+pub fn json_object_new %fn () Result JsonObject StdErrorKind \():
     Result<JsonObject, StdErrorKind>::Ok JsonObject ""
 
 //: json_object_push: JSON object builder へ member を追加する
@@ -183,14 +183,14 @@ pub fn json_object_new <()->Result<JsonObject, StdErrorKind>> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - ならし O(1)、再確保時 O(n)
-pub fn json_object_push <(JsonObject,str,JsonValue)->Result<JsonObject, StdErrorKind>> (obj, key, value):
-    let body <str> get obj "members"
-    let sep <str> if str_eq body "" "" ","
-    let body_sep <str> concat body sep
-    let key_text <str> json_quote_string key
-    let key_colon <str> concat key_text ":"
-    let value_text <str> json_serialize value
-    let member_text <str> concat key_colon value_text
+pub fn json_object_push %fn JsonObject fn str fn JsonValue Result JsonObject StdErrorKind \obj\key\value:
+    let body %str get obj "members"
+    let sep %str if str_eq body "" "" ","
+    let body_sep %str concat body sep
+    let key_text %str json_quote_string key
+    let key_colon %str concat key_text ":"
+    let value_text %str json_serialize value
+    let member_text %str concat key_colon value_text
     Result<JsonObject, StdErrorKind>::Ok JsonObject concat body_sep member_text
 
 //: json_object: JsonObject を JSON Object として保持する
@@ -207,7 +207,7 @@ pub fn json_object_push <(JsonObject,str,JsonValue)->Result<JsonObject, StdError
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn json_object <(JsonObject)->JsonValue> (obj):
+pub fn json_object %fn JsonObject JsonValue \obj:
     JsonValue::Object obj
 
 //: neplg2:test[stdio, normalize_newlines]
@@ -220,10 +220,10 @@ pub fn json_object <(JsonObject)->JsonValue> (obj):
 //:| #import "core/result" as *
 //:| #import "alloc/encoding/json/types" as *
 //:| #import "alloc/encoding/json/builders" as *
-//: fn main <()*>i32> ():
-//:     let a <JsonArray> unwrap_ok json_array_new
-//:     let a2 <JsonArray> unwrap_ok json_array_push a json_number 7
-//:     let _v <JsonValue> json_array a2
+//: fn main %impure fn () i32 \():
+//:     let a %JsonArray unwrap_ok json_array_new
+//:     let a2 %JsonArray unwrap_ok json_array_push a json_number 7
+//:     let _v %JsonValue json_array a2
 //:     let checks checks_push checks_new assert true
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown

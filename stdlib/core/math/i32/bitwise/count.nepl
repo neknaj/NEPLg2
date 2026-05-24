@@ -13,7 +13,7 @@
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/math/i32/bitwise/count" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     assert_eq_i32 31 clz 1;
 //:     assert_eq_i32 3 ctz 8;
 //:     assert_eq_i32 4 popcnt 15;
@@ -34,7 +34,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn clz <(i32)->i32> (a):
+pub fn clz %fn i32 i32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -61,7 +61,7 @@ pub fn clz <(i32)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ctz <(i32)->i32> (a):
+pub fn ctz %fn i32 i32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -88,7 +88,7 @@ pub fn ctz <(i32)->i32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn popcnt <(i32)->i32> (a):
+pub fn popcnt %fn i32 i32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a

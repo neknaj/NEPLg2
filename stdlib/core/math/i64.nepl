@@ -14,12 +14,12 @@
 //:| #target core
 //:| #import "core/cast" as *
 //:| #import "core/math/i64" as *
-//: fn main <()->i32> ():
-//:     let a <i64> cast 40;
-//:     let b <i64> cast 2;
-//:     let c <i64> add a b;
-//:     let d <i64> and c <i64> cast 7;
-//:     if eq d <i64> cast 2 0 1
+//: fn main %fn () i32 \():
+//:     let a %i64 cast 40;
+//:     let b %i64 cast 2;
+//:     let c %i64 add a b;
+//:     let d %i64 and c %i64 cast 7;
+//:     if eq d %i64 cast 2 0 1
 //: ```
 
 #indent 4

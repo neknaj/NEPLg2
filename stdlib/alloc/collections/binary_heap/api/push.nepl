@@ -32,12 +32,12 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "core/option" as *
-//: fn main <()*>i32> ():
-//:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
-//:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp0 2;
-//:     let hp2 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp1 7;
-//:     let hp3 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp2 5;
-//:     let ok <bool> match peek<i32> &hp3:
+//: fn main %impure fn () i32 \():
+//:     let hp0 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+//:     let hp1 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp0 2;
+//:     let hp2 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp1 7;
+//:     let hp3 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp2 5;
+//:     let ok %bool match peek<i32> &hp3:
 //:         Option::Some v:
 //:             eq v 7
 //:         Option::None:
@@ -45,14 +45,14 @@
 //:     free<i32> hp3
 //:     if ok 1 0
 //: ```
-pub fn push <.T: Ord&Copy> <(BinaryHeap<.T>,.T)*>Result<BinaryHeap<.T>, BinaryHeapPushError<.T>>> (hp, item):
-    let len0 <i32> *field::get_ref &hp "len"
-    let cap0 <i32> *field::get_ref &hp "cap"
-    let items <Vec<Option<.T>>> field::get hp "items"
+pub fn push <.T: Ord&Copy> %impure fn BinaryHeap .T impure fn .T Result BinaryHeap .T BinaryHeapPushError .T \hp\item:
+    let len0 %i32 *field::get_ref &hp "len"
+    let cap0 %i32 *field::get_ref &hp "cap"
+    let items %Vec Option .T field::get hp "items"
     if:
         eq len0 cap0
         then:
-            let grown_cap <i32> mul cap0 2
+            let grown_cap %i32 mul cap0 2
             match heap_alloc_slots<.T> grown_cap:
                 Result::Err e:
                     Result::Err<BinaryHeap<.T>, BinaryHeapPushError<.T>> BinaryHeapPushError<.T> (BinaryHeap<.T> len0 cap0 items) e

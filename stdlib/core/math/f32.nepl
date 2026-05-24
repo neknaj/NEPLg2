@@ -13,9 +13,9 @@
 //:| #entry main
 //:| #target core
 //:| #import "core/math/f32" as *
-//: fn main <()->i32> ():
-//:     let a <f32> add 1.5 0.5;
-//:     let b <f32> mul a 3.0;
+//: fn main %fn () i32 \():
+//:     let a %f32 add 1.5 0.5;
+//:     let b %f32 mul a 3.0;
 //:     if eq b 6.0 0 1
 //: ```
 

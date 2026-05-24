@@ -29,23 +29,23 @@ stdout: "test_report name=\"counting_bloom_filter_pipe_usage\" count=3 failed=0\
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let bf0 <CountingBloomFilter<i32, DefaultHash32>>:
+fn main %impure fn () i32 \():
+    let bf0 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
         |> insert 3
         |> insert 8
         |> insert 21
         |> remove 8
-    let ok0 <bool> contains &bf0 3;
-    let size0 <i32> len &bf0;
+    let ok0 %bool contains &bf0 3;
+    let size0 %i32 len &bf0;
     free bf0
-    let bf1 <CountingBloomFilter<i32, DefaultHash32>>:
+    let bf1 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
         |> insert 3
         |> insert 8
         |> insert 21
         |> clear
-    let ok2 <bool> not contains &bf1 8;
+    let ok2 %bool not contains &bf1 8;
     free bf1
     let report:
         test_report_new "counting_bloom_filter_pipe_usage"
@@ -81,13 +81,13 @@ stdout: "test_report name=\"counting_bloom_filter_free_releases_owned_storage\" 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let bf0 <CountingBloomFilter<i32, DefaultHash32>>:
+fn main %impure fn () i32 \():
+    let bf0 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
         |> insert 8
         |> remove 8
     free bf0
-    let bf1 <CountingBloomFilter<i32, DefaultHash32>>:
+    let bf1 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
         |> insert 21
     free bf1
@@ -122,9 +122,9 @@ stdout: "test_report name=\"counting_bloom_filter_rejects_non_positive_length\" 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let result <Result<CountingBloomFilter<i32, DefaultHash32>, Diag>> new DefaultHash32 0
-    let ok <bool> match result:
+fn main %impure fn () i32 \():
+    let result %Result CountingBloomFilter i32 DefaultHash32 Diag new DefaultHash32 0
+    let ok %bool match result:
         Result::Ok bf:
             free bf
             false

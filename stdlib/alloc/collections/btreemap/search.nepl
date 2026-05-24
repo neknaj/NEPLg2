@@ -32,9 +32,9 @@
 //:| #target std
 //:| #import "alloc/collections/btreemap/search" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let same <bool> btreemap_key_eq<i32> 7 7
-//:     let diff <bool> btreemap_key_eq<i32> 7 9
+//: fn main %impure fn () i32 \():
+//:     let same %bool btreemap_key_eq<i32> 7 7
+//:     let diff %bool btreemap_key_eq<i32> 7 9
 //:     let report:
 //:         test_report_new "btreemap_key_eq_doc"
 //:         |> test_report_push assert_eq_i32 "same keys compare equal" 1 if same 1 0
@@ -42,14 +42,14 @@
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn btreemap_key_eq <.K: Ord&Copy> <(.K,.K)->bool> (a, b):
+pub fn btreemap_key_eq <.K: Ord&Copy> %fn .K fn .K bool \a\b:
     and not ord_lt a b not ord_lt b a
 
-pub fn btreemap_lower_bound <.K: Ord&Copy> <(&Vec<Option<.K>>,.K,i32,i32)->i32> (keys, key, low, high):
+pub fn btreemap_lower_bound <.K: Ord&Copy> %fn &Vec Option .K fn .K fn i32 fn i32 i32 \keys\key\low\high:
     if:
         lt low high
         then:
-            let mid <i32> div_s add low high 2
+            let mid %i32 div_s add low high 2
             match btreemap_key_at<.K> keys mid:
                 Option::Some saved:
                     if:
@@ -60,7 +60,7 @@ pub fn btreemap_lower_bound <.K: Ord&Copy> <(&Vec<Option<.K>>,.K,i32,i32)->i32> 
                     mid
         else low
 
-pub fn btreemap_is_at <.K: Ord&Copy> <(&Vec<Option<.K>>,i32,i32,.K)->bool> (keys, len0, idx, key):
+pub fn btreemap_is_at <.K: Ord&Copy> %fn &Vec Option .K fn i32 fn i32 fn .K bool \keys\len0\idx\key:
     if:
         lt idx len0
         then:
@@ -71,8 +71,8 @@ pub fn btreemap_is_at <.K: Ord&Copy> <(&Vec<Option<.K>>,i32,i32,.K)->bool> (keys
                     false
         else false
 
-pub fn btreemap_lower_bound_storage <.K: Ord&Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,.K,i32,i32)->i32> (storage, key, low, high):
+pub fn btreemap_lower_bound_storage <.K: Ord&Copy,.V: Copy> %fn &BTreeMapStorage .K .V fn .K fn i32 fn i32 i32 \storage\key\low\high:
     btreemap_lower_bound<.K> btreemap_storage_keys<.K,.V> storage key low high
 
-pub fn btreemap_is_at_storage <.K: Ord&Copy,.V: Copy> <(&BTreeMapStorage<.K,.V>,i32,i32,.K)->bool> (storage, len0, idx, key):
+pub fn btreemap_is_at_storage <.K: Ord&Copy,.V: Copy> %fn &BTreeMapStorage .K .V fn i32 fn i32 fn .K bool \storage\len0\idx\key:
     btreemap_is_at<.K> btreemap_storage_keys<.K,.V> storage len0 idx key

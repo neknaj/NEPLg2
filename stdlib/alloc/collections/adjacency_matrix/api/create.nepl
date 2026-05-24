@@ -28,9 +28,9 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let g <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 5;
-//:     let size <i32> len &g;
+//: fn main %impure fn () i32 \():
+//:     let g %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 5;
+//:     let size %i32 len &g;
 //:     free g
 //:     let report:
 //:         test_report_new "adjacency_matrix_new"
@@ -38,13 +38,13 @@
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn new <(i32)*>Result<AdjacencyMatrix, Diag>> (nverts):
+pub fn new %impure fn i32 Result AdjacencyMatrix Diag \nverts:
     if:
         le nverts 0
         then:
             diag_err<AdjacencyMatrix> adjacency_matrix_invalid_len_diag
         else:
-            let nbytes <i32> adjacency_matrix_byte_len nverts
+            let nbytes %i32 adjacency_matrix_byte_len nverts
             match adjacency_matrix_alloc_bits nbytes 0:
                 Result::Err d:
                     err<AdjacencyMatrix, Diag> d

@@ -163,6 +163,21 @@ impl<'a> BlockChecker<'a> {
         })
     }
 
+    pub(super) fn trait_bound_satisfied_by_impl_pattern(
+        &self,
+        bound: &TraitBound,
+        ty: TypeId,
+    ) -> bool {
+        let resolved = self.ctx.resolve_id(ty);
+        self.impls.iter().any(|imp| {
+            imp.matches_trait_application(
+                self.ctx,
+                &bound.application.trait_id,
+                &bound.application.args,
+            ) && self.ctx.type_pattern_matches(imp.target_ty, resolved)
+        })
+    }
+
     pub(super) fn resolve_self_type_param_for_trait_ref(
         &self,
         trait_id: &TraitId,

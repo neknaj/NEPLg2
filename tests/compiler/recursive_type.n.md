@@ -7,6 +7,6 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main <()->i32>():
+fn main %fn () i32():
     0
 ```

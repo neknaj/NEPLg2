@@ -16,19 +16,19 @@ stdout: "test_report name=\"cast_main\" count=11 failed=0\nassertion index=0 sta
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let bti_true_i32 <i32> <i32> cast true;
-    let bti_false_i32 <i32> <i32> cast false;
-    let inferred_true_i32 <i32> cast true;
-    let inferred_false_i32 <i32> cast false;
-    let i1_as_bool <bool> <bool> cast 1;
-    let i42_as_bool <bool> <bool> cast 42;
-    let i0_as_bool <bool> <bool> cast 0;
-    let cast_1_bool <bool> cast 1;
-    let cast_42_bool <bool> cast 42;
-    let cast_0_bool <bool> cast 0;
-    let b <u8> cast 222;
-    let b_i32 <i32> cast b;
+fn main %impure fn () i32 \():
+    let bti_true_i32 %i32 %i32 cast true;
+    let bti_false_i32 %i32 %i32 cast false;
+    let inferred_true_i32 %i32 cast true;
+    let inferred_false_i32 %i32 cast false;
+    let i1_as_bool %bool %bool cast 1;
+    let i42_as_bool %bool %bool cast 42;
+    let i0_as_bool %bool %bool cast 0;
+    let cast_1_bool %bool cast 1;
+    let cast_42_bool %bool cast 42;
+    let cast_0_bool %bool cast 0;
+    let b %u8 cast 222;
+    let b_i32 %i32 cast b;
     let report:
         test_report_new "cast_main"
         |> test_report_push assert_eq_i32 "bool true to i32" 1 bti_true_i32

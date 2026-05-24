@@ -15,27 +15,27 @@
 #import "alloc/collections/vec" as vec
 #import "core/field" as *
 
-pub fn bitset_byte_at <(&Vec<u8>,i32)->Option<i32>> (bits, byte_idx):
+pub fn bitset_byte_at %fn &Vec u8 fn i32 Option i32 \bits\byte_idx:
     match vec::get<u8> bits byte_idx:
         Option::Some byte:
-            let value <i32> cast byte
+            let value %i32 cast byte
             some<i32> value
         Option::None:
             none<i32>
 
-pub fn bitset_store_byte <(&Vec<u8>,i32,i32)*>()> (bits, byte_idx, byte_value):
-    let byte <u8> cast byte_value
+pub fn bitset_store_byte %impure fn &Vec u8 impure fn i32 impure fn i32 () \bits\byte_idx\byte_value:
+    let byte %u8 cast byte_value
     vec::replace<u8> bits byte_idx byte
 
-pub fn bitset_fill_bytes <(&Vec<u8>,i32,i32)*>()> (bits, nbytes, byte_value):
-    let mut i <i32> 0
+pub fn bitset_fill_bytes %impure fn &Vec u8 impure fn i32 impure fn i32 () \bits\nbytes\byte_value:
+    let mut i %i32 0
     while lt i nbytes:
         do:
             bitset_store_byte bits i byte_value
             set i add i 1
 
-pub fn bitset_alloc_bits <(i32,i32)*>Result<Vec<u8>, Diag>> (nbytes, byte_value):
-    let byte <u8> cast byte_value
+pub fn bitset_alloc_bits %impure fn i32 impure fn i32 Result Vec u8 Diag \nbytes\byte_value:
+    let byte %u8 cast byte_value
     match vec::filled<u8> nbytes byte:
         Result::Ok bits:
             ok<Vec<u8>, Diag> bits

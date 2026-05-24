@@ -27,21 +27,21 @@ stdout: "test_report name=\"disjoint_set_pipe_usage\" count=3 failed=0\nassertio
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let dsu0 <DisjointSet>:
+fn main %impure fn () i32 \():
+    let dsu0 %DisjointSet:
         unwrap_ok<DisjointSet, Diag> new 5
         |> union 0 1 |> uwok
         |> union 3 4 |> uwok
         |> union 1 4 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> same &dsu0 0 3;
-    let dsu_len <i32> len &dsu0;
+    let ok0 %bool unwrap_ok<bool, Diag> same &dsu0 0 3;
+    let dsu_len %i32 len &dsu0;
     free dsu0
-    let dsu1 <DisjointSet>:
+    let dsu1 %DisjointSet:
         unwrap_ok<DisjointSet, Diag> new 5
         |> union 0 1 |> uwok
         |> union 3 4 |> uwok
         |> union 1 4 |> uwok
-    let component_size <i32> unwrap_ok<i32, Diag> size &dsu1 4;
+    let component_size %i32 unwrap_ok<i32, Diag> size &dsu1 4;
     free dsu1
     let report:
         test_report_new "disjoint_set_pipe_usage"
@@ -76,17 +76,17 @@ stdout: "test_report name=\"disjoint_set_union_free_reallocates\" count=1 failed
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let dsu_free <DisjointSet>:
+fn main %impure fn () i32 \():
+    let dsu_free %DisjointSet:
         unwrap_ok<DisjointSet, Diag> new 4
         |> union 0 1 |> uwok
         |> union 2 3 |> uwok
         |> union 1 2 |> uwok
     free dsu_free
-    let dsu0 <DisjointSet>:
+    let dsu0 %DisjointSet:
         unwrap_ok<DisjointSet, Diag> new 4
         |> union 0 3 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> same &dsu0 0 3;
+    let ok0 %bool unwrap_ok<bool, Diag> same &dsu0 0 3;
     free dsu0
     let report:
         test_report_new "disjoint_set_union_free_reallocates"
@@ -121,34 +121,34 @@ stdout: "test_report name=\"disjoint_set_new_zero_is_empty\" count=4 failed=0\na
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let len_ok <bool> match new 0:
+fn main %impure fn () i32 \():
+    let len_ok %bool match new 0:
         Result::Err _e:
             false
         Result::Ok dsu:
-            let ok <bool> eq len &dsu 0
+            let ok %bool eq len &dsu 0
             free dsu
             ok
-    let find_err_ok <bool> match new 0:
+    let find_err_ok %bool match new 0:
         Result::Err _e:
             false
         Result::Ok dsu:
-            let ok <bool> match find &dsu 0:
+            let ok %bool match find &dsu 0:
                 Result::Ok _root:
                     false
                 Result::Err _e:
                     true
             free dsu
             ok
-    let free_ok <bool> block:
-        let empty <DisjointSet> unwrap_ok<DisjointSet, Diag> new 0
+    let free_ok %bool block:
+        let empty %DisjointSet unwrap_ok<DisjointSet, Diag> new 0
         free empty
         true
-    let realloc_ok <bool> match new 1:
+    let realloc_ok %bool match new 1:
         Result::Err _e:
             false
         Result::Ok dsu:
-            let ok <bool> match find &dsu 0:
+            let ok %bool match find &dsu 0:
                 Result::Ok root:
                     eq root 0
                 Result::Err _e:
@@ -190,15 +190,15 @@ stdout: "test_report name=\"disjoint_set_union_error_returns_owner\" count=1 fai
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let dsu <DisjointSet> unwrap_ok<DisjointSet, Diag> new 4;
+fn main %impure fn () i32 \():
+    let dsu %DisjointSet unwrap_ok<DisjointSet, Diag> new 4;
     match union dsu 1 9:
         Result::Ok next:
             free next
             0
         Result::Err e:
-            let recovered <DisjointSet> disjoint_set_update_error_owner e
-            let recovered_len <i32> len &recovered
+            let recovered %DisjointSet disjoint_set_update_error_owner e
+            let recovered_len %i32 len &recovered
             free recovered
             let report:
                 test_report_new "disjoint_set_union_error_returns_owner"
@@ -231,14 +231,14 @@ stdout: "test_report name=\"disjoint_set_negative_length_rejected\" count=1 fail
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let neg <i32> sub 0 1
+fn main %impure fn () i32 \():
+    let neg %i32 sub 0 1
     match new neg:
         Result::Ok dsu:
             free dsu
             0
         Result::Err d:
-            let name <str> diag_std_error_kind_str d
+            let name %str diag_std_error_kind_str d
             let report:
                 test_report_new "disjoint_set_negative_length_rejected"
                 |> test_report_push assert_str_eq "negative length error" "CapacityExceeded" name

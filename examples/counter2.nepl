@@ -25,8 +25,8 @@
 //:
 //: [目的/もくてき]:
 //: - 制御文字を含む標準出力の例を示します。
-fn main <()*>()> ():
-    let mut x <i32> 0;
+fn main %impure fn () () \():
+    let mut x %i32 0;
     while lt x 10:
         do:
             print "\r\x1b[2K";

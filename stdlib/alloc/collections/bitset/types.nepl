@@ -20,9 +20,9 @@
 //: ### [注意/ちゅうい]
 //: - `free` しないかぎり[内部/ないぶ] `Vec<u8>` の[所有権/しょゆうけん]を[保持/ほじ]します。
 pub struct BitSet:
-    nbits <i32>
-    nbytes <i32>
-    bits <Vec<u8>>
+    nbits %i32
+    nbytes %i32
+    bits %Vec u8
 
 //: ## BitSetUpdateError
 //: `insert` / `remove` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
@@ -35,13 +35,13 @@ pub struct BitSet:
 //: - `Result::Err` を[受/う]け[取/と]った caller は `bitset_update_error_owner` で owner を[回収/かいしゅう]し、[不要/ふよう]なら `free` します。
 //: - `diag` は `Diag` の Copy [値/あたい]で、`bitset_update_error_diag` から owner を[動/うご]かさず[確認/かくにん]できます。
 pub struct BitSetUpdateError:
-    owner <BitSet>
-    diag <Diag>
+    owner %BitSet
+    diag %Diag
 
 //: bitset_update_error_diag: update [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
-pub fn bitset_update_error_diag <(&BitSetUpdateError)->Diag> (e):
+pub fn bitset_update_error_diag %fn &BitSetUpdateError Diag \e:
     *field::get_ref e "diag"
 
 //: bitset_update_error_owner: update [失敗/しっぱい]で[戻/もど]された `BitSet` owner を[取/と]り[出/だ]す
-pub fn bitset_update_error_owner <(BitSetUpdateError)->BitSet> (e):
+pub fn bitset_update_error_owner %fn BitSetUpdateError BitSet \e:
     field::get e "owner"

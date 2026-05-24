@@ -35,16 +35,16 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let empty <Vec<i32>> unwrap_ok new<i32>
+//: fn main %impure fn () i32 \():
+//:     let empty %Vec i32 unwrap_ok new<i32>
 //:     let checks0 checks_push checks_new assert_eq_i32 0 len<i32> &empty
 //:     free empty;
-//:     let a2 <Vec<i32>>:
+//:     let a2 %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 10 |> uwok
 //:         |> push 20 |> uwok
 //:     let checks1 checks_push checks0 assert_eq_i32 2 len<i32> &a2
-//:     let b2 <Vec<i32>>:
+//:     let b2 %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 10 |> uwok
 //:         |> push 20 |> uwok
@@ -68,23 +68,23 @@
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let v2 <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let v2 %Vec i32:
 //:         unwrap_ok with_capacity<i32> 2
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let ok0 <i32>:
+//:     let ok0 %i32:
 //:         match get<i32> &v2 0:
 //:             Option::Some x:
 //:                 if ne x 1 then 1 else 0
 //:             Option::None:
 //:                 1
 //:     free<i32> v2;
-//:     let w2 <Vec<i32>>:
+//:     let w2 %Vec i32:
 //:         unwrap_ok with_capacity<i32> 2
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let ok1 <bool> is_none<i32> get<i32> &w2 3
+//:     let ok1 %bool is_none<i32> get<i32> &w2 3
 //:     free<i32> w2;
 //:     if and eq ok0 0 ok1 0 1
 //: ```
@@ -96,14 +96,14 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let cleared <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let cleared %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 11 |> uwok
 //:         |> push 22 |> uwok
 //:         |> clear<i32>
-//:     let observed_len <i32> len<i32> &cleared
-//:     let ok <bool> eq observed_len 0
+//:     let observed_len %i32 len<i32> &cleared
+//:     let ok %bool eq observed_len 0
 //:     free<i32> cleared;
 //:     if ok 0 1
 //: ```

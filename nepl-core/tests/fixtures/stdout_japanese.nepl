@@ -4,5 +4,5 @@
 
 #import "std/stdio" as *
 
-fn main <()*> ()> ():
+fn main %impure fn () () \():
     println "こんにちは世界!";

@@ -13,8 +13,8 @@ stdout: "1 2 +\n"
 #import "std/stdio" as *
 #import "core/result" as *
 
-fn main <()*>()> ():
-    let s <str> read_all;
+fn main %impure fn () () \():
+    let s %str read_all;
     print s;
     ()
 ```
@@ -30,8 +30,8 @@ stdout: "こんにちは\n"
 #target std
 #import "std/stdio" as *
 
-fn main <()*>()> ():
-    let s <str> read_all;
+fn main %impure fn () () \():
+    let s %str read_all;
     print s;
     ()
 ```
@@ -47,8 +47,8 @@ stdout: "1 2 +"
 #target std
 #import "std/stdio" as *
 
-fn main <()*>()> ():
-    let s <str> read_line;
+fn main %impure fn () () \():
+    let s %str read_line;
     print s;
     ()
 ```
@@ -64,8 +64,8 @@ stdout: "こんにちは"
 #target std
 #import "std/stdio" as *
 
-fn main <()*>()> ():
-    let s <str> read_line;
+fn main %impure fn () () \():
+    let s %str read_line;
     print s;
     ()
 ```
@@ -85,10 +85,10 @@ stdout: "1\n3\n"
 #import "std/stdio" as *
 #import "core/result" as *
 
-fn main <()*> ()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <i32> read &sc;
-    let b <i32> read &sc;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let a %i32 read &sc;
+    let b %i32 read &sc;
     close sc;
     println_i32 a;
     println_i32 b;

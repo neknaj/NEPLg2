@@ -28,12 +28,12 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n^2)
-pub fn sort_bubble <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
+pub fn sort_bubble <.T: Ord&Copy> %impure fn &Vec .T () \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
             ()
         VecCopyInvariant::Valid:
-            let n <i32> len<.T> v
+            let n %i32 len<.T> v
             if:
                 le n 1
                 then ()
@@ -44,15 +44,15 @@ pub fn sort_bubble <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                         VecDataView::Invalid _reason:
                             ()
                         VecDataView::Data data:
-                            let mut end <i32> sub n 1;
+                            let mut end %i32 sub n 1;
                             while lt 0 end:
                                 do:
-                                    let mut i <i32> 0;
+                                    let mut i %i32 0;
                                     while lt i end:
                                         do:
-                                            let next_i <i32> add i 1
-                                            let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                                            let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
+                                            let next_i %i32 add i 1
+                                            let a %.T load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                                            let b %.T load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
                                             if:
                                                 sort_lt<.T> b a
                                                 then:
@@ -77,12 +77,12 @@ pub fn sort_bubble <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 / 最悪 O(n^2)
-pub fn sort_cocktail <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
+pub fn sort_cocktail <.T: Ord&Copy> %impure fn &Vec .T () \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
             ()
         VecCopyInvariant::Valid:
-            let n <i32> len<.T> v
+            let n %i32 len<.T> v
             if:
                 le n 1
                 then ()
@@ -93,20 +93,20 @@ pub fn sort_cocktail <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                         VecDataView::Invalid _reason:
                             ()
                         VecDataView::Data data:
-                            let mut start <i32> 0;
-                            let mut end <i32> sub n 1;
-                            let mut swapped <i32> 1;
+                            let mut start %i32 0;
+                            let mut end %i32 sub n 1;
+                            let mut swapped %i32 1;
 
                             while and eq swapped 1 lt start end:
                                 do:
                                     set swapped 0;
 
-                                    let mut i <i32> start;
+                                    let mut i %i32 start;
                                     while lt i end:
                                         do:
-                                            let next_i <i32> add i 1
-                                            let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                                            let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
+                                            let next_i %i32 add i 1
+                                            let a %.T load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                                            let b %.T load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
                                             if:
                                                 sort_lt<.T> b a
                                                 then:
@@ -125,12 +125,12 @@ pub fn sort_cocktail <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                                         else:
                                             set swapped 0;
 
-                                    let mut j <i32> end;
+                                    let mut j %i32 end;
                                     while lt start j:
                                         do:
-                                            let prev_j <i32> sub j 1
-                                            let a <.T> load<.T> add mem_ptr_addr data mul prev_j size_of<.T>;
-                                            let b <.T> load<.T> add mem_ptr_addr data mul j size_of<.T>;
+                                            let prev_j %i32 sub j 1
+                                            let a %.T load<.T> add mem_ptr_addr data mul prev_j size_of<.T>;
+                                            let b %.T load<.T> add mem_ptr_addr data mul j size_of<.T>;
                                             if:
                                                 sort_lt<.T> b a
                                                 then:

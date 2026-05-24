@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/math/convert/float/int_to_float" as *
 //:| #import "core/math/convert/float/float_to_i32" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     trunc_s_f64_to_i32 convert_s_i32_to_f64 7
 //: ```
 
@@ -32,7 +32,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn convert_s_i32_to_f32 <(i32)->f32> (a):
+pub fn convert_s_i32_to_f32 %fn i32 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -58,7 +58,7 @@ pub fn convert_s_i32_to_f32 <(i32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn convert_u_i32_to_f32 <(i32)->f32> (a):
+pub fn convert_u_i32_to_f32 %fn i32 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -84,7 +84,7 @@ pub fn convert_u_i32_to_f32 <(i32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn convert_s_i64_to_f32 <(i64)->f32> (a):
+pub fn convert_s_i64_to_f32 %fn i64 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -110,7 +110,7 @@ pub fn convert_s_i64_to_f32 <(i64)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn convert_u_i64_to_f32 <(i64)->f32> (a):
+pub fn convert_u_i64_to_f32 %fn i64 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -123,7 +123,7 @@ pub fn convert_u_i64_to_f32 <(i64)->f32> (a):
             ret float %0
         }
 
-//: <f64> cast: i32(符号付き) を f64 へ変換
+//: %f64 cast: i32(符号付き) を f64 へ変換
 //:
 //: [目的/もくてき]:
 //: - 符号付き i32 を f64 に変換します。
@@ -136,7 +136,7 @@ pub fn convert_u_i64_to_f32 <(i64)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn convert_s_i32_to_f64 <(i32)->f64> (a):
+pub fn convert_s_i32_to_f64 %fn i32 f64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -162,7 +162,7 @@ pub fn convert_s_i32_to_f64 <(i32)->f64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn convert_u_i32_to_f64 <(i32)->f64> (a):
+pub fn convert_u_i32_to_f64 %fn i32 f64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -188,7 +188,7 @@ pub fn convert_u_i32_to_f64 <(i32)->f64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn convert_s_i64_to_f64 <(i64)->f64> (a):
+pub fn convert_s_i64_to_f64 %fn i64 f64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -214,7 +214,7 @@ pub fn convert_s_i64_to_f64 <(i64)->f64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn convert_u_i64_to_f64 <(i64)->f64> (a):
+pub fn convert_u_i64_to_f64 %fn i64 f64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a

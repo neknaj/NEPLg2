@@ -24,7 +24,7 @@
 //: [注意/ちゅうい]:
 //: - [機械/きかい]向け[保存/ほぞん]や[通信/つうしん]の[形式/けいしき]は `Serialize` で[扱/あつか]う[予定/よてい]です。
 trait Stringify:
-    fn stringify <(Self)->str> (x):
+    fn stringify %fn Self str \x:
         ""
 
 //: stringify: trait を[通/とお]して[文字列表現/もじれつひょうげん]を[得/え]る
@@ -40,9 +40,9 @@ trait Stringify:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/stringify" as *
-//:| fn main <()*>i32> ():
-//:     let text_i32 <str> stringify 42
-//:     let text_bool <str> stringify true
+//:| fn main %impure fn () i32 \():
+//:     let text_i32 %str stringify 42
+//:     let text_bool %str stringify true
 //:     let report:
 //:         test_report_new "stringify_doc"
 //:         |> test_report_push assert_str_eq "stringify i32" "42" text_i32
@@ -59,37 +59,37 @@ trait Stringify:
 //:
 //: [計算量/けいさんりょう]:
 //: - impl に[依存/いぞん]します。
-pub fn stringify <.T: Stringify> <(.T)->str> (x):
+pub fn stringify <.T: Stringify> %fn .T str \x:
     Stringify::stringify x
 
 impl Stringify for str:
-    fn stringify <(str)->str> (x):
+    fn stringify %fn str str \x:
         x
 
 impl Stringify for bool:
-    fn stringify <(bool)->str> (x):
+    fn stringify %fn bool str \x:
         from_bool x
 
 impl Stringify for i32:
-    fn stringify <(i32)->str> (x):
+    fn stringify %fn i32 str \x:
         from_i32 x
 
 impl Stringify for i64:
-    fn stringify <(i64)->str> (x):
+    fn stringify %fn i64 str \x:
         from_i64 x
 
 impl Stringify for i128:
-    fn stringify <(i128)->str> (x):
+    fn stringify %fn i128 str \x:
         from_i128 x
 
 impl Stringify for u8:
-    fn stringify <(u8)->str> (x):
+    fn stringify %fn u8 str \x:
         from_i32 cast x
 
 impl Stringify for f32:
-    fn stringify <(f32)->str> (x):
+    fn stringify %fn f32 str \x:
         from_f32 x
 
 impl Stringify for f64:
-    fn stringify <(f64)->str> (x):
+    fn stringify %fn f64 str \x:
         from_f64 x

@@ -10,13 +10,13 @@ diag_code: type.enum.type_param_bounds_unsupported
 #target core
 
 trait Marker:
-    fn mark <(Self)->i32> (_self):
+    fn mark %fn Self i32 \_self:
         0
 
 enum Box<.T: Marker>:
-    Item <.T>
+    Item %.T
 
-fn main <()->()> ():
+fn main %fn () () \():
     ()
 ```
 
@@ -30,13 +30,13 @@ diag_code: type.struct.type_param_bounds_unsupported
 #target core
 
 trait Marker:
-    fn mark <(Self)->i32> (_self):
+    fn mark %fn Self i32 \_self:
         0
 
 struct Box<.T: Marker>:
-    value <.T>
+    value %.T
 
-fn main <()->()> ():
+fn main %fn () () \():
     ()
 ```
 
@@ -55,7 +55,7 @@ enum Foo:
 enum Foo:
     B
 
-fn main <()->()> ():
+fn main %fn () () \():
     ()
 ```
 
@@ -69,11 +69,11 @@ diag_code: resolve.item.name_conflict
 #target core
 
 struct Foo:
-    value <i32>
+    value %i32
 
 struct Foo:
-    other <i32>
+    other %i32
 
-fn main <()->()> ():
+fn main %fn () () \():
     ()
 ```

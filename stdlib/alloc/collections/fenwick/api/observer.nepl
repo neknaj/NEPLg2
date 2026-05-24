@@ -12,5 +12,5 @@
 
 //: ## len
 //: [保持/ほじ]している[長/なが]さを[返/かえ]す
-pub fn len <(&Fenwick)->i32> (fw):
+pub fn len %fn &Fenwick i32 \fw:
     *field::get_ref fw "n"

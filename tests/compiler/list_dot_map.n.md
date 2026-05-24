@@ -13,13 +13,13 @@ stdout: "test_report name=\"namespace_pathsep_map_with_result\" count=1 failed=0
 #import "core/math" as *
 #import "std/test" as *
 
-fn inc <(i32)->i32> (x):
+fn inc %fn i32 i32 \x:
     add x 1
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let r result::ok<i32, i32> 1;
     let mapped result::map r inc;
-    let actual <i32> result::unwrap_ok mapped
+    let actual %i32 result::unwrap_ok mapped
     let report:
         test_report_new "namespace_pathsep_map_with_result"
         |> test_report_push assert_eq_i32 "result namespace map" 2 actual
@@ -43,14 +43,14 @@ stdout: "test_report name=\"list_namespace_map_with_list\" count=1 failed=0\nass
 #import "core/field" as *
 #import "std/test" as *
 
-fn inc <(i32)->i32> (x):
+fn inc %fn i32 i32 \x:
     add x 1
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let xs0 result::unwrap_ok list::new<i32>;
     let xs result::unwrap_ok list::push<i32> xs0 30;
     let ys result::unwrap_ok list::map<i32, i32> xs inc;
-    let actual <i32> option::unwrap list::get<i32> &ys 0
+    let actual %i32 option::unwrap list::get<i32> &ys 0
     list::free<i32> ys;
     let report:
         test_report_new "list_namespace_map_with_list"
@@ -72,13 +72,13 @@ stdout: "test_report name=\"result_map_with_star_alias_works\" count=1 failed=0\
 #import "core/math" as *
 #import "std/test" as *
 
-fn inc <(i32)->i32> (x):
+fn inc %fn i32 i32 \x:
     add x 1
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let r ok<i32, i32> 1;
     let mapped map<i32, i32, i32> r inc;
-    let actual <i32> unwrap_ok mapped
+    let actual %i32 unwrap_ok mapped
     let report:
         test_report_new "result_map_with_star_alias_works"
         |> test_report_push assert_eq_i32 "result star alias map" 2 actual
@@ -102,15 +102,15 @@ stdout: "test_report name=\"vec_map_with_star_alias_works\" count=1 failed=0\nas
 #import "core/field" as *
 #import "std/test" as *
 
-fn inc <(i32)->i32> (x):
+fn inc %fn i32 i32 \x:
     add x 1
 
-fn main <()*>i32> ():
-    let xs0 <Vec<i32>> unwrap_ok new<i32>;
-    let xs1 <Vec<i32>> unwrap_ok push<i32> xs0 1;
-    let xs2 <Vec<i32>> unwrap_ok push<i32> xs1 2;
-    let ys <Vec<i32>> unwrap_ok map<i32, i32> xs2 inc;
-    let out <i32> unwrap get<i32> &ys 1;
+fn main %impure fn () i32 \():
+    let xs0 %Vec i32 unwrap_ok new<i32>;
+    let xs1 %Vec i32 unwrap_ok push<i32> xs0 1;
+    let xs2 %Vec i32 unwrap_ok push<i32> xs1 2;
+    let ys %Vec i32 unwrap_ok map<i32, i32> xs2 inc;
+    let out %i32 unwrap get<i32> &ys 1;
     free<i32> ys;
     let report:
         test_report_new "vec_map_with_star_alias_works"

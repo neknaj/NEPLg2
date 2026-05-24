@@ -7,7 +7,7 @@
 #import "core/math" as *
 #import "core/option" as *
 
-pub fn lex_byte_or_end <(str,i32)->i32> (source, idx):
+pub fn lex_byte_or_end %fn str fn i32 i32 \source\idx:
     match string_byte_index::checked_string_byte_at source idx:
         Option::Some b:
             b
@@ -15,31 +15,31 @@ pub fn lex_byte_or_end <(str,i32)->i32> (source, idx):
             -1
 
 
-pub fn lex_is_digit <(i32)->bool> (ch):
+pub fn lex_is_digit %fn i32 bool \ch:
     and ge ch '0' le ch '9'
 
 //: lex_is_alpha: ASCII alphabet か[返/かえ]す
-pub fn lex_is_alpha <(i32)->bool> (ch):
-    let upper <bool> and ge ch 'A' le ch 'Z'
-    let lower <bool> and ge ch 'a' le ch 'z'
+pub fn lex_is_alpha %fn i32 bool \ch:
+    let upper %bool and ge ch 'A' le ch 'Z'
+    let lower %bool and ge ch 'a' le ch 'z'
     or upper lower
 
 //: lex_is_ident_start: identifier [先頭/せんとう] byte か[返/かえ]す
-pub fn lex_is_ident_start <(i32)->bool> (ch):
+pub fn lex_is_ident_start %fn i32 bool \ch:
     or lex_is_alpha ch eq ch '_'
 
 //: lex_is_ident_continue: identifier [継続/けいぞく] byte か[返/かえ]す
-pub fn lex_is_ident_continue <(i32)->bool> (ch):
+pub fn lex_is_ident_continue %fn i32 bool \ch:
     or lex_is_ident_start ch lex_is_digit ch
 
 //: lex_skip_line_comment: comment の[終/お]わり、または EOF offset を[返/かえ]す
-pub fn lex_skip_line_comment <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_skip_line_comment %fn str fn i32 fn i32 i32 \source\n\idx:
     if:
         ge idx n
         then:
             idx
         else:
-            let ch <i32> lex_byte_or_end source idx
+            let ch %i32 lex_byte_or_end source idx
             match ch:
                 '\n':
                     idx
@@ -47,15 +47,15 @@ pub fn lex_skip_line_comment <(str,i32,i32)->i32> (source, n, idx):
                     lex_skip_line_comment source n add idx 1
 
 //: lex_is_doc_comment_at: doc comment prefix が指定 offset にあるか[返/かえ]す
-pub fn lex_is_doc_comment_at <(str,i32,i32)->bool> (source, n, idx):
+pub fn lex_is_doc_comment_at %fn str fn i32 fn i32 bool \source\n\idx:
     if:
         lt n add idx 3
         then:
             false
         else:
-            let c0 <i32> lex_byte_or_end source idx
-            let c1 <i32> lex_byte_or_end source add idx 1
-            let c2 <i32> lex_byte_or_end source add idx 2
+            let c0 %i32 lex_byte_or_end source idx
+            let c1 %i32 lex_byte_or_end source add idx 1
+            let c2 %i32 lex_byte_or_end source add idx 2
             if:
                 and eq c0 '/' and eq c1 '/' eq c2 ':'
                 then:
@@ -78,13 +78,13 @@ pub fn lex_is_doc_comment_at <(str,i32,i32)->bool> (source, n, idx):
 //: [注意/ちゅうい]:
 //: - newline は token として[残/のこ]すため、ここでは[飛/と]ばしません。
 //: - doc comment は token として[残/のこ]すため、通常 comment とは分けます。
-pub fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_skip_trivia %fn str fn i32 fn i32 i32 \source\n\idx:
     if:
         ge idx n
         then:
             idx
         else:
-            let ch <i32> lex_byte_or_end source idx
+            let ch %i32 lex_byte_or_end source idx
             match ch:
                 '\t':
                     lex_skip_trivia source n add idx 1
@@ -96,7 +96,7 @@ pub fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
                     if:
                         lt add idx 1 n
                         then:
-                            let next <i32> lex_byte_or_end source add idx 1
+                            let next %i32 lex_byte_or_end source add idx 1
                             if:
                                 eq next '/'
                                 then:
@@ -114,13 +114,13 @@ pub fn lex_skip_trivia <(str,i32,i32)->i32> (source, n, idx):
                     idx
 
 //: lex_ident_end: identifier の end offset を[返/かえ]す
-pub fn lex_ident_end <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_ident_end %fn str fn i32 fn i32 i32 \source\n\idx:
     if:
         ge idx n
         then:
             idx
         else:
-            let ch <i32> lex_byte_or_end source idx
+            let ch %i32 lex_byte_or_end source idx
             if:
                 lex_is_ident_continue ch
                 then:

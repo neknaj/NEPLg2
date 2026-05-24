@@ -21,21 +21,21 @@
 //: - digest state ではなく入力 buffer です。これは現在の stdlib に mutable byte buffer がないための所有権上の設計です。
 //: - `sha256_finalize` 後に state は[再利用/さいりよう]できません。
 pub struct Sha256:
-    buffer <Vec<i32>>
+    buffer %Vec i32
 
 //: Sha256UpdateError: `sha256_update` 失敗時に state owner と error kind を返す payload
 //:
 //: [目的/もくてき]:
 //: - byte 追加に失敗しても `Sha256` owner の行方を型に表し、caller が cleanup や再試行を選べるようにします。
 pub struct Sha256UpdateError:
-    ctx <Sha256>
-    error <StdErrorKind>
+    ctx %Sha256
+    error %StdErrorKind
 
 //: sha256_update_error_kind: update [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む
 //:
 //: [目的/もくてき]:
 //: - `Sha256UpdateError` は `Sha256` owner を[含/ふく]む owner-backed aggregate なので、caller が field を直接読むのではなく、この accessor から Copy な error kind だけを[確認/かくにん]します。
-pub fn sha256_update_error_kind <(&Sha256UpdateError)->StdErrorKind> (e):
+pub fn sha256_update_error_kind %fn &Sha256UpdateError StdErrorKind \e:
     *field::get_ref e "error"
 
 //: sha256_update_error_ctx: update [失敗/しっぱい]で[戻/もど]された `Sha256` owner を[取/と]り[出/だ]す
@@ -45,7 +45,7 @@ pub fn sha256_update_error_kind <(&Sha256UpdateError)->StdErrorKind> (e):
 //:
 //: [注意/ちゅうい]:
 //: - この関数は `Sha256UpdateError` を消費します。error kind も必要な場合は、先に `sha256_update_error_kind &e` で読んでから owner を取り出します。
-pub fn sha256_update_error_ctx <(Sha256UpdateError)->Sha256> (e):
+pub fn sha256_update_error_ctx %fn Sha256UpdateError Sha256 \e:
     field::get e "ctx"
 
 //: Sha256State: SHA-256 compression の 8 word state
@@ -56,26 +56,26 @@ pub fn sha256_update_error_ctx <(Sha256UpdateError)->Sha256> (e):
 //: [注意/ちゅうい]:
 //: - すべて `i32` の word なので `Copy` として[扱/あつか]えます。
 pub struct Sha256State:
-    h0 <i32>
-    h1 <i32>
-    h2 <i32>
-    h3 <i32>
-    h4 <i32>
-    h5 <i32>
-    h6 <i32>
-    h7 <i32>
+    h0 %i32
+    h1 %i32
+    h2 %i32
+    h3 %i32
+    h4 %i32
+    h5 %i32
+    h6 %i32
+    h7 %i32
 
 impl Clone for Sha256State:
-    fn clone <(&Sha256State)->Sha256State> (self):
+    fn clone %fn &Sha256State Sha256State \self:
         *self
 
 impl Copy for Sha256State:
-    fn copy_mark <(Sha256State)->Sha256State> (self):
+    fn copy_mark %fn Sha256State Sha256State \self:
         self
 
 //: sha256_initial_state: SHA-256 の[初期/しょき] hash value を[返/かえ]す
 //:
 //: [実装/じっそう]:
 //: - SHA-256 [仕様/しよう]で[定/さだ]められた 8 word の IV を signed i32 literal として[保持/ほじ]します。
-pub fn sha256_initial_state <()->Sha256State> ():
+pub fn sha256_initial_state %fn () Sha256State \():
     Sha256State 1779033703 -1150833019 1013904242 -1521486534 1359893119 -1694144372 528734635 1541459225

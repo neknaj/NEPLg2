@@ -29,19 +29,19 @@ stdout: "test_report name=\"sparse_set_pipe_usage\" count=5 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let s0 <SparseSet>:
+fn main %impure fn () i32 \():
+    let s0 %SparseSet:
         unwrap_ok<SparseSet, Diag> new 12
         |> insert 1 |> uwok
         |> insert 5 |> uwok
         |> insert 9 |> uwok
         |> remove 5 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> contains &s0 9;
-    let ok1 <bool> not unwrap_ok<bool, Diag> contains &s0 5;
-    let size <i32> len &s0;
-    let universe <i32> universe_len &s0;
-    let s1 <SparseSet> clear s0;
-    let cleared_size <i32> len &s1;
+    let ok0 %bool unwrap_ok<bool, Diag> contains &s0 9;
+    let ok1 %bool not unwrap_ok<bool, Diag> contains &s0 5;
+    let size %i32 len &s0;
+    let universe %i32 universe_len &s0;
+    let s1 %SparseSet clear s0;
+    let cleared_size %i32 len &s1;
     free s1
     let report:
         test_report_new "sparse_set_pipe_usage"
@@ -79,8 +79,8 @@ stdout: "test_report name=\"sparse_set_clear_free_reallocates\" count=1 failed=0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let s_free <SparseSet>:
+fn main %impure fn () i32 \():
+    let s_free %SparseSet:
         unwrap_ok<SparseSet, Diag> new 12
         |> insert 1 |> uwok
         |> insert 5 |> uwok
@@ -88,10 +88,10 @@ fn main <()*>i32> ():
         |> remove 5 |> uwok
         |> clear
     free s_free
-    let s0 <SparseSet>:
+    let s0 %SparseSet:
         unwrap_ok<SparseSet, Diag> new 12
         |> insert 7 |> uwok
-    let ok0 <bool> unwrap_ok<bool, Diag> contains &s0 7;
+    let ok0 %bool unwrap_ok<bool, Diag> contains &s0 7;
     free s0
     let report:
         test_report_new "sparse_set_clear_free_reallocates"
@@ -126,40 +126,40 @@ stdout: "test_report name=\"sparse_set_new_zero_is_empty\" count=4 failed=0\nass
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let len_ok <bool> match new 0:
+fn main %impure fn () i32 \():
+    let len_ok %bool match new 0:
         Result::Err _e:
             false
         Result::Ok s:
-            let ok <bool> eq universe_len &s 0;
+            let ok %bool eq universe_len &s 0;
             free s
             ok
-    let contains_err_ok <bool> match new 0:
+    let contains_err_ok %bool match new 0:
         Result::Err _e:
             false
         Result::Ok s:
-            let r <Result<bool, Diag>> contains &s 0;
+            let r %Result bool Diag contains &s 0;
             free s
             match r:
                 Result::Ok _v:
                     false
                 Result::Err _e:
                     true
-    let free_ok <bool> block:
-        let empty <SparseSet> unwrap_ok<SparseSet, Diag> new 0
+    let free_ok %bool block:
+        let empty %SparseSet unwrap_ok<SparseSet, Diag> new 0
         free empty
         true
-    let realloc_ok <bool> match new 2:
+    let realloc_ok %bool match new 2:
         Result::Err _e:
             false
         Result::Ok s0:
             match insert s0 1:
                 Result::Err e:
-                    let recovered <SparseSet> sparse_set_update_error_owner e
+                    let recovered %SparseSet sparse_set_update_error_owner e
                     free recovered
                     false
                 Result::Ok s1:
-                    let r <Result<bool, Diag>> contains &s1 1;
+                    let r %Result bool Diag contains &s1 1;
                     free s1
                     match r:
                         Result::Ok v:

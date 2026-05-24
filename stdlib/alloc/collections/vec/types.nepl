@@ -32,8 +32,8 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
-//: fn main <()*>i32> ():
-//:     let storage <VecStorage<i32>> VecStorage::Empty;
+//: fn main %impure fn () i32 \():
+//:     let storage %VecStorage i32 VecStorage::Empty;
 //:     match storage:
 //:         VecStorage::Empty:
 //:             0
@@ -42,7 +42,7 @@
 //: ```
 pub enum VecStorage<.T>:
     Empty
-    Owned <RegionToken<.T>>
+    Owned %RegionToken .T
 
 //: ## OwnedBuffer
 //: `Vec` の backing storage owner と initialized prefix metadata
@@ -68,15 +68,15 @@ pub enum VecStorage<.T>:
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
-//: fn main <()*>i32> ():
-//:     let _buffer <OwnedBuffer<i32>> OwnedBuffer<i32> 0 0 0 VecStorage::Empty;
+//: fn main %impure fn () i32 \():
+//:     let _buffer %OwnedBuffer i32 OwnedBuffer<i32> 0 0 0 VecStorage::Empty;
 //:     0
 //: ```
 pub struct OwnedBuffer<.T>:
-    len <i32>
-    initialized_len <i32>
-    cap <i32>
-    storage <VecStorage<.T>>
+    len %i32
+    initialized_len %i32
+    cap %i32
+    storage %VecStorage .T
 
 //: ## Vec
 //: [可変長/かへんちょう][配列/はいれつ]の[本体/ほんたい]
@@ -104,15 +104,15 @@ pub struct OwnedBuffer<.T>:
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>> unwrap_ok new<i32>;
-//:     let moved <Vec<i32>> v;
+//: fn main %impure fn () i32 \():
+//:     let v %Vec i32 unwrap_ok new<i32>;
+//:     let moved %Vec i32 v;
 //:     free<i32> v;
 //:     free<i32> moved;
 //:     0
 //: ```
 pub struct Vec<.T>:
-    buffer <OwnedBuffer<.T>>
+    buffer %OwnedBuffer .T
 
 //: ## VecPushRejected
 //: `push` [失敗/しっぱい]で[挿入/そうにゅう]されなかった owner をまとめて[返/かえ]す payload
@@ -122,8 +122,8 @@ pub struct Vec<.T>:
 //: - non-Copy payload では、`Vec` だけを[取/と]り[出/だ]す accessor が `item` owner を[見/み]えないまま[捨/す]てる形になるため、失敗時 owner recovery はこの payload を[単位/たんい]にします。
 //: - `Vec` owner と `item` owner を名前付き field に[分/わ]け、匿名 tuple や index field ではなく field 名で Resource IR に渡します。
 pub struct VecPushRejected<.T>:
-    vec <Vec<.T>>
-    item <.T>
+    vec %Vec .T
+    item %.T
 
 //: ## VecPushError
 //: `push` の[失敗/しっぱい]時に rejected owner payload と error kind を[返/かえ]す error payload
@@ -133,8 +133,8 @@ pub struct VecPushRejected<.T>:
 //: - `push` は `.T: Copy` と `.T: Drop` の overload を持ちます。失敗時 owner の[行方/ゆくえ]が API 型に[現/あらわ]れるよう、`Vec` と rejected item を同じ payload に[保持/ほじ]します。
 //: - [診断/しんだん]用の error kind は Copy な `StdErrorKind` として[分離/ぶんり]し、owner [回収/かいしゅう]と error [確認/かくにん]を別操作にします。
 pub struct VecPushError<.T>:
-    rejected <VecPushRejected<.T>>
-    error <StdErrorKind>
+    rejected %VecPushRejected .T
+    error %StdErrorKind
 
 //: ## VecReplaceRejected
 //: `replace_drop_old` [失敗/しっぱい]で[置換/ちかん]されなかった owner をまとめて[返/かえ]す payload
@@ -143,8 +143,8 @@ pub struct VecPushError<.T>:
 //: - [範囲外/はんいがい]、metadata invariant failure、storage state mismatch のいずれでも、消費した `Vec<.T>` owner とまだ slot に入っていない `item` owner を同じ値で[返/かえ]します。
 //: - non-Copy payload では `item` owner の[行方/ゆくえ]が API 型から[消/き]えると memory safety を型で追えなくなるため、失敗時 recovery はこの payload を[単位/たんい]にします。
 pub struct VecReplaceRejected<.T>:
-    vec <Vec<.T>>
-    item <.T>
+    vec %Vec .T
+    item %.T
 
 //: ## VecReplaceError
 //: `replace_drop_old` の[失敗/しっぱい]時に owner recovery payload と error kind を[返/かえ]す
@@ -154,8 +154,8 @@ pub struct VecReplaceRejected<.T>:
 //: - old slot を drop して new item を store する[成功/せいこう] path と、何も置換しない[失敗/しっぱい] path を型で[分/わ]けます。
 //: - error kind は Copy な `StdErrorKind` とし、owner recovery と診断分類を[分離/ぶんり]します。
 pub struct VecReplaceError<.T>:
-    rejected <VecReplaceRejected<.T>>
-    error <StdErrorKind>
+    rejected %VecReplaceRejected .T
+    error %StdErrorKind
 
 //: ## VecTransformError
 //: `Vec` の owner-consuming transform が[失敗/しっぱい]したときに、入力 owner を[返/かえ]す error payload
@@ -165,12 +165,12 @@ pub struct VecReplaceError<.T>:
 //: - [途中/とちゅう]の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]でも、入力 `Vec<.T>` owner を `Err` payload に[戻/もど]し、caller が cleanup、再試行、診断を[選/えら]べるようにします。
 //: - `StdErrorKind` だけを[返/かえ]して内部で入力を[破棄/はき]すると、owner の[行方/ゆくえ]が API 型に[現/あらわ]れないため、この型で明示します。
 pub struct VecTransformError<.T>:
-    vec <Vec<.T>>
-    error <StdErrorKind>
+    vec %Vec .T
+    error %StdErrorKind
 
 //: ## vec_transform_error_kind
 //: transform [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む
-pub fn vec_transform_error_kind <.T> <(&VecTransformError<.T>)->StdErrorKind> (e):
+pub fn vec_transform_error_kind <.T> %fn &VecTransformError .T StdErrorKind \e:
     *field::get_ref e "error"
 
 //: ## vec_transform_error_with
@@ -188,25 +188,25 @@ pub fn vec_transform_error_kind <.T> <(&VecTransformError<.T>)->StdErrorKind> (e
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn inc <(i32)->i32> (x):
+//: fn inc %fn i32 i32 \x:
 //:     add x 1
-//: fn recover_transform <(Vec<i32>,StdErrorKind)*>i32> (returned, _error):
+//: fn recover_transform %impure fn Vec i32 impure fn StdErrorKind i32 \returned\_error:
 //:     free<i32> returned
 //:     1
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok new<i32>
-//:     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push<i32> v0 1
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec i32 unwrap_ok new<i32>
+//:     let v1 %Vec i32 unwrap_ok<Vec<i32>, VecPushError<i32>> push<i32> v0 1
 //:     match map<i32,i32> v1 @inc:
 //:         Result::Ok out:
-//:             let ok <bool> eq len<i32> &out 1
+//:             let ok %bool eq len<i32> &out 1
 //:             free<i32> out
 //:             if ok 0 1
 //:         Result::Err e:
 //:             vec_transform_error_with<i32,i32> e @recover_transform
 //: ```
-pub fn vec_transform_error_with <.T,.R> <(VecTransformError<.T>,(Vec<.T>,StdErrorKind)*>.R)*>.R> (e, callback):
-    let vec <Vec<.T>> field::get e "vec"
-    let error <StdErrorKind> field::get e "error"
+pub fn vec_transform_error_with <.T,.R> %impure fn VecTransformError .T impure fn impure fn Vec .T impure fn StdErrorKind .R .R \e\callback:
+    let vec %Vec .T field::get e "vec"
+    let error %StdErrorKind field::get e "error"
     callback vec error
 
 //: ## vec_transform_error_vec
@@ -215,7 +215,7 @@ pub fn vec_transform_error_with <.T,.R> <(VecTransformError<.T>,(Vec<.T>,StdErro
 //: ### [注意/ちゅうい]
 //: - 現行 transform family は `.T: Copy` 専用です。non-Copy payload の入力 owner は、owner と error kind を同時に[渡/わた]す `vec_transform_error_with<T, R>` から[回収/かいしゅう]します。
 //: - この accessor は error kind を返さず入力 `Vec` owner だけを[取/と]り[出/だ]すため、Copy payload の便宜 API に[限定/げんてい]します。
-pub fn vec_transform_error_vec <.T: Copy> <(VecTransformError<.T>)->Vec<.T>> (e):
+pub fn vec_transform_error_vec <.T: Copy> %fn VecTransformError .T Vec .T \e:
     field::get e "vec"
 
 //: ## VecPop
@@ -235,12 +235,12 @@ pub fn vec_transform_error_vec <.T: Copy> <(VecTransformError<.T>)->Vec<.T>> (e)
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok push<i32> v0 4;
-//:     let p <VecPop<i32>> pop<i32> v1;
-//:     let item <Option<i32>> vec_pop_item<i32> &p;
-//:     let next <Vec<i32>> vec_pop_vec<i32> p;
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec i32 unwrap_ok new<i32>;
+//:     let v1 %Vec i32 unwrap_ok push<i32> v0 4;
+//:     let p %VecPop i32 pop<i32> v1;
+//:     let item %Option i32 vec_pop_item<i32> &p;
+//:     let next %Vec i32 vec_pop_vec<i32> p;
 //:     free<i32> next;
 //:     match item:
 //:         Option::Some x:
@@ -249,8 +249,8 @@ pub fn vec_transform_error_vec <.T: Copy> <(VecTransformError<.T>)->Vec<.T>> (e)
 //:             1
 //: ```
 pub struct VecPop<.T>:
-    vec <Vec<.T>>
-    item <Option<.T>>
+    vec %Vec .T
+    item %Option .T
 
 //: ## vec_pop_item
 //: `pop` の[結果/けっか]から、[取/と]り[出/だ]した[値/あたい]を owner を[動/うご]かさずに[読/よ]む
@@ -268,12 +268,12 @@ pub struct VecPop<.T>:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok push<i32> v0 8;
-//:     let p <VecPop<i32>> pop<i32> v1;
-//:     let item <Option<i32>> vec_pop_item<i32> &p;
-//:     let next <Vec<i32>> vec_pop_vec<i32> p;
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec i32 unwrap_ok new<i32>;
+//:     let v1 %Vec i32 unwrap_ok push<i32> v0 8;
+//:     let p %VecPop i32 pop<i32> v1;
+//:     let item %Option i32 vec_pop_item<i32> &p;
+//:     let next %Vec i32 vec_pop_vec<i32> p;
 //:     free<i32> next;
 //:     match item:
 //:         Option::Some x:
@@ -281,7 +281,7 @@ pub struct VecPop<.T>:
 //:         Option::None:
 //:             1
 //: ```
-pub fn vec_pop_item <.T: Copy> <(&VecPop<.T>)->Option<.T>> (p):
+pub fn vec_pop_item <.T: Copy> %fn &VecPop .T Option .T \p:
     *field::get_ref p "item"
 
 //: ## vec_pop_vec
@@ -302,17 +302,17 @@ pub fn vec_pop_item <.T: Copy> <(&VecPop<.T>)->Option<.T>> (p):
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok push<i32> v0 9;
-//:     let p <VecPop<i32>> pop<i32> v1;
-//:     let next <Vec<i32>> vec_pop_vec<i32> p;
-//:     let observed_len <i32> len<i32> &next;
-//:     let ok <bool> eq observed_len 0;
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec i32 unwrap_ok new<i32>;
+//:     let v1 %Vec i32 unwrap_ok push<i32> v0 9;
+//:     let p %VecPop i32 pop<i32> v1;
+//:     let next %Vec i32 vec_pop_vec<i32> p;
+//:     let observed_len %i32 len<i32> &next;
+//:     let ok %bool eq observed_len 0;
 //:     free<i32> next;
 //:     if ok 0 1
 //: ```
-pub fn vec_pop_vec <.T: Copy> <(VecPop<.T>)->Vec<.T>> (p):
+pub fn vec_pop_vec <.T: Copy> %fn VecPop .T Vec .T \p:
     field::get p "vec"
 
 //: ## vec_pop_with
@@ -322,9 +322,9 @@ pub fn vec_pop_vec <.T: Copy> <(VecPop<.T>)->Vec<.T>> (p):
 //: - `VecPop<T>` は owner-backed aggregate なので、non-Copy payload では `vec` だけ、または `item` だけを単独で[取/と]り[出/だ]す accessor を[提供/ていきょう]しません。
 //: - この eliminator が `Vec` owner と `Option<T>` owner を同じ callback に[渡/わた]し、caller が両方を同じ control-flow で cleanup / retry / 返却できます。
 //: - `.T: Copy` でも使えますが、主な目的は `.T: Drop` payload の owner recovery を型で[見/み]える形にすることです。
-pub fn vec_pop_with <.T,.R> <(VecPop<.T>,(Vec<.T>,Option<.T>)*>.R)*>.R> (p, callback):
-    let vec <Vec<.T>> field::get p "vec"
-    let item <Option<.T>> field::get p "item"
+pub fn vec_pop_with <.T,.R> %impure fn VecPop .T impure fn impure fn Vec .T impure fn Option .T .R .R \p\callback:
+    let vec %Vec .T field::get p "vec"
+    let item %Option .T field::get p "item"
     callback vec item
 
 //: ## VecPartition
@@ -342,18 +342,18 @@ pub fn vec_pop_with <.T,.R> <(VecPop<.T>,(Vec<.T>,Option<.T>)*>.R)*>.R> (p, call
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn is_even <(i32)->bool> (x):
+//: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
-//:     let ok <bool> and (eq vec_partition_matched_len<i32> &parts 1) (eq vec_partition_rest_len<i32> &parts 1);
+//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let ok %bool and (eq vec_partition_matched_len<i32> &parts 1) (eq vec_partition_rest_len<i32> &parts 1);
 //:     vec_partition_free<i32> parts;
 //:     if ok 0 1
 //: ```
 pub struct VecPartition<.T>:
-    matched <Vec<.T>>
-    rest <Vec<.T>>
+    matched %Vec .T
+    rest %Vec .T

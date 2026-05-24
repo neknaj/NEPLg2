@@ -21,7 +21,7 @@
 #import "./mutation" as *
 #import "core/field" as *
 
-pub fn counting_bloom_invalid_len_diag <()*>Diag> ():
+pub fn counting_bloom_invalid_len_diag %impure fn () Diag \():
     diag_error StdErrorKind::CapacityExceeded "invalid counting bloom filter counter length"
 
 //: ## new
@@ -39,14 +39,14 @@ pub fn counting_bloom_invalid_len_diag <()*>Diag> ():
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf <CountingBloomFilter<i32, DefaultHash32>> unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
-//:     let observed_len <i32> len<i32, DefaultHash32> &bf;
-//:     let ok <bool> eq observed_len 64;
+//: fn main %impure fn () i32 \():
+//:     let bf %CountingBloomFilter i32 DefaultHash32 unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//:     let observed_len %i32 len<i32, DefaultHash32> &bf;
+//:     let ok %bool eq observed_len 64;
 //:     free bf
 //:     if ok 1 0
 //: ```
-pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<CountingBloomFilter<.T,.H>, Diag>> (hasher, nslots):
+pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure fn i32 Result CountingBloomFilter .T .H Diag \hasher\nslots:
     if:
         le nslots 0
         then:
@@ -60,7 +60,7 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<CountingBloo
 
 //: ## len
 //: counter [長/ちょう]を[返/かえ]す
-pub fn len <.T,.H> <(&CountingBloomFilter<.T,.H>)->i32> (bf):
+pub fn len <.T,.H> %fn &CountingBloomFilter .T .H i32 \bf:
     *field::get_ref bf "nslots"
 
 //: ## insert
@@ -74,22 +74,22 @@ pub fn len <.T,.H> <(&CountingBloomFilter<.T,.H>)->i32> (bf):
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf0 <CountingBloomFilter<i32, DefaultHash32>> unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
-//:     let bf1 <CountingBloomFilter<i32, DefaultHash32>> insert bf0 7;
-//:     let ok <bool> contains &bf1 7;
+//: fn main %impure fn () i32 \():
+//:     let bf0 %CountingBloomFilter i32 DefaultHash32 unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//:     let bf1 %CountingBloomFilter i32 DefaultHash32 insert bf0 7;
+//:     let ok %bool contains &bf1 7;
 //:     free bf1
 //:     if ok 1 0
 //: ```
-pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T)*>CountingBloomFilter<.T,.H>> (bf, key):
-    let nslots <i32> *field::get_ref &bf "nslots"
-    let counters <&Vec<u8>> field::get_ref &bf "counters"
-    let hasher <.H> *field::get_ref &bf "hasher"
-    let h0 <i32> counting_bloom_hash0<.T,.H> hasher key
-    let h1 <i32> counting_bloom_hash1<.T,.H> hasher key
-    let i0 <i32> rem_u h0 nslots
-    let i1 <i32> counting_bloom_probe_index nslots h0 h1
-    let i2 <i32> counting_bloom_probe_index nslots i1 h1
+pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn CountingBloomFilter .T .H impure fn .T CountingBloomFilter .T .H \bf\key:
+    let nslots %i32 *field::get_ref &bf "nslots"
+    let counters %&Vec u8 field::get_ref &bf "counters"
+    let hasher %.H *field::get_ref &bf "hasher"
+    let h0 %i32 counting_bloom_hash0<.T,.H> hasher key
+    let h1 %i32 counting_bloom_hash1<.T,.H> hasher key
+    let i0 %i32 rem_u h0 nslots
+    let i1 %i32 counting_bloom_probe_index nslots h0 h1
+    let i2 %i32 counting_bloom_probe_index nslots i1 h1
     counting_bloom_counter_inc counters i0
     counting_bloom_counter_inc counters i1
     counting_bloom_counter_inc counters i2
@@ -106,24 +106,24 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf0 <CountingBloomFilter<i32, DefaultHash32>>:
+//: fn main %impure fn () i32 \():
+//:     let bf0 %CountingBloomFilter i32 DefaultHash32:
 //:         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
 //:         |> insert 7
 //:         |> remove 7
-//:     let ok <bool> contains &bf0 7;
+//:     let ok %bool contains &bf0 7;
 //:     free bf0
 //:     if ok 0 1
 //: ```
-pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>,.T)*>CountingBloomFilter<.T,.H>> (bf, key):
-    let nslots <i32> *field::get_ref &bf "nslots"
-    let counters <&Vec<u8>> field::get_ref &bf "counters"
-    let hasher <.H> *field::get_ref &bf "hasher"
-    let h0 <i32> counting_bloom_hash0<.T,.H> hasher key
-    let h1 <i32> counting_bloom_hash1<.T,.H> hasher key
-    let i0 <i32> rem_u h0 nslots
-    let i1 <i32> counting_bloom_probe_index nslots h0 h1
-    let i2 <i32> counting_bloom_probe_index nslots i1 h1
+pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn CountingBloomFilter .T .H impure fn .T CountingBloomFilter .T .H \bf\key:
+    let nslots %i32 *field::get_ref &bf "nslots"
+    let counters %&Vec u8 field::get_ref &bf "counters"
+    let hasher %.H *field::get_ref &bf "hasher"
+    let h0 %i32 counting_bloom_hash0<.T,.H> hasher key
+    let h1 %i32 counting_bloom_hash1<.T,.H> hasher key
+    let i0 %i32 rem_u h0 nslots
+    let i1 %i32 counting_bloom_probe_index nslots h0 h1
+    let i2 %i32 counting_bloom_probe_index nslots i1 h1
     counting_bloom_counter_dec counters i0
     counting_bloom_counter_dec counters i1
     counting_bloom_counter_dec counters i2
@@ -143,27 +143,27 @@ pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf0 <CountingBloomFilter<i32, DefaultHash32>>:
+//: fn main %impure fn () i32 \():
+//:     let bf0 %CountingBloomFilter i32 DefaultHash32:
 //:         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
 //:         |> insert 7
 //:         |> insert 12
-//:     let ok <bool> contains &bf0 12;
+//:     let ok %bool contains &bf0 12;
 //:     free bf0
 //:     if ok 1 0
 //: ```
-pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&CountingBloomFilter<.T,.H>,.T)->bool> (bf, key):
-    let nslots <i32> *field::get_ref bf "nslots"
-    let counters <&Vec<u8>> field::get_ref bf "counters"
-    let hasher <.H> *field::get_ref bf "hasher"
-    let h0 <i32> counting_bloom_hash0<.T,.H> hasher key
-    let h1 <i32> counting_bloom_hash1<.T,.H> hasher key
-    let i0 <i32> rem_u h0 nslots
-    let i1 <i32> counting_bloom_probe_index nslots h0 h1
-    let i2 <i32> counting_bloom_probe_index nslots i1 h1
-    let ok0 <bool> counting_bloom_counter_nonzero counters i0
-    let ok1 <bool> counting_bloom_counter_nonzero counters i1
-    let ok2 <bool> counting_bloom_counter_nonzero counters i2
+pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &CountingBloomFilter .T .H fn .T bool \bf\key:
+    let nslots %i32 *field::get_ref bf "nslots"
+    let counters %&Vec u8 field::get_ref bf "counters"
+    let hasher %.H *field::get_ref bf "hasher"
+    let h0 %i32 counting_bloom_hash0<.T,.H> hasher key
+    let h1 %i32 counting_bloom_hash1<.T,.H> hasher key
+    let i0 %i32 rem_u h0 nslots
+    let i1 %i32 counting_bloom_probe_index nslots h0 h1
+    let i2 %i32 counting_bloom_probe_index nslots i1 h1
+    let ok0 %bool counting_bloom_counter_nonzero counters i0
+    let ok1 %bool counting_bloom_counter_nonzero counters i1
+    let ok2 %bool counting_bloom_counter_nonzero counters i2
     and ok0 and ok1 ok2
 
 //: ## clear
@@ -177,18 +177,18 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&CountingBloomFilter<.T
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf0 <CountingBloomFilter<i32, DefaultHash32>>:
+//: fn main %impure fn () i32 \():
+//:     let bf0 %CountingBloomFilter i32 DefaultHash32:
 //:         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
 //:         |> insert 7
 //:         |> clear
-//:     let ok <bool> contains &bf0 7;
+//:     let ok %bool contains &bf0 7;
 //:     free bf0
 //:     if ok 0 1
 //: ```
-pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>)*>CountingBloomFilter<.T,.H>> (bf):
-    let nslots <i32> *field::get_ref &bf "nslots"
-    let counters <&Vec<u8>> field::get_ref &bf "counters"
+pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn CountingBloomFilter .T .H CountingBloomFilter .T .H \bf:
+    let nslots %i32 *field::get_ref &bf "nslots"
+    let counters %&Vec u8 field::get_ref &bf "counters"
     counting_bloom_fill_counters counters nslots 0
     bf
 
@@ -209,11 +209,11 @@ pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf <CountingBloomFilter<i32, DefaultHash32>> unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//: fn main %impure fn () i32 \():
+//:     let bf %CountingBloomFilter i32 DefaultHash32 unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
 //:     free bf;
 //:     0
 //: ```
-pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(CountingBloomFilter<.T,.H>)->()> (bf):
-    let counters <Vec<u8>> field::get bf "counters"
+pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn CountingBloomFilter .T .H () \bf:
+    let counters %Vec u8 field::get bf "counters"
     counting_bloom_free_counters counters

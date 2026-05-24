@@ -29,7 +29,7 @@
 //: ### [注意/ちゅうい]
 //: - この overload は `.T: Copy` payload 用です。Copy payload は destructor 実行なしで initialized prefix を閉じられるため、`clear` / `free` の Copy cleanup helper へ接続できます。
 //: - `requested_cap > 0` でも `len = initialized_len = 0` の storage だけを[作/つく]ります。要素 slot の初期化は `push` などの mutation API が別の lifecycle proof で[行/おこな]います。
-pub fn vec_alloc_empty <.T: Copy> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
+pub fn vec_alloc_empty <.T: Copy> %fn i32 Result Vec .T StdErrorKind \requested_cap:
     if:
         le requested_cap 0
         then:
@@ -51,7 +51,7 @@ pub fn vec_alloc_empty <.T: Copy> <(i32)->Result<Vec<.T>, StdErrorKind>> (reques
 //: ### [注意/ちゅうい]
 //: - `.T: Drop` を要求するのは、allocated storage owner を後で `free` / `clear` が安全に閉じられることを API 型で[表/あらわ]すためです。
 //: - `.T` が `Copy` でも `Drop` でもない場合、この overload は[選択/せんたく]されません。
-pub fn vec_alloc_empty <.T: Drop> <(i32)->Result<Vec<.T>, StdErrorKind>> (requested_cap):
+pub fn vec_alloc_empty <.T: Drop> %fn i32 Result Vec .T StdErrorKind \requested_cap:
     if:
         le requested_cap 0
         then:

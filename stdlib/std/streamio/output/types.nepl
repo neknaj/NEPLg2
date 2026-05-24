@@ -18,14 +18,14 @@
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ][状態/じょうたい]を[持/も]たないので `Copy` / `Clone` を[実装/じっそう]します。
 pub struct StdoutStream:
-    marker <()>
+    marker %()
 
 impl Copy for StdoutStream:
-    fn copy_mark <(StdoutStream)->StdoutStream> (stream):
+    fn copy_mark %fn StdoutStream StdoutStream \stream:
         stream
 
 impl Clone for StdoutStream:
-    fn clone <(&StdoutStream)->StdoutStream> (stream):
+    fn clone %fn &StdoutStream StdoutStream \stream:
         *stream
 
 //: ## StderrStream
@@ -37,12 +37,12 @@ impl Clone for StdoutStream:
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ][状態/じょうたい]を[持/も]たないので `Copy` / `Clone` を[実装/じっそう]します。
 pub struct StderrStream:
-    marker <()>
+    marker %()
 
 impl Copy for StderrStream:
-    fn copy_mark <(StderrStream)->StderrStream> (stream):
+    fn copy_mark %fn StderrStream StderrStream \stream:
         stream
 
 impl Clone for StderrStream:
-    fn clone <(&StderrStream)->StderrStream> (stream):
+    fn clone %fn &StderrStream StderrStream \stream:
         *stream

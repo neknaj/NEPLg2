@@ -9,27 +9,27 @@ neplg2:test
 trait Reusable:
     #capability clone
     #capability copy
-    fn clone <(Self)->Self> (self):
+    fn clone %fn Self Self \self:
         self
 
-    fn keep <(Self)->Self> (self):
+    fn keep %fn Self Self \self:
         self
 
 struct Token:
-    raw <i32>
+    raw %i32
 
 impl Reusable for Token:
-    fn clone <(Token)->Token> (self):
+    fn clone %fn Token Token \self:
         self
 
-    fn keep <(Token)->Token> (self):
+    fn keep %fn Token Token \self:
         self
 
-fn use_twice <.T: Reusable> <(.T)->i32> (x):
-    let a <.T> x
-    let b <.T> x
+fn use_twice <.T: Reusable> %fn .T i32 \x:
+    let a %.T x
+    let b %.T x
     0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     use_twice Token 1
 ```

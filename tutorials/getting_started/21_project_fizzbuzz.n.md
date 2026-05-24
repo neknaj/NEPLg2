@@ -19,7 +19,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn fizzbuzz_word <(i32)->str> (n):
+fn fizzbuzz_word %fn i32 str \n:
     if:
         eq rem_s n 15 0
         then:
@@ -37,7 +37,7 @@ fn fizzbuzz_word <(i32)->str> (n):
                         else:
                             "Number"
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks:
         checks_new
         |> checks_push assert_str_eq "Number" fizzbuzz_word 1

@@ -13,8 +13,8 @@ stdout: "test_report name=\"epilogue_drop_preserves_return_value\" count=1 faile
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let x <i32> 1;
+fn main %impure fn () i32 \():
+    let x %i32 1;
     let report:
         test_report_new "epilogue_drop_preserves_return_value"
         |> test_report_push assert_eq_i32 "epilogue preserves return value" 1 x
@@ -35,8 +35,8 @@ stdout: "test_report name=\"match_arm_local_drop_preserves_return\" count=1 fail
 #import "core/option" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> match some<i32> 5:
+fn main %impure fn () i32 \():
+    let actual %i32 match some<i32> 5:
         Some v:
             let y v;
             v
@@ -59,7 +59,7 @@ diag_code: type.return.mismatch
 #indent 4
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add 1 2;
 ```
 
@@ -76,8 +76,8 @@ stdout: "test_report name=\"no_semicolons_on_line_allowed\" count=1 failed=0\nas
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block:
+fn main %impure fn () i32 \():
+    let actual %i32 block:
         add 1 2
         add 3 4
         add 5 6
@@ -101,8 +101,8 @@ stdout: "test_report name=\"multiple_semicolons_on_line_allowed\" count=1 failed
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block:
+fn main %impure fn () i32 \():
+    let actual %i32 block:
         add 1 2;;
         add 3 4;;;
         add 5 6

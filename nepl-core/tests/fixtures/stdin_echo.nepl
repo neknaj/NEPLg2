@@ -3,7 +3,7 @@
 #target wasi
 #import "std/stdio" as *
 
-fn main <()*>()> ():
-    let s <str> read_all;
+fn main %impure fn () () \():
+    let s %str read_all;
     print s;
     ()

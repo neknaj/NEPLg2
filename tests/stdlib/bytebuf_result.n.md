@@ -15,8 +15,8 @@ stdout: "test_report name=\"io_bytebuf_result_roundtrip_preserves_bytes\" count=
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let ok <bool> match io_bytebuf_from_str_result "A\x00B":
+fn main %impure fn () i32 \():
+    let ok %bool match io_bytebuf_from_str_result "A\x00B":
         Result::Ok bytes:
             match io_bytebuf_to_str_result bytes:
                 Result::Ok text:
@@ -47,8 +47,8 @@ stdout: "test_report name=\"io_bytebuf_to_str_result_accepts_empty_buffer\" coun
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let ok <bool> match io_bytebuf_to_str_result io_bytebuf_empty:
+fn main %impure fn () i32 \():
+    let ok %bool match io_bytebuf_to_str_result io_bytebuf_empty:
         Result::Ok text:
             str_eq text ""
         Result::Err _e:
@@ -76,8 +76,8 @@ stdout: "test_report name=\"io_bytebuf_to_str_result_reports_invalid_utf8\" coun
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let ok <bool> match byte_builder_new:
+fn main %impure fn () i32 \():
+    let ok %bool match byte_builder_new:
         Result::Ok b0:
             match byte_builder_push_u8 b0 255:
                 Result::Ok b1:
@@ -121,8 +121,8 @@ stdout: "test_report name=\"std_io_text_read_propagates_bytebuf_result\" count=1
 #import "std/iotarget" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let ok <bool> match read ReadStream::Text "abc":
+fn main %impure fn () i32 \():
+    let ok %bool match read ReadStream::Text "abc":
         Result::Ok bytes:
             match io_bytebuf_to_str_result bytes:
                 Result::Ok text:
@@ -153,8 +153,8 @@ stdout: "test_report name=\"fs_bytes_to_string_result_reports_invalid_utf8\" cou
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let errno <i32> match byte_builder_new:
+fn main %impure fn () i32 \():
+    let errno %i32 match byte_builder_new:
         Result::Ok b0:
             match byte_builder_push_u8 b0 255:
                 Result::Ok b1:
@@ -191,8 +191,8 @@ diag_codes: resolve.identifier.undefined
 
 #import "alloc/io" as *
 
-fn main <()*>i32> ():
-    let _buf <ByteBuf> io_bytebuf_from_owned_ptr 0 1
+fn main %impure fn () i32 \():
+    let _buf %ByteBuf io_bytebuf_from_owned_ptr 0 1
     0
 ```
 
@@ -211,8 +211,8 @@ stdout: "test_report name=\"stream_bytes_result_roundtrip_preserves_bytes\" coun
 #import "std/streamio" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let ok <bool> match stream_bytes_from_str_result "CD":
+fn main %impure fn () i32 \():
+    let ok %bool match stream_bytes_from_str_result "CD":
         Result::Ok bytes:
             match stream_bytes_to_str_result bytes:
                 Result::Ok text:

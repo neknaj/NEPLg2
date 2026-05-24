@@ -2,7 +2,7 @@
 #import "./kind" as *
 
 //: token_kind_name: Rust `analyze_lex` JSON と同じ token kind [名/めい]を[返/かえ]す
-pub fn token_kind_name <(TokenKind)->str> (kind):
+pub fn token_kind_name %fn TokenKind str \kind:
     match kind:
         TokenKind::Indent:
             "Indent"
@@ -28,6 +28,10 @@ pub fn token_kind_name <(TokenKind)->str> (kind):
             "LAngle"
         TokenKind::RAngle:
             "RAngle"
+        TokenKind::Percent:
+            "Percent"
+        TokenKind::Backslash:
+            "Backslash"
         TokenKind::Arrow:
             "Arrow"
         TokenKind::PathSep:

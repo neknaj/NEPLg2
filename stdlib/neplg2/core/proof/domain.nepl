@@ -23,11 +23,11 @@ pub enum SelfhostProofDomain:
     Resource
 
 impl Clone for SelfhostProofDomain:
-    fn clone <(&SelfhostProofDomain)->SelfhostProofDomain> (self):
+    fn clone %fn &SelfhostProofDomain SelfhostProofDomain \self:
         *self
 
 impl Copy for SelfhostProofDomain:
-    fn copy_mark <(SelfhostProofDomain)->SelfhostProofDomain> (self):
+    fn copy_mark %fn SelfhostProofDomain SelfhostProofDomain \self:
         self
 
 //: selfhost_proof_domain_eq: proof domain が[等/ひと]しいかを[返/かえ]す
@@ -35,7 +35,7 @@ impl Copy for SelfhostProofDomain:
 //: [目的/もくてき]:
 //: - solver dispatch の前段で fact と obligation の domain を照合し、domain mismatch を個別 proof rule に持ち込まないようにします。
 //: - wildcard arm を使わず全 variant を列挙することで、domain 追加時に比較規則の更新漏れを静的に見つけやすくします。
-pub fn selfhost_proof_domain_eq <(SelfhostProofDomain,SelfhostProofDomain)->bool> (left, right):
+pub fn selfhost_proof_domain_eq %fn SelfhostProofDomain fn SelfhostProofDomain bool \left\right:
     match left:
         SelfhostProofDomain::Source:
             match right:

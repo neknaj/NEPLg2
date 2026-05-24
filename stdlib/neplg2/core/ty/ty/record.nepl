@@ -9,16 +9,16 @@
 //: - function type だけが持つ argument table 範囲と戻り値 TypeId を保持します。
 //: - primitive type から function-only field を読めないよう、`SelfhostTypeRecord::Function` の payload に閉じ込めます。
 pub struct SelfhostFunctionTypeRecord:
-    first_arg <i32>
-    arg_count <i32>
-    result <SelfhostTypeId>
+    first_arg %i32
+    arg_count %i32
+    result %SelfhostTypeId
 
 impl Clone for SelfhostFunctionTypeRecord:
-    fn clone <(&SelfhostFunctionTypeRecord)->SelfhostFunctionTypeRecord> (self):
+    fn clone %fn &SelfhostFunctionTypeRecord SelfhostFunctionTypeRecord \self:
         *self
 
 impl Copy for SelfhostFunctionTypeRecord:
-    fn copy_mark <(SelfhostFunctionTypeRecord)->SelfhostFunctionTypeRecord> (self):
+    fn copy_mark %fn SelfhostFunctionTypeRecord SelfhostFunctionTypeRecord \self:
         self
 
 //: SelfhostTypeRecord: arena に保存する型 record
@@ -27,23 +27,23 @@ impl Copy for SelfhostFunctionTypeRecord:
 //: - primitive type と function type を enum payload で分け、存在しない field を record に持たせません。
 //: - function payload は `SelfhostFunctionTypeRecord` に集約し、accessor は record variant を match してから読む構造にします。
 pub enum SelfhostTypeRecord:
-    Primitive <SelfhostPrimitiveTypeKind>
-    Function <SelfhostFunctionTypeRecord>
+    Primitive %SelfhostPrimitiveTypeKind
+    Function %SelfhostFunctionTypeRecord
 
 impl Clone for SelfhostTypeRecord:
-    fn clone <(&SelfhostTypeRecord)->SelfhostTypeRecord> (self):
+    fn clone %fn &SelfhostTypeRecord SelfhostTypeRecord \self:
         *self
 
 impl Copy for SelfhostTypeRecord:
-    fn copy_mark <(SelfhostTypeRecord)->SelfhostTypeRecord> (self):
+    fn copy_mark %fn SelfhostTypeRecord SelfhostTypeRecord \self:
         self
 
 
 //: selfhost_type_record_primitive: primitive type record を[作/つく]る
-pub fn selfhost_type_record_primitive <(SelfhostPrimitiveTypeKind)->SelfhostTypeRecord> (kind):
+pub fn selfhost_type_record_primitive %fn SelfhostPrimitiveTypeKind SelfhostTypeRecord \kind:
     SelfhostTypeRecord::Primitive kind
 
 //: selfhost_type_record_function: function type record を[作/つく]る
-pub fn selfhost_type_record_function <(i32,i32,SelfhostTypeId)->SelfhostTypeRecord> (first_arg, arg_count, result):
+pub fn selfhost_type_record_function %fn i32 fn i32 fn SelfhostTypeId SelfhostTypeRecord \first_arg\arg_count\result:
     SelfhostTypeRecord::Function SelfhostFunctionTypeRecord first_arg arg_count result
 

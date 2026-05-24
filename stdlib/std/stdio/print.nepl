@@ -45,10 +45,10 @@
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     print "sample";
 //: ```
-pub fn noshadow print <(str)*>()> (s):
+pub fn noshadow print %impure fn str () \s:
     match stdio_write_str_result s:
         Result::Ok _:
             ()
@@ -85,10 +85,10 @@ pub fn noshadow print <(str)*>()> (s):
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     println "sample";
 //: ```
-pub fn noshadow println <(str)*>()> (s):
+pub fn noshadow println %impure fn str () \s:
     print s;
     print "\n";
     ()
@@ -123,10 +123,10 @@ pub fn noshadow println <(str)*>()> (s):
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     print_i32 42;
 //: ```
-pub fn noshadow print_i32 <(i32)*>()> (v):
+pub fn noshadow print_i32 %impure fn i32 () \v:
     print string_integer::from_i32 v;
     ()
 
@@ -160,9 +160,9 @@ pub fn noshadow print_i32 <(i32)*>()> (v):
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     println_i32 42;
 //: ```
-pub fn noshadow println_i32 <(i32)*>()> (v):
+pub fn noshadow println_i32 %impure fn i32 () \v:
     print_i32 v;
     print "\n";

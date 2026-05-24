@@ -20,7 +20,7 @@
 //:
 //: [実装/じっそう]:
 //: - `cols <= 2` では内側幅を 0 に丸め、負の繰り返し回数や呼び出し側ごとの分岐を避けます。
-pub fn box_inner_cols <(i32)->i32> (cols):
+pub fn box_inner_cols %fn i32 i32 \cols:
     if:
         lt cols 3
         then:
@@ -35,7 +35,7 @@ pub fn box_inner_cols <(i32)->i32> (cols):
 //:
 //: [実装/じっそう]:
 //: - 表示幅ベースで `inner` 以内に切り詰め、その後右側空白で `inner` 幅まで埋めます。
-pub fn line_box_body <(str,i32)*>str> (content, inner):
+pub fn line_box_body %impure fn str impure fn i32 str \content\inner:
     line_pad_to_cols line_clip_to_cols content inner inner
 
 //: line_box: 罫線付きの1行（`│ ... │`）を作る
@@ -49,7 +49,7 @@ pub fn line_box_body <(str,i32)*>str> (content, inner):
 //:
 //: [注意/ちゅうい]:
 //: - ANSI/OSC8 を含む `content` の厳密な切り詰めは対象外です。
-pub fn line_box <(str,i32)*>str> (content, cols):
+pub fn line_box %impure fn str impure fn i32 str \content\cols:
     if:
         lt cols 1
         then:
@@ -60,8 +60,8 @@ pub fn line_box <(str,i32)*>str> (content, cols):
                 then:
                     "│"
                 else:
-                    let inner <i32> box_inner_cols cols;
-                    let body <str> line_box_body content inner;
+                    let inner %i32 box_inner_cols cols;
+                    let body %str line_box_body content inner;
                     concat3 "│" body "│"
 
 //: line_box_styled: 罫線付きの1行を typed style 付きで作る
@@ -75,7 +75,7 @@ pub fn line_box <(str,i32)*>str> (content, cols):
 //:
 //: [注意/ちゅうい]:
 //: - 罫線（`│`）自体は無色です。内側領域のみ style がつきます。
-pub fn line_box_styled <(AnsiTextStyle,str,i32)*>str> (style, content, cols):
+pub fn line_box_styled %impure fn AnsiTextStyle impure fn str impure fn i32 str \style\content\cols:
     if:
         lt cols 1
         then:
@@ -86,14 +86,14 @@ pub fn line_box_styled <(AnsiTextStyle,str,i32)*>str> (style, content, cols):
                 then:
                     "│"
                 else:
-                    let inner <i32> box_inner_cols cols;
+                    let inner %i32 box_inner_cols cols;
                     if:
                         lt inner 1
                         then:
                             "││"
                         else:
-                            let body <str> line_box_body content inner;
-                            let styled <str> style_text style body;
+                            let body %str line_box_body content inner;
+                            let styled %str style_text style body;
                             concat3 "│" styled "│"
 
 //: line_top: 上枠（`┌──┐`）を作る
@@ -101,7 +101,7 @@ pub fn line_box_styled <(AnsiTextStyle,str,i32)*>str> (style, content, cols):
 //: [目的/もくてき]:
 //: - ボックス描画の先頭行を生成します。
 //: - `cols <= 0` は空文字列、`cols == 1` は左上罫線のみを返します。
-pub fn line_top <(i32)*>str> (cols):
+pub fn line_top %impure fn i32 str \cols:
     if:
         lt cols 1
         then:
@@ -119,7 +119,7 @@ pub fn line_top <(i32)*>str> (cols):
 //: [目的/もくてき]:
 //: - ボックス描画の最終行を生成します。
 //: - `cols <= 0` は空文字列、`cols == 1` は左下罫線のみを返します。
-pub fn line_bottom <(i32)*>str> (cols):
+pub fn line_bottom %impure fn i32 str \cols:
     if:
         lt cols 1
         then:

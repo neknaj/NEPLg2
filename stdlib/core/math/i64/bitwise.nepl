@@ -16,10 +16,10 @@
 //:| #import "core/cast" as *
 //:| #import "core/math/i64/bitwise" as *
 //:| #import "core/math/i64/compare" as *
-//: fn main <()*>()> ():
-//:     let a <i64> cast 6;
-//:     let b <i64> cast 3;
-//:     assert eq or a b <i64> cast 7;
+//: fn main %impure fn () () \():
+//:     let a %i64 cast 6;
+//:     let b %i64 cast 3;
+//:     assert eq or a b %i64 cast 7;
 //: ```
 
 #indent 4

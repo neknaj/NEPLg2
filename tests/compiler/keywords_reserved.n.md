@@ -9,7 +9,7 @@ diag_codes: parser.identifier.reserved_keyword
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let cond 1;
     cond
 ```
@@ -23,7 +23,7 @@ diag_codes: parser.identifier.reserved_keyword
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let then 1;
     then
 ```
@@ -37,7 +37,7 @@ diag_codes: parser.identifier.reserved_keyword
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let else 1;
     else
 ```
@@ -51,7 +51,7 @@ diag_codes: parser.identifier.reserved_keyword
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let do 1;
     do
 ```
@@ -65,10 +65,10 @@ diag_codes: parser.identifier.reserved_keyword, parser.token.unexpected, parser.
 #indent 4
 #target core
 
-fn let <()->i32> ():
+fn let %fn () i32 \():
     1
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let
 ```
 
@@ -81,10 +81,10 @@ diag_codes: parser.identifier.reserved_keyword, parser.token.unexpected
 #indent 4
 #target core
 
-fn id <(i32)->i32> (fn):
+fn id %fn i32 i32 \fn:
     fn
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     id 1
 ```
 

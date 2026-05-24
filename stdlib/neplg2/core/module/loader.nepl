@@ -26,7 +26,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "neplg2/core/module/loader" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     selfhost_loader_stage0
 //: ```
 
@@ -44,12 +44,12 @@ pub #import "neplg2/core/module/vfs" as *
 //: [注意/ちゅうい]:
 //: - `ast` の item buffer を所有するため、使用後は `selfhost_loaded_module_free` を[呼/よ]びます。
 pub struct SelfhostLoadedModule:
-    path <str>
-    ast <SelfhostModuleAst>
+    path %str
+    ast %SelfhostModuleAst
 
 //: selfhost_loader_file_not_found_diag: VFS lookup 失敗 diagnostic を[作/つく]る
-pub fn selfhost_loader_file_not_found_diag <(str)->SelfhostDiagnostic> (path):
-    let diag <SelfhostDiagnostic> selfhost_diag_error SelfhostDiagnosticCode::Loader SelfhostLoaderDiagnosticCode::FileNotFound "source file is not registered in self-host VFS"
+pub fn selfhost_loader_file_not_found_diag %fn str SelfhostDiagnostic \path:
+    let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Loader SelfhostLoaderDiagnosticCode::FileNotFound "source file is not registered in self-host VFS"
     selfhost_diag_with_note diag path
 
 //: selfhost_load_module: VFS の path を parse 済み module として[読/よ]む
@@ -57,7 +57,7 @@ pub fn selfhost_loader_file_not_found_diag <(str)->SelfhostDiagnostic> (path):
 //: [目的/もくてき]:
 //: - module loading stage の基本単位として、logical path を AST に変換します。
 //: - filesystem error、missing source、parser error をすべて diagnostic として扱えるようにします。
-pub fn selfhost_load_module <(&SelfhostVirtualFileSystem,str)*>Result<SelfhostLoadedModule, SelfhostDiagnostic>> (vfs, path):
+pub fn selfhost_load_module %impure fn &SelfhostVirtualFileSystem impure fn str Result SelfhostLoadedModule SelfhostDiagnostic \vfs\path:
     match selfhost_vfs_find vfs path:
         Option::Some file:
             match selfhost_parse_module_source_with_file_id file.source file.file_id:
@@ -69,27 +69,27 @@ pub fn selfhost_load_module <(&SelfhostVirtualFileSystem,str)*>Result<SelfhostLo
             Result<SelfhostLoadedModule, SelfhostDiagnostic>::Err selfhost_loader_file_not_found_diag path
 
 //: selfhost_loaded_module_ast: loaded module の AST を[参照/さんしょう]する
-pub fn selfhost_loaded_module_ast <(&SelfhostLoadedModule)->&SelfhostModuleAst> (module):
+pub fn selfhost_loaded_module_ast %fn &SelfhostLoadedModule &SelfhostModuleAst \module:
     field::get_ref module "ast"
 
 //: selfhost_loaded_module_path: loaded module の logical path を[返/かえ]す
-pub fn selfhost_loaded_module_path <(&SelfhostLoadedModule)->str> (module):
+pub fn selfhost_loaded_module_path %fn &SelfhostLoadedModule str \module:
     *field::get_ref module "path"
 
 //: selfhost_loaded_module_free: loaded module が所有する AST buffer を[解放/かいほう]する
-pub fn selfhost_loaded_module_free <(SelfhostLoadedModule)*>()> (module):
+pub fn selfhost_loaded_module_free %impure fn SelfhostLoadedModule () \module:
     selfhost_module_ast_free field::get module "ast"
 
 //: selfhost_loader_stage0: VFS から parser までの smoke API
-pub fn selfhost_loader_stage0 <()*>i32> ():
+pub fn selfhost_loader_stage0 %impure fn () i32 \():
     match selfhost_vfs_new:
         Result::Ok vfs0:
             match selfhost_vfs_add vfs0 "main.nepl" "fn main <()->i32> ():\n    0\n":
                 Result::Ok vfs1:
                     match selfhost_load_module &vfs1 "main.nepl":
                         Result::Ok loaded:
-                            let ast_ref <&SelfhostModuleAst> selfhost_loaded_module_ast &loaded
-                            let n <i32> selfhost_module_ast_len ast_ref
+                            let ast_ref %&SelfhostModuleAst selfhost_loaded_module_ast &loaded
+                            let n %i32 selfhost_module_ast_len ast_ref
                             selfhost_loaded_module_free loaded
                             selfhost_vfs_free vfs1
                             if eq n 1 0 1

@@ -15,16 +15,16 @@ stdout: "test_report name=\"btreemap_insert_and_len\" count=1 failed=0\nassertio
 #import "std/test" as *
 #import "core/result" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
+fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTreeMap i32 i32 \r:
     match r:
         Result::Ok m:
             m
         Result::Err e:
-            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
             btreemap_insert_error_owner<i32,i32> e
 
-fn main <()*>i32> ():
-    let m0 <BTreeMap<i32,i32>>:
+fn main %impure fn () i32 \():
+    let m0 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 5 50
         |> must_map
@@ -32,7 +32,7 @@ fn main <()*>i32> ():
         |> must_map
         |> insert<i32,i32> 3 30
         |> must_map
-    let m0_len <i32> len<i32,i32> &m0;
+    let m0_len %i32 len<i32,i32> &m0;
     free<i32,i32> m0;
 
     let report:
@@ -59,16 +59,16 @@ stdout: "test_report name=\"btreemap_insert_growth_boundary\" count=1 failed=0\n
 #import "core/result" as *
 #import "core/field" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
+fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTreeMap i32 i32 \r:
     match r:
         Result::Ok m:
             m
         Result::Err e:
-            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
             btreemap_insert_error_owner<i32,i32> e
 
-fn main <()*>i32> ():
-    let m0 <BTreeMap<i32,i32>>:
+fn main %impure fn () i32 \():
+    let m0 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 0 0
         |> must_map
@@ -88,7 +88,7 @@ fn main <()*>i32> ():
         |> must_map
         |> insert<i32,i32> 8 80
         |> must_map
-    let mut get8_value <i32> -1;
+    let mut get8_value %i32 -1;
     match get<i32,i32> &m0 8:
         Option::Some v:
             set get8_value v
@@ -121,22 +121,22 @@ stdout: "test_report name=\"btreemap_get_and_remove\" count=2 failed=0\nassertio
 #import "core/field" as *
 #import "core/math" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
+fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTreeMap i32 i32 \r:
     match r:
         Result::Ok m:
             m
         Result::Err e:
-            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
             btreemap_insert_error_owner<i32,i32> e
 
-fn main <()*>i32> ():
-    let m0 <BTreeMap<i32,i32>>:
+fn main %impure fn () i32 \():
+    let m0 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
         |> insert<i32,i32> 1 10
         |> must_map
-    let mut get3_value <i32> -1;
+    let mut get3_value %i32 -1;
     match get<i32,i32> &m0 3:
         Option::Some v:
             set get3_value v
@@ -144,14 +144,14 @@ fn main <()*>i32> ():
             ()
     free<i32,i32> m0;
 
-    let m1 <BTreeMap<i32,i32>>:
+    let m1 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
         |> insert<i32,i32> 1 10
         |> must_map
         |> remove<i32,i32> 1
-    let m1_len <i32> len<i32,i32> &m1;
+    let m1_len %i32 len<i32,i32> &m1;
     free<i32,i32> m1;
 
     let report:
@@ -180,22 +180,22 @@ stdout: "test_report name=\"btreemap_update_existing\" count=1 failed=0\nasserti
 #import "core/field" as *
 #import "core/math" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
+fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTreeMap i32 i32 \r:
     match r:
         Result::Ok m:
             m
         Result::Err e:
-            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
             btreemap_insert_error_owner<i32,i32> e
 
-fn main <()*>i32> ():
-    let m0 <BTreeMap<i32,i32>>:
+fn main %impure fn () i32 \():
+    let m0 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 7 70
         |> must_map
         |> insert<i32,i32> 7 71
         |> must_map
-    let mut updated_value <i32> -1;
+    let mut updated_value %i32 -1;
     match get<i32,i32> &m0 7:
         Option::Some v:
             set updated_value v
@@ -227,24 +227,24 @@ stdout: "test_report name=\"btreemap_borrowed_reads_keep_owner\" count=3 failed=
 #import "core/result" as *
 #import "core/field" as *
 
-fn must_map <(Result<BTreeMap<i32,i32>, BTreeMapInsertError<i32,i32>>)*>BTreeMap<i32,i32>> (r):
+fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTreeMap i32 i32 \r:
     match r:
         Result::Ok m:
             m
         Result::Err e:
-            let _d <Diag> btreemap_insert_error_diag<i32,i32> &e
+            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
             btreemap_insert_error_owner<i32,i32> e
 
-fn main <()*>i32> ():
-    let m <BTreeMap<i32,i32>>:
+fn main %impure fn () i32 \():
+    let m %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 2 20
         |> must_map
         |> insert<i32,i32> 1 10
         |> must_map
-    let m_len <i32> len<i32,i32> &m;
-    let m_contains_1 <bool> contains<i32,i32> &m 1;
-    let mut get2_value <i32> -1;
+    let m_len %i32 len<i32,i32> &m;
+    let m_contains_1 %bool contains<i32,i32> &m 1;
+    let mut get2_value %i32 -1;
     match get<i32,i32> &m 2:
         Option::Some v:
             set get2_value v

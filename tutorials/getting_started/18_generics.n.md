@@ -1,6 +1,6 @@
 # generics
 
-型パラメータは `<.T>` のように書きます。`Option<.T>` や `Result<.T,.E>` のような標準型も generic な型です。
+型パラメータは `%.T` のように書きます。`Option<.T>` や `Result<.T,.E>` のような標準型も generic な型です。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
@@ -20,12 +20,12 @@ stdout: mlstr:
 #import "core/traits/copy" as *
 #import "std/test" as *
 
-fn identity <.T: Copy> <(.T)->.T> (x):
+fn identity <.T: Copy> %fn .T .T \x:
     x
 
-fn main <()*>i32> ():
-    let maybe <Option<i32>> identity some<i32> 7
-    let answer <Result<i32,str>> identity ok<i32,str> 1
+fn main %impure fn () i32 \():
+    let maybe %Option i32 identity some<i32> 7
+    let answer %Result i32 str identity ok<i32,str> 1
     let checks:
         checks_new
         |> checks_push assert_eq_i32 42 identity 42

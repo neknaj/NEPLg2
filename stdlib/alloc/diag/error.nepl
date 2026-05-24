@@ -17,9 +17,9 @@
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error" as *
-//: fn main <()*>i32> ():
-//:     let d <Diag> diag_error StdErrorKind::KeyNotFound "missing key"
-//:     let level_name <str> diag_level_str diag_level d
+//: fn main %impure fn () i32 \():
+//:     let d %Diag diag_error StdErrorKind::KeyNotFound "missing key"
+//:     let level_name %str diag_level_str diag_level d
 //:     let checks checks_push checks_new assert_str_eq "error" level_name
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown

@@ -12,14 +12,14 @@
 #import "core/traits/copy" as *
 #import "alloc/hash/hash32" as hash32
 
-pub fn bloom_hash0 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,.T)->i32> (hasher, key):
+pub fn bloom_hash0 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn .H fn .T i32 \hasher\key:
     hash_with hasher key
 
-pub fn bloom_hash1 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,.T)->i32> (hasher, key):
-    let h0 <i32> bloom_hash0<.T,.H> hasher key
-    let hk <i32> hashkey_hash32 key
-    let mixed <i32> hash32::mix xor h0 hk
+pub fn bloom_hash1 <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn .H fn .T i32 \hasher\key:
+    let h0 %i32 bloom_hash0<.T,.H> hasher key
+    let hk %i32 hashkey_hash32 key
+    let mixed %i32 hash32::mix xor h0 hk
     if eq mixed 0 1 mixed
 
-pub fn bloom_probe_index <(i32,i32,i32)->i32> (nbits, h0, h1):
+pub fn bloom_probe_index %fn i32 fn i32 fn i32 i32 \nbits\h0\h1:
     rem_u add h0 h1 nbits

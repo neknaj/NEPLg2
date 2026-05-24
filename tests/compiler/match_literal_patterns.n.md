@@ -13,7 +13,7 @@ stdout: "test_report name=\"i32_literal_arm_selects_matching_case\" count=1 fail
 #indent 4
 #import "std/test" as *
 
-fn classify <(i32)->i32> (x):
+fn classify %fn i32 i32 \x:
     match x:
         34:
             1
@@ -22,8 +22,8 @@ fn classify <(i32)->i32> (x):
         _:
             3
 
-fn main <()*>i32> ():
-    let actual <i32> classify 92
+fn main %impure fn () i32 \():
+    let actual %i32 classify 92
     let report:
         test_report_new "i32_literal_arm_selects_matching_case"
         |> test_report_push assert_eq_i32 "i32 literal matching arm" 2 actual
@@ -42,7 +42,7 @@ stdout: "test_report name=\"i32_literal_arm_uses_wildcard_default\" count=1 fail
 #indent 4
 #import "std/test" as *
 
-fn classify <(i32)->i32> (x):
+fn classify %fn i32 i32 \x:
     match x:
         34:
             1
@@ -51,8 +51,8 @@ fn classify <(i32)->i32> (x):
         _:
             3
 
-fn main <()*>i32> ():
-    let actual <i32> classify 7
+fn main %impure fn () i32 \():
+    let actual %i32 classify 7
     let report:
         test_report_new "i32_literal_arm_uses_wildcard_default"
         |> test_report_push assert_eq_i32 "i32 literal wildcard default" 3 actual
@@ -71,15 +71,15 @@ stdout: "test_report name=\"bool_literal_arms_are_exhaustive\" count=1 failed=0\
 #indent 4
 #import "std/test" as *
 
-fn classify <(bool)->i32> (flag):
+fn classify %fn bool i32 \flag:
     match flag:
         true:
             1
         false:
             2
 
-fn main <()*>i32> ():
-    let actual <i32> classify false
+fn main %impure fn () i32 \():
+    let actual %i32 classify false
     let report:
         test_report_new "bool_literal_arms_are_exhaustive"
         |> test_report_push assert_eq_i32 "bool false arm" 2 actual
@@ -96,8 +96,8 @@ diag_code: type.match.duplicate_arm
 #entry main
 #indent 4
 
-fn main <()->i32> ():
-    let x <i32> 1
+fn main %fn () i32 \():
+    let x %i32 1
     match x:
         1:
             10
@@ -116,8 +116,8 @@ diag_code: type.match.non_exhaustive
 #entry main
 #indent 4
 
-fn main <()->i32> ():
-    let x <i32> 1
+fn main %fn () i32 \():
+    let x %i32 1
     match x:
         1:
             10
@@ -134,8 +134,8 @@ diag_code: type.match.wildcard_not_last
 #entry main
 #indent 4
 
-fn main <()->i32> ():
-    let x <i32> 1
+fn main %fn () i32 \():
+    let x %i32 1
     match x:
         _:
             0
@@ -154,7 +154,7 @@ stdout: "test_report name=\"char_literal_arm_selects_matching_case\" count=1 fai
 #indent 4
 #import "std/test" as *
 
-fn classify <(char)->i32> (c):
+fn classify %fn char i32 \c:
     match c:
         'a':
             1
@@ -163,8 +163,8 @@ fn classify <(char)->i32> (c):
         _:
             3
 
-fn main <()*>i32> ():
-    let actual <i32> classify '\n'
+fn main %impure fn () i32 \():
+    let actual %i32 classify '\n'
     let report:
         test_report_new "char_literal_arm_selects_matching_case"
         |> test_report_push assert_eq_i32 "char newline arm" 2 actual
@@ -183,9 +183,9 @@ stdout: "test_report name=\"char_literal_accepts_unicode_scalar\" count=1 failed
 #indent 4
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let c <char> '\u{3042}'
-    let actual <i32> match c:
+fn main %impure fn () i32 \():
+    let c %char '\u{3042}'
+    let actual %i32 match c:
         '\u{3042}':
             1
         _:
@@ -206,8 +206,8 @@ diag_code: type.match.pattern_unsupported
 #entry main
 #indent 4
 
-fn main <()->i32> ():
-    let c <char> 'A'
+fn main %fn () i32 \():
+    let c %char 'A'
     match c:
         65:
             1
@@ -226,9 +226,9 @@ stdout: "test_report name=\"char_literal_arm_matches_i32_code_point\" count=1 fa
 #indent 4
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let x <i32> 65
-    let actual <i32> match x:
+fn main %impure fn () i32 \():
+    let x %i32 65
+    let actual %i32 match x:
         'A':
             1
         _:
@@ -251,15 +251,15 @@ stdout: "test_report name=\"char_literal_arm_matches_u8_code_point\" count=1 fai
 #indent 4
 #import "std/test" as *
 
-fn classify <(u8)->i32> (x):
+fn classify %fn u8 i32 \x:
     match x:
         '\n':
             1
         _:
             0
 
-fn main <()*>i32> ():
-    let actual <i32> classify '\n'
+fn main %impure fn () i32 \():
+    let actual %i32 classify '\n'
     let report:
         test_report_new "char_literal_arm_matches_u8_code_point"
         |> test_report_push assert_eq_i32 "char literal matches u8 code point" 1 actual
@@ -278,11 +278,11 @@ stdout: "test_report name=\"char_literal_function_argument_uses_integer_context\
 #indent 4
 #import "std/test" as *
 
-fn takes_i32 <(i32)->i32> (x):
+fn takes_i32 %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let actual <i32> takes_i32 'A'
+fn main %impure fn () i32 \():
+    let actual %i32 takes_i32 'A'
     let report:
         test_report_new "char_literal_function_argument_uses_integer_context"
         |> test_report_push assert_eq_i32 "char literal function argument i32" 65 actual
@@ -302,10 +302,10 @@ stdout: "test_report name=\"char_literal_backspace_and_formfeed_escapes_compile\
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let b <i32> '\b'
-    let f <i32> '\f'
-    let actual <i32> add b f
+fn main %impure fn () i32 \():
+    let b %i32 '\b'
+    let f %i32 '\f'
+    let actual %i32 add b f
     let report:
         test_report_new "char_literal_backspace_and_formfeed_escapes_compile"
         |> test_report_push assert_eq_i32 "backspace plus formfeed" 20 actual

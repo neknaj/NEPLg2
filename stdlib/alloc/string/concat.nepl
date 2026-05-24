@@ -33,20 +33,20 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(a) + len(b))
-pub fn concat_result <(str,str)->Result<str,str>> (a,b):
-    let la <i32> len a;
-    let lb <i32> len b;
-    let total <i32> add la lb;
+pub fn concat_result %fn str fn str Result str str \a\b:
+    let la %i32 len a;
+    let lb %i32 len b;
+    let total %i32 add la lb;
     match string_alloc_region total:
         Result::Err e:
             Result<str,str>::Err e
         Result::Ok out_region:
-            let out_data <MemPtr<u8>> string_region_data_ptr &out_region;
+            let out_data %MemPtr u8 string_region_data_ptr &out_region;
             mem_copy mem_ptr_addr out_data mem_ptr_addr string_data_ptr a la;
             mem_copy add mem_ptr_addr out_data la mem_ptr_addr string_data_ptr b lb;
             Result<str,str>::Ok string_finish out_region total
 
-pub fn concat <(str,str)->str> (a,b):
+pub fn concat %fn str fn str str \a\b:
     match concat_result a b:
         Result::Ok s:
             s
@@ -68,6 +68,6 @@ pub fn concat <(str,str)->str> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(a) + len(b) + len(c)) ですが、中間 copy が 1 回追加で発生します。
-pub fn concat3 <(str,str,str)->str> (a,b,c):
-    let ab <str> concat a b;
+pub fn concat3 %fn str fn str fn str str \a\b\c:
+    let ab %str concat a b;
     concat ab c

@@ -25,7 +25,7 @@ ret: 1
 #import "core/traits/eq" as *
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if and eq_by_trait 42 42 ne_by_trait 42 7 then 1 else 0
 ```
 
@@ -40,7 +40,7 @@ ret: 1
 #import "core/traits/ord" as *
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if and ord_lt 2 3 ord_ge 3 3 then 1 else 0
 ```
 
@@ -66,29 +66,29 @@ stdout: mlstr:
 #import "core/math" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let v0 <Vec<i32>> unwrap_ok new<i32>;
-    let v1 <Vec<i32>> unwrap_ok push<i32> v0 4;
-    let v2 <Vec<i32>> unwrap_ok push<i32> v1 1;
-    let v3 <Vec<i32>> unwrap_ok push<i32> v2 3;
-    let v4 <Vec<i32>> unwrap_ok push<i32> v3 2;
+fn main %impure fn () i32 \():
+    let v0 %Vec i32 unwrap_ok new<i32>;
+    let v1 %Vec i32 unwrap_ok push<i32> v0 4;
+    let v2 %Vec i32 unwrap_ok push<i32> v1 1;
+    let v3 %Vec i32 unwrap_ok push<i32> v2 3;
+    let v4 %Vec i32 unwrap_ok push<i32> v3 2;
     let s sort_quick_ret<i32> v4;
-    let b0 <bool> match get<i32> &s 0:
+    let b0 %bool match get<i32> &s 0:
         Option::Some x:
             eq x 1
         Option::None:
             false
-    let b1 <bool> match get<i32> &s 1:
+    let b1 %bool match get<i32> &s 1:
         Option::Some x:
             eq x 2
         Option::None:
             false
-    let b2 <bool> match get<i32> &s 2:
+    let b2 %bool match get<i32> &s 2:
         Option::Some x:
             eq x 3
         Option::None:
             false
-    let b3 <bool> match get<i32> &s 3:
+    let b3 %bool match get<i32> &s 3:
         Option::Some x:
             eq x 4
         Option::None:

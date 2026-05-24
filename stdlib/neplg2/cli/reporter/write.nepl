@@ -18,11 +18,11 @@
 //: [目的/もくてき]:
 //: - artifact / JSON 用の stdout と diagnostic 用 stderr を API レベルで分けます。
 //: - write failure は `StdErrorKind` として caller に返します。
-pub fn selfhost_cli_write_human_diagnostic_stderr <(SelfhostDiagnostic)*>Result<(), StdErrorKind>> (diag):
+pub fn selfhost_cli_write_human_diagnostic_stderr %impure fn SelfhostDiagnostic Result () StdErrorKind \diag:
     stdio_write_stderr_str_result selfhost_cli_render_diagnostic_human &diag
 
 //: selfhost_cli_write_human_diagnostics_stderr: diagnostic collection の human text を stderr へ書く
-pub fn selfhost_cli_write_human_diagnostics_stderr <(&SelfhostDiagnostics)*>Result<(), StdErrorKind>> (diagnostics):
+pub fn selfhost_cli_write_human_diagnostics_stderr %impure fn &SelfhostDiagnostics Result () StdErrorKind \diagnostics:
     stdio_write_stderr_str_result selfhost_cli_render_diagnostics_human diagnostics
 
 //: selfhost_cli_write_json_diagnostic_stdout: diagnostic 1 件の JSON を stdout へ書く
@@ -30,9 +30,9 @@ pub fn selfhost_cli_write_human_diagnostics_stderr <(&SelfhostDiagnostics)*>Resu
 //: [目的/もくてき]:
 //: - machine readable diagnostic を stdout へ流し、human stderr と分離します。
 //: - driver が file output を持つようになったら、同じ render 結果を file writer へ渡します。
-pub fn selfhost_cli_write_json_diagnostic_stdout <(SelfhostDiagnostic)*>Result<(), StdErrorKind>> (diag):
+pub fn selfhost_cli_write_json_diagnostic_stdout %impure fn SelfhostDiagnostic Result () StdErrorKind \diag:
     stdio_write_str_result selfhost_cli_render_diagnostic_json &diag
 
 //: selfhost_cli_write_json_diagnostics_stdout: diagnostic collection の JSON array を stdout へ書く
-pub fn selfhost_cli_write_json_diagnostics_stdout <(&SelfhostDiagnostics)*>Result<(), StdErrorKind>> (diagnostics):
+pub fn selfhost_cli_write_json_diagnostics_stdout %impure fn &SelfhostDiagnostics Result () StdErrorKind \diagnostics:
     stdio_write_str_result selfhost_cli_render_diagnostics_json diagnostics

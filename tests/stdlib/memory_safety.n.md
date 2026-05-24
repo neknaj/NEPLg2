@@ -12,12 +12,12 @@ ret: 123
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
         Result::Ok region:
-            let p <MemPtr<i32>> region_ptr &region
+            let p %MemPtr i32 region_ptr &region
             match store_i32 p 123:
                 Result::Err _e:
                     match dealloc_region region:
@@ -26,7 +26,7 @@ fn main <()*>i32> ():
                         Result::Ok _:
                             0
                 Result::Ok _:
-                    let v <i32> match load_i32 p:
+                    let v %i32 match load_i32 p:
                         Option::None:
                             0
                         Option::Some x:
@@ -49,7 +49,7 @@ diag_code: resolve.identifier.undefined
 
 #import "core/mem" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     alloc_ptr<i32> 4
     0
 ```
@@ -65,7 +65,7 @@ diag_code: resolve.identifier.undefined
 
 #import "core/mem/pointer" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     alloc_ptr<i32> 4
     0
 ```
@@ -85,8 +85,8 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/option" as *
 
-fn main <()*>i32> ():
-    let p <MemPtr<i32>> mem_ptr_wrap 0
+fn main %impure fn () i32 \():
+    let p %MemPtr i32 mem_ptr_wrap 0
     match load_i32 p:
         Option::None:
             1
@@ -109,8 +109,8 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let p <MemPtr<i32>> mem_ptr_wrap 0
+fn main %impure fn () i32 \():
+    let p %MemPtr i32 mem_ptr_wrap 0
     match store_i32 p 42:
         Result::Err _e:
             1
@@ -134,13 +134,13 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/result" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc 8:
         Result::Err _e:
             0
         Result::Ok p:
             store_i32 p 77
-            let ok <i32> if eq load_i32 p 77 1 0
+            let ok %i32 if eq load_i32 p 77 1 0
             match dealloc p 8:
                 Result::Err _e:
                     0
@@ -163,7 +163,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match dealloc 0 4:
         Result::Err _e:
             1
@@ -184,7 +184,7 @@ ret: 321
 #import "core/result" as *
 #import "core/option" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -205,7 +205,7 @@ fn main <()*>i32> ():
                                 Result::Ok _:
                                     0
                         Result::Ok _:
-                            let v <i32> match load_i32 p:
+                            let v %i32 match load_i32 p:
                                 Option::None:
                                     0
                                 Option::Some x:
@@ -232,13 +232,13 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
         Result::Ok token:
-            let out <Result<MemPtr<i32>,str>> region_ptr_at<i32,i32> &token 4
-            let ok <i32> match out:
+            let out %Result MemPtr i32 str region_ptr_at<i32,i32> &token 4
+            let ok %i32 match out:
                 Result::Err _e:
                     1
                 Result::Ok _:
@@ -262,14 +262,14 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
         Result::Ok token:
-            let p <MemPtr<i32>> region_ptr &token
-            let q <MemPtr<i32>> mem_ptr_add<i32> p 4
-            let ok <i32> match store_i32 q 99:
+            let p %MemPtr i32 region_ptr &token
+            let q %MemPtr i32 mem_ptr_add<i32> p 4
+            let ok %i32 match store_i32 q 99:
                 Result::Err _e:
                     1
                 Result::Ok _:
@@ -294,13 +294,13 @@ diag_code: resource.owner.unavailable
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<u8> 1:
         Result::Err _e:
             0
         Result::Ok region:
-            let p <MemPtr<u8>> region_ptr &region
-            let status <i32> match cstr_to_str_bounded_result p 100:
+            let p %MemPtr u8 region_ptr &region
+            let status %i32 match cstr_to_str_bounded_result p 100:
                 Result::Ok _s:
                     1
                 Result::Err _e:
@@ -324,13 +324,13 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<u8> 8:
         Result::Err _e:
             0
         Result::Ok token:
-            let out <Result<MemPtr<i32>,str>> region_ptr_at<u8,i32> &token 1
-            let ok <i32> match out:
+            let out %Result MemPtr i32 str region_ptr_at<u8,i32> &token 1
+            let ok %i32 match out:
                 Result::Err _e:
                     1
                 Result::Ok _:
@@ -354,7 +354,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<i32> 536870909:
         Result::Err _e:
             1
@@ -378,7 +378,7 @@ ret: 1
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region_bytes<u8> 2147483633:
         Result::Err _e:
             1
@@ -400,17 +400,17 @@ ret: 1
 #import "core/option" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let ok_u8 <i32> check_fill_u8
-    let ok_i32 <i32> check_fill_i32
+fn main %impure fn () i32 \():
+    let ok_u8 %i32 check_fill_u8
+    let ok_i32 %i32 check_fill_i32
     if and (eq ok_u8 1) (eq ok_i32 1) 1 0
 
-fn check_fill_u8 <()*>i32> ():
+fn check_fill_u8 %impure fn () i32 \():
     match alloc_region<u8> 16:
         Result::Err _e:
             0
         Result::Ok token:
-            let p <MemPtr<u8>> region_ptr &token
+            let p %MemPtr u8 region_ptr &token
             match fill_u8 p 16 7:
                 Result::Err _e:
                     match dealloc_region token:
@@ -419,7 +419,7 @@ fn check_fill_u8 <()*>i32> ():
                         Result::Ok _:
                             0
                 Result::Ok _:
-                    let ok <i32> match load_u8 p:
+                    let ok %i32 match load_u8 p:
                         Option::None:
                             0
                         Option::Some v:
@@ -430,12 +430,12 @@ fn check_fill_u8 <()*>i32> ():
                         Result::Ok _:
                             ok
 
-fn check_fill_i32 <()*>i32> ():
+fn check_fill_i32 %impure fn () i32 \():
     match alloc_region<i32> 4:
         Result::Err _e:
             0
         Result::Ok token:
-            let p <MemPtr<i32>> region_ptr &token
+            let p %MemPtr i32 region_ptr &token
             match fill_i32 p 4 7:
                 Result::Err _e:
                     match dealloc_region token:
@@ -444,7 +444,7 @@ fn check_fill_i32 <()*>i32> ():
                         Result::Ok _:
                             0
                 Result::Ok _:
-                    let ok <i32> match load_i32 p:
+                    let ok %i32 match load_i32 p:
                         Option::None:
                             0
                         Option::Some v:
@@ -469,9 +469,9 @@ ret: 1
 #import "core/result" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let ok_u8 <i32> check_invalid_fill_u8
-    let ok_i32 <i32> check_invalid_fill_i32
+fn main %impure fn () i32 \():
+    let ok_u8 %i32 check_invalid_fill_u8
+    let ok_i32 %i32 check_invalid_fill_i32
     if:
         and (eq ok_u8 1) (eq ok_i32 1)
         then:
@@ -479,14 +479,14 @@ fn main <()*>i32> ():
         else:
             0
 
-fn check_invalid_fill_u8 <()*>i32> ():
+fn check_invalid_fill_u8 %impure fn () i32 \():
     match alloc_region<u8> 4:
         Result::Err _e:
             0
         Result::Ok token:
-            let p <MemPtr<u8>> region_ptr &token
-            let bad_len <i32> sub 0 1
-            let ok <bool> match fill_u8 p bad_len 1:
+            let p %MemPtr u8 region_ptr &token
+            let bad_len %i32 sub 0 1
+            let ok %bool match fill_u8 p bad_len 1:
                 Result::Err _e:
                     true
                 Result::Ok _:
@@ -497,14 +497,14 @@ fn check_invalid_fill_u8 <()*>i32> ():
                 Result::Ok _:
                     if ok 1 0
 
-fn check_invalid_fill_i32 <()*>i32> ():
+fn check_invalid_fill_i32 %impure fn () i32 \():
     match alloc_region<i32> 2:
         Result::Err _e:
             0
         Result::Ok token:
-            let p <MemPtr<i32>> region_ptr &token
-            let bad_len <i32> sub 0 1
-            let ok <bool> match fill_i32 p bad_len 9:
+            let p %MemPtr i32 region_ptr &token
+            let bad_len %i32 sub 0 1
+            let ok %bool match fill_i32 p bad_len 9:
                 Result::Err _e:
                     true
                 Result::Ok _:
@@ -532,9 +532,9 @@ diag_code: effect.pure.calls_impure
 #import "core/option" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
-    let p <MemPtr<i32>> mem_ptr_wrap 0
-    let v <i32> match load_i32 p:
+fn main %fn () i32 \():
+    let p %MemPtr i32 mem_ptr_wrap 0
+    let v %i32 match load_i32 p:
         Option::None:
             0
         Option::Some x:
@@ -561,8 +561,8 @@ diag_code: effect.pure.calls_impure
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main <()->i32> ():
-    let p <MemPtr<u8>> mem_ptr_wrap 0
+fn main %fn () i32 \():
+    let p %MemPtr u8 mem_ptr_wrap 0
     match fill_u8 p 4 1:
         Result::Err _e:
             0
@@ -581,7 +581,7 @@ diag_code: resource.raw.memory_outside_boundary
 
 #import "core/mem/raw" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     store_i32 16 7
     load_i32 16
 ```
@@ -599,8 +599,8 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/internal" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let p <MemPtr<i32>> mem_ptr_wrap<i32> 16
+fn main %impure fn () i32 \():
+    let p %MemPtr i32 mem_ptr_wrap<i32> 16
     match store_i32 p 7:
         Result::Ok _:
             1
@@ -622,8 +622,8 @@ diag_code: type.overload.no_match
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main <()->i32> ():
-    let p <MemPtr<u8>> mem_ptr_wrap 0
+fn main %fn () i32 \():
+    let p %MemPtr u8 mem_ptr_wrap 0
     let _v load_i32 p;
     0
 ```
@@ -642,10 +642,10 @@ diag_code: type.raw_pointer.constructor_restricted
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn make <()->MemPtr<u8>> ():
+fn make %fn () MemPtr u8 \():
     MemPtr 0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -662,11 +662,11 @@ diag_code: type.raw_pointer.field_access_restricted
 #import "core/mem/internal" as *
 #import "core/field" as *
 
-fn reveal_raw <()->i32> ():
-    let p <MemPtr<u8>> mem_ptr_wrap 16
+fn reveal_raw %fn () i32 \():
+    let p %MemPtr u8 mem_ptr_wrap 16
     get p "raw"
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -684,8 +684,8 @@ diag_code: type.overload.no_match
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main <()->i32> ():
-    let p <MemPtr<i32>> mem_ptr_wrap 0
+fn main %fn () i32 \():
+    let p %MemPtr i32 mem_ptr_wrap 0
     store_u8 p 1;
     0
 ```
@@ -704,8 +704,8 @@ diag_code: type.overload.no_match
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main <()->i32> ():
-    let p <MemPtr<u8>> mem_ptr_wrap 0
+fn main %fn () i32 \():
+    let p %MemPtr u8 mem_ptr_wrap 0
     dealloc_region p;
     0
 ```
@@ -725,15 +725,15 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn string_addr_probe <(str)->i32> (s):
+fn string_addr_probe %fn str i32 \s:
     #intrinsic "str_addr" <> (s)
 
-fn forge_region_from_str <(str)*>Result<(), str>> (s):
-    let raw <i32> string_addr_probe s
-    let token <RegionToken<u8>> region_new<u8> raw 1
+fn forge_region_from_str %impure fn str Result () str \s:
+    let raw %i32 string_addr_probe s
+    let token %RegionToken u8 region_new<u8> raw 1
     dealloc_region token
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     match forge_region_from_str "abc":
         Result::Ok _:
             ()
@@ -756,11 +756,11 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn forge_fixed_region <()* >Result<(), str>> ():
-    let token <RegionToken<u8>> region_new<u8> 16 1
+fn forge_fixed_region %()*Result<(), str>> \():
+    let token %RegionToken u8 region_new<u8> 16 1
     dealloc_region token
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     match forge_fixed_region:
         Result::Ok _:
             ()
@@ -783,11 +783,11 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn forge_fixed_region <()* >RegionToken<u8>> ():
+fn forge_fixed_region %()*RegionToken<u8>> \():
     region_new<u8> 16 1
 
-fn main <()*>()> ():
-    let token <RegionToken<u8>> forge_fixed_region
+fn main %impure fn () () \():
+    let token %RegionToken u8 forge_fixed_region
     match dealloc_region token:
         Result::Ok _:
             ()
@@ -810,15 +810,15 @@ diag_code: type.owner_token.constructor_restricted
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn string_addr_probe <(str)->i32> (s):
+fn string_addr_probe %fn str i32 \s:
     #intrinsic "str_addr" <> (s)
 
-fn forge_region_from_str <(str)*>Result<(), str>> (s):
-    let raw <i32> string_addr_probe s
-    let token <RegionToken<u8>> RegionToken raw 1
+fn forge_region_from_str %impure fn str Result () str \s:
+    let raw %i32 string_addr_probe s
+    let token %RegionToken u8 RegionToken raw 1
     dealloc_region token
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     match forge_region_from_str "abc":
         Result::Ok _:
             ()
@@ -838,10 +838,10 @@ diag_code: type.owner_token.field_access_restricted
 #import "core/mem" as *
 #import "core/field" as *
 
-fn reveal_region_raw <(RegionToken<u8>)->i32> (token):
+fn reveal_region_raw %fn RegionToken u8 i32 \token:
     get token "raw"
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -856,10 +856,10 @@ diag_code: resolve.identifier.undefined
 
 #import "core/mem" as *
 
-fn reveal_region_raw_ref <(&RegionToken<u8>)->i32> (token):
+fn reveal_region_raw_ref %fn &RegionToken u8 i32 \token:
     *region_token_raw_ref token
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -878,16 +878,16 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn borrowed_region_ptr <(&RegionToken<u8>)->MemPtr<u8>> (token):
+fn borrowed_region_ptr %fn &RegionToken u8 MemPtr u8 \token:
     region_ptr token
 
-fn forge_region_from_region_ptr <(RegionToken<u8>)*>Result<(), str>> (token):
-    let p <MemPtr<u8>> borrowed_region_ptr &token
-    let raw <i32> mem_ptr_addr p
-    let forged <RegionToken<u8>> region_new<u8> raw 1
+fn forge_region_from_region_ptr %impure fn RegionToken u8 Result () str \token:
+    let p %MemPtr u8 borrowed_region_ptr &token
+    let raw %i32 mem_ptr_addr p
+    let forged %RegionToken u8 region_new<u8> raw 1
     dealloc_region forged
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     match alloc_region<u8> 1:
         Result::Err _e:
             ()
@@ -914,23 +914,23 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
+fn id_ptr %fn MemPtr u8 MemPtr u8 \p:
     p
 
-fn apply_ptr <(MemPtr<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (p, f):
+fn apply_ptr %fn MemPtr u8 fn fn MemPtr u8 MemPtr u8 MemPtr u8 \p\f:
     f p
 
-fn borrowed_region_ptr_via_callback <(&RegionToken<u8>)->MemPtr<u8>> (token):
-    let p <MemPtr<u8>> region_ptr token
+fn borrowed_region_ptr_via_callback %fn &RegionToken u8 MemPtr u8 \token:
+    let p %MemPtr u8 region_ptr token
     apply_ptr p @id_ptr
 
-fn forge_region_from_callback_ptr <(RegionToken<u8>)*>Result<(), str>> (token):
-    let p <MemPtr<u8>> borrowed_region_ptr_via_callback &token
-    let raw <i32> mem_ptr_addr p
-    let forged <RegionToken<u8>> region_new<u8> raw 1
+fn forge_region_from_callback_ptr %impure fn RegionToken u8 Result () str \token:
+    let p %MemPtr u8 borrowed_region_ptr_via_callback &token
+    let raw %i32 mem_ptr_addr p
+    let forged %RegionToken u8 region_new<u8> raw 1
     dealloc_region forged
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     match alloc_region<u8> 1:
         Result::Err _e:
             ()
@@ -956,22 +956,22 @@ neplg2:test
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn id_ptr <(MemPtr<u8>)->MemPtr<u8>> (p):
+fn id_ptr %fn MemPtr u8 MemPtr u8 \p:
     p
 
-fn apply_ptr <(MemPtr<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (p, f):
+fn apply_ptr %fn MemPtr u8 fn fn MemPtr u8 MemPtr u8 MemPtr u8 \p\f:
     f p
 
-fn borrowed_region_ptr_via_callback_param <(&RegionToken<u8>, (MemPtr<u8>)->MemPtr<u8>)->MemPtr<u8>> (token, f):
-    let p <MemPtr<u8>> region_ptr token
+fn borrowed_region_ptr_via_callback_param %fn &RegionToken u8 fn fn MemPtr u8 MemPtr u8 MemPtr u8 \token\f:
+    let p %MemPtr u8 region_ptr token
     apply_ptr p f
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     match alloc_region<u8> 1:
         Result::Err _e:
             ()
         Result::Ok token:
-            let _p <MemPtr<u8>> borrowed_region_ptr_via_callback_param &token @id_ptr
+            let _p %MemPtr u8 borrowed_region_ptr_via_callback_param &token @id_ptr
             match dealloc_region token:
                 Result::Ok _:
                     ()
@@ -994,16 +994,16 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn forge_region_from_region_ptr_at <(RegionToken<u8>)*>Result<(), str>> (token):
+fn forge_region_from_region_ptr_at %impure fn RegionToken u8 Result () str \token:
     match region_ptr_at<u8,u8> &token 0:
         Result::Err e:
             Result<(), str>::Err e
         Result::Ok p:
-            let raw <i32> mem_ptr_addr p
-            let forged <RegionToken<u8>> region_new<u8> raw 1
+            let raw %i32 mem_ptr_addr p
+            let forged %RegionToken u8 region_new<u8> raw 1
             dealloc_region forged
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     match alloc_region<u8> 1:
         Result::Err _e:
             ()
@@ -1028,12 +1028,12 @@ diag_code: type.owner_aggregate.constructor_restricted
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
         Result::Ok region:
-            let _v <Vec<i32>> Vec<i32> (OwnedBuffer<i32> 0 0 1 (VecStorage<i32>::Owned region))
+            let _v %Vec i32 Vec<i32> (OwnedBuffer<i32> 0 0 1 (VecStorage<i32>::Owned region))
             0
 ```
 
@@ -1050,9 +1050,9 @@ diag_code: type.owner_aggregate.field_access_restricted
 #import "core/field" as field
 #import "core/mem" as *
 
-fn main <()->i32> ():
-    let v <Vec<i32>> vec_empty<i32>
-    let _buffer <&OwnedBuffer<i32>> field::get_ref &v "buffer"
+fn main %fn () i32 \():
+    let v %Vec i32 vec_empty<i32>
+    let _buffer %&OwnedBuffer i32 field::get_ref &v "buffer"
     0
 ```
 
@@ -1069,15 +1069,15 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let v <Vec<i32>> unwrap_ok new<i32>
+fn main %impure fn () i32 \():
+    let v %Vec i32 unwrap_ok new<i32>
     match data_mem_view<i32> &v:
         VecDataView::Empty:
             ()
         VecDataView::Invalid _reason:
             ()
         VecDataView::Data p:
-            let _r <Result<(),str>> store_i32 p 99
+            let _r %Result () str store_i32 p 99
             ()
     free<i32> v
     0
@@ -1094,7 +1094,7 @@ diag_code: resolve.identifier.undefined
 
 #import "core/mem" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     alloc_raw 4
 ```
 
@@ -1109,7 +1109,7 @@ diag_code: resolve.identifier.undefined
 
 #import "core/mem" as *
 
-fn main <()->MemPtr<i32>> ():
+fn main %fn () MemPtr i32 \():
     mem_ptr_wrap<i32> 16
 ```
 
@@ -1124,7 +1124,7 @@ diag_code: type.overload.no_match
 
 #import "core/mem" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     load_i32 0
 ```
 
@@ -1140,7 +1140,7 @@ diag_code: resolve.identifier.undefined
 #import "alloc/io/bytebuilder" as *
 #import "core/mem" as *
 
-fn main <()->RegionToken<u8>> ():
+fn main %fn () RegionToken u8 \():
     byte_builder_empty_region
 ```
 
@@ -1156,7 +1156,7 @@ diag_code: resolve.identifier.undefined
 #import "alloc/io/bytebuf" as *
 #import "core/mem" as *
 
-fn main <()->RegionToken<u8>> ():
+fn main %fn () RegionToken u8 \():
     io_bytebuf_empty_region
 ```
 
@@ -1171,8 +1171,8 @@ diag_code: type.owner_aggregate.constructor_restricted
 
 #import "alloc/io/bytebuf" as *
 
-fn main <()*>i32> ():
-    let _buf <ByteBuf> ByteBuf ByteBufStorage::Empty 0
+fn main %impure fn () i32 \():
+    let _buf %ByteBuf ByteBuf ByteBufStorage::Empty 0
     0
 ```
 
@@ -1188,9 +1188,9 @@ diag_code: type.owner_aggregate.field_access_restricted
 #import "alloc/io/bytebuf" as *
 #import "core/field" as field
 
-fn main <()*>i32> ():
-    let buf <ByteBuf> io_bytebuf_empty
-    let _storage <&ByteBufStorage> field::get_ref &buf "storage"
+fn main %impure fn () i32 \():
+    let buf %ByteBuf io_bytebuf_empty
+    let _storage %&ByteBufStorage field::get_ref &buf "storage"
     0
 ```
 
@@ -1205,7 +1205,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/storage" as *
 
-fn main <()*>str> ():
+fn main %impure fn () str \():
     string_finish_base string_data_ptr "abc" 3
 ```
 
@@ -1220,7 +1220,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/storage" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     string_addr "abc"
 ```
 
@@ -1235,7 +1235,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/storage" as *
 
-fn main <()*>str> ():
+fn main %impure fn () str \():
     string_from_addr_unchecked 0
 ```
 
@@ -1252,13 +1252,13 @@ diag_code: resource.owner.unavailable
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<u8> 1:
         Result::Err _e:
             0
         Result::Ok region:
-            let p <MemPtr<u8>> region_ptr &region
-            let copied_len <i32> match string_from_mem_unchecked_result p 100:
+            let p %MemPtr u8 region_ptr &region
+            let copied_len %i32 match string_from_mem_unchecked_result p 100:
                 Result::Ok copied:
                     1
                 Result::Err _e:
@@ -1283,13 +1283,13 @@ diag_code: resource.owner.unavailable
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<u8> 1:
         Result::Err _e:
             0
         Result::Ok region:
-            let p <MemPtr<u8>> region_ptr &region
-            let copied_len <i32> match string_from_utf8_mem_result p 100:
+            let p %MemPtr u8 region_ptr &region
+            let copied_len %i32 match string_from_utf8_mem_result p 100:
                 Result::Ok copied:
                     1
                 Result::Err _e:
@@ -1312,7 +1312,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/scanner" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     scanner_string_addr "abc"
 ```
 
@@ -1327,7 +1327,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/scanner" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     scanner_string_byte_at_unchecked "abc" 99
 ```
 
@@ -1342,7 +1342,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/scanner" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     scanner_string_byte_at_checked_raw "abc" 99
 ```
 
@@ -1357,7 +1357,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     string_byte_at_unchecked "abc" 99
 ```
 
@@ -1372,7 +1372,7 @@ diag_code: type.overload.no_match
 
 #import "alloc/string/byte_index" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     string_byte_at_checked "abc" 99
 ```
 
@@ -1387,7 +1387,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/byte_index" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let idx StringByteIndex 0
     string_byte_at_checked "abc" idx
 ```
@@ -1403,7 +1403,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/access" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     string_byte_at_unchecked "abc" 99
 ```
 
@@ -1418,7 +1418,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/utf8" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     string_utf8_byte_at "abc" 0
 ```
 
@@ -1433,7 +1433,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/string/utf8" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     string_utf8_validate_two "abc" 0 3
     0
 ```
@@ -1449,7 +1449,7 @@ diag_code: resolve.identifier.undefined
 
 #import "std/text/validate" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     text_utf8_byte_at "abc" 0
 ```
 
@@ -1465,8 +1465,8 @@ diag_code: resolve.identifier.undefined
 #import "std/env/cliarg/cstr" as *
 #import "alloc/string/storage" as *
 
-fn main <()*>i32> ():
-    let p <MemPtr<u8>> string_data_ptr "nep\0";
+fn main %impure fn () i32 \():
+    let p %MemPtr u8 string_data_ptr "nep\0";
     cstr_len p
 ```
 
@@ -1482,8 +1482,8 @@ diag_code: resolve.identifier.undefined
 #import "std/env/cliarg/cstr" as *
 #import "alloc/string/storage" as *
 
-fn main <()*>i32> ():
-    let p <MemPtr<u8>> string_data_ptr "nep\0";
+fn main %impure fn () i32 \():
+    let p %MemPtr u8 string_data_ptr "nep\0";
     cstr_to_str p
 ```
 
@@ -1500,10 +1500,10 @@ diag_code: resolve.identifier.undefined
 #import "alloc/string/storage" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match byte_builder_new:
         Result::Ok b:
-            let p <MemPtr<u8>> string_data_ptr "abc";
+            let p %MemPtr u8 string_data_ptr "abc";
             match byte_builder_push_bytes_ref b &p 3:
                 Result::Ok next:
                     byte_builder_free next

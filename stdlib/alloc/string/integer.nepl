@@ -23,14 +23,14 @@ pub #import "./integer/parse" as *
 //:| #import "alloc/string" as *
 //:| #import "std/test" as *
 //:| #import "core/result" as *
-//: fn assert_i32_ok <(str,Result<i32,i32>,i32)->TestAssertion> (label, got, expected):
+//: fn assert_i32_ok %fn str fn Result i32 i32 fn i32 TestAssertion \label\got\expected:
 //:     match got:
 //:         Result::Ok actual:
 //:             assert_eq_i32 label expected actual
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "integer parse failed unexpectedly"
 //:
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let report:
 //:         test_report_new "string_integer_facade_doc"
 //:         |> test_report_push assert_str_eq "format i32" "-42" from_i32 -42

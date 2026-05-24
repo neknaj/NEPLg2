@@ -1,6 +1,6 @@
 # drop
 
-`Drop` capability と auto drop 挿入の compiler 回帰です。  
+`Drop` capability と auto drop 挿入の compiler 回帰です。
 runtime の drop 順序は Rust 側 integration test で詳細に固定し、この `.n.md` では nodesrc 経路でも `Drop` を含む入力が正常に compile / run できることを確認します。
 
 ## drop_simple_let
@@ -21,14 +21,14 @@ stdout: "test_report name=\"drop_simple_let\" count=1 failed=0\nassertion index=
 #import "std/test" as *
 
 struct Guard:
-    dummy <i32>
+    dummy %i32
 
 impl Drop for Guard:
-    fn drop <(&Guard)*>()> (self):
+    fn drop %impure fn &Guard () \self:
         ()
 
-fn main <()*>i32> ():
-    let g <Guard> Guard 0;
+fn main %impure fn () i32 \():
+    let g %Guard Guard 0;
     let report:
         test_report_new "drop_simple_let"
         |> test_report_push assert_eq_i32 "drop simple exit marker" 0 0
@@ -53,23 +53,23 @@ stdout: "test_report name=\"drop_nested_scopes\" count=2 failed=0\nassertion ind
 #import "std/test" as *
 
 struct OuterGuard:
-    dummy <i32>
+    dummy %i32
 struct InnerGuard:
-    dummy <i32>
+    dummy %i32
 
 impl Drop for OuterGuard:
-    fn drop <(&OuterGuard)*>()> (self):
+    fn drop %impure fn &OuterGuard () \self:
         ()
 
 impl Drop for InnerGuard:
-    fn drop <(&InnerGuard)*>()> (self):
+    fn drop %impure fn &InnerGuard () \self:
         ()
 
-fn main <()*>i32> ():
-    let outer <OuterGuard> OuterGuard 0;
-    let branch <i32> if true:
+fn main %impure fn () i32 \():
+    let outer %OuterGuard OuterGuard 0;
+    let branch %i32 if true:
         then:
-            let inner <InnerGuard> InnerGuard 0;
+            let inner %InnerGuard InnerGuard 0;
             1
         else:
             0
@@ -99,26 +99,26 @@ stdout: "test_report name=\"drop_if_branch\" count=2 failed=0\nassertion index=0
 #import "std/test" as *
 
 struct TrueGuard:
-    dummy <i32>
+    dummy %i32
 struct FalseGuard:
-    dummy <i32>
+    dummy %i32
 
 impl Drop for TrueGuard:
-    fn drop <(&TrueGuard)*>()> (self):
+    fn drop %impure fn &TrueGuard () \self:
         ()
 
 impl Drop for FalseGuard:
-    fn drop <(&FalseGuard)*>()> (self):
+    fn drop %impure fn &FalseGuard () \self:
         ()
 
-fn main <()*>i32> ():
-    let flag <bool> true;
-    let branch <i32> if flag:
+fn main %impure fn () i32 \():
+    let flag %bool true;
+    let branch %i32 if flag:
         then:
-            let g <TrueGuard> TrueGuard 0;
+            let g %TrueGuard TrueGuard 0;
             1
         else:
-            let h <FalseGuard> FalseGuard 0;
+            let h %FalseGuard FalseGuard 0;
             2
     let report:
         test_report_new "drop_if_branch"
@@ -146,21 +146,21 @@ stdout: "test_report name=\"drop_multiple_bindings_reverse_order\" count=1 faile
 #import "std/test" as *
 
 struct GuardA:
-    dummy <i32>
+    dummy %i32
 struct GuardB:
-    dummy <i32>
+    dummy %i32
 
 impl Drop for GuardA:
-    fn drop <(&GuardA)*>()> (self):
+    fn drop %impure fn &GuardA () \self:
         ()
 
 impl Drop for GuardB:
-    fn drop <(&GuardB)*>()> (self):
+    fn drop %impure fn &GuardB () \self:
         ()
 
-fn main <()*>i32> ():
-    let a <GuardA> GuardA 0;
-    let b <GuardB> GuardB 0;
+fn main %impure fn () i32 \():
+    let a %GuardA GuardA 0;
+    let b %GuardB GuardB 0;
     let report:
         test_report_new "drop_multiple_bindings_reverse_order"
         |> test_report_push assert_eq_i32 "multiple drop exit marker" 0 0

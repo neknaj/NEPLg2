@@ -15,14 +15,14 @@ diag_code: effect.pure.calls_impure
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn compute <()->i32> ():
-    let p <i32> alloc_raw 4
+fn compute %fn () i32 \():
+    let p %i32 alloc_raw 4
     store_i32 p 123
-    let v <i32> load_i32 p
+    let v %i32 load_i32 p
     dealloc_raw p 4
     v
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     compute
 ```
 
@@ -39,11 +39,11 @@ diag_code: effect.pure.calls_impure
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn release_external <(i32)->i32> (p):
+fn release_external %fn i32 i32 \p:
     dealloc_raw p 4
     0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     release_external 16
 ```
 
@@ -60,12 +60,12 @@ diag_code: effect.pure.calls_impure
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn resize_external <(i32)->i32> (p):
-    let q <i32> realloc_raw p 4 8
+fn resize_external %fn i32 i32 \p:
+    let q %i32 realloc_raw p 4 8
     dealloc_raw q 8
     0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     resize_external 16
 ```
 
@@ -82,10 +82,10 @@ diag_code: effect.pure.calls_impure
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn observe_memory <()->i32> ():
+fn observe_memory %fn () i32 \():
     mem_size
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     observe_memory
 ```
 
@@ -102,10 +102,10 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn leak_raw <()->i32> ():
+fn leak_raw %fn () i32 \():
     alloc_raw 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     leak_raw
 ```
 
@@ -123,14 +123,14 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/raw" as *
 
 struct RawBox:
-    ptr <i32>
+    ptr %i32
 
-fn leak_box <()->RawBox> ():
-    let p <i32> alloc_raw 4
+fn leak_box %fn () RawBox \():
+    let p %i32 alloc_raw 4
     RawBox p
 
-fn main <()->i32> ():
-    let b <RawBox> leak_box
+fn main %fn () i32 \():
+    let b %RawBox leak_box
     0
 ```
 
@@ -147,14 +147,14 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn raw_id <(i32)->i32> (p):
+fn raw_id %fn i32 i32 \p:
     p
 
-fn leak_via_helper <()->i32> ():
-    let p <i32> alloc_raw 4
+fn leak_via_helper %fn () i32 \():
+    let p %i32 alloc_raw 4
     raw_id p
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     leak_via_helper
 ```
 
@@ -171,15 +171,15 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn raw_id <(i32)->i32> (p):
+fn raw_id %fn i32 i32 \p:
     p
 
-fn leak_via_function_value <()->i32> ():
+fn leak_via_function_value %fn () i32 \():
     let f @raw_id;
-    let p <i32> alloc_raw 4
+    let p %i32 alloc_raw 4
     f p
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     leak_via_function_value
 ```
 
@@ -196,17 +196,17 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn raw_id <(i32)->i32> (p):
+fn raw_id %fn i32 i32 \p:
     p
 
-fn apply_raw <(i32, (i32)->i32)->i32> (p, f):
+fn apply_raw %fn i32 fn fn i32 i32 i32 \p\f:
     f p
 
-fn leak_via_higher_order <()->i32> ():
-    let p <i32> alloc_raw 4
+fn leak_via_higher_order %fn () i32 \():
+    let p %i32 alloc_raw 4
     apply_raw p @raw_id
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     leak_via_higher_order
 ```
 
@@ -223,13 +223,13 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn leak_via_raw_slot <()->i32> ():
-    let p <i32> alloc_raw 4
-    let slot <i32> alloc_raw 4
+fn leak_via_raw_slot %fn () i32 \():
+    let p %i32 alloc_raw 4
+    let slot %i32 alloc_raw 4
     store_i32 slot p
     load_i32 slot
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     leak_via_raw_slot
 ```
 
@@ -247,11 +247,11 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn leak_via_realloc_slot <()->i32> ():
-    let p <i32> alloc_raw 4
-    let slot <i32> alloc_raw 4
+fn leak_via_realloc_slot %fn () i32 \():
+    let p %i32 alloc_raw 4
+    let slot %i32 alloc_raw 4
     store_i32 slot p
-    let grown <i32> realloc_raw slot 4 8
+    let grown %i32 realloc_raw slot 4 8
     if:
         lt 0 grown
         then:
@@ -259,7 +259,7 @@ fn leak_via_realloc_slot <()->i32> ():
         else:
             load_i32 slot
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     leak_via_realloc_slot
 ```
 
@@ -276,15 +276,15 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn leak_via_copied_slot <()->i32> ():
-    let p <i32> alloc_raw 4
-    let src <i32> alloc_raw 4
-    let dst <i32> alloc_raw 4
+fn leak_via_copied_slot %fn () i32 \():
+    let p %i32 alloc_raw 4
+    let src %i32 alloc_raw 4
+    let dst %i32 alloc_raw 4
     store_i32 src p
     mem_copy dst src 4
     load_i32 dst
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     leak_via_copied_slot
 ```
 
@@ -301,13 +301,13 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn leak_via_param_slot <(i32)->i32> (slot):
-    let p <i32> alloc_raw 4
+fn leak_via_param_slot %fn i32 i32 \slot:
+    let p %i32 alloc_raw 4
     store_i32 slot p
     load_i32 slot
 
-fn main <()->i32> ():
-    let slot <i32> alloc_raw 4
+fn main %fn () i32 \():
+    let slot %i32 alloc_raw 4
     leak_via_param_slot slot
 ```
 
@@ -324,14 +324,14 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn leak_via_copied_param_slot <(i32)->i32> (slot):
-    let alias <i32> slot
-    let p <i32> alloc_raw 4
+fn leak_via_copied_param_slot %fn i32 i32 \slot:
+    let alias %i32 slot
+    let p %i32 alloc_raw 4
     store_i32 alias p
     load_i32 slot
 
-fn main <()->i32> ():
-    let slot <i32> alloc_raw 4
+fn main %fn () i32 \():
+    let slot %i32 alloc_raw 4
     leak_via_copied_param_slot slot
 ```
 
@@ -348,13 +348,13 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn raw_slot_id <(i32,i32)->i32> (slot, p):
+fn raw_slot_id %fn i32 fn i32 i32 \slot\p:
     store_i32 slot p
     load_i32 slot
 
-fn main <()->i32> ():
-    let p <i32> alloc_raw 4
-    let slot <i32> alloc_raw 4
+fn main %fn () i32 \():
+    let p %i32 alloc_raw 4
+    let slot %i32 alloc_raw 4
     raw_slot_id slot p
 ```
 
@@ -371,17 +371,17 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn slot_id <(i32)->i32> (slot):
+fn slot_id %fn i32 i32 \slot:
     slot
 
-fn leak_via_returned_slot <(i32)->i32> (slot):
-    let alias <i32> slot_id slot
-    let p <i32> alloc_raw 4
+fn leak_via_returned_slot %fn i32 i32 \slot:
+    let alias %i32 slot_id slot
+    let p %i32 alloc_raw 4
     store_i32 alias p
     load_i32 slot
 
-fn main <()->i32> ():
-    let slot <i32> alloc_raw 4
+fn main %fn () i32 \():
+    let slot %i32 alloc_raw 4
     leak_via_returned_slot slot
 ```
 
@@ -398,18 +398,18 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn slot_id2 <(i32)->i32> (slot):
+fn slot_id2 %fn i32 i32 \slot:
     slot
 
-fn leak_via_indirect_returned_slot <(i32)->i32> (slot):
-    let f <(i32)->i32> @slot_id2
-    let alias <i32> f slot
-    let p <i32> alloc_raw 4
+fn leak_via_indirect_returned_slot %fn i32 i32 \slot:
+    let f %fn i32 i32 @slot_id2
+    let alias %i32 f slot
+    let p %i32 alloc_raw 4
     store_i32 alias p
     load_i32 slot
 
-fn main <()->i32> ():
-    let slot <i32> alloc_raw 4
+fn main %fn () i32 \():
+    let slot %i32 alloc_raw 4
     leak_via_indirect_returned_slot slot
 ```
 
@@ -422,10 +422,10 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #target core
 
-fn read_raw <()->i32> ():
+fn read_raw %fn () i32 \():
     #intrinsic "load" <i32> (16)
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     read_raw
 ```
 
@@ -438,11 +438,11 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #target core
 
-fn write_raw <()->i32> ():
+fn write_raw %fn () i32 \():
     #intrinsic "store" <i32> (16, 1)
     0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     write_raw
 ```
 
@@ -460,16 +460,16 @@ diag_code: resource.cell.moved
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> p
-    let b <LocalToken> load<LocalToken> p
+    let a %LocalToken load<LocalToken> p
+    let b %LocalToken load<LocalToken> p
     0
 ```
 
@@ -487,17 +487,17 @@ diag_code: resource.cell.moved
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
-    let q <i32> p
+fn main %impure fn () i32 \():
+    let p %i32 16
+    let q %i32 p
     store<LocalToken> p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> p
-    let b <LocalToken> load<LocalToken> q
+    let a %LocalToken load<LocalToken> p
+    let b %LocalToken load<LocalToken> q
     0
 ```
 
@@ -515,18 +515,18 @@ diag_code: resource.cell.moved
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let r1 <i32> mem_ptr_addr p
-    let r2 <i32> mem_ptr_addr p
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let r1 %i32 mem_ptr_addr p
+    let r2 %i32 mem_ptr_addr p
     store<LocalToken> r1 LocalToken @token_id
-    let a <LocalToken> load<LocalToken> r1
-    let b <LocalToken> load<LocalToken> r2
+    let a %LocalToken load<LocalToken> r1
+    let b %LocalToken load<LocalToken> r2
     0
 ```
 
@@ -544,17 +544,17 @@ diag_code: resource.cell.moved
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let q <MemPtr<LocalToken>> p
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let q %MemPtr LocalToken p
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr p
-    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    let a %LocalToken load<LocalToken> mem_ptr_addr p
+    let b %LocalToken load<LocalToken> mem_ptr_addr q
     0
 ```
 
@@ -572,17 +572,17 @@ diag_code: resource.cell.moved
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p 0
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let q %MemPtr LocalToken mem_ptr_add<LocalToken> p 0
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr p
-    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    let a %LocalToken load<LocalToken> mem_ptr_addr p
+    let b %LocalToken load<LocalToken> mem_ptr_addr q
     0
 ```
 
@@ -601,18 +601,18 @@ diag_code: resource.cell.initialized_conflict
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p 0
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let q %MemPtr LocalToken mem_ptr_add<LocalToken> p 0
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let raw <i32> mem_ptr_addr q
-    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
-    let r <Result<(),str>> dealloc_region<LocalToken> token
+    let raw %i32 mem_ptr_addr q
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let r %Result () str dealloc_region<LocalToken> token
     0
 ```
 
@@ -630,18 +630,18 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p 8
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let q %MemPtr LocalToken mem_ptr_add<LocalToken> p 8
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     store<LocalToken> mem_ptr_addr q LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr p
-    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    let a %LocalToken load<LocalToken> mem_ptr_addr p
+    let b %LocalToken load<LocalToken> mem_ptr_addr q
     0
 ```
 
@@ -659,21 +659,21 @@ diag_code: resource.cell.moved
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn choose_offset <(bool)->i32> (flag):
+fn choose_offset %fn bool i32 \flag:
     if flag 0 8
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let off <i32> choose_offset true
-    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p off
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let off %i32 choose_offset true
+    let q %MemPtr LocalToken mem_ptr_add<LocalToken> p off
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr p
-    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    let a %LocalToken load<LocalToken> mem_ptr_addr p
+    let b %LocalToken load<LocalToken> mem_ptr_addr q
     0
 ```
 
@@ -691,22 +691,22 @@ diag_code: resource.cell.moved
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn choose_payload_offset <(bool)->i32> (flag):
+fn choose_payload_offset %fn bool i32 \flag:
     if flag 8 16
 
-fn main <()*>i32> ():
-    let base <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let exact <MemPtr<LocalToken>> mem_ptr_add<LocalToken> base 8
-    let off <i32> choose_payload_offset true
-    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> base off
+fn main %impure fn () i32 \():
+    let base %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let exact %MemPtr LocalToken mem_ptr_add<LocalToken> base 8
+    let off %i32 choose_payload_offset true
+    let q %MemPtr LocalToken mem_ptr_add<LocalToken> base off
     store<LocalToken> mem_ptr_addr exact LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr q
-    let b <LocalToken> load<LocalToken> mem_ptr_addr exact
+    let a %LocalToken load<LocalToken> mem_ptr_addr q
+    let b %LocalToken load<LocalToken> mem_ptr_addr exact
     0
 ```
 
@@ -724,18 +724,18 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn choose_offset <(bool)->i32> (flag):
+fn choose_offset %fn bool i32 \flag:
     if flag 0 8
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let off <i32> choose_offset true
-    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p off
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let off %i32 choose_offset true
+    let q %MemPtr LocalToken mem_ptr_add<LocalToken> p off
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     store<LocalToken> mem_ptr_addr q LocalToken @token_id
     0
@@ -756,22 +756,22 @@ diag_code: resource.cell.initialized_conflict
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn choose_offset <(bool)->i32> (flag):
+fn choose_offset %fn bool i32 \flag:
     if flag 0 8
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let off <i32> choose_offset true
-    let q <MemPtr<LocalToken>> mem_ptr_add<LocalToken> p off
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let off %i32 choose_offset true
+    let q %MemPtr LocalToken mem_ptr_add<LocalToken> p off
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let raw <i32> mem_ptr_addr q
-    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
-    let r <Result<(),str>> dealloc_region<LocalToken> token
+    let raw %i32 mem_ptr_addr q
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let r %Result () str dealloc_region<LocalToken> token
     0
 ```
 
@@ -790,21 +790,21 @@ diag_code: resource.cell.moved
 #import "core/math" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn choose_offset <(bool)->i32> (flag):
+fn choose_offset %fn bool i32 \flag:
     if flag 0 8
 
-fn main <()*>i32> ():
-    let p <i32> 16
-    let off <i32> choose_offset true
-    let q <i32> add p off
+fn main %impure fn () i32 \():
+    let p %i32 16
+    let off %i32 choose_offset true
+    let q %i32 add p off
     store<LocalToken> p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> p
-    let b <LocalToken> load<LocalToken> q
+    let a %LocalToken load<LocalToken> p
+    let b %LocalToken load<LocalToken> q
     0
 ```
 
@@ -823,17 +823,17 @@ diag_code: resource.cell.moved
 #import "core/math" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let base <i32> 24
-    let q <i32> sub base size_of<LocalToken>
+fn main %impure fn () i32 \():
+    let base %i32 24
+    let q %i32 sub base size_of<LocalToken>
     store<LocalToken> q LocalToken @token_id
-    let a <LocalToken> load<LocalToken> q
-    let b <LocalToken> load<LocalToken> sub base size_of<LocalToken>
+    let a %LocalToken load<LocalToken> q
+    let b %LocalToken load<LocalToken> sub base size_of<LocalToken>
     0
 ```
 
@@ -852,19 +852,19 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/math" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn slot_ptr <.T,.V> <(i32,i32)->i32> (base, idx):
+fn slot_ptr <.T,.V> %fn i32 fn i32 i32 \base\idx:
     add base mul idx add size_of<.T> size_of<.V>
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> slot_ptr<LocalToken,i32> p 0 LocalToken @token_id
     store_i32 add p size_of<LocalToken> 123
-    let a <LocalToken> load<LocalToken> p
+    let a %LocalToken load<LocalToken> p
     0
 ```
 
@@ -883,20 +883,20 @@ diag_code: resource.cell.initialized_conflict
 #import "core/math" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn choose_offset <(bool)->i32> (flag):
+fn choose_offset %fn bool i32 \flag:
     if flag 0 size_of<LocalToken>
 
-fn slot_ptr <.T,.V> <(i32,i32)->i32> (base, idx):
+fn slot_ptr <.T,.V> %fn i32 fn i32 i32 \base\idx:
     add base mul idx add size_of<.T> size_of<.V>
 
-fn main <()*>i32> ():
-    let p <i32> 16
-    let off <i32> choose_offset true
+fn main %impure fn () i32 \():
+    let p %i32 16
+    let off %i32 choose_offset true
     store<LocalToken> p LocalToken @token_id
     store<LocalToken> slot_ptr<LocalToken,i32> p off LocalToken @token_id
     0
@@ -916,13 +916,13 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
     store<LocalToken> p LocalToken @token_id
     0
@@ -942,15 +942,15 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> p
+    let a %LocalToken load<LocalToken> p
     store<LocalToken> p LocalToken @token_id
     0
 ```
@@ -969,13 +969,13 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
     dealloc_raw p size_of<LocalToken>
     0
@@ -995,15 +995,15 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> p
+    let a %LocalToken load<LocalToken> p
     dealloc_raw p size_of<LocalToken>
     0
 ```
@@ -1023,17 +1023,17 @@ diag_code: resource.cell.initialized_conflict
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let raw <i32> mem_ptr_addr p
-    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
-    let r <Result<(),str>> dealloc_region<LocalToken> token
+    let raw %i32 mem_ptr_addr p
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let r %Result () str dealloc_region<LocalToken> token
     0
 ```
 
@@ -1052,17 +1052,17 @@ diag_code: resource.cell.initialized_conflict
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let raw <i32> mem_ptr_addr p
-    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let raw %i32 mem_ptr_addr p
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let r <Result<(),str>> dealloc_region<LocalToken> token
+    let r %Result () str dealloc_region<LocalToken> token
     0
 ```
 
@@ -1081,19 +1081,19 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<LocalToken> 1:
         Result::Err _e:
             1
         Result::Ok token:
-            let p <MemPtr<LocalToken>> region_ptr &token
+            let p %MemPtr LocalToken region_ptr &token
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let a <LocalToken> load<LocalToken> mem_ptr_addr p
+            let a %LocalToken load<LocalToken> mem_ptr_addr p
             match dealloc_region<LocalToken> token:
                 Result::Err _e:
                     1
@@ -1116,20 +1116,20 @@ diag_code: resource.cell.moved
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let raw <i32> mem_ptr_addr p
-    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let raw %i32 mem_ptr_addr p
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
     match region_ptr_at<LocalToken,LocalToken> &token 0:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let a <LocalToken> load<LocalToken> mem_ptr_addr p
-            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            let a %LocalToken load<LocalToken> mem_ptr_addr p
+            let b %LocalToken load<LocalToken> mem_ptr_addr q
             0
         Result::Err _e:
             0
@@ -1150,25 +1150,25 @@ diag_code: resource.cell.initialized_conflict
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn choose_offset <(bool)->i32> (flag):
+fn choose_offset %fn bool i32 \flag:
     if flag 0 4
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let raw <i32> mem_ptr_addr p
-    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
-    let off <i32> choose_offset true
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let raw %i32 mem_ptr_addr p
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let off %i32 choose_offset true
     match region_ptr_at<LocalToken,LocalToken> &token off:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let forged_raw <i32> mem_ptr_addr q
-            let forged <RegionToken<LocalToken>> region_new<LocalToken> forged_raw size_of<LocalToken>
-            let r <Result<(),str>> dealloc_region<LocalToken> forged
+            let forged_raw %i32 mem_ptr_addr q
+            let forged %RegionToken LocalToken region_new<LocalToken> forged_raw size_of<LocalToken>
+            let r %Result () str dealloc_region<LocalToken> forged
             0
         Result::Err _e:
             0
@@ -1189,19 +1189,19 @@ diag_code: resource.cell.moved
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let res <Result<MemPtr<LocalToken>,str>> Result<MemPtr<LocalToken>,str>::Ok p
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let res %Result MemPtr LocalToken str Result<MemPtr<LocalToken>,str>::Ok p
     match res:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let a <LocalToken> load<LocalToken> mem_ptr_addr p
-            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            let a %LocalToken load<LocalToken> mem_ptr_addr p
+            let b %LocalToken load<LocalToken> mem_ptr_addr q
             0
         Result::Err _e:
             0
@@ -1222,14 +1222,14 @@ diag_code: resource.cell.moved
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let mut res <Result<MemPtr<LocalToken>,str>> Result<MemPtr<LocalToken>,str>::Err "none"
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let mut res %Result MemPtr LocalToken str Result<MemPtr<LocalToken>,str>::Err "none"
     if true:
         then:
             set res Result<MemPtr<LocalToken>,str>::Ok p
@@ -1238,8 +1238,8 @@ fn main <()*>i32> ():
     match res:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let a <LocalToken> load<LocalToken> mem_ptr_addr p
-            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            let a %LocalToken load<LocalToken> mem_ptr_addr p
+            let b %LocalToken load<LocalToken> mem_ptr_addr q
             0
         Result::Err _e:
             0
@@ -1261,21 +1261,21 @@ diag_code: type.raw_pointer.field_access_restricted
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct PtrHolder:
-    ptr <MemPtr<LocalToken>>
+    ptr %MemPtr LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let holder <PtrHolder> PtrHolder p
-    let q <MemPtr<LocalToken>> field::get holder "ptr"
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let holder %PtrHolder PtrHolder p
+    let q %MemPtr LocalToken field::get holder "ptr"
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr p
-    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    let a %LocalToken load<LocalToken> mem_ptr_addr p
+    let b %LocalToken load<LocalToken> mem_ptr_addr q
     0
 ```
 
@@ -1295,26 +1295,26 @@ diag_code: type.raw_pointer.field_access_restricted
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct PtrHolder:
-    ptr <MemPtr<LocalToken>>
+    ptr %MemPtr LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let mut holder <PtrHolder> PtrHolder p
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let mut holder %PtrHolder PtrHolder p
     if true:
         then:
             set holder PtrHolder p
         else:
             set holder PtrHolder p
-    let q <MemPtr<LocalToken>> field::get holder "ptr"
+    let q %MemPtr LocalToken field::get holder "ptr"
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr p
-    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    let a %LocalToken load<LocalToken> mem_ptr_addr p
+    let b %LocalToken load<LocalToken> mem_ptr_addr q
     0
 ```
 
@@ -1335,24 +1335,24 @@ diag_code: type.raw_pointer.field_access_restricted
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct PtrHolder:
-    ptr <MemPtr<LocalToken>>
+    ptr %MemPtr LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let holder <PtrHolder> PtrHolder p
-    let res <Result<PtrHolder,str>> Result<PtrHolder,str>::Ok holder
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let holder %PtrHolder PtrHolder p
+    let res %Result PtrHolder str Result<PtrHolder,str>::Ok holder
     match res:
         Result::Ok h:
-            let q <MemPtr<LocalToken>> field::get h "ptr"
+            let q %MemPtr LocalToken field::get h "ptr"
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let a <LocalToken> load<LocalToken> mem_ptr_addr p
-            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            let a %LocalToken load<LocalToken> mem_ptr_addr p
+            let b %LocalToken load<LocalToken> mem_ptr_addr q
             0
         Result::Err _e:
             0
@@ -1375,18 +1375,18 @@ diag_code: type.raw_pointer.field_access_restricted
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct PtrHolder:
-    ptr <MemPtr<LocalToken>>
+    ptr %MemPtr LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let holder <PtrHolder> PtrHolder p
-    let mut res <Result<PtrHolder,str>> Result<PtrHolder,str>::Err "none"
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let holder %PtrHolder PtrHolder p
+    let mut res %Result PtrHolder str Result<PtrHolder,str>::Err "none"
     if true:
         then:
             set res Result<PtrHolder,str>::Ok holder
@@ -1394,10 +1394,10 @@ fn main <()*>i32> ():
             set res Result<PtrHolder,str>::Ok holder
     match res:
         Result::Ok h:
-            let q <MemPtr<LocalToken>> field::get h "ptr"
+            let q %MemPtr LocalToken field::get h "ptr"
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let a <LocalToken> load<LocalToken> mem_ptr_addr p
-            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            let a %LocalToken load<LocalToken> mem_ptr_addr p
+            let b %LocalToken load<LocalToken> mem_ptr_addr q
             0
         Result::Err _e:
             0
@@ -1417,20 +1417,20 @@ diag_code: resource.cell.moved
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn id_ptr <(MemPtr<LocalToken>)->MemPtr<LocalToken>> (p):
+fn id_ptr %fn MemPtr LocalToken MemPtr LocalToken \p:
     p
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let q <MemPtr<LocalToken>> id_ptr p
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let q %MemPtr LocalToken id_ptr p
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr p
-    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    let a %LocalToken load<LocalToken> mem_ptr_addr p
+    let b %LocalToken load<LocalToken> mem_ptr_addr q
     0
 ```
 
@@ -1450,24 +1450,24 @@ diag_code: type.raw_pointer.field_access_restricted
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct PtrHolder:
-    ptr <MemPtr<LocalToken>>
+    ptr %MemPtr LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn make_holder <(MemPtr<LocalToken>)->PtrHolder> (p):
+fn make_holder %fn MemPtr LocalToken PtrHolder \p:
     PtrHolder p
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let holder <PtrHolder> make_holder p
-    let q <MemPtr<LocalToken>> field::get holder "ptr"
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let holder %PtrHolder make_holder p
+    let q %MemPtr LocalToken field::get holder "ptr"
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr p
-    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    let a %LocalToken load<LocalToken> mem_ptr_addr p
+    let b %LocalToken load<LocalToken> mem_ptr_addr q
     0
 ```
 
@@ -1486,22 +1486,22 @@ diag_code: resource.cell.moved
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn ok_ptr <(MemPtr<LocalToken>)->Result<MemPtr<LocalToken>,str>> (p):
+fn ok_ptr %fn MemPtr LocalToken Result MemPtr LocalToken str \p:
     Result<MemPtr<LocalToken>,str>::Ok p
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let res <Result<MemPtr<LocalToken>,str>> ok_ptr p
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let res %Result MemPtr LocalToken str ok_ptr p
     match res:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let a <LocalToken> load<LocalToken> mem_ptr_addr p
-            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            let a %LocalToken load<LocalToken> mem_ptr_addr p
+            let b %LocalToken load<LocalToken> mem_ptr_addr q
             0
         Result::Err _e:
             0
@@ -1524,27 +1524,27 @@ diag_code: type.raw_pointer.field_access_restricted
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct PtrHolder:
-    ptr <MemPtr<LocalToken>>
+    ptr %MemPtr LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn ok_holder <(PtrHolder)->Result<PtrHolder,str>> (holder):
+fn ok_holder %fn PtrHolder Result PtrHolder str \holder:
     Result<PtrHolder,str>::Ok holder
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let holder <PtrHolder> PtrHolder p
-    let res <Result<PtrHolder,str>> ok_holder holder
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let holder %PtrHolder PtrHolder p
+    let res %Result PtrHolder str ok_holder holder
     match res:
         Result::Ok h:
-            let q <MemPtr<LocalToken>> field::get h "ptr"
+            let q %MemPtr LocalToken field::get h "ptr"
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let a <LocalToken> load<LocalToken> mem_ptr_addr p
-            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            let a %LocalToken load<LocalToken> mem_ptr_addr p
+            let b %LocalToken load<LocalToken> mem_ptr_addr q
             0
         Result::Err _e:
             0
@@ -1564,24 +1564,24 @@ diag_code: resource.cell.moved
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn choose_ptr <(bool,MemPtr<LocalToken>)->MemPtr<LocalToken>> (flag, p):
+fn choose_ptr %fn bool fn MemPtr LocalToken MemPtr LocalToken \flag\p:
     if flag:
         then:
             p
         else:
             p
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let q <MemPtr<LocalToken>> choose_ptr true p
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let q %MemPtr LocalToken choose_ptr true p
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> mem_ptr_addr p
-    let b <LocalToken> load<LocalToken> mem_ptr_addr q
+    let a %LocalToken load<LocalToken> mem_ptr_addr p
+    let b %LocalToken load<LocalToken> mem_ptr_addr q
     0
 ```
 
@@ -1600,21 +1600,21 @@ diag_code: resource.cell.moved
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn ok_ptr <(MemPtr<LocalToken>)->Result<MemPtr<LocalToken>,str>> (p):
+fn ok_ptr %fn MemPtr LocalToken Result MemPtr LocalToken str \p:
     Result<MemPtr<LocalToken>,str>::Ok p
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     match ok_ptr p:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
-            let a <LocalToken> load<LocalToken> mem_ptr_addr p
-            let b <LocalToken> load<LocalToken> mem_ptr_addr q
+            let a %LocalToken load<LocalToken> mem_ptr_addr p
+            let b %LocalToken load<LocalToken> mem_ptr_addr q
             0
         Result::Err _e:
             0
@@ -1634,15 +1634,15 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
-    let q <i32> realloc_raw p size_of<LocalToken> 32
+    let q %i32 realloc_raw p size_of<LocalToken> 32
     q
 ```
 
@@ -1661,16 +1661,16 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/math" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> alloc_raw size_of<LocalToken>
+fn main %impure fn () i32 \():
+    let p %i32 alloc_raw size_of<LocalToken>
     store<LocalToken> p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> p
-    let q <i32> realloc_raw p size_of<LocalToken> 32
+    let a %LocalToken load<LocalToken> p
+    let q %i32 realloc_raw p size_of<LocalToken> 32
     if:
         lt 0 q
         then:
@@ -1696,17 +1696,17 @@ diag_code: resource.cell.initialized_conflict
 #import "core/result" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <MemPtr<LocalToken>> mem_ptr_wrap<LocalToken> 16
-    let raw <i32> mem_ptr_addr p
-    let token <RegionToken<LocalToken>> region_new<LocalToken> raw size_of<LocalToken>
+fn main %impure fn () i32 \():
+    let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
+    let raw %i32 mem_ptr_addr p
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let r <Result<RegionToken<LocalToken>, RegionReallocError<LocalToken>>> realloc_region_bytes_keep<LocalToken> token 32
+    let r %Result RegionToken LocalToken RegionReallocError LocalToken realloc_region_bytes_keep<LocalToken> token 32
     0
 ```
 
@@ -1724,14 +1724,14 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let src <i32> 16
-    let dst <i32> 64
+fn main %impure fn () i32 \():
+    let src %i32 16
+    let dst %i32 64
     store<LocalToken> src LocalToken @token_id
     mem_copy dst src size_of<LocalToken>
     0
@@ -1751,14 +1751,14 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let src <i32> 16
-    let dst <i32> 64
+fn main %impure fn () i32 \():
+    let src %i32 16
+    let dst %i32 64
     store<LocalToken> src LocalToken @token_id
     mem_move dst src size_of<LocalToken>
     0
@@ -1778,14 +1778,14 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let src <i32> 16
-    let dst <i32> 64
+fn main %impure fn () i32 \():
+    let src %i32 16
+    let dst %i32 64
     store<LocalToken> dst LocalToken @token_id
     mem_copy dst src size_of<LocalToken>
     0
@@ -1805,19 +1805,19 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let raw_dst <i32> 16
-    let raw_src <i32> 64
-    let dst <MemPtr<i32>> mem_ptr_wrap<i32> raw_dst
-    let src <MemPtr<i32>> mem_ptr_wrap<i32> raw_src
+fn main %impure fn () i32 \():
+    let raw_dst %i32 16
+    let raw_src %i32 64
+    let dst %MemPtr i32 mem_ptr_wrap<i32> raw_dst
+    let src %MemPtr i32 mem_ptr_wrap<i32> raw_src
     store<LocalToken> raw_dst LocalToken @token_id
     store_i32 raw_src 123
-    let r <Result<(),str>> mem_copy<i32> dst src 1
+    let r %Result () str mem_copy<i32> dst src 1
     0
 ```
 
@@ -1835,16 +1835,16 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let src <i32> 16
-    let dst <i32> 64
+fn main %impure fn () i32 \():
+    let src %i32 16
+    let dst %i32 64
     store<LocalToken> src LocalToken @token_id
-    let a <LocalToken> load<LocalToken> src
+    let a %LocalToken load<LocalToken> src
     mem_copy dst src size_of<LocalToken>
     0
 ```
@@ -1862,9 +1862,9 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main <()*>i32> ():
-    let src <i32> 16
-    let dst <i32> 64
+fn main %impure fn () i32 \():
+    let src %i32 16
+    let dst %i32 64
     store_i32 src 123
     mem_copy dst src 4
     load_i32 dst
@@ -1884,13 +1884,13 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
     store_i32 p 0
     0
@@ -1910,14 +1910,14 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let raw <i32> 16
-    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+fn main %impure fn () i32 \():
+    let raw %i32 16
+    let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
     store_i32 pi 0
     0
@@ -1937,18 +1937,18 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_i32 <(MemPtr<i32>)->()> (p):
-    let r <Result<(),str>> store_i32 p 0
+fn clobber_i32 %fn MemPtr i32 () \p:
+    let r %Result () str store_i32 p 0
     ()
 
-fn main <()*>i32> ():
-    let raw <i32> 16
-    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+fn main %impure fn () i32 \():
+    let raw %i32 16
+    let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
     clobber_i32 pi
     0
@@ -1968,25 +1968,25 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_and_true <(MemPtr<i32>)*>bool> (p):
-    let r <Result<(),str>> store_i32 p 0
+fn clobber_and_true %impure fn MemPtr i32 bool \p:
+    let r %Result () str store_i32 p 0
     true
 
-fn gated_clobber <(MemPtr<i32>)*>()> (p):
+fn gated_clobber %impure fn MemPtr i32 () \p:
     if clobber_and_true p:
         then:
             ()
         else:
             ()
 
-fn main <()*>i32> ():
-    let raw <i32> 16
-    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+fn main %impure fn () i32 \():
+    let raw %i32 16
+    let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
     gated_clobber pi
     0
@@ -2006,21 +2006,21 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_i32 <(MemPtr<i32>)*>()> (p):
-    let r <Result<(),str>> store_i32 p 0
+fn clobber_i32 %impure fn MemPtr i32 () \p:
+    let r %Result () str store_i32 p 0
     ()
 
-fn apply_clobber <(MemPtr<i32>, (MemPtr<i32>)*>())*>()> (p, f):
+fn apply_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 () () \p\f:
     f p
 
-fn main <()*>i32> ():
-    let raw <i32> 16
-    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+fn main %impure fn () i32 \():
+    let raw %i32 16
+    let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
     apply_clobber pi @clobber_i32
     0
@@ -2040,24 +2040,24 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_i32 <(MemPtr<i32>)*>()> (p):
-    let r <Result<(),str>> store_i32 p 0
+fn clobber_i32 %impure fn MemPtr i32 () \p:
+    let r %Result () str store_i32 p 0
     ()
 
-fn apply_clobber <(MemPtr<i32>, (MemPtr<i32>)*>())*>()> (p, f):
+fn apply_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 () () \p\f:
     f p
 
-fn forward_clobber <(MemPtr<i32>, (MemPtr<i32>)*>())*>()> (p, f):
+fn forward_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 () () \p\f:
     apply_clobber p f
 
-fn main <()*>i32> ():
-    let raw <i32> 16
-    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+fn main %impure fn () i32 \():
+    let raw %i32 16
+    let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
     forward_clobber pi @clobber_i32
     0
@@ -2077,24 +2077,24 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_a <(MemPtr<i32>)*>()> (p):
-    let r <Result<(),str>> store_i32 p 0
+fn clobber_a %impure fn MemPtr i32 () \p:
+    let r %Result () str store_i32 p 0
     ()
 
-fn clobber_b <(MemPtr<i32>)*>()> (p):
-    let r <Result<(),str>> store_i32 p 1
+fn clobber_b %impure fn MemPtr i32 () \p:
+    let r %Result () str store_i32 p 1
     ()
 
-fn main <()*>i32> ():
-    let raw <i32> 16
-    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+fn main %impure fn () i32 \():
+    let raw %i32 16
+    let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
-    let f <(MemPtr<i32>)*>()> if true:
+    let f %impure fn MemPtr i32 () if true:
         then:
             @clobber_a
         else:
@@ -2119,27 +2119,27 @@ diag_code: resource.cell.initialized_conflict
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 struct CallbackHolder:
-    cb <(MemPtr<i32>)*>()>
+    cb %impure fn MemPtr i32 ()
 
-fn clobber_i32 <(MemPtr<i32>)*>()> (p):
-    let r <Result<(),str>> store_i32 p 0
+fn clobber_i32 %impure fn MemPtr i32 () \p:
+    let r %Result () str store_i32 p 0
     ()
 
-fn call_holder <(MemPtr<i32>, CallbackHolder)*>()> (p, holder):
-    let f <(MemPtr<i32>)*>()> field::get holder "cb"
+fn call_holder %impure fn MemPtr i32 impure fn CallbackHolder () \p\holder:
+    let f %impure fn MemPtr i32 () field::get holder "cb"
     f p
 
-fn main <()*>i32> ():
-    let raw <i32> 16
-    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+fn main %impure fn () i32 \():
+    let raw %i32 16
+    let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
-    let holder <CallbackHolder> CallbackHolder @clobber_i32
+    let holder %CallbackHolder CallbackHolder @clobber_i32
     call_holder pi holder
     0
 ```
@@ -2159,25 +2159,25 @@ diag_code: resource.cell.initialized_conflict
 #import "core/option" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_i32 <(MemPtr<i32>)*>()> (p):
-    let r <Result<(),str>> store_i32 p 0
+fn clobber_i32 %impure fn MemPtr i32 () \p:
+    let r %Result () str store_i32 p 0
     ()
 
-fn call_option <(MemPtr<i32>, Option<(MemPtr<i32>)*>()>)*>()> (p, opt):
+fn call_option %impure fn MemPtr i32 impure fn Option impure fn MemPtr i32 () () \p\opt:
     match opt:
         Option::Some f:
             f p
         Option::None:
             ()
 
-fn main <()*>i32> ():
-    let raw <i32> 16
-    let pi <MemPtr<i32>> mem_ptr_wrap<i32> raw
+fn main %impure fn () i32 \():
+    let raw %i32 16
+    let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
     call_option pi Option::Some @clobber_i32
     0
@@ -2197,13 +2197,13 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
     store<i32> p 0
     0
@@ -2223,13 +2223,13 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
     memset_u8 p size_of<LocalToken> 0
     0
@@ -2249,13 +2249,13 @@ diag_code: resource.cell.initialized_conflict
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
     fill_i32 p 1 0
     0
@@ -2275,15 +2275,15 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
-    let a <LocalToken> load<LocalToken> p
+    let a %LocalToken load<LocalToken> p
     store_i32 p 0
     0
 ```
@@ -2301,8 +2301,8 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store_i32 p 123
     store_i32 p 456
     load_i32 p
@@ -2325,21 +2325,21 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct Holder:
-    count <i32>
-    token <LocalToken>
+    count %i32
+    token %LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<Holder> p Holder 7 LocalToken @token_id
-    let a <i32> field::get load<Holder> p "count"
-    let b <i32> field::get load<Holder> p "count"
-    let h <Holder> load<Holder> p
+    let a %i32 field::get load<Holder> p "count"
+    let b %i32 field::get load<Holder> p "count"
+    let h %Holder load<Holder> p
     add a b
 ```
 
@@ -2359,21 +2359,21 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct Holder:
-    count <i32>
-    token <LocalToken>
+    count %i32
+    token %LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<Holder> p Holder 7 LocalToken @token_id
-    let a <i32> get load<Holder> p "count"
-    let b <i32> get load<Holder> p "count"
-    let h <Holder> load<Holder> p
+    let a %i32 get load<Holder> p "count"
+    let b %i32 get load<Holder> p "count"
+    let h %Holder load<Holder> p
     add a b
 ```
 
@@ -2394,22 +2394,22 @@ diag_code: type.raw_pointer.field_access_restricted
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct Holder:
-    count <i32>
-    ptr <MemPtr<u8>>
-    token <LocalToken>
+    count %i32
+    ptr %MemPtr u8
+    token %LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<Holder> p Holder 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
-    let ptr <MemPtr<u8>> get load<Holder> p "ptr"
-    let raw <i32> mem_ptr_addr ptr
-    let h <Holder> load<Holder> p
+    let ptr %MemPtr u8 get load<Holder> p "ptr"
+    let raw %i32 mem_ptr_addr ptr
+    let h %Holder load<Holder> p
     add raw sub 14 64
 ```
 
@@ -2430,25 +2430,25 @@ diag_code: type.raw_pointer.field_access_restricted
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct Holder<.H>:
-    count <i32>
-    ptr <MemPtr<u8>>
-    token <.H>
+    count %i32
+    ptr %MemPtr u8
+    token %.H
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn touch <.H> <(Holder<.H>)*>i32> (h):
-    let p <i32> 16
+fn touch <.H> %impure fn Holder .H i32 \h:
+    let p %i32 16
     store<Holder<.H>> p h
-    let ptr <MemPtr<u8>> get load<Holder<.H>> p "ptr"
-    let raw <i32> mem_ptr_addr ptr
-    let out <Holder<.H>> load<Holder<.H>> p
+    let ptr %MemPtr u8 get load<Holder<.H>> p "ptr"
+    let raw %i32 mem_ptr_addr ptr
+    let out %Holder .H load<Holder<.H>> p
     add raw sub 14 64
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     touch<LocalToken> Holder<LocalToken> 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
 ```
 
@@ -2467,19 +2467,19 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/math" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<LocalToken> p LocalToken @token_id
-    let mut i <i32> 0
+    let mut i %i32 0
     while lt i 2:
         do:
             set i add i 1
-    let out <LocalToken> load<LocalToken> p
+    let out %LocalToken load<LocalToken> p
     i
 ```
 
@@ -2499,20 +2499,20 @@ diag_code: resource.cell.moved
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct Holder:
-    count <i32>
-    token <LocalToken>
+    count %i32
+    token %LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<Holder> p Holder 7 LocalToken @token_id
-    let a <LocalToken> field::get load<Holder> p "token"
-    let b <LocalToken> field::get load<Holder> p "token"
+    let a %LocalToken field::get load<Holder> p "token"
+    let b %LocalToken field::get load<Holder> p "token"
     0
 ```
 
@@ -2532,20 +2532,20 @@ diag_code: resource.cell.moved
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct Holder:
-    count <i32>
-    token <LocalToken>
+    count %i32
+    token %LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let p <i32> 16
+fn main %impure fn () i32 \():
+    let p %i32 16
     store<Holder> p Holder 7 LocalToken @token_id
-    let a <LocalToken> field::get load<Holder> p "token"
-    let h <Holder> load<Holder> p
+    let a %LocalToken field::get load<Holder> p "token"
+    let h %Holder load<Holder> p
     0
 ```
 
@@ -2561,14 +2561,14 @@ diag_code: effect.pure.calls_impure
 #import "std/stdio" as *
 #import "core/field" as *
 
-fn put <(i32)*>()> (x):
+fn put %impure fn i32 () \x:
     print_i32 x
 
-fn bad <(i32)->i32> (x):
+fn bad %fn i32 i32 \x:
     put x
     x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     bad 1
 ```
 
@@ -2581,7 +2581,7 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #target core
 
-fn raw_io <()->i32> ():
+fn raw_io %fn () i32 \():
     #if[target=wasm]
     #wasm:
         i32.const 0
@@ -2596,7 +2596,7 @@ fn raw_io <()->i32> ():
             ret i32 0
         }
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     raw_io
 ```
 
@@ -2613,13 +2613,13 @@ stdout: "test_report name=\"move_effect_local_set_pure\" count=1 failed=0\nasser
 #import "core/math" as *
 #import "std/test" as test
 
-fn bump_local <(i32)->i32> (n):
-    let mut x <i32> n
+fn bump_local %fn i32 i32 \n:
+    let mut x %i32 n
     set x add x 2
     x
 
-fn main <()*>i32> ():
-    let actual <i32> bump_local 40
+fn main %impure fn () i32 \():
+    let actual %i32 bump_local 40
     let report:
         test::test_report_new "move_effect_local_set_pure"
         |> test::test_report_push test::assert_eq_i32 "pure local set result" 42 actual
@@ -2643,24 +2643,24 @@ stdout: "test_report name=\"move_effect_copy_struct_reuse\" count=1 failed=0\nas
 #import "std/test" as test
 
 struct Point:
-    x <i32>
-    y <i32>
+    x %i32
+    y %i32
 
 impl Clone for Point:
-    fn clone <(&Point)->Point> (x):
+    fn clone %fn &Point Point \x:
         *x
 
 impl Copy for Point:
-    fn copy_mark <(Point)->Point> (x):
+    fn copy_mark %fn Point Point \x:
         x
 
-fn sum_point <(Point)->i32> (p):
+fn sum_point %fn Point i32 \p:
     add get p "x" get p "y"
 
-fn main <()*>i32> ():
-    let p1 <Point> Point 10 20
-    let p2 <Point> p1
-    let actual <i32> add sum_point p1 sum_point p2
+fn main %impure fn () i32 \():
+    let p1 %Point Point 10 20
+    let p2 %Point p1
+    let actual %i32 add sum_point p1 sum_point p2
     let report:
         test::test_report_new "move_effect_copy_struct_reuse"
         |> test::test_report_push test::assert_eq_i32 "copy struct reuse" 60 actual
@@ -2684,24 +2684,24 @@ stdout: "test_report name=\"move_effect_copy_generic_concrete_reuse\" count=1 fa
 #import "std/test" as test
 
 struct Pair<.T>:
-    a <.T>
-    b <.T>
+    a %.T
+    b %.T
 
 impl Clone for Pair<i32>:
-    fn clone <(&Pair<i32>)->Pair<i32>> (x):
+    fn clone %fn &Pair i32 Pair i32 \x:
         *x
 
 impl Copy for Pair<i32>:
-    fn copy_mark <(Pair<i32>)->Pair<i32>> (x):
+    fn copy_mark %fn Pair i32 Pair i32 \x:
         x
 
-fn sum_pair <(Pair<i32>)->i32> (p):
+fn sum_pair %fn Pair i32 i32 \p:
     add get p "a" get p "b"
 
-fn main <()*>i32> ():
-    let q1 <Pair<i32>> Pair 1 2
-    let q2 <Pair<i32>> q1
-    let actual <i32> add sum_pair q1 sum_pair q2
+fn main %impure fn () i32 \():
+    let q1 %Pair i32 Pair 1 2
+    let q2 %Pair i32 q1
+    let actual %i32 add sum_pair q1 sum_pair q2
     let report:
         test::test_report_new "move_effect_copy_generic_concrete_reuse"
         |> test::test_report_push test::assert_eq_i32 "copy concrete generic struct reuse" 6 actual
@@ -2725,24 +2725,24 @@ stdout: "test_report name=\"move_effect_copy_generic_bound_reuse\" count=1 faile
 #import "std/test" as test
 
 struct Pair<.T>:
-    a <.T>
-    b <.T>
+    a %.T
+    b %.T
 
 impl<.T: Copy> Clone for Pair<.T>:
-    fn clone <(&Pair<.T>)->Pair<.T>> (x):
+    fn clone %fn &Pair .T Pair .T \x:
         *x
 
 impl<.T: Copy> Copy for Pair<.T>:
-    fn copy_mark <(Pair<.T>)->Pair<.T>> (x):
+    fn copy_mark %fn Pair .T Pair .T \x:
         x
 
-fn sum_pair <(Pair<i32>)->i32> (p):
+fn sum_pair %fn Pair i32 i32 \p:
     add get p "a" get p "b"
 
-fn main <()*>i32> ():
-    let q1 <Pair<i32>> Pair 1 2
-    let q2 <Pair<i32>> q1
-    let actual <i32> add sum_pair q1 sum_pair q2
+fn main %impure fn () i32 \():
+    let q1 %Pair i32 Pair 1 2
+    let q2 %Pair i32 q1
+    let actual %i32 add sum_pair q1 sum_pair q2
     let report:
         test::test_report_new "move_effect_copy_generic_bound_reuse"
         |> test::test_report_push test::assert_eq_i32 "copy generic bound reuse" 6 actual
@@ -2762,16 +2762,16 @@ diag_code: resource.cell.moved
 #import "core/option" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let token <LocalToken> LocalToken @token_id
-    let opt <Option<LocalToken>> Option::Some token
-    let first <Option<LocalToken>> opt
-    let second <Option<LocalToken>> opt
+fn main %fn () i32 \():
+    let token %LocalToken LocalToken @token_id
+    let opt %Option LocalToken Option::Some token
+    let first %Option LocalToken opt
+    let second %Option LocalToken opt
     0
 ```
 
@@ -2788,11 +2788,11 @@ stdout: "test_report name=\"move_effect_copy_bound_applies_to_copy_type\" count=
 #import "core/option" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let opt <Option<i32>> Option::Some 1
-    let first <Option<i32>> opt
-    let second <Option<i32>> opt
-    let actual <i32> 0
+fn main %impure fn () i32 \():
+    let opt %Option i32 Option::Some 1
+    let first %Option i32 opt
+    let second %Option i32 opt
+    let actual %i32 0
     let report:
         test::test_report_new "move_effect_copy_bound_applies_to_copy_type"
         |> test::test_report_push test::assert_eq_i32 "copy bound applies to copy type" 0 actual
@@ -2815,28 +2815,28 @@ stdout: "test_report name=\"move_effect_copy_enum_reuse\" count=1 failed=0\nasse
 #import "std/test" as test
 
 enum Score:
-    Single <i32>
+    Single %i32
     Zero
 
 impl Clone for Score:
-    fn clone <(&Score)->Score> (x):
+    fn clone %fn &Score Score \x:
         *x
 
 impl Copy for Score:
-    fn copy_mark <(Score)->Score> (x):
+    fn copy_mark %fn Score Score \x:
         x
 
-fn as_i32 <(Score)->i32> (s):
+fn as_i32 %fn Score i32 \s:
     match s:
         Score::Single v:
             v
         Score::Zero:
             0
 
-fn main <()*>i32> ():
-    let s1 <Score> Score::Single 7
-    let s2 <Score> s1
-    let actual <i32> add as_i32 s1 as_i32 s2
+fn main %impure fn () i32 \():
+    let s1 %Score Score::Single 7
+    let s2 %Score s1
+    let actual %i32 add as_i32 s1 as_i32 s2
     let report:
         test::test_report_new "move_effect_copy_enum_reuse"
         |> test::test_report_push test::assert_eq_i32 "copy enum reuse" 14 actual
@@ -2853,13 +2853,13 @@ diag_code: type.variable.undefined
 #indent 4
 #target core
 
-let mut g <i32> 0
+let mut g %i32 0
 
-fn bump_global <(i32)->i32> (x):
+fn bump_global %fn i32 i32 \x:
     set g x
     g
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     bump_global 5
 ```
 
@@ -2873,13 +2873,13 @@ diag_code: resource.borrow.move_from_shared
 #target core
 
 struct Boxed:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let b <Boxed> Boxed @token_id
+fn main %fn () i32 \():
+    let b %Boxed Boxed @token_id
     let r &b
     let c b
     let keep r
@@ -2899,10 +2899,10 @@ stdout: "test_report name=\"move_effect_copy_borrow_allows_reuse\" count=1 faile
 #import "core/math" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let x <i32> 10
+fn main %impure fn () i32 \():
+    let x %i32 10
     let r &x
-    let actual <i32> add x 1
+    let actual %i32 add x 1
     let report:
         test::test_report_new "move_effect_copy_borrow_allows_reuse"
         |> test::test_report_push test::assert_eq_i32 "copy borrow allows reuse" 11 actual
@@ -2922,22 +2922,22 @@ diag_code: type.copy_impl.requires_clone
 
 trait Clone:
     #capability clone
-    fn clone <(Self)->Self> (x):
+    fn clone %fn Self Self \x:
         x
 
 trait Copy:
     #capability copy
-    fn copy_mark <(Self)->Self> (x):
+    fn copy_mark %fn Self Self \x:
         x
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 impl Copy for LocalToken:
-    fn copy_mark <(LocalToken)->LocalToken> (x):
+    fn copy_mark %fn LocalToken LocalToken \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -2958,10 +2958,10 @@ diag_code: type.copy_impl.target_not_copy
 #import "core/traits/copy" as *
 
 impl<.T> Copy for RegionToken<.T>:
-    fn copy_mark <(RegionToken<.T>)->RegionToken<.T>> (x):
+    fn copy_mark %fn RegionToken .T RegionToken .T \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -2981,29 +2981,29 @@ ret: 0
 
 trait Clone:
     #capability clone
-    fn clone <(&Self)->Self> (x):
+    fn clone %fn &Self Self \x:
         *x
 
 trait Copy:
     #capability copy
-    fn copy_mark <(Self)->Self> (x):
+    fn copy_mark %fn Self Self \x:
         x
 
 struct RegionToken:
-    value <i32>
+    value %i32
 
 impl Clone for RegionToken:
-    fn clone <(&RegionToken)->RegionToken> (x):
+    fn clone %fn &RegionToken RegionToken \x:
         *x
 
 impl Copy for RegionToken:
-    fn copy_mark <(RegionToken)->RegionToken> (x):
+    fn copy_mark %fn RegionToken RegionToken \x:
         x
 
-fn main <()->i32> ():
-    let a <RegionToken> RegionToken 1
-    let b <RegionToken> a
-    let c <RegionToken> a
+fn main %fn () i32 \():
+    let a %RegionToken RegionToken 1
+    let b %RegionToken a
+    let c %RegionToken a
     0
 ```
 
@@ -3019,19 +3019,19 @@ diag_code: type.copy_impl.requires_clone
 
 trait Clone:
     #capability clone
-    fn clone <(Self)->Self> (x):
+    fn clone %fn Self Self \x:
         x
 
 trait Copy:
     #capability copy
-    fn copy_mark <(Self)->Self> (x):
+    fn copy_mark %fn Self Self \x:
         x
 
 impl Copy for i32:
-    fn copy_mark <(i32)->i32> (x):
+    fn copy_mark %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -3047,23 +3047,23 @@ ret: 0
 
 trait Clone:
     #capability clone
-    fn clone <(Self)->Self> (x):
+    fn clone %fn Self Self \x:
         x
 
 trait Copy:
     #capability copy
-    fn copy_mark <(Self)->Self> (x):
+    fn copy_mark %fn Self Self \x:
         x
 
 impl Clone for i32:
-    fn clone <(i32)->i32> (x):
+    fn clone %fn i32 i32 \x:
         x
 
 impl Copy for i32:
-    fn copy_mark <(i32)->i32> (x):
+    fn copy_mark %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -3079,21 +3079,21 @@ diag_code: resource.cell.moved
 
 trait Clone:
     #capability clone
-    fn clone <(Self)->Self> (x):
+    fn clone %fn Self Self \x:
         x
 
 trait Copy:
     #capability copy
-    fn copy_mark <(Self)->Self> (x):
+    fn copy_mark %fn Self Self \x:
         x
 
 struct Size:
-    n <i32>
+    n %i32
 
-fn main <()->i32> ():
-    let a <Size> Size 10
-    let b <Size> a
-    let c <Size> a
+fn main %fn () i32 \():
+    let a %Size Size 10
+    let b %Size a
+    let c %Size a
     0
 ```
 
@@ -3109,29 +3109,29 @@ ret: 0
 
 trait Clone:
     #capability clone
-    fn clone <(Self)->Self> (x):
+    fn clone %fn Self Self \x:
         x
 
 trait Copy:
     #capability copy
-    fn copy_mark <(Self)->Self> (x):
+    fn copy_mark %fn Self Self \x:
         x
 
 struct Size:
-    n <i32>
+    n %i32
 
 impl Clone for Size:
-    fn clone <(Size)->Size> (x):
+    fn clone %fn Size Size \x:
         x
 
 impl Copy for Size:
-    fn copy_mark <(Size)->Size> (x):
+    fn copy_mark %fn Size Size \x:
         x
 
-fn main <()->i32> ():
-    let a <Size> Size 10
-    let b <Size> a
-    let c <Size> a
+fn main %fn () i32 \():
+    let a %Size Size 10
+    let b %Size a
+    let c %Size a
     0
 ```
 
@@ -3145,15 +3145,15 @@ diag_code: type.impl.duplicate_for_trait_target
 #target core
 
 trait Mark:
-    fn mark <(Self)->Self> (x):
+    fn mark %fn Self Self \x:
         x
 
 impl Mark for i32:
-    fn mark <(i32)->i32> (x):
+    fn mark %fn i32 i32 \x:
         x
 
 impl Mark for i32:
-    fn mark <(i32)->i32> (x):
+    fn mark %fn i32 i32 \x:
         x
 ```
 
@@ -3169,18 +3169,18 @@ stdout: "test_report name=\"move_effect_marker_trait_not_copy\" count=1 failed=0
 #import "std/test" as test
 
 trait Marker:
-    fn tag <(Self)->Self> (x):
+    fn tag %fn Self Self \x:
         x
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 impl Marker for LocalToken:
-    fn tag <(LocalToken)->LocalToken> (x):
+    fn tag %fn LocalToken LocalToken \x:
         x
 
-fn main <()*>i32> ():
-    let actual <i32> 0
+fn main %impure fn () i32 \():
+    let actual %i32 0
     let report:
         test::test_report_new "move_effect_marker_trait_not_copy"
         |> test::test_report_push test::assert_eq_i32 "marker trait without capability is not copy" 0 actual
@@ -3200,15 +3200,15 @@ stdout: "test_report name=\"move_effect_clone_shape_not_clone\" count=1 failed=0
 #import "std/test" as test
 
 trait Dup:
-    fn dup <(Self)->Self> (x):
+    fn dup %fn Self Self \x:
         x
 
 impl Dup for i32:
-    fn dup <(i32)->i32> (x):
+    fn dup %fn i32 i32 \x:
         x
 
-fn main <()*>i32> ():
-    let actual <i32> 0
+fn main %impure fn () i32 \():
+    let actual %i32 0
     let report:
         test::test_report_new "move_effect_clone_shape_not_clone"
         |> test::test_report_push test::assert_eq_i32 "clone shape without capability is not clone" 0 actual
@@ -3227,10 +3227,10 @@ diag_code: type.trait_capability.unknown
 
 trait BadCap:
     #capability cpoy
-    fn f <(Self)->Self> (x):
+    fn f %fn Self Self \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -3244,18 +3244,18 @@ diag_code: resource.cell.moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn consume <(LocalToken)->i32> (_t):
+fn consume %fn LocalToken i32 \_t:
     0
 
-fn main <()->()> ():
-    let t <LocalToken> LocalToken @token_id
+fn main %fn () () \():
+    let t %LocalToken LocalToken @token_id
     consume t
-    let u <LocalToken> t
+    let u %LocalToken t
 ```
 
 ## move 後の borrow は拒否
@@ -3268,15 +3268,15 @@ diag_code: resource.cell.moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->()> ():
-    let t <LocalToken> LocalToken @token_id
-    let u <LocalToken> t
-    let r <&LocalToken> &t
+fn main %fn () () \():
+    let t %LocalToken LocalToken @token_id
+    let u %LocalToken t
+    let r %&LocalToken &t
 ```
 
 ## 分岐で move された可能性のある値の使用は拒否
@@ -3289,16 +3289,16 @@ diag_code: resource.cell.possibly_moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn consume <(LocalToken)->i32> (_t):
+fn consume %fn LocalToken i32 \_t:
     0
 
-fn main <()->i32> ():
-    let t <LocalToken> LocalToken @token_id
+fn main %fn () i32 \():
+    let t %LocalToken LocalToken @token_id
     if true:
         then:
             consume t
@@ -3316,8 +3316,8 @@ diag_code: type.field.invalid_access
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let v <i32> 10;
+fn main %fn () i32 \():
+    let v %i32 10;
     v.len
 ```
 
@@ -3334,12 +3334,12 @@ diag_code: resource.cell.moved
 #import "std/streamio" as *
 #import "std/iotarget" as *
 
-fn consume_writer <(StreamWriter)->i32> (_w):
+fn consume_writer %fn StreamWriter i32 \_w:
     0
 
-fn main <()*>i32> ():
-    let w <StreamWriter> unwrap_ok open WriteStream::Stdio
-    let w2 <StreamWriter> w
+fn main %impure fn () i32 \():
+    let w %StreamWriter unwrap_ok open WriteStream::Stdio
+    let w2 %StreamWriter w
     consume_writer w
     0
 ```
@@ -3359,11 +3359,11 @@ stdout: "test_report name=\"move_effect_str_copy_trait_impl\" count=1 failed=0\n
 #import "core/traits/copy" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let s <str> "abc"
-    let t <str> s
-    let u <str> s
-    let actual <i32> 0
+fn main %impure fn () i32 \():
+    let s %str "abc"
+    let t %str s
+    let u %str s
+    let actual %i32 0
     let report:
         test::test_report_new "move_effect_str_copy_trait_impl"
         |> test::test_report_push test::assert_eq_i32 "str reuse through copy trait impl" 0 actual
@@ -3386,11 +3386,11 @@ stdout: "test_report name=\"move_effect_unit_copy_trait_impl\" count=1 failed=0\
 #import "core/traits/copy" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let u <()> ()
-    let a <()> u
-    let b <()> u
-    let actual <i32> 0
+fn main %impure fn () i32 \():
+    let u %() ()
+    let a %() u
+    let b %() u
+    let actual %i32 0
     let report:
         test::test_report_new "move_effect_unit_copy_trait_impl"
         |> test::test_report_push test::assert_eq_i32 "unit reuse through copy trait impl" 0 actual

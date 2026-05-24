@@ -27,14 +27,14 @@ stdout: "test_report name=\"segment_tree_pipe_usage\" count=2 failed=0\nassertio
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let st <SegmentTree>:
+fn main %impure fn () i32 \():
+    let st %SegmentTree:
         unwrap_ok<SegmentTree, Diag> new 5
         |> replace 0 2 |> uwok
         |> replace 2 4 |> uwok
         |> add 2 1 |> uwok
-    let total <i32> unwrap_ok<i32, Diag> sum_range &st 0 3;
-    let st_len <i32> len &st;
+    let total %i32 unwrap_ok<i32, Diag> sum_range &st 0 3;
+    let st_len %i32 len &st;
     free st
     let report:
         test_report_new "segment_tree_pipe_usage"
@@ -70,20 +70,20 @@ stdout: "test_report name=\"segment_tree_update_free_reallocates\" count=1 faile
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let st_free <SegmentTree>:
+fn main %impure fn () i32 \():
+    let st_free %SegmentTree:
         unwrap_ok<SegmentTree, Diag> new 5
         |> replace 0 2 |> uwok
         |> replace 2 4 |> uwok
         |> add 2 1 |> uwok
     free st_free
-    let st_empty <SegmentTree> unwrap_ok<SegmentTree, Diag> new 0;
+    let st_empty %SegmentTree unwrap_ok<SegmentTree, Diag> new 0;
     free st_empty
-    let st0 <SegmentTree>:
+    let st0 %SegmentTree:
         unwrap_ok<SegmentTree, Diag> new 5
         |> replace 4 6 |> uwok
         |> add 4 1 |> uwok
-    let total <i32> unwrap_ok<i32, Diag> sum_range &st0 4 5;
+    let total %i32 unwrap_ok<i32, Diag> sum_range &st0 4 5;
     free st0
     let report:
         test_report_new "segment_tree_update_free_reallocates"
@@ -118,22 +118,22 @@ stdout: "test_report name=\"segment_tree_update_error_returns_owner\" count=2 fa
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let st <SegmentTree> unwrap_ok<SegmentTree, Diag> new 4;
+fn main %impure fn () i32 \():
+    let st %SegmentTree unwrap_ok<SegmentTree, Diag> new 4;
     match replace st 8 1:
         Result::Ok next0:
             free next0
             0
         Result::Err e0:
-            let st0 <SegmentTree> segment_tree_update_error_owner e0
-            let replace_len <i32> len &st0
+            let st0 %SegmentTree segment_tree_update_error_owner e0
+            let replace_len %i32 len &st0
             match add st0 9 3:
                 Result::Ok next1:
                     free next1
                     0
                 Result::Err e1:
-                    let recovered <SegmentTree> segment_tree_update_error_owner e1
-                    let add_len <i32> len &recovered
+                    let recovered %SegmentTree segment_tree_update_error_owner e1
+                    let add_len %i32 len &recovered
                     free recovered
                     let report:
                         test_report_new "segment_tree_update_error_returns_owner"
@@ -167,14 +167,14 @@ stdout: "test_report name=\"segment_tree_negative_length_rejected\" count=1 fail
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let neg <i32> sub 0 1
+fn main %impure fn () i32 \():
+    let neg %i32 sub 0 1
     match new neg:
         Result::Ok st:
             free st
             0
         Result::Err d:
-            let name <str> diag_std_error_kind_str d
+            let name %str diag_std_error_kind_str d
             let report:
                 test_report_new "segment_tree_negative_length_rejected"
                 |> test_report_push assert_str_eq "negative length error" "CapacityExceeded" name

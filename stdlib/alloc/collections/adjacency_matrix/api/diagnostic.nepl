@@ -10,8 +10,8 @@
 #import "alloc/diag/error" as *
 #import "core/result" as *
 
-pub fn adjacency_matrix_invalid_len_diag <()*>Diag> ():
+pub fn adjacency_matrix_invalid_len_diag %impure fn () Diag \():
     diag_error StdErrorKind::CapacityExceeded "invalid adjacency matrix vertex length"
 
-pub fn adjacency_matrix_vertex_diag <()*>Diag> ():
+pub fn adjacency_matrix_vertex_diag %impure fn () Diag \():
     diag_error StdErrorKind::IndexOutOfBounds "adjacency matrix vertex out of bounds"

@@ -25,7 +25,7 @@ stdout: mlstr:
 #import "neplg2/core/resource/owner" as *
 #import "std/test" as *
 
-fn check_owned <(Result<SelfhostOwnerState,SelfhostProofRefutation>,SelfhostOwnerStorageId)->Result<(),str>> (result, expected):
+fn check_owned %fn Result SelfhostOwnerState SelfhostProofRefutation fn SelfhostOwnerStorageId Result () str \result\expected:
     match result:
         Result::Ok state:
             match state:
@@ -40,7 +40,7 @@ fn check_owned <(Result<SelfhostOwnerState,SelfhostProofRefutation>,SelfhostOwne
         Result::Err _refutation:
             Result<(),str>::Err "expected owner proof"
 
-fn check_moved <(Result<SelfhostOwnerState,SelfhostProofRefutation>,SelfhostOwnerStorageId)->Result<(),str>> (result, expected):
+fn check_moved %fn Result SelfhostOwnerState SelfhostProofRefutation fn SelfhostOwnerStorageId Result () str \result\expected:
     match result:
         Result::Ok state:
             match state:
@@ -55,7 +55,7 @@ fn check_moved <(Result<SelfhostOwnerState,SelfhostProofRefutation>,SelfhostOwne
         Result::Err _refutation:
             Result<(),str>::Err "expected owner move proof"
 
-fn check_released <(Result<SelfhostOwnerState,SelfhostProofRefutation>,SelfhostOwnerStorageId)->Result<(),str>> (result, expected):
+fn check_released %fn Result SelfhostOwnerState SelfhostProofRefutation fn SelfhostOwnerStorageId Result () str \result\expected:
     match result:
         Result::Ok state:
             match state:
@@ -70,7 +70,7 @@ fn check_released <(Result<SelfhostOwnerState,SelfhostProofRefutation>,SelfhostO
         Result::Err _refutation:
             Result<(),str>::Err "expected owner release proof"
 
-fn check_invalid_storage_id <(SelfhostOwnerTransitionError)->Result<(),str>> (actual):
+fn check_invalid_storage_id %fn SelfhostOwnerTransitionError Result () str \actual:
     match actual:
         SelfhostOwnerTransitionError::InvalidStorageId:
             Result<(),str>::Ok ()
@@ -101,7 +101,7 @@ fn check_invalid_storage_id <(SelfhostOwnerTransitionError)->Result<(),str>> (ac
         SelfhostOwnerTransitionError::ViewAfterRelease:
             Result<(),str>::Err "expected invalid storage id"
 
-fn check_storage_id_mismatch <(SelfhostOwnerTransitionError)->Result<(),str>> (actual):
+fn check_storage_id_mismatch %fn SelfhostOwnerTransitionError Result () str \actual:
     match actual:
         SelfhostOwnerTransitionError::StorageIdMismatch:
             Result<(),str>::Ok ()
@@ -132,7 +132,7 @@ fn check_storage_id_mismatch <(SelfhostOwnerTransitionError)->Result<(),str>> (a
         SelfhostOwnerTransitionError::ViewAfterRelease:
             Result<(),str>::Err "expected storage id mismatch"
 
-fn check_release_after_release <(SelfhostOwnerTransitionError)->Result<(),str>> (actual):
+fn check_release_after_release %fn SelfhostOwnerTransitionError Result () str \actual:
     match actual:
         SelfhostOwnerTransitionError::ReleaseAfterRelease:
             Result<(),str>::Ok ()
@@ -163,7 +163,7 @@ fn check_release_after_release <(SelfhostOwnerTransitionError)->Result<(),str>> 
         SelfhostOwnerTransitionError::ViewAfterRelease:
             Result<(),str>::Err "expected release after release"
 
-fn check_owner_refutation <(SelfhostProofRefutation,(SelfhostOwnerTransitionError)->Result<(),str>)->Result<(),str>> (refutation, checker):
+fn check_owner_refutation %fn SelfhostProofRefutation fn fn SelfhostOwnerTransitionError Result () str Result () str \refutation\checker:
     match refutation:
         SelfhostProofRefutation::OwnerTransitionInvalid issue:
             checker issue.reason
@@ -196,24 +196,24 @@ fn check_owner_refutation <(SelfhostProofRefutation,(SelfhostOwnerTransitionErro
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected owner refutation"
 
-fn check_owner_error <(Result<SelfhostOwnerState,SelfhostProofRefutation>,(SelfhostOwnerTransitionError)->Result<(),str>)->Result<(),str>> (result, checker):
+fn check_owner_error %fn Result SelfhostOwnerState SelfhostProofRefutation fn fn SelfhostOwnerTransitionError Result () str Result () str \result\checker:
     match result:
         Result::Err refutation:
             check_owner_refutation refutation checker
         Result::Ok _state:
             Result<(),str>::Err "invalid owner transition was accepted"
 
-fn main <()*>i32> ():
-    let span <SelfhostSourceSpan> source_span_new 0 0 4
-    let storage <SelfhostOwnerStorageId> selfhost_owner_storage_id_new 7
-    let other <SelfhostOwnerStorageId> selfhost_owner_storage_id_new 9
-    let invalid <SelfhostOwnerStorageId> selfhost_owner_storage_id_new (sub 0 1)
-    let acquire <SelfhostOwnerEventFact> selfhost_owner_event_fact_new SelfhostOwnerEventKind::Acquire storage span
-    let move_out <SelfhostOwnerEventFact> selfhost_owner_event_fact_new SelfhostOwnerEventKind::MoveOut storage span
-    let release <SelfhostOwnerEventFact> selfhost_owner_event_fact_new SelfhostOwnerEventKind::Release storage span
-    let view <SelfhostOwnerEventFact> selfhost_owner_event_fact_new SelfhostOwnerEventKind::BorrowView storage span
-    let release_other <SelfhostOwnerEventFact> selfhost_owner_event_fact_new SelfhostOwnerEventKind::Release other span
-    let acquire_invalid <SelfhostOwnerEventFact> selfhost_owner_event_fact_new SelfhostOwnerEventKind::Acquire invalid span
+fn main %impure fn () i32 \():
+    let span %SelfhostSourceSpan source_span_new 0 0 4
+    let storage %SelfhostOwnerStorageId selfhost_owner_storage_id_new 7
+    let other %SelfhostOwnerStorageId selfhost_owner_storage_id_new 9
+    let invalid %SelfhostOwnerStorageId selfhost_owner_storage_id_new (sub 0 1)
+    let acquire %SelfhostOwnerEventFact selfhost_owner_event_fact_new SelfhostOwnerEventKind::Acquire storage span
+    let move_out %SelfhostOwnerEventFact selfhost_owner_event_fact_new SelfhostOwnerEventKind::MoveOut storage span
+    let release %SelfhostOwnerEventFact selfhost_owner_event_fact_new SelfhostOwnerEventKind::Release storage span
+    let view %SelfhostOwnerEventFact selfhost_owner_event_fact_new SelfhostOwnerEventKind::BorrowView storage span
+    let release_other %SelfhostOwnerEventFact selfhost_owner_event_fact_new SelfhostOwnerEventKind::Release other span
+    let acquire_invalid %SelfhostOwnerEventFact selfhost_owner_event_fact_new SelfhostOwnerEventKind::Acquire invalid span
     let checks0 checks_new
     let checks1 checks_push checks0 check_owned (selfhost_proof_owner_transition SelfhostOwnerState::NoOwner acquire) storage
     let checks2 checks_push checks1 check_owned (selfhost_proof_owner_transition (SelfhostOwnerState::Owned storage) view) storage

@@ -38,8 +38,8 @@
 //:
 //: 計算量:
 //: - path 長 n に対して O(n)
-pub fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
-    let path_len <i32> len path
+pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
+    let path_len %i32 len path
     if:
         normalize_validate::fs_path_has_forbidden_host_byte path
         then:
@@ -54,19 +54,19 @@ pub fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
                         Result::Err _e:
                             Result<StringBuilder,i32>::Err 12
                         Result::Ok stack0:
-                            let mut stack <Vec<i32>> stack0
-                            let mut cursor <i32> 0
-                            let mut done <i32> 0
-                            let mut err <i32> 0
+                            let mut stack %Vec i32 stack0
+                            let mut cursor %i32 0
+                            let mut done %i32 0
+                            let mut err %i32 0
                             while and eq err 0 eq done 0:
                                 do:
-                                    let step <StrSplitStep> str_split_next path "/" cursor
+                                    let step %StrSplitStep str_split_next path "/" cursor
                                     match get step "kind":
                                         StrSplitStepKind::Done:
                                             set done 1
                                         StrSplitStepKind::Part:
-                                            let part_start <i32> get step "start"
-                                            let part_end <i32> get step "end"
+                                            let part_start %i32 get step "start"
+                                            let part_end %i32 get step "end"
                                             if:
                                                 or eq part_start part_end str_range_eq path part_start part_end "."
                                                 then:
@@ -75,7 +75,7 @@ pub fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
                                                     if:
                                                         str_range_eq path part_start part_end ".."
                                                         then:
-                                                            let stack_len <i32> v::len<i32> &stack
+                                                            let stack_len %i32 v::len<i32> &stack
                                                             if:
                                                                 eq stack_len 0
                                                                 then:
@@ -90,7 +90,7 @@ pub fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
                                                                     set stack v::vec_empty<i32>
                                                                     set err e
                                             set cursor get step "next"
-                            let result <Result<StringBuilder,i32>> if:
+                            let result %Result StringBuilder i32 if:
                                 eq err 0
                                 then:
                                     normalize_build::fs_normalize_build_ranges_builder path &stack
@@ -111,7 +111,7 @@ pub fn fs_normalize_relative_builder <(str)->Result<StringBuilder,i32>> (path):
 //: - absolute path、Windows host path 風の `\` / `:` を含む path は `Err(76)` にします。
 //: - 空 path は preopen root 自体を表す `"."` に正規化します。
 //: - component 分割や stack 確保に失敗した場合は `Err(12)` を返します。
-pub fn fs_normalize_relative <(str)->Result<str,i32>> (path):
+pub fn fs_normalize_relative %fn str Result str i32 \path:
     match fs_normalize_relative_builder path:
         Result::Err e:
             Result<str,i32>::Err e

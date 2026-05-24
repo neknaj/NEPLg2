@@ -16,15 +16,15 @@
 //:| #import "core/cast" as *
 //:| #import "core/math/u8/arith" as *
 //:| #import "core/math/u8/compare" as *
-//: fn main <()->i32> ():
-//:     let a <u8> cast 255;
-//:     let b <u8> cast 1;
-//:     let wrapped <u8> add a b;
-//:     let q <u8> div_u <u8> cast 200 <u8> cast 20;
+//: fn main %fn () i32 \():
+//:     let a %u8 cast 255;
+//:     let b %u8 cast 1;
+//:     let wrapped %u8 add a b;
+//:     let q %u8 div_u %u8 cast 200 %u8 cast 20;
 //:     if:
-//:         eq wrapped <u8> cast 0
+//:         eq wrapped %u8 cast 0
 //:         then:
-//:             if eq q <u8> cast 10 0 1
+//:             if eq q %u8 cast 10 0 1
 //:         else:
 //:             1
 //: ```
@@ -44,7 +44,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn add_u8 <(u8,u8)->u8> (a,b):
+pub fn add_u8 %fn u8 fn u8 u8 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -74,7 +74,7 @@ pub fn add_u8 <(u8,u8)->u8> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn sub_u8 <(u8,u8)->u8> (a,b):
+pub fn sub_u8 %fn u8 fn u8 u8 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -104,7 +104,7 @@ pub fn sub_u8 <(u8,u8)->u8> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn mul_u8 <(u8,u8)->u8> (a,b):
+pub fn mul_u8 %fn u8 fn u8 u8 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -134,7 +134,7 @@ pub fn mul_u8 <(u8,u8)->u8> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn div_u_u8 <(u8,u8)->u8> (a,b):
+pub fn div_u_u8 %fn u8 fn u8 u8 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -161,7 +161,7 @@ pub fn div_u_u8 <(u8,u8)->u8> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn rem_u_u8 <(u8,u8)->u8> (a,b):
+pub fn rem_u_u8 %fn u8 fn u8 u8 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -176,21 +176,21 @@ pub fn rem_u_u8 <(u8,u8)->u8> (a,b):
         }
 
 //: add: u8 の加算（mod 2^8）
-pub fn add <(u8,u8)->u8> (a,b):
+pub fn add %fn u8 fn u8 u8 \a\b:
     add_u8 a b
 
 //: sub: u8 の減算（mod 2^8）
-pub fn sub <(u8,u8)->u8> (a,b):
+pub fn sub %fn u8 fn u8 u8 \a\b:
     sub_u8 a b
 
 //: mul: u8 の乗算（mod 2^8）
-pub fn mul <(u8,u8)->u8> (a,b):
+pub fn mul %fn u8 fn u8 u8 \a\b:
     mul_u8 a b
 
 //: div_u: u8 の符号なし除算
-pub fn div_u <(u8,u8)->u8> (a,b):
+pub fn div_u %fn u8 fn u8 u8 \a\b:
     div_u_u8 a b
 
 //: rem_u: u8 の符号なし剰余
-pub fn rem_u <(u8,u8)->u8> (a,b):
+pub fn rem_u %fn u8 fn u8 u8 \a\b:
     rem_u_u8 a b

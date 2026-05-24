@@ -4,7 +4,7 @@
 #import "../value" as *
 
 //: selfhost_token_is_newline: newline token か[返/かえ]す
-pub fn selfhost_token_is_newline <(SelfhostToken)->bool> (token):
+pub fn selfhost_token_is_newline %fn SelfhostToken bool \token:
     match field::get token "kind":
         TokenKind::Indent:
             false
@@ -29,6 +29,10 @@ pub fn selfhost_token_is_newline <(SelfhostToken)->bool> (token):
         TokenKind::LAngle:
             false
         TokenKind::RAngle:
+            false
+        TokenKind::Percent:
+            false
+        TokenKind::Backslash:
             false
         TokenKind::Arrow:
             false

@@ -16,10 +16,10 @@
 //:| #import "core/math" as *
 //:| #import "std/iotarget" as *
 //:| #import "std/streamio/scanner" as *
-//: fn main <()*>i32> ():
-//:     let sc <StreamScanner> unwrap_ok open ReadStream::Text "4 5";
-//:     let a <i32> read &sc;
-//:     let b <i32> read &sc;
+//: fn main %impure fn () i32 \():
+//:     let sc %StreamScanner unwrap_ok open ReadStream::Text "4 5";
+//:     let a %i32 read &sc;
+//:     let b %i32 read &sc;
 //:     close sc;
 //:     add a b
 //: ```
@@ -51,7 +51,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - file read [失敗/しっぱい]や[確保/かくほ][失敗/しっぱい]は `Result::Err` に[丸/まる]めます。
-pub fn open <(ReadStream)*>Result<StreamScanner,str>> (target):
+pub fn open %impure fn ReadStream Result StreamScanner str \target:
     match target:
         ReadStream::Stdio:
             scanner_from_bytes stdio_read_all_bytes
@@ -72,28 +72,28 @@ pub fn open <(ReadStream)*>Result<StreamScanner,str>> (target):
 
 //: ## skip_ws
 //: ASCII [空白/くうはく]と[先頭/せんとう] BOM を[飛/と]ばす
-pub fn skip_ws <(&StreamScanner)*>()> (sc):
+pub fn skip_ws %impure fn &StreamScanner () \sc:
     stream_scanner_skip_ws_state sc
 
 //: ## is_eof
 //: token が[残/のこ]っていないか[確認/かくにん]する
-pub fn is_eof <(&StreamScanner)*>bool> (sc):
+pub fn is_eof %impure fn &StreamScanner bool \sc:
     stream_scanner_skip_ws_state sc;
     ge stream_scanner_load_pos sc stream_scanner_len sc
 
 //: ## skip
 //: [現在/げんざい] token を 1 [個/こ][消費/しょうひ]する
-pub fn skip <(&StreamScanner)*>()> (sc):
+pub fn skip %impure fn &StreamScanner () \sc:
     stream_scanner_skip_ws_state sc;
-    let bytes <&ByteBuf> get_ref sc "bytes";
-    let len <i32> stream_scanner_len sc;
-    let mut p <i32> stream_scanner_load_pos sc;
-    let mut done <i32> 0;
+    let bytes %&ByteBuf get_ref sc "bytes";
+    let len %i32 stream_scanner_len sc;
+    let mut p %i32 stream_scanner_load_pos sc;
+    let mut done %i32 0;
     while eq done 0:
         if:
             lt p len
             then:
-                let byte <i32> stream_scanner_byte_at bytes p;
+                let byte %i32 stream_scanner_byte_at bytes p;
                 if:
                     stream_scanner_is_token_separator byte
                     then:
@@ -107,18 +107,18 @@ pub fn skip <(&StreamScanner)*>()> (sc):
 
 //: ## scan_token_impl
 //: [次/つぎ]の token を `str` として[読/よ]む
-pub fn scan_token_impl <(&StreamScanner)*>str> (sc):
+pub fn scan_token_impl %impure fn &StreamScanner str \sc:
     stream_scanner_skip_ws_state sc;
-    let bytes <&ByteBuf> get_ref sc "bytes";
-    let len <i32> stream_scanner_len sc;
-    let start <i32> stream_scanner_load_pos sc;
-    let mut p <i32> start;
-    let mut done <i32> 0;
+    let bytes %&ByteBuf get_ref sc "bytes";
+    let len %i32 stream_scanner_len sc;
+    let start %i32 stream_scanner_load_pos sc;
+    let mut p %i32 start;
+    let mut done %i32 0;
     while eq done 0:
         if:
             lt p len
             then:
-                let byte <i32> stream_scanner_byte_at bytes p;
+                let byte %i32 stream_scanner_byte_at bytes p;
                 if:
                     stream_scanner_is_token_separator byte
                     then:
@@ -127,7 +127,7 @@ pub fn scan_token_impl <(&StreamScanner)*>str> (sc):
                         set p add p 1;
             else:
                 set done 1;
-    let tlen <i32> sub p start;
+    let tlen %i32 sub p start;
     if:
         eq tlen 0
         then:
@@ -150,31 +150,31 @@ pub fn scan_token_impl <(&StreamScanner)*>str> (sc):
 //:
 //: ### [注意/ちゅうい]
 //: - [受/う]け[側/がわ]の[型注釈/かたちゅうしゃく]または式の期待型で[読/よ]む[型/かた]を[決/き]めます。
-pub fn read <(&StreamScanner)*>str> (sc):
+pub fn read %impure fn &StreamScanner str \sc:
     scan_token_impl sc
 
-pub fn read <(&StreamScanner)*>i32> (sc):
+pub fn read %impure fn &StreamScanner i32 \sc:
     scan_i32_impl sc
 
-pub fn read <(&StreamScanner)*>i64> (sc):
+pub fn read %impure fn &StreamScanner i64 \sc:
     scan_i64_impl sc
 
-pub fn read <(&StreamScanner)*>u32> (sc):
+pub fn read %impure fn &StreamScanner u32 \sc:
     scan_u32_impl sc
 
-pub fn read <(&StreamScanner)*>u64> (sc):
+pub fn read %impure fn &StreamScanner u64 \sc:
     scan_u64_impl sc
 
-pub fn read <(&StreamScanner)*>f64> (sc):
+pub fn read %impure fn &StreamScanner f64 \sc:
     scan_f64_impl sc
 
-pub fn read <(&StreamScanner)*>f32> (sc):
+pub fn read %impure fn &StreamScanner f32 \sc:
     scan_f32_impl sc
 
 //: ## close
 //: `StreamScanner` を[閉/と]じて[内部/ないぶ] buffer を[解放/かいほう]する
-pub fn close <(StreamScanner)*>()> (sc):
-    let bytes <ByteBuf> get sc "bytes";
-    let cursor <Vec<i32>> get sc "cursor";
+pub fn close %impure fn StreamScanner () \sc:
+    let bytes %ByteBuf get sc "bytes";
+    let cursor %Vec i32 get sc "cursor";
     io_bytebuf_free bytes;
     vec::free<i32> cursor

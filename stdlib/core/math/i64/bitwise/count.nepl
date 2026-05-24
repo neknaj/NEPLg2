@@ -15,13 +15,13 @@
 //:| #import "core/cast" as *
 //:| #import "core/math/i64/bitwise/count" as *
 //:| #import "core/math/i64/compare" as *
-//: fn main <()*>()> ():
-//:     let one <i64> cast 1;
-//:     let eight <i64> cast 8;
-//:     let fifteen <i64> cast 15;
-//:     assert eq clz one <i64> cast 63;
-//:     assert eq ctz eight <i64> cast 3;
-//:     assert eq popcnt fifteen <i64> cast 4;
+//: fn main %impure fn () () \():
+//:     let one %i64 cast 1;
+//:     let eight %i64 cast 8;
+//:     let fifteen %i64 cast 15;
+//:     assert eq clz one %i64 cast 63;
+//:     assert eq ctz eight %i64 cast 3;
+//:     assert eq popcnt fifteen %i64 cast 4;
 //: ```
 
 #indent 4
@@ -39,7 +39,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn clz <(i64)->i64> (a):
+pub fn clz %fn i64 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -66,7 +66,7 @@ pub fn clz <(i64)->i64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ctz <(i64)->i64> (a):
+pub fn ctz %fn i64 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -93,7 +93,7 @@ pub fn ctz <(i64)->i64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn popcnt <(i64)->i64> (a):
+pub fn popcnt %fn i64 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a

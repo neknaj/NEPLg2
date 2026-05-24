@@ -39,7 +39,7 @@
 //:
 //: 計算量:
 //: - 名前長 n に対して O(n)
-fn fs_dirent_name_to_string <(MemPtr<u8>,i32)->Result<str,i32>> (src_ptr, byte_len):
+fn fs_dirent_name_to_string %fn MemPtr u8 fn i32 Result str i32 \src_ptr\byte_len:
     match string_utf8_validate_mem src_ptr byte_len:
         Result::Err _e:
             Result<str,i32>::Err fs_errno_ilseq
@@ -66,13 +66,13 @@ fn fs_dirent_name_to_string <(MemPtr<u8>,i32)->Result<str,i32>> (src_ptr, byte_l
 //:
 //: 計算量:
 //: - entry 総 byte 数 n と sort の O(k^2)
-pub fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
+pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
     match v::new<str>:
         Result::Err _e:
             Result<Vec<str>,i32>::Err 12
         Result::Ok entries0:
-            let mut entries <Vec<str>> entries0
-            let buf_len <i32> fs_readdir_buf_size
+            let mut entries %Vec str entries0
+            let buf_len %i32 fs_readdir_buf_size
             match alloc_region<u8> buf_len:
                 Result::Err _e:
                     v::free<str> entries
@@ -88,47 +88,47 @@ pub fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
                             v::free<str> entries
                             Result<Vec<str>,i32>::Err 12
                         Result::Ok used_region:
-                            let mut cookie <i64> <i64> cast 0
-                            let mut err <i32> 0
-                            let mut done <bool> false
-                            let buf_ptr <MemPtr<u8>> region_ptr &buf_region
-                            let used_ptr <MemPtr<u8>> region_ptr &used_region
-                            let buf_raw <i32> mem_ptr_addr buf_ptr
-                            let used_raw <i32> mem_ptr_addr used_ptr
+                            let mut cookie %i64 %i64 cast 0
+                            let mut err %i32 0
+                            let mut done %bool false
+                            let buf_ptr %MemPtr u8 region_ptr &buf_region
+                            let used_ptr %MemPtr u8 region_ptr &used_region
+                            let buf_raw %i32 mem_ptr_addr buf_ptr
+                            let used_raw %i32 mem_ptr_addr used_ptr
                             while and not done eq err 0:
                                 do:
                                     store_i32 used_raw 0
-                                    let errno <i32> wasi_fd_readdir fd buf_raw buf_len cookie used_raw
+                                    let errno %i32 wasi_fd_readdir fd buf_raw buf_len cookie used_raw
                                     if:
                                         ne errno 0
                                         then:
                                             set err errno
                                         else:
-                                            let used <i32> load_i32 used_raw
+                                            let used %i32 load_i32 used_raw
                                             if:
                                                 eq used 0
                                                 then:
                                                     set done true
                                                 else:
-                                                    let mut off <i32> 0
+                                                    let mut off %i32 0
                                                     while and eq err 0 and ge off 0 lt off used:
                                                         do:
-                                                            let header_end <i32> add off fs_dirent_header_size
+                                                            let header_end %i32 add off fs_dirent_header_size
                                                             if:
                                                                 gt header_end used
                                                                 then:
                                                                     set err fs_errno_inval
                                                                 else:
-                                                                    let rec <i32> add buf_raw off
-                                                                    let next_cookie_low <i32> load_i32 rec
-                                                                    let name_len <i32> load_i32 add rec 16
-                                                                    let name_off <i32> add header_end name_len
+                                                                    let rec %i32 add buf_raw off
+                                                                    let next_cookie_low %i32 load_i32 rec
+                                                                    let name_len %i32 load_i32 add rec 16
+                                                                    let name_off %i32 add header_end name_len
                                                                     if:
                                                                         or lt name_len 0 or lt name_off header_end gt name_off used
                                                                         then:
                                                                             set err fs_errno_inval
                                                                         else:
-                                                                            let name_ptr <MemPtr<u8>> mem_ptr_add buf_ptr add off fs_dirent_header_size
+                                                                            let name_ptr %MemPtr u8 mem_ptr_add buf_ptr add off fs_dirent_header_size
                                                                             match fs_dirent_name_to_string name_ptr name_len:
                                                                                 Result::Err e:
                                                                                     set err e
@@ -144,7 +144,7 @@ pub fn fs_read_dir_fd <(i32)*>Result<Vec<str>,i32>> (fd):
                                                                                                 Result::Err e:
                                                                                                     set entries v::vec_push_error_vec<str> e
                                                                                                     set err 12
-                                                                            set cookie <i64> cast next_cookie_low
+                                                                            set cookie %i64 cast next_cookie_low
                                                                             set off name_off
                                                     if:
                                                         lt used buf_len

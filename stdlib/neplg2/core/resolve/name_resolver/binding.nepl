@@ -10,30 +10,30 @@
 //: [目的/もくてき]:
 //: - scope 内の宣言順、定義分類、宣言位置を 1 record にまとめます。
 pub struct SelfhostNameBinding:
-    name <str>
-    def_id <Option<SelfhostDefId>>
-    kind <SelfhostDefKind>
-    span <SelfhostSourceSpan>
+    name %str
+    def_id %Option SelfhostDefId
+    kind %SelfhostDefKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostNameBinding:
-    fn clone <(&SelfhostNameBinding)->SelfhostNameBinding> (self):
+    fn clone %fn &SelfhostNameBinding SelfhostNameBinding \self:
         *self
 
 impl Copy for SelfhostNameBinding:
-    fn copy_mark <(SelfhostNameBinding)->SelfhostNameBinding> (self):
+    fn copy_mark %fn SelfhostNameBinding SelfhostNameBinding \self:
         self
 
 
 //: selfhost_name_binding_new: binding record を[作/つく]る
-pub fn selfhost_name_binding_new <(str,Option<SelfhostDefId>,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, def_id, kind, span):
+pub fn selfhost_name_binding_new %fn str fn Option SelfhostDefId fn SelfhostDefKind fn SelfhostSourceSpan SelfhostNameBinding \name\def_id\kind\span:
     SelfhostNameBinding name def_id kind span
 
 //: selfhost_name_binding_pending: scope table 追加前の binding record を[作/つく]る
-pub fn selfhost_name_binding_pending <(str,SelfhostDefKind,SelfhostSourceSpan)->SelfhostNameBinding> (name, kind, span):
+pub fn selfhost_name_binding_pending %fn str fn SelfhostDefKind fn SelfhostSourceSpan SelfhostNameBinding \name\kind\span:
     selfhost_name_binding_new name selfhost_def_id_pending kind span
 
 //: selfhost_name_binding_def_id_eq: binding の DefId が指定 id と同じか[返/かえ]す
-pub fn selfhost_name_binding_def_id_eq <(SelfhostNameBinding,SelfhostDefId)->bool> (binding, def_id):
+pub fn selfhost_name_binding_def_id_eq %fn SelfhostNameBinding fn SelfhostDefId bool \binding\def_id:
     match binding.def_id:
         Option::Some actual:
             selfhost_def_id_eq actual def_id

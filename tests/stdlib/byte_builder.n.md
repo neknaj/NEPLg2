@@ -22,23 +22,23 @@ stdout: "test_report name=\"byte_builder_push_u8_builds_wasm_header\" count=9 fa
 #import "core/option" as *
 #import "core/result" as *
 
-fn byte_at_or_neg1 <(&ByteBuf,i32)->i32> (bytes, idx):
+fn byte_at_or_neg1 %fn &ByteBuf fn i32 i32 \bytes\idx:
     match io_bytebuf_byte_at bytes idx:
         Option::Some actual:
             actual
         Option::None:
             -1
 
-fn main <()*>i32> ():
-    let mut built_len <i32> -1;
-    let mut byte0 <i32> -1;
-    let mut byte1 <i32> -1;
-    let mut byte2 <i32> -1;
-    let mut byte3 <i32> -1;
-    let mut byte4 <i32> -1;
-    let mut byte5 <i32> -1;
-    let mut byte6 <i32> -1;
-    let mut byte7 <i32> -1;
+fn main %impure fn () i32 \():
+    let mut built_len %i32 -1;
+    let mut byte0 %i32 -1;
+    let mut byte1 %i32 -1;
+    let mut byte2 %i32 -1;
+    let mut byte3 %i32 -1;
+    let mut byte4 %i32 -1;
+    let mut byte5 %i32 -1;
+    let mut byte6 %i32 -1;
+    let mut byte7 %i32 -1;
     match byte_builder_with_capacity 1:
         Result::Err _e:
             ()
@@ -135,18 +135,18 @@ stdout: "test_report name=\"byte_builder_push_leb_u32_known_vector\" count=4 fai
 #import "core/option" as *
 #import "core/result" as *
 
-fn byte_at_or_neg1 <(&ByteBuf,i32)->i32> (bytes, idx):
+fn byte_at_or_neg1 %fn &ByteBuf fn i32 i32 \bytes\idx:
     match io_bytebuf_byte_at bytes idx:
         Option::Some actual:
             actual
         Option::None:
             -1
 
-fn main <()*>i32> ():
-    let mut built_len <i32> -1;
-    let mut byte0 <i32> -1;
-    let mut byte1 <i32> -1;
-    let mut byte2 <i32> -1;
+fn main %impure fn () i32 \():
+    let mut built_len %i32 -1;
+    let mut byte0 %i32 -1;
+    let mut byte1 %i32 -1;
+    let mut byte2 %i32 -1;
     match byte_builder_new:
         Result::Err _e:
             ()
@@ -194,18 +194,18 @@ stdout: "test_report name=\"byte_builder_growth_preserves_existing_bytes\" count
 #import "core/option" as *
 #import "core/result" as *
 
-fn byte_at_or_neg1 <(&ByteBuf,i32)->i32> (bytes, idx):
+fn byte_at_or_neg1 %fn &ByteBuf fn i32 i32 \bytes\idx:
     match io_bytebuf_byte_at bytes idx:
         Option::Some actual:
             actual
         Option::None:
             -1
 
-fn main <()*>i32> ():
-    let mut built_len <i32> -1;
-    let mut byte0 <i32> -1;
-    let mut byte4 <i32> -1;
-    let mut byte9 <i32> -1;
+fn main %impure fn () i32 \():
+    let mut built_len %i32 -1;
+    let mut byte0 %i32 -1;
+    let mut byte4 %i32 -1;
+    let mut byte9 %i32 -1;
     match byte_builder_with_capacity 2:
         Result::Err _e:
             ()

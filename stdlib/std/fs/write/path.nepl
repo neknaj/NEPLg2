@@ -31,7 +31,7 @@
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-pub fn fs_write_to_bytes <(str,ByteBuf)*>Result<(),i32>> (path, bytes):
+pub fn fs_write_to_bytes %impure fn str impure fn ByteBuf Result () i32 \path\bytes:
     match fs_open_write path:
         Result::Err e:
             io_bytebuf_free bytes
@@ -76,7 +76,7 @@ pub fn fs_write_to_bytes <(str,ByteBuf)*>Result<(),i32>> (path, bytes):
 //:| #import "std/fs/read" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match fs_write_to_string "tmp/fs_write_to_string_doctest.txt" "fs write":
 //:         Result::Err _e:
 //:             1
@@ -87,7 +87,7 @@ pub fn fs_write_to_bytes <(str,ByteBuf)*>Result<(),i32>> (path, bytes):
 //:                 Result::Err _e:
 //:                     3
 //: ```
-pub fn fs_write_to_string <(str,str)*>Result<(),i32>> (path, text):
+pub fn fs_write_to_string %impure fn str impure fn str Result () i32 \path\text:
     match io_bytebuf_from_str_result text:
         Result::Ok bytes:
             fs_write_to_bytes path bytes

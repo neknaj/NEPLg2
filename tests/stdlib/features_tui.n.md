@@ -19,9 +19,9 @@ stdout: "ab  ::xxx\n"
 #import "features/tui" as tui
 #import "std/stdio" as *
 
-fn main <()*>()> ():
-    let left <str> tui::line_pad_to_cols "ab" 4;
-    let right <str> tui::repeat_text "x" 3;
+fn main %impure fn () () \():
+    let left %str tui::line_pad_to_cols "ab" 4;
+    let right %str tui::repeat_text "x" 3;
     print left;
     print "::";
     print right;
@@ -45,10 +45,10 @@ ret: 0
 #import "core/math" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let size tui::get_terminal_size;
-    let cols <i32> get size "cols";
-    let rows <i32> get size "rows";
+    let cols %i32 get size "cols";
+    let rows %i32 get size "rows";
     if:
         or lt cols 0 lt rows 0
         then:
@@ -72,8 +72,8 @@ ret: 0
 
 #import "features/tui" as tui
 
-fn main <()*>i32> ():
-    let b <i32> tui::buffer_new 8 2;
+fn main %impure fn () i32 \():
+    let b %i32 tui::buffer_new 8 2;
     tui::buffer_set_line b 1 "ready";
     tui::buffer_free b;
     0
@@ -113,8 +113,8 @@ exit_code: 0
 #import "std/stdio" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let box_style <AnsiTextStyle> ansi_color_pair_style AnsiColor::Red AnsiColor::Blue;
+fn main %impure fn () i32 \():
+    let box_style %AnsiTextStyle ansi_color_pair_style AnsiColor::Red AnsiColor::Blue;
     let checks:
         checks_new
         |> checks_push assert_str_eq "" tui::line_top 0
@@ -152,8 +152,8 @@ stdout: "\u001b[31m\u001b[44mx\u001b[0m\n\u001b[32mfg\u001b[44mbg\u001b[0m\n"
 #import "features/tui" as tui
 #import "std/stdio" as *
 
-fn main <()*>()> ():
-    let inline_style <AnsiTextStyle> ansi_color_pair_style AnsiColor::Red AnsiColor::Blue;
+fn main %impure fn () () \():
+    let inline_style %AnsiTextStyle ansi_color_pair_style AnsiColor::Red AnsiColor::Blue;
     print tui::style_text inline_style "x";
     println "";
     tui::set_fg_color AnsiColor::Green;

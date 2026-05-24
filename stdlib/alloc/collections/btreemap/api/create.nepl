@@ -25,15 +25,15 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hm <BTreeMap<i32, i32>> unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>;
-//:     let observed_len <i32> len<i32, i32> &hm
-//:     let ok <bool> eq observed_len 0
+//: fn main %impure fn () i32 \():
+//:     let hm %BTreeMap i32 i32 unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>;
+//:     let observed_len %i32 len<i32, i32> &hm
+//:     let ok %bool eq observed_len 0
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-pub fn new <.K: Copy,.V: Copy> <()*>Result<BTreeMap<.K,.V>, Diag>> ():
-    let cap <i32> 8
+pub fn new <.K: Copy,.V: Copy> %impure fn () Result BTreeMap .K .V Diag \():
+    let cap %i32 8
     match btreemap_alloc_storage<.K,.V> cap:
         Result::Err d:
             err<BTreeMap<.K,.V>, Diag> d

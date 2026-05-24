@@ -10,8 +10,8 @@
 #import "neplg2/core/syntax/lexer/diagnostic" as *
 
 //: lex_error_for_token: error token を diagnostic へ[変換/へんかん]する
-pub fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
-    let span <SelfhostSourceSpan> field::get token "span"
+pub fn lex_error_for_token %fn SelfhostToken LexDiagnostic \token:
+    let span %SelfhostSourceSpan field::get token "span"
     match field::get token "kind":
         TokenKind::Indent:
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
@@ -36,6 +36,10 @@ pub fn lex_error_for_token <(SelfhostToken)->LexDiagnostic> (token):
         TokenKind::LAngle:
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::RAngle:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Percent:
+            lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
+        TokenKind::Backslash:
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"
         TokenKind::Arrow:
             lex_diag_new SelfhostLexerDiagnosticCode::TokenUnknown span "unexpected character"

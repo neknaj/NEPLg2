@@ -16,28 +16,28 @@
 #import "./types" as *
 #import "core/field" as *
 
-pub fn heap_normalize_capacity <(i32)->i32> (cap):
+pub fn heap_normalize_capacity %fn i32 i32 \cap:
     if lt cap 1 1 cap
 
-pub fn heap_item_at <.T: Copy> <(&Vec<Option<.T>>,i32)->Option<.T>> (items, idx):
+pub fn heap_item_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \items\idx:
     match vec::get<Option<.T>> items idx:
         Option::Some item:
             item
         Option::None:
             none<.T>
 
-pub fn heap_store_slot <.T: Copy> <(&Vec<Option<.T>>,i32,Option<.T>)*>()> (items, idx, item):
+pub fn heap_store_slot <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T () \items\idx\item:
     vec::replace<Option<.T>> items idx item
 
-pub fn heap_alloc_slots <.T: Copy> <(i32)*>Result<Vec<Option<.T>>, Diag>> (cap):
+pub fn heap_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Diag \cap:
     match vec::filled<Option<.T>> cap none<.T>:
         Result::Ok items:
             ok<Vec<Option<.T>>, Diag> items
         Result::Err _e:
             diag_err<Vec<Option<.T>>> diag_out_of_memory
 
-pub fn heap_copy_live_slots <.T: Copy> <(&Vec<Option<.T>>,&Vec<Option<.T>>,i32)*>()> (src, dst, len0):
-    let mut i <i32> 0
+pub fn heap_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn &Vec Option .T impure fn i32 () \src\dst\len0:
+    let mut i %i32 0
     while lt i len0:
         do:
             match heap_item_at<.T> src i:

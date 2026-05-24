@@ -57,6 +57,16 @@ frontend normalized:
     Function(params = [i32, i32], result = i32, effect = Pure)
 ```
 
+関数を返す関数型は、戻り値側の関数型を括弧で明示する。括弧で grouping された戻り値関数型は複数引数関数へ flatten しない。
+
+```text
+surface:
+    %fn bool (fn i32 fn i32 i32)
+
+frontend normalized:
+    Function(params = [bool], result = Function(params = [i32, i32], result = i32, effect = Pure), effect = Pure)
+```
+
 副作用を持つ関数型は NEPLg2.1 では `impure fn A B` を正とする。過去の draft や `doc/examples/` に残る `%fn*` は NEPLg2.1 の正規表記ではなく、移行対象である。
 
 ### 関数リテラル
@@ -122,6 +132,15 @@ NEPLg2.1 移行で後続 phase を変えないため、frontend は次の境界�
 5. generic postfix call を semantic rewrite で撤廃する。
 6. README、doc index、tutorial、stdlib doc comment を NEPLg2.1 と NEPLg3 参考扱いに同期する。
 7. selfhost 設計は NEPLg2.1 実装を踏まえて更新してから再開する。
+
+### 2026-05-24 実装 checkpoint
+
+- `%` 型注釈、prefix 型式、`\` lambda 引数は Rust frontend で受理し、既存 AST/HIR へ正規化している。
+- `#extern` の `%...` signature は受理する。`#intrinsic` の型引数は compiler-owned directive syntax として `<...>` を維持する。
+- `Stack<.T>.items : Vec<Option<.T>>` から `vec::free` を呼ぶ経路で、overload 候補選択が `Option<.T>: Copy` を generic impl pattern から認識できるようにした。
+- 実行対象 corpus の `<TypeExpr>` 型注釈と function/lambda 外形は `nodesrc/neplg21_syntax_migrate.js` で大半を変換済みである。
+- prefix 型適用境界は、現 checkpoint では parser-local arity hints を使っている。これは移行用の足場であり、kind resolver 化は `ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92` で扱う。
+- explicit generic postfix はまだ正規構文として撤廃できていない。これは `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の semantic rewrite として継続する。
 
 ## 検証
 

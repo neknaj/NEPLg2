@@ -12,7 +12,7 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| fn main <()*>i32> ():
+//:| fn main %impure fn () i32 \():
 //:     ()
 //:     0
 //: ```
@@ -35,7 +35,7 @@
 //: [計算量/けいさんりょう]:
 //: - 定義そのものは O(1) です。
 pub struct Xorshift32:
-    state <i32>
+    state %i32
 
 //: new_xorshift32: seed から PRNG state を作る
 //:
@@ -50,8 +50,8 @@ pub struct Xorshift32:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn new_xorshift32 <(i32)->Xorshift32> (seed):
-    let s <i32> if:
+pub fn new_xorshift32 %fn i32 Xorshift32 \seed:
+    let s %i32 if:
         eq seed 0
         then 1
         else seed
@@ -72,9 +72,9 @@ pub fn new_xorshift32 <(i32)->Xorshift32> (seed):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn xorshift32_next <(Xorshift32)->Xorshift32> (rng):
-    let x <i32> rng.state
-    let x1 <i32> xor x (shl x 13)
-    let x2 <i32> xor x1 (shr_u x1 17)
-    let x3 <i32> xor x2 (shl x2 5)
+pub fn xorshift32_next %fn Xorshift32 Xorshift32 \rng:
+    let x %i32 rng.state
+    let x1 %i32 xor x (shl x 13)
+    let x2 %i32 xor x1 (shr_u x1 17)
+    let x3 %i32 xor x2 (shl x2 5)
     Xorshift32 x3

@@ -5,19 +5,19 @@
 #import "./model" as *
 
 //: selfhost_builtin_signature_unary: 1 引数 builtin signature を[作/つく]る
-pub fn selfhost_builtin_signature_unary <(SelfhostTypeKind,SelfhostTypeKind)->SelfhostBuiltinSignature> (arg0, result):
+pub fn selfhost_builtin_signature_unary %fn SelfhostTypeKind fn SelfhostTypeKind SelfhostBuiltinSignature \arg0\result:
     SelfhostBuiltinSignature::Unary SelfhostBuiltinUnarySignature arg0 result
 
 //: selfhost_builtin_signature_binary: 2 引数 builtin signature を[作/つく]る
-pub fn selfhost_builtin_signature_binary <(SelfhostTypeKind,SelfhostTypeKind,SelfhostTypeKind)->SelfhostBuiltinSignature> (arg0, arg1, result):
+pub fn selfhost_builtin_signature_binary %fn SelfhostTypeKind fn SelfhostTypeKind fn SelfhostTypeKind SelfhostBuiltinSignature \arg0\arg1\result:
     SelfhostBuiltinSignature::Binary SelfhostBuiltinBinarySignature arg0 arg1 result
 
 //: selfhost_builtin_signature_ternary: 3 引数 builtin signature を[作/つく]る
-pub fn selfhost_builtin_signature_ternary <(SelfhostTypeKind,SelfhostTypeKind,SelfhostTypeKind,SelfhostTypeKind)->SelfhostBuiltinSignature> (arg0, arg1, arg2, result):
+pub fn selfhost_builtin_signature_ternary %fn SelfhostTypeKind fn SelfhostTypeKind fn SelfhostTypeKind fn SelfhostTypeKind SelfhostBuiltinSignature \arg0\arg1\arg2\result:
     SelfhostBuiltinSignature::Ternary SelfhostBuiltinTernarySignature arg0 arg1 arg2 result
 
 //: selfhost_builtin_function_arg_count: builtin function の引数数を[返/かえ]す
-pub fn selfhost_builtin_function_arg_count <(SelfhostBuiltinFunction)->i32> (builtin):
+pub fn selfhost_builtin_function_arg_count %fn SelfhostBuiltinFunction i32 \builtin:
     match builtin.signature:
         SelfhostBuiltinSignature::Unary _sig:
             1
@@ -27,7 +27,7 @@ pub fn selfhost_builtin_function_arg_count <(SelfhostBuiltinFunction)->i32> (bui
             3
 
 //: selfhost_builtin_function_arg_kind: builtin function の指定引数 type kind を[返/かえ]す
-pub fn selfhost_builtin_function_arg_kind <(SelfhostBuiltinFunction,i32)->Option<SelfhostTypeKind>> (builtin, index):
+pub fn selfhost_builtin_function_arg_kind %fn SelfhostBuiltinFunction fn i32 Option SelfhostTypeKind \builtin\index:
     match builtin.signature:
         SelfhostBuiltinSignature::Unary sig:
             match index:
@@ -55,7 +55,7 @@ pub fn selfhost_builtin_function_arg_kind <(SelfhostBuiltinFunction,i32)->Option
                     none<SelfhostTypeKind>
 
 //: selfhost_builtin_function_result_kind: builtin function の戻り値 type kind を[返/かえ]す
-pub fn selfhost_builtin_function_result_kind <(SelfhostBuiltinFunction)->SelfhostTypeKind> (builtin):
+pub fn selfhost_builtin_function_result_kind %fn SelfhostBuiltinFunction SelfhostTypeKind \builtin:
     match builtin.signature:
         SelfhostBuiltinSignature::Unary sig:
             sig.result

@@ -23,7 +23,7 @@ neplg2:test[llvm_cli]
 #target llvm
 #entry c
 #indent 4
-fn c <()->i32> ():
+fn c %fn () i32 \():
     123
 ```
 
@@ -36,7 +36,7 @@ diag_code: effect.raw_body.target_mismatch
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     #wasm:
         i32.const 1
 ```
@@ -88,6 +88,6 @@ diag_code: type.intrinsic.unknown
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     #intrinsic "i32_add" <> (1, 2)
 ```

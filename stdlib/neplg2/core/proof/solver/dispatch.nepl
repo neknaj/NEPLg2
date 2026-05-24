@@ -21,7 +21,7 @@
 //: [目的/もくてき]:
 //: - public entry は domain mismatch を先に弾き、この関数は同じ domain 内の obligation / fact 対応だけを扱います。
 //: - obligation と fact はどちらも enum の exhaustive match で扱い、新しい proof case を追加した時に更新漏れを検出しやすくします。
-fn selfhost_proof_solve_matching_domain <(SelfhostProofQuery)->SelfhostProofResult> (query):
+fn selfhost_proof_solve_matching_domain %fn SelfhostProofQuery SelfhostProofResult \query:
     match query.obligation:
         SelfhostProofObligation::SourceSpanValid span:
             match query.fact:
@@ -293,9 +293,9 @@ fn selfhost_proof_solve_matching_domain <(SelfhostProofQuery)->SelfhostProofResu
 //: [目的/もくてき]:
 //: - fact と obligation の domain を solver 入口で照合し、domain mismatch を個別 proof rule へ流さないようにします。
 //: - domain が合う場合だけ内部 dispatch に渡すため、caller は常に generic proof solver を通して typed evidence / refutation を受け取ります。
-pub fn selfhost_proof_solve <(SelfhostProofQuery)->SelfhostProofResult> (query):
-    let fact_domain <SelfhostProofDomain> selfhost_proof_fact_domain query.fact
-    let obligation_domain <SelfhostProofDomain> selfhost_proof_obligation_domain query.obligation
+pub fn selfhost_proof_solve %fn SelfhostProofQuery SelfhostProofResult \query:
+    let fact_domain %SelfhostProofDomain selfhost_proof_fact_domain query.fact
+    let obligation_domain %SelfhostProofDomain selfhost_proof_obligation_domain query.obligation
     if:
         selfhost_proof_domain_eq fact_domain obligation_domain
         then:

@@ -29,7 +29,7 @@
 //: [計算量/けいさんりょう]:
 //: - state access は O(1) です。
 pub struct StringBuilder:
-    bytes <ByteBuilder>
+    bytes %ByteBuilder
 
 //: string_builder_empty: allocation を持たない空 builder を作る
 //:
@@ -41,7 +41,7 @@ pub struct StringBuilder:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn string_builder_empty <()->StringBuilder> ():
+pub fn string_builder_empty %fn () StringBuilder \():
     StringBuilder byte_builder_empty
 
 //: string_builder_from_byte_builder: ByteBuilder owner を text builder 境界へ包む
@@ -51,7 +51,7 @@ pub fn string_builder_empty <()->StringBuilder> ():
 //:
 //: [注意/ちゅうい]:
 //: - `bytes` の内容は最終的に `sb_build_result` で UTF-8 として検証されます。
-pub fn string_builder_from_byte_builder <(ByteBuilder)->StringBuilder> (bytes):
+pub fn string_builder_from_byte_builder %fn ByteBuilder StringBuilder \bytes:
     StringBuilder bytes
 
 //: string_builder_len_ref: builder の現在の byte 長を参照から読む
@@ -61,8 +61,8 @@ pub fn string_builder_from_byte_builder <(ByteBuilder)->StringBuilder> (bytes):
 //:
 //: [注意/ちゅうい]:
 //: - 返すのは UTF-8 文字数ではなく、内部 buffer の有効 byte 数です。
-pub fn string_builder_len_ref <(&StringBuilder)->i32> (sb):
-    let bytes_ref <&ByteBuilder> get_ref sb "bytes"
+pub fn string_builder_len_ref %fn &StringBuilder i32 \sb:
+    let bytes_ref %&ByteBuilder get_ref sb "bytes"
     *get_ref bytes_ref "len"
 
 //: string_builder_data_ptr_ref: builder の byte buffer 先頭を非所有 pointer view として借りる
@@ -73,8 +73,8 @@ pub fn string_builder_len_ref <(&StringBuilder)->i32> (sb):
 //: [注意/ちゅうい]:
 //: - 返る `MemPtr<u8>` は non-owning view です。free obligation は引き続き `StringBuilder` 内の `ByteBuilder` が持ちます。
 //: - 呼び出し側は元の builder を解放または build するまで有効な一時 view としてだけ扱ってください。
-pub fn string_builder_data_ptr_ref <(&StringBuilder)->MemPtr<u8>> (sb):
-    let bytes_ref <&ByteBuilder> get_ref sb "bytes"
+pub fn string_builder_data_ptr_ref %fn &StringBuilder MemPtr u8 \sb:
+    let bytes_ref %&ByteBuilder get_ref sb "bytes"
     byte_builder_data_ptr_ref bytes_ref
 
 //: string_builder_ptr_ref: 空でない builder の byte buffer pointer view を返す
@@ -94,7 +94,7 @@ pub fn string_builder_data_ptr_ref <(&StringBuilder)->MemPtr<u8>> (sb):
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match string_builder_new_result ():
 //:         Result::Err _e:
 //:             1
@@ -103,8 +103,8 @@ pub fn string_builder_data_ptr_ref <(&StringBuilder)->MemPtr<u8>> (sb):
 //:                 Result::Err _e:
 //:                     2
 //:                 Result::Ok b1:
-//:                     let len0 <i32> string_builder_len_ref &b1
-//:                     let has_ptr <bool> match string_builder_ptr_ref &b1:
+//:                     let len0 %i32 string_builder_len_ref &b1
+//:                     let has_ptr %bool match string_builder_ptr_ref &b1:
 //:                         Option::Some _ptr:
 //:                             true
 //:                         Option::None:
@@ -112,8 +112,8 @@ pub fn string_builder_data_ptr_ref <(&StringBuilder)->MemPtr<u8>> (sb):
 //:                     string_builder_free b1
 //:                     if and eq len0 3 has_ptr 0 3
 //: ```
-pub fn string_builder_ptr_ref <(&StringBuilder)->Option<MemPtr<u8>>> (sb):
-    let bytes_ref <&ByteBuilder> get_ref sb "bytes"
+pub fn string_builder_ptr_ref %fn &StringBuilder Option MemPtr u8 \sb:
+    let bytes_ref %&ByteBuilder get_ref sb "bytes"
     byte_builder_ptr_ref bytes_ref
 
 //: string_builder_into_byte_builder: text builder から byte owner を取り出す
@@ -123,7 +123,7 @@ pub fn string_builder_ptr_ref <(&StringBuilder)->Option<MemPtr<u8>>> (sb):
 //:
 //: [注意/ちゅうい]:
 //: - この関数は StringBuilder owner を消費します。呼び出し後に元の builder を再利用しないでください。
-pub fn string_builder_into_byte_builder <(StringBuilder)->ByteBuilder> (sb):
+pub fn string_builder_into_byte_builder %fn StringBuilder ByteBuilder \sb:
     get sb "bytes"
 
 //: string_builder_free: builder が保持する byte buffer を解放する
@@ -133,5 +133,5 @@ pub fn string_builder_into_byte_builder <(StringBuilder)->ByteBuilder> (sb):
 //:
 //: [計算量/けいさんりょう]:
 //: - allocator に依存します。
-pub fn string_builder_free <(StringBuilder)->()> (sb):
+pub fn string_builder_free %fn StringBuilder () \sb:
     byte_builder_free string_builder_into_byte_builder sb

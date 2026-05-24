@@ -17,29 +17,29 @@ stdout: "test_report name=\"deque_push_front_back\" count=3 failed=0\nassertion 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let dq0 <Deque<i32>>:
+fn main %impure fn () i32 \():
+    let dq0 %Deque i32:
         unwrap_ok<Deque<i32>, Diag> new<i32>
         |> push_back 10 |> uwok
         |> push_front 5 |> uwok
         |> push_back 20 |> uwok
-    let size <i32> len<i32> &dq0;
+    let size %i32 len<i32> &dq0;
     free<i32> dq0;
-    let dq1 <Deque<i32>>:
+    let dq1 %Deque i32:
         unwrap_ok<Deque<i32>, Diag> new<i32>
         |> push_back 10 |> uwok
         |> push_front 5 |> uwok
-    let ok1 <bool> match peek_front<i32> &dq1:
+    let ok1 %bool match peek_front<i32> &dq1:
         Option::Some v:
             eq v 5
         Option::None:
             false
     free<i32> dq1;
-    let dq2 <Deque<i32>>:
+    let dq2 %Deque i32:
         unwrap_ok<Deque<i32>, Diag> new<i32>
         |> push_back 10 |> uwok
         |> push_back 20 |> uwok
-    let ok2 <bool> match peek_back<i32> &dq2:
+    let ok2 %bool match peek_back<i32> &dq2:
         Option::Some v:
             eq v 20
         Option::None:
@@ -71,32 +71,32 @@ stdout: "test_report name=\"deque_pop_both_ends\" count=4 failed=0\nassertion in
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let dq_front <Deque<i32>>:
+fn main %impure fn () i32 \():
+    let dq_front %Deque i32:
         unwrap_ok<Deque<i32>, Diag> new<i32>
         |> push_back 10 |> uwok
         |> push_back 20 |> uwok
-    let p_front <DequePop<i32>> pop_front<i32> dq_front
-    let ok0 <bool> match deque_pop_item<i32> &p_front:
+    let p_front %DequePop i32 pop_front<i32> dq_front
+    let ok0 %bool match deque_pop_item<i32> &p_front:
         Option::Some v:
             eq v 10
         Option::None:
             false
-    let dq_front_next <Deque<i32>> deque_pop_deque<i32> p_front
-    let len_front_next <i32> len<i32> &dq_front_next
+    let dq_front_next %Deque i32 deque_pop_deque<i32> p_front
+    let len_front_next %i32 len<i32> &dq_front_next
     free<i32> dq_front_next
-    let dq_back <Deque<i32>>:
+    let dq_back %Deque i32:
         unwrap_ok<Deque<i32>, Diag> new<i32>
         |> push_back 10 |> uwok
         |> push_back 20 |> uwok
-    let p_back <DequePop<i32>> pop_back<i32> dq_back
-    let ok1 <bool> match deque_pop_item<i32> &p_back:
+    let p_back %DequePop i32 pop_back<i32> dq_back
+    let ok1 %bool match deque_pop_item<i32> &p_back:
         Option::Some v:
             eq v 20
         Option::None:
             false
-    let dq_back_next <Deque<i32>> deque_pop_deque<i32> p_back
-    let len_back_next <i32> len<i32> &dq_back_next
+    let dq_back_next %Deque i32 deque_pop_deque<i32> p_back
+    let len_back_next %i32 len<i32> &dq_back_next
     free<i32> dq_back_next
     let report:
         test_report_new "deque_pop_both_ends"

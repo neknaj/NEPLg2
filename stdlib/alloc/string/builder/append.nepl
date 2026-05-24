@@ -35,8 +35,8 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(s))。grow が発生した場合は既存 byte 数に応じた再確保 cost が加わります。
-pub fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s):
-    let s_len <i32> len s
+pub fn sb_append_result %fn StringBuilder fn str Result StringBuilder str \sb\s:
+    let s_len %i32 len s
     if:
         eq s_len 0
         then:
@@ -46,7 +46,7 @@ pub fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s)
                 Result::Ok bytes:
                     Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
-                    let kind <StdErrorKind> byte_builder_error_kind &e
+                    let kind %StdErrorKind byte_builder_error_kind &e
                     byte_builder_error_free e
                     Result<StringBuilder,str>::Err string_builder_error kind
 
@@ -57,12 +57,12 @@ pub fn sb_append_result <(StringBuilder,str)->Result<StringBuilder,str>> (sb, s)
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)。capacity grow が発生した場合は allocator / realloc に依存します。
-pub fn sb_append_char_result <(StringBuilder,char)->Result<StringBuilder,str>> (sb, c):
+pub fn sb_append_char_result %fn StringBuilder fn char Result StringBuilder str \sb\c:
     match byte_builder_push_char_utf8 string_builder_into_byte_builder sb c:
         Result::Ok bytes:
             Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
         Result::Err e:
-            let kind <StdErrorKind> byte_builder_error_kind &e
+            let kind %StdErrorKind byte_builder_error_kind &e
             byte_builder_error_free e
             Result<StringBuilder,str>::Err string_builder_error kind
 
@@ -73,7 +73,7 @@ pub fn sb_append_char_result <(StringBuilder,char)->Result<StringBuilder,str>> (
 //:
 //: [注意/ちゅうい]:
 //: - 非 ASCII char は `Err` です。入力 builder は失敗時に解放されます。
-pub fn sb_append_ascii_result <(StringBuilder,char)->Result<StringBuilder,str>> (sb, c):
+pub fn sb_append_ascii_result %fn StringBuilder fn char Result StringBuilder str \sb\c:
     if:
         char_is_ascii c
         then:
@@ -81,7 +81,7 @@ pub fn sb_append_ascii_result <(StringBuilder,char)->Result<StringBuilder,str>> 
                 Result::Ok bytes:
                     Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
-                    let kind <StdErrorKind> byte_builder_error_kind &e
+                    let kind %StdErrorKind byte_builder_error_kind &e
                     byte_builder_error_free e
                     Result<StringBuilder,str>::Err string_builder_error kind
         else:
@@ -96,7 +96,7 @@ pub fn sb_append_ascii_result <(StringBuilder,char)->Result<StringBuilder,str>> 
 //: [注意/ちゅうい]:
 //: - この関数は byte の UTF-8 妥当性を検証しません。呼び出し側は元の byte 列が UTF-8 として妥当であることを保証してください。
 //: - `byte` が 0..255 の範囲外なら入力 builder を解放して `Err` を返します。
-pub fn sb_append_byte_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, byte):
+pub fn sb_append_byte_result %fn StringBuilder fn i32 Result StringBuilder str \sb\byte:
     if:
         or lt byte 0 gt byte 255
         then:
@@ -107,32 +107,32 @@ pub fn sb_append_byte_result <(StringBuilder,i32)->Result<StringBuilder,str>> (s
                 Result::Ok bytes:
                     Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
-                    let kind <StdErrorKind> byte_builder_error_kind &e
+                    let kind %StdErrorKind byte_builder_error_kind &e
                     byte_builder_error_free e
                     Result<StringBuilder,str>::Err string_builder_error kind
 
-pub fn sb_append_char <(StringBuilder,char)->StringBuilder> (sb, c):
+pub fn sb_append_char %fn StringBuilder fn char StringBuilder \sb\c:
     match sb_append_char_result sb c:
         Result::Ok next:
             next
         Result::Err _e:
             string_builder_empty
 
-pub fn sb_append_ascii <(StringBuilder,char)->StringBuilder> (sb, c):
+pub fn sb_append_ascii %fn StringBuilder fn char StringBuilder \sb\c:
     match sb_append_ascii_result sb c:
         Result::Ok next:
             next
         Result::Err _e:
             string_builder_empty
 
-pub fn sb_append_byte <(StringBuilder,i32)->StringBuilder> (sb, byte):
+pub fn sb_append_byte %fn StringBuilder fn i32 StringBuilder \sb\byte:
     match sb_append_byte_result sb byte:
         Result::Ok next:
             next
         Result::Err _e:
             string_builder_empty
 
-pub fn sb_append <(StringBuilder,str)->StringBuilder> (sb, s):
+pub fn sb_append %fn StringBuilder fn str StringBuilder \sb\s:
     match sb_append_result sb s:
         Result::Ok next:
             next

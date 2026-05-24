@@ -38,10 +38,10 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(end - start)
-pub fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder,str>> (sb, s, start, end):
-    let n <i32> len s
-    let mut s0 <i32> start
-    let mut e0 <i32> end
+pub fn sb_append_slice_result %fn StringBuilder fn str fn i32 fn i32 Result StringBuilder str \sb\s\start\end:
+    let n %i32 len s
+    let mut s0 %i32 start
+    let mut e0 %i32 end
     if:
         lt s0 0
         then set s0 0
@@ -57,7 +57,7 @@ pub fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder
     if:
         and str_utf8_is_boundary s s0 str_utf8_is_boundary s e0
         then:
-            let out_len <i32> sub e0 s0
+            let out_len %i32 sub e0 s0
             if:
                 eq out_len 0
                 then:
@@ -67,7 +67,7 @@ pub fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder
                         Result::Ok bytes:
                             Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
                         Result::Err e:
-                            let kind <StdErrorKind> byte_builder_error_kind &e
+                            let kind %StdErrorKind byte_builder_error_kind &e
                             byte_builder_error_free e
                             Result<StringBuilder,str>::Err string_builder_error kind
         else:
@@ -88,14 +88,14 @@ pub fn sb_append_slice_result <(StringBuilder,str,i32,i32)->Result<StringBuilder
 //:
 //: [計算量/けいさんりょう]:
 //: - O(d) + builder append の cost です。`d` は 10 進桁数です。
-pub fn sb_append_i32_result <(StringBuilder,i32)->Result<StringBuilder,str>> (sb, v):
+pub fn sb_append_i32_result %fn StringBuilder fn i32 Result StringBuilder str \sb\v:
     match from_i32_radix v 10:
         Result::Ok text:
             sb_append_result sb text
         Result::Err _e:
             Result<StringBuilder,str>::Err "string.builder append_i32 conversion failed"
 
-pub fn sb_append_i32 <(StringBuilder,i32)->StringBuilder> (sb, v):
+pub fn sb_append_i32 %fn StringBuilder fn i32 StringBuilder \sb\v:
     match sb_append_i32_result sb v:
         Result::Ok next:
             next

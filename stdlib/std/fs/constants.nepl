@@ -13,7 +13,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "std/fs/constants" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     if eq fs_errno_notcapable 76 then 0 else 1
 //: ```
 
@@ -23,49 +23,49 @@
 #import "core/math" as *
 
 //: fs_right_fd_read: WASI rights_base の fd_read bit を返す
-pub fn fs_right_fd_read <()->i64> ():
-    <i64> cast 2
+pub fn fs_right_fd_read %fn () i64 \():
+    %i64 cast 2
 
 //: fs_right_fd_write: WASI rights_base の fd_write bit を返す
-pub fn fs_right_fd_write <()->i64> ():
-    <i64> cast 64
+pub fn fs_right_fd_write %fn () i64 \():
+    %i64 cast 64
 
 //: fs_right_fd_readdir: WASI rights_base の fd_readdir bit を返す
-pub fn fs_right_fd_readdir <()->i64> ():
-    <i64> cast 16384
+pub fn fs_right_fd_readdir %fn () i64 \():
+    %i64 cast 16384
 
 //: fs_oflags_create_truncate: WASI oflags の create + truncate bit を返す
-pub fn fs_oflags_create_truncate <()->i32> ():
+pub fn fs_oflags_create_truncate %fn () i32 \():
     9
 
 //: fs_oflags_directory: WASI oflags の directory bit を返す
-pub fn fs_oflags_directory <()->i32> ():
+pub fn fs_oflags_directory %fn () i32 \():
     2
 
 //: fs_errno_inval: WASI EINVAL 相当の errno を返す
-pub fn fs_errno_inval <()->i32> ():
+pub fn fs_errno_inval %fn () i32 \():
     28
 
 //: fs_errno_notcapable: WASI ENOTCAPABLE 相当の errno を返す
-pub fn fs_errno_notcapable <()->i32> ():
+pub fn fs_errno_notcapable %fn () i32 \():
     76
 
 //: fs_errno_ilseq: WASI EILSEQ 相当の errno を返す
-pub fn fs_errno_ilseq <()->i32> ():
+pub fn fs_errno_ilseq %fn () i32 \():
     84
 
 //: fs_filetype_directory: WASI directory filetype を返す
-pub fn fs_filetype_directory <()->i32> ():
+pub fn fs_filetype_directory %fn () i32 \():
     3
 
 //: fs_filetype_regular_file: WASI regular file filetype を返す
-pub fn fs_filetype_regular_file <()->i32> ():
+pub fn fs_filetype_regular_file %fn () i32 \():
     4
 
 //: fs_dirent_header_size: WASI dirent header size を返す
-pub fn fs_dirent_header_size <()->i32> ():
+pub fn fs_dirent_header_size %fn () i32 \():
     24
 
 //: fs_readdir_buf_size: fd_readdir の作業 buffer size を返す
-pub fn fs_readdir_buf_size <()->i32> ():
+pub fn fs_readdir_buf_size %fn () i32 \():
     65536

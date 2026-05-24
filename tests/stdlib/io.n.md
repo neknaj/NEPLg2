@@ -13,10 +13,10 @@ stdout: "io facade text"
 #import "std/io" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let input <ReadStream> ReadStream::Stdio
-    let output <WriteStream> WriteStream::Stdio
-    let text0 <Result<str, StdErrorKind>> read input
+fn main %impure fn () i32 \():
+    let input %ReadStream ReadStream::Stdio
+    let output %WriteStream WriteStream::Stdio
+    let text0 %Result str StdErrorKind read input
     match text0:
         Result::Ok text:
             match write output text:
@@ -45,9 +45,9 @@ stdout: "pipe bytes\n"
 #import "std/streamio" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let output <WriteStream> WriteStream::Stdio
-    let bytes0 <ByteBuf> stream_bytes_from_str "pipe bytes\n"
+fn main %impure fn () i32 \():
+    let output %WriteStream WriteStream::Stdio
+    let bytes0 %ByteBuf stream_bytes_from_str "pipe bytes\n"
     match bytes0 |> write output:
         Result::Ok out:
             match flush out:
@@ -76,13 +76,13 @@ stdout: mlstr:
 #import "alloc/string" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new
-    let missing <ReadStream> ReadStream::Fs "__definitely_missing_file__.txt"
-    let result0 <Result<str, StdErrorKind>> read missing
+    let missing %ReadStream ReadStream::Fs "__definitely_missing_file__.txt"
+    let result0 %Result str StdErrorKind read missing
     match result0:
         Result::Ok text:
-            let msg <str> concat "io fs read unexpectedly succeeded: " text
+            let msg %str concat "io fs read unexpectedly succeeded: " text
             set checks checks_push checks Result<(),str>::Err msg
         Result::Err kind:
             set checks checks_push checks check_str_eq "IoError" std_error_kind_str kind
@@ -102,10 +102,10 @@ stdout: "literal source"
 #import "std/io" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let target <ReadStream> ReadStream::Text "literal source"
-    let output <WriteStream> WriteStream::Stdio
-    let text0 <Result<str, StdErrorKind>> read target
+fn main %impure fn () i32 \():
+    let target %ReadStream ReadStream::Text "literal source"
+    let output %WriteStream WriteStream::Stdio
+    let text0 %Result str StdErrorKind read target
     match text0:
         Result::Ok text:
             match write output text:
@@ -132,8 +132,8 @@ diag_codes: type.overload.no_match
 
 #import "std/io" as *
 
-fn main <()*>i32> ():
-    let _text <Result<str, StdErrorKind>> read WriteStream::Stdio
+fn main %impure fn () i32 \():
+    let _text %Result str StdErrorKind read WriteStream::Stdio
     0
 ```
 
@@ -148,7 +148,7 @@ diag_codes: type.overload.no_match, type.match.scrutinee_not_enum, type.return.m
 
 #import "std/io" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match write ReadStream::Stdio "x":
         Result::Ok _:
             0

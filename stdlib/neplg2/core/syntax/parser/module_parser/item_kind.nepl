@@ -5,7 +5,7 @@
 #import "neplg2/core/syntax/token" as *
 
 //: selfhost_parser_decl_item_kind: top-level 宣言 token だけを module item にする
-pub fn selfhost_parser_decl_item_kind <(SelfhostModuleItemKind,i32)->Option<SelfhostModuleItemKind>> (item_kind, depth):
+pub fn selfhost_parser_decl_item_kind %fn SelfhostModuleItemKind fn i32 Option SelfhostModuleItemKind \item_kind\depth:
     if:
         eq depth 0
         then:
@@ -18,7 +18,7 @@ pub fn selfhost_parser_decl_item_kind <(SelfhostModuleItemKind,i32)->Option<Self
 //: [目的/もくてき]:
 //: - parser の入口で保持すべき token だけを `SelfhostModuleItemKind` に変換します。
 //: - 宣言 keyword は通常 block depth 0 のものだけを module 宣言として扱います。
-pub fn selfhost_parser_item_kind_from_token <(TokenKind,i32)->Option<SelfhostModuleItemKind>> (kind, depth):
+pub fn selfhost_parser_item_kind_from_token %fn TokenKind fn i32 Option SelfhostModuleItemKind \kind\depth:
     match kind:
         TokenKind::Indent:
             none<SelfhostModuleItemKind>
@@ -43,6 +43,10 @@ pub fn selfhost_parser_item_kind_from_token <(TokenKind,i32)->Option<SelfhostMod
         TokenKind::LAngle:
             none<SelfhostModuleItemKind>
         TokenKind::RAngle:
+            none<SelfhostModuleItemKind>
+        TokenKind::Percent:
+            none<SelfhostModuleItemKind>
+        TokenKind::Backslash:
             none<SelfhostModuleItemKind>
         TokenKind::Arrow:
             none<SelfhostModuleItemKind>

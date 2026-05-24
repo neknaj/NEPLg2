@@ -26,20 +26,20 @@
 //: - 重複した directive の kind、最初の span、重複した span を typed value として保持します。
 //: - diagnostic 文字列は checker / reporter 境界で作り、proof solver は文字列 code に依存しません。
 pub struct SelfhostModuleDirectiveDuplicate:
-    kind <SelfhostModuleDirectiveKind>
-    first_span <SelfhostSourceSpan>
-    duplicate_span <SelfhostSourceSpan>
+    kind %SelfhostModuleDirectiveKind
+    first_span %SelfhostSourceSpan
+    duplicate_span %SelfhostSourceSpan
 
 impl Clone for SelfhostModuleDirectiveDuplicate:
-    fn clone <(&SelfhostModuleDirectiveDuplicate)->SelfhostModuleDirectiveDuplicate> (self):
+    fn clone %fn &SelfhostModuleDirectiveDuplicate SelfhostModuleDirectiveDuplicate \self:
         *self
 
 impl Copy for SelfhostModuleDirectiveDuplicate:
-    fn copy_mark <(SelfhostModuleDirectiveDuplicate)->SelfhostModuleDirectiveDuplicate> (self):
+    fn copy_mark %fn SelfhostModuleDirectiveDuplicate SelfhostModuleDirectiveDuplicate \self:
         self
 
 //: selfhost_module_directive_duplicate_new: duplicate directive refutation payload を[作/つく]る
-pub fn selfhost_module_directive_duplicate_new <(SelfhostModuleDirectiveKind,SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostModuleDirectiveDuplicate> (kind, first_span, duplicate_span):
+pub fn selfhost_module_directive_duplicate_new %fn SelfhostModuleDirectiveKind fn SelfhostSourceSpan fn SelfhostSourceSpan SelfhostModuleDirectiveDuplicate \kind\first_span\duplicate_span:
     SelfhostModuleDirectiveDuplicate kind first_span duplicate_span
 
 //: SelfhostModuleDeclarationHeaderIssue: declaration header proof の refutation payload
@@ -47,19 +47,19 @@ pub fn selfhost_module_directive_duplicate_new <(SelfhostModuleDirectiveKind,Sel
 //: [目的/もくてき]:
 //: - 欠落または不正な declaration header を、自由文字列ではなく declaration kind と span の組として保持します。
 pub struct SelfhostModuleDeclarationHeaderIssue:
-    kind <SelfhostModuleDeclarationKind>
-    span <SelfhostSourceSpan>
+    kind %SelfhostModuleDeclarationKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostModuleDeclarationHeaderIssue:
-    fn clone <(&SelfhostModuleDeclarationHeaderIssue)->SelfhostModuleDeclarationHeaderIssue> (self):
+    fn clone %fn &SelfhostModuleDeclarationHeaderIssue SelfhostModuleDeclarationHeaderIssue \self:
         *self
 
 impl Copy for SelfhostModuleDeclarationHeaderIssue:
-    fn copy_mark <(SelfhostModuleDeclarationHeaderIssue)->SelfhostModuleDeclarationHeaderIssue> (self):
+    fn copy_mark %fn SelfhostModuleDeclarationHeaderIssue SelfhostModuleDeclarationHeaderIssue \self:
         self
 
 //: selfhost_module_declaration_header_issue_new: declaration header issue payload を[作/つく]る
-pub fn selfhost_module_declaration_header_issue_new <(SelfhostModuleDeclarationKind,SelfhostSourceSpan)->SelfhostModuleDeclarationHeaderIssue> (kind, span):
+pub fn selfhost_module_declaration_header_issue_new %fn SelfhostModuleDeclarationKind fn SelfhostSourceSpan SelfhostModuleDeclarationHeaderIssue \kind\span:
     SelfhostModuleDeclarationHeaderIssue kind span
 
 //: SelfhostResourceCellTransitionError: Resource cell state transition の失敗分類
@@ -77,11 +77,11 @@ pub enum SelfhostResourceCellTransitionError:
     DoubleDrop
 
 impl Clone for SelfhostResourceCellTransitionError:
-    fn clone <(&SelfhostResourceCellTransitionError)->SelfhostResourceCellTransitionError> (self):
+    fn clone %fn &SelfhostResourceCellTransitionError SelfhostResourceCellTransitionError \self:
         *self
 
 impl Copy for SelfhostResourceCellTransitionError:
-    fn copy_mark <(SelfhostResourceCellTransitionError)->SelfhostResourceCellTransitionError> (self):
+    fn copy_mark %fn SelfhostResourceCellTransitionError SelfhostResourceCellTransitionError \self:
         self
 
 //: SelfhostResourceCellTransitionIssue: 不正な Resource cell transition の refutation payload
@@ -89,21 +89,21 @@ impl Copy for SelfhostResourceCellTransitionError:
 //: [目的/もくてき]:
 //: - 失敗時の元 state、event、span、理由を typed value として保持し、diagnostic は caller 境界で生成できるようにします。
 pub struct SelfhostResourceCellTransitionIssue:
-    state <SelfhostResourceCellState>
-    event <SelfhostResourceCellEventKind>
-    span <SelfhostSourceSpan>
-    reason <SelfhostResourceCellTransitionError>
+    state %SelfhostResourceCellState
+    event %SelfhostResourceCellEventKind
+    span %SelfhostSourceSpan
+    reason %SelfhostResourceCellTransitionError
 
 impl Clone for SelfhostResourceCellTransitionIssue:
-    fn clone <(&SelfhostResourceCellTransitionIssue)->SelfhostResourceCellTransitionIssue> (self):
+    fn clone %fn &SelfhostResourceCellTransitionIssue SelfhostResourceCellTransitionIssue \self:
         *self
 
 impl Copy for SelfhostResourceCellTransitionIssue:
-    fn copy_mark <(SelfhostResourceCellTransitionIssue)->SelfhostResourceCellTransitionIssue> (self):
+    fn copy_mark %fn SelfhostResourceCellTransitionIssue SelfhostResourceCellTransitionIssue \self:
         self
 
 //: selfhost_resource_cell_transition_issue_new: Resource cell transition issue payload を[作/つく]る
-pub fn selfhost_resource_cell_transition_issue_new <(SelfhostResourceCellState,SelfhostResourceCellEventKind,SelfhostSourceSpan,SelfhostResourceCellTransitionError)->SelfhostResourceCellTransitionIssue> (state, event, span, reason):
+pub fn selfhost_resource_cell_transition_issue_new %fn SelfhostResourceCellState fn SelfhostResourceCellEventKind fn SelfhostSourceSpan fn SelfhostResourceCellTransitionError SelfhostResourceCellTransitionIssue \state\event\span\reason:
     SelfhostResourceCellTransitionIssue state event span reason
 
 //: SelfhostOwnerTransitionError: free obligation owner transition の失敗分類
@@ -127,11 +127,11 @@ pub enum SelfhostOwnerTransitionError:
     ViewAfterRelease
 
 impl Clone for SelfhostOwnerTransitionError:
-    fn clone <(&SelfhostOwnerTransitionError)->SelfhostOwnerTransitionError> (self):
+    fn clone %fn &SelfhostOwnerTransitionError SelfhostOwnerTransitionError \self:
         *self
 
 impl Copy for SelfhostOwnerTransitionError:
-    fn copy_mark <(SelfhostOwnerTransitionError)->SelfhostOwnerTransitionError> (self):
+    fn copy_mark %fn SelfhostOwnerTransitionError SelfhostOwnerTransitionError \self:
         self
 
 //: SelfhostOwnerTransitionIssue: 不正な free obligation owner transition の refutation payload
@@ -139,22 +139,22 @@ impl Copy for SelfhostOwnerTransitionError:
 //: [目的/もくてき]:
 //: - 失敗時の元 state、event、対象 storage、span、理由を typed value として保持します。
 pub struct SelfhostOwnerTransitionIssue:
-    state <SelfhostOwnerState>
-    event <SelfhostOwnerEventKind>
-    storage <SelfhostOwnerStorageId>
-    span <SelfhostSourceSpan>
-    reason <SelfhostOwnerTransitionError>
+    state %SelfhostOwnerState
+    event %SelfhostOwnerEventKind
+    storage %SelfhostOwnerStorageId
+    span %SelfhostSourceSpan
+    reason %SelfhostOwnerTransitionError
 
 impl Clone for SelfhostOwnerTransitionIssue:
-    fn clone <(&SelfhostOwnerTransitionIssue)->SelfhostOwnerTransitionIssue> (self):
+    fn clone %fn &SelfhostOwnerTransitionIssue SelfhostOwnerTransitionIssue \self:
         *self
 
 impl Copy for SelfhostOwnerTransitionIssue:
-    fn copy_mark <(SelfhostOwnerTransitionIssue)->SelfhostOwnerTransitionIssue> (self):
+    fn copy_mark %fn SelfhostOwnerTransitionIssue SelfhostOwnerTransitionIssue \self:
         self
 
 //: selfhost_owner_transition_issue_new: owner transition issue payload を[作/つく]る
-pub fn selfhost_owner_transition_issue_new <(SelfhostOwnerState,SelfhostOwnerEventKind,SelfhostOwnerStorageId,SelfhostSourceSpan,SelfhostOwnerTransitionError)->SelfhostOwnerTransitionIssue> (state, event, storage, span, reason):
+pub fn selfhost_owner_transition_issue_new %fn SelfhostOwnerState fn SelfhostOwnerEventKind fn SelfhostOwnerStorageId fn SelfhostSourceSpan fn SelfhostOwnerTransitionError SelfhostOwnerTransitionIssue \state\event\storage\span\reason:
     SelfhostOwnerTransitionIssue state event storage span reason
 
 //: SelfhostBorrowAccessError: Resource borrow access proof の失敗分類
@@ -167,30 +167,30 @@ pub enum SelfhostBorrowAccessError:
     EndMutableWithoutMutableBorrow
 
 impl Clone for SelfhostBorrowAccessError:
-    fn clone <(&SelfhostBorrowAccessError)->SelfhostBorrowAccessError> (self):
+    fn clone %fn &SelfhostBorrowAccessError SelfhostBorrowAccessError \self:
         *self
 
 impl Copy for SelfhostBorrowAccessError:
-    fn copy_mark <(SelfhostBorrowAccessError)->SelfhostBorrowAccessError> (self):
+    fn copy_mark %fn SelfhostBorrowAccessError SelfhostBorrowAccessError \self:
         self
 
 //: SelfhostBorrowAccessIssue: 不正な Resource borrow access の refutation payload
 pub struct SelfhostBorrowAccessIssue:
-    state <SelfhostBorrowState>
-    request <SelfhostBorrowRequestKind>
-    span <SelfhostSourceSpan>
-    reason <SelfhostBorrowAccessError>
+    state %SelfhostBorrowState
+    request %SelfhostBorrowRequestKind
+    span %SelfhostSourceSpan
+    reason %SelfhostBorrowAccessError
 
 impl Clone for SelfhostBorrowAccessIssue:
-    fn clone <(&SelfhostBorrowAccessIssue)->SelfhostBorrowAccessIssue> (self):
+    fn clone %fn &SelfhostBorrowAccessIssue SelfhostBorrowAccessIssue \self:
         *self
 
 impl Copy for SelfhostBorrowAccessIssue:
-    fn copy_mark <(SelfhostBorrowAccessIssue)->SelfhostBorrowAccessIssue> (self):
+    fn copy_mark %fn SelfhostBorrowAccessIssue SelfhostBorrowAccessIssue \self:
         self
 
 //: selfhost_borrow_access_issue_new: Resource borrow access issue payload を[作/つく]る
-pub fn selfhost_borrow_access_issue_new <(SelfhostBorrowState,SelfhostBorrowRequestKind,SelfhostSourceSpan,SelfhostBorrowAccessError)->SelfhostBorrowAccessIssue> (state, request, span, reason):
+pub fn selfhost_borrow_access_issue_new %fn SelfhostBorrowState fn SelfhostBorrowRequestKind fn SelfhostSourceSpan fn SelfhostBorrowAccessError SelfhostBorrowAccessIssue \state\request\span\reason:
     SelfhostBorrowAccessIssue state request span reason
 
 //: SelfhostLifetimeOutlivesError: lifetime outlives proof の失敗分類
@@ -202,33 +202,33 @@ pub enum SelfhostLifetimeOutlivesError:
     UnrelatedLifetimes
 
 impl Clone for SelfhostLifetimeOutlivesError:
-    fn clone <(&SelfhostLifetimeOutlivesError)->SelfhostLifetimeOutlivesError> (self):
+    fn clone %fn &SelfhostLifetimeOutlivesError SelfhostLifetimeOutlivesError \self:
         *self
 
 impl Copy for SelfhostLifetimeOutlivesError:
-    fn copy_mark <(SelfhostLifetimeOutlivesError)->SelfhostLifetimeOutlivesError> (self):
+    fn copy_mark %fn SelfhostLifetimeOutlivesError SelfhostLifetimeOutlivesError \self:
         self
 
 //: SelfhostLifetimeOutlivesIssue: 不正な lifetime outlives proof の refutation payload
 pub struct SelfhostLifetimeOutlivesIssue:
-    subject <SelfhostLifetimeId>
-    expected_required <SelfhostLifetimeId>
-    observed_required <SelfhostLifetimeId>
-    relation <SelfhostLifetimeRelation>
-    use_kind <SelfhostLifetimeUseKind>
-    span <SelfhostSourceSpan>
-    reason <SelfhostLifetimeOutlivesError>
+    subject %SelfhostLifetimeId
+    expected_required %SelfhostLifetimeId
+    observed_required %SelfhostLifetimeId
+    relation %SelfhostLifetimeRelation
+    use_kind %SelfhostLifetimeUseKind
+    span %SelfhostSourceSpan
+    reason %SelfhostLifetimeOutlivesError
 
 impl Clone for SelfhostLifetimeOutlivesIssue:
-    fn clone <(&SelfhostLifetimeOutlivesIssue)->SelfhostLifetimeOutlivesIssue> (self):
+    fn clone %fn &SelfhostLifetimeOutlivesIssue SelfhostLifetimeOutlivesIssue \self:
         *self
 
 impl Copy for SelfhostLifetimeOutlivesIssue:
-    fn copy_mark <(SelfhostLifetimeOutlivesIssue)->SelfhostLifetimeOutlivesIssue> (self):
+    fn copy_mark %fn SelfhostLifetimeOutlivesIssue SelfhostLifetimeOutlivesIssue \self:
         self
 
 //: selfhost_lifetime_outlives_issue_new: lifetime outlives issue payload を[作/つく]る
-pub fn selfhost_lifetime_outlives_issue_new <(SelfhostLifetimeId,SelfhostLifetimeId,SelfhostLifetimeId,SelfhostLifetimeRelation,SelfhostLifetimeUseKind,SelfhostSourceSpan,SelfhostLifetimeOutlivesError)->SelfhostLifetimeOutlivesIssue> (subject, expected_required, observed_required, relation, use_kind, span, reason):
+pub fn selfhost_lifetime_outlives_issue_new %fn SelfhostLifetimeId fn SelfhostLifetimeId fn SelfhostLifetimeId fn SelfhostLifetimeRelation fn SelfhostLifetimeUseKind fn SelfhostSourceSpan fn SelfhostLifetimeOutlivesError SelfhostLifetimeOutlivesIssue \subject\expected_required\observed_required\relation\use_kind\span\reason:
     SelfhostLifetimeOutlivesIssue subject expected_required observed_required relation use_kind span reason
 
 //: SelfhostEffectBoundaryError: effect boundary proof の失敗分類
@@ -241,31 +241,31 @@ pub enum SelfhostEffectBoundaryError:
     InternalAllocEscapeNotProven
 
 impl Clone for SelfhostEffectBoundaryError:
-    fn clone <(&SelfhostEffectBoundaryError)->SelfhostEffectBoundaryError> (self):
+    fn clone %fn &SelfhostEffectBoundaryError SelfhostEffectBoundaryError \self:
         *self
 
 impl Copy for SelfhostEffectBoundaryError:
-    fn copy_mark <(SelfhostEffectBoundaryError)->SelfhostEffectBoundaryError> (self):
+    fn copy_mark %fn SelfhostEffectBoundaryError SelfhostEffectBoundaryError \self:
         self
 
 //: SelfhostEffectBoundaryIssue: 不正な effect boundary の refutation payload
 pub struct SelfhostEffectBoundaryIssue:
-    effect <SelfhostEffectKind>
-    escape <SelfhostEffectEscapeState>
-    context <SelfhostEffectContext>
-    span <SelfhostSourceSpan>
-    reason <SelfhostEffectBoundaryError>
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+    context %SelfhostEffectContext
+    span %SelfhostSourceSpan
+    reason %SelfhostEffectBoundaryError
 
 impl Clone for SelfhostEffectBoundaryIssue:
-    fn clone <(&SelfhostEffectBoundaryIssue)->SelfhostEffectBoundaryIssue> (self):
+    fn clone %fn &SelfhostEffectBoundaryIssue SelfhostEffectBoundaryIssue \self:
         *self
 
 impl Copy for SelfhostEffectBoundaryIssue:
-    fn copy_mark <(SelfhostEffectBoundaryIssue)->SelfhostEffectBoundaryIssue> (self):
+    fn copy_mark %fn SelfhostEffectBoundaryIssue SelfhostEffectBoundaryIssue \self:
         self
 
 //: selfhost_effect_boundary_issue_new: effect boundary issue payload を[作/つく]る
-pub fn selfhost_effect_boundary_issue_new <(SelfhostEffectKind,SelfhostEffectEscapeState,SelfhostEffectContext,SelfhostSourceSpan,SelfhostEffectBoundaryError)->SelfhostEffectBoundaryIssue> (effect, escape, context, span, reason):
+pub fn selfhost_effect_boundary_issue_new %fn SelfhostEffectKind fn SelfhostEffectEscapeState fn SelfhostEffectContext fn SelfhostSourceSpan fn SelfhostEffectBoundaryError SelfhostEffectBoundaryIssue \effect\escape\context\span\reason:
     SelfhostEffectBoundaryIssue effect escape context span reason
 
 //: SelfhostTypeKindMismatch: type kind compatibility proof の refutation payload
@@ -274,20 +274,20 @@ pub fn selfhost_effect_boundary_issue_new <(SelfhostEffectKind,SelfhostEffectEsc
 //: - 期待 type kind、実際に観測した type kind、source span を typed value として保持します。
 //: - diagnostic 文字列は checker / reporter 境界で生成し、proof solver は型分類の enum だけを扱います。
 pub struct SelfhostTypeKindMismatch:
-    expected <SelfhostTypeKind>
-    actual <SelfhostTypeKind>
-    span <SelfhostSourceSpan>
+    expected %SelfhostTypeKind
+    actual %SelfhostTypeKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostTypeKindMismatch:
-    fn clone <(&SelfhostTypeKindMismatch)->SelfhostTypeKindMismatch> (self):
+    fn clone %fn &SelfhostTypeKindMismatch SelfhostTypeKindMismatch \self:
         *self
 
 impl Copy for SelfhostTypeKindMismatch:
-    fn copy_mark <(SelfhostTypeKindMismatch)->SelfhostTypeKindMismatch> (self):
+    fn copy_mark %fn SelfhostTypeKindMismatch SelfhostTypeKindMismatch \self:
         self
 
 //: selfhost_type_kind_mismatch_new: type kind mismatch refutation payload を[作/つく]る
-pub fn selfhost_type_kind_mismatch_new <(SelfhostTypeKind,SelfhostTypeKind,SelfhostSourceSpan)->SelfhostTypeKindMismatch> (expected, actual, span):
+pub fn selfhost_type_kind_mismatch_new %fn SelfhostTypeKind fn SelfhostTypeKind fn SelfhostSourceSpan SelfhostTypeKindMismatch \expected\actual\span:
     SelfhostTypeKindMismatch expected actual span
 
 //: SelfhostTraitImplCoherenceError: trait impl coherence proof の失敗分類
@@ -300,31 +300,31 @@ pub enum SelfhostTraitImplCoherenceError:
     InvalidExistingKey
 
 impl Clone for SelfhostTraitImplCoherenceError:
-    fn clone <(&SelfhostTraitImplCoherenceError)->SelfhostTraitImplCoherenceError> (self):
+    fn clone %fn &SelfhostTraitImplCoherenceError SelfhostTraitImplCoherenceError \self:
         *self
 
 impl Copy for SelfhostTraitImplCoherenceError:
-    fn copy_mark <(SelfhostTraitImplCoherenceError)->SelfhostTraitImplCoherenceError> (self):
+    fn copy_mark %fn SelfhostTraitImplCoherenceError SelfhostTraitImplCoherenceError \self:
         self
 
 //: SelfhostTraitImplCoherenceIssue: 不正な trait impl coherence の refutation payload
 pub struct SelfhostTraitImplCoherenceIssue:
-    candidate <SelfhostTraitImplKey>
-    existing <SelfhostTraitImplKey>
-    relation <SelfhostTraitImplRelation>
-    span <SelfhostSourceSpan>
-    reason <SelfhostTraitImplCoherenceError>
+    candidate %SelfhostTraitImplKey
+    existing %SelfhostTraitImplKey
+    relation %SelfhostTraitImplRelation
+    span %SelfhostSourceSpan
+    reason %SelfhostTraitImplCoherenceError
 
 impl Clone for SelfhostTraitImplCoherenceIssue:
-    fn clone <(&SelfhostTraitImplCoherenceIssue)->SelfhostTraitImplCoherenceIssue> (self):
+    fn clone %fn &SelfhostTraitImplCoherenceIssue SelfhostTraitImplCoherenceIssue \self:
         *self
 
 impl Copy for SelfhostTraitImplCoherenceIssue:
-    fn copy_mark <(SelfhostTraitImplCoherenceIssue)->SelfhostTraitImplCoherenceIssue> (self):
+    fn copy_mark %fn SelfhostTraitImplCoherenceIssue SelfhostTraitImplCoherenceIssue \self:
         self
 
 //: selfhost_trait_impl_coherence_issue_new: trait impl coherence issue payload を[作/つく]る
-pub fn selfhost_trait_impl_coherence_issue_new <(SelfhostTraitImplKey,SelfhostTraitImplKey,SelfhostTraitImplRelation,SelfhostSourceSpan,SelfhostTraitImplCoherenceError)->SelfhostTraitImplCoherenceIssue> (candidate, existing, relation, span, reason):
+pub fn selfhost_trait_impl_coherence_issue_new %fn SelfhostTraitImplKey fn SelfhostTraitImplKey fn SelfhostTraitImplRelation fn SelfhostSourceSpan fn SelfhostTraitImplCoherenceError SelfhostTraitImplCoherenceIssue \candidate\existing\relation\span\reason:
     SelfhostTraitImplCoherenceIssue candidate existing relation span reason
 
 //: SelfhostProofMismatch: fact と obligation の domain が[噛/か]み[合/あ]わない refutation payload
@@ -333,19 +333,19 @@ pub fn selfhost_trait_impl_coherence_issue_new <(SelfhostTraitImplKey,SelfhostTr
 //: - proof caller や solver の[誤/あやま]った[配線/はいせん]を、単なる失敗ではなく fact domain / obligation domain の組として残します。
 //: - type / trait / effect / resource の obligation が増えたときも、どの domain 境界で不整合が起きたかを match で追えるようにします。
 pub struct SelfhostProofMismatch:
-    fact_domain <SelfhostProofDomain>
-    obligation_domain <SelfhostProofDomain>
+    fact_domain %SelfhostProofDomain
+    obligation_domain %SelfhostProofDomain
 
 impl Clone for SelfhostProofMismatch:
-    fn clone <(&SelfhostProofMismatch)->SelfhostProofMismatch> (self):
+    fn clone %fn &SelfhostProofMismatch SelfhostProofMismatch \self:
         *self
 
 impl Copy for SelfhostProofMismatch:
-    fn copy_mark <(SelfhostProofMismatch)->SelfhostProofMismatch> (self):
+    fn copy_mark %fn SelfhostProofMismatch SelfhostProofMismatch \self:
         self
 
 //: selfhost_proof_mismatch_new: proof mismatch refutation payload を[作/つく]る
-pub fn selfhost_proof_mismatch_new <(SelfhostProofDomain,SelfhostProofDomain)->SelfhostProofMismatch> (fact_domain, obligation_domain):
+pub fn selfhost_proof_mismatch_new %fn SelfhostProofDomain fn SelfhostProofDomain SelfhostProofMismatch \fact_domain\obligation_domain:
     SelfhostProofMismatch fact_domain obligation_domain
 
 //: SelfhostProofUnexpectedEvidence: API wrapper が期待しない evidence を受け取った refutation payload
@@ -354,19 +354,19 @@ pub fn selfhost_proof_mismatch_new <(SelfhostProofDomain,SelfhostProofDomain)->S
 //: - fact と obligation の domain は合っているのに solver が違う success evidence を返した場合を、domain mismatch とは別に記録します。
 //: - これは solver implementation の誤配線を検出するための payload であり、expected / actual を enum kind として保持します。
 pub struct SelfhostProofUnexpectedEvidence:
-    expected <SelfhostProofEvidenceKind>
-    actual <SelfhostProofEvidenceKind>
+    expected %SelfhostProofEvidenceKind
+    actual %SelfhostProofEvidenceKind
 
 impl Clone for SelfhostProofUnexpectedEvidence:
-    fn clone <(&SelfhostProofUnexpectedEvidence)->SelfhostProofUnexpectedEvidence> (self):
+    fn clone %fn &SelfhostProofUnexpectedEvidence SelfhostProofUnexpectedEvidence \self:
         *self
 
 impl Copy for SelfhostProofUnexpectedEvidence:
-    fn copy_mark <(SelfhostProofUnexpectedEvidence)->SelfhostProofUnexpectedEvidence> (self):
+    fn copy_mark %fn SelfhostProofUnexpectedEvidence SelfhostProofUnexpectedEvidence \self:
         self
 
 //: selfhost_proof_unexpected_evidence_new: unexpected evidence payload を[作/つく]る
-pub fn selfhost_proof_unexpected_evidence_new <(SelfhostProofEvidenceKind,SelfhostProofEvidenceKind)->SelfhostProofUnexpectedEvidence> (expected, actual):
+pub fn selfhost_proof_unexpected_evidence_new %fn SelfhostProofEvidenceKind fn SelfhostProofEvidenceKind SelfhostProofUnexpectedEvidence \expected\actual:
     SelfhostProofUnexpectedEvidence expected actual
 
 //: SelfhostProofRefutation: proof が[不成立/ふせいりつ]だった[理由/りゆう]
@@ -374,26 +374,26 @@ pub fn selfhost_proof_unexpected_evidence_new <(SelfhostProofEvidenceKind,Selfho
 //: [目的/もくてき]:
 //: - proof 失敗を diagnostic 文字列へ直行させず、caller が typed reason を match して domain ごとの diagnostic へ[変換/へんかん]できるようにします。
 pub enum SelfhostProofRefutation:
-    FactObligationMismatch <SelfhostProofMismatch>
-    UnexpectedEvidence <SelfhostProofUnexpectedEvidence>
-    SourceSpanInvalid <SelfhostSourceSpan>
-    RawBackendTextWithoutBlock <SelfhostRawBackendItemFact>
-    RawBackendBlockEmpty <SelfhostRawBackendOpenBlock>
-    ModuleDirectiveDuplicate <SelfhostModuleDirectiveDuplicate>
-    ModuleDeclarationHeaderMissing <SelfhostModuleDeclarationHeaderIssue>
-    ModuleDeclarationHeaderInvalid <SelfhostModuleDeclarationHeaderIssue>
-    TypeKindMismatch <SelfhostTypeKindMismatch>
-    TraitImplCoherenceInvalid <SelfhostTraitImplCoherenceIssue>
-    LifetimeOutlivesInvalid <SelfhostLifetimeOutlivesIssue>
-    ResourceCellTransitionInvalid <SelfhostResourceCellTransitionIssue>
-    OwnerTransitionInvalid <SelfhostOwnerTransitionIssue>
-    BorrowAccessInvalid <SelfhostBorrowAccessIssue>
-    EffectBoundaryInvalid <SelfhostEffectBoundaryIssue>
+    FactObligationMismatch %SelfhostProofMismatch
+    UnexpectedEvidence %SelfhostProofUnexpectedEvidence
+    SourceSpanInvalid %SelfhostSourceSpan
+    RawBackendTextWithoutBlock %SelfhostRawBackendItemFact
+    RawBackendBlockEmpty %SelfhostRawBackendOpenBlock
+    ModuleDirectiveDuplicate %SelfhostModuleDirectiveDuplicate
+    ModuleDeclarationHeaderMissing %SelfhostModuleDeclarationHeaderIssue
+    ModuleDeclarationHeaderInvalid %SelfhostModuleDeclarationHeaderIssue
+    TypeKindMismatch %SelfhostTypeKindMismatch
+    TraitImplCoherenceInvalid %SelfhostTraitImplCoherenceIssue
+    LifetimeOutlivesInvalid %SelfhostLifetimeOutlivesIssue
+    ResourceCellTransitionInvalid %SelfhostResourceCellTransitionIssue
+    OwnerTransitionInvalid %SelfhostOwnerTransitionIssue
+    BorrowAccessInvalid %SelfhostBorrowAccessIssue
+    EffectBoundaryInvalid %SelfhostEffectBoundaryIssue
 
 impl Clone for SelfhostProofRefutation:
-    fn clone <(&SelfhostProofRefutation)->SelfhostProofRefutation> (self):
+    fn clone %fn &SelfhostProofRefutation SelfhostProofRefutation \self:
         *self
 
 impl Copy for SelfhostProofRefutation:
-    fn copy_mark <(SelfhostProofRefutation)->SelfhostProofRefutation> (self):
+    fn copy_mark %fn SelfhostProofRefutation SelfhostProofRefutation \self:
         self

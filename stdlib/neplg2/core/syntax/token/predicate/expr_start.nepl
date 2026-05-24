@@ -4,7 +4,7 @@
 #import "../value" as *
 
 //: selfhost_token_is_expr_start: prefix expression の[先頭/せんとう]候補か[返/かえ]す
-pub fn selfhost_token_is_expr_start <(SelfhostToken)->bool> (token):
+pub fn selfhost_token_is_expr_start %fn SelfhostToken bool \token:
     match field::get token "kind":
         TokenKind::Indent:
             false
@@ -30,6 +30,10 @@ pub fn selfhost_token_is_expr_start <(SelfhostToken)->bool> (token):
             false
         TokenKind::RAngle:
             false
+        TokenKind::Percent:
+            true
+        TokenKind::Backslash:
+            true
         TokenKind::Arrow:
             false
         TokenKind::PathSep:

@@ -27,13 +27,13 @@
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/syntax/ast/module_ast" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match selfhost_module_ast_new:
 //:         Result::Ok ast0:
-//:             let item <SelfhostModuleItem> selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl source_span_new 0 0 2 "fn"
+//:             let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl source_span_new 0 0 2 "fn"
 //:             match selfhost_module_ast_push ast0 item:
 //:                 Result::Ok ast1:
-//:                     let n <i32> selfhost_module_ast_len &ast1
+//:                     let n %i32 selfhost_module_ast_len &ast1
 //:                     selfhost_module_ast_free ast1
 //:                     if eq n 1 0 1
 //:                 Result::Err _e:
@@ -80,11 +80,11 @@ pub enum SelfhostModuleItemKind:
     ImplDecl
 
 impl Clone for SelfhostModuleItemKind:
-    fn clone <(&SelfhostModuleItemKind)->SelfhostModuleItemKind> (self):
+    fn clone %fn &SelfhostModuleItemKind SelfhostModuleItemKind \self:
         *self
 
 impl Copy for SelfhostModuleItemKind:
-    fn copy_mark <(SelfhostModuleItemKind)->SelfhostModuleItemKind> (self):
+    fn copy_mark %fn SelfhostModuleItemKind SelfhostModuleItemKind \self:
         self
 
 //: SelfhostModuleDeclarationKind: top-level 宣言の[種類/しゅるい]
@@ -99,11 +99,11 @@ pub enum SelfhostModuleDeclarationKind:
     Impl
 
 impl Clone for SelfhostModuleDeclarationKind:
-    fn clone <(&SelfhostModuleDeclarationKind)->SelfhostModuleDeclarationKind> (self):
+    fn clone %fn &SelfhostModuleDeclarationKind SelfhostModuleDeclarationKind \self:
         *self
 
 impl Copy for SelfhostModuleDeclarationKind:
-    fn copy_mark <(SelfhostModuleDeclarationKind)->SelfhostModuleDeclarationKind> (self):
+    fn copy_mark %fn SelfhostModuleDeclarationKind SelfhostModuleDeclarationKind \self:
         self
 
 //: SelfhostModuleDeclarationVisibility: declaration header の visibility evidence
@@ -115,11 +115,11 @@ pub enum SelfhostModuleDeclarationVisibility:
     Public
 
 impl Clone for SelfhostModuleDeclarationVisibility:
-    fn clone <(&SelfhostModuleDeclarationVisibility)->SelfhostModuleDeclarationVisibility> (self):
+    fn clone %fn &SelfhostModuleDeclarationVisibility SelfhostModuleDeclarationVisibility \self:
         *self
 
 impl Copy for SelfhostModuleDeclarationVisibility:
-    fn copy_mark <(SelfhostModuleDeclarationVisibility)->SelfhostModuleDeclarationVisibility> (self):
+    fn copy_mark %fn SelfhostModuleDeclarationVisibility SelfhostModuleDeclarationVisibility \self:
         self
 
 //: SelfhostModuleDeclarationHeadKind: declaration keyword の直後に来る head token [分類/ぶんるい]
@@ -133,11 +133,11 @@ pub enum SelfhostModuleDeclarationHeadKind:
     GenericParams
 
 impl Clone for SelfhostModuleDeclarationHeadKind:
-    fn clone <(&SelfhostModuleDeclarationHeadKind)->SelfhostModuleDeclarationHeadKind> (self):
+    fn clone %fn &SelfhostModuleDeclarationHeadKind SelfhostModuleDeclarationHeadKind \self:
         *self
 
 impl Copy for SelfhostModuleDeclarationHeadKind:
-    fn copy_mark <(SelfhostModuleDeclarationHeadKind)->SelfhostModuleDeclarationHeadKind> (self):
+    fn copy_mark %fn SelfhostModuleDeclarationHeadKind SelfhostModuleDeclarationHeadKind \self:
         self
 
 //: SelfhostModuleDeclarationHead: declaration header の先頭 payload
@@ -146,15 +146,15 @@ impl Copy for SelfhostModuleDeclarationHeadKind:
 //: - parser が declaration keyword の後に観測した token の種類と span を保持します。
 //: - token の意味づけは文字列ではなく `SelfhostModuleDeclarationHeadKind` で表し、proof solver の `match` で網羅的に検査できるようにします。
 pub struct SelfhostModuleDeclarationHead:
-    kind <SelfhostModuleDeclarationHeadKind>
-    span <SelfhostSourceSpan>
+    kind %SelfhostModuleDeclarationHeadKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostModuleDeclarationHead:
-    fn clone <(&SelfhostModuleDeclarationHead)->SelfhostModuleDeclarationHead> (self):
+    fn clone %fn &SelfhostModuleDeclarationHead SelfhostModuleDeclarationHead \self:
         *self
 
 impl Copy for SelfhostModuleDeclarationHead:
-    fn copy_mark <(SelfhostModuleDeclarationHead)->SelfhostModuleDeclarationHead> (self):
+    fn copy_mark %fn SelfhostModuleDeclarationHead SelfhostModuleDeclarationHead \self:
         self
 
 //: SelfhostModuleDeclarationHeader: parser が観測した declaration header evidence
@@ -163,18 +163,18 @@ impl Copy for SelfhostModuleDeclarationHead:
 //: - keyword token だけでなく、visibility、header 全体の span、keyword span、head token を保持します。
 //: - 後続 stage は宣言 header を文字列再走査せず、typed fact として proof solver へ渡します。
 pub struct SelfhostModuleDeclarationHeader:
-    kind <SelfhostModuleDeclarationKind>
-    visibility <SelfhostModuleDeclarationVisibility>
-    header_span <SelfhostSourceSpan>
-    keyword_span <SelfhostSourceSpan>
-    head <Option<SelfhostModuleDeclarationHead>>
+    kind %SelfhostModuleDeclarationKind
+    visibility %SelfhostModuleDeclarationVisibility
+    header_span %SelfhostSourceSpan
+    keyword_span %SelfhostSourceSpan
+    head %Option SelfhostModuleDeclarationHead
 
 impl Clone for SelfhostModuleDeclarationHeader:
-    fn clone <(&SelfhostModuleDeclarationHeader)->SelfhostModuleDeclarationHeader> (self):
+    fn clone %fn &SelfhostModuleDeclarationHeader SelfhostModuleDeclarationHeader \self:
         *self
 
 impl Copy for SelfhostModuleDeclarationHeader:
-    fn copy_mark <(SelfhostModuleDeclarationHeader)->SelfhostModuleDeclarationHeader> (self):
+    fn copy_mark %fn SelfhostModuleDeclarationHeader SelfhostModuleDeclarationHeader \self:
         self
 
 //: SelfhostModuleItem: module parser の 1 item
@@ -183,36 +183,36 @@ impl Copy for SelfhostModuleDeclarationHeader:
 //: - item kind、source span、元 lexeme をまとめて保持します。
 //: - raw text 行も通常 item と同じ形にして、AST JSON parity の比較を単純にします。
 pub struct SelfhostModuleItem:
-    kind <SelfhostModuleItemKind>
-    span <SelfhostSourceSpan>
-    lexeme <str>
-    declaration <Option<SelfhostModuleDeclarationHeader>>
+    kind %SelfhostModuleItemKind
+    span %SelfhostSourceSpan
+    lexeme %str
+    declaration %Option SelfhostModuleDeclarationHeader
 
 impl Clone for SelfhostModuleItem:
-    fn clone <(&SelfhostModuleItem)->SelfhostModuleItem> (self):
+    fn clone %fn &SelfhostModuleItem SelfhostModuleItem \self:
         *self
 
 impl Copy for SelfhostModuleItem:
-    fn copy_mark <(SelfhostModuleItem)->SelfhostModuleItem> (self):
+    fn copy_mark %fn SelfhostModuleItem SelfhostModuleItem \self:
         self
 
 //: SelfhostModuleAst: module item [列/れつ]を所有する AST root
 pub struct SelfhostModuleAst:
-    items <Vec<SelfhostModuleItem>>
+    items %Vec SelfhostModuleItem
 
 //: selfhost_module_item_new: module item を[構築/こうちく]する
 //:
 //: [注意/ちゅうい]:
 //: - declaration header evidence を持たない item を作ります。
 //: - declaration item に対してこの constructor を使うと、module checker は proof solver 経由で header 欠落として拒否します。
-pub fn selfhost_module_item_new <(SelfhostModuleItemKind,SelfhostSourceSpan,str)->SelfhostModuleItem> (kind, span, lexeme):
+pub fn selfhost_module_item_new %fn SelfhostModuleItemKind fn SelfhostSourceSpan fn str SelfhostModuleItem \kind\span\lexeme:
     SelfhostModuleItem kind span lexeme none<SelfhostModuleDeclarationHeader>
 
 //: selfhost_module_declaration_head_new: declaration head evidence を[作/つく]る
 //:
 //: [目的/もくてき]:
 //: - parser が観測した head token を typed evidence としてまとめます。
-pub fn selfhost_module_declaration_head_new <(SelfhostModuleDeclarationHeadKind,SelfhostSourceSpan)->SelfhostModuleDeclarationHead> (kind, span):
+pub fn selfhost_module_declaration_head_new %fn SelfhostModuleDeclarationHeadKind fn SelfhostSourceSpan SelfhostModuleDeclarationHead \kind\span:
     SelfhostModuleDeclarationHead kind span
 
 //: selfhost_module_declaration_header_new: declaration header evidence を[作/つく]る
@@ -220,7 +220,7 @@ pub fn selfhost_module_declaration_head_new <(SelfhostModuleDeclarationHeadKind,
 //: [目的/もくてき]:
 //: - declaration keyword、visibility、header 全体の span、head token を 1 つの証拠として保持します。
 //: - checker はこの値を直接解釈せず、proof solver の obligation と照合します。
-pub fn selfhost_module_declaration_header_new <(SelfhostModuleDeclarationKind,SelfhostModuleDeclarationVisibility,SelfhostSourceSpan,SelfhostSourceSpan,Option<SelfhostModuleDeclarationHead>)->SelfhostModuleDeclarationHeader> (kind, visibility, header_span, keyword_span, head):
+pub fn selfhost_module_declaration_header_new %fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationVisibility fn SelfhostSourceSpan fn SelfhostSourceSpan fn Option SelfhostModuleDeclarationHead SelfhostModuleDeclarationHeader \kind\visibility\header_span\keyword_span\head:
     SelfhostModuleDeclarationHeader kind visibility header_span keyword_span head
 
 //: selfhost_module_item_new_with_declaration: declaration header を持つ module item を[構築/こうちく]する
@@ -228,7 +228,7 @@ pub fn selfhost_module_declaration_header_new <(SelfhostModuleDeclarationKind,Se
 //: [目的/もくてき]:
 //: - parser が declaration item と header evidence を同時に AST へ載せるための constructor です。
 //: - item span は header span と同一にし、source fact の範囲が後続 proof とずれないようにします。
-pub fn selfhost_module_item_new_with_declaration <(SelfhostModuleItemKind,str,SelfhostModuleDeclarationHeader)->SelfhostModuleItem> (kind, lexeme, declaration):
+pub fn selfhost_module_item_new_with_declaration %fn SelfhostModuleItemKind fn str fn SelfhostModuleDeclarationHeader SelfhostModuleItem \kind\lexeme\declaration:
     SelfhostModuleItem kind declaration.header_span lexeme some<SelfhostModuleDeclarationHeader> declaration
 
 //: selfhost_module_item_kind_declaration: item kind を declaration kind へ[写/うつ]す
@@ -236,7 +236,7 @@ pub fn selfhost_module_item_new_with_declaration <(SelfhostModuleItemKind,str,Se
 //: [目的/もくてき]:
 //: - module item enum と declaration header enum の対応を 1 か所に集約します。
 //: - declaration ではない item は `None` として返し、checker が不要な proof obligation を作らないようにします。
-pub fn selfhost_module_item_kind_declaration <(SelfhostModuleItemKind)->Option<SelfhostModuleDeclarationKind>> (kind):
+pub fn selfhost_module_item_kind_declaration %fn SelfhostModuleItemKind Option SelfhostModuleDeclarationKind \kind:
     match kind:
         SelfhostModuleItemKind::FunctionDecl:
             some<SelfhostModuleDeclarationKind> SelfhostModuleDeclarationKind::Function
@@ -282,7 +282,7 @@ pub fn selfhost_module_item_kind_declaration <(SelfhostModuleItemKind)->Option<S
             none<SelfhostModuleDeclarationKind>
 
 //: selfhost_module_item_kind_name: item kind の安定名を[返/かえ]す
-pub fn selfhost_module_item_kind_name <(SelfhostModuleItemKind)->str> (kind):
+pub fn selfhost_module_item_kind_name %fn SelfhostModuleItemKind str \kind:
     match kind:
         SelfhostModuleItemKind::DocComment:
             "DocComment"
@@ -328,7 +328,7 @@ pub fn selfhost_module_item_kind_name <(SelfhostModuleItemKind)->str> (kind):
             "ImplDecl"
 
 //: selfhost_module_ast_new: [空/から]の module AST を[作/つく]る
-pub fn selfhost_module_ast_new <()*>Result<SelfhostModuleAst, StdErrorKind>> ():
+pub fn selfhost_module_ast_new %impure fn () Result SelfhostModuleAst StdErrorKind \():
     match v::new<SelfhostModuleItem>:
         Result::Ok items:
             Result<SelfhostModuleAst, StdErrorKind>::Ok SelfhostModuleAst items
@@ -336,34 +336,34 @@ pub fn selfhost_module_ast_new <()*>Result<SelfhostModuleAst, StdErrorKind>> ():
             Result<SelfhostModuleAst, StdErrorKind>::Err e
 
 //: selfhost_module_ast_push: module item を 1 件[追加/ついか]する
-pub fn selfhost_module_ast_push <(SelfhostModuleAst,SelfhostModuleItem)*>Result<SelfhostModuleAst, StdErrorKind>> (ast, item):
+pub fn selfhost_module_ast_push %impure fn SelfhostModuleAst impure fn SelfhostModuleItem Result SelfhostModuleAst StdErrorKind \ast\item:
     match v::push<SelfhostModuleItem> field::get ast "items" item:
         Result::Ok items:
             Result<SelfhostModuleAst, StdErrorKind>::Ok SelfhostModuleAst items
         Result::Err e:
-            let error <StdErrorKind> field::get e "error"
+            let error %StdErrorKind field::get e "error"
             v::free<SelfhostModuleItem> field::get e "vec"
             Result<SelfhostModuleAst, StdErrorKind>::Err error
 
 //: selfhost_module_ast_len: module item [数/すう]を[返/かえ]す
-pub fn selfhost_module_ast_len <(&SelfhostModuleAst)->i32> (ast):
-    let items <&Vec<SelfhostModuleItem>> field::get_ref ast "items"
+pub fn selfhost_module_ast_len %fn &SelfhostModuleAst i32 \ast:
+    let items %&Vec SelfhostModuleItem field::get_ref ast "items"
     v::len<SelfhostModuleItem> items
 
 //: selfhost_module_ast_get: index の module item を[返/かえ]す
-pub fn selfhost_module_ast_get <(&SelfhostModuleAst,i32)->Option<SelfhostModuleItem>> (ast, idx):
-    let items <&Vec<SelfhostModuleItem>> field::get_ref ast "items"
+pub fn selfhost_module_ast_get %fn &SelfhostModuleAst fn i32 Option SelfhostModuleItem \ast\idx:
+    let items %&Vec SelfhostModuleItem field::get_ref ast "items"
     v::get<SelfhostModuleItem> items idx
 
 //: selfhost_module_ast_free: module AST が所有する item buffer を[解放/かいほう]する
-pub fn selfhost_module_ast_free <(SelfhostModuleAst)*>()> (ast):
+pub fn selfhost_module_ast_free %impure fn SelfhostModuleAst () \ast:
     v::free<SelfhostModuleItem> field::get ast "items"
 
 //: selfhost_module_ast_stage0: AST root の smoke API
-pub fn selfhost_module_ast_stage0 <()*>i32> ():
+pub fn selfhost_module_ast_stage0 %impure fn () i32 \():
     match selfhost_module_ast_new:
         Result::Ok ast:
-            let n <i32> selfhost_module_ast_len &ast
+            let n %i32 selfhost_module_ast_len &ast
             selfhost_module_ast_free ast
             n
         Result::Err _e:

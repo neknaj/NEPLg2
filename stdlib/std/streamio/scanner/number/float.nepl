@@ -16,18 +16,18 @@
 
 //: ## scan_f64_impl
 //: [次/つぎ]の token を `f64` として[読/よ]む
-pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
+pub fn scan_f64_impl %impure fn &StreamScanner f64 \sc:
     stream_scanner_skip_ws_state sc;
-    let bytes <&ByteBuf> get_ref sc "bytes";
-    let buf_len <i32> stream_scanner_len sc;
-    let mut p <i32> stream_scanner_load_pos sc;
+    let bytes %&ByteBuf get_ref sc "bytes";
+    let buf_len %i32 stream_scanner_len sc;
+    let mut p %i32 stream_scanner_load_pos sc;
     if:
         ge p buf_len
         then:
-            <f64> cast 0
+            %f64 cast 0
         else:
-            let mut is_neg <i32> 0;
-            let b0 <i32> stream_scanner_byte_at bytes p;
+            let mut is_neg %i32 0;
+            let b0 %i32 stream_scanner_byte_at bytes p;
             if:
                 eq b0 '-'
                 then:
@@ -40,19 +40,19 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                             set p add p 1;
                         else:
                             ();
-            let mut val <f64> cast 0;
-            let mut any_digit <i32> 0;
-            let ten <f64> cast 10;
-            let mut done_int <i32> 0;
+            let mut val %f64 cast 0;
+            let mut any_digit %i32 0;
+            let ten %f64 cast 10;
+            let mut done_int %i32 0;
             while eq done_int 0:
                 if:
                     lt p buf_len
                     then:
-                        let byte <i32> stream_scanner_byte_at bytes p;
+                        let byte %i32 stream_scanner_byte_at bytes p;
                         if:
                             stream_scanner_is_ascii_digit byte
                             then:
-                                let d <f64> cast stream_scanner_digit_value byte;
+                                let d %f64 cast stream_scanner_digit_value byte;
                                 set val add mul val ten d;
                                 set p add p 1;
                                 set any_digit 1;
@@ -60,7 +60,7 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                                 set done_int 1;
                     else:
                         set done_int 1;
-            let mut has_dot <i32> 0;
+            let mut has_dot %i32 0;
             if:
                 lt p buf_len
                 then:
@@ -74,18 +74,18 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                 eq has_dot 1
                 then:
                     set p add p 1;
-                    let one <f64> cast 1;
-                    let mut place <f64> div one ten;
-                    let mut done_frac <i32> 0;
+                    let one %f64 cast 1;
+                    let mut place %f64 div one ten;
+                    let mut done_frac %i32 0;
                     while eq done_frac 0:
                         if:
                             lt p buf_len
                             then:
-                                let byte <i32> stream_scanner_byte_at bytes p;
+                                let byte %i32 stream_scanner_byte_at bytes p;
                                 if:
                                     stream_scanner_is_ascii_digit byte
                                     then:
-                                        let d <f64> cast stream_scanner_digit_value byte;
+                                        let d %f64 cast stream_scanner_digit_value byte;
                                         set val add val mul d place;
                                         set place div place ten;
                                         set p add p 1;
@@ -96,11 +96,11 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                                 set done_frac 1;
                 else:
                     ();
-            let mut has_exp <i32> 0;
+            let mut has_exp %i32 0;
             if:
                 lt p buf_len
                 then:
-                    let ec <i32> stream_scanner_byte_at bytes p;
+                    let ec %i32 stream_scanner_byte_at bytes p;
                     if:
                         stream_scanner_is_exponent_marker ec
                         then set has_exp 1
@@ -111,11 +111,11 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                 eq has_exp 1
                 then:
                     set p add p 1;
-                    let mut exp_neg <i32> 0;
+                    let mut exp_neg %i32 0;
                     if:
                         lt p buf_len
                         then:
-                            let eb <i32> stream_scanner_byte_at bytes p;
+                            let eb %i32 stream_scanner_byte_at bytes p;
                             if:
                                 eq eb '-'
                                 then:
@@ -130,13 +130,13 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                                             ();
                         else:
                             ();
-                    let mut exp_val <i32> 0;
-                    let mut done_exp <i32> 0;
+                    let mut exp_val %i32 0;
+                    let mut done_exp %i32 0;
                     while eq done_exp 0:
                         if:
                             lt p buf_len
                             then:
-                                let byte <i32> stream_scanner_byte_at bytes p;
+                                let byte %i32 stream_scanner_byte_at bytes p;
                                 if:
                                     stream_scanner_is_ascii_digit byte
                                     then:
@@ -146,7 +146,7 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
                                         set done_exp 1;
                             else:
                                 set done_exp 1;
-                    let mut k <i32> 0;
+                    let mut k %i32 0;
                     while lt k exp_val:
                         do:
                             if:
@@ -162,7 +162,7 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
             if:
                 eq any_digit 0
                 then:
-                    <f64> cast 0
+                    %f64 cast 0
                 else:
                     if:
                         eq is_neg 1
@@ -173,5 +173,5 @@ pub fn scan_f64_impl <(&StreamScanner)*>f64> (sc):
 
 //: ## scan_f32_impl
 //: [次/つぎ]の token を `f32` として[読/よ]む
-pub fn scan_f32_impl <(&StreamScanner)*>f32> (sc):
-    <f32> cast scan_f64_impl sc
+pub fn scan_f32_impl %impure fn &StreamScanner f32 \sc:
+    %f32 cast scan_f64_impl sc

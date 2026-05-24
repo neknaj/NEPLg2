@@ -47,6 +47,7 @@ Add NEPLg2.1 lexer/parser/type frontend support that normalizes new surface synt
 - `%TypeExpr` は既存 `PrefixItem::TypeAnnotation(TypeExpr, Span)` へ落とす。
 - `\a\b:` / `\():` は既存の private `FnDef` + value expr block へ desugar する。
 - `fn A fn B C` は表層表記として受け取り、NEPLg2.1 では既存の複数引数関数型へ正規化する。部分適用は導入しない。
+- 関数を返す関数型は `%fn A (fn B C)` のように戻り値側を grouping し、grouping された関数型は flatten しない。
 - `impure fn A B` を NEPLg2.1 の副作用関数型表記として扱う。
 - 通常 source の `Ident<...>` 明示 type args は移行診断または拒否へ寄せる。ただし compiler-owned intrinsic/internal path の型引数処理は source syntax と分ける。
 - Resource IR / ownership / borrow / codegen には NEPLg2.1 専用 syntax node を追加しない。
@@ -55,9 +56,19 @@ Add NEPLg2.1 lexer/parser/type frontend support that normalizes new surface synt
 
 - branch: `feature/neplg21-syntax-migration-20260524`
 - doc: `doc/neplg2/neplg21_syntax_migration_plan.md`
+- frontend implementation:
+  - Rust lexer/parser は `%` 型注釈、prefix 型式、`\` lambda 引数、`#extern` の `%...` signature を受け付ける。
+  - `fn A fn B C` / `impure fn A B` は既存 `TypeKind::Function` へ正規化し、部分適用は導入していない。
+  - `%fn A (fn B C)` は関数を返す関数型として扱い、複数引数関数型への flatten から除外する。
+  - selfhost lexer/token model にも `Percent` / `Backslash` token を追加した。
+  - overload candidate pruning は `Option<.T>: Copy` のような generic impl pattern を候補段階で認識し、`Stack<.T>.items` 経由の `vec::free` を落とさない。
+- remaining:
+  - prefix 型適用境界はまだ parser-local arity hints に依存している。kind resolver 化は `ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92` で追跡する。
+  - 通常 source の explicit generic postfix は互換受理が残っており、撤廃は corpus semantic rewrite issue 側で継続する。
 - 関連 issue:
   - `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754`
   - `ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC`
+  - `ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92`
 
 ## 検証
 

@@ -15,11 +15,11 @@ stdout: "10\n20\n30\n"
 #import "std/stdio" as *
 #import "core/result" as *
 
-fn main <()*>()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <i32> read &sc;
-    let b <i32> read &sc;
-    let c <i32> read &sc;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let a %i32 read &sc;
+    let b %i32 read &sc;
+    let c %i32 read &sc;
     println_i32 a;
     println_i32 b;
     println_i32 c;
@@ -41,8 +41,8 @@ stdout: "hello world"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>()> ():
-    let line <str> read_line;
+fn main %impure fn () () \():
+    let line %str read_line;
     unwrap_ok open WriteStream::Stdio
     |> write line
     |> flush
@@ -66,20 +66,20 @@ stdout: "6\n14\n15\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 
-fn main <()*>()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let n <i32> read &sc;
-    let q <i32> read &sc;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let n %i32 read &sc;
+    let q %i32 read &sc;
 
-    let pref_len <i32> add n 1;
-    let pref <Vec<i32>> unwrap_ok filled<i32> pref_len 0;
+    let pref_len %i32 add n 1;
+    let pref %Vec i32 unwrap_ok filled<i32> pref_len 0;
 
-    let mut i <i32> 1;
+    let mut i %i32 1;
     while le i n:
         do:
-            let a <i32> read &sc;
-            let im1 <i32> sub i 1;
-            let prev <i32> if and ge im1 0 lt im1 pref_len:
+            let a %i32 read &sc;
+            let im1 %i32 sub i 1;
+            let prev %i32 if and ge im1 0 lt im1 pref_len:
                 then:
                     match get<i32> &pref im1:
                         Option::Some v:
@@ -88,7 +88,7 @@ fn main <()*>()> ():
                             #intrinsic "unreachable" <> ()
                 else:
                     #intrinsic "unreachable" <> ()
-            let cur <i32> add prev a;
+            let cur %i32 add prev a;
             if and ge i 0 lt i pref_len:
                 then:
                     replace<i32> &pref i cur
@@ -96,14 +96,14 @@ fn main <()*>()> ():
                     #intrinsic "unreachable" <> ()
             set i add i 1;
 
-    let mut w <StreamWriter> unwrap_ok open WriteStream::Stdio;
-    let mut k <i32> 0;
+    let mut w %StreamWriter unwrap_ok open WriteStream::Stdio;
+    let mut k %i32 0;
     while lt k q:
         do:
-            let l1 <i32> read &sc;
-            let r1 <i32> read &sc;
-            let l <i32> sub l1 1;
-            let diff <i32> if and and ge l 0 lt l pref_len and ge r1 0 lt r1 pref_len:
+            let l1 %i32 read &sc;
+            let r1 %i32 read &sc;
+            let l %i32 sub l1 1;
+            let diff %i32 if and and ge l 0 lt l pref_len and ge r1 0 lt r1 pref_len:
                 then:
                     match get<i32> &pref l:
                         Option::Some left:
@@ -141,25 +141,25 @@ stdout: "13\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 
-fn ways <(i32)*>i64> (n):
+fn ways %impure fn i32 i64 \n:
     if le n 1:
-        then <i64> cast 1
+        then %i64 cast 1
         else:
-            let mut a <i64> cast 1;
-            let mut b <i64> cast 1;
-            let mut i <i32> 2;
+            let mut a %i64 cast 1;
+            let mut b %i64 cast 1;
+            let mut i %i32 2;
             while le i n:
                 do:
-                    let c <i64> add a b;
+                    let c %i64 add a b;
                     set a b;
                     set b c;
                     set i add i 1;
             b
 
-fn main <()*>()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let n <i32> read &sc;
-    let ans <i64> ways n;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let n %i32 read &sc;
+    let ans %i64 ways n;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln ans
@@ -181,11 +181,11 @@ stdout: "3.500000\n-2.250000\n100.000000\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <f64> read &sc;
-    let b <f64> read &sc;
-    let c <f64> read &sc;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let a %f64 read &sc;
+    let b %f64 read &sc;
+    let c %f64 read &sc;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln a
@@ -209,9 +209,9 @@ stdout: "1.250000\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let v <f32> read &sc;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let v %f32 read &sc;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln v
@@ -235,9 +235,9 @@ stdout: "2 3\n1 2 5\n"
 #import "std/stdio" as *
 #import "alloc/collections/vec" as *
 
-fn main <()*>()> ():
-    let len <i32> 6;
-    let count_data <Vec<i32>>:
+fn main %impure fn () () \():
+    let len %i32 6;
+    let count_data %Vec i32:
         unwrap_ok with_capacity<i32> len
         |> push 1 |> unwrap_ok
         |> push 1 |> unwrap_ok
@@ -245,8 +245,8 @@ fn main <()*>()> ():
         |> push 2 |> unwrap_ok
         |> push 5 |> unwrap_ok
         |> push 5 |> unwrap_ok
-    let cnt2 <i32> count_equal_range_vec_i32 &count_data 2;
-    let unique_data <Vec<i32>>:
+    let cnt2 %i32 count_equal_range_vec_i32 &count_data 2;
+    let unique_data %Vec i32:
         unwrap_ok with_capacity<i32> len
         |> push 1 |> unwrap_ok
         |> push 1 |> unwrap_ok
@@ -254,14 +254,14 @@ fn main <()*>()> ():
         |> push 2 |> unwrap_ok
         |> push 5 |> unwrap_ok
         |> push 5 |> unwrap_ok
-    let unique <UniqueSortedVecI32> unique_sorted_vec_i32 unique_data;
-    let new_len <i32> unique_sorted_vec_i32_len &unique;
+    let unique %UniqueSortedVecI32 unique_sorted_vec_i32 unique_data;
+    let new_len %i32 unique_sorted_vec_i32_len &unique;
     print_i32 cnt2;
     print " ";
     println_i32 new_len;
     free<i32> count_data;
 
-    let mut i <i32> 0;
+    let mut i %i32 0;
     while lt i new_len:
         do:
             if gt i 0:

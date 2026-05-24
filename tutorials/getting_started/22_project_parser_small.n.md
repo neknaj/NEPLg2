@@ -24,7 +24,7 @@ enum TinyToken:
     DigitZero
     Other
 
-fn token_code <(TinyToken)->i32> (token):
+fn token_code %fn TinyToken i32 \token:
     match token:
         TinyToken::LetterA:
             1
@@ -33,7 +33,7 @@ fn token_code <(TinyToken)->i32> (token):
         TinyToken::Other:
             0
 
-fn first_token <(str)->TinyToken> (source):
+fn first_token %fn str TinyToken \source:
     match str_char_at_result source 0:
         Result::Err _e:
             TinyToken::Other
@@ -46,7 +46,7 @@ fn first_token <(str)->TinyToken> (source):
                 _:
                     TinyToken::Other
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks:
         checks_new
         |> checks_push assert_eq_i32 1 token_code first_token "abc"

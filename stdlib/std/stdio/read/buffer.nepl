@@ -35,7 +35,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32, StdErrorKind>> (fd, iov, nread, data, data_len):
+fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8 impure fn MemPtr u8 impure fn i32 Result i32 StdErrorKind \fd\iov\nread\data\data_len:
     if:
         math::lt data_len 0
         then:
@@ -46,13 +46,13 @@ fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result
                 then:
                     Result<i32, StdErrorKind>::Ok 0
                 else:
-                    let iov_raw <i32> mem_ptr_addr iov
-                    let nread_raw <i32> mem_ptr_addr nread
-                    let data_raw <i32> mem_ptr_addr data
-                    let invalid_iov <bool> math::le iov_raw 0
-                    let invalid_nread <bool> math::le nread_raw 0
-                    let invalid_data <bool> math::le data_raw 0
-                    let invalid_scratch <bool> math::or invalid_iov invalid_nread
+                    let iov_raw %i32 mem_ptr_addr iov
+                    let nread_raw %i32 mem_ptr_addr nread
+                    let data_raw %i32 mem_ptr_addr data
+                    let invalid_iov %bool math::le iov_raw 0
+                    let invalid_nread %bool math::le nread_raw 0
+                    let invalid_data %bool math::le data_raw 0
+                    let invalid_scratch %bool math::or invalid_iov invalid_nread
                     if:
                         math::or invalid_scratch invalid_data
                         then:
@@ -61,7 +61,7 @@ fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result
                             store_i32 iov_raw data_raw
                             store_i32 math::add iov_raw 4 data_len
                             store_i32 nread_raw 0
-                            let errno <i32> stdio_fd_read_raw fd iov_raw 1 nread_raw
+                            let errno %i32 stdio_fd_read_raw fd iov_raw 1 nread_raw
                             if:
                                 math::ne errno 0
                                 then:
@@ -87,7 +87,7 @@ fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<u8> 4:
 //:         Result::Ok region:
 //:             match stdio_discard_read_buffer region StdErrorKind::OutOfMemory:
@@ -102,7 +102,7 @@ fn stdio_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result
 //:         Result::Err _:
 //:             1
 //: ```
-pub fn stdio_discard_read_buffer <(RegionToken<u8>,StdErrorKind)*>Result<ByteBuf, StdErrorKind>> (region, err):
+pub fn stdio_discard_read_buffer %impure fn RegionToken u8 impure fn StdErrorKind Result ByteBuf StdErrorKind \region\err:
     match dealloc_region<u8> region:
         Result::Ok _:
             ()
@@ -126,12 +126,12 @@ pub fn stdio_discard_read_buffer <(RegionToken<u8>,StdErrorKind)*>Result<ByteBuf
 //:
 //: [計算量/けいさんりょう]:
 //: - allocator の shrink に依存します。copy が発生する場合は O(data_len) です。
-pub fn stdio_finish_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf, StdErrorKind>> (region, data_len):
-    let cap <i32> region_size &region
-    let invalid_cap <bool> math::lt cap 0
-    let invalid_len <bool> math::lt data_len 0
-    let len_exceeds_cap <bool> math::gt data_len cap
-    let invalid_size <bool> math::or invalid_cap invalid_len
+pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf StdErrorKind \region\data_len:
+    let cap %i32 region_size &region
+    let invalid_cap %bool math::lt cap 0
+    let invalid_len %bool math::lt data_len 0
+    let len_exceeds_cap %bool math::gt data_len cap
+    let invalid_size %bool math::or invalid_cap invalid_len
     if:
         math::or invalid_size len_exceeds_cap
         then:
@@ -161,7 +161,7 @@ pub fn stdio_finish_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf, StdError
                                 Result::Ok exact_region:
                                     Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region exact_region data_len
                                 Result::Err e:
-                                    let old_region <RegionToken<u8>> region_realloc_error_region<u8> e
+                                    let old_region %RegionToken u8 region_realloc_error_region<u8> e
                                     match dealloc_region<u8> old_region:
                                         Result::Ok _:
                                             ()
@@ -197,27 +197,27 @@ pub fn stdio_finish_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf, StdError
 //:| #import "alloc/io" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match stdio_read_all_buffer_result:
 //:         Result::Ok bytes:
-//:             let n <i32> io_bytebuf_len_ref &bytes
+//:             let n %i32 io_bytebuf_len_ref &bytes
 //:             io_bytebuf_free bytes;
 //:             n
 //:         Result::Err _:
 //:             -1
 //: ```
-pub fn stdio_read_all_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
-    let mut cap <i32> 65536;
+pub fn stdio_read_all_buffer_result %impure fn () Result ByteBuf StdErrorKind \():
+    let mut cap %i32 65536;
     match alloc_region<u8> cap:
         Result::Err _e:
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
         Result::Ok buf0_region:
-            let mut buf_region <RegionToken<u8>> buf0_region;
+            let mut buf_region %RegionToken u8 buf0_region;
             match alloc_region<u8> 8:
                 Result::Err _e:
                     stdio_discard_read_buffer buf_region StdErrorKind::OutOfMemory
                 Result::Ok iov_region:
-                    let iov <MemPtr<u8>> region_ptr &iov_region
+                    let iov %MemPtr u8 region_ptr &iov_region
                     match alloc_region<u8> 4:
                         Result::Err _e:
                             match dealloc_region<u8> iov_region:
@@ -227,18 +227,18 @@ pub fn stdio_read_all_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
                                     ()
                             stdio_discard_read_buffer buf_region StdErrorKind::OutOfMemory
                         Result::Ok nread_region:
-                            let nread_ptr <MemPtr<u8>> region_ptr &nread_region
-                            let mut read_len <i32> 0;
-                            let mut done <i32> 0;
-                            let mut failed <i32> 0;
-                            let mut failure <StdErrorKind> StdErrorKind::Failure;
+                            let nread_ptr %MemPtr u8 region_ptr &nread_region
+                            let mut read_len %i32 0;
+                            let mut done %i32 0;
+                            let mut failed %i32 0;
+                            let mut failure %StdErrorKind StdErrorKind::Failure;
 
                             while math::eq done 0:
                                 do:
                                     if:
                                         math::eq read_len cap
                                         then:
-                                            let new_cap <i32> math::mul cap 2;
+                                            let new_cap %i32 math::mul cap 2;
                                             if:
                                                 math::le new_cap cap
                                                 then:
@@ -258,7 +258,7 @@ pub fn stdio_read_all_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
                                                                     set buf_region new_region;
                                                                     set cap new_cap;
                                                                 Result::Err e:
-                                                                    let old_region <RegionToken<u8>> region_realloc_error_region<u8> e
+                                                                    let old_region %RegionToken u8 region_realloc_error_region<u8> e
                                                                     set buf_region old_region;
                                                                     set failed 1;
                                                                     set failure StdErrorKind::OutOfMemory;
@@ -269,17 +269,17 @@ pub fn stdio_read_all_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
                                     if:
                                         math::eq done 0
                                         then:
-                                            let remaining <i32> math::sub cap read_len;
-                                            let write_base <MemPtr<u8>> region_ptr &buf_region
-                                            let write_ptr <MemPtr<u8>> mem_ptr_add write_base read_len
+                                            let remaining %i32 math::sub cap read_len;
+                                            let write_base %MemPtr u8 region_ptr &buf_region
+                                            let write_ptr %MemPtr u8 mem_ptr_add write_base read_len
                                             match stdio_fd_read_into_result 0 iov nread_ptr write_ptr remaining:
                                                 Result::Err e:
                                                     set failed 1;
                                                     set failure e;
                                                     set done 1;
                                                 Result::Ok n:
-                                                    let read_all_negative <bool> math::lt n 0
-                                                    let read_all_exceeds_remaining <bool> math::gt n remaining
+                                                    let read_all_negative %bool math::lt n 0
+                                                    let read_all_exceeds_remaining %bool math::gt n remaining
                                                     if:
                                                         math::or read_all_negative read_all_exceeds_remaining
                                                         then:
@@ -342,17 +342,17 @@ pub fn stdio_read_all_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
 //:| #import "alloc/io" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match stdio_read_line_buffer_result:
 //:         Result::Ok bytes:
-//:             let n <i32> io_bytebuf_len_ref &bytes
+//:             let n %i32 io_bytebuf_len_ref &bytes
 //:             io_bytebuf_free bytes;
 //:             n
 //:         Result::Err _:
 //:             -1
 //: ```
-pub fn stdio_read_line_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
-    let cap <i32> 1024;
+pub fn stdio_read_line_buffer_result %impure fn () Result ByteBuf StdErrorKind \():
+    let cap %i32 1024;
     match alloc_region<u8> cap:
         Result::Err _e:
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
@@ -361,7 +361,7 @@ pub fn stdio_read_line_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
                 Result::Err _e:
                     stdio_discard_read_buffer buf_region StdErrorKind::OutOfMemory
                 Result::Ok iov_region:
-                    let iov <MemPtr<u8>> region_ptr &iov_region
+                    let iov %MemPtr u8 region_ptr &iov_region
                     match alloc_region<u8> 4:
                         Result::Err _e:
                             match dealloc_region<u8> iov_region:
@@ -371,11 +371,11 @@ pub fn stdio_read_line_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
                                     ()
                             stdio_discard_read_buffer buf_region StdErrorKind::OutOfMemory
                         Result::Ok nread_region:
-                            let nread <MemPtr<u8>> region_ptr &nread_region
-                            let mut line_len <i32> 0;
-                            let mut done <i32> 0;
-                            let mut failed <i32> 0;
-                            let mut failure <StdErrorKind> StdErrorKind::Failure;
+                            let nread %MemPtr u8 region_ptr &nread_region
+                            let mut line_len %i32 0;
+                            let mut done %i32 0;
+                            let mut failed %i32 0;
+                            let mut failure %StdErrorKind StdErrorKind::Failure;
 
                             while math::eq done 0:
                                 do:
@@ -384,8 +384,8 @@ pub fn stdio_read_line_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
                                         then:
                                             set done 1;
                                         else:
-                                            let write_base <MemPtr<u8>> region_ptr &buf_region
-                                            let write_ptr <MemPtr<u8>> mem_ptr_add write_base line_len
+                                            let write_base %MemPtr u8 region_ptr &buf_region
+                                            let write_ptr %MemPtr u8 mem_ptr_add write_base line_len
                                             match store_u8 write_ptr 0:
                                                 Result::Err _:
                                                     set failed 1;
@@ -398,8 +398,8 @@ pub fn stdio_read_line_buffer_result <()*>Result<ByteBuf, StdErrorKind>> ():
                                                             set failure e;
                                                             set done 1;
                                                         Result::Ok n:
-                                                            let read_line_negative <bool> math::lt n 0
-                                                            let read_line_exceeds_one <bool> math::gt n 1
+                                                            let read_line_negative %bool math::lt n 0
+                                                            let read_line_exceeds_one %bool math::gt n 1
                                                             if:
                                                                 math::or read_line_negative read_line_exceeds_one
                                                                 then:

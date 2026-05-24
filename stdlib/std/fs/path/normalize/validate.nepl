@@ -27,10 +27,10 @@
 //:
 //: 計算量:
 //: - path 長 n に対して O(n)
-pub fn fs_path_has_forbidden_host_byte <(str)->bool> (path):
-    let n <i32> len path
-    let mut i <i32> 0
-    let mut found <bool> false
+pub fn fs_path_has_forbidden_host_byte %fn str bool \path:
+    let n %i32 len path
+    let mut i %i32 0
+    let mut found %bool false
     while and not found lt i n:
         do:
             match checked_string_byte_at path i:

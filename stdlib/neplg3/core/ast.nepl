@@ -11,7 +11,7 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| fn main <()*>i32> ():
+//:| fn main %impure fn () i32 \():
 //:     ()
 //:     0
 //: ```

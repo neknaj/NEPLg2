@@ -13,6 +13,25 @@
   - frontend 側は `%` 型注釈と `\` lambda を既存 AST/HIR に正規化し、Resource IR へ構文差分を漏らさない方針が妥当。
   - corpus 側は `<TypeExpr>` の機械変換と、generic postfix / lambda / compile_fail fixture の semantic rewrite を分ける必要がある。
 
+# 2026-05-24 Agent 1 NEPLg2.1 frontend/corpus checkpoint
+
+- Rust lexer/parser に `Percent` / `Backslash` を追加し、`%T` 型注釈、prefix 型式、`\a\b:` / `\():` lambda 引数を既存 AST/HIR へ正規化する経路を追加した。
+- `#extern` signature は `%...` を受け付けるようにし、`#intrinsic "..." <...>` は compiler-owned directive syntax として旧記法を維持した。
+- `fn A fn B C` / `impure fn A B` は表層上の curried notation として読み、内部は既存の複数引数 `TypeKind::Function` へ flatten する。部分適用は導入していない。
+- `nodesrc/neplg21_syntax_migrate.js` を追加し、stdlib / examples / tests / tutorials の balanced type annotation と function/lambda 外形を NEPLg2.1 記法へ機械変換した。`--check` は idempotence 確認として通る。
+- selfhost 側 token model に `Percent` / `Backslash` を追加し、lexer/token predicate の exhaustiveness を合わせた。source string fixture には旧構文期待値が残るため、selfhost parser 実装更新と同じ単位で継続する。
+- `vec::free` が `Stack<.T>.items : Vec<Option<.T>>` 経由で no-match になる問題を調査し、overload 候補選択時に generic impl pattern `Option<.T>: Copy` を考慮するようにした。field projection 後の複合 generic 型を特別扱いするのではなく、trait-bound pruning の根本条件を補正した。
+- prefix 型適用は現 checkpoint では parser-local arity hints に依存している。これは実行対象 corpus を先に移行する足場であり、kind resolver 化を `ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92` として切り出した。
+- 残件:
+  - explicit generic postfix (`some<i32>` / `unwrap_ok<T,E>` / `Vec<T>::...`) はまだ多数残る。単純削除ではなく、expected type と signature に基づく semantic rewrite が必要。
+  - `examples/rpn.nepl` / `examples/bf.nepl` は `vec::free` no-match の先へ進むようになったが、`--check` が local command budget を超える。これは次の性能/verification 切り分けとして扱う。
+- focused verification:
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core --test functions neplg21 -- --nocapture`
+  - `trunk build`
+  - stdin fixture: `Stack<i32>` を `stk::new` して `stk::free` する最小 source が `Check successful`
+  - `node nodesrc/neplg21_syntax_migrate.js --check`
+
 # 2026-05-24 Agent 1 TransformRange rollback cleanup summary
 
 - partial output rollback cleanup は `CollectionSlotTransformRangeCertificate` に新 field を足さず、failure / early-exit path 側の明示的な `CollectionSlotDropTraversal` summary として扱う方針にした。
@@ -45532,3 +45551,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-transform-range-20260524.json`: 13/13 passed
   - `git diff --check`: passed
   - subagent independent review: P1 として source policy classifier の `src_len` 固定を指摘。`src_initialized_len` 対応後に `node nodesrc/test_stdlib_collection_cleanup_contract.js` は passed。
+
+## 2026-05-24 Agent 1 NEPLg2.1 syntax migration checkpoint
+
+- `feature/neplg21-syntax-migration-20260524` で NEPLg2.1 の frontend / corpus migration checkpoint を進めた。`plan.md` は変更していない。
+- Rust lexer/parser は `%` 型注釈、prefix 型式、`\` lambda 引数、`#extern` の `%...` signature を受け付ける。`fn A fn B C` は複数引数関数型へ flatten し、関数を返す型は `%fn A (fn B C)` と grouping された戻り値を flatten しない。
+- `nodesrc/neplg21_syntax_migrate.js` を追加し、balanced `<TypeExpr>` 型注釈と function/lambda 引数外形を変換する。generic postfix call は semantic rewrite が必要なため維持し、文字列リテラル内の embedded source は誤変換しない。
+- `Option<.T>: Copy` のような generic impl pattern を overload 候補選択時に扱うため、selected function trait bound resolution に限定した impl pattern 判定を追加した。これにより `Stack<.T>.items: Vec<Option<.T>>` 経由の `vec::free` が Copy 候補から落ちない。
+- selfhost 側 token model にも `Percent` / `Backslash` を追加し、NEPLg2.1 と NEPLg3 draft の境界を README/doc/issue で明示した。
+- remaining:
+  - prefix 型適用境界は parser-local arity hints 依存であり、kind resolver 化は `ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92` で継続する。
+  - explicit generic postfix call の撤廃は `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の semantic rewrite として継続する。

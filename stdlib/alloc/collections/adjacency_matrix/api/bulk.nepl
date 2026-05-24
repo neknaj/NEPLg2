@@ -16,9 +16,9 @@
 
 //: ## adjacency_matrix_fill_value
 //: [内部/ないぶ] byte storage を[指定/してい] byte で[埋/う]める
-pub fn adjacency_matrix_fill_value <(AdjacencyMatrix,i32)*>AdjacencyMatrix> (g, byte_value):
-    let nbytes <i32> *field::get_ref &g "nbytes"
-    let bits <&Vec<u8>> field::get_ref &g "bits"
+pub fn adjacency_matrix_fill_value %impure fn AdjacencyMatrix impure fn i32 AdjacencyMatrix \g\byte_value:
+    let nbytes %i32 *field::get_ref &g "nbytes"
+    let bits %&Vec u8 field::get_ref &g "bits"
     adjacency_matrix_fill_bytes bits nbytes byte_value
     g
 
@@ -32,14 +32,14 @@ pub fn adjacency_matrix_fill_value <(AdjacencyMatrix,i32)*>AdjacencyMatrix> (g, 
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let g <AdjacencyMatrix>:
+//: fn main %impure fn () i32 \():
+//:     let g %AdjacencyMatrix:
 //:         unwrap_ok<AdjacencyMatrix, Diag> new 4
 //:         |> insert 0 1 |> uwok
 //:         |> clear
-//:     let ok <bool> unwrap_ok<bool, Diag> contains &g 0 1;
+//:     let ok %bool unwrap_ok<bool, Diag> contains &g 0 1;
 //:     free g
 //:     if not ok 1 0
 //: ```
-pub fn clear <(AdjacencyMatrix)*>AdjacencyMatrix> (g):
+pub fn clear %impure fn AdjacencyMatrix AdjacencyMatrix \g:
     adjacency_matrix_fill_value g 0

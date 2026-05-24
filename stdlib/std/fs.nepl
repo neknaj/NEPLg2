@@ -16,7 +16,7 @@
 //:| #indent 4
 //:| #target std
 //:| #import "std/fs" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if fs_exists "__definitely_missing_fs_facade_case__.txt" then 1 else 0
 //: ```
 

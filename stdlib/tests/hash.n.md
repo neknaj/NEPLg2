@@ -24,11 +24,11 @@ stdout: "test_report name=\"hash_main\" count=9 failed=0\nassertion index=0 stat
 #import "core/result" as *
 #import "core/field" as *
 
-fn sha256_update_str_loop <(Sha256,str,i32,i32)*>Result<Sha256, StdErrorKind>> (ctx, text, idx, n):
-    let mut current <Sha256> ctx
-    let mut cursor <i32> idx
-    let mut failed <bool> false
-    let mut failure <StdErrorKind> StdErrorKind::OutOfMemory
+fn sha256_update_str_loop %impure fn Sha256 impure fn str impure fn i32 impure fn i32 Result Sha256 StdErrorKind \ctx\text\idx\n:
+    let mut current %Sha256 ctx
+    let mut cursor %i32 idx
+    let mut failed %bool false
+    let mut failure %StdErrorKind StdErrorKind::OutOfMemory
     while and lt cursor n not failed:
         do:
             match string_byte_index::checked_string_byte_at text cursor:
@@ -51,10 +51,10 @@ fn sha256_update_str_loop <(Sha256,str,i32,i32)*>Result<Sha256, StdErrorKind>> (
         else:
             Result<Sha256, StdErrorKind>::Ok current
 
-fn sha256_update_str <(Sha256,str)*>Result<Sha256, StdErrorKind>> (ctx, text):
+fn sha256_update_str %impure fn Sha256 impure fn str Result Sha256 StdErrorKind \ctx\text:
     sha256_update_str_loop ctx text 0 string::len text
 
-fn sha256_digest_for_text <(str)*>Result<Vec<i32>, StdErrorKind>> (text):
+fn sha256_digest_for_text %impure fn str Result Vec i32 StdErrorKind \text:
     match new_sha256:
         Result::Err e:
             Result<Vec<i32>, StdErrorKind>::Err e
@@ -65,7 +65,7 @@ fn sha256_digest_for_text <(str)*>Result<Vec<i32>, StdErrorKind>> (text):
                 Result::Ok ctx1:
                     sha256_finalize ctx1
 
-fn sha256_expected_empty <(i32)->i32> (idx):
+fn sha256_expected_empty %fn i32 i32 \idx:
     match idx:
         0:
             227
@@ -134,7 +134,7 @@ fn sha256_expected_empty <(i32)->i32> (idx):
         _:
             #intrinsic "unreachable" <> ()
 
-fn sha256_expected_abc <(i32)->i32> (idx):
+fn sha256_expected_abc %fn i32 i32 \idx:
     match idx:
         0:
             186
@@ -203,7 +203,7 @@ fn sha256_expected_abc <(i32)->i32> (idx):
         _:
             #intrinsic "unreachable" <> ()
 
-fn sha256_expected_multi <(i32)->i32> (idx):
+fn sha256_expected_multi %fn i32 i32 \idx:
     match idx:
         0:
             36
@@ -272,7 +272,7 @@ fn sha256_expected_multi <(i32)->i32> (idx):
         _:
             #intrinsic "unreachable" <> ()
 
-fn sha256_expected_byte <(i32,i32)->i32> (kind, idx):
+fn sha256_expected_byte %fn i32 fn i32 i32 \kind\idx:
     match kind:
         0:
             sha256_expected_empty idx
@@ -283,7 +283,7 @@ fn sha256_expected_byte <(i32,i32)->i32> (kind, idx):
         _:
             #intrinsic "unreachable" <> ()
 
-fn sha256_digest_matches_loop <(&Vec<i32>,i32,i32)->bool> (digest, kind, idx):
+fn sha256_digest_matches_loop %fn &Vec i32 fn i32 fn i32 bool \digest\kind\idx:
     if:
         ge idx 32
         then:
@@ -295,33 +295,33 @@ fn sha256_digest_matches_loop <(&Vec<i32>,i32,i32)->bool> (digest, kind, idx):
                 Option::Some actual:
                     and eq sha256_expected_byte kind idx actual sha256_digest_matches_loop digest kind add idx 1
 
-fn sha256_digest_matches <(&Vec<i32>,i32)->bool> (digest, kind):
+fn sha256_digest_matches %fn &Vec i32 fn i32 bool \digest\kind:
     sha256_digest_matches_loop digest kind 0
 
-fn sha256_push_digest_checks <(TestReport,str,Result<Vec<i32>, StdErrorKind>,i32)*>TestReport> (report, label, digest_result, kind):
+fn sha256_push_digest_checks %impure fn TestReport impure fn str impure fn Result Vec i32 StdErrorKind impure fn i32 TestReport \report\label\digest_result\kind:
     match digest_result:
         Result::Err e:
             test_report_push report test_assertion_fail label std_error_kind_str e
         Result::Ok digest:
-            let digest_len <i32> len<i32> &digest
-            let len_label <str> text::concat label " length"
-            let bytes_label <str> text::concat label " bytes"
+            let digest_len %i32 len<i32> &digest
+            let len_label %str text::concat label " length"
+            let bytes_label %str text::concat label " bytes"
             let report1 test_report_push report assert_eq_i32 len_label 32 digest_len
             let report2 test_report_push report1 assert bytes_label sha256_digest_matches &digest kind
             free<i32> digest
             report2
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let h0 new_fnv1a32
     let h1 fnv1a32_update h0 97
     let result fnv1a32_finalize h1
-    let hash_same_a <i32> hash32_by_trait 123456
-    let hash_same_b <i32> hash32_by_trait 123456
-    let hash_other <i32> hash32_by_trait 123457
+    let hash_same_a %i32 hash32_by_trait 123456
+    let hash_same_b %i32 hash32_by_trait 123456
+    let hash_other %i32 hash32_by_trait 123457
 
-    let empty_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text ""
-    let abc_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text "abc"
-    let multi_digest <Result<Vec<i32>, StdErrorKind>> sha256_digest_for_text "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
+    let empty_digest %Result Vec i32 StdErrorKind sha256_digest_for_text ""
+    let abc_digest %Result Vec i32 StdErrorKind sha256_digest_for_text "abc"
+    let multi_digest %Result Vec i32 StdErrorKind sha256_digest_for_text "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
 
     let report0:
         test_report_new "hash_main"

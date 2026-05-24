@@ -23,14 +23,14 @@ stdout: mlstr:
 #import "neplg2/core/resource/lifetime" as *
 #import "std/test" as *
 
-fn check_relation_proven <(Result<SelfhostLifetimeRelation,SelfhostProofRefutation>,SelfhostLifetimeRelation)->Result<(),str>> (result, expected):
+fn check_relation_proven %fn Result SelfhostLifetimeRelation SelfhostProofRefutation fn SelfhostLifetimeRelation Result () str \result\expected:
     match result:
         Result::Ok relation:
             if selfhost_lifetime_relation_proves_outlives relation Result<(),str>::Ok () Result<(),str>::Err "expected outlives relation"
         Result::Err _refutation:
             Result<(),str>::Err "expected lifetime proof"
 
-fn check_required_mismatch <(SelfhostLifetimeOutlivesError)->Result<(),str>> (reason):
+fn check_required_mismatch %fn SelfhostLifetimeOutlivesError Result () str \reason:
     match reason:
         SelfhostLifetimeOutlivesError::RequiredLifetimeMismatch:
             Result<(),str>::Ok ()
@@ -43,7 +43,7 @@ fn check_required_mismatch <(SelfhostLifetimeOutlivesError)->Result<(),str>> (re
         SelfhostLifetimeOutlivesError::UnrelatedLifetimes:
             Result<(),str>::Err "expected required lifetime mismatch"
 
-fn check_subject_shorter <(SelfhostLifetimeOutlivesError)->Result<(),str>> (reason):
+fn check_subject_shorter %fn SelfhostLifetimeOutlivesError Result () str \reason:
     match reason:
         SelfhostLifetimeOutlivesError::SubjectDoesNotOutliveRequired:
             Result<(),str>::Ok ()
@@ -56,7 +56,7 @@ fn check_subject_shorter <(SelfhostLifetimeOutlivesError)->Result<(),str>> (reas
         SelfhostLifetimeOutlivesError::UnrelatedLifetimes:
             Result<(),str>::Err "expected shorter subject lifetime"
 
-fn check_invalid_subject <(SelfhostLifetimeOutlivesError)->Result<(),str>> (reason):
+fn check_invalid_subject %fn SelfhostLifetimeOutlivesError Result () str \reason:
     match reason:
         SelfhostLifetimeOutlivesError::InvalidSubjectLifetime:
             Result<(),str>::Ok ()
@@ -69,7 +69,7 @@ fn check_invalid_subject <(SelfhostLifetimeOutlivesError)->Result<(),str>> (reas
         SelfhostLifetimeOutlivesError::UnrelatedLifetimes:
             Result<(),str>::Err "expected invalid subject lifetime"
 
-fn check_lifetime_refutation <(SelfhostProofRefutation,(SelfhostLifetimeOutlivesError)->Result<(),str>)->Result<(),str>> (refutation, checker):
+fn check_lifetime_refutation %fn SelfhostProofRefutation fn fn SelfhostLifetimeOutlivesError Result () str Result () str \refutation\checker:
     match refutation:
         SelfhostProofRefutation::LifetimeOutlivesInvalid issue:
             checker issue.reason
@@ -102,30 +102,30 @@ fn check_lifetime_refutation <(SelfhostProofRefutation,(SelfhostLifetimeOutlives
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected lifetime outlives refutation"
 
-fn check_lifetime_error <(Result<SelfhostLifetimeRelation,SelfhostProofRefutation>,(SelfhostLifetimeOutlivesError)->Result<(),str>)->Result<(),str>> (result, checker):
+fn check_lifetime_error %fn Result SelfhostLifetimeRelation SelfhostProofRefutation fn fn SelfhostLifetimeOutlivesError Result () str Result () str \result\checker:
     match result:
         Result::Err refutation:
             check_lifetime_refutation refutation checker
         Result::Ok _relation:
             Result<(),str>::Err "invalid lifetime relation was accepted"
 
-fn main <()*>i32> ():
-    let span <SelfhostSourceSpan> source_span_new 0 0 4
-    let root_id <SelfhostLifetimeId> selfhost_lifetime_id_new 0
-    let child_id <SelfhostLifetimeId> selfhost_lifetime_id_new 1
-    let sibling_id <SelfhostLifetimeId> selfhost_lifetime_id_new 2
-    let invalid_id <SelfhostLifetimeId> selfhost_lifetime_id_new (sub 0 1)
-    let root <SelfhostLifetimePosition> selfhost_lifetime_position_new root_id 0
-    let child <SelfhostLifetimePosition> selfhost_lifetime_position_new child_id 2
-    let invalid <SelfhostLifetimePosition> selfhost_lifetime_position_new invalid_id 0
-    let root_outlives_child <SelfhostLifetimeRelation> selfhost_lifetime_relation_from_scope_path root child SelfhostLifetimeScopePathKind::SubjectAncestorOfRequired
-    let same_lifetime <SelfhostLifetimeRelation> selfhost_lifetime_relation_from_scope_path root root SelfhostLifetimeScopePathKind::SameNode
-    let child_outlives_root <SelfhostLifetimeRelation> selfhost_lifetime_relation_from_scope_path child root SelfhostLifetimeScopePathKind::RequiredAncestorOfSubject
-    let invalid_subject <SelfhostLifetimeRelation> selfhost_lifetime_relation_from_scope_path invalid root SelfhostLifetimeScopePathKind::SubjectAncestorOfRequired
-    let fact_ok <SelfhostLifetimeOutlivesFact> selfhost_lifetime_outlives_fact_new root_id child_id root_outlives_child SelfhostLifetimeUseKind::ReturnBorrow span
-    let fact_same <SelfhostLifetimeOutlivesFact> selfhost_lifetime_outlives_fact_new root_id root_id same_lifetime SelfhostLifetimeUseKind::ReferenceAssignment span
-    let fact_short <SelfhostLifetimeOutlivesFact> selfhost_lifetime_outlives_fact_new child_id root_id child_outlives_root SelfhostLifetimeUseKind::StoreInLongerStorage span
-    let fact_invalid <SelfhostLifetimeOutlivesFact> selfhost_lifetime_outlives_fact_new invalid_id root_id invalid_subject SelfhostLifetimeUseKind::ClosureCapture span
+fn main %impure fn () i32 \():
+    let span %SelfhostSourceSpan source_span_new 0 0 4
+    let root_id %SelfhostLifetimeId selfhost_lifetime_id_new 0
+    let child_id %SelfhostLifetimeId selfhost_lifetime_id_new 1
+    let sibling_id %SelfhostLifetimeId selfhost_lifetime_id_new 2
+    let invalid_id %SelfhostLifetimeId selfhost_lifetime_id_new (sub 0 1)
+    let root %SelfhostLifetimePosition selfhost_lifetime_position_new root_id 0
+    let child %SelfhostLifetimePosition selfhost_lifetime_position_new child_id 2
+    let invalid %SelfhostLifetimePosition selfhost_lifetime_position_new invalid_id 0
+    let root_outlives_child %SelfhostLifetimeRelation selfhost_lifetime_relation_from_scope_path root child SelfhostLifetimeScopePathKind::SubjectAncestorOfRequired
+    let same_lifetime %SelfhostLifetimeRelation selfhost_lifetime_relation_from_scope_path root root SelfhostLifetimeScopePathKind::SameNode
+    let child_outlives_root %SelfhostLifetimeRelation selfhost_lifetime_relation_from_scope_path child root SelfhostLifetimeScopePathKind::RequiredAncestorOfSubject
+    let invalid_subject %SelfhostLifetimeRelation selfhost_lifetime_relation_from_scope_path invalid root SelfhostLifetimeScopePathKind::SubjectAncestorOfRequired
+    let fact_ok %SelfhostLifetimeOutlivesFact selfhost_lifetime_outlives_fact_new root_id child_id root_outlives_child SelfhostLifetimeUseKind::ReturnBorrow span
+    let fact_same %SelfhostLifetimeOutlivesFact selfhost_lifetime_outlives_fact_new root_id root_id same_lifetime SelfhostLifetimeUseKind::ReferenceAssignment span
+    let fact_short %SelfhostLifetimeOutlivesFact selfhost_lifetime_outlives_fact_new child_id root_id child_outlives_root SelfhostLifetimeUseKind::StoreInLongerStorage span
+    let fact_invalid %SelfhostLifetimeOutlivesFact selfhost_lifetime_outlives_fact_new invalid_id root_id invalid_subject SelfhostLifetimeUseKind::ClosureCapture span
     let checks0 checks_new
     let checks1 checks_push checks0 check_relation_proven (selfhost_proof_lifetime_outlives child_id fact_ok) root_outlives_child
     let checks2 checks_push checks1 check_relation_proven (selfhost_proof_lifetime_outlives root_id fact_same) same_lifetime

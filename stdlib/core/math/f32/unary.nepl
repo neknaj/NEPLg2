@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/math/f32/unary" as *
 //:| #import "core/math/f32/compare" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     if eq abs -2.5 2.5 0 1
 //: ```
 
@@ -34,7 +34,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn sqrt <(f32)->f32> (a):
+pub fn sqrt %fn f32 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -61,7 +61,7 @@ pub fn sqrt <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn abs <(f32)->f32> (a):
+pub fn abs %fn f32 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -89,7 +89,7 @@ pub fn abs <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn neg <(f32)->f32> (a):
+pub fn neg %fn f32 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -115,7 +115,7 @@ pub fn neg <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ceil <(f32)->f32> (a):
+pub fn ceil %fn f32 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -141,7 +141,7 @@ pub fn ceil <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn floor <(f32)->f32> (a):
+pub fn floor %fn f32 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -167,7 +167,7 @@ pub fn floor <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn trunc <(f32)->f32> (a):
+pub fn trunc %fn f32 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -193,7 +193,7 @@ pub fn trunc <(f32)->f32> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nearest <(f32)->f32> (a):
+pub fn nearest %fn f32 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a

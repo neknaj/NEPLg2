@@ -27,16 +27,16 @@ stdout: "test_report name=\"traits_clone_generic_bound\" count=1 failed=0\nasser
 #import "core/traits/copy" as *
 #import "std/test" as *
 
-fn clone_add <.T: Clone> <(.T,.T,(.T,.T)->i32)->i32> (x, y, f):
+fn clone_add <.T: Clone> %fn .T fn .T fn fn .T fn .T i32 i32 \x\y\f:
     f Clone::clone &x Clone::clone &y
 
-fn add_i32 <(i32,i32)->i32> (a, b):
+fn add_i32 %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn main <()*>i32> ():
-    let a <i32> 6
-    let b <i32> 8
-    let actual <i32> clone_add a b @add_i32
+fn main %impure fn () i32 \():
+    let a %i32 6
+    let b %i32 8
+    let actual %i32 clone_add a b @add_i32
     let report:
         test_report_new "traits_clone_generic_bound"
         |> test_report_push assert_eq_i32 "clone generic add" 14 actual
@@ -57,8 +57,8 @@ stdout: "test_report name=\"traits_stringify_basic_values\" count=3 failed=0\nas
 #import "core/traits/stringify" as *
 #import "core/cast" as *
 
-fn main <()*>i32> ():
-    let n <u8> cast 9;
+fn main %impure fn () i32 \():
+    let n %u8 cast 9;
     let report:
         test_report_new "traits_stringify_basic_values"
         |> test_report_push assert_str_eq "stringify i32" "42" stringify 42
@@ -81,8 +81,8 @@ stdout: "test_report name=\"traits_debug_basic_values\" count=3 failed=0\nassert
 #import "core/traits/debug" as *
 #import "core/cast" as *
 
-fn main <()*>i32> ():
-    let n <u8> cast 9;
+fn main %impure fn () i32 \():
+    let n %u8 cast 9;
     let report:
         test_report_new "traits_debug_basic_values"
         |> test_report_push assert_str_eq "debug str quotes" "\"abc\"" debug_string "abc"

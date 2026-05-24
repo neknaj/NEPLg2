@@ -37,7 +37,7 @@
 //:
 //: 計算量:
 //: - O(1)
-fn fs_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i32,i32>> (fd, iov, nread, data, data_len):
+fn fs_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8 impure fn MemPtr u8 impure fn i32 Result i32 i32 \fd\iov\nread\data\data_len:
     if:
         lt data_len 0
         then:
@@ -48,9 +48,9 @@ fn fs_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i3
                 then:
                     Result<i32,i32>::Ok 0
                 else:
-                    let iov_raw <i32> mem_ptr_addr iov
-                    let nread_raw <i32> mem_ptr_addr nread
-                    let data_raw <i32> mem_ptr_addr data
+                    let iov_raw %i32 mem_ptr_addr iov
+                    let nread_raw %i32 mem_ptr_addr nread
+                    let data_raw %i32 mem_ptr_addr data
                     if:
                         or or le iov_raw 0 le nread_raw 0 le data_raw 0
                         then:
@@ -59,7 +59,7 @@ fn fs_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i3
                             store_i32 iov_raw data_raw
                             store_i32 add iov_raw 4 data_len
                             store_i32 nread_raw 0
-                            let errno <i32> wasi_fd_read fd iov_raw 1 nread_raw
+                            let errno %i32 wasi_fd_read fd iov_raw 1 nread_raw
                             if:
                                 ne errno 0
                                 then:
@@ -75,7 +75,7 @@ fn fs_fd_read_into_result <(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32)*>Result<i3
 //: 注意(重要):
 //: - `region` はこの関数が必ず消費します。
 //: - cleanup failure でも owner を caller へ戻さず、元の errno を返します。
-fn fs_discard_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf,i32>> (region, errno):
+fn fs_discard_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf i32 \region\errno:
     match dealloc_region<u8> region:
         Result::Ok _:
             ()
@@ -99,8 +99,8 @@ fn fs_discard_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf,i32>> (region, 
 //:
 //: 計算量:
 //: - allocator の shrink に依存します。copy が発生する場合は O(data_len) です。
-fn fs_finish_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf,i32>> (region, data_len):
-    let cap <i32> region_size &region
+fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf i32 \region\data_len:
+    let cap %i32 region_size &region
     if:
         or or lt cap 0 lt data_len 0 gt data_len cap
         then:
@@ -130,7 +130,7 @@ fn fs_finish_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf,i32>> (region, d
                                 Result::Ok exact_region:
                                     Result<ByteBuf,i32>::Ok io_bytebuf_finish_region exact_region data_len
                                 Result::Err _e:
-                                    let old_region <RegionToken<u8>> region_realloc_error_region<u8> _e
+                                    let old_region %RegionToken u8 region_realloc_error_region<u8> _e
                                     match dealloc_region<u8> old_region:
                                         Result::Ok _:
                                             ()
@@ -173,26 +173,26 @@ fn fs_finish_read_buffer <(RegionToken<u8>,i32)*>Result<ByteBuf,i32>> (region, d
 //:| #import "std/fs/bytes" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match fs_read_fd_bytes 0:
 //:         Result::Ok bytes:
-//:             let text <str> fs_bytes_to_string bytes;
+//:             let text %str fs_bytes_to_string bytes;
 //:             if str_eq text "fd bytes" 0 1
 //:         Result::Err _e:
 //:             1
 //: ```
-pub fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
-    let mut cap <i32> 65536;
+pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
+    let mut cap %i32 65536;
     match alloc_region<u8> cap:
         Result::Err _e:
             Result<ByteBuf,i32>::Err 12
         Result::Ok buf0_region:
-            let mut buf_region <RegionToken<u8>> buf0_region;
+            let mut buf_region %RegionToken u8 buf0_region;
             match alloc_region<u8> 8:
                 Result::Err _e:
                     fs_discard_read_buffer buf_region 12
                 Result::Ok iov_region:
-                    let iov_buf <MemPtr<u8>> region_ptr &iov_region
+                    let iov_buf %MemPtr u8 region_ptr &iov_region
                     match alloc_region<u8> 4:
                         Result::Err _e:
                             match dealloc_region<u8> iov_region:
@@ -202,18 +202,18 @@ pub fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                     ();
                             fs_discard_read_buffer buf_region 12
                         Result::Ok nread_region:
-                            let nread_buf <MemPtr<u8>> region_ptr &nread_region
-                            let mut read_len <i32> 0;
-                            let mut done <i32> 0;
-                            let mut err <i32> 0;
-                            let mut alloc_failed <i32> 0;
+                            let nread_buf %MemPtr u8 region_ptr &nread_region
+                            let mut read_len %i32 0;
+                            let mut done %i32 0;
+                            let mut err %i32 0;
+                            let mut alloc_failed %i32 0;
 
                             while eq done 0:
                                 do:
                                     if:
                                         eq read_len cap
                                         then:
-                                            let new_cap <i32> mul cap 2;
+                                            let new_cap %i32 mul cap 2;
                                             if:
                                                 or le new_cap cap not alloc_payload_fits new_cap
                                                 then:
@@ -225,7 +225,7 @@ pub fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                                             set buf_region new_region;
                                                             set cap new_cap;
                                                         Result::Err e:
-                                                            let old_region <RegionToken<u8>> region_realloc_error_region<u8> e
+                                                            let old_region %RegionToken u8 region_realloc_error_region<u8> e
                                                             set buf_region old_region;
                                                             set alloc_failed 1;
                                                             set done 1;
@@ -234,8 +234,8 @@ pub fn fs_read_fd_bytes <(i32)*>Result<ByteBuf,i32>> (fd):
                                     if:
                                         eq done 0
                                         then:
-                                            let data_base <MemPtr<u8>> region_ptr &buf_region
-                                            let data_ptr <MemPtr<u8>> mem_ptr_add data_base read_len
+                                            let data_base %MemPtr u8 region_ptr &buf_region
+                                            let data_ptr %MemPtr u8 mem_ptr_add data_base read_len
                                             match fs_fd_read_into_result fd iov_buf nread_buf data_ptr sub cap read_len:
                                                 Result::Ok n:
                                                     if:

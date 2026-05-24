@@ -25,18 +25,18 @@
 //: [注意/ちゅうい]:
 //: - この fact は span が妥当であることを単独では主張しません。妥当性は `SourceSpanValid` obligation を solver が検査します。
 pub struct SelfhostSourceSpanFact:
-    span <SelfhostSourceSpan>
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostSourceSpanFact:
-    fn clone <(&SelfhostSourceSpanFact)->SelfhostSourceSpanFact> (self):
+    fn clone %fn &SelfhostSourceSpanFact SelfhostSourceSpanFact \self:
         *self
 
 impl Copy for SelfhostSourceSpanFact:
-    fn copy_mark <(SelfhostSourceSpanFact)->SelfhostSourceSpanFact> (self):
+    fn copy_mark %fn SelfhostSourceSpanFact SelfhostSourceSpanFact \self:
         self
 
 //: selfhost_source_span_fact_new: source span fact を[作/つく]る
-pub fn selfhost_source_span_fact_new <(SelfhostSourceSpan)->SelfhostSourceSpanFact> (span):
+pub fn selfhost_source_span_fact_new %fn SelfhostSourceSpan SelfhostSourceSpanFact \span:
     SelfhostSourceSpanFact span
 
 //: SelfhostRawBackendKind: raw backend block の[種類/しゅるい]
@@ -45,11 +45,11 @@ pub enum SelfhostRawBackendKind:
     LlvmIr
 
 impl Clone for SelfhostRawBackendKind:
-    fn clone <(&SelfhostRawBackendKind)->SelfhostRawBackendKind> (self):
+    fn clone %fn &SelfhostRawBackendKind SelfhostRawBackendKind \self:
         *self
 
 impl Copy for SelfhostRawBackendKind:
-    fn copy_mark <(SelfhostRawBackendKind)->SelfhostRawBackendKind> (self):
+    fn copy_mark %fn SelfhostRawBackendKind SelfhostRawBackendKind \self:
         self
 
 //: SelfhostRawBackendItemKind: raw backend 状態検査へ渡す item [分類/ぶんるい]
@@ -66,28 +66,28 @@ pub enum SelfhostRawBackendItemKind:
     LlvmIrText
 
 impl Clone for SelfhostRawBackendItemKind:
-    fn clone <(&SelfhostRawBackendItemKind)->SelfhostRawBackendItemKind> (self):
+    fn clone %fn &SelfhostRawBackendItemKind SelfhostRawBackendItemKind \self:
         *self
 
 impl Copy for SelfhostRawBackendItemKind:
-    fn copy_mark <(SelfhostRawBackendItemKind)->SelfhostRawBackendItemKind> (self):
+    fn copy_mark %fn SelfhostRawBackendItemKind SelfhostRawBackendItemKind \self:
         self
 
 //: SelfhostRawBackendItemFact: raw backend item の typed observation
 pub struct SelfhostRawBackendItemFact:
-    kind <SelfhostRawBackendItemKind>
-    span <SelfhostSourceSpan>
+    kind %SelfhostRawBackendItemKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostRawBackendItemFact:
-    fn clone <(&SelfhostRawBackendItemFact)->SelfhostRawBackendItemFact> (self):
+    fn clone %fn &SelfhostRawBackendItemFact SelfhostRawBackendItemFact \self:
         *self
 
 impl Copy for SelfhostRawBackendItemFact:
-    fn copy_mark <(SelfhostRawBackendItemFact)->SelfhostRawBackendItemFact> (self):
+    fn copy_mark %fn SelfhostRawBackendItemFact SelfhostRawBackendItemFact \self:
         self
 
 //: selfhost_raw_backend_item_fact_new: raw backend item fact を[作/つく]る
-pub fn selfhost_raw_backend_item_fact_new <(SelfhostRawBackendItemKind,SelfhostSourceSpan)->SelfhostRawBackendItemFact> (kind, span):
+pub fn selfhost_raw_backend_item_fact_new %fn SelfhostRawBackendItemKind fn SelfhostSourceSpan SelfhostRawBackendItemFact \kind\span:
     SelfhostRawBackendItemFact kind span
 
 //: SelfhostModuleDirectiveKind: module stream 上の singleton directive [分類/ぶんるい]
@@ -101,28 +101,28 @@ pub enum SelfhostModuleDirectiveKind:
     Target
 
 impl Clone for SelfhostModuleDirectiveKind:
-    fn clone <(&SelfhostModuleDirectiveKind)->SelfhostModuleDirectiveKind> (self):
+    fn clone %fn &SelfhostModuleDirectiveKind SelfhostModuleDirectiveKind \self:
         *self
 
 impl Copy for SelfhostModuleDirectiveKind:
-    fn copy_mark <(SelfhostModuleDirectiveKind)->SelfhostModuleDirectiveKind> (self):
+    fn copy_mark %fn SelfhostModuleDirectiveKind SelfhostModuleDirectiveKind \self:
         self
 
 //: SelfhostModuleDirectiveFact: module directive item の typed observation
 pub struct SelfhostModuleDirectiveFact:
-    kind <SelfhostModuleDirectiveKind>
-    span <SelfhostSourceSpan>
+    kind %SelfhostModuleDirectiveKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostModuleDirectiveFact:
-    fn clone <(&SelfhostModuleDirectiveFact)->SelfhostModuleDirectiveFact> (self):
+    fn clone %fn &SelfhostModuleDirectiveFact SelfhostModuleDirectiveFact \self:
         *self
 
 impl Copy for SelfhostModuleDirectiveFact:
-    fn copy_mark <(SelfhostModuleDirectiveFact)->SelfhostModuleDirectiveFact> (self):
+    fn copy_mark %fn SelfhostModuleDirectiveFact SelfhostModuleDirectiveFact \self:
         self
 
 //: selfhost_module_directive_fact_new: module directive fact を[作/つく]る
-pub fn selfhost_module_directive_fact_new <(SelfhostModuleDirectiveKind,SelfhostSourceSpan)->SelfhostModuleDirectiveFact> (kind, span):
+pub fn selfhost_module_directive_fact_new %fn SelfhostModuleDirectiveKind fn SelfhostSourceSpan SelfhostModuleDirectiveFact \kind\span:
     SelfhostModuleDirectiveFact kind span
 
 //: SelfhostModuleDeclarationFact: parser が保持した declaration header evidence
@@ -131,16 +131,16 @@ pub fn selfhost_module_directive_fact_new <(SelfhostModuleDirectiveKind,Selfhost
 //: - module checker が declaration keyword 文字列を再走査せず、parser 由来の typed header を proof solver へ渡せるようにします。
 //: - declaration header が欠けている場合も `Option` として保持し、proof refutation で拒否します。
 pub struct SelfhostModuleDeclarationFact:
-    item_kind <SelfhostModuleItemKind>
-    declaration <Option<SelfhostModuleDeclarationHeader>>
-    span <SelfhostSourceSpan>
+    item_kind %SelfhostModuleItemKind
+    declaration %Option SelfhostModuleDeclarationHeader
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostModuleDeclarationFact:
-    fn clone <(&SelfhostModuleDeclarationFact)->SelfhostModuleDeclarationFact> (self):
+    fn clone %fn &SelfhostModuleDeclarationFact SelfhostModuleDeclarationFact \self:
         *self
 
 impl Copy for SelfhostModuleDeclarationFact:
-    fn copy_mark <(SelfhostModuleDeclarationFact)->SelfhostModuleDeclarationFact> (self):
+    fn copy_mark %fn SelfhostModuleDeclarationFact SelfhostModuleDeclarationFact \self:
         self
 
 //: selfhost_module_declaration_fact_new: declaration fact を[作/つく]る
@@ -148,7 +148,7 @@ impl Copy for SelfhostModuleDeclarationFact:
 //: [目的/もくてき]:
 //: - module checker が観測した item kind と parser が保持した declaration header evidence を proof solver に渡す形へまとめます。
 //: - header が欠けている場合も `None` として表し、欠落を bool で握り潰さず typed refutation へ残します。
-pub fn selfhost_module_declaration_fact_new <(SelfhostModuleItemKind,Option<SelfhostModuleDeclarationHeader>,SelfhostSourceSpan)->SelfhostModuleDeclarationFact> (item_kind, declaration, span):
+pub fn selfhost_module_declaration_fact_new %fn SelfhostModuleItemKind fn Option SelfhostModuleDeclarationHeader fn SelfhostSourceSpan SelfhostModuleDeclarationFact \item_kind\declaration\span:
     SelfhostModuleDeclarationFact item_kind declaration span
 
 //: SelfhostTypeKindFact: type checker が観測した type kind
@@ -157,19 +157,19 @@ pub fn selfhost_module_declaration_fact_new <(SelfhostModuleItemKind,Option<Self
 //: - 期待型と実型の kind 互換性を bool で潰さず、proof solver に渡す typed fact として保持します。
 //: - span は後続 diagnostic が type mismatch の位置を復元するための source evidence です。
 pub struct SelfhostTypeKindFact:
-    kind <SelfhostTypeKind>
-    span <SelfhostSourceSpan>
+    kind %SelfhostTypeKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostTypeKindFact:
-    fn clone <(&SelfhostTypeKindFact)->SelfhostTypeKindFact> (self):
+    fn clone %fn &SelfhostTypeKindFact SelfhostTypeKindFact \self:
         *self
 
 impl Copy for SelfhostTypeKindFact:
-    fn copy_mark <(SelfhostTypeKindFact)->SelfhostTypeKindFact> (self):
+    fn copy_mark %fn SelfhostTypeKindFact SelfhostTypeKindFact \self:
         self
 
 //: selfhost_type_kind_fact_new: type kind observation fact を[作/つく]る
-pub fn selfhost_type_kind_fact_new <(SelfhostTypeKind,SelfhostSourceSpan)->SelfhostTypeKindFact> (kind, span):
+pub fn selfhost_type_kind_fact_new %fn SelfhostTypeKind fn SelfhostSourceSpan SelfhostTypeKindFact \kind\span:
     SelfhostTypeKindFact kind span
 
 //: SelfhostTraitImplPairFact: trait impl coherence proof へ渡す impl pair observation
@@ -178,22 +178,22 @@ pub fn selfhost_type_kind_fact_new <(SelfhostTypeKind,SelfhostSourceSpan)->Selfh
 //: - candidate impl と既存 impl の key、arena から計算した relation、source span を typed fact として保持します。
 //: - relation は trait 名や stdlib module 名ではなく、trait id と TypeArena の構造的 self type 比較から作ります。
 pub struct SelfhostTraitImplPairFact:
-    candidate <SelfhostTraitImplKey>
-    existing <SelfhostTraitImplKey>
-    relation <SelfhostTraitImplRelation>
-    span <SelfhostSourceSpan>
+    candidate %SelfhostTraitImplKey
+    existing %SelfhostTraitImplKey
+    relation %SelfhostTraitImplRelation
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostTraitImplPairFact:
-    fn clone <(&SelfhostTraitImplPairFact)->SelfhostTraitImplPairFact> (self):
+    fn clone %fn &SelfhostTraitImplPairFact SelfhostTraitImplPairFact \self:
         *self
 
 impl Copy for SelfhostTraitImplPairFact:
-    fn copy_mark <(SelfhostTraitImplPairFact)->SelfhostTraitImplPairFact> (self):
+    fn copy_mark %fn SelfhostTraitImplPairFact SelfhostTraitImplPairFact \self:
         self
 
 //: selfhost_trait_impl_pair_fact_new: trait impl pair fact を[作/つく]る
-pub fn selfhost_trait_impl_pair_fact_new <(&SelfhostTypeArena,SelfhostTraitImplKey,SelfhostTraitImplKey,SelfhostSourceSpan)->SelfhostTraitImplPairFact> (arena, candidate, existing, span):
-    let relation <SelfhostTraitImplRelation> selfhost_trait_impl_relation arena candidate existing
+pub fn selfhost_trait_impl_pair_fact_new %fn &SelfhostTypeArena fn SelfhostTraitImplKey fn SelfhostTraitImplKey fn SelfhostSourceSpan SelfhostTraitImplPairFact \arena\candidate\existing\span:
+    let relation %SelfhostTraitImplRelation selfhost_trait_impl_relation arena candidate existing
     SelfhostTraitImplPairFact candidate existing relation span
 
 //: SelfhostResourceCellEventFact: Resource cell に対する event observation
@@ -202,19 +202,19 @@ pub fn selfhost_trait_impl_pair_fact_new <(&SelfhostTypeArena,SelfhostTraitImplK
 //: - Resource IR lowering や checker が観測した initialize / move / drop event を proof solver へ渡します。
 //: - event が正しい状態から実行されているかは、この fact だけでは主張せず、`ResourceCellTransition` obligation が検査します。
 pub struct SelfhostResourceCellEventFact:
-    event <SelfhostResourceCellEventKind>
-    span <SelfhostSourceSpan>
+    event %SelfhostResourceCellEventKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostResourceCellEventFact:
-    fn clone <(&SelfhostResourceCellEventFact)->SelfhostResourceCellEventFact> (self):
+    fn clone %fn &SelfhostResourceCellEventFact SelfhostResourceCellEventFact \self:
         *self
 
 impl Copy for SelfhostResourceCellEventFact:
-    fn copy_mark <(SelfhostResourceCellEventFact)->SelfhostResourceCellEventFact> (self):
+    fn copy_mark %fn SelfhostResourceCellEventFact SelfhostResourceCellEventFact \self:
         self
 
 //: selfhost_resource_cell_event_fact_new: Resource cell event fact を[作/つく]る
-pub fn selfhost_resource_cell_event_fact_new <(SelfhostResourceCellEventKind,SelfhostSourceSpan)->SelfhostResourceCellEventFact> (event, span):
+pub fn selfhost_resource_cell_event_fact_new %fn SelfhostResourceCellEventKind fn SelfhostSourceSpan SelfhostResourceCellEventFact \event\span:
     SelfhostResourceCellEventFact event span
 
 //: SelfhostOwnerEventFact: free obligation owner に対する event observation
@@ -223,20 +223,20 @@ pub fn selfhost_resource_cell_event_fact_new <(SelfhostResourceCellEventKind,Sel
 //: - Resource IR lowering や checker が観測した acquire / move / release / non-owning view event を proof solver へ渡します。
 //: - event が現在 state で許可されるかは、この fact だけでは主張せず、`OwnerTransition` obligation が検査します。
 pub struct SelfhostOwnerEventFact:
-    event <SelfhostOwnerEventKind>
-    storage <SelfhostOwnerStorageId>
-    span <SelfhostSourceSpan>
+    event %SelfhostOwnerEventKind
+    storage %SelfhostOwnerStorageId
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostOwnerEventFact:
-    fn clone <(&SelfhostOwnerEventFact)->SelfhostOwnerEventFact> (self):
+    fn clone %fn &SelfhostOwnerEventFact SelfhostOwnerEventFact \self:
         *self
 
 impl Copy for SelfhostOwnerEventFact:
-    fn copy_mark <(SelfhostOwnerEventFact)->SelfhostOwnerEventFact> (self):
+    fn copy_mark %fn SelfhostOwnerEventFact SelfhostOwnerEventFact \self:
         self
 
 //: selfhost_owner_event_fact_new: owner event fact を[作/つく]る
-pub fn selfhost_owner_event_fact_new <(SelfhostOwnerEventKind,SelfhostOwnerStorageId,SelfhostSourceSpan)->SelfhostOwnerEventFact> (event, storage, span):
+pub fn selfhost_owner_event_fact_new %fn SelfhostOwnerEventKind fn SelfhostOwnerStorageId fn SelfhostSourceSpan SelfhostOwnerEventFact \event\storage\span:
     SelfhostOwnerEventFact event storage span
 
 //: SelfhostBorrowAccessFact: Resource borrow state に対する access request observation
@@ -245,19 +245,19 @@ pub fn selfhost_owner_event_fact_new <(SelfhostOwnerEventKind,SelfhostOwnerStora
 //: - Resource IR lowering や checker が観測した shared/mutable borrow start/end request を proof solver へ渡します。
 //: - request が現在 state で許可されるかは、この fact だけでは主張せず、`ResourceBorrowAccess` obligation が検査します。
 pub struct SelfhostBorrowAccessFact:
-    request <SelfhostBorrowRequestKind>
-    span <SelfhostSourceSpan>
+    request %SelfhostBorrowRequestKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostBorrowAccessFact:
-    fn clone <(&SelfhostBorrowAccessFact)->SelfhostBorrowAccessFact> (self):
+    fn clone %fn &SelfhostBorrowAccessFact SelfhostBorrowAccessFact \self:
         *self
 
 impl Copy for SelfhostBorrowAccessFact:
-    fn copy_mark <(SelfhostBorrowAccessFact)->SelfhostBorrowAccessFact> (self):
+    fn copy_mark %fn SelfhostBorrowAccessFact SelfhostBorrowAccessFact \self:
         self
 
 //: selfhost_borrow_access_fact_new: borrow access fact を[作/つく]る
-pub fn selfhost_borrow_access_fact_new <(SelfhostBorrowRequestKind,SelfhostSourceSpan)->SelfhostBorrowAccessFact> (request, span):
+pub fn selfhost_borrow_access_fact_new %fn SelfhostBorrowRequestKind fn SelfhostSourceSpan SelfhostBorrowAccessFact \request\span:
     SelfhostBorrowAccessFact request span
 
 //: SelfhostLifetimeOutlivesFact: lifetime outlives proof へ渡す relation observation
@@ -266,22 +266,22 @@ pub fn selfhost_borrow_access_fact_new <(SelfhostBorrowRequestKind,SelfhostSourc
 //: - source scope lowering が観測した subject lifetime、required lifetime、relation、利用種別、span を typed fact として保持します。
 //: - relation は source scope graph から導出し、この fact だけでは要求 lifetime と一致するかや outlives 成立を主張しません。
 pub struct SelfhostLifetimeOutlivesFact:
-    subject <SelfhostLifetimeId>
-    required <SelfhostLifetimeId>
-    relation <SelfhostLifetimeRelation>
-    use_kind <SelfhostLifetimeUseKind>
-    span <SelfhostSourceSpan>
+    subject %SelfhostLifetimeId
+    required %SelfhostLifetimeId
+    relation %SelfhostLifetimeRelation
+    use_kind %SelfhostLifetimeUseKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostLifetimeOutlivesFact:
-    fn clone <(&SelfhostLifetimeOutlivesFact)->SelfhostLifetimeOutlivesFact> (self):
+    fn clone %fn &SelfhostLifetimeOutlivesFact SelfhostLifetimeOutlivesFact \self:
         *self
 
 impl Copy for SelfhostLifetimeOutlivesFact:
-    fn copy_mark <(SelfhostLifetimeOutlivesFact)->SelfhostLifetimeOutlivesFact> (self):
+    fn copy_mark %fn SelfhostLifetimeOutlivesFact SelfhostLifetimeOutlivesFact \self:
         self
 
 //: selfhost_lifetime_outlives_fact_new: lifetime outlives fact を[作/つく]る
-pub fn selfhost_lifetime_outlives_fact_new <(SelfhostLifetimeId,SelfhostLifetimeId,SelfhostLifetimeRelation,SelfhostLifetimeUseKind,SelfhostSourceSpan)->SelfhostLifetimeOutlivesFact> (subject, required, relation, use_kind, span):
+pub fn selfhost_lifetime_outlives_fact_new %fn SelfhostLifetimeId fn SelfhostLifetimeId fn SelfhostLifetimeRelation fn SelfhostLifetimeUseKind fn SelfhostSourceSpan SelfhostLifetimeOutlivesFact \subject\required\relation\use_kind\span:
     SelfhostLifetimeOutlivesFact subject required relation use_kind span
 
 //: SelfhostEffectObservationFact: effect boundary proof へ渡す effect observation
@@ -290,46 +290,46 @@ pub fn selfhost_lifetime_outlives_fact_new <(SelfhostLifetimeId,SelfhostLifetime
 //: - checker や Resource IR が観測した effect kind と escape proof 状態を solver へ渡します。
 //: - `InternalAlloc` は `NoEscapeProven` を伴う場合だけ pure context へ fold できます。
 pub struct SelfhostEffectObservationFact:
-    effect <SelfhostEffectKind>
-    escape <SelfhostEffectEscapeState>
-    span <SelfhostSourceSpan>
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostEffectObservationFact:
-    fn clone <(&SelfhostEffectObservationFact)->SelfhostEffectObservationFact> (self):
+    fn clone %fn &SelfhostEffectObservationFact SelfhostEffectObservationFact \self:
         *self
 
 impl Copy for SelfhostEffectObservationFact:
-    fn copy_mark <(SelfhostEffectObservationFact)->SelfhostEffectObservationFact> (self):
+    fn copy_mark %fn SelfhostEffectObservationFact SelfhostEffectObservationFact \self:
         self
 
 //: selfhost_effect_observation_fact_new: effect observation fact を[作/つく]る
-pub fn selfhost_effect_observation_fact_new <(SelfhostEffectKind,SelfhostEffectEscapeState,SelfhostSourceSpan)->SelfhostEffectObservationFact> (effect, escape, span):
+pub fn selfhost_effect_observation_fact_new %fn SelfhostEffectKind fn SelfhostEffectEscapeState fn SelfhostSourceSpan SelfhostEffectObservationFact \effect\escape\span:
     SelfhostEffectObservationFact effect escape span
 
 //: SelfhostProofFact: solver に渡す typed fact
 pub enum SelfhostProofFact:
-    SourceSpanObserved <SelfhostSourceSpanFact>
-    RawBackendItemObserved <SelfhostRawBackendItemFact>
-    ModuleDirectiveObserved <SelfhostModuleDirectiveFact>
-    ModuleDeclarationObserved <SelfhostModuleDeclarationFact>
-    TypeKindObserved <SelfhostTypeKindFact>
-    TraitImplPairObserved <SelfhostTraitImplPairFact>
-    ResourceCellEventObserved <SelfhostResourceCellEventFact>
-    OwnerEventObserved <SelfhostOwnerEventFact>
-    BorrowAccessObserved <SelfhostBorrowAccessFact>
-    LifetimeOutlivesObserved <SelfhostLifetimeOutlivesFact>
-    EffectObserved <SelfhostEffectObservationFact>
+    SourceSpanObserved %SelfhostSourceSpanFact
+    RawBackendItemObserved %SelfhostRawBackendItemFact
+    ModuleDirectiveObserved %SelfhostModuleDirectiveFact
+    ModuleDeclarationObserved %SelfhostModuleDeclarationFact
+    TypeKindObserved %SelfhostTypeKindFact
+    TraitImplPairObserved %SelfhostTraitImplPairFact
+    ResourceCellEventObserved %SelfhostResourceCellEventFact
+    OwnerEventObserved %SelfhostOwnerEventFact
+    BorrowAccessObserved %SelfhostBorrowAccessFact
+    LifetimeOutlivesObserved %SelfhostLifetimeOutlivesFact
+    EffectObserved %SelfhostEffectObservationFact
 
 impl Clone for SelfhostProofFact:
-    fn clone <(&SelfhostProofFact)->SelfhostProofFact> (self):
+    fn clone %fn &SelfhostProofFact SelfhostProofFact \self:
         *self
 
 impl Copy for SelfhostProofFact:
-    fn copy_mark <(SelfhostProofFact)->SelfhostProofFact> (self):
+    fn copy_mark %fn SelfhostProofFact SelfhostProofFact \self:
         self
 
 //: selfhost_proof_fact_domain: fact の domain を[返/かえ]す
-pub fn selfhost_proof_fact_domain <(SelfhostProofFact)->SelfhostProofDomain> (fact):
+pub fn selfhost_proof_fact_domain %fn SelfhostProofFact SelfhostProofDomain \fact:
     match fact:
         SelfhostProofFact::SourceSpanObserved _span_fact:
             SelfhostProofDomain::Source

@@ -26,17 +26,17 @@
 //:
 //: [注意/ちゅうい]:
 //: - 返り値は `buffer_free` で解放してください。
-pub fn buffer_new <(i32,i32)*>i32> (cols, rows):
-    let curr <i32> alloc_raw mul rows 4;
-    let prev <i32> alloc_raw mul rows 4;
-    let mut i <i32> 0;
+pub fn buffer_new %impure fn i32 impure fn i32 i32 \cols\rows:
+    let curr %i32 alloc_raw mul rows 4;
+    let prev %i32 alloc_raw mul rows 4;
+    let mut i %i32 0;
     while lt i rows:
         do:
-            let off <i32> mul i 4;
+            let off %i32 mul i 4;
             store<str> add curr off "";
             store<str> add prev off "";
             set i add i 1;
-    let b <i32> alloc_raw 16;
+    let b %i32 alloc_raw 16;
     store_i32 b cols;
     store_i32 add b 4 rows;
     store_i32 add b 8 curr;
@@ -47,10 +47,10 @@ pub fn buffer_new <(i32,i32)*>i32> (cols, rows):
 //:
 //: [目的/もくてき]:
 //: - `buffer_new` で確保したメモリを解放します。
-pub fn buffer_free <(i32)*>()> (b):
-    let rows <i32> load_i32 add b 4;
-    let curr <i32> load_i32 add b 8;
-    let prev <i32> load_i32 add b 12;
+pub fn buffer_free %impure fn i32 () \b:
+    let rows %i32 load_i32 add b 4;
+    let curr %i32 load_i32 add b 8;
+    let prev %i32 load_i32 add b 12;
     dealloc_raw curr mul rows 4;
     dealloc_raw prev mul rows 4;
     dealloc_raw b 16;
@@ -63,15 +63,15 @@ pub fn buffer_free <(i32)*>()> (b):
 //:
 //: [注意/ちゅうい]:
 //: - 行番号が範囲外の場合は何もしません。
-pub fn buffer_set_line <(i32,i32,str)*>()> (b, row, line):
-    let rows <i32> load_i32 add b 4;
-    let row_max_excl <i32> add rows 1;
+pub fn buffer_set_line %impure fn i32 impure fn i32 impure fn str () \b\row\line:
+    let rows %i32 load_i32 add b 4;
+    let row_max_excl %i32 add rows 1;
     if:
         and gt row 0 lt row row_max_excl
         then:
-            let curr <i32> load_i32 add b 8;
-            let row0 <i32> sub row 1;
-            let off <i32> mul row0 4;
+            let curr %i32 load_i32 add b 8;
+            let row0 %i32 sub row 1;
+            let off %i32 mul row0 4;
             store<str> add curr off line;
         else:
             ();

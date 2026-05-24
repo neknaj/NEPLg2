@@ -12,7 +12,7 @@ diag_code: resolve.identifier.undefined
 #target std
 #import "std/stdio/raw" as raw
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     raw::stdio_fd_read_mem 0 0 0 0
 ```
 
@@ -25,7 +25,7 @@ diag_code: resolve.identifier.undefined
 #target std
 #import "std/stdio/raw" as raw
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     raw::stdio_fd_write_mem 1 0 0 0
 ```
 
@@ -38,7 +38,7 @@ diag_code: resolve.identifier.undefined
 #target std
 #import "std/stdio/raw" as raw
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     raw::stdio_fd_write_from_result 1 0 0 0 1
 ```
 
@@ -51,7 +51,7 @@ diag_code: resolve.identifier.undefined
 #target std
 #import "std/stdio/write/fd" as fd
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     fd::stdio_fd_write_from_result 1 0 0 0 1
 ```
 
@@ -64,6 +64,6 @@ diag_code: resolve.identifier.undefined
 #target std
 #import "std/stdio/read/buffer" as read_buffer
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     read_buffer::stdio_fd_read_into_result 0 0 0 0 1
 ```

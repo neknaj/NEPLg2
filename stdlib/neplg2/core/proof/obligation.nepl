@@ -20,15 +20,15 @@
 
 //: SelfhostRawBackendOpenBlock: raw backend block が text をまだ[持/も]たない[状態/じょうたい]
 pub struct SelfhostRawBackendOpenBlock:
-    kind <SelfhostRawBackendKind>
-    span <SelfhostSourceSpan>
+    kind %SelfhostRawBackendKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostRawBackendOpenBlock:
-    fn clone <(&SelfhostRawBackendOpenBlock)->SelfhostRawBackendOpenBlock> (self):
+    fn clone %fn &SelfhostRawBackendOpenBlock SelfhostRawBackendOpenBlock \self:
         *self
 
 impl Copy for SelfhostRawBackendOpenBlock:
-    fn copy_mark <(SelfhostRawBackendOpenBlock)->SelfhostRawBackendOpenBlock> (self):
+    fn copy_mark %fn SelfhostRawBackendOpenBlock SelfhostRawBackendOpenBlock \self:
         self
 
 //: SelfhostRawBackendState: raw backend stream の proof state
@@ -37,36 +37,36 @@ impl Copy for SelfhostRawBackendOpenBlock:
 //: - `#wasm:` / `#llvmir:` block と raw text の対応を checker-local state machine ではなく proof obligation の state として[扱/あつか]います。
 pub enum SelfhostRawBackendState:
     Normal
-    OpenEmpty <SelfhostRawBackendOpenBlock>
-    OpenReady <SelfhostRawBackendKind>
+    OpenEmpty %SelfhostRawBackendOpenBlock
+    OpenReady %SelfhostRawBackendKind
 
 impl Clone for SelfhostRawBackendState:
-    fn clone <(&SelfhostRawBackendState)->SelfhostRawBackendState> (self):
+    fn clone %fn &SelfhostRawBackendState SelfhostRawBackendState \self:
         *self
 
 impl Copy for SelfhostRawBackendState:
-    fn copy_mark <(SelfhostRawBackendState)->SelfhostRawBackendState> (self):
+    fn copy_mark %fn SelfhostRawBackendState SelfhostRawBackendState \self:
         self
 
 //: selfhost_raw_backend_open_block_new: empty raw backend block state payload を[作/つく]る
-pub fn selfhost_raw_backend_open_block_new <(SelfhostRawBackendKind,SelfhostSourceSpan)->SelfhostRawBackendOpenBlock> (kind, span):
+pub fn selfhost_raw_backend_open_block_new %fn SelfhostRawBackendKind fn SelfhostSourceSpan SelfhostRawBackendOpenBlock \kind\span:
     SelfhostRawBackendOpenBlock kind span
 
 //: selfhost_raw_backend_state_start: block item から empty block state を[作/つく]る
-pub fn selfhost_raw_backend_state_start <(SelfhostRawBackendKind,SelfhostSourceSpan)->SelfhostRawBackendState> (kind, span):
+pub fn selfhost_raw_backend_state_start %fn SelfhostRawBackendKind fn SelfhostSourceSpan SelfhostRawBackendState \kind\span:
     SelfhostRawBackendState::OpenEmpty selfhost_raw_backend_open_block_new kind span
 
 //: SelfhostModuleDirectiveSeenBoth: `#entry` と `#target` の両方を観測済みの module directive state
 pub struct SelfhostModuleDirectiveSeenBoth:
-    entry_span <SelfhostSourceSpan>
-    target_span <SelfhostSourceSpan>
+    entry_span %SelfhostSourceSpan
+    target_span %SelfhostSourceSpan
 
 impl Clone for SelfhostModuleDirectiveSeenBoth:
-    fn clone <(&SelfhostModuleDirectiveSeenBoth)->SelfhostModuleDirectiveSeenBoth> (self):
+    fn clone %fn &SelfhostModuleDirectiveSeenBoth SelfhostModuleDirectiveSeenBoth \self:
         *self
 
 impl Copy for SelfhostModuleDirectiveSeenBoth:
-    fn copy_mark <(SelfhostModuleDirectiveSeenBoth)->SelfhostModuleDirectiveSeenBoth> (self):
+    fn copy_mark %fn SelfhostModuleDirectiveSeenBoth SelfhostModuleDirectiveSeenBoth \self:
         self
 
 //: SelfhostModuleDirectiveState: singleton directive stream の proof state
@@ -76,46 +76,46 @@ impl Copy for SelfhostModuleDirectiveSeenBoth:
 //: - state variant が観測済み directive の span を保持するため、重複検出時に以前の directive も typed refutation へ渡せます。
 pub enum SelfhostModuleDirectiveState:
     NoneSeen
-    EntrySeen <SelfhostSourceSpan>
-    TargetSeen <SelfhostSourceSpan>
-    EntryAndTargetSeen <SelfhostModuleDirectiveSeenBoth>
+    EntrySeen %SelfhostSourceSpan
+    TargetSeen %SelfhostSourceSpan
+    EntryAndTargetSeen %SelfhostModuleDirectiveSeenBoth
 
 impl Clone for SelfhostModuleDirectiveState:
-    fn clone <(&SelfhostModuleDirectiveState)->SelfhostModuleDirectiveState> (self):
+    fn clone %fn &SelfhostModuleDirectiveState SelfhostModuleDirectiveState \self:
         *self
 
 impl Copy for SelfhostModuleDirectiveState:
-    fn copy_mark <(SelfhostModuleDirectiveState)->SelfhostModuleDirectiveState> (self):
+    fn copy_mark %fn SelfhostModuleDirectiveState SelfhostModuleDirectiveState \self:
         self
 
 //: selfhost_module_directive_seen_both_new: entry / target の両方を観測済みにする state payload を[作/つく]る
-pub fn selfhost_module_directive_seen_both_new <(SelfhostSourceSpan,SelfhostSourceSpan)->SelfhostModuleDirectiveSeenBoth> (entry_span, target_span):
+pub fn selfhost_module_directive_seen_both_new %fn SelfhostSourceSpan fn SelfhostSourceSpan SelfhostModuleDirectiveSeenBoth \entry_span\target_span:
     SelfhostModuleDirectiveSeenBoth entry_span target_span
 
 //: SelfhostProofObligation: solver が[証明/しょうめい]する typed obligation
 pub enum SelfhostProofObligation:
-    SourceSpanValid <SelfhostSourceSpan>
-    RawBackendTransition <SelfhostRawBackendState>
-    ModuleDirectiveTransition <SelfhostModuleDirectiveState>
-    ModuleDeclarationHeaderAvailable <SelfhostModuleDeclarationKind>
-    TypeKindCompatible <SelfhostTypeKind>
+    SourceSpanValid %SelfhostSourceSpan
+    RawBackendTransition %SelfhostRawBackendState
+    ModuleDirectiveTransition %SelfhostModuleDirectiveState
+    ModuleDeclarationHeaderAvailable %SelfhostModuleDeclarationKind
+    TypeKindCompatible %SelfhostTypeKind
     TraitImplNonOverlapping
-    LifetimeOutlives <SelfhostLifetimeId>
-    ResourceCellTransition <SelfhostResourceCellState>
-    OwnerTransition <SelfhostOwnerState>
-    ResourceBorrowAccess <SelfhostBorrowState>
-    EffectAllowedInContext <SelfhostEffectContext>
+    LifetimeOutlives %SelfhostLifetimeId
+    ResourceCellTransition %SelfhostResourceCellState
+    OwnerTransition %SelfhostOwnerState
+    ResourceBorrowAccess %SelfhostBorrowState
+    EffectAllowedInContext %SelfhostEffectContext
 
 impl Clone for SelfhostProofObligation:
-    fn clone <(&SelfhostProofObligation)->SelfhostProofObligation> (self):
+    fn clone %fn &SelfhostProofObligation SelfhostProofObligation \self:
         *self
 
 impl Copy for SelfhostProofObligation:
-    fn copy_mark <(SelfhostProofObligation)->SelfhostProofObligation> (self):
+    fn copy_mark %fn SelfhostProofObligation SelfhostProofObligation \self:
         self
 
 //: selfhost_proof_obligation_domain: obligation の domain を[返/かえ]す
-pub fn selfhost_proof_obligation_domain <(SelfhostProofObligation)->SelfhostProofDomain> (obligation):
+pub fn selfhost_proof_obligation_domain %fn SelfhostProofObligation SelfhostProofDomain \obligation:
     match obligation:
         SelfhostProofObligation::SourceSpanValid _span:
             SelfhostProofDomain::Source

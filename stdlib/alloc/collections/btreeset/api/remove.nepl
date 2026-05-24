@@ -28,26 +28,26 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let s <BTreeSet<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let s %BTreeSet i32:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok
 //:         |> remove 7
-//:     let observed_len <i32> len<i32> &s
-//:     let ok <bool> eq observed_len 0
+//:     let observed_len %i32 len<i32> &s
+//:     let ok %bool eq observed_len 0
 //:     free<i32> s
 //:     if ok 1 0
 //: ```
-pub fn remove <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set0, key):
-    let len0 <i32> *field::get_ref &set0 "len"
-    let cap0 <i32> *field::get_ref &set0 "cap"
-    let storage <BTreeSetStorage<.T>> field::get set0 "storage"
-    let idx <i32> btreeset_lower_bound_storage<.T> &storage key 0 len0
+pub fn remove <.T: Ord&Copy> %impure fn BTreeSet .T impure fn .T BTreeSet .T \set0\key:
+    let len0 %i32 *field::get_ref &set0 "len"
+    let cap0 %i32 *field::get_ref &set0 "cap"
+    let storage %BTreeSetStorage .T field::get set0 "storage"
+    let idx %i32 btreeset_lower_bound_storage<.T> &storage key 0 len0
     if:
         not btreeset_is_at_storage<.T> &storage len0 idx key
         then BTreeSet<.T> len0 cap0 storage
         else:
-            let last <i32> sub len0 1
+            let last %i32 sub len0 1
             btreeset_shift_left_after_remove<.T> &storage idx len0
             BTreeSet<.T> last cap0 storage
 
@@ -62,19 +62,19 @@ pub fn remove <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set0, key):
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let s <BTreeSet<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let s %BTreeSet i32:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok
 //:         |> clear
-//:     let observed_len <i32> len<i32> &s
-//:     let ok <bool> eq observed_len 0
+//:     let observed_len %i32 len<i32> &s
+//:     let ok %bool eq observed_len 0
 //:     free<i32> s
 //:     if ok 1 0
 //: ```
-pub fn clear <.T: Copy> <(BTreeSet<.T>)*>BTreeSet<.T>> (set0):
-    let len0 <i32> *field::get_ref &set0 "len"
-    let cap0 <i32> *field::get_ref &set0 "cap"
-    let storage <BTreeSetStorage<.T>> field::get set0 "storage"
+pub fn clear <.T: Copy> %impure fn BTreeSet .T BTreeSet .T \set0:
+    let len0 %i32 *field::get_ref &set0 "len"
+    let cap0 %i32 *field::get_ref &set0 "cap"
+    let storage %BTreeSetStorage .T field::get set0 "storage"
     btreeset_clear_slots<.T> &storage len0 0
     BTreeSet<.T> 0 cap0 storage

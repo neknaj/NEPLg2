@@ -29,13 +29,13 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn edge_at <(&SelfhostModuleGraph,i32)->SelfhostModuleGraphEdge> (graph, idx):
+fn edge_at %fn &SelfhostModuleGraph fn i32 SelfhostModuleGraphEdge \graph\idx:
     unwrap<SelfhostModuleGraphEdge> selfhost_module_graph_edge_at graph idx
 
-fn main <()*>i32> ():
-    let root <str> "#import \"util.nepl\" as util\n#import \"leaf.nepl\" as *\nfn main <()->i32> ():\n    0\n"
-    let util <str> "#import \"leaf.nepl\" as leaf\nfn util <()->i32> ():\n    1\n"
-    let leaf <str> "fn leaf <()->i32> ():\n    2\n"
+fn main %impure fn () i32 \():
+    let root %str "#import \"util.nepl\" as util\n#import \"leaf.nepl\" as *\nfn main <()->i32> \():\n    0\n"
+    let util %str "#import \"leaf.nepl\" as leaf\nfn util <()->i32> \():\n    1\n"
+    let leaf %str "fn leaf <()->i32> ():\n    2\n"
     let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs0:
@@ -47,8 +47,8 @@ fn main <()*>i32> ():
                                 Result::Ok vfs3:
                                     match selfhost_build_module_graph &vfs3 "main.nepl":
                                         Result::Ok graph:
-                                            let e0 <SelfhostModuleGraphEdge> edge_at &graph 0
-                                            let e1 <SelfhostModuleGraphEdge> edge_at &graph 1
+                                            let e0 %SelfhostModuleGraphEdge edge_at &graph 0
+                                            let e1 %SelfhostModuleGraphEdge edge_at &graph 1
                                             let checks1 checks_push checks0 check_eq_i32 3 selfhost_module_graph_node_len &graph
                                             let checks2 checks_push checks1 check_eq_i32 3 selfhost_module_graph_edge_len &graph
                                             let checks3 checks_push checks2 check selfhost_module_graph_has_path &graph "main.nepl"
@@ -107,15 +107,15 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn check_note <(TestReport, Option<str>)*>TestReport> (checks, note):
+fn check_note %impure fn TestReport impure fn Option str TestReport \checks\note:
     match note:
         Option::Some text:
             checks_push checks check_str_eq "missing.nepl" text
         Option::None:
             checks_push checks Result<(),str>::Err "missing module diagnostic note was absent"
 
-fn main <()*>i32> ():
-    let root <str> "#import \"missing.nepl\" as *\nfn main <()->i32> ():\n    0\n"
+fn main %impure fn () i32 \():
+    let root %str "#import \"missing.nepl\" as *\nfn main <()->i32> \():\n    0\n"
     let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs0:
@@ -166,16 +166,16 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn check_note <(TestReport, Option<str>)*>TestReport> (checks, note):
+fn check_note %impure fn TestReport impure fn Option str TestReport \checks\note:
     match note:
         Option::Some text:
             checks_push checks check_str_eq "a.nepl" text
         Option::None:
             checks_push checks Result<(),str>::Err "cycle diagnostic note was absent"
 
-fn main <()*>i32> ():
-    let source_a <str> "#import \"b.nepl\" as b\nfn a <()->i32> ():\n    1\n"
-    let source_b <str> "#import \"a.nepl\" as a\nfn b <()->i32> ():\n    2\n"
+fn main %impure fn () i32 \():
+    let source_a %str "#import \"b.nepl\" as b\nfn a <()->i32> \():\n    1\n"
+    let source_b %str "#import \"a.nepl\" as a\nfn b <()->i32> \():\n    2\n"
     let checks0 checks_new
     match selfhost_vfs_new:
         Result::Ok vfs0:

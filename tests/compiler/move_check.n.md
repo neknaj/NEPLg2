@@ -13,15 +13,15 @@ stdout: "test_report name=\"move_simple_ok\" count=1 failed=0\nassertion index=0
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let t <LocalToken> LocalToken @token_id
-    let u <LocalToken> t
-    let actual <i32> 0
+fn main %impure fn () i32 \():
+    let t %LocalToken LocalToken @token_id
+    let u %LocalToken t
+    let actual %i32 0
     let report:
         test::test_report_new "move_simple_ok"
         |> test::test_report_push test::assert_eq_i32 "single move consumes owner" 0 actual
@@ -38,15 +38,15 @@ diag_code: resource.cell.moved
 #indent 4
 #target core
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let t <LocalToken> LocalToken @token_id
-    let u <LocalToken> t
-    let v <LocalToken> t
+fn main %fn () i32 \():
+    let t %LocalToken LocalToken @token_id
+    let u %LocalToken t
+    let v %LocalToken t
     0
 ```
 
@@ -59,16 +59,16 @@ diag_code: resource.cell.possibly_moved
 #indent 4
 #target core
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn consume <(LocalToken)->i32> (_t):
+fn consume %fn LocalToken i32 \_t:
     1
 
-fn main <()->i32> ():
-    let t <LocalToken> LocalToken @token_id
+fn main %fn () i32 \():
+    let t %LocalToken LocalToken @token_id
     if true:
         then:
             consume t
@@ -87,17 +87,17 @@ diag_code: resource.cell.possibly_moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn consume <(LocalToken)->()> (_t):
+fn consume %fn LocalToken () \_t:
     ()
 
-fn main <()->i32> ():
-    let t <LocalToken> LocalToken @token_id
-    let mut c <bool> true
+fn main %fn () i32 \():
+    let t %LocalToken LocalToken @token_id
+    let mut c %bool true
     while c:
         do:
             consume t
@@ -118,17 +118,17 @@ stdout: "test_report name=\"move_reassign_non_copy\" count=1 failed=0\nassertion
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let mut x <LocalToken> LocalToken @token_id
-    let y <LocalToken> x
+fn main %impure fn () i32 \():
+    let mut x %LocalToken LocalToken @token_id
+    let y %LocalToken x
     set x LocalToken @token_id
-    let z <LocalToken> x
-    let actual <i32> 0
+    let z %LocalToken x
+    let actual %i32 0
     let report:
         test::test_report_new "move_reassign_non_copy"
         |> test::test_report_push test::assert_eq_i32 "non-copy local reassign after move" 0 actual
@@ -147,12 +147,12 @@ stdout: "test_report name=\"move_reassign_copy\" count=1 failed=0\nassertion ind
 #target std
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let mut x <i32> 1
-    let y <i32> x
+fn main %impure fn () i32 \():
+    let mut x %i32 1
+    let y %i32 x
     set x 2
-    let z <i32> x
-    let actual <i32> 0
+    let z %i32 x
+    let actual %i32 0
     let report:
         test::test_report_new "move_reassign_copy"
         |> test::test_report_push test::assert_eq_i32 "copy local reassign after copy" 0 actual
@@ -172,16 +172,16 @@ stdout: "test_report name=\"move_reference_ok\" count=1 failed=0\nassertion inde
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let r <&LocalToken> &x
-    let y <LocalToken> x
-    let actual <i32> 0
+fn main %impure fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let r %&LocalToken &x
+    let y %LocalToken x
+    let actual %i32 0
     let report:
         test::test_report_new "move_reference_ok"
         |> test::test_report_push test::assert_eq_i32 "borrow last use permits later move" 0 actual
@@ -199,16 +199,16 @@ diag_code: resource.borrow.move_from_shared
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let r <&LocalToken> &x
-    let y <LocalToken> x
-    let z <&LocalToken> r
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let r %&LocalToken &x
+    let y %LocalToken x
+    let z %&LocalToken r
     0
 ```
 
@@ -224,23 +224,23 @@ stdout: "test_report name=\"move_branch_reference_last_use_releases_at_join\" co
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let r <&LocalToken> &x
-    let cnd <bool> true
+fn main %impure fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let r %&LocalToken &x
+    let cnd %bool true
     if cnd:
         then:
-            let rr <&LocalToken> r
+            let rr %&LocalToken r
             0
         else:
             0
-    let y <LocalToken> x
-    let actual <i32> 0
+    let y %LocalToken x
+    let actual %i32 0
     let report:
         test::test_report_new "move_branch_reference_last_use_releases_at_join"
         |> test::test_report_push test::assert_eq_i32 "branch borrow last use releases at join" 0 actual
@@ -258,24 +258,24 @@ diag_code: resource.borrow.move_from_shared
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let y <LocalToken> LocalToken @token_id
-    let mut r <&LocalToken> &x
-    let cnd <bool> true
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let y %LocalToken LocalToken @token_id
+    let mut r %&LocalToken &x
+    let cnd %bool true
     if cnd:
         then:
             set r &y
             0
         else:
             0
-    let moved <LocalToken> y
-    let still_live <&LocalToken> r
+    let moved %LocalToken y
+    let still_live %&LocalToken r
     0
 ```
 
@@ -291,21 +291,21 @@ stdout: "test_report name=\"move_reference_call_arg_is_temporary_borrow\" count=
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn observe <(&LocalToken)->i32> (_x):
+fn observe %fn &LocalToken i32 \_x:
     1
 
-fn consume <(LocalToken)->i32> (_x):
+fn consume %fn LocalToken i32 \_x:
     0
 
-fn main <()*>i32> ():
-    let x <LocalToken> LocalToken @token_id
+fn main %impure fn () i32 \():
+    let x %LocalToken LocalToken @token_id
     observe &x
-    let actual <i32> consume x
+    let actual %i32 consume x
     let report:
         test::test_report_new "move_reference_call_arg_is_temporary_borrow"
         |> test::test_report_push test::assert_eq_i32 "shared call argument borrow is temporary" 0 actual
@@ -325,21 +325,21 @@ stdout: "test_report name=\"move_mut_reference_call_arg_is_temporary_borrow\" co
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn observe_mut <(&mut LocalToken)->i32> (_x):
+fn observe_mut %fn &mut LocalToken i32 \_x:
     1
 
-fn consume <(LocalToken)->i32> (_x):
+fn consume %fn LocalToken i32 \_x:
     0
 
-fn main <()*>i32> ():
-    let x <LocalToken> LocalToken @token_id
+fn main %impure fn () i32 \():
+    let x %LocalToken LocalToken @token_id
     observe_mut &mut x
-    let actual <i32> consume x
+    let actual %i32 consume x
     let report:
         test::test_report_new "move_mut_reference_call_arg_is_temporary_borrow"
         |> test::test_report_push test::assert_eq_i32 "unique call argument borrow is temporary" 0 actual
@@ -357,16 +357,16 @@ diag_code: resource.borrow.borrow_during_unique
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn use_both <(&mut LocalToken,&LocalToken)->i32> (_a, _b):
+fn use_both %fn &mut LocalToken fn &LocalToken i32 \_a\_b:
     0
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
     use_both &mut x &x
 ```
 
@@ -380,16 +380,16 @@ diag_code: resource.borrow.unique_during_shared
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn use_both <(&LocalToken,&mut LocalToken)->i32> (_a, _b):
+fn use_both %fn &LocalToken fn &mut LocalToken i32 \_a\_b:
     0
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
     use_both &x &mut x
 ```
 
@@ -403,18 +403,18 @@ diag_code: resource.borrow.borrow_during_unique
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct RefPair:
-    a <&mut LocalToken>
-    b <&LocalToken>
+    a %&mut LocalToken
+    b %&LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let p <RefPair> RefPair &mut x &x
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let p %RefPair RefPair &mut x &x
     0
 ```
 
@@ -428,13 +428,13 @@ diag_code: resource.borrow.borrow_during_unique
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
     let p Tuple:
         &mut x
         &x
@@ -451,16 +451,16 @@ diag_code: resource.borrow.use_during_unique
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let r <&mut LocalToken> &mut x
-    let y <LocalToken> x
-    let keep <&mut LocalToken> r
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let r %&mut LocalToken &mut x
+    let y %LocalToken x
+    let keep %&mut LocalToken r
     0
 ```
 
@@ -476,17 +476,17 @@ stdout: "test_report name=\"move_unique_reference_last_use_releases_owner\" coun
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()*>i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let r <&mut LocalToken> &mut x
-    let rr <&mut LocalToken> r
-    let y <LocalToken> x
-    let actual <i32> 0
+fn main %impure fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let r %&mut LocalToken &mut x
+    let rr %&mut LocalToken r
+    let y %LocalToken x
+    let actual %i32 0
     let report:
         test::test_report_new "move_unique_reference_last_use_releases_owner"
         |> test::test_report_push test::assert_eq_i32 "unique borrow last use releases owner" 0 actual
@@ -504,16 +504,16 @@ diag_code: resource.cell.moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let r <&mut LocalToken> &mut x
-    let rr <&mut LocalToken> r
-    let again <&mut LocalToken> r
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let r %&mut LocalToken &mut x
+    let rr %&mut LocalToken r
+    let again %&mut LocalToken r
     0
 ```
 
@@ -527,16 +527,16 @@ diag_code: resource.borrow.unique_during_shared
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let r <&LocalToken> &x
-    let u <&mut LocalToken> &mut x
-    let keep <&LocalToken> r
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let r %&LocalToken &x
+    let u %&mut LocalToken &mut x
+    let keep %&LocalToken r
     0
 ```
 
@@ -550,16 +550,16 @@ diag_code: resource.borrow.borrow_during_unique
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let r <&mut LocalToken> &mut x
-    let s <&LocalToken> &x
-    let keep <&mut LocalToken> r
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let r %&mut LocalToken &mut x
+    let s %&LocalToken &x
+    let keep %&mut LocalToken r
     0
 ```
 
@@ -572,11 +572,11 @@ diag_code: resource.borrow.borrow_during_unique
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let x <i32> 1
-    let u <&mut i32> &mut x
-    let s <&i32> &x
-    let keep <&mut i32> u
+fn main %fn () i32 \():
+    let x %i32 1
+    let u %&mut i32 &mut x
+    let s %&i32 &x
+    let keep %&mut i32 u
     0
 ```
 
@@ -589,11 +589,11 @@ diag_code: resource.borrow.unique_during_shared
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let x <i32> 1
-    let s <&i32> &x
-    let u <&mut i32> &mut x
-    let keep <&i32> s
+fn main %fn () i32 \():
+    let x %i32 1
+    let s %&i32 &x
+    let u %&mut i32 &mut x
+    let keep %&i32 s
     0
 ```
 
@@ -609,12 +609,12 @@ stdout: "test_report name=\"move_copy_shared_borrow_allows_owner_copy_while_refe
 #import "core/math" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let x <i32> 1
-    let s <&i32> &x
-    let y <i32> x
-    let keep <&i32> s
-    let actual <i32> add x y
+fn main %impure fn () i32 \():
+    let x %i32 1
+    let s %&i32 &x
+    let y %i32 x
+    let keep %&i32 s
+    let actual %i32 add x y
     let report:
         test::test_report_new "move_copy_shared_borrow_allows_owner_copy_while_reference_live"
         |> test::test_report_push test::assert_eq_i32 "copy owner may be copied while shared reference lives" 2 actual
@@ -632,15 +632,15 @@ diag_code: resource.cell.moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->()> ():
-    let x <LocalToken> LocalToken @token_id
-    let y <LocalToken> x
-    let r <&LocalToken> &x
+fn main %fn () () \():
+    let x %LocalToken LocalToken @token_id
+    let y %LocalToken x
+    let r %&LocalToken &x
 ```
 
 ## move_pass_to_function_err
@@ -653,18 +653,18 @@ diag_code: resource.cell.moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn consume <(LocalToken)->i32> (_w):
+fn consume %fn LocalToken i32 \_w:
     0
 
-fn main <()->()> ():
-    let x <LocalToken> LocalToken @token_id
+fn main %fn () () \():
+    let x %LocalToken LocalToken @token_id
     consume x
-    let y <LocalToken> x
+    let y %LocalToken x
 ```
 
 ## move_struct_field_err
@@ -677,18 +677,18 @@ diag_code: resource.cell.moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 struct S:
-    f <LocalToken>
+    f %LocalToken
 
-fn main <()->()> ():
-    let s <S> S LocalToken @token_id
-    let a <LocalToken> s.f
-    let b <LocalToken> s.f
+fn main %fn () () \():
+    let s %S S LocalToken @token_id
+    let a %LocalToken s.f
+    let b %LocalToken s.f
 ```
 
 ## move_distinct_owned_struct_fields_once_ok
@@ -705,24 +705,24 @@ stdout: "test_report name=\"move_distinct_owned_struct_fields_once_ok\" count=1 
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 struct Pair:
-    left <LocalToken>
-    right <LocalToken>
+    left %LocalToken
+    right %LocalToken
 
-fn consume <(LocalToken)->i32> (_w):
+fn consume %fn LocalToken i32 \_w:
     0
 
-fn main <()*>i32> ():
-    let p <Pair> Pair (LocalToken @token_id) (LocalToken @token_id)
-    let left <LocalToken> field::get p "left"
-    let right <LocalToken> field::get p "right"
+fn main %impure fn () i32 \():
+    let p %Pair Pair (LocalToken @token_id) (LocalToken @token_id)
+    let left %LocalToken field::get p "left"
+    let right %LocalToken field::get p "right"
     consume left
-    let actual <i32> consume right
+    let actual %i32 consume right
     let report:
         test::test_report_new "move_distinct_owned_struct_fields_once_ok"
         |> test::test_report_push test::assert_eq_i32 "distinct owned struct fields move once" 0 actual
@@ -742,19 +742,19 @@ diag_code: resource.cell.moved
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 struct Pair:
-    left <LocalToken>
-    right <LocalToken>
+    left %LocalToken
+    right %LocalToken
 
-fn main <()->()> ():
-    let p <Pair> Pair (LocalToken @token_id) (LocalToken @token_id)
-    let left <LocalToken> field::get p "left"
-    let again <LocalToken> field::get p "left"
+fn main %fn () () \():
+    let p %Pair Pair (LocalToken @token_id) (LocalToken @token_id)
+    let left %LocalToken field::get p "left"
+    let again %LocalToken field::get p "left"
 ```
 
 ## move_owner_after_partial_field_move_rejected
@@ -769,21 +769,21 @@ diag_code: resource.cell.moved
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 struct Pair:
-    left <LocalToken>
-    right <LocalToken>
+    left %LocalToken
+    right %LocalToken
 
-fn consume_pair <(Pair)->()> (_p):
+fn consume_pair %fn Pair () \_p:
     ()
 
-fn main <()->()> ():
-    let p <Pair> Pair (LocalToken @token_id) (LocalToken @token_id)
-    let left <LocalToken> field::get p "left"
+fn main %fn () () \():
+    let p %Pair Pair (LocalToken @token_id) (LocalToken @token_id)
+    let left %LocalToken field::get p "left"
     consume_pair p
 ```
 
@@ -799,22 +799,22 @@ diag_code: resource.borrow.move_from_shared
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 struct Pair:
-    left <LocalToken>
-    right <LocalToken>
+    left %LocalToken
+    right %LocalToken
 
-fn observe <(&Pair)->()> (_p):
+fn observe %fn &Pair () \_p:
     ()
 
-fn main <()->()> ():
-    let p <Pair> Pair (LocalToken @token_id) (LocalToken @token_id)
-    let borrowed <&Pair> &p
-    let left <LocalToken> field::get p "left"
+fn main %fn () () \():
+    let p %Pair Pair (LocalToken @token_id) (LocalToken @token_id)
+    let borrowed %&Pair &p
+    let left %LocalToken field::get p "left"
     observe borrowed
 ```
 
@@ -829,11 +829,11 @@ stdout: "test_report name=\"move_deref_copy_reference_ok\" count=1 failed=0\nass
 #target std
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let x <i32> 7
-    let y <i32> *&x
-    let z <i32> x
-    let actual <i32> 0
+fn main %impure fn () i32 \():
+    let x %i32 7
+    let y %i32 *&x
+    let z %i32 x
+    let actual %i32 0
     let report:
         test::test_report_new "move_deref_copy_reference_ok"
         |> test::test_report_push test::assert_eq_i32 "copy value can be dereferenced and reused" 0 actual
@@ -851,14 +851,14 @@ diag_code: resource.borrow.move_from_shared
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->()> ():
-    let x <LocalToken> LocalToken @token_id
-    let y <LocalToken> *&x
+fn main %fn () () \():
+    let x %LocalToken LocalToken @token_id
+    let y %LocalToken *&x
 ```
 
 ## move_deref_non_copy_field_reference_rejected
@@ -873,18 +873,18 @@ diag_code: resource.borrow.move_from_shared
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 struct Pair:
-    token <LocalToken>
-    count <i32>
+    token %LocalToken
+    count %i32
 
-fn main <()->()> ():
-    let p <Pair> Pair (LocalToken @token_id) 7
-    let token <LocalToken> *field::get_ref &p "token"
+fn main %fn () () \():
+    let p %Pair Pair (LocalToken @token_id) 7
+    let token %LocalToken *field::get_ref &p "token"
 ```
 
 ## move_branch_reinit_mixed
@@ -897,20 +897,20 @@ diag_code: resource.cell.possibly_moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->()> ():
-    let mut x <LocalToken> LocalToken @token_id
-    let cnd <bool> true
+fn main %fn () () \():
+    let mut x %LocalToken LocalToken @token_id
+    let cnd %bool true
     if cnd:
         then:
-            let y <LocalToken> x
+            let y %LocalToken x
         else:
             set x LocalToken @token_id
-    let z <LocalToken> x
+    let z %LocalToken x
 ```
 
 ## move_nested_match_potentially_moved
@@ -923,27 +923,27 @@ diag_code: resource.cell.possibly_moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
-fn token_id <(i32)->i32> (x):
+    raw %fn i32 i32
+fn token_id %fn i32 i32 \x:
     x
 enum BoolWrap:
     True
     False
 
-fn main <()->()> ():
-    let x <LocalToken> LocalToken @token_id
-    let a <BoolWrap> BoolWrap::True
+fn main %fn () () \():
+    let x %LocalToken LocalToken @token_id
+    let a %BoolWrap BoolWrap::True
     match a:
         BoolWrap::True:
             match a:
                 BoolWrap::True:
-                    let y <LocalToken> x
+                    let y %LocalToken x
                     ()
                 BoolWrap::False:
                     ()
         BoolWrap::False:
             ()
-    let z <LocalToken> x
+    let z %LocalToken x
 ```
 
 ## move_in_match_arms
@@ -956,23 +956,23 @@ diag_code: resource.cell.possibly_moved
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
-fn token_id <(i32)->i32> (x):
+    raw %fn i32 i32
+fn token_id %fn i32 i32 \x:
     x
 enum BoolWrap:
     True
     False
 
-fn main <()->()> ():
-    let x <LocalToken> LocalToken @token_id
-    let v <BoolWrap> BoolWrap::True
+fn main %fn () () \():
+    let x %LocalToken LocalToken @token_id
+    let v %BoolWrap BoolWrap::True
     match v:
         BoolWrap::True:
-            let y <LocalToken> x
+            let y %LocalToken x
             ()
         BoolWrap::False:
             ()
-    let z <LocalToken> x
+    let z %LocalToken x
 ```
 
 ## move_match_reference_payload_blocks_owner_move_while_live
@@ -985,22 +985,22 @@ diag_code: resource.borrow.move_from_shared
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 enum RefOpt:
-    Some <&LocalToken>
+    Some %&LocalToken
     None
 
-fn main <()->i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let e <RefOpt> RefOpt::Some &x
+fn main %fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let e %RefOpt RefOpt::Some &x
     match e:
         RefOpt::Some r:
-            let y <LocalToken> x
-            let keep <&LocalToken> r
+            let y %LocalToken x
+            let keep %&LocalToken r
             0
         RefOpt::None:
             0
@@ -1018,22 +1018,22 @@ stdout: "test_report name=\"move_match_reference_payload_last_use_releases_owner
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 enum RefOpt:
-    Some <&LocalToken>
+    Some %&LocalToken
     None
 
-fn main <()*>i32> ():
-    let x <LocalToken> LocalToken @token_id
-    let e <RefOpt> RefOpt::Some &x
-    let actual <i32> match e:
+fn main %impure fn () i32 \():
+    let x %LocalToken LocalToken @token_id
+    let e %RefOpt RefOpt::Some &x
+    let actual %i32 match e:
         RefOpt::Some r:
-            let keep <&LocalToken> r
-            let y <LocalToken> x
+            let keep %&LocalToken r
+            let y %LocalToken x
             0
         RefOpt::None:
             0
@@ -1054,17 +1054,17 @@ diag_code: resource.borrow.return_escape
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn leak <()->&LocalToken> ():
-    let t <LocalToken> LocalToken @token_id
+fn leak %fn () &LocalToken \():
+    let t %LocalToken LocalToken @token_id
     &t
 
-fn main <()->i32> ():
-    let r <&LocalToken> leak
+fn main %fn () i32 \():
+    let r %&LocalToken leak
     0
 ```
 
@@ -1078,14 +1078,14 @@ diag_code: resource.borrow.return_escape
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let r <&LocalToken> block:
-        let t <LocalToken> LocalToken @token_id
+fn main %fn () i32 \():
+    let r %&LocalToken block:
+        let t %LocalToken LocalToken @token_id
         &t
     0
 ```
@@ -1100,16 +1100,16 @@ diag_code: resource.borrow.return_escape
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let outer <LocalToken> LocalToken @token_id
-    let mut r <&LocalToken> &outer
+fn main %fn () i32 \():
+    let outer %LocalToken LocalToken @token_id
+    let mut r %&LocalToken &outer
     block:
-        let inner <LocalToken> LocalToken @token_id
+        let inner %LocalToken LocalToken @token_id
         set r &inner
     0
 ```
@@ -1124,21 +1124,21 @@ diag_code: resource.borrow.return_escape
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct RefBox:
-    inner <&LocalToken>
+    inner %&LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn leak <()->RefBox> ():
-    let t <LocalToken> LocalToken @token_id
-    let b <RefBox> RefBox &t
+fn leak %fn () RefBox \():
+    let t %LocalToken LocalToken @token_id
+    let b %RefBox RefBox &t
     b
 
-fn main <()->i32> ():
-    let b <RefBox> leak
+fn main %fn () i32 \():
+    let b %RefBox leak
     0
 ```
 
@@ -1152,18 +1152,18 @@ diag_code: resource.borrow.return_escape
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct RefBox:
-    inner <&LocalToken>
+    inner %&LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let b <RefBox> block:
-        let t <LocalToken> LocalToken @token_id
-        let local <RefBox> RefBox &t
+fn main %fn () i32 \():
+    let b %RefBox block:
+        let t %LocalToken LocalToken @token_id
+        let local %RefBox RefBox &t
         local
     0
 ```
@@ -1178,20 +1178,20 @@ diag_code: resource.borrow.return_escape
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct RefBox:
-    inner <&LocalToken>
+    inner %&LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let outer <LocalToken> LocalToken @token_id
-    let mut b <RefBox> RefBox &outer
+fn main %fn () i32 \():
+    let outer %LocalToken LocalToken @token_id
+    let mut b %RefBox RefBox &outer
     block:
-        let inner <LocalToken> LocalToken @token_id
-        let local <RefBox> RefBox &inner
+        let inner %LocalToken LocalToken @token_id
+        let local %RefBox RefBox &inner
         set b local
     0
 ```
@@ -1206,17 +1206,17 @@ diag_code: resource.borrow.return_escape
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn id_ref <(&LocalToken)->&LocalToken> (x):
+fn id_ref %fn &LocalToken &LocalToken \x:
     x
 
-fn main <()->i32> ():
-    let r <&LocalToken> block:
-        let t <LocalToken> LocalToken @token_id
+fn main %fn () i32 \():
+    let r %&LocalToken block:
+        let t %LocalToken LocalToken @token_id
         id_ref &t
     0
 ```
@@ -1231,20 +1231,20 @@ diag_code: resource.borrow.return_escape
 #target core
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
 struct RefBox:
-    inner <&LocalToken>
+    inner %&LocalToken
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn box_ref <(&LocalToken)->RefBox> (x):
+fn box_ref %fn &LocalToken RefBox \x:
     RefBox x
 
-fn main <()->i32> ():
-    let b <RefBox> block:
-        let t <LocalToken> LocalToken @token_id
+fn main %fn () i32 \():
+    let b %RefBox block:
+        let t %LocalToken LocalToken @token_id
         box_ref &t
     0
 ```
@@ -1263,17 +1263,17 @@ stdout: "test_report name=\"move_loop_owned_accumulator_reassigned_after_result_
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn step <(LocalToken)->Result<LocalToken, i32>> (token):
+fn step %fn LocalToken Result LocalToken i32 \token:
     Result<LocalToken, i32>::Ok token
 
-fn main <()*>i32> ():
-    let mut cur <LocalToken> LocalToken @token_id
-    let mut i <i32> 0
+fn main %impure fn () i32 \():
+    let mut cur %LocalToken LocalToken @token_id
+    let mut i %i32 0
     while lt i 3:
         match step cur:
             Result::Ok next:
@@ -1281,8 +1281,8 @@ fn main <()*>i32> ():
                 set i add i 1
             Result::Err _e:
                 #intrinsic "unreachable" <> ()
-    let out <LocalToken> cur
-    let actual <i32> 0
+    let out %LocalToken cur
+    let actual %i32 0
     let report:
         test::test_report_new "move_loop_owned_accumulator_reassigned_after_result_ok"
         |> test::test_report_push test::assert_eq_i32 "loop owned accumulator reinitialized each iteration" 0 actual
@@ -1302,17 +1302,17 @@ diag_code: resource.cell.possibly_moved
 #import "core/math" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
-fn step <(LocalToken)->Result<LocalToken, i32>> (token):
+fn step %fn LocalToken Result LocalToken i32 \token:
     Result<LocalToken, i32>::Ok token
 
-fn main <()->i32> ():
-    let mut cur <LocalToken> LocalToken @token_id
-    let mut i <i32> 0
+fn main %fn () i32 \():
+    let mut cur %LocalToken LocalToken @token_id
+    let mut i %i32 0
     while lt i 3:
         match step cur:
             Result::Ok next:
@@ -1320,7 +1320,7 @@ fn main <()->i32> ():
                 set i add i 1
             Result::Err _e:
                 set i 3
-    let out <LocalToken> cur
+    let out %LocalToken cur
     0
 ```
 
@@ -1338,27 +1338,27 @@ stdout: "test_report name=\"move_borrowed_field_projection_keeps_owner_until_ref
 #import "std/test" as test
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 struct Pair:
-    token <LocalToken>
-    count <i32>
+    token %LocalToken
+    count %i32
 
-fn observe <(&LocalToken)->i32> (_w):
+fn observe %fn &LocalToken i32 \_w:
     1
 
-fn consume <(Pair)->i32> (_p):
+fn consume %fn Pair i32 \_p:
     0
 
-fn main <()*>i32> ():
-    let p <Pair> Pair (LocalToken @token_id) 7
-    let token_ref <&LocalToken> field::get_ref &p "token"
-    let count <i32> *field::get_ref &p "count"
+fn main %impure fn () i32 \():
+    let p %Pair Pair (LocalToken @token_id) 7
+    let token_ref %&LocalToken field::get_ref &p "token"
+    let count %i32 *field::get_ref &p "count"
     observe token_ref
-    let actual <i32> consume p
+    let actual %i32 consume p
     let report:
         test::test_report_new "move_borrowed_field_projection_keeps_owner_until_reference_last_use"
         |> test::test_report_push test::assert_eq_i32 "borrowed field projection releases before owner move" 0 actual
@@ -1378,24 +1378,24 @@ diag_code: resource.borrow.move_from_shared
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 struct Pair:
-    token <LocalToken>
-    count <i32>
+    token %LocalToken
+    count %i32
 
-fn observe <(&LocalToken)->i32> (_w):
+fn observe %fn &LocalToken i32 \_w:
     1
 
-fn consume <(Pair)->i32> (_p):
+fn consume %fn Pair i32 \_p:
     0
 
-fn main <()->i32> ():
-    let p <Pair> Pair (LocalToken @token_id) 7
-    let token_ref <&LocalToken> field::get_ref &p "token"
+fn main %fn () i32 \():
+    let p %Pair Pair (LocalToken @token_id) 7
+    let token_ref %&LocalToken field::get_ref &p "token"
     consume p
     observe token_ref
 ```
@@ -1412,20 +1412,20 @@ diag_code: resource.borrow.return_escape
 #import "core/field" as *
 
 struct LocalToken:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn token_id <(i32)->i32> (x):
+fn token_id %fn i32 i32 \x:
     x
 
 struct Pair:
-    token <LocalToken>
-    count <i32>
+    token %LocalToken
+    count %i32
 
-fn leak <()->&LocalToken> ():
-    let p <Pair> Pair (LocalToken @token_id) 7
+fn leak %fn () &LocalToken \():
+    let p %Pair Pair (LocalToken @token_id) 7
     field::get_ref &p "token"
 
-fn main <()->i32> ():
-    let r <&LocalToken> leak
+fn main %fn () i32 \():
+    let r %&LocalToken leak
     0
 ```

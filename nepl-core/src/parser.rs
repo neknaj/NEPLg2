@@ -51,6 +51,7 @@ pub fn parse_tokens(_file_id: FileId, lex: LexResult) -> ParseResult {
         indent_width: lex.indent_width,
         depth: 0,
         single_line_block_depth: 0,
+        type_arity_hints: Vec::new(),
     };
 
     let module = parser.parse_module();
@@ -68,6 +69,12 @@ struct Parser {
     indent_width: usize,
     depth: usize,
     single_line_block_depth: usize,
+    type_arity_hints: Vec<(String, usize)>,
+}
+
+struct Neplg21ParsedType {
+    ty: TypeExpr,
+    grouped: bool,
 }
 
 impl Parser {
@@ -802,6 +809,71 @@ impl Parser {
         }
     }
 
+    fn parse_lambda_param_list(&mut self) -> Option<(Vec<Ident>, Span)> {
+        let start = self.expect_with_span(&TokenKind::Backslash)?;
+        if self.consume_if(&TokenKind::LParen) {
+            self.expect(&TokenKind::RParen)?;
+            let end = self.previous_span().unwrap_or(start);
+            return Some((Vec::new(), start.join(end).unwrap_or(start)));
+        }
+
+        let mut params = Vec::new();
+        let mut end = start;
+        loop {
+            let (pname, pspan) = self.expect_ident()?;
+            end = end.join(pspan).unwrap_or(pspan);
+            params.push(Ident {
+                name: pname,
+                span: pspan,
+            });
+            if !self.consume_if(&TokenKind::Backslash) {
+                break;
+            }
+        }
+
+        Some((params, start.join(end).unwrap_or(start)))
+    }
+
+    fn parse_function_params(&mut self) -> Option<Vec<Ident>> {
+        if self.check(&TokenKind::Backslash) {
+            let (params, _) = self.parse_lambda_param_list()?;
+            Some(params)
+        } else {
+            self.parse_param_list()
+        }
+    }
+
+    fn parse_signature_annotation(&mut self) -> Option<Option<TypeExpr>> {
+        if self.consume_if(&TokenKind::LAngle) {
+            let sig = self.parse_type_expr()?;
+            self.expect(&TokenKind::RAngle)?;
+            Some(Some(sig))
+        } else if self.consume_if(&TokenKind::Percent) {
+            Some(Some(self.parse_neplg21_type_expr()?))
+        } else {
+            Some(None)
+        }
+    }
+
+    fn parse_decl_type_annotation(&mut self) -> Option<TypeExpr> {
+        if self.consume_if(&TokenKind::Percent) {
+            self.parse_neplg21_type_expr()
+        } else {
+            self.expect(&TokenKind::LAngle)?;
+            let ty = self.parse_type_expr()?;
+            self.expect(&TokenKind::RAngle)?;
+            Some(ty)
+        }
+    }
+
+    fn fn_body_from_block(body: Block) -> FnBody {
+        match body.items.first() {
+            Some(Stmt::Wasm(wb)) if body.items.len() == 1 => FnBody::Wasm(wb.clone()),
+            Some(Stmt::LlvmIr(lb)) if body.items.len() == 1 => FnBody::LlvmIr(lb.clone()),
+            _ => FnBody::Parsed(body),
+        }
+    }
+
     fn parse_param_list(&mut self) -> Option<Vec<Ident>> {
         self.expect(&TokenKind::LParen)?;
         let mut params = Vec::new();
@@ -845,31 +917,21 @@ impl Parser {
             }
         };
 
-        let signature = if self.consume_if(&TokenKind::LAngle) {
-            let sig = match self.parse_type_expr() {
-                Some(s) => s,
-                None => {
-                    self.pos = saved_pos;
-                    self.diagnostics.truncate(saved_diags_len);
-                    return None;
-                }
-            };
-            if !self.consume_if(&TokenKind::RAngle) {
+        let signature = match self.parse_signature_annotation() {
+            Some(sig) => sig,
+            None => {
                 self.pos = saved_pos;
                 self.diagnostics.truncate(saved_diags_len);
                 return None;
             }
-            Some(sig)
-        } else {
-            None
         };
 
-        if !self.check(&TokenKind::LParen) {
+        if !self.check(&TokenKind::LParen) && !self.check(&TokenKind::Backslash) {
             self.pos = saved_pos;
             self.diagnostics.truncate(saved_diags_len);
             return None;
         }
-        let params = match self.parse_param_list() {
+        let params = match self.parse_function_params() {
             Some(p) => p,
             None => {
                 self.pos = saved_pos;
@@ -891,11 +953,7 @@ impl Parser {
             }
         };
 
-        let fn_body = match body.items.first() {
-            Some(Stmt::Wasm(wb)) if body.items.len() == 1 => FnBody::Wasm(wb.clone()),
-            Some(Stmt::LlvmIr(lb)) if body.items.len() == 1 => FnBody::LlvmIr(lb.clone()),
-            _ => FnBody::Parsed(body),
-        };
+        let fn_body = Self::fn_body_from_block(body);
 
         Some(Stmt::FnDef(FnDef {
             doc: None,
@@ -914,6 +972,7 @@ impl Parser {
         let _ = self.expect_with_span(&TokenKind::KwStruct)?;
         let (name, nspan) = self.expect_ident()?;
         let type_params = self.parse_generic_params();
+        self.register_type_arity_hint(&name, type_params.len());
         self.expect(&TokenKind::Colon)?;
         let mut fields = Vec::new();
         if self.consume_if(&TokenKind::Newline) {
@@ -923,9 +982,7 @@ impl Parser {
                     continue;
                 }
                 let (fname, fspan) = self.expect_ident()?;
-                self.expect(&TokenKind::LAngle)?;
-                let fty = self.parse_type_expr()?;
-                self.expect(&TokenKind::RAngle)?;
+                let fty = self.parse_decl_type_annotation()?;
                 fields.push((
                     Ident {
                         name: fname,
@@ -939,9 +996,7 @@ impl Parser {
         } else {
             while !self.is_end(&TokenEnd::Line) {
                 let (fname, fspan) = self.expect_ident()?;
-                self.expect(&TokenKind::LAngle)?;
-                let fty = self.parse_type_expr()?;
-                self.expect(&TokenKind::RAngle)?;
+                let fty = self.parse_decl_type_annotation()?;
                 fields.push((
                     Ident {
                         name: fname,
@@ -968,6 +1023,7 @@ impl Parser {
         let _ = self.expect_with_span(&TokenKind::KwEnum)?;
         let (name, nspan) = self.expect_ident()?;
         let type_params = self.parse_generic_params();
+        self.register_type_arity_hint(&name, type_params.len());
         self.expect(&TokenKind::Colon)?;
         let mut variants = Vec::new();
         if self.consume_if(&TokenKind::Newline) {
@@ -977,10 +1033,8 @@ impl Parser {
                     continue;
                 }
                 let (vname, vspan) = self.expect_ident()?;
-                let payload = if self.consume_if(&TokenKind::LAngle) {
-                    let ty = self.parse_type_expr()?;
-                    self.expect(&TokenKind::RAngle)?;
-                    Some(ty)
+                let payload = if self.check(&TokenKind::Percent) || self.check(&TokenKind::LAngle) {
+                    Some(self.parse_decl_type_annotation()?)
                 } else {
                     None
                 };
@@ -997,10 +1051,8 @@ impl Parser {
         } else {
             while !self.is_end(&TokenEnd::Line) {
                 let (vname, vspan) = self.expect_ident()?;
-                let payload = if self.consume_if(&TokenKind::LAngle) {
-                    let ty = self.parse_type_expr()?;
-                    self.expect(&TokenKind::RAngle)?;
-                    Some(ty)
+                let payload = if self.check(&TokenKind::Percent) || self.check(&TokenKind::LAngle) {
+                    Some(self.parse_decl_type_annotation()?)
                 } else {
                     None
                 };
@@ -1070,7 +1122,7 @@ impl Parser {
             let saved_pos = self.pos;
             let saved_diags_len = self.diagnostics.len();
             let tentative_params = self.parse_generic_params();
-            if self.check(&TokenKind::LAngle) {
+            if self.check(&TokenKind::LAngle) || self.check(&TokenKind::Percent) {
                 // Success, we had generics.
                 type_params = tentative_params;
             } else {
@@ -1080,15 +1132,11 @@ impl Parser {
             }
         }
 
-        let signature = if self.consume_if(&TokenKind::LAngle) {
-            let sig = self.parse_type_expr()?;
-            self.expect(&TokenKind::RAngle)?;
-            sig
-        } else {
-            Self::infer_signature_from_params(0)
-        };
+        let signature = self
+            .parse_signature_annotation()?
+            .unwrap_or_else(|| Self::infer_signature_from_params(0));
 
-        let params = self.parse_param_list()?;
+        let params = self.parse_function_params()?;
         let signature = match signature.as_unspanned() {
             TypeExpr::Function {
                 params: p,
@@ -1112,11 +1160,7 @@ impl Parser {
         self.expect(&TokenKind::Colon)?;
         let body = self.parse_block_after_colon()?;
 
-        let fn_body = match body.items.first() {
-            Some(Stmt::Wasm(wb)) if body.items.len() == 1 => FnBody::Wasm(wb.clone()),
-            Some(Stmt::LlvmIr(lb)) if body.items.len() == 1 => FnBody::LlvmIr(lb.clone()),
-            _ => FnBody::Parsed(body),
-        };
+        let fn_body = Self::fn_body_from_block(body);
 
         Some(Stmt::FnDef(FnDef {
             doc: None,
@@ -1240,6 +1284,7 @@ impl Parser {
         let kw_span = self.expect_with_span(&TokenKind::KwTrait)?;
         let (name, nspan) = self.expect_ident()?;
         let type_params = self.parse_generic_params();
+        self.register_type_arity_hint(&name, type_params.len());
         self.expect(&TokenKind::Colon)?;
         self.consume_if(&TokenKind::Newline);
         self.expect(&TokenKind::Indent)?;
@@ -1342,6 +1387,41 @@ impl Parser {
             methods,
             span: kw_span.join(end_span).unwrap_or(kw_span),
         }))
+    }
+
+    fn parse_type_annotation_item(&mut self) -> Option<PrefixItem> {
+        if self.consume_if(&TokenKind::Percent) {
+            let start = self.previous_span().unwrap_or_else(Span::dummy);
+            let ty = self.parse_neplg21_type_expr()?;
+            let end = self.previous_span().unwrap_or(start);
+            let span = start.join(end).unwrap_or(start);
+            return Some(PrefixItem::TypeAnnotation(ty, span));
+        }
+
+        let start = self.expect_with_span(&TokenKind::LAngle)?;
+        let ty = self.parse_type_expr()?;
+        self.expect(&TokenKind::RAngle)?;
+        let end = self.previous_span().unwrap_or(start);
+        let span = start.join(end).unwrap_or(start);
+        Some(PrefixItem::TypeAnnotation(ty, span))
+    }
+
+    fn parse_lambda_expr_item(&mut self, until_tuple_delim: bool) -> Option<PrefixItem> {
+        let (params, params_span) = self.parse_lambda_param_list()?;
+        let body = if self.consume_if(&TokenKind::Colon) {
+            self.parse_block_after_colon()?
+        } else {
+            let expr = if until_tuple_delim {
+                self.parse_prefix_expr_until_tuple_delim()?
+            } else {
+                self.parse_prefix_expr()?
+            };
+            Block {
+                span: expr.span,
+                items: vec![Stmt::Expr(expr)],
+            }
+        };
+        Some(self.build_lambda_block(params, params_span, body))
     }
 
     fn parse_prefix_expr(&mut self) -> Option<PrefixExpr> {
@@ -1541,13 +1621,14 @@ impl Parser {
                     let span = self.next().unwrap().span;
                     items.push(PrefixItem::Pipe(span));
                 }
-                TokenKind::LAngle => {
-                    let start = self.next().unwrap().span;
-                    let ty = self.parse_type_expr()?;
-                    self.expect(&TokenKind::RAngle)?;
-                    let end = self.peek_span().unwrap_or(start);
-                    let span = start.join(end).unwrap_or(start);
-                    items.push(PrefixItem::TypeAnnotation(ty, span));
+                TokenKind::LAngle | TokenKind::Percent => {
+                    let item = self.parse_type_annotation_item()?;
+                    items.push(item);
+                }
+                TokenKind::Backslash => {
+                    let item = self.parse_lambda_expr_item(false)?;
+                    items.push(item);
+                    break;
                 }
                 TokenKind::Minus => {
                     let minus_span = self.next().unwrap().span;
@@ -2092,13 +2173,14 @@ impl Parser {
                     let span = self.next().unwrap().span;
                     items.push(PrefixItem::Pipe(span));
                 }
-                TokenKind::LAngle => {
-                    let start = self.next().unwrap().span;
-                    let ty = self.parse_type_expr()?;
-                    self.expect(&TokenKind::RAngle)?;
-                    let end = self.peek_span().unwrap_or(start);
-                    let span = start.join(end).unwrap_or(start);
-                    items.push(PrefixItem::TypeAnnotation(ty, span));
+                TokenKind::LAngle | TokenKind::Percent => {
+                    let item = self.parse_type_annotation_item()?;
+                    items.push(item);
+                }
+                TokenKind::Backslash => {
+                    let item = self.parse_lambda_expr_item(true)?;
+                    items.push(item);
+                    break;
                 }
                 TokenKind::IntLiteral(_)
                 | TokenKind::FloatLiteral(_)
@@ -2326,13 +2408,9 @@ impl Parser {
                     let span = self.next().unwrap().span;
                     items.push(PrefixItem::Pipe(span));
                 }
-                TokenKind::LAngle => {
-                    let start = self.next().unwrap().span;
-                    let ty = self.parse_type_expr()?;
-                    self.expect(&TokenKind::RAngle)?;
-                    let end = self.peek_span().unwrap_or(start);
-                    let span = start.join(end).unwrap_or(start);
-                    items.push(PrefixItem::TypeAnnotation(ty, span));
+                TokenKind::LAngle | TokenKind::Percent => {
+                    let item = self.parse_type_annotation_item()?;
+                    items.push(item);
                 }
                 TokenKind::IntLiteral(_)
                 | TokenKind::FloatLiteral(_)
@@ -3406,6 +3484,11 @@ impl Parser {
                 }
             }
             self.expect(&TokenKind::RAngle)?;
+        } else {
+            let arity = self.neplg21_type_arity(&name);
+            for _ in 0..arity {
+                args.push(self.parse_neplg21_type_expr()?);
+            }
         }
         Some(TraitRef {
             name: Ident { name, span },
@@ -3431,11 +3514,283 @@ impl Parser {
     }
 
     fn parse_type_expr(&mut self) -> Option<TypeExpr> {
+        if self.is_neplg21_prefix_type_expr_start() {
+            return self.parse_neplg21_type_expr();
+        }
         let start_span = self.peek_span().unwrap_or_else(Span::dummy);
         let ty = self.parse_type_expr_internal()?;
         let end_span = self.previous_span().unwrap_or(start_span);
         let span = start_span.join(end_span).unwrap_or(start_span);
         Some(ty.with_span(span))
+    }
+
+    fn is_neplg21_prefix_type_expr_start(&self) -> bool {
+        match self.peek_kind() {
+            Some(TokenKind::KwFn) => true,
+            Some(TokenKind::Ident(ref name))
+                if name == "impure" && matches!(self.peek_kind_at(1), Some(TokenKind::KwFn)) =>
+            {
+                true
+            }
+            Some(TokenKind::Ident(ref name))
+                if !matches!(self.peek_kind_at(1), Some(TokenKind::LAngle))
+                    && self.neplg21_type_arity(name) > 0 =>
+            {
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn parse_neplg21_type_expr(&mut self) -> Option<TypeExpr> {
+        let start_span = self.peek_span().unwrap_or_else(Span::dummy);
+        let ty = self.parse_neplg21_type_expr_internal()?;
+        let end_span = self.previous_span().unwrap_or(start_span);
+        let span = start_span.join(end_span).unwrap_or(start_span);
+        Some(ty.with_span(span))
+    }
+
+    fn parse_neplg21_type_expr_internal(&mut self) -> Option<TypeExpr> {
+        Some(self.parse_neplg21_type_expr_marked()?.ty)
+    }
+
+    fn parse_neplg21_type_expr_marked(&mut self) -> Option<Neplg21ParsedType> {
+        match self.peek_kind()? {
+            TokenKind::UnitLiteral => {
+                self.next();
+                Some(Neplg21ParsedType {
+                    ty: TypeExpr::Unit,
+                    grouped: false,
+                })
+            }
+            TokenKind::KwFn => {
+                self.next();
+                Some(Neplg21ParsedType {
+                    ty: self.parse_neplg21_function_type(Effect::Pure)?,
+                    grouped: false,
+                })
+            }
+            TokenKind::Ident(ref name)
+                if name == "impure" && matches!(self.peek_kind_at(1), Some(TokenKind::KwFn)) =>
+            {
+                self.next();
+                self.next();
+                Some(Neplg21ParsedType {
+                    ty: self.parse_neplg21_function_type(Effect::Impure)?,
+                    grouped: false,
+                })
+            }
+            TokenKind::Ident(_) => {
+                let (name, _) = self.parse_path_ident()?;
+                let mut ty = match name.as_str() {
+                    "i32" => TypeExpr::I32,
+                    "u8" => TypeExpr::U8,
+                    "f32" => TypeExpr::F32,
+                    "bool" => TypeExpr::Bool,
+                    "char" => TypeExpr::Char,
+                    "never" => TypeExpr::Never,
+                    "str" => TypeExpr::Str,
+                    "Box" => {
+                        let inner = self.parse_neplg21_type_expr()?;
+                        return Some(Neplg21ParsedType {
+                            ty: TypeExpr::Boxed(Box::new(inner)),
+                            grouped: false,
+                        });
+                    }
+                    _ => TypeExpr::Named(name.clone()),
+                };
+
+                let arity = self.neplg21_type_arity(&name);
+                if arity > 0 {
+                    let mut args = Vec::new();
+                    for _ in 0..arity {
+                        args.push(self.parse_neplg21_type_expr()?);
+                    }
+                    ty = TypeExpr::Apply(Box::new(ty), args);
+                }
+                Some(Neplg21ParsedType { ty, grouped: false })
+            }
+            TokenKind::Dot => {
+                let _ = self.next();
+                let ty = if let Some(TokenKind::Ident(name)) = self.peek_kind() {
+                    let name = name.clone();
+                    let _ = self.next();
+                    TypeExpr::Label(Some(name))
+                } else {
+                    TypeExpr::Label(None)
+                };
+                Some(Neplg21ParsedType { ty, grouped: false })
+            }
+            TokenKind::LParen => {
+                self.next();
+                if self.consume_if(&TokenKind::RParen) {
+                    Some(Neplg21ParsedType {
+                        ty: TypeExpr::Unit,
+                        grouped: false,
+                    })
+                } else {
+                    let inner = self.parse_neplg21_type_expr()?;
+                    self.expect(&TokenKind::RParen)?;
+                    Some(Neplg21ParsedType {
+                        ty: inner,
+                        grouped: true,
+                    })
+                }
+            }
+            TokenKind::Ampersand => {
+                let _ = self.next();
+                let is_mut = self.consume_if(&TokenKind::KwMut);
+                let inner = self.parse_neplg21_type_expr()?;
+                Some(Neplg21ParsedType {
+                    ty: TypeExpr::Reference(Box::new(inner), is_mut),
+                    grouped: false,
+                })
+            }
+            _ => {
+                let span = self.peek_span().unwrap_or_else(Span::dummy);
+                self.push_error_with_code(
+                    DiagnosticCode::Parser(ParserDiagnosticCode::TypeExprInvalid),
+                    "invalid NEPLg2.1 prefix type expression",
+                    span,
+                );
+                self.next();
+                None
+            }
+        }
+    }
+
+    fn parse_neplg21_function_type(&mut self, effect: Effect) -> Option<TypeExpr> {
+        let params = if self.check(&TokenKind::LParen)
+            && matches!(self.peek_kind_at(1), Some(TokenKind::RParen))
+        {
+            self.next();
+            self.expect(&TokenKind::RParen)?;
+            Vec::new()
+        } else {
+            vec![self.parse_neplg21_type_expr()?]
+        };
+        let result = self.parse_neplg21_type_expr_marked()?;
+        Some(Self::combine_neplg21_function_type(
+            params,
+            result.ty,
+            effect,
+            !result.grouped,
+        ))
+    }
+
+    fn combine_neplg21_function_type(
+        params: Vec<TypeExpr>,
+        result: TypeExpr,
+        effect: Effect,
+        flatten_nested: bool,
+    ) -> TypeExpr {
+        match result.into_unspanned() {
+            TypeExpr::Function {
+                params: mut nested_params,
+                result: nested_result,
+                effect: nested_effect,
+            } if flatten_nested
+                && effect == nested_effect
+                && !params.is_empty()
+                && !nested_params.is_empty() =>
+            {
+                let mut all_params = params;
+                all_params.append(&mut nested_params);
+                TypeExpr::Function {
+                    params: all_params,
+                    result: nested_result,
+                    effect,
+                }
+            }
+            other => TypeExpr::Function {
+                params,
+                result: Box::new(other),
+                effect,
+            },
+        }
+    }
+
+    fn register_type_arity_hint(&mut self, name: &str, arity: usize) {
+        for (existing, existing_arity) in self.type_arity_hints.iter_mut().rev() {
+            if existing == name {
+                *existing_arity = arity;
+                return;
+            }
+        }
+        self.type_arity_hints.push((name.to_string(), arity));
+    }
+
+    fn neplg21_type_arity(&self, name: &str) -> usize {
+        for (known, arity) in self.type_arity_hints.iter().rev() {
+            if known == name {
+                return *arity;
+            }
+        }
+        Self::known_neplg21_type_arity(Self::type_name_tail(name)).unwrap_or(0)
+    }
+
+    fn type_name_tail(name: &str) -> &str {
+        name.rsplit("::").next().unwrap_or(name)
+    }
+
+    fn known_neplg21_type_arity(name: &str) -> Option<usize> {
+        match name {
+            "Option"
+            | "Vec"
+            | "MemPtr"
+            | "RegionToken"
+            | "RegionReallocError"
+            | "VecStorage"
+            | "OwnedBuffer"
+            | "VecPushRejected"
+            | "VecPushError"
+            | "VecReplaceRejected"
+            | "VecReplaceError"
+            | "VecTransformError"
+            | "VecPop"
+            | "VecPartition"
+            | "VecSortMergeError"
+            | "BinaryHeap"
+            | "BinaryHeapPushError"
+            | "BinaryHeapPop"
+            | "Deque"
+            | "DequePushError"
+            | "DequePop"
+            | "Stack"
+            | "StackPushError"
+            | "StackPop"
+            | "VecDataView"
+            | "Queue"
+            | "QueuePushError"
+            | "QueuePop"
+            | "VecReallocRegionError"
+            | "List"
+            | "ListPushError"
+            | "ListTransformError"
+            | "BTreeSet"
+            | "BTreeSetStorage"
+            | "BTreeSetInsertError"
+            | "HashSetStorage"
+            | "RingBuffer"
+            | "RingBufferPushError"
+            | "RingBufferPop"
+            | "Hasher" => Some(1),
+            "Result"
+            | "Outcome"
+            | "Either"
+            | "Pair"
+            | "HashSet"
+            | "HashSetUpdateError"
+            | "HashMapStorage"
+            | "BTreeMapStorage"
+            | "BTreeMap"
+            | "BTreeMapInsertError"
+            | "BloomFilter"
+            | "CountingBloomFilter"
+            | "SelfhostOutcome" => Some(2),
+            "HashMap" | "HashMapUpdateError" => Some(3),
+            _ => None,
+        }
     }
 
     fn parse_type_expr_internal(&mut self) -> Option<TypeExpr> {

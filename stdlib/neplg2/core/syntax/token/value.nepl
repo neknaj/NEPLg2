@@ -10,19 +10,19 @@
 //: [注意/ちゅうい]:
 //: - token は `Vec<SelfhostToken>` に[格納/かくのう]される Copy 値です。owned `str` を field に[持/も]たせず、lexeme は source text と span から必要な境界でだけ[切/き]り[出/だ]します。
 pub struct SelfhostToken:
-    kind <TokenKind>
-    span <SelfhostSourceSpan>
+    kind %TokenKind
+    span %SelfhostSourceSpan
 
 impl Clone for SelfhostToken:
-    fn clone <(&SelfhostToken)->SelfhostToken> (self):
+    fn clone %fn &SelfhostToken SelfhostToken \self:
         *self
 
 impl Copy for SelfhostToken:
-    fn copy_mark <(SelfhostToken)->SelfhostToken> (self):
+    fn copy_mark %fn SelfhostToken SelfhostToken \self:
         self
 
 //: selfhost_token_new: token を[構築/こうちく]する
-pub fn selfhost_token_new <(TokenKind,SelfhostSourceSpan)->SelfhostToken> (kind, span):
+pub fn selfhost_token_new %fn TokenKind fn SelfhostSourceSpan SelfhostToken \kind\span:
     SelfhostToken kind span
 
 //: selfhost_token_lexeme: source text と token span から lexeme を[切/き]り[出/だ]す
@@ -32,11 +32,11 @@ pub fn selfhost_token_new <(TokenKind,SelfhostSourceSpan)->SelfhostToken> (kind,
 //:
 //: [注意/ちゅうい]:
 //: - 返された `str` は呼び出し側の assertion / parser / resolver などの消費境界へ渡してください。
-pub fn selfhost_token_lexeme <(str,SelfhostToken)->str> (source, token):
-    let span <SelfhostSourceSpan> field::get token "span"
+pub fn selfhost_token_lexeme %fn str fn SelfhostToken str \source\token:
+    let span %SelfhostSourceSpan field::get token "span"
     string_slice::str_slice source field::get span "start" field::get span "end"
 
 //: selfhost_token_end: token span の end offset を[返/かえ]す
-pub fn selfhost_token_end <(SelfhostToken)->i32> (token):
-    let span <SelfhostSourceSpan> field::get token "span"
+pub fn selfhost_token_end %fn SelfhostToken i32 \token:
+    let span %SelfhostSourceSpan field::get token "span"
     field::get span "end"

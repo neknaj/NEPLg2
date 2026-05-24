@@ -43,6 +43,99 @@ fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
 }
 
 #[test]
+fn function_neplg21_lambda_param_syntax() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn inc %fn i32 i32 \x:
+    add x 1
+
+fn main %fn () i32 \():
+    inc 41
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 42);
+}
+
+#[test]
+fn function_neplg21_curried_type_notation_flattens_params() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn add_nums %fn i32 fn i32 i32 \a\b:
+    add a b
+
+fn main %fn () i32 \():
+    add_nums 10 20
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 30);
+}
+
+#[test]
+fn function_neplg21_grouped_result_preserves_function_return() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn add_op %fn i32 fn i32 i32 \a\b:
+    add a b
+
+fn sub_op %fn i32 fn i32 i32 \a\b:
+    sub a b
+
+fn get_op %fn bool (fn i32 fn i32 i32) \cnd:
+    if cnd:
+        then:
+            add_op
+            @add_op
+        else:
+            sub_op
+            @sub_op
+
+fn main %fn () i32 \():
+    let f get_op true
+    f 10 5
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 15);
+}
+
+#[test]
+fn function_neplg21_overload_selects_generic_impl_for_composite_copy_bound() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/option" as *
+#import "core/traits/drop" as *
+
+fn choose <.U: Copy> %fn .U i32 \x:
+    1
+
+fn choose <.U: Drop> %impure fn .U i32 \x:
+    2
+
+fn wrap <.T: Copy> %fn Option .T i32 \opt:
+    choose opt
+
+fn main %fn () i32 \():
+    let opt %Option i32 some 41
+    wrap opt
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 1);
+}
+
+#[test]
 fn function_basic_def_and_call() {
     let src = r#"
 #entry main
@@ -71,7 +164,7 @@ fn function_nested() {
 fn main <()->i32> ():
     fn double <(i32)->i32> (x):
         mul x 2
-    
+
     double 10
 "#;
     let v = run_main_i32(src);
@@ -258,7 +351,7 @@ fn function_literal() {
 fn main <()->i32> ():
     let f <(i32)->i32> (x):
         add x 1
-    
+
     f 10
 "#;
     let v = run_main_i32(src);
@@ -275,7 +368,7 @@ fn function_literal_no_args() {
 fn main <()->i32> ():
     let f <()->i32> ():
         123
-    
+
     f
 "#;
     let v = run_main_i32(src);

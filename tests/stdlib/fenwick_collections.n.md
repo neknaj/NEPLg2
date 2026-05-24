@@ -27,15 +27,15 @@ stdout: "test_report name=\"fenwick_pipe_usage\" count=3 failed=0\nassertion ind
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let fw <Fenwick>:
+fn main %impure fn () i32 \():
+    let fw %Fenwick:
         unwrap_ok<Fenwick, Diag> fw::new 6
         |> fw::add 0 2 |> uwok
         |> fw::add 2 5 |> uwok
         |> fw::add 4 7 |> uwok
-    let size <i32> fw::len &fw;
-    let prefix5 <i32> unwrap_ok<i32, Diag> fw::sum_prefix &fw 5;
-    let range_2_5 <i32> unwrap_ok<i32, Diag> fw::sum_range &fw 2 5;
+    let size %i32 fw::len &fw;
+    let prefix5 %i32 unwrap_ok<i32, Diag> fw::sum_prefix &fw 5;
+    let range_2_5 %i32 unwrap_ok<i32, Diag> fw::sum_range &fw 2 5;
     fw::free fw
     let report:
         test_report_new "fenwick_pipe_usage"
@@ -70,12 +70,12 @@ stdout: "test_report name=\"fenwick_free_releases_owned_storage\" count=1 failed
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let fw0 <Fenwick>:
+fn main %impure fn () i32 \():
+    let fw0 %Fenwick:
         unwrap_ok<Fenwick, Diag> fw::new 6
         |> fw::add 1 3 |> uwok
     fw::free fw0
-    let fw1 <Fenwick>:
+    let fw1 %Fenwick:
         unwrap_ok<Fenwick, Diag> fw::new 6
         |> fw::add 2 5 |> uwok
     fw::free fw1
@@ -110,15 +110,15 @@ stdout: "test_report name=\"fenwick_add_error_returns_owner\" count=1 failed=0\n
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let fw <Fenwick> unwrap_ok<Fenwick, Diag> fw::new 4;
+fn main %impure fn () i32 \():
+    let fw %Fenwick unwrap_ok<Fenwick, Diag> fw::new 4;
     match fw::add fw 8 3:
         Result::Ok next:
             fw::free next
             0
         Result::Err e:
-            let recovered <Fenwick> fw::add_error_tree e
-            let size <i32> fw::len &recovered
+            let recovered %Fenwick fw::add_error_tree e
+            let size %i32 fw::len &recovered
             fw::free recovered
             let report:
                 test_report_new "fenwick_add_error_returns_owner"
@@ -151,14 +151,14 @@ stdout: "test_report name=\"fenwick_negative_length_rejected\" count=1 failed=0\
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let neg <i32> sub 0 1
+fn main %impure fn () i32 \():
+    let neg %i32 sub 0 1
     match fw::new neg:
         Result::Ok fw:
             fw::free fw
             0
         Result::Err d:
-            let name <str> diag_std_error_kind_str d
+            let name %str diag_std_error_kind_str d
             let report:
                 test_report_new "fenwick_negative_length_rejected"
                 |> test_report_push assert_str_eq "negative length error" "CapacityExceeded" name

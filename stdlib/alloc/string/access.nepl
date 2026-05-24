@@ -26,7 +26,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_access_addr <(str)->i32> (s):
+fn string_access_addr %fn str i32 \s:
     #intrinsic "str_addr" <> (s)
 
 //: len: 文字列の byte 長を返す
@@ -43,7 +43,7 @@ fn string_access_addr <(str)->i32> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn len <(str)->i32> (s):
+pub fn len %fn str i32 \s:
     load_i32 string_access_addr s
 
 //: str_byte_len: `str` の byte 長を明示名で返す
@@ -53,7 +53,7 @@ pub fn len <(str)->i32> (s):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn str_byte_len <(str)->i32> (s):
+pub fn str_byte_len %fn str i32 \s:
     len s
 
 //: byte_at: 文字列の指定 byte を読む
@@ -79,21 +79,21 @@ pub fn str_byte_len <(str)->i32> (s):
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //:| #import "core/option" as *
-//: fn main <()*>i32> ():
-//:     let ok0 <bool> match byte_at "AZ" 0:
+//: fn main %impure fn () i32 \():
+//:     let ok0 %bool match byte_at "AZ" 0:
 //:         Option::Some b:
 //:             eq b 'A'
 //:         Option::None:
 //:             false
-//:     let ok1 <bool> match byte_at "AZ" 1:
+//:     let ok1 %bool match byte_at "AZ" 1:
 //:         Option::Some b:
 //:             eq b 'Z'
 //:         Option::None:
 //:             false
 //:     if and ok0 and ok1 is_none<i32> byte_at "AZ" 2 0 1
 //: ```
-pub fn byte_at <(str,i32)->Option<i32>> (s, idx):
-    let n <i32> len s
+pub fn byte_at %fn str fn i32 Option i32 \s\idx:
+    let n %i32 len s
     if:
         lt idx 0
         then:
@@ -119,5 +119,5 @@ pub fn byte_at <(str,i32)->Option<i32>> (s, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-fn string_byte_at_checked_raw <(str,i32)->i32> (s, idx):
-    load_u8 <i32> add string_access_addr s <i32> add 4 idx
+fn string_byte_at_checked_raw %fn str fn i32 i32 \s\idx:
+    load_u8 %i32 add string_access_addr s %i32 add 4 idx

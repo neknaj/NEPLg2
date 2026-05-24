@@ -21,65 +21,65 @@ stdout: "test_report name=\"hashmap_str_main\" count=11 failed=0\nassertion inde
 #import "core/field" as *
 #import "std/test" as *
 
-fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,DefaultHash32>> (r):
+fn must_hms %impure fn Result HashMap str i32 DefaultHash32 Diag HashMap str i32 DefaultHash32 \r:
     match r:
         Result::Ok hm:
             hm
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
-fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, HashMapUpdateError<str,i32,DefaultHash32>>)*>HashMap<str,i32,DefaultHash32>> (r):
+fn must_hms %impure fn Result HashMap str i32 DefaultHash32 HashMapUpdateError str i32 DefaultHash32 HashMap str i32 DefaultHash32 \r:
     match r:
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm <HashMap<str,i32,DefaultHash32>> hashmap_update_error_owner<str,i32,DefaultHash32> e;
+            let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner<str,i32,DefaultHash32> e;
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main <()*> i32> ():
-    let hm0 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm0_len <i32> len &hm0;
+fn main %impure fn () i32 \():
+    let hm0 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm0_len %i32 len &hm0;
     free hm0;
 
-    let hm1 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm1_has <bool> contains &hm1 "foo";
+    let hm1 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm1_has %bool contains &hm1 "foo";
     free hm1;
 
-    let hm2 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm2_got <Option<i32>> get &hm2 "foo";
-    let hm2_none <bool> is_none<i32> hm2_got;
+    let hm2 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm2_got %Option i32 get &hm2 "foo";
+    let hm2_none %bool is_none<i32> hm2_got;
     free hm2;
 
-    let hm3 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm3 <HashMap<str,i32,DefaultHash32>> must_hms insert hm3 "foo" 10;
-    let hm3 <HashMap<str,i32,DefaultHash32>> must_hms insert hm3 "bar" 20;
-    let hm3_len <i32> len &hm3;
+    let hm3 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm3 %HashMap str i32 DefaultHash32 must_hms insert hm3 "foo" 10;
+    let hm3 %HashMap str i32 DefaultHash32 must_hms insert hm3 "bar" 20;
+    let hm3_len %i32 len &hm3;
     free hm3;
 
-    let hm3a <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm3a <HashMap<str,i32,DefaultHash32>> must_hms insert hm3a "foo" 10;
-    let hm3a <HashMap<str,i32,DefaultHash32>> must_hms insert hm3a "bar" 20;
-    let hm3a_has <bool> contains &hm3a "foo";
+    let hm3a %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm3a %HashMap str i32 DefaultHash32 must_hms insert hm3a "foo" 10;
+    let hm3a %HashMap str i32 DefaultHash32 must_hms insert hm3a "bar" 20;
+    let hm3a_has %bool contains &hm3a "foo";
     free hm3a;
 
-    let hm3b <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm3b <HashMap<str,i32,DefaultHash32>> must_hms insert hm3b "foo" 10;
-    let hm3b <HashMap<str,i32,DefaultHash32>> must_hms insert hm3b "bar" 20;
-    let hm3b_has <bool> contains &hm3b "bar";
+    let hm3b %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm3b %HashMap str i32 DefaultHash32 must_hms insert hm3b "foo" 10;
+    let hm3b %HashMap str i32 DefaultHash32 must_hms insert hm3b "bar" 20;
+    let hm3b_has %bool contains &hm3b "bar";
     free hm3b;
 
-    let hm3c <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm3c <HashMap<str,i32,DefaultHash32>> must_hms insert hm3c "foo" 10;
-    let hm3c <HashMap<str,i32,DefaultHash32>> must_hms insert hm3c "bar" 20;
-    let hm3c_has <bool> contains &hm3c "baz";
+    let hm3c %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm3c %HashMap str i32 DefaultHash32 must_hms insert hm3c "foo" 10;
+    let hm3c %HashMap str i32 DefaultHash32 must_hms insert hm3c "bar" 20;
+    let hm3c_has %bool contains &hm3c "baz";
     free hm3c;
 
-    let s1 <str> concat "a" "b";
-    let s2 <str> concat "a" "b";
-    let hm4 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm4 <HashMap<str,i32,DefaultHash32>> must_hms insert hm4 s1 30;
-    let mut hm4_value <i32> -1;
+    let s1 %str concat "a" "b";
+    let s2 %str concat "a" "b";
+    let hm4 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm4 %HashMap str i32 DefaultHash32 must_hms insert hm4 s1 30;
+    let mut hm4_value %i32 -1;
     match get &hm4 s2:
         Option::Some v:
             set hm4_value v
@@ -87,10 +87,10 @@ fn main <()*> i32> ():
             ()
     free hm4;
 
-    let hm5 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm5 <HashMap<str,i32,DefaultHash32>> must_hms insert hm5 "foo" 10;
-    let hm5 <HashMap<str,i32,DefaultHash32>> must_hms insert hm5 "foo" 11;
-    let mut hm5_value <i32> -1;
+    let hm5 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm5 %HashMap str i32 DefaultHash32 must_hms insert hm5 "foo" 10;
+    let hm5 %HashMap str i32 DefaultHash32 must_hms insert hm5 "foo" 11;
+    let mut hm5_value %i32 -1;
     match get &hm5 "foo":
         Option::Some v:
             set hm5_value v
@@ -98,22 +98,22 @@ fn main <()*> i32> ():
             ()
     free hm5;
 
-    let hm6 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm6 <HashMap<str,i32,DefaultHash32>> must_hms insert hm6 "foo" 10;
-    let hm6 <HashMap<str,i32,DefaultHash32>> must_hms insert hm6 "bar" 20;
-    let hm6 <HashMap<str,i32,DefaultHash32>> must_hms remove hm6 "bar";
-    let hm6_has <bool> contains &hm6 "bar";
+    let hm6 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm6 %HashMap str i32 DefaultHash32 must_hms insert hm6 "foo" 10;
+    let hm6 %HashMap str i32 DefaultHash32 must_hms insert hm6 "bar" 20;
+    let hm6 %HashMap str i32 DefaultHash32 must_hms remove hm6 "bar";
+    let hm6_has %bool contains &hm6 "bar";
     free hm6;
 
-    let hm7 <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hm7 <HashMap<str,i32,DefaultHash32>> must_hms insert hm7 "foo" 10;
-    let hm7_is_err <bool>:
+    let hm7 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hm7 %HashMap str i32 DefaultHash32 must_hms insert hm7 "foo" 10;
+    let hm7_is_err %bool:
         match remove hm7 "zzz":
             Result::Ok hm:
                 free hm;
                 false
             Result::Err e:
-                let hm <HashMap<str,i32,DefaultHash32>> hashmap_update_error_owner<str,i32,DefaultHash32> e;
+                let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner<str,i32,DefaultHash32> e;
                 free hm;
                 true
 
@@ -151,25 +151,25 @@ stdout: "test_report name=\"hashmap_str_free_smoke\" count=1 failed=0\nassertion
 #import "core/result" as *
 #import "std/test" as *
 
-fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,DefaultHash32>> (r):
+fn must_hms %impure fn Result HashMap str i32 DefaultHash32 Diag HashMap str i32 DefaultHash32 \r:
     match r:
         Result::Ok hm:
             hm
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
-fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, HashMapUpdateError<str,i32,DefaultHash32>>)*>HashMap<str,i32,DefaultHash32>> (r):
+fn must_hms %impure fn Result HashMap str i32 DefaultHash32 HashMapUpdateError str i32 DefaultHash32 HashMap str i32 DefaultHash32 \r:
     match r:
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm <HashMap<str,i32,DefaultHash32>> hashmap_update_error_owner<str,i32,DefaultHash32> e;
+            let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner<str,i32,DefaultHash32> e;
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main <()*> i32> ():
-    let hmf <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hmf <HashMap<str,i32,DefaultHash32>> must_hms insert hmf "x" 1;
+fn main %impure fn () i32 \():
+    let hmf %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
+    let hmf %HashMap str i32 DefaultHash32 must_hms insert hmf "x" 1;
     free hmf;
     let report:
         test_report_new "hashmap_str_free_smoke"

@@ -15,8 +15,8 @@ stdout: "test_report name=\"sizeof_primitives\" count=1 failed=0\nassertion inde
 #import "core/mem" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> if:
+fn main %impure fn () i32 \():
+    let actual %i32 if:
         eq size_of<i32> 4
         then:
             if:
@@ -57,11 +57,11 @@ stdout: "test_report name=\"sizeof_generic_function\" count=1 failed=0\nassertio
 #import "core/mem" as *
 #import "std/test" as *
 
-fn size_of_t <.T> <()->i32> ():
+fn size_of_t <.T> %fn () i32 \():
     size_of<.T>
 
-fn main <()*>i32> ():
-    let actual <i32> if:
+fn main %impure fn () i32 \():
+    let actual %i32 if:
         eq size_of<i32> size_of_t<i32>
         then:
             if:
@@ -93,10 +93,10 @@ stdout: "test_report name=\"sizeof_generic_struct_wrapper\" count=1 failed=0\nas
 #import "std/test" as *
 
 struct Wrap<.T>:
-    value <.T>
+    value %.T
 
-fn main <()*>i32> ():
-    let actual <i32> if:
+fn main %impure fn () i32 \():
+    let actual %i32 if:
         eq size_of<i32> size_of<Wrap<i32>>
         then:
             if eq size_of<str> size_of<Wrap<str>> 0 2
@@ -123,15 +123,15 @@ stdout: "test_report name=\"sizeof_multi_field_struct_regression\" count=1 faile
 #import "std/test" as *
 
 struct Pair:
-    a <i32>
-    b <i32>
+    a %i32
+    b %i32
 
 struct WidePair:
-    a <i64>
-    b <i32>
+    a %i64
+    b %i32
 
-fn main <()*>i32> ():
-    let actual <i32> if:
+fn main %impure fn () i32 \():
+    let actual %i32 if:
         eq size_of<Pair> 8
         then:
             if eq size_of<WidePair> 12 0 2
@@ -159,13 +159,13 @@ stdout: "test_report name=\"sizeof_algebraic_types\" count=1 failed=0\nassertion
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let s_i32 <i32> size_of<i32>;
-    let s_str <i32> size_of<str>;
-    let s_opt_i32 <i32> size_of<Option<i32>>;
-    let s_opt_str <i32> size_of<Option<str>>;
-    let s_res_i32_str <i32> size_of<Result<i32,str>>;
-    let actual <i32> if:
+fn main %impure fn () i32 \():
+    let s_i32 %i32 size_of<i32>;
+    let s_str %i32 size_of<str>;
+    let s_opt_i32 %i32 size_of<Option<i32>>;
+    let s_opt_str %i32 size_of<Option<str>>;
+    let s_res_i32_str %i32 size_of<Result<i32,str>>;
+    let actual %i32 if:
         lt s_opt_i32 s_i32
         then:
             1
@@ -204,18 +204,18 @@ stdout: "test_report name=\"sizeof_nested_generic_struct\" count=1 failed=0\nass
 #import "std/test" as *
 
 struct Cell<.T>:
-    v <.T>
+    v %.T
 
 struct Node<.T>:
-    head <.T>
-    tail <Option<.T>>
+    head %.T
+    tail %Option .T
 
-fn main <()*>i32> ():
-    let s_cell_i64 <i32> size_of<Cell<i64>>;
-    let s_i64 <i32> size_of<i64>;
-    let s_node_i32 <i32> size_of<Node<i32>>;
-    let s_res <i32> size_of<Result<Node<i32>, Cell<i64>>>;
-    let actual <i32> if:
+fn main %impure fn () i32 \():
+    let s_cell_i64 %i32 size_of<Cell<i64>>;
+    let s_i64 %i32 size_of<i64>;
+    let s_node_i32 %i32 size_of<Node<i32>>;
+    let s_res %i32 size_of<Result<Node<i32>, Cell<i64>>>;
+    let actual %i32 if:
         eq s_cell_i64 s_i64
         then:
             if:
@@ -257,10 +257,10 @@ stdout: "test_report name=\"sizeof_collection_structs\" count=1 failed=0\nassert
 #import "alloc/collections/hashset" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let vec_expected <i32> add (add 4 4) size_of<VecStorage<i32>>;
-    let stack_expected <i32> add (add 4 4) size_of<Vec<Option<i32>>>;
-    let actual <i32> if:
+fn main %impure fn () i32 \():
+    let vec_expected %i32 add (add 4 4) size_of<VecStorage<i32>>;
+    let stack_expected %i32 add (add 4 4) size_of<Vec<Option<i32>>>;
+    let actual %i32 if:
         eq size_of<Vec<i32>> vec_expected
         then:
             if:
@@ -304,8 +304,8 @@ stdout: "test_report name=\"sizeof_diag_structs\" count=1 failed=0\nassertion in
 #import "alloc/diag/error" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> if:
+fn main %impure fn () i32 \():
+    let actual %i32 if:
         eq size_of<Span> 12
         then:
             if:
@@ -343,9 +343,9 @@ diag_codes: parser.type_expr.invalid
 #indent 4
 #import "core/mem" as *
 
-fn bad_sizeof <T> <()->i32> ():
+fn bad_sizeof %T %fn () i32 \():
     size_of<T>
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     bad_sizeof<i32>;
 ```

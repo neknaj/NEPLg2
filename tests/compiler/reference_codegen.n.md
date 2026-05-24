@@ -11,12 +11,12 @@ stdout: "test_report name=\"scalar_addr_of_then_deref_returns_the_scalar_value\"
 
 #import "std/test" as *
 
-fn deref_i32 <(&i32)->i32> (x):
+fn deref_i32 %fn &i32 i32 \x:
     *x
 
-fn main <()*>i32> ():
-    let a <i32> 6
-    let actual <i32> deref_i32 &a
+fn main %impure fn () i32 \():
+    let a %i32 6
+    let actual %i32 deref_i32 &a
     let report:
         test_report_new "scalar_addr_of_then_deref_returns_the_scalar_value"
         |> test_report_push assert_eq_i32 "addr-of then deref scalar" 6 actual
@@ -36,11 +36,11 @@ stdout: "test_report name=\"stdlib_clone_of_i32_through_a_reference_returns_the_
 #import "core/traits/copy" as *
 #import "std/test" as *
 
-fn clone_i32 <(i32)->i32> (x):
+fn clone_i32 %fn i32 i32 \x:
     Clone::clone &x
 
-fn main <()*>i32> ():
-    let actual <i32> clone_i32 6
+fn main %impure fn () i32 \():
+    let actual %i32 clone_i32 6
     let report:
         test_report_new "stdlib_clone_of_i32_through_a_reference_returns_the_scalar_value"
         |> test_report_push assert_eq_i32 "clone i32 through reference" 6 actual
@@ -62,12 +62,12 @@ stdout: "test_report name=\"stdlib_clone_of_generic_MemPtr_impl_resolves_before_
 #import "core/traits/copy" as *
 #import "std/test" as *
 
-fn clone_ptr_addr <(MemPtr<u8>)->i32> (p):
-    let q <MemPtr<u8>> Clone::clone &p
+fn clone_ptr_addr %fn MemPtr u8 i32 \p:
+    let q %MemPtr u8 Clone::clone &p
     mem_ptr_addr q
 
-fn main <()*>i32> ():
-    let actual <i32> clone_ptr_addr mem_ptr_wrap<u8> 32
+fn main %impure fn () i32 \():
+    let actual %i32 clone_ptr_addr mem_ptr_wrap<u8> 32
     let report:
         test_report_new "stdlib_clone_of_generic_MemPtr_impl_resolves_before_backend"
         |> test_report_push assert_eq_i32 "clone generic MemPtr address" 32 actual
@@ -89,18 +89,18 @@ stdout: "test_report name=\"borrowed_enum_match_binds_scalar_payload_by_referenc
 
 enum LocalBox:
     Empty
-    Full <i32>
+    Full %i32
 
-fn read_box <(&LocalBox)->i32> (box):
+fn read_box %fn &LocalBox i32 \box:
     match box:
         Empty:
             0
         Full value:
             *value
 
-fn main <()*>i32> ():
-    let box <LocalBox> LocalBox::Full 42
-    let actual <i32> read_box &box
+fn main %impure fn () i32 \():
+    let box %LocalBox LocalBox::Full 42
+    let actual %i32 read_box &box
     let report:
         test_report_new "borrowed_enum_match_binds_scalar_payload_by_reference"
         |> test_report_push assert_eq_i32 "borrowed enum scalar payload" 42 actual
@@ -122,19 +122,19 @@ stdout: "test_report name=\"owned_enum_match_preserves_reference_payload_value\"
 
 enum RefOpt:
     None
-    Some <&i32>
+    Some %&i32
 
-fn read_ref_opt <(RefOpt)->i32> (opt):
+fn read_ref_opt %fn RefOpt i32 \opt:
     match opt:
         RefOpt::None:
             0
         RefOpt::Some r:
             *r
 
-fn main <()*>i32> ():
-    let x <i32> 57
-    let opt <RefOpt> RefOpt::Some &x
-    let actual <i32> read_ref_opt opt
+fn main %impure fn () i32 \():
+    let x %i32 57
+    let opt %RefOpt RefOpt::Some &x
+    let actual %i32 read_ref_opt opt
     let report:
         test_report_new "owned_enum_match_preserves_reference_payload_value"
         |> test_report_push assert_eq_i32 "owned enum reference payload" 57 actual
@@ -159,26 +159,26 @@ stdout: "test_report name=\"borrowed_enum_match_does_not_move_owner_payload\" co
 #import "std/test" as *
 
 struct LocalToken:
-    value <i32>
+    value %i32
 
 enum TokenBox:
     Empty
-    Owned <RegionToken<LocalToken>>
+    Owned %RegionToken LocalToken
 
-fn token_box_addr <(&TokenBox)->i32> (box):
+fn token_box_addr %fn &TokenBox i32 \box:
     match box:
         Empty:
             0
         Owned token:
             mem_ptr_addr region_ptr token
 
-fn run_case <()->i32> ():
+fn run_case %fn () i32 \():
     match alloc_region<LocalToken> 1:
         Result::Err _:
             1
         Result::Ok token:
-            let box <TokenBox> TokenBox::Owned token
-            let addr <i32> token_box_addr &box
+            let box %TokenBox TokenBox::Owned token
+            let addr %i32 token_box_addr &box
             match box:
                 Empty:
                     1
@@ -189,8 +189,8 @@ fn run_case <()->i32> ():
                         Result::Ok _:
                             if gt addr 0 0 1
 
-fn main <()*>i32> ():
-    let actual <i32> run_case
+fn main %impure fn () i32 \():
+    let actual %i32 run_case
     let report:
         test_report_new "borrowed_enum_match_does_not_move_owner_payload"
         |> test_report_push assert_eq_i32 "borrowed enum owner payload remains consumable" 0 actual

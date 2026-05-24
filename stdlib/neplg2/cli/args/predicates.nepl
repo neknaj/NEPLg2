@@ -18,12 +18,12 @@
 //:| #target std
 //:| #import "neplg2/cli/args/predicates" as *
 //:| #import "neplg2/cli/args/types" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     if selfhost_cli_error_is_invalid_emit SelfhostCliErrorKind::InvalidEmit 0 1
 //: ```
 
 //: selfhost_cli_target_is_wasm: target が Wasm か判定する
-pub fn selfhost_cli_target_is_wasm <(SelfhostCliTarget)->bool> (target):
+pub fn selfhost_cli_target_is_wasm %fn SelfhostCliTarget bool \target:
     match target:
         SelfhostCliTarget::Wasm:
             true
@@ -35,7 +35,7 @@ pub fn selfhost_cli_target_is_wasm <(SelfhostCliTarget)->bool> (target):
             false
 
 //: selfhost_cli_target_is_wasi: target が Wasi か判定する
-pub fn selfhost_cli_target_is_wasi <(SelfhostCliTarget)->bool> (target):
+pub fn selfhost_cli_target_is_wasi %fn SelfhostCliTarget bool \target:
     match target:
         SelfhostCliTarget::Wasm:
             false
@@ -47,7 +47,7 @@ pub fn selfhost_cli_target_is_wasi <(SelfhostCliTarget)->bool> (target):
             false
 
 //: selfhost_cli_error_is_unknown_option: error kind が unknown option か判定する
-pub fn selfhost_cli_error_is_unknown_option <(SelfhostCliErrorKind)->bool> (kind):
+pub fn selfhost_cli_error_is_unknown_option %fn SelfhostCliErrorKind bool \kind:
     match kind:
         SelfhostCliErrorKind::UnknownOption:
             true
@@ -63,7 +63,7 @@ pub fn selfhost_cli_error_is_unknown_option <(SelfhostCliErrorKind)->bool> (kind
             false
 
 //: selfhost_cli_error_is_missing_value: error kind が missing value か判定する
-pub fn selfhost_cli_error_is_missing_value <(SelfhostCliErrorKind)->bool> (kind):
+pub fn selfhost_cli_error_is_missing_value %fn SelfhostCliErrorKind bool \kind:
     match kind:
         SelfhostCliErrorKind::UnknownOption:
             false
@@ -79,7 +79,7 @@ pub fn selfhost_cli_error_is_missing_value <(SelfhostCliErrorKind)->bool> (kind)
             false
 
 //: selfhost_cli_error_is_multiple_input: error kind が multiple input か判定する
-pub fn selfhost_cli_error_is_multiple_input <(SelfhostCliErrorKind)->bool> (kind):
+pub fn selfhost_cli_error_is_multiple_input %fn SelfhostCliErrorKind bool \kind:
     match kind:
         SelfhostCliErrorKind::UnknownOption:
             false
@@ -95,7 +95,7 @@ pub fn selfhost_cli_error_is_multiple_input <(SelfhostCliErrorKind)->bool> (kind
             false
 
 //: selfhost_cli_error_is_invalid_emit: error kind が invalid emit か判定する
-pub fn selfhost_cli_error_is_invalid_emit <(SelfhostCliErrorKind)->bool> (kind):
+pub fn selfhost_cli_error_is_invalid_emit %fn SelfhostCliErrorKind bool \kind:
     match kind:
         SelfhostCliErrorKind::UnknownOption:
             false

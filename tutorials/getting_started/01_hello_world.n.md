@@ -12,7 +12,7 @@ stdout: "Hello, NEPL!\n"
 #import "std/stdio" as *
 
 // 標準出力へ 1 行だけ書きます。
-fn main <()*>()> ():
+fn main %impure fn () () \():
     println "Hello, NEPL!";
 ```
 

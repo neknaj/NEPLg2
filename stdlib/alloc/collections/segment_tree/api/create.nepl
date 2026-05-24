@@ -26,20 +26,20 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let st <SegmentTree> unwrap_ok<SegmentTree, Diag> new 5;
-//:     let observed_len <i32> len &st;
-//:     let ok <bool> eq observed_len 5;
+//: fn main %impure fn () i32 \():
+//:     let st %SegmentTree unwrap_ok<SegmentTree, Diag> new 5;
+//:     let observed_len %i32 len &st;
+//:     let ok %bool eq observed_len 5;
 //:     free st
 //:     if ok 1 0
 //: ```
-pub fn new <(i32)*>Result<SegmentTree, Diag>> (n):
+pub fn new %impure fn i32 Result SegmentTree Diag \n:
     if:
         lt n 0
         then diag_err<SegmentTree> seg_diag_len
         else:
-            let base <i32> seg_next_pow2 if eq n 0 1 n
-            let cells <i32> seg_expected_cells base
+            let base %i32 seg_next_pow2 if eq n 0 1 n
+            let cells %i32 seg_expected_cells base
             match vec::filled<i32> cells 0:
                 Result::Err _e:
                     diag_err<SegmentTree> diag_out_of_memory

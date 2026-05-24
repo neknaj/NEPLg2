@@ -12,7 +12,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/resource/move_state" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     selfhost_move_state_stage0
 //: ```
 

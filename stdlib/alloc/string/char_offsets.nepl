@@ -18,7 +18,7 @@
 #import "alloc/string/byte_index" as *
 #import "alloc/string/utf8" as *
 
-fn str_utf8_step_byte_or_invalid <(str,i32)->i32> (s, idx):
+fn str_utf8_step_byte_or_invalid %fn str fn i32 i32 \s\idx:
     match checked_string_byte_at s idx:
         Option::Some b:
             b
@@ -40,9 +40,9 @@ fn str_utf8_step_byte_or_invalid <(str,i32)->i32> (s, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn str_utf8_step_width_at <(str,i32)->i32> (s, byte_index):
-    let n <i32> len s
-    let b0 <i32> str_utf8_step_byte_or_invalid s byte_index
+pub fn str_utf8_step_width_at %fn str fn i32 i32 \s\byte_index:
+    let n %i32 len s
+    let b0 %i32 str_utf8_step_byte_or_invalid s byte_index
     match string_utf8_lead_kind b0:
         StringUtf8LeadKind::Ascii:
             1
@@ -52,7 +52,7 @@ pub fn str_utf8_step_width_at <(str,i32)->i32> (s, byte_index):
                 then:
                     0
                 else:
-                    let b1 <i32> str_utf8_step_byte_or_invalid s add byte_index 1
+                    let b1 %i32 str_utf8_step_byte_or_invalid s add byte_index 1
                     if:
                         string_utf8_is_continuation b1
                         then:
@@ -65,9 +65,9 @@ pub fn str_utf8_step_width_at <(str,i32)->i32> (s, byte_index):
                 then:
                     0
                 else:
-                    let b1 <i32> str_utf8_step_byte_or_invalid s add byte_index 1
-                    let b2 <i32> str_utf8_step_byte_or_invalid s add byte_index 2
-                    let first_ok <bool>:
+                    let b1 %i32 str_utf8_step_byte_or_invalid s add byte_index 1
+                    let b2 %i32 str_utf8_step_byte_or_invalid s add byte_index 2
+                    let first_ok %bool:
                         if:
                             eq b0 0xE0
                             then:
@@ -91,10 +91,10 @@ pub fn str_utf8_step_width_at <(str,i32)->i32> (s, byte_index):
                 then:
                     0
                 else:
-                    let b1 <i32> str_utf8_step_byte_or_invalid s add byte_index 1
-                    let b2 <i32> str_utf8_step_byte_or_invalid s add byte_index 2
-                    let b3 <i32> str_utf8_step_byte_or_invalid s add byte_index 3
-                    let first_ok <bool>:
+                    let b1 %i32 str_utf8_step_byte_or_invalid s add byte_index 1
+                    let b2 %i32 str_utf8_step_byte_or_invalid s add byte_index 2
+                    let b3 %i32 str_utf8_step_byte_or_invalid s add byte_index 3
+                    let first_ok %bool:
                         if:
                             eq b0 0xF0
                             then:
@@ -120,10 +120,10 @@ pub fn str_utf8_step_width_at <(str,i32)->i32> (s, byte_index):
 //: [目的/もくてき]:
 //: - `str_slice_chars_result` が 1 回の走査で求めた start/end byte offset をまとめて返します。
 pub struct StrCharSliceOffsets:
-    start <i32>
-    end <i32>
+    start %i32
+    end %i32
 
-pub fn str_char_slice_offsets_new <(i32,i32)->StrCharSliceOffsets> (start_byte, end_byte):
+pub fn str_char_slice_offsets_new %fn i32 fn i32 StrCharSliceOffsets \start_byte\end_byte:
     StrCharSliceOffsets start_byte end_byte
 
 //: str_char_slice_offsets_result: char index 範囲を byte offset 範囲へ変換する
@@ -137,16 +137,16 @@ pub fn str_char_slice_offsets_new <(i32,i32)->StrCharSliceOffsets> (start_byte, 
 //:
 //: [計算量/けいさんりょう]:
 //: - O(byte_len)
-pub fn str_char_slice_offsets_result <(str,i32,i32)->Result<StrCharSliceOffsets,str>> (s, start_char, end_char):
-    let n <i32> len s
-    let mut byte_i <i32> 0
-    let mut char_i <i32> 0
-    let mut start_byte <i32> 0
-    let mut end_byte <i32> 0
-    let mut found_start <bool> false
-    let mut found_end <bool> false
-    let mut done <bool> false
-    let mut failed <bool> or lt start_char 0 lt end_char start_char
+pub fn str_char_slice_offsets_result %fn str fn i32 fn i32 Result StrCharSliceOffsets str \s\start_char\end_char:
+    let n %i32 len s
+    let mut byte_i %i32 0
+    let mut char_i %i32 0
+    let mut start_byte %i32 0
+    let mut end_byte %i32 0
+    let mut found_start %bool false
+    let mut found_end %bool false
+    let mut done %bool false
+    let mut failed %bool or lt start_char 0 lt end_char start_char
     while and not failed not done:
         do:
             if:
@@ -168,7 +168,7 @@ pub fn str_char_slice_offsets_result <(str,i32,i32)->Result<StrCharSliceOffsets,
                         then:
                             set failed true
                         else:
-                            let width <i32> str_utf8_step_width_at s byte_i
+                            let width %i32 str_utf8_step_width_at s byte_i
                             if:
                                 le width 0
                                 then:

@@ -27,10 +27,10 @@
 //:| #import "core/math" as *
 //:| #import "neplg2/core/syntax/parser/module_parser" as *
 //:| #import "neplg2/core/syntax/ast/module_ast" as *
-//: fn main <()*>i32> ():
-//:     match selfhost_parse_module_source "fn main <()->i32> ():\n    0\n":
+//: fn main %impure fn () i32 \():
+//:     match selfhost_parse_module_source "fn main %fn () i32 ():\n    0\n":
 //:         Result::Ok ast:
-//:             let n <i32> selfhost_module_ast_len &ast
+//:             let n %i32 selfhost_module_ast_len &ast
 //:             selfhost_module_ast_free ast
 //:             if eq n 1 0 1
 //:         Result::Err _diag:

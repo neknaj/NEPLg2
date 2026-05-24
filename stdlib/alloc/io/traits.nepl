@@ -25,20 +25,20 @@
 //:| #import "core/result" as *
 //:| #import "std/test" as *
 //: struct CountSink:
-//:     total <i32>
+//:     total %i32
 //:
 //: impl ByteWriter for CountSink:
-//:     fn write_bytes <(CountSink,ByteBuf)*>Result<CountSink, StdErrorKind>> (sink, bytes):
-//:         let n <i32> io_bytebuf_len_ref &bytes;
+//:     fn write_bytes %impure fn CountSink impure fn ByteBuf Result CountSink StdErrorKind \sink\bytes:
+//:         let n %i32 io_bytebuf_len_ref &bytes;
 //:         io_bytebuf_free bytes;
-//:         let total <i32> get sink "total"
+//:         let total %i32 get sink "total"
 //:         Result<CountSink, StdErrorKind>::Ok CountSink add total n
 //:
-//: fn main <()*>i32> ():
-//:     let bytes0 <ByteBuf> io_bytebuf_from_str "AB";
+//: fn main %impure fn () i32 \():
+//:     let bytes0 %ByteBuf io_bytebuf_from_str "AB";
 //:     let checks match io_write_bytes (CountSink 3) bytes0:
 //:         Result::Ok sink1:
-//:             let total <i32> get sink1 "total"
+//:             let total %i32 get sink1 "total"
 //:             checks_push checks_new assert_eq_i32 5 total
 //:         Result::Err _e:
 //:             checks_push checks_new assert_eq_i32 1 0
@@ -49,53 +49,53 @@
 //: ## ByteReader
 //: [生/なま]の[バイト列/ばいとれつ]を[読/よ]み[出/だ]す[能力/のうりょく]
 trait ByteReader:
-    fn read_all_bytes <(Self)*>Result<ByteBuf, StdErrorKind>> (stream):
+    fn read_all_bytes %impure fn Self Result ByteBuf StdErrorKind \stream:
         Result::Err StdErrorKind::IoError
 
 //: ## ByteWriter
 //: [生/なま]の[バイト列/ばいとれつ]を[書/か]き[込/こ]む[能力/のうりょく]
 trait ByteWriter:
-    fn write_bytes <(Self, ByteBuf)*>Result<Self, StdErrorKind>> (stream, bytes):
+    fn write_bytes %impure fn Self impure fn ByteBuf Result Self StdErrorKind \stream\bytes:
         Result::Err StdErrorKind::IoError
 
 //: ## TextReader
 //: text として[全体/ぜんたい]を[読/よ]み[出/だ]す[能力/のうりょく]
 trait TextReader:
-    fn read_all_text <(Self)*>Result<str, StdErrorKind>> (stream):
+    fn read_all_text %impure fn Self Result str StdErrorKind \stream:
         Result::Err StdErrorKind::IoError
 
 //: ## TextWriter
 //: text を[書/か]き[込/こ]む[能力/のうりょく]
 trait TextWriter:
-    fn write_str <(Self, str)*>Result<Self, StdErrorKind>> (stream, text):
+    fn write_str %impure fn Self impure fn str Result Self StdErrorKind \stream\text:
         Result::Err StdErrorKind::IoError
 
 //: ## Flush
 //: [保留中/ほりゅうちゅう]の[出力/しゅつりょく]を[外部/がいぶ]へ[反映/はんえい]する[能力/のうりょく]
 trait Flush:
-    fn flush <(Self)*>Result<Self, StdErrorKind>> (stream):
+    fn flush %impure fn Self Result Self StdErrorKind \stream:
         Result::Err StdErrorKind::IoError
 
 //: ## Close
 //: stream を[閉/と]じる[能力/のうりょく]
 trait Close:
-    fn close <(Self)*>Result<(), StdErrorKind>> (stream):
+    fn close %impure fn Self Result () StdErrorKind \stream:
         Result::Err StdErrorKind::IoError
 
-pub fn io_read_all_bytes <.T: ByteReader> <(.T)*>Result<ByteBuf, StdErrorKind>> (stream):
+pub fn io_read_all_bytes <.T: ByteReader> %impure fn .T Result ByteBuf StdErrorKind \stream:
     ByteReader::read_all_bytes stream
 
-pub fn io_write_bytes <.T: ByteWriter> <(.T, ByteBuf)*>Result<.T, StdErrorKind>> (stream, bytes):
+pub fn io_write_bytes <.T: ByteWriter> %impure fn .T impure fn ByteBuf Result .T StdErrorKind \stream\bytes:
     ByteWriter::write_bytes stream bytes
 
-pub fn io_read_all_text <.T: TextReader> <(.T)*>Result<str, StdErrorKind>> (stream):
+pub fn io_read_all_text <.T: TextReader> %impure fn .T Result str StdErrorKind \stream:
     TextReader::read_all_text stream
 
-pub fn io_write_str <.T: TextWriter> <(.T, str)*>Result<.T, StdErrorKind>> (stream, text):
+pub fn io_write_str <.T: TextWriter> %impure fn .T impure fn str Result .T StdErrorKind \stream\text:
     TextWriter::write_str stream text
 
-pub fn io_flush <.T: Flush> <(.T)*>Result<.T, StdErrorKind>> (stream):
+pub fn io_flush <.T: Flush> %impure fn .T Result .T StdErrorKind \stream:
     Flush::flush stream
 
-pub fn io_close <.T: Close> <(.T)*>Result<(), StdErrorKind>> (stream):
+pub fn io_close <.T: Close> %impure fn .T Result () StdErrorKind \stream:
     Close::close stream

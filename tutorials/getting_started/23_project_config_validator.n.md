@@ -20,10 +20,10 @@ stdout: mlstr:
 #import "core/math" as *
 
 struct ServerConfig:
-    port <i32>
-    workers <i32>
+    port %i32
+    workers %i32
 
-fn validate_config <(ServerConfig)->Result<ServerConfig,str>> (config):
+fn validate_config %fn ServerConfig Result ServerConfig str \config:
     if:
         lt get config "port" 1
         then:
@@ -36,21 +36,21 @@ fn validate_config <(ServerConfig)->Result<ServerConfig,str>> (config):
                 else:
                     Result<ServerConfig,str>::Ok config
 
-fn expect_valid <(ServerConfig)->Result<(),str>> (config):
+fn expect_valid %fn ServerConfig Result () str \config:
     match validate_config config:
         Result::Ok _ok:
             Result<(),str>::Ok ()
         Result::Err msg:
             Result<(),str>::Err msg
 
-fn expect_invalid <(ServerConfig,str)->Result<(),str>> (config, expected):
+fn expect_invalid %fn ServerConfig fn str Result () str \config\expected:
     match validate_config config:
         Result::Ok _ok:
             Result<(),str>::Err "expected invalid config"
         Result::Err msg:
             check_str_eq expected msg
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks:
         checks_new
         |> checks_push expect_valid ServerConfig 8080 4

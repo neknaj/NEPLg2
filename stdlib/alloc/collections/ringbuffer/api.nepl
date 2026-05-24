@@ -33,19 +33,19 @@
 //:| #import "alloc/collections/ringbuffer" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let rb <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
-//:     let ok <bool> is_empty<i32> &rb;
+//: fn main %impure fn () i32 \():
+//:     let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let ok %bool is_empty<i32> &rb;
 //:     free<i32> rb
 //:     if ok 1 0
 //: ```
-pub fn new <.T: Copy> <()*>Result<RingBuffer<.T>, Diag>> ():
+pub fn new <.T: Copy> %impure fn () Result RingBuffer .T Diag \():
     with_capacity<.T> 8
 
 //: ## with_capacity
 //: [初期/しょき][容量/ようりょう]を[指定/してい]して[作成/さくせい]する
-pub fn with_capacity <.T: Copy> <(i32)*>Result<RingBuffer<.T>, Diag>> (initial_cap):
-    let cap0 <i32> ringbuffer_normalize_capacity initial_cap
+pub fn with_capacity <.T: Copy> %impure fn i32 Result RingBuffer .T Diag \initial_cap:
+    let cap0 %i32 ringbuffer_normalize_capacity initial_cap
     match ringbuffer_alloc_slots<.T> cap0:
         Result::Err d:
             err<RingBuffer<.T>, Diag> d
@@ -54,30 +54,30 @@ pub fn with_capacity <.T: Copy> <(i32)*>Result<RingBuffer<.T>, Diag>> (initial_c
 
 //: ## len
 //: buffer owner を[消費/しょうひ]せず[要素数/ようそすう]を[返/かえ]す
-pub fn len <.T> <(&RingBuffer<.T>)->i32> (rb):
+pub fn len <.T> %fn &RingBuffer .T i32 \rb:
     *field::get_ref rb "len"
 
 //: ## cap
 //: buffer owner を[消費/しょうひ]せず[容量/ようりょう]を[返/かえ]す
-pub fn cap <.T> <(&RingBuffer<.T>)->i32> (rb):
+pub fn cap <.T> %fn &RingBuffer .T i32 \rb:
     *field::get_ref rb "cap"
 
 //: ## is_empty
 //: buffer owner を[消費/しょうひ]せず[空/から]かどうかを[返/かえ]す
-pub fn is_empty <.T> <(&RingBuffer<.T>)->bool> (rb):
+pub fn is_empty <.T> %fn &RingBuffer .T bool \rb:
     eq len<.T> rb 0
 
 //: ## push
 //: [末尾/まつび]へ[追加/ついか]する
-pub fn push <.T: Copy> <(RingBuffer<.T>,.T)*>Result<RingBuffer<.T>, RingBufferPushError<.T>>> (rb, item):
-    let len0 <i32> *field::get_ref &rb "len"
-    let cap0 <i32> *field::get_ref &rb "cap"
-    let head0 <i32> *field::get_ref &rb "head"
-    let items <Vec<Option<.T>>> field::get rb "items"
+pub fn push <.T: Copy> %impure fn RingBuffer .T impure fn .T Result RingBuffer .T RingBufferPushError .T \rb\item:
+    let len0 %i32 *field::get_ref &rb "len"
+    let cap0 %i32 *field::get_ref &rb "cap"
+    let head0 %i32 *field::get_ref &rb "head"
+    let items %Vec Option .T field::get rb "items"
     if:
         eq len0 cap0
         then:
-            let new_cap <i32> mul cap0 2
+            let new_cap %i32 mul cap0 2
             match ringbuffer_alloc_slots<.T> new_cap:
                 Result::Err d:
                     Result::Err<RingBuffer<.T>, RingBufferPushError<.T>> RingBufferPushError<.T> (RingBuffer<.T> len0 cap0 head0 items) d
@@ -87,60 +87,60 @@ pub fn push <.T: Copy> <(RingBuffer<.T>,.T)*>Result<RingBuffer<.T>, RingBufferPu
                     vec::free<Option<.T>> items
                     Result::Ok<RingBuffer<.T>, RingBufferPushError<.T>> RingBuffer<.T> add len0 1 new_cap 0 new_items
         else:
-            let tail <i32> ringbuffer_tail_index head0 len0 cap0
+            let tail %i32 ringbuffer_tail_index head0 len0 cap0
             ringbuffer_store_slot<.T> &items tail some<.T> item
             Result::Ok<RingBuffer<.T>, RingBufferPushError<.T>> RingBuffer<.T> add len0 1 cap0 head0 items
 
 //: ## pop_front
 //: [先頭/せんとう]を[取/と]り[出/だ]し、[更新後/こうしんご]の buffer と[値/あたい]を[返/かえ]す
-pub fn pop_front <.T: Copy> <(RingBuffer<.T>)*>RingBufferPop<.T>> (rb):
-    let len0 <i32> *field::get_ref &rb "len"
-    let cap0 <i32> *field::get_ref &rb "cap"
-    let head0 <i32> *field::get_ref &rb "head"
-    let items <Vec<Option<.T>>> field::get rb "items"
+pub fn pop_front <.T: Copy> %impure fn RingBuffer .T RingBufferPop .T \rb:
+    let len0 %i32 *field::get_ref &rb "len"
+    let cap0 %i32 *field::get_ref &rb "cap"
+    let head0 %i32 *field::get_ref &rb "head"
+    let items %Vec Option .T field::get rb "items"
     if:
         eq len0 0
         then:
-            let next_rb <RingBuffer<.T>> RingBuffer<.T> 0 cap0 head0 items
+            let next_rb %RingBuffer .T RingBuffer<.T> 0 cap0 head0 items
             RingBufferPop<.T> next_rb none<.T>
         else:
-            let item <Option<.T>> ringbuffer_item_at<.T> &items head0
+            let item %Option .T ringbuffer_item_at<.T> &items head0
             ringbuffer_store_slot<.T> &items head0 none<.T>
-            let next_len <i32> sub len0 1
-            let next_head <i32> ringbuffer_next_index head0 cap0
-            let next_rb <RingBuffer<.T>> RingBuffer<.T> next_len cap0 next_head items
+            let next_len %i32 sub len0 1
+            let next_head %i32 ringbuffer_next_index head0 cap0
+            let next_rb %RingBuffer .T RingBuffer<.T> next_len cap0 next_head items
             RingBufferPop<.T> next_rb item
 
 //: ## pop
 //: buffer を[消費/しょうひ]して[先頭/せんとう]の[値/あたい]だけを[返/かえ]す
-pub fn pop <.T: Copy> <(RingBuffer<.T>)*>Option<.T>> (rb):
-    let p <RingBufferPop<.T>> pop_front<.T> rb
-    let item <Option<.T>> ringbuffer_pop_item<.T> &p
+pub fn pop <.T: Copy> %impure fn RingBuffer .T Option .T \rb:
+    let p %RingBufferPop .T pop_front<.T> rb
+    let item %Option .T ringbuffer_pop_item<.T> &p
     free<.T> ringbuffer_pop_buffer<.T> p
     item
 
 //: ## peek
 //: buffer owner を[消費/しょうひ]せず[先頭/せんとう]を[読/よ]む
-pub fn peek <.T: Copy> <(&RingBuffer<.T>)->Option<.T>> (rb):
-    let len0 <i32> *field::get_ref rb "len"
+pub fn peek <.T: Copy> %fn &RingBuffer .T Option .T \rb:
+    let len0 %i32 *field::get_ref rb "len"
     if:
         eq len0 0
         then:
             none<.T>
         else:
-            let head0 <i32> *field::get_ref rb "head"
-            let items <&Vec<Option<.T>>> field::get_ref rb "items"
+            let head0 %i32 *field::get_ref rb "head"
+            let items %&Vec Option .T field::get_ref rb "items"
             ringbuffer_item_at<.T> items head0
 
 //: ## clear
 //: [内容/ないよう]を[空/から]にする
-pub fn clear <.T: Copy> <(RingBuffer<.T>)*>RingBuffer<.T>> (rb):
-    let cap0 <i32> *field::get_ref &rb "cap"
-    let items <Vec<Option<.T>>> field::get rb "items"
+pub fn clear <.T: Copy> %impure fn RingBuffer .T RingBuffer .T \rb:
+    let cap0 %i32 *field::get_ref &rb "cap"
+    let items %Vec Option .T field::get rb "items"
     ringbuffer_clear_slots_loop<.T> &items cap0 0
     RingBuffer<.T> 0 cap0 0 items
 
 //: ## free
 //: buffer が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> <(RingBuffer<.T>)->()> (rb):
+pub fn free <.T: Copy> %fn RingBuffer .T () \rb:
     vec::free<Option<.T>> field::get rb "items"

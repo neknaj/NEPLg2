@@ -15,7 +15,7 @@ stdout: "hello\nworld!"
 #indent 4
 #import "std/stdio" as *
 
-fn main <()* >()> ():
+fn main %()*()> \():
     // 単行文字列の \n が実行時に改行として扱われることを確認する
     print "hello\nworld!"
 ```
@@ -33,8 +33,8 @@ stdout: "hello\nworld!"
 #indent 4
 #import "std/stdio" as *
 
-fn main <()* >()> ():
-    let b <str> mlstr:
+fn main %()*()> \():
+    let b %str mlstr:
         ##: hello
         ##: world!
     // mlstr の内容がそのまま出力されることを確認する
@@ -54,8 +54,8 @@ stdout: "hello\nworld!END"
 #indent 4
 #import "std/stdio" as *
 
-fn main <()* >()> ():
-    let b <str> mlstr:
+fn main %()*()> \():
+    let b %str mlstr:
         ##: hello
         ##: world!
     print b
@@ -76,8 +76,8 @@ stdout: "\\n should be literal backslash-n\nno \\t escape processingEND"
 #indent 4
 #import "std/stdio" as *
 
-fn main <()* >()> ():
-    let raw <str> mlstr:
+fn main %()*()> \():
+    let raw %str mlstr:
         ##: \n should be literal backslash-n
         ##: no \t escape processing
     print raw
@@ -97,7 +97,7 @@ stdout: "hello\nworld!\ttab"
 #indent 4
 #import "std/stdio" as *
 
-fn main <()* >()> ():
+fn main %()*()> \():
     // \n と \t が実行時に制御文字として扱われることを確認する
     print "hello\nworld!\ttab"
 ```
@@ -106,7 +106,7 @@ fn main <()* >()> ():
 
 以前は `compile_ok` で型だけ確認していました。
 `str` が借用ビューとして「値のコピー（ポインタ＋長さのコピー）で扱える」ことは実行結果だけでは完全には検証できませんが、
-少なくとも `let b <str> a;` が実行可能で、同じ内容が出力されることを確認します。
+少なくとも `let b %str a;` が実行可能で、同じ内容が出力されることを確認します。
 
 neplg2:test
 stdout: "static literal"
@@ -116,9 +116,9 @@ stdout: "static literal"
 #indent 4
 #import "std/stdio" as *
 
-fn main <()* >()> ():
-    let a <str> "static literal"
-    let b <str> a
+fn main %()*()> \():
+    let a %str "static literal"
+    let b %str a
     // b が a と同内容を参照できることを確認する
     print b
 ```
@@ -136,8 +136,8 @@ stdout: "hello"
 #indent 4
 #import "std/stdio" as *
 
-fn main <()* >()> ():
-    let a <str> "hello"
+fn main %()*()> \():
+    let a %str "hello"
     print a
 ```
 
@@ -155,18 +155,18 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 
-fn main <()* >i32> ():
-    let ok0 <bool> match byte_at "AZ" 0:
+fn main %()*i32> \():
+    let ok0 %bool match byte_at "AZ" 0:
         Option::Some b:
             eq b 65
         Option::None:
             false
-    let ok1 <bool> match byte_at "AZ" 1:
+    let ok1 %bool match byte_at "AZ" 1:
         Option::Some b:
             eq b 90
         Option::None:
             false
-    let ok2 <bool> is_none<i32> byte_at "AZ" 2
+    let ok2 %bool is_none<i32> byte_at "AZ" 2
     if and ok0 and ok1 ok2 0 1
 ```
 
@@ -183,9 +183,9 @@ stdout: "こんにちは世界👋🌍"
 #indent 4
 #import "std/stdio" as *
 
-fn main <()* >()> ():
-    let japanese <str> "こんにちは世界"
-    let emoji <str> "👋🌍"
+fn main %()*()> \():
+    let japanese %str "こんにちは世界"
+    let emoji %str "👋🌍"
     // UTF-8 の連結（連続出力）が崩れないことを確認する
     print japanese
     print emoji
@@ -204,8 +204,8 @@ stdout: "こんにちは\n世界END"
 #indent 4
 #import "std/stdio" as *
 
-fn main <()* >()> ():
-    let text <str> mlstr:
+fn main %()*()> \():
+    let text %str mlstr:
         ##: こんにちは
         ##: 世界
     print text
@@ -226,9 +226,9 @@ stdout: "[line1   \nline2]END"
 #indent 4
 #import "std/stdio" as *
 
-fn main <()* >()> ():
-    let text <str> mlstr:
-        ##: line1   
+fn main %()*()> \():
+    let text %str mlstr:
+        ##: line1
         ##: line2
     print "["
     print text
@@ -246,8 +246,8 @@ diag_codes: parser.token.unexpected
 ```neplg2
 #entry main
 #indent 4
-fn main <()->i32> ():
-    let text <str> mlstr:
+fn main %fn () i32 \():
+    let text %str mlstr:
         ##: line1
         line2 without prefix
     0
@@ -260,9 +260,9 @@ ret: 0
 ```neplg2
 #entry main
 #indent 4
-fn foo <(str)->()> (s):
+fn foo %fn str () \s:
     ()
-fn main <()->i32> ():
+fn main %fn () i32 \():
     foo "hello"
     0
 ```
@@ -275,10 +275,10 @@ diag_codes: type.overload.no_match
 #entry main
 #indent 4
 #import "core/math" as *
-fn foo <(String)->()> (s):
+fn foo %fn String () \s:
     ()
-fn main <()->i32> ():
-    foo <str> "hello" // should not work
+fn main %fn () i32 \():
+    foo %str "hello" // should not work
     0
 ```
 
@@ -289,10 +289,10 @@ ret: 0
 ```neplg2
 #entry main
 #indent 4
-fn foo <(str)->()> (s):
+fn foo %fn str () \s:
     ()
-fn main <()->i32> ():
-    foo <str> "hello"
+fn main %fn () i32 \():
+    foo %str "hello"
     0
 ```
 
@@ -304,10 +304,10 @@ diag_codes: type.annotation.mismatch, type.overload.no_match
 #entry main
 #indent 4
 #import "core/math" as *
-fn foo <(String)->()> (s):
+fn foo %fn String () \s:
     ()
-fn main <()->i32> ():
-    foo <String> "hello" // should not work
+fn main %fn () i32 \():
+    foo %String "hello" // should not work
     0
 ```
 
@@ -326,14 +326,14 @@ stdout: mlstr:
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main <()* >i32> ():
-    let mut sb <StringBuilder> string_builder_new;
-    let mut i <i32> 0;
+fn main %()*i32> \():
+    let mut sb %StringBuilder string_builder_new;
+    let mut i %i32 0;
     while lt i 2000:
         do:
             set sb sb_append sb "a";
             set i add i 1;
-    let out <str> sb_build sb;
+    let out %str sb_build sb;
     let checks:
         checks_new
         |> checks_push assert_eq_i32 2000 len out

@@ -22,7 +22,7 @@ stdout: mlstr:
 #import "neplg2/core/ty/effect" as *
 #import "std/test" as *
 
-fn check_pure_context <(Result<SelfhostEffectContext,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_pure_context %fn Result SelfhostEffectContext SelfhostProofRefutation Result () str \result:
     match result:
         Result::Ok context:
             match context:
@@ -35,7 +35,7 @@ fn check_pure_context <(Result<SelfhostEffectContext,SelfhostProofRefutation>)->
         Result::Err _refutation:
             Result<(),str>::Err "expected effect boundary proof"
 
-fn check_unsafe_boundary <(Result<SelfhostEffectContext,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_unsafe_boundary %fn Result SelfhostEffectContext SelfhostProofRefutation Result () str \result:
     match result:
         Result::Ok context:
             match context:
@@ -48,7 +48,7 @@ fn check_unsafe_boundary <(Result<SelfhostEffectContext,SelfhostProofRefutation>
         Result::Err _refutation:
             Result<(),str>::Err "expected unsafe boundary proof"
 
-fn check_impure_effect_rejected <(Result<SelfhostEffectContext,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_impure_effect_rejected %fn Result SelfhostEffectContext SelfhostProofRefutation Result () str \result:
     match result:
         Result::Err refutation:
             match refutation:
@@ -91,7 +91,7 @@ fn check_impure_effect_rejected <(Result<SelfhostEffectContext,SelfhostProofRefu
         Result::Ok _context:
             Result<(),str>::Err "impure effect was accepted in pure context"
 
-fn check_escaping_alloc_rejected <(Result<SelfhostEffectContext,SelfhostProofRefutation>)->Result<(),str>> (result):
+fn check_escaping_alloc_rejected %fn Result SelfhostEffectContext SelfhostProofRefutation Result () str \result:
     match result:
         Result::Err refutation:
             match refutation:
@@ -134,13 +134,13 @@ fn check_escaping_alloc_rejected <(Result<SelfhostEffectContext,SelfhostProofRef
         Result::Ok _context:
             Result<(),str>::Err "escaping allocation was accepted in pure context"
 
-fn main <()*>i32> ():
-    let span <SelfhostSourceSpan> source_span_new 0 0 4
-    let pure_fact <SelfhostEffectObservationFact> selfhost_effect_observation_fact_new SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable span
-    let no_escape_alloc <SelfhostEffectObservationFact> selfhost_effect_observation_fact_new SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NoEscapeProven span
-    let escaping_alloc <SelfhostEffectObservationFact> selfhost_effect_observation_fact_new SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape span
-    let io_fact <SelfhostEffectObservationFact> selfhost_effect_observation_fact_new SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable span
-    let unsafe_fact <SelfhostEffectObservationFact> selfhost_effect_observation_fact_new SelfhostEffectKind::UnsafeMemory SelfhostEffectEscapeState::NotApplicable span
+fn main %impure fn () i32 \():
+    let span %SelfhostSourceSpan source_span_new 0 0 4
+    let pure_fact %SelfhostEffectObservationFact selfhost_effect_observation_fact_new SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable span
+    let no_escape_alloc %SelfhostEffectObservationFact selfhost_effect_observation_fact_new SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NoEscapeProven span
+    let escaping_alloc %SelfhostEffectObservationFact selfhost_effect_observation_fact_new SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape span
+    let io_fact %SelfhostEffectObservationFact selfhost_effect_observation_fact_new SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable span
+    let unsafe_fact %SelfhostEffectObservationFact selfhost_effect_observation_fact_new SelfhostEffectKind::UnsafeMemory SelfhostEffectEscapeState::NotApplicable span
     let checks0 checks_new
     let checks1 checks_push checks0 check_pure_context selfhost_proof_effect_allowed SelfhostEffectContext::PureContext pure_fact
     let checks2 checks_push checks1 check_pure_context selfhost_proof_effect_allowed SelfhostEffectContext::PureContext no_escape_alloc

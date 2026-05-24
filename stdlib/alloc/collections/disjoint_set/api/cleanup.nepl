@@ -29,13 +29,13 @@
 //:| #import "alloc/collections/disjoint_set" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let dsu <DisjointSet> unwrap_ok<DisjointSet, Diag> new 3;
+//: fn main %impure fn () i32 \():
+//:     let dsu %DisjointSet unwrap_ok<DisjointSet, Diag> new 3;
 //:     free dsu;
 //:     0
 //: ```
-pub fn free <(DisjointSet)->()> (dsu):
-    let parent <Vec<i32>> field::get dsu "parent"
-    let sizes <Vec<i32>> field::get dsu "sizes"
+pub fn free %fn DisjointSet () \dsu:
+    let parent %Vec i32 field::get dsu "parent"
+    let sizes %Vec i32 field::get dsu "sizes"
     vec::free<i32> parent
     vec::free<i32> sizes

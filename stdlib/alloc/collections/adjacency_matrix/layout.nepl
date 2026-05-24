@@ -8,20 +8,20 @@
 
 #import "core/math" as *
 
-pub fn adjacency_matrix_bit_index <(i32,i32,i32)->i32> (nverts, from, to):
+pub fn adjacency_matrix_bit_index %fn i32 fn i32 fn i32 i32 \nverts\from\to:
     add mul from nverts to
 
-pub fn adjacency_matrix_byte_index <(i32)->i32> (bit_idx):
+pub fn adjacency_matrix_byte_index %fn i32 i32 \bit_idx:
     div_s bit_idx 8
 
-pub fn adjacency_matrix_mask <(i32)->i32> (bit_idx):
+pub fn adjacency_matrix_mask %fn i32 i32 \bit_idx:
     shl 1 rem_s bit_idx 8
 
-pub fn adjacency_matrix_valid_vertex <(i32,i32)->bool> (idx, nverts):
+pub fn adjacency_matrix_valid_vertex %fn i32 fn i32 bool \idx\nverts:
     and le 0 idx lt idx nverts
 
-pub fn adjacency_matrix_valid_edge <(i32,i32,i32)->bool> (nverts, from, to):
+pub fn adjacency_matrix_valid_edge %fn i32 fn i32 fn i32 bool \nverts\from\to:
     and adjacency_matrix_valid_vertex from nverts adjacency_matrix_valid_vertex to nverts
 
-pub fn adjacency_matrix_byte_len <(i32)->i32> (nverts):
+pub fn adjacency_matrix_byte_len %fn i32 i32 \nverts:
     div_s add mul nverts nverts 7 8

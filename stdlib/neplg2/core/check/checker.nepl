@@ -19,7 +19,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/check/checker" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     selfhost_checker_stage0
 //: ```
 
@@ -32,20 +32,20 @@ pub #import "./module" as @merge
 #import "neplg2/core/syntax/ast/module_ast" as *
 
 //: selfhost_checker_stage0: checker orchestration の smoke API
-pub fn selfhost_checker_stage0 <()*>i32> ():
+pub fn selfhost_checker_stage0 %impure fn () i32 \():
     match selfhost_module_ast_new:
         Result::Ok ast0:
-            let entry <SelfhostModuleItem> selfhost_module_item_new SelfhostModuleItemKind::EntryDirective source_span_new 0 0 11 "#entry main"
+            let entry %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::EntryDirective source_span_new 0 0 11 "#entry main"
             match selfhost_module_ast_push ast0 entry:
                 Result::Ok ast1:
-                    let head <SelfhostModuleDeclarationHead> selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name source_span_new 0 15 19
-                    let header <SelfhostModuleDeclarationHeader> selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private source_span_new 0 12 19 source_span_new 0 12 14 some<SelfhostModuleDeclarationHead> head
-                    let decl <SelfhostModuleItem> selfhost_module_item_new_with_declaration SelfhostModuleItemKind::FunctionDecl "fn main" header
+                    let head %SelfhostModuleDeclarationHead selfhost_module_declaration_head_new SelfhostModuleDeclarationHeadKind::Name source_span_new 0 15 19
+                    let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Private source_span_new 0 12 19 source_span_new 0 12 14 some<SelfhostModuleDeclarationHead> head
+                    let decl %SelfhostModuleItem selfhost_module_item_new_with_declaration SelfhostModuleItemKind::FunctionDecl "fn main" header
                     match selfhost_module_ast_push ast1 decl:
                         Result::Ok ast2:
                             match selfhost_check_module_ast &ast2:
                                 Result::Ok summary:
-                                    let n <i32> selfhost_module_check_summary_item_count summary
+                                    let n %i32 selfhost_module_check_summary_item_count summary
                                     selfhost_module_ast_free ast2
                                     if eq n 2 0 1
                                 Result::Err _diag:

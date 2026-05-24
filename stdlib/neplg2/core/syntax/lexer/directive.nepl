@@ -31,30 +31,30 @@ pub enum SelfhostLexerDirectiveKind:
     Unknown
 
 impl Clone for SelfhostLexerDirectiveKind:
-    fn clone <(&SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (self):
+    fn clone %fn &SelfhostLexerDirectiveKind SelfhostLexerDirectiveKind \self:
         *self
 
 impl Copy for SelfhostLexerDirectiveKind:
-    fn copy_mark <(SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (self):
+    fn copy_mark %fn SelfhostLexerDirectiveKind SelfhostLexerDirectiveKind \self:
         self
 
 
-pub fn lex_directive_word_at <(str,i32,i32,str)->bool> (source, n, start, word):
-    let word_len <i32> string_access::len word
+pub fn lex_directive_word_at %fn str fn i32 fn i32 fn str bool \source\n\start\word:
+    let word_len %i32 string_access::len word
     and string_search::str_starts_with_at source start word lex_directive_boundary source n add start word_len
 
 //: lex_directive_arg_start: directive 名の後ろの argument 開始 offset を[返/かえ]す
-pub fn lex_directive_arg_start <(str,i32,i32,i32)->i32> (source, n, start, name_len):
+pub fn lex_directive_arg_start %fn str fn i32 fn i32 fn i32 i32 \source\n\start\name_len:
     lex_skip_horizontal source n add start name_len
 
 //: lex_hash_bracket_end: `#if[...]` directive の `]` 直後 offset を[返/かえ]す
-pub fn lex_hash_bracket_end <(str,i32,i32)->i32> (source, n, idx):
+pub fn lex_hash_bracket_end %fn str fn i32 fn i32 i32 \source\n\idx:
     if:
         ge idx n
         then:
             idx
         else:
-            let ch <i32> lex_byte_or_end source idx
+            let ch %i32 lex_byte_or_end source idx
             match ch:
                 ']':
                     add idx 1
@@ -64,18 +64,18 @@ pub fn lex_hash_bracket_end <(str,i32,i32)->i32> (source, n, idx):
                     lex_hash_bracket_end source n add idx 1
 
 //: lex_directive_match_key_at: directive 候補の先頭 2 byte を match key にする
-pub fn lex_directive_match_key_at <(str,i32,i32)->i32> (source, n, start):
+pub fn lex_directive_match_key_at %fn str fn i32 fn i32 i32 \source\n\start:
     if:
         lt add start 2 n
         then:
-            let first <i32> lex_byte_or_end source add start 1
-            let second <i32> lex_byte_or_end source add start 2
+            let first %i32 lex_byte_or_end source add start 1
+            let second %i32 lex_byte_or_end source add start 2
             add mul first 256 second
         else:
             0
 
 //: lex_directive_kind_if_word: directive 候補を実文字列で検証する
-pub fn lex_directive_kind_if_word <(str,i32,i32,str,SelfhostLexerDirectiveKind,SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (source, n, start, word, kind, fallback):
+pub fn lex_directive_kind_if_word %fn str fn i32 fn i32 fn str fn SelfhostLexerDirectiveKind fn SelfhostLexerDirectiveKind SelfhostLexerDirectiveKind \source\n\start\word\kind\fallback:
     if:
         lex_directive_word_at source n start word
         then:
@@ -84,7 +84,7 @@ pub fn lex_directive_kind_if_word <(str,i32,i32,str,SelfhostLexerDirectiveKind,S
             fallback
 
 //: lex_directive_kind_if_prefix: bracket directive 候補を prefix で検証する
-pub fn lex_directive_kind_if_prefix <(str,i32,str,SelfhostLexerDirectiveKind,SelfhostLexerDirectiveKind)->SelfhostLexerDirectiveKind> (source, start, word, kind, fallback):
+pub fn lex_directive_kind_if_prefix %fn str fn i32 fn str fn SelfhostLexerDirectiveKind fn SelfhostLexerDirectiveKind SelfhostLexerDirectiveKind \source\start\word\kind\fallback:
     if:
         string_search::str_starts_with_at source start word
         then:
@@ -93,20 +93,20 @@ pub fn lex_directive_kind_if_prefix <(str,i32,str,SelfhostLexerDirectiveKind,Sel
             fallback
 
 //: lex_directive_kind_i_bucket: `#i...` directive を分類する
-pub fn lex_directive_kind_i_bucket <(str,i32,i32)->SelfhostLexerDirectiveKind> (source, n, start):
-    let unknown <SelfhostLexerDirectiveKind> SelfhostLexerDirectiveKind::Unknown
-    let intrinsic <SelfhostLexerDirectiveKind> lex_directive_kind_if_word source n start "#intrinsic" SelfhostLexerDirectiveKind::Intrinsic unknown
-    let include <SelfhostLexerDirectiveKind> lex_directive_kind_if_word source n start "#include" SelfhostLexerDirectiveKind::Include intrinsic
+pub fn lex_directive_kind_i_bucket %fn str fn i32 fn i32 SelfhostLexerDirectiveKind \source\n\start:
+    let unknown %SelfhostLexerDirectiveKind SelfhostLexerDirectiveKind::Unknown
+    let intrinsic %SelfhostLexerDirectiveKind lex_directive_kind_if_word source n start "#intrinsic" SelfhostLexerDirectiveKind::Intrinsic unknown
+    let include %SelfhostLexerDirectiveKind lex_directive_kind_if_word source n start "#include" SelfhostLexerDirectiveKind::Include intrinsic
     lex_directive_kind_if_word source n start "#indent" SelfhostLexerDirectiveKind::IndentWidth include
 
 //: lex_directive_kind_if_bucket: `#if[...]` directive を分類する
-pub fn lex_directive_kind_if_bucket <(str,i32)->SelfhostLexerDirectiveKind> (source, start):
-    let unknown <SelfhostLexerDirectiveKind> SelfhostLexerDirectiveKind::Unknown
-    let profile <SelfhostLexerDirectiveKind> lex_directive_kind_if_prefix source start "#if[profile=" SelfhostLexerDirectiveKind::IfProfile unknown
+pub fn lex_directive_kind_if_bucket %fn str fn i32 SelfhostLexerDirectiveKind \source\start:
+    let unknown %SelfhostLexerDirectiveKind SelfhostLexerDirectiveKind::Unknown
+    let profile %SelfhostLexerDirectiveKind lex_directive_kind_if_prefix source start "#if[profile=" SelfhostLexerDirectiveKind::IfProfile unknown
     lex_directive_kind_if_prefix source start "#if[target=" SelfhostLexerDirectiveKind::IfTarget profile
 
 //: lex_directive_kind_at: `#` directive を enum として分類する
-pub fn lex_directive_kind_at <(str,i32,i32)->SelfhostLexerDirectiveKind> (source, n, start):
+pub fn lex_directive_kind_at %fn str fn i32 fn i32 SelfhostLexerDirectiveKind \source\n\start:
     match lex_directive_match_key_at source n start:
         25966:
             lex_directive_kind_if_word source n start "#entry" SelfhostLexerDirectiveKind::Entry SelfhostLexerDirectiveKind::Unknown
@@ -136,11 +136,11 @@ pub fn lex_directive_kind_at <(str,i32,i32)->SelfhostLexerDirectiveKind> (source
             SelfhostLexerDirectiveKind::Unknown
 
 //: lex_directive_token: `#` から始まる directive token を[読/よ]む
-pub fn lex_directive_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
-    let line_end <i32> lex_line_end source n start
+pub fn lex_directive_token %fn str fn i32 fn i32 fn i32 SelfhostToken \source\n\file_id\start:
+    let line_end %i32 lex_line_end source n start
     match lex_directive_kind_at source n start:
         SelfhostLexerDirectiveKind::Entry:
-            let value_start <i32> lex_directive_arg_start source n start 6
+            let value_start %i32 lex_directive_arg_start source n start 6
             lex_token_slice TokenKind::DirEntry source file_id value_start line_end
         SelfhostLexerDirectiveKind::IndentWidth:
             lex_token_slice TokenKind::DirIndentWidth source file_id start line_end
@@ -174,9 +174,9 @@ pub fn lex_directive_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_i
             lex_token_slice TokenKind::Unknown source file_id start add start 1
 
 //: lex_mlstr_token: `##:` line を token 化する
-pub fn lex_mlstr_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
+pub fn lex_mlstr_token %fn str fn i32 fn i32 fn i32 SelfhostToken \source\n\file_id\start:
     lex_token_slice TokenKind::MlstrLine source file_id start lex_line_end source n start
 
 //: lex_doc_comment_token: doc comment line を token 化する
-pub fn lex_doc_comment_token <(str,i32,i32,i32)->SelfhostToken> (source, n, file_id, start):
+pub fn lex_doc_comment_token %fn str fn i32 fn i32 fn i32 SelfhostToken \source\n\file_id\start:
     lex_token_slice TokenKind::DocComment source file_id start lex_line_end source n start

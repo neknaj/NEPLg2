@@ -5,11 +5,11 @@
 #import "./summary" as *
 
 //: selfhost_module_check_summary_new: [空/から]の module check summary を[作/つく]る
-pub fn selfhost_module_check_summary_new <()->SelfhostModuleCheckSummary> ():
+pub fn selfhost_module_check_summary_new %fn () SelfhostModuleCheckSummary \():
     SelfhostModuleCheckSummary 0 0 0 0 0 0 0 0 0 0 0 0
 
-pub fn selfhost_module_check_summary_record <(SelfhostModuleCheckSummary,SelfhostModuleItemKind)->SelfhostModuleCheckSummary> (summary, kind):
-    let item_count <i32> add summary.item_count 1
+pub fn selfhost_module_check_summary_record %fn SelfhostModuleCheckSummary fn SelfhostModuleItemKind SelfhostModuleCheckSummary \summary\kind:
+    let item_count %i32 add summary.item_count 1
     match kind:
         SelfhostModuleItemKind::DocComment:
             SelfhostModuleCheckSummary item_count add summary.doc_comment_count 1 summary.directive_count summary.entry_count summary.target_count summary.import_count summary.declaration_count summary.function_count summary.type_declaration_count summary.impl_count summary.raw_block_count summary.raw_text_count

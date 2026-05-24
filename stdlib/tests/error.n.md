@@ -37,17 +37,17 @@ stdout: "test_report name=\"std_error_kind_and_diag_value_model\" count=8 failed
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut report test_report_new "std_error_kind_and_diag_value_model";
     set report test_report_push report assert_str_eq "Failure kind string" "Failure" std_error_kind_str StdErrorKind::Failure;
     set report test_report_push report assert_str_eq "OutOfMemory kind string" "OutOfMemory" std_error_kind_str StdErrorKind::OutOfMemory;
 
-    let sp <Span> Span 4 5 6;
-    let d0 <Diag> diag_error StdErrorKind::Failure "with source";
-    let d1 <Diag> diag_with_span d0 sp;
-    let d2 <Diag> diag_add_note d1 "check input";
-    let d3 <Diag> diag_add_help d2 "doc: std/test";
-    let d4 <Diag> diag_with_source d3 "parser";
+    let sp %Span Span 4 5 6;
+    let d0 %Diag diag_error StdErrorKind::Failure "with source";
+    let d1 %Diag diag_with_span d0 sp;
+    let d2 %Diag diag_add_note d1 "check input";
+    let d3 %Diag diag_add_help d2 "doc: std/test";
+    let d4 %Diag diag_with_source d3 "parser";
 
     set report test_report_push report assert_str_eq "diag message" "with source" *field::get_ref &d4 "message";
     set report test_report_push report assert_str_eq "diag kind string" "Failure" diag_std_error_kind_str &d4;
@@ -64,8 +64,8 @@ fn main <()*>i32> ():
         Option::None:
             set report test_report_push report test_assertion_failed AssertionKind::StrEq "source text" "parser" "None" "expected source";
 
-    let ds0 <Diags> diags_one d4;
-    let ds1 <Diags> diags_push ds0 diag_warn "careful";
+    let ds0 %Diags diags_one d4;
+    let ds1 %Diags diags_push ds0 diag_warn "careful";
     set report test_report_push report assert_eq_i32 "diags length" 2 diags_len &ds1;
     set report test_report_push report assert "diags has errors" diags_has_errors ds1;
     let shown test_report_print_stdout report
@@ -102,14 +102,14 @@ stdout: "test_report name=\"outcome_helpers_keep_result_and_diags_separate\" cou
 #import "std/test" as *
 #import "core/math" as *
 
-fn assert_result_ok_i32 <(str,Result<i32,StdErrorKind>,i32)->TestAssertion> (label, got, expected):
+fn assert_result_ok_i32 %fn str fn Result i32 StdErrorKind fn i32 TestAssertion \label\got\expected:
     match got:
         Result::Ok v:
             assert_eq_i32 label expected v
         Result::Err kind:
             test_assertion_fail label std_error_kind_str kind
 
-fn assert_kind_io_error <(str,Result<i32,StdErrorKind>)->TestAssertion> (label, got):
+fn assert_kind_io_error %fn str fn Result i32 StdErrorKind TestAssertion \label\got:
     match got:
         Result::Ok _v:
             test_assertion_failed AssertionKind::StrEq label "IoError" "Ok" "expected Err IoError"
@@ -138,7 +138,7 @@ fn assert_kind_io_error <(str,Result<i32,StdErrorKind>)->TestAssertion> (label, 
                 StdErrorKind::Other:
                     test_assertion_failed AssertionKind::StrEq label "IoError" "Other" "expected IoError"
 
-fn assert_kind_parse_error <(str,Result<i32,StdErrorKind>)->TestAssertion> (label, got):
+fn assert_kind_parse_error %fn str fn Result i32 StdErrorKind TestAssertion \label\got:
     match got:
         Result::Ok _v:
             test_assertion_failed AssertionKind::StrEq label "ParseError" "Ok" "expected Err ParseError"
@@ -167,33 +167,33 @@ fn assert_kind_parse_error <(str,Result<i32,StdErrorKind>)->TestAssertion> (labe
                 StdErrorKind::Other:
                     test_assertion_failed AssertionKind::StrEq label "ParseError" "Other" "expected ParseError"
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut report test_report_new "outcome_helpers_keep_result_and_diags_separate";
-    let ok0 <Outcome<i32, StdErrorKind>> outcome_ok<i32, StdErrorKind> 42;
+    let ok0 %Outcome i32 StdErrorKind outcome_ok<i32, StdErrorKind> 42;
     set report test_report_push report assert_result_ok_i32 "ok0 result" outcome_result &ok0 42;
     set report test_report_push report assert_eq_i32 "ok0 empty diags" 0 diags_len outcome_diags_or_empty ok0;
 
-    let ds <Diags> diags_one diag_warn "careful";
-    let ok1 <Outcome<i32, StdErrorKind>> outcome_with_diags outcome_ok<i32, StdErrorKind> 42 ds;
+    let ds %Diags diags_one diag_warn "careful";
+    let ok1 %Outcome i32 StdErrorKind outcome_with_diags outcome_ok<i32, StdErrorKind> 42 ds;
     set report test_report_push report assert_result_ok_i32 "ok1 result" outcome_result &ok1 42;
     set report test_report_push report assert "ok1 is ok" outcome_is_ok &ok1;
     set report test_report_push report assert "ok1 is not err" not outcome_is_err &ok1;
     set report test_report_push report assert_eq_i32 "ok1 diags length" 1 diags_len outcome_diags_or_empty ok1;
-    let ok2 <Outcome<i32, StdErrorKind>> outcome_with_diags outcome_ok<i32, StdErrorKind> 42 diags_one diag_warn "careful";
+    let ok2 %Outcome i32 StdErrorKind outcome_with_diags outcome_ok<i32, StdErrorKind> 42 diags_one diag_warn "careful";
     set report test_report_push report assert "ok2 warns only" not outcome_has_errors ok2;
 
-    let replace0 <Outcome<i32, StdErrorKind>> outcome_with_diags outcome_ok<i32, StdErrorKind> 7 diags_one diag_warn "old";
-    let replace1 <Outcome<i32, StdErrorKind>> outcome_with_diags replace0 diags_one diag_warn "new";
+    let replace0 %Outcome i32 StdErrorKind outcome_with_diags outcome_ok<i32, StdErrorKind> 7 diags_one diag_warn "old";
+    let replace1 %Outcome i32 StdErrorKind outcome_with_diags replace0 diags_one diag_warn "new";
     set report test_report_push report assert_result_ok_i32 "replace result" outcome_result replace1 7;
 
-    let err0 <Outcome<i32, StdErrorKind>> outcome_err<i32, StdErrorKind> StdErrorKind::IoError;
+    let err0 %Outcome i32 StdErrorKind outcome_err<i32, StdErrorKind> StdErrorKind::IoError;
     set report test_report_push report assert_kind_io_error "err0 kind" outcome_result &err0;
     set report test_report_push report assert "err0 is not ok" not outcome_is_ok &err0;
     set report test_report_push report assert "err0 is err" outcome_is_err &err0;
     set report test_report_push report assert_eq_i32 "err0 empty diags" 0 diags_len outcome_diags_or_empty err0;
     set report test_report_push report assert "err0 has no errors" not outcome_has_errors outcome_err<i32, StdErrorKind> StdErrorKind::IoError;
 
-    let err1 <Outcome<i32, StdErrorKind>>:
+    let err1 %Outcome i32 StdErrorKind:
         result_to_outcome<i32, StdErrorKind> Result::Err StdErrorKind::ParseError
     set report test_report_push report assert_kind_parse_error "err1 kind" outcome_result &err1;
     let shown test_report_print_stdout report
@@ -226,10 +226,10 @@ stdout: "test_report name=\"result_and_outcome_common_helpers\" count=8 failed=0
 #import "std/test" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut report test_report_new "result_and_outcome_common_helpers";
-    let r0 <Result<i32, StdErrorKind>> Result::Ok 9;
-    let o0 <Outcome<i32, StdErrorKind>> into_outcome r0;
+    let r0 %Result i32 StdErrorKind Result::Ok 9;
+    let o0 %Outcome i32 StdErrorKind into_outcome r0;
     set report test_report_push report assert "r0 is ok" result_like_is_ok r0;
     set report test_report_push report assert "o0 is ok" result_like_is_ok &o0;
     set report test_report_push report assert "r0 is not err" not result_like_is_err r0;
@@ -247,9 +247,9 @@ fn main <()*>i32> ():
         Result::Err _e:
             set report test_report_push report test_assertion_fail "o0 result" "expected outcome ok";
 
-    let ds <Diags> diags_one diag_warn "careful";
-    let o1 <Outcome<i32, StdErrorKind>> outcome_with_diags outcome_ok<i32, StdErrorKind> 3 ds;
-    let o2 <Outcome<i32, StdErrorKind>> into_outcome o1;
+    let ds %Diags diags_one diag_warn "careful";
+    let o1 %Outcome i32 StdErrorKind outcome_with_diags outcome_ok<i32, StdErrorKind> 3 ds;
+    let o2 %Outcome i32 StdErrorKind into_outcome o1;
     set report test_report_push report assert "o2 is ok" result_like_is_ok &o2;
     set report test_report_push report assert_eq_i32 "o2 diags length" 1 diags_len outcome_diags_or_empty o2;
     let shown test_report_print_stdout report

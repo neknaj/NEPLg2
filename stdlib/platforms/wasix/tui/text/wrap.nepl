@@ -20,18 +20,18 @@
 //: [目的/もくてき]:
 //: - `text_wrap_lines` の行配列 owner と push 成否を同時に返します。
 pub struct TuiStrPushRes:
-    items <Vec<str>>
-    ok <bool>
+    items %Vec str
+    ok %bool
 
 //: tui_empty_str_vec: 空の `Vec<str>` を作る
 //:
 //: [目的/もくてき]:
 //: - `Vec` 初期確保に失敗した場合の空の折り返し結果を作ります。
-pub fn tui_empty_str_vec <()->Vec<str>> ():
+pub fn tui_empty_str_vec %fn () Vec str \():
     v::vec_empty<str>
 
 //: tui_push_str: `Vec<str>` push を trap せず結果化する
-pub fn tui_push_str <(Vec<str>,str)->TuiStrPushRes> (items, item):
+pub fn tui_push_str %fn Vec str fn str TuiStrPushRes \items\item:
     match v::push<str> items item:
         Result::Ok next:
             TuiStrPushRes next true
@@ -53,9 +53,9 @@ pub fn tui_push_str <(Vec<str>,str)->TuiStrPushRes> (items, item):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn text_wrap_lines <(str,i32)*>Vec<str>> (text, cols):
-    let mut out <Vec<str>> tui_empty_str_vec;
-    let mut failed <bool> false;
+pub fn text_wrap_lines %impure fn str impure fn i32 Vec str \text\cols:
+    let mut out %Vec str tui_empty_str_vec;
+    let mut failed %bool false;
     match v::new<str>:
         Result::Ok out0:
             set out out0
@@ -66,19 +66,19 @@ pub fn text_wrap_lines <(str,i32)*>Vec<str>> (text, cols):
         then:
             out
         else:
-            let n <i32> len text;
-            let mut i <i32> 0;
-            let mut line_start <i32> 0;
-            let mut line_w <i32> 0;
+            let n %i32 len text;
+            let mut i %i32 0;
+            let mut line_start %i32 0;
+            let mut line_w %i32 0;
             while and lt i n not failed:
                 do:
-                    let b <i32> str_byte_at text i;
+                    let b %i32 str_byte_at text i;
                     if:
                         eq b '\n'
                         then:
-                            let ln <str> str_slice text line_start i;
-                            let pushed_out <TuiStrPushRes> tui_push_str out ln;
-                            let pushed_ok <bool> get pushed_out "ok";
+                            let ln %str str_slice text line_start i;
+                            let pushed_out %TuiStrPushRes tui_push_str out ln;
+                            let pushed_ok %bool get pushed_out "ok";
                             set out get pushed_out "items";
                             if:
                                 pushed_ok
@@ -90,19 +90,19 @@ pub fn text_wrap_lines <(str,i32)*>Vec<str>> (text, cols):
                                     set failed true;
                                     ()
                         else:
-                            let kind <TuiTextByteKind> tui_text_byte_kind b;
-                            let ch_len <i32> tui_text_byte_len kind;
-                            let ch_w <i32> tui_text_byte_width kind;
-                            let next_w <i32> add line_w ch_w;
+                            let kind %TuiTextByteKind tui_text_byte_kind b;
+                            let ch_len %i32 tui_text_byte_len kind;
+                            let ch_w %i32 tui_text_byte_width kind;
+                            let next_w %i32 add line_w ch_w;
                             if:
                                 lt cols next_w
                                 then:
                                     if:
                                         eq i line_start
                                         then:
-                                            let ln2 <str> str_slice text line_start add i ch_len;
-                                            let pushed_out2 <TuiStrPushRes> tui_push_str out ln2;
-                                            let pushed_ok2 <bool> get pushed_out2 "ok";
+                                            let ln2 %str str_slice text line_start add i ch_len;
+                                            let pushed_out2 %TuiStrPushRes tui_push_str out ln2;
+                                            let pushed_ok2 %bool get pushed_out2 "ok";
                                             set out get pushed_out2 "items";
                                             if:
                                                 pushed_ok2
@@ -114,9 +114,9 @@ pub fn text_wrap_lines <(str,i32)*>Vec<str>> (text, cols):
                                                     set failed true;
                                                     ()
                                         else:
-                                            let ln3 <str> str_slice text line_start i;
-                                            let pushed_out3 <TuiStrPushRes> tui_push_str out ln3;
-                                            let pushed_ok3 <bool> get pushed_out3 "ok";
+                                            let ln3 %str str_slice text line_start i;
+                                            let pushed_out3 %TuiStrPushRes tui_push_str out ln3;
+                                            let pushed_ok3 %bool get pushed_out3 "ok";
                                             set out get pushed_out3 "items";
                                             if:
                                                 pushed_ok3
@@ -132,8 +132,8 @@ pub fn text_wrap_lines <(str,i32)*>Vec<str>> (text, cols):
             if:
                 not failed
                 then:
-                    let tail <str> str_slice text line_start n;
-                    let pushed_tail <TuiStrPushRes> tui_push_str out tail;
+                    let tail %str str_slice text line_start n;
+                    let pushed_tail %TuiStrPushRes tui_push_str out tail;
                     set out get pushed_tail "items";
                     ()
                 else ()

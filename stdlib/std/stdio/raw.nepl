@@ -11,12 +11,12 @@
 #indent 4
 
 #if[target=wasi]
-#extern "wasi_snapshot_preview1" "fd_read" fn fd_read <(i32,i32,i32,i32)*>i32>
+#extern "wasi_snapshot_preview1" "fd_read" fn fd_read %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
 #if[target=wasi]
-#extern "wasi_snapshot_preview1" "fd_write" fn fd_write <(i32,i32,i32,i32)*>i32>
+#extern "wasi_snapshot_preview1" "fd_write" fn fd_write %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
 
 #if[target=llvm]
-#extern "c" "syscall" fn __nepl_syscall <(i64,i64,i64,i64,i64,i64,i64)*>i64>
+#extern "c" "syscall" fn __nepl_syscall %impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 i64
 
 #import "core/cast" as *
 #import "core/math" as *
@@ -27,7 +27,7 @@
 //: 目的:
 //: - WASI extern と LLVM fallback の差をこの module に閉じ、呼び出し側は raw address 化済みの ABI 引数だけを渡します。
 //: - `MemPtr` から raw address への変換や iovec 初期化は、read/buffer の owner 境界で行います。
-pub fn stdio_fd_read_raw <(i32,i32,i32,i32)*>i32> (fd, iov_raw, iovcnt, nread_raw):
+pub fn stdio_fd_read_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32 \fd\iov_raw\iovcnt\nread_raw:
     fd_read fd iov_raw iovcnt nread_raw
 
 //: stdio_fd_write_raw: raw address iovec で fd_write ABI を呼ぶ
@@ -35,11 +35,11 @@ pub fn stdio_fd_read_raw <(i32,i32,i32,i32)*>i32> (fd, iov_raw, iovcnt, nread_ra
 //: 目的:
 //: - WASI extern と LLVM fallback の差をこの module に閉じ、呼び出し側は raw address 化済みの ABI 引数だけを渡します。
 //: - `MemPtr` から raw address への変換や iovec 初期化は、write/fd の owner 境界で行います。
-pub fn stdio_fd_write_raw <(i32,i32,i32,i32)*>i32> (fd, iov_raw, iovcnt, nwritten_raw):
+pub fn stdio_fd_write_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32 \fd\iov_raw\iovcnt\nwritten_raw:
     fd_write fd iov_raw iovcnt nwritten_raw
 
 #if[target=llvm]
-pub fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
+pub fn __linux_syscall_rw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i64 \nr\fd\ptr\len:
     #llvmir:
         define i64 @__linux_syscall_rw(i32 %nr, i32 %fd, i32 %ptr, i32 %len) {
         entry:
@@ -54,30 +54,30 @@ pub fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
         }
 
 #if[target=llvm]
-pub fn fd_write <(i32,i32,i32,i32)*>i32> (_fd,iovs,iovs_len,nwritten_ptr):
-    let mut total <i32> 0;
-    let mut iov_idx <i32> 0;
-    let mut err <i32> 0;
-    let mut done <i32> 0;
-    let fd <i32> _fd;
+pub fn fd_write %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32 \_fd\iovs\iovs_len\nwritten_ptr:
+    let mut total %i32 0;
+    let mut iov_idx %i32 0;
+    let mut err %i32 0;
+    let mut done %i32 0;
+    let fd %i32 _fd;
     while eq done 0:
         do:
             if:
                 cond:
                     lt iov_idx iovs_len
                 then:
-                    let iov_ptr <i32> add iovs mul iov_idx 8;
-                    let base <i32> load_i32 iov_ptr;
-                    let len <i32> load_i32 add iov_ptr 4;
-                    let n64 <i64> __linux_syscall_rw 1 fd base len;
+                    let iov_ptr %i32 add iovs mul iov_idx 8;
+                    let base %i32 load_i32 iov_ptr;
+                    let len %i32 load_i32 add iov_ptr 4;
+                    let n64 %i64 __linux_syscall_rw 1 fd base len;
                     if:
                         cond:
-                            lt n64 <i64> cast 0
+                            lt n64 %i64 cast 0
                         then:
                             set err 1;
                             set done 1;
                         else:
-                            let n <i32> cast n64;
+                            let n %i32 cast n64;
                             set total add total n;
                             if:
                                 cond:
@@ -93,30 +93,30 @@ pub fn fd_write <(i32,i32,i32,i32)*>i32> (_fd,iovs,iovs_len,nwritten_ptr):
     err
 
 #if[target=llvm]
-pub fn fd_read <(i32,i32,i32,i32)*>i32> (_fd,iovs,iovs_len,nread_ptr):
-    let mut total <i32> 0;
-    let mut iov_idx <i32> 0;
-    let mut err <i32> 0;
-    let mut done <i32> 0;
-    let fd <i32> _fd;
+pub fn fd_read %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32 \_fd\iovs\iovs_len\nread_ptr:
+    let mut total %i32 0;
+    let mut iov_idx %i32 0;
+    let mut err %i32 0;
+    let mut done %i32 0;
+    let fd %i32 _fd;
     while eq done 0:
         do:
             if:
                 cond:
                     lt iov_idx iovs_len
                 then:
-                    let iov_ptr <i32> add iovs mul iov_idx 8;
-                    let base <i32> load_i32 iov_ptr;
-                    let len <i32> load_i32 add iov_ptr 4;
-                    let n64 <i64> __linux_syscall_rw 0 fd base len;
+                    let iov_ptr %i32 add iovs mul iov_idx 8;
+                    let base %i32 load_i32 iov_ptr;
+                    let len %i32 load_i32 add iov_ptr 4;
+                    let n64 %i64 __linux_syscall_rw 0 fd base len;
                     if:
                         cond:
-                            lt n64 <i64> cast 0
+                            lt n64 %i64 cast 0
                         then:
                             set err 1;
                             set done 1;
                         else:
-                            let n <i32> cast n64;
+                            let n %i32 cast n64;
                             set total add total n;
                             if:
                                 cond:

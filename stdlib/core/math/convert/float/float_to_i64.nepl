@@ -15,7 +15,7 @@
 //:| #import "core/math/convert/float/int_to_float" as *
 //:| #import "core/math/convert/float/float_to_i64" as *
 //:| #import "core/math/convert/width" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     wrap_i64_to_i32 trunc_s_f64_to_i64 convert_s_i32_to_f64 11
 //: ```
 
@@ -33,7 +33,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn trunc_s_f32_to_i64 <(f32)->i64> (a):
+pub fn trunc_s_f32_to_i64 %fn f32 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -59,7 +59,7 @@ pub fn trunc_s_f32_to_i64 <(f32)->i64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn trunc_u_f32_to_i64 <(f32)->i64> (a):
+pub fn trunc_u_f32_to_i64 %fn f32 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -86,7 +86,7 @@ pub fn trunc_u_f32_to_i64 <(f32)->i64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn trunc_sat_s_f32_to_i64 <(f32)->i64> (a):
+pub fn trunc_sat_s_f32_to_i64 %fn f32 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -113,7 +113,7 @@ pub fn trunc_sat_s_f32_to_i64 <(f32)->i64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn trunc_sat_u_f32_to_i64 <(f32)->i64> (a):
+pub fn trunc_sat_u_f32_to_i64 %fn f32 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -139,7 +139,7 @@ pub fn trunc_sat_u_f32_to_i64 <(f32)->i64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn trunc_s_f64_to_i64 <(f64)->i64> (a):
+pub fn trunc_s_f64_to_i64 %fn f64 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -165,7 +165,7 @@ pub fn trunc_s_f64_to_i64 <(f64)->i64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn trunc_u_f64_to_i64 <(f64)->i64> (a):
+pub fn trunc_u_f64_to_i64 %fn f64 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -192,7 +192,7 @@ pub fn trunc_u_f64_to_i64 <(f64)->i64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn trunc_sat_s_f64_to_i64 <(f64)->i64> (a):
+pub fn trunc_sat_s_f64_to_i64 %fn f64 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -219,7 +219,7 @@ pub fn trunc_sat_s_f64_to_i64 <(f64)->i64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn trunc_sat_u_f64_to_i64 <(f64)->i64> (a):
+pub fn trunc_sat_u_f64_to_i64 %fn f64 i64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a

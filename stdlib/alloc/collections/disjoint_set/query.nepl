@@ -12,12 +12,12 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
-pub fn dsu_root_storage <(&Vec<i32>,i32)->Option<i32>> (parent, idx):
-    let mut cur <i32> idx
-    let mut done <bool> false
-    let mut valid <bool> true
-    let mut steps <i32> 0
-    let limit <i32> vec::len<i32> parent
+pub fn dsu_root_storage %fn &Vec i32 fn i32 Option i32 \parent\idx:
+    let mut cur %i32 idx
+    let mut done %bool false
+    let mut valid %bool true
+    let mut steps %i32 0
+    let limit %i32 vec::len<i32> parent
     while and and not done valid lt steps limit:
         do:
             match dsu_load_owned parent cur:
@@ -38,5 +38,5 @@ pub fn dsu_root_storage <(&Vec<i32>,i32)->Option<i32>> (parent, idx):
         else:
             none<i32>
 
-pub fn dsu_size_storage <(&Vec<i32>,i32)->Option<i32>> (sizes, root):
+pub fn dsu_size_storage %fn &Vec i32 fn i32 Option i32 \sizes\root:
     dsu_load_owned sizes root

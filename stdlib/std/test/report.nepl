@@ -18,91 +18,91 @@
 //: - 旧 `checks_*` API は `TestReport` へ委譲し、`Result<(),str>` の raw accumulator へ戻さないようにします。
 
 //: test_report_new: [空/から] report を[作/つく]る
-pub fn test_report_new <(str)->TestReport> (name):
+pub fn test_report_new %fn str TestReport \name:
     TestReport name 0 0 "" "[" ""
 
-pub fn test_report_default <()->TestReport> ():
+pub fn test_report_default %fn () TestReport \():
     test_report_new "checks"
 
-pub fn test_assertion_from_result <(str,Result<(),str>)->TestAssertion> (label, r):
+pub fn test_assertion_from_result %fn str fn Result () str TestAssertion \label\r:
     match r:
         Result::Ok v:
             test_assertion_ok label
         Result::Err e:
             test_assertion_fail label e
 
-pub fn test_report_legacy_status <(&TestAssertion)->str> (a):
+pub fn test_report_legacy_status %fn &TestAssertion str \a:
     match *get_ref a "status":
         AssertionStatus::Passed:
             "ok"
         AssertionStatus::Failed:
             concat "err " *get_ref a "message"
 
-pub fn test_report_assertion_line <(i32,&TestAssertion)->str> (idx, a):
-    let idx_text <str> from_i32 idx
-    let status_text <str> assertion_status_name *get_ref a "status"
-    let kind_text <str> assertion_kind_name *get_ref a "kind"
-    let label_text <str> json::json_quote_string *get_ref a "label"
-    let expected_text <str> json::json_quote_string *get_ref a "expected"
-    let actual_text <str> json::json_quote_string *get_ref a "actual"
-    let message_text <str> json::json_quote_string *get_ref a "message"
-    let l0 <str> concat "assertion index=" idx_text
-    let l1 <str> concat l0 " status="
-    let l2 <str> concat l1 status_text
-    let l3 <str> concat l2 " kind="
-    let l4 <str> concat l3 kind_text
-    let l5 <str> concat l4 " label="
-    let l6 <str> concat l5 label_text
-    let l7 <str> concat l6 " expected="
-    let l8 <str> concat l7 expected_text
-    let l9 <str> concat l8 " actual="
-    let l10 <str> concat l9 actual_text
-    let l11 <str> concat l10 " message="
-    let l12 <str> concat l11 message_text
+pub fn test_report_assertion_line %fn i32 fn &TestAssertion str \idx\a:
+    let idx_text %str from_i32 idx
+    let status_text %str assertion_status_name *get_ref a "status"
+    let kind_text %str assertion_kind_name *get_ref a "kind"
+    let label_text %str json::json_quote_string *get_ref a "label"
+    let expected_text %str json::json_quote_string *get_ref a "expected"
+    let actual_text %str json::json_quote_string *get_ref a "actual"
+    let message_text %str json::json_quote_string *get_ref a "message"
+    let l0 %str concat "assertion index=" idx_text
+    let l1 %str concat l0 " status="
+    let l2 %str concat l1 status_text
+    let l3 %str concat l2 " kind="
+    let l4 %str concat l3 kind_text
+    let l5 %str concat l4 " label="
+    let l6 %str concat l5 label_text
+    let l7 %str concat l6 " expected="
+    let l8 %str concat l7 expected_text
+    let l9 %str concat l8 " actual="
+    let l10 %str concat l9 actual_text
+    let l11 %str concat l10 " message="
+    let l12 %str concat l11 message_text
     concat l12 "\n"
 
 //: test_report_push: report に assertion を[追加/ついか]する
-pub fn test_report_push <(TestReport,TestAssertion)*>TestReport> (report, assertion):
-    let name0 <str> get report "name"
-    let count0 <i32> get report "count"
-    let failed0 <i32> get report "failed_count"
-    let lines0 <str> get report "lines"
-    let legacy_summary_base <str> get report "legacy_summary"
-    let legacy_human0 <str> get report "legacy_human"
-    let failed1 <i32> match *get_ref &assertion "status":
+pub fn test_report_push %impure fn TestReport impure fn TestAssertion TestReport \report\assertion:
+    let name0 %str get report "name"
+    let count0 %i32 get report "count"
+    let failed0 %i32 get report "failed_count"
+    let lines0 %str get report "lines"
+    let legacy_summary_base %str get report "legacy_summary"
+    let legacy_human0 %str get report "legacy_human"
+    let failed1 %i32 match *get_ref &assertion "status":
         AssertionStatus::Passed:
             failed0
         AssertionStatus::Failed:
             math::add failed0 1
-    let line <str> test_report_assertion_line count0 &assertion
-    let lines1 <str> concat lines0 line
-    let legacy_status <str> test_report_legacy_status &assertion
-    let sep <str> if math::eq count0 0 "" ","
-    let legacy_summary0 <str> concat legacy_summary_base sep
-    let legacy_summary1 <str> concat legacy_summary0 legacy_status
-    let idx_text <str> from_i32 count0
-    let human0 <str> concat "[" idx_text
-    let human1 <str> concat human0 "] "
-    let human2 <str> concat human1 legacy_status
-    let human3 <str> concat human2 "\n"
-    let legacy_human1 <str> concat legacy_human0 human3
+    let line %str test_report_assertion_line count0 &assertion
+    let lines1 %str concat lines0 line
+    let legacy_status %str test_report_legacy_status &assertion
+    let sep %str if math::eq count0 0 "" ","
+    let legacy_summary0 %str concat legacy_summary_base sep
+    let legacy_summary1 %str concat legacy_summary0 legacy_status
+    let idx_text %str from_i32 count0
+    let human0 %str concat "[" idx_text
+    let human1 %str concat human0 "] "
+    let human2 %str concat human1 legacy_status
+    let human3 %str concat human2 "\n"
+    let legacy_human1 %str concat legacy_human0 human3
     test_assertion_release assertion
     TestReport name0 math::add count0 1 failed1 lines1 legacy_summary1 legacy_human1
 
-pub fn test_report_push <(TestReport,Result<(),str>)*>TestReport> (report, r):
+pub fn test_report_push %impure fn TestReport impure fn Result () str TestReport \report\r:
     test_report_push report test_assertion_from_result "result" r
 
 //: test_report_render: report を canonical stdout [文字列/もじれつ]へ[整形/せいけい]する
-pub fn test_report_render <(&TestReport)->str> (report):
-    let name_text <str> json::json_quote_string *get_ref report "name"
-    let count_text <str> from_i32 *get_ref report "count"
-    let failed_text <str> from_i32 *get_ref report "failed_count"
-    let h0 <str> concat "test_report name=" name_text
-    let h1 <str> concat h0 " count="
-    let h2 <str> concat h1 count_text
-    let h3 <str> concat h2 " failed="
-    let h4 <str> concat h3 failed_text
-    let h5 <str> concat h4 "\n"
+pub fn test_report_render %fn &TestReport str \report:
+    let name_text %str json::json_quote_string *get_ref report "name"
+    let count_text %str from_i32 *get_ref report "count"
+    let failed_text %str from_i32 *get_ref report "failed_count"
+    let h0 %str concat "test_report name=" name_text
+    let h1 %str concat h0 " count="
+    let h2 %str concat h1 count_text
+    let h3 %str concat h2 " failed="
+    let h4 %str concat h3 failed_text
+    let h5 %str concat h4 "\n"
     concat h5 *get_ref report "lines"
 
 //: test_report_print_stdout: report を stdout に[表示/ひょうじ]する
@@ -110,16 +110,16 @@ pub fn test_report_render <(&TestReport)->str> (report):
 //: [注意/ちゅうい]:
 //: - stdout を[出/だ]す canonical API はこの関数だけです。
 #if[target=std]
-pub fn test_report_print_stdout <(TestReport)*>TestReport> (report):
+pub fn test_report_print_stdout %impure fn TestReport TestReport \report:
     print test_report_render &report
     report
 
-pub fn test_report_has_failure <(&TestReport)->bool> (report):
+pub fn test_report_has_failure %fn &TestReport bool \report:
     math::gt *get_ref report "failed_count" 0
 
 //: test_report_exit_code: report を 0/1 の[終了/しゅうりょう] code へ[変換/へんかん]する
-pub fn test_report_exit_code <(TestReport)->i32> (report):
-    let code <i32> if:
+pub fn test_report_exit_code %fn TestReport i32 \report:
+    let code %i32 if:
         test_report_has_failure &report
         then:
             1
@@ -128,34 +128,34 @@ pub fn test_report_exit_code <(TestReport)->i32> (report):
     test_report_release report
     code
 
-pub fn test_report_legacy_summary_text <(&TestReport)->str> (report):
+pub fn test_report_legacy_summary_text %fn &TestReport str \report:
     concat *get_ref report "legacy_summary" "]"
 
 //: checks_new: `TestReport` の[短/みじか]い[作成/さくせい]入口
-pub fn checks_new <()*>TestReport> ():
+pub fn checks_new %impure fn () TestReport \():
     test_report_default
 
-pub fn checks_empty <()->TestReport> ():
+pub fn checks_empty %fn () TestReport \():
     test_report_default
 
-pub fn checks_single_error <(str)*>TestReport> (msg):
+pub fn checks_single_error %impure fn str TestReport \msg:
     test_report_push test_report_default test_assertion_fail "result" msg
 
-pub fn checks_push <(TestReport,TestAssertion)*>TestReport> (report, assertion):
+pub fn checks_push %impure fn TestReport impure fn TestAssertion TestReport \report\assertion:
     test_report_push report assertion
 
-pub fn checks_push <(TestReport,Result<(),str>)*>TestReport> (report, r):
+pub fn checks_push %impure fn TestReport impure fn Result () str TestReport \report\r:
     test_report_push report r
 
-pub fn checks_has_err <(&TestReport)->bool> (report):
+pub fn checks_has_err %fn &TestReport bool \report:
     test_report_has_failure report
 
-pub fn checks_summary <(&TestReport)->str> (report):
+pub fn checks_summary %fn &TestReport str \report:
     test_report_legacy_summary_text report
 
 #if[target=std]
-pub fn checks_print_machine <(TestReport)*>TestReport> (report):
-    let summary <str> test_report_legacy_summary_text &report
+pub fn checks_print_machine %impure fn TestReport TestReport \report:
+    let summary %str test_report_legacy_summary_text &report
     if:
         test_report_has_failure &report
         then:
@@ -165,29 +165,29 @@ pub fn checks_print_machine <(TestReport)*>TestReport> (report):
     report
 
 #if[target=std]
-pub fn checks_print_human <(TestReport)*>TestReport> (report):
+pub fn checks_print_human %impure fn TestReport TestReport \report:
     print *get_ref &report "legacy_human"
     report
 
 #if[target=std]
-pub fn checks_print_report <(TestReport)*>TestReport> (report):
+pub fn checks_print_report %impure fn TestReport TestReport \report:
     report
     |> checks_print_machine
     |> checks_print_human
 
-pub fn finish_checks <(TestReport)*>Result<(),str>> (report):
-    let failed <bool> test_report_has_failure &report
+pub fn finish_checks %impure fn TestReport Result () str \report:
+    let failed %bool test_report_has_failure &report
     if:
         failed
         then:
-            let summary <str> test_report_legacy_summary_text &report
+            let summary %str test_report_legacy_summary_text &report
             test_report_release report
             Result<(),str>::Err summary
         else:
             test_report_release report
             Result<(),str>::Ok ()
 
-pub fn result_exit_code <(Result<(),str>)->i32> (r):
+pub fn result_exit_code %fn Result () str i32 \r:
     match r:
         Result::Ok v:
             0
@@ -195,8 +195,8 @@ pub fn result_exit_code <(Result<(),str>)->i32> (r):
             test_consume_str e
             1
 
-pub fn test_assertion_exit_code <(TestAssertion)->i32> (assertion):
-    let code <i32> match *get_ref &assertion "status":
+pub fn test_assertion_exit_code %fn TestAssertion i32 \assertion:
+    let code %i32 match *get_ref &assertion "status":
         AssertionStatus::Passed:
             0
         AssertionStatus::Failed:
@@ -204,5 +204,5 @@ pub fn test_assertion_exit_code <(TestAssertion)->i32> (assertion):
     test_assertion_release assertion
     code
 
-pub fn checks_exit_code <(TestReport)*>i32> (report):
+pub fn checks_exit_code %impure fn TestReport i32 \report:
     test_report_exit_code report

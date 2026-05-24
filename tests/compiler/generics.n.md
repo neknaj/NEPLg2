@@ -16,13 +16,13 @@ stdout: "test_report name=\"generics_fn_identity_multi_instantiation\" count=1 f
 #import "core/math" as *
 #import "std/test" as *
 
-fn id <.T> <(.T)->.T> (x):
+fn id <.T> %fn .T .T \x:
     x
 
-fn main <()*>i32> ():
-    let a <i32> id 7
-    let b <bool> id true
-    let actual <i32> if b:
+fn main %impure fn () i32 \():
+    let a %i32 id 7
+    let b %bool id true
+    let actual %i32 if b:
         m::add a 1
         else:
             a
@@ -48,22 +48,22 @@ stdout: "test_report name=\"generics_enum_option_and_match\" count=1 failed=0\na
 
 enum LocalOption<.T>:
     None
-    Some <.T>
+    Some %.T
 
-fn is_some <.T> <(LocalOption<.T>)->bool> (o):
+fn is_some <.T> %fn LocalOption .T bool \o:
     match o:
         Some v:
             true
         None:
             false
 
-fn main <()*>i32> ():
-    let a <LocalOption<i32>> LocalOption::Some 5
-    let b <LocalOption<bool>> LocalOption::None
-    let _nested <LocalOption<LocalOption<i32>>> LocalOption::Some LocalOption::Some 1
-    let x <bool> is_some a
-    let y <bool> is_some b
-    let actual <i32> if:
+fn main %impure fn () i32 \():
+    let a %LocalOption i32 LocalOption::Some 5
+    let b %LocalOption bool LocalOption::None
+    let _nested %LocalOption LocalOption i32 LocalOption::Some LocalOption::Some 1
+    let x %bool is_some a
+    let y %bool is_some b
+    let actual %i32 if:
         cond:
             x
         then:
@@ -93,19 +93,19 @@ stdout: "test_report name=\"generics_struct_pair_construction\" count=1 failed=0
 #import "std/test" as *
 
 struct Pair<.A,.B>:
-    first <.A>
-    second <.B>
+    first %.A
+    second %.B
 
-fn take_ab <(Pair<i32,bool>)->i32> (p):
+fn take_ab %fn Pair i32 bool i32 \p:
     10
 
-fn take_ba <(Pair<bool,i32>)->i32> (p):
+fn take_ba %fn Pair bool i32 i32 \p:
     20
 
-fn main <()*>i32> ():
-    let p1 <Pair<i32,bool>> Pair 1 true
-    let p2 <Pair<bool,i32>> Pair false 2
-    let actual <i32> m::add take_ab p1 take_ba p2
+fn main %impure fn () i32 \():
+    let p1 %Pair i32 bool Pair 1 true
+    let p2 %Pair bool i32 Pair false 2
+    let actual %i32 m::add take_ab p1 take_ba p2
     let report:
         test_report_new "generics_struct_pair_construction"
         |> test_report_push assert_eq_i32 "generic struct pair construction" 30 actual
@@ -124,10 +124,10 @@ diag_codes: parser.type_expr.invalid
 #target core
 #no_prelude
 
-fn id <T> <(T)->T> (x):
+fn id %T %fn T T \x:
     x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -144,9 +144,9 @@ diag_codes: parser.type_expr.invalid
 
 enum Option<T>:
     None
-    Some <T>
+    Some %T
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -162,10 +162,10 @@ diag_codes: parser.type_expr.invalid
 #no_prelude
 
 struct Pair<T,U>:
-    a <T>
-    b <U>
+    a %T
+    b %U
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -186,17 +186,17 @@ stdout: "test_report name=\"generics_enum_payload_arithmetic\" count=1 failed=0\
 
 enum LocalOption<.T>:
     None
-    Some <.T>
+    Some %.T
 
-fn bump <(LocalOption<i32>)->i32> (o):
+fn bump %fn LocalOption i32 i32 \o:
     match o:
         Some v:
             m::add v 1
         None:
             0
 
-fn main <()*>i32> ():
-    let actual <i32> bump LocalOption::Some 9
+fn main %impure fn () i32 \():
+    let actual %i32 bump LocalOption::Some 9
     let report:
         test_report_new "generics_enum_payload_arithmetic"
         |> test_report_push assert_eq_i32 "generic enum payload arithmetic" 10 actual
@@ -219,13 +219,13 @@ stdout: "test_report name=\"generics_multi_type_params_function\" count=1 failed
 #import "core/math" as *
 #import "std/test" as *
 
-fn first <.A,.B> <(.A,.B)->.A> (a,b):
+fn first <.A,.B> %fn .A fn .B .A \a\b:
     a
 
-fn main <()*>i32> ():
-    let x <i32> first 3 true
-    let y <bool> first false 7
-    let actual <i32> if y:
+fn main %impure fn () i32 \():
+    let x %i32 first 3 true
+    let y %bool first false 7
+    let actual %i32 if y:
         m::add x 1
         else:
             x
@@ -251,18 +251,18 @@ stdout: "test_report name=\"generics_enum_none_typed_by_ascription\" count=1 fai
 
 enum LocalOption<.T>:
     None
-    Some <.T>
+    Some %.T
 
-fn is_none_i32 <(LocalOption<i32>)->bool> (o):
+fn is_none_i32 %fn LocalOption i32 bool \o:
     match o:
         None:
             true
         Some v:
             false
 
-fn main <()*>i32> ():
-    let n <LocalOption<i32>> LocalOption::None
-    let actual <i32> if is_none_i32 n 1 0
+fn main %impure fn () i32 \():
+    let n %LocalOption i32 LocalOption::None
+    let actual %i32 if is_none_i32 n 1 0
     let report:
         test_report_new "generics_enum_none_typed_by_ascription"
         |> test_report_push assert_eq_i32 "generic enum none typed by ascription" 1 actual
@@ -285,14 +285,14 @@ stdout: "test_report name=\"generics_make_none_from_context\" count=1 failed=0\n
 
 enum LocalOption<.T>:
     None
-    Some <.T>
+    Some %.T
 
-fn make_none <.T> <()->LocalOption<.T>> ():
+fn make_none <.T> %fn () LocalOption .T \():
     LocalOption::None
 
-fn main <()*>i32> ():
-    let x <LocalOption<i32>> make_none
-    let actual <i32> match x:
+fn main %impure fn () i32 \():
+    let x %LocalOption i32 make_none
+    let actual %i32 match x:
         None:
             1
         Some v:
@@ -317,15 +317,15 @@ stdout: "test_report name=\"generics_generic_calls_generic\" count=1 failed=0\na
 #no_prelude
 #import "std/test" as *
 
-fn id <.T> <(.T)->.T> (x):
+fn id <.T> %fn .T .T \x:
     x
 
-fn wrap <.U> <(.U)->.U> (x):
+fn wrap <.U> %fn .U .U \x:
     id x
 
-fn main <()*>i32> ():
-    let a <i32> wrap 9
-    let actual <i32> a
+fn main %impure fn () i32 \():
+    let a %i32 wrap 9
+    let actual %i32 a
     let report:
         test_report_new "generics_generic_calls_generic"
         |> test_report_push assert_eq_i32 "generic calls generic" 9 actual
@@ -348,12 +348,12 @@ stdout: "test_report name=\"generics_pipe_into_generic\" count=1 failed=0\nasser
 #import "core/math" as *
 #import "std/test" as *
 
-fn id <.T> <(.T)->.T> (x):
+fn id <.T> %fn .T .T \x:
     x
 
-fn main <()*>i32> ():
-    let a <i32> 5 |> id
-    let actual <i32> m::add a 2
+fn main %impure fn () i32 \():
+    let a %i32 5 |> id
+    let actual %i32 m::add a 2
     let report:
         test_report_new "generics_pipe_into_generic"
         |> test_report_push assert_eq_i32 "pipe into generic" 7 actual
@@ -376,17 +376,17 @@ stdout: "test_report name=\"generics_option_none_inferred_by_param\" count=1 fai
 
 enum LocalOption<.T>:
     None
-    Some <.T>
+    Some %.T
 
-fn is_none_i32 <(LocalOption<i32>)->bool> (o):
+fn is_none_i32 %fn LocalOption i32 bool \o:
     match o:
         None:
             true
         Some v:
             false
 
-fn main <()*>i32> ():
-    let actual <i32> if is_none_i32 LocalOption::None 1 0
+fn main %impure fn () i32 \():
+    let actual %i32 if is_none_i32 LocalOption::None 1 0
     let report:
         test_report_new "generics_option_none_inferred_by_param"
         |> test_report_push assert_eq_i32 "option none inferred by param" 1 actual
@@ -408,14 +408,14 @@ stdout: "test_report name=\"generics_pair_inferred_by_param\" count=1 failed=0\n
 #import "std/test" as *
 
 struct Pair<.A,.B>:
-    first <.A>
-    second <.B>
+    first %.A
+    second %.B
 
-fn take_ab <(Pair<i32,bool>)->i32> (p):
+fn take_ab %fn Pair i32 bool i32 \p:
     5
 
-fn main <()*>i32> ():
-    let actual <i32> take_ab Pair 1 true
+fn main %impure fn () i32 \():
+    let actual %i32 take_ab Pair 1 true
     let report:
         test_report_new "generics_pair_inferred_by_param"
         |> test_report_push assert_eq_i32 "generic pair inferred by param" 5 actual
@@ -439,22 +439,22 @@ stdout: "test_report name=\"generics_make_pair_wrapper\" count=1 failed=0\nasser
 #import "std/test" as *
 
 struct Pair<.A,.B>:
-    first <.A>
-    second <.B>
+    first %.A
+    second %.B
 
-fn make_pair <.A,.B> <(.A,.B)->Pair<.A,.B>> (a,b):
+fn make_pair <.A,.B> %fn .A fn .B Pair .A .B \a\b:
     Pair a b
 
-fn take_ab <(Pair<i32,str>)->i32> (p):
+fn take_ab %fn Pair i32 str i32 \p:
     10
 
-fn take_ba <(Pair<str,i32>)->i32> (p):
+fn take_ba %fn Pair str i32 i32 \p:
     20
 
-fn main <()*>i32> ():
-    let p1 <Pair<i32,str>> Pair 1 "a"
-    let p2 <Pair<str,i32>> Pair "b" 2
-    let actual <i32> m::add take_ab p1 take_ba p2
+fn main %impure fn () i32 \():
+    let p1 %Pair i32 str Pair 1 "a"
+    let p2 %Pair str i32 Pair "b" 2
+    let actual %i32 m::add take_ab p1 take_ba p2
     let report:
         test_report_new "generics_make_pair_wrapper"
         |> test_report_push assert_eq_i32 "generic make pair wrapper" 30 actual
@@ -479,25 +479,25 @@ stdout: "test_report name=\"generics_make_some_wrapper\" count=1 failed=0\nasser
 
 enum LocalOption<.T>:
     None
-    Some <.T>
+    Some %.T
 
-fn make_some <.T> <(.T)->LocalOption<.T>> (v):
+fn make_some <.T> %fn .T LocalOption .T \v:
     LocalOption::Some v
 
-fn main <()*>i32> ():
-    let a <LocalOption<i32>> make_some 3
-    let b <LocalOption<bool>> make_some true
-    let x <i32> match a:
+fn main %impure fn () i32 \():
+    let a %LocalOption i32 make_some 3
+    let b %LocalOption bool make_some true
+    let x %i32 match a:
         Some v:
             v
         None:
             0
-    let y <i32> match b:
+    let y %i32 match b:
         Some flag:
             if flag 1 0
         None:
             0
-    let actual <i32> m::add x y
+    let actual %i32 m::add x y
     let report:
         test_report_new "generics_make_some_wrapper"
         |> test_report_push assert_eq_i32 "generic make some wrapper" 4 actual
@@ -520,9 +520,9 @@ stdout: "test_report name=\"generics_nested_option_match\" count=1 failed=0\nass
 
 enum LocalOption<.T>:
     None
-    Some <.T>
+    Some %.T
 
-fn unwrap_nested <.T> <(LocalOption<LocalOption<.T>>,.T)->.T> (oo, default):
+fn unwrap_nested <.T> %fn LocalOption LocalOption .T fn .T .T \oo\default:
     match oo:
         Some inner:
             match inner:
@@ -533,10 +533,10 @@ fn unwrap_nested <.T> <(LocalOption<LocalOption<.T>>,.T)->.T> (oo, default):
         None:
             default
 
-fn main <()*>i32> ():
-    let inner <LocalOption<i32>> LocalOption::Some 9
-    let outer <LocalOption<LocalOption<i32>>> LocalOption::Some inner
-    let actual <i32> unwrap_nested outer 0
+fn main %impure fn () i32 \():
+    let inner %LocalOption i32 LocalOption::Some 9
+    let outer %LocalOption LocalOption i32 LocalOption::Some inner
+    let actual %i32 unwrap_nested outer 0
     let report:
         test_report_new "generics_nested_option_match"
         |> test_report_push assert_eq_i32 "generic nested option match" 9 actual
@@ -558,25 +558,25 @@ stdout: "test_report name=\"generics_enum_two_params_match_payloads\" count=1 fa
 #import "std/test" as *
 
 enum Either<.A,.B>:
-    Left <.A>
-    Right <.B>
+    Left %.A
+    Right %.B
 
-fn pick <.A,.B> <(.A,.B,bool)->Either<.A,.B>> (a,b,flag):
+fn pick <.A,.B> %fn .A fn .B fn bool Either .A .B \a\b\flag:
     if flag:
         Either::Left a
         else:
             Either::Right b
 
-fn to_i32 <(Either<i32,bool>)->i32> (e):
+fn to_i32 %fn Either i32 bool i32 \e:
     match e:
         Left v:
             v
         Right b:
             if b 1 0
 
-fn main <()*>i32> ():
-    let e <Either<i32,bool>> pick 7 true true
-    let actual <i32> to_i32 e
+fn main %impure fn () i32 \():
+    let e %Either i32 bool pick 7 true true
+    let actual %i32 to_i32 e
     let report:
         test_report_new "generics_enum_two_params_match_payloads"
         |> test_report_push assert_eq_i32 "generic enum two params match payloads" 7 actual
@@ -599,12 +599,12 @@ stdout: "test_report name=\"generics_nested_apply_in_payload\" count=1 failed=0\
 
 enum LocalOption<.T>:
     None
-    Some <.T>
+    Some %.T
 
 enum Wrap<.T>:
-    Wrap <LocalOption<.T>>
+    Wrap %LocalOption .T
 
-fn unwrap <(Wrap<i32>)->i32> (w):
+fn unwrap %fn Wrap i32 i32 \w:
     match w:
         Wrap o:
             match o:
@@ -613,8 +613,8 @@ fn unwrap <(Wrap<i32>)->i32> (w):
                 None:
                     0
 
-fn main <()*>i32> ():
-    let actual <i32> unwrap Wrap::Wrap LocalOption::Some 12
+fn main %impure fn () i32 \():
+    let actual %i32 unwrap Wrap::Wrap LocalOption::Some 12
     let report:
         test_report_new "generics_nested_apply_in_payload"
         |> test_report_push assert_eq_i32 "generic nested apply in payload" 12 actual
@@ -635,10 +635,10 @@ diag_codes: type.annotation.mismatch
 
 enum Option<.T>:
     None
-    Some <.T>
+    Some %.T
 
-fn main <()->i32> ():
-    let x <Option<i32>> Option::Some true
+fn main %fn () i32 \():
+    let x %Option i32 Option::Some true
     0
 ```
 
@@ -653,10 +653,10 @@ diag_codes: type.overload.no_match, type.return.mismatch
 #target core
 #no_prelude
 
-fn same <.T> <(.T,.T)->i32> (a,b):
+fn same <.T> %fn .T fn .T i32 \a\b:
     0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     same 1 true
 ```
 
@@ -672,11 +672,11 @@ diag_codes: type.annotation.mismatch
 #no_prelude
 
 enum Either<.A,.B>:
-    Left <.A>
-    Right <.B>
+    Left %.A
+    Right %.B
 
-fn main <()->i32> ():
-    let e <Either<i32,bool>> Either::Left true
+fn main %fn () i32 \():
+    let e %Either i32 bool Either::Left true
     0
 ```
 
@@ -693,13 +693,13 @@ diag_codes: type.annotation.mismatch
 
 enum Option<.T>:
     None
-    Some <.T>
+    Some %.T
 
 enum Wrap<.T>:
-    Wrap <Option<.T>>
+    Wrap %Option .T
 
-fn main <()->i32> ():
-    let w <Wrap<i32>> Wrap::Wrap Option::Some true
+fn main %fn () i32 \():
+    let w %Wrap i32 Wrap::Wrap Option::Some true
     0
 ```
 
@@ -716,9 +716,9 @@ diag_codes: type.annotation.mismatch
 
 enum Option<.T>:
     None
-    Some <.T>
+    Some %.T
 
-fn main <()->i32> ():
-    let x <Option<i32,bool>> Option::None
+fn main %fn () i32 \():
+    let x %Option i32 bool Option::None
     0
 ```

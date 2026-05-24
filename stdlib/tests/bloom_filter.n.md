@@ -17,14 +17,14 @@ stdout: "test_report name=\"bloom_filter_insert_and_contains\" count=2 failed=0\
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let bf <BloomFilter<i32, DefaultHash32>>:
+fn main %impure fn () i32 \():
+    let bf %BloomFilter i32 DefaultHash32:
         unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 4
         |> insert 9
         |> insert 15
-    let ok0 <bool> contains &bf 9;
-    let size <i32> len &bf;
+    let ok0 %bool contains &bf 9;
+    let size %i32 len &bf;
     free bf
     let report:
         test_report_new "bloom_filter_insert_and_contains"
@@ -51,16 +51,16 @@ stdout: "test_report name=\"bloom_filter_clear_and_invalid_len\" count=2 failed=
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let bf0 <BloomFilter<i32, DefaultHash32>>:
+fn main %impure fn () i32 \():
+    let bf0 %BloomFilter i32 DefaultHash32:
         unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 7
-    let bf1 <BloomFilter<i32, DefaultHash32>> clear bf0;
-    let seen <bool> contains<i32, DefaultHash32> &bf1 7;
+    let bf1 %BloomFilter i32 DefaultHash32 clear bf0;
+    let seen %bool contains<i32, DefaultHash32> &bf1 7;
     free bf1
-    let ok0 <bool> if seen false true;
-    let bad <Result<BloomFilter<i32, DefaultHash32>, Diag>> new DefaultHash32 0;
-    let ok1 <bool> is_err<BloomFilter<i32, DefaultHash32>, Diag> bad;
+    let ok0 %bool if seen false true;
+    let bad %Result BloomFilter i32 DefaultHash32 Diag new DefaultHash32 0;
+    let ok1 %bool is_err<BloomFilter<i32, DefaultHash32>, Diag> bad;
     let report:
         test_report_new "bloom_filter_clear_and_invalid_len"
         |> test_report_push assert "clear removes inserted item" ok0

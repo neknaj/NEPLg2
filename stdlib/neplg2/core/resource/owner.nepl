@@ -16,8 +16,8 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/resource/owner" as *
-//: fn main <()*>i32> ():
-//:     let storage <SelfhostOwnerStorageId> selfhost_owner_storage_id_new 3
+//: fn main %impure fn () i32 \():
+//:     let storage %SelfhostOwnerStorageId selfhost_owner_storage_id_new 3
 //:     if selfhost_owner_storage_id_is_valid storage 0 1
 //: ```
 
@@ -29,30 +29,30 @@
 //: [目的/もくてき]:
 //: - allocator / lowering が発行した storage owner を、raw address や `MemPtr` ではなく compiler-owned id として扱います。
 pub struct SelfhostOwnerStorageId:
-    index <i32>
+    index %i32
 
 impl Clone for SelfhostOwnerStorageId:
-    fn clone <(&SelfhostOwnerStorageId)->SelfhostOwnerStorageId> (self):
+    fn clone %fn &SelfhostOwnerStorageId SelfhostOwnerStorageId \self:
         *self
 
 impl Copy for SelfhostOwnerStorageId:
-    fn copy_mark <(SelfhostOwnerStorageId)->SelfhostOwnerStorageId> (self):
+    fn copy_mark %fn SelfhostOwnerStorageId SelfhostOwnerStorageId \self:
         self
 
 //: selfhost_owner_storage_id_new: storage id を[作/つく]る
-pub fn selfhost_owner_storage_id_new <(i32)->SelfhostOwnerStorageId> (index):
+pub fn selfhost_owner_storage_id_new %fn i32 SelfhostOwnerStorageId \index:
     SelfhostOwnerStorageId index
 
 //: selfhost_owner_storage_id_index: storage id の index を[返/かえ]す
-pub fn selfhost_owner_storage_id_index <(SelfhostOwnerStorageId)->i32> (storage):
+pub fn selfhost_owner_storage_id_index %fn SelfhostOwnerStorageId i32 \storage:
     storage.index
 
 //: selfhost_owner_storage_id_is_valid: storage id が有効か[返/かえ]す
-pub fn selfhost_owner_storage_id_is_valid <(SelfhostOwnerStorageId)->bool> (storage):
+pub fn selfhost_owner_storage_id_is_valid %fn SelfhostOwnerStorageId bool \storage:
     ge storage.index 0
 
 //: selfhost_owner_storage_id_eq: 2 つの storage id が同じか[返/かえ]す
-pub fn selfhost_owner_storage_id_eq <(SelfhostOwnerStorageId,SelfhostOwnerStorageId)->bool> (left, right):
+pub fn selfhost_owner_storage_id_eq %fn SelfhostOwnerStorageId fn SelfhostOwnerStorageId bool \left\right:
     eq left.index right.index
 
 //: SelfhostOwnerState: free obligation owner の状態
@@ -62,16 +62,16 @@ pub fn selfhost_owner_storage_id_eq <(SelfhostOwnerStorageId,SelfhostOwnerStorag
 //: - moved と released を区別し、move 後の free と double free を別の refutation にできます。
 pub enum SelfhostOwnerState:
     NoOwner
-    Owned <SelfhostOwnerStorageId>
-    Moved <SelfhostOwnerStorageId>
-    Released <SelfhostOwnerStorageId>
+    Owned %SelfhostOwnerStorageId
+    Moved %SelfhostOwnerStorageId
+    Released %SelfhostOwnerStorageId
 
 impl Clone for SelfhostOwnerState:
-    fn clone <(&SelfhostOwnerState)->SelfhostOwnerState> (self):
+    fn clone %fn &SelfhostOwnerState SelfhostOwnerState \self:
         *self
 
 impl Copy for SelfhostOwnerState:
-    fn copy_mark <(SelfhostOwnerState)->SelfhostOwnerState> (self):
+    fn copy_mark %fn SelfhostOwnerState SelfhostOwnerState \self:
         self
 
 //: SelfhostOwnerEventKind: owner state に対する操作
@@ -85,23 +85,23 @@ pub enum SelfhostOwnerEventKind:
     BorrowView
 
 impl Clone for SelfhostOwnerEventKind:
-    fn clone <(&SelfhostOwnerEventKind)->SelfhostOwnerEventKind> (self):
+    fn clone %fn &SelfhostOwnerEventKind SelfhostOwnerEventKind \self:
         *self
 
 impl Copy for SelfhostOwnerEventKind:
-    fn copy_mark <(SelfhostOwnerEventKind)->SelfhostOwnerEventKind> (self):
+    fn copy_mark %fn SelfhostOwnerEventKind SelfhostOwnerEventKind \self:
         self
 
 //: selfhost_owner_state_no_owner: owner を持たない初期状態を[返/かえ]す
-pub fn selfhost_owner_state_no_owner <()->SelfhostOwnerState> ():
+pub fn selfhost_owner_state_no_owner %fn () SelfhostOwnerState \():
     SelfhostOwnerState::NoOwner
 
 //: selfhost_owner_state_owned: free obligation owner state を[作/つく]る
-pub fn selfhost_owner_state_owned <(SelfhostOwnerStorageId)->SelfhostOwnerState> (storage):
+pub fn selfhost_owner_state_owned %fn SelfhostOwnerStorageId SelfhostOwnerState \storage:
     SelfhostOwnerState::Owned storage
 
 //: selfhost_owner_state_is_owned: state が active owner か[返/かえ]す
-pub fn selfhost_owner_state_is_owned <(SelfhostOwnerState)->bool> (state):
+pub fn selfhost_owner_state_is_owned %fn SelfhostOwnerState bool \state:
     match state:
         SelfhostOwnerState::Owned _storage:
             true

@@ -14,9 +14,9 @@
 //:| #target core
 //:| #import "core/cast" as *
 //:| #import "core/math/u8/compare" as *
-//: fn main <()->i32> ():
-//:     let a <u8> cast 1;
-//:     let b <u8> cast 2;
+//: fn main %fn () i32 \():
+//:     let a %u8 cast 1;
+//:     let b %u8 cast 2;
 //:     if:
 //:         lt_u a b
 //:         then:
@@ -40,7 +40,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn eq_u8 <(u8,u8)->bool> (a,b):
+pub fn eq_u8 %fn u8 fn u8 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -68,7 +68,7 @@ pub fn eq_u8 <(u8,u8)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ne_u8 <(u8,u8)->bool> (a,b):
+pub fn ne_u8 %fn u8 fn u8 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -96,7 +96,7 @@ pub fn ne_u8 <(u8,u8)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn lt_u_u8 <(u8,u8)->bool> (a,b):
+pub fn lt_u_u8 %fn u8 fn u8 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -124,7 +124,7 @@ pub fn lt_u_u8 <(u8,u8)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn le_u_u8 <(u8,u8)->bool> (a,b):
+pub fn le_u_u8 %fn u8 fn u8 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -152,7 +152,7 @@ pub fn le_u_u8 <(u8,u8)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn gt_u_u8 <(u8,u8)->bool> (a,b):
+pub fn gt_u_u8 %fn u8 fn u8 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -180,7 +180,7 @@ pub fn gt_u_u8 <(u8,u8)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ge_u_u8 <(u8,u8)->bool> (a,b):
+pub fn ge_u_u8 %fn u8 fn u8 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -196,25 +196,25 @@ pub fn ge_u_u8 <(u8,u8)->bool> (a,b):
         }
 
 //: eq: u8 の等値比較
-pub fn eq <(u8,u8)->bool> (a,b):
+pub fn eq %fn u8 fn u8 bool \a\b:
     eq_u8 a b
 
 //: ne: u8 の非等値比較
-pub fn ne <(u8,u8)->bool> (a,b):
+pub fn ne %fn u8 fn u8 bool \a\b:
     ne_u8 a b
 
 //: lt_u: u8 の符号なし小なり比較
-pub fn lt_u <(u8,u8)->bool> (a,b):
+pub fn lt_u %fn u8 fn u8 bool \a\b:
     lt_u_u8 a b
 
 //: le_u: u8 の符号なし以下比較
-pub fn le_u <(u8,u8)->bool> (a,b):
+pub fn le_u %fn u8 fn u8 bool \a\b:
     le_u_u8 a b
 
 //: gt_u: u8 の符号なし大なり比較
-pub fn gt_u <(u8,u8)->bool> (a,b):
+pub fn gt_u %fn u8 fn u8 bool \a\b:
     gt_u_u8 a b
 
 //: ge_u: u8 の符号なし以上比較
-pub fn ge_u <(u8,u8)->bool> (a,b):
+pub fn ge_u %fn u8 fn u8 bool \a\b:
     ge_u_u8 a b

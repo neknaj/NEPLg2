@@ -19,6 +19,8 @@ pub enum TokenKind:
     Comma
     LAngle
     RAngle
+    Percent
+    Backslash
     Arrow
     PathSep
     At
@@ -79,9 +81,9 @@ pub enum TokenKind:
     Unknown
 
 impl Clone for TokenKind:
-    fn clone <(&TokenKind)->TokenKind> (self):
+    fn clone %fn &TokenKind TokenKind \self:
         *self
 
 impl Copy for TokenKind:
-    fn copy_mark <(TokenKind)->TokenKind> (self):
+    fn copy_mark %fn TokenKind TokenKind \self:
         self

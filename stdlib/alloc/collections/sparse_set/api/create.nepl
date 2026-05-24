@@ -26,14 +26,14 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let s <SparseSet> unwrap_ok<SparseSet, Diag> new 8;
-//:     let observed_len <i32> len &s;
-//:     let ok <bool> eq observed_len 0;
+//: fn main %impure fn () i32 \():
+//:     let s %SparseSet unwrap_ok<SparseSet, Diag> new 8;
+//:     let observed_len %i32 len &s;
+//:     let ok %bool eq observed_len 0;
 //:     free s
 //:     if ok 1 0
 //: ```
-pub fn new <(i32)*>Result<SparseSet, Diag>> (n):
+pub fn new %impure fn i32 Result SparseSet Diag \n:
     if:
         lt n 0
         then:

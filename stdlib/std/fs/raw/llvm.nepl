@@ -13,7 +13,7 @@
 #indent 4
 
 #if[target=llvm]
-#extern "c" "syscall" fn __fs_syscall <(i64,i64,i64,i64,i64,i64,i64)*>i64>
+#extern "c" "syscall" fn __fs_syscall %impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 impure fn i64 i64
 
 #import "core/cast" as *
 #import "core/math" as *
@@ -23,14 +23,14 @@
 #import "core/result" as *
 
 #if[target=llvm]
-pub fn __fs_copy_to_cstr <(i32,i32)*>Result<RegionToken<u8>,i32>> (src_ptr, src_len):
-    let size <i32> add src_len 1;
+pub fn __fs_copy_to_cstr %impure fn i32 impure fn i32 Result RegionToken u8 i32 \src_ptr\src_len:
+    let size %i32 add src_len 1;
     match alloc_region<u8> size:
         Result::Err e:
             Result<RegionToken<u8>,i32>::Err e
         Result::Ok dst_region:
-            let dst <MemPtr<u8>> region_ptr &dst_region
-            let mut i <i32> 0;
+            let dst %MemPtr u8 region_ptr &dst_region
+            let mut i %i32 0;
             while lt i src_len:
                 do:
                     match store_u8 mem_ptr_add dst i load_u8 add src_ptr i:
@@ -47,7 +47,7 @@ pub fn __fs_copy_to_cstr <(i32,i32)*>Result<RegionToken<u8>,i32>> (src_ptr, src_
             Result<RegionToken<u8>,i32>::Ok dst_region
 
 #if[target=llvm]
-pub fn __linux_syscall_openat_path <(i32,i32,i32)*>i64> (path_ptr, flags, mode):
+pub fn __linux_syscall_openat_path %impure fn i32 impure fn i32 impure fn i32 i64 \path_ptr\flags\mode:
     #llvmir:
         define i64 @__linux_syscall_openat_path(i32 %path_ptr, i32 %flags, i32 %mode) {
         entry:
@@ -61,7 +61,7 @@ pub fn __linux_syscall_openat_path <(i32,i32,i32)*>i64> (path_ptr, flags, mode):
         }
 
 #if[target=llvm]
-pub fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
+pub fn __linux_syscall_rw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i64 \nr\fd\ptr\len:
     #llvmir:
         define i64 @__linux_syscall_rw(i32 %nr, i32 %fd, i32 %ptr, i32 %len) {
         entry:
@@ -76,26 +76,26 @@ pub fn __linux_syscall_rw <(i32,i32,i32,i32)*>i64> (nr,fd,ptr,len):
         }
 
 #if[target=llvm]
-pub fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirflags,path_ptr,path_len,_oflags,_rights_base,_rights_inheriting,_fdflags,fd_out):
+pub fn wasi_path_open %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i64 impure fn i64 impure fn i32 impure fn i32 i32 \_dirfd\_dirflags\path_ptr\path_len\_oflags\_rights_base\_rights_inheriting\_fdflags\fd_out:
     match __fs_copy_to_cstr path_ptr path_len:
         Result::Err e:
             e
         Result::Ok cpath_region:
-            let cpath <MemPtr<u8>> region_ptr &cpath_region
-            let linux_flags <i32> if:
+            let cpath %MemPtr u8 region_ptr &cpath_region
+            let linux_flags %i32 if:
                 eq _oflags 0
                 then:
                     0
                 else:
                     577
-            let linux_mode <i32> if:
+            let linux_mode %i32 if:
                 eq _oflags 0
                 then:
                     0
                 else:
                     438
             // Linux x86_64: openat(AT_FDCWD=-100, path, flags, mode)
-            let fd64 <i64> __linux_syscall_openat_path mem_ptr_addr cpath linux_flags linux_mode;
+            let fd64 %i64 __linux_syscall_openat_path mem_ptr_addr cpath linux_flags linux_mode;
             match dealloc_region<u8> cpath_region:
                 Result::Ok _:
                     ()
@@ -103,47 +103,47 @@ pub fn wasi_path_open <(i32,i32,i32,i32,i32,i64,i64,i32,i32)*>i32> (_dirfd,_dirf
                     ()
             if:
                 cond:
-                    lt fd64 <i64> cast 0
+                    lt fd64 %i64 cast 0
                 then:
                     1
                 else:
-                    store_i32 fd_out <i32> cast fd64;
+                    store_i32 fd_out %i32 cast fd64;
                     0
 
 #if[target=llvm]
-pub fn wasi_path_filestat_get <(i32,i32,i32,i32,i32)*>i32> (_dirfd,_flags,_path_ptr,_path_len,_buf):
+pub fn wasi_path_filestat_get %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32 \_dirfd\_flags\_path_ptr\_path_len\_buf:
     52
 
 #if[target=llvm]
-pub fn wasi_fd_readdir <(i32,i32,i32,i64,i32)*>i32> (_fd,_buf,_buf_len,_cookie,bufused):
+pub fn wasi_fd_readdir %impure fn i32 impure fn i32 impure fn i32 impure fn i64 impure fn i32 i32 \_fd\_buf\_buf_len\_cookie\bufused:
     store_i32 bufused 0;
     52
 
 #if[target=llvm]
-pub fn wasi_fd_read <(i32,i32,i32,i32)*>i32> (fd,iovs,iovs_len,nread_ptr):
-    let mut total <i32> 0;
-    let mut iov_idx <i32> 0;
-    let mut err <i32> 0;
-    let mut done <i32> 0;
+pub fn wasi_fd_read %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32 \fd\iovs\iovs_len\nread_ptr:
+    let mut total %i32 0;
+    let mut iov_idx %i32 0;
+    let mut err %i32 0;
+    let mut done %i32 0;
     while eq done 0:
         do:
             if:
                 cond:
                     lt iov_idx iovs_len
                 then:
-                    let iov_ptr <i32> add iovs mul iov_idx 8;
-                    let base <i32> load_i32 iov_ptr;
-                    let len <i32> load_i32 add iov_ptr 4;
+                    let iov_ptr %i32 add iovs mul iov_idx 8;
+                    let base %i32 load_i32 iov_ptr;
+                    let len %i32 load_i32 add iov_ptr 4;
                     // Linux x86_64: read(fd, buf, count)
-                    let n64 <i64> __linux_syscall_rw 0 fd base len;
+                    let n64 %i64 __linux_syscall_rw 0 fd base len;
                     if:
                         cond:
-                            lt n64 <i64> cast 0
+                            lt n64 %i64 cast 0
                         then:
                             set err 1;
                             set done 1;
                         else:
-                            let n <i32> cast n64;
+                            let n %i32 cast n64;
                             set total add total n;
                             if:
                                 cond:
@@ -159,30 +159,30 @@ pub fn wasi_fd_read <(i32,i32,i32,i32)*>i32> (fd,iovs,iovs_len,nread_ptr):
     err
 
 #if[target=llvm]
-pub fn wasi_fd_write <(i32,i32,i32,i32)*>i32> (fd,iovs,iovs_len,nwritten_ptr):
-    let mut total <i32> 0;
-    let mut iov_idx <i32> 0;
-    let mut err <i32> 0;
-    let mut done <i32> 0;
+pub fn wasi_fd_write %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32 \fd\iovs\iovs_len\nwritten_ptr:
+    let mut total %i32 0;
+    let mut iov_idx %i32 0;
+    let mut err %i32 0;
+    let mut done %i32 0;
     while eq done 0:
         do:
             if:
                 cond:
                     lt iov_idx iovs_len
                 then:
-                    let iov_ptr <i32> add iovs mul iov_idx 8;
-                    let base <i32> load_i32 iov_ptr;
-                    let len <i32> load_i32 add iov_ptr 4;
+                    let iov_ptr %i32 add iovs mul iov_idx 8;
+                    let base %i32 load_i32 iov_ptr;
+                    let len %i32 load_i32 add iov_ptr 4;
                     // Linux x86_64: write(fd, buf, count)
-                    let n64 <i64> __linux_syscall_rw 1 fd base len;
+                    let n64 %i64 __linux_syscall_rw 1 fd base len;
                     if:
                         cond:
-                            lt n64 <i64> cast 0
+                            lt n64 %i64 cast 0
                         then:
                             set err 1;
                             set done 1;
                         else:
-                            let n <i32> cast n64;
+                            let n %i32 cast n64;
                             set total add total n;
                             if:
                                 cond:
@@ -198,11 +198,11 @@ pub fn wasi_fd_write <(i32,i32,i32,i32)*>i32> (fd,iovs,iovs_len,nwritten_ptr):
     err
 
 #if[target=llvm]
-pub fn wasi_fd_close <(i32)*>i32> (fd):
+pub fn wasi_fd_close %impure fn i32 i32 \fd:
     // Linux x86_64: close(fd)
-    let rc64 <i64> __fs_syscall <i64> cast 3 <i64> cast fd <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0 <i64> cast 0;
+    let rc64 %i64 __fs_syscall %i64 cast 3 %i64 cast fd %i64 cast 0 %i64 cast 0 %i64 cast 0 %i64 cast 0 %i64 cast 0;
     if:
         cond:
-            lt rc64 <i64> cast 0
+            lt rc64 %i64 cast 0
         then 1
         else 0

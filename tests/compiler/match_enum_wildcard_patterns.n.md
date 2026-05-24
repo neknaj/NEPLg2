@@ -18,15 +18,15 @@ enum ItemKind:
     Function
     Struct
 
-fn classify <(ItemKind)->i32> (kind):
+fn classify %fn ItemKind i32 \kind:
     match kind:
         Import:
             10
         _:
             20
 
-fn main <()*>i32> ():
-    let actual <i32> classify ItemKind::Struct
+fn main %impure fn () i32 \():
+    let actual %i32 classify ItemKind::Struct
     let report:
         test_report_new "enum_wildcard_arm_selects_default_variant"
         |> test_report_push assert_eq_i32 "wildcard default variant" 20 actual
@@ -46,18 +46,18 @@ stdout: "test_report name=\"enum_wildcard_arm_allows_payload_default\" count=1 f
 #import "std/test" as *
 
 enum LocalOutcome:
-    Value <i32>
+    Value %i32
     Missing
 
-fn unwrap_or_default <(LocalOutcome)->i32> (result):
+fn unwrap_or_default %fn LocalOutcome i32 \result:
     match result:
         Value value:
             value
         _:
             99
 
-fn main <()*>i32> ():
-    let actual <i32> unwrap_or_default LocalOutcome::Missing
+fn main %impure fn () i32 \():
+    let actual %i32 unwrap_or_default LocalOutcome::Missing
     let report:
         test_report_new "enum_wildcard_arm_allows_payload_default"
         |> test_report_push assert_eq_i32 "wildcard payload default" 99 actual
@@ -78,8 +78,8 @@ enum ItemKind:
     Import
     Function
 
-fn main <()->i32> ():
-    let kind <ItemKind> ItemKind::Import
+fn main %fn () i32 \():
+    let kind %ItemKind ItemKind::Import
     match kind:
         _:
             0
@@ -100,8 +100,8 @@ enum ItemKind:
     Import
     Function
 
-fn main <()->i32> ():
-    let kind <ItemKind> ItemKind::Import
+fn main %fn () i32 \():
+    let kind %ItemKind ItemKind::Import
     match kind:
         _:
             0

@@ -20,14 +20,14 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error" as *
-//: fn main <()*>i32> ():
-//:     let unsorted <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let unsorted %Vec i32:
 //:         unwrap_ok<Vec<i32>, StdErrorKind> new<i32>
 //:         |> push 3 |> uwok
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let sorted <Vec<i32>> sort_quick_ret<i32> unsorted
-//:     let ok <bool> sort_is_sorted<i32> &sorted
+//:     let sorted %Vec i32 sort_quick_ret<i32> unsorted
+//:     let ok %bool sort_is_sorted<i32> &sorted
 //:     free<i32> sorted
 //:     if ok 1 0
 //: ```
@@ -42,15 +42,15 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error" as *
-//: fn main <()*>i32> ():
-//:     let unsorted <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let unsorted %Vec i32:
 //:         unwrap_ok<Vec<i32>, StdErrorKind> new<i32>
 //:         |> push 4 |> uwok
 //:         |> push 3 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 1 |> uwok
-//:     let sorted <Vec<i32>> unwrap_ok<Vec<i32>, VecSortMergeError<i32>> sort_merge_ret<i32> unsorted
-//:     let ok <bool> sort_is_sorted<i32> &sorted
+//:     let sorted %Vec i32 unwrap_ok<Vec<i32>, VecSortMergeError<i32>> sort_merge_ret<i32> unsorted
+//:     let ok %bool sort_is_sorted<i32> &sorted
 //:     free<i32> sorted
 //:     if ok 1 0
 //: ```
@@ -66,12 +66,12 @@
 //:| #import "core/result" as *
 //:| #import "core/field" as *
 //: struct NonCopyOrd:
-//:     value <i32>
+//:     value %i32
 //: impl Ord for NonCopyOrd:
-//:     fn lt <(NonCopyOrd,NonCopyOrd)->bool> (a, b):
+//:     fn lt %fn NonCopyOrd fn NonCopyOrd bool \a\b:
 //:         lt get a "value" get b "value"
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<NonCopyOrd>> unwrap_ok new<NonCopyOrd>;
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec NonCopyOrd unwrap_ok new<NonCopyOrd>;
 //:     sort<NonCopyOrd> &v0;
 //:     0
 //: ```

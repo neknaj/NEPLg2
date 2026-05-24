@@ -26,7 +26,7 @@
 //: ### [注意/ちゅうい]
 //: - この helper は storage-only dealloc であり、要素ごとの Drop は[実行/じっこう]しません。そのため `OwnedBuffer<T>` と initialized prefix traversal が[入/はい]るまでは `.T: Copy` に[限定/げんてい]します。
 //: - non-Copy 要素の drop traversal は collection cleanup issue の対象として分けます。
-pub fn vec_free_storage <.T: Copy> <(VecStorage<.T>)->()> (storage):
+pub fn vec_free_storage <.T: Copy> %fn VecStorage .T () \storage:
     match storage:
         VecStorage::Empty:
             ()

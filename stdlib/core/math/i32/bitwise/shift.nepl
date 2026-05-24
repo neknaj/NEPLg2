@@ -13,7 +13,7 @@
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/math/i32/bitwise/shift" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     assert_eq_i32 8 shl 1 3;
 //:     assert_eq_i32 -2 shr_s -8 2;
 //:     assert_eq_i32 1073741822 shr_u -8 2;
@@ -36,7 +36,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn shl <(i32,i32)->i32> (a,b):
+pub fn shl %fn i32 fn i32 i32 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -63,7 +63,7 @@ pub fn shl <(i32,i32)->i32> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn shr_s <(i32,i32)->i32> (a,b):
+pub fn shr_s %fn i32 fn i32 i32 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -90,7 +90,7 @@ pub fn shr_s <(i32,i32)->i32> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn shr_u <(i32,i32)->i32> (a,b):
+pub fn shr_u %fn i32 fn i32 i32 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -117,7 +117,7 @@ pub fn shr_u <(i32,i32)->i32> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn rotl <(i32,i32)->i32> (a,b):
+pub fn rotl %fn i32 fn i32 i32 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -145,7 +145,7 @@ pub fn rotl <(i32,i32)->i32> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn rotr <(i32,i32)->i32> (a,b):
+pub fn rotr %fn i32 fn i32 i32 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a

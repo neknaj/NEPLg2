@@ -45,10 +45,10 @@
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn gt_two <(i32)->bool> (x):
+//: fn gt_two %fn i32 bool \x:
 //:     gt x 2
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 3 |> uwok
@@ -60,16 +60,16 @@
 //:             free<i32> xs;
 //:             1
 //: ```
-pub fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
-    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+pub fn find <.T: Copy> %fn &Vec .T fn fn .T bool Option .T \v\p:
+    let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
     match vec_buffer_current_copy_invariant<.T> v_buffer:
         VecCopyInvariant::Invalid _reason:
             none<.T>
         VecCopyInvariant::Valid:
-            let src_len <i32> *field::get_ref v_buffer "len"
-            let mut out <Option<.T>> none<.T>
-            let mut active <bool> true
-            let mut i <i32> 0
+            let src_len %i32 *field::get_ref v_buffer "len"
+            let mut out %Option .T none<.T>
+            let mut active %bool true
+            let mut i %i32 0
             while and active lt i src_len:
                 do:
                     match vec_get::get<.T> v i:
@@ -110,17 +110,17 @@ pub fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
 //:| #import "core/result" as *
 //:| #import "core/traits/drop" as *
 //: struct DropPayload:
-//:     value <i32>
+//:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop <(&DropPayload)*>()> (_self):
+//:     fn drop %impure fn &DropPayload () \_self:
 //:         ()
-//: fn is_value_9 <(&DropPayload)->bool> (item):
+//: fn is_value_9 %fn &DropPayload bool \item:
 //:     eq *field::get_ref item "value" 9
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
-//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
-//:     let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 9)
-//:     let ok <bool> match find_index_ref<DropPayload> &v2 @is_value_9:
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
+//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
+//:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 9)
+//:     let ok %bool match find_index_ref<DropPayload> &v2 @is_value_9:
 //:         Option::Some idx:
 //:             eq idx 1
 //:         Option::None:
@@ -128,16 +128,16 @@ pub fn find <.T: Copy> <(&Vec<.T>, (.T)->bool)->Option<.T>> (v, p):
 //:     free<DropPayload> v2
 //:     if ok 0 1
 //: ```
-pub fn find_index_ref <.T> <(&Vec<.T>, (&.T)->bool)->Option<i32>> (v, p):
+pub fn find_index_ref <.T> %fn &Vec .T fn fn &.T bool Option i32 \v\p:
     match vec_current_storage_invariant<.T> v:
         VecStorageInvariant::Invalid _reason:
             none<i32>
         VecStorageInvariant::Valid:
-            let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-            let src_len <i32> *field::get_ref v_buffer "len"
-            let mut out <Option<i32>> none<i32>
-            let mut active <bool> true
-            let mut i <i32> 0
+            let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
+            let src_len %i32 *field::get_ref v_buffer "len"
+            let mut out %Option i32 none<i32>
+            let mut active %bool true
+            let mut i %i32 0
             while and active lt i src_len:
                 do:
                     if:
@@ -173,26 +173,26 @@ pub fn find_index_ref <.T> <(&Vec<.T>, (&.T)->bool)->Option<i32>> (v, p):
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn gt_two <(i32)->bool> (x):
+//: fn gt_two %fn i32 bool \x:
 //:     gt x 2
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 3 |> uwok
-//:     let ok <bool> any<i32> &xs gt_two
+//:     let ok %bool any<i32> &xs gt_two
 //:     free<i32> xs;
 //:     if ok 0 1
 //: ```
-pub fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
-    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+pub fn any <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
+    let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
     match vec_buffer_current_copy_invariant<.T> v_buffer:
         VecCopyInvariant::Invalid _reason:
             false
         VecCopyInvariant::Valid:
-            let src_len <i32> *field::get_ref v_buffer "len"
-            let mut out <bool> false
-            let mut i <i32> 0
+            let src_len %i32 *field::get_ref v_buffer "len"
+            let mut out %bool false
+            let mut i %i32 0
             while and lt i src_len not out:
                 do:
                     match vec_get::get<.T> v i:
@@ -225,28 +225,28 @@ pub fn any <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
 //:| #import "core/result" as *
 //:| #import "core/traits/drop" as *
 //: struct DropPayload:
-//:     value <i32>
+//:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop <(&DropPayload)*>()> (_self):
+//:     fn drop %impure fn &DropPayload () \_self:
 //:         ()
-//: fn is_value_5 <(&DropPayload)->bool> (item):
+//: fn is_value_5 %fn &DropPayload bool \item:
 //:     eq *field::get_ref item "value" 5
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
-//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 5)
-//:     let ok <bool> any_ref<DropPayload> &v1 @is_value_5
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
+//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 5)
+//:     let ok %bool any_ref<DropPayload> &v1 @is_value_5
 //:     free<DropPayload> v1
 //:     if ok 0 1
 //: ```
-pub fn any_ref <.T> <(&Vec<.T>, (&.T)->bool)->bool> (v, p):
+pub fn any_ref <.T> %fn &Vec .T fn fn &.T bool bool \v\p:
     match vec_current_storage_invariant<.T> v:
         VecStorageInvariant::Invalid _reason:
             false
         VecStorageInvariant::Valid:
-            let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-            let src_len <i32> *field::get_ref v_buffer "len"
-            let mut out <bool> false
-            let mut i <i32> 0
+            let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
+            let src_len %i32 *field::get_ref v_buffer "len"
+            let mut out %bool false
+            let mut i %i32 0
             while and lt i src_len not out:
                 do:
                     set out vec_borrow::borrow_at_predicate_or<.T> v i p false
@@ -276,26 +276,26 @@ pub fn any_ref <.T> <(&Vec<.T>, (&.T)->bool)->bool> (v, p):
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn is_even <(i32)->bool> (x):
+//: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
-//:     let ok <bool> all<i32> &xs is_even
+//:     let ok %bool all<i32> &xs is_even
 //:     free<i32> xs;
 //:     if ok 0 1
 //: ```
-pub fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
-    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+pub fn all <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
+    let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
     match vec_buffer_current_copy_invariant<.T> v_buffer:
         VecCopyInvariant::Invalid _reason:
             false
         VecCopyInvariant::Valid:
-            let src_len <i32> *field::get_ref v_buffer "len"
-            let mut out <bool> true
-            let mut i <i32> 0
+            let src_len %i32 *field::get_ref v_buffer "len"
+            let mut out %bool true
+            let mut i %i32 0
             while and lt i src_len out:
                 do:
                     match vec_get::get<.T> v i:
@@ -329,29 +329,29 @@ pub fn all <.T: Copy> <(&Vec<.T>, (.T)->bool)->bool> (v, p):
 //:| #import "core/result" as *
 //:| #import "core/traits/drop" as *
 //: struct DropPayload:
-//:     value <i32>
+//:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop <(&DropPayload)*>()> (_self):
+//:     fn drop %impure fn &DropPayload () \_self:
 //:         ()
-//: fn is_positive <(&DropPayload)->bool> (item):
+//: fn is_positive %fn &DropPayload bool \item:
 //:     lt 0 *field::get_ref item "value"
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
-//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
-//:     let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 2)
-//:     let ok <bool> all_ref<DropPayload> &v2 @is_positive
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
+//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
+//:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 2)
+//:     let ok %bool all_ref<DropPayload> &v2 @is_positive
 //:     free<DropPayload> v2
 //:     if ok 0 1
 //: ```
-pub fn all_ref <.T> <(&Vec<.T>, (&.T)->bool)->bool> (v, p):
+pub fn all_ref <.T> %fn &Vec .T fn fn &.T bool bool \v\p:
     match vec_current_storage_invariant<.T> v:
         VecStorageInvariant::Invalid _reason:
             false
         VecStorageInvariant::Valid:
-            let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-            let src_len <i32> *field::get_ref v_buffer "len"
-            let mut out <bool> true
-            let mut i <i32> 0
+            let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
+            let src_len %i32 *field::get_ref v_buffer "len"
+            let mut out %bool true
+            let mut i %i32 0
             while and lt i src_len out:
                 do:
                     set out vec_borrow::borrow_at_predicate_or<.T> v i p false

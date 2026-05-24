@@ -14,12 +14,12 @@ stdout: "-9223372036854775808\n0\n9223372036854775807\n18446744073709551615\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 
-fn main <()*>()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <i64> read &sc;
-    let b <i64> read &sc;
-    let c <i64> read &sc;
-    let d <u64> read &sc;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let a %i64 read &sc;
+    let b %i64 read &sc;
+    let c %i64 read &sc;
+    let d %u64 read &sc;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln a
@@ -44,11 +44,11 @@ stdout: "42\n-17\n0\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <i64> read &sc;
-    let b <i64> read &sc;
-    let c <i64> read &sc;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let a %i64 read &sc;
+    let b %i64 read &sc;
+    let c %i64 read &sc;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln a
@@ -72,12 +72,12 @@ stdout: "-9223372036854775807\n9223372036854775806\n1000000000000000000\n-100000
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <i64> read &sc;
-    let b <i64> read &sc;
-    let c <i64> read &sc;
-    let d <i64> read &sc;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let a %i64 read &sc;
+    let b %i64 read &sc;
+    let c %i64 read &sc;
+    let d %i64 read &sc;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln a
@@ -102,11 +102,11 @@ stdout: "0\n42\n4294967295\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>()> ():
-    let sc <StreamScanner> unwrap_ok open ReadStream::Stdio;
-    let a <u32> read &sc;
-    let b <u32> read &sc;
-    let c <u32> read &sc;
+fn main %impure fn () () \():
+    let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
+    let a %u32 read &sc;
+    let b %u32 read &sc;
+    let c %u32 read &sc;
     close sc;
     unwrap_ok open WriteStream::Stdio
     |> writeln a

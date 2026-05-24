@@ -27,14 +27,14 @@ stdout: "test_report name=\"diag_to_string_formats_structured_fields\" count=1 f
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let sp <Span> Span 4 5 6;
-    let d0 <Diag> diag_error StdErrorKind::Failure "with source";
-    let d1 <Diag> diag_with_span d0 sp;
-    let d2 <Diag> diag_add_note d1 "check input";
-    let d3 <Diag> diag_add_help d2 "doc: std/test";
-    let d4 <Diag> diag_with_source d3 "parser";
-    let s <str> diag_to_string d4;
+fn main %impure fn () i32 \():
+    let sp %Span Span 4 5 6;
+    let d0 %Diag diag_error StdErrorKind::Failure "with source";
+    let d1 %Diag diag_with_span d0 sp;
+    let d2 %Diag diag_add_note d1 "check input";
+    let d3 %Diag diag_add_help d2 "doc: std/test";
+    let d4 %Diag diag_with_source d3 "parser";
+    let s %str diag_to_string d4;
     let report:
         test_report_new "diag_to_string_formats_structured_fields"
         |> test_report_push assert_str_eq "diag string" "error[Failure]: with source\nat 4:5-6\ncheck input\nhelp: doc: std/test\nsource: parser\n" s
@@ -66,10 +66,10 @@ stdout: "test_report name=\"diags_to_string_keeps_order\" count=1 failed=0\nasse
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let ds0 <Diags> diags_one diag_warn "careful";
-    let ds1 <Diags> diags_push ds0 diag_info "loaded";
-    let s <str> diags_to_string ds1;
+fn main %impure fn () i32 \():
+    let ds0 %Diags diags_one diag_warn "careful";
+    let ds1 %Diags diags_push ds0 diag_info "loaded";
+    let s %str diags_to_string ds1;
     let report:
         test_report_new "diags_to_string_keeps_order"
         |> test_report_push assert_str_eq "diags order" "warn[warn]: careful\ninfo[info]: loaded\n" s

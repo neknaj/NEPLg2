@@ -13,7 +13,7 @@ stdout: "stream text\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     unwrap_ok open WriteStream::Stdio
     |> write "stream text\n"
     |> flush
@@ -34,8 +34,8 @@ stdout: "AB\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let bytes0 <ByteBuf> stream_bytes_from_str "AB\n"
+fn main %impure fn () i32 \():
+    let bytes0 %ByteBuf stream_bytes_from_str "AB\n"
     unwrap_ok open WriteStream::Stdio
     |> write bytes0
     |> flush
@@ -55,9 +55,9 @@ neplg2:test
 #import "std/test" as *
 #import "alloc/string" as *
 
-fn main <()*>i32> ():
-    let bytes0 <ByteBuf> stream_bytes_from_str "A\x00B\n"
-    let text <str> stream_bytes_to_str bytes0
+fn main %impure fn () i32 \():
+    let bytes0 %ByteBuf stream_bytes_from_str "A\x00B\n"
+    let text %str stream_bytes_to_str bytes0
     if str_eq text "A\x00B\n" 0 1
 ```
 
@@ -75,7 +75,7 @@ stdout: "sum=42\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     unwrap_ok open WriteStream::Stdio
     |> write "sum="
     |> writeln 42
@@ -98,11 +98,11 @@ stdout: "1 2\n"
 #import "core/cast" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     unwrap_ok open WriteStream::Stdio
     |> write 1
     |> write " "
-    |> writeln <i64> cast 2
+    |> writeln %i64 cast 2
     |> flush
     |> close;
     0
@@ -122,10 +122,10 @@ stdout: "line1\nline2"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn read_stdin_bytes <()*>Result<ByteBuf, StdErrorKind>> ():
+fn read_stdin_bytes %impure fn () Result ByteBuf StdErrorKind \():
     read StdinStream ()
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match read_stdin_bytes:
         Result::Ok bytes:
             match write StdoutStream () bytes:
@@ -155,10 +155,10 @@ stdout: "text via read"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn read_stdin_text <()*>Result<str, StdErrorKind>> ():
+fn read_stdin_text %impure fn () Result str StdErrorKind \():
     read StdinStream ()
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match read_stdin_text:
         Result::Ok text:
             match write StdoutStream () text:
@@ -187,10 +187,10 @@ stdout: "literal stream"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let input <ReadStream> ReadStream::Text "literal stream"
-    let in_stream <TextInputStream> TextInputStream "literal stream"
-    let text0 <Result<str, StdErrorKind>> read in_stream
+fn main %impure fn () i32 \():
+    let input %ReadStream ReadStream::Text "literal stream"
+    let in_stream %TextInputStream TextInputStream "literal stream"
+    let text0 %Result str StdErrorKind read in_stream
     match text0:
         Result::Ok text:
             match write StdoutStream () text:
@@ -219,14 +219,14 @@ stdout: "10\n-20\n30\n4.500000\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 #import "core/result" as *
-fn main <()*>i32> ():
-    let input <ReadStream> ReadStream::Stdio;
-    let output <WriteStream> WriteStream::Stdio;
-    let sc <StreamScanner> unwrap_ok open input;
-    let a <i32> read &sc;
-    let b <i32> read &sc;
-    let c <i64> read &sc;
-    let d <f64> read &sc;
+fn main %impure fn () i32 \():
+    let input %ReadStream ReadStream::Stdio;
+    let output %WriteStream WriteStream::Stdio;
+    let sc %StreamScanner unwrap_ok open input;
+    let a %i32 read &sc;
+    let b %i32 read &sc;
+    let c %i64 read &sc;
+    let d %f64 read &sc;
     close sc;
     unwrap_ok open output
     |> writeln a
@@ -252,12 +252,12 @@ stdout: "4294967295\n18446744073709551615\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let input <ReadStream> ReadStream::Stdio;
-    let output <WriteStream> WriteStream::Stdio;
-    let sc <StreamScanner> unwrap_ok open input;
-    let a <u32> read &sc;
-    let b <u64> read &sc;
+fn main %impure fn () i32 \():
+    let input %ReadStream ReadStream::Stdio;
+    let output %WriteStream WriteStream::Stdio;
+    let sc %StreamScanner unwrap_ok open input;
+    let a %u32 read &sc;
+    let b %u64 read &sc;
     close sc;
     unwrap_ok open output
     |> writeln a
@@ -282,11 +282,11 @@ stdout: "abc\n42\n"
 #import "std/stdio" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let input <ReadStream> ReadStream::Stdio;
-    let sc <StreamScanner> unwrap_ok open input;
-    let token <str> read &sc;
-    let value <i32> read &sc;
+fn main %impure fn () i32 \():
+    let input %ReadStream ReadStream::Stdio;
+    let sc %StreamScanner unwrap_ok open input;
+    let token %str read &sc;
+    let value %i32 read &sc;
     close sc;
     print token;
     println "";
@@ -313,13 +313,13 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok region:
-            let data <MemPtr<u8>> io_bytebuf_region_ptr &region
+            let data %MemPtr u8 io_bytebuf_region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
                     match dealloc_region<u8> region:
@@ -329,8 +329,8 @@ fn main <()*>i32> ():
                             ()
                     set checks checks_push checks Result<(),str>::Err e
                 Result::Ok _:
-                    let sc <StreamScanner> unwrap_ok open ReadStream::Bytes io_bytebuf_finish_region region 1
-                    let token <str> read &sc
+                    let sc %StreamScanner unwrap_ok open ReadStream::Bytes io_bytebuf_finish_region region 1
+                    let token %str read &sc
                     close sc
                     set checks checks_push checks assert_str_eq "" token
     let shown checks_print_report checks
@@ -350,10 +350,10 @@ diag_code: type.overload.no_match
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let input <ReadStream> ReadStream::Text "true";
-    let sc <StreamScanner> unwrap_ok open input;
-    let value <bool> read &sc;
+fn main %impure fn () i32 \():
+    let input %ReadStream ReadStream::Text "true";
+    let sc %StreamScanner unwrap_ok open input;
+    let value %bool read &sc;
     close sc;
     if value 0 1
 ```
@@ -371,10 +371,10 @@ diag_code: type.overload.no_match
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let input <ReadStream> ReadStream::Text "1";
-    let sc <StreamScanner> unwrap_ok open input;
-    let value <i32> read sc;
+fn main %impure fn () i32 \():
+    let input %ReadStream ReadStream::Text "1";
+    let sc %StreamScanner unwrap_ok open input;
+    let value %i32 read sc;
     close sc;
     value
 ```
@@ -392,9 +392,9 @@ stdout: "CD\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let output <WriteStream> WriteStream::Stdio
-    let bytes0 <ByteBuf> stream_bytes_from_str "CD\n"
+fn main %impure fn () i32 \():
+    let output %WriteStream WriteStream::Stdio
+    let bytes0 %ByteBuf stream_bytes_from_str "CD\n"
     unwrap_ok open output
     |> write bytes0
     |> flush
@@ -416,13 +416,13 @@ stdout: "13\n24\n"
 #import "core/math" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let left <StreamScanner> unwrap_ok open ReadStream::Text "10 3"
-    let right <StreamScanner> unwrap_ok open ReadStream::Text "20 4"
-    let a <i32> read &left
-    let b <i32> read &left
-    let c <i32> read &right
-    let d <i32> read &right
+fn main %impure fn () i32 \():
+    let left %StreamScanner unwrap_ok open ReadStream::Text "10 3"
+    let right %StreamScanner unwrap_ok open ReadStream::Text "20 4"
+    let a %i32 read &left
+    let b %i32 read &left
+    let c %i32 read &right
+    let d %i32 read &right
     close left;
     close right;
     unwrap_ok open WriteStream::Stdio

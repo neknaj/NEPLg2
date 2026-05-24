@@ -13,8 +13,8 @@
 
 //: U128DivRem: u128 の小基数除算の結果
 pub struct U128DivRem:
-    quotient <u128>
-    remainder <i32>
+    quotient %u128
+    remainder %i32
 
 //: u128_zero: 0 の u128 値を返す
 //:
@@ -26,8 +26,8 @@ pub struct U128DivRem:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn u128_zero <()->u128> ():
-    u128 <i64> cast 0 <i64> cast 0
+pub fn u128_zero %fn () u128 \():
+    u128 %i64 cast 0 %i64 cast 0
 
 //: u128_max: u128 の最大値を返す
 //:
@@ -42,8 +42,8 @@ pub fn u128_zero <()->u128> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn u128_max <()->u128> ():
-    u128 <i64> cast -1 <i64> cast -1
+pub fn u128_max %fn () u128 \():
+    u128 %i64 cast -1 %i64 cast -1
 
 //: u128_is_zero: u128 が 0 かを判定する
 //:
@@ -55,8 +55,8 @@ pub fn u128_max <()->u128> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn u128_is_zero <(u128)->bool> (v):
-    and eq get v "hi" <i64> cast 0 eq get v "lo" <i64> cast 0
+pub fn u128_is_zero %fn u128 bool \v:
+    and eq get v "hi" %i64 cast 0 eq get v "lo" %i64 cast 0
 
 //: u128_from_i128_bits: i128 のビット列をそのまま u128 として見る
 //:
@@ -68,7 +68,7 @@ pub fn u128_is_zero <(u128)->bool> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn u128_from_i128_bits <(i128)->u128> (v):
+pub fn u128_from_i128_bits %fn i128 u128 \v:
     u128 get v "hi" get v "lo"
 
 //: i128_from_u128_bits: u128 のビット列をそのまま i128 として見る
@@ -81,7 +81,7 @@ pub fn u128_from_i128_bits <(i128)->u128> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn i128_from_u128_bits <(u128)->i128> (v):
+pub fn i128_from_u128_bits %fn u128 i128 \v:
     i128 get v "hi" get v "lo"
 
 //: i128_is_negative: i128 が負数かを判定する
@@ -94,8 +94,8 @@ pub fn i128_from_u128_bits <(u128)->i128> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn i128_is_negative <(i128)->bool> (v):
-    lt get v "hi" <i64> cast 0
+pub fn i128_is_negative %fn i128 bool \v:
+    lt get v "hi" %i64 cast 0
 
 //: i128_neg: i128 の符号を反転する
 //:
@@ -110,8 +110,8 @@ pub fn i128_is_negative <(i128)->bool> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn i128_neg <(i128)->i128> (v):
-    sub <i128> cast 0 v
+pub fn i128_neg %fn i128 i128 \v:
+    sub %i128 cast 0 v
 
 //: i128_abs_u128: i128 の絶対値を u128 として返す
 //:
@@ -126,7 +126,7 @@ pub fn i128_neg <(i128)->i128> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn i128_abs_u128 <(i128)->u128> (v):
+pub fn i128_abs_u128 %fn i128 u128 \v:
     if:
         i128_is_negative v
         then:
@@ -147,17 +147,17 @@ pub fn i128_abs_u128 <(i128)->u128> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn u128_get_bit <(u128,i32)->i32> (v, idx):
+pub fn u128_get_bit %fn u128 fn i32 i32 \v\idx:
     if:
         ge idx 64
         then:
-            let shifted <i64> shr_u get v "hi" <i64> cast sub idx 64;
-            let bit64 <i64> and shifted <i64> cast 1;
-            <i32> cast bit64
+            let shifted %i64 shr_u get v "hi" %i64 cast sub idx 64;
+            let bit64 %i64 and shifted %i64 cast 1;
+            %i32 cast bit64
         else:
-            let shifted <i64> shr_u get v "lo" <i64> cast idx;
-            let bit64 <i64> and shifted <i64> cast 1;
-            <i32> cast bit64
+            let shifted %i64 shr_u get v "lo" %i64 cast idx;
+            let bit64 %i64 and shifted %i64 cast 1;
+            %i32 cast bit64
 
 //: u128_set_bit: u128 の指定ビットを 1 にする
 //:
@@ -169,14 +169,14 @@ pub fn u128_get_bit <(u128,i32)->i32> (v, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn u128_set_bit <(u128,i32)->u128> (v, idx):
+pub fn u128_set_bit %fn u128 fn i32 u128 \v\idx:
     if:
         ge idx 64
         then:
-            let mask <i64> shl <i64> cast 1 <i64> cast sub idx 64;
+            let mask %i64 shl %i64 cast 1 %i64 cast sub idx 64;
             u128 or get v "hi" mask get v "lo"
         else:
-            let mask <i64> shl <i64> cast 1 <i64> cast idx;
+            let mask %i64 shl %i64 cast 1 %i64 cast idx;
             u128 get v "hi" or get v "lo" mask
 
 //: u128_add_small: u128 に小さい非負整数を加える
@@ -192,8 +192,8 @@ pub fn u128_set_bit <(u128,i32)->u128> (v, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn u128_add_small <(u128,i32)->u128> (v, digit):
-    add v to_u128 <i64> cast digit
+pub fn u128_add_small %fn u128 fn i32 u128 \v\digit:
+    add v to_u128 %i64 cast digit
 
 //: u128_mul_small: u128 に小さい非負整数を掛ける
 //:
@@ -210,10 +210,10 @@ pub fn u128_add_small <(u128,i32)->u128> (v, digit):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(log factor) だが factor は固定小定数なので実質 O(1)
-pub fn u128_mul_small <(u128,i32)->u128> (v, factor):
-    let mut out <u128> u128_zero;
-    let mut base <u128> v;
-    let mut n <i32> factor;
+pub fn u128_mul_small %fn u128 fn i32 u128 \v\factor:
+    let mut out %u128 u128_zero;
+    let mut base %u128 v;
+    let mut n %i32 factor;
     while gt n 0:
         do:
             if:
@@ -241,14 +241,14 @@ pub fn u128_mul_small <(u128,i32)->u128> (v, factor):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(128) = O(1)
-pub fn u128_divrem_small <(u128,i32)->U128DivRem> (v, radix):
-    let mut q <u128> u128_zero;
-    let mut rem <i32> 0;
-    let mut idx <i32> 127;
+pub fn u128_divrem_small %fn u128 fn i32 U128DivRem \v\radix:
+    let mut q %u128 u128_zero;
+    let mut rem %i32 0;
+    let mut idx %i32 127;
     while ge idx 0:
         do:
-            let bit <i32> u128_get_bit v idx;
-            let shifted_rem <i32> shl rem 1;
+            let bit %i32 u128_get_bit v idx;
+            let shifted_rem %i32 shl rem 1;
             set rem add shifted_rem bit;
             if:
                 ge rem radix
@@ -277,7 +277,7 @@ pub fn u128_divrem_small <(u128,i32)->U128DivRem> (v, radix):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn u128_can_mul_add_small <(u128,i32,u128,i32)->bool> (v, digit, max_quotient, max_remainder):
+pub fn u128_can_mul_add_small %fn u128 fn i32 fn u128 fn i32 bool \v\digit\max_quotient\max_remainder:
     if:
         lt v max_quotient
         then:

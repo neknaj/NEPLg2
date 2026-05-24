@@ -10,10 +10,10 @@ diag_code: type.impl.inherent_unsupported
 #target core
 
 impl i32:
-    fn id <(i32)->i32> (x):
+    fn id %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -27,16 +27,16 @@ diag_code: type.impl.duplicate_method
 #target core
 
 trait Show:
-    fn show <(Self)->i32> (x):
+    fn show %fn Self i32 \x:
         x
 
 impl Show for i32:
-    fn show <(i32)->i32> (x):
+    fn show %fn i32 i32 \x:
         x
-    fn show <(i32)->i32> (x):
+    fn show %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -50,14 +50,14 @@ diag_code: type.trait_method.type_params_unsupported
 #target core
 
 trait Show:
-    fn show <(Self)->i32> (x):
+    fn show %fn Self i32 \x:
         x
 
 impl Show for i32:
-    fn show <.T> <(i32)->i32> (x):
+    fn show <.T> %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -71,16 +71,16 @@ diag_code: type.impl.method_not_in_trait
 #target core
 
 trait Show:
-    fn show <(Self)->i32> (x):
+    fn show %fn Self i32 \x:
         x
 
 impl Show for i32:
-    fn show <(i32)->i32> (x):
+    fn show %fn i32 i32 \x:
         x
-    fn extra <(i32)->i32> (x):
+    fn extra %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -94,14 +94,14 @@ diag_code: type.impl.method_signature_mismatch
 #target core
 
 trait Show:
-    fn show <(Self)->i32> (x):
+    fn show %fn Self i32 \x:
         x
 
 impl Show for i32:
-    fn show <(i32)->i64> (x):
+    fn show %fn i32 i64 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -115,16 +115,16 @@ diag_code: type.impl.missing_trait_method
 #target core
 
 trait Pair:
-    fn a <(Self)->i32> (x):
+    fn a %fn Self i32 \x:
         x
-    fn b <(Self)->i32> (x):
+    fn b %fn Self i32 \x:
         x
 
 impl Pair for i32:
-    fn a <(i32)->i32> (x):
+    fn a %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -138,10 +138,10 @@ diag_code: type.trait.unknown
 #target core
 
 impl Missing for i32:
-    fn f <(i32)->i32> (x):
+    fn f %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -156,14 +156,14 @@ diag_code: type.trait.type_params_unsupported
 #import "core/field" as *
 
 trait Boxy<.T>:
-    fn get <(Self)->.T> (x):
+    fn get %fn Self .T \x:
         unreachable
 
 impl Boxy<i32, i32> for i32:
-    fn get <(i32)->i32> (x):
+    fn get %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -177,17 +177,17 @@ diag_code: type.impl.duplicate_for_trait_target
 #target core
 
 trait Show:
-    fn show <(Self)->i32> (x):
+    fn show %fn Self i32 \x:
         x
 
 impl Show for i32:
-    fn show <(i32)->i32> (x):
+    fn show %fn i32 i32 \x:
         x
 
 impl Show for i32:
-    fn show <(i32)->i32> (x):
+    fn show %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```

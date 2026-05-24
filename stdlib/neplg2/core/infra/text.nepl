@@ -26,10 +26,10 @@
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //:| #import "neplg2/core/infra/text" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match source_text_new 0 "smoke.nepl" "a\nb":
 //:         Result::Ok text:
-//:             let count <i32> source_text_line_count &text
+//:             let count %i32 source_text_line_count &text
 //:             source_text_free text
 //:             if eq count 2 0 1
 //:         Result::Err _e:
@@ -48,7 +48,7 @@
 #import "neplg2/core/infra/span" as *
 #import "core/field" as *
 
-fn source_text_byte_or_end <(str,i32)->i32> (source, idx):
+fn source_text_byte_or_end %fn str fn i32 i32 \source\idx:
     match string_byte_index::checked_string_byte_at source idx:
         Option::Some b:
             b
@@ -63,20 +63,20 @@ fn source_text_byte_or_end <(str,i32)->i32> (source, idx):
 //: [注意/ちゅうい]:
 //: - `line_starts` の[所有権/しょゆうけん]を[持/も]つため、[使/つか]い[終/お]わったら `source_text_free` を[呼/よ]びます。
 pub struct SelfhostSourceText:
-    file_id <i32>
-    path <str>
-    source <str>
-    line_starts <Vec<i32>>
+    file_id %i32
+    path %str
+    source %str
+    line_starts %Vec i32
 
 //: SelfhostSourceLocation: source byte offset に[対応/たいおう]する line / column
 //:
 //: [目的/もくてき]:
 //: - diagnostic renderer が span の[開始/かいし]位置を[表示/ひょうじ]できるよう、0-origin line / column を[保持/ほじ]します。
 pub struct SelfhostSourceLocation:
-    file_id <i32>
-    offset <i32>
-    line <i32>
-    column <i32>
+    file_id %i32
+    offset %i32
+    line %i32
+    column %i32
 
 //: SourceTextLineStartPushState: line start 追加結果の[状態/じょうたい]
 //:
@@ -91,15 +91,15 @@ pub enum SourceTextLineStartPushState:
 //: [目的/もくてき]:
 //: - 成功時は追加済み Vec、失敗時は `VecPushError` に戻された入力 Vec を返し、loop 変数を常に再初期化できるようにします。
 pub struct SourceTextLineStartPush:
-    state <SourceTextLineStartPushState>
-    starts <Vec<i32>>
+    state %SourceTextLineStartPushState
+    starts %Vec i32
 
 impl Clone for SelfhostSourceLocation:
-    fn clone <(&SelfhostSourceLocation)->SelfhostSourceLocation> (self):
+    fn clone %fn &SelfhostSourceLocation SelfhostSourceLocation \self:
         *self
 
 impl Copy for SelfhostSourceLocation:
-    fn copy_mark <(SelfhostSourceLocation)->SelfhostSourceLocation> (self):
+    fn copy_mark %fn SelfhostSourceLocation SelfhostSourceLocation \self:
         self
 
 //: source_text_next_index_after_cr: CR または CRLF の次 byte offset を[返/かえ]す
@@ -109,12 +109,12 @@ impl Copy for SelfhostSourceLocation:
 //:
 //: [注意/ちゅうい]:
 //: - idx は `'\r'` を指している前提です。返る offset は次の line start です。
-pub fn source_text_next_index_after_cr <(str,i32,i32)->i32> (source, n, idx):
-    let next_idx <i32> add idx 1
+pub fn source_text_next_index_after_cr %fn str fn i32 fn i32 i32 \source\n\idx:
+    let next_idx %i32 add idx 1
     if:
         lt next_idx n
         then:
-            let next_ch <i32> source_text_byte_or_end source next_idx
+            let next_ch %i32 source_text_byte_or_end source next_idx
             match next_ch:
                 '\n':
                     add idx 2
@@ -128,7 +128,7 @@ pub fn source_text_next_index_after_cr <(str,i32,i32)->i32> (source, n, idx):
 //: [目的/もくてき]:
 //: - `Vec::push` は consuming API なので、while loop の accumulator へ戻す owner を成功/失敗の両方で明示します。
 //: - 失敗時、`Vec::push` が返した入力 Vec owner を保持し、呼び出し側が cleanup できるようにします。
-pub fn source_text_push_line_start <(Vec<i32>,i32)->SourceTextLineStartPush> (starts, offset):
+pub fn source_text_push_line_start %fn Vec i32 fn i32 SourceTextLineStartPush \starts\offset:
     match v::push<i32> starts offset:
         Result::Ok next_starts:
             SourceTextLineStartPush SourceTextLineStartPushState::Ok next_starts
@@ -143,18 +143,18 @@ pub fn source_text_push_line_start <(Vec<i32>,i32)->SourceTextLineStartPush> (st
 //:
 //: [注意/ちゅうい]:
 //: - allocation failure は `Result::Err StdErrorKind::OutOfMemory` として[返/かえ]します。
-pub fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>, StdErrorKind>> (source, n, idx, starts):
-    let mut i <i32> idx
-    let mut out <Vec<i32>> starts
-    let mut failed <bool> false
+pub fn source_text_collect_line_starts %fn str fn i32 fn i32 fn Vec i32 Result Vec i32 StdErrorKind \source\n\idx\starts:
+    let mut i %i32 idx
+    let mut out %Vec i32 starts
+    let mut failed %bool false
     while and lt i n not failed:
         do:
-            let ch <i32> source_text_byte_or_end source i
+            let ch %i32 source_text_byte_or_end source i
             match ch:
                 '\n':
-                    let pushed <SourceTextLineStartPush> source_text_push_line_start out add i 1
-                    let push_state <SourceTextLineStartPushState> field::get pushed "state"
-                    let next_out <Vec<i32>> field::get pushed "starts"
+                    let pushed %SourceTextLineStartPush source_text_push_line_start out add i 1
+                    let push_state %SourceTextLineStartPushState field::get pushed "state"
+                    let next_out %Vec i32 field::get pushed "starts"
                     match push_state:
                         SourceTextLineStartPushState::Ok:
                             set out next_out
@@ -163,10 +163,10 @@ pub fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>,
                             set out next_out
                             set failed true
                 '\r':
-                    let next_idx <i32> source_text_next_index_after_cr source n i
-                    let pushed <SourceTextLineStartPush> source_text_push_line_start out next_idx
-                    let push_state <SourceTextLineStartPushState> field::get pushed "state"
-                    let next_out <Vec<i32>> field::get pushed "starts"
+                    let next_idx %i32 source_text_next_index_after_cr source n i
+                    let pushed %SourceTextLineStartPush source_text_push_line_start out next_idx
+                    let push_state %SourceTextLineStartPushState field::get pushed "state"
+                    let next_out %Vec i32 field::get pushed "starts"
                     match push_state:
                         SourceTextLineStartPushState::Ok:
                             set out next_out
@@ -191,10 +191,10 @@ pub fn source_text_collect_line_starts <(str,i32,i32,Vec<i32>)->Result<Vec<i32>,
 //:
 //: [注意/ちゅうい]:
 //: - `path` は diagnostic [表示用/ひょうじよう]の[名前/なまえ]です。filesystem へは[接続/せつぞく]しません。
-pub fn source_text_new <(i32,str,str)->Result<SelfhostSourceText, StdErrorKind>> (file_id, path, source):
+pub fn source_text_new %fn i32 fn str fn str Result SelfhostSourceText StdErrorKind \file_id\path\source:
     match v::filled<i32> 1 0:
         Result::Ok starts:
-            let n <i32> string_access::len source
+            let n %i32 string_access::len source
             match source_text_collect_line_starts source n 0 starts:
                 Result::Ok line_starts:
                     Result<SelfhostSourceText, StdErrorKind>::Ok SelfhostSourceText file_id path source line_starts
@@ -204,21 +204,21 @@ pub fn source_text_new <(i32,str,str)->Result<SelfhostSourceText, StdErrorKind>>
             Result<SelfhostSourceText, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: source_text_free: line start table を[解放/かいほう]する
-pub fn source_text_free <(SelfhostSourceText)->()> (text):
+pub fn source_text_free %fn SelfhostSourceText () \text:
     v::free<i32> field::get text "line_starts"
 
 //: source_text_len: source [本文/ほんぶん]の byte [長/ちょう]を[返/かえ]す
-pub fn source_text_len <(&SelfhostSourceText)->i32> (text):
+pub fn source_text_len %fn &SelfhostSourceText i32 \text:
     string_access::len *field::get_ref text "source"
 
 //: source_text_line_count: line start table の[要素数/ようそすう]を[返/かえ]す
-pub fn source_text_line_count <(&SelfhostSourceText)->i32> (text):
-    let starts <&Vec<i32>> field::get_ref text "line_starts"
+pub fn source_text_line_count %fn &SelfhostSourceText i32 \text:
+    let starts %&Vec i32 field::get_ref text "line_starts"
     v::len<i32> starts
 
 //: source_text_line_start: line index の[開始/かいし] byte offset を[返/かえ]す
-pub fn source_text_line_start <(&SelfhostSourceText,i32)->Option<i32>> (text, line):
-    let starts <&Vec<i32>> field::get_ref text "line_starts"
+pub fn source_text_line_start %fn &SelfhostSourceText fn i32 Option i32 \text\line:
+    let starts %&Vec i32 field::get_ref text "line_starts"
     if:
         lt line 0
         then:
@@ -230,13 +230,13 @@ pub fn source_text_line_start <(&SelfhostSourceText,i32)->Option<i32>> (text, li
 //:
 //: [注意/ちゅうい]:
 //: - `offset` が source [長/ちょう]以内であることは[呼/よ]び[出/だ]し[側/がわ]で[確認/かくにん]します。
-pub fn source_text_line_index_search <(&Vec<i32>,i32,i32,i32,i32)->i32> (starts, offset, low, high, best):
+pub fn source_text_line_index_search %fn &Vec i32 fn i32 fn i32 fn i32 fn i32 i32 \starts\offset\low\high\best:
     if:
         ge low high
         then:
             best
         else:
-            let mid <i32> div_s add low high 2
+            let mid %i32 div_s add low high 2
             match v::get<i32> starts mid:
                 Option::Some start:
                     if:
@@ -249,26 +249,26 @@ pub fn source_text_line_index_search <(&Vec<i32>,i32,i32,i32,i32)->i32> (starts,
                     best
 
 //: source_text_line_index_for_offset: byte offset の line index を[返/かえ]す
-pub fn source_text_line_index_for_offset <(&SelfhostSourceText,i32)->Option<i32>> (text, offset):
-    let n <i32> source_text_len text
+pub fn source_text_line_index_for_offset %fn &SelfhostSourceText fn i32 Option i32 \text\offset:
+    let n %i32 source_text_len text
     if:
         or lt offset 0 gt offset n
         then:
             none<i32>
         else:
-            let starts <&Vec<i32>> field::get_ref text "line_starts"
-            let count <i32> v::len<i32> starts
+            let starts %&Vec i32 field::get_ref text "line_starts"
+            let count %i32 v::len<i32> starts
             some<i32> source_text_line_index_search starts offset 0 count 0
 
 //: source_text_trim_line_end: newline byte を[除/のぞ]いた line end を[返/かえ]す
-pub fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
+pub fn source_text_trim_line_end %fn str fn i32 fn i32 i32 \source\start\raw_end:
     if:
         le raw_end start
         then:
             raw_end
         else:
-            let last_idx <i32> sub raw_end 1
-            let last <i32> source_text_byte_or_end source last_idx
+            let last_idx %i32 sub raw_end 1
+            let last %i32 source_text_byte_or_end source last_idx
             match last:
                 '\n':
                     if:
@@ -276,8 +276,8 @@ pub fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
                         then:
                             last_idx
                         else:
-                            let prev_idx <i32> sub last_idx 1
-                            let prev <i32> source_text_byte_or_end source prev_idx
+                            let prev_idx %i32 sub last_idx 1
+                            let prev %i32 source_text_byte_or_end source prev_idx
                             match prev:
                                 '\r':
                                     prev_idx
@@ -289,7 +289,7 @@ pub fn source_text_trim_line_end <(str,i32,i32)->i32> (source, start, raw_end):
                     raw_end
 
 //: source_text_next_line_start_or_len: [次/つぎ]の line start、なければ source [長/ちょう]を[返/かえ]す
-pub fn source_text_next_line_start_or_len <(&Vec<i32>,i32,i32)->i32> (starts, next_line, n):
+pub fn source_text_next_line_start_or_len %fn &Vec i32 fn i32 fn i32 i32 \starts\next_line\n:
     match v::get<i32> starts next_line:
         Option::Some start:
             start
@@ -300,9 +300,9 @@ pub fn source_text_next_line_start_or_len <(&Vec<i32>,i32,i32)->i32> (starts, ne
 //:
 //: [注意/ちゅうい]:
 //: - 返す span の end は newline byte を[含/ふく]みません。
-pub fn source_text_line_span <(&SelfhostSourceText,i32)->Option<SelfhostSourceSpan>> (text, line):
-    let starts <&Vec<i32>> field::get_ref text "line_starts"
-    let count <i32> v::len<i32> starts
+pub fn source_text_line_span %fn &SelfhostSourceText fn i32 Option SelfhostSourceSpan \text\line:
+    let starts %&Vec i32 field::get_ref text "line_starts"
+    let count %i32 v::len<i32> starts
     if:
         or lt line 0 ge line count
         then:
@@ -310,11 +310,11 @@ pub fn source_text_line_span <(&SelfhostSourceText,i32)->Option<SelfhostSourceSp
         else:
             match v::get<i32> starts line:
                 Option::Some start:
-                    let source <str> *field::get_ref text "source"
-                    let file_id <i32> *field::get_ref text "file_id"
-                    let n <i32> string_access::len source
-                    let raw_end <i32> source_text_next_line_start_or_len starts add line 1 n
-                    let end <i32> source_text_trim_line_end source start raw_end
+                    let source %str *field::get_ref text "source"
+                    let file_id %i32 *field::get_ref text "file_id"
+                    let n %i32 string_access::len source
+                    let raw_end %i32 source_text_next_line_start_or_len starts add line 1 n
+                    let end %i32 source_text_trim_line_end source start raw_end
                     some<SelfhostSourceSpan> source_span_new file_id start end
                 Option::None:
                     none<SelfhostSourceSpan>
@@ -323,12 +323,12 @@ pub fn source_text_line_span <(&SelfhostSourceText,i32)->Option<SelfhostSourceSp
 //:
 //: [注意/ちゅうい]:
 //: - `offset == len(source)` は EOF [位置/いち]として[有効/ゆうこう]です。
-pub fn source_text_location_for_offset <(&SelfhostSourceText,i32)->Option<SelfhostSourceLocation>> (text, offset):
+pub fn source_text_location_for_offset %fn &SelfhostSourceText fn i32 Option SelfhostSourceLocation \text\offset:
     match source_text_line_index_for_offset text offset:
         Option::Some line:
             match source_text_line_start text line:
                 Option::Some start:
-                    let file_id <i32> *field::get_ref text "file_id"
+                    let file_id %i32 *field::get_ref text "file_id"
                     some<SelfhostSourceLocation> SelfhostSourceLocation file_id offset line sub offset start
                 Option::None:
                     none<SelfhostSourceLocation>
@@ -336,10 +336,10 @@ pub fn source_text_location_for_offset <(&SelfhostSourceText,i32)->Option<Selfho
             none<SelfhostSourceLocation>
 
 //: selfhost_text_stage0: source text [基盤/きばん]の smoke API
-pub fn selfhost_text_stage0 <()*>i32> ():
+pub fn selfhost_text_stage0 %impure fn () i32 \():
     match source_text_new 0 "stage0.nepl" "a\nb":
         Result::Ok text:
-            let count <i32> source_text_line_count &text
+            let count %i32 source_text_line_count &text
             source_text_free text
             if eq count 2 0 1
         Result::Err _e:

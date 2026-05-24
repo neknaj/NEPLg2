@@ -18,40 +18,40 @@
 //: ### [実装/じっそう]
 //: - 上位 digit を再帰で先に出し、各 digit は `push_u8_impl` に通します。
 //: - 直接 length field を進めず `push_u8_impl` に通すため、checked store 失敗時も writer の長さだけが先に進むことを避けます。
-pub fn append_i32_digits_impl <(StreamWriter,i32)*>StreamWriter> (w, x):
+pub fn append_i32_digits_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\x:
     if:
         ge x 10
         then:
-            let w1 <StreamWriter> append_i32_digits_impl w div_s x 10;
-            let digit <i32> mod_s x 10;
+            let w1 %StreamWriter append_i32_digits_impl w div_s x 10;
+            let digit %i32 mod_s x 10;
             push_u8_impl w1 add '0' digit
         else:
             push_u8_impl w add '0' x
 
 //: ## append_u32_digits_impl
 //: `u32` 表現の `i32` を符号なし 10 [進/しん] digit として[追記/ついき]する
-pub fn append_u32_digits_impl <(StreamWriter,i32)*>StreamWriter> (w, x):
+pub fn append_u32_digits_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\x:
     if:
         ge_u x 10
         then:
-            let w1 <StreamWriter> append_u32_digits_impl w div_u x 10;
-            let digit <i32> rem_u x 10;
+            let w1 %StreamWriter append_u32_digits_impl w div_u x 10;
+            let digit %i32 rem_u x 10;
             push_u8_impl w1 add '0' digit
         else:
             push_u8_impl w add '0' x
 
 //: ## append_u64_digits_impl
 //: `u64` 表現の `i64` を符号なし 10 [進/しん] digit として[追記/ついき]する
-pub fn append_u64_digits_impl <(StreamWriter,i64)*>StreamWriter> (w, x):
-    let ten <i64> cast 10;
+pub fn append_u64_digits_impl %impure fn StreamWriter impure fn i64 StreamWriter \w\x:
+    let ten %i64 cast 10;
     if:
         ge_u x ten
         then:
-            let w1 <StreamWriter> append_u64_digits_impl w div_u x ten;
-            let rem <i32> cast rem_u x ten;
+            let w1 %StreamWriter append_u64_digits_impl w div_u x ten;
+            let rem %i32 cast rem_u x ten;
             push_u8_impl w1 add '0' rem
         else:
-            let digit <i32> cast x;
+            let digit %i32 cast x;
             push_u8_impl w add '0' digit
 
 //: ## append_i32_impl
@@ -60,7 +60,7 @@ pub fn append_u64_digits_impl <(StreamWriter,i64)*>StreamWriter> (w, x):
 //: ### [実装/じっそう]
 //: - `INT_MIN` は[絶対値/ぜったいち]が overflow するため[定数/ていすう][文字列/もじれつ]で[処理/しょり]します。
 //: - それ[以外/いがい]は digit helper で上位桁から `push_u8_impl` へ通します。
-pub fn append_i32_impl <(StreamWriter,i32)*>StreamWriter> (w, v):
+pub fn append_i32_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\v:
     if:
         eq v -2147483648
         then:
@@ -71,8 +71,8 @@ pub fn append_i32_impl <(StreamWriter,i32)*>StreamWriter> (w, v):
                 then:
                     push_u8_impl w 48
                 else:
-                    let mut ww <StreamWriter> w;
-                    let mut x <i32> v;
+                    let mut ww %StreamWriter w;
+                    let mut x %i32 v;
 
                     if:
                         lt x 0
@@ -86,9 +86,9 @@ pub fn append_i32_impl <(StreamWriter,i32)*>StreamWriter> (w, v):
 
 //: ## append_u32_impl
 //: `u32` を 10 [進/しん]で buffered sink へ[追記/ついき]する
-pub fn append_u32_impl <(StreamWriter,u32)*>StreamWriter> (w, v):
-    let vi <i32> cast v;
-    let zero <i32> 0;
+pub fn append_u32_impl %impure fn StreamWriter impure fn u32 StreamWriter \w\v:
+    let vi %i32 cast v;
+    let zero %i32 0;
     if:
         eq vi zero
         then:
@@ -98,9 +98,9 @@ pub fn append_u32_impl <(StreamWriter,u32)*>StreamWriter> (w, v):
 
 //: ## append_u64_impl
 //: `u64` を 10 [進/しん]で[追記/ついき]する
-pub fn append_u64_impl <(StreamWriter,u64)*>StreamWriter> (w, v):
-    let vi <i64> cast v;
-    let zero <i64> cast 0;
+pub fn append_u64_impl %impure fn StreamWriter impure fn u64 StreamWriter \w\v:
+    let vi %i64 cast v;
+    let zero %i64 cast 0;
     if:
         eq vi zero
         then:
@@ -110,15 +110,15 @@ pub fn append_u64_impl <(StreamWriter,u64)*>StreamWriter> (w, v):
 
 //: ## append_i64_impl
 //: `i64` を[符号付/ふごうつ]き 10 [進/しん]で[追記/ついき]する
-pub fn append_i64_impl <(StreamWriter,i64)*>StreamWriter> (w, v):
-    let zero <i64> cast 0;
+pub fn append_i64_impl %impure fn StreamWriter impure fn i64 StreamWriter \w\v:
+    let zero %i64 cast 0;
     if:
         lt v zero
         then:
-            let w1 <StreamWriter> push_u8_impl w 45;
-            let abs_i <i64> sub zero v;
-            let abs_u <u64> cast abs_i;
+            let w1 %StreamWriter push_u8_impl w 45;
+            let abs_i %i64 sub zero v;
+            let abs_u %u64 cast abs_i;
             append_u64_impl w1 abs_u
         else:
-            let as_u <u64> cast v;
+            let as_u %u64 cast v;
             append_u64_impl w as_u

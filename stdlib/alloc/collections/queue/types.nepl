@@ -25,10 +25,10 @@
 //: ### [目的/もくてき]
 //: - queue state と backing storage owner を 1 [値/あたい]として[移動/いどう]します。
 pub struct Queue<.T>:
-    len <i32>
-    cap <i32>
-    head <i32>
-    items <Vec<Option<.T>>>
+    len %i32
+    cap %i32
+    head %i32
+    items %Vec Option .T
 
 //: ## QueuePushError
 //: `push` の grow [失敗/しっぱい]で[戻/もど]る error payload
@@ -48,15 +48,15 @@ pub struct Queue<.T>:
 //: #import "alloc/collections/queue" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <QueuePushError<i32>> QueuePushError<i32> q d0;
+//: fn main %impure fn () i32 \():
+//:     let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %QueuePushError i32 QueuePushError<i32> q d0;
 //:     0
 //: ```
 pub struct QueuePushError<.T>:
-    queue <Queue<.T>>
-    diag <Diag>
+    queue %Queue .T
+    diag %Diag
 
 //: ## queue_push_error_diag
 //: push [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
@@ -72,13 +72,13 @@ pub struct QueuePushError<.T>:
 //: #import "alloc/collections/queue" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <QueuePushError<i32>> QueuePushError<i32> q d0;
+//: fn main %impure fn () i32 \():
+//:     let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %QueuePushError i32 QueuePushError<i32> q d0;
 //:     0
 //: ```
-pub fn queue_push_error_diag <.T> <(&QueuePushError<.T>)->Diag> (e):
+pub fn queue_push_error_diag <.T> %fn &QueuePushError .T Diag \e:
     *field::get_ref e "diag"
 
 //: ## queue_push_error_queue
@@ -98,13 +98,13 @@ pub fn queue_push_error_diag <.T> <(&QueuePushError<.T>)->Diag> (e):
 //: #import "alloc/collections/queue" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
-//:     let d0 <Diag> diag_out_of_memory;
-//:     let error_payload <QueuePushError<i32>> QueuePushError<i32> q d0;
+//: fn main %impure fn () i32 \():
+//:     let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
+//:     let d0 %Diag diag_out_of_memory;
+//:     let error_payload %QueuePushError i32 QueuePushError<i32> q d0;
 //:     0
 //: ```
-pub fn queue_push_error_queue <.T: Copy> <(QueuePushError<.T>)->Queue<.T>> (e):
+pub fn queue_push_error_queue <.T: Copy> %fn QueuePushError .T Queue .T \e:
     field::get e "queue"
 
 //: ## QueuePop
@@ -113,8 +113,8 @@ pub fn queue_push_error_queue <.T: Copy> <(QueuePushError<.T>)->Queue<.T>> (e):
 //: ### [目的/もくてき]
 //: - [更新後/こうしんご]の queue owner と[取/と]り[出/だ]した[値/あたい]を[同時/どうじ]に[返/かえ]します。
 pub struct QueuePop<.T>:
-    queue <Queue<.T>>
-    item <Option<.T>>
+    queue %Queue .T
+    item %Option .T
 
 //: ## queue_pop_item
 //: `QueuePop` を[借用/しゃくよう]し、[取/と]り[出/だ]した[値/あたい]を[読/よ]む
@@ -130,20 +130,20 @@ pub struct QueuePop<.T>:
 //: #import "core/math" as *
 //: #import "core/option" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q0 <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
-//:     let q1 <Queue<i32>> unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q0 7;
-//:     let p <QueuePop<i32>> pop_front<i32> q1;
-//:     let ok <bool> match queue_pop_item<i32> &p:
+//: fn main %impure fn () i32 \():
+//:     let q0 %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
+//:     let q1 %Queue i32 unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q0 7;
+//:     let p %QueuePop i32 pop_front<i32> q1;
+//:     let ok %bool match queue_pop_item<i32> &p:
 //:         Option::Some v:
 //:             eq v 7
 //:         Option::None:
 //:             false
-//:     let q2 <Queue<i32>> queue_pop_queue<i32> p;
+//:     let q2 %Queue i32 queue_pop_queue<i32> p;
 //:     free<i32> q2;
 //:     if ok 1 0
 //: ```
-pub fn queue_pop_item <.T: Copy> <(&QueuePop<.T>)->Option<.T>> (p):
+pub fn queue_pop_item <.T: Copy> %fn &QueuePop .T Option .T \p:
     *field::get_ref p "item"
 
 //: ## queue_pop_queue
@@ -159,14 +159,14 @@ pub fn queue_pop_item <.T: Copy> <(&QueuePop<.T>)->Option<.T>> (p):
 //: #import "alloc/diag/error" as *
 //: #import "core/math" as *
 //: #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let q0 <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
-//:     let q1 <Queue<i32>> unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q0 7;
-//:     let p <QueuePop<i32>> pop_front<i32> q1;
-//:     let q2 <Queue<i32>> queue_pop_queue<i32> p;
-//:     let ok <bool> is_empty<i32> &q2;
+//: fn main %impure fn () i32 \():
+//:     let q0 %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
+//:     let q1 %Queue i32 unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q0 7;
+//:     let p %QueuePop i32 pop_front<i32> q1;
+//:     let q2 %Queue i32 queue_pop_queue<i32> p;
+//:     let ok %bool is_empty<i32> &q2;
 //:     free<i32> q2;
 //:     if ok 1 0
 //: ```
-pub fn queue_pop_queue <.T: Copy> <(QueuePop<.T>)->Queue<.T>> (p):
+pub fn queue_pop_queue <.T: Copy> %fn QueuePop .T Queue .T \p:
     field::get p "queue"

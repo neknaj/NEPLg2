@@ -22,7 +22,7 @@ stdout: mlstr:
 #import "neplg2/core/ty/ty" as *
 #import "std/test" as *
 
-fn check_relation_different_trait <(SelfhostTraitImplRelation)->Result<(),str>> (relation):
+fn check_relation_different_trait %fn SelfhostTraitImplRelation Result () str \relation:
     match relation:
         SelfhostTraitImplRelation::DifferentTrait:
             Result<(),str>::Ok ()
@@ -35,7 +35,7 @@ fn check_relation_different_trait <(SelfhostTraitImplRelation)->Result<(),str>> 
         SelfhostTraitImplRelation::SameTraitSameSelfType:
             Result<(),str>::Err "expected different trait relation"
 
-fn check_relation_same_trait_different_self <(SelfhostTraitImplRelation)->Result<(),str>> (relation):
+fn check_relation_same_trait_different_self %fn SelfhostTraitImplRelation Result () str \relation:
     match relation:
         SelfhostTraitImplRelation::SameTraitDifferentSelfType:
             Result<(),str>::Ok ()
@@ -48,7 +48,7 @@ fn check_relation_same_trait_different_self <(SelfhostTraitImplRelation)->Result
         SelfhostTraitImplRelation::SameTraitSameSelfType:
             Result<(),str>::Err "expected same trait different self type relation"
 
-fn check_non_overlap_relation <(Result<SelfhostTraitImplRelation,SelfhostProofRefutation>,SelfhostTraitImplRelation)->Result<(),str>> (result, expected):
+fn check_non_overlap_relation %fn Result SelfhostTraitImplRelation SelfhostProofRefutation fn SelfhostTraitImplRelation Result () str \result\expected:
     match result:
         Result::Ok relation:
             match expected:
@@ -65,7 +65,7 @@ fn check_non_overlap_relation <(Result<SelfhostTraitImplRelation,SelfhostProofRe
         Result::Err _refutation:
             Result<(),str>::Err "expected trait impl non-overlap proof"
 
-fn check_duplicate_issue <(SelfhostTraitImplCoherenceIssue)->Result<(),str>> (issue):
+fn check_duplicate_issue %fn SelfhostTraitImplCoherenceIssue Result () str \issue:
     match issue.reason:
         SelfhostTraitImplCoherenceError::DuplicateImpl:
             match issue.relation:
@@ -84,7 +84,7 @@ fn check_duplicate_issue <(SelfhostTraitImplCoherenceIssue)->Result<(),str>> (is
         SelfhostTraitImplCoherenceError::InvalidExistingKey:
             Result<(),str>::Err "expected duplicate impl reason"
 
-fn check_invalid_candidate_issue <(SelfhostTraitImplCoherenceIssue)->Result<(),str>> (issue):
+fn check_invalid_candidate_issue %fn SelfhostTraitImplCoherenceIssue Result () str \issue:
     match issue.reason:
         SelfhostTraitImplCoherenceError::InvalidCandidateKey:
             match issue.relation:
@@ -103,7 +103,7 @@ fn check_invalid_candidate_issue <(SelfhostTraitImplCoherenceIssue)->Result<(),s
         SelfhostTraitImplCoherenceError::InvalidExistingKey:
             Result<(),str>::Err "expected invalid candidate reason"
 
-fn check_coherence_refutation <(SelfhostProofRefutation,(SelfhostTraitImplCoherenceIssue)->Result<(),str>)->Result<(),str>> (refutation, checker):
+fn check_coherence_refutation %fn SelfhostProofRefutation fn fn SelfhostTraitImplCoherenceIssue Result () str Result () str \refutation\checker:
     match refutation:
         SelfhostProofRefutation::TraitImplCoherenceInvalid issue:
             checker issue
@@ -136,47 +136,47 @@ fn check_coherence_refutation <(SelfhostProofRefutation,(SelfhostTraitImplCohere
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
             Result<(),str>::Err "expected trait impl coherence refutation"
 
-fn check_coherence_error <(Result<SelfhostTraitImplRelation,SelfhostProofRefutation>,(SelfhostTraitImplCoherenceIssue)->Result<(),str>)->Result<(),str>> (result, checker):
+fn check_coherence_error %fn Result SelfhostTraitImplRelation SelfhostProofRefutation fn fn SelfhostTraitImplCoherenceIssue Result () str Result () str \result\checker:
     match result:
         Result::Err refutation:
             check_coherence_refutation refutation checker
         Result::Ok _relation:
             Result<(),str>::Err "trait impl coherence error was accepted"
 
-fn run_with_types <(SelfhostTypeArena,SelfhostTypeId,SelfhostTypeId)*>i32> (arena, i32_id, bool_id):
-    let span <SelfhostSourceSpan> source_span_new 0 0 5
-    let trait0 <SelfhostTraitId> selfhost_trait_id_new 0
-    let trait1 <SelfhostTraitId> selfhost_trait_id_new 1
-    let impl_trait0_i32 <SelfhostTraitImplKey> selfhost_trait_impl_key_new trait0 i32_id
-    let impl_trait0_bool <SelfhostTraitImplKey> selfhost_trait_impl_key_new trait0 bool_id
-    let impl_trait1_i32 <SelfhostTraitImplKey> selfhost_trait_impl_key_new trait1 i32_id
-    let invalid_type <SelfhostTypeId> selfhost_type_id_new -1
-    let impl_trait0_invalid <SelfhostTraitImplKey> selfhost_trait_impl_key_new trait0 invalid_type
-    let fact_different_type <SelfhostTraitImplPairFact> selfhost_trait_impl_pair_fact_new &arena impl_trait0_bool impl_trait0_i32 span
-    let fact_different_trait <SelfhostTraitImplPairFact> selfhost_trait_impl_pair_fact_new &arena impl_trait1_i32 impl_trait0_i32 span
-    let fact_duplicate <SelfhostTraitImplPairFact> selfhost_trait_impl_pair_fact_new &arena impl_trait0_i32 impl_trait0_i32 span
-    let fact_invalid_candidate <SelfhostTraitImplPairFact> selfhost_trait_impl_pair_fact_new &arena impl_trait0_invalid impl_trait0_i32 span
+fn run_with_types %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId i32 \arena\i32_id\bool_id:
+    let span %SelfhostSourceSpan source_span_new 0 0 5
+    let trait0 %SelfhostTraitId selfhost_trait_id_new 0
+    let trait1 %SelfhostTraitId selfhost_trait_id_new 1
+    let impl_trait0_i32 %SelfhostTraitImplKey selfhost_trait_impl_key_new trait0 i32_id
+    let impl_trait0_bool %SelfhostTraitImplKey selfhost_trait_impl_key_new trait0 bool_id
+    let impl_trait1_i32 %SelfhostTraitImplKey selfhost_trait_impl_key_new trait1 i32_id
+    let invalid_type %SelfhostTypeId selfhost_type_id_new -1
+    let impl_trait0_invalid %SelfhostTraitImplKey selfhost_trait_impl_key_new trait0 invalid_type
+    let fact_different_type %SelfhostTraitImplPairFact selfhost_trait_impl_pair_fact_new &arena impl_trait0_bool impl_trait0_i32 span
+    let fact_different_trait %SelfhostTraitImplPairFact selfhost_trait_impl_pair_fact_new &arena impl_trait1_i32 impl_trait0_i32 span
+    let fact_duplicate %SelfhostTraitImplPairFact selfhost_trait_impl_pair_fact_new &arena impl_trait0_i32 impl_trait0_i32 span
+    let fact_invalid_candidate %SelfhostTraitImplPairFact selfhost_trait_impl_pair_fact_new &arena impl_trait0_invalid impl_trait0_i32 span
     let checks0 checks_new
     let checks1 checks_push checks0 check_non_overlap_relation (selfhost_proof_trait_impl_non_overlapping fact_different_type) SelfhostTraitImplRelation::SameTraitDifferentSelfType
     let checks2 checks_push checks1 check_non_overlap_relation (selfhost_proof_trait_impl_non_overlapping fact_different_trait) SelfhostTraitImplRelation::DifferentTrait
     let checks3 checks_push checks2 check_coherence_error (selfhost_proof_trait_impl_non_overlapping fact_duplicate) check_duplicate_issue
     let checks4 checks_push checks3 check_coherence_error (selfhost_proof_trait_impl_non_overlapping fact_invalid_candidate) check_invalid_candidate_issue
     let shown checks_print_report checks4
-    let code <i32> checks_exit_code shown
+    let code %i32 checks_exit_code shown
     selfhost_type_arena_free arena
     code
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match selfhost_type_arena_new:
         Result::Ok arena0:
             match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
                 Result::Ok allocated_i32:
-                    let i32_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &allocated_i32
-                    let arena1 <SelfhostTypeArena> selfhost_type_arena_alloc_into_arena allocated_i32
+                    let i32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_i32
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_i32
                     match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::Bool:
                         Result::Ok allocated_bool:
-                            let bool_id <SelfhostTypeId> selfhost_type_arena_alloc_type_id &allocated_bool
-                            let arena2 <SelfhostTypeArena> selfhost_type_arena_alloc_into_arena allocated_bool
+                            let bool_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_bool
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_bool
                             run_with_types arena2 i32_id bool_id
                         Result::Err _e:
                             1

@@ -9,10 +9,10 @@
 
 //: SelfhostDiagnostics: diagnostic [列/れつ]の owning collection
 pub struct SelfhostDiagnostics:
-    items <Vec<SelfhostDiagnostic>>
+    items %Vec SelfhostDiagnostic
 
 //: selfhost_diagnostics_new: [空/から]の diagnostic collection を[作/つく]る
-pub fn selfhost_diagnostics_new <()->Result<SelfhostDiagnostics, StdErrorKind>> ():
+pub fn selfhost_diagnostics_new %fn () Result SelfhostDiagnostics StdErrorKind \():
     match v::new<SelfhostDiagnostic>:
         Result::Ok items:
             Result<SelfhostDiagnostics, StdErrorKind>::Ok SelfhostDiagnostics items
@@ -20,7 +20,7 @@ pub fn selfhost_diagnostics_new <()->Result<SelfhostDiagnostics, StdErrorKind>> 
             Result<SelfhostDiagnostics, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: selfhost_diagnostics_one: diagnostic 1 [件/けん]から collection を[作/つく]る
-pub fn selfhost_diagnostics_one <(SelfhostDiagnostic)->Result<SelfhostDiagnostics, StdErrorKind>> (diag):
+pub fn selfhost_diagnostics_one %fn SelfhostDiagnostic Result SelfhostDiagnostics StdErrorKind \diag:
     match selfhost_diagnostics_new:
         Result::Ok ds:
             selfhost_diagnostics_push ds diag
@@ -28,7 +28,7 @@ pub fn selfhost_diagnostics_one <(SelfhostDiagnostic)->Result<SelfhostDiagnostic
             Result<SelfhostDiagnostics, StdErrorKind>::Err e
 
 //: selfhost_diagnostics_push: diagnostic を 1 [件/けん][追加/ついか]する
-pub fn selfhost_diagnostics_push <(SelfhostDiagnostics,SelfhostDiagnostic)->Result<SelfhostDiagnostics, StdErrorKind>> (diagnostics, diag):
+pub fn selfhost_diagnostics_push %fn SelfhostDiagnostics fn SelfhostDiagnostic Result SelfhostDiagnostics StdErrorKind \diagnostics\diag:
     match v::push<SelfhostDiagnostic> field::get diagnostics "items" diag:
         Result::Ok items:
             Result<SelfhostDiagnostics, StdErrorKind>::Ok SelfhostDiagnostics items
@@ -37,17 +37,17 @@ pub fn selfhost_diagnostics_push <(SelfhostDiagnostics,SelfhostDiagnostic)->Resu
             Result<SelfhostDiagnostics, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: selfhost_diagnostics_len: diagnostic [件数/けんすう]を[返/かえ]す
-pub fn selfhost_diagnostics_len <(&SelfhostDiagnostics)->i32> (diagnostics):
-    let items <&Vec<SelfhostDiagnostic>> field::get_ref diagnostics "items"
+pub fn selfhost_diagnostics_len %fn &SelfhostDiagnostics i32 \diagnostics:
+    let items %&Vec SelfhostDiagnostic field::get_ref diagnostics "items"
     v::len<SelfhostDiagnostic> items
 
 //: selfhost_diagnostics_get: index の diagnostic を[返/かえ]す
-pub fn selfhost_diagnostics_get <(&SelfhostDiagnostics,i32)->Option<SelfhostDiagnostic>> (diagnostics, idx):
-    let items <&Vec<SelfhostDiagnostic>> field::get_ref diagnostics "items"
+pub fn selfhost_diagnostics_get %fn &SelfhostDiagnostics fn i32 Option SelfhostDiagnostic \diagnostics\idx:
+    let items %&Vec SelfhostDiagnostic field::get_ref diagnostics "items"
     v::get<SelfhostDiagnostic> items idx
 
 //: selfhost_diagnostics_has_errors_loop: error diagnostic を[探/さが]す
-pub fn selfhost_diagnostics_has_errors_loop <(&SelfhostDiagnostics,i32,i32)->bool> (diagnostics, n, idx):
+pub fn selfhost_diagnostics_has_errors_loop %fn &SelfhostDiagnostics fn i32 fn i32 bool \diagnostics\n\idx:
     if:
         ge idx n
         then:
@@ -65,10 +65,10 @@ pub fn selfhost_diagnostics_has_errors_loop <(&SelfhostDiagnostics,i32,i32)->boo
                     false
 
 //: selfhost_diagnostics_has_errors: error severity を[含/ふく]むか[返/かえ]す
-pub fn selfhost_diagnostics_has_errors <(&SelfhostDiagnostics)->bool> (diagnostics):
-    let n <i32> selfhost_diagnostics_len diagnostics
+pub fn selfhost_diagnostics_has_errors %fn &SelfhostDiagnostics bool \diagnostics:
+    let n %i32 selfhost_diagnostics_len diagnostics
     selfhost_diagnostics_has_errors_loop diagnostics n 0
 
 //: selfhost_diagnostics_free: diagnostic collection の[内部/ないぶ] buffer を[解放/かいほう]する
-pub fn selfhost_diagnostics_free <(SelfhostDiagnostics)->()> (diagnostics):
+pub fn selfhost_diagnostics_free %fn SelfhostDiagnostics () \diagnostics:
     v::free<SelfhostDiagnostic> field::get diagnostics "items"

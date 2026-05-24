@@ -16,16 +16,16 @@
 //:| #import "std/test" as *
 //:| #import "alloc/io" as *
 //: struct CountSink:
-//:     total <i32>
+//:     total %i32
 //:
 //: impl ByteWriter for CountSink:
-//:     fn write_bytes <(CountSink,ByteBuf)*>Result<CountSink, StdErrorKind>> (sink, bytes):
-//:         let n <i32> io_bytebuf_len_ref &bytes;
+//:     fn write_bytes %impure fn CountSink impure fn ByteBuf Result CountSink StdErrorKind \sink\bytes:
+//:         let n %i32 io_bytebuf_len_ref &bytes;
 //:         io_bytebuf_free bytes;
 //:         Result::Ok CountSink add get sink "total" n
 //:
-//: fn main <()*>i32> ():
-//:     let bytes0 <ByteBuf> io_bytebuf_from_str "AB";
+//: fn main %impure fn () i32 \():
+//:     let bytes0 %ByteBuf io_bytebuf_from_str "AB";
 //:     match io_write_bytes (CountSink 3) bytes0:
 //:         Result::Ok sink1:
 //:             if eq get sink1 "total" 5 0 1

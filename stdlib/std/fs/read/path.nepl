@@ -50,10 +50,10 @@
 //:| #import "std/fs/bytes" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match fs_read_to_bytes "tests/fixtures/fs/read_sample.txt":
 //:         Result::Ok bytes:
-//:             let text <str> fs_bytes_to_string bytes;
+//:             let text %str fs_bytes_to_string bytes;
 //:             if:
 //:                 str_eq text "fs fixture text\n"
 //:                 then 0
@@ -61,10 +61,10 @@
 //:         Result::Err _e:
 //:             2
 //: ```
-pub fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
+pub fn fs_read_to_bytes %impure fn str Result ByteBuf i32 \path:
     match fs_open_read path:
         Result::Ok fd:
-            let res <Result<ByteBuf,i32>> fs_read_fd_bytes fd;
+            let res %Result ByteBuf i32 fs_read_fd_bytes fd;
             match fs_close fd:
                 Result::Ok _:
                     ()
@@ -107,7 +107,7 @@ pub fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
 //:| #import "std/fs/read" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match fs_read_to_string "tests/fixtures/fs/read_sample.txt":
 //:         Result::Ok text:
 //:             if:
@@ -117,7 +117,7 @@ pub fn fs_read_to_bytes <(str)*>Result<ByteBuf,i32>> (path):
 //:         Result::Err _e:
 //:             2
 //: ```
-pub fn fs_read_to_string <(str)*>Result<str,i32>> (path):
+pub fn fs_read_to_string %impure fn str Result str i32 \path:
     match fs_read_to_bytes path:
         Result::Ok bytes:
             fs_bytes_to_string_result bytes
@@ -138,7 +138,7 @@ pub fn fs_read_to_string <(str)*>Result<str,i32>> (path):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn fs_read_to_string_checked <(str)*>Result<str,i32>> (path):
+pub fn fs_read_to_string_checked %impure fn str Result str i32 \path:
     match fs_read_to_bytes path:
         Result::Ok bytes:
             fs_bytes_to_utf8_string_result bytes

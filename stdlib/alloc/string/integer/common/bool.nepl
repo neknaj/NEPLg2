@@ -34,7 +34,7 @@
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let report:
 //:         test_report_new "string_from_bool_doc"
 //:         |> test_report_push assert_str_eq "format true" "true" from_bool true
@@ -42,7 +42,7 @@
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn from_bool <(bool)->str> (b):
+pub fn from_bool %fn bool str \b:
     if:
         b
         then:
@@ -78,7 +78,7 @@ pub fn from_bool <(bool)->str> (b):
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //:| #import "core/cast" as *
-//: fn assert_bool_ok <(str,Result<bool,i32>,bool)->TestAssertion> (label, got, expected):
+//: fn assert_bool_ok %fn str fn Result bool i32 fn bool TestAssertion \label\got\expected:
 //:     match got:
 //:         Result::Ok actual:
 //:             if:
@@ -90,14 +90,14 @@ pub fn from_bool <(bool)->str> (b):
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::Bool label "true" "false" "bool parse failed unexpectedly"
 //:
-//: fn assert_bool_err <(str,Result<bool,i32>)->TestAssertion> (label, got):
+//: fn assert_bool_err %fn str fn Result bool i32 TestAssertion \label\got:
 //:     match got:
 //:         Result::Ok _:
 //:             test_assertion_failed AssertionKind::Bool label "true" "false" "invalid bool accepted unexpectedly"
 //:         Result::Err _:
 //:             assert label true
 //:
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let report:
 //:         test_report_new "string_to_bool_doc"
 //:         |> test_report_push assert_bool_ok "parse true" (to_bool "true") true
@@ -106,7 +106,7 @@ pub fn from_bool <(bool)->str> (b):
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn to_bool <(str)->Result<bool,i32>> (s):
+pub fn to_bool %fn str Result bool i32 \s:
     if:
         str_eq s "true"
         then:

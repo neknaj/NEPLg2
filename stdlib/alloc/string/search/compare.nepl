@@ -27,9 +27,9 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn str_eq <(str,str)->bool> (a,b):
-    let la <i32> len a;
-    let lb <i32> len b;
+pub fn str_eq %fn str fn str bool \a\b:
+    let la %i32 len a;
+    let lb %i32 len b;
     if:
         eq la lb
         then str_eq_loop a b la 0
@@ -48,7 +48,7 @@ pub fn str_eq <(str,str)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,n,i):
+pub fn str_eq_loop %fn str fn str fn i32 fn i32 bool \a\b\n\i:
     if:
         eq i n
         then:
@@ -56,7 +56,7 @@ pub fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,n,i):
         else:
             if:
                 string_bytes_eq a i b i
-                then str_eq_loop a b n <i32> add i 1
+                then str_eq_loop a b n %i32 add i 1
                 else false
 
 //: str_is_space: ASCII 空白 byte か判定する
@@ -72,7 +72,7 @@ pub fn str_eq_loop <(str,str,i32,i32)->bool> (a,b,n,i):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn str_is_space <(i32)->bool> (b):
+pub fn str_is_space %fn i32 bool \b:
     match b:
         ' ':
             true
@@ -98,9 +98,9 @@ pub fn str_is_space <(i32)->bool> (b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(prefix))
-pub fn str_starts_with <(str,str)->bool> (s, prefix):
-    let ls <i32> len s;
-    let lp <i32> len prefix;
+pub fn str_starts_with %fn str fn str bool \s\prefix:
+    let ls %i32 len s;
+    let lp %i32 len prefix;
     if:
         lt ls lp
         then false
@@ -119,15 +119,15 @@ pub fn str_starts_with <(str,str)->bool> (s, prefix):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
+pub fn str_eq_at %fn str fn str fn i32 fn i32 fn i32 bool \s\pat\start\n\i:
     if:
         eq i n
         then true
         else:
-            let s_off <i32> add start i;
+            let s_off %i32 add start i;
             if:
                 string_bytes_eq s s_off pat i
-                then str_eq_at s pat start n <i32> add i 1
+                then str_eq_at s pat start n %i32 add i 1
                 else false
 
 //: str_starts_with_at: 指定 byte 位置から prefix が始まるか判定する
@@ -156,7 +156,7 @@ pub fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
 //:| #import "std/test" as *
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let report:
 //:         test_report_new "str_starts_with_at_doc"
 //:         |> test_report_push assert "prefix at 0" str_starts_with_at "abc" 0 "ab"
@@ -168,9 +168,9 @@ pub fn str_eq_at <(str,str,i32,i32,i32)->bool> (s, pat, start, n, i):
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn str_starts_with_at <(str,i32,str)->bool> (s, start, prefix):
-    let ls <i32> len s;
-    let lp <i32> len prefix;
+pub fn str_starts_with_at %fn str fn i32 fn str bool \s\start\prefix:
+    let ls %i32 len s;
+    let lp %i32 len prefix;
     if:
         lt start 0
         then:
@@ -201,14 +201,14 @@ pub fn str_starts_with_at <(str,i32,str)->bool> (s, start, prefix):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(suffix))
-pub fn str_ends_with <(str,str)->bool> (s, suffix):
-    let ls <i32> len s;
-    let lp <i32> len suffix;
+pub fn str_ends_with %fn str fn str bool \s\suffix:
+    let ls %i32 len s;
+    let lp %i32 len suffix;
     if:
         lt ls lp
         then false
         else:
-            let start <i32> sub ls lp;
+            let start %i32 sub ls lp;
             str_eq_at s suffix start lp 0
 
 //: str_range_eq: 指定 byte 範囲が pattern と一致するか判定する
@@ -224,9 +224,9 @@ pub fn str_ends_with <(str,str)->bool> (s, suffix):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(len(pat))
-pub fn str_range_eq <(str,i32,i32,str)->bool> (s, start, end, pat):
-    let n <i32> len s
-    let pat_len <i32> len pat
+pub fn str_range_eq %fn str fn i32 fn i32 fn str bool \s\start\end\pat:
+    let n %i32 len s
+    let pat_len %i32 len pat
     if:
         or lt start 0 or lt end start lt n end
         then:

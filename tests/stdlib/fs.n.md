@@ -19,7 +19,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     match fs_read_to_string "__definitely_missing_file__.txt":
         Result::Ok s:
@@ -50,10 +50,10 @@ stdout: mlstr:
 #import "alloc/io" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let bytes <ByteBuf> io_bytebuf_from_str "fs helper";
-    let text <str> fs_bytes_to_string bytes;
+    let bytes %ByteBuf io_bytebuf_from_str "fs helper";
+    let text %str fs_bytes_to_string bytes;
     set checks checks_push checks check_str_eq "fs helper" text;
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -78,8 +78,8 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let path <str> "tmp/fs_write_to_string_case.txt"
+fn main %impure fn () i32 \():
+    let path %str "tmp/fs_write_to_string_case.txt"
     let mut checks checks_new;
     match fs_write_to_string path "first-longer":
         Result::Err _e:
@@ -123,8 +123,8 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let path <str> "tmp/fs_write_to_bytes_case.bin"
+fn main %impure fn () i32 \():
+    let path %str "tmp/fs_write_to_bytes_case.bin"
     let mut checks checks_new;
     match io_bytebuf_from_str_result "A\x00B":
         Result::Err _e:
@@ -181,7 +181,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     set checks checks_push checks check fs_exists "tests/fixtures/fs/read_sample.txt";
     set checks checks_push checks check fs_is_file "tests/fixtures/fs/read_sample.txt";
@@ -218,7 +218,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     match fs_normalize_relative "tests/fixtures/fs/dirlist/../read_sample.txt":
         Result::Ok path:
@@ -265,7 +265,7 @@ stdout: mlstr:
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     match fs_read_dir "tests/fixtures/fs/dirlist":
         Result::Err e:
@@ -315,8 +315,8 @@ stdout: mlstr:
 #import "core/option" as *
 #import "alloc/collections/vec" as v
 
-fn main <()*>i32> ():
-    let entries <Vec<str>>:
+fn main %impure fn () i32 \():
+    let entries %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "zeta.txt" |> uwok
         |> v::push<str> "alpha.nepl" |> uwok

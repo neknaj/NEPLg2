@@ -22,7 +22,7 @@
 //:
 //: ### [実装/じっそう]
 //: - `Vec.new` で backing storage を[作/つく]り、`List` owner として[包/つつ]みます。
-pub fn new <.T: Copy> <()*>Result<List<.T>, Diag>> ():
+pub fn new <.T: Copy> %impure fn () Result List .T Diag \():
     match vec::new<.T>:
         Result::Ok items:
             ok<List<.T>, Diag> List<.T> items
@@ -33,35 +33,35 @@ pub fn new <.T: Copy> <()*>Result<List<.T>, Diag>> ():
 //:
 //: ### [実装/じっそう]
 //: - 論理先頭は storage 末尾なので、`Vec.push` だけで先頭追加になります。
-pub fn cons <.T: Copy> <(.T,List<.T>)*>Result<List<.T>, ListPushError<.T>>> (head, tail):
-    let items <Vec<.T>> field::get tail "items"
+pub fn cons <.T: Copy> %impure fn .T impure fn List .T Result List .T ListPushError .T \head\tail:
+    let items %Vec .T field::get tail "items"
     match vec::push<.T> items head:
         Result::Ok next_items:
             Result::Ok<List<.T>, ListPushError<.T>> List<.T> next_items
         Result::Err e:
-            let error <StdErrorKind> vec::vec_push_error_kind<.T> &e
-            let returned_items <Vec<.T>> vec::vec_push_error_vec<.T> e
+            let error %StdErrorKind vec::vec_push_error_kind<.T> &e
+            let returned_items %Vec .T vec::vec_push_error_vec<.T> e
             Result::Err<List<.T>, ListPushError<.T>> ListPushError<.T> (List<.T> returned_items) (list_diag_from_vec_error error)
 
 //: push: pipe [向/む]けに[先頭/せんとう][追加/ついか]する
-pub fn push <.T: Copy> <(List<.T>,.T)*>Result<List<.T>, ListPushError<.T>>> (lst, head):
+pub fn push <.T: Copy> %impure fn List .T impure fn .T Result List .T ListPushError .T \lst\head:
     cons<.T> head lst
 
 //: tail: list を[消費/しょうひ]して[先頭/せんとう]を[除/のぞ]いた list を[返/かえ]す
 //:
 //: ### [実装/じっそう]
 //: - 論理先頭は storage 末尾なので、`Vec.pop` で先頭を[取/と]り[除/のぞ]きます。
-pub fn tail <.T: Copy> <(List<.T>)->Option<List<.T>>> (lst):
-    let items <Vec<.T>> field::get lst "items"
+pub fn tail <.T: Copy> %fn List .T Option List .T \lst:
+    let items %Vec .T field::get lst "items"
     if:
         eq vec::len<.T> &items 0
         then:
             vec::free<.T> items
             none<List<.T>>
         else:
-            let popped <VecPop<.T>> vec::pop<.T> items
-            let item <Option<.T>> vec::vec_pop_item<.T> &popped
-            let next_items <Vec<.T>> vec::vec_pop_vec<.T> popped
+            let popped %VecPop .T vec::pop<.T> items
+            let item %Option .T vec::vec_pop_item<.T> &popped
+            let next_items %Vec .T vec::vec_pop_vec<.T> popped
             match item:
                 Option::Some _head:
                     some<List<.T>> List<.T> next_items
@@ -70,12 +70,12 @@ pub fn tail <.T: Copy> <(List<.T>)->Option<List<.T>>> (lst):
                     none<List<.T>>
 
 //: reverse: list を[消費/しょうひ]して[論理順序/ろんりじゅんじょ]を[反転/はんてん]する
-pub fn reverse <.T: Copy> <(List<.T>)*>List<.T>> (lst):
-    let items <Vec<.T>> field::get lst "items"
-    let n <i32> vec::len<.T> &items
+pub fn reverse <.T: Copy> %impure fn List .T List .T \lst:
+    let items %Vec .T field::get lst "items"
+    let n %i32 vec::len<.T> &items
     list_reverse_items<.T> &items 0 sub n 1
     List<.T> items
 
 //: free: Copy-only list storage owner を[閉/と]じる
-pub fn free <.T: Copy> <(List<.T>)->()> (lst):
+pub fn free <.T: Copy> %fn List .T () \lst:
     list_free_items<.T> lst

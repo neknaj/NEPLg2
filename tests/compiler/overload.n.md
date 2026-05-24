@@ -16,22 +16,22 @@ stdout: "test_report name=\"test_overload_cast_like\" count=1 failed=0\nassertio
 
 // val_cast: Same name, same input type, different return type.
 // Case 1: i32 -> i32 (identity)
-fn val_cast <(i32)->i32> (v):
+fn val_cast %fn i32 i32 \v:
     v
 
 // Case 2: i32 -> bool (non-zero check)
-fn val_cast <(i32)->bool> (v):
+fn val_cast %fn i32 bool \v:
     ne v 0
 
-fn main <()*>i32> ():
-    let v <i32> 10
+fn main %impure fn () i32 \():
+    let v %i32 10
 
     // Use type annotation on variable to select overload
-    let res_i32 <i32> val_cast v
-    let res_bool <bool> val_cast v
+    let res_i32 %i32 val_cast v
+    let res_bool %bool val_cast v
 
     // res_i32 should be 10, res_bool should be true
-    let actual <i32> if:
+    let actual %i32 if:
         res_bool
         then res_i32
         else 0
@@ -57,18 +57,18 @@ stdout: "test_report name=\"test_overload_print_like\" count=1 failed=0\nasserti
 
 // my_print: Same name, different input types.
 // Case 1: i32 -> i32 (returns 1 to signal "printed i32")
-fn my_print <(i32)->i32> (v):
+fn my_print %fn i32 i32 \v:
     1
 
 // Case 2: bool -> i32 (returns 2 to signal "printed bool")
-fn my_print <(bool)->i32> (v):
+fn my_print %fn bool i32 \v:
     2
 
-fn main <()*>i32> ():
-    let s1 <i32> my_print 100
-    let s2 <i32> my_print true
+fn main %impure fn () i32 \():
+    let s1 %i32 my_print 100
+    let s2 %i32 my_print true
 
-    let actual <i32> add s1 s2
+    let actual %i32 add s1 s2
     let report:
         test::test_report_new "test_overload_print_like"
         |> test::test_report_push test::assert_eq_i32 "argument type selects overload" 3 actual
@@ -90,23 +90,23 @@ stdout: "test_report name=\"test_explicit_type_annotation_prefix\" count=1 faile
 #import "std/test" as test
 
 // magic: Same input, different return types
-fn magic <(i32)->i32> (v):
+fn magic %fn i32 i32 \v:
     add v 1
 
-fn magic <(i32)->bool> (v):
+fn magic %fn i32 bool \v:
     true
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     // Use <type> prefix expression to explicitly select overload
     // This is useful when type cannot be inferred from context
 
     // Force selection of (i32)->i32
-    let v1 <i32> magic 10
+    let v1 %i32 magic 10
 
     // Force selection of (i32)->bool
-    let v2 <bool> magic 10
+    let v2 %bool magic 10
 
-    let actual <i32> if:
+    let actual %i32 if:
         v2
         then v1
         else 0
@@ -129,16 +129,16 @@ stdout: "test_report name=\"overload_new_selected_by_let_annotation\" count=1 fa
 #import "core/math" as *
 #import "std/test" as test
 
-fn new <()->i32> ():
+fn new %fn () i32 \():
     7
 
-fn new <()->bool> ():
+fn new %fn () bool \():
     true
 
-fn main <()*>i32> ():
-    let a <i32> new;
-    let b <bool> new;
-    let actual <i32> if b a 0
+fn main %impure fn () i32 \():
+    let a %i32 new;
+    let b %bool new;
+    let actual %i32 if b a 0
     let report:
         test::test_report_new "overload_new_selected_by_let_annotation"
         |> test::test_report_push test::assert_eq_i32 "zero argument overload selected by let annotation" 7 actual
@@ -155,13 +155,13 @@ diag_code: type.overload.ambiguous
 #indent 4
 #target core
 
-fn new <()->i32> ():
+fn new %fn () i32 \():
     1
 
-fn new <()->bool> ():
+fn new %fn () bool \():
     true
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let v new
     0
 ```
@@ -179,29 +179,29 @@ stdout: "test_report name=\"overload_zero_arg_result_selected_by_expected_type\"
 #import "core/math" as *
 #import "std/test" as test
 
-fn build <()->Result<i32,str>> ():
+fn build %fn () Result i32 str \():
     Result::Ok 9
 
-fn build <()->Result<bool,str>> ():
+fn build %fn () Result bool str \():
     Result::Ok true
 
-fn main <()*>i32> ():
-    let a <Result<i32,str>> build;
-    let b <Result<bool,str>> build;
+fn main %impure fn () i32 \():
+    let a %Result i32 str build;
+    let b %Result bool str build;
 
-    let ok_a <bool>:
+    let ok_a %bool:
         match a:
             Result::Ok v:
                 eq v 9
             Result::Err _e:
                 false
-    let ok_b <bool>:
+    let ok_b %bool:
         match b:
             Result::Ok v:
                 v
             Result::Err _e:
                 false
-    let actual <i32> if and ok_a ok_b 1 0
+    let actual %i32 if and ok_a ok_b 1 0
     let report:
         test::test_report_new "overload_zero_arg_result_selected_by_expected_type"
         |> test::test_report_push test::assert_eq_i32 "result overload selected by expected type" 1 actual
@@ -219,13 +219,13 @@ diag_code: effect.pure.calls_impure
 #target core
 #import "core/result" as *
 
-fn build <()*>Result<i32,str>> ():
+fn build %impure fn () Result i32 str \():
     Result::Ok 1
 
-fn build <()*>Result<bool,str>> ():
+fn build %impure fn () Result bool str \():
     Result::Ok true
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let x build
     0
 ```
@@ -245,22 +245,22 @@ stdout: "test_report name=\"overload_len_for_string_and_vec\" count=2 failed=0\n
 #import "core/math" as *
 #import "std/test" as test
 
-fn size <(str)->i32> (s):
+fn size %fn str i32 \s:
     add 1000 1
 
-fn size <(Vec<i32>)->i32> (vec):
-    let n <i32> v::len<i32> &vec;
+fn size %fn Vec i32 i32 \vec:
+    let n %i32 v::len<i32> &vec;
     v::free<i32> vec;
     n
 
-fn main <()*>i32> ():
-    let v <Vec<i32>>:
+fn main %impure fn () i32 \():
+    let v %Vec i32:
         v::new<i32>
         |> uwok
         |> v::push<i32> 3 |> uwok
         |> v::push<i32> 5 |> uwok
-    let a <i32> size v;
-    let b <i32> size "x";
+    let a %i32 size v;
+    let b %i32 size "x";
     let report:
         test::test_report_new "overload_len_for_string_and_vec"
         |> test::test_report_push test::assert_eq_i32 "Vec len overload selected" 2 a
@@ -282,18 +282,18 @@ stdout: "test_report name=\"overload_new_with_pipe_vec\" count=1 failed=0\nasser
 #import "core/result" as *
 #import "std/test" as test
 
-fn new <()*>Vec<i32>> ():
+fn new %impure fn () Vec i32 \():
     unwrap_ok v::new<i32>
 
-fn new <()->bool> ():
+fn new %fn () bool \():
     true
 
-fn main <()*>i32> ():
-    let v <Vec<i32>>:
-        <Vec<i32>> new
+fn main %impure fn () i32 \():
+    let v %Vec i32:
+        %Vec i32 new
         |> v::push 1 |> uwok
         |> v::push 2 |> uwok
-    let n <i32> v::len<i32> &v;
+    let n %i32 v::len<i32> &v;
     v::free<i32> v;
     let report:
         test::test_report_new "overload_new_with_pipe_vec"
@@ -317,21 +317,21 @@ stdout: "test_report name=\"overload_pair_field_from_generic_result_keeps_tuple_
 #import "core/result" as *
 #import "std/test" as test
 
-fn pair_with_empty <.T: Copy> <(Vec<.T>)->Result<.Pair, StdErrorKind>> (left):
-    let right <Vec<.T>> uwok v::new<.T>;
+fn pair_with_empty <.T: Copy> %fn Vec .T Result .Pair StdErrorKind \left:
+    let right %Vec .T uwok v::new<.T>;
     Result::Ok<.Pair, StdErrorKind> Tuple:
         left
         right
 
-fn main <()*>i32> ():
-    let xs <Vec<i32>>:
+fn main %impure fn () i32 \():
+    let xs %Vec i32:
         v::new<i32>
         |> uwok
         |> v::push<i32> 1 |> uwok
     let parts unwrap_ok pair_with_empty<i32> xs;
-    let evens <Vec<i32>> get parts 0;
-    let rest <Vec<i32>> get parts 1;
-    let n <i32> v::len<i32> &evens;
+    let evens %Vec i32 get parts 0;
+    let rest %Vec i32 get parts 1;
+    let n %i32 v::len<i32> &evens;
     v::free<i32> evens;
     v::free<i32> rest;
     let report:
@@ -353,17 +353,17 @@ stdout: "test_report name=\"overload_result_inferred_from_outer_arg_context\" co
 #import "core/math" as *
 #import "std/test" as test
 
-fn choice <(i32)->i32> (v):
+fn choice %fn i32 i32 \v:
     v
 
-fn choice <(i32)->bool> (v):
+fn choice %fn i32 bool \v:
     ne v 0
 
-fn use_bool <(bool)->i32> (b):
+fn use_bool %fn bool i32 \b:
     if b 1 0
 
-fn main <()*>i32> ():
-    let actual <i32> use_bool choice 7;
+fn main %impure fn () i32 \():
+    let actual %i32 use_bool choice 7;
     let report:
         test::test_report_new "overload_result_inferred_from_outer_arg_context"
         |> test::test_report_push test::assert_eq_i32 "outer bool argument context selects bool overload" 1 actual
@@ -384,12 +384,12 @@ stdout: "test_report name=\"overload_star_import_prefers_concrete_over_generic_n
 #import "core/result" as *
 #import "std/test" as test
 
-fn new <()*>Vec<i32>> ():
+fn new %impure fn () Vec i32 \():
     unwrap_ok v::new<i32>
 
-fn main <()*>i32> ():
-    let v <Vec<i32>> <Vec<i32>> new;
-    let n <i32> v::len<i32> &v;
+fn main %impure fn () i32 \():
+    let v %Vec i32 %Vec i32 new;
+    let n %i32 v::len<i32> &v;
     v::free<i32> v;
     let report:
         test::test_report_new "overload_star_import_prefers_concrete_over_generic_new"
@@ -408,18 +408,18 @@ diag_code: type.overload.ambiguous
 #target core
 #import "core/math" as *
 
-fn calc <(i32)->i32> (a):
+fn calc %fn i32 i32 \a:
     add a 1
 
-fn calc <(i32,i32)->i32> (a, b):
+fn calc %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn use_binary <(i32,i32,(i32,i32)->i32)->i32> (a, b, f):
+fn use_binary %fn i32 fn i32 fn fn i32 fn i32 i32 i32 \a\b\f:
     f a b
 
-fn main <()->i32> ():
-    let a <i32> calc 5;
-    let b <i32> use_binary 3 4 calc;
+fn main %fn () i32 \():
+    let a %i32 calc 5;
+    let b %i32 use_binary 3 4 calc;
     add a b
 ```
 
@@ -433,13 +433,13 @@ diag_code: type.overload.ambiguous
 #target core
 #import "core/math" as *
 
-fn calc <(i32)->i32> (a):
+fn calc %fn i32 i32 \a:
     add a 1
 
-fn calc <(i32,i32)->i32> (a, b):
+fn calc %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     calc 5
 ```
 
@@ -458,11 +458,11 @@ stdout: "test_report name=\"overload_nested_len_with_stack_and_string\" count=2 
 #import "core/result" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let s <str> "abc";
-    let st <Stack<i32>> unwrap_ok<Stack<i32>, Diag> new;
-    let n1 <i32> len s;
-    let n2 <i32> len<i32> &st;
+fn main %impure fn () i32 \():
+    let s %str "abc";
+    let st %Stack i32 unwrap_ok<Stack<i32>, Diag> new;
+    let n1 %i32 len s;
+    let n2 %i32 len<i32> &st;
     free<i32> st;
     let report:
         test::test_report_new "overload_nested_len_with_stack_and_string"
@@ -486,9 +486,9 @@ stdout: "test_report name=\"overload_nested_call_arg_position_len\" count=1 fail
 #import "core/math" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let t <str> str_trim "  x  ";
-    let actual <i32> len t;
+fn main %impure fn () i32 \():
+    let t %str str_trim "  x  ";
+    let actual %i32 len t;
     let report:
         test::test_report_new "overload_nested_call_arg_position_len"
         |> test::test_report_push test::assert_eq_i32 "nested str_trim result selects str len overload" 1 actual
@@ -508,8 +508,8 @@ stdout: "test_report name=\"overload_nested_call_arg_position_bool_chain\" count
 #import "core/math" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let actual <i32> if and eq 1 1 lt 2 3 1 0;
+fn main %impure fn () i32 \():
+    let actual %i32 if and eq 1 1 lt 2 3 1 0;
     let report:
         test::test_report_new "overload_nested_call_arg_position_bool_chain"
         |> test::test_report_push test::assert_eq_i32 "nested bool chain keeps comparison overloads" 1 actual
@@ -529,12 +529,12 @@ stdout: "test_report name=\"overload_nested_call_arg_position_bool_chain_literal
 #import "core/math" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let a <i32> 1;
-    let b <i32> 1;
-    let c <i32> 2;
-    let d <i32> 3;
-    let actual <i32> if and eq a b lt c d 1 0;
+fn main %impure fn () i32 \():
+    let a %i32 1;
+    let b %i32 1;
+    let c %i32 2;
+    let d %i32 3;
+    let actual %i32 if and eq a b lt c d 1 0;
     let report:
         test::test_report_new "overload_nested_call_arg_position_bool_chain_literals"
         |> test::test_report_push test::assert_eq_i32 "literal locals keep comparison overloads" 1 actual
@@ -558,16 +558,16 @@ stdout: "test_report name=\"overload_new_resolve_with_typed_block_context\" coun
 #import "core/math" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let st <Stack<i32>>:
+fn main %impure fn () i32 \():
+    let st %Stack i32:
         new
         |> unwrap_ok<Stack<i32>, Diag>
-    let v <Vec<i32>>:
+    let v %Vec i32:
         new
         |> unwrap_ok<Vec<i32>, StdErrorKind>
-    let sn <i32> len<i32> &st;
+    let sn %i32 len<i32> &st;
     free<i32> st;
-    let vn <i32> len<i32> &v;
+    let vn %i32 len<i32> &v;
     free<i32> v;
     let report:
         test::test_report_new "overload_new_resolve_with_typed_block_context"
@@ -593,13 +593,13 @@ stdout: "test_report name=\"overload_new_resolve_with_typed_block_and_pipe\" cou
 #import "core/math" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let st <Stack<i32>>:
+fn main %impure fn () i32 \():
+    let st %Stack i32:
         new
         |> unwrap_ok<Stack<i32>, Diag>
         |> push 10
         |> unwrap_ok<Stack<i32>, StackPushError<i32>>
-    let n <i32> len<i32> &st;
+    let n %i32 len<i32> &st;
     free<i32> st;
     let report:
         test::test_report_new "overload_new_resolve_with_typed_block_and_pipe"
@@ -620,8 +620,8 @@ stdout: "test_report name=\"overload_nested_call_arg_position_add_sub\" count=1 
 #import "core/math" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let actual <i32> add 10 sub 8 3;
+fn main %impure fn () i32 \():
+    let actual %i32 add 10 sub 8 3;
     let report:
         test::test_report_new "overload_nested_call_arg_position_add_sub"
         |> test::test_report_push test::assert_eq_i32 "nested add/sub resolves numeric overloads" 15 actual
@@ -641,8 +641,8 @@ stdout: "test_report name=\"overload_nested_call_chain_add_mul\" count=1 failed=
 #import "core/math" as *
 #import "std/test" as test
 
-fn main <()*>i32> ():
-    let v <i32> add mul 2 3 add 4 5;
+fn main %impure fn () i32 \():
+    let v %i32 add mul 2 3 add 4 5;
     let report:
         test::test_report_new "overload_nested_call_chain_add_mul"
         |> test::test_report_push test::assert_eq_i32 "nested add/mul call chain resolves numeric overloads" 15 v
@@ -660,16 +660,16 @@ diag_code: type.overload.ambiguous
 #target core
 #import "core/math" as *
 
-fn calc <(i32)->i32> (a):
+fn calc %fn i32 i32 \a:
     add a 1
 
-fn calc <(i32,i32)->i32> (a, b):
+fn calc %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn use_unary <(i32,(i32)->i32)->i32> (a, f):
+fn use_unary %fn i32 fn fn i32 i32 i32 \a\f:
     f a
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     use_unary 5 calc
 ```
 
@@ -683,16 +683,16 @@ diag_code: type.overload.ambiguous
 #target core
 #import "core/math" as *
 
-fn calc <(i32)->i32> (a):
+fn calc %fn i32 i32 \a:
     add a 1
 
-fn calc <(i32,i32)->i32> (a, b):
+fn calc %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn use_binary <(i32,i32,(i32,i32)->i32)->i32> (a, b, f):
+fn use_binary %fn i32 fn i32 fn fn i32 fn i32 i32 i32 \a\b\f:
     f a b
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     use_binary 3 4 calc
 ```
 
@@ -706,16 +706,16 @@ diag_code: type.overload.ambiguous
 #target core
 #import "core/math" as *
 
-fn calc <(i32)->i32> (a):
+fn calc %fn i32 i32 \a:
     add a 1
 
-fn calc <(i32,i32)->i32> (a, b):
+fn calc %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn use_unary <(i32,(i32)->i32)->i32> (a, f):
+fn use_unary %fn i32 fn fn i32 i32 i32 \a\f:
     f a
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     5 |> use_unary calc
 ```
 
@@ -731,20 +731,20 @@ stdout: "test_report name=\"overload_select_by_parameter_context\" count=1 faile
 #import "core/math" as *
 #import "std/test" as test
 
-fn choose <(i32)->i32> (v):
+fn choose %fn i32 i32 \v:
     v
 
-fn choose <(i32)->bool> (v):
+fn choose %fn i32 bool \v:
     ne v 0
 
-fn take_i32 <(i32)->i32> (v):
+fn take_i32 %fn i32 i32 \v:
     v
 
-fn take_bool <(bool)->i32> (v):
+fn take_bool %fn bool i32 \v:
     if v 2 0
 
-fn main <()*>i32> ():
-    let actual <i32> add take_i32 choose 10 take_bool choose 1;
+fn main %impure fn () i32 \():
+    let actual %i32 add take_i32 choose 10 take_bool choose 1;
     let report:
         test::test_report_new "overload_select_by_parameter_context"
         |> test::test_report_push test::assert_eq_i32 "parameter context selects i32 and bool overloads" 12 actual
@@ -764,15 +764,15 @@ stdout: "test_report name=\"overload_select_by_explicit_result_ascription\" coun
 #import "core/math" as *
 #import "std/test" as test
 
-fn convert <(i32)->i32> (v):
+fn convert %fn i32 i32 \v:
     v
 
-fn convert <(i32)->bool> (v):
+fn convert %fn i32 bool \v:
     ne v 0
 
-fn main <()*>i32> ():
-    let b <bool> <bool> convert 9;
-    let actual <i32> if b 1 0;
+fn main %impure fn () i32 \():
+    let b %bool %bool convert 9;
+    let actual %i32 if b 1 0;
     let report:
         test::test_report_new "overload_select_by_explicit_result_ascription"
         |> test::test_report_push test::assert_eq_i32 "explicit result ascription selects bool overload" 1 actual
@@ -790,13 +790,13 @@ diag_code: type.overload.ambiguous
 #target core
 #import "core/math" as *
 
-fn cast_like <(i32)->i32> (v):
+fn cast_like %fn i32 i32 \v:
     v
 
-fn cast_like <(i32)->bool> (v):
+fn cast_like %fn i32 bool \v:
     ne v 0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let tmp cast_like 1
     0
 ```
@@ -810,13 +810,13 @@ diag_code: type.overload.no_match
 #indent 4
 #target core
 
-fn parse <(i32,i32)->i32> (a, b):
+fn parse %fn i32 fn i32 i32 \a\b:
     a
 
-fn parse <(bool,bool)->i32> (a, b):
+fn parse %fn bool fn bool i32 \a\b:
     if a 1 0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     parse 1 true
 ```
 
@@ -829,13 +829,13 @@ diag_code: type.stack.extra_values
 #indent 4
 #target core
 
-fn f <(i32)->i32> (a):
+fn f %fn i32 i32 \a:
     a
 
-fn f <(i32,i32)->i32> (a, b):
+fn f %fn i32 fn i32 i32 \a\b:
     a
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     f 1 2 3
 ```
 
@@ -849,17 +849,17 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn kind <(i32)->i32> (v):
+fn kind %fn i32 i32 \v:
     1
 
-fn kind <(bool)->i32> (v):
+fn kind %fn bool i32 \v:
     2
 
-fn main <()->i32> ():
-    let a <i32>:
+fn main %fn () i32 \():
+    let a %i32:
         5
         |> kind
-    let b <i32>:
+    let b %i32:
         true
         |> kind
     add a b
@@ -875,8 +875,8 @@ ret: 14
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32>:
+fn main %fn () i32 \():
+    let v %i32:
         3
         |> add 4
         |> mul 2
@@ -892,11 +892,11 @@ diag_code: type.overload.no_match
 #indent 4
 #target core
 
-fn need_i32 <(i32)->i32> (v):
+fn need_i32 %fn i32 i32 \v:
     v
 
-fn main <()->i32> ():
-    let _v <i32>:
+fn main %fn () i32 \():
+    let _v %i32:
         true
         |> need_i32;
     0
@@ -913,14 +913,14 @@ ret: 1
 #import "core/math" as *
 #import "core/cast" as *
 
-fn main <()->i32> ():
-    let a <i32> 7;
-    let b <i64> cast a;
-    let c <i128> cast b;
-    let d <i64> cast c;
-    let e <i64> add d <i64> cast 5;
-    let ok1 <bool> eq d <i64> cast 7;
-    let ok2 <bool> eq e <i64> cast 12;
+fn main %fn () i32 \():
+    let a %i32 7;
+    let b %i64 cast a;
+    let c %i128 cast b;
+    let d %i64 cast c;
+    let e %i64 add d %i64 cast 5;
+    let ok1 %bool eq d %i64 cast 7;
+    let ok2 %bool eq e %i64 cast 12;
     if and ok1 ok2 1 0
 ```
 
@@ -934,7 +934,7 @@ diag_code: type.overload.ambiguous
 #target core
 #import "core/cast" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     // 返り値型が未指定の cast は曖昧になる
     let v cast 10
     0
@@ -950,19 +950,19 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn choose <(i32)->i32> (v):
+fn choose %fn i32 i32 \v:
     v
 
-fn choose <(i32)->bool> (v):
+fn choose %fn i32 bool \v:
     ne v 0
 
-fn make_i32 <()->i32> ():
+fn make_i32 %fn () i32 \():
     choose 1
 
-fn make_bool <()->bool> ():
+fn make_bool %fn () bool \():
     choose 1
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if make_bool make_i32 0
 ```
 
@@ -976,25 +976,25 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn pick <(i32)->i32> (v):
+fn pick %fn i32 i32 \v:
     v
 
-fn pick <(i32)->bool> (v):
+fn pick %fn i32 bool \v:
     ne v 0
 
-fn apply_i32 <((i32)->i32,i32)->i32> (f, x):
+fn apply_i32 %fn fn i32 i32 fn i32 i32 \f\x:
     f x
 
-fn main <()->i32> ():
-    let inc <(i32)->i32> (x):
+fn main %fn () i32 \():
+    let inc %fn i32 i32 \x:
         add x 1
 
-    let base <i32>:
-        <i32> block:
+    let base %i32:
+        %i32 block:
             apply_i32 inc 6
-    let v <i32> add base 3;
+    let v %i32 add base 3;
 
-    let ok_pick <bool> <bool> pick 1;
+    let ok_pick %bool %bool pick 1;
     if and ok_pick eq v 10 1 0
 ```
 
@@ -1009,14 +1009,14 @@ ret: 1
 #import "core/math" as *
 #import "core/cast" as *
 
-fn main <()->i32> ():
-    let seed <i64> <i64> cast 5;
-    let v64 <i64>:
+fn main %fn () i32 \():
+    let seed %i64 %i64 cast 5;
+    let v64 %i64:
         seed
-        |> add <i64> cast 7
+        |> add %i64 cast 7
 
-    let v128 <i128> <i128> cast v64;
-    let back <i32> <i32> cast v128;
+    let v128 %i128 %i128 cast v64;
+    let back %i32 %i32 cast v128;
     if eq back 12 1 0
 ```
 
@@ -1030,10 +1030,10 @@ diag_code: type.trait_method.type_args_unsupported
 #target core
 
 trait Show:
-    fn show <(Self)->i32> (x):
+    fn show %fn Self i32 \x:
         0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     Show::show<i32> 1
 ```
 
@@ -1047,10 +1047,10 @@ diag_code: type.trait_method.not_found
 #target core
 
 trait Show:
-    fn show <(Self)->i32> (x):
+    fn show %fn Self i32 \x:
         0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     Show::missing 1
 ```
 
@@ -1064,14 +1064,14 @@ diag_code: type.trait_bound.unsatisfied
 #target core
 
 trait Show:
-    fn show <(Self)->i32> (x):
+    fn show %fn Self i32 \x:
         x
 
 impl Show for i32:
-    fn show <(i32)->i32> (x):
+    fn show %fn i32 i32 \x:
         x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     Show::show true
 ```
 
@@ -1085,9 +1085,9 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    let v <i32>:
-        <i32>:
+fn main %fn () i32 \():
+    let v %i32:
+        %i32:
             3
             |> add 4
     if eq v 7 1 0
@@ -1103,16 +1103,16 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn choose <(i32)->i32> (v):
+fn choose %fn i32 i32 \v:
     add v 1
 
-fn choose <(i32)->bool> (v):
+fn choose %fn i32 bool \v:
     ne v 0
 
-fn main <()->i32> ():
-    let v <i32>:
-        <i32>:
-            <i32> choose add 2 3
+fn main %fn () i32 \():
+    let v %i32:
+        %i32:
+            %i32 choose add 2 3
     if eq v 6 1 0
 ```
 
@@ -1125,8 +1125,8 @@ diag_code: type.field.invalid_access
 #indent 4
 #target core
 
-fn main <()->i32> ():
-    let v <i32> 10;
+fn main %fn () i32 \():
+    let v %i32 10;
     v.len
 ```
 
@@ -1140,6 +1140,6 @@ diag_code: parser.token.unexpected
 
 #capability copy
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```

@@ -21,11 +21,11 @@ pub enum AssertionStatus:
     Failed
 
 impl Clone for AssertionStatus:
-    fn clone <(&AssertionStatus)->AssertionStatus> (status):
+    fn clone %fn &AssertionStatus AssertionStatus \status:
         *status
 
 impl Copy for AssertionStatus:
-    fn copy_mark <(AssertionStatus)->AssertionStatus> (status):
+    fn copy_mark %fn AssertionStatus AssertionStatus \status:
         status
 
 //: AssertionKind: assertion の[種類/しゅるい]
@@ -42,11 +42,11 @@ pub enum AssertionKind:
     Manual
 
 impl Clone for AssertionKind:
-    fn clone <(&AssertionKind)->AssertionKind> (kind):
+    fn clone %fn &AssertionKind AssertionKind \kind:
         *kind
 
 impl Copy for AssertionKind:
-    fn copy_mark <(AssertionKind)->AssertionKind> (kind):
+    fn copy_mark %fn AssertionKind AssertionKind \kind:
         kind
 
 //: TestAssertion: [単一/たんいつ] assertion の[構造化/こうぞうか][結果/けっか]
@@ -55,12 +55,12 @@ impl Copy for AssertionKind:
 //: - kind、status、label、expected、actual、message を[分離/ぶんり]して[保持/ほじ]します。
 //: - stdout 用の整形は renderer に[任/まか]せ、この値を[作/つく]る関数は print しません。
 pub struct TestAssertion:
-    kind <AssertionKind>
-    status <AssertionStatus>
-    label <str>
-    expected <str>
-    actual <str>
-    message <str>
+    kind %AssertionKind
+    status %AssertionStatus
+    label %str
+    expected %str
+    actual %str
+    message %str
 
 //: TestReport: assertion の[集約/しゅうやく] report
 //:
@@ -72,15 +72,15 @@ pub struct TestAssertion:
 //: - `lines` は新しい canonical stdout report 用の本文です。
 //: - `legacy_summary` / `legacy_human` は、移行中の既存 doctest が使う `checks_print_report` の安定出力を同じ構造化 assertion から生成するための文字列です。
 pub struct TestReport:
-    name <str>
-    count <i32>
-    failed_count <i32>
-    lines <str>
-    legacy_summary <str>
-    legacy_human <str>
+    name %str
+    count %i32
+    failed_count %i32
+    lines %str
+    legacy_summary %str
+    legacy_human %str
 
 //: assertion_status_name: status を stable な[名前/なまえ]へ[変換/へんかん]する
-pub fn assertion_status_name <(AssertionStatus)->str> (status):
+pub fn assertion_status_name %fn AssertionStatus str \status:
     match status:
         AssertionStatus::Passed:
             "ok"
@@ -88,7 +88,7 @@ pub fn assertion_status_name <(AssertionStatus)->str> (status):
             "fail"
 
 //: assertion_kind_name: kind を stable な[名前/なまえ]へ[変換/へんかん]する
-pub fn assertion_kind_name <(AssertionKind)->str> (kind):
+pub fn assertion_kind_name %fn AssertionKind str \kind:
     match kind:
         AssertionKind::Bool:
             "bool"
@@ -106,19 +106,19 @@ pub fn assertion_kind_name <(AssertionKind)->str> (kind):
             "manual"
 
 //: test_assertion_passed: [成功/せいこう] assertion を[作/つく]る
-pub fn test_assertion_passed <(AssertionKind,str,str,str)->TestAssertion> (kind, label, expected, actual):
+pub fn test_assertion_passed %fn AssertionKind fn str fn str fn str TestAssertion \kind\label\expected\actual:
     TestAssertion kind AssertionStatus::Passed label expected actual ""
 
 //: test_assertion_failed: [失敗/しっぱい] assertion を[作/つく]る
-pub fn test_assertion_failed <(AssertionKind,str,str,str,str)->TestAssertion> (kind, label, expected, actual, message):
+pub fn test_assertion_failed %fn AssertionKind fn str fn str fn str fn str TestAssertion \kind\label\expected\actual\message:
     TestAssertion kind AssertionStatus::Failed label expected actual message
 
 //: test_assertion_ok: [手動/しゅどう]の[成功/せいこう] assertion を[作/つく]る
-pub fn test_assertion_ok <(str)->TestAssertion> (label):
+pub fn test_assertion_ok %fn str TestAssertion \label:
     test_assertion_passed AssertionKind::Manual label "ok" "ok"
 
 //: test_assertion_fail: [手動/しゅどう]の[失敗/しっぱい] assertion を[作/つく]る
-pub fn test_assertion_fail <(str,str)->TestAssertion> (label, message):
+pub fn test_assertion_fail %fn str fn str TestAssertion \label\message:
     test_assertion_failed AssertionKind::Manual label "ok" "fail" message
 
 //: test_consume_str: report 内部の文字列 owner を最終境界で消費する
@@ -126,21 +126,21 @@ pub fn test_assertion_fail <(str,str)->TestAssertion> (label, message):
 //: [目的/もくてき]:
 //: - `TestAssertion` / `TestReport` は表示用の `str` を保持するため、exit code へ変換する最終境界では保持していた文字列を明示的に消費します。
 //: - 参照で観測する helper と、所有値を終端する helper を分け、浅い `Copy` に依存しない線形な流れにします。
-pub fn test_consume_str <(str)->()> (s):
+pub fn test_consume_str %fn str () \s:
     len s
     ()
 
-pub fn test_consume_i32 <(i32)->()> (n):
+pub fn test_consume_i32 %fn i32 () \n:
     add n 0
     ()
 
-pub fn test_assertion_release <(TestAssertion)->()> (a):
+pub fn test_assertion_release %fn TestAssertion () \a:
     test_consume_str get a "label"
     test_consume_str get a "expected"
     test_consume_str get a "actual"
     test_consume_str get a "message"
 
-pub fn test_report_release <(TestReport)->()> (report):
+pub fn test_report_release %fn TestReport () \report:
     test_consume_str get report "name"
     test_consume_i32 get report "count"
     test_consume_i32 get report "failed_count"

@@ -15,10 +15,10 @@ stdout: "test_report name=\"cliarg_basic\" count=3 failed=0\nassertion index=0 s
 #import "core/option" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let c <i32> cliarg_count;
-    let neg_missing <bool> is_none<str> cliarg_get -1;
-    let end_missing <bool> is_none<str> cliarg_get c;
+fn main %impure fn () i32 \():
+    let c %i32 cliarg_count;
+    let neg_missing %bool is_none<str> cliarg_get -1;
+    let end_missing %bool is_none<str> cliarg_get c;
     let report:
         test_report_new "cliarg_basic"
         |> test_report_push assert_eq_i32 "argc includes program and injected args" 3 c
@@ -41,7 +41,7 @@ stdout: "3"
 #import "std/env/cliarg" as *
 #import "std/stdio" as *
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     print_i32 cliarg_count;
 ```
 
@@ -60,14 +60,14 @@ stdout: "--flag:value"
 #import "alloc/string" as *
 #import "core/option" as *
 
-fn print_arg <(i32)*>()> (idx):
+fn print_arg %impure fn i32 () \idx:
     match cliarg_get idx:
         Option::Some arg:
             print arg
         Option::None:
             print "<none>"
 
-fn main <()*>()> ():
+fn main %impure fn () () \():
     print_arg 1;
     print ":";
     print_arg 2;
@@ -89,11 +89,11 @@ stdout: "test_report name=\"cliarg_get_rejects_out_of_range\" count=3 failed=0\n
 #import "core/option" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let c <i32> cliarg_count;
-    let neg_missing <bool> is_none<str> cliarg_get -1;
-    let raw_neg_missing <bool> is_none<str> cli_raw::cliarg_get_checked -1;
-    let end_missing <bool> is_none<str> cliarg_get c;
+fn main %impure fn () i32 \():
+    let c %i32 cliarg_count;
+    let neg_missing %bool is_none<str> cliarg_get -1;
+    let raw_neg_missing %bool is_none<str> cli_raw::cliarg_get_checked -1;
+    let end_missing %bool is_none<str> cliarg_get c;
     let report:
         test_report_new "cliarg_get_rejects_out_of_range"
         |> test_report_push assert "negative index rejected" neg_missing
@@ -120,20 +120,20 @@ stdout: "test_report name=\"cliarg_cstr_bounded_conversion_reports\" count=3 fai
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let p <MemPtr<u8>> string_data_ptr "nep\0tail";
-    let no_nul <MemPtr<u8>> string_data_ptr "abc";
-    let len_ok <bool> match cstr_len_bounded_result p 4:
+fn main %impure fn () i32 \():
+    let p %MemPtr u8 string_data_ptr "nep\0tail";
+    let no_nul %MemPtr u8 string_data_ptr "abc";
+    let len_ok %bool match cstr_len_bounded_result p 4:
         Result::Ok n:
             eq n 3
         Result::Err _:
             false
-    let str_ok <bool> match cstr_to_str_bounded_result p 4:
+    let str_ok %bool match cstr_to_str_bounded_result p 4:
         Result::Ok s:
             str_eq s "nep"
         Result::Err _:
             false
-    let missing_ok <bool> match cstr_len_bounded_result no_nul 3:
+    let missing_ok %bool match cstr_len_bounded_result no_nul 3:
         Result::Ok _:
             false
         Result::Err _:
@@ -159,8 +159,8 @@ diag_code: resolve.identifier.undefined
 #import "std/env/cliarg/cstr" as *
 #import "alloc/string/storage" as *
 
-fn main <()*>()> ():
-    let p <MemPtr<u8>> string_data_ptr "nep\0";
+fn main %impure fn () () \():
+    let p %MemPtr u8 string_data_ptr "nep\0";
     let _n cstr_len p;
 ```
 
@@ -176,7 +176,7 @@ diag_code: resolve.identifier.undefined
 #import "std/env/cliarg/cstr" as *
 #import "alloc/string/storage" as *
 
-fn main <()*>()> ():
-    let p <MemPtr<u8>> string_data_ptr "nep\0";
+fn main %impure fn () () \():
+    let p %MemPtr u8 string_data_ptr "nep\0";
     let _s cstr_to_str p;
 ```

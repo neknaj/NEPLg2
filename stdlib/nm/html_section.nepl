@@ -20,12 +20,12 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/html_section" as *
-//: fn main <()*>i32> ():
-//:     let s0 <NmHtmlSectionState> nm_section_state_new
-//:     let s1 <NmHtmlSectionState> nm_section_state_open_level s0 2
-//:     let s2 <NmHtmlSectionState> nm_section_state_open_level s1 4
-//:     let s3 <NmHtmlSectionState> nm_section_state_close_current s2
-//:     let mut sb <StringBuilder> string_builder_new
+//: fn main %impure fn () i32 \():
+//:     let s0 %NmHtmlSectionState nm_section_state_new
+//:     let s1 %NmHtmlSectionState nm_section_state_open_level s0 2
+//:     let s2 %NmHtmlSectionState nm_section_state_open_level s1 4
+//:     let s3 %NmHtmlSectionState nm_section_state_close_current s2
+//:     let mut sb %StringBuilder string_builder_new
 //:     set sb nm_append_section_open sb 2
 //:     set sb nm_append_section_close sb
 //:     if and eq nm_section_current_level s3 2 str_starts_with sb_build sb "<section" 0 1
@@ -45,23 +45,23 @@
 //: - h1..h6 の open flag と現在の最深 level を 1 つの値にまとめます。
 //: - `html_gen` 側に bool 群と close 時の同じ match を散らさないための state record です。
 pub struct NmHtmlSectionState:
-    current_level <i32>
-    open1 <bool>
-    open2 <bool>
-    open3 <bool>
-    open4 <bool>
-    open5 <bool>
-    open6 <bool>
+    current_level %i32
+    open1 %bool
+    open2 %bool
+    open3 %bool
+    open4 %bool
+    open5 %bool
+    open6 %bool
 
 impl Clone for NmHtmlSectionState:
-    fn clone <(&NmHtmlSectionState)->NmHtmlSectionState> (self):
+    fn clone %fn &NmHtmlSectionState NmHtmlSectionState \self:
         *self
 
 impl Copy for NmHtmlSectionState:
-    fn copy_mark <(NmHtmlSectionState)->NmHtmlSectionState> (self):
+    fn copy_mark %fn NmHtmlSectionState NmHtmlSectionState \self:
         self
 
-pub fn nm_section_state_make <(i32,bool,bool,bool,bool,bool,bool)->NmHtmlSectionState> (current_level, open1, open2, open3, open4, open5, open6):
+pub fn nm_section_state_make %fn i32 fn bool fn bool fn bool fn bool fn bool fn bool NmHtmlSectionState \current_level\open1\open2\open3\open4\open5\open6:
     NmHtmlSectionState current_level open1 open2 open3 open4 open5 open6
 
 //: nm_section_state_new: 空の section stack を[作/つく]る
@@ -71,7 +71,7 @@ pub fn nm_section_state_make <(i32,bool,bool,bool,bool,bool,bool)->NmHtmlSection
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nm_section_state_new <()->NmHtmlSectionState> ():
+pub fn nm_section_state_new %fn () NmHtmlSectionState \():
     nm_section_state_make 0 false false false false false false
 
 //: nm_section_current_level: 現在開いている最深 section level を[返/かえ]す
@@ -82,7 +82,7 @@ pub fn nm_section_state_new <()->NmHtmlSectionState> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nm_section_current_level <(NmHtmlSectionState)->i32> (state):
+pub fn nm_section_current_level %fn NmHtmlSectionState i32 \state:
     state.current_level
 
 //: nm_section_state_open_level: 指定 level の section を open state にする
@@ -95,7 +95,7 @@ pub fn nm_section_current_level <(NmHtmlSectionState)->i32> (state):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nm_section_state_open_level <(NmHtmlSectionState,i32)->NmHtmlSectionState> (state, level):
+pub fn nm_section_state_open_level %fn NmHtmlSectionState fn i32 NmHtmlSectionState \state\level:
     match level:
         1:
             nm_section_state_make 1 true state.open2 state.open3 state.open4 state.open5 state.open6
@@ -118,7 +118,7 @@ pub fn nm_section_state_open_level <(NmHtmlSectionState,i32)->NmHtmlSectionState
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nm_section_state_close_current <(NmHtmlSectionState)->NmHtmlSectionState> (state):
+pub fn nm_section_state_close_current %fn NmHtmlSectionState NmHtmlSectionState \state:
     match state.current_level:
         1:
             nm_section_state_make:
@@ -187,8 +187,8 @@ pub fn nm_section_state_close_current <(NmHtmlSectionState)->NmHtmlSectionState>
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nm_append_section_open <(StringBuilder,i32)->StringBuilder> (sb, level):
-    let mut out <StringBuilder> sb
+pub fn nm_append_section_open %fn StringBuilder fn i32 StringBuilder \sb\level:
+    let mut out %StringBuilder sb
     set out sb_append out "<section class=\"nm-sec level-"
     set out sb_append_i32 out level
     sb_append out "\">"
@@ -200,5 +200,5 @@ pub fn nm_append_section_open <(StringBuilder,i32)->StringBuilder> (sb, level):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nm_append_section_close <(StringBuilder)->StringBuilder> (sb):
+pub fn nm_append_section_close %fn StringBuilder StringBuilder \sb:
     sb_append sb "</section>"

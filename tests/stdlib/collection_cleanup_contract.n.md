@@ -19,13 +19,13 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/vec" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_vec_clear <(Vec<CleanupPayload>)->()> (v):
-    let next <Vec<CleanupPayload>> clear<CleanupPayload> v
+fn close_vec_clear %fn Vec CleanupPayload () \v:
+    let next %Vec CleanupPayload clear<CleanupPayload> v
     ()
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -41,12 +41,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/vec" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_vec_free <(Vec<CleanupPayload>)->()> (v):
+fn close_vec_free %fn Vec CleanupPayload () \v:
     free<CleanupPayload> v
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -61,11 +61,11 @@ neplg2:test
 #import "alloc/collections/vec" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn main <()->i32> ():
-    let v <Vec<CleanupPayload>> vec_empty<CleanupPayload>
-    let ok <bool> is_empty<CleanupPayload> &v
+fn main %fn () i32 \():
+    let v %Vec CleanupPayload vec_empty<CleanupPayload>
+    let ok %bool is_empty<CleanupPayload> &v
     if ok 0 1
 ```
 
@@ -82,12 +82,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/result" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn make_vec_new <()->Result<Vec<CleanupPayload>, StdErrorKind>> ():
+fn make_vec_new %fn () Result Vec CleanupPayload StdErrorKind \():
     new<CleanupPayload>
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -104,12 +104,12 @@ diag_code: type.overload.no_match
 #import "core/result" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn make_vec_with_capacity <()->Result<Vec<CleanupPayload>, StdErrorKind>> ():
+fn make_vec_with_capacity %fn () Result Vec CleanupPayload StdErrorKind \():
     with_capacity<CleanupPayload> 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -127,16 +127,16 @@ neplg2:test
 #import "core/traits/drop" as *
 
 struct DropPayload:
-    value <i32>
+    value %i32
 
 impl Drop for DropPayload:
-    fn drop <(&DropPayload)*>()> (_self):
+    fn drop %impure fn &DropPayload () \_self:
         ()
 
-fn main <()->i32> ():
-    let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
-    let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
-    let ok <bool> eq len<DropPayload> &v1 1
+fn main %fn () i32 \():
+    let v0 %Vec DropPayload unwrap_ok new<DropPayload>
+    let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
+    let ok %bool eq len<DropPayload> &v1 1
     free<DropPayload> v1
     if ok 0 1
 ```
@@ -153,12 +153,12 @@ diag_code: type.overload.no_match
 #import "alloc/collections/vec" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn push_plain_vec <(Vec<CleanupPayload>, CleanupPayload)->Result<Vec<CleanupPayload>, VecPushError<CleanupPayload>>> (v, item):
+fn push_plain_vec %fn Vec CleanupPayload fn CleanupPayload Result Vec CleanupPayload VecPushError CleanupPayload \v\item:
     push<CleanupPayload> v item
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -175,12 +175,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/option" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn read_non_copy_vec <(&Vec<CleanupPayload>, i32)->Option<CleanupPayload>> (v, idx):
+fn read_non_copy_vec %fn &Vec CleanupPayload fn i32 Option CleanupPayload \v\idx:
     get<CleanupPayload> v idx
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -195,12 +195,12 @@ neplg2:test
 #import "alloc/collections/vec" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn read_non_copy_vec_len <(&Vec<CleanupPayload>)->i32> (v):
+fn read_non_copy_vec_len %fn &Vec CleanupPayload i32 \v:
     len<CleanupPayload> v
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -215,12 +215,12 @@ neplg2:test
 #import "alloc/collections/vec" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn read_non_copy_vec_cap <(&Vec<CleanupPayload>)->i32> (v):
+fn read_non_copy_vec_cap %fn &Vec CleanupPayload i32 \v:
     cap<CleanupPayload> v
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -237,12 +237,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/vec/invariant" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn prove_non_copy_vec_invariant <(&Vec<CleanupPayload>)->VecCopyInvariant> (v):
+fn prove_non_copy_vec_invariant %fn &Vec CleanupPayload VecCopyInvariant \v:
     vec_current_copy_invariant<CleanupPayload> v
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -257,12 +257,12 @@ neplg2:test
 #import "alloc/collections/vec" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn read_non_copy_partition_len <(&VecPartition<CleanupPayload>)->i32> (parts):
+fn read_non_copy_partition_len %fn &VecPartition CleanupPayload i32 \parts:
     vec_partition_matched_len<CleanupPayload> parts
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -278,12 +278,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/vec" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn recover_vec_from_pop <(VecPop<CleanupPayload>)->Vec<CleanupPayload>> (p):
+fn recover_vec_from_pop %fn VecPop CleanupPayload Vec CleanupPayload \p:
     vec_pop_vec<CleanupPayload> p
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -299,12 +299,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/binary_heap" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn recover_heap_from_pop <(BinaryHeapPop<CleanupPayload>)->BinaryHeap<CleanupPayload>> (p):
+fn recover_heap_from_pop %fn BinaryHeapPop CleanupPayload BinaryHeap CleanupPayload \p:
     binary_heap_pop_heap<CleanupPayload> p
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -320,12 +320,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/vec" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn recover_vec_from_push_error <(VecPushError<CleanupPayload>)->Vec<CleanupPayload>> (e):
+fn recover_vec_from_push_error %fn VecPushError CleanupPayload Vec CleanupPayload \e:
     vec_push_error_vec<CleanupPayload> e
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -341,12 +341,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/vec" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn recover_vec_from_transform_error <(VecTransformError<CleanupPayload>)->Vec<CleanupPayload>> (e):
+fn recover_vec_from_transform_error %fn VecTransformError CleanupPayload Vec CleanupPayload \e:
     vec_transform_error_vec<CleanupPayload> e
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -363,12 +363,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/vec/sort/merge" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn recover_vec_from_sort_merge_error <(VecSortMergeError<CleanupPayload>)->Vec<CleanupPayload>> (e):
+fn recover_vec_from_sort_merge_error %fn VecSortMergeError CleanupPayload Vec CleanupPayload \e:
     vec_sort_merge_error_vec<CleanupPayload> e
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -383,7 +383,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/collections/vec" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     vec_alloc_empty 4
 ```
 
@@ -398,7 +398,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/collections/vec" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     vec_free_storage VecStorage<i32>::Empty
 ```
 
@@ -414,12 +414,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/stack" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_stack <(Stack<CleanupPayload>)->()> (s):
+fn close_stack %fn Stack CleanupPayload () \s:
     free<CleanupPayload> s
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -435,12 +435,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/queue" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_queue <(Queue<CleanupPayload>)->()> (q):
+fn close_queue %fn Queue CleanupPayload () \q:
     free<CleanupPayload> q
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -456,12 +456,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/deque" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_deque <(Deque<CleanupPayload>)->()> (dq):
+fn close_deque %fn Deque CleanupPayload () \dq:
     free<CleanupPayload> dq
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -477,12 +477,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/ringbuffer" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_ringbuffer <(RingBuffer<CleanupPayload>)->()> (rb):
+fn close_ringbuffer %fn RingBuffer CleanupPayload () \rb:
     free<CleanupPayload> rb
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -498,12 +498,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/binary_heap" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_binary_heap <(BinaryHeap<CleanupPayload>)->()> (heap):
+fn close_binary_heap %fn BinaryHeap CleanupPayload () \heap:
     free<CleanupPayload> heap
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -519,12 +519,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/btreeset" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_btreeset <(BTreeSet<CleanupPayload>)->()> (set0):
+fn close_btreeset %fn BTreeSet CleanupPayload () \set0:
     free<CleanupPayload> set0
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -540,12 +540,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/btreemap" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_btreemap_key <(BTreeMap<CleanupPayload, i32>)->()> (hm):
+fn close_btreemap_key %fn BTreeMap CleanupPayload i32 () \hm:
     free<CleanupPayload, i32> hm
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -561,12 +561,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/btreemap" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_btreemap_value <(BTreeMap<i32, CleanupPayload>)->()> (hm):
+fn close_btreemap_value %fn BTreeMap i32 CleanupPayload () \hm:
     free<i32, CleanupPayload> hm
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -582,12 +582,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/btreemap" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn insert_btreemap_value <(BTreeMap<i32, CleanupPayload>, CleanupPayload)*>Result<BTreeMap<i32, CleanupPayload>, BTreeMapInsertError<i32, CleanupPayload>>> (hm, value):
+fn insert_btreemap_value %impure fn BTreeMap i32 CleanupPayload impure fn CleanupPayload Result BTreeMap i32 CleanupPayload BTreeMapInsertError i32 CleanupPayload \hm\value:
     insert<i32, CleanupPayload> hm 1 value
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -603,12 +603,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/list" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_list <(List<CleanupPayload>)->()> (lst):
+fn close_list %fn List CleanupPayload () \lst:
     free<CleanupPayload> lst
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -623,12 +623,12 @@ neplg2:test
 #import "alloc/collections/queue" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn read_queue_len <(&Queue<CleanupPayload>)->i32> (q):
+fn read_queue_len %fn &Queue CleanupPayload i32 \q:
     len<CleanupPayload> q
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -643,12 +643,12 @@ neplg2:test
 #import "alloc/collections/deque" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn read_deque_len <(&Deque<CleanupPayload>)->i32> (dq):
+fn read_deque_len %fn &Deque CleanupPayload i32 \dq:
     len<CleanupPayload> dq
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -663,12 +663,12 @@ neplg2:test
 #import "alloc/collections/binary_heap" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn read_heap_len <(&BinaryHeap<CleanupPayload>)->i32> (heap):
+fn read_heap_len %fn &BinaryHeap CleanupPayload i32 \heap:
     len<CleanupPayload> heap
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -683,12 +683,12 @@ neplg2:test
 #import "alloc/collections/list" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn read_list_len <(&List<CleanupPayload>)->i32> (lst):
+fn read_list_len %fn &List CleanupPayload i32 \lst:
     len<CleanupPayload> lst
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -704,12 +704,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "alloc/collections/list" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn recover_list_from_transform_error <(ListTransformError<CleanupPayload>)->List<CleanupPayload>> (e):
+fn recover_list_from_transform_error %fn ListTransformError CleanupPayload List CleanupPayload \e:
     list_transform_error_list<CleanupPayload> e
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -724,12 +724,12 @@ neplg2:test
 #import "alloc/collections/btreemap" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn read_btreemap_len <(&BTreeMap<i32, CleanupPayload>)->i32> (hm):
+fn read_btreemap_len %fn &BTreeMap i32 CleanupPayload i32 \hm:
     len<i32, CleanupPayload> hm
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -745,12 +745,12 @@ neplg2:test
 #import "core/traits/hash" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn read_hashmap_len <(&HashMap<i32, CleanupPayload, DefaultHash32>)->i32> (hm):
+fn read_hashmap_len %fn &HashMap i32 CleanupPayload DefaultHash32 i32 \hm:
     len<i32, CleanupPayload, DefaultHash32> hm
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -767,12 +767,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/traits/hash" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn insert_hashmap_value <(HashMap<i32, CleanupPayload, DefaultHash32>, CleanupPayload)*>Result<HashMap<i32, CleanupPayload, DefaultHash32>, HashMapUpdateError<i32, CleanupPayload, DefaultHash32>>> (hm, value):
+fn insert_hashmap_value %impure fn HashMap i32 CleanupPayload DefaultHash32 impure fn CleanupPayload Result HashMap i32 CleanupPayload DefaultHash32 HashMapUpdateError i32 CleanupPayload DefaultHash32 \hm\value:
     insert<i32, CleanupPayload, DefaultHash32> hm 1 value
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -789,12 +789,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/traits/hash" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn close_hashmap_value <(HashMap<i32, CleanupPayload, DefaultHash32>)->()> (hm):
+fn close_hashmap_value %fn HashMap i32 CleanupPayload DefaultHash32 () \hm:
     free<i32, CleanupPayload, DefaultHash32> hm
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -812,22 +812,22 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/traits/hash_key" as *
 
 struct NonCopyHashKey:
-    seed <(i32)->i32>
+    seed %fn i32 i32
 
-fn id <(i32)->i32> (x):
+fn id %fn i32 i32 \x:
     x
 
 impl HashKey for NonCopyHashKey:
-    fn eq <(NonCopyHashKey,NonCopyHashKey)->bool> (_a, _b):
+    fn eq %fn NonCopyHashKey fn NonCopyHashKey bool \_a\_b:
         true
 
-    fn hash32 <(NonCopyHashKey)->i32> (_self):
+    fn hash32 %fn NonCopyHashKey i32 \_self:
         0
 
-fn close_hashset_key <(HashSet<NonCopyHashKey, DefaultHash32>)->()> (hs):
+fn close_hashset_key %fn HashSet NonCopyHashKey DefaultHash32 () \hs:
     free<NonCopyHashKey, DefaultHash32> hs
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -844,19 +844,19 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/traits/hash" as *
 
 struct StatefulHasher:
-    seed <(i32)->i32>
+    seed %fn i32 i32
 
-fn id <(i32)->i32> (x):
+fn id %fn i32 i32 \x:
     x
 
 impl Hasher<i32> for StatefulHasher:
-    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+    fn hash32 %fn StatefulHasher fn i32 i32 \_h\key:
         key
 
-fn close_hashset_hasher <(HashSet<i32, StatefulHasher>)->()> (hs):
+fn close_hashset_hasher %fn HashSet i32 StatefulHasher () \hs:
     free<i32, StatefulHasher> hs
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -874,22 +874,22 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/traits/hash_key" as *
 
 struct NonCopyHashKey:
-    seed <(i32)->i32>
+    seed %fn i32 i32
 
-fn id <(i32)->i32> (x):
+fn id %fn i32 i32 \x:
     x
 
 impl HashKey for NonCopyHashKey:
-    fn eq <(NonCopyHashKey,NonCopyHashKey)->bool> (_a, _b):
+    fn eq %fn NonCopyHashKey fn NonCopyHashKey bool \_a\_b:
         true
 
-    fn hash32 <(NonCopyHashKey)->i32> (_self):
+    fn hash32 %fn NonCopyHashKey i32 \_self:
         0
 
-fn close_hashmap_key <(HashMap<NonCopyHashKey, i32, DefaultHash32>)->()> (hm):
+fn close_hashmap_key %fn HashMap NonCopyHashKey i32 DefaultHash32 () \hm:
     free<NonCopyHashKey, i32, DefaultHash32> hm
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -906,19 +906,19 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/traits/hash" as *
 
 struct StatefulHasher:
-    seed <(i32)->i32>
+    seed %fn i32 i32
 
-fn id <(i32)->i32> (x):
+fn id %fn i32 i32 \x:
     x
 
 impl Hasher<i32> for StatefulHasher:
-    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+    fn hash32 %fn StatefulHasher fn i32 i32 \_h\key:
         key
 
-fn close_hashmap_hasher <(HashMap<i32, i32, StatefulHasher>)->()> (hm):
+fn close_hashmap_hasher %fn HashMap i32 i32 StatefulHasher () \hm:
     free<i32, i32, StatefulHasher> hm
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -933,7 +933,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/collections/hashmap" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     hashmap_alloc_storage 4
 ```
 
@@ -948,7 +948,7 @@ diag_code: resolve.identifier.undefined
 
 #import "alloc/collections/hashset" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     hashset_alloc_storage 4
 ```
 
@@ -967,12 +967,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/option" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn borrow_btreemap_keys <(&BTreeMapStorage<CleanupPayload, i32>)->&Vec<Option<CleanupPayload>>> (storage):
+fn borrow_btreemap_keys %fn &BTreeMapStorage CleanupPayload i32 &Vec Option CleanupPayload \storage:
     btreemap_storage_keys<CleanupPayload, i32> storage
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -991,12 +991,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/option" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn borrow_btreemap_values <(&BTreeMapStorage<i32, CleanupPayload>)->&Vec<Option<CleanupPayload>>> (storage):
+fn borrow_btreemap_values %fn &BTreeMapStorage i32 CleanupPayload &Vec Option CleanupPayload \storage:
     btreemap_storage_values<i32, CleanupPayload> storage
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -1015,12 +1015,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/option" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn borrow_btreeset_keys <(&BTreeSetStorage<CleanupPayload>)->&Vec<Option<CleanupPayload>>> (storage):
+fn borrow_btreeset_keys %fn &BTreeSetStorage CleanupPayload &Vec Option CleanupPayload \storage:
     btreeset_storage_keys<CleanupPayload> storage
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -1039,12 +1039,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/option" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn borrow_hashmap_keys <(&HashMapStorage<CleanupPayload, i32>)->&Vec<Option<CleanupPayload>>> (storage):
+fn borrow_hashmap_keys %fn &HashMapStorage CleanupPayload i32 &Vec Option CleanupPayload \storage:
     hashmap_storage_keys<CleanupPayload, i32> storage
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -1063,12 +1063,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/option" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn borrow_hashmap_values <(&HashMapStorage<i32, CleanupPayload>)->&Vec<Option<CleanupPayload>>> (storage):
+fn borrow_hashmap_values %fn &HashMapStorage i32 CleanupPayload &Vec Option CleanupPayload \storage:
     hashmap_storage_values<i32, CleanupPayload> storage
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -1087,12 +1087,12 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/option" as *
 
 struct CleanupPayload:
-    value <i32>
+    value %i32
 
-fn borrow_hashset_keys <(&HashSetStorage<CleanupPayload>)->&Vec<Option<CleanupPayload>>> (storage):
+fn borrow_hashset_keys %fn &HashSetStorage CleanupPayload &Vec Option CleanupPayload \storage:
     hashset_storage_keys<CleanupPayload> storage
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -1109,19 +1109,19 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/traits/hash" as *
 
 struct StatefulHasher:
-    seed <(i32)->i32>
+    seed %fn i32 i32
 
-fn id <(i32)->i32> (x):
+fn id %fn i32 i32 \x:
     x
 
 impl Hasher<i32> for StatefulHasher:
-    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+    fn hash32 %fn StatefulHasher fn i32 i32 \_h\key:
         key
 
-fn close_bloom_filter <(BloomFilter<i32, StatefulHasher>)->()> (bf):
+fn close_bloom_filter %fn BloomFilter i32 StatefulHasher () \bf:
     free<i32, StatefulHasher> bf
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -1138,19 +1138,19 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/traits/hash" as *
 
 struct StatefulHasher:
-    seed <(i32)->i32>
+    seed %fn i32 i32
 
-fn id <(i32)->i32> (x):
+fn id %fn i32 i32 \x:
     x
 
 impl Hasher<i32> for StatefulHasher:
-    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+    fn hash32 %fn StatefulHasher fn i32 i32 \_h\key:
         key
 
-fn clear_bloom_filter <(BloomFilter<i32, StatefulHasher>)*>BloomFilter<i32, StatefulHasher>> (bf):
+fn clear_bloom_filter %impure fn BloomFilter i32 StatefulHasher BloomFilter i32 StatefulHasher \bf:
     clear<i32, StatefulHasher> bf
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -1167,19 +1167,19 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/traits/hash" as *
 
 struct StatefulHasher:
-    seed <(i32)->i32>
+    seed %fn i32 i32
 
-fn id <(i32)->i32> (x):
+fn id %fn i32 i32 \x:
     x
 
 impl Hasher<i32> for StatefulHasher:
-    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+    fn hash32 %fn StatefulHasher fn i32 i32 \_h\key:
         key
 
-fn close_counting_bloom_filter <(CountingBloomFilter<i32, StatefulHasher>)->()> (bf):
+fn close_counting_bloom_filter %fn CountingBloomFilter i32 StatefulHasher () \bf:
     free<i32, StatefulHasher> bf
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```
 
@@ -1196,18 +1196,18 @@ diag_code: type.trait_bound.unsatisfied
 #import "core/traits/hash" as *
 
 struct StatefulHasher:
-    seed <(i32)->i32>
+    seed %fn i32 i32
 
-fn id <(i32)->i32> (x):
+fn id %fn i32 i32 \x:
     x
 
 impl Hasher<i32> for StatefulHasher:
-    fn hash32 <(StatefulHasher,i32)->i32> (_h, key):
+    fn hash32 %fn StatefulHasher fn i32 i32 \_h\key:
         key
 
-fn clear_counting_bloom_filter <(CountingBloomFilter<i32, StatefulHasher>)*>CountingBloomFilter<i32, StatefulHasher>> (bf):
+fn clear_counting_bloom_filter %impure fn CountingBloomFilter i32 StatefulHasher CountingBloomFilter i32 StatefulHasher \bf:
     clear<i32, StatefulHasher> bf
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     0
 ```

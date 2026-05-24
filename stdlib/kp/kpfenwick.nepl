@@ -38,14 +38,14 @@ pub #import "alloc/collections/fenwick/types" as @merge
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main <()*> ()> ():
-//:     let f0 <Fenwick> unwrap_ok<Fenwick, Diag> fenwick_new 5;
-//:     let f1 <Fenwick> unwrap_ok<Fenwick, FenwickAddError> fenwick_add f0 0 1;
-//:     let f2 <Fenwick> unwrap_ok<Fenwick, FenwickAddError> fenwick_add f1 1 2;
-//:     let f3 <Fenwick> unwrap_ok<Fenwick, FenwickAddError> fenwick_add f2 2 3;
-//:     let f4 <Fenwick> unwrap_ok<Fenwick, FenwickAddError> fenwick_add f3 3 4;
-//:     let a <i32> unwrap_ok<i32, Diag> fenwick_sum_range &f4 0 3;
-//:     let b <i32> unwrap_ok<i32, Diag> fenwick_sum_range &f4 1 4;
+//: fn main %impure fn () () \():
+//:     let f0 %Fenwick unwrap_ok<Fenwick, Diag> fenwick_new 5;
+//:     let f1 %Fenwick unwrap_ok<Fenwick, FenwickAddError> fenwick_add f0 0 1;
+//:     let f2 %Fenwick unwrap_ok<Fenwick, FenwickAddError> fenwick_add f1 1 2;
+//:     let f3 %Fenwick unwrap_ok<Fenwick, FenwickAddError> fenwick_add f2 2 3;
+//:     let f4 %Fenwick unwrap_ok<Fenwick, FenwickAddError> fenwick_add f3 3 4;
+//:     let a %i32 unwrap_ok<i32, Diag> fenwick_sum_range &f4 0 3;
+//:     let b %i32 unwrap_ok<i32, Diag> fenwick_sum_range &f4 1 4;
 //:     print_i32 a;
 //:     print " ";
 //:     println_i32 b;
@@ -56,13 +56,13 @@ pub #import "alloc/collections/fenwick/types" as @merge
 //:
 //: ### [失敗/しっぱい]
 //: - `n < 0` や[確保/かくほ]失敗は `Diag` として返します。
-pub fn fenwick_new <(i32)*>Result<Fenwick, Diag>> (n):
+pub fn fenwick_new %impure fn i32 Result Fenwick Diag \n:
     if:
         lt n 0
         then:
             diag_err<Fenwick> fenwick_diag_len
         else:
-            let bit_len <i32> add n 1
+            let bit_len %i32 add n 1
             match fenwick_alloc_bit bit_len:
                 Result::Err d:
                     err<Fenwick, Diag> d
@@ -73,21 +73,21 @@ pub fn fenwick_new <(i32)*>Result<Fenwick, Diag>> (n):
 //:
 //: ### [注意/ちゅうい]
 //: - `tree` は move されるため、呼び出し後に再利用してはいけません。
-pub fn fenwick_free <(Fenwick)*>()> (tree):
-    let bit <Vec<i32>> field::get tree "bit"
+pub fn fenwick_free %impure fn Fenwick () \tree:
+    let bit %Vec i32 field::get tree "bit"
     fenwick_free_bit bit
 
 //: fenwick_add: `idx` に `delta` を[加算/かさん]した owner を[返/かえ]す
 //:
 //: ### [失敗/しっぱい]
 //: - `idx` が範囲外の場合、`FenwickAddError` に元の owner と診断を入れて返します。
-pub fn fenwick_add <(Fenwick,i32,i32)*>Result<Fenwick, FenwickAddError>> (tree, idx, delta):
-    let n <i32> *field::get_ref &tree "n"
+pub fn fenwick_add %impure fn Fenwick impure fn i32 impure fn i32 Result Fenwick FenwickAddError \tree\idx\delta:
+    let n %i32 *field::get_ref &tree "n"
     if:
         and le 0 idx lt idx n
         then:
-            let result <Result<(), Diag>> block:
-                let bit <&Vec<i32>> field::get_ref &tree "bit"
+            let result %Result () Diag block:
+                let bit %&Vec i32 field::get_ref &tree "bit"
                 if:
                     fenwick_add_storage bit n idx delta
                     then:
@@ -100,32 +100,32 @@ pub fn fenwick_add <(Fenwick,i32,i32)*>Result<Fenwick, FenwickAddError>> (tree, 
                 Result::Err d:
                     err<Fenwick, FenwickAddError> FenwickAddError tree d
         else:
-            let d <Diag> fenwick_diag_index
+            let d %Diag fenwick_diag_index
             err<Fenwick, FenwickAddError> FenwickAddError tree d
 
 //: fenwick_sum_prefix: [半開/はんかい]区間 `[0, r)` の[和/わ]を[返/かえ]す
-pub fn fenwick_sum_prefix <(&Fenwick,i32)*>Result<i32, Diag>> (tree, r):
-    let n <i32> *field::get_ref tree "n"
+pub fn fenwick_sum_prefix %impure fn &Fenwick impure fn i32 Result i32 Diag \tree\r:
+    let n %i32 *field::get_ref tree "n"
     if:
         and le 0 r le r n
         then:
-            let bit <&Vec<i32>> field::get_ref tree "bit"
+            let bit %&Vec i32 field::get_ref tree "bit"
             match fenwick_sum_prefix_storage bit r:
                 Option::Some acc:
                     ok<i32, Diag> acc
                 Option::None:
                     diag_err<i32> fenwick_diag_index
         else:
-            let d <Diag> fenwick_diag_index
+            let d %Diag fenwick_diag_index
             err<i32, Diag> d
 
 //: fenwick_sum_range: [半開/はんかい]区間 `[l, r)` の[和/わ]を[返/かえ]す
-pub fn fenwick_sum_range <(&Fenwick,i32,i32)*>Result<i32, Diag>> (tree, l, r):
-    let n <i32> *field::get_ref tree "n"
+pub fn fenwick_sum_range %impure fn &Fenwick impure fn i32 impure fn i32 Result i32 Diag \tree\l\r:
+    let n %i32 *field::get_ref tree "n"
     if:
         and and le 0 l le l r le r n
         then:
-            let bit <&Vec<i32>> field::get_ref tree "bit"
+            let bit %&Vec i32 field::get_ref tree "bit"
             match fenwick_sum_prefix_storage bit r:
                 Option::Some sr:
                     match fenwick_sum_prefix_storage bit l:
@@ -136,5 +136,5 @@ pub fn fenwick_sum_range <(&Fenwick,i32,i32)*>Result<i32, Diag>> (tree, l, r):
                 Option::None:
                     diag_err<i32> fenwick_diag_range
         else:
-            let d <Diag> fenwick_diag_range
+            let d %Diag fenwick_diag_range
             err<i32, Diag> d

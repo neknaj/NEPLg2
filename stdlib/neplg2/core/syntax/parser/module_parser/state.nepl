@@ -15,11 +15,11 @@ pub enum SelfhostParserRawMode:
     LlvmIr
 
 impl Clone for SelfhostParserRawMode:
-    fn clone <(&SelfhostParserRawMode)->SelfhostParserRawMode> (self):
+    fn clone %fn &SelfhostParserRawMode SelfhostParserRawMode \self:
         *self
 
 impl Copy for SelfhostParserRawMode:
-    fn copy_mark <(SelfhostParserRawMode)->SelfhostParserRawMode> (self):
+    fn copy_mark %fn SelfhostParserRawMode SelfhostParserRawMode \self:
         self
 
 //: SelfhostParserTokenAction: parser loop が token に対して行う処理
@@ -39,15 +39,15 @@ pub enum SelfhostParserTokenAction:
     Regular
 
 impl Clone for SelfhostParserTokenAction:
-    fn clone <(&SelfhostParserTokenAction)->SelfhostParserTokenAction> (self):
+    fn clone %fn &SelfhostParserTokenAction SelfhostParserTokenAction \self:
         *self
 
 impl Copy for SelfhostParserTokenAction:
-    fn copy_mark <(SelfhostParserTokenAction)->SelfhostParserTokenAction> (self):
+    fn copy_mark %fn SelfhostParserTokenAction SelfhostParserTokenAction \self:
         self
 
 //: selfhost_parser_raw_mode_is_pending: raw block indent 待ちか[返/かえ]す
-pub fn selfhost_parser_raw_mode_is_pending <(SelfhostParserRawMode)->bool> (mode):
+pub fn selfhost_parser_raw_mode_is_pending %fn SelfhostParserRawMode bool \mode:
     match mode:
         SelfhostParserRawMode::PendingWasm:
             true
@@ -61,7 +61,7 @@ pub fn selfhost_parser_raw_mode_is_pending <(SelfhostParserRawMode)->bool> (mode
             false
 
 //: selfhost_parser_depth_dec: 通常 block depth を 0 未満にしないで 1 [戻/もど]す
-pub fn selfhost_parser_depth_dec <(i32)->i32> (depth):
+pub fn selfhost_parser_depth_dec %fn i32 i32 \depth:
     if:
         gt depth 0
         then:

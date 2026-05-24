@@ -27,11 +27,11 @@
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let g <AdjacencyMatrix> unwrap_ok<AdjacencyMatrix, Diag> new 3;
+//: fn main %impure fn () i32 \():
+//:     let g %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 3;
 //:     free g
 //:     0
 //: ```
-pub fn free <(AdjacencyMatrix)->()> (g):
-    let bits <Vec<u8>> field::get g "bits"
+pub fn free %fn AdjacencyMatrix () \g:
+    let bits %Vec u8 field::get g "bits"
     vec::free<u8> bits

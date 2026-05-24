@@ -41,28 +41,28 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn is_even <(i32)->bool> (x):
+//: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
 //:         |> push 4 |> uwok
-//:     let ok <bool> eq count<i32> &xs is_even 2
+//:     let ok %bool eq count<i32> &xs is_even 2
 //:     free<i32> xs;
 //:     if ok 0 1
 //: ```
-pub fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
-    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+pub fn count <.T: Copy> %fn &Vec .T fn fn .T bool i32 \v\p:
+    let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
     match vec_buffer_current_copy_invariant<.T> v_buffer:
         VecCopyInvariant::Invalid _reason:
             0
         VecCopyInvariant::Valid:
-            let src_len <i32> *field::get_ref v_buffer "len"
-            let mut out <i32> 0
-            let mut i <i32> 0
+            let src_len %i32 *field::get_ref v_buffer "len"
+            let mut out %i32 0
+            let mut i %i32 0
             while lt i src_len:
                 do:
                     match vec_get::get<.T> v i:
@@ -102,29 +102,29 @@ pub fn count <.T: Copy> <(&Vec<.T>, (.T)->bool)->i32> (v, p):
 //:| #import "core/result" as *
 //:| #import "core/traits/drop" as *
 //: struct DropPayload:
-//:     value <i32>
+//:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop <(&DropPayload)*>()> (_self):
+//:     fn drop %impure fn &DropPayload () \_self:
 //:         ()
-//: fn is_even_payload <(&DropPayload)->bool> (item):
+//: fn is_even_payload %fn &DropPayload bool \item:
 //:     eq rem_s *field::get_ref item "value" 2 0
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
-//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 2)
-//:     let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 3)
-//:     let ok <bool> eq count_ref<DropPayload> &v2 @is_even_payload 1
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
+//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 2)
+//:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 3)
+//:     let ok %bool eq count_ref<DropPayload> &v2 @is_even_payload 1
 //:     free<DropPayload> v2
 //:     if ok 0 1
 //: ```
-pub fn count_ref <.T> <(&Vec<.T>, (&.T)->bool)->i32> (v, p):
+pub fn count_ref <.T> %fn &Vec .T fn fn &.T bool i32 \v\p:
     match vec_current_storage_invariant<.T> v:
         VecStorageInvariant::Invalid _reason:
             0
         VecStorageInvariant::Valid:
-            let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
-            let src_len <i32> *field::get_ref v_buffer "len"
-            let mut out <i32> 0
-            let mut i <i32> 0
+            let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
+            let src_len %i32 *field::get_ref v_buffer "len"
+            let mut out %i32 0
+            let mut i %i32 0
             while lt i src_len:
                 do:
                     if:
@@ -158,27 +158,27 @@ pub fn count_ref <.T> <(&Vec<.T>, (&.T)->bool)->i32> (v, p):
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn add_acc <(i32,i32)->i32> (acc, x):
+//: fn add_acc %fn i32 fn i32 i32 \acc\x:
 //:     add acc x
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
-//:     let ok <bool> eq fold<i32,i32> &xs 10 add_acc 16
+//:     let ok %bool eq fold<i32,i32> &xs 10 add_acc 16
 //:     free<i32> xs;
 //:     if ok 0 1
 //: ```
-pub fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
-    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+pub fn fold <.T: Copy,.U> %fn &Vec .T fn .U fn fn .U fn .T .U .U \v\acc\f:
+    let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
     match vec_buffer_current_copy_invariant<.T> v_buffer:
         VecCopyInvariant::Invalid _reason:
             acc
         VecCopyInvariant::Valid:
-            let src_len <i32> *field::get_ref v_buffer "len"
-            let mut out <.U> acc
-            let mut i <i32> 0
+            let src_len %i32 *field::get_ref v_buffer "len"
+            let mut out %.U acc
+            let mut i %i32 0
             while lt i src_len:
                 do:
                     match vec_get::get<.T> v i:
@@ -214,10 +214,10 @@ pub fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn add_acc <(i32,i32)->i32> (acc, x):
+//: fn add_acc %fn i32 fn i32 i32 \acc\x:
 //:     add acc x
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
@@ -230,13 +230,13 @@ pub fn fold <.T: Copy,.U> <(&Vec<.T>, .U, (.U,.T)->.U)->.U> (v, acc, f):
 //:             free<i32> xs;
 //:             1
 //: ```
-pub fn reduce <.T: Copy> <(&Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
-    let v_buffer <&OwnedBuffer<.T>> field::get_ref v "buffer"
+pub fn reduce <.T: Copy> %fn &Vec .T fn fn .T fn .T .T Option .T \v\f:
+    let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
     match vec_buffer_current_copy_invariant<.T> v_buffer:
         VecCopyInvariant::Invalid _reason:
             none<.T>
         VecCopyInvariant::Valid:
-            let src_len <i32> *field::get_ref v_buffer "len"
+            let src_len %i32 *field::get_ref v_buffer "len"
             if:
                 eq src_len 0
                 then none<.T>
@@ -245,8 +245,8 @@ pub fn reduce <.T: Copy> <(&Vec<.T>, (.T,.T)->.T)->Option<.T>> (v, f):
                         Option::None:
                             none<.T>
                         Option::Some first:
-                            let mut out <.T> first
-                            let mut i <i32> 1
+                            let mut out %.T first
+                            let mut i %i32 1
                             while lt i src_len:
                                 do:
                                     match vec_get::get<.T> v i:

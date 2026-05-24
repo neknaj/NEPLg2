@@ -29,12 +29,12 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - gap 列に依存します。この実装では最悪 O(n^2)、追加領域 O(1) です。
-pub fn sort_shell <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
+pub fn sort_shell <.T: Ord&Copy> %impure fn &Vec .T () \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
             ()
         VecCopyInvariant::Valid:
-            let n <i32> len<.T> v
+            let n %i32 len<.T> v
             if:
                 le n 1
                 then ()
@@ -45,24 +45,24 @@ pub fn sort_shell <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                         VecDataView::Invalid _reason:
                             ()
                         VecDataView::Data data:
-                            let mut gap <i32> div_s n 2;
+                            let mut gap %i32 div_s n 2;
 
                             while lt 0 gap:
                                 do:
-                                    let mut i <i32> gap;
+                                    let mut i %i32 gap;
                                     while lt i n:
                                         do:
-                                            let temp <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                                            let mut j <i32> i;
+                                            let temp %.T load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                                            let mut j %i32 i;
 
-                                            let mut done <i32> 0;
+                                            let mut done %i32 0;
                                             while eq done 0:
                                                 do:
                                                     if:
                                                         and le gap j sort_lt<.T> temp load<.T> add mem_ptr_addr data mul sub j gap size_of<.T>
                                                         then:
-                                                            let src <i32> sub j gap
-                                                            let x <.T> load<.T> add mem_ptr_addr data mul src size_of<.T>;
+                                                            let src %i32 sub j gap
+                                                            let x %.T load<.T> add mem_ptr_addr data mul src size_of<.T>;
                                                             store<.T> add mem_ptr_addr data mul j size_of<.T> x;
                                                             set j sub j gap;
                                                         else set done 1
@@ -85,12 +85,12 @@ pub fn sort_shell <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均は bubble sort より改善しますが、最悪 O(n^2) です。
-pub fn sort_comb <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
+pub fn sort_comb <.T: Ord&Copy> %impure fn &Vec .T () \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
             ()
         VecCopyInvariant::Valid:
-            let n <i32> len<.T> v
+            let n %i32 len<.T> v
             if:
                 le n 1
                 then ()
@@ -101,13 +101,13 @@ pub fn sort_comb <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                         VecDataView::Invalid _reason:
                             ()
                         VecDataView::Data data:
-                            let mut gap <i32> n;
-                            let mut sorted <i32> 0;
+                            let mut gap %i32 n;
+                            let mut sorted %i32 0;
 
                             while eq sorted 0:
                                 do:
-                                    let scaled_gap <i32> mul gap 10;
-                                    let reduced_gap <i32> div_s scaled_gap 13;
+                                    let scaled_gap %i32 mul gap 10;
+                                    let reduced_gap %i32 div_s scaled_gap 13;
                                     set gap reduced_gap;
                                     if:
                                         lt gap 1
@@ -119,16 +119,16 @@ pub fn sort_comb <.T: Ord&Copy> <(&Vec<.T>)*>()> (v):
                                         then set sorted 1
                                         else ()
 
-                                    let mut i <i32> 0;
-                                    let mut done_scan <i32> 0;
+                                    let mut i %i32 0;
+                                    let mut done_scan %i32 0;
                                     while eq done_scan 0:
                                         do:
-                                            let next_i <i32> add i gap;
+                                            let next_i %i32 add i gap;
                                             if:
                                                 lt next_i n
                                                 then:
-                                                    let a <.T> load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                                                    let b <.T> load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
+                                                    let a %.T load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                                                    let b %.T load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
                                                     if:
                                                         sort_lt<.T> b a
                                                         then:

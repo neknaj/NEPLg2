@@ -16,7 +16,7 @@
 //:
 //: [目的/もくてき]:
 //: - BOM 後の NUL と ASCII 空白を、decimal code ではなく文字として明示します。
-pub fn stream_scanner_is_leading_skip_byte <(i32)->bool> (byte):
+pub fn stream_scanner_is_leading_skip_byte %fn i32 bool \byte:
     match byte:
         '\0':
             true
@@ -32,7 +32,7 @@ pub fn stream_scanner_is_leading_skip_byte <(i32)->bool> (byte):
             false
 
 //: stream_scanner_is_token_separator: token を区切る ASCII 空白か判定する
-pub fn stream_scanner_is_token_separator <(i32)->bool> (byte):
+pub fn stream_scanner_is_token_separator %fn i32 bool \byte:
     match byte:
         ' ':
             true
@@ -46,15 +46,15 @@ pub fn stream_scanner_is_token_separator <(i32)->bool> (byte):
             false
 
 //: stream_scanner_is_ascii_digit: ASCII digit か判定する
-pub fn stream_scanner_is_ascii_digit <(i32)->bool> (byte):
+pub fn stream_scanner_is_ascii_digit %fn i32 bool \byte:
     and ge byte '0' le byte '9'
 
 //: stream_scanner_digit_value: ASCII digit byte を 0..9 の値へ変換する
-pub fn stream_scanner_digit_value <(i32)->i32> (byte):
+pub fn stream_scanner_digit_value %fn i32 i32 \byte:
     sub byte '0'
 
 //: stream_scanner_is_exponent_marker: 浮動小数点 token の指数 marker か判定する
-pub fn stream_scanner_is_exponent_marker <(i32)->bool> (byte):
+pub fn stream_scanner_is_exponent_marker %fn i32 bool \byte:
     match byte:
         'e':
             true
@@ -63,10 +63,10 @@ pub fn stream_scanner_is_exponent_marker <(i32)->bool> (byte):
         _:
             false
 
-pub fn stream_scanner_skip_ws_state <(&StreamScanner)*>()> (sc):
-    let bytes <&ByteBuf> get_ref sc "bytes";
-    let len <i32> stream_scanner_len sc;
-    let mut p <i32> stream_scanner_load_pos sc;
+pub fn stream_scanner_skip_ws_state %impure fn &StreamScanner () \sc:
+    let bytes %&ByteBuf get_ref sc "bytes";
+    let len %i32 stream_scanner_len sc;
+    let mut p %i32 stream_scanner_load_pos sc;
 
     if:
         eq p 0
@@ -74,12 +74,12 @@ pub fn stream_scanner_skip_ws_state <(&StreamScanner)*>()> (sc):
             if:
                 ge len 2
                 then:
-                    let b0 <i32> stream_scanner_byte_at bytes 0;
-                    let b1 <i32> stream_scanner_byte_at bytes 1;
+                    let b0 %i32 stream_scanner_byte_at bytes 0;
+                    let b1 %i32 stream_scanner_byte_at bytes 1;
                     if:
                         ge len 3
                         then:
-                            let b2 <i32> stream_scanner_byte_at bytes 2;
+                            let b2 %i32 stream_scanner_byte_at bytes 2;
                             if:
                                 and and eq b0 239 eq b1 187 eq b2 191
                                 then:
@@ -103,12 +103,12 @@ pub fn stream_scanner_skip_ws_state <(&StreamScanner)*>()> (sc):
         else:
             ();
 
-    let mut done <i32> 0;
+    let mut done %i32 0;
     while eq done 0:
         if:
             lt p len
             then:
-                let byte <i32> stream_scanner_byte_at bytes p;
+                let byte %i32 stream_scanner_byte_at bytes p;
                 if:
                     stream_scanner_is_leading_skip_byte byte
                     then:

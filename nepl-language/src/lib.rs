@@ -1072,6 +1072,8 @@ fn token_kind_name(kind: &TokenKind) -> &'static str {
         TokenKind::Comma => "Comma",
         TokenKind::LAngle => "LAngle",
         TokenKind::RAngle => "RAngle",
+        TokenKind::Percent => "Percent",
+        TokenKind::Backslash => "Backslash",
         TokenKind::Arrow(_) => "Arrow",
         TokenKind::PathSep => "PathSep",
         TokenKind::At => "At",

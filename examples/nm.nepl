@@ -3,16 +3,16 @@
 //: argv: ["--help"]
 //: stdout: mlstr:
 //:     ##: Neknaj Markdown (Neknaj Prefix Language) CLI
-//:     ##: 
+//:     ##:
 //:     ##: Reads Markdown from stdin and writes AST or HTML to stdout.
-//:     ##: 
+//:     ##:
 //:     ##: Usage:
 //:     ##:   nm [--ast|--html]
-//:     ##: 
+//:     ##:
 //:     ##: Options:
 //:     ##:   --ast   Output AST (default)
 //:     ##:   --html  Output HTML
-//:     ##: 
+//:     ##:
 //:
 //: nm: Neknaj Markdown を変換する CLI サンプル
 //:
@@ -44,7 +44,7 @@
 //:
 //: [目的/もくてき]:
 //: - CLI の引数一覧と基本用途をまとめて表示します。
-fn print_usage <()*>()> ():
+fn print_usage %impure fn () () \():
     println "Neknaj Markdown (Neknaj Prefix Language) CLI";
     println "";
     println "Reads Markdown from stdin and writes AST or HTML to stdout.";
@@ -62,12 +62,12 @@ fn print_usage <()*>()> ():
 //:
 //: [目的/もくてき]:
 //: - help 表示と通常変換の分岐を行います。
-fn main <()*>()> ():
-    let argc <i32> cliarg_count;
-    let mut mode <str> "--ast";
-    let mut should_run <bool> true;
+fn main %impure fn () () \():
+    let argc %i32 cliarg_count;
+    let mut mode %str "--ast";
+    let mut should_run %bool true;
 
-    let mut i <i32> 1;
+    let mut i %i32 1;
     while and lt i argc should_run:
         do:
             match cliarg_get i:
@@ -99,17 +99,17 @@ fn main <()*>()> ():
     if:
         should_run
         then:
-            let input <str> read_all;
-            let doc <Document> parse_markdown input;
+            let input %str read_all;
+            let doc %Document parse_markdown input;
             if:
                 str_eq mode "--html"
                 then:
-                    let html <str> render_document doc;
+                    let html %str render_document doc;
                     print html;
                     print "\n";
                     ()
                 else:
-                    let ast <str> document_to_json doc;
+                    let ast %str document_to_json doc;
                     print ast;
                     print "\n";
                     ()

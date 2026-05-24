@@ -9,15 +9,15 @@
 #import "core/math" as *
 #import "alloc/collections/vec" as vec
 
-pub fn seg_next_pow2 <(i32)->i32> (n):
-    let mut x <i32> 1
+pub fn seg_next_pow2 %fn i32 i32 \n:
+    let mut x %i32 1
     while lt x n:
         do:
             set x mul x 2
     x
 
-pub fn seg_expected_cells <(i32)->i32> (base):
+pub fn seg_expected_cells %fn i32 i32 \base:
     mul base 2
 
-pub fn seg_storage_has_expected_len <(&Vec<i32>,i32)->bool> (data, base):
+pub fn seg_storage_has_expected_len %fn &Vec i32 fn i32 bool \data\base:
     eq vec::len<i32> data seg_expected_cells base

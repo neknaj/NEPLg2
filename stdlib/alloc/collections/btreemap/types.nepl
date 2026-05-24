@@ -23,8 +23,8 @@
 //: - `0 <= i < len` の slot は key/value とも `Some`
 //: - `len <= i < cap` の slot は key/value とも `None`
 pub struct BTreeMapStorage<.K,.V>:
-    keys <Vec<Option<.K>>>
-    values <Vec<Option<.V>>>
+    keys %Vec Option .K
+    values %Vec Option .V
 
 //: ## BTreeMap
 //: [順序付き/じゅんじょつき] key/value [配列/はいれつ]の[本体/ほんたい]
@@ -35,9 +35,9 @@ pub struct BTreeMapStorage<.K,.V>:
 //: ### [注意/ちゅうい]
 //: - [本物/ほんもの]の B-tree node [分割/ぶんかつ]は[持/も]たず、lower_bound と shift で[動/うご]く[単純/たんじゅん][実装/じっそう]です。
 pub struct BTreeMap<.K,.V>:
-    len <i32>
-    cap <i32>
-    storage <BTreeMapStorage<.K,.V>>
+    len %i32
+    cap %i32
+    storage %BTreeMapStorage .K .V
 
 //: ## BTreeMapInsertError
 //: `insert` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
@@ -58,19 +58,19 @@ pub struct BTreeMap<.K,.V>:
 //:| #import "alloc/collections/btreemap" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let m <BTreeMap<i32,i32>> unwrap_ok new<i32,i32>;
-//:     let _e <BTreeMapInsertError<i32,i32>> BTreeMapInsertError<i32,i32> m (diag_error StdErrorKind::OutOfMemory "grow");
+//: fn main %impure fn () i32 \():
+//:     let m %BTreeMap i32 i32 unwrap_ok new<i32,i32>;
+//:     let _e %BTreeMapInsertError i32 i32 BTreeMapInsertError<i32,i32> m (diag_error StdErrorKind::OutOfMemory "grow");
 //:     0
 //: ```
 pub struct BTreeMapInsertError<.K,.V>:
-    owner <BTreeMap<.K,.V>>
-    diag <Diag>
+    owner %BTreeMap .K .V
+    diag %Diag
 
 //: btreemap_insert_error_diag: insert [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
-pub fn btreemap_insert_error_diag <.K,.V> <(&BTreeMapInsertError<.K,.V>)->Diag> (e):
+pub fn btreemap_insert_error_diag <.K,.V> %fn &BTreeMapInsertError .K .V Diag \e:
     *field::get_ref e "diag"
 
 //: btreemap_insert_error_owner: insert [失敗/しっぱい]で[戻/もど]された `BTreeMap` owner を[取/と]り[出/だ]す
-pub fn btreemap_insert_error_owner <.K: Copy,.V: Copy> <(BTreeMapInsertError<.K,.V>)->BTreeMap<.K,.V>> (e):
+pub fn btreemap_insert_error_owner <.K: Copy,.V: Copy> %fn BTreeMapInsertError .K .V BTreeMap .K .V \e:
     field::get e "owner"

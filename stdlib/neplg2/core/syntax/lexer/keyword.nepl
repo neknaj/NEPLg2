@@ -21,16 +21,16 @@
 //: [注意/ちゅうい]:
 //: - 先に byte length bucket で 2 byte 以上の候補に絞ってから呼びます。
 //: - key 値は lexer の内部実装です。同じ prefix の非 keyword は equality check で `None` に戻します。
-pub fn lex_keyword_match_key <(str)->i32> (lexeme):
-    let first <i32> lex_byte_or_end lexeme 0
-    let second <i32> lex_byte_or_end lexeme 1
+pub fn lex_keyword_match_key %fn str i32 \lexeme:
+    let first %i32 lex_byte_or_end lexeme 0
+    let second %i32 lex_byte_or_end lexeme 1
     add mul first 256 second
 
 //: lex_keyword_kind_if_eq: key arm の keyword 候補を実文字列で検証する
 //:
 //: [目的/もくてき]:
 //: - key の衝突で別 identifier が同じ arm に入っても、`str_eq` が一致した場合だけ keyword として扱います。
-pub fn lex_keyword_kind_if_eq <(str,str,TokenKind)->Option<TokenKind>> (lexeme, expected, kind):
+pub fn lex_keyword_kind_if_eq %fn str fn str fn TokenKind Option TokenKind \lexeme\expected\kind:
     match string_search::str_eq lexeme expected:
         true:
             Option<TokenKind>::Some kind
@@ -42,7 +42,7 @@ pub fn lex_keyword_kind_if_eq <(str,str,TokenKind)->Option<TokenKind>> (lexeme, 
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 2 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - arm body では必ず実文字列を検証し、prefix だけが同じ identifier は `None` にします。
-pub fn lex_keyword_kind_len2 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len2 %fn str Option TokenKind \lexeme:
     match lex_keyword_match_key lexeme:
         26222:
             lex_keyword_kind_if_eq lexeme "fn" TokenKind::KwFn
@@ -58,7 +58,7 @@ pub fn lex_keyword_kind_len2 <(str)->Option<TokenKind>> (lexeme):
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 3 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - arm body では必ず実文字列を検証し、prefix だけが同じ identifier は `None` にします。
-pub fn lex_keyword_kind_len3 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len3 %fn str Option TokenKind \lexeme:
     match lex_keyword_match_key lexeme:
         27749:
             lex_keyword_kind_if_eq lexeme "let" TokenKind::KwLet
@@ -78,7 +78,7 @@ pub fn lex_keyword_kind_len3 <(str)->Option<TokenKind>> (lexeme):
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 4 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - `else` と `enum`、`then` と `true` のような同じ長さの prefix 近接候補も、実文字列検証で最終判定します。
-pub fn lex_keyword_kind_len4 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len4 %fn str Option TokenKind \lexeme:
     match lex_keyword_match_key lexeme:
         25455:
             lex_keyword_kind_if_eq lexeme "cond" TokenKind::KwCond
@@ -100,7 +100,7 @@ pub fn lex_keyword_kind_len4 <(str)->Option<TokenKind>> (lexeme):
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 5 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - arm body では必ず実文字列を検証し、prefix だけが同じ identifier は `None` にします。
-pub fn lex_keyword_kind_len5 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len5 %fn str Option TokenKind \lexeme:
     match lex_keyword_match_key lexeme:
         30568:
             lex_keyword_kind_if_eq lexeme "while" TokenKind::KwWhile
@@ -122,7 +122,7 @@ pub fn lex_keyword_kind_len5 <(str)->Option<TokenKind>> (lexeme):
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 6 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - `struct` / `trait` は token kind が異なるため、key arm 単位で実文字列を検証します。
-pub fn lex_keyword_kind_len6 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len6 %fn str Option TokenKind \lexeme:
     match lex_keyword_match_key lexeme:
         29556:
             lex_keyword_kind_if_eq lexeme "struct" TokenKind::KwStruct
@@ -136,7 +136,7 @@ pub fn lex_keyword_kind_len6 <(str)->Option<TokenKind>> (lexeme):
 //: [実装/じっそう]:
 //: - `lex_keyword_kind` で長さ 8 に絞った lexeme を、先頭 2 byte key の `match` で候補選択します。
 //: - 現在は `noshadow` のみですが、他の 8 byte keyword を追加する場合も arm 単位で増やします。
-pub fn lex_keyword_kind_len8 <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind_len8 %fn str Option TokenKind \lexeme:
     match lex_keyword_match_key lexeme:
         28271:
             lex_keyword_kind_if_eq lexeme "noshadow" TokenKind::KwNoShadow
@@ -154,7 +154,7 @@ pub fn lex_keyword_kind_len8 <(str)->Option<TokenKind>> (lexeme):
 //:
 //: [計算量/けいさんりょう]:
 //: - lexeme 長を n として O(n) 時間、追加領域は O(1) です。
-pub fn lex_keyword_kind <(str)->Option<TokenKind>> (lexeme):
+pub fn lex_keyword_kind %fn str Option TokenKind \lexeme:
     match string_access::len lexeme:
         2:
             lex_keyword_kind_len2 lexeme
@@ -175,7 +175,7 @@ pub fn lex_keyword_kind <(str)->Option<TokenKind>> (lexeme):
 //:
 //: [目的/もくてき]:
 //: - keyword 判定用に切り出した一時文字列を `SelfhostToken` へ保存しないため、判定後に所有境界を閉じます。
-pub fn lex_consume_temp_str <(str)->()> (s):
+pub fn lex_consume_temp_str %fn str () \s:
     string_access::len s
     ()
 
@@ -183,9 +183,9 @@ pub fn lex_consume_temp_str <(str)->()> (s):
 //:
 //: [目的/もくてき]:
 //: - keyword 判定には一時 `str` を使いますが、token buffer には owner を持たない range-only token だけを保存します。
-pub fn lex_ident_or_keyword_token <(str,i32,i32,i32)->SelfhostToken> (source, file_id, start, end):
-    let lexeme <str> string_slice::str_slice source start end
-    let kind <TokenKind> match lex_keyword_kind lexeme:
+pub fn lex_ident_or_keyword_token %fn str fn i32 fn i32 fn i32 SelfhostToken \source\file_id\start\end:
+    let lexeme %str string_slice::str_slice source start end
+    let kind %TokenKind match lex_keyword_kind lexeme:
         Option::Some keyword:
             keyword
         Option::None:

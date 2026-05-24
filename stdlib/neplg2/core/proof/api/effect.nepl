@@ -14,14 +14,14 @@
 #import "neplg2/core/ty/effect" as *
 
 //: selfhost_proof_query_effect_allowed: effect boundary query を[作/つく]る
-fn selfhost_proof_query_effect_allowed <(SelfhostEffectContext,SelfhostEffectObservationFact)->SelfhostProofQuery> (context, fact):
-    let proof_fact <SelfhostProofFact> SelfhostProofFact::EffectObserved fact
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::EffectAllowedInContext context
+fn selfhost_proof_query_effect_allowed %fn SelfhostEffectContext fn SelfhostEffectObservationFact SelfhostProofQuery \context\fact:
+    let proof_fact %SelfhostProofFact SelfhostProofFact::EffectObserved fact
+    let obligation %SelfhostProofObligation SelfhostProofObligation::EffectAllowedInContext context
     selfhost_proof_query_new proof_fact obligation
 
 //: selfhost_proof_effect_allowed: effect が context で許可されるか typed result として[返/かえ]す
-pub fn selfhost_proof_effect_allowed <(SelfhostEffectContext,SelfhostEffectObservationFact)->Result<SelfhostEffectContext,SelfhostProofRefutation>> (context, fact):
-    let query <SelfhostProofQuery> selfhost_proof_query_effect_allowed context fact
+pub fn selfhost_proof_effect_allowed %fn SelfhostEffectContext fn SelfhostEffectObservationFact Result SelfhostEffectContext SelfhostProofRefutation \context\fact:
+    let query %SelfhostProofQuery selfhost_proof_query_effect_allowed context fact
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:

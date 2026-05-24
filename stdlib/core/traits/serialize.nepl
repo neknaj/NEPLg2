@@ -27,7 +27,7 @@
 //: - [現在/げんざい]の stdlib では `Serialize` の[返/かえ]り[値/あたい]は `str` に[固定/こてい]します。
 //: - [人間/にんげん][向/む]けの[簡易/かんい][表示/ひょうじ]は `Stringify`、[調査用/ちょうさよう]の[詳細/しょうさい][表示/ひょうじ]は `Debug` を[使/つか]います。
 trait Serialize:
-    fn serialize <(Self)->str> (x):
+    fn serialize %fn Self str \x:
         ""
 
 //: ## serialize
@@ -45,9 +45,9 @@ trait Serialize:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/serialize" as *
-//:| fn main <()*>i32> ():
-//:     let text_i32 <str> serialize 42
-//:     let text_bool <str> serialize false
+//:| fn main %impure fn () i32 \():
+//:     let text_i32 %str serialize 42
+//:     let text_bool %str serialize false
 //:     let report:
 //:         test_report_new "serialize_doc"
 //:         |> test_report_push assert_str_eq "serialize i32" "42" text_i32
@@ -64,37 +64,37 @@ trait Serialize:
 //:
 //: ### [計算量/けいさんりょう]
 //: - impl に[依存/いそん]します。
-pub fn serialize <.T: Serialize> <(.T)->str> (x):
+pub fn serialize <.T: Serialize> %fn .T str \x:
     Serialize::serialize x
 
 impl Serialize for str:
-    fn serialize <(str)->str> (x):
+    fn serialize %fn str str \x:
         x
 
 impl Serialize for bool:
-    fn serialize <(bool)->str> (x):
+    fn serialize %fn bool str \x:
         from_bool x
 
 impl Serialize for i32:
-    fn serialize <(i32)->str> (x):
+    fn serialize %fn i32 str \x:
         from_i32 x
 
 impl Serialize for i64:
-    fn serialize <(i64)->str> (x):
+    fn serialize %fn i64 str \x:
         from_i64 x
 
 impl Serialize for i128:
-    fn serialize <(i128)->str> (x):
+    fn serialize %fn i128 str \x:
         from_i128 x
 
 impl Serialize for u8:
-    fn serialize <(u8)->str> (x):
+    fn serialize %fn u8 str \x:
         from_i32 cast x
 
 impl Serialize for f32:
-    fn serialize <(f32)->str> (x):
+    fn serialize %fn f32 str \x:
         from_f32 x
 
 impl Serialize for f64:
-    fn serialize <(f64)->str> (x):
+    fn serialize %fn f64 str \x:
         from_f64 x

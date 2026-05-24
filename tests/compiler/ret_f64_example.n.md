@@ -10,6 +10,6 @@ diag_codes: type.annotation.mismatch, type.return.mismatch
 #entry main
 #indent 4
 
-fn main <()->f64>():
+fn main %fn () f64():
     1.25
 ```

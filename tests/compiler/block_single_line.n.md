@@ -13,8 +13,8 @@ stdout: "test_report name=\"block_sl_basic_literal\" count=1 failed=0\nassertion
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block 10
+fn main %impure fn () i32 \():
+    let actual %i32 block 10
     let report:
         test_report_new "block_sl_basic_literal"
         |> test_report_push assert_eq_i32 "single-line block literal" 10 actual
@@ -35,8 +35,8 @@ stdout: "test_report name=\"block_sl_basic_arithmetic\" count=1 failed=0\nassert
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block add 1 2
+fn main %impure fn () i32 \():
+    let actual %i32 block add 1 2
     let report:
         test_report_new "block_sl_basic_arithmetic"
         |> test_report_push assert_eq_i32 "single-line block arithmetic" 3 actual
@@ -56,8 +56,8 @@ stdout: "test_report name=\"block_sl_with_let\" count=1 failed=0\nassertion inde
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block let x 10; x
+fn main %impure fn () i32 \():
+    let actual %i32 block let x 10; x
     let report:
         test_report_new "block_sl_with_let"
         |> test_report_push assert_eq_i32 "single-line block let" 10 actual
@@ -78,8 +78,8 @@ stdout: "test_report name=\"block_sl_multiple_stmts\" count=1 failed=0\nassertio
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block let x 1; let y 2; add x y
+fn main %impure fn () i32 \():
+    let actual %i32 block let x 1; let y 2; add x y
     let report:
         test_report_new "block_sl_multiple_stmts"
         |> test_report_push assert_eq_i32 "single-line block multiple statements" 3 actual
@@ -99,8 +99,8 @@ stdout: "test_report name=\"block_sl_nested\" count=1 failed=0\nassertion index=
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block block 5
+fn main %impure fn () i32 \():
+    let actual %i32 block block 5
     let report:
         test_report_new "block_sl_nested"
         |> test_report_push assert_eq_i32 "nested single-line block" 5 actual
@@ -120,8 +120,8 @@ stdout: "test_report name=\"block_sl_nested_in_multiline\" count=1 failed=0\nass
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block:
+fn main %impure fn () i32 \():
+    let actual %i32 block:
         block 10
     let report:
         test_report_new "block_sl_nested_in_multiline"
@@ -143,8 +143,8 @@ stdout: "test_report name=\"block_sl_arg_position\" count=1 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> add 1 block 2
+fn main %impure fn () i32 \():
+    let actual %i32 add 1 block 2
     let report:
         test_report_new "block_sl_arg_position"
         |> test_report_push assert_eq_i32 "single-line block argument" 3 actual
@@ -165,9 +165,9 @@ stdout: "test_report name=\"block_sl_arg_position_complex\" count=1 failed=0\nas
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     // add (block 1 (block 2)) と正しく解釈される
-    let actual <i32> add block 1 block 2
+    let actual %i32 add block 1 block 2
     let report:
         test_report_new "block_sl_arg_position_complex"
         |> test_report_push assert_eq_i32 "single-line block complex arguments" 3 actual
@@ -188,9 +188,9 @@ stdout: "test_report name=\"block_sl_if_branch\" count=1 failed=0\nassertion ind
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     // blockのルールによると if true (block 1 else (block 2)) と解釈されるため誤り
-    let actual <i32> if true block 1 else block 2
+    let actual %i32 if true block 1 else block 2
     let report:
         test_report_new "block_sl_if_branch"
         |> test_report_push assert_eq_i32 "single-line block if branch" 1 actual
@@ -211,7 +211,7 @@ stdout: "test_report name=\"block_sl_while_body\" count=1 failed=0\nassertion in
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut i 0
     // while lt i 5 (block set i add i 1) と解釈され、正しい
     while lt i 5 block set i add i 1
@@ -234,10 +234,10 @@ stdout: "test_report name=\"block_sl_semicolon_unit\" count=1 failed=0\nassertio
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     // block returns unit, so we return 0 explicitly
     block 1;
-    let actual <i32> 0
+    let actual %i32 0
     let report:
         test_report_new "block_sl_semicolon_unit"
         |> test_report_push assert_eq_i32 "single-line block semicolon unit" 0 actual
@@ -258,11 +258,11 @@ stdout: "test_report name=\"block_sl_shadowing\" count=1 failed=0\nassertion ind
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let x 1
     let y block let x 2; x
     // y should be 2, outer x is 1
-    let actual <i32> if eq x 1 y 0
+    let actual %i32 if eq x 1 y 0
     let report:
         test_report_new "block_sl_shadowing"
         |> test_report_push assert_eq_i32 "single-line block shadowing" 2 actual
@@ -282,7 +282,7 @@ stdout: "test_report name=\"block_sl_mutation\" count=1 failed=0\nassertion inde
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut x 1
     block set x 2
     let report:
@@ -304,8 +304,8 @@ stdout: "test_report name=\"block_sl_type_annotated\" count=1 failed=0\nassertio
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> <i32> block 10
+fn main %impure fn () i32 \():
+    let actual %i32 %i32 block 10
     let report:
         test_report_new "block_sl_type_annotated"
         |> test_report_push assert_eq_i32 "single-line block type annotation" 10 actual
@@ -332,11 +332,11 @@ stdout: "test_report name=\"block_sl_tuple_element\" count=1 failed=0\nassertion
 #import "core/field" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let t Tuple:
         block 1
         block 2
-    let actual <i32> get t 1
+    let actual %i32 get t 1
     let report:
         test_report_new "block_sl_tuple_element"
         |> test_report_push assert_eq_i32 "single-line block tuple element" 2 actual
@@ -357,8 +357,8 @@ stdout: "test_report name=\"block_sl_pipe_source\" count=1 failed=0\nassertion i
 #import "core/math" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block 1 |> add 2
+fn main %impure fn () i32 \():
+    let actual %i32 block 1 |> add 2
     let report:
         test_report_new "block_sl_pipe_source"
         |> test_report_push assert_eq_i32 "single-line block pipe source" 3 actual
@@ -381,8 +381,8 @@ stdout: "test_report name=\"block_sl_match_arm\" count=1 failed=0\nassertion ind
 
 enum E: A
 
-fn main <()*>i32> ():
-    let actual <i32> match E::A:
+fn main %impure fn () i32 \():
+    let actual %i32 match E::A:
         A: block 10
     let report:
         test_report_new "block_sl_match_arm"
@@ -403,8 +403,8 @@ stdout: "test_report name=\"block_sl_trailing_comment\" count=1 failed=0\nassert
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block 1 // comment
+fn main %impure fn () i32 \():
+    let actual %i32 block 1 // comment
     let report:
         test_report_new "block_sl_trailing_comment"
         |> test_report_push assert_eq_i32 "single-line block trailing comment" 1 actual
@@ -424,9 +424,9 @@ stdout: "test_report name=\"block_sl_empty_ish\" count=1 failed=0\nassertion ind
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     block ()
-    let actual <i32> 0
+    let actual %i32 0
     let report:
         test_report_new "block_sl_empty_ish"
         |> test_report_push assert_eq_i32 "single-line block unit then return" 0 actual
@@ -446,8 +446,8 @@ stdout: "test_report name=\"block_sl_deeply_nested\" count=1 failed=0\nassertion
 #target std
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let actual <i32> block block block 99
+fn main %impure fn () i32 \():
+    let actual %i32 block block block 99
     let report:
         test_report_new "block_sl_deeply_nested"
         |> test_report_push assert_eq_i32 "deeply nested single-line block" 99 actual
@@ -465,7 +465,7 @@ diag_code: parser.token.unexpected
 #indent 4
 #target core
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     block if:
         true
         1

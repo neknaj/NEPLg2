@@ -34,14 +34,14 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let dq <Deque<i32>> unwrap_ok<Deque<i32>, Diag> new<i32>;
-//:     let observed_len <i32> len<i32> &dq
-//:     let ok <bool> eq observed_len 0
+//: fn main %impure fn () i32 \():
+//:     let dq %Deque i32 unwrap_ok<Deque<i32>, Diag> new<i32>;
+//:     let observed_len %i32 len<i32> &dq
+//:     let ok %bool eq observed_len 0
 //:     free<i32> dq
 //:     if ok 1 0
 //: ```
-pub fn new <.T: Copy> <()*>Result<Deque<.T>, Diag>> ():
+pub fn new <.T: Copy> %impure fn () Result Deque .T Diag \():
     with_capacity<.T> 8
 
 //: ## with_capacity
@@ -55,14 +55,14 @@ pub fn new <.T: Copy> <()*>Result<Deque<.T>, Diag>> ():
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let dq <Deque<i32>> unwrap_ok<Deque<i32>, Diag> with_capacity<i32> 16;
-//:     let ok <bool> eq cap<i32> &dq 16
+//: fn main %impure fn () i32 \():
+//:     let dq %Deque i32 unwrap_ok<Deque<i32>, Diag> with_capacity<i32> 16;
+//:     let ok %bool eq cap<i32> &dq 16
 //:     free<i32> dq
 //:     if ok 1 0
 //: ```
-pub fn with_capacity <.T: Copy> <(i32)*>Result<Deque<.T>, Diag>> (cap):
-    let cap0 <i32> deque_normalize_capacity cap
+pub fn with_capacity <.T: Copy> %impure fn i32 Result Deque .T Diag \cap:
+    let cap0 %i32 deque_normalize_capacity cap
     match deque_alloc_slots<.T> cap0:
         Result::Err d:
             err<Deque<.T>, Diag> d
@@ -71,17 +71,17 @@ pub fn with_capacity <.T: Copy> <(i32)*>Result<Deque<.T>, Diag>> (cap):
 
 //: ## len
 //: `Deque` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-pub fn len <.T> <(&Deque<.T>)->i32> (dq):
+pub fn len <.T> %fn &Deque .T i32 \dq:
     *field::get_ref dq "len"
 
 //: ## cap
 //: `Deque` を[移動/いどう]せずに[容量/ようりょう]を[返/かえ]す
-pub fn cap <.T> <(&Deque<.T>)->i32> (dq):
+pub fn cap <.T> %fn &Deque .T i32 \dq:
     *field::get_ref dq "cap"
 
 //: ## is_empty
 //: `Deque` を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
-pub fn is_empty <.T> <(&Deque<.T>)->bool> (dq):
+pub fn is_empty <.T> %fn &Deque .T bool \dq:
     eq len<.T> dq 0
 
 //: ## push_front
@@ -89,15 +89,15 @@ pub fn is_empty <.T> <(&Deque<.T>)->bool> (dq):
 //:
 //: ### [失敗/しっぱい]時の owner
 //: - grow allocation failure では旧 deque owner を `DequePushError` に[戻/もど]します。
-pub fn push_front <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, DequePushError<.T>>> (dq, item):
-    let len0 <i32> *field::get_ref &dq "len"
-    let cap0 <i32> *field::get_ref &dq "cap"
-    let head0 <i32> *field::get_ref &dq "head"
-    let items <Vec<Option<.T>>> field::get dq "items"
+pub fn push_front <.T: Copy> %impure fn Deque .T impure fn .T Result Deque .T DequePushError .T \dq\item:
+    let len0 %i32 *field::get_ref &dq "len"
+    let cap0 %i32 *field::get_ref &dq "cap"
+    let head0 %i32 *field::get_ref &dq "head"
+    let items %Vec Option .T field::get dq "items"
     if:
         eq len0 cap0
         then:
-            let new_cap <i32> mul cap0 2
+            let new_cap %i32 mul cap0 2
             match deque_alloc_slots<.T> new_cap:
                 Result::Err d:
                     Result::Err<Deque<.T>, DequePushError<.T>> DequePushError<.T> (Deque<.T> len0 cap0 head0 items) d
@@ -107,7 +107,7 @@ pub fn push_front <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, DequePushError<.
                     vec::free<Option<.T>> items
                     Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 new_cap 0 new_items
         else:
-            let head1 <i32> deque_prev_index head0 cap0
+            let head1 %i32 deque_prev_index head0 cap0
             deque_store_slot<.T> &items head1 some<.T> item
             Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 cap0 head1 items
 
@@ -116,15 +116,15 @@ pub fn push_front <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, DequePushError<.
 //:
 //: ### [失敗/しっぱい]時の owner
 //: - grow allocation failure では旧 deque owner を `DequePushError` に[戻/もど]します。
-pub fn push_back <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, DequePushError<.T>>> (dq, item):
-    let len0 <i32> *field::get_ref &dq "len"
-    let cap0 <i32> *field::get_ref &dq "cap"
-    let head0 <i32> *field::get_ref &dq "head"
-    let items <Vec<Option<.T>>> field::get dq "items"
+pub fn push_back <.T: Copy> %impure fn Deque .T impure fn .T Result Deque .T DequePushError .T \dq\item:
+    let len0 %i32 *field::get_ref &dq "len"
+    let cap0 %i32 *field::get_ref &dq "cap"
+    let head0 %i32 *field::get_ref &dq "head"
+    let items %Vec Option .T field::get dq "items"
     if:
         eq len0 cap0
         then:
-            let new_cap <i32> mul cap0 2
+            let new_cap %i32 mul cap0 2
             match deque_alloc_slots<.T> new_cap:
                 Result::Err d:
                     Result::Err<Deque<.T>, DequePushError<.T>> DequePushError<.T> (Deque<.T> len0 cap0 head0 items) d
@@ -134,97 +134,97 @@ pub fn push_back <.T: Copy> <(Deque<.T>,.T)*>Result<Deque<.T>, DequePushError<.T
                     vec::free<Option<.T>> items
                     Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 new_cap 0 new_items
         else:
-            let tail <i32> deque_tail_index head0 len0 cap0
+            let tail %i32 deque_tail_index head0 len0 cap0
             deque_store_slot<.T> &items tail some<.T> item
             Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 cap0 head0 items
 
 //: ## pop_front
 //: [先頭/せんとう]を[取/と]り[出/だ]し、[更新後/こうしんご]の deque と[値/あたい]を[返/かえ]す
-pub fn pop_front <.T: Copy> <(Deque<.T>)*>DequePop<.T>> (dq):
-    let len0 <i32> *field::get_ref &dq "len"
-    let cap0 <i32> *field::get_ref &dq "cap"
-    let head0 <i32> *field::get_ref &dq "head"
-    let items <Vec<Option<.T>>> field::get dq "items"
+pub fn pop_front <.T: Copy> %impure fn Deque .T DequePop .T \dq:
+    let len0 %i32 *field::get_ref &dq "len"
+    let cap0 %i32 *field::get_ref &dq "cap"
+    let head0 %i32 *field::get_ref &dq "head"
+    let items %Vec Option .T field::get dq "items"
     if:
         eq len0 0
         then:
-            let next_dq <Deque<.T>> Deque<.T> 0 cap0 head0 items
+            let next_dq %Deque .T Deque<.T> 0 cap0 head0 items
             DequePop<.T> next_dq none<.T>
         else:
-            let item <Option<.T>> deque_item_at<.T> &items head0
+            let item %Option .T deque_item_at<.T> &items head0
             deque_store_slot<.T> &items head0 none<.T>
-            let next_len <i32> sub len0 1
-            let next_head <i32> deque_next_index head0 cap0
-            let next_dq <Deque<.T>> Deque<.T> next_len cap0 next_head items
+            let next_len %i32 sub len0 1
+            let next_head %i32 deque_next_index head0 cap0
+            let next_dq %Deque .T Deque<.T> next_len cap0 next_head items
             DequePop<.T> next_dq item
 
 //: ## pop_back
 //: [末尾/まつび]を[取/と]り[出/だ]し、[更新後/こうしんご]の deque と[値/あたい]を[返/かえ]す
-pub fn pop_back <.T: Copy> <(Deque<.T>)*>DequePop<.T>> (dq):
-    let len0 <i32> *field::get_ref &dq "len"
-    let cap0 <i32> *field::get_ref &dq "cap"
-    let head0 <i32> *field::get_ref &dq "head"
-    let items <Vec<Option<.T>>> field::get dq "items"
+pub fn pop_back <.T: Copy> %impure fn Deque .T DequePop .T \dq:
+    let len0 %i32 *field::get_ref &dq "len"
+    let cap0 %i32 *field::get_ref &dq "cap"
+    let head0 %i32 *field::get_ref &dq "head"
+    let items %Vec Option .T field::get dq "items"
     if:
         eq len0 0
         then:
-            let next_dq <Deque<.T>> Deque<.T> 0 cap0 head0 items
+            let next_dq %Deque .T Deque<.T> 0 cap0 head0 items
             DequePop<.T> next_dq none<.T>
         else:
-            let back <i32> deque_back_index head0 len0 cap0
-            let item <Option<.T>> deque_item_at<.T> &items back
+            let back %i32 deque_back_index head0 len0 cap0
+            let item %Option .T deque_item_at<.T> &items back
             deque_store_slot<.T> &items back none<.T>
-            let next_len <i32> sub len0 1
-            let next_dq <Deque<.T>> Deque<.T> next_len cap0 head0 items
+            let next_len %i32 sub len0 1
+            let next_dq %Deque .T Deque<.T> next_len cap0 head0 items
             DequePop<.T> next_dq item
 
 //: ## deque_pop_item
 //: `DequePop` を[借用/しゃくよう]し、[取/と]り[出/だ]した[値/あたい]を[読/よ]む
-pub fn deque_pop_item <.T: Copy> <(&DequePop<.T>)->Option<.T>> (p):
+pub fn deque_pop_item <.T: Copy> %fn &DequePop .T Option .T \p:
     *field::get_ref p "item"
 
 //: ## deque_pop_deque
 //: `DequePop` を[消費/しょうひ]し、[更新後/こうしんご]の deque owner を[取/と]り[出/だ]す
-pub fn deque_pop_deque <.T: Copy> <(DequePop<.T>)->Deque<.T>> (p):
+pub fn deque_pop_deque <.T: Copy> %fn DequePop .T Deque .T \p:
     field::get p "deque"
 
 //: ## peek_front
 //: `Deque` を[移動/いどう]せずに[先頭/せんとう]を[読/よ]む
-pub fn peek_front <.T: Copy> <(&Deque<.T>)->Option<.T>> (dq):
-    let len0 <i32> *field::get_ref dq "len"
+pub fn peek_front <.T: Copy> %fn &Deque .T Option .T \dq:
+    let len0 %i32 *field::get_ref dq "len"
     if:
         eq len0 0
         then:
             none<.T>
         else:
-            let head0 <i32> *field::get_ref dq "head"
-            let items <&Vec<Option<.T>>> field::get_ref dq "items"
+            let head0 %i32 *field::get_ref dq "head"
+            let items %&Vec Option .T field::get_ref dq "items"
             deque_item_at<.T> items head0
 
 //: ## peek_back
 //: `Deque` を[移動/いどう]せずに[末尾/まつび]を[読/よ]む
-pub fn peek_back <.T: Copy> <(&Deque<.T>)->Option<.T>> (dq):
-    let len0 <i32> *field::get_ref dq "len"
+pub fn peek_back <.T: Copy> %fn &Deque .T Option .T \dq:
+    let len0 %i32 *field::get_ref dq "len"
     if:
         eq len0 0
         then:
             none<.T>
         else:
-            let cap0 <i32> *field::get_ref dq "cap"
-            let head0 <i32> *field::get_ref dq "head"
-            let back <i32> deque_back_index head0 len0 cap0
-            let items <&Vec<Option<.T>>> field::get_ref dq "items"
+            let cap0 %i32 *field::get_ref dq "cap"
+            let head0 %i32 *field::get_ref dq "head"
+            let back %i32 deque_back_index head0 len0 cap0
+            let items %&Vec Option .T field::get_ref dq "items"
             deque_item_at<.T> items back
 
 //: ## clear
 //: [内容/ないよう]を[空/から]にする
-pub fn clear <.T: Copy> <(Deque<.T>)*>Deque<.T>> (dq):
-    let cap0 <i32> *field::get_ref &dq "cap"
-    let items <Vec<Option<.T>>> field::get dq "items"
+pub fn clear <.T: Copy> %impure fn Deque .T Deque .T \dq:
+    let cap0 %i32 *field::get_ref &dq "cap"
+    let items %Vec Option .T field::get dq "items"
     deque_clear_slots_loop<.T> &items cap0 0
     Deque<.T> 0 cap0 0 items
 
 //: ## free
 //: deque が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> <(Deque<.T>)->()> (dq):
+pub fn free <.T: Copy> %fn Deque .T () \dq:
     vec::free<Option<.T>> field::get dq "items"

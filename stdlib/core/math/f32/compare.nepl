@@ -13,7 +13,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "core/math/f32/compare" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     if lt 1.0 2.0 0 1
 //: ```
 
@@ -32,7 +32,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn eq <(f32,f32)->bool> (a,b):
+pub fn eq %fn f32 fn f32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -60,7 +60,7 @@ pub fn eq <(f32,f32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ne <(f32,f32)->bool> (a,b):
+pub fn ne %fn f32 fn f32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -88,7 +88,7 @@ pub fn ne <(f32,f32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn lt <(f32,f32)->bool> (a,b):
+pub fn lt %fn f32 fn f32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -116,7 +116,7 @@ pub fn lt <(f32,f32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn le <(f32,f32)->bool> (a,b):
+pub fn le %fn f32 fn f32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -144,7 +144,7 @@ pub fn le <(f32,f32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn gt <(f32,f32)->bool> (a,b):
+pub fn gt %fn f32 fn f32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -172,7 +172,7 @@ pub fn gt <(f32,f32)->bool> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn ge <(f32,f32)->bool> (a,b):
+pub fn ge %fn f32 fn f32 bool \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a

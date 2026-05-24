@@ -30,21 +30,21 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn is_even <(i32)->bool> (x):
+//: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
-//:     let ok <bool> eq vec_partition_matched_len<i32> &parts 1;
+//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let ok %bool eq vec_partition_matched_len<i32> &parts 1;
 //:     vec_partition_free<i32> parts;
 //:     if ok 0 1
 //: ```
-pub fn vec_partition_matched_len <.T> <(&VecPartition<.T>)->i32> (parts):
-    let matched <&Vec<.T>> field::get_ref parts "matched"
-    let matched_buffer <&OwnedBuffer<.T>> field::get_ref matched "buffer"
+pub fn vec_partition_matched_len <.T> %fn &VecPartition .T i32 \parts:
+    let matched %&Vec .T field::get_ref parts "matched"
+    let matched_buffer %&OwnedBuffer .T field::get_ref matched "buffer"
     *field::get_ref matched_buffer "len"
 
 //: ## vec_partition_rest_len
@@ -58,21 +58,21 @@ pub fn vec_partition_matched_len <.T> <(&VecPartition<.T>)->i32> (parts):
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn is_even <(i32)->bool> (x):
+//: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
-//:     let ok <bool> eq vec_partition_rest_len<i32> &parts 1;
+//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let ok %bool eq vec_partition_rest_len<i32> &parts 1;
 //:     vec_partition_free<i32> parts;
 //:     if ok 0 1
 //: ```
-pub fn vec_partition_rest_len <.T> <(&VecPartition<.T>)->i32> (parts):
-    let rest <&Vec<.T>> field::get_ref parts "rest"
-    let rest_buffer <&OwnedBuffer<.T>> field::get_ref rest "buffer"
+pub fn vec_partition_rest_len <.T> %fn &VecPartition .T i32 \parts:
+    let rest %&Vec .T field::get_ref parts "rest"
+    let rest_buffer %&OwnedBuffer .T field::get_ref rest "buffer"
     *field::get_ref rest_buffer "len"
 
 //: ## vec_partition_matched_get
@@ -91,15 +91,15 @@ pub fn vec_partition_rest_len <.T> <(&VecPartition<.T>)->i32> (parts):
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn is_even <(i32)->bool> (x):
+//: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
-//:     let item <Option<i32>> vec_partition_matched_get<i32> &parts 0;
+//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let item %Option i32 vec_partition_matched_get<i32> &parts 0;
 //:     vec_partition_free<i32> parts;
 //:     match item:
 //:         Option::Some x:
@@ -107,8 +107,8 @@ pub fn vec_partition_rest_len <.T> <(&VecPartition<.T>)->i32> (parts):
 //:         Option::None:
 //:             1
 //: ```
-pub fn vec_partition_matched_get <.T: Copy> <(&VecPartition<.T>,i32)->Option<.T>> (parts, idx):
-    let matched <&Vec<.T>> field::get_ref parts "matched"
+pub fn vec_partition_matched_get <.T: Copy> %fn &VecPartition .T fn i32 Option .T \parts\idx:
+    let matched %&Vec .T field::get_ref parts "matched"
     vec_get::get<.T> matched idx
 
 //: ## vec_partition_rest_get
@@ -123,15 +123,15 @@ pub fn vec_partition_matched_get <.T: Copy> <(&VecPartition<.T>,i32)->Option<.T>
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn is_even <(i32)->bool> (x):
+//: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
-//:     let item <Option<i32>> vec_partition_rest_get<i32> &parts 0;
+//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let item %Option i32 vec_partition_rest_get<i32> &parts 0;
 //:     vec_partition_free<i32> parts;
 //:     match item:
 //:         Option::Some x:
@@ -139,8 +139,8 @@ pub fn vec_partition_matched_get <.T: Copy> <(&VecPartition<.T>,i32)->Option<.T>
 //:         Option::None:
 //:             1
 //: ```
-pub fn vec_partition_rest_get <.T: Copy> <(&VecPartition<.T>,i32)->Option<.T>> (parts, idx):
-    let rest <&Vec<.T>> field::get_ref parts "rest"
+pub fn vec_partition_rest_get <.T: Copy> %fn &VecPartition .T fn i32 Option .T \parts\idx:
+    let rest %&Vec .T field::get_ref parts "rest"
     vec_get::get<.T> rest idx
 
 //: ## vec_partition_from_parts
@@ -161,18 +161,18 @@ pub fn vec_partition_rest_get <.T: Copy> <(&VecPartition<.T>,i32)->Option<.T>> (
 //:| #import "alloc/collections/vec/access/header" as *
 //:| #import "alloc/collections/vec/transform/filter/partition/view" as *
 //:| #import "core/math" as *
-//: fn finish_partition <(Vec<i32>,Vec<i32>)*>i32> (matched, rest):
-//:     let ok <bool> and (eq len<i32> &matched 0) (eq len<i32> &rest 0)
+//: fn finish_partition %impure fn Vec i32 impure fn Vec i32 i32 \matched\rest:
+//:     let ok %bool and (eq len<i32> &matched 0) (eq len<i32> &rest 0)
 //:     free<i32> matched
 //:     free<i32> rest
 //:     if ok 0 1
-//: fn main <()*>i32> ():
-//:     let matched <Vec<i32>> vec_empty<i32>
-//:     let rest <Vec<i32>> vec_empty<i32>
-//:     let parts <VecPartition<i32>> vec_partition_from_parts<i32> matched rest
+//: fn main %impure fn () i32 \():
+//:     let matched %Vec i32 vec_empty<i32>
+//:     let rest %Vec i32 vec_empty<i32>
+//:     let parts %VecPartition i32 vec_partition_from_parts<i32> matched rest
 //:     vec_partition_with<i32,i32> parts @finish_partition
 //: ```
-pub fn vec_partition_from_parts <.T> <(Vec<.T>,Vec<.T>)->VecPartition<.T>> (matched, rest):
+pub fn vec_partition_from_parts <.T> %fn Vec .T fn Vec .T VecPartition .T \matched\rest:
     VecPartition<.T> matched rest
 
 //: ## vec_partition_with
@@ -191,21 +191,21 @@ pub fn vec_partition_from_parts <.T> <(Vec<.T>,Vec<.T>)->VecPartition<.T>> (matc
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn finish_partition <(Vec<i32>,Vec<i32>)*>i32> (matched, rest):
-//:     let ok <bool> and (eq len<i32> &matched 0) (eq len<i32> &rest 0)
+//: fn finish_partition %impure fn Vec i32 impure fn Vec i32 i32 \matched\rest:
+//:     let ok %bool and (eq len<i32> &matched 0) (eq len<i32> &rest 0)
 //:     free<i32> matched
 //:     free<i32> rest
 //:     if ok 0 1
-//: fn main <()*>i32> ():
-//:     let matched <Vec<i32>> vec_empty<i32>
-//:     let rest <Vec<i32>> vec_empty<i32>
+//: fn main %impure fn () i32 \():
+//:     let matched %Vec i32 vec_empty<i32>
+//:     let rest %Vec i32 vec_empty<i32>
 //:     // caller は `VecPartition` を直接構築せず、`partition` が返した値をこの eliminator に渡します。
-//:     let parts <VecPartition<i32>> VecPartition<i32> matched rest
+//:     let parts %VecPartition i32 VecPartition<i32> matched rest
 //:     vec_partition_with<i32,i32> parts @finish_partition
 //: ```
-pub fn vec_partition_with <.T,.R> <(VecPartition<.T>,(Vec<.T>,Vec<.T>)*>.R)*>.R> (parts, callback):
-    let matched <Vec<.T>> field::get parts "matched"
-    let rest <Vec<.T>> field::get parts "rest"
+pub fn vec_partition_with <.T,.R> %impure fn VecPartition .T impure fn impure fn Vec .T impure fn Vec .T .R .R \parts\callback:
+    let matched %Vec .T field::get parts "matched"
+    let rest %Vec .T field::get parts "rest"
     callback matched rest
 
 //: ## vec_partition_free
@@ -224,19 +224,19 @@ pub fn vec_partition_with <.T,.R> <(VecPartition<.T>,(Vec<.T>,Vec<.T>)*>.R)*>.R>
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn is_even <(i32)->bool> (x):
+//: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main <()*>i32> ():
-//:     let xs <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts <VecPartition<i32>> unwrap_ok partition<i32> xs is_even;
+//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
 //:     vec_partition_free<i32> parts;
 //:     0
 //: ```
-pub fn vec_partition_free <.T: Copy> <(VecPartition<.T>)->()> (parts):
-    let matched <Vec<.T>> field::get parts "matched"
-    let rest <Vec<.T>> field::get parts "rest"
+pub fn vec_partition_free <.T: Copy> %fn VecPartition .T () \parts:
+    let matched %Vec .T field::get parts "matched"
+    let rest %Vec .T field::get parts "rest"
     vec_cleanup::free<.T> matched
     vec_cleanup::free<.T> rest

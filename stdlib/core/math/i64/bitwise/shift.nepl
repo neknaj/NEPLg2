@@ -15,11 +15,11 @@
 //:| #import "core/cast" as *
 //:| #import "core/math/i64/bitwise/shift" as *
 //:| #import "core/math/i64/compare" as *
-//: fn main <()*>()> ():
-//:     let one <i64> cast 1;
-//:     let three <i64> cast 3;
-//:     assert eq shl one three <i64> cast 8;
-//:     assert eq rotl one one <i64> cast 2;
+//: fn main %impure fn () () \():
+//:     let one %i64 cast 1;
+//:     let three %i64 cast 3;
+//:     assert eq shl one three %i64 cast 8;
+//:     assert eq rotl one one %i64 cast 2;
 //: ```
 
 #indent 4
@@ -37,7 +37,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn shl <(i64,i64)->i64> (a,b):
+pub fn shl %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -64,7 +64,7 @@ pub fn shl <(i64,i64)->i64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn shr_s <(i64,i64)->i64> (a,b):
+pub fn shr_s %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -91,7 +91,7 @@ pub fn shr_s <(i64,i64)->i64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn shr_u <(i64,i64)->i64> (a,b):
+pub fn shr_u %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -118,7 +118,7 @@ pub fn shr_u <(i64,i64)->i64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn rotl <(i64,i64)->i64> (a,b):
+pub fn rotl %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -146,7 +146,7 @@ pub fn rotl <(i64,i64)->i64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn rotr <(i64,i64)->i64> (a,b):
+pub fn rotr %fn i64 fn i64 i64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a

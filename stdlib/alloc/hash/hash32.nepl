@@ -28,59 +28,59 @@
 //:
 //: ### [目的/もくてき]
 //: - hash の[下位/かい] bit まで[偏/かたよ]りを[散/ちら]し、bucket [選択/せんたく]での[偏在/へんざい]を[減/へ]らします。
-pub fn mix <(i32)->i32> (x):
-    let x_s16 <i32> shr_u x 16
-    let h1 <i32> xor x x_s16
-    let h2 <i32> mul h1 -2048144789
-    let h2_s13 <i32> shr_u h2 13
-    let h3 <i32> xor h2 h2_s13
-    let h4 <i32> mul h3 -1028477387
-    let h4_s16 <i32> shr_u h4 16
+pub fn mix %fn i32 i32 \x:
+    let x_s16 %i32 shr_u x 16
+    let h1 %i32 xor x x_s16
+    let h2 %i32 mul h1 -2048144789
+    let h2_s13 %i32 shr_u h2 13
+    let h3 %i32 xor h2 h2_s13
+    let h4 %i32 mul h3 -1028477387
+    let h4_s16 %i32 shr_u h4 16
     xor h4 h4_s16
 
-pub fn hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
+pub fn hash_bytes_loop %fn str fn i32 fn i32 fn Fnv1a32 Fnv1a32 \s\n\idx\h:
     if:
         ge idx n
         then h
         else:
             match string_byte_index::checked_string_byte_at s idx:
                 Option::Some b:
-                    let next_idx <i32> add idx 1
-                    let next_h <Fnv1a32> fnv1a32_update h b
+                    let next_idx %i32 add idx 1
+                    let next_h %Fnv1a32 fnv1a32_update h b
                     hash_bytes_loop s n next_idx next_h
                 Option::None:
                     h
 
 //: ## hash32
 //: `bool` を 32-bit ハッシュへ[変換/へんかん]する
-pub fn hash32 <(bool)->i32> (key):
-    let k <i32> cast key
+pub fn hash32 %fn bool i32 \key:
+    let k %i32 cast key
     mix xor k -1640531527
 
 //: ## hash32
 //: `i32` を 32-bit ハッシュへ[変換/へんかん]する
-pub fn hash32 <(i32)->i32> (key):
+pub fn hash32 %fn i32 i32 \key:
     mix xor key -1640531527
 
 //: ## hash32
 //: `u8` を 32-bit ハッシュへ[変換/へんかん]する
-pub fn hash32 <(u8)->i32> (key):
-    let k <i32> cast key
+pub fn hash32 %fn u8 i32 \key:
+    let k %i32 cast key
     mix xor k -1640531527
 
 //: ## hash32
 //: `i64` を 32-bit ハッシュへ[変換/へんかん]する
-pub fn hash32 <(i64)->i32> (key):
-    let lo <i32> cast key
-    let hi64 <i64> shr_u key <i64> cast 32
-    let hi <i32> cast hi64
-    let folded <i32> xor lo hi
+pub fn hash32 %fn i64 i32 \key:
+    let lo %i32 cast key
+    let hi64 %i64 shr_u key %i64 cast 32
+    let hi %i32 cast hi64
+    let folded %i32 xor lo hi
     mix xor folded -1640531527
 
 //: ## hash32
 //: `str` を 32-bit ハッシュへ[変換/へんかん]する
-pub fn hash32 <(str)->i32> (s):
-    let n <i32> string::len s
-    let h0 <Fnv1a32> new_fnv1a32
-    let h1 <Fnv1a32> hash_bytes_loop s n 0 h0
+pub fn hash32 %fn str i32 \s:
+    let n %i32 string::len s
+    let h0 %Fnv1a32 new_fnv1a32
+    let h1 %Fnv1a32 hash_bytes_loop s n 0 h0
     mix fnv1a32_finalize h1

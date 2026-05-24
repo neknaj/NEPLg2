@@ -17,9 +17,9 @@
 #import "neplg2/core/resource/owner" as *
 
 //: selfhost_proof_query_resource_cell_transition: Resource cell transition query を[作/つく]る
-fn selfhost_proof_query_resource_cell_transition <(SelfhostResourceCellState,SelfhostResourceCellEventFact)->SelfhostProofQuery> (state, event_fact):
-    let proof_fact <SelfhostProofFact> SelfhostProofFact::ResourceCellEventObserved event_fact
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::ResourceCellTransition state
+fn selfhost_proof_query_resource_cell_transition %fn SelfhostResourceCellState fn SelfhostResourceCellEventFact SelfhostProofQuery \state\event_fact:
+    let proof_fact %SelfhostProofFact SelfhostProofFact::ResourceCellEventObserved event_fact
+    let obligation %SelfhostProofObligation SelfhostProofObligation::ResourceCellTransition state
     selfhost_proof_query_new proof_fact obligation
 
 //: selfhost_proof_resource_cell_transition: Resource cell transition の evidence を next state として[返/かえ]す
@@ -27,8 +27,8 @@ fn selfhost_proof_query_resource_cell_transition <(SelfhostResourceCellState,Sel
 //: [目的/もくてき]:
 //: - initialized / moved / dropped の state machine を Resource domain の proof obligation として通します。
 //: - caller は typed refutation を match し、diagnostic は proof solver 外で生成します。
-pub fn selfhost_proof_resource_cell_transition <(SelfhostResourceCellState,SelfhostResourceCellEventFact)->Result<SelfhostResourceCellState,SelfhostProofRefutation>> (state, event_fact):
-    let query <SelfhostProofQuery> selfhost_proof_query_resource_cell_transition state event_fact
+pub fn selfhost_proof_resource_cell_transition %fn SelfhostResourceCellState fn SelfhostResourceCellEventFact Result SelfhostResourceCellState SelfhostProofRefutation \state\event_fact:
+    let query %SelfhostProofQuery selfhost_proof_query_resource_cell_transition state event_fact
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:
@@ -58,14 +58,14 @@ pub fn selfhost_proof_resource_cell_transition <(SelfhostResourceCellState,Selfh
             Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_owner_transition: free obligation owner transition query を[作/つく]る
-fn selfhost_proof_query_owner_transition <(SelfhostOwnerState,SelfhostOwnerEventFact)->SelfhostProofQuery> (state, fact):
-    let proof_fact <SelfhostProofFact> SelfhostProofFact::OwnerEventObserved fact
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::OwnerTransition state
+fn selfhost_proof_query_owner_transition %fn SelfhostOwnerState fn SelfhostOwnerEventFact SelfhostProofQuery \state\fact:
+    let proof_fact %SelfhostProofFact SelfhostProofFact::OwnerEventObserved fact
+    let obligation %SelfhostProofObligation SelfhostProofObligation::OwnerTransition state
     selfhost_proof_query_new proof_fact obligation
 
 //: selfhost_proof_owner_transition: owner event が state で許可されるか typed result として[返/かえ]す
-pub fn selfhost_proof_owner_transition <(SelfhostOwnerState,SelfhostOwnerEventFact)->Result<SelfhostOwnerState,SelfhostProofRefutation>> (state, fact):
-    let query <SelfhostProofQuery> selfhost_proof_query_owner_transition state fact
+pub fn selfhost_proof_owner_transition %fn SelfhostOwnerState fn SelfhostOwnerEventFact Result SelfhostOwnerState SelfhostProofRefutation \state\fact:
+    let query %SelfhostProofQuery selfhost_proof_query_owner_transition state fact
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:
@@ -95,14 +95,14 @@ pub fn selfhost_proof_owner_transition <(SelfhostOwnerState,SelfhostOwnerEventFa
             Result<SelfhostOwnerState,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_borrow_access: Resource borrow access query を[作/つく]る
-fn selfhost_proof_query_borrow_access <(SelfhostBorrowState,SelfhostBorrowAccessFact)->SelfhostProofQuery> (state, fact):
-    let proof_fact <SelfhostProofFact> SelfhostProofFact::BorrowAccessObserved fact
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::ResourceBorrowAccess state
+fn selfhost_proof_query_borrow_access %fn SelfhostBorrowState fn SelfhostBorrowAccessFact SelfhostProofQuery \state\fact:
+    let proof_fact %SelfhostProofFact SelfhostProofFact::BorrowAccessObserved fact
+    let obligation %SelfhostProofObligation SelfhostProofObligation::ResourceBorrowAccess state
     selfhost_proof_query_new proof_fact obligation
 
 //: selfhost_proof_borrow_access: borrow request が state で許可されるか typed result として[返/かえ]す
-pub fn selfhost_proof_borrow_access <(SelfhostBorrowState,SelfhostBorrowAccessFact)->Result<SelfhostBorrowState,SelfhostProofRefutation>> (state, fact):
-    let query <SelfhostProofQuery> selfhost_proof_query_borrow_access state fact
+pub fn selfhost_proof_borrow_access %fn SelfhostBorrowState fn SelfhostBorrowAccessFact Result SelfhostBorrowState SelfhostProofRefutation \state\fact:
+    let query %SelfhostProofQuery selfhost_proof_query_borrow_access state fact
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:
@@ -132,14 +132,14 @@ pub fn selfhost_proof_borrow_access <(SelfhostBorrowState,SelfhostBorrowAccessFa
             Result<SelfhostBorrowState,SelfhostProofRefutation>::Err refutation
 
 //: selfhost_proof_query_lifetime_outlives: lifetime outlives query を[作/つく]る
-fn selfhost_proof_query_lifetime_outlives <(SelfhostLifetimeId,SelfhostLifetimeOutlivesFact)->SelfhostProofQuery> (required, fact):
-    let proof_fact <SelfhostProofFact> SelfhostProofFact::LifetimeOutlivesObserved fact
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::LifetimeOutlives required
+fn selfhost_proof_query_lifetime_outlives %fn SelfhostLifetimeId fn SelfhostLifetimeOutlivesFact SelfhostProofQuery \required\fact:
+    let proof_fact %SelfhostProofFact SelfhostProofFact::LifetimeOutlivesObserved fact
+    let obligation %SelfhostProofObligation SelfhostProofObligation::LifetimeOutlives required
     selfhost_proof_query_new proof_fact obligation
 
 //: selfhost_proof_lifetime_outlives: subject lifetime が required lifetime を outlive するか typed result として[返/かえ]す
-pub fn selfhost_proof_lifetime_outlives <(SelfhostLifetimeId,SelfhostLifetimeOutlivesFact)->Result<SelfhostLifetimeRelation,SelfhostProofRefutation>> (required, fact):
-    let query <SelfhostProofQuery> selfhost_proof_query_lifetime_outlives required fact
+pub fn selfhost_proof_lifetime_outlives %fn SelfhostLifetimeId fn SelfhostLifetimeOutlivesFact Result SelfhostLifetimeRelation SelfhostProofRefutation \required\fact:
+    let query %SelfhostProofQuery selfhost_proof_query_lifetime_outlives required fact
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:

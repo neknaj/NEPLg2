@@ -6,7 +6,7 @@
 //: [目的/もくてき]:
 //: - TypeKind を i32 tag に落とさず、enum variant を直接 match して比較します。
 //: - 新しい型分類を追加した場合、比較関数も明示的に更新する必要があります。
-pub fn selfhost_type_kind_eq <(SelfhostTypeKind,SelfhostTypeKind)->bool> (a, b):
+pub fn selfhost_type_kind_eq %fn SelfhostTypeKind fn SelfhostTypeKind bool \a\b:
     match a:
         SelfhostTypeKind::Error:
             match b:

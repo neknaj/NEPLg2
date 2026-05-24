@@ -32,10 +32,10 @@
 //:| #entry main
 //:| #target std
 //:| #import "std/stdio/write" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     print_byte 'A'
 //: ```
-pub fn print_byte <(i32)*>()> (b):
+pub fn print_byte %impure fn i32 () \b:
     match stdio_write_fd_byte_result 1 b:
         Result::Ok _:
             ()

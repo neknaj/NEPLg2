@@ -14,14 +14,14 @@
 #import "neplg2/core/proof/solver" as *
 
 //: selfhost_proof_query_source_span_valid: source span validity query を[作/つく]る
-fn selfhost_proof_query_source_span_valid <(SelfhostSourceSpan)->SelfhostProofQuery> (span):
-    let fact <SelfhostProofFact> SelfhostProofFact::SourceSpanObserved selfhost_source_span_fact_new span
-    let obligation <SelfhostProofObligation> SelfhostProofObligation::SourceSpanValid span
+fn selfhost_proof_query_source_span_valid %fn SelfhostSourceSpan SelfhostProofQuery \span:
+    let fact %SelfhostProofFact SelfhostProofFact::SourceSpanObserved selfhost_source_span_fact_new span
+    let obligation %SelfhostProofObligation SelfhostProofObligation::SourceSpanValid span
     selfhost_proof_query_new fact obligation
 
 //: selfhost_proof_source_span_valid: source span validity の typed result を[返/かえ]す
-pub fn selfhost_proof_source_span_valid <(SelfhostSourceSpan)->Result<(),SelfhostProofRefutation>> (span):
-    let query <SelfhostProofQuery> selfhost_proof_query_source_span_valid span
+pub fn selfhost_proof_source_span_valid %fn SelfhostSourceSpan Result () SelfhostProofRefutation \span:
+    let query %SelfhostProofQuery selfhost_proof_query_source_span_valid span
     match selfhost_proof_solve query:
         SelfhostProofResult::Proven evidence:
             match evidence:

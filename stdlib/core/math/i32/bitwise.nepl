@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/math/i32/bitwise" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     assert_eq_i32 7 or 6 3;
 //:     assert_eq_i32 4 popcnt 15;
 //: ```

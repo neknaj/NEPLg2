@@ -18,17 +18,17 @@
 
 //: ## len
 //: heap を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
-pub fn len <.T> <(&BinaryHeap<.T>)->i32> (hp):
+pub fn len <.T> %fn &BinaryHeap .T i32 \hp:
     *field::get_ref hp "len"
 
 //: ## cap
 //: heap を[移動/いどう]せずに[容量/ようりょう]を[返/かえ]す
-pub fn cap <.T> <(&BinaryHeap<.T>)->i32> (hp):
+pub fn cap <.T> %fn &BinaryHeap .T i32 \hp:
     *field::get_ref hp "cap"
 
 //: ## is_empty
 //: heap を[移動/いどう]せずに[空/から]かどうかを[返/かえ]す
-pub fn is_empty <.T> <(&BinaryHeap<.T>)->bool> (hp):
+pub fn is_empty <.T> %fn &BinaryHeap .T bool \hp:
     eq len<.T> hp 0
 
 //: ## peek
@@ -43,11 +43,11 @@ pub fn is_empty <.T> <(&BinaryHeap<.T>)->bool> (hp):
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "core/option" as *
-//: fn main <()*>i32> ():
-//:     let hp0 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
-//:     let hp1 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp0 4;
-//:     let hp2 <BinaryHeap<i32>> unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp1 9;
-//:     let ok <bool> match peek<i32> &hp2:
+//: fn main %impure fn () i32 \():
+//:     let hp0 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
+//:     let hp1 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp0 4;
+//:     let hp2 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp1 9;
+//:     let ok %bool match peek<i32> &hp2:
 //:         Option::Some v:
 //:             eq v 9
 //:         Option::None:
@@ -55,11 +55,11 @@ pub fn is_empty <.T> <(&BinaryHeap<.T>)->bool> (hp):
 //:     free<i32> hp2
 //:     if ok 1 0
 //: ```
-pub fn peek <.T: Copy> <(&BinaryHeap<.T>)->Option<.T>> (hp):
-    let len0 <i32> *field::get_ref hp "len"
+pub fn peek <.T: Copy> %fn &BinaryHeap .T Option .T \hp:
+    let len0 %i32 *field::get_ref hp "len"
     if:
         eq len0 0
         then none<.T>
         else:
-            let items <&Vec<Option<.T>>> field::get_ref hp "items"
+            let items %&Vec Option .T field::get_ref hp "items"
             heap_item_at<.T> items 0

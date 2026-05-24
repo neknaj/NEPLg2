@@ -18,7 +18,7 @@
 
 //: Debug: [開発者/かいはつしゃ][向/む]け[文字列表現/もじれつひょうげん]
 trait Debug:
-    fn debug_string <(Self)->str> (x):
+    fn debug_string %fn Self str \x:
         ""
 
 //: debug_string: trait を[通/とお]して debug [文字列/もじれつ]を[得/え]る
@@ -31,9 +31,9 @@ trait Debug:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/debug" as *
-//:| fn main <()*>i32> ():
-//:     let text_str <str> debug_string "hi"
-//:     let text_i32 <str> debug_string 7
+//:| fn main %impure fn () i32 \():
+//:     let text_str %str debug_string "hi"
+//:     let text_i32 %str debug_string 7
 //:     let report:
 //:         test_report_new "debug_string_doc"
 //:         |> test_report_push assert_str_eq "debug str quotes" "\"hi\"" text_str
@@ -53,37 +53,37 @@ trait Debug:
 //:
 //: [計算量/けいさんりょう]:
 //: - impl に[依存/いぞん]します。
-pub fn debug_string <.T: Debug> <(.T)->str> (x):
+pub fn debug_string <.T: Debug> %fn .T str \x:
     Debug::debug_string x
 
 impl Debug for str:
-    fn debug_string <(str)->str> (x):
+    fn debug_string %fn str str \x:
         concat3 "\"" x "\""
 
 impl Debug for bool:
-    fn debug_string <(bool)->str> (x):
+    fn debug_string %fn bool str \x:
         from_bool x
 
 impl Debug for i32:
-    fn debug_string <(i32)->str> (x):
+    fn debug_string %fn i32 str \x:
         from_i32 x
 
 impl Debug for i64:
-    fn debug_string <(i64)->str> (x):
+    fn debug_string %fn i64 str \x:
         from_i64 x
 
 impl Debug for i128:
-    fn debug_string <(i128)->str> (x):
+    fn debug_string %fn i128 str \x:
         from_i128 x
 
 impl Debug for u8:
-    fn debug_string <(u8)->str> (x):
+    fn debug_string %fn u8 str \x:
         from_i32 cast x
 
 impl Debug for f32:
-    fn debug_string <(f32)->str> (x):
+    fn debug_string %fn f32 str \x:
         from_f32 x
 
 impl Debug for f64:
-    fn debug_string <(f64)->str> (x):
+    fn debug_string %fn f64 str \x:
         from_f64 x

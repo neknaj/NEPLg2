@@ -42,17 +42,17 @@ stdout: mlstr:
 #import "core/field" as *
 #import "core/math" as *
 
-fn item_at <(&SelfhostModuleAst,i32)->SelfhostModuleItem> (ast, idx):
+fn item_at %fn &SelfhostModuleAst fn i32 SelfhostModuleItem \ast\idx:
     unwrap<SelfhostModuleItem> selfhost_module_ast_get ast idx
 
-fn check_item <(TestReport, &SelfhostModuleAst, i32, str, str)*>TestReport> (checks, ast, idx, expected_kind, expected_lexeme):
-    let item <SelfhostModuleItem> item_at ast idx
-    let kind_name <str> selfhost_module_item_kind_name item.kind
-    let lexeme <str> item.lexeme
+fn check_item %impure fn TestReport impure fn &SelfhostModuleAst impure fn i32 impure fn str impure fn str TestReport \checks\ast\idx\expected_kind\expected_lexeme:
+    let item %SelfhostModuleItem item_at ast idx
+    let kind_name %str selfhost_module_item_kind_name item.kind
+    let lexeme %str item.lexeme
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn check_function_declaration_header <(SelfhostModuleItem)->Result<(),str>> (item):
+fn check_function_declaration_header %fn SelfhostModuleItem Result () str \item:
     match item.declaration:
         Option::Some header:
             match header.kind:
@@ -83,12 +83,12 @@ fn check_function_declaration_header <(SelfhostModuleItem)->Result<(),str>> (ite
         Option::None:
             Result<(),str>::Err "expected parser declaration header evidence"
 
-fn main <()*>i32> ():
-    let source <str> "//: doc\nfn add <(i32,i32)->i32> (a,b):\n    #if[target=wasm]\n    #wasm:\n        local.get 0\n        local.get 1\n    #if[target=llvm]\n    #llvmir:\n        %0 = add i32 %a, %b\n        ret i32 %0\n"
+fn main %impure fn () i32 \():
+    let source %str "//: doc\nfn add <(i32,i32)->i32> (a,b):\n    #if[target=wasm]\n    #wasm:\n        local.get 0\n        local.get 1\n    #if[target=llvm]\n    #llvmir:\n        %0 = add i32 %a, %b\n        ret i32 %0\n"
     let checks0 checks_new
     match selfhost_parse_module_source source:
         Result::Ok ast:
-            let item_len <i32> selfhost_module_ast_len &ast
+            let item_len %i32 selfhost_module_ast_len &ast
             let checks1 checks_push checks0 check_eq_i32 10 item_len
             let checks2 check_item checks1 &ast 0 "DocComment" "//: doc"
             let checks3 check_item checks2 &ast 1 "FunctionDecl" "fn add <(i32,i32)->i32> (a,b):"
@@ -105,7 +105,7 @@ fn main <()*>i32> ():
             let shown checks_print_report checks12
             checks_exit_code shown
         Result::Err diag:
-            let _msg <str> diag.message
+            let _msg %str diag.message
             let checks1 checks_push checks0 Result<(),str>::Err "parser returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown

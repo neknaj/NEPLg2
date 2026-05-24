@@ -22,7 +22,7 @@
 #import "./mutation" as *
 #import "core/field" as *
 
-pub fn bloom_invalid_len_diag <()*>Diag> ():
+pub fn bloom_invalid_len_diag %impure fn () Diag \():
     diag_error StdErrorKind::CapacityExceeded "invalid bloom filter bit length"
 
 //: ## new
@@ -40,20 +40,20 @@ pub fn bloom_invalid_len_diag <()*>Diag> ():
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf <BloomFilter<i32, DefaultHash32>> unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
-//:     let observed_len <i32> len<i32, DefaultHash32> &bf;
-//:     let ok <bool> eq observed_len 64;
+//: fn main %impure fn () i32 \():
+//:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//:     let observed_len %i32 len<i32, DefaultHash32> &bf;
+//:     let ok %bool eq observed_len 64;
 //:     free bf
 //:     if ok 1 0
 //: ```
-pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<BloomFilter<.T,.H>, Diag>> (hasher, nbits):
+pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure fn i32 Result BloomFilter .T .H Diag \hasher\nbits:
     if:
         le nbits 0
         then:
             diag_err<BloomFilter<.T,.H>> bloom_invalid_len_diag
         else:
-            let nbytes <i32> bloom_byte_len nbits
+            let nbytes %i32 bloom_byte_len nbits
             match bloom_alloc_bits nbytes 0:
                 Result::Err d:
                     err<BloomFilter<.T,.H>, Diag> d
@@ -72,14 +72,14 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(.H,i32)*>Result<BloomFilter<
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf <BloomFilter<i32, DefaultHash32>> unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 32;
-//:     let observed_len <i32> len<i32, DefaultHash32> &bf;
-//:     let ok <bool> eq observed_len 32;
+//: fn main %impure fn () i32 \():
+//:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 32;
+//:     let observed_len %i32 len<i32, DefaultHash32> &bf;
+//:     let ok %bool eq observed_len 32;
 //:     free bf
 //:     if ok 1 0
 //: ```
-pub fn len <.T,.H> <(&BloomFilter<.T,.H>)->i32> (bf):
+pub fn len <.T,.H> %fn &BloomFilter .T .H i32 \bf:
     *field::get_ref bf "nbits"
 
 //: ## insert
@@ -97,22 +97,22 @@ pub fn len <.T,.H> <(&BloomFilter<.T,.H>)->i32> (bf):
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf0 <BloomFilter<i32, DefaultHash32>> unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
-//:     let bf1 <BloomFilter<i32, DefaultHash32>> insert<i32, DefaultHash32> bf0 7;
-//:     let ok <bool> contains<i32, DefaultHash32> &bf1 7;
+//: fn main %impure fn () i32 \():
+//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf0 7;
+//:     let ok %bool contains<i32, DefaultHash32> &bf1 7;
 //:     free bf1
 //:     if ok 1 0
 //: ```
-pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)*>BloomFilter<.T,.H>> (bf, key):
-    let nbits <i32> *field::get_ref &bf "nbits"
-    let bits <&Vec<u8>> field::get_ref &bf "bits"
-    let hasher <.H> *field::get_ref &bf "hasher"
-    let h0 <i32> bloom_hash0<.T,.H> hasher key
-    let h1 <i32> bloom_hash1<.T,.H> hasher key
-    let i0 <i32> rem_u h0 nbits
-    let i1 <i32> bloom_probe_index nbits h0 h1
-    let i2 <i32> bloom_probe_index nbits i1 h1
+pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H impure fn .T BloomFilter .T .H \bf\key:
+    let nbits %i32 *field::get_ref &bf "nbits"
+    let bits %&Vec u8 field::get_ref &bf "bits"
+    let hasher %.H *field::get_ref &bf "hasher"
+    let h0 %i32 bloom_hash0<.T,.H> hasher key
+    let h1 %i32 bloom_hash1<.T,.H> hasher key
+    let i0 %i32 rem_u h0 nbits
+    let i1 %i32 bloom_probe_index nbits h0 h1
+    let i2 %i32 bloom_probe_index nbits i1 h1
     bloom_set_bit bits i0
     bloom_set_bit bits i1
     bloom_set_bit bits i2
@@ -135,26 +135,26 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>,.T)*>B
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf0 <BloomFilter<i32, DefaultHash32>> unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
-//:     let bf1 <BloomFilter<i32, DefaultHash32>> insert<i32, DefaultHash32> bf0 7;
-//:     let bf2 <BloomFilter<i32, DefaultHash32>> insert<i32, DefaultHash32> bf1 12;
-//:     let ok <bool> contains<i32, DefaultHash32> &bf2 7;
+//: fn main %impure fn () i32 \():
+//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf0 7;
+//:     let bf2 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf1 12;
+//:     let ok %bool contains<i32, DefaultHash32> &bf2 7;
 //:     free bf2
 //:     if ok 1 0
 //: ```
-pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&BloomFilter<.T,.H>,.T)->bool> (bf, key):
-    let nbits <i32> *field::get_ref bf "nbits"
-    let bits <&Vec<u8>> field::get_ref bf "bits"
-    let hasher <.H> *field::get_ref bf "hasher"
-    let h0 <i32> bloom_hash0<.T,.H> hasher key
-    let h1 <i32> bloom_hash1<.T,.H> hasher key
-    let i0 <i32> rem_u h0 nbits
-    let i1 <i32> bloom_probe_index nbits h0 h1
-    let i2 <i32> bloom_probe_index nbits i1 h1
-    let ok0 <bool> bloom_test_bit bits i0
-    let ok1 <bool> bloom_test_bit bits i1
-    let ok2 <bool> bloom_test_bit bits i2
+pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &BloomFilter .T .H fn .T bool \bf\key:
+    let nbits %i32 *field::get_ref bf "nbits"
+    let bits %&Vec u8 field::get_ref bf "bits"
+    let hasher %.H *field::get_ref bf "hasher"
+    let h0 %i32 bloom_hash0<.T,.H> hasher key
+    let h1 %i32 bloom_hash1<.T,.H> hasher key
+    let i0 %i32 rem_u h0 nbits
+    let i1 %i32 bloom_probe_index nbits h0 h1
+    let i2 %i32 bloom_probe_index nbits i1 h1
+    let ok0 %bool bloom_test_bit bits i0
+    let ok1 %bool bloom_test_bit bits i1
+    let ok2 %bool bloom_test_bit bits i2
     and ok0 and ok1 ok2
 
 //: ## clear
@@ -172,17 +172,17 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(&BloomFilter<.T,.H>,.T)
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf0 <BloomFilter<i32, DefaultHash32>> unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
-//:     let bf1 <BloomFilter<i32, DefaultHash32>> insert<i32, DefaultHash32> bf0 7;
-//:     let bf2 <BloomFilter<i32, DefaultHash32>> clear<i32, DefaultHash32> bf1;
-//:     let ok <bool> contains<i32, DefaultHash32> &bf2 7;
+//: fn main %impure fn () i32 \():
+//:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf0 7;
+//:     let bf2 %BloomFilter i32 DefaultHash32 clear<i32, DefaultHash32> bf1;
+//:     let ok %bool contains<i32, DefaultHash32> &bf2 7;
 //:     free bf2
 //:     if ok 0 1
 //: ```
-pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>)*>BloomFilter<.T,.H>> (bf):
-    let nbytes <i32> *field::get_ref &bf "nbytes"
-    let bits <&Vec<u8>> field::get_ref &bf "bits"
+pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H BloomFilter .T .H \bf:
+    let nbytes %i32 *field::get_ref &bf "nbytes"
+    let bits %&Vec u8 field::get_ref &bf "bits"
     bloom_fill_bytes bits nbytes 0
     bf
 
@@ -203,11 +203,11 @@ pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>)*>Bloom
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bf <BloomFilter<i32, DefaultHash32>> unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//: fn main %impure fn () i32 \():
+//:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
 //:     free bf;
 //:     0
 //: ```
-pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> <(BloomFilter<.T,.H>)->()> (bf):
-    let bits <Vec<u8>> field::get bf "bits"
+pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn BloomFilter .T .H () \bf:
+    let bits %Vec u8 field::get bf "bits"
     bloom_free_bits bits

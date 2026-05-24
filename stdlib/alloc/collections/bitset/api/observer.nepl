@@ -25,7 +25,7 @@
 //: ### [仕様/しよう]
 //: - `BitSet` owner は[消費/しょうひ]しません。
 //: - caller は `len` [後/ご]も同じ `BitSet` を[使/つか]い、不要になったら `free` できます。
-pub fn len <(&BitSet)->i32> (bs):
+pub fn len %fn &BitSet i32 \bs:
     *field::get_ref bs "nbits"
 
 //: ## contains
@@ -38,22 +38,22 @@ pub fn len <(&BitSet)->i32> (bs):
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let bs <BitSet>:
+//: fn main %impure fn () i32 \():
+//:     let bs %BitSet:
 //:         unwrap_ok<BitSet, Diag> new 32
 //:         |> insert 5 |> uwok
-//:     let ok <bool> unwrap_ok<bool, Diag> contains &bs 5;
+//:     let ok %bool unwrap_ok<bool, Diag> contains &bs 5;
 //:     free bs
 //:     if ok 1 0
 //: ```
-pub fn contains <(&BitSet,i32)*>Result<bool, Diag>> (bs, idx):
-    let nbits <i32> *field::get_ref bs "nbits"
+pub fn contains %impure fn &BitSet impure fn i32 Result bool Diag \bs\idx:
+    let nbits %i32 *field::get_ref bs "nbits"
     if:
         bitset_valid_index idx nbits
         then:
-            let bits <&Vec<u8>> field::get_ref bs "bits"
-            let byte_idx <i32> bitset_byte_index idx
-            let mask <i32> bitset_mask idx
+            let bits %&Vec u8 field::get_ref bs "bits"
+            let byte_idx %i32 bitset_byte_index idx
+            let mask %i32 bitset_mask idx
             match bitset_byte_at bits byte_idx:
                 Option::Some cur:
                     ok<bool, Diag> ne and cur mask 0

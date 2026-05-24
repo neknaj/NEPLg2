@@ -31,10 +31,10 @@
 //:| #import "neplg2/cli/args/emit" as *
 //:| #import "core/field" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let opts <SelfhostCliOptions> selfhost_cli_default_options;
-//:     let emit_ok <bool> selfhost_cli_emit_is_wasm get opts "emit"
-//:     let report <TestReport>:
+//: fn main %impure fn () i32 \():
+//:     let opts %SelfhostCliOptions selfhost_cli_default_options;
+//:     let emit_ok %bool selfhost_cli_emit_is_wasm get opts "emit"
+//:     let report %TestReport:
 //:         test_report_new "selfhost_cli_default_options_doc"
 //:         |> test_report_push assert "default emit wasm" emit_ok
 //:     let shown test_report_print_stdout report
@@ -48,21 +48,21 @@
 //:
 //: [実装/じっそう]:
 //: - struct constructor にそのまま渡します。
-pub fn selfhost_cli_options_new <(bool,bool,bool,bool,bool,SelfhostCliEmitSet,Option<SelfhostCliTarget>,Option<SelfhostCliProfile>,Option<str>,Option<str>,Option<str>,Option<i32>)->SelfhostCliOptions> (check, run, attach_source, lib, verbose, emit, target, profile, stdlib_root, output, input, run_args_start):
+pub fn selfhost_cli_options_new %fn bool fn bool fn bool fn bool fn bool fn SelfhostCliEmitSet fn Option SelfhostCliTarget fn Option SelfhostCliProfile fn Option str fn Option str fn Option str fn Option i32 SelfhostCliOptions \check\run\attach_source\lib\verbose\emit\target\profile\stdlib_root\output\input\run_args_start:
     SelfhostCliOptions check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
 
 //: selfhost_cli_default_options: 既定の option set を返す
 //:
 //: [目的/もくてき]:
 //: - 引数なしの状態を明示し、parser と doctest が同じ初期値を共有できるようにします。
-pub fn selfhost_cli_default_options <()->SelfhostCliOptions> ():
+pub fn selfhost_cli_default_options %fn () SelfhostCliOptions \():
     selfhost_cli_options_new false false false false false selfhost_cli_emit_set_default none<SelfhostCliTarget> none<SelfhostCliProfile> none<str> none<str> none<str> none<i32>
 
 //: selfhost_cli_target_to_compile_target: CLI target を core compile target へ[変換/へんかん]する
 //:
 //: [目的/もくてき]:
 //: - CLI parser の option record と compiler core の option record を分離したまま、driver が target override を渡せるようにします。
-pub fn selfhost_cli_target_to_compile_target <(SelfhostCliTarget)->SelfhostCompileTarget> (target):
+pub fn selfhost_cli_target_to_compile_target %fn SelfhostCliTarget SelfhostCompileTarget \target:
     match target:
         SelfhostCliTarget::Wasm:
             SelfhostCompileTarget::Wasm
@@ -74,7 +74,7 @@ pub fn selfhost_cli_target_to_compile_target <(SelfhostCliTarget)->SelfhostCompi
             SelfhostCompileTarget::Llvm
 
 //: selfhost_cli_profile_to_build_profile: CLI profile を core build profile へ[変換/へんかん]する
-pub fn selfhost_cli_profile_to_build_profile <(SelfhostCliProfile)->SelfhostBuildProfile> (profile):
+pub fn selfhost_cli_profile_to_build_profile %fn SelfhostCliProfile SelfhostBuildProfile \profile:
     match profile:
         SelfhostCliProfile::Debug:
             SelfhostBuildProfile::Debug
@@ -100,8 +100,8 @@ pub fn selfhost_cli_profile_to_build_profile <(SelfhostCliProfile)->SelfhostBuil
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let args <Vec<str>>:
+//: fn main %impure fn () i32 \():
+//:     let args %Vec str:
 //:         unwrap_ok v::new<str>
 //:         |> v::push<str> "--target" |> uwok
 //:         |> v::push<str> "std" |> uwok
@@ -111,20 +111,20 @@ pub fn selfhost_cli_profile_to_build_profile <(SelfhostCliProfile)->SelfhostBuil
 //:     match selfhost_cli_parse_args &args:
 //:         Result::Err _e:
 //:             v::free<str> args;
-//:             let report <TestReport>:
+//:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_options_to_compile_options_doc"
 //:                 |> test_report_push assert "parse succeeds" false
 //:             let shown test_report_print_stdout report
 //:             test_report_exit_code shown
 //:         Result::Ok opts:
-//:             let compile_options <SelfhostCompileOptions> selfhost_cli_options_to_compile_options opts
-//:             let target <SelfhostCompileTarget> selfhost_compile_resolve_target compile_options none<SelfhostCompileTarget>
-//:             let profile <SelfhostBuildProfile> selfhost_compile_resolve_profile compile_options SelfhostBuildProfile::Debug
-//:             let target_ok <bool> selfhost_compile_target_is_wasi target
-//:             let profile_ok <bool> selfhost_build_profile_is_release profile
-//:             let verbose_ok <bool> selfhost_compile_options_verbose compile_options
+//:             let compile_options %SelfhostCompileOptions selfhost_cli_options_to_compile_options opts
+//:             let target %SelfhostCompileTarget selfhost_compile_resolve_target compile_options none<SelfhostCompileTarget>
+//:             let profile %SelfhostBuildProfile selfhost_compile_resolve_profile compile_options SelfhostBuildProfile::Debug
+//:             let target_ok %bool selfhost_compile_target_is_wasi target
+//:             let profile_ok %bool selfhost_build_profile_is_release profile
+//:             let verbose_ok %bool selfhost_compile_options_verbose compile_options
 //:             v::free<str> args;
-//:             let report <TestReport>:
+//:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_options_to_compile_options_doc"
 //:                 |> test_report_push assert "parse succeeds" true
 //:                 |> test_report_push assert "target resolves wasi" target_ok
@@ -133,14 +133,14 @@ pub fn selfhost_cli_profile_to_build_profile <(SelfhostCliProfile)->SelfhostBuil
 //:             let shown test_report_print_stdout report
 //:             test_report_exit_code shown
 //: ```
-pub fn selfhost_cli_options_to_compile_options <(SelfhostCliOptions)->SelfhostCompileOptions> (options):
-    let base0 <SelfhostCompileOptions> selfhost_compile_options_default
-    let base1 <SelfhostCompileOptions> match options.target:
+pub fn selfhost_cli_options_to_compile_options %fn SelfhostCliOptions SelfhostCompileOptions \options:
+    let base0 %SelfhostCompileOptions selfhost_compile_options_default
+    let base1 %SelfhostCompileOptions match options.target:
         Option::Some target:
             selfhost_compile_options_with_target base0 selfhost_cli_target_to_compile_target target
         Option::None:
             base0
-    let base2 <SelfhostCompileOptions> match options.profile:
+    let base2 %SelfhostCompileOptions match options.profile:
         Option::Some profile:
             selfhost_compile_options_with_profile base1 selfhost_cli_profile_to_build_profile profile
         Option::None:

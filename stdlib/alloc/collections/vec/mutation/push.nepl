@@ -30,10 +30,10 @@
 //: ### [注意/ちゅうい]
 //: - この helper は public にしません。`collection_slot_*` marker authority は direct import 可能な public helper として[公開/こうかい]せず、public collection API の内部実装だけが使います。
 //: - `byte_off` の bounds / alignment と、`len` / `cap` との対応は caller 側の `VecCopyInvariant` と capacity proof が[担/にな]います。
-fn vec_push_slot_store_initialized <.T> <(&RegionToken<.T>,i32,.T)->()> (storage, byte_off, item):
-    let data <MemPtr<.T>> region_ptr storage
-    let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
-    let raw <i32> mem_ptr_addr slot
+fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T () \storage\byte_off\item:
+    let data %MemPtr .T region_ptr storage
+    let slot %MemPtr .T mem_ptr_add<.T> data byte_off
+    let raw %i32 mem_ptr_addr slot
     store<.T> raw item
     #intrinsic "collection_slot_initialize_empty" <.T> (storage, byte_off)
 
@@ -67,11 +67,11 @@ fn vec_push_slot_store_initialized <.T> <(&RegionToken<.T>,i32,.T)->()> (storage
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push v0 7;
-//:     let observed_len <i32> len<i32> &v1
-//:     let ok <bool> eq observed_len 1
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec i32 unwrap_ok new<i32>;
+//:     let v1 %Vec i32 unwrap_ok<Vec<i32>, VecPushError<i32>> push v0 7;
+//:     let observed_len %i32 len<i32> &v1
+//:     let ok %bool eq observed_len 1
 //:     free<i32> v1;
 //:     if ok 0 1
 //: ```
@@ -85,15 +85,15 @@ fn vec_push_slot_store_initialized <.T> <(&RegionToken<.T>,i32,.T)->()> (storage
 //:| #import "core/math" as *
 //:| #import "core/traits/drop" as *
 //: struct DropPayload:
-//:     value <i32>
+//:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop <(&DropPayload)*>()> (_self):
+//:     fn drop %impure fn &DropPayload () \_self:
 //:         ()
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
-//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
-//:     let observed_len <i32> len<DropPayload> &v1
-//:     let ok <bool> eq observed_len 1
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
+//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
+//:     let observed_len %i32 len<DropPayload> &v1
+//:     let ok %bool eq observed_len 1
 //:     free<DropPayload> v1
 //:     if ok 0 1
 //: ```
@@ -106,16 +106,16 @@ fn vec_push_slot_store_initialized <.T> <(&RegionToken<.T>,i32,.T)->()> (storage
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //: struct PlainPayload:
-//:     value <i32>
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<PlainPayload>> vec_empty<PlainPayload>
-//:     let _v1 <Vec<PlainPayload>> unwrap_ok push v0 (PlainPayload 7)
+//:     value %i32
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec PlainPayload vec_empty<PlainPayload>
+//:     let _v1 %Vec PlainPayload unwrap_ok push v0 (PlainPayload 7)
 //:     0
 //: ```
 //:
 //: ## vec_push_error_kind
 //: `push` [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む
-pub fn vec_push_error_kind <.T> <(&VecPushError<.T>)->StdErrorKind> (e):
+pub fn vec_push_error_kind <.T> %fn &VecPushError .T StdErrorKind \e:
     *field::get_ref e "error"
 
 //: ## vec_push_error_rejected
@@ -124,7 +124,7 @@ pub fn vec_push_error_kind <.T> <(&VecPushError<.T>)->StdErrorKind> (e):
 //: ### [目的/もくてき]
 //: - non-Copy payload では、失敗時に `Vec` owner だけを[取/と]り[出/だ]すと `item` owner の[行方/ゆくえ]が API 型から[消/き]えます。
 //: - この accessor は `VecPushRejected<T>` を[返/かえ]し、caller が両 owner を同じ回収単位として[扱/あつか]えるようにします。
-pub fn vec_push_error_rejected <.T> <(VecPushError<.T>)->VecPushRejected<.T>> (e):
+pub fn vec_push_error_rejected <.T> %fn VecPushError .T VecPushRejected .T \e:
     field::get e "rejected"
 
 //: ## vec_push_rejected_with
@@ -143,29 +143,29 @@ pub fn vec_push_error_rejected <.T> <(VecPushError<.T>)->VecPushRejected<.T>> (e
 //:| #import "core/result" as *
 //:| #import "core/traits/drop" as *
 //: struct DropPayload:
-//:     value <i32>
+//:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop <(&DropPayload)*>()> (_self):
+//:     fn drop %impure fn &DropPayload () \_self:
 //:         ()
-//: fn recover_failed_push <(Vec<DropPayload>,DropPayload)*>i32> (returned, rejected):
+//: fn recover_failed_push %impure fn Vec DropPayload impure fn DropPayload i32 \returned\rejected:
 //:     Drop::drop &rejected
 //:     free<DropPayload> returned
 //:     1
-//: fn push_or_recover <(Vec<DropPayload>,DropPayload)*>i32> (items, item):
+//: fn push_or_recover %impure fn Vec DropPayload impure fn DropPayload i32 \items\item:
 //:     match push<DropPayload> items item:
 //:         Result::Ok out:
 //:             free<DropPayload> out
 //:             0
 //:         Result::Err e:
-//:             let rejected <VecPushRejected<DropPayload>> vec_push_error_rejected<DropPayload> e
+//:             let rejected %VecPushRejected DropPayload vec_push_error_rejected<DropPayload> e
 //:             vec_push_rejected_with<DropPayload,i32> rejected @recover_failed_push
-//: fn main <()*>i32> ():
-//:     let items <Vec<DropPayload>> unwrap_ok new<DropPayload>
+//: fn main %impure fn () i32 \():
+//:     let items %Vec DropPayload unwrap_ok new<DropPayload>
 //:     push_or_recover items (DropPayload 7)
 //: ```
-pub fn vec_push_rejected_with <.T,.R> <(VecPushRejected<.T>,(Vec<.T>,.T)*>.R)*>.R> (rejected, callback):
-    let vec <Vec<.T>> field::get rejected "vec"
-    let item <.T> field::get rejected "item"
+pub fn vec_push_rejected_with <.T,.R> %impure fn VecPushRejected .T impure fn impure fn Vec .T impure fn .T .R .R \rejected\callback:
+    let vec %Vec .T field::get rejected "vec"
+    let item %.T field::get rejected "item"
     callback vec item
 
 //: ## vec_push_error_vec
@@ -173,8 +173,8 @@ pub fn vec_push_rejected_with <.T,.R> <(VecPushRejected<.T>,(Vec<.T>,.T)*>.R)*>.
 //:
 //: ### [注意/ちゅうい]
 //: - この accessor は `.T: Copy` 専用です。`item` owner を一緒に[返/かえ]さないため、non-Copy payload では `vec_push_error_rejected<T>` と `vec_push_rejected_with<T, R>` を[使/つか]って `Vec` と `item` を同時に[回収/かいしゅう]します。
-pub fn vec_push_error_vec <.T: Copy> <(VecPushError<.T>)->Vec<.T>> (e):
-    let rejected <VecPushRejected<.T>> vec_push_error_rejected<.T> e
+pub fn vec_push_error_vec <.T: Copy> %fn VecPushError .T Vec .T \e:
+    let rejected %VecPushRejected .T vec_push_error_rejected<.T> e
     field::get rejected "vec"
 
 //: ## VecReallocRegionError
@@ -184,11 +184,11 @@ pub fn vec_push_error_vec <.T: Copy> <(VecPushError<.T>)->Vec<.T>> (e):
 //: - この型は `Vec.push` 実装 file の内部だけで使います。public error recovery surface へは出さず、`VecPushError<T>` が public API として返す owner を表します。
 //: - payload slot を読まない storage owner 操作なので `.T: Copy` は要求しません。
 struct VecReallocRegionError<.T>:
-    region <RegionToken<.T>>
-    error <StdErrorKind>
+    region %RegionToken .T
+    error %StdErrorKind
 
 //: vec_realloc_region_error_kind: grow [失敗/しっぱい]の error kind を[読/よ]む
-fn vec_realloc_region_error_kind <.T> <(&VecReallocRegionError<.T>)->StdErrorKind> (e):
+fn vec_realloc_region_error_kind <.T> %fn &VecReallocRegionError .T StdErrorKind \e:
     *field::get_ref e "error"
 
 //: ## vec_next_capacity
@@ -209,25 +209,25 @@ fn vec_realloc_region_error_kind <.T> <(&VecReallocRegionError<.T>)->StdErrorKin
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok with_capacity<i32> 1;
-//:     let v1 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push v0 10;
-//:     let v2 <Vec<i32>> unwrap_ok<Vec<i32>, VecPushError<i32>> push v1 20;
-//:     let observed_len <i32> len<i32> &v2
-//:     let ok_len <bool> eq observed_len 2
-//:     let ok_cap <bool> ge cap<i32> &v2 2
-//:     let ok <bool> and ok_len ok_cap
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec i32 unwrap_ok with_capacity<i32> 1;
+//:     let v1 %Vec i32 unwrap_ok<Vec<i32>, VecPushError<i32>> push v0 10;
+//:     let v2 %Vec i32 unwrap_ok<Vec<i32>, VecPushError<i32>> push v1 20;
+//:     let observed_len %i32 len<i32> &v2
+//:     let ok_len %bool eq observed_len 2
+//:     let ok_cap %bool ge cap<i32> &v2 2
+//:     let ok %bool and ok_len ok_cap
 //:     free<i32> v2;
 //:     if ok 0 1
 //: ```
-fn vec_next_capacity <.T> <(i32)->Result<i32, StdErrorKind>> (cap0):
-    let elem_size <i32> size_of<.T>
+fn vec_next_capacity <.T> %fn i32 Result i32 StdErrorKind \cap0:
+    let elem_size %i32 size_of<.T>
     if:
         or lt cap0 0 le elem_size 0
         then:
             Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
         else:
-            let max_count <i32> div_s max_alloc_payload_bytes elem_size
+            let max_count %i32 div_s max_alloc_payload_bytes elem_size
             if:
                 ge cap0 max_count
                 then:
@@ -238,7 +238,7 @@ fn vec_next_capacity <.T> <(i32)->Result<i32, StdErrorKind>> (cap0):
                         then:
                             Result<i32, StdErrorKind>::Ok 1
                         else:
-                            let half_limit <i32> div_s max_count 2
+                            let half_limit %i32 div_s max_count 2
                             if:
                                 gt cap0 half_limit
                                 then:
@@ -255,20 +255,20 @@ fn vec_next_capacity <.T> <(i32)->Result<i32, StdErrorKind>> (cap0):
 //: ### [注意/ちゅうい]
 //: - 成功時は返った token が storage owner です。失敗時は旧 token が `VecReallocRegionError.region` に[戻/もど]ります。
 //: - payload の raw load / raw store は行いません。この helper は storage owner の再確保境界だけを扱うため、`.T: Copy` を要求しません。
-fn vec_realloc_region_or_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken<.T>, VecReallocRegionError<.T>>> (region, new_cap):
-    let elem_size <i32> size_of<.T>
+fn vec_realloc_region_or_keep <.T> %fn RegionToken .T fn i32 Result RegionToken .T VecReallocRegionError .T \region\new_cap:
+    let elem_size %i32 size_of<.T>
     if:
         or le new_cap 0 le elem_size 0
         then:
             Result::Err<RegionToken<.T>, VecReallocRegionError<.T>> VecReallocRegionError<.T> region StdErrorKind::InvalidOperation
         else:
-            let max_count <i32> div_s max_alloc_payload_bytes elem_size
+            let max_count %i32 div_s max_alloc_payload_bytes elem_size
             if:
                 gt new_cap max_count
                 then:
                     Result::Err<RegionToken<.T>, VecReallocRegionError<.T>> VecReallocRegionError<.T> region StdErrorKind::CapacityExceeded
                 else:
-                    let new_bytes <i32> mul new_cap elem_size
+                    let new_bytes %i32 mul new_cap elem_size
                     match realloc_region_bytes_keep<.T> region new_bytes:
                         Result::Ok grown_region:
                             Result::Ok<RegionToken<.T>, VecReallocRegionError<.T>> grown_region
@@ -284,14 +284,14 @@ fn vec_realloc_region_or_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken<.T
 //:
 //: ### [注意/ちゅうい]
 //: - この helper は public にしません。public overload が型境界を[選/えら]び、この helper が private lifecycle proof boundary を[使/つか]います。
-fn vec_push_storage_checked <.T> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, item):
-    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
-    let v_len <i32> *field::get_ref v_buffer_ref "len"
-    let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
-    let v_cap <i32> *field::get_ref v_buffer_ref "cap"
-    let v_invariant <VecStorageInvariant> vec_buffer_current_storage_invariant<.T> v_buffer_ref
-    let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
-    let v_storage <VecStorage<.T>> field::get v_buffer "storage"
+fn vec_push_storage_checked <.T> %fn Vec .T fn .T Result Vec .T VecPushError .T \v\item:
+    let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
+    let v_len %i32 *field::get_ref v_buffer_ref "len"
+    let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"
+    let v_cap %i32 *field::get_ref v_buffer_ref "cap"
+    let v_invariant %VecStorageInvariant vec_buffer_current_storage_invariant<.T> v_buffer_ref
+    let v_buffer %OwnedBuffer .T field::get v "buffer"
+    let v_storage %VecStorage .T field::get v_buffer "storage"
     match v_invariant:
         VecStorageInvariant::Invalid _reason:
             Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (VecPushRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) item) StdErrorKind::InvalidOperation
@@ -310,8 +310,8 @@ fn vec_push_storage_checked <.T> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>
                                         then:
                                             match alloc_region<.T> grown_cap:
                                                 Result::Ok grown_region:
-                                                    let next_len <i32> add v_len 1
-                                                    let byte_off <i32> mul v_len size_of<.T>
+                                                    let next_len %i32 add v_len 1
+                                                    let byte_off %i32 mul v_len size_of<.T>
                                                     vec_push_slot_store_initialized<.T> &grown_region byte_off item
                                                     Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len grown_cap (VecStorage<.T>::Owned grown_region))
                                                 Result::Err _e:
@@ -321,26 +321,26 @@ fn vec_push_storage_checked <.T> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>
                                 VecStorage::Owned v_region:
                                     match vec_realloc_region_or_keep<.T> v_region grown_cap:
                                         Result::Ok grown_region:
-                                            let next_len <i32> add v_len 1
-                                            let byte_off <i32> mul v_len size_of<.T>
+                                            let next_len %i32 add v_len 1
+                                            let byte_off %i32 mul v_len size_of<.T>
                                             vec_push_slot_store_initialized<.T> &grown_region byte_off item
                                             Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len grown_cap (VecStorage<.T>::Owned grown_region))
                                         Result::Err e:
-                                            let error <StdErrorKind> vec_realloc_region_error_kind<.T> &e
-                                            let old_region <RegionToken<.T>> field::get e "region"
+                                            let error %StdErrorKind vec_realloc_region_error_kind<.T> &e
+                                            let old_region %RegionToken .T field::get e "region"
                                             Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (VecPushRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap (VecStorage<.T>::Owned old_region))) item) error
                 else:
                     match v_storage:
                         VecStorage::Empty:
                             Result::Err<Vec<.T>, VecPushError<.T>> VecPushError<.T> (VecPushRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) item) StdErrorKind::InvalidOperation
                         VecStorage::Owned v_region:
-                            let next_len <i32> add v_len 1
-                            let byte_off <i32> mul v_len size_of<.T>
+                            let next_len %i32 add v_len 1
+                            let byte_off %i32 mul v_len size_of<.T>
                             vec_push_slot_store_initialized<.T> &v_region byte_off item
                             Result::Ok<Vec<.T>, VecPushError<.T>> Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))
 
-pub fn push <.T: Copy> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, item):
+pub fn push <.T: Copy> %fn Vec .T fn .T Result Vec .T VecPushError .T \v\item:
     vec_push_storage_checked<.T> v item
 
-pub fn push <.T: Drop> <(Vec<.T>,.T)->Result<Vec<.T>, VecPushError<.T>>> (v, item):
+pub fn push <.T: Drop> %fn Vec .T fn .T Result Vec .T VecPushError .T \v\item:
     vec_push_storage_checked<.T> v item

@@ -15,35 +15,35 @@
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if ge size_of<MemPtr<i32>> 4 1 0
 //: ```
 
 #import "core/math" as *
 
 pub struct MemPtr<.T>:
-    raw <i32>
+    raw %i32
 
 pub struct RegionToken<.T>:
-    raw <i32>
-    size <i32>
+    raw %i32
+    size %i32
 
 //: region_token_size_ref: RegionToken の size field を所有権を移動せずに借用する
 //:
 //: 目的:
 //: - bounds check と pointer projection が token owner を消費しないようにします。
-pub fn region_token_size_ref <.T> <(&RegionToken<.T>)->&i32> (token):
+pub fn region_token_size_ref <.T> %fn &RegionToken .T &i32 \token:
     #intrinsic "get_field_ref" <> (token,"size")
 
-pub fn region_size <.T> <(&RegionToken<.T>)->i32> (token):
+pub fn region_size <.T> %fn &RegionToken .T i32 \token:
     *region_token_size_ref token
 
-pub fn region_in_bounds <.T> <(&RegionToken<.T>,i32,i32)->bool> (token, off, bytes):
-    let total <i32> *region_token_size_ref token
+pub fn region_in_bounds <.T> %fn &RegionToken .T fn i32 fn i32 bool \token\off\bytes:
+    let total %i32 *region_token_size_ref token
     if:
         or lt off 0 lt bytes 0
         then:
             false
         else:
-            let end <i32> add off bytes
+            let end %i32 add off bytes
             and le end total ge end off

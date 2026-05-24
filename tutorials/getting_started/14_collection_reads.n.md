@@ -22,24 +22,24 @@ stdout: mlstr:
 #import "core/field" as *
 #import "core/math" as *
 
-fn has_at <(&Vec<i32>,i32,i32)->bool> (v, idx, expected):
+fn has_at %fn &Vec i32 fn i32 fn i32 bool \v\idx\expected:
     match get<i32> v idx:
         Option::Some value:
             eq value expected
         Option::None:
             false
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match filled<i32> 3 7:
         Result::Err _e:
             let checks checks_push checks_new Result<(),str>::Err "vec.filled failed"
             let shown checks_print_report checks
             checks_exit_code shown
         Result::Ok values:
-            let n <i32> len<i32> &values
-            let has0 <bool> has_at &values 0 7
-            let has2 <bool> has_at &values 2 7
-            let has3 <bool> has_at &values 3 7
+            let n %i32 len<i32> &values
+            let has0 %bool has_at &values 0 7
+            let has2 %bool has_at &values 2 7
+            let has3 %bool has_at &values 3 7
             let checks:
                 checks_new
                 |> checks_push assert_eq_i32 3 n

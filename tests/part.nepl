@@ -1,2 +1,2 @@
-fn helper <() -> i32> ():
+fn helper %fn () i32 \():
     1

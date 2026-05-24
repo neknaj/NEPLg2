@@ -47,8 +47,8 @@ stdin: mlstr:
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let text <str> read_all
+fn main %impure fn () i32 \():
+    let text %str read_all
     if eq len text 4128 0 1
 ```
 
@@ -72,7 +72,7 @@ exit_code: 0
 #import "core/result" as *
 #import "core/field" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     match stdio_read_all_bytes_result:
         Result::Err _e:

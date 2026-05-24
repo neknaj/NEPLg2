@@ -15,32 +15,32 @@
 #import "alloc/collections/vec" as vec
 #import "core/field" as *
 
-pub fn counting_bloom_counter_at <(&Vec<u8>,i32)->Option<i32>> (counters, idx):
+pub fn counting_bloom_counter_at %fn &Vec u8 fn i32 Option i32 \counters\idx:
     match vec::get<u8> counters idx:
         Option::Some counter:
-            let value <i32> cast counter
+            let value %i32 cast counter
             some<i32> value
         Option::None:
             none<i32>
 
-pub fn counting_bloom_store_counter <(&Vec<u8>,i32,i32)*>()> (counters, idx, value):
-    let counter <u8> cast value
+pub fn counting_bloom_store_counter %impure fn &Vec u8 impure fn i32 impure fn i32 () \counters\idx\value:
+    let counter %u8 cast value
     vec::replace<u8> counters idx counter
 
-pub fn counting_bloom_fill_counters <(&Vec<u8>,i32,i32)*>()> (counters, nslots, value):
-    let mut i <i32> 0
+pub fn counting_bloom_fill_counters %impure fn &Vec u8 impure fn i32 impure fn i32 () \counters\nslots\value:
+    let mut i %i32 0
     while lt i nslots:
         do:
             counting_bloom_store_counter counters i value
             set i add i 1
 
-pub fn counting_bloom_alloc_counters <(i32,i32)*>Result<Vec<u8>, Diag>> (nslots, value):
-    let counter <u8> cast value
+pub fn counting_bloom_alloc_counters %impure fn i32 impure fn i32 Result Vec u8 Diag \nslots\value:
+    let counter %u8 cast value
     match vec::filled<u8> nslots counter:
         Result::Ok counters:
             ok<Vec<u8>, Diag> counters
         Result::Err _e:
             diag_err<Vec<u8>> diag_out_of_memory
 
-pub fn counting_bloom_free_counters <(Vec<u8>)->()> (counters):
+pub fn counting_bloom_free_counters %fn Vec u8 () \counters:
     vec::free<u8> counters

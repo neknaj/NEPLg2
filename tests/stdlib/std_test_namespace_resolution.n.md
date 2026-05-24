@@ -23,11 +23,11 @@ stdout: "test_report name=\"std_test_report_survives_fenwick_add_import\" count=
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let tree <Fenwick>:
+fn main %impure fn () i32 \():
+    let tree %Fenwick:
         unwrap_ok<Fenwick, Diag> fw::new 2
         |> fw::add 0 1 |> uwok
-    let size <i32> fw::len &tree
+    let size %i32 fw::len &tree
     fw::free tree
     let report:
         test_report_new "std_test_report_survives_fenwick_add_import"

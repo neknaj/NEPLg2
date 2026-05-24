@@ -43,37 +43,37 @@ pub #import "alloc/collections/hashmap/api" as @merge
 //:| #import "core/option" as *
 //:| #import "alloc/diag/error" as *
 //: struct Point:
-//:     x <i32>
-//:     y <i32>
+//:     x %i32
+//:     y %i32
 //: impl Clone for Point:
-//:     fn clone <(&Point)->Point> (p):
+//:     fn clone %fn &Point Point \p:
 //:         *p
 //: impl Copy for Point:
-//:     fn copy_mark <(Point)->Point> (p):
+//:     fn copy_mark %fn Point Point \p:
 //:         p
 //: impl HashKey for Point:
-//:     fn eq <(Point,Point)->bool> (a, b):
+//:     fn eq %fn Point fn Point bool \a\b:
 //:         and eq field::get a "x" field::get b "x" eq field::get a "y" field::get b "y"
-//:     fn hash32 <(Point)->i32> (self):
+//:     fn hash32 %fn Point i32 \self:
 //:         add mul field::get self "x" 31 field::get self "y"
-//: fn must_hmp <(Result<HashMap<Point,str,DefaultHash32>, Diag>)*>HashMap<Point,str,DefaultHash32>> (r):
+//: fn must_hmp %impure fn Result HashMap Point str DefaultHash32 Diag HashMap Point str DefaultHash32 \r:
 //:     match r:
 //:         Result::Ok v:
 //:             v
 //:         Result::Err _:
 //:             #intrinsic "unreachable" <> ()
-//: fn must_hmp <(Result<HashMap<Point,str,DefaultHash32>, HashMapUpdateError<Point,str,DefaultHash32>>)*>HashMap<Point,str,DefaultHash32>> (r):
+//: fn must_hmp %impure fn Result HashMap Point str DefaultHash32 HashMapUpdateError Point str DefaultHash32 HashMap Point str DefaultHash32 \r:
 //:     match r:
 //:         Result::Ok v:
 //:             v
 //:         Result::Err e:
-//:             let hm <HashMap<Point,str,DefaultHash32>> hashmap_update_error_owner<Point,str,DefaultHash32> e;
+//:             let hm %HashMap Point str DefaultHash32 hashmap_update_error_owner<Point,str,DefaultHash32> e;
 //:             free hm;
 //:             #intrinsic "unreachable" <> ()
-//: fn main <()*>i32> ():
-//:     let map0 <HashMap<Point,str,DefaultHash32>> must_hmp new DefaultHash32;
-//:     let map1 <HashMap<Point,str,DefaultHash32>> must_hmp insert map0 (Point 10 20) "Start";
-//:     let ok <i32>:
+//: fn main %impure fn () i32 \():
+//:     let map0 %HashMap Point str DefaultHash32 must_hmp new DefaultHash32;
+//:     let map1 %HashMap Point str DefaultHash32 must_hmp insert map0 (Point 10 20) "Start";
+//:     let ok %i32:
 //:         match get &map1 (Point 10 20):
 //:             Option::Some name:
 //:                 if eq string::len name 5 0 1

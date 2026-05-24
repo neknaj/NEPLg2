@@ -31,12 +31,12 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec/sort/merge/api" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     sort_merge_buffer_get<i32>
 //:     0
 //: ```
-fn sort_merge_buffer_get <.T: Copy> <(MemPtr<.T>,i32)->.T> (buf, idx):
-    let off <i32> mul idx size_of<.T>
+fn sort_merge_buffer_get <.T: Copy> %fn MemPtr .T fn i32 .T \buf\idx:
+    let off %i32 mul idx size_of<.T>
     load<.T> add mem_ptr_addr buf off
 
 //: sort_merge_buffer_set: merge sort private buffer へ 1 要素を書き込む
@@ -49,12 +49,12 @@ fn sort_merge_buffer_get <.T: Copy> <(MemPtr<.T>,i32)->.T> (buf, idx):
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec/sort/merge/api" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     sort_merge_buffer_set<i32>
 //:     0
 //: ```
-fn sort_merge_buffer_set <.T: Copy> <(MemPtr<.T>,i32,.T)*>()> (buf, idx, val):
-    let off <i32> mul idx size_of<.T>
+fn sort_merge_buffer_set <.T: Copy> %impure fn MemPtr .T impure fn i32 impure fn .T () \buf\idx\val:
+    let off %i32 mul idx size_of<.T>
     store<.T> add mem_ptr_addr buf off val;
     ()
 
@@ -69,42 +69,42 @@ fn sort_merge_buffer_set <.T: Copy> <(MemPtr<.T>,i32,.T)*>()> (buf, idx, val):
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec/sort/merge/api" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     sort_merge_range_data<i32>
 //:     0
 //: ```
-fn sort_merge_range_data <.T: Ord&Copy> <(MemPtr<.T>,MemPtr<.T>,i32,i32)*>()> (data_ptr, buf, l, r):
-    let width <i32> sub r l;
+fn sort_merge_range_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn MemPtr .T impure fn i32 impure fn i32 () \data_ptr\buf\l\r:
+    let width %i32 sub r l;
     if:
         le width 1
         then ()
         else:
-            let lr_sum <i32> add l r;
-            let mid <i32> div_s lr_sum 2;
+            let lr_sum %i32 add l r;
+            let mid %i32 div_s lr_sum 2;
             sort_merge_range_data<.T> data_ptr buf l mid;
             sort_merge_range_data<.T> data_ptr buf mid r;
 
-            let mut i0 <i32> l;
+            let mut i0 %i32 l;
             while lt i0 r:
                 do:
-                    let x <.T> load<.T> add mem_ptr_addr data_ptr mul i0 size_of<.T>;
+                    let x %.T load<.T> add mem_ptr_addr data_ptr mul i0 size_of<.T>;
                     sort_merge_buffer_set<.T> buf i0 x;
                     set i0 add i0 1;
 
-            let mut i <i32> l;
-            let mut j <i32> mid;
-            let mut k <i32> l;
+            let mut i %i32 l;
+            let mut j %i32 mid;
+            let mut k %i32 l;
 
-            let mut done_merge <i32> 0;
+            let mut done_merge %i32 0;
             while eq done_merge 0:
                 do:
-                    let left_open <bool> lt i mid;
-                    let right_open <bool> lt j r;
+                    let left_open %bool lt i mid;
+                    let right_open %bool lt j r;
                     if:
                         and left_open right_open
                         then:
-                            let a <.T> sort_merge_buffer_get<.T> buf i;
-                            let b <.T> sort_merge_buffer_get<.T> buf j;
+                            let a %.T sort_merge_buffer_get<.T> buf i;
+                            let b %.T sort_merge_buffer_get<.T> buf j;
                             if:
                                 sort_lt<.T> b a
                                 then:
@@ -121,14 +121,14 @@ fn sort_merge_range_data <.T: Ord&Copy> <(MemPtr<.T>,MemPtr<.T>,i32,i32)*>()> (d
 
             while lt i mid:
                 do:
-                    let a <.T> sort_merge_buffer_get<.T> buf i;
+                    let a %.T sort_merge_buffer_get<.T> buf i;
                     store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> a;
                     set i add i 1;
                     set k add k 1;
 
             while lt j r:
                 do:
-                    let b <.T> sort_merge_buffer_get<.T> buf j;
+                    let b %.T sort_merge_buffer_get<.T> buf j;
                     store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> b;
                     set j add j 1;
                     set k add k 1;
@@ -145,18 +145,18 @@ fn sort_merge_range_data <.T: Ord&Copy> <(MemPtr<.T>,MemPtr<.T>,i32,i32)*>()> (d
 //: ### [注意/ちゅうい]
 //: - この payload は `sort_merge_ret` の失敗 branch が返すものです。ordinary source が constructor を直接呼んで owner を捏造する使い方は、owner-backed aggregate constructor restriction により拒否されます。
 pub struct VecSortMergeError<.T>:
-    vec <Vec<.T>>
-    error <StdErrorKind>
+    vec %Vec .T
+    error %StdErrorKind
 
 //: vec_sort_merge_error_kind: `sort_merge_ret` [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む
-pub fn vec_sort_merge_error_kind <.T> <(&VecSortMergeError<.T>)->StdErrorKind> (e):
+pub fn vec_sort_merge_error_kind <.T> %fn &VecSortMergeError .T StdErrorKind \e:
     *field::get_ref e "error"
 
 //: vec_sort_merge_error_vec: `sort_merge_ret` [失敗/しっぱい]で[戻/もど]された `Vec` owner を[取/と]り[出/だ]す
 //:
 //: ### [注意/ちゅうい]
 //: - 現行 merge sort は raw swap / scratch copy を使うため `.T: Ord&Copy` 専用です。error payload から owner を[取/と]り[戻/もど]す面も `.T: Copy` に[揃/そろ]えます。
-pub fn vec_sort_merge_error_vec <.T: Copy> <(VecSortMergeError<.T>)->Vec<.T>> (e):
+pub fn vec_sort_merge_error_vec <.T: Copy> %fn VecSortMergeError .T Vec .T \e:
     field::get e "vec"
 
 //: ## sort_merge
@@ -174,8 +174,8 @@ pub fn vec_sort_merge_error_vec <.T: Copy> <(VecSortMergeError<.T>)->Vec<.T>> (e
 //:| #import "alloc/collections/vec" as *
 //:| #import "alloc/collections/vec/sort" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let v %Vec i32:
 //:         unwrap_ok<Vec<i32>, StdErrorKind> new<i32>
 //:         |> push 3 |> uwok
 //:         |> push 1 |> uwok
@@ -194,12 +194,12 @@ pub fn vec_sort_merge_error_vec <.T: Copy> <(VecSortMergeError<.T>)->Vec<.T>> (e
 //:
 //: ### [計算量/けいさんりょう]
 //: - 時間計算量は O(n log n)、追加空間計算量は O(n) です。
-pub fn sort_merge <.T: Ord&Copy> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
+pub fn sort_merge <.T: Ord&Copy> %impure fn &Vec .T Result () StdErrorKind \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
             Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
-            let n <i32> len<.T> v
+            let n %i32 len<.T> v
             if:
                 le n 1
                 then Result<(), StdErrorKind>::Ok ()
@@ -214,7 +214,7 @@ pub fn sort_merge <.T: Ord&Copy> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
                                 Result::Err _e:
                                     Result<(), StdErrorKind>::Err StdErrorKind::OutOfMemory
                                 Result::Ok buf_region:
-                                    let buf <MemPtr<.T>> region_ptr &buf_region
+                                    let buf %MemPtr .T region_ptr &buf_region
                                     sort_merge_range_data<.T> data_ptr buf 0 n;
                                     match dealloc_region<.T> buf_region:
                                         Result::Ok _:
@@ -234,12 +234,12 @@ pub fn sort_merge <.T: Ord&Copy> <(&Vec<.T>)*>Result<(), StdErrorKind>> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_merge` と同じです。
-pub fn sort_merge_ret <.T: Ord&Copy> <(Vec<.T>)*>Result<Vec<.T>, VecSortMergeError<.T>>> (v):
+pub fn sort_merge_ret <.T: Ord&Copy> %impure fn Vec .T Result Vec .T VecSortMergeError .T \v:
     match vec_current_copy_invariant<.T> &v:
         VecCopyInvariant::Invalid _reason:
             Result<Vec<.T>, VecSortMergeError<.T>>::Err VecSortMergeError<.T> v StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
-            let n <i32> len<.T> &v
+            let n %i32 len<.T> &v
             if:
                 le n 1
                 then Result<Vec<.T>, VecSortMergeError<.T>>::Ok v
@@ -254,7 +254,7 @@ pub fn sort_merge_ret <.T: Ord&Copy> <(Vec<.T>)*>Result<Vec<.T>, VecSortMergeErr
                                 Result::Err _e:
                                     Result<Vec<.T>, VecSortMergeError<.T>>::Err VecSortMergeError<.T> v StdErrorKind::OutOfMemory
                                 Result::Ok buf_region:
-                                    let buf <MemPtr<.T>> region_ptr &buf_region
+                                    let buf %MemPtr .T region_ptr &buf_region
                                     sort_merge_range_data<.T> data_ptr buf 0 n;
                                     match dealloc_region<.T> buf_region:
                                         Result::Ok _:

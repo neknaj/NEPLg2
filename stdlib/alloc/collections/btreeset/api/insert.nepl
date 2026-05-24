@@ -28,11 +28,11 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - lower_bound は O(log n)、新規[挿入/そうにゅう]時の shift は O(n) です。
-pub fn btreeset_insert_ready <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (set1, key):
-    let len0 <i32> *field::get_ref &set1 "len"
-    let cap0 <i32> *field::get_ref &set1 "cap"
-    let storage <BTreeSetStorage<.T>> field::get set1 "storage"
-    let idx <i32> btreeset_lower_bound_storage<.T> &storage key 0 len0
+pub fn btreeset_insert_ready <.T: Ord&Copy> %impure fn BTreeSet .T impure fn .T BTreeSet .T \set1\key:
+    let len0 %i32 *field::get_ref &set1 "len"
+    let cap0 %i32 *field::get_ref &set1 "cap"
+    let storage %BTreeSetStorage .T field::get set1 "storage"
+    let idx %i32 btreeset_lower_bound_storage<.T> &storage key 0 len0
     if:
         btreeset_is_at_storage<.T> &storage len0 idx key
         then BTreeSet<.T> len0 cap0 storage
@@ -62,28 +62,28 @@ pub fn btreeset_insert_ready <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>BTreeSet<.T>> (s
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let s <BTreeSet<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let s %BTreeSet i32:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok
 //:         |> insert 3 |> uwok
-//:     let observed_len <i32> len<i32> &s
-//:     let ok <bool> eq observed_len 2
+//:     let observed_len %i32 len<i32> &s
+//:     let ok %bool eq observed_len 2
 //:     free<i32> s
 //:     if ok 1 0
 //: ```
-pub fn insert <.T: Ord&Copy> <(BTreeSet<.T>,.T)*>Result<BTreeSet<.T>, BTreeSetInsertError<.T>>> (set0, key):
-    let len_init <i32> *field::get_ref &set0 "len"
-    let cap_init <i32> *field::get_ref &set0 "cap"
+pub fn insert <.T: Ord&Copy> %impure fn BTreeSet .T impure fn .T Result BTreeSet .T BTreeSetInsertError .T \set0\key:
+    let len_init %i32 *field::get_ref &set0 "len"
+    let cap_init %i32 *field::get_ref &set0 "cap"
     if:
         eq len_init cap_init
         then:
             match btreeset_grow<.T> set0:
                 Result::Ok set1:
-                    let next <BTreeSet<.T>> btreeset_insert_ready<.T> set1 key
+                    let next %BTreeSet .T btreeset_insert_ready<.T> set1 key
                     Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Ok next
                 Result::Err e:
                     Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Err e
         else:
-            let next <BTreeSet<.T>> btreeset_insert_ready<.T> set0 key
+            let next %BTreeSet .T btreeset_insert_ready<.T> set0 key
             Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Ok next

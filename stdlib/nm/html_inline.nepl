@@ -24,8 +24,8 @@
 //:| #import "alloc/string" as *
 //:| #import "nm/html_inline" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let h <str> nm_inline_to_html "a [b/r] <x>"
+//: fn main %impure fn () i32 \():
+//:     let h %str nm_inline_to_html "a [b/r] <x>"
 //:     if and str_starts_with h "a <ruby" str_ends_with h "&lt;x&gt;" 0 1
 //: ```
 
@@ -40,7 +40,7 @@
 #import "./html_escape" as html
 #import "./parser/scanner" as scan
 
-fn nm_inline_byte_or_end <(str,i32)->i32> (s, idx):
+fn nm_inline_byte_or_end %fn str fn i32 i32 \s\idx:
     match checked_string_byte_at s idx:
         Option::Some b:
             b
@@ -63,44 +63,44 @@ fn nm_inline_byte_or_end <(str,i32)->i32> (s, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + m)
-pub fn nm_inline_to_html <(str)->str> (s):
-    let mut sb <StringBuilder> string_builder_new;
-    let n <i32> len s;
-    let mut i <i32> 0;
-    let mut text_start <i32> 0;
+pub fn nm_inline_to_html %fn str str \s:
+    let mut sb %StringBuilder string_builder_new;
+    let n %i32 len s;
+    let mut i %i32 0;
+    let mut text_start %i32 0;
     while lt i n:
         do:
-            let ch <i32> nm_inline_byte_or_end s i;
+            let ch %i32 nm_inline_byte_or_end s i;
             match ch:
                 '$':
-                    let mut delim <i32> 1;
+                    let mut delim %i32 1;
                     if:
                         and lt add i 1 n string_byte_eq s add i 1 '$'
                         then set delim 2
                         else ()
-                    let math_end <i32> scan::nm_find_math_end s add i delim delim;
+                    let math_end %i32 scan::nm_find_math_end s add i delim delim;
                     if:
                         ge math_end 0
                         then:
-                            let seg <str> str_slice s text_start i;
+                            let seg %str str_slice s text_start i;
                             if:
                                 gt len seg 0
                                 then set sb sb_append sb html::escape_html seg
                                 else ()
-                            let endpos <i32> add math_end delim;
+                            let endpos %i32 add math_end delim;
                             set sb sb_append sb str_slice s i endpos;
                             set i endpos;
                             set text_start endpos
                         else:
                             set i add i 1
                 '[':
-                    let close <i32> scanner::str_find_byte_range s add i 1 n ']';
-                    let slash <i32>:
+                    let close %i32 scanner::str_find_byte_range s add i 1 n ']';
+                    let slash %i32:
                         if:
                             ge close 0
                             then scanner::str_find_byte_range s add i 1 close '/'
                             else -1
-                    let mut next_is_paren <bool> false;
+                    let mut next_is_paren %bool false;
                     if:
                         and ge close 0 lt add close 1 n
                         then set next_is_paren string_byte_eq s add close 1 '('
@@ -108,13 +108,13 @@ pub fn nm_inline_to_html <(str)->str> (s):
                     if:
                         and ge close 0 and ge slash 0 not next_is_paren
                         then:
-                            let seg <str> str_slice s text_start i;
+                            let seg %str str_slice s text_start i;
                             if:
                                 gt len seg 0
                                 then set sb sb_append sb html::escape_html seg
                                 else ()
-                            let base <str> str_slice s add i 1 slash;
-                            let rub <str> str_slice s add slash 1 close;
+                            let base %str str_slice s add i 1 slash;
+                            let rub %str str_slice s add slash 1 close;
                             set sb sb_append sb "<ruby class=\"nm-ruby\"><rb>";
                             set sb sb_append sb html::escape_html base;
                             set sb sb_append sb "</rb><rt>";
@@ -125,8 +125,8 @@ pub fn nm_inline_to_html <(str)->str> (s):
                         else:
                             set i add i 1
                 '{':
-                    let close <i32> scanner::str_find_byte_range s add i 1 n '}';
-                    let first_slash <i32>:
+                    let close %i32 scanner::str_find_byte_range s add i 1 n '}';
+                    let first_slash %i32:
                         if:
                             ge close 0
                             then scan::nm_find_gloss_slash s add i 1 close
@@ -134,26 +134,26 @@ pub fn nm_inline_to_html <(str)->str> (s):
                     if:
                         and ge close 0 ge first_slash 0
                         then:
-                            let seg <str> str_slice s text_start i;
+                            let seg %str str_slice s text_start i;
                             if:
                                 gt len seg 0
                                 then set sb sb_append sb html::escape_html seg
                                 else ()
-                            let main <str> str_slice s add i 1 first_slash;
+                            let main %str str_slice s add i 1 first_slash;
                             set sb sb_append sb "<ruby class=\"nm-anno\"><rb>";
                             set sb sb_append sb nm_inline_to_html main;
                             set sb sb_append sb "</rb><rt>";
-                            let mut sub_start <i32> add first_slash 1;
-                            let mut k <i32> sub_start;
+                            let mut sub_start %i32 add first_slash 1;
+                            let mut k %i32 sub_start;
                             while lt k close:
                                 do:
-                                    let next_slash <i32> scan::nm_find_gloss_slash s k close;
-                                    let part_end <i32>:
+                                    let next_slash %i32 scan::nm_find_gloss_slash s k close;
+                                    let part_end %i32:
                                         if:
                                             ge next_slash 0
                                             then next_slash
                                             else close
-                                    let part <str> str_slice s sub_start part_end;
+                                    let part %str str_slice s sub_start part_end;
                                     set sb sb_append sb "<span class=\"nm-anno-note\">";
                                     set sb sb_append sb nm_inline_to_html part;
                                     set sb sb_append sb "</span>";
@@ -171,7 +171,7 @@ pub fn nm_inline_to_html <(str)->str> (s):
                             set i add i 1
                 _:
                     set i add i 1
-    let tail <str> str_slice s text_start n;
+    let tail %str str_slice s text_start n;
     if:
         gt len tail 0
         then set sb sb_append sb html::escape_html tail

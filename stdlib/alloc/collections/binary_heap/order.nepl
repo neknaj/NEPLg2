@@ -14,27 +14,27 @@
 #import "alloc/collections/vec" as vec
 #import "./storage" as *
 
-pub fn heap_parent <(i32)->i32> (idx):
+pub fn heap_parent %fn i32 i32 \idx:
     div_s sub idx 1 2
 
-pub fn heap_left <(i32)->i32> (idx):
+pub fn heap_left %fn i32 i32 \idx:
     add mul idx 2 1
 
-pub fn heap_right <(i32)->i32> (idx):
+pub fn heap_right %fn i32 i32 \idx:
     add mul idx 2 2
 
-pub fn heap_swap_slots <.T: Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, a, b):
-    let av <Option<.T>> heap_item_at<.T> items a
-    let bv <Option<.T>> heap_item_at<.T> items b
+pub fn heap_swap_slots <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 () \items\a\b:
+    let av %Option .T heap_item_at<.T> items a
+    let bv %Option .T heap_item_at<.T> items b
     heap_store_slot<.T> items a bv
     heap_store_slot<.T> items b av
 
-pub fn heap_sift_up <.T: Ord&Copy> <(&Vec<Option<.T>>,i32)*>()> (items, start):
-    let mut idx <i32> start
-    let mut done <bool> false
+pub fn heap_sift_up <.T: Ord&Copy> %impure fn &Vec Option .T impure fn i32 () \items\start:
+    let mut idx %i32 start
+    let mut done %bool false
     while and lt 0 idx not done:
         do:
-            let parent <i32> heap_parent idx
+            let parent %i32 heap_parent idx
             match heap_item_at<.T> items parent:
                 Option::Some pv:
                     match heap_item_at<.T> items idx:
@@ -51,12 +51,12 @@ pub fn heap_sift_up <.T: Ord&Copy> <(&Vec<Option<.T>>,i32)*>()> (items, start):
                 Option::None:
                     set done true
 
-pub fn heap_sift_down <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, len0, start):
-    let mut idx <i32> start
-    let mut done <bool> false
+pub fn heap_sift_down <.T: Ord&Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 () \items\len0\start:
+    let mut idx %i32 start
+    let mut done %bool false
     while and lt idx len0 not done:
         do:
-            let left <i32> heap_left idx
+            let left %i32 heap_left idx
             if:
                 le len0 left
                 then:
@@ -70,7 +70,7 @@ pub fn heap_sift_down <.T: Ord&Copy> <(&Vec<Option<.T>>,i32,i32)*>()> (items, le
                                 Option::None:
                                     set done true
                                 Option::Some left_value:
-                                    let right <i32> heap_right idx
+                                    let right %i32 heap_right idx
                                     if:
                                         lt right len0
                                         then:

@@ -24,17 +24,17 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let hm0 <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
-    let hm1 <HashMap<i32,i32,DefaultHash32>> unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> insert hm0 1 10;
+    let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
+    let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> insert hm0 1 10;
     match remove hm1 99:
         Result::Ok h:
             free h;
             set checks checks_push checks Result<(),str>::Err "expected KeyNotFound";
         Result::Err e:
-            let d <Diag> hashmap_update_error_diag<i32,i32,DefaultHash32> &e;
-            let hm2 <HashMap<i32,i32,DefaultHash32>> hashmap_update_error_owner<i32,i32,DefaultHash32> e;
+            let d %Diag hashmap_update_error_diag<i32,i32,DefaultHash32> &e;
+            let hm2 %HashMap i32 i32 DefaultHash32 hashmap_update_error_owner<i32,i32,DefaultHash32> e;
             free hm2;
             set checks checks_push checks check_str_eq "KeyNotFound" diag_std_error_kind_str d;
     let shown checks_print_report checks;
@@ -62,17 +62,17 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let hs0 <HashSet<i32,DefaultHash32>> unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
-    let hs1 <HashSet<i32,DefaultHash32>> unwrap_ok<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>> insert hs0 1;
+    let hs0 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
+    let hs1 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>> insert hs0 1;
     match remove hs1 99:
         Result::Ok h:
             free h;
             set checks checks_push checks Result<(),str>::Err "expected KeyNotFound";
         Result::Err e:
-            let d <Diag> hashset_update_error_diag<i32,DefaultHash32> &e;
-            let hs2 <HashSet<i32,DefaultHash32>> hashset_update_error_owner<i32,DefaultHash32> e;
+            let d %Diag hashset_update_error_diag<i32,DefaultHash32> &e;
+            let hs2 %HashSet i32 DefaultHash32 hashset_update_error_owner<i32,DefaultHash32> e;
             free hs2;
             set checks checks_push checks check_str_eq "KeyNotFound" diag_std_error_kind_str d;
     let shown checks_print_report checks;
@@ -100,9 +100,9 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let q <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
+    let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
     match pop<i32> q:
         Option::Some _v:
             set checks checks_push checks Result<(),str>::Err "expected none";
@@ -133,9 +133,9 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let rb <RingBuffer<i32>> unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+    let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
     match pop<i32> rb:
         Option::Some _v:
             set checks checks_push checks Result<(),str>::Err "expected none";

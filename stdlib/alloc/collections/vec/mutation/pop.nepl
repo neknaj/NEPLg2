@@ -25,11 +25,11 @@
 //: - `pop` は caller に removed payload owner を返すため、removed tail slot を raw load します。
 //: - raw load だけでは backing storage 上の initialized slot state が残るため、同じ source boundary で `collection_slot_move_out` marker を[発行/はっこう]します。
 //: - public `pop` body は raw pointer operation や lifecycle marker を open-code せず、`VecStorageInvariant` で metadata / extent を[検査/けんさ]してからこの helper に委譲します。
-fn vec_pop_move_out_initialized_slot <.T> <(&RegionToken<.T>,i32)->.T> (storage, byte_off):
-    let data <MemPtr<.T>> region_ptr storage
-    let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
-    let raw <i32> mem_ptr_addr slot
-    let loaded <.T> load<.T> raw
+fn vec_pop_move_out_initialized_slot <.T> %fn &RegionToken .T fn i32 .T \storage\byte_off:
+    let data %MemPtr .T region_ptr storage
+    let slot %MemPtr .T mem_ptr_add<.T> data byte_off
+    let raw %i32 mem_ptr_addr slot
+    let loaded %.T load<.T> raw
     #intrinsic "collection_slot_move_out" <.T> (storage, byte_off)
     loaded
 
@@ -40,14 +40,14 @@ fn vec_pop_move_out_initialized_slot <.T> <(&RegionToken<.T>,i32)->.T> (storage,
 //: - `VecStorageInvariant` により `len`、`initialized_len`、`cap`、backing storage extent の相関を確認します。
 //: - 要素があるときだけ `vec_pop_move_out_initialized_slot` へ末尾 slot の move-out proof を委譲し、metadata を `next_len` にそろえた `VecPop` を返します。
 //: - Copy / Drop の public overload はこの helper を共有し、API 型境界だけを外側で表します。
-fn vec_pop_storage_checked <.T> <(Vec<.T>)->VecPop<.T>> (v):
-    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
-    let v_len <i32> *field::get_ref v_buffer_ref "len"
-    let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
-    let v_cap <i32> *field::get_ref v_buffer_ref "cap"
-    let v_invariant <VecStorageInvariant> vec_buffer_current_storage_invariant<.T> v_buffer_ref
-    let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
-    let v_storage <VecStorage<.T>> field::get v_buffer "storage"
+fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
+    let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
+    let v_len %i32 *field::get_ref v_buffer_ref "len"
+    let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"
+    let v_cap %i32 *field::get_ref v_buffer_ref "cap"
+    let v_invariant %VecStorageInvariant vec_buffer_current_storage_invariant<.T> v_buffer_ref
+    let v_buffer %OwnedBuffer .T field::get v "buffer"
+    let v_storage %VecStorage .T field::get v_buffer "storage"
     match v_invariant:
         VecStorageInvariant::Invalid _reason:
             VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none<.T>
@@ -57,13 +57,13 @@ fn vec_pop_storage_checked <.T> <(Vec<.T>)->VecPop<.T>> (v):
                 then:
                     VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none<.T>
                 else:
-                    let next_len <i32> sub v_len 1
+                    let next_len %i32 sub v_len 1
                     match v_storage:
                         VecStorage::Empty:
                             VecPop<.T> vec_storage::vec_empty<.T> none<.T>
                         VecStorage::Owned v_region:
-                            let byte_off <i32> mul next_len size_of<.T>
-                            let item <.T> vec_pop_move_out_initialized_slot<.T> &v_region byte_off
+                            let byte_off %i32 mul next_len size_of<.T>
+                            let item %.T vec_pop_move_out_initialized_slot<.T> &v_region byte_off
                             VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some<.T> item
 
 //: ## pop
@@ -94,11 +94,11 @@ fn vec_pop_storage_checked <.T> <(Vec<.T>)->VecPop<.T>> (v):
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<i32>> unwrap_ok new<i32>;
-//:     let v1 <Vec<i32>> unwrap_ok push v0 4;
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec i32 unwrap_ok new<i32>;
+//:     let v1 %Vec i32 unwrap_ok push v0 4;
 //:     let p pop<i32> v1;
-//:     let next <Vec<i32>> vec_pop_vec<i32> p;
+//:     let next %Vec i32 vec_pop_vec<i32> p;
 //:     free<i32> next;
 //:     0
 //: ```
@@ -113,12 +113,12 @@ fn vec_pop_storage_checked <.T> <(Vec<.T>)->VecPop<.T>> (v):
 //:| #import "core/result" as *
 //:| #import "core/traits/drop" as *
 //: struct DropPayload:
-//:     value <i32>
+//:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop <(&DropPayload)*>()> (_self):
+//:     fn drop %impure fn &DropPayload () \_self:
 //:         ()
-//: fn finish <(Vec<DropPayload>,Option<DropPayload>)*>i32> (next, item):
-//:     let len_ok <bool> eq len<DropPayload> &next 0
+//: fn finish %impure fn Vec DropPayload impure fn Option DropPayload i32 \next\item:
+//:     let len_ok %bool eq len<DropPayload> &next 0
 //:     match item:
 //:         Option::Some value:
 //:             Drop::drop &value
@@ -127,10 +127,10 @@ fn vec_pop_storage_checked <.T> <(Vec<.T>)->VecPop<.T>> (v):
 //:         Option::None:
 //:             free<DropPayload> next
 //:             1
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
-//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 4)
-//:     let p <VecPop<DropPayload>> pop<DropPayload> v1
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
+//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 4)
+//:     let p %VecPop DropPayload pop<DropPayload> v1
 //:     vec_pop_with<DropPayload,i32> p @finish
 //: ```
 //:
@@ -141,16 +141,16 @@ fn vec_pop_storage_checked <.T> <(Vec<.T>)->VecPop<.T>> (v):
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //: struct NonCopyPayload:
-//:     value <i32>
-//: fn ignore_plain <(Vec<NonCopyPayload>,Option<NonCopyPayload>)*>i32> (_next, _item):
+//:     value %i32
+//: fn ignore_plain %impure fn Vec NonCopyPayload impure fn Option NonCopyPayload i32 \_next\_item:
 //:     0
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<NonCopyPayload>> vec_empty<NonCopyPayload>;
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec NonCopyPayload vec_empty<NonCopyPayload>;
 //:     let p pop<NonCopyPayload> v0;
 //:     vec_pop_with<NonCopyPayload,i32> p @ignore_plain
 //:     0
 //: ```
-pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
+pub fn pop <.T: Copy> %fn Vec .T VecPop .T \v:
     vec_pop_storage_checked<.T> v
 
 //: ## pop
@@ -162,7 +162,7 @@ pub fn pop <.T: Copy> <(Vec<.T>)->VecPop<.T>> (v):
 //:
 //: ### [注意/ちゅうい]
 //: - `vec_pop_vec<T: Copy>` は item owner を捨てる accessor なので、Drop payload では使えません。`vec_pop_with<T, R>` を使います。
-pub fn pop <.T: Drop> <(Vec<.T>)->VecPop<.T>> (v):
+pub fn pop <.T: Drop> %fn Vec .T VecPop .T \v:
     vec_pop_storage_checked<.T> v
 
 //: ## vec_drop_last_copy_initialized_slot
@@ -171,11 +171,11 @@ pub fn pop <.T: Drop> <(Vec<.T>)->VecPop<.T>> (v):
 //: ### [目的/もくてき]
 //: - `.T: Copy` では destructor 実行は不要ですが、`drop_last` が removed tail slot の initialized state を metadata だけで消したことにしないよう、raw load witness と `collection_slot_drop_initialized` marker を同じ private helper に[閉/と]じます。
 //: - caller は `VecStorageInvariant` で `len == initialized_len` と backing extent を[確認/かくにん]してから、この helper に末尾 byte offset を[渡/わた]します。
-fn vec_drop_last_copy_initialized_slot <.T: Copy> <(&RegionToken<.T>,i32)->()> (storage, byte_off):
-    let data <MemPtr<.T>> region_ptr storage
-    let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
-    let raw <i32> mem_ptr_addr slot
-    let _value <.T> load<.T> raw
+fn vec_drop_last_copy_initialized_slot <.T: Copy> %fn &RegionToken .T fn i32 () \storage\byte_off:
+    let data %MemPtr .T region_ptr storage
+    let slot %MemPtr .T mem_ptr_add<.T> data byte_off
+    let raw %i32 mem_ptr_addr slot
+    let _value %.T load<.T> raw
     #intrinsic "collection_slot_drop_initialized" <.T> (storage, byte_off)
 
 //: ## vec_drop_last_drop_initialized_slot
@@ -184,11 +184,11 @@ fn vec_drop_last_copy_initialized_slot <.T: Copy> <(&RegionToken<.T>,i32)->()> (
 //: ### [目的/もくてき]
 //: - `.T: Drop` の removed tail slot を raw load し、actual `Drop::drop` proof と `collection_slot_drop_initialized` marker を同じ source boundary に[置/お]きます。
 //: - stdlib 関数名の allowlist ではなく、Resource IR の raw value-flow proof と Drop proof で single-slot cleanup を[証明/しょうめい]します。
-fn vec_drop_last_drop_initialized_slot <.T: Drop> <(&RegionToken<.T>,i32)*>()> (storage, byte_off):
-    let data <MemPtr<.T>> region_ptr storage
-    let slot <MemPtr<.T>> mem_ptr_add<.T> data byte_off
-    let raw <i32> mem_ptr_addr slot
-    let loaded <.T> load<.T> raw
+fn vec_drop_last_drop_initialized_slot <.T: Drop> %impure fn &RegionToken .T impure fn i32 () \storage\byte_off:
+    let data %MemPtr .T region_ptr storage
+    let slot %MemPtr .T mem_ptr_add<.T> data byte_off
+    let raw %i32 mem_ptr_addr slot
+    let loaded %.T load<.T> raw
     Drop::drop &loaded
     #intrinsic "collection_slot_drop_initialized" <.T> (storage, byte_off)
 
@@ -211,8 +211,8 @@ fn vec_drop_last_drop_initialized_slot <.T: Drop> <(&RegionToken<.T>,i32)*>()> (
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let v <Vec<i32>>:
+//: fn main %impure fn () i32 \():
+//:     let v %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 10 |> uwok
 //:         |> push 20 |> uwok
@@ -224,7 +224,7 @@ fn vec_drop_last_drop_initialized_slot <.T: Drop> <(&RegionToken<.T>,i32)*>()> (
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn drop_last <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
+pub fn drop_last <.T: Copy> %fn Vec .T Vec .T \v:
     vec_drop_last_storage_checked_copy<.T> v
 
 //: ## drop_last
@@ -242,32 +242,32 @@ pub fn drop_last <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
 //:| #import "core/result" as *
 //:| #import "core/traits/drop" as *
 //: struct DropPayload:
-//:     value <i32>
+//:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop <(&DropPayload)*>()> (_self):
+//:     fn drop %impure fn &DropPayload () \_self:
 //:         ()
-//: fn main <()*>i32> ():
-//:     let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
-//:     let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
-//:     let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 2)
-//:     let v3 <Vec<DropPayload>> drop_last<DropPayload> v2
-//:     let ok <bool> eq len<DropPayload> &v3 1
+//: fn main %impure fn () i32 \():
+//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
+//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
+//:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 2)
+//:     let v3 %Vec DropPayload drop_last<DropPayload> v2
+//:     let ok %bool eq len<DropPayload> &v3 1
 //:     free<DropPayload> v3
 //:     if ok 0 1
 //: ```
-pub fn drop_last <.T: Drop> <(Vec<.T>)*>Vec<.T>> (v):
+pub fn drop_last <.T: Drop> %impure fn Vec .T Vec .T \v:
     vec_drop_last_storage_checked_drop<.T> v
 
 //: ## vec_drop_last_storage_checked_copy
 //: Copy payload の `drop_last` 本体
-fn vec_drop_last_storage_checked_copy <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
-    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
-    let v_len <i32> *field::get_ref v_buffer_ref "len"
-    let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
-    let v_cap <i32> *field::get_ref v_buffer_ref "cap"
-    let v_invariant <VecStorageInvariant> vec_buffer_current_storage_invariant<.T> v_buffer_ref
-    let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
-    let v_storage <VecStorage<.T>> field::get v_buffer "storage"
+fn vec_drop_last_storage_checked_copy <.T: Copy> %fn Vec .T Vec .T \v:
+    let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
+    let v_len %i32 *field::get_ref v_buffer_ref "len"
+    let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"
+    let v_cap %i32 *field::get_ref v_buffer_ref "cap"
+    let v_invariant %VecStorageInvariant vec_buffer_current_storage_invariant<.T> v_buffer_ref
+    let v_buffer %OwnedBuffer .T field::get v "buffer"
+    let v_storage %VecStorage .T field::get v_buffer "storage"
     match v_invariant:
         VecStorageInvariant::Invalid _reason:
             Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)
@@ -277,25 +277,25 @@ fn vec_drop_last_storage_checked_copy <.T: Copy> <(Vec<.T>)->Vec<.T>> (v):
                 then:
                     Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)
                 else:
-                    let next_len <i32> sub v_len 1
+                    let next_len %i32 sub v_len 1
                     match v_storage:
                         VecStorage::Empty:
                             Vec<.T> (OwnedBuffer<.T> 0 0 v_cap VecStorage<.T>::Empty)
                         VecStorage::Owned v_region:
-                            let byte_off <i32> mul next_len size_of<.T>
+                            let byte_off %i32 mul next_len size_of<.T>
                             vec_drop_last_copy_initialized_slot<.T> &v_region byte_off
                             Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))
 
 //: ## vec_drop_last_storage_checked_drop
 //: Drop payload の `drop_last` 本体
-fn vec_drop_last_storage_checked_drop <.T: Drop> <(Vec<.T>)*>Vec<.T>> (v):
-    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
-    let v_len <i32> *field::get_ref v_buffer_ref "len"
-    let v_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
-    let v_cap <i32> *field::get_ref v_buffer_ref "cap"
-    let v_invariant <VecStorageInvariant> vec_buffer_current_storage_invariant<.T> v_buffer_ref
-    let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
-    let v_storage <VecStorage<.T>> field::get v_buffer "storage"
+fn vec_drop_last_storage_checked_drop <.T: Drop> %impure fn Vec .T Vec .T \v:
+    let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
+    let v_len %i32 *field::get_ref v_buffer_ref "len"
+    let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"
+    let v_cap %i32 *field::get_ref v_buffer_ref "cap"
+    let v_invariant %VecStorageInvariant vec_buffer_current_storage_invariant<.T> v_buffer_ref
+    let v_buffer %OwnedBuffer .T field::get v "buffer"
+    let v_storage %VecStorage .T field::get v_buffer "storage"
     match v_invariant:
         VecStorageInvariant::Invalid _reason:
             Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)
@@ -305,11 +305,11 @@ fn vec_drop_last_storage_checked_drop <.T: Drop> <(Vec<.T>)*>Vec<.T>> (v):
                 then:
                     Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)
                 else:
-                    let next_len <i32> sub v_len 1
+                    let next_len %i32 sub v_len 1
                     match v_storage:
                         VecStorage::Empty:
                             Vec<.T> (OwnedBuffer<.T> 0 0 v_cap VecStorage<.T>::Empty)
                         VecStorage::Owned v_region:
-                            let byte_off <i32> mul next_len size_of<.T>
+                            let byte_off %i32 mul next_len size_of<.T>
                             vec_drop_last_drop_initialized_slot<.T> &v_region byte_off
                             Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))

@@ -18,7 +18,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks:
         checks_new
         |> checks_push assert_eq_i32 7 math::add 3 4

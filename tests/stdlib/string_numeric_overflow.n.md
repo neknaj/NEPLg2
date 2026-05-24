@@ -11,7 +11,7 @@ ret: 1
 
 #import "alloc/string" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match to_u128 "340282366920938463463374607431768211455":
         Result::Ok v:
             if str_eq from_u128 v "340282366920938463463374607431768211455" 1 0
@@ -30,7 +30,7 @@ ret: 1
 
 #import "alloc/string" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match to_u128 "340282366920938463463374607431768211456":
         Result::Ok _:
             0
@@ -49,7 +49,7 @@ ret: 1
 
 #import "alloc/string" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match to_u128_radix "100000000000000000000000000000000" 16:
         Result::Ok _:
             0
@@ -69,13 +69,13 @@ ret: 1
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let ok_max <bool> match to_i128 "170141183460469231731687303715884105727":
+fn main %impure fn () i32 \():
+    let ok_max %bool match to_i128 "170141183460469231731687303715884105727":
         Result::Ok v:
             str_eq from_i128 v "170141183460469231731687303715884105727"
         Result::Err _:
             false
-    let ok_min <bool> match to_i128 "-170141183460469231731687303715884105728":
+    let ok_min %bool match to_i128 "-170141183460469231731687303715884105728":
         Result::Ok v:
             str_eq from_i128 v "-170141183460469231731687303715884105728"
         Result::Err _:
@@ -95,13 +95,13 @@ ret: 1
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let ok_high <bool> match to_i128 "170141183460469231731687303715884105728":
+fn main %impure fn () i32 \():
+    let ok_high %bool match to_i128 "170141183460469231731687303715884105728":
         Result::Ok _:
             false
         Result::Err _:
             true
-    let ok_low <bool> match to_i128 "-170141183460469231731687303715884105729":
+    let ok_low %bool match to_i128 "-170141183460469231731687303715884105729":
         Result::Ok _:
             false
         Result::Err _:
@@ -121,13 +121,13 @@ ret: 1
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let ok_max <bool> match to_i64 "9223372036854775807":
+fn main %impure fn () i32 \():
+    let ok_max %bool match to_i64 "9223372036854775807":
         Result::Ok v:
             str_eq from_i64 v "9223372036854775807"
         Result::Err _:
             false
-    let ok_min <bool> match to_i64 "-9223372036854775808":
+    let ok_min %bool match to_i64 "-9223372036854775808":
         Result::Ok v:
             str_eq from_i64 v "-9223372036854775808"
         Result::Err _:
@@ -147,13 +147,13 @@ ret: 1
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let ok_high <bool> match to_i64 "9223372036854775808":
+fn main %impure fn () i32 \():
+    let ok_high %bool match to_i64 "9223372036854775808":
         Result::Ok _:
             false
         Result::Err _:
             true
-    let ok_low <bool> match to_i64 "-9223372036854775809":
+    let ok_low %bool match to_i64 "-9223372036854775809":
         Result::Ok _:
             false
         Result::Err _:
@@ -173,13 +173,13 @@ ret: 1
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main <()*>i32> ():
-    let ok_high <bool> match to_i32 "2147483648":
+fn main %impure fn () i32 \():
+    let ok_high %bool match to_i32 "2147483648":
         Result::Ok _:
             false
         Result::Err _:
             true
-    let ok_huge <bool> match to_i32 "340282366920938463463374607431768211456":
+    let ok_huge %bool match to_i32 "340282366920938463463374607431768211456":
         Result::Ok _:
             false
         Result::Err _:

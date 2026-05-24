@@ -35,10 +35,10 @@
 //:
 //: [目的/もくてき]:
 //: - 状態を持つ逐次計算の基本形を示します。
-fn main <()*>()> ():
-    let mut a <i32> 0;
-    let mut b <i32> 1;
-    let mut i <i32> 0;
+fn main %impure fn () () \():
+    let mut a %i32 0;
+    let mut b %i32 1;
+    let mut i %i32 0;
     while lt i 10:
         do:
             print "fib = ";

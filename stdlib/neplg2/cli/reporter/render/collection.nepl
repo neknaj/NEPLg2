@@ -17,10 +17,10 @@
 #import "./single" as *
 
 //: selfhost_cli_render_diagnostics_human: diagnostic collection を stderr 用 text にする
-pub fn selfhost_cli_render_diagnostics_human <(&SelfhostDiagnostics)->str> (diagnostics):
-    let n <i32> selfhost_diagnostics_len diagnostics
-    let mut sb <StringBuilder> string_builder_new
-    let mut i <i32> 0
+pub fn selfhost_cli_render_diagnostics_human %fn &SelfhostDiagnostics str \diagnostics:
+    let n %i32 selfhost_diagnostics_len diagnostics
+    let mut sb %StringBuilder string_builder_new
+    let mut i %i32 0
     while lt i n:
         do:
             match selfhost_diagnostics_get diagnostics i:
@@ -32,11 +32,11 @@ pub fn selfhost_cli_render_diagnostics_human <(&SelfhostDiagnostics)->str> (diag
     sb_build sb
 
 //: selfhost_cli_render_diagnostics_json: diagnostic collection を compact JSON array にする
-pub fn selfhost_cli_render_diagnostics_json <(&SelfhostDiagnostics)->str> (diagnostics):
-    let n <i32> selfhost_diagnostics_len diagnostics
-    let mut sb <StringBuilder> string_builder_new
+pub fn selfhost_cli_render_diagnostics_json %fn &SelfhostDiagnostics str \diagnostics:
+    let n %i32 selfhost_diagnostics_len diagnostics
+    let mut sb %StringBuilder string_builder_new
     set sb sb_append sb "["
-    let mut i <i32> 0
+    let mut i %i32 0
     while lt i n:
         do:
             if:

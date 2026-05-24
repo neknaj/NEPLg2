@@ -6,7 +6,7 @@
 //:
 //: [実装/じっそう]:
 //: - [返/かえ]り[値/あたい]は 32-bit の[整数/せいすう]で、[現在/げんざい]の stdlib が[採用/さいよう]している `alloc/hash/hash32::hash32` overload の[分布/ぶんぷ]を[再利用/さいりよう]します。
-//: - trait `Hash` が `hash32 <(Self)->i32>` を[要求/ようきゅう]し、helper `hash32_by_trait` が[呼/よ]び[出/だ]しを[集約/しゅうやく]します。
+//: - trait `Hash` が `hash32 %fn Self i32` を[要求/ようきゅう]し、helper `hash32_by_trait` が[呼/よ]び[出/だ]しを[集約/しゅうやく]します。
 //:
 //: [注意/ちゅうい]:
 //: - [暗号/あんごう]ハッシュではありません。
@@ -26,12 +26,12 @@
 //:| #import "std/test" as *
 //:| #import "core/traits/hash" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let h1 <i32> hash32_by_trait 123456
-//:     let h2 <i32> hash32_by_trait 123456
-//:     let h3 <i32> hash32_by_trait 123457
-//:     let same <bool> eq h1 h2
-//:     let different <bool> ne h1 h3
+//: fn main %impure fn () i32 \():
+//:     let h1 %i32 hash32_by_trait 123456
+//:     let h2 %i32 hash32_by_trait 123456
+//:     let h3 %i32 hash32_by_trait 123457
+//:     let same %bool eq h1 h2
+//:     let different %bool ne h1 h3
 //:     let report:
 //:         test_report_new "hash_trait_doc"
 //:         |> test_report_push assert "same input hash stable" same
@@ -52,15 +52,15 @@
 #import "core/math" as *
 #import "core/option" as *
 
-pub fn trait_hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
+pub fn trait_hash_bytes_loop %fn str fn i32 fn i32 fn Fnv1a32 Fnv1a32 \s\n\idx\h:
     if:
         ge idx n
         then h
         else:
             match string_byte_index::checked_string_byte_at s idx:
                 Option::Some b:
-                    let next_idx <i32> add idx 1
-                    let next_h <Fnv1a32> fnv1a32_update h b
+                    let next_idx %i32 add idx 1
+                    let next_h %Fnv1a32 fnv1a32_update h b
                     trait_hash_bytes_loop s n next_idx next_h
                 Option::None:
                     h
@@ -73,7 +73,7 @@ pub fn trait_hash_bytes_loop <(str,i32,i32,Fnv1a32)->Fnv1a32> (s, n, idx, h):
 //: [注意/ちゅうい]:
 //: - `Eq` [相当/そうとう]の[同値性/どうちせい]と[矛盾/むじゅん]しないように[実装/じっそう]する[必要/ひつよう]があります。
 trait Hash:
-    fn hash32 <(Self)->i32> (self):
+    fn hash32 %fn Self i32 \self:
         0
 
 //: Hasher: key [型/かた]ごとの hash [戦略/せんりゃく]
@@ -87,24 +87,24 @@ trait Hash:
 //: - hasher [自体/じたい]が[内部状態/ないぶじょうたい]を[持/も]たない[場合/ばあい]でも、zero-sized struct などの[値/あたい]として[明示的/めいじてき]に[渡/わた]します。
 //: - hasher value を[複数回/ふくすうかい][使/つか]う collection API は、`Hasher` ではなく標準 `Copy` bound を[別/べつ]に[要求/ようきゅう]します。
 trait Hasher<.K: HashKey>:
-    fn hash32 <(Self,.K)->i32> (self, key):
+    fn hash32 %fn Self fn .K i32 \self\key:
         0
 
 //: ## DefaultHash32
 //: stdlib の[既定/きてい] hasher
 pub struct DefaultHash32:
-    tag <()>
+    tag %()
 
 impl Clone for DefaultHash32:
-    fn clone <(&DefaultHash32)->DefaultHash32> (self):
+    fn clone %fn &DefaultHash32 DefaultHash32 \self:
         *self
 
 impl Copy for DefaultHash32:
-    fn copy_mark <(DefaultHash32)->DefaultHash32> (self):
+    fn copy_mark %fn DefaultHash32 DefaultHash32 \self:
         self
 
 impl<.K: HashKey> Hasher<.K> for DefaultHash32:
-    fn hash32 <(DefaultHash32,.K)->i32> (_self, key):
+    fn hash32 %fn DefaultHash32 fn .K i32 \_self\key:
         hashkey_hash32 key
 
 //: hash_with: hasher [経由/けいゆ]で key を hash する
@@ -114,7 +114,7 @@ impl<.K: HashKey> Hasher<.K> for DefaultHash32:
 //:
 //: [実装/じっそう]:
 //: - `Hasher::hash32` をそのまま[呼/よ]びます。
-pub fn hash_with <.K: HashKey,.H: Hasher<.K>> <(.H,.K)->i32> (hasher, key):
+pub fn hash_with <.K: HashKey,.H: Hasher<.K>> %fn .H fn .K i32 \hasher\key:
     Hasher::hash32 hasher key
 
 //: hash32_by_trait: `Hash` trait [経由/けいゆ]で 32-bit ハッシュを[得/え]る
@@ -130,7 +130,7 @@ pub fn hash_with <.K: HashKey,.H: Hasher<.K>> <(.H,.K)->i32> (hasher, key):
 //:
 //: [計算量/けいさんりょう]:
 //: - [実際/じっさい]の[計算量/けいさんりょう]は[対象/たいしょう]型の `Hash` [実装/じっそう]に[従/したが]います。
-pub fn hash32_by_trait <.T: Hash> <(.T)->i32> (x):
+pub fn hash32_by_trait <.T: Hash> %fn .T i32 \x:
     Hash::hash32 x
 
 //: Hash<i32>: `i32` [値/あたい]を[固定長/こていちょう]キーとして[混合/こんごう]する
@@ -144,7 +144,7 @@ pub fn hash32_by_trait <.T: Hash> <(.T)->i32> (x):
 //: [計算量/けいさんりょう]:
 //: - O(1)
 impl Hash for i32:
-    fn hash32 <(i32)->i32> (self):
+    fn hash32 %fn i32 i32 \self:
         mix xor self -1640531527
 
 //: Hash<bool>: `bool` を 0/1 として[混合/こんごう]する
@@ -158,8 +158,8 @@ impl Hash for i32:
 //: [計算量/けいさんりょう]:
 //: - O(1)
 impl Hash for bool:
-    fn hash32 <(bool)->i32> (self):
-        let k <i32> cast self;
+    fn hash32 %fn bool i32 \self:
+        let k %i32 cast self;
         mix xor k -1640531527
 
 //: Hash<u8>: `u8` を 0..255 の[小/ちい]さな[整数/せいすう]キーとして[扱/あつか]う
@@ -173,8 +173,8 @@ impl Hash for bool:
 //: [計算量/けいさんりょう]:
 //: - O(1)
 impl Hash for u8:
-    fn hash32 <(u8)->i32> (self):
-        let k <i32> cast self;
+    fn hash32 %fn u8 i32 \self:
+        let k %i32 cast self;
         mix xor k -1640531527
 
 //: Hash<i64>: `i64` を 32-bit に[折/お]りたたんで[混合/こんごう]する
@@ -191,11 +191,11 @@ impl Hash for u8:
 //: [計算量/けいさんりょう]:
 //: - O(1)
 impl Hash for i64:
-    fn hash32 <(i64)->i32> (self):
-        let lo <i32> cast self;
-        let hi64 <i64> shr_u self <i64> cast 32;
-        let hi <i32> cast hi64;
-        let folded <i32> xor lo hi;
+    fn hash32 %fn i64 i32 \self:
+        let lo %i32 cast self;
+        let hi64 %i64 shr_u self %i64 cast 32;
+        let hi %i32 cast hi64;
+        let folded %i32 xor lo hi;
         mix xor folded -1640531527
 
 //: Hash<str>: `str` の UTF-8 [列/れつ]を[順/じゅん]に[混合/こんごう]する
@@ -212,8 +212,8 @@ impl Hash for i64:
 //: [計算量/けいさんりょう]:
 //: - [文字列長/もじれつちょう]を n として O(n)
 impl Hash for str:
-    fn hash32 <(str)->i32> (self):
-        let n <i32> string::len self;
-        let h0 <Fnv1a32> new_fnv1a32;
-        let h1 <Fnv1a32> hash_bytes_loop self n 0 h0;
+    fn hash32 %fn str i32 \self:
+        let n %i32 string::len self;
+        let h0 %Fnv1a32 new_fnv1a32;
+        let h1 %Fnv1a32 hash_bytes_loop self n 0 h0;
         mix fnv1a32_finalize h1

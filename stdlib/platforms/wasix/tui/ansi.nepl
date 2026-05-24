@@ -10,12 +10,12 @@
 #import "std/stdio" as *
 
 //: clear_screen: 画面全体をクリアしてカーソルを左上に移動する
-pub fn clear_screen <()*>()> ():
+pub fn clear_screen %impure fn () () \():
     print "\x1b[2J\x1b[H";
     ()
 
 //: move_cursor: カーソルを (col, row) に移動する (1-indexed)
-pub fn move_cursor <(i32,i32)*>()> (col, row):
+pub fn move_cursor %impure fn i32 impure fn i32 () \col\row:
     print "\x1b[";
     print_i32 row;
     print ";";
@@ -24,22 +24,22 @@ pub fn move_cursor <(i32,i32)*>()> (col, row):
     ()
 
 //: cursor_home: カーソルを左上 (1,1) に移動する
-pub fn cursor_home <()*>()> ():
+pub fn cursor_home %impure fn () () \():
     print "\x1b[H";
     ()
 
 //: hide_cursor: カーソルを非表示にする
-pub fn hide_cursor <()*>()> ():
+pub fn hide_cursor %impure fn () () \():
     print "\x1b[?25l";
     ()
 
 //: show_cursor: カーソルを再表示する
-pub fn show_cursor <()*>()> ():
+pub fn show_cursor %impure fn () () \():
     print "\x1b[?25h";
     ()
 
 //: clear_line: カーソル行を消去する
-pub fn clear_line <()*>()> ():
+pub fn clear_line %impure fn () () \():
     print "\x1b[2K\r";
     ()
 
@@ -47,7 +47,7 @@ pub fn clear_line <()*>()> ():
 //:
 //: [目的/もくてき]:
 //: - 背景色を `AnsiColor` enum で受け取り、未定義 numeric color code を public API から排除します。
-pub fn set_bg_color <(AnsiColor)*>()> (color):
+pub fn set_bg_color %impure fn AnsiColor () \color:
     print ansi_background_color_code color;
     ()
 
@@ -55,11 +55,11 @@ pub fn set_bg_color <(AnsiColor)*>()> (color):
 //:
 //: [目的/もくてき]:
 //: - 前景色を `AnsiColor` enum で受け取り、`std/stdio/ansi` と同じ網羅的 `match` 変換を使います。
-pub fn set_fg_color <(AnsiColor)*>()> (color):
+pub fn set_fg_color %impure fn AnsiColor () \color:
     print ansi_color_code color;
     ()
 
 //: reset_color: 前景色と背景色をリセットする
-pub fn reset_color <()*>()> ():
+pub fn reset_color %impure fn () () \():
     print "\x1b[0m";
     ()

@@ -42,7 +42,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - parser は入力 `Vec<str>` を変更しません。argv の所有権は呼び出し側が保持します。
-pub fn selfhost_cli_arg_at <(&Vec<str>,i32)->Option<str>> (args, idx):
+pub fn selfhost_cli_arg_at %fn &Vec str fn i32 Option str \args\idx:
     v::get<str> args idx
 
 //: selfhost_cli_next_value: 値を必要とする option の次 token を読む
@@ -52,7 +52,7 @@ pub fn selfhost_cli_arg_at <(&Vec<str>,i32)->Option<str>> (args, idx):
 //:
 //: [注意/ちゅうい]:
 //: - 値が `-` で始まるかどうかはここでは判定しません。path や値として許可する余地を残します。
-pub fn selfhost_cli_next_value <(&Vec<str>,i32)->Result<str,SelfhostCliErrorKind>> (args, i):
+pub fn selfhost_cli_next_value %fn &Vec str fn i32 Result str SelfhostCliErrorKind \args\i:
     match selfhost_cli_arg_at args add i 1:
         Option::Some value:
             ok<str,SelfhostCliErrorKind> value
@@ -63,7 +63,7 @@ pub fn selfhost_cli_next_value <(&Vec<str>,i32)->Result<str,SelfhostCliErrorKind
 //:
 //: [目的/もくてき]:
 //: - positional input と `-i/--input` を同じ重複規則で処理します。
-pub fn selfhost_cli_set_input <(Option<str>,str)->Result<Option<str>,SelfhostCliErrorKind>> (current, value):
+pub fn selfhost_cli_set_input %fn Option str fn str Result Option str SelfhostCliErrorKind \current\value:
     match current:
         Option::Some _old:
             err<Option<str>,SelfhostCliErrorKind> SelfhostCliErrorKind::MultipleInput
@@ -71,7 +71,7 @@ pub fn selfhost_cli_set_input <(Option<str>,str)->Result<Option<str>,SelfhostCli
             ok<Option<str>,SelfhostCliErrorKind> some<str> value
 
 //: selfhost_cli_finish: 走査済み state を success result にする
-pub fn selfhost_cli_finish <(Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmitSet,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool,Option<i32>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose, run_args_start):
+pub fn selfhost_cli_finish %fn Option str fn Option str fn Option str fn Option SelfhostCliTarget fn SelfhostCliEmitSet fn Option SelfhostCliProfile fn bool fn bool fn bool fn bool fn bool fn Option i32 Result SelfhostCliOptions SelfhostCliErrorKind \input\output\stdlib_root\target\emit\profile\check\run\attach_source\lib\verbose\run_args_start:
     ok<SelfhostCliOptions,SelfhostCliErrorKind> selfhost_cli_options_new check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
 
 //: selfhost_cli_parse_loop: argv parser の本体
@@ -85,7 +85,7 @@ pub fn selfhost_cli_finish <(Option<str>,Option<str>,Option<str>,Option<Selfhost
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn selfhost_cli_parse_loop <(&Vec<str>,i32,i32,Option<str>,Option<str>,Option<str>,Option<SelfhostCliTarget>,SelfhostCliEmitSet,Option<SelfhostCliProfile>,bool,bool,bool,bool,bool)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (args, count, i, input, output, stdlib_root, target, emit, profile, check, run, attach_source, lib, verbose):
+pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Option str fn Option str fn Option SelfhostCliTarget fn SelfhostCliEmitSet fn Option SelfhostCliProfile fn bool fn bool fn bool fn bool fn bool Result SelfhostCliOptions SelfhostCliErrorKind \args\count\i\input\output\stdlib_root\target\emit\profile\check\run\attach_source\lib\verbose:
     if:
         le count i
         then:
@@ -193,8 +193,8 @@ pub fn selfhost_cli_parse_loop <(&Vec<str>,i32,i32,Option<str>,Option<str>,Optio
 //:| #import "neplg2/cli/args/parse" as *
 //:| #import "neplg2/cli/args/types" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let args <Vec<str>>:
+//: fn main %impure fn () i32 \():
+//:     let args %Vec str:
 //:         unwrap_ok v::new<str>
 //:         |> v::push<str> "--check" |> uwok
 //:         |> v::push<str> "--emit" |> uwok
@@ -205,30 +205,30 @@ pub fn selfhost_cli_parse_loop <(&Vec<str>,i32,i32,Option<str>,Option<str>,Optio
 //:     match selfhost_cli_parse_args &args:
 //:         Result::Err _e:
 //:             v::free<str> args;
-//:             let report <TestReport>:
+//:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_parse_args_doc"
 //:                 |> test_report_push assert "parse succeeds" false
 //:             let shown test_report_print_stdout report
 //:             test_report_exit_code shown
 //:         Result::Ok opts:
-//:             let output_ref <&Option<str>> get_ref &opts "output"
-//:             let input_ref <&Option<str>> get_ref &opts "input"
-//:             let check_ref <&bool> get_ref &opts "check"
-//:             let emit_ref <&SelfhostCliEmitSet> get_ref &opts "emit"
-//:             let output_ok <bool> match *output_ref:
+//:             let output_ref %&Option str get_ref &opts "output"
+//:             let input_ref %&Option str get_ref &opts "input"
+//:             let check_ref %&bool get_ref &opts "check"
+//:             let emit_ref %&SelfhostCliEmitSet get_ref &opts "emit"
+//:             let output_ok %bool match *output_ref:
 //:                 Option::Some out:
 //:                     str_eq out "out.wasm"
 //:                 Option::None:
 //:                     false
-//:             let input_ok <bool> match *input_ref:
+//:             let input_ok %bool match *input_ref:
 //:                 Option::Some input:
 //:                     str_eq input "main.nepl"
 //:                 Option::None:
 //:                     false
-//:             let check_ok <bool> *check_ref
-//:             let emit_ok <bool> selfhost_cli_emit_is_wasm *emit_ref
+//:             let check_ok %bool *check_ref
+//:             let emit_ok %bool selfhost_cli_emit_is_wasm *emit_ref
 //:             v::free<str> args;
-//:             let report <TestReport>:
+//:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_parse_args_doc"
 //:                 |> test_report_push assert "parse succeeds" true
 //:                 |> test_report_push assert "check flag" check_ok
@@ -238,8 +238,8 @@ pub fn selfhost_cli_parse_loop <(&Vec<str>,i32,i32,Option<str>,Option<str>,Optio
 //:             let shown test_report_print_stdout report
 //:             test_report_exit_code shown
 //: ```
-pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (args):
-    let count <i32> v::len<str> args;
+pub fn selfhost_cli_parse_args %fn &Vec str Result SelfhostCliOptions SelfhostCliErrorKind \args:
+    let count %i32 v::len<str> args;
     selfhost_cli_parse_loop args count 0 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
 
 //: selfhost_cli_parse_argv: argv[0] を含む raw argv を解析する
@@ -266,8 +266,8 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //:| #import "neplg2/cli/args/predicates" as *
 //:| #import "neplg2/cli/args/types" as *
 //:| #import "std/test" as *
-//: fn main <()*>i32> ():
-//:     let argv <Vec<str>>:
+//: fn main %impure fn () i32 \():
+//:     let argv %Vec str:
 //:         unwrap_ok v::new<str>
 //:         |> v::push<str> "neplg2" |> uwok
 //:         |> v::push<str> "--target" |> uwok
@@ -277,26 +277,26 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //:     match selfhost_cli_parse_argv &argv:
 //:         Result::Err _e:
 //:             v::free<str> argv;
-//:             let report <TestReport>:
+//:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_parse_argv_doc"
 //:                 |> test_report_push assert "parse succeeds" false
 //:             let shown test_report_print_stdout report
 //:             test_report_exit_code shown
 //:         Result::Ok opts:
-//:             let target_ref <&Option<SelfhostCliTarget>> get_ref &opts "target"
-//:             let input_ref <&Option<str>> get_ref &opts "input"
-//:             let target_ok <bool> match *target_ref:
+//:             let target_ref %&Option SelfhostCliTarget get_ref &opts "target"
+//:             let input_ref %&Option str get_ref &opts "input"
+//:             let target_ok %bool match *target_ref:
 //:                 Option::Some target:
 //:                     selfhost_cli_target_is_wasi target
 //:                 Option::None:
 //:                     false
-//:             let input_ok <bool> match *input_ref:
+//:             let input_ok %bool match *input_ref:
 //:                 Option::Some input:
 //:                     str_eq input "main.nepl"
 //:                 Option::None:
 //:                     false
 //:             v::free<str> argv;
-//:             let report <TestReport>:
+//:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_parse_argv_doc"
 //:                 |> test_report_push assert "parse succeeds" true
 //:                 |> test_report_push assert "target std maps to wasi" target_ok
@@ -304,6 +304,6 @@ pub fn selfhost_cli_parse_args <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostC
 //:             let shown test_report_print_stdout report
 //:             test_report_exit_code shown
 //: ```
-pub fn selfhost_cli_parse_argv <(&Vec<str>)->Result<SelfhostCliOptions,SelfhostCliErrorKind>> (argv):
-    let count <i32> v::len<str> argv;
+pub fn selfhost_cli_parse_argv %fn &Vec str Result SelfhostCliOptions SelfhostCliErrorKind \argv:
+    let count %i32 v::len<str> argv;
     selfhost_cli_parse_loop argv count 1 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false

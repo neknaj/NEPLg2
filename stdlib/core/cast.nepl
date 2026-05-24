@@ -11,7 +11,7 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| fn main <()*>i32> ():
+//:| fn main %impure fn () i32 \():
 //:     ()
 //:     0
 //: ```
@@ -50,7 +50,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn cast <(i32)->f32> (v):
+pub fn cast %fn i32 f32 \v:
     #intrinsic "i32_to_f32" <> (v)
 
 //: cast: f32 を i32 に数値変換する
@@ -66,7 +66,7 @@ pub fn cast <(i32)->f32> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn cast <(f32)->i32> (v):
+pub fn cast %fn f32 i32 \v:
     #intrinsic "f32_to_i32" <> (v)
 
 //: cast: bool を i32 に変換する
@@ -78,11 +78,11 @@ pub fn cast <(f32)->i32> (v):
 //: - 真偽値分岐で 1 または 0 を選びます。
 //:
 //: [注意/ちゅうい]:
-//: - 数値型から bool へ戻す場合は `cast <(i32)->bool>` の 0 判定と対になります。
+//: - 数値型から bool へ戻す場合は `cast %fn i32 bool` の 0 判定と対になります。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn cast <(bool)->i32> (v):
+pub fn cast %fn bool i32 \v:
     if:
         v
         then:
@@ -103,7 +103,7 @@ pub fn cast <(bool)->i32> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn cast <(i32)->bool> (v):
+pub fn cast %fn i32 bool \v:
     ne v 0
 
 //: cast: i32 を u8 に変換する
@@ -119,7 +119,7 @@ pub fn cast <(i32)->bool> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn cast <(i32)->u8> (v):
+pub fn cast %fn i32 u8 \v:
     #intrinsic "i32_to_u8" <> (v)
 
 //: cast: u8 を i32 に変換する
@@ -135,7 +135,7 @@ pub fn cast <(i32)->u8> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn cast <(u8)->i32> (v):
+pub fn cast %fn u8 i32 \v:
     #intrinsic "u8_to_i32" <> (v)
 
 //: cast: char を Unicode scalar value の i32 code point へ変換する
@@ -148,7 +148,7 @@ pub fn cast <(u8)->i32> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn cast <(char)->i32> (v):
+pub fn cast %fn char i32 \v:
     #intrinsic "char_to_i32" <> (v)
 
 //: cast: i32 code point を char へ変換する
@@ -161,7 +161,7 @@ pub fn cast <(char)->i32> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn cast <(i32)->char> (v):
+pub fn cast %fn i32 char \v:
     #intrinsic "i32_to_char" <> (v)
 
 //: bitcast_i32_to_f32: i32 のビット列を f32 として再解釈する
@@ -177,7 +177,7 @@ pub fn cast <(i32)->char> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn bitcast_i32_to_f32 <(i32)->f32> (v):
+pub fn bitcast_i32_to_f32 %fn i32 f32 \v:
     #intrinsic "reinterpret_i32_f32" <> (v)
 
 //: bitcast_f32_to_i32: f32 のビット列を i32 として再解釈する
@@ -193,77 +193,77 @@ pub fn bitcast_i32_to_f32 <(i32)->f32> (v):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn bitcast_f32_to_i32 <(f32)->i32> (v):
+pub fn bitcast_f32_to_i32 %fn f32 i32 \v:
     #intrinsic "reinterpret_f32_i32" <> (v)
 
 //: cast: i32 を i64 に変換する
-pub fn cast <(i32)->i64> (v):
+pub fn cast %fn i32 i64 \v:
     extend_s v
 
 //: cast: i32 を u32 に変換する
-pub fn cast <(i32)->u32> (v):
+pub fn cast %fn i32 u32 \v:
     #intrinsic "i32_to_u32" <> (v)
 
 //: cast: u32 を i32 に変換する
-pub fn cast <(u32)->i32> (v):
+pub fn cast %fn u32 i32 \v:
     #intrinsic "u32_to_i32" <> (v)
 
 //: cast: i64 を i32 に変換する
-pub fn cast <(i64)->i32> (v):
+pub fn cast %fn i64 i32 \v:
     wrap v
 
 //: cast: i64 を u64 に変換する
-pub fn cast <(i64)->u64> (v):
+pub fn cast %fn i64 u64 \v:
     #intrinsic "i64_to_u64" <> (v)
 
 //: cast: u64 を i64 に変換する
-pub fn cast <(u64)->i64> (v):
+pub fn cast %fn u64 i64 \v:
     #intrinsic "u64_to_i64" <> (v)
 
 //: cast: i32 を f64 に変換する
-pub fn cast <(i32)->f64> (v):
+pub fn cast %fn i32 f64 \v:
     convert_s v
 
 //: cast: f64 を i32 に変換する
-pub fn cast <(f64)->i32> (v):
+pub fn cast %fn f64 i32 \v:
     trunc_s v
 
 //: cast: i64 を f64 に変換する
-pub fn cast <(i64)->f64> (v):
+pub fn cast %fn i64 f64 \v:
     convert_s v
 
 //: cast: f64 を i64 に変換する
-pub fn cast <(f64)->i64> (v):
+pub fn cast %fn f64 i64 \v:
     trunc_s v
 
 //: cast: i64 を f32 に変換する
-pub fn cast <(i64)->f32> (v):
+pub fn cast %fn i64 f32 \v:
     convert_s v
 
 //: cast: f32 を i64 に変換する
-pub fn cast <(f32)->i64> (v):
+pub fn cast %fn f32 i64 \v:
     trunc_s v
 
 //: cast: f32 を f64 に昇格する
-pub fn cast <(f32)->f64> (v):
+pub fn cast %fn f32 f64 \v:
     promote v
 
 //: cast: f64 を f32 に縮小する
-pub fn cast <(f64)->f32> (v):
+pub fn cast %fn f64 f32 \v:
     demote v
 
 //: cast: i64 を i128 に変換する
-pub fn cast <(i64)->i128> (v):
+pub fn cast %fn i64 i128 \v:
     to_i128 v
 
 //: cast: i128 を i64 に変換する
-pub fn cast <(i128)->i64> (v):
+pub fn cast %fn i128 i64 \v:
     get v "lo"
 
 //: cast: i32 を i128 に変換する
-pub fn cast <(i32)->i128> (v):
+pub fn cast %fn i32 i128 \v:
     to_i128 extend_s v
 
 //: cast: i128 を i32 に変換する
-pub fn cast <(i128)->i32> (v):
+pub fn cast %fn i128 i32 \v:
     wrap get v "lo"

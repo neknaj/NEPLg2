@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/math/f64/binary" as *
 //:| #import "core/math/f64/compare" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     if eq add 1.5 0.5 2.0 0 1
 //: ```
 
@@ -41,17 +41,17 @@
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main <()*>()> ():
-//:     let one <f64> cast 1;
-//:     let two <f64> cast 2;
-//:     let three <f64> cast 3;
-//:     let six <f64> cast 6;
-//:     let x <f64> add one two;
-//:     let y <f64> mul x two;
+//: fn main %impure fn () () \():
+//:     let one %f64 cast 1;
+//:     let two %f64 cast 2;
+//:     let three %f64 cast 3;
+//:     let six %f64 cast 6;
+//:     let x %f64 add one two;
+//:     let y %f64 mul x two;
 //:     assert eq x three;
 //:     assert eq y six;
 //: ```
-pub fn add <(f64,f64)->f64> (a,b):
+pub fn add %fn f64 fn f64 f64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -78,7 +78,7 @@ pub fn add <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn sub <(f64,f64)->f64> (a,b):
+pub fn sub %fn f64 fn f64 f64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -105,7 +105,7 @@ pub fn sub <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn mul <(f64,f64)->f64> (a,b):
+pub fn mul %fn f64 fn f64 f64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -132,7 +132,7 @@ pub fn mul <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn div <(f64,f64)->f64> (a,b):
+pub fn div %fn f64 fn f64 f64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -159,7 +159,7 @@ pub fn div <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn min <(f64,f64)->f64> (a,b):
+pub fn min %fn f64 fn f64 f64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -186,7 +186,7 @@ pub fn min <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn max <(f64,f64)->f64> (a,b):
+pub fn max %fn f64 fn f64 f64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -213,7 +213,7 @@ pub fn max <(f64,f64)->f64> (a,b):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn copysign <(f64,f64)->f64> (a,b):
+pub fn copysign %fn f64 fn f64 f64 \a\b:
     #if[target=wasm]
     #wasm:
         local.get $a

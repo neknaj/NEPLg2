@@ -5,18 +5,18 @@
 #import "./model" as *
 
 //: selfhost_primitive_type_name_new: primitive type name record を[作/つく]る
-pub fn selfhost_primitive_type_name_new <(str,SelfhostTypeKind)->SelfhostPrimitiveTypeName> (name, kind):
+pub fn selfhost_primitive_type_name_new %fn str fn SelfhostTypeKind SelfhostPrimitiveTypeName \name\kind:
     SelfhostPrimitiveTypeName name kind
 
 //: selfhost_primitive_type_count: registry に登録された primitive type name 数を[返/かえ]す
-pub fn selfhost_primitive_type_count <()->i32> ():
+pub fn selfhost_primitive_type_count %fn () i32 \():
     10
 
 //: selfhost_primitive_type_at: registry index から primitive type name を[返/かえ]す
 //:
 //: [注意/ちゅうい]:
 //: - index は 0 から始まります。範囲外なら `None` です。
-pub fn selfhost_primitive_type_at <(i32)->Option<SelfhostPrimitiveTypeName>> (index):
+pub fn selfhost_primitive_type_at %fn i32 Option SelfhostPrimitiveTypeName \index:
     match index:
         0:
             some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "unit" SelfhostTypeKind::Unit

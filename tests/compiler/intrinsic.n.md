@@ -17,8 +17,8 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem" as *
 #import "core/mem/internal" as *
 
-fn main <()*>i32> ():
-    let _p <MemPtr<i32>> mem_ptr_wrap 16
+fn main %impure fn () i32 \():
+    let _p %MemPtr i32 mem_ptr_wrap 16
     0
 ```
 
@@ -34,13 +34,13 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/internal" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     match alloc_region<i32> 1:
         Result::Err _e:
             0
         Result::Ok region:
-            let p <MemPtr<i32>> region_ptr &region
-            let raw <i32> mem_ptr_addr p
+            let p %MemPtr i32 region_ptr &region
+            let raw %i32 mem_ptr_addr p
             match dealloc_region<i32> region:
                 Result::Err _cleanup:
                     0
@@ -62,11 +62,11 @@ ret: 0
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main <()->i32> ():
-    let s_i64 <i32> size_of<i64>;
-    let a_i64 <i32> align_of<i64>;
-    let s_f64 <i32> size_of<f64>;
-    let a_f64 <i32> align_of<f64>;
+fn main %fn () i32 \():
+    let s_i64 %i32 size_of<i64>;
+    let a_i64 %i32 align_of<i64>;
+    let s_f64 %i32 size_of<f64>;
+    let a_f64 %i32 align_of<f64>;
     if:
         and eq s_i64 8 and eq a_i64 8 and eq s_f64 8 eq a_f64 8
         then:
@@ -89,11 +89,11 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main <()*>i32> ():
-    let p <i32> alloc_raw 8;
-    let v <i64> add <i64> cast 12345 <i64> cast 67890;
+fn main %impure fn () i32 \():
+    let p %i32 alloc_raw 8;
+    let v %i64 add %i64 cast 12345 %i64 cast 67890;
     store<i64> p v;
-    let got <i64> load<i64> p;
+    let got %i64 load<i64> p;
     dealloc_raw p 8;
     if eq got v 0 1
 ```
@@ -112,11 +112,11 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main <()*>i32> ():
-    let p <i32> alloc_raw 8;
-    let v <f64> cast 42;
+fn main %impure fn () i32 \():
+    let p %i32 alloc_raw 8;
+    let v %f64 cast 42;
     store<f64> p v;
-    let got <f64> load<f64> p;
+    let got %f64 load<f64> p;
     dealloc_raw p 8;
     if eq got v 0 1
 ```
@@ -131,8 +131,8 @@ ret: 0
 #indent 4
 #import "core/result" as *
 
-fn main <()->i32> ():
-    let r <Result<(),str>> Result<(),str>::Ok ();
+fn main %fn () i32 \():
+    let r %Result () str Result<(),str>::Ok ();
     match r:
         Result::Ok _u:
             0
@@ -155,13 +155,13 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
-    let high <i64> mul <i64> cast 65536 <i64> cast 65536;
-    let v <i64> add high <i64> cast 7;
-    let r <Result<(),i64>> Result<(),i64>::Err v;
-    let p <i32> alloc_raw size_of<Result<(),i64>>;
+fn main %impure fn () i32 \():
+    let high %i64 mul %i64 cast 65536 %i64 cast 65536;
+    let v %i64 add high %i64 cast 7;
+    let r %Result () i64 Result<(),i64>::Err v;
+    let p %i32 alloc_raw size_of<Result<(),i64>>;
     store<Result<(),i64>> p r;
-    let got <Result<(),i64>> load<Result<(),i64>> p;
+    let got %Result () i64 load<Result<(),i64>> p;
     dealloc_raw p size_of<Result<(),i64>>;
     match got:
         Result::Ok _u:
@@ -184,15 +184,15 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 
 struct Z:
-    tag <()>
+    tag %()
 
-fn main <()*>i32> ():
-    let p0 <i32> alloc_raw 16;
+fn main %impure fn () i32 \():
+    let p0 %i32 alloc_raw 16;
     store_i32 p0 123;
-    let z <Z> Z;
-    let p1 <i32> alloc_raw 16;
-    let kept <bool> eq load_i32 p0 123;
-    let moved <bool> gt p1 p0;
+    let z %Z Z;
+    let p1 %i32 alloc_raw 16;
+    let kept %bool eq load_i32 p0 123;
+    let moved %bool gt p1 p0;
     dealloc_raw p0 16;
     dealloc_raw p1 16;
     if and kept moved 0 1
@@ -207,7 +207,7 @@ diag_code: type.intrinsic.arg_type_mismatch
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     #intrinsic "i32_to_f32" <> (true)
     0
 ```
@@ -224,10 +224,10 @@ ret: 0
 #import "core/mem" as *
 
 struct Pair:
-    a <i32>
-    b <str>
+    a %i32
+    b %str
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if:
         eq size_of<str> 4
         then:

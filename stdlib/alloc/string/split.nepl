@@ -27,15 +27,15 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - n を `s` の byte 長、m を `sep` の byte 長として O(n * m) です。
-pub fn str_split_count <(str,str,i32,i32)->i32> (s, sep, s_len, sep_len):
+pub fn str_split_count %fn str fn str fn i32 fn i32 i32 \s\sep\s_len\sep_len:
     if:
         eq sep_len 0
         then:
             1
         else:
-            let mut part_total <i32> 1
-            let mut i <i32> 0
-            let mut scan_end <i32> sep_len
+            let mut part_total %i32 1
+            let mut i %i32 0
+            let mut scan_end %i32 sep_len
             while le scan_end s_len:
                 do:
                     if:
@@ -61,11 +61,11 @@ pub enum StrSplitStepKind:
     Done
 
 impl Clone for StrSplitStepKind:
-    fn clone <(&StrSplitStepKind)->StrSplitStepKind> (kind):
+    fn clone %fn &StrSplitStepKind StrSplitStepKind \kind:
         *kind
 
 impl Copy for StrSplitStepKind:
-    fn copy_mark <(StrSplitStepKind)->StrSplitStepKind> (kind):
+    fn copy_mark %fn StrSplitStepKind StrSplitStepKind \kind:
         kind
 
 //: StrSplitStep: split scanner が返す 1 step
@@ -76,10 +76,10 @@ impl Copy for StrSplitStepKind:
 //: [注意/ちゅうい]:
 //: - `kind` が `Done` の場合、start/end/next は 0 です。
 pub struct StrSplitStep:
-    kind <StrSplitStepKind>
-    start <i32>
-    end <i32>
-    next <i32>
+    kind %StrSplitStepKind
+    start %i32
+    end %i32
+    next %i32
 
 //: str_split_done_step: split scanner の完了 step を返す
 //:
@@ -88,7 +88,7 @@ pub struct StrSplitStep:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn str_split_done_step <()->StrSplitStep> ():
+pub fn str_split_done_step %fn () StrSplitStep \():
     StrSplitStep StrSplitStepKind::Done 0 0 0
 
 //: str_split_next: allocation なしで次の split range を返す
@@ -107,9 +107,9 @@ pub fn str_split_done_step <()->StrSplitStep> ():
 //:
 //: [計算量/けいさんりょう]:
 //: - n を残り byte 長、m を `sep` の byte 長として O(n * m) です。
-pub fn str_split_next <(str,str,i32)->StrSplitStep> (s, sep, cursor):
-    let s_len <i32> len s
-    let sep_len <i32> len sep
+pub fn str_split_next %fn str fn str fn i32 StrSplitStep \s\sep\cursor:
+    let s_len %i32 len s
+    let sep_len %i32 len sep
     if:
         or lt cursor 0 lt s_len cursor
         then:
@@ -125,9 +125,9 @@ pub fn str_split_next <(str,str,i32)->StrSplitStep> (s, sep, cursor):
                         else:
                             str_split_done_step
                 else:
-                    let mut i <i32> cursor
-                    let mut scan_end <i32> add i sep_len
-                    let mut found <i32> 0
+                    let mut i %i32 cursor
+                    let mut scan_end %i32 add i sep_len
+                    let mut found %i32 0
                     while and eq found 0 le scan_end s_len:
                         do:
                             if:

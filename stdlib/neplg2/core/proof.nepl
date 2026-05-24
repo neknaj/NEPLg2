@@ -24,8 +24,8 @@ pub #import "./proof/api" as *
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/proof" as *
-//: fn main <()->i32> ():
-//:     let span <SelfhostSourceSpan> source_span_new 0 0 3
+//: fn main %fn () i32 \():
+//:     let span %SelfhostSourceSpan source_span_new 0 0 3
 //:     match selfhost_proof_source_span_valid span:
 //:         Result::Ok _:
 //:             0

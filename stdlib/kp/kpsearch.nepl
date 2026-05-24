@@ -31,8 +31,8 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main <()*> ()> ():
-//:     let data <Vec<i32>>:
+//: fn main %impure fn () () \():
+//:     let data %Vec i32:
 //:         unwrap_ok with_capacity<i32> 5
 //:         |> push 1 |> unwrap_ok
 //:         |> push 3 |> unwrap_ok
@@ -47,13 +47,13 @@
 //:     free<i32> data
 //: ```
 
-fn lower_bound_loop_i32 <(&Vec<i32>,i32,i32,i32)->i32> (items, lo0, hi0, x):
-    let mut lo <i32> lo0
-    let mut hi <i32> hi0
+fn lower_bound_loop_i32 %fn &Vec i32 fn i32 fn i32 fn i32 i32 \items\lo0\hi0\x:
+    let mut lo %i32 lo0
+    let mut hi %i32 hi0
     while lt lo hi:
         do:
-            let sum <i32> add lo hi
-            let mid <i32> div_s sum 2
+            let sum %i32 add lo hi
+            let mid %i32 div_s sum 2
             match get<i32> items mid:
                 Option::Some value:
                     if lt value x:
@@ -65,13 +65,13 @@ fn lower_bound_loop_i32 <(&Vec<i32>,i32,i32,i32)->i32> (items, lo0, hi0, x):
                     set hi mid
     lo
 
-fn upper_bound_loop_i32 <(&Vec<i32>,i32,i32,i32)->i32> (items, lo0, hi0, x):
-    let mut lo <i32> lo0
-    let mut hi <i32> hi0
+fn upper_bound_loop_i32 %fn &Vec i32 fn i32 fn i32 fn i32 i32 \items\lo0\hi0\x:
+    let mut lo %i32 lo0
+    let mut hi %i32 hi0
     while lt lo hi:
         do:
-            let sum <i32> add lo hi
-            let mid <i32> div_s sum 2
+            let sum %i32 add lo hi
+            let mid %i32 div_s sum 2
             match get<i32> items mid:
                 Option::Some value:
                     if le value x:
@@ -87,20 +87,20 @@ fn upper_bound_loop_i32 <(&Vec<i32>,i32,i32,i32)->i32> (items, lo0, hi0, x):
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(log n)
-pub fn lower_bound_vec_i32 <(&Vec<i32>,i32)->i32> (items, x):
+pub fn lower_bound_vec_i32 %fn &Vec i32 fn i32 i32 \items\x:
     lower_bound_loop_i32 items 0 len<i32> items x
 
 //: upper_bound_vec_i32: `x` より大きい値が最初に現れる位置を返す
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(log n)
-pub fn upper_bound_vec_i32 <(&Vec<i32>,i32)->i32> (items, x):
+pub fn upper_bound_vec_i32 %fn &Vec i32 fn i32 i32 \items\x:
     upper_bound_loop_i32 items 0 len<i32> items x
 
 //: contains_vec_i32: `x` が含まれるかを返す
-pub fn contains_vec_i32 <(&Vec<i32>,i32)->bool> (items, x):
-    let n <i32> len<i32> items
-    let idx <i32> lower_bound_vec_i32 items x
+pub fn contains_vec_i32 %fn &Vec i32 fn i32 bool \items\x:
+    let n %i32 len<i32> items
+    let idx %i32 lower_bound_vec_i32 items x
     if:
         ge idx n
         then:
@@ -126,8 +126,8 @@ pub fn contains_vec_i32 <(&Vec<i32>,i32)->bool> (items, x):
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main <()*> ()> ():
-//:     let values <Vec<i32>>:
+//: fn main %impure fn () () \():
+//:     let values %Vec i32:
 //:         unwrap_ok with_capacity<i32> 6
 //:         |> push 1 |> unwrap_ok
 //:         |> push 2 |> unwrap_ok
@@ -138,9 +138,9 @@ pub fn contains_vec_i32 <(&Vec<i32>,i32)->bool> (items, x):
 //:     println_i32 count_equal_range_vec_i32 &values 2;
 //:     free<i32> values
 //: ```
-pub fn count_equal_range_vec_i32 <(&Vec<i32>,i32)->i32> (items, x):
-    let lb <i32> lower_bound_vec_i32 items x
-    let ub <i32> upper_bound_vec_i32 items x
+pub fn count_equal_range_vec_i32 %fn &Vec i32 fn i32 i32 \items\x:
+    let lb %i32 lower_bound_vec_i32 items x
+    let ub %i32 upper_bound_vec_i32 items x
     sub ub lb
 
 //: UniqueSortedVecI32
@@ -152,8 +152,8 @@ pub fn count_equal_range_vec_i32 <(&Vec<i32>,i32)->i32> (items, x):
 //: ### [注意/ちゅうい]
 //: - `vec` の物理長は元の長さのままです。重複除去後に読むべき範囲は `len` が示す prefix だけです。
 pub struct UniqueSortedVecI32:
-    vec <Vec<i32>>
-    len <i32>
+    vec %Vec i32
+    len %i32
 
 //: unique_sorted_vec_i32: `Vec<i32>` を in-place で重複除去し、有効 prefix 長と owner を返す
 //:
@@ -171,8 +171,8 @@ pub struct UniqueSortedVecI32:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
-//:     let values <Vec<i32>>:
+//: fn main %impure fn () () \():
+//:     let values %Vec i32:
 //:         unwrap_ok with_capacity<i32> 6
 //:         |> push 1 |> unwrap_ok
 //:         |> push 1 |> unwrap_ok
@@ -180,10 +180,10 @@ pub struct UniqueSortedVecI32:
 //:         |> push 2 |> unwrap_ok
 //:         |> push 5 |> unwrap_ok
 //:         |> push 5 |> unwrap_ok
-//:     let unique <UniqueSortedVecI32> unique_sorted_vec_i32 values;
-//:     let n <i32> unique_sorted_vec_i32_len &unique;
+//:     let unique %UniqueSortedVecI32 unique_sorted_vec_i32 values;
+//:     let n %i32 unique_sorted_vec_i32_len &unique;
 //:     println_i32 n;
-//:     let mut i <i32> 0;
+//:     let mut i %i32 0;
 //:     while lt i n:
 //:         do:
 //:             if gt i 0:
@@ -198,20 +198,20 @@ pub struct UniqueSortedVecI32:
 //:     println "";
 //:     free unique;
 //: ```
-pub fn unique_sorted_vec_i32 <(Vec<i32>)*>UniqueSortedVecI32> (items):
-    let n <i32> len<i32> &items
+pub fn unique_sorted_vec_i32 %impure fn Vec i32 UniqueSortedVecI32 \items:
+    let n %i32 len<i32> &items
     if:
         le n 1
         then:
             UniqueSortedVecI32 items n
         else:
-            let mut read <i32> 1
-            let mut write <i32> 1
+            let mut read %i32 1
+            let mut write %i32 1
             while lt read n:
                 do:
                     match get<i32> &items read:
                         Option::Some cur:
-                            let prev_idx <i32> sub write 1
+                            let prev_idx %i32 sub write 1
                             match get<i32> &items prev_idx:
                                 Option::Some prev:
                                     if ne cur prev:
@@ -228,23 +228,23 @@ pub fn unique_sorted_vec_i32 <(Vec<i32>)*>UniqueSortedVecI32> (items):
             UniqueSortedVecI32 items write
 
 //: unique_sorted_vec_i32_len: 重複除去後の有効 prefix 長を返す
-pub fn unique_sorted_vec_i32_len <(&UniqueSortedVecI32)->i32> (u):
+pub fn unique_sorted_vec_i32_len %fn &UniqueSortedVecI32 i32 \u:
     *field::get_ref u "len"
 
 //: unique_sorted_vec_i32_get: 重複除去後 prefix の要素を取得する
 //:
 //: ### [注意/ちゅうい]
 //: - `idx` が有効 prefix の外なら `Option::None` を返します。
-pub fn unique_sorted_vec_i32_get <(&UniqueSortedVecI32,i32)->Option<i32>> (u, idx):
-    let n <i32> *field::get_ref u "len"
+pub fn unique_sorted_vec_i32_get %fn &UniqueSortedVecI32 fn i32 Option i32 \u\idx:
+    let n %i32 *field::get_ref u "len"
     if:
         or lt idx 0 le n idx
         then:
             Option::None<i32>
         else:
-            let vec_ref <&Vec<i32>> field::get_ref u "vec"
+            let vec_ref %&Vec i32 field::get_ref u "vec"
             get<i32> vec_ref idx
 
 //: free: `UniqueSortedVecI32` が保持する `Vec<i32>` owner を解放する
-pub fn free <(UniqueSortedVecI32)*>()> (u):
+pub fn free %impure fn UniqueSortedVecI32 () \u:
     free<i32> field::get u "vec"

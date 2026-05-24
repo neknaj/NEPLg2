@@ -16,8 +16,8 @@
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error/outcome" as *
-//: fn main <()*>i32> ():
-//:     let o <Outcome<i32, StdErrorKind>> outcome_ok<i32, StdErrorKind> 7
+//: fn main %impure fn () i32 \():
+//:     let o %Outcome i32 StdErrorKind outcome_ok<i32, StdErrorKind> 7
 //:     let checks checks_push checks_new assert outcome_is_ok o
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown
@@ -44,22 +44,22 @@
 //: [計算量/けいさんりょう]:
 //: - [構築/こうちく]は O(1) です。
 pub struct Outcome<.T, .E>:
-    result <Result<.T, .E>>
-    diags <Option<Diags>>
+    result %Result .T .E
+    diags %Option Diags
 
 //: outcome_ok: [診断/しんだん]なしの[成功/せいこう][結果/けっか]を[作/つく]る
-pub fn outcome_ok <.T, .E> <(.T)->Outcome<.T, .E>> (v):
-    let r <Result<.T, .E>> ok<.T, .E> v;
+pub fn outcome_ok <.T, .E> %fn .T Outcome .T .E \v:
+    let r %Result .T .E ok<.T, .E> v;
     Outcome r none<Diags>
 
 //: outcome_err: [診断/しんだん]なしの[失敗/しっぱい][結果/けっか]を[作/つく]る
-pub fn outcome_err <.T, .E> <(.E)->Outcome<.T, .E>> (e):
-    let r <Result<.T, .E>> err<.T, .E> e;
+pub fn outcome_err <.T, .E> %fn .E Outcome .T .E \e:
+    let r %Result .T .E err<.T, .E> e;
     Outcome r none<Diags>
 
 //: outcome_with_diags: [診断/しんだん][群/ぐん]を[付与/ふよ]する
-pub fn outcome_with_diags <.T, .E> <(Outcome<.T, .E>,Diags)->Outcome<.T, .E>> (o, ds):
-    let result <Result<.T, .E>> field::get o "result"
+pub fn outcome_with_diags <.T, .E> %fn Outcome .T .E fn Diags Outcome .T .E \o\ds:
+    let result %Result .T .E field::get o "result"
     match field::get o "diags":
         Option::Some old_ds:
             diags_free old_ds
@@ -68,7 +68,7 @@ pub fn outcome_with_diags <.T, .E> <(Outcome<.T, .E>,Diags)->Outcome<.T, .E>> (o
     Outcome result some<Diags> ds
 
 //: result_to_outcome: `Result` を[診断/しんだん]なし `Outcome` に[昇格/しょうかく]する
-pub fn result_to_outcome <.T, .E> <(Result<.T, .E>)->Outcome<.T, .E>> (r):
+pub fn result_to_outcome <.T, .E> %fn Result .T .E Outcome .T .E \r:
     Outcome r none<Diags>
 
 //: into_outcome: `Result` を `Outcome` に[昇格/しょうかく]する[共通/きょうつう][入口/いりぐち]
@@ -86,9 +86,9 @@ pub fn result_to_outcome <.T, .E> <(Result<.T, .E>)->Outcome<.T, .E>> (r):
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error" as *
-//:| fn main <()*>i32> ():
-//:     let r <Result<i32, StdErrorKind>> ok<i32, StdErrorKind> 7;
-//:     let o <Outcome<i32, StdErrorKind>> into_outcome r
+//:| fn main %impure fn () i32 \():
+//:     let r %Result i32 StdErrorKind ok<i32, StdErrorKind> 7;
+//:     let o %Outcome i32 StdErrorKind into_outcome r
 //:     let checks checks_push checks_new assert outcome_is_ok o
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown
@@ -103,7 +103,7 @@ pub fn result_to_outcome <.T, .E> <(Result<.T, .E>)->Outcome<.T, .E>> (r):
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
-pub fn into_outcome <.T, .E> <(Result<.T, .E>)->Outcome<.T, .E>> (r):
+pub fn into_outcome <.T, .E> %fn Result .T .E Outcome .T .E \r:
     result_to_outcome r
 
 //: into_outcome: そのまま `Outcome` を[返/かえ]す
@@ -120,7 +120,7 @@ pub fn into_outcome <.T, .E> <(Result<.T, .E>)->Outcome<.T, .E>> (r):
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
-pub fn into_outcome <.T, .E> <(Outcome<.T, .E>)->Outcome<.T, .E>> (o):
+pub fn into_outcome <.T, .E> %fn Outcome .T .E Outcome .T .E \o:
     o
 
 //: result_like_result: `Result` をそのまま[読/よ]み[出/だ]す
@@ -134,7 +134,7 @@ pub fn into_outcome <.T, .E> <(Outcome<.T, .E>)->Outcome<.T, .E>> (o):
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
-pub fn result_like_result <.T, .E> <(Result<.T, .E>)->Result<.T, .E>> (r):
+pub fn result_like_result <.T, .E> %fn Result .T .E Result .T .E \r:
     r
 
 //: result_like_result: `Outcome` [内部/ないぶ]の `Result` を[読/よ]み[出/だ]す
@@ -148,35 +148,35 @@ pub fn result_like_result <.T, .E> <(Result<.T, .E>)->Result<.T, .E>> (r):
 //: ### [計算量/けいさんりょう]
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
-pub fn result_like_result <.T, .E> <(Outcome<.T, .E>)->Result<.T, .E>> (o):
+pub fn result_like_result <.T, .E> %fn Outcome .T .E Result .T .E \o:
     outcome_result o
 
 //: result_like_result: `Outcome` [参照/さんしょう]から `Result` を Copy [値/あたい]として[読/よ]み[出/だ]す
-pub fn result_like_result <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->Result<.T, .E>> (o):
+pub fn result_like_result <.T: Copy, .E: Copy> %fn &Outcome .T .E Result .T .E \o:
     outcome_result o
 
 //: result_like_is_ok: `Result` の[成功/せいこう]を[判定/はんてい]する
-pub fn result_like_is_ok <.T, .E> <(Result<.T, .E>)->bool> (r):
+pub fn result_like_is_ok <.T, .E> %fn Result .T .E bool \r:
     is_ok r
 
 //: result_like_is_ok: `Outcome` の[成功/せいこう]を[判定/はんてい]する
-pub fn result_like_is_ok <.T, .E> <(Outcome<.T, .E>)->bool> (o):
+pub fn result_like_is_ok <.T, .E> %fn Outcome .T .E bool \o:
     outcome_is_ok o
 
 //: result_like_is_ok: `Outcome` [参照/さんしょう]の[成功/せいこう]を[判定/はんてい]する
-pub fn result_like_is_ok <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
+pub fn result_like_is_ok <.T: Copy, .E: Copy> %fn &Outcome .T .E bool \o:
     outcome_is_ok o
 
 //: result_like_is_err: `Result` の[失敗/しっぱい]を[判定/はんてい]する
-pub fn result_like_is_err <.T, .E> <(Result<.T, .E>)->bool> (r):
+pub fn result_like_is_err <.T, .E> %fn Result .T .E bool \r:
     is_err r
 
 //: result_like_is_err: `Outcome` の[失敗/しっぱい]を[判定/はんてい]する
-pub fn result_like_is_err <.T, .E> <(Outcome<.T, .E>)->bool> (o):
+pub fn result_like_is_err <.T, .E> %fn Outcome .T .E bool \o:
     outcome_is_err o
 
 //: result_like_is_err: `Outcome` [参照/さんしょう]の[失敗/しっぱい]を[判定/はんてい]する
-pub fn result_like_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
+pub fn result_like_is_err <.T: Copy, .E: Copy> %fn &Outcome .T .E bool \o:
     outcome_is_err o
 
 //: outcome_result: `Outcome` [内部/ないぶ]の `Result` を[取/と]り[出/だ]す
@@ -194,8 +194,8 @@ pub fn result_like_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/diag/error" as *
-//:| fn main <()*>i32> ():
-//:     let o <Outcome<i32, StdErrorKind>> outcome_ok<i32, StdErrorKind> 42;
+//:| fn main %impure fn () i32 \():
+//:     let o %Outcome i32 StdErrorKind outcome_ok<i32, StdErrorKind> 42;
 //:     let checks match outcome_result o:
 //:         Result::Ok v:
 //:             checks_push checks_new assert_eq_i32 42 v
@@ -214,8 +214,8 @@ pub fn result_like_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
 //: [計算量/けいさんりょう]:
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
-pub fn outcome_result <.T, .E> <(Outcome<.T, .E>)->Result<.T, .E>> (o):
-    let result <Result<.T, .E>> field::get o "result"
+pub fn outcome_result <.T, .E> %fn Outcome .T .E Result .T .E \o:
+    let result %Result .T .E field::get o "result"
     match field::get o "diags":
         Option::Some ds:
             diags_free ds
@@ -224,7 +224,7 @@ pub fn outcome_result <.T, .E> <(Outcome<.T, .E>)->Result<.T, .E>> (o):
     result
 
 //: outcome_result: `Outcome` [参照/さんしょう]から Copy [可能/かのう]な `Result` を[読/よ]み[出/だ]す
-pub fn outcome_result <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->Result<.T, .E>> (o):
+pub fn outcome_result <.T: Copy, .E: Copy> %fn &Outcome .T .E Result .T .E \o:
     *field::get_ref o "result"
 
 //: outcome_is_ok: `Outcome.result` が `Ok` か[判定/はんてい]する
@@ -242,7 +242,7 @@ pub fn outcome_result <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->Result<.T, .E>> 
 //: [計算量/けいさんりょう]:
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
-pub fn outcome_is_ok <.T, .E> <(Outcome<.T, .E>)->bool> (o):
+pub fn outcome_is_ok <.T, .E> %fn Outcome .T .E bool \o:
     match outcome_result o:
         Result::Ok _v:
             true
@@ -250,7 +250,7 @@ pub fn outcome_is_ok <.T, .E> <(Outcome<.T, .E>)->bool> (o):
             false
 
 //: outcome_is_ok: `Outcome` [参照/さんしょう]の `Result` が `Ok` か[判定/はんてい]する
-pub fn outcome_is_ok <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
+pub fn outcome_is_ok <.T: Copy, .E: Copy> %fn &Outcome .T .E bool \o:
     match outcome_result o:
         Result::Ok _v:
             true
@@ -271,11 +271,11 @@ pub fn outcome_is_ok <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
 //: [計算量/けいさんりょう]:
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
-pub fn outcome_is_err <.T, .E> <(Outcome<.T, .E>)->bool> (o):
+pub fn outcome_is_err <.T, .E> %fn Outcome .T .E bool \o:
     not outcome_is_ok o
 
 //: outcome_is_err: `Outcome` [参照/さんしょう]の `Result` が `Err` か[判定/はんてい]する
-pub fn outcome_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
+pub fn outcome_is_err <.T: Copy, .E: Copy> %fn &Outcome .T .E bool \o:
     not outcome_is_ok o
 
 //: outcome_diags_or_empty: `Outcome` の[診断/しんだん][群/ぐん]を[空/から]なら[空/から]の `Diags` に[置/お]き[換/か]えて[返/かえ]す
@@ -292,7 +292,7 @@ pub fn outcome_is_err <.T: Copy, .E: Copy> <(&Outcome<.T, .E>)->bool> (o):
 //: [計算量/けいさんりょう]:
 //: - [時間/じかん]: O(1)
 //: - [空間/くうかん]: O(1)
-pub fn outcome_diags_or_empty <.T, .E> <(Outcome<.T, .E>)*>Diags> (o):
+pub fn outcome_diags_or_empty <.T, .E> %impure fn Outcome .T .E Diags \o:
     match field::get o "diags":
         Option::Some ds:
             ds
@@ -314,7 +314,7 @@ pub fn outcome_diags_or_empty <.T, .E> <(Outcome<.T, .E>)*>Diags> (o):
 //: [計算量/けいさんりょう]:
 //: - [時間/じかん]: O(n)
 //: - [空間/くうかん]: O(n)（[再帰/さいき]ぶん）
-pub fn outcome_has_errors <.T, .E> <(Outcome<.T, .E>)->bool> (o):
+pub fn outcome_has_errors <.T, .E> %fn Outcome .T .E bool \o:
     match field::get o "diags":
         Option::Some ds:
             diags_has_errors ds

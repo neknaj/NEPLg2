@@ -35,14 +35,14 @@
 //:| #import "std/test" as *
 //:| #import "core/field" as *
 //:| #import "alloc/encoding/json/types" as *
-//: fn main <()*>i32> ():
-//:     let arr <JsonArray> JsonArray "1,2"
+//: fn main %impure fn () i32 \():
+//:     let arr %JsonArray JsonArray "1,2"
 //:     let checks checks_push checks_new assert_str_eq "1,2" get arr "items"
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown
 //: ```
 pub struct JsonArray:
-    items <str>
+    items %str
 
 //: JsonObject: JSON object の compact body fragment
 //:
@@ -67,14 +67,14 @@ pub struct JsonArray:
 //:| #import "std/test" as *
 //:| #import "alloc/encoding/json/types" as *
 //:| #import "alloc/encoding/json/serialize" as *
-//: fn main <()*>i32> ():
-//:     let obj <JsonObject> JsonObject "\"a\":1"
+//: fn main %impure fn () i32 \():
+//:     let obj %JsonObject JsonObject "\"a\":1"
 //:     let checks checks_push checks_new assert_str_eq "{\"a\":1}" json_serialize_object obj
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown
 //: ```
 pub struct JsonObject:
-    members <str>
+    members %str
 
 //: JsonValue: JSON の値表現
 //:
@@ -99,19 +99,19 @@ pub struct JsonObject:
 //:| #import "std/test" as *
 //:| #import "alloc/encoding/json/types" as *
 //:| #import "alloc/encoding/json/serialize" as *
-//: fn main <()*>i32> ():
-//:     let v <JsonValue> JsonValue::Number 42
+//: fn main %impure fn () i32 \():
+//:     let v %JsonValue JsonValue::Number 42
 //:     let checks checks_push checks_new assert_str_eq "42" json_serialize v
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown
 //: ```
 pub enum JsonValue:
     Null
-    Bool <i32>
-    Number <i32>
-    String <str>
-    Array <JsonArray>
-    Object <JsonObject>
+    Bool %i32
+    Number %i32
+    String %str
+    Array %JsonArray
+    Object %JsonObject
 
 //: JsonMember: JSON object の 1 member
 //:
@@ -136,46 +136,46 @@ pub enum JsonValue:
 //:| #import "std/test" as *
 //:| #import "core/field" as *
 //:| #import "alloc/encoding/json/types" as *
-//: fn main <()*>i32> ():
-//:     let member <JsonMember> JsonMember "answer" JsonValue::Number 42
+//: fn main %impure fn () i32 \():
+//:     let member %JsonMember JsonMember "answer" JsonValue::Number 42
 //:     let checks checks_push checks_new assert_str_eq "answer" get member "key"
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown
 //: ```
 pub struct JsonMember:
-    key <str>
-    value <JsonValue>
+    key %str
+    value %JsonValue
 
 impl Clone for JsonArray:
-    fn clone <(&JsonArray)->JsonArray> (x):
+    fn clone %fn &JsonArray JsonArray \x:
         *x
 
 impl Copy for JsonArray:
-    fn copy_mark <(JsonArray)->JsonArray> (x):
+    fn copy_mark %fn JsonArray JsonArray \x:
         x
 
 impl Clone for JsonObject:
-    fn clone <(&JsonObject)->JsonObject> (x):
+    fn clone %fn &JsonObject JsonObject \x:
         *x
 
 impl Copy for JsonObject:
-    fn copy_mark <(JsonObject)->JsonObject> (x):
+    fn copy_mark %fn JsonObject JsonObject \x:
         x
 
 impl Clone for JsonValue:
-    fn clone <(&JsonValue)->JsonValue> (x):
+    fn clone %fn &JsonValue JsonValue \x:
         *x
 
 impl Copy for JsonValue:
-    fn copy_mark <(JsonValue)->JsonValue> (x):
+    fn copy_mark %fn JsonValue JsonValue \x:
         x
 
 impl Clone for JsonMember:
-    fn clone <(&JsonMember)->JsonMember> (x):
+    fn clone %fn &JsonMember JsonMember \x:
         *x
 
 impl Copy for JsonMember:
-    fn copy_mark <(JsonMember)->JsonMember> (x):
+    fn copy_mark %fn JsonMember JsonMember \x:
         x
 
 //: JsonEscapeKind: JSON string escape の分類
@@ -209,8 +209,8 @@ pub enum JsonEscapeKind:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/encoding/json/types" as *
-//: fn main <()*>i32> ():
-//:     let v <JsonValue> JsonValue::Null
+//: fn main %impure fn () i32 \():
+//:     let v %JsonValue JsonValue::Null
 //:     let checks checks_push checks_new assert true
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown

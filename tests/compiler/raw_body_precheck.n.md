@@ -9,7 +9,7 @@ diag_code: effect.raw_body.target_mismatch
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     #llvmir:
         define i32 @main() {
         entry:
@@ -26,7 +26,7 @@ diag_code: effect.raw_body.target_mismatch
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     #wasm:
         i32.const 1
 ```
@@ -40,7 +40,7 @@ diag_code: effect.raw_body.multiple_active
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     #if[target=core]
     #wasm:
         i32.const 1
@@ -61,7 +61,7 @@ diag_code: backend.wasm.raw_line_parse_error
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     #wasm:
         i32.unknown
 ```
@@ -76,13 +76,13 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #import "core/field" as *
 
-fn raw_store <(i32,i32)->()> (p, v):
+fn raw_store %fn i32 fn i32 () \p\v:
     #wasm:
         local.get p
         local.get v
         i32.store
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     raw_store 0 1
     0
 ```
@@ -99,13 +99,13 @@ diag_code: effect.pure.calls_impure
 #import "core/mem/raw" as *
 #import "core/field" as *
 
-fn raw_store_helper <(i32,i32)->()> (p, v):
+fn raw_store_helper %fn i32 fn i32 () \p\v:
     #wasm:
         local.get p
         local.get v
         call $store_i32
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     raw_store_helper 0 1
     0
 ```
@@ -119,7 +119,7 @@ diag_code: effect.pure.calls_impure
 #entry main
 #indent 4
 
-fn raw_store <(i32)->()> (v):
+fn raw_store %fn i32 () \v:
     #llvmir:
         define void @raw_store(i32 %v) {
         entry:
@@ -128,7 +128,7 @@ fn raw_store <(i32)->()> (v):
             ret void
         }
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     raw_store 1
     0
 ```
@@ -144,7 +144,7 @@ diag_code: effect.pure.calls_impure
 #import "core/mem" as *
 #import "core/mem/raw" as *
 
-fn raw_grow_helper <(i32)->i32> (pages):
+fn raw_grow_helper %fn i32 i32 \pages:
     #llvmir:
         define i32 @raw_grow_helper(i32 %pages) {
         entry:
@@ -152,7 +152,7 @@ fn raw_grow_helper <(i32)->i32> (pages):
             ret i32 %x
         }
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     raw_grow_helper 1
 ```
 
@@ -166,9 +166,9 @@ diag_code: backend.wasm.extern_signature_unsupported
 #indent 4
 #no_prelude
 
-#extern "env" "f" fn f <()->never>
+#extern "env" "f" fn f %fn () never
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     1
 ```
 
@@ -181,6 +181,6 @@ diag_code: backend.wasm.function_signature_unsupported
 #entry main
 #indent 4
 
-fn main <()->never> ():
+fn main %fn () never \():
     #intrinsic "unreachable" <> ()
 ```

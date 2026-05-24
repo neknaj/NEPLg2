@@ -10,15 +10,15 @@ diag_code: resource.cell.moved
 #target core
 
 struct Token:
-    raw <(i32)->i32>
+    raw %fn i32 i32
 
-fn id <(i32)->i32> (x):
+fn id %fn i32 i32 \x:
     x
 
-fn main <()->i32> ():
-    let a <Token> Token @id
-    let b <Token> a
-    let c <Token> a
+fn main %fn () i32 \():
+    let a %Token Token @id
+    let b %Token a
+    let c %Token a
     0
 ```
 

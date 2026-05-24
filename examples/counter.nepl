@@ -30,8 +30,8 @@
 //:
 //: [目的/もくてき]:
 //: - while ループの基本形を示します。
-fn main <()*>()> ():
-    let mut x <i32> 0;
+fn main %impure fn () () \():
+    let mut x %i32 0;
     while lt x 5:
         do:
             print "count = ";

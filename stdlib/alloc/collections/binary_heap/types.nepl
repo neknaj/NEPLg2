@@ -22,9 +22,9 @@
 //: - `0 <= i < len` の slot は `Some`
 //: - `len <= i < cap` の slot は `None`
 pub struct BinaryHeap<.T>:
-    len <i32>
-    cap <i32>
-    items <Vec<Option<.T>>>
+    len %i32
+    cap %i32
+    items %Vec Option .T
 
 //: ## BinaryHeapPushError
 //: `push` の grow [失敗/しっぱい]で[戻/もど]る error payload
@@ -40,20 +40,20 @@ pub struct BinaryHeap<.T>:
 //:| #import "alloc/collections/binary_heap" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hp0 <BinaryHeap<i32>> unwrap_ok new<i32>;
+//: fn main %impure fn () i32 \():
+//:     let hp0 %BinaryHeap i32 unwrap_ok new<i32>;
 //:     match push<i32> hp0 7:
 //:         Result::Ok hp1:
 //:             free<i32> hp1;
 //:             0
 //:         Result::Err e:
-//:             let hp2 <BinaryHeap<i32>> binary_heap_push_error_heap<i32> e;
+//:             let hp2 %BinaryHeap i32 binary_heap_push_error_heap<i32> e;
 //:             free<i32> hp2;
 //:             1
 //: ```
 pub struct BinaryHeapPushError<.T>:
-    heap <BinaryHeap<.T>>
-    diag <Diag>
+    heap %BinaryHeap .T
+    diag %Diag
 
 //: ## binary_heap_push_error_diag
 //: `push` [失敗/しっぱい]の `Diag` を owner を[動/うご]かさず[読/よ]む
@@ -65,19 +65,19 @@ pub struct BinaryHeapPushError<.T>:
 //:| #import "alloc/collections/binary_heap" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hp0 <BinaryHeap<i32>> unwrap_ok new<i32>;
+//: fn main %impure fn () i32 \():
+//:     let hp0 %BinaryHeap i32 unwrap_ok new<i32>;
 //:     match push<i32> hp0 7:
 //:         Result::Ok hp1:
 //:             free<i32> hp1;
 //:             0
 //:         Result::Err e:
-//:             let _d <Diag> binary_heap_push_error_diag<i32> &e;
-//:             let hp2 <BinaryHeap<i32>> binary_heap_push_error_heap<i32> e;
+//:             let _d %Diag binary_heap_push_error_diag<i32> &e;
+//:             let hp2 %BinaryHeap i32 binary_heap_push_error_heap<i32> e;
 //:             free<i32> hp2;
 //:             1
 //: ```
-pub fn binary_heap_push_error_diag <.T> <(&BinaryHeapPushError<.T>)->Diag> (e):
+pub fn binary_heap_push_error_diag <.T> %fn &BinaryHeapPushError .T Diag \e:
     *field::get_ref e "diag"
 
 //: ## binary_heap_push_error_heap
@@ -93,22 +93,22 @@ pub fn binary_heap_push_error_diag <.T> <(&BinaryHeapPushError<.T>)->Diag> (e):
 //:| #import "alloc/collections/binary_heap" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hp0 <BinaryHeap<i32>> unwrap_ok with_capacity<i32> 1;
+//: fn main %impure fn () i32 \():
+//:     let hp0 %BinaryHeap i32 unwrap_ok with_capacity<i32> 1;
 //:     match push<i32> hp0 7:
 //:         Result::Ok hp1:
 //:             free<i32> hp1;
 //:             0
 //:         Result::Err e:
-//:             let hp2 <BinaryHeap<i32>> binary_heap_push_error_heap<i32> e;
+//:             let hp2 %BinaryHeap i32 binary_heap_push_error_heap<i32> e;
 //:             free<i32> hp2;
 //:             1
 //: ```
-pub fn binary_heap_push_error_heap <.T: Copy> <(BinaryHeapPushError<.T>)->BinaryHeap<.T>> (e):
+pub fn binary_heap_push_error_heap <.T: Copy> %fn BinaryHeapPushError .T BinaryHeap .T \e:
     field::get e "heap"
 
 //: ## BinaryHeapPop
 //: `pop_max` の[結果/けっか]
 pub struct BinaryHeapPop<.T>:
-    heap <BinaryHeap<.T>>
-    item <Option<.T>>
+    heap %BinaryHeap .T
+    item %Option .T

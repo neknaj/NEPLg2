@@ -30,7 +30,7 @@
 //: - [失敗/しっぱい]は `Result::Err StdErrorKind::ParseError` として[返/かえ]すのを[標準/ひょうじゅん]にします。
 //: - [詳細/しょうさい]な[診断/しんだん]が[必要/ひつよう]な[処理/しょり]は `Outcome` と `Diag` を[使/つか]います。
 trait Deserialize:
-    fn deserialize <(str)->Result<Self, StdErrorKind>> (s):
+    fn deserialize %fn str Result Self StdErrorKind \s:
         Result::Err StdErrorKind::ParseError
 
 //: ## deserialize
@@ -48,8 +48,8 @@ trait Deserialize:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/traits/deserialize" as *
-//:| fn main <()*>i32> ():
-//:     let assertion <TestAssertion>:
+//:| fn main %impure fn () i32 \():
+//:     let assertion %TestAssertion:
 //:         match deserialize<i32> "42":
 //:             Result::Ok v:
 //:                 assert_eq_i32 "deserialize i32" 42 v
@@ -70,10 +70,10 @@ trait Deserialize:
 //:
 //: ### [計算量/けいさんりょう]
 //: - impl に[依存/いそん]します。
-pub fn deserialize <.T: Deserialize> <(str)->Result<.T, StdErrorKind>> (s):
+pub fn deserialize <.T: Deserialize> %fn str Result .T StdErrorKind \s:
     Deserialize::deserialize s
 
-pub fn parse_err_to_std <.T> <(Result<.T, i32>)->Result<.T, StdErrorKind>> (r):
+pub fn parse_err_to_std <.T> %fn Result .T i32 Result .T StdErrorKind \r:
     match r:
         Result::Ok v:
             Result::Ok<.T, StdErrorKind> v
@@ -81,33 +81,33 @@ pub fn parse_err_to_std <.T> <(Result<.T, i32>)->Result<.T, StdErrorKind>> (r):
             Result::Err<.T, StdErrorKind> StdErrorKind::ParseError
 
 impl Deserialize for str:
-    fn deserialize <(str)->Result<str, StdErrorKind>> (s):
+    fn deserialize %fn str Result str StdErrorKind \s:
         Result::Ok<str, StdErrorKind> s
 
 impl Deserialize for bool:
-    fn deserialize <(str)->Result<bool, StdErrorKind>> (s):
+    fn deserialize %fn str Result bool StdErrorKind \s:
         parse_err_to_std<bool> to_bool s
 
 impl Deserialize for i32:
-    fn deserialize <(str)->Result<i32, StdErrorKind>> (s):
+    fn deserialize %fn str Result i32 StdErrorKind \s:
         parse_err_to_std<i32> to_i32 s
 
 impl Deserialize for i64:
-    fn deserialize <(str)->Result<i64, StdErrorKind>> (s):
+    fn deserialize %fn str Result i64 StdErrorKind \s:
         parse_err_to_std<i64> to_i64 s
 
 impl Deserialize for i128:
-    fn deserialize <(str)->Result<i128, StdErrorKind>> (s):
+    fn deserialize %fn str Result i128 StdErrorKind \s:
         parse_err_to_std<i128> to_i128 s
 
 impl Deserialize for u8:
-    fn deserialize <(str)->Result<u8, StdErrorKind>> (s):
+    fn deserialize %fn str Result u8 StdErrorKind \s:
         match to_i32 s:
             Result::Ok v:
                 if:
                     and ge v 0 le v 255
                     then:
-                        let byte <u8> cast v
+                        let byte %u8 cast v
                         Result::Ok<u8, StdErrorKind> byte
                     else:
                         Result::Err<u8, StdErrorKind> StdErrorKind::ParseError
@@ -115,9 +115,9 @@ impl Deserialize for u8:
                 Result::Err<u8, StdErrorKind> StdErrorKind::ParseError
 
 impl Deserialize for f32:
-    fn deserialize <(str)->Result<f32, StdErrorKind>> (s):
+    fn deserialize %fn str Result f32 StdErrorKind \s:
         parse_err_to_std<f32> to_f32 s
 
 impl Deserialize for f64:
-    fn deserialize <(str)->Result<f64, StdErrorKind>> (s):
+    fn deserialize %fn str Result f64 StdErrorKind \s:
         parse_err_to_std<f64> to_f64 s

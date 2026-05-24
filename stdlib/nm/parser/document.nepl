@@ -21,7 +21,7 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| fn main <()*>i32> ():
+//:| fn main %impure fn () i32 \():
 //:     ()
 //:     0
 //: ```
@@ -52,14 +52,14 @@
 //: [計算量/けいさんりょう]:
 //: - 構築は O(1) です。
 pub struct Document:
-    source <str>
+    source %str
 
 impl Clone for Document:
-    fn clone <(&Document)->Document> (doc):
+    fn clone %fn &Document Document \doc:
         *doc
 
 impl Copy for Document:
-    fn copy_mark <(Document)->Document> (doc):
+    fn copy_mark %fn Document Document \doc:
         doc
 
 //: parse_markdown: 拡張 Markdown 文字列を `Document` source view にする
@@ -79,12 +79,12 @@ impl Copy for Document:
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/parser" as *
-//: fn main <()*>i32> ():
-//:     let d <Document> parse_markdown "# T\n\nx\n";
-//:     let j <str> document_to_json d;
+//: fn main %impure fn () i32 \():
+//:     let d %Document parse_markdown "# T\n\nx\n";
+//:     let j %str document_to_json d;
 //:     if and str_starts_with j "{\"t\":\"doc\"" gt len j 0 0 1
 //: ```
-pub fn parse_markdown <(str)->Document> (input):
+pub fn parse_markdown %fn str Document \input:
     Document input
 
 //: document_to_json: `Document` を JSON 文字列へ変換する
@@ -108,24 +108,24 @@ pub fn parse_markdown <(str)->Document> (input):
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/parser" as *
-//: fn main <()*>i32> ():
-//:     let d <Document> parse_markdown "plain\n";
-//:     let j <str> document_to_json d;
+//: fn main %impure fn () i32 \():
+//:     let d %Document parse_markdown "plain\n";
+//:     let j %str document_to_json d;
 //:     if str_starts_with j "{\"t\":\"doc\"" 0 1
 //: ```
-pub fn document_to_json <(Document)->str> (doc):
-    let src <str> get doc "source";
-    let mut sb <StringBuilder> string_builder_new;
+pub fn document_to_json %fn Document str \doc:
+    let src %str get doc "source";
+    let mut sb %StringBuilder string_builder_new;
     set sb sb_append sb "{\"t\":\"doc\",\"nodes\":[";
-    let n <i32> len src;
-    let mut pos <i32> 0;
-    let mut sections <NmJsonSectionState> nm_json_section_state_new;
+    let n %i32 len src;
+    let mut pos %i32 0;
+    let mut sections %NmJsonSectionState nm_json_section_state_new;
 
     while lt pos n:
         do:
-            let line_end <i32> scanner::str_line_end src pos;
-            let raw <str> str_slice_trim_suffix_cr src pos line_end;
-            let t <str> str_trim raw;
+            let line_end %i32 scanner::str_line_end src pos;
+            let raw %str str_slice_trim_suffix_cr src pos line_end;
+            let t %str str_trim raw;
             set pos scanner::str_next_line_pos src line_end;
             if:
                 eq len t 0
@@ -158,14 +158,14 @@ pub fn document_to_json <(Document)->str> (doc):
                                     if:
                                         scan::is_fence_start t
                                         then:
-                                            let info <str> str_trim str_slice t 3 len t;
-                                            let mut code_sb <StringBuilder> string_builder_new;
-                                            let mut done <bool> false;
+                                            let info %str str_trim str_slice t 3 len t;
+                                            let mut code_sb %StringBuilder string_builder_new;
+                                            let mut done %bool false;
                                             while and lt pos n not done:
                                                 do:
-                                                    let cend <i32> scanner::str_line_end src pos;
-                                                    let craw <str> str_slice_trim_suffix_cr src pos cend;
-                                                    let ct <str> str_trim craw;
+                                                    let cend %i32 scanner::str_line_end src pos;
+                                                    let craw %str str_slice_trim_suffix_cr src pos cend;
+                                                    let ct %str str_trim craw;
                                                     set pos scanner::str_next_line_pos src cend;
                                                     if:
                                                         scan::is_fence_start ct
@@ -181,7 +181,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                             set sb json::json_escape_builder_into sb code_sb;
                                             set sb sb_append sb "\"}"
                                         else:
-                                            let hlevel <i32> scan::nm_heading_level t;
+                                            let hlevel %i32 scan::nm_heading_level t;
                                             if:
                                                 gt hlevel 0
                                                 then:
@@ -191,7 +191,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                             set sections nm_json_section_close_current sections
                                                     if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
                                                     set sections nm_json_section_mark_current_has sections;
-                                                    let htext <str> scan::nm_heading_text t hlevel;
+                                                    let htext %str scan::nm_heading_text t hlevel;
                                                     set sb sb_append sb "{\"t\":\"section\",\"level\":";
                                                     set sb sb_append_i32 sb hlevel;
                                                     set sb sb_append sb ",\"heading\":{\"level\":";
@@ -201,14 +201,14 @@ pub fn document_to_json <(Document)->str> (doc):
                                                     set sb sb_append sb "},\"children\":[";
                                                     set sections nm_json_section_open_level sections hlevel
                                                 else:
-                                                    let mut para_sb <StringBuilder> string_builder_new;
+                                                    let mut para_sb %StringBuilder string_builder_new;
                                                     set para_sb sb_append para_sb raw;
-                                                    let mut done <bool> false;
+                                                    let mut done %bool false;
                                                     while and lt pos n not done:
                                                         do:
-                                                            let pend <i32> scanner::str_line_end src pos;
-                                                            let praw <str> str_slice_trim_suffix_cr src pos pend;
-                                                            let pt <str> str_trim praw;
+                                                            let pend %i32 scanner::str_line_end src pos;
+                                                            let praw %str str_slice_trim_suffix_cr src pos pend;
+                                                            let pt %str str_trim praw;
                                                             if:
                                                                 scan::nm_is_block_boundary pt
                                                                 then set done true
@@ -219,7 +219,7 @@ pub fn document_to_json <(Document)->str> (doc):
                                                     if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
                                                     set sections nm_json_section_mark_current_has sections;
                                                     set sb sb_append sb "{\"t\":\"p\",\"inl\":";
-                                                    let para_text <str> sb_build para_sb;
+                                                    let para_text %str sb_build para_sb;
                                                     set sb json_inline::nm_inline_to_json_into sb para_text;
                                                     set sb sb_append sb "}"
 

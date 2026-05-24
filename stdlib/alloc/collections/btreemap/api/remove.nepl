@@ -28,26 +28,26 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hm <BTreeMap<i32, i32>>:
+//: fn main %impure fn () i32 \():
+//:     let hm %BTreeMap i32 i32:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
 //:         |> insert 7 70 |> uwok
 //:         |> remove 7
-//:     let observed_len <i32> len<i32, i32> &hm
-//:     let ok <bool> eq observed_len 0
+//:     let observed_len %i32 len<i32, i32> &hm
+//:     let ok %bool eq observed_len 0
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-pub fn remove <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K)*>BTreeMap<.K,.V>> (hm, key):
-    let len0 <i32> *field::get_ref &hm "len"
-    let cap0 <i32> *field::get_ref &hm "cap"
-    let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
-    let idx <i32> btreemap_lower_bound_storage<.K,.V> &storage key 0 len0
+pub fn remove <.K: Ord&Copy,.V: Copy> %impure fn BTreeMap .K .V impure fn .K BTreeMap .K .V \hm\key:
+    let len0 %i32 *field::get_ref &hm "len"
+    let cap0 %i32 *field::get_ref &hm "cap"
+    let storage %BTreeMapStorage .K .V field::get hm "storage"
+    let idx %i32 btreemap_lower_bound_storage<.K,.V> &storage key 0 len0
     if:
         not btreemap_is_at_storage<.K,.V> &storage len0 idx key
         then BTreeMap<.K,.V> len0 cap0 storage
         else:
-            let last <i32> sub len0 1
+            let last %i32 sub len0 1
             btreemap_shift_left_after_remove<.K,.V> &storage idx len0
             BTreeMap<.K,.V> last cap0 storage
 
@@ -62,19 +62,19 @@ pub fn remove <.K: Ord&Copy,.V: Copy> <(BTreeMap<.K,.V>,.K)*>BTreeMap<.K,.V>> (h
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let hm <BTreeMap<i32, i32>>:
+//: fn main %impure fn () i32 \():
+//:     let hm %BTreeMap i32 i32:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
 //:         |> insert 7 70 |> uwok
 //:         |> clear
-//:     let observed_len <i32> len<i32, i32> &hm
-//:     let ok <bool> eq observed_len 0
+//:     let observed_len %i32 len<i32, i32> &hm
+//:     let ok %bool eq observed_len 0
 //:     free<i32, i32> hm
 //:     if ok 1 0
 //: ```
-pub fn clear <.K: Copy,.V: Copy> <(BTreeMap<.K,.V>)*>BTreeMap<.K,.V>> (hm):
-    let len0 <i32> *field::get_ref &hm "len"
-    let cap0 <i32> *field::get_ref &hm "cap"
-    let storage <BTreeMapStorage<.K,.V>> field::get hm "storage"
+pub fn clear <.K: Copy,.V: Copy> %impure fn BTreeMap .K .V BTreeMap .K .V \hm:
+    let len0 %i32 *field::get_ref &hm "len"
+    let cap0 %i32 *field::get_ref &hm "cap"
+    let storage %BTreeMapStorage .K .V field::get hm "storage"
     btreemap_clear_slots<.K,.V> &storage len0 0
     BTreeMap<.K,.V> 0 cap0 storage

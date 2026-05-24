@@ -13,10 +13,10 @@
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<i32> 1:
 //:         Result::Ok region:
-//:             let ok <bool> eq region_size &region 4
+//:             let ok %bool eq region_size &region 4
 //:             match dealloc_region<i32> region:
 //:                 Result::Ok _:
 //:                     if ok 1 0
@@ -54,15 +54,15 @@
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<i32> 1:
 //:         Result::Ok region:
-//:             let ptr <MemPtr<i32>> region_ptr &region
-//:             let stored <Result<(),str>> store_i32 ptr 42
+//:             let ptr %MemPtr i32 region_ptr &region
+//:             let stored %Result () str store_i32 ptr 42
 //:             match stored:
 //:                 Result::Ok _:
-//:                     let loaded <Option<i32>> load_i32 ptr
-//:                     let ok <bool> match loaded:
+//:                     let loaded %Option i32 load_i32 ptr
+//:                     let ok %bool match loaded:
 //:                         Option::Some value:
 //:                             eq value 42
 //:                         Option::None:
@@ -81,7 +81,7 @@
 //:         Result::Err _:
 //:             0
 //: ```
-pub fn region_ptr <.T> <(&RegionToken<.T>)->MemPtr<.T>> (token):
+pub fn region_ptr <.T> %fn &RegionToken .T MemPtr .T \token:
     mem_ptr_wrap *region_token_raw_ref token
 
 //: region_ptr_at: RegionToken 内の byte offset から MemPtr を得る
@@ -107,7 +107,7 @@ pub fn region_ptr <.T> <(&RegionToken<.T>)->MemPtr<.T>> (token):
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<i32> 1:
 //:         Result::Ok region:
 //:             match region_ptr_at<i32, i32> &region 0:
@@ -133,10 +133,10 @@ pub fn region_ptr <.T> <(&RegionToken<.T>)->MemPtr<.T>> (token):
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<u8> 8:
 //:         Result::Ok region:
-//:             let ok <bool> match region_ptr_at<u8, i32> &region 1:
+//:             let ok %bool match region_ptr_at<u8, i32> &region 1:
 //:                 Result::Ok _ptr:
 //:                     false
 //:                 Result::Err _:
@@ -149,21 +149,21 @@ pub fn region_ptr <.T> <(&RegionToken<.T>)->MemPtr<.T>> (token):
 //:         Result::Err _:
 //:             0
 //: ```
-pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (token, off):
-    let bytes <i32> size_of<.U>
-    let align <i32> align_of<.U>
-    let total <i32> *region_token_size_ref token
-    let base_raw <i32> *region_token_raw_ref token
-    let addr <i32> add base_raw off
+pub fn region_ptr_at <.T, .U> %fn &RegionToken .T fn i32 Result MemPtr .U str \token\off:
+    let bytes %i32 size_of<.U>
+    let align %i32 align_of<.U>
+    let total %i32 *region_token_size_ref token
+    let base_raw %i32 *region_token_raw_ref token
+    let addr %i32 add base_raw off
     if:
         if:
             or lt off 0 lt bytes 0
             then:
                 false
             else:
-                let end <i32> add off bytes
-                let in_bounds <bool> and and le end total ge end off ge addr base_raw
-                let aligned <bool> if le align 1 true eq rem_s addr align 0
+                let end %i32 add off bytes
+                let in_bounds %bool and and le end total ge end off ge addr base_raw
+                let aligned %bool if le align 1 true eq rem_s addr align 0
                 and in_bounds aligned
         then:
             Result<MemPtr<.U>,str>::Ok mem_ptr_wrap addr
@@ -193,10 +193,10 @@ pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region_bytes<i32> 4:
 //:         Result::Ok region:
-//:             let ok <bool> eq region_size &region 4
+//:             let ok %bool eq region_size &region 4
 //:             match dealloc_region<i32> region:
 //:                 Result::Ok _:
 //:                     if ok 1 0
@@ -205,13 +205,13 @@ pub fn region_ptr_at <.T, .U> <(&RegionToken<.T>,i32)->Result<MemPtr<.U>,str>> (
 //:         Result::Err _:
 //:             0
 //: ```
-pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
+pub fn alloc_region_bytes <.T> %fn i32 Result RegionToken .T str \bytes:
     if:
         not alloc_payload_fits bytes
         then:
             Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes invalid size"
         else:
-            let raw <i32> allocator::alloc_raw bytes
+            let raw %i32 allocator::alloc_raw bytes
             if:
                 lt 0 raw
                 then:
@@ -235,13 +235,13 @@ pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region_bytes<i32> 4:
 //:         Result::Ok region:
 //:             match realloc_region_bytes_keep<i32> region sub 0 1:
 //:                 Result::Err e:
-//:                     let old <RegionToken<i32>> region_realloc_error_region<i32> e
-//:                     let ok <bool> eq region_size &old 4
+//:                     let old %RegionToken i32 region_realloc_error_region<i32> e
+//:                     let ok %bool eq region_size &old 4
 //:                     match dealloc_region<i32> old:
 //:                         Result::Ok _:
 //:                             if ok 1 0
@@ -257,7 +257,7 @@ pub fn alloc_region_bytes <.T> <(i32)->Result<RegionToken<.T>,str>> (bytes):
 //:             0
 //: ```
 pub struct RegionReallocError<.T>:
-    region <RegionToken<.T>>
+    region %RegionToken .T
 
 //: region_realloc_error_region: [再確保/さいかくほ][失敗/しっぱい]時に[戻/もど]された旧 region owner を[取/と]り[出/だ]す
 //:
@@ -268,13 +268,13 @@ pub struct RegionReallocError<.T>:
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region_bytes<i32> 4:
 //:         Result::Ok region:
 //:             match realloc_region_bytes_keep<i32> region sub 0 1:
 //:                 Result::Err e:
-//:                     let old <RegionToken<i32>> region_realloc_error_region<i32> e
-//:                     let ok <bool> eq region_size &old 4
+//:                     let old %RegionToken i32 region_realloc_error_region<i32> e
+//:                     let ok %bool eq region_size &old 4
 //:                     match dealloc_region<i32> old:
 //:                         Result::Ok _:
 //:                             if ok 1 0
@@ -289,23 +289,23 @@ pub struct RegionReallocError<.T>:
 //:         Result::Err _:
 //:             0
 //: ```
-pub fn region_realloc_error_region <.T> <(RegionReallocError<.T>)->RegionToken<.T>> (e):
+pub fn region_realloc_error_region <.T> %fn RegionReallocError .T RegionToken .T \e:
     get e "region"
 
 // raw realloc と storage relocation proof を同じ owner 境界で閉じる内部 helper です。
-fn realloc_region_bytes_keep_relocating <.T> <(RegionToken<.T>,i32)->Result<RegionToken<.T>, RegionReallocError<.T>>> (region, new_size):
+fn realloc_region_bytes_keep_relocating <.T> %fn RegionToken .T fn i32 Result RegionToken .T RegionReallocError .T \region\new_size:
     if:
         not alloc_payload_fits new_size
         then:
             Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
         else:
-            let old_size <i32> get region "size"
-            let old_raw <i32> get region "raw"
-            let next_raw <i32> allocator::realloc_raw old_raw old_size new_size
+            let old_size %i32 get region "size"
+            let old_raw %i32 get region "raw"
+            let next_raw %i32 allocator::realloc_raw old_raw old_size new_size
             if:
                 lt 0 next_raw
                 then:
-                    let grown <RegionToken<.T>> region_new<.T> next_raw new_size
+                    let grown %RegionToken .T region_new<.T> next_raw new_size
                     #intrinsic "collection_slot_storage_relocate" <> (&region, &grown)
                     Result<RegionToken<.T>, RegionReallocError<.T>>::Ok grown
                 else:
@@ -333,19 +333,19 @@ fn realloc_region_bytes_keep_relocating <.T> <(RegionToken<.T>,i32)->Result<Regi
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region_bytes<i32> 4:
 //:         Result::Ok region:
 //:             match realloc_region_bytes_keep<i32> region 8:
 //:                 Result::Ok grown:
-//:                     let ok <bool> eq region_size &grown 8
+//:                     let ok %bool eq region_size &grown 8
 //:                     match dealloc_region<i32> grown:
 //:                         Result::Ok _:
 //:                             if ok 1 0
 //:                         Result::Err _:
 //:                             0
 //:                 Result::Err e:
-//:                     let old <RegionToken<i32>> region_realloc_error_region<i32> e
+//:                     let old %RegionToken i32 region_realloc_error_region<i32> e
 //:                     match dealloc_region<i32> old:
 //:                         Result::Ok _:
 //:                             0
@@ -354,8 +354,8 @@ fn realloc_region_bytes_keep_relocating <.T> <(RegionToken<.T>,i32)->Result<Regi
 //:         Result::Err _:
 //:             0
 //: ```
-pub fn realloc_region_bytes_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken<.T>, RegionReallocError<.T>>> (region, new_size):
-    let result <Result<RegionToken<.T>, RegionReallocError<.T>>> realloc_region_bytes_keep_relocating<.T> region new_size
+pub fn realloc_region_bytes_keep <.T> %fn RegionToken .T fn i32 Result RegionToken .T RegionReallocError .T \region\new_size:
+    let result %Result RegionToken .T RegionReallocError .T realloc_region_bytes_keep_relocating<.T> region new_size
     result
 
 //: alloc_region: 要素数を指定して RegionToken を確保する
@@ -380,10 +380,10 @@ pub fn realloc_region_bytes_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<i32> 2:
 //:         Result::Ok region:
-//:             let ok <bool> eq region_size &region 8
+//:             let ok %bool eq region_size &region 8
 //:             match dealloc_region<i32> region:
 //:                 Result::Ok _:
 //:                     if ok 1 0
@@ -399,7 +399,7 @@ pub fn realloc_region_bytes_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<i32> 536870909:
 //:         Result::Err _:
 //:             1
@@ -410,20 +410,20 @@ pub fn realloc_region_bytes_keep <.T> <(RegionToken<.T>,i32)->Result<RegionToken
 //:                 Result::Err _:
 //:                     0
 //: ```
-pub fn alloc_region <.T> <(i32)->Result<RegionToken<.T>,str>> (count):
-    let elem_size <i32> size_of<.T>
+pub fn alloc_region <.T> %fn i32 Result RegionToken .T str \count:
+    let elem_size %i32 size_of<.T>
     if:
         or le count 0 le elem_size 0
         then:
             Result<RegionToken<.T>,str>::Err "mem.alloc_region invalid count"
         else:
-            let max_count <i32> div_s max_alloc_payload_bytes elem_size
+            let max_count %i32 div_s max_alloc_payload_bytes elem_size
             if:
                 gt count max_count
                 then:
                     Result<RegionToken<.T>,str>::Err "mem.alloc_region size overflow"
                 else:
-                    let bytes <i32> mul count elem_size
+                    let bytes %i32 mul count elem_size
                     alloc_region_bytes<.T> bytes
 
 //: dealloc_region: RegionToken が所有する storage を解放する
@@ -449,7 +449,7 @@ pub fn alloc_region <.T> <(i32)->Result<RegionToken<.T>,str>> (count):
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     match alloc_region<u8> 4:
 //:         Result::Ok region:
 //:             match dealloc_region<u8> region:
@@ -460,8 +460,8 @@ pub fn alloc_region <.T> <(i32)->Result<RegionToken<.T>,str>> (count):
 //:         Result::Err _:
 //:             0
 //: ```
-pub fn dealloc_region <.T> <(RegionToken<.T>)->Result<(),str>> (token):
-    let raw <i32> get token "raw"
-    let size <i32> get token "size"
+pub fn dealloc_region <.T> %fn RegionToken .T Result () str \token:
+    let raw %i32 get token "raw"
+    let size %i32 get token "size"
     allocator::dealloc_raw raw size
     Result<(),str>::Ok ()

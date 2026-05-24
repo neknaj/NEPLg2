@@ -30,8 +30,8 @@
 //:
 //: 計算量:
 //: - 出力 byte 数 n に対して O(n)
-pub fn fs_normalize_build_ranges_builder <(str,&Vec<i32>)->Result<StringBuilder,i32>> (path, stack):
-    let stack_len <i32> v::len<i32> stack
+pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilder i32 \path\stack:
+    let stack_len %i32 v::len<i32> stack
     match string_builder_new_result:
         Result::Err _e:
             Result<StringBuilder,i32>::Err 12
@@ -45,14 +45,14 @@ pub fn fs_normalize_build_ranges_builder <(str,&Vec<i32>)->Result<StringBuilder,
                         Result::Ok dot:
                             Result<StringBuilder,i32>::Ok dot
                 else:
-                    let mut sb <StringBuilder> sb0
-                    let mut i <i32> 0
-                    let mut part_index <i32> 0
-                    let mut ok <i32> 1
+                    let mut sb %StringBuilder sb0
+                    let mut i %i32 0
+                    let mut part_index %i32 0
+                    let mut ok %i32 1
                     while and eq ok 1 lt i stack_len:
                         do:
-                            let start_opt <Option<i32>> v::get<i32> stack i
-                            let end_opt <Option<i32>> v::get<i32> stack add i 1
+                            let start_opt %Option i32 v::get<i32> stack i
+                            let end_opt %Option i32 v::get<i32> stack add i 1
                             match start_opt:
                                 Option::None:
                                     set ok 0
@@ -61,7 +61,7 @@ pub fn fs_normalize_build_ranges_builder <(str,&Vec<i32>)->Result<StringBuilder,
                                         Option::None:
                                             set ok 0
                                         Option::Some part_end:
-                                            let sep_added <Result<StringBuilder,str>> if:
+                                            let sep_added %Result StringBuilder str if:
                                                 gt part_index 0
                                                 then:
                                                     sb_append_result sb "/"
@@ -95,7 +95,7 @@ pub fn fs_normalize_build_ranges_builder <(str,&Vec<i32>)->Result<StringBuilder,
 //:
 //: 実装(アルゴリズム):
 //: - syscall 用途では builder owner のまま使えるよう、実処理は `fs_normalize_build_ranges_builder` に集約します。
-pub fn fs_normalize_build_ranges <(str,&Vec<i32>)->Result<str,i32>> (path, stack):
+pub fn fs_normalize_build_ranges %fn str fn &Vec i32 Result str i32 \path\stack:
     match fs_normalize_build_ranges_builder path stack:
         Result::Err e:
             Result<str,i32>::Err e

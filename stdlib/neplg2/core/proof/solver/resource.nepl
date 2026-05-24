@@ -15,14 +15,14 @@
 #import "neplg2/core/resource/init/cell" as *
 #import "neplg2/core/resource/owner" as *
 
-fn selfhost_proof_resource_cell_proven <(SelfhostResourceCellState)->SelfhostProofResult> (state):
+fn selfhost_proof_resource_cell_proven %fn SelfhostResourceCellState SelfhostProofResult \state:
     selfhost_proof_result_proven SelfhostProofEvidence::ResourceCellTransition state
 
-fn selfhost_proof_resource_cell_invalid <(SelfhostResourceCellState,SelfhostResourceCellEventFact,SelfhostResourceCellTransitionError)->SelfhostProofResult> (state, event_fact, reason):
+fn selfhost_proof_resource_cell_invalid %fn SelfhostResourceCellState fn SelfhostResourceCellEventFact fn SelfhostResourceCellTransitionError SelfhostProofResult \state\event_fact\reason:
     selfhost_proof_result_refuted SelfhostProofRefutation::ResourceCellTransitionInvalid selfhost_resource_cell_transition_issue_new state event_fact.event event_fact.span reason
 
 //: selfhost_proof_solve_resource_cell_uninitialized: 未初期化 cell の event transition を[解/と]く
-fn selfhost_proof_solve_resource_cell_uninitialized <(SelfhostResourceCellEventFact)->SelfhostProofResult> (event_fact):
+fn selfhost_proof_solve_resource_cell_uninitialized %fn SelfhostResourceCellEventFact SelfhostProofResult \event_fact:
     match event_fact.event:
         SelfhostResourceCellEventKind::Initialize:
             selfhost_proof_resource_cell_proven SelfhostResourceCellState::Initialized
@@ -32,7 +32,7 @@ fn selfhost_proof_solve_resource_cell_uninitialized <(SelfhostResourceCellEventF
             selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Uninitialized event_fact SelfhostResourceCellTransitionError::DropUninitialized
 
 //: selfhost_proof_solve_resource_cell_initialized: 初期化済み cell の event transition を[解/と]く
-fn selfhost_proof_solve_resource_cell_initialized <(SelfhostResourceCellEventFact)->SelfhostProofResult> (event_fact):
+fn selfhost_proof_solve_resource_cell_initialized %fn SelfhostResourceCellEventFact SelfhostProofResult \event_fact:
     match event_fact.event:
         SelfhostResourceCellEventKind::Initialize:
             selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Initialized event_fact SelfhostResourceCellTransitionError::InitializeAlreadyInitialized
@@ -42,7 +42,7 @@ fn selfhost_proof_solve_resource_cell_initialized <(SelfhostResourceCellEventFac
             selfhost_proof_resource_cell_proven SelfhostResourceCellState::Dropped
 
 //: selfhost_proof_solve_resource_cell_moved: move 済み cell の event transition を[解/と]く
-fn selfhost_proof_solve_resource_cell_moved <(SelfhostResourceCellEventFact)->SelfhostProofResult> (event_fact):
+fn selfhost_proof_solve_resource_cell_moved %fn SelfhostResourceCellEventFact SelfhostProofResult \event_fact:
     match event_fact.event:
         SelfhostResourceCellEventKind::Initialize:
             selfhost_proof_resource_cell_proven SelfhostResourceCellState::Initialized
@@ -52,7 +52,7 @@ fn selfhost_proof_solve_resource_cell_moved <(SelfhostResourceCellEventFact)->Se
             selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Moved event_fact SelfhostResourceCellTransitionError::DropAfterMove
 
 //: selfhost_proof_solve_resource_cell_dropped: drop 済み cell の event transition を[解/と]く
-fn selfhost_proof_solve_resource_cell_dropped <(SelfhostResourceCellEventFact)->SelfhostProofResult> (event_fact):
+fn selfhost_proof_solve_resource_cell_dropped %fn SelfhostResourceCellEventFact SelfhostProofResult \event_fact:
     match event_fact.event:
         SelfhostResourceCellEventKind::Initialize:
             selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Dropped event_fact SelfhostResourceCellTransitionError::InitializeAfterDrop
@@ -62,7 +62,7 @@ fn selfhost_proof_solve_resource_cell_dropped <(SelfhostResourceCellEventFact)->
             selfhost_proof_resource_cell_invalid SelfhostResourceCellState::Dropped event_fact SelfhostResourceCellTransitionError::DoubleDrop
 
 //: selfhost_proof_solve_resource_cell_transition: Resource cell transition obligation を[解/と]く
-pub fn selfhost_proof_solve_resource_cell_transition <(SelfhostResourceCellEventFact,SelfhostResourceCellState)->SelfhostProofResult> (event_fact, state):
+pub fn selfhost_proof_solve_resource_cell_transition %fn SelfhostResourceCellEventFact fn SelfhostResourceCellState SelfhostProofResult \event_fact\state:
     match state:
         SelfhostResourceCellState::Uninitialized:
             selfhost_proof_solve_resource_cell_uninitialized event_fact
@@ -73,16 +73,16 @@ pub fn selfhost_proof_solve_resource_cell_transition <(SelfhostResourceCellEvent
         SelfhostResourceCellState::Dropped:
             selfhost_proof_solve_resource_cell_dropped event_fact
 
-fn selfhost_proof_owner_transition_proven <(SelfhostOwnerState)->SelfhostProofResult> (state):
+fn selfhost_proof_owner_transition_proven %fn SelfhostOwnerState SelfhostProofResult \state:
     selfhost_proof_result_proven SelfhostProofEvidence::OwnerTransition state
 
-fn selfhost_proof_owner_transition_invalid <(SelfhostOwnerState,SelfhostOwnerEventFact,SelfhostOwnerTransitionError)->SelfhostProofResult> (state, fact, reason):
+fn selfhost_proof_owner_transition_invalid %fn SelfhostOwnerState fn SelfhostOwnerEventFact fn SelfhostOwnerTransitionError SelfhostProofResult \state\fact\reason:
     selfhost_proof_result_refuted SelfhostProofRefutation::OwnerTransitionInvalid selfhost_owner_transition_issue_new state fact.event fact.storage fact.span reason
 
-fn selfhost_proof_owner_transition_storage_mismatch <(SelfhostOwnerState,SelfhostOwnerEventFact)->SelfhostProofResult> (state, fact):
+fn selfhost_proof_owner_transition_storage_mismatch %fn SelfhostOwnerState fn SelfhostOwnerEventFact SelfhostProofResult \state\fact:
     selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::StorageIdMismatch
 
-fn selfhost_proof_owner_transition_with_storage <(SelfhostOwnerState,SelfhostOwnerEventFact,SelfhostOwnerStorageId)->SelfhostProofResult> (state, fact, storage):
+fn selfhost_proof_owner_transition_with_storage %fn SelfhostOwnerState fn SelfhostOwnerEventFact fn SelfhostOwnerStorageId SelfhostProofResult \state\fact\storage:
     if:
         selfhost_owner_storage_id_eq storage fact.storage
         then:
@@ -122,7 +122,7 @@ fn selfhost_proof_owner_transition_with_storage <(SelfhostOwnerState,SelfhostOwn
         else:
             selfhost_proof_owner_transition_storage_mismatch state fact
 
-fn selfhost_proof_solve_owner_transition_no_owner <(SelfhostOwnerEventFact)->SelfhostProofResult> (fact):
+fn selfhost_proof_solve_owner_transition_no_owner %fn SelfhostOwnerEventFact SelfhostProofResult \fact:
     match fact.event:
         SelfhostOwnerEventKind::Acquire:
             selfhost_proof_owner_transition_proven SelfhostOwnerState::Owned fact.storage
@@ -134,7 +134,7 @@ fn selfhost_proof_solve_owner_transition_no_owner <(SelfhostOwnerEventFact)->Sel
             selfhost_proof_owner_transition_invalid SelfhostOwnerState::NoOwner fact SelfhostOwnerTransitionError::ViewWithoutOwner
 
 //: selfhost_proof_solve_owner_transition: free obligation owner transition obligation を[解/と]く
-pub fn selfhost_proof_solve_owner_transition <(SelfhostOwnerEventFact,SelfhostOwnerState)->SelfhostProofResult> (fact, state):
+pub fn selfhost_proof_solve_owner_transition %fn SelfhostOwnerEventFact fn SelfhostOwnerState SelfhostProofResult \fact\state:
     if:
         selfhost_owner_storage_id_is_valid fact.storage
         then:
@@ -150,16 +150,16 @@ pub fn selfhost_proof_solve_owner_transition <(SelfhostOwnerEventFact,SelfhostOw
         else:
             selfhost_proof_owner_transition_invalid state fact SelfhostOwnerTransitionError::InvalidStorageId
 
-fn selfhost_proof_borrow_access_proven <(SelfhostBorrowState)->SelfhostProofResult> (state):
+fn selfhost_proof_borrow_access_proven %fn SelfhostBorrowState SelfhostProofResult \state:
     selfhost_proof_result_proven SelfhostProofEvidence::ResourceBorrowAccess state
 
-fn selfhost_proof_borrow_access_invalid <(SelfhostBorrowState,SelfhostBorrowAccessFact,SelfhostBorrowAccessError)->SelfhostProofResult> (state, fact, reason):
+fn selfhost_proof_borrow_access_invalid %fn SelfhostBorrowState fn SelfhostBorrowAccessFact fn SelfhostBorrowAccessError SelfhostProofResult \state\fact\reason:
     selfhost_proof_result_refuted SelfhostProofRefutation::BorrowAccessInvalid selfhost_borrow_access_issue_new state fact.request fact.span reason
 
-fn selfhost_proof_borrow_access_invalid_shared_count <(SelfhostBorrowState,SelfhostBorrowAccessFact)->SelfhostProofResult> (state, fact):
+fn selfhost_proof_borrow_access_invalid_shared_count %fn SelfhostBorrowState fn SelfhostBorrowAccessFact SelfhostProofResult \state\fact:
     selfhost_proof_borrow_access_invalid state fact SelfhostBorrowAccessError::InvalidSharedBorrowCount
 
-fn selfhost_proof_solve_borrow_access_unborrowed <(SelfhostBorrowAccessFact)->SelfhostProofResult> (fact):
+fn selfhost_proof_solve_borrow_access_unborrowed %fn SelfhostBorrowAccessFact SelfhostProofResult \fact:
     match fact.request:
         SelfhostBorrowRequestKind::StartShared:
             selfhost_proof_borrow_access_proven (selfhost_borrow_state_shared 1)
@@ -170,7 +170,7 @@ fn selfhost_proof_solve_borrow_access_unborrowed <(SelfhostBorrowAccessFact)->Se
         SelfhostBorrowRequestKind::EndMutable:
             selfhost_proof_borrow_access_invalid SelfhostBorrowState::Unborrowed fact SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow
 
-fn selfhost_proof_solve_borrow_access_shared_valid <(i32,SelfhostBorrowAccessFact)->SelfhostProofResult> (shared_count, fact):
+fn selfhost_proof_solve_borrow_access_shared_valid %fn i32 fn SelfhostBorrowAccessFact SelfhostProofResult \shared_count\fact:
     match fact.request:
         SelfhostBorrowRequestKind::StartShared:
             selfhost_proof_borrow_access_proven (selfhost_borrow_state_shared (add shared_count 1))
@@ -186,8 +186,8 @@ fn selfhost_proof_solve_borrow_access_shared_valid <(i32,SelfhostBorrowAccessFac
         SelfhostBorrowRequestKind::EndMutable:
             selfhost_proof_borrow_access_invalid (SelfhostBorrowState::Shared shared_count) fact SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow
 
-fn selfhost_proof_solve_borrow_access_shared <(i32,SelfhostBorrowAccessFact)->SelfhostProofResult> (shared_count, fact):
-    let state <SelfhostBorrowState> selfhost_borrow_state_shared shared_count
+fn selfhost_proof_solve_borrow_access_shared %fn i32 fn SelfhostBorrowAccessFact SelfhostProofResult \shared_count\fact:
+    let state %SelfhostBorrowState selfhost_borrow_state_shared shared_count
     if:
         selfhost_borrow_shared_count_is_valid shared_count
         then:
@@ -195,7 +195,7 @@ fn selfhost_proof_solve_borrow_access_shared <(i32,SelfhostBorrowAccessFact)->Se
         else:
             selfhost_proof_borrow_access_invalid_shared_count state fact
 
-fn selfhost_proof_solve_borrow_access_mutable <(SelfhostBorrowAccessFact)->SelfhostProofResult> (fact):
+fn selfhost_proof_solve_borrow_access_mutable %fn SelfhostBorrowAccessFact SelfhostProofResult \fact:
     match fact.request:
         SelfhostBorrowRequestKind::StartShared:
             selfhost_proof_borrow_access_invalid SelfhostBorrowState::Mutable fact SelfhostBorrowAccessError::SharedBorrowWhileMutable
@@ -207,7 +207,7 @@ fn selfhost_proof_solve_borrow_access_mutable <(SelfhostBorrowAccessFact)->Selfh
             selfhost_proof_borrow_access_proven SelfhostBorrowState::Unborrowed
 
 //: selfhost_proof_solve_borrow_access: Resource borrow access obligation を[解/と]く
-pub fn selfhost_proof_solve_borrow_access <(SelfhostBorrowAccessFact,SelfhostBorrowState)->SelfhostProofResult> (fact, state):
+pub fn selfhost_proof_solve_borrow_access %fn SelfhostBorrowAccessFact fn SelfhostBorrowState SelfhostProofResult \fact\state:
     match state:
         SelfhostBorrowState::Unborrowed:
             selfhost_proof_solve_borrow_access_unborrowed fact
@@ -216,14 +216,14 @@ pub fn selfhost_proof_solve_borrow_access <(SelfhostBorrowAccessFact,SelfhostBor
         SelfhostBorrowState::Mutable:
             selfhost_proof_solve_borrow_access_mutable fact
 
-fn selfhost_proof_lifetime_outlives_proven <(SelfhostLifetimeRelation)->SelfhostProofResult> (relation):
+fn selfhost_proof_lifetime_outlives_proven %fn SelfhostLifetimeRelation SelfhostProofResult \relation:
     selfhost_proof_result_proven SelfhostProofEvidence::LifetimeOutlives relation
 
-fn selfhost_proof_lifetime_outlives_invalid <(SelfhostLifetimeOutlivesFact,SelfhostLifetimeId,SelfhostLifetimeOutlivesError)->SelfhostProofResult> (fact, expected_required, reason):
+fn selfhost_proof_lifetime_outlives_invalid %fn SelfhostLifetimeOutlivesFact fn SelfhostLifetimeId fn SelfhostLifetimeOutlivesError SelfhostProofResult \fact\expected_required\reason:
     selfhost_proof_result_refuted SelfhostProofRefutation::LifetimeOutlivesInvalid selfhost_lifetime_outlives_issue_new fact.subject expected_required fact.required fact.relation fact.use_kind fact.span reason
 
 //: selfhost_proof_solve_lifetime_outlives_relation: source-derived lifetime relation を[解/と]く
-fn selfhost_proof_solve_lifetime_outlives_relation <(SelfhostLifetimeOutlivesFact,SelfhostLifetimeId)->SelfhostProofResult> (fact, expected_required):
+fn selfhost_proof_solve_lifetime_outlives_relation %fn SelfhostLifetimeOutlivesFact fn SelfhostLifetimeId SelfhostProofResult \fact\expected_required:
     match fact.relation:
         SelfhostLifetimeRelation::InvalidSubject:
             selfhost_proof_lifetime_outlives_invalid fact expected_required SelfhostLifetimeOutlivesError::InvalidSubjectLifetime
@@ -239,7 +239,7 @@ fn selfhost_proof_solve_lifetime_outlives_relation <(SelfhostLifetimeOutlivesFac
             selfhost_proof_lifetime_outlives_invalid fact expected_required SelfhostLifetimeOutlivesError::UnrelatedLifetimes
 
 //: selfhost_proof_solve_lifetime_outlives: lifetime outlives obligation を[解/と]く
-pub fn selfhost_proof_solve_lifetime_outlives <(SelfhostLifetimeOutlivesFact,SelfhostLifetimeId)->SelfhostProofResult> (fact, expected_required):
+pub fn selfhost_proof_solve_lifetime_outlives %fn SelfhostLifetimeOutlivesFact fn SelfhostLifetimeId SelfhostProofResult \fact\expected_required:
     if:
         selfhost_lifetime_id_eq fact.required expected_required
         then:

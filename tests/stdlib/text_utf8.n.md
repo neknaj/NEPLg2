@@ -20,7 +20,7 @@ stdout: mlstr:
 #import "alloc/io" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     match text_bytebuf_to_utf8_str_result io_bytebuf_from_str "こんにちは":
         Result::Ok text:
@@ -56,25 +56,25 @@ stdout: mlstr:
 #import "core/option" as *
 #import "core/result" as *
 
-fn expect_decoded <(str,Result<CharUtf8Step,StdErrorKind>,i32,i32)*>Result<(),str>> (label, got, expected_code, expected_next):
+fn expect_decoded %impure fn str impure fn Result CharUtf8Step StdErrorKind impure fn i32 impure fn i32 Result () str \label\got\expected_code\expected_next:
     match got:
         Result::Err _e:
             Result<(),str>::Err label
         Result::Ok item:
-            let c <char> get item "value"
-            let next <i32> get item "next"
+            let c %char get item "value"
+            let next %i32 get item "next"
             match check_eq_i32 expected_code char_to_i32 c:
                 Result::Err e:
                     Result<(),str>::Err e
                 Result::Ok _:
                     check_eq_i32 expected_next next
 
-fn main <()*>i32> ():
-    let bytes <ByteBuf> io_bytebuf_from_str "Aあ"
+fn main %impure fn () i32 \():
+    let bytes %ByteBuf io_bytebuf_from_str "Aあ"
     let checks:
         match io_bytebuf_ptr_ref &bytes:
             Option::Some data:
-                let byte_len <i32> io_bytebuf_len_ref &bytes
+                let byte_len %i32 io_bytebuf_len_ref &bytes
                 checks_new
                 |> checks_push expect_decoded "decode A" text_utf8_decode_next data byte_len 0 'A' 1
                 |> checks_push expect_decoded "decode hira" text_utf8_decode_next data byte_len 1 0x3042 4
@@ -106,7 +106,7 @@ stdout: mlstr:
 #import "alloc/io" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new
     match text_utf8_encode_char 'あ':
         Result::Err _e:
@@ -142,13 +142,13 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok region:
-            let data <MemPtr<u8>> region_ptr &region
+            let data %MemPtr u8 region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
                     match dealloc_region<u8> region:
@@ -187,13 +187,13 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok region:
-            let data <MemPtr<u8>> region_ptr &region
+            let data %MemPtr u8 region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
                     match dealloc_region<u8> region:
@@ -233,14 +233,14 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     match io_bytebuf_alloc_region 3:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok region:
-            let data <MemPtr<u8>> region_ptr &region
-            let mut ok <Result<(),str>> Result<(),str>::Ok ()
+            let data %MemPtr u8 region_ptr &region
+            let mut ok %Result () str Result<(),str>::Ok ()
             match store_u8 data 224:
                 Result::Err e:
                     set ok Result<(),str>::Err e
@@ -301,14 +301,14 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let path <str> "tmp/fs_invalid_utf8_checked_case.bin"
+    let path %str "tmp/fs_invalid_utf8_checked_case.bin"
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok region:
-            let data <MemPtr<u8>> region_ptr &region
+            let data %MemPtr u8 region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
                     match dealloc_region<u8> region:
@@ -352,14 +352,14 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
-    let path <str> "tmp/fs_invalid_utf8_default_case.bin"
+    let path %str "tmp/fs_invalid_utf8_default_case.bin"
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok region:
-            let data <MemPtr<u8>> region_ptr &region
+            let data %MemPtr u8 region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
                     match dealloc_region<u8> region:
@@ -404,13 +404,13 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut checks checks_new;
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
             set checks checks_push checks Result<(),str>::Err "alloc failed"
         Result::Ok region:
-            let data <MemPtr<u8>> region_ptr &region
+            let data %MemPtr u8 region_ptr &region
             match store_u8 data 128:
                 Result::Err e:
                     match dealloc_region<u8> region:
@@ -420,8 +420,8 @@ fn main <()*>i32> ():
                             ();
                     set checks checks_push checks Result<(),str>::Err e
                 Result::Ok _:
-                    let target <ReadStream> ReadStream::Bytes io_bytebuf_finish_region region 1
-                    let text_result <Result<str, StdErrorKind>> read target;
+                    let target %ReadStream ReadStream::Bytes io_bytebuf_finish_region region 1
+                    let text_result %Result str StdErrorKind read target;
                     match text_result:
                         Result::Ok text:
                             set checks checks_push checks Result<(),str>::Err text

@@ -5,6 +5,6 @@
 #import "./predicate/expr_start" as *
 
 //: selfhost_token_stage0: Stage 0 marker 互換の smoke API
-pub fn selfhost_token_stage0 <()->i32> ():
-    let token <SelfhostToken> selfhost_token_new TokenKind::Ident source_span_new 0 1 3
+pub fn selfhost_token_stage0 %fn () i32 \():
+    let token %SelfhostToken selfhost_token_new TokenKind::Ident source_span_new 0 1 3
     if selfhost_token_is_expr_start token 0 1

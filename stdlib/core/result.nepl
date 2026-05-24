@@ -22,7 +22,7 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let report:
 //:         test_report_new "core_result_basic"
 //:         |> test_report_push assert "ok helper is ok" is_ok ok<i32, str> 1
@@ -41,8 +41,8 @@
 //:| #target std
 //:| #import "core/result" as *
 //: // 型が合わない Err を入れているのでコンパイルエラーを期待
-//: fn main <()*>()> ():
-//:     let r <i32> "text";
+//: fn main %impure fn () () \():
+//:     let r %i32 "text";
 //:     r
 //: ```
 //:
@@ -55,13 +55,13 @@
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn inc <(i32)->i32> (x):
+//: fn inc %fn i32 i32 \x:
 //:     add x 1
 //:
-//: fn strlen <(str)->i32> (s):
+//: fn strlen %fn str i32 \s:
 //:     4
 //:
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let r0 ok<i32,str> 9;
 //:     let r1 err<i32,str> "oops";
 //:     let a map<i32,i32,str> r0 inc;
@@ -83,12 +83,12 @@
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn positive_double <(i32)->Result<i32,str>> (x):
+//: fn positive_double %fn i32 Result i32 str \x:
 //:     if gt x 0:
 //:         then ok<i32,str> mul x 2
 //:         else err<i32,str> "non-positive"
 //:
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     let r0 ok<i32,str> 3;
 //:     let r1 ok<i32,str> -1;
 //:     let a and_then<i32,i32,str> r0 positive_double;
@@ -129,11 +129,11 @@ pub enum StdErrorKind:
 
 //: StdErrorKind は payload を[持/も]たない[軽量/けいりょう] enum なので Copy として[扱/あつか]う
 impl Clone for StdErrorKind:
-    fn clone <(&StdErrorKind)->StdErrorKind> (x):
+    fn clone %fn &StdErrorKind StdErrorKind \x:
         *x
 
 impl Copy for StdErrorKind:
-    fn copy_mark <(StdErrorKind)->StdErrorKind> (x):
+    fn copy_mark %fn StdErrorKind StdErrorKind \x:
         x
 
 //: Result: 成功(Ok)か失敗(Err)を表す
@@ -150,8 +150,8 @@ impl Copy for StdErrorKind:
 //: 計算量:
 //: - O(1)
 pub enum Result<.T, .E>:
-    Ok <.T>
-    Err <.E>
+    Ok %.T
+    Err %.E
 
 //: Result<Copy, Copy>: payload がどちらも Copy なら Result も Copy として扱う
 //:
@@ -166,10 +166,10 @@ pub enum Result<.T, .E>:
 //:| #entry main
 //:| #target core
 //:| #import "core/result" as *
-//: fn main <()->i32> ():
-//:     let r <Result<(),str>> Result::Err "oops";
-//:     let a <Result<(),str>> r;
-//:     let b <Result<(),str>> r;
+//: fn main %fn () i32 \():
+//:     let r %Result () str Result::Err "oops";
+//:     let a %Result () str r;
+//:     let b %Result () str r;
 //:     0
 //: ```
 //:
@@ -180,24 +180,24 @@ pub enum Result<.T, .E>:
 //:| #target core
 //:| #import "core/result" as *
 //: struct LocalToken:
-//:     raw <(i32)->i32>
+//:     raw %fn i32 i32
 //:
-//: fn token_id <(i32)->i32> (x):
+//: fn token_id %fn i32 i32 \x:
 //:     x
 //:
-//: fn main <()->i32> ():
-//:     let token <LocalToken> LocalToken @token_id;
-//:     let r <Result<LocalToken,str>> Result::Ok token;
-//:     let a <Result<LocalToken,str>> r;
-//:     let b <Result<LocalToken,str>> r;
+//: fn main %fn () i32 \():
+//:     let token %LocalToken LocalToken @token_id;
+//:     let r %Result LocalToken str Result::Ok token;
+//:     let a %Result LocalToken str r;
+//:     let b %Result LocalToken str r;
 //:     0
 //: ```
 impl<.T: Copy, .E: Copy> Clone for Result<.T, .E>:
-    fn clone <(&Result<.T, .E>)->Result<.T, .E>> (x):
+    fn clone %fn &Result .T .E Result .T .E \x:
         *x
 
 impl<.T: Copy, .E: Copy> Copy for Result<.T, .E>:
-    fn copy_mark <(Result<.T, .E>)->Result<.T, .E>> (x):
+    fn copy_mark %fn Result .T .E Result .T .E \x:
         x
 
 //: ok: 成功値を包む
@@ -213,7 +213,7 @@ impl<.T: Copy, .E: Copy> Copy for Result<.T, .E>:
 //:
 //: 計算量:
 //: - O(1)
-pub fn ok <.T, .E> <(.T)->Result<.T, .E>> (v):
+pub fn ok <.T, .E> %fn .T Result .T .E \v:
     Result<.T, .E>::Ok v
 
 //: err: 失敗値を包む
@@ -229,7 +229,7 @@ pub fn ok <.T, .E> <(.T)->Result<.T, .E>> (v):
 //:
 //: 計算量:
 //: - O(1)
-pub fn err <.T, .E> <(.E)->Result<.T, .E>> (e):
+pub fn err <.T, .E> %fn .E Result .T .E \e:
     Result<.T, .E>::Err e
 
 //: is_ok: 成功か判定する
@@ -245,7 +245,7 @@ pub fn err <.T, .E> <(.E)->Result<.T, .E>> (e):
 //:
 //: 計算量:
 //: - O(1)
-pub fn is_ok <.T, .E> <(Result<.T, .E>)->bool> (r):
+pub fn is_ok <.T, .E> %fn Result .T .E bool \r:
     match r:
         Result::Ok v:
             true
@@ -265,7 +265,7 @@ pub fn is_ok <.T, .E> <(Result<.T, .E>)->bool> (r):
 //:
 //: 計算量:
 //: - O(1)
-pub fn is_err <.T, .E> <(Result<.T, .E>)->bool> (r):
+pub fn is_err <.T, .E> %fn Result .T .E bool \r:
     match r:
         Result::Ok v:
             false
@@ -285,7 +285,7 @@ pub fn is_err <.T, .E> <(Result<.T, .E>)->bool> (r):
 //:
 //: 計算量:
 //: - O(1)
-pub fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
+pub fn unwrap_ok <.T, .E> %fn Result .T .E .T \r:
     match r:
         Result::Ok v:
             v
@@ -307,7 +307,7 @@ pub fn unwrap_ok <.T, .E> <(Result<.T, .E>)->.T> (r):
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/result" as *
-//:| fn main <()*>i32> ():
+//:| fn main %impure fn () i32 \():
 //:     let report:
 //:         test_report_new "core_result_uwok"
 //:         |> test_report_push assert_eq_i32 "uwok alias" 1 uwok ok<i32, str> 1
@@ -338,7 +338,7 @@ pub fn uwok unwrap_ok;
 //:
 //: 計算量:
 //: - O(1)
-pub fn unwrap_err <.T, .E> <(Result<.T, .E>)->.E> (r):
+pub fn unwrap_err <.T, .E> %fn Result .T .E .E \r:
     match r:
         Result::Err e:
             e
@@ -374,7 +374,7 @@ pub fn uwerr unwrap_err;
 //:
 //: 計算量:
 //: - O(1)
-pub fn unwrap_or <.T, .E> <(Result<.T, .E>, .T)->.T> (r, default):
+pub fn unwrap_or <.T, .E> %fn Result .T .E fn .T .T \r\default:
     match r:
         Result::Ok v:
             v
@@ -391,7 +391,7 @@ pub fn unwrap_or <.T, .E> <(Result<.T, .E>, .T)->.T> (r, default):
 //:
 //: 計算量:
 //: - O(1)
-pub fn std_error_kind_str <(StdErrorKind)->str> (kind):
+pub fn std_error_kind_str %fn StdErrorKind str \kind:
     match kind:
         StdErrorKind::Failure:
             "Failure"
@@ -429,7 +429,7 @@ pub fn std_error_kind_str <(StdErrorKind)->str> (kind):
 //:
 //: 計算量:
 //: - O(1)
-pub fn map <.T, .U, .E> <(Result<.T, .E>, (.T)->.U)->Result<.U, .E>> (r, f):
+pub fn map <.T, .U, .E> %fn Result .T .E fn fn .T .U Result .U .E \r\f:
     match r:
         Result::Ok v:
             ok<.U, .E> (f v)
@@ -449,7 +449,7 @@ pub fn map <.T, .U, .E> <(Result<.T, .E>, (.T)->.U)->Result<.U, .E>> (r, f):
 //:
 //: 計算量:
 //: - O(1)
-pub fn map_err <.T, .E, .F> <(Result<.T, .E>, (.E)->.F)->Result<.T, .F>> (r, f):
+pub fn map_err <.T, .E, .F> %fn Result .T .E fn fn .E .F Result .T .F \r\f:
     match r:
         Result::Ok v:
             ok<.T, .F> v
@@ -469,7 +469,7 @@ pub fn map_err <.T, .E, .F> <(Result<.T, .E>, (.E)->.F)->Result<.T, .F>> (r, f):
 //:
 //: 計算量:
 //: - O(1)
-pub fn and_then <.T, .U, .E> <(Result<.T, .E>, (.T)->Result<.U, .E>)->Result<.U, .E>> (r, f):
+pub fn and_then <.T, .U, .E> %fn Result .T .E fn fn .T Result .U .E Result .U .E \r\f:
     match r:
         Result::Ok v:
             f v

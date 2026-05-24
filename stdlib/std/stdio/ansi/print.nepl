@@ -21,7 +21,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn print_style_start <(AnsiTextStyle)*>()> (style):
+pub fn print_style_start %impure fn AnsiTextStyle () \style:
     print ansi_text_style_code style;
     ()
 
@@ -32,7 +32,7 @@ pub fn print_style_start <(AnsiTextStyle)*>()> (style):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn print_style_reset <()*>()> ():
+pub fn print_style_reset %impure fn () () \():
     print ansi_reset_code;
     ()
 
@@ -51,10 +51,10 @@ pub fn print_style_reset <()*>()> ():
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main <()*>()> ():
+//: fn main %impure fn () () \():
 //:     print_style ansi_bold_color_style AnsiColor::Red "sample";
 //: ```
-pub fn print_style <(AnsiTextStyle,str)*>()> (style, s):
+pub fn print_style %impure fn AnsiTextStyle impure fn str () \style\s:
     print_style_start style;
     print s;
     print_style_reset;
@@ -64,7 +64,7 @@ pub fn print_style <(AnsiTextStyle,str)*>()> (style, s):
 //:
 //: [実装/じっそう]:
 //: - `print_style` で本文を出力した後に改行を出力します。
-pub fn println_style <(AnsiTextStyle,str)*>()> (style, s):
+pub fn println_style %impure fn AnsiTextStyle impure fn str () \style\s:
     print_style style s;
     print "\n";
     ()
@@ -76,12 +76,12 @@ pub fn println_style <(AnsiTextStyle,str)*>()> (style, s):
 //:
 //: [実装/じっそう]:
 //: - `ansi_color_style` で構築した style を `print_style` に渡します。
-pub fn print_color <(AnsiColor,str)*>()> (color, s):
+pub fn print_color %impure fn AnsiColor impure fn str () \color\s:
     print_style ansi_color_style color s
 
 //: println_color: 前景色だけを適用して改行付きで出力する
 //:
 //: [実装/じっそう]:
 //: - `ansi_color_style` で構築した style を `println_style` に渡します。
-pub fn println_color <(AnsiColor,str)*>()> (color, s):
+pub fn println_color %impure fn AnsiColor impure fn str () \color\s:
     println_style ansi_color_style color s

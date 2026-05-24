@@ -8,7 +8,7 @@ diag_code: lexer.string.invalid_escape
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let s "bad\q";
     0
 ```
@@ -21,7 +21,7 @@ diag_code: lexer.string.unterminated
 #entry main
 #indent 4
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let s "unterminated
     0
 ```

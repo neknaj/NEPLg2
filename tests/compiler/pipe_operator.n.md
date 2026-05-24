@@ -11,9 +11,9 @@ ret: 1
 #indent 4
 #target core
 
-fn id <(i32)->i32> (x): x
+fn id %fn i32 i32 \x: x
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     1 |> id
 ```
 
@@ -28,7 +28,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     1 |> add 2
 ```
 
@@ -43,7 +43,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     1 |> add 2 |> add 3
 ```
 
@@ -58,7 +58,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     1 |> add 2 |> add 3 |> add 4
 ```
 
@@ -73,7 +73,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     1
     |> add 2
 ```
@@ -89,7 +89,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     1
     |> add 2
     |> add 3
@@ -106,7 +106,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let x:
         1
         |> add 2
@@ -124,7 +124,7 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     6 |> sub add 2 3
 ```
 
@@ -139,7 +139,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add 1 2 |> add 3
 ```
 
@@ -154,7 +154,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     block 1 |> add 2
 ```
 
@@ -169,8 +169,8 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
-    1 |> <i32> add 2
+fn main %fn () i32 \():
+    1 |> %i32 add 2
 ```
 
 ## pipe_tuple_source
@@ -190,9 +190,9 @@ ret: 2
 #target core
 #import "core/field" as *
 
-fn f <.T> <(.T)->i32> (t): 2
+fn f <.T> %fn .T i32 \t: 2
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     Tuple:
         1
         2
@@ -209,10 +209,10 @@ ret: 10
 #indent 4
 #target core
 
-struct S: v <i32>
-fn f <(S)->i32> (s): s.v
+struct S: v %i32
+fn f %fn S i32 \s: s.v
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     S 10 |> f
 ```
 
@@ -226,10 +226,10 @@ ret: 10
 #indent 4
 #target core
 
-struct S: v <i32>
+struct S: v %i32
 
-fn main <()->i32> ():
-    let s <S> 10 |> S
+fn main %fn () i32 \():
+    let s %S 10 |> S
     s.v
 ```
 
@@ -244,10 +244,10 @@ ret: 20
 #target core
 #import "core/mem" as *
 
-enum E: V <i32>
+enum E: V %i32
 
-fn main <()->i32> ():
-    let e <E> 20 |> E::V
+fn main %fn () i32 \():
+    let e %E 20 |> E::V
     match e:
         V v: v
 ```
@@ -263,7 +263,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     add 1 |> add 2 3
 ```
 
@@ -278,7 +278,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     if true 1 |> add 2 0
 ```
 
@@ -296,7 +296,7 @@ ret: 3
 
 enum E: A
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     match E::A:
         A: 1 |> add 2
 ```
@@ -312,7 +312,7 @@ ret: 3
 #target core
 #import "alloc/string" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     "abc" |> len
 ```
 
@@ -327,7 +327,7 @@ ret: 0
 #target core
 #import "core/math" as *
 
-fn main <()->i32> ():
+fn main %fn () i32 \():
     let b true |> not
     if b 1 0
 ```
@@ -344,11 +344,11 @@ ret: 3
 #import "core/cast" as *
 #import "core/math" as *
 
-fn take_i64 <(i32, i64)->i32> (x, y):
-    add x <i32> cast y
+fn take_i64 %fn i32 fn i64 i32 \x\y:
+    add x %i32 cast y
 
-fn main <()->i32> ():
-    1 |> take_i64 <i64> cast 2
+fn main %fn () i32 \():
+    1 |> take_i64 %i64 cast 2
 ```
 
 ## pipe_stream_writer_nested_ascribed_call_argument
@@ -365,9 +365,9 @@ stdout: "2\n"
 #import "std/iotarget" as *
 #import "std/streamio" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     unwrap_ok open WriteStream::Stdio
-    |> writeln <i64> cast 2
+    |> writeln %i64 cast 2
     |> flush
     |> close;
     0

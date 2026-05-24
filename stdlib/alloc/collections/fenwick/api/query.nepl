@@ -34,29 +34,29 @@
 //:| #import "alloc/collections/fenwick" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let fw <Fenwick>:
+//: fn main %impure fn () i32 \():
+//:     let fw %Fenwick:
 //:         unwrap_ok<Fenwick, Diag> new 5
 //:         |> add 0 1 |> uwok
 //:         |> add 1 2 |> uwok
 //:         |> add 2 3 |> uwok
-//:     let total <i32> unwrap_ok<i32, Diag> sum_prefix &fw 3;
+//:     let total %i32 unwrap_ok<i32, Diag> sum_prefix &fw 3;
 //:     free fw
 //:     if eq total 6 1 0
 //: ```
-pub fn sum_prefix <(&Fenwick,i32)*>Result<i32, Diag>> (fw, r):
-    let n <i32> *field::get_ref fw "n"
+pub fn sum_prefix %impure fn &Fenwick impure fn i32 Result i32 Diag \fw\r:
+    let n %i32 *field::get_ref fw "n"
     if:
         and le 0 r le r n
         then:
-            let bit <&Vec<i32>> field::get_ref fw "bit"
+            let bit %&Vec i32 field::get_ref fw "bit"
             match fenwick_sum_prefix_storage bit r:
                 Option::Some acc:
                     ok<i32, Diag> acc
                 Option::None:
                     diag_err<i32> fenwick_diag_index
         else:
-            let d <Diag> fenwick_diag_index
+            let d %Diag fenwick_diag_index
             err<i32, Diag> d
 
 //: ## sum_range
@@ -72,23 +72,23 @@ pub fn sum_prefix <(&Fenwick,i32)*>Result<i32, Diag>> (fw, r):
 //:| #import "alloc/collections/fenwick" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let fw <Fenwick>:
+//: fn main %impure fn () i32 \():
+//:     let fw %Fenwick:
 //:         unwrap_ok<Fenwick, Diag> new 5
 //:         |> add 0 1 |> uwok
 //:         |> add 1 2 |> uwok
 //:         |> add 2 3 |> uwok
 //:         |> add 3 4 |> uwok
-//:     let total <i32> unwrap_ok<i32, Diag> sum_range &fw 1 4;
+//:     let total %i32 unwrap_ok<i32, Diag> sum_range &fw 1 4;
 //:     free fw
 //:     if eq total 9 1 0
 //: ```
-pub fn sum_range <(&Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
-    let n <i32> *field::get_ref fw "n"
+pub fn sum_range %impure fn &Fenwick impure fn i32 impure fn i32 Result i32 Diag \fw\l\r:
+    let n %i32 *field::get_ref fw "n"
     if:
         and and le 0 l le l r le r n
         then:
-            let bit <&Vec<i32>> field::get_ref fw "bit"
+            let bit %&Vec i32 field::get_ref fw "bit"
             match fenwick_sum_prefix_storage bit r:
                 Option::Some sr:
                     match fenwick_sum_prefix_storage bit l:
@@ -99,5 +99,5 @@ pub fn sum_range <(&Fenwick,i32,i32)*>Result<i32, Diag>> (fw, l, r):
                 Option::None:
                     diag_err<i32> fenwick_diag_range
         else:
-            let d <Diag> fenwick_diag_range
+            let d %Diag fenwick_diag_range
             err<i32, Diag> d

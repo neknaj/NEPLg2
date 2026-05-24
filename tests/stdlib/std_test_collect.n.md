@@ -23,7 +23,7 @@ stdout: "test_report name=\"std_test_collect_success_summary\" count=4 failed=0\
 #import "core/math" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let report:
         test_report_new "std_test_collect_success_summary"
         |> test_report_push assert_eq_i32 "addition" 3 add 1 2
@@ -50,10 +50,10 @@ stdout: "test_report name=\"std_test_collect_continues_after_string_allocation\"
 #import "alloc/string" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let mut report test_report_new "std_test_collect_continues_after_string_allocation"
     set report test_report_push report assert "initial" true
-    let text <str> concat "prefix-" "suffix"
+    let text %str concat "prefix-" "suffix"
     set report test_report_push report assert_str_eq "concat after allocation" "prefix-suffix" text
     set report test_report_push report assert "after concat" true
     let shown test_report_print_stdout report
@@ -81,7 +81,7 @@ stdout: "test_report name=\"std_test_collect_failure_summary_and_details\" count
 #import "core/math" as *
 #import "core/result" as *
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let report:
         test_report_new "std_test_collect_failure_summary_and_details"
         |> test_report_push assert_eq_i32 "addition" 3 add 1 2

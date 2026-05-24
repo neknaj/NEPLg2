@@ -19,50 +19,50 @@ stdout: "test_report name=\"queue_push_pop\" count=5 failed=0\nassertion index=0
 #import "core/field" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let q0 <Queue<i32>>:
+fn main %impure fn () i32 \():
+    let q0 %Queue i32:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push<i32> 1
         |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
         |> push<i32> 2
         |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
-    let size0 <i32> len<i32> &q0;
+    let size0 %i32 len<i32> &q0;
     free<i32> q0;
-    let q1 <Queue<i32>>:
+    let q1 %Queue i32:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push<i32> 1
         |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
         |> push<i32> 2
         |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
-    let ok1 <bool> match peek<i32> &q1:
+    let ok1 %bool match peek<i32> &q1:
         Option::Some v:
             eq v 1
         Option::None:
             false
     free<i32> q1;
-    let q2 <Queue<i32>>:
+    let q2 %Queue i32:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push<i32> 5
         |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
-    let ok2 <bool> match pop<i32> q2:
+    let ok2 %bool match pop<i32> q2:
         Option::Some v:
             eq v 5
         Option::None:
             false
-    let q3 <Queue<i32>>:
+    let q3 %Queue i32:
         unwrap_ok<Queue<i32>, Diag> new<i32>
         |> push<i32> 7
         |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
         |> push<i32> 8
         |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
-    let p0 <QueuePop<i32>> pop_front<i32> q3
-    let ok3 <bool> match queue_pop_item<i32> &p0:
+    let p0 %QueuePop i32 pop_front<i32> q3
+    let ok3 %bool match queue_pop_item<i32> &p0:
         Option::Some v:
             eq v 7
         Option::None:
             false
-    let q4 <Queue<i32>> queue_pop_queue<i32> p0
-    let ok4 <bool>:
+    let q4 %Queue i32 queue_pop_queue<i32> p0
+    let ok4 %bool:
         match peek<i32> &q4:
             Option::Some v:
                 and eq len<i32> &q4 1 eq v 8
@@ -96,9 +96,9 @@ stdout: "test_report name=\"queue_pop_empty\" count=1 failed=0\nassertion index=
 #import "core/result" as *
 #import "std/test" as *
 
-fn main <()*>i32> ():
-    let q <Queue<i32>> unwrap_ok<Queue<i32>, Diag> new<i32>;
-    let ok <bool> match pop<i32> q:
+fn main %impure fn () i32 \():
+    let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
+    let ok %bool match pop<i32> q:
         Option::Some _:
             false
         Option::None:

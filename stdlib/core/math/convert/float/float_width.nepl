@@ -15,7 +15,7 @@
 //:| #import "core/math/convert/float/int_to_float" as *
 //:| #import "core/math/convert/float/float_to_i32" as *
 //:| #import "core/math/convert/float/float_width" as *
-//: fn main <()->i32> ():
+//: fn main %fn () i32 \():
 //:     trunc_s_f32_to_i32 demote_f64_to_f32 promote_f32_to_f64 convert_s_i32_to_f32 7
 //: ```
 
@@ -33,7 +33,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn promote_f32_to_f64 <(f32)->f64> (a):
+pub fn promote_f32_to_f64 %fn f32 f64 \a:
     #if[target=wasm]
     #wasm:
         local.get $a
@@ -59,7 +59,7 @@ pub fn promote_f32_to_f64 <(f32)->f64> (a):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn demote_f64_to_f32 <(f64)->f32> (a):
+pub fn demote_f64_to_f32 %fn f64 f32 \a:
     #if[target=wasm]
     #wasm:
         local.get $a

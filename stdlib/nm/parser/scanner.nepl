@@ -23,10 +23,10 @@
 //:| #import "alloc/string" as *
 //:| #import "nm/parser/scanner" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
-//:     let ok_heading <bool> eq nm_heading_level "### title" 3
-//:     let ok_hr <bool> is_hr "---"
-//:     let ok_math <bool> eq nm_find_math_end "a $x$ z" 3 1 4
+//: fn main %impure fn () i32 \():
+//:     let ok_heading %bool eq nm_heading_level "### title" 3
+//:     let ok_hr %bool is_hr "---"
+//:     let ok_math %bool eq nm_find_math_end "a $x$ z" 3 1 4
 //:     if and ok_heading and ok_hr ok_math 0 1
 //: ```
 
@@ -38,7 +38,7 @@
 #import "core/math" as *
 #import "core/option" as *
 
-fn nm_scanner_byte_or_end <(str,i32)->i32> (s, idx):
+fn nm_scanner_byte_or_end %fn str fn i32 i32 \s\idx:
     match checked_string_byte_at s idx:
         Option::Some b:
             b
@@ -55,7 +55,7 @@ fn nm_scanner_byte_or_end <(str,i32)->i32> (s, idx):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(line_length)
-pub fn nm_read_line <(str,i32)->str> (s, pos):
+pub fn nm_read_line %fn str fn i32 str \s\pos:
     str_slice_trim_suffix_cr s pos strscan::str_line_end s pos
 
 //: nm_heading_level: ATX heading の level を判定する
@@ -68,9 +68,9 @@ pub fn nm_read_line <(str,i32)->str> (s, pos):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)。最大 6 byte だけを確認します。
-pub fn nm_heading_level <(str)->i32> (line):
-    let n <i32> len line;
-    let mut i <i32> 0;
+pub fn nm_heading_level %fn str i32 \line:
+    let n %i32 len line;
+    let mut i %i32 0;
     while and lt i n and lt i 6 string_byte_eq line i '#':
         do:
             set i add i 1
@@ -91,7 +91,7 @@ pub fn nm_heading_level <(str)->i32> (line):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(text_length)
-pub fn nm_heading_text <(str,i32)->str> (line, level):
+pub fn nm_heading_text %fn str fn i32 str \line\level:
     str_trim str_slice line add level 1 len line
 
 //: is_fence_start: fenced code block 開始行を判定する
@@ -101,7 +101,7 @@ pub fn nm_heading_text <(str,i32)->str> (line, level):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn is_fence_start <(str)->bool> (line):
+pub fn is_fence_start %fn str bool \line:
     str_starts_with line "```"
 
 //: is_hr: horizontal rule 行を判定する
@@ -111,7 +111,7 @@ pub fn is_fence_start <(str)->bool> (line):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn is_hr <(str)->bool> (line):
+pub fn is_hr %fn str bool \line:
     str_eq line "---"
 
 //: is_section_break: section break 行を判定する
@@ -121,7 +121,7 @@ pub fn is_hr <(str)->bool> (line):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn is_section_break <(str)->bool> (line):
+pub fn is_section_break %fn str bool \line:
     str_eq line ";;;"
 
 //: nm_is_block_boundary: paragraph を止める行か判定する
@@ -131,7 +131,7 @@ pub fn is_section_break <(str)->bool> (line):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(line_length)
-pub fn nm_is_block_boundary <(str)->bool> (trimmed):
+pub fn nm_is_block_boundary %fn str bool \trimmed:
     if:
         eq len trimmed 0
         then true
@@ -156,7 +156,7 @@ pub fn nm_is_block_boundary <(str)->bool> (trimmed):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nm_deepest_level <(bool,bool,bool,bool,bool,bool)->i32> (open1, open2, open3, open4, open5, open6):
+pub fn nm_deepest_level %fn bool fn bool fn bool fn bool fn bool fn bool i32 \open1\open2\open3\open4\open5\open6:
     if:
         open6
         then 6
@@ -189,13 +189,13 @@ pub fn nm_deepest_level <(bool,bool,bool,bool,bool,bool)->i32> (open1, open2, op
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn nm_find_math_end <(str,i32,i32)->i32> (s, start, delim):
-    let n <i32> len s;
-    let mut j <i32> start;
-    let mut found <i32> -1;
+pub fn nm_find_math_end %fn str fn i32 fn i32 i32 \s\start\delim:
+    let n %i32 len s;
+    let mut j %i32 start;
+    let mut found %i32 -1;
     while and lt j n lt found 0:
         do:
-            let c0 <i32> nm_scanner_byte_or_end s j;
+            let c0 %i32 nm_scanner_byte_or_end s j;
             if:
                 eq delim 1
                 then:
@@ -207,7 +207,7 @@ pub fn nm_find_math_end <(str,i32,i32)->i32> (s, start, delim):
                     if:
                         and eq c0 '$' lt add j 1 n
                         then:
-                            let c1 <i32> nm_scanner_byte_or_end s add j 1;
+                            let c1 %i32 nm_scanner_byte_or_end s add j 1;
                             if:
                                 eq c1 '$'
                                 then set found j
@@ -223,13 +223,13 @@ pub fn nm_find_math_end <(str,i32,i32)->i32> (s, start, delim):
 //:
 //: [計算量/けいさんりょう]:
 //: - O(end - start)
-pub fn nm_find_gloss_slash <(str,i32,i32)->i32> (s, start, end):
-    let mut i <i32> start;
-    let mut depth <i32> 0;
-    let mut found <i32> -1;
+pub fn nm_find_gloss_slash %fn str fn i32 fn i32 i32 \s\start\end:
+    let mut i %i32 start;
+    let mut depth %i32 0;
+    let mut found %i32 -1;
     while and lt i end lt found 0:
         do:
-            let ch <i32> nm_scanner_byte_or_end s i;
+            let ch %i32 nm_scanner_byte_or_end s i;
             match ch:
                 '[':
                     set depth add depth 1

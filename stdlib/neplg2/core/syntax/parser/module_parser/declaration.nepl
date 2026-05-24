@@ -13,7 +13,7 @@
 #import "./diagnostic" as *
 
 //: selfhost_parser_declaration_visibility: declaration header の visibility を[取/と]り[出/だ]す
-fn selfhost_parser_declaration_visibility <(&Vec<SelfhostToken>,i32)->SelfhostModuleDeclarationVisibility> (tokens, idx):
+fn selfhost_parser_declaration_visibility %fn &Vec SelfhostToken fn i32 SelfhostModuleDeclarationVisibility \tokens\idx:
     if:
         le idx 0
         then:
@@ -47,6 +47,10 @@ fn selfhost_parser_declaration_visibility <(&Vec<SelfhostToken>,i32)->SelfhostMo
                         TokenKind::LAngle:
                             SelfhostModuleDeclarationVisibility::Private
                         TokenKind::RAngle:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Percent:
+                            SelfhostModuleDeclarationVisibility::Private
+                        TokenKind::Backslash:
                             SelfhostModuleDeclarationVisibility::Private
                         TokenKind::Arrow:
                             SelfhostModuleDeclarationVisibility::Private
@@ -165,7 +169,7 @@ fn selfhost_parser_declaration_visibility <(&Vec<SelfhostToken>,i32)->SelfhostMo
                 Option::None:
                     SelfhostModuleDeclarationVisibility::Private
 
-fn selfhost_parser_declaration_header_start <(&Vec<SelfhostToken>,i32,SelfhostToken)->i32> (tokens, idx, token):
+fn selfhost_parser_declaration_header_start %fn &Vec SelfhostToken fn i32 fn SelfhostToken i32 \tokens\idx\token:
     match selfhost_parser_declaration_visibility tokens idx:
         SelfhostModuleDeclarationVisibility::Public:
             match v::get<SelfhostToken> tokens sub idx 1:
@@ -176,7 +180,7 @@ fn selfhost_parser_declaration_header_start <(&Vec<SelfhostToken>,i32,SelfhostTo
         SelfhostModuleDeclarationVisibility::Private:
             token.span.start
 
-fn selfhost_parser_declaration_head_kind <(TokenKind)->Option<SelfhostModuleDeclarationHeadKind>> (kind):
+fn selfhost_parser_declaration_head_kind %fn TokenKind Option SelfhostModuleDeclarationHeadKind \kind:
     match kind:
         TokenKind::Ident:
             some<SelfhostModuleDeclarationHeadKind> SelfhostModuleDeclarationHeadKind::Name
@@ -205,6 +209,10 @@ fn selfhost_parser_declaration_head_kind <(TokenKind)->Option<SelfhostModuleDecl
         TokenKind::Comma:
             none<SelfhostModuleDeclarationHeadKind>
         TokenKind::RAngle:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Percent:
+            none<SelfhostModuleDeclarationHeadKind>
+        TokenKind::Backslash:
             none<SelfhostModuleDeclarationHeadKind>
         TokenKind::Arrow:
             none<SelfhostModuleDeclarationHeadKind>
@@ -319,8 +327,8 @@ fn selfhost_parser_declaration_head_kind <(TokenKind)->Option<SelfhostModuleDecl
         TokenKind::Unknown:
             none<SelfhostModuleDeclarationHeadKind>
 
-fn selfhost_parser_declaration_head <(&Vec<SelfhostToken>,i32,i32)->Option<SelfhostModuleDeclarationHead>> (tokens, n, idx):
-    let head_idx <i32> add idx 1
+fn selfhost_parser_declaration_head %fn &Vec SelfhostToken fn i32 fn i32 Option SelfhostModuleDeclarationHead \tokens\n\idx:
+    let head_idx %i32 add idx 1
     if:
         ge head_idx n
         then:
@@ -336,7 +344,7 @@ fn selfhost_parser_declaration_head <(&Vec<SelfhostToken>,i32,i32)->Option<Selfh
                 Option::None:
                     none<SelfhostModuleDeclarationHead>
 
-fn selfhost_parser_header_end_loop <(&Vec<SelfhostToken>,i32,i32,i32)->i32> (tokens, n, idx, last_end):
+fn selfhost_parser_header_end_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\last_end:
     if:
         ge idx n
         then:
@@ -366,20 +374,20 @@ fn selfhost_parser_header_end_loop <(&Vec<SelfhostToken>,i32,i32,i32)->i32> (tok
                 Option::None:
                     last_end
 
-fn selfhost_parser_declaration_header <(&Vec<SelfhostToken>,i32,i32,SelfhostToken,SelfhostModuleDeclarationKind)->SelfhostModuleDeclarationHeader> (tokens, n, idx, token, decl_kind):
-    let visibility <SelfhostModuleDeclarationVisibility> selfhost_parser_declaration_visibility tokens idx
-    let header_start <i32> selfhost_parser_declaration_header_start tokens idx token
-    let header_end <i32> selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
-    let token_span <SelfhostSourceSpan> token.span
-    let file_id <i32> field::get token_span "file_id"
-    let header_span <SelfhostSourceSpan> source_span_new file_id header_start header_end
-    let head <Option<SelfhostModuleDeclarationHead>> selfhost_parser_declaration_head tokens n idx
+fn selfhost_parser_declaration_header %fn &Vec SelfhostToken fn i32 fn i32 fn SelfhostToken fn SelfhostModuleDeclarationKind SelfhostModuleDeclarationHeader \tokens\n\idx\token\decl_kind:
+    let visibility %SelfhostModuleDeclarationVisibility selfhost_parser_declaration_visibility tokens idx
+    let header_start %i32 selfhost_parser_declaration_header_start tokens idx token
+    let header_end %i32 selfhost_parser_header_end_loop tokens n add idx 1 selfhost_token_end token
+    let token_span %SelfhostSourceSpan token.span
+    let file_id %i32 field::get token_span "file_id"
+    let header_span %SelfhostSourceSpan source_span_new file_id header_start header_end
+    let head %Option SelfhostModuleDeclarationHead selfhost_parser_declaration_head tokens n idx
     selfhost_module_declaration_header_new decl_kind visibility header_span token_span head
 
-fn selfhost_parser_declaration_item <(str,&Vec<SelfhostToken>,i32,i32,SelfhostModuleAst,SelfhostToken,SelfhostModuleItemKind,SelfhostModuleDeclarationKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, ast, token, item_kind, decl_kind):
-    let header <SelfhostModuleDeclarationHeader> selfhost_parser_declaration_header tokens n idx token decl_kind
-    let lexeme <str> string_slice::str_slice source header.header_span.start header.header_span.end
-    let item <SelfhostModuleItem> selfhost_module_item_new_with_declaration item_kind lexeme header
+fn selfhost_parser_declaration_item %impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn SelfhostModuleAst impure fn SelfhostToken impure fn SelfhostModuleItemKind impure fn SelfhostModuleDeclarationKind Result SelfhostModuleAst SelfhostDiagnostic \source\tokens\n\idx\ast\token\item_kind\decl_kind:
+    let header %SelfhostModuleDeclarationHeader selfhost_parser_declaration_header tokens n idx token decl_kind
+    let lexeme %str string_slice::str_slice source header.header_span.start header.header_span.end
+    let item %SelfhostModuleItem selfhost_module_item_new_with_declaration item_kind lexeme header
     match selfhost_module_ast_push ast item:
         Result::Ok next_ast:
             Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok next_ast
@@ -387,13 +395,13 @@ fn selfhost_parser_declaration_item <(str,&Vec<SelfhostToken>,i32,i32,SelfhostMo
             Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag
 
 //: selfhost_parser_push_item: token を module item として AST に[追加/ついか]する
-pub fn selfhost_parser_push_item <(str,&Vec<SelfhostToken>,i32,i32,SelfhostModuleAst,SelfhostToken,SelfhostModuleItemKind)*>Result<SelfhostModuleAst, SelfhostDiagnostic>> (source, tokens, n, idx, ast, token, item_kind):
+pub fn selfhost_parser_push_item %impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn SelfhostModuleAst impure fn SelfhostToken impure fn SelfhostModuleItemKind Result SelfhostModuleAst SelfhostDiagnostic \source\tokens\n\idx\ast\token\item_kind:
     match selfhost_module_item_kind_declaration item_kind:
         Option::Some decl_kind:
             selfhost_parser_declaration_item source tokens n idx ast token item_kind decl_kind
         Option::None:
-            let lexeme <str> selfhost_token_lexeme source token
-            let item <SelfhostModuleItem> selfhost_module_item_new item_kind token.span lexeme
+            let lexeme %str selfhost_token_lexeme source token
+            let item %SelfhostModuleItem selfhost_module_item_new item_kind token.span lexeme
             match selfhost_module_ast_push ast item:
                 Result::Ok next_ast:
                     Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok next_ast

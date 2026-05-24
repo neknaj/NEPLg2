@@ -20,7 +20,7 @@
 //: - `0 <= i < len` の slot は `Some`
 //: - `len <= i < cap` の slot は `None`
 pub struct BTreeSetStorage<.T>:
-    keys <Vec<Option<.T>>>
+    keys %Vec Option .T
 
 //: ## BTreeSet
 //: [順序付き/じゅんじょつき] key [配列/はいれつ]の[本体/ほんたい]
@@ -31,9 +31,9 @@ pub struct BTreeSetStorage<.T>:
 //: ### [注意/ちゅうい]
 //: - [本物/ほんもの]の B-tree node [分割/ぶんかつ]は[持/も]たず、lower_bound と shift による[単純/たんじゅん][実装/じっそう]です。
 pub struct BTreeSet<.T>:
-    len <i32>
-    cap <i32>
-    storage <BTreeSetStorage<.T>>
+    len %i32
+    cap %i32
+    storage %BTreeSetStorage .T
 
 //: ## BTreeSetInsertError
 //: `insert` が[失敗/しっぱい]したときの owner [返却/へんきゃく]つき error
@@ -54,19 +54,19 @@ pub struct BTreeSet<.T>:
 //:| #import "alloc/collections/btreeset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main <()*>i32> ():
-//:     let s <BTreeSet<i32>> unwrap_ok new<i32>;
-//:     let _e <BTreeSetInsertError<i32>> BTreeSetInsertError<i32> s (diag_error StdErrorKind::OutOfMemory "grow");
+//: fn main %impure fn () i32 \():
+//:     let s %BTreeSet i32 unwrap_ok new<i32>;
+//:     let _e %BTreeSetInsertError i32 BTreeSetInsertError<i32> s (diag_error StdErrorKind::OutOfMemory "grow");
 //:     0
 //: ```
 pub struct BTreeSetInsertError<.T>:
-    owner <BTreeSet<.T>>
-    diag <Diag>
+    owner %BTreeSet .T
+    diag %Diag
 
 //: btreeset_insert_error_diag: insert [失敗/しっぱい]の[診断/しんだん]を owner を[動/うご]かさず[読/よ]む
-pub fn btreeset_insert_error_diag <.T> <(&BTreeSetInsertError<.T>)->Diag> (e):
+pub fn btreeset_insert_error_diag <.T> %fn &BTreeSetInsertError .T Diag \e:
     *field::get_ref e "diag"
 
 //: btreeset_insert_error_owner: insert [失敗/しっぱい]で[戻/もど]された `BTreeSet` owner を[取/と]り[出/だ]す
-pub fn btreeset_insert_error_owner <.T: Copy> <(BTreeSetInsertError<.T>)->BTreeSet<.T>> (e):
+pub fn btreeset_insert_error_owner <.T: Copy> %fn BTreeSetInsertError .T BTreeSet .T \e:
     field::get e "owner"

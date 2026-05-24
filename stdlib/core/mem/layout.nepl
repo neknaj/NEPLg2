@@ -12,7 +12,7 @@
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if eq align8 9 16 1 0
 //: ```
 
@@ -38,12 +38,12 @@
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if and eq align8 1 8 eq align8 16 16 1 0
 //: ```
-pub fn align8 <(i32)->i32> (n):
-    let t <i32> add n 7
-    let q <i32> div_s t 8
+pub fn align8 %fn i32 i32 \n:
+    let t %i32 add n 7
+    let q %i32 div_s t 8
     mul q 8
 
 //: max_alloc_payload_bytes: allocator payload として安全に整列計算できる最大 byte 数
@@ -66,10 +66,10 @@ pub fn align8 <(i32)->i32> (n):
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if eq max_alloc_payload_bytes 2147483632 1 0
 //: ```
-pub fn max_alloc_payload_bytes <()->i32> ():
+pub fn max_alloc_payload_bytes %fn () i32 \():
     2147483632
 
 //: alloc_payload_fits: allocator payload byte 数が整列計算可能か判定する
@@ -92,10 +92,10 @@ pub fn max_alloc_payload_bytes <()->i32> ():
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if and alloc_payload_fits 2147483632 not alloc_payload_fits 2147483633 1 0
 //: ```
-pub fn alloc_payload_fits <(i32)->bool> (bytes):
+pub fn alloc_payload_fits %fn i32 bool \bytes:
     and ge bytes 0 le bytes max_alloc_payload_bytes
 
 //: size_of: 型のサイズを取得する
@@ -119,10 +119,10 @@ pub fn alloc_payload_fits <(i32)->bool> (bytes):
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if eq size_of<i32> 4 1 0
 //: ```
-pub fn size_of <.T> <()->i32> ():
+pub fn size_of <.T> %fn () i32 \():
     #intrinsic "size_of" <.T> ()
 
 //: align_of: 型のアラインメントを取得する
@@ -146,8 +146,8 @@ pub fn size_of <.T> <()->i32> ():
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main <()*>i32> ():
+//: fn main %impure fn () i32 \():
 //:     if ge align_of<i32> 1 1 0
 //: ```
-pub fn align_of <.T> <()->i32> ():
+pub fn align_of <.T> %fn () i32 \():
     #intrinsic "align_of" <.T> ()

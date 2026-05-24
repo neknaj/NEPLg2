@@ -20,7 +20,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn grade <(i32)->i32> (score):
+fn grade %fn i32 i32 \score:
     if:
         lt score 60
         then:
@@ -33,7 +33,7 @@ fn grade <(i32)->i32> (score):
                 else:
                     2
 
-fn escape_code <(char)->i32> (c):
+fn escape_code %fn char i32 \c:
     match c:
         '\n':
             10
@@ -44,7 +44,7 @@ fn escape_code <(char)->i32> (c):
         _:
             0
 
-fn main <()*>i32> ():
+fn main %impure fn () i32 \():
     let checks:
         checks_new
         |> checks_push assert_eq_i32 0 grade 40

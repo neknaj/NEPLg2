@@ -20,14 +20,14 @@ stdout: "test_report name=\"drop_set_overwrite\" count=1 failed=0\nassertion ind
 #import "std/test" as *
 
 struct Guard:
-    dummy <i32>
+    dummy %i32
 
 impl Drop for Guard:
-    fn drop <(&Guard)*>()> (self):
+    fn drop %impure fn &Guard () \self:
         ()
 
-fn main <()*>i32> ():
-    let mut g <Guard> Guard 0;
+fn main %impure fn () i32 \():
+    let mut g %Guard Guard 0;
     set g Guard 1;
     let report:
         test_report_new "drop_set_overwrite"

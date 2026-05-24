@@ -18,32 +18,32 @@
 //: [注意/ちゅうい]:
 //: - 初期実装は single fact query です。複数 fact が必要な type / resource proof では、この型を保持したまま worklist / fact set を追加します。
 pub struct SelfhostProofQuery:
-    fact <SelfhostProofFact>
-    obligation <SelfhostProofObligation>
+    fact %SelfhostProofFact
+    obligation %SelfhostProofObligation
 
 impl Clone for SelfhostProofQuery:
-    fn clone <(&SelfhostProofQuery)->SelfhostProofQuery> (self):
+    fn clone %fn &SelfhostProofQuery SelfhostProofQuery \self:
         *self
 
 impl Copy for SelfhostProofQuery:
-    fn copy_mark <(SelfhostProofQuery)->SelfhostProofQuery> (self):
+    fn copy_mark %fn SelfhostProofQuery SelfhostProofQuery \self:
         self
 
 //: SelfhostProofResult: proof query の typed result
 pub enum SelfhostProofResult:
-    Proven <SelfhostProofEvidence>
-    Refuted <SelfhostProofRefutation>
+    Proven %SelfhostProofEvidence
+    Refuted %SelfhostProofRefutation
 
 impl Clone for SelfhostProofResult:
-    fn clone <(&SelfhostProofResult)->SelfhostProofResult> (self):
+    fn clone %fn &SelfhostProofResult SelfhostProofResult \self:
         *self
 
 impl Copy for SelfhostProofResult:
-    fn copy_mark <(SelfhostProofResult)->SelfhostProofResult> (self):
+    fn copy_mark %fn SelfhostProofResult SelfhostProofResult \self:
         self
 
 //: selfhost_proof_query_new: proof query を[作/つく]る
-pub fn selfhost_proof_query_new <(SelfhostProofFact,SelfhostProofObligation)->SelfhostProofQuery> (fact, obligation):
+pub fn selfhost_proof_query_new %fn SelfhostProofFact fn SelfhostProofObligation SelfhostProofQuery \fact\obligation:
     SelfhostProofQuery fact obligation
 
 //: selfhost_proof_obligation_evidence_kind: obligation が期待する evidence kind を[返/かえ]す
@@ -51,7 +51,7 @@ pub fn selfhost_proof_query_new <(SelfhostProofFact,SelfhostProofObligation)->Se
 //: [目的/もくてき]:
 //: - API wrapper が evidence projection に失敗したとき、期待した kind を obligation enum から導出します。
 //: - wrapper ごとの手書き文字列や数値 code を置かず、obligation 追加時に match の網羅性で更新漏れを検出しやすくします。
-pub fn selfhost_proof_obligation_evidence_kind <(SelfhostProofObligation)->SelfhostProofEvidenceKind> (obligation):
+pub fn selfhost_proof_obligation_evidence_kind %fn SelfhostProofObligation SelfhostProofEvidenceKind \obligation:
     match obligation:
         SelfhostProofObligation::SourceSpanValid _span:
             SelfhostProofEvidenceKind::SourceSpanValid
@@ -77,11 +77,11 @@ pub fn selfhost_proof_obligation_evidence_kind <(SelfhostProofObligation)->Selfh
             SelfhostProofEvidenceKind::EffectAllowed
 
 //: selfhost_proof_result_proven: proven result を[作/つく]る
-pub fn selfhost_proof_result_proven <(SelfhostProofEvidence)->SelfhostProofResult> (evidence):
+pub fn selfhost_proof_result_proven %fn SelfhostProofEvidence SelfhostProofResult \evidence:
     SelfhostProofResult::Proven evidence
 
 //: selfhost_proof_result_refuted: refuted result を[作/つく]る
-pub fn selfhost_proof_result_refuted <(SelfhostProofRefutation)->SelfhostProofResult> (refutation):
+pub fn selfhost_proof_result_refuted %fn SelfhostProofRefutation SelfhostProofResult \refutation:
     SelfhostProofResult::Refuted refutation
 
 //: selfhost_proof_mismatch_refutation: fact / obligation domain の不整合を typed refutation にする
@@ -89,26 +89,26 @@ pub fn selfhost_proof_result_refuted <(SelfhostProofRefutation)->SelfhostProofRe
 //: [目的/もくてき]:
 //: - solver と public API wrapper のどちらでも同じ mismatch payload を使い、証明境界の配線誤りを domain enum の組として残します。
 //: - 文字列 code ではなく `SelfhostProofDomain` を導出するため、fact / obligation variant の追加時にも match の網羅性で追跡できます。
-pub fn selfhost_proof_mismatch_refutation <(SelfhostProofFact,SelfhostProofObligation)->SelfhostProofRefutation> (fact, obligation):
+pub fn selfhost_proof_mismatch_refutation %fn SelfhostProofFact fn SelfhostProofObligation SelfhostProofRefutation \fact\obligation:
     SelfhostProofRefutation::FactObligationMismatch selfhost_proof_mismatch_new selfhost_proof_fact_domain fact selfhost_proof_obligation_domain obligation
 
 //: selfhost_proof_query_mismatch_refutation: query の fact / obligation domain 不整合を typed refutation にする
-pub fn selfhost_proof_query_mismatch_refutation <(SelfhostProofQuery)->SelfhostProofRefutation> (query):
+pub fn selfhost_proof_query_mismatch_refutation %fn SelfhostProofQuery SelfhostProofRefutation \query:
     selfhost_proof_mismatch_refutation query.fact query.obligation
 
 //: selfhost_proof_query_mismatch_result: query の不整合を proof result として返す
-pub fn selfhost_proof_query_mismatch_result <(SelfhostProofQuery)->SelfhostProofResult> (query):
+pub fn selfhost_proof_query_mismatch_result %fn SelfhostProofQuery SelfhostProofResult \query:
     selfhost_proof_result_refuted selfhost_proof_query_mismatch_refutation query
 
 //: selfhost_proof_unexpected_evidence_refutation: obligation と evidence の kind 不一致を typed refutation にする
 //:
 //: [目的/もくてき]:
 //: - solver が domain の合う query に対して別種の success evidence を返したとき、domain mismatch ではなく proof-program error として分類します。
-pub fn selfhost_proof_unexpected_evidence_refutation <(SelfhostProofObligation,SelfhostProofEvidence)->SelfhostProofRefutation> (obligation, evidence):
-    let expected <SelfhostProofEvidenceKind> selfhost_proof_obligation_evidence_kind obligation
-    let actual <SelfhostProofEvidenceKind> selfhost_proof_evidence_kind evidence
+pub fn selfhost_proof_unexpected_evidence_refutation %fn SelfhostProofObligation fn SelfhostProofEvidence SelfhostProofRefutation \obligation\evidence:
+    let expected %SelfhostProofEvidenceKind selfhost_proof_obligation_evidence_kind obligation
+    let actual %SelfhostProofEvidenceKind selfhost_proof_evidence_kind evidence
     SelfhostProofRefutation::UnexpectedEvidence selfhost_proof_unexpected_evidence_new expected actual
 
 //: selfhost_proof_query_unexpected_evidence_refutation: query と evidence の kind 不一致を typed refutation にする
-pub fn selfhost_proof_query_unexpected_evidence_refutation <(SelfhostProofQuery,SelfhostProofEvidence)->SelfhostProofRefutation> (query, evidence):
+pub fn selfhost_proof_query_unexpected_evidence_refutation %fn SelfhostProofQuery fn SelfhostProofEvidence SelfhostProofRefutation \query\evidence:
     selfhost_proof_unexpected_evidence_refutation query.obligation evidence
