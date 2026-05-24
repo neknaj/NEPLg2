@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 const apiPath = "stdlib/alloc/collections/adjacency_matrix/api.nepl";
@@ -11,14 +12,8 @@ const observerPath = "stdlib/alloc/collections/adjacency_matrix/api/observer.nep
 const apiSrc = fs.readFileSync(path.join(repoRoot, apiPath), "utf8");
 const observerSrc = fs.readFileSync(path.join(repoRoot, observerPath), "utf8");
 
-const apiCode = apiSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join("\n");
-const code = observerSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join("\n");
+const apiCode = legacyTypeSyntaxView(apiSrc);
+const code = legacyTypeSyntaxView(observerSrc);
 
 assert.match(apiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, "AdjacencyMatrix api facade must re-export borrowed observers through api/observer");
 assert.doesNotMatch(apiCode, /\bfn\s+/, "AdjacencyMatrix api facade must not keep duplicate observer wrappers");

@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 const apiPath = "stdlib/alloc/collections/segment_tree/api.nepl";
@@ -13,15 +14,8 @@ const apiSrc = fs.readFileSync(path.join(repoRoot, apiPath), "utf8");
 const observerSrc = fs.readFileSync(path.join(repoRoot, observerPath), "utf8");
 const querySrc = fs.readFileSync(path.join(repoRoot, queryPath), "utf8");
 
-const apiCode = apiSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join("\n");
-const code = [observerSrc, querySrc]
-    .join("\n")
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join("\n");
+const apiCode = legacyTypeSyntaxView(apiSrc);
+const code = legacyTypeSyntaxView([observerSrc, querySrc].join("\n"));
 
 assert.match(apiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, "SegmentTree api facade must re-export len through api/observer");
 assert.match(apiSrc, /pub\s+#import\s+"\.\/api\/query"\s+as\s+@merge/, "SegmentTree api facade must re-export borrowed queries through api/query");

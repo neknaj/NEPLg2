@@ -2,6 +2,10 @@
 "use strict";
 
 function stripNeplComments(src) {
+    // Contract-oriented source policy checks often need to inspect executable
+    // declarations without being confused by doctest prose. This helper removes
+    // comment lines only from that inspection view; it must not be used to
+    // enforce a limit on comments or discourage detailed documentation.
     return src
         .split(/\r?\n/)
         .filter((line) => !/^\s*\/\//.test(line))
@@ -58,6 +62,11 @@ function structFieldPattern(name, typeExpr) {
     return `\\b${escapeRegExp(name)}\\s+${typeAnnotationPattern(typeExpr)}`;
 }
 
+// Source policy checks assert ownership and API-boundary contracts, not parser
+// behavior. This arity table lets the policy view normalize NEPLg2.1 prefix
+// type annotations into the legacy shape those semantic assertions already use.
+// It is deliberately limited to constructors that appear in policy-covered
+// source; adding a constructor here means a policy now depends on its structure.
 const TYPE_ARITY = new Map([
     ["Option", 1],
     ["Result", 2],
@@ -73,10 +82,17 @@ const TYPE_ARITY = new Map([
     ["VecPartition", 1],
     ["VecSortMergeError", 1],
     ["BTreeMap", 2],
+    ["BTreeMapStorage", 2],
     ["BTreeMapInsertError", 2],
     ["BTreeSet", 1],
-    ["HashMap", 2],
-    ["HashSet", 1],
+    ["BTreeSetStorage", 1],
+    ["BTreeSetInsertError", 1],
+    ["HashMap", 3],
+    ["HashMapStorage", 2],
+    ["HashMapUpdateError", 3],
+    ["HashSet", 2],
+    ["HashSetStorage", 1],
+    ["HashSetUpdateError", 2],
     ["BinaryHeap", 1],
     ["BinaryHeapPushError", 1],
     ["BinaryHeapPop", 1],
@@ -102,6 +118,10 @@ const TYPE_ARITY = new Map([
     ["DisjointSetUnionError", 0],
 ]);
 
+// Converts only surface type syntax for source policy assertions. It is not a
+// replacement for the compiler parser: it preserves distinctions that matter to
+// policy checks, such as pure versus impure function types, and leaves ordinary
+// expressions in their original source form.
 function legacyTypeSyntaxView(src) {
     return stripNeplComments(src)
         .split(/\n/)

@@ -7,6 +7,9 @@
 - stdio / streamio / match decision tree の代表的な stale regex は NEPLg2.1 直接表記または `fnSignaturePattern` / `structFieldPattern` へ移行した。
 - collection 系では BitSet / BinaryHeap / AdjacencyMatrix / BloomFilter / CountingBloomFilter / DisjointSet / Fenwick / List / Queue / Deque / RingBuffer / SegmentTree / SparseSet / Stack / sort merge の policy を `legacyTypeSyntaxView` へ移し、旧 `<...>` 表面記法依存で落ちていた監視を戻した。
 - `node nodesrc\run_source_policy_regressions.js --warn-only` は stale failure が 90 件から 62 件へ減った。残りは SHA256 / BTree / ByteBuf / fs / cliarg / nm / selfhost / Vec / string boundary などに同種の旧表記 regex が残っている。
+- 追加 checkpoint として BTree / AdjacencyMatrix / BloomFilter / CountingBloomFilter / DisjointSet / SparseSet / SegmentTree の borrowed observer policy と、HashMap / HashSet storage contract policy を同じ `legacyTypeSyntaxView` へ移した。source policy helper のコメントは Zenn 方針に合わせ、source policy 用 view の契約と parser 代替ではない現在の実装境界を分けて記述した。
+- `TYPE_ARITY` は BTree / HashMap / HashSet storage/error 型を扱えるよう拡張した。これは parser の型解決ではなく、source policy が既存 semantic assertions を維持して NEPLg2.1 prefix 型表記を読めるようにするための限定的な view である。
+- `node nodesrc\run_source_policy_regressions.js --warn-only` は stale failure が 62 件から 52 件へ減った。残件には Rust responsibility policy、selfhost model/report contract、documentation/tutorial contract、Vec/string/IO boundary など、helper 移行だけで済むものと設計確認が必要なものが混在している。
 - focused verification:
   - `node nodesrc\test_source_policy_nepl_source_view.js`
   - `node nodesrc\test_stdlib_match_decision_trees.js`
@@ -15,6 +18,7 @@
   - `node nodesrc\test_stdlib_streamio_scanner_boundary.js`
   - `node nodesrc\test_stdlib_streamio_writer_boundary.js`
   - collection source policy group: AdjacencyMatrix / BinaryHeap / BitSet / BloomFilter / CountingBloomFilter / DisjointSet / Fenwick / List / Queue / Deque / RingBuffer / SegmentTree / SparseSet / Stack / sort merge の対象テストは pass。
+  - borrowed/storage source policy group: BTree borrowed observer / BTree insert grow / AdjacencyMatrix borrowed observer / BloomFilter borrowed observer / CountingBloomFilter borrowed observer / DisjointSet borrowed observer / SparseSet borrowed observer / SegmentTree borrowed observer / HashMap storage contract / HashSet storage contract は pass。
 
 # 2026-05-24 Agent 1 NEPLg2.1 syntax migration kickoff
 

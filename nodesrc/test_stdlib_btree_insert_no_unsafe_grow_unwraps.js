@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -21,18 +22,14 @@ function functionBlock(file, name) {
         }
     }
 
-    return lines
+    return legacyTypeSyntaxView(lines
         .slice(start, end)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
+        .join('\n'));
 }
 
 function sourceWithoutComments(file) {
     const src = fs.readFileSync(path.join(repoRoot, file), 'utf8');
-    return src
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
+    return legacyTypeSyntaxView(src);
 }
 
 const forbidden = [

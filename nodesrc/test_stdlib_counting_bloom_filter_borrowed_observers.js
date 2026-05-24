@@ -4,15 +4,13 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/alloc/collections/counting_bloom_filter/api.nepl";
 const src = fs.readFileSync(path.join(repoRoot, relPath), "utf8");
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join("\n");
+const code = legacyTypeSyntaxView(src);
 
 assert.match(
     code,

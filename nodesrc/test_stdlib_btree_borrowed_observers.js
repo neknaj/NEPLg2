@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const mapRootSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreemap.nepl'), 'utf8');
@@ -12,12 +13,12 @@ const setRootSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections
 const setApiSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreeset/api.nepl'), 'utf8');
 const setObserverSrc = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/btreeset/api/observer.nepl'), 'utf8');
 
-const mapRootCode = stripComments(mapRootSrc);
-const mapApiCode = stripComments(mapApiSrc);
-const mapCode = stripComments(mapObserverSrc);
-const setRootCode = stripComments(setRootSrc);
-const setApiCode = stripComments(setApiSrc);
-const setCode = stripComments(setObserverSrc);
+const mapRootCode = legacyTypeSyntaxView(mapRootSrc);
+const mapApiCode = legacyTypeSyntaxView(mapApiSrc);
+const mapCode = legacyTypeSyntaxView(mapObserverSrc);
+const setRootCode = legacyTypeSyntaxView(setRootSrc);
+const setApiCode = legacyTypeSyntaxView(setApiSrc);
+const setCode = legacyTypeSyntaxView(setObserverSrc);
 
 assert.match(mapApiSrc, /pub\s+#import\s+"\.\/api\/observer"\s+as\s+@merge/, 'BTreeMap api facade must re-export borrowed observers through api/observer');
 assert.doesNotMatch(mapApiCode, /\bfn\s+/, 'BTreeMap api facade must not keep duplicate observer wrappers');
@@ -65,10 +66,3 @@ assert.doesNotMatch(costFixture, /\bsorted_array_(?:map|set)_(?:len|get|contains
 assert.match(costFixture, /\bsorted_array_(?:map|set)_(?:len|get|contains)<[^>]+>\s+&(?:m|s)\b/, 'btree_array_cost must exercise borrowed sorted-array observer aliases');
 
 console.log('btree borrowed observer regression passed');
-
-function stripComments(src) {
-    return src
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
-}

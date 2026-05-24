@@ -46,6 +46,8 @@ Migrate source policy regexes to NEPLg2.1 syntax or introduce explicit syntax-aw
 - helper regression `nodesrc/test_source_policy_nepl_source_view.js` を追加し、`run_source_policy_regressions` の先頭に登録した。
 - stdio / streamio / match decision tree の代表 stale regex と、collection owner/borrowed/update 系の一部 policy を復旧した。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 90 件から 62 件へ減少した。残件は SHA256、BTree、ByteBuf、fs、cliarg、nm、selfhost、Vec、string boundary などに分散している。
+- borrowed observer / storage contract 系の旧表記依存を追加で移行し、BTree、AdjacencyMatrix、BloomFilter、CountingBloomFilter、DisjointSet、SparseSet、SegmentTree、HashMap、HashSet の policy を `legacyTypeSyntaxView` 経由へそろえた。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 62 件から 52 件へ減少した。Rust 側 responsibility、selfhost model、documentation / tutorial contract、Vec / string / IO boundary 系は次の調査対象として残る。
 
 ## 検証
 
