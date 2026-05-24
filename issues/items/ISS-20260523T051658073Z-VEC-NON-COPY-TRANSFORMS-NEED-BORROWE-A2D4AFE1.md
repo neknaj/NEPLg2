@@ -27,6 +27,7 @@ Vec map/filter/take_while/drop_while/partition remain Copy-only and depend on by
 - [NEPLg2 静的検査の複雑化解消計画](../../doc/neplg2/static_check_complexity_reduction_plan.md) Stage 6 は、collection lifecycle を stdlib module allowlist ではなく generic Resource IR proof として扱う方針である。
 - [stdlib collection/mem/string と静的検査の安全設計](../../doc/neplg2/stdlib_collection_mem_string_static_safety_design.md) は、non-Copy payload observer / move-out / drop traversal を raw `MemPtr` helper の復活ではなく `BorrowRead` / `MoveOut` / `InitializeEmpty` / `DropInitialized` へ接続する方針を定めている。
 - 現行の `stdlib/alloc/collections/vec/transform/map.nepl`, `filter/select.nepl`, `prefix.nepl`, `filter/partition/build.nepl` は、`.T: Copy`、`(.T)->bool` または値渡し transformer、`get<T: Copy>` / raw storage view に依存している。
+- 2026-05-24 の実装検討で、`filter<T: Drop>` を stdlib-only direct raw drain にすると Resource IR が source `MoveOut` と output `InitializeEmpty` の range lifecycle を証明できず、`pop` / `push` 再帰案は Drop payload doctest が 240 秒でも timeout した。これを [ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37](./ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37.md) として切り出した。
 
 ## 問題
 
@@ -39,6 +40,8 @@ Self-host code cannot transform owning AST/HIR/diagnostic payload Vec values wit
 ## 修正方針
 
 Design and implement a generic transform engine that uses borrowed predicates for observation, MoveOut for selected slots, InitializeEmpty for output slots, actual Drop proof for discarded slots, and owner-preserving VecTransformError / rollback cleanup on failure. Do not add stdlib function allowlists or per-transform proof engines.
+
+`ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37` を先に解き、drop traversal range certificate と同じ水準の typed transform range lifecycle certificate を Resource IR に追加してから stdlib `filter` / prefix / `map` / `partition` の public non-Copy overload を開く。
 
 ## 検証
 

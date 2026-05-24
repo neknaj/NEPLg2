@@ -1,3 +1,12 @@
+# 2026-05-24 Agent 1 Vec transform range certificate blocker
+
+- `plan.md` は確認済みで、変更していない。Zenn 方針も再確認し、試作段階でも暫定雑設計や壊れた public API を残さない方針で進めた。
+- `ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1` の着手として `filter<T: Drop>` の実装形を検証した。
+- stdlib-only direct raw drain 案は、source slot の `MoveOut` と output slot の `InitializeEmpty` が Resource IR 上で range lifecycle として証明されず、Drop payload doctest で `resource.collection_slot.unavailable` になった。
+- 既存の単一 slot proof を使う `pop` / `push` 再帰案も検証したが、Drop payload doctest が 240 秒 timeout になり、実用的な transform engine として採用できないと判断した。
+- 壊れた `filter<T: Drop>` 差分と direct drain 用 source policy 差分は残さず戻した。
+- 根本 blocker として `ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37` を追加し、親 transform issue と設計 doc へリンクした。次は Resource IR に transform range lifecycle certificate を追加する。
+
 # 2026-05-24 Agent 1 source policy drift preflight
 
 - 新しい開発作業の開始前に Zenn の設計方針を再確認した。試作段階なので後方互換より品質を優先し、暫定設計や監視漏れを残さない方針で進めた。`plan.md` は確認のみで変更していない。
