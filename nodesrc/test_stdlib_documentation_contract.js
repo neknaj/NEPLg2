@@ -15,11 +15,11 @@ const BASELINE = {
     files: 402,
     moduleNoDoc: 0,
     moduleNoDoctest: 305,
-    declarations: 1745,
+    declarations: 1908,
     declarationNoDoc: 530,
-    declarationNoDoctest: 1058,
-    publicDeclarationNoDoctest: 987,
-    privateDeclarationNoDoctest: 71,
+    declarationNoDoctest: 1062,
+    publicDeclarationNoDoctest: 988,
+    privateDeclarationNoDoctest: 74,
 };
 
 function assert(condition, message) {

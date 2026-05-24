@@ -58,6 +58,9 @@ Migrate source policy regexes to NEPLg2.1 syntax or introduce explicit syntax-aw
 - `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 31 件から 23 件へ減少した。残件は documentation/tutorial、Rust responsibility、selfhost、string storage/access/slice/float 系へ絞られた。
 - string storage / access / slice / float boundary policy を `legacyTypeSyntaxView` 経由へ移行した。式中の `%i32` ascription は field declaration ではないため、`legacyTypeSyntaxView` が struct / enum body 内の field / variant payload だけを旧 view 化するように修正した。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 23 件から 19 件へ減少した。stdlib string boundary の旧表記依存は解消し、残件は documentation/tutorial、Rust responsibility、selfhost 系に集中した。
+- getting_started tutorial の current-style contract を NEPLg2.1 の `%char` / `%fn` / `%Option` / `%Result` 表記へ更新した。
+- stdlib documentation baseline は現在の集計値へそろえた。これはコメント追加を抑制する検査ではなく、既存の doc/doctest gap 集計を現在値から悪化させないための baseline である。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 19 件から 17 件へ減少した。残件は Rust responsibility 3 件と selfhost 14 件に集中した。
 
 ## 検証
 
@@ -81,3 +84,8 @@ node nodesrc/run_source_policy_regressions.js without stale NEPLg2.0 syntax fail
 - `node nodesrc/run_source_policy_regressions.js --warn-only` (19 warnings remain)
 - `trunk build`
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint6.json` (13/13 passed)
+- `node nodesrc/test_stdlib_documentation_contract.js`
+- `node nodesrc/test_tutorial_getting_started_current_style.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only` (17 warnings remain)
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint7.json` (13/13 passed)

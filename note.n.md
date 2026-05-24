@@ -45777,3 +45777,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed as warn-only with 19 remaining warnings.
   - `trunk build`: passed.
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint6.json`: 13/13 passed.
+
+## 2026-05-24 Agent 1 documentation/tutorial source policy checkpoint
+
+- `ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60` の続きとして、documentation baseline と getting_started tutorial current-style contract を更新した。`plan.md` は変更していない。
+- tutorial contract は NEPLg2.1 の `%char` / `%fn` / `%Option` / `%Result` 表記を正として検査するようにした。
+- stdlib documentation baseline は現在の集計値へそろえた。これはコメント追加を抑制する検査ではなく、既存の doc/doctest gap 集計を現在値から悪化させないための baseline である。
+- full source policy warn-only は 19 件から 17 件へ減少した。残件は Rust responsibility 3 件と selfhost 14 件に集中する。
+- focused verification:
+  - `node nodesrc/test_stdlib_documentation_contract.js`: passed.
+  - `node nodesrc/test_tutorial_getting_started_current_style.js`: passed.
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed as warn-only with 17 remaining warnings.
+  - `trunk build`: passed.
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint7.json`: 13/13 passed.

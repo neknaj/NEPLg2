@@ -155,15 +155,15 @@ while ((linkMatch = linkRe.exec(indexText)) !== null) {
 }
 
 const charChapter = fs.readFileSync(path.join(tutorialDir, '12_char_and_ascii.n.md'), 'utf8');
-assert.match(charChapter, /let\s+a\s+<char>\s+'A'/, 'char chapter must show char literal syntax');
+assert.match(charChapter, /let\s+a\s+%char\s+'A'/, 'char chapter must show char literal syntax');
 assert.match(charChapter, /str_char_at_result/, 'char chapter must connect char with string APIs');
 
 const genericsChapter = fs.readFileSync(path.join(tutorialDir, '18_generics.n.md'), 'utf8');
 const genericsBlocks = extractNeplBlocks(genericsChapter).join('\n');
 assert.match(genericsBlocks, /#import\s+"core\/traits\/copy"\s+as\s+\*/, 'generics chapter must import Copy capability explicitly');
-assert.match(genericsBlocks, /fn\s+identity\s+<\.T:\s*Copy>\s+<\(\.T\)->\.T>/, 'generics chapter must show Copy-bound generic values');
-assert.match(genericsBlocks, /Option<i32>/, 'generics chapter must keep a generic Option example');
-assert.match(genericsBlocks, /Result<i32,str>/, 'generics chapter must keep a generic Result example');
+assert.match(genericsBlocks, /fn\s+identity\s+<\.T:\s*Copy>\s+%fn\s+\.T\s+\.T/, 'generics chapter must show Copy-bound generic values');
+assert.match(genericsBlocks, /%Option\s+i32/, 'generics chapter must keep a generic Option example');
+assert.match(genericsBlocks, /%Result\s+i32\s+str/, 'generics chapter must keep a generic Result example');
 assert.doesNotMatch(genericsBlocks, /fn\s+or_default\s+<\.T>\b/, 'generics chapter must not reintroduce unconstrained owner-generic helper examples');
 assert.doesNotMatch(genericsBlocks, /identity\s+"nepl"|check_str_eq\s+"nepl"\s+identity/, 'generics chapter must not demonstrate owner string identity through quiet checks');
 
