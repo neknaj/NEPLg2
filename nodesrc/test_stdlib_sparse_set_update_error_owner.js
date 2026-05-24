@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 const typesCode = sourceWithoutComments("stdlib/alloc/collections/sparse_set/types.nepl");
@@ -29,8 +30,5 @@ for (const testPath of ["stdlib/tests/sparse_set.n.md", "tests/stdlib/sparse_set
 console.log("sparse set update error owner regression passed");
 
 function sourceWithoutComments(file) {
-    return fs.readFileSync(path.join(repoRoot, file), "utf8")
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join("\n");
+    return legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
 }

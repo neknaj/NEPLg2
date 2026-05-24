@@ -3,7 +3,12 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const {
+    stripNeplComments,
+    implementationLineCount,
+    fnSignaturePattern,
+    structFieldPattern,
+} = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const facadeRelPath = 'stdlib/std/streamio.nepl';
@@ -23,25 +28,15 @@ const appendByteBufSrc = fs.readFileSync(path.join(repoRoot, appendByteBufRelPat
 const appendIntegerSrc = fs.readFileSync(path.join(repoRoot, appendIntegerRelPath), 'utf8');
 const appendFloatSrc = fs.readFileSync(path.join(repoRoot, appendFloatRelPath), 'utf8');
 
-function stripComments(src) {
-    return src
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
-}
-
-const rootCode = stripComments(rootSrc);
-const stateCode = stripComments(stateSrc);
-const appendCode = stripComments(appendSrc);
-const appendTextCode = stripComments(appendTextSrc);
-const appendByteBufCode = stripComments(appendByteBufSrc);
-const appendIntegerCode = stripComments(appendIntegerSrc);
-const appendFloatCode = stripComments(appendFloatSrc);
+const rootCode = stripNeplComments(rootSrc);
+const stateCode = stripNeplComments(stateSrc);
+const appendCode = stripNeplComments(appendSrc);
+const appendTextCode = stripNeplComments(appendTextSrc);
+const appendByteBufCode = stripNeplComments(appendByteBufSrc);
+const appendIntegerCode = stripNeplComments(appendIntegerSrc);
+const appendFloatCode = stripNeplComments(appendFloatSrc);
 const code = [rootCode, stateCode, appendCode, appendTextCode, appendByteBufCode, appendIntegerCode, appendFloatCode].join('\n');
-const facadeCode = facade
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const facadeCode = stripNeplComments(facade);
 
 for (const [relPath, src, maxLines] of [
     [writerRelPath, rootSrc, 180],
@@ -152,7 +147,7 @@ assert.doesNotMatch(
 
 assert.match(
     stateCode,
-    /struct\s+StreamWriter:\s+builder\s+<ByteBuilder>\s+target\s+<StreamWriterTargetKind>/,
+    new RegExp(`struct\\s+StreamWriter:[\\s\\S]*${structFieldPattern('builder', 'ByteBuilder')}[\\s\\S]*${structFieldPattern('target', 'StreamWriterTargetKind')}`),
     'StreamWriter state module must keep ByteBuilder ownership and target enum as visible struct fields',
 );
 
@@ -172,19 +167,19 @@ assert.match(
 
 assert.match(
     stateCode,
-    /\bfn\s+stream_writer_close_impl\s+<\(StreamWriter\)\*>\(\)>/,
+    new RegExp(fnSignaturePattern('stream_writer_close_impl', ['StreamWriter'], '()', { effect: 'impure' })),
     'writer state module must own the StreamWriter cleanup implementation helper',
 );
 
 assert.doesNotMatch(
     stateCode,
-    /\bfn\s+close\s+<\(StreamWriter\)\*>\(\)>/,
+    new RegExp(fnSignaturePattern('close', ['StreamWriter'], '()', { effect: 'impure' })),
     'writer state module must not own the public common-name close overload',
 );
 
 assert.match(
     rootCode,
-    /\bfn\s+close\s+<\(StreamWriter\)\*>\(\)>\s+\(w\):\s*stream_writer_close_impl\s+w\b/,
+    new RegExp(`${fnSignaturePattern('close', ['StreamWriter'], '()', { effect: 'impure' })}\\s+\\\\w:\\s*stream_writer_close_impl\\s+w\\b`),
     'streamio/writer root must expose owner-consuming close through the public facade',
 );
 
@@ -216,7 +211,7 @@ assert.doesNotMatch(
     'drain_impl must not branch on numeric target kind codes',
 );
 
-const writerOpenMatch = rootCode.match(/(?:pub\s+)?fn\s+open\s+<\(WriteStream\)([\s\S]*?)\n(?:pub\s+)?trait\s+StreamWritable\b/);
+const writerOpenMatch = rootCode.match(new RegExp(`${fnSignaturePattern('open', ['WriteStream'], 'Result StreamWriter str', { effect: 'impure' })}([\\s\\S]*?)\\n(?:pub\\s+)?trait\\s+StreamWritable\\b`));
 assert.ok(writerOpenMatch, 'WriteStream open body must be found');
 assert.doesNotMatch(
     writerOpenMatch[1],

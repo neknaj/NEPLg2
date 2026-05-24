@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const facadePath = 'stdlib/alloc/collections/vec/sort/merge.nepl';
@@ -78,10 +79,7 @@ assert.doesNotMatch(apiSrc, /#import\s+"\.\/(?:buffer|range)"\s+as\s+\*/, 'merge
 console.log('sort merge unsafe unwrap regression passed');
 
 function sourceWithoutComments(file) {
-    return fs.readFileSync(path.join(repoRoot, file), 'utf8')
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
+    return legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
 }
 
 function unexpectedUnreachableLines(code) {

@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/alloc/collections/list.nepl';
@@ -144,7 +145,7 @@ assert.match(
 );
 assert.match(
     queryCode,
-    /fn\s+fold\s+<\.T:\s*Copy,\.U>\s+<\(&List<\.T>, \.U, \(\.U,\.T\)->\.U\)->\.U>/,
+    /fn\s+fold\s+<\.T:\s*Copy,\.U>\s+<\(&List<\.T>,\s*\.U,\s*\(\.U,\.T\)->\.U\)->\.U>/,
     'List.fold must borrow the owner',
 );
 assert.doesNotMatch(
@@ -154,12 +155,12 @@ assert.doesNotMatch(
 );
 assert.match(
     transformCode,
-    /fn\s+map\s+<\.T:\s*Copy,\.U:\s*Copy>\s+<\(List<\.T>, \(\.T\)->\.U\)\*>Result<List<\.U>,\s*ListTransformError<\.T>>>[\s\S]*vec::with_capacity<\.U>\s+n[\s\S]*Result::Err<List<\.U>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::push<\.U>\s+out\s+mapped[\s\S]*vec::free<\.U>\s+out[\s\S]*Result::Err<List<\.U>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::free<\.T>\s+items[\s\S]*Result::Ok<List<\.U>,\s*ListTransformError<\.T>>\s+List<\.U>\s+out/,
+    /fn\s+map\s+<\.T:\s*Copy,\.U:\s*Copy>\s+<\(List<\.T>,\s*\(\.T\)->\.U\)\*>Result<List<\.U>,\s*ListTransformError<\.T>>>[\s\S]*vec::with_capacity<\.U>\s+n[\s\S]*Result::Err<List<\.U>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::push<\.U>\s+out\s+mapped[\s\S]*vec::free<\.U>\s+out[\s\S]*Result::Err<List<\.U>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::free<\.T>\s+items[\s\S]*Result::Ok<List<\.U>,\s*ListTransformError<\.T>>\s+List<\.U>\s+out/,
     'List.map must return an owner-preserving ListTransformError on failure and close the input storage owner only on success',
 );
 assert.match(
     transformCode,
-    /fn\s+filter\s+<\.T:\s*Copy>\s+<\(List<\.T>, \(\.T\)->bool\)\*>Result<List<\.T>,\s*ListTransformError<\.T>>>[\s\S]*vec::with_capacity<\.T>\s+n[\s\S]*Result::Err<List<\.T>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::push<\.T>\s+out\s+value[\s\S]*vec::free<\.T>\s+out[\s\S]*Result::Err<List<\.T>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::free<\.T>\s+items[\s\S]*Result::Ok<List<\.T>,\s*ListTransformError<\.T>>\s+List<\.T>\s+out/,
+    /fn\s+filter\s+<\.T:\s*Copy>\s+<\(List<\.T>,\s*\(\.T\)->bool\)\*>Result<List<\.T>,\s*ListTransformError<\.T>>>[\s\S]*vec::with_capacity<\.T>\s+n[\s\S]*Result::Err<List<\.T>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::push<\.T>\s+out\s+value[\s\S]*vec::free<\.T>\s+out[\s\S]*Result::Err<List<\.T>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::free<\.T>\s+items[\s\S]*Result::Ok<List<\.T>,\s*ListTransformError<\.T>>\s+List<\.T>\s+out/,
     'List.filter must return an owner-preserving ListTransformError on failure and close the input storage owner only on success',
 );
 assert.doesNotMatch(
@@ -195,8 +196,5 @@ assert.doesNotMatch(pipeListSection[0], /\bget<i32>\s+xs\d+\s+/, 'pipe List fixt
 console.log('list unsafe unwrap regression passed');
 
 function sourceWithoutComments(file) {
-    return fs.readFileSync(path.join(repoRoot, file), 'utf8')
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
+    return legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
 }

@@ -1,20 +1,10 @@
 #!/usr/bin/env node
 
 const assert = require('node:assert/strict');
-
-function stripNeplComments(src) {
-    return src
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
-}
-
-function implementationLineCount(src) {
-    return stripNeplComments(src)
-        .split(/\r?\n/)
-        .filter((line) => line.trim().length > 0)
-        .length;
-}
+const {
+    stripNeplComments,
+    implementationLineCount,
+} = require('./nepl_source_view');
 
 function assertByteBuilderOwnerBoundary(code) {
     assert.match(

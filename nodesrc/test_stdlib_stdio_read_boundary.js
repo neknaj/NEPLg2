@@ -3,6 +3,10 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const {
+    stripNeplComments,
+    fnSignaturePattern,
+} = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/std/stdio.nepl';
@@ -28,50 +32,17 @@ const readTextSrc = fs.readFileSync(path.join(repoRoot, readTextRelPath), 'utf8'
 const readBufferRelPath = 'stdlib/std/stdio/read/buffer.nepl';
 const readBufferSrc = fs.readFileSync(path.join(repoRoot, readBufferRelPath), 'utf8');
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const rawCode = rawSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writeCode = writeSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writeFdCode = writeFdSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writeTextCode = writeTextSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writeBytesCode = writeBytesSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writeByteCode = writeByteSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const readCode = readSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const readBytesCode = readBytesSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const readTextCode = readTextSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const readBufferCode = readBufferSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const code = stripNeplComments(src);
+const rawCode = stripNeplComments(rawSrc);
+const writeCode = stripNeplComments(writeSrc);
+const writeFdCode = stripNeplComments(writeFdSrc);
+const writeTextCode = stripNeplComments(writeTextSrc);
+const writeBytesCode = stripNeplComments(writeBytesSrc);
+const writeByteCode = stripNeplComments(writeByteSrc);
+const readCode = stripNeplComments(readSrc);
+const readBytesCode = stripNeplComments(readBytesSrc);
+const readTextCode = stripNeplComments(readTextSrc);
+const readBufferCode = stripNeplComments(readBufferSrc);
 
 assert.doesNotMatch(
     code,
@@ -126,7 +97,7 @@ for (const helper of [
 ]) {
     assert.match(
         rawCode,
-        new RegExp(`\\bpub\\s+fn\\s+${helper}\\s+<\\(i32,i32,i32,i32\\)\\*>i32>`),
+        new RegExp(fnSignaturePattern(helper, ['i32', 'i32', 'i32', 'i32'], 'i32', { public: true, effect: 'impure' })),
         `${helper} must be the only public stdio/raw ABI wrapper shape`,
     );
 }
@@ -155,7 +126,7 @@ assert.match(
 );
 assert.match(
     writeFdCode,
-    /\bfn\s+stdio_fd_write_from_result\s+<\(i32,MemPtr<u8>,MemPtr<u8>,MemPtr<u8>,i32\)\*>Result<i32,\s*StdErrorKind>>/,
+    new RegExp(fnSignaturePattern('stdio_fd_write_from_result', ['i32', 'MemPtr u8', 'MemPtr u8', 'MemPtr u8', 'i32'], 'Result i32 StdErrorKind', { effect: 'impure' })),
     'stdio fd_write raw layout helper must exist in stdio/write/fd where scratch RegionToken owners are allocated',
 );
 assert.doesNotMatch(
@@ -228,7 +199,7 @@ for (const submodule of ['fd', 'text', 'bytes', 'byte']) {
 }
 assert.doesNotMatch(writeCode, /\bfn\s+/, 'std/stdio/write facade must not keep write implementation bodies');
 const writeFdMatch = writeFdCode.match(
-    /fn\s+stdio_write_fd_mem_result\s+<\(i32,MemPtr<u8>,i32\)\*>\s*Result<\(\),\s*StdErrorKind>>\s+\(fd,\s*data,\s*data_len\):([\s\S]*?)\n(?:pub\s+)?fn\s+stdio_write_fd_str_result\s+/,
+    new RegExp(`${fnSignaturePattern('stdio_write_fd_mem_result', ['i32', 'MemPtr u8', 'i32'], 'Result () StdErrorKind', { effect: 'impure' })}\\s+\\\\fd\\\\data\\\\data_len:([\\s\\S]*?)\\n(?:pub\\s+)?fn\\s+stdio_write_fd_str_result\\s+`),
 );
 assert.ok(writeFdMatch, 'stdio_write_fd_mem_result body must be found');
 assert.match(
@@ -320,12 +291,12 @@ assert.doesNotMatch(
 );
 assert.match(
     readBufferCode,
-    /\bpub\s+fn\s+stdio_read_all_buffer_result\s+<\(\)\*>Result<ByteBuf,\s*StdErrorKind>>/,
+    new RegExp(fnSignaturePattern('stdio_read_all_buffer_result', [], 'Result ByteBuf StdErrorKind', { public: true, effect: 'impure' })),
     'stdio read buffer must expose the high-level read-all ByteBuf boundary',
 );
 assert.match(
     readBufferCode,
-    /\bpub\s+fn\s+stdio_read_line_buffer_result\s+<\(\)\*>Result<ByteBuf,\s*StdErrorKind>>/,
+    new RegExp(fnSignaturePattern('stdio_read_line_buffer_result', [], 'Result ByteBuf StdErrorKind', { public: true, effect: 'impure' })),
     'stdio read buffer must expose the high-level read-line ByteBuf boundary',
 );
 assert.match(
@@ -381,12 +352,12 @@ assert.doesNotMatch(
 );
 assert.match(
     readBufferCode,
-    /\bfn\s+stdio_discard_read_buffer\s+<\(RegionToken<u8>,StdErrorKind\)\*>/,
+    new RegExp(fnSignaturePattern('stdio_discard_read_buffer', ['RegionToken u8', 'StdErrorKind'], 'Result ByteBuf StdErrorKind', { effect: 'impure' })),
     'stdio read discard helper must consume a RegionToken owner, not a MemPtr owner',
 );
 assert.match(
     readBufferCode,
-    /\bfn\s+stdio_finish_read_buffer\s+<\(RegionToken<u8>,i32\)\*>/,
+    new RegExp(fnSignaturePattern('stdio_finish_read_buffer', ['RegionToken u8', 'i32'], 'Result ByteBuf StdErrorKind', { effect: 'impure' })),
     'stdio read finish helper must consume a RegionToken owner, not a MemPtr owner',
 );
 assert.match(
@@ -428,7 +399,7 @@ for (const helper of [
 }
 
 const readAllMatch = readBytesCode.match(
-    /fn\s+stdio_read_all_bytes_result\s+<\(\)\*>\s*Result<ByteBuf\s*,\s*StdErrorKind>>\s+\(\):([\s\S]*?)\n(?:pub\s+)?fn\s+stdio_read_all_bytes\s+/,
+    new RegExp(`${fnSignaturePattern('stdio_read_all_bytes_result', [], 'Result ByteBuf StdErrorKind', { effect: 'impure' })}\\s+\\\\\\(\\):([\\s\\S]*?)\\n(?:pub\\s+)?fn\\s+stdio_read_all_bytes\\s+`),
 );
 assert.ok(readAllMatch, 'stdio_read_all_bytes_result body must be found');
 assert.match(
@@ -458,7 +429,7 @@ assert.doesNotMatch(
 );
 assert.match(
     readTextCode,
-    /fn\s+stdio_read_line_result\s+<\(\)\*>\s*Result<str\s*,\s*StdErrorKind>>\s+\(\):[\s\S]*\bmatch\s+stdio_read_line_buffer_result\b[\s\S]*\btext_bytebuf_to_utf8_str_result\s+bytes\b/,
+    new RegExp(`${fnSignaturePattern('stdio_read_line_result', [], 'Result str StdErrorKind', { effect: 'impure' })}\\s+\\\\\\(\\):[\\s\\S]*\\bmatch\\s+stdio_read_line_buffer_result\\b[\\s\\S]*\\btext_bytebuf_to_utf8_str_result\\s+bytes\\b`),
     'stdio_read_line_result must delegate raw line reading to read/buffer and only perform UTF-8 conversion',
 );
 assert.doesNotMatch(
@@ -469,12 +440,12 @@ assert.doesNotMatch(
 
 assert.match(
     readTextCode,
-    /fn\s+stdio_read_all_text_result\s+<\(\)\*>\s*Result<str\s*,\s*StdErrorKind>>\s+\(\):[\s\S]*stdio_read_all_bytes_result[\s\S]*text_bytebuf_to_utf8_str_result/,
+    new RegExp(`${fnSignaturePattern('stdio_read_all_text_result', [], 'Result str StdErrorKind', { effect: 'impure' })}\\s+\\\\\\(\\):[\\s\\S]*stdio_read_all_bytes_result[\\s\\S]*text_bytebuf_to_utf8_str_result`),
     'stdio_read_all_text_result must convert the read/bytes result through std/text',
 );
 
 const readLineMatch = readTextCode.match(
-    /fn\s+noshadow\s+read_line\s+<\(\)\*>\s*str>\s+\(\):([\s\S]*?)$/,
+    new RegExp(`${fnSignaturePattern('read_line', [], 'str', { effect: 'impure', noshadow: true })}\\s+\\\\\\(\\):([\\s\\S]*?)$`),
 );
 assert.ok(readLineMatch, 'read_line body must be found');
 const readLineBody = readLineMatch[1];

@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootPath = 'stdlib/alloc/collections/sparse_set.nepl';
@@ -120,8 +121,5 @@ assert.doesNotMatch(code, /\bdealloc\b/, 'SparseSet must not use checked dealloc
 console.log('sparse set unsafe unwrap regression passed');
 
 function sourceWithoutComments(file) {
-    return fs.readFileSync(path.join(repoRoot, file), 'utf8')
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
+    return legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
 }

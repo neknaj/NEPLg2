@@ -3,6 +3,11 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const {
+    stripNeplComments,
+    fnSignaturePattern,
+    structFieldPattern,
+} = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const facadeRelPath = 'stdlib/std/streamio.nepl';
@@ -20,34 +25,13 @@ const numberIntSrc = fs.readFileSync(path.join(repoRoot, scannerNumberIntRelPath
 const numberFloatSrc = fs.readFileSync(path.join(repoRoot, scannerNumberFloatRelPath), 'utf8');
 const stateSrc = fs.readFileSync(path.join(repoRoot, scannerStateRelPath), 'utf8');
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const stateCode = stateSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const cursorCode = cursorSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const numberCode = numberSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const numberIntCode = numberIntSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const numberFloatCode = numberFloatSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const facadeCode = facade
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const code = stripNeplComments(src);
+const stateCode = stripNeplComments(stateSrc);
+const cursorCode = stripNeplComments(cursorSrc);
+const numberCode = stripNeplComments(numberSrc);
+const numberIntCode = stripNeplComments(numberIntSrc);
+const numberFloatCode = stripNeplComments(numberFloatSrc);
+const facadeCode = stripNeplComments(facade);
 const scannerImplementationCode = `${cursorCode}\n${code}\n${numberCode}\n${numberIntCode}\n${numberFloatCode}`;
 
 assert.match(
@@ -180,19 +164,19 @@ assert.match(
 
 assert.match(
     stateCode,
-    /struct\s+StreamScanner:\s+bytes\s+<ByteBuf>\s+cursor\s+<Vec<i32>>/,
+    new RegExp(`struct\\s+StreamScanner:[\\s\\S]*${structFieldPattern('bytes', 'ByteBuf')}[\\s\\S]*${structFieldPattern('cursor', 'Vec i32')}`),
     'StreamScanner state must expose the input ByteBuf owner and typed cursor storage as fields',
 );
 
 assert.doesNotMatch(
     stateCode,
-    /^\s+header\s+<MemPtr<u8>>/m,
+    /^\s+header\s+%MemPtr\s+u8/m,
     'StreamScanner must not keep a direct raw MemPtr header owner field',
 );
 
 assert.match(
     stateCode,
-    /\bfn\s+stream_scanner_byte_at\s+<\(&ByteBuf,i32\)->i32>/,
+    new RegExp(fnSignaturePattern('stream_scanner_byte_at', ['&ByteBuf', 'i32'], 'i32')),
     'StreamScanner byte access must go through a borrowed ByteBuf boundary',
 );
 
@@ -229,14 +213,14 @@ for (const [fnName, relPath, owner] of [
     const fnCode = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
     assert.match(
         fnCode,
-        new RegExp(`\\bfn\\s+${fnName}\\s+<\\(\\&StreamScanner\\)\\*>`),
+        new RegExp(`\\bfn\\s+${fnName}\\s+%impure\\s+fn\\s+&StreamScanner\\b`),
         `StreamScanner ${fnName} in ${owner} must borrow the owning handle instead of copying it`,
     );
 }
 
 assert.match(
     code,
-    /\bfn\s+close\s+<\(StreamScanner\)\*>/,
+    new RegExp(fnSignaturePattern('close', ['StreamScanner'], '()', { effect: 'impure' })),
     'StreamScanner close must remain the owner-consuming cleanup API',
 );
 

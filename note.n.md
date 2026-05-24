@@ -1,3 +1,21 @@
+# 2026-05-24 Agent 1 NEPLg2.1 source policy syntax view checkpoint
+
+- Zenn 方針を 2026-05-24 更新版で再確認し、試作段階でも static inspection の監視漏れを残さない方針で進めた。`plan.md` は確認のみで変更していない。
+- `ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60` の一部として、NEPLg2.1 `%` / prefix 型表記を source policy が扱うための共通 helper `nodesrc/source_policy/nepl_source_view.js` を追加した。
+- `stripNeplComments` / `implementationLineCount` を共通 helper へ切り出し、`legacyTypeSyntaxView` で表面記法差だけを吸収する source policy view を用意した。`impure fn` と `fn` の区別は潰さず、owner boundary / API boundary の検査内容も弱めていない。
+- `nodesrc/test_source_policy_nepl_source_view.js` を追加し、helper 自体が field type annotation、impure signature、nested callback function type、typed local annotation を正しく扱うことを固定した。
+- stdio / streamio / match decision tree の代表的な stale regex は NEPLg2.1 直接表記または `fnSignaturePattern` / `structFieldPattern` へ移行した。
+- collection 系では BitSet / BinaryHeap / AdjacencyMatrix / BloomFilter / CountingBloomFilter / DisjointSet / Fenwick / List / Queue / Deque / RingBuffer / SegmentTree / SparseSet / Stack / sort merge の policy を `legacyTypeSyntaxView` へ移し、旧 `<...>` 表面記法依存で落ちていた監視を戻した。
+- `node nodesrc\run_source_policy_regressions.js --warn-only` は stale failure が 90 件から 62 件へ減った。残りは SHA256 / BTree / ByteBuf / fs / cliarg / nm / selfhost / Vec / string boundary などに同種の旧表記 regex が残っている。
+- focused verification:
+  - `node nodesrc\test_source_policy_nepl_source_view.js`
+  - `node nodesrc\test_stdlib_match_decision_trees.js`
+  - `node nodesrc\test_stdlib_stdio_debug_boundary.js`
+  - `node nodesrc\test_stdlib_stdio_read_boundary.js`
+  - `node nodesrc\test_stdlib_streamio_scanner_boundary.js`
+  - `node nodesrc\test_stdlib_streamio_writer_boundary.js`
+  - collection source policy group: AdjacencyMatrix / BinaryHeap / BitSet / BloomFilter / CountingBloomFilter / DisjointSet / Fenwick / List / Queue / Deque / RingBuffer / SegmentTree / SparseSet / Stack / sort merge の対象テストは pass。
+
 # 2026-05-24 Agent 1 NEPLg2.1 syntax migration kickoff
 
 - `fix/transform-range-lifecycle-certificate-20260524` は `dd469a39` で main へ fast-forward merge / push し、local/remote branch を削除した。Discord 報告も送信済み。

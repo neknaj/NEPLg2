@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/alloc/collections/ringbuffer.nepl";
@@ -11,14 +12,8 @@ const apiPath = "stdlib/alloc/collections/ringbuffer/api.nepl";
 const rootSrc = fs.readFileSync(path.join(repoRoot, relPath), "utf8");
 const apiSrc = fs.readFileSync(path.join(repoRoot, apiPath), "utf8");
 
-const rootCode = rootSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join("\n");
-const code = apiSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join("\n");
+const rootCode = legacyTypeSyntaxView(rootSrc);
+const code = legacyTypeSyntaxView(apiSrc);
 
 assert.match(rootCode, /pub\s+#import\s+"\.\/ringbuffer\/api"\s+as\s+@merge/, "RingBuffer root must re-export API from a submodule");
 assert.doesNotMatch(rootCode, /\bfn\s+/, "RingBuffer root facade must not keep observer bodies");

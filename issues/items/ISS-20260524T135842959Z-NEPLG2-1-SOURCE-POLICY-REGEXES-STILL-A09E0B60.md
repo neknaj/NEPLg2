@@ -39,6 +39,14 @@ run_source_policy_regressions --warn-only reports many stale policy failures, re
 
 Migrate source policy regexes to NEPLg2.1 syntax or introduce explicit syntax-aware helpers, without weakening owner-boundary and API-boundary assertions.
 
+## 進捗
+
+- `nodesrc/source_policy/nepl_source_view.js` を追加し、コメント除去、実装行数計測、NEPLg2.1 signature / field regex helper、source policy 用の `legacyTypeSyntaxView` を集約した。
+- `legacyTypeSyntaxView` は `%` / prefix 型表記を source policy の既存 semantic assertions が読める安定 view へ写す。`fn` と `impure fn` の区別は保持する。
+- helper regression `nodesrc/test_source_policy_nepl_source_view.js` を追加し、`run_source_policy_regressions` の先頭に登録した。
+- stdio / streamio / match decision tree の代表 stale regex と、collection owner/borrowed/update 系の一部 policy を復旧した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 90 件から 62 件へ減少した。残件は SHA256、BTree、ByteBuf、fs、cliarg、nm、selfhost、Vec、string boundary などに分散している。
+
 ## 検証
 
 node nodesrc/run_source_policy_regressions.js without stale NEPLg2.0 syntax failures

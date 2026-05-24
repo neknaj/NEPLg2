@@ -87,7 +87,7 @@ assert.match(
 const nmJsonEscapeBuilderIntoBlock = functionBlock(nmJsonEscapeFile, 'json_escape_builder_into');
 assert.match(
     nmJsonEscapeBuilderIntoBlock,
-    /let\s+text\s+<str>\s+sb_build\s+src/,
+    /let\s+text\s+%str\s+sb_build\s+src/,
     'json_escape_builder_into must consume the source builder via sb_build'
 );
 assert.match(

@@ -3,7 +3,11 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const {
+    stripNeplComments,
+    implementationLineCount,
+    fnSignaturePattern,
+} = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/std/stdio.nepl';
@@ -15,15 +19,10 @@ const debugSrc = fs.readFileSync(path.join(repoRoot, debugRelPath), 'utf8');
 const enabledSrc = fs.readFileSync(path.join(repoRoot, enabledRelPath), 'utf8');
 const disabledSrc = fs.readFileSync(path.join(repoRoot, disabledRelPath), 'utf8');
 
-const stripComments = (src) => src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-
-const rootCode = stripComments(rootSrc);
-const debugCode = stripComments(debugSrc);
-const enabledCode = stripComments(enabledSrc);
-const disabledCode = stripComments(disabledSrc);
+const rootCode = stripNeplComments(rootSrc);
+const debugCode = stripNeplComments(debugSrc);
+const enabledCode = stripNeplComments(enabledSrc);
+const disabledCode = stripNeplComments(disabledSrc);
 
 assert.match(
     rootCode,
@@ -56,22 +55,22 @@ assert.match(
 
 assert.match(
     enabledCode,
-    /#if\[profile=debug\][\s\S]*fn\s+debug\s+<\(str\)\*>\(\)>\s+\(s\):[\s\S]*\bprint\s+s\b/,
+    new RegExp(`#if\\[profile=debug\\][\\s\\S]*${fnSignaturePattern('debug', ['str'], '()', { effect: 'impure' })}\\s+\\\\s:[\\s\\S]*\\bprint\\s+s\\b`),
     'debug profile debug must delegate to print',
 );
 assert.match(
     enabledCode,
-    /fn\s+debug_color\s+<\(AnsiColor,str\)\*>\(\)>/,
+    new RegExp(fnSignaturePattern('debug_color', ['AnsiColor', 'str'], '()', { effect: 'impure' })),
     'debug_color must use typed AnsiColor instead of raw str color',
 );
 assert.match(
     enabledCode,
-    /fn\s+debugln_color\s+<\(AnsiColor,str\)\*>\(\)>/,
+    new RegExp(fnSignaturePattern('debugln_color', ['AnsiColor', 'str'], '()', { effect: 'impure' })),
     'debugln_color must use typed AnsiColor instead of raw str color',
 );
 assert.match(
     disabledCode,
-    /#if\[profile=release\][\s\S]*fn\s+debug\s+<\(str\)\*>\(\)>\s+\(_s\):[\s\S]*\(\)/,
+    new RegExp(`#if\\[profile=release\\][\\s\\S]*${fnSignaturePattern('debug', ['str'], '()', { effect: 'impure' })}\\s+\\\\_s:[\\s\\S]*\\(\\)`),
     'release profile debug must stay no-op',
 );
 

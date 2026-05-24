@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 const apiCode = sourceWithoutComments("stdlib/alloc/collections/fenwick/api.nepl");
@@ -37,8 +38,5 @@ for (const testPath of ["stdlib/tests/fenwick.n.md", "tests/stdlib/fenwick_colle
 console.log("fenwick borrowed query regression passed");
 
 function sourceWithoutComments(file) {
-    return fs.readFileSync(path.join(repoRoot, file), "utf8")
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join("\n");
+    return legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, file), 'utf8'));
 }
