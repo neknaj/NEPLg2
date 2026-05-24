@@ -9,7 +9,8 @@ use super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_owner_transfer::CollectionSlotOwnerTransferObligation;
 use super::collection_slot_summary_return_model::{
-    CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
+    CollectionSlotLifecycleReturnRange, CollectionSlotLifecycleReturnSlot,
+    CollectionSlotLifecycleReturnTransfer,
 };
 use super::i32_scalar_return_facts::I32ScalarReturnFacts;
 use super::summary_index::{FunctionSummary, SummaryIndex};
@@ -18,9 +19,11 @@ use super::summary_projection::SummaryPlace;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct CollectionSlotLifecycleFunctionSummary {
     pub(super) function: String,
+    pub(super) type_params: Vec<TypeId>,
     pub(super) ops: Vec<CollectionSlotLifecycleSummaryOp>,
     pub(super) return_transfers: Vec<CollectionSlotLifecycleReturnTransfer>,
     pub(super) return_slots: Vec<CollectionSlotLifecycleReturnSlot>,
+    pub(super) return_ranges: Vec<CollectionSlotLifecycleReturnRange>,
     pub(super) return_paths: Vec<CollectionSlotLifecycleReturnPath>,
 }
 
@@ -149,5 +152,6 @@ pub(super) struct CollectionSlotLifecycleReturnPath {
     pub(super) ops: Vec<CollectionSlotLifecycleSummaryOp>,
     pub(super) return_transfers: Vec<CollectionSlotLifecycleReturnTransfer>,
     pub(super) return_slots: Vec<CollectionSlotLifecycleReturnSlot>,
+    pub(super) return_ranges: Vec<CollectionSlotLifecycleReturnRange>,
     pub(super) i32_scalar_facts: I32ScalarReturnFacts,
 }

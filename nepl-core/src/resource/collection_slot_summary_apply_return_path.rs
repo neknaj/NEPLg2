@@ -69,6 +69,8 @@ impl ResourceCheckEngine<'_> {
         initial_raw_aliases: &RawCellAddressAliases,
         output: &Place,
         args: &[Place],
+        summary_type_params: &[crate::types::TypeId],
+        type_args: &[crate::types::TypeId],
         paths: &[CollectionSlotLifecycleReturnPath],
         span: crate::span::Span,
     ) -> Vec<CollectionSlotReturnPathState> {
@@ -93,6 +95,15 @@ impl ResourceCheckEngine<'_> {
                 span,
             );
             self.apply_collection_slot_return_slots(&mut slots, args, output, &path.return_slots);
+            self.apply_collection_slot_return_ranges(
+                &mut slots,
+                &aliases,
+                args,
+                output,
+                summary_type_params,
+                type_args,
+                &path.return_ranges,
+            );
             self.clear_consumed_collection_slot_args(&mut slots, &aliases, args);
             apply_i32_scalar_return_facts(
                 &mut aliases,
@@ -165,6 +176,10 @@ fn return_path_targets_slot(
             .return_slots
             .iter()
             .any(|slot| summary_suffix_covers_place_suffix(&slot.suffix, slot_suffix))
+        || path
+            .return_ranges
+            .iter()
+            .any(|range| summary_suffix_covers_place_suffix(&range.storage_suffix, slot_suffix))
 }
 
 fn summary_suffix_covers_place_suffix(

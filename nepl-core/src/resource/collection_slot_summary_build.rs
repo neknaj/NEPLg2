@@ -20,6 +20,7 @@ use super::initialized_scalar_flow::{I32ScalarReturnSummary, I32ScalarReturnSumm
 use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
 use super::model::{ResourceFunction, ResourceModule};
+use super::owner_summary_type_params::owner_summary_type_params;
 use super::report::ResourceCheckDeferred;
 use super::summary_worklist::SummaryWorklist;
 
@@ -64,6 +65,7 @@ fn update_collection_slot_lifecycle_summary(
     let has_facts = !summary.ops.is_empty()
         || !summary.return_transfers.is_empty()
         || !summary.return_slots.is_empty()
+        || !summary.return_ranges.is_empty()
         || !summary.return_paths.is_empty();
     let position = summaries
         .iter()
@@ -110,6 +112,7 @@ fn function_collection_slot_lifecycle_summary(
     let mut ops = Vec::new();
     let mut return_transfers = Vec::new();
     let mut return_slots = Vec::new();
+    let mut return_ranges = Vec::new();
     let mut return_paths = Vec::<CollectionSlotLifecycleReturnPath>::new();
     for block in &function.blocks {
         let block_entry_state = state.clone();
@@ -124,6 +127,7 @@ fn function_collection_slot_lifecycle_summary(
         collect_return_facts_from_terminator(
             &mut return_transfers,
             &mut return_slots,
+            &mut return_ranges,
             &mut return_paths,
             &state,
             &engine,
@@ -136,15 +140,20 @@ fn function_collection_slot_lifecycle_summary(
     return_paths.retain(collection_return_path_has_lifecycle_facts);
     CollectionSlotLifecycleFunctionSummary {
         function: function.name.clone(),
+        type_params: owner_summary_type_params(types, function),
         ops,
         return_transfers,
         return_slots,
+        return_ranges,
         return_paths,
     }
 }
 
 fn collection_return_path_has_lifecycle_facts(path: &CollectionSlotLifecycleReturnPath) -> bool {
-    !path.ops.is_empty() || !path.return_transfers.is_empty() || !path.return_slots.is_empty()
+    !path.ops.is_empty()
+        || !path.return_transfers.is_empty()
+        || !path.return_slots.is_empty()
+        || !path.return_ranges.is_empty()
 }
 
 #[cfg(test)]

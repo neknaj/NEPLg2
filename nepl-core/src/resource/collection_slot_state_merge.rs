@@ -52,6 +52,20 @@ fn merge_initialized_ranges(
             })
             .cloned(),
     );
+    let mut ranges = Vec::new();
+    for path in paths {
+        for entry in &path.initialized_ranges {
+            push_unique_range(&mut ranges, entry);
+        }
+        for entry in &path.maybe_initialized_ranges {
+            push_unique_range(&mut ranges, entry);
+        }
+    }
+    out.maybe_initialized_ranges.extend(
+        ranges
+            .into_iter()
+            .filter(|entry| !out.initialized_ranges.contains(entry)),
+    );
 }
 
 fn merge_released_storage(paths: &[CollectionSlotStateTable], out: &mut CollectionSlotStateTable) {
@@ -111,6 +125,25 @@ fn state_with_initialized_ranges_for_merge(
             None => Some(range.value_ty),
         };
     }
+    let mut maybe_range_ty = None;
+    let mut saw_maybe_range = false;
+    for range in path
+        .maybe_initialized_ranges
+        .iter()
+        .filter(|range| place_covers_slot(slot, &range.storage))
+    {
+        saw_maybe_range = true;
+        maybe_range_ty = match maybe_range_ty {
+            Some(existing) => merge_type(existing, range.value_ty),
+            None => Some(range.value_ty),
+        };
+    }
+    if saw_maybe_range {
+        return CollectionSlotState::MaybeInitialized(merge_optional_type(
+            range_ty,
+            maybe_range_ty,
+        ));
+    }
     if saw_range {
         match range_ty {
             Some(slot_ty) => CollectionSlotState::Initialized(slot_ty),
@@ -118,6 +151,15 @@ fn state_with_initialized_ranges_for_merge(
         }
     } else {
         CollectionSlotState::Uninitialized
+    }
+}
+
+fn push_unique_range(
+    out: &mut Vec<super::collection_slot_state_table::CollectionSlotInitializedRangeStateEntry>,
+    range: &super::collection_slot_state_table::CollectionSlotInitializedRangeStateEntry,
+) {
+    if !out.iter().any(|existing| existing == range) {
+        out.push(range.clone());
     }
 }
 

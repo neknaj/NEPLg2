@@ -40,6 +40,7 @@ pub struct CollectionSlotTableRefutation {
 pub struct CollectionSlotStateTable {
     pub(super) slots: Vec<CollectionSlotStateEntry>,
     pub(super) initialized_ranges: Vec<CollectionSlotInitializedRangeStateEntry>,
+    pub(super) maybe_initialized_ranges: Vec<CollectionSlotInitializedRangeStateEntry>,
     pub(super) released_storage: Vec<Place>,
     pub(super) maybe_released_storage: Vec<Place>,
 }
@@ -55,6 +56,10 @@ impl CollectionSlotStateTable {
 
     pub(super) fn initialized_ranges(&self) -> &[CollectionSlotInitializedRangeStateEntry] {
         &self.initialized_ranges
+    }
+
+    pub(super) fn maybe_initialized_ranges(&self) -> &[CollectionSlotInitializedRangeStateEntry] {
+        &self.maybe_initialized_ranges
     }
 
     pub fn released_storage(&self) -> &[Place] {
@@ -134,6 +139,8 @@ impl CollectionSlotStateTable {
             value_ty,
             element_stride,
         };
+        self.maybe_initialized_ranges
+            .retain(|existing| existing != &entry);
         if !self.initialized_ranges.contains(&entry) {
             self.initialized_ranges.push(entry);
         }
@@ -150,6 +157,12 @@ impl CollectionSlotStateTable {
         let storage = raw_aliases.canonicalize_owner_cell_address(storage);
         let initialized_count = raw_aliases.canonicalize_scalar(initialized_count);
         self.initialized_ranges.retain(|entry| {
+            !(same_collection_slot_identity(&entry.storage, &storage)
+                && same_collection_slot_identity(&entry.initialized_count, &initialized_count)
+                && entry.value_ty == value_ty
+                && entry.element_stride == element_stride)
+        });
+        self.maybe_initialized_ranges.retain(|entry| {
             !(same_collection_slot_identity(&entry.storage, &storage)
                 && same_collection_slot_identity(&entry.initialized_count, &initialized_count)
                 && entry.value_ty == value_ty
@@ -300,25 +313,52 @@ impl CollectionSlotStateTable {
         slot: &Place,
         raw_aliases: &RawCellAddressAliases,
     ) -> Option<CollectionSlotState> {
-        self.initialized_ranges.iter().find_map(|entry| {
-            if entry.element_stride != crate::layout::storage_size_bytes(types, entry.value_ty) {
-                return None;
-            }
-            let initialized_count = raw_aliases.canonicalize_scalar(&entry.initialized_count);
-            storage_aliases_for_place(&entry.storage, raw_aliases)
-                .into_iter()
-                .any(|storage| {
-                    collection_slot_offset_is_inside_initialized_count(
-                        types,
-                        raw_aliases,
-                        slot,
-                        &storage,
-                        &initialized_count,
-                        entry.value_ty,
-                    )
+        self.initialized_ranges
+            .iter()
+            .find_map(|entry| {
+                if entry.element_stride != crate::layout::storage_size_bytes(types, entry.value_ty)
+                {
+                    return None;
+                }
+                let initialized_count = raw_aliases.canonicalize_scalar(&entry.initialized_count);
+                storage_aliases_for_place(&entry.storage, raw_aliases)
+                    .into_iter()
+                    .any(|storage| {
+                        collection_slot_offset_is_inside_initialized_count(
+                            types,
+                            raw_aliases,
+                            slot,
+                            &storage,
+                            &initialized_count,
+                            entry.value_ty,
+                        )
+                    })
+                    .then_some(CollectionSlotState::Initialized(entry.value_ty))
+            })
+            .or_else(|| {
+                self.maybe_initialized_ranges.iter().find_map(|entry| {
+                    if entry.element_stride
+                        != crate::layout::storage_size_bytes(types, entry.value_ty)
+                    {
+                        return None;
+                    }
+                    let initialized_count =
+                        raw_aliases.canonicalize_scalar(&entry.initialized_count);
+                    storage_aliases_for_place(&entry.storage, raw_aliases)
+                        .into_iter()
+                        .any(|storage| {
+                            collection_slot_offset_is_inside_initialized_count(
+                                types,
+                                raw_aliases,
+                                slot,
+                                &storage,
+                                &initialized_count,
+                                entry.value_ty,
+                            )
+                        })
+                        .then_some(CollectionSlotState::MaybeInitialized(Some(entry.value_ty)))
                 })
-                .then_some(CollectionSlotState::Initialized(entry.value_ty))
-        })
+            })
     }
 }
 

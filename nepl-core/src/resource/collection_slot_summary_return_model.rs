@@ -16,6 +16,27 @@ pub(super) struct CollectionSlotLifecycleReturnSlot {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct CollectionSlotLifecycleReturnRange {
+    pub(super) storage_suffix: Vec<CollectionSlotLifecycleSummaryProjection>,
+    pub(super) storage_ty: TypeId,
+    pub(super) initialized_count: CollectionSlotLifecycleReturnRangeCount,
+    pub(super) value_ty: TypeId,
+    pub(super) element_stride: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum CollectionSlotLifecycleReturnRangeCount {
+    ReturnValueProjection {
+        suffix: Vec<CollectionSlotLifecycleSummaryProjection>,
+        ty: TypeId,
+    },
+    KnownI32 {
+        value: i32,
+        ty: TypeId,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct CollectionSlotLifecycleReturnTransfer {
     pub(super) source: CollectionSlotLifecycleSummaryPlace,
     pub(super) target_suffix: Vec<CollectionSlotLifecycleSummaryProjection>,

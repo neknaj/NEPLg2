@@ -23,7 +23,7 @@ impl ResourceCheckEngine<'_> {
         args: &[Place],
         span: crate::span::Span,
     ) -> Option<Vec<CollectionSlotReturnPathState>> {
-        let ResourceCallTarget::User { name, .. } = target else {
+        let ResourceCallTarget::User { name, type_args } = target else {
             collection_slots.clear_storage_prefix(output);
             return None;
         };
@@ -37,6 +37,7 @@ impl ResourceCheckEngine<'_> {
             raw_aliases,
             output,
             args,
+            type_args,
             summary,
             span,
         )
@@ -71,6 +72,7 @@ impl ResourceCheckEngine<'_> {
                     &mut path_aliases,
                     output,
                     args,
+                    &[],
                     summary,
                     span,
                 );
@@ -91,6 +93,7 @@ impl ResourceCheckEngine<'_> {
         raw_aliases: &mut RawCellAddressAliases,
         output: &Place,
         args: &[Place],
+        type_args: &[crate::types::TypeId],
         summary: &CollectionSlotLifecycleFunctionSummary,
         span: crate::span::Span,
     ) -> Option<Vec<CollectionSlotReturnPathState>> {
@@ -121,6 +124,15 @@ impl ResourceCheckEngine<'_> {
                 output,
                 &summary.return_slots,
             );
+            self.apply_collection_slot_return_ranges(
+                collection_slots,
+                raw_aliases,
+                args,
+                output,
+                &summary.type_params,
+                type_args,
+                &summary.return_ranges,
+            );
             self.clear_consumed_collection_slot_args(collection_slots, raw_aliases, args);
             None
         } else {
@@ -133,6 +145,8 @@ impl ResourceCheckEngine<'_> {
                 &initial_raw_aliases,
                 output,
                 args,
+                &summary.type_params,
+                type_args,
                 &summary.return_paths,
                 span,
             ))

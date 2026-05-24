@@ -37,6 +37,7 @@ impl CollectionSlotStateTable {
 
         let moved_entries = self.entries_under_prefix(source, target)?;
         let moved_ranges = self.initialized_ranges_under_prefix(source, target)?;
+        let moved_maybe_ranges = self.maybe_initialized_ranges_under_prefix(source, target)?;
         let released_storage = transfer_storage_markers(&self.released_storage, source, target);
         let maybe_released_storage =
             transfer_storage_markers(&self.maybe_released_storage, source, target);
@@ -45,6 +46,7 @@ impl CollectionSlotStateTable {
             self.set_slot_state(&entry.slot, entry.state);
         }
         self.initialized_ranges.extend(moved_ranges);
+        self.maybe_initialized_ranges.extend(moved_maybe_ranges);
         self.released_storage = released_storage;
         self.maybe_released_storage = maybe_released_storage;
         Ok(())
@@ -73,6 +75,11 @@ impl CollectionSlotStateTable {
             self.entries_under_alias_prefixes(&source_candidates, target, raw_aliases)?;
         let moved_ranges =
             self.initialized_ranges_under_alias_prefixes(&source_candidates, target, raw_aliases)?;
+        let moved_maybe_ranges = self.maybe_initialized_ranges_under_alias_prefixes(
+            &source_candidates,
+            target,
+            raw_aliases,
+        )?;
         let released_storage = transfer_storage_markers_with_aliases(
             &self.released_storage,
             &source_candidates,
@@ -90,6 +97,7 @@ impl CollectionSlotStateTable {
             self.set_slot_state(&entry.slot, entry.state);
         }
         self.initialized_ranges.extend(moved_ranges);
+        self.maybe_initialized_ranges.extend(moved_maybe_ranges);
         self.released_storage = released_storage;
         self.maybe_released_storage = maybe_released_storage;
         Ok(())
@@ -99,6 +107,8 @@ impl CollectionSlotStateTable {
         self.slots
             .retain(|entry| !place_covers_slot(&entry.slot, storage));
         self.initialized_ranges
+            .retain(|entry| !place_covers_slot(&entry.storage, storage));
+        self.maybe_initialized_ranges
             .retain(|entry| !place_covers_slot(&entry.storage, storage));
         self.released_storage
             .retain(|released| !place_covers_slot(released, storage));
@@ -122,6 +132,11 @@ impl CollectionSlotStateTable {
                 .any(|storage| place_covers_slot(&entry.slot, storage))
         });
         self.initialized_ranges.retain(|entry| {
+            !storages
+                .iter()
+                .any(|storage| place_covers_slot(&entry.storage, storage))
+        });
+        self.maybe_initialized_ranges.retain(|entry| {
             !storages
                 .iter()
                 .any(|storage| place_covers_slot(&entry.storage, storage))
@@ -154,6 +169,14 @@ impl CollectionSlotStateTable {
             return Err(value_transfer_refutation(
                 &entry.storage,
                 CollectionSlotState::Initialized(entry.value_ty),
+            ));
+        }
+        for entry in self.maybe_initialized_ranges.iter().filter(|entry| {
+            place_covers_slot(&entry.storage, target) && !place_covers_slot(&entry.storage, source)
+        }) {
+            return Err(value_transfer_refutation(
+                &entry.storage,
+                CollectionSlotState::MaybeInitialized(Some(entry.value_ty)),
             ));
         }
         if let Some(released) = self
@@ -201,6 +224,17 @@ impl CollectionSlotStateTable {
             return Err(value_transfer_refutation(
                 &entry.storage,
                 CollectionSlotState::Initialized(entry.value_ty),
+            ));
+        }
+        for entry in self.maybe_initialized_ranges.iter().filter(|entry| {
+            place_covers_slot(&entry.storage, target)
+                && !sources
+                    .iter()
+                    .any(|source| place_covers_slot(&entry.storage, source))
+        }) {
+            return Err(value_transfer_refutation(
+                &entry.storage,
+                CollectionSlotState::MaybeInitialized(Some(entry.value_ty)),
             ));
         }
         if let Some(released) = self
@@ -293,9 +327,25 @@ impl CollectionSlotStateTable {
         source: &Place,
         target: &Place,
     ) -> Result<Vec<CollectionSlotInitializedRangeStateEntry>, CollectionSlotTableRefutation> {
+        self.ranges_under_prefix(&self.initialized_ranges, source, target)
+    }
+
+    fn maybe_initialized_ranges_under_prefix(
+        &self,
+        source: &Place,
+        target: &Place,
+    ) -> Result<Vec<CollectionSlotInitializedRangeStateEntry>, CollectionSlotTableRefutation> {
+        self.ranges_under_prefix(&self.maybe_initialized_ranges, source, target)
+    }
+
+    fn ranges_under_prefix(
+        &self,
+        source_ranges: &[CollectionSlotInitializedRangeStateEntry],
+        source: &Place,
+        target: &Place,
+    ) -> Result<Vec<CollectionSlotInitializedRangeStateEntry>, CollectionSlotTableRefutation> {
         let mut ranges = Vec::new();
-        for entry in self
-            .initialized_ranges
+        for entry in source_ranges
             .iter()
             .filter(|entry| place_covers_slot(&entry.storage, source))
         {
@@ -322,8 +372,32 @@ impl CollectionSlotStateTable {
         target: &Place,
         raw_aliases: &RawCellAddressAliases,
     ) -> Result<Vec<CollectionSlotInitializedRangeStateEntry>, CollectionSlotTableRefutation> {
+        self.ranges_under_alias_prefixes(&self.initialized_ranges, sources, target, raw_aliases)
+    }
+
+    fn maybe_initialized_ranges_under_alias_prefixes(
+        &self,
+        sources: &[Place],
+        target: &Place,
+        raw_aliases: &RawCellAddressAliases,
+    ) -> Result<Vec<CollectionSlotInitializedRangeStateEntry>, CollectionSlotTableRefutation> {
+        self.ranges_under_alias_prefixes(
+            &self.maybe_initialized_ranges,
+            sources,
+            target,
+            raw_aliases,
+        )
+    }
+
+    fn ranges_under_alias_prefixes(
+        &self,
+        source_ranges: &[CollectionSlotInitializedRangeStateEntry],
+        sources: &[Place],
+        target: &Place,
+        raw_aliases: &RawCellAddressAliases,
+    ) -> Result<Vec<CollectionSlotInitializedRangeStateEntry>, CollectionSlotTableRefutation> {
         let mut ranges = Vec::new();
-        for entry in &self.initialized_ranges {
+        for entry in source_ranges {
             let Some(source) = sources
                 .iter()
                 .find(|source| place_covers_slot(&entry.storage, source))

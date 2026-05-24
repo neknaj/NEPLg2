@@ -9,6 +9,7 @@ use super::collection_slot_summary_projection::compose_translated_summary_suffix
 use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
 use super::collection_slot_summary_return_path_model::{push_return_path, ReturnPathBuildState};
 use super::collection_slot_summary_return_path_slots::translate_return_slots;
+use super::collection_slot_summary_return_range::translate_return_ranges;
 use super::collection_slot_summary_return_unique::push_return_transfer;
 use super::collection_slot_summary_target::{
     instantiate_summary_target_with_aliases, summary_place_for_params_with_aliases,
@@ -27,7 +28,7 @@ pub(super) fn collect_return_paths_from_call_summary(
     target: &ResourceCallTarget,
     target_suffix: &[PlaceProjection],
 ) {
-    let ResourceCallTarget::User { name, .. } = target else {
+    let ResourceCallTarget::User { name, type_args } = target else {
         return;
     };
     if let Some(summary) = engine.collection_slot_summaries.get(name) {
@@ -38,6 +39,7 @@ pub(super) fn collect_return_paths_from_call_summary(
             callsite,
             args,
             summary,
+            type_args,
             target_suffix,
         );
     }
@@ -61,6 +63,7 @@ pub(super) fn collect_return_paths_from_indirect_call_summary(
                 callsite.clone(),
                 args,
                 summary,
+                &[],
                 target_suffix,
             );
         }
@@ -74,6 +77,7 @@ fn collect_return_paths_from_summary(
     callsite: ReturnPathBuildState,
     args: &[Place],
     summary: &CollectionSlotLifecycleFunctionSummary,
+    type_args: &[crate::types::TypeId],
     target_suffix: &[PlaceProjection],
 ) {
     if summary.return_paths.is_empty() {
@@ -84,6 +88,7 @@ fn collect_return_paths_from_summary(
             callsite,
             args,
             summary,
+            type_args,
             target_suffix,
         );
         return;
@@ -115,7 +120,20 @@ fn collect_return_paths_from_summary(
             &callee_path.return_slots,
             target_suffix,
         );
-        if translated_ops.is_empty() && return_transfers.is_empty() && return_slots.is_empty() {
+        let return_ranges = translate_return_ranges(
+            engine,
+            args,
+            params,
+            &summary.type_params,
+            type_args,
+            &callee_path.return_ranges,
+            target_suffix,
+        );
+        if translated_ops.is_empty()
+            && return_transfers.is_empty()
+            && return_slots.is_empty()
+            && return_ranges.is_empty()
+        {
             continue;
         }
         let mut ops = callsite.ops.clone();
@@ -126,6 +144,7 @@ fn collect_return_paths_from_summary(
                 ops,
                 return_transfers,
                 return_slots,
+                return_ranges,
                 i32_scalar_facts: translate_i32_scalar_return_facts_for_call(
                     params,
                     engine.types,
@@ -146,6 +165,7 @@ fn collect_legacy_return_path_from_summary(
     callsite: ReturnPathBuildState,
     args: &[Place],
     summary: &CollectionSlotLifecycleFunctionSummary,
+    type_args: &[crate::types::TypeId],
     target_suffix: &[PlaceProjection],
 ) {
     let mut translated_ops = Vec::new();
@@ -169,7 +189,20 @@ fn collect_legacy_return_path_from_summary(
     );
     let return_slots =
         translate_return_slots(engine, args, params, &summary.return_slots, target_suffix);
-    if translated_ops.is_empty() && return_transfers.is_empty() && return_slots.is_empty() {
+    let return_ranges = translate_return_ranges(
+        engine,
+        args,
+        params,
+        &summary.type_params,
+        type_args,
+        &summary.return_ranges,
+        target_suffix,
+    );
+    if translated_ops.is_empty()
+        && return_transfers.is_empty()
+        && return_slots.is_empty()
+        && return_ranges.is_empty()
+    {
         return;
     }
     let mut ops = callsite.ops;
@@ -180,6 +213,7 @@ fn collect_legacy_return_path_from_summary(
             ops,
             return_transfers,
             return_slots,
+            return_ranges,
             i32_scalar_facts: Default::default(),
         },
     );

@@ -133,6 +133,7 @@ mod collection_slot_summary_return_path_model;
 mod collection_slot_summary_return_path_slots;
 mod collection_slot_summary_return_path_state;
 mod collection_slot_summary_return_path_value;
+mod collection_slot_summary_return_range;
 mod collection_slot_summary_return_state;
 mod collection_slot_summary_return_unique;
 mod collection_slot_summary_return_value;

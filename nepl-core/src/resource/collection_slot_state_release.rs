@@ -23,6 +23,8 @@ impl CollectionSlotStateTable {
             .retain(|entry| !place_covers_slot(&entry.slot, storage));
         self.initialized_ranges
             .retain(|entry| !place_covers_slot(&entry.storage, storage));
+        self.maybe_initialized_ranges
+            .retain(|entry| !place_covers_slot(&entry.storage, storage));
         self.maybe_released_storage
             .retain(|released| !place_covers_slot(released, storage));
         push_unique_place(&mut self.released_storage, storage);
@@ -86,6 +88,18 @@ impl CollectionSlotStateTable {
                 slot: entry.storage.clone(),
                 reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
                     slot_ty: entry.value_ty,
+                },
+            });
+        }
+        for entry in self
+            .maybe_initialized_ranges()
+            .iter()
+            .filter(|entry| place_covers_slot(&entry.storage, storage))
+        {
+            return Err(CollectionSlotTableRefutation {
+                slot: entry.storage.clone(),
+                reason: CollectionSlotLifecycleRefutation::MaybeLiveSlotDuringStorageDealloc {
+                    slot_ty: Some(entry.value_ty),
                 },
             });
         }

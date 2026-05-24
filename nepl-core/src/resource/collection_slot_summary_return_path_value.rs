@@ -12,7 +12,10 @@ use super::collection_slot_summary_return_path_control::return_value_is_never;
 use super::collection_slot_summary_return_path_model::{push_return_path, ReturnPathBuildState};
 use super::collection_slot_summary_return_path_slots::collect_return_slots_for_value;
 use super::collection_slot_summary_return_path_state::return_path_states_after_ops;
-use super::collection_slot_summary_return_unique::{push_return_slot, push_return_transfer};
+use super::collection_slot_summary_return_range::collect_return_ranges_for_value;
+use super::collection_slot_summary_return_unique::{
+    push_return_range, push_return_slot, push_return_transfer,
+};
 use super::collection_slot_summary_target::summary_place_for_params_with_aliases;
 use super::i32_scalar_return_facts::collect_i32_scalar_return_facts_for_value_suffix;
 use super::initialized::ResourceCheckEngine;
@@ -66,6 +69,7 @@ fn collect_direct_return_path(
 ) {
     let mut return_transfers = Vec::new();
     let mut return_slots = Vec::new();
+    let mut return_ranges = Vec::new();
     let canonical_value = path
         .state
         .raw_aliases
@@ -93,6 +97,13 @@ fn collect_direct_return_path(
         target_suffix,
     );
     collect_return_slots_for_value(&mut return_slots, params, &path.state, value, target_suffix);
+    collect_return_ranges_for_value(
+        &mut return_ranges,
+        params,
+        &path.state,
+        value,
+        target_suffix,
+    );
     let i32_scalar_facts = collect_i32_scalar_return_facts_for_value_suffix(
         params,
         engine.types,
@@ -100,13 +111,18 @@ fn collect_direct_return_path(
         value,
         target_suffix,
     );
-    if !return_transfers.is_empty() || !return_slots.is_empty() || !i32_scalar_facts.is_empty() {
+    if !return_transfers.is_empty()
+        || !return_slots.is_empty()
+        || !return_ranges.is_empty()
+        || !i32_scalar_facts.is_empty()
+    {
         push_return_path(
             out,
             CollectionSlotLifecycleReturnPath {
                 ops: path.ops,
                 return_transfers,
                 return_slots,
+                return_ranges,
                 i32_scalar_facts,
             },
         );
@@ -427,6 +443,9 @@ fn push_merged_construct_return_paths(
             }
             for slot in path.return_slots {
                 push_return_slot(&mut existing.return_slots, slot);
+            }
+            for range in path.return_ranges {
+                push_return_range(&mut existing.return_ranges, range);
             }
             existing.i32_scalar_facts.extend(path.i32_scalar_facts);
         } else {

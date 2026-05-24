@@ -4,7 +4,8 @@ use alloc::vec::Vec;
 
 use super::collection_slot_state_merge::merge_collection_slot_states;
 use super::collection_slot_summary_return_model::{
-    CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
+    CollectionSlotLifecycleReturnRange, CollectionSlotLifecycleReturnSlot,
+    CollectionSlotLifecycleReturnTransfer,
 };
 
 pub(super) fn push_return_slot(
@@ -34,6 +35,15 @@ pub(super) fn push_return_transfer(
     out.retain(|existing| !return_transfer_covers(&transfer, existing));
     if !out.iter().any(|existing| existing == &transfer) {
         out.push(transfer);
+    }
+}
+
+pub(super) fn push_return_range(
+    out: &mut Vec<CollectionSlotLifecycleReturnRange>,
+    range: CollectionSlotLifecycleReturnRange,
+) {
+    if !out.iter().any(|existing| existing == &range) {
+        out.push(range);
     }
 }
 

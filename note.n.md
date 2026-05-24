@@ -1,3 +1,19 @@
+# 2026-05-24 Agent 1 TransformRange return range propagation
+
+- 同じ transform range lifecycle certificate issue の続きとして、returned `Vec` 相当の output initialized range を caller 側の return value storage/count projection へ伝播する summary fact を追加した。
+- `CollectionSlotLifecycleFunctionSummary` / `CollectionSlotLifecycleReturnPath` に `return_ranges` を追加し、storage suffix と initialized count source（return value projection または known i32）を保持する。stdlib 名や helper 名の allowlist ではなく、Resource IR の return value / path summary から導く。
+- summary build は `CollectionSlotStateTable::initialized_ranges` を return value 配下の storage/count suffix へ変換し、nested call / wrapper return path では `target_suffix` と合成して caller parameter-relative fact へ翻訳する。
+- summary apply は call output の storage prefix を clear した後、return range fact を `mark_initialized_range_with_aliases` で再構築する。`element_stride` は payload layout size と一致する場合だけ適用する。
+- path-sensitive replay では `return_path_targets_slot` に range storage suffix を含め、range-only return path を lifecycle fact として保持するようにした。さらに `CollectionSlotStateTable` に `maybe_initialized_ranges` を追加し、片 path だけが initialized range を返す場合も storage release を安全側で拒否する。
+- return range apply は summary type params と call type args から payload 型を実型化してから `element_stride` を検査する。unbound generic の 4-byte fallback が wide payload に誤適用されないことを regression 化した。
+- regression として return range apply が output prefix を initialized とみなし storage release をブロックすること、return value 配下の storage/count projection から range fact を収集できること、range-only return path が merge で消えないことを追加した。
+- focused verification:
+  - `cargo fmt --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core collection_slot_summary_return_range -- --nocapture`
+  - `cargo test -p nepl-core collection_slot_summary_ -- --nocapture`
+  - `cargo test -p nepl-core collection_slot_state_merge -- --nocapture`
+
 # 2026-05-24 Agent 1 TransformRange core certificate scaffold
 
 - `plan.md` と Zenn 方針は確認済みで、変更していない。試作段階でも public non-Copy transform を先に開かず、Resource IR proof boundary を先に固める方針を維持した。

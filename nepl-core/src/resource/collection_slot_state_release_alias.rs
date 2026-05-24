@@ -40,6 +40,11 @@ impl CollectionSlotStateTable {
                 .iter()
                 .any(|storage| place_covers_slot(&entry.storage, storage))
         });
+        self.maybe_initialized_ranges.retain(|entry| {
+            !aliases
+                .iter()
+                .any(|storage| place_covers_slot(&entry.storage, storage))
+        });
         self.maybe_released_storage.retain(|released| {
             !aliases
                 .iter()

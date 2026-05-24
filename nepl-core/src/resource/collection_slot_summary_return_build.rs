@@ -8,9 +8,11 @@ use super::collection_slot_summary_return_collect::{
     collect_return_storage_markers, collect_return_transfers_from_ops,
 };
 use super::collection_slot_summary_return_model::{
-    CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
+    CollectionSlotLifecycleReturnRange, CollectionSlotLifecycleReturnSlot,
+    CollectionSlotLifecycleReturnTransfer,
 };
 use super::collection_slot_summary_return_path::collect_return_paths_from_ops;
+use super::collection_slot_summary_return_range::collect_return_ranges_for_value;
 use super::collection_slot_summary_return_unique::push_return_slot;
 use super::initialized::ResourceCheckEngine;
 use super::model::{ResourceLocal, ResourceTerminator};
@@ -19,6 +21,7 @@ use super::place_utils::place_suffix_after_prefix;
 pub(super) fn collect_return_facts_from_terminator(
     out_transfers: &mut Vec<CollectionSlotLifecycleReturnTransfer>,
     out: &mut Vec<CollectionSlotLifecycleReturnSlot>,
+    out_ranges: &mut Vec<CollectionSlotLifecycleReturnRange>,
     out_paths: &mut Vec<CollectionSlotLifecycleReturnPath>,
     state_at_return: &CollectionSlotSummaryBuildState,
     engine: &ResourceCheckEngine<'_>,
@@ -35,6 +38,7 @@ pub(super) fn collect_return_facts_from_terminator(
     };
     collect_return_transfers_from_ops(out_transfers, engine, params, block_entry_state, ops, value);
     collect_return_paths_from_ops(out_paths, engine, params, block_entry_state, ops, value);
+    collect_return_ranges_for_value(out_ranges, params, state_at_return, value, &[]);
     for entry in state_at_return
         .collection_slots
         .entries_covered_by_storage_with_aliases(value, &state_at_return.raw_aliases)

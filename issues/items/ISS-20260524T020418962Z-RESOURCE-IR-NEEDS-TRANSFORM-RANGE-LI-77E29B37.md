@@ -42,13 +42,24 @@ drop traversal range certificate の兄弟として transform range lifecycle ce
 
 ## 進捗
 
+2026-05-24 checkpoint 2:
+
+- returned `Vec` 相当の output initialized range を caller 側へ伝播するため、collection slot return summary に `return_ranges` fact を追加した。
+- `return_ranges` は return value 配下の storage suffix と initialized count source（return value projection または known i32）を保持し、nested call / wrapper return path でも `target_suffix` と合成して伝播する。
+- call summary apply は output storage prefix を clear した後に return range fact を `mark_initialized_range_with_aliases` で再構築し、payload layout と `element_stride` が一致しない fact は適用しない。
+- path-sensitive return replay は range-only path を lifecycle fact として保持し、`return_path_targets_slot` に range storage suffix を含めた。
+- `CollectionSlotStateTable` に `maybe_initialized_ranges` を追加し、片 path だけが returned initialized range を持つ場合も merge 後に maybe-live range として storage release を拒否する。
+- return range apply / translation は summary type params と call type args で payload 型を実型化してから `element_stride` を検査し、generic payload の 4-byte fallback を wide payload へ誤適用しない。
+- regression として return range apply が output prefix を initialized とみなし storage release をブロックすること、return value 配下の storage/count projection から range fact を収集できること、range-only path merge、generic stride mismatch rejection を固定した。
+- 未完了: partial output rollback cleanup の source-level fixture、stdlib `filter<T: Drop>` / prefix / map / partition への接続、public transform overload の解禁判定。
+
 2026-05-24 checkpoint:
 
 - `ResourceOp::CollectionSlotTransformRange` と `collection_slot_transform_range<T>` primitive を追加し、typecheck / lowering / coverage / dump / effect / borrow / owner summary の match 接続を行った。
 - `CollectionSlotLifecycleSummaryOp::TransformRange` と certificate model を追加し、summary replay で source range `MoveOut`、output prefix `InitializeEmpty`、discard actual drop proof を検査する scaffold を入れた。discard drop proof がない non-Copy transform replay は拒否する。
 - `CollectionSlotStateTable` に initialized range state を追加し、output prefix が storage release をブロックし、drop traversal certificate 後に release できることを regression 化した。branch merge では共通 range と explicit slot override を range-aware に merge する。
 - summary producer は source drain / output prefix loop の最小形を認識する。output count は 0 起点、loaded value store、output increment 1 回、discard branch actual drop を要求する。
-- 未完了: return value 上の output initialized range propagation、partial output rollback cleanup の source-level fixture、stdlib `filter<T: Drop>` / prefix / map / partition への接続。local `CollectionSlotTransformRange` op は certificate なしに state を更新しない summary marker のままで、public transform overload はまだ開かない。
+- 当時未完了: return value 上の output initialized range propagation、partial output rollback cleanup の source-level fixture、stdlib `filter<T: Drop>` / prefix / map / partition への接続。local `CollectionSlotTransformRange` op は certificate なしに state を更新しない summary marker のままで、public transform overload はまだ開かない。
 
 ## 検証
 

@@ -196,3 +196,31 @@ fn merge_drops_initialized_range_when_a_path_overrides_a_slot_inside_it() {
         "common range summary should survive, while explicit slot state shadows overridden slots"
     );
 }
+
+#[test]
+fn merge_keeps_one_path_initialized_range_as_maybe_live() {
+    let (types, owned, _) = test_types();
+    let raw_aliases = RawCellAddressAliases::default();
+    let buffer = storage(owned);
+    let count = Place::i32_constant(1, owned);
+    let slot0 = slot(owned, 0, owned);
+    let mut left = CollectionSlotStateTable::new();
+    let right = CollectionSlotStateTable::new();
+    left.mark_initialized_range_with_aliases(&buffer, &count, owned, 4, &raw_aliases);
+
+    let mut merged = CollectionSlotStateTable::merge_paths(&[left, right]);
+
+    assert_eq!(
+        merged.state_with_aliases_and_ranges(&types, &slot0, &raw_aliases),
+        CollectionSlotState::MaybeInitialized(Some(owned))
+    );
+    assert_eq!(
+        merged.release_storage_with_aliases(&buffer, &raw_aliases),
+        Err(CollectionSlotTableRefutation {
+            slot: buffer,
+            reason: CollectionSlotLifecycleRefutation::MaybeLiveSlotDuringStorageDealloc {
+                slot_ty: Some(owned),
+            },
+        })
+    );
+}
