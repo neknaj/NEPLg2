@@ -45562,3 +45562,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - remaining:
   - prefix 型適用境界は parser-local arity hints 依存であり、kind resolver 化は `ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92` で継続する。
   - explicit generic postfix call の撤廃は `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の semantic rewrite として継続する。
+
+## 2026-05-24 Agent 1 Option/Result helper generic postfix removal checkpoint
+
+- subagent 調査を踏まえ、最初の semantic rewrite は `Type<T>::Ctor` 全体や user call site には広げず、`stdlib/core/option.nepl` と `stdlib/core/result.nepl` の helper 本体だけに限定した。
+- `none` / `some` / `ok` / `err` の実装と、`map` / `map_err` / `and_then` の内部 return branch で、戻り値期待型から解決できる explicit generic postfix を撤廃した。
+- 直接 smoke では、helper 本体の postfix 撤廃は通る一方、呼び出し側の `map a inc` / `and_then r f` はまだ stack extra values で落ちる。呼び出し側 postfix 撤廃には expected type を使った call candidate reduction の追加改良が必要である。
+- verification:
+  - stdin direct `.\target\debug\nepl-cli.exe --check --target core`: passed for `some` / `none` / `ok` / `and_then<i32,i32,str>` using updated helper internals.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
+  - `git diff --check`: passed with CRLF warnings only.
+  - `node nodesrc/tests.js -i stdlib/tests/option.n.md -i stdlib/tests/result.n.md --no-tree -o tmp/neplg21-option-result-smoke.json -j 1 --assert-io`: compile timeout at 60s per doctest, no concrete diagnostic.

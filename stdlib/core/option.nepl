@@ -134,7 +134,7 @@ impl<.T: Copy> Copy for Option<.T>:
 //: 計算量:
 //: - O(1)
 pub fn none <.T> %fn () Option .T \():
-    Option<.T>::None
+    Option::None
 
 //: some: 値を包んで返す
 //:
@@ -150,7 +150,7 @@ pub fn none <.T> %fn () Option .T \():
 //: 計算量:
 //: - O(1)
 pub fn some <.T> %fn .T Option .T \v:
-    Option<.T>::Some v
+    Option::Some v
 
 //: is_some: 値があるか判定する
 //:
@@ -248,9 +248,9 @@ pub fn unwrap_or <.T> %fn Option .T fn .T .T \o\default:
 pub fn map <.T,.U> %fn Option .T fn fn .T .U Option .U \o\f:
     match o:
         Option::Some v:
-            some<.U> f v
+            some f v
         Option::None:
-            none<.U>
+            none
 
 //: and_then: 値がある時だけ Option を返す関数へつなぐ
 //:
@@ -270,4 +270,4 @@ pub fn and_then <.T,.U> %fn Option .T fn fn .T Option .U Option .U \o\f:
         Option::Some v:
             f v
         Option::None:
-            none<.U>
+            none

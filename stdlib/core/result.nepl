@@ -214,7 +214,7 @@ impl<.T: Copy, .E: Copy> Copy for Result<.T, .E>:
 //: 計算量:
 //: - O(1)
 pub fn ok <.T, .E> %fn .T Result .T .E \v:
-    Result<.T, .E>::Ok v
+    Result::Ok v
 
 //: err: 失敗値を包む
 //:
@@ -230,7 +230,7 @@ pub fn ok <.T, .E> %fn .T Result .T .E \v:
 //: 計算量:
 //: - O(1)
 pub fn err <.T, .E> %fn .E Result .T .E \e:
-    Result<.T, .E>::Err e
+    Result::Err e
 
 //: is_ok: 成功か判定する
 //:
@@ -432,9 +432,9 @@ pub fn std_error_kind_str %fn StdErrorKind str \kind:
 pub fn map <.T, .U, .E> %fn Result .T .E fn fn .T .U Result .U .E \r\f:
     match r:
         Result::Ok v:
-            ok<.U, .E> (f v)
+            ok (f v)
         Result::Err e:
-            err<.U, .E> e
+            err e
 
 //: map_err: Err の値に関数を適用する
 //:
@@ -452,9 +452,9 @@ pub fn map <.T, .U, .E> %fn Result .T .E fn fn .T .U Result .U .E \r\f:
 pub fn map_err <.T, .E, .F> %fn Result .T .E fn fn .E .F Result .T .F \r\f:
     match r:
         Result::Ok v:
-            ok<.T, .F> v
+            ok v
         Result::Err e:
-            err<.T, .F> (f e)
+            err (f e)
 
 //: and_then: Ok の値を次の Result 計算へつなぐ
 //:
@@ -474,4 +474,4 @@ pub fn and_then <.T, .U, .E> %fn Result .T .E fn fn .T Result .U .E Result .U .E
         Result::Ok v:
             f v
         Result::Err e:
-            err<.U, .E> e
+            err e
