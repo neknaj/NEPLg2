@@ -129,6 +129,14 @@ LLM/手動判断が必要なもの:
 - 同ファイルの doctest 例に残っていた `is_some<bool>` も `is_some` へ移行した。
 - direct `nepl-cli.exe --check` smoke で、bool/number/string accessor と array/object accessor の postfix-free return は pass した。
 
+### 2026-05-24 string access/search Option postfix cleanup checkpoint
+
+- `stdlib/alloc/string/access.nepl` の `byte_at` 本体で、戻り値 `%Option i32` から確定できる `some<i32>` / `none<i32>` を postfix なしへ移行した。
+- `stdlib/alloc/string/byte_index.nepl` の `checked_string_byte_index` / `checked_string_byte_at` / `string_bytes_cmp` 本体で、戻り値型から確定できる `some<T>` / `none<T>` を postfix なしへ移行した。
+- `stdlib/alloc/string/find.nepl` の `find` 本体で、戻り値 `%Option i32` と `out %Option i32` local から確定できる `some<i32>` / `none<i32>` を postfix なしへ移行した。
+- doctest コメント内の `is_none<i32>` 例は、nested generic consumer に頼らず `%Option i32` local を置いて `is_none` に渡す形へ移行した。
+- `node nodesrc/tests.js` の対象 file runner では `access.nepl` が 1/1 pass、`byte_index.nepl` が 5/5 pass。`find.nepl` は std/test 付き doctest が compile timeout after 60000ms になったため、direct `nepl-cli.exe --check --target core` smoke で `byte_at` / `checked_string_byte_at` / `string_bytes_cmp` / `find` の postfix-free shape を確認した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

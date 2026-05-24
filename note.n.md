@@ -13,6 +13,18 @@
   - frontend 側は `%` 型注釈と `\` lambda を既存 AST/HIR に正規化し、Resource IR へ構文差分を漏らさない方針が妥当。
   - corpus 側は `<TypeExpr>` の機械変換と、generic postfix / lambda / compile_fail fixture の semantic rewrite を分ける必要がある。
 
+# 2026-05-24 Agent 1 NEPLg2.1 string Option postfix checkpoint
+
+- Zenn 方針を 2026-05-24 更新版で再確認し、単純な textual removal ではなく、関数戻り値型または typed local で `Option` payload が確定する箇所だけを移行した。
+- `stdlib/alloc/string/access.nepl` の `byte_at` で、戻り値 `%Option i32` から解ける `none<i32>` / `some<i32>` を postfix なしへ移行した。doctest 例も `missing %Option i32` local を置いて `is_none` を呼ぶ形にした。
+- `stdlib/alloc/string/byte_index.nepl` の `checked_string_byte_index` / `checked_string_byte_at` / `string_bytes_cmp` で、戻り値型から解ける `some<T>` / `none<T>` を postfix なしへ移行した。private witness の可視性や raw byte read boundary は変更していない。
+- `stdlib/alloc/string/find.nepl` の `find` で、戻り値 `%Option i32` と `out %Option i32` local から解ける `some<i32>` / `none<i32>` を postfix なしへ移行した。doctest 例は nested `is_none<i32> find ...` ではなく `%Option i32` local を挟む形にした。
+- focused verification:
+  - `target\debug\nepl-cli.exe -i tmp\neplg21_string_option_smoke.neplg2 --check --target core`: passed.
+  - `node nodesrc\tests.js -i stdlib\alloc\string\access.nepl --no-tree -o tmp\string-access-generic-postfix.json -j 1 --dist web\dist`: passed.
+  - `node nodesrc\tests.js -i stdlib\alloc\string\byte_index.nepl --no-tree -o tmp\string-byte-index-generic-postfix.json -j 1 --dist web\dist`: passed.
+  - `node nodesrc\tests.js -i stdlib\alloc\string\find.nepl --no-tree -o tmp\string-find-generic-postfix.json -j 1 --dist web\dist --assert-io`: compile timeout after 60000ms. direct smoke は通っており、`std/test` 付き find doctest の長時間化として扱う。
+
 # 2026-05-24 Agent 1 NEPLg2.1 frontend/corpus checkpoint
 
 - Rust lexer/parser に `Percent` / `Backslash` を追加し、`%T` 型注釈、prefix 型式、`\a\b:` / `\():` lambda 引数を既存 AST/HIR へ正規化する経路を追加した。

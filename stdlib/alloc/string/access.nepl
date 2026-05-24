@@ -90,21 +90,22 @@ pub fn str_byte_len %fn str i32 \s:
 //:             eq b 'Z'
 //:         Option::None:
 //:             false
-//:     if and ok0 and ok1 is_none<i32> byte_at "AZ" 2 0 1
+//:     let missing %Option i32 byte_at "AZ" 2
+//:     if and ok0 and ok1 is_none missing 0 1
 //: ```
 pub fn byte_at %fn str fn i32 Option i32 \s\idx:
     let n %i32 len s
     if:
         lt idx 0
         then:
-            none<i32>
+            none
         else:
             if:
                 le n idx
                 then:
-                    none<i32>
+                    none
                 else:
-                    some<i32> string_byte_at_checked_raw s idx
+                    some string_byte_at_checked_raw s idx
 
 //: string_byte_at_checked_raw: 範囲確認後に `str` の本文 1 バイトを読む内部 helper
 //:

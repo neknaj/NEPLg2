@@ -66,14 +66,14 @@ pub fn checked_string_byte_index %fn str fn i32 Option StringByteIndex \s\idx:
     if:
         lt idx 0
         then:
-            none<StringByteIndex>
+            none
         else:
             if:
                 le n idx
                 then:
-                    none<StringByteIndex>
+                    none
                 else:
-                    some<StringByteIndex> StringByteIndex idx
+                    some StringByteIndex idx
 
 //: string_byte_index_value: private witness から byte index を取り出す
 //:
@@ -126,9 +126,9 @@ pub fn string_byte_at_checked %fn str fn StringByteIndex i32 \s\idx:
 pub fn checked_string_byte_at %fn str fn i32 Option i32 \s\idx:
     match checked_string_byte_index s idx:
         Option::Some proof:
-            some<i32> string_byte_at_checked s proof
+            some string_byte_at_checked s proof
         Option::None:
-            none<i32>
+            none
 
 //: string_byte_eq: byte index の値が期待 byte と一致するかを checked に判定する
 //:
@@ -214,15 +214,15 @@ pub fn string_bytes_cmp %fn str fn i32 fn str fn i32 Option i32 \a\a_idx\b\b_idx
                     if:
                         lt ba bb
                         then:
-                            some<i32> -1
+                            some -1
                         else:
                             if:
                                 gt ba bb
                                 then:
-                                    some<i32> 1
+                                    some 1
                                 else:
-                                    some<i32> 0
+                                    some 0
                 Option::None:
-                    none<i32>
+                    none
         Option::None:
-            none<i32>
+            none

@@ -50,14 +50,16 @@
 //:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "None" "expected Some index"
 //:
 //: fn main %impure fn () i32 \():
+//:     let missing %Option i32 find "abc" "z"
+//:     let longer %Option i32 find "ab" "abc"
 //:     let report:
 //:         test_report_new "string_find_doc"
 //:         |> test_report_push expect_find_some "empty pattern" find "abc" "" 0
 //:         |> test_report_push expect_find_some "prefix" find "abc" "ab" 0
 //:         |> test_report_push expect_find_some "middle" find "abcabc" "ca" 2
 //:         |> test_report_push expect_find_some "suffix" find "abc" "bc" 1
-//:         |> test_report_push assert "missing pattern" is_none<i32> find "abc" "z"
-//:         |> test_report_push assert "longer pattern" is_none<i32> find "ab" "abc"
+//:         |> test_report_push assert "missing pattern" is_none missing
+//:         |> test_report_push assert "longer pattern" is_none longer
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
@@ -66,22 +68,22 @@ pub fn find %fn str fn str Option i32 \s\pat:
     let pat_len %i32 len pat;
     if:
         eq pat_len 0
-        then some<i32> 0
+        then some 0
         else:
             if:
                 lt s_len pat_len
-                then none<i32>
+                then none
                 else:
                     let last_start %i32 sub s_len pat_len;
                     let mut start %i32 0;
-                    let mut out %Option i32 none<i32>;
+                    let mut out %Option i32 none;
                     let mut searching %bool true;
                     while and searching le start last_start:
                         do:
                             if:
                                 str_eq_at s pat start pat_len 0
                                 then:
-                                    set out some<i32> start;
+                                    set out some start;
                                     set searching false;
                                 else:
                                     set start add start 1;
