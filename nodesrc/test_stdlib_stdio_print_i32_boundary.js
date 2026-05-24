@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/std/stdio.nepl';
@@ -10,14 +11,8 @@ const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
 const printRelPath = 'stdlib/std/stdio/print.nepl';
 const printSrc = fs.readFileSync(path.join(repoRoot, printRelPath), 'utf8');
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const printCode = printSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const code = legacyTypeSyntaxView(src);
+const printCode = legacyTypeSyntaxView(printSrc);
 
 assert.match(
     code,

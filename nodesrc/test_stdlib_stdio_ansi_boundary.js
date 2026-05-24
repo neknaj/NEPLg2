@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/std/stdio.nepl';
@@ -16,16 +17,11 @@ const typesSrc = fs.readFileSync(path.join(repoRoot, typesRelPath), 'utf8');
 const codeSrc = fs.readFileSync(path.join(repoRoot, codeRelPath), 'utf8');
 const printSrc = fs.readFileSync(path.join(repoRoot, printRelPath), 'utf8');
 
-const stripComments = (src) => src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-
-const rootCode = stripComments(rootSrc);
-const ansiCode = stripComments(ansiSrc);
-const typesCode = stripComments(typesSrc);
-const codeCode = stripComments(codeSrc);
-const printCode = stripComments(printSrc);
+const rootCode = legacyTypeSyntaxView(rootSrc);
+const ansiCode = legacyTypeSyntaxView(ansiSrc);
+const typesCode = legacyTypeSyntaxView(typesSrc);
+const codeCode = legacyTypeSyntaxView(codeSrc);
+const printCode = legacyTypeSyntaxView(printSrc);
 const allAnsiImplCode = [typesCode, codeCode, printCode].join('\n');
 
 assert.match(

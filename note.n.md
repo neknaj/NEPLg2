@@ -10,6 +10,9 @@
 - 追加 checkpoint として BTree / AdjacencyMatrix / BloomFilter / CountingBloomFilter / DisjointSet / SparseSet / SegmentTree の borrowed observer policy と、HashMap / HashSet storage contract policy を同じ `legacyTypeSyntaxView` へ移した。source policy helper のコメントは Zenn 方針に合わせ、source policy 用 view の契約と parser 代替ではない現在の実装境界を分けて記述した。
 - `TYPE_ARITY` は BTree / HashMap / HashSet storage/error 型を扱えるよう拡張した。これは parser の型解決ではなく、source policy が既存 semantic assertions を維持して NEPLg2.1 prefix 型表記を読めるようにするための限定的な view である。
 - `node nodesrc\run_source_policy_regressions.js --warn-only` は stale failure が 62 件から 52 件へ減った。残件には Rust responsibility policy、selfhost model/report contract、documentation/tutorial contract、Vec/string/IO boundary など、helper 移行だけで済むものと設計確認が必要なものが混在している。
+- 追加で SHA256 / ByteBuf UTF-8 / fs / cliarg / streamio / stdio print_i32 / stdio ansi の source policy を `legacyTypeSyntaxView` へ移した。これらは raw source regex が旧 `<...>` type signature を読めなかっただけで、所有権境界や raw ABI boundary の assertion は維持している。
+- `node nodesrc\run_source_policy_regressions.js --warn-only` は stale failure が 52 件から 45 件へ減った。残件は nm/parser/html、documentation/tutorial、diag/std_test、kpgraph/kpsearch/wasix、Vec/string/text/ByteBuf owner、Rust/selfhost responsibility 系に分散している。
+- コメント方針として、source policy helper のコメントに「コメント行を検査 view から除くのは executable contract を読むためであり、コメント量を制限したり丁寧な documentation を妨げたりするためではない」と明記した。
 - focused verification:
   - `node nodesrc\test_source_policy_nepl_source_view.js`
   - `node nodesrc\test_stdlib_match_decision_trees.js`
@@ -19,6 +22,7 @@
   - `node nodesrc\test_stdlib_streamio_writer_boundary.js`
   - collection source policy group: AdjacencyMatrix / BinaryHeap / BitSet / BloomFilter / CountingBloomFilter / DisjointSet / Fenwick / List / Queue / Deque / RingBuffer / SegmentTree / SparseSet / Stack / sort merge の対象テストは pass。
   - borrowed/storage source policy group: BTree borrowed observer / BTree insert grow / AdjacencyMatrix borrowed observer / BloomFilter borrowed observer / CountingBloomFilter borrowed observer / DisjointSet borrowed observer / SparseSet borrowed observer / SegmentTree borrowed observer / HashMap storage contract / HashSet storage contract は pass。
+  - stdlib boundary source policy group: SHA256 / ByteBuf UTF-8 / fs / cliarg / streamio / stdio print_i32 / stdio ansi は pass。
 
 # 2026-05-24 Agent 1 NEPLg2.1 syntax migration kickoff
 

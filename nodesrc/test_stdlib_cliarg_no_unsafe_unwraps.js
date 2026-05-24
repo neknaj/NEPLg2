@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/std/env/cliarg.nepl';
@@ -12,18 +13,9 @@ const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
 const rawSrc = fs.readFileSync(path.join(repoRoot, rawRelPath), 'utf8');
 const cstrSrc = fs.readFileSync(path.join(repoRoot, cstrRelPath), 'utf8');
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const rawCode = rawSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const cstrCode = cstrSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const code = legacyTypeSyntaxView(src);
+const rawCode = legacyTypeSyntaxView(rawSrc);
+const cstrCode = legacyTypeSyntaxView(cstrSrc);
 const cstrDoc = cstrSrc
     .split(/\r?\n/)
     .filter((line) => /^\s*\/\/:/.test(line))

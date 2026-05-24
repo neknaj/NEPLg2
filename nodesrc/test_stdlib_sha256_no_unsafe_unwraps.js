@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPaths = [
@@ -23,11 +24,7 @@ const sources = new Map(
     ])
 );
 
-const code = [...sources.values()]
-    .join('\n')
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const code = legacyTypeSyntaxView([...sources.values()].join('\n'));
 
 const forbidden = [
     /\bunwrap\b/,
@@ -68,14 +65,14 @@ assert.doesNotMatch(
     'sha256_rounds_loop must not shadow the working variable e with an error payload binding'
 );
 
-const api = sources.get('stdlib/alloc/hash/sha256/api.nepl');
+const api = legacyTypeSyntaxView(sources.get('stdlib/alloc/hash/sha256/api.nepl'));
 assert.doesNotMatch(
     api,
     /\bctx\.buffer\b/,
     'sha256 api must use explicit owner aggregate field accessors so source proof is visible'
 );
 
-const types = sources.get('stdlib/alloc/hash/sha256/types.nepl');
+const types = legacyTypeSyntaxView(sources.get('stdlib/alloc/hash/sha256/types.nepl'));
 assert.match(
     types,
     /pub\s+fn\s+sha256_update_error_kind\s+<\(&Sha256UpdateError\)->StdErrorKind>/,

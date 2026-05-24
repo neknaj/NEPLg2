@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPath = 'stdlib/std/streamio.nepl';
@@ -47,86 +48,26 @@ const scannerNumberIntSrc = fs.readFileSync(path.join(repoRoot, scannerNumberInt
 const scannerNumberFloatSrc = fs.readFileSync(path.join(repoRoot, scannerNumberFloatRelPath), 'utf8');
 const scannerStateSrc = fs.readFileSync(path.join(repoRoot, scannerStateRelPath), 'utf8');
 
-const facadeCode = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writerCode = writerSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writerStateCode = writerStateSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writerAppendCode = writerAppendSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writerAppendTextCode = writerAppendTextSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writerAppendByteBufCode = writerAppendByteBufSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writerAppendIntegerCode = writerAppendIntegerSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const writerAppendFloatCode = writerAppendFloatSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const inputCode = inputSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const outputCode = outputSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const outputTypesCode = outputTypesSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const outputStdoutCode = outputStdoutSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const outputStderrCode = outputStderrSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const bytesCode = bytesSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const scannerCode = scannerSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const scannerStateCode = scannerStateSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const scannerCursorCode = scannerCursorSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const scannerNumberCode = scannerNumberSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const scannerNumberIntCode = scannerNumberIntSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const scannerNumberFloatCode = scannerNumberFloatSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const facadeCode = legacyTypeSyntaxView(src);
+const writerCode = legacyTypeSyntaxView(writerSrc);
+const writerStateCode = legacyTypeSyntaxView(writerStateSrc);
+const writerAppendCode = legacyTypeSyntaxView(writerAppendSrc);
+const writerAppendTextCode = legacyTypeSyntaxView(writerAppendTextSrc);
+const writerAppendByteBufCode = legacyTypeSyntaxView(writerAppendByteBufSrc);
+const writerAppendIntegerCode = legacyTypeSyntaxView(writerAppendIntegerSrc);
+const writerAppendFloatCode = legacyTypeSyntaxView(writerAppendFloatSrc);
+const inputCode = legacyTypeSyntaxView(inputSrc);
+const outputCode = legacyTypeSyntaxView(outputSrc);
+const outputTypesCode = legacyTypeSyntaxView(outputTypesSrc);
+const outputStdoutCode = legacyTypeSyntaxView(outputStdoutSrc);
+const outputStderrCode = legacyTypeSyntaxView(outputStderrSrc);
+const bytesCode = legacyTypeSyntaxView(bytesSrc);
+const scannerCode = legacyTypeSyntaxView(scannerSrc);
+const scannerStateCode = legacyTypeSyntaxView(scannerStateSrc);
+const scannerCursorCode = legacyTypeSyntaxView(scannerCursorSrc);
+const scannerNumberCode = legacyTypeSyntaxView(scannerNumberSrc);
+const scannerNumberIntCode = legacyTypeSyntaxView(scannerNumberIntSrc);
+const scannerNumberFloatCode = legacyTypeSyntaxView(scannerNumberFloatSrc);
 const code = `${facadeCode}\n${inputCode}\n${outputCode}\n${outputTypesCode}\n${outputStdoutCode}\n${outputStderrCode}\n${writerCode}\n${writerStateCode}\n${writerAppendCode}\n${writerAppendTextCode}\n${writerAppendByteBufCode}\n${writerAppendIntegerCode}\n${writerAppendFloatCode}\n${bytesCode}\n${scannerCode}\n${scannerCursorCode}\n${scannerNumberCode}\n${scannerNumberIntCode}\n${scannerNumberFloatCode}\n${scannerStateCode}`;
 
 for (const [modulePath, srcText, maxLines] of [
