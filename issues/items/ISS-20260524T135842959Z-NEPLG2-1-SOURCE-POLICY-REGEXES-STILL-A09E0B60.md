@@ -52,7 +52,23 @@ Migrate source policy regexes to NEPLg2.1 syntax or introduce explicit syntax-aw
 - `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 52 件から 45 件へ減少した。残件は nm/parser/html、documentation/tutorial、diag/std_test、kpgraph/kpsearch/wasix、Vec/string/text/ByteBuf owner、Rust/selfhost responsibility 系に分散している。
 - math module split、nm/parser/html、diag/std_test、kpgraph/kpsearch、wasix TUI の旧表記依存を `legacyTypeSyntaxView` 経由へ移行した。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 45 件から 31 件へ減少した。残件は documentation/tutorial、collection cleanup、Vec、mem/core mem、Rust responsibility、selfhost、ByteBuf/string/text owner boundary 系へ絞られた。
+- Vec / collection cleanup / core mem / ByteBuf / string UTF-8 / text boundary の source policy を `legacyTypeSyntaxView` 経由へそろえ、raw documentation contract は NEPLg2.1 の `%` 表記を直接検査する形へ更新した。
+- `legacyTypeSyntaxView` の policy-covered type constructor arity を拡張し、`VecDataView<T>`、`VecPop<T>`、`VecPushRejected<T>`、`VecReallocRegionError<T>`、`RegionReallocError<T>` などの owner / proof payload を旧 view へ正しく写せるようにした。`VecStorageInvariant` は zero-arity 型として扱い、initializer を型引数として誤消費しない regression を追加した。
+- コメント除去は source policy の実装検査 view に限定しており、コメント量や丁寧なドキュメント追加を抑制する検査は追加していない。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 31 件から 23 件へ減少した。残件は documentation/tutorial、Rust responsibility、selfhost、string storage/access/slice/float 系へ絞られた。
 
 ## 検証
 
 node nodesrc/run_source_policy_regressions.js without stale NEPLg2.0 syntax failures
+- `node nodesrc/test_source_policy_nepl_source_view.js`
+- `node nodesrc/test_stdlib_collection_cleanup_contract.js`
+- `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`
+- `node nodesrc/test_stdlib_vec_borrowed_observers.js`
+- `node nodesrc/test_stdlib_core_mem_boundary.js`
+- `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`
+- `node nodesrc/test_stdlib_mem_internal_region_new_docs.js`
+- `node nodesrc/test_stdlib_string_utf8_boundary.js`
+- `node nodesrc/test_stdlib_text_boundary.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only` (23 warnings remain)
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint5.json` (13/13 passed)

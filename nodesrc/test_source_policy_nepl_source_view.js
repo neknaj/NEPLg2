@@ -25,6 +25,16 @@ pub fn scan %impure fn &StreamScanner str \\sc:
 pub fn fold <.T: Copy,.U> %fn &List .T fn .U fn fn .U fn .T .U .U \\lst\\acc\\f:
     acc
 
+pub fn data_mem_view <.T: Copy> %fn &Vec .T VecDataView .T \\v:
+    VecDataView::Empty
+
+pub fn realloc_region_bytes_keep <.T> %fn RegionToken .T fn i32 Result RegionToken .T RegionReallocError .T \\region\\new_size:
+    Result::Ok region
+
+pub fn vec_push_rejected_with <.T,.R> %impure fn VecPushRejected .T impure fn impure fn Vec .T impure fn .T .R .R \\rejected\\callback:
+    callback
+
+let invariant %VecStorageInvariant vec_buffer_current_storage_invariant<.T> v_buffer_ref
 let e %BitSetUpdateError BitSetUpdateError bs d
 `);
 
@@ -42,6 +52,26 @@ assert.match(
     legacy,
     /pub\s+fn\s+fold\s+<\.T:\s*Copy,\.U>\s+<\(&List<\.T>,\.U,\(\.U,\.T\)->\.U\)->\.U>\s+\(lst,acc,f\):/,
     "legacyTypeSyntaxView must render nested callback function types inside source policy signatures",
+);
+assert.match(
+    legacy,
+    /pub\s+fn\s+data_mem_view\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>\)->VecDataView<\.T>>\s+\(v\):/,
+    "legacyTypeSyntaxView must render unary functions whose argument and result are both generic types",
+);
+assert.match(
+    legacy,
+    /pub\s+fn\s+realloc_region_bytes_keep\s+<\.T>\s+<\(RegionToken<\.T>,i32\)->Result<RegionToken<\.T>,RegionReallocError<\.T>>>\s+\(region,new_size\):/,
+    "legacyTypeSyntaxView must keep owner-preserving Result payload boundaries inside generic signatures",
+);
+assert.match(
+    legacy,
+    /pub\s+fn\s+vec_push_rejected_with\s+<\.T,\.R>\s+<\(VecPushRejected<\.T>,\(Vec<\.T>,\.T\)\*>\.R\)\*>\.R>\s+\(rejected,callback\):/,
+    "legacyTypeSyntaxView must render nested impure owner-recovery callback signatures",
+);
+assert.match(
+    legacy,
+    /let\s+invariant\s+<VecStorageInvariant>\s+vec_buffer_current_storage_invariant<\.T>\s+v_buffer_ref/,
+    "legacyTypeSyntaxView must not consume initializer expressions after zero-arity policy types",
 );
 assert.match(
     legacy,

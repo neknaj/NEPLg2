@@ -45736,3 +45736,25 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - direct `nepl-cli.exe --check` smoke for bool/number/string accessors: passed.
   - direct `nepl-cli.exe --check` smoke for array/object accessors: passed.
+
+## 2026-05-24 Agent 1 stdlib boundary source policy syntax view checkpoint
+
+- `ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60` の次 checkpoint として、Vec / collection cleanup / core mem / ByteBuf / string UTF-8 / text boundary の旧表記依存を縮小した。`plan.md` は変更していない。
+- `legacyTypeSyntaxView` の type constructor arity に、source policy が ownership / proof boundary として読む `VecDataView<T>`、`VecPop<T>`、`VecPushRejected<T>`、`VecReallocRegionError<T>`、`RegionReallocError<T>` などを追加した。
+- `VecStorageInvariant` は zero-arity 型であり、`let v_invariant %VecStorageInvariant ...` の initializer を型引数として誤消費しない regression を追加した。
+- raw documentation contract は検査用 legacy view へ通さず、NEPLg2.1 の `%` 表記を直接期待するように更新した。
+- コメント除去は実装検査用 view に限定しており、コメント量や詳細な説明の追加を抑制する検査は追加していない。
+- full source policy warn-only は 31 件から 23 件へ減少した。残件は documentation/tutorial、Rust responsibility、selfhost、string storage/access/slice/float 系に残る。
+- focused verification:
+  - `node nodesrc/test_source_policy_nepl_source_view.js`: passed.
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed.
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed.
+  - `node nodesrc/test_stdlib_vec_borrowed_observers.js`: passed.
+  - `node nodesrc/test_stdlib_core_mem_boundary.js`: passed.
+  - `node nodesrc/test_stdlib_io_bytebuf_owner_boundary.js`: passed.
+  - `node nodesrc/test_stdlib_mem_internal_region_new_docs.js`: passed.
+  - `node nodesrc/test_stdlib_string_utf8_boundary.js`: passed.
+  - `node nodesrc/test_stdlib_text_boundary.js`: passed.
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed as warn-only with 23 remaining warnings.
+  - `trunk build`: passed.
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint5.json`: 13/13 passed.

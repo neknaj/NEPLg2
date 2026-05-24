@@ -4,11 +4,12 @@
 const fs = require("fs");
 const path = require("path");
 const { implementationLineCount } = require("./source_policy/stdlib_builder_owner");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 
 function read(relPath) {
-    return fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n");
+    return legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, relPath), "utf8").replace(/\r\n/g, "\n"));
 }
 
 function assert(condition, message) {

@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPaths = [
@@ -53,10 +54,7 @@ const codeByPath = new Map();
 
 function readImplementation(relPath) {
     const src = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
-    return src
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
+    return legacyTypeSyntaxView(src);
 }
 
 function walkNeplFiles(dir, out = []) {
@@ -167,10 +165,11 @@ const withCapacitySection = between(vecCode, 'fn with_capacity ', 'fn filled ');
 const vecStorageViewSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/view.nepl'), 'utf8');
 const vecStorageApiSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/storage/api.nepl'), 'utf8');
 const popSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/mutation/pop.nepl'), 'utf8');
-const popSection = popSource.slice(popSource.indexOf('fn vec_pop_move_out_initialized_slot '));
-const publicPopSection = between(popSource, 'pub fn pop ', '//: ## vec_drop_last_copy_initialized_slot');
-const dropLastCopySection = between(popSource, 'fn vec_drop_last_storage_checked_copy ', 'fn vec_drop_last_storage_checked_drop ');
-const dropLastDropSection = popSource.slice(popSource.indexOf('fn vec_drop_last_storage_checked_drop '));
+const popCode = legacyTypeSyntaxView(popSource);
+const popSection = popCode.slice(popCode.indexOf('fn vec_pop_move_out_initialized_slot '));
+const publicPopSection = between(popCode, 'pub fn pop ', 'fn vec_drop_last_copy_initialized_slot');
+const dropLastCopySection = between(popCode, 'fn vec_drop_last_storage_checked_copy ', 'fn vec_drop_last_storage_checked_drop ');
+const dropLastDropSection = popCode.slice(popCode.indexOf('fn vec_drop_last_storage_checked_drop '));
 const vecAccessDataSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/access/data.nepl'), 'utf8');
 const vecStdlibTestSource = fs.readFileSync(path.join(repoRoot, 'stdlib/tests/vec.n.md'), 'utf8');
 const vecTransformFilterPartitionViewSource = fs.readFileSync(path.join(repoRoot, 'stdlib/alloc/collections/vec/transform/filter/partition/view.nepl'), 'utf8');
@@ -416,7 +415,7 @@ assert.match(vecCode, /struct\s+VecPop<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*item\s
 assert.match(vecCode, /struct\s+VecPartition<\.T>:[\s\S]*matched\s+<Vec<\.T>>[\s\S]*rest\s+<Vec<\.T>>/, 'Vec.partition result must be a named struct with both owned Vec fields');
 assert.match(vecTransformFilterPartitionViewCode, /fn\s+vec_partition_from_parts\s+<\.T>\s+<\(Vec<\.T>,Vec<\.T>\)->VecPartition<\.T>>[\s\S]*VecPartition<\.T>\s+matched\s+rest/, 'Vec.partition result must provide a safe owner-preserving constructor wrapper instead of exposing direct aggregate construction to user source');
 assert.match(vecTransformFilterPartitionViewCode, /fn\s+vec_partition_with\s+<\.T,\.R>\s+<\(VecPartition<\.T>,\(Vec<\.T>,Vec<\.T>\)\*>\.R\)\*>\.R>[\s\S]*let\s+matched\s+<Vec<\.T>>\s+field::get\s+parts\s+"matched"[\s\S]*let\s+rest\s+<Vec<\.T>>\s+field::get\s+parts\s+"rest"[\s\S]*callback\s+matched\s+rest/, 'Vec.partition result must provide a generic owner-preserving eliminator that returns matched and rest Vec owners together');
-assert.match(vecTransformFilterPartitionViewSource, /neplg2:test\[compile_fail\][\s\S]*diag_code:\s*type\.owner_aggregate\.constructor_restricted[\s\S]*let\s+parts\s+<VecPartition<i32>>\s+VecPartition<i32>/, 'Vec.partition docs must keep user-source direct VecPartition construction as a compile_fail safety fixture');
+assert.match(vecTransformFilterPartitionViewSource, /neplg2:test\[compile_fail\][\s\S]*diag_code:\s*type\.owner_aggregate\.constructor_restricted[\s\S]*let\s+parts\s+%VecPartition\s+i32\s+VecPartition<i32>/, 'Vec.partition docs must keep user-source direct VecPartition construction as a compile_fail safety fixture');
 for (const relPath of walkNeplFiles(path.join(repoRoot, 'stdlib'))) {
     assert.doesNotMatch(readImplementation(relPath), /\b(?:[a-zA-Z_][\w]*::)?Vec<[^>\n]+>\s+0\s+0\s+mem_ptr_wrap\s+0/, `${relPath} must use Vec.empty typed storage instead of raw null owner sentinel`);
 }
@@ -439,8 +438,8 @@ assert.match(popSection, /let\s+v_initialized_len\s+<i32>\s+\*field::get_ref\s+v
 assert.match(popSection, /let\s+v_invariant\s+<VecStorageInvariant>\s+vec_buffer_current_storage_invariant<\.T>\s+v_buffer_ref[\s\S]*match\s+v_invariant:[\s\S]*VecStorageInvariant::Invalid\s+_reason:[\s\S]*VecPop<\.T>\s+\(Vec<\.T>\s+\(OwnedBuffer<\.T>\s+v_len\s+v_initialized_len\s+v_cap\s+v_storage\)\)\s+none<\.T>/, 'Vec.pop must not raw-load from malformed OwnedBuffer metadata and must branch through payload-independent typed storage invariant');
 assert.match(popSection, /let\s+byte_off\s+<i32>\s+mul\s+next_len\s+size_of<\.T>[\s\S]*vec_pop_move_out_initialized_slot<\.T>\s+&v_region\s+byte_off[\s\S]*OwnedBuffer<\.T>\s+next_len\s+next_len\s+v_cap/, 'Vec.pop success path must move out the removed slot before updating initialized_len with len');
 assert.match(popSection, /fn\s+pop\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\)->VecPop<\.T>>[\s\S]*vec_pop_storage_checked<\.T>\s+v[\s\S]*fn\s+pop\s+<\.T:\s*Drop>\s+<\(Vec<\.T>\)->VecPop<\.T>>[\s\S]*vec_pop_storage_checked<\.T>\s+v/, 'Vec.pop must expose Copy and Drop overloads that share the same storage-checked implementation');
-assert.match(popSource, /fn\s+vec_pop_move_out_initialized_slot\s+<\.T>\s+<\(&RegionToken<\.T>,i32\)->\.T>[\s\S]*load<\.T>\s+raw[\s\S]*#intrinsic\s+"collection_slot_move_out"\s+<\.T>\s+\(storage,\s*byte_off\)[\s\S]*loaded/, 'Vec.pop helper must pair raw load witness with single-slot MoveOut proof and return the loaded item');
-assert.doesNotMatch(popSource, /\bpub\s+fn\s+vec_pop_move_out_initialized_slot\b/, 'Vec.pop single-slot lifecycle helper must not become a public marker boundary');
+assert.match(popCode, /fn\s+vec_pop_move_out_initialized_slot\s+<\.T>\s+<\(&RegionToken<\.T>,i32\)->\.T>[\s\S]*load<\.T>\s+raw[\s\S]*#intrinsic\s+"collection_slot_move_out"\s+<\.T>\s+\(storage,\s*byte_off\)[\s\S]*loaded/, 'Vec.pop helper must pair raw load witness with single-slot MoveOut proof and return the loaded item');
+assert.doesNotMatch(popCode, /\bpub\s+fn\s+vec_pop_move_out_initialized_slot\b/, 'Vec.pop single-slot lifecycle helper must not become a public marker boundary');
 assert.doesNotMatch(publicPopSection, /\bVecCopyInvariant\b|\bvec_buffer_current_copy_invariant\b|\bVecDataView\b|\bdata_mem_view\b|\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|load<\.T>)\b/, 'Vec.pop public body must not open-code raw slot load or depend on Copy raw-access view; slot move-out must go through vec_pop_move_out_initialized_slot');
 assert.match(popSection, /fn\s+vec_drop_last_copy_initialized_slot\s+<\.T:\s*Copy>\s+<\(&RegionToken<\.T>,i32\)->\(\)>[\s\S]*load<\.T>\s+raw[\s\S]*#intrinsic\s+"collection_slot_drop_initialized"\s+<\.T>\s+\(storage,\s*byte_off\)/, 'Vec.drop_last Copy helper must pair raw load witness with single-slot drop proof');
 assert.match(popSection, /fn\s+vec_drop_last_drop_initialized_slot\s+<\.T:\s*Drop>\s+<\(&RegionToken<\.T>,i32\)\*>\(\)>[\s\S]*load<\.T>\s+raw[\s\S]*Drop::drop\s+&loaded[\s\S]*#intrinsic\s+"collection_slot_drop_initialized"\s+<\.T>\s+\(storage,\s*byte_off\)/, 'Vec.drop_last Drop helper must pair actual Drop::drop proof with single-slot drop proof');

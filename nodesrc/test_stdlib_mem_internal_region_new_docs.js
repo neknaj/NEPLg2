@@ -17,7 +17,7 @@ assertIncludes(
 );
 assertIncludes(
     regionNewDoc,
-    "let token <RegionToken<u8>> region_new<u8> raw 4",
+    "let token %RegionToken u8 region_new<u8> raw 4",
     "region_new doctest must pass allocator-issued raw owner identity directly",
 );
 assertIncludes(

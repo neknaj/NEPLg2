@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/io.nepl';
@@ -20,25 +21,14 @@ const traitsRelPath = 'stdlib/alloc/io/traits.nepl';
 const traitsSrc = fs.readFileSync(path.join(repoRoot, traitsRelPath), 'utf8');
 const fsRelPath = 'stdlib/std/fs/read/fd.nepl';
 const fsSrc = fs.readFileSync(path.join(repoRoot, fsRelPath), 'utf8');
+const fsCode = legacyTypeSyntaxView(fsSrc);
 const bytebufResultRelPath = 'tests/stdlib/bytebuf_result.n.md';
 const bytebufResultSrc = fs.readFileSync(path.join(repoRoot, bytebufResultRelPath), 'utf8');
 
-const code = src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const rootCode = rootSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const byteBuilderCode = byteBuilderSources.join('\n')
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-const traitsCode = traitsSrc
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
+const code = legacyTypeSyntaxView(src);
+const rootCode = legacyTypeSyntaxView(rootSrc);
+const byteBuilderCode = legacyTypeSyntaxView(byteBuilderSources.join('\n'));
+const traitsCode = legacyTypeSyntaxView(traitsSrc);
 
 function markdownSection(src, heading) {
     const start = src.indexOf(`## ${heading}`);
@@ -58,7 +48,7 @@ assert.doesNotMatch(rootCode, /\bfn\s+/, 'alloc/io root facade must not own impl
 
 assert.match(
     code,
-    /\bfn\s+io_bytebuf_alloc_region\s+<\(i32\)->Result<RegionToken<u8>, StdErrorKind>>/,
+    /\bfn\s+io_bytebuf_alloc_region\s+<\(i32\)->Result<RegionToken<u8>,\s*StdErrorKind>>/,
     'ByteBuf string conversion must allocate through an owning RegionToken boundary',
 );
 
@@ -254,10 +244,10 @@ assert.doesNotMatch(
 
 assert.match(byteBuilderCode, /\b(?:mem_ptr_addr|load_u8|store_u8|mem_copy|RegionToken)\b/, 'ByteBuilder implementation modules must carry source-level raw memory evidence');
 
-const fsReadMatch = fsSrc.match(/(?:pub\s+)?fn\s+fs_read_fd_bytes\b([\s\S]*)/);
+const fsReadMatch = fsCode.match(/(?:pub\s+)?fn\s+fs_read_fd_bytes\b([\s\S]*)/);
 assert.ok(fsReadMatch, 'fs_read_fd_bytes body must be found');
 const fsRead = fsReadMatch[1];
-const fsFinishMatch = fsSrc.match(/(?:pub\s+)?fn\s+fs_finish_read_buffer\b([\s\S]*?)\n(?:pub\s+)?fn\s+fs_read_fd_bytes\b/);
+const fsFinishMatch = fsCode.match(/(?:pub\s+)?fn\s+fs_finish_read_buffer\b([\s\S]*?)\n(?:pub\s+)?fn\s+fs_read_fd_bytes\b/);
 assert.ok(fsFinishMatch, 'fs_finish_read_buffer body must be found');
 const fsFinish = fsFinishMatch[1];
 

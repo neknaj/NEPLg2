@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const collectionsRoot = path.join(repoRoot, 'stdlib/alloc/collections');
@@ -566,11 +567,7 @@ function walkNeplFiles(dir, out = []) {
 }
 
 function readImplementation(relPath) {
-    return fs
-        .readFileSync(path.join(repoRoot, relPath), 'utf8')
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
+    return legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, relPath), 'utf8'));
 }
 
 function parseFunctionSignature(line) {
@@ -1020,7 +1017,7 @@ function classifyProofBackedOwnerUpdateSurface(source, section, functionType) {
     if (!match || itemParam !== `.${match[1]}`) {
         return null;
     }
-    if (returnType !== `Result<Vec<.${match[1]}>, VecPushError<.${match[1]}>>`) {
+    if (!sameTypeText(returnType, `Result<Vec<.${match[1]}>, VecPushError<.${match[1]}>>`)) {
         return null;
     }
     if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
@@ -1049,7 +1046,7 @@ function classifyProofBackedReplaceDropOldSurface(source, section, functionType)
     if (!match || indexParam !== 'i32' || itemParam !== `.${match[1]}`) {
         return null;
     }
-    if (returnType !== `Result<Vec<.${match[1]}>, VecReplaceError<.${match[1]}>>`) {
+    if (!sameTypeText(returnType, `Result<Vec<.${match[1]}>, VecReplaceError<.${match[1]}>>`)) {
         return null;
     }
     if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
@@ -1086,7 +1083,7 @@ function classifyProofBackedPopMoveOutSurface(source, functionName, typeSignatur
 
     const ownerParam = functionType.parameters[0].trim();
     const match = ownerParam.match(/^Vec<\.(\w+)>$/);
-    if (!match || functionType.returnType.trim() !== `VecPop<.${match[1]}>`) {
+    if (!match || !sameTypeText(functionType.returnType, `VecPop<.${match[1]}>`)) {
         return null;
     }
 
@@ -1114,7 +1111,7 @@ function classifyProofBackedTransformRangeFilterSurface(source, functionName, ty
         return null;
     }
     const payload = payloadMatch[1];
-    if (functionType.returnType.trim() !== `Result<Vec<.${payload}>, VecTransformError<.${payload}>>`) {
+    if (!sameTypeText(functionType.returnType, `Result<Vec<.${payload}>, VecTransformError<.${payload}>>`)) {
         return null;
     }
     if (predicateParam !== `(&.${payload})->bool`) {
@@ -1193,7 +1190,7 @@ function classifyProofBackedTailDropSurface(source, section, functionType) {
     const ownerParam = functionType.parameters[0].trim();
     const returnType = functionType.returnType.trim();
     const match = ownerParam.match(/^Vec<\.(\w+)>$/);
-    if (!match || returnType !== `Vec<.${match[1]}>`) {
+    if (!match || !sameTypeText(returnType, `Vec<.${match[1]}>`)) {
         return null;
     }
     if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
@@ -1230,7 +1227,7 @@ function classifyPrivateProofBackedOwnerUpdateHelper(source, functionName, typeS
         return null;
     }
     const payload = payloadMatch[1];
-    if (returnType !== `Result<Vec<.${payload}>, VecPushError<.${payload}>>`) {
+    if (!sameTypeText(returnType, `Result<Vec<.${payload}>, VecPushError<.${payload}>>`)) {
         return null;
     }
     if (!new RegExp(`\\bVecStorageInvariant\\b[\\s\\S]*\\bvec_buffer_current_storage_invariant<\\.${payload}>`).test(section)) {
@@ -1276,7 +1273,7 @@ function classifyPrivateProofBackedTailCleanupHelper(source, functionName, typeS
     const ownerParam = functionType.parameters[0].trim();
     const returnType = functionType.returnType.trim();
     const payloadMatch = ownerParam.match(/^Vec<\.(\w+)>$/);
-    if (!payloadMatch || returnType !== `Vec<.${payloadMatch[1]}>`) {
+    if (!payloadMatch || !sameTypeText(returnType, `Vec<.${payloadMatch[1]}>`)) {
         return null;
     }
     const payload = payloadMatch[1];
@@ -1330,7 +1327,7 @@ function classifyPrivateTransformRangeDrainHelper(source, functionName, typeSign
     if (outputParam !== `RegionToken<.${payload}>` || sourceLenParam !== 'i32' || outputCapParam !== 'i32') {
         return null;
     }
-    if (predicateParam !== `(&.${payload})->bool` || functionType.returnType.trim() !== `Vec<.${payload}>`) {
+    if (predicateParam !== `(&.${payload})->bool` || !sameTypeText(functionType.returnType, `Vec<.${payload}>`)) {
         return null;
     }
     if (!/\blet\s+mut\s+read_i\s+<i32>\s+0\b/.test(section) || !/\blet\s+mut\s+write_i\s+<i32>\s+0\b/.test(section)) {
@@ -1728,6 +1725,10 @@ function parseUnaryFunctionType(typeSignature) {
         return null;
     }
     return { parameter: functionType.parameters[0], returnType: functionType.returnType };
+}
+
+function sameTypeText(actual, expected) {
+    return String(actual).replace(/\s+/g, '') === String(expected).replace(/\s+/g, '');
 }
 
 function parseFunctionType(typeSignature) {

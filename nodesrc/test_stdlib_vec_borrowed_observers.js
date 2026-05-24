@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 const vecRelPaths = [
@@ -38,15 +39,9 @@ const vecRelPaths = [
 ];
 const vecSources = Object.fromEntries(vecRelPaths.map((relPath) => [relPath, fs.readFileSync(path.join(repoRoot, relPath), "utf8")]));
 const vecCode = vecRelPaths
-    .map((relPath) => vecSources[relPath]
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join("\n"))
+    .map((relPath) => legacyTypeSyntaxView(vecSources[relPath]))
     .join("\n");
-const vecRootImplementation = vecSources["stdlib/alloc/collections/vec.nepl"]
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join("\n");
+const vecRootImplementation = legacyTypeSyntaxView(vecSources["stdlib/alloc/collections/vec.nepl"]);
 
 assert.match(vecSources["stdlib/alloc/collections/vec.nepl"], /pub\s+#import\s+"\.\/vec\/access"\s+as\s+@merge/, "Vec root must re-export borrowed observers through the access module");
 assert.doesNotMatch(vecRootImplementation, /\bfn\s+\w+\b/, "Vec root must not keep duplicate borrowed observer wrappers");
@@ -107,12 +102,12 @@ assert.match(vecCode, /fn\s+replace\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>,i32,\.T\)\*>\
 assert.doesNotMatch(vecCode, /fn\s+replace\s+<\.T>\s+<\(Vec<\.T>,i32,\.T\)->\(\)>/, "Vec.replace must not consume the owner");
 
 for (const [name, signature] of [
-    ["count", "<\\(&Vec<\\.T>, \\(\\.T\\)->bool\\)->i32>"],
-    ["fold", "<\\(&Vec<\\.T>, \\.U, \\(\\.U,\\.T\\)->\\.U\\)->\\.U>"],
-    ["reduce", "<\\(&Vec<\\.T>, \\(\\.T,\\.T\\)->\\.T\\)->Option<\\.T>>"],
-    ["find", "<\\(&Vec<\\.T>, \\(\\.T\\)->bool\\)->Option<\\.T>>"],
-    ["any", "<\\(&Vec<\\.T>, \\(\\.T\\)->bool\\)->bool>"],
-    ["all", "<\\(&Vec<\\.T>, \\(\\.T\\)->bool\\)->bool>"],
+    ["count", "<\\(&Vec<\\.T>\\s*,\\s*\\(\\.T\\)->bool\\)->i32>"],
+    ["fold", "<\\(&Vec<\\.T>\\s*,\\s*\\.U\\s*,\\s*\\(\\.U\\s*,\\s*\\.T\\)->\\.U\\)->\\.U>"],
+    ["reduce", "<\\(&Vec<\\.T>\\s*,\\s*\\(\\.T\\s*,\\s*\\.T\\)->\\.T\\)->Option<\\.T>>"],
+    ["find", "<\\(&Vec<\\.T>\\s*,\\s*\\(\\.T\\)->bool\\)->Option<\\.T>>"],
+    ["any", "<\\(&Vec<\\.T>\\s*,\\s*\\(\\.T\\)->bool\\)->bool>"],
+    ["all", "<\\(&Vec<\\.T>\\s*,\\s*\\(\\.T\\)->bool\\)->bool>"],
 ]) {
     assert.match(
         vecCode,
@@ -122,10 +117,10 @@ for (const [name, signature] of [
 }
 
 for (const [name, signature] of [
-    ["count_ref", "<\\(&Vec<\\.T>, \\(&\\.T\\)->bool\\)->i32>"],
-    ["find_index_ref", "<\\(&Vec<\\.T>, \\(&\\.T\\)->bool\\)->Option<i32>>"],
-    ["any_ref", "<\\(&Vec<\\.T>, \\(&\\.T\\)->bool\\)->bool>"],
-    ["all_ref", "<\\(&Vec<\\.T>, \\(&\\.T\\)->bool\\)->bool>"],
+    ["count_ref", "<\\(&Vec<\\.T>\\s*,\\s*\\(&\\.T\\)->bool\\)->i32>"],
+    ["find_index_ref", "<\\(&Vec<\\.T>\\s*,\\s*\\(&\\.T\\)->bool\\)->Option<i32>>"],
+    ["any_ref", "<\\(&Vec<\\.T>\\s*,\\s*\\(&\\.T\\)->bool\\)->bool>"],
+    ["all_ref", "<\\(&Vec<\\.T>\\s*,\\s*\\(&\\.T\\)->bool\\)->bool>"],
 ]) {
     assert.match(
         vecCode,
@@ -148,7 +143,7 @@ assert.match(vecCode, /fn\s+vec_pop_vec\s+<\.T:\s*Copy>\s+<\(VecPop<\.T>\)->Vec<
 assert.doesNotMatch(vecCode, /fn\s+pop\s+<\.T>\s+<\(Vec<\.T>\)->VecPop<\.T>>/, "Vec.pop must not accept payloads that are neither Copy nor Drop");
 assert.match(vecCode, /struct\s+VecPartition<\.T>:[\s\S]*matched\s+<Vec<\.T>>[\s\S]*rest\s+<Vec<\.T>>/, "Vec.partition must return named owner-bearing fields");
 assert.match(vecCode, /struct\s+VecTransformError<\.T>:[\s\S]*vec\s+<Vec<\.T>>[\s\S]*error\s+<StdErrorKind>/, "Vec transform failures must return the consumed input owner");
-assert.match(vecCode, /fn\s+partition\s+<\.T:\s*Copy>\s+<\(Vec<\.T>, \(\.T\)->bool\)->Result<VecPartition<\.T>, VecTransformError<\.T>>>/, "Vec.partition must not return an untyped Pair and must return input owner on failure");
+assert.match(vecCode, /fn\s+partition\s+<\.T:\s*Copy>\s+<\(Vec<\.T>\s*,\s*\(\.T\)->bool\)->Result<VecPartition<\.T>\s*,\s*VecTransformError<\.T>>>/, "Vec.partition must not return an untyped Pair and must return input owner on failure");
 assert.doesNotMatch(vecCode, /->\.Pair\b/, "Vec must not expose owner-bearing results as .Pair");
 
 for (const testRelPath of [
