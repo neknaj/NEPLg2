@@ -24,8 +24,9 @@ fn positive_double %fn i32 Option i32 \x:
 fn main %impure fn () i32 \():
     let some_is_some %bool is_some some 42;
     let some_is_none %bool is_none some 42;
-    let none_is_none %bool is_none<i32> none;
-    let none_is_some %bool is_some<i32> none;
+    let none_value %Option i32 none;
+    let none_is_none %bool is_none none_value;
+    let none_is_some %bool is_some none_value;
     let unwrap_some %i32 unwrap some 99;
     let unwrap_or_some %i32 unwrap_or some 10 5;
     let unwrap_or_none %i32 unwrap_or none 5;

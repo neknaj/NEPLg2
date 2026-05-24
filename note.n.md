@@ -45633,3 +45633,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `cargo test -p nepl-core --test functions function_neplg21_generic_body_type_params_remain_allowed -- --nocapture`: passed.
   - direct `nepl-cli.exe --target core --emit wasm --run`: `is_none none` / `is_err ok 5` / `is_ok err 7` now fail with `type.generic_call.unresolved_type_args` before wasm codegen.
   - direct `nepl-cli.exe --target core --emit wasm --run`: `is_none<i32> none` / `is_err<i32,i32> ok 5` / `is_ok<i32,i32> err 7` still compile/run.
+
+## 2026-05-24 Agent 1 Option/Result test fixture final postfix cleanup
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の小 checkpoint として、`stdlib/tests/option.n.md` と `stdlib/tests/result.n.md` に残っていた observer 側の `is_*<...>` consumer evidence を撤廃した。`plan.md` は変更していない。
+- option 側は `none` を `%Option i32` typed local に置いてから `is_none` / `is_some` に渡す形にした。未具体化の `is_none none` へ戻したわけではないため、推論不足を隠していない。
+- result 側は既存の `%Result i32 i32` typed local `r1` / `e1` を `is_err` / `is_ok` に渡す形にし、`is_err<i32,i32> ok 5` / `is_ok<i32,i32> err 7` を撤廃した。
+- `rg -n "<" stdlib/tests/option.n.md stdlib/tests/result.n.md` は 0 件になった。
+- focused verification:
+  - direct `nepl-cli.exe --check` smoke for updated option fixture shape: passed.
+  - direct `nepl-cli.exe --check` smoke for updated result fixture shape: passed.

@@ -100,6 +100,14 @@ LLM/手動判断が必要なもの:
 - codegen smoke では、`is_none none` / `is_err ok 5` / `is_ok err 7` まで同時に postfix なしへすると未具体化 generic function が wasm codegen に到達するため、`ISS-20260524T123402690Z-GENERIC-CALLS-WITH-UNCONSTRAINED-TYP-DD4E3093` で型推論/診断改善として分離した。
 - focused direct `nepl-cli --check --target core` と selected codegen smoke では、今回残した consumer evidence つきの option/result removed forms が pass した。
 
+### 2026-05-24 Option/Result test fixture final postfix cleanup checkpoint
+
+- `ISS-20260524T123402690Z-GENERIC-CALLS-WITH-UNCONSTRAINED-TYP-DD4E3093` により、未具体化 generic call は codegen ではなく type diagnostic で止まるようになった。
+- `stdlib/tests/option.n.md` では `none` を `%Option i32` typed local に置いてから `is_none` / `is_some` に渡し、observer 側の `is_*<i32>` consumer evidence を撤廃した。
+- `stdlib/tests/result.n.md` では既存の `%Result i32 i32` typed local `r1` / `e1` を `is_err` / `is_ok` の入力として再利用し、`is_err<i32,i32> ok 5` / `is_ok<i32,i32> err 7` を撤廃した。
+- `rg -n "<" stdlib/tests/option.n.md stdlib/tests/result.n.md` は 0 件になった。
+- direct `nepl-cli.exe --check` smoke で、更新後の option/result fixture 形はどちらも pass した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

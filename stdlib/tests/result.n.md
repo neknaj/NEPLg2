@@ -23,7 +23,7 @@ fn positive_double %fn i32 Result i32 i32 \x:
 fn main %impure fn () i32 \():
     let r1 %Result i32 i32 ok 5;
     let r1_ok %bool is_ok r1;
-    let r1_err %bool is_err<i32,i32> ok 5;
+    let r1_err %bool is_err r1;
 
     let r2 %Result i32 i32 ok 10;
     let r2_value %i32 unwrap_or r2 0;
@@ -33,7 +33,7 @@ fn main %impure fn () i32 \():
 
     let e1 %Result i32 i32 err 7;
     let e1_err %bool is_err e1;
-    let e1_ok %bool is_ok<i32,i32> err 7;
+    let e1_ok %bool is_ok e1;
 
     let e2 %Result i32 i32 err 99;
     let e2_value %i32 unwrap_or e2 9;
