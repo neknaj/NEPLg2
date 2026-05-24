@@ -67,6 +67,7 @@ assertLineLimit("nepl-core/src/codegen_wasm.rs", 2525);
 assertLineLimit("nepl-core/src/codegen_wasm/local_map.rs", 120);
 assertLineLimit("nepl-core/src/codegen_wasm/string_data.rs", 80);
 assertLineLimit("nepl-core/src/codegen_wasm/aggregate.rs", 40);
+assertLineLimit("nepl-core/src/codegen_wasm/enum_helpers.rs", 80);
 assertLineLimit("nepl-core/src/codegen_llvm.rs", 4188);
 assertLineLimit("nepl-core/src/codegen_llvm/type_map.rs", 40);
 assertLineLimit("nepl-core/src/codegen_llvm/aggregate.rs", 40);
@@ -78,6 +79,7 @@ const wasmRoot = read(path.join(CORE_SRC, "codegen_wasm.rs"));
 assertContains(wasmRoot, "mod local_map;", "wasm backend root");
 assertContains(wasmRoot, "mod string_data;", "wasm backend root");
 assertContains(wasmRoot, "mod aggregate;", "wasm backend root");
+assertContains(wasmRoot, "mod enum_helpers;", "wasm backend root");
 assertContains(
     read(path.join(CORE_SRC, "codegen_wasm", "local_map.rs")),
     "pub(super) struct LocalMap",
@@ -92,6 +94,11 @@ assertContains(
     read(path.join(CORE_SRC, "codegen_wasm", "aggregate.rs")),
     "pub(super) fn aggregate_field_layout",
     "wasm aggregate module",
+);
+assertContains(
+    read(path.join(CORE_SRC, "codegen_wasm", "enum_helpers.rs")),
+    "pub(super) fn enum_variant_payload",
+    "wasm enum helper module",
 );
 
 const llvmRoot = read(path.join(CORE_SRC, "codegen_llvm.rs"));

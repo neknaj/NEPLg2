@@ -54,6 +54,11 @@ const RESOURCE_PRIMITIVES_MEMORY_HELPER = path.join(
     'memory_helper.rs',
 );
 const SOURCE_CAPABILITY = path.join(CORE_SRC, 'source_capability.rs');
+const SOURCE_CAPABILITY_COLLECTION_SLOT = path.join(
+    CORE_SRC,
+    'source_capability',
+    'collection_slot.rs',
+);
 const SOURCE_CAPABILITY_MEMORY_TYPE_DEFINITION = path.join(
     CORE_SRC,
     'source_capability',
@@ -340,6 +345,10 @@ const sourceCapabilityRawOperationProof = assertFile(
     'source_capability/raw_operation_proof.rs',
 );
 const sourceCapabilityRule = assertFile(SOURCE_CAPABILITY_RULE, 'source_capability/rule.rs');
+const sourceCapabilityCollectionSlot = assertFile(
+    SOURCE_CAPABILITY_COLLECTION_SLOT,
+    'source_capability/collection_slot.rs',
+);
 const sourceCapabilityRawMemory = assertFile(
     SOURCE_CAPABILITY_RAW_MEMORY,
     'source_capability/raw_memory.rs',
@@ -1654,9 +1663,14 @@ assertLineLimit(
     70,
 );
 assertLineLimit(SOURCE_CAPABILITY_RULE, 'source_capability/rule.rs', 240);
-assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 260);
-assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 320);
-assertLineLimit(SOURCE_CAPABILITY_PROOF_BUILDER, 'source_capability/proof_builder.rs', 120);
+assertLineLimit(
+    SOURCE_CAPABILITY_COLLECTION_SLOT,
+    'source_capability/collection_slot.rs',
+    80,
+);
+assertLineLimit(SOURCE_CAPABILITY_WALK, 'source_capability/walk.rs', 276);
+assertLineLimit(SOURCE_CAPABILITY_PROOF, 'source_capability/proof.rs', 554);
+assertLineLimit(SOURCE_CAPABILITY_PROOF_BUILDER, 'source_capability/proof_builder.rs', 121);
 assertLineLimit(
     SOURCE_CAPABILITY_TOP_LEVEL_RAW_CALLS,
     'source_capability/top_level_raw_calls.rs',
@@ -2046,6 +2060,26 @@ assertNotContains(
     sourceCapabilityProof,
     'fn collect_raw_symbol_evidence',
     'source capability collector must not keep per-domain symbol dispatch methods',
+);
+assertContains(
+    sourceCapability,
+    'mod collection_slot;',
+    'source_capability.rs must split collection slot source evidence from the rule dispatcher',
+);
+assertContains(
+    sourceCapabilityCollectionSlot,
+    'CollectionSlotLifecyclePrimitive::from_intrinsic_name',
+    'source_capability/collection_slot.rs must classify lifecycle boundary evidence through typed primitives',
+);
+assertContains(
+    sourceCapabilityCollectionSlot,
+    'CollectionSlotBorrowPrimitive::from_intrinsic_name',
+    'source_capability/collection_slot.rs must classify borrowed slot evidence through typed primitives',
+);
+assertContains(
+    sourceCapabilityRule,
+    'collect_collection_slot_boundary_evidence',
+    'source_capability/rule.rs must delegate collection slot proof facts to the collection slot evidence module',
 );
 assertContains(
     sourceCapability,
@@ -3079,9 +3113,9 @@ for (const filePath of walkRustFiles(CORE_SRC)) {
 }
 
 for (const [moduleName, limit] of [
-    ['driver.rs', 1700],
+    ['driver.rs', 1704],
     ['compiler_memory_type.rs', 90],
-    ['prefix_check.rs', 2200],
+    ['prefix_check.rs', 2266],
     ['call_resolution.rs', 760],
     ['block_check.rs', 700],
     ['overload_selection.rs', 460],

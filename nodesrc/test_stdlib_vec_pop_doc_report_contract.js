@@ -9,7 +9,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const file = path.join(repoRoot, "stdlib", "alloc", "collections", "vec", "mutation", "pop.nepl");
 const parsed = parseFile(file);
 
-assert.equal(parsed.doctests.length, 3, "vec/mutation/pop.nepl doctest count changed");
+assert.equal(parsed.doctests.length, 5, "vec/mutation/pop.nepl doctest count changed");
 
 const doctest = parsed.doctests.find((case_) => case_.code.includes("drop_last<i32>"));
 assert.ok(doctest, "drop_last doctest must stay present");

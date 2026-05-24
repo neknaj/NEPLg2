@@ -435,6 +435,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::MatchPatternUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchWildcardNotLast),
     DiagnosticCode::Type(TypeDiagnosticCode::OwnerAggregateConstructorRestricted),
+    DiagnosticCode::Type(TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted),
     DiagnosticCode::Type(TypeDiagnosticCode::OwnerAggregateFieldAccessRestricted),
     DiagnosticCode::Type(TypeDiagnosticCode::OwnerTokenConstructorRestricted),
     DiagnosticCode::Type(TypeDiagnosticCode::RawPointerConstructorRestricted),

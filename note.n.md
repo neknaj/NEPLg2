@@ -1,3 +1,24 @@
+# 2026-05-24 Agent 1 source policy drift preflight
+
+- 新しい開発作業の開始前に Zenn の設計方針を再確認した。試作段階なので後方互換より品質を優先し、暫定設計や監視漏れを残さない方針で進めた。`plan.md` は確認のみで変更していない。
+- static check Stage 6 の次作業へ入る前に、`nodesrc/run_source_policy_regressions.js --warn-only` で見えていた source policy drift を解消した。最終的に warn-only 全体は警告 0 件になった。
+- `source_capability/rule.rs` から collection slot lifecycle / borrow evidence 収集を `source_capability/collection_slot.rs` へ分割した。rule dispatcher は event routing に寄せ、typed primitive classification は専用 module が担う。
+- `codegen_wasm.rs` から enum match / variant payload helper を `codegen_wasm/enum_helpers.rs` へ分割し、WASM backend root の freeze limit 超過を解消した。
+- `TypeDiagnosticCode::CollectionSlotLifecycleBoundaryRestricted` を `ALL_DIAGNOSTIC_CODES` へ登録し、diagnostic code-first policy に `ResourceCollectionSlotDiagnosticCode` の網羅確認を追加した。
+- resource responsibility policy は新規 collection slot carrier / target / relevance / i32 scalar return fact modules を監視対象へ追加し、到達できていなかった current line budgets を現状値で凍結した。Rust 実装の本格的な階層化は後続工程で扱う。
+- stdlib documentation contract は現在値を baseline として同期し、public/private declaration doctest gaps を別々に記録するようにした。既存の doc gap は増加検出の対象として凍結し、今後の増加を防ぐ。
+- `vec/mutation/pop.nepl` の doctest report contract は、現在の 5 doctest 構成を正として同期した。
+- focused verification:
+  - `cargo fmt --check`
+  - `cargo check -p nepl-core`
+  - `node nodesrc/test_stdlib_documentation_contract.js`
+  - `node nodesrc/test_static_check_boundary_responsibility.js`
+  - `node nodesrc/test_resource_checker_responsibility.js`
+  - `node nodesrc/test_parser_backend_responsibility_policy.js`
+  - `node nodesrc/test_diagnostic_code_first_boundary.js`
+  - `node nodesrc/test_stdlib_vec_pop_doc_report_contract.js`
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`
+
 # 2026-05-24 Agent 1 project-wide status report
 
 - `plan.md` / `todo.md` / `note.n.md` / `doc/` / `issues/` / `nepl-core/` / `stdlib/` / `stdlib/neplg2/` / `nodesrc/` / `web/` を俯瞰し、`doc/project_status_report_20260524.md` に現状レポートを作成した。`plan.md` は確認のみで変更していない。

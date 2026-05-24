@@ -156,6 +156,7 @@ const diagnosticCodeEnumNames = [
   'ResourceMoveDiagnosticCode',
   'ResourceBorrowDiagnosticCode',
   'ResourceCellDiagnosticCode',
+  'ResourceCollectionSlotDiagnosticCode',
   'ResourceOwnerDiagnosticCode',
   'ResourceRawDiagnosticCode',
   'ResourceLowerDiagnosticCode',

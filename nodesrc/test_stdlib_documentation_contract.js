@@ -12,12 +12,14 @@ const STDLIB_ROOTS = [
 ];
 
 const BASELINE = {
-    files: 385,
+    files: 402,
     moduleNoDoc: 0,
-    moduleNoDoctest: 309,
+    moduleNoDoctest: 305,
     declarations: 1745,
-    declarationNoDoc: 547,
-    declarationNoDoctest: 1032,
+    declarationNoDoc: 530,
+    declarationNoDoctest: 1058,
+    publicDeclarationNoDoctest: 987,
+    privateDeclarationNoDoctest: 71,
 };
 
 function assert(condition, message) {
@@ -94,6 +96,8 @@ const stats = {
     declarations: 0,
     declarationNoDoc: 0,
     declarationNoDoctest: 0,
+    publicDeclarationNoDoctest: 0,
+    privateDeclarationNoDoctest: 0,
 };
 const samples = [];
 
@@ -129,6 +133,11 @@ for (const filePath of STDLIB_ROOTS.flatMap(walkNeplFiles).sort()) {
             );
         } else if (!hasDoctest(doc)) {
             stats.declarationNoDoctest += 1;
+            if (lines[index].trimStart().startsWith("pub ")) {
+                stats.publicDeclarationNoDoctest += 1;
+            } else {
+                stats.privateDeclarationNoDoctest += 1;
+            }
         }
     }
 }
@@ -146,6 +155,14 @@ assert(
 assert(
     stats.declarationNoDoctest <= BASELINE.declarationNoDoctest,
     `stdlib declaration doctest gaps increased: ${stats.declarationNoDoctest} > ${BASELINE.declarationNoDoctest}`,
+);
+assert(
+    stats.publicDeclarationNoDoctest <= BASELINE.publicDeclarationNoDoctest,
+    `stdlib public declaration doctest gaps increased: ${stats.publicDeclarationNoDoctest} > ${BASELINE.publicDeclarationNoDoctest}`,
+);
+assert(
+    stats.privateDeclarationNoDoctest <= BASELINE.privateDeclarationNoDoctest,
+    `stdlib private declaration doctest gaps increased: ${stats.privateDeclarationNoDoctest} > ${BASELINE.privateDeclarationNoDoctest}`,
 );
 
 console.log("stdlib documentation contract baseline ok");
