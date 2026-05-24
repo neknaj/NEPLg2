@@ -5,7 +5,10 @@ use alloc::vec::Vec;
 use crate::types::{TypeCtx, TypeId};
 
 use super::cell_state_raw_range_offset::NormalizedRawOffset;
-use super::collection_slot_drop_traversal_known_range::known_slot_offset_is_inside_initialized_count;
+use super::collection_slot_drop_traversal_known_range::{
+    known_slot_offset_is_definitely_outside_initialized_count,
+    known_slot_offset_is_inside_initialized_count,
+};
 use super::collection_slot_drop_traversal_symbolic_range::symbolic_slot_offset_is_inside_initialized_count;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, PlaceProjection};
@@ -57,6 +60,34 @@ pub(super) fn collection_slot_offset_is_inside_initialized_count(
             initialized_count,
             expected_ty,
         ),
+    }
+}
+
+pub(super) fn collection_slot_offset_is_definitely_outside_initialized_count(
+    types: &TypeCtx,
+    raw_aliases: &RawCellAddressAliases,
+    slot: &Place,
+    storage: &Place,
+    initialized_count: &Place,
+    expected_ty: TypeId,
+) -> bool {
+    let Some(suffix) = collection_slot_offset_suffix(slot, storage) else {
+        return true;
+    };
+    let Some(offset) = NormalizedRawOffset::from_suffix(&suffix) else {
+        return true;
+    };
+    match offset {
+        NormalizedRawOffset::Known(offset) => {
+            known_slot_offset_is_definitely_outside_initialized_count(
+                types,
+                raw_aliases,
+                offset,
+                initialized_count,
+                expected_ty,
+            )
+        }
+        NormalizedRawOffset::Symbolic { .. } | NormalizedRawOffset::ScaledSymbolic { .. } => false,
     }
 }
 

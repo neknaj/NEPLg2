@@ -9,6 +9,11 @@ use super::collection_slot_lifecycle::{
 };
 use super::collection_slot_state_table::{CollectionSlotStateEntry, CollectionSlotStateTable};
 use super::collection_slot_summary_build::compute_collection_slot_lifecycle_function_summaries;
+use super::collection_slot_summary_build_range_lifetime::transform_range_certificate_survives_op;
+use super::collection_slot_summary_build_state::{
+    CollectionSlotSummaryBuildState, CollectionSlotTransformRangeCertificateCandidate,
+};
+use super::collection_slot_summary_build_transform_range::loop_transform_range_certificates;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
 };
@@ -94,6 +99,7 @@ pub fn check_resource_initialized_moves(
             i32_scalar_summaries: &i32_scalar_summary_index,
             raw_init_summaries: &raw_init_summary_index,
             collection_slot_summaries: &collection_slot_summary_index,
+            transform_range_certificates: Some(Vec::new()),
             diagnostics: Vec::new(),
             auto_drop_points: Vec::new(),
             deferred: ResourceCheckDeferred::default(),
@@ -154,6 +160,8 @@ pub(super) struct ResourceCheckEngine<'a> {
     pub(super) i32_scalar_summaries: &'a I32ScalarReturnSummaryIndex<'a>,
     pub(super) raw_init_summaries: &'a RawCellInitializationFunctionSummaryIndex<'a>,
     pub(super) collection_slot_summaries: &'a CollectionSlotLifecycleFunctionSummaryIndex<'a>,
+    pub(super) transform_range_certificates:
+        Option<Vec<CollectionSlotTransformRangeCertificateCandidate>>,
     pub(super) diagnostics: Vec<ResourceCheckDiagnostic>,
     pub(super) auto_drop_points: Vec<ResourceDropPoint>,
     pub(super) deferred: ResourceCheckDeferred,
@@ -314,7 +322,8 @@ impl ResourceCheckEngine<'_> {
                 }
                 CollectionSlotLifecycleSummaryOp::Relocate { .. }
                 | CollectionSlotLifecycleSummaryOp::DropTraversal { .. }
-                | CollectionSlotLifecycleSummaryOp::TransformRange { .. } => {}
+                | CollectionSlotLifecycleSummaryOp::TransformRange { .. }
+                | CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain { .. } => {}
             }
         }
     }
@@ -364,6 +373,16 @@ impl ResourceCheckEngine<'_> {
         path: ResourceDropPointPath,
     ) {
         for (index, op) in ops.iter().enumerate() {
+            let mut pending_transform_range_certificates = self
+                .pending_local_transform_range_certificates(
+                    cells,
+                    collection_slots,
+                    raw_aliases,
+                    function_aliases,
+                    pending_reallocs,
+                    variant_initializations,
+                    op,
+                );
             let incoming_path_alternatives = core::mem::take(&mut self.path_alternatives);
             let op_path = path.clone().with_step(ResourceDropPointStep::Op { index });
             match incoming_path_alternatives {
@@ -392,7 +411,70 @@ impl ResourceCheckEngine<'_> {
                     self.path_alternatives = ResourcePathAlternatives::from_states(advanced);
                 }
             }
+            self.retain_local_transform_range_certificates_after_op(raw_aliases, op);
+            if let Some(candidates) = &mut self.transform_range_certificates {
+                candidates.append(&mut pending_transform_range_certificates);
+            }
         }
+    }
+
+    fn pending_local_transform_range_certificates(
+        &self,
+        cells: &CellTable,
+        collection_slots: &CollectionSlotStateTable,
+        raw_aliases: &RawCellAddressAliases,
+        function_aliases: &FunctionAliasTable,
+        pending_reallocs: &PendingRawReallocs,
+        variant_initializations: &PendingVariantRawCellInitializations,
+        op: &ResourceOp,
+    ) -> Vec<CollectionSlotTransformRangeCertificateCandidate> {
+        if self.transform_range_certificates.is_none() {
+            return Vec::new();
+        }
+        let ResourceOp::Loop {
+            condition_ops,
+            condition_fact,
+            body_ops,
+            ..
+        } = op
+        else {
+            return Vec::new();
+        };
+        let state = CollectionSlotSummaryBuildState {
+            cells: cells.clone(),
+            collection_slots: collection_slots.clone(),
+            raw_aliases: raw_aliases.clone(),
+            function_aliases: function_aliases.clone(),
+            pending_reallocs: pending_reallocs.clone(),
+            variant_initializations: variant_initializations.clone(),
+            drop_traversal_range_certificates: Vec::new(),
+            transform_range_certificates: self
+                .transform_range_certificates
+                .clone()
+                .unwrap_or_default(),
+        };
+        let candidates = loop_transform_range_certificates(
+            self,
+            &state,
+            condition_ops,
+            condition_fact.as_ref(),
+            body_ops,
+        );
+        candidates
+    }
+
+    fn retain_local_transform_range_certificates_after_op(
+        &mut self,
+        raw_aliases: &RawCellAddressAliases,
+        op: &ResourceOp,
+    ) {
+        let Some(candidates) = &mut self.transform_range_certificates else {
+            return;
+        };
+        let raw_aliases = raw_aliases.clone();
+        candidates.retain(|candidate| {
+            transform_range_certificate_survives_op(self.types, &raw_aliases, candidate, op)
+        });
     }
 
     pub(super) fn check_op(

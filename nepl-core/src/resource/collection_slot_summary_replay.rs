@@ -119,6 +119,39 @@ impl ResourceCheckEngine<'_> {
                         span,
                     );
                 }
+                CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain {
+                    source_storage,
+                    source_initialized_count,
+                    expected_ty,
+                    certificate,
+                } => {
+                    let Some(source_storage) = instantiate_summary_target_with_aliases(
+                        self,
+                        args,
+                        raw_aliases,
+                        source_storage,
+                    ) else {
+                        continue;
+                    };
+                    let Some(source_initialized_count) = instantiate_summary_target_with_aliases(
+                        self,
+                        args,
+                        raw_aliases,
+                        source_initialized_count,
+                    ) else {
+                        continue;
+                    };
+                    self.apply_certified_collection_slot_transform_source_drain_with_aliases(
+                        cells,
+                        collection_slots,
+                        raw_aliases,
+                        &source_storage,
+                        &source_initialized_count,
+                        *expected_ty,
+                        *certificate,
+                        span,
+                    );
+                }
                 CollectionSlotLifecycleSummaryOp::Merge { paths } => {
                     if paths.is_empty() {
                         continue;

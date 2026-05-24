@@ -48,17 +48,78 @@
 #import "core/mem" as *
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
+#import "core/mem/allocator" as allocator
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
 #import "core/traits/copy" as *
+#import "core/traits/drop" as *
 #import "../../types" as *
 #import "../../storage" as vec_storage
 #import "../../mutation/cleanup" as vec_cleanup
 #import "../../query/get" as vec_get
 #import "../../access/data" as *
 #import "../../invariant" as *
+
+//: ## vec_filter_borrow_slot_predicate
+//: filter の raw drain loop 内で source slot を predicate にだけ借用する private helper
+//:
+//: ### [目的/もくてき]
+//: - non-Copy payload を値渡し predicate に渡さず、`&T` の scoped borrow として観測します。
+//: - `collection_slot_borrow_ref` を public API に出さず、filter implementation 内の source evidence として閉じます。
+fn vec_filter_borrow_slot_predicate <.T> <(&RegionToken<.T>,i32,(&.T)->bool)->bool> (storage, byte_off, predicate):
+    let slot_ref <&.T>:
+        #intrinsic "collection_slot_borrow_ref" <.T> (storage, byte_off)
+    predicate slot_ref
+
+//: ## vec_filter_drain_to_output
+//: source range を borrowed predicate で[選別/せんべつ]し、selected prefix を output storage へ[構築/こうちく]する
+//:
+//: ### [目的/もくてき]
+//: - public `filter` から raw load / store / discard drop / transform marker / source storage release を[分離/ぶんり]し、この private helper に Resource IR certificate boundary を[閉/と]じます。
+//: - `source` の initialized prefix は selected branch で output へ[移動/いどう]され、discard branch で `Drop::drop` により[閉/と]じられます。
+//:
+//: ### [返/かえ]り[値/ち]
+//: - source storage は release 済みにし、output storage だけを owner とする `Vec` を[返/かえ]します。
+fn vec_filter_drain_to_output <.T: Drop> <(RegionToken<.T>,RegionToken<.T>,i32,i32,(&.T)->bool)*>Vec<.T>> (source, output, src_initialized_len, out_cap, predicate):
+    let source_data <MemPtr<.T>> region_ptr &source
+    let out_data <MemPtr<.T>> region_ptr &output
+    let mut read_i <i32> 0
+    let mut write_i <i32> 0
+    while lt read_i src_initialized_len:
+        do:
+            let source_byte_off <i32> mul read_i size_of<.T>
+            let keep <bool> vec_filter_borrow_slot_predicate<.T> &source source_byte_off predicate
+            let source_slot <MemPtr<.T>> mem_ptr_add<.T> source_data source_byte_off
+            let source_raw <i32> mem_ptr_addr source_slot
+            let loaded <.T> load<.T> source_raw
+            if:
+                keep
+                then:
+                    let out_byte_off <i32> mul write_i size_of<.T>
+                    let out_slot <MemPtr<.T>> mem_ptr_add<.T> out_data out_byte_off
+                    let out_raw <i32> mem_ptr_addr out_slot
+                    store<.T> out_raw loaded
+                    set write_i add write_i 1
+                else:
+                    Drop::drop &loaded
+            set read_i add read_i 1
+    #intrinsic "collection_slot_transform_range" <.T> (&source, src_initialized_len, &output, write_i)
+    vec_filter_release_storage<.T> source
+    Vec<.T> (OwnedBuffer<.T> write_i write_i out_cap (VecStorage<.T>::Owned output))
+
+//: ## vec_filter_release_storage
+//: transform 済み input storage の raw release proof を発行する private helper
+//:
+//: ### [目的/もくてき]
+//: - `collection_slot_transform_range` により source initialized range を moved-out / dropped 済みにした後、backing storage owner を閉じます。
+//: - storage release を `free` に見せかけず、transform 専用の source drain 境界として raw dealloc と marker を並べます。
+fn vec_filter_release_storage <.T> <(RegionToken<.T>)*>()> (region):
+    let raw <i32> field::get region "raw"
+    let total_size <i32> field::get region "size"
+    allocator::dealloc_raw raw total_size
+    #intrinsic "collection_slot_storage_dealloc" <> (&region)
 
 pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformError<.T>>> (v, p):
     let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
@@ -120,3 +181,61 @@ pub fn filter <.T: Copy> <(Vec<.T>, (.T)->bool)->Result<Vec<.T>, VecTransformErr
                             let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
                             let out_storage <VecStorage<.T>> field::get out_buffer "storage"
                             Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
+
+//: ## filter
+//: Drop payload を borrowed predicate で選別し、選ばれた owner だけを新しい Vec へ移す
+//:
+//: ### [目的/もくてき]
+//: - `.T: Drop` の要素を shallow copy せず、source slot から raw load した owner を selected branch では output storage へ移し、discard branch では `Drop::drop` で閉じます。
+//: - predicate は `(&T)->bool` とし、観測のために payload owner を消費しません。
+//:
+//: ### [実装/じっそう]
+//: - output capacity は input length と同じにし、`write_i` prefix だけを initialized range として返します。
+//: - loop 直後に `collection_slot_transform_range` marker を置き、source range move-out、output prefix initialization、discard drop proof を Resource IR summary に渡します。
+//:
+//: ### [注意/ちゅうい]
+//: - これは non-Copy transform engine の最初の単一出力接続です。`map` と `partition` は別 issue で扱います。
+pub fn filter <.T: Drop> <(Vec<.T>, (&.T)->bool)*>Result<Vec<.T>, VecTransformError<.T>>> (v, p):
+    let v_buffer_ref <&OwnedBuffer<.T>> field::get_ref &v "buffer"
+    let src_len <i32> *field::get_ref v_buffer_ref "len"
+    let src_initialized_len <i32> *field::get_ref v_buffer_ref "initialized_len"
+    let src_cap <i32> *field::get_ref v_buffer_ref "cap"
+    match vec_buffer_current_storage_invariant<.T> v_buffer_ref:
+        VecStorageInvariant::Invalid _reason:
+            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+        VecStorageInvariant::Valid:
+            match vec_storage::with_capacity<.T> src_len:
+                Result::Err e:
+                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
+                Result::Ok out0:
+                    let out_buffer_ref <&OwnedBuffer<.T>> field::get_ref &out0 "buffer"
+                    let out_cap <i32> *field::get_ref out_buffer_ref "cap"
+                    match vec_buffer_current_storage_invariant<.T> out_buffer_ref:
+                        VecStorageInvariant::Invalid _reason:
+                            vec_cleanup::free<.T> out0
+                            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                        VecStorageInvariant::Valid:
+                            let v_buffer <OwnedBuffer<.T>> field::get v "buffer"
+                            let v_storage <VecStorage<.T>> field::get v_buffer "storage"
+                            let out_buffer <OwnedBuffer<.T>> field::get out0 "buffer"
+                            let out_storage <VecStorage<.T>> field::get out_buffer "storage"
+                            match v_storage:
+                                VecStorage::Empty:
+                                    match out_storage:
+                                        VecStorage::Empty:
+                                            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> 0 0 out_cap VecStorage<.T>::Empty)
+                                        VecStorage::Owned out_region:
+                                            vec_filter_release_storage<.T> out_region
+                                            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> (Vec<.T> (OwnedBuffer<.T> src_len src_initialized_len src_cap VecStorage<.T>::Empty)) StdErrorKind::InvalidOperation
+                                VecStorage::Owned v_region:
+                                    match out_storage:
+                                        VecStorage::Empty:
+                                            if:
+                                                eq src_len 0
+                                                then:
+                                                    Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> 0 0 src_cap (VecStorage<.T>::Owned v_region))
+                                                else:
+                                                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> (Vec<.T> (OwnedBuffer<.T> src_len src_initialized_len src_cap (VecStorage<.T>::Owned v_region))) StdErrorKind::InvalidOperation
+                                        VecStorage::Owned out_region:
+                                            let out_vec <Vec<.T>> vec_filter_drain_to_output<.T> v_region out_region src_initialized_len out_cap p
+                                            Result::Ok<Vec<.T>, VecTransformError<.T>> out_vec

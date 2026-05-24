@@ -22,11 +22,13 @@ const privateLifecycleProofHelperInspected = [];
 const privateStorageReallocHelperInspected = [];
 const privateProofBackedOwnerUpdateHelperInspected = [];
 const privateProofBackedTailCleanupHelperInspected = [];
+const privateTransformRangeDrainHelperInspected = [];
 const ownerPreservingErrorRecoveryInspected = [];
 const ownerPreservingPopRecoveryInspected = [];
 const ownerPreservingPartitionRecoveryInspected = [];
 const ownerPreservingPartitionConstructorInspected = [];
 const proofBackedPopMoveOutInspected = [];
+const proofBackedTransformRangeFilterInspected = [];
 const violations = [];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
@@ -84,6 +86,9 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
             const privateProofBackedTailCleanupHelper = signature && !signature.isPublic
                 ? classifyPrivateProofBackedTailCleanupHelper(source, signature.name, typeSignature)
                 : null;
+            const privateTransformRangeDrainHelper = signature && !signature.isPublic
+                ? classifyPrivateTransformRangeDrainHelper(source, signature.name, typeSignature)
+                : null;
             if (privateStorageReallocHelper && !privateStorageReallocHelperInspected.includes(`${relPath}:${signature.name}`)) {
                 privateStorageReallocHelperInspected.push(`${relPath}:${signature.name}`);
             }
@@ -92,6 +97,9 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
             }
             if (privateProofBackedTailCleanupHelper && !privateProofBackedTailCleanupHelperInspected.includes(`${relPath}:${signature.name}`)) {
                 privateProofBackedTailCleanupHelperInspected.push(`${relPath}:${signature.name}`);
+            }
+            if (privateTransformRangeDrainHelper && !privateTransformRangeDrainHelperInspected.includes(`${relPath}:${signature.name}`)) {
+                privateTransformRangeDrainHelperInspected.push(`${relPath}:${signature.name}`);
             }
             if (ownerSurfaceCopyRequirement && ownerSurfaceCopyRequirement.size > 0) {
                 const ownerPreservingErrorRecovery = classifyOwnerPreservingErrorRecovery(signature.name, typeSignature);
@@ -117,6 +125,10 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 if (proofBackedPopMoveOut && !proofBackedPopMoveOutInspected.includes(`${relPath}:${signature.name}`)) {
                     proofBackedPopMoveOutInspected.push(`${relPath}:${signature.name}`);
                 }
+                const proofBackedTransformRangeFilter = classifyProofBackedTransformRangeFilterSurface(source, signature.name, typeSignature);
+                if (proofBackedTransformRangeFilter && !proofBackedTransformRangeFilterInspected.includes(`${relPath}:${signature.name}`)) {
+                    proofBackedTransformRangeFilterInspected.push(`${relPath}:${signature.name}`);
+                }
                 if (privateLifecycleProofHelper) {
                     privateLifecycleProofHelperInspected.push(`${relPath}:${signature.name}`);
                 } else {
@@ -129,7 +141,7 @@ for (const relPath of walkNeplFiles(collectionsRoot)) {
                 const dropCapableOwnerSurface = classifyDropCapableOwnerSurface(source, signature.name, typeSignature);
                 const missingCopy = generics.filter((generic) => ownerSurfaceCopyRequirement.has(generic.name) && !/\bCopy\b/.test(generic.bound ?? ''));
                 if (missingCopy.length > 0) {
-                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !privateProofBackedOwnerUpdateHelper && !privateProofBackedTailCleanupHelper && !ownerPreservingErrorRecovery && !ownerPreservingPopRecovery && !ownerPreservingPartitionRecovery && !ownerPreservingPartitionConstructor && !proofBackedPopMoveOut) {
+                    if (!emptyOwnerMetadataConstructor && !privateLifecycleProofHelper && !dropCapableOwnerSurface && !privateStorageReallocHelper && !privateProofBackedOwnerUpdateHelper && !privateProofBackedTailCleanupHelper && !privateTransformRangeDrainHelper && !ownerPreservingErrorRecovery && !ownerPreservingPopRecovery && !ownerPreservingPartitionRecovery && !ownerPreservingPartitionConstructor && !proofBackedPopMoveOut && !proofBackedTransformRangeFilter) {
                         const names = missingCopy.map((generic) => `.${generic.name}`).join(', ');
                         violations.push(`${relPath}:${index + 1}: ${signature.name} owner-producing/updating generic collection surface ${names} must carry Copy or a structurally proven Drop cleanup/empty-allocation contract`);
                     }
@@ -316,6 +328,15 @@ assert.ok(
     proofBackedPopMoveOutInspected.includes('stdlib/alloc/collections/vec/mutation/pop.nepl:vec_pop_storage_checked')
         && proofBackedPopMoveOutInspected.includes('stdlib/alloc/collections/vec/mutation/pop.nepl:pop'),
     'collection owner policy must classify Vec.pop Drop move-out through storage invariant plus private MoveOut proof instead of requiring Copy',
+);
+
+assert.ok(
+    privateTransformRangeDrainHelperInspected.includes('stdlib/alloc/collections/vec/transform/filter/select.nepl:vec_filter_drain_to_output'),
+    'collection owner policy must classify Vec.filter Drop direct drain as a private TransformRange proof boundary instead of requiring Copy',
+);
+assert.ok(
+    proofBackedTransformRangeFilterInspected.includes('stdlib/alloc/collections/vec/transform/filter/select.nepl:filter'),
+    'collection owner policy must classify public Vec.filter Drop as delegating to the private TransformRange drain boundary',
 );
 
 assert.ok(
@@ -1077,6 +1098,58 @@ function classifyProofBackedPopMoveOutSurface(source, functionName, typeSignatur
     return null;
 }
 
+function classifyProofBackedTransformRangeFilterSurface(source, functionName, typeSignature) {
+    if (!typeSignature) {
+        return null;
+    }
+
+    const functionType = parseFunctionType(typeSignature);
+    if (!functionType || functionType.parameters.length !== 2) {
+        return null;
+    }
+
+    const [ownerParam, predicateParam] = functionType.parameters.map((parameter) => parameter.trim());
+    const payloadMatch = ownerParam.match(/^Vec<\.(\w+)>$/);
+    if (!payloadMatch) {
+        return null;
+    }
+    const payload = payloadMatch[1];
+    if (functionType.returnType.trim() !== `Result<Vec<.${payload}>, VecTransformError<.${payload}>>`) {
+        return null;
+    }
+    if (predicateParam !== `(&.${payload})->bool`) {
+        return null;
+    }
+
+    const section = implementationFunctionSections(source, functionName)
+        .find((candidate) => new RegExp(`<\\.${payload}:\\s*Drop>`).test(candidate));
+    if (!section) {
+        return null;
+    }
+    if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
+        return null;
+    }
+    if (!new RegExp(`\\bVecStorageInvariant\\b[\\s\\S]*\\bvec_buffer_current_storage_invariant<\\.${payload}>`).test(section)) {
+        return null;
+    }
+    if (!/\bwith_capacity<\.\w+>\s+src_len\b/.test(section)) {
+        return null;
+    }
+
+    const drainMatch = section.match(/\b([A-Za-z_][A-Za-z0-9_]*)<\.\w+>\s+v_region\s+out_region\s+src_initialized_len\s+out_cap\s+p\b/);
+    if (!drainMatch) {
+        return null;
+    }
+    if (!classifyPrivateTransformRangeDrainHelper(source, drainMatch[1])) {
+        return null;
+    }
+    if (!/\bVecTransformError<\.\w+>\s+v\s+StdErrorKind::/.test(section)) {
+        return null;
+    }
+
+    return { kind: 'proof-backed-transform-range-filter-surface' };
+}
+
 function classifyProofBackedPopMoveOutSection(source, section, genericName, seen) {
     if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
         return null;
@@ -1233,6 +1306,62 @@ function classifyPrivateProofBackedTailCleanupHelper(source, functionName, typeS
     }
 
     return { kind: 'private-proof-backed-tail-cleanup-helper' };
+}
+
+function classifyPrivateTransformRangeDrainHelper(source, functionName, typeSignature = null) {
+    const section = implementationFunctionSection(source, functionName);
+    if (!section || /^\s*pub\s+fn\b/.test(section)) {
+        return null;
+    }
+
+    const signature = typeSignature ?? parseTypeSignature(section.match(/^\s*fn\s+[A-Za-z_][A-Za-z0-9_]*\s*(.*)$/m)?.[1] ?? '');
+    const functionType = signature ? parseFunctionType(signature) : null;
+    if (!functionType || functionType.parameters.length !== 5) {
+        return null;
+    }
+
+    const [sourceParam, outputParam, sourceLenParam, outputCapParam, predicateParam] =
+        functionType.parameters.map((parameter) => parameter.trim());
+    const payloadMatch = sourceParam.match(/^RegionToken<\.(\w+)>$/);
+    if (!payloadMatch) {
+        return null;
+    }
+    const payload = payloadMatch[1];
+    if (outputParam !== `RegionToken<.${payload}>` || sourceLenParam !== 'i32' || outputCapParam !== 'i32') {
+        return null;
+    }
+    if (predicateParam !== `(&.${payload})->bool` || functionType.returnType.trim() !== `Vec<.${payload}>`) {
+        return null;
+    }
+    if (!/\blet\s+mut\s+read_i\s+<i32>\s+0\b/.test(section) || !/\blet\s+mut\s+write_i\s+<i32>\s+0\b/.test(section)) {
+        return null;
+    }
+    if (!/\bwhile\s+lt\s+read_i\s+src_initialized_len\b/.test(section)) {
+        return null;
+    }
+    if (!/\bvec_filter_borrow_slot_predicate<\.\w+>\s+&source\s+source_byte_off\s+predicate\b/.test(section)) {
+        return null;
+    }
+    if (!/\bload<\.\w+>\s+source_raw\b/.test(section)) {
+        return null;
+    }
+    if (!/\bstore<\.\w+>\s+out_raw\s+loaded\b[\s\S]*\bset\s+write_i\s+add\s+write_i\s+1\b/.test(section)) {
+        return null;
+    }
+    if (!/\bDrop::drop\s+&loaded\b/.test(section)) {
+        return null;
+    }
+    if (!/#intrinsic\s+"collection_slot_transform_range"\s+<\.\w+>\s+\(&source,\s*src_initialized_len,\s*&output,\s*write_i\)/.test(section)) {
+        return null;
+    }
+    if (!/\bvec_filter_release_storage<\.\w+>\s+source\b/.test(section)) {
+        return null;
+    }
+    if (!/\bVec<\.\w+>\s+\(OwnedBuffer<\.\w+>\s+write_i\s+write_i\s+out_cap\s+\(VecStorage<\.\w+>::Owned\s+output\)\)/.test(section)) {
+        return null;
+    }
+
+    return { kind: 'private-transform-range-drain-helper' };
 }
 
 function classifyPrivateStorageReallocHelper(source, functionName, typeSignature) {

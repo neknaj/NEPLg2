@@ -217,6 +217,39 @@ pub(super) fn translate_summary_ops_through_args(
                     certificate: *certificate,
                 });
             }
+            CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain {
+                source_storage,
+                source_initialized_count,
+                expected_ty,
+                certificate,
+            } => {
+                let Some(source_storage) = translate_summary_place_through_args(
+                    engine,
+                    args,
+                    params,
+                    raw_aliases,
+                    source_storage,
+                ) else {
+                    continue;
+                };
+                let Some(source_initialized_count) = translate_summary_place_through_args(
+                    engine,
+                    args,
+                    params,
+                    raw_aliases,
+                    source_initialized_count,
+                ) else {
+                    continue;
+                };
+                out.push(
+                    CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain {
+                        source_storage,
+                        source_initialized_count,
+                        expected_ty: *expected_ty,
+                        certificate: *certificate,
+                    },
+                );
+            }
             CollectionSlotLifecycleSummaryOp::Merge { paths } => {
                 let mut translated_paths = Vec::new();
                 for path in paths {

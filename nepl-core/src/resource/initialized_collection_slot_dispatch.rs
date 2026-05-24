@@ -62,6 +62,27 @@ pub(super) fn check_initialized_collection_slot_op(
             );
             true
         }
+        ResourceOp::CollectionSlotTransformRange {
+            source_storage,
+            source_initialized_count,
+            output_storage,
+            output_initialized_count,
+            expected_ty,
+            span,
+        } => {
+            engine.apply_local_collection_slot_transform_range_with_aliases(
+                cells,
+                collection_slots,
+                raw_aliases,
+                source_storage,
+                source_initialized_count,
+                output_storage,
+                output_initialized_count,
+                *expected_ty,
+                *span,
+            );
+            true
+        }
         ResourceOp::Expr { .. }
         | ResourceOp::DeclareLocal { .. }
         | ResourceOp::Read { .. }
@@ -78,7 +99,6 @@ pub(super) fn check_initialized_collection_slot_op(
         | ResourceOp::RawAddressAlias { .. }
         | ResourceOp::RawAddressView { .. }
         | ResourceOp::StorageOrigin { .. }
-        | ResourceOp::CollectionSlotTransformRange { .. }
         | ResourceOp::Construct { .. }
         | ResourceOp::Branch { .. }
         | ResourceOp::Loop { .. }

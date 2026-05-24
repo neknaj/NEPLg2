@@ -15,6 +15,7 @@ pub(super) fn summary_check_engine<'a>(
         i32_scalar_summaries: engine.i32_scalar_summaries,
         raw_init_summaries: engine.raw_init_summaries,
         collection_slot_summaries: engine.collection_slot_summaries,
+        transform_range_certificates: engine.transform_range_certificates.clone(),
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),

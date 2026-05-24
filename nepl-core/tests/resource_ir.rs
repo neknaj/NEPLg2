@@ -25524,6 +25524,99 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_vec_filter_drop_payload_uses_transform_range_certificate() {
+    let source = r#"
+#entry main
+#indent 4
+#target std
+
+#import "alloc/collections/vec" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/drop" as *
+
+struct DropPayload:
+    value <i32>
+
+impl Drop for DropPayload:
+    fn drop <(&DropPayload)*>()> (_self):
+        ()
+
+fn is_even_payload <(&DropPayload)->bool> (item):
+    eq rem_s *field::get_ref item "value" 2 0
+
+fn recover_filter <(Vec<DropPayload>,StdErrorKind)*>i32> (returned, _error):
+    free<DropPayload> returned
+    1
+
+fn main <()*>i32> ():
+    let v0 <Vec<DropPayload>> unwrap_ok new<DropPayload>
+    let v1 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
+    let v2 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 2)
+    let v3 <Vec<DropPayload>> unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v2 (DropPayload 3)
+    match filter<DropPayload> v3 @is_even_payload:
+        Result::Ok out:
+            let ok <bool> eq len<DropPayload> &out 1
+            free<DropPayload> out
+            if ok 0 1
+        Result::Err e:
+            vec_transform_error_with<DropPayload,i32> e @recover_filter
+"#;
+
+    let (module, mut types) = typecheck_resource_source(source);
+    let monomorphized = nepl_core::monomorphize::monomorphize(&mut types, module).module;
+    let resource = lower_hir_module(&monomorphized, &types);
+    let init_report = check_resource_initialized_moves(&resource, &types);
+    let borrow_report = check_resource_borrow_lifetimes(&resource, &types);
+    let owned_ty = types.lookup_named("DropPayload").expect("DropPayload type");
+
+    assert!(
+        init_report.diagnostics.is_empty(),
+        "Vec.filter Drop payload must drain source slots, initialize returned output range, and allow cleanup without stdlib allowlists: {:#?}\nresource:\n{}",
+        init_report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        borrow_report.diagnostics.is_empty(),
+        "Vec.filter Drop payload predicate borrows must stay scoped to each predicate call: {:#?}\nresource:\n{}",
+        borrow_report.diagnostics,
+        resource.dump_text()
+    );
+    assert!(
+        resource.functions.iter().any(|function| {
+            function.origin_name == "vec_filter_drain_to_output"
+                && function.blocks.iter().flat_map(|block| block.ops.iter()).any(|op| {
+                    matches!(
+                        op,
+                        ResourceOp::CollectionSlotTransformRange {
+                            expected_ty,
+                            ..
+                        } if *expected_ty == owned_ty
+                    )
+                })
+        }),
+        "filter<T: Drop> lowering must keep the typed transform range marker in the private drain boundary:\n{}",
+        resource.dump_text()
+    );
+    assert!(
+        resource
+            .functions
+            .iter()
+            .filter(|function| function.origin_name == "filter")
+            .all(|function| {
+                function
+                    .blocks
+                    .iter()
+                    .flat_map(|block| block.ops.iter())
+                    .all(|op| !matches!(op, ResourceOp::CollectionSlotTransformRange { .. }))
+            }),
+        "public filter<T: Drop> must not expose the transform range marker:\n{}",
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_collection_slot_source_borrow_read_rejects_moved_slot() {
     let source = r#"
 #indent 4

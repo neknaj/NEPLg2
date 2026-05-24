@@ -45494,3 +45494,26 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 根本原因は、`filter` / `partition` / prefix transform の predicate が `(.T)->bool` であり、`.T: Copy` を外すと predicate 呼び出しが non-Copy payload owner を消費してしまうこと。`get<T: Copy>` や `data_mem_view<T: Copy>` を緩めると raw pointer escape と Copy raw access proof の混同を再導入する。
 - 方針は、`VecStorageInvariant` で storage/extent を証明し、Resource IR の `CollectionSlotLifecycleEvent::BorrowRead` で initialized slot を維持したまま `&T` を callback scope 内にだけ materialize する汎用 observer boundary を先に実装すること。transform ごとの個別 proof engine や stdlib allowlist は作らない。
 - 次の実装候補は、source-level borrowed observer API と borrow escape rejection の設計確認、その後に non-Copy predicate transform の段階的解禁である。
+
+## 2026-05-24 Agent 1 Vec.filter Drop TransformRange source 接続
+
+- `ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37` の一部として、`Vec.filter<T: Drop>` の successful Owned/Owned path を private `vec_filter_drain_to_output` boundary に閉じ、source-level `collection_slot_transform_range<T>` marker へ接続した。`plan.md` は変更していない。
+- 根本原因は、TransformRange marker が summary build では扱われる一方で通常の initialized checker では local state transition として適用されず、private helper 内の source storage release が live slot を見続けていたこと。
+- `ResourceOp::CollectionSlotTransformRange` を local initialized check に接続し、source range drain / output prefix initialization を certified replay と同じ path で適用するようにした。loop merge 由来の明示 slot entry が source drain 後に storage release を妨げるため、local marker 成功時は source storage 配下の明示 initialized / maybe-initialized entries も moved state へ畳む。ただし initialized_count 外と確定できる slot は残し、out-of-range slot を隠さない。
+- TransformRange summary builder は branch-local raw/scalar alias を non-store op でも進め、loaded-value alias を上書き / move / drop / raw store / end-scope で消す保守的 dataflow にした。source-only replay は output proof を source storage に読ませず、callee local marker が検査した output initialization と caller-visible source drain の責務を分けた。
+- `stdlib/alloc/collections/vec/transform/filter/select.nepl` では `filter<T: Drop>` を borrowed predicate `(&T)->bool`、raw load owner transfer、selected output store、discard `Drop::drop`、TransformRange marker、source storage release の順に固定した。private helper は source initialized prefix の proof boundary として `src_initialized_len` を loop bound / marker count に使い、public `filter` 本体には marker を置かず private proof boundary に閉じる。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` は旧 pop recursion 前提から、private TransformRange drain helper と public filter delegating surface を構造的に検査する形へ更新した。
+- focused verification:
+  - `cargo test -p nepl-core --test resource_ir resource_ir_vec_filter_drop_payload_uses_transform_range_certificate -- --nocapture`: passed
+  - `cargo test -p nepl-core local_transform_range -- --nocapture`: passed
+  - `cargo test -p nepl-core collection_slot_transform_range -- --nocapture`: passed
+  - `cargo test -p nepl-core collection_slot_summary_loop_induction -- --nocapture`: passed
+  - `cargo test -p nepl-core collection_slot_summary_replay_range_certificate -- --nocapture`: passed
+  - `cargo check -p nepl-core`: passed
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: passed
+  - `node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`: passed
+  - `node nodesrc/issues.js check --dir issues`: passed
+  - `trunk build`: passed
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-transform-range-20260524.json`: 13/13 passed
+  - `git diff --check`: passed
+  - subagent independent review: P1 として source policy classifier の `src_len` 固定を指摘。`src_initialized_len` 対応後に `node nodesrc/test_stdlib_collection_cleanup_contract.js` は passed。

@@ -62,6 +62,12 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
         expected_ty: TypeId,
         certificate: CollectionSlotTransformRangeCertificate,
     },
+    TransformRangeSourceDrain {
+        source_storage: CollectionSlotLifecycleSummaryPlace,
+        source_initialized_count: CollectionSlotLifecycleSummaryPlace,
+        expected_ty: TypeId,
+        certificate: CollectionSlotTransformRangeCertificate,
+    },
     Merge {
         paths: Vec<Vec<CollectionSlotLifecycleSummaryOp>>,
     },

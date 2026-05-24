@@ -41,7 +41,7 @@ pub(super) struct CollectionSlotDropTraversalRangeCertificateCandidate {
     pub(super) certificate: CollectionSlotInitializedRangeDropTraversalCertificate,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct CollectionSlotTransformRangeCertificateCandidate {
     pub(super) source_storage: super::model::Place,
     pub(super) source_initialized_count: super::model::Place,

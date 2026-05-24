@@ -42,6 +42,19 @@ drop traversal range certificate の兄弟として transform range lifecycle ce
 
 ## 進捗
 
+2026-05-24 checkpoint 4:
+
+- stdlib source-level fixture として `Vec.filter<T: Drop>` の successful Owned/Owned path を private `vec_filter_drain_to_output` boundary に接続した。public `filter<T: Drop>` は storage invariant / allocation / owner-bearing error construction / private drain 呼び出しだけを持ち、raw lifecycle marker は public callable surface に露出しない。
+- `vec_filter_drain_to_output` は source initialized prefix を閉じる proof boundary であるため、loop bound と `collection_slot_transform_range` marker count は `src_initialized_len` へ統一した。`src_len` と混同すると storage release proof と actual initialized range がずれる。
+- `ResourceOp::CollectionSlotTransformRange` を local initialized checker に接続し、summary replay と同じ certified source drain / output prefix initialization を local function body に適用するようにした。これにより TransformRange marker 直後の source storage release が live slot を見続ける問題を修正した。
+- loop merge で残る explicit source slot entry は TransformRange marker 成功時に moved state へ畳む。range marker の clear だけに頼ると、raw load 由来の symbolic/known slot entry が storage dealloc を妨げるためである。ただし既知 offset が initialized_count 外と証明できる entry は残し、out-of-range slot を隠さない。
+- summary build の transform candidate 抽出は、branch-local raw/scalar alias を store 以外の op でも進め、loaded-value alias を上書き / move / drop / raw store / end-scope で消す保守的 dataflow にした。古い alias を使って output store proof が成立する退行を避ける。
+- `TransformRangeSourceDrain` replay は output proof を source storage に対して検証しない。caller-visible summary が source drain だけを表す場合、output initialization は callee local marker と return range summary の責務であり、source-only replay へ混ぜない。
+- source policy は `Vec.filter<T: Drop>` を旧 pop recursion 前提ではなく、private TransformRange drain boundary と public delegated filter surface として構造的に分類するように更新した。
+- regression として `Vec<DropPayload>.filter((&DropPayload)->bool)` が source range drain、output initialized range、borrow scoped predicate、cleanup を通すことを Resource IR test で固定した。
+- independent review で source policy classifier が旧 `src_len` 前提のままだと指摘され、classifier も `src_initialized_len` loop / marker count を検査するように更新した。
+- 未完了: prefix / map / partition の source-level TransformRange 接続、2 output `partition` rollback cleanup、TransformRange model のさらなる source-only certificate 分離、sort の borrowed comparison / swap lifecycle proof。
+
 2026-05-24 checkpoint 3:
 
 - partial output rollback cleanup は `CollectionSlotTransformRangeCertificate` の責務に混ぜず、failure / early-exit path 側の `CollectionSlotDropTraversal` summary として表現する方針にした。

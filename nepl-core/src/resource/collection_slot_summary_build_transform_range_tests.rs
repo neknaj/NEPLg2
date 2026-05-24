@@ -645,7 +645,8 @@ fn has_output_cleanup_forall_range_summary(
 fn count_transform_range_summaries(out: &[CollectionSlotLifecycleSummaryOp]) -> usize {
     out.iter()
         .map(|op| match op {
-            CollectionSlotLifecycleSummaryOp::TransformRange { .. } => 1,
+            CollectionSlotLifecycleSummaryOp::TransformRange { .. }
+            | CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain { .. } => 1,
             CollectionSlotLifecycleSummaryOp::Merge { paths } => paths
                 .iter()
                 .map(|path| count_transform_range_summaries(path))
@@ -681,7 +682,8 @@ fn has_loop_body_transform_range_summary(out: &[CollectionSlotLifecycleSummaryOp
         CollectionSlotLifecycleSummaryOp::Event { .. }
         | CollectionSlotLifecycleSummaryOp::Relocate { .. }
         | CollectionSlotLifecycleSummaryOp::DropTraversal { .. }
-        | CollectionSlotLifecycleSummaryOp::TransformRange { .. } => false,
+        | CollectionSlotLifecycleSummaryOp::TransformRange { .. }
+        | CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain { .. } => false,
     })
 }
 
@@ -722,6 +724,7 @@ fn summary_test_engine<'a>(
         i32_scalar_summaries,
         raw_init_summaries,
         collection_slot_summaries,
+        transform_range_certificates: None,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),

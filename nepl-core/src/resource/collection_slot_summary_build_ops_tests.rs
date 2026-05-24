@@ -203,6 +203,7 @@ fn collection_slot_summary_branch_condition_fact_does_not_certify_forall_drop_tr
         i32_scalar_summaries: &i32_scalar_summary_index,
         raw_init_summaries: &raw_init_summary_index,
         collection_slot_summaries: &collection_slot_summary_index,
+        transform_range_certificates: None,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
@@ -272,7 +273,8 @@ fn summary_contains_drop_traversal(op: &CollectionSlotLifecycleSummaryOp) -> boo
             .any(summary_contains_drop_traversal),
         CollectionSlotLifecycleSummaryOp::Event { .. }
         | CollectionSlotLifecycleSummaryOp::Relocate { .. }
-        | CollectionSlotLifecycleSummaryOp::TransformRange { .. } => false,
+        | CollectionSlotLifecycleSummaryOp::TransformRange { .. }
+        | CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain { .. } => false,
     }
 }
 

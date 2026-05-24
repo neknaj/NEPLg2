@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-23
-updated: 2026-05-23
+updated: 2026-05-24
 target: "stdlib/alloc/collections/vec/transform/**, nepl-core/src/resource/**"
 ---
 
@@ -42,6 +42,17 @@ Self-host code cannot transform owning AST/HIR/diagnostic payload Vec values wit
 Design and implement a generic transform engine that uses borrowed predicates for observation, MoveOut for selected slots, InitializeEmpty for output slots, actual Drop proof for discarded slots, and owner-preserving VecTransformError / rollback cleanup on failure. Do not add stdlib function allowlists or per-transform proof engines.
 
 `ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37` を先に解き、drop traversal range certificate と同じ水準の typed transform range lifecycle certificate を Resource IR に追加してから stdlib `filter` / prefix / `map` / `partition` の public non-Copy overload を開く。
+
+## 進捗
+
+2026-05-24 checkpoint:
+
+- `filter<T: Drop>` の Owned/Owned success path は `(&T)->bool` borrowed predicate と private `vec_filter_drain_to_output` boundary で Resource IR TransformRange certificate へ接続した。
+- `vec_filter_drain_to_output` は source initialized prefix の証明境界として `src_initialized_len` を loop bound / TransformRange marker count に使う。`src_len` と storage initialized range を混同しない。
+- source-level regression として `Vec<DropPayload>.filter` が source drain、selected output initialization、discard actual drop、borrow scoped predicate、return output cleanup を通すことを固定した。
+- source policy は public `filter` に raw lifecycle marker を置かず、private TransformRange drain helper と public delegated filter surface を構造的に検査する。
+- まだ `filter` だけの first connection であり、prefix / map / partition は未接続。特に `partition` は matched/rest の 2 output owner と rollback cleanup を別途設計する必要があるため、この issue は open のまま維持する。
+- map は borrowed observation ではなく transformer の出力 owner と input owner の関係を扱うため、TransformRange をそのまま流用できる部分と `U` output construction proof を分けて検討する。
 
 ## 検証
 

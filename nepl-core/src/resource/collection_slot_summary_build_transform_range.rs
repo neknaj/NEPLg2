@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 
 use crate::layout::storage_size_bytes;
 
@@ -24,8 +24,9 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_scalar_flow_ops::propagate_i32_scalar_ops;
 use super::model::{
-    Place, PlaceProjection, RawMemoryOp, ResourceLocal, ResourceOffset, ResourceOp,
+    EffectOp, Place, PlaceProjection, RawMemoryOp, ResourceLocal, ResourceOffset, ResourceOp,
 };
+use super::raw_cell_value_flow_alias::raw_cell_place_with_canonical_symbolic_offsets;
 
 pub(super) fn loop_transform_range_certificates(
     engine: &ResourceCheckEngine<'_>,
@@ -86,41 +87,52 @@ pub(super) fn collect_summary_transform_range_op(
     ) else {
         return;
     };
-    if let (
-        Some(source_storage),
-        Some(source_initialized_count),
-        Some(output_storage),
-        Some(output_initialized_count),
-    ) = (
-        summary_place_for_params_with_aliases(
-            params,
-            &state.raw_aliases,
-            &candidate.source_storage,
-        ),
-        summary_place_for_params_with_aliases(
-            params,
-            &state.raw_aliases,
-            &candidate.source_initialized_count,
-        ),
-        summary_place_for_params_with_aliases(
-            params,
-            &state.raw_aliases,
-            &candidate.output_storage,
-        ),
-        summary_place_for_params_with_aliases(
-            params,
-            &state.raw_aliases,
-            &candidate.output_initialized_count,
-        ),
-    ) {
-        out.push(CollectionSlotLifecycleSummaryOp::TransformRange {
-            source_storage,
-            source_initialized_count,
-            output_storage,
-            output_initialized_count,
-            expected_ty,
-            certificate: candidate.certificate,
-        });
+    let Some(source_storage) = summary_place_for_params_with_aliases(
+        params,
+        &state.raw_aliases,
+        &candidate.source_storage,
+    ) else {
+        return;
+    };
+    let Some(source_initialized_count) = summary_place_for_params_with_aliases(
+        params,
+        &state.raw_aliases,
+        &candidate.source_initialized_count,
+    ) else {
+        return;
+    };
+    let output_storage = summary_place_for_params_with_aliases(
+        params,
+        &state.raw_aliases,
+        &candidate.output_storage,
+    );
+    let output_initialized_count = summary_place_for_params_with_aliases(
+        params,
+        &state.raw_aliases,
+        &candidate.output_initialized_count,
+    );
+    match (output_storage, output_initialized_count) {
+        (Some(output_storage), Some(output_initialized_count)) => {
+            out.push(CollectionSlotLifecycleSummaryOp::TransformRange {
+                source_storage,
+                source_initialized_count,
+                output_storage,
+                output_initialized_count,
+                expected_ty,
+                certificate: candidate.certificate,
+            });
+        }
+        (None, _) => {
+            out.push(
+                CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain {
+                    source_storage,
+                    source_initialized_count,
+                    expected_ty,
+                    certificate: candidate.certificate,
+                },
+            );
+        }
+        (Some(_), None) => {}
     }
 }
 
@@ -220,51 +232,54 @@ fn transform_candidate_after_load(
     element_stride: usize,
     aliases: &RawCellAddressAliases,
 ) -> Option<CollectionSlotTransformRangeCertificateCandidate> {
+    let mut loaded_aliases = vec![loaded.clone()];
     for op in &body_ops[load_index + 1..] {
-        let ResourceOp::Branch {
+        if let ResourceOp::Branch {
             then_ops, else_ops, ..
         } = op
-        else {
-            continue;
-        };
-        if let Some((output_storage, output_initialized_count)) =
-            branch_stores_loaded_to_output(engine, then_ops, loaded, aliases)
         {
-            if aliases.i32_value(&output_initialized_count) != Some(0) {
-                continue;
+            if let Some((output_storage, output_initialized_count)) =
+                branch_stores_loaded_to_output(engine, then_ops, &loaded_aliases, aliases)
+            {
+                if aliases.i32_value(&output_initialized_count) != Some(0) {
+                    propagate_loaded_value_aliases(&mut loaded_aliases, op);
+                    continue;
+                }
+                if branch_drops_loaded(else_ops, &loaded_aliases) {
+                    return Some(transform_range_candidate(
+                        engine,
+                        source_storage,
+                        source_initialized_count.clone(),
+                        output_storage,
+                        output_initialized_count,
+                        loaded.ty,
+                        element_stride,
+                        true,
+                    ));
+                }
             }
-            if branch_drops_loaded(else_ops, loaded) {
-                return Some(transform_range_candidate(
-                    engine,
-                    source_storage,
-                    source_initialized_count.clone(),
-                    output_storage,
-                    output_initialized_count,
-                    loaded.ty,
-                    element_stride,
-                    true,
-                ));
+            if let Some((output_storage, output_initialized_count)) =
+                branch_stores_loaded_to_output(engine, else_ops, &loaded_aliases, aliases)
+            {
+                if aliases.i32_value(&output_initialized_count) != Some(0) {
+                    propagate_loaded_value_aliases(&mut loaded_aliases, op);
+                    continue;
+                }
+                if branch_drops_loaded(then_ops, &loaded_aliases) {
+                    return Some(transform_range_candidate(
+                        engine,
+                        source_storage,
+                        source_initialized_count.clone(),
+                        output_storage,
+                        output_initialized_count,
+                        loaded.ty,
+                        element_stride,
+                        true,
+                    ));
+                }
             }
         }
-        if let Some((output_storage, output_initialized_count)) =
-            branch_stores_loaded_to_output(engine, else_ops, loaded, aliases)
-        {
-            if aliases.i32_value(&output_initialized_count) != Some(0) {
-                continue;
-            }
-            if branch_drops_loaded(then_ops, loaded) {
-                return Some(transform_range_candidate(
-                    engine,
-                    source_storage,
-                    source_initialized_count.clone(),
-                    output_storage,
-                    output_initialized_count,
-                    loaded.ty,
-                    element_stride,
-                    true,
-                ));
-            }
-        }
+        propagate_loaded_value_aliases(&mut loaded_aliases, op);
     }
     None
 }
@@ -272,41 +287,196 @@ fn transform_candidate_after_load(
 fn branch_stores_loaded_to_output(
     engine: &ResourceCheckEngine<'_>,
     ops: &[ResourceOp],
-    loaded: &Place,
+    loaded_aliases: &[Place],
     aliases: &RawCellAddressAliases,
 ) -> Option<(Place, Place)> {
     let mut out = None;
+    let mut branch_aliases = aliases.clone();
+    let mut branch_function_aliases = super::function_alias::FunctionAliasTable::default();
+    let mut loaded_aliases = loaded_aliases.to_vec();
     for (op_index, op) in ops.iter().enumerate() {
-        let ResourceOp::RawMemory {
+        if let ResourceOp::RawMemory {
             operation: RawMemoryOp::Store,
             args,
             ..
         } = op
-        else {
-            continue;
-        };
-        let (Some(address), Some(value)) = (args.first(), args.get(1)) else {
-            continue;
-        };
-        if value != loaded {
-            continue;
-        }
-        for address in aliases.raw_address_aliases_for_value(address) {
-            if let Some((storage, write_index)) =
-                storage_scaled_by_any_index(&address, engine.types.i32())
-            {
-                if branch_has_single_output_increment_after_store(ops, op_index, &write_index) {
-                    let candidate = (storage, aliases.canonicalize_scalar(&write_index));
-                    match &out {
-                        Some(existing) if existing != &candidate => return None,
-                        Some(_) => {}
-                        None => out = Some(candidate),
+        {
+            if let (Some(address), Some(value)) = (args.first(), args.get(1)) {
+                if loaded_value_aliases_contain(&loaded_aliases, value) {
+                    for address in branch_aliases.raw_address_aliases_for_value(address) {
+                        if let Some((storage, write_index)) = storage_scaled_by_any_index(
+                            &address,
+                            engine.types.i32(),
+                            &branch_aliases,
+                        ) {
+                            if branch_has_single_output_increment_after_store(
+                                ops,
+                                op_index,
+                                &write_index,
+                            ) {
+                                let candidate = (
+                                    branch_aliases.canonicalize_owner_cell_address(&storage),
+                                    branch_aliases.canonicalize_scalar(&write_index),
+                                );
+                                match &out {
+                                    Some(existing) if existing != &candidate => return None,
+                                    Some(_) => {}
+                                    None => out = Some(candidate),
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
+        propagate_loaded_value_aliases(&mut loaded_aliases, op);
+        propagate_transform_alias_facts(
+            engine,
+            &mut branch_aliases,
+            &mut branch_function_aliases,
+            op,
+        );
     }
     out
+}
+
+fn propagate_loaded_value_aliases(aliases: &mut Vec<Place>, op: &ResourceOp) {
+    match op {
+        ResourceOp::DeclareLocal {
+            place,
+            initializer: Some(initializer),
+            ..
+        } => {
+            remove_loaded_value_alias(aliases, place);
+            if loaded_value_aliases_contain(aliases, initializer) {
+                push_unique_place_alias(aliases, place);
+            }
+        }
+        ResourceOp::Read { source, output, .. } => {
+            remove_loaded_value_alias(aliases, output);
+            if loaded_value_aliases_contain(aliases, source) {
+                push_unique_place_alias(aliases, output);
+            }
+        }
+        ResourceOp::Move { source, output, .. } => {
+            let source_was_loaded = loaded_value_aliases_contain(aliases, source);
+            remove_loaded_value_alias(aliases, source);
+            remove_loaded_value_alias(aliases, output);
+            if source_was_loaded {
+                push_unique_place_alias(aliases, output);
+            }
+        }
+        ResourceOp::Assign { target, value, .. } => {
+            let value_was_loaded = loaded_value_aliases_contain(aliases, value);
+            remove_loaded_value_alias(aliases, target);
+            if value_was_loaded {
+                push_unique_place_alias(aliases, target);
+            }
+        }
+        ResourceOp::Drop { place, .. } => {
+            remove_loaded_value_alias(aliases, place);
+        }
+        ResourceOp::EndScope { locals, .. } => {
+            for local in locals {
+                remove_loaded_value_alias(aliases, local);
+            }
+        }
+        ResourceOp::RawMemory {
+            operation: RawMemoryOp::Store,
+            args,
+            ..
+        } => {
+            if let Some(value) = args.get(1) {
+                remove_loaded_value_alias(aliases, value);
+            }
+        }
+        ResourceOp::Branch {
+            then_ops, else_ops, ..
+        } => {
+            let mut then_aliases = aliases.clone();
+            let mut else_aliases = aliases.clone();
+            for op in then_ops {
+                propagate_loaded_value_aliases(&mut then_aliases, op);
+            }
+            for op in else_ops {
+                propagate_loaded_value_aliases(&mut else_aliases, op);
+            }
+            *aliases = intersect_loaded_value_aliases(&then_aliases, &else_aliases);
+        }
+        ResourceOp::Call {
+            output,
+            args,
+            effect,
+            ..
+        } => {
+            remove_loaded_value_alias(aliases, output);
+            if matches!(
+                effect,
+                EffectOp::InternalAlloc { .. } | EffectOp::UnsafeMemory { .. }
+            ) {
+                return;
+            }
+            if args
+                .iter()
+                .any(|arg| loaded_value_aliases_contain(aliases, arg))
+            {
+                aliases.clear();
+            }
+        }
+        ResourceOp::IndirectCall { output, args, .. } => {
+            remove_loaded_value_alias(aliases, output);
+            if args
+                .iter()
+                .any(|arg| loaded_value_aliases_contain(aliases, arg))
+            {
+                aliases.clear();
+            }
+        }
+        ResourceOp::FunctionValue { output, .. } | ResourceOp::Construct { output, .. } => {
+            remove_loaded_value_alias(aliases, output);
+        }
+        ResourceOp::Loop { .. } | ResourceOp::Match { .. } => {
+            aliases.clear();
+        }
+        ResourceOp::DeclareLocal {
+            initializer: None, ..
+        } => {}
+        ResourceOp::RawMemory { .. }
+        | ResourceOp::Expr { .. }
+        | ResourceOp::Borrow { .. }
+        | ResourceOp::CallEffect { .. }
+        | ResourceOp::RawAddressAlias { .. }
+        | ResourceOp::RawAddressView { .. }
+        | ResourceOp::StorageOrigin { .. }
+        | ResourceOp::CollectionSlotLifecycle { .. }
+        | ResourceOp::CollectionStorageRelocate { .. }
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. } => {}
+    }
+}
+
+fn loaded_value_aliases_contain(aliases: &[Place], value: &Place) -> bool {
+    aliases.iter().any(|alias| alias == value)
+}
+
+fn remove_loaded_value_alias(aliases: &mut Vec<Place>, place: &Place) {
+    aliases.retain(|alias| alias != place);
+}
+
+fn intersect_loaded_value_aliases(left: &[Place], right: &[Place]) -> Vec<Place> {
+    let mut out = Vec::new();
+    for alias in left {
+        if right.iter().any(|right_alias| right_alias == alias) {
+            push_unique_place_alias(&mut out, alias);
+        }
+    }
+    out
+}
+
+fn push_unique_place_alias(out: &mut Vec<Place>, place: &Place) {
+    if !out.iter().any(|existing| existing == place) {
+        out.push(place.clone());
+    }
 }
 
 fn branch_has_single_output_increment_after_store(
@@ -322,9 +492,16 @@ fn branch_has_single_output_increment_after_store(
     loop_body_increment_step(&ops[step_index + 1..], write_index).is_none()
 }
 
-fn branch_drops_loaded(ops: &[ResourceOp], loaded: &Place) -> bool {
-    ops.iter()
-        .any(|op| matches!(op, ResourceOp::Drop { place, .. } if place == loaded))
+fn branch_drops_loaded(ops: &[ResourceOp], loaded_aliases: &[Place]) -> bool {
+    let mut loaded_aliases = loaded_aliases.to_vec();
+    for op in ops {
+        if matches!(op, ResourceOp::Drop { place, .. } if loaded_value_aliases_contain(&loaded_aliases, place))
+        {
+            return true;
+        }
+        propagate_loaded_value_aliases(&mut loaded_aliases, op);
+    }
+    false
 }
 
 fn transform_range_candidate(
@@ -384,7 +561,8 @@ fn storage_scaled_by_index(
     index: &Place,
     aliases: &RawCellAddressAliases,
 ) -> Option<(Place, usize)> {
-    let (storage, offset) = storage_and_offset(address)?;
+    let address = raw_cell_place_with_canonical_symbolic_offsets(address, aliases);
+    let (storage, offset) = storage_and_offset(&address)?;
     match offset {
         ResourceOffset::ScaledSymbolic { place, scale } => {
             let offset_place = aliases.canonicalize_scalar(&place);
@@ -392,9 +570,8 @@ fn storage_scaled_by_index(
             (offset_place == index).then_some((storage, scale))
         }
         ResourceOffset::Symbolic { place } => {
-            let offset_place = aliases.canonicalize_scalar(&place);
-            let index = aliases.canonicalize_scalar(index);
-            (offset_place == index).then_some((storage, 1))
+            let scale = symbolic_offset_scale_for_index(&place, index, aliases)?;
+            Some((storage, scale))
         }
         _ => None,
     }
@@ -403,17 +580,45 @@ fn storage_scaled_by_index(
 fn storage_scaled_by_any_index(
     address: &Place,
     i32_ty: crate::types::TypeId,
+    aliases: &RawCellAddressAliases,
 ) -> Option<(Place, Place)> {
-    let (storage, offset) = storage_and_offset(address)?;
+    let address = raw_cell_place_with_canonical_symbolic_offsets(address, aliases);
+    let (storage, offset) = storage_and_offset(&address)?;
     match offset {
-        ResourceOffset::ScaledSymbolic { place, .. } | ResourceOffset::Symbolic { place } => {
-            Some((storage, *place))
+        ResourceOffset::ScaledSymbolic { place, .. } => {
+            Some((storage, aliases.canonicalize_scalar(&place)))
+        }
+        ResourceOffset::Symbolic { place } => {
+            Some((storage, symbolic_offset_index_place(&place, aliases)))
         }
         ResourceOffset::Known(_)
         | ResourceOffset::Offset { .. }
         | ResourceOffset::ScaledOffset { .. }
         | ResourceOffset::Unknown => Some((storage, Place::unknown(i32_ty))),
     }
+}
+
+fn symbolic_offset_index_place(offset: &Place, aliases: &RawCellAddressAliases) -> Place {
+    let offset = aliases.canonicalize_scalar(offset);
+    aliases
+        .i32_scaled_source(&offset)
+        .map(|(source, _)| aliases.canonicalize_scalar(&source))
+        .unwrap_or(offset)
+}
+
+fn symbolic_offset_scale_for_index(
+    offset: &Place,
+    index: &Place,
+    aliases: &RawCellAddressAliases,
+) -> Option<usize> {
+    let offset = aliases.canonicalize_scalar(offset);
+    let index = aliases.canonicalize_scalar(index);
+    if offset == index {
+        return Some(1);
+    }
+    let (source, scale) = aliases.i32_scaled_source(&offset)?;
+    let source = aliases.canonicalize_scalar(&source);
+    (source == index).then_some(scale)
 }
 
 fn storage_and_offset(address: &Place) -> Option<(Place, ResourceOffset)> {

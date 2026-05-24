@@ -114,6 +114,7 @@ fn function_raw_cell_initialization_summary(
         i32_scalar_summaries,
         raw_init_summaries,
         collection_slot_summaries: &empty_collection_slot_summaries,
+        transform_range_certificates: None,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),

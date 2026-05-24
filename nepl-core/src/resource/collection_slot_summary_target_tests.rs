@@ -292,6 +292,7 @@ fn with_engine<R>(types: &TypeCtx, f: impl FnOnce(&ResourceCheckEngine<'_>) -> R
         i32_scalar_summaries: &i32_scalar_summaries,
         raw_init_summaries: &raw_init_summaries,
         collection_slot_summaries: &collection_slot_summaries,
+        transform_range_certificates: None,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),

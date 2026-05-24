@@ -396,6 +396,7 @@ fn with_engine(types: &TypeCtx, run: impl FnOnce(&mut ResourceCheckEngine<'_>)) 
         i32_scalar_summaries: &i32_scalar_summary_index,
         raw_init_summaries: &raw_init_summary_index,
         collection_slot_summaries: &collection_slot_summary_index,
+        transform_range_certificates: Some(Vec::new()),
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),

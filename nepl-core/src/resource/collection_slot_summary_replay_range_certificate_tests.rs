@@ -278,6 +278,7 @@ fn summary_test_engine<'a>(
         i32_scalar_summaries,
         raw_init_summaries,
         collection_slot_summaries,
+        transform_range_certificates: None,
         diagnostics: Vec::new(),
         auto_drop_points: Vec::new(),
         deferred: ResourceCheckDeferred::default(),
