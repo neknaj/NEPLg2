@@ -3,7 +3,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { stripNeplComments, implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/string.nepl';
@@ -14,10 +15,10 @@ const rootSrc = fs.readFileSync(path.join(repoRoot, rootRelPath), 'utf8');
 const floatSrc = fs.readFileSync(path.join(repoRoot, floatRelPath), 'utf8');
 const formatSrc = fs.readFileSync(path.join(repoRoot, formatRelPath), 'utf8');
 const parseSrc = fs.readFileSync(path.join(repoRoot, parseRelPath), 'utf8');
-const rootCode = stripNeplComments(rootSrc);
-const floatCode = stripNeplComments(floatSrc);
-const formatCode = stripNeplComments(formatSrc);
-const parseCode = stripNeplComments(parseSrc);
+const rootCode = legacyTypeSyntaxView(rootSrc);
+const floatCode = legacyTypeSyntaxView(floatSrc);
+const formatCode = legacyTypeSyntaxView(formatSrc);
+const parseCode = legacyTypeSyntaxView(parseSrc);
 
 assert.match(rootSrc, /pub #import "\.\/string\/float" as \*/, 'alloc/string facade must re-export string/float');
 assert.match(floatSrc, /pub #import "\.\/float\/format" as \*/, 'alloc/string/float facade must re-export float/format');

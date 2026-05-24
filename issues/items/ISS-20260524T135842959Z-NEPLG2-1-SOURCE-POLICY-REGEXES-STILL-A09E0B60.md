@@ -56,6 +56,8 @@ Migrate source policy regexes to NEPLg2.1 syntax or introduce explicit syntax-aw
 - `legacyTypeSyntaxView` の policy-covered type constructor arity を拡張し、`VecDataView<T>`、`VecPop<T>`、`VecPushRejected<T>`、`VecReallocRegionError<T>`、`RegionReallocError<T>` などの owner / proof payload を旧 view へ正しく写せるようにした。`VecStorageInvariant` は zero-arity 型として扱い、initializer を型引数として誤消費しない regression を追加した。
 - コメント除去は source policy の実装検査 view に限定しており、コメント量や丁寧なドキュメント追加を抑制する検査は追加していない。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 31 件から 23 件へ減少した。残件は documentation/tutorial、Rust responsibility、selfhost、string storage/access/slice/float 系へ絞られた。
+- string storage / access / slice / float boundary policy を `legacyTypeSyntaxView` 経由へ移行した。式中の `%i32` ascription は field declaration ではないため、`legacyTypeSyntaxView` が struct / enum body 内の field / variant payload だけを旧 view 化するように修正した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 23 件から 19 件へ減少した。stdlib string boundary の旧表記依存は解消し、残件は documentation/tutorial、Rust responsibility、selfhost 系に集中した。
 
 ## 検証
 
@@ -72,3 +74,10 @@ node nodesrc/run_source_policy_regressions.js without stale NEPLg2.0 syntax fail
 - `node nodesrc/run_source_policy_regressions.js --warn-only` (23 warnings remain)
 - `trunk build`
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint5.json` (13/13 passed)
+- `node nodesrc/test_stdlib_string_storage_boundary.js`
+- `node nodesrc/test_stdlib_string_access_boundary.js`
+- `node nodesrc/test_stdlib_string_slice_boundary.js`
+- `node nodesrc/test_stdlib_string_float_boundary.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only` (19 warnings remain)
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint6.json` (13/13 passed)

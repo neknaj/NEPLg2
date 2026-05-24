@@ -3,7 +3,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { stripNeplComments, implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/string.nepl';
@@ -18,12 +19,12 @@ const sliceByteSrc = fs.readFileSync(path.join(repoRoot, sliceByteRelPath), 'utf
 const sliceCharSrc = fs.readFileSync(path.join(repoRoot, sliceCharRelPath), 'utf8');
 const sliceTrimSrc = fs.readFileSync(path.join(repoRoot, sliceTrimRelPath), 'utf8');
 const charOffsetsSrc = fs.readFileSync(path.join(repoRoot, charOffsetsRelPath), 'utf8');
-const rootCode = stripNeplComments(rootSrc);
-const sliceCode = stripNeplComments(sliceSrc);
-const sliceByteCode = stripNeplComments(sliceByteSrc);
-const sliceCharCode = stripNeplComments(sliceCharSrc);
-const sliceTrimCode = stripNeplComments(sliceTrimSrc);
-const charOffsetsCode = stripNeplComments(charOffsetsSrc);
+const rootCode = legacyTypeSyntaxView(rootSrc);
+const sliceCode = legacyTypeSyntaxView(sliceSrc);
+const sliceByteCode = legacyTypeSyntaxView(sliceByteSrc);
+const sliceCharCode = legacyTypeSyntaxView(sliceCharSrc);
+const sliceTrimCode = legacyTypeSyntaxView(sliceTrimSrc);
+const charOffsetsCode = legacyTypeSyntaxView(charOffsetsSrc);
 
 assert.match(rootSrc, /pub #import "\.\/string\/slice" as \*/, 'alloc/string facade must re-export string/slice');
 assert.doesNotMatch(rootSrc, /pub #import "\.\/string\/char_offsets" as \*/, 'alloc/string facade must not expose char offset helpers directly');

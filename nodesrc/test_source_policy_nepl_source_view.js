@@ -34,6 +34,9 @@ pub fn realloc_region_bytes_keep <.T> %fn RegionToken .T fn i32 Result RegionTok
 pub fn vec_push_rejected_with <.T,.R> %impure fn VecPushRejected .T impure fn impure fn Vec .T impure fn .T .R .R \\rejected\\callback:
     callback
 
+pub fn read_byte %fn i32 i32 \\addr:
+    load_u8 %i32 add addr 4
+
 let invariant %VecStorageInvariant vec_buffer_current_storage_invariant<.T> v_buffer_ref
 let e %BitSetUpdateError BitSetUpdateError bs d
 `);
@@ -72,6 +75,11 @@ assert.match(
     legacy,
     /let\s+invariant\s+<VecStorageInvariant>\s+vec_buffer_current_storage_invariant<\.T>\s+v_buffer_ref/,
     "legacyTypeSyntaxView must not consume initializer expressions after zero-arity policy types",
+);
+assert.match(
+    legacy,
+    /load_u8\s+%i32\s+add\s+addr\s+4/,
+    "legacyTypeSyntaxView must not treat expression-local type ascriptions as struct fields",
 );
 assert.match(
     legacy,

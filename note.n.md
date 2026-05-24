@@ -45758,3 +45758,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed as warn-only with 23 remaining warnings.
   - `trunk build`: passed.
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint5.json`: 13/13 passed.
+
+## 2026-05-24 Agent 1 string boundary source policy syntax view checkpoint
+
+- `ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60` の続きとして、string storage / access / slice / float boundary の旧表記依存を解消した。`plan.md` は変更していない。
+- `legacyTypeSyntaxView` は struct / enum body 内の field / variant payload だけを旧 view 化するように修正した。これにより関数本体の `load_u8 %i32 ...` のような expression-local type ascription を field declaration と誤認しない。
+- string access policy は、NEPLg2.1 の postfix-free `some` / `none` と式中 `%i32` ascription を現在の source 形として検査するようにした。
+- コメント除去は実装検査用 view に限定しており、コメント量や詳細な説明の追加を抑制する検査は追加していない。
+- full source policy warn-only は 23 件から 19 件へ減少した。残件は documentation/tutorial、Rust responsibility、selfhost 系に集中する。
+- focused verification:
+  - `node nodesrc/test_source_policy_nepl_source_view.js`: passed.
+  - `node nodesrc/test_stdlib_string_storage_boundary.js`: passed.
+  - `node nodesrc/test_stdlib_string_access_boundary.js`: passed.
+  - `node nodesrc/test_stdlib_string_slice_boundary.js`: passed.
+  - `node nodesrc/test_stdlib_string_float_boundary.js`: passed.
+  - `node nodesrc/test_stdlib_string_utf8_boundary.js`: passed.
+  - `node nodesrc/test_stdlib_text_boundary.js`: passed.
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed as warn-only with 19 remaining warnings.
+  - `trunk build`: passed.
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint6.json`: 13/13 passed.

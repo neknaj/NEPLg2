@@ -3,15 +3,16 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { stripNeplComments, implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const rootRelPath = 'stdlib/alloc/string.nepl';
 const storageRelPath = 'stdlib/alloc/string/storage.nepl';
 const rootSrc = fs.readFileSync(path.join(repoRoot, rootRelPath), 'utf8');
 const storageSrc = fs.readFileSync(path.join(repoRoot, storageRelPath), 'utf8');
-const rootCode = stripNeplComments(rootSrc);
-const storageCode = stripNeplComments(storageSrc);
+const rootCode = legacyTypeSyntaxView(rootSrc);
+const storageCode = legacyTypeSyntaxView(storageSrc);
 
 assert.doesNotMatch(rootSrc, /pub #import "\.\/string\/storage" as \*/, 'alloc/string facade must not re-export string/storage raw helpers');
 assert.doesNotMatch(rootSrc, /pub #import "\.\/string\/utf8" as \*/, 'alloc/string facade must not re-export string/utf8 raw helpers');

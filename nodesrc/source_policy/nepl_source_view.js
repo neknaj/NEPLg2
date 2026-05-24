@@ -131,20 +131,35 @@ const TYPE_ARITY = new Map([
 // policy checks, such as pure versus impure function types, and leaves ordinary
 // expressions in their original source form.
 function legacyTypeSyntaxView(src) {
+    let typeBodyIndent = null;
     return stripNeplComments(src)
         .split(/\n/)
-        .map(convertLegacyTypeLine)
+        .map((line) => {
+            const indent = leadingWhitespaceLength(line);
+            if (typeBodyIndent !== null && line.trim().length > 0 && indent <= typeBodyIndent) {
+                typeBodyIndent = null;
+            }
+            const converted = convertLegacyTypeLine(line, { allowField: typeBodyIndent !== null });
+            if (/^\s*(?:pub\s+)?(?:struct|enum)\s+[A-Za-z_][A-Za-z0-9_:]*(?:<.*>)?:\s*$/.test(line)) {
+                typeBodyIndent = indent;
+            }
+            return converted;
+        })
         .join("\n");
 }
 
-function convertLegacyTypeLine(line) {
+function leadingWhitespaceLength(line) {
+    return line.match(/^\s*/)[0].length;
+}
+
+function convertLegacyTypeLine(line, options = {}) {
     const fnLine = line.match(/^(\s*(?:pub\s+)?fn\s+(?:noshadow\s+)?[A-Za-z_][A-Za-z0-9_:]*(?:\s+<.*>)?\s+)%(.+?)(\s+\\.*:)$/);
     if (fnLine) {
         return `${fnLine[1]}<${legacyTypeExpr(fnLine[2])}> ${legacyLambdaParams(fnLine[3])}:`;
     }
 
     const fieldLine = line.match(/^(\s+[A-Za-z_][A-Za-z0-9_:]*\s+)%(.+)$/);
-    if (fieldLine) {
+    if (options.allowField === true && fieldLine) {
         return `${fieldLine[1]}<${legacyTypeExpr(fieldLine[2])}>`;
     }
 
