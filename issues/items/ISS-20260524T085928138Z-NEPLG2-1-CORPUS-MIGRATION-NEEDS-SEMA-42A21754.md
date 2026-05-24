@@ -149,6 +149,16 @@ LLM/手動判断が必要なもの:
 - raw copy、`RegionToken<u8>` ownership、`ByteBuilder -> ByteBuf -> str` finalization の処理順や owner boundary は変更していない。
 - `tmp/neplg21_string_result_constructor_smoke.neplg2` の direct `nepl-cli.exe --check --target std` で `concat_result` / `sb_build_result` / `string_from_utf8_mem_result` の postfix-free constructor shape は pass した。対象 3 file の `nodesrc/tests.js` は runnable doctest が無く `nodesrc/tests/no-runnable-doctests` になった。
 
+### 2026-05-24 string builder Result constructor postfix cleanup checkpoint
+
+- `stdlib/alloc/string/builder/append.nepl`、`stdlib/alloc/string/builder/reserve.nepl`、`stdlib/alloc/string/builder_ext.nepl` で、関数戻り値の `Result StringBuilder str` / `Result i32 str` から型が確定する `Result<T,E>::Ok` / `Result<T,E>::Err` を postfix なしへ移行した。
+- `string_builder_into_byte_builder`、`string_builder_from_byte_builder`、`byte_builder_error_free`、invalid char/byte/slice failure cleanup の処理順は変更していない。
+- `nodesrc/source_policy/stdlib_builder_owner.js` と `nodesrc/test_stdlib_string_no_unsafe_unwraps.js` の関連 regex を NEPLg2.1 `%fn` / `%Type` 記法へ追従し、builder owner boundary の静的検査を戻した。
+- `node nodesrc/test_stdlib_builder_owner_boundary.js`、`node nodesrc/test_stdlib_string_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_string_integer_boundary.js` は pass した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は 90 件の stale NEPLg2.0 regex failure を報告したため、全体追従は `ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60` として分離した。
+- `tmp/neplg21_string_builder_result_constructor_smoke.neplg2` の direct `nepl-cli.exe --check --target std` で今回の builder result constructor shape は pass した。
+- `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/neplg21_string_builder_result_constructor.json -j 1 --dist web/dist --assert-io` は 300s command timeout。残った node プロセスは停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

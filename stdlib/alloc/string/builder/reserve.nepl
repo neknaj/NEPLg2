@@ -57,9 +57,9 @@ pub fn string_builder_error %fn StdErrorKind str \kind:
 pub fn string_builder_next_capacity %fn i32 fn i32 Result i32 str \cap\needed:
     match byte_builder_next_capacity cap needed:
         Result::Ok next:
-            Result<i32,str>::Ok next
+            Result::Ok next
         Result::Err e:
-            Result<i32,str>::Err string_builder_error e
+            Result::Err string_builder_error e
 
 //: string_builder_with_capacity_result: 指定 capacity の builder を作る
 //:
@@ -74,9 +74,9 @@ pub fn string_builder_next_capacity %fn i32 fn i32 Result i32 str \cap\needed:
 pub fn string_builder_with_capacity_result %fn i32 Result StringBuilder str \capacity:
     match byte_builder_with_capacity capacity:
         Result::Ok bytes:
-            Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
+            Result::Ok string_builder_from_byte_builder bytes
         Result::Err e:
-            Result<StringBuilder,str>::Err string_builder_error e
+            Result::Err string_builder_error e
 
 //: string_builder_reserve_result: append 前に必要 byte capacity を確保する
 //:
@@ -88,11 +88,11 @@ pub fn string_builder_with_capacity_result %fn i32 Result StringBuilder str \cap
 pub fn string_builder_reserve_result %fn StringBuilder fn i32 Result StringBuilder str \sb\additional:
     match byte_builder_reserve string_builder_into_byte_builder sb additional:
         Result::Ok bytes:
-            Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
+            Result::Ok string_builder_from_byte_builder bytes
         Result::Err e:
             let kind %StdErrorKind byte_builder_error_kind &e
             byte_builder_error_free e
-            Result<StringBuilder,str>::Err string_builder_error kind
+            Result::Err string_builder_error kind
 
 //: string_builder_new_result: 空の StringBuilder を作る
 //:
@@ -104,9 +104,9 @@ pub fn string_builder_reserve_result %fn StringBuilder fn i32 Result StringBuild
 pub fn string_builder_new_result %fn () Result StringBuilder str \():
     match byte_builder_new:
         Result::Ok bytes:
-            Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
+            Result::Ok string_builder_from_byte_builder bytes
         Result::Err e:
-            Result<StringBuilder,str>::Err string_builder_error e
+            Result::Err string_builder_error e
 
 pub fn string_builder_new %fn () StringBuilder \():
     match string_builder_new_result:

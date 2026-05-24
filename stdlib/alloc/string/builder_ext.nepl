@@ -61,18 +61,18 @@ pub fn sb_append_slice_result %fn StringBuilder fn str fn i32 fn i32 Result Stri
             if:
                 eq out_len 0
                 then:
-                    Result<StringBuilder,str>::Ok sb
+                    Result::Ok sb
                 else:
                     match byte_builder_push_str_slice string_builder_into_byte_builder sb s s0 e0:
                         Result::Ok bytes:
-                            Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
+                            Result::Ok string_builder_from_byte_builder bytes
                         Result::Err e:
                             let kind %StdErrorKind byte_builder_error_kind &e
                             byte_builder_error_free e
-                            Result<StringBuilder,str>::Err string_builder_error kind
+                            Result::Err string_builder_error kind
         else:
             string_builder_free sb
-            Result<StringBuilder,str>::Err "string.builder append slice invalid utf8 boundary"
+            Result::Err "string.builder append slice invalid utf8 boundary"
 
 //: sb_append_i32_result: i32 を 10 進文字列化して builder に追加する
 //:
@@ -93,7 +93,7 @@ pub fn sb_append_i32_result %fn StringBuilder fn i32 Result StringBuilder str \s
         Result::Ok text:
             sb_append_result sb text
         Result::Err _e:
-            Result<StringBuilder,str>::Err "string.builder append_i32 conversion failed"
+            Result::Err "string.builder append_i32 conversion failed"
 
 pub fn sb_append_i32 %fn StringBuilder fn i32 StringBuilder \sb\v:
     match sb_append_i32_result sb v:

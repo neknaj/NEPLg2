@@ -40,15 +40,15 @@ pub fn sb_append_result %fn StringBuilder fn str Result StringBuilder str \sb\s:
     if:
         eq s_len 0
         then:
-            Result<StringBuilder,str>::Ok sb
+            Result::Ok sb
         else:
             match byte_builder_push_str string_builder_into_byte_builder sb s:
                 Result::Ok bytes:
-                    Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
+                    Result::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
                     let kind %StdErrorKind byte_builder_error_kind &e
                     byte_builder_error_free e
-                    Result<StringBuilder,str>::Err string_builder_error kind
+                    Result::Err string_builder_error kind
 
 //: sb_append_char_result: builder に char を UTF-8 として追加する
 //:
@@ -60,11 +60,11 @@ pub fn sb_append_result %fn StringBuilder fn str Result StringBuilder str \sb\s:
 pub fn sb_append_char_result %fn StringBuilder fn char Result StringBuilder str \sb\c:
     match byte_builder_push_char_utf8 string_builder_into_byte_builder sb c:
         Result::Ok bytes:
-            Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
+            Result::Ok string_builder_from_byte_builder bytes
         Result::Err e:
             let kind %StdErrorKind byte_builder_error_kind &e
             byte_builder_error_free e
-            Result<StringBuilder,str>::Err string_builder_error kind
+            Result::Err string_builder_error kind
 
 //: sb_append_ascii_result: builder に ASCII char を 1 byte として追加する
 //:
@@ -79,14 +79,14 @@ pub fn sb_append_ascii_result %fn StringBuilder fn char Result StringBuilder str
         then:
             match byte_builder_push_ascii string_builder_into_byte_builder sb c:
                 Result::Ok bytes:
-                    Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
+                    Result::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
                     let kind %StdErrorKind byte_builder_error_kind &e
                     byte_builder_error_free e
-                    Result<StringBuilder,str>::Err string_builder_error kind
+                    Result::Err string_builder_error kind
         else:
             string_builder_free sb
-            Result<StringBuilder,str>::Err "string.builder non-ascii char"
+            Result::Err "string.builder non-ascii char"
 
 //: sb_append_byte_result: builder に検証済みの 1 byte を追加する
 //:
@@ -101,15 +101,15 @@ pub fn sb_append_byte_result %fn StringBuilder fn i32 Result StringBuilder str \
         or lt byte 0 gt byte 255
         then:
             string_builder_free sb
-            Result<StringBuilder,str>::Err "string.builder invalid byte"
+            Result::Err "string.builder invalid byte"
         else:
             match byte_builder_push_u8 string_builder_into_byte_builder sb byte:
                 Result::Ok bytes:
-                    Result<StringBuilder,str>::Ok string_builder_from_byte_builder bytes
+                    Result::Ok string_builder_from_byte_builder bytes
                 Result::Err e:
                     let kind %StdErrorKind byte_builder_error_kind &e
                     byte_builder_error_free e
-                    Result<StringBuilder,str>::Err string_builder_error kind
+                    Result::Err string_builder_error kind
 
 pub fn sb_append_char %fn StringBuilder fn char StringBuilder \sb\c:
     match sb_append_char_result sb c:

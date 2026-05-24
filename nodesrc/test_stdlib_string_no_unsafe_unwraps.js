@@ -100,7 +100,7 @@ const floatParseCode = stripNeplComments(floatParseSrc);
 const concatCode = stripNeplComments(concatSrc);
 const findCode = stripNeplComments(findSrc);
 const fromU128Radix = integerFormatCode.match(/(?:pub\s+)?fn\s+from_u128_radix[\s\S]*?(?=\n(?:pub\s+)?fn\s+from_i128|\n\/\/ from_i128|$)/)?.[0] ?? '';
-const stringFinish = storageCode.match(/(?:pub\s+)?fn\s+string_finish\s+<\(RegionToken<u8>,i32\)->str>\s+\(region,\s*byte_len\):[\s\S]*?(?=\n(?:pub\s+)?fn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
+const stringFinish = storageCode.match(/(?:pub\s+)?fn\s+string_finish\s+%fn\s+RegionToken\s+u8\s+fn\s+i32\s+str\s+\\region\\byte_len:[\s\S]*?(?=\n(?:pub\s+)?fn\s+string_from_addr_unchecked\s+)/)?.[0] ?? '';
 const storageCodeWithoutStringFinish = stringFinish ? storageCode.replace(stringFinish, '') : storageCode;
 const fromF64Result = floatFormatCode.match(/(?:pub\s+)?fn\s+from_f64_result[\s\S]*?(?=\n(?:pub\s+)?fn\s+from_f64\s+<|$)/)?.[0] ?? '';
 
@@ -184,13 +184,13 @@ assert.notEqual(fromF64Result, '', 'from_f64_result body must be available for s
 assert.doesNotMatch(fromF64Result, /\b(?:scratch_raw|alloc_ptr<u8>\s+6|string_from_mem_unchecked_result)\b/, 'from_f64_result must not route fractional digits through raw scratch string construction');
 assert.match(floatFormatCode, /fn\s+from_f64_build_fixed_result[\s\S]*string_alloc_region[\s\S]*string_finish/, 'from_f64_result must build output through the fixed-size string storage boundary');
 assert.doesNotMatch(floatFormatCode, /\bstring_builder_with_capacity_result\b/, 'from_f64_result must not route fixed-size output through growable StringBuilder owner chains');
-assert.doesNotMatch(code, /fn\s+str_split_result\s+<\(str,str\)->Result<Vec<str>,str>>/, 'alloc/string must not expose owned Vec<str> split until element cleanup is typed');
-assert.doesNotMatch(code, /fn\s+str_split_ranges_result\s+<\(str,str\)->Result<Vec<i32>,str>>/, 'alloc/string must not expose allocation-bearing split range vectors while returned Vec owner summaries are incomplete');
+assert.doesNotMatch(code, /fn\s+str_split_result\s+%fn\s+str\s+fn\s+str\s+Result\s+Vec\s+str\s+str/, 'alloc/string must not expose owned Vec<str> split until element cleanup is typed');
+assert.doesNotMatch(code, /fn\s+str_split_ranges_result\s+%fn\s+str\s+fn\s+str\s+Result\s+Vec\s+i32\s+str/, 'alloc/string must not expose allocation-bearing split range vectors while returned Vec owner summaries are incomplete');
 assert.match(code, /pub\s+#import\s+"\.\/string\/split"\s+as\s+\*/, 'alloc/string must re-export allocation-free split scanner APIs');
 assert.match(splitCode, /enum\s+StrSplitStepKind:[\s\S]*Part[\s\S]*Done/, 'alloc/string/split must expose allocation-free split scanner state as an enum');
-assert.match(splitCode, /fn\s+str_split_next\s+<\(str,str,i32\)->StrSplitStep>/, 'alloc/string/split must expose allocation-free split scanning instead of owned Vec<str> split');
+assert.match(splitCode, /fn\s+str_split_next\s+%fn\s+str\s+fn\s+str\s+fn\s+i32\s+StrSplitStep/, 'alloc/string/split must expose allocation-free split scanning instead of owned Vec<str> split');
 assert.doesNotMatch(code, /enum\s+StrSplitStepKind:/, 'alloc/string root must not own split scanner state');
-assert.doesNotMatch(code, /fn\s+str_split_next\s+<\(str,str,i32\)->StrSplitStep>/, 'alloc/string root must not own allocation-free split scanning');
+assert.doesNotMatch(code, /fn\s+str_split_next\s+%fn\s+str\s+fn\s+str\s+fn\s+i32\s+StrSplitStep/, 'alloc/string root must not own allocation-free split scanning');
 assert.match(code, /pub\s+#import\s+"\.\/string\/integer"\s+as\s+\*/, 'alloc/string must re-export integer conversion APIs');
 assert.match(integerCode, /pub\s+#import\s+"\.\/integer\/format"\s+as\s+\*/, 'alloc/string/integer facade must re-export integer formatting APIs');
 assert.match(integerCode, /pub\s+#import\s+"\.\/integer\/parse"\s+as\s+\*/, 'alloc/string/integer facade must re-export integer parsing APIs');
@@ -199,18 +199,18 @@ assert.match(integerFormatCode, /fn\s+from_i32_radix\s+/, 'alloc/string/integer/
 assert.match(integerParseCode, /fn\s+to_i128_radix\s+/, 'alloc/string/integer/parse must own i128 parsing');
 assert.doesNotMatch(code, /fn\s+to_i128_radix\s+/, 'alloc/string root must not own integer parsing');
 assert.match(builderExtCode, /fn\s+sb_append_slice_result\s+/, 'StringBuilder must support appending source string ranges without allocating owned substrings');
-assert.match(findCode, /fn\s+find\s+<\(str,str\)->Option<i32>>/, 'alloc/string/find must expose Option-returning byte search');
+assert.match(findCode, /fn\s+find\s+%fn\s+str\s+fn\s+str\s+Option\s+i32/, 'alloc/string/find must expose Option-returning byte search');
 assert.doesNotMatch(code, /\bfn\s+/, 'alloc/string root facade must not own implementation function bodies');
 assert.doesNotMatch(storageCode, /\bfn\s+string_finish_base\b/, 'alloc/string/storage must not keep a MemPtr-based string finalizer');
 assert.doesNotMatch(storageCode, /\bpub\s+fn\s+string_addr\b/, 'string_addr must stay private to string_data_ptr');
 assert.doesNotMatch(storageCode, /\bpub\s+fn\s+string_from_addr_unchecked\b/, 'string_from_addr_unchecked must stay private to string_finish');
-assert.match(stringFinish, /\blet\s+base_raw\s+<i32>\s+get\s+region\s+"raw"/, 'string_finish must consume RegionToken raw owner identity at the final str ownership boundary');
+assert.match(stringFinish, /\blet\s+base_raw\s+%i32\s+get\s+region\s+"raw"/, 'string_finish must consume RegionToken raw owner identity at the final str ownership boundary');
 assert.match(stringFinish, /\bstore_i32\s+base_raw\s+byte_len\b[\s\S]*\bstring_from_addr_unchecked\s+base_raw\b/, 'string_finish must finalize the header and transfer the same raw owner directly into str');
 assert.match(fromU128Radix, /digit_count[\s\S]*string_alloc_region\s+digit_count[\s\S]*set\s+pos\s+sub\s+pos\s+1/, 'from_u128_radix must count digits before allocating and write output from the end');
 assert.doesNotMatch(fromU128Radix, /scratch_raw/, 'from_u128_radix must not use scratch raw storage for digit reversal');
 assert.match(sliceByteCode, /fn\s+str_slice_result[\s\S]*str_utf8_is_boundary\s+s\s+s0[\s\S]*str_utf8_is_boundary\s+s\s+e0/, 'str_slice_result must reject non-boundary UTF-8 byte ranges');
 assert.doesNotMatch(storageCodeWithoutStringFinish, /\bget\s+(?:region|out_region)\s+"raw"/, 'alloc/string/storage must not consume RegionToken raw owner identity except at the final string_finish ownership boundary');
 assert.doesNotMatch(storageCode, /\bstring_region_data_ptr\s+(?:region|out_region)\b/, 'alloc/string/storage must pass RegionToken projections by reference');
-assert.match(storageCode, /fn\s+string_region_data_ptr\s+<\(&RegionToken<u8>\)->MemPtr<u8>>/, 'string_region_data_ptr must project from a RegionToken reference');
+assert.match(storageCode, /fn\s+string_region_data_ptr\s+%fn\s+&RegionToken\s+u8\s+MemPtr\s+u8/, 'string_region_data_ptr must project from a RegionToken reference');
 
 console.log('alloc/string unsafe unwrap regression passed');
