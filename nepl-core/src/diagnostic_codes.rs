@@ -70,6 +70,7 @@ pub enum TypeDiagnosticCode {
     OverloadAmbiguous,
     OverloadNoMatch,
     GenericConstraintConflict,
+    GenericTypeArgsUnresolved,
     MatchScrutineeNotEnum,
     MatchDuplicateArm,
     MatchNonExhaustive,
@@ -310,6 +311,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::OverloadAmbiguous),
     DiagnosticCode::Type(TypeDiagnosticCode::OverloadNoMatch),
     DiagnosticCode::Type(TypeDiagnosticCode::GenericConstraintConflict),
+    DiagnosticCode::Type(TypeDiagnosticCode::GenericTypeArgsUnresolved),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchScrutineeNotEnum),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchDuplicateArm),
     DiagnosticCode::Type(TypeDiagnosticCode::MatchNonExhaustive),
@@ -772,6 +774,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::OverloadAmbiguous => "type.overload.ambiguous",
             TypeDiagnosticCode::OverloadNoMatch => "type.overload.no_match",
             TypeDiagnosticCode::GenericConstraintConflict => "type.generic_constraint.conflict",
+            TypeDiagnosticCode::GenericTypeArgsUnresolved => {
+                "type.generic_call.unresolved_type_args"
+            }
             TypeDiagnosticCode::MatchScrutineeNotEnum => "type.match.scrutinee_not_enum",
             TypeDiagnosticCode::MatchDuplicateArm => "type.match.duplicate_arm",
             TypeDiagnosticCode::MatchNonExhaustive => "type.match.non_exhaustive",
@@ -899,6 +904,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::OverloadNoMatch => "function signature does not match any overload",
             TypeDiagnosticCode::GenericConstraintConflict => {
                 "generic type argument constraints are inconsistent"
+            }
+            TypeDiagnosticCode::GenericTypeArgsUnresolved => {
+                "generic call has unresolved type arguments"
             }
             TypeDiagnosticCode::MatchScrutineeNotEnum => "match scrutinee must be an enum",
             TypeDiagnosticCode::MatchDuplicateArm => "duplicate match arm",

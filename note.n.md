@@ -45616,3 +45616,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
 - known limitation:
   - file全体の stdin compile は 180s timeout になったため、既知の stdlib test 長時間化として扱い、残存 `nepl-cli.exe` は停止済み。
+
+## 2026-05-24 Agent 1 unconstrained generic call type-arg diagnostic
+
+- `ISS-20260524T123402690Z-GENERIC-CALLS-WITH-UNCONSTRAINED-TYP-DD4E3093` を対応し、`is_none none` / `is_err ok 5` / `is_ok err 7` が未具体化 generic function name として codegen へ到達する問題を型検査側で止めるようにした。`plan.md` は変更していない。
+- 根本原因は、generic user call の `resolved_args` に fresh type var が残る場合、monomorphize instantiation には登録されない一方で typed HIR の `FuncRef::User(..., type_args, ...)` には残り、wasm backend の unknown function まで進むことだった。
+- `hir_finalize` に typed HIR 確定後の `FuncRef::User` type args 検査を追加し、関数自身の type parameter は許可しつつ、それ以外の未束縛型変数を `type.generic_call.unresolved_type_args` として報告するようにした。
+- `Option .T` のような正当な generic function body の型適用は、Apply の実引数側だけを検査することで許可した。これにより `choose opt` や postfix-free `map` / `and_then` の既存 NEPLg2.1 回帰は維持される。
+- 回帰テストとして `function_neplg21_unconstrained_generic_call_type_args_are_type_error` と `function_neplg21_generic_call_type_args_resolve_from_explicit_consumer` を追加した。
+- subagent 調査の指摘を反映し、generic function body 内の正当な `.T` を誤検出しない正例 `function_neplg21_generic_body_type_params_remain_allowed` も追加した。
+- focused verification:
+  - `cargo fmt --check`: passed.
+  - `cargo check -p nepl-core`: passed.
+  - `cargo test -p nepl-core --test functions neplg21 -- --nocapture`: passed.
+  - `cargo test -p nepl-core --test functions function_first_class -- --nocapture`: passed.
+  - `cargo test -p nepl-core --test functions function_neplg21_generic_body_type_params_remain_allowed -- --nocapture`: passed.
+  - direct `nepl-cli.exe --target core --emit wasm --run`: `is_none none` / `is_err ok 5` / `is_ok err 7` now fail with `type.generic_call.unresolved_type_args` before wasm codegen.
+  - direct `nepl-cli.exe --target core --emit wasm --run`: `is_none<i32> none` / `is_err<i32,i32> ok 5` / `is_ok<i32,i32> err 7` still compile/run.

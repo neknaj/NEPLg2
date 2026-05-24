@@ -3,8 +3,10 @@ use harness::{run_main_i32, run_main_wasi_i32};
 
 use nepl_core::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
 use nepl_core::error::CoreError;
+use nepl_core::loader::Loader;
 use nepl_core::span::FileId;
-use nepl_core::{compile_wasm, CompileOptions};
+use nepl_core::{compile_module_with_source_map, compile_wasm, CompileOptions, CompileTarget};
+use std::path::PathBuf;
 
 fn compile_err(src: &str) {
     let result = compile_wasm(
@@ -30,6 +32,42 @@ fn compile_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
         },
     );
     let CoreError::Diagnostics(diags) = result.expect_err("expected diagnostics") else {
+        panic!("expected diagnostics");
+    };
+    assert!(
+        diags
+            .iter()
+            .any(|diag| diag.code == DiagnosticCode::Type(code)),
+        "missing type diagnostic {:?}: {:?}",
+        code,
+        diags
+    );
+}
+
+fn compile_with_loader(src: &str) -> Result<Vec<u8>, CoreError> {
+    let mut loader = Loader::new(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("stdlib"),
+    );
+    let loaded = loader
+        .load_inline("<test>".into(), src.to_string())
+        .expect("load");
+    compile_module_with_source_map(
+        loaded.module,
+        Some(&loaded.source_map),
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    )
+    .map(|artifact| artifact.wasm)
+}
+
+fn compile_with_loader_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
+    let CoreError::Diagnostics(diags) = compile_with_loader(src).expect_err("expected diagnostics")
+    else {
         panic!("expected diagnostics");
     };
     assert!(
@@ -162,6 +200,101 @@ fn main %fn () i32 \():
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 17);
+}
+
+#[test]
+fn function_neplg21_unconstrained_generic_call_type_args_are_type_error() {
+    let option_src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/option" as *
+
+fn main %fn () i32 \():
+    if is_none none:
+        then 1
+        else 0
+"#;
+    compile_with_loader_err_has_type_code(
+        option_src,
+        TypeDiagnosticCode::GenericTypeArgsUnresolved,
+    );
+
+    let result_ok_src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/result" as *
+
+fn main %fn () i32 \():
+    if is_err ok 5:
+        then 1
+        else 0
+"#;
+    compile_with_loader_err_has_type_code(
+        result_ok_src,
+        TypeDiagnosticCode::GenericTypeArgsUnresolved,
+    );
+
+    let result_err_src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/result" as *
+
+fn main %fn () i32 \():
+    if is_ok err 7:
+        then 1
+        else 0
+"#;
+    compile_with_loader_err_has_type_code(
+        result_err_src,
+        TypeDiagnosticCode::GenericTypeArgsUnresolved,
+    );
+}
+
+#[test]
+fn function_neplg21_generic_call_type_args_resolve_from_explicit_consumer() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/option" as *
+#import "core/result" as *
+
+fn main %fn () i32 \():
+    if is_none<i32> none:
+        then:
+            if is_err<i32,i32> ok 5:
+                then 0
+                else:
+                    if is_ok<i32,i32> err 7:
+                        then 0
+                        else 9
+        else 0
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 9);
+}
+
+#[test]
+fn function_neplg21_generic_body_type_params_remain_allowed() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/option" as *
+
+fn absent <.T> %fn Option .T bool \opt:
+    is_none opt
+
+fn main %fn () i32 \():
+    if absent<i32> none:
+        then 11
+        else 0
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 11);
 }
 
 #[test]

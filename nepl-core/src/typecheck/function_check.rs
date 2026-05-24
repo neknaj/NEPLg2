@@ -15,7 +15,9 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 use super::binding_rules::emit_shadow_warning;
 use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind, Env};
-use super::hir_finalize::resolve_type_ids_in_function;
+use super::hir_finalize::{
+    resolve_type_ids_in_function, unresolved_generic_call_type_arg_diagnostics,
+};
 use super::model::{CheckedFunction, EnumInfo, StructInfo};
 use super::signature::{mangle_function_symbol, type_contains_unbound_var};
 use super::traits::{
@@ -302,6 +304,10 @@ pub(super) fn check_function(
         span: f.name.span,
     };
     resolve_type_ids_in_function(ctx, &mut function);
+    let unresolved_type_arg_diags = unresolved_generic_call_type_arg_diagnostics(ctx, &function);
+    if !unresolved_type_arg_diags.is_empty() {
+        return Err(unresolved_type_arg_diags);
+    }
     if crate::log::is_verbose() {
         let block_ty = match &function.body {
             HirBody::Block(block) => ctx.type_to_string(block.ty),
