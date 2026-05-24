@@ -3,6 +3,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { implementationLineCount } = require("./source_policy/rust_source_lines");
 
 const ROOT = path.resolve(__dirname, "..");
 const CORE_SRC = path.join(ROOT, "nepl-core", "src");
@@ -19,18 +20,14 @@ function assert(condition, message) {
     }
 }
 
-function lineCount(text) {
-    return text.split("\n").length;
-}
-
 function assertContains(text, needle, label) {
     assert(text.includes(needle), `${label} must contain ${needle}`);
 }
 
 function assertLineLimit(relativePath, limit) {
     const filePath = path.join(ROOT, relativePath);
-    const lines = lineCount(read(filePath));
-    assert(lines <= limit, `${relativePath} has ${lines} lines; responsibility freeze limit is ${limit}`);
+    const lines = implementationLineCount(read(filePath));
+    assert(lines <= limit, `${relativePath} has ${lines} implementation lines; responsibility freeze limit is ${limit}`);
 }
 
 const plan = read(PLAN);

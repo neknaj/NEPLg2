@@ -45790,3 +45790,28 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed as warn-only with 17 remaining warnings.
   - `trunk build`: passed.
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint7.json`: 13/13 passed.
+
+## 2026-05-24 Agent 1 Rust responsibility source policy checkpoint
+
+- `ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60` の続きとして、Rust responsibility 3 件を解消した。`plan.md` は変更していない。
+- subagent 調査とローカル確認の結果、`parser.rs` の `rsplit("::")` は stale policy ではなく責務逸脱だった。NEPLg2.1 prefix 型 parser を `nepl-core/src/parser/neplg21_type_expr.rs` へ分離し、型名末尾の抽出は既存の `qualified_name::member_tail` に集約した。
+- `nepl-core/src/parser/type_expr.rs` は facade に縮小し、`#extern` signature 文字列 parser を `nepl-core/src/parser/type_expr/extern_signature.rs` へ分離した。parser root と type expression entrypoint に NEPLg2.1 migration の実装詳細が再集積しないようにした。
+- responsibility policy の実装量監視は raw 行数から `nodesrc/source_policy/rust_source_lines.js` の実装行数へ変更した。Zenn 方針に従う丁寧なコメントや doccomment の追加を妨げないため、comment-only / blank lines は責務肥大として数えない。
+- resource responsibility policy は未監視だった transform-range 関連 module を登録し、既存 module の現在の実装行 baseline へ更新した。これはコメント増加を制限する検査ではなく、実装本体の追加肥大を検出するための baseline である。
+- full source policy warn-only は 17 件から 14 件へ減少した。残件は selfhost 系に集中する。
+- `cargo test -p nepl-core` は今回差分外の resource unit 4 件で失敗したため、`ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729` として分離した。
+- focused verification:
+  - `node nodesrc/test_static_check_boundary_responsibility.js`: passed.
+  - `node nodesrc/test_resource_checker_responsibility.js`: passed.
+  - `node nodesrc/test_parser_backend_responsibility_policy.js`: passed.
+  - `cargo check -p nepl-core`: passed.
+  - `cargo test -p nepl-core --test functions neplg21`: passed.
+  - `cargo test -p nepl-core --test typeannot neplg21`: passed.
+  - `cargo test -p nepl-core qualified_name`: passed.
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: passed as warn-only with 14 remaining warnings.
+  - `node nodesrc/issues.js check --dir issues`: passed.
+  - `git diff --check`: passed with CRLF warnings only.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
+  - `trunk build`: passed.
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint8.json`: 13/13 passed.
+  - `cargo test -p nepl-core`: failed in `resource::effect_return_escape_tests::return_escape_protects_region_token_identity_inside_result_owner_payload`, `resource::effect_return_escape_tests::return_escape_treats_final_owner_carrier_payload_as_protected`, `resource::i32_call_facts_tests::records_i32_constant_result_for_mangled_add_call`, and `resource::i32_call_facts_tests::records_i32_difference_result_for_mangled_sub_call`.

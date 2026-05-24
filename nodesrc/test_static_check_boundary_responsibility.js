@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { implementationLineCount } = require('./source_policy/rust_source_lines');
 
 const ROOT = path.resolve(__dirname, '..');
 const CORE_SRC = path.join(ROOT, 'nepl-core', 'src');
@@ -187,10 +188,6 @@ function read(filePath) {
     return fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
 }
 
-function lineCount(text) {
-    return text.split('\n').length;
-}
-
 function assert(condition, message) {
     if (!condition) {
         throw new Error(message);
@@ -223,8 +220,8 @@ function assertNotMatches(text, pattern, label) {
 }
 
 function assertLineLimit(filePath, label, limit) {
-    const lines = lineCount(assertFile(filePath, label));
-    assert(lines <= limit, `${label} has ${lines} lines; responsibility split limit is ${limit}`);
+    const lines = implementationLineCount(assertFile(filePath, label));
+    assert(lines <= limit, `${label} has ${lines} implementation lines; responsibility split limit is ${limit}`);
 }
 
 function toPosixPath(filePath) {

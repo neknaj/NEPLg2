@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-24T14:01:58.363Z",
+  "generated_at": "2026-05-24T16:22:06.664Z",
   "counts": {
-    "total": 1250,
-    "open": 11,
+    "total": 1251,
+    "open": 12,
     "resolved": 1239,
     "by_area": {
       "core": {
-        "total": 610,
-        "open": 3,
+        "total": 611,
+        "open": 4,
         "resolved": 607
       },
       "doc": {
@@ -213,6 +213,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37.md"
+    },
+    {
+      "id": "ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729",
+      "title": "nepl-core resource unit tests fail in current branch",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-24",
+      "updated": "2026-05-24",
+      "target": "nepl-core/src/resource/effect_return_escape_tests.rs; nepl-core/src/resource/i32_call_facts_tests.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",

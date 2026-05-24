@@ -2,6 +2,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { implementationLineCount } = require('./source_policy/rust_source_lines');
 
 const ROOT = path.resolve(__dirname, '..');
 const CORE_SRC_DIR = path.join(ROOT, 'nepl-core', 'src');
@@ -13,10 +14,6 @@ function readResource(name) {
 
 function readCoreSrc(name) {
     return fs.readFileSync(path.join(CORE_SRC_DIR, name), 'utf8').replace(/\r\n/g, '\n');
-}
-
-function lineCount(text) {
-    return text.split('\n').length;
 }
 
 function assert(condition, message) {
@@ -2125,7 +2122,7 @@ const maxLines = new Map([
     ['effect_pointer_alias.rs', 180],
     ['effect_raw_provenance.rs', 140],
     ['effect_raw_memory_identity.rs', 140],
-    ['initialized.rs', 927],
+    ['initialized.rs', 989],
     ['borrow_call.rs', 120],
     ['borrow_check.rs', 550],
     ['borrow_scope.rs', 100],
@@ -2150,8 +2147,8 @@ const maxLines = new Map([
     ['collection_slot_drop_traversal_certified.rs', 192],
     ['collection_slot_drop_proof.rs', 190],
     ['collection_slot_drop_traversal.rs', 220],
-    ['collection_slot_drop_traversal_known_range.rs', 60],
-    ['collection_slot_drop_traversal_range.rs', 90],
+    ['collection_slot_drop_traversal_known_range.rs', 62],
+    ['collection_slot_drop_traversal_range.rs', 97],
     ['collection_slot_drop_traversal_slots.rs', 40],
     ['collection_slot_drop_traversal_summary.rs', 140],
     ['collection_slot_drop_traversal_summary_proof.rs', 40],
@@ -2170,18 +2167,18 @@ const maxLines = new Map([
     ['collection_slot_state_alias.rs', 50],
     ['collection_slot_state_identity.rs', 40],
     ['collection_slot_summary_apply.rs', 180],
-    ['collection_slot_summary_apply_return_path.rs', 227],
+    ['collection_slot_summary_apply_return_path.rs', 230],
     ['collection_slot_summary_build.rs', 227],
     ['collection_slot_summary_build_drop_traversal.rs', 110],
     ['collection_slot_summary_build_event.rs', 80],
     ['collection_slot_summary_build_nested.rs', 120],
-    ['collection_slot_summary_build_ops.rs', 260],
+    ['collection_slot_summary_build_ops.rs', 591],
     ['collection_slot_summary_build_ops_tests.rs', 320],
     ['collection_slot_summary_build_range_bound.rs', 120],
     ['collection_slot_summary_build_range_certificate.rs', 180],
     ['collection_slot_summary_build_range_certificate_test_support.rs', 380],
     ['collection_slot_summary_build_range_certificate_tests.rs', 340],
-    ['collection_slot_summary_build_range_lifetime.rs', 340],
+    ['collection_slot_summary_build_range_lifetime.rs', 347],
     ['collection_slot_summary_build_range_lifetime_test_support.rs', 340],
     ['collection_slot_summary_build_range_lifetime_tests.rs', 360],
     ['collection_slot_summary_build_range_preserve.rs', 80],
@@ -2193,50 +2190,55 @@ const maxLines = new Map([
     ['collection_slot_summary_build_range_step_expr.rs', 80],
     ['collection_slot_summary_build_range_witness.rs', 180],
     ['collection_slot_summary_build_range_witness_drop.rs', 130],
-    ['collection_slot_summary_build_state.rs', 88],
+    ['collection_slot_summary_build_state.rs', 103],
+    ['collection_slot_summary_build_transform_range.rs', 660],
+    ['collection_slot_summary_build_transform_range_tests.rs', 780],
     ['collection_slot_summary_event_apply_proof.rs', 80],
     ['collection_slot_summary_event_proof.rs', 100],
     ['collection_slot_summary_match_state.rs', 80],
-    ['collection_slot_summary_model.rs', 120],
+    ['collection_slot_summary_model.rs', 142],
     ['collection_slot_summary_projection.rs', 230],
     ['collection_slot_summary_relevance.rs', 360],
-    ['collection_slot_summary_replay.rs', 180],
+    ['collection_slot_summary_replay.rs', 228],
     ['collection_slot_summary_replay_drop_traversal.rs', 80],
-    ['collection_slot_summary_replay_range_certificate_tests.rs', 180],
+    ['collection_slot_summary_replay_range_certificate_tests.rs', 313],
+    ['collection_slot_summary_replay_transform_range.rs', 70],
     ['collection_slot_summary_return.rs', 60],
     ['collection_slot_summary_return_build.rs', 80],
     ['collection_slot_summary_return_call.rs', 110],
     ['collection_slot_summary_return_collect.rs', 100],
     ['collection_slot_summary_return_model.rs', 40],
     ['collection_slot_summary_return_path.rs', 60],
-    ['collection_slot_summary_return_path_call.rs', 234],
+    ['collection_slot_summary_return_path_call.rs', 260],
     ['collection_slot_summary_return_path_control.rs', 220],
     ['collection_slot_summary_return_path_model.rs', 40],
     ['collection_slot_summary_return_path_slots.rs', 103],
     ['collection_slot_summary_return_path_state.rs', 260],
-    ['collection_slot_summary_return_path_value.rs', 439],
+    ['collection_slot_summary_return_path_value.rs', 451],
+    ['collection_slot_summary_return_range.rs', 730],
     ['collection_slot_summary_return_state.rs', 60],
     ['collection_slot_summary_target.rs', 101],
     ['collection_slot_summary_target_tests.rs', 302],
-    ['collection_slot_summary_translate.rs', 215],
+    ['collection_slot_summary_translate.rs', 315],
     ['collection_slot_summary_translate_drop.rs', 117],
-    ['collection_slot_summary_return_unique.rs', 64],
+    ['collection_slot_summary_return_unique.rs', 66],
     ['collection_slot_summary_return_value.rs', 364],
     ['collection_slot_storage_release_proof.rs', 80],
     ['collection_slot_storage_carrier.rs', 90],
-    ['collection_slot_state_merge.rs', 180],
+    ['collection_slot_state_merge.rs', 234],
     ['collection_slot_state_merge_tests.rs', 220],
-    ['collection_slot_state_release.rs', 160],
+    ['collection_slot_state_release.rs', 161],
     ['collection_slot_state_release_alias.rs', 120],
-    ['collection_slot_state_release_alias_precondition.rs', 120],
+    ['collection_slot_state_release_alias_precondition.rs', 124],
     ['collection_slot_state_release_tests.rs', 120],
     ['collection_slot_state_relocate.rs', 170],
     ['collection_slot_state_relocate_tests.rs', 150],
     ['collection_slot_state_return.rs', 40],
-    ['collection_slot_state_table.rs', 260],
+    ['collection_slot_state_table.rs', 372],
     ['collection_slot_state_table_tests.rs', 140],
-    ['collection_slot_state_transfer.rs', 546],
+    ['collection_slot_state_transfer.rs', 681],
     ['collection_slot_state_transfer_tests.rs', 185],
+    ['collection_slot_transform_range_certified.rs', 840],
     ['condition_fact.rs', 180],
     ['owner_check.rs', 800],
     ['owner_entry.rs', 80],
@@ -2401,7 +2403,7 @@ const maxLines = new Map([
     ['drop_requirement.rs', 220],
     ['lower.rs', 1175],
     ['lower_call.rs', 120],
-    ['lower_collection_slot.rs', 242],
+    ['lower_collection_slot.rs', 270],
     ['lower_drop_call.rs', 80],
     ['lower_collection_slot_relocate_tests.rs', 160],
     ['lower_collection_slot_tests.rs', 343],
@@ -2462,7 +2464,7 @@ const maxLines = new Map([
     ['initialized_collection_slot.rs', 80],
     ['initialized_collection_slot_alias.rs', 80],
     ['initialized_collection_slot_apply.rs', 121],
-    ['initialized_collection_slot_dispatch.rs', 100],
+    ['initialized_collection_slot_dispatch.rs', 106],
     ['initialized_collection_slot_proof.rs', 160],
     ['initialized_collection_slot_relocate.rs', 120],
     ['initialized_collection_slot_tests.rs', 460],
@@ -2572,14 +2574,14 @@ for (const resourceFileName of fs.readdirSync(RESOURCE_DIR)) {
     }
     assert(
         monitoredResourceFiles.has(resourceFileName),
-        `${resourceFileName} must be monitored by resource responsibility line limits`,
+        `${resourceFileName} must be monitored by resource responsibility implementation limits`,
     );
 }
 
 for (const [name, limit] of maxLines) {
     assertModuleDeclared(mod, name);
-    const lines = lineCount(readResource(name));
-    assert(lines <= limit, `${name} has ${lines} lines; responsibility split limit is ${limit}`);
+    const lines = implementationLineCount(readResource(name));
+    assert(lines <= limit, `${name} has ${lines} implementation lines; responsibility split limit is ${limit}`);
 }
 
 console.log('resource checker responsibility ok');

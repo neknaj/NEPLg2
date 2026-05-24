@@ -61,6 +61,12 @@ Migrate source policy regexes to NEPLg2.1 syntax or introduce explicit syntax-aw
 - getting_started tutorial の current-style contract を NEPLg2.1 の `%char` / `%fn` / `%Option` / `%Result` 表記へ更新した。
 - stdlib documentation baseline は現在の集計値へそろえた。これはコメント追加を抑制する検査ではなく、既存の doc/doctest gap 集計を現在値から悪化させないための baseline である。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 19 件から 17 件へ減少した。残件は Rust responsibility 3 件と selfhost 14 件に集中した。
+- Rust responsibility 3 件を解消した。`parser.rs` に残っていた `rsplit("::")` 相当の末尾抽出は、NEPLg2.1 prefix 型 parser を `parser/neplg21_type_expr.rs` へ分離したうえで `qualified_name::member_tail` 経由へ集約した。
+- `parser/type_expr.rs` は facade に縮小し、`#extern` signature 文字列 parser を `parser/type_expr/extern_signature.rs` へ分離した。parser root の肥大化と type expr 入口の責務混在を避ける。
+- responsibility policy の行数監視は、コメント追加を妨げないように raw 行数ではなく `nodesrc/source_policy/rust_source_lines.js` の実装行数を数えるようにした。comment-only / blank lines は責務肥大として数えない。
+- resource responsibility policy は未監視だった transform-range 関連 module を登録し、既存 resource module の現在の実装行 baseline へ更新した。これはコメント量の制限ではなく、実装本体の追加肥大を検出する baseline である。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` の stale warning は 17 件から 14 件へ減少した。残件は selfhost 系に集中した。
+- `cargo test -p nepl-core` は今回差分外の resource unit 4 件で失敗するため、`ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729` として分離した。
 
 ## 検証
 
@@ -89,3 +95,17 @@ node nodesrc/run_source_policy_regressions.js without stale NEPLg2.0 syntax fail
 - `node nodesrc/run_source_policy_regressions.js --warn-only` (17 warnings remain)
 - `trunk build`
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint7.json` (13/13 passed)
+- `node nodesrc/test_static_check_boundary_responsibility.js`
+- `node nodesrc/test_resource_checker_responsibility.js`
+- `node nodesrc/test_parser_backend_responsibility_policy.js`
+- `cargo check -p nepl-core`
+- `cargo test -p nepl-core --test functions neplg21`
+- `cargo test -p nepl-core --test typeannot neplg21`
+- `cargo test -p nepl-core qualified_name`
+- `node nodesrc/run_source_policy_regressions.js --warn-only` (14 warnings remain)
+- `node nodesrc/issues.js check --dir issues`
+- `git diff --check`
+- `node nodesrc/neplg21_syntax_migrate.js --check`
+- `trunk build`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint8.json` (13/13 passed)
+- `cargo test -p nepl-core` failed in unrelated resource unit tests tracked by `ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729`.
