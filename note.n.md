@@ -31,6 +31,12 @@
 - `json_as_string` の `Option str` observer 2 箇所は、owner-bearing payload を同じ Copy payload checkpoint に混ぜないため残した。
 - `node nodesrc\tests.js -i stdlib\tests\json.n.md --no-tree -o tmp\json-generic-postfix.json -j 1 --dist web\dist --assert-io` は compile timeout after 60000ms。`tmp\neplg21_json_is_none_copy_smoke.neplg2` の direct `nepl-cli.exe --check --target std` で、今回の Copy payload observer 形は pass した。
 
+# 2026-05-24 Agent 1 NEPLg2.1 string Result constructor checkpoint
+
+- `stdlib/alloc/string/concat.nepl`、`stdlib/alloc/string/builder/build.nepl`、`stdlib/alloc/string/storage.nepl` で、関数戻り値の `Result ... str` から型が確定する `Result<T,E>::Ok` / `Result<T,E>::Err` を `Result::Ok` / `Result::Err` へ移行した。
+- raw copy、`RegionToken<u8>` ownership、`ByteBuilder -> ByteBuf -> str` finalization の処理順や owner boundary は変更していない。
+- `tmp\neplg21_string_result_constructor_smoke.neplg2` の direct `nepl-cli.exe --check --target std` で `concat_result` / `sb_build_result` / `string_from_utf8_mem_result` の postfix-free constructor shape は pass した。対象 3 file の `nodesrc/tests.js` は runnable doctest が無く `nodesrc/tests/no-runnable-doctests` になった。
+
 # 2026-05-24 Agent 1 NEPLg2.1 frontend/corpus checkpoint
 
 - Rust lexer/parser に `Percent` / `Backslash` を追加し、`%T` 型注釈、prefix 型式、`\a\b:` / `\():` lambda 引数を既存 AST/HIR へ正規化する経路を追加した。

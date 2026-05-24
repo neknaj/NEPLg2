@@ -37,7 +37,7 @@ pub fn string_alloc_region %fn i32 Result RegionToken u8 str \byte_len:
     if:
         lt byte_len 0
         then:
-            Result<RegionToken<u8>,str>::Err "string.alloc invalid length"
+            Result::Err "string.alloc invalid length"
         else:
             alloc_region_bytes<u8> add 4 byte_len
 
@@ -144,11 +144,11 @@ pub fn string_from_mem_unchecked_result %fn MemPtr u8 fn i32 Result str str \src
     if:
         lt byte_len 0
         then:
-            Result<str,str>::Err "string.from_mem invalid length"
+            Result::Err "string.from_mem invalid length"
         else:
             match string_alloc_region byte_len:
                 Result::Err e:
-                    Result<str,str>::Err e
+                    Result::Err e
                 Result::Ok region:
                     let out_data %MemPtr u8 string_region_data_ptr &region
                     if:
@@ -157,7 +157,7 @@ pub fn string_from_mem_unchecked_result %fn MemPtr u8 fn i32 Result str str \src
                             mem_copy mem_ptr_addr out_data mem_ptr_addr src byte_len
                         else:
                             ()
-                    Result<str,str>::Ok string_finish region byte_len
+                    Result::Ok string_finish region byte_len
 
 
 //: string_from_utf8_mem_result: UTF-8 検証済みの `str` を構築する
@@ -176,7 +176,6 @@ pub fn string_from_mem_unchecked_result %fn MemPtr u8 fn i32 Result str str \src
 pub fn string_from_utf8_mem_result %fn MemPtr u8 fn i32 Result str str \src\byte_len:
     match string_utf8_validate_mem src byte_len:
         Result::Err e:
-            Result<str,str>::Err e
+            Result::Err e
         Result::Ok _:
             string_from_mem_unchecked_result src byte_len
-

@@ -39,12 +39,12 @@ pub fn concat_result %fn str fn str Result str str \a\b:
     let total %i32 add la lb;
     match string_alloc_region total:
         Result::Err e:
-            Result<str,str>::Err e
+            Result::Err e
         Result::Ok out_region:
             let out_data %MemPtr u8 string_region_data_ptr &out_region;
             mem_copy mem_ptr_addr out_data mem_ptr_addr string_data_ptr a la;
             mem_copy add mem_ptr_addr out_data la mem_ptr_addr string_data_ptr b lb;
-            Result<str,str>::Ok string_finish out_region total
+            Result::Ok string_finish out_region total
 
 pub fn concat %fn str fn str str \a\b:
     match concat_result a b:

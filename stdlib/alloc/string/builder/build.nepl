@@ -37,13 +37,13 @@ pub fn sb_build_result %fn StringBuilder Result str str \sb:
         Result::Err e:
             let kind %StdErrorKind byte_builder_error_kind &e
             byte_builder_error_free e
-            Result<str,str>::Err string_builder_error kind
+            Result::Err string_builder_error kind
         Result::Ok bytes:
             match io_bytebuf_to_str_result bytes:
                 Result::Ok out:
-                    Result<str,str>::Ok out
+                    Result::Ok out
                 Result::Err e:
-                    Result<str,str>::Err string_builder_error e
+                    Result::Err string_builder_error e
 
 pub fn sb_build %fn StringBuilder str \sb:
     match sb_build_result sb:
