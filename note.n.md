@@ -45602,3 +45602,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `trunk build`: passed.
 - known limitation:
   - `node nodesrc/run_doctest.js -i stdlib/tests/result.n.md -n 1 --dist web/dist` and `node nodesrc/run_doctest.js -i stdlib/tests/option.n.md -n 1 --dist web/dist` timed out at 240s after `trunk build`; the stale pre-build run failed at compile because `web/dist` did not yet include the Rust typechecker fix.
+
+## 2026-05-24 Agent 1 Option/Result test fixture postfix reduction checkpoint
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`stdlib/tests/option.n.md` と `stdlib/tests/result.n.md` の残存 generic postfix をさらに削った。`plan.md` は変更していない。
+- payload / local annotation / function return annotation から具体化できる `some<T>` / `none<T>` / `ok<T,E>` / `err<T,E>` / `unwrap*<...>` は postfix なしへ移行した。
+- `is_none none`、`is_err ok 5`、`is_ok err 7` は `--check` では通るが未具体化 generic function が wasm codegen に到達するため、外側 `is_*<...>` を consumer evidence として残した。
+- この推論不足は `ISS-20260524T123402690Z-GENERIC-CALLS-WITH-UNCONSTRAINED-TYP-DD4E3093` として分離した。
+- focused verification:
+  - stdin direct option smoke with retained `is_*<i32>` consumer evidence and postfix-free constructors / observers / branch return: passed.
+  - stdin direct result smoke with retained `is_*<i32,i32>` consumer evidence and postfix-free constructors / observers / branch return: passed.
+  - codegen smoke confirmed `is_none none`, `is_err ok 5`, and `is_ok err 7` currently reach unresolved generic codegen without the retained consumer evidence.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
+- known limitation:
+  - file全体の stdin compile は 180s timeout になったため、既知の stdlib test 長時間化として扱い、残存 `nepl-cli.exe` は停止済み。

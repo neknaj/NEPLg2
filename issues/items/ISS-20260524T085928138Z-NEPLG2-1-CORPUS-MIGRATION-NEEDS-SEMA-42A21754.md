@@ -93,6 +93,13 @@ LLM/手動判断が必要なもの:
 - focused direct `nepl-cli --check --target core` では、今回の option/result 呼び出し形を含む最小 source が pass した。
 - `node nodesrc/run_doctest.js -i stdlib/tests/{option,result}.n.md -n 1 --dist web/dist` は 240s timeout になったため、既知の stdlib doctest 長時間化として残し、この差分固有の型推論失敗は確認されていない。
 
+### 2026-05-24 Option/Result test fixture postfix reduction checkpoint
+
+- `stdlib/tests/option.n.md` と `stdlib/tests/result.n.md` で、payload / local annotation / function return annotation から具体化できる `some<T>` / `none<T>` / `ok<T,E>` / `err<T,E>` / `unwrap*<...>` の postfix を追加で撤廃した。
+- `is_none none`、`is_err ok 5`、`is_ok err 7` のように constructor 側だけでは type parameter が片側未確定になる observer call は、外側 `is_*<...>` を consumer evidence として残した。
+- codegen smoke では、`is_none none` / `is_err ok 5` / `is_ok err 7` まで同時に postfix なしへすると未具体化 generic function が wasm codegen に到達するため、`ISS-20260524T123402690Z-GENERIC-CALLS-WITH-UNCONSTRAINED-TYP-DD4E3093` で型推論/診断改善として分離した。
+- focused direct `nepl-cli --check --target core` と selected codegen smoke では、今回残した consumer evidence つきの option/result removed forms が pass した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

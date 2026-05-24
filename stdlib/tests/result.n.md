@@ -17,44 +17,44 @@ stdout: "test_report name=\"result_main\" count=13 failed=0\nassertion index=0 s
 
 fn positive_double %fn i32 Result i32 i32 \x:
     if gt x 0:
-        then ok<i32,i32> mul x 2
-        else err<i32,i32> -1
+        then ok mul x 2
+        else err -1
 
 fn main %impure fn () i32 \():
-    let r1 %Result i32 i32 ok<i32,i32> 5;
-    let r1_ok %bool is_ok<i32,i32> r1;
-    let r1_err %bool is_err<i32,i32> ok<i32,i32> 5;
+    let r1 %Result i32 i32 ok 5;
+    let r1_ok %bool is_ok r1;
+    let r1_err %bool is_err<i32,i32> ok 5;
 
-    let r2 %Result i32 i32 ok<i32,i32> 10;
-    let r2_value %i32 unwrap_or<i32,i32> r2 0;
+    let r2 %Result i32 i32 ok 10;
+    let r2_value %i32 unwrap_or r2 0;
 
-    let r3 %Result i32 i32 ok<i32,i32> 42;
-    let r3_ok %bool is_ok<i32,i32> r3;
+    let r3 %Result i32 i32 ok 42;
+    let r3_ok %bool is_ok r3;
 
-    let e1 %Result i32 i32 err<i32,i32> 7;
-    let e1_err %bool is_err<i32,i32> e1;
-    let e1_ok %bool is_ok<i32,i32> err<i32,i32> 7;
+    let e1 %Result i32 i32 err 7;
+    let e1_err %bool is_err e1;
+    let e1_ok %bool is_ok<i32,i32> err 7;
 
-    let e2 %Result i32 i32 err<i32,i32> 99;
-    let e2_value %i32 unwrap_or<i32,i32> e2 9;
+    let e2 %Result i32 i32 err 99;
+    let e2_value %i32 unwrap_or e2 9;
 
-    let e3 %Result i32 i32 err<i32,i32> 123;
-    let e3_err %bool is_err<i32,i32> e3;
-    let e4 %Result i32 i32 err<i32,i32> 123;
-    let e4_value %i32 unwrap_or<i32,i32> e4 50;
+    let e3 %Result i32 i32 err 123;
+    let e3_err %bool is_err e3;
+    let e4 %Result i32 i32 err 123;
+    let e4_value %i32 unwrap_or e4 50;
 
-    let okv %Result i32 i32 ok<i32,i32> 11;
-    let okv_value %i32 unwrap_ok<i32,i32> okv;
+    let okv %Result i32 i32 ok 11;
+    let okv_value %i32 unwrap_ok okv;
 
-    let errv %Result i32 i32 err<i32,i32> 7;
-    let errv_value %i32 unwrap_err<i32,i32> errv;
+    let errv %Result i32 i32 err 7;
+    let errv_value %i32 unwrap_err errv;
 
-    let r5 %Result i32 i32 ok<i32,i32> 6;
-    let r6 %Result i32 i32 ok<i32,i32> -1;
+    let r5 %Result i32 i32 ok 6;
+    let r6 %Result i32 i32 ok -1;
     let r7 %Result i32 i32 and_then r5 positive_double;
     let r8 %Result i32 i32 and_then r6 positive_double;
-    let r7_value %i32 unwrap_ok<i32,i32> r7;
-    let r8_value %i32 unwrap_err<i32,i32> r8;
+    let r7_value %i32 unwrap_ok r7;
+    let r8_value %i32 unwrap_err r8;
 
     let report:
         test_report_new "result_main"

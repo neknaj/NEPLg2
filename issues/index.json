@@ -1,11 +1,16 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-24T12:16:59.496Z",
+  "generated_at": "2026-05-24T12:36:42.189Z",
   "counts": {
-    "total": 1248,
-    "open": 10,
+    "total": 1249,
+    "open": 11,
     "resolved": 1238,
     "by_area": {
+      "compiler": {
+        "total": 17,
+        "open": 1,
+        "resolved": 16
+      },
       "core": {
         "total": 610,
         "open": 3,
@@ -55,11 +60,6 @@
         "total": 4,
         "open": 0,
         "resolved": 4
-      },
-      "compiler": {
-        "total": 16,
-        "open": 0,
-        "resolved": 16
       },
       "compiler/resource-ir": {
         "total": 6,
@@ -139,6 +139,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260524T123402690Z-GENERIC-CALLS-WITH-UNCONSTRAINED-TYP-DD4E3093",
+      "title": "Generic calls with unconstrained type args reach codegen",
+      "area": "compiler",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-24",
+      "updated": "2026-05-24",
+      "target": "nepl-core/src/typecheck/**; nepl-core/src/monomorphize.rs; stdlib/tests/option.n.md; stdlib/tests/result.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T123402690Z-GENERIC-CALLS-WITH-UNCONSTRAINED-TYP-DD4E3093.md"
+    },
     {
       "id": "ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30",
       "title": "NEPLg2.1 syntax migration needs frontend lowering boundary",
