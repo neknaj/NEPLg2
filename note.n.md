@@ -45654,3 +45654,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - direct `nepl-cli.exe --check` smoke for postfix-free `find` local binding shape: passed.
   - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
   - `git diff --check`: passed with CRLF warnings only.
+
+## 2026-05-24 Agent 1 core char Result constructor postfix cleanup
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の小 checkpoint として、`stdlib/core/char.nepl` の `Result<char,str>::Ok` / `Result<char,str>::Err` / `Result<i32,str>::Ok` / `Result<i32,str>::Err` を `Result::Ok` / `Result::Err` へ移行した。`plan.md` は変更していない。
+- `char_from_i32_result` の `cast code` は postfix なしでは overload ambiguous になるため、`Result::Ok %char cast code` として値 ascription に型 evidence を移した。
+- focused verification:
+  - direct `nepl-cli.exe --check --target core` smoke for `char_from_i32_result` match use: passed.
+  - direct `nepl-cli.exe --check --target core` smoke for `char_to_u8_result` match use: passed.

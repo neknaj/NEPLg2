@@ -115,6 +115,12 @@ LLM/手動判断が必要なもの:
 - direct `nepl-cli.exe --check` smoke で、`byte_at` / `find` の更新後 local binding 形は pass した。
 - `std/test` つき完全 `string_byte_at` smoke は旧 postfix 形でも 180s timeout するため、この checkpoint 固有の regression ではない既知の長時間化として扱った。
 
+### 2026-05-24 core char Result constructor postfix cleanup checkpoint
+
+- `stdlib/core/char.nepl` の `Result<char,str>::Ok` / `Result<char,str>::Err` / `Result<i32,str>::Ok` / `Result<i32,str>::Err` を `Result::Ok` / `Result::Err` へ移行した。
+- `char_from_i32_result` の `cast code` は overload ambiguous になるため、generic postfix ではなく `%char cast code` の値 ascription で戻り値型 evidence を明示した。
+- direct `nepl-cli.exe --check --target core` smoke で、`char_from_i32_result` と `char_to_u8_result` の match 利用はどちらも pass した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

@@ -99,9 +99,9 @@ pub fn char_from_i32_result %fn i32 Result char str \code:
     if:
         char_is_valid_scalar_code code
         then:
-            Result<char,str>::Ok cast code
+            Result::Ok %char cast code
         else:
-            Result<char,str>::Err "char.invalid scalar value"
+            Result::Err "char.invalid scalar value"
 
 //: char_to_u8_result: char を 1 byte の値として取り出す
 //:
@@ -118,9 +118,9 @@ pub fn char_to_u8_result %fn char Result i32 str \c:
     if:
         and ge code 0 le code 255
         then:
-            Result<i32,str>::Ok code
+            Result::Ok code
         else:
-            Result<i32,str>::Err "char.not byte"
+            Result::Err "char.not byte"
 
 //: char_is_ascii: char が ASCII 範囲か判定する
 pub fn char_is_ascii %fn char bool \c:
