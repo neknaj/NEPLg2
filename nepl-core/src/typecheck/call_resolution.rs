@@ -146,6 +146,9 @@ impl<'a> BlockChecker<'a> {
     ) -> Option<usize> {
         for j in (min_func_pos..inner_pos).rev() {
             if self.is_unresolved_overloaded_callable_entry(&stack[j]) {
+                if self.unresolved_overload_has_function_param_at(stack, j, inner_pos) {
+                    return Some(j);
+                }
                 continue;
             }
             if !stack[j].auto_call {
@@ -178,6 +181,43 @@ impl<'a> BlockChecker<'a> {
             }
         }
         None
+    }
+
+    fn unresolved_overload_has_function_param_at(
+        &mut self,
+        stack: &[StackEntry],
+        outer_pos: usize,
+        inner_pos: usize,
+    ) -> bool {
+        if outer_pos >= stack.len() || inner_pos <= outer_pos {
+            return false;
+        }
+        let entry = &stack[outer_pos];
+        if !entry.auto_call || !self.is_unresolved_overloaded_callable_entry(entry) {
+            return false;
+        }
+        let HirExprKind::Var(name) = &entry.expr.kind else {
+            return false;
+        };
+        let user_arg_idx = inner_pos - (outer_pos + 1);
+        self.env.lookup_all_callables(name).iter().any(|binding| {
+            let BindingKind::Func { arity, .. } = binding.kind else {
+                return false;
+            };
+            if user_arg_idx >= arity || stack.len() < outer_pos + 1 + arity {
+                return false;
+            }
+            let TypeKind::Function { params, .. } = self.ctx.get(binding.ty) else {
+                return false;
+            };
+            let capture_len = params.len().saturating_sub(arity);
+            let param_idx = capture_len + user_arg_idx;
+            let Some(param_ty) = params.get(param_idx).copied() else {
+                return false;
+            };
+            let resolved_param_ty = self.ctx.resolve_id(param_ty);
+            matches!(self.ctx.get(resolved_param_ty), TypeKind::Function { .. })
+        })
     }
 
     pub(super) fn infer_expected_from_outer_consumer(

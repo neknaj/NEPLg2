@@ -136,6 +136,35 @@ fn main %fn () i32 \():
 }
 
 #[test]
+fn function_neplg21_overloaded_generic_call_uses_ascribed_result_without_type_args() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn inc %fn i32 i32 \x:
+    add x 1
+
+fn positive_double %fn i32 Result i32 str \x:
+    if gt x 0:
+        then ok mul x 2
+        else err "non-positive"
+
+fn main %fn () i32 \():
+    let opt %Option i32 some 10
+    let mapped %Option i32 map opt inc
+    let res0 %Result i32 str ok 3
+    let res1 %Result i32 str and_then res0 positive_double
+    add unwrap mapped unwrap_ok res1
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 17);
+}
+
+#[test]
 fn function_basic_def_and_call() {
     let src = r#"
 #entry main

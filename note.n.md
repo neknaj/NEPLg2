@@ -45573,3 +45573,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
   - `git diff --check`: passed with CRLF warnings only.
   - `node nodesrc/tests.js -i stdlib/tests/option.n.md -i stdlib/tests/result.n.md --no-tree -o tmp/neplg21-option-result-smoke.json -j 1 --assert-io`: compile timeout at 60s per doctest, no concrete diagnostic.
+
+## 2026-05-24 Agent 1 unresolved overload function-argument reduction
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の呼び出し側 postfix 撤廃 blocker を一段進めた。`plan.md` は変更していない。
+- 根本原因は、`map a inc` / `and_then r f` のような式で末尾の関数名引数が未適用 open call として残り、call reduction がそこで停止して、外側の unresolved overload call へ戻れないことだった。
+- `find_outer_function_consumer` は unresolved overload を常に除外していたため、候補 signature 上は関数型引数を要求する `Option.map` / `Result.and_then` を consumer として扱えなかった。
+- unresolved overload でも、候補の該当引数位置が function type なら外側 call を先に reduction 対象へ戻すようにした。候補の一意化は既存の overload selection が引数型と期待戻り値から行うため、部分適用は導入していない。
+- 回帰テストとして `function_neplg21_overloaded_generic_call_uses_ascribed_result_without_type_args` を追加し、`%Option i32 map opt inc` と `%Result i32 str and_then res0 positive_double` が postfix type args なしで実行できることを確認する。
+- focused verification:
+  - `cargo fmt --check`: passed.
+  - `cargo check -p nepl-core`: passed.
+  - `cargo test -p nepl-core --test functions neplg21 -- --nocapture`: passed.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
+  - `node nodesrc/issues.js check --dir issues`: passed.
