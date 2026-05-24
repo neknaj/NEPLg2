@@ -76,6 +76,62 @@ pub(super) fn collect_summary_transform_range_op(
     output_initialized_count: &Place,
     expected_ty: crate::types::TypeId,
 ) {
+    let Some(candidate) = transform_range_certificate_candidate_for_op(
+        state,
+        source_storage,
+        source_initialized_count,
+        output_storage,
+        output_initialized_count,
+        expected_ty,
+    ) else {
+        return;
+    };
+    if let (
+        Some(source_storage),
+        Some(source_initialized_count),
+        Some(output_storage),
+        Some(output_initialized_count),
+    ) = (
+        summary_place_for_params_with_aliases(
+            params,
+            &state.raw_aliases,
+            &candidate.source_storage,
+        ),
+        summary_place_for_params_with_aliases(
+            params,
+            &state.raw_aliases,
+            &candidate.source_initialized_count,
+        ),
+        summary_place_for_params_with_aliases(
+            params,
+            &state.raw_aliases,
+            &candidate.output_storage,
+        ),
+        summary_place_for_params_with_aliases(
+            params,
+            &state.raw_aliases,
+            &candidate.output_initialized_count,
+        ),
+    ) {
+        out.push(CollectionSlotLifecycleSummaryOp::TransformRange {
+            source_storage,
+            source_initialized_count,
+            output_storage,
+            output_initialized_count,
+            expected_ty,
+            certificate: candidate.certificate,
+        });
+    }
+}
+
+pub(super) fn transform_range_certificate_candidate_for_op(
+    state: &CollectionSlotSummaryBuildState,
+    source_storage: &Place,
+    source_initialized_count: &Place,
+    output_storage: &Place,
+    output_initialized_count: &Place,
+    expected_ty: crate::types::TypeId,
+) -> Option<CollectionSlotTransformRangeCertificateCandidate> {
     let source_storage = state
         .raw_aliases
         .canonicalize_owner_cell_address(source_storage);
@@ -88,7 +144,7 @@ pub(super) fn collect_summary_transform_range_op(
     let output_initialized_count = state
         .raw_aliases
         .canonicalize_scalar(output_initialized_count);
-    let Some(candidate) = state
+    state
         .transform_range_certificates
         .iter()
         .rev()
@@ -99,37 +155,7 @@ pub(super) fn collect_summary_transform_range_op(
                 && candidate.output_initialized_count == output_initialized_count
                 && candidate.expected_ty == expected_ty
         })
-    else {
-        return;
-    };
-    if let (
-        Some(source_storage),
-        Some(source_initialized_count),
-        Some(output_storage),
-        Some(output_initialized_count),
-    ) = (
-        summary_place_for_params_with_aliases(params, &state.raw_aliases, &source_storage),
-        summary_place_for_params_with_aliases(
-            params,
-            &state.raw_aliases,
-            &source_initialized_count,
-        ),
-        summary_place_for_params_with_aliases(params, &state.raw_aliases, &output_storage),
-        summary_place_for_params_with_aliases(
-            params,
-            &state.raw_aliases,
-            &output_initialized_count,
-        ),
-    ) {
-        out.push(CollectionSlotLifecycleSummaryOp::TransformRange {
-            source_storage,
-            source_initialized_count,
-            output_storage,
-            output_initialized_count,
-            expected_ty,
-            certificate: candidate.certificate,
-        });
-    }
+        .cloned()
 }
 
 fn transform_candidates_from_body(

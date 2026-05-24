@@ -6,7 +6,9 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
-use super::collection_slot_summary_build_range_lifetime::drop_traversal_range_certificate_survives_op;
+use super::collection_slot_summary_build_range_lifetime::{
+    drop_traversal_range_certificate_survives_op, transform_range_certificate_survives_op,
+};
 use super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate;
 use super::collection_slot_summary_model::CollectionSlotTransformRangeCertificate;
 use super::function_alias::FunctionAliasTable;
@@ -87,6 +89,17 @@ impl CollectionSlotSummaryBuildState {
         let raw_aliases = self.raw_aliases.clone();
         self.drop_traversal_range_certificates.retain(|candidate| {
             drop_traversal_range_certificate_survives_op(types, &raw_aliases, candidate, op)
+        });
+    }
+
+    pub(super) fn retain_transform_range_certificates_after_op(
+        &mut self,
+        types: &TypeCtx,
+        op: &ResourceOp,
+    ) {
+        let raw_aliases = self.raw_aliases.clone();
+        self.transform_range_certificates.retain(|candidate| {
+            transform_range_certificate_survives_op(types, &raw_aliases, candidate, op)
         });
     }
 }

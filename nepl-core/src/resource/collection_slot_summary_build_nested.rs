@@ -72,7 +72,7 @@ pub(super) fn collect_nested_summary_ops_from_state(
     collect_nested_summary_path_from_state(engine, state, params, collection_slot_summaries, ops).0
 }
 
-fn collect_nested_summary_path_from_state(
+pub(super) fn collect_nested_summary_path_from_state(
     engine: &ResourceCheckEngine<'_>,
     mut path_state: CollectionSlotSummaryBuildState,
     params: &[ResourceLocal],

@@ -1,3 +1,26 @@
+# 2026-05-24 Agent 1 TransformRange rollback cleanup summary
+
+- partial output rollback cleanup は `CollectionSlotTransformRangeCertificate` に新 field を足さず、failure / early-exit path 側の明示的な `CollectionSlotDropTraversal` summary として扱う方針にした。
+- summary build state は証明済み `CollectionSlotTransformRange` marker を見つけた時点で certified replay と同じ state transition を適用し、source range を moved-out、output prefix を initialized range として後続 op へ残すようにした。
+- marker が `Branch` / `Loop` / `Match` の内側にある場合も、summary build は nested path を TransformRange 証明付きで再評価し、control-flow merge 後の collection slot state へ反映する。これにより early-exit branch 内の marker が外側 cleanup/release から消える問題を防ぐ。
+- Branch / Match は outer state へは merge 後の collection slot state を反映しつつ、`engine.path_alternatives` には各 path の再評価後 state を保持する。片側だけ marker を通った場合に全pathを maybe-live merge state で潰さない。
+- transform range certificate は任意の非 Loop op で一律に消すのではなく、source/output storage/count anchor を触る op だけで失効させるようにした。これにより harmless condition ops を挟む control-flow 内 marker へ証明を渡せる一方、Loop 内 marker が消費した candidate は Loop 後に残らない。
+- これにより、TransformRange 直後の rollback cleanup loop は既存の `loop_drop_traversal_range_certificates` と `CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange` で output prefix cleanup を証明できる。
+- regression として、TransformRange marker 後の build state が output prefix を live range として storage release を拒否すること、rollback cleanup 後は release できること、0 起点の cleanup loop と `CollectionSlotDropTraversal` marker がある場合に `TransformRange` + `DropTraversal::ForallInitializedRange` summary を生成すること、cleanup loop が 0 起点でない場合は cleanup summary を出さないことを追加した。
+- nested control-flow regression として、Branch / Loop / Match 内の TransformRange marker が外側 summary build state に output live range を残すこと、Loop 内 marker が消費した pending certificate を後続 marker が再利用できないことを追加した。
+- public `filter<T: Drop>` / prefix / map / partition overload はまだ開かない。次は stdlib source-level transform shape へこの rollback cleanup 境界を接続し、returned output range / failure cleanup / owner recovery を同じ source fixture で固定する。
+- focused verification:
+  - `cargo fmt`
+  - `cargo test -p nepl-core collection_slot_summary_loop_induction -- --nocapture`
+  - `cargo test -p nepl-core collection_slot_summary_transform_marker -- --nocapture`
+  - `cargo test -p nepl-core collection_slot_summary_transform_rollback_cleanup -- --nocapture`
+  - `cargo test -p nepl-core collection_slot_summary_branch_transform_marker -- --nocapture`
+  - `cargo test -p nepl-core collection_slot_summary_loop_transform_marker -- --nocapture`
+  - `cargo test -p nepl-core collection_slot_summary_match_transform_marker -- --nocapture`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core collection_slot_summary_transform_replay -- --nocapture`
+  - `cargo test -p nepl-core collection_slot_summary_replay -- --nocapture`
+
 # 2026-05-24 Agent 1 TransformRange return range propagation
 
 - 同じ transform range lifecycle certificate issue の続きとして、returned `Vec` 相当の output initialized range を caller 側の return value storage/count projection へ伝播する summary fact を追加した。

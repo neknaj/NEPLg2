@@ -391,7 +391,7 @@ impl ResourceCheckEngine<'_> {
         }
     }
 
-    fn transfer_control_value_path_states(
+    pub(super) fn transfer_control_value_path_states(
         &mut self,
         mut states: Vec<ResourceCheckState>,
         value: &Place,

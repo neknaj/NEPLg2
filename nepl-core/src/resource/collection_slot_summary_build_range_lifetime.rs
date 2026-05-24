@@ -1,6 +1,13 @@
 use crate::types::TypeCtx;
 
-use super::collection_slot_summary_build_state::CollectionSlotDropTraversalRangeCertificateCandidate;
+use super::collection_slot_summary_build_state::{
+    CollectionSlotDropTraversalRangeCertificateCandidate,
+    CollectionSlotTransformRangeCertificateCandidate,
+};
+use super::collection_slot_summary_model::{
+    CollectionSlotInitializedRangeDropTraversalCertificate,
+    CollectionSlotInitializedRangeDropTraversalProof,
+};
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, RawMemoryOp, ResourceMatchArm, ResourceOp};
 use super::place_utils::place_suffix_after_prefix;
@@ -21,6 +28,42 @@ pub(super) fn drop_traversal_range_certificate_survives_op(
         op_effect(types, raw_aliases, candidate, op),
         DropTraversalRangeCertificateEffect::Preserves
     )
+}
+
+pub(super) fn transform_range_certificate_survives_op(
+    types: &TypeCtx,
+    raw_aliases: &RawCellAddressAliases,
+    candidate: &CollectionSlotTransformRangeCertificateCandidate,
+    op: &ResourceOp,
+) -> bool {
+    let source_candidate = transform_anchor_as_drop_traversal_candidate(
+        &candidate.source_storage,
+        &candidate.source_initialized_count,
+        candidate.expected_ty,
+    );
+    let output_candidate = transform_anchor_as_drop_traversal_candidate(
+        &candidate.output_storage,
+        &candidate.output_initialized_count,
+        candidate.expected_ty,
+    );
+    drop_traversal_range_certificate_survives_op(types, raw_aliases, &source_candidate, op)
+        && drop_traversal_range_certificate_survives_op(types, raw_aliases, &output_candidate, op)
+}
+
+fn transform_anchor_as_drop_traversal_candidate(
+    storage: &Place,
+    initialized_count: &Place,
+    expected_ty: crate::types::TypeId,
+) -> CollectionSlotDropTraversalRangeCertificateCandidate {
+    CollectionSlotDropTraversalRangeCertificateCandidate {
+        storage: storage.clone(),
+        initialized_count: initialized_count.clone(),
+        expected_ty,
+        certificate: CollectionSlotInitializedRangeDropTraversalCertificate {
+            element_stride: 0,
+            drop_proof: CollectionSlotInitializedRangeDropTraversalProof::StateOnly,
+        },
+    }
 }
 
 fn op_effect(

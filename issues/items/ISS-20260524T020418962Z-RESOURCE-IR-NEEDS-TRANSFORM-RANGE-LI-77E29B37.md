@@ -42,6 +42,17 @@ drop traversal range certificate の兄弟として transform range lifecycle ce
 
 ## 進捗
 
+2026-05-24 checkpoint 3:
+
+- partial output rollback cleanup は `CollectionSlotTransformRangeCertificate` の責務に混ぜず、failure / early-exit path 側の `CollectionSlotDropTraversal` summary として表現する方針にした。
+- summary build state は証明済み `CollectionSlotTransformRange` marker を見つけた時点で certified transform replay と同じ state transition を適用し、source range を moved-out、output prefix を initialized range として後続 op へ残す。
+- marker が `Branch` / `Loop` / `Match` の内側にある場合も、nested path を証明付き state で再評価して control-flow merge 後の collection slot state へ反映する。これにより early-exit branch 内 marker が外側 cleanup/release から消えることを避ける。
+- Branch / Match は outer state へ merge 後の collection slot state を反映しつつ、path alternatives には各 path の再評価後 state を保持する。片pathだけ marker を通る場合でも後続 path-sensitive 判定を過度に保守化しない。
+- transform range certificate は source/output storage/count anchor を触らない condition ops などでは保持し、marker や raw memory mutation など anchor を触る op で失効させる。Loop 内 marker が消費した candidate は Loop 後に残さず、同じ certificate の再利用を拒む。
+- これにより、TransformRange 直後の rollback cleanup loop は既存の `loop_drop_traversal_range_certificates` と `CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange` で証明できる。
+- regression として、TransformRange marker 後の summary build state が output prefix を live range として保持すること、Branch / Loop / Match 内 marker でも outer state に live range が残ること、Loop 内 marker 後に同じ candidate を再利用できないこと、rollback cleanup 後にその range が clear されること、0 起点の cleanup loop と `CollectionSlotDropTraversal` marker が続く場合に `TransformRange` + `DropTraversal::ForallInitializedRange` summary を生成すること、cleanup loop が 0 起点でない場合は cleanup summary を出さないことを固定した。
+- 未完了: stdlib source-level transform shape への接続、`filter<T: Drop>` / prefix / map / partition の public overload 解禁判定、2 output `partition` rollback cleanup。
+
 2026-05-24 checkpoint 2:
 
 - returned `Vec` 相当の output initialized range を caller 側へ伝播するため、collection slot return summary に `return_ranges` fact を追加した。
