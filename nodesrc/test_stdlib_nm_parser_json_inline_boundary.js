@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -13,9 +14,9 @@ function read(relPath) {
 const parserPath = 'stdlib/nm/parser.nepl';
 const documentPath = 'stdlib/nm/parser/document.nepl';
 const jsonInlinePath = 'stdlib/nm/parser/json_inline.nepl';
-const parser = read(parserPath);
-const document = read(documentPath);
-const jsonInline = read(jsonInlinePath);
+const parser = legacyTypeSyntaxView(read(parserPath));
+const document = legacyTypeSyntaxView(read(documentPath));
+const jsonInline = legacyTypeSyntaxView(read(jsonInlinePath));
 
 assert.match(
     jsonInline,

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const modulePaths = {
@@ -18,10 +19,7 @@ function readModule(relPath) {
 }
 
 function stripComments(src) {
-    return src
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
+    return legacyTypeSyntaxView(src);
 }
 
 const rootSrc = readModule(modulePaths.root);

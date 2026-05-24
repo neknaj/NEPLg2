@@ -13,6 +13,8 @@
 - 追加で SHA256 / ByteBuf UTF-8 / fs / cliarg / streamio / stdio print_i32 / stdio ansi の source policy を `legacyTypeSyntaxView` へ移した。これらは raw source regex が旧 `<...>` type signature を読めなかっただけで、所有権境界や raw ABI boundary の assertion は維持している。
 - `node nodesrc\run_source_policy_regressions.js --warn-only` は stale failure が 52 件から 45 件へ減った。残件は nm/parser/html、documentation/tutorial、diag/std_test、kpgraph/kpsearch/wasix、Vec/string/text/ByteBuf owner、Rust/selfhost responsibility 系に分散している。
 - コメント方針として、source policy helper のコメントに「コメント行を検査 view から除くのは executable contract を読むためであり、コメント量を制限したり丁寧な documentation を妨げたりするためではない」と明記した。
+- さらに math module split / nm parser/html / diag/std_test / kpgraph/kpsearch / wasix TUI の source policy を `legacyTypeSyntaxView` へ移した。module boundary、owner boundary、typed API boundary の検査内容は維持し、旧 `<...>` signature / field 表記依存だけを解消した。
+- `node nodesrc\run_source_policy_regressions.js --warn-only` は stale failure が 45 件から 31 件へ減った。残件は documentation/tutorial、collection cleanup、Vec、mem/core mem、Rust responsibility、selfhost、ByteBuf/string/text owner boundary 系に絞られた。
 - focused verification:
   - `node nodesrc\test_source_policy_nepl_source_view.js`
   - `node nodesrc\test_stdlib_match_decision_trees.js`
@@ -23,6 +25,7 @@
   - collection source policy group: AdjacencyMatrix / BinaryHeap / BitSet / BloomFilter / CountingBloomFilter / DisjointSet / Fenwick / List / Queue / Deque / RingBuffer / SegmentTree / SparseSet / Stack / sort merge の対象テストは pass。
   - borrowed/storage source policy group: BTree borrowed observer / BTree insert grow / AdjacencyMatrix borrowed observer / BloomFilter borrowed observer / CountingBloomFilter borrowed observer / DisjointSet borrowed observer / SparseSet borrowed observer / SegmentTree borrowed observer / HashMap storage contract / HashSet storage contract は pass。
   - stdlib boundary source policy group: SHA256 / ByteBuf UTF-8 / fs / cliarg / streamio / stdio print_i32 / stdio ansi は pass。
+  - stdlib module boundary source policy group: math module split / nm parser document / nm parser JSON inline / nm parser JSON section / nm HTML inline / nm HTML section / nm parser inline no unwrap / nm parser block no unwrap / nm raw aggregate detour / diag error / std_test / kpgraph / kpsearch / wasix TUI は pass。
 
 # 2026-05-24 Agent 1 NEPLg2.1 syntax migration kickoff
 

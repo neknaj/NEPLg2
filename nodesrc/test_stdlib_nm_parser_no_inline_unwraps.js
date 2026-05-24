@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const parserPath = 'stdlib/nm/parser.nepl';
@@ -19,10 +20,7 @@ const htmlSrc = fs.readFileSync(path.join(repoRoot, htmlPath), 'utf8');
 const htmlInlineSrc = fs.readFileSync(path.join(repoRoot, htmlInlinePath), 'utf8');
 
 function implementationSource(src) {
-    return src
-        .split(/\r?\n/)
-        .filter((line) => !/^\s*\/\//.test(line))
-        .join('\n');
+    return legacyTypeSyntaxView(src);
 }
 
 const parser = implementationSource(parserSrc);

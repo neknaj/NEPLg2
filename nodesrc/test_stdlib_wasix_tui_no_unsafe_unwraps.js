@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPaths = [
@@ -27,11 +28,6 @@ const sources = Object.fromEntries(relPaths.map((relPath) => [
     fs.readFileSync(path.join(repoRoot, relPath), 'utf8'),
 ]));
 
-const stripComments = (src) => src
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*\/\//.test(line))
-    .join('\n');
-
 const rootRelPath = 'stdlib/platforms/wasix/tui.nepl';
 const ttyRelPath = 'stdlib/platforms/wasix/tui/tty.nepl';
 const ansiRelPath = 'stdlib/platforms/wasix/tui/ansi.nepl';
@@ -47,7 +43,7 @@ const bufferStorageRelPath = 'stdlib/platforms/wasix/tui/buffer/storage.nepl';
 const bufferWrapRelPath = 'stdlib/platforms/wasix/tui/buffer/wrap.nepl';
 const bufferPresentRelPath = 'stdlib/platforms/wasix/tui/buffer/present.nepl';
 
-const codeByPath = Object.fromEntries(Object.entries(sources).map(([relPath, src]) => [relPath, stripComments(src)]));
+const codeByPath = Object.fromEntries(Object.entries(sources).map(([relPath, src]) => [relPath, legacyTypeSyntaxView(src)]));
 const code = Object.values(codeByPath).join('\n');
 const rootCode = codeByPath[rootRelPath];
 const ttyCode = codeByPath[ttyRelPath];

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { implementationLineCount } = require('./source_policy/stdlib_builder_owner');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 const relPaths = {
@@ -25,10 +26,7 @@ const src = Object.fromEntries(
 const code = Object.fromEntries(
     Object.entries(src).map(([name, text]) => [
         name,
-        text
-            .split(/\r?\n/)
-            .filter((line) => !/^\s*\/\//.test(line))
-            .join('\n'),
+        legacyTypeSyntaxView(text),
     ]),
 );
 

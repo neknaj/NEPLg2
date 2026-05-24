@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { legacyTypeSyntaxView } = require('./source_policy/nepl_source_view');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -12,8 +13,8 @@ function read(relPath) {
 
 const htmlGenPath = 'stdlib/nm/html_gen.nepl';
 const htmlInlinePath = 'stdlib/nm/html_inline.nepl';
-const htmlGen = read(htmlGenPath);
-const htmlInline = read(htmlInlinePath);
+const htmlGen = legacyTypeSyntaxView(read(htmlGenPath));
+const htmlInline = legacyTypeSyntaxView(read(htmlInlinePath));
 
 assert.doesNotMatch(
     htmlGen,

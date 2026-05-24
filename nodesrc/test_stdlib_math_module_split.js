@@ -5,11 +5,12 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { implementationLineCount } = require("./source_policy/stdlib_builder_owner");
+const { legacyTypeSyntaxView } = require("./source_policy/nepl_source_view");
 
 const repoRoot = path.resolve(__dirname, "..");
 
 function read(rel) {
-    return fs.readFileSync(path.join(repoRoot, rel), "utf8");
+    return legacyTypeSyntaxView(fs.readFileSync(path.join(repoRoot, rel), "utf8"));
 }
 
 const facade = read("stdlib/core/math.nepl");
