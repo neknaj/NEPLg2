@@ -45664,3 +45664,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - direct `nepl-cli.exe --check --target core` smoke for `char_from_i32_result` match use: passed.
   - direct `nepl-cli.exe --check --target core` smoke for `char_to_u8_result` match use: passed.
+
+## 2026-05-24 Agent 1 JSON accessor postfix cleanup
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の小 checkpoint として、`stdlib/alloc/encoding/json/access.nepl` の `json_as_bool` / `json_as_number` / `json_as_string` / `json_as_array` / `json_as_object` 本体から `some<T>` / `none<T>` を撤廃した。`plan.md` は変更していない。
+- 戻り値型 `%fn JsonValue Option ...` が evidence になるため、constructor 側に generic postfix を残す必要はない。
+- 同ファイルの doctest 例に残っていた `is_some<bool>` も `is_some` へ移行した。
+- focused verification:
+  - direct `nepl-cli.exe --check` smoke for bool/number/string accessors: passed.
+  - direct `nepl-cli.exe --check` smoke for array/object accessors: passed.

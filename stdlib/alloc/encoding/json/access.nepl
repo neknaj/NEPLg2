@@ -44,7 +44,7 @@ pub fn json_is_null %fn JsonValue bool \v:
 //: json_as_bool: JSON Bool payload を取り出す
 //:
 //: [目的/もくてき]:
-//: - `JsonValue::Bool` のときだけ `Option::Some<bool>` を返します。
+//: - `JsonValue::Bool` のときだけ `Option::Some` を返します。
 //:
 //: [実装/じっそう]:
 //: - Bool payload の i32 を 0 判定し、0 を `false`、0 以外を `true` に変換します。
@@ -60,24 +60,24 @@ pub fn json_as_bool %fn JsonValue Option bool \v:
             if:
                 eq b 0
                 then:
-                    some<bool> false
+                    some false
                 else:
-                    some<bool> true
+                    some true
         JsonValue::Null:
-            none<bool>
+            none
         JsonValue::Number n:
-            none<bool>
+            none
         JsonValue::String s:
-            none<bool>
+            none
         JsonValue::Array a:
-            none<bool>
+            none
         JsonValue::Object o:
-            none<bool>
+            none
 
 //: json_as_number: JSON Number payload を取り出す
 //:
 //: [目的/もくてき]:
-//: - `JsonValue::Number` のときだけ `Option::Some<i32>` を返します。
+//: - `JsonValue::Number` のときだけ `Option::Some` を返します。
 //:
 //: [実装/じっそう]:
 //: - `JsonValue` を match し、Number payload をそのまま返します。
@@ -90,22 +90,22 @@ pub fn json_as_bool %fn JsonValue Option bool \v:
 pub fn json_as_number %fn JsonValue Option i32 \v:
     match v:
         JsonValue::Number n:
-            some<i32> n
+            some n
         JsonValue::Null:
-            none<i32>
+            none
         JsonValue::Bool b:
-            none<i32>
+            none
         JsonValue::String s:
-            none<i32>
+            none
         JsonValue::Array a:
-            none<i32>
+            none
         JsonValue::Object o:
-            none<i32>
+            none
 
 //: json_as_string: JSON String payload を取り出す
 //:
 //: [目的/もくてき]:
-//: - `JsonValue::String` のときだけ `Option::Some<str>` を返します。
+//: - `JsonValue::String` のときだけ `Option::Some` を返します。
 //:
 //: [実装/じっそう]:
 //: - `JsonValue` を match し、String payload をそのまま返します。
@@ -118,17 +118,17 @@ pub fn json_as_number %fn JsonValue Option i32 \v:
 pub fn json_as_string %fn JsonValue Option str \v:
     match v:
         JsonValue::String s:
-            some<str> s
+            some s
         JsonValue::Null:
-            none<str>
+            none
         JsonValue::Bool b:
-            none<str>
+            none
         JsonValue::Number n:
-            none<str>
+            none
         JsonValue::Array a:
-            none<str>
+            none
         JsonValue::Object o:
-            none<str>
+            none
 
 //: json_as_array: Array を取り出す
 //:
@@ -146,17 +146,17 @@ pub fn json_as_string %fn JsonValue Option str \v:
 pub fn json_as_array %fn JsonValue Option JsonArray \v:
     match v:
         JsonValue::Array a:
-            some<JsonArray> a
+            some a
         JsonValue::Null:
-            none<JsonArray>
+            none
         JsonValue::Bool b:
-            none<JsonArray>
+            none
         JsonValue::Number n:
-            none<JsonArray>
+            none
         JsonValue::String s:
-            none<JsonArray>
+            none
         JsonValue::Object o:
-            none<JsonArray>
+            none
 
 //: json_as_object: Object を取り出す
 //:
@@ -174,17 +174,17 @@ pub fn json_as_array %fn JsonValue Option JsonArray \v:
 pub fn json_as_object %fn JsonValue Option JsonObject \v:
     match v:
         JsonValue::Object o:
-            some<JsonObject> o
+            some o
         JsonValue::Null:
-            none<JsonObject>
+            none
         JsonValue::Bool b:
-            none<JsonObject>
+            none
         JsonValue::Number n:
-            none<JsonObject>
+            none
         JsonValue::String s:
-            none<JsonObject>
+            none
         JsonValue::Array a:
-            none<JsonObject>
+            none
 
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
@@ -198,7 +198,7 @@ pub fn json_as_object %fn JsonValue Option JsonObject \v:
 //:| #import "alloc/encoding/json/access" as *
 //: fn main %impure fn () i32 \():
 //:     let checks0 checks_push checks_new assert json_is_null json_null
-//:     let checks1 checks_push checks0 assert is_some<bool> json_as_bool json_bool true
+//:     let checks1 checks_push checks0 assert is_some json_as_bool json_bool true
 //:     let shown checks_print_report checks1
 //:     checks_exit_code shown
 //: ```

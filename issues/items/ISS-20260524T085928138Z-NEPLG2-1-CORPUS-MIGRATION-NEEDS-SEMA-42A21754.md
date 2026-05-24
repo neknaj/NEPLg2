@@ -123,6 +123,12 @@ LLM/手動判断が必要なもの:
 - `char_from_i32_result` の `cast code` は overload ambiguous になるため、generic postfix ではなく `%char cast code` の値 ascription で戻り値型 evidence を明示した。
 - direct `nepl-cli.exe --check --target core` smoke で、`char_from_i32_result` と `char_to_u8_result` の match 利用はどちらも pass した。
 
+### 2026-05-24 JSON accessor postfix cleanup checkpoint
+
+- `stdlib/alloc/encoding/json/access.nepl` の `json_as_bool` / `json_as_number` / `json_as_string` / `json_as_array` / `json_as_object` 本体で、戻り値型から解ける `some<T>` / `none<T>` を postfix なしへ移行した。
+- 同ファイルの doctest 例に残っていた `is_some<bool>` も `is_some` へ移行した。
+- direct `nepl-cli.exe --check` smoke で、bool/number/string accessor と array/object accessor の postfix-free return は pass した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
