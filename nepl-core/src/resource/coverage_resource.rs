@@ -513,6 +513,31 @@ fn resource_ops_coverage(
                     diagnostics,
                 );
             }
+            ResourceOp::CollectionSlotTransformRange {
+                source_storage,
+                source_initialized_count,
+                output_storage,
+                output_initialized_count,
+                span,
+                ..
+            } => {
+                collection_slot_drop_traversal_coverage(
+                    function,
+                    source_storage,
+                    source_initialized_count,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+                collection_slot_drop_traversal_coverage(
+                    function,
+                    output_storage,
+                    output_initialized_count,
+                    *span,
+                    counts,
+                    diagnostics,
+                );
+            }
             ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}
         }
     }

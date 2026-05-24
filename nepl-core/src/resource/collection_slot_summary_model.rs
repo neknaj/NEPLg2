@@ -51,6 +51,14 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
         expected_ty: TypeId,
         coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage,
     },
+    TransformRange {
+        source_storage: CollectionSlotLifecycleSummaryPlace,
+        source_initialized_count: CollectionSlotLifecycleSummaryPlace,
+        output_storage: CollectionSlotLifecycleSummaryPlace,
+        output_initialized_count: CollectionSlotLifecycleSummaryPlace,
+        expected_ty: TypeId,
+        certificate: CollectionSlotTransformRangeCertificate,
+    },
     Merge {
         paths: Vec<Vec<CollectionSlotLifecycleSummaryOp>>,
     },
@@ -75,6 +83,32 @@ pub(super) struct CollectionSlotInitializedRangeDropTraversalCertificate {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum CollectionSlotInitializedRangeDropTraversalProof {
     StateOnly,
+    LoadedValueDrop(CollectionSlotDropObligation),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct CollectionSlotTransformRangeCertificate {
+    pub(super) element_stride: usize,
+    pub(super) source_move_proof: CollectionSlotTransformRangeSourceProof,
+    pub(super) output_store_proof: CollectionSlotTransformRangeOutputProof,
+    pub(super) discard_drop_proof: CollectionSlotTransformRangeDiscardProof,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CollectionSlotTransformRangeSourceProof {
+    StateOnly,
+    LoadedValueMove(CollectionSlotOwnerTransferObligation),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CollectionSlotTransformRangeOutputProof {
+    StateOnly,
+    StoredValue(CollectionSlotOwnerTransferObligation),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CollectionSlotTransformRangeDiscardProof {
+    NoDiscard,
     LoadedValueDrop(CollectionSlotDropObligation),
 }
 

@@ -135,6 +135,18 @@ fn op_invalidates(
             touches_candidate_storage(raw_aliases, candidate, storage)
                 || touches_candidate_count(raw_aliases, candidate, initialized_count)
         }
+        ResourceOp::CollectionSlotTransformRange {
+            source_storage,
+            source_initialized_count,
+            output_storage,
+            output_initialized_count,
+            ..
+        } => {
+            touches_candidate_storage(raw_aliases, candidate, source_storage)
+                || touches_candidate_count(raw_aliases, candidate, source_initialized_count)
+                || touches_candidate_storage(raw_aliases, candidate, output_storage)
+                || touches_candidate_count(raw_aliases, candidate, output_initialized_count)
+        }
         ResourceOp::Construct { output, inputs, .. } => {
             writes_candidate_anchor(raw_aliases, candidate, output)
                 || inputs

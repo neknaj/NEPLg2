@@ -92,7 +92,8 @@ pub(super) fn op_preserves_place_during_drop_witness(
         | ResourceOp::IndirectCall { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. } => false,
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. } => false,
     }
 }
 

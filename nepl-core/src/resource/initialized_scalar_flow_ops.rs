@@ -323,6 +323,7 @@ pub(super) fn propagate_i32_scalar_op(
         | ResourceOp::EndScope { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. } => {}
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. } => {}
     }
 }

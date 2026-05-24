@@ -119,6 +119,7 @@ fn return_path_states_after_op(
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
         | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. }
         | ResourceOp::Construct { .. } => {
             let mut summary_ops = Vec::new();
             collect_summary_ops_from_op(
@@ -185,5 +186,6 @@ fn summary_state_from_check_state(state: ResourceCheckState) -> CollectionSlotSu
         pending_reallocs: state.pending_reallocs,
         variant_initializations: state.variant_initializations,
         drop_traversal_range_certificates: Vec::new(),
+        transform_range_certificates: Vec::new(),
     }
 }

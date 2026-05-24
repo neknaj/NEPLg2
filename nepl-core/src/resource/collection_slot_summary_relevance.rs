@@ -145,6 +145,7 @@ fn collect_op_collection_slot_summary_dependencies(op: &ResourceOp, out: &mut BT
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
         | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. }
         | ResourceOp::Construct { .. } => {}
     }
 }
@@ -154,6 +155,7 @@ fn op_directly_affects_collection_slots(op: &ResourceOp) -> bool {
         ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
         | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. }
         | ResourceOp::IndirectCall { .. } => true,
         ResourceOp::Branch {
             then_ops, else_ops, ..

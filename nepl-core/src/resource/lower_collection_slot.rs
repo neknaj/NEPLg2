@@ -35,6 +35,12 @@ pub(super) fn push_collection_slot_lifecycle_intrinsic(
         );
         return true;
     }
+    if primitive.requires_storage_transform_range() {
+        push_collection_slot_transform_range(
+            primitive, type_args, hir_args, arg_places, ops, env, span,
+        );
+        return true;
+    }
     let Some(target) =
         collection_slot_lifecycle_target(primitive, type_args, hir_args, arg_places, env)
     else {
@@ -109,6 +115,40 @@ fn push_collection_slot_drop_traversal(
     ops.push(ResourceOp::CollectionSlotDropTraversal {
         storage,
         initialized_count,
+        expected_ty,
+        span,
+    });
+}
+
+fn push_collection_slot_transform_range(
+    primitive: CollectionSlotLifecyclePrimitive,
+    type_args: &[TypeId],
+    hir_args: &[HirExpr],
+    arg_places: &[Place],
+    ops: &mut Vec<ResourceOp>,
+    env: &LoweringEnvironment,
+    span: Span,
+) {
+    let Some(source_storage) = storage_lifecycle_place(0, hir_args, arg_places, env) else {
+        return;
+    };
+    let Some(source_initialized_count) = arg_places.get(1).cloned() else {
+        return;
+    };
+    let Some(output_storage) = storage_lifecycle_place(2, hir_args, arg_places, env) else {
+        return;
+    };
+    let Some(output_initialized_count) = arg_places.get(3).cloned() else {
+        return;
+    };
+    let Some(expected_ty) = slot_value_type(primitive, type_args) else {
+        return;
+    };
+    ops.push(ResourceOp::CollectionSlotTransformRange {
+        source_storage,
+        source_initialized_count,
+        output_storage,
+        output_initialized_count,
         expected_ty,
         span,
     });
@@ -228,6 +268,7 @@ fn collection_slot_lifecycle_event(
             Some(CollectionSlotLifecycleEvent::StorageDealloc)
         }
         CollectionSlotLifecyclePrimitive::DropTraversal
+        | CollectionSlotLifecyclePrimitive::TransformRange
         | CollectionSlotLifecyclePrimitive::StorageRelocate => None,
     }
 }

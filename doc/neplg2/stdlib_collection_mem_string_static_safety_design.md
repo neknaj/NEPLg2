@@ -82,6 +82,8 @@ non-Copy transform はこの observer を共有する。`filter` / `partition` /
 
 2026-05-24 追記: `Vec.filter<T: Drop>` の試作では、stdlib-only direct raw drain は source range の `MoveOut` と output prefix の `InitializeEmpty` を Resource IR が証明できず、`pop` / `push` 再帰で既存単一 slot proof へ載せる案は focused doctest が 240 秒でも timeout した。したがって public non-Copy transform overload を先に開かず、[ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37](../../issues/items/ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37.md) で transform range lifecycle certificate を Resource IR に追加してから stdlib 実装へ戻る。
 
+2026-05-24 追記 2: transform range certificate の compiler-core scaffold を開始した。Resource IR は `CollectionSlotTransformRange` summary/replay で source range の `MoveOut`、output prefix の `InitializeEmpty`、discard branch の actual drop proof を扱えるようになった。ただし現段階では public stdlib API へ接続しない。output initialized range を returned `Vec` の `OwnedBuffer` field へ伝播する return summary、partial output rollback cleanup、`filter` / prefix / `map` / `partition` の source-level regression を追加してから non-Copy transform overload を開く。
+
 2026-05-23 追記 3: sort は transform より後に扱う。現行 sort は raw swap と `Ord&Copy` comparison に依存するため、non-Copy payload へ進めるには borrowed comparison `(&T,&T)->bool` と slot swap lifecycle proof が必要である。この残件は [ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90](../../issues/items/ISS-20260523T051715144Z-VEC-NON-COPY-SORT-NEEDS-BORROWED-COM-7B8AAE90.md) で追跡し、raw shallow swap を例外扱いしない。
 
 ## 2026-04-30 再レビュー結果

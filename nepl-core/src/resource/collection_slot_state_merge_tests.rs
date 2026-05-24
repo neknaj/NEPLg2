@@ -5,6 +5,7 @@ use super::collection_slot_lifecycle::{
     CollectionSlotState,
 };
 use super::collection_slot_state_table::{CollectionSlotStateTable, CollectionSlotTableRefutation};
+use super::initialized_alias::RawCellAddressAliases;
 use super::model::{Place, PlaceProjection, ResourceOffset};
 use crate::types::{TypeCtx, TypeId};
 
@@ -167,5 +168,31 @@ fn merge_definitely_vacant_slots_can_be_reinitialized() {
             CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: other },
         ),
         Ok(CollectionSlotState::Initialized(other))
+    );
+}
+
+#[test]
+fn merge_drops_initialized_range_when_a_path_overrides_a_slot_inside_it() {
+    let (types, owned, _) = test_types();
+    let raw_aliases = RawCellAddressAliases::default();
+    let buffer = storage(owned);
+    let count = Place::i32_constant(2, owned);
+    let slot0 = slot(owned, 0, owned);
+    let mut left = CollectionSlotStateTable::new();
+    let mut right = CollectionSlotStateTable::new();
+    for path in [&mut left, &mut right] {
+        path.mark_initialized_range_with_aliases(&buffer, &count, owned, 4, &raw_aliases);
+    }
+    right.set_slot_state(&slot0, CollectionSlotState::Moved(owned));
+
+    let merged = CollectionSlotStateTable::merge_paths(&[left, right]);
+
+    assert_eq!(
+        merged.state_with_aliases_and_ranges(&types, &slot0, &raw_aliases),
+        CollectionSlotState::MaybeInitialized(Some(owned))
+    );
+    assert!(
+        !merged.initialized_ranges().is_empty(),
+        "common range summary should survive, while explicit slot state shadows overridden slots"
     );
 }

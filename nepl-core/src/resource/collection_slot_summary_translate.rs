@@ -164,6 +164,59 @@ pub(super) fn translate_summary_ops_through_args(
                     coverage,
                 );
             }
+            CollectionSlotLifecycleSummaryOp::TransformRange {
+                source_storage,
+                source_initialized_count,
+                output_storage,
+                output_initialized_count,
+                expected_ty,
+                certificate,
+            } => {
+                let Some(source_storage) = translate_summary_place_through_args(
+                    engine,
+                    args,
+                    params,
+                    raw_aliases,
+                    source_storage,
+                ) else {
+                    continue;
+                };
+                let Some(source_initialized_count) = translate_summary_place_through_args(
+                    engine,
+                    args,
+                    params,
+                    raw_aliases,
+                    source_initialized_count,
+                ) else {
+                    continue;
+                };
+                let Some(output_storage) = translate_summary_place_through_args(
+                    engine,
+                    args,
+                    params,
+                    raw_aliases,
+                    output_storage,
+                ) else {
+                    continue;
+                };
+                let Some(output_initialized_count) = translate_summary_place_through_args(
+                    engine,
+                    args,
+                    params,
+                    raw_aliases,
+                    output_initialized_count,
+                ) else {
+                    continue;
+                };
+                out.push(CollectionSlotLifecycleSummaryOp::TransformRange {
+                    source_storage,
+                    source_initialized_count,
+                    output_storage,
+                    output_initialized_count,
+                    expected_ty: *expected_ty,
+                    certificate: *certificate,
+                });
+            }
             CollectionSlotLifecycleSummaryOp::Merge { paths } => {
                 let mut translated_paths = Vec::new();
                 for path in paths {
@@ -211,4 +264,25 @@ pub(super) fn translate_summary_ops_through_args(
             }
         }
     }
+}
+
+fn translate_summary_place_through_args(
+    engine: &ResourceCheckEngine<'_>,
+    args: &[Place],
+    params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    place: &super::collection_slot_summary_model::CollectionSlotLifecycleSummaryPlace,
+) -> Option<super::collection_slot_summary_model::CollectionSlotLifecycleSummaryPlace> {
+    if let Some(translated) =
+        translate_summary_target_for_params_with_aliases(engine, args, params, raw_aliases, place)
+    {
+        return Some(translated);
+    }
+    let actual = instantiate_summary_target_with_aliases(engine, args, raw_aliases, place)?;
+    summary_place_for_params_with_aliases_and_types(
+        params,
+        Some(engine.types),
+        raw_aliases,
+        &actual,
+    )
 }

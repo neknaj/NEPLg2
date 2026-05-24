@@ -174,6 +174,28 @@ pub(super) fn collect_parameter_descendant_places(
                 push_parameter_descendant_place(places, parameter, aliases, storage);
                 push_parameter_descendant_place(places, parameter, aliases, initialized_count);
             }
+            ResourceOp::CollectionSlotTransformRange {
+                source_storage,
+                source_initialized_count,
+                output_storage,
+                output_initialized_count,
+                ..
+            } => {
+                push_parameter_descendant_place(places, parameter, aliases, source_storage);
+                push_parameter_descendant_place(
+                    places,
+                    parameter,
+                    aliases,
+                    source_initialized_count,
+                );
+                push_parameter_descendant_place(places, parameter, aliases, output_storage);
+                push_parameter_descendant_place(
+                    places,
+                    parameter,
+                    aliases,
+                    output_initialized_count,
+                );
+            }
             ResourceOp::CallEffect { .. } => {}
         }
     }

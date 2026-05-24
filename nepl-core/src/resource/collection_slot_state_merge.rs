@@ -10,6 +10,7 @@ impl CollectionSlotStateTable {
     pub fn merge_paths(paths: &[CollectionSlotStateTable]) -> Self {
         let mut out = Self::new();
         merge_released_storage(paths, &mut out);
+        merge_initialized_ranges(paths, &mut out);
 
         let mut slots = Vec::new();
         for path in paths {
@@ -19,7 +20,9 @@ impl CollectionSlotStateTable {
         }
 
         for slot in slots {
-            let mut states = paths.iter().map(|path| path.state(&slot));
+            let mut states = paths
+                .iter()
+                .map(|path| state_with_initialized_ranges_for_merge(path, &slot));
             if let Some(mut merged) = states.next() {
                 for state in states {
                     merged = merge_collection_slot_states(merged, state);
@@ -30,6 +33,25 @@ impl CollectionSlotStateTable {
 
         out
     }
+}
+
+fn merge_initialized_ranges(
+    paths: &[CollectionSlotStateTable],
+    out: &mut CollectionSlotStateTable,
+) {
+    let Some((first, rest)) = paths.split_first() else {
+        return;
+    };
+    out.initialized_ranges.extend(
+        first
+            .initialized_ranges
+            .iter()
+            .filter(|entry| {
+                rest.iter()
+                    .all(|path| path.initialized_ranges.contains(entry))
+            })
+            .cloned(),
+    );
 }
 
 fn merge_released_storage(paths: &[CollectionSlotStateTable], out: &mut CollectionSlotStateTable) {
@@ -65,6 +87,37 @@ fn merge_released_storage(paths: &[CollectionSlotStateTable], out: &mut Collecti
         } else if saw_release {
             push_unique_place(&mut out.maybe_released_storage, &storage);
         }
+    }
+}
+
+fn state_with_initialized_ranges_for_merge(
+    path: &CollectionSlotStateTable,
+    slot: &super::model::Place,
+) -> CollectionSlotState {
+    let state = path.state(slot);
+    if !matches!(state, CollectionSlotState::Uninitialized) {
+        return state;
+    }
+    let mut range_ty = None;
+    let mut saw_range = false;
+    for range in path
+        .initialized_ranges
+        .iter()
+        .filter(|range| place_covers_slot(slot, &range.storage))
+    {
+        saw_range = true;
+        range_ty = match range_ty {
+            Some(existing) => merge_type(existing, range.value_ty),
+            None => Some(range.value_ty),
+        };
+    }
+    if saw_range {
+        match range_ty {
+            Some(slot_ty) => CollectionSlotState::Initialized(slot_ty),
+            None => CollectionSlotState::MaybeInitialized(None),
+        }
+    } else {
+        CollectionSlotState::Uninitialized
     }
 }
 

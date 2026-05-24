@@ -103,6 +103,7 @@ fn collect_source_bindings_from_ops(
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
             | ResourceOp::CollectionSlotDropTraversal { .. }
+            | ResourceOp::CollectionSlotTransformRange { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }

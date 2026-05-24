@@ -66,6 +66,18 @@ impl CollectionSlotStateTable {
                 }
             })?;
         }
+        for entry in self.initialized_ranges().iter().filter(|entry| {
+            storage_aliases_for_place(&entry.storage, raw_aliases)
+                .iter()
+                .any(|entry_storage| place_covers_slot(entry_storage, storage))
+        }) {
+            return Err(CollectionSlotTableRefutation {
+                slot: entry.storage.clone(),
+                reason: CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc {
+                    slot_ty: entry.value_ty,
+                },
+            });
+        }
         Ok(())
     }
 
@@ -78,6 +90,11 @@ impl CollectionSlotStateTable {
         self.slots
             .iter()
             .any(|entry| place_covers_slot_with_aliases(&entry.slot, storage, raw_aliases))
+            || self.initialized_ranges().iter().any(|entry| {
+                storage_aliases_for_place(&entry.storage, raw_aliases)
+                    .iter()
+                    .any(|entry_storage| place_covers_slot(entry_storage, storage))
+            })
             || self.released_storage.iter().any(|released| {
                 aliases
                     .iter()

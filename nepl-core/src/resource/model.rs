@@ -182,6 +182,14 @@ pub enum ResourceOp {
         expected_ty: TypeId,
         span: Span,
     },
+    CollectionSlotTransformRange {
+        source_storage: Place,
+        source_initialized_count: Place,
+        output_storage: Place,
+        output_initialized_count: Place,
+        expected_ty: TypeId,
+        span: Span,
+    },
     Construct {
         output: Place,
         kind: AggregateKind,

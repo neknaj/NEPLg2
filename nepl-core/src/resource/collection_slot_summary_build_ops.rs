@@ -12,6 +12,9 @@ use super::collection_slot_summary_build_nested::{
 };
 use super::collection_slot_summary_build_range_certificate::loop_drop_traversal_range_certificates;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
+use super::collection_slot_summary_build_transform_range::{
+    collect_summary_transform_range_op, loop_transform_range_certificates,
+};
 use super::collection_slot_summary_match_state::collection_slot_summary_match_arm_entry_state;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummaryIndex, CollectionSlotLifecycleSummaryOp,
@@ -52,6 +55,23 @@ pub(super) fn collect_summary_ops_from_ops(
         } else {
             Vec::new()
         };
+        let mut pending_transform_range_certificates = if let ResourceOp::Loop {
+            condition_ops,
+            condition_fact,
+            body_ops,
+            ..
+        } = op
+        {
+            loop_transform_range_certificates(
+                engine,
+                state,
+                condition_ops,
+                condition_fact.as_ref(),
+                body_ops,
+            )
+        } else {
+            Vec::new()
+        };
         engine.check_ops(
             &mut state.cells,
             &mut state.collection_slots,
@@ -66,9 +86,15 @@ pub(super) fn collect_summary_ops_from_ops(
             },
         );
         state.retain_drop_traversal_range_certificates_after_op(engine.types, op);
+        if !matches!(op, ResourceOp::Loop { .. }) {
+            state.transform_range_certificates.clear();
+        }
         state
             .drop_traversal_range_certificates
             .append(&mut pending_range_certificates);
+        state
+            .transform_range_certificates
+            .append(&mut pending_transform_range_certificates);
         engine.auto_drop_points.clear();
     }
 }
@@ -134,6 +160,25 @@ pub(super) fn collect_summary_ops_from_op(
                 params,
                 storage,
                 initialized_count,
+                *expected_ty,
+            );
+        }
+        ResourceOp::CollectionSlotTransformRange {
+            source_storage,
+            source_initialized_count,
+            output_storage,
+            output_initialized_count,
+            expected_ty,
+            ..
+        } => {
+            collect_summary_transform_range_op(
+                out,
+                state,
+                params,
+                source_storage,
+                source_initialized_count,
+                output_storage,
+                output_initialized_count,
                 *expected_ty,
             );
         }

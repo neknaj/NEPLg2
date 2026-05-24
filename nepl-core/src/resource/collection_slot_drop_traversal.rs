@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::string::ToString;
 
+use crate::layout::storage_size_bytes;
 use crate::span::Span;
 use crate::types::TypeId;
 
@@ -158,6 +159,13 @@ impl ResourceCheckEngine<'_> {
                 | CollectionSlotState::MaybeReleased => {}
             }
         }
+        committed_slots.clear_initialized_range_with_aliases(
+            storage,
+            initialized_count,
+            expected_ty,
+            storage_size_bytes(self.types, expected_ty),
+            raw_aliases,
+        );
         *cells = committed_cells;
         *collection_slots = committed_slots;
         Ok(())

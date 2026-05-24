@@ -8,6 +8,7 @@ use super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryRelocateProof,
 };
 use super::collection_slot_summary_replay_drop_traversal::apply_drop_traversal_summary_op;
+use super::collection_slot_summary_replay_transform_range::apply_transform_range_summary_op;
 use super::collection_slot_summary_target::instantiate_summary_target_with_aliases;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -92,6 +93,29 @@ impl ResourceCheckEngine<'_> {
                         initialized_count,
                         *expected_ty,
                         coverage,
+                        span,
+                    );
+                }
+                CollectionSlotLifecycleSummaryOp::TransformRange {
+                    source_storage,
+                    source_initialized_count,
+                    output_storage,
+                    output_initialized_count,
+                    expected_ty,
+                    certificate,
+                } => {
+                    apply_transform_range_summary_op(
+                        self,
+                        cells,
+                        collection_slots,
+                        raw_aliases,
+                        args,
+                        source_storage,
+                        source_initialized_count,
+                        output_storage,
+                        output_initialized_count,
+                        *expected_ty,
+                        *certificate,
                         span,
                     );
                 }

@@ -46,6 +46,7 @@ fn empty_summary_state() -> CollectionSlotSummaryBuildState {
         pending_reallocs: PendingRawReallocs::default(),
         variant_initializations: PendingVariantRawCellInitializations::default(),
         drop_traversal_range_certificates: Vec::new(),
+        transform_range_certificates: Vec::new(),
     }
 }
 
@@ -270,7 +271,8 @@ fn summary_contains_drop_traversal(op: &CollectionSlotLifecycleSummaryOp) -> boo
             .chain(body_ops)
             .any(summary_contains_drop_traversal),
         CollectionSlotLifecycleSummaryOp::Event { .. }
-        | CollectionSlotLifecycleSummaryOp::Relocate { .. } => false,
+        | CollectionSlotLifecycleSummaryOp::Relocate { .. }
+        | CollectionSlotLifecycleSummaryOp::TransformRange { .. } => false,
     }
 }
 

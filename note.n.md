@@ -1,3 +1,18 @@
+# 2026-05-24 Agent 1 TransformRange core certificate scaffold
+
+- `plan.md` と Zenn 方針は確認済みで、変更していない。試作段階でも public non-Copy transform を先に開かず、Resource IR proof boundary を先に固める方針を維持した。
+- `ResourceOp::CollectionSlotTransformRange`、`collection_slot_transform_range<T>` primitive、typecheck/lowering/coverage/dump/effect/borrow/owner summary の各 match 接続を追加した。
+- `CollectionSlotLifecycleSummaryOp::TransformRange` と certificate model を追加し、source range `MoveOut`、output prefix `InitializeEmpty`、discard branch actual drop proof を summary build / replay に接続した。replay は discard drop proof 不足を拒否し、output initialized range を storage release 前に drop traversal で閉じる。
+- `CollectionSlotStateTable` に initialized range state を追加し、drop traversal で range を clear する。branch merge では共通 range を維持しつつ、range 内の explicit slot override は `MaybeInitialized` として shadow するようにした。
+- transform loop summary producer は現時点で単純な source drain / output prefix loop shape のみを認識する。output count は loop entry で 0 起点であること、branch 内に loaded value store と 1 回の output increment があること、discard branch に non-Copy actual drop があることを要求する。
+- `ResourceOp::CollectionSlotTransformRange` は local checker では certificate なしに state 更新しない summary marker とし、summary builder 側の structural candidate がある場合だけ caller replay へ証明を渡す。return value 上の output initialized range propagation と stdlib `filter<T: Drop>` 接続は未実装で、issue を open のまま残す。
+- focused verification:
+  - `cargo fmt --check`
+  - `cargo check -p nepl-core`
+  - `cargo test -p nepl-core collection_slot_summary_loop_induction_ -- --nocapture`
+  - `cargo test -p nepl-core collection_slot_summary_transform_replay -- --nocapture`
+  - `cargo test -p nepl-core collection_slot_state_merge -- --nocapture`
+
 # 2026-05-24 Agent 1 Vec transform range certificate blocker
 
 - `plan.md` は確認済みで、変更していない。Zenn 方針も再確認し、試作段階でも暫定雑設計や壊れた public API を残さない方針で進めた。

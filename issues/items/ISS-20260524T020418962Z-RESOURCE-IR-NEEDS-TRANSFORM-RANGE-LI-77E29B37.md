@@ -40,6 +40,16 @@ Vec map/filter/prefix/partition の non-Copy payload 対応を安全に進めら
 
 drop traversal range certificate の兄弟として transform range lifecycle certificate を設計する。source range の MoveOut coverage、discard branch の actual Drop proof、output prefix の InitializeEmpty coverage、partial output rollback cleanup を typed summary / replay / local check に載せる。stdlib 側は証明器が読める単純な loop shape に固定し、raw shallow copy や module allowlist は使わない。
 
+## 進捗
+
+2026-05-24 checkpoint:
+
+- `ResourceOp::CollectionSlotTransformRange` と `collection_slot_transform_range<T>` primitive を追加し、typecheck / lowering / coverage / dump / effect / borrow / owner summary の match 接続を行った。
+- `CollectionSlotLifecycleSummaryOp::TransformRange` と certificate model を追加し、summary replay で source range `MoveOut`、output prefix `InitializeEmpty`、discard actual drop proof を検査する scaffold を入れた。discard drop proof がない non-Copy transform replay は拒否する。
+- `CollectionSlotStateTable` に initialized range state を追加し、output prefix が storage release をブロックし、drop traversal certificate 後に release できることを regression 化した。branch merge では共通 range と explicit slot override を range-aware に merge する。
+- summary producer は source drain / output prefix loop の最小形を認識する。output count は 0 起点、loaded value store、output increment 1 回、discard branch actual drop を要求する。
+- 未完了: return value 上の output initialized range propagation、partial output rollback cleanup の source-level fixture、stdlib `filter<T: Drop>` / prefix / map / partition への接続。local `CollectionSlotTransformRange` op は certificate なしに state を更新しない summary marker のままで、public transform overload はまだ開かない。
+
 ## 検証
 
 Resource IR compile-pass/fail regressions for Vec<DropPayload>.filter, prefix, map, partition. Source policy must reject Copy-bound removal unless borrowed observation, MoveOut coverage, output InitializeEmpty coverage, discard Drop proof, and rollback cleanup are structurally present. Focused doctests must pass within normal timeout.

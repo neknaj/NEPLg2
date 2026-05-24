@@ -219,6 +219,7 @@ fn collect_param_release_requirements_from_op(
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
         | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. }
         | ResourceOp::Construct { .. }
         | ResourceOp::Expr { .. }
         | ResourceOp::EndScope { .. } => {}

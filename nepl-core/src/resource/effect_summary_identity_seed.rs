@@ -97,6 +97,7 @@ fn collect_call_summary_source_seeds(
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
             | ResourceOp::CollectionSlotDropTraversal { .. }
+            | ResourceOp::CollectionSlotTransformRange { .. }
             | ResourceOp::Construct { .. } => {}
         }
     }

@@ -313,7 +313,8 @@ impl ResourceCheckEngine<'_> {
                         CollectionSlotStateTable::merge_paths(&[exit_slots, body_slots]);
                 }
                 CollectionSlotLifecycleSummaryOp::Relocate { .. }
-                | CollectionSlotLifecycleSummaryOp::DropTraversal { .. } => {}
+                | CollectionSlotLifecycleSummaryOp::DropTraversal { .. }
+                | CollectionSlotLifecycleSummaryOp::TransformRange { .. } => {}
             }
         }
     }
@@ -711,7 +712,8 @@ impl ResourceCheckEngine<'_> {
             ResourceOp::StorageOrigin { .. } => {}
             ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
-            | ResourceOp::CollectionSlotDropTraversal { .. } => {}
+            | ResourceOp::CollectionSlotDropTraversal { .. }
+            | ResourceOp::CollectionSlotTransformRange { .. } => {}
             ResourceOp::Construct {
                 output,
                 kind,

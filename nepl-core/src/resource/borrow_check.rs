@@ -383,7 +383,8 @@ impl ResourceBorrowCheckEngine<'_> {
             | ResourceOp::StorageOrigin { .. }
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
-            | ResourceOp::CollectionSlotDropTraversal { .. } => {}
+            | ResourceOp::CollectionSlotDropTraversal { .. }
+            | ResourceOp::CollectionSlotTransformRange { .. } => {}
             ResourceOp::Construct {
                 output,
                 kind,

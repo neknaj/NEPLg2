@@ -700,7 +700,8 @@ impl ResourceOwnerCheckEngine<'_> {
             ResourceOp::CallEffect { .. }
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
-            | ResourceOp::CollectionSlotDropTraversal { .. } => {}
+            | ResourceOp::CollectionSlotDropTraversal { .. }
+            | ResourceOp::CollectionSlotTransformRange { .. } => {}
         }
     }
 

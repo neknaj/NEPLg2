@@ -130,7 +130,8 @@ pub(super) fn collect_raw_owner_aliases_with_views(
             | ResourceOp::StorageOrigin { .. }
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
-            | ResourceOp::CollectionSlotDropTraversal { .. } => {}
+            | ResourceOp::CollectionSlotDropTraversal { .. }
+            | ResourceOp::CollectionSlotTransformRange { .. } => {}
             ResourceOp::Call {
                 output,
                 target,

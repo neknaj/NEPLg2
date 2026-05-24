@@ -288,7 +288,8 @@ fn propagate_raw_address_alias_op(
         | ResourceOp::EndScope { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. } => {}
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. } => {}
     }
 }
 

@@ -120,7 +120,9 @@ fn apply_event_precondition(
     event: CollectionSlotLifecycleEvent,
 ) -> Result<(), CollectionSlotTableRefutation> {
     let state = raw_aliases
-        .map(|raw_aliases| collection_slots.state_with_aliases(target, raw_aliases))
+        .map(|raw_aliases| {
+            collection_slots.state_with_aliases_and_ranges(types, target, raw_aliases)
+        })
         .unwrap_or_else(|| collection_slots.state(target));
     apply_collection_slot_lifecycle_event(types, state, event)
         .map(|_| ())

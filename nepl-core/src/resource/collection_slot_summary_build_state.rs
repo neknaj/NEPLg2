@@ -8,6 +8,7 @@ use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_build_range_lifetime::drop_traversal_range_certificate_survives_op;
 use super::collection_slot_summary_model::CollectionSlotInitializedRangeDropTraversalCertificate;
+use super::collection_slot_summary_model::CollectionSlotTransformRangeCertificate;
 use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_external_seed::seed_external_raw_storage_input_place;
@@ -27,6 +28,7 @@ pub(super) struct CollectionSlotSummaryBuildState {
     pub(super) variant_initializations: PendingVariantRawCellInitializations,
     pub(super) drop_traversal_range_certificates:
         Vec<CollectionSlotDropTraversalRangeCertificateCandidate>,
+    pub(super) transform_range_certificates: Vec<CollectionSlotTransformRangeCertificateCandidate>,
 }
 
 #[derive(Clone)]
@@ -35,6 +37,16 @@ pub(super) struct CollectionSlotDropTraversalRangeCertificateCandidate {
     pub(super) initialized_count: super::model::Place,
     pub(super) expected_ty: TypeId,
     pub(super) certificate: CollectionSlotInitializedRangeDropTraversalCertificate,
+}
+
+#[derive(Clone)]
+pub(super) struct CollectionSlotTransformRangeCertificateCandidate {
+    pub(super) source_storage: super::model::Place,
+    pub(super) source_initialized_count: super::model::Place,
+    pub(super) output_storage: super::model::Place,
+    pub(super) output_initialized_count: super::model::Place,
+    pub(super) expected_ty: TypeId,
+    pub(super) certificate: CollectionSlotTransformRangeCertificate,
 }
 
 impl CollectionSlotSummaryBuildState {
@@ -63,6 +75,7 @@ impl CollectionSlotSummaryBuildState {
             pending_reallocs: PendingRawReallocs::default(),
             variant_initializations: PendingVariantRawCellInitializations::default(),
             drop_traversal_range_certificates: Vec::new(),
+            transform_range_certificates: Vec::new(),
         }
     }
 

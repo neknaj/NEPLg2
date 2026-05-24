@@ -328,7 +328,8 @@ fn propagate_value_projection_op(
         | ResourceOp::EndScope { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. } => {}
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. } => {}
     }
 }
 

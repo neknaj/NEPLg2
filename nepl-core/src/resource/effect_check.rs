@@ -419,7 +419,8 @@ impl ResourceEffectBoundaryEngine<'_> {
             | ResourceOp::EndScope { .. }
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
-            | ResourceOp::CollectionSlotDropTraversal { .. } => {}
+            | ResourceOp::CollectionSlotDropTraversal { .. }
+            | ResourceOp::CollectionSlotTransformRange { .. } => {}
         }
     }
 
@@ -478,6 +479,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
             | ResourceOp::CollectionSlotDropTraversal { .. }
+            | ResourceOp::CollectionSlotTransformRange { .. }
             | ResourceOp::Construct { .. } => {}
             ResourceOp::RawAddressAlias { kind, span, .. } => {
                 self.report_raw_address_alias_boundary_use(*kind, *span);

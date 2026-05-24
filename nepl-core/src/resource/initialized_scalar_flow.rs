@@ -414,6 +414,7 @@ fn i32_scalar_path_states_after_op(
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
         | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. }
         | ResourceOp::Construct { .. } => {
             propagate_i32_scalar_concrete_variant_op(&mut state.concrete_variants, op);
             propagate_i32_scalar_op(
@@ -762,7 +763,8 @@ fn propagate_i32_scalar_concrete_variant_op(
         | ResourceOp::StorageOrigin { .. }
         | ResourceOp::CollectionSlotLifecycle { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. } => {}
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. } => {}
     }
 }
 

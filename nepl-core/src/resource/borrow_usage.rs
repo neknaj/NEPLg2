@@ -210,6 +210,18 @@ fn resource_op_uses_place(op: &ResourceOp, place: &Place) -> bool {
             initialized_count,
             ..
         } => place_mentions_token(storage, place) || place_mentions_token(initialized_count, place),
+        ResourceOp::CollectionSlotTransformRange {
+            source_storage,
+            source_initialized_count,
+            output_storage,
+            output_initialized_count,
+            ..
+        } => {
+            place_mentions_token(source_storage, place)
+                || place_mentions_token(source_initialized_count, place)
+                || place_mentions_token(output_storage, place)
+                || place_mentions_token(output_initialized_count, place)
+        }
         ResourceOp::RawMemory { output, args, .. } => {
             place_mentions_token(output, place)
                 || args.iter().any(|arg| place_mentions_token(arg, place))

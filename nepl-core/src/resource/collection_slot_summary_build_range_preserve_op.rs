@@ -57,7 +57,8 @@ pub(super) fn op_preserves_place(
         | ResourceOp::Loop { .. }
         | ResourceOp::Match { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. } => false,
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. } => false,
         ResourceOp::EndScope { locals, result, .. } => {
             locals
                 .iter()

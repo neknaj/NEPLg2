@@ -35,6 +35,11 @@ impl CollectionSlotStateTable {
         }
         self.slots
             .retain(|entry| !place_covers_slot_with_aliases(&entry.slot, storage, raw_aliases));
+        self.initialized_ranges.retain(|entry| {
+            !aliases
+                .iter()
+                .any(|storage| place_covers_slot(&entry.storage, storage))
+        });
         self.maybe_released_storage.retain(|released| {
             !aliases
                 .iter()

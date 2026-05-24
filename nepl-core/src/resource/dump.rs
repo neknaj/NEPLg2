@@ -375,6 +375,27 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
                 span.end
             );
         }
+        ResourceOp::CollectionSlotTransformRange {
+            source_storage,
+            source_initialized_count,
+            output_storage,
+            output_initialized_count,
+            expected_ty,
+            span,
+        } => {
+            let _ = writeln!(
+                out,
+                "collection_slot_transform_range source_storage={} source_initialized_count={} output_storage={} output_initialized_count={} ty={:?} span={}:{}-{}",
+                dump_place(source_storage),
+                dump_place(source_initialized_count),
+                dump_place(output_storage),
+                dump_place(output_initialized_count),
+                expected_ty,
+                span.file_id.0,
+                span.start,
+                span.end
+            );
+        }
         ResourceOp::Construct {
             output,
             kind,

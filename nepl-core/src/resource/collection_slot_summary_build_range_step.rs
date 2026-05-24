@@ -144,7 +144,8 @@ pub(super) fn loop_body_increment_step(ops: &[ResourceOp], index: &Place) -> Opt
             }
             ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
-            | ResourceOp::CollectionSlotDropTraversal { .. } => {
+            | ResourceOp::CollectionSlotDropTraversal { .. }
+            | ResourceOp::CollectionSlotTransformRange { .. } => {
                 return None;
             }
             ResourceOp::CallEffect { .. } | ResourceOp::EndScope { .. } => {}

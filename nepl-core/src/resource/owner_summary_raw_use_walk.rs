@@ -171,7 +171,8 @@ pub(super) fn ops_use_raw_owner_alias_with_views(
             | ResourceOp::StorageOrigin { .. }
             | ResourceOp::CollectionSlotLifecycle { .. }
             | ResourceOp::CollectionStorageRelocate { .. }
-            | ResourceOp::CollectionSlotDropTraversal { .. } => {}
+            | ResourceOp::CollectionSlotDropTraversal { .. }
+            | ResourceOp::CollectionSlotTransformRange { .. } => {}
         }
     }
     false

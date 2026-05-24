@@ -78,6 +78,7 @@ pub(super) fn check_initialized_collection_slot_op(
         | ResourceOp::RawAddressAlias { .. }
         | ResourceOp::RawAddressView { .. }
         | ResourceOp::StorageOrigin { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. }
         | ResourceOp::Construct { .. }
         | ResourceOp::Branch { .. }
         | ResourceOp::Loop { .. }

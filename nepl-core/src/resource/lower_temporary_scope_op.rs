@@ -47,6 +47,18 @@ pub(super) fn push_copy_state_only_temporary_from_op(
             push_copy_state_only_temporary(types, storage, temporaries);
             push_copy_state_only_temporary(types, initialized_count, temporaries);
         }
+        ResourceOp::CollectionSlotTransformRange {
+            source_storage,
+            source_initialized_count,
+            output_storage,
+            output_initialized_count,
+            ..
+        } => {
+            push_copy_state_only_temporary(types, source_storage, temporaries);
+            push_copy_state_only_temporary(types, source_initialized_count, temporaries);
+            push_copy_state_only_temporary(types, output_storage, temporaries);
+            push_copy_state_only_temporary(types, output_initialized_count, temporaries);
+        }
         ResourceOp::Branch { output, .. } | ResourceOp::Match { output, .. } => {
             push_copy_state_only_temporary(types, output, temporaries);
         }

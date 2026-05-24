@@ -238,6 +238,15 @@ impl<'a> BlockChecker<'a> {
                         );
                         return;
                     }
+                    if primitive.requires_storage_transform_range() {
+                        self.validate_collection_slot_transform_range_anchors(
+                            anchor_kind,
+                            type_args,
+                            args,
+                            span,
+                        );
+                        return;
+                    }
                     if !primitive.has_slot_offset() && !anchor_kind.is_owner_token() {
                         self.diagnostics.push(type_error(
                             TypeDiagnosticCode::IntrinsicArgTypeMismatch,
@@ -290,6 +299,20 @@ impl<'a> BlockChecker<'a> {
                     "collection slot drop traversal initialized count must be i32",
                     args[1].span,
                 ));
+            }
+        }
+        if primitive.requires_storage_transform_range() {
+            let i32_ty = self.ctx.i32();
+            for index in [1, 3] {
+                if let Some(arg) = args.get(index) {
+                    if let Err(_) = self.ctx.unify(arg.ty, i32_ty) {
+                        self.diagnostics.push(type_error(
+                            TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                            "collection slot transform range initialized count must be i32",
+                            arg.span,
+                        ));
+                    }
+                }
             }
         }
     }
@@ -454,6 +477,79 @@ impl<'a> BlockChecker<'a> {
                 new_arg.span,
             ));
         }
+    }
+
+    fn validate_collection_slot_transform_range_anchors(
+        &mut self,
+        source_anchor: CollectionSlotLifecycleAnchor,
+        type_args: &[TypeId],
+        args: &[HirExpr],
+        span: Span,
+    ) {
+        self.validate_collection_slot_transform_range_anchor(
+            source_anchor,
+            type_args,
+            args.first().map(|arg| arg.span).unwrap_or(span),
+            "collection slot transform range source storage must be a borrowed compiler owner token",
+        );
+        let Some(output_arg) = args.get(2) else {
+            return;
+        };
+        let Some(output_anchor) = self.collection_slot_lifecycle_anchor(output_arg.ty) else {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                "collection slot transform range output storage must be a borrowed compiler owner token",
+                output_arg.span,
+            ));
+            return;
+        };
+        self.validate_collection_slot_transform_range_anchor(
+            output_anchor,
+            type_args,
+            output_arg.span,
+            "collection slot transform range output storage must be a borrowed compiler owner token",
+        );
+        let i32_ty = self.ctx.i32();
+        for index in [1, 3] {
+            if let Some(arg) = args.get(index) {
+                if let Err(_) = self.ctx.unify(arg.ty, i32_ty) {
+                    self.diagnostics.push(type_error(
+                        TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                        "collection slot transform range initialized count must be i32",
+                        arg.span,
+                    ));
+                }
+            }
+        }
+        if self
+            .ctx
+            .unify(source_anchor.value_ty(), output_anchor.value_ty())
+            .is_err()
+        {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                "collection slot transform range source and output element types must match",
+                output_arg.span,
+            ));
+        }
+    }
+
+    fn validate_collection_slot_transform_range_anchor(
+        &mut self,
+        anchor: CollectionSlotLifecycleAnchor,
+        type_args: &[TypeId],
+        span: Span,
+        message: &'static str,
+    ) {
+        if !anchor.is_owner_token() || !anchor.is_borrowed_owner_token() {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::IntrinsicArgTypeMismatch,
+                message,
+                span,
+            ));
+            return;
+        }
+        self.validate_collection_slot_lifecycle_anchor_value_type(anchor, type_args, span);
     }
 
     fn collection_slot_lifecycle_anchor(

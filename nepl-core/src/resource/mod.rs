@@ -107,6 +107,9 @@ mod collection_slot_summary_build_range_step_expr;
 mod collection_slot_summary_build_range_witness;
 mod collection_slot_summary_build_range_witness_drop;
 mod collection_slot_summary_build_state;
+mod collection_slot_summary_build_transform_range;
+#[cfg(test)]
+mod collection_slot_summary_build_transform_range_tests;
 mod collection_slot_summary_event_apply_proof;
 mod collection_slot_summary_event_proof;
 mod collection_slot_summary_match_state;
@@ -117,6 +120,7 @@ mod collection_slot_summary_replay;
 mod collection_slot_summary_replay_drop_traversal;
 #[cfg(test)]
 mod collection_slot_summary_replay_range_certificate_tests;
+mod collection_slot_summary_replay_transform_range;
 mod collection_slot_summary_return;
 mod collection_slot_summary_return_build;
 mod collection_slot_summary_return_call;
@@ -137,6 +141,7 @@ mod collection_slot_summary_target;
 mod collection_slot_summary_target_tests;
 mod collection_slot_summary_translate;
 mod collection_slot_summary_translate_drop;
+mod collection_slot_transform_range_certified;
 mod compiler_memory_place;
 mod condition_fact;
 mod coverage;
