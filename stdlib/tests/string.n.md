@@ -107,11 +107,17 @@ stdout: "test_report name=\"string_byte_at\" count=3 failed=0\nassertion index=0
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
+    let byte0 %Option i32 byte_at "AZ" 0
+    let byte1 %Option i32 byte_at "AZ" 1
+    let byte2 %Option i32 byte_at "AZ" 2
+    let byte0_value %i32 unwrap_or byte0 -1
+    let byte1_value %i32 unwrap_or byte1 -1
+    let byte2_none %bool is_none byte2
     let report:
         test_report_new "string_byte_at"
-        |> test_report_push assert_eq_i32 "byte 0" 65 unwrap_or<i32> byte_at "AZ" 0 -1
-        |> test_report_push assert_eq_i32 "byte 1" 90 unwrap_or<i32> byte_at "AZ" 1 -1
-        |> test_report_push assert "byte 2 none" is_none<i32> byte_at "AZ" 2
+        |> test_report_push assert_eq_i32 "byte 0" 65 byte0_value
+        |> test_report_push assert_eq_i32 "byte 1" 90 byte1_value
+        |> test_report_push assert "byte 2 none" byte2_none
     let shown test_report_print_stdout report
     test_report_exit_code shown
 ```
@@ -134,15 +140,29 @@ stdout: "test_report name=\"string_find_byte_index\" count=7 failed=0\nassertion
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
+    let empty_result %Option i32 find "abc" ""
+    let prefix_result %Option i32 find "abc" "ab"
+    let middle_result %Option i32 find "abcabc" "ca"
+    let suffix_result %Option i32 find "abc" "bc"
+    let delimiter_result %Option i32 find "#target std\n#entry main" "\n#entry"
+    let missing_result %Option i32 find "abc" "z"
+    let longer_result %Option i32 find "ab" "abc"
+    let empty_value %i32 unwrap_or empty_result -1
+    let prefix_value %i32 unwrap_or prefix_result -1
+    let middle_value %i32 unwrap_or middle_result -1
+    let suffix_value %i32 unwrap_or suffix_result -1
+    let delimiter_value %i32 unwrap_or delimiter_result -1
+    let missing_none %bool is_none missing_result
+    let longer_none %bool is_none longer_result
     let report:
         test_report_new "string_find_byte_index"
-        |> test_report_push assert_eq_i32 "empty pattern" 0 unwrap_or<i32> find "abc" "" -1
-        |> test_report_push assert_eq_i32 "prefix" 0 unwrap_or<i32> find "abc" "ab" -1
-        |> test_report_push assert_eq_i32 "middle" 2 unwrap_or<i32> find "abcabc" "ca" -1
-        |> test_report_push assert_eq_i32 "suffix" 1 unwrap_or<i32> find "abc" "bc" -1
-        |> test_report_push assert_eq_i32 "delimiter" 11 unwrap_or<i32> find "#target std\n#entry main" "\n#entry" -1
-        |> test_report_push assert "missing pattern" is_none<i32> find "abc" "z"
-        |> test_report_push assert "longer pattern" is_none<i32> find "ab" "abc"
+        |> test_report_push assert_eq_i32 "empty pattern" 0 empty_value
+        |> test_report_push assert_eq_i32 "prefix" 0 prefix_value
+        |> test_report_push assert_eq_i32 "middle" 2 middle_value
+        |> test_report_push assert_eq_i32 "suffix" 1 suffix_value
+        |> test_report_push assert_eq_i32 "delimiter" 11 delimiter_value
+        |> test_report_push assert "missing pattern" missing_none
+        |> test_report_push assert "longer pattern" longer_none
     let shown test_report_print_stdout report
     test_report_exit_code shown
 ```

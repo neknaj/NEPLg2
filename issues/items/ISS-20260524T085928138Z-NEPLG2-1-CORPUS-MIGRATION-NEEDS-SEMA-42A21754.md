@@ -108,6 +108,13 @@ LLM/手動判断が必要なもの:
 - `rg -n "<" stdlib/tests/option.n.md stdlib/tests/result.n.md` は 0 件になった。
 - direct `nepl-cli.exe --check` smoke で、更新後の option/result fixture 形はどちらも pass した。
 
+### 2026-05-24 String byte/find postfix cleanup checkpoint
+
+- `stdlib/tests/string.n.md` の `byte_at` / `find` result を `%Option i32` typed local に置き、`unwrap_or<i32>` / `is_none<i32>` を postfix なしの `unwrap_or` / `is_none` へ移行した。
+- `std/test` pipe argument 内の nested call から typed local へ分けることで、semantic evidence を明示しながら call reduction の探索も小さくした。
+- direct `nepl-cli.exe --check` smoke で、`byte_at` / `find` の更新後 local binding 形は pass した。
+- `std/test` つき完全 `string_byte_at` smoke は旧 postfix 形でも 180s timeout するため、この checkpoint 固有の regression ではない既知の長時間化として扱った。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

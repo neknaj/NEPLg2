@@ -45643,3 +45643,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - direct `nepl-cli.exe --check` smoke for updated option fixture shape: passed.
   - direct `nepl-cli.exe --check` smoke for updated result fixture shape: passed.
+
+## 2026-05-24 Agent 1 String byte/find postfix cleanup
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`stdlib/tests/string.n.md` の `byte_at` / `find` 周辺に残っていた `unwrap_or<i32>` / `is_none<i32>` を撤廃した。`plan.md` は変更していない。
+- `std/test` pipe argument に nested call を直接置くと call reduction が長時間化するため、`byte_at` / `find` result を `%Option i32` local に置き、`unwrap_or` / `is_none` はその local を消費する形にした。
+- 旧 postfix 形の `std/test` つき `string_byte_at` smoke も 180s timeout するため、完全 doctest 形の timeout はこの差分固有の regression ではなく既知の stdlib test 長時間化として扱った。
+- focused verification:
+  - direct `nepl-cli.exe --check` smoke for postfix-free `byte_at` local binding shape: passed.
+  - direct `nepl-cli.exe --check` smoke for postfix-free `find` local binding shape: passed.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
+  - `git diff --check`: passed with CRLF warnings only.
