@@ -1,3 +1,18 @@
+# 2026-05-25 Agent 1 getting_started tutorial generic postfix cleanup checkpoint
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の一部として、getting_started tutorial 5 file の NEPLg2.1 postfix removal を進めた。
+- `07_option.n.md` は `%Option i32` local evidence を置き、`some<i32>` / `none<i32>` と observer 側の explicit postfix を撤廃した。
+- `08_result.n.md` と `09_validation_project.n.md` は、戻り値型または match arm expected type から型が決まる `Result<T,E>::Ok` / `Result<T,E>::Err` を `Result::Ok` / `Result::Err` へ移行した。
+- `18_generics.n.md` は `%Option i32` / `%Result i32 str` の annotation と `identity some 7` / `identity ok 1` の形にし、prose も `Option .T` / `Result .T .E` 表記に更新した。
+- subagent review で、`18_generics.n.md` の `%.T` 説明が generic parameter declaration と `%` type annotation を混同していると確認したため、`fn identity <.T: Copy>` で宣言し、型式内では `.T` と参照する説明へ直した。
+- `20_namespace_and_methods.n.md` は `%Option i32` local annotation + `Option::Some` / `Option::None` に移行し、曖昧な場合は constructor postfix ではなく周囲の `%Option i32` 型注釈で補う説明にした。
+- 検証:
+  - `rg -n "\\b[A-Za-z_][A-Za-z0-9_:]*<[^>\\n]+>|Option<|Result<|some<|none<|ok<|err<|is_some<|is_none<|is_ok<|is_err<|::Some<|::Err<" tutorials/getting_started/{07_option,08_result,09_validation_project,18_generics,20_namespace_and_methods}.n.md`: 0 matches.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s).
+  - `git diff --check`: passed. CRLF checkout warning のみ。
+  - `node nodesrc/tests.js -i tutorials/getting_started/07_option.n.md -i tutorials/getting_started/08_result.n.md -i tutorials/getting_started/09_validation_project.n.md -i tutorials/getting_started/18_generics.n.md -i tutorials/getting_started/20_namespace_and_methods.n.md --no-tree -o tmp/neplg21-tutorial-generic-postfix.json -j 1 --dist web/dist --assert-io`: partial error。`07_option` / `08_result` が wasm compile timeout after 60000ms で停止し、型診断は出ていない。
+  - `node nodesrc/tests.js -i tutorials/getting_started/18_generics.n.md --no-tree -o tmp/neplg21-tutorial-18-generics.json -j 1 --dist web/dist --assert-io`: wasm compile timeout after 60000ms。subagent review では型 evidence の形自体は妥当と確認。
+
 # 2026-05-25 Agent 1 NEPLg2.1 inferred generic result / Resource IR initialization checkpoint
 
 - Zenn 方針を踏まえ、postfix-free generic call の失敗を一時的な annotation 追加ではなく、型推論結果と Resource IR state propagation の境界として調査した。

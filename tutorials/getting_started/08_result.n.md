@@ -1,6 +1,6 @@
 # Result
 
-`Result<T,E>` は「成功値 / 失敗理由」を型で表します。失敗しうる関数は `Result` を返し、呼び出し側が `match` で成功と失敗を分けます。
+`Result .T .E` は「成功値 / 失敗理由」を型で表します。失敗しうる関数は `Result` を返し、呼び出し側が `match` で成功と失敗を分けます。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
@@ -21,21 +21,21 @@ fn divide_10 %fn i32 Result i32 str \x:
     if:
         eq x 0
         then:
-            Result<i32,str>::Err "division by zero"
+            Result::Err "division by zero"
         else:
-            Result<i32,str>::Ok div_s 10 x
+            Result::Ok div_s 10 x
 
 fn expect_ok %fn Result i32 str fn i32 Result () str \got\expected:
     match got:
         Result::Ok value:
             check_eq_i32 expected value
         Result::Err msg:
-            Result<(),str>::Err msg
+            Result::Err msg
 
 fn expect_err %fn Result i32 str fn str Result () str \got\expected:
     match got:
         Result::Ok value:
-            Result<(),str>::Err "expected Err"
+            Result::Err "expected Err"
         Result::Err msg:
             check_str_eq expected msg
 

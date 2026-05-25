@@ -1,6 +1,6 @@
 # Option
 
-`Option<T>` は「値がある / ない」を型で表します。`None` の可能性がある値は `match` してから使います。
+`Option .T` は「値がある / ない」を型で表します。`None` の可能性がある値は `match` してから使います。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
@@ -27,14 +27,16 @@ fn point_or_zero %fn Option i32 i32 \value:
             0
 
 fn main %impure fn () i32 \():
-    let a %Option i32 some<i32> 42
-    let b %Option i32 none<i32>
+    let a %Option i32 some 42
+    let b %Option i32 none
+    let one %Option i32 some 1
+    let missing %Option i32 none
     let checks:
         checks_new
         |> checks_push assert_eq_i32 42 point_or_zero a
         |> checks_push assert_eq_i32 0 point_or_zero b
-        |> checks_push assert is_some some<i32> 1
-        |> checks_push assert is_none none<i32>
+        |> checks_push assert is_some one
+        |> checks_push assert is_none missing
     let shown checks_print_report checks
     checks_exit_code shown
 ```

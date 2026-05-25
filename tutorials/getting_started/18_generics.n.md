@@ -1,6 +1,6 @@
 # generics
 
-型パラメータは `%.T` のように書きます。`Option<.T>` や `Result<.T,.E>` のような標準型も generic な型です。
+関数の型パラメータは `fn identity <.T: Copy>` のように宣言し、型式の中では `.T` のように参照します。`Option .T` や `Result .T .E` のような標準型も generic な型です。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
@@ -24,16 +24,16 @@ fn identity <.T: Copy> %fn .T .T \x:
     x
 
 fn main %impure fn () i32 \():
-    let maybe %Option i32 identity some<i32> 7
-    let answer %Result i32 str identity ok<i32,str> 1
+    let maybe %Option i32 identity some 7
+    let answer %Result i32 str identity ok 1
     let checks:
         checks_new
         |> checks_push assert_eq_i32 42 identity 42
         |> checks_push assert identity true
-        |> checks_push assert is_some<i32> maybe
-        |> checks_push assert is_ok<i32,str> answer
+        |> checks_push assert is_some maybe
+        |> checks_push assert is_ok answer
     let shown checks_print_report checks
     checks_exit_code shown
 ```
 
-この例では `Copy` bound を付け、`i32`、`bool`、`Option<i32>`、`Result<i32,str>` のような copy できる値だけを受け取ります。所有権を持つ値まで generic に扱う場合は、move / borrow / Clone の境界を別に設計します。
+この例では `Copy` bound を付け、`i32`、`bool`、`Option i32`、`Result i32 str` のような copy できる値だけを受け取ります。所有権を持つ値まで generic に扱う場合は、move / borrow / Clone の境界を別に設計します。

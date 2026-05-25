@@ -22,26 +22,26 @@ fn validate_port %fn i32 Result i32 str \port:
     if:
         lt port 1
         then:
-            Result<i32,str>::Err "port too small"
+            Result::Err "port too small"
         else:
             if:
                 lt 65535 port
                 then:
-                    Result<i32,str>::Err "port too large"
+                    Result::Err "port too large"
                 else:
-                    Result<i32,str>::Ok port
+                    Result::Ok port
 
 fn expect_port %fn i32 fn i32 Result () str \input\expected:
     match validate_port input:
         Result::Ok port:
             check_eq_i32 expected port
         Result::Err msg:
-            Result<(),str>::Err msg
+            Result::Err msg
 
 fn expect_port_error %fn i32 fn str Result () str \input\expected:
     match validate_port input:
         Result::Ok port:
-            Result<(),str>::Err "expected validation error"
+            Result::Err "expected validation error"
         Result::Err msg:
             check_str_eq expected msg
 

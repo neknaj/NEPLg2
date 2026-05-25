@@ -35,9 +35,9 @@ fn option_code %fn Option i32 i32 \value:
             0
 
 fn main %impure fn () i32 \():
-    let small %Option i32 Option<i32>::Some 3
-    let large %Option i32 Option<i32>::Some 30
-    let empty %Option i32 Option<i32>::None
+    let small %Option i32 Option::Some 3
+    let large %Option i32 Option::Some 30
+    let empty %Option i32 Option::None
     let checks:
         checks_new
         |> checks_push assert_eq_i32 1 option_code small
@@ -47,4 +47,4 @@ fn main %impure fn () i32 \():
     checks_exit_code shown
 ```
 
-`Option::Some` のような省略形が使える場面もありますが、型推論が曖昧なときは `Option<i32>::Some` のように具体型を足します。
+`Option::Some` のように constructor 名だけで書き、型推論が曖昧なときは周囲の `%Option i32` のような型注釈で具体型を補います。

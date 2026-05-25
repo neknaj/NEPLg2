@@ -159,6 +159,18 @@ LLM/手動判断が必要なもの:
 - `tmp/neplg21_string_builder_result_constructor_smoke.neplg2` の direct `nepl-cli.exe --check --target std` で今回の builder result constructor shape は pass した。
 - `node nodesrc/tests.js -i stdlib/tests/string.n.md --no-tree -o tmp/neplg21_string_builder_result_constructor.json -j 1 --dist web/dist --assert-io` は 300s command timeout。残った node プロセスは停止した。
 
+### 2026-05-25 getting_started tutorial generic postfix cleanup checkpoint
+
+- `tutorials/getting_started/07_option.n.md` で、`%Option i32` local から型が確定する `some<i32>` / `none<i32>` と observer call の `is_some` / `is_none` example を postfix なしへ移行した。
+- `tutorials/getting_started/08_result.n.md` と `09_validation_project.n.md` で、関数戻り値や match arm の expected type から型が確定する `Result<T,E>::Ok` / `Result<T,E>::Err` を `Result::Ok` / `Result::Err` へ移行した。
+- `tutorials/getting_started/18_generics.n.md` で、`identity some 7` / `identity ok 1` と `%Option i32` / `%Result i32 str` annotation の組み合わせにし、observer call の explicit generic postfix を撤廃した。
+- `tutorials/getting_started/20_namespace_and_methods.n.md` で、`Option<i32>::Some` / `Option<i32>::None` を `%Option i32` local annotation + `Option::Some` / `Option::None` に移行した。
+- prose も `Option<T>` / `Result<T,E>` / `Option<i32>` / `Result<i32,str>` から、NEPLg2.1 の `Option .T` / `Result .T .E` / `Option i32` / `Result i32 str` 表記へ更新した。
+- subagent review で `18_generics.n.md` の `%.T` 説明が generic parameter declaration と type annotation を混同していると確認したため、`fn identity <.T: Copy>` で宣言し、型式内では `.T` と参照する説明に直した。
+- 対象 5 file の `Ident<...>` generic postfix / old type application prose は `rg` で 0 件になった。
+- `node nodesrc/tests.js -i tutorials/getting_started/{07_option,08_result,09_validation_project,18_generics,20_namespace_and_methods}.n.md --no-tree -o tmp/neplg21-tutorial-generic-postfix.json -j 1 --dist web/dist --assert-io` は wasm compile timeout after 60000ms で `07_option` / `08_result` の 2 件まで partial error。これは既知の per-program compile-time issue と同系で、今回差分固有の型エラーは JSON に出ていない。
+- `node nodesrc/tests.js -i tutorials/getting_started/18_generics.n.md --no-tree -o tmp/neplg21-tutorial-18-generics.json -j 1 --dist web/dist --assert-io` も wasm compile timeout after 60000ms。subagent review では型 evidence の形自体は妥当と確認しており、green doctest は性能 issue 側の回復後に再確認する。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
