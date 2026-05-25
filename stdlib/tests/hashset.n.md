@@ -19,14 +19,14 @@ stdout: "test_report name=\"hashset_main\" count=8 failed=0\nassertion index=0 s
 #import "std/test" as *
 
 fn must_hs %impure fn Result HashSet i32 DefaultHash32 Diag HashSet i32 DefaultHash32 \r:
-    unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
+    unwrap_ok r
 
 fn must_hs %impure fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 DefaultHash32 HashSet i32 DefaultHash32 \r:
     match r:
         Result::Ok hs:
             hs
         Result::Err e:
-            let hs %HashSet i32 DefaultHash32 hashset_update_error_owner<i32,DefaultHash32> e;
+            let hs %HashSet i32 DefaultHash32 hashset_update_error_owner e;
             free hs;
             #intrinsic "unreachable" <> ()
 
@@ -84,7 +84,7 @@ fn main %impure fn () i32 \():
                 free hs;
                 false
             Result::Err e:
-                let hs %HashSet i32 DefaultHash32 hashset_update_error_owner<i32,DefaultHash32> e;
+                let hs %HashSet i32 DefaultHash32 hashset_update_error_owner e;
                 free hs;
                 true
 
@@ -119,14 +119,14 @@ stdout: "test_report name=\"hashset_free_smoke\" count=1 failed=0\nassertion ind
 #import "std/test" as *
 
 fn must_hs %impure fn Result HashSet i32 DefaultHash32 Diag HashSet i32 DefaultHash32 \r:
-    unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
+    unwrap_ok r
 
 fn must_hs %impure fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 DefaultHash32 HashSet i32 DefaultHash32 \r:
     match r:
         Result::Ok hs:
             hs
         Result::Err e:
-            let hs %HashSet i32 DefaultHash32 hashset_update_error_owner<i32,DefaultHash32> e;
+            let hs %HashSet i32 DefaultHash32 hashset_update_error_owner e;
             free hs;
             #intrinsic "unreachable" <> ()
 

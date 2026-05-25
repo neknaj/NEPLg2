@@ -1,3 +1,15 @@
+# 2026-05-26 Agent 1 hashset helper postfix cleanup checkpoint
+
+- Zenn 方針を再確認し、試作段階でも静的検査を弱めず、型根拠が明確な helper call だけを NEPLg2.1 postfix-free へ移行した。
+- subagent 独立レビューにより、`unwrap_ok<HashSet<...>, Diag> r` は `r` の `Result HashSet ... Diag` 型から、`hashset_update_error_owner<...> e` は `Err e` payload と `%HashSet ...` local annotation から型が決まると確認した。
+- `stdlib/tests/hashset.n.md` / `stdlib/tests/hashset_str.n.md` の `unwrap_ok<HashSet<...>, Diag>` と `hashset_update_error_owner<...>` を postfix なしへ移行した。
+- focused doctest は current diff、`unwrap_ok` explicit comparison、clean HEAD comparison のすべてで同じ 4 件が失敗したため、今回の helper 移行固有の regression ではないと判断した。
+- 失敗は `must_hs new DefaultHash32` / `must_hss new DefaultHash32` の nested producer generic call が outer helper parameter expectation を使えていない問題なので、`ISS-20260525T233735956Z-NEPLG2-1-NESTED-PRODUCER-GENERIC-CAL-B1C7C74C` を追加した。
+- 検証:
+  - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/neplg21-hashset-helper-postfix-current.json -j 1 --dist web/dist --assert-io`: 4 件中 2 compile failure / 2 compile timeout。compile failure は既存 baseline と同じ `new DefaultHash32` overload no_match 系。
+  - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/neplg21-hashset-owner-only-compare.json -j 1 --dist web/dist --assert-io`: `unwrap_ok` を explicit に戻しても同じ 4 件が失敗。
+  - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/neplg21-hashset-head-baseline.json -j 1 --dist web/dist --assert-io`: clean HEAD 相当でも同じ 4 件が失敗。
+
 # 2026-05-26 Agent 1 fs Vec str postfix cleanup checkpoint
 
 - subagent 監査により、allowlist 外の positive executable corpus にはまだ多数の explicit generic postfix が残るため、`ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` は main merge blocker のまま継続すると確認した。

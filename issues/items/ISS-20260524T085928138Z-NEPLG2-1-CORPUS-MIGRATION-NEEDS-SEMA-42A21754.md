@@ -283,6 +283,16 @@ LLM/手動判断が必要なもの:
 - `rg -n "Result<[^>]+>::(Ok|Err)|unwrap_ok<|hashmap_update_error_diag<|hashset_update_error_diag<|hashmap_update_error_owner<|hashset_update_error_owner<" tests/stdlib/collections_diag.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/neplg21-collections-diag-helper-postfix.json -j 1 --dist web/dist --assert-io` は 4 件すべて compile timeout after 60000ms。型診断は出ていない。
 
+### 2026-05-26 hashset helper postfix checkpoint
+
+- `stdlib/tests/hashset.n.md` / `stdlib/tests/hashset_str.n.md` で、`must_hs` / `must_hss` の引数型 `Result HashSet ... Diag` から型が確定する `unwrap_ok<HashSet<...>, Diag> r` を `unwrap_ok r` へ移行した。
+- 同じ 2 file で、`Err e` payload 型と代入先 `%HashSet ...` local annotation から型が確定する `hashset_update_error_owner<...> e` を `hashset_update_error_owner e` へ移行した。
+- subagent review でも、`i32` key 版と `str` key 版の helper postfix-free 移行は妥当であり、`new` / `insert` / `remove` など producer/update call とは分けるべきと確認した。
+- focused doctest は current diff / `unwrap_ok` explicit comparison / clean HEAD comparison のすべてで `must_hs new DefaultHash32` / `must_hss new DefaultHash32` の `type.overload.no_match` と free smoke compile timeout を再現した。今回移行した helper call 固有の新規 regression ではない。
+- nested producer generic call が outer helper parameter expectation を使えない問題は `ISS-20260525T233735956Z-NEPLG2-1-NESTED-PRODUCER-GENERIC-CAL-B1C7C74C` として分離した。
+- `rg -n "unwrap_ok<|hashset_update_error_owner<|Result<[^>]+>::(Ok|Err)" stdlib/tests/hashset.n.md stdlib/tests/hashset_str.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/neplg21-hashset-helper-postfix-current.json -j 1 --dist web/dist --assert-io` は 4 件中 2 compile failure / 2 compile timeout。compile failure は既存 baseline と同じ `new DefaultHash32` overload no_match 系。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

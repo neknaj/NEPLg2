@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-25T23:20:55.442Z",
+  "generated_at": "2026-05-25T23:38:39.765Z",
   "counts": {
-    "total": 1261,
-    "open": 11,
+    "total": 1262,
+    "open": 12,
     "resolved": 1250,
     "by_area": {
+      "core": {
+        "total": 621,
+        "open": 6,
+        "resolved": 615
+      },
       "stdlib": {
         "total": 330,
         "open": 5,
         "resolved": 325
-      },
-      "core": {
-        "total": 620,
-        "open": 5,
-        "resolved": 615
       },
       "selfhost": {
         "total": 110,
@@ -139,6 +139,21 @@
     }
   },
   "issues": [
+    {
+      "id": "ISS-20260525T233735956Z-NEPLG2-1-NESTED-PRODUCER-GENERIC-CAL-B1C7C74C",
+      "title": "NEPLg2.1 nested producer generic call does not use outer expected parameter type",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-25",
+      "updated": "2026-05-25",
+      "target": "nepl-core/src/typecheck/**; stdlib/tests/hashset.n.md; stdlib/tests/hashset_str.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260525T233735956Z-NEPLG2-1-NESTED-PRODUCER-GENERIC-CAL-B1C7C74C.md"
+    },
     {
       "id": "ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754",
       "title": "NEPLg2.1 corpus migration needs semantic generic rewrite",
