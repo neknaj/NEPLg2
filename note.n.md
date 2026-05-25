@@ -46120,3 +46120,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - raw region branch では `store_u8` / `region_ptr_at` failure の `dealloc_region` cleanup 順を維持し、constructor 表記だけを変えた。subagent review でも同じ判断を確認した。
 - `rg -n "Result<[^>]+>::(Ok|Err)|is_err<" tests/stdlib/text_utf8.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/neplg21-text-utf8-result-constructors.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
+## 2026-05-26 Agent 1 traits_serde Result constructor postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`tests/stdlib/traits_serde.n.md` の `Result<(),str>::Ok/Err` を撤廃した。`plan.md` は変更していない。
+- `checks_push` の expected type が `Result () str` であり、`StdErrorKind` match の各 arm でも constructor の型は受け側から決まる。
+- `deserialize<i32>` / `deserialize<bool>` は入口側 generic call の推論確認を別 checkpoint に分けるため残した。
+- `rg -n "Result<[^>]+>::(Ok|Err)|is_err<|is_ok<" tests/stdlib/traits_serde.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/traits_serde.n.md --no-tree -o tmp/neplg21-traits-serde-result-constructors.json -j 1 --dist web/dist --assert-io` は `doctest#1/#2` とも compile timeout after 60000ms。型診断は出ていない。

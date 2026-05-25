@@ -63,41 +63,41 @@ fn main %impure fn () i32 \():
         Result::Ok v:
             set checks checks_push checks check_eq_i32 42 v
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "deserialize<i32> failed";
+            set checks checks_push checks Result::Err "deserialize<i32> failed";
 
     match deserialize<bool> "false":
         Result::Ok v:
             set checks checks_push checks check not v
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "deserialize<bool> failed";
+            set checks checks_push checks Result::Err "deserialize<bool> failed";
 
     match deserialize<i32> "oops":
         Result::Ok _v:
-            set checks checks_push checks Result<(),str>::Err "deserialize<i32> should fail on text";
+            set checks checks_push checks Result::Err "deserialize<i32> should fail on text";
         Result::Err e:
             match e:
                 StdErrorKind::ParseError:
-                    set checks checks_push checks Result<(),str>::Ok ();
+                    set checks checks_push checks Result::Ok ();
                 StdErrorKind::Failure:
-                    set checks checks_push checks Result<(),str>::Err "wrong error kind";
+                    set checks checks_push checks Result::Err "wrong error kind";
                 StdErrorKind::OutOfMemory:
-                    set checks checks_push checks Result<(),str>::Err "wrong error kind";
+                    set checks checks_push checks Result::Err "wrong error kind";
                 StdErrorKind::EmptyCollection:
-                    set checks checks_push checks Result<(),str>::Err "wrong error kind";
+                    set checks checks_push checks Result::Err "wrong error kind";
                 StdErrorKind::IndexOutOfBounds:
-                    set checks checks_push checks Result<(),str>::Err "wrong error kind";
+                    set checks checks_push checks Result::Err "wrong error kind";
                 StdErrorKind::KeyNotFound:
-                    set checks checks_push checks Result<(),str>::Err "wrong error kind";
+                    set checks checks_push checks Result::Err "wrong error kind";
                 StdErrorKind::CapacityExceeded:
-                    set checks checks_push checks Result<(),str>::Err "wrong error kind";
+                    set checks checks_push checks Result::Err "wrong error kind";
                 StdErrorKind::InvalidOperation:
-                    set checks checks_push checks Result<(),str>::Err "wrong error kind";
+                    set checks checks_push checks Result::Err "wrong error kind";
                 StdErrorKind::InvalidUtf8:
-                    set checks checks_push checks Result<(),str>::Err "wrong error kind";
+                    set checks checks_push checks Result::Err "wrong error kind";
                 StdErrorKind::IoError:
-                    set checks checks_push checks Result<(),str>::Err "wrong error kind";
+                    set checks checks_push checks Result::Err "wrong error kind";
                 StdErrorKind::Other:
-                    set checks checks_push checks Result<(),str>::Err "wrong error kind";
+                    set checks checks_push checks Result::Err "wrong error kind";
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

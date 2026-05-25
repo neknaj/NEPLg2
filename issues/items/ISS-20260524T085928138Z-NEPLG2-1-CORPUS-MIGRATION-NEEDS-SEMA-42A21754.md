@@ -248,6 +248,13 @@ LLM/手動判断が必要なもの:
 - `rg -n "Result<[^>]+>::(Ok|Err)|is_err<" tests/stdlib/text_utf8.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/neplg21-text-utf8-result-constructors.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
 
+### 2026-05-26 traits_serde Result constructor checkpoint
+
+- `tests/stdlib/traits_serde.n.md` で、`checks_push` の expected type `Result () str` から型が確定する `Result<(),str>::Ok` / `Result<(),str>::Err` を `Result::Ok` / `Result::Err` へ移行した。
+- `deserialize<i32>` / `deserialize<bool>` は match 入力側の型根拠を別に確認する必要があるため、今回の constructor checkpoint には混ぜず残した。
+- `rg -n "Result<[^>]+>::(Ok|Err)|is_err<|is_ok<" tests/stdlib/traits_serde.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/traits_serde.n.md --no-tree -o tmp/neplg21-traits-serde-result-constructors.json -j 1 --dist web/dist --assert-io` は `doctest#1/#2` とも compile timeout after 60000ms。型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
