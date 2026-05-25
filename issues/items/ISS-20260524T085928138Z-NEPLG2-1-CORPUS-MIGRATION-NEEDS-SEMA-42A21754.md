@@ -264,6 +264,15 @@ LLM/手動判断が必要なもの:
 - `rg -n "Result<[^>]+>::(Ok|Err)|unwrap_ok<|hashmap_update_error_owner<|hashset_update_error_owner<" tests/stdlib/traits_hash.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/traits_hash.n.md --no-tree -o tmp/neplg21-traits-hash-postfix.json -j 1 --dist web/dist --assert-io` は 6 件中 3 pass、`doctest#1` が compile timeout after 60000ms、`doctest#5/#6` が既存の `new` overload no_match 系 compile failure。今回移行した helper call に対する型診断は出ていない。
 
+### 2026-05-26 stdlib json Result constructor checkpoint
+
+- `stdlib/tests/json.n.md` で、`checks_push` の expected type `Result () str` から型が確定する `Result<(),str>::Err` を `Result::Err` へ移行した。
+- `is_none<str> json_as_string ...` は owner-bearing `Option str` の observer reshape であり、Result constructor checkpoint には混ぜず残した。
+- subagent review でも、対象 4 箇所は `checks_push` の `TestReport -> Result () str -> TestReport` overload により型根拠が十分で、`is_none<str>` は別 checkpoint 推奨と確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/tests/json.n.md` は 0 件になった。
+- `node nodesrc/test_stdlib_json_nmd_report_contract.js` は pass。
+- `node nodesrc/tests.js -i stdlib/tests/json.n.md --no-tree -o tmp/neplg21-stdlib-json-result-constructors.json -j 1 --dist web/dist --assert-io` は compile timeout after 60000ms。型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

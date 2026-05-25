@@ -46137,3 +46137,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `use_hasher_twice<i32, StatefulHasher>` は `.K` が値引数に出ないため残した。これを外すには trait bound の実装候補から型引数を逆推論する能力が必要であり、corpus rewrite ではなく推論 checkpoint で扱う。
 - `rg -n "Result<[^>]+>::(Ok|Err)|unwrap_ok<|hashmap_update_error_owner<|hashset_update_error_owner<" tests/stdlib/traits_hash.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/traits_hash.n.md --no-tree -o tmp/neplg21-traits-hash-postfix.json -j 1 --dist web/dist --assert-io` は 6 件中 3 pass、`doctest#1` が compile timeout after 60000ms、`doctest#5/#6` が既存の `new` overload no_match 系 compile failure。今回移行した helper call に対する型診断は出ていない。
+
+## 2026-05-26 Agent 1 stdlib json Result constructor migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`stdlib/tests/json.n.md` の `Result<(),str>::Err` 4 箇所を撤廃した。`plan.md` は変更していない。
+- `checks_push` の `Result () str` expected type と `str` literal payload により、`Result::Err` の型は確定している。
+- `is_none<str> json_as_string ...` は owner-bearing `Option str` の observer reshape であり、この Result constructor checkpoint には混ぜず残した。
+- subagent review でも同じ範囲が推奨され、`is_none<str>` は別 checkpoint と確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/tests/json.n.md` は 0 件になった。
+- `node nodesrc/test_stdlib_json_nmd_report_contract.js` は pass。
+- `node nodesrc/tests.js -i stdlib/tests/json.n.md --no-tree -o tmp/neplg21-stdlib-json-result-constructors.json -j 1 --dist web/dist --assert-io` は compile timeout after 60000ms。型診断は出ていない。

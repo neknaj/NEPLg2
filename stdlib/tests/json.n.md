@@ -48,14 +48,14 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "json_as_bool true returned None"
+            set checks checks_push checks Result::Err "json_as_bool true returned None"
 
     let jf1 %JsonValue json_bool false
     match json_as_bool jf1:
         Option::Some v:
             set checks checks_push checks check_ne true v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "json_as_bool false returned None"
+            set checks checks_push checks Result::Err "json_as_bool false returned None"
     let jt2 %JsonValue json_bool true
     let jt2_number %Option i32 json_as_number jt2
     set checks checks_push checks check is_none jt2_number
@@ -65,7 +65,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check_eq_i32 123 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "json_as_number returned None"
+            set checks checks_push checks Result::Err "json_as_number returned None"
     let jnum2 %JsonValue json_number 123
     let jnum2_bool %Option bool json_as_bool jnum2
     set checks checks_push checks check is_none jnum2_bool
@@ -76,7 +76,7 @@ fn main %impure fn () i32 \():
         Option::Some p:
             set checks checks_push checks check_str_eq "hello" p
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "json_as_string returned None"
+            set checks checks_push checks Result::Err "json_as_string returned None"
     let js2 %JsonValue json_string s
     let js2_number %Option i32 json_as_number js2
     set checks checks_push checks check is_none js2_number
