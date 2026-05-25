@@ -46112,3 +46112,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `is_err` は入力の `str_char_at_result` / `str_slice_chars_result` / `str_next_char_result` の戻り値型から `Result` 型が確定するため postfix-free にした。
 - `rg -n "Result<[^>]+>::(Ok|Err)|is_err<" tests/stdlib/string_char.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/neplg21-string-char-result-constructors.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
+## 2026-05-26 Agent 1 text_utf8 Result constructor / is_err postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`tests/stdlib/text_utf8.n.md` の `Result<(),str>::Ok/Err` と `is_err<CharUtf8Step,StdErrorKind>` を撤廃した。`plan.md` は変更していない。
+- `checks_push` の expected type、`expect_decoded` の戻り値型、`ok %Result () str` local annotation により constructor の型は確定している。
+- raw region branch では `store_u8` / `region_ptr_at` failure の `dealloc_region` cleanup 順を維持し、constructor 表記だけを変えた。subagent review でも同じ判断を確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)|is_err<" tests/stdlib/text_utf8.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/neplg21-text-utf8-result-constructors.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。

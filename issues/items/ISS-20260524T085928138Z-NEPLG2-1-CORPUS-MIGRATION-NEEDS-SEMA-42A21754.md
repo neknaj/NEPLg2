@@ -239,6 +239,15 @@ LLM/手動判断が必要なもの:
 - `rg -n "Result<[^>]+>::(Ok|Err)|is_err<" tests/stdlib/string_char.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/neplg21-string-char-result-constructors.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
 
+### 2026-05-26 text_utf8 Result constructor and is_err observer checkpoint
+
+- `tests/stdlib/text_utf8.n.md` で、`checks_push` の expected type `Result () str`、helper 戻り値型 `Result () str`、typed local `ok %Result () str` から型が確定する `Result<(),str>::Ok` / `Result<(),str>::Err` を `Result::Ok` / `Result::Err` へ移行した。
+- `is_err<CharUtf8Step,StdErrorKind>` は、入力式 `text_utf8_decode_next ...` の戻り値 `Result CharUtf8Step StdErrorKind` から型が確定するため `is_err` へ移行した。
+- raw region 系の branch は `store_u8` / `region_ptr_at` 失敗時に `dealloc_region` 後 `checks_push` へ進む順序を維持し、constructor 表記だけを変えた。
+- subagent review でも、現行差分全体は expected type が見えており、cleanup 順に影響しないと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)|is_err<" tests/stdlib/text_utf8.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/text_utf8.n.md --no-tree -o tmp/neplg21-text-utf8-result-constructors.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
