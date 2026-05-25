@@ -2,12 +2,12 @@
 id: ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30
 title: "NEPLg2.1 syntax migration needs frontend lowering boundary"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P0
 type: architecture
 created: 2026-05-24
-updated: 2026-05-24
+updated: 2026-05-26
 target: "nepl-core/src/lexer.rs, nepl-core/src/parser.rs, nepl-core/src/typecheck/**"
 ---
 
@@ -70,6 +70,20 @@ Add NEPLg2.1 lexer/parser/type frontend support that normalizes new surface synt
   - `ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC`
   - `ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92`
 
+### 2026-05-26 close checkpoint
+
+- frontend lowering boundary として必要だった `%` 型注釈、prefix 型式、`\` lambda 引数、`fn A fn B C` の複数引数関数型への正規化、grouped function result、`impure fn` 型式、`#extern` signature の `%...` 受理は実装済みとして確認した。
+- prefix 型適用境界は `ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92` で fixed になり、parser 内の hard-coded arity table ではなく loader / module declaration 由来の type arity hints を使う形へ進んだ。
+- Resource IR / ownership / borrow / codegen へ NEPLg2.1 専用 syntax node を追加しない境界は維持している。
+- 通常 source の explicit generic postfix 撤廃は、この frontend boundary issue の未完了条件ではなく、`ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の semantic corpus rewrite として継続する。
+- 以上により、この issue は frontend lowering boundary の実装完了として fixed/resolved にする。
+
 ## 検証
 
-Focused parser/typecheck tests for percent annotations, prefix function types, lambda syntax, no partial application, and generic inference without call postfixes.
+- `cargo test -p nepl-core --test typeannot neplg21 -- --nocapture`: 4/4 pass。
+- `cargo test -p nepl-core --test functions neplg21 -- --nocapture`: 8/8 pass。
+- `cargo test -p nepl-core --test resolve -- --nocapture`: 18/18 pass。
+- `cargo check -p nepl-core`: pass。
+- `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+- `node nodesrc/issues.js check --dir issues`: pass。
+- `git diff --check`: pass。

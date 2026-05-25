@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-25T21:08:04.616Z",
+  "generated_at": "2026-05-25T21:16:08.645Z",
   "counts": {
     "total": 1259,
-    "open": 12,
-    "resolved": 1247,
+    "open": 11,
+    "resolved": 1248,
     "by_area": {
-      "core": {
-        "total": 619,
-        "open": 6,
-        "resolved": 613
-      },
       "stdlib": {
         "total": 329,
         "open": 5,
         "resolved": 324
+      },
+      "core": {
+        "total": 619,
+        "open": 5,
+        "resolved": 614
       },
       "selfhost": {
         "total": 110,
@@ -139,21 +139,6 @@
     }
   },
   "issues": [
-    {
-      "id": "ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30",
-      "title": "NEPLg2.1 syntax migration needs frontend lowering boundary",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "architecture",
-      "created": "2026-05-24",
-      "updated": "2026-05-24",
-      "target": "nepl-core/src/lexer.rs, nepl-core/src/parser.rs, nepl-core/src/typecheck/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30.md"
-    },
     {
       "id": "ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754",
       "title": "NEPLg2.1 corpus migration needs semantic generic rewrite",
@@ -813,6 +798,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T154609873Z-RESOURCE-RAW-IDENTITY-SUMMARY-BLOCKS-E4C8EDF4.md"
+    },
+    {
+      "id": "ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30",
+      "title": "NEPLg2.1 syntax migration needs frontend lowering boundary",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-05-24",
+      "updated": "2026-05-26",
+      "target": "nepl-core/src/lexer.rs, nepl-core/src/parser.rs, nepl-core/src/typecheck/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30.md"
     },
     {
       "id": "ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92",

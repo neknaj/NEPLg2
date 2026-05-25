@@ -1,3 +1,20 @@
+# 2026-05-26 Agent 1 NEPLg2.1 frontend P0 close checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 の main merge blocker を open P0 issue 単位で再監査した。
+- `ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30` は、frontend lowering boundary の実装完了として fixed/resolved に更新した。
+- `%` 型注釈、prefix 型式、`\` lambda、`fn A fn B C` の複数引数関数型への正規化、grouped function result、`impure fn`、`#extern` の `%...` signature は Rust frontend tests で確認済み。
+- prefix 型適用境界は、既に fixed の `ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92` により loader / module declaration 由来の arity hints へ移行済み。
+- explicit generic postfix の corpus rewrite は `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` に分離されているため、この frontend issue の未完了条件から外した。
+- subagent 監査は起動したが、120s で応答が返らなかったため閉じた。local の focused tests と issue 証跡を根拠に判断した。
+- 検証:
+  - `cargo test -p nepl-core --test typeannot neplg21 -- --nocapture`: 4/4 pass。
+  - `cargo test -p nepl-core --test functions neplg21 -- --nocapture`: 8/8 pass。
+  - `cargo test -p nepl-core --test resolve -- --nocapture`: 18/18 pass。
+  - `cargo check -p nepl-core`: pass。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+
 # 2026-05-26 Agent 1 examples BF small Vec observer postfix cleanup checkpoint
 
 - Zenn 方針を再確認し、単純な旧表記削除ではなく、関数戻り値・引数型・payload 型から型根拠が明確な箇所だけを移行した。
