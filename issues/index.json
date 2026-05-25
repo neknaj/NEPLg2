@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-25T15:58:23.896Z",
+  "generated_at": "2026-05-25T16:34:54.900Z",
   "counts": {
     "total": 1259,
-    "open": 13,
-    "resolved": 1246,
+    "open": 12,
+    "resolved": 1247,
     "by_area": {
       "core": {
         "total": 619,
-        "open": 7,
-        "resolved": 612
+        "open": 6,
+        "resolved": 613
       },
       "stdlib": {
         "total": 329,
@@ -153,21 +153,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260524T085928069Z-NEPLG2-1-SYNTAX-MIGRATION-NEEDS-FRON-7058CE30.md"
-    },
-    {
-      "id": "ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92",
-      "title": "NEPLg2.1 prefix type apps need kind resolver",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "architecture",
-      "created": "2026-05-24",
-      "updated": "2026-05-24",
-      "target": "nepl-core/src/parser.rs, nepl-core/src/typecheck/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92.md"
     },
     {
       "id": "ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754",
@@ -828,6 +813,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T154609873Z-RESOURCE-RAW-IDENTITY-SUMMARY-BLOCKS-E4C8EDF4.md"
+    },
+    {
+      "id": "ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92",
+      "title": "NEPLg2.1 prefix type apps need kind resolver",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-05-24",
+      "updated": "2026-05-26",
+      "target": "nepl-core/src/parser.rs, nepl-core/src/typecheck/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92.md"
     },
     {
       "id": "ISS-20260525T153936813Z-NEPLG2-1-INFERRED-GENERIC-CALL-RESUL-6EAE31C7",

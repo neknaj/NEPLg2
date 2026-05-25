@@ -280,7 +280,7 @@ function isLikelyTypeAnnotation(src, lt, gt) {
   if (/#intrinsic\s+"[^"]+"\s*$/.test(linePrefix(src, lt))) return false;
   if (isTypeParamList(inner)) {
     const prefix = linePrefix(src, lt).trim();
-    if (/^(pub\s+)?(fn|struct|enum|trait)\s+[A-Za-z_][A-Za-z0-9_]*\s*$/.test(prefix)) {
+    if (/(^|[^A-Za-z0-9_])(pub\s+)?(fn|struct|enum|trait)\s+[A-Za-z_][A-Za-z0-9_]*\s*$/.test(prefix)) {
       return false;
     }
     if (/^impl\s*$/.test(prefix)) return false;

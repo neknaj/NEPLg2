@@ -1,3 +1,24 @@
+# 2026-05-26 Agent 1 NEPLg2.1 prefix type arity metadata checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 prefix 型式の境界問題を stdlib 型名の固定表で隠さず、frontend の静的 metadata 収集として修正した。
+- subagent 独立調査で、`known_neplg21_type_arity` の固定表は imported/user generic 型で破綻する merge blocker だと確認した。
+- parser 内の `known_neplg21_type_arity` 固定表を削除し、`parse_tokens_with_type_arity_hints` で loader 由来の type constructor arity を受け取るようにした。
+- 同一 module の後続 `struct` / `enum` / `trait` 宣言は token stream の浅い declaration head scan で先に arity hint として登録し、`fn make %fn () Later i32` のような forward reference を parse できるようにした。
+- loader は import / prelude / include 先 module を本解析前に preload し、依存 module の `StructDef` / `EnumDef` / `TraitDef` から arity metadata を収集して root parser へ渡す。preload は通常 loader 経路を使い、SourceMap / provider / directive 処理と同じ path 解決を使う。
+- preload 中の循環 import は、現在処理中 path の skip と preload 用 `imported_once` への対象 path 登録で抑止した。通常の import inline pass はその後あらためて実行される。
+- `nodesrc/neplg21_syntax_migrate.js` は、Markdown 本文中の `fn identity <.T: Copy>` のような generic parameter declaration 例を型注釈と誤認しないようにした。
+- `ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92` を fixed/resolved に更新した。
+- 検証:
+  - `cargo test -p nepl-core --test typeannot neplg21 -- --nocapture`: 4/4 pass。
+  - `cargo test -p nepl-core --test typeannot -- --nocapture`: 16/16 pass。
+  - `cargo test -p nepl-core --test functions neplg21 -- --nocapture`: 8/8 pass。
+  - `cargo test -p nepl-core --test resolve -- --nocapture`: 18/18 pass。
+  - `cargo check -p nepl-core`: pass。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。CRLF checkout warning のみ。
+  - `cargo test -p nepl-core --test check_pipeline check_module_accepts_deep_prefix_chain_without_codegen_stack_overflow -- --nocapture`: current worktree / clean HEAD worktree とも timeout。今回差分固有ではなく、既存の deep prefix chain 性能問題として扱う。
+
 # 2026-05-25 Agent 1 getting_started tutorial generic postfix cleanup checkpoint
 
 - `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の一部として、getting_started tutorial 5 file の NEPLg2.1 postfix removal を進めた。

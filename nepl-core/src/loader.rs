@@ -1,14 +1,14 @@
 use crate::ast::{Directive, Module, Stmt};
 use crate::diagnostic::Severity;
 use crate::error::CoreError;
-use crate::lexer;
+use crate::lexer::{self, TokenKind};
 use crate::parser;
 use crate::source_capability::module_source_capabilities;
 use crate::source_map::{CompilerMemoryType, SourceCapabilityUseSite};
 use crate::span::FileId;
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::result::Result;
 #[cfg(not(target_arch = "wasm32"))]
@@ -196,7 +196,17 @@ impl Loader {
             src.clone(),
             SourceCapabilities::none(),
         );
-        let module = self.parse_module(file_id, src)?;
+        let type_arity_hints = self.imported_type_arity_hints(
+            &canon,
+            file_id,
+            &src,
+            sm,
+            cache,
+            processing,
+            imported_once,
+            is_root,
+        )?;
+        let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
         sm.set_capabilities(
             file_id,
             self.source_capabilities_for_module(&canon, &module),
@@ -246,7 +256,18 @@ impl Loader {
             src.clone(),
             SourceCapabilities::none(),
         );
-        let module = self.parse_module(file_id, src)?;
+        let type_arity_hints = self.imported_type_arity_hints_with(
+            &canon,
+            file_id,
+            &src,
+            sm,
+            cache,
+            processing,
+            imported_once,
+            is_root,
+            provider,
+        )?;
+        let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
         sm.set_capabilities(
             file_id,
             self.source_capabilities_for_module(&canon, &module),
@@ -295,7 +316,17 @@ impl Loader {
             SourceCapabilities::none(),
         );
         loader_log!("[Loader] Parsing module: {:?}", canon);
-        let module = self.parse_module(file_id, src)?;
+        let type_arity_hints = self.imported_type_arity_hints(
+            &canon,
+            file_id,
+            &src,
+            sm,
+            cache,
+            processing,
+            imported_once,
+            is_root,
+        )?;
+        let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
         sm.set_capabilities(
             file_id,
             self.source_capabilities_for_module(&canon, &module),
@@ -342,7 +373,18 @@ impl Loader {
             src.clone(),
             SourceCapabilities::none(),
         );
-        let module = self.parse_module(file_id, src)?;
+        let type_arity_hints = self.imported_type_arity_hints_with(
+            &canon,
+            file_id,
+            &src,
+            sm,
+            cache,
+            processing,
+            imported_once,
+            is_root,
+            provider,
+        )?;
+        let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
         sm.set_capabilities(
             file_id,
             self.source_capabilities_for_module(&canon, &module),
@@ -360,6 +402,127 @@ impl Loader {
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
         Ok(module)
+    }
+
+    fn imported_type_arity_hints(
+        &self,
+        base: &PathBuf,
+        file_id: FileId,
+        src: &str,
+        sm: &mut SourceMap,
+        cache: &mut BTreeMap<PathBuf, Module>,
+        processing: &mut BTreeSet<PathBuf>,
+        imported_once: &BTreeSet<PathBuf>,
+        is_root: bool,
+    ) -> Result<Vec<(String, usize)>, LoaderError> {
+        // NEPLg2.1 prefix type annotations need import arities before the
+        // importing module can be parsed. This preload path uses the normal
+        // loader recursively so dependency modules are parsed with the same
+        // source-map and directive semantics as the later full import pass.
+        let paths = self.type_arity_preload_paths(base, file_id, src, is_root);
+        let mut hints = Vec::new();
+        for path in paths {
+            if processing.contains(&canonicalize_path(&path)) {
+                continue;
+            }
+            let mut preload_imported_once = imported_once.clone();
+            preload_imported_once.insert(canonicalize_path(&path));
+            let module = self.load_file(
+                &path,
+                sm,
+                cache,
+                processing,
+                &mut preload_imported_once,
+                false,
+            )?;
+            push_loader_type_arity_hints(&mut hints, parser::type_arity_hints_from_module(&module));
+        }
+        Ok(hints)
+    }
+
+    fn imported_type_arity_hints_with(
+        &self,
+        base: &PathBuf,
+        file_id: FileId,
+        src: &str,
+        sm: &mut SourceMap,
+        cache: &mut BTreeMap<PathBuf, Module>,
+        processing: &mut BTreeSet<PathBuf>,
+        imported_once: &BTreeSet<PathBuf>,
+        is_root: bool,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+    ) -> Result<Vec<(String, usize)>, LoaderError> {
+        // Provider-backed loading has the same arity contract as filesystem
+        // loading, but every dependency source must come from the caller's
+        // virtual file provider so tests and web-facing callers stay
+        // platform-independent.
+        let paths = self.type_arity_preload_paths(base, file_id, src, is_root);
+        let mut hints = Vec::new();
+        for path in paths {
+            if processing.contains(&canonicalize_path(&path)) {
+                continue;
+            }
+            let mut preload_imported_once = imported_once.clone();
+            preload_imported_once.insert(canonicalize_path(&path));
+            let module = self.load_file_with(
+                &path,
+                sm,
+                cache,
+                processing,
+                &mut preload_imported_once,
+                false,
+                provider,
+            )?;
+            push_loader_type_arity_hints(&mut hints, parser::type_arity_hints_from_module(&module));
+        }
+        Ok(hints)
+    }
+
+    fn type_arity_preload_paths(
+        &self,
+        base: &PathBuf,
+        file_id: FileId,
+        src: &str,
+        is_root: bool,
+    ) -> Vec<PathBuf> {
+        // This scan reads only file-level dependency directives. Full directive
+        // validation and import-clause visibility remain the responsibility of
+        // `process_directives`; arity preloading only decides which modules may
+        // define type constructors needed to parse the current file.
+        let lex = lexer::lex(file_id, src);
+        if lex
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.severity == Severity::Error)
+        {
+            return Vec::new();
+        }
+
+        let mut prelude_paths = Vec::new();
+        let mut module_paths = Vec::new();
+        let mut no_prelude = false;
+        for token in lex.tokens {
+            match token.kind {
+                TokenKind::DirPrelude(path) => prelude_paths.push(path),
+                TokenKind::DirNoPrelude => no_prelude = true,
+                TokenKind::DirImport(text) => {
+                    if let Some(path) = import_path_from_directive_text(&text) {
+                        module_paths.push(path);
+                    }
+                }
+                TokenKind::DirInclude(path) => module_paths.push(path),
+                _ => {}
+            }
+        }
+
+        if is_root && !no_prelude && prelude_paths.is_empty() {
+            prelude_paths.push(String::from("std/prelude_base"));
+        }
+        prelude_paths
+            .into_iter()
+            .chain(module_paths)
+            .map(|path| self.resolve_path(base, &path))
+            .collect()
     }
 
     fn process_directives(
@@ -641,7 +804,12 @@ impl Loader {
         Ok(module)
     }
 
-    fn parse_module(&self, file_id: FileId, src: String) -> Result<Module, CoreError> {
+    fn parse_module_with_type_arity_hints(
+        &self,
+        file_id: FileId,
+        src: String,
+        type_arity_hints: Vec<(String, usize)>,
+    ) -> Result<Module, CoreError> {
         let lex = lexer::lex(file_id, &src);
         if lex
             .diagnostics
@@ -650,7 +818,7 @@ impl Loader {
         {
             return Err(CoreError::from_diagnostics(lex.diagnostics));
         }
-        let parse = parser::parse_tokens(file_id, lex);
+        let parse = parser::parse_tokens_with_type_arity_hints(file_id, lex, type_arity_hints);
         if parse
             .diagnostics
             .iter()
@@ -800,6 +968,37 @@ fn path_to_source_label(path: &PathBuf) -> String {
 
 fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> bool {
     imported_once.insert(canonicalize_path(target))
+}
+
+/// Extract the path portion from a `#import` directive body.
+///
+/// The lexer stores the directive payload as raw text because the parser owns
+/// import-clause interpretation. Arity preloading needs only the module path, so
+/// it mirrors the parser's path prefix rule and deliberately ignores alias or
+/// selective import clauses.
+fn import_path_from_directive_text(text: &str) -> Option<String> {
+    let rest = text.trim();
+    let rest = rest.strip_prefix("pub").map(str::trim).unwrap_or(rest);
+    if let Some(quoted) = rest.strip_prefix('"') {
+        return quoted.find('"').map(|end| quoted[..end].to_string());
+    }
+    rest.split_whitespace().next().map(str::to_string)
+}
+
+/// Merge dependency arity hints while preserving the latest known declaration.
+///
+/// Import graphs can expose the same constructor through multiple facades. The
+/// parser needs a single arity for boundary detection, and duplicate entries
+/// with the same name should therefore refresh rather than accumulate.
+fn push_loader_type_arity_hints(target: &mut Vec<(String, usize)>, source: Vec<(String, usize)>) {
+    for (name, arity) in source {
+        if let Some((_, existing_arity)) = target.iter_mut().rev().find(|(known, _)| known == &name)
+        {
+            *existing_arity = arity;
+        } else {
+            target.push((name, arity));
+        }
+    }
 }
 
 #[cfg(test)]

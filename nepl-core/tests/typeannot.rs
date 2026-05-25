@@ -1,5 +1,9 @@
 mod harness;
 use harness::run_main_i32;
+use nepl_core::loader::Loader;
+use nepl_core::{compile_module_with_source_map, CompileOptions, CompileTarget};
+use std::fs;
+use std::path::PathBuf;
 
 // plan.md より:
 // 型注釈 `<T>` は何もしない関数 `(.T)->.T` と見做され、型推論で関数と纏めて処理される。
@@ -39,6 +43,75 @@ fn main %fn () i32 \():
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 42);
+}
+
+#[test]
+fn test_neplg21_prefix_generic_type_annot_forward_declared_user_type() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+fn make_later %fn () Later i32 \():
+    Later 42
+
+struct Later<.T>:
+    value %.T
+
+fn main %fn () i32 \():
+    let later %Later i32 make_later
+    42
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 42);
+}
+
+#[test]
+fn test_neplg21_prefix_generic_type_annot_imported_user_type() {
+    let dir = tempfile::tempdir().expect("create temporary NEPL module directory");
+    let imported_path = dir.path().join("generic_box.nepl");
+    fs::write(
+        &imported_path,
+        r#"
+#indent 4
+#no_prelude
+
+pub struct ImportedBox<.T>:
+    value %.T
+"#,
+    )
+    .expect("write imported generic type module");
+
+    let main_path = dir.path().join("main.nepl");
+    fs::write(
+        &main_path,
+        r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+#import "./generic_box" as *
+
+fn main %fn () i32 \():
+    let boxed %ImportedBox i32 ImportedBox 77
+    77
+"#,
+    )
+    .expect("write entry module using imported generic type");
+
+    let mut loader = Loader::new(test_stdlib_root());
+    let loaded = loader.load(&main_path).expect("load imported generic type");
+    compile_module_with_source_map(
+        loaded.module,
+        Some(&loaded.source_map),
+        CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: None,
+        },
+    )
+    .expect("compile imported generic type");
 }
 
 #[test]
@@ -298,4 +371,10 @@ fn main <()*>i32> ():
     // 10 + 20 = 30
     let v = run_main_i32(src);
     assert_eq!(v, 30);
+}
+
+fn test_stdlib_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("stdlib")
 }

@@ -9,6 +9,7 @@ use crate::lexer::TokenKind;
 use crate::qualified_name::member_tail;
 use crate::span::Span;
 
+use super::push_type_arity_hint;
 use super::Parser;
 
 struct Neplg21ParsedType {
@@ -44,13 +45,7 @@ impl Parser {
     }
 
     pub(super) fn register_type_arity_hint(&mut self, name: &str, arity: usize) {
-        for (existing, existing_arity) in self.type_arity_hints.iter_mut().rev() {
-            if existing == name {
-                *existing_arity = arity;
-                return;
-            }
-        }
-        self.type_arity_hints.push((name.to_string(), arity));
+        push_type_arity_hint(&mut self.type_arity_hints, name.to_string(), arity);
     }
 
     fn parse_neplg21_type_expr_internal(&mut self) -> Option<TypeExpr> {
@@ -214,71 +209,12 @@ impl Parser {
     }
 
     pub(super) fn neplg21_type_arity(&self, name: &str) -> usize {
+        let name_tail = member_tail(name);
         for (known, arity) in self.type_arity_hints.iter().rev() {
-            if known == name {
+            if known == name || known == name_tail {
                 return *arity;
             }
         }
-        Self::known_neplg21_type_arity(member_tail(name)).unwrap_or(0)
-    }
-
-    fn known_neplg21_type_arity(name: &str) -> Option<usize> {
-        match name {
-            "Option"
-            | "Vec"
-            | "MemPtr"
-            | "RegionToken"
-            | "RegionReallocError"
-            | "VecStorage"
-            | "OwnedBuffer"
-            | "VecPushRejected"
-            | "VecPushError"
-            | "VecReplaceRejected"
-            | "VecReplaceError"
-            | "VecTransformError"
-            | "VecPop"
-            | "VecPartition"
-            | "VecSortMergeError"
-            | "BinaryHeap"
-            | "BinaryHeapPushError"
-            | "BinaryHeapPop"
-            | "Deque"
-            | "DequePushError"
-            | "DequePop"
-            | "Stack"
-            | "StackPushError"
-            | "StackPop"
-            | "VecDataView"
-            | "Queue"
-            | "QueuePushError"
-            | "QueuePop"
-            | "VecReallocRegionError"
-            | "List"
-            | "ListPushError"
-            | "ListTransformError"
-            | "BTreeSet"
-            | "BTreeSetStorage"
-            | "BTreeSetInsertError"
-            | "HashSetStorage"
-            | "RingBuffer"
-            | "RingBufferPushError"
-            | "RingBufferPop"
-            | "Hasher" => Some(1),
-            "Result"
-            | "Outcome"
-            | "Either"
-            | "Pair"
-            | "HashSet"
-            | "HashSetUpdateError"
-            | "HashMapStorage"
-            | "BTreeMapStorage"
-            | "BTreeMap"
-            | "BTreeMapInsertError"
-            | "BloomFilter"
-            | "CountingBloomFilter"
-            | "SelfhostOutcome" => Some(2),
-            "HashMap" | "HashMapUpdateError" => Some(3),
-            _ => None,
-        }
+        0
     }
 }

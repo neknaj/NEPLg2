@@ -43,7 +43,27 @@ pub struct ParseResult {
     pub diagnostics: Vec<Diagnostic>,
 }
 
-pub fn parse_tokens(_file_id: FileId, lex: LexResult) -> ParseResult {
+pub fn parse_tokens(file_id: FileId, lex: LexResult) -> ParseResult {
+    parse_tokens_with_type_arity_hints(file_id, lex, Vec::new())
+}
+
+/// Parse a token stream with type-constructor arity metadata supplied by the loader.
+///
+/// NEPLg2.1 writes generic type applications in prefix form, such as
+/// `Result i32 str`. The parser still lowers that surface syntax to the
+/// existing `TypeExpr::Apply`, so it must know how many type arguments belong
+/// to a constructor before it can decide where the following value expression
+/// starts. The loader supplies arities from already loaded imports, and this
+/// function also scans the current token stream so later declarations in the
+/// same module are available to earlier signatures.
+pub fn parse_tokens_with_type_arity_hints(
+    _file_id: FileId,
+    lex: LexResult,
+    mut external_type_arity_hints: Vec<(String, usize)>,
+) -> ParseResult {
+    for (name, arity) in collect_type_arity_hints_from_tokens(&lex.tokens) {
+        push_type_arity_hint(&mut external_type_arity_hints, name, arity);
+    }
     let mut parser = Parser {
         tokens: lex.tokens,
         pos: 0,
@@ -52,13 +72,142 @@ pub fn parse_tokens(_file_id: FileId, lex: LexResult) -> ParseResult {
         indent_width: lex.indent_width,
         depth: 0,
         single_line_block_depth: 0,
-        type_arity_hints: Vec::new(),
+        type_arity_hints: external_type_arity_hints,
     };
 
     let module = parser.parse_module();
     ParseResult {
         module,
         diagnostics: parser.diagnostics,
+    }
+}
+
+/// Collect public parser-facing arity metadata from a parsed module.
+///
+/// The loader uses this after parsing dependency modules so an importing module
+/// can parse `%Foo i32 value` without a built-in table of stdlib type names.
+/// Only type constructors participate here; value constructors and functions
+/// remain ordinary name-resolution work for later frontend phases.
+pub fn type_arity_hints_from_module(module: &Module) -> Vec<(String, usize)> {
+    let mut hints = Vec::new();
+    for item in &module.root.items {
+        match item {
+            Stmt::StructDef(def) => {
+                push_type_arity_hint(&mut hints, def.name.name.clone(), def.type_params.len());
+            }
+            Stmt::EnumDef(def) => {
+                push_type_arity_hint(&mut hints, def.name.name.clone(), def.type_params.len());
+            }
+            Stmt::Trait(def) => {
+                push_type_arity_hint(&mut hints, def.name.name.clone(), def.type_params.len());
+            }
+            _ => {}
+        }
+    }
+    hints
+}
+
+/// Scan declaration heads before full parsing to support forward references.
+///
+/// This pass deliberately reads only the shallow declaration shape:
+/// `struct/enum/trait Name<.T,...>`. It does not validate fields, variants, or
+/// method bodies, because diagnostics for those constructs belong to the normal
+/// parser path. The result is just enough kind information for prefix type
+/// expression boundaries in the same file.
+fn collect_type_arity_hints_from_tokens(tokens: &[Token]) -> Vec<(String, usize)> {
+    let mut hints = Vec::new();
+    let mut index = 0;
+    while index < tokens.len() {
+        let is_type_definition_head = matches!(
+            tokens[index].kind,
+            TokenKind::KwStruct | TokenKind::KwEnum | TokenKind::KwTrait
+        );
+        if !is_type_definition_head {
+            index += 1;
+            continue;
+        }
+        let Some(Token {
+            kind: TokenKind::Ident(name),
+            ..
+        }) = tokens.get(index + 1)
+        else {
+            index += 1;
+            continue;
+        };
+        let arity = if matches!(
+            tokens.get(index + 2).map(|token| &token.kind),
+            Some(TokenKind::LAngle)
+        ) {
+            count_type_params_from_angle_tokens(tokens, index + 2)
+        } else {
+            0
+        };
+        push_type_arity_hint(&mut hints, name.clone(), arity);
+        index += 1;
+    }
+    hints
+}
+
+/// Count top-level declaration type parameters in a legacy `<.T, .U>` list.
+///
+/// Generic parameter declarations still use the declaration grammar. This
+/// counter therefore accepts `.T`-style entries only as arity evidence and does
+/// not treat arbitrary type expressions as constructor arguments.
+fn count_type_params_from_angle_tokens(tokens: &[Token], start: usize) -> usize {
+    let mut depth = 0usize;
+    let mut count = 0usize;
+    let mut param_start = false;
+    let mut index = start;
+    while let Some(token) = tokens.get(index) {
+        match &token.kind {
+            TokenKind::LAngle => {
+                depth += 1;
+                if depth == 1 {
+                    param_start = true;
+                }
+            }
+            TokenKind::RAngle => {
+                if depth == 0 {
+                    break;
+                }
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            TokenKind::Comma if depth == 1 => {
+                param_start = true;
+            }
+            TokenKind::Dot if depth == 1 && param_start => {
+                if matches!(
+                    tokens.get(index + 1).map(|next| &next.kind),
+                    Some(TokenKind::Ident(_))
+                ) {
+                    count += 1;
+                    param_start = false;
+                    index += 1;
+                }
+            }
+            TokenKind::Ident(_) if depth == 1 && param_start => {
+                param_start = false;
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    count
+}
+
+/// Insert or refresh the latest arity known for a type constructor name.
+///
+/// Later declarations override earlier hints with the same name, matching the
+/// parser's existing local metadata behavior while keeping the representation
+/// simple for loader-provided dependency hints.
+fn push_type_arity_hint(hints: &mut Vec<(String, usize)>, name: String, arity: usize) {
+    if let Some((_, existing_arity)) = hints.iter_mut().rev().find(|(known, _)| known == &name) {
+        *existing_arity = arity;
+    } else {
+        hints.push((name, arity));
     }
 }
 
