@@ -46079,3 +46079,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `sha256_digest_matches_loop` は `digest: &Vec i32` から `get digest idx` の payload 型が決まり、`sha256_push_digest_checks` は `Result Vec i32 StdErrorKind` の `Ok digest` payload から `len &digest` / `free digest` の型が決まる。
 - `rg -n "get<i32>|len<i32>|free<i32>" stdlib/tests/hash.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/neplg21-hash-vecpusherror-field-240s.json -j 1 --dist web/dist --assert-io` は 240s compile timeout。型診断は出ていないが、full doctest green は compile-time / memory budget issue の解消後に再確認する。
+
+## 2026-05-26 Agent 1 vec_main basic observer postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`stdlib/tests/vec.n.md` の `vec_main` 冒頭にある `Vec i32` / `Vec u8` observer と cleanup を NEPLg2.1 postfix-free へ移行した。`plan.md` は変更していない。
+- subagent review では、`is_empty` / `len` / `get` / `replace` / `free` は `&Vec .T` / `Vec .T` 引数から型が確定するため移行可、`new` / `with_capacity` / `push` は producer/update 側 checkpoint として残す方がよいと確認した。
+- `is_none get ...` は nested call のままにせず、`%Option i32` typed local を置いてから `is_none` に渡す形にした。
+- `Get-Content stdlib/tests/vec.n.md | Select-Object -First 115 | rg -n "is_empty<i32>|len<i32>|get<i32>|replace<i32>|free<i32>|get<u8>|free<u8>|is_none<i32>"` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/neplg21-vec-main-basic-observer.json -j 1 --dist web/dist --assert-io` は 120s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+- native `nepl-cli` の最小 Vec observer smoke も memory allocation failure になったため、full green は `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` 側の compile-time / memory budget 改善後に再確認する。

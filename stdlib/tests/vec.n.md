@@ -20,15 +20,15 @@ stdout: "test_report name=\"vec_main\" count=10 failed=0\nassertion index=0 stat
 
 fn main %impure fn () i32 \():
     let v0_empty %Vec i32 unwrap_ok new<i32>;
-    let v0_is_empty %bool is_empty<i32> &v0_empty;
+    let v0_is_empty %bool is_empty &v0_empty;
     let v0_cap %Vec i32 unwrap_ok with_capacity<i32> 2;
-    let v0_cap_starts_empty %bool is_empty<i32> &v0_cap;
+    let v0_cap_starts_empty %bool is_empty &v0_cap;
 
     let v2:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
-    let v2_len %i32 len<i32> &v2;
+    let v2_len %i32 len &v2;
 
     let v6:
         unwrap_ok new<i32>
@@ -38,7 +38,7 @@ fn main %impure fn () i32 \():
         |> unwrap_ok
         |> push<i32> 30
         |> unwrap_ok
-    let v6_len %i32 len<i32> &v6;
+    let v6_len %i32 len &v6;
 
     let g2:
         unwrap_ok new<i32>
@@ -47,7 +47,7 @@ fn main %impure fn () i32 \():
         |> push<i32> 20
         |> unwrap_ok
     let mut g2_value %i32 -1;
-    match get<i32> &g2 0:
+    match get &g2 0:
         Option::Some x:
             set g2_value x
         Option::None:
@@ -59,16 +59,16 @@ fn main %impure fn () i32 \():
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    replace<i32> &s2 1 21;
+    replace &s2 1 21;
     let s2_ref:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    replace<i32> &s2_ref 0 11;
+    replace &s2_ref 0 11;
     let mut s2_ref_value %i32 -1;
-    match get<i32> &s2_ref 0:
+    match get &s2_ref 0:
         Option::Some x:
             set s2_ref_value x
         Option::None:
@@ -78,13 +78,15 @@ fn main %impure fn () i32 \():
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
-    let o1_none %bool is_none<i32> get<i32> &o1 2;
+    let o1_missing %Option i32 get &o1 2;
+    let o1_none %bool is_none o1_missing;
 
     let p1:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
-    let p1_none %bool is_none<i32> get<i32> &p1 -1;
+    let p1_missing %Option i32 get &p1 -1;
+    let p1_none %bool is_none p1_missing;
 
     let u8_65 %u8 cast 65;
     let b1:
@@ -92,22 +94,22 @@ fn main %impure fn () i32 \():
         |> push<u8> u8_65
         |> unwrap_ok
     let mut b1_value %i32 -1;
-    match get<u8> &b1 0:
+    match get &b1 0:
         Option::Some x:
             set b1_value cast x
         Option::None:
             ()
 
-    free<i32> v0_empty;
-    free<i32> v0_cap;
-    free<i32> v2;
-    free<i32> v6;
-    free<i32> g2;
-    free<i32> s2;
-    free<i32> s2_ref;
-    free<i32> o1;
-    free<i32> p1;
-    free<u8> b1;
+    free v0_empty;
+    free v0_cap;
+    free v2;
+    free v6;
+    free g2;
+    free s2;
+    free s2_ref;
+    free o1;
+    free p1;
+    free b1;
 
     let report:
         test_report_new "vec_main"

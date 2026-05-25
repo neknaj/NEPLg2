@@ -206,6 +206,16 @@ LLM/手動判断が必要なもの:
 - `rg -n "get<i32>|len<i32>|free<i32>" stdlib/tests/hash.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/neplg21-hash-vecpusherror-field-240s.json -j 1 --dist web/dist --assert-io` は 240s compile timeout。SHA256 の `type.field.invalid_access` は再発せず、残る full doctest green 化は `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` 側で継続する。
 
+### 2026-05-26 vec_main basic observer checkpoint
+
+- `stdlib/tests/vec.n.md` の `vec_main` 冒頭で、`&Vec i32` / `&Vec u8` または owned `Vec` 引数から型が確定する `is_empty<i32>`、`len<i32>`、`get<i32>`、`get<u8>`、`replace<i32>`、`free<i32>`、`free<u8>` を postfix なしへ移行した。
+- `is_none<i32> get<i32> ...` の nested call は、型推論の探索を無駄に増やさないよう `missing %Option i32` typed local に分け、`is_none missing` へ移行した。
+- `new<i32>` / `with_capacity<i32>` / `push<i32>` / `push<u8>` は producer/update 側の推論 checkpoint として別に扱うため、今回は残した。
+- subagent review でも同じ範囲が推奨され、producer/update call は混ぜない方針で一致した。
+- `Get-Content stdlib/tests/vec.n.md | Select-Object -First 115 | rg -n "is_empty<i32>|len<i32>|get<i32>|replace<i32>|free<i32>|get<u8>|free<u8>|is_none<i32>"` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/neplg21-vec-main-basic-observer.json -j 1 --dist web/dist --assert-io` は 120s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+- `target\debug\nepl-cli.exe --check -i tmp\neplg21_vec_basic_observer_smoke.neplg2 --target core` は memory allocation failure。これは `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` 側の compile-time / memory budget 問題として扱う。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
