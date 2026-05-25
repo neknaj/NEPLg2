@@ -1,3 +1,16 @@
+# 2026-05-26 Agent 1 fs Vec str postfix cleanup checkpoint
+
+- subagent 監査により、allowlist 外の positive executable corpus にはまだ多数の explicit generic postfix が残るため、`ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` は main merge blocker のまま継続すると確認した。
+- `tests/stdlib/fs.n.md` の directory entry tests で、`fs_read_dir` の戻り値 `Result Vec str i32` と `entries %Vec str` local annotation から型が確定する `v::len<str>` / `v::get<str>` / `v::free<str>` を postfix なしへ移行した。
+- 同じ `checks_push` chain は `Result () str` を受けるため、該当 block の `Result<(),str>::Err` を `Result::Err` へ移行した。
+- ファイル前半の `Result<(),str>::Err` は別テストの error aggregation であり、今回の directory entry Vec checkpoint には混ぜず残した。
+- 検証:
+  - `rg -n "v::len<str>|v::get<str>|v::free<str>|Result<\\(\\),str>::Err" tests/stdlib/fs.n.md`: directory entry block の `v::len/get/free<str>` は 0 件。別テストの `Result<(),str>::Err` は残存。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。CRLF checkout warning のみ。
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/neplg21-fs-vec-str-postfix.json -j 1 --dist web/dist --assert-io`: 240s command timeout。partial JSON では変更箇所前の doctest#1-#4 が wasm compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 # 2026-05-26 Agent 1 NEPLg2.1 cyclic facade arity preload fix
 
 - `ISS-20260525T213016826Z-NEPLG2-1-TYPE-ARITY-PRELOAD-DROPS-CY-F74EBA18` を追加し、同じ checkpoint で fixed/resolved に更新した。

@@ -269,25 +269,25 @@ fn main %impure fn () i32 \():
     let mut checks checks_new;
     match fs_read_dir "tests/fixtures/fs/dirlist":
         Result::Err e:
-            set checks checks_push checks Result<(),str>::Err concat "fs_read_dir failed errno=" from_i32 e
+            set checks checks_push checks Result::Err concat "fs_read_dir failed errno=" from_i32 e
         Result::Ok entries:
-            set checks checks_push checks check_eq_i32 3 v::len<str> &entries;
-            match v::get<str> &entries 0:
+            set checks checks_push checks check_eq_i32 3 v::len &entries;
+            match v::get &entries 0:
                 Option::Some entry0:
                     set checks checks_push checks check_str_eq "alpha.nepl" entry0
                 Option::None:
-                    set checks checks_push checks Result<(),str>::Err "missing directory entry 0";
-            match v::get<str> &entries 1:
+                    set checks checks_push checks Result::Err "missing directory entry 0";
+            match v::get &entries 1:
                 Option::Some entry1:
                     set checks checks_push checks check_str_eq "beta.n.md" entry1
                 Option::None:
-                    set checks checks_push checks Result<(),str>::Err "missing directory entry 1";
-            match v::get<str> &entries 2:
+                    set checks checks_push checks Result::Err "missing directory entry 1";
+            match v::get &entries 2:
                 Option::Some entry2:
                     set checks checks_push checks check_str_eq "zeta.txt" entry2
                 Option::None:
-                    set checks checks_push checks Result<(),str>::Err "missing directory entry 2";
-            v::free<str> entries;
+                    set checks checks_push checks Result::Err "missing directory entry 2";
+            v::free entries;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -324,24 +324,24 @@ fn main %impure fn () i32 \():
     let mut checks checks_new;
     match fs_sort_strings &entries:
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "fs_sort_strings failed"
+            set checks checks_push checks Result::Err "fs_sort_strings failed"
         Result::Ok _:
-            match v::get<str> &entries 0:
+            match v::get &entries 0:
                 Option::Some entry0:
                     set checks checks_push checks check_str_eq "alpha.nepl" entry0
                 Option::None:
-                    set checks checks_push checks Result<(),str>::Err "missing sorted entry 0";
-            match v::get<str> &entries 1:
+                    set checks checks_push checks Result::Err "missing sorted entry 0";
+            match v::get &entries 1:
                 Option::Some entry1:
                     set checks checks_push checks check_str_eq "beta.n.md" entry1
                 Option::None:
-                    set checks checks_push checks Result<(),str>::Err "missing sorted entry 1";
-            match v::get<str> &entries 2:
+                    set checks checks_push checks Result::Err "missing sorted entry 1";
+            match v::get &entries 2:
                 Option::Some entry2:
                     set checks checks_push checks check_str_eq "zeta.txt" entry2
                 Option::None:
-                    set checks checks_push checks Result<(),str>::Err "missing sorted entry 2";
-    v::free<str> entries;
+                    set checks checks_push checks Result::Err "missing sorted entry 2";
+    v::free entries;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

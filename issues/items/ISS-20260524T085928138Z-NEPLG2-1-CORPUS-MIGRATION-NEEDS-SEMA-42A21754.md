@@ -190,6 +190,14 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/neplg21-example-bf-small-vec.json -j 1 --dist web/dist --assert-io` は 2 doctest とも wasm compile timeout after 60000ms。
 - `target\debug\nepl-cli.exe --check -i examples\bf.nepl --target std` と、`v::filled` / `v::get` の最小 smoke check は長時間化により timeout。残留 `nepl-cli` プロセスは停止した。
 
+### 2026-05-26 fs Vec str observer checkpoint
+
+- subagent 監査により、allowlist 外の positive executable corpus にはまだ多数の explicit generic postfix が残るため、この issue は main merge blocker のまま継続すると確認した。
+- `tests/stdlib/fs.n.md` の directory entry tests で、`fs_read_dir` の戻り値 `Result Vec str i32` と `entries %Vec str` local annotation から型が確定する `v::len<str>` / `v::get<str>` / `v::free<str>` を postfix なしへ移行した。
+- 同じ call chain の `checks_push` は `Result () str` を受けるため、該当 block の `Result<(),str>::Err` を `Result::Err` へ移行した。
+- ファイル前半の `Result<(),str>::Err` は別テストの error aggregation であり、今回の directory entry Vec checkpoint には混ぜず残した。
+- `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/neplg21-fs-vec-str-postfix.json -j 1 --dist web/dist --assert-io` は 240s command timeout。partial JSON では変更箇所前の doctest#1-#4 が wasm compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
