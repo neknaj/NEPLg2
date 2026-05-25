@@ -293,6 +293,13 @@ LLM/手動判断が必要なもの:
 - `rg -n "unwrap_ok<|hashset_update_error_owner<|Result<[^>]+>::(Ok|Err)" stdlib/tests/hashset.n.md stdlib/tests/hashset_str.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/neplg21-hashset-helper-postfix-current.json -j 1 --dist web/dist --assert-io` は 4 件中 2 compile failure / 2 compile timeout。compile failure は既存 baseline と同じ `new DefaultHash32` overload no_match 系。
 
+### 2026-05-26 cliarg Option observer checkpoint
+
+- `stdlib/tests/cliarg.n.md` で、`cliarg_get` / `cli_raw::cliarg_get_checked` の戻り値 `Option str` から型が確定する `is_none<str>` を `is_none` へ移行した。
+- `new<T>` / `push<T>` のような producer/update call は含めていない。
+- `rg -n "is_none<str>" stdlib/tests/cliarg.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/neplg21-cliarg-option-observer.json -j 1 --dist web/dist --assert-io` は 180s local command timeout。partial JSON では doctest#1-#3 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

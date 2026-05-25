@@ -17,8 +17,8 @@ stdout: "test_report name=\"cliarg_basic\" count=3 failed=0\nassertion index=0 s
 
 fn main %impure fn () i32 \():
     let c %i32 cliarg_count;
-    let neg_missing %bool is_none<str> cliarg_get -1;
-    let end_missing %bool is_none<str> cliarg_get c;
+    let neg_missing %bool is_none cliarg_get -1;
+    let end_missing %bool is_none cliarg_get c;
     let report:
         test_report_new "cliarg_basic"
         |> test_report_push assert_eq_i32 "argc includes program and injected args" 3 c
@@ -91,9 +91,9 @@ stdout: "test_report name=\"cliarg_get_rejects_out_of_range\" count=3 failed=0\n
 
 fn main %impure fn () i32 \():
     let c %i32 cliarg_count;
-    let neg_missing %bool is_none<str> cliarg_get -1;
-    let raw_neg_missing %bool is_none<str> cli_raw::cliarg_get_checked -1;
-    let end_missing %bool is_none<str> cliarg_get c;
+    let neg_missing %bool is_none cliarg_get -1;
+    let raw_neg_missing %bool is_none cli_raw::cliarg_get_checked -1;
+    let end_missing %bool is_none cliarg_get c;
     let report:
         test_report_new "cliarg_get_rejects_out_of_range"
         |> test_report_push assert "negative index rejected" neg_missing

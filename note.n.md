@@ -1,3 +1,11 @@
+# 2026-05-26 Agent 1 cliarg Option observer postfix cleanup checkpoint
+
+- `stdlib/tests/cliarg.n.md` で、`cliarg_get` / `cli_raw::cliarg_get_checked` の戻り値 `Option str` から型が確定する `is_none<str>` を `is_none` へ移行した。
+- producer/update call は含めず、Option observer のみに限定した。
+- 検証:
+  - `rg -n "is_none<str>" stdlib/tests/cliarg.n.md`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/tests/cliarg.n.md --no-tree -o tmp/neplg21-cliarg-option-observer.json -j 1 --dist web/dist --assert-io`: 180s local command timeout。partial JSON では doctest#1-#3 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 # 2026-05-26 Agent 1 hashset helper postfix cleanup checkpoint
 
 - Zenn 方針を再確認し、試作段階でも静的検査を弱めず、型根拠が明確な helper call だけを NEPLg2.1 postfix-free へ移行した。
