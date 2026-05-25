@@ -5,11 +5,13 @@ use super::collection_slot_lifecycle::{
     apply_collection_slot_lifecycle_event, CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp,
     CollectionSlotLifecycleRefutation, CollectionSlotState,
 };
-use super::collection_slot_state_alias::storage_aliases_for_place;
+use super::collection_slot_state_alias::{
+    place_covers_slot_with_aliases, storage_aliases_for_place,
+};
 use super::collection_slot_state_identity::{place_covers_slot, same_collection_slot_identity};
 use super::collection_slot_state_merge::merge_collection_slot_states;
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::Place;
+use super::model::{Place, ResourceI32RelationOp};
 use super::place_utils::{replace_place_prefix, should_track};
 use super::raw_cell_value_flow_alias::{
     raw_cell_place_alias_candidates, raw_cell_places_equivalent,
@@ -148,6 +150,7 @@ impl CollectionSlotStateTable {
 
     pub(super) fn clear_initialized_range_with_aliases(
         &mut self,
+        types: &TypeCtx,
         storage: &Place,
         initialized_count: &Place,
         value_ty: TypeId,
@@ -157,17 +160,32 @@ impl CollectionSlotStateTable {
         let storage = raw_aliases.canonicalize_owner_cell_address(storage);
         let initialized_count = raw_aliases.canonicalize_scalar(initialized_count);
         self.initialized_ranges.retain(|entry| {
-            !(same_collection_slot_identity(&entry.storage, &storage)
-                && same_collection_slot_identity(&entry.initialized_count, &initialized_count)
-                && entry.value_ty == value_ty
-                && entry.element_stride == element_stride)
+            !same_initialized_range_with_aliases(
+                entry,
+                &storage,
+                &initialized_count,
+                value_ty,
+                element_stride,
+                raw_aliases,
+            )
         });
         self.maybe_initialized_ranges.retain(|entry| {
-            !(same_collection_slot_identity(&entry.storage, &storage)
-                && same_collection_slot_identity(&entry.initialized_count, &initialized_count)
-                && entry.value_ty == value_ty
-                && entry.element_stride == element_stride)
+            !same_initialized_range_with_aliases(
+                entry,
+                &storage,
+                &initialized_count,
+                value_ty,
+                element_stride,
+                raw_aliases,
+            )
         });
+        self.clear_slots_described_by_range_with_aliases(
+            types,
+            &storage,
+            &initialized_count,
+            value_ty,
+            raw_aliases,
+        );
     }
 
     pub(super) fn entries_covered_by_storage_with_aliases(
@@ -277,7 +295,7 @@ impl CollectionSlotStateTable {
         }
     }
 
-    fn set_slot_state_with_aliases(
+    pub(super) fn set_slot_state_with_aliases(
         &mut self,
         slot: &Place,
         raw_aliases: &RawCellAddressAliases,
@@ -290,18 +308,57 @@ impl CollectionSlotStateTable {
             });
             return;
         }
-        if let Some(entry) = self
-            .slots
-            .iter_mut()
-            .find(|entry| slot_matches_alias_candidates(&entry.slot, &candidates, raw_aliases))
-        {
-            entry.slot = slot.clone();
-            entry.state = state;
-        } else {
-            self.slots.push(CollectionSlotStateEntry {
-                slot: slot.clone(),
-                state,
-            });
+        self.slots
+            .retain(|entry| !slot_matches_alias_candidates(&entry.slot, &candidates, raw_aliases));
+        self.slots.push(CollectionSlotStateEntry {
+            slot: slot.clone(),
+            state,
+        });
+    }
+
+    fn clear_slots_described_by_range_with_aliases(
+        &mut self,
+        types: &TypeCtx,
+        storage: &Place,
+        initialized_count: &Place,
+        value_ty: TypeId,
+        raw_aliases: &RawCellAddressAliases,
+    ) {
+        // range 事実は collection storage の initialized_count 以下の payload slot を
+        // まとめて表す正規形である。DropTraversal や TransformRange がその range を
+        // 消費した後に、同じ storage 配下の古い具体 slot 状態を残すと、すでに処理済みの
+        // 要素が storage dealloc 時に二重に live と判定される。
+        self.slots.retain(|entry| {
+            !place_covers_slot_with_aliases(&entry.slot, storage, raw_aliases)
+                || !slot_state_describes_range_value(entry.state, value_ty)
+                || !collection_slot_offset_is_inside_initialized_count(
+                    types,
+                    raw_aliases,
+                    &entry.slot,
+                    storage,
+                    initialized_count,
+                    value_ty,
+                )
+        });
+    }
+
+    pub(super) fn weaken_slots_described_by_maybe_ranges_with_aliases(
+        &mut self,
+        raw_aliases: &RawCellAddressAliases,
+    ) {
+        for entry in &mut self.slots {
+            let mut range_ty = None;
+            let mut saw_range = false;
+            for range in &self.maybe_initialized_ranges {
+                if !place_covers_slot_with_aliases(&entry.slot, &range.storage, raw_aliases) {
+                    continue;
+                }
+                saw_range = true;
+                range_ty = merge_optional_range_value_ty(range_ty, range.value_ty);
+            }
+            if saw_range {
+                entry.state = weaken_slot_state_with_maybe_range(entry.state, range_ty);
+            }
         }
     }
 }
@@ -393,4 +450,92 @@ fn slot_matches_alias_candidates(
                 || raw_cell_places_equivalent(slot_candidate, candidate)
         })
     })
+}
+
+fn same_initialized_range_with_aliases(
+    entry: &CollectionSlotInitializedRangeStateEntry,
+    storage: &Place,
+    initialized_count: &Place,
+    value_ty: TypeId,
+    element_stride: usize,
+    raw_aliases: &RawCellAddressAliases,
+) -> bool {
+    entry.value_ty == value_ty
+        && entry.element_stride == element_stride
+        && same_collection_slot_identity(
+            &raw_aliases.canonicalize_owner_cell_address(&entry.storage),
+            storage,
+        )
+        && same_scalar_place_with_aliases(&entry.initialized_count, initialized_count, raw_aliases)
+}
+
+fn same_scalar_place_with_aliases(
+    left: &Place,
+    right: &Place,
+    raw_aliases: &RawCellAddressAliases,
+) -> bool {
+    let left = raw_aliases.canonicalize_scalar(left);
+    let right = raw_aliases.canonicalize_scalar(right);
+    let result = same_collection_slot_identity(&left, &right)
+        || raw_aliases
+            .scalar_aliases_for(&left)
+            .iter()
+            .any(|alias| same_collection_slot_identity(alias, &right))
+        || raw_aliases
+            .scalar_aliases_for(&right)
+            .iter()
+            .any(|alias| same_collection_slot_identity(alias, &left))
+        || matches!(
+            (raw_aliases.i32_value(&left), raw_aliases.i32_value(&right)),
+            (Some(left_value), Some(right_value)) if left_value == right_value
+        )
+        || raw_aliases.i32_relation_truth(&left, ResourceI32RelationOp::Eq, &right) == Some(true);
+    result
+}
+
+fn slot_state_describes_range_value(state: CollectionSlotState, value_ty: TypeId) -> bool {
+    match state {
+        CollectionSlotState::Initialized(slot_ty)
+        | CollectionSlotState::Moved(slot_ty)
+        | CollectionSlotState::Dropped(slot_ty) => slot_ty == value_ty,
+        CollectionSlotState::MaybeInitialized(Some(slot_ty)) => slot_ty == value_ty,
+        CollectionSlotState::MaybeInitialized(None) => true,
+        CollectionSlotState::Uninitialized
+        | CollectionSlotState::Released
+        | CollectionSlotState::MaybeReleased => false,
+    }
+}
+
+fn weaken_slot_state_with_maybe_range(
+    state: CollectionSlotState,
+    range_ty: Option<TypeId>,
+) -> CollectionSlotState {
+    match state {
+        CollectionSlotState::Initialized(slot_ty) => {
+            CollectionSlotState::MaybeInitialized(merge_optional_range_value_ty(range_ty, slot_ty))
+        }
+        CollectionSlotState::MaybeInitialized(slot_ty) => {
+            CollectionSlotState::MaybeInitialized(merge_optional_types(range_ty, slot_ty))
+        }
+        CollectionSlotState::Uninitialized
+        | CollectionSlotState::Moved(_)
+        | CollectionSlotState::Dropped(_)
+        | CollectionSlotState::Released
+        | CollectionSlotState::MaybeReleased => state,
+    }
+}
+
+fn merge_optional_range_value_ty(existing: Option<TypeId>, value_ty: TypeId) -> Option<TypeId> {
+    match existing {
+        Some(existing) if existing == value_ty => Some(existing),
+        Some(_) => None,
+        None => Some(value_ty),
+    }
+}
+
+fn merge_optional_types(left: Option<TypeId>, right: Option<TypeId>) -> Option<TypeId> {
+    match (left, right) {
+        (Some(left), Some(right)) if left == right => Some(left),
+        _ => None,
+    }
 }

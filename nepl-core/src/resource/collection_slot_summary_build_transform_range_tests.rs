@@ -10,9 +10,9 @@ use super::collection_slot_summary_build_ops::collect_summary_ops_from_ops;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
     CollectionSlotInitializedRangeDropTraversalProof, CollectionSlotLifecycleFunctionSummaryIndex,
-    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
-    CollectionSlotTransformRangeDiscardProof, CollectionSlotTransformRangeOutputProof,
-    CollectionSlotTransformRangeSourceProof,
+    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryI32Operand,
+    CollectionSlotLifecycleSummaryOp, CollectionSlotTransformRangeDiscardProof,
+    CollectionSlotTransformRangeOutputProof, CollectionSlotTransformRangeSourceProof,
 };
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
@@ -631,7 +631,11 @@ fn has_output_cleanup_forall_range_summary(
                         certificate
                     ),
             } if storage.parameter_index == 2
-                && initialized_count.parameter_index == 3
+                && matches!(
+                    initialized_count,
+                    CollectionSlotLifecycleSummaryI32Operand::Place(place)
+                        if place.parameter_index == 3
+                )
                 && *expected_ty == owned_ty
                 && certificate.element_stride == 4
                 && matches!(

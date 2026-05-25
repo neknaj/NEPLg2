@@ -1095,8 +1095,46 @@ pub fn run_main_capture_stdout_with_stdin(src: &str, stdin: &[u8]) -> String {
             profile: None,
         },
     );
+    run_wasi_wasm_capture_stdout_with_stdin(&wasm, stdin)
+}
+
+/// Compile and run `main` as a compiler-owned raw-memory boundary source while capturing stdout.
+pub fn run_main_capture_stdout_with_stdin_raw_memory_boundary(src: &str, stdin: &[u8]) -> String {
+    let path = stdlib_root().join("__raw_boundary_test.nepl");
+    let wasm = compile_src_with_options_at_path(
+        path,
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasi),
+            verbose: false,
+            profile: None,
+        },
+    );
+    run_wasi_wasm_capture_stdout_with_stdin(&wasm, stdin)
+}
+
+/// Compile and run `main` as a compiler-owned raw-memory boundary source, returning i32.
+pub fn run_main_wasi_i32_with_stdin_raw_memory_boundary(src: &str, stdin: &[u8]) -> i32 {
+    let path = stdlib_root().join("__raw_boundary_test.nepl");
+    let wasm = compile_src_with_options_at_path(
+        path,
+        src,
+        CompileOptions {
+            target: Some(CompileTarget::Wasi),
+            verbose: false,
+            profile: None,
+        },
+    );
+    run_wasi_wasm_capture_stdout_with_stdin_result(&wasm, stdin).0
+}
+
+fn run_wasi_wasm_capture_stdout_with_stdin(wasm: &[u8], stdin: &[u8]) -> String {
+    run_wasi_wasm_capture_stdout_with_stdin_result(wasm, stdin).1
+}
+
+fn run_wasi_wasm_capture_stdout_with_stdin_result(wasm: &[u8], stdin: &[u8]) -> (i32, String) {
     let engine = Engine::default();
-    let module = Module::new(&engine, &*wasm).expect("module");
+    let module = Module::new(&engine, wasm).expect("module");
     let output = Arc::new(Mutex::new(String::new()));
     let stdin_state = Arc::new(Mutex::new((stdin.to_vec(), 0usize)));
     let mut linker = Linker::new(&engine);
@@ -1421,15 +1459,16 @@ pub fn run_main_capture_stdout_with_stdin(src: &str, stdin: &[u8]) -> String {
         .expect("instantiate")
         .start(&mut store)
         .expect("start");
-    if let Ok(f) = instance.get_typed_func::<(), i32>(&store, "main") {
-        f.call(&mut store, ()).expect("call");
+    let result = if let Ok(f) = instance.get_typed_func::<(), i32>(&store, "main") {
+        f.call(&mut store, ()).expect("call")
     } else if let Ok(fu) = instance.get_typed_func::<(), ()>(&store, "main") {
         fu.call(&mut store, ()).expect("call");
+        0
     } else {
         panic!("main not found");
-    }
+    };
     let captured = output.lock().unwrap().clone();
-    captured
+    (result, captured)
 }
 
 fn stdlib_root() -> std::path::PathBuf {

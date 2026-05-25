@@ -2,12 +2,12 @@
 id: ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729
 title: "nepl-core resource unit tests fail in current branch"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: bug
 created: 2026-05-24
-updated: 2026-05-24
+updated: 2026-05-25
 target: "nepl-core/src/resource/effect_return_escape_tests.rs; nepl-core/src/resource/i32_call_facts_tests.rs"
 ---
 
@@ -42,3 +42,17 @@ Investigate the current Resource IR summary/protection changes, determine whethe
 ## 検証
 
 Run cargo test -p nepl-core and focused cargo test -p nepl-core effect_return_escape i32_call_facts --lib -- --nocapture.
+
+## 2026-05-25 修正結果
+
+前回失敗していた `effect_return_escape_tests` と `i32_call_facts_tests` は、current branch の Resource IR owner projection / i32 fact propagation 修正後にすべて通過した。
+
+検証:
+
+- `cargo test -p nepl-core effect_return_escape --lib -- --nocapture`: 5/5 passed.
+- `cargo test -p nepl-core i32_call_facts --lib -- --nocapture`: 6/6 passed.
+- `cargo test -p nepl-core --lib -- --nocapture`: 361/361 passed.
+
+追加で、KP integration 側の一時診断変更を整理し、float writer の Rust smoke を scanner なしの `kpwrite_f64_stdout_no_input` / `kpwrite_f32_stdout_no_input` に揃えた。scanner + float writer の重い組み合わせは `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` の性能対象として扱う。
+
+- `cargo test -p nepl-core --test kp -- --nocapture`: 15/15 passed, 336.74s.

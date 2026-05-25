@@ -10,10 +10,16 @@ use std::path::PathBuf;
 mod harness;
 
 fn compile_move_test(source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    compile_move_test_at_path(PathBuf::from("<test>"), source)
+}
+
+fn compile_raw_memory_boundary_move_test(source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    compile_move_test_at_path(stdlib_root().join("__raw_boundary_test.nepl"), source)
+}
+
+fn compile_move_test_at_path(path: PathBuf, source: &str) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let mut loader = Loader::new(stdlib_root());
-    let loaded = loader
-        .load_inline("<test>".into(), source.to_string())
-        .expect("load");
+    let loaded = loader.load_inline(path, source.to_string()).expect("load");
 
     match compile_module_with_source_map(
         loaded.module,
@@ -44,19 +50,36 @@ fn stdlib_root() -> PathBuf {
         .join("stdlib")
 }
 
-fn is_raw_cell_possibly_moved(diag: &Diagnostic) -> bool {
-    diag.code
-        == DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(
-            ResourceCellDiagnosticCode::PossiblyMoved,
-        ))
+fn is_cell_diag(diag: &Diagnostic, code: ResourceCellDiagnosticCode) -> bool {
+    diag.code == DiagnosticCode::Resource(ResourceDiagnosticCode::Cell(code))
+}
+
+fn is_cell_moved_or_possibly_moved(diag: &Diagnostic) -> bool {
+    is_cell_diag(diag, ResourceCellDiagnosticCode::Moved)
+        || is_cell_diag(diag, ResourceCellDiagnosticCode::PossiblyMoved)
 }
 
 fn is_move_diag(diag: &Diagnostic, code: ResourceMoveDiagnosticCode) -> bool {
     diag.code == DiagnosticCode::Resource(ResourceDiagnosticCode::Move(code))
 }
 
+fn is_moved_value_diag(diag: &Diagnostic) -> bool {
+    is_move_diag(diag, ResourceMoveDiagnosticCode::UseMoved)
+        || is_cell_diag(diag, ResourceCellDiagnosticCode::Moved)
+}
+
+fn is_possibly_moved_value_diag(diag: &Diagnostic) -> bool {
+    is_move_diag(diag, ResourceMoveDiagnosticCode::UsePossiblyMoved)
+        || is_move_diag(diag, ResourceMoveDiagnosticCode::LoopPossiblyMoved)
+        || is_cell_moved_or_possibly_moved(diag)
+}
+
 fn is_borrow_diag(diag: &Diagnostic, code: ResourceBorrowDiagnosticCode) -> bool {
     diag.code == DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(code))
+}
+
+fn is_return_escape_diag(diag: &Diagnostic) -> bool {
+    is_borrow_diag(diag, ResourceBorrowDiagnosticCode::ReturnEscape)
 }
 
 #[test]
@@ -94,9 +117,7 @@ fn main <()*>()>():
     let z <Wrapper> x; // error: use of moved value x
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| is_move_diag(d, ResourceMoveDiagnosticCode::UseMoved)));
+    assert!(errs.iter().any(is_moved_value_diag));
 }
 
 #[test]
@@ -121,9 +142,7 @@ fn main <()*>()>():
     let z <Wrapper> x; // error: potentially moved
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| is_move_diag(d, ResourceMoveDiagnosticCode::UsePossiblyMoved)));
+    assert!(errs.iter().any(is_possibly_moved_value_diag));
 }
 
 #[test]
@@ -144,9 +163,7 @@ fn main <()*>()>():
         let y <Wrapper> x; // moved in first iteration, error in next
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| is_move_diag(d, ResourceMoveDiagnosticCode::LoopPossiblyMoved)));
+    assert!(errs.iter().any(is_possibly_moved_value_diag));
 }
 
 #[test]
@@ -273,7 +290,7 @@ fn main <()*>()>():
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs
         .iter()
-        .any(|d| d.message.contains("cannot borrow uniquely borrowed value")));
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::BorrowDuringUnique)));
 }
 
 #[test]
@@ -296,9 +313,9 @@ fn main <()*>()>():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d
-        .message
-        .contains("cannot uniquely borrow shared borrowed value")));
+    assert!(errs
+        .iter()
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::UniqueDuringShared)));
 }
 
 #[test]
@@ -324,7 +341,7 @@ fn main <()*>()>():
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs
         .iter()
-        .any(|d| d.message.contains("cannot borrow uniquely borrowed value")));
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::BorrowDuringUnique)));
 }
 
 #[test]
@@ -348,7 +365,7 @@ fn main <()*>()>():
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs
         .iter()
-        .any(|d| d.message.contains("cannot borrow uniquely borrowed value")));
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::BorrowDuringUnique)));
 }
 
 #[test]
@@ -371,7 +388,7 @@ fn main <()*>()>():
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs
         .iter()
-        .any(|d| d.message.contains("use of uniquely borrowed value")));
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::UseDuringUnique)));
 }
 
 #[test]
@@ -412,9 +429,7 @@ fn main <()*>()>():
     let again <&mut Wrapper> r;
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("use of moved value")));
+    assert!(errs.iter().any(is_moved_value_diag));
 }
 
 #[test]
@@ -435,9 +450,9 @@ fn main <()*>()>():
     let keep <&Wrapper> r;
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d
-        .message
-        .contains("cannot uniquely borrow shared borrowed value")));
+    assert!(errs
+        .iter()
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::UniqueDuringShared)));
 }
 
 #[test]
@@ -460,7 +475,7 @@ fn main <()*>()>():
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs
         .iter()
-        .any(|d| d.message.contains("cannot borrow uniquely borrowed value")));
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::BorrowDuringUnique)));
 }
 
 #[test]
@@ -478,7 +493,7 @@ fn main <()*>()>():
     let errs = compile_move_test(source).unwrap_err();
     assert!(errs
         .iter()
-        .any(|d| d.message.contains("cannot borrow uniquely borrowed value")));
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::BorrowDuringUnique)));
 }
 
 #[test]
@@ -494,9 +509,9 @@ fn main <()*>()>():
     let keep <&i32> s;
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d
-        .message
-        .contains("cannot uniquely borrow shared borrowed value")));
+    assert!(errs
+        .iter()
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::UniqueDuringShared)));
 }
 
 #[test]
@@ -588,9 +603,7 @@ fn main <()*>()>():
     let r <&Wrapper> &x; // error: borrow of moved value
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("borrow of moved value")));
+    assert!(errs.iter().any(is_moved_value_diag));
 }
 
 #[test]
@@ -613,9 +626,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("does not live long enough")));
+    assert!(errs.iter().any(is_return_escape_diag));
 }
 
 #[test]
@@ -636,9 +647,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("does not live long enough")));
+    assert!(errs.iter().any(is_return_escape_diag));
 }
 
 #[test]
@@ -661,9 +670,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("does not live long enough")));
+    assert!(errs.iter().any(is_return_escape_diag));
 }
 
 #[test]
@@ -690,9 +697,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("does not live long enough")));
+    assert!(errs.iter().any(is_return_escape_diag));
 }
 
 #[test]
@@ -717,9 +722,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("does not live long enough")));
+    assert!(errs.iter().any(is_return_escape_diag));
 }
 
 #[test]
@@ -746,9 +749,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("does not live long enough")));
+    assert!(errs.iter().any(is_return_escape_diag));
 }
 
 #[test]
@@ -772,9 +773,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("does not live long enough")));
+    assert!(errs.iter().any(is_return_escape_diag));
 }
 
 #[test]
@@ -801,9 +800,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("does not live long enough")));
+    assert!(errs.iter().any(is_return_escape_diag));
 }
 
 #[test]
@@ -826,9 +823,7 @@ fn main <()*>()>():
     let y <Wrapper> x; // error: use of moved value x
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("use of moved value")));
+    assert!(errs.iter().any(is_moved_value_diag));
 }
 
 #[test]
@@ -851,9 +846,7 @@ fn main <()*>()>():
     let b <Wrapper> s.f; // error: use of moved value
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("use of moved field")));
+    assert!(errs.iter().any(is_moved_value_diag));
 }
 
 #[test]
@@ -909,9 +902,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("use of moved field")));
+    assert!(errs.iter().any(is_moved_value_diag));
 }
 
 #[test]
@@ -968,9 +959,7 @@ fn main <()*>()> ():
     split<Wrapper, Wrapper> h
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("use of moved field")));
+    assert!(errs.iter().any(is_moved_value_diag));
 }
 
 #[test]
@@ -999,9 +988,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("partially moved value")));
+    assert!(errs.iter().any(is_cell_moved_or_possibly_moved));
 }
 
 #[test]
@@ -1032,7 +1019,8 @@ fn main <()*>()> ():
     let h <Holder> load<Holder> p
     ()
 "#;
-    compile_move_test(source).expect("copy raw aggregate field reads should not move the owner");
+    compile_raw_memory_boundary_move_test(source)
+        .expect("copy raw aggregate field reads should not move the owner");
 }
 
 #[test]
@@ -1061,8 +1049,8 @@ fn main <()*>()> ():
     let h <Holder> load<Holder> p
     ()
 "#;
-    let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(is_raw_cell_possibly_moved));
+    let errs = compile_raw_memory_boundary_move_test(source).unwrap_err();
+    assert!(errs.iter().any(is_cell_moved_or_possibly_moved));
 }
 
 #[test]
@@ -1092,9 +1080,9 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d
-        .message
-        .contains("cannot move out of shared borrowed value")));
+    assert!(errs
+        .iter()
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::MoveFromShared)));
 }
 
 #[test]
@@ -1131,9 +1119,9 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d
-        .message
-        .contains("cannot move out of shared borrowed value")));
+    assert!(errs
+        .iter()
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::MoveFromShared)));
 }
 
 #[test]
@@ -1158,9 +1146,9 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d
-        .message
-        .contains("cannot move out of shared borrowed value")));
+    assert!(errs
+        .iter()
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::MoveFromShared)));
 }
 
 #[test]
@@ -1185,7 +1173,7 @@ fn main <()*>()>():
     let z <Wrapper> x; // error: potentially moved
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("potentially moved")));
+    assert!(errs.iter().any(is_possibly_moved_value_diag));
 }
 
 #[test]
@@ -1217,7 +1205,7 @@ fn main <()*>()>():
     let z <Wrapper> x; // error: potentially moved
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("potentially moved")));
+    assert!(errs.iter().any(is_possibly_moved_value_diag));
 }
 
 #[test]
@@ -1245,7 +1233,7 @@ fn main <()*>()>():
     let z <Wrapper> x; // error: potentially moved
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("potentially moved")));
+    assert!(errs.iter().any(is_possibly_moved_value_diag));
 }
 
 #[test]
@@ -1317,6 +1305,7 @@ fn move_loop_owned_accumulator_reassigned_after_result_ok() {
 #indent 4
 #import "core/mem" as *
 #import "core/mem/raw" as *
+#import "core/math" as *
 #import "core/result" as *
 
 enum Wrapper:
@@ -1348,6 +1337,7 @@ fn move_loop_owned_accumulator_err_continue_without_reinit_rejected() {
 #indent 4
 #import "core/mem" as *
 #import "core/mem/raw" as *
+#import "core/math" as *
 #import "core/result" as *
 
 enum Wrapper:
@@ -1370,7 +1360,7 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d.message.contains("potentially moved")));
+    assert!(errs.iter().any(is_possibly_moved_value_diag));
 }
 
 #[test]
@@ -1436,9 +1426,9 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs.iter().any(|d| d
-        .message
-        .contains("cannot move out of shared borrowed value")));
+    assert!(errs
+        .iter()
+        .any(|d| is_borrow_diag(d, ResourceBorrowDiagnosticCode::MoveFromShared)));
 }
 
 #[test]
@@ -1466,7 +1456,5 @@ fn main <()*>()> ():
     ()
 "#;
     let errs = compile_move_test(source).unwrap_err();
-    assert!(errs
-        .iter()
-        .any(|d| d.message.contains("does not live long enough")));
+    assert!(errs.iter().any(is_return_escape_diag));
 }

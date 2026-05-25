@@ -59,12 +59,19 @@ struct PendingUnreachableVariant {
     variant: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingConcreteVariant {
+    result: Place,
+    variant: String,
+}
+
 #[derive(Debug, Clone, Default)]
 pub(super) struct PendingVariantRawCellInitializations {
     entries: Vec<PendingVariantRawCellInitialization>,
     byte_ranges: Vec<PendingVariantRawByteRangeInitialization>,
     requirements: Vec<PendingVariantRawCellRequirement>,
     unreachable_variants: Vec<PendingUnreachableVariant>,
+    concrete_variants: Vec<PendingConcreteVariant>,
 }
 
 impl PendingVariantRawCellInitializations {
@@ -164,6 +171,12 @@ impl PendingVariantRawCellInitializations {
         let Some(variant) = match_pattern_variant_name(pattern) else {
             return;
         };
+        if self
+            .concrete_variant(scrutinee)
+            .is_some_and(|concrete| concrete != variant)
+        {
+            return;
+        }
         if self.variant_is_unreachable(scrutinee, &variant) {
             return;
         }
@@ -245,7 +258,19 @@ impl PendingVariantRawCellInitializations {
         let Some(variant) = match_pattern_variant_name(pattern) else {
             return true;
         };
+        if let Some(concrete) = self.concrete_variant(scrutinee) {
+            return concrete == variant;
+        }
         !self.variant_is_unreachable(scrutinee, &variant)
+    }
+
+    pub(super) fn record_concrete_variant(&mut self, result: &Place, variant: &str) {
+        self.concrete_variants
+            .retain(|entry| entry.result != *result);
+        self.push_unique_concrete(PendingConcreteVariant {
+            result: result.clone(),
+            variant: normalize_variant_name(variant),
+        });
     }
 
     pub(super) fn copy_result(&mut self, source: &Place, target: &Place) {
@@ -301,6 +326,15 @@ impl PendingVariantRawCellInitializations {
                 variant: entry.variant.clone(),
             })
             .collect::<Vec<_>>();
+        let concrete_copies = self
+            .concrete_variants
+            .iter()
+            .filter(|entry| entry.result == *source)
+            .map(|entry| PendingConcreteVariant {
+                result: target.clone(),
+                variant: entry.variant.clone(),
+            })
+            .collect::<Vec<_>>();
         self.clear_result(target);
         for entry in copies {
             self.push_unique_entry(entry);
@@ -314,6 +348,9 @@ impl PendingVariantRawCellInitializations {
         for entry in unreachable_copies {
             self.push_unique_unreachable(entry);
         }
+        for entry in concrete_copies {
+            self.push_unique_concrete(entry);
+        }
     }
 
     pub(super) fn clear_result(&mut self, result: &Place) {
@@ -321,6 +358,8 @@ impl PendingVariantRawCellInitializations {
         self.byte_ranges.retain(|entry| entry.result != *result);
         self.requirements.retain(|entry| entry.result != *result);
         self.unreachable_variants
+            .retain(|entry| entry.result != *result);
+        self.concrete_variants
             .retain(|entry| entry.result != *result);
     }
 
@@ -365,7 +404,23 @@ impl PendingVariantRawCellInitializations {
                 out.push_unique_unreachable(entry.clone());
             }
         }
+        for entry in &first.concrete_variants {
+            if paths.iter().skip(1).all(|path| {
+                path.concrete_variants
+                    .iter()
+                    .any(|existing| existing == entry)
+            }) {
+                out.push_unique_concrete(entry.clone());
+            }
+        }
         out
+    }
+
+    pub(super) fn concrete_variant(&self, result: &Place) -> Option<&str> {
+        self.concrete_variants
+            .iter()
+            .find(|entry| entry.result == *result)
+            .map(|entry| entry.variant.as_str())
     }
 
     fn record_unreachable_variants(
@@ -440,6 +495,17 @@ impl PendingVariantRawCellInitializations {
             return;
         }
         self.unreachable_variants.push(entry);
+    }
+
+    fn push_unique_concrete(&mut self, entry: PendingConcreteVariant) {
+        if self
+            .concrete_variants
+            .iter()
+            .any(|existing| existing == &entry)
+        {
+            return;
+        }
+        self.concrete_variants.push(entry);
     }
 }
 

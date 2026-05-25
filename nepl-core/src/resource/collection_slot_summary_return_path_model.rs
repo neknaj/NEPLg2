@@ -6,10 +6,12 @@ use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleReturnPath, CollectionSlotLifecycleSummaryOp,
 };
+use super::collection_slot_summary_return_model::CollectionSlotLifecyclePathPrecondition;
 
 #[derive(Clone)]
 pub(super) struct ReturnPathBuildState {
     pub(super) state: CollectionSlotSummaryBuildState,
+    pub(super) preconditions: Vec<CollectionSlotLifecyclePathPrecondition>,
     pub(super) ops: Vec<CollectionSlotLifecycleSummaryOp>,
 }
 

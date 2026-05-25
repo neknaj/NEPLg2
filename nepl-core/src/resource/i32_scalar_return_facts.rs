@@ -6,14 +6,18 @@ use crate::types::{TypeCtx, TypeId};
 
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_i32_condition_context::I32ConditionQueryContext;
-use super::model::{I32ValueCondition, Place, PlaceProjection, ResourceLocal};
+use super::model::{
+    I32ValueCondition, Place, PlaceProjection, ResourceI32RelationOp, ResourceLocal,
+};
 use super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
+use super::owner_summary_leaf::OwnerLeafPlace;
 use super::place_utils::{place_suffix_after_prefix, projected_place_with_concrete_type};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct I32ScalarReturnFacts {
     pub(super) aliases: Vec<I32ScalarReturnAlias>,
     pub(super) offsets: Vec<I32ScalarReturnOffset>,
+    pub(super) relations: Vec<I32ScalarReturnRelation>,
     pub(super) constants: Vec<I32ScalarReturnConstant>,
     pub(super) return_conditions: Vec<I32ScalarReturnCondition>,
     pub(super) parameter_conditions: Vec<I32ScalarParameterCondition>,
@@ -23,6 +27,7 @@ impl I32ScalarReturnFacts {
     pub(super) fn is_empty(&self) -> bool {
         self.aliases.is_empty()
             && self.offsets.is_empty()
+            && self.relations.is_empty()
             && self.constants.is_empty()
             && self.return_conditions.is_empty()
             && self.parameter_conditions.is_empty()
@@ -34,6 +39,9 @@ impl I32ScalarReturnFacts {
         }
         for offset in other.offsets {
             push_unique_i32_scalar_return_offset(&mut self.offsets, offset);
+        }
+        for relation in other.relations {
+            push_unique_i32_scalar_return_relation(&mut self.relations, relation);
         }
         for constant in other.constants {
             push_unique_i32_scalar_return_constant(&mut self.constants, constant);
@@ -62,6 +70,14 @@ pub(super) struct I32ScalarReturnOffset {
     pub(super) parameter_projection: Vec<PlaceProjection>,
     pub(super) scalar_ty: TypeId,
     pub(super) offset: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct I32ScalarReturnRelation {
+    pub(super) left_return_projection: Vec<PlaceProjection>,
+    pub(super) op: ResourceI32RelationOp,
+    pub(super) right_return_projection: Vec<PlaceProjection>,
+    pub(super) scalar_ty: TypeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -123,9 +139,10 @@ pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached(
 ) -> I32ScalarReturnFacts {
     let mut facts = I32ScalarReturnFacts::default();
     let mut condition_context = I32ConditionQueryContext::default();
-    for leaf in leaf_cache.leaf_places_for_conditions(types, value) {
+    let leaves = leaf_cache.leaf_places_for_conditions(types, value);
+    for leaf in &leaves {
         let mut return_projection = target_suffix.to_vec();
-        return_projection.extend(leaf.suffix);
+        return_projection.extend_from_slice(&leaf.suffix);
         collect_i32_scalar_return_leaf_facts(
             params,
             raw_aliases,
@@ -135,6 +152,7 @@ pub(super) fn collect_i32_scalar_return_facts_for_value_suffix_cached(
             &mut facts,
         );
     }
+    collect_i32_scalar_return_leaf_relations(raw_aliases, &leaves, target_suffix, &mut facts);
     collect_i32_scalar_parameter_conditions(
         params,
         types,
@@ -243,6 +261,23 @@ pub(super) fn translate_i32_scalar_return_facts_for_call(
             },
         );
     }
+    for relation in &callee_facts.relations {
+        push_unique_i32_scalar_return_relation(
+            &mut facts.relations,
+            I32ScalarReturnRelation {
+                left_return_projection: compose_return_projection(
+                    target_suffix,
+                    &relation.left_return_projection,
+                ),
+                op: relation.op,
+                right_return_projection: compose_return_projection(
+                    target_suffix,
+                    &relation.right_return_projection,
+                ),
+                scalar_ty: relation.scalar_ty,
+            },
+        );
+    }
     facts
 }
 
@@ -294,6 +329,22 @@ pub(super) fn apply_i32_scalar_return_facts(
         raw_aliases.add_i32_offset(&source, &target, offset.offset);
         applied = true;
     }
+    for relation in &facts.relations {
+        let left = projected_place_with_concrete_type(
+            types,
+            output,
+            &relation.left_return_projection,
+            relation.scalar_ty,
+        );
+        let right = projected_place_with_concrete_type(
+            types,
+            output,
+            &relation.right_return_projection,
+            relation.scalar_ty,
+        );
+        raw_aliases.add_i32_relation(&left, relation.op, &right);
+        applied = true;
+    }
     for constant in &facts.constants {
         let target = projected_place_with_concrete_type(
             types,
@@ -328,6 +379,54 @@ pub(super) fn apply_i32_scalar_return_facts(
         applied = true;
     }
     applied
+}
+
+fn collect_i32_scalar_return_leaf_relations(
+    raw_aliases: &RawCellAddressAliases,
+    leaves: &[OwnerLeafPlace],
+    target_suffix: &[PlaceProjection],
+    facts: &mut I32ScalarReturnFacts,
+) {
+    for (left_index, left) in leaves.iter().enumerate() {
+        for right in leaves.iter().skip(left_index + 1) {
+            if left.place.ty != right.place.ty
+                || !i32_scalar_leaf_places_are_known_equal(raw_aliases, &left.place, &right.place)
+            {
+                continue;
+            }
+            let left_return_projection = compose_return_projection(target_suffix, &left.suffix);
+            let right_return_projection = compose_return_projection(target_suffix, &right.suffix);
+            if left_return_projection == right_return_projection {
+                continue;
+            }
+            push_unique_i32_scalar_return_relation(
+                &mut facts.relations,
+                I32ScalarReturnRelation {
+                    left_return_projection,
+                    op: ResourceI32RelationOp::Eq,
+                    right_return_projection,
+                    scalar_ty: left.place.ty,
+                },
+            );
+        }
+    }
+}
+
+fn i32_scalar_leaf_places_are_known_equal(
+    raw_aliases: &RawCellAddressAliases,
+    left: &Place,
+    right: &Place,
+) -> bool {
+    if left == right {
+        return true;
+    }
+    let left_aliases = raw_aliases.scalar_aliases_for_value(left);
+    let right_aliases = raw_aliases.scalar_aliases_for_value(right);
+    left_aliases.iter().any(|left_alias| {
+        right_aliases
+            .iter()
+            .any(|right_alias| right_alias == left_alias)
+    }) || raw_aliases.i32_relation_truth(left, ResourceI32RelationOp::Eq, right) == Some(true)
 }
 
 fn collect_i32_scalar_return_leaf_facts(
@@ -600,6 +699,16 @@ fn push_unique_i32_scalar_return_offset(
     offsets.push(offset);
 }
 
+fn push_unique_i32_scalar_return_relation(
+    relations: &mut Vec<I32ScalarReturnRelation>,
+    relation: I32ScalarReturnRelation,
+) {
+    if relations.iter().any(|existing| existing == &relation) {
+        return;
+    }
+    relations.push(relation);
+}
+
 fn push_unique_i32_scalar_return_constant(
     constants: &mut Vec<I32ScalarReturnConstant>,
     constant: I32ScalarReturnConstant,
@@ -618,6 +727,78 @@ fn push_unique_i32_scalar_return_condition(
         return;
     }
     conditions.push(condition);
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::String;
+    use alloc::vec;
+
+    use crate::types::TypeCtx;
+
+    use super::super::initialized_alias::RawCellAddressAliases;
+    use super::super::model::{Place, ResourceI32RelationOp};
+    use super::super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
+    use super::*;
+
+    /// 戻り値の中で同じ i32 値を表す複数の leaf がある場合、その等価性を
+    /// summary に保存して呼び出し元の戻り値にも復元できることを確認する。
+    ///
+    /// Vec の len と initialized_len は別 field として戻るが、filter の成功経路では
+    /// どちらも同じ write index を表す。ここで relation を落とすと、後続の
+    /// initialized range cleanup が片方の count しか消せなくなる。
+    #[test]
+    fn i32_return_facts_preserve_equal_return_leaf_relations() {
+        let mut types = TypeCtx::new();
+        let i32_ty = types.i32();
+        let pair_ty = types.tuple(vec![i32_ty, i32_ty]);
+        let returned_value = Place::local(String::from("pair"), pair_ty);
+        let mut leaf_cache = I32LeafProjectionCache::default();
+        let leaves = leaf_cache.leaf_places_for_conditions(&types, &returned_value);
+        let mut source_aliases = RawCellAddressAliases::default();
+
+        source_aliases.add_i32_relation(
+            &leaves[0].place,
+            ResourceI32RelationOp::Eq,
+            &leaves[1].place,
+        );
+
+        let facts = collect_i32_scalar_return_facts_for_value_suffix(
+            &[],
+            &types,
+            &source_aliases,
+            &returned_value,
+            &[],
+        );
+        assert!(
+            facts.relations.iter().any(|relation| {
+                relation.left_return_projection == leaves[0].suffix
+                    && relation.op == ResourceI32RelationOp::Eq
+                    && relation.right_return_projection == leaves[1].suffix
+            }),
+            "戻り値 leaf 同士の等価 relation が summary に保存される必要がある"
+        );
+
+        let output = Place::local(String::from("out"), pair_ty);
+        let mut applied_aliases = RawCellAddressAliases::default();
+        assert!(apply_i32_scalar_return_facts(
+            &mut applied_aliases,
+            &output,
+            &[],
+            &facts,
+            &types,
+        ));
+        let mut output_leaf_cache = I32LeafProjectionCache::default();
+        let output_leaves = output_leaf_cache.leaf_places_for_conditions(&types, &output);
+        assert_eq!(
+            applied_aliases.i32_relation_truth(
+                &output_leaves[0].place,
+                ResourceI32RelationOp::Eq,
+                &output_leaves[1].place,
+            ),
+            Some(true)
+        );
+    }
 }
 
 fn push_unique_i32_scalar_parameter_condition(

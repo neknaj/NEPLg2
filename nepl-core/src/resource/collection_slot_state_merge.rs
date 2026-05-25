@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_state_identity::place_covers_slot;
 use super::collection_slot_state_table::CollectionSlotStateTable;
+use super::initialized_alias::RawCellAddressAliases;
 use super::place_utils::push_unique_place;
 use crate::types::TypeId;
 
@@ -31,6 +32,7 @@ impl CollectionSlotStateTable {
             }
         }
 
+        out.weaken_slots_described_by_maybe_ranges_with_aliases(&RawCellAddressAliases::default());
         out
     }
 }
@@ -109,9 +111,28 @@ fn state_with_initialized_ranges_for_merge(
     slot: &super::model::Place,
 ) -> CollectionSlotState {
     let state = path.state(slot);
-    if !matches!(state, CollectionSlotState::Uninitialized) {
-        return state;
+    let range_state = initialized_range_state_for_merge(path, slot);
+    match (state, range_state) {
+        (CollectionSlotState::Uninitialized, Some(range_state)) => return range_state,
+        (CollectionSlotState::Initialized(actual), Some(range_state)) => {
+            // range で支えられている個別 slot の確定性は、その range count を
+            // 正にする path-local な i32 fact に依存する。合流後はその条件が
+            // 弱まるため、個別 slot も range と同じ maybe state として扱う。
+            return merge_range_initialized_state(actual, range_state);
+        }
+        (CollectionSlotState::MaybeInitialized(slot_ty), Some(range_state)) => {
+            return merge_range_maybe_initialized_state(slot_ty, range_state);
+        }
+        (state, _) if !matches!(state, CollectionSlotState::Uninitialized) => return state,
+        _ => {}
     }
+    CollectionSlotState::Uninitialized
+}
+
+fn initialized_range_state_for_merge(
+    path: &CollectionSlotStateTable,
+    slot: &super::model::Place,
+) -> Option<CollectionSlotState> {
     let mut range_ty = None;
     let mut saw_range = false;
     for range in path
@@ -139,18 +160,44 @@ fn state_with_initialized_ranges_for_merge(
         };
     }
     if saw_maybe_range {
-        return CollectionSlotState::MaybeInitialized(merge_optional_type(
+        return Some(CollectionSlotState::MaybeInitialized(merge_optional_type(
             range_ty,
             maybe_range_ty,
-        ));
+        )));
     }
     if saw_range {
-        match range_ty {
-            Some(slot_ty) => CollectionSlotState::Initialized(slot_ty),
+        Some(match range_ty {
+            Some(slot_ty) => CollectionSlotState::MaybeInitialized(Some(slot_ty)),
             None => CollectionSlotState::MaybeInitialized(None),
-        }
+        })
     } else {
-        CollectionSlotState::Uninitialized
+        None
+    }
+}
+
+fn merge_range_initialized_state(
+    actual: TypeId,
+    range_state: CollectionSlotState,
+) -> CollectionSlotState {
+    match range_state {
+        CollectionSlotState::MaybeInitialized(range_ty) => {
+            CollectionSlotState::MaybeInitialized(merge_optional_type_with_type(range_ty, actual))
+        }
+        other => merge_collection_slot_states(CollectionSlotState::Initialized(actual), other),
+    }
+}
+
+fn merge_range_maybe_initialized_state(
+    slot_ty: Option<TypeId>,
+    range_state: CollectionSlotState,
+) -> CollectionSlotState {
+    match range_state {
+        CollectionSlotState::MaybeInitialized(range_ty) => {
+            CollectionSlotState::MaybeInitialized(merge_optional_type(slot_ty, range_ty))
+        }
+        other => {
+            merge_collection_slot_states(CollectionSlotState::MaybeInitialized(slot_ty), other)
+        }
     }
 }
 

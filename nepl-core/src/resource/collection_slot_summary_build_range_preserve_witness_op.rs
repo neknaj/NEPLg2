@@ -1,5 +1,7 @@
 use crate::ast::Effect;
 
+use super::collection_slot_summary_build_range_preserve_op::effect_call_preserves_place;
+use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{EffectOp, Place, RawMemoryOp, ResourceOp};
 use super::place_utils::place_suffix_after_prefix;
@@ -38,6 +40,7 @@ pub(super) fn paired_witness_load_call_preserves_place(
 }
 
 pub(super) fn op_preserves_place_during_drop_witness(
+    engine: &ResourceCheckEngine<'_>,
     raw_aliases: &RawCellAddressAliases,
     op: &ResourceOp,
     protected: &Place,
@@ -59,8 +62,21 @@ pub(super) fn op_preserves_place_during_drop_witness(
         | ResourceOp::StorageOrigin { target, .. }
         | ResourceOp::Construct { output: target, .. } => !places_touch(target, protected),
         ResourceOp::Drop { place, .. } => !places_touch(place, protected),
-        ResourceOp::Call { effect, output, .. } => {
-            call_is_drop_witness_safe(effect) && !places_touch(output, protected)
+        ResourceOp::Call {
+            effect,
+            output,
+            args,
+            ..
+        } => {
+            // witness load の前では、storage から slot address を組み立てる pure helper が
+            // protected storage を引数として読むことがあります。これは storage の所有権や
+            // initialized range を変えないため、出力が protected place 自体を上書きしない限り
+            // traversal witness の保持条件を壊しません。
+            if call_effect_is_pure(effect) {
+                !places_touch(output, protected)
+            } else {
+                effect_call_preserves_place(engine, raw_aliases, effect, output, args, protected)
+            }
         }
         ResourceOp::RawMemory {
             operation,
@@ -97,7 +113,7 @@ pub(super) fn op_preserves_place_during_drop_witness(
     }
 }
 
-fn call_is_drop_witness_safe(effect: &EffectOp) -> bool {
+fn call_effect_is_pure(effect: &EffectOp) -> bool {
     matches!(
         effect,
         EffectOp::Pure

@@ -3,9 +3,11 @@ extern crate alloc;
 use alloc::vec;
 use alloc::vec::Vec;
 
+use super::collection_slot_summary_build_nested::apply_summary_condition_fact;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_match_state::collection_slot_summary_match_arm_entry_state;
 use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
+use super::collection_slot_summary_return_path_condition::collect_return_path_preconditions;
 use super::collection_slot_summary_return_path_model::ReturnPathBuildState;
 use super::collection_slot_summary_return_path_state::{
     checked_states_after_op, return_path_states_after_ops,
@@ -47,6 +49,7 @@ pub(super) fn branch_return_path_states(
             engine,
             params,
             path.clone(),
+            condition_fact.as_ref().map(|fact| (fact, true)),
             then_ops,
             &selected_op,
         ));
@@ -66,6 +69,7 @@ pub(super) fn branch_return_path_states(
             engine,
             params,
             path,
+            condition_fact.as_ref().map(|fact| (fact, false)),
             else_ops,
             &selected_op,
         ));
@@ -102,12 +106,14 @@ pub(super) fn match_return_path_states(
         };
         let arm_start = ReturnPathBuildState {
             state: arm_state,
+            preconditions: path.preconditions.clone(),
             ops: path.ops.clone(),
         };
         paths.extend(control_arm_return_path_states(
             engine,
             params,
             arm_start,
+            None,
             &arm.ops,
             &selected_op,
         ));
@@ -118,16 +124,47 @@ pub(super) fn match_return_path_states(
 fn control_arm_return_path_states(
     engine: &ResourceCheckEngine<'_>,
     params: &[ResourceLocal],
-    path: ReturnPathBuildState,
+    mut path: ReturnPathBuildState,
+    condition_fact: Option<(&ResourceConditionFact, bool)>,
     arm_ops: &[ResourceOp],
     selected_op: &ResourceOp,
 ) -> Vec<ReturnPathBuildState> {
+    if let Some((condition_fact, truthy_path)) = condition_fact {
+        collect_return_path_preconditions(
+            &mut path.preconditions,
+            engine,
+            params,
+            &path.state,
+            condition_fact,
+            truthy_path,
+        );
+    }
     let checked_states = checked_states_after_op(engine, &path.state, selected_op);
     let op_paths = return_path_states_after_ops(engine, params, path.clone(), arm_ops)
         .into_iter()
         .map(|path| path.ops)
         .collect();
     pair_checked_states_with_ops(path, checked_states, op_paths)
+}
+
+pub(super) fn return_value_branch_arm_start(
+    engine: &ResourceCheckEngine<'_>,
+    params: &[ResourceLocal],
+    mut path: ReturnPathBuildState,
+    condition_fact: Option<(&ResourceConditionFact, bool)>,
+) -> ReturnPathBuildState {
+    if let Some((condition_fact, truthy_path)) = condition_fact {
+        collect_return_path_preconditions(
+            &mut path.preconditions,
+            engine,
+            params,
+            &path.state,
+            condition_fact,
+            truthy_path,
+        );
+        apply_summary_condition_fact(&mut path.state, Some(condition_fact), truthy_path);
+    }
+    path
 }
 
 fn pair_checked_states_with_ops(
@@ -139,7 +176,11 @@ fn pair_checked_states_with_ops(
         return checked_states
             .into_iter()
             .zip(op_paths)
-            .map(|(state, ops)| ReturnPathBuildState { state, ops })
+            .map(|(state, ops)| ReturnPathBuildState {
+                state,
+                preconditions: path.preconditions.clone(),
+                ops,
+            })
             .collect();
     }
     debug_assert_eq!(checked_states.len(), op_paths.len());
@@ -148,7 +189,11 @@ fn pair_checked_states_with_ops(
         .into_iter()
         .map(|state| {
             let ops = summary_ops.clone();
-            ReturnPathBuildState { state, ops }
+            ReturnPathBuildState {
+                state,
+                preconditions: path.preconditions.clone(),
+                ops,
+            }
         })
         .collect()
 }

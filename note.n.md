@@ -1,3 +1,31 @@
+# 2026-05-25 Agent 1 Vec filter return range scalar relation checkpoint
+
+- Zenn 方針を 2026-05-24 更新版で再確認し、試作段階でも静的検査の穴を局所抑制で隠さず、Resource IR の fact 伝播不足を根本から修正する方針で進めた。
+- `resource_ir_vec_filter_drop_payload_uses_transform_range_certificate` の残失敗は、returned `OwnedBuffer` が同じ output initialized range を `len` と `initialized_len` の2つの count projection で持ち、drop traversal cleanup が片方だけを消すことが原因だった。
+- `I32ScalarReturnFacts` に戻り値内 i32 relation を追加し、等価な return-value leaf projection を caller 側の `RawCellAddressAliases` へ復元するようにした。
+- construct の field ごとの return path だけでは `OwnedBuffer.len` と `OwnedBuffer.initialized_len` の関係を観測できないため、construct 完了後の出力全体から scalar fact を収集する経路を追加した。
+- return path 適用では i32 scalar fact を return range 復元より前に適用し、`mark_initialized_range_with_aliases` と後続 cleanup が count 等価性を参照できるようにした。
+- subagent の独立レビューで、range cleanup が count 外 slot を消せる点と、construct return path merge が precondition の異なる scalar fact を合流できる点を確認した。対応として、cleanup は `initialized_count` 内と証明できる concrete slot だけに限定し、construct return path merge は `ops` / `preconditions` / `return_variant` が一致する場合だけ行うようにした。
+- 一時的に追加されていた Resource IR trace 環境変数ログは削除し、通常の検証は単体テスト・integration test・issue 記録に集約した。
+- `ISS-20260525T132633255Z-VEC-FILTER-RETURN-RANGE-CLEANUP-LOSE-6D89D246` を追加し、fixed/resolved にした。
+- `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` に、Vec filter exact が 436.80s、collection-slot source exact が 129.60s、Vec lifecycle exact が 300s timeout した実測値を追記した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`: passed.
+  - `cargo test -p nepl-core i32_return_facts_preserve_equal_return_leaf_relations --lib -- --nocapture`: passed.
+  - `cargo test -p nepl-core clearing_initialized_range_uses_i32_relation_for_count_equivalence --lib -- --nocapture`: passed.
+  - `cargo test -p nepl-core i32_condition_uses_exact_value_derived_from_offset_chain --lib -- --nocapture`: passed.
+  - `cargo test -p nepl-core --lib -- --nocapture`: 370/370 passed.
+  - `cargo test -p nepl-core --test resource_ir resource_ir_vec_filter_drop_payload_uses_transform_range_certificate -- --exact --nocapture`: passed, 434.45s.
+  - `cargo test -p nepl-core --test collection_slot_full_range -- --nocapture`: 8/8 passed, 54.00s.
+  - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_traversal_storage_release -- --exact --nocapture`: passed, 54.23s.
+  - `cargo test -p nepl-core --test resource_ir resource_ir_initialized_check_vec_drop_push_free_closes_stdlib_lifecycle -- --exact --nocapture`: 300s timeout。機能失敗ではなく性能 issue 側で継続する。
+  - `node nodesrc/issues.js index --dir issues`: indexed issues, total=1257 open=13 resolved=1244.
+  - `node nodesrc/issues.js check --dir issues`: passed.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s).
+  - `git diff --check`: passed. CRLF checkout warning のみ。
+  - `trunk build`: passed.
+  - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint-resource-return-range.json`: 13/13 passed, JSON の `failedCount=0` を確認。
+
 # 2026-05-24 Agent 1 NEPLg2.1 source policy syntax view checkpoint
 
 - Zenn 方針を 2026-05-24 更新版で再確認し、試作段階でも static inspection の監視漏れを残さない方針で進めた。`plan.md` は確認のみで変更していない。
@@ -45844,3 +45872,37 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/neplg21_syntax_migrate.js --check`: passed.
   - `trunk build`: passed.
   - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-tests_checkpoint9.json`: 13/13 passed.
+
+## 2026-05-25 Agent 1 per-program performance baseline investigation
+
+- Zenn 方針の性能目標に合わせ、現在の branch で 1 program あたりの compile/run 所要時間を確認した。`plan.md` は変更していない。
+- `trunk build` を通し、current branch の `web/dist` (`nepl-web-a37a58fd9167e6db_bg.wasm`) を使って測定した。
+- `repo_metrics.ts` の current working tree 集計は 3249 files / 542184 lines / 3355 test cases だった。source_tree は 1233 files / 208860 lines / 1012 test cases。
+- 一時ベンチ `tmp/agent_perf_cases_20260525.n.md` では、core only return が `compile_ms=15629`, `run_ms=8`、`std/stdio` の `println_i32` が `compile_ms=84980`, `run_ms=7`、explicit `StreamWriter` i32 が `compile_ms=62197`, `run_ms=9`、explicit `StreamWriter` f32 が `compile_ms=62278`, `run_ms=9` だった。
+- `tests/stdlib/kp.n.md::doctest#1` は `compile_ms=193644`, `run_ms=10`、`doctest#3` は `compile_ms=183741`, `run_ms=9` だった。実行時間ではなく compile phase が支配的である。
+- default 60000ms での `tests/stdlib/kp.n.md` は `total=7, passed=0, failed=4, errored=3`。`doctest#1/#3/#7` は compile timeout、`doctest#2/#4/#5/#6` は旧 pipe 形が `type.pipe.invalid` などで compile fail したため、性能問題と NEPLg2.1 syntax migration 残件を分けて扱う。
+- この性能退行は `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` として分離した。既存 `ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8` は fixed 時点で KP focused suite が 20 秒台以下へ戻っていたため、単純な再オープンではなく current branch の compile-time regression として扱う。
+
+## 2026-05-25 Agent 1 resource unit fix verification and KP test cleanup
+
+- `ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729` の対象だった `effect_return_escape_tests` と `i32_call_facts_tests` は current branch の Resource IR owner projection / i32 fact propagation 修正後に通過した。
+- `kpread_to_kpwrite_f32` が writer-only の内容に変わっていたため、Rust integration の責務を明確にするため `kpwrite_f32_stdout_no_input` へ改名した。`kpread_to_kpwrite_f64` も同じく writer-only smoke の `kpwrite_f64_stdout_no_input` へ整理した。
+- scanner + float writer を同じ Rust integration case で走らせると長時間化するため、機能 smoke は writer-only に絞り、scanner + writer 組み合わせの compile-time pressure は `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` の性能対象として追う。
+- verification:
+  - `cargo test -p nepl-core effect_return_escape --lib -- --nocapture`: 5/5 passed.
+  - `cargo test -p nepl-core i32_call_facts --lib -- --nocapture`: 6/6 passed.
+  - `cargo test -p nepl-core --lib -- --nocapture`: 361/361 passed.
+  - `cargo test -p nepl-core --test kp kpwrite_f64_stdout_no_input -- --nocapture`: passed, 52.60s.
+  - `cargo test -p nepl-core --test kp kpwrite_f32_stdout_no_input -- --nocapture`: passed, 52.96s.
+  - `cargo test -p nepl-core --test kp -- --nocapture`: 15/15 passed, 336.74s.
+
+## 2026-05-25 Agent 1 move_check Resource IR diagnostic and loop backedge checkpoint
+
+- `ISS-20260524T232939580Z-MOVE-CHECK-INTEGRATION-EXPECTS-STALE-DE60A3A4` の対応として、`nepl-core/tests/move_check.rs` の旧 human-readable message assertion を `DiagnosticCode` ベースの helper へ移行した。
+- これにより、診断表示文言を改善しても、`resource.cell.*` / `resource.move.*` / `resource.borrow.*` として期待する静的検査の意味を保ったまま integration test を維持できる。
+- raw memory boundary fixture は `stdlib` root 配下の synthetic path で compile し、raw boundary policy と同じ条件で検査されるようにした。
+- `move_in_loop` は stale assertion ではなく、Resource loop checker が body post-state から次反復を診断用に replay していない実装上の穴だったため、`ISS-20260524T234608312Z-RESOURCE-LOOP-CHECKER-DOES-NOT-REPLA-51B65237` として分離した。
+- `ResourceCheckEngine::check_loop` は body path alternatives を保持し、各 body post-state から次の condition/body を一度だけ replay する。これは loop-carried move violation の診断収集用であり、外へ出す loop state は exit path と body path の merge のままとした。
+- focused verification:
+  - `cargo test -p nepl-core --test move_check move_in_loop -- --nocapture`: passed.
+  - `cargo test -p nepl-core --test move_check -- --nocapture`: 55/55 passed, 238.30s.

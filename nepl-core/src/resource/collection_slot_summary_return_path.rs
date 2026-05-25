@@ -19,6 +19,7 @@ pub(super) fn collect_return_paths_from_ops(
 ) {
     let start = ReturnPathBuildState {
         state: state_at_start.clone(),
+        preconditions: Vec::new(),
         ops: Vec::new(),
     };
     collect_return_paths_from_value_to_suffix(

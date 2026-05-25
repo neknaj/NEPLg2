@@ -230,14 +230,20 @@ impl ResourceCheckEngine<'_> {
             }
             match entry.state {
                 CollectionSlotState::Initialized(slot_ty) if slot_ty == expected_ty => {
-                    collection_slots
-                        .set_slot_state(&entry.slot, CollectionSlotState::Moved(expected_ty));
+                    collection_slots.set_slot_state_with_aliases(
+                        &entry.slot,
+                        raw_aliases,
+                        CollectionSlotState::Moved(expected_ty),
+                    );
                 }
                 CollectionSlotState::MaybeInitialized(slot_ty)
                     if slot_ty.is_none() || slot_ty == Some(expected_ty) =>
                 {
-                    collection_slots
-                        .set_slot_state(&entry.slot, CollectionSlotState::Moved(expected_ty));
+                    collection_slots.set_slot_state_with_aliases(
+                        &entry.slot,
+                        raw_aliases,
+                        CollectionSlotState::Moved(expected_ty),
+                    );
                 }
                 CollectionSlotState::Uninitialized
                 | CollectionSlotState::Initialized(_)
@@ -307,6 +313,7 @@ impl ResourceCheckEngine<'_> {
             output_proof,
         )?;
         committed_slots.clear_initialized_range_with_aliases(
+            self.types,
             source_storage,
             source_initialized_count,
             expected_ty,
@@ -364,6 +371,7 @@ impl ResourceCheckEngine<'_> {
             source_proof,
         )?;
         committed_slots.clear_initialized_range_with_aliases(
+            self.types,
             source_storage,
             source_initialized_count,
             expected_ty,
@@ -388,20 +396,30 @@ impl ResourceCheckEngine<'_> {
         let entries =
             collection_slots.entries_covered_by_storage_with_aliases(storage, raw_aliases);
         for entry in entries {
-            if !collection_slot_offset_is_inside_initialized_count(
+            let storage_alias = storage_alias_covering_slot(&entry.slot, storage, raw_aliases)
+                .unwrap_or_else(|| storage.clone());
+            let definitely_inside = collection_slot_offset_is_inside_initialized_count(
                 self.types,
                 raw_aliases,
                 &entry.slot,
-                storage_alias_covering_slot(&entry.slot, storage, raw_aliases)
-                    .as_ref()
-                    .unwrap_or(storage),
+                &storage_alias,
                 initialized_count,
                 expected_ty,
-            ) {
+            );
+            if !definitely_inside
+                && collection_slot_offset_is_definitely_outside_initialized_count(
+                    self.types,
+                    raw_aliases,
+                    &entry.slot,
+                    &storage_alias,
+                    initialized_count,
+                    expected_ty,
+                )
+            {
                 continue;
             }
             match entry.state {
-                CollectionSlotState::Initialized(_) => {
+                CollectionSlotState::Initialized(_) if definitely_inside => {
                     let event = CollectionSlotLifecycleEvent::MoveOut { expected_ty };
                     let plan = self.collection_slot_lifecycle_proof_plan(
                         cells,
@@ -427,6 +445,16 @@ impl ResourceCheckEngine<'_> {
                         event,
                     )?;
                 }
+                CollectionSlotState::MaybeInitialized(slot_ty)
+                    if slot_ty.is_none() || slot_ty == Some(expected_ty) =>
+                {
+                    collection_slots.set_slot_state_with_aliases(
+                        &entry.slot,
+                        raw_aliases,
+                        CollectionSlotState::Moved(expected_ty),
+                    );
+                }
+                CollectionSlotState::Initialized(_) => {}
                 CollectionSlotState::MaybeInitialized(slot_ty) => {
                     return Err(CollectionSlotTableRefutation {
                         slot: entry.slot,
@@ -758,6 +786,60 @@ mod tests {
             collection_slots.state_with_aliases(&source_slot1, &raw_aliases),
             CollectionSlotState::Initialized(owned_ty),
             "source cleanup must not hide a live slot outside source_initialized_count"
+        );
+    }
+
+    #[test]
+    fn local_transform_range_accepts_maybe_initialized_source_slots_inside_range() {
+        let (types, owned_ty) = types_with_owned_payload();
+        let i32_ty = types.i32();
+        let span = Span::dummy();
+        let source_storage = Place::local("source_storage".to_string(), i32_ty);
+        let source_count = Place::local("source_count".to_string(), i32_ty);
+        let output_storage = Place::local("output_storage".to_string(), i32_ty);
+        let output_count = Place::local("output_count".to_string(), i32_ty);
+        let source_slot0 = collection_slot_at(&source_storage, 0, i32_ty, owned_ty);
+        let mut engine = test_engine(
+            &types,
+            vec![transform_candidate(
+                &source_storage,
+                &source_count,
+                &output_storage,
+                &output_count,
+                owned_ty,
+            )],
+        );
+        let mut cells = CellTable::default();
+        let mut collection_slots = CollectionSlotStateTable::new();
+        collection_slots.set_slot_state(
+            &source_slot0,
+            CollectionSlotState::MaybeInitialized(Some(owned_ty)),
+        );
+        let mut raw_aliases = RawCellAddressAliases::default();
+        raw_aliases.set_i32_value(&source_count, 1);
+        raw_aliases.set_i32_value(&output_count, 0);
+
+        engine.apply_local_collection_slot_transform_range_with_aliases(
+            &mut cells,
+            &mut collection_slots,
+            &raw_aliases,
+            &source_storage,
+            &source_count,
+            &output_storage,
+            &output_count,
+            owned_ty,
+            span,
+        );
+
+        assert_eq!(
+            engine.diagnostics,
+            Vec::<ResourceCheckDiagnostic>::new(),
+            "the transform marker should close in-range maybe-live source slots with the loop-derived certificate"
+        );
+        assert_eq!(
+            collection_slots.state_with_aliases(&source_slot0, &raw_aliases),
+            CollectionSlotState::Uninitialized,
+            "the source slot is no longer live after the certified transform range is consumed"
         );
     }
 

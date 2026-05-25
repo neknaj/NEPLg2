@@ -12,7 +12,7 @@ use super::function_alias::FunctionAliasTable;
 use super::i32_scalar_return_facts::{
     apply_i32_scalar_return_facts, collect_i32_scalar_return_facts_for_value_suffix_cached,
     I32ScalarParameterCondition, I32ScalarReturnAlias, I32ScalarReturnCondition,
-    I32ScalarReturnConstant, I32ScalarReturnFacts, I32ScalarReturnOffset,
+    I32ScalarReturnConstant, I32ScalarReturnFacts, I32ScalarReturnOffset, I32ScalarReturnRelation,
 };
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
@@ -146,6 +146,7 @@ fn function_i32_scalar_return_summary(
 ) -> I32ScalarReturnSummary {
     let mut alias_paths = Vec::new();
     let mut offset_paths = Vec::new();
+    let mut relation_paths = Vec::new();
     let mut constant_paths = Vec::new();
     let mut return_condition_paths = Vec::new();
     let mut parameter_condition_paths = Vec::new();
@@ -190,6 +191,7 @@ fn function_i32_scalar_return_summary(
                 );
                 alias_paths.push(path_facts.aliases);
                 offset_paths.push(path_facts.offsets);
+                relation_paths.push(path_facts.relations);
                 constant_paths.push(path_facts.constants);
                 return_condition_paths.push(path_facts.return_conditions);
                 parameter_condition_paths.push(path_facts.parameter_conditions);
@@ -198,6 +200,7 @@ fn function_i32_scalar_return_summary(
     }
     let aliases = merge_i32_scalar_return_fact_paths(alias_paths, &projection_paths);
     let offsets = merge_i32_scalar_return_fact_paths(offset_paths, &projection_paths);
+    let relations = merge_i32_scalar_return_relation_paths(relation_paths, &projection_paths);
     let constants = merge_i32_scalar_return_fact_paths(constant_paths, &projection_paths);
     let return_conditions =
         merge_i32_scalar_return_fact_paths(return_condition_paths, &projection_paths);
@@ -213,6 +216,7 @@ fn function_i32_scalar_return_summary(
         facts: I32ScalarReturnFacts {
             aliases,
             offsets,
+            relations,
             constants,
             return_conditions,
             parameter_conditions,
@@ -489,6 +493,16 @@ fn i32_scalar_return_fact_projections(
     for offset in &facts.offsets {
         push_unique_i32_scalar_return_projection(&mut projections, &offset.return_projection);
     }
+    for relation in &facts.relations {
+        push_unique_i32_scalar_return_projection(
+            &mut projections,
+            &relation.left_return_projection,
+        );
+        push_unique_i32_scalar_return_projection(
+            &mut projections,
+            &relation.right_return_projection,
+        );
+    }
     for constant in &facts.constants {
         push_unique_i32_scalar_return_projection(&mut projections, &constant.return_projection);
     }
@@ -540,6 +554,52 @@ where
                 })
         })
         .collect()
+}
+
+fn merge_i32_scalar_return_relation_paths(
+    paths: Vec<Vec<I32ScalarReturnRelation>>,
+    projection_paths: &[Vec<Vec<PlaceProjection>>],
+) -> Vec<I32ScalarReturnRelation> {
+    let mut candidates = Vec::new();
+    for path in &paths {
+        for relation in path {
+            push_unique_i32_scalar_return_relation(&mut candidates, relation.clone());
+        }
+    }
+    candidates
+        .into_iter()
+        .filter(|relation| {
+            paths
+                .iter()
+                .zip(projection_paths)
+                .all(|(path, projections)| {
+                    path.iter().any(|path_relation| path_relation == relation)
+                        || relation_projection_targets_sibling_variant(relation, projections)
+                })
+        })
+        .collect()
+}
+
+fn relation_projection_targets_sibling_variant(
+    relation: &I32ScalarReturnRelation,
+    projections: &[Vec<PlaceProjection>],
+) -> bool {
+    projections.iter().any(|projection| {
+        return_projections_target_sibling_variant(&relation.left_return_projection, projection)
+            || return_projections_target_sibling_variant(
+                &relation.right_return_projection,
+                projection,
+            )
+    })
+}
+
+fn push_unique_i32_scalar_return_relation(
+    relations: &mut Vec<I32ScalarReturnRelation>,
+    relation: I32ScalarReturnRelation,
+) {
+    if !relations.iter().any(|existing| existing == &relation) {
+        relations.push(relation);
+    }
 }
 
 fn push_unique_i32_scalar_return_fact<T>(facts: &mut Vec<T>, fact: T)

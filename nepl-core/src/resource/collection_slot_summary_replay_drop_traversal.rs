@@ -8,7 +8,8 @@ use crate::types::TypeId;
 use super::cell_state::CellTable;
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryPlace,
+    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryI32Operand,
+    CollectionSlotLifecycleSummaryPlace,
 };
 use super::collection_slot_summary_target::instantiate_summary_target_with_aliases;
 use super::initialized::ResourceCheckEngine;
@@ -22,7 +23,7 @@ pub(super) fn apply_drop_traversal_summary_op(
     raw_aliases: &RawCellAddressAliases,
     args: &[Place],
     storage: &CollectionSlotLifecycleSummaryPlace,
-    initialized_count: &CollectionSlotLifecycleSummaryPlace,
+    initialized_count: &CollectionSlotLifecycleSummaryI32Operand,
     expected_ty: TypeId,
     coverage: &CollectionSlotLifecycleSummaryDropTraversalCoverage,
     span: Span,
@@ -32,7 +33,7 @@ pub(super) fn apply_drop_traversal_summary_op(
         return;
     };
     let Some(initialized_count) =
-        instantiate_summary_target_with_aliases(engine, args, raw_aliases, initialized_count)
+        instantiate_summary_i32_operand(engine, args, raw_aliases, initialized_count)
     else {
         return;
     };
@@ -73,6 +74,22 @@ pub(super) fn apply_drop_traversal_summary_op(
                 *certificate,
                 span,
             );
+        }
+    }
+}
+
+fn instantiate_summary_i32_operand(
+    engine: &ResourceCheckEngine<'_>,
+    args: &[Place],
+    raw_aliases: &RawCellAddressAliases,
+    operand: &CollectionSlotLifecycleSummaryI32Operand,
+) -> Option<Place> {
+    match operand {
+        CollectionSlotLifecycleSummaryI32Operand::Place(place) => {
+            instantiate_summary_target_with_aliases(engine, args, raw_aliases, place)
+        }
+        CollectionSlotLifecycleSummaryI32Operand::KnownI32 { value, ty } => {
+            Some(Place::i32_constant(*value, *ty))
         }
     }
 }

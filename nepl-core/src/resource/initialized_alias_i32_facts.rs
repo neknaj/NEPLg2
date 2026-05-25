@@ -69,15 +69,26 @@ impl RawCellAddressAliases {
     }
 
     pub(super) fn add_i32_offset(&mut self, source: &Place, target: &Place, offset: i64) {
+        let source_origin = self.canonicalize_scalar(source);
+        let fact_copies =
+            (offset == 0).then(|| self.scalar_fact_copies_for_aliases(source, target));
         let mut sources = self.scalar_fact_recording_sources(source);
         sources.retain(|source| source != target);
         self.clear_scalar_facts(target);
         self.i32_offsets
             .set_offsets_for_target(sources, target, offset);
+        if let Some(fact_copies) = fact_copies {
+            // offset 0 は算術的な差分情報であると同時に、source の値そのものを
+            // target へ渡す事実でもある。ここで条件と定数を直接写しておくと、
+            // Result/Option payload を経由する owner-return summary が 0-offset の
+            // 長い鎖だけに依存せず、後続の range proof が同じ値条件を参照できる。
+            self.copy_scalar_facts_to_fresh_target(source, target, source_origin, fact_copies);
+        }
     }
 
     pub(super) fn i32_value(&self, place: &Place) -> Option<i32> {
         self.direct_i32_value(place)
+            .or_else(|| self.i32_value_from_bounded_offsets(place))
     }
 
     fn direct_i32_value(&self, place: &Place) -> Option<i32> {
@@ -106,7 +117,51 @@ impl RawCellAddressAliases {
                 op,
                 &self.scalar_aliases_for(right),
             )
+            .or_else(|| self.i32_relation_truth_from_zero_condition(left, op, right))
             .or_else(|| self.i32_offset_relation_truth(left, op, right))
+    }
+
+    fn i32_relation_truth_from_zero_condition(
+        &self,
+        left: &Place,
+        op: ResourceI32RelationOp,
+        right: &Place,
+    ) -> Option<bool> {
+        let left_value = self.direct_i32_value(left);
+        let right_value = self.direct_i32_value(right);
+        match (left_value, right_value) {
+            (Some(0), None) => self.i32_relation_truth_from_condition_against_zero(right, op, true),
+            (None, Some(0)) => self.i32_relation_truth_from_condition_against_zero(left, op, false),
+            _ => None,
+        }
+    }
+
+    fn i32_relation_truth_from_condition_against_zero(
+        &self,
+        place: &Place,
+        op: ResourceI32RelationOp,
+        zero_on_left: bool,
+    ) -> Option<bool> {
+        let condition = if zero_on_left {
+            match op {
+                ResourceI32RelationOp::Lt => I32ValueCondition::Positive,
+                ResourceI32RelationOp::Le => I32ValueCondition::NonNegative,
+                ResourceI32RelationOp::Gt => I32ValueCondition::Negative,
+                ResourceI32RelationOp::Ge => I32ValueCondition::NonPositive,
+                ResourceI32RelationOp::Eq => I32ValueCondition::EqZero,
+                ResourceI32RelationOp::Ne => I32ValueCondition::NeZero,
+            }
+        } else {
+            match op {
+                ResourceI32RelationOp::Lt => I32ValueCondition::Negative,
+                ResourceI32RelationOp::Le => I32ValueCondition::NonPositive,
+                ResourceI32RelationOp::Gt => I32ValueCondition::Positive,
+                ResourceI32RelationOp::Ge => I32ValueCondition::NonNegative,
+                ResourceI32RelationOp::Eq => I32ValueCondition::EqZero,
+                ResourceI32RelationOp::Ne => I32ValueCondition::NeZero,
+            }
+        };
+        self.i32_condition_truth(place, condition)
     }
 
     fn i32_relation_value(&self, place: &Place) -> Option<i32> {
@@ -196,16 +251,20 @@ impl RawCellAddressAliases {
     }
 
     pub(super) fn i32_difference_sources(&self, place: &Place) -> Vec<(Place, Place)> {
-        self.i32_differences
+        let mut out = Vec::new();
+        for (minuend, subtrahend) in self
+            .i32_differences
             .difference_sources_for_aliases(&self.scalar_aliases_for(place))
-            .into_iter()
-            .map(|(minuend, subtrahend)| {
-                (
-                    self.canonicalize_scalar(&minuend),
-                    self.canonicalize_scalar(&subtrahend),
-                )
-            })
-            .collect()
+        {
+            let pair = (
+                self.canonicalize_scalar(&minuend),
+                self.canonicalize_scalar(&subtrahend),
+            );
+            if !out.iter().any(|existing| existing == &pair) {
+                out.push(pair);
+            }
+        }
+        out
     }
 
     pub(super) fn scalar_aliases_for_value(&self, place: &Place) -> Vec<Place> {

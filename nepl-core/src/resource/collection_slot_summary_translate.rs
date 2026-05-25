@@ -190,32 +190,42 @@ pub(super) fn translate_summary_ops_through_args(
                 ) else {
                     continue;
                 };
-                let Some(output_storage) = translate_summary_place_through_args(
+                let output_storage = translate_summary_place_through_args(
                     engine,
                     args,
                     params,
                     raw_aliases,
                     output_storage,
-                ) else {
-                    continue;
-                };
-                let Some(output_initialized_count) = translate_summary_place_through_args(
+                );
+                let output_initialized_count = translate_summary_place_through_args(
                     engine,
                     args,
                     params,
                     raw_aliases,
                     output_initialized_count,
-                ) else {
-                    continue;
-                };
-                out.push(CollectionSlotLifecycleSummaryOp::TransformRange {
-                    source_storage,
-                    source_initialized_count,
-                    output_storage,
-                    output_initialized_count,
-                    expected_ty: *expected_ty,
-                    certificate: *certificate,
-                });
+                );
+                match (output_storage, output_initialized_count) {
+                    (Some(output_storage), Some(output_initialized_count)) => {
+                        out.push(CollectionSlotLifecycleSummaryOp::TransformRange {
+                            source_storage,
+                            source_initialized_count,
+                            output_storage,
+                            output_initialized_count,
+                            expected_ty: *expected_ty,
+                            certificate: *certificate,
+                        });
+                    }
+                    (None, _) | (Some(_), None) => {
+                        out.push(
+                            CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain {
+                                source_storage,
+                                source_initialized_count,
+                                expected_ty: *expected_ty,
+                                certificate: *certificate,
+                            },
+                        );
+                    }
+                }
             }
             CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain {
                 source_storage,

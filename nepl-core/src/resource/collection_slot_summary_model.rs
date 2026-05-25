@@ -9,8 +9,8 @@ use super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
 use super::collection_slot_owner_transfer::CollectionSlotOwnerTransferObligation;
 use super::collection_slot_summary_return_model::{
-    CollectionSlotLifecycleReturnRange, CollectionSlotLifecycleReturnSlot,
-    CollectionSlotLifecycleReturnTransfer,
+    CollectionSlotLifecyclePathPrecondition, CollectionSlotLifecycleReturnRange,
+    CollectionSlotLifecycleReturnSlot, CollectionSlotLifecycleReturnTransfer,
 };
 use super::i32_scalar_return_facts::I32ScalarReturnFacts;
 use super::summary_index::{FunctionSummary, SummaryIndex};
@@ -50,7 +50,7 @@ pub(super) enum CollectionSlotLifecycleSummaryOp {
     },
     DropTraversal {
         storage: CollectionSlotLifecycleSummaryPlace,
-        initialized_count: CollectionSlotLifecycleSummaryPlace,
+        initialized_count: CollectionSlotLifecycleSummaryI32Operand,
         expected_ty: TypeId,
         coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage,
     },
@@ -154,7 +154,15 @@ pub(super) enum CollectionSlotLifecycleSummaryRelocateProof {
 pub(super) type CollectionSlotLifecycleSummaryPlace = SummaryPlace;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum CollectionSlotLifecycleSummaryI32Operand {
+    Place(CollectionSlotLifecycleSummaryPlace),
+    KnownI32 { value: i32, ty: TypeId },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct CollectionSlotLifecycleReturnPath {
+    pub(super) return_variant: Option<String>,
+    pub(super) preconditions: Vec<CollectionSlotLifecyclePathPrecondition>,
     pub(super) ops: Vec<CollectionSlotLifecycleSummaryOp>,
     pub(super) return_transfers: Vec<CollectionSlotLifecycleReturnTransfer>,
     pub(super) return_slots: Vec<CollectionSlotLifecycleReturnSlot>,

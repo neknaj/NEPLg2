@@ -37,7 +37,7 @@ pub(super) fn body_preserves_place_with_drop_witness(
         } else if op_index == witness_load_index {
             op_preserves_place(engine, &raw_aliases, op, protected)
         } else if op_index <= witness_drop_index {
-            op_preserves_place_during_drop_witness(&raw_aliases, op, protected)
+            op_preserves_place_during_drop_witness(engine, &raw_aliases, op, protected)
         } else {
             op_preserves_place_after_drop_witness(engine, &raw_aliases, op, protected)
         };

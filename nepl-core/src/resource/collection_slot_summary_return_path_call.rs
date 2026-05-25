@@ -7,8 +7,10 @@ use super::collection_slot_summary_model::{
 };
 use super::collection_slot_summary_projection::compose_translated_summary_suffix_for_params;
 use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
+use super::collection_slot_summary_return_path_condition::translate_return_path_preconditions_for_call;
 use super::collection_slot_summary_return_path_model::{push_return_path, ReturnPathBuildState};
 use super::collection_slot_summary_return_path_slots::translate_return_slots;
+use super::collection_slot_summary_return_path_variant::return_path_matches_callsite_variants;
 use super::collection_slot_summary_return_range::translate_return_ranges;
 use super::collection_slot_summary_return_unique::push_return_transfer;
 use super::collection_slot_summary_target::{
@@ -94,6 +96,15 @@ fn collect_return_paths_from_summary(
         return;
     }
     for callee_path in &summary.return_paths {
+        if !return_path_matches_callsite_variants(
+            engine,
+            args,
+            &callsite.state.raw_aliases,
+            &callsite.state.variant_initializations,
+            callee_path,
+        ) {
+            continue;
+        }
         let mut translated_ops = Vec::new();
         translate_summary_ops_through_args(
             &mut translated_ops,
@@ -129,10 +140,27 @@ fn collect_return_paths_from_summary(
             &callee_path.return_ranges,
             target_suffix,
         );
+        let preconditions = translate_return_path_preconditions_for_call(
+            engine,
+            args,
+            params,
+            &callsite.state.raw_aliases,
+            &callee_path.preconditions,
+        );
+        let i32_scalar_facts = translate_i32_scalar_return_facts_for_call(
+            params,
+            engine.types,
+            &callsite.state.raw_aliases,
+            args,
+            target_suffix,
+            &callee_path.i32_scalar_facts,
+        );
         if translated_ops.is_empty()
             && return_transfers.is_empty()
             && return_slots.is_empty()
             && return_ranges.is_empty()
+            && preconditions.is_empty()
+            && i32_scalar_facts.is_empty()
         {
             continue;
         }
@@ -141,18 +169,17 @@ fn collect_return_paths_from_summary(
         push_return_path(
             out,
             CollectionSlotLifecycleReturnPath {
+                return_variant: if target_suffix.is_empty() {
+                    callee_path.return_variant.clone()
+                } else {
+                    None
+                },
+                preconditions,
                 ops,
                 return_transfers,
                 return_slots,
                 return_ranges,
-                i32_scalar_facts: translate_i32_scalar_return_facts_for_call(
-                    params,
-                    engine.types,
-                    &callsite.state.raw_aliases,
-                    args,
-                    target_suffix,
-                    &callee_path.i32_scalar_facts,
-                ),
+                i32_scalar_facts,
             },
         );
     }
@@ -210,6 +237,8 @@ fn collect_legacy_return_path_from_summary(
     push_return_path(
         out,
         CollectionSlotLifecycleReturnPath {
+            return_variant: None,
+            preconditions: Vec::new(),
             ops,
             return_transfers,
             return_slots,

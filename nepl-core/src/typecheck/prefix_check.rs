@@ -625,7 +625,6 @@ impl<'a> BlockChecker<'a> {
         let mut dropped = false;
         let mut last_expr: Option<HirExpr> = None;
         let mut pipe_pending: Option<Vec<StackEntry>> = None;
-        let mut seen_pipe = false;
         // Expected type to apply once the annotated expression has produced
         // exactly one stack value above the depth where the expectation started.
         let mut pending_ascription: Option<TypeExpectation> =
@@ -2066,7 +2065,6 @@ impl<'a> BlockChecker<'a> {
                     let pending = stack.drain(pipe_base..).collect::<Vec<_>>();
                     last_expr = pending.last().map(|se| se.expr.clone());
                     pipe_pending = Some(pending);
-                    seen_pipe = true;
                 }
             }
 
@@ -2167,7 +2165,7 @@ impl<'a> BlockChecker<'a> {
                 let mut pending_base =
                     pending_ascription.map(|expectation| expectation.base_depth());
                 let mut pipe_guard = false;
-                let reduction_expected = if next_is_pipe && seen_pipe {
+                let reduction_expected = if next_is_pipe {
                     pending_ascription.filter(|pending| {
                         is_local_pending_ascription(stack.as_slice(), Some(*pending), base_depth)
                     })

@@ -532,6 +532,7 @@ impl ResourceCheckEngine<'_> {
                         );
                         cells.transfer_raw_cell_loaded_value_origin(initializer, place);
                         self.transfer_slot_state_if_moved_with_aliases(
+                            cells,
                             collection_slots,
                             initializer,
                             place,
@@ -579,6 +580,7 @@ impl ResourceCheckEngine<'_> {
                     );
                     cells.transfer_raw_cell_loaded_value_origin(source, output);
                     self.transfer_slot_state_if_moved_with_aliases(
+                        cells,
                         collection_slots,
                         source,
                         output,
@@ -622,6 +624,7 @@ impl ResourceCheckEngine<'_> {
                     );
                     cells.transfer_raw_cell_loaded_value_origin(value, target);
                     self.transfer_slot_state_if_moved_with_aliases(
+                        cells,
                         collection_slots,
                         value,
                         target,
@@ -818,6 +821,7 @@ impl ResourceCheckEngine<'_> {
                         );
                         cells.transfer_raw_cell_loaded_value_origin(input, &field);
                         self.transfer_slot_state_if_moved_with_aliases(
+                            cells,
                             collection_slots,
                             input,
                             &field,

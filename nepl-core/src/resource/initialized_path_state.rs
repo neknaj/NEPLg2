@@ -54,17 +54,13 @@ pub(super) enum ResourcePathAlternatives {
 
 impl ResourcePathAlternatives {
     pub(super) fn from_states(states: Vec<ResourceCheckState>) -> Self {
-        if states.is_empty() {
-            Self::None
-        } else {
-            Self::Feasible(states)
-        }
+        Self::Feasible(states)
     }
 
-    pub(super) fn into_states(self) -> Vec<ResourceCheckState> {
+    pub(super) fn into_feasible_states(self) -> Option<Vec<ResourceCheckState>> {
         match self {
-            ResourcePathAlternatives::None => Vec::new(),
-            ResourcePathAlternatives::Feasible(states) => states,
+            ResourcePathAlternatives::None => None,
+            ResourcePathAlternatives::Feasible(states) => Some(states),
         }
     }
 }
@@ -90,12 +86,9 @@ impl ResourceCheckEngine<'_> {
                 op,
                 path.clone(),
             );
-            let path_alternatives =
-                core::mem::take(&mut path_engine.path_alternatives).into_states();
-            if path_alternatives.is_empty() {
-                out.push(state);
-            } else {
-                out.extend(path_alternatives);
+            match core::mem::take(&mut path_engine.path_alternatives).into_feasible_states() {
+                Some(path_alternatives) => out.extend(path_alternatives),
+                None => out.push(state),
             }
             self.absorb_path_engine_output(path_engine);
         }

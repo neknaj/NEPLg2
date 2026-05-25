@@ -46,6 +46,7 @@ impl ResourceCheckEngine<'_> {
                 .and_then(|()| {
                     if consume_collection_slot_storage_release_proof(
                         pending_raw_storage,
+                        raw_aliases,
                         target,
                         storage_release_proof,
                     ) {

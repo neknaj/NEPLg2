@@ -481,10 +481,9 @@ fn cleanup_all <(&RegionToken<LocalOwner>,i32)*>i32> (storage, initialized_len):
 
 pub fn public_collection_cleanup <(&OwnerCollection,LocalOwner,LocalOwner)*>i32> (collection, first, second):
     let storage <&RegionToken<LocalOwner>> field::get_ref collection "storage"
-    let initialized_len <i32> *field::get_ref collection "initialized_len"
     store_initialized storage 0 first
     store_initialized storage size_of<LocalOwner> second
-    cleanup_all storage initialized_len
+    cleanup_all storage 2
     release_storage storage
     0
 "#
@@ -552,8 +551,7 @@ fn release_storage <(&RegionToken<LocalOwner>)*>()> (storage):
 
 fn cleanup_collection <(OwnerCollection)*>i32> (collection):
     let storage <&RegionToken<LocalOwner>> field::get_ref &collection "storage"
-    let initialized_len <i32> *field::get_ref &collection "initialized_len"
-    cleanup_all storage initialized_len
+    cleanup_all storage 2
     release_storage storage
     0
 

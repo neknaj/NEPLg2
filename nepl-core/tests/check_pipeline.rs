@@ -1,7 +1,10 @@
 use nepl_core::compiler::prepare_module_for_codegen;
 use nepl_core::diagnostic_codes::{DiagnosticCode, EffectDiagnosticCode};
 use nepl_core::error::CoreError;
-use nepl_core::resource::{ResourceDropElaborationFunction, ResourceDropElaborationPlan};
+use nepl_core::resource::{
+    PlaceRoot, ResourceDropElaborationFunction, ResourceDropElaborationPlan,
+    ResourceDropRequirement,
+};
 use nepl_core::span::FileId;
 use nepl_core::{check_module, compile_wasm, lexer, parser, CompileOptions, CompileTarget};
 
@@ -68,8 +71,17 @@ fn prepare_codegen_exposes_checked_resource_drop_elaboration_plan() {
 #target core
 #no_prelude
 
+trait Drop:
+    #capability drop
+    fn drop <(&Self)*>()> (self):
+        ()
+
 struct Guard:
     id <i32>
+
+impl Drop for Guard:
+    fn drop <(&Guard)*>()> (_self):
+        ()
 
 fn ignore <.T> <(.T)->i32> (_value):
     1
@@ -95,13 +107,14 @@ fn main <()->i32> ():
         ignore_plan.name, ignore_plan.origin_name,
         "prepared drop plan should be built from monomorphized Resource IR"
     );
-    assert!(ignore_plan.auto_drops.iter().any(|drop| {
-        drop.source_name == "_value"
-            && matches!(
-                drop.requirement,
-                nepl_core::resource::ResourceDropRequirement::StateOnly
-            )
-    }));
+    assert!(
+        ignore_plan.auto_drops.iter().any(|drop| {
+            drop.source_name == "_value"
+                && matches!(&drop.place.root, PlaceRoot::Local(name) if name == "_value")
+                && matches!(drop.requirement, ResourceDropRequirement::WholeValue)
+        }),
+        "prepared drop plan should expose the checked monomorphized ignore parameter drop: {ignore_plan:#?}"
+    );
 }
 
 #[test]

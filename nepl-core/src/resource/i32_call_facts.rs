@@ -9,10 +9,10 @@ pub(super) fn record_direct_call_i32_facts(
     output: &Place,
     args: &[Place],
 ) {
-    record_i32_constant_result(raw_aliases, target, output, args);
     record_i32_scale_result(raw_aliases, target, output, args);
     record_i32_offset_result(raw_aliases, target, output, args);
     record_i32_difference_result(raw_aliases, target, output, args);
+    record_i32_constant_result(raw_aliases, target, output, args);
 }
 fn record_i32_constant_result(
     raw_aliases: &mut RawCellAddressAliases,

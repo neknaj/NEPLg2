@@ -5,8 +5,8 @@ use alloc::vec::Vec;
 use crate::types::TypeId;
 
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
-    CollectionSlotLifecycleSummaryPlace,
+    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryI32Operand,
+    CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryPlace,
 };
 use super::collection_slot_summary_target::{
     instantiate_summary_target_with_aliases, summary_place_for_params_with_aliases_and_types,
@@ -23,7 +23,7 @@ pub(super) fn translate_drop_traversal_summary_op(
     params: &[ResourceLocal],
     raw_aliases: &RawCellAddressAliases,
     storage: &CollectionSlotLifecycleSummaryPlace,
-    initialized_count: &CollectionSlotLifecycleSummaryPlace,
+    initialized_count: &CollectionSlotLifecycleSummaryI32Operand,
     expected_ty: TypeId,
     coverage: &CollectionSlotLifecycleSummaryDropTraversalCoverage,
 ) {
@@ -31,7 +31,7 @@ pub(super) fn translate_drop_traversal_summary_op(
         return;
     };
     let Some(initialized_count) =
-        translate_summary_place(engine, args, params, raw_aliases, initialized_count)
+        translate_i32_operand(engine, args, params, raw_aliases, initialized_count)
     else {
         return;
     };
@@ -46,6 +46,35 @@ pub(super) fn translate_drop_traversal_summary_op(
         expected_ty,
         coverage,
     });
+}
+
+fn translate_i32_operand(
+    engine: &ResourceCheckEngine<'_>,
+    args: &[Place],
+    params: &[ResourceLocal],
+    raw_aliases: &RawCellAddressAliases,
+    operand: &CollectionSlotLifecycleSummaryI32Operand,
+) -> Option<CollectionSlotLifecycleSummaryI32Operand> {
+    match operand {
+        CollectionSlotLifecycleSummaryI32Operand::KnownI32 { value, ty } => {
+            Some(CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
+                value: *value,
+                ty: *ty,
+            })
+        }
+        CollectionSlotLifecycleSummaryI32Operand::Place(place) => {
+            if let Some(place) = translate_summary_place(engine, args, params, raw_aliases, place) {
+                return Some(CollectionSlotLifecycleSummaryI32Operand::Place(place));
+            }
+            let actual = instantiate_summary_target_with_aliases(engine, args, raw_aliases, place)?;
+            raw_aliases.i32_value(&actual).map(|value| {
+                CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
+                    value,
+                    ty: actual.ty,
+                }
+            })
+        }
+    }
 }
 
 fn translate_drop_traversal_coverage(

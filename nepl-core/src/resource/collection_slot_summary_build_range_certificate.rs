@@ -61,13 +61,14 @@ pub(super) fn loop_drop_traversal_range_certificates(
     }
 
     let mut out = Vec::new();
-    for witness in loop_body_candidate_slots(
+    let witnesses = loop_body_candidate_slots(
         engine,
         &condition_state,
         body_prefix,
         &index,
         &initialized_count,
-    ) {
+    );
+    for witness in witnesses {
         let storage = condition_state
             .raw_aliases
             .canonicalize_owner_cell_address(&witness.storage);

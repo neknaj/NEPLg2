@@ -8,7 +8,9 @@ use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTr
 use super::collection_slot_summary_return_path_call::{
     collect_return_paths_from_call_summary, collect_return_paths_from_indirect_call_summary,
 };
-use super::collection_slot_summary_return_path_control::return_value_is_never;
+use super::collection_slot_summary_return_path_control::{
+    return_value_branch_arm_start, return_value_is_never,
+};
 use super::collection_slot_summary_return_path_model::{push_return_path, ReturnPathBuildState};
 use super::collection_slot_summary_return_path_slots::collect_return_slots_for_value;
 use super::collection_slot_summary_return_path_state::return_path_states_after_ops;
@@ -19,8 +21,9 @@ use super::collection_slot_summary_return_unique::{
 use super::collection_slot_summary_target::summary_place_for_params_with_aliases;
 use super::i32_scalar_return_facts::collect_i32_scalar_return_facts_for_value_suffix;
 use super::initialized::ResourceCheckEngine;
-use super::model::{Place, PlaceProjection, ResourceLocal, ResourceOp};
+use super::model::{AggregateKind, Place, PlaceProjection, ResourceLocal, ResourceOp};
 use super::place_utils::{construct_aggregate_field_place, place_suffix_after_prefix};
+use super::variant_name::normalize_variant_name;
 
 pub(super) fn collect_return_paths_from_value_to_suffix(
     out: &mut Vec<CollectionSlotLifecycleReturnPath>,
@@ -119,6 +122,8 @@ fn collect_direct_return_path(
         push_return_path(
             out,
             CollectionSlotLifecycleReturnPath {
+                return_variant: None,
+                preconditions: path.preconditions,
                 ops: path.ops,
                 return_transfers,
                 return_slots,
@@ -215,11 +220,29 @@ fn collect_return_paths_from_value_producer(
                         input.ty,
                     );
                 }
+                collect_construct_output_return_ranges(
+                    &mut construct_paths,
+                    engine,
+                    params,
+                    start.clone(),
+                    &ops[..=index],
+                    output,
+                    target_suffix,
+                );
+                if target_suffix.is_empty() {
+                    if let AggregateKind::Enum { variant, .. } = kind {
+                        let variant = normalize_variant_name(variant);
+                        for path in &mut construct_paths {
+                            path.return_variant = Some(variant.clone());
+                        }
+                    }
+                }
                 push_merged_construct_return_paths(out, construct_paths);
                 return true;
             }
             ResourceOp::Branch {
                 output,
+                condition_fact,
                 then_ops,
                 then_value,
                 else_ops,
@@ -232,7 +255,12 @@ fn collect_return_paths_from_value_producer(
                             out,
                             engine,
                             params,
-                            branch_start.clone(),
+                            return_value_branch_arm_start(
+                                engine,
+                                params,
+                                branch_start.clone(),
+                                condition_fact.as_ref().map(|fact| (fact, true)),
+                            ),
                             then_ops,
                             then_value,
                             target_suffix,
@@ -244,7 +272,12 @@ fn collect_return_paths_from_value_producer(
                             out,
                             engine,
                             params,
-                            branch_start,
+                            return_value_branch_arm_start(
+                                engine,
+                                params,
+                                branch_start,
+                                condition_fact.as_ref().map(|fact| (fact, false)),
+                            ),
                             else_ops,
                             else_value,
                             target_suffix,
@@ -281,6 +314,7 @@ fn collect_return_paths_from_value_producer(
                             params,
                             ReturnPathBuildState {
                                 state: arm_state,
+                                preconditions: match_start.preconditions.clone(),
                                 ops: match_start.ops.clone(),
                             },
                             &arm.ops,
@@ -428,6 +462,49 @@ fn collect_return_paths_from_value_producer(
     false
 }
 
+fn collect_construct_output_return_ranges(
+    out: &mut Vec<CollectionSlotLifecycleReturnPath>,
+    engine: &ResourceCheckEngine<'_>,
+    params: &[ResourceLocal],
+    start: ReturnPathBuildState,
+    ops_through_construct: &[ResourceOp],
+    output: &Place,
+    target_suffix: &[PlaceProjection],
+) {
+    for path in return_path_states_after_ops(engine, params, start, ops_through_construct) {
+        let mut return_ranges = Vec::new();
+        collect_return_ranges_for_value(
+            &mut return_ranges,
+            params,
+            &path.state,
+            output,
+            target_suffix,
+        );
+        let i32_scalar_facts = collect_i32_scalar_return_facts_for_value_suffix(
+            params,
+            engine.types,
+            &path.state.raw_aliases,
+            output,
+            target_suffix,
+        );
+        if return_ranges.is_empty() && i32_scalar_facts.is_empty() {
+            continue;
+        }
+        push_return_path(
+            out,
+            CollectionSlotLifecycleReturnPath {
+                return_variant: None,
+                preconditions: path.preconditions,
+                ops: path.ops,
+                return_transfers: Vec::new(),
+                return_slots: Vec::new(),
+                return_ranges,
+                i32_scalar_facts,
+            },
+        );
+    }
+}
+
 fn push_merged_construct_return_paths(
     out: &mut Vec<CollectionSlotLifecycleReturnPath>,
     paths: Vec<CollectionSlotLifecycleReturnPath>,
@@ -437,6 +514,8 @@ fn push_merged_construct_return_paths(
         if let Some(existing) = merged_paths
             .iter_mut()
             .find(|existing: &&mut CollectionSlotLifecycleReturnPath| existing.ops == path.ops)
+            .filter(|existing| existing.preconditions == path.preconditions)
+            .filter(|existing| existing.return_variant == path.return_variant)
         {
             for transfer in path.return_transfers {
                 push_return_transfer(&mut existing.return_transfers, transfer);
@@ -454,5 +533,74 @@ fn push_merged_construct_return_paths(
     }
     for path in merged_paths {
         push_return_path(out, path);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    use crate::types::TypeId;
+
+    use super::super::collection_slot_summary_model::CollectionSlotLifecycleReturnPath;
+    use super::super::collection_slot_summary_return_model::{
+        CollectionSlotLifecyclePathPrecondition, CollectionSlotLifecyclePathPreconditionOperand,
+    };
+    use super::super::i32_scalar_return_facts::{I32ScalarReturnConstant, I32ScalarReturnFacts};
+    use super::super::model::I32ValueCondition;
+    use super::*;
+
+    /// construct の field ごとの return path は同じ path 条件に属する場合だけ合流する。
+    ///
+    /// 分岐由来の path を `ops` だけで合流すると、相互排他的な precondition の scalar fact
+    /// が同じ return path に混ざり、caller 側で条件不明のまま同時に適用されてしまう。
+    #[test]
+    fn construct_return_path_merge_keeps_distinct_preconditions_separate() {
+        let scalar_ty = TypeId(1);
+        let mut out = Vec::new();
+
+        push_merged_construct_return_paths(
+            &mut out,
+            vec![
+                scalar_path_with_condition(scalar_ty, I32ValueCondition::EqZero, 0),
+                scalar_path_with_condition(scalar_ty, I32ValueCondition::NeZero, 1),
+            ],
+        );
+
+        assert_eq!(
+            out.len(),
+            2,
+            "相互排他的な return path の scalar fact を同じ construct path に合流してはならない"
+        );
+    }
+
+    fn scalar_path_with_condition(
+        scalar_ty: TypeId,
+        condition: I32ValueCondition,
+        value: i32,
+    ) -> CollectionSlotLifecycleReturnPath {
+        CollectionSlotLifecycleReturnPath {
+            return_variant: None,
+            preconditions: vec![CollectionSlotLifecyclePathPrecondition::I32Condition {
+                operand: CollectionSlotLifecyclePathPreconditionOperand::KnownI32 {
+                    value: 0,
+                    ty: scalar_ty,
+                },
+                condition,
+            }],
+            ops: Vec::new(),
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            i32_scalar_facts: I32ScalarReturnFacts {
+                constants: vec![I32ScalarReturnConstant {
+                    return_projection: Vec::new(),
+                    scalar_ty,
+                    value,
+                }],
+                ..I32ScalarReturnFacts::default()
+            },
+        }
     }
 }

@@ -15,6 +15,7 @@ use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_extent::{OwnerExtentProof, PendingOwnerExtentRequirement};
 use super::owner_extent_coverage::prove_owner_extent_covers_argument;
+use super::owner_host_payload_extent::host_payload_address_value_candidates;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
 use super::report::ResourceOwnerOperation;
@@ -35,7 +36,7 @@ impl ResourceOwnerCheckEngine<'_> {
             return true;
         };
         let iovs = host_memory_address_place(self.types, raw_aliases, iovs);
-        let iov_aliases = raw_aliases.aliases_for(&iovs);
+        let iov_aliases = host_payload_address_value_candidates(raw_aliases, &iovs);
         let mut available = true;
         for buffer_cell in iov_buffer_pointer_cells(raw_aliases, &iovs, self.types.i32()) {
             let Some(length_cell) = iov_length_cell(&buffer_cell, self.types.i32()) else {
@@ -196,12 +197,20 @@ fn non_owning_input_payload_has_no_free_obligation(
     buffer: &Place,
 ) -> bool {
     let candidates = raw_aliases.raw_address_aliases_for_value(buffer);
-    candidates
+    if !candidates
         .iter()
         .any(|candidate| raw_views.contains_non_owning(candidate))
-        && candidates
-            .iter()
-            .all(|candidate| !owners.has_tracked_state_under(candidate))
+    {
+        return false;
+    }
+
+    // Host input reads bytes through the view but does not acquire or release the
+    // backing storage. Initialized-cell checking proves that the readable byte span is
+    // valid; the owner checker only needs to reject cases that are already known to
+    // carry a transferable owner at this address.
+    !candidates
+        .iter()
+        .any(|candidate| owners.has_transferable_owner(candidate))
 }
 
 fn iov_payload_buffer_aliases(
@@ -209,11 +218,12 @@ fn iov_payload_buffer_aliases(
     buffer_cell: &Place,
     iov_aliases: &[Place],
 ) -> Vec<Place> {
-    raw_aliases
-        .aliases_for(buffer_cell)
+    let candidates = host_payload_address_value_candidates(raw_aliases, buffer_cell);
+    let out = candidates
         .into_iter()
         .filter(|buffer| {
             buffer != buffer_cell && !raw_cell_is_under_any_address(buffer, iov_aliases)
         })
-        .collect()
+        .collect::<Vec<_>>();
+    out
 }

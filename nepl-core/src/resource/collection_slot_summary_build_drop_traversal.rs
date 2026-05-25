@@ -7,7 +7,8 @@ use crate::types::TypeId;
 use super::collection_slot_state_identity::slot_requires_range_proof;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
-    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryOp,
+    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryI32Operand,
+    CollectionSlotLifecycleSummaryOp,
 };
 use super::collection_slot_summary_target::summary_place_for_params_with_aliases;
 use super::initialized::ResourceCheckEngine;
@@ -29,11 +30,7 @@ pub(super) fn collect_summary_drop_traversal_op(
     {
         if let (Some(storage), Some(initialized_count)) = (
             summary_place_for_params_with_aliases(params, &state.raw_aliases, &storage_place),
-            summary_place_for_params_with_aliases(
-                params,
-                &state.raw_aliases,
-                &initialized_count_place,
-            ),
+            summary_i32_operand_for_params(state, params, &initialized_count_place),
         ) {
             out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
                 storage,
@@ -75,7 +72,7 @@ pub(super) fn collect_summary_drop_traversal_op(
     }
     if let (Some(storage), Some(initialized_count)) = (
         summary_place_for_params_with_aliases(params, &state.raw_aliases, &storage_place),
-        summary_place_for_params_with_aliases(params, &state.raw_aliases, &initialized_count_place),
+        summary_i32_operand_for_params(state, params, &initialized_count_place),
     ) {
         out.push(CollectionSlotLifecycleSummaryOp::DropTraversal {
             storage,
@@ -86,6 +83,23 @@ pub(super) fn collect_summary_drop_traversal_op(
             ),
         });
     }
+}
+
+fn summary_i32_operand_for_params(
+    state: &CollectionSlotSummaryBuildState,
+    params: &[ResourceLocal],
+    place: &Place,
+) -> Option<CollectionSlotLifecycleSummaryI32Operand> {
+    if let Some(summary) = summary_place_for_params_with_aliases(params, &state.raw_aliases, place)
+    {
+        return Some(CollectionSlotLifecycleSummaryI32Operand::Place(summary));
+    }
+    state.raw_aliases.i32_value(place).map(|value| {
+        CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
+            value,
+            ty: place.ty,
+        }
+    })
 }
 
 fn find_range_certificate(

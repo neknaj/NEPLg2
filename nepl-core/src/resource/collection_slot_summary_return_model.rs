@@ -7,6 +7,26 @@ use crate::types::TypeId;
 use super::collection_slot_lifecycle::CollectionSlotState;
 use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryPlace;
 use super::collection_slot_summary_projection::CollectionSlotLifecycleSummaryProjection;
+use super::model::{I32ValueCondition, ResourceI32RelationOp};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum CollectionSlotLifecyclePathPreconditionOperand {
+    Place(CollectionSlotLifecycleSummaryPlace),
+    KnownI32 { value: i32, ty: TypeId },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum CollectionSlotLifecyclePathPrecondition {
+    I32Condition {
+        operand: CollectionSlotLifecyclePathPreconditionOperand,
+        condition: I32ValueCondition,
+    },
+    I32Relation {
+        left: CollectionSlotLifecyclePathPreconditionOperand,
+        op: ResourceI32RelationOp,
+        right: CollectionSlotLifecyclePathPreconditionOperand,
+    },
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct CollectionSlotLifecycleReturnSlot {

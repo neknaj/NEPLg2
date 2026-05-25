@@ -8,7 +8,10 @@ use crate::types::TypeId;
 
 use super::cell_state::{raw_cell_address_prefix, CellTable};
 use super::collection_slot_drop_proof::CollectionSlotDropProof;
-use super::collection_slot_drop_traversal_range::collection_slot_offset_is_inside_initialized_count;
+use super::collection_slot_drop_traversal_range::{
+    collection_slot_offset_is_definitely_outside_initialized_count,
+    collection_slot_offset_is_inside_initialized_count,
+};
 use super::collection_slot_drop_traversal_slots::collection_slot_drop_traversal_slots;
 use super::collection_slot_lifecycle::{
     CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation,
@@ -144,6 +147,26 @@ impl ResourceCheckEngine<'_> {
                     }
                 }
                 CollectionSlotState::MaybeInitialized(slot_ty) => {
+                    let storage_alias = storage_alias_covering_slot(&slot, storage, raw_aliases)
+                        .unwrap_or_else(|| storage.clone());
+                    if collection_slot_offset_is_definitely_outside_initialized_count(
+                        self.types,
+                        raw_aliases,
+                        &slot,
+                        &storage_alias,
+                        initialized_count,
+                        expected_ty,
+                    ) {
+                        continue;
+                    }
+                    if slot_ty.is_none() || slot_ty == Some(expected_ty) {
+                        committed_slots.set_slot_state_with_aliases(
+                            &slot,
+                            raw_aliases,
+                            CollectionSlotState::Uninitialized,
+                        );
+                        continue;
+                    }
                     return Err(CollectionSlotTableRefutation {
                         slot,
                         reason:
@@ -160,6 +183,7 @@ impl ResourceCheckEngine<'_> {
             }
         }
         committed_slots.clear_initialized_range_with_aliases(
+            self.types,
             storage,
             initialized_count,
             expected_ty,

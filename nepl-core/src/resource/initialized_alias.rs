@@ -79,6 +79,21 @@ impl RawCellAddressAliases {
         let source_origin = self.canonicalize_scalar(source);
         let fact_copies = self.scalar_fact_copies_for_aliases(source, target);
         self.clear_scalar_metadata(target);
+        self.copy_scalar_facts_to_fresh_target(source, target, source_origin, fact_copies);
+    }
+
+    /// Cleared target へ source の安定した scalar 事実を写す。
+    ///
+    /// 呼び出し側は target に残っている古い scalar metadata を事前に消しておく必要がある。
+    /// i32 の 0-offset 代入のように、差分事実を追加した直後に同じ値の条件や定数も
+    /// 併せて保持したい処理で、差分事実を消さずに scalar 事実だけを復元するために使う。
+    pub(super) fn copy_scalar_facts_to_fresh_target(
+        &mut self,
+        source: &Place,
+        target: &Place,
+        source_origin: Place,
+        fact_copies: ScalarFactCopies,
+    ) {
         fact_copies.apply_to(self);
         self.scalar_origins.copy_stable_origin(source, target);
         self.scalar_origins
@@ -119,7 +134,11 @@ impl RawCellAddressAliases {
             .record_stable_origin(target, &source_origin);
     }
 
-    fn scalar_fact_copies_for_aliases(&self, source: &Place, target: &Place) -> ScalarFactCopies {
+    pub(super) fn scalar_fact_copies_for_aliases(
+        &self,
+        source: &Place,
+        target: &Place,
+    ) -> ScalarFactCopies {
         let mut sources = Vec::new();
         push_unique_place(&mut sources, source);
         for alias in self.scalar_aliases_for(source) {

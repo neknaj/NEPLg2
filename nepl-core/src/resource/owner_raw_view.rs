@@ -86,16 +86,7 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_views: &RawAddressViewTable,
         value: &Place,
     ) -> bool {
-        (matches!(
-            self.types.get_ref(self.types.resolve_id(value.ty)),
-            TypeKind::I32
-        ) || raw_views.contains_non_owning(value))
-            && raw_views.contains_non_owning(value)
-            && !owners.has_tracked_state_under(value)
-            && raw_aliases
-                .aliases_for(value)
-                .iter()
-                .any(|alias| alias != value)
+        self.place_is_non_owning_raw_address_view(owners, raw_aliases, raw_views, value)
     }
 
     pub(super) fn initializer_is_non_owning_raw_alias_view(

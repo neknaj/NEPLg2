@@ -47,6 +47,7 @@ impl CollectionSlotStateTable {
         }
         self.initialized_ranges.extend(moved_ranges);
         self.maybe_initialized_ranges.extend(moved_maybe_ranges);
+        self.weaken_slots_described_by_maybe_ranges_with_aliases(&RawCellAddressAliases::default());
         self.released_storage = released_storage;
         self.maybe_released_storage = maybe_released_storage;
         Ok(())
@@ -98,6 +99,7 @@ impl CollectionSlotStateTable {
         }
         self.initialized_ranges.extend(moved_ranges);
         self.maybe_initialized_ranges.extend(moved_maybe_ranges);
+        self.weaken_slots_described_by_maybe_ranges_with_aliases(raw_aliases);
         self.released_storage = released_storage;
         self.maybe_released_storage = maybe_released_storage;
         Ok(())
@@ -356,9 +358,12 @@ impl CollectionSlotStateTable {
                     CollectionSlotState::Uninitialized,
                 ));
             };
+            let initialized_count =
+                replace_related_storage_transfer_place(&entry.initialized_count, source, target)
+                    .unwrap_or_else(|| entry.initialized_count.clone());
             ranges.push(CollectionSlotInitializedRangeStateEntry {
                 storage,
-                initialized_count: entry.initialized_count.clone(),
+                initialized_count,
                 value_ty: entry.value_ty,
                 element_stride: entry.element_stride,
             });
@@ -415,9 +420,16 @@ impl CollectionSlotStateTable {
                     CollectionSlotState::Uninitialized,
                 ));
             };
+            let initialized_count = replace_related_storage_transfer_place_with_aliases(
+                &entry.initialized_count,
+                source,
+                target,
+                raw_aliases,
+            )
+            .unwrap_or_else(|| entry.initialized_count.clone());
             ranges.push(CollectionSlotInitializedRangeStateEntry {
                 storage,
-                initialized_count: entry.initialized_count.clone(),
+                initialized_count,
                 value_ty: entry.value_ty,
                 element_stride: entry.element_stride,
             });
@@ -486,6 +498,49 @@ fn replace_storage_transfer_place_with_aliases(
     } else {
         moved
     };
+    Some(place_with_canonical_symbolic_offsets(&moved, raw_aliases))
+}
+
+fn replace_related_storage_transfer_place(
+    place: &Place,
+    source: &Place,
+    target: &Place,
+) -> Option<Place> {
+    if let Some(moved) = replace_storage_transfer_place(place, source, target) {
+        return Some(moved);
+    }
+    let Some((owner_source, owner_target)) = storage_transfer_owner_prefixes(source, target) else {
+        return None;
+    };
+    let moved = replace_place_prefix(place, &owner_source, &owner_target)?;
+    Some(replace_embedded_place_prefixes(
+        &moved,
+        &owner_source,
+        &owner_target,
+    ))
+}
+
+fn replace_related_storage_transfer_place_with_aliases(
+    place: &Place,
+    source: &Place,
+    target: &Place,
+    raw_aliases: &RawCellAddressAliases,
+) -> Option<Place> {
+    if let Some(moved) =
+        replace_storage_transfer_place_with_aliases(place, source, target, raw_aliases)
+    {
+        return Some(moved);
+    }
+    let Some((owner_source, owner_target)) = storage_transfer_owner_prefixes(source, target) else {
+        return None;
+    };
+    let moved = replace_place_prefix(place, &owner_source, &owner_target)?;
+    let moved = replace_embedded_storage_transfer_prefixes(
+        &moved,
+        &owner_source,
+        &owner_target,
+        raw_aliases,
+    );
     Some(place_with_canonical_symbolic_offsets(&moved, raw_aliases))
 }
 

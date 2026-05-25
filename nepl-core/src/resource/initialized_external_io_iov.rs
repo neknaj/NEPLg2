@@ -25,15 +25,17 @@ impl ResourceCheckEngine<'_> {
         let iovs = host_memory_address_place(self.types, raw_aliases, iovs);
         let mut available = true;
         for buffer_cell in iov_buffer_pointer_cells(raw_aliases, &iovs, self.types.i32()) {
-            available &= self.ensure_available(
+            available &= self.ensure_raw_cell_available_through_aliases(
                 cells,
+                raw_aliases,
                 &buffer_cell,
                 ResourceCheckOperation::RawMemoryLoadCell,
                 span,
             );
             if let Some(length_cell) = iov_length_cell(&buffer_cell, self.types.i32()) {
-                available &= self.ensure_available(
+                available &= self.ensure_raw_cell_available_through_aliases(
                     cells,
+                    raw_aliases,
                     &length_cell,
                     ResourceCheckOperation::RawMemoryLoadCell,
                     span,
@@ -120,5 +122,27 @@ impl ResourceCheckEngine<'_> {
             ResourceCheckOperation::RawMemoryLoadCell,
             span,
         )
+    }
+
+    fn ensure_raw_cell_available_through_aliases(
+        &mut self,
+        cells: &CellTable,
+        raw_aliases: &RawCellAddressAliases,
+        cell: &Place,
+        operation: ResourceCheckOperation,
+        span: Span,
+    ) -> bool {
+        // I/O descriptors are often built through local aliases of raw allocation results.
+        // The descriptor cell and its canonical raw-address alias denote the same ABI
+        // memory slot, so availability through any raw-address alias is enough.
+        if raw_aliases.aliases_for(cell).iter().any(|alias| {
+            matches!(
+                cells.availability_state_with_types(self.types, alias),
+                CellState::Initialized(_)
+            )
+        }) {
+            return true;
+        }
+        self.ensure_available(cells, cell, operation, span)
     }
 }

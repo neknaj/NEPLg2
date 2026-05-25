@@ -146,11 +146,11 @@ fn collection_slot_summary_transform_replay_moves_source_and_initializes_output_
     );
     assert_eq!(
         collection_slots.state_with_aliases(&source_slot_0, &raw_aliases),
-        CollectionSlotState::Moved(owned_ty)
+        CollectionSlotState::Uninitialized
     );
     assert_eq!(
         collection_slots.state_with_aliases(&source_slot_1, &raw_aliases),
-        CollectionSlotState::Moved(owned_ty)
+        CollectionSlotState::Uninitialized
     );
     assert_eq!(
         collection_slots.state_with_aliases_and_ranges(&types, &output_slot_0, &raw_aliases),

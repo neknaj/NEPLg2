@@ -4,6 +4,7 @@ use super::collection_slot_lifecycle_model::{
     CollectionSlotLifecycleEvent, CollectionSlotLifecycleOp, CollectionSlotLifecycleRefutation,
     CollectionSlotReplacement, CollectionSlotState,
 };
+use super::drop_requirement::resource_type_needs_drop_code;
 use super::type_pattern::type_pattern_matches;
 
 pub fn apply_collection_slot_lifecycle_event(
@@ -33,19 +34,14 @@ pub fn apply_collection_slot_lifecycle_event(
             old_ty,
             new_ty,
             old_owner,
-        } => {
-            match old_owner {
-                CollectionSlotReplacement::ReturnOldOwner
-                | CollectionSlotReplacement::DropOldOwner => {}
-            }
-            initialized_slot_type(
-                types,
-                state,
-                old_ty,
-                CollectionSlotLifecycleOp::ReplaceInitialized,
-            )
-            .map(|_| CollectionSlotState::Initialized(new_ty))
-        }
+        } => replace_initialized_slot_type(
+            types,
+            state,
+            old_ty,
+            old_owner,
+            CollectionSlotLifecycleOp::ReplaceInitialized,
+        )
+        .map(|_| CollectionSlotState::Initialized(new_ty)),
         CollectionSlotLifecycleEvent::DropInitialized { expected_ty } => initialized_slot_type(
             types,
             state,
@@ -54,6 +50,29 @@ pub fn apply_collection_slot_lifecycle_event(
         )
         .map(CollectionSlotState::Dropped),
         CollectionSlotLifecycleEvent::StorageDealloc => storage_dealloc_slot(state),
+    }
+}
+
+fn replace_initialized_slot_type(
+    types: &TypeCtx,
+    state: CollectionSlotState,
+    expected_ty: TypeId,
+    old_owner: CollectionSlotReplacement,
+    operation: CollectionSlotLifecycleOp,
+) -> Result<TypeId, CollectionSlotLifecycleRefutation> {
+    match state {
+        // no-drop payload の DropOld replacement は、旧値の destructor や owner 返却を
+        // 必要としない。loop induction などで個別 slot が MaybeInitialized に合流しても、
+        // 型が一致し、旧 payload に drop code が不要なら、store 後の initialized state へ
+        // 進められる。
+        CollectionSlotState::MaybeInitialized(Some(actual))
+            if matches!(old_owner, CollectionSlotReplacement::DropOldOwner)
+                && collection_slot_payload_types_match(types, actual, expected_ty)
+                && !resource_type_needs_drop_code(types, actual) =>
+        {
+            Ok(actual)
+        }
+        _ => initialized_slot_type(types, state, expected_ty, operation),
     }
 }
 

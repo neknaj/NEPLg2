@@ -511,6 +511,13 @@ fn must_hms <(Result<HashMap<str,i32,DefaultHash32>, Diag>)*>HashMap<str,i32,Def
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
+fn must_hms_update <(Result<HashMap<str,i32,DefaultHash32>, HashMapUpdateError<str,i32,DefaultHash32>>)*>HashMap<str,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err _e:
+            #intrinsic "unreachable" <> ()
+
 struct ModKey:
     raw <i32>
 
@@ -551,9 +558,16 @@ fn must_hmk <(Result<HashMap<ModKey,i32,ModHasher>, Diag>)*>HashMap<ModKey,i32,M
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
+fn must_hmk_update <(Result<HashMap<ModKey,i32,ModHasher>, HashMapUpdateError<ModKey,i32,ModHasher>>)*>HashMap<ModKey,i32,ModHasher>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err _e:
+            #intrinsic "unreachable" <> ()
+
 fn main <()*>i32> ():
     let hms <HashMap<str,i32,DefaultHash32>> must_hms new DefaultHash32;
-    let hms <HashMap<str,i32,DefaultHash32>> must_hms insert hms "key" 7;
+    let hms <HashMap<str,i32,DefaultHash32>> must_hms_update insert hms "key" 7;
     let a <i32> match get &hms "key":
         Option::Some v:
             v
@@ -561,7 +575,7 @@ fn main <()*>i32> ():
             0
     free hms;
     let hmk <HashMap<ModKey,i32,ModHasher>> must_hmk new ModHasher;
-    let hmk <HashMap<ModKey,i32,ModHasher>> must_hmk insert hmk (ModKey 10) 3;
+    let hmk <HashMap<ModKey,i32,ModHasher>> must_hmk_update insert hmk (ModKey 10) 3;
     let b <i32> match get &hmk (ModKey 10):
         Option::Some v:
             v
@@ -1570,18 +1584,21 @@ fn list_get_out_of_bounds_err() {
 #entry main
 #indent 4
 #import "alloc/collections/list" as *
+#import "alloc/diag/error" as *
 #import "core/option" as *
 #import "core/result" as *
 
 fn main <()* >i32> ():
     let lst <List<i32>> unwrap_ok<List<i32>, Diag> new<i32>;
-    let lst uwok cons<i32> 1 lst;
-    let r get<i32> lst 10;
-    match r:
+    let lst <List<i32>> unwrap_ok<List<i32>, ListPushError<i32>> cons<i32> 1 lst;
+    let r get<i32> &lst 10;
+    let out <i32> match r:
         Some v:
             v
         None:
             0
+    free<i32> lst;
+    out
 "#;
     let v = run_main_wasi_i32(src);
     assert_eq!(v, 0);
@@ -2420,6 +2437,7 @@ fn hashmap_custom_struct_key_roundtrips_value() {
 #import "alloc/collections/hashmap" as *
 #import "alloc/diag/error" as *
 #import "core/field" as field
+#import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
@@ -2456,9 +2474,16 @@ fn must_hmp <(Result<HashMap<Point,i32,DefaultHash32>, Diag>)*>HashMap<Point,i32
         Result::Err _d:
             #intrinsic "unreachable" <> ()
 
+fn must_hmp_update <(Result<HashMap<Point,i32,DefaultHash32>, HashMapUpdateError<Point,i32,DefaultHash32>>)*>HashMap<Point,i32,DefaultHash32>> (r):
+    match r:
+        Result::Ok hm:
+            hm
+        Result::Err _e:
+            #intrinsic "unreachable" <> ()
+
 fn main <()*>i32> ():
     let map0 <HashMap<Point,i32,DefaultHash32>> must_hmp new DefaultHash32;
-    let map1 <HashMap<Point,i32,DefaultHash32>> must_hmp insert map0 (Point 10 20) 99;
+    let map1 <HashMap<Point,i32,DefaultHash32>> must_hmp_update insert map0 (Point 10 20) 99;
     let got <i32> match get &map1 (Point 10 20):
         Option::Some n:
             n

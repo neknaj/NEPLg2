@@ -112,6 +112,8 @@ fn main <()->i32> ():
 #[test]
 fn char_literal_match_arm_can_match_integer_code_points() {
     let src = r#"
+#import "core/math" as *
+
 fn classify_i32 <(i32)->i32> (x):
     match x:
         'A':
@@ -136,6 +138,8 @@ fn main <()->i32> ():
 #[test]
 fn backspace_and_form_feed_escapes_lower_to_code_points() {
     let src = r#"
+#import "core/math" as *
+
 #entry main
 fn main <()->i32> ():
     let b <i32> '\b';
@@ -169,6 +173,8 @@ fn main <()->i32> ():
 #[test]
 fn char_literal_can_be_explicitly_ascribed_to_integer_literals_only() {
     let src = r#"
+#import "core/math" as *
+
 #entry main
 fn main <()->i32> ():
     let a <i32> 'A';

@@ -100,6 +100,11 @@ impl CellTable {
             .transfer_loaded_value_origin(source, target);
     }
 
+    pub(super) fn value_has_raw_cell_loaded_origin(&self, place: &Place, types: &TypeCtx) -> bool {
+        self.raw_cell_value_flows
+            .value_has_loaded_origin(place, types)
+    }
+
     pub(super) fn discard_raw_cell_loaded_value_origin(&mut self, place: &Place) {
         self.raw_cell_value_flows.discard_loaded_value_origin(place);
     }

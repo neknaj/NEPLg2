@@ -23452,6 +23452,59 @@ fn main <()*>i32> ():
 }
 
 #[test]
+fn resource_ir_owner_check_fd_read_iov_payload_uses_stored_raw_pointer_value() {
+    let source = r#"
+#entry main
+#indent 4
+#target wasi
+#import "core/mem" as *
+#import "core/mem/allocator" as *
+#import "core/mem/raw" as *
+#import "core/math" as *
+
+#extern "wasi_snapshot_preview1" "fd_read" fn fd_read %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+
+fn main <()*>()> ():
+    let cap <i32> 64
+    let buf <i32> alloc_raw cap
+    let iov <i32> alloc_raw 8
+    let nread <i32> alloc_raw 4
+    store_i32 iov add buf 0
+    store_i32 add iov 4 cap
+    store_i32 nread 0
+    let errno <i32> fd_read 0 iov 1 nread
+    dealloc_raw nread 4
+    dealloc_raw iov 8
+    dealloc_raw buf cap
+    ()
+"#;
+
+    let (module, types) = typecheck_resource_source_with_target(source, CompileTarget::Wasi);
+    let resource = lower_hir_module(&module, &types);
+    let report = check_resource_owner_obligations(&resource, &types);
+    let payload_diagnostics = report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic,
+                ResourceOwnerDiagnostic::OwnerUnavailable {
+                    function,
+                    operation: ResourceOwnerOperation::ExternalIoPayloadExtent,
+                    ..
+                } if function.starts_with("main__")
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        payload_diagnostics.is_empty(),
+        "fd_read iov payload owner checks must follow the raw pointer value stored in iov[0]: {:#?}\nresource:\n{}",
+        payload_diagnostics,
+        resource.dump_text()
+    );
+}
+
+#[test]
 fn resource_ir_cell_check_returned_aggregate_preserves_guarded_byte_range() {
     let source = r#"
 #entry main

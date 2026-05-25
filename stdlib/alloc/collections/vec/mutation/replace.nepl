@@ -159,7 +159,7 @@ pub fn replace_drop_old <.T: Drop> %impure fn Vec .T impure fn i32 impure fn .T 
                                 VecStorage::Owned v_region:
                                     let byte_off %i32 mul idx size_of<.T>
                                     vec_replace_drop_old_initialized_slot<.T> &v_region byte_off item
-                                    Result::Ok<Vec<.T>, VecReplaceError<.T>> Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap (VecStorage<.T>::Owned v_region))
+                                    Result::Ok<Vec<.T>, VecReplaceError<.T>> Vec<.T> (OwnedBuffer<.T> v_len v_len v_cap (VecStorage<.T>::Owned v_region))
 
 //: ## vec_replace_error_kind
 //: `replace_drop_old` [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む

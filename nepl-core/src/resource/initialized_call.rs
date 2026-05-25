@@ -13,7 +13,6 @@ use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{EffectOp, Place, ResourceCallTarget};
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckOperation;
-use crate::types::{TypeCtx, TypeKind};
 
 impl ResourceCheckEngine<'_> {
     pub(super) fn check_direct_call(
@@ -80,6 +79,7 @@ impl ResourceCheckEngine<'_> {
             cells,
             collection_slots,
             raw_aliases,
+            variant_initializations,
             output,
             target,
             args,
@@ -87,9 +87,7 @@ impl ResourceCheckEngine<'_> {
         );
         seed_str_storage_layout(self.types, cells, raw_aliases, output);
         pending_reallocs.clear_result(output);
-        if let Some(return_path_states) = return_path_states
-            .filter(|_| call_return_paths_can_be_replayed_without_variant_facts(self.types, output))
-        {
+        if let Some(return_path_states) = return_path_states {
             let alternatives = return_path_states
                 .into_iter()
                 .map(|mut state| {
@@ -105,7 +103,7 @@ impl ResourceCheckEngine<'_> {
                         state.raw_aliases,
                         function_aliases.clone(),
                         pending_reallocs.clone(),
-                        variant_initializations.clone(),
+                        state.variant_initializations,
                     )
                 })
                 .collect();
@@ -171,28 +169,5 @@ impl ResourceCheckEngine<'_> {
         );
         seed_str_storage_layout(self.types, cells, raw_aliases, output);
         pending_reallocs.clear_result(output);
-    }
-}
-
-fn call_return_paths_can_be_replayed_without_variant_facts(
-    types: &TypeCtx,
-    output: &Place,
-) -> bool {
-    !type_is_top_level_enum(types, output.ty)
-}
-
-fn type_is_top_level_enum(types: &TypeCtx, ty: crate::types::TypeId) -> bool {
-    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
-    match types.get_ref(resolved) {
-        TypeKind::Enum { .. } => true,
-        TypeKind::Apply { base, .. } => {
-            let base = types.resolve_named_type_id(*base);
-            matches!(types.get_ref(base), TypeKind::Enum { .. })
-        }
-        TypeKind::Var(var) => var
-            .binding
-            .map(|binding| type_is_top_level_enum(types, binding))
-            .unwrap_or(false),
-        _ => false,
     }
 }

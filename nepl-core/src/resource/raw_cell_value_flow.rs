@@ -104,6 +104,12 @@ impl RawCellValueFlowFacts {
         }
     }
 
+    pub(super) fn value_has_loaded_origin(&self, place: &Place, types: &TypeCtx) -> bool {
+        self.loaded_values
+            .iter()
+            .any(|origin| loaded_value_origin_dropped_by(&origin.value, place, types))
+    }
+
     pub(super) fn discard_loaded_value_origin(&mut self, place: &Place) {
         self.loaded_values
             .retain(|origin| place_suffix_after_prefix(&origin.value, place).is_none());

@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-24T16:22:06.664Z",
+  "generated_at": "2026-05-25T14:00:04.372Z",
   "counts": {
-    "total": 1251,
-    "open": 12,
-    "resolved": 1239,
+    "total": 1257,
+    "open": 13,
+    "resolved": 1244,
     "by_area": {
       "core": {
-        "total": 611,
-        "open": 4,
-        "resolved": 607
+        "total": 617,
+        "open": 6,
+        "resolved": 611
       },
       "doc": {
         "total": 3,
@@ -20,11 +20,6 @@
         "total": 329,
         "open": 5,
         "resolved": 324
-      },
-      "tests": {
-        "total": 2,
-        "open": 1,
-        "resolved": 1
       },
       "selfhost": {
         "total": 110,
@@ -115,6 +110,11 @@
         "total": 13,
         "open": 0,
         "resolved": 13
+      },
+      "tests": {
+        "total": 2,
+        "open": 0,
+        "resolved": 2
       },
       "tooling": {
         "total": 2,
@@ -215,19 +215,19 @@
       "file": "items/ISS-20260524T020418962Z-RESOURCE-IR-NEEDS-TRANSFORM-RANGE-LI-77E29B37.md"
     },
     {
-      "id": "ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729",
-      "title": "nepl-core resource unit tests fail in current branch",
+      "id": "ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5",
+      "title": "Per-program compile time exceeds default budget after NEPLg2.1 static-check expansion",
       "area": "core",
       "status": "open",
       "resolved": false,
       "priority": "P1",
-      "type": "bug",
+      "type": "performance",
       "created": "2026-05-24",
-      "updated": "2026-05-24",
-      "target": "nepl-core/src/resource/effect_return_escape_tests.rs; nepl-core/src/resource/i32_call_facts_tests.rs",
+      "updated": "2026-05-25",
+      "target": "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729.md"
+      "file": "items/ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
@@ -260,19 +260,34 @@
       "file": "items/ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1.md"
     },
     {
-      "id": "ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60",
-      "title": "NEPLg2.1 source policy regexes still expect old type syntax",
-      "area": "tests",
+      "id": "ISS-20260524T204705172Z-OWNER-CHECKER-DOES-NOT-REFINE-REALLO-C974639A",
+      "title": "Owner checker does not refine realloc failure flags through loop guards",
+      "area": "core",
       "status": "open",
       "resolved": false,
-      "priority": "P1",
-      "type": "maintenance",
+      "priority": "P2",
+      "type": "bug",
       "created": "2026-05-24",
       "updated": "2026-05-24",
-      "target": "nodesrc/test_stdlib_*.js; nodesrc/source_policy/**",
+      "target": "nepl-core/src/resource/owner_control.rs; nepl-core/src/resource/owner_state.rs",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60.md"
+      "file": "items/ISS-20260524T204705172Z-OWNER-CHECKER-DOES-NOT-REFINE-REALLO-C974639A.md"
+    },
+    {
+      "id": "ISS-20260524T215206241Z-RESOURCE-CHECKER-LOSES-GUARDED-RAW-F-FA0B4DEC",
+      "title": "Resource checker loses guarded raw fill range after stream scanner calls",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "bug",
+      "created": "2026-05-24",
+      "updated": "2026-05-24",
+      "target": "nepl-core/src/resource",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T215206241Z-RESOURCE-CHECKER-LOSES-GUARDED-RAW-F-FA0B4DEC.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",
@@ -9515,6 +9530,66 @@
       "file": "items/ISS-20260522T085841517Z-CORE-MEM-MARKER-AUTHORITY-BOUNDARY-N-D314DCEE.md"
     },
     {
+      "id": "ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729",
+      "title": "nepl-core resource unit tests fail in current branch",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-24",
+      "updated": "2026-05-25",
+      "target": "nepl-core/src/resource/effect_return_escape_tests.rs; nepl-core/src/resource/i32_call_facts_tests.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T162206420Z-NEPL-CORE-RESOURCE-UNIT-TESTS-FAIL-I-5A9C5729.md"
+    },
+    {
+      "id": "ISS-20260524T232939580Z-MOVE-CHECK-INTEGRATION-EXPECTS-STALE-DE60A3A4",
+      "title": "move_check integration expects stale legacy diagnostic text",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "test",
+      "created": "2026-05-24",
+      "updated": "2026-05-25",
+      "target": "nepl-core/tests/move_check.rs; nepl-core/src/diagnostic_codes.rs; nepl-core/src/resource/report.rs; nepl-core/src/resource/initialized_control.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T232939580Z-MOVE-CHECK-INTEGRATION-EXPECTS-STALE-DE60A3A4.md"
+    },
+    {
+      "id": "ISS-20260524T234608312Z-RESOURCE-LOOP-CHECKER-DOES-NOT-REPLA-51B65237",
+      "title": "Resource loop checker does not replay moved body state on backedge",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-24",
+      "updated": "2026-05-25",
+      "target": "nepl-core/src/resource/initialized_control.rs; nepl-core/tests/move_check.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T234608312Z-RESOURCE-LOOP-CHECKER-DOES-NOT-REPLA-51B65237.md"
+    },
+    {
+      "id": "ISS-20260525T132633255Z-VEC-FILTER-RETURN-RANGE-CLEANUP-LOSE-6D89D246",
+      "title": "Vec filter return range cleanup loses equal initialized count projections",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-25",
+      "updated": "2026-05-25",
+      "target": "nepl-core/src/resource/i32_scalar_return_facts.rs; nepl-core/src/resource/collection_slot_summary_return_path_value.rs; nepl-core/src/resource/collection_slot_summary_apply_return_path.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260525T132633255Z-VEC-FILTER-RETURN-RANGE-CLEANUP-LOSE-6D89D246.md"
+    },
+    {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
       "title": "Resource owner storage origin crosses raw deref into Copy cell payloads",
       "area": "core/resource",
@@ -15948,6 +16023,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260517T183118826Z-RESOURCE-IR-TESTS-STILL-TREAT-NONFAT-13A56E1A.md"
+    },
+    {
+      "id": "ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60",
+      "title": "NEPLg2.1 source policy regexes still expect old type syntax",
+      "area": "tests",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-24",
+      "updated": "2026-05-24",
+      "target": "nodesrc/test_stdlib_*.js; nodesrc/source_policy/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60.md"
     },
     {
       "id": "ISS-20260522T052027322Z-COLLECTION-CLEANUP-POLICY-MISCLASSIF-563F7F4F",

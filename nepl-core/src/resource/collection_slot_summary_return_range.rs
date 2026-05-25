@@ -325,6 +325,7 @@ mod tests {
     use crate::resource::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
     use crate::resource::initialized_scalar_flow::I32ScalarReturnSummaryIndex;
     use crate::resource::initialized_summary::RawCellInitializationFunctionSummaryIndex;
+    use crate::resource::initialized_variant::PendingVariantRawCellInitializations;
     use crate::resource::model::{
         Place, PlaceProjection, ResourceBlockId, ResourceFunction, ResourceLocal, ResourceOffset,
     };
@@ -559,6 +560,8 @@ mod tests {
         let initial_cells = cells.clone();
         let initial_collection_slots = collection_slots.clone();
         let initial_raw_aliases = raw_aliases.clone();
+        let initial_variant_initializations = PendingVariantRawCellInitializations::default();
+        let mut variant_initializations = initial_variant_initializations.clone();
 
         engine.apply_collection_slot_return_paths(
             &mut cells,
@@ -567,12 +570,16 @@ mod tests {
             &initial_cells,
             &initial_collection_slots,
             &initial_raw_aliases,
+            &initial_variant_initializations,
+            &mut variant_initializations,
             &output,
             &[],
             &[],
             &[],
             &[
                 CollectionSlotLifecycleReturnPath {
+                    return_variant: None,
+                    preconditions: Vec::new(),
                     ops: Vec::new(),
                     return_transfers: Vec::new(),
                     return_slots: Vec::new(),
@@ -589,6 +596,8 @@ mod tests {
                     i32_scalar_facts: Default::default(),
                 },
                 CollectionSlotLifecycleReturnPath {
+                    return_variant: None,
+                    preconditions: Vec::new(),
                     ops: Vec::new(),
                     return_transfers: Vec::new(),
                     return_slots: Vec::new(),

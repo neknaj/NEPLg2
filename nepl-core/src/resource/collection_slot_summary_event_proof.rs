@@ -54,7 +54,8 @@ pub(super) fn summary_event_proof(
         None => CollectionSlotLifecycleSummaryDropProof::StateOnly,
     };
     let storage_release = if collection_slot_storage_release_obligation(event) {
-        if collection_slot_storage_release_proof_available(pending_raw_storage, target) {
+        if collection_slot_storage_release_proof_available(pending_raw_storage, raw_aliases, target)
+        {
             CollectionSlotLifecycleSummaryStorageReleaseProof::RawStorageRelease
         } else {
             return None;

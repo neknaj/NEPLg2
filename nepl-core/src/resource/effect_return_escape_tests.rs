@@ -1,6 +1,7 @@
 use alloc::string::ToString;
 use alloc::vec;
 
+use crate::source_map::CompilerMemoryType;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::effect_return_escape::raw_identity_return_projection_is_escape;
@@ -29,6 +30,7 @@ fn owner_carrier_types() -> (TypeCtx, OwnerCarrierTypes) {
             field_names: vec!["raw".to_string(), "size".to_string()],
         },
     );
+    types.mark_compiler_memory_type(region_base, CompilerMemoryType::OwnerToken);
     let region_ty = types.apply(region_base, vec![i32_ty]);
     let owner_ty = types.register_named(
         "OwnerBox".to_string(),
@@ -66,6 +68,38 @@ fn owner_carrier_types() -> (TypeCtx, OwnerCarrierTypes) {
             i32_ty,
         },
     )
+}
+
+#[test]
+fn return_escape_requires_owner_token_metadata_not_region_token_name() {
+    let mut types = TypeCtx::new();
+    let i32_ty = types.i32();
+    let region_ty = types.register_named(
+        "RegionToken".to_string(),
+        TypeKind::Struct {
+            name: "RegionToken".to_string(),
+            type_params: vec![],
+            fields: vec![i32_ty, i32_ty],
+            field_names: vec!["raw".to_string(), "size".to_string()],
+        },
+    );
+    let returned = Place::temporary(ResourceId(0), region_ty);
+    let suffix = vec![PlaceProjection::Field {
+        index: 0,
+        offset_bytes: 0,
+    }];
+
+    assert!(!raw_identity_projection_has_owner_protection(
+        &types,
+        returned.ty,
+        &suffix,
+    ));
+    assert!(raw_identity_return_projection_is_escape(
+        Some(&types),
+        &returned,
+        &suffix,
+        i32_ty,
+    ));
 }
 
 #[test]

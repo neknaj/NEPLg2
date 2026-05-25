@@ -99,6 +99,38 @@ fn replace_initialized_requires_matching_old_type() {
 }
 
 #[test]
+fn replace_drop_old_accepts_maybe_initialized_no_drop_payload() {
+    let (types, owned, other) = test_types();
+    assert_eq!(
+        apply_collection_slot_lifecycle_event(
+            &types,
+            CollectionSlotState::MaybeInitialized(Some(owned)),
+            CollectionSlotLifecycleEvent::ReplaceInitialized {
+                old_ty: owned,
+                new_ty: other,
+                old_owner: CollectionSlotReplacement::DropOldOwner,
+            },
+        ),
+        Ok(CollectionSlotState::Initialized(other))
+    );
+    assert_eq!(
+        apply_collection_slot_lifecycle_event(
+            &types,
+            CollectionSlotState::MaybeInitialized(Some(owned)),
+            CollectionSlotLifecycleEvent::ReplaceInitialized {
+                old_ty: owned,
+                new_ty: other,
+                old_owner: CollectionSlotReplacement::ReturnOldOwner,
+            },
+        ),
+        Err(CollectionSlotLifecycleRefutation::Unavailable {
+            operation: CollectionSlotLifecycleOp::ReplaceInitialized,
+            state: CollectionSlotState::MaybeInitialized(Some(owned)),
+        })
+    );
+}
+
+#[test]
 fn drop_marks_slot_dropped_and_rejects_double_drop() {
     let (types, owned, _) = test_types();
     let dropped = apply_collection_slot_lifecycle_event(

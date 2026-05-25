@@ -9,10 +9,12 @@ use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::CollectionSlotLifecycleReturnPath;
 use super::collection_slot_summary_projection::instantiate_summary_suffix_on_base;
 use super::collection_slot_summary_return_model::CollectionSlotLifecycleReturnTransfer;
+use super::collection_slot_summary_return_path_variant::return_path_matches_callsite_variants;
 use super::collection_slot_summary_target::instantiate_summary_target_with_aliases;
 use super::i32_scalar_return_facts::apply_i32_scalar_return_facts;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{Place, PlaceProjection};
 use super::place_utils::{place_suffix_after_prefix, push_unique_place};
 use super::summary_projection::SummaryProjection;
@@ -21,6 +23,7 @@ pub(super) struct CollectionSlotReturnPathState {
     pub(super) cells: CellTable,
     pub(super) collection_slots: CollectionSlotStateTable,
     pub(super) raw_aliases: RawCellAddressAliases,
+    pub(super) variant_initializations: PendingVariantRawCellInitializations,
 }
 
 impl ResourceCheckEngine<'_> {
@@ -67,6 +70,8 @@ impl ResourceCheckEngine<'_> {
         initial_cells: &CellTable,
         initial_collection_slots: &CollectionSlotStateTable,
         initial_raw_aliases: &RawCellAddressAliases,
+        initial_variant_initializations: &PendingVariantRawCellInitializations,
+        variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
         args: &[Place],
         summary_type_params: &[crate::types::TypeId],
@@ -77,12 +82,27 @@ impl ResourceCheckEngine<'_> {
         let mut path_slots = Vec::new();
         let mut path_cells = Vec::new();
         let mut path_aliases = Vec::new();
+        let mut path_variants = Vec::new();
         let mut path_states = Vec::new();
         for path in paths {
+            if !return_path_matches_callsite_variants(
+                self,
+                args,
+                initial_raw_aliases,
+                initial_variant_initializations,
+                path,
+            ) {
+                continue;
+            }
             let mut cells = initial_cells.clone();
             let mut slots = initial_collection_slots.clone();
             let mut aliases = initial_raw_aliases.clone();
-            self.apply_collection_slot_lifecycle_summary_ops_state_only(
+            let mut variants = initial_variant_initializations.clone();
+            // return path ごとの slot lifecycle は、callee 内では検証済みであっても、
+            // caller の現在状態に対しては改めて前提条件を満たす必要がある。
+            // ここで diagnostic を抑制すると、同じ storage を複数回 move out する
+            // 呼び出し列のような call-site 固有の違反を見逃してしまう。
+            self.apply_collection_slot_lifecycle_summary_ops(
                 &mut cells, &mut slots, &aliases, args, &path.ops, span,
             );
             slots.clear_storage_prefix(output);
@@ -95,6 +115,13 @@ impl ResourceCheckEngine<'_> {
                 span,
             );
             self.apply_collection_slot_return_slots(&mut slots, args, output, &path.return_slots);
+            apply_i32_scalar_return_facts(
+                &mut aliases,
+                output,
+                args,
+                &path.i32_scalar_facts,
+                self.types,
+            );
             self.apply_collection_slot_return_ranges(
                 &mut slots,
                 &aliases,
@@ -105,25 +132,29 @@ impl ResourceCheckEngine<'_> {
                 &path.return_ranges,
             );
             self.clear_consumed_collection_slot_args(&mut slots, &aliases, args);
-            apply_i32_scalar_return_facts(
-                &mut aliases,
-                output,
-                args,
-                &path.i32_scalar_facts,
-                self.types,
-            );
+            if let Some(variant) = &path.return_variant {
+                // top-level enum の return path は、後続の match が実際に到達可能な
+                // variant だけを検査できるように concrete variant として保持する。
+                // これを path-insensitive に merge すると Ok payload にだけある
+                // scalar / slot 事実が Err path と合流して消えてしまう。
+                variants.record_concrete_variant(output, variant);
+            }
             path_cells.push(cells.clone());
             path_slots.push(slots.clone());
             path_aliases.push(aliases.clone());
+            path_variants.push(variants.clone());
             path_states.push(CollectionSlotReturnPathState {
                 cells,
                 collection_slots: slots,
                 raw_aliases: aliases,
+                variant_initializations: variants,
             });
         }
         *cells = CellTable::merge_paths(&path_cells);
         *collection_slots = merge_collection_slot_return_path_tables(output, paths, &path_slots);
         *raw_aliases = RawCellAddressAliases::merge_paths(&path_aliases);
+        *variant_initializations =
+            PendingVariantRawCellInitializations::merge_paths(&path_variants);
         path_states
     }
 }

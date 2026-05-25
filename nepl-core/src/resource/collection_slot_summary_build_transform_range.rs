@@ -122,7 +122,7 @@ pub(super) fn collect_summary_transform_range_op(
                 certificate: candidate.certificate,
             });
         }
-        (None, _) => {
+        (None, _) | (Some(_), None) => {
             out.push(
                 CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain {
                     source_storage,
@@ -132,7 +132,6 @@ pub(super) fn collect_summary_transform_range_op(
                 },
             );
         }
-        (Some(_), None) => {}
     }
 }
 

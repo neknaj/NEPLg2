@@ -53,6 +53,9 @@ pub(super) fn drop_witness_candidate(
         &drop_witness_at(&candidate, candidate.load_index),
     );
     for drop_index in candidate.load_index + 1..body_prefix.len() {
+        if !matches!(body_prefix.get(drop_index), Some(ResourceOp::Drop { .. })) {
+            continue;
+        }
         let witness = drop_witness_at(&candidate, drop_index);
         let current_prefix_drops = prefix_drops_symbolic_slot(
             engine,

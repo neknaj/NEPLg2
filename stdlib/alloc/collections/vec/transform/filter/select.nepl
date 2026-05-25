@@ -204,38 +204,28 @@ pub fn filter <.T: Drop> %impure fn Vec .T impure fn fn &.T bool Result Vec .T V
         VecStorageInvariant::Invalid _reason:
             Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
         VecStorageInvariant::Valid:
-            match vec_storage::with_capacity<.T> src_len:
-                Result::Err e:
-                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
-                Result::Ok out0:
-                    let out_buffer_ref %&OwnedBuffer .T field::get_ref &out0 "buffer"
-                    let out_cap %i32 *field::get_ref out_buffer_ref "cap"
-                    match vec_buffer_current_storage_invariant<.T> out_buffer_ref:
-                        VecStorageInvariant::Invalid _reason:
-                            vec_cleanup::free<.T> out0
-                            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
-                        VecStorageInvariant::Valid:
-                            let v_buffer %OwnedBuffer .T field::get v "buffer"
-                            let v_storage %VecStorage .T field::get v_buffer "storage"
+            let v_buffer %OwnedBuffer .T field::get v "buffer"
+            let v_storage %VecStorage .T field::get v_buffer "storage"
+            match v_storage:
+                VecStorage::Empty:
+                    Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> 0 0 0 VecStorage<.T>::Empty)
+                VecStorage::Owned v_region:
+                    match vec_storage::with_capacity<.T> src_len:
+                        Result::Err e:
+                            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> (Vec<.T> (OwnedBuffer<.T> src_len src_initialized_len src_cap (VecStorage<.T>::Owned v_region))) e
+                        Result::Ok out0:
+                            let out_buffer_ref %&OwnedBuffer .T field::get_ref &out0 "buffer"
+                            let out_cap %i32 *field::get_ref out_buffer_ref "cap"
                             let out_buffer %OwnedBuffer .T field::get out0 "buffer"
                             let out_storage %VecStorage .T field::get out_buffer "storage"
-                            match v_storage:
+                            match out_storage:
                                 VecStorage::Empty:
-                                    match out_storage:
-                                        VecStorage::Empty:
-                                            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> 0 0 out_cap VecStorage<.T>::Empty)
-                                        VecStorage::Owned out_region:
-                                            vec_filter_release_storage<.T> out_region
-                                            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> (Vec<.T> (OwnedBuffer<.T> src_len src_initialized_len src_cap VecStorage<.T>::Empty)) StdErrorKind::InvalidOperation
-                                VecStorage::Owned v_region:
-                                    match out_storage:
-                                        VecStorage::Empty:
-                                            if:
-                                                eq src_len 0
-                                                then:
-                                                    Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> 0 0 src_cap (VecStorage<.T>::Owned v_region))
-                                                else:
-                                                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> (Vec<.T> (OwnedBuffer<.T> src_len src_initialized_len src_cap (VecStorage<.T>::Owned v_region))) StdErrorKind::InvalidOperation
-                                        VecStorage::Owned out_region:
-                                            let out_vec %Vec .T vec_filter_drain_to_output<.T> v_region out_region src_initialized_len out_cap p
-                                            Result::Ok<Vec<.T>, VecTransformError<.T>> out_vec
+                                    if:
+                                        eq src_len 0
+                                        then:
+                                            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> 0 0 src_cap (VecStorage<.T>::Owned v_region))
+                                        else:
+                                            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> (Vec<.T> (OwnedBuffer<.T> src_len src_initialized_len src_cap (VecStorage<.T>::Owned v_region))) StdErrorKind::InvalidOperation
+                                VecStorage::Owned out_region:
+                                    let out_vec %Vec .T vec_filter_drain_to_output<.T> v_region out_region src_initialized_len out_cap p
+                                    Result::Ok<Vec<.T>, VecTransformError<.T>> out_vec

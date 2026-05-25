@@ -1,9 +1,10 @@
 use crate::ast::Effect;
+use crate::types::TypeKind;
 
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::model::{EffectOp, Place, RawMemoryOp, ResourceOp};
-use super::place_utils::place_suffix_after_prefix;
+use super::place_utils::{place_suffix_after_prefix, reference_target_place};
 
 pub(super) fn op_preserves_place(
     engine: &ResourceCheckEngine<'_>,
@@ -34,10 +35,7 @@ pub(super) fn op_preserves_place(
             output,
             args,
             ..
-        } => {
-            call_preserves_loop_place(engine, raw_aliases, effect, args, protected)
-                && !place_touches(raw_aliases, output, protected)
-        }
+        } => effect_call_preserves_place(engine, raw_aliases, effect, output, args, protected),
         ResourceOp::Read { output, .. }
         | ResourceOp::Borrow { output, .. }
         | ResourceOp::FunctionValue { output, .. }
@@ -113,33 +111,44 @@ pub(super) fn op_preserves_place_after_drop_witness(
         )
 }
 
-fn call_preserves_loop_place(
+pub(super) fn effect_call_preserves_place(
     engine: &ResourceCheckEngine<'_>,
     raw_aliases: &RawCellAddressAliases,
     effect: &EffectOp,
+    output: &Place,
     args: &[Place],
     protected: &Place,
 ) -> bool {
+    if place_touches(raw_aliases, output, protected) {
+        return false;
+    }
+    // effectful call でも protected owner を値渡しで消費せず、protected owner へ
+    // 到達する参照も渡さないなら、この検査で保護している place 自体は保持されます。
+    // `Drop::drop &loaded` のような full-range traversal witness は副作用を持ちますが、
+    // loop bound や storage token を渡していない限り、範囲証明の保持条件を壊しません。
     match effect {
         EffectOp::Pure
         | EffectOp::UserCall {
             effect: Effect::Pure,
             ..
-        } => args
-            .iter()
-            .all(|arg| !place_touches(raw_aliases, arg, protected)),
+        } => args.iter().all(|arg| {
+            !place_touches(raw_aliases, arg, protected)
+                && !reference_argument_targets_place(engine, raw_aliases, arg, protected)
+        }),
         EffectOp::UnsafeMemory {
             operation: RawMemoryOp::Load,
         } => args
             .iter()
             .all(|arg| !consumes_protected_place(engine, raw_aliases, arg, protected)),
-        EffectOp::InternalAlloc { .. }
-        | EffectOp::UserCall { .. }
-        | EffectOp::UnsafeMemory { .. }
+        EffectOp::UserCall { .. }
         | EffectOp::ExternalIo { .. }
         | EffectOp::Nondet { .. }
         | EffectOp::IndirectCall { .. }
-        | EffectOp::Unknown { .. } => false,
+        | EffectOp::Unknown { .. } => args.iter().all(|arg| {
+            !consumes_protected_place(engine, raw_aliases, arg, protected)
+                && !reference_argument_targets_place(engine, raw_aliases, arg, protected)
+        }),
+        EffectOp::InternalAlloc { .. } | EffectOp::UnsafeMemory { .. } => false,
     }
 }
 
@@ -150,6 +159,22 @@ fn consumes_protected_place(
     protected: &Place,
 ) -> bool {
     !engine.types.is_copy(place.ty) && place_touches(raw_aliases, place, protected)
+}
+
+fn reference_argument_targets_place(
+    engine: &ResourceCheckEngine<'_>,
+    raw_aliases: &RawCellAddressAliases,
+    arg: &Place,
+    protected: &Place,
+) -> bool {
+    let resolved = engine
+        .types
+        .resolve_named_type_id(engine.types.resolve_id(arg.ty));
+    let TypeKind::Reference(target_ty, _) = engine.types.get_ref(resolved) else {
+        return false;
+    };
+    let target = reference_target_place(arg, *target_ty);
+    place_touches(raw_aliases, &target, protected)
 }
 
 fn place_touches(raw_aliases: &RawCellAddressAliases, left: &Place, right: &Place) -> bool {
