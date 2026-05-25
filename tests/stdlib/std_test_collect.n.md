@@ -28,8 +28,8 @@ fn main %impure fn () i32 \():
         test_report_new "std_test_collect_success_summary"
         |> test_report_push assert_eq_i32 "addition" 3 add 1 2
         |> test_report_push assert_str_eq "concat" "ab" concat "a" "b"
-        |> test_report_push assert_ok_i32 "result ok" Result<i32,i32>::Ok 7
-        |> test_report_push assert_err_i32 "result err" Result<i32,i32>::Err 5
+        |> test_report_push assert_ok_i32 "result ok" Result::Ok 7
+        |> test_report_push assert_err_i32 "result err" Result::Err 5
     let shown test_report_print_stdout report
     test_report_exit_code shown
 ```
@@ -86,7 +86,7 @@ fn main %impure fn () i32 \():
         test_report_new "std_test_collect_failure_summary_and_details"
         |> test_report_push assert_eq_i32 "addition" 3 add 1 2
         |> test_report_push assert_eq_i32 "mismatch" 2 3
-        |> test_report_push assert_err_i32 "result err" Result<i32,i32>::Err 5
+        |> test_report_push assert_err_i32 "result err" Result::Err 5
         |> test_report_push assert "forced false" false
     let shown test_report_print_stdout report
     test_report_exit_code shown

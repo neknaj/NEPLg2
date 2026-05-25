@@ -46095,3 +46095,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `is_empty` / `cap` / `len` / `get` / `free` は `Vec i32` local または `&Vec i32` 引数から型が確定する。一方、`with_capacity` / `new` / `push` / `sort_merge_ret` は producer/update/sort 側の推論問題を混ぜないため残した。
 - `rg -n "is_empty<i32>|cap<i32>|len<i32>|get<i32>|free<i32>" tests/stdlib/vec_collections.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/neplg21-vec-collections-observers.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
+## 2026-05-26 Agent 1 small stdlib Result constructor postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`tests/stdlib/std_test_collect.n.md` と `tests/stdlib/io.n.md` の小さな Result constructor 残件を撤廃した。`plan.md` は変更していない。
+- `std_test_collect` では `assert_ok_i32` / `assert_err_i32` が `Result i32 i32` を受けるため、`Result::Ok` / `Result::Err` で型が決まる。
+- `io.n.md` では `checks_push` が `Result () str` を受けるため、missing file 成功時の failure report を `Result::Err msg` にできる。
+- `rg -n "Result<i32,i32>::(Ok|Err)|Result<\\(\\),str>::Err" tests/stdlib/std_test_collect.n.md tests/stdlib/io.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md -i tests/stdlib/io.n.md --no-tree -o tmp/neplg21-result-constructor-small-tests.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では `std_test_collect` doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。

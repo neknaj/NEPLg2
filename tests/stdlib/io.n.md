@@ -83,7 +83,7 @@ fn main %impure fn () i32 \():
     match result0:
         Result::Ok text:
             let msg %str concat "io fs read unexpectedly succeeded: " text
-            set checks checks_push checks Result<(),str>::Err msg
+            set checks checks_push checks Result::Err msg
         Result::Err kind:
             set checks checks_push checks check_str_eq "IoError" std_error_kind_str kind
     let shown checks_print_report checks

@@ -223,6 +223,13 @@ LLM/手動判断が必要なもの:
 - `rg -n "is_empty<i32>|cap<i32>|len<i32>|get<i32>|free<i32>" tests/stdlib/vec_collections.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/neplg21-vec-collections-observers.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
 
+### 2026-05-26 small stdlib Result constructor checkpoint
+
+- `tests/stdlib/std_test_collect.n.md` で、`assert_ok_i32` / `assert_err_i32` の引数型から `Result i32 i32` が確定する `Result<i32,i32>::Ok` / `Result<i32,i32>::Err` を `Result::Ok` / `Result::Err` へ移行した。
+- `tests/stdlib/io.n.md` で、`checks_push` が `Result () str` を受ける箇所の `Result<(),str>::Err` を `Result::Err` へ移行した。
+- `rg -n "Result<i32,i32>::(Ok|Err)|Result<\\(\\),str>::Err" tests/stdlib/std_test_collect.n.md tests/stdlib/io.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md -i tests/stdlib/io.n.md --no-tree -o tmp/neplg21-result-constructor-small-tests.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では `std_test_collect` doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
