@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-25T21:43:30.832Z",
+  "generated_at": "2026-05-25T22:13:22.154Z",
   "counts": {
-    "total": 1260,
+    "total": 1261,
     "open": 11,
-    "resolved": 1249,
+    "resolved": 1250,
     "by_area": {
       "stdlib": {
-        "total": 329,
+        "total": 330,
         "open": 5,
-        "resolved": 324
+        "resolved": 325
       },
       "core": {
         "total": 620,
@@ -14928,6 +14928,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260523T032117760Z-VEC-QUERY-NEEDS-SCOPED-BORROWED-PRED-C29C915F.md"
+    },
+    {
+      "id": "ISS-20260525T214844057Z-SHA256-STILL-READS-STALE-VECPUSHERRO-77799ACC",
+      "title": "sha256 still reads stale VecPushError vec field after rejected payload split",
+      "area": "stdlib",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-25",
+      "updated": "2026-05-26",
+      "target": "stdlib/alloc/hash/sha256/{schedule,digest,api}.nepl, stdlib/alloc/collections/vec/mutation/push.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260525T214844057Z-SHA256-STILL-READS-STALE-VECPUSHERRO-77799ACC.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

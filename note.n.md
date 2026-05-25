@@ -46064,3 +46064,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused verification:
   - `cargo test -p nepl-core --test move_check move_in_loop -- --nocapture`: passed.
   - `cargo test -p nepl-core --test move_check -- --nocapture`: 55/55 passed, 238.30s.
+
+## 2026-05-26 Agent 1 SHA256 VecPushError rejected payload追従
+
+- `ISS-20260525T214844057Z-SHA256-STILL-READS-STALE-VECPUSHERRO-77799ACC` を追加して fixed にした。`plan.md` は確認済みで、変更していない。
+- 根本原因は、`VecPushError<T>` が `rejected: VecPushRejected<T>` と `error: StdErrorKind` を持つ形へ変わった後も、SHA256 の `push<i32>` failure branch が `field::get e "vec"` を直接読んでいたこと。
+- `sha256/schedule.nepl`、`sha256/digest.nepl`、`sha256/api.nepl` は `vec_push_error_kind &e` で error kind を borrow read し、Copy payload の `i32` に限って `vec_push_error_vec e` で返却 `Vec<i32>` owner を回収するようにした。
+- `node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js` は passed。SHA256 配下の `field::get e "vec"` / `field::get e "error"` は `rg` で 0 件になった。
+- `stdlib/tests/hash.n.md` の focused doctest は 60s / 240s とも compile timeout になり、native `nepl-cli` の最小 SHA256 smoke も memory allocation failure になった。これは field access mismatch ではなく `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` の compile-time / memory budget 問題として継続する。

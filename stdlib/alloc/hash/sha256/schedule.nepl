@@ -68,8 +68,8 @@ pub fn sha256_build_schedule_loop %impure fn &Vec i32 impure fn i32 impure fn i3
                 Result::Ok word:
                     match push<i32> out word:
                         Result::Err e:
-                            set failure field::get e "error"
-                            set out field::get e "vec"
+                            set failure vec_push_error_kind &e
+                            set out vec_push_error_vec e
                             set failed true
                         Result::Ok next_w:
                             set out next_w

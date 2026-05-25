@@ -21,8 +21,8 @@
 pub fn sha256_push_byte %impure fn Vec i32 impure fn i32 Result Vec i32 StdErrorKind \out\byte:
     match push<i32> out and byte 255:
         Result::Err e:
-            let error %StdErrorKind field::get e "error"
-            let returned %Vec i32 field::get e "vec"
+            let error %StdErrorKind vec_push_error_kind &e
+            let returned %Vec i32 vec_push_error_vec e
             free<i32> returned
             Result<Vec<i32>, StdErrorKind>::Err error
         Result::Ok next:

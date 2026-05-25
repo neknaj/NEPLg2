@@ -38,8 +38,8 @@ pub fn new_sha256 %impure fn () Result Sha256 StdErrorKind \():
 pub fn sha256_update %impure fn Sha256 impure fn i32 Result Sha256 Sha256UpdateError \ctx\byte:
     match push<i32> field::get ctx "buffer" and byte 255:
         Result::Err e:
-            let error %StdErrorKind field::get e "error"
-            let returned %Vec i32 field::get e "vec"
+            let error %StdErrorKind vec_push_error_kind &e
+            let returned %Vec i32 vec_push_error_vec e
             Result<Sha256, Sha256UpdateError>::Err Sha256UpdateError (Sha256 returned) error
         Result::Ok new_vec:
             Result<Sha256, Sha256UpdateError>::Ok Sha256 new_vec
