@@ -30,17 +30,17 @@ stdout: "test_report name=\"bitset_pipe_usage\" count=4 failed=0\nassertion inde
 
 fn main %impure fn () i32 \():
     let bs0 %BitSet:
-        unwrap_ok<BitSet, Diag> new 24
+        unwrap_ok new 24
         |> insert 3 |> uwok
         |> insert 8 |> uwok
         |> insert 21 |> uwok
         |> remove 8 |> uwok
-    let ok0 %bool unwrap_ok<bool, Diag> contains &bs0 3;
-    let ok1 %bool not unwrap_ok<bool, Diag> contains &bs0 8;
+    let ok0 %bool unwrap_ok contains &bs0 3;
+    let ok1 %bool not unwrap_ok contains &bs0 8;
     let size %i32 len &bs0;
     free bs0
-    let bs2 %BitSet fill unwrap_ok<BitSet, Diag> new 24;
-    let ok3 %bool unwrap_ok<bool, Diag> contains &bs2 8;
+    let bs2 %BitSet fill unwrap_ok new 24;
+    let ok3 %bool unwrap_ok contains &bs2 8;
     free bs2
     let report:
         test_report_new "bitset_pipe_usage"
@@ -77,11 +77,11 @@ stdout: "test_report name=\"bitset_free_releases_owned_storage\" count=1 failed=
 
 fn main %impure fn () i32 \():
     let bs0 %BitSet:
-        unwrap_ok<BitSet, Diag> new 24
+        unwrap_ok new 24
         |> insert 5 |> uwok
     free bs0
     let bs1 %BitSet:
-        unwrap_ok<BitSet, Diag> new 24
+        unwrap_ok new 24
         |> insert 6 |> uwok
     free bs1
     let report:
@@ -117,7 +117,7 @@ stdout: "test_report name=\"bitset_update_error_recovers_owner\" count=2 failed=
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let bs0 %BitSet unwrap_ok<BitSet, Diag> new 20;
+    let bs0 %BitSet unwrap_ok new 20;
     let ok0 %bool:
         match insert bs0 20:
             Result::Ok next:
@@ -128,7 +128,7 @@ fn main %impure fn () i32 \():
                 let ok %bool eq len &recovered 20
                 free recovered
                 ok
-    let bs1 %BitSet unwrap_ok<BitSet, Diag> new 20;
+    let bs1 %BitSet unwrap_ok new 20;
     let ok1 %bool:
         match remove bs1 sub 0 3:
             Result::Ok next:

@@ -18,13 +18,13 @@ stdout: "test_report name=\"bitset_insert_remove_and_len\" count=3 failed=0\nass
 
 fn main %impure fn () i32 \():
     let bs %BitSet:
-        unwrap_ok<BitSet, Diag> new 32
+        unwrap_ok new 32
         |> insert 1 |> uwok
         |> insert 7 |> uwok
         |> insert 15 |> uwok
         |> remove 7 |> uwok
-    let ok0 %bool unwrap_ok<bool, Diag> contains &bs 1;
-    let ok1 %bool not unwrap_ok<bool, Diag> contains &bs 7;
+    let ok0 %bool unwrap_ok contains &bs 1;
+    let ok1 %bool not unwrap_ok contains &bs 7;
     let size %i32 len &bs;
     free bs
     let report:
@@ -54,13 +54,13 @@ stdout: "test_report name=\"bitset_clear_and_fill\" count=2 failed=0\nassertion 
 
 fn main %impure fn () i32 \():
     let bs0 %BitSet:
-        unwrap_ok<BitSet, Diag> new 10
+        unwrap_ok new 10
         |> insert 2 |> uwok
         |> clear
-    let ok0 %bool not unwrap_ok<bool, Diag> contains &bs0 2;
+    let ok0 %bool not unwrap_ok contains &bs0 2;
     free bs0
-    let bs1 %BitSet fill unwrap_ok<BitSet, Diag> new 10;
-    let ok1 %bool unwrap_ok<bool, Diag> contains &bs1 9;
+    let bs1 %BitSet fill unwrap_ok new 10;
+    let ok1 %bool unwrap_ok contains &bs1 9;
     free bs1
     let report:
         test_report_new "bitset_clear_and_fill"
@@ -87,7 +87,7 @@ stdout: "test_report name=\"bitset_update_error_returns_owner\" count=2 failed=0
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let bs0 %BitSet unwrap_ok<BitSet, Diag> new 12;
+    let bs0 %BitSet unwrap_ok new 12;
     let ok0 %bool:
         match insert bs0 99:
             Result::Ok next:
@@ -98,7 +98,7 @@ fn main %impure fn () i32 \():
                 let ok %bool eq len &recovered 12
                 free recovered
                 ok
-    let bs1 %BitSet unwrap_ok<BitSet, Diag> new 12;
+    let bs1 %BitSet unwrap_ok new 12;
     let ok1 %bool:
         match remove bs1 sub 0 1:
             Result::Ok next:
