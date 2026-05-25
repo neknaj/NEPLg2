@@ -35,6 +35,11 @@ Current representative programs are dominated by compile phase cost. Even a tiny
 - `cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_traversal_storage_release -- --exact --nocapture` は pass したが、test body 実行に 129.60s かかった。collection-slot source の小さめの回帰でも Resource IR cost が無視できない。
 - `node nodesrc/tests.js -i tests/stdlib/kp.n.md --no-tree -o tmp/agent_perf_kp_20260525.json -j 1 --assert-io --dist web/dist` は default 60000ms budget で `total=7, passed=0, failed=4, errored=3` だった。`doctest#1/#3/#7` は compile timeout、`doctest#2/#4/#5/#6` は旧 pipe 形が `type.pipe.invalid` などで compile fail したため、性能問題と NEPLg2.1 syntax migration 残件を分けて扱う必要がある。
 - 既存の `ISS-20260506T130138471Z-KP-STREAM-SCANNER-FLOAT-DOCTESTS-EXC-0D4A3BF8` は fixed 時点で focused suite 内 `doctest#1 compile_ms=14200ms`, `doctest#3 compile_ms=11800ms`, float cases も 20 秒台まで下がっていた。現在の 180-190 秒台はその issue の単純な継続ではなく、現 branch の compile-time regression として扱う。
+- 2026-05-25 追加確認として `node --experimental-strip-types repo_metrics.ts --json tmp\repo_metrics_20260525_perf_checkpoint.json` を実行し、current working tree が 3,255 files / 545,392 lines / 3,364 test cases であることを確認した。
+- `node nodesrc/run_doctest.js -i tmp/agent_perf_cases_20260525.n.md -n 2 --dist web/dist` は 184s local command timeout になった。最小 stdio case は wasm doctest 経路でも既に通常確認に使いにくい。
+- rebuilt `target\debug\nepl-cli.exe --check -i tmp\perf_tiny_stdio_print_i32.neplg2 --target std` は 120s / 240s の local command timeout になった。古い binary の測定値と混同せず、current branch を rebuild した native CLI でも stdio 最小 case が長時間化しているものとして扱う。
+- `NEPL_COMPILE_STAGE_TIMING=1 cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_traversal_storage_release -- --exact --nocapture` は pass し、test body 31.25s だった。内訳は `resource_initialized_raw_alias_summaries=49ms`, `resource_initialized_i32_scalar_summaries=1560ms`, `resource_initialized_raw_init_summaries=15291ms`, `resource_initialized_collection_slot_summaries=7297ms`, `resource_initialized_function_checks=6717ms` で、raw init summary / collection slot summary / function check が支配的である。
+- 試行として raw initialization summary を RawMemory / host effect / indirect call / relevant callee だけに絞る relevance filter を検討したが、`resource_ir_collection_slot_source_drop_traversal_storage_release` で `region_size` / `region_in_bounds` / `region_ptr` / `region_ptr_at` の reference parameter deref が `CellUnavailable` になった。このため、単純な direct RawMemory pruning は不正であり、reference parameter から導かれる initialized-cell 前提と summary relevance を同時に設計する必要がある。
 
 ## 問題
 
@@ -57,6 +62,8 @@ Create a fixed per-program benchmark corpus, keep compile_ms and run_ms evidence
 - KP workload: prefix sum, float scanner/writer, kpsearch のように stdlib graph と Resource IR summary が大きくなる case。
 
 その上で、`NEPL_COMPILE_STAGE_TIMING=1` の native timing と wasm doctest の `timing.compile_ms` を対応付ける。候補は Resource IR summary propagation、stdlib import graph の解析範囲、diagnostic materialization、型推論候補展開、WAT/comment 補助生成である。timeout 延長、coverage 削除、旧記法のままの失敗を性能改善として扱うことはしない。
+
+2026-05-25 の追加調査により、raw initialization summary の単純な relevance pruning は却下した。次の候補は、summary builder が reference parameter / raw address alias / initialized-cell seed をどの関数で必要とするかを明示的な fact category に分け、その category ごとに worklist を分けることである。`RawMemory` を持つ関数だけを残すのではなく、reference deref の可用性を証明する lightweight summary と raw byte/cell mutation summary を分ける必要がある。
 
 ## 検証
 

@@ -1,3 +1,18 @@
+# 2026-05-25 Agent 1 compile-time performance investigation checkpoint
+
+- Zenn 方針を踏まえ、timeout 延長や検査削除ではなく `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` の根本原因調査を継続した。
+- subagent の独立調査でも、次に扱うべき issue は per-program compile time regression と確認した。
+- `repo_metrics.ts` の current working tree 集計は 3,255 files / 545,392 lines / 3,364 test cases だった。
+- `node nodesrc/run_doctest.js -i tmp/agent_perf_cases_20260525.n.md -n 2 --dist web/dist` は 184s local command timeout になった。
+- rebuilt `target\debug\nepl-cli.exe --check -i tmp\perf_tiny_stdio_print_i32.neplg2 --target std` は 120s / 240s の local command timeout になった。古い binary の測定値と混同しないよう、current branch rebuild 後の native CLI でも最小 stdio case が長時間化しているものとして扱う。
+- `NEPL_COMPILE_STAGE_TIMING=1 cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_traversal_storage_release -- --exact --nocapture` は pass し、test body は 31.25s だった。内訳は raw alias summary 49ms、i32 scalar summary 1560ms、raw init summary 15291ms、collection slot summary 7297ms、function checks 6717ms。
+- raw initialization summary を RawMemory / host effect / indirect call / relevant callee だけに絞る relevance filter を試したが、`region_size` / `region_in_bounds` / `region_ptr` / `region_ptr_at` の reference parameter deref が `CellUnavailable` になったため撤回した。reference parameter から導かれる initialized-cell 前提と raw mutation summary を同じ relevance 条件で扱う単純 pruning は不正である。
+- 次は raw init summary を「reference deref availability」と「raw byte/cell mutation propagation」に分ける設計を検討する。これは summary coverage を削らず、worklist の対象 category を狭める方向で進める。
+- 検証:
+  - `cargo fmt -p nepl-core --check`: passed.
+  - `cargo test -p nepl-core collection_slot_summary --lib -- --nocapture`: 54/54 passed.
+  - `NEPL_COMPILE_STAGE_TIMING=1 cargo test -p nepl-core --test resource_ir resource_ir_collection_slot_source_drop_traversal_storage_release -- --exact --nocapture`: passed, 31.25s。
+
 # 2026-05-25 Agent 1 Vec filter return range scalar relation checkpoint
 
 - Zenn 方針を 2026-05-24 更新版で再確認し、試作段階でも静的検査の穴を局所抑制で隠さず、Resource IR の fact 伝播不足を根本から修正する方針で進めた。
