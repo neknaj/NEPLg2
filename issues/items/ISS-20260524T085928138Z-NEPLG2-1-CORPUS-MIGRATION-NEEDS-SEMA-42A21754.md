@@ -230,6 +230,15 @@ LLM/手動判断が必要なもの:
 - `rg -n "Result<i32,i32>::(Ok|Err)|Result<\\(\\),str>::Err" tests/stdlib/std_test_collect.n.md tests/stdlib/io.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/std_test_collect.n.md -i tests/stdlib/io.n.md --no-tree -o tmp/neplg21-result-constructor-small-tests.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では `std_test_collect` doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
 
+### 2026-05-26 string_char Result constructor and is_err observer checkpoint
+
+- `tests/stdlib/string_char.n.md` で、helper の戻り値型 `Result () str` / `Result str str` から型が確定する `Result<(),str>::Err`、`Result<str,str>::Err`、`Result<str,str>::Ok` を `Result::Err` / `Result::Ok` へ移行した。
+- `byte_builder_text` の error cleanup branch は、cleanup 呼び出し順を変えず constructor 表記だけを変更した。
+- `is_err<char,str>`、`is_err<str,str>`、`is_err<CharUtf8Step,str>` は、入力の `str_char_at_result` / `str_slice_chars_result` / `str_next_char_result` の戻り値型から `Result` 型が確定するため `is_err` へ移行した。
+- subagent review では constructor 全件が戻り値型または `bytes_check %Result () str` の expected type から安全に移行でき、残すべき弱い constructor はないと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)|is_err<" tests/stdlib/string_char.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/string_char.n.md --no-tree -o tmp/neplg21-string-char-result-constructors.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
