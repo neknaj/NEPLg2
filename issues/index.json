@@ -1,20 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-25T14:48:47.141Z",
+  "generated_at": "2026-05-25T15:02:02.886Z",
   "counts": {
     "total": 1257,
-    "open": 13,
-    "resolved": 1244,
+    "open": 12,
+    "resolved": 1245,
     "by_area": {
       "core": {
         "total": 617,
         "open": 6,
         "resolved": 611
-      },
-      "doc": {
-        "total": 3,
-        "open": 1,
-        "resolved": 2
       },
       "stdlib": {
         "total": 329,
@@ -45,6 +40,11 @@
         "total": 5,
         "open": 0,
         "resolved": 5
+      },
+      "doc": {
+        "total": 3,
+        "open": 0,
+        "resolved": 3
       },
       "resource": {
         "total": 3,
@@ -168,21 +168,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260524T193635695Z-NEPLG2-1-PREFIX-TYPE-APPS-NEED-KIND-RESOLVER-A13F0C92.md"
-    },
-    {
-      "id": "ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC",
-      "title": "README and docs must distinguish NEPLg2.1 from unstable NEPLg3",
-      "area": "doc",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "doc",
-      "created": "2026-05-24",
-      "updated": "2026-05-24",
-      "target": "README.md, doc/README.md, doc/neplg2/**, doc/neplg3/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC.md"
     },
     {
       "id": "ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754",
@@ -828,6 +813,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T154609873Z-RESOURCE-RAW-IDENTITY-SUMMARY-BLOCKS-E4C8EDF4.md"
+    },
+    {
+      "id": "ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC",
+      "title": "README and docs must distinguish NEPLg2.1 from unstable NEPLg3",
+      "area": "doc",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "doc",
+      "created": "2026-05-24",
+      "updated": "2026-05-25",
+      "target": "README.md, doc/README.md, doc/neplg2/**, doc/neplg3/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC.md"
     },
     {
       "id": "ISS-20260507T124325905Z-RESOURCE-OWNER-SUMMARY-MISSES-STRUCT-D34092E5",

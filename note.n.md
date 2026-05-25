@@ -1,3 +1,11 @@
+# 2026-05-25 Agent 1 NEPLg2.1 docs issue final checkpoint
+
+- Zenn 方針に従い、NEPLg2.1 の main merge 可否を open P0 issue 単位で再監査した。
+- `ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC` は、README/doc が NEPLg2.1 と未確定 NEPLg3 draft を明確に分離していることを確認したため fixed/resolved に更新した。
+- `README.md`、`doc/neplg2/README.md`、`doc/neplg2/neplg21_syntax_migration_plan.md` は NEPLg2.1 を現行ラインの表層構文移行として説明している。
+- `doc/neplg3/README.md`、`doc/neplg3/spec/index.md`、`doc/migration/index.md`、`doc/compare/index.md` は NEPLg3 文書を現在の正仕様ではなく draft / 参考資料として扱うようになっている。
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` は、tutorials/examples/tests に明示 generic postfix が残るため open のまま継続する。
+
 # 2026-05-25 Agent 1 compile-time performance investigation checkpoint
 
 - Zenn 方針を踏まえ、timeout 延長や検査削除ではなく `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` の根本原因調査を継続した。
