@@ -289,7 +289,7 @@ fn sha256_digest_matches_loop %fn &Vec i32 fn i32 fn i32 bool \digest\kind\idx:
         then:
             true
         else:
-            match get<i32> digest idx:
+            match get digest idx:
                 Option::None:
                     false
                 Option::Some actual:
@@ -303,12 +303,12 @@ fn sha256_push_digest_checks %impure fn TestReport impure fn str impure fn Resul
         Result::Err e:
             test_report_push report test_assertion_fail label std_error_kind_str e
         Result::Ok digest:
-            let digest_len %i32 len<i32> &digest
+            let digest_len %i32 len &digest
             let len_label %str text::concat label " length"
             let bytes_label %str text::concat label " bytes"
             let report1 test_report_push report assert_eq_i32 len_label 32 digest_len
             let report2 test_report_push report1 assert bytes_label sha256_digest_matches &digest kind
-            free<i32> digest
+            free digest
             report2
 
 fn main %impure fn () i32 \():

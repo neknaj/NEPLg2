@@ -198,6 +198,14 @@ LLM/手動判断が必要なもの:
 - ファイル前半の `Result<(),str>::Err` は別テストの error aggregation であり、今回の directory entry Vec checkpoint には混ぜず残した。
 - `node nodesrc/tests.js -i tests/stdlib/fs.n.md --no-tree -o tmp/neplg21-fs-vec-str-postfix.json -j 1 --dist web/dist --assert-io` は 240s command timeout。partial JSON では変更箇所前の doctest#1-#4 が wasm compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
 
+### 2026-05-26 hash Vec i32 observer checkpoint
+
+- `stdlib/tests/hash.n.md` で、`sha256_digest_matches_loop` の引数 `digest: &Vec i32` から型が確定する `get<i32>` を `get` へ移行した。
+- `sha256_push_digest_checks` では `Result::Ok digest` の payload 型が `Vec i32` と分かるため、`len<i32> &digest` / `free<i32> digest` を postfix なしへ移行した。
+- 同じ検証中に、SHA256 実装側が stale な `VecPushError<T>.vec` field を直接読んでいた問題が露出したため、`ISS-20260525T214844057Z-SHA256-STILL-READS-STALE-VECPUSHERRO-77799ACC` として分離し、accessor 経由へ修正した。
+- `rg -n "get<i32>|len<i32>|free<i32>" stdlib/tests/hash.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/neplg21-hash-vecpusherror-field-240s.json -j 1 --dist web/dist --assert-io` は 240s compile timeout。SHA256 の `type.field.invalid_access` は再発せず、残る full doctest green 化は `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` 側で継続する。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

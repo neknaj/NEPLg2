@@ -46072,3 +46072,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `sha256/schedule.nepl`、`sha256/digest.nepl`、`sha256/api.nepl` は `vec_push_error_kind &e` で error kind を borrow read し、Copy payload の `i32` に限って `vec_push_error_vec e` で返却 `Vec<i32>` owner を回収するようにした。
 - `node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js` は passed。SHA256 配下の `field::get e "vec"` / `field::get e "error"` は `rg` で 0 件になった。
 - `stdlib/tests/hash.n.md` の focused doctest は 60s / 240s とも compile timeout になり、native `nepl-cli` の最小 SHA256 smoke も memory allocation failure になった。これは field access mismatch ではなく `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` の compile-time / memory budget 問題として継続する。
+
+## 2026-05-26 Agent 1 hash Vec i32 observer postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`stdlib/tests/hash.n.md` の SHA256 digest observer / cleanup 周辺を NEPLg2.1 postfix-free へ移行した。`plan.md` は変更していない。
+- `sha256_digest_matches_loop` は `digest: &Vec i32` から `get digest idx` の payload 型が決まり、`sha256_push_digest_checks` は `Result Vec i32 StdErrorKind` の `Ok digest` payload から `len &digest` / `free digest` の型が決まる。
+- `rg -n "get<i32>|len<i32>|free<i32>" stdlib/tests/hash.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/neplg21-hash-vecpusherror-field-240s.json -j 1 --dist web/dist --assert-io` は 240s compile timeout。型診断は出ていないが、full doctest green は compile-time / memory budget issue の解消後に再確認する。
