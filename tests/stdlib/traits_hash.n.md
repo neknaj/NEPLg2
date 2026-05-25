@@ -178,7 +178,7 @@ fn must_hm %impure fn Result HashMap i32 i32 DefaultHash32 HashMapUpdateError i3
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm %HashMap i32 i32 DefaultHash32 hashmap_update_error_owner<i32,i32,DefaultHash32> e;
+            let hm %HashMap i32 i32 DefaultHash32 hashmap_update_error_owner e;
             free hm;
             #intrinsic "unreachable" <> ()
 
@@ -194,7 +194,7 @@ fn must_hms %impure fn Result HashMap str i32 DefaultHash32 HashMapUpdateError s
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner<str,i32,DefaultHash32> e;
+            let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner e;
             free hm;
             #intrinsic "unreachable" <> ()
 
@@ -243,7 +243,7 @@ fn must_hmk %impure fn Result HashMap ModKey i32 ModHasher HashMapUpdateError Mo
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm %HashMap ModKey i32 ModHasher hashmap_update_error_owner<ModKey,i32,ModHasher> e;
+            let hm %HashMap ModKey i32 ModHasher hashmap_update_error_owner e;
             free hm;
             #intrinsic "unreachable" <> ()
 
@@ -255,7 +255,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check_eq_i32 99 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "hashmap get did not return inserted value";
+            set checks checks_push checks Result::Err "hashmap get did not return inserted value";
     free hm;
 
     let hms %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
@@ -264,7 +264,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check_eq_i32 7 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "string hashmap get did not return inserted value";
+            set checks checks_push checks Result::Err "string hashmap get did not return inserted value";
     free hms;
 
     let hmk %HashMap ModKey i32 ModHasher must_hmk new ModHasher;
@@ -273,7 +273,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check_eq_i32 3 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "custom key hashmap get did not return inserted value";
+            set checks checks_push checks Result::Err "custom key hashmap get did not return inserted value";
     free hmk;
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -307,14 +307,14 @@ stdout: mlstr:
 #import "core/field" as *
 
 fn must_hs %impure fn Result HashSet i32 DefaultHash32 Diag HashSet i32 DefaultHash32 \r:
-    unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
+    unwrap_ok r
 
 fn must_hs %impure fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 DefaultHash32 HashSet i32 DefaultHash32 \r:
     match r:
         Result::Ok hs:
             hs
         Result::Err e:
-            let hs %HashSet i32 DefaultHash32 hashset_update_error_owner<i32,DefaultHash32> e;
+            let hs %HashSet i32 DefaultHash32 hashset_update_error_owner e;
             free hs;
             #intrinsic "unreachable" <> ()
 
@@ -352,14 +352,14 @@ impl Hasher<ModKey> for ModHasher:
         rem_s field::get key "raw" 7
 
 fn must_hsk %impure fn Result HashSet ModKey ModHasher Diag HashSet ModKey ModHasher \r:
-    unwrap_ok<HashSet<ModKey,ModHasher>, Diag> r
+    unwrap_ok r
 
 fn must_hsk %impure fn Result HashSet ModKey ModHasher HashSetUpdateError ModKey ModHasher HashSet ModKey ModHasher \r:
     match r:
         Result::Ok hs:
             hs
         Result::Err e:
-            let hs %HashSet ModKey ModHasher hashset_update_error_owner<ModKey,ModHasher> e;
+            let hs %HashSet ModKey ModHasher hashset_update_error_owner e;
             free hs;
             #intrinsic "unreachable" <> ()
 

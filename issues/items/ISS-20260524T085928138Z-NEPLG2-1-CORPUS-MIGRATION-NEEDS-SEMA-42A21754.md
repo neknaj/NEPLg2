@@ -255,6 +255,15 @@ LLM/手動判断が必要なもの:
 - `rg -n "Result<[^>]+>::(Ok|Err)|is_err<|is_ok<" tests/stdlib/traits_serde.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/traits_serde.n.md --no-tree -o tmp/neplg21-traits-serde-result-constructors.json -j 1 --dist web/dist --assert-io` は `doctest#1/#2` とも compile timeout after 60000ms。型診断は出ていない。
 
+### 2026-05-26 traits_hash Result constructor / helper postfix checkpoint
+
+- `tests/stdlib/traits_hash.n.md` で、`checks_push` の expected type `Result () str` から型が確定する `Result<(),str>::Err` を `Result::Err` へ移行した。
+- `unwrap_ok<HashSet<...>, Diag> r` は、引数 `r` の型 `Result HashSet ... Diag` から型引数が確定するため `unwrap_ok r` へ移行した。
+- `hashmap_update_error_owner<...> e` / `hashset_update_error_owner<...> e` は、`Err e` の payload 型と `%HashMap` / `%HashSet` local annotation が一致しているため postfix なしへ移行した。
+- `use_hasher_twice<i32, StatefulHasher>` は `.K` が値引数に現れず `.H: Hasher<.K>` bound 経由でしか決まらないため、trait bound 逆推論の別 checkpoint として残した。
+- `rg -n "Result<[^>]+>::(Ok|Err)|unwrap_ok<|hashmap_update_error_owner<|hashset_update_error_owner<" tests/stdlib/traits_hash.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/traits_hash.n.md --no-tree -o tmp/neplg21-traits-hash-postfix.json -j 1 --dist web/dist --assert-io` は 6 件中 3 pass、`doctest#1` が compile timeout after 60000ms、`doctest#5/#6` が既存の `new` overload no_match 系 compile failure。今回移行した helper call に対する型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

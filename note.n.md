@@ -46128,3 +46128,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `deserialize<i32>` / `deserialize<bool>` は入口側 generic call の推論確認を別 checkpoint に分けるため残した。
 - `rg -n "Result<[^>]+>::(Ok|Err)|is_err<|is_ok<" tests/stdlib/traits_serde.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/traits_serde.n.md --no-tree -o tmp/neplg21-traits-serde-result-constructors.json -j 1 --dist web/dist --assert-io` は `doctest#1/#2` とも compile timeout after 60000ms。型診断は出ていない。
+
+## 2026-05-26 Agent 1 traits_hash Result constructor / helper postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`tests/stdlib/traits_hash.n.md` の safe helper call postfix を撤廃した。`plan.md` は変更していない。
+- `checks_push` の expected type から `Result<(),str>::Err` を `Result::Err` へ移行した。
+- `unwrap_ok<HashSet<...>, Diag> r` は `r` の入力型から、`hashmap_update_error_owner<...> e` / `hashset_update_error_owner<...> e` は `Err e` の payload 型と `%HashMap` / `%HashSet` local annotation から型が決まる。
+- `use_hasher_twice<i32, StatefulHasher>` は `.K` が値引数に出ないため残した。これを外すには trait bound の実装候補から型引数を逆推論する能力が必要であり、corpus rewrite ではなく推論 checkpoint で扱う。
+- `rg -n "Result<[^>]+>::(Ok|Err)|unwrap_ok<|hashmap_update_error_owner<|hashset_update_error_owner<" tests/stdlib/traits_hash.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/traits_hash.n.md --no-tree -o tmp/neplg21-traits-hash-postfix.json -j 1 --dist web/dist --assert-io` は 6 件中 3 pass、`doctest#1` が compile timeout after 60000ms、`doctest#5/#6` が既存の `new` overload no_match 系 compile failure。今回移行した helper call に対する型診断は出ていない。
