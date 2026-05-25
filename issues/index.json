@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-25T21:16:08.645Z",
+  "generated_at": "2026-05-25T21:41:59.314Z",
   "counts": {
-    "total": 1259,
+    "total": 1260,
     "open": 11,
-    "resolved": 1248,
+    "resolved": 1249,
     "by_area": {
       "stdlib": {
         "total": 329,
@@ -12,9 +12,9 @@
         "resolved": 324
       },
       "core": {
-        "total": 619,
+        "total": 620,
         "open": 5,
-        "resolved": 614
+        "resolved": 615
       },
       "selfhost": {
         "total": 110,
@@ -843,6 +843,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260525T153936813Z-NEPLG2-1-INFERRED-GENERIC-CALL-RESUL-6EAE31C7.md"
+    },
+    {
+      "id": "ISS-20260525T213016826Z-NEPLG2-1-TYPE-ARITY-PRELOAD-DROPS-CY-F74EBA18",
+      "title": "NEPLg2.1 type arity preload drops cyclic facade exports",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-25",
+      "updated": "2026-05-26",
+      "target": "nepl-core/src/loader.rs, nepl-core/src/parser.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260525T213016826Z-NEPLG2-1-TYPE-ARITY-PRELOAD-DROPS-CY-F74EBA18.md"
     },
     {
       "id": "ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC",

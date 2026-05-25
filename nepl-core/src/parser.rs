@@ -82,6 +82,24 @@ pub fn parse_tokens_with_type_arity_hints(
     }
 }
 
+/// Collect parser-facing arity metadata from source text without parsing bodies.
+///
+/// Loader-side arity preloading sometimes needs metadata from a module that is
+/// already on the import stack. In that case a full recursive parse would be a
+/// cycle, but shallow declaration heads are still enough to decide NEPLg2.1
+/// prefix type boundaries such as `%Vec Diag`.
+pub fn type_arity_hints_from_source(file_id: FileId, src: &str) -> Vec<(String, usize)> {
+    let lex = crate::lexer::lex(file_id, src);
+    if lex
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.severity == crate::diagnostic::Severity::Error)
+    {
+        return Vec::new();
+    }
+    collect_type_arity_hints_from_tokens(&lex.tokens)
+}
+
 /// Collect public parser-facing arity metadata from a parsed module.
 ///
 /// The loader uses this after parsing dependency modules so an importing module

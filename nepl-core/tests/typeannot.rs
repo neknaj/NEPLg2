@@ -115,6 +115,68 @@ fn main %fn () i32 \():
 }
 
 #[test]
+fn test_neplg21_prefix_type_arity_preload_reads_cyclic_facade_exports() {
+    let dir = tempfile::tempdir().expect("create temporary NEPL entry directory");
+    fs::write(
+        dir.path().join("facade.nepl"),
+        r#"
+#indent 4
+#no_prelude
+
+pub #import "./types" as @merge
+pub #import "./cycle" as @merge
+"#,
+    )
+    .expect("write cyclic facade module");
+
+    fs::write(
+        dir.path().join("types.nepl"),
+        r#"
+#indent 4
+#no_prelude
+
+pub struct Vec<.T>:
+    value %.T
+"#,
+    )
+    .expect("write facade type module");
+
+    fs::write(
+        dir.path().join("cycle.nepl"),
+        r#"
+#indent 4
+#no_prelude
+#import "./facade" as v
+
+pub struct Diag:
+    items %Vec i32
+"#,
+    )
+    .expect("write module that needs facade arity while the facade is processing");
+
+    let main_path = dir.path().join("main.nepl");
+    fs::write(
+        &main_path,
+        r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+#import "./facade" as *
+
+fn main %fn () i32 \():
+    0
+"#,
+    )
+    .expect("write entry module importing cyclic facade");
+
+    let mut loader = Loader::new(test_stdlib_root());
+    loader
+        .load(&main_path)
+        .expect("load cyclic facade without losing prefix type arity hints");
+}
+
+#[test]
 fn test_type_annot_basic() {
     let src = r#"
 #entry main

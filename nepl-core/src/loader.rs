@@ -422,11 +422,16 @@ impl Loader {
         let paths = self.type_arity_preload_paths(base, file_id, src, is_root);
         let mut hints = Vec::new();
         for path in paths {
-            if processing.contains(&canonicalize_path(&path)) {
+            let canon = canonicalize_path(&path);
+            if processing.contains(&canon) {
+                let mut visited = BTreeSet::new();
+                let shallow_hints =
+                    self.shallow_type_arity_hints_from_file(&path, file_id, &mut visited)?;
+                push_loader_type_arity_hints(&mut hints, shallow_hints);
                 continue;
             }
             let mut preload_imported_once = imported_once.clone();
-            preload_imported_once.insert(canonicalize_path(&path));
+            preload_imported_once.insert(canon);
             let module = self.load_file(
                 &path,
                 sm,
@@ -459,11 +464,20 @@ impl Loader {
         let paths = self.type_arity_preload_paths(base, file_id, src, is_root);
         let mut hints = Vec::new();
         for path in paths {
-            if processing.contains(&canonicalize_path(&path)) {
+            let canon = canonicalize_path(&path);
+            if processing.contains(&canon) {
+                let mut visited = BTreeSet::new();
+                let shallow_hints = self.shallow_type_arity_hints_from_file_with(
+                    &path,
+                    file_id,
+                    &mut visited,
+                    provider,
+                )?;
+                push_loader_type_arity_hints(&mut hints, shallow_hints);
                 continue;
             }
             let mut preload_imported_once = imported_once.clone();
-            preload_imported_once.insert(canonicalize_path(&path));
+            preload_imported_once.insert(canon);
             let module = self.load_file_with(
                 &path,
                 sm,
@@ -476,6 +490,109 @@ impl Loader {
             push_loader_type_arity_hints(&mut hints, parser::type_arity_hints_from_module(&module));
         }
         Ok(hints)
+    }
+
+    fn shallow_type_arity_hints_from_file(
+        &self,
+        path: &PathBuf,
+        file_id: FileId,
+        visited: &mut BTreeSet<PathBuf>,
+    ) -> Result<Vec<(String, usize)>, LoaderError> {
+        let canon = canonicalize_path(path);
+        if !visited.insert(canon.clone()) {
+            return Ok(Vec::new());
+        }
+        let src = read_file_to_string(&canon)?;
+        Ok(self.shallow_type_arity_hints_from_source(&canon, file_id, &src, visited))
+    }
+
+    fn shallow_type_arity_hints_from_file_with(
+        &self,
+        path: &PathBuf,
+        file_id: FileId,
+        visited: &mut BTreeSet<PathBuf>,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+    ) -> Result<Vec<(String, usize)>, LoaderError> {
+        let canon = canonicalize_path(path);
+        if !visited.insert(canon.clone()) {
+            return Ok(Vec::new());
+        }
+        let src = provider(&canon)?;
+        self.shallow_type_arity_hints_from_source_with(&canon, file_id, &src, visited, provider)
+    }
+
+    fn shallow_type_arity_hints_from_source(
+        &self,
+        canon: &PathBuf,
+        file_id: FileId,
+        src: &str,
+        visited: &mut BTreeSet<PathBuf>,
+    ) -> Vec<(String, usize)> {
+        // A module that is already on the import stack cannot be fully parsed
+        // again, but its declaration heads and facade re-exports are still
+        // enough kind metadata for NEPLg2.1 prefix type parsing. This keeps
+        // `%Vec Diag` parseable when `Vec` is reached through a cyclic facade.
+        let mut hints = parser::type_arity_hints_from_source(file_id, src);
+        for dep in self.shallow_type_arity_reexport_paths(canon, file_id, src) {
+            let Ok(dep_hints) = self.shallow_type_arity_hints_from_file(&dep, file_id, visited)
+            else {
+                continue;
+            };
+            push_loader_type_arity_hints(&mut hints, dep_hints);
+        }
+        hints
+    }
+
+    fn shallow_type_arity_hints_from_source_with(
+        &self,
+        canon: &PathBuf,
+        file_id: FileId,
+        src: &str,
+        visited: &mut BTreeSet<PathBuf>,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+    ) -> Result<Vec<(String, usize)>, LoaderError> {
+        let mut hints = parser::type_arity_hints_from_source(file_id, src);
+        for dep in self.shallow_type_arity_reexport_paths(canon, file_id, src) {
+            let dep_hints =
+                self.shallow_type_arity_hints_from_file_with(&dep, file_id, visited, provider)?;
+            push_loader_type_arity_hints(&mut hints, dep_hints);
+        }
+        Ok(hints)
+    }
+
+    fn shallow_type_arity_reexport_paths(
+        &self,
+        base: &PathBuf,
+        file_id: FileId,
+        src: &str,
+    ) -> Vec<PathBuf> {
+        // Cycle recovery must stay shallow. Normal imports may pull in large
+        // implementation graphs, while public facade re-exports and includes
+        // are the paths that can contribute visible type constructors.
+        let lex = lexer::lex(file_id, src);
+        if lex
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.severity == Severity::Error)
+        {
+            return Vec::new();
+        }
+        let mut paths = Vec::new();
+        for token in lex.tokens {
+            match token.kind {
+                TokenKind::DirImport(text) => {
+                    if let Some(path) = public_import_path_from_directive_text(&text) {
+                        paths.push(path);
+                    }
+                }
+                TokenKind::DirInclude(path) => paths.push(path),
+                _ => {}
+            }
+        }
+        paths
+            .into_iter()
+            .map(|path| self.resolve_path(base, &path))
+            .collect()
     }
 
     fn type_arity_preload_paths(
@@ -979,6 +1096,21 @@ fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> b
 fn import_path_from_directive_text(text: &str) -> Option<String> {
     let rest = text.trim();
     let rest = rest.strip_prefix("pub").map(str::trim).unwrap_or(rest);
+    if let Some(quoted) = rest.strip_prefix('"') {
+        return quoted.find('"').map(|end| quoted[..end].to_string());
+    }
+    rest.split_whitespace().next().map(str::to_string)
+}
+
+/// Extract only public import paths from a directive body.
+///
+/// This is used by shallow cycle recovery, where private implementation
+/// imports would make arity discovery walk the whole stdlib graph. Public
+/// imports and merge facades are the dependency edges that can expose type
+/// constructors to the module currently being parsed.
+fn public_import_path_from_directive_text(text: &str) -> Option<String> {
+    let rest = text.trim();
+    let rest = rest.strip_prefix("pub")?.trim();
     if let Some(quoted) = rest.strip_prefix('"') {
         return quoted.find('"').map(|end| quoted[..end].to_string());
     }

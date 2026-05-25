@@ -1,3 +1,17 @@
+# 2026-05-26 Agent 1 NEPLg2.1 cyclic facade arity preload fix
+
+- `ISS-20260525T213016826Z-NEPLG2-1-TYPE-ARITY-PRELOAD-DROPS-CY-F74EBA18` を追加し、同じ checkpoint で fixed/resolved に更新した。
+- 根本原因は、NEPLg2.1 prefix 型式の arity preload が processing stack 上の module を skip し、cyclic facade 経由で re-export される type constructor の arity を失うことだった。
+- parser に body parse なしで declaration head だけから arity metadata を集める `type_arity_hints_from_source` を追加した。
+- loader は processing 中 dependency について、full load ではなく shallow arity scan を使うようにした。shallow scan は public import / merge facade / include だけを辿り、通常 import による実装 graph 全体の探索を避ける。
+- 最小 cyclic facade regression を `nepl-core/tests/typeannot.rs` に追加し、facade が processing 中でも re-export 先の `Vec<.T>` arity で `%Vec i32` が parse できることを固定した。
+- 実 stdlib smoke `target\debug\nepl-cli.exe --check -i tmp\neplg21_fs_vec_str_postfix_smoke.neplg2 --target std` は、当初の `%Vec Diag` parser error から先へ進んだが、最終的には memory allocation failure / timeout になった。これは parser arity bug とは別の compile-time / memory budget 問題として扱う。
+- 検証:
+  - `cargo test -p nepl-core --test typeannot test_neplg21_prefix_type_arity_preload_reads_cyclic_facade_exports -- --exact --nocapture`: pass。
+  - `cargo test -p nepl-core --test typeannot neplg21 -- --nocapture`: 5/5 pass。
+  - `cargo test -p nepl-core --test functions neplg21 -- --nocapture`: 8/8 pass。
+  - `cargo check -p nepl-core`: pass。
+
 # 2026-05-26 Agent 1 NEPLg2.1 frontend P0 close checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 の main merge blocker を open P0 issue 単位で再監査した。
