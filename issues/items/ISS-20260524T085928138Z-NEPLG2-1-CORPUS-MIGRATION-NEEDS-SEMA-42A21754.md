@@ -216,6 +216,13 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/neplg21-vec-main-basic-observer.json -j 1 --dist web/dist --assert-io` は 120s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
 - `target\debug\nepl-cli.exe --check -i tmp\neplg21_vec_basic_observer_smoke.neplg2 --target core` は memory allocation failure。これは `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` 側の compile-time / memory budget 問題として扱う。
 
+### 2026-05-26 vec_collections observer checkpoint
+
+- `tests/stdlib/vec_collections.n.md` で、`Vec i32` local または `&Vec i32` 引数から型が確定する `is_empty<i32>`、`cap<i32>`、`len<i32>`、`get<i32>`、`free<i32>` を postfix なしへ移行した。
+- `with_capacity<i32>`、`new<i32>`、`push<i32>`、`sort_merge_ret<i32>` は producer/update/sort 側の推論 checkpoint として別に扱うため、今回は残した。
+- `rg -n "is_empty<i32>|cap<i32>|len<i32>|get<i32>|free<i32>" tests/stdlib/vec_collections.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/neplg21-vec-collections-observers.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

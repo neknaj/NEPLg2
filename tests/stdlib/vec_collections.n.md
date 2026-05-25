@@ -29,9 +29,9 @@ stdout: "test_report name=\"vec_free_zero_and_grow_reallocates\" count=4 failed=
 
 fn main %impure fn () i32 \():
     let empty %Vec i32 unwrap_ok with_capacity<i32> 0;
-    let empty_is_empty %bool is_empty<i32> &empty;
-    let empty_cap %i32 cap<i32> &empty;
-    free<i32> empty;
+    let empty_is_empty %bool is_empty &empty;
+    let empty_cap %i32 cap &empty;
+    free empty;
     let mut grown %Vec i32 unwrap_ok new<i32>;
     set grown unwrap_ok push<i32> grown 0;
     set grown unwrap_ok push<i32> grown 1;
@@ -43,16 +43,16 @@ fn main %impure fn () i32 \():
     set grown unwrap_ok push<i32> grown 7;
     set grown unwrap_ok push<i32> grown 8;
     set grown unwrap_ok push<i32> grown 9;
-    let grown_len %i32 len<i32> &grown;
-    free<i32> grown;
+    let grown_len %i32 len &grown;
+    free grown;
     let mut next %Vec i32 unwrap_ok new<i32>;
     set next unwrap_ok push<i32> next 42;
-    let top_ok %bool match get<i32> &next 0:
+    let top_ok %bool match get &next 0:
         Option::Some v:
             eq v 42
         Option::None:
             false
-    free<i32> next;
+    free next;
     let report:
         test_report_new "vec_free_zero_and_grow_reallocates"
         |> test_report_push assert "empty vec is empty" empty_is_empty
@@ -97,25 +97,25 @@ fn main %impure fn () i32 \():
         |> push 4 |> uwok
         |> push 1 |> uwok
     let sorted %Vec i32 unwrap_ok sort_merge_ret<i32> unsorted;
-    let first_ok %bool match get<i32> &sorted 0:
+    let first_ok %bool match get &sorted 0:
         Option::Some v:
             eq v 1
         Option::None:
             false
-    let last_ok %bool match get<i32> &sorted 3:
+    let last_ok %bool match get &sorted 3:
         Option::Some v:
             eq v 5
         Option::None:
             false
-    free<i32> sorted;
+    free sorted;
     let mut next %Vec i32 unwrap_ok new<i32>;
     set next unwrap_ok push<i32> next 7;
-    let next_ok %bool match get<i32> &next 0:
+    let next_ok %bool match get &next 0:
         Option::Some v:
             eq v 7
         Option::None:
             false
-    free<i32> next;
+    free next;
     let report:
         test_report_new "vec_sort_merge_ret_releases_scratch_buffer"
         |> test_report_push assert "first item sorted" first_ok
@@ -152,7 +152,7 @@ fn main %impure fn () i32 \():
     let neg %i32 sub 0 1
     let actual %str match with_capacity<i32> neg:
         Result::Ok v:
-            free<i32> v
+            free v
             "Ok"
         Result::Err e:
             std_error_kind_str e

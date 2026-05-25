@@ -46088,3 +46088,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `Get-Content stdlib/tests/vec.n.md | Select-Object -First 115 | rg -n "is_empty<i32>|len<i32>|get<i32>|replace<i32>|free<i32>|get<u8>|free<u8>|is_none<i32>"` は 0 件になった。
 - `node nodesrc/tests.js -i stdlib/tests/vec.n.md --no-tree -o tmp/neplg21-vec-main-basic-observer.json -j 1 --dist web/dist --assert-io` は 120s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
 - native `nepl-cli` の最小 Vec observer smoke も memory allocation failure になったため、full green は `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` 側の compile-time / memory budget 改善後に再確認する。
+
+## 2026-05-26 Agent 1 vec_collections observer postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`tests/stdlib/vec_collections.n.md` の基本 Vec collection smoke に残っていた observer / cleanup postfix を撤廃した。`plan.md` は変更していない。
+- `is_empty` / `cap` / `len` / `get` / `free` は `Vec i32` local または `&Vec i32` 引数から型が確定する。一方、`with_capacity` / `new` / `push` / `sort_merge_ret` は producer/update/sort 側の推論問題を混ぜないため残した。
+- `rg -n "is_empty<i32>|cap<i32>|len<i32>|get<i32>|free<i32>" tests/stdlib/vec_collections.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/vec_collections.n.md --no-tree -o tmp/neplg21-vec-collections-observers.json -j 1 --dist web/dist --assert-io` は 150s local command timeout。partial JSON では doctest#1/#2 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
