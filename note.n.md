@@ -1,3 +1,19 @@
+# 2026-05-26 Agent 1 examples BF small Vec observer postfix cleanup checkpoint
+
+- Zenn 方針を再確認し、単純な旧表記削除ではなく、関数戻り値・引数型・payload 型から型根拠が明確な箇所だけを移行した。
+- `examples/bf.nepl` の `make_i32_vec` では、戻り値 `Result Vec i32 StdErrorKind` と `value: i32` から `v::filled` の `.T = i32` が確定するため、`v::filled<i32>` を `v::filled` へ移行した。
+- `current_cell` / `jump_target` では、引数型 `&Vec i32` から `v::get` の `.T = i32` が確定するため、`v::get<i32>` を `v::get` へ移行した。
+- コメント内の `Vec<i32>` は、NEPLg2.1 の prefix 型式に合わせて `Vec i32` へ更新した。
+- `compile_jumps` 内の `Result` / `Stack` owner recovery と `Vec` cleanup が密に絡む generic postfix は、今回の小 checkpoint では残した。
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` に checkpoint を追記した。issue は corpus 全体の残件が多いため open のまま。
+- 検証:
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。CRLF checkout warning のみ。
+  - `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/neplg21-example-bf-small-vec.json -j 1 --dist web/dist --assert-io`: 2 doctest とも wasm compile timeout after 60000ms。
+  - `target\debug\nepl-cli.exe --check -i examples\bf.nepl --target std`: 180s timeout。
+  - `target\debug\nepl-cli.exe --check -i tmp\neplg21_bf_vec_postfix_free_smoke.neplg2 --target std`: 120s timeout。検証用 tmp source は削除し、残留 `nepl-cli` プロセスは停止した。
+
 # 2026-05-26 Agent 1 getting_started Result constructor / Vec observer postfix cleanup checkpoint
 
 - Zenn 方針を再確認し、単なる文字列置換ではなく戻り値型・入力型・expected type が明確な箇所だけを NEPLg2.1 postfix-free 形式へ移行した。

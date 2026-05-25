@@ -181,6 +181,15 @@ LLM/手動判断が必要なもの:
 - 対象 8 file について `Result<` / `Vec<` / `&Vec<` / `is_err<` / `is_ok<` / `unwrap_ok<` / `ok<` / `err<` / `some<` / `none<` / `push<` / `get<` / `len<` / `free<` / `vec_push_error_vec<` は 0 件になった。ただし `13_vec_basics.n.md` と `16_drop_and_cleanup.n.md` の `new<i32>` は上記理由で残している。
 - `node nodesrc/tests.js` による対象 doctest verification は、`10` / `11` / `12` / `13` / `14` / `16` で wasm compile timeout after 60000ms。timeout JSON に型診断は出ていないため、既存の per-program compile-time issue 側で継続確認する。
 
+### 2026-05-26 examples BF small Vec observer checkpoint
+
+- `examples/bf.nepl` で、関数戻り値 `Result Vec i32 StdErrorKind` と `value: i32` から型が確定する `v::filled<i32>` を `v::filled` へ移行した。
+- `current_cell` / `jump_target` では、引数型 `&Vec i32` から型が確定する `v::get<i32>` を `v::get` へ移行した。
+- コメント内の `Vec<i32>` は、NEPLg2.1 の prefix 型式に合わせて `Vec i32` へ更新した。
+- `compile_jumps` 内の `err<Vec<i32>, str>` / `ok<Vec<i32>, str>` / `Stack<i32>` owner recovery 周辺は、`Stack` と `Result` の owner state が密に絡むため今回の小 checkpoint では残した。
+- `node nodesrc/tests.js -i examples/bf.nepl --no-tree -o tmp/neplg21-example-bf-small-vec.json -j 1 --dist web/dist --assert-io` は 2 doctest とも wasm compile timeout after 60000ms。
+- `target\debug\nepl-cli.exe --check -i examples\bf.nepl --target std` と、`v::filled` / `v::get` の最小 smoke check は長時間化により timeout。残留 `nepl-cli` プロセスは停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
