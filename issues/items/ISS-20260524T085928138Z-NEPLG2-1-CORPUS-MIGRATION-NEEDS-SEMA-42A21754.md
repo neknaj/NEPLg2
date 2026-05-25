@@ -273,6 +273,16 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_stdlib_json_nmd_report_contract.js` は pass。
 - `node nodesrc/tests.js -i stdlib/tests/json.n.md --no-tree -o tmp/neplg21-stdlib-json-result-constructors.json -j 1 --dist web/dist --assert-io` は compile timeout after 60000ms。型診断は出ていない。
 
+### 2026-05-26 collections_diag helper postfix checkpoint
+
+- `tests/stdlib/collections_diag.n.md` で、`checks_push` の expected type `Result () str` から型が確定する `Result<(),str>::Ok` / `Result<(),str>::Err` を `Result::Ok` / `Result::Err` へ移行した。
+- `hashmap_update_error_diag<...>` / `hashset_update_error_diag<...>` と `hashmap_update_error_owner<...>` / `hashset_update_error_owner<...>` は、`Err e` の payload 型と `%HashMap` / `%HashSet` local annotation から型が決まるため postfix なしへ移行した。
+- `unwrap_ok<...>` は、代入先の `%HashMap` / `%HashSet` / `%Queue` / `%RingBuffer` annotation がある行に限って postfix なしへ移行した。
+- `new<i32>` / `pop<i32>` は producer 側の型引数であり、今回の helper postfix checkpoint には混ぜず残した。
+- subagent review でも、constructor、owner helper、typed-local 付き `unwrap_ok` は移行推奨、queue/ringbuffer の `new<i32>` / `pop<i32>` は残すべきと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)|unwrap_ok<|hashmap_update_error_diag<|hashset_update_error_diag<|hashmap_update_error_owner<|hashset_update_error_owner<" tests/stdlib/collections_diag.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/neplg21-collections-diag-helper-postfix.json -j 1 --dist web/dist --assert-io` は 4 件すべて compile timeout after 60000ms。型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

@@ -46147,3 +46147,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/tests/json.n.md` は 0 件になった。
 - `node nodesrc/test_stdlib_json_nmd_report_contract.js` は pass。
 - `node nodesrc/tests.js -i stdlib/tests/json.n.md --no-tree -o tmp/neplg21-stdlib-json-result-constructors.json -j 1 --dist web/dist --assert-io` は compile timeout after 60000ms。型診断は出ていない。
+
+## 2026-05-26 Agent 1 collections_diag helper postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`tests/stdlib/collections_diag.n.md` の Result constructor と helper postfix を撤廃した。`plan.md` は変更していない。
+- `Result<(),str>::Ok/Err` は `checks_push` の expected type `Result () str` から型が決まる。
+- `hashmap_update_error_diag<...>` / `hashset_update_error_diag<...>` と `hashmap_update_error_owner<...>` / `hashset_update_error_owner<...>` は、`Err e` の payload 型と代入先 `%HashMap` / `%HashSet` annotation から型が決まる。
+- `unwrap_ok<...>` は、代入先の `%HashMap` / `%HashSet` / `%Queue` / `%RingBuffer` annotation がある行だけ postfix なしへ移行した。
+- `new<i32>` / `pop<i32>` は producer 側の型引数であり、今回の helper postfix checkpoint には混ぜず残した。
+- subagent review でも、constructor、owner helper、typed-local 付き `unwrap_ok` は移行推奨、queue/ringbuffer の `new<i32>` / `pop<i32>` は残すべきと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)|unwrap_ok<|hashmap_update_error_diag<|hashset_update_error_diag<|hashmap_update_error_owner<|hashset_update_error_owner<" tests/stdlib/collections_diag.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/neplg21-collections-diag-helper-postfix.json -j 1 --dist web/dist --assert-io` は 4 件すべて compile timeout after 60000ms。型診断は出ていない。
