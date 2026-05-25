@@ -1,3 +1,22 @@
+# 2026-05-26 Agent 1 getting_started Result constructor / Vec observer postfix cleanup checkpoint
+
+- Zenn 方針を再確認し、単なる文字列置換ではなく戻り値型・入力型・expected type が明確な箇所だけを NEPLg2.1 postfix-free 形式へ移行した。
+- subagent 独立調査で、`tutorials/getting_started/14_collection_reads.n.md` と `13_vec_basics.n.md` の small Vec observer/postfix は型根拠が明確で、`new<i32>` は値引数がなく根拠が弱いため残すべきと確認した。
+- `10_string_and_text.n.md`、`11_bytebuf_and_text_io.n.md`、`12_char_and_ascii.n.md`、`23_project_config_validator.n.md`、`24_project_byte_output.n.md` で、関数戻り値型または `checks_push` の expected type から確定する `Result<T,E>::Ok` / `Result<T,E>::Err` を `Result::Ok` / `Result::Err` へ移行した。
+- `10_string_and_text.n.md` の `is_err<str,str>` は、入力式 `str_slice_result text 2 3` の戻り値から `Result str str` が確定するため `is_err` へ移行した。
+- `13_vec_basics.n.md` では `push<i32>` / `vec_push_error_vec<i32>` / `get<i32>` / `len<i32>` / `free<i32>` を postfix なしへ移行した。`new<i32>` は型根拠が弱いため残している。
+- `14_collection_reads.n.md` では `filled<i32>` / `get<i32>` / `len<i32>` / `free<i32>` を postfix なしへ移行し、prose の `&Vec<T>` も `&Vec .T` へ更新した。
+- `16_drop_and_cleanup.n.md` では `len<i32>` / `free<i32>` を postfix なしへ移行した。`new<i32>` は型根拠が弱いため残している。
+- 対象 8 file の `Result<` / `Vec<` / `&Vec<` / `is_err<` / `is_ok<` / `unwrap_ok<` / `ok<` / `err<` / `some<` / `none<` / `push<` / `get<` / `len<` / `free<` / `vec_push_error_vec<` は 0 件になった。
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` に checkpoint を追記した。issue は corpus 全体の残件が多いため open のまま。
+- 検証:
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。CRLF checkout warning のみ。
+  - `node nodesrc/tests.js -i tutorials/getting_started/10_string_and_text.n.md -i tutorials/getting_started/11_bytebuf_and_text_io.n.md -i tutorials/getting_started/12_char_and_ascii.n.md -i tutorials/getting_started/23_project_config_validator.n.md -i tutorials/getting_started/24_project_byte_output.n.md --no-tree -o tmp/neplg21-tutorial-result-constructor-a.json -j 1 --dist web/dist --assert-io`: 180s command timeout。partial JSON は `10` / `11` / `12` が wasm compile timeout after 60000ms で、型診断は出ていない。残留 node は停止した。
+  - `node nodesrc/tests.js -i tutorials/getting_started/14_collection_reads.n.md --no-tree -o tmp/neplg21-tutorial-14-collection-reads.json -j 1 --dist web/dist --assert-io`: wasm compile timeout after 60000ms。
+  - `node nodesrc/tests.js -i tutorials/getting_started/13_vec_basics.n.md -i tutorials/getting_started/16_drop_and_cleanup.n.md --no-tree -o tmp/neplg21-tutorial-vec-basics-cleanup.json -j 1 --dist web/dist --assert-io`: `13` / `16` とも wasm compile timeout after 60000ms。
+
 # 2026-05-26 Agent 1 NEPLg2.1 prefix type arity metadata checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 prefix 型式の境界問題を stdlib 型名の固定表で隠さず、frontend の静的 metadata 収集として修正した。

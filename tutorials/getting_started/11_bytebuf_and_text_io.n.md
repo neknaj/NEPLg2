@@ -20,20 +20,20 @@ stdout: mlstr:
 fn roundtrip_text %impure fn str Result str str \text:
     match io_bytebuf_from_str_result text:
         Result::Err _e:
-            Result<str,str>::Err "encode failed"
+            Result::Err "encode failed"
         Result::Ok bytes:
             match io_bytebuf_to_str_result bytes:
                 Result::Err _e:
-                    Result<str,str>::Err "decode failed"
+                    Result::Err "decode failed"
                 Result::Ok out:
-                    Result<str,str>::Ok out
+                    Result::Ok out
 
 fn expect_text %fn Result str str fn str Result () str \got\expected:
     match got:
         Result::Ok out:
             check_str_eq expected out
         Result::Err msg:
-            Result<(),str>::Err msg
+            Result::Err msg
 
 fn main %impure fn () i32 \():
     let checks:

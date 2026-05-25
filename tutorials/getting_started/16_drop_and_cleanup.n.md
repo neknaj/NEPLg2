@@ -19,14 +19,14 @@ stdout: mlstr:
 fn main %impure fn () i32 \():
     match new<i32>:
         Result::Err _e:
-            let checks checks_push checks_new Result<(),str>::Err "vec.new failed"
+            let checks checks_push checks_new Result::Err "vec.new failed"
             let shown checks_print_report checks
             checks_exit_code shown
         Result::Ok values:
             let checks:
                 checks_new
-                |> checks_push assert_eq_i32 0 len<i32> &values
-            free<i32> values;
+                |> checks_push assert_eq_i32 0 len &values
+            free values;
             let shown checks_print_report checks
             checks_exit_code shown
 ```

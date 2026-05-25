@@ -19,32 +19,32 @@ stdout: mlstr:
 fn make_text_bytes %impure fn () Result str str \():
     match byte_builder_new:
         Result::Err _e:
-            Result<str,str>::Err "builder allocation failed"
+            Result::Err "builder allocation failed"
         Result::Ok b0:
             match byte_builder_push_char_utf8 b0 'A':
                 Result::Err _e:
-                    Result<str,str>::Err "push A failed"
+                    Result::Err "push A failed"
                 Result::Ok b1:
                     match byte_builder_push_char_utf8 b1 'あ':
                         Result::Err _e:
-                            Result<str,str>::Err "push char failed"
+                            Result::Err "push char failed"
                         Result::Ok b2:
                             match byte_builder_finish b2:
                                 Result::Err _e:
-                                    Result<str,str>::Err "finish failed"
+                                    Result::Err "finish failed"
                                 Result::Ok bytes:
                                     match io_bytebuf_to_str_result bytes:
                                         Result::Err _e:
-                                            Result<str,str>::Err "utf8 decode failed"
+                                            Result::Err "utf8 decode failed"
                                         Result::Ok text:
-                                            Result<str,str>::Ok text
+                                            Result::Ok text
 
 fn expect_text %fn Result str str fn str Result () str \got\expected:
     match got:
         Result::Ok text:
             check_str_eq expected text
         Result::Err msg:
-            Result<(),str>::Err msg
+            Result::Err msg
 
 fn main %impure fn () i32 \():
     let checks:

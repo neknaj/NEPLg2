@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-25T16:34:54.900Z",
+  "generated_at": "2026-05-25T16:49:38.545Z",
   "counts": {
     "total": 1259,
     "open": 12,
@@ -163,7 +163,7 @@
       "priority": "P0",
       "type": "maintenance",
       "created": "2026-05-24",
-      "updated": "2026-05-24",
+      "updated": "2026-05-26",
       "target": "stdlib/**, tests/**, tutorials/**, doc/examples/**",
       "legacy_id": "",
       "source": "",

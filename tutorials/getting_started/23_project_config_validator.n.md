@@ -27,26 +27,26 @@ fn validate_config %fn ServerConfig Result ServerConfig str \config:
     if:
         lt get config "port" 1
         then:
-            Result<ServerConfig,str>::Err "port too small"
+            Result::Err "port too small"
         else:
             if:
                 lt get config "workers" 1
                 then:
-                    Result<ServerConfig,str>::Err "workers too small"
+                    Result::Err "workers too small"
                 else:
-                    Result<ServerConfig,str>::Ok config
+                    Result::Ok config
 
 fn expect_valid %fn ServerConfig Result () str \config:
     match validate_config config:
         Result::Ok _ok:
-            Result<(),str>::Ok ()
+            Result::Ok ()
         Result::Err msg:
-            Result<(),str>::Err msg
+            Result::Err msg
 
 fn expect_invalid %fn ServerConfig fn str Result () str \config\expected:
     match validate_config config:
         Result::Ok _ok:
-            Result<(),str>::Err "expected invalid config"
+            Result::Err "expected invalid config"
         Result::Err msg:
             check_str_eq expected msg
 

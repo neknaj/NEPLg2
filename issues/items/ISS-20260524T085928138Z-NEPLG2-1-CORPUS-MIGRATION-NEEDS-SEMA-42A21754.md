@@ -7,7 +7,7 @@ resolved: false
 priority: P0
 type: maintenance
 created: 2026-05-24
-updated: 2026-05-24
+updated: 2026-05-26
 target: "stdlib/**, tests/**, tutorials/**, doc/examples/**"
 ---
 
@@ -170,6 +170,16 @@ LLM/手動判断が必要なもの:
 - 対象 5 file の `Ident<...>` generic postfix / old type application prose は `rg` で 0 件になった。
 - `node nodesrc/tests.js -i tutorials/getting_started/{07_option,08_result,09_validation_project,18_generics,20_namespace_and_methods}.n.md --no-tree -o tmp/neplg21-tutorial-generic-postfix.json -j 1 --dist web/dist --assert-io` は wasm compile timeout after 60000ms で `07_option` / `08_result` の 2 件まで partial error。これは既知の per-program compile-time issue と同系で、今回差分固有の型エラーは JSON に出ていない。
 - `node nodesrc/tests.js -i tutorials/getting_started/18_generics.n.md --no-tree -o tmp/neplg21-tutorial-18-generics.json -j 1 --dist web/dist --assert-io` も wasm compile timeout after 60000ms。subagent review では型 evidence の形自体は妥当と確認しており、green doctest は性能 issue 側の回復後に再確認する。
+
+### 2026-05-26 getting_started Result constructor / small Vec observer checkpoint
+
+- `tutorials/getting_started/10_string_and_text.n.md`、`11_bytebuf_and_text_io.n.md`、`12_char_and_ascii.n.md`、`23_project_config_validator.n.md`、`24_project_byte_output.n.md` で、関数戻り値型または `checks_push` の expected type から型が確定する `Result<T,E>::Ok` / `Result<T,E>::Err` を `Result::Ok` / `Result::Err` へ移行した。
+- `10_string_and_text.n.md` の `is_err<str,str>` は、入力式 `str_slice_result text 2 3` の戻り値から `Result str str` が確定するため `is_err` へ移行した。
+- `13_vec_basics.n.md` では `build_numbers` の戻り値 `Result Vec i32 str`、`v0` / `v1` / `numbers` の `Vec i32` 型、`expect_item` の `&Vec i32` 引数から解ける `push<i32>` / `vec_push_error_vec<i32>` / `get<i32>` / `len<i32>` / `free<i32>` を postfix なしへ移行した。`new<i32>` は値引数がなく型根拠が弱いため残した。
+- `14_collection_reads.n.md` では `filled` の value 引数 `7` と `has_at` / `values` の `Vec i32` evidence から `filled<i32>` / `get<i32>` / `len<i32>` / `free<i32>` を postfix なしへ移行し、prose の `&Vec<T>` も `&Vec .T` 表記に更新した。
+- `16_drop_and_cleanup.n.md` では `new<i32>` から得た `values: Vec i32` に対する `len<i32>` / `free<i32>` を postfix なしへ移行した。`new<i32>` は型根拠が弱いため残した。
+- 対象 8 file について `Result<` / `Vec<` / `&Vec<` / `is_err<` / `is_ok<` / `unwrap_ok<` / `ok<` / `err<` / `some<` / `none<` / `push<` / `get<` / `len<` / `free<` / `vec_push_error_vec<` は 0 件になった。ただし `13_vec_basics.n.md` と `16_drop_and_cleanup.n.md` の `new<i32>` は上記理由で残している。
+- `node nodesrc/tests.js` による対象 doctest verification は、`10` / `11` / `12` / `13` / `14` / `16` で wasm compile timeout after 60000ms。timeout JSON に型診断は出ていないため、既存の per-program compile-time issue 側で継続確認する。
 
 ## 検証
 

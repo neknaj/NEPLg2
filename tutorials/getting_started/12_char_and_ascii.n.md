@@ -28,7 +28,7 @@ fn expect_char %fn Result char str fn i32 Result () str \got\expected_code:
         Result::Ok c:
             check_eq_i32 expected_code char_to_i32 c
         Result::Err msg:
-            Result<(),str>::Err msg
+            Result::Err msg
 
 fn main %impure fn () i32 \():
     let a %char 'A'

@@ -24,7 +24,7 @@ fn expect_str_ok %fn Result str str fn str Result () str \got\expected:
         Result::Ok text:
             check_str_eq expected text
         Result::Err msg:
-            Result<(),str>::Err msg
+            Result::Err msg
 
 fn main %impure fn () i32 \():
     let text %str "Aあ"
@@ -33,7 +33,7 @@ fn main %impure fn () i32 \():
         |> checks_push assert_eq_i32 4 str_byte_len text
         |> checks_push assert_eq_i32 2 str_char_count text
         |> checks_push expect_str_ok str_slice_chars_result text 1 2 "あ"
-        |> checks_push assert is_err<str,str> str_slice_result text 2 3
+        |> checks_push assert is_err str_slice_result text 2 3
     let shown checks_print_report checks
     checks_exit_code shown
 ```

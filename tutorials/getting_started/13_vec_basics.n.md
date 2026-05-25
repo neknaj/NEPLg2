@@ -1,6 +1,6 @@
 # Vec の基本
 
-`Vec<T>` は所有権を持つ growable collection です。作成や追加は失敗しうるため、`Result` を `match` して扱います。
+`Vec .T` は所有権を持つ growable collection です。作成や追加は失敗しうるため、`Result` を `match` して扱います。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
@@ -23,35 +23,35 @@ stdout: mlstr:
 fn build_numbers %impure fn () Result Vec i32 str \():
     match new<i32>:
         Result::Err _e:
-            Result<Vec<i32>,str>::Err "vec.new failed"
+            Result::Err "vec.new failed"
         Result::Ok v0:
-            match push<i32> v0 10:
+            match push v0 10:
                 Result::Err e:
-                    free<i32> vec_push_error_vec<i32> e;
-                    Result<Vec<i32>,str>::Err "vec.push 10 failed"
+                    free vec_push_error_vec e;
+                    Result::Err "vec.push 10 failed"
                 Result::Ok v1:
-                    match push<i32> v1 20:
+                    match push v1 20:
                         Result::Err e:
-                            free<i32> vec_push_error_vec<i32> e;
-                            Result<Vec<i32>,str>::Err "vec.push 20 failed"
+                            free vec_push_error_vec e;
+                            Result::Err "vec.push 20 failed"
                         Result::Ok v2:
-                            Result<Vec<i32>,str>::Ok v2
+                            Result::Ok v2
 
 fn expect_item %fn &Vec i32 fn i32 fn i32 Result () str \v\idx\expected:
-    match get<i32> v idx:
+    match get v idx:
         Option::Some value:
             check_eq_i32 expected value
         Option::None:
-            Result<(),str>::Err "missing vec item"
+            Result::Err "missing vec item"
 
 fn main %impure fn () i32 \():
     match build_numbers:
         Result::Err msg:
-            let checks checks_push checks_new Result<(),str>::Err msg
+            let checks checks_push checks_new Result::Err msg
             let shown checks_print_report checks
             checks_exit_code shown
         Result::Ok numbers:
-            let n %i32 len<i32> &numbers
+            let n %i32 len &numbers
             let item0 %Result () str expect_item &numbers 0 10
             let item1 %Result () str expect_item &numbers 1 20
             let checks:
@@ -59,7 +59,7 @@ fn main %impure fn () i32 \():
                 |> checks_push assert_eq_i32 2 n
                 |> checks_push item0
                 |> checks_push item1
-            free<i32> numbers;
+            free numbers;
             let shown checks_print_report checks
             checks_exit_code shown
 ```
