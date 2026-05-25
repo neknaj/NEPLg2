@@ -18,13 +18,13 @@ stdout: "test_report name=\"adjacency_matrix_insert_remove_contains\" count=3 fa
 
 fn main %impure fn () i32 \():
     let g %AdjacencyMatrix:
-        unwrap_ok<AdjacencyMatrix, Diag> new 5
+        unwrap_ok new 5
         |> insert 0 1 |> uwok
         |> insert 0 4 |> uwok
         |> insert 3 2 |> uwok
         |> remove 0 1 |> uwok
-    let ok0 %bool not unwrap_ok<bool, Diag> contains &g 0 1;
-    let ok1 %bool unwrap_ok<bool, Diag> contains &g 0 4;
+    let ok0 %bool not unwrap_ok contains &g 0 1;
+    let ok1 %bool unwrap_ok contains &g 0 4;
     let size %i32 len &g;
     free g
     let report:
@@ -54,10 +54,10 @@ stdout: "test_report name=\"adjacency_matrix_clear\" count=1 failed=0\nassertion
 
 fn main %impure fn () i32 \():
     let g0 %AdjacencyMatrix:
-        unwrap_ok<AdjacencyMatrix, Diag> new 4
+        unwrap_ok new 4
         |> insert 1 2 |> uwok
         |> clear
-    let ok0 %bool not unwrap_ok<bool, Diag> contains &g0 1 2;
+    let ok0 %bool not unwrap_ok contains &g0 1 2;
     free g0
     let report:
         test_report_new "adjacency_matrix_clear"
@@ -83,7 +83,7 @@ stdout: "test_report name=\"adjacency_matrix_update_error_returns_owner\" count=
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let g0 %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 5;
+    let g0 %AdjacencyMatrix unwrap_ok new 5;
     let ok0 %bool:
         match insert g0 5 1:
             Result::Ok next:
@@ -94,7 +94,7 @@ fn main %impure fn () i32 \():
                 let ok %bool eq len &recovered 5
                 free recovered
                 ok
-    let g1 %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 5;
+    let g1 %AdjacencyMatrix unwrap_ok new 5;
     let ok1 %bool:
         match remove g1 0 7:
             Result::Ok next:

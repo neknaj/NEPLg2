@@ -28,22 +28,22 @@ stdout: "test_report name=\"adjacency_matrix_pipe_usage\" count=4 failed=0\nasse
 
 fn main %impure fn () i32 \():
     let g0 %AdjacencyMatrix:
-        unwrap_ok<AdjacencyMatrix, Diag> new 6
+        unwrap_ok new 6
         |> insert 1 3 |> uwok
         |> insert 3 5 |> uwok
         |> insert 5 1 |> uwok
         |> remove 3 5 |> uwok
-    let ok0 %bool unwrap_ok<bool, Diag> contains &g0 1 3;
-    let ok1 %bool not unwrap_ok<bool, Diag> contains &g0 3 5;
+    let ok0 %bool unwrap_ok contains &g0 1 3;
+    let ok1 %bool not unwrap_ok contains &g0 3 5;
     let size %i32 len &g0;
     free g0
     let g2 %AdjacencyMatrix:
-        unwrap_ok<AdjacencyMatrix, Diag> new 6
+        unwrap_ok new 6
         |> insert 1 3 |> uwok
         |> insert 3 5 |> uwok
         |> insert 5 1 |> uwok
         |> clear
-    let ok3 %bool not unwrap_ok<bool, Diag> contains &g2 5 1;
+    let ok3 %bool not unwrap_ok contains &g2 5 1;
     free g2
     let report:
         test_report_new "adjacency_matrix_pipe_usage"
@@ -80,11 +80,11 @@ stdout: "test_report name=\"adjacency_matrix_free_releases_owned_storage\" count
 
 fn main %impure fn () i32 \():
     let g0 %AdjacencyMatrix:
-        unwrap_ok<AdjacencyMatrix, Diag> new 6
+        unwrap_ok new 6
         |> insert 1 3 |> uwok
     free g0
     let g1 %AdjacencyMatrix:
-        unwrap_ok<AdjacencyMatrix, Diag> new 6
+        unwrap_ok new 6
         |> insert 2 4 |> uwok
     free g1
     let report:
@@ -120,7 +120,7 @@ stdout: "test_report name=\"adjacency_matrix_update_error_recovers_owner\" count
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let g0 %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 6;
+    let g0 %AdjacencyMatrix unwrap_ok new 6;
     let ok0 %bool:
         match insert g0 6 0:
             Result::Ok next:
@@ -131,7 +131,7 @@ fn main %impure fn () i32 \():
                 let ok %bool eq len &recovered 6
                 free recovered
                 ok
-    let g1 %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 6;
+    let g1 %AdjacencyMatrix unwrap_ok new 6;
     let ok1 %bool:
         match remove g1 2 9:
             Result::Ok next:

@@ -307,6 +307,13 @@ LLM/手動判断が必要なもの:
 - `rg -n "unwrap_ok<BitSet|unwrap_ok<bool|is_err<|is_ok<" stdlib/tests/bitset.n.md tests/stdlib/bitset_collections.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i stdlib/tests/bitset.n.md -i tests/stdlib/bitset_collections.n.md --no-tree -o tmp/neplg21-bitset-helper-postfix.json -j 1 --dist web/dist --assert-io` は 180s local command timeout。partial JSON では `stdlib/tests/bitset.n.md` doctest#1-#3 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
 
+### 2026-05-26 adjacency_matrix helper postfix checkpoint
+
+- `stdlib/tests/adjacency_matrix.n.md` / `tests/stdlib/adjacency_matrix_collections.n.md` で、代入先 `%AdjacencyMatrix` または `new` / `contains` の戻り値から型が確定する `unwrap_ok<AdjacencyMatrix, Diag>` / `unwrap_ok<bool, Diag>` を `unwrap_ok` へ移行した。
+- `AdjacencyMatrix` の `new` / `insert` / `remove` は型引数を持たないため、nested producer generic 推論問題には踏み込んでいない。
+- `rg -n "unwrap_ok<AdjacencyMatrix|unwrap_ok<bool|is_err<|is_ok<" stdlib/tests/adjacency_matrix.n.md tests/stdlib/adjacency_matrix_collections.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/tests/adjacency_matrix.n.md -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/neplg21-adjacency-matrix-helper-postfix.json -j 1 --dist web/dist --assert-io` は 180s local command timeout。partial JSON では `stdlib/tests/adjacency_matrix.n.md` doctest#1-#3 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

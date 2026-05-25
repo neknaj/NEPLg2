@@ -1,3 +1,12 @@
+# 2026-05-26 Agent 1 adjacency_matrix helper postfix cleanup checkpoint
+
+- 非 generic collection helper の小 checkpoint として `stdlib/tests/adjacency_matrix.n.md` / `tests/stdlib/adjacency_matrix_collections.n.md` を対象にした。
+- 代入先 `%AdjacencyMatrix` または `new` / `contains` の戻り値から型が確定する `unwrap_ok<AdjacencyMatrix, Diag>` / `unwrap_ok<bool, Diag>` を `unwrap_ok` へ移行した。
+- `AdjacencyMatrix` の `new` / `insert` / `remove` は型引数を持たないため、nested producer generic 推論問題には踏み込んでいない。
+- 検証:
+  - `rg -n "unwrap_ok<AdjacencyMatrix|unwrap_ok<bool|is_err<|is_ok<" stdlib/tests/adjacency_matrix.n.md tests/stdlib/adjacency_matrix_collections.n.md`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/tests/adjacency_matrix.n.md -i tests/stdlib/adjacency_matrix_collections.n.md --no-tree -o tmp/neplg21-adjacency-matrix-helper-postfix.json -j 1 --dist web/dist --assert-io`: 180s local command timeout。partial JSON では `stdlib/tests/adjacency_matrix.n.md` doctest#1-#3 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 # 2026-05-26 Agent 1 bitset helper postfix cleanup checkpoint
 
 - subagent review の推奨に従い、非 generic collection helper の小 checkpoint として `stdlib/tests/bitset.n.md` / `tests/stdlib/bitset_collections.n.md` を対象にした。
