@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-25T15:02:02.886Z",
+  "generated_at": "2026-05-25T15:49:50.269Z",
   "counts": {
-    "total": 1257,
-    "open": 12,
-    "resolved": 1245,
+    "total": 1259,
+    "open": 13,
+    "resolved": 1246,
     "by_area": {
       "core": {
-        "total": 617,
-        "open": 6,
-        "resolved": 611
+        "total": 619,
+        "open": 7,
+        "resolved": 612
       },
       "stdlib": {
         "total": 329,
@@ -213,6 +213,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5.md"
+    },
+    {
+      "id": "ISS-20260525T154712899Z-RESOURCE-IR-RETURN-PATH-REPLAY-UNIT--010D6DB7",
+      "title": "Resource IR return-path replay unit test reports callee dealloc proof instead of caller live slot",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "bug",
+      "created": "2026-05-25",
+      "updated": "2026-05-25",
+      "target": "nepl-core/tests/resource_ir.rs; nepl-core/src/resource/collection_slot_summary_*; nepl-core/src/resource/initialized*.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260525T154712899Z-RESOURCE-IR-RETURN-PATH-REPLAY-UNIT--010D6DB7.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
@@ -813,6 +828,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260519T154609873Z-RESOURCE-RAW-IDENTITY-SUMMARY-BLOCKS-E4C8EDF4.md"
+    },
+    {
+      "id": "ISS-20260525T153936813Z-NEPLG2-1-INFERRED-GENERIC-CALL-RESUL-6EAE31C7",
+      "title": "NEPLg2.1 inferred generic call result loses Resource IR initialization",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-25",
+      "updated": "2026-05-25",
+      "target": "nepl-core/src/typecheck/selected_call_apply.rs; nepl-core/src/resource/initialized*.rs; nepl-core/src/resource/collection_slot_summary_apply_return_path.rs; nepl-core/tests/functions.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260525T153936813Z-NEPLG2-1-INFERRED-GENERIC-CALL-RESUL-6EAE31C7.md"
     },
     {
       "id": "ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC",

@@ -193,6 +193,7 @@ impl<'a> BlockChecker<'a> {
             return None;
         }
 
+        let mut resolved_result = self.ctx.resolve_id(c_result);
         if explicit_type_args.is_empty() {
             if let Some((type_params, _, _, _)) = declared_func_data.as_ref() {
                 let resolution = resolve_generic_type_args_from_constraints(
@@ -202,12 +203,24 @@ impl<'a> BlockChecker<'a> {
                     &generic_constraints,
                 );
                 resolved_args = resolution.resolved_args;
+                let has_conflicts = !resolution.conflicts.is_empty();
                 for conflict in resolution.conflicts {
                     self.diagnostics.push(type_error(
                         TypeDiagnosticCode::GenericConstraintConflict,
                         conflict.diagnostic_message(self.ctx),
                         span,
                     ));
+                }
+                if !has_conflicts && type_params.len() == resolved_args.len() {
+                    if let Some((type_params, _, declared_result, _)) = declared_func_data.as_ref()
+                    {
+                        let mut mapping = BTreeMap::new();
+                        for (param, arg) in type_params.iter().zip(resolved_args.iter()) {
+                            insert_substitution_mapping(self.ctx, &mut mapping, *param, *arg);
+                        }
+                        let substituted_result = self.ctx.substitute(*declared_result, &mapping);
+                        resolved_result = self.ctx.resolve_id(substituted_result);
+                    }
                 }
             }
         }
@@ -348,7 +361,6 @@ impl<'a> BlockChecker<'a> {
             }
             final_args.push(arg_expr);
         }
-        let resolved_result = self.ctx.resolve_id(c_result);
         Some(StackEntry {
             ty: resolved_result,
             expr: HirExpr {

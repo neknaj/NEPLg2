@@ -786,10 +786,20 @@ impl ResourceCheckEngine<'_> {
                 variant_initializations.copy_result(source, target);
             }
             ResourceOp::RawAddressView { source, target, .. } => {
+                let target_was_initialized = matches!(
+                    cells.availability_state_with_types(self.types, target),
+                    CellState::Initialized(_)
+                );
                 if self.raw_address_view_source_is_known(cells, raw_aliases, source) {
                     self.copy_raw_address_alias_and_rekey_cells(cells, raw_aliases, source, target);
                 } else {
                     raw_aliases.record_raw_address_view_origin(source, target);
+                }
+                if target_was_initialized {
+                    // RawAddressView は、直前の call や intrinsic が生成した値に
+                    // raw address の別名関係を付与するための証明操作であり、
+                    // 値そのものの初期化状態を上書きしてはならない。
+                    cells.set_state(target, CellState::Initialized(target.ty));
                 }
                 pending_reallocs.clear_result(target);
                 variant_initializations.clear_result(target);

@@ -54,6 +54,9 @@ pub(super) enum ResourcePathAlternatives {
 
 impl ResourcePathAlternatives {
     pub(super) fn from_states(states: Vec<ResourceCheckState>) -> Self {
+        // 空の候補集合は、既存の path-sensitive replay が全候補を棄却した
+        // 結果として使われる。単に path-sensitive refinement が存在しない
+        // 場合は、呼び出し元で `None` のままにして直線状態を保持する。
         Self::Feasible(states)
     }
 

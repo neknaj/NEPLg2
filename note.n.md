@@ -1,3 +1,23 @@
+# 2026-05-25 Agent 1 NEPLg2.1 inferred generic result / Resource IR initialization checkpoint
+
+- Zenn 方針を踏まえ、postfix-free generic call の失敗を一時的な annotation 追加ではなく、型推論結果と Resource IR state propagation の境界として調査した。
+- `function_neplg21_overloaded_generic_call_uses_ascribed_result_without_type_args` は、`and_then res0 positive_double` / `unwrap_ok res1` の型引数が `i32, str` に推論されているにもかかわらず、HIR call expression の戻り値型が fresh type variable のまま残ることが主因だった。
+- `selected_call_apply.rs` で inferred type args を declared result に代入し、選択済み generic call の HIR 戻り値型を concrete result へ更新するようにした。
+- Resource IR 側では、concrete variant 条件に合う return path が 0 件のときに空の path-sensitive state を直線状態へ流さず、通常の call output 初期化済み状態を維持するようにした。
+- `ResourcePathAlternatives::from_states(Vec::new())` は既存の「全 path が棄却された」表現として維持し、no-refinement の扱いは direct call return-path 境界に限定した。
+- `RawAddressView` は raw address alias proof を付与する操作として扱い、target が既に initialized だった場合は alias rekey 後も値 cell の初期化状態を保持するようにした。
+- `ISS-20260525T153936813Z-NEPLG2-1-INFERRED-GENERIC-CALL-RESUL-6EAE31C7` を追加し、fixed/resolved にした。
+- clean HEAD `457d8b32` でも `cargo test -p nepl-core --test resource_ir return_path -- --nocapture` は同じ `resource_ir_collection_slot_return_path_state_only_replay_does_not_duplicate_diagnostics` 失敗になる。今回差分固有ではないが、main merge 前の resource baseline として `ISS-20260525T154712899Z-RESOURCE-IR-RETURN-PATH-REPLAY-UNIT--010D6DB7` に分離した。
+- 検証:
+  - `cargo fmt -p nepl-core --check`: passed.
+  - `cargo test -p nepl-core --test functions function_neplg21_overloaded_generic_call_uses_ascribed_result_without_type_args -- --nocapture`: passed.
+  - `cargo test -p nepl-core --test functions neplg21 -- --nocapture`: 8/8 passed.
+  - `cargo test -p nepl-core --test typeannot neplg21 -- --nocapture`: 2/2 passed.
+  - `cargo test -p nepl-core --test resource_ir raw_address_view -- --nocapture`: 1/1 passed.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s).
+  - `node nodesrc/issues.js check --dir issues`: passed.
+  - `git diff --check`: passed. CRLF checkout warning のみ。
+
 # 2026-05-25 Agent 1 NEPLg2.1 docs issue final checkpoint
 
 - Zenn 方針に従い、NEPLg2.1 の main merge 可否を open P0 issue 単位で再監査した。

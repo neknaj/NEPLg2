@@ -87,7 +87,10 @@ impl ResourceCheckEngine<'_> {
         );
         seed_str_storage_layout(self.types, cells, raw_aliases, output);
         pending_reallocs.clear_result(output);
-        if let Some(return_path_states) = return_path_states {
+        // return path summary が存在しても、concrete variant 条件に合う path が
+        // ない場合は path-sensitive refinement を作らない。通常の call output
+        // 初期化済み状態をそのまま直線経路として後続 op に渡す。
+        if let Some(return_path_states) = return_path_states.filter(|states| !states.is_empty()) {
             let alternatives = return_path_states
                 .into_iter()
                 .map(|mut state| {

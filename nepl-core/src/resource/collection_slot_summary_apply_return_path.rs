@@ -150,6 +150,12 @@ impl ResourceCheckEngine<'_> {
                 variant_initializations: variants,
             });
         }
+        // concrete variant 条件に合う return path がない場合でも、call 自体が
+        // 到達不能になるわけではない。path-sensitive な slot 情報だけを
+        // 適用しない状態として扱い、通常の call output 初期化済み状態を残す。
+        if path_states.is_empty() {
+            return path_states;
+        }
         *cells = CellTable::merge_paths(&path_cells);
         *collection_slots = merge_collection_slot_return_path_tables(output, paths, &path_slots);
         *raw_aliases = RawCellAddressAliases::merge_paths(&path_aliases);
