@@ -1,3 +1,15 @@
+# 2026-05-26 Agent 1 BTree error helper postfix cleanup checkpoint
+
+- subagent の独立レビューに従い、`Err e` payload と `%Diag` local annotation / `must_map`・`must_set` の戻り型から型が確定する BTree error helper だけを対象にした。
+- `stdlib/tests/btreemap.n.md` / `stdlib/tests/btreeset.n.md` / `tests/stdlib/btree_array_cost.n.md` で、`btreemap_insert_error_diag<...>` / `btreemap_insert_error_owner<...>` / `btreeset_insert_error_diag<...>` / `btreeset_insert_error_owner<...>` を postfix なしへ移行した。
+- `unwrap_ok<...> new<T>` / `sorted_array_*_new<T>` / `insert<T>` は producer/update/nested generic 側であり、この helper checkpoint には混ぜていない。
+- 検証:
+  - `rg -n "btreemap_insert_error_(diag|owner)<|btreeset_insert_error_(diag|owner)<" stdlib/tests/btreemap.n.md stdlib/tests/btreeset.n.md tests/stdlib/btree_array_cost.n.md`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md -i tests/stdlib/btree_array_cost.n.md --no-tree -o tmp/neplg21-btree-error-helper-postfix.json -j 1 --dist web/dist --assert-io`: 250s local command timeout。partial JSON では `stdlib/tests/btreemap.n.md` doctest#1-#4 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+
 # 2026-05-26 Agent 1 fs/pipe_collections Result constructor cleanup checkpoint
 
 - subagent の独立レビューに従い、`checks_push` の expected type `Result () str` から型が確定する `Result<(),str>::Ok` / `Result<(),str>::Err` だけを対象にした。

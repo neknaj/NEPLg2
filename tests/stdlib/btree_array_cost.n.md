@@ -21,8 +21,8 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
         Result::Ok m:
             m
         Result::Err e:
-            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
-            btreemap_insert_error_owner<i32,i32> e
+            let _d %Diag btreemap_insert_error_diag &e
+            btreemap_insert_error_owner e
 
 fn build_desc_map %impure fn i32 BTreeMap i32 i32 \n:
     let mut m %BTreeMap i32 i32 unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
@@ -59,8 +59,8 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
         Result::Ok m:
             m
         Result::Err e:
-            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
-            btreemap_insert_error_owner<i32,i32> e
+            let _d %Diag btreemap_insert_error_diag &e
+            btreemap_insert_error_owner e
 
 fn build_desc_map %impure fn i32 BTreeMap i32 i32 \n:
     let mut m %BTreeMap i32 i32 unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
@@ -98,8 +98,8 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
         Result::Ok m:
             m
         Result::Err e:
-            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
-            btreemap_insert_error_owner<i32,i32> e
+            let _d %Diag btreemap_insert_error_diag &e
+            btreemap_insert_error_owner e
 
 fn build_desc_map %impure fn i32 BTreeMap i32 i32 \n:
     let mut m %BTreeMap i32 i32 unwrap_ok<BTreeMap<i32,i32>, Diag> sorted_array_map_new<i32,i32>;
@@ -140,8 +140,8 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
         Result::Ok s:
             s
         Result::Err e:
-            let _d %Diag btreeset_insert_error_diag<i32> &e
-            btreeset_insert_error_owner<i32> e
+            let _d %Diag btreeset_insert_error_diag &e
+            btreeset_insert_error_owner e
 
 fn build_desc_set %impure fn i32 BTreeSet i32 \n:
     let mut s %BTreeSet i32 unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
@@ -178,8 +178,8 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
         Result::Ok s:
             s
         Result::Err e:
-            let _d %Diag btreeset_insert_error_diag<i32> &e
-            btreeset_insert_error_owner<i32> e
+            let _d %Diag btreeset_insert_error_diag &e
+            btreeset_insert_error_owner e
 
 fn build_desc_set %impure fn i32 BTreeSet i32 \n:
     let mut s %BTreeSet i32 unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;
@@ -216,8 +216,8 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
         Result::Ok s:
             s
         Result::Err e:
-            let _d %Diag btreeset_insert_error_diag<i32> &e
-            btreeset_insert_error_owner<i32> e
+            let _d %Diag btreeset_insert_error_diag &e
+            btreeset_insert_error_owner e
 
 fn build_desc_set %impure fn i32 BTreeSet i32 \n:
     let mut s %BTreeSet i32 unwrap_ok<BTreeSet<i32>, Diag> sorted_array_set_new<i32>;

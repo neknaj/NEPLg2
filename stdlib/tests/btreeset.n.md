@@ -20,8 +20,8 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
         Result::Ok s:
             s
         Result::Err e:
-            let _d %Diag btreeset_insert_error_diag<i32> &e
-            btreeset_insert_error_owner<i32> e
+            let _d %Diag btreeset_insert_error_diag &e
+            btreeset_insert_error_owner e
 
 fn main %impure fn () i32 \():
     let s0 %BTreeSet i32:
@@ -62,8 +62,8 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
         Result::Ok s:
             s
         Result::Err e:
-            let _d %Diag btreeset_insert_error_diag<i32> &e
-            btreeset_insert_error_owner<i32> e
+            let _d %Diag btreeset_insert_error_diag &e
+            btreeset_insert_error_owner e
 
 fn main %impure fn () i32 \():
     let s0 %BTreeSet i32:
@@ -117,8 +117,8 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
         Result::Ok s:
             s
         Result::Err e:
-            let _d %Diag btreeset_insert_error_diag<i32> &e
-            btreeset_insert_error_owner<i32> e
+            let _d %Diag btreeset_insert_error_diag &e
+            btreeset_insert_error_owner e
 
 fn main %impure fn () i32 \():
     let s0 %BTreeSet i32:
@@ -179,8 +179,8 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
         Result::Ok s:
             s
         Result::Err e:
-            let _d %Diag btreeset_insert_error_diag<i32> &e
-            btreeset_insert_error_owner<i32> e
+            let _d %Diag btreeset_insert_error_diag &e
+            btreeset_insert_error_owner e
 
 fn main %impure fn () i32 \():
     let s0 %BTreeSet i32:
@@ -219,8 +219,8 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
         Result::Ok s:
             s
         Result::Err e:
-            let _d %Diag btreeset_insert_error_diag<i32> &e
-            btreeset_insert_error_owner<i32> e
+            let _d %Diag btreeset_insert_error_diag &e
+            btreeset_insert_error_owner e
 
 fn main %impure fn () i32 \():
     let s %BTreeSet i32:

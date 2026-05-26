@@ -20,8 +20,8 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
         Result::Ok m:
             m
         Result::Err e:
-            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
-            btreemap_insert_error_owner<i32,i32> e
+            let _d %Diag btreemap_insert_error_diag &e
+            btreemap_insert_error_owner e
 
 fn main %impure fn () i32 \():
     let m0 %BTreeMap i32 i32:
@@ -64,8 +64,8 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
         Result::Ok m:
             m
         Result::Err e:
-            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
-            btreemap_insert_error_owner<i32,i32> e
+            let _d %Diag btreemap_insert_error_diag &e
+            btreemap_insert_error_owner e
 
 fn main %impure fn () i32 \():
     let m0 %BTreeMap i32 i32:
@@ -126,8 +126,8 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
         Result::Ok m:
             m
         Result::Err e:
-            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
-            btreemap_insert_error_owner<i32,i32> e
+            let _d %Diag btreemap_insert_error_diag &e
+            btreemap_insert_error_owner e
 
 fn main %impure fn () i32 \():
     let m0 %BTreeMap i32 i32:
@@ -185,8 +185,8 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
         Result::Ok m:
             m
         Result::Err e:
-            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
-            btreemap_insert_error_owner<i32,i32> e
+            let _d %Diag btreemap_insert_error_diag &e
+            btreemap_insert_error_owner e
 
 fn main %impure fn () i32 \():
     let m0 %BTreeMap i32 i32:
@@ -232,8 +232,8 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
         Result::Ok m:
             m
         Result::Err e:
-            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
-            btreemap_insert_error_owner<i32,i32> e
+            let _d %Diag btreemap_insert_error_diag &e
+            btreemap_insert_error_owner e
 
 fn main %impure fn () i32 \():
     let m %BTreeMap i32 i32:
