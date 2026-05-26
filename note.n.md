@@ -1,3 +1,18 @@
+# 2026-05-26 Agent 1 Stack unwrap_ok postfix checkpoint
+
+- Zenn 方針を再確認し、Stack fixture の `unwrap_ok<Stack<i32>, ...>` を 2 worker の非重複 write scope へ分割して並列移行した。
+- `stdlib/tests/stack.n.md` で 33 件、`tests/stdlib/stack_collections.n.md` で 41 件、合計 74 件を `unwrap_ok` へ移行した。
+- この checkpoint では `new<i32>` / `push<i32>` / `pop<i32>` / `get<i32>` / `len<i32>` などの producer / observer postfix は触っていない。
+- `nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` は、旧 `unwrap_ok<Stack<i32>...>` の再導入を禁止し、NEPLg2.1 の型根拠ベースの Stack fixture であることを検査する形へ更新した。
+- 検証:
+  - `rg -n "unwrap_ok<Stack<i32>" stdlib/tests/stack.n.md tests/stdlib/stack_collections.n.md`: 0 件。
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: pass。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: `would update 0 file(s)`。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。LF/CRLF warning のみ。
+  - `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/neplg21-stack-unwrap-ok-postfix.json -j 1 --dist web/dist --assert-io`: 外側 timeout。partial JSON は 5/18 件完了、5 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 diag_err / Stack accessor postfix checkpoint
 
 - Zenn 方針を再確認し、`diag_err<T>` の後置genericを 5 worker の非重複 write scope へ分割して並列移行した。

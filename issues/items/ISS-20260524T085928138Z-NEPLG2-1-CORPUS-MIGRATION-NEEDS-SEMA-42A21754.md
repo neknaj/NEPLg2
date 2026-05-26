@@ -733,6 +733,16 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl --no-tree -o tmp/neplg21-examples-stack-accessor-postfix.json -j 1 --dist web/dist --assert-io` は 5 件すべて compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/neplg21-stack-accessor-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 6/18 件完了、6 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 Stack unwrap_ok postfix checkpoint
+
+- Stack fixture の `unwrap_ok<Stack<i32>, ...>` を 2 worker の非重複 write scope に分割し、`stdlib/tests/stack.n.md` と `tests/stdlib/stack_collections.n.md` を並列移行した。
+- `stdlib/tests/stack.n.md` で 33 件、`tests/stdlib/stack_collections.n.md` で 41 件、合計 74 件を `unwrap_ok` へ移行した。
+- この checkpoint では `new<i32>` / `push<i32>` / `pop<i32>` / `get<i32>` / `len<i32>` などの producer / observer postfix は触っていない。
+- Stack source policy は旧 `unwrap_ok<Stack<i32>...>` の再導入を禁止し、NEPLg2.1 の型根拠ベースの Stack fixture であることを確認する形へ更新した。
+- `rg -n "unwrap_ok<Stack<i32>" stdlib/tests/stack.n.md tests/stdlib/stack_collections.n.md` は 0 件になった。
+- `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` と `node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/neplg21-stack-unwrap-ok-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 5/18 件完了、5 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

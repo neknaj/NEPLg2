@@ -72,7 +72,7 @@ for (const testPath of [
     assert.doesNotMatch(testSrc, /field::get(?:_ref)?\s+&?p[0-9]?\s+"(?:item|stack)"/, `${testPath} must not project StackPop fields directly`);
     assert.match(testSrc, /\bstack_pop_item\s+&p[0-9]?\b/, `${testPath} must exercise StackPop item accessor`);
     assert.match(testSrc, /\bstack_pop_stack\s+p[0-9]?\b/, `${testPath} must exercise StackPop stack accessor`);
-    assert.doesNotMatch(testSrc, /unwrap_ok<Stack<i32>,\s*Diag>\s+push<i32>|\|>\s+unwrap_ok<Stack<i32>,\s*Diag>/, `${testPath} must unwrap Stack push with StackPushError, while Stack new keeps Diag`);
+    assert.doesNotMatch(testSrc, /unwrap_ok<Stack<i32>/, `${testPath} must rely on NEPLg2.1 type evidence instead of explicit Stack unwrap_ok postfix`);
 }
 
 for (const rel of [
