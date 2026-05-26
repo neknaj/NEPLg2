@@ -47129,3 +47129,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `node nodesrc/run_source_policy_regressions.js --warn-only` / `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 - `trunk build` は pass。
 - `node nodesrc/tests.js <対象26 files> --no-tree -o tmp/neplg21-enum-constructor-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 8 件中 8 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
+## 2026-05-27 Agent 1 kpgraph / overload postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`stdlib/kp/kpgraph.nepl` と `tests/compiler/overload.n.md` の safe call-site postfix を撤廃した。`plan.md` は変更していない。
+- `kpgraph` BFS では、`Vec i32` receiver と `i32` value argument から型が決まる `v::filled` / `v::get` / `v::replace` / `v::free` に移行した。doctest snippet と説明文の `Vec<i32>` も `Vec i32` に揃えた。
+- `overload_pair_field_from_generic_result_keeps_tuple_type` では、`let right %Vec .T` と `xs %Vec i32` を型根拠として `v::new` / `pair_with_empty xs` に移行した。`Show::show<i32>` は trait method type args unsupported の診断 fixture として保持した。
+- `nodesrc/test_neplg21_kpgraph_overload_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量や doc comment の増加を制限する検査ではない。
+- `tmp/neplg21-overload-pair-inference-smoke.neplg2` の direct `nepl-cli.exe --check --target core` で、argument evidence と typed local から generic call の型引数が解けることを確認した。
+- `node nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js`、`node nodesrc/test_neplg21_kpgraph_overload_postfix_cleanup.js`、`node nodesrc/test_neplg21_diagnostics_kp_cost_postfix_cleanup.js` は pass した。
+- `tests/compiler/overload.n.md::doctest#10` の focused doctest と native check は compile-time 長時間化で timeout した。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。

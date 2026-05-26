@@ -7,7 +7,7 @@ resolved: false
 priority: P0
 type: maintenance
 created: 2026-05-24
-updated: 2026-05-26
+updated: 2026-05-27
 target: "stdlib/**, tests/**, tutorials/**, doc/examples/**"
 ---
 
@@ -992,6 +992,16 @@ LLM/手動判断が必要なもの:
 - worker 側では `node nodesrc/test_stdlib_collection_cleanup_contract.js`、`node nodesrc/test_stdlib_vec_borrowed_observers.js`、`node nodesrc/test_stdlib_traits_hash_report_contract.js`、`node nodesrc/test_stdlib_traits_serde_report_contract.js` が pass した。
 - `node nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - `node nodesrc/tests.js <対象3 files> --no-tree -o tmp/neplg21-metadata-traits-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 4 件完了、4 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
+### 2026-05-27 kpgraph/overload postfix checkpoint
+
+- `stdlib/kp/kpgraph.nepl` では、BFS の `v::filled<i32>` / `v::get<i32>` / `v::replace<i32>` / `v::free<i32>` を、`Vec i32` receiver と value argument から解ける postfix-free call へ移行した。
+- 同じファイルの doctest snippet と説明文も、利用者向けの現在形として `v::get` / `v::free` / `Vec i32` に更新した。
+- `tests/compiler/overload.n.md` では、`overload_pair_field_from_generic_result_keeps_tuple_type` の `v::new<.T>` と `pair_with_empty<i32>` を、`let right %Vec .T` と `xs %Vec i32` の型根拠から解ける postfix-free call へ移行した。`Show::show<i32>` は `type.trait_method.type_args_unsupported` の診断 fixture として保持した。
+- `nodesrc/test_neplg21_kpgraph_overload_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。これはコメント量を制限する検査ではない。
+- `node nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js`、`node nodesrc/test_neplg21_kpgraph_overload_postfix_cleanup.js`、`node nodesrc/test_neplg21_diagnostics_kp_cost_postfix_cleanup.js` は pass した。
+- `tmp/neplg21-overload-pair-inference-smoke.neplg2` の direct `nepl-cli.exe --check --target core` で、generic call の型引数が argument evidence と typed local から解けることを確認した。
+- `tests/compiler/overload.n.md::doctest#10` の focused doctest / native check は既存の compile-time 長時間化で timeout した。型診断は取得できていないため、full doctest green 化は performance issue 側で継続確認する。
 
 ## 検証
 
