@@ -46,7 +46,7 @@ pub struct RingBuffer<.T>:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let rb %RingBuffer i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %RingBufferPushError i32 RingBufferPushError<i32> rb d0;
 //:     0
@@ -70,7 +70,7 @@ pub struct RingBufferPushError<.T>:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let rb %RingBuffer i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %RingBufferPushError i32 RingBufferPushError<i32> rb d0;
 //:     0
@@ -96,7 +96,7 @@ pub fn ringbuffer_push_error_diag <.T> %fn &RingBufferPushError .T Diag \e:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let rb %RingBuffer i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %RingBufferPushError i32 RingBufferPushError<i32> rb d0;
 //:     0
@@ -128,8 +128,8 @@ pub struct RingBufferPop<.T>:
 //: #import "core/option" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let rb0 %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
-//:     let rb1 %RingBuffer i32 unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>> push<i32> rb0 7;
+//:     let rb0 %RingBuffer i32 unwrap_ok new<i32>;
+//:     let rb1 %RingBuffer i32 unwrap_ok push<i32> rb0 7;
 //:     let p %RingBufferPop i32 pop_front<i32> rb1;
 //:     let ok %bool match ringbuffer_pop_item<i32> &p:
 //:         Option::Some v:
@@ -156,8 +156,8 @@ pub fn ringbuffer_pop_item <.T: Copy> %fn &RingBufferPop .T Option .T \p:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let rb0 %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
-//:     let rb1 %RingBuffer i32 unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>> push<i32> rb0 7;
+//:     let rb0 %RingBuffer i32 unwrap_ok new<i32>;
+//:     let rb1 %RingBuffer i32 unwrap_ok push<i32> rb0 7;
 //:     let p %RingBufferPop i32 pop_front<i32> rb1;
 //:     let rb2 %RingBuffer i32 ringbuffer_pop_buffer<i32> p;
 //:     let ok %bool is_empty<i32> &rb2;

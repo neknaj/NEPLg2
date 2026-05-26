@@ -605,7 +605,7 @@ ret: 0
 #import "core/field" as *
 
 fn main %impure fn unit i32 \unit:
-    let lst %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+    let lst %List i32 unwrap_ok new<i32>;
     let lst uwok cons<i32> 1 lst;
     let r get<i32> &lst 10;
     let out %i32:

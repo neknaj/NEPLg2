@@ -19,14 +19,14 @@ stdout: "test_report name=\"deque_push_front_back\" count=3 failed=0\nassertion 
 
 fn main %impure fn unit i32 \unit:
     let dq0 %Deque i32:
-        unwrap_ok<Deque<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push_back 10 |> uwok
         |> push_front 5 |> uwok
         |> push_back 20 |> uwok
     let size %i32 len<i32> &dq0;
     free<i32> dq0;
     let dq1 %Deque i32:
-        unwrap_ok<Deque<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push_back 10 |> uwok
         |> push_front 5 |> uwok
     let ok1 %bool match peek_front<i32> &dq1:
@@ -36,7 +36,7 @@ fn main %impure fn unit i32 \unit:
             false
     free<i32> dq1;
     let dq2 %Deque i32:
-        unwrap_ok<Deque<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push_back 10 |> uwok
         |> push_back 20 |> uwok
     let ok2 %bool match peek_back<i32> &dq2:
@@ -73,7 +73,7 @@ stdout: "test_report name=\"deque_pop_both_ends\" count=4 failed=0\nassertion in
 
 fn main %impure fn unit i32 \unit:
     let dq_front %Deque i32:
-        unwrap_ok<Deque<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push_back 10 |> uwok
         |> push_back 20 |> uwok
     let p_front %DequePop i32 pop_front<i32> dq_front
@@ -86,7 +86,7 @@ fn main %impure fn unit i32 \unit:
     let len_front_next %i32 len<i32> &dq_front_next
     free<i32> dq_front_next
     let dq_back %Deque i32:
-        unwrap_ok<Deque<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push_back 10 |> uwok
         |> push_back 20 |> uwok
     let p_back %DequePop i32 pop_back<i32> dq_back

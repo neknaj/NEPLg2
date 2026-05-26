@@ -44,7 +44,7 @@ pub struct Stack<.T>:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let s %Stack i32 unwrap_ok<Stack<i32>, Diag> new<i32>;
+//:     let s %Stack i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %StackPushError i32 StackPushError<i32> s d0;
 //:     0
@@ -68,7 +68,7 @@ pub struct StackPushError<.T>:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let s %Stack i32 unwrap_ok<Stack<i32>, Diag> new<i32>;
+//:     let s %Stack i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %StackPushError i32 StackPushError<i32> s d0;
 //:     0
@@ -94,7 +94,7 @@ pub fn stack_push_error_diag <.T> %fn &StackPushError .T Diag \e:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let s %Stack i32 unwrap_ok<Stack<i32>, Diag> new<i32>;
+//:     let s %Stack i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %StackPushError i32 StackPushError<i32> s d0;
 //:     0

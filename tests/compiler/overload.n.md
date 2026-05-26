@@ -460,7 +460,7 @@ stdout: "test_report name=\"overload_nested_len_with_stack_and_string\" count=2 
 
 fn main %impure fn unit i32 \unit:
     let s %str "abc";
-    let st %Stack i32 unwrap_ok<Stack<i32>, Diag> new;
+    let st %Stack i32 unwrap_ok new;
     let n1 %i32 len s;
     let n2 %i32 len<i32> &st;
     free<i32> st;
@@ -561,10 +561,10 @@ stdout: "test_report name=\"overload_new_resolve_with_typed_block_context\" coun
 fn main %impure fn unit i32 \unit:
     let st %Stack i32:
         new
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok
     let v %Vec i32:
         new
-        |> unwrap_ok<Vec<i32>, StdErrorKind>
+        |> unwrap_ok
     let sn %i32 len<i32> &st;
     free<i32> st;
     let vn %i32 len<i32> &v;
@@ -596,9 +596,9 @@ stdout: "test_report name=\"overload_new_resolve_with_typed_block_and_pipe\" cou
 fn main %impure fn unit i32 \unit:
     let st %Stack i32:
         new
-        |> unwrap_ok<Stack<i32>, Diag>
+        |> unwrap_ok
         |> push 10
-        |> unwrap_ok<Stack<i32>, StackPushError<i32>>
+        |> unwrap_ok
     let n %i32 len<i32> &st;
     free<i32> st;
     let report:

@@ -29,7 +29,7 @@ stdout: "test_report name=\"queue_pipe_usage\" count=2 failed=0\nassertion index
 
 fn main %impure fn unit i32 \unit:
     let q %Queue i32:
-        unwrap_ok<Queue<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 7
         |> uwok
         |> push<i32> 8
@@ -70,9 +70,9 @@ stdout: "test_report name=\"queue_grow_clear_and_free\" count=3 failed=0\nassert
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let q0 %Queue i32 unwrap_ok<Queue<i32>, Diag> with_capacity<i32> 1;
-    let q1 %Queue i32 unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q0 10;
-    let q2 %Queue i32 unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q1 20;
+    let q0 %Queue i32 unwrap_ok with_capacity<i32> 1;
+    let q1 %Queue i32 unwrap_ok push<i32> q0 10;
+    let q2 %Queue i32 unwrap_ok push<i32> q1 20;
     let size %i32 len<i32> &q2;
     let ok_peek %bool match peek<i32> &q2:
         Option::Some v:

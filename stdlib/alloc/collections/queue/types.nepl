@@ -49,7 +49,7 @@ pub struct Queue<.T>:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
+//:     let q %Queue i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %QueuePushError i32 QueuePushError<i32> q d0;
 //:     0
@@ -73,7 +73,7 @@ pub struct QueuePushError<.T>:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
+//:     let q %Queue i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %QueuePushError i32 QueuePushError<i32> q d0;
 //:     0
@@ -99,7 +99,7 @@ pub fn queue_push_error_diag <.T> %fn &QueuePushError .T Diag \e:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
+//:     let q %Queue i32 unwrap_ok new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %QueuePushError i32 QueuePushError<i32> q d0;
 //:     0
@@ -131,8 +131,8 @@ pub struct QueuePop<.T>:
 //: #import "core/option" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let q0 %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
-//:     let q1 %Queue i32 unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q0 7;
+//:     let q0 %Queue i32 unwrap_ok new<i32>;
+//:     let q1 %Queue i32 unwrap_ok push<i32> q0 7;
 //:     let p %QueuePop i32 pop_front<i32> q1;
 //:     let ok %bool match queue_pop_item<i32> &p:
 //:         Option::Some v:
@@ -160,8 +160,8 @@ pub fn queue_pop_item <.T: Copy> %fn &QueuePop .T Option .T \p:
 //: #import "core/math" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let q0 %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
-//:     let q1 %Queue i32 unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q0 7;
+//:     let q0 %Queue i32 unwrap_ok new<i32>;
+//:     let q1 %Queue i32 unwrap_ok push<i32> q0 7;
 //:     let p %QueuePop i32 pop_front<i32> q1;
 //:     let q2 %Queue i32 queue_pop_queue<i32> p;
 //:     let ok %bool is_empty<i32> &q2;

@@ -44,9 +44,9 @@ pub fn is_empty <.T> %fn &BinaryHeap .T bool \hp:
 //:| #import "core/result" as *
 //:| #import "core/option" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hp0 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
-//:     let hp1 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp0 4;
-//:     let hp2 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp1 9;
+//:     let hp0 %BinaryHeap i32 unwrap_ok new<i32>;
+//:     let hp1 %BinaryHeap i32 unwrap_ok push<i32> hp0 4;
+//:     let hp2 %BinaryHeap i32 unwrap_ok push<i32> hp1 9;
 //:     let ok %bool match peek<i32> &hp2:
 //:         Option::Some v:
 //:             eq v 9

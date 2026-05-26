@@ -19,22 +19,22 @@ stdout: "test_report name=\"list_main\" count=15 failed=0\nassertion index=0 sta
 #import "core/field" as *
 
 fn mk %impure fn unit List i32 \unit:
-    let l0 %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+    let l0 %List i32 unwrap_ok new<i32>;
     let l1 %List i32 uwok cons<i32> 10 l0;
     let l2 %List i32 uwok cons<i32> 20 l1;
     uwok cons<i32> 30 l2
 
 fn main %impure fn unit i32 \unit:
-    let l0 %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+    let l0 %List i32 unwrap_ok new<i32>;
     let l0_len %i32 len<i32> &l0;
     free<i32> l0;
 
-    let l0a %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+    let l0a %List i32 unwrap_ok new<i32>;
     let l1 %List i32 uwok cons<i32> 10 l0a;
     let l1_len %i32 len<i32> &l1;
     free<i32> l1;
 
-    let l0b %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+    let l0b %List i32 unwrap_ok new<i32>;
     let l1b %List i32 uwok cons<i32> 10 l0b;
     let l2 %List i32 uwok cons<i32> 20 l1b;
     let l2_len %i32 len<i32> &l2;
@@ -170,7 +170,7 @@ stdout: "test_report name=\"list_functional_helpers\" count=10 failed=0\nasserti
 
 fn mk %impure fn unit List i32 \unit:
     let xs %List i32:
-        unwrap_ok<List<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 4 |> uwok
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok

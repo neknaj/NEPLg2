@@ -27,7 +27,7 @@ stdout: "test_report name=\"list_reverse_preserves_order\" count=2 failed=0\nass
 
 fn main %impure fn unit i32 \unit:
     let src_first %List i32:
-        unwrap_ok<List<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
@@ -39,7 +39,7 @@ fn main %impure fn unit i32 \unit:
             false
     free<i32> first_rev;
     let src_last %List i32:
-        unwrap_ok<List<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
@@ -82,7 +82,7 @@ stdout: "test_report name=\"list_reverse_empty_is_empty\" count=1 failed=0\nasse
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let empty %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
+    let empty %List i32 unwrap_ok new<i32>;
     let rev %List i32 reverse<i32> empty;
     let ok %bool is_empty<i32> &rev
     free<i32> rev
@@ -127,7 +127,7 @@ fn is_even %fn i32 bool \x:
 
 fn main %impure fn unit i32 \unit:
     let map_src %List i32:
-        unwrap_ok<List<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
@@ -145,7 +145,7 @@ fn main %impure fn unit i32 \unit:
             free<i32> mapped
             ok
     let filter_src %List i32:
-        unwrap_ok<List<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 4 |> uwok
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok

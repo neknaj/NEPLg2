@@ -21,19 +21,19 @@ stdout: "test_report name=\"queue_push_pop\" count=5 failed=0\nassertion index=0
 
 fn main %impure fn unit i32 \unit:
     let q0 %Queue i32:
-        unwrap_ok<Queue<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 1
-        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
+        |> unwrap_ok
         |> push<i32> 2
-        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
+        |> unwrap_ok
     let size0 %i32 len<i32> &q0;
     free<i32> q0;
     let q1 %Queue i32:
-        unwrap_ok<Queue<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 1
-        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
+        |> unwrap_ok
         |> push<i32> 2
-        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
+        |> unwrap_ok
     let ok1 %bool match peek<i32> &q1:
         Option::Some v:
             eq v 1
@@ -41,20 +41,20 @@ fn main %impure fn unit i32 \unit:
             false
     free<i32> q1;
     let q2 %Queue i32:
-        unwrap_ok<Queue<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 5
-        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
+        |> unwrap_ok
     let ok2 %bool match pop<i32> q2:
         Option::Some v:
             eq v 5
         Option::None:
             false
     let q3 %Queue i32:
-        unwrap_ok<Queue<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 7
-        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
+        |> unwrap_ok
         |> push<i32> 8
-        |> unwrap_ok<Queue<i32>, QueuePushError<i32>>
+        |> unwrap_ok
     let p0 %QueuePop i32 pop_front<i32> q3
     let ok3 %bool match queue_pop_item<i32> &p0:
         Option::Some v:
@@ -97,7 +97,7 @@ stdout: "test_report name=\"queue_pop_empty\" count=1 failed=0\nassertion index=
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
+    let q %Queue i32 unwrap_ok new<i32>;
     let ok %bool match pop<i32> q:
         Option::Some _:
             false

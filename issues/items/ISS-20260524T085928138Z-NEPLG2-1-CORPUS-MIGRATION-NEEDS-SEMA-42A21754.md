@@ -743,6 +743,18 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` と `node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/neplg21-stack-unwrap-ok-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 5/18 件完了、5 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 collection unwrap_ok postfix checkpoint
+
+- Queue / RingBuffer / List / BinaryHeap / Deque / pipe collection fixture の `unwrap_ok<T,E>` を 5 worker の非重複 write scope に分割して並列移行した。
+- Queue 23 件、RingBuffer 25 件、List 16 件、BinaryHeap/Deque 39 件、pipe collection fixture 19 件を worker が移行し、親 agent 側で Stack/List/Vec の小さな overload / compiler fixture 残件 9 件を移行した。
+- 合計 24 files / 131 件の `unwrap_ok<...>` を `unwrap_ok` へ移行した。
+- この checkpoint では `new<i32>` / `with_capacity<i32>` / `push<i32>` / `push_back<i32>` / `push_front<i32>` / `len<i32>` / `free<i32>` などの producer / observer postfix は触っていない。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` は、今回移行した collection fixture / doctest が旧 `unwrap_ok<...>` を再導入しないことを検査する形へ更新した。既存の owner recovery / cleanup / borrowed observer boundary の検査は弱めていない。
+- `rg -n "unwrap_ok<" <対象24 files>` は 0 件になった。
+- `node nodesrc/test_stdlib_collection_cleanup_contract.js` と `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` は pass した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js -i stdlib/tests/queue.n.md -i tests/stdlib/queue_collections.n.md -i stdlib/tests/ringbuffer.n.md -i tests/stdlib/ringbuffer_collections.n.md -i stdlib/tests/list.n.md -i tests/stdlib/list_collections.n.md -i stdlib/tests/binary_heap.n.md -i tests/stdlib/binary_heap_collections.n.md -i stdlib/tests/deque.n.md -i tests/stdlib/deque_collections.n.md -i tests/stdlib/pipe_collections.n.md -i tests/compiler/overload.n.md -i tests/compiler/neplg2.n.md --no-tree -o tmp/neplg21-collection-unwrap-ok-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15/123 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

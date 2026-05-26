@@ -31,6 +31,32 @@ const ownerPreservingPartitionConstructorInspected = [];
 const proofBackedPopMoveOutInspected = [];
 const proofBackedTransformRangeFilterInspected = [];
 const violations = [];
+const collectionUnwrapPostfixFixturePaths = [
+    'stdlib/alloc/collections/binary_heap/api/cleanup.nepl',
+    'stdlib/alloc/collections/binary_heap/api/create.nepl',
+    'stdlib/alloc/collections/binary_heap/api/observer.nepl',
+    'stdlib/alloc/collections/binary_heap/api/pop.nepl',
+    'stdlib/alloc/collections/binary_heap/api/push.nepl',
+    'stdlib/alloc/collections/deque/api.nepl',
+    'stdlib/alloc/collections/list/types.nepl',
+    'stdlib/alloc/collections/queue/types.nepl',
+    'stdlib/alloc/collections/ringbuffer/api.nepl',
+    'stdlib/alloc/collections/ringbuffer/types.nepl',
+    'stdlib/alloc/collections/stack/types.nepl',
+    'stdlib/tests/binary_heap.n.md',
+    'stdlib/tests/deque.n.md',
+    'stdlib/tests/list.n.md',
+    'stdlib/tests/queue.n.md',
+    'stdlib/tests/ringbuffer.n.md',
+    'tests/compiler/neplg2.n.md',
+    'tests/compiler/overload.n.md',
+    'tests/stdlib/binary_heap_collections.n.md',
+    'tests/stdlib/deque_collections.n.md',
+    'tests/stdlib/list_collections.n.md',
+    'tests/stdlib/pipe_collections.n.md',
+    'tests/stdlib/queue_collections.n.md',
+    'tests/stdlib/ringbuffer_collections.n.md',
+];
 
 for (const relPath of walkNeplFiles(collectionsRoot)) {
     const source = readImplementation(relPath);
@@ -548,6 +574,11 @@ for (const expected of [
         scopedBorrowedPredicateObserverInspected.some((entry) => entry.includes(expected)),
         `collection scoped borrowed predicate policy did not inspect expected signature: ${expected}`,
     );
+}
+
+for (const relPath of collectionUnwrapPostfixFixturePaths) {
+    const source = fs.readFileSync(path.join(repoRoot, relPath), 'utf8');
+    assert.doesNotMatch(source, /\bunwrap_ok</, `${relPath} must rely on NEPLg2.1 type evidence instead of explicit collection unwrap_ok postfix`);
 }
 
 assert.deepEqual(violations, [], `generic collection cleanup, owner recovery, owner-producing APIs, borrowed Copy-invariant proof observers, borrowed payload-copying observers, borrowed payload storage views, scoped borrowed predicate observers, and public lifecycle surfaces must remain Copy-only or structurally proof-backed:\n${violations.join('\n')}`);

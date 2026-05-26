@@ -29,7 +29,7 @@ stdout: "test_report name=\"binary_heap_pipe_usage\" count=2 failed=0\nassertion
 
 fn main %impure fn unit i32 \unit:
     let hp0 %BinaryHeap i32:
-        unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push 3 |> uwok
         |> push 8 |> uwok
         |> push 5 |> uwok
@@ -40,7 +40,7 @@ fn main %impure fn unit i32 \unit:
             false
     free<i32> hp0;
     let hp1 %BinaryHeap i32:
-        unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push 3 |> uwok
         |> push 8 |> uwok
         |> push 5 |> uwok
@@ -76,7 +76,7 @@ stdout: "test_report name=\"binary_heap_zero_capacity_free\" count=1 failed=0\na
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let hp %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 0;
+    let hp %BinaryHeap i32 unwrap_ok with_capacity<i32> 0;
     free<i32> hp;
     let report:
         test_report_new "binary_heap_zero_capacity_free"
@@ -106,8 +106,8 @@ stdout: "test_report name=\"binary_heap_push_from_zero_capacity\" count=1 failed
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let hp0 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 0;
-    let hp1 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp0 42;
+    let hp0 %BinaryHeap i32 unwrap_ok with_capacity<i32> 0;
+    let hp1 %BinaryHeap i32 unwrap_ok push<i32> hp0 42;
     let ok %bool match peek<i32> &hp1:
         Option::Some v:
             eq v 42

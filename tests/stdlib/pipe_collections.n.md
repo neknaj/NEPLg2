@@ -24,14 +24,14 @@ stdout: mlstr:
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let xs0 %List i32:
-        unwrap_ok<List<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
     set checks checks_push checks check_eq_i32 3 len<i32> &xs0;
     free<i32> xs0;
     let xs1 %List i32:
-        unwrap_ok<List<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
@@ -69,15 +69,15 @@ stdout: mlstr:
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let s0 %Stack i32:
-        unwrap_ok<Stack<i32>, Diag> new<i32>
-        |> push<i32> 10 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
-        |> push<i32> 20 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
+        unwrap_ok new<i32>
+        |> push<i32> 10 |> unwrap_ok
+        |> push<i32> 20 |> unwrap_ok
     set checks checks_push checks check_eq_i32 2 len<i32> &s0;
     free<i32> s0;
     let s1 %Stack i32:
-        unwrap_ok<Stack<i32>, Diag> new<i32>
-        |> push<i32> 10 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
-        |> push<i32> 20 |> unwrap_ok<Stack<i32>, StackPushError<i32>>
+        unwrap_ok new<i32>
+        |> push<i32> 10 |> unwrap_ok
+        |> push<i32> 20 |> unwrap_ok
     let p pop<i32> s1;
     match p:
         Option::Some v:
@@ -120,7 +120,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let m0 %BTreeMap i32 i32:
-        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
+        unwrap_ok new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
         |> insert<i32,i32> 1 10
@@ -128,7 +128,7 @@ fn main %impure fn unit i32 \unit:
     set checks checks_push checks check_eq_i32 2 len<i32,i32> &m0;
     free<i32,i32> m0;
     let m1 %BTreeMap i32 i32:
-        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
+        unwrap_ok new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
         |> insert<i32,i32> 1 10
@@ -140,7 +140,7 @@ fn main %impure fn unit i32 \unit:
             set checks checks_push checks Result::Err "pipe btreemap get failed";
     free<i32,i32> m1;
     let m2 %BTreeMap i32 i32:
-        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
+        unwrap_ok new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
         |> insert<i32,i32> 1 10
@@ -182,7 +182,7 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let s0 %BTreeSet i32:
-        unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 2
@@ -190,7 +190,7 @@ fn main %impure fn unit i32 \unit:
     set checks checks_push checks check contains<i32> &s0 5;
     free<i32> s0;
     let s1 %BTreeSet i32:
-        unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 2
@@ -198,7 +198,7 @@ fn main %impure fn unit i32 \unit:
     set checks checks_push checks check_eq_i32 2 len<i32> &s1;
     free<i32> s1;
     let s2 %BTreeSet i32:
-        unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 2
@@ -302,7 +302,7 @@ stdout: mlstr:
 #import "core/result" as *
 
 fn must_hs %impure fn Result HashSet i32 DefaultHash32 Diag HashSet i32 DefaultHash32 \r:
-    unwrap_ok<HashSet<i32,DefaultHash32>, Diag> r
+    unwrap_ok r
 
 fn must_hs %impure fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 DefaultHash32 HashSet i32 DefaultHash32 \r:
     match r:
@@ -363,13 +363,13 @@ stdout: mlstr:
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let rb %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push 11 |> uwok
         |> push 22 |> uwok
     set checks checks_push checks check_eq_i32 2 len<i32> &rb;
     free<i32> rb;
     let rb2 %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push 11 |> uwok
         |> push 22 |> uwok
     match peek<i32> &rb2:
@@ -405,13 +405,13 @@ stdout: mlstr:
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let q %Queue i32:
-        unwrap_ok<Queue<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push 3 |> uwok
         |> push 4 |> uwok
     set checks checks_push checks check_eq_i32 2 len<i32> &q;
     free<i32> q;
     let q2 %Queue i32:
-        unwrap_ok<Queue<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push 3 |> uwok
         |> push 4 |> uwok
     match peek<i32> &q2:

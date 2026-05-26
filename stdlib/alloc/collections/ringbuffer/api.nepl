@@ -34,7 +34,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+//:     let rb %RingBuffer i32 unwrap_ok new<i32>;
 //:     let ok %bool is_empty<i32> &rb;
 //:     free<i32> rb
 //:     if ok 1 0

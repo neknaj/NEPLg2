@@ -30,7 +30,7 @@ stdout: "test_report name=\"ringbuffer_pipe_usage\" count=2 failed=0\nassertion 
 
 fn main %impure fn unit i32 \unit:
     let rb %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push 4
         |> uwok
         |> push 9
@@ -38,7 +38,7 @@ fn main %impure fn unit i32 \unit:
     let size %i32 len<i32> &rb;
     free<i32> rb
     let rb2 %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push 4
         |> uwok
         |> push 9
@@ -83,20 +83,20 @@ stdout: "test_report name=\"ringbuffer_grow_clear_free\" count=1 failed=0\nasser
 
 fn main %impure fn unit i32 \unit:
     let rb_clear %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> with_capacity<i32> 1
+        unwrap_ok with_capacity<i32> 1
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> clear
     let ok0 %bool is_empty<i32> &rb_clear;
     free<i32> rb_clear
     let rb0 %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> with_capacity<i32> 1
+        unwrap_ok with_capacity<i32> 1
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> clear
     free<i32> rb0
     let rb1 %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> with_capacity<i32> 1
+        unwrap_ok with_capacity<i32> 1
         |> push 12 |> uwok
     free<i32> rb1
     let report:

@@ -21,19 +21,19 @@ stdout: "test_report name=\"ringbuffer_push_pop\" count=5 failed=0\nassertion in
 
 fn main %impure fn unit i32 \unit:
     let rb0 %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 10
-        |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
+        |> unwrap_ok
         |> push<i32> 20
-        |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
+        |> unwrap_ok
     let size0 %i32 len<i32> &rb0;
     free<i32> rb0
     let rb1 %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 10
-        |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
+        |> unwrap_ok
         |> push<i32> 20
-        |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
+        |> unwrap_ok
     let ok1 %bool match peek<i32> &rb1:
         Option::Some v:
             eq v 10
@@ -41,20 +41,20 @@ fn main %impure fn unit i32 \unit:
             false
     free<i32> rb1
     let rb2 %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 10
-        |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
+        |> unwrap_ok
     let ok2 %bool match pop<i32> rb2:
         Option::Some v:
             eq v 10
         Option::None:
             false
     let rb3 %RingBuffer i32:
-        unwrap_ok<RingBuffer<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> push<i32> 30
-        |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
+        |> unwrap_ok
         |> push<i32> 40
-        |> unwrap_ok<RingBuffer<i32>, RingBufferPushError<i32>>
+        |> unwrap_ok
     let p0 %RingBufferPop i32 pop_front<i32> rb3
     let ok3 %bool match ringbuffer_pop_item<i32> &p0:
         Option::Some v:
@@ -97,7 +97,7 @@ stdout: "test_report name=\"ringbuffer_pop_empty\" count=1 failed=0\nassertion i
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
+    let rb %RingBuffer i32 unwrap_ok new<i32>;
     let ok %bool match pop<i32> rb:
         Option::Some _:
             false
