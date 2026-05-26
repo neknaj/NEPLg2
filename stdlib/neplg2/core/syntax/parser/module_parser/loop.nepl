@@ -18,7 +18,7 @@ pub fn selfhost_parse_push_and_continue %impure fn str impure fn &Vec SelfhostTo
         Result::Ok next_ast:
             selfhost_parse_module_loop source tokens n add idx 1 depth mode next_ast
         Result::Err diag:
-            Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
+            Result::Err diag
 
 //: selfhost_parse_raw_wasm_text: WasmText token を raw mode に応じて処理する
 pub fn selfhost_parse_raw_wasm_text %impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostParserRawMode impure fn SelfhostModuleAst impure fn SelfhostToken Result SelfhostModuleAst SelfhostDiagnostic \source\tokens\n\idx\depth\mode\ast\token:
@@ -112,7 +112,7 @@ pub fn selfhost_parse_module_loop %impure fn str impure fn &Vec SelfhostToken im
     if:
         ge idx n
         then:
-            Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok ast
+            Result::Ok ast
         else:
             match v::get<SelfhostToken> tokens idx:
                 Option::Some token:
@@ -124,7 +124,7 @@ pub fn selfhost_parse_module_loop %impure fn str impure fn &Vec SelfhostToken im
                                 then:
                                     selfhost_parser_pending_error &token ast
                                 else:
-                                    Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok ast
+                                    Result::Ok ast
                         SelfhostParserTokenAction::Skip:
                             selfhost_parse_module_loop source tokens n add idx 1 depth mode ast
                         SelfhostParserTokenAction::Indent:
@@ -144,4 +144,4 @@ pub fn selfhost_parse_module_loop %impure fn str impure fn &Vec SelfhostToken im
                 Option::None:
                     let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "self-host module parser could not read token"
                     selfhost_module_ast_free ast
-                    Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
+                    Result::Err diag

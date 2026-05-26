@@ -120,9 +120,9 @@ pub fn selfhost_pipeline_loaded_root_new %impure fn SelfhostLoadedModule impure 
 pub fn selfhost_pipeline_load_root %impure fn &SelfhostVirtualFileSystem impure fn SelfhostCompileRequest Result SelfhostPipelineLoadedRoot SelfhostDiagnostic \vfs\request:
     match selfhost_load_module vfs request.root_path:
         Result::Ok module:
-            Result<SelfhostPipelineLoadedRoot, SelfhostDiagnostic>::Ok selfhost_pipeline_loaded_root_new module request.options
+            Result::Ok selfhost_pipeline_loaded_root_new module request.options
         Result::Err diag:
-            Result<SelfhostPipelineLoadedRoot, SelfhostDiagnostic>::Err diag
+            Result::Err diag
 
 //: selfhost_pipeline_loaded_root_ast: loaded root の AST を[参照/さんしょう]する
 pub fn selfhost_pipeline_loaded_root_ast %fn &SelfhostPipelineLoadedRoot &SelfhostModuleAst \loaded:

@@ -62,11 +62,11 @@ pub fn selfhost_load_module %impure fn &SelfhostVirtualFileSystem impure fn str 
         Option::Some file:
             match selfhost_parse_module_source_with_file_id file.source file.file_id:
                 Result::Ok ast:
-                    Result<SelfhostLoadedModule, SelfhostDiagnostic>::Ok SelfhostLoadedModule file.path ast
+                    Result::Ok SelfhostLoadedModule file.path ast
                 Result::Err diag:
-                    Result<SelfhostLoadedModule, SelfhostDiagnostic>::Err diag
+                    Result::Err diag
         Option::None:
-            Result<SelfhostLoadedModule, SelfhostDiagnostic>::Err selfhost_loader_file_not_found_diag path
+            Result::Err selfhost_loader_file_not_found_diag path
 
 //: selfhost_loaded_module_ast: loaded module の AST を[参照/さんしょう]する
 pub fn selfhost_loaded_module_ast %fn &SelfhostLoadedModule &SelfhostModuleAst \module:

@@ -164,9 +164,9 @@ pub fn selfhost_import_record_from_line %impure fn str impure fn i32 impure fn i
         Result::Ok spec:
             let path %str selfhost_import_spec_path lexeme spec
             let alias %str selfhost_import_spec_alias lexeme spec
-            Result<SelfhostImportRecord, SelfhostDiagnostic>::Ok selfhost_import_record_new selfhost_import_spec_span spec path alias selfhost_import_spec_is_wildcard spec
+            Result::Ok selfhost_import_record_new selfhost_import_spec_span spec path alias selfhost_import_spec_is_wildcard spec
         Result::Err diag:
-            Result<SelfhostImportRecord, SelfhostDiagnostic>::Err diag
+            Result::Err diag
 
 //: selfhost_scan_module_imports_loop: source text から import record を[集/あつ]める
 pub fn selfhost_scan_module_imports_loop %impure fn str impure fn i32 impure fn i32 impure fn i32 impure fn Vec SelfhostImportRecord Result Vec SelfhostImportRecord SelfhostDiagnostic \source\file_id\n\line_start\out:

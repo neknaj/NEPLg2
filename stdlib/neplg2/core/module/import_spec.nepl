@@ -157,22 +157,22 @@ pub fn selfhost_import_parse_alias %impure fn SelfhostSourceSpan impure fn str i
     if:
         ge start n
         then:
-            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAliasExpected "import directive requires an alias after as" "expected import alias here"
+            Result::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAliasExpected "import directive requires an alias after as" "expected import alias here"
         else:
             let alias_end %i32 scanner::str_word_end_inline_space_range lexeme start n
             let trailing %i32 scanner::str_skip_inline_space_range lexeme alias_end n
             if:
                 lt trailing n
                 then:
-                    Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportTrailingText "import directive has trailing text after alias" "remove trailing text"
+                    Result::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportTrailingText "import directive has trailing text after alias" "remove trailing text"
                 else:
                     if:
                         eq alias_end start
                         then:
-                            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAliasExpected "import directive requires an alias after as" "expected import alias here"
+                            Result::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAliasExpected "import directive requires an alias after as" "expected import alias here"
                         else:
                             let is_wildcard %bool selfhost_import_alias_is_wildcard lexeme start alias_end
-                            Result<SelfhostImportSpec, SelfhostDiagnostic>::Ok selfhost_import_spec_new span item_index path_start path_end start alias_end is_wildcard
+                            Result::Ok selfhost_import_spec_new span item_index path_start path_end start alias_end is_wildcard
 
 //: selfhost_import_parse_after_path: path literal の後ろから `as alias` を[読/よ]む
 pub fn selfhost_import_parse_after_path %impure fn SelfhostSourceSpan impure fn str impure fn i32 impure fn i32 impure fn i32 Result SelfhostImportSpec SelfhostDiagnostic \span\lexeme\item_index\n\path_end:
@@ -180,7 +180,7 @@ pub fn selfhost_import_parse_after_path %impure fn SelfhostSourceSpan impure fn 
     if:
         not selfhost_import_has_as_keyword lexeme n as_idx
         then:
-            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAsExpected "import directive requires `as` after path" "expected `as` here"
+            Result::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportAsExpected "import directive requires `as` after path" "expected `as` here"
         else:
             let path_start %i32 scanner::str_find_byte_range lexeme 0 n '"'
             selfhost_import_parse_alias span lexeme item_index add path_start 1 path_end n add as_idx 2
@@ -196,18 +196,18 @@ pub fn selfhost_import_spec_parse_lexeme_with_item_index %impure fn SelfhostSour
     if:
         lt path_start 0
         then:
-            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportPathQuoteExpected "import directive requires a quoted path" "expected opening quote"
+            Result::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportPathQuoteExpected "import directive requires a quoted path" "expected opening quote"
         else:
             let path_end %i32 scanner::str_find_byte_range lexeme add path_start 1 n '"'
             if:
                 lt path_end 0
                 then:
-                    Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportPathQuoteUnclosed "import path quote is not closed" "expected closing quote"
+                    Result::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportPathQuoteUnclosed "import path quote is not closed" "expected closing quote"
                 else:
                     if:
                         eq path_end add path_start 1
                         then:
-                            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportPathEmpty "import path must not be empty" "empty import path"
+                            Result::Err selfhost_import_diag span SelfhostParserDiagnosticCode::ImportPathEmpty "import path must not be empty" "empty import path"
                         else:
                             selfhost_import_parse_after_path span lexeme item_index n path_end
 
@@ -218,7 +218,7 @@ pub fn selfhost_import_spec_parse_item %impure fn SelfhostModuleItem impure fn i
         then:
             selfhost_import_spec_parse_lexeme_with_item_index item.span item.lexeme item_index
         else:
-            Result<SelfhostImportSpec, SelfhostDiagnostic>::Err selfhost_import_diag item.span SelfhostParserDiagnosticCode::ImportItemKind "module item is not an import directive" "expected import directive"
+            Result::Err selfhost_import_diag item.span SelfhostParserDiagnosticCode::ImportItemKind "module item is not an import directive" "expected import directive"
 
 //: selfhost_import_specs_loop: ModuleAst から import spec を[集/あつ]める
 pub fn selfhost_import_specs_loop %impure fn &SelfhostModuleAst impure fn i32 impure fn i32 impure fn Vec SelfhostImportSpec Result Vec SelfhostImportSpec SelfhostDiagnostic \ast\n\idx\out:

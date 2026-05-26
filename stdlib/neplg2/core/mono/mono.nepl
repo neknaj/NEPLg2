@@ -241,9 +241,9 @@ pub fn selfhost_mono_instance_record_matches_key %fn SelfhostMonoInstanceRecord 
 pub fn selfhost_mono_instance_cache_new %impure fn unit Result SelfhostMonoInstanceCache StdErrorKind \unit:
     match v::new<SelfhostMonoInstanceRecord>:
         Result::Ok records:
-            Result<SelfhostMonoInstanceCache, StdErrorKind>::Ok SelfhostMonoInstanceCache records
+            Result::Ok SelfhostMonoInstanceCache records
         Result::Err e:
-            Result<SelfhostMonoInstanceCache, StdErrorKind>::Err e
+            Result::Err e
 
 //: selfhost_mono_instance_cache_free: cache storage を解放する
 pub fn selfhost_mono_instance_cache_free %impure fn SelfhostMonoInstanceCache unit \cache:
@@ -330,22 +330,22 @@ pub fn selfhost_mono_instance_cache_intern %impure fn SelfhostMonoInstanceCache 
         not selfhost_mono_instance_key_is_valid key
         then:
             selfhost_mono_instance_cache_free cache
-            Result<SelfhostMonoInstanceCacheInternResult, SelfhostMonoInstanceCacheInternError>::Err selfhost_mono_instance_cache_intern_error_invalid_key key
+            Result::Err selfhost_mono_instance_cache_intern_error_invalid_key key
         else:
             match selfhost_mono_instance_cache_lookup &cache key:
                 Option::Some instance_id:
-                    Result<SelfhostMonoInstanceCacheInternResult, SelfhostMonoInstanceCacheInternError>::Ok selfhost_mono_instance_cache_intern_result_new cache instance_id
+                    Result::Ok selfhost_mono_instance_cache_intern_result_new cache instance_id
                 Option::None:
                     let instance_id %SelfhostMonoInstanceId selfhost_mono_instance_id_new selfhost_mono_instance_cache_len &cache
                     let record %SelfhostMonoInstanceRecord selfhost_mono_instance_record_new key instance_id
                     let records %Vec SelfhostMonoInstanceRecord field::get cache "records"
                     match v::push<SelfhostMonoInstanceRecord> records record:
                         Result::Ok next_records:
-                            Result<SelfhostMonoInstanceCacheInternResult, SelfhostMonoInstanceCacheInternError>::Ok selfhost_mono_instance_cache_intern_result_new (SelfhostMonoInstanceCache next_records) instance_id
+                            Result::Ok selfhost_mono_instance_cache_intern_result_new (SelfhostMonoInstanceCache next_records) instance_id
                         Result::Err e:
                             let error %StdErrorKind v::vec_push_error_kind<SelfhostMonoInstanceRecord> &e
                             v::free<SelfhostMonoInstanceRecord> v::vec_push_error_vec<SelfhostMonoInstanceRecord> e
-                            Result<SelfhostMonoInstanceCacheInternResult, SelfhostMonoInstanceCacheInternError>::Err selfhost_mono_instance_cache_intern_error_storage error
+                            Result::Err selfhost_mono_instance_cache_intern_error_storage error
 
 //: selfhost_mono_seed_mix: mangle seed 用の 32-bit mixing step
 //:

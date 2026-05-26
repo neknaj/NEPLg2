@@ -390,9 +390,9 @@ fn selfhost_parser_declaration_item %impure fn str impure fn &Vec SelfhostToken 
     let item %SelfhostModuleItem selfhost_module_item_new_with_declaration item_kind lexeme header
     match selfhost_module_ast_push ast item:
         Result::Ok next_ast:
-            Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok next_ast
+            Result::Ok next_ast
         Result::Err _e:
-            Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag
+            Result::Err selfhost_parser_oom_diag
 
 //: selfhost_parser_push_item: token を module item として AST に[追加/ついか]する
 pub fn selfhost_parser_push_item %impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn i32 impure fn SelfhostModuleAst impure fn SelfhostToken impure fn SelfhostModuleItemKind Result SelfhostModuleAst SelfhostDiagnostic \source\tokens\n\idx\ast\token\item_kind:
@@ -404,6 +404,6 @@ pub fn selfhost_parser_push_item %impure fn str impure fn &Vec SelfhostToken imp
             let item %SelfhostModuleItem selfhost_module_item_new item_kind token.span lexeme
             match selfhost_module_ast_push ast item:
                 Result::Ok next_ast:
-                    Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok next_ast
+                    Result::Ok next_ast
                 Result::Err _e:
-                    Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag
+                    Result::Err selfhost_parser_oom_diag

@@ -1,3 +1,16 @@
+# 2026-05-26 Agent 1 selfhost module/parser Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる selfhost module/parser 領域の constructor だけを移行した。
+- subagent と並列で `stdlib/neplg2/core/module/import_scan.nepl` / `stdlib/neplg2/core/module/import_spec.nepl` / `stdlib/neplg2/core/module/loader.nepl` / `stdlib/neplg2/core/module/vfs.nepl` / `stdlib/neplg2/core/mono/mono.nepl` / `stdlib/neplg2/core/pipeline.nepl` / `stdlib/neplg2/core/syntax/parser/module_parser/declaration.nepl` / `stdlib/neplg2/core/syntax/parser/module_parser/diagnostic.nepl` / `stdlib/neplg2/core/syntax/parser/module_parser/entry.nepl` / `stdlib/neplg2/core/syntax/parser/module_parser/loop.nepl` を確認し、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 40 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string fixture として旧構文を保持すべき箇所はなく、subagent の独立レビューでも残すべき typed constructor はないと確認した。
+- 検証:
+  - `rg -n "Result<[^>]+>::(Ok|Err)"` 対象 10 files: 0 件。
+  - `rg --pcre2 -n "Result::(?!Ok|Err)"` 対象 10 files: 0 件。
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/module/import_scan.nepl -i stdlib/neplg2/core/module/import_spec.nepl -i stdlib/neplg2/core/module/loader.nepl -i stdlib/neplg2/core/module/vfs.nepl -i stdlib/neplg2/core/mono/mono.nepl -i stdlib/neplg2/core/pipeline.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/declaration.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/diagnostic.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/entry.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/loop.nepl --no-tree -o tmp/neplg21-selfhost-module-parser-result-constructors.json -j 1 --dist web/dist --assert-io`: 6 件すべて compile timeout after 60000ms。型診断は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 selfhost module graph Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる selfhost module graph 領域の constructor だけを移行した。

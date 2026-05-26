@@ -93,9 +93,9 @@ pub fn selfhost_vfs_file_new %fn i32 fn str fn str SelfhostVirtualFile \file_id\
 pub fn selfhost_vfs_new %impure fn unit Result SelfhostVirtualFileSystem StdErrorKind \unit:
     match v::new<SelfhostVirtualFile>:
         Result::Ok files:
-            Result<SelfhostVirtualFileSystem, StdErrorKind>::Ok SelfhostVirtualFileSystem files
+            Result::Ok SelfhostVirtualFileSystem files
         Result::Err e:
-            Result<SelfhostVirtualFileSystem, StdErrorKind>::Err e
+            Result::Err e
 
 //: selfhost_vfs_add: source file を VFS に[追加/ついか]する
 //:
@@ -106,11 +106,11 @@ pub fn selfhost_vfs_add %impure fn SelfhostVirtualFileSystem impure fn str impur
     let file %SelfhostVirtualFile selfhost_vfs_file_new file_id path source
     match v::push<SelfhostVirtualFile> field::get vfs "files" file:
         Result::Ok files:
-            Result<SelfhostVirtualFileSystem, StdErrorKind>::Ok SelfhostVirtualFileSystem files
+            Result::Ok SelfhostVirtualFileSystem files
         Result::Err e:
             let error %StdErrorKind field::get e "error"
             v::free<SelfhostVirtualFile> field::get e "vec"
-            Result<SelfhostVirtualFileSystem, StdErrorKind>::Err error
+            Result::Err error
 
 //: selfhost_vfs_len: VFS に[登録/とうろく]された file 数を[返/かえ]す
 pub fn selfhost_vfs_len %fn &SelfhostVirtualFileSystem i32 \vfs:

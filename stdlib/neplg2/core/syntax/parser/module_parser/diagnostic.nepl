@@ -29,11 +29,11 @@ pub fn selfhost_parser_diag_from_lex %fn LexDiagnostic SelfhostDiagnostic \lex_d
 pub fn selfhost_parser_pending_error %impure fn &SelfhostToken impure fn SelfhostModuleAst Result SelfhostModuleAst SelfhostDiagnostic \token\ast:
     let diag %SelfhostDiagnostic selfhost_parser_diag_at token SelfhostParserDiagnosticCode::RawBlockExpectedIndent "raw backend directive must be followed by an indented raw block" "expected raw block indentation here"
     selfhost_module_ast_free ast
-    Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
+    Result::Err diag
 
 //: selfhost_parser_raw_text_error: raw text token の出現位置が不正なことを報告する
 pub fn selfhost_parser_raw_text_error %impure fn &SelfhostToken impure fn SelfhostModuleAst Result SelfhostModuleAst SelfhostDiagnostic \token\ast:
     let diag %SelfhostDiagnostic selfhost_parser_diag_at token SelfhostParserDiagnosticCode::RawTextOutsideBlock "raw backend text appeared outside its matching raw block" "raw text must be inside #wasm: or #llvmir:"
     selfhost_module_ast_free ast
-    Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
+    Result::Err diag
 

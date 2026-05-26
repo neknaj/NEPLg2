@@ -673,6 +673,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree -o tmp/neplg21-selfhost-module-graph-result-constructors.json -j 1 --dist web/dist --assert-io` は 2 件とも compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `git diff --check` は pass。
 
+### 2026-05-26 selfhost module/parser Result constructor checkpoint
+
+- subagent と並列で `stdlib/neplg2/core/module/import_scan.nepl` / `stdlib/neplg2/core/module/import_spec.nepl` / `stdlib/neplg2/core/module/loader.nepl` / `stdlib/neplg2/core/module/vfs.nepl` / `stdlib/neplg2/core/mono/mono.nepl` / `stdlib/neplg2/core/pipeline.nepl` / `stdlib/neplg2/core/syntax/parser/module_parser/declaration.nepl` / `stdlib/neplg2/core/syntax/parser/module_parser/diagnostic.nepl` / `stdlib/neplg2/core/syntax/parser/module_parser/entry.nepl` / `stdlib/neplg2/core/syntax/parser/module_parser/loop.nepl` を確認し、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 40 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string fixture として旧構文を保持すべき箇所はなく、subagent の独立レビューでも残すべき typed constructor はないと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)"` 対象 10 files は 0 件になった。
+- `rg --pcre2 -n "Result::(?!Ok|Err)"` 対象 10 files は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/module/import_scan.nepl -i stdlib/neplg2/core/module/import_spec.nepl -i stdlib/neplg2/core/module/loader.nepl -i stdlib/neplg2/core/module/vfs.nepl -i stdlib/neplg2/core/mono/mono.nepl -i stdlib/neplg2/core/pipeline.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/declaration.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/diagnostic.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/entry.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/loop.nepl --no-tree -o tmp/neplg21-selfhost-module-parser-result-constructors.json -j 1 --dist web/dist --assert-io` は 6 件すべて compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

@@ -16,7 +16,7 @@ pub fn selfhost_parse_module_tokens %impure fn str impure fn &Vec SelfhostToken 
             let n %i32 v::len<SelfhostToken> tokens
             selfhost_parse_module_loop source tokens n 0 0 SelfhostParserRawMode::Normal ast
         Result::Err _e:
-            Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_oom_diag
+            Result::Err selfhost_parser_oom_diag
 
 //: selfhost_parse_module_source_with_file_id: file_id 付き source text を lex して module AST を[作/つく]る
 //:
@@ -28,12 +28,12 @@ pub fn selfhost_parse_module_source_with_file_id %impure fn str impure fn i32 Re
             match selfhost_parse_module_tokens source &tokens:
                 Result::Ok ast:
                     v::free<SelfhostToken> tokens
-                    Result<SelfhostModuleAst, SelfhostDiagnostic>::Ok ast
+                    Result::Ok ast
                 Result::Err diag:
                     v::free<SelfhostToken> tokens
-                    Result<SelfhostModuleAst, SelfhostDiagnostic>::Err diag
+                    Result::Err diag
         Result::Err lex_diag:
-            Result<SelfhostModuleAst, SelfhostDiagnostic>::Err selfhost_parser_diag_from_lex lex_diag
+            Result::Err selfhost_parser_diag_from_lex lex_diag
 
 //: selfhost_parse_module_source: source text を lex して module AST を[作/つく]る
 //:
