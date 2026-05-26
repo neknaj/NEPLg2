@@ -33,9 +33,9 @@ pub fn with_capacity <.T: Copy> %impure fn i32 Result Stack .T Diag \cap:
     let cap0 %i32 stack_normalize_capacity cap
     match stack_alloc_slots<.T> cap0:
         Result::Err d:
-            err<Stack<.T>, Diag> d
+            err d
         Result::Ok items:
-            ok<Stack<.T>, Diag> Stack<.T> 0 cap0 items
+            ok Stack<.T> 0 cap0 items
 
 //: ## push
 //: [末尾/まつび]へ[積/つ]む
@@ -52,11 +52,11 @@ pub fn push <.T: Copy> %impure fn Stack .T impure fn .T Result Stack .T StackPus
                     Result::Err<Stack<.T>, StackPushError<.T>> StackPushError<.T> (Stack<.T> len0 cap0 items) d
                 Result::Ok new_items:
                     stack_copy_live_slots<.T> &items &new_items len0
-                    stack_store_slot<.T> &new_items len0 some<.T> item
+                    stack_store_slot<.T> &new_items len0 some item
                     vec::free items
                     Result::Ok<Stack<.T>, StackPushError<.T>> Stack<.T> add len0 1 new_cap new_items
         else:
-            stack_store_slot<.T> &items len0 some<.T> item
+            stack_store_slot<.T> &items len0 some item
             Result::Ok<Stack<.T>, StackPushError<.T>> Stack<.T> add len0 1 cap0 items
 
 //: ## pop_top
@@ -69,11 +69,11 @@ pub fn pop_top <.T: Copy> %impure fn Stack .T StackPop .T \stk:
         eq len0 0
         then:
             let next_st %Stack .T Stack<.T> 0 cap0 items
-            StackPop<.T> next_st none<.T>
+            StackPop<.T> next_st none
         else:
             let next_len %i32 sub len0 1
             let item %Option .T stack_item_at<.T> &items next_len
-            stack_store_slot<.T> &items next_len none<.T>
+            stack_store_slot<.T> &items next_len none
             let next_st %Stack .T Stack<.T> next_len cap0 items
             StackPop<.T> next_st item
 
@@ -158,7 +158,7 @@ pub fn peek <.T: Copy> %fn &Stack .T Option .T \stk:
     if:
         eq len0 0
         then:
-            none<.T>
+            none
         else:
             let items %&Vec Option .T field::get_ref stk "items"
             stack_item_at<.T> items sub len0 1
@@ -170,12 +170,12 @@ pub fn get <.T: Copy> %fn &Stack .T fn i32 Option .T \stk\idx:
     if:
         lt idx 0
         then:
-            none<.T>
+            none
         else:
             if:
                 le len0 idx
                 then:
-                    none<.T>
+                    none
                 else:
                     let items %&Vec Option .T field::get_ref stk "items"
                     stack_item_at<.T> items idx

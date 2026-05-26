@@ -34,9 +34,9 @@ pub fn with_capacity <.T: Copy> %impure fn i32 Result Queue .T Diag \cap:
     let cap0 %i32 queue_normalize_capacity cap
     match queue_alloc_slots<.T> cap0:
         Result::Err d:
-            err<Queue<.T>, Diag> d
+            err d
         Result::Ok items:
-            ok<Queue<.T>, Diag> Queue<.T> 0 cap0 0 items
+            ok Queue<.T> 0 cap0 0 items
 
 //: ## len
 //: `Queue` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
@@ -64,12 +64,12 @@ pub fn push <.T: Copy> %impure fn Queue .T impure fn .T Result Queue .T QueuePus
                     Result::Err<Queue<.T>, QueuePushError<.T>> QueuePushError<.T> (Queue<.T> len0 cap0 head0 items) d
                 Result::Ok new_items:
                     queue_copy_live_slots<.T> &items &new_items cap0 head0 len0
-                    queue_store_slot<.T> &new_items len0 some<.T> item
+                    queue_store_slot<.T> &new_items len0 some item
                     vec::free<Option<.T>> items
                     Result::Ok<Queue<.T>, QueuePushError<.T>> Queue<.T> add len0 1 new_cap 0 new_items
         else:
             let tail %i32 queue_tail_index head0 len0 cap0
-            queue_store_slot<.T> &items tail some<.T> item
+            queue_store_slot<.T> &items tail some item
             Result::Ok<Queue<.T>, QueuePushError<.T>> Queue<.T> add len0 1 cap0 head0 items
 
 //: ## pop_front
@@ -83,10 +83,10 @@ pub fn pop_front <.T: Copy> %impure fn Queue .T QueuePop .T \q:
         eq len0 0
         then:
             let next_q %Queue .T Queue<.T> 0 cap0 head0 items
-            QueuePop<.T> next_q none<.T>
+            QueuePop<.T> next_q none
         else:
             let item %Option .T queue_item_at<.T> &items head0
-            queue_store_slot<.T> &items head0 none<.T>
+            queue_store_slot<.T> &items head0 none
             let next_len %i32 sub len0 1
             let next_head %i32 queue_next_index head0 cap0
             let next_q %Queue .T Queue<.T> next_len cap0 next_head items
@@ -107,7 +107,7 @@ pub fn peek <.T: Copy> %fn &Queue .T Option .T \q:
     if:
         eq len0 0
         then:
-            none<.T>
+            none
         else:
             let head0 %i32 *field::get_ref q "head"
             let items %&Vec Option .T field::get_ref q "items"

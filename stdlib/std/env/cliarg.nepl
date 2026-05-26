@@ -114,7 +114,7 @@ pub fn cliarg_get %impure fn i32 Option str \idx:
         cond:
             lt idx 0
         then:
-            none<str>
+            none
         else:
             cli_raw::cliarg_get_checked idx
 

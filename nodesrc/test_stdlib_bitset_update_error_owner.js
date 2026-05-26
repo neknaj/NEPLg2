@@ -20,7 +20,7 @@ assert.match(updateCode, /fn\s+insert\s+<\(BitSet,i32\)\*>Result<BitSet,\s*BitSe
 assert.match(updateCode, /fn\s+remove\s+<\(BitSet,i32\)\*>Result<BitSet,\s*BitSetUpdateError>>\s+\(bs,\s*idx\):/, "BitSet.remove must return an owner-carrying error type");
 assert.match(updateCode, /fn\s+bitset_update\s+<\(BitSet,i32,bool\)\*>Result<BitSet,\s*BitSetUpdateError>>\s+\(bs,\s*idx,\s*set_bit\):/, "BitSet insert/remove must share one owner-preserving update helper");
 assert.doesNotMatch(updateCode, /fn\s+(?:insert|remove)\s+<\(BitSet,i32\)\*>Result<BitSet,\s*Diag>>/, "BitSet mutating APIs must not lose the owner through Err(Diag)");
-assert.match(updateCode, /let\s+e\s+<BitSetUpdateError>\s+BitSetUpdateError\s+bs\s+d[\s\S]*err<BitSet,\s*BitSetUpdateError>\s+e/, "BitSet mutating Err paths must return the input owner in BitSetUpdateError");
+assert.match(updateCode, /let\s+e\s+<BitSetUpdateError>\s+BitSetUpdateError\s+bs\s+d[\s\S]*err\s+e/, "BitSet mutating Err paths must return the input owner in BitSetUpdateError");
 
 for (const testPath of ["stdlib/tests/bitset.n.md", "tests/stdlib/bitset_collections.n.md"]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testPath), "utf8");

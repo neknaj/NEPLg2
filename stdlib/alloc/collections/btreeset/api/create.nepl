@@ -36,6 +36,6 @@ pub fn new <.T: Copy> %impure fn unit Result BTreeSet .T Diag \unit:
     let cap %i32 8
     match btreeset_alloc_storage<.T> cap:
         Result::Err d:
-            err<BTreeSet<.T>, Diag> d
+            err d
         Result::Ok storage:
-            ok<BTreeSet<.T>, Diag> BTreeSet<.T> 0 cap storage
+            ok BTreeSet<.T> 0 cap storage

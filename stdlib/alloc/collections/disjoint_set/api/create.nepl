@@ -55,4 +55,4 @@ pub fn new %impure fn i32 Result DisjointSet Diag \n:
                                 do:
                                     dsu_store_owned &parent i i
                                     set i add i 1
-                            ok<DisjointSet, Diag> DisjointSet n parent sizes
+                            ok DisjointSet n parent sizes

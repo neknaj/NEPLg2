@@ -19,9 +19,9 @@ pub fn bitset_byte_at %fn &Vec u8 fn i32 Option i32 \bits\byte_idx:
     match vec::get<u8> bits byte_idx:
         Option::Some byte:
             let value %i32 cast byte
-            some<i32> value
+            some value
         Option::None:
-            none<i32>
+            none
 
 pub fn bitset_store_byte %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bits\byte_idx\byte_value:
     let byte %u8 cast byte_value
@@ -38,6 +38,6 @@ pub fn bitset_alloc_bits %impure fn i32 impure fn i32 Result Vec u8 Diag \nbytes
     let byte %u8 cast byte_value
     match vec::filled<u8> nbytes byte:
         Result::Ok bits:
-            ok<Vec<u8>, Diag> bits
+            ok bits
         Result::Err _e:
             diag_err<Vec<u8>> diag_out_of_memory

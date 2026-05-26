@@ -131,7 +131,7 @@ assert.match(
 
 assert.match(
     allocStorageSection,
-    /vec::filled<HashSetBucketState>\s+cap\s+HashSetBucketState::Empty[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>[\s\S]*ok<HashSetStorage<\.T>,\s*Diag>\s+HashSetStorage<\.T>\s+states\s+keys/,
+    /vec::filled<HashSetBucketState>\s+cap\s+HashSetBucketState::Empty[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none[\s\S]*ok\s+HashSetStorage<\.T>\s+states\s+keys/,
     'HashSet storage allocation must initialize all state/key slots',
 );
 
@@ -179,7 +179,7 @@ assert.match(
 
 assert.match(
     insertSection,
-    /fn\s+insert\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSet<\.T,\.H>,\.T\)\*>Result<HashSet<\.T,\.H>,\s*HashSetUpdateError<\.T,\.H>>>[\s\S]*let\s+storage\s+<HashSetStorage<\.T>>\s+field::get\s+ready\s+"storage"[\s\S]*Result<HashSet<\.T,\.H>,\s*HashSetUpdateError<\.T,\.H>>::Ok\s+HashSet<\.T,\.H>[\s\S]*storage\s+hasher/,
+    /fn\s+insert\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSet<\.T,\.H>,\.T\)\*>Result<HashSet<\.T,\.H>,\s*HashSetUpdateError<\.T,\.H>>>[\s\S]*let\s+storage\s+<HashSetStorage<\.T>>\s+field::get\s+ready\s+"storage"[\s\S]*Result::Ok\s+HashSet<\.T,\.H>[\s\S]*storage\s+hasher/,
     'HashSet insert must transfer storage owner from the consumed set into the returned set',
 );
 
@@ -215,7 +215,7 @@ assert.match(
 
 assert.match(
     freeSection,
-    /fn\s+free\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSet<\.T,\.H>\)->\(\)>/,
+    /fn\s+free\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>\s+<\(HashSet<\.T,\.H>\)->unit>/,
     'HashSet.free must expose the Copy-only key/hasher cleanup contract',
 );
 

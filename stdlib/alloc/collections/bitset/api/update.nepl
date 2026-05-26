@@ -37,19 +37,19 @@ pub fn bitset_update %impure fn BitSet impure fn i32 impure fn bool Result BitSe
                 if:
                     bitset_write_masked bits byte_idx mask set_bit
                     then:
-                        ok<unit, Diag> unit
+                        ok unit
                     else:
                         diag_err<unit> bitset_index_diag
             match result:
                 Result::Ok _unit:
-                    ok<BitSet, BitSetUpdateError> bs
+                    ok bs
                 Result::Err d:
                     let e %BitSetUpdateError BitSetUpdateError bs d
-                    err<BitSet, BitSetUpdateError> e
+                    err e
         else:
             let d %Diag bitset_index_diag
             let e %BitSetUpdateError BitSetUpdateError bs d
-            err<BitSet, BitSetUpdateError> e
+            err e
 
 //: ## insert
 //: bit を 1 に[設定/せってい]する

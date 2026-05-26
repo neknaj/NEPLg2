@@ -56,7 +56,7 @@ pub fn contains %impure fn &BitSet impure fn i32 Result bool Diag \bs\idx:
             let mask %i32 bitset_mask idx
             match bitset_byte_at bits byte_idx:
                 Option::Some cur:
-                    ok<bool, Diag> ne and cur mask 0
+                    ok ne and cur mask 0
                 Option::None:
                     diag_err<bool> bitset_index_diag
         else:

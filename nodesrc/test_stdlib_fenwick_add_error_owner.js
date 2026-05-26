@@ -19,7 +19,7 @@ assert.doesNotMatch(apiCode, /\bfn\s+/, "Fenwick api facade must not keep duplic
 assert.match(updateCode, /fn\s+add\s+<\(Fenwick,i32,i32\)\*>Result<Fenwick,\s*FenwickAddError>>\s+\(fw,\s*idx,\s*delta\):/, "Fenwick.add must return an owner-carrying error type");
 assert.match(updateCode, /fn\s+fenwick_add_err\s+<\(Fenwick,Diag\)->Result<Fenwick,\s*FenwickAddError>>\s+\(fw,\s*d\):/, "Fenwick.add must share one owner-preserving error helper");
 assert.doesNotMatch(updateCode, /fn\s+add\s+<\(Fenwick,i32,i32\)\*>Result<Fenwick,\s*Diag>>/, "Fenwick.add must not lose the owner through Err(Diag)");
-assert.match(updateCode, /let\s+e\s+<FenwickAddError>\s+FenwickAddError\s+fw\s+d[\s\S]*err<Fenwick,\s*FenwickAddError>\s+e/, "Fenwick.add Err path must return the input owner in FenwickAddError");
+assert.match(updateCode, /let\s+e\s+<FenwickAddError>\s+FenwickAddError\s+fw\s+d[\s\S]*err\s+e/, "Fenwick.add Err path must return the input owner in FenwickAddError");
 
 for (const testPath of ["stdlib/tests/fenwick.n.md", "tests/stdlib/fenwick_collections.n.md"]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testPath), "utf8");

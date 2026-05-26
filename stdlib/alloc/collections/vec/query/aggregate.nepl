@@ -234,16 +234,16 @@ pub fn reduce <.T: Copy> %fn &Vec .T fn fn .T fn .T .T Option .T \v\f:
     let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
     match vec_buffer_current_copy_invariant<.T> v_buffer:
         VecCopyInvariant::Invalid _reason:
-            none<.T>
+            none
         VecCopyInvariant::Valid:
             let src_len %i32 *field::get_ref v_buffer "len"
             if:
                 eq src_len 0
-                then none<.T>
+                then none
                 else:
                     match vec_get::get<.T> v 0:
                         Option::None:
-                            none<.T>
+                            none
                         Option::Some first:
                             let mut out %.T first
                             let mut i %i32 1
@@ -255,4 +255,4 @@ pub fn reduce <.T: Copy> %fn &Vec .T fn fn .T fn .T .T Option .T \v\f:
                                         Option::None:
                                             unit
                                     set i add i 1
-                            some<.T> out
+                            some out

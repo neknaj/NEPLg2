@@ -212,14 +212,14 @@ pub fn selfhost_mono_instance_id_index %fn SelfhostMonoInstanceId i32 \instance_
 //: [目的/もくてき]:
 //: - 未割り当てを `SelfhostMonoInstanceId(-1)` ではなく `Option::None` として表します。
 pub fn selfhost_mono_instance_id_pending %fn unit Option SelfhostMonoInstanceId \unit:
-    none<SelfhostMonoInstanceId>
+    none
 
 //: selfhost_mono_instance_id_assigned: 割り当て済み instance ID を Option に包む
 //:
 //: [目的/もくてき]:
 //: - cache lookup の結果が存在する場合だけ `SelfhostMonoInstanceId` を payload として保持します。
 pub fn selfhost_mono_instance_id_assigned %fn SelfhostMonoInstanceId Option SelfhostMonoInstanceId \instance_id:
-    some<SelfhostMonoInstanceId> instance_id
+    some instance_id
 
 //: selfhost_mono_instance_record_new: cache 登録済み instance record を作る
 pub fn selfhost_mono_instance_record_new %fn SelfhostMonoInstanceKey fn SelfhostMonoInstanceId SelfhostMonoInstanceRecord \key\instance_id:
@@ -263,7 +263,7 @@ pub fn selfhost_mono_instance_cache_record_at %fn &SelfhostMonoInstanceCache fn 
     if:
         lt instance_id.index 0
         then:
-            none<SelfhostMonoInstanceRecord>
+            none
         else:
             let records %&Vec SelfhostMonoInstanceRecord field::get_ref cache "records"
             v::get<SelfhostMonoInstanceRecord> records instance_id.index
@@ -276,18 +276,18 @@ pub fn selfhost_mono_instance_cache_lookup_loop %fn &SelfhostMonoInstanceCache f
     if:
         ge idx n
         then:
-            none<SelfhostMonoInstanceId>
+            none
         else:
             match selfhost_mono_instance_cache_record_at cache selfhost_mono_instance_id_new idx:
                 Option::Some record:
                     if:
                         selfhost_mono_instance_record_matches_key record key
                         then:
-                            some<SelfhostMonoInstanceId> record.instance_id
+                            some record.instance_id
                         else:
                             selfhost_mono_instance_cache_lookup_loop cache key add idx 1 n
                 Option::None:
-                    none<SelfhostMonoInstanceId>
+                    none
 
 //: selfhost_mono_instance_cache_lookup: key に対応する assigned instance id を探す
 pub fn selfhost_mono_instance_cache_lookup %fn &SelfhostMonoInstanceCache fn SelfhostMonoInstanceKey Option SelfhostMonoInstanceId \cache\key:
@@ -421,7 +421,7 @@ pub fn selfhost_mono_stage0 %impure fn unit i32 \unit:
                                         and not selfhost_mono_instance_key_eq key0 key2 eq seed0 seed1
                                         and:
                                             ne seed0 seed2
-                                            and and is_none<SelfhostMonoInstanceId> pending assigned_ok and record_ok cache_ok
+                                            and and is_none pending assigned_ok and record_ok cache_ok
                             selfhost_mono_instance_cache_free cache2
                             if ok 0 1
                         Result::Err _e:

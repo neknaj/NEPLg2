@@ -15,9 +15,9 @@
 pub fn seg_load_owned %fn &Vec i32 fn i32 Option i32 \data\idx:
     match vec::get<i32> data idx:
         Option::Some v:
-            some<i32> v
+            some v
         Option::None:
-            none<i32>
+            none
 
 pub fn seg_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit \data\idx\value:
     vec::replace<i32> data idx value
@@ -27,8 +27,8 @@ pub fn seg_pair_sum %fn &Vec i32 fn i32 fn i32 Option i32 \data\left\right:
         Option::Some lv:
             match seg_load_owned data right:
                 Option::Some rv:
-                    some<i32> add lv rv
+                    some add lv rv
                 Option::None:
-                    none<i32>
+                    none
         Option::None:
-            none<i32>
+            none

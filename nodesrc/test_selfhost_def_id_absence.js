@@ -34,12 +34,12 @@ assert.match(resolver, /(?:pub\s+)?struct SelfhostNameBinding:[\s\S]*?\bdef_id\s
 
 const pending = topLevelBlock(resolver, "fn", "selfhost_def_id_pending");
 assert.match(pending, /Option<SelfhostDefId>/, "pending state must return Option<SelfhostDefId>");
-assert.match(pending, /\bnone<SelfhostDefId>/, "pending state must be Option::None");
+assert.match(pending, /\bnone\b/, "pending state must be Option::None");
 assert.doesNotMatch(pending, /\bSelfhostDefId\b\s+-1\b|\bselfhost_def_id_new\s+-1\b/, "pending state must not use an invalid ID payload");
 
 const assigned = topLevelBlock(resolver, "fn", "selfhost_def_id_assigned");
 assert.match(assigned, /Option<SelfhostDefId>/, "assigned state must return Option<SelfhostDefId>");
-assert.match(assigned, /\bsome<SelfhostDefId>\s+def_id\b/, "assigned state must wrap the stable ID in Some");
+assert.match(assigned, /\bsome\s+def_id\b/, "assigned state must wrap the stable ID in Some");
 
 const bindingPending = topLevelBlock(resolver, "fn", "selfhost_name_binding_pending");
 assert.match(bindingPending, /\bselfhost_def_id_pending\b/, "pending binding constructor must use typed DefId absence");

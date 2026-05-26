@@ -46773,3 +46773,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `node nodesrc/tests.js -i stdlib/neplg2/core/options.nepl --no-tree -o tmp/neplg21-options-doctest-after-import.json -j 1 --dist web/dist --assert-io` は 1/1 pass。
 - 対象26 files の `node nodesrc/tests.js ... -o tmp/neplg21-helper-postfix-scope-cleanup.json -j 4 --dist web/dist --assert-io` は 33 件中 32 件 compile timeout、1 件 fail だった。fail は `options.nepl` doctest の comment sample に残っていた import 不足で、上記の追加後に focused pass を確認した。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
+## 2026-05-26 Agent 1 collection/selfhost helper postfix parallel checkpoint
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、collection constructor/helper cleanup を 5 worker に分割して並列実行した。`plan.md` は変更していない。
+- worker scope は BinaryHeap/Deque/Queue/RingBuffer、Stack/List/Vec、BitSet/AdjacencyMatrix/BloomFilter/CountingBloomFilter、Fenwick/SegmentTree/SparseSet/DisjointSet、BTreeMap/BTreeSet/HashMap/HashSet の 5 つに分けた。
+- worker 合計で collection 60 files / 210 helper postfix occurrences を撤廃した。親 agent 側では selfhost core / env 14 files / 38 occurrences を並行して移行し、合計 74 source files / 248 occurrences を postfix-free 化した。
+- `rg -n "\b(some|none|ok|err|is_some|is_none|is_ok|is_err)<" stdlib/alloc/collections stdlib/neplg2/core stdlib/std/env -g "*.nepl"` は 0 件になった。
+- 変更範囲に直結する source policy は、collection family no-unsafe/update/storage policy 18 件、`nodesrc/test_stdlib_collection_cleanup_contract.js`、`nodesrc/test_selfhost_def_id_absence.js` を pass へ戻した。`VecStorageInvariant` proof 検査は出現順に依存しない構造確認へ直し、`unit` keyword view では unit-only parameter list を payload を受け取らない surface として扱う。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は 134.3s で完走し、29 warning を報告した。これは stdio / streamio / ByteBuf / string/text owner boundary などに残る unit / constructor cleanup 未追従の stale policy であり、`ISS-20260526T073859722Z-NEPLG2-1-SOURCE-POLICY-UNIT-AND-CONS-F81D1534` として分離した。
+- `node nodesrc/neplg21_syntax_migrate.js --check` は pass。

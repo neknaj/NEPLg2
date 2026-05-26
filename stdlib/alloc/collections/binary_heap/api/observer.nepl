@@ -59,7 +59,7 @@ pub fn peek <.T: Copy> %fn &BinaryHeap .T Option .T \hp:
     let len0 %i32 *field::get_ref hp "len"
     if:
         eq len0 0
-        then none<.T>
+        then none
         else:
             let items %&Vec Option .T field::get_ref hp "items"
             heap_item_at<.T> items 0

@@ -59,12 +59,12 @@ pub fn find %impure fn &DisjointSet impure fn i32 Result i32 Diag \dsu\idx:
             let parent %&Vec i32 field::get_ref dsu "parent"
             match dsu_root_storage parent idx:
                 Option::Some root:
-                    ok<i32, Diag> root
+                    ok root
                 Option::None:
                     diag_err<i32> dsu_diag_index
         else:
             let d %Diag dsu_diag_index
-            err<i32, Diag> d
+            err d
 
 //: ## same
 //: 2 [要素/ようそ]が[同/おな]じ[集合/しゅうごう]に[属/ぞく]するかを[返/かえ]す
@@ -101,14 +101,14 @@ pub fn same %impure fn &DisjointSet impure fn i32 impure fn i32 Result bool Diag
                 Option::Some ra:
                     match dsu_root_storage parent b:
                         Option::Some rb:
-                            ok<bool, Diag> eq ra rb
+                            ok eq ra rb
                         Option::None:
                             diag_err<bool> dsu_diag_index
                 Option::None:
                     diag_err<bool> dsu_diag_index
         else:
             let d %Diag dsu_diag_index
-            err<bool, Diag> d
+            err d
 
 //: ## size
 //: `idx` の[属/ぞく]する[集合/しゅうごう]の[大/おお]きさを[返/かえ]す
@@ -142,11 +142,11 @@ pub fn size %impure fn &DisjointSet impure fn i32 Result i32 Diag \dsu\idx:
                 Option::Some root:
                     match dsu_size_storage sizes root:
                         Option::Some out:
-                            ok<i32, Diag> out
+                            ok out
                         Option::None:
                             diag_err<i32> dsu_diag_index
                 Option::None:
                     diag_err<i32> dsu_diag_index
         else:
             let d %Diag dsu_diag_index
-            err<i32, Diag> d
+            err d

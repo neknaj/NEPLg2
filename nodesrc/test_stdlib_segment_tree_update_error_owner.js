@@ -20,7 +20,7 @@ assert.match(updateCode, /fn\s+replace\s+<\(SegmentTree,i32,i32\)\*>Result<Segme
 assert.match(updateCode, /fn\s+add\s+<\(SegmentTree,i32,i32\)\*>Result<SegmentTree,\s*SegmentTreeUpdateError>>\s+\(st,\s*idx,\s*delta\):/, "SegmentTree.add must return an owner-carrying error type");
 assert.match(updateCode, /fn\s+seg_update_err\s+<\(SegmentTree,Diag\)->Result<SegmentTree,\s*SegmentTreeUpdateError>>\s+\(st,\s*d\):/, "SegmentTree mutating APIs must share one owner-preserving error helper");
 assert.doesNotMatch(updateCode, /fn\s+(?:replace|add)\s+<\(SegmentTree,i32,i32\)\*>Result<SegmentTree,\s*Diag>>/, "SegmentTree mutating APIs must not lose the owner through Err(Diag)");
-assert.match(updateCode, /SegmentTreeUpdateError\s+st\s+d[\s\S]*err<SegmentTree,\s*SegmentTreeUpdateError>\s+e/, "SegmentTree mutating Err paths must return the input owner in SegmentTreeUpdateError");
+assert.match(updateCode, /SegmentTreeUpdateError\s+st\s+d[\s\S]*err\s+e/, "SegmentTree mutating Err paths must return the input owner in SegmentTreeUpdateError");
 
 for (const testPath of ["stdlib/tests/segment_tree.n.md", "tests/stdlib/segment_tree_collections.n.md"]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testPath), "utf8");

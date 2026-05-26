@@ -50,21 +50,21 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
     let v_storage %VecStorage .T field::get v_buffer "storage"
     match v_invariant:
         VecStorageInvariant::Invalid _reason:
-            VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none<.T>
+            VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none
         VecStorageInvariant::Valid:
             if:
                 eq v_len 0
                 then:
-                    VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none<.T>
+                    VecPop<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) none
                 else:
                     let next_len %i32 sub v_len 1
                     match v_storage:
                         VecStorage::Empty:
-                            VecPop<.T> vec_storage::vec_empty<.T> none<.T>
+                            VecPop<.T> vec_storage::vec_empty<.T> none
                         VecStorage::Owned v_region:
                             let byte_off %i32 mul next_len size_of<.T>
                             let item %.T vec_pop_move_out_initialized_slot<.T> &v_region byte_off
-                            VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some<.T> item
+                            VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some item
 
 //: ## pop
 //: [末尾/まつび][要素/ようそ]を[取/と]り[出/だ]す

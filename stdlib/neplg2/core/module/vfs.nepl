@@ -127,18 +127,18 @@ pub fn selfhost_vfs_find_loop %fn &SelfhostVirtualFileSystem fn str fn i32 fn i3
     if:
         ge idx n
         then:
-            none<SelfhostVirtualFile>
+            none
         else:
             match selfhost_vfs_get vfs idx:
                 Option::Some file:
                     if:
                         string_search::str_eq file.path path
                         then:
-                            some<SelfhostVirtualFile> file
+                            some file
                         else:
                             selfhost_vfs_find_loop vfs path n add idx 1
                 Option::None:
-                    none<SelfhostVirtualFile>
+                    none
 
 //: selfhost_vfs_find: path が[一致/いっち]する entry を[返/かえ]す
 pub fn selfhost_vfs_find %fn &SelfhostVirtualFileSystem fn str Option SelfhostVirtualFile \vfs\path:

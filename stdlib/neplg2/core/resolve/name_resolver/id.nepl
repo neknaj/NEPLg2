@@ -25,11 +25,11 @@ pub fn selfhost_def_id_new %fn i32 SelfhostDefId \index:
 
 //: selfhost_def_id_pending: DefId がまだ割り当てられていない状態を[返/かえ]す
 pub fn selfhost_def_id_pending %fn unit Option SelfhostDefId \unit:
-    none<SelfhostDefId>
+    none
 
 //: selfhost_def_id_assigned: DefId を Option に[包/つつ]む
 pub fn selfhost_def_id_assigned %fn SelfhostDefId Option SelfhostDefId \def_id:
-    some<SelfhostDefId> def_id
+    some def_id
 
 //: selfhost_def_id_index: DefId の index を[返/かえ]す
 pub fn selfhost_def_id_index %fn SelfhostDefId i32 \def_id:

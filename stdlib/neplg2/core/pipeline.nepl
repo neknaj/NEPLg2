@@ -39,7 +39,7 @@
 //:                             let ast_ref %&SelfhostModuleAst selfhost_pipeline_loaded_root_ast &loaded
 //:                             let n %i32 selfhost_module_ast_len ast_ref
 //:                             let got_options %SelfhostCompileOptions selfhost_pipeline_loaded_root_options &loaded
-//:                             let target %SelfhostCompileTarget selfhost_compile_resolve_target got_options none<SelfhostCompileTarget>
+//:                             let target %SelfhostCompileTarget selfhost_compile_resolve_target got_options none
 //:                             selfhost_pipeline_loaded_root_free loaded
 //:                             selfhost_vfs_free vfs1
 //:                             if and eq n 1 selfhost_compile_target_is_wasi target 0 1

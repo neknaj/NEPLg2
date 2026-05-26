@@ -51,6 +51,6 @@ pub fn seg_sum_range_storage %fn &Vec i32 fn i32 fn i32 fn i32 Option i32 \data\
     if:
         valid
         then:
-            some<i32> add acc_l acc_r
+            some add acc_l acc_r
         else:
-            none<i32>
+            none

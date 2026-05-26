@@ -57,7 +57,7 @@ pub fn contains %impure fn &AdjacencyMatrix impure fn i32 impure fn i32 Result b
             let mask %i32 adjacency_matrix_mask bit_idx
             match adjacency_matrix_byte_at bits byte_idx:
                 Option::Some cur:
-                    ok<bool, Diag> ne and cur mask 0
+                    ok ne and cur mask 0
                 Option::None:
                     diag_err<bool> adjacency_matrix_vertex_diag
         else:

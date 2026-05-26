@@ -67,6 +67,6 @@ pub fn contains %impure fn &SparseSet impure fn i32 Result bool Diag \s\value:
     if:
         sparse_set_valid_index value n
         then:
-            ok<bool, Diag> sparse_set_contains_raw n dense sparse len0 value
+            ok sparse_set_contains_raw n dense sparse len0 value
         else:
             diag_err<bool> sparse_set_diag_index

@@ -41,7 +41,7 @@ pub fn selfhost_diag_label_new %fn SelfhostSourceSpan fn str SelfhostDiagnosticL
 
 //: selfhost_diag_new: diagnostic [値/あたい]を[作/つく]る
 pub fn selfhost_diag_new %fn SelfhostDiagSeverity fn SelfhostDiagnosticCode fn str SelfhostDiagnostic \severity\code\message:
-    SelfhostDiagnostic severity code message none<SelfhostDiagnosticLabel> none<str>
+    SelfhostDiagnostic severity code message none none
 
 //: selfhost_diag_info: info diagnostic を[作/つく]る
 pub fn selfhost_diag_info %fn SelfhostDiagnosticCode fn str SelfhostDiagnostic \code\message:
@@ -57,11 +57,11 @@ pub fn selfhost_diag_error %fn SelfhostDiagnosticCode fn str SelfhostDiagnostic 
 
 //: selfhost_diag_with_primary_label: diagnostic に primary label を[付/つ]ける
 pub fn selfhost_diag_with_primary_label %fn SelfhostDiagnostic fn SelfhostDiagnosticLabel SelfhostDiagnostic \diag\label:
-    SelfhostDiagnostic field::get diag "severity" field::get diag "code" field::get diag "message" some<SelfhostDiagnosticLabel> label field::get diag "note"
+    SelfhostDiagnostic field::get diag "severity" field::get diag "code" field::get diag "message" some label field::get diag "note"
 
 //: selfhost_diag_with_note: diagnostic に note を[付/つ]ける
 pub fn selfhost_diag_with_note %fn SelfhostDiagnostic fn str SelfhostDiagnostic \diag\note:
-    SelfhostDiagnostic field::get diag "severity" field::get diag "code" field::get diag "message" field::get diag "primary_label" some<str> note
+    SelfhostDiagnostic field::get diag "severity" field::get diag "code" field::get diag "message" field::get diag "primary_label" some note
 
 //: selfhost_diag_is_error: error severity か[返/かえ]す
 pub fn selfhost_diag_is_error %fn SelfhostDiagnostic bool \diag:

@@ -47,6 +47,6 @@ pub fn new %impure fn i32 Result AdjacencyMatrix Diag \nverts:
             let nbytes %i32 adjacency_matrix_byte_len nverts
             match adjacency_matrix_alloc_bits nbytes 0:
                 Result::Err d:
-                    err<AdjacencyMatrix, Diag> d
+                    err d
                 Result::Ok bits:
-                    ok<AdjacencyMatrix, Diag> AdjacencyMatrix nverts nbytes bits
+                    ok AdjacencyMatrix nverts nbytes bits

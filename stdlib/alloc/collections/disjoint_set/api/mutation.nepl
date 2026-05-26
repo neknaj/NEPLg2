@@ -58,7 +58,7 @@ pub fn union %impure fn DisjointSet impure fn i32 impure fn i32 Result DisjointS
                                 if:
                                     eq ra rb
                                     then:
-                                        ok<unit, Diag> unit
+                                        ok unit
                                     else:
                                         match dsu_size_storage sizes ra:
                                             Option::Some sa:
@@ -72,7 +72,7 @@ pub fn union %impure fn DisjointSet impure fn i32 impure fn i32 Result DisjointS
                                                                     Option::Some sd:
                                                                         dsu_store_owned parent root_drop root_keep
                                                                         dsu_store_owned sizes root_keep add sk sd
-                                                                        ok<unit, Diag> unit
+                                                                        ok unit
                                                                     Option::None:
                                                                         diag_err<unit> dsu_diag_index
                                                             Option::None:
@@ -87,11 +87,11 @@ pub fn union %impure fn DisjointSet impure fn i32 impure fn i32 Result DisjointS
                         diag_err<unit> dsu_diag_index
             match result:
                 Result::Ok _unit:
-                    ok<DisjointSet, DisjointSetUpdateError> dsu
+                    ok dsu
                 Result::Err d:
                     let e %DisjointSetUpdateError DisjointSetUpdateError dsu d
-                    err<DisjointSet, DisjointSetUpdateError> e
+                    err e
         else:
             let d %Diag dsu_diag_index
             let e %DisjointSetUpdateError DisjointSetUpdateError dsu d
-            err<DisjointSet, DisjointSetUpdateError> e
+            err e

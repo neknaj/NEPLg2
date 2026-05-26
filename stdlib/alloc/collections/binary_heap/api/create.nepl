@@ -58,6 +58,6 @@ pub fn with_capacity <.T: Copy> %impure fn i32 Result BinaryHeap .T Diag \cap:
     let cap0 %i32 heap_normalize_capacity cap
     match heap_alloc_slots<.T> cap0:
         Result::Ok items:
-            ok<BinaryHeap<.T>, Diag> BinaryHeap<.T> 0 cap0 items
+            ok BinaryHeap<.T> 0 cap0 items
         Result::Err e:
-            err<BinaryHeap<.T>, Diag> e
+            err e

@@ -48,9 +48,9 @@ pub fn with_capacity <.T: Copy> %impure fn i32 Result RingBuffer .T Diag \initia
     let cap0 %i32 ringbuffer_normalize_capacity initial_cap
     match ringbuffer_alloc_slots<.T> cap0:
         Result::Err d:
-            err<RingBuffer<.T>, Diag> d
+            err d
         Result::Ok items:
-            ok<RingBuffer<.T>, Diag> RingBuffer<.T> 0 cap0 0 items
+            ok RingBuffer<.T> 0 cap0 0 items
 
 //: ## len
 //: buffer owner を[消費/しょうひ]せず[要素数/ようそすう]を[返/かえ]す
@@ -83,12 +83,12 @@ pub fn push <.T: Copy> %impure fn RingBuffer .T impure fn .T Result RingBuffer .
                     Result::Err<RingBuffer<.T>, RingBufferPushError<.T>> RingBufferPushError<.T> (RingBuffer<.T> len0 cap0 head0 items) d
                 Result::Ok new_items:
                     ringbuffer_copy_live_slots<.T> &items &new_items cap0 head0 len0
-                    ringbuffer_store_slot<.T> &new_items len0 some<.T> item
+                    ringbuffer_store_slot<.T> &new_items len0 some item
                     vec::free<Option<.T>> items
                     Result::Ok<RingBuffer<.T>, RingBufferPushError<.T>> RingBuffer<.T> add len0 1 new_cap 0 new_items
         else:
             let tail %i32 ringbuffer_tail_index head0 len0 cap0
-            ringbuffer_store_slot<.T> &items tail some<.T> item
+            ringbuffer_store_slot<.T> &items tail some item
             Result::Ok<RingBuffer<.T>, RingBufferPushError<.T>> RingBuffer<.T> add len0 1 cap0 head0 items
 
 //: ## pop_front
@@ -102,10 +102,10 @@ pub fn pop_front <.T: Copy> %impure fn RingBuffer .T RingBufferPop .T \rb:
         eq len0 0
         then:
             let next_rb %RingBuffer .T RingBuffer<.T> 0 cap0 head0 items
-            RingBufferPop<.T> next_rb none<.T>
+            RingBufferPop<.T> next_rb none
         else:
             let item %Option .T ringbuffer_item_at<.T> &items head0
-            ringbuffer_store_slot<.T> &items head0 none<.T>
+            ringbuffer_store_slot<.T> &items head0 none
             let next_len %i32 sub len0 1
             let next_head %i32 ringbuffer_next_index head0 cap0
             let next_rb %RingBuffer .T RingBuffer<.T> next_len cap0 next_head items
@@ -126,7 +126,7 @@ pub fn peek <.T: Copy> %fn &RingBuffer .T Option .T \rb:
     if:
         eq len0 0
         then:
-            none<.T>
+            none
         else:
             let head0 %i32 *field::get_ref rb "head"
             let items %&Vec Option .T field::get_ref rb "items"

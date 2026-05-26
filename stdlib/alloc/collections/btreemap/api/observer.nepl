@@ -100,4 +100,4 @@ pub fn get <.K: Ord&Copy,.V: Copy> %fn &BTreeMap .K .V fn .K Option .V \hm\key:
     if:
         btreemap_is_at<.K> keys len0 idx key
         then btreemap_value_at<.V> values idx
-        else none<.V>
+        else none

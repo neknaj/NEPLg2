@@ -26,4 +26,4 @@ pub fn fenwick_sum_prefix_storage %fn &Vec i32 fn i32 Option i32 \bit\r:
                     set i sub i lb
                 Option::None:
                     set valid false
-    if valid some<i32> acc none<i32>
+    if valid some acc none

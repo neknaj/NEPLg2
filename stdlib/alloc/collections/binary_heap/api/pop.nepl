@@ -28,24 +28,24 @@ pub fn pop_max <.T: Ord&Copy> %impure fn BinaryHeap .T BinaryHeapPop .T \hp:
         eq len0 0
         then:
             let next_hp %BinaryHeap .T BinaryHeap<.T> 0 cap0 items
-            BinaryHeapPop<.T> next_hp none<.T>
+            BinaryHeapPop<.T> next_hp none
         else:
             let root %Option .T heap_item_at<.T> &items 0
             if:
                 eq len0 1
                 then:
-                    heap_store_slot<.T> &items 0 none<.T>
+                    heap_store_slot<.T> &items 0 none
                     let next_hp %BinaryHeap .T BinaryHeap<.T> 0 cap0 items
                     BinaryHeapPop<.T> next_hp root
                 else:
                     let last_idx %i32 sub len0 1
                     let last %Option .T heap_item_at<.T> &items last_idx
-                    heap_store_slot<.T> &items last_idx none<.T>
+                    heap_store_slot<.T> &items last_idx none
                     match last:
                         Option::Some value:
-                            heap_store_slot<.T> &items 0 some<.T> value
+                            heap_store_slot<.T> &items 0 some value
                         Option::None:
-                            heap_store_slot<.T> &items 0 none<.T>
+                            heap_store_slot<.T> &items 0 none
                     heap_sift_down<.T> &items last_idx 0
                     let next_hp %BinaryHeap .T BinaryHeap<.T> last_idx cap0 items
                     BinaryHeapPop<.T> next_hp root

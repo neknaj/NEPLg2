@@ -36,6 +36,6 @@ pub fn new <.K: Copy,.V: Copy> %impure fn unit Result BTreeMap .K .V Diag \unit:
     let cap %i32 8
     match btreemap_alloc_storage<.K,.V> cap:
         Result::Err d:
-            err<BTreeMap<.K,.V>, Diag> d
+            err d
         Result::Ok storage:
-            ok<BTreeMap<.K,.V>, Diag> BTreeMap<.K,.V> 0 cap storage
+            ok BTreeMap<.K,.V> 0 cap storage

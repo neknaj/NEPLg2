@@ -24,7 +24,7 @@ pub fn fenwick_alloc_bit %impure fn i32 Result Vec i32 Diag \bit_len:
         Result::Err _e:
             diag_err<Vec<i32>> diag_out_of_memory
         Result::Ok bit:
-            ok<Vec<i32>, Diag> bit
+            ok bit
 
 pub fn fenwick_free_bit %fn Vec i32 unit \bit:
     vec::free<i32> bit

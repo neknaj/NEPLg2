@@ -35,7 +35,7 @@ pub fn get <.T: Copy> %fn &List .T fn i32 Option .T \lst\idx:
     if:
         or lt idx 0 le n idx
         then:
-            none<.T>
+            none
         else:
             vec::get<.T> items list_physical_index n idx
 
@@ -65,11 +65,11 @@ pub fn reduce <.T: Copy> %fn &List .T fn fn .T fn .T .T Option .T \lst\f:
     if:
         eq n 0
         then:
-            none<.T>
+            none
         else:
             match vec::get<.T> items sub n 1:
                 Option::None:
-                    none<.T>
+                    none
                 Option::Some first:
                     let mut remaining %i32 sub n 1
                     let mut out %.T first
@@ -81,13 +81,13 @@ pub fn reduce <.T: Copy> %fn &List .T fn fn .T fn .T .T Option .T \lst\f:
                                     set out f out value
                                 Option::None:
                                     set remaining 0
-                    some<.T> out
+                    some out
 
 //: find: 条件に[合/あ]う[最初/さいしょ]の[要素/ようそ]を[返/かえ]す
 pub fn find <.T: Copy> %fn &List .T fn fn .T bool Option .T \lst\p:
     let items %&Vec .T field::get_ref lst "items"
     let mut remaining %i32 vec::len<.T> items
-    let mut found %Option .T none<.T>
+    let mut found %Option .T none
     let mut done %bool false
     while and gt remaining 0 not done:
         do:
@@ -97,7 +97,7 @@ pub fn find <.T: Copy> %fn &List .T fn fn .T bool Option .T \lst\p:
                     if:
                         p value
                         then:
-                            set found some<.T> value
+                            set found some value
                             set done true
                         else:
                             unit

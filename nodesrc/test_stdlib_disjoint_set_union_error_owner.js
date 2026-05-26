@@ -18,7 +18,7 @@ assert.match(apiCode, /pub\s+#import\s+"\.\/api\/mutation"\s+as\s+@merge/, "Disj
 assert.doesNotMatch(apiCode, /\bfn\s+union\b/, "DisjointSet api facade must not keep a duplicate union implementation");
 assert.match(mutationCode, /fn\s+union\s+<\(DisjointSet,i32,i32\)\*>Result<DisjointSet,\s*DisjointSetUpdateError>>\s+\(dsu,\s*a,\s*b\):/, "DisjointSet.union must return an owner-carrying error type");
 assert.doesNotMatch(mutationCode, /fn\s+union\s+<\(DisjointSet,i32,i32\)\*>Result<DisjointSet,\s*Diag>>/, "DisjointSet.union must not lose the owner through Err(Diag)");
-assert.match(mutationCode, /let\s+e\s+<DisjointSetUpdateError>\s+DisjointSetUpdateError\s+dsu\s+d[\s\S]*err<DisjointSet,\s*DisjointSetUpdateError>\s+e/, "DisjointSet.union Err path must return the input owner in DisjointSetUpdateError");
+assert.match(mutationCode, /let\s+e\s+<DisjointSetUpdateError>\s+DisjointSetUpdateError\s+dsu\s+d[\s\S]*err\s+e/, "DisjointSet.union Err path must return the input owner in DisjointSetUpdateError");
 
 for (const testPath of ["stdlib/tests/disjoint_set.n.md", "tests/stdlib/disjoint_set_collections.n.md"]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testPath), "utf8");

@@ -44,4 +44,4 @@ pub fn new %impure fn i32 Result SegmentTree Diag \n:
                 Result::Err _e:
                     diag_err<SegmentTree> diag_out_of_memory
                 Result::Ok data:
-                    ok<SegmentTree, Diag> SegmentTree n base data
+                    ok SegmentTree n base data

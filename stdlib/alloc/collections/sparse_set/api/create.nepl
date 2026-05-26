@@ -41,11 +41,11 @@ pub fn new %impure fn i32 Result SparseSet Diag \n:
         else:
             match sparse_set_alloc_array n:
                 Result::Err d:
-                    err<SparseSet, Diag> d
+                    err d
                 Result::Ok dense:
                     match sparse_set_alloc_array n:
                         Result::Err d:
                             vec::free<i32> dense
-                            err<SparseSet, Diag> d
+                            err d
                         Result::Ok sparse:
-                            ok<SparseSet, Diag> SparseSet n 0 dense sparse
+                            ok SparseSet n 0 dense sparse

@@ -83,7 +83,7 @@ pub fn selfhost_name_scope_get %fn &SelfhostNameScope fn SelfhostDefId Option Se
     if:
         lt def_id.index 0
         then:
-            none<SelfhostNameBinding>
+            none
         else:
             let bindings %&Vec SelfhostNameBinding field::get_ref scope "bindings"
             v::get<SelfhostNameBinding> bindings def_id.index
@@ -96,17 +96,17 @@ pub fn selfhost_name_scope_find_loop %fn &SelfhostNameScope fn str fn i32 Option
     if:
         lt idx 0
         then:
-            none<SelfhostNameBinding>
+            none
         else:
             match selfhost_name_scope_get scope selfhost_def_id_new idx:
                 Option::Some binding:
                     match string_search::str_eq binding.name name:
                         true:
-                            some<SelfhostNameBinding> binding
+                            some binding
                         false:
                             selfhost_name_scope_find_loop scope name sub idx 1
                 Option::None:
-                    none<SelfhostNameBinding>
+                    none
 
 //: selfhost_name_scope_find: 指定名の最新 binding を[返/かえ]す
 pub fn selfhost_name_scope_find %fn &SelfhostNameScope fn str Option SelfhostNameBinding \scope\name:
@@ -121,17 +121,17 @@ pub fn selfhost_name_scope_find_kind_loop %fn &SelfhostNameScope fn str fn Selfh
     if:
         lt idx 0
         then:
-            none<SelfhostNameBinding>
+            none
         else:
             match selfhost_name_scope_get scope selfhost_def_id_new idx:
                 Option::Some binding:
                     match and string_search::str_eq binding.name name selfhost_def_kind_eq binding.kind kind:
                         true:
-                            some<SelfhostNameBinding> binding
+                            some binding
                         false:
                             selfhost_name_scope_find_kind_loop scope name kind sub idx 1
                 Option::None:
-                    none<SelfhostNameBinding>
+                    none
 
 //: selfhost_name_scope_find_kind: 指定名かつ指定 kind の最新 binding を[返/かえ]す
 pub fn selfhost_name_scope_find_kind %fn &SelfhostNameScope fn str fn SelfhostDefKind Option SelfhostNameBinding \scope\name\kind:

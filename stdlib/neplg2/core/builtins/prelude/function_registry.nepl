@@ -32,13 +32,13 @@ pub fn selfhost_builtin_function_count %fn unit i32 \unit:
 pub fn selfhost_builtin_function_at %fn i32 Option SelfhostBuiltinFunction \index:
     match index:
         0:
-            some<SelfhostBuiltinFunction> selfhost_builtin_function_alloc
+            some selfhost_builtin_function_alloc
         1:
-            some<SelfhostBuiltinFunction> selfhost_builtin_function_dealloc
+            some selfhost_builtin_function_dealloc
         2:
-            some<SelfhostBuiltinFunction> selfhost_builtin_function_realloc
+            some selfhost_builtin_function_realloc
         _:
-            none<SelfhostBuiltinFunction>
+            none
 
 //: selfhost_builtin_function_is_pure: builtin function が現行 registry 上 pure か[返/かえ]す
 pub fn selfhost_builtin_function_is_pure %fn SelfhostBuiltinFunction bool \builtin:

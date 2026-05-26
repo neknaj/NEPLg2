@@ -36,12 +36,12 @@ pub fn btreemap_insert_ready <.K: Ord&Copy,.V: Copy> %impure fn BTreeMap .K .V i
     if:
         btreemap_is_at_storage<.K,.V> &storage len0 idx key
         then:
-            btreemap_store_value_slot<.K,.V> &storage idx some<.V> value
+            btreemap_store_value_slot<.K,.V> &storage idx some value
             BTreeMap<.K,.V> len0 cap0 storage
         else:
             btreemap_shift_right<.K,.V> &storage idx len0
-            btreemap_store_key_slot<.K,.V> &storage idx some<.K> key
-            btreemap_store_value_slot<.K,.V> &storage idx some<.V> value
+            btreemap_store_key_slot<.K,.V> &storage idx some key
+            btreemap_store_value_slot<.K,.V> &storage idx some value
             BTreeMap<.K,.V> add len0 1 cap0 storage
 
 //: ## insert

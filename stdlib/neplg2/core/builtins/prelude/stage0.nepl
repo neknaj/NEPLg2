@@ -79,7 +79,7 @@ pub fn selfhost_prelude_stage0_realloc_ok %fn unit bool \unit:
 
 //: selfhost_prelude_stage0_no_extra_builtin_ok: 範囲外 index が `None` か[返/かえ]す
 pub fn selfhost_prelude_stage0_no_extra_builtin_ok %fn unit bool \unit:
-    is_none<SelfhostBuiltinFunction> selfhost_builtin_function_at 3
+    is_none selfhost_builtin_function_at 3
 
 //: selfhost_prelude_stage0: builtins / prelude registry の最小 sanity check
 pub fn selfhost_prelude_stage0 %fn unit i32 \unit:

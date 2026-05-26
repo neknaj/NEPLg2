@@ -98,6 +98,6 @@ pub fn hashset_new_with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure 
     let cap0 %i32 hashset_normalize_capacity requested
     match hashset_alloc_storage<.T> cap0:
         Result::Err d:
-            err<HashSet<.T,.H>, Diag> d
+            err d
         Result::Ok storage:
-            ok<HashSet<.T,.H>, Diag> HashSet<.T,.H> 0 cap0 0 storage hasher
+            ok HashSet<.T,.H> 0 cap0 0 storage hasher

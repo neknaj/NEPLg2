@@ -34,9 +34,9 @@ pub fn dsu_root_storage %fn &Vec i32 fn i32 Option i32 \parent\idx:
     if:
         and valid done
         then:
-            some<i32> cur
+            some cur
         else:
-            none<i32>
+            none
 
 pub fn dsu_size_storage %fn &Vec i32 fn i32 Option i32 \sizes\root:
     dsu_load_owned sizes root

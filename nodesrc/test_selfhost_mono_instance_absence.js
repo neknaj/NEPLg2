@@ -38,19 +38,19 @@ assert.match(mono, /\bpub\s+enum\s+SelfhostMonoInstanceCacheInternError:/, "mono
 
 const pending = topLevelBlock(mono, "fn", "selfhost_mono_instance_id_pending");
 assert.match(pending, /Option<SelfhostMonoInstanceId>/, "pending state must return Option<SelfhostMonoInstanceId>");
-assert.match(pending, /\bnone<SelfhostMonoInstanceId>/, "pending state must be Option::None");
+assert.match(pending, /\bnone\b/, "pending state must be Option::None");
 assert.doesNotMatch(pending, /\bSelfhostMonoInstanceId\b\s+-1\b|\bselfhost_mono_instance_id_new\s+-1\b/, "pending state must not use an invalid ID payload");
 
 const assigned = topLevelBlock(mono, "fn", "selfhost_mono_instance_id_assigned");
 assert.match(assigned, /Option<SelfhostMonoInstanceId>/, "assigned state must return Option<SelfhostMonoInstanceId>");
-assert.match(assigned, /\bsome<SelfhostMonoInstanceId>\s+instance_id\b/, "assigned state must wrap the stable ID in Some");
+assert.match(assigned, /\bsome\s+instance_id\b/, "assigned state must wrap the stable ID in Some");
 
 const stage0 = topLevelBlock(mono, "fn", "selfhost_mono_stage0");
 assert.match(stage0, /\blet\s+pending\s+<Option<SelfhostMonoInstanceId>>\s+selfhost_mono_instance_id_pending\b/, "stage0 must exercise pending typed absence");
 assert.match(stage0, /\bmatch\s+assigned:/, "stage0 must inspect assigned state through Option matching");
 assert.match(stage0, /\bOption::Some\s+assigned_id:/, "stage0 must handle assigned Some payload");
 assert.match(stage0, /\bOption::None:/, "stage0 must handle assigned None payload");
-assert.match(stage0, /\bis_none<SelfhostMonoInstanceId>\s+pending\b/, "stage0 must verify pending is None");
+assert.match(stage0, /\bis_none\s+pending\b/, "stage0 must verify pending is None");
 assert.match(stage0, /\bselfhost_mono_instance_record_new\s+key0\s+instance_id\b/, "stage0 must exercise typed mono instance records");
 assert.match(stage0, /\bselfhost_mono_instance_record_matches_key\s+record\s+key1\b/, "stage0 must compare records through the typed key helper");
 
@@ -85,7 +85,7 @@ assert.match(cacheLookup, /\bselfhost_mono_instance_cache_lookup_loop\s+cache\s+
 
 const cacheLookupLoop = topLevelBlock(mono, "fn", "selfhost_mono_instance_cache_lookup_loop");
 assert.match(cacheLookupLoop, /\bselfhost_mono_instance_record_matches_key\s+record\s+key\b/, "cache lookup must compare the full typed record key");
-assert.match(cacheLookupLoop, /\bsome<SelfhostMonoInstanceId>\s+record\.instance_id\b/, "cache lookup must return the assigned id payload from the record");
+assert.match(cacheLookupLoop, /\bsome\s+record\.instance_id\b/, "cache lookup must return the assigned id payload from the record");
 assert.doesNotMatch(cacheLookupLoop, /\bselfhost_mono_instance_key_seed\b/, "cache lookup must not use mangle seed as identity");
 
 const cacheIntern = topLevelBlock(mono, "fn", "selfhost_mono_instance_cache_intern");

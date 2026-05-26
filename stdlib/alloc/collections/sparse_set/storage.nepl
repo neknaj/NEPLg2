@@ -26,6 +26,6 @@ pub fn sparse_set_free_arrays %fn Vec i32 fn Vec i32 unit \dense\sparse:
 pub fn sparse_set_alloc_array %impure fn i32 Result Vec i32 Diag \n:
     match vec::filled<i32> n 0:
         Result::Ok items:
-            ok<Vec<i32>, Diag> items
+            ok items
         Result::Err _e:
             diag_err<Vec<i32>> diag_out_of_memory

@@ -54,9 +54,9 @@ pub fn sum_range %impure fn &SegmentTree impure fn i32 impure fn i32 Result i32 
                 else:
                     match seg_sum_range_storage data base l r:
                         Option::Some total:
-                            ok<i32, Diag> total
+                            ok total
                         Option::None:
                             diag_err<i32> seg_diag_range
         else:
             let d %Diag seg_diag_range
-            err<i32, Diag> d
+            err d

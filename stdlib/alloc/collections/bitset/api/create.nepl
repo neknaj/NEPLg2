@@ -42,6 +42,6 @@ pub fn new %impure fn i32 Result BitSet Diag \nbits:
             let nbytes %i32 bitset_byte_len nbits
             match bitset_alloc_bits nbytes 0:
                 Result::Err d:
-                    err<BitSet, Diag> d
+                    err d
                 Result::Ok bits:
-                    ok<BitSet, Diag> BitSet nbits nbytes bits
+                    ok BitSet nbits nbytes bits

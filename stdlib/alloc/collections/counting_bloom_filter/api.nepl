@@ -54,9 +54,9 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure fn i32 Re
         else:
             match counting_bloom_alloc_counters nslots 0:
                 Result::Err d:
-                    err<CountingBloomFilter<.T,.H>, Diag> d
+                    err d
                 Result::Ok counters:
-                    ok<CountingBloomFilter<.T,.H>, Diag> CountingBloomFilter<.T,.H> nslots counters hasher
+                    ok CountingBloomFilter<.T,.H> nslots counters hasher
 
 //: ## len
 //: counter [長/ちょう]を[返/かえ]す

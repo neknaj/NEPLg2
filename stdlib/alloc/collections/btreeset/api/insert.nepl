@@ -38,7 +38,7 @@ pub fn btreeset_insert_ready <.T: Ord&Copy> %impure fn BTreeSet .T impure fn .T 
         then BTreeSet<.T> len0 cap0 storage
         else:
             btreeset_shift_right<.T> &storage idx len0
-            btreeset_store_key_slot<.T> &storage idx some<.T> key
+            btreeset_store_key_slot<.T> &storage idx some key
             BTreeSet<.T> add len0 1 cap0 storage
 
 //: ## insert

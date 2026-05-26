@@ -65,9 +65,9 @@ pub fn with_capacity <.T: Copy> %impure fn i32 Result Deque .T Diag \cap:
     let cap0 %i32 deque_normalize_capacity cap
     match deque_alloc_slots<.T> cap0:
         Result::Err d:
-            err<Deque<.T>, Diag> d
+            err d
         Result::Ok items:
-            ok<Deque<.T>, Diag> Deque<.T> 0 cap0 0 items
+            ok Deque<.T> 0 cap0 0 items
 
 //: ## len
 //: `Deque` を[移動/いどう]せずに[要素数/ようそすう]を[返/かえ]す
@@ -102,13 +102,13 @@ pub fn push_front <.T: Copy> %impure fn Deque .T impure fn .T Result Deque .T De
                 Result::Err d:
                     Result::Err<Deque<.T>, DequePushError<.T>> DequePushError<.T> (Deque<.T> len0 cap0 head0 items) d
                 Result::Ok new_items:
-                    deque_store_slot<.T> &new_items 0 some<.T> item
+                    deque_store_slot<.T> &new_items 0 some item
                     deque_copy_live_slots<.T> &items &new_items cap0 head0 len0 1
                     vec::free<Option<.T>> items
                     Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 new_cap 0 new_items
         else:
             let head1 %i32 deque_prev_index head0 cap0
-            deque_store_slot<.T> &items head1 some<.T> item
+            deque_store_slot<.T> &items head1 some item
             Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 cap0 head1 items
 
 //: ## push_back
@@ -130,12 +130,12 @@ pub fn push_back <.T: Copy> %impure fn Deque .T impure fn .T Result Deque .T Deq
                     Result::Err<Deque<.T>, DequePushError<.T>> DequePushError<.T> (Deque<.T> len0 cap0 head0 items) d
                 Result::Ok new_items:
                     deque_copy_live_slots<.T> &items &new_items cap0 head0 len0 0
-                    deque_store_slot<.T> &new_items len0 some<.T> item
+                    deque_store_slot<.T> &new_items len0 some item
                     vec::free<Option<.T>> items
                     Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 new_cap 0 new_items
         else:
             let tail %i32 deque_tail_index head0 len0 cap0
-            deque_store_slot<.T> &items tail some<.T> item
+            deque_store_slot<.T> &items tail some item
             Result::Ok<Deque<.T>, DequePushError<.T>> Deque<.T> add len0 1 cap0 head0 items
 
 //: ## pop_front
@@ -149,10 +149,10 @@ pub fn pop_front <.T: Copy> %impure fn Deque .T DequePop .T \dq:
         eq len0 0
         then:
             let next_dq %Deque .T Deque<.T> 0 cap0 head0 items
-            DequePop<.T> next_dq none<.T>
+            DequePop<.T> next_dq none
         else:
             let item %Option .T deque_item_at<.T> &items head0
-            deque_store_slot<.T> &items head0 none<.T>
+            deque_store_slot<.T> &items head0 none
             let next_len %i32 sub len0 1
             let next_head %i32 deque_next_index head0 cap0
             let next_dq %Deque .T Deque<.T> next_len cap0 next_head items
@@ -169,11 +169,11 @@ pub fn pop_back <.T: Copy> %impure fn Deque .T DequePop .T \dq:
         eq len0 0
         then:
             let next_dq %Deque .T Deque<.T> 0 cap0 head0 items
-            DequePop<.T> next_dq none<.T>
+            DequePop<.T> next_dq none
         else:
             let back %i32 deque_back_index head0 len0 cap0
             let item %Option .T deque_item_at<.T> &items back
-            deque_store_slot<.T> &items back none<.T>
+            deque_store_slot<.T> &items back none
             let next_len %i32 sub len0 1
             let next_dq %Deque .T Deque<.T> next_len cap0 head0 items
             DequePop<.T> next_dq item
@@ -195,7 +195,7 @@ pub fn peek_front <.T: Copy> %fn &Deque .T Option .T \dq:
     if:
         eq len0 0
         then:
-            none<.T>
+            none
         else:
             let head0 %i32 *field::get_ref dq "head"
             let items %&Vec Option .T field::get_ref dq "items"
@@ -208,7 +208,7 @@ pub fn peek_back <.T: Copy> %fn &Deque .T Option .T \dq:
     if:
         eq len0 0
         then:
-            none<.T>
+            none
         else:
             let cap0 %i32 *field::get_ref dq "cap"
             let head0 %i32 *field::get_ref dq "head"

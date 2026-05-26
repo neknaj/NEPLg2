@@ -21,13 +21,13 @@
 //: ## seg_update_ok
 //: 更新に[成功/せいこう]した `SegmentTree` owner を `Result::Ok` へ[包/つつ]む
 pub fn seg_update_ok %fn SegmentTree Result SegmentTree SegmentTreeUpdateError \st:
-    ok<SegmentTree, SegmentTreeUpdateError> st
+    ok st
 
 //: ## seg_update_err
 //: update [失敗/しっぱい]を owner-preserving error に[変換/へんかん]する
 pub fn seg_update_err %fn SegmentTree fn Diag Result SegmentTree SegmentTreeUpdateError \st\d:
     let e %SegmentTreeUpdateError SegmentTreeUpdateError st d
-    err<SegmentTree, SegmentTreeUpdateError> e
+    err e
 
 //: ## replace
 //: `idx` の[値/あたい]を `value` に[置/お]き[換/か]える
@@ -62,7 +62,7 @@ pub fn replace %impure fn SegmentTree impure fn i32 impure fn i32 Result Segment
                         if:
                             seg_replace_storage data base idx value
                             then:
-                                ok<unit, Diag> unit
+                                ok unit
                             else:
                                 diag_err<unit> seg_diag_index
             match result:
@@ -109,7 +109,7 @@ pub fn add %impure fn SegmentTree impure fn i32 impure fn i32 Result SegmentTree
                         if:
                             seg_add_storage data base idx delta
                             then:
-                                ok<unit, Diag> unit
+                                ok unit
                             else:
                                 diag_err<unit> seg_diag_index
             match result:

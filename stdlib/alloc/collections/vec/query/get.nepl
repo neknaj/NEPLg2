@@ -64,24 +64,24 @@ pub fn get <.T: Copy> %fn &Vec .T fn i32 Option .T \v\idx:
     let v_storage %&VecStorage .T field::get_ref v_buffer "storage"
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            none<.T>
+            none
         VecCopyInvariant::Valid:
             if:
                 lt idx 0
-                then none<.T>
+                then none
                 else:
                     if:
                         le v_len idx
-                        then none<.T>
+                        then none
                         else:
                             match v_storage:
                                 VecStorage::Empty:
-                                    none<.T>
+                                    none
                                 VecStorage::Owned _region:
                                     match data_mem_view<.T> v:
                                         VecDataView::Empty:
-                                            none<.T>
+                                            none
                                         VecDataView::Invalid _reason:
-                                            none<.T>
+                                            none
                                         VecDataView::Data v_data:
-                                            some<.T> load<.T> add mem_ptr_addr v_data mul idx size_of<.T>
+                                            some load<.T> add mem_ptr_addr v_data mul idx size_of<.T>

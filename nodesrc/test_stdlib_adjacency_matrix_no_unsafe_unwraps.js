@@ -86,11 +86,11 @@ assert.match(layoutCode, /fn\s+adjacency_matrix_byte_index\s+<\(i32\)->i32>[\s\S
 assert.match(layoutCode, /fn\s+adjacency_matrix_mask\s+<\(i32\)->i32>[\s\S]*shl\s+1\s+rem_s\s+bit_idx\s+8/, 'AdjacencyMatrix layout module must own bit mask calculation');
 assert.match(layoutCode, /fn\s+adjacency_matrix_byte_len\s+<\(i32\)->i32>[\s\S]*div_s\s+add\s+mul\s+nverts\s+nverts\s+7\s+8/, 'AdjacencyMatrix layout module must own byte length rounding');
 assert.match(storageCode, /fn\s+adjacency_matrix_alloc_bits\s+<\(i32,i32\)\*>Result<Vec<u8>,\s*Diag>>[\s\S]*vec::filled<u8>\s+nbytes\s+byte/, 'AdjacencyMatrix must allocate initialized byte storage through Vec.filled');
-assert.match(storageCode, /fn\s+adjacency_matrix_byte_at\s+<\(&Vec<u8>,i32\)->Option<i32>>[\s\S]*vec::get<u8>[\s\S]*Option::None:[\s\S]*none<i32>/, 'AdjacencyMatrix must read matrix bytes through Vec.get and expose missing bytes as Option');
-assert.match(storageCode, /fn\s+adjacency_matrix_store_byte\s+<\(&Vec<u8>,i32,i32\)\*>\(\)>[\s\S]*vec::replace<u8>/, 'AdjacencyMatrix must update matrix bytes through Vec.replace');
+assert.match(storageCode, /fn\s+adjacency_matrix_byte_at\s+<\(&Vec<u8>,i32\)->Option<i32>>[\s\S]*vec::get<u8>[\s\S]*Option::None:[\s\S]*none/, 'AdjacencyMatrix must read matrix bytes through Vec.get and expose missing bytes as Option');
+assert.match(storageCode, /fn\s+adjacency_matrix_store_byte\s+<\(&Vec<u8>,i32,i32\)\*>unit>[\s\S]*vec::replace<u8>/, 'AdjacencyMatrix must update matrix bytes through Vec.replace');
 assert.match(mutationCode, /fn\s+adjacency_matrix_write_masked\s+<\(&Vec<u8>,i32,i32,bool\)\*>bool>[\s\S]*adjacency_matrix_byte_at[\s\S]*adjacency_matrix_store_byte/, 'AdjacencyMatrix mutation module must centralize byte read-modify-write');
-assert.match(apiDiagnosticCode, /fn\s+adjacency_matrix_invalid_len_diag\s+<\(\)\*>Diag>/, 'AdjacencyMatrix diagnostic module must own invalid length diagnostics');
-assert.match(apiDiagnosticCode, /fn\s+adjacency_matrix_vertex_diag\s+<\(\)\*>Diag>/, 'AdjacencyMatrix diagnostic module must own vertex diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+adjacency_matrix_invalid_len_diag\s+<\(unit\)\*>Diag>/, 'AdjacencyMatrix diagnostic module must own invalid length diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+adjacency_matrix_vertex_diag\s+<\(unit\)\*>Diag>/, 'AdjacencyMatrix diagnostic module must own vertex diagnostics');
 assert.match(apiCreateCode, /fn\s+new\s+<\(i32\)\*>Result<AdjacencyMatrix,\s*Diag>>[\s\S]*adjacency_matrix_byte_len\s+nverts[\s\S]*adjacency_matrix_alloc_bits\s+nbytes\s+0/, 'AdjacencyMatrix.new must use layout and storage helpers');
 assert.match(apiObserverCode, /fn\s+len\s+<\(&AdjacencyMatrix\)->i32>\s+\(g\):/, 'AdjacencyMatrix.len must borrow the owner');
 assert.match(apiObserverCode, /fn\s+contains\s+<\(&AdjacencyMatrix,i32,i32\)\*>Result<bool,\s*Diag>>\s+\(g,\s*from,\s*to\):/, 'AdjacencyMatrix.contains must borrow the owner');
@@ -98,10 +98,10 @@ assert.match(apiUpdateCode, /fn\s+adjacency_matrix_update\s+<\(AdjacencyMatrix,i
 assert.match(apiUpdateCode, /fn\s+insert\s+<\(AdjacencyMatrix,i32,i32\)\*>Result<AdjacencyMatrix,\s*AdjacencyMatrixUpdateError>>\s+\(g,\s*from,\s*to\):[\s\S]*adjacency_matrix_update\s+g\s+from\s+to\s+true/, 'AdjacencyMatrix.insert must use the shared update helper');
 assert.match(apiUpdateCode, /fn\s+remove\s+<\(AdjacencyMatrix,i32,i32\)\*>Result<AdjacencyMatrix,\s*AdjacencyMatrixUpdateError>>\s+\(g,\s*from,\s*to\):[\s\S]*adjacency_matrix_update\s+g\s+from\s+to\s+false/, 'AdjacencyMatrix.remove must use the shared update helper');
 assert.doesNotMatch(apiUpdateCode, /fn\s+(?:insert|remove)\s+<\(AdjacencyMatrix,i32,i32\)\*>Result<AdjacencyMatrix,\s*Diag>>/, 'AdjacencyMatrix mutating APIs must not lose the owner through Err(Diag)');
-assert.match(apiUpdateCode, /let\s+e\s+<AdjacencyMatrixUpdateError>\s+AdjacencyMatrixUpdateError\s+g\s+d[\s\S]*err<AdjacencyMatrix,\s*AdjacencyMatrixUpdateError>\s+e/, 'AdjacencyMatrix mutating Err paths must return the input owner in AdjacencyMatrixUpdateError');
+assert.match(apiUpdateCode, /let\s+e\s+<AdjacencyMatrixUpdateError>\s+AdjacencyMatrixUpdateError\s+g\s+d[\s\S]*err\s+e/, 'AdjacencyMatrix mutating Err paths must return the input owner in AdjacencyMatrixUpdateError');
 assert.match(apiBulkCode, /fn\s+adjacency_matrix_fill_value\s+<\(AdjacencyMatrix,i32\)\*>AdjacencyMatrix>[\s\S]*adjacency_matrix_fill_bytes\s+bits\s+nbytes\s+byte_value/, 'AdjacencyMatrix bulk module must centralize byte fill updates');
 assert.match(apiBulkCode, /fn\s+clear\s+<\(AdjacencyMatrix\)\*>AdjacencyMatrix>\s+\(g\):[\s\S]*adjacency_matrix_fill_value\s+g\s+0/, 'AdjacencyMatrix.clear must use the bulk fill helper');
-assert.match(apiCleanupCode, /fn\s+free\s+<\(AdjacencyMatrix\)->\(\)>[\s\S]*field::get\s+g\s+"bits"[\s\S]*vec::free<u8>\s+bits/, 'AdjacencyMatrix.free must consume and close typed Vec<u8> storage');
+assert.match(apiCleanupCode, /fn\s+free\s+<\(AdjacencyMatrix\)->unit>[\s\S]*field::get\s+g\s+"bits"[\s\S]*vec::free<u8>\s+bits/, 'AdjacencyMatrix.free must consume and close typed Vec<u8> storage');
 
 assert.doesNotMatch(code, /\bMemPtr\b/, 'AdjacencyMatrix must not expose raw MemPtr storage');
 assert.doesNotMatch(code, /\bmem_ptr_wrap\b/, 'AdjacencyMatrix must not use raw pointer arithmetic');
@@ -110,7 +110,7 @@ assert.doesNotMatch(code, /\balloc_ptr\b/, 'AdjacencyMatrix must not allocate ma
 assert.doesNotMatch(code, /\bload_u8\b/, 'AdjacencyMatrix must not read matrix storage through raw byte loads');
 assert.doesNotMatch(code, /\bstore_u8\b/, 'AdjacencyMatrix must not write matrix storage through raw byte stores');
 assert.doesNotMatch(code, /\bdealloc_raw\b/, 'AdjacencyMatrix must not deallocate matrix storage through raw pointer APIs');
-assert.doesNotMatch(code, /fn\s+free\s+<\(AdjacencyMatrix\)->\(\)>[\s\S]*dealloc_ptr/, 'AdjacencyMatrix.free must not unwrap checked deallocation for owned storage');
+assert.doesNotMatch(code, /fn\s+free\s+<\(AdjacencyMatrix\)->unit>[\s\S]*dealloc_ptr/, 'AdjacencyMatrix.free must not unwrap checked deallocation for owned storage');
 
 console.log('adjacency matrix unsafe unwrap regression passed');
 

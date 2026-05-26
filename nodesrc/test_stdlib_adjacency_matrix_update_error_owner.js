@@ -20,7 +20,7 @@ assert.match(updateCode, /fn\s+insert\s+<\(AdjacencyMatrix,i32,i32\)\*>Result<Ad
 assert.match(updateCode, /fn\s+remove\s+<\(AdjacencyMatrix,i32,i32\)\*>Result<AdjacencyMatrix,\s*AdjacencyMatrixUpdateError>>\s+\(g,\s*from,\s*to\):/, "AdjacencyMatrix.remove must return an owner-carrying error type");
 assert.match(updateCode, /fn\s+adjacency_matrix_update\s+<\(AdjacencyMatrix,i32,i32,bool\)\*>Result<AdjacencyMatrix,\s*AdjacencyMatrixUpdateError>>\s+\(g,\s*from,\s*to,\s*set_edge\):/, "AdjacencyMatrix insert/remove must share one owner-preserving update helper");
 assert.doesNotMatch(updateCode, /fn\s+(?:insert|remove)\s+<\(AdjacencyMatrix,i32,i32\)\*>Result<AdjacencyMatrix,\s*Diag>>/, "AdjacencyMatrix mutating APIs must not lose the owner through Err(Diag)");
-assert.match(updateCode, /let\s+e\s+<AdjacencyMatrixUpdateError>\s+AdjacencyMatrixUpdateError\s+g\s+d[\s\S]*err<AdjacencyMatrix,\s*AdjacencyMatrixUpdateError>\s+e/, "AdjacencyMatrix mutating Err paths must return the input owner in AdjacencyMatrixUpdateError");
+assert.match(updateCode, /let\s+e\s+<AdjacencyMatrixUpdateError>\s+AdjacencyMatrixUpdateError\s+g\s+d[\s\S]*err\s+e/, "AdjacencyMatrix mutating Err paths must return the input owner in AdjacencyMatrixUpdateError");
 
 for (const testPath of ["stdlib/tests/adjacency_matrix.n.md", "tests/stdlib/adjacency_matrix_collections.n.md"]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testPath), "utf8");

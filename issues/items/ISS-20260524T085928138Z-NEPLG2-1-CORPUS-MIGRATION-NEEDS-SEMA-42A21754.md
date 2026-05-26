@@ -712,6 +712,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/neplg2/core/options.nepl --no-tree -o tmp/neplg21-options-doctest-after-import.json -j 1 --dist web/dist --assert-io` は 1/1 pass。
 - `node nodesrc/tests.js <対象26 files> --no-tree -o tmp/neplg21-helper-postfix-scope-cleanup.json -j 4 --dist web/dist --assert-io` は 33 件中 32 件 compile timeout、1 件 fail。fail は `options.nepl` doctest の import 不足で、上記 focused test により修正済み。
 
+### 2026-05-26 collection/selfhost helper postfix parallel checkpoint
+
+- collection constructor/helper cleanup を 5 worker の非重複 write scope に分割し、BinaryHeap/Deque/Queue/RingBuffer、Stack/List/Vec、BitSet/AdjacencyMatrix/BloomFilter/CountingBloomFilter、Fenwick/SegmentTree/SparseSet/DisjointSet、BTreeMap/BTreeSet/HashMap/HashSet を同時に処理した。
+- worker 合計で collection 60 files / 210 helper postfix occurrences を撤廃した。親 agent 側では selfhost core / env 14 files / 38 occurrences を並行して移行し、合計 74 source files / 248 occurrences の `some` / `none` / `ok` / `err` / `is_*` postfix-free 化を行った。
+- `rg -n "\b(some|none|ok|err|is_some|is_none|is_ok|is_err)<" stdlib/alloc/collections stdlib/neplg2/core stdlib/std/env -g "*.nepl"` は 0 件になった。
+- 変更範囲に直結する source policy 18 件と `nodesrc/test_stdlib_collection_cleanup_contract.js` / `nodesrc/test_selfhost_def_id_absence.js` は pass。collection cleanup policy は constructor postfix-free と `unit` keyword view に追従し、owner-boundary assertion は弱めていない。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は完走したが、NEPLg2.1 unit / constructor cleanup に未追従の residual policy warning が 29 件残ったため、`ISS-20260526T073859722Z-NEPLG2-1-SOURCE-POLICY-UNIT-AND-CONS-F81D1534` として分離した。
+- `node nodesrc/neplg21_syntax_migrate.js --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

@@ -40,11 +40,11 @@ pub fn selfhost_hir_expr_id_new %fn i32 SelfhostHirExprId \index:
 
 //: selfhost_hir_expr_id_pending: expression id がまだ設定されていない状態を[返/かえ]す
 pub fn selfhost_hir_expr_id_pending %fn unit Option SelfhostHirExprId \unit:
-    none<SelfhostHirExprId>
+    none
 
 //: selfhost_hir_expr_id_assigned: expression id を Option に[包/つつ]む
 pub fn selfhost_hir_expr_id_assigned %fn SelfhostHirExprId Option SelfhostHirExprId \expr_id:
-    some<SelfhostHirExprId> expr_id
+    some expr_id
 
 //: selfhost_hir_expr_id_index: expression id の index を[返/かえ]す
 pub fn selfhost_hir_expr_id_index %fn SelfhostHirExprId i32 \expr_id:

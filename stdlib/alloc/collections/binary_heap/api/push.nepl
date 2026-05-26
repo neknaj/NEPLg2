@@ -58,11 +58,11 @@ pub fn push <.T: Ord&Copy> %impure fn BinaryHeap .T impure fn .T Result BinaryHe
                     Result::Err<BinaryHeap<.T>, BinaryHeapPushError<.T>> BinaryHeapPushError<.T> (BinaryHeap<.T> len0 cap0 items) e
                 Result::Ok next_items:
                     heap_copy_live_slots<.T> &items &next_items len0
-                    heap_store_slot<.T> &next_items len0 some<.T> item
+                    heap_store_slot<.T> &next_items len0 some item
                     heap_sift_up<.T> &next_items len0
                     vec::free<Option<.T>> items
                     Result::Ok<BinaryHeap<.T>, BinaryHeapPushError<.T>> BinaryHeap<.T> add len0 1 grown_cap next_items
         else:
-            heap_store_slot<.T> &items len0 some<.T> item
+            heap_store_slot<.T> &items len0 some item
             heap_sift_up<.T> &items len0
             Result::Ok<BinaryHeap<.T>, BinaryHeapPushError<.T>> BinaryHeap<.T> add len0 1 cap0 items

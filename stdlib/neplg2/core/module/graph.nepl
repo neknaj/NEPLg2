@@ -151,18 +151,18 @@ pub fn selfhost_module_graph_find_node_loop %fn &SelfhostModuleGraph fn str fn i
     if:
         ge idx n
         then:
-            none<i32>
+            none
         else:
             match selfhost_module_graph_node_at graph idx:
                 Option::Some node:
                     if:
                         string_search::str_eq node.path path
                         then:
-                            some<i32> idx
+                            some idx
                         else:
                             selfhost_module_graph_find_node_loop graph path n add idx 1
                 Option::None:
-                    none<i32>
+                    none
 
 //: selfhost_module_graph_find_node: path に一致する node index を[返/かえ]す
 pub fn selfhost_module_graph_find_node %fn &SelfhostModuleGraph fn str Option i32 \graph\path:

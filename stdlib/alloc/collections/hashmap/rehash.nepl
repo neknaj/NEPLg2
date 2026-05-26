@@ -103,6 +103,6 @@ pub fn hashmap_new_with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy>
     let cap0 %i32 hashmap_normalize_capacity requested
     match hashmap_alloc_storage<.K,.V> cap0:
         Result::Err d:
-            err<HashMap<.K,.V,.H>, Diag> d
+            err d
         Result::Ok storage:
-            ok<HashMap<.K,.V,.H>, Diag> HashMap<.K,.V,.H> 0 cap0 0 storage hasher
+            ok HashMap<.K,.V,.H> 0 cap0 0 storage hasher

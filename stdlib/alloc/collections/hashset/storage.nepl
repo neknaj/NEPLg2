@@ -74,7 +74,7 @@ pub fn hashset_key_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \keys\idx:
         Option::Some key_opt:
             key_opt
         Option::None:
-            none<.T>
+            none
 
 //: hashset_store_state: state slot を[書/か]き[換/か]える
 pub fn hashset_store_state %impure fn &Vec HashSetBucketState impure fn i32 impure fn HashSetBucketState unit \states\idx\state:
@@ -89,12 +89,12 @@ pub fn hashset_store_key <.T: Copy> %impure fn &Vec Option .T impure fn i32 impu
 //: ### [目的/もくてき]
 //: - state と key option を同じ slot index で[同時/どうじ]に[更新/こうしん]します。
 pub fn hashset_store_full <.T: Copy> %impure fn &HashSetStorage .T impure fn i32 impure fn .T unit \storage\idx\key:
-    hashset_store_key<.T> hashset_storage_keys<.T> storage idx some<.T> key
+    hashset_store_key<.T> hashset_storage_keys<.T> storage idx some key
     hashset_store_state hashset_storage_states<.T> storage idx HashSetBucketState::Full
 
 //: hashset_store_tombstone: slot を tombstone にして payload を None に[戻/もど]す
 pub fn hashset_store_tombstone <.T: Copy> %impure fn &HashSetStorage .T impure fn i32 unit \storage\idx:
-    hashset_store_key<.T> hashset_storage_keys<.T> storage idx none<.T>
+    hashset_store_key<.T> hashset_storage_keys<.T> storage idx none
     hashset_store_state hashset_storage_states<.T> storage idx HashSetBucketState::Tombstone
 
 //: hashset_free_storage: backing storage を[解放/かいほう]する
@@ -119,9 +119,9 @@ pub fn hashset_alloc_storage <.T: Copy> %impure fn i32 Result HashSetStorage .T 
         Result::Err _e:
             diag_err<HashSetStorage<.T>> diag_out_of_memory
         Result::Ok states:
-            match vec::filled<Option<.T>> cap none<.T>:
+            match vec::filled<Option<.T>> cap none:
                 Result::Err _e:
                     vec::free<HashSetBucketState> states
                     diag_err<HashSetStorage<.T>> diag_out_of_memory
                 Result::Ok keys:
-                    ok<HashSetStorage<.T>, Diag> HashSetStorage<.T> states keys
+                    ok HashSetStorage<.T> states keys

@@ -20,7 +20,7 @@ assert.match(updateCode, /fn\s+insert\s+<\(SparseSet,i32\)\*>Result<SparseSet,\s
 assert.match(updateCode, /fn\s+remove\s+<\(SparseSet,i32\)\*>Result<SparseSet,\s*SparseSetUpdateError>>\s+\(s,\s*value\):/, "SparseSet.remove must return an owner-carrying error type");
 assert.match(updateCode, /fn\s+sparse_set_update_err\s+<\(SparseSet,Diag\)->Result<SparseSet,\s*SparseSetUpdateError>>\s+\(s,\s*d\):/, "SparseSet mutating APIs must share one owner-preserving error helper");
 assert.doesNotMatch(updateCode, /fn\s+(?:insert|remove)\s+<\(SparseSet,i32\)\*>Result<SparseSet,\s*Diag>>/, "SparseSet mutating APIs must not lose the owner through Err(Diag)");
-assert.match(updateCode, /SparseSetUpdateError\s+s\s+d[\s\S]*err<SparseSet,\s*SparseSetUpdateError>\s+e/, "SparseSet mutating Err paths must return the input owner in SparseSetUpdateError");
+assert.match(updateCode, /SparseSetUpdateError\s+s\s+d[\s\S]*err\s+e/, "SparseSet mutating Err paths must return the input owner in SparseSetUpdateError");
 
 for (const testPath of ["stdlib/tests/sparse_set.n.md", "tests/stdlib/sparse_set_collections.n.md"]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testPath), "utf8");

@@ -38,19 +38,19 @@ pub fn adjacency_matrix_update %impure fn AdjacencyMatrix impure fn i32 impure f
                 if:
                     adjacency_matrix_write_masked bits byte_idx mask set_edge
                     then:
-                        ok<unit, Diag> unit
+                        ok unit
                     else:
                         diag_err<unit> adjacency_matrix_vertex_diag
             match result:
                 Result::Ok _unit:
-                    ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> g
+                    ok g
                 Result::Err d:
                     let e %AdjacencyMatrixUpdateError AdjacencyMatrixUpdateError g d
-                    err<AdjacencyMatrix, AdjacencyMatrixUpdateError> e
+                    err e
         else:
             let d %Diag adjacency_matrix_vertex_diag
             let e %AdjacencyMatrixUpdateError AdjacencyMatrixUpdateError g d
-            err<AdjacencyMatrix, AdjacencyMatrixUpdateError> e
+            err e
 
 //: ## insert
 //: directed edge を 1 に[設定/せってい]する

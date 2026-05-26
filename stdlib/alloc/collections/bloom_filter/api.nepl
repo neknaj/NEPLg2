@@ -56,9 +56,9 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure fn i32 Re
             let nbytes %i32 bloom_byte_len nbits
             match bloom_alloc_bits nbytes 0:
                 Result::Err d:
-                    err<BloomFilter<.T,.H>, Diag> d
+                    err d
                 Result::Ok bits:
-                    ok<BloomFilter<.T,.H>, Diag> BloomFilter<.T,.H> nbits nbytes bits hasher
+                    ok BloomFilter<.T,.H> nbits nbytes bits hasher
 
 //: ## len
 //: bit [長/ちょう]を[返/かえ]す

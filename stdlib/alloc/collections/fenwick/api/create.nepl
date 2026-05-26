@@ -48,6 +48,6 @@ pub fn new %impure fn i32 Result Fenwick Diag \n:
             let bit_len %i32 add n 1
             match fenwick_alloc_bit bit_len:
                 Result::Err d:
-                    err<Fenwick, Diag> d
+                    err d
                 Result::Ok bit:
-                    ok<Fenwick, Diag> Fenwick n bit
+                    ok Fenwick n bit

@@ -17,44 +17,44 @@ pub fn sparse_set_insert_storage %impure fn i32 impure fn &Vec i32 impure fn &Ve
     if:
         sparse_set_contains_raw n dense sparse len0 value
         then:
-            some<i32> len0
+            some len0
         else:
             match sparse_set_load_owned dense len0:
                 Option::None:
-                    none<i32>
+                    none
                 Option::Some _old_dense:
                     match sparse_set_load_owned sparse value:
                         Option::None:
-                            none<i32>
+                            none
                         Option::Some _old_sparse:
                             sparse_set_store_owned dense len0 value
                             sparse_set_store_owned sparse value len0
-                            some<i32> add len0 1
+                            some add len0 1
 
 pub fn sparse_set_remove_storage %impure fn i32 impure fn &Vec i32 impure fn &Vec i32 impure fn i32 impure fn i32 Option i32 \n\dense\sparse\len0\value:
     if:
         not sparse_set_contains_raw n dense sparse len0 value
         then:
-            some<i32> len0
+            some len0
         else:
             match sparse_set_load_owned sparse value:
                 Option::None:
-                    none<i32>
+                    none
                 Option::Some idx:
                     let last_idx %i32 sub len0 1
                     match sparse_set_load_owned dense last_idx:
                         Option::None:
-                            none<i32>
+                            none
                         Option::Some last_value:
                             if:
                                 not sparse_set_valid_index last_value n
                                 then:
-                                    none<i32>
+                                    none
                                 else:
                                     match sparse_set_load_owned sparse last_value:
                                         Option::None:
-                                            none<i32>
+                                            none
                                         Option::Some _old_sparse:
                                             sparse_set_store_owned dense idx last_value
                                             sparse_set_store_owned sparse last_value idx
-                                            some<i32> last_idx
+                                            some last_idx

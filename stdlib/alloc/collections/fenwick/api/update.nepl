@@ -20,13 +20,13 @@
 //: ## fenwick_add_ok
 //: 更新に[成功/せいこう]した `Fenwick` owner を `Result::Ok` へ[包/つつ]む
 pub fn fenwick_add_ok %fn Fenwick Result Fenwick FenwickAddError \fw:
-    ok<Fenwick, FenwickAddError> fw
+    ok fw
 
 //: ## fenwick_add_err
 //: update [失敗/しっぱい]を owner-preserving error に[変換/へんかん]する
 pub fn fenwick_add_err %fn Fenwick fn Diag Result Fenwick FenwickAddError \fw\d:
     let e %FenwickAddError FenwickAddError fw d
-    err<Fenwick, FenwickAddError> e
+    err e
 
 //: ## add
 //: `idx` に `delta` を[加算/かさん]する
@@ -64,7 +64,7 @@ pub fn add %impure fn Fenwick impure fn i32 impure fn i32 Result Fenwick Fenwick
                 if:
                     fenwick_add_storage bit n idx delta
                     then:
-                        ok<unit, Diag> unit
+                        ok unit
                     else:
                         diag_err<unit> fenwick_diag_index
             match result:

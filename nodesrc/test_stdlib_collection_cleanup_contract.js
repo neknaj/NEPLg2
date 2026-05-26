@@ -935,7 +935,7 @@ function classifyEmptyOwnerMetadataConstructor(source, functionName, typeSignatu
     }
 
     const functionType = parseFunctionType(typeSignature);
-    if (!functionType || functionType.parameters.length !== 0) {
+    if (!functionType || !isUnitOnlyParameterList(functionType.parameters)) {
         return null;
     }
 
@@ -1052,7 +1052,7 @@ function classifyProofBackedReplaceDropOldSurface(source, section, functionType)
     if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
         return null;
     }
-    if (!new RegExp(`\\bVecStorageInvariant\\b[\\s\\S]*\\bvec_buffer_current_storage_invariant<\\.${match[1]}>`).test(section)) {
+    if (!hasVecStorageInvariantProof(section, match[1])) {
         return null;
     }
     if (!new RegExp(`\\bVecReplaceRejected<\\.${match[1]}>[\\s\\S]*\\bitem\\b`).test(section)) {
@@ -1126,7 +1126,7 @@ function classifyProofBackedTransformRangeFilterSurface(source, functionName, ty
     if (/\b(?:region_ptr|mem_ptr_addr|mem_ptr_add|store<|load<|mem_copy|mem_move)\b|#intrinsic\s+"collection_slot_/.test(section)) {
         return null;
     }
-    if (!new RegExp(`\\bVecStorageInvariant\\b[\\s\\S]*\\bvec_buffer_current_storage_invariant<\\.${payload}>`).test(section)) {
+    if (!hasVecStorageInvariantProof(section, payload)) {
         return null;
     }
     if (!/\bwith_capacity<\.\w+>\s+src_len\b/.test(section)) {
@@ -1163,10 +1163,10 @@ function classifyProofBackedPopMoveOutSection(source, section, genericName, seen
             .some((candidate) => classifyProofBackedPopMoveOutSection(source, candidate, genericName, seen));
     }
 
-    if (!new RegExp(`\\bVecStorageInvariant\\b[\\s\\S]*\\bvec_buffer_current_storage_invariant<\\.${genericName}>`).test(section)) {
+    if (!hasVecStorageInvariantProof(section, genericName)) {
         return null;
     }
-    if (!new RegExp(`\\bVecPop<\\.${genericName}>[\\s\\S]*\\bnone<\\.${genericName}>[\\s\\S]*\\bVecPop<\\.${genericName}>[\\s\\S]*\\bsome<\\.${genericName}>\\s+item`).test(section)) {
+    if (!new RegExp(`\\bVecPop<\\.${genericName}>[\\s\\S]*\\bnone\\b[\\s\\S]*\\bVecPop<\\.${genericName}>[\\s\\S]*\\bsome\\s+item`).test(section)) {
         return null;
     }
 
@@ -1230,7 +1230,7 @@ function classifyPrivateProofBackedOwnerUpdateHelper(source, functionName, typeS
     if (!sameTypeText(returnType, `Result<Vec<.${payload}>, VecPushError<.${payload}>>`)) {
         return null;
     }
-    if (!new RegExp(`\\bVecStorageInvariant\\b[\\s\\S]*\\bvec_buffer_current_storage_invariant<\\.${payload}>`).test(section)) {
+    if (!hasVecStorageInvariantProof(section, payload)) {
         return null;
     }
     if (!new RegExp(`\\bVecStorageInvariant::Invalid\\b[\\s\\S]*\\bVecStorageInvariant::Valid\\b`).test(section)) {
@@ -1277,7 +1277,7 @@ function classifyPrivateProofBackedTailCleanupHelper(source, functionName, typeS
         return null;
     }
     const payload = payloadMatch[1];
-    if (!new RegExp(`\\bVecStorageInvariant\\b[\\s\\S]*\\bvec_buffer_current_storage_invariant<\\.${payload}>`).test(section)) {
+    if (!hasVecStorageInvariantProof(section, payload)) {
         return null;
     }
     if (!new RegExp(`\\bVecStorageInvariant::Invalid\\b[\\s\\S]*\\bVecStorageInvariant::Valid\\b`).test(section)) {
@@ -1729,6 +1729,16 @@ function parseUnaryFunctionType(typeSignature) {
 
 function sameTypeText(actual, expected) {
     return String(actual).replace(/\s+/g, '') === String(expected).replace(/\s+/g, '');
+}
+
+function isUnitOnlyParameterList(parameters) {
+    return parameters.length === 0
+        || (parameters.length === 1 && parameters[0].trim() === 'unit');
+}
+
+function hasVecStorageInvariantProof(section, payload) {
+    return /\bVecStorageInvariant\b/.test(section)
+        && new RegExp(`\\bvec_buffer_current_storage_invariant<\\.${payload}>`).test(section);
 }
 
 function parseFunctionType(typeSignature) {

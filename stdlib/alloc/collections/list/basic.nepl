@@ -25,7 +25,7 @@
 pub fn new <.T: Copy> %impure fn unit Result List .T Diag \unit:
     match vec::new<.T>:
         Result::Ok items:
-            ok<List<.T>, Diag> List<.T> items
+            ok List<.T> items
         Result::Err e:
             diag_err<List<.T>> list_diag_from_vec_error e
 
@@ -57,17 +57,17 @@ pub fn tail <.T: Copy> %fn List .T Option List .T \lst:
         eq vec::len<.T> &items 0
         then:
             vec::free<.T> items
-            none<List<.T>>
+            none
         else:
             let popped %VecPop .T vec::pop<.T> items
             let item %Option .T vec::vec_pop_item<.T> &popped
             let next_items %Vec .T vec::vec_pop_vec<.T> popped
             match item:
                 Option::Some _head:
-                    some<List<.T>> List<.T> next_items
+                    some List<.T> next_items
                 Option::None:
                     vec::free<.T> next_items
-                    none<List<.T>>
+                    none
 
 //: reverse: list を[消費/しょうひ]して[論理順序/ろんりじゅんじょ]を[反転/はんてん]する
 pub fn reverse <.T: Copy> %impure fn List .T List .T \lst:
