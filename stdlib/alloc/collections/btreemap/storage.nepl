@@ -64,14 +64,14 @@ pub fn btreemap_key_at <.K: Copy> %fn &Vec Option .K fn i32 Option .K \keys\idx:
         Option::Some key_opt:
             key_opt
         Option::None:
-            none<.K>
+            none
 
 pub fn btreemap_value_at <.V: Copy> %fn &Vec Option .V fn i32 Option .V \values\idx:
     match vec::get<Option<.V>> values idx:
         Option::Some value_opt:
             value_opt
         Option::None:
-            none<.V>
+            none
 
 pub fn btreemap_store_key <.K: Copy> %impure fn &Vec Option .K impure fn i32 impure fn Option .K unit \keys\idx\key:
     vec::replace<Option<.K>> keys idx key
@@ -98,16 +98,16 @@ pub fn btreemap_free_storage <.K: Copy,.V: Copy> %fn BTreeMapStorage .K .V unit 
     vec::free<Option<.V>> values
 
 pub fn btreemap_alloc_storage <.K: Copy,.V: Copy> %impure fn i32 Result BTreeMapStorage .K .V Diag \cap:
-    match vec::filled<Option<.K>> cap none<.K>:
+    match vec::filled<Option<.K>> cap none:
         Result::Err _e:
             diag_err<BTreeMapStorage<.K,.V>> diag_out_of_memory
         Result::Ok keys:
-            match vec::filled<Option<.V>> cap none<.V>:
+            match vec::filled<Option<.V>> cap none:
                 Result::Err _e:
                     vec::free<Option<.K>> keys
                     diag_err<BTreeMapStorage<.K,.V>> diag_out_of_memory
                 Result::Ok values:
-                    ok<BTreeMapStorage<.K,.V>, Diag> BTreeMapStorage<.K,.V> keys values
+                    ok BTreeMapStorage<.K,.V> keys values
 
 pub fn btreemap_copy_live_slots <.K: Copy,.V: Copy> %impure fn &BTreeMapStorage .K .V impure fn &BTreeMapStorage .K .V impure fn i32 unit \src\dst\len0:
     let src_keys %&Vec Option .K btreemap_storage_keys<.K,.V> src
@@ -119,12 +119,12 @@ pub fn btreemap_copy_live_slots <.K: Copy,.V: Copy> %impure fn &BTreeMapStorage 
         do:
             match btreemap_key_at<.K> src_keys i:
                 Option::Some key:
-                    btreemap_store_key<.K> dst_keys i some<.K> key
+                    btreemap_store_key<.K> dst_keys i some key
                 Option::None:
                     unit
             match btreemap_value_at<.V> src_values i:
                 Option::Some value:
-                    btreemap_store_value<.V> dst_values i some<.V> value
+                    btreemap_store_value<.V> dst_values i some value
                 Option::None:
                     unit
             set i add i 1
@@ -133,8 +133,8 @@ pub fn btreemap_clear_slots <.K: Copy,.V: Copy> %impure fn &BTreeMapStorage .K .
     if:
         lt i end
         then:
-            btreemap_store_key<.K> btreemap_storage_keys<.K,.V> storage i none<.K>
-            btreemap_store_value<.V> btreemap_storage_values<.K,.V> storage i none<.V>
+            btreemap_store_key<.K> btreemap_storage_keys<.K,.V> storage i none
+            btreemap_store_value<.V> btreemap_storage_values<.K,.V> storage i none
             btreemap_clear_slots<.K,.V> storage end add i 1
         else:
             unit
@@ -146,14 +146,14 @@ pub fn btreemap_shift_right <.K: Copy,.V: Copy> %impure fn &BTreeMapStorage .K .
             let from %i32 sub i 1
             match btreemap_key_slot<.K,.V> storage from:
                 Option::Some saved_key:
-                    btreemap_store_key_slot<.K,.V> storage i some<.K> saved_key
+                    btreemap_store_key_slot<.K,.V> storage i some saved_key
                 Option::None:
-                    btreemap_store_key_slot<.K,.V> storage i none<.K>
+                    btreemap_store_key_slot<.K,.V> storage i none
             match btreemap_value_slot<.K,.V> storage from:
                 Option::Some saved_value:
-                    btreemap_store_value_slot<.K,.V> storage i some<.V> saved_value
+                    btreemap_store_value_slot<.K,.V> storage i some saved_value
                 Option::None:
-                    btreemap_store_value_slot<.K,.V> storage i none<.V>
+                    btreemap_store_value_slot<.K,.V> storage i none
             set i from
 
 pub fn btreemap_shift_left_after_remove <.K: Copy,.V: Copy> %impure fn &BTreeMapStorage .K .V impure fn i32 impure fn i32 unit \storage\idx\len0:
@@ -164,17 +164,17 @@ pub fn btreemap_shift_left_after_remove <.K: Copy,.V: Copy> %impure fn &BTreeMap
             let nxt %i32 add i 1
             match btreemap_key_slot<.K,.V> storage nxt:
                 Option::Some saved_key:
-                    btreemap_store_key_slot<.K,.V> storage i some<.K> saved_key
+                    btreemap_store_key_slot<.K,.V> storage i some saved_key
                 Option::None:
-                    btreemap_store_key_slot<.K,.V> storage i none<.K>
+                    btreemap_store_key_slot<.K,.V> storage i none
             match btreemap_value_slot<.K,.V> storage nxt:
                 Option::Some saved_value:
-                    btreemap_store_value_slot<.K,.V> storage i some<.V> saved_value
+                    btreemap_store_value_slot<.K,.V> storage i some saved_value
                 Option::None:
-                    btreemap_store_value_slot<.K,.V> storage i none<.V>
+                    btreemap_store_value_slot<.K,.V> storage i none
             set i nxt
-    btreemap_store_key_slot<.K,.V> storage last none<.K>
-    btreemap_store_value_slot<.K,.V> storage last none<.V>
+    btreemap_store_key_slot<.K,.V> storage last none
+    btreemap_store_value_slot<.K,.V> storage last none
 
 pub fn btreemap_grow <.K: Copy,.V: Copy> %impure fn BTreeMap .K .V Result BTreeMap .K .V BTreeMapInsertError .K .V \hm:
     let len0 %i32 *field::get_ref &hm "len"

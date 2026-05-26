@@ -81,12 +81,12 @@ fn print_result %impure fn i32 unit \val:
 fn push_or_report %impure fn Stack i32 impure fn i32 Result Stack i32 str \stack\val:
     match stk::push<i32> stack val:
         Result::Ok next_stack:
-            ok<Stack<i32>,str> next_stack
+            ok next_stack
         Result::Err e:
             let returned %Stack i32 stk::stack_push_error_stack<i32> e
             stk::free<i32> returned;
             print_error "out of memory";
-            err<Stack<i32>,str> "out of memory"
+            err "out of memory"
 
 //: apply_op: stack 上の 2 値へ二項演算を適用する
 //:
@@ -98,7 +98,7 @@ fn apply_op %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token
         lt stk::len<i32> &stack 2
         then:
             print_error "stack underflow";
-            ok<Stack<i32>,str> stack
+            ok stack
         else:
             let popped_b %StackPop i32 stk::pop_top<i32> stack
             let b_opt %Option i32 stk::stack_pop_item<i32> &popped_b
@@ -122,10 +122,10 @@ fn apply_op %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token
                             push_or_report stack_a res
                         Option::None:
                             print_error "stack underflow";
-                            ok<Stack<i32>,str> stack_a
+                            ok stack_a
                 Option::None:
                     print_error "stack underflow";
-                    ok<Stack<i32>,str> stack_b
+                    ok stack_b
 
 //: process_token: 1 token を数値または演算子として処理する
 //:
@@ -136,7 +136,7 @@ fn process_token %impure fn Stack i32 impure fn str Result Stack i32 str \stack\
     if:
         string_search::str_eq token ""
         then:
-            ok<Stack<i32>,str> stack
+            ok stack
         else:
             let is_op %bool or or string_search::str_eq token "+" string_search::str_eq token "-" string_search::str_eq token "*";
             if:
@@ -149,22 +149,22 @@ fn process_token %impure fn Stack i32 impure fn str Result Stack i32 str \stack\
                             push_or_report stack val
                         Result::Err _:
                             print_error "unknown token";
-                            ok<Stack<i32>,str> stack
+                            ok stack
 
 fn process_token_state %impure fn Result Stack i32 str impure fn str Result Stack i32 str \state\token:
     match state:
         Result::Ok stack:
             process_token stack token
         Result::Err msg:
-            err<Stack<i32>,str> msg
+            err msg
 
 fn token_error_state %impure fn Result Stack i32 str impure fn str Result Stack i32 str \state\msg:
     match state:
         Result::Ok stack:
             stk::free<i32> stack;
-            err<Stack<i32>,str> msg
+            err msg
         Result::Err old_msg:
-            err<Stack<i32>,str> old_msg
+            err old_msg
 
 //: eval_line: 1 行の RPN 式を評価する
 //:
@@ -177,7 +177,7 @@ fn eval_line %impure fn str unit \line:
 
     match stk::new<i32>:
         Result::Ok stack0:
-            let mut stack_state %Result Stack i32 str ok<Stack<i32>,str> stack0;
+            let mut stack_state %Result Stack i32 str ok stack0;
             let mut start %i32 0;
             let mut i %i32 0;
             while le i n:

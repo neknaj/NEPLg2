@@ -46762,3 +46762,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
   - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s).
   - `node nodesrc/issues.js check --dir issues`: passed.
   - `git diff --check`: passed.
+
+## 2026-05-26 Agent 1 five-worker helper postfix cleanup checkpoint
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`some` / `none` / `ok` / `err` / `is_*` helper postfix を 5 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- examples/KP、type/prelude、selfhost parser、CLI args、collections/diag の 5 領域を同時に処理し、26 files から helper postfix 398 件を撤廃した。
+- `stdlib/neplg2/core/options.nepl` と `stdlib/alloc/diag/error/outcome.nepl` では、`//:` doctest 内に残っていた旧 helper postfix も更新した。`options.nepl` の doctest は `some` と `and` を使うため、`core/option` と `core/math` の明示 import を追加した。
+- `new<T>` / `push<T>` / `get<T>` / `unwrap_ok<T,E>` など、producer 側または別 helper family の推論を混ぜる箇所はこの checkpoint では扱っていない。
+- `rg -n "\b(some|none|ok|err|is_some|is_none|is_ok|is_err)<" <対象26 source files>` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/options.nepl --no-tree -o tmp/neplg21-options-doctest-after-import.json -j 1 --dist web/dist --assert-io` は 1/1 pass。
+- 対象26 files の `node nodesrc/tests.js ... -o tmp/neplg21-helper-postfix-scope-cleanup.json -j 4 --dist web/dist --assert-io` は 33 件中 32 件 compile timeout、1 件 fail だった。fail は `options.nepl` doctest の comment sample に残っていた import 不足で、上記の追加後に focused pass を確認した。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。

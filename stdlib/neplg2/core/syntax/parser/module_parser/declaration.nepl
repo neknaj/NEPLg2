@@ -183,166 +183,166 @@ fn selfhost_parser_declaration_header_start %fn &Vec SelfhostToken fn i32 fn Sel
 fn selfhost_parser_declaration_head_kind %fn TokenKind Option SelfhostModuleDeclarationHeadKind \kind:
     match kind:
         TokenKind::Ident:
-            some<SelfhostModuleDeclarationHeadKind> SelfhostModuleDeclarationHeadKind::Name
+            some SelfhostModuleDeclarationHeadKind::Name
         TokenKind::Dot:
-            some<SelfhostModuleDeclarationHeadKind> SelfhostModuleDeclarationHeadKind::TypeLabel
+            some SelfhostModuleDeclarationHeadKind::TypeLabel
         TokenKind::LAngle:
-            some<SelfhostModuleDeclarationHeadKind> SelfhostModuleDeclarationHeadKind::GenericParams
+            some SelfhostModuleDeclarationHeadKind::GenericParams
         TokenKind::Indent:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Dedent:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Newline:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Eof:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Colon:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Semicolon:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Pipe:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::LParen:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::RParen:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Comma:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::RAngle:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Percent:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Backslash:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Arrow:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::PathSep:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::At:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Ampersand:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Star:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Minus:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Equals:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::IntLiteral:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::FloatLiteral:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::BoolLiteral:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::CharLiteral:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::StringLiteral:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::UnitLiteral:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwFn:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwLet:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwMut:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwNoShadow:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwSet:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwIf:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwWhile:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwCond:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwThen:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwElse:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwDo:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwStruct:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwEnum:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwMatch:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwTrait:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwImpl:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwFor:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwPub:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwBlock:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwTuple:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::KwMlstr:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirEntry:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirTarget:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirImport:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirUse:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirIfTarget:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirIfProfile:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirCapability:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirWasm:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirLlvmIr:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirIndentWidth:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirInclude:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirExtern:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirIntrinsic:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirPrelude:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DirNoPrelude:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::WasmText:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::LlvmIrText:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::MlstrLine:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::DocComment:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::UnterminatedChar:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::UnterminatedString:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
         TokenKind::Unknown:
-            none<SelfhostModuleDeclarationHeadKind>
+            none
 
 fn selfhost_parser_declaration_head %fn &Vec SelfhostToken fn i32 fn i32 Option SelfhostModuleDeclarationHead \tokens\n\idx:
     let head_idx %i32 add idx 1
     if:
         ge head_idx n
         then:
-            none<SelfhostModuleDeclarationHead>
+            none
         else:
             match v::get<SelfhostToken> tokens head_idx:
                 Option::Some head:
                     match selfhost_parser_declaration_head_kind head.kind:
                         Option::Some kind:
-                            some<SelfhostModuleDeclarationHead> selfhost_module_declaration_head_new kind head.span
+                            some selfhost_module_declaration_head_new kind head.span
                         Option::None:
-                            none<SelfhostModuleDeclarationHead>
+                            none
                 Option::None:
-                    none<SelfhostModuleDeclarationHead>
+                    none
 
 fn selfhost_parser_header_end_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i32 \tokens\n\idx\last_end:
     if:

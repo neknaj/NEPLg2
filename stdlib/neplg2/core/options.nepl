@@ -19,13 +19,15 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
+//:| #import "core/math" as *
+//:| #import "core/option" as *
 //:| #import "neplg2/core/options" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let opts0 %SelfhostCompileOptions selfhost_compile_options_default
 //:     let opts1 %SelfhostCompileOptions selfhost_compile_options_with_target opts0 SelfhostCompileTarget::Wasm
 //:     let opts2 %SelfhostCompileOptions selfhost_compile_options_with_profile opts1 SelfhostBuildProfile::Release
 //:     let opts3 %SelfhostCompileOptions selfhost_compile_options_with_verbose opts2 true
-//:     let target %SelfhostCompileTarget selfhost_compile_resolve_target opts3 some<SelfhostCompileTarget> SelfhostCompileTarget::Wasi
+//:     let target %SelfhostCompileTarget selfhost_compile_resolve_target opts3 some SelfhostCompileTarget::Wasi
 //:     let profile %SelfhostBuildProfile selfhost_compile_resolve_profile opts3 SelfhostBuildProfile::Debug
 //:     let ok %bool and:
 //:         selfhost_compile_target_is_wasm target
@@ -98,15 +100,15 @@ pub fn selfhost_compile_options_new %fn Option SelfhostCompileTarget fn bool fn 
 
 //: selfhost_compile_options_default: 既定の compile option を[返/かえ]す
 pub fn selfhost_compile_options_default %fn unit SelfhostCompileOptions \unit:
-    selfhost_compile_options_new none<SelfhostCompileTarget> false none<SelfhostBuildProfile>
+    selfhost_compile_options_new none false none
 
 //: selfhost_compile_options_with_target: 明示 target override を[設定/せってい]する
 pub fn selfhost_compile_options_with_target %fn SelfhostCompileOptions fn SelfhostCompileTarget SelfhostCompileOptions \options\target:
-    selfhost_compile_options_new some<SelfhostCompileTarget> target options.verbose options.profile
+    selfhost_compile_options_new some target options.verbose options.profile
 
 //: selfhost_compile_options_with_profile: 明示 profile override を[設定/せってい]する
 pub fn selfhost_compile_options_with_profile %fn SelfhostCompileOptions fn SelfhostBuildProfile SelfhostCompileOptions \options\profile:
-    selfhost_compile_options_new options.target options.verbose some<SelfhostBuildProfile> profile
+    selfhost_compile_options_new options.target options.verbose some profile
 
 //: selfhost_compile_options_with_verbose: verbose flag を[設定/せってい]する
 pub fn selfhost_compile_options_with_verbose %fn SelfhostCompileOptions fn bool SelfhostCompileOptions \options\verbose:
@@ -190,5 +192,5 @@ pub fn selfhost_build_profile_is_release %fn SelfhostBuildProfile bool \profile:
 
 pub fn selfhost_options_stage0 %fn unit i32 \unit:
     let options %SelfhostCompileOptions selfhost_compile_options_default
-    let target %SelfhostCompileTarget selfhost_compile_resolve_target options none<SelfhostCompileTarget>
+    let target %SelfhostCompileTarget selfhost_compile_resolve_target options none
     if selfhost_compile_target_is_wasm target 0 1

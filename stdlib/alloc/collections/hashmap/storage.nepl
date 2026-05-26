@@ -79,7 +79,7 @@ pub fn hashmap_key_at <.K: Copy> %fn &Vec Option .K fn i32 Option .K \keys\idx:
         Option::Some key_opt:
             key_opt
         Option::None:
-            none<.K>
+            none
 
 //: hashmap_value_at: value slot を Option として[読/よ]む
 pub fn hashmap_value_at <.V: Copy> %fn &Vec Option .V fn i32 Option .V \values\idx:
@@ -87,7 +87,7 @@ pub fn hashmap_value_at <.V: Copy> %fn &Vec Option .V fn i32 Option .V \values\i
         Option::Some value_opt:
             value_opt
         Option::None:
-            none<.V>
+            none
 
 //: hashmap_store_state: state slot を[書/か]き[換/か]える
 pub fn hashmap_store_state %impure fn &Vec HashMapBucketState impure fn i32 impure fn HashMapBucketState unit \states\idx\state:
@@ -106,14 +106,14 @@ pub fn hashmap_store_value <.V: Copy> %impure fn &Vec Option .V impure fn i32 im
 //: ### [目的/もくてき]
 //: - state と key/value option を同じ slot index で[同時/どうじ]に[更新/こうしん]します。
 pub fn hashmap_store_full <.K: Copy,.V: Copy> %impure fn &HashMapStorage .K .V impure fn i32 impure fn .K impure fn .V unit \storage\idx\key\value:
-    hashmap_store_key<.K> hashmap_storage_keys<.K,.V> storage idx some<.K> key
-    hashmap_store_value<.V> hashmap_storage_values<.K,.V> storage idx some<.V> value
+    hashmap_store_key<.K> hashmap_storage_keys<.K,.V> storage idx some key
+    hashmap_store_value<.V> hashmap_storage_values<.K,.V> storage idx some value
     hashmap_store_state hashmap_storage_states<.K,.V> storage idx HashMapBucketState::Full
 
 //: hashmap_store_tombstone: slot を tombstone にして payload を None に[戻/もど]す
 pub fn hashmap_store_tombstone <.K: Copy,.V: Copy> %impure fn &HashMapStorage .K .V impure fn i32 unit \storage\idx:
-    hashmap_store_key<.K> hashmap_storage_keys<.K,.V> storage idx none<.K>
-    hashmap_store_value<.V> hashmap_storage_values<.K,.V> storage idx none<.V>
+    hashmap_store_key<.K> hashmap_storage_keys<.K,.V> storage idx none
+    hashmap_store_value<.V> hashmap_storage_values<.K,.V> storage idx none
     hashmap_store_state hashmap_storage_states<.K,.V> storage idx HashMapBucketState::Tombstone
 
 //: hashmap_free_storage: backing storage を[解放/かいほう]する
@@ -140,15 +140,15 @@ pub fn hashmap_alloc_storage <.K: Copy,.V: Copy> %impure fn i32 Result HashMapSt
         Result::Err _e:
             diag_err<HashMapStorage<.K,.V>> diag_out_of_memory
         Result::Ok states:
-            match vec::filled<Option<.K>> cap none<.K>:
+            match vec::filled<Option<.K>> cap none:
                 Result::Err _e:
                     vec::free<HashMapBucketState> states
                     diag_err<HashMapStorage<.K,.V>> diag_out_of_memory
                 Result::Ok keys:
-                    match vec::filled<Option<.V>> cap none<.V>:
+                    match vec::filled<Option<.V>> cap none:
                         Result::Err _e:
                             vec::free<HashMapBucketState> states
                             vec::free<Option<.K>> keys
                             diag_err<HashMapStorage<.K,.V>> diag_out_of_memory
                         Result::Ok values:
-                            ok<HashMapStorage<.K,.V>, Diag> HashMapStorage<.K,.V> states keys values
+                            ok HashMapStorage<.K,.V> states keys values

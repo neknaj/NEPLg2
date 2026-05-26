@@ -290,7 +290,7 @@ pub fn selfhost_hir_module_get_function %fn &SelfhostHirModule fn SelfhostHirFun
     if:
         lt function_id.index 0
         then:
-            none<SelfhostHirFunction>
+            none
         else:
             let functions %&Vec SelfhostHirFunction field::get_ref module "functions"
             v::get<SelfhostHirFunction> functions function_id.index
@@ -300,7 +300,7 @@ pub fn selfhost_hir_module_get_expr %fn &SelfhostHirModule fn SelfhostHirExprId 
     if:
         lt expr_id.index 0
         then:
-            none<SelfhostHirExpr>
+            none
         else:
             let exprs %&Vec SelfhostHirExpr field::get_ref module "exprs"
             v::get<SelfhostHirExpr> exprs expr_id.index
@@ -309,12 +309,12 @@ pub fn selfhost_hir_module_get_expr %fn &SelfhostHirModule fn SelfhostHirExprId 
 pub fn selfhost_hir_module_get_param %fn &SelfhostHirModule fn SelfhostHirParamRange fn i32 Option SelfhostHirParam \module\param_range\idx:
     match param_range:
         SelfhostHirParamRange::Empty:
-            none<SelfhostHirParam>
+            none
         SelfhostHirParamRange::Range range:
             if:
                 or lt idx 0 ge idx range.param_count
                 then:
-                    none<SelfhostHirParam>
+                    none
                 else:
                     let params %&Vec SelfhostHirParam field::get_ref module "params"
                     v::get<SelfhostHirParam> params add range.first_param idx
@@ -323,12 +323,12 @@ pub fn selfhost_hir_module_get_param %fn &SelfhostHirModule fn SelfhostHirParamR
 pub fn selfhost_hir_module_get_child %fn &SelfhostHirModule fn SelfhostHirChildRange fn i32 Option SelfhostHirExprId \module\child_range\idx:
     match child_range:
         SelfhostHirChildRange::Empty:
-            none<SelfhostHirExprId>
+            none
         SelfhostHirChildRange::Range range:
             if:
                 or lt idx 0 ge idx range.child_count
                 then:
-                    none<SelfhostHirExprId>
+                    none
                 else:
                     let expr_children %&Vec SelfhostHirExprId field::get_ref module "expr_children"
                     v::get<SelfhostHirExprId> expr_children add range.first_child idx

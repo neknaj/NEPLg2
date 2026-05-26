@@ -105,7 +105,7 @@ fn dense_graph_diag_std_error %impure fn StdErrorKind Diag \kind:
 fn dense_graph_matrix_error %fn AdjacencyMatrixUpdateError Result DenseGraph DenseGraphUpdateError \e:
     let d %Diag am::adjacency_matrix_update_error_diag &e
     let matrix %AdjacencyMatrix am::adjacency_matrix_update_error_owner e
-    err<DenseGraph, DenseGraphUpdateError> DenseGraphUpdateError DenseGraph matrix d
+    err DenseGraphUpdateError DenseGraph matrix d
 
 //: dense_graph_new: 頂点数 `n` の空グラフを作る
 //:
@@ -114,9 +114,9 @@ fn dense_graph_matrix_error %fn AdjacencyMatrixUpdateError Result DenseGraph Den
 pub fn dense_graph_new %impure fn i32 Result DenseGraph Diag \n:
     match am::new n:
         Result::Ok matrix:
-            ok<DenseGraph, Diag> DenseGraph matrix
+            ok DenseGraph matrix
         Result::Err d:
-            err<DenseGraph, Diag> d
+            err d
 
 //: dense_graph_free: graph owner を解放する
 pub fn dense_graph_free %fn DenseGraph unit \g:
@@ -143,7 +143,7 @@ pub fn dense_graph_add_undirected %impure fn DenseGraph impure fn i32 impure fn 
         Result::Ok matrix_uv:
             match am::insert matrix_uv vtx u:
                 Result::Ok matrix_next:
-                    ok<DenseGraph, DenseGraphUpdateError> DenseGraph matrix_next
+                    ok DenseGraph matrix_next
                 Result::Err e:
                     dense_graph_matrix_error e
         Result::Err e:
@@ -169,7 +169,7 @@ pub fn dense_graph_read_undirected_1indexed %impure fn &StreamScanner Result Den
         else:
             match dense_graph_new n:
                 Result::Err d:
-                    err<DenseGraph, Diag> d
+                    err d
                 Result::Ok initial:
                     let mut graph %DenseGraph initial
                     let mut i %i32 0
@@ -193,7 +193,7 @@ pub fn dense_graph_read_undirected_1indexed %impure fn &StreamScanner Result Den
                             dense_graph_free graph
                             diag_err<DenseGraph> dense_graph_diag_vertex
                         else:
-                            ok<DenseGraph, Diag> graph
+                            ok graph
 
 //: dense_graph_bfs_dist: 開始頂点からの最短距離配列を返す
 //:
@@ -217,13 +217,13 @@ pub fn dense_graph_bfs_dist %impure fn &DenseGraph impure fn i32 Result Vec i32 
             match v::filled<i32> n unvisited:
                 Result::Err e:
                     let d %Diag dense_graph_diag_std_error e
-                    err<Vec<i32>, Diag> d
+                    err d
                 Result::Ok dist:
                     match v::filled<i32> n 0:
                         Result::Err e:
                             v::free<i32> dist
                             let d %Diag dense_graph_diag_std_error e
-                            err<Vec<i32>, Diag> d
+                            err d
                         Result::Ok queue:
                             v::replace<i32> &dist start 0
                             v::replace<i32> &queue 0 start
@@ -278,4 +278,4 @@ pub fn dense_graph_bfs_dist %impure fn &DenseGraph impure fn i32 Result Vec i32 
                                     v::free<i32> dist
                                     diag_err<Vec<i32>> dense_graph_diag_storage
                                 else:
-                                    ok<Vec<i32>, Diag> dist
+                                    ok dist

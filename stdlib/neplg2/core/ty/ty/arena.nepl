@@ -129,7 +129,7 @@ pub fn selfhost_type_arena_get_record %fn &SelfhostTypeArena fn SelfhostTypeId O
     if:
         lt type_id.index 0
         then:
-            none<SelfhostTypeRecord>
+            none
         else:
             let records %&Vec SelfhostTypeRecord field::get_ref arena "records"
             v::get<SelfhostTypeRecord> records type_id.index
@@ -140,11 +140,11 @@ pub fn selfhost_type_arena_get_kind %fn &SelfhostTypeArena fn SelfhostTypeId Opt
         Option::Some record:
             match record:
                 SelfhostTypeRecord::Primitive kind:
-                    some<SelfhostTypeKind> selfhost_primitive_type_kind_to_type_kind kind
+                    some selfhost_primitive_type_kind_to_type_kind kind
                 SelfhostTypeRecord::Function _function:
-                    some<SelfhostTypeKind> SelfhostTypeKind::Function
+                    some SelfhostTypeKind::Function
         Option::None:
-            none<SelfhostTypeKind>
+            none
 
 //: selfhost_type_arena_function_arg_count: function type の引数数を[返/かえ]す
 pub fn selfhost_type_arena_function_arg_count %fn &SelfhostTypeArena fn SelfhostTypeId Option i32 \arena\type_id:
@@ -152,11 +152,11 @@ pub fn selfhost_type_arena_function_arg_count %fn &SelfhostTypeArena fn Selfhost
         Option::Some record:
             match record:
                 SelfhostTypeRecord::Primitive _kind:
-                    none<i32>
+                    none
                 SelfhostTypeRecord::Function function:
-                    some<i32> function.arg_count
+                    some function.arg_count
         Option::None:
-            none<i32>
+            none
 
 //: selfhost_type_arena_function_arg: function type の指定引数 TypeId を[返/かえ]す
 pub fn selfhost_type_arena_function_arg %fn &SelfhostTypeArena fn SelfhostTypeId fn i32 Option SelfhostTypeId \arena\type_id\arg_idx:
@@ -164,17 +164,17 @@ pub fn selfhost_type_arena_function_arg %fn &SelfhostTypeArena fn SelfhostTypeId
         Option::Some record:
             match record:
                 SelfhostTypeRecord::Primitive _kind:
-                    none<SelfhostTypeId>
+                    none
                 SelfhostTypeRecord::Function function:
                     if:
                         or lt arg_idx 0 ge arg_idx function.arg_count
                         then:
-                            none<SelfhostTypeId>
+                            none
                         else:
                             let function_args %&Vec SelfhostTypeId field::get_ref arena "function_args"
                             v::get<SelfhostTypeId> function_args add function.first_arg arg_idx
         Option::None:
-            none<SelfhostTypeId>
+            none
 
 //: selfhost_type_arena_function_result: function type の戻り値 TypeId を[返/かえ]す
 pub fn selfhost_type_arena_function_result %fn &SelfhostTypeArena fn SelfhostTypeId Option SelfhostTypeId \arena\type_id:
@@ -182,8 +182,8 @@ pub fn selfhost_type_arena_function_result %fn &SelfhostTypeArena fn SelfhostTyp
         Option::Some record:
             match record:
                 SelfhostTypeRecord::Primitive _kind:
-                    none<SelfhostTypeId>
+                    none
                 SelfhostTypeRecord::Function function:
-                    some<SelfhostTypeId> function.result
+                    some function.result
         Option::None:
-            none<SelfhostTypeId>
+            none

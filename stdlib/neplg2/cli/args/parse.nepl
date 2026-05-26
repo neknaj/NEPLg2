@@ -55,9 +55,9 @@ pub fn selfhost_cli_arg_at %fn &Vec str fn i32 Option str \args\idx:
 pub fn selfhost_cli_next_value %fn &Vec str fn i32 Result str SelfhostCliErrorKind \args\i:
     match selfhost_cli_arg_at args add i 1:
         Option::Some value:
-            ok<str,SelfhostCliErrorKind> value
+            ok value
         Option::None:
-            err<str,SelfhostCliErrorKind> SelfhostCliErrorKind::MissingValue
+            err SelfhostCliErrorKind::MissingValue
 
 //: selfhost_cli_set_input: input path を重複検査つきで設定する
 //:
@@ -66,13 +66,13 @@ pub fn selfhost_cli_next_value %fn &Vec str fn i32 Result str SelfhostCliErrorKi
 pub fn selfhost_cli_set_input %fn Option str fn str Result Option str SelfhostCliErrorKind \current\value:
     match current:
         Option::Some _old:
-            err<Option<str>,SelfhostCliErrorKind> SelfhostCliErrorKind::MultipleInput
+            err SelfhostCliErrorKind::MultipleInput
         Option::None:
-            ok<Option<str>,SelfhostCliErrorKind> some<str> value
+            ok some value
 
 //: selfhost_cli_finish: 走査済み state を success result にする
 pub fn selfhost_cli_finish %fn Option str fn Option str fn Option str fn Option SelfhostCliTarget fn SelfhostCliEmitSet fn Option SelfhostCliProfile fn bool fn bool fn bool fn bool fn bool fn Option i32 Result SelfhostCliOptions SelfhostCliErrorKind \input\output\stdlib_root\target\emit\profile\check\run\attach_source\lib\verbose\run_args_start:
-    ok<SelfhostCliOptions,SelfhostCliErrorKind> selfhost_cli_options_new check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
+    ok selfhost_cli_options_new check run attach_source lib verbose emit target profile stdlib_root output input run_args_start
 
 //: selfhost_cli_parse_loop: argv parser の本体
 //:
@@ -89,11 +89,11 @@ pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Optio
     if:
         le count i
         then:
-            selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose none<i32>
+            selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose none
         else:
             match selfhost_cli_arg_at args i:
                 Option::None:
-                    selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose none<i32>
+                    selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose none
                 Option::Some arg:
                     match selfhost_cli_arg_kind arg:
                         SelfhostCliArgKind::Check:
@@ -109,65 +109,65 @@ pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Optio
                         SelfhostCliArgKind::Target:
                             match selfhost_cli_next_value args i:
                                 Result::Err e:
-                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                    err e
                                 Result::Ok value:
                                     match selfhost_cli_parse_target_value value:
                                         Result::Err e:
-                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                            err e
                                         Result::Ok parsed:
-                                            selfhost_cli_parse_loop args count add i 2 input output stdlib_root some<SelfhostCliTarget> parsed emit profile check run attach_source lib verbose
+                                            selfhost_cli_parse_loop args count add i 2 input output stdlib_root some parsed emit profile check run attach_source lib verbose
                         SelfhostCliArgKind::Emit:
                             match selfhost_cli_next_value args i:
                                 Result::Err e:
-                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                    err e
                                 Result::Ok value:
                                     match selfhost_cli_parse_emit_set_value value:
                                         Result::Err e:
-                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                            err e
                                         Result::Ok parsed:
                                             selfhost_cli_parse_loop args count add i 2 input output stdlib_root target parsed profile check run attach_source lib verbose
                         SelfhostCliArgKind::StdlibRoot:
                             match selfhost_cli_next_value args i:
                                 Result::Err e:
-                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                    err e
                                 Result::Ok value:
-                                    selfhost_cli_parse_loop args count add i 2 input output some<str> value target emit profile check run attach_source lib verbose
+                                    selfhost_cli_parse_loop args count add i 2 input output some value target emit profile check run attach_source lib verbose
                         SelfhostCliArgKind::Output:
                             match selfhost_cli_next_value args i:
                                 Result::Err e:
-                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                    err e
                                 Result::Ok value:
-                                    selfhost_cli_parse_loop args count add i 2 input some<str> value stdlib_root target emit profile check run attach_source lib verbose
+                                    selfhost_cli_parse_loop args count add i 2 input some value stdlib_root target emit profile check run attach_source lib verbose
                         SelfhostCliArgKind::Input:
                             match selfhost_cli_next_value args i:
                                 Result::Err e:
-                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                    err e
                                 Result::Ok value:
                                     match selfhost_cli_set_input input value:
                                         Result::Err e:
-                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                            err e
                                         Result::Ok next_input:
                                             selfhost_cli_parse_loop args count add i 2 next_input output stdlib_root target emit profile check run attach_source lib verbose
                         SelfhostCliArgKind::Profile:
                             match selfhost_cli_next_value args i:
                                 Result::Err e:
-                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                    err e
                                 Result::Ok value:
                                     match selfhost_cli_parse_profile_value value:
                                         Result::Err e:
-                                            err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                            err e
                                         Result::Ok parsed:
-                                            selfhost_cli_parse_loop args count add i 2 input output stdlib_root target emit some<SelfhostCliProfile> parsed check run attach_source lib verbose
+                                            selfhost_cli_parse_loop args count add i 2 input output stdlib_root target emit some parsed check run attach_source lib verbose
                         SelfhostCliArgKind::Separator:
-                            selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose some<i32> add i 1
+                            selfhost_cli_finish input output stdlib_root target emit profile check run attach_source lib verbose some add i 1
                         SelfhostCliArgKind::Positional:
                             match selfhost_cli_set_input input arg:
                                 Result::Err e:
-                                    err<SelfhostCliOptions,SelfhostCliErrorKind> e
+                                    err e
                                 Result::Ok next_input:
                                     selfhost_cli_parse_loop args count add i 1 next_input output stdlib_root target emit profile check run attach_source lib verbose
                         SelfhostCliArgKind::UnknownOption:
-                            err<SelfhostCliOptions,SelfhostCliErrorKind> SelfhostCliErrorKind::UnknownOption
+                            err SelfhostCliErrorKind::UnknownOption
 
 //: selfhost_cli_parse_args: argv[0] を含まない引数列を解析する
 //:
@@ -240,7 +240,7 @@ pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Optio
 //: ```
 pub fn selfhost_cli_parse_args %fn &Vec str Result SelfhostCliOptions SelfhostCliErrorKind \args:
     let count %i32 v::len<str> args;
-    selfhost_cli_parse_loop args count 0 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
+    selfhost_cli_parse_loop args count 0 none none none none selfhost_cli_emit_set_default none false false false false false
 
 //: selfhost_cli_parse_argv: argv[0] を含む raw argv を解析する
 //:
@@ -306,4 +306,4 @@ pub fn selfhost_cli_parse_args %fn &Vec str Result SelfhostCliOptions SelfhostCl
 //: ```
 pub fn selfhost_cli_parse_argv %fn &Vec str Result SelfhostCliOptions SelfhostCliErrorKind \argv:
     let count %i32 v::len<str> argv;
-    selfhost_cli_parse_loop argv count 1 none<str> none<str> none<str> none<SelfhostCliTarget> selfhost_cli_emit_set_default none<SelfhostCliProfile> false false false false false
+    selfhost_cli_parse_loop argv count 1 none none none none selfhost_cli_emit_set_default none false false false false false

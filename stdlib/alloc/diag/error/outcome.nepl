@@ -49,13 +49,13 @@ pub struct Outcome<.T, .E>:
 
 //: outcome_ok: [診断/しんだん]なしの[成功/せいこう][結果/けっか]を[作/つく]る
 pub fn outcome_ok <.T, .E> %fn .T Outcome .T .E \v:
-    let r %Result .T .E ok<.T, .E> v;
-    Outcome r none<Diags>
+    let r %Result .T .E ok v;
+    Outcome r none
 
 //: outcome_err: [診断/しんだん]なしの[失敗/しっぱい][結果/けっか]を[作/つく]る
 pub fn outcome_err <.T, .E> %fn .E Outcome .T .E \e:
-    let r %Result .T .E err<.T, .E> e;
-    Outcome r none<Diags>
+    let r %Result .T .E err e;
+    Outcome r none
 
 //: outcome_with_diags: [診断/しんだん][群/ぐん]を[付与/ふよ]する
 pub fn outcome_with_diags <.T, .E> %fn Outcome .T .E fn Diags Outcome .T .E \o\ds:
@@ -65,11 +65,11 @@ pub fn outcome_with_diags <.T, .E> %fn Outcome .T .E fn Diags Outcome .T .E \o\d
             diags_free old_ds
         Option::None:
             unit
-    Outcome result some<Diags> ds
+    Outcome result some ds
 
 //: result_to_outcome: `Result` を[診断/しんだん]なし `Outcome` に[昇格/しょうかく]する
 pub fn result_to_outcome <.T, .E> %fn Result .T .E Outcome .T .E \r:
-    Outcome r none<Diags>
+    Outcome r none
 
 //: into_outcome: `Result` を `Outcome` に[昇格/しょうかく]する[共通/きょうつう][入口/いりぐち]
 //:
@@ -87,7 +87,7 @@ pub fn result_to_outcome <.T, .E> %fn Result .T .E Outcome .T .E \r:
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error" as *
 //:| fn main %impure fn unit i32 \unit:
-//:     let r %Result i32 StdErrorKind ok<i32, StdErrorKind> 7;
+//:     let r %Result i32 StdErrorKind ok 7;
 //:     let o %Outcome i32 StdErrorKind into_outcome r
 //:     let checks checks_push checks_new assert outcome_is_ok o
 //:     let shown checks_print_report checks

@@ -151,34 +151,34 @@ pub fn cliarg_count_result %impure fn unit Result i32 i32 \unit:
 pub fn cliarg_get_checked %impure fn i32 Option str \idx:
     match alloc_region<u8> 8:
         Result::Err _:
-            none<str>
+            none
         Result::Ok meta_region:
             let meta %MemPtr u8 region_ptr &meta_region
             let res %Option str match cli_args_sizes_result meta:
                 Result::Err _:
-                    none<str>
+                    none
                 Result::Ok sizes:
                     let argc %i32 get sizes "argc"
                     let buf_size %i32 get sizes "buf_size"
                     if:
                         or lt idx 0 or ge idx argc le buf_size 0
                         then:
-                            none<str>
+                            none
                         else:
                             let argv_size %i32 mul argc 4
                             match alloc_region<u8> argv_size:
                                 Result::Err _:
-                                    none<str>
+                                    none
                                 Result::Ok argv_region:
                                     let argv %MemPtr u8 region_ptr &argv_region
                                     match alloc_region<u8> buf_size:
                                         Result::Err _:
                                             match dealloc_region<u8> argv_region:
                                                 Result::Ok _:
-                                                    unit
-                                                Result::Err _:
-                                                    unit
-                                            none<str>
+                                                unit
+                                            Result::Err _:
+                                                unit
+                                            none
                                         Result::Ok argv_buf_region:
                                             let argv_buf %MemPtr u8 region_ptr &argv_buf_region
                                             let argv_raw %i32 mem_ptr_addr argv
@@ -187,41 +187,41 @@ pub fn cliarg_get_checked %impure fn i32 Option str \idx:
                                             let inner %Option str if:
                                                 or le argv_raw 0 le argv_buf_raw 0
                                                 then:
-                                                    none<str>
+                                                    none
                                                 else:
                                                     match cli_zero_i32_slots_result argv argv_size:
                                                         Result::Err _:
-                                                            none<str>
+                                                            none
                                                         Result::Ok _:
                                                             match cli_zero_u8_buffer_result argv_buf buf_size:
                                                                 Result::Err _:
-                                                                    none<str>
+                                                                    none
                                                                 Result::Ok _:
                                                                     store_i32 arg_slot_raw 0
                                                                     let errno2 %i32 args_get argv_raw argv_buf_raw
                                                                     if:
                                                                         ne errno2 0
                                                                         then:
-                                                                            none<str>
+                                                                            none
                                                                         else:
                                                                             let arg_ptr %i32 load_i32 arg_slot_raw
                                                                             if:
                                                                                 le arg_ptr 0
                                                                                 then:
-                                                                                    none<str>
+                                                                                    none
                                                                                 else:
                                                                                     let arg_offset %i32 sub arg_ptr argv_buf_raw
                                                                                     if:
                                                                                         or lt arg_offset 0 ge arg_offset buf_size
                                                                                         then:
-                                                                                            none<str>
+                                                                                            none
                                                                                         else:
                                                                                             let arg_max_len %i32 sub buf_size arg_offset
                                                                                             match cstr::cstr_to_str_bounded_result mem_ptr_wrap arg_ptr arg_max_len:
                                                                                                 Result::Ok arg:
-                                                                                                    some<str> arg
+                                                                                                    some arg
                                                                                                 Result::Err _:
-                                                                                                    none<str>
+                                                                                                    none
                                             match dealloc_region<u8> argv_buf_region:
                                                 Result::Ok _:
                                                     unit

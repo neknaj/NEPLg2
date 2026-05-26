@@ -206,7 +206,7 @@ pub struct SelfhostModuleAst:
 //: - declaration header evidence を持たない item を作ります。
 //: - declaration item に対してこの constructor を使うと、module checker は proof solver 経由で header 欠落として拒否します。
 pub fn selfhost_module_item_new %fn SelfhostModuleItemKind fn SelfhostSourceSpan fn str SelfhostModuleItem \kind\span\lexeme:
-    SelfhostModuleItem kind span lexeme none<SelfhostModuleDeclarationHeader>
+    SelfhostModuleItem kind span lexeme none
 
 //: selfhost_module_declaration_head_new: declaration head evidence を[作/つく]る
 //:
@@ -229,7 +229,7 @@ pub fn selfhost_module_declaration_header_new %fn SelfhostModuleDeclarationKind 
 //: - parser が declaration item と header evidence を同時に AST へ載せるための constructor です。
 //: - item span は header span と同一にし、source fact の範囲が後続 proof とずれないようにします。
 pub fn selfhost_module_item_new_with_declaration %fn SelfhostModuleItemKind fn str fn SelfhostModuleDeclarationHeader SelfhostModuleItem \kind\lexeme\declaration:
-    SelfhostModuleItem kind declaration.header_span lexeme some<SelfhostModuleDeclarationHeader> declaration
+    SelfhostModuleItem kind declaration.header_span lexeme some declaration
 
 //: selfhost_module_item_kind_declaration: item kind を declaration kind へ[写/うつ]す
 //:
@@ -239,47 +239,47 @@ pub fn selfhost_module_item_new_with_declaration %fn SelfhostModuleItemKind fn s
 pub fn selfhost_module_item_kind_declaration %fn SelfhostModuleItemKind Option SelfhostModuleDeclarationKind \kind:
     match kind:
         SelfhostModuleItemKind::FunctionDecl:
-            some<SelfhostModuleDeclarationKind> SelfhostModuleDeclarationKind::Function
+            some SelfhostModuleDeclarationKind::Function
         SelfhostModuleItemKind::StructDecl:
-            some<SelfhostModuleDeclarationKind> SelfhostModuleDeclarationKind::Struct
+            some SelfhostModuleDeclarationKind::Struct
         SelfhostModuleItemKind::EnumDecl:
-            some<SelfhostModuleDeclarationKind> SelfhostModuleDeclarationKind::Enum
+            some SelfhostModuleDeclarationKind::Enum
         SelfhostModuleItemKind::TraitDecl:
-            some<SelfhostModuleDeclarationKind> SelfhostModuleDeclarationKind::Trait
+            some SelfhostModuleDeclarationKind::Trait
         SelfhostModuleItemKind::ImplDecl:
-            some<SelfhostModuleDeclarationKind> SelfhostModuleDeclarationKind::Impl
+            some SelfhostModuleDeclarationKind::Impl
         SelfhostModuleItemKind::DocComment:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::MlstrLine:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::EntryDirective:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::TargetDirective:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::ImportDirective:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::UseDirective:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::IfTargetDirective:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::IfProfileDirective:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::CapabilityDirective:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::PreludeDirective:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::NoPreludeDirective:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::IntrinsicDirective:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::WasmBlock:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::LlvmIrBlock:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::WasmText:
-            none<SelfhostModuleDeclarationKind>
+            none
         SelfhostModuleItemKind::LlvmIrText:
-            none<SelfhostModuleDeclarationKind>
+            none
 
 //: selfhost_module_item_kind_name: item kind の安定名を[返/かえ]す
 pub fn selfhost_module_item_kind_name %fn SelfhostModuleItemKind str \kind:

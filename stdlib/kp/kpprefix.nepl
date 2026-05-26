@@ -80,7 +80,7 @@ fn prefix_build_loop_i32 %impure fn &Vec i32 impure fn &Vec i32 impure fn i32 im
                 Option::None:
                     diag_err<unit> prefix_diag_range
         else:
-            ok<unit, Diag> unit
+            ok unit
 
 //: prefix_build_vec_i32: `Vec<i32>` から累積和ハンドルを作る
 //:
@@ -102,11 +102,11 @@ pub fn prefix_build_vec_i32 %impure fn Vec i32 Result PrefixI32 Diag \input:
                     match prefix_build_loop_i32 &input &pref_data n 0 0:
                         Result::Ok _:
                             vec::free<i32> input
-                            ok<PrefixI32, Diag> PrefixI32 pref_data
+                            ok PrefixI32 pref_data
                         Result::Err d:
                             vec::free<i32> input
                             vec::free<i32> pref_data
-                            err<PrefixI32, Diag> d
+                            err d
                 Result::Err e:
                     vec::free<i32> input
                     diag_err<PrefixI32> prefix_diag_std_error e
@@ -126,7 +126,7 @@ pub fn prefix_sum_i32 %impure fn &PrefixI32 impure fn i32 impure fn i32 Result i
                 Option::Some left:
                     match vec::get<i32> data r:
                         Option::Some right:
-                            ok<i32, Diag> sub right left
+                            ok sub right left
                         Option::None:
                             diag_err<i32> prefix_diag_range
                 Option::None:

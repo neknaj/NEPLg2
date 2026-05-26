@@ -37,23 +37,23 @@ pub fn diag_kind_new %fn DiagLevel fn Option StdErrorKind fn Option str DiagKind
 
 //: std_error_kind: `StdErrorKind` を[持/も]つ error [診断/しんだん][分類/ぶんるい]を[作/つく]る
 pub fn std_error_diag_kind %fn StdErrorKind DiagKind \kind:
-    diag_kind_new DiagLevel::Error some<StdErrorKind> kind none<str>
+    diag_kind_new DiagLevel::Error some kind none
 
 //: log_kind: local kind [付/つ]きの log [分類/ぶんるい]を[作/つく]る
 pub fn log_diag_kind %fn str DiagKind \local_kind:
-    diag_kind_new DiagLevel::Log none<StdErrorKind> some<str> local_kind
+    diag_kind_new DiagLevel::Log none some local_kind
 
 //: info_kind: local kind [付/つ]きの info [分類/ぶんるい]を[作/つく]る
 pub fn info_diag_kind %fn str DiagKind \local_kind:
-    diag_kind_new DiagLevel::Info none<StdErrorKind> some<str> local_kind
+    diag_kind_new DiagLevel::Info none some local_kind
 
 //: warn_kind: local kind [付/つ]きの warn [分類/ぶんるい]を[作/つく]る
 pub fn warn_diag_kind %fn str DiagKind \local_kind:
-    diag_kind_new DiagLevel::Warn none<StdErrorKind> some<str> local_kind
+    diag_kind_new DiagLevel::Warn none some local_kind
 
 //: diag_new: [診断/しんだん] 1 [件/けん]を[構築/こうちく]する
 pub fn diag_new %impure fn DiagKind impure fn str Diag \kind\message:
-    Diag kind message none<Span> "" "" none<str>
+    Diag kind message none "" "" none
 
 //: diag_log: log [診断/しんだん]を[作/つく]る
 pub fn diag_log %impure fn str Diag \message:
@@ -77,11 +77,11 @@ pub fn diag_error %impure fn StdErrorKind impure fn str Diag \kind\message:
 
 //: diag_with_span: [位置/いち][情報/じょうほう]を[付与/ふよ]する
 pub fn diag_with_span %fn Diag fn Span Diag \d\sp:
-    Diag *field::get_ref &d "kind" *field::get_ref &d "message" some<Span> sp *field::get_ref &d "notes" *field::get_ref &d "help" *field::get_ref &d "source"
+    Diag *field::get_ref &d "kind" *field::get_ref &d "message" some sp *field::get_ref &d "notes" *field::get_ref &d "help" *field::get_ref &d "source"
 
 //: diag_with_source: [由来/ゆらい][情報/じょうほう]を[付与/ふよ]する
 pub fn diag_with_source %fn Diag fn str Diag \d\src:
-    Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" *field::get_ref &d "notes" *field::get_ref &d "help" some<str> src
+    Diag *field::get_ref &d "kind" *field::get_ref &d "message" *field::get_ref &d "span" *field::get_ref &d "notes" *field::get_ref &d "help" some src
 
 //: diag_add_note: note を 1 [件/けん][追加/ついか]する
 pub fn diag_add_note %impure fn Diag impure fn str Diag \d\note:
@@ -124,7 +124,7 @@ pub fn diag_std_error_kind_str %fn Diag str \d:
 
 //: diag_err: `Diag` を `Result::Err` に[包/つつ]む
 pub fn diag_err <.T> %fn Diag Result .T Diag \d:
-    err<.T, Diag> d
+    err d
 
 //: diag_out_of_memory: [確保/かくほ][失敗/しっぱい]を[表/あらわ]す error [診断/しんだん]を[作/つく]る
 pub fn diag_out_of_memory %impure fn unit Diag \unit:

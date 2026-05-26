@@ -32,27 +32,27 @@ pub fn selfhost_builtin_function_arg_kind %fn SelfhostBuiltinFunction fn i32 Opt
         SelfhostBuiltinSignature::Unary sig:
             match index:
                 0:
-                    some<SelfhostTypeKind> sig.arg0
+                    some sig.arg0
                 _:
-                    none<SelfhostTypeKind>
+                    none
         SelfhostBuiltinSignature::Binary sig:
             match index:
                 0:
-                    some<SelfhostTypeKind> sig.arg0
+                    some sig.arg0
                 1:
-                    some<SelfhostTypeKind> sig.arg1
+                    some sig.arg1
                 _:
-                    none<SelfhostTypeKind>
+                    none
         SelfhostBuiltinSignature::Ternary sig:
             match index:
                 0:
-                    some<SelfhostTypeKind> sig.arg0
+                    some sig.arg0
                 1:
-                    some<SelfhostTypeKind> sig.arg1
+                    some sig.arg1
                 2:
-                    some<SelfhostTypeKind> sig.arg2
+                    some sig.arg2
                 _:
-                    none<SelfhostTypeKind>
+                    none
 
 //: selfhost_builtin_function_result_kind: builtin function の戻り値 type kind を[返/かえ]す
 pub fn selfhost_builtin_function_result_kind %fn SelfhostBuiltinFunction SelfhostTypeKind \builtin:

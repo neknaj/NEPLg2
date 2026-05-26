@@ -222,7 +222,7 @@ pub fn source_text_line_start %fn &SelfhostSourceText fn i32 Option i32 \text\li
     if:
         lt line 0
         then:
-            none<i32>
+            none
         else:
             v::get<i32> starts line
 
@@ -254,11 +254,11 @@ pub fn source_text_line_index_for_offset %fn &SelfhostSourceText fn i32 Option i
     if:
         or lt offset 0 gt offset n
         then:
-            none<i32>
+            none
         else:
             let starts %&Vec i32 field::get_ref text "line_starts"
             let count %i32 v::len<i32> starts
-            some<i32> source_text_line_index_search starts offset 0 count 0
+            some source_text_line_index_search starts offset 0 count 0
 
 //: source_text_trim_line_end: newline byte を[除/のぞ]いた line end を[返/かえ]す
 pub fn source_text_trim_line_end %fn str fn i32 fn i32 i32 \source\start\raw_end:
@@ -306,7 +306,7 @@ pub fn source_text_line_span %fn &SelfhostSourceText fn i32 Option SelfhostSourc
     if:
         or lt line 0 ge line count
         then:
-            none<SelfhostSourceSpan>
+            none
         else:
             match v::get<i32> starts line:
                 Option::Some start:
@@ -315,9 +315,9 @@ pub fn source_text_line_span %fn &SelfhostSourceText fn i32 Option SelfhostSourc
                     let n %i32 string_access::len source
                     let raw_end %i32 source_text_next_line_start_or_len starts add line 1 n
                     let end %i32 source_text_trim_line_end source start raw_end
-                    some<SelfhostSourceSpan> source_span_new file_id start end
+                    some source_span_new file_id start end
                 Option::None:
-                    none<SelfhostSourceSpan>
+                    none
 
 //: source_text_location_for_offset: byte offset を line / column へ[変換/へんかん]する
 //:
@@ -329,11 +329,11 @@ pub fn source_text_location_for_offset %fn &SelfhostSourceText fn i32 Option Sel
             match source_text_line_start text line:
                 Option::Some start:
                     let file_id %i32 *field::get_ref text "file_id"
-                    some<SelfhostSourceLocation> SelfhostSourceLocation file_id offset line sub offset start
+                    some SelfhostSourceLocation file_id offset line sub offset start
                 Option::None:
-                    none<SelfhostSourceLocation>
+                    none
         Option::None:
-            none<SelfhostSourceLocation>
+            none
 
 //: selfhost_text_stage0: source text [基盤/きばん]の smoke API
 pub fn selfhost_text_stage0 %impure fn unit i32 \unit:

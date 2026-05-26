@@ -147,9 +147,9 @@ pub fn selfhost_cli_arg_kind %fn str SelfhostCliArgKind \arg:
 pub fn selfhost_cli_parse_target_if_eq %fn str fn str fn SelfhostCliTarget Result SelfhostCliTarget SelfhostCliErrorKind \value\expected\target:
     match str_eq value expected:
         true:
-            ok<SelfhostCliTarget,SelfhostCliErrorKind> target
+            ok target
         false:
-            err<SelfhostCliTarget,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidTarget
+            err SelfhostCliErrorKind::InvalidTarget
 
 //: selfhost_cli_parse_target_value: `--target` の値を enum へ変換する
 //:
@@ -174,15 +174,15 @@ pub fn selfhost_cli_parse_target_value %fn str Result SelfhostCliTarget Selfhost
         343592226:
             selfhost_cli_parse_target_if_eq value "llvm" SelfhostCliTarget::Llvm
         _:
-            err<SelfhostCliTarget,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidTarget
+            err SelfhostCliErrorKind::InvalidTarget
 
 //: selfhost_cli_parse_emit_if_eq: emit hash arm の候補を実文字列で検証する
 pub fn selfhost_cli_parse_emit_if_eq %fn str fn str fn SelfhostCliEmit Result SelfhostCliEmit SelfhostCliErrorKind \value\expected\emit:
     match str_eq value expected:
         true:
-            ok<SelfhostCliEmit,SelfhostCliErrorKind> emit
+            ok emit
         false:
-            err<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
+            err SelfhostCliErrorKind::InvalidEmit
 
 //: selfhost_cli_parse_emit_value: `--emit` の値を enum へ変換する
 //:
@@ -204,15 +204,15 @@ pub fn selfhost_cli_parse_emit_value %fn str Result SelfhostCliEmit SelfhostCliE
         688645933:
             selfhost_cli_parse_emit_if_eq value "all" SelfhostCliEmit::All
         _:
-            err<SelfhostCliEmit,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
+            err SelfhostCliErrorKind::InvalidEmit
 
 //: selfhost_cli_parse_profile_if_eq: profile hash arm の候補を実文字列で検証する
 pub fn selfhost_cli_parse_profile_if_eq %fn str fn str fn SelfhostCliProfile Result SelfhostCliProfile SelfhostCliErrorKind \value\expected\profile:
     match str_eq value expected:
         true:
-            ok<SelfhostCliProfile,SelfhostCliErrorKind> profile
+            ok profile
         false:
-            err<SelfhostCliProfile,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidProfile
+            err SelfhostCliErrorKind::InvalidProfile
 
 //: selfhost_cli_parse_profile_value: `--profile` の値を enum へ変換する
 pub fn selfhost_cli_parse_profile_value %fn str Result SelfhostCliProfile SelfhostCliErrorKind \value:
@@ -222,4 +222,4 @@ pub fn selfhost_cli_parse_profile_value %fn str Result SelfhostCliProfile Selfho
         322158401:
             selfhost_cli_parse_profile_if_eq value "release" SelfhostCliProfile::Release
         _:
-            err<SelfhostCliProfile,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidProfile
+            err SelfhostCliErrorKind::InvalidProfile

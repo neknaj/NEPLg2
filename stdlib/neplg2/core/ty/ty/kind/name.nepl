@@ -14,27 +14,26 @@
 pub fn selfhost_type_kind_canonical_name %fn SelfhostTypeKind Option str \kind:
     match kind:
         SelfhostTypeKind::Error:
-            none<str>
+            none
         SelfhostTypeKind::Unit:
-            some<str> "unit"
+            some "unit"
         SelfhostTypeKind::Bool:
-            some<str> "bool"
+            some "bool"
         SelfhostTypeKind::I32:
-            some<str> "i32"
+            some "i32"
         SelfhostTypeKind::I64:
-            some<str> "i64"
+            some "i64"
         SelfhostTypeKind::U8:
-            some<str> "u8"
+            some "u8"
         SelfhostTypeKind::Char:
-            some<str> "char"
+            some "char"
         SelfhostTypeKind::Str:
-            some<str> "str"
+            some "str"
         SelfhostTypeKind::F32:
-            some<str> "f32"
+            some "f32"
         SelfhostTypeKind::F64:
-            some<str> "f64"
+            some "f64"
         SelfhostTypeKind::Never:
-            some<str> "never"
+            some "never"
         SelfhostTypeKind::Function:
-            none<str>
-
+            none

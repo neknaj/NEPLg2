@@ -702,6 +702,16 @@ LLM/手動判断が必要なもの:
 - `rg --pcre2 -n "(?<![A-Za-z0-9_])(Result|Option)::(?!(Ok|Err|Some|None)\\b)" stdlib tests examples -g "*.nepl" -g "*.n.md"` は 0 件になった。
 - `node nodesrc/tests.js <対象 18 files> --no-tree -o tmp/neplg21-final-constructor-cleanup.json -j 4 --dist web/dist --assert-io` は外側 904s timeout。partial JSON は 90/151 件完了、64 pass、25 compile timeout、1 fail。1 fail は今回変更していない `tests/compiler/move_effect.n.md::doctest#26` の既存診断 mismatch で、期待 `resource.raw.memory_outside_boundary` に対し実際は `resource.cell.uninit`。今回差分の6行には含まれない。
 
+### 2026-05-26 five-worker helper postfix checkpoint
+
+- `some` / `none` / `ok` / `err` / `is_some` / `is_none` / `is_ok` / `is_err` の helper postfix を 5 worker の非重複 write scope に分割し、examples/KP、type/prelude、selfhost parser、CLI args、collections/diag の 5 領域を並列移行した。
+- 対象26 files から helper postfix 398 件を撤廃した。`new<T>` / `push<T>` / `get<T>` / `unwrap_ok<T,E>` など、producer 側または別 helper family の推論を混ぜる箇所はこの checkpoint では残した。
+- doctest comment も実行対象なので、`stdlib/neplg2/core/options.nepl` と `stdlib/alloc/diag/error/outcome.nepl` に残っていた旧 helper postfix sample を同じ checkpoint で更新した。
+- `options.nepl` doctest は `some` と `and` を直接使うため、`#import "core/option" as *` と `#import "core/math" as *` を明示した。
+- `rg -n "\b(some|none|ok|err|is_some|is_none|is_ok|is_err)<" <対象26 files>` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/options.nepl --no-tree -o tmp/neplg21-options-doctest-after-import.json -j 1 --dist web/dist --assert-io` は 1/1 pass。
+- `node nodesrc/tests.js <対象26 files> --no-tree -o tmp/neplg21-helper-postfix-scope-cleanup.json -j 4 --dist web/dist --assert-io` は 33 件中 32 件 compile timeout、1 件 fail。fail は `options.nepl` doctest の import 不足で、上記 focused test により修正済み。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

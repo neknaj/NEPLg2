@@ -94,14 +94,14 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
     let code_len %i32 string_access::len code
     match make_i32_vec code_len 0:
         Result::Err _:
-            err<Vec<i32>, str> "out of memory"
+            err "out of memory"
         Result::Ok jump_table:
             match stk::new<i32>:
                 Result::Err _:
                     v::free<i32> jump_table;
-                    err<Vec<i32>, str> "out of memory"
+                    err "out of memory"
                 Result::Ok stk0:
-                    let mut stack_state %Result Stack i32 str ok<Stack<i32>,str> stk0
+                    let mut stack_state %Result Stack i32 str ok stk0
                     let mut pc %i32 0;
                     let mut error %bool false;
                     let mut error_msg %str "";
@@ -120,13 +120,13 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                         then:
                                             match stk::push<i32> stk pc:
                                                 Result::Ok next_stack:
-                                                    set stack_state ok<Stack<i32>,str> next_stack
+                                                    set stack_state ok next_stack
                                                 Result::Err e:
                                                     let returned_stack %Stack i32 stk::stack_push_error_stack<i32> e
                                                     stk::free<i32> returned_stack;
                                                     set error true;
                                                     set error_msg "out of memory";
-                                                    set stack_state err<Stack<i32>,str> "out of memory"
+                                                    set stack_state err "out of memory"
                                         else:
                                             if:
                                                 eq ch 93 // ']'
@@ -138,18 +138,18 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                                         Option::Some start_pc:
                                                             v::replace<i32> &jump_table start_pc pc;
                                                             v::replace<i32> &jump_table pc start_pc;
-                                                            set stack_state ok<Stack<i32>,str> next_stack
+                                                            set stack_state ok next_stack
                                                         Option::None:
                                                             set error true;
                                                             set error_msg "unmatched ']'";
                                                             stk::free<i32> next_stack;
-                                                            set stack_state err<Stack<i32>,str> "unmatched ']'"
+                                                            set stack_state err "unmatched ']'"
                                                 else:
-                                                    set stack_state ok<Stack<i32>,str> stk
+                                                    set stack_state ok stk
                                 Result::Err msg:
                                     set error true;
                                     set error_msg msg;
-                                    set stack_state err<Stack<i32>,str> msg
+                                    set stack_state err msg
                             set pc add pc 1;
 
                     if:
@@ -162,7 +162,7 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                     string_access::len msg;
                                     unit
                             v::free<i32> jump_table;
-                            err<Vec<i32>, str> error_msg
+                            err error_msg
                         else:
                             match stack_state:
                                 Result::Ok stk:
@@ -172,12 +172,12 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                         not empty
                                         then:
                                             v::free<i32> jump_table;
-                                            err<Vec<i32>, str> "unmatched '['"
+                                            err "unmatched '['"
                                         else:
-                                            ok<Vec<i32>, str> jump_table
+                                            ok jump_table
                                 Result::Err msg:
                                     v::free<i32> jump_table;
-                                    err<Vec<i32>, str> msg
+                                    err msg
 
 //: current_cell: テープの現在セルを読む
 //:

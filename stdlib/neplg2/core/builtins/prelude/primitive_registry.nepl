@@ -19,24 +19,24 @@ pub fn selfhost_primitive_type_count %fn unit i32 \unit:
 pub fn selfhost_primitive_type_at %fn i32 Option SelfhostPrimitiveTypeName \index:
     match index:
         0:
-            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "unit" SelfhostTypeKind::Unit
+            some selfhost_primitive_type_name_new "unit" SelfhostTypeKind::Unit
         1:
-            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "bool" SelfhostTypeKind::Bool
+            some selfhost_primitive_type_name_new "bool" SelfhostTypeKind::Bool
         2:
-            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "i32" SelfhostTypeKind::I32
+            some selfhost_primitive_type_name_new "i32" SelfhostTypeKind::I32
         3:
-            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "i64" SelfhostTypeKind::I64
+            some selfhost_primitive_type_name_new "i64" SelfhostTypeKind::I64
         4:
-            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "u8" SelfhostTypeKind::U8
+            some selfhost_primitive_type_name_new "u8" SelfhostTypeKind::U8
         5:
-            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "char" SelfhostTypeKind::Char
+            some selfhost_primitive_type_name_new "char" SelfhostTypeKind::Char
         6:
-            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "str" SelfhostTypeKind::Str
+            some selfhost_primitive_type_name_new "str" SelfhostTypeKind::Str
         7:
-            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "f32" SelfhostTypeKind::F32
+            some selfhost_primitive_type_name_new "f32" SelfhostTypeKind::F32
         8:
-            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "f64" SelfhostTypeKind::F64
+            some selfhost_primitive_type_name_new "f64" SelfhostTypeKind::F64
         9:
-            some<SelfhostPrimitiveTypeName> selfhost_primitive_type_name_new "never" SelfhostTypeKind::Never
+            some selfhost_primitive_type_name_new "never" SelfhostTypeKind::Never
         _:
-            none<SelfhostPrimitiveTypeName>
+            none

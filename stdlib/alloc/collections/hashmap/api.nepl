@@ -194,7 +194,7 @@ pub fn get <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMap .K .V .H
     let idx %i32 hashmap_find_present<.K,.V,.H> storage cap0 hasher key
     if:
         lt idx 0
-        then none<.V>
+        then none
         else hashmap_value_at<.V> values idx
 
 //: ## contains

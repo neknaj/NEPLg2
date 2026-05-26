@@ -78,9 +78,9 @@ pub fn selfhost_cli_emit_set_add %fn SelfhostCliEmitSet fn SelfhostCliEmit Selfh
 pub fn selfhost_cli_parse_emit_part %fn SelfhostCliEmitSet fn str Result SelfhostCliEmitSet SelfhostCliErrorKind \emit_set\part:
     match selfhost_cli_parse_emit_value part:
         Result::Err e:
-            err<SelfhostCliEmitSet,SelfhostCliErrorKind> e
+            err e
         Result::Ok emit:
-            ok<SelfhostCliEmitSet,SelfhostCliErrorKind> selfhost_cli_emit_set_add emit_set emit
+            ok selfhost_cli_emit_set_add emit_set emit
 
 //: selfhost_cli_parse_emit_set_value: `--emit` の comma 区切り値を artifact set へ変換する
 //:
@@ -95,7 +95,7 @@ pub fn selfhost_cli_parse_emit_set_value %fn str Result SelfhostCliEmitSet Selfh
     if:
         eq n 0
         then:
-            err<SelfhostCliEmitSet,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
+            err SelfhostCliErrorKind::InvalidEmit
         else:
             let mut start %i32 0
             let mut i %i32 0
@@ -135,9 +135,9 @@ pub fn selfhost_cli_parse_emit_set_value %fn str Result SelfhostCliEmitSet Selfh
             if:
                 failed
                 then:
-                    err<SelfhostCliEmitSet,SelfhostCliErrorKind> SelfhostCliErrorKind::InvalidEmit
+                    err SelfhostCliErrorKind::InvalidEmit
                 else:
-                    ok<SelfhostCliEmitSet,SelfhostCliErrorKind> emit_set
+                    ok emit_set
 
 //: selfhost_cli_emit_is_wasm: emit が Wasm か判定する
 pub fn selfhost_cli_emit_is_wasm %fn SelfhostCliEmit bool \emit:
