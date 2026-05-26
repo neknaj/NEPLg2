@@ -893,6 +893,18 @@ LLM/手動判断が必要なもの:
 - worker 側で `node nodesrc/neplg21_syntax_migrate.js --check` は `would update 0 file(s)`、`git diff --check` は LF/CRLF warning のみで pass した。
 - selfhost/FS targeted doctest は既存の compile-time timeout または既存診断で完走せず。postfix-free 化に対する型診断は出ていない。
 
+### 2026-05-26 Vec/sort/Stack producer postfix checkpoint
+
+- `stdlib/tests/vec.n.md`、`tests/stdlib/vec_collections.n.md`、`tests/stdlib/sort.n.md`、`tests/stdlib/sort_simple.n.md`、`tests/stdlib/traits_order.n.md`、`tests/stdlib/selfhost_req.n.md`、`examples/rpn.nepl`、`examples/rpn_legacy.nepl`、`examples/bf.nepl` を 5 worker の非重複 write scope に分割して並列移行した。
+- Vec fixture では `%Vec i32` / `%Vec u8` local annotation と receiver evidence から型が確定する `new<i32>` / `with_capacity<i32>` / `push<i32>` / `new<u8>` / `push<u8>` を postfix-free にした。
+- sort fixture では `new<i32>` / `push<i32>` だけを対象にし、`sort_quick_ret<i32>` / `sort_heap_ret<i32>` / `sort_merge_ret<i32>` は owner-returning sort result 系として残した。
+- Stack examples では `stk::push<i32>` を receiver / value evidence で `stk::push` へ移行し、値引数のない `stk::new<i32>` は `%Result Stack i32 Diag` typed local を置いてから `stk::new` を呼ぶ形へ移行した。
+- `tests/stdlib/vec_collections.n.md` の `with_capacity<i32> neg` は match scrutinee に直接の戻り値期待型がなく、型根拠が弱いため残した。必要ならこの系統は expected type propagation / call reduction 改良 issue として分離する。
+- `nodesrc/test_stdlib_vec_borrowed_observers.js`、`nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`、`nodesrc/test_selfhost_req_report_contract.js`、`nodesrc/test_stdlib_traits_order_report_contract.js` に、今回対象の旧 producer / mutator postfix 再導入防止を追加した。コメント量を制限する検査ではない。
+- `rg -n "\b(new|with_capacity|push)<|stk::(?:new|push)<" <対象9 files>` は `with_capacity<i32> neg` 1 件だけが残る状態になった。
+- targeted source policy、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
+- `node nodesrc/tests.js <対象9 files> --no-tree -o tmp/neplg21-vec-sort-stack-producer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 16/44 件完了、16 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

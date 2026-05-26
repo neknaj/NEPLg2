@@ -1,3 +1,15 @@
+# 2026-05-26 Agent 1 Vec/sort/Stack producer postfix checkpoint
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、Vec / sort fixture と Stack examples の producer / mutator 系後置 generic を 5 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `stdlib/tests/vec.n.md` では `new<i32>` / `with_capacity<i32>` / `push<i32>` / `new<u8>` / `push<u8>` を postfix-free にし、型根拠が不足する pipe 中間値には `%Vec i32` / `%Vec u8` annotation を付けた。
+- `tests/stdlib/vec_collections.n.md` と `tests/stdlib/selfhost_req.n.md` では、typed local と receiver 型から解ける `new` / `with_capacity` / `push` postfix を撤廃した。`with_capacity<i32> neg` は match scrutinee に戻り値期待型が直接なく、型根拠が弱いため残した。
+- `tests/stdlib/sort.n.md`、`tests/stdlib/sort_simple.n.md`、`tests/stdlib/traits_order.n.md` では、`%Vec i32` local annotation または `Vec i32` receiver から解ける `new<i32>` / `push<i32>` を postfix-free にした。`sort_quick_ret<i32>` / `sort_heap_ret<i32>` / `sort_merge_ret<i32>` は owner-returning sort result 系として今回対象外にした。
+- `examples/rpn.nepl`、`examples/rpn_legacy.nepl`、`examples/bf.nepl` では、`stk::push<i32>` を receiver / value evidence で `stk::push` にした。`stk::new<i32>` は値引数がないため、`%Result Stack i32 Diag` typed local を置いてから `stk::new` を呼ぶ形へ移行した。
+- `nodesrc/test_stdlib_vec_borrowed_observers.js`、`nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`、`nodesrc/test_selfhost_req_report_contract.js`、`nodesrc/test_stdlib_traits_order_report_contract.js` に今回対象の旧 producer / mutator postfix 再導入防止を追加した。これはコメント量を制限する検査ではなく、NEPLg2.1 の型根拠つき呼び出し形だけを固定する検査である。
+- `rg -n "\b(new|with_capacity|push)<|stk::(?:new|push)<" <対象9 files>` は `tests/stdlib/vec_collections.n.md` の `with_capacity<i32> neg` 1 件だけが残る状態になった。
+- targeted source policy 5 件、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
+- `node nodesrc/tests.js -i stdlib/tests/vec.n.md -i tests/stdlib/vec_collections.n.md -i tests/stdlib/sort.n.md -i tests/stdlib/sort_simple.n.md -i tests/stdlib/traits_order.n.md -i tests/stdlib/selfhost_req.n.md -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl --no-tree -o tmp/neplg21-vec-sort-stack-producer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 16/44 件完了、16 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 Pipe/selfhost Vec producer postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として pipe collection fixture と selfhost/FS fixture の producer / mutator 系後置 generic を撤廃した。

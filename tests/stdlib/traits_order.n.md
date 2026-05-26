@@ -67,11 +67,11 @@ stdout: mlstr:
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
-    let v1 %Vec i32 unwrap_ok push<i32> v0 4;
-    let v2 %Vec i32 unwrap_ok push<i32> v1 1;
-    let v3 %Vec i32 unwrap_ok push<i32> v2 3;
-    let v4 %Vec i32 unwrap_ok push<i32> v3 2;
+    let v0 %Vec i32 unwrap_ok new;
+    let v1 %Vec i32 unwrap_ok push v0 4;
+    let v2 %Vec i32 unwrap_ok push v1 1;
+    let v3 %Vec i32 unwrap_ok push v2 3;
+    let v4 %Vec i32 unwrap_ok push v3 2;
     let s sort_quick_ret<i32> v4;
     let b0 %bool match get<i32> &s 0:
         Option::Some x:

@@ -96,7 +96,7 @@ fn print_result %impure fn i32 unit \val:
 //: - `push` は Stack owner を消費して更新後 owner を返すため、成功時だけ次の owner を返します。
 //: - 失敗時は `StackPushError` から owner を回収して閉じ、REPL 状態には失敗だけを残します。
 fn push_or_report %impure fn Stack i32 impure fn i32 Result Stack i32 str \stack\val:
-    match stk::push<i32> stack val:
+    match stk::push stack val:
         Result::Ok next_stack:
             ok next_stack
         Result::Err e:
@@ -257,7 +257,8 @@ fn eval_line %impure fn str unit \line:
     let trimmed %str string_slice::str_trim line;
     let n %i32 string_access::len trimmed;
 
-    match stk::new<i32>:
+    let stack_init %Result Stack i32 Diag stk::new;
+    match stack_init:
         Result::Ok stack0:
             let mut stack_state %Result Stack i32 str ok stack0;
             let mut start %i32 0;

@@ -42,4 +42,11 @@ parsed.doctests.forEach((doctest, index) => {
     );
 });
 
+const doctestCode = parsed.doctests.map((doctest) => doctest.code).join("\n");
+assert.doesNotMatch(
+    doctestCode,
+    /\b(?:new|push)<u8>/,
+    "selfhost_req byte buffer fixture must rely on NEPLg2.1 Vec expected type or receiver evidence instead of explicit producer or mutator postfixes",
+);
+
 console.log("selfhost_req report contract passed");

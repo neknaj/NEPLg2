@@ -84,6 +84,7 @@ for (const rel of [
 ]) {
     const exampleSrc = fs.readFileSync(path.join(repoRoot, rel), 'utf8');
     assert.doesNotMatch(exampleSrc, /\bstk::(?:len_ref|is_empty_ref|peek_ref|get_ref)\b/, `${rel} must use primary borrowed Stack observer names`);
+    assert.doesNotMatch(exampleSrc, /\bstk::(?:new|push)<i32>/, `${rel} must rely on NEPLg2.1 Stack expected type or receiver evidence instead of explicit producer or mutator postfixes`);
     assert.doesNotMatch(exampleSrc, /\bstk::pop_top<[^>]+>/, `${rel} must rely on Stack owner type evidence instead of explicit pop_top postfix`);
     assert.doesNotMatch(exampleSrc, /field::get(?:_ref)?\s+&?popped(?:_[ab])?\s+"(?:item|stack)"/, `${rel} must not project StackPop fields directly`);
     assert.match(exampleSrc, /\bstk::stack_pop_item\s+&popped(?:_[ab])?\b/, `${rel} must use StackPop item accessor`);

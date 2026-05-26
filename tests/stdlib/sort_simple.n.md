@@ -16,11 +16,11 @@ ret: 1734
 #import "core/field" as *
 
 fn make_vec4 %fn unit Vec i32 \unit:
-    let mut v %Vec i32 unwrap_ok new<i32>;
-    set v unwrap_ok push<i32> v 4;
-    set v unwrap_ok push<i32> v 1;
-    set v unwrap_ok push<i32> v 3;
-    set v unwrap_ok push<i32> v 2;
+    let mut v %Vec i32 unwrap_ok new;
+    set v unwrap_ok push v 4;
+    set v unwrap_ok push v 1;
+    set v unwrap_ok push v 3;
+    set v unwrap_ok push v 2;
     v
 
 fn check_at %fn &Vec i32 fn i32 fn i32 bool \v\idx\expected:

@@ -30,5 +30,10 @@ assert.match(
     /checks_print_report[\s\S]*checks_exit_code/,
     "vec sort doctest must print the report before returning its exit code",
 );
+assert.doesNotMatch(
+    doctest.code,
+    /\b(?:new|push)<i32>/,
+    "vec sort doctest must rely on NEPLg2.1 Vec expected type or receiver evidence instead of explicit producer or mutator postfixes",
+);
 
 console.log("stdlib traits_order report contract passed");

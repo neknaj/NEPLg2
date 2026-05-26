@@ -14,11 +14,11 @@ ret: 1234
 #import "core/result" as *
 
 fn make_vec4 %fn unit Vec i32 \unit:
-    let mut v %Vec i32 unwrap_ok new<i32>;
-    set v unwrap_ok push<i32> v 4;
-    set v unwrap_ok push<i32> v 1;
-    set v unwrap_ok push<i32> v 3;
-    set v unwrap_ok push<i32> v 2;
+    let mut v %Vec i32 unwrap_ok new;
+    set v unwrap_ok push v 4;
+    set v unwrap_ok push v 1;
+    set v unwrap_ok push v 3;
+    set v unwrap_ok push v 2;
     v
 
 fn main %impure fn unit i32 \unit:
@@ -60,11 +60,11 @@ ret: 1234
 #import "core/result" as *
 
 fn make_vec4 %fn unit Vec i32 \unit:
-    let mut v %Vec i32 unwrap_ok new<i32>;
-    set v unwrap_ok push<i32> v 4;
-    set v unwrap_ok push<i32> v 1;
-    set v unwrap_ok push<i32> v 3;
-    set v unwrap_ok push<i32> v 2;
+    let mut v %Vec i32 unwrap_ok new;
+    set v unwrap_ok push v 4;
+    set v unwrap_ok push v 1;
+    set v unwrap_ok push v 3;
+    set v unwrap_ok push v 2;
     v
 
 fn main %impure fn unit i32 \unit:
@@ -95,11 +95,11 @@ ret: 1334
 #import "core/result" as *
 
 fn make_vec4 %fn unit Vec i32 \unit:
-    let mut v %Vec i32 unwrap_ok new<i32>;
-    set v unwrap_ok push<i32> v 4;
-    set v unwrap_ok push<i32> v 1;
-    set v unwrap_ok push<i32> v 3;
-    set v unwrap_ok push<i32> v 2;
+    let mut v %Vec i32 unwrap_ok new;
+    set v unwrap_ok push v 4;
+    set v unwrap_ok push v 1;
+    set v unwrap_ok push v 3;
+    set v unwrap_ok push v 2;
     v
 
 fn main %impure fn unit i32 \unit:
@@ -145,7 +145,7 @@ ret: 0
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
+    let v0 %Vec i32 unwrap_ok new;
     let v1 sort_quick_ret<i32> v0;
     let n %i32 len &v1;
     free v1;
@@ -166,8 +166,8 @@ ret: 1
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
-    let v1 %Vec i32 unwrap_ok push<i32> v0 42;
+    let v0 %Vec i32 unwrap_ok new;
+    let v1 %Vec i32 unwrap_ok push v0 42;
     let v2 sort_quick_ret<i32> v1;
     let n %i32 len &v2;
     free v2;
@@ -188,11 +188,11 @@ ret: 3
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
-    let v1 %Vec i32 unwrap_ok push<i32> v0 4;
-    let v2 %Vec i32 unwrap_ok push<i32> v1 1;
+    let v0 %Vec i32 unwrap_ok new;
+    let v1 %Vec i32 unwrap_ok push v0 4;
+    let v2 %Vec i32 unwrap_ok push v1 1;
     let v3 sort_quick_ret<i32> v2;
-    let v4 %Vec i32 unwrap_ok push<i32> v3 5;
+    let v4 %Vec i32 unwrap_ok push v3 5;
     let n %i32 len &v4;
     free v4;
     n
@@ -212,11 +212,11 @@ ret: 1234
 #import "core/result" as *
 
 fn make_vec4 %fn unit Vec i32 \unit:
-    let mut v %Vec i32 unwrap_ok new<i32>;
-    set v unwrap_ok push<i32> v 4;
-    set v unwrap_ok push<i32> v 1;
-    set v unwrap_ok push<i32> v 3;
-    set v unwrap_ok push<i32> v 2;
+    let mut v %Vec i32 unwrap_ok new;
+    set v unwrap_ok push v 4;
+    set v unwrap_ok push v 1;
+    set v unwrap_ok push v 3;
+    set v unwrap_ok push v 2;
     v
 
 fn main %impure fn unit i32 \unit:
@@ -243,11 +243,11 @@ ret: 1434
 #import "core/result" as *
 
 fn make_vec4 %fn unit Vec i32 \unit:
-    let mut v %Vec i32 unwrap_ok new<i32>;
-    set v unwrap_ok push<i32> v 4;
-    set v unwrap_ok push<i32> v 1;
-    set v unwrap_ok push<i32> v 3;
-    set v unwrap_ok push<i32> v 2;
+    let mut v %Vec i32 unwrap_ok new;
+    set v unwrap_ok push v 4;
+    set v unwrap_ok push v 1;
+    set v unwrap_ok push v 3;
+    set v unwrap_ok push v 2;
     v
 
 fn main %impure fn unit i32 \unit:
@@ -293,7 +293,7 @@ ret: 0
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
+    let v0 %Vec i32 unwrap_ok new;
     let v1 sort_heap_ret<i32> v0;
     let n %i32 len &v1;
     free v1;
@@ -314,8 +314,8 @@ ret: 1
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
-    let v1 %Vec i32 unwrap_ok push<i32> v0 42;
+    let v0 %Vec i32 unwrap_ok new;
+    let v1 %Vec i32 unwrap_ok push v0 42;
     let v2 sort_heap_ret<i32> v1;
     let n %i32 len &v2;
     free v2;
@@ -336,11 +336,11 @@ ret: 3
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
-    let v1 %Vec i32 unwrap_ok push<i32> v0 4;
-    let v2 %Vec i32 unwrap_ok push<i32> v1 1;
+    let v0 %Vec i32 unwrap_ok new;
+    let v1 %Vec i32 unwrap_ok push v0 4;
+    let v2 %Vec i32 unwrap_ok push v1 1;
     let v3 sort_heap_ret<i32> v2;
-    let v4 %Vec i32 unwrap_ok push<i32> v3 5;
+    let v4 %Vec i32 unwrap_ok push v3 5;
     let n %i32 len &v4;
     free v4;
     n
@@ -363,11 +363,11 @@ ret: 1534
 #import "core/result" as *
 
 fn make_vec4 %fn unit Vec i32 \unit:
-    let mut v %Vec i32 unwrap_ok new<i32>;
-    set v unwrap_ok push<i32> v 4;
-    set v unwrap_ok push<i32> v 1;
-    set v unwrap_ok push<i32> v 3;
-    set v unwrap_ok push<i32> v 2;
+    let mut v %Vec i32 unwrap_ok new;
+    set v unwrap_ok push v 4;
+    set v unwrap_ok push v 1;
+    set v unwrap_ok push v 3;
+    set v unwrap_ok push v 2;
     v
 
 fn main %impure fn unit i32 \unit:
@@ -413,7 +413,7 @@ ret: 0
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
+    let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok sort_merge_ret<i32> v0;
     let n %i32 len &v1;
     free v1;
@@ -434,8 +434,8 @@ ret: 1
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
-    let v1 %Vec i32 unwrap_ok push<i32> v0 42;
+    let v0 %Vec i32 unwrap_ok new;
+    let v1 %Vec i32 unwrap_ok push v0 42;
     let v2 %Vec i32 unwrap_ok sort_merge_ret<i32> v1;
     let n %i32 len &v2;
     free v2;
@@ -456,11 +456,11 @@ ret: 3
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
-    let v1 %Vec i32 unwrap_ok push<i32> v0 4;
-    let v2 %Vec i32 unwrap_ok push<i32> v1 1;
+    let v0 %Vec i32 unwrap_ok new;
+    let v1 %Vec i32 unwrap_ok push v0 4;
+    let v2 %Vec i32 unwrap_ok push v1 1;
     let v3 %Vec i32 unwrap_ok sort_merge_ret<i32> v2;
-    let v4 %Vec i32 unwrap_ok push<i32> v3 5;
+    let v4 %Vec i32 unwrap_ok push v3 5;
     let n %i32 len &v4;
     free v4;
     n
@@ -480,8 +480,8 @@ diag_codes: type.owner_aggregate.constructor_restricted
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
-    let v1 %Vec i32 unwrap_ok push<i32> v0 7;
+    let v0 %Vec i32 unwrap_ok new;
+    let v1 %Vec i32 unwrap_ok push v0 7;
     // VecSortMergeError は sort_merge_ret が失敗時に返す owner payload であり、
     // ordinary source が直接構築して Vec owner を捏造してはいけない。
     let err %VecSortMergeError i32 VecSortMergeError<i32> v1 StdErrorKind::OutOfMemory;
@@ -502,11 +502,11 @@ ret: 1234
 #import "core/result" as *
 
 fn make_vec4 %fn unit Vec i32 \unit:
-    let mut v %Vec i32 unwrap_ok new<i32>;
-    set v unwrap_ok push<i32> v 4;
-    set v unwrap_ok push<i32> v 1;
-    set v unwrap_ok push<i32> v 3;
-    set v unwrap_ok push<i32> v 2;
+    let mut v %Vec i32 unwrap_ok new;
+    set v unwrap_ok push v 4;
+    set v unwrap_ok push v 1;
+    set v unwrap_ok push v 3;
+    set v unwrap_ok push v 2;
     v
 
 fn main %impure fn unit i32 \unit:
@@ -530,11 +530,11 @@ ret: 10
 #import "core/result" as *
 
 fn make_vec4 %fn unit Vec i32 \unit:
-    let mut v %Vec i32 unwrap_ok new<i32>;
-    set v unwrap_ok push<i32> v 4;
-    set v unwrap_ok push<i32> v 1;
-    set v unwrap_ok push<i32> v 3;
-    set v unwrap_ok push<i32> v 2;
+    let mut v %Vec i32 unwrap_ok new;
+    set v unwrap_ok push v 4;
+    set v unwrap_ok push v 1;
+    set v unwrap_ok push v 3;
+    set v unwrap_ok push v 2;
     v
 
 fn main %fn unit i32 \unit:
@@ -542,11 +542,11 @@ fn main %fn unit i32 \unit:
     let before %bool sort_is_sorted &before_v;
     free before_v;
     let after_v %Vec i32 block:
-        let mut v %Vec i32 unwrap_ok new<i32>;
-        set v unwrap_ok push<i32> v 1;
-        set v unwrap_ok push<i32> v 2;
-        set v unwrap_ok push<i32> v 3;
-        set v unwrap_ok push<i32> v 4;
+        let mut v %Vec i32 unwrap_ok new;
+        set v unwrap_ok push v 1;
+        set v unwrap_ok push v 2;
+        set v unwrap_ok push v 3;
+        set v unwrap_ok push v 4;
         v
     let after %bool sort_is_sorted &after_v;
     free after_v;
@@ -566,7 +566,7 @@ diag_codes: resolve.identifier.undefined
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0 %Vec i32 unwrap_ok new<i32>;
+    let v0 %Vec i32 unwrap_ok new;
     sort_i32 0 0;
     free v0;
     0

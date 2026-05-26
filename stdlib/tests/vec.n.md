@@ -19,32 +19,32 @@ stdout: "test_report name=\"vec_main\" count=10 failed=0\nassertion index=0 stat
 #import "core/field" as *
 
 fn main %impure fn unit i32 \unit:
-    let v0_empty %Vec i32 unwrap_ok new<i32>;
+    let v0_empty %Vec i32 unwrap_ok new;
     let v0_is_empty %bool is_empty &v0_empty;
-    let v0_cap %Vec i32 unwrap_ok with_capacity<i32> 2;
+    let v0_cap %Vec i32 unwrap_ok with_capacity 2;
     let v0_cap_starts_empty %bool is_empty &v0_cap;
 
-    let v2:
-        unwrap_ok new<i32>
-        |> push<i32> 10
+    let v2 %Vec i32:
+        unwrap_ok new
+        |> push 10
         |> unwrap_ok
     let v2_len %i32 len &v2;
 
-    let v6:
-        unwrap_ok new<i32>
-        |> push<i32> 10
+    let v6 %Vec i32:
+        unwrap_ok new
+        |> push 10
         |> unwrap_ok
-        |> push<i32> 20
+        |> push 20
         |> unwrap_ok
-        |> push<i32> 30
+        |> push 30
         |> unwrap_ok
     let v6_len %i32 len &v6;
 
-    let g2:
-        unwrap_ok new<i32>
-        |> push<i32> 10
+    let g2 %Vec i32:
+        unwrap_ok new
+        |> push 10
         |> unwrap_ok
-        |> push<i32> 20
+        |> push 20
         |> unwrap_ok
     let mut g2_value %i32 -1;
     match get &g2 0:
@@ -53,18 +53,18 @@ fn main %impure fn unit i32 \unit:
         Option::None:
             unit
 
-    let s2:
-        unwrap_ok new<i32>
-        |> push<i32> 10
+    let s2 %Vec i32:
+        unwrap_ok new
+        |> push 10
         |> unwrap_ok
-        |> push<i32> 20
+        |> push 20
         |> unwrap_ok
     replace &s2 1 21;
-    let s2_ref:
-        unwrap_ok new<i32>
-        |> push<i32> 10
+    let s2_ref %Vec i32:
+        unwrap_ok new
+        |> push 10
         |> unwrap_ok
-        |> push<i32> 20
+        |> push 20
         |> unwrap_ok
     replace &s2_ref 0 11;
     let mut s2_ref_value %i32 -1;
@@ -74,24 +74,24 @@ fn main %impure fn unit i32 \unit:
         Option::None:
             unit
 
-    let o1:
-        unwrap_ok new<i32>
-        |> push<i32> 10
+    let o1 %Vec i32:
+        unwrap_ok new
+        |> push 10
         |> unwrap_ok
     let o1_missing %Option i32 get &o1 2;
     let o1_none %bool is_none o1_missing;
 
-    let p1:
-        unwrap_ok new<i32>
-        |> push<i32> 10
+    let p1 %Vec i32:
+        unwrap_ok new
+        |> push 10
         |> unwrap_ok
     let p1_missing %Option i32 get &p1 -1;
     let p1_none %bool is_none p1_missing;
 
     let u8_65 %u8 cast 65;
-    let b1:
-        unwrap_ok new<u8>
-        |> push<u8> u8_65
+    let b1 %Vec u8:
+        unwrap_ok new
+        |> push u8_65
         |> unwrap_ok
     let mut b1_value %i32 -1;
     match get &b1 0:
@@ -162,7 +162,7 @@ fn lt_four %fn i32 bool \x:
 
 fn main %impure fn unit i32 \unit:
     let mapped_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -175,7 +175,7 @@ fn main %impure fn unit i32 \unit:
             unit
 
     let filtered_len_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -183,7 +183,7 @@ fn main %impure fn unit i32 \unit:
     let filtered_len %Vec i32 unwrap_ok filter<i32> filtered_len_src is_even;
     let filtered_len_value %i32 len &filtered_len;
     let filtered_get_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -197,7 +197,7 @@ fn main %impure fn unit i32 \unit:
             unit
 
     let folded_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -205,7 +205,7 @@ fn main %impure fn unit i32 \unit:
     let folded_sum %i32 fold<i32,i32> &folded_src 0 add_acc;
 
     let reduced_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -218,7 +218,7 @@ fn main %impure fn unit i32 \unit:
             unit
 
     let find_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -230,14 +230,14 @@ fn main %impure fn unit i32 \unit:
             unit
 
     let any_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
     let any_value %bool any<i32> &any_src gt_two;
 
     let all_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 2 |> uwok
         |> push 4 |> uwok
         |> push 6 |> uwok
@@ -288,7 +288,7 @@ fn is_even %fn i32 bool \x:
 
 fn main %impure fn unit i32 \unit:
     let partition_even_len_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -296,7 +296,7 @@ fn main %impure fn unit i32 \unit:
     let parts_even_len unwrap_ok partition<i32> partition_even_len_src is_even;
     let evens_len_value %i32 vec_partition_matched_len &parts_even_len;
     let partition_even_get_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -309,7 +309,7 @@ fn main %impure fn unit i32 \unit:
         Option::None:
             unit
     let partition_odds_len_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -317,7 +317,7 @@ fn main %impure fn unit i32 \unit:
     let parts_odds_len unwrap_ok partition<i32> partition_odds_len_src is_even;
     let odds_len_value %i32 vec_partition_rest_len &parts_odds_len;
     let partition_odds_get_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -366,7 +366,7 @@ fn lt_four %fn i32 bool \x:
 
 fn main %impure fn unit i32 \unit:
     let take_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -406,7 +406,7 @@ fn lt_four %fn i32 bool \x:
 
 fn main %impure fn unit i32 \unit:
     let drop_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
@@ -449,7 +449,7 @@ fn is_even %fn i32 bool \x:
 
 fn main %impure fn unit i32 \unit:
     let count_src %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok

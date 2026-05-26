@@ -67,9 +67,9 @@ fn main %impure fn unit i32 \unit:
     let b2 %u8 cast 0xAD;
 
     // 要件: Vec<u8> (バイトバッファ)
-    let mut buf %Vec u8 unwrap_ok new<u8>;
-    set buf unwrap_ok push<u8> buf b1;
-    set buf unwrap_ok push<u8> buf b2;
+    let mut buf %Vec u8 unwrap_ok new;
+    set buf unwrap_ok push buf b1;
+    set buf unwrap_ok push buf b2;
 
     // 要件: バイト単位のアクセス
     let actual %i32 match get<u8> &buf 0:

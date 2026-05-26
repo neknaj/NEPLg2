@@ -96,7 +96,8 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
         Result::Err _:
             err "out of memory"
         Result::Ok jump_table:
-            match stk::new<i32>:
+            let stack_init %Result Stack i32 Diag stk::new
+            match stack_init:
                 Result::Err _:
                     v::free jump_table;
                     err "out of memory"
@@ -118,7 +119,7 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                     if:
                                         eq ch 91 // '['
                                         then:
-                                            match stk::push<i32> stk pc:
+                                            match stk::push stk pc:
                                                 Result::Ok next_stack:
                                                     set stack_state ok next_stack
                                                 Result::Err e:

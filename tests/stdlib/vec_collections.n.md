@@ -28,25 +28,25 @@ stdout: "test_report name=\"vec_free_zero_and_grow_reallocates\" count=4 failed=
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let empty %Vec i32 unwrap_ok with_capacity<i32> 0;
+    let empty %Vec i32 unwrap_ok with_capacity 0;
     let empty_is_empty %bool is_empty &empty;
     let empty_cap %i32 cap &empty;
     free empty;
-    let mut grown %Vec i32 unwrap_ok new<i32>;
-    set grown unwrap_ok push<i32> grown 0;
-    set grown unwrap_ok push<i32> grown 1;
-    set grown unwrap_ok push<i32> grown 2;
-    set grown unwrap_ok push<i32> grown 3;
-    set grown unwrap_ok push<i32> grown 4;
-    set grown unwrap_ok push<i32> grown 5;
-    set grown unwrap_ok push<i32> grown 6;
-    set grown unwrap_ok push<i32> grown 7;
-    set grown unwrap_ok push<i32> grown 8;
-    set grown unwrap_ok push<i32> grown 9;
+    let mut grown %Vec i32 unwrap_ok new;
+    set grown unwrap_ok push grown 0;
+    set grown unwrap_ok push grown 1;
+    set grown unwrap_ok push grown 2;
+    set grown unwrap_ok push grown 3;
+    set grown unwrap_ok push grown 4;
+    set grown unwrap_ok push grown 5;
+    set grown unwrap_ok push grown 6;
+    set grown unwrap_ok push grown 7;
+    set grown unwrap_ok push grown 8;
+    set grown unwrap_ok push grown 9;
     let grown_len %i32 len &grown;
     free grown;
-    let mut next %Vec i32 unwrap_ok new<i32>;
-    set next unwrap_ok push<i32> next 42;
+    let mut next %Vec i32 unwrap_ok new;
+    set next unwrap_ok push next 42;
     let top_ok %bool match get &next 0:
         Option::Some v:
             eq v 42
@@ -91,7 +91,7 @@ stdout: "test_report name=\"vec_sort_merge_ret_releases_scratch_buffer\" count=3
 
 fn main %impure fn unit i32 \unit:
     let unsorted %Vec i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 5 |> uwok
         |> push 2 |> uwok
         |> push 4 |> uwok
@@ -108,8 +108,8 @@ fn main %impure fn unit i32 \unit:
         Option::None:
             false
     free sorted;
-    let mut next %Vec i32 unwrap_ok new<i32>;
-    set next unwrap_ok push<i32> next 7;
+    let mut next %Vec i32 unwrap_ok new;
+    set next unwrap_ok push next 7;
     let next_ok %bool match get &next 0:
         Option::Some v:
             eq v 7

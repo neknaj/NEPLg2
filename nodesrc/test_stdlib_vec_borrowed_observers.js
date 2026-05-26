@@ -157,6 +157,17 @@ for (const testRelPath of [
     assert.match(testSrc, /\bfree(?:<i32>)?\s+/, `${testRelPath} must explicitly free observed Vec owners`);
 }
 
+for (const [testRelPath, pattern] of [
+    ["stdlib/tests/vec.n.md", /\b(?:new|with_capacity|push)<(?:i32|u8)>/],
+    ["tests/stdlib/vec_collections.n.md", /\b(?:new|push)<i32>|\bwith_capacity<i32>\s+0\b/],
+    ["tests/stdlib/sort.n.md", /\b(?:new|push)<i32>/],
+    ["tests/stdlib/sort_simple.n.md", /\b(?:new|push)<i32>/],
+    ["tests/stdlib/traits_order.n.md", /\b(?:new|push)<i32>/],
+]) {
+    const testSrc = fs.readFileSync(path.join(repoRoot, testRelPath), "utf8");
+    assert.doesNotMatch(testSrc, pattern, `${testRelPath} must rely on NEPLg2.1 Vec expected type or receiver evidence instead of explicit producer or mutator postfixes`);
+}
+
 for (const relPath of [
     "examples/bf.nepl",
     "stdlib/alloc/collections/hashmap.nepl",
