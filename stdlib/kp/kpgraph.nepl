@@ -21,7 +21,7 @@
 //: ### [設計/せっけい]
 //: - `DenseGraph` は raw pointer ではなく `AdjacencyMatrix` owner を保持します。
 //: - 辺の更新は owner を消費して更新後 owner を返し、失敗時は `DenseGraphUpdateError` に owner を戻します。
-//: - BFS の距離配列とキューは `Vec<i32>` を使い、raw load/store や raw address observer を公開しません。
+//: - BFS の距離配列とキューは `Vec i32` を使い、raw load/store や raw address observer を公開しません。
 //:
 //: ### [注意/ちゅうい]
 //: - メモリ使用量は O(n^2) です。大規模グラフには不向きです。
@@ -54,7 +54,7 @@
 //:             if lt 0 i:
 //:                 then print " "
 //:                 else unit
-//:             let d %i32 match v::get<i32> &dist i:
+//:             let d %i32 match v::get &dist i:
 //:                 Option::Some x:
 //:                     x
 //:                 Option::None:
@@ -62,7 +62,7 @@
 //:             print_i32 d;
 //:             set i add i 1;
 //:     print "\n";
-//:     v::free<i32> dist;
+//:     v::free dist;
 //:     dense_graph_free g;
 //:     close sc
 //: ```
@@ -201,7 +201,7 @@ pub fn dense_graph_read_undirected_1indexed %impure fn &StreamScanner Result Den
 //: - 辺重み 1 のグラフで、開始頂点 `start` から各頂点への最短距離を計算します。
 //:
 //: ### [実装/じっそう]
-//: - 配列キューを `Vec<i32>` で持つ通常の BFS です。
+//: - 配列キューを `Vec i32` で持つ通常の BFS です。
 //: - 未訪問は `-1` で表現し、最初の訪問時に距離を確定します。
 //:
 //: ### [計算量/けいさんりょう]
@@ -214,28 +214,28 @@ pub fn dense_graph_bfs_dist %impure fn &DenseGraph impure fn i32 Result Vec i32 
             diag_err dense_graph_diag_vertex
         else:
             let unvisited %i32 sub 0 1
-            match v::filled<i32> n unvisited:
+            match v::filled n unvisited:
                 Result::Err e:
                     let d %Diag dense_graph_diag_std_error e
                     err d
                 Result::Ok dist:
-                    match v::filled<i32> n 0:
+                    match v::filled n 0:
                         Result::Err e:
-                            v::free<i32> dist
+                            v::free dist
                             let d %Diag dense_graph_diag_std_error e
                             err d
                         Result::Ok queue:
-                            v::replace<i32> &dist start 0
-                            v::replace<i32> &queue 0 start
+                            v::replace &dist start 0
+                            v::replace &queue 0 start
                             let mut head %i32 0
                             let mut tail %i32 1
                             let mut failed %bool false
                             while and lt head tail not failed:
                                 do:
-                                    match v::get<i32> &queue head:
+                                    match v::get &queue head:
                                         Option::Some node:
                                             set head add head 1
-                                            match v::get<i32> &dist node:
+                                            match v::get &dist node:
                                                 Option::Some node_dist:
                                                     let mut to %i32 0
                                                     while and lt to n not failed:
@@ -245,16 +245,16 @@ pub fn dense_graph_bfs_dist %impure fn &DenseGraph impure fn i32 Result Vec i32 
                                                                     if:
                                                                         has_edge
                                                                         then:
-                                                                            match v::get<i32> &dist to:
+                                                                            match v::get &dist to:
                                                                                 Option::Some current:
                                                                                     if:
                                                                                         eq current unvisited
                                                                                         then:
-                                                                                            v::replace<i32> &dist to add node_dist 1
+                                                                                            v::replace &dist to add node_dist 1
                                                                                             if:
                                                                                                 lt tail n
                                                                                                 then:
-                                                                                                    v::replace<i32> &queue tail to
+                                                                                                    v::replace &queue tail to
                                                                                                     set tail add tail 1
                                                                                                 else:
                                                                                                     set failed true
@@ -271,11 +271,11 @@ pub fn dense_graph_bfs_dist %impure fn &DenseGraph impure fn i32 Result Vec i32 
                                                     set failed true
                                         Option::None:
                                             set failed true
-                            v::free<i32> queue
+                            v::free queue
                             if:
                                 failed
                                 then:
-                                    v::free<i32> dist
+                                    v::free dist
                                     diag_err dense_graph_diag_storage
                                 else:
                                     ok dist
