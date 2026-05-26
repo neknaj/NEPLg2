@@ -32,7 +32,7 @@
 pub fn fs_read_dir %impure fn str Result Vec str i32 \path:
     match fs_open_dir path:
         Result::Err e:
-            Result<Vec<str>,i32>::Err e
+            Result::Err e
         Result::Ok fd:
             let res %Result Vec str i32 fs_read_dir_fd fd
             match fs_close fd:

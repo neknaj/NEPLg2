@@ -36,7 +36,7 @@ pub fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashS
     let new_cap %i32 hashset_normalize_capacity requested_cap
     match hashset_alloc_storage<.T> new_cap:
         Result::Err d:
-            Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Err HashSetUpdateError<.T,.H> (HashSet<.T,.H> count0 old_cap tombstones0 old_storage hasher) d
+            Result::Err HashSetUpdateError<.T,.H> (HashSet<.T,.H> count0 old_cap tombstones0 old_storage hasher) d
         Result::Ok new_storage:
             let states %&Vec HashSetBucketState hashset_storage_states<.T> &old_storage
             let keys %&Vec Option .T hashset_storage_keys<.T> &old_storage
@@ -56,7 +56,7 @@ pub fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashS
                             unit
                     set i add i 1
             hashset_free_storage<.T> old_storage
-            Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok HashSet<.T,.H> count0 new_cap 0 new_storage hasher
+            Result::Ok HashSet<.T,.H> count0 new_cap 0 new_storage hasher
 
 //: hashset_prepare_insert: key [追加/ついか]前に必要な grow / rehash を[行/おこな]う
 //:
@@ -72,7 +72,7 @@ pub fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn 
     if:
         not lt idx 0
         then:
-            Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok hs
+            Result::Ok hs
         else:
             let limit %i32 hashset_load_limit cap0
             let occupied_after_insert %i32 add add count0 tombstones0 1
@@ -88,7 +88,7 @@ pub fn hashset_prepare_insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn 
                         else cap0
                     hashset_rehash_to<.T,.H> hs target_cap
                 else:
-                    Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok hs
+                    Result::Ok hs
 
 //: hashset_new_with_capacity: `new` と `with_capacity` が[共有/きょうゆう]する constructor
 //:

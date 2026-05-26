@@ -132,7 +132,7 @@ pub fn with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn 
 pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap .K .V .H impure fn .K impure fn .V Result HashMap .K .V .H HashMapUpdateError .K .V .H \hm\key\value:
     match hashmap_prepare_insert<.K,.V,.H> hm key:
         Result::Err e:
-            Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Err e
+            Result::Err e
         Result::Ok ready:
             let count0 %i32 *field::get_ref &ready "count"
             let cap0 %i32 *field::get_ref &ready "cap"
@@ -144,7 +144,7 @@ pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap
                 not lt existing 0
                 then:
                     hashmap_store_full<.K,.V> &storage existing key value
-                    Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher
+                    Result::Ok HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher
                 else:
                     let slot %HashMapInsertSlot hashmap_find_insert_slot<.K,.V,.H> &storage cap0 hasher key
                     let slot_idx %i32 field::get slot "index"
@@ -156,7 +156,7 @@ pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap
                                 tombstones0
                             HashMapInsertSlotState::TombstoneSlot:
                                 sub tombstones0 1
-                    Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok HashMap<.K,.V,.H> add count0 1 cap0 next_tombstones storage hasher
+                    Result::Ok HashMap<.K,.V,.H> add count0 1 cap0 next_tombstones storage hasher
 
 //: ## get
 //: key に[対応/たいおう]する value を[探/さが]す
@@ -261,10 +261,10 @@ pub fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap
     if:
         lt idx 0
         then:
-            Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Err HashMapUpdateError<.K,.V,.H> (HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher) diag_key_not_found
+            Result::Err HashMapUpdateError<.K,.V,.H> (HashMap<.K,.V,.H> count0 cap0 tombstones0 storage hasher) diag_key_not_found
         else:
             hashmap_store_tombstone<.K,.V> &storage idx
-            Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok HashMap<.K,.V,.H> sub count0 1 cap0 add tombstones0 1 storage hasher
+            Result::Ok HashMap<.K,.V,.H> sub count0 1 cap0 add tombstones0 1 storage hasher
 
 //: ## len
 //: [要素数/ようそすう]を[返/かえ]す

@@ -183,8 +183,8 @@ pub fn btreemap_grow <.K: Copy,.V: Copy> %impure fn BTreeMap .K .V Result BTreeM
     let cap1 %i32 mul cap0 2
     match btreemap_alloc_storage<.K,.V> cap1:
         Result::Err d:
-            Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>::Err BTreeMapInsertError<.K,.V> (BTreeMap<.K,.V> len0 cap0 storage) d
+            Result::Err BTreeMapInsertError<.K,.V> (BTreeMap<.K,.V> len0 cap0 storage) d
         Result::Ok next_storage:
             btreemap_copy_live_slots<.K,.V> &storage &next_storage len0
             btreemap_free_storage<.K,.V> storage
-            Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>::Ok BTreeMap<.K,.V> len0 cap1 next_storage
+            Result::Ok BTreeMap<.K,.V> len0 cap1 next_storage

@@ -84,9 +84,9 @@ pub fn insert <.K: Ord&Copy,.V: Copy> %impure fn BTreeMap .K .V impure fn .K imp
             match btreemap_grow<.K,.V> hm:
                 Result::Ok hm1:
                     let next %BTreeMap .K .V btreemap_insert_ready<.K,.V> hm1 key value
-                    Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>::Ok next
+                    Result::Ok next
                 Result::Err e:
-                    Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>::Err e
+                    Result::Err e
         else:
             let next %BTreeMap .K .V btreemap_insert_ready<.K,.V> hm key value
-            Result<BTreeMap<.K,.V>, BTreeMapInsertError<.K,.V>>::Ok next
+            Result::Ok next

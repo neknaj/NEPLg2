@@ -693,6 +693,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js <対象 26 files> --no-tree -o tmp/neplg21-five-worker-constructor-cleanup.json -j 4 --dist web/dist --assert-io` は 14 件すべて compile timeout after 60000ms。JSON 上は timeout のみで、型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `git diff --check` は pass。
 
+### 2026-05-26 final source Result constructor checkpoint
+
+- 実コード側に残っていた typed constructor を 5 worker の非重複 write scope に分割し、lexer tokenize / raw memory-bytebuf-fs raw / hash collections / btree-fs small modules / selfhost import-move fixture の 5 領域を並列移行した。
+- lexer tokenize 17 件、raw memory / byte buffer / fs raw 15 件、hash collections 18 件、btree / fs small modules 20 件、selfhost import / move fixture 15 件を移行し、合計 18 files / 85 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/alloc/io/traits.nepl:35` に残る `Result<CountSink, StdErrorKind>::Ok` は `//:` comment 内のサンプルであり、実行 source ではないためこの checkpoint では保持した。
+- `rg -n ">::(Ok|Err|Some|None)" stdlib tests examples -g "*.nepl" -g "*.n.md"` は、実コード 0 件、`stdlib/alloc/io/traits.nepl:35` の comment sample 1 件のみになった。
+- `rg --pcre2 -n "(?<![A-Za-z0-9_])(Result|Option)::(?!(Ok|Err|Some|None)\\b)" stdlib tests examples -g "*.nepl" -g "*.n.md"` は 0 件になった。
+- `node nodesrc/tests.js <対象 18 files> --no-tree -o tmp/neplg21-final-constructor-cleanup.json -j 4 --dist web/dist --assert-io` は外側 904s timeout。partial JSON は 90/151 件完了、64 pass、25 compile timeout、1 fail。1 fail は今回変更していない `tests/compiler/move_effect.n.md::doctest#26` の既存診断 mismatch で、期待 `resource.raw.memory_outside_boundary` に対し実際は `resource.cell.uninit`。今回差分の6行には含まれない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

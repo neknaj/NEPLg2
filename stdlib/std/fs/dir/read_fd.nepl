@@ -69,14 +69,14 @@ fn fs_dirent_name_to_string %fn MemPtr u8 fn i32 Result str i32 \src_ptr\byte_le
 pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
     match v::new<str>:
         Result::Err _e:
-            Result<Vec<str>,i32>::Err 12
+            Result::Err 12
         Result::Ok entries0:
             let mut entries %Vec str entries0
             let buf_len %i32 fs_readdir_buf_size
             match alloc_region<u8> buf_len:
                 Result::Err _e:
                     v::free<str> entries
-                    Result<Vec<str>,i32>::Err 12
+                    Result::Err 12
                 Result::Ok buf_region:
                     match alloc_region<u8> 4:
                         Result::Err _e:
@@ -86,7 +86,7 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                 Result::Err _:
                                     unit
                             v::free<str> entries
-                            Result<Vec<str>,i32>::Err 12
+                            Result::Err 12
                         Result::Ok used_region:
                             let mut cookie %i64 %i64 cast 0
                             let mut err %i32 0
@@ -167,10 +167,10 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                 then:
                                     match fs_sort_strings &entries:
                                         Result::Ok _:
-                                            Result<Vec<str>,i32>::Ok entries
+                                            Result::Ok entries
                                         Result::Err e:
                                             v::free<str> entries
-                                            Result<Vec<str>,i32>::Err e
+                                            Result::Err e
                                 else:
                                     v::free<str> entries
-                                    Result<Vec<str>,i32>::Err err
+                                    Result::Err err

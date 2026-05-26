@@ -1,3 +1,15 @@
+# 2026-05-26 Agent 1 final source Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、実コード側に残っていた typed `Result<...>::Ok` / `Result<...>::Err` を、5 worker の非重複 write scope へ分割して並列移行した。
+- lexer tokenize 17 件、raw memory / byte buffer / fs raw 15 件、hash collections 18 件、btree / fs small modules 20 件、selfhost import / move fixture 15 件を移行し、合計 18 files / 85 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/alloc/io/traits.nepl:35` に残る `Result<CountSink, StdErrorKind>::Ok` は `//:` comment 内のサンプルであり、実行 source ではないためこの checkpoint では保持した。
+- 検証:
+  - `rg -n ">::(Ok|Err|Some|None)" stdlib tests examples -g "*.nepl" -g "*.n.md"`: 実コード 0 件。残りは `stdlib/alloc/io/traits.nepl:35` の comment sample 1 件のみ。
+  - `rg --pcre2 -n "(?<![A-Za-z0-9_])(Result|Option)::(?!(Ok|Err|Some|None)\\b)" stdlib tests examples -g "*.nepl" -g "*.n.md"`: 0 件。
+  - `node nodesrc/tests.js <対象 18 files> --no-tree -o tmp/neplg21-final-constructor-cleanup.json -j 4 --dist web/dist --assert-io`: 外側 904s timeout。partial JSON は 90/151 件完了、64 pass、25 compile timeout、1 fail。
+  - 上記 1 fail は今回変更していない `tests/compiler/move_effect.n.md::doctest#26` の既存診断 mismatch。期待 `resource.raw.memory_outside_boundary` に対し実際は `resource.cell.uninit` で、今回差分の6行には含まれない。
+  - timeout 後に残留していた当該 `node.exe` process は停止した。
+
 # 2026-05-26 Agent 1 five-worker Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と expected type で解決できる typed `Result<...>::Ok` / `Result<...>::Err` を、5 worker の非重複 write scope へ分割して並列移行した。

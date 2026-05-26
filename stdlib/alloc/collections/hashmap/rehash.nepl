@@ -36,7 +36,7 @@ pub fn hashmap_rehash_to <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure
     let new_cap %i32 hashmap_normalize_capacity requested_cap
     match hashmap_alloc_storage<.K,.V> new_cap:
         Result::Err d:
-            Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Err HashMapUpdateError<.K,.V,.H> (HashMap<.K,.V,.H> count0 old_cap tombstones0 old_storage hasher) d
+            Result::Err HashMapUpdateError<.K,.V,.H> (HashMap<.K,.V,.H> count0 old_cap tombstones0 old_storage hasher) d
         Result::Ok new_storage:
             let states %&Vec HashMapBucketState hashmap_storage_states<.K,.V> &old_storage
             let keys %&Vec Option .K hashmap_storage_keys<.K,.V> &old_storage
@@ -61,7 +61,7 @@ pub fn hashmap_rehash_to <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure
                             unit
                     set i add i 1
             hashmap_free_storage<.K,.V> old_storage
-            Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok HashMap<.K,.V,.H> count0 new_cap 0 new_storage hasher
+            Result::Ok HashMap<.K,.V,.H> count0 new_cap 0 new_storage hasher
 
 //: hashmap_prepare_insert: key [追加/ついか]前に必要な grow / rehash を[行/おこな]う
 //:
@@ -77,7 +77,7 @@ pub fn hashmap_prepare_insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %i
     if:
         not lt idx 0
         then:
-            Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok hm
+            Result::Ok hm
         else:
             let limit %i32 hashmap_load_limit cap0
             let occupied_after_insert %i32 add add count0 tombstones0 1
@@ -93,7 +93,7 @@ pub fn hashmap_prepare_insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %i
                         else cap0
                     hashmap_rehash_to<.K,.V,.H> hm target_cap
                 else:
-                    Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok hm
+                    Result::Ok hm
 
 //: hashmap_new_with_capacity: `new` と `with_capacity` が[共有/きょうゆう]する constructor
 //:

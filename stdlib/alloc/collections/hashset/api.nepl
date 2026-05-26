@@ -125,7 +125,7 @@ pub fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure
 pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H impure fn .T Result HashSet .T .H HashSetUpdateError .T .H \hs\key:
     match hashset_prepare_insert<.T,.H> hs key:
         Result::Err e:
-            Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Err e
+            Result::Err e
         Result::Ok ready:
             let count0 %i32 *field::get_ref &ready "count"
             let cap0 %i32 *field::get_ref &ready "cap"
@@ -136,7 +136,7 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H im
             if:
                 not lt existing 0
                 then:
-                    Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok HashSet<.T,.H> count0 cap0 tombstones0 storage hasher
+                    Result::Ok HashSet<.T,.H> count0 cap0 tombstones0 storage hasher
                 else:
                     let slot %HashSetInsertSlot hashset_find_insert_slot<.T,.H> &storage cap0 hasher key
                     let slot_idx %i32 field::get slot "index"
@@ -148,7 +148,7 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H im
                                 tombstones0
                             HashSetInsertSlotState::TombstoneSlot:
                                 sub tombstones0 1
-                    Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok HashSet<.T,.H> add count0 1 cap0 next_tombstones storage hasher
+                    Result::Ok HashSet<.T,.H> add count0 1 cap0 next_tombstones storage hasher
 
 //: ## contains
 //: [要素/ようそ]の[存在/そんざい]を[確/たし]かめる
@@ -221,10 +221,10 @@ pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H im
     if:
         lt idx 0
         then:
-            Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Err HashSetUpdateError<.T,.H> (HashSet<.T,.H> count0 cap0 tombstones0 storage hasher) diag_key_not_found
+            Result::Err HashSetUpdateError<.T,.H> (HashSet<.T,.H> count0 cap0 tombstones0 storage hasher) diag_key_not_found
         else:
             hashset_store_tombstone<.T> &storage idx
-            Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok HashSet<.T,.H> sub count0 1 cap0 add tombstones0 1 storage hasher
+            Result::Ok HashSet<.T,.H> sub count0 1 cap0 add tombstones0 1 storage hasher
 
 //: ## len
 //: [要素数/ようそすう]を[返/かえ]す

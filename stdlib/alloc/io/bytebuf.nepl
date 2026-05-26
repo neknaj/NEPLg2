@@ -156,13 +156,13 @@ pub fn io_bytebuf_alloc_region %fn i32 Result RegionToken u8 StdErrorKind \byte_
     if:
         lt byte_len 0
         then:
-            Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::InvalidOperation
+            Result::Err StdErrorKind::InvalidOperation
         else:
             match alloc_region_bytes<u8> byte_len:
                 Result::Ok region:
-                    Result<RegionToken<u8>, StdErrorKind>::Ok region
+                    Result::Ok region
                 Result::Err _e:
-                    Result<RegionToken<u8>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                    Result::Err StdErrorKind::OutOfMemory
 
 //: io_bytebuf_region_ptr: 確定前 `ByteBuf` 領域の本文 pointer を参照から得る
 //:

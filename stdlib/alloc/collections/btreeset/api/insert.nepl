@@ -81,9 +81,9 @@ pub fn insert <.T: Ord&Copy> %impure fn BTreeSet .T impure fn .T Result BTreeSet
             match btreeset_grow<.T> set0:
                 Result::Ok set1:
                     let next %BTreeSet .T btreeset_insert_ready<.T> set1 key
-                    Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Ok next
+                    Result::Ok next
                 Result::Err e:
-                    Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Err e
+                    Result::Err e
         else:
             let next %BTreeSet .T btreeset_insert_ready<.T> set0 key
-            Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Ok next
+            Result::Ok next

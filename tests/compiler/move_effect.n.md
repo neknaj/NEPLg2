@@ -1196,7 +1196,7 @@ fn token_id %fn i32 i32 \x:
 
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
-    let res %Result MemPtr LocalToken str Result<MemPtr<LocalToken>,str>::Ok p
+    let res %Result MemPtr LocalToken str Result::Ok p
     match res:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -1229,12 +1229,12 @@ fn token_id %fn i32 i32 \x:
 
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
-    let mut res %Result MemPtr LocalToken str Result<MemPtr<LocalToken>,str>::Err "none"
+    let mut res %Result MemPtr LocalToken str Result::Err "none"
     if true:
         then:
-            set res Result<MemPtr<LocalToken>,str>::Ok p
+            set res Result::Ok p
         else:
-            set res Result<MemPtr<LocalToken>,str>::Ok p
+            set res Result::Ok p
     match res:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -1492,7 +1492,7 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn ok_ptr %fn MemPtr LocalToken Result MemPtr LocalToken str \p:
-    Result<MemPtr<LocalToken>,str>::Ok p
+    Result::Ok p
 
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
@@ -1606,7 +1606,7 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn ok_ptr %fn MemPtr LocalToken Result MemPtr LocalToken str \p:
-    Result<MemPtr<LocalToken>,str>::Ok p
+    Result::Ok p
 
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16

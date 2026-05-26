@@ -32,15 +32,15 @@ pub fn fs_normalize_range_push %fn Vec i32 fn i32 fn i32 Result Vec i32 i32 \sta
         Result::Err e:
             let returned %Vec i32 v::vec_push_error_vec<i32> e
             v::free<i32> returned
-            Result<Vec<i32>,i32>::Err 12
+            Result::Err 12
         Result::Ok with_start:
             match v::push<i32> with_start end:
                 Result::Err e:
                     let returned %Vec i32 v::vec_push_error_vec<i32> e
                     v::free<i32> returned
-                    Result<Vec<i32>,i32>::Err 12
+                    Result::Err 12
                 Result::Ok with_end:
-                    Result<Vec<i32>,i32>::Ok with_end
+                    Result::Ok with_end
 
 //: fs_normalize_range_pop: component range を stack から 1 件捨てる
 //:

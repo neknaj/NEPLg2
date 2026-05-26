@@ -27,7 +27,7 @@ pub fn __fs_copy_to_cstr %impure fn i32 impure fn i32 Result RegionToken u8 i32 
     let size %i32 add src_len 1;
     match alloc_region<u8> size:
         Result::Err e:
-            Result<RegionToken<u8>,i32>::Err e
+            Result::Err e
         Result::Ok dst_region:
             let dst %MemPtr u8 region_ptr &dst_region
             let mut i %i32 0;
@@ -44,7 +44,7 @@ pub fn __fs_copy_to_cstr %impure fn i32 impure fn i32 Result RegionToken u8 i32 
                     unit
                 Result::Err _:
                     unit
-            Result<RegionToken<u8>,i32>::Ok dst_region
+            Result::Ok dst_region
 
 #if[target=llvm]
 pub fn __linux_syscall_openat_path %impure fn i32 impure fn i32 impure fn i32 i64 \path_ptr\flags\mode:

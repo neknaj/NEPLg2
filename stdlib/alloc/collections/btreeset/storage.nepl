@@ -120,8 +120,8 @@ pub fn btreeset_grow <.T: Copy> %impure fn BTreeSet .T Result BTreeSet .T BTreeS
     let cap1 %i32 mul cap0 2
     match btreeset_alloc_storage<.T> cap1:
         Result::Err d:
-            Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Err BTreeSetInsertError<.T> (BTreeSet<.T> len0 cap0 storage) d
+            Result::Err BTreeSetInsertError<.T> (BTreeSet<.T> len0 cap0 storage) d
         Result::Ok next_storage:
             btreeset_copy_live_slots<.T> &storage &next_storage len0
             btreeset_free_storage<.T> storage
-            Result<BTreeSet<.T>, BTreeSetInsertError<.T>>::Ok BTreeSet<.T> len0 cap1 next_storage
+            Result::Ok BTreeSet<.T> len0 cap1 next_storage

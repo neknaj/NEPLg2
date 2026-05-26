@@ -166,9 +166,9 @@ pub fn region_ptr_at <.T, .U> %fn &RegionToken .T fn i32 Result MemPtr .U str \t
                 let aligned %bool if le align 1 true eq rem_s addr align 0
                 and in_bounds aligned
         then:
-            Result<MemPtr<.U>,str>::Ok mem_ptr_wrap addr
+            Result::Ok mem_ptr_wrap addr
         else:
-            Result<MemPtr<.U>,str>::Err "mem.region_ptr_at out of bounds or unaligned"
+            Result::Err "mem.region_ptr_at out of bounds or unaligned"
 
 //: alloc_region_bytes: byte 数を指定して RegionToken を確保する
 //:
@@ -209,15 +209,15 @@ pub fn alloc_region_bytes <.T> %fn i32 Result RegionToken .T str \bytes:
     if:
         not alloc_payload_fits bytes
         then:
-            Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes invalid size"
+            Result::Err "mem.alloc_region_bytes invalid size"
         else:
             let raw %i32 allocator::alloc_raw bytes
             if:
                 lt 0 raw
                 then:
-                    Result<RegionToken<.T>,str>::Ok region_new<.T> raw bytes
+                    Result::Ok region_new<.T> raw bytes
                 else:
-                    Result<RegionToken<.T>,str>::Err "mem.alloc_region_bytes failed"
+                    Result::Err "mem.alloc_region_bytes failed"
 
 //: RegionReallocError: `RegionToken` の[再確保/さいかくほ]に[失敗/しっぱい]したときの owner payload
 //:
@@ -297,7 +297,7 @@ fn realloc_region_bytes_keep_relocating <.T> %fn RegionToken .T fn i32 Result Re
     if:
         not alloc_payload_fits new_size
         then:
-            Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
+            Result::Err RegionReallocError<.T> region
         else:
             let old_size %i32 get region "size"
             let old_raw %i32 get region "raw"
@@ -307,9 +307,9 @@ fn realloc_region_bytes_keep_relocating <.T> %fn RegionToken .T fn i32 Result Re
                 then:
                     let grown %RegionToken .T region_new<.T> next_raw new_size
                     #intrinsic "collection_slot_storage_relocate" <> (&region, &grown)
-                    Result<RegionToken<.T>, RegionReallocError<.T>>::Ok grown
+                    Result::Ok grown
                 else:
-                    Result<RegionToken<.T>, RegionReallocError<.T>>::Err RegionReallocError<.T> region
+                    Result::Err RegionReallocError<.T> region
 
 //: realloc_region_bytes_keep: `RegionToken` owner を byte [数/すう]指定で[再確保/さいかくほ]する
 //:
@@ -415,13 +415,13 @@ pub fn alloc_region <.T> %fn i32 Result RegionToken .T str \count:
     if:
         or le count 0 le elem_size 0
         then:
-            Result<RegionToken<.T>,str>::Err "mem.alloc_region invalid count"
+            Result::Err "mem.alloc_region invalid count"
         else:
             let max_count %i32 div_s max_alloc_payload_bytes elem_size
             if:
                 gt count max_count
                 then:
-                    Result<RegionToken<.T>,str>::Err "mem.alloc_region size overflow"
+                    Result::Err "mem.alloc_region size overflow"
                 else:
                     let bytes %i32 mul count elem_size
                     alloc_region_bytes<.T> bytes

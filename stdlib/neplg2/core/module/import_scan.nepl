@@ -173,7 +173,7 @@ pub fn selfhost_scan_module_imports_loop %impure fn str impure fn i32 impure fn 
     if:
         ge line_start n
         then:
-            Result<Vec<SelfhostImportRecord>, SelfhostDiagnostic>::Ok out
+            Result::Ok out
         else:
             let line_end %i32 selfhost_import_scan_line_end source n line_start
             let next_line %i32 selfhost_import_scan_next_line source n line_start
@@ -187,10 +187,10 @@ pub fn selfhost_scan_module_imports_loop %impure fn str impure fn i32 impure fn 
                                     selfhost_scan_module_imports_loop source file_id n next_line next_out
                                 Result::Err e:
                                     v::free<SelfhostImportRecord> v::vec_push_error_vec<SelfhostImportRecord> e
-                                    Result<Vec<SelfhostImportRecord>, SelfhostDiagnostic>::Err selfhost_import_scan_oom_diag source_span_new file_id line_start line_end
+                                    Result::Err selfhost_import_scan_oom_diag source_span_new file_id line_start line_end
                         Result::Err diag:
                             v::free<SelfhostImportRecord> out
-                            Result<Vec<SelfhostImportRecord>, SelfhostDiagnostic>::Err diag
+                            Result::Err diag
                 else:
                     selfhost_scan_module_imports_loop source file_id n next_line out
 
@@ -200,7 +200,7 @@ pub fn selfhost_scan_module_imports_with_file_id %impure fn str impure fn i32 Re
         Result::Ok out:
             selfhost_scan_module_imports_loop source file_id string_access::len source 0 out
         Result::Err _e:
-            Result<Vec<SelfhostImportRecord>, SelfhostDiagnostic>::Err selfhost_import_scan_oom_diag source_span_empty 0 0
+            Result::Err selfhost_import_scan_oom_diag source_span_empty 0 0
 
 //: selfhost_scan_module_imports: single-file 互換の import scanner
 pub fn selfhost_scan_module_imports %impure fn str Result Vec SelfhostImportRecord SelfhostDiagnostic \source:
