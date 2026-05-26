@@ -1,3 +1,26 @@
+# 2026-05-26 Agent 1 Stack/Queue/RingBuffer producer postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として、Stack / Queue / RingBuffer fixture の producer / mutator 系後置 generic を撤廃した。
+- `stdlib/tests/stack.n.md` / `tests/stdlib/stack_collections.n.md`、`stdlib/tests/queue.n.md` / `tests/stdlib/queue_collections.n.md`、`stdlib/tests/ringbuffer.n.md` / `tests/stdlib/ringbuffer_collections.n.md` を 3 worker の非重複 write scope に分割して並列移行した。
+- Stack fixture では `new<i32>` / `push<i32>` を postfix-free にした。
+- Queue fixture では `new<i32>` / `with_capacity<i32>` / `push<i32>` を postfix-free にした。
+- RingBuffer fixture では `new<i32>` / `with_capacity<i32>` / `push<i32>` を postfix-free にした。
+- 対象は `%Stack i32` / `%Queue i32` / `%RingBuffer i32` local annotation、または receiver 型から型根拠が明確な箇所に限定した。
+- `nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_ringbuffer_borrowed_observers.js` に、今回の対象 fixture が explicit producer / mutator postfix へ戻らないことを固定した。owner recovery、borrowed observer、cleanup 境界の検査は弱めていない。
+- 検証:
+  - `rg -n "\b(new|push)<" stdlib/tests/stack.n.md tests/stdlib/stack_collections.n.md`: 0 件。
+  - `rg -n "\b(new|with_capacity|push)<" stdlib/tests/queue.n.md tests/stdlib/queue_collections.n.md stdlib/tests/ringbuffer.n.md tests/stdlib/ringbuffer_collections.n.md`: 0 件。
+  - `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`: pass。
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: pass。
+  - `node nodesrc/test_stdlib_ringbuffer_borrowed_observers.js`: pass。
+  - `node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js`: pass。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: `would update 0 file(s)`。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `trunk build`: pass。
+  - `git diff --check`: pass。LF/CRLF warning のみ。
+  - `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md -i stdlib/tests/queue.n.md -i tests/stdlib/queue_collections.n.md -i stdlib/tests/ringbuffer.n.md -i tests/stdlib/ringbuffer_collections.n.md --no-tree -o tmp/neplg21-stack-queue-ringbuffer-producer-postfix.json -j 1 --dist web/dist --assert-io`: 外側 timeout。partial JSON は 15/26 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 Stack observer / pop result postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として Stack の receiver 型から解決できる observer / cleanup / pop result 系の後置 generic を撤廃した。

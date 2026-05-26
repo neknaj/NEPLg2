@@ -52,6 +52,14 @@ for (const testPath of [
     assert.doesNotMatch(testSrc, /\brb[0-9]?\s+\|>\s+peek(?:<i32>)?\b/, `${testPath} must not pipe RingBuffer owners into peek`);
 }
 
+for (const testPath of [
+    "stdlib/tests/ringbuffer.n.md",
+    "tests/stdlib/ringbuffer_collections.n.md",
+]) {
+    const testSrc = neplCodeBlocks(fs.readFileSync(path.join(repoRoot, testPath), "utf8"));
+    assert.doesNotMatch(testSrc, /\b(?:new|with_capacity|push)<i32>/, `${testPath} must rely on RingBuffer expected type or receiver evidence instead of explicit producer or mutator postfixes`);
+}
+
 const pipeCollections = neplCodeBlocks(fs.readFileSync(path.join(repoRoot, "tests/stdlib/pipe_collections.n.md"), "utf8"));
 assert.match(pipeCollections, /peek\s+&rb2\b/, "pipe_collections must borrow RingBuffer.peek explicitly");
 

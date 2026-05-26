@@ -66,6 +66,7 @@ for (const testPath of [
 ]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testPath), 'utf8');
     assert.doesNotMatch(testSrc, /\b(?:len_ref|is_empty_ref|peek_ref|get_ref)<i32>/, `${testPath} must not use removed Stack *_ref observers`);
+    assert.doesNotMatch(testSrc, /\b(?:new|push)<i32>/, `${testPath} must rely on Stack expected type or receiver evidence instead of explicit producer or mutator postfixes`);
     assert.doesNotMatch(testSrc, /\b(?:len|get|peek|pop|pop_top|free|clear)<i32>/, `${testPath} must rely on Stack receiver type evidence instead of explicit observer or cleanup postfixes`);
     assert.doesNotMatch(testSrc, /\b(?:len|is_empty|peek|get)(?:<i32>)?\s+s[0-9]?\b/, `${testPath} must not call Stack observers by value`);
     assert.doesNotMatch(testSrc, /\bs[0-9]?\s+\|>\s+(?:len|is_empty|peek|get)(?:<i32>)?\b/, `${testPath} must not pipe Stack owners into observers`);

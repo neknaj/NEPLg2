@@ -21,18 +21,18 @@ stdout: "test_report name=\"queue_push_pop\" count=5 failed=0\nassertion index=0
 
 fn main %impure fn unit i32 \unit:
     let q0 %Queue i32:
-        unwrap_ok new<i32>
-        |> push<i32> 1
+        unwrap_ok new
+        |> push 1
         |> unwrap_ok
-        |> push<i32> 2
+        |> push 2
         |> unwrap_ok
     let size0 %i32 len &q0;
     free q0;
     let q1 %Queue i32:
-        unwrap_ok new<i32>
-        |> push<i32> 1
+        unwrap_ok new
+        |> push 1
         |> unwrap_ok
-        |> push<i32> 2
+        |> push 2
         |> unwrap_ok
     let ok1 %bool match peek &q1:
         Option::Some v:
@@ -41,8 +41,8 @@ fn main %impure fn unit i32 \unit:
             false
     free q1;
     let q2 %Queue i32:
-        unwrap_ok new<i32>
-        |> push<i32> 5
+        unwrap_ok new
+        |> push 5
         |> unwrap_ok
     let ok2 %bool match pop q2:
         Option::Some v:
@@ -50,10 +50,10 @@ fn main %impure fn unit i32 \unit:
         Option::None:
             false
     let q3 %Queue i32:
-        unwrap_ok new<i32>
-        |> push<i32> 7
+        unwrap_ok new
+        |> push 7
         |> unwrap_ok
-        |> push<i32> 8
+        |> push 8
         |> unwrap_ok
     let p0 %QueuePop i32 pop_front q3
     let ok3 %bool match queue_pop_item &p0:
@@ -97,7 +97,7 @@ stdout: "test_report name=\"queue_pop_empty\" count=1 failed=0\nassertion index=
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let q %Queue i32 unwrap_ok new<i32>;
+    let q %Queue i32 unwrap_ok new;
     let ok %bool match pop q:
         Option::Some _:
             false

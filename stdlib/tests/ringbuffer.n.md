@@ -21,18 +21,18 @@ stdout: "test_report name=\"ringbuffer_push_pop\" count=5 failed=0\nassertion in
 
 fn main %impure fn unit i32 \unit:
     let rb0 %RingBuffer i32:
-        unwrap_ok new<i32>
-        |> push<i32> 10
+        unwrap_ok new
+        |> push 10
         |> unwrap_ok
-        |> push<i32> 20
+        |> push 20
         |> unwrap_ok
     let size0 %i32 len &rb0;
     free rb0
     let rb1 %RingBuffer i32:
-        unwrap_ok new<i32>
-        |> push<i32> 10
+        unwrap_ok new
+        |> push 10
         |> unwrap_ok
-        |> push<i32> 20
+        |> push 20
         |> unwrap_ok
     let ok1 %bool match peek &rb1:
         Option::Some v:
@@ -41,8 +41,8 @@ fn main %impure fn unit i32 \unit:
             false
     free rb1
     let rb2 %RingBuffer i32:
-        unwrap_ok new<i32>
-        |> push<i32> 10
+        unwrap_ok new
+        |> push 10
         |> unwrap_ok
     let ok2 %bool match pop rb2:
         Option::Some v:
@@ -50,10 +50,10 @@ fn main %impure fn unit i32 \unit:
         Option::None:
             false
     let rb3 %RingBuffer i32:
-        unwrap_ok new<i32>
-        |> push<i32> 30
+        unwrap_ok new
+        |> push 30
         |> unwrap_ok
-        |> push<i32> 40
+        |> push 40
         |> unwrap_ok
     let p0 %RingBufferPop i32 pop_front rb3
     let ok3 %bool match ringbuffer_pop_item &p0:
@@ -97,7 +97,7 @@ stdout: "test_report name=\"ringbuffer_pop_empty\" count=1 failed=0\nassertion i
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let rb %RingBuffer i32 unwrap_ok new<i32>;
+    let rb %RingBuffer i32 unwrap_ok new;
     let ok %bool match pop rb:
         Option::Some _:
             false

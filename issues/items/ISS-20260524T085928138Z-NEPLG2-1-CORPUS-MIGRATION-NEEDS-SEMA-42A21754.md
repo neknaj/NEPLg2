@@ -835,6 +835,21 @@ LLM/手動判断が必要なもの:
 - `trunk build` と `git diff --check` は pass した。`git diff --check` は LF/CRLF warning のみ。
 - `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl -i tests/compiler/overload.n.md --no-tree -o tmp/neplg21-stack-observer-pop-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15/68 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 Stack/Queue/RingBuffer producer postfix checkpoint
+
+- `stdlib/tests/stack.n.md` / `tests/stdlib/stack_collections.n.md`、`stdlib/tests/queue.n.md` / `tests/stdlib/queue_collections.n.md`、`stdlib/tests/ringbuffer.n.md` / `tests/stdlib/ringbuffer_collections.n.md` を 3 worker の非重複 write scope に分割して並列移行した。
+- Stack fixture では `new<i32>` / `push<i32>` を postfix-free にした。
+- Queue fixture では `new<i32>` / `with_capacity<i32>` / `push<i32>` を postfix-free にした。
+- RingBuffer fixture では `new<i32>` / `with_capacity<i32>` / `push<i32>` を postfix-free にした。
+- 対象は `%Stack i32` / `%Queue i32` / `%RingBuffer i32` local annotation、または receiver 型から型根拠が明確な箇所に限定した。
+- `nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_ringbuffer_borrowed_observers.js` に、今回の対象 fixture が explicit producer / mutator postfix へ戻らないことを固定した。owner recovery、borrowed observer、cleanup 境界の検査は弱めていない。
+- `rg -n "\b(new|push)<" stdlib/tests/stack.n.md tests/stdlib/stack_collections.n.md` は 0 件になった。
+- `rg -n "\b(new|with_capacity|push)<" stdlib/tests/queue.n.md tests/stdlib/queue_collections.n.md stdlib/tests/ringbuffer.n.md tests/stdlib/ringbuffer_collections.n.md` は 0 件になった。
+- `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_ringbuffer_borrowed_observers.js`、`node nodesrc/test_stdlib_ringbuffer_no_unsafe_unwraps.js` は pass した。
+- `node nodesrc/neplg21_syntax_migrate.js --check` は `would update 0 file(s)` になった。
+- `node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check --dir issues`、`trunk build`、`git diff --check` は pass した。`git diff --check` は LF/CRLF warning のみ。
+- `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md -i stdlib/tests/queue.n.md -i tests/stdlib/queue_collections.n.md -i stdlib/tests/ringbuffer.n.md -i tests/stdlib/ringbuffer_collections.n.md --no-tree -o tmp/neplg21-stack-queue-ringbuffer-producer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15/26 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

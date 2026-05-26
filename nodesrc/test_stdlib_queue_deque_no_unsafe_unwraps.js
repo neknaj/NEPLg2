@@ -127,4 +127,12 @@ for (const testPath of [
     assert.doesNotMatch(testSrc, /field::get(?:_ref)?\s+&?p[0-9]?\s+"(?:item|queue)"/, `${testPath} must not project QueuePop fields directly`);
 }
 
+for (const testPath of [
+    'stdlib/tests/queue.n.md',
+    'tests/stdlib/queue_collections.n.md',
+]) {
+    const testSrc = fs.readFileSync(path.join(repoRoot, testPath), 'utf8');
+    assert.doesNotMatch(testSrc, /\b(?:new|with_capacity|push)<i32>/, `${testPath} must rely on Queue expected type or receiver evidence instead of explicit producer or mutator postfixes`);
+}
+
 console.log('queue/deque unsafe unwrap regression passed');
