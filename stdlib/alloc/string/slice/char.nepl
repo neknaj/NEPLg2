@@ -23,12 +23,12 @@
 #import "./byte" as *
 
 pub fn str_next_char_ok %fn char fn i32 Result CharUtf8Step str \c\next_byte_index:
-    Result<CharUtf8Step,str>::Ok char_utf8_step_new c next_byte_index
+    Result::Ok char_utf8_step_new c next_byte_index
 
 pub fn str_decode_char_result %fn i32 fn i32 Result CharUtf8Step str \code\next_byte_index:
     match char_from_i32_result code:
         Result::Err _e:
-            Result<CharUtf8Step,str>::Err "string.char invalid scalar"
+            Result::Err "string.char invalid scalar"
         Result::Ok c:
             str_next_char_ok c next_byte_index
 
@@ -55,12 +55,12 @@ pub fn str_next_char_result %fn str fn i32 Result CharUtf8Step str \s\byte_index
     if:
         or lt byte_index 0 le n byte_index
         then:
-            Result<CharUtf8Step,str>::Err "string.char index out of bounds"
+            Result::Err "string.char index out of bounds"
         else:
             if:
                 not str_utf8_is_boundary s byte_index
                 then:
-                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 boundary"
+                    Result::Err "string.char invalid utf8 boundary"
                 else:
                     let b0 %i32 str_char_byte_or_invalid s byte_index
                     if:
@@ -70,12 +70,12 @@ pub fn str_next_char_result %fn str fn i32 Result CharUtf8Step str \s\byte_index
                         else:
                             match string_utf8_lead_kind b0:
                                 StringUtf8LeadKind::Ascii:
-                                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 leading byte"
+                                    Result::Err "string.char invalid utf8 leading byte"
                                 StringUtf8LeadKind::Two:
                                     if:
                                         le n add byte_index 1
                                         then:
-                                            Result<CharUtf8Step,str>::Err "string.char truncated utf8"
+                                            Result::Err "string.char truncated utf8"
                                         else:
                                             let b1 %i32 str_char_byte_or_invalid s add byte_index 1
                                             if:
@@ -85,12 +85,12 @@ pub fn str_next_char_result %fn str fn i32 Result CharUtf8Step str \s\byte_index
                                                     let lo %i32 and b1 0x3F
                                                     str_decode_char_result or hi lo add byte_index 2
                                                 else:
-                                                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 continuation"
+                                                    Result::Err "string.char invalid utf8 continuation"
                                 StringUtf8LeadKind::Three:
                                     if:
                                         le n add byte_index 2
                                         then:
-                                            Result<CharUtf8Step,str>::Err "string.char truncated utf8"
+                                            Result::Err "string.char truncated utf8"
                                         else:
                                             let b1 %i32 str_char_byte_or_invalid s add byte_index 1
                                             let b2 %i32 str_char_byte_or_invalid s add byte_index 2
@@ -114,12 +114,12 @@ pub fn str_next_char_result %fn str fn i32 Result CharUtf8Step str \s\byte_index
                                                     let part2 %i32 and b2 0x3F
                                                     str_decode_char_result or part0 or part1 part2 add byte_index 3
                                                 else:
-                                                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 three-byte sequence"
+                                                    Result::Err "string.char invalid utf8 three-byte sequence"
                                 StringUtf8LeadKind::Four:
                                     if:
                                         le n add byte_index 3
                                         then:
-                                            Result<CharUtf8Step,str>::Err "string.char truncated utf8"
+                                            Result::Err "string.char truncated utf8"
                                         else:
                                             let b1 %i32 str_char_byte_or_invalid s add byte_index 1
                                             let b2 %i32 str_char_byte_or_invalid s add byte_index 2
@@ -145,9 +145,9 @@ pub fn str_next_char_result %fn str fn i32 Result CharUtf8Step str \s\byte_index
                                                     let part3 %i32 and b3 0x3F
                                                     str_decode_char_result or part0 or part1 or part2 part3 add byte_index 4
                                                 else:
-                                                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 four-byte sequence"
+                                                    Result::Err "string.char invalid utf8 four-byte sequence"
                                 StringUtf8LeadKind::Invalid:
-                                    Result<CharUtf8Step,str>::Err "string.char invalid utf8 leading byte"
+                                    Result::Err "string.char invalid utf8 leading byte"
 
 //: str_char_count: `str` に含まれる Unicode scalar value 数を数える
 //:
@@ -206,9 +206,9 @@ pub fn str_char_byte_index_result %fn str fn i32 Result i32 str \s\char_index:
     if:
         failed
         then:
-            Result<i32,str>::Err "string.char index out of bounds"
+            Result::Err "string.char index out of bounds"
         else:
-            Result<i32,str>::Ok byte_i
+            Result::Ok byte_i
 
 //: str_char_at_result: char index で 1 つの char を読む
 //:
@@ -217,19 +217,19 @@ pub fn str_char_byte_index_result %fn str fn i32 Result i32 str \s\char_index:
 pub fn str_char_at_result %fn str fn i32 Result char str \s\char_index:
     match str_char_byte_index_result s char_index:
         Result::Err e:
-            Result<char,str>::Err e
+            Result::Err e
         Result::Ok byte_i:
             if:
                 le len s byte_i
                 then:
-                    Result<char,str>::Err "string.char index out of bounds"
+                    Result::Err "string.char index out of bounds"
                 else:
                     match str_next_char_result s byte_i:
                         Result::Err e:
-                            Result<char,str>::Err e
+                            Result::Err e
                         Result::Ok item:
                             let c %char get item "value"
-                            Result<char,str>::Ok c
+                            Result::Ok c
 
 //: str_slice_chars_result: char index 範囲を切り出す
 //:
@@ -241,7 +241,7 @@ pub fn str_char_at_result %fn str fn i32 Result char str \s\char_index:
 pub fn str_slice_chars_result %fn str fn i32 fn i32 Result str str \s\start_char\end_char:
     match str_char_slice_offsets_result s start_char end_char:
         Result::Err e:
-            Result<str,str>::Err e
+            Result::Err e
         Result::Ok offsets:
             let start_byte %i32 get offsets "start"
             let end_byte %i32 get offsets "end"

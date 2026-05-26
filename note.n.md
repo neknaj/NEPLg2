@@ -1,3 +1,19 @@
+# 2026-05-26 Agent 1 text/string Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる text/string 領域の constructor だけを移行した。
+- `stdlib/std/text/convert.nepl` / `stdlib/std/text/decode.nepl` / `stdlib/std/text/validate.nepl` で、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 39 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/alloc/string/char_offsets.nepl` / `stdlib/alloc/string/slice/byte.nepl` / `stdlib/alloc/string/slice/char.nepl` / `stdlib/alloc/string/utf8.nepl` で、同じく戻り値と branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 31 件を `Result::Ok` / `Result::Err` へ移行した。
+- subagent の独立レビューでも、対象 files に残すべき typed constructor はなく、doc comment や source string fixture として保持すべき旧構文もないと確認した。
+- 検証:
+  - `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/std/text/convert.nepl stdlib/std/text/decode.nepl stdlib/std/text/validate.nepl stdlib/alloc/string/char_offsets.nepl stdlib/alloc/string/slice/byte.nepl stdlib/alloc/string/slice/char.nepl stdlib/alloc/string/utf8.nepl`: 0 件。
+  - `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/std/text/convert.nepl stdlib/std/text/decode.nepl stdlib/std/text/validate.nepl stdlib/alloc/string/char_offsets.nepl stdlib/alloc/string/slice/byte.nepl stdlib/alloc/string/slice/char.nepl stdlib/alloc/string/utf8.nepl`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/std/text/convert.nepl -i stdlib/std/text/decode.nepl -i stdlib/std/text/validate.nepl -i stdlib/alloc/string/char_offsets.nepl -i stdlib/alloc/string/slice/byte.nepl -i stdlib/alloc/string/slice/char.nepl -i stdlib/alloc/string/utf8.nepl --no-tree -o tmp/neplg21-text-string-result-constructors.json -j 1 --dist web/dist --assert-io`: 308s local command timeout。partial JSON では 5/6 件が compile timeout after 60000ms、failed 0。型診断は出ていない。
+  - timeout 後に残留していた当該 `node.exe` process は停止した。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 streamio/intrinsic Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる streamio/intrinsic の constructor だけを移行した。

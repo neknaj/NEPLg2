@@ -179,6 +179,6 @@ pub fn str_char_slice_offsets_result %fn str fn i32 fn i32 Result StrCharSliceOf
     if:
         or failed or not found_start not found_end
         then:
-            Result<StrCharSliceOffsets,str>::Err "string.char invalid slice range"
+            Result::Err "string.char invalid slice range"
         else:
-            Result<StrCharSliceOffsets,str>::Ok str_char_slice_offsets_new start_byte end_byte
+            Result::Ok str_char_slice_offsets_new start_byte end_byte

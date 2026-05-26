@@ -568,6 +568,17 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md -i stdlib/std/streamio/scanner.nepl -i stdlib/std/streamio/scanner/state.nepl --no-tree -o tmp/neplg21-streamio-intrinsic-result-constructors.json -j 1 --dist web/dist --assert-io` は 11 件中 10 件 pass、failed 0、`stdlib/std/streamio/scanner.nepl::doctest#1` のみ compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 text/string Result constructor checkpoint
+
+- `stdlib/std/text/convert.nepl` / `stdlib/std/text/decode.nepl` / `stdlib/std/text/validate.nepl` で、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 39 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/alloc/string/char_offsets.nepl` / `stdlib/alloc/string/slice/byte.nepl` / `stdlib/alloc/string/slice/char.nepl` / `stdlib/alloc/string/utf8.nepl` で、同じく戻り値と branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 31 件を `Result::Ok` / `Result::Err` へ移行した。
+- subagent の独立レビューでも、対象 files に残すべき typed constructor はなく、doc comment や source string fixture として保持すべき旧構文もないと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/std/text/convert.nepl stdlib/std/text/decode.nepl stdlib/std/text/validate.nepl stdlib/alloc/string/char_offsets.nepl stdlib/alloc/string/slice/byte.nepl stdlib/alloc/string/slice/char.nepl stdlib/alloc/string/utf8.nepl` は 0 件になった。
+- `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/std/text/convert.nepl stdlib/std/text/decode.nepl stdlib/std/text/validate.nepl stdlib/alloc/string/char_offsets.nepl stdlib/alloc/string/slice/byte.nepl stdlib/alloc/string/slice/char.nepl stdlib/alloc/string/utf8.nepl` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/std/text/convert.nepl -i stdlib/std/text/decode.nepl -i stdlib/std/text/validate.nepl -i stdlib/alloc/string/char_offsets.nepl -i stdlib/alloc/string/slice/byte.nepl -i stdlib/alloc/string/slice/char.nepl -i stdlib/alloc/string/utf8.nepl --no-tree -o tmp/neplg21-text-string-result-constructors.json -j 1 --dist web/dist --assert-io` は 308s local command timeout。partial JSON では 5/6 件が compile timeout after 60000ms、failed 0。型診断は出ていない。
+- timeout 後に残留していた当該 `node.exe` process は停止した。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

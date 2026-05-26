@@ -32,7 +32,7 @@ pub fn text_bytebuf_to_utf8_str_result %impure fn ByteBuf Result str StdErrorKin
         le byte_len 0
         then:
             io_bytebuf_free buf
-            Result<str, StdErrorKind>::Ok ""
+            Result::Ok ""
         else:
             let data %MemPtr u8 io_bytebuf_data_ptr_ref &buf
             match text_utf8_validate_mem data byte_len:
@@ -40,4 +40,4 @@ pub fn text_bytebuf_to_utf8_str_result %impure fn ByteBuf Result str StdErrorKin
                     io_bytebuf_to_str_result buf
                 Result::Err e:
                     io_bytebuf_free buf
-                    Result<str, StdErrorKind>::Err e
+                    Result::Err e

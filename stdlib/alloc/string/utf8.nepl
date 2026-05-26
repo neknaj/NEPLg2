@@ -82,14 +82,14 @@ fn string_utf8_byte_at_checked %fn MemPtr u8 fn i32 fn i32 Result i32 str \data\
     if:
         or lt idx 0 le byte_len idx
         then:
-            Result<i32,str>::Err "string.utf8 index out of range"
+            Result::Err "string.utf8 index out of range"
         else:
             let ptr %MemPtr u8 mem_ptr_add data idx
             match load_u8 ptr:
                 Option::Some b:
-                    Result<i32,str>::Ok b
+                    Result::Ok b
                 Option::None:
-                    Result<i32,str>::Err "string.utf8 invalid pointer"
+                    Result::Err "string.utf8 invalid pointer"
 
 fn string_utf8_validate_two %fn MemPtr u8 fn i32 fn i32 Result unit str \data\i\byte_len:
     if:

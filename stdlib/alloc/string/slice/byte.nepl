@@ -56,7 +56,7 @@ pub fn str_slice_result %fn str fn i32 fn i32 Result str str \s\start\end:
             let src %MemPtr u8 mem_ptr_add string_data_ptr s s0
             string_from_mem_unchecked_result src out_len
         else:
-            Result<str,str>::Err "string.slice invalid utf8 boundary"
+            Result::Err "string.slice invalid utf8 boundary"
 
 pub fn str_slice %fn str fn i32 fn i32 str \s\start\end:
     match str_slice_result s start end:
