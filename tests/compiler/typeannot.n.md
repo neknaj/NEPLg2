@@ -272,7 +272,7 @@ stdout: "test_report name=\"test_type_annot_generic_like\" count=1 failed=0\nass
 
 fn main %impure fn unit i32 \unit:
     // ジェネリック型に対する型注釈
-    // Option<i32> 型の値を生成し、それに型注釈をつける
+    // Option i32 型の値を生成し、それに型注釈をつける
 
     let opt %Option i32 some 42
 

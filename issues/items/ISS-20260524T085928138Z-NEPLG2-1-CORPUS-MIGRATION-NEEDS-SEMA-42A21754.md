@@ -981,6 +981,18 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_neplg21_pipe_traits_sort_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - `node nodesrc/tests.js <対象3 files> --no-tree -o tmp/neplg21-pipe-traits-sort-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 4 件完了、4 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-27 metadata/traits postfix checkpoint
+
+- `tests/stdlib/collection_cleanup_contract.n.md`、`tests/stdlib/traits_serde.n.md`、`tests/stdlib/traits_hash.n.md`、`tests/compiler/generic_impl_trait_args.n.md`、`tests/compiler/prelude_copy.n.md`、`tests/compiler/move_effect.n.md`、`tests/compiler/typeannot.n.md` を 4 worker の非重複 write scope に分割して並列移行した。
+- `collection_cleanup_contract` では、positive metadata observation に限定して `vec_empty` / `is_empty` / `len` / `cap` / `vec_partition_matched_len` の explicit generic postfix を receiver または lhs annotation から解ける postfix-free call へ移行した。compile_fail、negative checks、trait impl、raw/direct constructor 系は変更していない。
+- `traits_serde` では、`deserialize<i32>` / `deserialize<bool>` を `%Result ... StdErrorKind` typed local に受けてから match する形へ移行し、失敗メッセージの旧表記も `deserialize i32` / `deserialize bool` に更新した。
+- `traits_hash` では、通常呼び出し `use_hasher_twice<i32, StatefulHasher>` を argument evidence から解ける postfix-free call へ移行し、prose の `Hasher<.K>` を `Hasher .K` 表記へ更新した。`Hasher<.K>` trait bound 宣言そのものは generic 機能検査として保持した。
+- compiler fixture の prose/comment では、自然文内の `MemPtr<...>` / `RegionToken<T>` / `Option<i32>` などを NEPLg2.1 表記へ更新した。`impl<.T>` や `size_of<T>` のように構文・intrinsic 名そのものを説明している箇所は保持した。
+- `nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。検査対象は今回移行した旧構文だけで、declaration line の trait bound、raw memory generic API、intrinsic、compile_fail fixture、コメント量は制限していない。
+- worker 側では `node nodesrc/test_stdlib_collection_cleanup_contract.js`、`node nodesrc/test_stdlib_vec_borrowed_observers.js`、`node nodesrc/test_stdlib_traits_hash_report_contract.js`、`node nodesrc/test_stdlib_traits_serde_report_contract.js` が pass した。
+- `node nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js <対象3 files> --no-tree -o tmp/neplg21-metadata-traits-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 4 件完了、4 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

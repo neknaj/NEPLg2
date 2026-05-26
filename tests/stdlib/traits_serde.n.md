@@ -59,21 +59,24 @@ stdout: mlstr:
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
 
-    match deserialize<i32> "42":
+    let parsed_i32 %Result i32 StdErrorKind deserialize "42"
+    match parsed_i32:
         Result::Ok v:
             set checks checks_push checks check_eq_i32 42 v
         Result::Err _e:
-            set checks checks_push checks Result::Err "deserialize<i32> failed";
+            set checks checks_push checks Result::Err "deserialize i32 failed";
 
-    match deserialize<bool> "false":
+    let parsed_bool %Result bool StdErrorKind deserialize "false"
+    match parsed_bool:
         Result::Ok v:
             set checks checks_push checks check not v
         Result::Err _e:
-            set checks checks_push checks Result::Err "deserialize<bool> failed";
+            set checks checks_push checks Result::Err "deserialize bool failed";
 
-    match deserialize<i32> "oops":
+    let parse_error %Result i32 StdErrorKind deserialize "oops"
+    match parse_error:
         Result::Ok _v:
-            set checks checks_push checks Result::Err "deserialize<i32> should fail on text";
+            set checks checks_push checks Result::Err "deserialize i32 should fail on text";
         Result::Err e:
             match e:
                 StdErrorKind::ParseError:

@@ -4,8 +4,8 @@
 
 [目的/もくてき]:
 
-- capability trait ではない通常 trait でも、impl target が concrete 型なら `impl<.T> Trait<.T> for Concrete` を許可することを[確認/かくにん]します。
-- type parameter が trait argument 側にだけ[現/あらわ]れる generic impl は、`Hasher<.K> for DefaultHash32` のような stdlib 基盤 API に[必要/ひつよう]です。
+- capability trait ではない通常 trait でも、impl target が concrete 型なら `impl<.T> Trait .T for Concrete` を許可することを[確認/かくにん]します。
+- type parameter が trait argument 側にだけ[現/あらわ]れる generic impl は、`Hasher .K for DefaultHash32` のような stdlib 基盤 API に[必要/ひつよう]です。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0

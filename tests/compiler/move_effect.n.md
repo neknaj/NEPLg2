@@ -2943,8 +2943,8 @@ fn main %fn unit i32 \unit:
 
 ## compiler owner token への Copy impl は拒否する
 
-`RegionToken<T>` は compiler memory boundary が発行する free obligation owner token です。
-field 構造が `MemPtr<T>` と `i32` だけに見えても、`Copy` capability を付けると
+`RegionToken .T` は compiler memory boundary が発行する free obligation owner token です。
+field 構造が `MemPtr .T` と `i32` だけに見えても、`Copy` capability を付けると
 同じ解放責務を持つ token を複製できてしまうため拒否します。
 
 neplg2:test[compile_fail]

@@ -89,12 +89,12 @@ fn main %fn unit i32 \unit:
 
 [目的/もくてき]
 
-- generic impl で[定義/ていぎ]した `Copy` capability が `MemPtr<.T>` の[具体化/ぐたいか]にも[適用/てきよう]され、move [検査/けんさ]が[不必要/ふひつよう]に[失敗/しっぱい]しないことを[確認/かくにん]します。
+- generic impl で[定義/ていぎ]した `Copy` capability が `MemPtr .T` の[具体化/ぐたいか]にも[適用/てきよう]され、move [検査/けんさ]が[不必要/ふひつよう]に[失敗/しっぱい]しないことを[確認/かくにん]します。
 
 [何/なに]を[確/たし]かめるか
 
-- `impl<.T> Copy for MemPtr<.T>` が prelude [経由/けいゆ]で[読/よ]み[込/こ]まれること
-- `MemPtr<i32>` を 2 [回/かい][読/よ]んでも moved [扱/あつか]いにならないこと
+- `impl<.T> Copy for MemPtr .T` が prelude [経由/けいゆ]で[読/よ]み[込/こ]まれること
+- `MemPtr i32` を 2 [回/かい][読/よ]んでも moved [扱/あつか]いにならないこと
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0

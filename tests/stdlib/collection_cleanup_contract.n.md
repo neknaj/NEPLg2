@@ -64,8 +64,8 @@ struct CleanupPayload:
     value %i32
 
 fn main %fn unit i32 \unit:
-    let v %Vec CleanupPayload vec_empty<CleanupPayload>
-    let ok %bool is_empty<CleanupPayload> &v
+    let v %Vec CleanupPayload vec_empty
+    let ok %bool is_empty &v
     if ok 0 1
 ```
 
@@ -198,7 +198,7 @@ struct CleanupPayload:
     value %i32
 
 fn read_non_copy_vec_len %fn &Vec CleanupPayload i32 \v:
-    len<CleanupPayload> v
+    len v
 
 fn main %fn unit i32 \unit:
     0
@@ -218,7 +218,7 @@ struct CleanupPayload:
     value %i32
 
 fn read_non_copy_vec_cap %fn &Vec CleanupPayload i32 \v:
-    cap<CleanupPayload> v
+    cap v
 
 fn main %fn unit i32 \unit:
     0
@@ -260,7 +260,7 @@ struct CleanupPayload:
     value %i32
 
 fn read_non_copy_partition_len %fn &VecPartition CleanupPayload i32 \parts:
-    vec_partition_matched_len<CleanupPayload> parts
+    vec_partition_matched_len parts
 
 fn main %fn unit i32 \unit:
     0
@@ -626,7 +626,7 @@ struct CleanupPayload:
     value %i32
 
 fn read_queue_len %fn &Queue CleanupPayload i32 \q:
-    len<CleanupPayload> q
+    len q
 
 fn main %fn unit i32 \unit:
     0
@@ -646,7 +646,7 @@ struct CleanupPayload:
     value %i32
 
 fn read_deque_len %fn &Deque CleanupPayload i32 \dq:
-    len<CleanupPayload> dq
+    len dq
 
 fn main %fn unit i32 \unit:
     0
@@ -666,7 +666,7 @@ struct CleanupPayload:
     value %i32
 
 fn read_heap_len %fn &BinaryHeap CleanupPayload i32 \heap:
-    len<CleanupPayload> heap
+    len heap
 
 fn main %fn unit i32 \unit:
     0
@@ -686,7 +686,7 @@ struct CleanupPayload:
     value %i32
 
 fn read_list_len %fn &List CleanupPayload i32 \lst:
-    len<CleanupPayload> lst
+    len lst
 
 fn main %fn unit i32 \unit:
     0
@@ -727,7 +727,7 @@ struct CleanupPayload:
     value %i32
 
 fn read_btreemap_len %fn &BTreeMap i32 CleanupPayload i32 \hm:
-    len<i32, CleanupPayload> hm
+    len hm
 
 fn main %fn unit i32 \unit:
     0
@@ -748,7 +748,7 @@ struct CleanupPayload:
     value %i32
 
 fn read_hashmap_len %fn &HashMap i32 CleanupPayload DefaultHash32 i32 \hm:
-    len<i32, CleanupPayload, DefaultHash32> hm
+    len hm
 
 fn main %fn unit i32 \unit:
     0

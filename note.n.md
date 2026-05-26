@@ -1,3 +1,15 @@
+# 2026-05-27 Agent 1 metadata/traits postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として collection metadata observer、traits helper call、prose/comment の旧 generic postfix / 旧型適用表記を 4 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `tests/stdlib/collection_cleanup_contract.n.md` では、positive metadata observation に限定して `vec_empty<CleanupPayload>` / `is_empty<CleanupPayload>` / `len<...>` / `cap<...>` / `vec_partition_matched_len<...>` を receiver または lhs annotation から解ける postfix-free call へ移行した。compile_fail、negative checks、trait impl、raw/direct constructor 系は変更していない。
+- `tests/stdlib/traits_serde.n.md` では、`deserialize<i32>` / `deserialize<bool>` を `%Result ... StdErrorKind` typed local に受けてから match する形へ移行した。失敗メッセージの旧表記も `deserialize i32` / `deserialize bool` に更新した。
+- `tests/stdlib/traits_hash.n.md` では、通常呼び出し `use_hasher_twice<i32, StatefulHasher>` を argument evidence から解ける postfix-free call へ移行し、prose の `Hasher<.K>` を `Hasher .K` 表記へ更新した。`Hasher<.K>` trait bound 宣言そのものは generic 機能検査として保持した。
+- `tests/compiler/generic_impl_trait_args.n.md`、`tests/compiler/prelude_copy.n.md`、`tests/compiler/move_effect.n.md`、`tests/compiler/typeannot.n.md` では、自然文コメント内の旧型適用表記だけを NEPLg2.1 表記へ更新した。`impl<.T>` や `size_of<T>` のように構文・intrinsic 名そのものを説明している箇所は保持した。
+- `nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。検査対象は今回移行した旧構文だけで、declaration line の trait bound、raw memory generic API、intrinsic、compile_fail fixture、コメント量は制限していない。
+- worker 側では `node nodesrc/test_stdlib_collection_cleanup_contract.js`、`node nodesrc/test_stdlib_vec_borrowed_observers.js`、`node nodesrc/test_stdlib_traits_hash_report_contract.js`、`node nodesrc/test_stdlib_traits_serde_report_contract.js` が pass した。
+- `node nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md -i tests/stdlib/traits_hash.n.md -i tests/stdlib/traits_serde.n.md --no-tree -o tmp/neplg21-metadata-traits-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 4 件完了、4 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 pipe/traits/sort postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として pipe / traits / sort fixture と tutorial prose に残っていた局所的な旧 generic postfix / 旧型適用表記を 4 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。

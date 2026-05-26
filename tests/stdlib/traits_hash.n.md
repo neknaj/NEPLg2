@@ -106,8 +106,8 @@ fn main %fn unit i32 \unit:
 
 [目的/もくてき]:
 
-- `.H: Hasher<.K>` だけでは `.H` が copy 可能とは[扱/あつか]われないことを[確認/かくにん]します。
-- stateless hasher を繰り返し使う collection API は、`.H: Hasher<.K>&Copy` を[明示/めいじ]します。
+- `.H: Hasher .K` だけでは `.H` が copy 可能とは[扱/あつか]われないことを[確認/かくにん]します。
+- stateless hasher を繰り返し使う collection API は、`.H: Hasher .K` と `Copy` を[明示/めいじ]します。
 
 neplg2:test[compile_fail]
 diag_code: resource.cell.moved
@@ -134,7 +134,7 @@ fn use_hasher_twice <.K: HashKey,.H: Hasher<.K>> %fn .H i32 \h:
     0
 
 fn main %fn unit i32 \unit:
-    use_hasher_twice<i32, StatefulHasher> StatefulHasher @id
+    use_hasher_twice StatefulHasher @id
 ```
 
 ## hashmap_accepts_hashkey_impl
