@@ -464,4 +464,4 @@ pub fn dealloc_region <.T> %fn RegionToken .T Result unit str \token:
     let raw %i32 get token "raw"
     let size %i32 get token "size"
     allocator::dealloc_raw raw size
-    Result<unit,str>::Ok unit
+    Result::Ok unit

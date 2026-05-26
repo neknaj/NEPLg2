@@ -86,32 +86,32 @@ pub fn from_f64_fraction_trim_len %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 i32
 pub fn from_f64_write_fraction_digits_result %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result unit str \base_raw\start\trim\d0\d1\d2\d3\d4\d5:
     match trim:
         0:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         1:
             store_u8 add base_raw start add '0' d0
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         2:
             store_u8 add base_raw start add '0' d0
             store_u8 add base_raw add start 1 add '0' d1
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         3:
             store_u8 add base_raw start add '0' d0
             store_u8 add base_raw add start 1 add '0' d1
             store_u8 add base_raw add start 2 add '0' d2
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         4:
             store_u8 add base_raw start add '0' d0
             store_u8 add base_raw add start 1 add '0' d1
             store_u8 add base_raw add start 2 add '0' d2
             store_u8 add base_raw add start 3 add '0' d3
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         5:
             store_u8 add base_raw start add '0' d0
             store_u8 add base_raw add start 1 add '0' d1
             store_u8 add base_raw add start 2 add '0' d2
             store_u8 add base_raw add start 3 add '0' d3
             store_u8 add base_raw add start 4 add '0' d4
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         6:
             store_u8 add base_raw start add '0' d0
             store_u8 add base_raw add start 1 add '0' d1
@@ -119,9 +119,9 @@ pub fn from_f64_write_fraction_digits_result %fn i32 fn i32 fn i32 fn i32 fn i32
             store_u8 add base_raw add start 3 add '0' d3
             store_u8 add base_raw add start 4 add '0' d4
             store_u8 add base_raw add start 5 add '0' d5
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         _:
-            Result<unit,str>::Err "string.float invalid fraction trim"
+            Result::Err "string.float invalid fraction trim"
 
 //: from_f64_build_fixed_result: 符号、整数部、小数部を 1 つの文字列へ組み立てる
 //:

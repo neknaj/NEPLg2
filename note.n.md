@@ -1,3 +1,20 @@
+# 2026-05-26 Agent 1 core/mem and alloc/string Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、静的な型根拠で解決できる production stdlib の Result constructor だけを小さく移行した。
+- `stdlib/core/mem/allocator.nepl` / `stdlib/core/mem/pointer/scalar.nepl` / `stdlib/core/mem/pointer/region.nepl` / `stdlib/core/mem/pointer/bulk.nepl` で、関数戻り値 `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 19 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/alloc/string/float/format.nepl` と `stdlib/alloc/string/utf8.nepl` で、関数戻り値 `Result unit str`、または `%Result unit str` local annotation / `set` 先変数型から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 30 件を `Result::Ok` / `Result::Err` へ移行した。
+- subagent を並列に使い、`core/mem` と `alloc/string` を別々に独立レビューした。どちらも残すべき typed constructor はないと確認した。
+- doc comment/source string だけの対象 constructor は、この checkpoint には含まれていない。
+- 検証:
+  - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" stdlib/core/mem/allocator.nepl stdlib/core/mem/pointer/scalar.nepl stdlib/core/mem/pointer/region.nepl stdlib/core/mem/pointer/bulk.nepl stdlib/alloc/string/utf8.nepl stdlib/alloc/string/float/format.nepl`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/core/mem/allocator.nepl -i stdlib/core/mem/pointer/scalar.nepl -i stdlib/core/mem/pointer/region.nepl -i stdlib/core/mem/pointer/bulk.nepl -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string/float/format.nepl --no-tree -o tmp/neplg21-core-mem-string-result-constructors.json -j 1 --dist web/dist --assert-io`: 264s local command timeout。partial JSON では 10/19 件 pass、failed/errored 0、型診断は出ていない。残留 node process は停止した。
+  - `node nodesrc/tests.js -i stdlib/core/mem/pointer/bulk.nepl --no-tree -o tmp/neplg21-core-mem-bulk-result-constructors.json -j 1 --dist web/dist --assert-io`: 2 件 pass。
+  - `node nodesrc/tests.js -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string/float/format.nepl --no-tree -o tmp/neplg21-alloc-string-result-constructors.json -j 1 --dist web/dist --assert-io`: 3 件すべて compile timeout after 60000ms。型診断は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 std/test Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、静的な型根拠で解決できる std/test の Result constructor だけを小さく移行した。

@@ -461,6 +461,18 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i tests/stdlib/std_test_namespace_resolution.n.md --no-tree -o tmp/neplg21-std-test-namespace-result-constructors.json -j 1 --dist web/dist --assert-io` は 1 件 compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 core/mem and alloc/string Result constructor checkpoint
+
+- `stdlib/core/mem/allocator.nepl` / `stdlib/core/mem/pointer/scalar.nepl` / `stdlib/core/mem/pointer/region.nepl` / `stdlib/core/mem/pointer/bulk.nepl` で、関数戻り値 `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 19 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/alloc/string/float/format.nepl` と `stdlib/alloc/string/utf8.nepl` で、関数戻り値 `Result unit str`、または `%Result unit str` local annotation / `set` 先変数型から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 30 件を `Result::Ok` / `Result::Err` へ移行した。
+- subagent を並列に使い、`core/mem` と `alloc/string` を別々に独立レビューした。どちらも残すべき typed constructor はないと確認した。
+- doc comment/source string だけの対象 constructor は、この checkpoint には含まれていない。
+- `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" stdlib/core/mem/allocator.nepl stdlib/core/mem/pointer/scalar.nepl stdlib/core/mem/pointer/region.nepl stdlib/core/mem/pointer/bulk.nepl stdlib/alloc/string/utf8.nepl stdlib/alloc/string/float/format.nepl` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/core/mem/allocator.nepl -i stdlib/core/mem/pointer/scalar.nepl -i stdlib/core/mem/pointer/region.nepl -i stdlib/core/mem/pointer/bulk.nepl -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string/float/format.nepl --no-tree -o tmp/neplg21-core-mem-string-result-constructors.json -j 1 --dist web/dist --assert-io` は 264s local command timeout。partial JSON では 10/19 件 pass、failed/errored 0、型診断は出ていない。
+- `node nodesrc/tests.js -i stdlib/core/mem/pointer/bulk.nepl --no-tree -o tmp/neplg21-core-mem-bulk-result-constructors.json -j 1 --dist web/dist --assert-io` は 2 件 pass。
+- `node nodesrc/tests.js -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string/float/format.nepl --no-tree -o tmp/neplg21-alloc-string-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

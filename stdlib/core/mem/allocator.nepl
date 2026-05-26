@@ -367,10 +367,10 @@ pub fn dealloc %fn i32 fn i32 Result unit str \ptr\size:
     if:
         or le ptr 0 lt size 0
         then:
-            Result<unit,str>::Err "mem.dealloc invalid argument"
+            Result::Err "mem.dealloc invalid argument"
         else:
             dealloc_raw ptr size
-            Result<unit,str>::Ok unit
+            Result::Ok unit
 
 //: load_i32: i32 を読み出す
 //:

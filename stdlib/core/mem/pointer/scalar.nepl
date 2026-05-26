@@ -68,10 +68,10 @@ pub fn store_i32 %fn MemPtr i32 fn i32 Result unit str \p\v:
     if:
         lt raw 1
         then:
-            Result<unit,str>::Err "mem.store_i32 invalid pointer"
+            Result::Err "mem.store_i32 invalid pointer"
         else:
             store_i32 raw v
-            Result<unit,str>::Ok unit
+            Result::Ok unit
 
 //: load_u8: MemPtr<u8> から 1 バイトを安全に読み出すオーバーロード
 //:
@@ -95,7 +95,7 @@ pub fn store_u8 %fn MemPtr u8 fn i32 Result unit str \p\v:
     if:
         lt raw 1
         then:
-            Result<unit,str>::Err "mem.store_u8 invalid pointer"
+            Result::Err "mem.store_u8 invalid pointer"
         else:
             store_u8 raw v
-            Result<unit,str>::Ok unit
+            Result::Ok unit

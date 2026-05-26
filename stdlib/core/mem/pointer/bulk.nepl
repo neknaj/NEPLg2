@@ -93,10 +93,10 @@ pub fn memset_u8 %fn MemPtr u8 fn i32 fn i32 Result unit str \ptr\len\value:
     if:
         or lt raw 1 lt len 0
         then:
-            Result<unit,str>::Err "mem.memset_u8 invalid argument"
+            Result::Err "mem.memset_u8 invalid argument"
         else:
             memset_u8 raw len value
-            Result<unit,str>::Ok unit
+            Result::Ok unit
 
 //: fill_u8: MemPtr<u8> を受け取る安全オーバーロード
 //:
@@ -126,10 +126,10 @@ pub fn fill_i32 %fn MemPtr i32 fn i32 fn i32 Result unit str \ptr\count\value:
     if:
         or lt raw 1 lt count 0
         then:
-            Result<unit,str>::Err "mem.fill_i32 invalid argument"
+            Result::Err "mem.fill_i32 invalid argument"
         else:
             fill_i32 raw count value
-            Result<unit,str>::Ok unit
+            Result::Ok unit
 
 //: mem_copy: MemPtr の要素列をまとめてコピーする安全オーバーロード
 //:
@@ -153,20 +153,20 @@ pub fn mem_copy <.T: Copy> %fn MemPtr .T fn MemPtr .T fn i32 Result unit str \ds
     if:
         lt count 0
         then:
-            Result<unit,str>::Err "mem.mem_copy invalid count"
+            Result::Err "mem.mem_copy invalid count"
         else:
             if:
                 eq count 0
                 then:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 else:
                     if:
                         or lt dst_raw 1 lt src_raw 1
                         then:
-                            Result<unit,str>::Err "mem.mem_copy invalid pointer"
+                            Result::Err "mem.mem_copy invalid pointer"
                         else:
                             mem_copy dst_raw src_raw mul count size_of<.T>
-                            Result<unit,str>::Ok unit
+                            Result::Ok unit
 
 //: mem_move: MemPtr の要素列を重なりを許してまとめてコピーする安全オーバーロード
 //:
@@ -190,17 +190,17 @@ pub fn mem_move <.T: Copy> %fn MemPtr .T fn MemPtr .T fn i32 Result unit str \ds
     if:
         lt count 0
         then:
-            Result<unit,str>::Err "mem.mem_move invalid count"
+            Result::Err "mem.mem_move invalid count"
         else:
             if:
                 eq count 0
                 then:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 else:
                     if:
                         or lt dst_raw 1 lt src_raw 1
                         then:
-                            Result<unit,str>::Err "mem.mem_move invalid pointer"
+                            Result::Err "mem.mem_move invalid pointer"
                         else:
                             mem_move dst_raw src_raw mul count size_of<.T>
-                            Result<unit,str>::Ok unit
+                            Result::Ok unit
