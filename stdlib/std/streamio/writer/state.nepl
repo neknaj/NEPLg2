@@ -55,9 +55,9 @@ pub fn stream_writer_noncopy_marker %fn i32 i32 \x:
 pub fn stream_writer_new %impure fn StreamWriterTargetKind Result StreamWriter str \target:
     match byte_builder_with_capacity 4096:
         Result::Ok builder:
-            Result<StreamWriter,str>::Ok StreamWriter builder target @stream_writer_noncopy_marker
+            Result::Ok StreamWriter builder target @stream_writer_noncopy_marker
         Result::Err _e:
-            Result<StreamWriter,str>::Err "streamio.stream_writer_new buffer alloc failed"
+            Result::Err "streamio.stream_writer_new buffer alloc failed"
 
 //: ## stream_writer_close_impl
 //: buffered sink の[確保領域/かくほりょういき]を[解放/かいほう]する cleanup helper

@@ -51,17 +51,17 @@ pub fn open %impure fn WriteStream Result StreamWriter str \target:
         WriteStream::Stdio:
             match stream_writer_new StreamWriterTargetKind::Stdout:
                 Result::Ok w:
-                    Result<StreamWriter,str>::Ok w
+                    Result::Ok w
                 Result::Err e:
-                    Result<StreamWriter,str>::Err e
+                    Result::Err e
         WriteStream::Stderr:
             match stream_writer_new StreamWriterTargetKind::Stderr:
                 Result::Ok w:
-                    Result<StreamWriter,str>::Ok w
+                    Result::Ok w
                 Result::Err e:
-                    Result<StreamWriter,str>::Err e
+                    Result::Err e
         WriteStream::Fs:
-            Result<StreamWriter,str>::Err "streamio.open invalid target"
+            Result::Err "streamio.open invalid target"
 
 //: ## StreamWritable
 //: `StreamWriter` へ[追記/ついき]できる[値/あたい]の[能力/のうりょく]

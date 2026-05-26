@@ -1,3 +1,17 @@
+# 2026-05-26 Agent 1 streamio writer Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる streamio writer 領域の constructor だけを移行した。
+- subagent と並列で `stdlib/std/streamio/writer.nepl` / `stdlib/std/streamio/writer/state.nepl` を確認し、`open` と `stream_writer_new` の戻り値 `Result StreamWriter str` から型が確定する `Result<StreamWriter,str>::Ok` / `Result<StreamWriter,str>::Err` 7 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string fixture や doc comment として保持すべき旧構文はなく、subagent の独立レビューでも残すべき箇所はないと確認した。
+- 検証:
+  - `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/std/streamio/writer.nepl stdlib/std/streamio/writer/state.nepl`: 0 件。
+  - `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/std/streamio/writer.nepl stdlib/std/streamio/writer/state.nepl`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/std/streamio/writer.nepl -i stdlib/std/streamio/writer/state.nepl --no-tree -o tmp/neplg21-streamio-writer-result-constructors.json -j 1 --dist web/dist --assert-io`: 1 件 compile timeout after 60000ms。型診断は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 pointer/lexer Option constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる `Option` constructor だけを移行した。
