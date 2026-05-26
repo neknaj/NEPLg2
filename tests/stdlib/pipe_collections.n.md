@@ -24,17 +24,17 @@ stdout: mlstr:
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let xs0 %List i32:
-        unwrap_ok new<i32>
-        |> push<i32> 3 |> uwok
-        |> push<i32> 2 |> uwok
-        |> push<i32> 1 |> uwok
+        unwrap_ok new
+        |> push 3 |> uwok
+        |> push 2 |> uwok
+        |> push 1 |> uwok
     set checks checks_push checks check_eq_i32 3 len &xs0;
     free xs0;
     let xs1 %List i32:
-        unwrap_ok new<i32>
-        |> push<i32> 3 |> uwok
-        |> push<i32> 2 |> uwok
-        |> push<i32> 1 |> uwok
+        unwrap_ok new
+        |> push 3 |> uwok
+        |> push 2 |> uwok
+        |> push 1 |> uwok
     match get &xs1 1:
         Option::Some v:
             set checks checks_push checks check_eq_i32 2 v
@@ -69,15 +69,15 @@ stdout: mlstr:
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let s0 %Stack i32:
-        unwrap_ok new<i32>
-        |> push<i32> 10 |> unwrap_ok
-        |> push<i32> 20 |> unwrap_ok
+        unwrap_ok new
+        |> push 10 |> unwrap_ok
+        |> push 20 |> unwrap_ok
     set checks checks_push checks check_eq_i32 2 len &s0;
     free s0;
     let s1 %Stack i32:
-        unwrap_ok new<i32>
-        |> push<i32> 10 |> unwrap_ok
-        |> push<i32> 20 |> unwrap_ok
+        unwrap_ok new
+        |> push 10 |> unwrap_ok
+        |> push 20 |> unwrap_ok
     let p pop s1;
     match p:
         Option::Some v:
@@ -363,13 +363,13 @@ stdout: mlstr:
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let rb %RingBuffer i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 11 |> uwok
         |> push 22 |> uwok
     set checks checks_push checks check_eq_i32 2 len &rb;
     free rb;
     let rb2 %RingBuffer i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 11 |> uwok
         |> push 22 |> uwok
     match peek &rb2:
@@ -405,13 +405,13 @@ stdout: mlstr:
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let q %Queue i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 3 |> uwok
         |> push 4 |> uwok
     set checks checks_push checks check_eq_i32 2 len &q;
     free q;
     let q2 %Queue i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 3 |> uwok
         |> push 4 |> uwok
     match peek &q2:
