@@ -30,7 +30,7 @@ fn main %impure fn unit i32 \unit:
         |> v::push "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
-            v::free<str> args;
+            v::free args;
             1
         Result::Ok options:
             let vfs0 %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
@@ -38,7 +38,7 @@ fn main %impure fn unit i32 \unit:
             match selfhost_cli_driver_compile_vfs &vfs1 options:
                 Result::Err _e:
                     selfhost_vfs_free vfs1
-                    v::free<str> args;
+                    v::free args;
                     2
                 Result::Ok result:
                     let exit_code %i32 selfhost_cli_driver_result_exit_code &result
@@ -46,7 +46,7 @@ fn main %impure fn unit i32 \unit:
                     let diag_len %i32 selfhost_diagnostics_len diagnostics
                     selfhost_cli_driver_result_free result
                     selfhost_vfs_free vfs1
-                    v::free<str> args;
+                    v::free args;
                     let checks:
                         checks_new
                         |> checks_push assert_eq_i32 0 exit_code
@@ -121,14 +121,14 @@ fn main %impure fn unit i32 \unit:
         |> v::push "missing.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
-            v::free<str> args;
+            v::free args;
             1
         Result::Ok options:
             let vfs %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
             match selfhost_cli_driver_compile_vfs &vfs options:
                 Result::Err _e:
                     selfhost_vfs_free vfs
-                    v::free<str> args;
+                    v::free args;
                     2
                 Result::Ok result:
                     let exit_code %i32 selfhost_cli_driver_result_exit_code &result
@@ -136,7 +136,7 @@ fn main %impure fn unit i32 \unit:
                     let json %str selfhost_cli_render_diagnostics_json diagnostics
                     selfhost_cli_driver_result_free result
                     selfhost_vfs_free vfs
-                    v::free<str> args;
+                    v::free args;
                     let checks:
                         checks_new
                         |> checks_push assert_eq_i32 1 exit_code

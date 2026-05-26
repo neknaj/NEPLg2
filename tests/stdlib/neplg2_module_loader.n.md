@@ -25,7 +25,8 @@ stdout: mlstr:
 #import "core/math" as *
 
 fn item_at %fn &SelfhostModuleAst fn i32 SelfhostModuleItem \ast\idx:
-    unwrap<SelfhostModuleItem> selfhost_module_ast_get ast idx
+    let item_opt %Option SelfhostModuleItem selfhost_module_ast_get ast idx
+    unwrap item_opt
 
 fn main %impure fn unit i32 \unit:
     let source_main %str "fn main <()->i32> ():\n    0\n"

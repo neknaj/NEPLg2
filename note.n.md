@@ -1,3 +1,14 @@
+# 2026-05-26 Agent 1 selfhost simple postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として selfhost 周辺 fixture に残っていた局所的な通常利用 generic postfix を 5 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `tests/stdlib/selfhost_cli_driver.n.md` では、`v::free<str>` を `Vec str` receiver evidence から解ける postfix-free `v::free` へ移行した。embedded source string は既存の lexer/parser 入力なので変更していない。
+- `tests/stdlib/neplg2_module_loader.n.md` と `tests/stdlib/neplg2_parser.n.md` では、`unwrap<SelfhostModuleItem>` を `%Option SelfhostModuleItem` local に受けてから `unwrap` する形へ移行した。
+- `tests/stdlib/neplg2_module_graph.n.md` と `tests/stdlib/neplg2_stdlib_map.n.md` では、`unwrap<SelfhostModuleGraphEdge>` を `%Option SelfhostModuleGraphEdge` local に受けてから `unwrap` する形へ移行した。
+- `tests/stdlib/selfhost_req.n.md` では、`get<u8>` を `%Option u8` local に受けてから match し、`free<u8>` と `hashmap_update_error_owner<...>` を receiver / lhs annotation から解ける postfix-free call へ移行した。
+- `nodesrc/test_neplg21_selfhost_simple_postfix_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。検査対象は今回移行した旧構文だけで、source string fixture やコメント量は制限していない。
+- `node nodesrc/test_neplg21_selfhost_simple_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js -i tests/stdlib/selfhost_cli_driver.n.md -i tests/stdlib/neplg2_module_loader.n.md -i tests/stdlib/neplg2_parser.n.md -i tests/stdlib/neplg2_module_graph.n.md -i tests/stdlib/neplg2_stdlib_map.n.md -i tests/stdlib/selfhost_req.n.md --no-tree -o tmp/neplg21-selfhost-simple-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 5 件完了、`selfhost_cli_driver` の embedded source string 由来 `lexer.string.invalid_escape` 1 件と compile timeout 4 件で、今回撤廃した postfix に対する型診断は出ていない。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 selfhost fixture postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として selfhost fixture に残っていた通常利用 generic postfix を 4 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。

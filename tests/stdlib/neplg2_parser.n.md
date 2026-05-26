@@ -43,7 +43,8 @@ stdout: mlstr:
 #import "core/math" as *
 
 fn item_at %fn &SelfhostModuleAst fn i32 SelfhostModuleItem \ast\idx:
-    unwrap<SelfhostModuleItem> selfhost_module_ast_get ast idx
+    let item_opt %Option SelfhostModuleItem selfhost_module_ast_get ast idx
+    unwrap item_opt
 
 fn check_item %impure fn TestReport impure fn &SelfhostModuleAst impure fn i32 impure fn str impure fn str TestReport \checks\ast\idx\expected_kind\expected_lexeme:
     let item %SelfhostModuleItem item_at ast idx

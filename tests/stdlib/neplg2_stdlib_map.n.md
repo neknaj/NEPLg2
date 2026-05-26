@@ -83,7 +83,8 @@ stdout: mlstr:
 #import "core/math" as *
 
 fn edge_at %fn &SelfhostModuleGraph fn i32 SelfhostModuleGraphEdge \graph\idx:
-    unwrap<SelfhostModuleGraphEdge> selfhost_module_graph_edge_at graph idx
+    let edge %Option SelfhostModuleGraphEdge selfhost_module_graph_edge_at graph idx
+    unwrap edge
 
 fn main %impure fn unit i32 \unit:
     let root %str "#import \"./util\" as util\n#import \"core/result\" as *\nfn main <()->i32> \\():\n    0\n"

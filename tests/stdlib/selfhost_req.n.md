@@ -72,14 +72,15 @@ fn main %impure fn unit i32 \unit:
     set buf unwrap_ok push buf b2;
 
     // 要件: バイト単位のアクセス
-    let actual %i32 match get<u8> &buf 0:
+    let first %Option u8 get &buf 0;
+    let actual %i32 match first:
         Option::Some val:
             // i32へのキャスト等
             let out %i32 cast val
-            free<u8> buf;
+            free buf;
             out
         Option::None:
-            free<u8> buf;
+            free buf;
             0
     let report:
         test_report_new "selfhost_req_byte_manipulation"
@@ -177,7 +178,7 @@ fn must_hms %impure fn Result HashMap str i32 DefaultHash32 HashMapUpdateError s
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner<str,i32,DefaultHash32> e;
+            let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner e;
             free hm;
             #intrinsic "unreachable" <> ()
 
@@ -295,7 +296,7 @@ fn must_hmp %impure fn Result HashMap Point str DefaultHash32 HashMapUpdateError
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm %HashMap Point str DefaultHash32 hashmap_update_error_owner<Point,str,DefaultHash32> e;
+            let hm %HashMap Point str DefaultHash32 hashmap_update_error_owner e;
             free hm;
             #intrinsic "unreachable" <> ()
 
