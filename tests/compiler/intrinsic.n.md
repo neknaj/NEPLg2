@@ -158,7 +158,7 @@ diag_code: resource.raw.memory_outside_boundary
 fn main %impure fn unit i32 \unit:
     let high %i64 mul %i64 cast 65536 %i64 cast 65536;
     let v %i64 add high %i64 cast 7;
-    let r %Result unit i64 Result<unit,i64>::Err v;
+    let r %Result unit i64 Result::Err v;
     let p %i32 alloc_raw size_of<Result<unit,i64>>;
     store<Result<unit,i64>> p r;
     let got %Result unit i64 load<Result<unit,i64>> p;

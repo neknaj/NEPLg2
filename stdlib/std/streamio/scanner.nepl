@@ -60,7 +60,7 @@ pub fn open %impure fn ReadStream Result StreamScanner str \target:
                 Result::Ok bytes:
                     scanner_from_bytes bytes
                 Result::Err _e:
-                    Result<StreamScanner,str>::Err "streamio.scanner text alloc failed"
+                    Result::Err "streamio.scanner text alloc failed"
         ReadStream::Bytes bytes:
             scanner_from_bytes bytes
         ReadStream::Fs path:
@@ -68,7 +68,7 @@ pub fn open %impure fn ReadStream Result StreamScanner str \target:
                 Result::Ok bytes:
                     scanner_from_bytes bytes
                 Result::Err _e:
-                    Result<StreamScanner,str>::Err "streamio.scanner read failed"
+                    Result::Err "streamio.scanner read failed"
 
 //: ## skip_ws
 //: ASCII [空白/くうはく]と[先頭/せんとう] BOM を[飛/と]ばす

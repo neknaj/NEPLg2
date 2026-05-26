@@ -558,6 +558,16 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/arena.nepl -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg21-type-arena-generic-result-constructors.json -j 1 --dist web/dist --assert-io` は 5 件すべて compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 streamio/intrinsic Result constructor checkpoint
+
+- `stdlib/std/streamio/scanner/state.nepl` で、関数戻り値または match/if branch expected type から型が確定する `Result<i32,str>::Ok` / `Result<i32,str>::Err` / `Result<str,str>::Ok` / `Result<str,str>::Err` / `Result<Vec<i32>,str>::Ok` / `Result<Vec<i32>,str>::Err` / `Result<StreamScanner,str>::Ok` / `Result<StreamScanner,str>::Err` 12 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/std/streamio/scanner.nepl` で、`open` の戻り値 `Result StreamScanner str` から型が確定する `Result<StreamScanner,str>::Err` 2 件を `Result::Err` へ移行した。
+- `tests/compiler/intrinsic.n.md` で、local annotation `%Result unit i64` から型が確定する `Result<unit,i64>::Err` 1 件を `Result::Err` へ移行した。
+- subagent の独立レビューでも、対象 files に残すべき typed constructor はなく、compile-fail fixture 内の intrinsic regression も local annotation で型確定すると確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" tests/compiler/intrinsic.n.md stdlib/std/streamio/scanner.nepl stdlib/std/streamio/scanner/state.nepl` は 0 件になった。
+- `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md -i stdlib/std/streamio/scanner.nepl -i stdlib/std/streamio/scanner/state.nepl --no-tree -o tmp/neplg21-streamio-intrinsic-result-constructors.json -j 1 --dist web/dist --assert-io` は 11 件中 10 件 pass、failed 0、`stdlib/std/streamio/scanner.nepl::doctest#1` のみ compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

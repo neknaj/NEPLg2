@@ -61,9 +61,9 @@ pub fn stream_scanner_load_pos_result %fn &StreamScanner Result i32 str \sc:
     let cursor %&Vec i32 get_ref sc "cursor";
     match vec::get<i32> cursor 0:
         Option::Some pos:
-            Result<i32,str>::Ok pos
+            Result::Ok pos
         Option::None:
-            Result<i32,str>::Err "streamio.stream_scanner_load_pos failed"
+            Result::Err "streamio.stream_scanner_load_pos failed"
 
 //: ## stream_scanner_load_pos
 //: scanner cursor position を読む互換 facade
@@ -120,22 +120,22 @@ pub fn stream_scanner_slice_to_str_result %impure fn &StreamScanner impure fn i3
     if:
         or or or lt start 0 lt tlen 0 lt end start gt end len
         then:
-            Result<str,str>::Err "streamio.stream_scanner_slice invalid range"
+            Result::Err "streamio.stream_scanner_slice invalid range"
         else:
             if:
                 eq tlen 0
                 then:
-                    Result<str,str>::Ok ""
+                    Result::Ok ""
                 else:
                     match io_bytebuf_ptr_ref bytes:
                         Option::Some ptr:
                             match string_from_utf8_mem_result mem_ptr_add ptr start tlen:
                                 Result::Ok token:
-                                    Result<str,str>::Ok token
+                                    Result::Ok token
                                 Result::Err _e:
-                                    Result<str,str>::Err "streamio.stream_scanner_slice invalid utf8"
+                                    Result::Err "streamio.stream_scanner_slice invalid utf8"
                         Option::None:
-                            Result<str,str>::Err "streamio.stream_scanner_slice missing buffer"
+                            Result::Err "streamio.stream_scanner_slice missing buffer"
 
 //: ## stream_scanner_cursor_new
 //: cursor position storage を作る
@@ -145,9 +145,9 @@ pub fn stream_scanner_slice_to_str_result %impure fn &StreamScanner impure fn i3
 pub fn stream_scanner_cursor_new %fn unit Result Vec i32 str \unit:
     match vec::filled<i32> 1 0:
         Result::Err _e:
-            Result<Vec<i32>,str>::Err "streamio.scanner cursor alloc failed"
+            Result::Err "streamio.scanner cursor alloc failed"
         Result::Ok cursor:
-            Result<Vec<i32>,str>::Ok cursor
+            Result::Ok cursor
 
 pub fn scanner_from_bytes %impure fn ByteBuf Result StreamScanner str \bytes:
     let len %i32 io_bytebuf_len_ref &bytes;
@@ -158,17 +158,17 @@ pub fn scanner_from_bytes %impure fn ByteBuf Result StreamScanner str \bytes:
                 then:
                     match stream_scanner_cursor_new:
                         Result::Ok cursor:
-                            Result<StreamScanner,str>::Ok StreamScanner bytes cursor
+                            Result::Ok StreamScanner bytes cursor
                         Result::Err e:
                             io_bytebuf_free bytes
-                            Result<StreamScanner,str>::Err e
+                            Result::Err e
                 else:
                     io_bytebuf_free bytes
-                    Result<StreamScanner,str>::Err "streamio.scanner invalid byte buffer"
+                    Result::Err "streamio.scanner invalid byte buffer"
         Option::Some _buf:
             match stream_scanner_cursor_new:
                 Result::Ok cursor:
-                    Result<StreamScanner,str>::Ok StreamScanner bytes cursor
+                    Result::Ok StreamScanner bytes cursor
                 Result::Err e:
                     io_bytebuf_free bytes
-                    Result<StreamScanner,str>::Err e
+                    Result::Err e
