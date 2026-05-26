@@ -61,6 +61,10 @@ for (const testPath of [
 }
 
 const pipeCollections = neplCodeBlocks(fs.readFileSync(path.join(repoRoot, "tests/stdlib/pipe_collections.n.md"), "utf8"));
+const pipeCollectionsSource = fs.readFileSync(path.join(repoRoot, "tests/stdlib/pipe_collections.n.md"), "utf8");
+const pipeRingBufferSection = pipeCollectionsSource.match(/## pipe_ringbuffer_usage[\s\S]*?(?=\n## |$)/);
+assert.ok(pipeRingBufferSection, "pipe_collections must keep a RingBuffer pipe fixture");
+assert.doesNotMatch(pipeRingBufferSection[0], /\b(?:new|with_capacity|push)<i32>/, "pipe RingBuffer fixture must rely on expected type or receiver evidence instead of explicit producer or mutator postfixes");
 assert.match(pipeCollections, /peek\s+&rb2\b/, "pipe_collections must borrow RingBuffer.peek explicitly");
 
 console.log("ringbuffer borrowed observer regression passed");

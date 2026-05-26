@@ -23,11 +23,11 @@ exit_code: 0
 
 fn main %impure fn unit i32 \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "--target" |> uwok
-        |> v::push<str> "std" |> uwok
-        |> v::push<str> "-i" |> uwok
-        |> v::push<str> "main.nepl" |> uwok
+        unwrap_ok v::new
+        |> v::push "--target" |> uwok
+        |> v::push "std" |> uwok
+        |> v::push "-i" |> uwok
+        |> v::push "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
@@ -116,9 +116,9 @@ exit_code: 0
 
 fn main %impure fn unit i32 \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "-i" |> uwok
-        |> v::push<str> "missing.nepl" |> uwok
+        unwrap_ok v::new
+        |> v::push "-i" |> uwok
+        |> v::push "missing.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;

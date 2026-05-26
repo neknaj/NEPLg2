@@ -188,6 +188,7 @@ const pipeCollections = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/pipe_c
 const pipeListSection = pipeCollections.match(/## pipe_list_alias_chain[\s\S]*?(?=\n## |$)/);
 assert.ok(pipeListSection, 'pipe_collections must keep a List pipe fixture');
 const pipeListCode = neplCodeWithoutStrings(pipeListSection[0]);
+assert.doesNotMatch(pipeListCode, /\b(?:new|push)<i32>/, 'pipe List fixture must rely on expected type or receiver evidence instead of explicit producer or mutator postfixes');
 assert.match(pipeListCode, /\blen\s+&xs0\b/, 'pipe List fixture must borrow for len');
 assert.match(pipeListCode, /\bget\s+&xs1\s+1\b/, 'pipe List fixture must borrow for get');
 assert.match(pipeListCode, /\bfree\s+xs0\b/, 'pipe List fixture must free xs0 after observation');

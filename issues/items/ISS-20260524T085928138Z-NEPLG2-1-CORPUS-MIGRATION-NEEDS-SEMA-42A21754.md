@@ -880,6 +880,19 @@ LLM/手動判断が必要なもの:
 - worker 側で `node nodesrc/neplg21_syntax_migrate.js --check` は `would update 0 file(s)`、`git diff --check` は LF/CRLF warning のみで pass した。
 - focused doctest は既存の per-program compile-time issue と同系の timeout。`stdlib/tests/btreemap.n.md` と `tests/stdlib/pipe_collections.n.md` の BTree doctest は compile timeout after 60000ms で型診断なし。
 
+### 2026-05-26 Pipe/selfhost Vec producer postfix checkpoint
+
+- `tests/stdlib/pipe_collections.n.md`、`tests/stdlib/selfhost_cliarg_parser.n.md`、`tests/stdlib/selfhost_cli_driver.n.md` / `tests/stdlib/fs.n.md` を 3 worker の非重複 write scope に分割して並列移行した。
+- pipe fixture では `pipe_list_alias_chain`、`pipe_stack_alias_usage`、Queue / RingBuffer section の `new<i32>` / `push<i32>` を postfix-free にした。BTree section は前 checkpoint 済みで変更していない。
+- selfhost CLI arg parser fixture では `%Vec str` local annotation と pipe receiver から解ける `v::new<str>` / `v::push<str>` を postfix-free にした。
+- selfhost CLI driver fixture と FS fixture でも `%Vec str` local annotation と pipe receiver から解ける `v::new<str>` / `v::push<str>` を postfix-free にした。
+- `v::free<str>` は producer / mutator ではないため今回対象外として残した。
+- `nodesrc/test_stdlib_list_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_ringbuffer_borrowed_observers.js`、`nodesrc/test_selfhost_cliarg_parser_doctest_contract.js`、`nodesrc/test_selfhost_cli_driver_report_contract.js`、`nodesrc/test_stdlib_fs_report_contract.js` に、今回対象の旧 producer / mutator postfix 再導入防止を追加した。コメント量を制限する検査ではない。
+- `rg -n "\bv::(new|push)<str>|\b(new|push)<i32>" tests/stdlib/pipe_collections.n.md tests/stdlib/selfhost_cliarg_parser.n.md tests/stdlib/selfhost_cli_driver.n.md tests/stdlib/fs.n.md` は 0 件になった。
+- targeted source policy 7 件は pass した。
+- worker 側で `node nodesrc/neplg21_syntax_migrate.js --check` は `would update 0 file(s)`、`git diff --check` は LF/CRLF warning のみで pass した。
+- selfhost/FS targeted doctest は既存の compile-time timeout または既存診断で完走せず。postfix-free 化に対する型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

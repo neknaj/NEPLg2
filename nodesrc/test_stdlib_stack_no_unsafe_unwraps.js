@@ -91,6 +91,10 @@ for (const rel of [
 }
 
 const pipeCollections = neplCodeBlocks(fs.readFileSync(path.join(repoRoot, 'tests/stdlib/pipe_collections.n.md'), 'utf8'));
+const pipeStackSection = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/pipe_collections.n.md'), 'utf8')
+    .match(/## pipe_stack_alias_usage[\s\S]*?(?=\n## |$)/);
+assert.ok(pipeStackSection, 'pipe_collections must keep a Stack pipe fixture');
+assert.doesNotMatch(pipeStackSection[0], /\b(?:new|push)<i32>/, 'pipe Stack fixture must rely on expected type or receiver evidence instead of explicit producer or mutator postfixes');
 assert.match(pipeCollections, /\blen\s+&s0\b/, 'pipe_collections stack case must borrow Stack.len');
 assert.doesNotMatch(pipeCollections, /\blen\s+s0\b/, 'pipe_collections stack case must not consume Stack.len');
 

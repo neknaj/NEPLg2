@@ -36,6 +36,11 @@ parsed.doctests.forEach((doctest, index) => {
         /checks_print_report[\s\S]*checks_exit_code/,
         `${name} must print the report before returning its exit code`,
     );
+    assert.doesNotMatch(
+        doctest.code,
+        /\bv::(?:new|push)<str>/,
+        `${name} must rely on Vec str expected type or receiver evidence instead of explicit producer or mutator postfixes`,
+    );
 });
 
 console.log("stdlib fs report contract passed");

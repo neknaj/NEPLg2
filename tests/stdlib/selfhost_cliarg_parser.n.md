@@ -21,13 +21,13 @@ stdout: "test_report name=\"selfhost_cliarg_parser\" count=10 failed=0\nassertio
 
 fn selfhost_cliarg_parser_accepts_check_emit_output_and_input %impure fn unit bool \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "--check" |> uwok
-        |> v::push<str> "--emit" |> uwok
-        |> v::push<str> "wasm" |> uwok
-        |> v::push<str> "-o" |> uwok
-        |> v::push<str> "out.wasm" |> uwok
-        |> v::push<str> "main.nepl" |> uwok
+        unwrap_ok v::new
+        |> v::push "--check" |> uwok
+        |> v::push "--emit" |> uwok
+        |> v::push "wasm" |> uwok
+        |> v::push "-o" |> uwok
+        |> v::push "out.wasm" |> uwok
+        |> v::push "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
@@ -55,8 +55,8 @@ fn selfhost_cliarg_parser_accepts_check_emit_output_and_input %impure fn unit bo
 
 fn selfhost_cliarg_parser_rejects_unknown_option %impure fn unit bool \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "--unknown" |> uwok
+        unwrap_ok v::new
+        |> v::push "--unknown" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
             v::free<str> args;
@@ -68,8 +68,8 @@ fn selfhost_cliarg_parser_rejects_unknown_option %impure fn unit bool \unit:
 
 fn selfhost_cliarg_parser_rejects_missing_value %impure fn unit bool \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "--emit" |> uwok
+        unwrap_ok v::new
+        |> v::push "--emit" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
             v::free<str> args;
@@ -81,9 +81,9 @@ fn selfhost_cliarg_parser_rejects_missing_value %impure fn unit bool \unit:
 
 fn selfhost_cliarg_parser_rejects_multiple_input %impure fn unit bool \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "a.nepl" |> uwok
-        |> v::push<str> "b.nepl" |> uwok
+        unwrap_ok v::new
+        |> v::push "a.nepl" |> uwok
+        |> v::push "b.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
             v::free<str> args;
@@ -95,12 +95,12 @@ fn selfhost_cliarg_parser_rejects_multiple_input %impure fn unit bool \unit:
 
 fn selfhost_cliarg_parser_skips_program_name %impure fn unit bool \unit:
     let argv %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "neplg2" |> uwok
-        |> v::push<str> "--target" |> uwok
-        |> v::push<str> "std" |> uwok
-        |> v::push<str> "-i" |> uwok
-        |> v::push<str> "main.nepl" |> uwok
+        unwrap_ok v::new
+        |> v::push "neplg2" |> uwok
+        |> v::push "--target" |> uwok
+        |> v::push "std" |> uwok
+        |> v::push "-i" |> uwok
+        |> v::push "main.nepl" |> uwok
     match selfhost_cli_parse_argv &argv:
         Result::Err _e:
             v::free<str> argv;
@@ -124,11 +124,11 @@ fn selfhost_cliarg_parser_skips_program_name %impure fn unit bool \unit:
 
 fn selfhost_cliarg_parser_records_run_args_start %impure fn unit bool \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "--run" |> uwok
-        |> v::push<str> "main.nepl" |> uwok
-        |> v::push<str> "--" |> uwok
-        |> v::push<str> "--program-flag" |> uwok
+        unwrap_ok v::new
+        |> v::push "--run" |> uwok
+        |> v::push "main.nepl" |> uwok
+        |> v::push "--" |> uwok
+        |> v::push "--program-flag" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
@@ -146,22 +146,22 @@ fn selfhost_cliarg_parser_records_run_args_start %impure fn unit bool \unit:
 
 fn selfhost_cliarg_parser_accepts_aliases_and_profile %impure fn unit bool \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "--attach-source" |> uwok
-        |> v::push<str> "--lib" |> uwok
-        |> v::push<str> "-v" |> uwok
-        |> v::push<str> "--target" |> uwok
-        |> v::push<str> "core" |> uwok
-        |> v::push<str> "--emit" |> uwok
-        |> v::push<str> "llvm-min" |> uwok
-        |> v::push<str> "--profile" |> uwok
-        |> v::push<str> "release" |> uwok
-        |> v::push<str> "--stdlib-root" |> uwok
-        |> v::push<str> "stdlib" |> uwok
-        |> v::push<str> "-i" |> uwok
-        |> v::push<str> "main.nepl" |> uwok
-        |> v::push<str> "--" |> uwok
-        |> v::push<str> "--program-flag" |> uwok
+        unwrap_ok v::new
+        |> v::push "--attach-source" |> uwok
+        |> v::push "--lib" |> uwok
+        |> v::push "-v" |> uwok
+        |> v::push "--target" |> uwok
+        |> v::push "core" |> uwok
+        |> v::push "--emit" |> uwok
+        |> v::push "llvm-min" |> uwok
+        |> v::push "--profile" |> uwok
+        |> v::push "release" |> uwok
+        |> v::push "--stdlib-root" |> uwok
+        |> v::push "stdlib" |> uwok
+        |> v::push "-i" |> uwok
+        |> v::push "main.nepl" |> uwok
+        |> v::push "--" |> uwok
+        |> v::push "--program-flag" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
@@ -223,10 +223,10 @@ fn selfhost_cliarg_parser_accepts_aliases_and_profile %impure fn unit bool \unit
 
 fn selfhost_cliarg_parser_accepts_emit_list_and_deduplicates %impure fn unit bool \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "--emit" |> uwok
-        |> v::push<str> "wasm,wat,llvm-min,wasm" |> uwok
-        |> v::push<str> "main.nepl" |> uwok
+        unwrap_ok v::new
+        |> v::push "--emit" |> uwok
+        |> v::push "wasm,wat,llvm-min,wasm" |> uwok
+        |> v::push "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
@@ -245,10 +245,10 @@ fn selfhost_cliarg_parser_accepts_emit_list_and_deduplicates %impure fn unit boo
 
 fn selfhost_cliarg_parser_accepts_emit_all %impure fn unit bool \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "--emit" |> uwok
-        |> v::push<str> "all" |> uwok
-        |> v::push<str> "main.nepl" |> uwok
+        unwrap_ok v::new
+        |> v::push "--emit" |> uwok
+        |> v::push "all" |> uwok
+        |> v::push "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
             v::free<str> args;
@@ -267,9 +267,9 @@ fn selfhost_cliarg_parser_accepts_emit_all %impure fn unit bool \unit:
 
 fn selfhost_cliarg_parser_rejects_invalid_emit_member %impure fn unit bool \unit:
     let args %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "--emit" |> uwok
-        |> v::push<str> "wasm,,wat" |> uwok
+        unwrap_ok v::new
+        |> v::push "--emit" |> uwok
+        |> v::push "wasm,,wat" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
             v::free<str> args;

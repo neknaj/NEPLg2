@@ -135,6 +135,11 @@ for (const testPath of [
     assert.doesNotMatch(testSrc, /\b(?:new|with_capacity|push)<i32>/, `${testPath} must rely on Queue expected type or receiver evidence instead of explicit producer or mutator postfixes`);
 }
 
+const pipeCollectionsSource = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/pipe_collections.n.md'), 'utf8');
+const pipeQueueSection = pipeCollectionsSource.match(/## pipe_queue_usage[\s\S]*?(?=\n## |$)/);
+assert.ok(pipeQueueSection, 'pipe_collections must keep a Queue pipe fixture');
+assert.doesNotMatch(pipeQueueSection[0], /\b(?:new|with_capacity|push)<i32>/, 'pipe Queue fixture must rely on expected type or receiver evidence instead of explicit producer or mutator postfixes');
+
 for (const testPath of [
     'stdlib/tests/deque.n.md',
     'tests/stdlib/deque_collections.n.md',

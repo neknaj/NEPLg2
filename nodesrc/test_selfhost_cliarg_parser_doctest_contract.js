@@ -35,6 +35,11 @@ assert.match(
     'aggregated selfhost CLI arg parser doctest must separate stdout reporting from exit-code conversion',
 );
 assert.doesNotMatch(
+    doctest.code,
+    /\bv::(?:new|push)<str>/,
+    'aggregated selfhost CLI arg parser doctest must rely on Vec str expected type or receiver evidence instead of explicit producer or mutator postfixes',
+);
+assert.doesNotMatch(
     source,
     /neplg2:test\s*\r?\nret:/,
     'selfhost CLI arg parser doctests must not regress to ret-only status checks',

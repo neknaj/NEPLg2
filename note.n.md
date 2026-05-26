@@ -1,3 +1,19 @@
+# 2026-05-26 Agent 1 Pipe/selfhost Vec producer postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として pipe collection fixture と selfhost/FS fixture の producer / mutator 系後置 generic を撤廃した。
+- `tests/stdlib/pipe_collections.n.md`、`tests/stdlib/selfhost_cliarg_parser.n.md`、`tests/stdlib/selfhost_cli_driver.n.md` / `tests/stdlib/fs.n.md` を 3 worker の非重複 write scope に分割して並列移行した。
+- pipe fixture では `pipe_list_alias_chain`、`pipe_stack_alias_usage`、Queue / RingBuffer section の `new<i32>` / `push<i32>` を postfix-free にした。BTree section は前 checkpoint 済みで変更していない。
+- selfhost CLI arg parser fixture では `%Vec str` local annotation と pipe receiver から解ける `v::new<str>` / `v::push<str>` を postfix-free にした。
+- selfhost CLI driver fixture と FS fixture でも `%Vec str` local annotation と pipe receiver から解ける `v::new<str>` / `v::push<str>` を postfix-free にした。
+- `v::free<str>` は producer / mutator ではないため今回対象外として残した。
+- `nodesrc/test_stdlib_list_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_ringbuffer_borrowed_observers.js`、`nodesrc/test_selfhost_cliarg_parser_doctest_contract.js`、`nodesrc/test_selfhost_cli_driver_report_contract.js`、`nodesrc/test_stdlib_fs_report_contract.js` に、今回対象の旧 producer / mutator postfix 再導入防止を追加した。コメント量を制限する検査ではない。
+- 検証:
+  - `rg -n "\bv::(new|push)<str>|\b(new|push)<i32>" tests/stdlib/pipe_collections.n.md tests/stdlib/selfhost_cliarg_parser.n.md tests/stdlib/selfhost_cli_driver.n.md tests/stdlib/fs.n.md`: 0 件。
+  - targeted source policy 7 件: pass。
+  - worker 側で `node nodesrc/neplg21_syntax_migrate.js --check`: `would update 0 file(s)`。
+  - worker 側で `git diff --check`: pass。LF/CRLF warning のみ。
+  - selfhost/FS targeted doctest は既存の compile-time timeout または既存診断で完走せず。postfix-free 化に対する型診断は出ていない。
+
 # 2026-05-26 Agent 1 BTree producer postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として BTreeMap / BTreeSet fixture と pipe collection の BTree section に残っていた producer / mutator 系後置 generic を撤廃した。

@@ -317,10 +317,10 @@ stdout: mlstr:
 
 fn main %impure fn unit i32 \unit:
     let entries %Vec str:
-        unwrap_ok v::new<str>
-        |> v::push<str> "zeta.txt" |> uwok
-        |> v::push<str> "alpha.nepl" |> uwok
-        |> v::push<str> "beta.n.md" |> uwok
+        unwrap_ok v::new
+        |> v::push "zeta.txt" |> uwok
+        |> v::push "alpha.nepl" |> uwok
+        |> v::push "beta.n.md" |> uwok
     let mut checks checks_new;
     match fs_sort_strings &entries:
         Result::Err _e:

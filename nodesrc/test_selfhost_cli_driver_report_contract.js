@@ -30,6 +30,11 @@ for (const index of [0, 2]) {
         /checks_print_report\s+checks[\s\S]*checks_exit_code\s+shown/,
         `${name} must print the report before returning its exit code`,
     );
+    assert.doesNotMatch(
+        doctest.code,
+        /\bv::(?:new|push)<str>/,
+        `${name} must rely on Vec str expected type or receiver evidence instead of explicit producer or mutator postfixes`,
+    );
 }
 
 console.log("selfhost CLI driver report contract passed");
