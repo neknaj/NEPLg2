@@ -579,6 +579,17 @@ LLM/手動判断が必要なもの:
 - timeout 後に残留していた当該 `node.exe` process は停止した。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 sha256/hash Result constructor checkpoint
+
+- subagent と並列で `stdlib/alloc/hash/sha256/api.nepl` / `compress.nepl` / `digest.nepl` / `padding.nepl` / `round.nepl` / `schedule.nepl` / `stdlib/tests/hash.n.md` を確認し、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 125 件を `Result::Ok` / `Result::Err` へ移行した。
+- `sha256_k` の定数表は戻り値 `Result i32 StdErrorKind` から全 branch の型が確定するため、64 件の `Ok` と default branch の `Err` を postfix なし constructor へ移行した。
+- source string fixture や doc comment として保持すべき旧構文はなく、subagent の独立レビューでも残すべき箇所はないと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/alloc/hash/sha256/api.nepl stdlib/alloc/hash/sha256/compress.nepl stdlib/alloc/hash/sha256/digest.nepl stdlib/alloc/hash/sha256/padding.nepl stdlib/alloc/hash/sha256/round.nepl stdlib/alloc/hash/sha256/schedule.nepl stdlib/tests/hash.n.md` は 0 件になった。
+- `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/alloc/hash/sha256/api.nepl stdlib/alloc/hash/sha256/compress.nepl stdlib/alloc/hash/sha256/digest.nepl stdlib/alloc/hash/sha256/padding.nepl stdlib/alloc/hash/sha256/round.nepl stdlib/alloc/hash/sha256/schedule.nepl stdlib/tests/hash.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/alloc/hash/sha256/api.nepl -i stdlib/alloc/hash/sha256/compress.nepl -i stdlib/alloc/hash/sha256/digest.nepl -i stdlib/alloc/hash/sha256/padding.nepl -i stdlib/alloc/hash/sha256/round.nepl -i stdlib/alloc/hash/sha256/schedule.nepl -i stdlib/tests/hash.n.md --no-tree -o tmp/neplg21-sha256-hash-result-constructors.json -j 1 --dist web/dist --assert-io` は 1 件 compile timeout after 60000ms。型診断は出ていない。
+- subagent verification: `trunk build` / `node nodesrc/test_stdlib_hash_nmd_report_contract.js` / `node nodesrc/test_stdlib_hash_string_access_boundary.js` は pass。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

@@ -25,15 +25,15 @@ pub fn sha256_rounds_loop %impure fn &Vec i32 impure fn i32 impure fn i32 impure
     if:
         ge i 64
         then:
-            Result<Sha256State, StdErrorKind>::Ok Sha256State a b c d e f g h
+            Result::Ok Sha256State a b c d e f g h
         else:
             match get<i32> w i:
                 Option::None:
-                    Result<Sha256State, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+                    Result::Err StdErrorKind::IndexOutOfBounds
                 Option::Some wi:
                     match sha256_k i:
                         Result::Err err:
-                            Result<Sha256State, StdErrorKind>::Err err
+                            Result::Err err
                         Result::Ok k:
                             let t1a %i32 add h sha256_big_sigma1 e
                             let t1b %i32 add t1a sha256_ch e f g
@@ -51,7 +51,7 @@ pub fn sha256_rounds_loop %impure fn &Vec i32 impure fn i32 impure fn i32 impure
 pub fn sha256_compress_block %impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 impure fn Sha256State Result Sha256State StdErrorKind \buf\msg_len\total_len\block_start\state:
     match sha256_build_schedule buf msg_len total_len block_start:
         Result::Err e:
-            Result<Sha256State, StdErrorKind>::Err e
+            Result::Err e
         Result::Ok w:
             let h0 %i32 field::get state "h0"
             let h1 %i32 field::get state "h1"
@@ -64,7 +64,7 @@ pub fn sha256_compress_block %impure fn &Vec i32 impure fn i32 impure fn i32 imp
             match sha256_rounds_loop &w 0 h0 h1 h2 h3 h4 h5 h6 h7:
                 Result::Err e:
                     free<i32> w
-                    Result<Sha256State, StdErrorKind>::Err e
+                    Result::Err e
                 Result::Ok rounds:
                     free<i32> w
                     let r0 %i32 field::get rounds "h0"
@@ -75,7 +75,7 @@ pub fn sha256_compress_block %impure fn &Vec i32 impure fn i32 impure fn i32 imp
                     let r5 %i32 field::get rounds "h5"
                     let r6 %i32 field::get rounds "h6"
                     let r7 %i32 field::get rounds "h7"
-                    Result<Sha256State, StdErrorKind>::Ok Sha256State add h0 r0 add h1 r1 add h2 r2 add h3 r3 add h4 r4 add h5 r5 add h6 r6 add h7 r7
+                    Result::Ok Sha256State add h0 r0 add h1 r1 add h2 r2 add h3 r3 add h4 r4 add h5 r5 add h6 r6 add h7 r7
 
 //: sha256_process_blocks: padding [後/ご]の block [列/れつ]を[順/じゅん]に compression する
 //:
@@ -85,10 +85,10 @@ pub fn sha256_process_blocks %impure fn &Vec i32 impure fn i32 impure fn i32 imp
     if:
         ge block_start total_len
         then:
-            Result<Sha256State, StdErrorKind>::Ok state
+            Result::Ok state
         else:
             match sha256_compress_block buf msg_len total_len block_start state:
                 Result::Err e:
-                    Result<Sha256State, StdErrorKind>::Err e
+                    Result::Err e
                 Result::Ok next:
                     sha256_process_blocks buf msg_len total_len add block_start 64 next

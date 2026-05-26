@@ -18,135 +18,135 @@
 pub fn sha256_k %fn i32 Result i32 StdErrorKind \i:
     match i:
         0:
-            Result<i32, StdErrorKind>::Ok 1116352408
+            Result::Ok 1116352408
         1:
-            Result<i32, StdErrorKind>::Ok 1899447441
+            Result::Ok 1899447441
         2:
-            Result<i32, StdErrorKind>::Ok -1245643825
+            Result::Ok -1245643825
         3:
-            Result<i32, StdErrorKind>::Ok -373957723
+            Result::Ok -373957723
         4:
-            Result<i32, StdErrorKind>::Ok 961987163
+            Result::Ok 961987163
         5:
-            Result<i32, StdErrorKind>::Ok 1508970993
+            Result::Ok 1508970993
         6:
-            Result<i32, StdErrorKind>::Ok -1841331548
+            Result::Ok -1841331548
         7:
-            Result<i32, StdErrorKind>::Ok -1424204075
+            Result::Ok -1424204075
         8:
-            Result<i32, StdErrorKind>::Ok -670586216
+            Result::Ok -670586216
         9:
-            Result<i32, StdErrorKind>::Ok 310598401
+            Result::Ok 310598401
         10:
-            Result<i32, StdErrorKind>::Ok 607225278
+            Result::Ok 607225278
         11:
-            Result<i32, StdErrorKind>::Ok 1426881987
+            Result::Ok 1426881987
         12:
-            Result<i32, StdErrorKind>::Ok 1925078388
+            Result::Ok 1925078388
         13:
-            Result<i32, StdErrorKind>::Ok -2132889090
+            Result::Ok -2132889090
         14:
-            Result<i32, StdErrorKind>::Ok -1680079193
+            Result::Ok -1680079193
         15:
-            Result<i32, StdErrorKind>::Ok -1046744716
+            Result::Ok -1046744716
         16:
-            Result<i32, StdErrorKind>::Ok -459576895
+            Result::Ok -459576895
         17:
-            Result<i32, StdErrorKind>::Ok -272742522
+            Result::Ok -272742522
         18:
-            Result<i32, StdErrorKind>::Ok 264347078
+            Result::Ok 264347078
         19:
-            Result<i32, StdErrorKind>::Ok 604807628
+            Result::Ok 604807628
         20:
-            Result<i32, StdErrorKind>::Ok 770255983
+            Result::Ok 770255983
         21:
-            Result<i32, StdErrorKind>::Ok 1249150122
+            Result::Ok 1249150122
         22:
-            Result<i32, StdErrorKind>::Ok 1555081692
+            Result::Ok 1555081692
         23:
-            Result<i32, StdErrorKind>::Ok 1996064986
+            Result::Ok 1996064986
         24:
-            Result<i32, StdErrorKind>::Ok -1740746414
+            Result::Ok -1740746414
         25:
-            Result<i32, StdErrorKind>::Ok -1473132947
+            Result::Ok -1473132947
         26:
-            Result<i32, StdErrorKind>::Ok -1341970488
+            Result::Ok -1341970488
         27:
-            Result<i32, StdErrorKind>::Ok -1084653625
+            Result::Ok -1084653625
         28:
-            Result<i32, StdErrorKind>::Ok -958395405
+            Result::Ok -958395405
         29:
-            Result<i32, StdErrorKind>::Ok -710438585
+            Result::Ok -710438585
         30:
-            Result<i32, StdErrorKind>::Ok 113926993
+            Result::Ok 113926993
         31:
-            Result<i32, StdErrorKind>::Ok 338241895
+            Result::Ok 338241895
         32:
-            Result<i32, StdErrorKind>::Ok 666307205
+            Result::Ok 666307205
         33:
-            Result<i32, StdErrorKind>::Ok 773529912
+            Result::Ok 773529912
         34:
-            Result<i32, StdErrorKind>::Ok 1294757372
+            Result::Ok 1294757372
         35:
-            Result<i32, StdErrorKind>::Ok 1396182291
+            Result::Ok 1396182291
         36:
-            Result<i32, StdErrorKind>::Ok 1695183700
+            Result::Ok 1695183700
         37:
-            Result<i32, StdErrorKind>::Ok 1986661051
+            Result::Ok 1986661051
         38:
-            Result<i32, StdErrorKind>::Ok -2117940946
+            Result::Ok -2117940946
         39:
-            Result<i32, StdErrorKind>::Ok -1838011259
+            Result::Ok -1838011259
         40:
-            Result<i32, StdErrorKind>::Ok -1564481375
+            Result::Ok -1564481375
         41:
-            Result<i32, StdErrorKind>::Ok -1474664885
+            Result::Ok -1474664885
         42:
-            Result<i32, StdErrorKind>::Ok -1035236496
+            Result::Ok -1035236496
         43:
-            Result<i32, StdErrorKind>::Ok -949202525
+            Result::Ok -949202525
         44:
-            Result<i32, StdErrorKind>::Ok -778901479
+            Result::Ok -778901479
         45:
-            Result<i32, StdErrorKind>::Ok -694614492
+            Result::Ok -694614492
         46:
-            Result<i32, StdErrorKind>::Ok -200395387
+            Result::Ok -200395387
         47:
-            Result<i32, StdErrorKind>::Ok 275423344
+            Result::Ok 275423344
         48:
-            Result<i32, StdErrorKind>::Ok 430227734
+            Result::Ok 430227734
         49:
-            Result<i32, StdErrorKind>::Ok 506948616
+            Result::Ok 506948616
         50:
-            Result<i32, StdErrorKind>::Ok 659060556
+            Result::Ok 659060556
         51:
-            Result<i32, StdErrorKind>::Ok 883997877
+            Result::Ok 883997877
         52:
-            Result<i32, StdErrorKind>::Ok 958139571
+            Result::Ok 958139571
         53:
-            Result<i32, StdErrorKind>::Ok 1322822218
+            Result::Ok 1322822218
         54:
-            Result<i32, StdErrorKind>::Ok 1537002063
+            Result::Ok 1537002063
         55:
-            Result<i32, StdErrorKind>::Ok 1747873779
+            Result::Ok 1747873779
         56:
-            Result<i32, StdErrorKind>::Ok 1955562222
+            Result::Ok 1955562222
         57:
-            Result<i32, StdErrorKind>::Ok 2024104815
+            Result::Ok 2024104815
         58:
-            Result<i32, StdErrorKind>::Ok -2067236844
+            Result::Ok -2067236844
         59:
-            Result<i32, StdErrorKind>::Ok -1933114872
+            Result::Ok -1933114872
         60:
-            Result<i32, StdErrorKind>::Ok -1866530822
+            Result::Ok -1866530822
         61:
-            Result<i32, StdErrorKind>::Ok -1538233109
+            Result::Ok -1538233109
         62:
-            Result<i32, StdErrorKind>::Ok -1090935817
+            Result::Ok -1090935817
         63:
-            Result<i32, StdErrorKind>::Ok -965641998
+            Result::Ok -965641998
         _:
-            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+            Result::Err StdErrorKind::InvalidOperation
 
 //: sha256_ch: SHA-256 の choose [関数/かんすう]
 //:

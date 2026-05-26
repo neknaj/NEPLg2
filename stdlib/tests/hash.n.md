@@ -47,9 +47,9 @@ fn sha256_update_str_loop %impure fn Sha256 impure fn str impure fn i32 impure f
         failed
         then:
             sha256_free current
-            Result<Sha256, StdErrorKind>::Err failure
+            Result::Err failure
         else:
-            Result<Sha256, StdErrorKind>::Ok current
+            Result::Ok current
 
 fn sha256_update_str %impure fn Sha256 impure fn str Result Sha256 StdErrorKind \ctx\text:
     sha256_update_str_loop ctx text 0 string::len text
@@ -57,11 +57,11 @@ fn sha256_update_str %impure fn Sha256 impure fn str Result Sha256 StdErrorKind 
 fn sha256_digest_for_text %impure fn str Result Vec i32 StdErrorKind \text:
     match new_sha256:
         Result::Err e:
-            Result<Vec<i32>, StdErrorKind>::Err e
+            Result::Err e
         Result::Ok ctx0:
             match sha256_update_str ctx0 text:
                 Result::Err e:
-                    Result<Vec<i32>, StdErrorKind>::Err e
+                    Result::Err e
                 Result::Ok ctx1:
                     sha256_finalize ctx1
 

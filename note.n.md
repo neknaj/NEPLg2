@@ -1,3 +1,19 @@
+# 2026-05-26 Agent 1 sha256/hash Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる sha256/hash 領域の constructor だけを移行した。
+- subagent と並列で `stdlib/alloc/hash/sha256/api.nepl` / `compress.nepl` / `digest.nepl` / `padding.nepl` / `round.nepl` / `schedule.nepl` / `stdlib/tests/hash.n.md` を確認し、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 125 件を `Result::Ok` / `Result::Err` へ移行した。
+- `sha256_k` の定数表は戻り値 `Result i32 StdErrorKind` から全 branch の型が確定するため、64 件の `Ok` と default branch の `Err` を postfix なし constructor へ移行した。
+- source string fixture や doc comment として保持すべき旧構文はなく、subagent の独立レビューでも残すべき箇所はないと確認した。
+- 検証:
+  - `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/alloc/hash/sha256/api.nepl stdlib/alloc/hash/sha256/compress.nepl stdlib/alloc/hash/sha256/digest.nepl stdlib/alloc/hash/sha256/padding.nepl stdlib/alloc/hash/sha256/round.nepl stdlib/alloc/hash/sha256/schedule.nepl stdlib/tests/hash.n.md`: 0 件。
+  - `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/alloc/hash/sha256/api.nepl stdlib/alloc/hash/sha256/compress.nepl stdlib/alloc/hash/sha256/digest.nepl stdlib/alloc/hash/sha256/padding.nepl stdlib/alloc/hash/sha256/round.nepl stdlib/alloc/hash/sha256/schedule.nepl stdlib/tests/hash.n.md`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/alloc/hash/sha256/api.nepl -i stdlib/alloc/hash/sha256/compress.nepl -i stdlib/alloc/hash/sha256/digest.nepl -i stdlib/alloc/hash/sha256/padding.nepl -i stdlib/alloc/hash/sha256/round.nepl -i stdlib/alloc/hash/sha256/schedule.nepl -i stdlib/tests/hash.n.md --no-tree -o tmp/neplg21-sha256-hash-result-constructors.json -j 1 --dist web/dist --assert-io`: 1 件 compile timeout after 60000ms。型診断は出ていない。
+  - subagent verification: `trunk build` / `node nodesrc/test_stdlib_hash_nmd_report_contract.js` / `node nodesrc/test_stdlib_hash_string_access_boundary.js` は pass。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 text/string Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる text/string 領域の constructor だけを移行した。

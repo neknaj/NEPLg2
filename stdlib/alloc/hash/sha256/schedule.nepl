@@ -23,25 +23,25 @@
 pub fn sha256_schedule_word %fn &Vec i32 fn i32 Result i32 StdErrorKind \w\i:
     match get<i32> w sub i 2:
         Option::None:
-            Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+            Result::Err StdErrorKind::IndexOutOfBounds
         Option::Some w2:
             match get<i32> w sub i 7:
                 Option::None:
-                    Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+                    Result::Err StdErrorKind::IndexOutOfBounds
                 Option::Some w7:
                     match get<i32> w sub i 15:
                         Option::None:
-                            Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+                            Result::Err StdErrorKind::IndexOutOfBounds
                         Option::Some w15:
                             match get<i32> w sub i 16:
                                 Option::None:
-                                    Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+                                    Result::Err StdErrorKind::IndexOutOfBounds
                                 Option::Some w16:
                                     let s0 %i32 sha256_small_sigma0 w15
                                     let s1 %i32 sha256_small_sigma1 w2
                                     let a %i32 add w16 s0
                                     let b %i32 add a w7
-                                    Result<i32, StdErrorKind>::Ok add b s1
+                                    Result::Ok add b s1
 
 //: sha256_build_schedule_loop: 1 block の 64 word schedule を[作/つく]る
 //:
@@ -78,9 +78,9 @@ pub fn sha256_build_schedule_loop %impure fn &Vec i32 impure fn i32 impure fn i3
         failed
         then:
             free<i32> out
-            Result<Vec<i32>, StdErrorKind>::Err failure
+            Result::Err failure
         else:
-            Result<Vec<i32>, StdErrorKind>::Ok out
+            Result::Ok out
 
 //: sha256_build_schedule: 1 block の message schedule を[初期化/しょきか]する
 //:
@@ -89,6 +89,6 @@ pub fn sha256_build_schedule_loop %impure fn &Vec i32 impure fn i32 impure fn i3
 pub fn sha256_build_schedule %impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 Result Vec i32 StdErrorKind \buf\msg_len\total_len\block_start:
     match with_capacity<i32> 64:
         Result::Err e:
-            Result<Vec<i32>, StdErrorKind>::Err e
+            Result::Err e
         Result::Ok w0:
             sha256_build_schedule_loop buf msg_len total_len block_start 0 w0

@@ -23,9 +23,9 @@
 pub fn new_sha256 %impure fn unit Result Sha256 StdErrorKind \unit:
     match new<i32>:
         Result::Err e:
-            Result<Sha256, StdErrorKind>::Err e
+            Result::Err e
         Result::Ok buf:
-            Result<Sha256, StdErrorKind>::Ok Sha256 buf
+            Result::Ok Sha256 buf
 
 //: sha256_update: state に byte を 1 [個/こ][追加/ついか]する
 //:
@@ -40,9 +40,9 @@ pub fn sha256_update %impure fn Sha256 impure fn i32 Result Sha256 Sha256UpdateE
         Result::Err e:
             let error %StdErrorKind vec_push_error_kind &e
             let returned %Vec i32 vec_push_error_vec e
-            Result<Sha256, Sha256UpdateError>::Err Sha256UpdateError (Sha256 returned) error
+            Result::Err Sha256UpdateError (Sha256 returned) error
         Result::Ok new_vec:
-            Result<Sha256, Sha256UpdateError>::Ok Sha256 new_vec
+            Result::Ok Sha256 new_vec
 
 //: sha256_free: incremental state の入力 buffer を[解放/かいほう]する
 //:
@@ -63,12 +63,12 @@ pub fn sha256_finalize %impure fn Sha256 Result Vec i32 StdErrorKind \ctx:
     match sha256_process_blocks &buf msg_len total_len 0 sha256_initial_state:
         Result::Err e:
             free<i32> buf
-            Result<Vec<i32>, StdErrorKind>::Err e
+            Result::Err e
         Result::Ok final_state:
             match sha256_state_to_digest final_state:
                 Result::Err e:
                     free<i32> buf
-                    Result<Vec<i32>, StdErrorKind>::Err e
+                    Result::Err e
                 Result::Ok digest:
                     free<i32> buf
-                    Result<Vec<i32>, StdErrorKind>::Ok digest
+                    Result::Ok digest

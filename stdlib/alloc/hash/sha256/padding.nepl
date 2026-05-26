@@ -35,23 +35,23 @@ pub fn sha256_total_len %fn i32 i32 \msg_len:
 pub fn sha256_length_shift %fn i32 Result i64 StdErrorKind \offset:
     match offset:
         0:
-            Result<i64, StdErrorKind>::Ok %i64 cast 56
+            Result::Ok %i64 cast 56
         1:
-            Result<i64, StdErrorKind>::Ok %i64 cast 48
+            Result::Ok %i64 cast 48
         2:
-            Result<i64, StdErrorKind>::Ok %i64 cast 40
+            Result::Ok %i64 cast 40
         3:
-            Result<i64, StdErrorKind>::Ok %i64 cast 32
+            Result::Ok %i64 cast 32
         4:
-            Result<i64, StdErrorKind>::Ok %i64 cast 24
+            Result::Ok %i64 cast 24
         5:
-            Result<i64, StdErrorKind>::Ok %i64 cast 16
+            Result::Ok %i64 cast 16
         6:
-            Result<i64, StdErrorKind>::Ok %i64 cast 8
+            Result::Ok %i64 cast 8
         7:
-            Result<i64, StdErrorKind>::Ok %i64 cast 0
+            Result::Ok %i64 cast 0
         _:
-            Result<i64, StdErrorKind>::Err StdErrorKind::InvalidOperation
+            Result::Err StdErrorKind::InvalidOperation
 
 //: sha256_length_byte: 入力 bit 長の big-endian byte を[返/かえ]す
 //:
@@ -64,9 +64,9 @@ pub fn sha256_length_byte %fn i32 fn i32 Result i32 StdErrorKind \msg_len\offset
             let bits %i64 mul n64 %i64 cast 8
             let shifted %i64 shr_u bits shift
             let masked %i64 and shifted %i64 cast 255
-            Result<i32, StdErrorKind>::Ok cast masked
+            Result::Ok cast masked
         Result::Err e:
-            Result<i32, StdErrorKind>::Err e
+            Result::Err e
 
 //: sha256_padded_byte_at: padding [後/ご]の仮想 byte を[返/かえ]す
 //:
@@ -78,20 +78,20 @@ pub fn sha256_padded_byte_at %fn &Vec i32 fn i32 fn i32 fn i32 Result i32 StdErr
         then:
             match get<i32> buf idx:
                 Option::Some b:
-                    Result<i32, StdErrorKind>::Ok and b 255
+                    Result::Ok and b 255
                 Option::None:
-                    Result<i32, StdErrorKind>::Err StdErrorKind::IndexOutOfBounds
+                    Result::Err StdErrorKind::IndexOutOfBounds
         else:
             if:
                 eq idx msg_len
                 then:
-                    Result<i32, StdErrorKind>::Ok 128
+                    Result::Ok 128
                 else:
                     let length_start %i32 sub total_len 8
                     if:
                         lt idx length_start
                         then:
-                            Result<i32, StdErrorKind>::Ok 0
+                            Result::Ok 0
                         else:
                             sha256_length_byte msg_len sub idx length_start
 
@@ -103,23 +103,23 @@ pub fn sha256_word_at %fn &Vec i32 fn i32 fn i32 fn i32 fn i32 Result i32 StdErr
     let base %i32 add block_start mul j 4
     match sha256_padded_byte_at buf msg_len total_len base:
         Result::Err e:
-            Result<i32, StdErrorKind>::Err e
+            Result::Err e
         Result::Ok b0:
             match sha256_padded_byte_at buf msg_len total_len add base 1:
                 Result::Err e:
-                    Result<i32, StdErrorKind>::Err e
+                    Result::Err e
                 Result::Ok b1:
                     match sha256_padded_byte_at buf msg_len total_len add base 2:
                         Result::Err e:
-                            Result<i32, StdErrorKind>::Err e
+                            Result::Err e
                         Result::Ok b2:
                             match sha256_padded_byte_at buf msg_len total_len add base 3:
                                 Result::Err e:
-                                    Result<i32, StdErrorKind>::Err e
+                                    Result::Err e
                                 Result::Ok b3:
                                     let w0 %i32 shl b0 24
                                     let w1 %i32 shl b1 16
                                     let w2 %i32 shl b2 8
                                     let hi %i32 or w0 w1
                                     let lo %i32 or w2 b3
-                                    Result<i32, StdErrorKind>::Ok or hi lo
+                                    Result::Ok or hi lo
