@@ -24,31 +24,31 @@ fn check_i32_kind %fn Result SelfhostTypeKind SelfhostProofRefutation Result uni
         Result::Ok kind:
             match kind:
                 SelfhostTypeKind::I32:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostTypeKind::Error:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::Unit:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::Bool:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::I64:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::U8:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::Char:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::Str:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::F32:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::F64:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::Never:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
                 SelfhostTypeKind::Function:
-                    Result<unit,str>::Err "expected i32 kind proof"
+                    Result::Err "expected i32 kind proof"
         Result::Err _refutation:
-            Result<unit,str>::Err "expected type kind proof"
+            Result::Err "expected type kind proof"
 
 fn check_bool_i32_mismatch %fn Result SelfhostTypeKind SelfhostProofRefutation Result unit str \result:
     match result:
@@ -59,81 +59,81 @@ fn check_bool_i32_mismatch %fn Result SelfhostTypeKind SelfhostProofRefutation R
                         SelfhostTypeKind::I32:
                             match issue.actual:
                                 SelfhostTypeKind::Bool:
-                                    Result<unit,str>::Ok unit
+                                    Result::Ok unit
                                 SelfhostTypeKind::Error:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::Unit:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::I32:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::I64:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::U8:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::Char:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::Str:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::F32:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::F64:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::Never:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                                 SelfhostTypeKind::Function:
-                                    Result<unit,str>::Err "expected bool actual kind"
+                                    Result::Err "expected bool actual kind"
                         SelfhostTypeKind::Error:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::Unit:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::Bool:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::I64:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::U8:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::Char:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::Str:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::F32:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::F64:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::Never:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                         SelfhostTypeKind::Function:
-                            Result<unit,str>::Err "expected i32 expected kind"
+                            Result::Err "expected i32 expected kind"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::UnexpectedEvidence _issue:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::BorrowAccessInvalid _issue:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-                    Result<unit,str>::Err "expected type kind mismatch"
+                    Result::Err "expected type kind mismatch"
         Result::Ok _kind:
-            Result<unit,str>::Err "bool kind was accepted as i32"
+            Result::Err "bool kind was accepted as i32"
 
 fn main %impure fn unit i32 \unit:
     let span %SelfhostSourceSpan source_span_new 0 0 3
