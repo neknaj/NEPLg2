@@ -30,7 +30,7 @@ fn selfhost_cliarg_parser_accepts_check_emit_output_and_input %impure fn unit bo
         |> v::push "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
-            v::free<str> args;
+            v::free args;
             false
         Result::Ok opts:
             let output_ref %&Option str get_ref &opts "output"
@@ -50,7 +50,7 @@ fn selfhost_cliarg_parser_accepts_check_emit_output_and_input %impure fn unit bo
             let check_ok %bool *check_ref
             let emit_ok %bool selfhost_cli_emit_is_wasm *emit_ref
             let ok %bool and check_ok and emit_ok and output_ok input_ok
-            v::free<str> args;
+            v::free args;
             ok
 
 fn selfhost_cliarg_parser_rejects_unknown_option %impure fn unit bool \unit:
@@ -59,11 +59,11 @@ fn selfhost_cliarg_parser_rejects_unknown_option %impure fn unit bool \unit:
         |> v::push "--unknown" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
-            v::free<str> args;
+            v::free args;
             false
         Result::Err e:
             let ok %bool selfhost_cli_error_is_unknown_option e
-            v::free<str> args;
+            v::free args;
             ok
 
 fn selfhost_cliarg_parser_rejects_missing_value %impure fn unit bool \unit:
@@ -72,11 +72,11 @@ fn selfhost_cliarg_parser_rejects_missing_value %impure fn unit bool \unit:
         |> v::push "--emit" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
-            v::free<str> args;
+            v::free args;
             false
         Result::Err e:
             let ok %bool selfhost_cli_error_is_missing_value e
-            v::free<str> args;
+            v::free args;
             ok
 
 fn selfhost_cliarg_parser_rejects_multiple_input %impure fn unit bool \unit:
@@ -86,11 +86,11 @@ fn selfhost_cliarg_parser_rejects_multiple_input %impure fn unit bool \unit:
         |> v::push "b.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
-            v::free<str> args;
+            v::free args;
             false
         Result::Err e:
             let ok %bool selfhost_cli_error_is_multiple_input e
-            v::free<str> args;
+            v::free args;
             ok
 
 fn selfhost_cliarg_parser_skips_program_name %impure fn unit bool \unit:
@@ -103,7 +103,7 @@ fn selfhost_cliarg_parser_skips_program_name %impure fn unit bool \unit:
         |> v::push "main.nepl" |> uwok
     match selfhost_cli_parse_argv &argv:
         Result::Err _e:
-            v::free<str> argv;
+            v::free argv;
             false
         Result::Ok opts:
             let target_ref %&Option SelfhostCliTarget get_ref &opts "target"
@@ -119,7 +119,7 @@ fn selfhost_cliarg_parser_skips_program_name %impure fn unit bool \unit:
                 Option::None:
                     false
             let ok %bool and target_ok input_ok
-            v::free<str> argv;
+            v::free argv;
             ok
 
 fn selfhost_cliarg_parser_records_run_args_start %impure fn unit bool \unit:
@@ -131,7 +131,7 @@ fn selfhost_cliarg_parser_records_run_args_start %impure fn unit bool \unit:
         |> v::push "--program-flag" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
-            v::free<str> args;
+            v::free args;
             false
         Result::Ok opts:
             let start_ref %&Option i32 get_ref &opts "run_args_start"
@@ -141,7 +141,7 @@ fn selfhost_cliarg_parser_records_run_args_start %impure fn unit bool \unit:
                     eq idx 3
                 Option::None:
                     false
-            v::free<str> args;
+            v::free args;
             ok
 
 fn selfhost_cliarg_parser_accepts_aliases_and_profile %impure fn unit bool \unit:
@@ -164,7 +164,7 @@ fn selfhost_cliarg_parser_accepts_aliases_and_profile %impure fn unit bool \unit
         |> v::push "--program-flag" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
-            v::free<str> args;
+            v::free args;
             false
         Result::Ok opts:
             let attach_ref %&bool get_ref &opts "attach_source"
@@ -218,7 +218,7 @@ fn selfhost_cliarg_parser_accepts_aliases_and_profile %impure fn unit bool \unit
                                     and profile_ok:
                                         and stdlib_root_ok:
                                             and input_ok run_args_start_ok
-            v::free<str> args;
+            v::free args;
             ok
 
 fn selfhost_cliarg_parser_accepts_emit_list_and_deduplicates %impure fn unit bool \unit:
@@ -229,7 +229,7 @@ fn selfhost_cliarg_parser_accepts_emit_list_and_deduplicates %impure fn unit boo
         |> v::push "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
-            v::free<str> args;
+            v::free args;
             false
         Result::Ok opts:
             let emit_ref %&SelfhostCliEmitSet get_ref &opts "emit"
@@ -240,7 +240,7 @@ fn selfhost_cliarg_parser_accepts_emit_list_and_deduplicates %impure fn unit boo
                         and selfhost_cli_emit_set_has_llvm_min emit:
                             and not selfhost_cli_emit_set_has_wat_min emit:
                                 not selfhost_cli_emit_set_has_llvm emit
-            v::free<str> args;
+            v::free args;
             ok
 
 fn selfhost_cliarg_parser_accepts_emit_all %impure fn unit bool \unit:
@@ -251,7 +251,7 @@ fn selfhost_cliarg_parser_accepts_emit_all %impure fn unit bool \unit:
         |> v::push "main.nepl" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Err _e:
-            v::free<str> args;
+            v::free args;
             false
         Result::Ok opts:
             let emit_ref %&SelfhostCliEmitSet get_ref &opts "emit"
@@ -262,7 +262,7 @@ fn selfhost_cliarg_parser_accepts_emit_all %impure fn unit bool \unit:
                         and selfhost_cli_emit_set_has_wat_min emit:
                             and selfhost_cli_emit_set_has_llvm emit:
                                 selfhost_cli_emit_set_has_llvm_min emit
-            v::free<str> args;
+            v::free args;
             ok
 
 fn selfhost_cliarg_parser_rejects_invalid_emit_member %impure fn unit bool \unit:
@@ -272,11 +272,11 @@ fn selfhost_cliarg_parser_rejects_invalid_emit_member %impure fn unit bool \unit
         |> v::push "wasm,,wat" |> uwok
     match selfhost_cli_parse_args &args:
         Result::Ok _opts:
-            v::free<str> args;
+            v::free args;
             false
         Result::Err e:
             let ok %bool selfhost_cli_error_is_invalid_emit e
-            v::free<str> args;
+            v::free args;
             ok
 
 fn main %impure fn unit i32 \unit:

@@ -948,6 +948,17 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - `node nodesrc/tests.js <対象5 files> --no-tree -o tmp/neplg21-stdlib-small-fixture-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 7/17 件完了、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 selfhost fixture postfix checkpoint
+
+- `tests/stdlib/selfhost_cliarg_parser.n.md`、`tests/stdlib/neplg2_lexer.n.md`、`tests/stdlib/neplg2_type_arena.n.md`、`tests/stdlib/neplg2_diag_outcome.n.md` を 4 worker の非重複 write scope に分割して並列移行した。
+- `selfhost_cliarg_parser` fixture では、`v::free<str>` を receiver 型から解ける postfix-free `v::free` へ移行した。selfhost parser が読む source string 内の旧構文期待値は対象外として保持した。
+- `neplg2_lexer` fixture では、`SelfhostToken` の `unwrap` / `get` / `len` / `free` postfix を `%Option SelfhostToken` local と receiver evidence から解ける postfix-free call へ移行した。lexer input としての source string は保持した。
+- `neplg2_type_arena` fixture では、`SelfhostTypeId` Vec helper の `new` / `push` / `vec_push_error_vec` / `vec_push_error_kind` / `free` postfix を撤廃した。値引数のない `new` は `%Result Vec SelfhostTypeId StdErrorKind` local を型根拠として追加した。
+- `neplg2_diag_outcome` fixture では、`selfhost_outcome_*<...>` の通常利用を postfix-free にし、必要な箇所に `%Result SelfhostOutcome ... StdErrorKind` local を型根拠として追加した。
+- `nodesrc/test_neplg21_selfhost_fixture_postfix_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。検査対象は今回移行した旧構文だけで、source string fixture やコメント量は制限していない。
+- `node nodesrc/test_neplg21_selfhost_fixture_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js <対象4 files> --no-tree -o tmp/neplg21-selfhost-fixture-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 3 件完了、3 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

@@ -40,7 +40,8 @@ stdout: mlstr:
 #import "core/field" as *
 
 fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
-    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
+    let found %Option SelfhostToken get tokens idx
+    unwrap found
 
 fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
     let token %SelfhostToken token_at tokens idx
@@ -54,7 +55,7 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len %i32 len<SelfhostToken> &tokens
+            let token_len %i32 len &tokens
             let checks1 checks_push checks0 check_eq_i32 19 token_len
             let checks2 check_token checks1 source &tokens 0 "DirEntry" "main"
             let checks3 check_token checks2 source &tokens 2 "KwFn" "fn"
@@ -64,7 +65,7 @@ fn main %impure fn unit i32 \unit:
             let checks7 check_token checks6 source &tokens 15 "IntLiteral" "42"
             let checks8 check_token checks7 source &tokens 17 "Dedent" ""
             let checks9 check_token checks8 source &tokens 18 "Eof" ""
-            free<SelfhostToken> tokens
+            free tokens
             let shown checks_print_report checks9
             checks_exit_code shown
         Result::Err diag:
@@ -114,7 +115,8 @@ stdout: mlstr:
 #import "core/field" as *
 
 fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
-    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
+    let found %Option SelfhostToken get tokens idx
+    unwrap found
 
 fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
     let token %SelfhostToken token_at tokens idx
@@ -128,7 +130,7 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len %i32 len<SelfhostToken> &tokens
+            let token_len %i32 len &tokens
             let checks1 checks_push checks0 check_eq_i32 16 token_len
             let checks2 check_token checks1 source &tokens 3 "Indent" ""
             let checks3 check_token checks2 source &tokens 7 "Indent" ""
@@ -138,7 +140,7 @@ fn main %impure fn unit i32 \unit:
             let checks7 check_token checks6 source &tokens 13 "Dedent" ""
             let checks8 check_token checks7 source &tokens 14 "Ident" "z"
             let checks9 check_token checks8 source &tokens 15 "Eof" ""
-            free<SelfhostToken> tokens
+            free tokens
             let shown checks_print_report checks9
             checks_exit_code shown
         Result::Err diag:
@@ -173,7 +175,8 @@ stdout: mlstr:
 #import "core/field" as *
 
 fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
-    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
+    let found %Option SelfhostToken get tokens idx
+    unwrap found
 
 fn main %impure fn unit i32 \unit:
     let checks0 checks_new
@@ -182,10 +185,10 @@ fn main %impure fn unit i32 \unit:
             let token %SelfhostToken token_at &tokens 0
             let span %SelfhostSourceSpan field::get token "span"
             let checks1 checks_push checks0 check_eq_i32 7 field::get span "file_id"
-            free<SelfhostToken> tokens
+            free tokens
             match lex_all_with_file_id "a:\n   b\n" 11:
                 Result::Ok bad_tokens:
-                    free<SelfhostToken> bad_tokens
+                    free bad_tokens
                     let checks2 checks_push checks1 Result::Err "invalid indentation was accepted"
                     let shown checks_print_report checks2
                     checks_exit_code shown
@@ -234,7 +237,8 @@ stdout: mlstr:
 #import "core/field" as *
 
 fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
-    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
+    let found %Option SelfhostToken get tokens idx
+    unwrap found
 
 fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
     let token %SelfhostToken token_at tokens idx
@@ -248,14 +252,14 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len %i32 len<SelfhostToken> &tokens
+            let token_len %i32 len &tokens
             let checks1 checks_push checks0 check_eq_i32 10 token_len
             let checks2 check_token checks1 source &tokens 0 "DirIndentWidth" "#indent 2"
             let checks3 check_token checks2 source &tokens 5 "Indent" ""
             let checks4 check_token checks3 source &tokens 6 "IntLiteral" "1"
             let checks5 check_token checks4 source &tokens 8 "Dedent" ""
             let checks6 check_token checks5 source &tokens 9 "Eof" ""
-            free<SelfhostToken> tokens
+            free tokens
             let shown checks_print_report checks6
             checks_exit_code shown
         Result::Err diag:
@@ -293,7 +297,7 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all "a:\n    b\n  c\n":
         Result::Ok tokens:
-            free<SelfhostToken> tokens
+            free tokens
             let checks1 checks_push checks0 Result::Err "indent mismatch was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -337,7 +341,7 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all "a:\n   b\n":
         Result::Ok tokens:
-            free<SelfhostToken> tokens
+            free tokens
             let checks1 checks_push checks0 Result::Err "indent width mismatch was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -381,7 +385,7 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all "name // skip this\n$":
         Result::Ok tokens:
-            free<SelfhostToken> tokens
+            free tokens
             let checks1 checks_push checks0 Result::Err "unexpected character was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -425,7 +429,7 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all "\"abc":
         Result::Ok tokens:
-            free<SelfhostToken> tokens
+            free tokens
             let checks1 checks_push checks0 Result::Err "unterminated string was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -467,7 +471,8 @@ stdout: mlstr:
 #import "core/field" as *
 
 fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
-    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
+    let found %Option SelfhostToken get tokens idx
+    unwrap found
 
 fn main %impure fn unit i32 \unit:
     let checks0 checks_new
@@ -482,7 +487,7 @@ fn main %impure fn unit i32 \unit:
                 |> checks_push check_str_eq "'\\n'" selfhost_token_lexeme source t0
                 |> checks_push check_str_eq "CharLiteral" token_kind_name field::get t1 "kind"
                 |> checks_push check_str_eq "'a'" selfhost_token_lexeme source t1
-            free<SelfhostToken> tokens
+            free tokens
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -519,7 +524,7 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all "'abc":
         Result::Ok tokens:
-            free<SelfhostToken> tokens
+            free tokens
             let checks1 checks_push checks0 Result::Err "unterminated char was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
@@ -598,7 +603,8 @@ stdout: mlstr:
 #import "core/field" as *
 
 fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
-    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
+    let found %Option SelfhostToken get tokens idx
+    unwrap found
 
 fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
     let token %SelfhostToken token_at tokens idx
@@ -612,7 +618,7 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len %i32 len<SelfhostToken> &tokens
+            let token_len %i32 len &tokens
             let checks1 checks_push checks0 check_eq_i32 62 token_len
             let checks2 check_token checks1 source &tokens 0 "DirTarget" "#target core"
             let checks3 check_token checks2 source &tokens 2 "DirImport" "#import \"std/test\" as *"
@@ -634,7 +640,7 @@ fn main %impure fn unit i32 \unit:
             let checks19 check_token checks18 source &tokens 56 "PathSep" "::"
             let checks20 check_token checks19 source &tokens 60 "Dedent" ""
             let checks21 check_token checks20 source &tokens 61 "Eof" ""
-            free<SelfhostToken> tokens
+            free tokens
             let shown checks_print_report checks21
             checks_exit_code shown
         Result::Err diag:
@@ -675,7 +681,8 @@ stdout: mlstr:
 #import "core/field" as *
 
 fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
-    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
+    let found %Option SelfhostToken get tokens idx
+    unwrap found
 
 fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
     let token %SelfhostToken token_at tokens idx
@@ -689,13 +696,13 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len %i32 len<SelfhostToken> &tokens
+            let token_len %i32 len &tokens
             let checks1 checks_push checks0 check_eq_i32 7 token_len
             let checks2 check_token checks1 source &tokens 0 "DocComment" "//: module doc"
             let checks3 check_token checks2 source &tokens 2 "DocComment" "/// item doc"
             let checks4 check_token checks3 source &tokens 4 "MlstrLine" "##: text"
             let checks5 check_token checks4 source &tokens 6 "Eof" ""
-            free<SelfhostToken> tokens
+            free tokens
             let shown checks_print_report checks5
             checks_exit_code shown
         Result::Err diag:
@@ -746,7 +753,8 @@ stdout: mlstr:
 #import "core/field" as *
 
 fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
-    unwrap<SelfhostToken> get<SelfhostToken> tokens idx
+    let found %Option SelfhostToken get tokens idx
+    unwrap found
 
 fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken impure fn i32 impure fn str impure fn str TestReport \checks\source\tokens\idx\expected_kind\expected_lexeme:
     let token %SelfhostToken token_at tokens idx
@@ -760,7 +768,7 @@ fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all source:
         Result::Ok tokens:
-            let token_len %i32 len<SelfhostToken> &tokens
+            let token_len %i32 len &tokens
             let checks1 checks_push checks0 check_eq_i32 17 token_len
             let checks2 check_token checks1 source &tokens 4 "DirWasm" "#wasm:"
             let checks3 check_token checks2 source &tokens 6 "Indent" ""
@@ -771,7 +779,7 @@ fn main %impure fn unit i32 \unit:
             let checks8 check_token checks7 source &tokens 13 "LlvmIrText" "ret i32 0"
             let checks9 check_token checks8 source &tokens 15 "Dedent" ""
             let checks10 check_token checks9 source &tokens 16 "Eof" ""
-            free<SelfhostToken> tokens
+            free tokens
             let shown checks_print_report checks10
             checks_exit_code shown
         Result::Err diag:

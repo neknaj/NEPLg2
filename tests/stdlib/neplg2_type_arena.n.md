@@ -142,11 +142,12 @@ fn main %impure fn unit i32 \unit:
                     match selfhost_type_arena_add_primitive selfhost_type_arena_alloc_into_arena alloc1 SelfhostPrimitiveTypeKind::Bool:
                         Result::Ok alloc2:
                             let bool_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc2
-                            match new<SelfhostTypeId>:
+                            let params_result %Result Vec SelfhostTypeId StdErrorKind new
+                            match params_result:
                                 Result::Ok params0:
-                                    match push<SelfhostTypeId> params0 i32_id:
+                                    match push params0 i32_id:
                                         Result::Ok params1:
-                                            match push<SelfhostTypeId> params1 bool_id:
+                                            match push params1 bool_id:
                                                 Result::Ok params2:
                                                     match selfhost_type_arena_add_function selfhost_type_arena_alloc_into_arena alloc2 params2 bool_id:
                                                         Result::Ok alloc3:
@@ -166,15 +167,15 @@ fn main %impure fn unit i32 \unit:
                                                             let shown checks_print_report checks1
                                                             checks_exit_code shown
                                                 Result::Err _e:
-                                                    let returned %Vec SelfhostTypeId vec_push_error_vec<SelfhostTypeId> _e
-                                                    free<SelfhostTypeId> returned
+                                                    let returned %Vec SelfhostTypeId vec_push_error_vec _e
+                                                    free returned
                                                     selfhost_type_arena_free selfhost_type_arena_alloc_into_arena alloc2
                                                     let checks1 checks_push checks0 Result::Err "second param push failed"
                                                     let shown checks_print_report checks1
                                                     checks_exit_code shown
                                         Result::Err _e:
-                                            let returned %Vec SelfhostTypeId vec_push_error_vec<SelfhostTypeId> _e
-                                            free<SelfhostTypeId> returned
+                                            let returned %Vec SelfhostTypeId vec_push_error_vec _e
+                                            free returned
                                             selfhost_type_arena_free selfhost_type_arena_alloc_into_arena alloc2
                                             let checks1 checks_push checks0 Result::Err "first param push failed"
                                             let shown checks_print_report checks1
@@ -265,15 +266,16 @@ stdout: mlstr:
 #import "core/math" as *
 
 fn add_one_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\arg_id\result_id:
-    match new<SelfhostTypeId>:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind new
+    match params_result:
         Result::Ok params0:
-            match push<SelfhostTypeId> params0 arg_id:
+            match push params0 arg_id:
                 Result::Ok params1:
                     selfhost_type_arena_add_function arena params1 result_id
                 Result::Err e:
-                    let error %StdErrorKind vec_push_error_kind<SelfhostTypeId> &e
-                    let returned %Vec SelfhostTypeId vec_push_error_vec<SelfhostTypeId> e
-                    free<SelfhostTypeId> returned
+                    let error %StdErrorKind vec_push_error_kind &e
+                    let returned %Vec SelfhostTypeId vec_push_error_vec e
+                    free returned
                     selfhost_type_arena_free arena
                     Result::Err error
         Result::Err e:
@@ -346,15 +348,16 @@ stdout: mlstr:
 #import "core/math" as *
 
 fn add_one_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\arg_id\result_id:
-    match new<SelfhostTypeId>:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind new
+    match params_result:
         Result::Ok params0:
-            match push<SelfhostTypeId> params0 arg_id:
+            match push params0 arg_id:
                 Result::Ok params1:
                     selfhost_type_arena_add_function arena params1 result_id
                 Result::Err e:
-                    let error %StdErrorKind vec_push_error_kind<SelfhostTypeId> &e
-                    let returned %Vec SelfhostTypeId vec_push_error_vec<SelfhostTypeId> e
-                    free<SelfhostTypeId> returned
+                    let error %StdErrorKind vec_push_error_kind &e
+                    let returned %Vec SelfhostTypeId vec_push_error_vec e
+                    free returned
                     selfhost_type_arena_free arena
                     Result::Err error
         Result::Err e:
@@ -362,7 +365,8 @@ fn add_one_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId im
             Result::Err e
 
 fn add_zero_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\result_id:
-    match new<SelfhostTypeId>:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind new
+    match params_result:
         Result::Ok params:
             selfhost_type_arena_add_function arena params result_id
         Result::Err e:

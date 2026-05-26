@@ -101,16 +101,17 @@ stdout: mlstr:
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new
 
-    match selfhost_outcome_ok<i32,str> 42:
+    let ok_result %Result SelfhostOutcome i32 str StdErrorKind selfhost_outcome_ok 42
+    match ok_result:
         Result::Ok ok0:
-            set checks checks_push checks check_eq_i32 0 selfhost_outcome_diagnostics_len<i32,str> &ok0
-            set checks checks_push checks check not selfhost_outcome_has_errors<i32,str> &ok0
+            set checks checks_push checks check_eq_i32 0 selfhost_outcome_diagnostics_len &ok0
+            set checks checks_push checks check not selfhost_outcome_has_errors &ok0
             let warn %SelfhostDiagnostic selfhost_diag_warning SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::RawBlockExpectedIndent "recovered"
-            match selfhost_outcome_push_diagnostic<i32,str> ok0 warn @selfhost_outcome_ignore_i32 @selfhost_outcome_ignore_str:
+            match selfhost_outcome_push_diagnostic ok0 warn @selfhost_outcome_ignore_i32 @selfhost_outcome_ignore_str:
                 Result::Ok ok1:
-                    set checks checks_push checks check_eq_i32 1 selfhost_outcome_diagnostics_len<i32,str> &ok1
-                    set checks checks_push checks check not selfhost_outcome_has_errors<i32,str> &ok1
-                    match selfhost_outcome_result<i32,str> ok1:
+                    set checks checks_push checks check_eq_i32 1 selfhost_outcome_diagnostics_len &ok1
+                    set checks checks_push checks check not selfhost_outcome_has_errors &ok1
+                    match selfhost_outcome_result ok1:
                         Result::Ok value:
                             set checks checks_push checks check_eq_i32 42 value
                         Result::Err _e:
@@ -120,14 +121,15 @@ fn main %impure fn unit i32 \unit:
         Result::Err _e:
             set checks checks_push checks Result::Err "outcome ok failed"
 
-    match selfhost_outcome_err<i32,str> "bad":
+    let err_result %Result SelfhostOutcome i32 str StdErrorKind selfhost_outcome_err "bad"
+    match err_result:
         Result::Ok err0:
             let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "type mismatch"
-            match selfhost_outcome_push_diagnostic<i32,str> err0 diag @selfhost_outcome_ignore_i32 @selfhost_outcome_ignore_str:
+            match selfhost_outcome_push_diagnostic err0 diag @selfhost_outcome_ignore_i32 @selfhost_outcome_ignore_str:
                 Result::Ok err1:
-                    set checks checks_push checks check_eq_i32 1 selfhost_outcome_diagnostics_len<i32,str> &err1
-                    set checks checks_push checks check selfhost_outcome_has_errors<i32,str> &err1
-                    match selfhost_outcome_result<i32,str> err1:
+                    set checks checks_push checks check_eq_i32 1 selfhost_outcome_diagnostics_len &err1
+                    set checks checks_push checks check selfhost_outcome_has_errors &err1
+                    match selfhost_outcome_result err1:
                         Result::Ok _value:
                             set checks checks_push checks Result::Err "expected err result"
                         Result::Err msg:
@@ -159,12 +161,14 @@ fn print_payload %impure fn str unit \value:
     print value
 
 fn main %impure fn unit i32 \unit:
-    match selfhost_outcome_ok<str,i32> "ok":
+    let ok_result %Result SelfhostOutcome str i32 StdErrorKind selfhost_outcome_ok "ok"
+    match ok_result:
         Result::Ok ok_outcome:
-            selfhost_outcome_free<str,i32> ok_outcome @print_payload @selfhost_outcome_ignore_i32
-            match selfhost_outcome_err<i32,str> "err":
+            selfhost_outcome_free ok_outcome @print_payload @selfhost_outcome_ignore_i32
+            let err_result %Result SelfhostOutcome i32 str StdErrorKind selfhost_outcome_err "err"
+            match err_result:
                 Result::Ok err_outcome:
-                    selfhost_outcome_free<i32,str> err_outcome @selfhost_outcome_ignore_i32 @print_payload
+                    selfhost_outcome_free err_outcome @selfhost_outcome_ignore_i32 @print_payload
                     0
                 Result::Err _e:
                     1
