@@ -21,46 +21,46 @@ stdout: mlstr:
 fn check_span_proven %fn Result unit SelfhostProofRefutation Result unit str \result:
     match result:
         Result::Ok _:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         Result::Err _refutation:
-            Result<unit,str>::Err "expected span proof"
+            Result::Err "expected span proof"
 
 fn check_span_invalid %fn Result unit SelfhostProofRefutation Result unit str \result:
     match result:
         Result::Err refutation:
             match refutation:
                 SelfhostProofRefutation::SourceSpanInvalid _span:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::UnexpectedEvidence _issue:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::TypeKindMismatch _issue:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::BorrowAccessInvalid _issue:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-                    Result<unit,str>::Err "expected invalid span refutation"
+                    Result::Err "expected invalid span refutation"
         Result::Ok _:
-            Result<unit,str>::Err "invalid span was accepted"
+            Result::Err "invalid span was accepted"
 
 fn main %impure fn unit i32 \unit:
     let valid %SelfhostSourceSpan source_span_new 0 0 4
@@ -96,63 +96,63 @@ fn check_domain_mismatch %fn SelfhostProofRefutation Result unit str \refutation
                 SelfhostProofDomain::Module:
                     match mismatch.obligation_domain:
                         SelfhostProofDomain::Source:
-                            Result<unit,str>::Ok unit
+                            Result::Ok unit
                         SelfhostProofDomain::Module:
-                            Result<unit,str>::Err "expected source obligation domain"
+                            Result::Err "expected source obligation domain"
                         SelfhostProofDomain::Type:
-                            Result<unit,str>::Err "expected source obligation domain"
+                            Result::Err "expected source obligation domain"
                         SelfhostProofDomain::Trait:
-                            Result<unit,str>::Err "expected source obligation domain"
+                            Result::Err "expected source obligation domain"
                         SelfhostProofDomain::Lifetime:
-                            Result<unit,str>::Err "expected source obligation domain"
+                            Result::Err "expected source obligation domain"
                         SelfhostProofDomain::Owner:
-                            Result<unit,str>::Err "expected source obligation domain"
+                            Result::Err "expected source obligation domain"
                         SelfhostProofDomain::Effect:
-                            Result<unit,str>::Err "expected source obligation domain"
+                            Result::Err "expected source obligation domain"
                         SelfhostProofDomain::Resource:
-                            Result<unit,str>::Err "expected source obligation domain"
+                            Result::Err "expected source obligation domain"
                 SelfhostProofDomain::Source:
-                    Result<unit,str>::Err "expected module fact domain"
+                    Result::Err "expected module fact domain"
                 SelfhostProofDomain::Type:
-                    Result<unit,str>::Err "expected module fact domain"
+                    Result::Err "expected module fact domain"
                 SelfhostProofDomain::Trait:
-                    Result<unit,str>::Err "expected module fact domain"
+                    Result::Err "expected module fact domain"
                 SelfhostProofDomain::Lifetime:
-                    Result<unit,str>::Err "expected module fact domain"
+                    Result::Err "expected module fact domain"
                 SelfhostProofDomain::Owner:
-                    Result<unit,str>::Err "expected module fact domain"
+                    Result::Err "expected module fact domain"
                 SelfhostProofDomain::Effect:
-                    Result<unit,str>::Err "expected module fact domain"
+                    Result::Err "expected module fact domain"
                 SelfhostProofDomain::Resource:
-                    Result<unit,str>::Err "expected module fact domain"
+                    Result::Err "expected module fact domain"
         SelfhostProofRefutation::UnexpectedEvidence _issue:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::SourceSpanInvalid _span:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::TypeKindMismatch _issue:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-            Result<unit,str>::Err "expected fact/obligation mismatch"
+            Result::Err "expected fact/obligation mismatch"
 
 fn main %impure fn unit i32 \unit:
     let span %SelfhostSourceSpan source_span_new 0 0 5
@@ -166,7 +166,7 @@ fn main %impure fn unit i32 \unit:
             let shown checks_print_report checks1
             checks_exit_code shown
         SelfhostProofResult::Proven _evidence:
-            let checks1 checks_push checks0 Result<unit,str>::Err "mismatched proof query was accepted"
+            let checks1 checks_push checks0 Result::Err "mismatched proof query was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -194,73 +194,73 @@ stdout: mlstr:
 fn check_initialized %fn SelfhostResourceCellState Result unit str \state:
     match state:
         SelfhostResourceCellState::Initialized:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostResourceCellState::Uninitialized:
-            Result<unit,str>::Err "expected initialized cell"
+            Result::Err "expected initialized cell"
         SelfhostResourceCellState::Moved:
-            Result<unit,str>::Err "expected initialized cell"
+            Result::Err "expected initialized cell"
         SelfhostResourceCellState::Dropped:
-            Result<unit,str>::Err "expected initialized cell"
+            Result::Err "expected initialized cell"
 
 fn check_moved %fn SelfhostResourceCellState Result unit str \state:
     match state:
         SelfhostResourceCellState::Moved:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostResourceCellState::Uninitialized:
-            Result<unit,str>::Err "expected moved cell"
+            Result::Err "expected moved cell"
         SelfhostResourceCellState::Initialized:
-            Result<unit,str>::Err "expected moved cell"
+            Result::Err "expected moved cell"
         SelfhostResourceCellState::Dropped:
-            Result<unit,str>::Err "expected moved cell"
+            Result::Err "expected moved cell"
 
 fn check_drop_after_move %fn SelfhostProofRefutation Result unit str \refutation:
     match refutation:
         SelfhostProofRefutation::TypeKindMismatch _issue:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-            Result<unit,str>::Err "expected proof refutation"
+            Result::Err "expected proof refutation"
         SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-            Result<unit,str>::Err "expected proof refutation"
+            Result::Err "expected proof refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid issue:
             match issue.reason:
                 SelfhostResourceCellTransitionError::DropAfterMove:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostResourceCellTransitionError::InitializeAlreadyInitialized:
-                    Result<unit,str>::Err "expected drop-after-move"
+                    Result::Err "expected drop-after-move"
                 SelfhostResourceCellTransitionError::InitializeAfterDrop:
-                    Result<unit,str>::Err "expected drop-after-move"
+                    Result::Err "expected drop-after-move"
                 SelfhostResourceCellTransitionError::MoveUninitialized:
-                    Result<unit,str>::Err "expected drop-after-move"
+                    Result::Err "expected drop-after-move"
                 SelfhostResourceCellTransitionError::MoveAfterMove:
-                    Result<unit,str>::Err "expected drop-after-move"
+                    Result::Err "expected drop-after-move"
                 SelfhostResourceCellTransitionError::MoveAfterDrop:
-                    Result<unit,str>::Err "expected drop-after-move"
+                    Result::Err "expected drop-after-move"
                 SelfhostResourceCellTransitionError::DropUninitialized:
-                    Result<unit,str>::Err "expected drop-after-move"
+                    Result::Err "expected drop-after-move"
                 SelfhostResourceCellTransitionError::DoubleDrop:
-                    Result<unit,str>::Err "expected drop-after-move"
+                    Result::Err "expected drop-after-move"
         SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::UnexpectedEvidence _issue:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-            Result<unit,str>::Err "expected resource transition refutation"
+            Result::Err "expected resource transition refutation"
 
 fn main %impure fn unit i32 \unit:
     let span %SelfhostSourceSpan source_span_new 0 0 4
@@ -280,15 +280,15 @@ fn main %impure fn unit i32 \unit:
                             let shown checks_print_report checks3
                             checks_exit_code shown
                         Result::Ok _state:
-                            let checks3 checks_push checks2 Result<unit,str>::Err "drop after move was accepted"
+                            let checks3 checks_push checks2 Result::Err "drop after move was accepted"
                             let shown checks_print_report checks3
                             checks_exit_code shown
                 Result::Err _refutation:
-                    let checks2 checks_push checks1 Result<unit,str>::Err "move transition failed"
+                    let checks2 checks_push checks1 Result::Err "move transition failed"
                     let shown checks_print_report checks2
                     checks_exit_code shown
         Result::Err _refutation:
-            let checks1 checks_push checks0 Result<unit,str>::Err "initialize transition failed"
+            let checks1 checks_push checks0 Result::Err "initialize transition failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -316,74 +316,74 @@ stdout: mlstr:
 fn check_none_seen %fn SelfhostModuleDirectiveState Result unit str \state:
     match state:
         SelfhostModuleDirectiveState::NoneSeen:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostModuleDirectiveState::EntrySeen _entry_span:
-            Result<unit,str>::Err "expected no singleton directive"
+            Result::Err "expected no singleton directive"
         SelfhostModuleDirectiveState::TargetSeen _target_span:
-            Result<unit,str>::Err "expected no singleton directive"
+            Result::Err "expected no singleton directive"
         SelfhostModuleDirectiveState::EntryAndTargetSeen _seen:
-            Result<unit,str>::Err "expected no singleton directive"
+            Result::Err "expected no singleton directive"
 
 fn check_target_seen %fn SelfhostModuleDirectiveState Result unit str \state:
     match state:
         SelfhostModuleDirectiveState::TargetSeen _target_span:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostModuleDirectiveState::NoneSeen:
-            Result<unit,str>::Err "expected target directive"
+            Result::Err "expected target directive"
         SelfhostModuleDirectiveState::EntrySeen _entry_span:
-            Result<unit,str>::Err "expected target directive"
+            Result::Err "expected target directive"
         SelfhostModuleDirectiveState::EntryAndTargetSeen _seen:
-            Result<unit,str>::Err "expected target directive"
+            Result::Err "expected target directive"
 
 fn check_both_seen %fn SelfhostModuleDirectiveState Result unit str \state:
     match state:
         SelfhostModuleDirectiveState::EntryAndTargetSeen _seen:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostModuleDirectiveState::NoneSeen:
-            Result<unit,str>::Err "expected entry and target directives"
+            Result::Err "expected entry and target directives"
         SelfhostModuleDirectiveState::EntrySeen _entry_span:
-            Result<unit,str>::Err "expected entry and target directives"
+            Result::Err "expected entry and target directives"
         SelfhostModuleDirectiveState::TargetSeen _target_span:
-            Result<unit,str>::Err "expected entry and target directives"
+            Result::Err "expected entry and target directives"
 
 fn check_duplicate_target %fn SelfhostProofRefutation Result unit str \refutation:
     match refutation:
         SelfhostProofRefutation::ModuleDirectiveDuplicate duplicate:
             match duplicate.kind:
                 SelfhostModuleDirectiveKind::Target:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostModuleDirectiveKind::Entry:
-                    Result<unit,str>::Err "expected duplicate target"
+                    Result::Err "expected duplicate target"
                 SelfhostModuleDirectiveKind::Other:
-                    Result<unit,str>::Err "expected duplicate target"
+                    Result::Err "expected duplicate target"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::SourceSpanInvalid _span:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::UnexpectedEvidence _issue:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::TypeKindMismatch _issue:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-            Result<unit,str>::Err "expected duplicate target"
+            Result::Err "expected duplicate target"
 
 fn main %impure fn unit i32 \unit:
     let span1 %SelfhostSourceSpan source_span_new 0 0 7
@@ -407,19 +407,19 @@ fn main %impure fn unit i32 \unit:
                                     let shown checks_print_report checks4
                                     checks_exit_code shown
                                 Result::Ok _state:
-                                    let checks4 checks_push checks3 Result<unit,str>::Err "duplicate target was accepted"
+                                    let checks4 checks_push checks3 Result::Err "duplicate target was accepted"
                                     let shown checks_print_report checks4
                                     checks_exit_code shown
                         Result::Err _refutation:
-                            let checks3 checks_push checks2 Result<unit,str>::Err "entry transition failed"
+                            let checks3 checks_push checks2 Result::Err "entry transition failed"
                             let shown checks_print_report checks3
                             checks_exit_code shown
                 Result::Err _refutation:
-                    let checks2 checks_push checks1 Result<unit,str>::Err "target transition failed"
+                    let checks2 checks_push checks1 Result::Err "target transition failed"
                     let shown checks_print_report checks2
                     checks_exit_code shown
         Result::Err _refutation:
-            let checks1 checks_push checks0 Result<unit,str>::Err "non-singleton transition failed"
+            let checks1 checks_push checks0 Result::Err "non-singleton transition failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -449,68 +449,68 @@ fn check_open_empty_wasm %fn SelfhostRawBackendState Result unit str \state:
         SelfhostRawBackendState::OpenEmpty open_block:
             match open_block.kind:
                 SelfhostRawBackendKind::Wasm:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostRawBackendKind::LlvmIr:
-                    Result<unit,str>::Err "expected wasm empty block"
+                    Result::Err "expected wasm empty block"
         SelfhostRawBackendState::Normal:
-            Result<unit,str>::Err "expected empty block"
+            Result::Err "expected empty block"
         SelfhostRawBackendState::OpenReady _kind:
-            Result<unit,str>::Err "expected empty block"
+            Result::Err "expected empty block"
 
 fn check_open_ready_wasm %fn SelfhostRawBackendState Result unit str \state:
     match state:
         SelfhostRawBackendState::OpenReady kind:
             match kind:
                 SelfhostRawBackendKind::Wasm:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostRawBackendKind::LlvmIr:
-                    Result<unit,str>::Err "expected wasm ready block"
+                    Result::Err "expected wasm ready block"
         SelfhostRawBackendState::Normal:
-            Result<unit,str>::Err "expected ready block"
+            Result::Err "expected ready block"
         SelfhostRawBackendState::OpenEmpty _open_block:
-            Result<unit,str>::Err "expected ready block"
+            Result::Err "expected ready block"
 
 fn check_normal %fn SelfhostRawBackendState Result unit str \state:
     match state:
         SelfhostRawBackendState::Normal:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostRawBackendState::OpenEmpty _open_block:
-            Result<unit,str>::Err "expected normal state"
+            Result::Err "expected normal state"
         SelfhostRawBackendState::OpenReady _kind:
-            Result<unit,str>::Err "expected normal state"
+            Result::Err "expected normal state"
 
 fn check_raw_text_refutation %fn SelfhostProofRefutation Result unit str \refutation:
     match refutation:
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::UnexpectedEvidence _issue:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::TypeKindMismatch _issue:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-            Result<unit,str>::Err "expected text-without-block refutation"
+            Result::Err "expected text-without-block refutation"
 
 fn main %impure fn unit i32 \unit:
     let span %SelfhostSourceSpan source_span_new 0 0 5
@@ -533,19 +533,19 @@ fn main %impure fn unit i32 \unit:
                                     let shown checks_print_report checks4
                                     checks_exit_code shown
                                 Result::Ok _state:
-                                    let checks4 checks_push checks3 Result<unit,str>::Err "orphan raw text was accepted"
+                                    let checks4 checks_push checks3 Result::Err "orphan raw text was accepted"
                                     let shown checks_print_report checks4
                                     checks_exit_code shown
                         Result::Err _refutation:
-                            let checks3 checks_push checks2 Result<unit,str>::Err "stream end transition failed"
+                            let checks3 checks_push checks2 Result::Err "stream end transition failed"
                             let shown checks_print_report checks3
                             checks_exit_code shown
                 Result::Err _refutation:
-                    let checks2 checks_push checks1 Result<unit,str>::Err "raw text transition failed"
+                    let checks2 checks_push checks1 Result::Err "raw text transition failed"
                     let shown checks_print_report checks2
                     checks_exit_code shown
         Result::Err _refutation:
-            let checks1 checks_push checks0 Result<unit,str>::Err "raw block transition failed"
+            let checks1 checks_push checks0 Result::Err "raw block transition failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -577,91 +577,91 @@ fn check_header_proven %fn Result SelfhostModuleDeclarationHeader SelfhostProofR
         Result::Ok header:
             match header.kind:
                 SelfhostModuleDeclarationKind::Function:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostModuleDeclarationKind::Struct:
-                    Result<unit,str>::Err "expected function header proof"
+                    Result::Err "expected function header proof"
                 SelfhostModuleDeclarationKind::Enum:
-                    Result<unit,str>::Err "expected function header proof"
+                    Result::Err "expected function header proof"
                 SelfhostModuleDeclarationKind::Trait:
-                    Result<unit,str>::Err "expected function header proof"
+                    Result::Err "expected function header proof"
                 SelfhostModuleDeclarationKind::Impl:
-                    Result<unit,str>::Err "expected function header proof"
+                    Result::Err "expected function header proof"
         Result::Err _refutation:
-            Result<unit,str>::Err "expected declaration header proof"
+            Result::Err "expected declaration header proof"
 
 fn check_header_missing %fn Result SelfhostModuleDeclarationHeader SelfhostProofRefutation Result unit str \result:
     match result:
         Result::Err refutation:
             match refutation:
                 SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::UnexpectedEvidence _issue:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::TypeKindMismatch _issue:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::BorrowAccessInvalid _issue:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-                    Result<unit,str>::Err "expected missing declaration header"
+                    Result::Err "expected missing declaration header"
         Result::Ok _header:
-            Result<unit,str>::Err "missing declaration header was accepted"
+            Result::Err "missing declaration header was accepted"
 
 fn check_header_invalid %fn Result SelfhostModuleDeclarationHeader SelfhostProofRefutation Result unit str \result:
     match result:
         Result::Err refutation:
             match refutation:
                 SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::UnexpectedEvidence _issue:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::TypeKindMismatch _issue:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::BorrowAccessInvalid _issue:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
                 SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-                    Result<unit,str>::Err "expected invalid declaration header"
+                    Result::Err "expected invalid declaration header"
         Result::Ok _header:
-            Result<unit,str>::Err "invalid declaration header was accepted"
+            Result::Err "invalid declaration header was accepted"
 
 fn main %impure fn unit i32 \unit:
     let header_span %SelfhostSourceSpan source_span_new 0 0 24

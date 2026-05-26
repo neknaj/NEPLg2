@@ -1,3 +1,17 @@
+# 2026-05-26 Agent 1 neplg2_proof Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、静的な型根拠で解決できる大きめの selfhost proof fixture の constructor だけを移行した。
+- `tests/stdlib/neplg2_proof.n.md` で、helper 戻り値 `Result unit str`、match branch expected type、または `checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 182 件を `Result::Ok` / `Result::Err` へ移行した。
+- subagent の独立レビューでも、対象 file に残すべき `Result<unit,str>::Ok` / `Result<unit,str>::Err` はなく、source string fixture や doc comment だけの旧構文もないと確認した。
+- 検証:
+  - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_proof.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_proof.n.md --no-tree -o tmp/neplg21-proof-main-result-constructors.json -j 1 --dist web/dist --assert-io`: 304s local command timeout。partial JSON では 5/6 件が compile timeout after 60000ms、型診断は出ていない。
+  - timeout 後に残留していた `node.exe` process は停止した。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 borrow proof Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、静的な型根拠で解決できる selfhost borrow proof fixture の constructor だけを小さく移行した。
