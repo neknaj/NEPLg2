@@ -450,6 +450,17 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_stdlib_map.n.md --no-tree -o tmp/neplg21-stdlib-map-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断や `lexer.string.invalid_escape` は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 std/test Result constructor checkpoint
+
+- `stdlib/std/test/assertion.nepl` で、関数戻り値 `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 14 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/std/test/report.nepl` で、`finish_checks` の戻り値 `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 2 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string や doc comment だけの `Result<unit,str>` 表記は、この constructor cleanup checkpoint では対象外として保持した。
+- subagent の独立レビューでも、対象 16 件は戻り値型または if/match branch expected type が `Result unit str` で明確で、残すべき typed constructor はないと確認した。
+- `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" stdlib/std/test/report.nepl stdlib/std/test/assertion.nepl` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/std/test/assertion.nepl -i stdlib/std/test/report.nepl --no-tree -o tmp/neplg21-std-test-result-constructors.json -j 1 --dist web/dist --assert-io` は helper module 直指定のため `nodesrc/tests/no-runnable-doctests`。
+- `node nodesrc/tests.js -i tests/stdlib/std_test_namespace_resolution.n.md --no-tree -o tmp/neplg21-std-test-namespace-result-constructors.json -j 1 --dist web/dist --assert-io` は 1 件 compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

@@ -182,10 +182,10 @@ pub fn finish_checks %impure fn TestReport Result unit str \report:
         then:
             let summary %str test_report_legacy_summary_text &report
             test_report_release report
-            Result<unit,str>::Err summary
+            Result::Err summary
         else:
             test_report_release report
-            Result<unit,str>::Ok unit
+            Result::Ok unit
 
 pub fn result_exit_code %fn Result unit str i32 \r:
     match r:

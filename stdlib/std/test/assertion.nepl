@@ -157,21 +157,21 @@ pub fn check %fn bool Result unit str \okv:
     if:
         okv
         then:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         else:
-            Result<unit,str>::Err "check failed"
+            Result::Err "check failed"
 
 pub fn check_eq_i32 %fn i32 fn i32 Result unit str \expected\actual:
     if:
         eq expected actual
         then:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         else:
             let se %str from_i32 expected
             let sa %str from_i32 actual
             let m0 %str concat "check_eq_i32 failed: expected=" se
             let m1 %str concat m0 " actual="
-            Result<unit,str>::Err concat m1 sa
+            Result::Err concat m1 sa
 
 pub fn check_ne %fn bool fn bool Result unit str \a\b:
     if:
@@ -184,42 +184,42 @@ pub fn check_ne %fn bool fn bool Result unit str \a\b:
                     let sb %str from_bool b
                     let m0 %str concat "check_ne failed: a=" sa
                     let m1 %str concat m0 " b="
-                    Result<unit,str>::Err concat m1 sb
+                    Result::Err concat m1 sb
                 else:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
         else:
             if:
                 b
                 then:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 else:
                     let sa %str from_bool a
                     let sb %str from_bool b
                     let m0 %str concat "check_ne failed: a=" sa
                     let m1 %str concat m0 " b="
-                    Result<unit,str>::Err concat m1 sb
+                    Result::Err concat m1 sb
 
 pub fn check_str_eq %fn str fn str Result unit str \expected\actual:
     if:
         test_str_eq expected actual
         then:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         else:
             let m0 %str concat "check_str_eq failed: expected=\"" expected
             let m1 %str concat m0 "\" actual=\""
             let m2 %str concat m1 actual
-            Result<unit,str>::Err concat m2 "\""
+            Result::Err concat m2 "\""
 
 pub fn check_ok_i32 %fn Result i32 i32 Result unit str \r:
     match r:
         Result::Ok _:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         Result::Err e:
-            Result<unit,str>::Err concat "check_ok_i32 failed: Err=" from_i32 e
+            Result::Err concat "check_ok_i32 failed: Err=" from_i32 e
 
 pub fn check_err_i32 %fn Result i32 i32 Result unit str \r:
     match r:
         Result::Ok v:
-            Result<unit,str>::Err concat "check_err_i32 failed: Ok=" from_i32 v
+            Result::Err concat "check_err_i32 failed: Ok=" from_i32 v
         Result::Err _:
-            Result<unit,str>::Ok unit
+            Result::Ok unit

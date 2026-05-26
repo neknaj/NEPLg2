@@ -1,3 +1,19 @@
+# 2026-05-26 Agent 1 std/test Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、静的な型根拠で解決できる std/test の Result constructor だけを小さく移行した。
+- `stdlib/std/test/assertion.nepl` で、関数戻り値 `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 14 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/std/test/report.nepl` で、`finish_checks` の戻り値 `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 2 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string や doc comment だけの `Result<unit,str>` 表記は、この constructor cleanup checkpoint では対象外として保持した。
+- subagent の独立レビューでも、対象 16 件は戻り値型または if/match branch expected type が `Result unit str` で明確で、残すべき typed constructor はないと確認した。
+- 検証:
+  - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" stdlib/std/test/report.nepl stdlib/std/test/assertion.nepl`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/std/test/assertion.nepl -i stdlib/std/test/report.nepl --no-tree -o tmp/neplg21-std-test-result-constructors.json -j 1 --dist web/dist --assert-io`: helper module 直指定のため `nodesrc/tests/no-runnable-doctests`。
+  - `node nodesrc/tests.js -i tests/stdlib/std_test_namespace_resolution.n.md --no-tree -o tmp/neplg21-std-test-namespace-result-constructors.json -j 1 --dist web/dist --assert-io`: 1 件 compile timeout after 60000ms。型診断は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 neplg2_stdlib_map Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、静的な型根拠で解決できる selfhost stdlib map fixture の constructor だけを小さく移行した。
