@@ -110,8 +110,8 @@ pub fn count <.T: Copy> %fn &Vec .T fn fn .T bool i32 \v\p:
 //:     eq rem_s *field::get_ref item "value" 2 0
 //: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 2)
-//:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 3)
+//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 2)
+//:     let v2 %Vec DropPayload unwrap_ok push<DropPayload> v1 (DropPayload 3)
 //:     let ok %bool eq count_ref<DropPayload> &v2 @is_even_payload 1
 //:     free<DropPayload> v2
 //:     if ok 0 1

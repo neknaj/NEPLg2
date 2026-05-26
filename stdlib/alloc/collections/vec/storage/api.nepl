@@ -13,7 +13,7 @@
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v %Vec i32 unwrap_ok<Vec<i32>, StdErrorKind> with_capacity<i32> 2;
+//:     let v %Vec i32 unwrap_ok with_capacity<i32> 2;
 //:     let ok %i32 if eq cap<i32> &v 2 0 1;
 //:     free<i32> v;
 //:     ok

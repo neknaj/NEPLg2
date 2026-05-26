@@ -34,12 +34,12 @@ pub #import "alloc/collections/disjoint_set/types" as @merge
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
 //: fn main %impure fn unit unit \unit:
-//:     let d0 %DisjointSet unwrap_ok<DisjointSet, Diag> dsu_new 5;
-//:     let d1 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> dsu_unite d0 0 1;
-//:     let d2 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> dsu_unite d1 1 2;
-//:     let same02 %bool unwrap_ok<bool, Diag> dsu_same &d2 0 2;
-//:     let same03 %bool unwrap_ok<bool, Diag> dsu_same &d2 0 3;
-//:     let sz %i32 unwrap_ok<i32, Diag> dsu_size &d2 0;
+//:     let d0 %DisjointSet unwrap_ok dsu_new 5;
+//:     let d1 %DisjointSet unwrap_ok dsu_unite d0 0 1;
+//:     let d2 %DisjointSet unwrap_ok dsu_unite d1 1 2;
+//:     let same02 %bool unwrap_ok dsu_same &d2 0 2;
+//:     let same03 %bool unwrap_ok dsu_same &d2 0 3;
+//:     let sz %i32 unwrap_ok dsu_size &d2 0;
 //:     print_i32 if same02 then 1 else 0;
 //:     print " ";
 //:     print_i32 if same03 then 1 else 0;

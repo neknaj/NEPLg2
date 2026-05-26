@@ -45,8 +45,8 @@
 //:| #import "core/result" as *
 //: fn main %impure fn unit unit \unit:
 //:     let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
-//:     let g %DenseGraph unwrap_ok<DenseGraph, Diag> dense_graph_read_undirected_1indexed &sc;
-//:     let dist %Vec i32 unwrap_ok<Vec<i32>, Diag> dense_graph_bfs_dist &g 0;
+//:     let g %DenseGraph unwrap_ok dense_graph_read_undirected_1indexed &sc;
+//:     let dist %Vec i32 unwrap_ok dense_graph_bfs_dist &g 0;
 //:     let n %i32 dense_graph_len &g;
 //:     let mut i %i32 0;
 //:     while lt i n:

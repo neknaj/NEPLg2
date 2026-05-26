@@ -42,10 +42,10 @@
 //:         |> v::push<i32> 3 |> unwrap_ok
 //:         |> v::push<i32> 4 |> unwrap_ok
 //:         |> v::push<i32> 5 |> unwrap_ok
-//:     let pref %PrefixI32 unwrap_ok<PrefixI32, Diag> prefix_build_vec_i32 data;
-//:     print_i32 unwrap_ok<i32, Diag> prefix_sum_i32 &pref 0 3;
+//:     let pref %PrefixI32 unwrap_ok prefix_build_vec_i32 data;
+//:     print_i32 unwrap_ok prefix_sum_i32 &pref 0 3;
 //:     print " ";
-//:     println_i32 unwrap_ok<i32, Diag> prefix_sum_i32 &pref 1 5;
+//:     println_i32 unwrap_ok prefix_sum_i32 &pref 1 5;
 //:     prefix_free_i32 pref
 //: ```
 

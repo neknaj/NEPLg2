@@ -27,7 +27,7 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let st %SegmentTree unwrap_ok<SegmentTree, Diag> new 5;
+//:     let st %SegmentTree unwrap_ok new 5;
 //:     let observed_len %i32 len &st;
 //:     let ok %bool eq observed_len 5;
 //:     free st

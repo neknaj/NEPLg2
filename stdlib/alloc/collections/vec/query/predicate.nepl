@@ -118,8 +118,8 @@ pub fn find <.T: Copy> %fn &Vec .T fn fn .T bool Option .T \v\p:
 //:     eq *field::get_ref item "value" 9
 //: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
-//:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 9)
+//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 7)
+//:     let v2 %Vec DropPayload unwrap_ok push<DropPayload> v1 (DropPayload 9)
 //:     let ok %bool match find_index_ref<DropPayload> &v2 @is_value_9:
 //:         Option::Some idx:
 //:             eq idx 1
@@ -233,7 +233,7 @@ pub fn any <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
 //:     eq *field::get_ref item "value" 5
 //: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 5)
+//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 5)
 //:     let ok %bool any_ref<DropPayload> &v1 @is_value_5
 //:     free<DropPayload> v1
 //:     if ok 0 1
@@ -337,8 +337,8 @@ pub fn all <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
 //:     lt 0 *field::get_ref item "value"
 //: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
-//:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 2)
+//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 1)
+//:     let v2 %Vec DropPayload unwrap_ok push<DropPayload> v1 (DropPayload 2)
 //:     let ok %bool all_ref<DropPayload> &v2 @is_positive
 //:     free<DropPayload> v2
 //:     if ok 0 1

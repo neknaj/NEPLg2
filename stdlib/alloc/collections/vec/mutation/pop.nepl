@@ -129,7 +129,7 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //:             1
 //: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 4)
+//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 4)
 //:     let p %VecPop DropPayload pop<DropPayload> v1
 //:     vec_pop_with<DropPayload,i32> p @finish
 //: ```
@@ -248,8 +248,8 @@ pub fn drop_last <.T: Copy> %fn Vec .T Vec .T \v:
 //:         unit
 //: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
-//:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 2)
+//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 1)
+//:     let v2 %Vec DropPayload unwrap_ok push<DropPayload> v1 (DropPayload 2)
 //:     let v3 %Vec DropPayload drop_last<DropPayload> v2
 //:     let ok %bool eq len<DropPayload> &v3 1
 //:     free<DropPayload> v3

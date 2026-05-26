@@ -135,7 +135,7 @@ impl Drop for DropPayload:
 
 fn main %fn unit i32 \unit:
     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-    let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
+    let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 7)
     let ok %bool eq len<DropPayload> &v1 1
     free<DropPayload> v1
     if ok 0 1

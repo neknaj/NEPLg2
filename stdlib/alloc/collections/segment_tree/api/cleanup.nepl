@@ -30,7 +30,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let st %SegmentTree unwrap_ok<SegmentTree, Diag> new 3;
+//:     let st %SegmentTree unwrap_ok new 3;
 //:     free st;
 //:     0
 //: ```

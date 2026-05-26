@@ -176,7 +176,7 @@ pub fn vec_sort_merge_error_vec <.T: Copy> %fn VecSortMergeError .T Vec .T \e:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32:
-//:         unwrap_ok<Vec<i32>, StdErrorKind> new<i32>
+//:         unwrap_ok new<i32>
 //:         |> push 3 |> uwok
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok

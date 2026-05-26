@@ -22,7 +22,7 @@
 //:| #import "alloc/diag/error" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let unsorted %Vec i32:
-//:         unwrap_ok<Vec<i32>, StdErrorKind> new<i32>
+//:         unwrap_ok new<i32>
 //:         |> push 3 |> uwok
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
@@ -44,12 +44,12 @@
 //:| #import "alloc/diag/error" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let unsorted %Vec i32:
-//:         unwrap_ok<Vec<i32>, StdErrorKind> new<i32>
+//:         unwrap_ok new<i32>
 //:         |> push 4 |> uwok
 //:         |> push 3 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 1 |> uwok
-//:     let sorted %Vec i32 unwrap_ok<Vec<i32>, VecSortMergeError<i32>> sort_merge_ret<i32> unsorted
+//:     let sorted %Vec i32 unwrap_ok sort_merge_ret<i32> unsorted
 //:     let ok %bool sort_is_sorted<i32> &sorted
 //:     free<i32> sorted
 //:     if ok 1 0

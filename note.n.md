@@ -1,3 +1,20 @@
+# 2026-05-26 Agent 1 KP/Vec/SegmentTree unwrap_ok postfix checkpoint
+
+- KP doctest、SegmentTree API doctest、Vec mutation/query/sort doctest、collection cleanup fixture の `unwrap_ok<T,E>` を 5 worker の非重複 write scope へ分割して並列移行した。
+- KP 11 件、SegmentTree 9 件、Vec mutation/query/storage 18 件、Vec sort 10 件、collection cleanup fixture 1 件を移行し、合計 19 source files / 49 件の `unwrap_ok<...>` を `unwrap_ok` へ移行した。
+- 対象は `let` の型注釈、呼び出し先引数の期待型、または pipe の直前結果から型根拠が十分な箇所に限定した。
+- この checkpoint では `new<T>` / `push<T>` / `replace_drop_old<T>` / `sort_merge_ret<T>` / `sum_range` / `free<T>` などの producer / observer postfix は触っていない。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` の NEPLg2.1 `unwrap_ok` postfix 再導入防止リストへ KP / SegmentTree / Vec 対象ファイルを追加した。既存の owner recovery / cleanup / borrowed observer boundary の検査は弱めていない。
+- 検証:
+  - `rg -n "unwrap_ok<" stdlib/kp stdlib/alloc/collections/segment_tree stdlib/alloc/collections/vec tests/stdlib/collection_cleanup_contract.n.md tests/stdlib/sort.n.md`: 0 件。
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: `would update 0 file(s)`。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。LF/CRLF warning のみ。
+  - `node nodesrc/tests.js -i stdlib/kp/kpprefix.nepl -i stdlib/kp/kpgraph.nepl -i stdlib/kp/kpdsu.nepl -i stdlib/alloc/collections/segment_tree/api/cleanup.nepl -i stdlib/alloc/collections/segment_tree/api/create.nepl -i stdlib/alloc/collections/segment_tree/api/query.nepl -i stdlib/alloc/collections/segment_tree/api/update.nepl -i stdlib/alloc/collections/vec/mutation/push.nepl -i stdlib/alloc/collections/vec/mutation/pop.nepl -i stdlib/alloc/collections/vec/mutation/replace.nepl -i stdlib/alloc/collections/vec/query/predicate.nepl -i stdlib/alloc/collections/vec/query/aggregate.nepl -i stdlib/alloc/collections/vec/storage/api.nepl -i stdlib/alloc/collections/vec/sort.nepl -i stdlib/alloc/collections/vec/sort/merge.nepl -i stdlib/alloc/collections/vec/sort/merge/api.nepl -i tests/stdlib/collection_cleanup_contract.n.md -i tests/stdlib/sort.n.md --no-tree -o tmp/neplg21-kp-vec-segtree-unwrap-ok-postfix.json -j 1 --dist web/dist --assert-io`: 外側 timeout。partial JSON は 15/121 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+  - worker 側で `node nodesrc/neplg21_syntax_migrate.js --check` / `git diff --check`: pass。LF/CRLF warning のみ。
+
 # 2026-05-26 Agent 1 BTree/Hash/Bloom unwrap_ok postfix checkpoint
 
 - BTreeMap / BTreeSet / HashMap / HashSet / BloomFilter / CountingBloomFilter の `unwrap_ok<T,E>` を 5 worker の非重複 write scope へ分割して並列移行した。

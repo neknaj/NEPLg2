@@ -31,12 +31,12 @@
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let st %SegmentTree:
-//:         unwrap_ok<SegmentTree, Diag> new 5
+//:         unwrap_ok new 5
 //:         |> replace 0 1 |> uwok
 //:         |> replace 1 2 |> uwok
 //:         |> replace 2 3 |> uwok
 //:         |> replace 3 4 |> uwok
-//:     let total %i32 unwrap_ok<i32, Diag> sum_range &st 1 4;
+//:     let total %i32 unwrap_ok sum_range &st 1 4;
 //:     free st
 //:     if eq total 9 1 0
 //: ```

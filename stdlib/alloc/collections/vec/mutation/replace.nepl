@@ -126,8 +126,8 @@ pub fn replace <.T: Copy> %impure fn &Vec .T impure fn i32 impure fn .T unit \v\
 //:         unit
 //: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
-//:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecReplaceError<DropPayload>> replace_drop_old<DropPayload> v1 0 (DropPayload 2)
+//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 1)
+//:     let v2 %Vec DropPayload unwrap_ok replace_drop_old<DropPayload> v1 0 (DropPayload 2)
 //:     free<DropPayload> v2
 //:     0
 //: ```

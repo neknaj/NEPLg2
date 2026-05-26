@@ -40,9 +40,9 @@ pub fn seg_update_err %fn SegmentTree fn Diag Result SegmentTree SegmentTreeUpda
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let st0 %SegmentTree unwrap_ok<SegmentTree, Diag> new 4;
-//:     let st1 %SegmentTree unwrap_ok<SegmentTree, SegmentTreeUpdateError> replace st0 1 5;
-//:     let total %i32 unwrap_ok<i32, Diag> sum_range &st1 0 4;
+//:     let st0 %SegmentTree unwrap_ok new 4;
+//:     let st1 %SegmentTree unwrap_ok replace st0 1 5;
+//:     let total %i32 unwrap_ok sum_range &st1 0 4;
 //:     free st1
 //:     if eq total 5 1 0
 //: ```
@@ -86,10 +86,10 @@ pub fn replace %impure fn SegmentTree impure fn i32 impure fn i32 Result Segment
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let st %SegmentTree:
-//:         unwrap_ok<SegmentTree, Diag> new 4
+//:         unwrap_ok new 4
 //:         |> add 0 2 |> uwok
 //:         |> add 3 5 |> uwok
-//:     let total %i32 unwrap_ok<i32, Diag> sum_range &st 0 4;
+//:     let total %i32 unwrap_ok sum_range &st 0 4;
 //:     free st
 //:     if eq total 7 1 0
 //: ```

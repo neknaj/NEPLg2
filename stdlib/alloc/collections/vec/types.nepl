@@ -195,7 +195,7 @@ pub fn vec_transform_error_kind <.T> %fn &VecTransformError .T StdErrorKind \e:
 //:     1
 //: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>
-//:     let v1 %Vec i32 unwrap_ok<Vec<i32>, VecPushError<i32>> push<i32> v0 1
+//:     let v1 %Vec i32 unwrap_ok push<i32> v0 1
 //:     match map<i32,i32> v1 @inc:
 //:         Result::Ok out:
 //:             let ok %bool eq len<i32> &out 1
