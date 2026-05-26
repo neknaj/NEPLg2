@@ -1029,6 +1029,17 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_neplg21_vec_doc_postfix_cleanup.js`、`node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_vec_borrowed_observers.js`、`node nodesrc/test_stdlib_vec_pop_doc_report_contract.js` は pass した。
 - `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/neplg21-vec-doc-postfix.json -j 1 --dist web/dist --assert-io` は 3 doctest とも compile timeout after 60000ms。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
 
+### 2026-05-27 core traits postfix checkpoint
+
+- `stdlib/core/traits/deserialize.nepl` の doctest を、`deserialize<i32>` ではなく `%Result i32 StdErrorKind` typed local で復元先型を与える形へ移行した。
+- `parse_err_to_std<bool>` / `parse_err_to_std<i32>` / `parse_err_to_std<i64>` / `parse_err_to_std<i128>` / `parse_err_to_std<f32>` / `parse_err_to_std<f64>` は、入力 `to_* s` の `Result T i32` と impl の戻り値型から `.T` が決まるため postfix-free call へ移行した。
+- `stdlib/core/traits/hash.nepl` と `serialize.nepl` の doccomment で、利用者向けの prose に残っていた `Hasher<.K>`、`Hasher<MyKey>`、`Hash<i32>` 系、`Serialize<T, F>` を NEPLg2.1 表記へ更新した。
+- `trait Hasher<.K: HashKey>`、`impl<.K: HashKey> Hasher<.K> for DefaultHash32`、`pub fn hash_with <.K: HashKey,.H: Hasher<.K>>` は、現行の declaration / impl / bound 構文なのでこの checkpoint では保持した。
+- subagent の独立調査でも、`parse_err_to_std` は引数側の型から解ける安全な移行候補であり、trait declaration / impl / bound は残す対象と確認した。
+- `nodesrc/test_neplg21_core_traits_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量や doccomment の増加を制限する検査ではない。
+- `node nodesrc/test_neplg21_core_traits_postfix_cleanup.js`、`node nodesrc/test_core_traits_doc_report_contract.js`、`node nodesrc/test_stdlib_traits_hash_report_contract.js`、`node nodesrc/test_stdlib_traits_serde_report_contract.js`、`node nodesrc/neplg21_syntax_migrate.js --check` は pass した。
+- `target\debug\nepl-cli.exe --check -i tmp\neplg21_core_traits_deserialize_smoke.neplg2 --target core` は 124s timeout。残留 `node` / `nepl-cli` process は停止した。型診断は出ていないため、full smoke は performance issue 側で継続確認する。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

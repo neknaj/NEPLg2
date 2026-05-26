@@ -49,12 +49,13 @@ trait Deserialize:
 //:| #import "std/test" as *
 //:| #import "core/traits/deserialize" as *
 //:| fn main %impure fn unit i32 \unit:
+//:     let parsed %Result i32 StdErrorKind deserialize "42";
 //:     let assertion %TestAssertion:
-//:         match deserialize<i32> "42":
+//:         match parsed:
 //:             Result::Ok v:
 //:                 assert_eq_i32 "deserialize i32" 42 v
 //:             Result::Err _e:
-//:                 test_assertion_failed AssertionKind::EqI32 "deserialize i32" "42" "Err" "deserialize<i32> failed unexpectedly"
+//:                 test_assertion_failed AssertionKind::EqI32 "deserialize i32" "42" "Err" "deserialize i32 failed unexpectedly"
 //:     let report:
 //:         test_report_new "deserialize_doc"
 //:         |> test_report_push assertion
@@ -66,7 +67,8 @@ trait Deserialize:
 //: - `Deserialize::deserialize s` をそのまま[呼/よ]びます。
 //:
 //: ### [注意/ちゅうい]
-//: - [型推論/かたすいろん]が[効/き]きにくいので、[呼/よ]び[出/だ]しでは `deserialize<i32>` のような[型引数/かたひきすう]を[付/つ]ける[前提/ぜんてい]です。
+//: - NEPLg2.1 では[呼/よ]び[出/だ]し[側/がわ]の[型注釈/かたちゅうしゃく]や[期待型/きたいがた]で[復元先/ふくげんさき]の[型/かた]を[指定/してい]します。
+//: - 例として `let parsed %Result i32 StdErrorKind deserialize text` のように[戻/もど]り[値/ち]を[明示/めいじ]すると、`deserialize` の型引数は[周囲/しゅうい]から[解決/かいけつ]されます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - impl に[依存/いそん]します。
@@ -86,19 +88,19 @@ impl Deserialize for str:
 
 impl Deserialize for bool:
     fn deserialize %fn str Result bool StdErrorKind \s:
-        parse_err_to_std<bool> to_bool s
+        parse_err_to_std to_bool s
 
 impl Deserialize for i32:
     fn deserialize %fn str Result i32 StdErrorKind \s:
-        parse_err_to_std<i32> to_i32 s
+        parse_err_to_std to_i32 s
 
 impl Deserialize for i64:
     fn deserialize %fn str Result i64 StdErrorKind \s:
-        parse_err_to_std<i64> to_i64 s
+        parse_err_to_std to_i64 s
 
 impl Deserialize for i128:
     fn deserialize %fn str Result i128 StdErrorKind \s:
-        parse_err_to_std<i128> to_i128 s
+        parse_err_to_std to_i128 s
 
 impl Deserialize for u8:
     fn deserialize %fn str Result u8 StdErrorKind \s:
@@ -116,8 +118,8 @@ impl Deserialize for u8:
 
 impl Deserialize for f32:
     fn deserialize %fn str Result f32 StdErrorKind \s:
-        parse_err_to_std<f32> to_f32 s
+        parse_err_to_std to_f32 s
 
 impl Deserialize for f64:
     fn deserialize %fn str Result f64 StdErrorKind \s:
-        parse_err_to_std<f64> to_f64 s
+        parse_err_to_std to_f64 s
