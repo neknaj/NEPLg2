@@ -590,6 +590,16 @@ LLM/手動判断が必要なもの:
 - subagent verification: `trunk build` / `node nodesrc/test_stdlib_hash_nmd_report_contract.js` / `node nodesrc/test_stdlib_hash_string_access_boundary.js` は pass。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 pointer/lexer Option constructor checkpoint
+
+- `stdlib/core/mem/pointer/scalar.nepl` で、`load_i32` / `load_u8` の戻り値 `Option i32` から型が確定する `Option<i32>::None` / `Option<i32>::Some` 4 件を `Option::None` / `Option::Some` へ移行した。
+- `stdlib/neplg2/core/syntax/lexer/keyword.nepl` で、keyword classifier の戻り値 `Option TokenKind` から型が確定する `Option<TokenKind>::Some` / `Option<TokenKind>::None` 9 件を `Option::Some` / `Option::None` へ移行した。
+- `rg -n "Option<[^>]+>::(Some|None)" stdlib/core/mem/pointer/scalar.nepl stdlib/neplg2/core/syntax/lexer/keyword.nepl` は 0 件になった。
+- `rg --pcre2 -n "Option::(?!Some|None)" stdlib/core/mem/pointer/scalar.nepl stdlib/neplg2/core/syntax/lexer/keyword.nepl` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/core/mem/pointer/scalar.nepl -i stdlib/neplg2/core/syntax/lexer/keyword.nepl -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg21-pointer-lexer-option-constructors.json -j 1 --dist web/dist --assert-io` は 308s local command timeout。partial JSON では `stdlib/core/mem/pointer/scalar.nepl::doctest#1` は pass、`tests/stdlib/neplg2_lexer.n.md` 4 件は compile timeout after 60000ms。型診断は出ていない。
+- timeout 後に残留していた当該 `node.exe` process は停止した。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

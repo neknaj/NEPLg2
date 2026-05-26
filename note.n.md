@@ -1,3 +1,18 @@
+# 2026-05-26 Agent 1 pointer/lexer Option constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる `Option` constructor だけを移行した。
+- `stdlib/core/mem/pointer/scalar.nepl` で、`load_i32` / `load_u8` の戻り値 `Option i32` から型が確定する `Option<i32>::None` / `Option<i32>::Some` 4 件を `Option::None` / `Option::Some` へ移行した。
+- `stdlib/neplg2/core/syntax/lexer/keyword.nepl` で、keyword classifier の戻り値 `Option TokenKind` から型が確定する `Option<TokenKind>::Some` / `Option<TokenKind>::None` 9 件を `Option::Some` / `Option::None` へ移行した。
+- 検証:
+  - `rg -n "Option<[^>]+>::(Some|None)" stdlib/core/mem/pointer/scalar.nepl stdlib/neplg2/core/syntax/lexer/keyword.nepl`: 0 件。
+  - `rg --pcre2 -n "Option::(?!Some|None)" stdlib/core/mem/pointer/scalar.nepl stdlib/neplg2/core/syntax/lexer/keyword.nepl`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/core/mem/pointer/scalar.nepl -i stdlib/neplg2/core/syntax/lexer/keyword.nepl -i tests/stdlib/neplg2_lexer.n.md --no-tree -o tmp/neplg21-pointer-lexer-option-constructors.json -j 1 --dist web/dist --assert-io`: 308s local command timeout。partial JSON では `stdlib/core/mem/pointer/scalar.nepl::doctest#1` は pass、`tests/stdlib/neplg2_lexer.n.md` 4 件は compile timeout after 60000ms。型診断は出ていない。
+  - timeout 後に残留していた当該 `node.exe` process は停止した。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 sha256/hash Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる sha256/hash 領域の constructor だけを移行した。

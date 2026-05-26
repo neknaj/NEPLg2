@@ -55,9 +55,9 @@ pub fn load_i32 %fn MemPtr i32 Option i32 \p:
     if:
         lt raw 1
         then:
-            Option<i32>::None
+            Option::None
         else:
-            Option<i32>::Some load_i32 raw
+            Option::Some load_i32 raw
 
 //: store_i32: MemPtr<i32> へ i32 を安全に書き込むオーバーロード
 //:
@@ -82,9 +82,9 @@ pub fn load_u8 %fn MemPtr u8 Option i32 \p:
     if:
         lt raw 1
         then:
-            Option<i32>::None
+            Option::None
         else:
-            Option<i32>::Some load_u8 raw
+            Option::Some load_u8 raw
 
 //: store_u8: MemPtr<u8> へ 1 バイトを書き込む安全オーバーロード
 //:

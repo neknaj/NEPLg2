@@ -33,9 +33,9 @@ pub fn lex_keyword_match_key %fn str i32 \lexeme:
 pub fn lex_keyword_kind_if_eq %fn str fn str fn TokenKind Option TokenKind \lexeme\expected\kind:
     match string_search::str_eq lexeme expected:
         true:
-            Option<TokenKind>::Some kind
+            Option::Some kind
         false:
-            Option<TokenKind>::None
+            Option::None
 
 //: lex_keyword_kind_len2: 2 byte keyword の分類
 //:
@@ -51,7 +51,7 @@ pub fn lex_keyword_kind_len2 %fn str Option TokenKind \lexeme:
         25711:
             lex_keyword_kind_if_eq lexeme "do" TokenKind::KwDo
         _:
-            Option<TokenKind>::None
+            Option::None
 
 //: lex_keyword_kind_len3: 3 byte keyword の分類
 //:
@@ -71,7 +71,7 @@ pub fn lex_keyword_kind_len3 %fn str Option TokenKind \lexeme:
         28789:
             lex_keyword_kind_if_eq lexeme "pub" TokenKind::KwPub
         _:
-            Option<TokenKind>::None
+            Option::None
 
 //: lex_keyword_kind_len4: 4 byte keyword の分類
 //:
@@ -96,7 +96,7 @@ pub fn lex_keyword_kind_len4 %fn str Option TokenKind \lexeme:
         30062:
             lex_keyword_kind_if_eq lexeme "unit" TokenKind::UnitLiteral
         _:
-            Option<TokenKind>::None
+            Option::None
 
 //: lex_keyword_kind_len5: 5 byte keyword の分類
 //:
@@ -118,7 +118,7 @@ pub fn lex_keyword_kind_len5 %fn str Option TokenKind \lexeme:
         26209:
             lex_keyword_kind_if_eq lexeme "false" TokenKind::BoolLiteral
         _:
-            Option<TokenKind>::None
+            Option::None
 
 //: lex_keyword_kind_len6: 6 byte keyword の分類
 //:
@@ -132,7 +132,7 @@ pub fn lex_keyword_kind_len6 %fn str Option TokenKind \lexeme:
         29810:
             lex_keyword_kind_if_eq lexeme "trait" TokenKind::KwTrait
         _:
-            Option<TokenKind>::None
+            Option::None
 
 //: lex_keyword_kind_len8: 8 byte keyword の分類
 //:
@@ -144,7 +144,7 @@ pub fn lex_keyword_kind_len8 %fn str Option TokenKind \lexeme:
         28271:
             lex_keyword_kind_if_eq lexeme "noshadow" TokenKind::KwNoShadow
         _:
-            Option<TokenKind>::None
+            Option::None
 
 //: lex_keyword_kind: identifier lexeme が keyword なら token kind を[返/かえ]す
 //:
@@ -172,7 +172,7 @@ pub fn lex_keyword_kind %fn str Option TokenKind \lexeme:
         8:
             lex_keyword_kind_len8 lexeme
         _:
-            Option<TokenKind>::None
+            Option::None
 
 //: lex_consume_temp_str: lexer 内部の一時 str owner を終端する
 //:
