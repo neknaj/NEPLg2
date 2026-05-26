@@ -1,3 +1,17 @@
+# 2026-05-26 Agent 1 five-worker Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と expected type で解決できる typed `Result<...>::Ok` / `Result<...>::Err` を、5 worker の非重複 write scope へ分割して並列移行した。
+- proof API 5 files で 132 件、std IO/env/streamio output 5 files で 58 件、HIR/check/module AST 5 files で 43 件、CLI/platform/infra 6 files で 42 件、collections/json/string/resolve/lexer 5 files で 28 件を移行し、合計 26 files / 303 件を `Result::Ok` / `Result::Err` へ移行した。
+- worker の初回確認で使われた `Result<[^>]+>` 形式の検索では `Result<Vec<...>>` や `Result<SelfhostOutcome<...>>` のようなネスト型を拾えないため、親 agent 側で `>::(Ok|Err|Some|None)` による再確認を行い、取りこぼし 13 件を同じ checkpoint 内で修正した。
+- subagent が一時的に `cleanup/neplg21-constructor-write-scope` branch に切り替えていたが、commit 前に `feature/neplg21-syntax-migration-20260524` へ戻し、差分を元の作業 branch 上へ集約した。
+- 検証:
+  - `rg -n ">::(Ok|Err|Some|None)"` 対象 26 source files: 0 件。
+  - `rg --pcre2 -n "(?<![A-Za-z0-9_])(Result|Option)::(?!(Ok|Err|Some|None)\\b)"` 対象 26 source files: 0 件。
+  - `node nodesrc/tests.js <対象 26 files> --no-tree -o tmp/neplg21-five-worker-constructor-cleanup.json -j 4 --dist web/dist --assert-io`: 14 件すべて compile timeout after 60000ms。JSON 上は timeout のみで、型診断は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 selfhost module/parser Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる selfhost module/parser 領域の constructor だけを移行した。

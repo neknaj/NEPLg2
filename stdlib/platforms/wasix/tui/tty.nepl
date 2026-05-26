@@ -108,15 +108,15 @@ fn get_tty_state_result %impure fn unit Result TtyState i32 \unit:
             if:
                 eq errno 0
                 then:
-                    Result<TtyState,i32>::Ok state
+                    Result::Ok state
                 else:
                     match tty_state_free state:
                         Result::Ok _:
-                            Result<TtyState,i32>::Err errno
+                            Result::Err errno
                         Result::Err _:
-                            Result<TtyState,i32>::Err errno
+                            Result::Err errno
         Result::Err _:
-            Result<TtyState,i32>::Err -1
+            Result::Err -1
 
 fn set_tty_state %impure fn &TtyState i32 \state:
     wasix_tty_set tty_state_raw state
@@ -159,27 +159,27 @@ pub fn enter_raw_mode %impure fn unit Result TtyState i32 \unit:
                             if:
                                 eq errno 0
                                 then:
-                                    Result<TtyState,i32>::Ok old_state
+                                    Result::Ok old_state
                                 else:
                                     match tty_state_free old_state:
                                         Result::Ok _:
-                                            Result<TtyState,i32>::Err errno
+                                            Result::Err errno
                                         Result::Err _:
-                                            Result<TtyState,i32>::Err errno
+                                            Result::Err errno
                         Result::Err _:
                             match tty_state_free old_state:
                                 Result::Ok _:
-                                    Result<TtyState,i32>::Err -1
+                                    Result::Err -1
                                 Result::Err _:
-                                    Result<TtyState,i32>::Err -1
+                                    Result::Err -1
                 Result::Err _:
                     match tty_state_free state:
                         Result::Ok _:
-                            Result<TtyState,i32>::Err -1
+                            Result::Err -1
                         Result::Err _:
-                            Result<TtyState,i32>::Err -1
+                            Result::Err -1
         Result::Err errno:
-            Result<TtyState,i32>::Err errno
+            Result::Err errno
 
 //: restore_mode: ターミナルの状態を元に戻す
 //:

@@ -331,19 +331,19 @@ pub fn selfhost_module_item_kind_name %fn SelfhostModuleItemKind str \kind:
 pub fn selfhost_module_ast_new %impure fn unit Result SelfhostModuleAst StdErrorKind \unit:
     match v::new<SelfhostModuleItem>:
         Result::Ok items:
-            Result<SelfhostModuleAst, StdErrorKind>::Ok SelfhostModuleAst items
+            Result::Ok SelfhostModuleAst items
         Result::Err e:
-            Result<SelfhostModuleAst, StdErrorKind>::Err e
+            Result::Err e
 
 //: selfhost_module_ast_push: module item を 1 件[追加/ついか]する
 pub fn selfhost_module_ast_push %impure fn SelfhostModuleAst impure fn SelfhostModuleItem Result SelfhostModuleAst StdErrorKind \ast\item:
     match v::push<SelfhostModuleItem> field::get ast "items" item:
         Result::Ok items:
-            Result<SelfhostModuleAst, StdErrorKind>::Ok SelfhostModuleAst items
+            Result::Ok SelfhostModuleAst items
         Result::Err e:
             let error %StdErrorKind field::get e "error"
             v::free<SelfhostModuleItem> field::get e "vec"
-            Result<SelfhostModuleAst, StdErrorKind>::Err error
+            Result::Err error
 
 //: selfhost_module_ast_len: module item [数/すう]を[返/かえ]す
 pub fn selfhost_module_ast_len %fn &SelfhostModuleAst i32 \ast:

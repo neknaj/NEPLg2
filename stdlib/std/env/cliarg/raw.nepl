@@ -36,7 +36,7 @@ fn cli_args_sizes_result %impure fn MemPtr u8 Result CliArgSizes i32 \meta:
     if:
         le meta_raw 0
         then:
-            Result<CliArgSizes,i32>::Err 1
+            Result::Err 1
         else:
             store_i32 meta_raw 0
             store_i32 add meta_raw 4 0
@@ -44,22 +44,22 @@ fn cli_args_sizes_result %impure fn MemPtr u8 Result CliArgSizes i32 \meta:
             if:
                 ne errno 0
                 then:
-                    Result<CliArgSizes,i32>::Err errno
+                    Result::Err errno
                 else:
                     let argc %i32 load_i32 meta_raw
                     let buf_size %i32 load_i32 add meta_raw 4
                     if:
                         or lt argc 0 lt buf_size 0
                         then:
-                            Result<CliArgSizes,i32>::Err 1
+                            Result::Err 1
                         else:
-                            Result<CliArgSizes,i32>::Ok CliArgSizes argc buf_size
+                            Result::Ok CliArgSizes argc buf_size
 
 fn cli_zero_u8_buffer_result %fn MemPtr u8 fn i32 Result unit i32 \buf\size:
     if:
         lt size 0
         then:
-            Result<unit,i32>::Err 1
+            Result::Err 1
         else:
             let mut i %i32 0
             let mut err %i32 0
@@ -74,30 +74,30 @@ fn cli_zero_u8_buffer_result %fn MemPtr u8 fn i32 Result unit i32 \buf\size:
             if:
                 eq err 0
                 then:
-                    Result<unit,i32>::Ok unit
+                    Result::Ok unit
                 else:
-                    Result<unit,i32>::Err err
+                    Result::Err err
 
 fn cli_zero_i32_slots_result %fn MemPtr u8 fn i32 Result unit i32 \base\byte_size:
     let raw %i32 mem_ptr_addr base
     if:
         or le raw 0 lt byte_size 0
         then:
-            Result<unit,i32>::Err 1
+            Result::Err 1
         else:
             let mut off %i32 0
             while lt off byte_size:
                 do:
                     store_i32 add raw off 0
                     set off add off 4
-            Result<unit,i32>::Ok unit
+            Result::Ok unit
 
 fn cli_load_u8_result %fn MemPtr u8 fn i32 Result i32 i32 \base\off:
     match load_u8 mem_ptr_add base off:
         Option::Some b:
-            Result<i32,i32>::Ok b
+            Result::Ok b
         Option::None:
-            Result<i32,i32>::Err 1
+            Result::Err 1
 
 //: cliarg_count_result: argc を raw argv 境界内で取得する
 //:
@@ -116,15 +116,15 @@ fn cli_load_u8_result %fn MemPtr u8 fn i32 Result i32 i32 \base\off:
 pub fn cliarg_count_result %impure fn unit Result i32 i32 \unit:
     match alloc_region<u8> 8:
         Result::Err _:
-            Result<i32,i32>::Err 1
+            Result::Err 1
         Result::Ok meta_region:
             let meta %MemPtr u8 region_ptr &meta_region
             let res %Result i32 i32 match cli_args_sizes_result meta:
                 Result::Err e:
-                    Result<i32,i32>::Err e
+                    Result::Err e
                 Result::Ok sizes:
                     let argc %i32 get sizes "argc"
-                    Result<i32,i32>::Ok argc
+                    Result::Ok argc
             match dealloc_region<u8> meta_region:
                 Result::Ok _:
                     unit
@@ -247,7 +247,7 @@ fn __cli_copy_to_cstr %impure fn str Result RegionToken u8 i32 \s:
     let size %i32 add byte_len 1;
     match alloc_region<u8> size:
         Result::Err e:
-            Result<RegionToken<u8>,i32>::Err e
+            Result::Err e
         Result::Ok dst_region:
             let dst %MemPtr u8 region_ptr &dst_region
             let mut i %i32 0;
@@ -264,7 +264,7 @@ fn __cli_copy_to_cstr %impure fn str Result RegionToken u8 i32 \s:
                     unit
                 Result::Err _:
                     unit
-            Result<RegionToken<u8>,i32>::Ok dst_region
+            Result::Ok dst_region
 
 #if[target=llvm]
 fn __cli_open_cmdline %impure fn unit i32 \unit:

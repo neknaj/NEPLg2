@@ -168,13 +168,13 @@ pub fn lex_stack_top_result %fn &Vec i32 fn i32 fn i32 Result i32 LexDiagnostic 
     if:
         le stack_len 0
         then:
-            Result<i32,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack is empty"
+            Result::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack is empty"
         else:
             match get<i32> stack sub stack_len 1:
                 Option::Some top:
-                    Result<i32,LexDiagnostic>::Ok top
+                    Result::Ok top
                 Option::None:
-                    Result<i32,LexDiagnostic>::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack top is unavailable"
+                    Result::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack top is unavailable"
 
 //: lex_stack_drop_top: indent stack の末尾 level を[捨/す]てた Vec を[返/かえ]す
 pub fn lex_stack_drop_top %fn Vec i32 Vec i32 \stack:

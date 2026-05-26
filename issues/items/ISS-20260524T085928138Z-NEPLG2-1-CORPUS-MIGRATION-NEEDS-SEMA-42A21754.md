@@ -682,6 +682,17 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/neplg2/core/module/import_scan.nepl -i stdlib/neplg2/core/module/import_spec.nepl -i stdlib/neplg2/core/module/loader.nepl -i stdlib/neplg2/core/module/vfs.nepl -i stdlib/neplg2/core/mono/mono.nepl -i stdlib/neplg2/core/pipeline.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/declaration.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/diagnostic.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/entry.nepl -i stdlib/neplg2/core/syntax/parser/module_parser/loop.nepl --no-tree -o tmp/neplg21-selfhost-module-parser-result-constructors.json -j 1 --dist web/dist --assert-io` は 6 件すべて compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `git diff --check` は pass。
 
+### 2026-05-26 five-worker Result constructor checkpoint
+
+- typed constructor 密度の高い実コードを 5 worker の非重複 write scope に分割し、proof API / std IO-env-streamio output / HIR-check-module AST / CLI-platform-infra / collections-json-string-resolve-lexer の 5 領域を並列移行した。
+- proof API 5 files で 132 件、std IO/env/streamio output 5 files で 58 件、HIR/check/module AST 5 files で 43 件、CLI/platform/infra 6 files で 42 件、collections/json/string/resolve/lexer 5 files で 28 件を移行し、合計 26 files / 303 件を `Result::Ok` / `Result::Err` へ移行した。
+- `Result<[^>]+>` 形式の確認ではネスト型を拾えないため、親 agent 側で `>::(Ok|Err|Some|None)` による再確認を行い、`Result<Vec<...>>` / `Result<SelfhostOutcome<...>>` などの取りこぼし 13 件を同じ checkpoint 内で修正した。
+- subagent が一時的に `cleanup/neplg21-constructor-write-scope` branch に切り替えていたが、commit 前に `feature/neplg21-syntax-migration-20260524` へ戻し、差分を元の作業 branch 上へ集約した。
+- `rg -n ">::(Ok|Err|Some|None)"` 対象 26 source files は 0 件になった。
+- `rg --pcre2 -n "(?<![A-Za-z0-9_])(Result|Option)::(?!(Ok|Err|Some|None)\\b)"` 対象 26 source files は 0 件になった。
+- `node nodesrc/tests.js <対象 26 files> --no-tree -o tmp/neplg21-five-worker-constructor-cleanup.json -j 4 --dist web/dist --assert-io` は 14 件すべて compile timeout after 60000ms。JSON 上は timeout のみで、型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

@@ -15,9 +15,9 @@ pub struct SelfhostDiagnostics:
 pub fn selfhost_diagnostics_new %fn unit Result SelfhostDiagnostics StdErrorKind \unit:
     match v::new<SelfhostDiagnostic>:
         Result::Ok items:
-            Result<SelfhostDiagnostics, StdErrorKind>::Ok SelfhostDiagnostics items
+            Result::Ok SelfhostDiagnostics items
         Result::Err _e:
-            Result<SelfhostDiagnostics, StdErrorKind>::Err StdErrorKind::OutOfMemory
+            Result::Err StdErrorKind::OutOfMemory
 
 //: selfhost_diagnostics_one: diagnostic 1 [件/けん]から collection を[作/つく]る
 pub fn selfhost_diagnostics_one %fn SelfhostDiagnostic Result SelfhostDiagnostics StdErrorKind \diag:
@@ -25,16 +25,16 @@ pub fn selfhost_diagnostics_one %fn SelfhostDiagnostic Result SelfhostDiagnostic
         Result::Ok ds:
             selfhost_diagnostics_push ds diag
         Result::Err e:
-            Result<SelfhostDiagnostics, StdErrorKind>::Err e
+            Result::Err e
 
 //: selfhost_diagnostics_push: diagnostic を 1 [件/けん][追加/ついか]する
 pub fn selfhost_diagnostics_push %fn SelfhostDiagnostics fn SelfhostDiagnostic Result SelfhostDiagnostics StdErrorKind \diagnostics\diag:
     match v::push<SelfhostDiagnostic> field::get diagnostics "items" diag:
         Result::Ok items:
-            Result<SelfhostDiagnostics, StdErrorKind>::Ok SelfhostDiagnostics items
+            Result::Ok SelfhostDiagnostics items
         Result::Err e:
             v::free<SelfhostDiagnostic> v::vec_push_error_vec<SelfhostDiagnostic> e
-            Result<SelfhostDiagnostics, StdErrorKind>::Err StdErrorKind::OutOfMemory
+            Result::Err StdErrorKind::OutOfMemory
 
 //: selfhost_diagnostics_len: diagnostic [件数/けんすう]を[返/かえ]す
 pub fn selfhost_diagnostics_len %fn &SelfhostDiagnostics i32 \diagnostics:

@@ -150,7 +150,7 @@ pub fn from_f64_build_fixed_result %fn bool fn str fn i32 fn i32 fn i32 fn i32 f
     let total %i32 add add sign_len len int_s frac_len
     match string_alloc_region total:
         Result::Err e:
-            Result<str,str>::Err e
+            Result::Err e
         Result::Ok out_region:
             let out_data %MemPtr u8 string_region_data_ptr &out_region
             let out_raw %i32 mem_ptr_addr out_data
@@ -179,9 +179,9 @@ pub fn from_f64_build_fixed_result %fn bool fn str fn i32 fn i32 fn i32 fn i32 f
                             unit
                         Result::Err _free:
                             unit
-                    Result<str,str>::Err e
+                    Result::Err e
                 Result::Ok _:
-                    Result<str,str>::Ok string_finish out_region total
+                    Result::Ok string_finish out_region total
 
 //: from_f64_result: f64 を有限値だけ文字列化する
 //:

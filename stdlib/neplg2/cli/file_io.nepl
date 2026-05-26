@@ -100,17 +100,17 @@ pub fn selfhost_cli_file_io_vfs_failed_diag %fn str fn StdErrorKind SelfhostDiag
 pub fn selfhost_cli_file_io_read_root_vfs %impure fn str Result SelfhostVirtualFileSystem SelfhostDiagnostic \path:
     match fs_read_to_string_checked path:
         Result::Err errno:
-            Result<SelfhostVirtualFileSystem, SelfhostDiagnostic>::Err selfhost_cli_file_io_read_failed_diag path errno
+            Result::Err selfhost_cli_file_io_read_failed_diag path errno
         Result::Ok source:
             match selfhost_vfs_new:
                 Result::Err e:
-                    Result<SelfhostVirtualFileSystem, SelfhostDiagnostic>::Err selfhost_cli_file_io_vfs_failed_diag path e
+                    Result::Err selfhost_cli_file_io_vfs_failed_diag path e
                 Result::Ok vfs0:
                     match selfhost_vfs_add vfs0 path source:
                         Result::Err e:
-                            Result<SelfhostVirtualFileSystem, SelfhostDiagnostic>::Err selfhost_cli_file_io_vfs_failed_diag path e
+                            Result::Err selfhost_cli_file_io_vfs_failed_diag path e
                         Result::Ok vfs1:
-                            Result<SelfhostVirtualFileSystem, SelfhostDiagnostic>::Ok vfs1
+                            Result::Ok vfs1
 
 //: selfhost_cli_file_io_write_text_artifact: text artifact を file に書き出す
 //:
@@ -120,9 +120,9 @@ pub fn selfhost_cli_file_io_read_root_vfs %impure fn str Result SelfhostVirtualF
 pub fn selfhost_cli_file_io_write_text_artifact %impure fn str impure fn str Result unit SelfhostDiagnostic \path\text:
     match fs_write_to_string path text:
         Result::Ok _:
-            Result<unit, SelfhostDiagnostic>::Ok unit
+            Result::Ok unit
         Result::Err errno:
-            Result<unit, SelfhostDiagnostic>::Err selfhost_cli_file_io_write_failed_diag path errno
+            Result::Err selfhost_cli_file_io_write_failed_diag path errno
 
 //: selfhost_cli_file_io_write_binary_artifact: binary artifact を file に書き出す
 //:
@@ -134,9 +134,9 @@ pub fn selfhost_cli_file_io_write_text_artifact %impure fn str impure fn str Res
 pub fn selfhost_cli_file_io_write_binary_artifact %impure fn str impure fn ByteBuf Result unit SelfhostDiagnostic \path\bytes:
     match fs_write_to_bytes path bytes:
         Result::Ok _:
-            Result<unit, SelfhostDiagnostic>::Ok unit
+            Result::Ok unit
         Result::Err errno:
-            Result<unit, SelfhostDiagnostic>::Err selfhost_cli_file_io_write_failed_diag path errno
+            Result::Err selfhost_cli_file_io_write_failed_diag path errno
 
 //: selfhost_cli_file_io_stage0: file_io 境界の smoke API
 pub fn selfhost_cli_file_io_stage0 %fn unit i32 \unit:

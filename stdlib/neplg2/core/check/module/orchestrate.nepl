@@ -40,15 +40,15 @@ fn selfhost_module_check_item %fn SelfhostModuleCheckSummary fn SelfhostRawBacke
                             match selfhost_module_check_item_directive_state directive_state item:
                                 Result::Ok next_directive_state:
                                     let next_summary %SelfhostModuleCheckSummary selfhost_module_check_summary_record summary item.kind
-                                    Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Ok selfhost_module_check_step_new next_summary next_state next_directive_state
+                                    Result::Ok selfhost_module_check_step_new next_summary next_state next_directive_state
                                 Result::Err refutation:
-                                    Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+                                    Result::Err selfhost_module_check_refutation_diag refutation
                         Result::Err refutation:
-                            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+                            Result::Err selfhost_module_check_refutation_diag refutation
                 Result::Err refutation:
-                    Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+                    Result::Err selfhost_module_check_refutation_diag refutation
         Result::Err refutation:
-            Result<SelfhostModuleCheckStep,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+            Result::Err selfhost_module_check_refutation_diag refutation
 
 fn selfhost_check_module_ast_loop %fn &SelfhostModuleAst fn i32 fn i32 fn SelfhostModuleCheckSummary fn SelfhostRawBackendState fn SelfhostModuleDirectiveState Result SelfhostModuleCheckSummary SelfhostDiagnostic \ast\n\idx\summary\raw_state\directive_state:
     if:
@@ -56,9 +56,9 @@ fn selfhost_check_module_ast_loop %fn &SelfhostModuleAst fn i32 fn i32 fn Selfho
         then:
             match selfhost_module_check_finish_raw_state raw_state:
                 Result::Ok _:
-                    Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Ok summary
+                    Result::Ok summary
                 Result::Err refutation:
-                    Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Err selfhost_module_check_refutation_diag refutation
+                    Result::Err selfhost_module_check_refutation_diag refutation
         else:
             match selfhost_module_ast_get ast idx:
                 Option::Some item:
@@ -66,9 +66,9 @@ fn selfhost_check_module_ast_loop %fn &SelfhostModuleAst fn i32 fn i32 fn Selfho
                         Result::Ok step:
                             selfhost_check_module_ast_loop ast n add idx 1 step.summary step.raw_state step.directive_state
                         Result::Err diag:
-                            Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Err diag
+                            Result::Err diag
                 Option::None:
-                    Result<SelfhostModuleCheckSummary,SelfhostDiagnostic>::Err selfhost_module_check_index_unavailable_diag
+                    Result::Err selfhost_module_check_index_unavailable_diag
 
 //: selfhost_check_module_ast: module item stream を[検査/けんさ]して summary を[返/かえ]す
 pub fn selfhost_check_module_ast %fn &SelfhostModuleAst Result SelfhostModuleCheckSummary SelfhostDiagnostic \ast:

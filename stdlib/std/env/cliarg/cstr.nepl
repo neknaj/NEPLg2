@@ -59,7 +59,7 @@ pub fn cstr_len_bounded_result %impure fn MemPtr u8 impure fn i32 Result i32 str
     if:
         le max_len 0
         then:
-            Result<i32,str>::Err "cliarg.cstr_len empty bound"
+            Result::Err "cliarg.cstr_len empty bound"
         else:
             let mut i %i32 0
             let mut done %i32 0
@@ -80,14 +80,14 @@ pub fn cstr_len_bounded_result %impure fn MemPtr u8 impure fn i32 Result i32 str
             if:
                 eq ok 0
                 then:
-                    Result<i32,str>::Err "cliarg.cstr_len invalid pointer"
+                    Result::Err "cliarg.cstr_len invalid pointer"
                 else:
                     if:
                         eq done 1
                         then:
-                            Result<i32,str>::Ok i
+                            Result::Ok i
                         else:
-                            Result<i32,str>::Err "cliarg.cstr_len missing nul terminator"
+                            Result::Err "cliarg.cstr_len missing nul terminator"
 
 //: cstr_to_str_bounded_result: NUL 終端文字列を UTF-8 検証して `str` にコピーする
 //:
@@ -132,10 +132,10 @@ pub fn cstr_len_bounded_result %impure fn MemPtr u8 impure fn i32 Result i32 str
 pub fn cstr_to_str_bounded_result %impure fn MemPtr u8 impure fn i32 Result str str \p\max_len:
     match cstr_len_bounded_result p max_len:
         Result::Err e:
-            Result<str,str>::Err e
+            Result::Err e
         Result::Ok len:
             match string_from_utf8_mem_result p len:
                 Result::Err e:
-                    Result<str,str>::Err e
+                    Result::Err e
                 Result::Ok s:
-                    Result<str,str>::Ok s
+                    Result::Ok s

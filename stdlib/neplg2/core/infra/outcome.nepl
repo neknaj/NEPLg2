@@ -76,7 +76,7 @@ pub fn selfhost_outcome_ignore_str %impure fn str unit \value:
 
 //: selfhost_outcome_new: result と diagnostics から outcome を[作/つく]る
 pub fn selfhost_outcome_new <.T, .E> %fn Result .T .E fn SelfhostDiagnostics Result SelfhostOutcome .T .E StdErrorKind \result\diagnostics:
-    Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Ok SelfhostOutcome<.T, .E> result diagnostics
+    Result::Ok SelfhostOutcome<.T, .E> result diagnostics
 
 //: selfhost_outcome_from_result: Result に empty diagnostics を[付/つ]けて outcome へ[昇格/しょうかく]する
 pub fn selfhost_outcome_from_result <.T, .E> %fn Result .T .E Result SelfhostOutcome .T .E StdErrorKind \result:
@@ -84,15 +84,15 @@ pub fn selfhost_outcome_from_result <.T, .E> %fn Result .T .E Result SelfhostOut
         Result::Ok diagnostics:
             selfhost_outcome_new<.T, .E> result diagnostics
         Result::Err e:
-            Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Err e
+            Result::Err e
 
 //: selfhost_outcome_ok: success result と empty diagnostics を[持/も]つ outcome を[作/つく]る
 pub fn selfhost_outcome_ok <.T, .E> %fn .T Result SelfhostOutcome .T .E StdErrorKind \value:
-    selfhost_outcome_from_result<.T, .E> Result<.T, .E>::Ok value
+    selfhost_outcome_from_result<.T, .E> Result::Ok value
 
 //: selfhost_outcome_err: error result と empty diagnostics を[持/も]つ outcome を[作/つく]る
 pub fn selfhost_outcome_err <.T, .E> %fn .E Result SelfhostOutcome .T .E StdErrorKind \err_value:
-    selfhost_outcome_from_result<.T, .E> Result<.T, .E>::Err err_value
+    selfhost_outcome_from_result<.T, .E> Result::Err err_value
 
 //: selfhost_outcome_with_diagnostics: diagnostics を[差/さ]し[替/か]えた outcome を[作/つく]る
 //:
@@ -110,10 +110,10 @@ pub fn selfhost_outcome_push_diagnostic <.T, .E> %impure fn SelfhostOutcome .T .
     let diagnostics %SelfhostDiagnostics field::get outcome "diagnostics"
     match selfhost_diagnostics_push diagnostics diag:
         Result::Ok next_diagnostics:
-            Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Ok SelfhostOutcome<.T, .E> result next_diagnostics
+            Result::Ok SelfhostOutcome<.T, .E> result next_diagnostics
         Result::Err e:
             selfhost_outcome_drop_result_payload<.T, .E> result drop_ok drop_err
-            Result<SelfhostOutcome<.T, .E>, StdErrorKind>::Err e
+            Result::Err e
 
 //: selfhost_outcome_diagnostics_len: outcome が[保持/ほじ]する diagnostic [件数/けんすう]を[返/かえ]す
 pub fn selfhost_outcome_diagnostics_len <.T, .E> %fn &SelfhostOutcome .T .E i32 \outcome:

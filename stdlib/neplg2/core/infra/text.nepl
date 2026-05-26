@@ -180,9 +180,9 @@ pub fn source_text_collect_line_starts %fn str fn i32 fn i32 fn Vec i32 Result V
         failed
         then:
             v::free<i32> out
-            Result<Vec<i32>, StdErrorKind>::Err StdErrorKind::OutOfMemory
+            Result::Err StdErrorKind::OutOfMemory
         else:
-            Result<Vec<i32>, StdErrorKind>::Ok out
+            Result::Ok out
 
 //: source_text_new: source text と line map を[作/つく]る
 //:
@@ -197,11 +197,11 @@ pub fn source_text_new %fn i32 fn str fn str Result SelfhostSourceText StdErrorK
             let n %i32 string_access::len source
             match source_text_collect_line_starts source n 0 starts:
                 Result::Ok line_starts:
-                    Result<SelfhostSourceText, StdErrorKind>::Ok SelfhostSourceText file_id path source line_starts
+                    Result::Ok SelfhostSourceText file_id path source line_starts
                 Result::Err e:
-                    Result<SelfhostSourceText, StdErrorKind>::Err e
+                    Result::Err e
         Result::Err _e:
-            Result<SelfhostSourceText, StdErrorKind>::Err StdErrorKind::OutOfMemory
+            Result::Err StdErrorKind::OutOfMemory
 
 //: source_text_free: line start table を[解放/かいほう]する
 pub fn source_text_free %fn SelfhostSourceText unit \text:

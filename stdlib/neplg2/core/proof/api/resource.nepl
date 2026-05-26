@@ -33,29 +33,29 @@ pub fn selfhost_proof_resource_cell_transition %fn SelfhostResourceCellState fn 
         SelfhostProofResult::Proven evidence:
             match evidence:
                 SelfhostProofEvidence::ResourceCellTransition next_state:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Ok next_state
+                    Result::Ok next_state
                 SelfhostProofEvidence::SourceSpanValid:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::RawBackendTransition _state:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::TypeKindCompatible _kind:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::LifetimeOutlives _lifetime:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::OwnerTransition _state:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::EffectAllowed _context:
-                    Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
         SelfhostProofResult::Refuted refutation:
-            Result<SelfhostResourceCellState,SelfhostProofRefutation>::Err refutation
+            Result::Err refutation
 
 //: selfhost_proof_query_owner_transition: free obligation owner transition query を[作/つく]る
 fn selfhost_proof_query_owner_transition %fn SelfhostOwnerState fn SelfhostOwnerEventFact SelfhostProofQuery \state\fact:
@@ -70,29 +70,29 @@ pub fn selfhost_proof_owner_transition %fn SelfhostOwnerState fn SelfhostOwnerEv
         SelfhostProofResult::Proven evidence:
             match evidence:
                 SelfhostProofEvidence::OwnerTransition next_state:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Ok next_state
+                    Result::Ok next_state
                 SelfhostProofEvidence::SourceSpanValid:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::RawBackendTransition _state:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::TypeKindCompatible _kind:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::LifetimeOutlives _lifetime:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ResourceCellTransition _state:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::EffectAllowed _context:
-                    Result<SelfhostOwnerState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
         SelfhostProofResult::Refuted refutation:
-            Result<SelfhostOwnerState,SelfhostProofRefutation>::Err refutation
+            Result::Err refutation
 
 //: selfhost_proof_query_borrow_access: Resource borrow access query を[作/つく]る
 fn selfhost_proof_query_borrow_access %fn SelfhostBorrowState fn SelfhostBorrowAccessFact SelfhostProofQuery \state\fact:
@@ -107,29 +107,29 @@ pub fn selfhost_proof_borrow_access %fn SelfhostBorrowState fn SelfhostBorrowAcc
         SelfhostProofResult::Proven evidence:
             match evidence:
                 SelfhostProofEvidence::ResourceBorrowAccess next_state:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Ok next_state
+                    Result::Ok next_state
                 SelfhostProofEvidence::SourceSpanValid:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::RawBackendTransition _state:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::TypeKindCompatible _kind:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::LifetimeOutlives _lifetime:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ResourceCellTransition _state:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::OwnerTransition _state:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::EffectAllowed _context:
-                    Result<SelfhostBorrowState,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
         SelfhostProofResult::Refuted refutation:
-            Result<SelfhostBorrowState,SelfhostProofRefutation>::Err refutation
+            Result::Err refutation
 
 //: selfhost_proof_query_lifetime_outlives: lifetime outlives query を[作/つく]る
 fn selfhost_proof_query_lifetime_outlives %fn SelfhostLifetimeId fn SelfhostLifetimeOutlivesFact SelfhostProofQuery \required\fact:
@@ -144,26 +144,26 @@ pub fn selfhost_proof_lifetime_outlives %fn SelfhostLifetimeId fn SelfhostLifeti
         SelfhostProofResult::Proven evidence:
             match evidence:
                 SelfhostProofEvidence::LifetimeOutlives relation:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Ok relation
+                    Result::Ok relation
                 SelfhostProofEvidence::SourceSpanValid:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::RawBackendTransition _state:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ModuleDirectiveTransition _state:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ModuleDeclarationHeaderAvailable _header:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::TypeKindCompatible _kind:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::TraitImplNonOverlapping _relation:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ResourceCellTransition _state:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::OwnerTransition _state:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::ResourceBorrowAccess _state:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
                 SelfhostProofEvidence::EffectAllowed _context:
-                    Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
+                    Result::Err selfhost_proof_query_unexpected_evidence_refutation query evidence
         SelfhostProofResult::Refuted refutation:
-            Result<SelfhostLifetimeRelation,SelfhostProofRefutation>::Err refutation
+            Result::Err refutation

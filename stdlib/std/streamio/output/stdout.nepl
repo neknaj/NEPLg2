@@ -18,18 +18,18 @@
 pub fn write_bytes_result %impure fn StdoutStream impure fn ByteBuf Result StdoutStream StdErrorKind \stream\bytes:
     match stdio_write_bytes_result bytes:
         Result::Ok _:
-            Result<StdoutStream, StdErrorKind>::Ok stream
+            Result::Ok stream
         Result::Err e:
-            Result<StdoutStream, StdErrorKind>::Err e
+            Result::Err e
 
 //: ## write_str_result
 //: `StdoutStream` へ text を[書/か]き、失敗を `Result` で[返/かえ]す
 pub fn write_str_result %impure fn StdoutStream impure fn str Result StdoutStream StdErrorKind \stream\text:
     match stdio_write_str_result text:
         Result::Ok _:
-            Result<StdoutStream, StdErrorKind>::Ok stream
+            Result::Ok stream
         Result::Err e:
-            Result<StdoutStream, StdErrorKind>::Err e
+            Result::Err e
 
 //: ## flush_result
 //: `StdoutStream` の[保留中/ほりゅうちゅう][出力/しゅつりょく]を[反映/はんえい]する
@@ -83,7 +83,7 @@ pub fn writeln %impure fn StdoutStream impure fn str Result StdoutStream StdErro
         Result::Ok stream1:
             io_write_str stream1 "\n"
         Result::Err e:
-            Result<StdoutStream, StdErrorKind>::Err e
+            Result::Err e
 
 //: ## writeln
 //: pipe [終端/しゅうたん]から `StdoutStream` へ text と `\n` を[続/つづ]けて[書/か]く overload
@@ -92,7 +92,7 @@ pub fn writeln %impure fn str impure fn StdoutStream Result StdoutStream StdErro
         Result::Ok stream1:
             io_write_str stream1 "\n"
         Result::Err e:
-            Result<StdoutStream, StdErrorKind>::Err e
+            Result::Err e
 
 //: ## flush
 //: `StdoutStream` の[保留中/ほりゅうちゅう][出力/しゅつりょく]を[反映/はんえい]する

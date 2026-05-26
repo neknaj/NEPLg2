@@ -121,25 +121,25 @@ pub fn selfhost_cli_driver_request_from_options %fn SelfhostCliOptions Result Se
     match *input_ref:
         Option::Some input:
             let compile_options %SelfhostCompileOptions selfhost_cli_options_to_compile_options options
-            Result<SelfhostCompileRequest, SelfhostDiagnostic>::Ok selfhost_compile_request_new input compile_options
+            Result::Ok selfhost_compile_request_new input compile_options
         Option::None:
-            Result<SelfhostCompileRequest, SelfhostDiagnostic>::Err selfhost_cli_driver_missing_input_diag
+            Result::Err selfhost_cli_driver_missing_input_diag
 
 //: selfhost_cli_driver_error_result: diagnostic 1 件から失敗 result を[作/つく]る
 pub fn selfhost_cli_driver_error_result %impure fn SelfhostDiagnostic Result SelfhostCliDriverResult StdErrorKind \diag:
     match selfhost_diagnostics_one diag:
         Result::Err e:
-            Result<SelfhostCliDriverResult, StdErrorKind>::Err e
+            Result::Err e
         Result::Ok diagnostics:
-            Result<SelfhostCliDriverResult, StdErrorKind>::Ok selfhost_cli_driver_result_new 1 diagnostics
+            Result::Ok selfhost_cli_driver_result_new 1 diagnostics
 
 //: selfhost_cli_driver_success_result: 成功 result を[作/つく]る
 pub fn selfhost_cli_driver_success_result %impure fn unit Result SelfhostCliDriverResult StdErrorKind \unit:
     match selfhost_diagnostics_new:
         Result::Err e:
-            Result<SelfhostCliDriverResult, StdErrorKind>::Err e
+            Result::Err e
         Result::Ok diagnostics:
-            Result<SelfhostCliDriverResult, StdErrorKind>::Ok selfhost_cli_driver_result_new 0 diagnostics
+            Result::Ok selfhost_cli_driver_result_new 0 diagnostics
 
 //: selfhost_cli_driver_compile_vfs: VFS と parsed options から compile driver を[実行/じっこう]する
 //:

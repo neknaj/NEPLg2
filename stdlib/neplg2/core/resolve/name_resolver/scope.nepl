@@ -26,9 +26,9 @@ pub struct SelfhostNameScopeAddResult:
 pub fn selfhost_name_scope_new %impure fn unit Result SelfhostNameScope StdErrorKind \unit:
     match v::new<SelfhostNameBinding>:
         Result::Ok bindings:
-            Result<SelfhostNameScope, StdErrorKind>::Ok SelfhostNameScope bindings
+            Result::Ok SelfhostNameScope bindings
         Result::Err e:
-            Result<SelfhostNameScope, StdErrorKind>::Err e
+            Result::Err e
 
 //: selfhost_name_scope_free: scope の binding table を[解放/かいほう]する
 pub fn selfhost_name_scope_free %impure fn SelfhostNameScope unit \scope:
@@ -72,11 +72,11 @@ pub fn selfhost_name_scope_add_binding %impure fn SelfhostNameScope impure fn Se
     let item %SelfhostNameBinding selfhost_name_binding_new binding.name selfhost_def_id_assigned def_id binding.kind binding.span
     match v::push<SelfhostNameBinding> bindings item:
         Result::Ok next_bindings:
-            Result<SelfhostNameScopeAddResult, StdErrorKind>::Ok selfhost_name_scope_add_result_new (SelfhostNameScope next_bindings) def_id
+            Result::Ok selfhost_name_scope_add_result_new (SelfhostNameScope next_bindings) def_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
             v::free<SelfhostNameBinding> field::get e "vec"
-            Result<SelfhostNameScopeAddResult, StdErrorKind>::Err error
+            Result::Err error
 
 //: selfhost_name_scope_get: DefId の binding record を[返/かえ]す
 pub fn selfhost_name_scope_get %fn &SelfhostNameScope fn SelfhostDefId Option SelfhostNameBinding \scope\def_id:

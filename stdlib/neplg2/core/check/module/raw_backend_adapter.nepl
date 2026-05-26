@@ -56,9 +56,9 @@ fn selfhost_module_raw_backend_item_fact %fn SelfhostModuleItem SelfhostRawBacke
 pub fn selfhost_module_check_raw_backend_fact %fn SelfhostRawBackendState fn SelfhostRawBackendItemFact Result SelfhostRawBackendState SelfhostProofRefutation \state\item:
     match selfhost_proof_raw_backend_transition state item:
         Result::Ok next_state:
-            Result<SelfhostRawBackendState,SelfhostProofRefutation>::Ok next_state
+            Result::Ok next_state
         Result::Err refutation:
-            Result<SelfhostRawBackendState,SelfhostProofRefutation>::Err refutation
+            Result::Err refutation
 
 pub fn selfhost_module_check_item_raw_state %fn SelfhostRawBackendState fn SelfhostModuleItem Result SelfhostRawBackendState SelfhostProofRefutation \state\item:
     selfhost_module_check_raw_backend_fact state selfhost_module_raw_backend_item_fact item

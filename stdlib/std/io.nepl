@@ -81,13 +81,13 @@ impl TargetReadable for ByteBuf:
             ReadStream::Fs path:
                 match fs_read_to_bytes path:
                     Result::Ok bytes:
-                        Result<ByteBuf, StdErrorKind>::Ok bytes
+                        Result::Ok bytes
                     Result::Err _e:
-                        Result<ByteBuf, StdErrorKind>::Err StdErrorKind::IoError
+                        Result::Err StdErrorKind::IoError
             ReadStream::Text text:
                 io_bytebuf_from_str_result text
             ReadStream::Bytes bytes:
-                Result<ByteBuf, StdErrorKind>::Ok bytes
+                Result::Ok bytes
 
 impl TargetReadable for str:
     fn read_target %impure fn ReadStream Result str StdErrorKind \target:
@@ -97,11 +97,11 @@ impl TargetReadable for str:
             ReadStream::Fs path:
                 match fs_read_to_string_checked path:
                     Result::Ok text:
-                        Result<str, StdErrorKind>::Ok text
+                        Result::Ok text
                     Result::Err _e:
-                        Result<str, StdErrorKind>::Err StdErrorKind::IoError
+                        Result::Err StdErrorKind::IoError
             ReadStream::Text text:
-                Result<str, StdErrorKind>::Ok text
+                Result::Ok text
             ReadStream::Bytes bytes:
                 text_bytebuf_to_utf8_str_result bytes
 
@@ -116,34 +116,34 @@ impl TargetWritable for ByteBuf:
             WriteStream::Stdio:
                 match io_write_bytes StdoutStream unit value:
                     Result::Ok _out:
-                        Result<WriteStream, StdErrorKind>::Ok WriteStream::Stdio
+                        Result::Ok WriteStream::Stdio
                     Result::Err e:
-                        Result<WriteStream, StdErrorKind>::Err e
+                        Result::Err e
             WriteStream::Stderr:
                 match io_write_bytes StderrStream unit value:
                     Result::Ok _err:
-                        Result<WriteStream, StdErrorKind>::Ok WriteStream::Stderr
+                        Result::Ok WriteStream::Stderr
                     Result::Err e:
-                        Result<WriteStream, StdErrorKind>::Err e
+                        Result::Err e
             WriteStream::Fs:
-                Result<WriteStream, StdErrorKind>::Err StdErrorKind::IoError
+                Result::Err StdErrorKind::IoError
 impl TargetWritable for str:
     fn write_target %impure fn WriteStream impure fn str Result WriteStream StdErrorKind \target\value:
         match target:
             WriteStream::Stdio:
                 match io_write_str StdoutStream unit value:
                     Result::Ok _out:
-                        Result<WriteStream, StdErrorKind>::Ok WriteStream::Stdio
+                        Result::Ok WriteStream::Stdio
                     Result::Err e:
-                        Result<WriteStream, StdErrorKind>::Err e
+                        Result::Err e
             WriteStream::Stderr:
                 match io_write_str StderrStream unit value:
                     Result::Ok _err:
-                        Result<WriteStream, StdErrorKind>::Ok WriteStream::Stderr
+                        Result::Ok WriteStream::Stderr
                     Result::Err e:
-                        Result<WriteStream, StdErrorKind>::Err e
+                        Result::Err e
             WriteStream::Fs:
-                Result<WriteStream, StdErrorKind>::Err StdErrorKind::IoError
+                Result::Err StdErrorKind::IoError
 //: ## write
 //: category target へ byte [列/れつ]や text を[書/か]く facade
 //:
@@ -164,7 +164,7 @@ pub fn writeln %impure fn WriteStream impure fn str Result WriteStream StdErrorK
         Result::Ok target1:
             write target1 "\n"
         Result::Err e:
-            Result<WriteStream, StdErrorKind>::Err e
+            Result::Err e
 
 //: ## writeln
 //: pipe [終端/しゅうたん]から category target へ text と `\n` を[続/つづ]けて[書/か]く overload
@@ -184,17 +184,17 @@ pub fn flush %impure fn WriteStream Result WriteStream StdErrorKind \target:
         WriteStream::Stdio:
             match io_flush StdoutStream unit:
                 Result::Ok _out:
-                    Result<WriteStream, StdErrorKind>::Ok WriteStream::Stdio
+                    Result::Ok WriteStream::Stdio
                 Result::Err e:
-                    Result<WriteStream, StdErrorKind>::Err e
+                    Result::Err e
         WriteStream::Stderr:
             match io_flush StderrStream unit:
                 Result::Ok _err:
-                    Result<WriteStream, StdErrorKind>::Ok WriteStream::Stderr
+                    Result::Ok WriteStream::Stderr
                 Result::Err e:
-                    Result<WriteStream, StdErrorKind>::Err e
+                    Result::Err e
         WriteStream::Fs:
-            Result<WriteStream, StdErrorKind>::Err StdErrorKind::IoError
+            Result::Err StdErrorKind::IoError
 //: ## close
 //: category target を[閉/と]じる
 //:
@@ -210,4 +210,4 @@ pub fn close %impure fn WriteStream Result unit StdErrorKind \target:
         WriteStream::Stderr:
             io_close StderrStream unit
         WriteStream::Fs:
-            Result<unit, StdErrorKind>::Err StdErrorKind::IoError
+            Result::Err StdErrorKind::IoError
