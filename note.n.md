@@ -1,3 +1,18 @@
+# 2026-05-26 Agent 1 neplg2_module_graph Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、静的な型根拠で解決できる selfhost module graph fixture の constructor だけを小さく移行した。
+- `tests/stdlib/neplg2_module_graph.n.md` で、`checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Err` 14 件を `Result::Err` へ移行した。
+- source string fixture の旧 `fn ... <()->i32> ...` は、module graph の入力文字列としてこの checkpoint では構文移行していない。
+- 外側 NEPL 文字列 literal の `\()` は、source string の中身を `\()` のまま保つために literal backslash だけを `\\()` として escape した。
+- subagent の独立レビューでも、対象 14 件は `checks_push` overload の `Result unit str` 引数に乗っており、残すべき `Result<unit,str>::Err` はないと確認した。
+- 検証:
+  - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_module_graph.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/neplg21-module-graph-result-constructors.json -j 1 --dist web/dist --assert-io`: 3 件すべて compile timeout after 60000ms。型診断や `lexer.string.invalid_escape` は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 core/mem and alloc/string Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、静的な型根拠で解決できる production stdlib の Result constructor だけを小さく移行した。

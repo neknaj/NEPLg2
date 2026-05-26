@@ -473,6 +473,16 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/alloc/string/utf8.nepl -i stdlib/alloc/string/float/format.nepl --no-tree -o tmp/neplg21-alloc-string-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 neplg2_module_graph Result constructor checkpoint
+
+- `tests/stdlib/neplg2_module_graph.n.md` で、`checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Err` 14 件を `Result::Err` へ移行した。
+- source string fixture の旧 `fn ... <()->i32> ...` は、module graph の入力文字列としてこの checkpoint では構文移行していない。
+- 外側 NEPL 文字列 literal の `\()` は、source string の中身を `\()` のまま保つために literal backslash だけを `\\()` として escape した。
+- subagent の独立レビューでも、対象 14 件は `checks_push` overload の `Result unit str` 引数に乗っており、残すべき `Result<unit,str>::Err` はないと確認した。
+- `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_module_graph.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/neplg21-module-graph-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断や `lexer.string.invalid_escape` は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
