@@ -26,107 +26,107 @@ fn mk %impure fn unit List i32 \unit:
 
 fn main %impure fn unit i32 \unit:
     let l0 %List i32 unwrap_ok new<i32>;
-    let l0_len %i32 len<i32> &l0;
-    free<i32> l0;
+    let l0_len %i32 len &l0;
+    free l0;
 
     let l0a %List i32 unwrap_ok new<i32>;
     let l1 %List i32 uwok cons<i32> 10 l0a;
-    let l1_len %i32 len<i32> &l1;
-    free<i32> l1;
+    let l1_len %i32 len &l1;
+    free l1;
 
     let l0b %List i32 unwrap_ok new<i32>;
     let l1b %List i32 uwok cons<i32> 10 l0b;
     let l2 %List i32 uwok cons<i32> 20 l1b;
-    let l2_len %i32 len<i32> &l2;
-    free<i32> l2;
+    let l2_len %i32 len &l2;
+    free l2;
 
     let l3 %List i32 mk;
-    let l3_len %i32 len<i32> &l3;
-    free<i32> l3;
+    let l3_len %i32 len &l3;
+    free l3;
 
     let l3_0 %List i32 mk;
     let mut l3_0_value %i32 -1;
-    match get<i32> &l3_0 0:
+    match get &l3_0 0:
         Option::Some x:
             set l3_0_value x
         Option::None:
             unit
-    free<i32> l3_0;
+    free l3_0;
 
     let l3_1 %List i32 mk;
     let mut l3_1_value %i32 -1;
-    match get<i32> &l3_1 1:
+    match get &l3_1 1:
         Option::Some x:
             set l3_1_value x
         Option::None:
             unit
-    free<i32> l3_1;
+    free l3_1;
 
     let l3_2 %List i32 mk;
     let mut l3_2_value %i32 -1;
-    match get<i32> &l3_2 2:
+    match get &l3_2 2:
         Option::Some x:
             set l3_2_value x
         Option::None:
             unit
-    free<i32> l3_2;
+    free l3_2;
 
     let l3_3 %List i32 mk;
-    let l3_3_none %bool is_none get<i32> &l3_3 3;
-    free<i32> l3_3;
+    let l3_3_none %bool is_none get &l3_3 3;
+    free l3_3;
 
     let l3_100 %List i32 mk;
-    let l3_100_none %bool is_none get<i32> &l3_100 100;
-    free<i32> l3_100;
+    let l3_100_none %bool is_none get &l3_100 100;
+    free l3_100;
 
     let l3_n1 %List i32 mk;
-    let l3_n1_none %bool is_none get<i32> &l3_n1 -1;
-    free<i32> l3_n1;
+    let l3_n1_none %bool is_none get &l3_n1 -1;
+    free l3_n1;
 
     let l3h %List i32 mk;
     let mut l3h_value %i32 -1;
-    match head<i32> &l3h:
+    match head &l3h:
         Option::Some x:
             set l3h_value x
         Option::None:
             unit
-    free<i32> l3h;
+    free l3h;
 
     let l3t %List i32 mk;
     let mut l3t_head_value %i32 -1;
-    match tail<i32> l3t:
+    match tail l3t:
         Option::Some l3_tail:
-            match head<i32> &l3_tail:
+            match head &l3_tail:
                 Option::Some x:
                     set l3t_head_value x
                 Option::None:
                     unit
-            free<i32> l3_tail
+            free l3_tail
         Option::None:
             unit
 
     let l3r0 %List i32 mk;
     let l_rev %List i32 reverse<i32> l3r0;
     let mut l_rev0_value %i32 -1;
-    match get<i32> &l_rev 0:
+    match get &l_rev 0:
         Option::Some x:
             set l_rev0_value x
         Option::None:
             unit
-    free<i32> l_rev;
+    free l_rev;
 
     let l3r1 %List i32 mk;
     let l_rev2 %List i32 reverse<i32> l3r1;
     let mut l_rev2_value %i32 -1;
-    match get<i32> &l_rev2 2:
+    match get &l_rev2 2:
         Option::Some x:
             set l_rev2_value x
         Option::None:
             unit
-    free<i32> l_rev2;
+    free l_rev2;
 
     let lf %List i32 mk;
-    free<i32> lf;
+    free lf;
 
     let report:
         test_report_new "list_main"
@@ -191,79 +191,79 @@ fn gt_two %fn i32 bool \x:
 
 fn main %impure fn unit i32 \unit:
     let mapped_src0 %List i32 mk;
-    let mapped0 %List i32 uwok map<i32,i32> mapped_src0 inc;
+    let mapped0 %List i32 uwok map mapped_src0 inc;
     let mut mapped0_value %i32 -1;
-    match get<i32> &mapped0 0:
+    match get &mapped0 0:
         Option::Some x:
             set mapped0_value x
         Option::None:
             unit
-    free<i32> mapped0;
+    free mapped0;
 
     let mapped_src3 %List i32 mk;
-    let mapped3 %List i32 uwok map<i32,i32> mapped_src3 inc;
+    let mapped3 %List i32 uwok map mapped_src3 inc;
     let mut mapped3_value %i32 -1;
-    match get<i32> &mapped3 3:
+    match get &mapped3 3:
         Option::Some x:
             set mapped3_value x
         Option::None:
             unit
-    free<i32> mapped3;
+    free mapped3;
 
     let filtered_len_src %List i32 mk;
-    let filtered_len_list %List i32 uwok filter<i32> filtered_len_src is_even;
-    let filtered_len %i32 len<i32> &filtered_len_list;
-    free<i32> filtered_len_list;
+    let filtered_len_list %List i32 uwok filter filtered_len_src is_even;
+    let filtered_len %i32 len &filtered_len_list;
+    free filtered_len_list;
 
     let filtered_src0 %List i32 mk;
-    let filtered0 %List i32 uwok filter<i32> filtered_src0 is_even;
+    let filtered0 %List i32 uwok filter filtered_src0 is_even;
     let mut filtered0_value %i32 -1;
-    match get<i32> &filtered0 0:
+    match get &filtered0 0:
         Option::Some x:
             set filtered0_value x
         Option::None:
             unit
-    free<i32> filtered0;
+    free filtered0;
 
     let filtered_src1 %List i32 mk;
-    let filtered1 %List i32 uwok filter<i32> filtered_src1 is_even;
+    let filtered1 %List i32 uwok filter filtered_src1 is_even;
     let mut filtered1_value %i32 -1;
-    match get<i32> &filtered1 1:
+    match get &filtered1 1:
         Option::Some x:
             set filtered1_value x
         Option::None:
             unit
-    free<i32> filtered1;
+    free filtered1;
 
     let folded_src %List i32 mk;
-    let folded_sum %i32 fold<i32,i32> &folded_src 0 add_acc;
-    free<i32> folded_src;
+    let folded_sum %i32 fold &folded_src 0 add_acc;
+    free folded_src;
 
     let reduced_src %List i32 mk;
     let mut reduced_value %i32 -1;
-    match reduce<i32> &reduced_src add_acc:
+    match reduce &reduced_src add_acc:
         Option::Some x:
             set reduced_value x
         Option::None:
             unit
-    free<i32> reduced_src;
+    free reduced_src;
 
     let find_src %List i32 mk;
     let mut find_value %i32 -1;
-    match find<i32> &find_src gt_two:
+    match find &find_src gt_two:
         Option::Some x:
             set find_value x
         Option::None:
             unit
-    free<i32> find_src;
+    free find_src;
 
     let any_src %List i32 mk;
-    let any_value %bool any<i32> &any_src gt_two;
-    free<i32> any_src;
+    let any_value %bool any &any_src gt_two;
+    free any_src;
 
     let all_src %List i32 mk;
-    let all_value %bool all<i32> &all_src is_even;
-    free<i32> all_src;
+    let all_value %bool all &all_src is_even;
+    free all_src;
 
     let report:
         test_report_new "list_functional_helpers"

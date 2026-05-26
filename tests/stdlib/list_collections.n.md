@@ -32,24 +32,24 @@ fn main %impure fn unit i32 \unit:
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
     let first_rev %List i32 reverse<i32> src_first;
-    let first_ok %bool match get<i32> &first_rev 0:
+    let first_ok %bool match get &first_rev 0:
         Option::Some x:
             eq x 3
         Option::None:
             false
-    free<i32> first_rev;
+    free first_rev;
     let src_last %List i32:
         unwrap_ok new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
     let last_rev %List i32 reverse<i32> src_last;
-    let last_ok %bool match get<i32> &last_rev 2:
+    let last_ok %bool match get &last_rev 2:
         Option::Some x:
             eq x 1
         Option::None:
             false
-    free<i32> last_rev;
+    free last_rev;
     let report:
         test_report_new "list_reverse_preserves_order"
         |> test_report_push assert "reverse first item" first_ok
@@ -84,8 +84,8 @@ stdout: "test_report name=\"list_reverse_empty_is_empty\" count=1 failed=0\nasse
 fn main %impure fn unit i32 \unit:
     let empty %List i32 unwrap_ok new<i32>;
     let rev %List i32 reverse<i32> empty;
-    let ok %bool is_empty<i32> &rev
-    free<i32> rev
+    let ok %bool is_empty &rev
+    free rev
     let report:
         test_report_new "list_reverse_empty_is_empty"
         |> test_report_push assert "reverse empty remains empty" ok
@@ -131,18 +131,18 @@ fn main %impure fn unit i32 \unit:
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
-    let map_ok %bool match map<i32,i32> map_src inc:
+    let map_ok %bool match map map_src inc:
         Result::Err e:
-            let recovered %List i32 list_transform_error_list<i32> e
-            free<i32> recovered
+            let recovered %List i32 list_transform_error_list e
+            free recovered
             false
         Result::Ok mapped:
-            let ok %bool match get<i32> &mapped 1:
+            let ok %bool match get &mapped 1:
                 Option::Some x:
                     eq x 3
                 Option::None:
                     false
-            free<i32> mapped
+            free mapped
             ok
     let filter_src %List i32:
         unwrap_ok new<i32>
@@ -150,14 +150,14 @@ fn main %impure fn unit i32 \unit:
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
-    let filter_ok %bool match filter<i32> filter_src is_even:
+    let filter_ok %bool match filter filter_src is_even:
         Result::Err e:
-            let recovered %List i32 list_transform_error_list<i32> e
-            free<i32> recovered
+            let recovered %List i32 list_transform_error_list e
+            free recovered
             false
         Result::Ok filtered:
-            let ok %bool eq len<i32> &filtered 2
-            free<i32> filtered
+            let ok %bool eq len &filtered 2
+            free filtered
             ok
     let report:
         test_report_new "list_map_filter_return_result"
