@@ -35,7 +35,7 @@ pub fn stdio_read_all_text_result %impure fn unit Result str StdErrorKind \unit:
         Result::Ok bytes:
             text_bytebuf_to_utf8_str_result bytes
         Result::Err e:
-            Result<str, StdErrorKind>::Err e
+            Result::Err e
 
 //: read_all: 標準入力を EOF まで読み込む
 //:
@@ -97,7 +97,7 @@ pub fn read_all %impure fn unit str \unit:
 pub fn stdio_read_line_result %impure fn unit Result str StdErrorKind \unit:
     match stdio_read_line_buffer_result:
         Result::Err e:
-            Result<str, StdErrorKind>::Err e
+            Result::Err e
         Result::Ok bytes:
             text_bytebuf_to_utf8_str_result bytes
 

@@ -637,6 +637,15 @@ LLM/手動判断が必要なもの:
 - timeout 後に残留していた当該 `node.exe` process は停止した。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 stdio read Result constructor checkpoint
+
+- `stdlib/std/stdio/read/buffer.nepl` / `stdlib/std/stdio/read/text.nepl` で、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 15 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/std/stdio/write/fd.nepl` は subagent が並列で確認中のため、この checkpoint では追加差分に含めない。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/std/stdio/read/buffer.nepl stdlib/std/stdio/read/text.nepl` は 0 件になった。
+- `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/std/stdio/read/buffer.nepl stdlib/std/stdio/read/text.nepl` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/std/stdio/read/buffer.nepl -i stdlib/std/stdio/read/text.nepl --no-tree -o tmp/neplg21-stdio-read-result-constructors.json -j 1 --dist web/dist --assert-io` は 5 件すべて compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

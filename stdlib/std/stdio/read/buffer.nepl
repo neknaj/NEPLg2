@@ -39,12 +39,12 @@ fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr
     if:
         math::lt data_len 0
         then:
-            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+            Result::Err StdErrorKind::InvalidOperation
         else:
             if:
                 math::eq data_len 0
                 then:
-                    Result<i32, StdErrorKind>::Ok 0
+                    Result::Ok 0
                 else:
                     let iov_raw %i32 mem_ptr_addr iov
                     let nread_raw %i32 mem_ptr_addr nread
@@ -56,7 +56,7 @@ fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr
                     if:
                         math::or invalid_scratch invalid_data
                         then:
-                            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+                            Result::Err StdErrorKind::InvalidOperation
                         else:
                             store_i32 iov_raw data_raw
                             store_i32 math::add iov_raw 4 data_len
@@ -65,9 +65,9 @@ fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr
                             if:
                                 math::ne errno 0
                                 then:
-                                    Result<i32, StdErrorKind>::Err StdErrorKind::IoError
+                                    Result::Err StdErrorKind::IoError
                                 else:
-                                    Result<i32, StdErrorKind>::Ok load_i32 nread_raw
+                                    Result::Ok load_i32 nread_raw
 
 //: stdio_discard_read_buffer: owner 付き読込 region を破棄して Err を返す
 //:
@@ -108,7 +108,7 @@ pub fn stdio_discard_read_buffer %impure fn RegionToken u8 impure fn StdErrorKin
             unit
         Result::Err _:
             unit
-    Result<ByteBuf, StdErrorKind>::Err err
+    Result::Err err
 
 //: stdio_finish_read_buffer: capacity 付き読込 region を ByteBuf の所有権 invariant へ詰め直す
 //:
@@ -140,7 +140,7 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
                     unit
                 Result::Err _:
                     unit
-            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
+            Result::Err StdErrorKind::InvalidOperation
         else:
             if:
                 math::eq data_len 0
@@ -150,16 +150,16 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
                             unit
                         Result::Err _:
                             unit
-                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
+                    Result::Ok io_bytebuf_empty
                 else:
                     if:
                         math::eq data_len cap
                         then:
-                            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region data_len
+                            Result::Ok io_bytebuf_finish_region region data_len
                         else:
                             match realloc_region_bytes_keep<u8> region data_len:
                                 Result::Ok exact_region:
-                                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region exact_region data_len
+                                    Result::Ok io_bytebuf_finish_region exact_region data_len
                                 Result::Err e:
                                     let old_region %RegionToken u8 region_realloc_error_region<u8> e
                                     match dealloc_region<u8> old_region:
@@ -167,7 +167,7 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
                                             unit
                                         Result::Err _:
                                             unit
-                                    Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                    Result::Err StdErrorKind::OutOfMemory
 
 //: ## stdio_read_all_buffer_result
 //: stdin の[残/のこ]りを `ByteBuf` として[読/よ]み[込/こ]む raw byte read 境界
@@ -210,7 +210,7 @@ pub fn stdio_read_all_buffer_result %impure fn unit Result ByteBuf StdErrorKind 
     let mut cap %i32 65536;
     match alloc_region<u8> cap:
         Result::Err _e:
-            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+            Result::Err StdErrorKind::OutOfMemory
         Result::Ok buf0_region:
             let mut buf_region %RegionToken u8 buf0_region;
             match alloc_region<u8> 8:
@@ -355,7 +355,7 @@ pub fn stdio_read_line_buffer_result %impure fn unit Result ByteBuf StdErrorKind
     let cap %i32 1024;
     match alloc_region<u8> cap:
         Result::Err _e:
-            Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
+            Result::Err StdErrorKind::OutOfMemory
         Result::Ok buf_region:
             match alloc_region<u8> 8:
                 Result::Err _e:

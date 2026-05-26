@@ -1,3 +1,17 @@
+# 2026-05-26 Agent 1 stdio read Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる stdio read 領域の constructor だけを移行した。
+- `stdlib/std/stdio/read/buffer.nepl` / `stdlib/std/stdio/read/text.nepl` で、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 15 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/std/stdio/write/fd.nepl` は subagent が並列で確認中のため、この checkpoint では追加差分に含めない。
+- 検証:
+  - `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/std/stdio/read/buffer.nepl stdlib/std/stdio/read/text.nepl`: 0 件。
+  - `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/std/stdio/read/buffer.nepl stdlib/std/stdio/read/text.nepl`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/std/stdio/read/buffer.nepl -i stdlib/std/stdio/read/text.nepl --no-tree -o tmp/neplg21-stdio-read-result-constructors.json -j 1 --dist web/dist --assert-io`: 5 件すべて compile timeout after 60000ms。型診断は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 alloc/io Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる alloc/io 領域の constructor だけを移行した。
