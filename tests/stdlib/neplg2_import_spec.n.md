@@ -48,11 +48,11 @@ fn main %impure fn unit i32 \unit:
                     let shown checks_print_report checks7
                     checks_exit_code shown
                 Result::Err _diag:
-                    let checks1 checks_push checks0 Result<unit,str>::Err "second import spec parse returned Err"
+                    let checks1 checks_push checks0 Result::Err "second import spec parse returned Err"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _diag:
-            let checks1 checks_push checks0 Result<unit,str>::Err "first import spec parse returned Err"
+            let checks1 checks_push checks0 Result::Err "first import spec parse returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -82,7 +82,7 @@ fn main %impure fn unit i32 \unit:
     let span %SelfhostSourceSpan source_span_new 3 0 7
     match selfhost_import_spec_parse_lexeme span "#import":
         Result::Ok _spec:
-            let checks1 checks_push checks0 Result<unit,str>::Err "malformed import was accepted"
+            let checks1 checks_push checks0 Result::Err "malformed import was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -117,7 +117,7 @@ fn main %impure fn unit i32 \unit:
     let span %SelfhostSourceSpan source_span_new 4 0 32
     match selfhost_import_spec_parse_lexeme span "#import \"core/result\" as * extra":
         Result::Ok _spec:
-            let checks1 checks_push checks0 Result<unit,str>::Err "trailing import text was accepted"
+            let checks1 checks_push checks0 Result::Err "trailing import text was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:

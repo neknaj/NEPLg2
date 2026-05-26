@@ -32,11 +32,11 @@ fn main %impure fn unit i32 \unit:
                     checks_exit_code shown
                 Result::Ok _summary:
                     selfhost_module_ast_free ast
-                    let checks1 checks_push checks0 Result<unit,str>::Err "checker accepted public impl declaration header"
+                    let checks1 checks_push checks0 Result::Err "checker accepted public impl declaration header"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _diag:
-            let checks1 checks_push checks0 Result<unit,str>::Err "parser returned Err"
+            let checks1 checks_push checks0 Result::Err "parser returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
