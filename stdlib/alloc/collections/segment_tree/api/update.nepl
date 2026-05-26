@@ -57,14 +57,14 @@ pub fn replace %impure fn SegmentTree impure fn i32 impure fn i32 Result Segment
                 if:
                     not seg_storage_has_expected_len data base
                     then:
-                        diag_err<unit> seg_diag_index
+                        diag_err seg_diag_index
                     else:
                         if:
                             seg_replace_storage data base idx value
                             then:
                                 ok unit
                             else:
-                                diag_err<unit> seg_diag_index
+                                diag_err seg_diag_index
             match result:
                 Result::Ok _unit:
                     seg_update_ok st
@@ -104,14 +104,14 @@ pub fn add %impure fn SegmentTree impure fn i32 impure fn i32 Result SegmentTree
                 if:
                     not seg_storage_has_expected_len data base
                     then:
-                        diag_err<unit> seg_diag_index
+                        diag_err seg_diag_index
                     else:
                         if:
                             seg_add_storage data base idx delta
                             then:
                                 ok unit
                             else:
-                                diag_err<unit> seg_diag_index
+                                diag_err seg_diag_index
             match result:
                 Result::Ok _unit:
                     seg_update_ok st

@@ -28,4 +28,4 @@ pub fn sparse_set_alloc_array %impure fn i32 Result Vec i32 Diag \n:
         Result::Ok items:
             ok items
         Result::Err _e:
-            diag_err<Vec<i32>> diag_out_of_memory
+            diag_err diag_out_of_memory

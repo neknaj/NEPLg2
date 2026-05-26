@@ -70,7 +70,7 @@ pub fn insert %impure fn SparseSet impure fn i32 Result SparseSet SparseSetUpdat
                     Option::Some next_len:
                         ok next_len
                     Option::None:
-                        diag_err<i32> sparse_set_diag_index
+                        diag_err sparse_set_diag_index
             match result:
                 Result::Ok next_len:
                     sparse_set_update_ok s next_len
@@ -115,7 +115,7 @@ pub fn remove %impure fn SparseSet impure fn i32 Result SparseSet SparseSetUpdat
                     Option::Some next_len:
                         ok next_len
                     Option::None:
-                        diag_err<i32> sparse_set_diag_index
+                        diag_err sparse_set_diag_index
             match result:
                 Result::Ok next_len:
                     sparse_set_update_ok s next_len

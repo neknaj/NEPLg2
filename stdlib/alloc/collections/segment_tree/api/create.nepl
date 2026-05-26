@@ -36,12 +36,12 @@
 pub fn new %impure fn i32 Result SegmentTree Diag \n:
     if:
         lt n 0
-        then diag_err<SegmentTree> seg_diag_len
+        then diag_err seg_diag_len
         else:
             let base %i32 seg_next_pow2 if eq n 0 1 n
             let cells %i32 seg_expected_cells base
             match vec::filled<i32> cells 0:
                 Result::Err _e:
-                    diag_err<SegmentTree> diag_out_of_memory
+                    diag_err diag_out_of_memory
                 Result::Ok data:
                     ok SegmentTree n base data

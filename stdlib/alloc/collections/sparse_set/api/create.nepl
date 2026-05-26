@@ -37,7 +37,7 @@ pub fn new %impure fn i32 Result SparseSet Diag \n:
     if:
         lt n 0
         then:
-            diag_err<SparseSet> sparse_set_diag_len
+            diag_err sparse_set_diag_len
         else:
             match sparse_set_alloc_array n:
                 Result::Err d:

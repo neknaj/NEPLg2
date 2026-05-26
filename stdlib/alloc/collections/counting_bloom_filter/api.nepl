@@ -50,7 +50,7 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure fn i32 Re
     if:
         le nslots 0
         then:
-            diag_err<CountingBloomFilter<.T,.H>> counting_bloom_invalid_len_diag
+            diag_err counting_bloom_invalid_len_diag
         else:
             match counting_bloom_alloc_counters nslots 0:
                 Result::Err d:
