@@ -1003,6 +1003,15 @@ LLM/手動判断が必要なもの:
 - `tmp/neplg21-overload-pair-inference-smoke.neplg2` の direct `nepl-cli.exe --check --target core` で、generic call の型引数が argument evidence と typed local から解けることを確認した。
 - `tests/compiler/overload.n.md::doctest#10` の focused doctest / native check は既存の compile-time 長時間化で timeout した。型診断は取得できていないため、full doctest green 化は performance issue 側で継続確認する。
 
+### 2026-05-27 DropPayload positive lifecycle postfix checkpoint
+
+- `tests/stdlib/collection_cleanup_contract.n.md` の `vec_push_accepts_drop_payload` positive path で、`new<DropPayload>` / `push<DropPayload>` / `len<DropPayload>` / `free<DropPayload>` を postfix-free call へ移行した。
+- `new` は `let v0 %Vec DropPayload`、`push` は receiver `v0` と `(DropPayload 7)`、`len` / `free` は `v1: Vec DropPayload` から型が決まる。
+- compile_fail / negative contract / raw boundary / trait impl の明示型引数は、診断目的を変えないため保持した。
+- `nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js` に今回の positive DropPayload lifecycle だけを検出する限定 pattern を追加した。コメント量を制限する検査ではない。
+- `node nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js` と `node nodesrc/test_stdlib_collection_cleanup_contract.js` は pass した。
+- `node nodesrc/run_doctest.js -i tests/stdlib/collection_cleanup_contract.n.md -n 6 --dist web/dist` は外側 timeout。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

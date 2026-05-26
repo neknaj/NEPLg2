@@ -134,10 +134,10 @@ impl Drop for DropPayload:
         unit
 
 fn main %fn unit i32 \unit:
-    let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-    let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 7)
-    let ok %bool eq len<DropPayload> &v1 1
-    free<DropPayload> v1
+    let v0 %Vec DropPayload unwrap_ok new
+    let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 7)
+    let ok %bool eq len &v1 1
+    free v1
     if ok 0 1
 ```
 

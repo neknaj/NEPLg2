@@ -13,6 +13,7 @@ const fixtures = [
             ['Vec empty metadata postfix', /\bvec_empty<CleanupPayload>/],
             ['Vec empty observer postfix', /\bis_empty<CleanupPayload>/],
             ['Vec metadata observer postfix', /\b(?:len|cap|vec_partition_matched_len)<CleanupPayload>/],
+            ['DropPayload positive Vec lifecycle postfix', /\b(?:new|push|len|free)<DropPayload>/],
             ['BTreeMap cleanup metadata len postfix', /\blen<i32,\s*CleanupPayload>/],
             ['HashMap cleanup metadata len postfix', /\blen<i32,\s*CleanupPayload,\s*DefaultHash32>/],
         ],

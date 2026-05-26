@@ -47139,3 +47139,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `tmp/neplg21-overload-pair-inference-smoke.neplg2` の direct `nepl-cli.exe --check --target core` で、argument evidence と typed local から generic call の型引数が解けることを確認した。
 - `node nodesrc/test_stdlib_kpgraph_no_unsafe_unwraps.js`、`node nodesrc/test_neplg21_kpgraph_overload_postfix_cleanup.js`、`node nodesrc/test_neplg21_diagnostics_kp_cost_postfix_cleanup.js` は pass した。
 - `tests/compiler/overload.n.md::doctest#10` の focused doctest と native check は compile-time 長時間化で timeout した。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
+
+## 2026-05-27 Agent 1 DropPayload positive lifecycle postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`tests/stdlib/collection_cleanup_contract.n.md` の `vec_push_accepts_drop_payload` positive path を postfix-free にした。`plan.md` は変更していない。
+- `new` は `let v0 %Vec DropPayload`、`push` は receiver `v0` と `(DropPayload 7)`、`len` / `free` は `v1: Vec DropPayload` から型が決まるため、明示 type args を残す必要がない。
+- compile_fail / negative contract / raw boundary / trait impl の明示型引数は、狙っている診断を変えないため保持した。
+- `nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js` に、今回撤廃した DropPayload positive lifecycle postfix の限定検査を追加した。コメント量を制限する検査ではない。
+- `node nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js` と `node nodesrc/test_stdlib_collection_cleanup_contract.js` は pass した。
+- `node nodesrc/run_doctest.js -i tests/stdlib/collection_cleanup_contract.n.md -n 6 --dist web/dist` は外側 timeout。残留 runner は停止した。
