@@ -26,7 +26,7 @@ pub fn heap_item_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \items\idx:
         Option::None:
             none<.T>
 
-pub fn heap_store_slot <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T () \items\idx\item:
+pub fn heap_store_slot <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \items\idx\item:
     vec::replace<Option<.T>> items idx item
 
 pub fn heap_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Diag \cap:
@@ -36,7 +36,7 @@ pub fn heap_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Diag \cap
         Result::Err _e:
             diag_err<Vec<Option<.T>>> diag_out_of_memory
 
-pub fn heap_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn &Vec Option .T impure fn i32 () \src\dst\len0:
+pub fn heap_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn &Vec Option .T impure fn i32 unit \src\dst\len0:
     let mut i %i32 0
     while lt i len0:
         do:

@@ -20,7 +20,7 @@ stdout: mlstr:
 #import "alloc/io" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     match text_bytebuf_to_utf8_str_result io_bytebuf_from_str "こんにちは":
         Result::Ok text:
@@ -56,7 +56,7 @@ stdout: mlstr:
 #import "core/option" as *
 #import "core/result" as *
 
-fn expect_decoded %impure fn str impure fn Result CharUtf8Step StdErrorKind impure fn i32 impure fn i32 Result () str \label\got\expected_code\expected_next:
+fn expect_decoded %impure fn str impure fn Result CharUtf8Step StdErrorKind impure fn i32 impure fn i32 Result unit str \label\got\expected_code\expected_next:
     match got:
         Result::Err _e:
             Result::Err label
@@ -69,7 +69,7 @@ fn expect_decoded %impure fn str impure fn Result CharUtf8Step StdErrorKind impu
                 Result::Ok _:
                     check_eq_i32 expected_next next
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let bytes %ByteBuf io_bytebuf_from_str "Aあ"
     let checks:
         match io_bytebuf_ptr_ref &bytes:
@@ -106,7 +106,7 @@ stdout: mlstr:
 #import "alloc/io" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new
     match text_utf8_encode_char 'あ':
         Result::Err _e:
@@ -142,7 +142,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
@@ -153,9 +153,9 @@ fn main %impure fn () i32 \():
                 Result::Err e:
                     match dealloc_region<u8> region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _e:
-                            ();
+                            unit;
                     set checks checks_push checks Result::Err e
                 Result::Ok _:
                     match text_bytebuf_to_utf8_str_result io_bytebuf_finish_region region 1:
@@ -187,7 +187,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
@@ -198,9 +198,9 @@ fn main %impure fn () i32 \():
                 Result::Err e:
                     match dealloc_region<u8> region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _e:
-                            ();
+                            unit;
                     set checks checks_push checks Result::Err e
                 Result::Ok _:
                     match io_bytebuf_to_str_result io_bytebuf_finish_region region 1:
@@ -233,14 +233,14 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     match io_bytebuf_alloc_region 3:
         Result::Err _e:
             set checks checks_push checks Result::Err "alloc failed"
         Result::Ok region:
             let data %MemPtr u8 region_ptr &region
-            let mut ok %Result () str Result::Ok ()
+            let mut ok %Result unit str Result::Ok unit
             match store_u8 data 224:
                 Result::Err e:
                     set ok Result::Err e
@@ -261,14 +261,14 @@ fn main %impure fn () i32 \():
                                                 Result::Err e:
                                                     set ok Result::Err e
                                                 Result::Ok _:
-                                                    ()
+                                                    unit
             match ok:
                 Result::Err e:
                     match dealloc_region<u8> region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _e:
-                            ();
+                            unit;
                     set checks checks_push checks Result::Err e
                 Result::Ok _:
                     match text_bytebuf_to_utf8_str_result io_bytebuf_finish_region region 3:
@@ -301,7 +301,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let path %str "tmp/fs_invalid_utf8_checked_case.bin"
     match io_bytebuf_alloc_region 1:
@@ -313,9 +313,9 @@ fn main %impure fn () i32 \():
                 Result::Err e:
                     match dealloc_region<u8> region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _e:
-                            ();
+                            unit;
                     set checks checks_push checks Result::Err e
                 Result::Ok _:
                     match fs_write_to_bytes path io_bytebuf_finish_region region 1:
@@ -352,7 +352,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let path %str "tmp/fs_invalid_utf8_default_case.bin"
     match io_bytebuf_alloc_region 1:
@@ -364,9 +364,9 @@ fn main %impure fn () i32 \():
                 Result::Err e:
                     match dealloc_region<u8> region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _e:
-                            ();
+                            unit;
                     set checks checks_push checks Result::Err e
                 Result::Ok _:
                     match fs_write_to_bytes path io_bytebuf_finish_region region 1:
@@ -404,7 +404,7 @@ stdout: mlstr:
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
@@ -415,9 +415,9 @@ fn main %impure fn () i32 \():
                 Result::Err e:
                     match dealloc_region<u8> region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _e:
-                            ();
+                            unit;
                     set checks checks_push checks Result::Err e
                 Result::Ok _:
                     let target %ReadStream ReadStream::Bytes io_bytebuf_finish_region region 1

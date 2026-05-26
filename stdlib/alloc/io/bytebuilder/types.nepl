@@ -15,7 +15,7 @@
 //:| #target std
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     if eq byte_builder_len byte_builder_empty 0 1 0
 //: ```
 
@@ -72,7 +72,7 @@ pub struct ByteBuilder:
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let invalid %i32 sub 0 1
 //:     match byte_builder_reserve byte_builder_empty invalid:
 //:         Result::Ok b:
@@ -111,7 +111,7 @@ pub struct ByteBuilderError:
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     // owner-backed error payload は ordinary source から直接構築できない。
 //:     let invalid %StdErrorKind StdErrorKind::InvalidOperation
 //:     let e %ByteBuilderByteBufError ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
@@ -141,7 +141,7 @@ pub struct ByteBuilderByteBufError:
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let invalid %i32 sub 0 1
 //:     match byte_builder_reserve byte_builder_empty invalid:
 //:         Result::Ok b:
@@ -171,7 +171,7 @@ pub fn byte_builder_error_kind %fn &ByteBuilderError StdErrorKind \e:
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let invalid %i32 sub 0 1
 //:     match byte_builder_reserve byte_builder_empty invalid:
 //:         Result::Ok b:
@@ -199,7 +199,7 @@ pub fn byte_builder_error_builder %fn ByteBuilderError ByteBuilder \e:
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     // error payload は `byte_builder_push_bytebuf` の Err branch から得る。
 //:     let invalid %StdErrorKind StdErrorKind::InvalidOperation
 //:     let e %ByteBuilderByteBufError ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
@@ -221,7 +221,7 @@ pub fn byte_builder_bytebuf_error_kind %fn &ByteBuilderByteBufError StdErrorKind
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)。
-pub fn byte_builder_empty %fn () ByteBuilder \():
+pub fn byte_builder_empty %fn unit ByteBuilder \unit:
     ByteBuilder ByteBuilderStorage::Empty 0 0
 
 //: byte_builder_from_owned_region: 所有 byte 領域 token を `ByteBuilder` に包む

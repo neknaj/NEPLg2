@@ -25,7 +25,7 @@
 
 //: ## new
 //: [空/から]の queue を[作/つく]る
-pub fn new <.T: Copy> %impure fn () Result Queue .T Diag \():
+pub fn new <.T: Copy> %impure fn unit Result Queue .T Diag \unit:
     with_capacity<.T> 8
 
 //: ## with_capacity
@@ -123,5 +123,5 @@ pub fn clear <.T: Copy> %impure fn Queue .T Queue .T \q:
 
 //: ## free
 //: queue が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> %fn Queue .T () \q:
+pub fn free <.T: Copy> %fn Queue .T unit \q:
     vec::free<Option<.T>> field::get q "items"

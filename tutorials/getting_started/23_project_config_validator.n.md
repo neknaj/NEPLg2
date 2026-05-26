@@ -36,21 +36,21 @@ fn validate_config %fn ServerConfig Result ServerConfig str \config:
                 else:
                     Result::Ok config
 
-fn expect_valid %fn ServerConfig Result () str \config:
+fn expect_valid %fn ServerConfig Result unit str \config:
     match validate_config config:
         Result::Ok _ok:
-            Result::Ok ()
+            Result::Ok unit
         Result::Err msg:
             Result::Err msg
 
-fn expect_invalid %fn ServerConfig fn str Result () str \config\expected:
+fn expect_invalid %fn ServerConfig fn str Result unit str \config\expected:
     match validate_config config:
         Result::Ok _ok:
             Result::Err "expected invalid config"
         Result::Err msg:
             check_str_eq expected msg
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks:
         checks_new
         |> checks_push expect_valid ServerConfig 8080 4

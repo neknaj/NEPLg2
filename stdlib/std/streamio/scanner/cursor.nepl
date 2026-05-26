@@ -63,7 +63,7 @@ pub fn stream_scanner_is_exponent_marker %fn i32 bool \byte:
         _:
             false
 
-pub fn stream_scanner_skip_ws_state %impure fn &StreamScanner () \sc:
+pub fn stream_scanner_skip_ws_state %impure fn &StreamScanner unit \sc:
     let bytes %&ByteBuf get_ref sc "bytes";
     let len %i32 stream_scanner_len sc;
     let mut p %i32 stream_scanner_load_pos sc;
@@ -90,18 +90,18 @@ pub fn stream_scanner_skip_ws_state %impure fn &StreamScanner () \sc:
                                         then:
                                             set p 2;
                                         else:
-                                            ()
+                                            unit
                         else:
                             if:
                                 or and eq b0 255 eq b1 254 and eq b0 254 eq b1 255
                                 then:
                                     set p 2;
                                 else:
-                                    ()
+                                    unit
                 else:
-                    ()
+                    unit
         else:
-            ();
+            unit;
 
     let mut done %i32 0;
     while eq done 0:
@@ -119,4 +119,4 @@ pub fn stream_scanner_skip_ws_state %impure fn &StreamScanner () \sc:
                 set done 1;
 
     stream_scanner_store_pos sc p;
-    ()
+    unit

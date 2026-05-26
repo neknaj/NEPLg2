@@ -23,10 +23,10 @@ struct Guard:
     dummy %i32
 
 impl Drop for Guard:
-    fn drop %impure fn &Guard () \self:
-        ()
+    fn drop %impure fn &Guard unit \self:
+        unit
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut g %Guard Guard 0;
     set g Guard 1;
     let report:

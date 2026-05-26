@@ -20,7 +20,7 @@ fn positive_double %fn i32 Result i32 i32 \x:
         then ok mul x 2
         else err -1
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let r1 %Result i32 i32 ok 5;
     let r1_ok %bool is_ok r1;
     let r1_err %bool is_err r1;

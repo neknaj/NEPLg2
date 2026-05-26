@@ -25,7 +25,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match selfhost_import_spec_parse_lexeme source_span_new 0 0 26 "#import \"core/result\" as *":
         Result::Ok first:
@@ -48,11 +48,11 @@ fn main %impure fn () i32 \():
                     let shown checks_print_report checks7
                     checks_exit_code shown
                 Result::Err _diag:
-                    let checks1 checks_push checks0 Result<(),str>::Err "second import spec parse returned Err"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "second import spec parse returned Err"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _diag:
-            let checks1 checks_push checks0 Result<(),str>::Err "first import spec parse returned Err"
+            let checks1 checks_push checks0 Result<unit,str>::Err "first import spec parse returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -77,12 +77,12 @@ stdout: mlstr:
 #import "neplg2/core/module/import_spec" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     let span %SelfhostSourceSpan source_span_new 3 0 7
     match selfhost_import_spec_parse_lexeme span "#import":
         Result::Ok _spec:
-            let checks1 checks_push checks0 Result<(),str>::Err "malformed import was accepted"
+            let checks1 checks_push checks0 Result<unit,str>::Err "malformed import was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -112,12 +112,12 @@ stdout: mlstr:
 #import "neplg2/core/module/import_spec" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     let span %SelfhostSourceSpan source_span_new 4 0 32
     match selfhost_import_spec_parse_lexeme span "#import \"core/result\" as * extra":
         Result::Ok _spec:
-            let checks1 checks_push checks0 Result<(),str>::Err "trailing import text was accepted"
+            let checks1 checks_push checks0 Result<unit,str>::Err "trailing import text was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:

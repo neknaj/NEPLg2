@@ -43,7 +43,7 @@ pub fn selfhost_parse_module_source %impure fn str Result SelfhostModuleAst Self
     selfhost_parse_module_source_with_file_id source 0
 
 //: selfhost_module_parser_stage0: parser 入口の smoke API
-pub fn selfhost_module_parser_stage0 %impure fn () i32 \():
+pub fn selfhost_module_parser_stage0 %impure fn unit i32 \unit:
     match selfhost_parse_module_source "fn main <()->i32> ():\n    0\n":
         Result::Ok ast:
             let n %i32 selfhost_module_ast_len &ast

@@ -23,7 +23,7 @@
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let valid %bool match io_bytebuf_from_str_result "nep":
 //:         Result::Err _e:
 //:             false
@@ -63,7 +63,7 @@
 //:| #target std
 //:| #import "std/text/validate" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let is_ascii %bool match text_utf8_lead_kind 65:
 //:         TextUtf8LeadKind::Ascii:
 //:             true
@@ -136,7 +136,7 @@ pub fn text_utf8_lead_kind %fn i32 TextUtf8LeadKind \b:
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let matched %bool match io_bytebuf_from_str_result "nep":
 //:         Result::Err _e:
 //:             false
@@ -169,36 +169,36 @@ pub fn text_utf8_byte_at_checked %fn MemPtr u8 fn i32 fn i32 Result i32 StdError
                 Option::None:
                     Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
 
-fn text_utf8_validate_two %fn MemPtr u8 fn i32 fn i32 Result () StdErrorKind \data\i\byte_len:
+fn text_utf8_validate_two %fn MemPtr u8 fn i32 fn i32 Result unit StdErrorKind \data\i\byte_len:
     if:
         gt add i 2 byte_len
         then:
-            Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+            Result<unit, StdErrorKind>::Err StdErrorKind::InvalidUtf8
         else:
             match text_utf8_byte_at_checked data byte_len add i 1:
                 Result::Err e:
-                    Result<(), StdErrorKind>::Err e
+                    Result<unit, StdErrorKind>::Err e
                 Result::Ok b1:
                     if:
                         text_utf8_is_continuation b1
                         then:
-                            Result<(), StdErrorKind>::Ok ()
+                            Result<unit, StdErrorKind>::Ok unit
                         else:
-                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                            Result<unit, StdErrorKind>::Err StdErrorKind::InvalidUtf8
 
-fn text_utf8_validate_three %fn MemPtr u8 fn i32 fn i32 fn i32 Result () StdErrorKind \data\i\byte_len\b0:
+fn text_utf8_validate_three %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit StdErrorKind \data\i\byte_len\b0:
     if:
         gt add i 3 byte_len
         then:
-            Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+            Result<unit, StdErrorKind>::Err StdErrorKind::InvalidUtf8
         else:
             match text_utf8_byte_at_checked data byte_len add i 1:
                 Result::Err e:
-                    Result<(), StdErrorKind>::Err e
+                    Result<unit, StdErrorKind>::Err e
                 Result::Ok b1:
                     match text_utf8_byte_at_checked data byte_len add i 2:
                         Result::Err e:
-                            Result<(), StdErrorKind>::Err e
+                            Result<unit, StdErrorKind>::Err e
                         Result::Ok b2:
                             let first_ok %bool:
                                 if:
@@ -215,27 +215,27 @@ fn text_utf8_validate_three %fn MemPtr u8 fn i32 fn i32 fn i32 Result () StdErro
                             if:
                                 and first_ok text_utf8_is_continuation b2
                                 then:
-                                    Result<(), StdErrorKind>::Ok ()
+                                    Result<unit, StdErrorKind>::Ok unit
                                 else:
-                                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                    Result<unit, StdErrorKind>::Err StdErrorKind::InvalidUtf8
 
-fn text_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result () StdErrorKind \data\i\byte_len\b0:
+fn text_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit StdErrorKind \data\i\byte_len\b0:
     if:
         gt add i 4 byte_len
         then:
-            Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+            Result<unit, StdErrorKind>::Err StdErrorKind::InvalidUtf8
         else:
             match text_utf8_byte_at_checked data byte_len add i 1:
                 Result::Err e:
-                    Result<(), StdErrorKind>::Err e
+                    Result<unit, StdErrorKind>::Err e
                 Result::Ok b1:
                     match text_utf8_byte_at_checked data byte_len add i 2:
                         Result::Err e:
-                            Result<(), StdErrorKind>::Err e
+                            Result<unit, StdErrorKind>::Err e
                         Result::Ok b2:
                             match text_utf8_byte_at_checked data byte_len add i 3:
                                 Result::Err e:
-                                    Result<(), StdErrorKind>::Err e
+                                    Result<unit, StdErrorKind>::Err e
                                 Result::Ok b3:
                                     let first_ok %bool:
                                         if:
@@ -252,9 +252,9 @@ fn text_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result () StdError
                                     if:
                                         and first_ok and text_utf8_is_continuation b2 text_utf8_is_continuation b3
                                         then:
-                                            Result<(), StdErrorKind>::Ok ()
+                                            Result<unit, StdErrorKind>::Ok unit
                                         else:
-                                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                            Result<unit, StdErrorKind>::Err StdErrorKind::InvalidUtf8
 
 //: text_utf8_validate_mem: raw byte [列/れつ]が UTF-8 として[妥当/だとう]か[検証/けんしょう]する
 //:
@@ -282,7 +282,7 @@ fn text_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result () StdError
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let valid %bool match io_bytebuf_from_str_result "nep":
 //:         Result::Err _e:
 //:             false
@@ -302,15 +302,15 @@ fn text_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result () StdError
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn text_utf8_validate_mem %fn MemPtr u8 fn i32 Result () StdErrorKind \data\byte_len:
+pub fn text_utf8_validate_mem %fn MemPtr u8 fn i32 Result unit StdErrorKind \data\byte_len:
     if:
         lt byte_len 0
         then:
-            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+            Result<unit, StdErrorKind>::Err StdErrorKind::InvalidOperation
         else:
             let mut i %i32 0
             let mut done %i32 0
-            let mut res %Result () StdErrorKind Result<(), StdErrorKind>::Ok ()
+            let mut res %Result unit StdErrorKind Result<unit, StdErrorKind>::Ok unit
             while eq done 0:
                 do:
                     if:
@@ -320,7 +320,7 @@ pub fn text_utf8_validate_mem %fn MemPtr u8 fn i32 Result () StdErrorKind \data\
                         else:
                             match text_utf8_byte_at_checked data byte_len i:
                                 Result::Err e:
-                                    set res Result<(), StdErrorKind>::Err e
+                                    set res Result<unit, StdErrorKind>::Err e
                                     set done 1
                                 Result::Ok b0:
                                     match text_utf8_lead_kind b0:
@@ -331,23 +331,23 @@ pub fn text_utf8_validate_mem %fn MemPtr u8 fn i32 Result () StdErrorKind \data\
                                                 Result::Ok _:
                                                     set i add i 2
                                                 Result::Err e:
-                                                    set res Result<(), StdErrorKind>::Err e
+                                                    set res Result<unit, StdErrorKind>::Err e
                                                     set done 1
                                         TextUtf8LeadKind::Three:
                                             match text_utf8_validate_three data i byte_len b0:
                                                 Result::Ok _:
                                                     set i add i 3
                                                 Result::Err e:
-                                                    set res Result<(), StdErrorKind>::Err e
+                                                    set res Result<unit, StdErrorKind>::Err e
                                                     set done 1
                                         TextUtf8LeadKind::Four:
                                             match text_utf8_validate_four data i byte_len b0:
                                                 Result::Ok _:
                                                     set i add i 4
                                                 Result::Err e:
-                                                    set res Result<(), StdErrorKind>::Err e
+                                                    set res Result<unit, StdErrorKind>::Err e
                                                     set done 1
                                         TextUtf8LeadKind::Invalid:
-                                            set res Result<(), StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                                            set res Result<unit, StdErrorKind>::Err StdErrorKind::InvalidUtf8
                                             set done 1
             res

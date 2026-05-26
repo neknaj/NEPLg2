@@ -28,9 +28,9 @@ pub fn append_f64_fixed_impl %impure fn StreamWriter impure fn f64 impure fn i32
             set ww push_u8_impl ww 45;
             let nx %f64 neg x;
             set x nx;
-            ()
+            unit
         else:
-            ();
+            unit;
 
     let int_part %i64 cast x;
     let int_u %u64 cast int_part;

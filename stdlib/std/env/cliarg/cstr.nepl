@@ -47,7 +47,7 @@
 //:| #import "alloc/string/storage" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let p %MemPtr u8 string_data_ptr "nep\0";
 //:     match cstr_len_bounded_result p 4:
 //:         Result::Ok n:
@@ -121,7 +121,7 @@ pub fn cstr_len_bounded_result %impure fn MemPtr u8 impure fn i32 Result i32 str
 //:| #import "alloc/string/storage" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let p %MemPtr u8 string_data_ptr "nep\0";
 //:     match cstr_to_str_bounded_result p 4:
 //:         Result::Ok s:

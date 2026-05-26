@@ -21,7 +21,7 @@ fn positive_double %fn i32 Option i32 \x:
         then some mul x 2
         else none
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let some_is_some %bool is_some some 42;
     let some_is_none %bool is_none some 42;
     let none_value %Option i32 none;

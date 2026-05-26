@@ -63,23 +63,23 @@ pub fn selfhost_module_check_directive_fact %fn SelfhostModuleDirectiveState fn 
 pub fn selfhost_module_check_item_directive_state %fn SelfhostModuleDirectiveState fn SelfhostModuleItem Result SelfhostModuleDirectiveState SelfhostProofRefutation \state\item:
     selfhost_module_check_directive_fact state selfhost_module_directive_item_fact item
 
-pub fn selfhost_module_check_item_span %fn SelfhostModuleItem Result () SelfhostProofRefutation \item:
+pub fn selfhost_module_check_item_span %fn SelfhostModuleItem Result unit SelfhostProofRefutation \item:
     match selfhost_proof_source_span_valid item.span:
         Result::Ok _:
-            Result<(),SelfhostProofRefutation>::Ok ()
+            Result<unit,SelfhostProofRefutation>::Ok unit
         Result::Err refutation:
-            Result<(),SelfhostProofRefutation>::Err refutation
+            Result<unit,SelfhostProofRefutation>::Err refutation
 
 fn selfhost_module_declaration_item_fact %fn SelfhostModuleItem SelfhostModuleDeclarationFact \item:
     selfhost_module_declaration_fact_new item.kind item.declaration item.span
 
-pub fn selfhost_module_check_item_declaration_header %fn SelfhostModuleItem Result () SelfhostProofRefutation \item:
+pub fn selfhost_module_check_item_declaration_header %fn SelfhostModuleItem Result unit SelfhostProofRefutation \item:
     match selfhost_module_item_kind_declaration item.kind:
         Option::Some kind:
             match selfhost_proof_module_declaration_header kind selfhost_module_declaration_item_fact item:
                 Result::Ok _header:
-                    Result<(),SelfhostProofRefutation>::Ok ()
+                    Result<unit,SelfhostProofRefutation>::Ok unit
                 Result::Err refutation:
-                    Result<(),SelfhostProofRefutation>::Err refutation
+                    Result<unit,SelfhostProofRefutation>::Err refutation
         Option::None:
-            Result<(),SelfhostProofRefutation>::Ok ()
+            Result<unit,SelfhostProofRefutation>::Ok unit

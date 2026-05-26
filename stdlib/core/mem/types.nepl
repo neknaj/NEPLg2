@@ -15,7 +15,7 @@
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     if ge size_of<MemPtr<i32>> 4 1 0
 //: ```
 

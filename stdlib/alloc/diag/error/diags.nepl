@@ -17,7 +17,7 @@
 //:| #import "core/result" as *
 //:| #import "alloc/diag/error/diag" as *
 //:| #import "alloc/diag/error/diags" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let d %Diag diag_error StdErrorKind::EmptyCollection "empty"
 //:     let ds %Diags diags_one d
 //:     let checks checks_push checks_new assert diags_has_errors ds
@@ -39,17 +39,17 @@
 //:
 //: [目的/もくてき]:
 //: - `Diags` [構築/こうちく]で allocation failure が[起/お]きても trap せず、[空/から]の[診断群/しんだんぐん]へ[丸/まる]めます。
-pub fn diag_empty_diag_vec %fn () Vec Diag \():
+pub fn diag_empty_diag_vec %fn unit Vec Diag \unit:
     v::vec_empty<Diag>
 
 //: diags_new: [空/から]の `Diags` を[作/つく]る
-pub fn diags_new %impure fn () Diags \():
+pub fn diags_new %impure fn unit Diags \unit:
     let mut items %Vec Diag diag_empty_diag_vec;
     match v::new<Diag>:
         Result::Ok items0:
             set items items0
         Result::Err _e:
-            ()
+            unit
     Diags items
 
 //: diags_one: `Diag` 1 [件/けん]から `Diags` を[作/つく]る
@@ -120,5 +120,5 @@ pub fn diags_has_errors_loop %fn &Vec Diag fn i32 fn i32 bool \items\n\i:
 //: [目的/もくてき]:
 //: - `Diags` を[値/あたい]として[消費/しょうひ]し、`items` の backing storage を[閉/と]じます。
 //: - `Diag` 本体は Copy な text fragment だけを[保持/ほじ]するため、要素ごとの drop traversal は[行/おこな]いません。
-pub fn diags_free %fn Diags () \ds:
+pub fn diags_free %fn Diags unit \ds:
     v::free<Diag> field::get ds "items"

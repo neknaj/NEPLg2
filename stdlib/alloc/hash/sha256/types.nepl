@@ -77,5 +77,5 @@ impl Copy for Sha256State:
 //:
 //: [実装/じっそう]:
 //: - SHA-256 [仕様/しよう]で[定/さだ]められた 8 word の IV を signed i32 literal として[保持/ほじ]します。
-pub fn sha256_initial_state %fn () Sha256State \():
+pub fn sha256_initial_state %fn unit Sha256State \unit:
     Sha256State 1779033703 -1150833019 1013904242 -1521486534 1359893119 -1694144372 528734635 1541459225

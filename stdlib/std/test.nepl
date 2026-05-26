@@ -23,12 +23,12 @@ pub #import "./test/report" as @merge
 //:| #indent 4
 //:| #target std
 //:| #import "std/test" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     test_assertion_exit_code assert_eq_i32 1 1
 //: ```
 //:
 //: [注意/ちゅうい]:
 //: - `assert_*` は stdout を[出/だ]しません。表示は `test_report_print_stdout` だけが[担当/たんとう]します。
 //: - `test_report_exit_code` は stdout を[出/だ]さず、失敗件数から 0/1 を[返/かえ]します。
-//: - 既存 doctest の段階移行用に `checks_*` という短い入口も同じ `TestReport` へ委譲します。旧 `Result<(),str>` accumulator へ戻すものではありません。
+//: - 既存 doctest の段階移行用に `checks_*` という短い入口も同じ `TestReport` へ委譲します。旧 `Result<unit,str>` accumulator へ戻すものではありません。
 //: - report は test helper 用なので、[集約/しゅうやく]時に安定文字列を[蓄積/ちくせき]します。大量 case では O(n^2) の文字列連結になります。

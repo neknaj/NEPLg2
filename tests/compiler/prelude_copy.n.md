@@ -28,7 +28,7 @@ fn clone_left <.T: Copy> %fn .T fn fn .T i32 i32 \x\f:
 fn as_i32 %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 clone_left 7 @as_i32
     let report:
         test_report_new "default_prelude_supplies_copy_impls"
@@ -56,7 +56,7 @@ fn clone_left <.T: Copy> %fn .T fn fn .T i32 i32 \x\f:
 fn as_i32 %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 clone_left 11 @as_i32
     let report:
         test_report_new "explicit_prelude_survives_no_prelude"
@@ -81,7 +81,7 @@ fn clone_left <.T: Copy> %fn .T fn fn .T i32 i32 \x\f:
 fn as_i32 %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     clone_left 3 @as_i32
 ```
 
@@ -108,7 +108,7 @@ stdout: "test_report name=\"generic_mem_ptr_copy_impl\" count=1 failed=0\nassert
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p mem_ptr_wrap<i32> 32;
     let a mem_ptr_addr p;
     let b mem_ptr_addr p;

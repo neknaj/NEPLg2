@@ -31,7 +31,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/mono/mono" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     selfhost_mono_stage0
 //: ```
 
@@ -174,7 +174,7 @@ pub fn selfhost_mono_type_arg_range_new %fn i32 fn i32 SelfhostMonoTypeArgRange 
     SelfhostMonoTypeArgRange first_arg arg_count
 
 //: selfhost_mono_type_arg_range_empty: canonical empty type argument 範囲を返す
-pub fn selfhost_mono_type_arg_range_empty %fn () SelfhostMonoTypeArgRange \():
+pub fn selfhost_mono_type_arg_range_empty %fn unit SelfhostMonoTypeArgRange \unit:
     selfhost_mono_type_arg_range_new 0 0
 
 //: selfhost_mono_type_arg_range_is_valid: type argument table 範囲が有効か判定する
@@ -211,7 +211,7 @@ pub fn selfhost_mono_instance_id_index %fn SelfhostMonoInstanceId i32 \instance_
 //:
 //: [目的/もくてき]:
 //: - 未割り当てを `SelfhostMonoInstanceId(-1)` ではなく `Option::None` として表します。
-pub fn selfhost_mono_instance_id_pending %fn () Option SelfhostMonoInstanceId \():
+pub fn selfhost_mono_instance_id_pending %fn unit Option SelfhostMonoInstanceId \unit:
     none<SelfhostMonoInstanceId>
 
 //: selfhost_mono_instance_id_assigned: 割り当て済み instance ID を Option に包む
@@ -238,7 +238,7 @@ pub fn selfhost_mono_instance_record_matches_key %fn SelfhostMonoInstanceRecord 
     selfhost_mono_instance_key_eq record.key key
 
 //: selfhost_mono_instance_cache_new: 空の mono instance cache を作る
-pub fn selfhost_mono_instance_cache_new %impure fn () Result SelfhostMonoInstanceCache StdErrorKind \():
+pub fn selfhost_mono_instance_cache_new %impure fn unit Result SelfhostMonoInstanceCache StdErrorKind \unit:
     match v::new<SelfhostMonoInstanceRecord>:
         Result::Ok records:
             Result<SelfhostMonoInstanceCache, StdErrorKind>::Ok SelfhostMonoInstanceCache records
@@ -246,7 +246,7 @@ pub fn selfhost_mono_instance_cache_new %impure fn () Result SelfhostMonoInstanc
             Result<SelfhostMonoInstanceCache, StdErrorKind>::Err e
 
 //: selfhost_mono_instance_cache_free: cache storage を解放する
-pub fn selfhost_mono_instance_cache_free %impure fn SelfhostMonoInstanceCache () \cache:
+pub fn selfhost_mono_instance_cache_free %impure fn SelfhostMonoInstanceCache unit \cache:
     v::free<SelfhostMonoInstanceRecord> field::get cache "records"
 
 //: selfhost_mono_instance_cache_len: cache 内の record 数を返す
@@ -371,7 +371,7 @@ pub fn selfhost_mono_instance_key_seed %fn SelfhostMonoInstanceKey i32 \key:
     selfhost_mono_seed_mix s2 args.arg_count
 
 //: selfhost_mono_stage0: mono key / cache storage model の smoke API
-pub fn selfhost_mono_stage0 %impure fn () i32 \():
+pub fn selfhost_mono_stage0 %impure fn unit i32 \unit:
     let def0 %SelfhostMonoDefId selfhost_mono_def_id_new 2 5
     let range0 %SelfhostMonoTypeArgRange selfhost_mono_type_arg_range_new 9 3
     let key0 %SelfhostMonoInstanceKey selfhost_mono_instance_key_new def0 range0

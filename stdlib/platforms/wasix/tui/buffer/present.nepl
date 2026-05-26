@@ -30,7 +30,7 @@ pub fn line_has_escape %impure fn str bool \s:
                 then:
                     set found true
                 else:
-                    ();
+                    unit;
             set i add i 1;
     found
 
@@ -49,7 +49,7 @@ pub fn line_has_escape %impure fn str bool \s:
 //: [注意/ちゅうい]:
 //: - UTF-8 文字幅は `str_display_width` による近似です。
 //: - 差分開始位置はバイト基準で探索し、カーソル列は表示幅換算で計算します。
-pub fn buffer_present_diff %impure fn i32 () \b:
+pub fn buffer_present_diff %impure fn i32 unit \b:
     let cols %i32 load_i32 b;
     let rows %i32 load_i32 add b 4;
     let curr %i32 load_i32 add b 8;
@@ -93,6 +93,6 @@ pub fn buffer_present_diff %impure fn i32 () \b:
                             print tail_padded;
                     store<str> add prev off c;
                 else:
-                    ();
+                    unit;
             set i add i 1;
-    ()
+    unit

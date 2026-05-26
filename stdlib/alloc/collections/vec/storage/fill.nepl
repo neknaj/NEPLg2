@@ -48,7 +48,7 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //:| #import "core/field" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match filled<i32> 3 7:
 //:         Result::Ok v:
 //:             let observed_len %i32 len<i32> &v
@@ -74,7 +74,7 @@
 //: ### [注意/ちゅうい]
 //: - `.T: Copy` の値だけを[受/う]け[取/と]ります。同じ `value` を複数 slot に[書/か]き[込/こ]むため、owner payload を複製してはいけません。
 //: - この helper は public にしません。collection slot marker は allocation を[実行/じっこう]している implementation boundary の[内部/ないぶ]証明として[扱/あつか]います。
-fn vec_filled_slot_store_initialized <.T: Copy> %fn &RegionToken .T fn i32 fn .T () \storage\byte_off\value:
+fn vec_filled_slot_store_initialized <.T: Copy> %fn &RegionToken .T fn i32 fn .T unit \storage\byte_off\value:
     let data %MemPtr .T region_ptr storage
     let slot %MemPtr .T mem_ptr_add<.T> data byte_off
     let raw %i32 mem_ptr_addr slot

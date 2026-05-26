@@ -19,7 +19,7 @@ stdout: "test_report name=\"selfhost_cliarg_parser\" count=10 failed=0\nassertio
 #import "core/result" as *
 #import "std/test" as *
 
-fn selfhost_cliarg_parser_accepts_check_emit_output_and_input %impure fn () bool \():
+fn selfhost_cliarg_parser_accepts_check_emit_output_and_input %impure fn unit bool \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "--check" |> uwok
@@ -53,7 +53,7 @@ fn selfhost_cliarg_parser_accepts_check_emit_output_and_input %impure fn () bool
             v::free<str> args;
             ok
 
-fn selfhost_cliarg_parser_rejects_unknown_option %impure fn () bool \():
+fn selfhost_cliarg_parser_rejects_unknown_option %impure fn unit bool \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "--unknown" |> uwok
@@ -66,7 +66,7 @@ fn selfhost_cliarg_parser_rejects_unknown_option %impure fn () bool \():
             v::free<str> args;
             ok
 
-fn selfhost_cliarg_parser_rejects_missing_value %impure fn () bool \():
+fn selfhost_cliarg_parser_rejects_missing_value %impure fn unit bool \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "--emit" |> uwok
@@ -79,7 +79,7 @@ fn selfhost_cliarg_parser_rejects_missing_value %impure fn () bool \():
             v::free<str> args;
             ok
 
-fn selfhost_cliarg_parser_rejects_multiple_input %impure fn () bool \():
+fn selfhost_cliarg_parser_rejects_multiple_input %impure fn unit bool \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "a.nepl" |> uwok
@@ -93,7 +93,7 @@ fn selfhost_cliarg_parser_rejects_multiple_input %impure fn () bool \():
             v::free<str> args;
             ok
 
-fn selfhost_cliarg_parser_skips_program_name %impure fn () bool \():
+fn selfhost_cliarg_parser_skips_program_name %impure fn unit bool \unit:
     let argv %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "neplg2" |> uwok
@@ -122,7 +122,7 @@ fn selfhost_cliarg_parser_skips_program_name %impure fn () bool \():
             v::free<str> argv;
             ok
 
-fn selfhost_cliarg_parser_records_run_args_start %impure fn () bool \():
+fn selfhost_cliarg_parser_records_run_args_start %impure fn unit bool \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "--run" |> uwok
@@ -144,7 +144,7 @@ fn selfhost_cliarg_parser_records_run_args_start %impure fn () bool \():
             v::free<str> args;
             ok
 
-fn selfhost_cliarg_parser_accepts_aliases_and_profile %impure fn () bool \():
+fn selfhost_cliarg_parser_accepts_aliases_and_profile %impure fn unit bool \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "--attach-source" |> uwok
@@ -221,7 +221,7 @@ fn selfhost_cliarg_parser_accepts_aliases_and_profile %impure fn () bool \():
             v::free<str> args;
             ok
 
-fn selfhost_cliarg_parser_accepts_emit_list_and_deduplicates %impure fn () bool \():
+fn selfhost_cliarg_parser_accepts_emit_list_and_deduplicates %impure fn unit bool \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "--emit" |> uwok
@@ -243,7 +243,7 @@ fn selfhost_cliarg_parser_accepts_emit_list_and_deduplicates %impure fn () bool 
             v::free<str> args;
             ok
 
-fn selfhost_cliarg_parser_accepts_emit_all %impure fn () bool \():
+fn selfhost_cliarg_parser_accepts_emit_all %impure fn unit bool \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "--emit" |> uwok
@@ -265,7 +265,7 @@ fn selfhost_cliarg_parser_accepts_emit_all %impure fn () bool \():
             v::free<str> args;
             ok
 
-fn selfhost_cliarg_parser_rejects_invalid_emit_member %impure fn () bool \():
+fn selfhost_cliarg_parser_rejects_invalid_emit_member %impure fn unit bool \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "--emit" |> uwok
@@ -279,7 +279,7 @@ fn selfhost_cliarg_parser_rejects_invalid_emit_member %impure fn () bool \():
             v::free<str> args;
             ok
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let report %TestReport:
         test_report_new "selfhost_cliarg_parser"
         |> test_report_push assert "accepts check emit output and input" selfhost_cliarg_parser_accepts_check_emit_output_and_input

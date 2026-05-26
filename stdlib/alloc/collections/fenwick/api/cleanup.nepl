@@ -30,11 +30,11 @@
 //:| #import "alloc/collections/fenwick" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let fw %Fenwick unwrap_ok<Fenwick, Diag> new 2;
 //:     free fw;
 //:     1
 //: ```
-pub fn free %impure fn Fenwick () \fw:
+pub fn free %impure fn Fenwick unit \fw:
     let bit %Vec i32 field::get fw "bit"
     fenwick_free_bit bit

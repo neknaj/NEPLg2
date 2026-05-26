@@ -26,7 +26,7 @@
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //:| #import "neplg2/core/infra/text" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match source_text_new 0 "smoke.nepl" "a\nb":
 //:         Result::Ok text:
 //:             let count %i32 source_text_line_count &text
@@ -204,7 +204,7 @@ pub fn source_text_new %fn i32 fn str fn str Result SelfhostSourceText StdErrorK
             Result<SelfhostSourceText, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: source_text_free: line start table を[解放/かいほう]する
-pub fn source_text_free %fn SelfhostSourceText () \text:
+pub fn source_text_free %fn SelfhostSourceText unit \text:
     v::free<i32> field::get text "line_starts"
 
 //: source_text_len: source [本文/ほんぶん]の byte [長/ちょう]を[返/かえ]す
@@ -336,7 +336,7 @@ pub fn source_text_location_for_offset %fn &SelfhostSourceText fn i32 Option Sel
             none<SelfhostSourceLocation>
 
 //: selfhost_text_stage0: source text [基盤/きばん]の smoke API
-pub fn selfhost_text_stage0 %impure fn () i32 \():
+pub fn selfhost_text_stage0 %impure fn unit i32 \unit:
     match source_text_new 0 "stage0.nepl" "a\nb":
         Result::Ok text:
             let count %i32 source_text_line_count &text

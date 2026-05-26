@@ -12,8 +12,8 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| fn main %impure fn () i32 \():
-//:     ()
+//:| fn main %impure fn unit i32 \unit:
+//:     unit
 //:     0
 //: ```
 
@@ -73,5 +73,5 @@ pub fn get_ref <.T,.I,.R> %fn &.T fn .I &.R \obj\idx:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn put <.T,.I,.V> %fn .T fn .I fn .V () \obj\idx\val:
+pub fn put <.T,.I,.V> %fn .T fn .I fn .V unit \obj\idx\val:
     #intrinsic "set_field" <> (obj,idx,val)

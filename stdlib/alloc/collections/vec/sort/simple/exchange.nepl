@@ -28,21 +28,21 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n^2)
-pub fn sort_bubble <.T: Ord&Copy> %impure fn &Vec .T () \v:
+pub fn sort_bubble <.T: Ord&Copy> %impure fn &Vec .T unit \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            ()
+            unit
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then ()
+                then unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            ()
+                            unit
                         VecDataView::Invalid _reason:
-                            ()
+                            unit
                         VecDataView::Data data:
                             let mut end %i32 sub n 1;
                             while lt 0 end:
@@ -58,10 +58,10 @@ pub fn sort_bubble <.T: Ord&Copy> %impure fn &Vec .T () \v:
                                                 then:
                                                     store<.T> add mem_ptr_addr data mul i size_of<.T> b;
                                                     store<.T> add mem_ptr_addr data mul next_i size_of<.T> a
-                                                else ()
+                                                else unit
                                             set i add i 1;
                                     set end sub end 1;
-                            ()
+                            unit
 
 //: sort_cocktail: cocktail shaker sort で in-place 整列する
 //:
@@ -77,21 +77,21 @@ pub fn sort_bubble <.T: Ord&Copy> %impure fn &Vec .T () \v:
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 / 最悪 O(n^2)
-pub fn sort_cocktail <.T: Ord&Copy> %impure fn &Vec .T () \v:
+pub fn sort_cocktail <.T: Ord&Copy> %impure fn &Vec .T unit \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            ()
+            unit
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then ()
+                then unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            ()
+                            unit
                         VecDataView::Invalid _reason:
-                            ()
+                            unit
                         VecDataView::Data data:
                             let mut start %i32 0;
                             let mut end %i32 sub n 1;
@@ -113,8 +113,8 @@ pub fn sort_cocktail <.T: Ord&Copy> %impure fn &Vec .T () \v:
                                                     store<.T> add mem_ptr_addr data mul i size_of<.T> b;
                                                     store<.T> add mem_ptr_addr data mul next_i size_of<.T> a;
                                                     set swapped 1;
-                                                    ()
-                                                else ()
+                                                    unit
+                                                else unit
                                             set i add i 1;
 
                                     set end sub end 1;
@@ -137,9 +137,9 @@ pub fn sort_cocktail <.T: Ord&Copy> %impure fn &Vec .T () \v:
                                                     store<.T> add mem_ptr_addr data mul prev_j size_of<.T> b;
                                                     store<.T> add mem_ptr_addr data mul j size_of<.T> a;
                                                     set swapped 1;
-                                                    ()
-                                                else ()
+                                                    unit
+                                                else unit
                                             set j sub j 1;
 
                                     set start add start 1;
-                            ()
+                            unit

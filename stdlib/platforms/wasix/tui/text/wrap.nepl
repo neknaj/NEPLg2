@@ -27,7 +27,7 @@ pub struct TuiStrPushRes:
 //:
 //: [目的/もくてき]:
 //: - `Vec` 初期確保に失敗した場合の空の折り返し結果を作ります。
-pub fn tui_empty_str_vec %fn () Vec str \():
+pub fn tui_empty_str_vec %fn unit Vec str \unit:
     v::vec_empty<str>
 
 //: tui_push_str: `Vec<str>` push を trap せず結果化する
@@ -88,7 +88,7 @@ pub fn text_wrap_lines %impure fn str impure fn i32 Vec str \text\cols:
                                     set line_w 0;
                                 else:
                                     set failed true;
-                                    ()
+                                    unit
                         else:
                             let kind %TuiTextByteKind tui_text_byte_kind b;
                             let ch_len %i32 tui_text_byte_len kind;
@@ -112,7 +112,7 @@ pub fn text_wrap_lines %impure fn str impure fn i32 Vec str \text\cols:
                                                     set line_w 0;
                                                 else:
                                                     set failed true;
-                                                    ()
+                                                    unit
                                         else:
                                             let ln3 %str str_slice text line_start i;
                                             let pushed_out3 %TuiStrPushRes tui_push_str out ln3;
@@ -125,7 +125,7 @@ pub fn text_wrap_lines %impure fn str impure fn i32 Vec str \text\cols:
                                                     set line_w 0;
                                                 else:
                                                     set failed true;
-                                                    ()
+                                                    unit
                                 else:
                                     set i add i ch_len;
                                     set line_w next_w;
@@ -135,6 +135,6 @@ pub fn text_wrap_lines %impure fn str impure fn i32 Vec str \text\cols:
                     let tail %str str_slice text line_start n;
                     let pushed_tail %TuiStrPushRes tui_push_str out tail;
                     set out get pushed_tail "items";
-                    ()
-                else ()
+                    unit
+                else unit
             out

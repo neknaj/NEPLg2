@@ -23,7 +23,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/cast" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     set checks checks_push checks check_str_eq "true" serialize true;
     set checks checks_push checks check_str_eq "42" serialize 42;
@@ -56,7 +56,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
 
     match deserialize<i32> "42":
@@ -77,7 +77,7 @@ fn main %impure fn () i32 \():
         Result::Err e:
             match e:
                 StdErrorKind::ParseError:
-                    set checks checks_push checks Result::Ok ();
+                    set checks checks_push checks Result::Ok unit;
                 StdErrorKind::Failure:
                     set checks checks_push checks Result::Err "wrong error kind";
                 StdErrorKind::OutOfMemory:

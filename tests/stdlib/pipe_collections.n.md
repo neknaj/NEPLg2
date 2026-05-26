@@ -21,7 +21,7 @@ stdout: mlstr:
 #import "core/field" as *
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32 }
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let xs0 %List i32:
         unwrap_ok<List<i32>, Diag> new<i32>
@@ -66,7 +66,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32 }
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let s0 %Stack i32:
         unwrap_ok<Stack<i32>, Diag> new<i32>
@@ -117,7 +117,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag<i32,i32> &e
             btreemap_insert_error_owner<i32,i32> e
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let m0 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
@@ -179,7 +179,7 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
             let _d %Diag btreeset_insert_error_diag<i32> &e
             btreeset_insert_error_owner<i32> e
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let s0 %BTreeSet i32:
         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
@@ -248,7 +248,7 @@ fn must_hm %impure fn Result HashMap i32 i32 DefaultHash32 HashMapUpdateError i3
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let hm0 %HashMap i32 i32 DefaultHash32:
         must_hm new DefaultHash32
@@ -313,10 +313,10 @@ fn must_hs %impure fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 De
             free hs;
             #intrinsic "unreachable" <> ()
 
-fn new_hs %impure fn () Result HashSet i32 DefaultHash32 Diag \():
+fn new_hs %impure fn unit Result HashSet i32 DefaultHash32 Diag \unit:
     new DefaultHash32
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let hs0 %HashSet i32 DefaultHash32:
         new_hs
@@ -360,7 +360,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32 }
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let rb %RingBuffer i32:
         unwrap_ok<RingBuffer<i32>, Diag> new<i32>
@@ -402,7 +402,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as { checks_new, checks_push, checks_print_report, checks_exit_code, check_eq_i32 }
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let q %Queue i32:
         unwrap_ok<Queue<i32>, Diag> new<i32>

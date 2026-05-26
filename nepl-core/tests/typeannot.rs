@@ -17,12 +17,27 @@ fn test_neplg21_percent_type_annot_basic() {
 #target wasm
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let a %i32 add %i32 10 %i32 20
     a
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 30);
+}
+
+#[test]
+fn test_neplg21_unit_keyword_type_annotation_and_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+
+fn main %fn unit i32 \unit:
+    let marker %unit unit
+    42
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 42);
 }
 
 #[test]
@@ -33,7 +48,7 @@ fn test_neplg21_prefix_generic_type_annot() {
 #target wasm
 #import "core/option" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let opt %Option i32 some<i32> 42
     match opt:
         Option::Some v:
@@ -53,13 +68,13 @@ fn test_neplg21_prefix_generic_type_annot_forward_declared_user_type() {
 #target wasm
 #no_prelude
 
-fn make_later %fn () Later i32 \():
+fn make_later %fn unit Later i32 \unit:
     Later 42
 
 struct Later<.T>:
     value %.T
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let later %Later i32 make_later
     42
 "#;
@@ -93,7 +108,7 @@ pub struct ImportedBox<.T>:
 #no_prelude
 #import "./generic_box" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let boxed %ImportedBox i32 ImportedBox 77
     77
 "#,
@@ -164,7 +179,7 @@ pub struct Diag:
 #no_prelude
 #import "./facade" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 "#,
     )

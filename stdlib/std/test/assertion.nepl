@@ -10,7 +10,7 @@
 //: `std/test` の assertion 生成と quiet check helper
 //:
 //: [目的/もくてき]:
-//: - stdout や report 集約を行わず、assertion の評価結果だけを `TestAssertion` または `Result<(),str>` として返します。
+//: - stdout や report 集約を行わず、assertion の評価結果だけを `TestAssertion` または `Result<unit,str>` として返します。
 //: - `AssertionKind` を使うことで、assertion の種類を文字列ではなく静的検査可能な enum として扱います。
 
 //: test_str_eq: [文字列/もじれつ]が[等/ひと]しいか[判定/はんてい]する
@@ -153,27 +153,27 @@ pub fn noshadow assert_err_i32 %fn Result i32 i32 TestAssertion \r:
 //: [注意/ちゅうい]:
 //: - 移行中の helper 用です。新しい canonical report では `assert` が返す `TestAssertion` を[優先/ゆうせん]します。
 //: - quiet helper は `TestAssertion` を中間生成しません。失敗時だけ message 文字列を作り、成功時は所有 `str` を作らないことで Resource IR の owner 境界を単純に保ちます。
-pub fn check %fn bool Result () str \okv:
+pub fn check %fn bool Result unit str \okv:
     if:
         okv
         then:
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         else:
-            Result<(),str>::Err "check failed"
+            Result<unit,str>::Err "check failed"
 
-pub fn check_eq_i32 %fn i32 fn i32 Result () str \expected\actual:
+pub fn check_eq_i32 %fn i32 fn i32 Result unit str \expected\actual:
     if:
         eq expected actual
         then:
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         else:
             let se %str from_i32 expected
             let sa %str from_i32 actual
             let m0 %str concat "check_eq_i32 failed: expected=" se
             let m1 %str concat m0 " actual="
-            Result<(),str>::Err concat m1 sa
+            Result<unit,str>::Err concat m1 sa
 
-pub fn check_ne %fn bool fn bool Result () str \a\b:
+pub fn check_ne %fn bool fn bool Result unit str \a\b:
     if:
         a
         then:
@@ -184,42 +184,42 @@ pub fn check_ne %fn bool fn bool Result () str \a\b:
                     let sb %str from_bool b
                     let m0 %str concat "check_ne failed: a=" sa
                     let m1 %str concat m0 " b="
-                    Result<(),str>::Err concat m1 sb
+                    Result<unit,str>::Err concat m1 sb
                 else:
-                    Result<(),str>::Ok ()
+                    Result<unit,str>::Ok unit
         else:
             if:
                 b
                 then:
-                    Result<(),str>::Ok ()
+                    Result<unit,str>::Ok unit
                 else:
                     let sa %str from_bool a
                     let sb %str from_bool b
                     let m0 %str concat "check_ne failed: a=" sa
                     let m1 %str concat m0 " b="
-                    Result<(),str>::Err concat m1 sb
+                    Result<unit,str>::Err concat m1 sb
 
-pub fn check_str_eq %fn str fn str Result () str \expected\actual:
+pub fn check_str_eq %fn str fn str Result unit str \expected\actual:
     if:
         test_str_eq expected actual
         then:
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         else:
             let m0 %str concat "check_str_eq failed: expected=\"" expected
             let m1 %str concat m0 "\" actual=\""
             let m2 %str concat m1 actual
-            Result<(),str>::Err concat m2 "\""
+            Result<unit,str>::Err concat m2 "\""
 
-pub fn check_ok_i32 %fn Result i32 i32 Result () str \r:
+pub fn check_ok_i32 %fn Result i32 i32 Result unit str \r:
     match r:
         Result::Ok _:
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         Result::Err e:
-            Result<(),str>::Err concat "check_ok_i32 failed: Err=" from_i32 e
+            Result<unit,str>::Err concat "check_ok_i32 failed: Err=" from_i32 e
 
-pub fn check_err_i32 %fn Result i32 i32 Result () str \r:
+pub fn check_err_i32 %fn Result i32 i32 Result unit str \r:
     match r:
         Result::Ok v:
-            Result<(),str>::Err concat "check_err_i32 failed: Ok=" from_i32 v
+            Result<unit,str>::Err concat "check_err_i32 failed: Ok=" from_i32 v
         Result::Err _:
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit

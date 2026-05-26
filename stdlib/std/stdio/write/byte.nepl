@@ -32,12 +32,12 @@
 //:| #entry main
 //:| #target std
 //:| #import "std/stdio/write" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     print_byte 'A'
 //: ```
-pub fn print_byte %impure fn i32 () \b:
+pub fn print_byte %impure fn i32 unit \b:
     match stdio_write_fd_byte_result 1 b:
         Result::Ok _:
-            ()
+            unit
         Result::Err _e:
-            ()
+            unit

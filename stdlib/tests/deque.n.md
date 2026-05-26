@@ -17,7 +17,7 @@ stdout: "test_report name=\"deque_push_front_back\" count=3 failed=0\nassertion 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let dq0 %Deque i32:
         unwrap_ok<Deque<i32>, Diag> new<i32>
         |> push_back 10 |> uwok
@@ -71,7 +71,7 @@ stdout: "test_report name=\"deque_pop_both_ends\" count=4 failed=0\nassertion in
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let dq_front %Deque i32:
         unwrap_ok<Deque<i32>, Diag> new<i32>
         |> push_back 10 |> uwok

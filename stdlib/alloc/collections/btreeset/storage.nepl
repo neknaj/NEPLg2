@@ -32,7 +32,7 @@
 //:     value %i32
 //: fn borrow_keys %fn &BTreeSetStorage CleanupPayload &Vec Option CleanupPayload \storage:
 //:     btreeset_storage_keys<CleanupPayload> storage
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     0
 //: ```
 pub fn btreeset_storage_keys <.T: Copy> %fn &BTreeSetStorage .T &Vec Option .T \storage:
@@ -45,16 +45,16 @@ pub fn btreeset_key_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \keys\idx:
         Option::None:
             none<.T>
 
-pub fn btreeset_store_key <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T () \keys\idx\key:
+pub fn btreeset_store_key <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \keys\idx\key:
     vec::replace<Option<.T>> keys idx key
 
 pub fn btreeset_key_slot <.T: Copy> %fn &BTreeSetStorage .T fn i32 Option .T \storage\idx:
     btreeset_key_at<.T> btreeset_storage_keys<.T> storage idx
 
-pub fn btreeset_store_key_slot <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn Option .T () \storage\idx\key:
+pub fn btreeset_store_key_slot <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn Option .T unit \storage\idx\key:
     btreeset_store_key<.T> btreeset_storage_keys<.T> storage idx key
 
-pub fn btreeset_free_storage <.T: Copy> %fn BTreeSetStorage .T () \storage:
+pub fn btreeset_free_storage <.T: Copy> %fn BTreeSetStorage .T unit \storage:
     let keys %Vec Option .T field::get storage "keys"
     vec::free<Option<.T>> keys
 
@@ -65,7 +65,7 @@ pub fn btreeset_alloc_storage <.T: Copy> %impure fn i32 Result BTreeSetStorage .
         Result::Ok keys:
             ok<BTreeSetStorage<.T>, Diag> BTreeSetStorage<.T> keys
 
-pub fn btreeset_copy_live_slots <.T: Copy> %impure fn &BTreeSetStorage .T impure fn &BTreeSetStorage .T impure fn i32 () \src\dst\len0:
+pub fn btreeset_copy_live_slots <.T: Copy> %impure fn &BTreeSetStorage .T impure fn &BTreeSetStorage .T impure fn i32 unit \src\dst\len0:
     let src_keys %&Vec Option .T btreeset_storage_keys<.T> src
     let dst_keys %&Vec Option .T btreeset_storage_keys<.T> dst
     let mut i %i32 0
@@ -75,19 +75,19 @@ pub fn btreeset_copy_live_slots <.T: Copy> %impure fn &BTreeSetStorage .T impure
                 Option::Some key:
                     btreeset_store_key<.T> dst_keys i some<.T> key
                 Option::None:
-                    ()
+                    unit
             set i add i 1
 
-pub fn btreeset_clear_slots <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn i32 () \storage\end\i:
+pub fn btreeset_clear_slots <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn i32 unit \storage\end\i:
     if:
         lt i end
         then:
             btreeset_store_key<.T> btreeset_storage_keys<.T> storage i none<.T>
             btreeset_clear_slots<.T> storage end add i 1
         else:
-            ()
+            unit
 
-pub fn btreeset_shift_right <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn i32 () \storage\idx\len0:
+pub fn btreeset_shift_right <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn i32 unit \storage\idx\len0:
     let mut i %i32 len0
     while gt i idx:
         do:
@@ -99,7 +99,7 @@ pub fn btreeset_shift_right <.T: Copy> %impure fn &BTreeSetStorage .T impure fn 
                     btreeset_store_key_slot<.T> storage i none<.T>
             set i from
 
-pub fn btreeset_shift_left_after_remove <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn i32 () \storage\idx\len0:
+pub fn btreeset_shift_left_after_remove <.T: Copy> %impure fn &BTreeSetStorage .T impure fn i32 impure fn i32 unit \storage\idx\len0:
     let last %i32 sub len0 1
     let mut i %i32 idx
     while lt i last:

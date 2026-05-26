@@ -78,9 +78,9 @@ fn fs_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8
 fn fs_discard_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf i32 \region\errno:
     match dealloc_region<u8> region:
         Result::Ok _:
-            ()
+            unit
         Result::Err _:
-            ()
+            unit
     Result<ByteBuf,i32>::Err errno
 
 //: fs_finish_read_buffer: capacity 付き読み込み buffer を ByteBuf の所有権 invariant へ詰め直す内部 helper
@@ -106,9 +106,9 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
         then:
             match dealloc_region<u8> region:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ()
+                    unit
             Result<ByteBuf,i32>::Err fs_errno_inval
         else:
             if:
@@ -116,9 +116,9 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
                 then:
                     match dealloc_region<u8> region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ()
+                            unit
                     Result<ByteBuf,i32>::Ok io_bytebuf_empty
                 else:
                     if:
@@ -133,9 +133,9 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
                                     let old_region %RegionToken u8 region_realloc_error_region<u8> _e
                                     match dealloc_region<u8> old_region:
                                         Result::Ok _:
-                                            ()
+                                            unit
                                         Result::Err _:
-                                            ()
+                                            unit
                                     Result<ByteBuf,i32>::Err 12
 
 //: fs_read_fd_bytes: fd から全て読み込んで `ByteBuf` を返す
@@ -173,7 +173,7 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
 //:| #import "std/fs/bytes" as *
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match fs_read_fd_bytes 0:
 //:         Result::Ok bytes:
 //:             let text %str fs_bytes_to_string bytes;
@@ -197,9 +197,9 @@ pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
                         Result::Err _e:
                             match dealloc_region<u8> iov_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ();
+                                    unit;
                             fs_discard_read_buffer buf_region 12
                         Result::Ok nread_region:
                             let nread_buf %MemPtr u8 region_ptr &nread_region
@@ -230,7 +230,7 @@ pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
                                                             set alloc_failed 1;
                                                             set done 1;
                                         else:
-                                            ();
+                                            unit;
                                     if:
                                         eq done 0
                                         then:
@@ -248,18 +248,18 @@ pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
                                                     set err e;
                                                     set done 1
                                         else:
-                                            ()
+                                            unit
 
                             match dealloc_region<u8> nread_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             match dealloc_region<u8> iov_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             if:
                                 eq alloc_failed 1
                                 then:

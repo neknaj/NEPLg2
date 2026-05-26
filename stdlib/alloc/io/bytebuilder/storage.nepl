@@ -14,7 +14,7 @@
 //:| #target std
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match byte_builder_new:
 //:         Result::Ok b:
 //:             byte_builder_free b
@@ -65,7 +65,7 @@ pub fn byte_builder_with_capacity %fn i32 Result ByteBuilder StdErrorKind \capac
 //:
 //: [目的/もくてき]:
 //: - 小さな byte列構築で最初の append ごとの確保を避けます。
-pub fn byte_builder_new %fn () Result ByteBuilder StdErrorKind \():
+pub fn byte_builder_new %fn unit Result ByteBuilder StdErrorKind \unit:
     byte_builder_with_capacity 64
 
 //: byte_builder_dealloc_owned_region: builder が所有する byte 領域 token を解放する
@@ -85,7 +85,7 @@ pub fn byte_builder_new %fn () Result ByteBuilder StdErrorKind \():
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let checks0 checks_new
 //:     let checks match alloc_region_bytes<u8> 4:
 //:         Result::Ok region:
@@ -96,12 +96,12 @@ pub fn byte_builder_new %fn () Result ByteBuilder StdErrorKind \():
 //:     let shown checks_print_report checks
 //:     checks_exit_code shown
 //: ```
-pub fn byte_builder_dealloc_owned_region %fn RegionToken u8 () \region:
+pub fn byte_builder_dealloc_owned_region %fn RegionToken u8 unit \region:
     match dealloc_region<u8> region:
         Result::Ok _:
-            ()
+            unit
         Result::Err _:
-            ()
+            unit
 
 //: byte_builder_realloc_region_or_keep: storage token を grow し失敗時に旧 token を戻す
 //:
@@ -118,10 +118,10 @@ pub fn byte_builder_realloc_region_or_keep %fn RegionToken u8 fn i32 Result Regi
 //:
 //: [目的/もくてき]:
 //: - builder の `RegionToken<u8>` を取り出し、token の size に従って owned storage を解放します。
-pub fn byte_builder_free %fn ByteBuilder () \builder:
+pub fn byte_builder_free %fn ByteBuilder unit \builder:
     match get builder "storage":
         ByteBuilderStorage::Empty:
-            ()
+            unit
         ByteBuilderStorage::Owned region:
             byte_builder_dealloc_owned_region region
 
@@ -137,7 +137,7 @@ pub fn byte_builder_free %fn ByteBuilder () \builder:
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let invalid %i32 sub 0 1
 //:     match byte_builder_reserve byte_builder_empty invalid:
 //:         Result::Ok b:
@@ -147,7 +147,7 @@ pub fn byte_builder_free %fn ByteBuilder () \builder:
 //:             byte_builder_error_free e
 //:             0
 //: ```
-pub fn byte_builder_error_free %fn ByteBuilderError () \e:
+pub fn byte_builder_error_free %fn ByteBuilderError unit \e:
     byte_builder_free byte_builder_error_builder e
 
 //: byte_builder_bytebuf_error_free: `ByteBuilderByteBufError` の 2 owner を閉じる
@@ -164,13 +164,13 @@ pub fn byte_builder_error_free %fn ByteBuilderError () \e:
 //:| #import "alloc/io/bytebuf" as *
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let invalid %StdErrorKind StdErrorKind::InvalidOperation
 //:     let e %ByteBuilderByteBufError ByteBuilderByteBufError byte_builder_empty io_bytebuf_empty invalid
 //:     byte_builder_bytebuf_error_free e
 //:     0
 //: ```
-pub fn byte_builder_bytebuf_error_free %fn ByteBuilderByteBufError () \e:
+pub fn byte_builder_bytebuf_error_free %fn ByteBuilderByteBufError unit \e:
     let builder %ByteBuilder get e "builder"
     let bytes %ByteBuf get e "bytes"
     byte_builder_free builder

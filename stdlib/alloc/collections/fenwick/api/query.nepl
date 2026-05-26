@@ -34,7 +34,7 @@
 //:| #import "alloc/collections/fenwick" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let fw %Fenwick:
 //:         unwrap_ok<Fenwick, Diag> new 5
 //:         |> add 0 1 |> uwok
@@ -72,7 +72,7 @@ pub fn sum_prefix %impure fn &Fenwick impure fn i32 Result i32 Diag \fw\r:
 //:| #import "alloc/collections/fenwick" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let fw %Fenwick:
 //:         unwrap_ok<Fenwick, Diag> new 5
 //:         |> add 0 1 |> uwok

@@ -12,8 +12,8 @@
 //: ```neplg2
 //:| #entry main
 //:| #target core
-//:| fn main %impure fn () i32 \():
-//:     ()
+//:| fn main %impure fn unit i32 \unit:
+//:     unit
 //:     0
 //: ```
 

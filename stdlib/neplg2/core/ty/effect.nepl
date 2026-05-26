@@ -16,7 +16,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/ty/effect" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     if selfhost_effect_kind_eq SelfhostEffectKind::Pure SelfhostEffectKind::Pure 0 1
 //: ```
 

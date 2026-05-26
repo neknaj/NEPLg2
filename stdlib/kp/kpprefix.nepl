@@ -34,7 +34,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let data %Vec i32:
 //:         unwrap_ok v::new<i32>
 //:         |> v::push<i32> 1 |> unwrap_ok
@@ -59,16 +59,16 @@
 pub struct PrefixI32:
     data %Vec i32
 
-fn prefix_diag_capacity %impure fn () Diag \():
+fn prefix_diag_capacity %impure fn unit Diag \unit:
     diag_error StdErrorKind::CapacityExceeded "prefix length exceeds i32 capacity"
 
-fn prefix_diag_range %impure fn () Diag \():
+fn prefix_diag_range %impure fn unit Diag \unit:
     diag_error StdErrorKind::IndexOutOfBounds "prefix range out of bounds"
 
 fn prefix_diag_std_error %impure fn StdErrorKind Diag \kind:
     diag_error kind "prefix storage operation failed"
 
-fn prefix_build_loop_i32 %impure fn &Vec i32 impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 Result () Diag \input\pref\n\idx\acc:
+fn prefix_build_loop_i32 %impure fn &Vec i32 impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 Result unit Diag \input\pref\n\idx\acc:
     if:
         lt idx n
         then:
@@ -78,9 +78,9 @@ fn prefix_build_loop_i32 %impure fn &Vec i32 impure fn &Vec i32 impure fn i32 im
                     vec::replace<i32> pref add idx 1 next_acc;
                     prefix_build_loop_i32 input pref n add idx 1 next_acc
                 Option::None:
-                    diag_err<()> prefix_diag_range
+                    diag_err<unit> prefix_diag_range
         else:
-            ok<(), Diag> ()
+            ok<unit, Diag> unit
 
 //: prefix_build_vec_i32: `Vec<i32>` から累積和ハンドルを作る
 //:
@@ -135,5 +135,5 @@ pub fn prefix_sum_i32 %impure fn &PrefixI32 impure fn i32 impure fn i32 Result i
             diag_err<i32> prefix_diag_range
 
 //: prefix_free_i32: 累積和ハンドルの buffer owner を解放する
-pub fn prefix_free_i32 %fn PrefixI32 () \pref:
+pub fn prefix_free_i32 %fn PrefixI32 unit \pref:
     vec::free<i32> field::get pref "data"

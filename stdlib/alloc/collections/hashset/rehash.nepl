@@ -47,13 +47,13 @@ pub fn hashset_rehash_to <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashS
                         HashSetBucketState::Full:
                             match hashset_key_at<.T> keys i:
                                 Option::None:
-                                    ()
+                                    unit
                                 Option::Some key:
                                     hashset_insert_entry_into_storage<.T,.H> &new_storage new_cap hasher key
                         HashSetBucketState::Empty:
-                            ()
+                            unit
                         HashSetBucketState::Tombstone:
-                            ()
+                            unit
                     set i add i 1
             hashset_free_storage<.T> old_storage
             Result<HashSet<.T,.H>, HashSetUpdateError<.T,.H>>::Ok HashSet<.T,.H> count0 new_cap 0 new_storage hasher

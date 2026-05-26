@@ -10,7 +10,7 @@ neplg2:test
 ret: 1
 ```neplg2
 #entry main
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     #import "core/math" as *
     1
 ```
@@ -35,7 +35,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     add 1:
         add 2 3
 ```
@@ -47,9 +47,9 @@ diag_codes: type.assignment.mismatch
 ```neplg2
 
 #entry main
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let mut x %i32 0;
-    set x ();
+    set x unit;
 ```
 
 ## pure_cannot_call_impure
@@ -68,7 +68,7 @@ fn imp %impure fn i32 i32 \x:
 fn pure %fn i32 i32 \x:
     imp x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     pure 1
 ```
 
@@ -84,10 +84,10 @@ ret: 1
 #entry main
 
 #if[target=llvm]
-fn bad %fn () i32 \():
+fn bad %fn unit i32 \unit:
     unknown_symbol
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1
 ```
 
@@ -103,10 +103,10 @@ ret: 123
 #entry main
 
 #if[profile=debug]
-fn only_debug %fn () i32 \():
+fn only_debug %fn unit i32 \unit:
     123
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     only_debug
 ```
 
@@ -122,10 +122,10 @@ ret: 0
 #entry main
 
 #if[profile=release]
-fn only_release %fn () i32 \():
+fn only_release %fn unit i32 \unit:
     unknown_symbol
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -144,7 +144,7 @@ fn add_one %fn i32 i32 \a:
         // missing value for add
         i32.add
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     #import "core/math" as *
 #import "core/field" as *
     add_one 1
@@ -163,10 +163,10 @@ ret: 123
 
 #target core
 #if[target=core]
-fn only_core %fn () i32 \():
+fn only_core %fn unit i32 \unit:
     123
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     only_core
 ```
 
@@ -183,10 +183,10 @@ ret: 0
 
 #target core
 #if[target=wasi]
-fn only_wasi %fn () i32 \():
+fn only_wasi %fn unit i32 \unit:
     unknown_symbol
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -202,13 +202,13 @@ diag_codes: resolve.identifier.undefined, type.return.mismatch
 #target core
 
 #if[target=wasi]
-fn skipped %fn () i32 \():
+fn skipped %fn unit i32 \unit:
     unknown_symbol_a
 
-fn not_skipped %fn () i32 \():
+fn not_skipped %fn unit i32 \unit:
     unknown_symbol_b
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     not_skipped
 ```
 
@@ -225,7 +225,7 @@ ret: 5
 #indent 4
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     #if[target=llvm]
     unknown_symbol
     add 2 3
@@ -243,7 +243,7 @@ ret: 7
 #target core
 #indent 4
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     #if[target=llvm]
     let bad %i32 unknown_symbol;
     let ok %i32 7;
@@ -262,7 +262,7 @@ ret: 9
 #target core
 #indent 4
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     #if[target=llvm]
     if true then 1 else unknown_symbol
     if true then 9 else 0
@@ -270,7 +270,7 @@ fn main %fn () i32 \():
 
 ## iftarget_target_expr_or_and_paren
 
-`#if[target=...]` で `|` / `&` / `()` の式が使えることを確認します。
+`#if[target=...]` で `|` / `&` / `unit` の式が使えることを確認します。
 `core&(wasm|llvm)` は wasm/llvm のどちらでも true になるため、`gated` が有効になって 77 を返す必要があります。
 
 neplg2:test
@@ -280,10 +280,10 @@ ret: 77
 #target core
 
 #if[target=core&(wasm|llvm)]
-fn gated %fn () i32 \():
+fn gated %fn unit i32 \unit:
     77
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     gated
 ```
 
@@ -299,10 +299,10 @@ ret: 3
 #target core
 
 #if[target=core&(wasi&llvm)]
-fn skipped_bad %fn () i32 \():
+fn skipped_bad %fn unit i32 \unit:
     unknown_symbol
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     3
 ```
 
@@ -318,10 +318,10 @@ ret: 0
 #target core
 
 #if[target=linux]
-fn hidden_linux_only %fn () i32 \():
+fn hidden_linux_only %fn unit i32 \unit:
     unknown_symbol
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -336,10 +336,10 @@ ret: 7
 #target core
 
 #if[target=linux]
-fn only_linux %fn () i32 \():
+fn only_linux %fn unit i32 \unit:
     7
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     only_linux
 ```
 
@@ -358,7 +358,7 @@ ret: 0
 #import "core/math" as { add as plus, math::* }
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -378,7 +378,7 @@ stdout: "hello"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     // 文字列リテラルが評価でき、標準出力へ書き出せることを確認する
     print "hello"
 ```
@@ -398,7 +398,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     add 1 add 2 3 |> add 4
 ```
 
@@ -411,7 +411,7 @@ diag_codes: type.pipe.invalid, type.stack.extra_values
 #entry main
 #indent 4
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1 |> 2
 ```
 
@@ -429,7 +429,7 @@ ret: 5
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1 |> %i32 add 4
 ```
 
@@ -447,7 +447,7 @@ ret: 5
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1 |> %i32 %i32 add 4
 ```
 
@@ -460,7 +460,7 @@ diag_codes: type.pipe.invalid, type.stack.extra_values
 #entry main
 #indent 4
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1 |> %i32 2
 ```
 
@@ -477,8 +477,8 @@ diag_code: type.extern.wasi_target_mismatch
 #indent 4
 #target core
 #extern "wasi_snapshot_preview1" "fd_write" fn fd_write %fn i32 fn i32 fn i32 fn i32 i32
-fn main %fn () () \():
-    ()
+fn main %fn unit unit \unit:
+    unit
 ```
 
 ## name_conflict_enum_fn_is_error
@@ -493,10 +493,10 @@ diag_code: resolve.item.name_conflict
 enum Foo:
     A
 
-fn Foo %fn () i32 \():
+fn Foo %fn unit i32 \unit:
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     Foo
 ```
 
@@ -509,9 +509,9 @@ diag_code: effect.raw_body.target_mismatch
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     #llvmir:
-        define i32 @main() {
+        define i32 @mainunit {
         entry:
             ret i32 1
         }
@@ -526,13 +526,13 @@ diag_code: effect.raw_body.multiple_active
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     #if[target=core]
     #wasm:
         i32.const 1
     #if[target=core]
     #llvmir:
-        define i32 @main() {
+        define i32 @mainunit {
         entry:
             ret i32 2
         }
@@ -552,7 +552,7 @@ diag_codes: resolve.identifier.undefined, type.stack.extra_values, effect.pure.c
 #target core
 #import "std/stdio" as *
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     print "hi"
 ```
 
@@ -566,7 +566,7 @@ ret: 12
 #indent 4
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     add 10 2
 ```
 
@@ -580,7 +580,7 @@ ret: 5
 #indent 4
 #import "core/option" as *
 
-fn main %()*i32> \():
+fn main %impure fn unit i32 \unit:
     match some 5:
         Some v:
             v
@@ -604,7 +604,7 @@ ret: 0
 #import "core/result" as *
 #import "core/field" as *
 
-fn main %()*i32> \():
+fn main %impure fn unit i32 \unit:
     let lst %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
     let lst uwok cons<i32> 1 lst;
     let r get<i32> &lst 10;
@@ -628,7 +628,7 @@ diag_code: type.match.non_exhaustive
 #indent 4
 #import "core/option" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     match some 1:
         Some v:
             v
@@ -648,7 +648,7 @@ stdout: "ok"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     print "ok"
 ```
 
@@ -663,7 +663,7 @@ diag_code: loader.target.multiple_directive
 #target core
 #target std
 #entry main
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -674,7 +674,7 @@ diag_code: loader.target.unknown
 ```neplg2
 #target wasi2
 #entry main
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -695,7 +695,7 @@ fn id %fn i32 i32 \x:
 fn id %fn f32 f32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let tmp id 1.0;
     id 1
 ```
@@ -718,7 +718,7 @@ fn foo %fn i32 i32 \x:
 fn foo %fn i32 fn i32 i32 \a\b:
     a
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     foo 1
 ```
 
@@ -737,7 +737,7 @@ fn foo %fn i32 i32 \x:
 fn foo %fn i32 f32 \x:
     1.0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     foo 1
 ```
 
@@ -760,7 +760,7 @@ impl Show for i32:
     fn show %fn i32 i32 \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     Show::show 1
 ```
 
@@ -786,7 +786,7 @@ impl Show for i32:
 fn call_show <.T: Show> %fn .T i32 \x:
     Show::show x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     call_show 5
 ```
 
@@ -806,7 +806,7 @@ trait Show:
 fn call_show <.T: Show> %fn .T i32 \x:
     Show::show x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     call_show 1
 ```
 
@@ -827,7 +827,7 @@ impl Show for i32:
     fn show %fn i32 i32 \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     Show::show 1 2
 ```
 
@@ -847,7 +847,7 @@ trait Show:
 fn call_show <.T: Missing> %fn .T i32 \x:
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     call_show 0
 ```
 
@@ -870,6 +870,6 @@ fn pick <.T> %fn .T .T \x:
         else:
             #intrinsic "unreachable" <> ()
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     pick 1
 ```

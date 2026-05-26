@@ -85,7 +85,7 @@ pub fn fd_write %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32 \_f
                                 then:
                                     set done 1;
                                 else:
-                                    ();
+                                    unit;
                     set iov_idx add iov_idx 1;
                 else:
                     set done 1;
@@ -124,7 +124,7 @@ pub fn fd_read %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32 \_fd
                                 then:
                                     set done 1;
                                 else:
-                                    ();
+                                    unit;
                     set iov_idx add iov_idx 1;
                 else:
                     set done 1;

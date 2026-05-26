@@ -10,11 +10,11 @@
 #import "alloc/diag/error" as *
 #import "core/result" as *
 
-pub fn seg_diag_len %impure fn () Diag \():
+pub fn seg_diag_len %impure fn unit Diag \unit:
     diag_error StdErrorKind::CapacityExceeded "invalid segment tree length"
 
-pub fn seg_diag_index %impure fn () Diag \():
+pub fn seg_diag_index %impure fn unit Diag \unit:
     diag_error StdErrorKind::IndexOutOfBounds "segment tree index out of bounds"
 
-pub fn seg_diag_range %impure fn () Diag \():
+pub fn seg_diag_range %impure fn unit Diag \unit:
     diag_error StdErrorKind::IndexOutOfBounds "segment tree range out of bounds"

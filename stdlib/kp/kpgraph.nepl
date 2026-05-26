@@ -43,7 +43,7 @@
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
 //:     let g %DenseGraph unwrap_ok<DenseGraph, Diag> dense_graph_read_undirected_1indexed &sc;
 //:     let dist %Vec i32 unwrap_ok<Vec<i32>, Diag> dense_graph_bfs_dist &g 0;
@@ -53,7 +53,7 @@
 //:         do:
 //:             if lt 0 i:
 //:                 then print " "
-//:                 else ()
+//:                 else unit
 //:             let d %i32 match v::get<i32> &dist i:
 //:                 Option::Some x:
 //:                     x
@@ -90,13 +90,13 @@ pub fn dense_graph_update_error_diag %fn &DenseGraphUpdateError Diag \e:
 pub fn dense_graph_update_error_graph %fn DenseGraphUpdateError DenseGraph \e:
     field::get e "graph"
 
-fn dense_graph_diag_vertex %impure fn () Diag \():
+fn dense_graph_diag_vertex %impure fn unit Diag \unit:
     diag_error StdErrorKind::IndexOutOfBounds "dense graph vertex out of bounds"
 
-fn dense_graph_diag_input %impure fn () Diag \():
+fn dense_graph_diag_input %impure fn unit Diag \unit:
     diag_error StdErrorKind::InvalidOperation "dense graph input is invalid"
 
-fn dense_graph_diag_storage %impure fn () Diag \():
+fn dense_graph_diag_storage %impure fn unit Diag \unit:
     diag_error StdErrorKind::InvalidOperation "dense graph storage invariant failed"
 
 fn dense_graph_diag_std_error %impure fn StdErrorKind Diag \kind:
@@ -119,7 +119,7 @@ pub fn dense_graph_new %impure fn i32 Result DenseGraph Diag \n:
             err<DenseGraph, Diag> d
 
 //: dense_graph_free: graph owner を解放する
-pub fn dense_graph_free %fn DenseGraph () \g:
+pub fn dense_graph_free %fn DenseGraph unit \g:
     am::free field::get g "matrix"
 
 //: dense_graph_len: 頂点数を返す
@@ -259,11 +259,11 @@ pub fn dense_graph_bfs_dist %impure fn &DenseGraph impure fn i32 Result Vec i32 
                                                                                                 else:
                                                                                                     set failed true
                                                                                         else:
-                                                                                            ()
+                                                                                            unit
                                                                                 Option::None:
                                                                                     set failed true
                                                                         else:
-                                                                            ()
+                                                                            unit
                                                                 Result::Err _d:
                                                                     set failed true
                                                             set to add to 1

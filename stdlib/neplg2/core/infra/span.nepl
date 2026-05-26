@@ -19,7 +19,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "neplg2/core/infra/span" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     let s %SelfhostSourceSpan source_span_new 0 2 5
 //:     if and source_span_is_valid s and source_span_contains s 3 eq source_span_len s 3 0 1
 //: ```
@@ -91,6 +91,6 @@ pub fn source_span_join %fn SelfhostSourceSpan fn SelfhostSourceSpan SelfhostSou
 //:
 //: [目的/もくてき]:
 //: - 既存の Stage 0 doctest import 経路を[保/たも]ちながら、実 span 実装が[動/うご]くことも[確認/かくにん]します。
-pub fn selfhost_span_stage0 %fn () i32 \():
+pub fn selfhost_span_stage0 %fn unit i32 \unit:
     let s %SelfhostSourceSpan source_span_new 0 1 3
     if source_span_is_valid s 0 1

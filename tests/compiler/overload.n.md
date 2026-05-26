@@ -23,7 +23,7 @@ fn val_cast %fn i32 i32 \v:
 fn val_cast %fn i32 bool \v:
     ne v 0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %i32 10
 
     // Use type annotation on variable to select overload
@@ -64,7 +64,7 @@ fn my_print %fn i32 i32 \v:
 fn my_print %fn bool i32 \v:
     2
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s1 %i32 my_print 100
     let s2 %i32 my_print true
 
@@ -96,7 +96,7 @@ fn magic %fn i32 i32 \v:
 fn magic %fn i32 bool \v:
     true
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // Use <type> prefix expression to explicitly select overload
     // This is useful when type cannot be inferred from context
 
@@ -129,13 +129,13 @@ stdout: "test_report name=\"overload_new_selected_by_let_annotation\" count=1 fa
 #import "core/math" as *
 #import "std/test" as test
 
-fn new %fn () i32 \():
+fn new %fn unit i32 \unit:
     7
 
-fn new %fn () bool \():
+fn new %fn unit bool \unit:
     true
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %i32 new;
     let b %bool new;
     let actual %i32 if b a 0
@@ -155,13 +155,13 @@ diag_code: type.overload.ambiguous
 #indent 4
 #target core
 
-fn new %fn () i32 \():
+fn new %fn unit i32 \unit:
     1
 
-fn new %fn () bool \():
+fn new %fn unit bool \unit:
     true
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let v new
     0
 ```
@@ -179,13 +179,13 @@ stdout: "test_report name=\"overload_zero_arg_result_selected_by_expected_type\"
 #import "core/math" as *
 #import "std/test" as test
 
-fn build %fn () Result i32 str \():
+fn build %fn unit Result i32 str \unit:
     Result::Ok 9
 
-fn build %fn () Result bool str \():
+fn build %fn unit Result bool str \unit:
     Result::Ok true
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %Result i32 str build;
     let b %Result bool str build;
 
@@ -219,13 +219,13 @@ diag_code: effect.pure.calls_impure
 #target core
 #import "core/result" as *
 
-fn build %impure fn () Result i32 str \():
+fn build %impure fn unit Result i32 str \unit:
     Result::Ok 1
 
-fn build %impure fn () Result bool str \():
+fn build %impure fn unit Result bool str \unit:
     Result::Ok true
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x build
     0
 ```
@@ -253,7 +253,7 @@ fn size %fn Vec i32 i32 \vec:
     v::free<i32> vec;
     n
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %Vec i32:
         v::new<i32>
         |> uwok
@@ -282,13 +282,13 @@ stdout: "test_report name=\"overload_new_with_pipe_vec\" count=1 failed=0\nasser
 #import "core/result" as *
 #import "std/test" as test
 
-fn new %impure fn () Vec i32 \():
+fn new %impure fn unit Vec i32 \unit:
     unwrap_ok v::new<i32>
 
-fn new %fn () bool \():
+fn new %fn unit bool \unit:
     true
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %Vec i32:
         %Vec i32 new
         |> v::push 1 |> uwok
@@ -323,7 +323,7 @@ fn pair_with_empty <.T: Copy> %fn Vec .T Result .Pair StdErrorKind \left:
         left
         right
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let xs %Vec i32:
         v::new<i32>
         |> uwok
@@ -362,7 +362,7 @@ fn choice %fn i32 bool \v:
 fn use_bool %fn bool i32 \b:
     if b 1 0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 use_bool choice 7;
     let report:
         test::test_report_new "overload_result_inferred_from_outer_arg_context"
@@ -384,10 +384,10 @@ stdout: "test_report name=\"overload_star_import_prefers_concrete_over_generic_n
 #import "core/result" as *
 #import "std/test" as test
 
-fn new %impure fn () Vec i32 \():
+fn new %impure fn unit Vec i32 \unit:
     unwrap_ok v::new<i32>
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %Vec i32 %Vec i32 new;
     let n %i32 v::len<i32> &v;
     v::free<i32> v;
@@ -417,7 +417,7 @@ fn calc %fn i32 fn i32 i32 \a\b:
 fn use_binary %fn i32 fn i32 fn fn i32 fn i32 i32 i32 \a\b\f:
     f a b
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let a %i32 calc 5;
     let b %i32 use_binary 3 4 calc;
     add a b
@@ -439,7 +439,7 @@ fn calc %fn i32 i32 \a:
 fn calc %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     calc 5
 ```
 
@@ -458,7 +458,7 @@ stdout: "test_report name=\"overload_nested_len_with_stack_and_string\" count=2 
 #import "core/result" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s %str "abc";
     let st %Stack i32 unwrap_ok<Stack<i32>, Diag> new;
     let n1 %i32 len s;
@@ -486,7 +486,7 @@ stdout: "test_report name=\"overload_nested_call_arg_position_len\" count=1 fail
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let t %str str_trim "  x  ";
     let actual %i32 len t;
     let report:
@@ -508,7 +508,7 @@ stdout: "test_report name=\"overload_nested_call_arg_position_bool_chain\" count
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 if and eq 1 1 lt 2 3 1 0;
     let report:
         test::test_report_new "overload_nested_call_arg_position_bool_chain"
@@ -529,7 +529,7 @@ stdout: "test_report name=\"overload_nested_call_arg_position_bool_chain_literal
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %i32 1;
     let b %i32 1;
     let c %i32 2;
@@ -558,7 +558,7 @@ stdout: "test_report name=\"overload_new_resolve_with_typed_block_context\" coun
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let st %Stack i32:
         new
         |> unwrap_ok<Stack<i32>, Diag>
@@ -593,7 +593,7 @@ stdout: "test_report name=\"overload_new_resolve_with_typed_block_and_pipe\" cou
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let st %Stack i32:
         new
         |> unwrap_ok<Stack<i32>, Diag>
@@ -620,7 +620,7 @@ stdout: "test_report name=\"overload_nested_call_arg_position_add_sub\" count=1 
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 add 10 sub 8 3;
     let report:
         test::test_report_new "overload_nested_call_arg_position_add_sub"
@@ -641,7 +641,7 @@ stdout: "test_report name=\"overload_nested_call_chain_add_mul\" count=1 failed=
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %i32 add mul 2 3 add 4 5;
     let report:
         test::test_report_new "overload_nested_call_chain_add_mul"
@@ -669,7 +669,7 @@ fn calc %fn i32 fn i32 i32 \a\b:
 fn use_unary %fn i32 fn fn i32 i32 i32 \a\f:
     f a
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     use_unary 5 calc
 ```
 
@@ -692,7 +692,7 @@ fn calc %fn i32 fn i32 i32 \a\b:
 fn use_binary %fn i32 fn i32 fn fn i32 fn i32 i32 i32 \a\b\f:
     f a b
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     use_binary 3 4 calc
 ```
 
@@ -715,7 +715,7 @@ fn calc %fn i32 fn i32 i32 \a\b:
 fn use_unary %fn i32 fn fn i32 i32 i32 \a\f:
     f a
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     5 |> use_unary calc
 ```
 
@@ -743,7 +743,7 @@ fn take_i32 %fn i32 i32 \v:
 fn take_bool %fn bool i32 \v:
     if v 2 0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 add take_i32 choose 10 take_bool choose 1;
     let report:
         test::test_report_new "overload_select_by_parameter_context"
@@ -770,7 +770,7 @@ fn convert %fn i32 i32 \v:
 fn convert %fn i32 bool \v:
     ne v 0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let b %bool %bool convert 9;
     let actual %i32 if b 1 0;
     let report:
@@ -796,7 +796,7 @@ fn cast_like %fn i32 i32 \v:
 fn cast_like %fn i32 bool \v:
     ne v 0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let tmp cast_like 1
     0
 ```
@@ -816,7 +816,7 @@ fn parse %fn i32 fn i32 i32 \a\b:
 fn parse %fn bool fn bool i32 \a\b:
     if a 1 0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     parse 1 true
 ```
 
@@ -835,7 +835,7 @@ fn f %fn i32 i32 \a:
 fn f %fn i32 fn i32 i32 \a\b:
     a
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     f 1 2 3
 ```
 
@@ -855,7 +855,7 @@ fn kind %fn i32 i32 \v:
 fn kind %fn bool i32 \v:
     2
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let a %i32:
         5
         |> kind
@@ -875,7 +875,7 @@ ret: 14
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let v %i32:
         3
         |> add 4
@@ -895,7 +895,7 @@ diag_code: type.overload.no_match
 fn need_i32 %fn i32 i32 \v:
     v
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let _v %i32:
         true
         |> need_i32;
@@ -913,7 +913,7 @@ ret: 1
 #import "core/math" as *
 #import "core/cast" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let a %i32 7;
     let b %i64 cast a;
     let c %i128 cast b;
@@ -934,7 +934,7 @@ diag_code: type.overload.ambiguous
 #target core
 #import "core/cast" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     // 返り値型が未指定の cast は曖昧になる
     let v cast 10
     0
@@ -956,13 +956,13 @@ fn choose %fn i32 i32 \v:
 fn choose %fn i32 bool \v:
     ne v 0
 
-fn make_i32 %fn () i32 \():
+fn make_i32 %fn unit i32 \unit:
     choose 1
 
-fn make_bool %fn () bool \():
+fn make_bool %fn unit bool \unit:
     choose 1
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     if make_bool make_i32 0
 ```
 
@@ -985,7 +985,7 @@ fn pick %fn i32 bool \v:
 fn apply_i32 %fn fn i32 i32 fn i32 i32 \f\x:
     f x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let inc %fn i32 i32 \x:
         add x 1
 
@@ -1009,7 +1009,7 @@ ret: 1
 #import "core/math" as *
 #import "core/cast" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let seed %i64 %i64 cast 5;
     let v64 %i64:
         seed
@@ -1033,7 +1033,7 @@ trait Show:
     fn show %fn Self i32 \x:
         0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     Show::show<i32> 1
 ```
 
@@ -1050,7 +1050,7 @@ trait Show:
     fn show %fn Self i32 \x:
         0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     Show::missing 1
 ```
 
@@ -1071,7 +1071,7 @@ impl Show for i32:
     fn show %fn i32 i32 \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     Show::show true
 ```
 
@@ -1085,7 +1085,7 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let v %i32:
         %i32:
             3
@@ -1109,7 +1109,7 @@ fn choose %fn i32 i32 \v:
 fn choose %fn i32 bool \v:
     ne v 0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let v %i32:
         %i32:
             %i32 choose add 2 3
@@ -1125,7 +1125,7 @@ diag_code: type.field.invalid_access
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let v %i32 10;
     v.len
 ```
@@ -1140,6 +1140,6 @@ diag_code: parser.token.unexpected
 
 #capability copy
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```

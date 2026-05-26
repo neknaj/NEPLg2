@@ -18,13 +18,13 @@ stdout: "test_report name=\"list_main\" count=15 failed=0\nassertion index=0 sta
 #import "std/test" as *
 #import "core/field" as *
 
-fn mk %impure fn () List i32 \():
+fn mk %impure fn unit List i32 \unit:
     let l0 %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
     let l1 %List i32 uwok cons<i32> 10 l0;
     let l2 %List i32 uwok cons<i32> 20 l1;
     uwok cons<i32> 30 l2
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let l0 %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
     let l0_len %i32 len<i32> &l0;
     free<i32> l0;
@@ -50,7 +50,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set l3_0_value x
         Option::None:
-            ()
+            unit
     free<i32> l3_0;
 
     let l3_1 %List i32 mk;
@@ -59,7 +59,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set l3_1_value x
         Option::None:
-            ()
+            unit
     free<i32> l3_1;
 
     let l3_2 %List i32 mk;
@@ -68,7 +68,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set l3_2_value x
         Option::None:
-            ()
+            unit
     free<i32> l3_2;
 
     let l3_3 %List i32 mk;
@@ -89,7 +89,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set l3h_value x
         Option::None:
-            ()
+            unit
     free<i32> l3h;
 
     let l3t %List i32 mk;
@@ -100,10 +100,10 @@ fn main %impure fn () i32 \():
                 Option::Some x:
                     set l3t_head_value x
                 Option::None:
-                    ()
+                    unit
             free<i32> l3_tail
         Option::None:
-            ()
+            unit
 
     let l3r0 %List i32 mk;
     let l_rev %List i32 reverse<i32> l3r0;
@@ -112,7 +112,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set l_rev0_value x
         Option::None:
-            ()
+            unit
     free<i32> l_rev;
 
     let l3r1 %List i32 mk;
@@ -122,7 +122,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set l_rev2_value x
         Option::None:
-            ()
+            unit
     free<i32> l_rev2;
 
     let lf %List i32 mk;
@@ -168,7 +168,7 @@ stdout: "test_report name=\"list_functional_helpers\" count=10 failed=0\nasserti
 #import "std/test" as *
 #import "core/field" as *
 
-fn mk %impure fn () List i32 \():
+fn mk %impure fn unit List i32 \unit:
     let xs %List i32:
         unwrap_ok<List<i32>, Diag> new<i32>
         |> push<i32> 4 |> uwok
@@ -189,7 +189,7 @@ fn add_acc %fn i32 fn i32 i32 \acc\x:
 fn gt_two %fn i32 bool \x:
     gt x 2
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mapped_src0 %List i32 mk;
     let mapped0 %List i32 uwok map<i32,i32> mapped_src0 inc;
     let mut mapped0_value %i32 -1;
@@ -197,7 +197,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set mapped0_value x
         Option::None:
-            ()
+            unit
     free<i32> mapped0;
 
     let mapped_src3 %List i32 mk;
@@ -207,7 +207,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set mapped3_value x
         Option::None:
-            ()
+            unit
     free<i32> mapped3;
 
     let filtered_len_src %List i32 mk;
@@ -222,7 +222,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set filtered0_value x
         Option::None:
-            ()
+            unit
     free<i32> filtered0;
 
     let filtered_src1 %List i32 mk;
@@ -232,7 +232,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set filtered1_value x
         Option::None:
-            ()
+            unit
     free<i32> filtered1;
 
     let folded_src %List i32 mk;
@@ -245,7 +245,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set reduced_value x
         Option::None:
-            ()
+            unit
     free<i32> reduced_src;
 
     let find_src %List i32 mk;
@@ -254,7 +254,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set find_value x
         Option::None:
-            ()
+            unit
     free<i32> find_src;
 
     let any_src %List i32 mk;

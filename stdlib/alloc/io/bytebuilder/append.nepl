@@ -14,7 +14,7 @@
 //:| #target std
 //:| #import "alloc/io/bytebuilder" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match byte_builder_new:
 //:         Result::Ok b0:
 //:             match byte_builder_push_ascii b0 'A':

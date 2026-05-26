@@ -16,6 +16,6 @@ pub impl Show for i32:
     fn show %fn i32 i32 \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     Show::show 1
 ```

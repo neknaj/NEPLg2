@@ -104,7 +104,7 @@ pub fn sort_is_sorted <.T: Ord&Copy> %fn &Vec .T bool \v:
                                     if:
                                         sort_lt<.T> b a
                                         then set ok false
-                                        else ()
+                                        else unit
                     set i add i 1;
             ok
 

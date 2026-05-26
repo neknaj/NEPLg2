@@ -16,7 +16,7 @@
 //:| #import "core/cast" as *
 //:| #import "core/math/i64/arith" as *
 //:| #import "core/math/i64/compare" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let a %i64 cast 40;
 //:     let b %i64 cast 2;
 //:     assert eq add a b %i64 cast 42;
@@ -45,7 +45,7 @@
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let a %i64 cast 40;
 //:     let b %i64 cast 2;
 //:     let r0 %i64 add a b;
@@ -90,7 +90,7 @@ pub fn add %fn i64 fn i64 i64 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let a %i64 cast 44;
 //:     let b %i64 cast 2;
 //:     let r0 %i64 sub a b;
@@ -135,7 +135,7 @@ pub fn sub %fn i64 fn i64 i64 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let a %i64 cast 6;
 //:     let b %i64 cast 7;
 //:     let r0 %i64 mul a b;
@@ -181,7 +181,7 @@ pub fn mul %fn i64 fn i64 i64 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let n9 %i64 cast -9;
 //:     let p9 %i64 cast 9;
 //:     let p3 %i64 cast 3;
@@ -226,7 +226,7 @@ pub fn div_s %fn i64 fn i64 i64 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let a %i64 cast 100;
 //:     let b %i64 cast 9;
 //:     let r0 %i64 div_u a b;
@@ -272,7 +272,7 @@ pub fn div_u %fn i64 fn i64 i64 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let n10 %i64 cast -10;
 //:     let p10 %i64 cast 10;
 //:     let p3 %i64 cast 3;
@@ -316,7 +316,7 @@ pub fn rem_s %fn i64 fn i64 i64 \a\b:
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let a %i64 cast 100;
 //:     let b %i64 cast 9;
 //:     let r0 %i64 rem_u a b;

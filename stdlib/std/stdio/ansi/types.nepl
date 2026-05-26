@@ -106,7 +106,7 @@ pub fn ansi_text_style %fn AnsiColor fn AnsiColor fn AnsiTextWeight fn AnsiTextD
 //:
 //: [実装/じっそう]:
 //: - `Default` / `Regular` / `Plain` を指定した `AnsiTextStyle` を返します。
-pub fn ansi_plain_style %fn () AnsiTextStyle \():
+pub fn ansi_plain_style %fn unit AnsiTextStyle \unit:
     ansi_text_style AnsiColor::Default AnsiColor::Default AnsiTextWeight::Regular AnsiTextDecoration::Plain
 
 //: ansi_color_style: 前景色だけを指定した style を返す
@@ -134,7 +134,7 @@ pub fn ansi_color_pair_style %fn AnsiColor fn AnsiColor AnsiTextStyle \foregroun
 //:
 //: [実装/じっそう]:
 //: - 既定色と `Bold` を合成します。
-pub fn ansi_bold_style %fn () AnsiTextStyle \():
+pub fn ansi_bold_style %fn unit AnsiTextStyle \unit:
     ansi_text_style AnsiColor::Default AnsiColor::Default AnsiTextWeight::Bold AnsiTextDecoration::Plain
 
 //: ansi_bold_color_style: 太字と前景色を指定した style を返す

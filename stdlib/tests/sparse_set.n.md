@@ -16,7 +16,7 @@ stdout: "test_report name=\"sparse_set_insert_remove_and_membership\" count=4 fa
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s %SparseSet:
         unwrap_ok new 10
         |> insert 2 |> uwok
@@ -54,7 +54,7 @@ stdout: "test_report name=\"sparse_set_invalid_index\" count=3 failed=0\nasserti
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s0 %SparseSet unwrap_ok new 6;
     let r0 %Result bool Diag contains &s0 8;
     let s1 %SparseSet unwrap_ok new 6;

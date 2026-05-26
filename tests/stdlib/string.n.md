@@ -15,7 +15,7 @@ stdout: "hello\nworld!"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     // 単行文字列の \n が実行時に改行として扱われることを確認する
     print "hello\nworld!"
 ```
@@ -33,7 +33,7 @@ stdout: "hello\nworld!"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     let b %str mlstr:
         ##: hello
         ##: world!
@@ -54,7 +54,7 @@ stdout: "hello\nworld!END"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     let b %str mlstr:
         ##: hello
         ##: world!
@@ -76,7 +76,7 @@ stdout: "\\n should be literal backslash-n\nno \\t escape processingEND"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     let raw %str mlstr:
         ##: \n should be literal backslash-n
         ##: no \t escape processing
@@ -97,7 +97,7 @@ stdout: "hello\nworld!\ttab"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     // \n と \t が実行時に制御文字として扱われることを確認する
     print "hello\nworld!\ttab"
 ```
@@ -116,7 +116,7 @@ stdout: "static literal"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     let a %str "static literal"
     let b %str a
     // b が a と同内容を参照できることを確認する
@@ -136,7 +136,7 @@ stdout: "hello"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     let a %str "hello"
     print a
 ```
@@ -155,7 +155,7 @@ ret: 0
 #import "core/math" as *
 #import "core/option" as *
 
-fn main %()*i32> \():
+fn main %impure fn unit i32 \unit:
     let ok0 %bool match byte_at "AZ" 0:
         Option::Some b:
             eq b 65
@@ -183,7 +183,7 @@ stdout: "こんにちは世界👋🌍"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     let japanese %str "こんにちは世界"
     let emoji %str "👋🌍"
     // UTF-8 の連結（連続出力）が崩れないことを確認する
@@ -204,7 +204,7 @@ stdout: "こんにちは\n世界END"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     let text %str mlstr:
         ##: こんにちは
         ##: 世界
@@ -226,7 +226,7 @@ stdout: "[line1   \nline2]END"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     let text %str mlstr:
         ##: line1
         ##: line2
@@ -246,7 +246,7 @@ diag_codes: parser.token.unexpected
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let text %str mlstr:
         ##: line1
         line2 without prefix
@@ -260,9 +260,9 @@ ret: 0
 ```neplg2
 #entry main
 #indent 4
-fn foo %fn str () \s:
-    ()
-fn main %fn () i32 \():
+fn foo %fn str unit \s:
+    unit
+fn main %fn unit i32 \unit:
     foo "hello"
     0
 ```
@@ -275,9 +275,9 @@ diag_codes: type.overload.no_match
 #entry main
 #indent 4
 #import "core/math" as *
-fn foo %fn String () \s:
-    ()
-fn main %fn () i32 \():
+fn foo %fn String unit \s:
+    unit
+fn main %fn unit i32 \unit:
     foo %str "hello" // should not work
     0
 ```
@@ -289,9 +289,9 @@ ret: 0
 ```neplg2
 #entry main
 #indent 4
-fn foo %fn str () \s:
-    ()
-fn main %fn () i32 \():
+fn foo %fn str unit \s:
+    unit
+fn main %fn unit i32 \unit:
     foo %str "hello"
     0
 ```
@@ -304,9 +304,9 @@ diag_codes: type.annotation.mismatch, type.overload.no_match
 #entry main
 #indent 4
 #import "core/math" as *
-fn foo %fn String () \s:
-    ()
-fn main %fn () i32 \():
+fn foo %fn String unit \s:
+    unit
+fn main %fn unit i32 \unit:
     foo %String "hello" // should not work
     0
 ```
@@ -326,7 +326,7 @@ stdout: mlstr:
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main %()*i32> \():
+fn main %impure fn unit i32 \unit:
     let mut sb %StringBuilder string_builder_new;
     let mut i %i32 0;
     while lt i 2000:

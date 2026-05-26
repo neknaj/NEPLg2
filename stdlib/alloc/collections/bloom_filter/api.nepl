@@ -22,7 +22,7 @@
 #import "./mutation" as *
 #import "core/field" as *
 
-pub fn bloom_invalid_len_diag %impure fn () Diag \():
+pub fn bloom_invalid_len_diag %impure fn unit Diag \unit:
     diag_error StdErrorKind::CapacityExceeded "invalid bloom filter bit length"
 
 //: ## new
@@ -40,7 +40,7 @@ pub fn bloom_invalid_len_diag %impure fn () Diag \():
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
 //:     let observed_len %i32 len<i32, DefaultHash32> &bf;
 //:     let ok %bool eq observed_len 64;
@@ -72,7 +72,7 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure fn i32 Re
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 32;
 //:     let observed_len %i32 len<i32, DefaultHash32> &bf;
 //:     let ok %bool eq observed_len 32;
@@ -97,7 +97,7 @@ pub fn len <.T,.H> %fn &BloomFilter .T .H i32 \bf:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
 //:     let bf1 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf0 7;
 //:     let ok %bool contains<i32, DefaultHash32> &bf1 7;
@@ -135,7 +135,7 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
 //:     let bf1 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf0 7;
 //:     let bf2 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf1 12;
@@ -172,7 +172,7 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &BloomFilter .T .H fn
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
 //:     let bf1 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf0 7;
 //:     let bf2 %BloomFilter i32 DefaultHash32 clear<i32, DefaultHash32> bf1;
@@ -203,11 +203,11 @@ pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .H
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
 //:     free bf;
 //:     0
 //: ```
-pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn BloomFilter .T .H () \bf:
+pub fn free <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn BloomFilter .T .H unit \bf:
     let bits %Vec u8 field::get bf "bits"
     bloom_free_bits bits

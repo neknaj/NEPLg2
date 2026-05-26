@@ -19,7 +19,7 @@ pub fn seg_load_owned %fn &Vec i32 fn i32 Option i32 \data\idx:
         Option::None:
             none<i32>
 
-pub fn seg_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 () \data\idx\value:
+pub fn seg_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit \data\idx\value:
     vec::replace<i32> data idx value
 
 pub fn seg_pair_sum %fn &Vec i32 fn i32 fn i32 Option i32 \data\left\right:

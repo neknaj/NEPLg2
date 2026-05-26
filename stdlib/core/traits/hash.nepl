@@ -26,7 +26,7 @@
 //:| #import "std/test" as *
 //:| #import "core/traits/hash" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let h1 %i32 hash32_by_trait 123456
 //:     let h2 %i32 hash32_by_trait 123456
 //:     let h3 %i32 hash32_by_trait 123457
@@ -93,7 +93,7 @@ trait Hasher<.K: HashKey>:
 //: ## DefaultHash32
 //: stdlib の[既定/きてい] hasher
 pub struct DefaultHash32:
-    tag %()
+    tag %unit
 
 impl Clone for DefaultHash32:
     fn clone %fn &DefaultHash32 DefaultHash32 \self:

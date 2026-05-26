@@ -37,7 +37,7 @@ fn must_hms %impure fn Result HashMap str i32 DefaultHash32 HashMapUpdateError s
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hm0 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
     let hm0_len %i32 len &hm0;
     free hm0;
@@ -84,7 +84,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set hm4_value v
         Option::None:
-            ()
+            unit
     free hm4;
 
     let hm5 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
@@ -95,7 +95,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set hm5_value v
         Option::None:
-            ()
+            unit
     free hm5;
 
     let hm6 %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
@@ -167,7 +167,7 @@ fn must_hms %impure fn Result HashMap str i32 DefaultHash32 HashMapUpdateError s
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hmf %HashMap str i32 DefaultHash32 must_hms new DefaultHash32;
     let hmf %HashMap str i32 DefaultHash32 must_hms insert hmf "x" 1;
     free hmf;

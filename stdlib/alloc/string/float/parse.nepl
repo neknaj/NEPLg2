@@ -51,7 +51,7 @@ fn float_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //:         Result::Err _:
 //:             assert label true
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let expected %f64 %f64 cast 125
 //:     let report:
 //:         test_report_new "string_float_parse_doc"
@@ -105,7 +105,7 @@ pub fn to_f64 %fn str Result f64 i32 \s:
                         then:
                             set i 1;
                         else:
-                            ();
+                            unit;
 
             let mut done_int %i32 0;
             while and eq ok 1 eq done_int 0:
@@ -139,9 +139,9 @@ pub fn to_f64 %fn str Result f64 i32 \s:
                         then:
                             set has_dot 1;
                         else:
-                            ();
+                            unit;
                 else:
-                    ();
+                    unit;
 
             if:
                 eq has_dot 1
@@ -171,7 +171,7 @@ pub fn to_f64 %fn str Result f64 i32 \s:
                                 else:
                                     set done_frac 1;
                 else:
-                    ();
+                    unit;
 
             let mut exp_val %i32 0;
             let mut exp_neg %i32 0;
@@ -185,9 +185,9 @@ pub fn to_f64 %fn str Result f64 i32 \s:
                         then:
                             set has_exp 1;
                         else:
-                            ();
+                            unit;
                 else:
-                    ();
+                    unit;
 
             if:
                 eq has_exp 1
@@ -208,7 +208,7 @@ pub fn to_f64 %fn str Result f64 i32 \s:
                                         then:
                                             set i add i 1;
                                         else:
-                                            ();
+                                            unit;
                         else:
                             set ok 0;
 
@@ -236,23 +236,23 @@ pub fn to_f64 %fn str Result f64 i32 \s:
                         then:
                             set ok 0;
                         else:
-                            ();
+                            unit;
                 else:
-                    ();
+                    unit;
 
             if:
                 ne i n
                 then:
                     set ok 0;
                 else:
-                    ();
+                    unit;
 
             if:
                 eq has_digit 0
                 then:
                     set ok 0;
                 else:
-                    ();
+                    unit;
 
             let mut out %f64 add int_part frac_part;
             let mut k %i32 0;

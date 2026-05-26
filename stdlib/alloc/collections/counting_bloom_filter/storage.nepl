@@ -23,11 +23,11 @@ pub fn counting_bloom_counter_at %fn &Vec u8 fn i32 Option i32 \counters\idx:
         Option::None:
             none<i32>
 
-pub fn counting_bloom_store_counter %impure fn &Vec u8 impure fn i32 impure fn i32 () \counters\idx\value:
+pub fn counting_bloom_store_counter %impure fn &Vec u8 impure fn i32 impure fn i32 unit \counters\idx\value:
     let counter %u8 cast value
     vec::replace<u8> counters idx counter
 
-pub fn counting_bloom_fill_counters %impure fn &Vec u8 impure fn i32 impure fn i32 () \counters\nslots\value:
+pub fn counting_bloom_fill_counters %impure fn &Vec u8 impure fn i32 impure fn i32 unit \counters\nslots\value:
     let mut i %i32 0
     while lt i nslots:
         do:
@@ -42,5 +42,5 @@ pub fn counting_bloom_alloc_counters %impure fn i32 impure fn i32 Result Vec u8 
         Result::Err _e:
             diag_err<Vec<u8>> diag_out_of_memory
 
-pub fn counting_bloom_free_counters %fn Vec u8 () \counters:
+pub fn counting_bloom_free_counters %fn Vec u8 unit \counters:
     vec::free<u8> counters

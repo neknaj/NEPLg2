@@ -46270,3 +46270,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review でも、constructor、owner helper、typed-local 付き `unwrap_ok` は移行推奨、queue/ringbuffer の `new<i32>` / `pop<i32>` は残すべきと確認した。
 - `rg -n "Result<[^>]+>::(Ok|Err)|unwrap_ok<|hashmap_update_error_diag<|hashset_update_error_diag<|hashmap_update_error_owner<|hashset_update_error_owner<" tests/stdlib/collections_diag.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md --no-tree -o tmp/neplg21-collections-diag-helper-postfix.json -j 1 --dist web/dist --assert-io` は 4 件すべて compile timeout after 60000ms。型診断は出ていない。
+
+## 2026-05-26 Agent 1 NEPLg2.1 unit keyword migration
+
+- `ISS-20260526T004744719Z-NEPLG2-1-UNIT-LITERAL-SHOULD-USE-UNI-ECE4D70B` を追加して fixed にした。`plan.md` は確認済みで、変更していない。
+- NEPLg2.1 では `()` を unit 型・unit 値・0 引数関数 marker として残さず、`unit` keyword に統一する。`fn unit T` と `\unit` は unit 引数ではなく、0 引数関数型と0引数関数リテラルの marker として既存の空 parameter list へ正規化する。
+- Rust lexer は `unit` を `TokenKind::UnitLiteral` に分類し、parser の `expect_ident` でも `unit` を予約語診断対象にした。
+- `nodesrc/neplg21_syntax_migrate.js` は `<()>` / `%()` / `fn () T` / `\()` / 値式 `()` を `unit` へ変換する。過去の移行途中に残っていた `%()*T>` 系と、空白なしの `():` 系も補正対象にした。
+- `#intrinsic "..." <> ()` の `()` は unit 値ではなく directive 引数区切りなので、移行ツールで保持・復元するようにした。
+- 実行対象 corpus、examples、tutorial、doc examples、Rust fixture の unit 表記を一括変換した。stdlib comment policy の現行例も `\unit` に揃えた。selfhost parser に渡す source string fixture の旧 `()` は、selfhost parser の NEPLg2.1 対応単位で更新する対象として残している。
+- verification:
+  - `cargo test -p nepl-core --test functions function_neplg21 -- --nocapture`: 9/9 passed.
+  - `cargo test -p nepl-core --test typeannot test_neplg21 -- --nocapture`: 6/6 passed.
+  - `cargo test -p nepl-core --test functions function_neplg21_unit_keyword_marks_zero_arg_signature_and_lambda -- --nocapture`: passed.
+  - `cargo test -p nepl-core --test typeannot test_neplg21_unit_keyword_type_annotation_and_value -- --nocapture`: passed.
+  - `trunk build`: passed.
+  - `node nodesrc/tests.js -i tests/compiler/keywords_reserved.n.md --no-tree -o tmp/neplg21-unit-keyword-reserved.json -j 1 --dist web/dist --assert-io`: 7/7 passed.
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s).
+  - `node nodesrc/issues.js check --dir issues`: passed.
+  - `git diff --check`: passed.

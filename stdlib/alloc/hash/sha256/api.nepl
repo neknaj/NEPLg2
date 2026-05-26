@@ -20,7 +20,7 @@
 //:
 //: [実装/じっそう]:
 //: - 入力 byte buffer として empty `Vec<i32>` を[確保/かくほ]します。
-pub fn new_sha256 %impure fn () Result Sha256 StdErrorKind \():
+pub fn new_sha256 %impure fn unit Result Sha256 StdErrorKind \unit:
     match new<i32>:
         Result::Err e:
             Result<Sha256, StdErrorKind>::Err e
@@ -48,7 +48,7 @@ pub fn sha256_update %impure fn Sha256 impure fn i32 Result Sha256 Sha256UpdateE
 //:
 //: [目的/もくてき]:
 //: - `sha256_update` 失敗後に返った state や、finalize せず破棄する state の owner を明示的に閉じます。
-pub fn sha256_free %fn Sha256 () \ctx:
+pub fn sha256_free %fn Sha256 unit \ctx:
     free<i32> field::get ctx "buffer"
 
 //: sha256_finalize: 32 byte SHA-256 digest を[返/かえ]す

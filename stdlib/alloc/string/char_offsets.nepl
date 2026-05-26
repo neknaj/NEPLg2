@@ -155,7 +155,7 @@ pub fn str_char_slice_offsets_result %fn str fn i32 fn i32 Result StrCharSliceOf
                     set start_byte byte_i
                     set found_start true
                 else:
-                    ()
+                    unit
             if:
                 eq char_i end_char
                 then:

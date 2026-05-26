@@ -55,11 +55,11 @@ fn cli_args_sizes_result %impure fn MemPtr u8 Result CliArgSizes i32 \meta:
                         else:
                             Result<CliArgSizes,i32>::Ok CliArgSizes argc buf_size
 
-fn cli_zero_u8_buffer_result %fn MemPtr u8 fn i32 Result () i32 \buf\size:
+fn cli_zero_u8_buffer_result %fn MemPtr u8 fn i32 Result unit i32 \buf\size:
     if:
         lt size 0
         then:
-            Result<(),i32>::Err 1
+            Result<unit,i32>::Err 1
         else:
             let mut i %i32 0
             let mut err %i32 0
@@ -67,30 +67,30 @@ fn cli_zero_u8_buffer_result %fn MemPtr u8 fn i32 Result () i32 \buf\size:
                 do:
                     match store_u8 mem_ptr_add buf i 0:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
                             set err 1
                     set i add i 1
             if:
                 eq err 0
                 then:
-                    Result<(),i32>::Ok ()
+                    Result<unit,i32>::Ok unit
                 else:
-                    Result<(),i32>::Err err
+                    Result<unit,i32>::Err err
 
-fn cli_zero_i32_slots_result %fn MemPtr u8 fn i32 Result () i32 \base\byte_size:
+fn cli_zero_i32_slots_result %fn MemPtr u8 fn i32 Result unit i32 \base\byte_size:
     let raw %i32 mem_ptr_addr base
     if:
         or le raw 0 lt byte_size 0
         then:
-            Result<(),i32>::Err 1
+            Result<unit,i32>::Err 1
         else:
             let mut off %i32 0
             while lt off byte_size:
                 do:
                     store_i32 add raw off 0
                     set off add off 4
-            Result<(),i32>::Ok ()
+            Result<unit,i32>::Ok unit
 
 fn cli_load_u8_result %fn MemPtr u8 fn i32 Result i32 i32 \base\off:
     match load_u8 mem_ptr_add base off:
@@ -113,7 +113,7 @@ fn cli_load_u8_result %fn MemPtr u8 fn i32 Result i32 i32 \base\off:
 //:
 //: 計算量:
 //: - O(1)
-pub fn cliarg_count_result %impure fn () Result i32 i32 \():
+pub fn cliarg_count_result %impure fn unit Result i32 i32 \unit:
     match alloc_region<u8> 8:
         Result::Err _:
             Result<i32,i32>::Err 1
@@ -127,9 +127,9 @@ pub fn cliarg_count_result %impure fn () Result i32 i32 \():
                     Result<i32,i32>::Ok argc
             match dealloc_region<u8> meta_region:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ()
+                    unit
             res
 
 //: cliarg_get_checked: argv[index] を raw argv 境界内で取得する
@@ -175,9 +175,9 @@ pub fn cliarg_get_checked %impure fn i32 Option str \idx:
                                         Result::Err _:
                                             match dealloc_region<u8> argv_region:
                                                 Result::Ok _:
-                                                    ()
+                                                    unit
                                                 Result::Err _:
-                                                    ()
+                                                    unit
                                             none<str>
                                         Result::Ok argv_buf_region:
                                             let argv_buf %MemPtr u8 region_ptr &argv_buf_region
@@ -224,20 +224,20 @@ pub fn cliarg_get_checked %impure fn i32 Option str \idx:
                                                                                                     none<str>
                                             match dealloc_region<u8> argv_buf_region:
                                                 Result::Ok _:
-                                                    ()
+                                                    unit
                                                 Result::Err _:
-                                                    ()
+                                                    unit
                                             match dealloc_region<u8> argv_region:
                                                 Result::Ok _:
-                                                    ()
+                                                    unit
                                                 Result::Err _:
-                                                    ()
+                                                    unit
                                             inner
             match dealloc_region<u8> meta_region:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ()
+                    unit
             res
 
 #if[target=llvm]
@@ -255,19 +255,19 @@ fn __cli_copy_to_cstr %impure fn str Result RegionToken u8 i32 \s:
                 do:
                     match store_u8 mem_ptr_add dst i load_u8 add src i:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ()
+                            unit
                     set i add i 1;
             match store_u8 mem_ptr_add dst byte_len 0:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ()
+                    unit
             Result<RegionToken<u8>,i32>::Ok dst_region
 
 #if[target=llvm]
-fn __cli_open_cmdline %impure fn () i32 \():
+fn __cli_open_cmdline %impure fn unit i32 \unit:
     let path %str "/proc/self/cmdline";
     match __cli_copy_to_cstr path:
         Result::Err _:
@@ -277,9 +277,9 @@ fn __cli_open_cmdline %impure fn () i32 \():
             let fd64 %i64 __cli_syscall %i64 cast 257 %i64 cast -100 %i64 cast mem_ptr_addr cpath %i64 cast 0 %i64 cast 0 %i64 cast 0 %i64 cast 0;
             match dealloc_region<u8> cpath_region:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ()
+                    unit
             if:
                 cond:
                     lt fd64 %i64 cast 0
@@ -318,9 +318,9 @@ fn args_sizes_get %impure fn i32 impure fn i32 i32 \argc_ptr\buf_ptr:
                 then:
                     match dealloc_region<u8> tmp_region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ();
+                            unit;
                     1
                 else:
                     let mut argc %i32 0;
@@ -333,7 +333,7 @@ fn args_sizes_get %impure fn i32 impure fn i32 i32 \argc_ptr\buf_ptr:
                                     if:
                                         eq b 0
                                         then set argc add argc 1
-                                        else ()
+                                        else unit
                                 Result::Err e:
                                     set err e
                             set i add i 1;
@@ -343,12 +343,12 @@ fn args_sizes_get %impure fn i32 impure fn i32 i32 \argc_ptr\buf_ptr:
                             store_i32 argc_ptr argc;
                             store_i32 buf_ptr n;
                         else:
-                            ()
+                            unit
                     match dealloc_region<u8> tmp_region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ();
+                            unit;
                     if eq err 0 0 err
 
 #if[target=llvm]
@@ -368,9 +368,9 @@ fn args_get %impure fn i32 impure fn i32 i32 \argv_ptr\argv_buf:
                 then:
                     match dealloc_region<u8> tmp_region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ();
+                            unit;
                     1
                 else:
                     let mut err %i32 0;
@@ -381,7 +381,7 @@ fn args_get %impure fn i32 impure fn i32 i32 \argv_ptr\argv_buf:
                                 Result::Ok b:
                                     match store_u8 mem_ptr_add argv_buf_ptr i b:
                                         Result::Ok _:
-                                            ()
+                                            unit
                                         Result::Err _:
                                             set err 1
                                 Result::Err e:
@@ -394,10 +394,10 @@ fn args_get %impure fn i32 impure fn i32 i32 \argv_ptr\argv_buf:
                         then:
                             match store_i32 argv_ptr_i32 argv_buf:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
                                     set err 1
-                        else ()
+                        else unit
 
                     let mut j %i32 0;
                     while and eq err 0 lt j n:
@@ -414,17 +414,17 @@ fn args_get %impure fn i32 impure fn i32 i32 \argv_ptr\argv_buf:
                                                 then:
                                                     match store_i32 mem_ptr_add argv_ptr_i32 mul argi 4 add argv_buf add j 1:
                                                         Result::Ok _:
-                                                            ()
+                                                            unit
                                                         Result::Err _:
                                                             set err 1
-                                                else ()
-                                        else ()
+                                                else unit
+                                        else unit
                                 Result::Err e:
                                     set err e
                             set j add j 1;
                     match dealloc_region<u8> tmp_region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ();
+                            unit;
                     if eq err 0 0 err

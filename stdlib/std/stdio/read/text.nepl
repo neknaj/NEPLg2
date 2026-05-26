@@ -30,7 +30,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n)
-pub fn stdio_read_all_text_result %impure fn () Result str StdErrorKind \():
+pub fn stdio_read_all_text_result %impure fn unit Result str StdErrorKind \unit:
     match stdio_read_all_bytes_result:
         Result::Ok bytes:
             text_bytebuf_to_utf8_str_result bytes
@@ -69,10 +69,10 @@ pub fn stdio_read_all_text_result %impure fn () Result str StdErrorKind \():
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     print read_all;
 //: ```
-pub fn read_all %impure fn () str \():
+pub fn read_all %impure fn unit str \unit:
     match stdio_read_all_text_result:
         Result::Ok text:
             text
@@ -94,7 +94,7 @@ pub fn read_all %impure fn () str \():
 //:
 //: 計算量:
 //: - O(n)
-pub fn stdio_read_line_result %impure fn () Result str StdErrorKind \():
+pub fn stdio_read_line_result %impure fn unit Result str StdErrorKind \unit:
     match stdio_read_line_buffer_result:
         Result::Err e:
             Result<str, StdErrorKind>::Err e
@@ -133,10 +133,10 @@ pub fn stdio_read_line_result %impure fn () Result str StdErrorKind \():
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     print read_line;
 //: ```
-pub fn noshadow read_line %impure fn () str \():
+pub fn noshadow read_line %impure fn unit str \unit:
     match stdio_read_line_result:
         Result::Ok text:
             text

@@ -37,7 +37,7 @@ pub fn fs_read_dir %impure fn str Result Vec str i32 \path:
             let res %Result Vec str i32 fs_read_dir_fd fd
             match fs_close fd:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ()
+                    unit
             res

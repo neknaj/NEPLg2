@@ -38,9 +38,9 @@ fn check_path_result %impure fn TestReport impure fn Result SelfhostResolvedModu
                 else:
                     checks_push checks1 check not selfhost_resolved_module_path_is_stdlib resolved
         Result::Err _diag:
-            checks_push checks Result<(),str>::Err "path resolution returned Err"
+            checks_push checks Result<unit,str>::Err "path resolution returned Err"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let map %SelfhostModulePathMap selfhost_module_path_map_new "user" "stdlib"
     let span %SelfhostSourceSpan source_span_empty 0 0
     let checks0 checks_new
@@ -85,7 +85,7 @@ stdout: mlstr:
 fn edge_at %fn &SelfhostModuleGraph fn i32 SelfhostModuleGraphEdge \graph\idx:
     unwrap<SelfhostModuleGraphEdge> selfhost_module_graph_edge_at graph idx
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let root %str "#import \"./util\" as util\n#import \"core/result\" as *\nfn main <()->i32> \():\n    0\n"
     let util %str "fn util <()->i32> ():\n    1\n"
     let result_mod %str "enum Result:\n    Ok\n    Err\n"
@@ -118,23 +118,23 @@ fn main %impure fn () i32 \():
                                             checks_exit_code shown
                                         Result::Err _diag:
                                             selfhost_vfs_free vfs3
-                                            let checks1 checks_push checks0 Result<(),str>::Err "mapped graph returned Err"
+                                            let checks1 checks_push checks0 Result<unit,str>::Err "mapped graph returned Err"
                                             let shown checks_print_report checks1
                                             checks_exit_code shown
                                 Result::Err _e:
-                                    let checks1 checks_push checks0 Result<(),str>::Err "stdlib VFS add failed"
+                                    let checks1 checks_push checks0 Result<unit,str>::Err "stdlib VFS add failed"
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
                         Result::Err _e:
-                            let checks1 checks_push checks0 Result<(),str>::Err "util VFS add failed"
+                            let checks1 checks_push checks0 Result<unit,str>::Err "util VFS add failed"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "root VFS add failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "root VFS add failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "VFS allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "VFS allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -158,12 +158,12 @@ stdout: mlstr:
 #import "neplg2/core/module/stdlib_map" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let map %SelfhostModulePathMap selfhost_module_path_map_new "user" "stdlib"
     let checks0 checks_new
     match selfhost_module_path_resolve_import &map "user/main.nepl" source_span_empty 0 0 "../escape":
         Result::Ok _resolved:
-            let checks1 checks_push checks0 Result<(),str>::Err "escape above user root was accepted"
+            let checks1 checks_push checks0 Result<unit,str>::Err "escape above user root was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:

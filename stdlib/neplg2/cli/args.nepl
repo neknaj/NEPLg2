@@ -24,7 +24,7 @@ pub #import "./args/types" as *
 //:| #target std
 //:| #import "core/field" as *
 //:| #import "neplg2/cli/args" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let opts %SelfhostCliOptions selfhost_cli_default_options;
 //:     let check_ref %&bool get_ref &opts "check";
 //:     if *check_ref 1 0

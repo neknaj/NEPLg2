@@ -12,7 +12,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "core/mem/allocator" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     alloc_raw 4
 //: ```
 
@@ -49,7 +49,7 @@ pub fn mem_block_end %fn i32 i32 \blk:
 //:| #target std
 //:| #import "core/mem/allocator" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc 2147483633:
 //:         Result::Err _:
 //:             1
@@ -126,7 +126,7 @@ pub fn alloc_raw %fn i32 i32 \size:
                         cond:
                             le new_heap cur_bytes
                         then:
-                            ()
+                            unit
                         else:
                             let need_bytes %i32 sub new_heap cur_bytes
                             let need_round %i32 add need_bytes 65535
@@ -138,7 +138,7 @@ pub fn alloc_raw %fn i32 i32 \size:
                                 then:
                                     set ok false
                                 else:
-                                    ()
+                                    unit
                     if:
                         cond:
                             ok
@@ -164,12 +164,12 @@ pub fn alloc_raw %fn i32 i32 \size:
 //:
 //: 計算量:
 //: - O(n)
-pub fn dealloc_raw %fn i32 fn i32 () \ptr\size:
+pub fn dealloc_raw %fn i32 fn i32 unit \ptr\size:
     if:
         cond:
             le ptr 0
         then:
-            ()
+            unit
         else:
             let header %i32 8
             let total %i32 align8 add size header
@@ -204,7 +204,7 @@ pub fn dealloc_raw %fn i32 fn i32 () \ptr\size:
                     store_i32 blk add load_i32 blk load_i32 cur
                     store_i32 blk_next_ptr cur_next
                 else:
-                    ()
+                    unit
             if:
                 cond:
                     and ne prev 0 eq mem_block_end prev blk
@@ -212,7 +212,7 @@ pub fn dealloc_raw %fn i32 fn i32 () \ptr\size:
                     store_i32 prev add load_i32 prev load_i32 blk
                     store_i32 add prev 4 load_i32 blk_next_ptr
                 else:
-                    ()
+                    unit
 
 //: realloc_raw: 既存領域を再確保する（生ポインタAPI）
 //:
@@ -284,7 +284,7 @@ pub fn __nepl_rt_alloc %fn i32 i32 \size:
 //:
 //: 計算量:
 //: - O(dealloc_raw)
-pub fn __nepl_rt_dealloc %fn i32 fn i32 () \ptr\size:
+pub fn __nepl_rt_dealloc %fn i32 fn i32 unit \ptr\size:
     dealloc_raw ptr size
 
 //: __nepl_rt_realloc: compiler runtime ABI 用の再確保入口
@@ -359,18 +359,18 @@ pub fn realloc %fn i32 fn i32 fn i32 Result i32 str \ptr\old_size\new_size:
 //: - 不正な引数を早期に検出し、呼び出し側へ `Result` で返します。
 //:
 //: 実装(アルゴリズム):
-//: - `ptr<=0` または `size<0` を `Err` とし、それ以外は `dealloc_raw` 後に `Ok(())` を返します。
+//: - `ptr<=0` または `size<0` を `Err` とし、それ以外は `dealloc_raw` 後に `Ok(unit)` を返します。
 //:
 //: 計算量:
 //: - O(1)
-pub fn dealloc %fn i32 fn i32 Result () str \ptr\size:
+pub fn dealloc %fn i32 fn i32 Result unit str \ptr\size:
     if:
         or le ptr 0 lt size 0
         then:
-            Result<(),str>::Err "mem.dealloc invalid argument"
+            Result<unit,str>::Err "mem.dealloc invalid argument"
         else:
             dealloc_raw ptr size
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
 
 //: load_i32: i32 を読み出す
 //:

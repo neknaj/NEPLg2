@@ -17,7 +17,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem" as *
 #import "core/mem/internal" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let _p %MemPtr i32 mem_ptr_wrap 16
     0
 ```
@@ -34,7 +34,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/internal" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match alloc_region<i32> 1:
         Result::Err _e:
             0
@@ -62,7 +62,7 @@ ret: 0
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let s_i64 %i32 size_of<i64>;
     let a_i64 %i32 align_of<i64>;
     let s_f64 %i32 size_of<f64>;
@@ -89,7 +89,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 alloc_raw 8;
     let v %i64 add %i64 cast 12345 %i64 cast 67890;
     store<i64> p v;
@@ -112,7 +112,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 alloc_raw 8;
     let v %f64 cast 42;
     store<f64> p v;
@@ -131,8 +131,8 @@ ret: 0
 #indent 4
 #import "core/result" as *
 
-fn main %fn () i32 \():
-    let r %Result () str Result<(),str>::Ok ();
+fn main %fn unit i32 \unit:
+    let r %Result unit str Result<unit,str>::Ok unit;
     match r:
         Result::Ok _u:
             0
@@ -155,14 +155,14 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let high %i64 mul %i64 cast 65536 %i64 cast 65536;
     let v %i64 add high %i64 cast 7;
-    let r %Result () i64 Result<(),i64>::Err v;
-    let p %i32 alloc_raw size_of<Result<(),i64>>;
-    store<Result<(),i64>> p r;
-    let got %Result () i64 load<Result<(),i64>> p;
-    dealloc_raw p size_of<Result<(),i64>>;
+    let r %Result unit i64 Result<unit,i64>::Err v;
+    let p %i32 alloc_raw size_of<Result<unit,i64>>;
+    store<Result<unit,i64>> p r;
+    let got %Result unit i64 load<Result<unit,i64>> p;
+    dealloc_raw p size_of<Result<unit,i64>>;
     match got:
         Result::Ok _u:
             1
@@ -184,9 +184,9 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/raw" as *
 
 struct Z:
-    tag %()
+    tag %unit
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p0 %i32 alloc_raw 16;
     store_i32 p0 123;
     let z %Z Z;
@@ -207,7 +207,7 @@ diag_code: type.intrinsic.arg_type_mismatch
 #entry main
 #indent 4
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     #intrinsic "i32_to_f32" <> (true)
     0
 ```
@@ -227,7 +227,7 @@ struct Pair:
     a %i32
     b %str
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     if:
         eq size_of<str> 4
         then:

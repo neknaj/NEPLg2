@@ -30,7 +30,7 @@
 //:| #target std
 //:| #import "alloc/string/utf8" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let is_ascii %bool match string_utf8_lead_kind 65:
 //:         StringUtf8LeadKind::Ascii:
 //:             true
@@ -91,36 +91,36 @@ fn string_utf8_byte_at_checked %fn MemPtr u8 fn i32 fn i32 Result i32 str \data\
                 Option::None:
                     Result<i32,str>::Err "string.utf8 invalid pointer"
 
-fn string_utf8_validate_two %fn MemPtr u8 fn i32 fn i32 Result () str \data\i\byte_len:
+fn string_utf8_validate_two %fn MemPtr u8 fn i32 fn i32 Result unit str \data\i\byte_len:
     if:
         gt add i 2 byte_len
         then:
-            Result<(),str>::Err "string.utf8 truncated sequence"
+            Result<unit,str>::Err "string.utf8 truncated sequence"
         else:
             match string_utf8_byte_at_checked data byte_len add i 1:
                 Result::Err e:
-                    Result<(),str>::Err e
+                    Result<unit,str>::Err e
                 Result::Ok b1:
                     if:
                         string_utf8_is_continuation b1
                         then:
-                            Result<(),str>::Ok ()
+                            Result<unit,str>::Ok unit
                         else:
-                            Result<(),str>::Err "string.utf8 invalid continuation"
+                            Result<unit,str>::Err "string.utf8 invalid continuation"
 
-fn string_utf8_validate_three %fn MemPtr u8 fn i32 fn i32 fn i32 Result () str \data\i\byte_len\b0:
+fn string_utf8_validate_three %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit str \data\i\byte_len\b0:
     if:
         gt add i 3 byte_len
         then:
-            Result<(),str>::Err "string.utf8 truncated sequence"
+            Result<unit,str>::Err "string.utf8 truncated sequence"
         else:
             match string_utf8_byte_at_checked data byte_len add i 1:
                 Result::Err e:
-                    Result<(),str>::Err e
+                    Result<unit,str>::Err e
                 Result::Ok b1:
                     match string_utf8_byte_at_checked data byte_len add i 2:
                         Result::Err e:
-                            Result<(),str>::Err e
+                            Result<unit,str>::Err e
                         Result::Ok b2:
                             let first_ok %bool:
                                 if:
@@ -137,27 +137,27 @@ fn string_utf8_validate_three %fn MemPtr u8 fn i32 fn i32 fn i32 Result () str \
                             if:
                                 and first_ok string_utf8_is_continuation b2
                                 then:
-                                    Result<(),str>::Ok ()
+                                    Result<unit,str>::Ok unit
                                 else:
-                                    Result<(),str>::Err "string.utf8 invalid three-byte sequence"
+                                    Result<unit,str>::Err "string.utf8 invalid three-byte sequence"
 
-fn string_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result () str \data\i\byte_len\b0:
+fn string_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit str \data\i\byte_len\b0:
     if:
         gt add i 4 byte_len
         then:
-            Result<(),str>::Err "string.utf8 truncated sequence"
+            Result<unit,str>::Err "string.utf8 truncated sequence"
         else:
             match string_utf8_byte_at_checked data byte_len add i 1:
                 Result::Err e:
-                    Result<(),str>::Err e
+                    Result<unit,str>::Err e
                 Result::Ok b1:
                     match string_utf8_byte_at_checked data byte_len add i 2:
                         Result::Err e:
-                            Result<(),str>::Err e
+                            Result<unit,str>::Err e
                         Result::Ok b2:
                             match string_utf8_byte_at_checked data byte_len add i 3:
                                 Result::Err e:
-                                    Result<(),str>::Err e
+                                    Result<unit,str>::Err e
                                 Result::Ok b3:
                                     let first_ok %bool:
                                         if:
@@ -174,9 +174,9 @@ fn string_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result () str \d
                                     if:
                                         and first_ok and string_utf8_is_continuation b2 string_utf8_is_continuation b3
                                         then:
-                                            Result<(),str>::Ok ()
+                                            Result<unit,str>::Ok unit
                                         else:
-                                            Result<(),str>::Err "string.utf8 invalid four-byte sequence"
+                                            Result<unit,str>::Err "string.utf8 invalid four-byte sequence"
 
 //: string_utf8_validate_mem: raw byte 列が UTF-8 として妥当か検証する
 //:
@@ -205,7 +205,7 @@ fn string_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result () str \d
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let s %str "nep"
 //:     let data %MemPtr u8 string_data_ptr s
 //:     let valid %bool match string_utf8_validate_mem data len s:
@@ -219,15 +219,15 @@ fn string_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result () str \d
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
-pub fn string_utf8_validate_mem %fn MemPtr u8 fn i32 Result () str \data\byte_len:
+pub fn string_utf8_validate_mem %fn MemPtr u8 fn i32 Result unit str \data\byte_len:
     if:
         lt byte_len 0
         then:
-            Result<(),str>::Err "string.utf8 invalid length"
+            Result<unit,str>::Err "string.utf8 invalid length"
         else:
             let mut i %i32 0
             let mut done %i32 0
-            let mut res %Result () str Result<(),str>::Ok ()
+            let mut res %Result unit str Result<unit,str>::Ok unit
             while eq done 0:
                 do:
                     if:
@@ -237,7 +237,7 @@ pub fn string_utf8_validate_mem %fn MemPtr u8 fn i32 Result () str \data\byte_le
                         else:
                             match string_utf8_byte_at_checked data byte_len i:
                                 Result::Err e:
-                                    set res Result<(),str>::Err e
+                                    set res Result<unit,str>::Err e
                                     set done 1
                                 Result::Ok b0:
                                     match string_utf8_lead_kind b0:
@@ -248,23 +248,23 @@ pub fn string_utf8_validate_mem %fn MemPtr u8 fn i32 Result () str \data\byte_le
                                                 Result::Ok _:
                                                     set i add i 2
                                                 Result::Err e:
-                                                    set res Result<(),str>::Err e
+                                                    set res Result<unit,str>::Err e
                                                     set done 1
                                         StringUtf8LeadKind::Three:
                                             match string_utf8_validate_three data i byte_len b0:
                                                 Result::Ok _:
                                                     set i add i 3
                                                 Result::Err e:
-                                                    set res Result<(),str>::Err e
+                                                    set res Result<unit,str>::Err e
                                                     set done 1
                                         StringUtf8LeadKind::Four:
                                             match string_utf8_validate_four data i byte_len b0:
                                                 Result::Ok _:
                                                     set i add i 4
                                                 Result::Err e:
-                                                    set res Result<(),str>::Err e
+                                                    set res Result<unit,str>::Err e
                                                     set done 1
                                         StringUtf8LeadKind::Invalid:
-                                            set res Result<(),str>::Err "string.utf8 invalid leading byte"
+                                            set res Result<unit,str>::Err "string.utf8 invalid leading byte"
                                             set done 1
             res

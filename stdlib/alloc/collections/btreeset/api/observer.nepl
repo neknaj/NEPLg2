@@ -29,7 +29,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let s %BTreeSet i32:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 3 |> uwok
@@ -52,7 +52,7 @@ pub fn len <.T> %fn &BTreeSet .T i32 \set0:
 //:| #import "alloc/collections/btreeset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let s %BTreeSet i32:
 //:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
 //:         |> insert 7 |> uwok

@@ -26,7 +26,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let s %SparseSet unwrap_ok<SparseSet, Diag> new 8;
 //:     let observed_len %i32 len &s;
 //:     let ok %bool eq observed_len 0;

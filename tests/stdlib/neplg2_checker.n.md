@@ -28,7 +28,7 @@ stdout: mlstr:
 #import "neplg2/core/syntax/parser/module_parser" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let source %str "//: doc\n#entry main\n#target std\n#import \"core/result\" as *\nfn main <()->i32> ():\n    0\nstruct Pair:\nenum Maybe:\ntrait Show:\nimpl Show for Pair:\n#wasm:\n    i32.const 0\n"
     let mut checks checks_new
     match selfhost_parse_module_source source:
@@ -51,11 +51,11 @@ fn main %impure fn () i32 \():
                     checks_exit_code shown
                 Result::Err _diag:
                     selfhost_module_ast_free ast
-                    set checks checks_push checks Result<(),str>::Err "checker returned Err"
+                    set checks checks_push checks Result<unit,str>::Err "checker returned Err"
                     let shown checks_print_report checks
                     checks_exit_code shown
         Result::Err _diag:
-            set checks checks_push checks Result<(),str>::Err "parser returned Err"
+            set checks checks_push checks Result<unit,str>::Err "parser returned Err"
             let shown checks_print_report checks
             checks_exit_code shown
 ```
@@ -80,7 +80,7 @@ stdout: mlstr:
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "std/test" as *
 
-fn check_duplicate_directive %impure fn SelfhostModuleItemKind Result () str \kind:
+fn check_duplicate_directive %impure fn SelfhostModuleItemKind Result unit str \kind:
     match selfhost_module_ast_new:
         Result::Ok ast0:
             let span1 %SelfhostSourceSpan source_span_new 0 0 7
@@ -93,20 +93,20 @@ fn check_duplicate_directive %impure fn SelfhostModuleItemKind Result () str \ki
                         Result::Ok ast2:
                             match selfhost_check_module_ast &ast2:
                                 Result::Err diag:
-                                    let result %Result () str check_str_eq "checker.module.directive_duplicate" selfhost_diag_code_name diag.code
+                                    let result %Result unit str check_str_eq "checker.module.directive_duplicate" selfhost_diag_code_name diag.code
                                     selfhost_module_ast_free ast2
                                     result
                                 Result::Ok _summary:
                                     selfhost_module_ast_free ast2
-                                    Result<(),str>::Err "duplicate singleton directive was accepted"
+                                    Result<unit,str>::Err "duplicate singleton directive was accepted"
                         Result::Err _e:
-                            Result<(),str>::Err "second module AST push failed"
+                            Result<unit,str>::Err "second module AST push failed"
                 Result::Err _e:
-                    Result<(),str>::Err "first module AST push failed"
+                    Result<unit,str>::Err "first module AST push failed"
         Result::Err _e:
-            Result<(),str>::Err "module AST allocation failed"
+            Result<unit,str>::Err "module AST allocation failed"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     let checks1 checks_push checks0 check_duplicate_directive SelfhostModuleItemKind::EntryDirective
     let checks2 checks_push checks1 check_duplicate_directive SelfhostModuleItemKind::TargetDirective
@@ -133,7 +133,7 @@ stdout: mlstr:
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match selfhost_module_ast_new:
         Result::Ok ast0:
@@ -149,15 +149,15 @@ fn main %impure fn () i32 \():
                             checks_exit_code shown
                         Result::Ok _summary:
                             selfhost_module_ast_free ast
-                            let checks1 checks_push checks0 Result<(),str>::Err "checker accepted orphan raw text"
+                            let checks1 checks_push checks0 Result<unit,str>::Err "checker accepted orphan raw text"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "module AST push failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "module AST push failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "module AST allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "module AST allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -181,7 +181,7 @@ stdout: mlstr:
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match selfhost_module_ast_new:
         Result::Ok ast0:
@@ -197,15 +197,15 @@ fn main %impure fn () i32 \():
                             checks_exit_code shown
                         Result::Ok _summary:
                             selfhost_module_ast_free ast
-                            let checks1 checks_push checks0 Result<(),str>::Err "checker accepted declaration item without parser header"
+                            let checks1 checks_push checks0 Result<unit,str>::Err "checker accepted declaration item without parser header"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "module AST push failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "module AST push failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "module AST allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "module AST allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```

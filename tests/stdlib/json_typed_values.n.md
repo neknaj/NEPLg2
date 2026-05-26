@@ -13,7 +13,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/option" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match json_as_string json_string "hello":
         Option::Some s:
             if str_eq s "hello" 1 0
@@ -35,7 +35,7 @@ ret: 2
 #import "core/result" as *
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let arr0 %JsonArray unwrap_ok json_array_new;
     let arr1 %JsonArray unwrap_ok json_array_push arr0 json_number 1;
     let arr2 %JsonArray unwrap_ok json_array_push arr1 json_bool true;
@@ -59,7 +59,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let arr0 %JsonArray unwrap_ok json_array_new;
     let arr1 %JsonArray unwrap_ok json_array_push arr0 json_number 1;
     let arr2 %JsonArray unwrap_ok json_array_push arr1 json_bool true;
@@ -82,7 +82,7 @@ ret: 1
 #import "alloc/encoding/json" as *
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let out %str json_serialize json_string "a\"b\\c\n";
     if str_eq out "\"a\\\"b\\\\c\\n\"" 1 0
 ```
@@ -98,7 +98,7 @@ diag_codes: type.overload.no_match
 
 #import "alloc/encoding/json" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let _v %JsonValue json_string 0;
     0
 ```
@@ -114,7 +114,7 @@ diag_codes: type.overload.no_match
 
 #import "alloc/encoding/json" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let _v %JsonValue json_object 0;
     0
 ```
@@ -130,7 +130,7 @@ diag_codes: type.overload.no_match
 
 #import "alloc/encoding/json" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let _v %JsonValue json_array 0;
     0
 ```

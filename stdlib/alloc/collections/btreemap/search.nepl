@@ -32,7 +32,7 @@
 //:| #target std
 //:| #import "alloc/collections/btreemap/search" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let same %bool btreemap_key_eq<i32> 7 7
 //:     let diff %bool btreemap_key_eq<i32> 7 9
 //:     let report:

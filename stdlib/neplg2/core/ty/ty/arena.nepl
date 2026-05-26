@@ -20,7 +20,7 @@ pub struct SelfhostTypeArenaAlloc:
 
 
 //: selfhost_type_arena_new: [空/から]の TypeArena を[作/つく]る
-pub fn selfhost_type_arena_new %impure fn () Result SelfhostTypeArena StdErrorKind \():
+pub fn selfhost_type_arena_new %impure fn unit Result SelfhostTypeArena StdErrorKind \unit:
     match v::new<SelfhostTypeRecord>:
         Result::Ok records:
             match v::new<SelfhostTypeId>:
@@ -33,7 +33,7 @@ pub fn selfhost_type_arena_new %impure fn () Result SelfhostTypeArena StdErrorKi
             Result<SelfhostTypeArena, StdErrorKind>::Err e
 
 //: selfhost_type_arena_free: TypeArena が所有する buffer を[解放/かいほう]する
-pub fn selfhost_type_arena_free %impure fn SelfhostTypeArena () \arena:
+pub fn selfhost_type_arena_free %impure fn SelfhostTypeArena unit \arena:
     v::free<SelfhostTypeRecord> field::get arena "records"
     v::free<SelfhostTypeId> field::get arena "function_args"
 

@@ -6,7 +6,7 @@
 //:
 //: [目的/もくてき]:
 //: - type 表示、prelude registry、diagnostic が同じ primitive spelling を使えるようにします。
-//: - source 上の `()` は type model では `unit`、発散型は `never` として正規化します。
+//: - source 上の `unit` は type model では `unit`、発散型は `never` として正規化します。
 //: - Rust parser が named type として扱う `i64` / `f64` も、self-host の primitive registry ではこの canonical name で扱います。
 //:
 //: [注意/ちゅうい]:

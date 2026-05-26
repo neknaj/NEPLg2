@@ -16,7 +16,7 @@ stdout: "test_report name=\"cast_main\" count=11 failed=0\nassertion index=0 sta
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let bti_true_i32 %i32 %i32 cast true;
     let bti_false_i32 %i32 %i32 cast false;
     let inferred_true_i32 %i32 cast true;

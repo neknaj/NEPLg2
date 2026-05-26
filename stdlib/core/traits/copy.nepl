@@ -144,13 +144,13 @@ impl Copy for str:
 //: unit は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
 //:
 //: ### [目的/もくてき]
-//: - `()` は[状態/じょうたい]を[持/も]たないため、move ではなく copy として[扱/あつか]ってよいことを[明示/めいじ]します。
-impl Clone for ():
-    fn clone %fn &() () \x:
+//: - `unit` は[状態/じょうたい]を[持/も]たないため、move ではなく copy として[扱/あつか]ってよいことを[明示/めいじ]します。
+impl Clone for unit:
+    fn clone %fn &unit unit \x:
         *x
 
-impl Copy for ():
-    fn copy_mark %fn (()) () \x:
+impl Copy for unit:
+    fn copy_mark %fn (unit) unit \x:
         x
 
 //: MemPtr は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ

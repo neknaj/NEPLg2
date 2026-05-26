@@ -34,14 +34,14 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let dq %Deque i32 unwrap_ok<Deque<i32>, Diag> new<i32>;
 //:     let observed_len %i32 len<i32> &dq
 //:     let ok %bool eq observed_len 0
 //:     free<i32> dq
 //:     if ok 1 0
 //: ```
-pub fn new <.T: Copy> %impure fn () Result Deque .T Diag \():
+pub fn new <.T: Copy> %impure fn unit Result Deque .T Diag \unit:
     with_capacity<.T> 8
 
 //: ## with_capacity
@@ -55,7 +55,7 @@ pub fn new <.T: Copy> %impure fn () Result Deque .T Diag \():
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let dq %Deque i32 unwrap_ok<Deque<i32>, Diag> with_capacity<i32> 16;
 //:     let ok %bool eq cap<i32> &dq 16
 //:     free<i32> dq
@@ -226,5 +226,5 @@ pub fn clear <.T: Copy> %impure fn Deque .T Deque .T \dq:
 
 //: ## free
 //: deque が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> %fn Deque .T () \dq:
+pub fn free <.T: Copy> %fn Deque .T unit \dq:
     vec::free<Option<.T>> field::get dq "items"

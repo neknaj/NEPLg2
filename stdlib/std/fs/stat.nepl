@@ -13,7 +13,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "std/fs/stat" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     if fs_exists "__definitely_missing_fs_stat_case__.txt" then 1 else 0
 //: ```
 
@@ -80,9 +80,9 @@ pub fn fs_path_filetype %impure fn str Result i32 i32 \path:
                     string_builder_free normalized
                     match dealloc_region<u8> stat_region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ()
+                            unit
                     res
 
 //: fs_exists: path が preopen root 内に存在するかを返す

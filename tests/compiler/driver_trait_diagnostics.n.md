@@ -14,8 +14,8 @@ trait BadCap:
     fn f %fn Self Self \x:
         x
 
-fn main %fn () () \():
-    ()
+fn main %fn unit unit \unit:
+    unit
 ```
 
 ## trait_method_type_params_report_diag_code
@@ -32,6 +32,6 @@ trait Boxy:
     fn get <.T> %fn Self .T \x:
         x
 
-fn main %fn () () \():
-    ()
+fn main %fn unit unit \unit:
+    unit
 ```

@@ -16,10 +16,10 @@
 pub fn sparse_set_load_owned %fn &Vec i32 fn i32 Option i32 \base\idx:
     vec::get<i32> base idx
 
-pub fn sparse_set_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 () \base\idx\value:
+pub fn sparse_set_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit \base\idx\value:
     vec::replace<i32> base idx value
 
-pub fn sparse_set_free_arrays %fn Vec i32 fn Vec i32 () \dense\sparse:
+pub fn sparse_set_free_arrays %fn Vec i32 fn Vec i32 unit \dense\sparse:
     vec::free<i32> dense
     vec::free<i32> sparse
 

@@ -33,7 +33,7 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/string/slice/trim" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "string_trim_doc"
 //:         |> test_report_push assert_str_eq "suffix cr removed" "abc" str_trim_suffix_cr "abc\r"
@@ -72,15 +72,15 @@ pub fn str_slice_trim_suffix_cr %fn str fn i32 fn i32 str \s\start\end:
     if:
         lt s0 0
         then set s0 0
-        else ()
+        else unit
     if:
         lt e0 s0
         then set e0 s0
-        else ()
+        else unit
     if:
         lt n e0
         then set e0 n
-        else ()
+        else unit
     if:
         and gt e0 s0 string_byte_eq s sub e0 1 '\r'
         then str_slice s s0 sub e0 1

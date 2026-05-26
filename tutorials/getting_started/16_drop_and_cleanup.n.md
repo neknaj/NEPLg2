@@ -16,7 +16,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match new<i32>:
         Result::Err _e:
             let checks checks_push checks_new Result::Err "vec.new failed"

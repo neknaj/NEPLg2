@@ -55,7 +55,7 @@ fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "i128 parse failed unexpectedly"
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "string_integer_parse_doc"
 //:         |> test_report_push assert_i32_ok "parse hex i32" (to_i32_radix "2a" 16) 42

@@ -49,7 +49,7 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let source %str "#entry main\nfn main <()*>i32> ():\n    42\n"
     let checks0 checks_new
     match lex_all source:
@@ -69,7 +69,7 @@ fn main %impure fn () i32 \():
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -123,7 +123,7 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let source %str "a:\n    b:\n        c\n    d\nz"
     let checks0 checks_new
     match lex_all source:
@@ -143,7 +143,7 @@ fn main %impure fn () i32 \():
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -175,7 +175,7 @@ stdout: mlstr:
 fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all_with_file_id "#entry main\n" 7:
         Result::Ok tokens:
@@ -186,7 +186,7 @@ fn main %impure fn () i32 \():
             match lex_all_with_file_id "a:\n   b\n" 11:
                 Result::Ok bad_tokens:
                     free<SelfhostToken> bad_tokens
-                    let checks2 checks_push checks1 Result<(),str>::Err "invalid indentation was accepted"
+                    let checks2 checks_push checks1 Result<unit,str>::Err "invalid indentation was accepted"
                     let shown checks_print_report checks2
                     checks_exit_code shown
                 Result::Err diag:
@@ -195,7 +195,7 @@ fn main %impure fn () i32 \():
                     let shown checks_print_report checks2
                     checks_exit_code shown
         Result::Err _diag:
-            let checks1 checks_push checks0 Result<(),str>::Err "file_id lexer returned Err"
+            let checks1 checks_push checks0 Result<unit,str>::Err "file_id lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -243,7 +243,7 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let source %str "#indent 2\nfn:\n  1\n"
     let checks0 checks_new
     match lex_all source:
@@ -260,7 +260,7 @@ fn main %impure fn () i32 \():
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -289,12 +289,12 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all "a:\n    b\n  c\n":
         Result::Ok tokens:
             free<SelfhostToken> tokens
-            let checks1 checks_push checks0 Result<(),str>::Err "indent mismatch was accepted"
+            let checks1 checks_push checks0 Result<unit,str>::Err "indent mismatch was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -333,12 +333,12 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all "a:\n   b\n":
         Result::Ok tokens:
             free<SelfhostToken> tokens
-            let checks1 checks_push checks0 Result<(),str>::Err "indent width mismatch was accepted"
+            let checks1 checks_push checks0 Result<unit,str>::Err "indent width mismatch was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -377,12 +377,12 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all "name // skip this\n$":
         Result::Ok tokens:
             free<SelfhostToken> tokens
-            let checks1 checks_push checks0 Result<(),str>::Err "unexpected character was accepted"
+            let checks1 checks_push checks0 Result<unit,str>::Err "unexpected character was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -421,12 +421,12 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all "\"abc":
         Result::Ok tokens:
             free<SelfhostToken> tokens
-            let checks1 checks_push checks0 Result<(),str>::Err "unterminated string was accepted"
+            let checks1 checks_push checks0 Result<unit,str>::Err "unterminated string was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -469,7 +469,7 @@ stdout: mlstr:
 fn token_at %fn &Vec SelfhostToken fn i32 SelfhostToken \tokens\idx:
     unwrap<SelfhostToken> get<SelfhostToken> tokens idx
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     let source %str "'\\n' 'a'"
     match lex_all source:
@@ -487,7 +487,7 @@ fn main %impure fn () i32 \():
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -515,12 +515,12 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match lex_all "'abc":
         Result::Ok tokens:
             free<SelfhostToken> tokens
-            let checks1 checks_push checks0 Result<(),str>::Err "unterminated char was accepted"
+            let checks1 checks_push checks0 Result<unit,str>::Err "unterminated char was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -607,7 +607,7 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let source %str "#target core\n#import \"std/test\" as *\n#use \"std/prelude\"\n#if[target=core]\n#if[profile=debug]\n#capability io\n#prelude \"std/prelude\"\n#no_prelude\n#intrinsic \"unreachable\" <> ()\nfn main <()->i32> ():\n    let mut x 0x2a;\n    set x 1.5;\n    if cond true then 'a' else \"s\"\n    Result::Ok x\n"
     let checks0 checks_new
     match lex_all source:
@@ -639,7 +639,7 @@ fn main %impure fn () i32 \():
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -684,7 +684,7 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let source %str "//: module doc\n/// item doc\n##: text\n"
     let checks0 checks_new
     match lex_all source:
@@ -700,7 +700,7 @@ fn main %impure fn () i32 \():
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -755,7 +755,7 @@ fn check_token %impure fn TestReport impure fn str impure fn &Vec SelfhostToken 
     let checks1 checks_push checks check_str_eq expected_kind kind_name
     checks_push checks1 check_str_eq expected_lexeme lexeme
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let source %str "//: doc\n##: text\n#wasm:\n    local.get 0\n#llvmir:\n    ret i32 0\n"
     let checks0 checks_new
     match lex_all source:
@@ -776,7 +776,7 @@ fn main %impure fn () i32 \():
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<(),str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```

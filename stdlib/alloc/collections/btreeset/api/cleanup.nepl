@@ -23,11 +23,11 @@
 //:| #import "alloc/collections/btreeset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let s %BTreeSet i32 unwrap_ok<BTreeSet<i32>, Diag> new<i32>;
 //:     free s;
 //:     0
 //: ```
-pub fn free <.T: Copy> %fn BTreeSet .T () \set0:
+pub fn free <.T: Copy> %fn BTreeSet .T unit \set0:
     let storage %BTreeSetStorage .T field::get set0 "storage"
     btreeset_free_storage<.T> storage

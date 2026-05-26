@@ -25,7 +25,7 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/option" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "core_option_basic"
 //:         |> test_report_push assert "some is present" is_some some 123
@@ -48,7 +48,7 @@
 //: fn inc %fn i32 i32 \x:
 //:     add x 1
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let a0 map<i32,i32> some<i32> 9 inc;
 //:     let a1 map<i32,i32> some<i32> 9 inc;
 //:     let b map<i32,i32> none<i32> inc;
@@ -75,7 +75,7 @@
 //:         then some mul x 2
 //:         else none<i32>
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let a and_then<i32,i32> some<i32> 3 positive_double;
 //:     let b and_then<i32,i32> some<i32> -1 positive_double;
 //:     let report:
@@ -133,7 +133,7 @@ impl<.T: Copy> Copy for Option<.T>:
 //:
 //: 計算量:
 //: - O(1)
-pub fn none <.T> %fn () Option .T \():
+pub fn none <.T> %fn unit Option .T \unit:
     Option::None
 
 //: some: 値を包んで返す

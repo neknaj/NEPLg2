@@ -34,7 +34,7 @@ pub fn hashset_storage_keys <.T: Copy> %fn &HashSetStorage .T &Vec Option .T \st
 //:| #target std
 //:| #import "alloc/collections/hashset/storage" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     if eq hashset_normalize_capacity 2 4 0 1
 //: ```
 pub fn hashset_normalize_capacity %fn i32 i32 \requested:
@@ -51,7 +51,7 @@ pub fn hashset_normalize_capacity %fn i32 i32 \requested:
 //:| #target std
 //:| #import "alloc/collections/hashset/storage" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     if eq hashset_load_limit 8 6 0 1
 //: ```
 pub fn hashset_load_limit %fn i32 i32 \cap:
@@ -77,23 +77,23 @@ pub fn hashset_key_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \keys\idx:
             none<.T>
 
 //: hashset_store_state: state slot を[書/か]き[換/か]える
-pub fn hashset_store_state %impure fn &Vec HashSetBucketState impure fn i32 impure fn HashSetBucketState () \states\idx\state:
+pub fn hashset_store_state %impure fn &Vec HashSetBucketState impure fn i32 impure fn HashSetBucketState unit \states\idx\state:
     vec::replace<HashSetBucketState> states idx state
 
 //: hashset_store_key: key slot を[書/か]き[換/か]える
-pub fn hashset_store_key <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T () \keys\idx\key:
+pub fn hashset_store_key <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \keys\idx\key:
     vec::replace<Option<.T>> keys idx key
 
 //: hashset_store_full: slot を Full にして key を[格納/かくのう]する
 //:
 //: ### [目的/もくてき]
 //: - state と key option を同じ slot index で[同時/どうじ]に[更新/こうしん]します。
-pub fn hashset_store_full <.T: Copy> %impure fn &HashSetStorage .T impure fn i32 impure fn .T () \storage\idx\key:
+pub fn hashset_store_full <.T: Copy> %impure fn &HashSetStorage .T impure fn i32 impure fn .T unit \storage\idx\key:
     hashset_store_key<.T> hashset_storage_keys<.T> storage idx some<.T> key
     hashset_store_state hashset_storage_states<.T> storage idx HashSetBucketState::Full
 
 //: hashset_store_tombstone: slot を tombstone にして payload を None に[戻/もど]す
-pub fn hashset_store_tombstone <.T: Copy> %impure fn &HashSetStorage .T impure fn i32 () \storage\idx:
+pub fn hashset_store_tombstone <.T: Copy> %impure fn &HashSetStorage .T impure fn i32 unit \storage\idx:
     hashset_store_key<.T> hashset_storage_keys<.T> storage idx none<.T>
     hashset_store_state hashset_storage_states<.T> storage idx HashSetBucketState::Tombstone
 
@@ -101,7 +101,7 @@ pub fn hashset_store_tombstone <.T: Copy> %impure fn &HashSetStorage .T impure f
 //:
 //: ### [目的/もくてき]
 //: - states / keys の 2 本の Vec owner を[閉/と]じます。
-pub fn hashset_free_storage <.T: Copy> %fn HashSetStorage .T () \storage:
+pub fn hashset_free_storage <.T: Copy> %fn HashSetStorage .T unit \storage:
     let states %Vec HashSetBucketState field::get storage "states"
     let keys %Vec Option .T field::get storage "keys"
     vec::free<HashSetBucketState> states

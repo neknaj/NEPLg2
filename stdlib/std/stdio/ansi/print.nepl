@@ -21,9 +21,9 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn print_style_start %impure fn AnsiTextStyle () \style:
+pub fn print_style_start %impure fn AnsiTextStyle unit \style:
     print ansi_text_style_code style;
-    ()
+    unit
 
 //: print_style_reset: ANSI style を reset する
 //:
@@ -32,9 +32,9 @@ pub fn print_style_start %impure fn AnsiTextStyle () \style:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn print_style_reset %impure fn () () \():
+pub fn print_style_reset %impure fn unit unit \unit:
     print ansi_reset_code;
-    ()
+    unit
 
 //: print_style: style を適用して文字列を出力する
 //:
@@ -51,23 +51,23 @@ pub fn print_style_reset %impure fn () () \():
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     print_style ansi_bold_color_style AnsiColor::Red "sample";
 //: ```
-pub fn print_style %impure fn AnsiTextStyle impure fn str () \style\s:
+pub fn print_style %impure fn AnsiTextStyle impure fn str unit \style\s:
     print_style_start style;
     print s;
     print_style_reset;
-    ()
+    unit
 
 //: println_style: style を適用して改行付きで出力する
 //:
 //: [実装/じっそう]:
 //: - `print_style` で本文を出力した後に改行を出力します。
-pub fn println_style %impure fn AnsiTextStyle impure fn str () \style\s:
+pub fn println_style %impure fn AnsiTextStyle impure fn str unit \style\s:
     print_style style s;
     print "\n";
-    ()
+    unit
 
 //: print_color: 前景色だけを適用して文字列を出力する
 //:
@@ -76,12 +76,12 @@ pub fn println_style %impure fn AnsiTextStyle impure fn str () \style\s:
 //:
 //: [実装/じっそう]:
 //: - `ansi_color_style` で構築した style を `print_style` に渡します。
-pub fn print_color %impure fn AnsiColor impure fn str () \color\s:
+pub fn print_color %impure fn AnsiColor impure fn str unit \color\s:
     print_style ansi_color_style color s
 
 //: println_color: 前景色だけを適用して改行付きで出力する
 //:
 //: [実装/じっそう]:
 //: - `ansi_color_style` で構築した style を `println_style` に渡します。
-pub fn println_color %impure fn AnsiColor impure fn str () \color\s:
+pub fn println_color %impure fn AnsiColor impure fn str unit \color\s:
     println_style ansi_color_style color s

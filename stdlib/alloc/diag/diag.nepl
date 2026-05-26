@@ -75,7 +75,7 @@ pub fn diag_to_string %fn &Diag str \d:
             set out concat out l0;
             set out concat out "\n";
         Option::None:
-            ()
+            unit
 
     let notes %str *field::get_ref d "notes";
     if:
@@ -84,7 +84,7 @@ pub fn diag_to_string %fn &Diag str \d:
             set out concat out notes;
             set out concat out "\n";
         else:
-            ()
+            unit
 
     let help %str *field::get_ref d "help";
     if:
@@ -94,7 +94,7 @@ pub fn diag_to_string %fn &Diag str \d:
             set out concat out help;
             set out concat out "\n";
         else:
-            ()
+            unit
 
     match *field::get_ref d "source":
         Option::Some src:
@@ -130,21 +130,21 @@ pub fn diags_to_string_loop %fn &Vec Diag fn i32 fn i32 fn str str \items\n\i\ac
                     acc
 
 #if[target=std]
-pub fn diag_print %impure fn Diag () \d:
+pub fn diag_print %impure fn Diag unit \d:
     let s %str diag_to_string d;
     print s
 
 #if[target=std]
-pub fn diag_println %impure fn Diag () \d:
+pub fn diag_println %impure fn Diag unit \d:
     let s %str diag_to_string d;
     println s
 
 #if[target=std]
-pub fn diags_print %impure fn Diags () \ds:
+pub fn diags_print %impure fn Diags unit \ds:
     let s %str diags_to_string ds;
     print s
 
 #if[target=std]
-pub fn diags_println %impure fn Diags () \ds:
+pub fn diags_println %impure fn Diags unit \ds:
     let s %str diags_to_string ds;
     println s

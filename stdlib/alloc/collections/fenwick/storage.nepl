@@ -16,7 +16,7 @@
 pub fn fenwick_load_owned %fn &Vec i32 fn i32 Option i32 \bit\idx:
     vec::get<i32> bit idx
 
-pub fn fenwick_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 () \bit\idx\value:
+pub fn fenwick_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit \bit\idx\value:
     vec::replace<i32> bit idx value
 
 pub fn fenwick_alloc_bit %impure fn i32 Result Vec i32 Diag \bit_len:
@@ -26,5 +26,5 @@ pub fn fenwick_alloc_bit %impure fn i32 Result Vec i32 Diag \bit_len:
         Result::Ok bit:
             ok<Vec<i32>, Diag> bit
 
-pub fn fenwick_free_bit %fn Vec i32 () \bit:
+pub fn fenwick_free_bit %fn Vec i32 unit \bit:
     vec::free<i32> bit

@@ -49,8 +49,8 @@ impl Flush for StderrStream:
         flush_result stream
 
 impl Close for StderrStream:
-    fn close %impure fn StderrStream Result () StdErrorKind \_stream:
-        Result::Ok ()
+    fn close %impure fn StderrStream Result unit StdErrorKind \_stream:
+        Result::Ok unit
 
 //: ## StderrWritable
 //: `StderrStream` へ[書/か]き[込/こ]める[値/あたい]の[能力/のうりょく]
@@ -101,5 +101,5 @@ pub fn flush %impure fn StderrStream Result StderrStream StdErrorKind \stream:
 
 //: ## close
 //: `StderrStream` を[閉/と]じる
-pub fn close %impure fn StderrStream Result () StdErrorKind \stream:
+pub fn close %impure fn StderrStream Result unit StdErrorKind \stream:
     io_close stream

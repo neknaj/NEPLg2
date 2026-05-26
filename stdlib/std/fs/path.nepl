@@ -16,7 +16,7 @@
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
 //:| #import "std/fs/path" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     match fs_normalize_relative "a/./b//c":
 //:         Result::Err _e:
 //:             1
@@ -33,7 +33,7 @@
 //:| #import "core/result" as *
 //:| #import "std/fs/constants" as *
 //:| #import "std/fs/path" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     match fs_normalize_relative "../outside":
 //:         Result::Err e:
 //:             if eq e fs_errno_notcapable then 0 else 2

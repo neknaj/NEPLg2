@@ -10,7 +10,7 @@
 #import "core/option" as *
 #import "./storage" as *
 
-pub fn counting_bloom_counter_inc %impure fn &Vec u8 impure fn i32 () \counters\idx:
+pub fn counting_bloom_counter_inc %impure fn &Vec u8 impure fn i32 unit \counters\idx:
     match counting_bloom_counter_at counters idx:
         Option::Some cur:
             if:
@@ -18,11 +18,11 @@ pub fn counting_bloom_counter_inc %impure fn &Vec u8 impure fn i32 () \counters\
                 then:
                     counting_bloom_store_counter counters idx add cur 1
                 else:
-                    ()
+                    unit
         Option::None:
-            ()
+            unit
 
-pub fn counting_bloom_counter_dec %impure fn &Vec u8 impure fn i32 () \counters\idx:
+pub fn counting_bloom_counter_dec %impure fn &Vec u8 impure fn i32 unit \counters\idx:
     match counting_bloom_counter_at counters idx:
         Option::Some cur:
             if:
@@ -30,9 +30,9 @@ pub fn counting_bloom_counter_dec %impure fn &Vec u8 impure fn i32 () \counters\
                 then:
                     counting_bloom_store_counter counters idx sub cur 1
                 else:
-                    ()
+                    unit
         Option::None:
-            ()
+            unit
 
 pub fn counting_bloom_counter_nonzero %fn &Vec u8 fn i32 bool \counters\idx:
     match counting_bloom_counter_at counters idx:

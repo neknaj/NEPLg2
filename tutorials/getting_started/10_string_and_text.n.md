@@ -19,14 +19,14 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn expect_str_ok %fn Result str str fn str Result () str \got\expected:
+fn expect_str_ok %fn Result str str fn str Result unit str \got\expected:
     match got:
         Result::Ok text:
             check_str_eq expected text
         Result::Err msg:
             Result::Err msg
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let text %str "Aあ"
     let checks:
         checks_new

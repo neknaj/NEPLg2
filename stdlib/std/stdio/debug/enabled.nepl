@@ -45,13 +45,13 @@
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     debug "sample";
 //: ```
 #if[profile=debug]
-pub fn debug %impure fn str () \s:
+pub fn debug %impure fn str unit \s:
     print s;
-    ()
+    unit
 
 //: debug_color: 色付きデバッグ出力
 //:
@@ -84,13 +84,13 @@ pub fn debug %impure fn str () \s:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     debug_color AnsiColor::Red "sample";
 //: ```
 #if[profile=debug]
-pub fn debug_color %impure fn AnsiColor impure fn str () \color\s:
+pub fn debug_color %impure fn AnsiColor impure fn str unit \color\s:
     print_color color s;
-    ()
+    unit
 
 #if[profile=debug]
 //: debugln: デバッグ出力（改行付き）
@@ -123,13 +123,13 @@ pub fn debug_color %impure fn AnsiColor impure fn str () \color\s:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     debugln "sample";
 //: ```
 #if[profile=debug]
-pub fn debugln %impure fn str () \s:
+pub fn debugln %impure fn str unit \s:
     println s;
-    ()
+    unit
 
 //: debugln_color: 色付きデバッグ出力（改行付き）
 //:
@@ -162,10 +162,10 @@ pub fn debugln %impure fn str () \s:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     debugln_color AnsiColor::Red "sample";
 //: ```
 #if[profile=debug]
-pub fn debugln_color %impure fn AnsiColor impure fn str () \color\s:
+pub fn debugln_color %impure fn AnsiColor impure fn str unit \color\s:
     println_color color s;
-    ()
+    unit

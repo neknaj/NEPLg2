@@ -73,6 +73,14 @@ LLM/手動判断が必要なもの:
   - executable/comment/doc を合わせた generic postfix 形式はまだ多数残る。これは単純削除ではなく、呼び出し先 signature と expected type を見て `%T` 注釈を補う semantic rewrite として継続する。
   - selfhost source string fixture には旧構文の期待文字列が残る。これは selfhost parser の NEPLg2.1 対応と同じ単位で更新する。
 
+### 2026-05-26 unit keyword migration checkpoint
+
+- `()` は NEPLg2.1 の unit 型・unit 値・0 引数関数 marker として残さず、`unit` keyword へ移行する。
+- `fn unit T` は unit 型引数を 1 個取る関数ではなく、0 引数で `T` を返す関数として frontend が既存の空 `params` へ正規化する。
+- `\unit` も通常 parameter 名ではなく、0 引数関数リテラルの marker として扱う。
+- `nodesrc/neplg21_syntax_migrate.js` は `<()>`、`%()`、`fn () T`、`\()`、値式の `()` を `unit` へ変換する。ただし `#intrinsic "..." (...)` の括弧は directive の引数区切りであり、unit 値ではないため保持する。
+- explicit generic postfix がまだ残る箇所では、移行完了まで transitional に `unit` を旧 type parser でも Unit として受理する。postfix そのものの撤廃はこの issue の semantic rewrite として継続する。
+
 ### 2026-05-24 core helper postfix removal checkpoint
 
 - `stdlib/core/option.nepl` と `stdlib/core/result.nepl` の helper 本体で、戻り値期待型から解決できる `Option<.T>::Some` / `Result<.T,.E>::Ok` / `some<.U>` / `err<.U,.E>` などを postfix なしへ移行した。

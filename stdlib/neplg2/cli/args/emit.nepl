@@ -32,7 +32,7 @@
 //:| #import "neplg2/cli/args/emit" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     match selfhost_cli_parse_emit_set_value "wasm,llvm-min":
 //:         Result::Ok emit:
 //:             if and selfhost_cli_emit_is_wasm emit selfhost_cli_emit_set_has_llvm_min emit 0 1
@@ -47,13 +47,13 @@ pub fn selfhost_cli_emit_set_new %fn bool fn bool fn bool fn bool fn bool Selfho
 //:
 //: [目的/もくてき]:
 //: - Rust CLI と同じく、明示指定がない場合は wasm だけを出力します。
-pub fn selfhost_cli_emit_set_default %fn () SelfhostCliEmitSet \():
+pub fn selfhost_cli_emit_set_default %fn unit SelfhostCliEmitSet \unit:
     selfhost_cli_emit_set_new true false false false false
 
-pub fn selfhost_cli_emit_set_empty %fn () SelfhostCliEmitSet \():
+pub fn selfhost_cli_emit_set_empty %fn unit SelfhostCliEmitSet \unit:
     selfhost_cli_emit_set_new false false false false false
 
-pub fn selfhost_cli_emit_set_all %fn () SelfhostCliEmitSet \():
+pub fn selfhost_cli_emit_set_all %fn unit SelfhostCliEmitSet \unit:
     selfhost_cli_emit_set_new true true true true true
 
 pub fn selfhost_cli_emit_set_add %fn SelfhostCliEmitSet fn SelfhostCliEmit SelfhostCliEmitSet \emit_set\emit:
@@ -130,7 +130,7 @@ pub fn selfhost_cli_parse_emit_set_value %fn str Result SelfhostCliEmitSet Selfh
                                                     set emit_set next_emit_set
                             set start add i 1
                         else:
-                            ()
+                            unit
                     set i add i 1
             if:
                 failed

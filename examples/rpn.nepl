@@ -61,7 +61,7 @@
 //:
 //: [目的/もくてき]:
 //: - `error: <msg>` 形式で標準出力に赤色で表示します。
-fn print_error %impure fn str () \msg:
+fn print_error %impure fn str unit \msg:
     let label_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Red;
     print_style label_style "error:";
     print " ";
@@ -71,7 +71,7 @@ fn print_error %impure fn str () \msg:
 //:
 //: [目的/もくてき]:
 //: - 入力行の先頭に `> ` を太字緑色で出力します。
-fn print_prompt %impure fn () () \():
+fn print_prompt %impure fn unit unit \unit:
     let prompt_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Green;
     print_style prompt_style "> ";
 
@@ -79,7 +79,7 @@ fn print_prompt %impure fn () () \():
 //:
 //: [目的/もくてき]:
 //: - `ok: result = <val>` 形式で結果を表示します。
-fn print_result %impure fn i32 () \val:
+fn print_result %impure fn i32 unit \val:
     let ok_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Green;
     let value_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Cyan;
     print_style ok_style "ok";
@@ -110,7 +110,7 @@ fn push_or_report %impure fn Stack i32 impure fn i32 Result Stack i32 str \stack
 //: [目的/もくてき]:
 //: - 演算結果の前に、現在のスタック要素を先頭から順に表示します。
 //: - `Stack` の内部表現は読まず、`len` と `get` だけを使います。
-fn print_stack_prefix %impure fn &Stack i32 () \stack:
+fn print_stack_prefix %impure fn &Stack i32 unit \stack:
     let stk_len %i32 stk::len<i32> stack;
     let mut j %i32 0;
     while lt j stk_len:
@@ -120,14 +120,14 @@ fn print_stack_prefix %impure fn &Stack i32 () \stack:
                     print_i32 elem;
                     print " ";
                 Option::None:
-                    ();
+                    unit;
             set j add j 1;
 
 //: print_stack_line: スタック内容を 1 行として表示する
 //:
 //: [目的/もくてき]:
 //: - 最終的に値が複数残ったとき、エラー前に現在のスタック全体を表示します。
-fn print_stack_line %impure fn &Stack i32 () \stack:
+fn print_stack_line %impure fn &Stack i32 unit \stack:
     let stk_len %i32 stk::len<i32> stack;
     let mut j %i32 0;
     while lt j stk_len:
@@ -137,12 +137,12 @@ fn print_stack_line %impure fn &Stack i32 () \stack:
                 then:
                     print " ";
                 else:
-                    ();
+                    unit;
             match stk::get<i32> stack j:
                 Option::Some elem:
                     print_i32 elem;
                 Option::None:
-                    ();
+                    unit;
             set j add j 1;
 
     print "\n";
@@ -151,7 +151,7 @@ fn print_stack_line %impure fn &Stack i32 () \stack:
 //:
 //: [目的/もくてき]:
 //: - `[stack] [res]` の形式で演算子適用後の状態を出力します。
-fn print_step_after %impure fn &Stack i32 impure fn i32 () \stack\res:
+fn print_step_after %impure fn &Stack i32 impure fn i32 unit \stack\res:
     print_stack_prefix stack;
     let step_style %AnsiTextStyle ansi_color_style AnsiColor::Green;
     print_style_start step_style;
@@ -253,7 +253,7 @@ fn token_error_state %impure fn Result Stack i32 str impure fn str Result Stack 
 //: - `Stack` を new し、space 区切り token を `str_slice_result` で取り出して `process_token` を呼びます。
 //: - 最終的なスタック長が 1 であれば結果を表示し、超過時はエラーを出力します。
 //: - `Stack` は関数終了時に正しく `free` します。
-fn eval_line %impure fn str () \line:
+fn eval_line %impure fn str unit \line:
     let trimmed %str string_slice::str_trim line;
     let n %i32 string_access::len trimmed;
 
@@ -285,7 +285,7 @@ fn eval_line %impure fn str () \line:
                                     set stack_state token_error_state stack_state msg
                             set start add i 1
                         else:
-                            ()
+                            unit
                     set i add i 1;
 
             match stack_state:
@@ -301,7 +301,7 @@ fn eval_line %impure fn str () \line:
                                 Option::Some val:
                                     print_result val
                                 Option::None:
-                                    ()
+                                    unit
                             stk::free<i32> next_stack
                         else:
                             if:
@@ -314,7 +314,7 @@ fn eval_line %impure fn str () \line:
                                     stk::free<i32> stack
                 Result::Err msg:
                     string_access::len msg;
-                    ()
+                    unit
         Result::Err _:
             print_error "out of memory";
 
@@ -322,7 +322,7 @@ fn eval_line %impure fn str () \line:
 //:
 //: [目的/もくてき]:
 //: - 初期バナーを表示後、対話式の無限ループを開始します。
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let title_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Cyan;
     println_style title_style "RPN REPL";
     println_color AnsiColor::Gray "enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.";

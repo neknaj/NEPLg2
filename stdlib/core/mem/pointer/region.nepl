@@ -13,7 +13,7 @@
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region<i32> 1:
 //:         Result::Ok region:
 //:             let ok %bool eq region_size &region 4
@@ -54,11 +54,11 @@
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region<i32> 1:
 //:         Result::Ok region:
 //:             let ptr %MemPtr i32 region_ptr &region
-//:             let stored %Result () str store_i32 ptr 42
+//:             let stored %Result unit str store_i32 ptr 42
 //:             match stored:
 //:                 Result::Ok _:
 //:                     let loaded %Option i32 load_i32 ptr
@@ -107,7 +107,7 @@ pub fn region_ptr <.T> %fn &RegionToken .T MemPtr .T \token:
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region<i32> 1:
 //:         Result::Ok region:
 //:             match region_ptr_at<i32, i32> &region 0:
@@ -133,7 +133,7 @@ pub fn region_ptr <.T> %fn &RegionToken .T MemPtr .T \token:
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region<u8> 8:
 //:         Result::Ok region:
 //:             let ok %bool match region_ptr_at<u8, i32> &region 1:
@@ -193,7 +193,7 @@ pub fn region_ptr_at <.T, .U> %fn &RegionToken .T fn i32 Result MemPtr .U str \t
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region_bytes<i32> 4:
 //:         Result::Ok region:
 //:             let ok %bool eq region_size &region 4
@@ -235,7 +235,7 @@ pub fn alloc_region_bytes <.T> %fn i32 Result RegionToken .T str \bytes:
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region_bytes<i32> 4:
 //:         Result::Ok region:
 //:             match realloc_region_bytes_keep<i32> region sub 0 1:
@@ -268,7 +268,7 @@ pub struct RegionReallocError<.T>:
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region_bytes<i32> 4:
 //:         Result::Ok region:
 //:             match realloc_region_bytes_keep<i32> region sub 0 1:
@@ -333,7 +333,7 @@ fn realloc_region_bytes_keep_relocating <.T> %fn RegionToken .T fn i32 Result Re
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region_bytes<i32> 4:
 //:         Result::Ok region:
 //:             match realloc_region_bytes_keep<i32> region 8:
@@ -380,7 +380,7 @@ pub fn realloc_region_bytes_keep <.T> %fn RegionToken .T fn i32 Result RegionTok
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region<i32> 2:
 //:         Result::Ok region:
 //:             let ok %bool eq region_size &region 8
@@ -399,7 +399,7 @@ pub fn realloc_region_bytes_keep <.T> %fn RegionToken .T fn i32 Result RegionTok
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region<i32> 536870909:
 //:         Result::Err _:
 //:             1
@@ -449,7 +449,7 @@ pub fn alloc_region <.T> %fn i32 Result RegionToken .T str \count:
 //:| #target std
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region<u8> 4:
 //:         Result::Ok region:
 //:             match dealloc_region<u8> region:
@@ -460,8 +460,8 @@ pub fn alloc_region <.T> %fn i32 Result RegionToken .T str \count:
 //:         Result::Err _:
 //:             0
 //: ```
-pub fn dealloc_region <.T> %fn RegionToken .T Result () str \token:
+pub fn dealloc_region <.T> %fn RegionToken .T Result unit str \token:
     let raw %i32 get token "raw"
     let size %i32 get token "size"
     allocator::dealloc_raw raw size
-    Result<(),str>::Ok ()
+    Result<unit,str>::Ok unit

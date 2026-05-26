@@ -26,7 +26,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/hashmap/types" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match HashMapBucketState::Tombstone:
 //:         HashMapBucketState::Empty:
 //:             1
@@ -59,7 +59,7 @@ impl Copy for HashMapBucketState:
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/hashmap/types" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match HashMapInsertSlotState::EmptySlot:
 //:         HashMapInsertSlotState::EmptySlot:
 //:             0
@@ -91,7 +91,7 @@ impl Copy for HashMapInsertSlotState:
 //:| #import "alloc/collections/hashmap/types" as *
 //:| #import "core/field" as field
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let slot %HashMapInsertSlot HashMapInsertSlot 3 HashMapInsertSlotState::EmptySlot;
 //:     if eq field::get slot "index" 3 0 1
 //: ```
@@ -143,7 +143,7 @@ pub struct HashMap<.K,.V,.H>:
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashMapUpdateError i32 i32 DefaultHash32 HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
@@ -168,7 +168,7 @@ pub struct HashMapUpdateError<.K,.V,.H>:
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashMapUpdateError i32 i32 DefaultHash32 HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
@@ -195,7 +195,7 @@ pub fn hashmap_update_error_diag <.K,.V,.H> %fn &HashMapUpdateError .K .V .H Dia
 //: #import "core/traits/hash" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashMapUpdateError i32 i32 DefaultHash32 HashMapUpdateError<i32,i32,DefaultHash32> hm d0;

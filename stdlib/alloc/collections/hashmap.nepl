@@ -70,7 +70,7 @@ pub #import "alloc/collections/hashmap/api" as @merge
 //:             let hm %HashMap Point str DefaultHash32 hashmap_update_error_owner<Point,str,DefaultHash32> e;
 //:             free hm;
 //:             #intrinsic "unreachable" <> ()
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let map0 %HashMap Point str DefaultHash32 must_hmp new DefaultHash32;
 //:     let map1 %HashMap Point str DefaultHash32 must_hmp insert map0 (Point 10 20) "Start";
 //:     let ok %i32:

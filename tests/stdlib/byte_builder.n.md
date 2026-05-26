@@ -29,7 +29,7 @@ fn byte_at_or_neg1 %fn &ByteBuf fn i32 i32 \bytes\idx:
         Option::None:
             -1
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut built_len %i32 -1;
     let mut byte0 %i32 -1;
     let mut byte1 %i32 -1;
@@ -41,52 +41,52 @@ fn main %impure fn () i32 \():
     let mut byte7 %i32 -1;
     match byte_builder_with_capacity 1:
         Result::Err _e:
-            ()
+            unit
         Result::Ok b0:
             match byte_builder_push_u8 b0 0:
                 Result::Err e:
                     byte_builder_error_free e
-                    ()
+                    unit
                 Result::Ok b1:
                     match byte_builder_push_u8 b1 'a':
                         Result::Err e:
                             byte_builder_error_free e
-                            ()
+                            unit
                         Result::Ok b2:
                             match byte_builder_push_u8 b2 's':
                                 Result::Err e:
                                     byte_builder_error_free e
-                                    ()
+                                    unit
                                 Result::Ok b3:
                                     match byte_builder_push_u8 b3 'm':
                                         Result::Err e:
                                             byte_builder_error_free e
-                                            ()
+                                            unit
                                         Result::Ok b4:
                                             match byte_builder_push_u8 b4 1:
                                                 Result::Err e:
                                                     byte_builder_error_free e
-                                                    ()
+                                                    unit
                                                 Result::Ok b5:
                                                     match byte_builder_push_u8 b5 0:
                                                         Result::Err e:
                                                             byte_builder_error_free e
-                                                            ()
+                                                            unit
                                                         Result::Ok b6:
                                                             match byte_builder_push_u8 b6 0:
                                                                 Result::Err e:
                                                                     byte_builder_error_free e
-                                                                    ()
+                                                                    unit
                                                                 Result::Ok b7:
                                                                     match byte_builder_push_u8 b7 0:
                                                                         Result::Err e:
                                                                             byte_builder_error_free e
-                                                                            ()
+                                                                            unit
                                                                         Result::Ok b8:
                                                                             match byte_builder_finish b8:
                                                                                 Result::Err e:
                                                                                     byte_builder_error_free e
-                                                                                    ()
+                                                                                    unit
                                                                                 Result::Ok bytes:
                                                                                     set built_len io_bytebuf_len_ref &bytes;
                                                                                     set byte0 byte_at_or_neg1 &bytes 0;
@@ -142,24 +142,24 @@ fn byte_at_or_neg1 %fn &ByteBuf fn i32 i32 \bytes\idx:
         Option::None:
             -1
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut built_len %i32 -1;
     let mut byte0 %i32 -1;
     let mut byte1 %i32 -1;
     let mut byte2 %i32 -1;
     match byte_builder_new:
         Result::Err _e:
-            ()
+            unit
         Result::Ok b0:
             match byte_builder_push_leb_u32 b0 624485:
                 Result::Err e:
                     byte_builder_error_free e
-                    ()
+                    unit
                 Result::Ok b1:
                     match byte_builder_finish b1:
                         Result::Err e:
                             byte_builder_error_free e
-                            ()
+                            unit
                         Result::Ok bytes:
                             set built_len io_bytebuf_len_ref &bytes;
                             set byte0 byte_at_or_neg1 &bytes 0;
@@ -201,14 +201,14 @@ fn byte_at_or_neg1 %fn &ByteBuf fn i32 i32 \bytes\idx:
         Option::None:
             -1
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut built_len %i32 -1;
     let mut byte0 %i32 -1;
     let mut byte4 %i32 -1;
     let mut byte9 %i32 -1;
     match byte_builder_with_capacity 2:
         Result::Err _e:
-            ()
+            unit
         Result::Ok b0:
             match io_bytebuf_from_str_result "ABCDEFGHIJ":
                 Result::Err _e:
@@ -217,12 +217,12 @@ fn main %impure fn () i32 \():
                     match byte_builder_push_bytebuf b0 src:
                         Result::Err e:
                             byte_builder_bytebuf_error_free e
-                            ()
+                            unit
                         Result::Ok b1:
                             match byte_builder_finish b1:
                                 Result::Err e:
                                     byte_builder_error_free e
-                                    ()
+                                    unit
                                 Result::Ok bytes:
                                     set built_len io_bytebuf_len_ref &bytes;
                                     set byte0 byte_at_or_neg1 &bytes 0;

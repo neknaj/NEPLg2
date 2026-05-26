@@ -14,7 +14,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "core/math/convert" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     wrap extend_s 7
 //: ```
 

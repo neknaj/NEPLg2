@@ -24,21 +24,21 @@ fn sort_quick_get_data <.T: Copy> %fn MemPtr .T fn i32 .T \data_ptr\idx:
     load<.T> add mem_ptr_addr data_ptr mul idx size_of<.T>
 
 //: sort_quick_set_data: quick sort の検査済み range 内で raw data view へ Copy 要素を書く
-fn sort_quick_set_data <.T: Copy> %impure fn MemPtr .T impure fn i32 impure fn .T () \data_ptr\idx\val:
+fn sort_quick_set_data <.T: Copy> %impure fn MemPtr .T impure fn i32 impure fn .T unit \data_ptr\idx\val:
     store<.T> add mem_ptr_addr data_ptr mul idx size_of<.T> val;
-    ()
+    unit
 
 //: sort_quick_swap_data: quick sort の検査済み range 内で 2 要素を入れ替える
-fn sort_quick_swap_data <.T: Copy> %impure fn MemPtr .T impure fn i32 impure fn i32 () \data_ptr\i\j:
+fn sort_quick_swap_data <.T: Copy> %impure fn MemPtr .T impure fn i32 impure fn i32 unit \data_ptr\i\j:
     if:
         eq i j
-        then ()
+        then unit
         else:
             let a %.T sort_quick_get_data<.T> data_ptr i
             let b %.T sort_quick_get_data<.T> data_ptr j
             sort_quick_set_data<.T> data_ptr i b;
             sort_quick_set_data<.T> data_ptr j a;
-            ()
+            unit
 
 //: sort_quick_partition_data: Lomuto partition で pivot 位置を決める
 //:
@@ -56,14 +56,14 @@ fn sort_quick_partition_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn i32 i
                 then:
                     sort_quick_swap_data<.T> data_ptr i j;
                     set i add i 1;
-                    ()
-                else ()
+                    unit
+                else unit
             set j add j 1;
     sort_quick_swap_data<.T> data_ptr i hi;
     i
 
 //: sort_quick_range_data: quick sort public wrapper が作った raw slice 区間を整列する
-fn sort_quick_range_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn i32 impure fn i32 () \data_ptr\lo\hi:
+fn sort_quick_range_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn i32 impure fn i32 unit \data_ptr\lo\hi:
     if:
         lt lo hi
         then:
@@ -71,8 +71,8 @@ fn sort_quick_range_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn i32 impur
             sort_quick_range_data<.T> data_ptr lo sub p 1;
             let right_lo %i32 add p 1
             sort_quick_range_data<.T> data_ptr right_lo hi;
-            ()
-        else ()
+            unit
+        else unit
 
 //: sort_quick: quick sort で `Vec` を in-place 整列する
 //:
@@ -88,24 +88,24 @@ fn sort_quick_range_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn i32 impur
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 O(n log n)、最悪 O(n^2)、追加領域は recursion stack です。
-pub fn sort_quick <.T: Ord&Copy> %impure fn &Vec .T () \v:
+pub fn sort_quick <.T: Ord&Copy> %impure fn &Vec .T unit \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            ()
+            unit
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then ()
+                then unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            ()
+                            unit
                         VecDataView::Invalid _reason:
-                            ()
+                            unit
                         VecDataView::Data data_ptr:
                             sort_quick_range_data<.T> data_ptr 0 sub n 1;
-                            ()
+                            unit
 //: sort_quick_ret: quick sort 後の Vec を返す
 //:
 //: [目的/もくてき]:
@@ -122,21 +122,21 @@ pub fn sort_quick <.T: Ord&Copy> %impure fn &Vec .T () \v:
 pub fn sort_quick_ret <.T: Ord&Copy> %impure fn Vec .T Vec .T \v:
     match vec_current_copy_invariant<.T> &v:
         VecCopyInvariant::Invalid _reason:
-            ()
+            unit
         VecCopyInvariant::Valid:
             let n %i32 len<.T> &v
             if:
                 le n 1
-                then ()
+                then unit
                 else:
                     match data_mem_view<.T> &v:
                         VecDataView::Empty:
-                            ()
+                            unit
                         VecDataView::Invalid _reason:
-                            ()
+                            unit
                         VecDataView::Data data_ptr:
                             sort_quick_range_data<.T> data_ptr 0 sub n 1;
-                            ()
+                            unit
     v
 
 //: sort: default sort として quick sort を実行する
@@ -154,5 +154,5 @@ pub fn sort_quick_ret <.T: Ord&Copy> %impure fn Vec .T Vec .T \v:
 //:
 //: [計算量/けいさんりょう]:
 //: - `sort_quick` と同じです。
-pub fn sort <.T: Ord&Copy> %impure fn &Vec .T () \v:
+pub fn sort <.T: Ord&Copy> %impure fn &Vec .T unit \v:
     sort_quick<.T> v

@@ -27,7 +27,7 @@ stdout: "test_report name=\"vec_free_zero_and_grow_reallocates\" count=4 failed=
 #import "core/field" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let empty %Vec i32 unwrap_ok with_capacity<i32> 0;
     let empty_is_empty %bool is_empty &empty;
     let empty_cap %i32 cap &empty;
@@ -89,7 +89,7 @@ stdout: "test_report name=\"vec_sort_merge_ret_releases_scratch_buffer\" count=3
 #import "core/field" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let unsorted %Vec i32:
         unwrap_ok new<i32>
         |> push 5 |> uwok
@@ -148,7 +148,7 @@ stdout: "test_report name=\"vec_negative_capacity_rejected\" count=1 failed=0\na
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let neg %i32 sub 0 1
     let actual %str match with_capacity<i32> neg:
         Result::Ok v:

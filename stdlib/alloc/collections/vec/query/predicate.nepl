@@ -47,7 +47,7 @@
 //:| #import "core/result" as *
 //: fn gt_two %fn i32 bool \x:
 //:     gt x 2
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -80,7 +80,7 @@ pub fn find <.T: Copy> %fn &Vec .T fn fn .T bool Option .T \v\p:
                                     set out some<.T> item
                                     set active false
                                 else:
-                                    ()
+                                    unit
                         Option::None:
                             set active false
                     set i add i 1
@@ -112,11 +112,11 @@ pub fn find <.T: Copy> %fn &Vec .T fn fn .T bool Option .T \v\p:
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
 //: fn is_value_9 %fn &DropPayload bool \item:
 //:     eq *field::get_ref item "value" 9
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
 //:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
 //:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 9)
@@ -146,7 +146,7 @@ pub fn find_index_ref <.T> %fn &Vec .T fn fn &.T bool Option i32 \v\p:
                             set out some<i32> i
                             set active false
                         else:
-                            ()
+                            unit
                     set i add i 1
             out
 
@@ -175,7 +175,7 @@ pub fn find_index_ref <.T> %fn &Vec .T fn fn &.T bool Option i32 \v\p:
 //:| #import "core/result" as *
 //: fn gt_two %fn i32 bool \x:
 //:     gt x 2
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -227,11 +227,11 @@ pub fn any <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
 //: fn is_value_5 %fn &DropPayload bool \item:
 //:     eq *field::get_ref item "value" 5
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
 //:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 5)
 //:     let ok %bool any_ref<DropPayload> &v1 @is_value_5
@@ -278,7 +278,7 @@ pub fn any_ref <.T> %fn &Vec .T fn fn &.T bool bool \v\p:
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 2 |> uwok
@@ -331,11 +331,11 @@ pub fn all <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
 //: fn is_positive %fn &DropPayload bool \item:
 //:     lt 0 *field::get_ref item "value"
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
 //:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
 //:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 2)

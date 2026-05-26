@@ -30,12 +30,12 @@
 //:| #import "alloc/collections/sparse_set" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let s %SparseSet unwrap_ok<SparseSet, Diag> new 8;
 //:     free s
 //:     0
 //: ```
-pub fn free %fn SparseSet () \s:
+pub fn free %fn SparseSet unit \s:
     let dense %Vec i32 field::get s "dense"
     let sparse %Vec i32 field::get s "sparse"
     sparse_set_free_arrays dense sparse

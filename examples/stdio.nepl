@@ -35,7 +35,7 @@
 //:
 //: [目的/もくてき]:
 //: - NEPLg2 のもっとも基本的な標準入力サンプルを示します。
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     println_color AnsiColor::Green "accepting input...";
     print "> ";
     let input %str read_line;

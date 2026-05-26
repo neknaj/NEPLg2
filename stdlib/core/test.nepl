@@ -14,7 +14,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "core/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     assert_eq_i32 10 10
 //:     0
 //: ```
@@ -31,7 +31,7 @@
 //:
 //: [実装/じっそう]:
 //: - `#intrinsic \"unreachable\"` を呼び出して停止します。
-pub fn test_fail %fn str () \_msg:
+pub fn test_fail %fn str unit \_msg:
     #intrinsic "unreachable" <> ()
 
 //: assert: 条件が真であることを検証する
@@ -39,10 +39,10 @@ pub fn test_fail %fn str () \_msg:
 //: [目的/もくてき]:
 //: - `ok` が true の場合は何もしません。
 //: - false の場合は異常終了します。
-pub fn assert %fn bool () \ok:
+pub fn assert %fn bool unit \ok:
     if:
         cond ok
-        then ()
+        then unit
         else:
             #intrinsic "unreachable" <> ()
 
@@ -53,9 +53,9 @@ pub fn assert %fn bool () \ok:
 //:
 //: [実装/じっそう]:
 //: - `core/math` の `eq` を使って比較し、偽なら異常終了します。
-pub fn assert_eq_i32 %fn i32 fn i32 () \expected\actual:
+pub fn assert_eq_i32 %fn i32 fn i32 unit \expected\actual:
     if:
         cond eq expected actual
-        then ()
+        then unit
         else:
             #intrinsic "unreachable" <> ()

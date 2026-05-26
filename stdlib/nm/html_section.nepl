@@ -20,7 +20,7 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/html_section" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let s0 %NmHtmlSectionState nm_section_state_new
 //:     let s1 %NmHtmlSectionState nm_section_state_open_level s0 2
 //:     let s2 %NmHtmlSectionState nm_section_state_open_level s1 4
@@ -71,7 +71,7 @@ pub fn nm_section_state_make %fn i32 fn bool fn bool fn bool fn bool fn bool fn 
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn nm_section_state_new %fn () NmHtmlSectionState \():
+pub fn nm_section_state_new %fn unit NmHtmlSectionState \unit:
     nm_section_state_make 0 false false false false false false
 
 //: nm_section_current_level: 現在開いている最深 section level を[返/かえ]す

@@ -13,7 +13,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 alloc_raw 8;
     memset_u8 p 8 65;
     let ok %bool and eq load_u8 add p 0 65 eq load_u8 add p 7 65;
@@ -34,7 +34,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 alloc_raw 16;
     fill_i32 p 4 99;
     let b0 %bool eq load_i32 add p 0 99;
@@ -59,7 +59,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 alloc_raw 4;
     fill_u8 p 4 7;
     let ok %bool and eq load_u8 add p 1 7 eq load_u8 add p 3 7;

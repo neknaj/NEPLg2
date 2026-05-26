@@ -38,18 +38,18 @@ pub let Ord trait:
 //: - `i32` (加算)・`str` (連結)・`List` (連結) で異なる動作を同じ関数で[統一/とういつ]できる。
 
 pub let Monoid trait:
-    let empty %fn () Self \():
+    let empty %fn unit Self \unit:
         ...
     let combine %fn Self fn Self Self \a \b:
         ...
 
 
 pub let i32 impl for Monoid:
-    let empty %fn () i32 \() 0
+    let empty %fn unit i32 \unit 0
     let combine %fn i32 fn i32 i32 \a \b add a b
 
 pub let str impl for Monoid:
-    let empty %fn () str \() ""
+    let empty %fn unit str \unit ""
     let combine %fn str fn str str \a \b concat a b
 
 
@@ -57,7 +57,7 @@ pub let str impl for Monoid:
 //: `Monoid` の `combine` で `List .T` を畳み込む
 //:
 //: ### [実装/じっそう]
-//: - `empty ()` でアキュムレータを初期化し、`fold_left` で `combine` を順次適用する。
+//: - `empty unit` でアキュムレータを初期化し、`fold_left` で `combine` を順次適用する。
 //: - `mconcat (list "a" "b" "c") = "abc"` / `mconcat (list 1 2 3) = 6`
 //: - 型は呼び出し側の[期待型/きたいがた]から[推論/すいろん]される。[曖昧/あいまい]な場合は `%i32` 等の型注釈で解消する。
 //:
@@ -65,7 +65,7 @@ pub let str impl for Monoid:
 //: - O(n)（`combine` が O(1) の場合）
 
 pub let mconcat .T: Monoid %fn List .T .T \xs:
-    fold_left xs empty () combine
+    fold_left xs empty unit combine
 
 
 // ── 高階関数 ──────────────────────────────────────────────────────────────

@@ -23,11 +23,11 @@
 //:| #import "alloc/collections/btreemap" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm %BTreeMap i32 i32 unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>;
 //:     free hm;
 //:     0
 //: ```
-pub fn free <.K: Copy,.V: Copy> %fn BTreeMap .K .V () \hm:
+pub fn free <.K: Copy,.V: Copy> %fn BTreeMap .K .V unit \hm:
     let storage %BTreeMapStorage .K .V field::get hm "storage"
     btreemap_free_storage<.K,.V> storage

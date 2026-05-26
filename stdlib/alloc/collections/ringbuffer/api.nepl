@@ -33,13 +33,13 @@
 //:| #import "alloc/collections/ringbuffer" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let rb %RingBuffer i32 unwrap_ok<RingBuffer<i32>, Diag> new<i32>;
 //:     let ok %bool is_empty<i32> &rb;
 //:     free<i32> rb
 //:     if ok 1 0
 //: ```
-pub fn new <.T: Copy> %impure fn () Result RingBuffer .T Diag \():
+pub fn new <.T: Copy> %impure fn unit Result RingBuffer .T Diag \unit:
     with_capacity<.T> 8
 
 //: ## with_capacity
@@ -142,5 +142,5 @@ pub fn clear <.T: Copy> %impure fn RingBuffer .T RingBuffer .T \rb:
 
 //: ## free
 //: buffer が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> %fn RingBuffer .T () \rb:
+pub fn free <.T: Copy> %fn RingBuffer .T unit \rb:
     vec::free<Option<.T>> field::get rb "items"

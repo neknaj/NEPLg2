@@ -45,15 +45,15 @@ pub fn sb_append_slice_result %fn StringBuilder fn str fn i32 fn i32 Result Stri
     if:
         lt s0 0
         then set s0 0
-        else ()
+        else unit
     if:
         lt e0 s0
         then set e0 s0
-        else ()
+        else unit
     if:
         lt n e0
         then set e0 n
-        else ()
+        else unit
     if:
         and str_utf8_is_boundary s s0 str_utf8_is_boundary s e0
         then:

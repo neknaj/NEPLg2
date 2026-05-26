@@ -3,8 +3,8 @@
 #target wasi
 #import "std/stdio" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     print "a:";
     print_i32 12;
     print ":b";
-    ()
+    unit

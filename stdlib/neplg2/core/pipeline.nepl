@@ -26,10 +26,10 @@
 //:| #import "neplg2/core/module/loader" as *
 //:| #import "neplg2/core/options" as *
 //:| #import "neplg2/core/syntax/ast/module_ast" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match selfhost_vfs_new:
 //:         Result::Ok vfs0:
-//:             match selfhost_vfs_add vfs0 "main.nepl" "fn main %fn () i32 ():\n    0\n":
+//:             match selfhost_vfs_add vfs0 "main.nepl" "fn main %fn unit i32 \\unit:\n    0\n":
 //:                 Result::Ok vfs1:
 //:                     let options0 %SelfhostCompileOptions selfhost_compile_options_default
 //:                     let options1 %SelfhostCompileOptions selfhost_compile_options_with_target options0 SelfhostCompileTarget::Wasi
@@ -148,8 +148,8 @@ pub fn selfhost_pipeline_check_loaded_root %fn &SelfhostPipelineLoadedRoot Resul
     selfhost_check_module_ast ast
 
 //: selfhost_pipeline_loaded_root_free: loaded root が所有する AST buffer を[解放/かいほう]する
-pub fn selfhost_pipeline_loaded_root_free %impure fn SelfhostPipelineLoadedRoot () \loaded:
+pub fn selfhost_pipeline_loaded_root_free %impure fn SelfhostPipelineLoadedRoot unit \loaded:
     selfhost_loaded_module_free field::get loaded "module"
 
-pub fn selfhost_pipeline_stage0 %fn () i32 \():
+pub fn selfhost_pipeline_stage0 %fn unit i32 \unit:
     selfhost_options_stage0

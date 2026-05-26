@@ -13,7 +13,7 @@
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/math/i32/bitwise/binary" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     assert_eq_i32 2 and 6 3;
 //:     assert_eq_i32 7 or 6 3;
 //:     assert_eq_i32 5 xor 6 3;

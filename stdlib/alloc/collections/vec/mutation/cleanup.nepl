@@ -26,7 +26,7 @@
 //: ### [注意/ちゅうい]
 //: - この helper は public にしません。lifecycle marker authority は collection implementation file 内だけで[扱/あつか]います。
 //: - non-Copy payload では Drop 実行の証明が必要なので、この helper は `.T: Copy` に[限定/げんてい]します。
-fn vec_cleanup_copy_initialized_prefix <.T: Copy> %fn &RegionToken .T fn i32 () \storage\initialized_len:
+fn vec_cleanup_copy_initialized_prefix <.T: Copy> %fn &RegionToken .T fn i32 unit \storage\initialized_len:
     let data %MemPtr .T region_ptr storage
     let mut i %i32 0
     while lt i initialized_len:
@@ -48,7 +48,7 @@ fn vec_cleanup_copy_initialized_prefix <.T: Copy> %fn &RegionToken .T fn i32 () 
 //: ### [注意/ちゅうい]
 //: - この helper は destructor を[呼/よ]ぶため impure です。
 //: - `i = 0` から `initialized_len` 未満まで 1 ずつ進む単純な全範囲走査にし、Resource IR の range certificate が source の loop 形状を[検査/けんさ]できるようにします。
-fn vec_cleanup_drop_initialized_prefix <.T: Drop> %impure fn &RegionToken .T impure fn i32 () \storage\initialized_len:
+fn vec_cleanup_drop_initialized_prefix <.T: Drop> %impure fn &RegionToken .T impure fn i32 unit \storage\initialized_len:
     let data %MemPtr .T region_ptr storage
     let mut i %i32 0
     while lt i initialized_len:
@@ -70,7 +70,7 @@ fn vec_cleanup_drop_initialized_prefix <.T: Drop> %impure fn &RegionToken .T imp
 //:
 //: ### [注意/ちゅうい]
 //: - caller は事前に initialized prefix cleanup を完了してからこの helper を[呼/よ]びます。
-fn vec_cleanup_release_storage <.T> %fn RegionToken .T () \region:
+fn vec_cleanup_release_storage <.T> %fn RegionToken .T unit \region:
     let raw %i32 field::get region "raw"
     let total_size %i32 field::get region "size"
     allocator::dealloc_raw raw total_size
@@ -101,7 +101,7 @@ fn vec_cleanup_release_storage <.T> %fn RegionToken .T () \region:
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>;
 //:     let v1 %Vec i32 unwrap_ok push v0 1;
 //:     let v2 clear<i32> v1;
@@ -175,19 +175,19 @@ pub fn clear <.T: Drop> %impure fn Vec .T Vec .T \v:
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32 unwrap_ok new<i32>;
 //:     free<i32> v;
 //:     0
 //: ```
-pub fn free <.T: Copy> %fn Vec .T () \v:
+pub fn free <.T: Copy> %fn Vec .T unit \v:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
     let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"
     let v_buffer %OwnedBuffer .T field::get v "buffer"
     let v_storage %VecStorage .T field::get v_buffer "storage"
     match v_storage:
         VecStorage::Empty:
-            ()
+            unit
         VecStorage::Owned region:
             vec_cleanup_copy_initialized_prefix<.T> &region v_initialized_len
             vec_cleanup_release_storage<.T> region
@@ -205,14 +205,14 @@ pub fn free <.T: Copy> %fn Vec .T () \v:
 //: ### [注意/ちゅうい]
 //: - destructor を[呼/よ]ぶため impure です。
 //: - payload が `Copy` でも `Drop` でもない型は、この overload でも Copy overload でも[受/う]け[付/つ]けません。
-pub fn free <.T: Drop> %impure fn Vec .T () \v:
+pub fn free <.T: Drop> %impure fn Vec .T unit \v:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"
     let v_initialized_len %i32 *field::get_ref v_buffer_ref "initialized_len"
     let v_buffer %OwnedBuffer .T field::get v "buffer"
     let v_storage %VecStorage .T field::get v_buffer "storage"
     match v_storage:
         VecStorage::Empty:
-            ()
+            unit
         VecStorage::Owned region:
             vec_cleanup_drop_initialized_prefix<.T> &region v_initialized_len
             vec_cleanup_release_storage<.T> region

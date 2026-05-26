@@ -27,11 +27,11 @@
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bs %BitSet unwrap_ok<BitSet, Diag> new 16;
 //:     free bs
 //:     0
 //: ```
-pub fn free %fn BitSet () \bs:
+pub fn free %fn BitSet unit \bs:
     let bits %Vec u8 field::get bs "bits"
     vec::free<u8> bits

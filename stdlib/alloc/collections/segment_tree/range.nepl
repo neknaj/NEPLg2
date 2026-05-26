@@ -29,7 +29,7 @@ pub fn seg_sum_range_storage %fn &Vec i32 fn i32 fn i32 fn i32 Option i32 \data\
                         Option::None:
                             set valid false
                 else:
-                    ()
+                    unit
             if:
                 and valid eq rem_s right 2 1
                 then:
@@ -40,14 +40,14 @@ pub fn seg_sum_range_storage %fn &Vec i32 fn i32 fn i32 fn i32 Option i32 \data\
                         Option::None:
                             set valid false
                 else:
-                    ()
+                    unit
             if:
                 valid
                 then:
                     set left div_s left 2
                     set right div_s right 2
                 else:
-                    ()
+                    unit
     if:
         valid
         then:

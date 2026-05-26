@@ -66,7 +66,7 @@ pub fn str_match_at %fn str fn str fn i32 fn i32 bool \s\sep\pos\sep_len:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/string" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "str_find_doc"
 //:         |> test_report_push assert_eq_i32 "middle" 2 str_find "abcabc" "ca"

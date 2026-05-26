@@ -35,15 +35,15 @@ pub fn __fs_copy_to_cstr %impure fn i32 impure fn i32 Result RegionToken u8 i32 
                 do:
                     match store_u8 mem_ptr_add dst i load_u8 add src_ptr i:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ()
+                            unit
                     set i add i 1;
             match store_u8 mem_ptr_add dst src_len 0:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ()
+                    unit
             Result<RegionToken<u8>,i32>::Ok dst_region
 
 #if[target=llvm]
@@ -98,9 +98,9 @@ pub fn wasi_path_open %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i
             let fd64 %i64 __linux_syscall_openat_path mem_ptr_addr cpath linux_flags linux_mode;
             match dealloc_region<u8> cpath_region:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ()
+                    unit
             if:
                 cond:
                     lt fd64 %i64 cast 0
@@ -151,7 +151,7 @@ pub fn wasi_fd_read %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
                                 then:
                                     set done 1;
                                 else:
-                                    ();
+                                    unit;
                     set iov_idx add iov_idx 1;
                 else:
                     set done 1;
@@ -190,7 +190,7 @@ pub fn wasi_fd_write %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i3
                                 then:
                                     set done 1;
                                 else:
-                                    ();
+                                    unit;
                     set iov_idx add iov_idx 1;
                 else:
                     set done 1;

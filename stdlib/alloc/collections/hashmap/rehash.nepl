@@ -48,17 +48,17 @@ pub fn hashmap_rehash_to <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure
                         HashMapBucketState::Full:
                             match hashmap_key_at<.K> keys i:
                                 Option::None:
-                                    ()
+                                    unit
                                 Option::Some key:
                                     match hashmap_value_at<.V> values i:
                                         Option::None:
-                                            ()
+                                            unit
                                         Option::Some value:
                                             hashmap_insert_entry_into_storage<.K,.V,.H> &new_storage new_cap hasher key value
                         HashMapBucketState::Empty:
-                            ()
+                            unit
                         HashMapBucketState::Tombstone:
-                            ()
+                            unit
                     set i add i 1
             hashmap_free_storage<.K,.V> old_storage
             Result<HashMap<.K,.V,.H>, HashMapUpdateError<.K,.V,.H>>::Ok HashMap<.K,.V,.H> count0 new_cap 0 new_storage hasher

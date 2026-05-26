@@ -23,10 +23,10 @@
 //:| #import "alloc/collections/binary_heap" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hp %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
 //:     free hp;
 //:     0
 //: ```
-pub fn free <.T: Copy> %fn BinaryHeap .T () \hp:
+pub fn free <.T: Copy> %fn BinaryHeap .T unit \hp:
     vec::free<Option<.T>> field::get hp "items"

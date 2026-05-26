@@ -47,14 +47,14 @@ pub fn buffer_new %impure fn i32 impure fn i32 i32 \cols\rows:
 //:
 //: [目的/もくてき]:
 //: - `buffer_new` で確保したメモリを解放します。
-pub fn buffer_free %impure fn i32 () \b:
+pub fn buffer_free %impure fn i32 unit \b:
     let rows %i32 load_i32 add b 4;
     let curr %i32 load_i32 add b 8;
     let prev %i32 load_i32 add b 12;
     dealloc_raw curr mul rows 4;
     dealloc_raw prev mul rows 4;
     dealloc_raw b 16;
-    ()
+    unit
 
 //: buffer_set_line: row(1-origin) の行文字列を設定する
 //:
@@ -63,7 +63,7 @@ pub fn buffer_free %impure fn i32 () \b:
 //:
 //: [注意/ちゅうい]:
 //: - 行番号が範囲外の場合は何もしません。
-pub fn buffer_set_line %impure fn i32 impure fn i32 impure fn str () \b\row\line:
+pub fn buffer_set_line %impure fn i32 impure fn i32 impure fn str unit \b\row\line:
     let rows %i32 load_i32 add b 4;
     let row_max_excl %i32 add rows 1;
     if:
@@ -74,5 +74,5 @@ pub fn buffer_set_line %impure fn i32 impure fn i32 impure fn str () \b\row\line
             let off %i32 mul row0 4;
             store<str> add curr off line;
         else:
-            ();
-    ()
+            unit;
+    unit

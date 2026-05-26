@@ -13,7 +13,7 @@ stdout: "io facade text"
 #import "std/io" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let input %ReadStream ReadStream::Stdio
     let output %WriteStream WriteStream::Stdio
     let text0 %Result str StdErrorKind read input
@@ -45,7 +45,7 @@ stdout: "pipe bytes\n"
 #import "std/streamio" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let output %WriteStream WriteStream::Stdio
     let bytes0 %ByteBuf stream_bytes_from_str "pipe bytes\n"
     match bytes0 |> write output:
@@ -76,7 +76,7 @@ stdout: mlstr:
 #import "alloc/string" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new
     let missing %ReadStream ReadStream::Fs "__definitely_missing_file__.txt"
     let result0 %Result str StdErrorKind read missing
@@ -102,7 +102,7 @@ stdout: "literal source"
 #import "std/io" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let target %ReadStream ReadStream::Text "literal source"
     let output %WriteStream WriteStream::Stdio
     let text0 %Result str StdErrorKind read target
@@ -132,7 +132,7 @@ diag_codes: type.overload.no_match
 
 #import "std/io" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let _text %Result str StdErrorKind read WriteStream::Stdio
     0
 ```
@@ -148,7 +148,7 @@ diag_codes: type.overload.no_match, type.match.scrutinee_not_enum, type.return.m
 
 #import "std/io" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match write ReadStream::Stdio "x":
         Result::Ok _:
             0

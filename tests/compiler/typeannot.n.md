@@ -14,7 +14,7 @@ stdout: "test_report name=\"test_type_annot_basic\" count=1 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // 基本的なリテラルへの型注釈
     // 式 `123` は i32
     // `%i32` を前置しても値は変わらず、型がチェックされる
@@ -41,7 +41,7 @@ stdout: "test_report name=\"test_type_annot_nested_expr\" count=1 failed=0\nasse
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // 計算式全体への型注釈
     // add 10 20 は i32 を返す
     let a %i32 add 10 20
@@ -71,7 +71,7 @@ stdout: "test_report name=\"test_type_annot_on_let\" count=1 failed=0\nassertion
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // plan.md 94行目の例: let mut neg %bool lt n 0
     // let 宣言の右辺式全体に対する型注釈
 
@@ -104,7 +104,7 @@ stdout: "test_report name=\"test_type_annot_block\" count=1 failed=0\nassertion 
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // ブロック式全体への型注釈
     // ブロックの評価結果（最後の式の値）に対して型注釈がかかる
 
@@ -133,7 +133,7 @@ stdout: "test_report name=\"test_type_annot_nested_annot\" count=1 failed=0\nass
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // 型注釈を重ねることは仕様上可能だが冗長
     // 通常は 1 回の注釈を推奨
 
@@ -161,7 +161,7 @@ stdout: "test_report name=\"test_type_annot_function_call\" count=1 failed=0\nas
 fn id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // 関数適用の結果に対する型注釈
     // id 123 は i32 を返すので %i32 で注釈可能
 
@@ -186,7 +186,7 @@ stdout: "test_report name=\"test_type_annot_complex_expr\" count=1 failed=0\nass
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // 複雑な式の中での型注釈
     // add (mul %i32 2 3) (%i32 4)
 
@@ -212,7 +212,7 @@ stdout: "test_report name=\"test_type_annot_if_expr\" count=1 failed=0\nassertio
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // if式全体、あるいは各ブランチへの型注釈
 
     let v %i32 if:
@@ -239,7 +239,7 @@ stdout: "test_report name=\"test_type_annot_while_condition\" count=1 failed=0\n
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut i 0
     let mut sum 0
 
@@ -270,7 +270,7 @@ stdout: "test_report name=\"test_type_annot_generic_like\" count=1 failed=0\nass
 #import "core/option" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // ジェネリック型に対する型注釈
     // Option<i32> 型の値を生成し、それに型注釈をつける
 
@@ -301,7 +301,7 @@ stdout: "test_report name=\"test_type_annot_deeply_nested\" count=1 failed=0\nas
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // 深くネストされた関数呼び出しと型注釈
     // add( add( %i321, %i322 ), %i323 )
 
@@ -327,7 +327,7 @@ stdout: "test_report name=\"test_type_annot_mixed_with_blocks\" count=1 failed=0
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     // ブロックとインラインの混在
 
     let v %i32 add: // 関数の引数で改行しているのは正しい インデントは各引数の先頭が+1で揃う
@@ -355,7 +355,7 @@ stdout: "test_report name=\"test_type_annot_mixed_block_call_pipe\" count=1 fail
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %i32 %i32 block:
         let base %i32 %i32 add 1 2
         base |> %i32 add %i32 4
@@ -382,7 +382,7 @@ stdout: "test_report name=\"test_type_annot_mixed_function_literal_call\" count=
 fn apply %fn i32 fn fn i32 i32 i32 \x\f:
     f x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let f %fn i32 i32 \x:
         %i32 block:
             let y %i32 add x 2
@@ -408,7 +408,7 @@ stdout: "test_report name=\"test_type_annot_mixed_pipe_with_annotated_function_l
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let plus3 %fn i32 i32 \x:
         %i32 add x 3
     let src %i32:

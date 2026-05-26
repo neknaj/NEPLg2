@@ -28,21 +28,21 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 / 最悪 O(n^2)、ほぼ整列済みでは O(n) に近づきます。
-pub fn sort_insertion <.T: Ord&Copy> %impure fn &Vec .T () \v:
+pub fn sort_insertion <.T: Ord&Copy> %impure fn &Vec .T unit \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            ()
+            unit
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then ()
+                then unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            ()
+                            unit
                         VecDataView::Invalid _reason:
-                            ()
+                            unit
                         VecDataView::Data data:
                             let mut i %i32 1
                             while lt i n:
@@ -64,7 +64,7 @@ pub fn sort_insertion <.T: Ord&Copy> %impure fn &Vec .T () \v:
                                     let dst_final %i32 add j 1
                                     store<.T> add mem_ptr_addr data mul dst_final size_of<.T> key;
                                     set i add i 1;
-                            ()
+                            unit
 
 //: sort_gnome: gnome sort で in-place 整列する
 //:
@@ -79,21 +79,21 @@ pub fn sort_insertion <.T: Ord&Copy> %impure fn &Vec .T () \v:
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均 / 最悪 O(n^2)
-pub fn sort_gnome <.T: Ord&Copy> %impure fn &Vec .T () \v:
+pub fn sort_gnome <.T: Ord&Copy> %impure fn &Vec .T unit \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            ()
+            unit
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then ()
+                then unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            ()
+                            unit
                         VecDataView::Invalid _reason:
-                            ()
+                            unit
                         VecDataView::Data data:
                             let mut i %i32 1;
                             while lt i n:
@@ -108,5 +108,5 @@ pub fn sort_gnome <.T: Ord&Copy> %impure fn &Vec .T () \v:
                                             store<.T> add mem_ptr_addr data mul i size_of<.T> b;
                                             store<.T> add mem_ptr_addr data mul j size_of<.T> a;
                                             set i sub i 1;
-                                    ();
-                            ()
+                                    unit;
+                            unit

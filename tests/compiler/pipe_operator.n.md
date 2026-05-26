@@ -13,7 +13,7 @@ ret: 1
 
 fn id %fn i32 i32 \x: x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1 |> id
 ```
 
@@ -28,7 +28,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1 |> add 2
 ```
 
@@ -43,7 +43,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1 |> add 2 |> add 3
 ```
 
@@ -58,7 +58,7 @@ ret: 10
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1 |> add 2 |> add 3 |> add 4
 ```
 
@@ -73,7 +73,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1
     |> add 2
 ```
@@ -89,7 +89,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1
     |> add 2
     |> add 3
@@ -106,7 +106,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x:
         1
         |> add 2
@@ -124,7 +124,7 @@ ret: 1
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     6 |> sub add 2 3
 ```
 
@@ -139,7 +139,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     add 1 2 |> add 3
 ```
 
@@ -154,7 +154,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     block 1 |> add 2
 ```
 
@@ -169,7 +169,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1 |> %i32 add 2
 ```
 
@@ -192,7 +192,7 @@ ret: 2
 
 fn f <.T> %fn .T i32 \t: 2
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     Tuple:
         1
         2
@@ -212,7 +212,7 @@ ret: 10
 struct S: v %i32
 fn f %fn S i32 \s: s.v
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     S 10 |> f
 ```
 
@@ -228,7 +228,7 @@ ret: 10
 
 struct S: v %i32
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let s %S 10 |> S
     s.v
 ```
@@ -246,7 +246,7 @@ ret: 20
 
 enum E: V %i32
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let e %E 20 |> E::V
     match e:
         V v: v
@@ -263,7 +263,7 @@ ret: 6
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     add 1 |> add 2 3
 ```
 
@@ -278,7 +278,7 @@ ret: 3
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     if true 1 |> add 2 0
 ```
 
@@ -296,7 +296,7 @@ ret: 3
 
 enum E: A
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     match E::A:
         A: 1 |> add 2
 ```
@@ -312,7 +312,7 @@ ret: 3
 #target core
 #import "alloc/string" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     "abc" |> len
 ```
 
@@ -327,7 +327,7 @@ ret: 0
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let b true |> not
     if b 1 0
 ```
@@ -347,7 +347,7 @@ ret: 3
 fn take_i64 %fn i32 fn i64 i32 \x\y:
     add x %i32 cast y
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     1 |> take_i64 %i64 cast 2
 ```
 
@@ -365,7 +365,7 @@ stdout: "2\n"
 #import "std/iotarget" as *
 #import "std/streamio" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     unwrap_ok open WriteStream::Stdio
     |> writeln %i64 cast 2
     |> flush

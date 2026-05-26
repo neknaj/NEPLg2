@@ -41,7 +41,7 @@ pub struct StringBuilder:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn string_builder_empty %fn () StringBuilder \():
+pub fn string_builder_empty %fn unit StringBuilder \unit:
     StringBuilder byte_builder_empty
 
 //: string_builder_from_byte_builder: ByteBuilder owner を text builder 境界へ包む
@@ -94,8 +94,8 @@ pub fn string_builder_data_ptr_ref %fn &StringBuilder MemPtr u8 \sb:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
-//:     match string_builder_new_result ():
+//: fn main %impure fn unit i32 \unit:
+//:     match string_builder_new_result unit:
 //:         Result::Err _e:
 //:             1
 //:         Result::Ok b0:
@@ -133,5 +133,5 @@ pub fn string_builder_into_byte_builder %fn StringBuilder ByteBuilder \sb:
 //:
 //: [計算量/けいさんりょう]:
 //: - allocator に依存します。
-pub fn string_builder_free %fn StringBuilder () \sb:
+pub fn string_builder_free %fn StringBuilder unit \sb:
     byte_builder_free string_builder_into_byte_builder sb

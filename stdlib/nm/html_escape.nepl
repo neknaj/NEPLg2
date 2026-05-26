@@ -21,7 +21,7 @@
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/html_escape" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let escaped %str escape_html "<a b=\"c&d\">'"
 //:     if str_eq escaped "&lt;a b=&quot;c&amp;d&quot;&gt;&#39;" 0 1
 //: ```

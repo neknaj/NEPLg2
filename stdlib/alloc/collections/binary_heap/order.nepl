@@ -23,13 +23,13 @@ pub fn heap_left %fn i32 i32 \idx:
 pub fn heap_right %fn i32 i32 \idx:
     add mul idx 2 2
 
-pub fn heap_swap_slots <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 () \items\a\b:
+pub fn heap_swap_slots <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 unit \items\a\b:
     let av %Option .T heap_item_at<.T> items a
     let bv %Option .T heap_item_at<.T> items b
     heap_store_slot<.T> items a bv
     heap_store_slot<.T> items b av
 
-pub fn heap_sift_up <.T: Ord&Copy> %impure fn &Vec Option .T impure fn i32 () \items\start:
+pub fn heap_sift_up <.T: Ord&Copy> %impure fn &Vec Option .T impure fn i32 unit \items\start:
     let mut idx %i32 start
     let mut done %bool false
     while and lt 0 idx not done:
@@ -51,7 +51,7 @@ pub fn heap_sift_up <.T: Ord&Copy> %impure fn &Vec Option .T impure fn i32 () \i
                 Option::None:
                     set done true
 
-pub fn heap_sift_down <.T: Ord&Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 () \items\len0\start:
+pub fn heap_sift_down <.T: Ord&Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 unit \items\len0\start:
     let mut idx %i32 start
     let mut done %bool false
     while and lt idx len0 not done:

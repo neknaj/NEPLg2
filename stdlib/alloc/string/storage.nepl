@@ -156,7 +156,7 @@ pub fn string_from_mem_unchecked_result %fn MemPtr u8 fn i32 Result str str \src
                         then:
                             mem_copy mem_ptr_addr out_data mem_ptr_addr src byte_len
                         else:
-                            ()
+                            unit
                     Result::Ok string_finish region byte_len
 
 

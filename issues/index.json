@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-25T23:38:39.765Z",
+  "generated_at": "2026-05-26T01:07:11.784Z",
   "counts": {
-    "total": 1262,
+    "total": 1263,
     "open": 12,
-    "resolved": 1250,
+    "resolved": 1251,
     "by_area": {
       "core": {
-        "total": 621,
+        "total": 622,
         "open": 6,
-        "resolved": 615
+        "resolved": 616
       },
       "stdlib": {
         "total": 330,
@@ -873,6 +873,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260525T213016826Z-NEPLG2-1-TYPE-ARITY-PRELOAD-DROPS-CY-F74EBA18.md"
+    },
+    {
+      "id": "ISS-20260526T004744719Z-NEPLG2-1-UNIT-LITERAL-SHOULD-USE-UNI-ECE4D70B",
+      "title": "NEPLg2.1 unit literal should use unit keyword",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P0",
+      "type": "architecture",
+      "created": "2026-05-26",
+      "updated": "2026-05-26",
+      "target": "nepl-core/src/lexer.rs; nepl-core/src/parser.rs; nepl-core/src/parser/neplg21_type_expr.rs; nodesrc/neplg21_syntax_migrate.js; stdlib/**; tests/**; tutorials/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260526T004744719Z-NEPLG2-1-UNIT-LITERAL-SHOULD-USE-UNI-ECE4D70B.md"
     },
     {
       "id": "ISS-20260524T085928137Z-README-AND-DOCS-MUST-DISTINGUISH-NEP-20719BBC",

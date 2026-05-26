@@ -20,7 +20,7 @@
 //:| #import "core/result" as *
 //:| #import "std/iotarget" as *
 //:| #import "std/streamio/writer" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let w %StreamWriter unwrap_ok open WriteStream::Stdio;
 //:     close write w "x";
 //:     0
@@ -136,5 +136,5 @@ pub fn flush %impure fn StreamWriter StreamWriter \w:
 //:
 //: ### [注意/ちゅうい]
 //: - `close` は owner を[消費/しょうひ]します。未 flush の[内容/ないよう]は[捨/す]てられるため、[必要/ひつよう]なら[先/さき]に `flush` を[呼/よ]んでください。
-pub fn close %impure fn StreamWriter () \w:
+pub fn close %impure fn StreamWriter unit \w:
     stream_writer_close_impl w

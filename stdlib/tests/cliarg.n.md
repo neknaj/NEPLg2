@@ -15,7 +15,7 @@ stdout: "test_report name=\"cliarg_basic\" count=3 failed=0\nassertion index=0 s
 #import "core/option" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let c %i32 cliarg_count;
     let neg_missing %bool is_none cliarg_get -1;
     let end_missing %bool is_none cliarg_get c;
@@ -41,7 +41,7 @@ stdout: "3"
 #import "std/env/cliarg" as *
 #import "std/stdio" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     print_i32 cliarg_count;
 ```
 
@@ -60,14 +60,14 @@ stdout: "--flag:value"
 #import "alloc/string" as *
 #import "core/option" as *
 
-fn print_arg %impure fn i32 () \idx:
+fn print_arg %impure fn i32 unit \idx:
     match cliarg_get idx:
         Option::Some arg:
             print arg
         Option::None:
             print "<none>"
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     print_arg 1;
     print ":";
     print_arg 2;
@@ -89,7 +89,7 @@ stdout: "test_report name=\"cliarg_get_rejects_out_of_range\" count=3 failed=0\n
 #import "core/option" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let c %i32 cliarg_count;
     let neg_missing %bool is_none cliarg_get -1;
     let raw_neg_missing %bool is_none cli_raw::cliarg_get_checked -1;
@@ -120,7 +120,7 @@ stdout: "test_report name=\"cliarg_cstr_bounded_conversion_reports\" count=3 fai
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr u8 string_data_ptr "nep\0tail";
     let no_nul %MemPtr u8 string_data_ptr "abc";
     let len_ok %bool match cstr_len_bounded_result p 4:
@@ -159,7 +159,7 @@ diag_code: resolve.identifier.undefined
 #import "std/env/cliarg/cstr" as *
 #import "alloc/string/storage" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let p %MemPtr u8 string_data_ptr "nep\0";
     let _n cstr_len p;
 ```
@@ -176,7 +176,7 @@ diag_code: resolve.identifier.undefined
 #import "std/env/cliarg/cstr" as *
 #import "alloc/string/storage" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let p %MemPtr u8 string_data_ptr "nep\0";
     let _s cstr_to_str p;
 ```

@@ -79,9 +79,9 @@ pub fn append_i32_impl %impure fn StreamWriter impure fn i32 StreamWriter \w\v:
                         then:
                             set ww push_u8_impl ww 45;
                             set x sub 0 x;
-                            ()
+                            unit
                         else:
-                            ();
+                            unit;
                     append_i32_digits_impl ww x
 
 //: ## append_u32_impl

@@ -16,7 +16,7 @@ stdout: "test_report name=\"disjoint_set_union_same_and_size\" count=4 failed=0\
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let dsu0 %DisjointSet unwrap_ok new 6;
     let dsu1 %DisjointSet unwrap_ok union dsu0 0 1;
     let dsu2 %DisjointSet unwrap_ok union dsu1 2 3;
@@ -63,7 +63,7 @@ stdout: "test_report name=\"disjoint_set_invalid_index\" count=3 failed=0\nasser
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let dsu0 %DisjointSet unwrap_ok new 3;
     let r0 %Result i32 Diag find &dsu0 5;
     let dsu1 %DisjointSet unwrap_ok new 3;

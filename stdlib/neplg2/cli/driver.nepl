@@ -31,7 +31,7 @@
 //:| #import "neplg2/core/infra/diag" as *
 //:| #import "neplg2/core/module/loader" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let args %Vec str:
 //:         unwrap_ok v::new<str>
 //:         |> v::push<str> "-i" |> uwok
@@ -46,7 +46,7 @@
 //:                     v::free<str> args;
 //:                     2
 //:                 Result::Ok vfs0:
-//:                     match selfhost_vfs_add vfs0 "main.nepl" "fn main %fn () i32 ():\n    0\n":
+//:                     match selfhost_vfs_add vfs0 "main.nepl" "fn main %fn unit i32 \\unit:\n    0\n":
 //:                         Result::Err _e:
 //:                             v::free<str> args;
 //:                             3
@@ -100,14 +100,14 @@ pub fn selfhost_cli_driver_result_diagnostics %fn &SelfhostCliDriverResult &Self
     field::get_ref result "diagnostics"
 
 //: selfhost_cli_driver_result_free: driver result が所有する diagnostics buffer を[解放/かいほう]する
-pub fn selfhost_cli_driver_result_free %impure fn SelfhostCliDriverResult () \result:
+pub fn selfhost_cli_driver_result_free %impure fn SelfhostCliDriverResult unit \result:
     selfhost_diagnostics_free field::get result "diagnostics"
 
 //: selfhost_cli_driver_missing_input_diag: 入力 path 不足の diagnostic を[作/つく]る
 //:
 //: [目的/もくてき]:
 //: - parser は「引数列として正しいが input が無い」状態を許すため、driver が compile 実行時の usage error として診断化します。
-pub fn selfhost_cli_driver_missing_input_diag %fn () SelfhostDiagnostic \():
+pub fn selfhost_cli_driver_missing_input_diag %fn unit SelfhostDiagnostic \unit:
     let diag %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "input source file is required"
     selfhost_diag_with_note diag "pass -i/--input or a positional input path"
 
@@ -134,7 +134,7 @@ pub fn selfhost_cli_driver_error_result %impure fn SelfhostDiagnostic Result Sel
             Result<SelfhostCliDriverResult, StdErrorKind>::Ok selfhost_cli_driver_result_new 1 diagnostics
 
 //: selfhost_cli_driver_success_result: 成功 result を[作/つく]る
-pub fn selfhost_cli_driver_success_result %impure fn () Result SelfhostCliDriverResult StdErrorKind \():
+pub fn selfhost_cli_driver_success_result %impure fn unit Result SelfhostCliDriverResult StdErrorKind \unit:
     match selfhost_diagnostics_new:
         Result::Err e:
             Result<SelfhostCliDriverResult, StdErrorKind>::Err e
@@ -162,13 +162,13 @@ pub fn selfhost_cli_driver_compile_vfs %impure fn &SelfhostVirtualFileSystem imp
                     selfhost_cli_driver_success_result
 
 //: selfhost_cli_driver_write_human_stderr: driver diagnostics を human stderr へ[書/か]く
-pub fn selfhost_cli_driver_write_human_stderr %impure fn &SelfhostCliDriverResult Result () StdErrorKind \result:
+pub fn selfhost_cli_driver_write_human_stderr %impure fn &SelfhostCliDriverResult Result unit StdErrorKind \result:
     selfhost_cli_write_human_diagnostics_stderr selfhost_cli_driver_result_diagnostics result
 
 //: selfhost_cli_driver_write_json_stdout: driver diagnostics を JSON stdout へ[書/か]く
-pub fn selfhost_cli_driver_write_json_stdout %impure fn &SelfhostCliDriverResult Result () StdErrorKind \result:
+pub fn selfhost_cli_driver_write_json_stdout %impure fn &SelfhostCliDriverResult Result unit StdErrorKind \result:
     selfhost_cli_write_json_diagnostics_stdout selfhost_cli_driver_result_diagnostics result
 
 //: selfhost_cli_driver_stage0: driver 境界の smoke API
-pub fn selfhost_cli_driver_stage0 %fn () i32 \():
+pub fn selfhost_cli_driver_stage0 %fn unit i32 \unit:
     0

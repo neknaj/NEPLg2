@@ -32,7 +32,7 @@
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -60,7 +60,7 @@ pub fn vec_partition_matched_len <.T> %fn &VecPartition .T i32 \parts:
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -93,7 +93,7 @@ pub fn vec_partition_rest_len <.T> %fn &VecPartition .T i32 \parts:
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -125,7 +125,7 @@ pub fn vec_partition_matched_get <.T: Copy> %fn &VecPartition .T fn i32 Option .
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -166,7 +166,7 @@ pub fn vec_partition_rest_get <.T: Copy> %fn &VecPartition .T fn i32 Option .T \
 //:     free<i32> matched
 //:     free<i32> rest
 //:     if ok 0 1
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let matched %Vec i32 vec_empty<i32>
 //:     let rest %Vec i32 vec_empty<i32>
 //:     let parts %VecPartition i32 vec_partition_from_parts<i32> matched rest
@@ -196,7 +196,7 @@ pub fn vec_partition_from_parts <.T> %fn Vec .T fn Vec .T VecPartition .T \match
 //:     free<i32> matched
 //:     free<i32> rest
 //:     if ok 0 1
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let matched %Vec i32 vec_empty<i32>
 //:     let rest %Vec i32 vec_empty<i32>
 //:     // caller は `VecPartition` を直接構築せず、`partition` が返した値をこの eliminator に渡します。
@@ -226,7 +226,7 @@ pub fn vec_partition_with <.T,.R> %impure fn VecPartition .T impure fn impure fn
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -235,7 +235,7 @@ pub fn vec_partition_with <.T,.R> %impure fn VecPartition .T impure fn impure fn
 //:     vec_partition_free<i32> parts;
 //:     0
 //: ```
-pub fn vec_partition_free <.T: Copy> %fn VecPartition .T () \parts:
+pub fn vec_partition_free <.T: Copy> %fn VecPartition .T unit \parts:
     let matched %Vec .T field::get parts "matched"
     let rest %Vec .T field::get parts "rest"
     vec_cleanup::free<.T> matched

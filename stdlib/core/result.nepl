@@ -22,7 +22,7 @@
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "core_result_basic"
 //:         |> test_report_push assert "ok helper is ok" is_ok ok<i32, str> 1
@@ -41,7 +41,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //: // 型が合わない Err を入れているのでコンパイルエラーを期待
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let r %i32 "text";
 //:     r
 //: ```
@@ -61,7 +61,7 @@
 //: fn strlen %fn str i32 \s:
 //:     4
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let r0 ok<i32,str> 9;
 //:     let r1 err<i32,str> "oops";
 //:     let a map<i32,i32,str> r0 inc;
@@ -88,7 +88,7 @@
 //:         then ok<i32,str> mul x 2
 //:         else err<i32,str> "non-positive"
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let r0 ok<i32,str> 3;
 //:     let r1 ok<i32,str> -1;
 //:     let a and_then<i32,i32,str> r0 positive_double;
@@ -156,7 +156,7 @@ pub enum Result<.T, .E>:
 //: Result<Copy, Copy>: payload がどちらも Copy なら Result も Copy として扱う
 //:
 //: 目的:
-//: - `Result<(), str>` や `Result<i32, str>` のような軽量値を、検査結果や一時 buffer から安全に読み取れるようにします。
+//: - `Result<unit, str>` や `Result<i32, str>` のような軽量値を、検査結果や一時 buffer から安全に読み取れるようにします。
 //:
 //: 注意:
 //: - `.T` または `.E` が Copy でない場合は shallow copy を避けるため、この impl は使えません。
@@ -166,10 +166,10 @@ pub enum Result<.T, .E>:
 //:| #entry main
 //:| #target core
 //:| #import "core/result" as *
-//: fn main %fn () i32 \():
-//:     let r %Result () str Result::Err "oops";
-//:     let a %Result () str r;
-//:     let b %Result () str r;
+//: fn main %fn unit i32 \unit:
+//:     let r %Result unit str Result::Err "oops";
+//:     let a %Result unit str r;
+//:     let b %Result unit str r;
 //:     0
 //: ```
 //:
@@ -185,7 +185,7 @@ pub enum Result<.T, .E>:
 //: fn token_id %fn i32 i32 \x:
 //:     x
 //:
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     let token %LocalToken LocalToken @token_id;
 //:     let r %Result LocalToken str Result::Ok token;
 //:     let a %Result LocalToken str r;
@@ -307,7 +307,7 @@ pub fn unwrap_ok <.T, .E> %fn Result .T .E .T \r:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "core/result" as *
-//:| fn main %impure fn () i32 \():
+//:| fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "core_result_uwok"
 //:         |> test_report_push assert_eq_i32 "uwok alias" 1 uwok ok<i32, str> 1

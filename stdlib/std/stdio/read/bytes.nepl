@@ -32,12 +32,12 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - [読/よ]み[込/こ]んだ byte [数/すう]を n として O(n) です。
-pub fn stdio_read_all_bytes_result %impure fn () Result ByteBuf StdErrorKind \():
+pub fn stdio_read_all_bytes_result %impure fn unit Result ByteBuf StdErrorKind \unit:
     stdio_read_all_buffer_result
 
 //: ## stdio_read_all_bytes
 //: stdin の[残/のこ]りを `ByteBuf` として[読/よ]み[込/こ]む互換 facade
-pub fn stdio_read_all_bytes %impure fn () ByteBuf \():
+pub fn stdio_read_all_bytes %impure fn unit ByteBuf \unit:
     match stdio_read_all_bytes_result:
         Result::Ok bytes:
             bytes

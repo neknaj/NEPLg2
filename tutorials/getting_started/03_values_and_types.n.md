@@ -18,11 +18,11 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let n %i32 40
     let ok %bool true
     let text %str "nepl"
-    let unit %() ()
+    let unit_value %unit unit
     let checks:
         checks_new
         |> checks_push assert_eq_i32 42 add n 2

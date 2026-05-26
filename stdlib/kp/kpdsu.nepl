@@ -33,7 +33,7 @@ pub #import "alloc/collections/disjoint_set/types" as @merge
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let d0 %DisjointSet unwrap_ok<DisjointSet, Diag> dsu_new 5;
 //:     let d1 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> dsu_unite d0 0 1;
 //:     let d2 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> dsu_unite d1 1 2;
@@ -56,7 +56,7 @@ pub fn dsu_new %impure fn i32 Result DisjointSet Diag \n:
     uf::new n
 
 //: dsu_free: DSU owner を[解放/かいほう]する
-pub fn dsu_free %impure fn DisjointSet () \dsu:
+pub fn dsu_free %impure fn DisjointSet unit \dsu:
     uf::free dsu
 
 //: dsu_find: `x` の[代表元/だいひょうげん]を[返/かえ]す

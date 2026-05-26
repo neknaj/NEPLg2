@@ -17,7 +17,7 @@ neplg2:test
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %i32 alloc_raw 8;
     let b %i32 alloc_raw 8;
     let c %i32 alloc_raw 8;
@@ -45,7 +45,7 @@ neplg2:test
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %i32 alloc_raw 8;
     let b %i32 alloc_raw 8;
     let c %i32 alloc_raw 8;
@@ -73,7 +73,7 @@ neplg2:test
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let pages0 %i32 mem_size;
     let cur_bytes %i32 mul pages0 65536;
     let heap0_raw %i32 load_i32 0;

@@ -27,7 +27,7 @@ pub fn ringbuffer_item_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \items\
             none<.T>
 
 //: ringbuffer_store_slot: slot state を[更新/こうしん]する
-pub fn ringbuffer_store_slot <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T () \items\idx\item:
+pub fn ringbuffer_store_slot <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \items\idx\item:
     vec::replace<Option<.T>> items idx item
 
 //: ringbuffer_alloc_slots: `None` で[初期化/しょきか]した slot storage を[確保/かくほ]する
@@ -39,17 +39,17 @@ pub fn ringbuffer_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Dia
             diag_err<Vec<Option<.T>>> diag_out_of_memory
 
 //: ringbuffer_clear_slots_loop: 全 slot を `None` に[戻/もど]す
-pub fn ringbuffer_clear_slots_loop <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 () \items\cap\i:
+pub fn ringbuffer_clear_slots_loop <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 unit \items\cap\i:
     if:
         lt i cap
         then:
             ringbuffer_store_slot<.T> items i none<.T>
             ringbuffer_clear_slots_loop<.T> items cap add i 1
         else:
-            ()
+            unit
 
 //: ringbuffer_copy_live_slots: live slot を[論理順/ろんりじゅん]に[新/あたら]しい storage へ[写/うつ]す
-pub fn ringbuffer_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn &Vec Option .T impure fn i32 impure fn i32 impure fn i32 () \src\dst\cap\head\len:
+pub fn ringbuffer_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn &Vec Option .T impure fn i32 impure fn i32 impure fn i32 unit \src\dst\cap\head\len:
     let mut i %i32 0
     while lt i len:
         do:
@@ -58,5 +58,5 @@ pub fn ringbuffer_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn
                 Option::Some item:
                     ringbuffer_store_slot<.T> dst i some<.T> item
                 Option::None:
-                    ()
+                    unit
             set i add i 1

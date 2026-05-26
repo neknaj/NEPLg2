@@ -25,14 +25,14 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hp %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
 //:     let observed_len %i32 len<i32> &hp
 //:     let ok %bool eq observed_len 0
 //:     free<i32> hp
 //:     if ok 1 0
 //: ```
-pub fn new <.T: Copy> %impure fn () Result BinaryHeap .T Diag \():
+pub fn new <.T: Copy> %impure fn unit Result BinaryHeap .T Diag \unit:
     with_capacity<.T> 8
 
 //: ## with_capacity
@@ -46,7 +46,7 @@ pub fn new <.T: Copy> %impure fn () Result BinaryHeap .T Diag \():
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hp0 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 16;
 //:     let observed_len0 %i32 len<i32> &hp0;
 //:     let ok0 %bool eq observed_len0 0;

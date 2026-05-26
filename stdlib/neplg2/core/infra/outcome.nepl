@@ -25,7 +25,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/outcome" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match selfhost_outcome_ok<i32,str> 7:
 //:         Result::Ok outcome:
 //:             match selfhost_outcome_result outcome:
@@ -59,7 +59,7 @@ pub struct SelfhostOutcome<.T, .E>:
 //:
 //: [注意/ちゅうい]:
 //: - この関数は result を[消費/しょうひ]します。呼び[出/だ]し[側/がわ]は同じ result を[返/かえ]してはいけません。
-pub fn selfhost_outcome_drop_result_payload <.T, .E> %impure fn Result .T .E impure fn impure fn .T () impure fn impure fn .E () () \result\drop_ok\drop_err:
+pub fn selfhost_outcome_drop_result_payload <.T, .E> %impure fn Result .T .E impure fn impure fn .T unit impure fn impure fn .E unit unit \result\drop_ok\drop_err:
     match result:
         Result::Ok value:
             drop_ok value
@@ -67,12 +67,12 @@ pub fn selfhost_outcome_drop_result_payload <.T, .E> %impure fn Result .T .E imp
             drop_err err_value
 
 //: selfhost_outcome_ignore_i32: i32 payload を no-op で[消費/しょうひ]する cleanup callback
-pub fn selfhost_outcome_ignore_i32 %impure fn i32 () \value:
-    ()
+pub fn selfhost_outcome_ignore_i32 %impure fn i32 unit \value:
+    unit
 
 //: selfhost_outcome_ignore_str: str payload を no-op で[消費/しょうひ]する cleanup callback
-pub fn selfhost_outcome_ignore_str %impure fn str () \value:
-    ()
+pub fn selfhost_outcome_ignore_str %impure fn str unit \value:
+    unit
 
 //: selfhost_outcome_new: result と diagnostics から outcome を[作/つく]る
 pub fn selfhost_outcome_new <.T, .E> %fn Result .T .E fn SelfhostDiagnostics Result SelfhostOutcome .T .E StdErrorKind \result\diagnostics:
@@ -105,7 +105,7 @@ pub fn selfhost_outcome_with_diagnostics <.T, .E> %impure fn SelfhostOutcome .T 
     SelfhostOutcome<.T, .E> result diagnostics
 
 //: selfhost_outcome_push_diagnostic: outcome の diagnostics に 1 [件/けん][追加/ついか]する
-pub fn selfhost_outcome_push_diagnostic <.T, .E> %impure fn SelfhostOutcome .T .E impure fn SelfhostDiagnostic impure fn impure fn .T () impure fn impure fn .E () Result SelfhostOutcome .T .E StdErrorKind \outcome\diag\drop_ok\drop_err:
+pub fn selfhost_outcome_push_diagnostic <.T, .E> %impure fn SelfhostOutcome .T .E impure fn SelfhostDiagnostic impure fn impure fn .T unit impure fn impure fn .E unit Result SelfhostOutcome .T .E StdErrorKind \outcome\diag\drop_ok\drop_err:
     let result %Result .T .E field::get outcome "result"
     let diagnostics %SelfhostDiagnostics field::get outcome "diagnostics"
     match selfhost_diagnostics_push diagnostics diag:
@@ -133,12 +133,12 @@ pub fn selfhost_outcome_result <.T, .E> %impure fn SelfhostOutcome .T .E Result 
     result
 
 //: selfhost_outcome_free: result payload と diagnostics を[解放/かいほう]する
-pub fn selfhost_outcome_free <.T, .E> %impure fn SelfhostOutcome .T .E impure fn impure fn .T () impure fn impure fn .E () () \outcome\drop_ok\drop_err:
+pub fn selfhost_outcome_free <.T, .E> %impure fn SelfhostOutcome .T .E impure fn impure fn .T unit impure fn impure fn .E unit unit \outcome\drop_ok\drop_err:
     let result %Result .T .E selfhost_outcome_result<.T, .E> outcome
     selfhost_outcome_drop_result_payload<.T, .E> result drop_ok drop_err
 
 //: selfhost_outcome_stage0: outcome [基盤/きばん]の smoke API
-pub fn selfhost_outcome_stage0 %impure fn () i32 \():
+pub fn selfhost_outcome_stage0 %impure fn unit i32 \unit:
     match selfhost_outcome_ok<i32,str> 1:
         Result::Ok outcome:
             let n %i32 selfhost_outcome_diagnostics_len<i32,str> &outcome

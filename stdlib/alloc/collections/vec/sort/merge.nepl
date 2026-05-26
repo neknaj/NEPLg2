@@ -15,7 +15,7 @@
 //:| #import "alloc/collections/vec/sort/merge" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok<Vec<i32>, StdErrorKind> new<i32>;
 //:     let v1 %Vec i32 uwok push v0 2;
 //:     let sorted %Vec i32 unwrap_ok<Vec<i32>, VecSortMergeError<i32>> sort_merge_ret<i32> v1;

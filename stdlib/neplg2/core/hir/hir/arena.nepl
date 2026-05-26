@@ -11,7 +11,7 @@
 #import "./module" as *
 
 //: selfhost_hir_module_new: [空/から]の HIR module を[作/つく]る
-pub fn selfhost_hir_module_new %impure fn () Result SelfhostHirModule StdErrorKind \():
+pub fn selfhost_hir_module_new %impure fn unit Result SelfhostHirModule StdErrorKind \unit:
     match v::new<SelfhostHirFunction>:
         Result::Ok functions:
             match v::new<SelfhostHirParam>:
@@ -37,7 +37,7 @@ pub fn selfhost_hir_module_new %impure fn () Result SelfhostHirModule StdErrorKi
             Result<SelfhostHirModule, StdErrorKind>::Err e
 
 //: selfhost_hir_module_free: HIR module が所有する table を[解放/かいほう]する
-pub fn selfhost_hir_module_free %impure fn SelfhostHirModule () \module:
+pub fn selfhost_hir_module_free %impure fn SelfhostHirModule unit \module:
     v::free<SelfhostHirFunction> field::get module "functions"
     v::free<SelfhostHirParam> field::get module "params"
     v::free<SelfhostHirExpr> field::get module "exprs"

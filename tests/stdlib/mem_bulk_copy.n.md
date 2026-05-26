@@ -15,7 +15,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let p %i32 alloc_raw 16
     let dst %i32 add p 8
     store_u8 add p 0 11
@@ -45,7 +45,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let p %i32 alloc_raw 8
     store_u8 add p 0 65
     store_u8 add p 1 66
@@ -78,7 +78,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/result" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let empty %MemPtr u8 mem_ptr_wrap 0
     match mem_copy<u8> empty empty 0:
         Result::Ok _:
@@ -108,9 +108,9 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap 0
-    let r %Result () str mem_copy<LocalToken> p p 0
+    let r %Result unit str mem_copy<LocalToken> p p 0
     0
 ```
 
@@ -135,9 +135,9 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap 0
-    let r %Result () str mem_move<LocalToken> p p 0
+    let r %Result unit str mem_move<LocalToken> p p 0
     0
 ```
 
@@ -156,7 +156,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let p %i32 alloc_raw 4
     store_u8 add p 0 17
     store_u8 add p 3 99
@@ -181,7 +181,7 @@ ret: 0
 #import "alloc/io" as *
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let buf %ByteBuf io_bytebuf_from_str "bulk-copy-bytebuf"
     let text %str io_bytebuf_to_str buf
     if str_eq text "bulk-copy-bytebuf" 0 1
@@ -202,7 +202,7 @@ ret: 1
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let len %i32 4096
     let src %i32 alloc_raw len
     let dst %i32 alloc_raw len

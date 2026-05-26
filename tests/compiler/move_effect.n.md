@@ -15,14 +15,14 @@ diag_code: effect.pure.calls_impure
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn compute %fn () i32 \():
+fn compute %fn unit i32 \unit:
     let p %i32 alloc_raw 4
     store_i32 p 123
     let v %i32 load_i32 p
     dealloc_raw p 4
     v
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     compute
 ```
 
@@ -43,7 +43,7 @@ fn release_external %fn i32 i32 \p:
     dealloc_raw p 4
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     release_external 16
 ```
 
@@ -65,7 +65,7 @@ fn resize_external %fn i32 i32 \p:
     dealloc_raw q 8
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     resize_external 16
 ```
 
@@ -82,10 +82,10 @@ diag_code: effect.pure.calls_impure
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn observe_memory %fn () i32 \():
+fn observe_memory %fn unit i32 \unit:
     mem_size
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     observe_memory
 ```
 
@@ -102,10 +102,10 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn leak_raw %fn () i32 \():
+fn leak_raw %fn unit i32 \unit:
     alloc_raw 4
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     leak_raw
 ```
 
@@ -125,11 +125,11 @@ diag_code: resource.raw.identity_escape
 struct RawBox:
     ptr %i32
 
-fn leak_box %fn () RawBox \():
+fn leak_box %fn unit RawBox \unit:
     let p %i32 alloc_raw 4
     RawBox p
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let b %RawBox leak_box
     0
 ```
@@ -150,11 +150,11 @@ diag_code: resource.raw.identity_escape
 fn raw_id %fn i32 i32 \p:
     p
 
-fn leak_via_helper %fn () i32 \():
+fn leak_via_helper %fn unit i32 \unit:
     let p %i32 alloc_raw 4
     raw_id p
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     leak_via_helper
 ```
 
@@ -174,12 +174,12 @@ diag_code: resource.raw.identity_escape
 fn raw_id %fn i32 i32 \p:
     p
 
-fn leak_via_function_value %fn () i32 \():
+fn leak_via_function_value %fn unit i32 \unit:
     let f @raw_id;
     let p %i32 alloc_raw 4
     f p
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     leak_via_function_value
 ```
 
@@ -202,11 +202,11 @@ fn raw_id %fn i32 i32 \p:
 fn apply_raw %fn i32 fn fn i32 i32 i32 \p\f:
     f p
 
-fn leak_via_higher_order %fn () i32 \():
+fn leak_via_higher_order %fn unit i32 \unit:
     let p %i32 alloc_raw 4
     apply_raw p @raw_id
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     leak_via_higher_order
 ```
 
@@ -223,13 +223,13 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn leak_via_raw_slot %fn () i32 \():
+fn leak_via_raw_slot %fn unit i32 \unit:
     let p %i32 alloc_raw 4
     let slot %i32 alloc_raw 4
     store_i32 slot p
     load_i32 slot
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     leak_via_raw_slot
 ```
 
@@ -247,7 +247,7 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/raw" as *
 #import "core/math" as *
 
-fn leak_via_realloc_slot %fn () i32 \():
+fn leak_via_realloc_slot %fn unit i32 \unit:
     let p %i32 alloc_raw 4
     let slot %i32 alloc_raw 4
     store_i32 slot p
@@ -259,7 +259,7 @@ fn leak_via_realloc_slot %fn () i32 \():
         else:
             load_i32 slot
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     leak_via_realloc_slot
 ```
 
@@ -276,7 +276,7 @@ diag_code: resource.raw.identity_escape
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn leak_via_copied_slot %fn () i32 \():
+fn leak_via_copied_slot %fn unit i32 \unit:
     let p %i32 alloc_raw 4
     let src %i32 alloc_raw 4
     let dst %i32 alloc_raw 4
@@ -284,7 +284,7 @@ fn leak_via_copied_slot %fn () i32 \():
     mem_copy dst src 4
     load_i32 dst
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     leak_via_copied_slot
 ```
 
@@ -306,7 +306,7 @@ fn leak_via_param_slot %fn i32 i32 \slot:
     store_i32 slot p
     load_i32 slot
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let slot %i32 alloc_raw 4
     leak_via_param_slot slot
 ```
@@ -330,7 +330,7 @@ fn leak_via_copied_param_slot %fn i32 i32 \slot:
     store_i32 alias p
     load_i32 slot
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let slot %i32 alloc_raw 4
     leak_via_copied_param_slot slot
 ```
@@ -352,7 +352,7 @@ fn raw_slot_id %fn i32 fn i32 i32 \slot\p:
     store_i32 slot p
     load_i32 slot
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let p %i32 alloc_raw 4
     let slot %i32 alloc_raw 4
     raw_slot_id slot p
@@ -380,7 +380,7 @@ fn leak_via_returned_slot %fn i32 i32 \slot:
     store_i32 alias p
     load_i32 slot
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let slot %i32 alloc_raw 4
     leak_via_returned_slot slot
 ```
@@ -408,7 +408,7 @@ fn leak_via_indirect_returned_slot %fn i32 i32 \slot:
     store_i32 alias p
     load_i32 slot
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let slot %i32 alloc_raw 4
     leak_via_indirect_returned_slot slot
 ```
@@ -422,10 +422,10 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #target core
 
-fn read_raw %fn () i32 \():
+fn read_raw %fn unit i32 \unit:
     #intrinsic "load" <i32> (16)
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     read_raw
 ```
 
@@ -438,11 +438,11 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #target core
 
-fn write_raw %fn () i32 \():
+fn write_raw %fn unit i32 \unit:
     #intrinsic "store" <i32> (16, 1)
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     write_raw
 ```
 
@@ -465,7 +465,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     let a %LocalToken load<LocalToken> p
@@ -492,7 +492,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     let q %i32 p
     store<LocalToken> p LocalToken @token_id
@@ -520,7 +520,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let r1 %i32 mem_ptr_addr p
     let r2 %i32 mem_ptr_addr p
@@ -549,7 +549,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let q %MemPtr LocalToken p
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -577,7 +577,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let q %MemPtr LocalToken mem_ptr_add<LocalToken> p 0
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -606,13 +606,13 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let q %MemPtr LocalToken mem_ptr_add<LocalToken> p 0
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let raw %i32 mem_ptr_addr q
     let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
-    let r %Result () str dealloc_region<LocalToken> token
+    let r %Result unit str dealloc_region<LocalToken> token
     0
 ```
 
@@ -635,7 +635,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let q %MemPtr LocalToken mem_ptr_add<LocalToken> p 8
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -667,7 +667,7 @@ fn token_id %fn i32 i32 \x:
 fn choose_offset %fn bool i32 \flag:
     if flag 0 8
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let off %i32 choose_offset true
     let q %MemPtr LocalToken mem_ptr_add<LocalToken> p off
@@ -699,7 +699,7 @@ fn token_id %fn i32 i32 \x:
 fn choose_payload_offset %fn bool i32 \flag:
     if flag 8 16
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let base %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let exact %MemPtr LocalToken mem_ptr_add<LocalToken> base 8
     let off %i32 choose_payload_offset true
@@ -732,7 +732,7 @@ fn token_id %fn i32 i32 \x:
 fn choose_offset %fn bool i32 \flag:
     if flag 0 8
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let off %i32 choose_offset true
     let q %MemPtr LocalToken mem_ptr_add<LocalToken> p off
@@ -764,14 +764,14 @@ fn token_id %fn i32 i32 \x:
 fn choose_offset %fn bool i32 \flag:
     if flag 0 8
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let off %i32 choose_offset true
     let q %MemPtr LocalToken mem_ptr_add<LocalToken> p off
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let raw %i32 mem_ptr_addr q
     let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
-    let r %Result () str dealloc_region<LocalToken> token
+    let r %Result unit str dealloc_region<LocalToken> token
     0
 ```
 
@@ -798,7 +798,7 @@ fn token_id %fn i32 i32 \x:
 fn choose_offset %fn bool i32 \flag:
     if flag 0 8
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     let off %i32 choose_offset true
     let q %i32 add p off
@@ -828,7 +828,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let base %i32 24
     let q %i32 sub base size_of<LocalToken>
     store<LocalToken> q LocalToken @token_id
@@ -860,7 +860,7 @@ fn token_id %fn i32 i32 \x:
 fn slot_ptr <.T,.V> %fn i32 fn i32 i32 \base\idx:
     add base mul idx add size_of<.T> size_of<.V>
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> slot_ptr<LocalToken,i32> p 0 LocalToken @token_id
     store_i32 add p size_of<LocalToken> 123
@@ -894,7 +894,7 @@ fn choose_offset %fn bool i32 \flag:
 fn slot_ptr <.T,.V> %fn i32 fn i32 i32 \base\idx:
     add base mul idx add size_of<.T> size_of<.V>
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     let off %i32 choose_offset true
     store<LocalToken> p LocalToken @token_id
@@ -921,7 +921,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     store<LocalToken> p LocalToken @token_id
@@ -947,7 +947,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     let a %LocalToken load<LocalToken> p
@@ -974,7 +974,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     dealloc_raw p size_of<LocalToken>
@@ -1000,7 +1000,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     let a %LocalToken load<LocalToken> p
@@ -1028,12 +1028,12 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let raw %i32 mem_ptr_addr p
     let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
-    let r %Result () str dealloc_region<LocalToken> token
+    let r %Result unit str dealloc_region<LocalToken> token
     0
 ```
 
@@ -1057,12 +1057,12 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let raw %i32 mem_ptr_addr p
     let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
-    let r %Result () str dealloc_region<LocalToken> token
+    let r %Result unit str dealloc_region<LocalToken> token
     0
 ```
 
@@ -1086,7 +1086,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match alloc_region<LocalToken> 1:
         Result::Err _e:
             1
@@ -1121,7 +1121,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let raw %i32 mem_ptr_addr p
     let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
@@ -1158,7 +1158,7 @@ fn token_id %fn i32 i32 \x:
 fn choose_offset %fn bool i32 \flag:
     if flag 0 4
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let raw %i32 mem_ptr_addr p
     let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
@@ -1168,7 +1168,7 @@ fn main %impure fn () i32 \():
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
             let forged_raw %i32 mem_ptr_addr q
             let forged %RegionToken LocalToken region_new<LocalToken> forged_raw size_of<LocalToken>
-            let r %Result () str dealloc_region<LocalToken> forged
+            let r %Result unit str dealloc_region<LocalToken> forged
             0
         Result::Err _e:
             0
@@ -1194,7 +1194,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let res %Result MemPtr LocalToken str Result<MemPtr<LocalToken>,str>::Ok p
     match res:
@@ -1227,7 +1227,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let mut res %Result MemPtr LocalToken str Result<MemPtr<LocalToken>,str>::Err "none"
     if true:
@@ -1269,7 +1269,7 @@ struct PtrHolder:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let holder %PtrHolder PtrHolder p
     let q %MemPtr LocalToken field::get holder "ptr"
@@ -1303,7 +1303,7 @@ struct PtrHolder:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let mut holder %PtrHolder PtrHolder p
     if true:
@@ -1343,7 +1343,7 @@ struct PtrHolder:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let holder %PtrHolder PtrHolder p
     let res %Result PtrHolder str Result<PtrHolder,str>::Ok holder
@@ -1383,7 +1383,7 @@ struct PtrHolder:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let holder %PtrHolder PtrHolder p
     let mut res %Result PtrHolder str Result<PtrHolder,str>::Err "none"
@@ -1425,7 +1425,7 @@ fn token_id %fn i32 i32 \x:
 fn id_ptr %fn MemPtr LocalToken MemPtr LocalToken \p:
     p
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let q %MemPtr LocalToken id_ptr p
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -1461,7 +1461,7 @@ fn token_id %fn i32 i32 \x:
 fn make_holder %fn MemPtr LocalToken PtrHolder \p:
     PtrHolder p
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let holder %PtrHolder make_holder p
     let q %MemPtr LocalToken field::get holder "ptr"
@@ -1494,7 +1494,7 @@ fn token_id %fn i32 i32 \x:
 fn ok_ptr %fn MemPtr LocalToken Result MemPtr LocalToken str \p:
     Result<MemPtr<LocalToken>,str>::Ok p
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let res %Result MemPtr LocalToken str ok_ptr p
     match res:
@@ -1535,7 +1535,7 @@ fn token_id %fn i32 i32 \x:
 fn ok_holder %fn PtrHolder Result PtrHolder str \holder:
     Result<PtrHolder,str>::Ok holder
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let holder %PtrHolder PtrHolder p
     let res %Result PtrHolder str ok_holder holder
@@ -1576,7 +1576,7 @@ fn choose_ptr %fn bool fn MemPtr LocalToken MemPtr LocalToken \flag\p:
         else:
             p
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let q %MemPtr LocalToken choose_ptr true p
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -1608,7 +1608,7 @@ fn token_id %fn i32 i32 \x:
 fn ok_ptr %fn MemPtr LocalToken Result MemPtr LocalToken str \p:
     Result<MemPtr<LocalToken>,str>::Ok p
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     match ok_ptr p:
         Result::Ok q:
@@ -1639,7 +1639,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     let q %i32 realloc_raw p size_of<LocalToken> 32
@@ -1666,7 +1666,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 alloc_raw size_of<LocalToken>
     store<LocalToken> p LocalToken @token_id
     let a %LocalToken load<LocalToken> p
@@ -1701,7 +1701,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let raw %i32 mem_ptr_addr p
     let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
@@ -1729,7 +1729,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let src %i32 16
     let dst %i32 64
     store<LocalToken> src LocalToken @token_id
@@ -1756,7 +1756,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let src %i32 16
     let dst %i32 64
     store<LocalToken> src LocalToken @token_id
@@ -1783,7 +1783,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let src %i32 16
     let dst %i32 64
     store<LocalToken> dst LocalToken @token_id
@@ -1810,14 +1810,14 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let raw_dst %i32 16
     let raw_src %i32 64
     let dst %MemPtr i32 mem_ptr_wrap<i32> raw_dst
     let src %MemPtr i32 mem_ptr_wrap<i32> raw_src
     store<LocalToken> raw_dst LocalToken @token_id
     store_i32 raw_src 123
-    let r %Result () str mem_copy<i32> dst src 1
+    let r %Result unit str mem_copy<i32> dst src 1
     0
 ```
 
@@ -1840,7 +1840,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let src %i32 16
     let dst %i32 64
     store<LocalToken> src LocalToken @token_id
@@ -1862,7 +1862,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let src %i32 16
     let dst %i32 64
     store_i32 src 123
@@ -1889,7 +1889,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     store_i32 p 0
@@ -1915,7 +1915,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let raw %i32 16
     let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
@@ -1942,11 +1942,11 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_i32 %fn MemPtr i32 () \p:
-    let r %Result () str store_i32 p 0
-    ()
+fn clobber_i32 %fn MemPtr i32 unit \p:
+    let r %Result unit str store_i32 p 0
+    unit
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let raw %i32 16
     let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
@@ -1974,17 +1974,17 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn clobber_and_true %impure fn MemPtr i32 bool \p:
-    let r %Result () str store_i32 p 0
+    let r %Result unit str store_i32 p 0
     true
 
-fn gated_clobber %impure fn MemPtr i32 () \p:
+fn gated_clobber %impure fn MemPtr i32 unit \p:
     if clobber_and_true p:
         then:
-            ()
+            unit
         else:
-            ()
+            unit
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let raw %i32 16
     let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
@@ -2011,14 +2011,14 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_i32 %impure fn MemPtr i32 () \p:
-    let r %Result () str store_i32 p 0
-    ()
+fn clobber_i32 %impure fn MemPtr i32 unit \p:
+    let r %Result unit str store_i32 p 0
+    unit
 
-fn apply_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 () () \p\f:
+fn apply_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 unit unit \p\f:
     f p
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let raw %i32 16
     let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
@@ -2045,17 +2045,17 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_i32 %impure fn MemPtr i32 () \p:
-    let r %Result () str store_i32 p 0
-    ()
+fn clobber_i32 %impure fn MemPtr i32 unit \p:
+    let r %Result unit str store_i32 p 0
+    unit
 
-fn apply_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 () () \p\f:
+fn apply_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 unit unit \p\f:
     f p
 
-fn forward_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 () () \p\f:
+fn forward_clobber %impure fn MemPtr i32 impure fn impure fn MemPtr i32 unit unit \p\f:
     apply_clobber p f
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let raw %i32 16
     let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
@@ -2082,19 +2082,19 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_a %impure fn MemPtr i32 () \p:
-    let r %Result () str store_i32 p 0
-    ()
+fn clobber_a %impure fn MemPtr i32 unit \p:
+    let r %Result unit str store_i32 p 0
+    unit
 
-fn clobber_b %impure fn MemPtr i32 () \p:
-    let r %Result () str store_i32 p 1
-    ()
+fn clobber_b %impure fn MemPtr i32 unit \p:
+    let r %Result unit str store_i32 p 1
+    unit
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let raw %i32 16
     let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
-    let f %impure fn MemPtr i32 () if true:
+    let f %impure fn MemPtr i32 unit if true:
         then:
             @clobber_a
         else:
@@ -2125,17 +2125,17 @@ fn token_id %fn i32 i32 \x:
     x
 
 struct CallbackHolder:
-    cb %impure fn MemPtr i32 ()
+    cb %impure fn MemPtr i32 unit
 
-fn clobber_i32 %impure fn MemPtr i32 () \p:
-    let r %Result () str store_i32 p 0
-    ()
+fn clobber_i32 %impure fn MemPtr i32 unit \p:
+    let r %Result unit str store_i32 p 0
+    unit
 
-fn call_holder %impure fn MemPtr i32 impure fn CallbackHolder () \p\holder:
-    let f %impure fn MemPtr i32 () field::get holder "cb"
+fn call_holder %impure fn MemPtr i32 impure fn CallbackHolder unit \p\holder:
+    let f %impure fn MemPtr i32 unit field::get holder "cb"
     f p
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let raw %i32 16
     let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
@@ -2164,18 +2164,18 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn clobber_i32 %impure fn MemPtr i32 () \p:
-    let r %Result () str store_i32 p 0
-    ()
+fn clobber_i32 %impure fn MemPtr i32 unit \p:
+    let r %Result unit str store_i32 p 0
+    unit
 
-fn call_option %impure fn MemPtr i32 impure fn Option impure fn MemPtr i32 () () \p\opt:
+fn call_option %impure fn MemPtr i32 impure fn Option impure fn MemPtr i32 unit unit \p\opt:
     match opt:
         Option::Some f:
             f p
         Option::None:
-            ()
+            unit
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let raw %i32 16
     let pi %MemPtr i32 mem_ptr_wrap<i32> raw
     store<LocalToken> raw LocalToken @token_id
@@ -2202,7 +2202,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     store<i32> p 0
@@ -2228,7 +2228,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     memset_u8 p size_of<LocalToken> 0
@@ -2254,7 +2254,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     fill_i32 p 1 0
@@ -2280,7 +2280,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     let a %LocalToken load<LocalToken> p
@@ -2301,7 +2301,7 @@ diag_code: resource.raw.memory_outside_boundary
 #import "core/mem/allocator" as *
 #import "core/mem/raw" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store_i32 p 123
     store_i32 p 456
@@ -2334,7 +2334,7 @@ struct Holder:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<Holder> p Holder 7 LocalToken @token_id
     let a %i32 field::get load<Holder> p "count"
@@ -2368,7 +2368,7 @@ struct Holder:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<Holder> p Holder 7 LocalToken @token_id
     let a %i32 get load<Holder> p "count"
@@ -2404,7 +2404,7 @@ struct Holder:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<Holder> p Holder 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
     let ptr %MemPtr u8 get load<Holder> p "ptr"
@@ -2448,7 +2448,7 @@ fn touch <.H> %impure fn Holder .H i32 \h:
     let out %Holder .H load<Holder<.H>> p
     add raw sub 14 64
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     touch<LocalToken> Holder<LocalToken> 7 mem_ptr_wrap<u8> 64 LocalToken @token_id
 ```
 
@@ -2472,7 +2472,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     let mut i %i32 0
@@ -2508,7 +2508,7 @@ struct Holder:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<Holder> p Holder 7 LocalToken @token_id
     let a %LocalToken field::get load<Holder> p "token"
@@ -2541,7 +2541,7 @@ struct Holder:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<Holder> p Holder 7 LocalToken @token_id
     let a %LocalToken field::get load<Holder> p "token"
@@ -2561,14 +2561,14 @@ diag_code: effect.pure.calls_impure
 #import "std/stdio" as *
 #import "core/field" as *
 
-fn put %impure fn i32 () \x:
+fn put %impure fn i32 unit \x:
     print_i32 x
 
 fn bad %fn i32 i32 \x:
     put x
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     bad 1
 ```
 
@@ -2581,7 +2581,7 @@ diag_code: effect.pure.calls_impure
 #indent 4
 #target core
 
-fn raw_io %fn () i32 \():
+fn raw_io %fn unit i32 \unit:
     #if[target=wasm]
     #wasm:
         i32.const 0
@@ -2590,13 +2590,13 @@ fn raw_io %fn () i32 \():
         i32.const 0
     #if[target=llvm]
     #llvmir:
-        define i32 @raw_io() {
+        define i32 @raw_iounit {
         entry:
             %x = call i32 @fd_write(i32 0)
             ret i32 0
         }
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     raw_io
 ```
 
@@ -2618,7 +2618,7 @@ fn bump_local %fn i32 i32 \n:
     set x add x 2
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 bump_local 40
     let report:
         test::test_report_new "move_effect_local_set_pure"
@@ -2657,7 +2657,7 @@ impl Copy for Point:
 fn sum_point %fn Point i32 \p:
     add get p "x" get p "y"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p1 %Point Point 10 20
     let p2 %Point p1
     let actual %i32 add sum_point p1 sum_point p2
@@ -2698,7 +2698,7 @@ impl Copy for Pair<i32>:
 fn sum_pair %fn Pair i32 i32 \p:
     add get p "a" get p "b"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let q1 %Pair i32 Pair 1 2
     let q2 %Pair i32 q1
     let actual %i32 add sum_pair q1 sum_pair q2
@@ -2739,7 +2739,7 @@ impl<.T: Copy> Copy for Pair<.T>:
 fn sum_pair %fn Pair i32 i32 \p:
     add get p "a" get p "b"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let q1 %Pair i32 Pair 1 2
     let q2 %Pair i32 q1
     let actual %i32 add sum_pair q1 sum_pair q2
@@ -2767,7 +2767,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let token %LocalToken LocalToken @token_id
     let opt %Option LocalToken Option::Some token
     let first %Option LocalToken opt
@@ -2788,7 +2788,7 @@ stdout: "test_report name=\"move_effect_copy_bound_applies_to_copy_type\" count=
 #import "core/option" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let opt %Option i32 Option::Some 1
     let first %Option i32 opt
     let second %Option i32 opt
@@ -2833,7 +2833,7 @@ fn as_i32 %fn Score i32 \s:
         Score::Zero:
             0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s1 %Score Score::Single 7
     let s2 %Score s1
     let actual %i32 add as_i32 s1 as_i32 s2
@@ -2859,7 +2859,7 @@ fn bump_global %fn i32 i32 \x:
     set g x
     g
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     bump_global 5
 ```
 
@@ -2878,7 +2878,7 @@ struct Boxed:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let b %Boxed Boxed @token_id
     let r &b
     let c b
@@ -2899,7 +2899,7 @@ stdout: "test_report name=\"move_effect_copy_borrow_allows_reuse\" count=1 faile
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %i32 10
     let r &x
     let actual %i32 add x 1
@@ -2937,7 +2937,7 @@ impl Copy for LocalToken:
     fn copy_mark %fn LocalToken LocalToken \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -2961,7 +2961,7 @@ impl<.T> Copy for RegionToken<.T>:
     fn copy_mark %fn RegionToken .T RegionToken .T \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -3000,7 +3000,7 @@ impl Copy for RegionToken:
     fn copy_mark %fn RegionToken RegionToken \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let a %RegionToken RegionToken 1
     let b %RegionToken a
     let c %RegionToken a
@@ -3031,7 +3031,7 @@ impl Copy for i32:
     fn copy_mark %fn i32 i32 \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -3063,7 +3063,7 @@ impl Copy for i32:
     fn copy_mark %fn i32 i32 \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -3090,7 +3090,7 @@ trait Copy:
 struct Size:
     n %i32
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let a %Size Size 10
     let b %Size a
     let c %Size a
@@ -3128,7 +3128,7 @@ impl Copy for Size:
     fn copy_mark %fn Size Size \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let a %Size Size 10
     let b %Size a
     let c %Size a
@@ -3179,7 +3179,7 @@ impl Marker for LocalToken:
     fn tag %fn LocalToken LocalToken \x:
         x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 0
     let report:
         test::test_report_new "move_effect_marker_trait_not_copy"
@@ -3207,7 +3207,7 @@ impl Dup for i32:
     fn dup %fn i32 i32 \x:
         x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 0
     let report:
         test::test_report_new "move_effect_clone_shape_not_clone"
@@ -3230,7 +3230,7 @@ trait BadCap:
     fn f %fn Self Self \x:
         x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -3252,7 +3252,7 @@ fn token_id %fn i32 i32 \x:
 fn consume %fn LocalToken i32 \_t:
     0
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let t %LocalToken LocalToken @token_id
     consume t
     let u %LocalToken t
@@ -3273,7 +3273,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let t %LocalToken LocalToken @token_id
     let u %LocalToken t
     let r %&LocalToken &t
@@ -3297,7 +3297,7 @@ fn token_id %fn i32 i32 \x:
 fn consume %fn LocalToken i32 \_t:
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let t %LocalToken LocalToken @token_id
     if true:
         then:
@@ -3316,7 +3316,7 @@ diag_code: type.field.invalid_access
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let v %i32 10;
     v.len
 ```
@@ -3337,7 +3337,7 @@ diag_code: resource.cell.moved
 fn consume_writer %fn StreamWriter i32 \_w:
     0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let w %StreamWriter unwrap_ok open WriteStream::Stdio
     let w2 %StreamWriter w
     consume_writer w
@@ -3359,7 +3359,7 @@ stdout: "test_report name=\"move_effect_str_copy_trait_impl\" count=1 failed=0\n
 #import "core/traits/copy" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s %str "abc"
     let t %str s
     let u %str s
@@ -3373,7 +3373,7 @@ fn main %impure fn () i32 \():
 
 ## core/traits/copy 導入後は unit の再利用が trait impl で成立する
 
-このケースは、`()` が compiler 固定表ではなく `core/traits/copy` の impl によって Copy として扱われることを確かめます。
+このケースは、`unit` が compiler 固定表ではなく `core/traits/copy` の impl によって Copy として扱われることを確かめます。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
@@ -3386,10 +3386,10 @@ stdout: "test_report name=\"move_effect_unit_copy_trait_impl\" count=1 failed=0\
 #import "core/traits/copy" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
-    let u %() ()
-    let a %() u
-    let b %() u
+fn main %impure fn unit i32 \unit:
+    let u %unit unit
+    let a %unit u
+    let b %unit u
     let actual %i32 0
     let report:
         test::test_report_new "move_effect_unit_copy_trait_impl"

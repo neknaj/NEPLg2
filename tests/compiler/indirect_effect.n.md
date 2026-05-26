@@ -16,6 +16,6 @@ fn impure_id %impure fn i32 i32 \x:
 fn call_callback %fn impure fn i32 i32 fn i32 i32 \callback\value:
     callback value
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     call_callback @impure_id 1
 ```

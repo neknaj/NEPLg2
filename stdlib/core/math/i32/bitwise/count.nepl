@@ -13,7 +13,7 @@
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/math/i32/bitwise/count" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     assert_eq_i32 31 clz 1;
 //:     assert_eq_i32 3 ctz 8;
 //:     assert_eq_i32 4 popcnt 15;

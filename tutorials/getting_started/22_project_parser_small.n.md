@@ -46,7 +46,7 @@ fn first_token %fn str TinyToken \source:
                 _:
                     TinyToken::Other
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks:
         checks_new
         |> checks_push assert_eq_i32 1 token_code first_token "abc"

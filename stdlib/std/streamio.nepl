@@ -28,7 +28,7 @@
 //:| #import "core/result" as *
 //:| #import "std/streamio" as *
 //:| #import "std/iotarget" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bytes0 %ByteBuf stream_bytes_from_str "ab";
 //:     let _len %i32 io_bytebuf_len_ref &bytes0;
 //:     io_bytebuf_free bytes0;

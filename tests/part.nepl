@@ -1,2 +1,2 @@
-fn helper %fn () i32 \():
+fn helper %fn unit i32 \unit:
     1

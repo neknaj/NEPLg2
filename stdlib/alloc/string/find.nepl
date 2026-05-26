@@ -49,7 +49,7 @@
 //:         Option::None:
 //:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "None" "expected Some index"
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let missing %Option i32 find "abc" "z"
 //:     let longer %Option i32 find "ab" "abc"
 //:     let report:

@@ -27,7 +27,7 @@ impl Score for i32:
 fn add_score <.T: Score> %fn .T fn i32 i32 \x\bonus:
     add Score::score x bonus
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks:
         checks_new
         |> checks_push assert_eq_i32 15 add_score 10 5

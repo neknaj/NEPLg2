@@ -16,7 +16,7 @@ stdout: "test_report name=\"adjacency_matrix_insert_remove_contains\" count=3 fa
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let g %AdjacencyMatrix:
         unwrap_ok new 5
         |> insert 0 1 |> uwok
@@ -52,7 +52,7 @@ stdout: "test_report name=\"adjacency_matrix_clear\" count=1 failed=0\nassertion
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let g0 %AdjacencyMatrix:
         unwrap_ok new 4
         |> insert 1 2 |> uwok
@@ -82,7 +82,7 @@ stdout: "test_report name=\"adjacency_matrix_update_error_returns_owner\" count=
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let g0 %AdjacencyMatrix unwrap_ok new 5;
     let ok0 %bool:
         match insert g0 5 1:

@@ -58,9 +58,9 @@ pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 
                             Result<i32,i32>::Err errno
             match dealloc_region<u8> fd_out_region:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ();
+                    unit;
             res
 
 //: fs_open_read: ファイルを読み込み専用で開く
@@ -95,7 +95,7 @@ pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 
 //:| #target std
 //:| #import "std/fs" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match fs_open_read "tests/fixtures/fs/read_sample.txt":
 //:         Result::Ok _fd:
 //:             0
@@ -136,7 +136,7 @@ pub fn fs_open_read %impure fn str Result i32 i32 \path:
 //:| #target std
 //:| #import "std/fs" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match fs_open_write "tmp/fs_open_write_doctest.txt":
 //:         Result::Ok fd:
 //:             match fs_close fd:
@@ -156,18 +156,18 @@ pub fn fs_open_write %impure fn str Result i32 i32 \path:
 //: - `fs_open_read` / `fs_open_write` で得た fd を明示的に閉じます。
 //:
 //: 実装(アルゴリズム):
-//: - WASI `fd_close` を呼び、errno 0 を `Ok(())`、それ以外を `Err(errno)` に変換します。
+//: - WASI `fd_close` を呼び、errno 0 を `Ok(unit)`、それ以外を `Err(errno)` に変換します。
 //:
 //: 注意(重要):
 //: - write fd では close 時に host runtime が残りの出力を確定する場合があります。
 //:
 //: 計算量:
 //: - O(1)
-pub fn fs_close %impure fn i32 Result () i32 \fd:
+pub fn fs_close %impure fn i32 Result unit i32 \fd:
     let errno %i32 wasi_fd_close fd
     if:
         eq errno 0
         then:
-            Result<(),i32>::Ok ()
+            Result<unit,i32>::Ok unit
         else:
-            Result<(),i32>::Err errno
+            Result<unit,i32>::Err errno

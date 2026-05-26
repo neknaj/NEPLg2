@@ -16,8 +16,8 @@ trait Marker:
 enum Box<.T: Marker>:
     Item %.T
 
-fn main %fn () () \():
-    ()
+fn main %fn unit unit \unit:
+    unit
 ```
 
 ## struct_type_param_bounds_report_diag_code
@@ -36,8 +36,8 @@ trait Marker:
 struct Box<.T: Marker>:
     value %.T
 
-fn main %fn () () \():
-    ()
+fn main %fn unit unit \unit:
+    unit
 ```
 
 ## duplicate_enum_name_reports_diag_code
@@ -55,8 +55,8 @@ enum Foo:
 enum Foo:
     B
 
-fn main %fn () () \():
-    ()
+fn main %fn unit unit \unit:
+    unit
 ```
 
 ## duplicate_struct_name_reports_diag_code
@@ -74,6 +74,6 @@ struct Foo:
 struct Foo:
     other %i32
 
-fn main %fn () () \():
-    ()
+fn main %fn unit unit \unit:
+    unit
 ```

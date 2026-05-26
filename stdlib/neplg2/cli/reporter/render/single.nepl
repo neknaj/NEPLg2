@@ -23,7 +23,7 @@
 //:| #import "neplg2/core/infra/diag" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let span %SelfhostSourceSpan source_span_new 2 4 8
 //:     let label %SelfhostDiagnosticLabel selfhost_diag_label_new span "near `let`"
 //:     let diag0 %SelfhostDiagnostic selfhost_diag_error SelfhostDiagnosticCode::Parser SelfhostParserDiagnosticCode::TokenIndex "bad input"
@@ -94,12 +94,12 @@ pub fn selfhost_cli_render_diagnostic_human %fn &SelfhostDiagnostic str \diag:
         Option::Some label:
             set sb selfhost_cli_append_human_label sb &label
         Option::None:
-            ()
+            unit
     match *field::get_ref diag "note":
         Option::Some note:
             set sb selfhost_cli_append_human_note sb note
         Option::None:
-            ()
+            unit
     sb_build sb
 
 //: selfhost_cli_append_json_label: JSON diagnostic object に primary label field を追加する
@@ -154,7 +154,7 @@ pub fn selfhost_cli_render_diagnostic_json %fn &SelfhostDiagnostic str \diag:
     sb_build sb
 
 //: selfhost_cli_reporter_stage0: reporter 境界の smoke API
-pub fn selfhost_cli_reporter_stage0 %impure fn () i32 \():
+pub fn selfhost_cli_reporter_stage0 %impure fn unit i32 \unit:
     let diag %SelfhostDiagnostic selfhost_diag_warning SelfhostDiagnosticCode::Cli SelfhostCliDiagnosticCode::MissingInput "reporter"
     let rendered %str selfhost_cli_render_diagnostic_json &diag
     if str_eq rendered "{\"severity\":\"warning\",\"code\":\"cli.input.missing\",\"message\":\"reporter\",\"primary_label\":null,\"note\":null}" 0 1

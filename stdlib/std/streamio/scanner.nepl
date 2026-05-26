@@ -16,7 +16,7 @@
 //:| #import "core/math" as *
 //:| #import "std/iotarget" as *
 //:| #import "std/streamio/scanner" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let sc %StreamScanner unwrap_ok open ReadStream::Text "4 5";
 //:     let a %i32 read &sc;
 //:     let b %i32 read &sc;
@@ -72,7 +72,7 @@ pub fn open %impure fn ReadStream Result StreamScanner str \target:
 
 //: ## skip_ws
 //: ASCII [空白/くうはく]と[先頭/せんとう] BOM を[飛/と]ばす
-pub fn skip_ws %impure fn &StreamScanner () \sc:
+pub fn skip_ws %impure fn &StreamScanner unit \sc:
     stream_scanner_skip_ws_state sc
 
 //: ## is_eof
@@ -83,7 +83,7 @@ pub fn is_eof %impure fn &StreamScanner bool \sc:
 
 //: ## skip
 //: [現在/げんざい] token を 1 [個/こ][消費/しょうひ]する
-pub fn skip %impure fn &StreamScanner () \sc:
+pub fn skip %impure fn &StreamScanner unit \sc:
     stream_scanner_skip_ws_state sc;
     let bytes %&ByteBuf get_ref sc "bytes";
     let len %i32 stream_scanner_len sc;
@@ -103,7 +103,7 @@ pub fn skip %impure fn &StreamScanner () \sc:
             else:
                 set done 1;
     stream_scanner_store_pos sc p;
-    ()
+    unit
 
 //: ## scan_token_impl
 //: [次/つぎ]の token を `str` として[読/よ]む
@@ -173,7 +173,7 @@ pub fn read %impure fn &StreamScanner f32 \sc:
 
 //: ## close
 //: `StreamScanner` を[閉/と]じて[内部/ないぶ] buffer を[解放/かいほう]する
-pub fn close %impure fn StreamScanner () \sc:
+pub fn close %impure fn StreamScanner unit \sc:
     let bytes %ByteBuf get sc "bytes";
     let cursor %Vec i32 get sc "cursor";
     io_bytebuf_free bytes;

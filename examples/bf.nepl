@@ -50,7 +50,7 @@
 //:
 //: [目的/もくてき]:
 //: - ジャンプ対応不整合などを利用者へ分かりやすく伝えます。
-fn print_error %impure fn str () \msg:
+fn print_error %impure fn str unit \msg:
     let label_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Red;
     print_style label_style "error: ";
     println_color AnsiColor::Red msg
@@ -59,7 +59,7 @@ fn print_error %impure fn str () \msg:
 //:
 //: [目的/もくてき]:
 //: - 各入力行の先頭を視認しやすくします。
-fn print_prompt %impure fn () () \():
+fn print_prompt %impure fn unit unit \unit:
     let prompt_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Green;
     print_style prompt_style "> "
 
@@ -160,7 +160,7 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                     stk::free<i32> stk
                                 Result::Err msg:
                                     string_access::len msg;
-                                    ()
+                                    unit
                             v::free<i32> jump_table;
                             err<Vec<i32>, str> error_msg
                         else:
@@ -208,7 +208,7 @@ fn jump_target %fn &Vec i32 fn i32 i32 \jump_table\pc:
 //:
 //: [注意点/ちゅういてん]:
 //: - テープ長は呼び出し側から明示的に受け取り、内部表現には `Vec i32` を使います。
-fn eval_line %impure fn i32 impure fn str () \tape_len\code:
+fn eval_line %impure fn i32 impure fn str unit \tape_len\code:
     let code_len %i32 string_access::len code;
     match make_i32_vec tape_len 0:
         Result::Err _:
@@ -233,12 +233,12 @@ fn eval_line %impure fn i32 impure fn str () \tape_len\code:
                             if:
                                 eq cmd 43 // '+'
                                 then: v::replace<i32> &tape ptr_idx cell_inc cell
-                                else: ()
+                                else: unit
 
                             if:
                                 eq cmd 45 // '-'
                                 then: v::replace<i32> &tape ptr_idx cell_dec cell
-                                else: ()
+                                else: unit
 
                             if:
                                 eq cmd 62 // '>'
@@ -247,8 +247,8 @@ fn eval_line %impure fn i32 impure fn str () \tape_len\code:
                                     if:
                                         ge ptr_idx tape_len
                                         then: set ptr_idx 0
-                                        else: ()
-                                else: ()
+                                        else: unit
+                                else: unit
 
                             if:
                                 eq cmd 60 // '<'
@@ -257,18 +257,18 @@ fn eval_line %impure fn i32 impure fn str () \tape_len\code:
                                     if:
                                         lt ptr_idx 0
                                         then: set ptr_idx sub tape_len 1
-                                        else: ()
-                                else: ()
+                                        else: unit
+                                else: unit
 
                             if:
                                 eq cmd 46 // '.'
                                 then: print_byte cell
-                                else: ()
+                                else: unit
 
                             if:
                                 eq cmd 44 // ','
                                 then: v::replace<i32> &tape ptr_idx 0
-                                else: ()
+                                else: unit
 
                             if:
                                 eq cmd 91 // '['
@@ -279,8 +279,8 @@ fn eval_line %impure fn i32 impure fn str () \tape_len\code:
                                         then:
                                             set pc jump_target &jump_table pc
                                         else:
-                                            ()
-                                else: ()
+                                            unit
+                                else: unit
 
                             if:
                                 eq cmd 93 // ']'
@@ -291,8 +291,8 @@ fn eval_line %impure fn i32 impure fn str () \tape_len\code:
                                         then:
                                             set pc jump_target &jump_table pc
                                         else:
-                                            ()
-                                else: ()
+                                            unit
+                                else: unit
 
                             set pc add pc 1;
 
@@ -305,7 +305,7 @@ fn eval_line %impure fn i32 impure fn str () \tape_len\code:
 //:
 //: [目的/もくてき]:
 //: - バナーを表示し、1 行ごとに Brainfuck プログラムを受け付けます。
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let title_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Cyan;
     println_style title_style "Brainfuck Runner";
     println_color AnsiColor::Gray "enter BF program. Ctrl+Z to exit.";

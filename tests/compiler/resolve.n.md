@@ -12,7 +12,7 @@ ret: 0
 #prelude std/prelude_base
 #no_prelude
 #entry main
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -22,7 +22,7 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```
 
@@ -32,7 +32,7 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```
 
@@ -42,7 +42,7 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```
 
@@ -52,7 +52,7 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```
 
@@ -62,7 +62,7 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```
 
@@ -72,7 +72,7 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```
 
@@ -82,7 +82,7 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```
 
@@ -92,7 +92,7 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```
 
@@ -102,7 +102,7 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```
 
@@ -112,7 +112,7 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```
 
@@ -122,6 +122,6 @@ neplg2:test[skip]
 ```neplg2
 #entry main
 #indent 4
-fn main %fn () i32():
+fn main %fn unit i32\unit:
     0
 ```

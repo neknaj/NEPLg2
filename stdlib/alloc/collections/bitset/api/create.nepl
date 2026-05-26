@@ -26,7 +26,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bs %BitSet unwrap_ok<BitSet, Diag> new 64;
 //:     let observed_len %i32 len &bs;
 //:     let ok %bool eq observed_len 64;

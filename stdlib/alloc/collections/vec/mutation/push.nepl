@@ -30,7 +30,7 @@
 //: ### [注意/ちゅうい]
 //: - この helper は public にしません。`collection_slot_*` marker authority は direct import 可能な public helper として[公開/こうかい]せず、public collection API の内部実装だけが使います。
 //: - `byte_off` の bounds / alignment と、`len` / `cap` との対応は caller 側の `VecCopyInvariant` と capacity proof が[担/にな]います。
-fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T () \storage\byte_off\item:
+fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T unit \storage\byte_off\item:
     let data %MemPtr .T region_ptr storage
     let slot %MemPtr .T mem_ptr_add<.T> data byte_off
     let raw %i32 mem_ptr_addr slot
@@ -67,7 +67,7 @@ fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T () \sto
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>;
 //:     let v1 %Vec i32 unwrap_ok<Vec<i32>, VecPushError<i32>> push v0 7;
 //:     let observed_len %i32 len<i32> &v1
@@ -87,9 +87,9 @@ fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T () \sto
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
-//: fn main %impure fn () i32 \():
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
 //:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 7)
 //:     let observed_len %i32 len<DropPayload> &v1
@@ -107,7 +107,7 @@ fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T () \sto
 //:| #import "core/result" as *
 //: struct PlainPayload:
 //:     value %i32
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec PlainPayload vec_empty<PlainPayload>
 //:     let _v1 %Vec PlainPayload unwrap_ok push v0 (PlainPayload 7)
 //:     0
@@ -145,8 +145,8 @@ pub fn vec_push_error_rejected <.T> %fn VecPushError .T VecPushRejected .T \e:
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
 //: fn recover_failed_push %impure fn Vec DropPayload impure fn DropPayload i32 \returned\rejected:
 //:     Drop::drop &rejected
 //:     free<DropPayload> returned
@@ -159,7 +159,7 @@ pub fn vec_push_error_rejected <.T> %fn VecPushError .T VecPushRejected .T \e:
 //:         Result::Err e:
 //:             let rejected %VecPushRejected DropPayload vec_push_error_rejected<DropPayload> e
 //:             vec_push_rejected_with<DropPayload,i32> rejected @recover_failed_push
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let items %Vec DropPayload unwrap_ok new<DropPayload>
 //:     push_or_recover items (DropPayload 7)
 //: ```
@@ -209,7 +209,7 @@ fn vec_realloc_region_error_kind <.T> %fn &VecReallocRegionError .T StdErrorKind
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok with_capacity<i32> 1;
 //:     let v1 %Vec i32 unwrap_ok<Vec<i32>, VecPushError<i32>> push v0 10;
 //:     let v2 %Vec i32 unwrap_ok<Vec<i32>, VecPushError<i32>> push v1 20;

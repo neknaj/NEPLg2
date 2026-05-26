@@ -34,7 +34,7 @@
 //:         let total %i32 get sink "total"
 //:         Result<CountSink, StdErrorKind>::Ok CountSink add total n
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bytes0 %ByteBuf io_bytebuf_from_str "AB";
 //:     let checks match io_write_bytes (CountSink 3) bytes0:
 //:         Result::Ok sink1:
@@ -79,7 +79,7 @@ trait Flush:
 //: ## Close
 //: stream を[閉/と]じる[能力/のうりょく]
 trait Close:
-    fn close %impure fn Self Result () StdErrorKind \stream:
+    fn close %impure fn Self Result unit StdErrorKind \stream:
         Result::Err StdErrorKind::IoError
 
 pub fn io_read_all_bytes <.T: ByteReader> %impure fn .T Result ByteBuf StdErrorKind \stream:
@@ -97,5 +97,5 @@ pub fn io_write_str <.T: TextWriter> %impure fn .T impure fn str Result .T StdEr
 pub fn io_flush <.T: Flush> %impure fn .T Result .T StdErrorKind \stream:
     Flush::flush stream
 
-pub fn io_close <.T: Close> %impure fn .T Result () StdErrorKind \stream:
+pub fn io_close <.T: Close> %impure fn .T Result unit StdErrorKind \stream:
     Close::close stream

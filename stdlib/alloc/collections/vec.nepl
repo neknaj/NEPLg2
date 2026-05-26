@@ -35,7 +35,7 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let empty %Vec i32 unwrap_ok new<i32>
 //:     let checks0 checks_push checks_new assert_eq_i32 0 len<i32> &empty
 //:     free empty;
@@ -68,7 +68,7 @@
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v2 %Vec i32:
 //:         unwrap_ok with_capacity<i32> 2
 //:         |> push 1 |> uwok
@@ -96,7 +96,7 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let cleared %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 11 |> uwok

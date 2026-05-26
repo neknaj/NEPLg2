@@ -15,7 +15,7 @@
 //:| #import "core/field" as *
 //:| #import "core/math/convert/width" as *
 //:| #import "core/math/int128" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     let v %i128 to_i128 extend_s_i32_to_i64 7;
 //:     let lo %i64 get v "lo";
 //:     wrap_i64_to_i32 lo

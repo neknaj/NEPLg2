@@ -21,7 +21,7 @@ exit_code: 0
 #import "neplg2/core/module/loader" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "--target" |> uwok
@@ -71,7 +71,7 @@ stdout: "[{\"severity\":\"error\",\"code\":\"cli.input.missing\",\"message\":\"i
 #import "neplg2/core/module/loader" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let options %SelfhostCliOptions selfhost_cli_default_options
     let vfs %SelfhostVirtualFileSystem unwrap_ok selfhost_vfs_new
     match selfhost_cli_driver_compile_vfs &vfs options:
@@ -114,7 +114,7 @@ exit_code: 0
 #import "std/test" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let args %Vec str:
         unwrap_ok v::new<str>
         |> v::push<str> "-i" |> uwok

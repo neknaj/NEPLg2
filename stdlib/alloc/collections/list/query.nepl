@@ -100,7 +100,7 @@ pub fn find <.T: Copy> %fn &List .T fn fn .T bool Option .T \lst\p:
                             set found some<.T> value
                             set done true
                         else:
-                            ()
+                            unit
                 Option::None:
                     set done true
     found
@@ -120,7 +120,7 @@ pub fn any <.T: Copy> %fn &List .T fn fn .T bool bool \lst\p:
                         then:
                             set result true
                         else:
-                            ()
+                            unit
                 Option::None:
                     set remaining 0
     result
@@ -138,7 +138,7 @@ pub fn all <.T: Copy> %fn &List .T fn fn .T bool bool \lst\p:
                     if:
                         p value
                         then:
-                            ()
+                            unit
                         else:
                             set result false
                 Option::None:

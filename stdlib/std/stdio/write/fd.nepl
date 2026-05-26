@@ -89,25 +89,25 @@ fn stdio_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPt
 //:
 //: ### [計算量/けいさんりょう]
 //: - [書/か]き[込/こ]み byte [数/すう]を n として O(n) です。
-fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Result () StdErrorKind \fd\data\data_len:
+fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Result unit StdErrorKind \fd\data\data_len:
     if:
         math::le data_len 0
         then:
-            Result<(), StdErrorKind>::Ok ()
+            Result<unit, StdErrorKind>::Ok unit
         else:
             match alloc_region<u8> 8:
                 Result::Err iov_alloc_error:
-                    Result<(), StdErrorKind>::Err StdErrorKind::IoError
+                    Result<unit, StdErrorKind>::Err StdErrorKind::IoError
                 Result::Ok iov_region:
                     let iov %MemPtr u8 region_ptr &iov_region
                     match alloc_region<u8> 4:
                         Result::Err nwritten_alloc_error:
                             match dealloc_region<u8> iov_region:
                                 Result::Ok released_iov_after_alloc_error:
-                                    ()
+                                    unit
                                 Result::Err release_iov_error_after_alloc_error:
-                                    ()
-                            Result<(), StdErrorKind>::Err StdErrorKind::IoError
+                                    unit
+                            Result<unit, StdErrorKind>::Err StdErrorKind::IoError
                         Result::Ok nwritten_region:
                             let nwritten %MemPtr u8 region_ptr &nwritten_region
                             let mut off %i32 0;
@@ -119,7 +119,7 @@ fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Re
                                         math::ge off data_len
                                         then:
                                             set done 1;
-                                            ()
+                                            unit
                                         else:
                                             match stdio_fd_write_from_result fd iov nwritten mem_ptr_add data off math::sub data_len off:
                                                 Result::Ok n:
@@ -128,30 +128,30 @@ fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Re
                                                         then:
                                                             set failed 1;
                                                             set done 1;
-                                                            ()
+                                                            unit
                                                         else:
                                                             set off math::add off n;
-                                                            ()
+                                                            unit
                                                 Result::Err write_error:
                                                     set failed 1;
                                                     set done 1;
-                                                    ()
+                                                    unit
                             match dealloc_region<u8> nwritten_region:
                                 Result::Ok released_nwritten:
-                                    ()
+                                    unit
                                 Result::Err release_nwritten_error:
-                                    ()
+                                    unit
                             match dealloc_region<u8> iov_region:
                                 Result::Ok released_iov:
-                                    ()
+                                    unit
                                 Result::Err release_iov_error:
-                                    ()
+                                    unit
                             if:
                                 math::eq failed 0
                                 then:
-                                    Result<(), StdErrorKind>::Ok ()
+                                    Result<unit, StdErrorKind>::Ok unit
                                 else:
-                                    Result<(), StdErrorKind>::Err StdErrorKind::IoError
+                                    Result<unit, StdErrorKind>::Err StdErrorKind::IoError
 
 //: ## stdio_write_fd_str_result
 //: fd を[指定/してい]して `str` を[書/か]き[出/だ]す
@@ -169,14 +169,14 @@ fn stdio_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Re
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "std/stdio/write/fd" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match stdio_write_fd_str_result 1 "fd-str":
 //:         Result::Ok wrote:
 //:             0
 //:         Result::Err error:
 //:             1
 //: ```
-pub fn stdio_write_fd_str_result %impure fn i32 impure fn str Result () StdErrorKind \fd\s:
+pub fn stdio_write_fd_str_result %impure fn i32 impure fn str Result unit StdErrorKind \fd\s:
     stdio_write_fd_mem_result fd string_storage::string_data_ptr s string::len s
 
 //: ## stdio_write_fd_bytebuf_result
@@ -197,7 +197,7 @@ pub fn stdio_write_fd_str_result %impure fn i32 impure fn str Result () StdError
 //:| #import "alloc/io" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/write/fd" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bytes %ByteBuf io_bytebuf_from_str "bytebuf"
 //:     match stdio_write_fd_bytebuf_result 1 bytes:
 //:         Result::Ok wrote:
@@ -205,22 +205,22 @@ pub fn stdio_write_fd_str_result %impure fn i32 impure fn str Result () StdError
 //:         Result::Err error:
 //:             1
 //: ```
-pub fn stdio_write_fd_bytebuf_result %impure fn i32 impure fn ByteBuf Result () StdErrorKind \fd\bytes:
+pub fn stdio_write_fd_bytebuf_result %impure fn i32 impure fn ByteBuf Result unit StdErrorKind \fd\bytes:
     let data_len %i32 io_bytebuf_len_ref &bytes;
     if:
         math::le data_len 0
         then:
             io_bytebuf_free bytes
-            Result<(), StdErrorKind>::Ok ()
+            Result<unit, StdErrorKind>::Ok unit
         else:
             match io_bytebuf_ptr_ref &bytes:
                 Option::Some data:
-                    let result %Result () StdErrorKind stdio_write_fd_mem_result fd data data_len;
+                    let result %Result unit StdErrorKind stdio_write_fd_mem_result fd data data_len;
                     io_bytebuf_free bytes;
                     result
                 Option::None:
                     io_bytebuf_free bytes
-                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+                    Result<unit, StdErrorKind>::Err StdErrorKind::InvalidOperation
 
 //: ## stdio_write_fd_bytebuilder_prefix_result
 //: fd を[指定/してい]して `ByteBuilder` の有効 prefix を[書/か]き[出/だ]す
@@ -232,28 +232,28 @@ pub fn stdio_write_fd_bytebuf_result %impure fn i32 impure fn ByteBuf Result () 
 //: ### [注意/ちゅうい]
 //: - この関数は builder を消費しません。caller は成功/失敗にかかわらず builder owner を保持します。
 //: - `ByteBuilderStorage::Empty` で正の `byte_len` を指定した場合は `InvalidOperation` として拒否します。
-pub fn stdio_write_fd_bytebuilder_prefix_result %impure fn i32 impure fn &ByteBuilder impure fn i32 Result () StdErrorKind \fd\builder\byte_len:
+pub fn stdio_write_fd_bytebuilder_prefix_result %impure fn i32 impure fn &ByteBuilder impure fn i32 Result unit StdErrorKind \fd\builder\byte_len:
     let builder_len %i32 *get_ref builder "len";
     if:
         math::lt byte_len 0
         then:
-            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+            Result<unit, StdErrorKind>::Err StdErrorKind::InvalidOperation
         else:
             if:
                 math::gt byte_len builder_len
                 then:
-                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+                    Result<unit, StdErrorKind>::Err StdErrorKind::InvalidOperation
                 else:
                     if:
                         math::le byte_len 0
                         then:
-                            Result<(), StdErrorKind>::Ok ()
+                            Result<unit, StdErrorKind>::Ok unit
                         else:
                             match byte_builder_ptr_ref builder:
                                 Option::Some data:
                                     stdio_write_fd_mem_result fd data byte_len
                                 Option::None:
-                                    Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+                                    Result<unit, StdErrorKind>::Err StdErrorKind::InvalidOperation
 
 //: ## stdio_write_fd_byte_result
 //: fd を[指定/してい]して 1 byte を[書/か]き[出/だ]す
@@ -268,30 +268,30 @@ pub fn stdio_write_fd_bytebuilder_prefix_result %impure fn i32 impure fn &ByteBu
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "std/stdio/write/fd" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match stdio_write_fd_byte_result 1 'Z':
 //:         Result::Ok wrote:
 //:             0
 //:         Result::Err error:
 //:             1
 //: ```
-pub fn stdio_write_fd_byte_result %impure fn i32 impure fn i32 Result () StdErrorKind \fd\b:
+pub fn stdio_write_fd_byte_result %impure fn i32 impure fn i32 Result unit StdErrorKind \fd\b:
     match alloc_region<u8> 1:
         Result::Err _e:
-            Result<(), StdErrorKind>::Err StdErrorKind::OutOfMemory
+            Result<unit, StdErrorKind>::Err StdErrorKind::OutOfMemory
         Result::Ok region:
             let out %MemPtr u8 region_ptr &region
             match store_u8 out b:
                 Result::Ok stored_byte:
-                    let result %Result () StdErrorKind stdio_write_fd_mem_result fd out 1;
+                    let result %Result unit StdErrorKind stdio_write_fd_mem_result fd out 1;
                     match dealloc_region<u8> region:
                         Result::Ok released_after_write:
                             result
                         Result::Err release_error_after_write:
-                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+                            Result<unit, StdErrorKind>::Err StdErrorKind::InvalidOperation
                 Result::Err store_error:
                     match dealloc_region<u8> region:
                         Result::Ok released_after_store_error:
-                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+                            Result<unit, StdErrorKind>::Err StdErrorKind::InvalidOperation
                         Result::Err release_error_after_store_error:
-                            Result<(), StdErrorKind>::Err StdErrorKind::InvalidOperation
+                            Result<unit, StdErrorKind>::Err StdErrorKind::InvalidOperation

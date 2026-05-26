@@ -14,7 +14,7 @@ stdout: "test_report name=\"return_str\" count=1 failed=0\nassertion index=0 sta
 
 #import "std/test" as *
 
-fn main %impure fn () i32():
+fn main %impure fn unit i32\unit:
     let actual %str "hello"
     let report:
         test_report_new "return_str"

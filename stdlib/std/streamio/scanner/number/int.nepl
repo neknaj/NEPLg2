@@ -34,7 +34,7 @@ pub fn scan_i32_impl %impure fn &StreamScanner i32 \sc:
                     set sign -1;
                     set p add p 1;
                 else:
-                    ();
+                    unit;
             let mut val %i32 0;
             let mut done %i32 0;
             while eq done 0:
@@ -76,7 +76,7 @@ pub fn scan_u32_impl %impure fn &StreamScanner u32 \sc:
                 then:
                     set p add p 1;
                 else:
-                    ();
+                    unit;
             let mut val %i32 0;
             let mut done %i32 0;
             while eq done 0:
@@ -121,7 +121,7 @@ pub fn scan_u64_impl %impure fn &StreamScanner u64 \sc:
                 then:
                     set p add p 1;
                 else:
-                    ();
+                    unit;
             let mut val %i64 cast 0;
             let mut done %i32 0;
             while eq done 0:
@@ -174,7 +174,7 @@ pub fn scan_i64_impl %impure fn &StreamScanner i64 \sc:
                         then:
                             set p add p 1;
                         else:
-                            ();
+                            unit;
             let mut val %i64 cast 0;
             let mut done %i32 0;
             while eq done 0:

@@ -34,7 +34,7 @@ pub fn hashset_bucket_index <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn i32 fn .H
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/collections/hashset/probe" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "hashset_next_slot_doc"
 //:         |> test_report_push assert_eq_i32 "next slot" 2 hashset_next_slot 1 4
@@ -105,7 +105,7 @@ pub fn hashset_find_insert_slot <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &Hash
                     if:
                         lt first_tomb 0
                         then set first_tomb cur
-                        else ()
+                        else unit
                     set cur hashset_next_slot cur cap
                 HashSetBucketState::Full:
                     set cur hashset_next_slot cur cap
@@ -115,7 +115,7 @@ pub fn hashset_find_insert_slot <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &Hash
 //:
 //: ### [目的/もくてき]
 //: - 既存 key を新しい empty storage へ[再配置/さいはいち]します。
-pub fn hashset_insert_entry_into_storage <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn &HashSetStorage .T impure fn i32 impure fn .H impure fn .T () \storage\cap\hasher\key:
+pub fn hashset_insert_entry_into_storage <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn &HashSetStorage .T impure fn i32 impure fn .H impure fn .T unit \storage\cap\hasher\key:
     let slot %HashSetInsertSlot hashset_find_insert_slot<.T,.H> storage cap hasher key
     let idx %i32 field::get slot "index"
     hashset_store_full<.T> storage idx key

@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/cast" as *
 //:| #import "core/math/u8" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     let a %u8 cast 255;
 //:     let b %u8 cast 1;
 //:     let wrapped %u8 add a b;

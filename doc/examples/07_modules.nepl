@@ -78,7 +78,7 @@ module statistics:
             div list::fold_left xs 0 add n
 
 
-pub let main %fn* () i32 \():
+pub let main %fn* unit i32 \unit:
     let p1 geometry::Point x: 0 y: 0
     let p2 geometry::Point x: 3 y: 4
     println concat "distance^2 = " to_str geometry::distance_sq p1 p2

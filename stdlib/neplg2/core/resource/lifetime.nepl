@@ -16,7 +16,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/resource/lifetime" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let root %SelfhostLifetimePosition selfhost_lifetime_position_new (selfhost_lifetime_id_new 0) 0
 //:     let child %SelfhostLifetimePosition selfhost_lifetime_position_new (selfhost_lifetime_id_new 1) 2
 //:     let relation %SelfhostLifetimeRelation selfhost_lifetime_relation_from_scope_path root child SelfhostLifetimeScopePathKind::SubjectAncestorOfRequired

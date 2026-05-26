@@ -17,7 +17,7 @@ stdout: "test_report name=\"counting_bloom_filter_insert_remove_contains\" count
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let bf0 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 4
@@ -60,7 +60,7 @@ stdout: "test_report name=\"counting_bloom_filter_clear\" count=1 failed=0\nasse
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let bf0 %CountingBloomFilter i32 DefaultHash32:
         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
         |> insert 7

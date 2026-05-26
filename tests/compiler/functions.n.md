@@ -15,7 +15,7 @@ ret: 42
 fn inc %fn i32 i32 \x:
     add x 1
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     inc 41
 ```
 
@@ -35,7 +35,7 @@ ret: 42
 let inc %fn i32 i32 \x:
     add x 1
 
-let main %fn () i32 \():
+let main %fn unit i32 \unit:
     inc 41
 ```
 
@@ -55,7 +55,7 @@ ret: 42
 let inc (x):
     add x 1
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     inc 41
 ```
 
@@ -72,7 +72,7 @@ ret: 20
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     fn double %fn i32 i32 \x:
         mul x 2
 
@@ -96,7 +96,7 @@ fn add_nums %fn i32 fn i32 i32 \a\b:
 fn plus add_nums;
 fn plus @add_nums;
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     plus 10 20
 ```
 
@@ -117,7 +117,7 @@ fn square %fn i32 i32 \x:
 fn apply %fn i32 fn fn i32 i32 i32 \val\func:
     func val
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     apply 5 square
     apply 5 @square
 ```
@@ -134,7 +134,7 @@ diag_code: resolve.alias.target_not_found
 
 fn plus missing;
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -165,7 +165,7 @@ fn get_op %fn bool (fn i32 fn i32 i32) \con:
             sub_op
             @sub_op
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let f get_op true
     f 10 5
 ```
@@ -181,7 +181,7 @@ ret: 11
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let f %fn i32 i32 \x:
         add x 1
 
@@ -198,8 +198,8 @@ ret: 123
 #indent 4
 #target core
 
-fn main %fn () i32 \():
-    let f %fn () i32 \():
+fn main %fn unit i32 \unit:
+    let f %fn unit i32 \unit:
         123
 
     f
@@ -222,7 +222,7 @@ fn fact %fn i32 i32 \n:
     else:
         mul n fact sub n 1
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     fact 5
 ```
 
@@ -240,7 +240,7 @@ ret: 30
 fn apply %fn i32 fn fn i32 i32 i32 \val\func:
     func val
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     // 関数リテラルを直接引数として渡す
     apply 10 (x):
         mul x 3
@@ -257,7 +257,7 @@ ret: 15
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let y %i32 10;
 
     // ネストされた関数が外側のスコープの変数 'y' をキャプチャする
@@ -278,7 +278,7 @@ ret: 15
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let y %i32 10;
 
     // ネストされた関数が外側のスコープの変数 'y' をキャプチャする
@@ -311,7 +311,7 @@ fn get_op %fn bool (fn i32 fn i32 i32) \con:
         then @add_op
         else @sub_op
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let f get_op true
     f 10 5
 ```
@@ -333,7 +333,7 @@ fn fact %fn i32 i32 \n:
         then 1
         else mul n fact sub n 1
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     fact 5
 ```
 
@@ -348,7 +348,7 @@ ret: 15
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let y 10;
     fn add_y (x):
         add x y
@@ -366,7 +366,7 @@ diag_code: type.function_value.capturing_unsupported
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let y 10;
     fn add_y (x):
         add x y
@@ -384,7 +384,7 @@ diag_code: type.function_ref.requires_callable
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %i32 1;
     let f @x;
     0
@@ -400,7 +400,7 @@ diag_code: type.variable.type_args_not_allowed
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %i32 1;
     x<i32>
 ```
@@ -419,7 +419,7 @@ diag_codes: type.overload.no_match, type.return.mismatch
 fn apply %fn i32 fn fn i32 i32 i32 \val\func:
     func val
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let y 10;
     fn add_y (x):
         add x y
@@ -446,7 +446,7 @@ fn impure_print %impure fn i32 i32 \x:
 fn pure_caller %fn i32 i32 \x:
     impure_print x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     pure_caller 1
 ```
 
@@ -472,7 +472,7 @@ fn impure_caller %impure fn i32 i32 \x:
     println_i32 res;
     res
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     impure_caller 5
 ```
 
@@ -490,7 +490,7 @@ ret: 70
 fn inc %fn i32 i32 \x:
     add x 1
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     // sub 100 (mul (inc 5) (add 2 3))
     // sub 100 (mul 6 5)
     // sub 100 30

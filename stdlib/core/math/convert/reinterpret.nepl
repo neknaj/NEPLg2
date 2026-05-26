@@ -12,7 +12,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "core/math/convert/reinterpret" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     reinterpret_f32_to_i32 reinterpret_i32_to_f32 0
 //: ```
 

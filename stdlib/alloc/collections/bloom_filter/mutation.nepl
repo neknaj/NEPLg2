@@ -11,14 +11,14 @@
 #import "./layout" as *
 #import "./storage" as *
 
-pub fn bloom_set_bit %impure fn &Vec u8 impure fn i32 () \bits\bit_idx:
+pub fn bloom_set_bit %impure fn &Vec u8 impure fn i32 unit \bits\bit_idx:
     let byte_idx %i32 bloom_byte_index bit_idx
     let mask %i32 bloom_bit_mask bit_idx
     match bloom_byte_at bits byte_idx:
         Option::Some cur:
             bloom_store_byte bits byte_idx or cur mask
         Option::None:
-            ()
+            unit
 
 pub fn bloom_test_bit %fn &Vec u8 fn i32 bool \bits\bit_idx:
     let byte_idx %i32 bloom_byte_index bit_idx

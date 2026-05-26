@@ -30,7 +30,7 @@ fn hashmap_insert_range %impure fn HashMap i32 i32 DefaultHash32 impure fn i32 i
             let next %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> insert hm i mul i 10
             hashmap_insert_range next add i 1 end
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
     let hm %HashMap i32 i32 DefaultHash32 hashmap_insert_range hm0 0 40;
     let ok %i32 match get &hm 39:
@@ -60,7 +60,7 @@ neplg2:test
 #import "core/traits/hash" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
     let mut i %i32 0;
     while lt i 40:
@@ -100,7 +100,7 @@ fn hashmap_insert_many %impure fn HashMap i32 i32 DefaultHash32 impure fn i32 im
             let next %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> insert hm i add i 1
             hashmap_insert_many next add i 1 end
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> with_capacity DefaultHash32 32;
     let hm %HashMap i32 i32 DefaultHash32 hashmap_insert_many hm0 0 160;
     let ok %i32 match get &hm 159:
@@ -129,7 +129,7 @@ neplg2:test
 #import "core/result" as *
 #import "core/traits/hash" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, Diag> with_capacity DefaultHash32 32;
     let mut i %i32 0;
     while lt i 160:
@@ -178,13 +178,13 @@ fn hashmap_tombstone_remove_range %impure fn HashMap i32 i32 DefaultHash32 impur
             let next %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> remove hm i
             hashmap_tombstone_remove_range next add i 1 end
 
-fn hashmap_after_tombstones %impure fn () HashMap i32 i32 DefaultHash32 \():
+fn hashmap_after_tombstones %impure fn unit HashMap i32 i32 DefaultHash32 \unit:
     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> with_capacity DefaultHash32 8;
     let hm1 %HashMap i32 i32 DefaultHash32 hashmap_tombstone_insert_range hm0 0 6;
     let hm2 %HashMap i32 i32 DefaultHash32 hashmap_tombstone_remove_range hm1 0 5;
     unwrap_ok<HashMap<i32,i32,DefaultHash32>, HashMapUpdateError<i32,i32,DefaultHash32>> insert hm2 100 1000
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hm5 %HashMap i32 i32 DefaultHash32 hashmap_after_tombstones;
     let ok %i32 match get &hm5 5:
         Option::Some v5:
@@ -221,7 +221,7 @@ neplg2:test
 #import "core/traits/hash" as *
 #import "std/test" as *
 
-fn hashset_after_tombstones %impure fn () HashSet i32 DefaultHash32 \():
+fn hashset_after_tombstones %impure fn unit HashSet i32 DefaultHash32 \unit:
     let mut hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, Diag> with_capacity DefaultHash32 8;
     let mut i %i32 0;
     while lt i 6:
@@ -236,7 +236,7 @@ fn hashset_after_tombstones %impure fn () HashSet i32 DefaultHash32 \():
     set hs unwrap_ok<HashSet<i32,DefaultHash32>, HashSetUpdateError<i32,DefaultHash32>> insert hs 100;
     hs
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hs5 %HashSet i32 DefaultHash32 hashset_after_tombstones;
     let hs100 %HashSet i32 DefaultHash32 hashset_after_tombstones;
     let ok5 %bool contains &hs5 5

@@ -30,16 +30,16 @@ pub fn bitset_update %impure fn BitSet impure fn i32 impure fn bool Result BitSe
     if:
         bitset_valid_index idx nbits
         then:
-            let result %Result () Diag block:
+            let result %Result unit Diag block:
                 let bits %&Vec u8 field::get_ref &bs "bits"
                 let byte_idx %i32 bitset_byte_index idx
                 let mask %i32 bitset_mask idx
                 if:
                     bitset_write_masked bits byte_idx mask set_bit
                     then:
-                        ok<(), Diag> ()
+                        ok<unit, Diag> unit
                     else:
-                        diag_err<()> bitset_index_diag
+                        diag_err<unit> bitset_index_diag
             match result:
                 Result::Ok _unit:
                     ok<BitSet, BitSetUpdateError> bs
@@ -61,7 +61,7 @@ pub fn bitset_update %impure fn BitSet impure fn i32 impure fn bool Result BitSe
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bs %BitSet unwrap_ok<BitSet, Diag> new 16;
 //:     let bs1 %BitSet unwrap_ok<BitSet, BitSetUpdateError> insert bs 3;
 //:     let ok %bool unwrap_ok<bool, Diag> contains &bs1 3;
@@ -81,7 +81,7 @@ pub fn insert %impure fn BitSet impure fn i32 Result BitSet BitSetUpdateError \b
 //:| #import "alloc/collections/bitset" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let bs %BitSet:
 //:         unwrap_ok<BitSet, Diag> new 16
 //:         |> insert 3 |> uwok

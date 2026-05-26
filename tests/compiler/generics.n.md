@@ -19,7 +19,7 @@ stdout: "test_report name=\"generics_fn_identity_multi_instantiation\" count=1 f
 fn id <.T> %fn .T .T \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %i32 id 7
     let b %bool id true
     let actual %i32 if b:
@@ -57,7 +57,7 @@ fn is_some <.T> %fn LocalOption .T bool \o:
         None:
             false
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %LocalOption i32 LocalOption::Some 5
     let b %LocalOption bool LocalOption::None
     let _nested %LocalOption LocalOption i32 LocalOption::Some LocalOption::Some 1
@@ -102,7 +102,7 @@ fn take_ab %fn Pair i32 bool i32 \p:
 fn take_ba %fn Pair bool i32 i32 \p:
     20
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p1 %Pair i32 bool Pair 1 true
     let p2 %Pair bool i32 Pair false 2
     let actual %i32 m::add take_ab p1 take_ba p2
@@ -127,7 +127,7 @@ diag_codes: parser.type_expr.invalid
 fn id %T %fn T T \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -146,7 +146,7 @@ enum Option<T>:
     None
     Some %T
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -165,7 +165,7 @@ struct Pair<T,U>:
     a %T
     b %U
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -195,7 +195,7 @@ fn bump %fn LocalOption i32 i32 \o:
         None:
             0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 bump LocalOption::Some 9
     let report:
         test_report_new "generics_enum_payload_arithmetic"
@@ -222,7 +222,7 @@ stdout: "test_report name=\"generics_multi_type_params_function\" count=1 failed
 fn first <.A,.B> %fn .A fn .B .A \a\b:
     a
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %i32 first 3 true
     let y %bool first false 7
     let actual %i32 if y:
@@ -260,7 +260,7 @@ fn is_none_i32 %fn LocalOption i32 bool \o:
         Some v:
             false
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let n %LocalOption i32 LocalOption::None
     let actual %i32 if is_none_i32 n 1 0
     let report:
@@ -287,10 +287,10 @@ enum LocalOption<.T>:
     None
     Some %.T
 
-fn make_none <.T> %fn () LocalOption .T \():
+fn make_none <.T> %fn unit LocalOption .T \unit:
     LocalOption::None
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %LocalOption i32 make_none
     let actual %i32 match x:
         None:
@@ -323,7 +323,7 @@ fn id <.T> %fn .T .T \x:
 fn wrap <.U> %fn .U .U \x:
     id x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %i32 wrap 9
     let actual %i32 a
     let report:
@@ -351,7 +351,7 @@ stdout: "test_report name=\"generics_pipe_into_generic\" count=1 failed=0\nasser
 fn id <.T> %fn .T .T \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %i32 5 |> id
     let actual %i32 m::add a 2
     let report:
@@ -385,7 +385,7 @@ fn is_none_i32 %fn LocalOption i32 bool \o:
         Some v:
             false
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 if is_none_i32 LocalOption::None 1 0
     let report:
         test_report_new "generics_option_none_inferred_by_param"
@@ -414,7 +414,7 @@ struct Pair<.A,.B>:
 fn take_ab %fn Pair i32 bool i32 \p:
     5
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 take_ab Pair 1 true
     let report:
         test_report_new "generics_pair_inferred_by_param"
@@ -451,7 +451,7 @@ fn take_ab %fn Pair i32 str i32 \p:
 fn take_ba %fn Pair str i32 i32 \p:
     20
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p1 %Pair i32 str Pair 1 "a"
     let p2 %Pair str i32 Pair "b" 2
     let actual %i32 m::add take_ab p1 take_ba p2
@@ -484,7 +484,7 @@ enum LocalOption<.T>:
 fn make_some <.T> %fn .T LocalOption .T \v:
     LocalOption::Some v
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %LocalOption i32 make_some 3
     let b %LocalOption bool make_some true
     let x %i32 match a:
@@ -533,7 +533,7 @@ fn unwrap_nested <.T> %fn LocalOption LocalOption .T fn .T .T \oo\default:
         None:
             default
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let inner %LocalOption i32 LocalOption::Some 9
     let outer %LocalOption LocalOption i32 LocalOption::Some inner
     let actual %i32 unwrap_nested outer 0
@@ -574,7 +574,7 @@ fn to_i32 %fn Either i32 bool i32 \e:
         Right b:
             if b 1 0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let e %Either i32 bool pick 7 true true
     let actual %i32 to_i32 e
     let report:
@@ -613,7 +613,7 @@ fn unwrap %fn Wrap i32 i32 \w:
                 None:
                     0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 unwrap Wrap::Wrap LocalOption::Some 12
     let report:
         test_report_new "generics_nested_apply_in_payload"
@@ -637,7 +637,7 @@ enum Option<.T>:
     None
     Some %.T
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %Option i32 Option::Some true
     0
 ```
@@ -656,7 +656,7 @@ diag_codes: type.overload.no_match, type.return.mismatch
 fn same <.T> %fn .T fn .T i32 \a\b:
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     same 1 true
 ```
 
@@ -675,7 +675,7 @@ enum Either<.A,.B>:
     Left %.A
     Right %.B
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let e %Either i32 bool Either::Left true
     0
 ```
@@ -698,7 +698,7 @@ enum Option<.T>:
 enum Wrap<.T>:
     Wrap %Option .T
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let w %Wrap i32 Wrap::Wrap Option::Some true
     0
 ```
@@ -718,7 +718,7 @@ enum Option<.T>:
     None
     Some %.T
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %Option i32 bool Option::None
     0
 ```

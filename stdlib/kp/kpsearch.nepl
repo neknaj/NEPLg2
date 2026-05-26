@@ -31,7 +31,7 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let data %Vec i32:
 //:         unwrap_ok with_capacity<i32> 5
 //:         |> push 1 |> unwrap_ok
@@ -126,7 +126,7 @@ pub fn contains_vec_i32 %fn &Vec i32 fn i32 bool \items\x:
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let values %Vec i32:
 //:         unwrap_ok with_capacity<i32> 6
 //:         |> push 1 |> unwrap_ok
@@ -171,7 +171,7 @@ pub struct UniqueSortedVecI32:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let values %Vec i32:
 //:         unwrap_ok with_capacity<i32> 6
 //:         |> push 1 |> unwrap_ok
@@ -188,12 +188,12 @@ pub struct UniqueSortedVecI32:
 //:         do:
 //:             if gt i 0:
 //:                 then print " "
-//:                 else ()
+//:                 else unit
 //:             match unique_sorted_vec_i32_get &unique i:
 //:                 Option::Some value:
 //:                     print_i32 value
 //:                 Option::None:
-//:                     ()
+//:                     unit
 //:             set i add i 1;
 //:     println "";
 //:     free unique;
@@ -219,11 +219,11 @@ pub fn unique_sorted_vec_i32 %impure fn Vec i32 UniqueSortedVecI32 \items:
                                             replace<i32> &items write cur
                                             set write add write 1
                                         else:
-                                            ()
+                                            unit
                                 Option::None:
-                                    ()
+                                    unit
                         Option::None:
-                            ()
+                            unit
                     set read add read 1
             UniqueSortedVecI32 items write
 
@@ -246,5 +246,5 @@ pub fn unique_sorted_vec_i32_get %fn &UniqueSortedVecI32 fn i32 Option i32 \u\id
             get<i32> vec_ref idx
 
 //: free: `UniqueSortedVecI32` が保持する `Vec<i32>` owner を解放する
-pub fn free %impure fn UniqueSortedVecI32 () \u:
+pub fn free %impure fn UniqueSortedVecI32 unit \u:
     free<i32> field::get u "vec"

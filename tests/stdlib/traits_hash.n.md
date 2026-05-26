@@ -22,7 +22,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     set checks checks_push checks check_eq_i32 hash32_by_trait 123456 hash32_by_trait 123456;
     set checks checks_push checks check_eq_i32 hash32_by_trait "abc" hash32_by_trait "abc";
@@ -60,7 +60,7 @@ impl HashKey for Token:
     fn hash32 %fn Token i32 \_self:
         0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -98,7 +98,7 @@ fn use_twice <.T: HashKey> %fn .T i32 \x:
     let b %.T x
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     use_twice Token @id
 ```
 
@@ -133,7 +133,7 @@ fn use_hasher_twice <.K: HashKey,.H: Hasher<.K>> %fn .H i32 \h:
     let b %.H h
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     use_hasher_twice<i32, StatefulHasher> StatefulHasher @id
 ```
 
@@ -217,7 +217,7 @@ impl Copy for ModKey:
         self
 
 struct ModHasher:
-    tag %()
+    tag %unit
 
 impl Clone for ModHasher:
     fn clone %fn &ModHasher ModHasher \self:
@@ -247,7 +247,7 @@ fn must_hmk %impure fn Result HashMap ModKey i32 ModHasher HashMapUpdateError Mo
             free hm;
             #intrinsic "unreachable" <> ()
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let hm %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
     let hm %HashMap i32 i32 DefaultHash32 must_hm insert hm 10 99;
@@ -337,7 +337,7 @@ impl Copy for ModKey:
         self
 
 struct ModHasher:
-    tag %()
+    tag %unit
 
 impl Clone for ModHasher:
     fn clone %fn &ModHasher ModHasher \self:
@@ -363,7 +363,7 @@ fn must_hsk %impure fn Result HashSet ModKey ModHasher HashSetUpdateError ModKey
             free hs;
             #intrinsic "unreachable" <> ()
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
 
     let hs %HashSet i32 DefaultHash32 must_hs new DefaultHash32;

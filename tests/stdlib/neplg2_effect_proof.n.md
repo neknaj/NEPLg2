@@ -22,119 +22,119 @@ stdout: mlstr:
 #import "neplg2/core/ty/effect" as *
 #import "std/test" as *
 
-fn check_pure_context %fn Result SelfhostEffectContext SelfhostProofRefutation Result () str \result:
+fn check_pure_context %fn Result SelfhostEffectContext SelfhostProofRefutation Result unit str \result:
     match result:
         Result::Ok context:
             match context:
                 SelfhostEffectContext::PureContext:
-                    Result<(),str>::Ok ()
+                    Result<unit,str>::Ok unit
                 SelfhostEffectContext::ImpureContext:
-                    Result<(),str>::Err "expected pure effect context"
+                    Result<unit,str>::Err "expected pure effect context"
                 SelfhostEffectContext::UnsafeBoundary:
-                    Result<(),str>::Err "expected pure effect context"
+                    Result<unit,str>::Err "expected pure effect context"
         Result::Err _refutation:
-            Result<(),str>::Err "expected effect boundary proof"
+            Result<unit,str>::Err "expected effect boundary proof"
 
-fn check_unsafe_boundary %fn Result SelfhostEffectContext SelfhostProofRefutation Result () str \result:
+fn check_unsafe_boundary %fn Result SelfhostEffectContext SelfhostProofRefutation Result unit str \result:
     match result:
         Result::Ok context:
             match context:
                 SelfhostEffectContext::UnsafeBoundary:
-                    Result<(),str>::Ok ()
+                    Result<unit,str>::Ok unit
                 SelfhostEffectContext::PureContext:
-                    Result<(),str>::Err "expected unsafe boundary context"
+                    Result<unit,str>::Err "expected unsafe boundary context"
                 SelfhostEffectContext::ImpureContext:
-                    Result<(),str>::Err "expected unsafe boundary context"
+                    Result<unit,str>::Err "expected unsafe boundary context"
         Result::Err _refutation:
-            Result<(),str>::Err "expected unsafe boundary proof"
+            Result<unit,str>::Err "expected unsafe boundary proof"
 
-fn check_impure_effect_rejected %fn Result SelfhostEffectContext SelfhostProofRefutation Result () str \result:
+fn check_impure_effect_rejected %fn Result SelfhostEffectContext SelfhostProofRefutation Result unit str \result:
     match result:
         Result::Err refutation:
             match refutation:
                 SelfhostProofRefutation::BorrowAccessInvalid _issue:
-                    Result<(),str>::Err "expected proof refutation"
+                    Result<unit,str>::Err "expected proof refutation"
                 SelfhostProofRefutation::EffectBoundaryInvalid issue:
                     match issue.reason:
                         SelfhostEffectBoundaryError::ImpureEffectInPureContext:
-                            Result<(),str>::Ok ()
+                            Result<unit,str>::Ok unit
                         SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary:
-                            Result<(),str>::Err "expected impure effect rejection"
+                            Result<unit,str>::Err "expected impure effect rejection"
                         SelfhostEffectBoundaryError::InternalAllocEscapeNotProven:
-                            Result<(),str>::Err "expected impure effect rejection"
+                            Result<unit,str>::Err "expected impure effect rejection"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::UnexpectedEvidence _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::TypeKindMismatch _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
         Result::Ok _context:
-            Result<(),str>::Err "impure effect was accepted in pure context"
+            Result<unit,str>::Err "impure effect was accepted in pure context"
 
-fn check_escaping_alloc_rejected %fn Result SelfhostEffectContext SelfhostProofRefutation Result () str \result:
+fn check_escaping_alloc_rejected %fn Result SelfhostEffectContext SelfhostProofRefutation Result unit str \result:
     match result:
         Result::Err refutation:
             match refutation:
                 SelfhostProofRefutation::BorrowAccessInvalid _issue:
-                    Result<(),str>::Err "expected proof refutation"
+                    Result<unit,str>::Err "expected proof refutation"
                 SelfhostProofRefutation::EffectBoundaryInvalid issue:
                     match issue.reason:
                         SelfhostEffectBoundaryError::InternalAllocEscapeNotProven:
-                            Result<(),str>::Ok ()
+                            Result<unit,str>::Ok unit
                         SelfhostEffectBoundaryError::ImpureEffectInPureContext:
-                            Result<(),str>::Err "expected escaping allocation rejection"
+                            Result<unit,str>::Err "expected escaping allocation rejection"
                         SelfhostEffectBoundaryError::UnsafeMemoryOutsideBoundary:
-                            Result<(),str>::Err "expected escaping allocation rejection"
+                            Result<unit,str>::Err "expected escaping allocation rejection"
                 SelfhostProofRefutation::FactObligationMismatch _mismatch:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::UnexpectedEvidence _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::SourceSpanInvalid _span:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::TypeKindMismatch _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
                 SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-                    Result<(),str>::Err "expected effect boundary refutation"
+                    Result<unit,str>::Err "expected effect boundary refutation"
         Result::Ok _context:
-            Result<(),str>::Err "escaping allocation was accepted in pure context"
+            Result<unit,str>::Err "escaping allocation was accepted in pure context"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let span %SelfhostSourceSpan source_span_new 0 0 4
     let pure_fact %SelfhostEffectObservationFact selfhost_effect_observation_fact_new SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable span
     let no_escape_alloc %SelfhostEffectObservationFact selfhost_effect_observation_fact_new SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NoEscapeProven span

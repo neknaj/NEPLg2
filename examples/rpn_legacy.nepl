@@ -44,7 +44,7 @@
 //:
 //: [目的/もくてき]:
 //: - REPL の利用者向けエラーを `error: <msg>` 形式で標準出力へ出します。
-fn print_error %impure fn str () \msg:
+fn print_error %impure fn str unit \msg:
     let label_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Red;
     print_style label_style "error:";
     print " ";
@@ -54,7 +54,7 @@ fn print_error %impure fn str () \msg:
 //:
 //: [目的/もくてき]:
 //: - 各入力行の先頭に `> ` を表示します。
-fn print_prompt %impure fn () () \():
+fn print_prompt %impure fn unit unit \unit:
     let prompt_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Green;
     print_style prompt_style "> ";
 
@@ -62,7 +62,7 @@ fn print_prompt %impure fn () () \():
 //:
 //: [目的/もくてき]:
 //: - `ok: result = <val>` 形式で 1 行の結果を出力します。
-fn print_result %impure fn i32 () \val:
+fn print_result %impure fn i32 unit \val:
     let ok_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Green;
     let value_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Cyan;
     print_style ok_style "ok";
@@ -171,7 +171,7 @@ fn token_error_state %impure fn Result Stack i32 str impure fn str Result Stack 
 //: [目的/もくてき]:
 //: - スペース区切りの RPN 式を評価し、結果または stack 個数エラーを表示します。
 //: - token 配列を作らず、処理中の `Stack<i32>` owner だけを明示的に受け渡します。
-fn eval_line %impure fn str () \line:
+fn eval_line %impure fn str unit \line:
     let trimmed %str string_slice::str_trim line;
     let n %i32 string_access::len trimmed;
 
@@ -203,7 +203,7 @@ fn eval_line %impure fn str () \line:
                                     set stack_state token_error_state stack_state msg
                             set start add i 1
                         else:
-                            ()
+                            unit
                     set i add i 1;
 
             match stack_state:
@@ -219,7 +219,7 @@ fn eval_line %impure fn str () \line:
                                 Option::Some val:
                                     print_result val
                                 Option::None:
-                                    ()
+                                    unit
                             stk::free<i32> next_stack
                         else:
                             if:
@@ -231,7 +231,7 @@ fn eval_line %impure fn str () \line:
                                     stk::free<i32> stack
                 Result::Err msg:
                     string_access::len msg;
-                    ()
+                    unit
         Result::Err _:
             print_error "out of memory";
 
@@ -239,7 +239,7 @@ fn eval_line %impure fn str () \line:
 //:
 //: [目的/もくてき]:
 //: - 初期バナーを表示し、EOF 相当の空入力まで 1 行ずつ評価します。
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let title_style %AnsiTextStyle ansi_bold_color_style AnsiColor::Cyan;
     println_style title_style "RPN REPL";
     println_color AnsiColor::Gray "enter space-separated tokens (e.g. 3 4 +). Ctrl+Z to exit.";

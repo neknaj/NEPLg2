@@ -30,7 +30,7 @@ pub fn adjacency_matrix_update %impure fn AdjacencyMatrix impure fn i32 impure f
     if:
         adjacency_matrix_valid_edge nverts from to
         then:
-            let result %Result () Diag block:
+            let result %Result unit Diag block:
                 let bits %&Vec u8 field::get_ref &g "bits"
                 let bit_idx %i32 adjacency_matrix_bit_index nverts from to
                 let byte_idx %i32 adjacency_matrix_byte_index bit_idx
@@ -38,9 +38,9 @@ pub fn adjacency_matrix_update %impure fn AdjacencyMatrix impure fn i32 impure f
                 if:
                     adjacency_matrix_write_masked bits byte_idx mask set_edge
                     then:
-                        ok<(), Diag> ()
+                        ok<unit, Diag> unit
                     else:
-                        diag_err<()> adjacency_matrix_vertex_diag
+                        diag_err<unit> adjacency_matrix_vertex_diag
             match result:
                 Result::Ok _unit:
                     ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> g
@@ -62,7 +62,7 @@ pub fn adjacency_matrix_update %impure fn AdjacencyMatrix impure fn i32 impure f
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let g %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 4;
 //:     let g1 %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> insert g 2 0;
 //:     let ok %bool unwrap_ok<bool, Diag> contains &g1 2 0;
@@ -82,7 +82,7 @@ pub fn insert %impure fn AdjacencyMatrix impure fn i32 impure fn i32 Result Adja
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let g %AdjacencyMatrix:
 //:         unwrap_ok<AdjacencyMatrix, Diag> new 4
 //:         |> insert 2 0 |> uwok

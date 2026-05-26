@@ -23,7 +23,7 @@ pub struct SelfhostNameScopeAddResult:
 
 
 //: selfhost_name_scope_new: [空/から]の scope を[作/つく]る
-pub fn selfhost_name_scope_new %impure fn () Result SelfhostNameScope StdErrorKind \():
+pub fn selfhost_name_scope_new %impure fn unit Result SelfhostNameScope StdErrorKind \unit:
     match v::new<SelfhostNameBinding>:
         Result::Ok bindings:
             Result<SelfhostNameScope, StdErrorKind>::Ok SelfhostNameScope bindings
@@ -31,7 +31,7 @@ pub fn selfhost_name_scope_new %impure fn () Result SelfhostNameScope StdErrorKi
             Result<SelfhostNameScope, StdErrorKind>::Err e
 
 //: selfhost_name_scope_free: scope の binding table を[解放/かいほう]する
-pub fn selfhost_name_scope_free %impure fn SelfhostNameScope () \scope:
+pub fn selfhost_name_scope_free %impure fn SelfhostNameScope unit \scope:
     v::free<SelfhostNameBinding> field::get scope "bindings"
 
 //: selfhost_name_scope_len: scope 内の binding 数を[返/かえ]す

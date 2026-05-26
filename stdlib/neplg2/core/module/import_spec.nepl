@@ -30,7 +30,7 @@
 //:| #import "core/math" as *
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/module/import_spec" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match selfhost_import_spec_parse_lexeme source_span_new 0 0 28 "#import \"core/result\" as *":
 //:         Result::Ok spec:
 //:             let wildcard %bool selfhost_import_spec_is_wildcard spec

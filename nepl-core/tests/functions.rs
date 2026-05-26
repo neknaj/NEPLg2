@@ -91,8 +91,27 @@ fn function_neplg21_lambda_param_syntax() {
 fn inc %fn i32 i32 \x:
     add x 1
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     inc 41
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 42);
+}
+
+#[test]
+fn function_neplg21_unit_keyword_marks_zero_arg_signature_and_lambda() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn answer %fn unit i32 \unit:
+    41
+
+fn main %fn unit i32 \unit:
+    let value %i32 answer
+    add value 1
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 42);
@@ -109,7 +128,7 @@ fn function_neplg21_curried_type_notation_flattens_params() {
 fn add_nums %fn i32 fn i32 i32 \a\b:
     add a b
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     add_nums 10 20
 "#;
     let v = run_main_i32(src);
@@ -139,7 +158,7 @@ fn get_op %fn bool (fn i32 fn i32 i32) \cnd:
             sub_op
             @sub_op
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let f get_op true
     f 10 5
 "#;
@@ -165,7 +184,7 @@ fn choose <.U: Drop> %impure fn .U i32 \x:
 fn wrap <.T: Copy> %fn Option .T i32 \opt:
     choose opt
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let opt %Option i32 some 41
     wrap opt
 "#;
@@ -191,7 +210,7 @@ fn positive_double %fn i32 Result i32 str \x:
         then ok mul x 2
         else err "non-positive"
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let opt %Option i32 some 10
     let mapped %Option i32 map opt inc
     let res0 %Result i32 str ok 3
@@ -210,7 +229,7 @@ fn function_neplg21_unconstrained_generic_call_type_args_are_type_error() {
 #target wasm
 #import "core/option" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     if is_none none:
         then 1
         else 0
@@ -226,7 +245,7 @@ fn main %fn () i32 \():
 #target wasm
 #import "core/result" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     if is_err ok 5:
         then 1
         else 0
@@ -242,7 +261,7 @@ fn main %fn () i32 \():
 #target wasm
 #import "core/result" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     if is_ok err 7:
         then 1
         else 0
@@ -262,7 +281,7 @@ fn function_neplg21_generic_call_type_args_resolve_from_explicit_consumer() {
 #import "core/option" as *
 #import "core/result" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     if is_none<i32> none:
         then:
             if is_err<i32,i32> ok 5:
@@ -288,7 +307,7 @@ fn function_neplg21_generic_body_type_params_remain_allowed() {
 fn absent <.T> %fn Option .T bool \opt:
     is_none opt
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     if absent<i32> none:
         then 11
         else 0

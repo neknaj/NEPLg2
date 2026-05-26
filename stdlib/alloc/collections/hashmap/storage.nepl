@@ -39,7 +39,7 @@ pub fn hashmap_storage_values <.K,.V: Copy> %fn &HashMapStorage .K .V &Vec Optio
 //:| #target std
 //:| #import "alloc/collections/hashmap/storage" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     if eq hashmap_normalize_capacity 2 4 0 1
 //: ```
 pub fn hashmap_normalize_capacity %fn i32 i32 \requested:
@@ -56,7 +56,7 @@ pub fn hashmap_normalize_capacity %fn i32 i32 \requested:
 //:| #target std
 //:| #import "alloc/collections/hashmap/storage" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     if eq hashmap_load_limit 8 6 0 1
 //: ```
 pub fn hashmap_load_limit %fn i32 i32 \cap:
@@ -90,28 +90,28 @@ pub fn hashmap_value_at <.V: Copy> %fn &Vec Option .V fn i32 Option .V \values\i
             none<.V>
 
 //: hashmap_store_state: state slot を[書/か]き[換/か]える
-pub fn hashmap_store_state %impure fn &Vec HashMapBucketState impure fn i32 impure fn HashMapBucketState () \states\idx\state:
+pub fn hashmap_store_state %impure fn &Vec HashMapBucketState impure fn i32 impure fn HashMapBucketState unit \states\idx\state:
     vec::replace<HashMapBucketState> states idx state
 
 //: hashmap_store_key: key slot を[書/か]き[換/か]える
-pub fn hashmap_store_key <.K: Copy> %impure fn &Vec Option .K impure fn i32 impure fn Option .K () \keys\idx\key:
+pub fn hashmap_store_key <.K: Copy> %impure fn &Vec Option .K impure fn i32 impure fn Option .K unit \keys\idx\key:
     vec::replace<Option<.K>> keys idx key
 
 //: hashmap_store_value: value slot を[書/か]き[換/か]える
-pub fn hashmap_store_value <.V: Copy> %impure fn &Vec Option .V impure fn i32 impure fn Option .V () \values\idx\value:
+pub fn hashmap_store_value <.V: Copy> %impure fn &Vec Option .V impure fn i32 impure fn Option .V unit \values\idx\value:
     vec::replace<Option<.V>> values idx value
 
 //: hashmap_store_full: slot を Full にして key/value を[格納/かくのう]する
 //:
 //: ### [目的/もくてき]
 //: - state と key/value option を同じ slot index で[同時/どうじ]に[更新/こうしん]します。
-pub fn hashmap_store_full <.K: Copy,.V: Copy> %impure fn &HashMapStorage .K .V impure fn i32 impure fn .K impure fn .V () \storage\idx\key\value:
+pub fn hashmap_store_full <.K: Copy,.V: Copy> %impure fn &HashMapStorage .K .V impure fn i32 impure fn .K impure fn .V unit \storage\idx\key\value:
     hashmap_store_key<.K> hashmap_storage_keys<.K,.V> storage idx some<.K> key
     hashmap_store_value<.V> hashmap_storage_values<.K,.V> storage idx some<.V> value
     hashmap_store_state hashmap_storage_states<.K,.V> storage idx HashMapBucketState::Full
 
 //: hashmap_store_tombstone: slot を tombstone にして payload を None に[戻/もど]す
-pub fn hashmap_store_tombstone <.K: Copy,.V: Copy> %impure fn &HashMapStorage .K .V impure fn i32 () \storage\idx:
+pub fn hashmap_store_tombstone <.K: Copy,.V: Copy> %impure fn &HashMapStorage .K .V impure fn i32 unit \storage\idx:
     hashmap_store_key<.K> hashmap_storage_keys<.K,.V> storage idx none<.K>
     hashmap_store_value<.V> hashmap_storage_values<.K,.V> storage idx none<.V>
     hashmap_store_state hashmap_storage_states<.K,.V> storage idx HashMapBucketState::Tombstone
@@ -120,7 +120,7 @@ pub fn hashmap_store_tombstone <.K: Copy,.V: Copy> %impure fn &HashMapStorage .K
 //:
 //: ### [目的/もくてき]
 //: - states / keys / values の 3 本の Vec owner を[閉/と]じます。
-pub fn hashmap_free_storage <.K: Copy,.V: Copy> %fn HashMapStorage .K .V () \storage:
+pub fn hashmap_free_storage <.K: Copy,.V: Copy> %fn HashMapStorage .K .V unit \storage:
     let states %Vec HashMapBucketState field::get storage "states"
     let keys %Vec Option .K field::get storage "keys"
     let values %Vec Option .V field::get storage "values"

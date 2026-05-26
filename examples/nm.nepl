@@ -44,7 +44,7 @@
 //:
 //: [目的/もくてき]:
 //: - CLI の引数一覧と基本用途をまとめて表示します。
-fn print_usage %impure fn () () \():
+fn print_usage %impure fn unit unit \unit:
     println "Neknaj Markdown (Neknaj Prefix Language) CLI";
     println "";
     println "Reads Markdown from stdin and writes AST or HTML to stdout.";
@@ -56,13 +56,13 @@ fn print_usage %impure fn () () \():
     println "  --ast   Output AST (default)";
     println "  --html  Output HTML";
     println "";
-    ()
+    unit
 
 //: main: 引数に応じて AST か HTML を出力する
 //:
 //: [目的/もくてき]:
 //: - help 表示と通常変換の分岐を行います。
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let argc %i32 cliarg_count;
     let mut mode %str "--ast";
     let mut should_run %bool true;
@@ -86,14 +86,14 @@ fn main %impure fn () () \():
                                             print_usage;
                                             set should_run false;
                                             set i argc;
-                                            ()
+                                            unit
                                         else:
                                             println "warning: unknown option";
                                             print_usage;
                                             set should_run false;
-                                            ()
+                                            unit
                 Option::None:
-                    ()
+                    unit
             set i add i 1;
 
     if:
@@ -107,11 +107,11 @@ fn main %impure fn () () \():
                     let html %str render_document doc;
                     print html;
                     print "\n";
-                    ()
+                    unit
                 else:
                     let ast %str document_to_json doc;
                     print ast;
                     print "\n";
-                    ()
+                    unit
         else:
-            ()
+            unit

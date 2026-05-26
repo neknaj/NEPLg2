@@ -56,7 +56,7 @@
 //:| #import "core/field" as *
 //: fn inc %fn i32 i32 \x:
 //:     add x 1
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -108,7 +108,7 @@ pub fn map <.T: Copy,.U: Copy> %fn Vec .T fn fn .T .U Result Vec .U VecTransform
                                             let mapped %.U f item
                                             store<.U> add mem_ptr_addr out_data mul i size_of<.U> mapped
                                         Option::None:
-                                            ()
+                                            unit
                                     set i add i 1
                             vec_cleanup::free<.T> v
                             let out_buffer %OwnedBuffer .U field::get out0 "buffer"

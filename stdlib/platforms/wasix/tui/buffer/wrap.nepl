@@ -28,7 +28,7 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - O(n + h) （n: テキスト長, h: 描画高さ）
-pub fn buffer_set_wrapped_text %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn str () \b\start_row\cols\height\text:
+pub fn buffer_set_wrapped_text %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn str unit \b\start_row\cols\height\text:
     if:
         and gt height 0 gt cols 0
         then:
@@ -92,11 +92,11 @@ pub fn buffer_set_wrapped_text %impure fn i32 impure fn i32 impure fn i32 impure
                     buffer_set_line b row2 s3p;
                     set row_i add row_i 1;
                 else:
-                    ();
+                    unit;
             while lt row_i height:
                 do:
                     buffer_set_line b add start_row row_i line_pad_to_cols "" cols;
                     set row_i add row_i 1;
         else:
-            ();
-    ()
+            unit;
+    unit

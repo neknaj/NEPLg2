@@ -38,7 +38,7 @@ pub fn len %fn &AdjacencyMatrix i32 \g:
 //:| #import "alloc/collections/adjacency_matrix" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let g %AdjacencyMatrix:
 //:         unwrap_ok<AdjacencyMatrix, Diag> new 4
 //:         |> insert 1 3 |> uwok

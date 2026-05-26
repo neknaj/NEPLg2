@@ -34,7 +34,7 @@ pub fn hashmap_bucket_index <.K: HashKey&Copy,.H: Hasher<.K>&Copy> %fn i32 fn .H
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/collections/hashmap/probe" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "hashmap_next_slot_doc"
 //:         |> test_report_push assert_eq_i32 "next slot" 2 hashmap_next_slot 1 4
@@ -105,7 +105,7 @@ pub fn hashmap_find_insert_slot <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> 
                     if:
                         lt first_tomb 0
                         then set first_tomb cur
-                        else ()
+                        else unit
                     set cur hashmap_next_slot cur cap
                 HashMapBucketState::Full:
                     set cur hashmap_next_slot cur cap
@@ -115,7 +115,7 @@ pub fn hashmap_find_insert_slot <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> 
 //:
 //: ### [目的/もくてき]
 //: - 既存 entry を新しい empty storage へ[再配置/さいはいち]します。
-pub fn hashmap_insert_entry_into_storage <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn &HashMapStorage .K .V impure fn i32 impure fn .H impure fn .K impure fn .V () \storage\cap\hasher\key\value:
+pub fn hashmap_insert_entry_into_storage <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn &HashMapStorage .K .V impure fn i32 impure fn .H impure fn .K impure fn .V unit \storage\cap\hasher\key\value:
     let slot %HashMapInsertSlot hashmap_find_insert_slot<.K,.V,.H> storage cap hasher key
     let idx %i32 field::get slot "index"
     hashmap_store_full<.K,.V> storage idx key value

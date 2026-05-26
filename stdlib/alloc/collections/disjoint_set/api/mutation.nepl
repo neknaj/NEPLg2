@@ -35,7 +35,7 @@
 //:| #import "alloc/collections/disjoint_set" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let dsu0 %DisjointSet unwrap_ok<DisjointSet, Diag> new 5;
 //:     let dsu1 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu0 0 1;
 //:     let dsu2 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu1 1 2;
@@ -48,7 +48,7 @@ pub fn union %impure fn DisjointSet impure fn i32 impure fn i32 Result DisjointS
     if:
         and and le 0 a lt a n and le 0 b lt b n
         then:
-            let result %Result () Diag block:
+            let result %Result unit Diag block:
                 let parent %&Vec i32 field::get_ref &dsu "parent"
                 let sizes %&Vec i32 field::get_ref &dsu "sizes"
                 match dsu_root_storage parent a:
@@ -58,7 +58,7 @@ pub fn union %impure fn DisjointSet impure fn i32 impure fn i32 Result DisjointS
                                 if:
                                     eq ra rb
                                     then:
-                                        ok<(), Diag> ()
+                                        ok<unit, Diag> unit
                                     else:
                                         match dsu_size_storage sizes ra:
                                             Option::Some sa:
@@ -72,19 +72,19 @@ pub fn union %impure fn DisjointSet impure fn i32 impure fn i32 Result DisjointS
                                                                     Option::Some sd:
                                                                         dsu_store_owned parent root_drop root_keep
                                                                         dsu_store_owned sizes root_keep add sk sd
-                                                                        ok<(), Diag> ()
+                                                                        ok<unit, Diag> unit
                                                                     Option::None:
-                                                                        diag_err<()> dsu_diag_index
+                                                                        diag_err<unit> dsu_diag_index
                                                             Option::None:
-                                                                diag_err<()> dsu_diag_index
+                                                                diag_err<unit> dsu_diag_index
                                                     Option::None:
-                                                        diag_err<()> dsu_diag_index
+                                                        diag_err<unit> dsu_diag_index
                                             Option::None:
-                                                diag_err<()> dsu_diag_index
+                                                diag_err<unit> dsu_diag_index
                             Option::None:
-                                diag_err<()> dsu_diag_index
+                                diag_err<unit> dsu_diag_index
                     Option::None:
-                        diag_err<()> dsu_diag_index
+                        diag_err<unit> dsu_diag_index
             match result:
                 Result::Ok _unit:
                     ok<DisjointSet, DisjointSetUpdateError> dsu

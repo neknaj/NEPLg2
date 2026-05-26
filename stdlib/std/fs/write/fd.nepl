@@ -85,25 +85,25 @@ fn fs_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Result () i32 \fd\data\data_len:
+fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Result unit i32 \fd\data\data_len:
     if:
         le data_len 0
         then:
-            Result<(),i32>::Ok ()
+            Result<unit,i32>::Ok unit
         else:
             match alloc_region<u8> 8:
                 Result::Err _e:
-                    Result<(),i32>::Err 12
+                    Result<unit,i32>::Err 12
                 Result::Ok iov_region:
                     let iov_buf %MemPtr u8 region_ptr &iov_region
                     match alloc_region<u8> 4:
                         Result::Err _e:
                             match dealloc_region<u8> iov_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
-                            Result<(),i32>::Err 12
+                                    unit
+                            Result<unit,i32>::Err 12
                         Result::Ok nwritten_region:
                             let nwritten_buf %MemPtr u8 region_ptr &nwritten_region
                             let mut off %i32 0
@@ -130,20 +130,20 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
                                                     set done 1
                             match dealloc_region<u8> nwritten_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             match dealloc_region<u8> iov_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             if:
                                 eq err 0
                                 then:
-                                    Result<(),i32>::Ok ()
+                                    Result<unit,i32>::Ok unit
                                 else:
-                                    Result<(),i32>::Err err
+                                    Result<unit,i32>::Err err
 
 //: fs_write_fd_bytes: fd へ `ByteBuf` をすべて書き込む
 //:
@@ -159,15 +159,15 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
 //:
 //: 計算量:
 //: - 書き込み byte 数 n に対して O(n)
-pub fn fs_write_fd_bytes %impure fn i32 impure fn ByteBuf Result () i32 \fd\bytes:
+pub fn fs_write_fd_bytes %impure fn i32 impure fn ByteBuf Result unit i32 \fd\bytes:
     let data_len %i32 io_bytebuf_len_ref &bytes
     if:
         le data_len 0
         then:
             io_bytebuf_free bytes
-            Result<(),i32>::Ok ()
+            Result<unit,i32>::Ok unit
         else:
             let data %MemPtr u8 io_bytebuf_data_ptr_ref &bytes
-            let result %Result () i32 fs_write_fd_mem_result fd data data_len
+            let result %Result unit i32 fs_write_fd_mem_result fd data data_len
             io_bytebuf_free bytes
             result

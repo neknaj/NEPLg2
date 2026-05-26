@@ -45,15 +45,15 @@
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     print "sample";
 //: ```
-pub fn noshadow print %impure fn str () \s:
+pub fn noshadow print %impure fn str unit \s:
     match stdio_write_str_result s:
         Result::Ok _:
-            ()
+            unit
         Result::Err _:
-            ()
+            unit
 
 //: println: 改行付き出力
 //:
@@ -85,13 +85,13 @@ pub fn noshadow print %impure fn str () \s:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     println "sample";
 //: ```
-pub fn noshadow println %impure fn str () \s:
+pub fn noshadow println %impure fn str unit \s:
     print s;
     print "\n";
-    ()
+    unit
 
 //: print_i32: i32 を文字列にして出力
 //:
@@ -123,12 +123,12 @@ pub fn noshadow println %impure fn str () \s:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     print_i32 42;
 //: ```
-pub fn noshadow print_i32 %impure fn i32 () \v:
+pub fn noshadow print_i32 %impure fn i32 unit \v:
     print string_integer::from_i32 v;
-    ()
+    unit
 
 //: println_i32: i32 を改行付きで出力
 //:
@@ -160,9 +160,9 @@ pub fn noshadow print_i32 %impure fn i32 () \v:
 //:| #indent 4
 //:| #target std
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     println_i32 42;
 //: ```
-pub fn noshadow println_i32 %impure fn i32 () \v:
+pub fn noshadow println_i32 %impure fn i32 unit \v:
     print_i32 v;
     print "\n";

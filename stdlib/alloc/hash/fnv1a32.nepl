@@ -48,7 +48,7 @@ pub struct Fnv1a32:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn new_fnv1a32 %fn () Fnv1a32 \():
+pub fn new_fnv1a32 %fn unit Fnv1a32 \unit:
     Fnv1a32 -2128831035
 
 //: fnv1a32_update: 1 byte を FNV-1a state に混ぜる

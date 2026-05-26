@@ -38,7 +38,7 @@ pub #import "alloc/collections/fenwick/types" as @merge
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let f0 %Fenwick unwrap_ok<Fenwick, Diag> fenwick_new 5;
 //:     let f1 %Fenwick unwrap_ok<Fenwick, FenwickAddError> fenwick_add f0 0 1;
 //:     let f2 %Fenwick unwrap_ok<Fenwick, FenwickAddError> fenwick_add f1 1 2;
@@ -73,7 +73,7 @@ pub fn fenwick_new %impure fn i32 Result Fenwick Diag \n:
 //:
 //: ### [注意/ちゅうい]
 //: - `tree` は move されるため、呼び出し後に再利用してはいけません。
-pub fn fenwick_free %impure fn Fenwick () \tree:
+pub fn fenwick_free %impure fn Fenwick unit \tree:
     let bit %Vec i32 field::get tree "bit"
     fenwick_free_bit bit
 
@@ -86,14 +86,14 @@ pub fn fenwick_add %impure fn Fenwick impure fn i32 impure fn i32 Result Fenwick
     if:
         and le 0 idx lt idx n
         then:
-            let result %Result () Diag block:
+            let result %Result unit Diag block:
                 let bit %&Vec i32 field::get_ref &tree "bit"
                 if:
                     fenwick_add_storage bit n idx delta
                     then:
-                        ok<(), Diag> ()
+                        ok<unit, Diag> unit
                     else:
-                        diag_err<()> fenwick_diag_index
+                        diag_err<unit> fenwick_diag_index
             match result:
                 Result::Ok _unit:
                     ok<Fenwick, FenwickAddError> tree

@@ -87,7 +87,7 @@ fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region<u8> 4:
 //:         Result::Ok region:
 //:             match stdio_discard_read_buffer region StdErrorKind::OutOfMemory:
@@ -105,9 +105,9 @@ fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr
 pub fn stdio_discard_read_buffer %impure fn RegionToken u8 impure fn StdErrorKind Result ByteBuf StdErrorKind \region\err:
     match dealloc_region<u8> region:
         Result::Ok _:
-            ()
+            unit
         Result::Err _:
-            ()
+            unit
     Result<ByteBuf, StdErrorKind>::Err err
 
 //: stdio_finish_read_buffer: capacity 付き読込 region を ByteBuf の所有権 invariant へ詰め直す
@@ -137,9 +137,9 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
         then:
             match dealloc_region<u8> region:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ()
+                    unit
             Result<ByteBuf, StdErrorKind>::Err StdErrorKind::InvalidOperation
         else:
             if:
@@ -147,9 +147,9 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
                 then:
                     match dealloc_region<u8> region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ()
+                            unit
                     Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
                 else:
                     if:
@@ -164,9 +164,9 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
                                     let old_region %RegionToken u8 region_realloc_error_region<u8> e
                                     match dealloc_region<u8> old_region:
                                         Result::Ok _:
-                                            ()
+                                            unit
                                         Result::Err _:
-                                            ()
+                                            unit
                                     Result<ByteBuf, StdErrorKind>::Err StdErrorKind::OutOfMemory
 
 //: ## stdio_read_all_buffer_result
@@ -197,7 +197,7 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
 //:| #import "alloc/io" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match stdio_read_all_buffer_result:
 //:         Result::Ok bytes:
 //:             let n %i32 io_bytebuf_len_ref &bytes
@@ -206,7 +206,7 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
 //:         Result::Err _:
 //:             -1
 //: ```
-pub fn stdio_read_all_buffer_result %impure fn () Result ByteBuf StdErrorKind \():
+pub fn stdio_read_all_buffer_result %impure fn unit Result ByteBuf StdErrorKind \unit:
     let mut cap %i32 65536;
     match alloc_region<u8> cap:
         Result::Err _e:
@@ -222,9 +222,9 @@ pub fn stdio_read_all_buffer_result %impure fn () Result ByteBuf StdErrorKind \(
                         Result::Err _e:
                             match dealloc_region<u8> iov_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             stdio_discard_read_buffer buf_region StdErrorKind::OutOfMemory
                         Result::Ok nread_region:
                             let nread_ptr %MemPtr u8 region_ptr &nread_region
@@ -264,7 +264,7 @@ pub fn stdio_read_all_buffer_result %impure fn () Result ByteBuf StdErrorKind \(
                                                                     set failure StdErrorKind::OutOfMemory;
                                                                     set done 1;
                                         else:
-                                            ();
+                                            unit;
 
                                     if:
                                         math::eq done 0
@@ -294,18 +294,18 @@ pub fn stdio_read_all_buffer_result %impure fn () Result ByteBuf StdErrorKind \(
                                                                 else:
                                                                     set read_len math::add read_len n;
                                         else:
-                                            ();
+                                            unit;
 
                             match dealloc_region<u8> nread_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             match dealloc_region<u8> iov_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
 
                             if:
                                 math::eq failed 1
@@ -342,7 +342,7 @@ pub fn stdio_read_all_buffer_result %impure fn () Result ByteBuf StdErrorKind \(
 //:| #import "alloc/io" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match stdio_read_line_buffer_result:
 //:         Result::Ok bytes:
 //:             let n %i32 io_bytebuf_len_ref &bytes
@@ -351,7 +351,7 @@ pub fn stdio_read_all_buffer_result %impure fn () Result ByteBuf StdErrorKind \(
 //:         Result::Err _:
 //:             -1
 //: ```
-pub fn stdio_read_line_buffer_result %impure fn () Result ByteBuf StdErrorKind \():
+pub fn stdio_read_line_buffer_result %impure fn unit Result ByteBuf StdErrorKind \unit:
     let cap %i32 1024;
     match alloc_region<u8> cap:
         Result::Err _e:
@@ -366,9 +366,9 @@ pub fn stdio_read_line_buffer_result %impure fn () Result ByteBuf StdErrorKind \
                         Result::Err _e:
                             match dealloc_region<u8> iov_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             stdio_discard_read_buffer buf_region StdErrorKind::OutOfMemory
                         Result::Ok nread_region:
                             let nread %MemPtr u8 region_ptr &nread_region
@@ -427,14 +427,14 @@ pub fn stdio_read_line_buffer_result %impure fn () Result ByteBuf StdErrorKind \
 
                             match dealloc_region<u8> nread_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             match dealloc_region<u8> iov_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
 
                             if:
                                 math::eq failed 1

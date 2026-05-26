@@ -15,7 +15,7 @@ stdout: "test_report name=\"block_colon_returns_last_expr_value\" count=1 failed
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %i32 block:
         let a %i32 1;
         let b %i32 2;
@@ -36,7 +36,7 @@ diag_code: type.annotation.mismatch
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %i32 block:
         1;
     x
@@ -51,7 +51,7 @@ diag_code: type.annotation.mismatch
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %i32 block 1;
     x
 ```
@@ -68,8 +68,8 @@ stdout: "test_report name=\"block_colon_last_semicolon_can_be_used_with_unit_con
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
-    let _u %() block:
+fn main %impure fn unit i32 \unit:
+    let _u %unit block:
         add 1 2;
     let report:
         test_report_new "block_colon_last_semicolon_can_be_used_with_unit_context"
@@ -88,8 +88,8 @@ diag_code: type.stack.extra_values
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
-    let _u %() block:
+fn main %fn unit i32 \unit:
+    let _u %unit block:
         add 1 2 3;
     0
 ```
@@ -106,7 +106,7 @@ stdout: "test_report name=\"if_result_expected_i32_without_semicolon_then_ok\" c
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %i32 if:
         true
         then:
@@ -130,7 +130,7 @@ diag_code: type.annotation.mismatch
 #target core
 #import "core/math" as *
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let v %i32 if:
         true
         then:
@@ -150,11 +150,11 @@ diag_code: type.annotation.mismatch
 #target core
 #import "core/math" as *
 
-fn calc %fn () i32 \():
+fn calc %fn unit i32 \unit:
     block:
         add 1 2;
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     calc
 ```
 
@@ -170,7 +170,7 @@ stdout: "test_report name=\"single_line_let_with_semicolon_is_allowed\" count=1 
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %i32 add 1 2;
     let actual %i32 if eq x 3 1 0
     let report:
@@ -189,7 +189,7 @@ diag_code: parser.token.unexpected
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %i32 if:
         true
         then 1

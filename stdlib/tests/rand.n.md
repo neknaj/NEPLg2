@@ -16,7 +16,7 @@ stdout: "test_report name=\"rand_main\" count=4 failed=0\nassertion index=0 stat
 #import "core/math" as *
 #import "core/field" as *
 
-fn test_rand %impure fn () i32 \():
+fn test_rand %impure fn unit i32 \unit:
     let rng0 new_xorshift32 42
 
     let rng1 xorshift32_next rng0

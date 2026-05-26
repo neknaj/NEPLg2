@@ -23,7 +23,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag &e
             btreemap_insert_error_owner e
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 5 50
@@ -67,7 +67,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag &e
             btreemap_insert_error_owner e
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 0 0
@@ -93,7 +93,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set get8_value v
         Option::None:
-            ()
+            unit
     free<i32,i32> m0;
 
     let report:
@@ -129,7 +129,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag &e
             btreemap_insert_error_owner e
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 3 30
@@ -141,7 +141,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set get3_value v
         Option::None:
-            ()
+            unit
     free<i32,i32> m0;
 
     let m1 %BTreeMap i32 i32:
@@ -188,7 +188,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag &e
             btreemap_insert_error_owner e
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 7 70
@@ -200,7 +200,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set updated_value v
         Option::None:
-            ()
+            unit
     free<i32,i32> m0;
 
     let report:
@@ -235,7 +235,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
             let _d %Diag btreemap_insert_error_diag &e
             btreemap_insert_error_owner e
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let m %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
         |> insert<i32,i32> 2 20
@@ -249,7 +249,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set get2_value v
         Option::None:
-            ()
+            unit
     free m;
 
     let report:

@@ -24,10 +24,10 @@ struct Guard:
     dummy %i32
 
 impl Drop for Guard:
-    fn drop %impure fn &Guard () \self:
-        ()
+    fn drop %impure fn &Guard unit \self:
+        unit
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let g %Guard Guard 0;
     let report:
         test_report_new "drop_simple_let"
@@ -58,14 +58,14 @@ struct InnerGuard:
     dummy %i32
 
 impl Drop for OuterGuard:
-    fn drop %impure fn &OuterGuard () \self:
-        ()
+    fn drop %impure fn &OuterGuard unit \self:
+        unit
 
 impl Drop for InnerGuard:
-    fn drop %impure fn &InnerGuard () \self:
-        ()
+    fn drop %impure fn &InnerGuard unit \self:
+        unit
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let outer %OuterGuard OuterGuard 0;
     let branch %i32 if true:
         then:
@@ -104,14 +104,14 @@ struct FalseGuard:
     dummy %i32
 
 impl Drop for TrueGuard:
-    fn drop %impure fn &TrueGuard () \self:
-        ()
+    fn drop %impure fn &TrueGuard unit \self:
+        unit
 
 impl Drop for FalseGuard:
-    fn drop %impure fn &FalseGuard () \self:
-        ()
+    fn drop %impure fn &FalseGuard unit \self:
+        unit
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let flag %bool true;
     let branch %i32 if flag:
         then:
@@ -151,14 +151,14 @@ struct GuardB:
     dummy %i32
 
 impl Drop for GuardA:
-    fn drop %impure fn &GuardA () \self:
-        ()
+    fn drop %impure fn &GuardA unit \self:
+        unit
 
 impl Drop for GuardB:
-    fn drop %impure fn &GuardB () \self:
-        ()
+    fn drop %impure fn &GuardB unit \self:
+        unit
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %GuardA GuardA 0;
     let b %GuardB GuardB 0;
     let report:

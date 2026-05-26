@@ -9,7 +9,7 @@ pub fn selfhost_primitive_type_name_new %fn str fn SelfhostTypeKind SelfhostPrim
     SelfhostPrimitiveTypeName name kind
 
 //: selfhost_primitive_type_count: registry に登録された primitive type name 数を[返/かえ]す
-pub fn selfhost_primitive_type_count %fn () i32 \():
+pub fn selfhost_primitive_type_count %fn unit i32 \unit:
     10
 
 //: selfhost_primitive_type_at: registry index から primitive type name を[返/かえ]す

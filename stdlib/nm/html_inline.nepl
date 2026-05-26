@@ -24,7 +24,7 @@
 //:| #import "alloc/string" as *
 //:| #import "nm/html_inline" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let h %str nm_inline_to_html "a [b/r] <x>"
 //:     if and str_starts_with h "a <ruby" str_ends_with h "&lt;x&gt;" 0 1
 //: ```
@@ -77,7 +77,7 @@ pub fn nm_inline_to_html %fn str str \s:
                     if:
                         and lt add i 1 n string_byte_eq s add i 1 '$'
                         then set delim 2
-                        else ()
+                        else unit
                     let math_end %i32 scan::nm_find_math_end s add i delim delim;
                     if:
                         ge math_end 0
@@ -86,7 +86,7 @@ pub fn nm_inline_to_html %fn str str \s:
                             if:
                                 gt len seg 0
                                 then set sb sb_append sb html::escape_html seg
-                                else ()
+                                else unit
                             let endpos %i32 add math_end delim;
                             set sb sb_append sb str_slice s i endpos;
                             set i endpos;
@@ -104,7 +104,7 @@ pub fn nm_inline_to_html %fn str str \s:
                     if:
                         and ge close 0 lt add close 1 n
                         then set next_is_paren string_byte_eq s add close 1 '('
-                        else ()
+                        else unit
                     if:
                         and ge close 0 and ge slash 0 not next_is_paren
                         then:
@@ -112,7 +112,7 @@ pub fn nm_inline_to_html %fn str str \s:
                             if:
                                 gt len seg 0
                                 then set sb sb_append sb html::escape_html seg
-                                else ()
+                                else unit
                             let base %str str_slice s add i 1 slash;
                             let rub %str str_slice s add slash 1 close;
                             set sb sb_append sb "<ruby class=\"nm-ruby\"><rb>";
@@ -138,7 +138,7 @@ pub fn nm_inline_to_html %fn str str \s:
                             if:
                                 gt len seg 0
                                 then set sb sb_append sb html::escape_html seg
-                                else ()
+                                else unit
                             let main %str str_slice s add i 1 first_slash;
                             set sb sb_append sb "<ruby class=\"nm-anno\"><rb>";
                             set sb sb_append sb nm_inline_to_html main;
@@ -175,5 +175,5 @@ pub fn nm_inline_to_html %fn str str \s:
     if:
         gt len tail 0
         then set sb sb_append sb html::escape_html tail
-        else ()
+        else unit
     sb_build sb

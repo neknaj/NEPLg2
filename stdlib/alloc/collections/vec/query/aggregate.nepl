@@ -43,7 +43,7 @@
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -69,9 +69,9 @@ pub fn count <.T: Copy> %fn &Vec .T fn fn .T bool i32 \v\p:
                         Option::Some item:
                             if cond p item:
                                 then set out add out 1
-                                else ()
+                                else unit
                         Option::None:
-                            ()
+                            unit
                     set i add i 1
             out
 
@@ -104,11 +104,11 @@ pub fn count <.T: Copy> %fn &Vec .T fn fn .T bool i32 \v\p:
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
 //: fn is_even_payload %fn &DropPayload bool \item:
 //:     eq rem_s *field::get_ref item "value" 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
 //:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 2)
 //:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 3)
@@ -130,7 +130,7 @@ pub fn count_ref <.T> %fn &Vec .T fn fn &.T bool i32 \v\p:
                     if:
                         vec_borrow::borrow_at_predicate_or<.T> v i p false
                         then set out add out 1
-                        else ()
+                        else unit
                     set i add i 1
             out
 
@@ -160,7 +160,7 @@ pub fn count_ref <.T> %fn &Vec .T fn fn &.T bool i32 \v\p:
 //:| #import "core/result" as *
 //: fn add_acc %fn i32 fn i32 i32 \acc\x:
 //:     add acc x
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -185,7 +185,7 @@ pub fn fold <.T: Copy,.U> %fn &Vec .T fn .U fn fn .U fn .T .U .U \v\acc\f:
                         Option::Some item:
                             set out f out item
                         Option::None:
-                            ()
+                            unit
                     set i add i 1
             out
 
@@ -216,7 +216,7 @@ pub fn fold <.T: Copy,.U> %fn &Vec .T fn .U fn fn .U fn .T .U .U \v\acc\f:
 //:| #import "core/result" as *
 //: fn add_acc %fn i32 fn i32 i32 \acc\x:
 //:     add acc x
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -253,6 +253,6 @@ pub fn reduce <.T: Copy> %fn &Vec .T fn fn .T fn .T .T Option .T \v\f:
                                         Option::Some item:
                                             set out f out item
                                         Option::None:
-                                            ()
+                                            unit
                                     set i add i 1
                             some<.T> out

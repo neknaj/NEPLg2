@@ -18,7 +18,7 @@ stdout: "test_report name=\"vec_main\" count=10 failed=0\nassertion index=0 stat
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0_empty %Vec i32 unwrap_ok new<i32>;
     let v0_is_empty %bool is_empty &v0_empty;
     let v0_cap %Vec i32 unwrap_ok with_capacity<i32> 2;
@@ -51,7 +51,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set g2_value x
         Option::None:
-            ()
+            unit
 
     let s2:
         unwrap_ok new<i32>
@@ -72,7 +72,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set s2_ref_value x
         Option::None:
-            ()
+            unit
 
     let o1:
         unwrap_ok new<i32>
@@ -98,7 +98,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set b1_value cast x
         Option::None:
-            ()
+            unit
 
     free v0_empty;
     free v0_cap;
@@ -160,7 +160,7 @@ fn gt_two %fn i32 bool \x:
 fn lt_four %fn i32 bool \x:
     lt x 4
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mapped_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -172,7 +172,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set mapped_value x
         Option::None:
-            ()
+            unit
 
     let filtered_len_src %Vec i32:
         unwrap_ok new<i32>
@@ -194,7 +194,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set filtered_value x
         Option::None:
-            ()
+            unit
 
     let folded_src %Vec i32:
         unwrap_ok new<i32>
@@ -215,7 +215,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set reduced_value x
         Option::None:
-            ()
+            unit
 
     let find_src %Vec i32:
         unwrap_ok new<i32>
@@ -227,7 +227,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set find_value x
         Option::None:
-            ()
+            unit
 
     let any_src %Vec i32:
         unwrap_ok new<i32>
@@ -286,7 +286,7 @@ stdout: "test_report name=\"vec_partition_helpers\" count=4 failed=0\nassertion 
 fn is_even %fn i32 bool \x:
     eq rem_s x 2 0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let partition_even_len_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -307,7 +307,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set evens_get_value x
         Option::None:
-            ()
+            unit
     let partition_odds_len_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -328,7 +328,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set odds_get_value x
         Option::None:
-            ()
+            unit
 
     vec_partition_free<i32> parts_even_len;
     vec_partition_free<i32> parts_even_get;
@@ -364,7 +364,7 @@ stdout: "test_report name=\"vec_prefix_helpers\" count=1 failed=0\nassertion ind
 fn lt_four %fn i32 bool \x:
     lt x 4
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let take_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -404,7 +404,7 @@ stdout: "test_report name=\"vec_drop_while_helper\" count=1 failed=0\nassertion 
 fn lt_four %fn i32 bool \x:
     lt x 4
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let drop_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -418,7 +418,7 @@ fn main %impure fn () i32 \():
         Option::Some x:
             set dropped_first x
         Option::None:
-            ()
+            unit
     free<i32> dropped;
 
     let report:
@@ -447,7 +447,7 @@ stdout: "test_report name=\"vec_count_helper\" count=1 failed=0\nassertion index
 fn is_even %fn i32 bool \x:
     eq rem_s x 2 0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let count_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok

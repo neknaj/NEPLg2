@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/math/convert/float/int_to_float" as *
 //:| #import "core/math/convert/float/float_to_i32" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     trunc_s_f64_to_i32 convert_s_i32_to_f64 7
 //: ```
 

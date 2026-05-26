@@ -32,7 +32,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec/invariant" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     let reason %VecStorageInvariantInvalid VecStorageInvariantInvalid::LengthExceedsCapacity
 //:     let ok %bool match reason:
 //:         VecStorageInvariantInvalid::NegativeLength:
@@ -77,9 +77,9 @@ pub enum VecStorageInvariantInvalid:
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
-//: fn main %impure fn () i32 \():
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec DropPayload unwrap_ok new<DropPayload>
 //:     let ok %bool match vec_current_storage_invariant<DropPayload> &v:
 //:         VecStorageInvariant::Valid:
@@ -106,7 +106,7 @@ pub enum VecStorageInvariant:
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec/invariant" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     let reason %VecCopyInvariantInvalid VecCopyInvariantInvalid::LengthExceedsCapacity
 //:     let ok %bool match reason:
 //:         VecCopyInvariantInvalid::NegativeLength:
@@ -147,7 +147,7 @@ pub enum VecCopyInvariantInvalid:
 //:| #import "alloc/collections/vec/invariant" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32 unwrap_ok new<i32>
 //:     let valid_ok %bool match vec_current_copy_invariant<i32> &v:
 //:         VecCopyInvariant::Valid:
@@ -265,9 +265,9 @@ pub fn vec_buffer_current_storage_invariant <.T> %fn &OwnedBuffer .T VecStorageI
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
-//: fn main %impure fn () i32 \():
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec DropPayload unwrap_ok with_capacity<DropPayload> 2
 //:     let ok %bool match vec_current_storage_invariant<DropPayload> &v:
 //:         VecStorageInvariant::Valid:
@@ -302,7 +302,7 @@ pub fn vec_current_storage_invariant <.T> %fn &Vec .T VecStorageInvariant \v:
 //:| #import "alloc/collections/vec" as *
 //:| #import "alloc/collections/vec/invariant" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32 unwrap_ok new<i32>;
 //:     let ok %bool match vec_current_copy_invariant<i32> &v:
 //:         VecCopyInvariant::Valid:
@@ -333,7 +333,7 @@ pub fn vec_buffer_current_copy_invariant <.T: Copy> %fn &OwnedBuffer .T VecCopyI
 //:| #import "alloc/collections/vec" as *
 //:| #import "alloc/collections/vec/invariant" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>
 //:     let v1 %Vec i32 unwrap_ok push<i32> v0 1
 //:     let ok %bool match vec_current_copy_invariant<i32> &v1:

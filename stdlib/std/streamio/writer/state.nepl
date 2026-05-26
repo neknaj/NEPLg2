@@ -65,10 +65,10 @@ pub fn stream_writer_new %impure fn StreamWriterTargetKind Result StreamWriter s
 //: ### [注意/ちゅうい]
 //: - 公開 API 名 `close` は `std/streamio/writer` root が所有します。この helper は state layout を知る実装境界です。
 //: - 未 flush の[内容/ないよう]は[捨/す]てられます。[必要/ひつよう]なら[先/さき]に root の `flush` を[呼/よ]んでください。
-pub fn stream_writer_close_impl %impure fn StreamWriter () \w:
+pub fn stream_writer_close_impl %impure fn StreamWriter unit \w:
     let builder %ByteBuilder get w "builder";
     byte_builder_free builder
-    ()
+    unit
 
 //: ## drain_impl
 //: buffered sink の[内容/ないよう]を target fd へ[書/か]き[出/だ]す
@@ -91,15 +91,15 @@ pub fn drain_impl %impure fn StreamWriter StreamWriter \w:
                 StreamWriterTargetKind::Stdout:
                     match stdio_write_fd_bytebuilder_prefix_result 1 &builder write_len:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ()
+                            unit
                 StreamWriterTargetKind::Stderr:
                     match stdio_write_fd_bytebuilder_prefix_result 2 &builder write_len:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ()
+                            unit
             StreamWriter byte_builder_with_len builder 0 target @stream_writer_noncopy_marker
 
 //: ## reserve_impl

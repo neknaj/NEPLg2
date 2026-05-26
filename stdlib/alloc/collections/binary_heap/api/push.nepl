@@ -32,7 +32,7 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //:| #import "core/option" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hp0 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> new<i32>;
 //:     let hp1 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp0 2;
 //:     let hp2 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, BinaryHeapPushError<i32>> push<i32> hp1 7;

@@ -70,7 +70,7 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
                                             if:
                                                 or eq part_start part_end str_range_eq path part_start part_end "."
                                                 then:
-                                                    ()
+                                                    unit
                                                 else:
                                                     if:
                                                         str_range_eq path part_start part_end ".."

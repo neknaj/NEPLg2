@@ -10,7 +10,7 @@
 #import "./primitive_registry" as *
 
 //: selfhost_prelude_stage0_char_ok: primitive registry に `char` があるか[返/かえ]す
-pub fn selfhost_prelude_stage0_char_ok %fn () bool \():
+pub fn selfhost_prelude_stage0_char_ok %fn unit bool \unit:
     match selfhost_primitive_type_at 5:
         Option::Some primitive:
             selfhost_type_kind_eq primitive.kind SelfhostTypeKind::Char
@@ -18,7 +18,7 @@ pub fn selfhost_prelude_stage0_char_ok %fn () bool \():
             false
 
 //: selfhost_prelude_stage0_float_never_ok: primitive registry に floating / never type があるか[返/かえ]す
-pub fn selfhost_prelude_stage0_float_never_ok %fn () bool \():
+pub fn selfhost_prelude_stage0_float_never_ok %fn unit bool \unit:
     match selfhost_primitive_type_at 7:
         Option::Some f32_primitive:
             match selfhost_primitive_type_at 8:
@@ -37,7 +37,7 @@ pub fn selfhost_prelude_stage0_float_never_ok %fn () bool \():
             false
 
 //: selfhost_prelude_stage0_alloc_ok: `alloc` builtin metadata が Rust surface と合うか[返/かえ]す
-pub fn selfhost_prelude_stage0_alloc_ok %fn () bool \():
+pub fn selfhost_prelude_stage0_alloc_ok %fn unit bool \unit:
     match selfhost_builtin_function_at 0:
         Option::Some builtin:
             if:
@@ -61,7 +61,7 @@ pub fn selfhost_prelude_stage0_alloc_ok %fn () bool \():
             false
 
 //: selfhost_prelude_stage0_realloc_ok: `realloc` builtin metadata が Rust surface と合うか[返/かえ]す
-pub fn selfhost_prelude_stage0_realloc_ok %fn () bool \():
+pub fn selfhost_prelude_stage0_realloc_ok %fn unit bool \unit:
     match selfhost_builtin_function_at 2:
         Option::Some builtin:
             if:
@@ -78,11 +78,11 @@ pub fn selfhost_prelude_stage0_realloc_ok %fn () bool \():
             false
 
 //: selfhost_prelude_stage0_no_extra_builtin_ok: 範囲外 index が `None` か[返/かえ]す
-pub fn selfhost_prelude_stage0_no_extra_builtin_ok %fn () bool \():
+pub fn selfhost_prelude_stage0_no_extra_builtin_ok %fn unit bool \unit:
     is_none<SelfhostBuiltinFunction> selfhost_builtin_function_at 3
 
 //: selfhost_prelude_stage0: builtins / prelude registry の最小 sanity check
-pub fn selfhost_prelude_stage0 %fn () i32 \():
+pub fn selfhost_prelude_stage0 %fn unit i32 \unit:
     if:
         not eq selfhost_primitive_type_count 10
         then:

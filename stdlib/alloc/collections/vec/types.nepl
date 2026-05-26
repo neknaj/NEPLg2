@@ -32,7 +32,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let storage %VecStorage i32 VecStorage::Empty;
 //:     match storage:
 //:         VecStorage::Empty:
@@ -68,7 +68,7 @@ pub enum VecStorage<.T>:
 //:| #entry main
 //:| #target std
 //:| #import "alloc/collections/vec" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let _buffer %OwnedBuffer i32 OwnedBuffer<i32> 0 0 0 VecStorage::Empty;
 //:     0
 //: ```
@@ -104,7 +104,7 @@ pub struct OwnedBuffer<.T>:
 //:| #target std
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32 unwrap_ok new<i32>;
 //:     let moved %Vec i32 v;
 //:     free<i32> v;
@@ -193,7 +193,7 @@ pub fn vec_transform_error_kind <.T> %fn &VecTransformError .T StdErrorKind \e:
 //: fn recover_transform %impure fn Vec i32 impure fn StdErrorKind i32 \returned\_error:
 //:     free<i32> returned
 //:     1
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>
 //:     let v1 %Vec i32 unwrap_ok<Vec<i32>, VecPushError<i32>> push<i32> v0 1
 //:     match map<i32,i32> v1 @inc:
@@ -235,7 +235,7 @@ pub fn vec_transform_error_vec <.T: Copy> %fn VecTransformError .T Vec .T \e:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>;
 //:     let v1 %Vec i32 unwrap_ok push<i32> v0 4;
 //:     let p %VecPop i32 pop<i32> v1;
@@ -268,7 +268,7 @@ pub struct VecPop<.T>:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>;
 //:     let v1 %Vec i32 unwrap_ok push<i32> v0 8;
 //:     let p %VecPop i32 pop<i32> v1;
@@ -302,7 +302,7 @@ pub fn vec_pop_item <.T: Copy> %fn &VecPop .T Option .T \p:
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>;
 //:     let v1 %Vec i32 unwrap_ok push<i32> v0 9;
 //:     let p %VecPop i32 pop<i32> v1;
@@ -344,7 +344,7 @@ pub fn vec_pop_with <.T,.R> %impure fn VecPop .T impure fn impure fn Vec .T impu
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok

@@ -29,7 +29,7 @@
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let ys %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -115,7 +115,7 @@ fn vec_filter_drain_to_output <.T: Drop> %impure fn RegionToken .T impure fn Reg
 //: ### [目的/もくてき]
 //: - `collection_slot_transform_range` により source initialized range を moved-out / dropped 済みにした後、backing storage owner を閉じます。
 //: - storage release を `free` に見せかけず、transform 専用の source drain 境界として raw dealloc と marker を並べます。
-fn vec_filter_release_storage <.T> %impure fn RegionToken .T () \region:
+fn vec_filter_release_storage <.T> %impure fn RegionToken .T unit \region:
     let raw %i32 field::get region "raw"
     let total_size %i32 field::get region "size"
     allocator::dealloc_raw raw total_size
@@ -136,9 +136,9 @@ pub fn filter <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformErro
                         Option::Some item:
                             if cond p item:
                                 then set keep_len add keep_len 1
-                                else ()
+                                else unit
                         Option::None:
-                            ()
+                            unit
                     set i add i 1
             match vec_storage::with_capacity<.T> keep_len:
                 Result::Err e:
@@ -173,9 +173,9 @@ pub fn filter <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformErro
                                                 then:
                                                     store<.T> add mem_ptr_addr out_data mul write_i size_of<.T> item
                                                     set write_i add write_i 1
-                                                else ()
+                                                else unit
                                         Option::None:
-                                            ()
+                                            unit
                                     set read_i add read_i 1
                             vec_cleanup::free<.T> v
                             let out_buffer %OwnedBuffer .T field::get out0 "buffer"

@@ -15,7 +15,7 @@ diag_codes: parser.token.unexpected
 fn take %fn i32,bool i32 \t:
     7
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     take (1, true)
 ```
 
@@ -29,7 +29,7 @@ diag_codes: parser.token.unexpected
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let t (3, true)
     0
 ```
@@ -44,7 +44,7 @@ diag_codes: parser.token.unexpected
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let t %i32,i32 Tuple:
         1
         2
@@ -61,7 +61,7 @@ diag_codes: parser.identifier.expected, parser.token.unexpected
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let t Tuple:
         1
         2
@@ -78,7 +78,7 @@ diag_codes: parser.identifier.expected
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let t Tuple:
         Tuple:
             1

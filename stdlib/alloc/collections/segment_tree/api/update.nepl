@@ -39,7 +39,7 @@ pub fn seg_update_err %fn SegmentTree fn Diag Result SegmentTree SegmentTreeUpda
 //:| #import "alloc/collections/segment_tree" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let st0 %SegmentTree unwrap_ok<SegmentTree, Diag> new 4;
 //:     let st1 %SegmentTree unwrap_ok<SegmentTree, SegmentTreeUpdateError> replace st0 1 5;
 //:     let total %i32 unwrap_ok<i32, Diag> sum_range &st1 0 4;
@@ -52,19 +52,19 @@ pub fn replace %impure fn SegmentTree impure fn i32 impure fn i32 Result Segment
     if:
         and le 0 idx lt idx n
         then:
-            let result %Result () Diag block:
+            let result %Result unit Diag block:
                 let data %&Vec i32 field::get_ref &st "data"
                 if:
                     not seg_storage_has_expected_len data base
                     then:
-                        diag_err<()> seg_diag_index
+                        diag_err<unit> seg_diag_index
                     else:
                         if:
                             seg_replace_storage data base idx value
                             then:
-                                ok<(), Diag> ()
+                                ok<unit, Diag> unit
                             else:
-                                diag_err<()> seg_diag_index
+                                diag_err<unit> seg_diag_index
             match result:
                 Result::Ok _unit:
                     seg_update_ok st
@@ -84,7 +84,7 @@ pub fn replace %impure fn SegmentTree impure fn i32 impure fn i32 Result Segment
 //:| #import "alloc/collections/segment_tree" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let st %SegmentTree:
 //:         unwrap_ok<SegmentTree, Diag> new 4
 //:         |> add 0 2 |> uwok
@@ -99,19 +99,19 @@ pub fn add %impure fn SegmentTree impure fn i32 impure fn i32 Result SegmentTree
     if:
         and le 0 idx lt idx n
         then:
-            let result %Result () Diag block:
+            let result %Result unit Diag block:
                 let data %&Vec i32 field::get_ref &st "data"
                 if:
                     not seg_storage_has_expected_len data base
                     then:
-                        diag_err<()> seg_diag_index
+                        diag_err<unit> seg_diag_index
                     else:
                         if:
                             seg_add_storage data base idx delta
                             then:
-                                ok<(), Diag> ()
+                                ok<unit, Diag> unit
                             else:
-                                diag_err<()> seg_diag_index
+                                diag_err<unit> seg_diag_index
             match result:
                 Result::Ok _unit:
                     seg_update_ok st

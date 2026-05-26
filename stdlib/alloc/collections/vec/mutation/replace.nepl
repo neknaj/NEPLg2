@@ -23,7 +23,7 @@
 //: ### [目的/もくてき]
 //: - `replace<T: Copy>` の raw `load` / `store` と `collection_slot_replace_drop_old` marker を同じ source boundary に[閉/と]じます。
 //: - Copy payload では old value の destructor は不要ですが、slot が initialized であり、上書き後も initialized として残ることを Resource IR lifecycle に[渡/わた]します。
-fn vec_replace_copy_initialized_slot <.T: Copy> %impure fn &RegionToken .T impure fn i32 impure fn .T () \storage\byte_off\item:
+fn vec_replace_copy_initialized_slot <.T: Copy> %impure fn &RegionToken .T impure fn i32 impure fn .T unit \storage\byte_off\item:
     let data %MemPtr .T region_ptr storage
     let slot %MemPtr .T mem_ptr_add<.T> data byte_off
     let raw %i32 mem_ptr_addr slot
@@ -37,7 +37,7 @@ fn vec_replace_copy_initialized_slot <.T: Copy> %impure fn &RegionToken .T impur
 //: ### [目的/もくてき]
 //: - old payload を raw load し、actual `Drop::drop` proof を作ってから new `item` を store します。
 //: - `collection_slot_replace_drop_old` marker は old drop proof と new store proof の後に[発行/はっこう]し、stdlib 関数名の allowlist ではなく汎用 Resource IR proof boundary で replacement を[証明/しょうめい]します。
-fn vec_replace_drop_old_initialized_slot <.T: Drop> %impure fn &RegionToken .T impure fn i32 impure fn .T () \storage\byte_off\item:
+fn vec_replace_drop_old_initialized_slot <.T: Drop> %impure fn &RegionToken .T impure fn i32 impure fn .T unit \storage\byte_off\item:
     let data %MemPtr .T region_ptr storage
     let slot %MemPtr .T mem_ptr_add<.T> data byte_off
     let raw %i32 mem_ptr_addr slot
@@ -71,32 +71,32 @@ fn vec_replace_drop_old_initialized_slot <.T: Drop> %impure fn &RegionToken .T i
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>;
 //:     let v1 %Vec i32 unwrap_ok push v0 1;
 //:     replace<i32> &v1 0 5;
 //:     free<i32> v1;
 //:     0
 //: ```
-pub fn replace <.T: Copy> %impure fn &Vec .T impure fn i32 impure fn .T () \v\idx\item:
+pub fn replace <.T: Copy> %impure fn &Vec .T impure fn i32 impure fn .T unit \v\idx\item:
     let v_buffer %&OwnedBuffer .T field::get_ref v "buffer"
     let v_len %i32 *field::get_ref v_buffer "len"
     let v_storage %&VecStorage .T field::get_ref v_buffer "storage"
     match vec_buffer_current_storage_invariant<.T> v_buffer:
         VecStorageInvariant::Invalid _reason:
-            ()
+            unit
         VecStorageInvariant::Valid:
             if:
                 lt idx 0
-                then ()
+                then unit
                 else:
                     if:
                         le v_len idx
-                        then ()
+                        then unit
                         else:
                             match v_storage:
                                 VecStorage::Empty:
-                                    ()
+                                    unit
                                 VecStorage::Owned region:
                                     let byte_off %i32 mul idx size_of<.T>
                                     vec_replace_copy_initialized_slot<.T> region byte_off item
@@ -122,9 +122,9 @@ pub fn replace <.T: Copy> %impure fn &Vec .T impure fn i32 impure fn .T () \v\id
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
-//: fn main %impure fn () i32 \():
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
 //:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
 //:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecReplaceError<DropPayload>> replace_drop_old<DropPayload> v1 0 (DropPayload 2)

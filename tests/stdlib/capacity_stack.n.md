@@ -20,7 +20,7 @@ fn depth %fn i32 fn i32 i32 \n\acc:
     else:
         depth sub n 1 add acc 1
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 depth 64 0
     let report:
         test_report_new "stage1_recursive_depth_64"
@@ -47,7 +47,7 @@ fn depth %fn i32 fn i32 i32 \n\acc:
     else:
         depth sub n 1 add acc 1
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let actual %i32 depth 512 0
     let report:
         test_report_new "stage2_recursive_depth_512"
@@ -71,7 +71,7 @@ stdout: "test_report name=\"stage3_vec_growth_4096\" count=1 failed=0\nassertion
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut v %Vec i32 uwok new<i32>;
     let mut i %i32 0;
     while lt i 4096:
@@ -102,61 +102,61 @@ stdout: "test_report name=\"stage4_mem_block_store_load\" count=4 failed=0\nasse
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let n %i32 1024;
     let mut a %i32 -1;
     let mut b %i32 -1;
     let mut c %i32 -1;
     match alloc_region<i32> n:
         Result::Err _e:
-            ()
+            unit
         Result::Ok region:
             let mid_off %i32 mul 512 4
             let last_off %i32 mul 1023 4
             match region_ptr_at<i32, i32> &region 0:
                 Result::Err _:
-                    ()
+                    unit
                 Result::Ok first_ptr:
                     match region_ptr_at<i32, i32> &region mid_off:
                         Result::Err _:
-                            ()
+                            unit
                         Result::Ok mid_ptr:
                             match region_ptr_at<i32, i32> &region last_off:
                                 Result::Err _:
-                                    ()
+                                    unit
                                 Result::Ok last_ptr:
                                     match store_i32 first_ptr 0:
                                         Result::Err _:
-                                            ()
+                                            unit
                                         Result::Ok _:
                                             match store_i32 mid_ptr 512:
                                                 Result::Err _:
-                                                    ()
+                                                    unit
                                                 Result::Ok _:
                                                     match store_i32 last_ptr 1023:
                                                         Result::Err _:
-                                                            ()
+                                                            unit
                                                         Result::Ok _:
                                                             match load_i32 first_ptr:
                                                                 Option::Some value:
                                                                     set a value
                                                                 Option::None:
-                                                                    ()
+                                                                    unit
                                                             match load_i32 mid_ptr:
                                                                 Option::Some value:
                                                                     set b value
                                                                 Option::None:
-                                                                    ()
+                                                                    unit
                                                             match load_i32 last_ptr:
                                                                 Option::Some value:
                                                                     set c value
                                                                 Option::None:
-                                                                    ()
+                                                                    unit
             match dealloc_region<i32> region:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _:
-                    ()
+                    unit
     let total %i32 add add a b c
     let report:
         test_report_new "stage4_mem_block_store_load"
@@ -181,7 +181,7 @@ stdout: "test_report name=\"stage5_string_builder_len_3000\" count=1 failed=0\na
 #import "alloc/string" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut sb %StringBuilder string_builder_new;
     let mut i %i32 0;
     while lt i 1500:
@@ -231,7 +231,7 @@ fn depth %fn i32 i32 \n:
     else:
         add 1 depth sub n 1
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut v %Vec Kind uwok new<Kind>;
     set v uwok push<Kind> v Kind::A;
     set v uwok push<Kind> v Kind::B;

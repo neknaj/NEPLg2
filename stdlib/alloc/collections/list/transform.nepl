@@ -84,7 +84,7 @@ pub fn filter <.T: Copy> %impure fn List .T impure fn fn .T bool Result List .T 
                                             set failure error
                                             set failed true
                                 else:
-                                    ()
+                                    unit
                             set i add i 1
                         Option::None:
                             set failure StdErrorKind::InvalidOperation

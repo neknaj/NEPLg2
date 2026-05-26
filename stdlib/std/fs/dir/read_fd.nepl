@@ -82,9 +82,9 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                         Result::Err _e:
                             match dealloc_region<u8> buf_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             v::free<str> entries
                             Result<Vec<str>,i32>::Err 12
                         Result::Ok used_region:
@@ -136,7 +136,7 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                                                                     if:
                                                                                         fs_dir_name_is_dot name
                                                                                         then:
-                                                                                            ()
+                                                                                            unit
                                                                                         else:
                                                                                             match v::push<str> entries name:
                                                                                                 Result::Ok next_entries:
@@ -151,17 +151,17 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                                         then:
                                                             set done true
                                                         else:
-                                                            ()
+                                                            unit
                             match dealloc_region<u8> used_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             match dealloc_region<u8> buf_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             if:
                                 eq err 0
                                 then:

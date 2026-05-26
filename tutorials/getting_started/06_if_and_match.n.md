@@ -44,7 +44,7 @@ fn escape_code %fn char i32 \c:
         _:
             0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks:
         checks_new
         |> checks_push assert_eq_i32 0 grade 40

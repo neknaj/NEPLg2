@@ -94,7 +94,7 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>;
 //:     let v1 %Vec i32 unwrap_ok push v0 4;
 //:     let p pop<i32> v1;
@@ -115,8 +115,8 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
 //: fn finish %impure fn Vec DropPayload impure fn Option DropPayload i32 \next\item:
 //:     let len_ok %bool eq len<DropPayload> &next 0
 //:     match item:
@@ -127,7 +127,7 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //:         Option::None:
 //:             free<DropPayload> next
 //:             1
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
 //:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 4)
 //:     let p %VecPop DropPayload pop<DropPayload> v1
@@ -144,7 +144,7 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //:     value %i32
 //: fn ignore_plain %impure fn Vec NonCopyPayload impure fn Option NonCopyPayload i32 \_next\_item:
 //:     0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec NonCopyPayload vec_empty<NonCopyPayload>;
 //:     let p pop<NonCopyPayload> v0;
 //:     vec_pop_with<NonCopyPayload,i32> p @ignore_plain
@@ -171,7 +171,7 @@ pub fn pop <.T: Drop> %fn Vec .T VecPop .T \v:
 //: ### [目的/もくてき]
 //: - `.T: Copy` では destructor 実行は不要ですが、`drop_last` が removed tail slot の initialized state を metadata だけで消したことにしないよう、raw load witness と `collection_slot_drop_initialized` marker を同じ private helper に[閉/と]じます。
 //: - caller は `VecStorageInvariant` で `len == initialized_len` と backing extent を[確認/かくにん]してから、この helper に末尾 byte offset を[渡/わた]します。
-fn vec_drop_last_copy_initialized_slot <.T: Copy> %fn &RegionToken .T fn i32 () \storage\byte_off:
+fn vec_drop_last_copy_initialized_slot <.T: Copy> %fn &RegionToken .T fn i32 unit \storage\byte_off:
     let data %MemPtr .T region_ptr storage
     let slot %MemPtr .T mem_ptr_add<.T> data byte_off
     let raw %i32 mem_ptr_addr slot
@@ -184,7 +184,7 @@ fn vec_drop_last_copy_initialized_slot <.T: Copy> %fn &RegionToken .T fn i32 () 
 //: ### [目的/もくてき]
 //: - `.T: Drop` の removed tail slot を raw load し、actual `Drop::drop` proof と `collection_slot_drop_initialized` marker を同じ source boundary に[置/お]きます。
 //: - stdlib 関数名の allowlist ではなく、Resource IR の raw value-flow proof と Drop proof で single-slot cleanup を[証明/しょうめい]します。
-fn vec_drop_last_drop_initialized_slot <.T: Drop> %impure fn &RegionToken .T impure fn i32 () \storage\byte_off:
+fn vec_drop_last_drop_initialized_slot <.T: Drop> %impure fn &RegionToken .T impure fn i32 unit \storage\byte_off:
     let data %MemPtr .T region_ptr storage
     let slot %MemPtr .T mem_ptr_add<.T> data byte_off
     let raw %i32 mem_ptr_addr slot
@@ -211,7 +211,7 @@ fn vec_drop_last_drop_initialized_slot <.T: Drop> %impure fn &RegionToken .T imp
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 10 |> uwok
@@ -244,9 +244,9 @@ pub fn drop_last <.T: Copy> %fn Vec .T Vec .T \v:
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
-//: fn main %impure fn () i32 \():
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
+//: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
 //:     let v1 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v0 (DropPayload 1)
 //:     let v2 %Vec DropPayload unwrap_ok<Vec<DropPayload>, VecPushError<DropPayload>> push<DropPayload> v1 (DropPayload 2)

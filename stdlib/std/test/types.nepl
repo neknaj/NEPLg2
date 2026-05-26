@@ -126,21 +126,21 @@ pub fn test_assertion_fail %fn str fn str TestAssertion \label\message:
 //: [目的/もくてき]:
 //: - `TestAssertion` / `TestReport` は表示用の `str` を保持するため、exit code へ変換する最終境界では保持していた文字列を明示的に消費します。
 //: - 参照で観測する helper と、所有値を終端する helper を分け、浅い `Copy` に依存しない線形な流れにします。
-pub fn test_consume_str %fn str () \s:
+pub fn test_consume_str %fn str unit \s:
     len s
-    ()
+    unit
 
-pub fn test_consume_i32 %fn i32 () \n:
+pub fn test_consume_i32 %fn i32 unit \n:
     add n 0
-    ()
+    unit
 
-pub fn test_assertion_release %fn TestAssertion () \a:
+pub fn test_assertion_release %fn TestAssertion unit \a:
     test_consume_str get a "label"
     test_consume_str get a "expected"
     test_consume_str get a "actual"
     test_consume_str get a "message"
 
-pub fn test_report_release %fn TestReport () \report:
+pub fn test_report_release %fn TestReport unit \report:
     test_consume_str get report "name"
     test_consume_i32 get report "count"
     test_consume_i32 get report "failed_count"

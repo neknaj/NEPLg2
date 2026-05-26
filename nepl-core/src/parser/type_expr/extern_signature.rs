@@ -118,7 +118,9 @@ impl PrefixTypeParser<'_, '_> {
     }
 
     fn parse_function_type(&mut self, effect: Effect) -> Option<TypeExpr> {
-        if self.pos < self.tokens.len() && self.tokens[self.pos] == "()" {
+        if self.pos < self.tokens.len()
+            && (self.tokens[self.pos] == "unit" || self.tokens[self.pos] == "()")
+        {
             self.pos += 1;
             let result = self.parse_type()?;
             return Some(
@@ -168,6 +170,7 @@ fn simple_type_atom(t: &str, span: Span, diags: &mut Vec<Diagnostic>) -> Option<
         "char" => TypeExpr::Char,
         "never" => TypeExpr::Never,
         "str" => TypeExpr::Str,
+        "unit" => TypeExpr::Unit,
         "()" => TypeExpr::Unit,
         _ if t.starts_with('.') => TypeExpr::Label(Some(t.trim_start_matches('.').to_string())),
         _ if t.is_empty() => TypeExpr::Label(None),

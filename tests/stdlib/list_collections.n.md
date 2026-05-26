@@ -25,7 +25,7 @@ stdout: "test_report name=\"list_reverse_preserves_order\" count=2 failed=0\nass
 #import "core/math" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let src_first %List i32:
         unwrap_ok<List<i32>, Diag> new<i32>
         |> push<i32> 3 |> uwok
@@ -81,7 +81,7 @@ stdout: "test_report name=\"list_reverse_empty_is_empty\" count=1 failed=0\nasse
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let empty %List i32 unwrap_ok<List<i32>, Diag> new<i32>;
     let rev %List i32 reverse<i32> empty;
     let ok %bool is_empty<i32> &rev
@@ -125,7 +125,7 @@ fn inc %fn i32 i32 \x:
 fn is_even %fn i32 bool \x:
     eq rem_s x 2 0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let map_src %List i32:
         unwrap_ok<List<i32>, Diag> new<i32>
         |> push<i32> 3 |> uwok

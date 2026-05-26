@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/cast" as *
 //:| #import "core/math/f64" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     let one %f64 cast 1;
 //:     let two %f64 cast 2;
 //:     let six %f64 cast 6;

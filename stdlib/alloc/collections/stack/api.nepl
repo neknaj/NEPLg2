@@ -24,7 +24,7 @@
 
 //: ## new
 //: [既定/きてい][容量/ようりょう]の[空/から] stack を[作/つく]る
-pub fn new <.T: Copy> %impure fn () Result Stack .T Diag \():
+pub fn new <.T: Copy> %impure fn unit Result Stack .T Diag \unit:
     with_capacity<.T> 8
 
 //: ## with_capacity
@@ -96,7 +96,7 @@ pub fn pop_top <.T: Copy> %impure fn Stack .T StackPop .T \stk:
 //:| #import "core/math" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let st0 %Stack i32 unwrap_ok new<i32>;
 //:     let st1 %Stack i32 unwrap_ok push<i32> st0 3;
 //:     let p %StackPop i32 pop_top<i32> st1;
@@ -130,7 +130,7 @@ pub fn stack_pop_item <.T: Copy> %fn &StackPop .T Option .T \p:
 //:| #import "alloc/collections/stack" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let st0 %Stack i32 unwrap_ok new<i32>;
 //:     let st1 %Stack i32 unwrap_ok push<i32> st0 5;
 //:     let p %StackPop i32 pop_top<i32> st1;
@@ -200,5 +200,5 @@ pub fn clear <.T: Copy> %impure fn Stack .T Stack .T \stk:
 
 //: ## free
 //: stack が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
-pub fn free <.T: Copy> %fn Stack .T () \stk:
+pub fn free <.T: Copy> %fn Stack .T unit \stk:
     vec::free field::get stk "items"

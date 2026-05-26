@@ -13,12 +13,12 @@ stderr: "diagnostic\n"
 #import "std/streamio" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
-    match write_str_result StdoutStream () "artifact\n":
+fn main %impure fn unit i32 \unit:
+    match write_str_result StdoutStream unit "artifact\n":
         Result::Ok out:
             match flush_result out:
                 Result::Ok _:
-                    match write_str_result StderrStream () "diagnostic\n":
+                    match write_str_result StderrStream unit "diagnostic\n":
                         Result::Ok err:
                             match flush_result err:
                                 Result::Ok _:
@@ -46,7 +46,7 @@ stderr: "error: bad input\n"
 #import "std/io" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match writeln WriteStream::Stdio "json":
         Result::Ok out:
             match writeln WriteStream::Stderr "error: bad input":
@@ -80,7 +80,7 @@ neplg2:test
 #import "core/mem" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let text %str "x"
     match stdio_write_fd_str_result 9999 text:
         Result::Ok _:

@@ -40,7 +40,7 @@ trait Ord:
 //:| #target core
 //:| #import "core/test" as *
 //:| #import "core/traits/ord" as *
-//:| fn main %impure fn () i32 \():
+//:| fn main %impure fn unit i32 \unit:
 //:     assert ord_lt 2 3;
 //:     assert not ord_lt 3 3;
 //:     0

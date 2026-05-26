@@ -4,5 +4,5 @@
 
 #import "std/stdio" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     println "\x1b[31mred\x1b[0m";

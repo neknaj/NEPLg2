@@ -15,16 +15,16 @@
 //:
 //: [目的/もくてき]:
 //: - `TestAssertion` を `TestReport` に集約し、stdout report と exit code の責務を分けます。
-//: - 旧 `checks_*` API は `TestReport` へ委譲し、`Result<(),str>` の raw accumulator へ戻さないようにします。
+//: - 旧 `checks_*` API は `TestReport` へ委譲し、`Result<unit,str>` の raw accumulator へ戻さないようにします。
 
 //: test_report_new: [空/から] report を[作/つく]る
 pub fn test_report_new %fn str TestReport \name:
     TestReport name 0 0 "" "[" ""
 
-pub fn test_report_default %fn () TestReport \():
+pub fn test_report_default %fn unit TestReport \unit:
     test_report_new "checks"
 
-pub fn test_assertion_from_result %fn str fn Result () str TestAssertion \label\r:
+pub fn test_assertion_from_result %fn str fn Result unit str TestAssertion \label\r:
     match r:
         Result::Ok v:
             test_assertion_ok label
@@ -89,7 +89,7 @@ pub fn test_report_push %impure fn TestReport impure fn TestAssertion TestReport
     test_assertion_release assertion
     TestReport name0 math::add count0 1 failed1 lines1 legacy_summary1 legacy_human1
 
-pub fn test_report_push %impure fn TestReport impure fn Result () str TestReport \report\r:
+pub fn test_report_push %impure fn TestReport impure fn Result unit str TestReport \report\r:
     test_report_push report test_assertion_from_result "result" r
 
 //: test_report_render: report を canonical stdout [文字列/もじれつ]へ[整形/せいけい]する
@@ -132,10 +132,10 @@ pub fn test_report_legacy_summary_text %fn &TestReport str \report:
     concat *get_ref report "legacy_summary" "]"
 
 //: checks_new: `TestReport` の[短/みじか]い[作成/さくせい]入口
-pub fn checks_new %impure fn () TestReport \():
+pub fn checks_new %impure fn unit TestReport \unit:
     test_report_default
 
-pub fn checks_empty %fn () TestReport \():
+pub fn checks_empty %fn unit TestReport \unit:
     test_report_default
 
 pub fn checks_single_error %impure fn str TestReport \msg:
@@ -144,7 +144,7 @@ pub fn checks_single_error %impure fn str TestReport \msg:
 pub fn checks_push %impure fn TestReport impure fn TestAssertion TestReport \report\assertion:
     test_report_push report assertion
 
-pub fn checks_push %impure fn TestReport impure fn Result () str TestReport \report\r:
+pub fn checks_push %impure fn TestReport impure fn Result unit str TestReport \report\r:
     test_report_push report r
 
 pub fn checks_has_err %fn &TestReport bool \report:
@@ -175,19 +175,19 @@ pub fn checks_print_report %impure fn TestReport TestReport \report:
     |> checks_print_machine
     |> checks_print_human
 
-pub fn finish_checks %impure fn TestReport Result () str \report:
+pub fn finish_checks %impure fn TestReport Result unit str \report:
     let failed %bool test_report_has_failure &report
     if:
         failed
         then:
             let summary %str test_report_legacy_summary_text &report
             test_report_release report
-            Result<(),str>::Err summary
+            Result<unit,str>::Err summary
         else:
             test_report_release report
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
 
-pub fn result_exit_code %fn Result () str i32 \r:
+pub fn result_exit_code %fn Result unit str i32 \r:
     match r:
         Result::Ok v:
             0

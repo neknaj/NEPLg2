@@ -126,7 +126,7 @@ helper 関数の説明:
 //:| #target std
 //:| use std::test as *
 //:| use core::traits::serialize as *
-//:| let main \():
+//:| let main \unit:
 //:|     block:
 //:|         ; assert_str_eq "42" serialize 42
 //:|         assert_str_eq "false" serialize false

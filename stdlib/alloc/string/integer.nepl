@@ -30,7 +30,7 @@ pub #import "./integer/parse" as *
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "integer parse failed unexpectedly"
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "string_integer_facade_doc"
 //:         |> test_report_push assert_str_eq "format i32" "-42" from_i32 -42

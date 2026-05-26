@@ -110,7 +110,7 @@ pub fn tui_skip_csi %impure fn str impure fn i32 impure fn i32 i32 \s\n\i:
                 then:
                     set done true
                 else:
-                    ();
+                    unit;
             set j add j 1;
     j
 

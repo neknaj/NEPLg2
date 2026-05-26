@@ -10,7 +10,7 @@ neplg2:test[llvm_cli]
 #entry main
 #indent 4
 #llvmir:
-    define i32 @main() {
+    define i32 @mainunit {
     entry:
         ret i32 7
     }
@@ -23,7 +23,7 @@ neplg2:test[llvm_cli]
 #target llvm
 #entry c
 #indent 4
-fn c %fn () i32 \():
+fn c %fn unit i32 \unit:
     123
 ```
 
@@ -36,7 +36,7 @@ diag_code: effect.raw_body.target_mismatch
 #entry main
 #indent 4
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     #wasm:
         i32.const 1
 ```
@@ -51,7 +51,7 @@ neplg2:test[llvm_cli]
 #import "core/math" as *
 
 #llvmir:
-    define i32 @main() {
+    define i32 @mainunit {
     entry:
         %x = call i32 @add(i32 20, i32 22)
         ret i32 %x
@@ -70,7 +70,7 @@ neplg2:test[llvm_cli]
 #import "core/math" as *
 
 #llvmir:
-    define i32 @main() {
+    define i32 @mainunit {
     entry:
         %p = add i32 16, 0
         call void @store_i32(i32 %p, i32 77)
@@ -88,6 +88,6 @@ diag_code: type.intrinsic.unknown
 #entry main
 #indent 4
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     #intrinsic "i32_add" <> (1, 2)
 ```

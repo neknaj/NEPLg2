@@ -21,8 +21,8 @@
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| fn main %impure fn () i32 \():
-//:     ()
+//:| fn main %impure fn unit i32 \unit:
+//:     unit
 //:     0
 //: ```
 
@@ -79,7 +79,7 @@ impl Copy for Document:
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/parser" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let d %Document parse_markdown "# T\n\nx\n";
 //:     let j %str document_to_json d;
 //:     if and str_starts_with j "{\"t\":\"doc\"" gt len j 0 0 1
@@ -108,7 +108,7 @@ pub fn parse_markdown %fn str Document \input:
 //:| #target core
 //:| #import "alloc/string" as *
 //:| #import "nm/parser" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let d %Document parse_markdown "plain\n";
 //:     let j %str document_to_json d;
 //:     if str_starts_with j "{\"t\":\"doc\"" 0 1
@@ -130,7 +130,7 @@ pub fn document_to_json %fn Document str \doc:
             if:
                 eq len t 0
                 then:
-                    ()
+                    unit
                 else:
                     if:
                         scan::is_section_break t
@@ -140,12 +140,12 @@ pub fn document_to_json %fn Document str \doc:
                                 then:
                                     set sb sb_append sb "]}";
                                     set sections nm_json_section_close_current sections
-                                else ()
+                                else unit
                         else:
                             if:
                                 scan::is_hr t
                                 then:
-                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
+                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else unit
                                     set sections nm_json_section_mark_current_has sections;
                                     set sb sb_append sb "{\"t\":\"hr\"}";
                                     if:
@@ -153,7 +153,7 @@ pub fn document_to_json %fn Document str \doc:
                                         then:
                                             set sb sb_append sb "]}";
                                             set sections nm_json_section_close_current sections
-                                        else ()
+                                        else unit
                                 else:
                                     if:
                                         scan::is_fence_start t
@@ -173,7 +173,7 @@ pub fn document_to_json %fn Document str \doc:
                                                         else:
                                                             set code_sb sb_append code_sb craw;
                                                             set code_sb sb_append code_sb "\n"
-                                            if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
+                                            if nm_json_section_needs_comma sections then set sb sb_append sb "," else unit
                                             set sections nm_json_section_mark_current_has sections;
                                             set sb sb_append sb "{\"t\":\"code\",\"info\":\"";
                                             set sb json::json_escape_into sb info;
@@ -189,7 +189,7 @@ pub fn document_to_json %fn Document str \doc:
                                                         do:
                                                             set sb sb_append sb "]}";
                                                             set sections nm_json_section_close_current sections
-                                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
+                                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else unit
                                                     set sections nm_json_section_mark_current_has sections;
                                                     let htext %str scan::nm_heading_text t hlevel;
                                                     set sb sb_append sb "{\"t\":\"section\",\"level\":";
@@ -216,7 +216,7 @@ pub fn document_to_json %fn Document str \doc:
                                                                     set para_sb sb_append para_sb "\n";
                                                                     set para_sb sb_append para_sb praw;
                                                                     set pos scanner::str_next_line_pos src pend
-                                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else ()
+                                                    if nm_json_section_needs_comma sections then set sb sb_append sb "," else unit
                                                     set sections nm_json_section_mark_current_has sections;
                                                     set sb sb_append sb "{\"t\":\"p\",\"inl\":";
                                                     let para_text %str sb_build para_sb;

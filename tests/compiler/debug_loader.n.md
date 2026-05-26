@@ -14,7 +14,7 @@ stdout: "ok"
 #indent 4
 #import "std/stdio" as *
 
-fn main %()*()> \():
+fn main %impure fn unit unit \unit:
     print "ok"
 ```
 

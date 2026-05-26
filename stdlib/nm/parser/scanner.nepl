@@ -23,7 +23,7 @@
 //:| #import "alloc/string" as *
 //:| #import "nm/parser/scanner" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let ok_heading %bool eq nm_heading_level "### title" 3
 //:     let ok_hr %bool is_hr "---"
 //:     let ok_math %bool eq nm_find_math_end "a $x$ z" 3 1 4
@@ -237,13 +237,13 @@ pub fn nm_find_gloss_slash %fn str fn i32 fn i32 i32 \s\start\end:
                     if:
                         gt depth 0
                         then set depth sub depth 1
-                        else ()
+                        else unit
                 '/':
                     if:
                         eq depth 0
                         then set found i
-                        else ()
+                        else unit
                 _:
-                    ()
+                    unit
             set i add i 1;
     found

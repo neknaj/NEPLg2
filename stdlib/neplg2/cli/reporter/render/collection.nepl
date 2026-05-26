@@ -27,7 +27,7 @@ pub fn selfhost_cli_render_diagnostics_human %fn &SelfhostDiagnostics str \diagn
                 Option::Some diag:
                     set sb sb_append sb selfhost_cli_render_diagnostic_human &diag
                 Option::None:
-                    ()
+                    unit
             set i add i 1
     sb_build sb
 
@@ -44,7 +44,7 @@ pub fn selfhost_cli_render_diagnostics_json %fn &SelfhostDiagnostics str \diagno
                 then:
                     set sb sb_append sb ","
                 else:
-                    ()
+                    unit
             match selfhost_diagnostics_get diagnostics i:
                 Option::Some diag:
                     set sb sb_append sb selfhost_cli_render_diagnostic_json &diag

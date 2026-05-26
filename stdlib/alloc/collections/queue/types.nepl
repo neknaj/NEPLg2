@@ -48,7 +48,7 @@ pub struct Queue<.T>:
 //: #import "alloc/collections/queue" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %QueuePushError i32 QueuePushError<i32> q d0;
@@ -72,7 +72,7 @@ pub struct QueuePushError<.T>:
 //: #import "alloc/collections/queue" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %QueuePushError i32 QueuePushError<i32> q d0;
@@ -98,7 +98,7 @@ pub fn queue_push_error_diag <.T> %fn &QueuePushError .T Diag \e:
 //: #import "alloc/collections/queue" as *
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let q %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
 //:     let d0 %Diag diag_out_of_memory;
 //:     let error_payload %QueuePushError i32 QueuePushError<i32> q d0;
@@ -130,7 +130,7 @@ pub struct QueuePop<.T>:
 //: #import "core/math" as *
 //: #import "core/option" as *
 //: #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let q0 %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
 //:     let q1 %Queue i32 unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q0 7;
 //:     let p %QueuePop i32 pop_front<i32> q1;
@@ -159,7 +159,7 @@ pub fn queue_pop_item <.T: Copy> %fn &QueuePop .T Option .T \p:
 //: #import "alloc/diag/error" as *
 //: #import "core/math" as *
 //: #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let q0 %Queue i32 unwrap_ok<Queue<i32>, Diag> new<i32>;
 //:     let q1 %Queue i32 unwrap_ok<Queue<i32>, QueuePushError<i32>> push<i32> q0 7;
 //:     let p %QueuePop i32 pop_front<i32> q1;

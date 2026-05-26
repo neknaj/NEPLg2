@@ -8,7 +8,7 @@
 NEPLg2 は、**式指向**・**前置記法**・**オフサイドルール**を中核にした WebAssembly 向け言語です。
 ブロックは `:` + インデントで表現し、`if` / `while` / `match` なども式として扱います。
 
-現在の主作業は、現行 NEPLg2 を NEPLg2.1 表層構文へ切り替える移行です。NEPLg2.1 では `%` 型注釈、prefix 型式、`\` 関数リテラル、明示 generic postfix 撤廃を導入します。NEPLg3 はまだ未着手・未確定の将来設計であり、現在の実装や移行作業の正仕様ではありません。
+現在の主作業は、現行 NEPLg2 を NEPLg2.1 表層構文へ切り替える移行です。NEPLg2.1 では `%` 型注釈、prefix 型式、`unit` unit 記法、`\` 関数リテラル、明示 generic postfix 撤廃を導入します。NEPLg3 はまだ未着手・未確定の将来設計であり、現在の実装や移行作業の正仕様ではありません。
 
 ## すぐ触る
 
@@ -39,7 +39,7 @@ fn classify %fn i32 str \score:
             "B"
             "C"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     block:
         ; classify 85
         0

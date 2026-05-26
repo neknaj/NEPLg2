@@ -22,7 +22,7 @@
 //:| #target std
 //:| #import "std/io" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match write WriteStream::Stdio "io facade\n":
 //:         Result::Ok out:
 //:             match flush out:
@@ -77,7 +77,7 @@ impl TargetReadable for ByteBuf:
     fn read_target %impure fn ReadStream Result ByteBuf StdErrorKind \target:
         match target:
             ReadStream::Stdio:
-                io_read_all_bytes StdinStream ()
+                io_read_all_bytes StdinStream unit
             ReadStream::Fs path:
                 match fs_read_to_bytes path:
                     Result::Ok bytes:
@@ -93,7 +93,7 @@ impl TargetReadable for str:
     fn read_target %impure fn ReadStream Result str StdErrorKind \target:
         match target:
             ReadStream::Stdio:
-                io_read_all_text StdinStream ()
+                io_read_all_text StdinStream unit
             ReadStream::Fs path:
                 match fs_read_to_string_checked path:
                     Result::Ok text:
@@ -114,13 +114,13 @@ impl TargetWritable for ByteBuf:
     fn write_target %impure fn WriteStream impure fn ByteBuf Result WriteStream StdErrorKind \target\value:
         match target:
             WriteStream::Stdio:
-                match io_write_bytes StdoutStream () value:
+                match io_write_bytes StdoutStream unit value:
                     Result::Ok _out:
                         Result<WriteStream, StdErrorKind>::Ok WriteStream::Stdio
                     Result::Err e:
                         Result<WriteStream, StdErrorKind>::Err e
             WriteStream::Stderr:
-                match io_write_bytes StderrStream () value:
+                match io_write_bytes StderrStream unit value:
                     Result::Ok _err:
                         Result<WriteStream, StdErrorKind>::Ok WriteStream::Stderr
                     Result::Err e:
@@ -131,13 +131,13 @@ impl TargetWritable for str:
     fn write_target %impure fn WriteStream impure fn str Result WriteStream StdErrorKind \target\value:
         match target:
             WriteStream::Stdio:
-                match io_write_str StdoutStream () value:
+                match io_write_str StdoutStream unit value:
                     Result::Ok _out:
                         Result<WriteStream, StdErrorKind>::Ok WriteStream::Stdio
                     Result::Err e:
                         Result<WriteStream, StdErrorKind>::Err e
             WriteStream::Stderr:
-                match io_write_str StderrStream () value:
+                match io_write_str StderrStream unit value:
                     Result::Ok _err:
                         Result<WriteStream, StdErrorKind>::Ok WriteStream::Stderr
                     Result::Err e:
@@ -182,13 +182,13 @@ pub fn writeln %impure fn str impure fn WriteStream Result WriteStream StdErrorK
 pub fn flush %impure fn WriteStream Result WriteStream StdErrorKind \target:
     match target:
         WriteStream::Stdio:
-            match io_flush StdoutStream ():
+            match io_flush StdoutStream unit:
                 Result::Ok _out:
                     Result<WriteStream, StdErrorKind>::Ok WriteStream::Stdio
                 Result::Err e:
                     Result<WriteStream, StdErrorKind>::Err e
         WriteStream::Stderr:
-            match io_flush StderrStream ():
+            match io_flush StderrStream unit:
                 Result::Ok _err:
                     Result<WriteStream, StdErrorKind>::Ok WriteStream::Stderr
                 Result::Err e:
@@ -203,11 +203,11 @@ pub fn flush %impure fn WriteStream Result WriteStream StdErrorKind \target:
 //:
 //: ### [注意/ちゅうい]
 //: - [現在/げんざい]の `stdout` / `stderr` close は no-op です。
-pub fn close %impure fn WriteStream Result () StdErrorKind \target:
+pub fn close %impure fn WriteStream Result unit StdErrorKind \target:
     match target:
         WriteStream::Stdio:
-            io_close StdoutStream ()
+            io_close StdoutStream unit
         WriteStream::Stderr:
-            io_close StderrStream ()
+            io_close StderrStream unit
         WriteStream::Fs:
-            Result<(), StdErrorKind>::Err StdErrorKind::IoError
+            Result<unit, StdErrorKind>::Err StdErrorKind::IoError

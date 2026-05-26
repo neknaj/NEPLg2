@@ -54,7 +54,7 @@
 //:| #import "core/result" as *
 //: fn is_even %fn i32 bool \x:
 //:     eq rem_s x 2 0
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
@@ -80,9 +80,9 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                         Option::Some item:
                             if cond p item:
                                 then set left_len add left_len 1
-                                else ()
+                                else unit
                         Option::None:
-                            ()
+                            unit
                     set i add i 1
             let right_len %i32 sub src_len left_len
             match vec_storage::with_capacity<.T> left_len:
@@ -135,12 +135,12 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                                                 Option::Some item:
                                                                     if:
                                                                         cond p item
-                                                                        then ()
+                                                                        then unit
                                                                         else:
                                                                             store<.T> add mem_ptr_addr right_data mul right_i size_of<.T> item
                                                                             set right_i add right_i 1
                                                                 Option::None:
-                                                                    ()
+                                                                    unit
                                                             set read_i add read_i 1
                                                     vec_cleanup::free<.T> v
                                                     let left_buffer %OwnedBuffer .T field::get left0 "buffer"
@@ -173,9 +173,9 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                                                         then:
                                                                             store<.T> add mem_ptr_addr left_data mul left_i size_of<.T> item
                                                                             set left_i add left_i 1
-                                                                        else ()
+                                                                        else unit
                                                                 Option::None:
-                                                                    ()
+                                                                    unit
                                                             set read_i add read_i 1
                                                     vec_cleanup::free<.T> v
                                                     let left_buffer %OwnedBuffer .T field::get left0 "buffer"
@@ -204,7 +204,7 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                                                     store<.T> add mem_ptr_addr right_data mul right_i size_of<.T> item
                                                                     set right_i add right_i 1
                                                         Option::None:
-                                                            ()
+                                                            unit
                                                     set read_i add read_i 1
                                             vec_cleanup::free<.T> v
                                             let left_buffer %OwnedBuffer .T field::get left0 "buffer"

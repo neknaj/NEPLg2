@@ -12,7 +12,7 @@ pub struct SelfhostDiagnostics:
     items %Vec SelfhostDiagnostic
 
 //: selfhost_diagnostics_new: [空/から]の diagnostic collection を[作/つく]る
-pub fn selfhost_diagnostics_new %fn () Result SelfhostDiagnostics StdErrorKind \():
+pub fn selfhost_diagnostics_new %fn unit Result SelfhostDiagnostics StdErrorKind \unit:
     match v::new<SelfhostDiagnostic>:
         Result::Ok items:
             Result<SelfhostDiagnostics, StdErrorKind>::Ok SelfhostDiagnostics items
@@ -70,5 +70,5 @@ pub fn selfhost_diagnostics_has_errors %fn &SelfhostDiagnostics bool \diagnostic
     selfhost_diagnostics_has_errors_loop diagnostics n 0
 
 //: selfhost_diagnostics_free: diagnostic collection の[内部/ないぶ] buffer を[解放/かいほう]する
-pub fn selfhost_diagnostics_free %fn SelfhostDiagnostics () \diagnostics:
+pub fn selfhost_diagnostics_free %fn SelfhostDiagnostics unit \diagnostics:
     v::free<SelfhostDiagnostic> field::get diagnostics "items"

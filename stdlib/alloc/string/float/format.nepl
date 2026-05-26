@@ -83,35 +83,35 @@ pub fn from_f64_fraction_trim_len %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 i32
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
-pub fn from_f64_write_fraction_digits_result %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result () str \base_raw\start\trim\d0\d1\d2\d3\d4\d5:
+pub fn from_f64_write_fraction_digits_result %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result unit str \base_raw\start\trim\d0\d1\d2\d3\d4\d5:
     match trim:
         0:
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         1:
             store_u8 add base_raw start add '0' d0
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         2:
             store_u8 add base_raw start add '0' d0
             store_u8 add base_raw add start 1 add '0' d1
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         3:
             store_u8 add base_raw start add '0' d0
             store_u8 add base_raw add start 1 add '0' d1
             store_u8 add base_raw add start 2 add '0' d2
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         4:
             store_u8 add base_raw start add '0' d0
             store_u8 add base_raw add start 1 add '0' d1
             store_u8 add base_raw add start 2 add '0' d2
             store_u8 add base_raw add start 3 add '0' d3
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         5:
             store_u8 add base_raw start add '0' d0
             store_u8 add base_raw add start 1 add '0' d1
             store_u8 add base_raw add start 2 add '0' d2
             store_u8 add base_raw add start 3 add '0' d3
             store_u8 add base_raw add start 4 add '0' d4
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         6:
             store_u8 add base_raw start add '0' d0
             store_u8 add base_raw add start 1 add '0' d1
@@ -119,9 +119,9 @@ pub fn from_f64_write_fraction_digits_result %fn i32 fn i32 fn i32 fn i32 fn i32
             store_u8 add base_raw add start 3 add '0' d3
             store_u8 add base_raw add start 4 add '0' d4
             store_u8 add base_raw add start 5 add '0' d5
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
         _:
-            Result<(),str>::Err "string.float invalid fraction trim"
+            Result<unit,str>::Err "string.float invalid fraction trim"
 
 //: from_f64_build_fixed_result: 符号、整数部、小数部を 1 つの文字列へ組み立てる
 //:
@@ -161,7 +161,7 @@ pub fn from_f64_build_fixed_result %fn bool fn str fn i32 fn i32 fn i32 fn i32 f
                     store_u8 out_raw '-'
                     set pos 1
                 else:
-                    ()
+                    unit
             let int_len %i32 len int_s
             mem_copy add out_raw pos mem_ptr_addr string_data_ptr int_s int_len
             set pos add pos int_len
@@ -171,14 +171,14 @@ pub fn from_f64_build_fixed_result %fn bool fn str fn i32 fn i32 fn i32 fn i32 f
                     store_u8 add out_raw pos '.'
                     set pos add pos 1
                 else:
-                    ()
+                    unit
             match from_f64_write_fraction_digits_result out_raw pos trim d0 d1 d2 d3 d4 d5:
                 Result::Err e:
                     match dealloc_region<u8> out_region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _free:
-                            ()
+                            unit
                     Result<str,str>::Err e
                 Result::Ok _:
                     Result<str,str>::Ok string_finish out_region total
@@ -208,7 +208,7 @@ pub fn from_f64_build_fixed_result %fn bool fn str fn i32 fn i32 fn i32 fn i32 f
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //:| #import "core/cast" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let one %f64 %f64 cast 1
 //:     let quartered %f64 div %f64 cast 5 %f64 cast 4
 //:     let neg_half %f64 div %f64 cast -1 %f64 cast 2

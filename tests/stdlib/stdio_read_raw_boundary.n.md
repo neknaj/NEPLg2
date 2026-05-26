@@ -12,7 +12,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/stdio/read" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match stdio_fd_read_into_result 0 0 0 0 1:
         Result::Ok _:
             0
@@ -32,7 +32,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/stdio/read/buffer" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match stdio_fd_read_into_result 0 0 0 0 1:
         Result::Ok _:
             0
@@ -53,7 +53,7 @@ diag_code: resolve.identifier.undefined
 #import "core/result" as *
 #import "std/stdio/read/buffer" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match alloc_region<u8> 8:
         Result::Err _:
             1
@@ -62,23 +62,23 @@ fn main %impure fn () i32 \():
                 Result::Err _:
                     match dealloc_region<u8> iov_region:
                         Result::Ok _:
-                            ()
+                            unit
                         Result::Err _:
-                            ()
+                            unit
                     1
                 Result::Ok nread_region:
                     match alloc_region<u8> 1:
                         Result::Err _:
                             match dealloc_region<u8> nread_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             match dealloc_region<u8> iov_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             1
                         Result::Ok data_region:
                             let mut code %i32 1;
@@ -89,18 +89,18 @@ fn main %impure fn () i32 \():
                                     set code 1;
                             match dealloc_region<u8> data_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             match dealloc_region<u8> nread_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             match dealloc_region<u8> iov_region:
                                 Result::Ok _:
-                                    ()
+                                    unit
                                 Result::Err _:
-                                    ()
+                                    unit
                             code
 ```

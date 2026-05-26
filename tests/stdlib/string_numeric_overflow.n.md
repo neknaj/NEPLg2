@@ -11,7 +11,7 @@ ret: 1
 
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_u128 "340282366920938463463374607431768211455":
         Result::Ok v:
             if str_eq from_u128 v "340282366920938463463374607431768211455" 1 0
@@ -30,7 +30,7 @@ ret: 1
 
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_u128 "340282366920938463463374607431768211456":
         Result::Ok _:
             0
@@ -49,7 +49,7 @@ ret: 1
 
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_u128_radix "100000000000000000000000000000000" 16:
         Result::Ok _:
             0
@@ -69,7 +69,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let ok_max %bool match to_i128 "170141183460469231731687303715884105727":
         Result::Ok v:
             str_eq from_i128 v "170141183460469231731687303715884105727"
@@ -95,7 +95,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let ok_high %bool match to_i128 "170141183460469231731687303715884105728":
         Result::Ok _:
             false
@@ -121,7 +121,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let ok_max %bool match to_i64 "9223372036854775807":
         Result::Ok v:
             str_eq from_i64 v "9223372036854775807"
@@ -147,7 +147,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let ok_high %bool match to_i64 "9223372036854775808":
         Result::Ok _:
             false
@@ -173,7 +173,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let ok_high %bool match to_i32 "2147483648":
         Result::Ok _:
             false

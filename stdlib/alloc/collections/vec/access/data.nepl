@@ -28,7 +28,7 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let empty %Vec i32 unwrap_ok with_capacity<i32> 0;
 //:     let empty_ok %bool match data_mem_view<i32> &empty:
 //:         VecDataView::Empty:
@@ -85,7 +85,7 @@ pub enum VecDataView<.T>:
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32 unwrap_ok with_capacity<i32> 0;
 //:     let ok %bool match data_mem_view<i32> &v:
 //:         VecDataView::Empty:
@@ -106,7 +106,7 @@ pub enum VecDataView<.T>:
 //:| #import "alloc/collections/vec" as *
 //: struct NonCopyPayload:
 //:     value %i32
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec NonCopyPayload vec_empty<NonCopyPayload>;
 //:     let _view %VecDataView NonCopyPayload data_mem_view<NonCopyPayload> &v;
 //:     0

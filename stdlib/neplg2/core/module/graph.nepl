@@ -26,7 +26,7 @@
 //:| #target std
 //:| #import "core/result" as *
 //:| #import "neplg2/core/module/graph" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     selfhost_module_graph_stage0
 //: ```
 
@@ -107,7 +107,7 @@ pub fn selfhost_module_graph_edge_new %fn str fn str fn SelfhostSourceSpan Selfh
     SelfhostModuleGraphEdge from to span
 
 //: selfhost_module_graph_new: [空/から]の module graph を[作/つく]る
-pub fn selfhost_module_graph_new %impure fn () Result SelfhostModuleGraph StdErrorKind \():
+pub fn selfhost_module_graph_new %impure fn unit Result SelfhostModuleGraph StdErrorKind \unit:
     match v::new<SelfhostModuleGraphNode>:
         Result::Ok nodes:
             match v::new<SelfhostModuleGraphEdge>:
@@ -120,7 +120,7 @@ pub fn selfhost_module_graph_new %impure fn () Result SelfhostModuleGraph StdErr
             Result<SelfhostModuleGraph, StdErrorKind>::Err e
 
 //: selfhost_module_graph_free: graph が所有する buffer を[解放/かいほう]する
-pub fn selfhost_module_graph_free %impure fn SelfhostModuleGraph () \graph:
+pub fn selfhost_module_graph_free %impure fn SelfhostModuleGraph unit \graph:
     let nodes %Vec SelfhostModuleGraphNode field::get graph "nodes"
     let edges %Vec SelfhostModuleGraphEdge field::get graph "edges"
     v::free<SelfhostModuleGraphNode> nodes
@@ -411,7 +411,7 @@ pub fn selfhost_build_module_graph_with_path_map %impure fn &SelfhostVirtualFile
             Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_oom_diag source_span_empty 0 0
 
 //: selfhost_module_graph_stage0: VFS から import graph を[作/つく]る smoke API
-pub fn selfhost_module_graph_stage0 %impure fn () i32 \():
+pub fn selfhost_module_graph_stage0 %impure fn unit i32 \unit:
     match selfhost_vfs_new:
         Result::Ok vfs0:
             match selfhost_vfs_add vfs0 "main.nepl" "#import \"util.nepl\" as util\nfn main <()->i32> ():\n    0\n":

@@ -22,7 +22,7 @@
 //:| #target std
 //:| #import "alloc/string/scanner" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let text %str "ab\ncd\r\nef"
 //:     if:
 //:         eq str_find_byte_range "abc" -5 99 'b' 1
@@ -161,11 +161,11 @@ pub fn str_find_byte_range %fn str fn i32 fn i32 fn i32 i32 \s\start\end\needle:
     if:
         lt i 0
         then set i 0
-        else ()
+        else unit
     if:
         gt limit n
         then set limit n
-        else ()
+        else unit
     if:
         lt limit i
         then:
@@ -198,11 +198,11 @@ pub fn str_line_end %fn str fn i32 i32 \s\start:
     if:
         lt i 0
         then set i 0
-        else ()
+        else unit
     if:
         gt i n
         then set i n
-        else ()
+        else unit
     while and lt i n not done:
         do:
             if:
@@ -245,11 +245,11 @@ pub fn str_skip_inline_space_range %fn str fn i32 fn i32 i32 \s\start\end:
     if:
         lt i 0
         then set i 0
-        else ()
+        else unit
     if:
         gt limit n
         then set limit n
-        else ()
+        else unit
     while and lt i limit not done:
         do:
             if:
@@ -267,11 +267,11 @@ pub fn str_word_end_inline_space_range %fn str fn i32 fn i32 i32 \s\start\end:
     if:
         lt i 0
         then set i 0
-        else ()
+        else unit
     if:
         gt limit n
         then set limit n
-        else ()
+        else unit
     while and lt i limit not done:
         do:
             if:

@@ -28,14 +28,14 @@ fn roundtrip_text %impure fn str Result str str \text:
                 Result::Ok out:
                     Result::Ok out
 
-fn expect_text %fn Result str str fn str Result () str \got\expected:
+fn expect_text %fn Result str str fn str Result unit str \got\expected:
     match got:
         Result::Ok out:
             check_str_eq expected out
         Result::Err msg:
             Result::Err msg
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks:
         checks_new
         |> checks_push expect_text roundtrip_text "NEPL" "NEPL"

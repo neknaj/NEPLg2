@@ -12,11 +12,11 @@ stdout: "Hello, NEPL!\n"
 #import "std/stdio" as *
 
 // 標準出力へ 1 行だけ書きます。
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     println "Hello, NEPL!";
 ```
 
-`println` は外部 I/O なので、`main` は `()*` の関数として書きます。戻り値が不要な program では `()` を返し、テストの終了 code を返したい program では `i32` を返します。
+`println` は外部 I/O なので、`main` は `unit*` の関数として書きます。戻り値が不要な program では `unit` を返し、テストの終了 code を返したい program では `i32` を返します。
 
 ## 最初に固定するもの
 

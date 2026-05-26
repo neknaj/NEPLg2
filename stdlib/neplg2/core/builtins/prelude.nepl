@@ -14,7 +14,7 @@
 //: - string-based lookup は `str_addr` / `alloc/string` の RawMemoryLoadCell gate 対応後に追加します。現段階では文字列依存を避け、registry の index と typed metadata を先に固定します。
 //:
 //: [注意/ちゅうい]:
-//: - `MemLoadI32` / `MemStoreI32` は Rust 側 `BuiltinKind` には存在しますが、現在の `builtins()` registry には登録されていません。低レベル load/store は stdlib の inline wasm 経由で扱います。
+//: - `MemLoadI32` / `MemStoreI32` は Rust 側 `BuiltinKind` には存在しますが、現在の `builtinsunit` registry には登録されていません。低レベル load/store は stdlib の inline wasm 経由で扱います。
 //: - primitive name registry は `SelfhostTypeKind` が現在表現できる primitive と named numeric alias を持ちます。struct / enum / type variable などは type layer の後続 issue で追加します。
 //: - name からの lookup は `ISS-20260428T213732897Z-RAWMEMORYLOADCELL-GATE-REJECTS-INITI-6041ACF2` の解消後に、`str_eq` / `hash32` を使う形で追加します。
 //: - builtin の raw memory effect model は static checker 側の Resource IR と同期する必要があります。ここでは現行 Rust surface の metadata を固定します。
@@ -30,7 +30,7 @@
 //:| #import "core/option" as *
 //:| #import "neplg2/core/builtins/prelude" as *
 //:| #import "neplg2/core/ty/ty" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     selfhost_prelude_stage0
 //: ```
 

@@ -25,7 +25,7 @@
 //:| #import "neplg2/cli/args/classify" as *
 //:| #import "neplg2/cli/args/types" as *
 //:| #import "core/result" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     match selfhost_cli_parse_target_value "std":
 //:         Result::Ok target:
 //:             match target:

@@ -45,7 +45,7 @@ pub fn fenwick_add_err %fn Fenwick fn Diag Result Fenwick FenwickAddError \fw\d:
 //:| #import "alloc/collections/fenwick" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let fw %Fenwick:
 //:         unwrap_ok<Fenwick, Diag> new 4
 //:         |> add 0 2 |> uwok
@@ -59,14 +59,14 @@ pub fn add %impure fn Fenwick impure fn i32 impure fn i32 Result Fenwick Fenwick
     if:
         and le 0 idx lt idx n
         then:
-            let result %Result () Diag block:
+            let result %Result unit Diag block:
                 let bit %&Vec i32 field::get_ref &fw "bit"
                 if:
                     fenwick_add_storage bit n idx delta
                     then:
-                        ok<(), Diag> ()
+                        ok<unit, Diag> unit
                     else:
-                        diag_err<()> fenwick_diag_index
+                        diag_err<unit> fenwick_diag_index
             match result:
                 Result::Ok _unit:
                     fenwick_add_ok fw

@@ -40,15 +40,15 @@ pub fn str_slice_result %fn str fn i32 fn i32 Result str str \s\start\end:
     if:
         lt s0 0
         then set s0 0
-        else ()
+        else unit
     if:
         lt e0 s0
         then set e0 s0
-        else ()
+        else unit
     if:
         lt n e0
         then set e0 n
-        else ()
+        else unit
     let out_len %i32 sub e0 s0;
     if:
         and str_utf8_is_boundary s s0 str_utf8_is_boundary s e0

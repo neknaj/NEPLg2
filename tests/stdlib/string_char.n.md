@@ -26,21 +26,21 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn expect_char %impure fn str impure fn Result char str impure fn i32 Result () str \label\got\expected_code:
+fn expect_char %impure fn str impure fn Result char str impure fn i32 Result unit str \label\got\expected_code:
     match got:
         Result::Err _e:
             Result::Err label
         Result::Ok c:
             check_eq_i32 expected_code char_to_i32 c
 
-fn expect_str_ok %impure fn str impure fn Result str str impure fn str Result () str \label\got\expected:
+fn expect_str_ok %impure fn str impure fn Result str str impure fn str Result unit str \label\got\expected:
     match got:
         Result::Err _e:
             Result::Err label
         Result::Ok text:
             check_str_eq expected text
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s %str "Aあ💯"
     let checks:
         checks_new
@@ -81,21 +81,21 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/math" as *
 
-fn expect_next %impure fn str impure fn Result CharUtf8Step str impure fn i32 impure fn i32 Result () str \label\got\expected_code\expected_next:
+fn expect_next %impure fn str impure fn Result CharUtf8Step str impure fn i32 impure fn i32 Result unit str \label\got\expected_code\expected_next:
     match got:
         Result::Err _e:
             Result::Err label
         Result::Ok item:
             let c %char get item "value"
             let next %i32 get item "next"
-            let code_ok %Result () str check_eq_i32 expected_code char_to_i32 c
+            let code_ok %Result unit str check_eq_i32 expected_code char_to_i32 c
             match code_ok:
                 Result::Err e:
                     Result::Err e
                 Result::Ok _:
                     check_eq_i32 expected_next next
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s %str "Aあ"
     let checks:
         checks_new
@@ -128,7 +128,7 @@ stdout: mlstr:
 #import "core/result" as *
 #import "std/test" as *
 
-fn byte_builder_text %impure fn () Result str str \():
+fn byte_builder_text %impure fn unit Result str str \unit:
     match byte_builder_new:
         Result::Err _e:
             Result::Err "byte builder alloc"
@@ -154,14 +154,14 @@ fn byte_builder_text %impure fn () Result str str \():
                                         Result::Ok text:
                                             Result::Ok text
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let text %str:
         string_builder_new
         |> sb_append_char 'A'
         |> sb_append_char 'あ'
         |> sb_append_ascii '!'
         |> sb_build
-    let bytes_check %Result () str match byte_builder_text:
+    let bytes_check %Result unit str match byte_builder_text:
         Result::Err e:
             Result::Err e
         Result::Ok out:

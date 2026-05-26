@@ -32,7 +32,7 @@ pub fn len %fn &SparseSet i32 \s:
 //:| #import "alloc/collections/sparse_set" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let s %SparseSet unwrap_ok<SparseSet, Diag> new 8;
 //:     let ok %bool eq universe_len &s 8;
 //:     free s
@@ -51,7 +51,7 @@ pub fn universe_len %fn &SparseSet i32 \s:
 //:| #import "alloc/collections/sparse_set" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let s %SparseSet:
 //:         unwrap_ok<SparseSet, Diag> new 8
 //:         |> insert 3 |> uwok

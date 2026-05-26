@@ -7,7 +7,7 @@ diag_code: resolve.identifier.undefined
 diag_span: 3:5
 ```neplg2
 #entry main
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     missing_name
 ```
 
@@ -18,7 +18,7 @@ diag_code: resolve.identifier.undefined
 diag_spans: ["3:5", "/virtual/entry.nepl:3:5"]
 ```neplg2
 #entry main
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     missing_name
 ```
 
@@ -29,7 +29,7 @@ diag_code: resolve.identifier.undefined
 diag_spans: [{"line": 3, "col": 5}, {"file": "/virtual/entry.nepl", "line": 3, "col": 5}]
 ```neplg2
 #entry main
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     missing_name
 ```
 
@@ -48,6 +48,6 @@ diag_span: 2:8
 ```neplg2
 #target llvm
 #entry main
-fn boot %fn () i32 \():
+fn boot %fn unit i32 \unit:
     0
 ```

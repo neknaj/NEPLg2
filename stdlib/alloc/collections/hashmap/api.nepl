@@ -14,7 +14,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 1 10;
 //:     let found %bool contains<i32, i32, DefaultHash32> &hm1 1;
@@ -58,7 +58,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let observed_len %i32 len<i32, i32, DefaultHash32> &hm;
 //:     let empty %bool eq observed_len 0;
@@ -84,7 +84,7 @@ pub fn new <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn .H Result 
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> with_capacity DefaultHash32 4;
 //:     let observed_len %i32 len<i32, i32, DefaultHash32> &hm;
 //:     let empty %bool eq observed_len 0;
@@ -117,7 +117,7 @@ pub fn with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn 
 //:| #import "core/result" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 7 70;
 //:     let ok %i32:
@@ -175,7 +175,7 @@ pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap
 //:| #import "core/result" as *
 //:| #import "core/option" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 2 20;
 //:     let ok %i32 match get &hm1 2:
@@ -211,7 +211,7 @@ pub fn get <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMap .K .V .H
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 3 30;
 //:     let found %bool contains<i32, i32, DefaultHash32> &hm1 3;
@@ -242,7 +242,7 @@ pub fn contains <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMap .K 
 //:| #import "core/traits/hash" as *
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 4 40;
 //:     let hm2 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> remove hm1 4;
@@ -281,7 +281,7 @@ pub fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     let observed_len %i32 len<i32, i32, DefaultHash32> &hm;
 //:     let empty %bool eq observed_len 0;
@@ -310,11 +310,11 @@ pub fn len <.K,.V,.H> %fn &HashMap .K .V .H i32 \hm:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
 //:     free hm;
 //:     0
 //: ```
-pub fn free <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn HashMap .K .V .H () \hm:
+pub fn free <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn HashMap .K .V .H unit \hm:
     let storage %HashMapStorage .K .V field::get hm "storage"
     hashmap_free_storage<.K,.V> storage

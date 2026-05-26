@@ -1276,6 +1276,7 @@ fn keyword_token(lexeme: &str) -> Option<TokenKind> {
         "block" => Some(TokenKind::KwBlock),
         "Tuple" => Some(TokenKind::KwTuple),
         "mlstr" => Some(TokenKind::KwMlstr),
+        "unit" => Some(TokenKind::UnitLiteral),
         "true" => Some(TokenKind::BoolLiteral(true)),
         "false" => Some(TokenKind::BoolLiteral(false)),
         _ => None,

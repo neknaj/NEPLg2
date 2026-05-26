@@ -24,7 +24,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok insert hm0 1 10;
@@ -62,7 +62,7 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let hs0 %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
     let hs1 %HashSet i32 DefaultHash32 unwrap_ok insert hs0 1;
@@ -100,14 +100,14 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let q %Queue i32 unwrap_ok new<i32>;
     match pop<i32> q:
         Option::Some _v:
             set checks checks_push checks Result::Err "expected none";
         Option::None:
-            set checks checks_push checks Result::Ok ();
+            set checks checks_push checks Result::Ok unit;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -133,14 +133,14 @@ exit_code: 0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let rb %RingBuffer i32 unwrap_ok new<i32>;
     match pop<i32> rb:
         Option::Some _v:
             set checks checks_push checks Result::Err "expected none";
         Option::None:
-            set checks checks_push checks Result::Ok ();
+            set checks checks_push checks Result::Ok unit;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

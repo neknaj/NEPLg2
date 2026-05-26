@@ -39,7 +39,7 @@ pub fn scan_f64_impl %impure fn &StreamScanner f64 \sc:
                         then:
                             set p add p 1;
                         else:
-                            ();
+                            unit;
             let mut val %f64 cast 0;
             let mut any_digit %i32 0;
             let ten %f64 cast 10;
@@ -67,9 +67,9 @@ pub fn scan_f64_impl %impure fn &StreamScanner f64 \sc:
                     if:
                         eq stream_scanner_byte_at bytes p '.'
                         then set has_dot 1
-                        else ()
+                        else unit
                 else:
-                    ();
+                    unit;
             if:
                 eq has_dot 1
                 then:
@@ -95,7 +95,7 @@ pub fn scan_f64_impl %impure fn &StreamScanner f64 \sc:
                             else:
                                 set done_frac 1;
                 else:
-                    ();
+                    unit;
             let mut has_exp %i32 0;
             if:
                 lt p buf_len
@@ -104,9 +104,9 @@ pub fn scan_f64_impl %impure fn &StreamScanner f64 \sc:
                     if:
                         stream_scanner_is_exponent_marker ec
                         then set has_exp 1
-                        else ()
+                        else unit
                 else:
-                    ();
+                    unit;
             if:
                 eq has_exp 1
                 then:
@@ -127,9 +127,9 @@ pub fn scan_f64_impl %impure fn &StreamScanner f64 \sc:
                                         then:
                                             set p add p 1;
                                         else:
-                                            ();
+                                            unit;
                         else:
-                            ();
+                            unit;
                     let mut exp_val %i32 0;
                     let mut done_exp %i32 0;
                     while eq done_exp 0:
@@ -157,7 +157,7 @@ pub fn scan_f64_impl %impure fn &StreamScanner f64 \sc:
                                     set val mul val ten;
                             set k add k 1;
                 else:
-                    ();
+                    unit;
             stream_scanner_store_pos sc p;
             if:
                 eq any_digit 0

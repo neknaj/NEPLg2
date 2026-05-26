@@ -47,7 +47,7 @@ stdin: mlstr:
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let text %str read_all
     if eq len text 4128 0 1
 ```
@@ -72,7 +72,7 @@ exit_code: 0
 #import "core/result" as *
 #import "core/field" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     match stdio_read_all_bytes_result:
         Result::Err _e:
@@ -81,7 +81,7 @@ fn main %impure fn () i32 \():
             set checks checks_push checks check_eq_i32 3 get bytes "len";
             match stdio_write_bytes_result bytes:
                 Result::Ok _:
-                    ()
+                    unit
                 Result::Err _e:
                     set checks checks_push checks Result::Err "stdio_write_bytes_result failed";
     let shown checks_print_report checks;

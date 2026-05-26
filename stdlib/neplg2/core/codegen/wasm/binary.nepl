@@ -19,8 +19,8 @@
 //:| #entry main
 //:| #target core
 //:| #import "neplg2/core/codegen/wasm/binary" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     selfhost_wasm_binary_stage0
 //: ```
-pub fn selfhost_wasm_binary_stage0 %fn () i32 \():
+pub fn selfhost_wasm_binary_stage0 %fn unit i32 \unit:
     0

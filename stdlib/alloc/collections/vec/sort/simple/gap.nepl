@@ -29,21 +29,21 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - gap 列に依存します。この実装では最悪 O(n^2)、追加領域 O(1) です。
-pub fn sort_shell <.T: Ord&Copy> %impure fn &Vec .T () \v:
+pub fn sort_shell <.T: Ord&Copy> %impure fn &Vec .T unit \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            ()
+            unit
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then ()
+                then unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            ()
+                            unit
                         VecDataView::Invalid _reason:
-                            ()
+                            unit
                         VecDataView::Data data:
                             let mut gap %i32 div_s n 2;
 
@@ -70,7 +70,7 @@ pub fn sort_shell <.T: Ord&Copy> %impure fn &Vec .T () \v:
                                             store<.T> add mem_ptr_addr data mul j size_of<.T> temp;
                                             set i add i 1;
                                     set gap div_s gap 2;
-                            ()
+                            unit
 
 //: sort_comb: comb sort で in-place 整列する
 //:
@@ -85,21 +85,21 @@ pub fn sort_shell <.T: Ord&Copy> %impure fn &Vec .T () \v:
 //:
 //: [計算量/けいさんりょう]:
 //: - 平均は bubble sort より改善しますが、最悪 O(n^2) です。
-pub fn sort_comb <.T: Ord&Copy> %impure fn &Vec .T () \v:
+pub fn sort_comb <.T: Ord&Copy> %impure fn &Vec .T unit \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            ()
+            unit
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then ()
+                then unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            ()
+                            unit
                         VecDataView::Invalid _reason:
-                            ()
+                            unit
                         VecDataView::Data data:
                             let mut gap %i32 n;
                             let mut sorted %i32 0;
@@ -112,12 +112,12 @@ pub fn sort_comb <.T: Ord&Copy> %impure fn &Vec .T () \v:
                                     if:
                                         lt gap 1
                                         then set gap 1
-                                        else ()
+                                        else unit
 
                                     if:
                                         eq gap 1
                                         then set sorted 1
-                                        else ()
+                                        else unit
 
                                     let mut i %i32 0;
                                     let mut done_scan %i32 0;
@@ -135,9 +135,9 @@ pub fn sort_comb <.T: Ord&Copy> %impure fn &Vec .T () \v:
                                                             store<.T> add mem_ptr_addr data mul i size_of<.T> b;
                                                             store<.T> add mem_ptr_addr data mul next_i size_of<.T> a;
                                                             set sorted 0;
-                                                            ()
-                                                        else ()
+                                                            unit
+                                                        else unit
                                                     set i add i 1;
-                                                    ()
+                                                    unit
                                                 else set done_scan 1
-                            ()
+                            unit

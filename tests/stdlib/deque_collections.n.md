@@ -28,7 +28,7 @@ stdout: "test_report name=\"deque_pipe_usage\" count=3 failed=0\nassertion index
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let dq0 %Deque i32:
         unwrap_ok<Deque<i32>, Diag> new<i32>
         |> push_back 7 |> uwok
@@ -76,7 +76,7 @@ stdout: "test_report name=\"deque_grow_clear_and_free\" count=4 failed=0\nassert
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let dq0 %Deque i32 unwrap_ok<Deque<i32>, Diag> with_capacity<i32> 1;
     let dq1 %Deque i32 unwrap_ok<Deque<i32>, DequePushError<i32>> push_back<i32> dq0 10;
     let dq2 %Deque i32 unwrap_ok<Deque<i32>, DequePushError<i32>> push_front<i32> dq1 5;

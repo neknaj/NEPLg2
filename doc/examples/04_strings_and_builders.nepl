@@ -27,14 +27,14 @@ use core::result as *
 //: - `finish` で builder を消費して `str` を確定する。以後 `b` は使えない（コンパイラが検査）。
 //:
 //: ### [注意/ちゅうい]
-//: - `new ()` の `()` は 0 引数呼び出しに対応する。
+//: - `new unit` の `unit` は 0 引数呼び出しに対応する。
 //: - `StringBuilder` は `Clone` を持たない。コピーを渡す[設計/せっけい]は意図的に[禁止/きんし]されている。
 //:
 //: ### [計算量/けいさんりょう]
 //: - 時間 O(n * |s|)、内部[再確保/さいかくほ]は[償却/しょうきゃく] O(1)
 
 pub let repeat_str %fn str fn i32 str \s \n:
-    let mut b new ()
+    let mut b new unit
     let mut i 0
     while lt i n:
         set b push_str b s
@@ -57,7 +57,7 @@ pub let join %fn List str fn str str \xs \sep:
             let b_final
                 fold \b \s
                     b |> push_str sep |> push_str s
-                push_str new () first
+                push_str new unit first
                 rest
             finish b_final
 

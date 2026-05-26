@@ -13,7 +13,7 @@
 //:| #import "core/mem" as *
 //:| #import "core/option" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     match alloc_region<i32> 1:
 //:         Result::Ok region:
 //:             let p %MemPtr i32 region_ptr &region
@@ -63,15 +63,15 @@ pub fn load_i32 %fn MemPtr i32 Option i32 \p:
 //:
 //: 目的:
 //: - 無効ポインタを `Result::Err` として返し、未定義動作を避けます。
-pub fn store_i32 %fn MemPtr i32 fn i32 Result () str \p\v:
+pub fn store_i32 %fn MemPtr i32 fn i32 Result unit str \p\v:
     let raw %i32 mem_ptr_addr p;
     if:
         lt raw 1
         then:
-            Result<(),str>::Err "mem.store_i32 invalid pointer"
+            Result<unit,str>::Err "mem.store_i32 invalid pointer"
         else:
             store_i32 raw v
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit
 
 //: load_u8: MemPtr<u8> から 1 バイトを安全に読み出すオーバーロード
 //:
@@ -90,12 +90,12 @@ pub fn load_u8 %fn MemPtr u8 Option i32 \p:
 //:
 //: 目的:
 //: - 無効ポインタを `Result::Err` として返し、未定義動作を避けます。
-pub fn store_u8 %fn MemPtr u8 fn i32 Result () str \p\v:
+pub fn store_u8 %fn MemPtr u8 fn i32 Result unit str \p\v:
     let raw %i32 mem_ptr_addr p;
     if:
         lt raw 1
         then:
-            Result<(),str>::Err "mem.store_u8 invalid pointer"
+            Result<unit,str>::Err "mem.store_u8 invalid pointer"
         else:
             store_u8 raw v
-            Result<(),str>::Ok ()
+            Result<unit,str>::Ok unit

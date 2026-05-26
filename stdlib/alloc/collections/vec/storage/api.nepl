@@ -12,7 +12,7 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32 unwrap_ok<Vec<i32>, StdErrorKind> with_capacity<i32> 2;
 //:     let ok %i32 if eq cap<i32> &v 2 0 1;
 //:     free<i32> v;
@@ -57,7 +57,7 @@
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32 unwrap_ok new<i32>;
 //:     let observed_len %i32 len<i32> &v
 //:     let ok %bool eq observed_len 0
@@ -74,11 +74,11 @@
 //:| #import "core/result" as *
 //: struct NonCopyPayload:
 //:     value %i32
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let _v %Vec NonCopyPayload unwrap_ok new<NonCopyPayload>;
 //:     0
 //: ```
-pub fn new <.T: Copy> %fn () Result Vec .T StdErrorKind \():
+pub fn new <.T: Copy> %fn unit Result Vec .T StdErrorKind \unit:
     alloc::vec_alloc_empty<.T> 8
 
 //: ## new
@@ -103,9 +103,9 @@ pub fn new <.T: Copy> %fn () Result Vec .T StdErrorKind \():
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
-//: fn main %impure fn () i32 \():
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec DropPayload unwrap_ok new<DropPayload>
 //:     free<DropPayload> v
 //:     0
@@ -120,11 +120,11 @@ pub fn new <.T: Copy> %fn () Result Vec .T StdErrorKind \():
 //:| #import "core/result" as *
 //: struct PlainPayload:
 //:     value %i32
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let _v %Vec PlainPayload unwrap_ok new<PlainPayload>;
 //:     0
 //: ```
-pub fn new <.T: Drop> %fn () Result Vec .T StdErrorKind \():
+pub fn new <.T: Drop> %fn unit Result Vec .T StdErrorKind \unit:
     alloc::vec_alloc_empty<.T> 8
 
 //: ## with_capacity
@@ -155,7 +155,7 @@ pub fn new <.T: Drop> %fn () Result Vec .T StdErrorKind \():
 //:| #import "alloc/collections/vec" as *
 //:| #import "core/result" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32 unwrap_ok with_capacity<i32> 16;
 //:     let ok %bool eq cap<i32> &v 16
 //:     free<i32> v;
@@ -171,7 +171,7 @@ pub fn new <.T: Drop> %fn () Result Vec .T StdErrorKind \():
 //:| #import "core/result" as *
 //: struct NonCopyPayload:
 //:     value %i32
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let _v %Vec NonCopyPayload unwrap_ok with_capacity<NonCopyPayload> 4;
 //:     0
 //: ```
@@ -204,9 +204,9 @@ pub fn with_capacity <.T: Copy> %fn i32 Result Vec .T StdErrorKind \cap:
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
-//: fn main %impure fn () i32 \():
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec DropPayload unwrap_ok with_capacity<DropPayload> 3
 //:     let ok %bool eq cap<DropPayload> &v 3
 //:     free<DropPayload> v
@@ -222,7 +222,7 @@ pub fn with_capacity <.T: Copy> %fn i32 Result Vec .T StdErrorKind \cap:
 //:| #import "core/result" as *
 //: struct PlainPayload:
 //:     value %i32
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let _v %Vec PlainPayload unwrap_ok with_capacity<PlainPayload> 4;
 //:     0
 //: ```

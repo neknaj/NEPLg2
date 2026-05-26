@@ -35,7 +35,7 @@
 //:| #import "std/test" as *
 //:| #import "core/field" as *
 //:| #import "alloc/encoding/json/types" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let arr %JsonArray JsonArray "1,2"
 //:     let checks checks_push checks_new assert_str_eq "1,2" get arr "items"
 //:     let shown checks_print_report checks
@@ -67,7 +67,7 @@ pub struct JsonArray:
 //:| #import "std/test" as *
 //:| #import "alloc/encoding/json/types" as *
 //:| #import "alloc/encoding/json/serialize" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let obj %JsonObject JsonObject "\"a\":1"
 //:     let checks checks_push checks_new assert_str_eq "{\"a\":1}" json_serialize_object obj
 //:     let shown checks_print_report checks
@@ -99,7 +99,7 @@ pub struct JsonObject:
 //:| #import "std/test" as *
 //:| #import "alloc/encoding/json/types" as *
 //:| #import "alloc/encoding/json/serialize" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %JsonValue JsonValue::Number 42
 //:     let checks checks_push checks_new assert_str_eq "42" json_serialize v
 //:     let shown checks_print_report checks
@@ -136,7 +136,7 @@ pub enum JsonValue:
 //:| #import "std/test" as *
 //:| #import "core/field" as *
 //:| #import "alloc/encoding/json/types" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let member %JsonMember JsonMember "answer" JsonValue::Number 42
 //:     let checks checks_push checks_new assert_str_eq "answer" get member "key"
 //:     let shown checks_print_report checks
@@ -209,7 +209,7 @@ pub enum JsonEscapeKind:
 //:| #target std
 //:| #import "std/test" as *
 //:| #import "alloc/encoding/json/types" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %JsonValue JsonValue::Null
 //:     let checks checks_push checks_new assert true
 //:     let shown checks_print_report checks

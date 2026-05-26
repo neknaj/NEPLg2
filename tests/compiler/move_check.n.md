@@ -18,7 +18,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let t %LocalToken LocalToken @token_id
     let u %LocalToken t
     let actual %i32 0
@@ -43,7 +43,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let t %LocalToken LocalToken @token_id
     let u %LocalToken t
     let v %LocalToken t
@@ -67,7 +67,7 @@ fn token_id %fn i32 i32 \x:
 fn consume %fn LocalToken i32 \_t:
     1
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let t %LocalToken LocalToken @token_id
     if true:
         then:
@@ -92,10 +92,10 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn consume %fn LocalToken () \_t:
-    ()
+fn consume %fn LocalToken unit \_t:
+    unit
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let t %LocalToken LocalToken @token_id
     let mut c %bool true
     while c:
@@ -123,7 +123,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut x %LocalToken LocalToken @token_id
     let y %LocalToken x
     set x LocalToken @token_id
@@ -147,7 +147,7 @@ stdout: "test_report name=\"move_reassign_copy\" count=1 failed=0\nassertion ind
 #target std
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut x %i32 1
     let y %i32 x
     set x 2
@@ -177,7 +177,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let r %&LocalToken &x
     let y %LocalToken x
@@ -204,7 +204,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let r %&LocalToken &x
     let y %LocalToken x
@@ -229,7 +229,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let r %&LocalToken &x
     let cnd %bool true
@@ -263,7 +263,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let y %LocalToken LocalToken @token_id
     let mut r %&LocalToken &x
@@ -302,7 +302,7 @@ fn observe %fn &LocalToken i32 \_x:
 fn consume %fn LocalToken i32 \_x:
     0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     observe &x
     let actual %i32 consume x
@@ -336,7 +336,7 @@ fn observe_mut %fn &mut LocalToken i32 \_x:
 fn consume %fn LocalToken i32 \_x:
     0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     observe_mut &mut x
     let actual %i32 consume x
@@ -365,7 +365,7 @@ fn token_id %fn i32 i32 \x:
 fn use_both %fn &mut LocalToken fn &LocalToken i32 \_a\_b:
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     use_both &mut x &x
 ```
@@ -388,7 +388,7 @@ fn token_id %fn i32 i32 \x:
 fn use_both %fn &LocalToken fn &mut LocalToken i32 \_a\_b:
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     use_both &x &mut x
 ```
@@ -412,7 +412,7 @@ struct RefPair:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let p %RefPair RefPair &mut x &x
     0
@@ -433,7 +433,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let p Tuple:
         &mut x
@@ -456,7 +456,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let r %&mut LocalToken &mut x
     let y %LocalToken x
@@ -481,7 +481,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let r %&mut LocalToken &mut x
     let rr %&mut LocalToken r
@@ -509,7 +509,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let r %&mut LocalToken &mut x
     let rr %&mut LocalToken r
@@ -532,7 +532,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let r %&LocalToken &x
     let u %&mut LocalToken &mut x
@@ -555,7 +555,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let r %&mut LocalToken &mut x
     let s %&LocalToken &x
@@ -572,7 +572,7 @@ diag_code: resource.borrow.borrow_during_unique
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %i32 1
     let u %&mut i32 &mut x
     let s %&i32 &x
@@ -589,7 +589,7 @@ diag_code: resource.borrow.unique_during_shared
 #indent 4
 #target core
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %i32 1
     let s %&i32 &x
     let u %&mut i32 &mut x
@@ -609,7 +609,7 @@ stdout: "test_report name=\"move_copy_shared_borrow_allows_owner_copy_while_refe
 #import "core/math" as *
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %i32 1
     let s %&i32 &x
     let y %i32 x
@@ -637,7 +637,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let x %LocalToken LocalToken @token_id
     let y %LocalToken x
     let r %&LocalToken &x
@@ -661,7 +661,7 @@ fn token_id %fn i32 i32 \x:
 fn consume %fn LocalToken i32 \_w:
     0
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let x %LocalToken LocalToken @token_id
     consume x
     let y %LocalToken x
@@ -685,7 +685,7 @@ fn token_id %fn i32 i32 \x:
 struct S:
     f %LocalToken
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let s %S S LocalToken @token_id
     let a %LocalToken s.f
     let b %LocalToken s.f
@@ -717,7 +717,7 @@ struct Pair:
 fn consume %fn LocalToken i32 \_w:
     0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %Pair Pair (LocalToken @token_id) (LocalToken @token_id)
     let left %LocalToken field::get p "left"
     let right %LocalToken field::get p "right"
@@ -751,7 +751,7 @@ struct Pair:
     left %LocalToken
     right %LocalToken
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let p %Pair Pair (LocalToken @token_id) (LocalToken @token_id)
     let left %LocalToken field::get p "left"
     let again %LocalToken field::get p "left"
@@ -778,10 +778,10 @@ struct Pair:
     left %LocalToken
     right %LocalToken
 
-fn consume_pair %fn Pair () \_p:
-    ()
+fn consume_pair %fn Pair unit \_p:
+    unit
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let p %Pair Pair (LocalToken @token_id) (LocalToken @token_id)
     let left %LocalToken field::get p "left"
     consume_pair p
@@ -808,10 +808,10 @@ struct Pair:
     left %LocalToken
     right %LocalToken
 
-fn observe %fn &Pair () \_p:
-    ()
+fn observe %fn &Pair unit \_p:
+    unit
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let p %Pair Pair (LocalToken @token_id) (LocalToken @token_id)
     let borrowed %&Pair &p
     let left %LocalToken field::get p "left"
@@ -829,7 +829,7 @@ stdout: "test_report name=\"move_deref_copy_reference_ok\" count=1 failed=0\nass
 #target std
 #import "std/test" as test
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %i32 7
     let y %i32 *&x
     let z %i32 x
@@ -856,7 +856,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let x %LocalToken LocalToken @token_id
     let y %LocalToken *&x
 ```
@@ -882,7 +882,7 @@ struct Pair:
     token %LocalToken
     count %i32
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let p %Pair Pair (LocalToken @token_id) 7
     let token %LocalToken *field::get_ref &p "token"
 ```
@@ -902,7 +902,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let mut x %LocalToken LocalToken @token_id
     let cnd %bool true
     if cnd:
@@ -930,7 +930,7 @@ enum BoolWrap:
     True
     False
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let x %LocalToken LocalToken @token_id
     let a %BoolWrap BoolWrap::True
     match a:
@@ -938,11 +938,11 @@ fn main %fn () () \():
             match a:
                 BoolWrap::True:
                     let y %LocalToken x
-                    ()
+                    unit
                 BoolWrap::False:
-                    ()
+                    unit
         BoolWrap::False:
-            ()
+            unit
     let z %LocalToken x
 ```
 
@@ -963,15 +963,15 @@ enum BoolWrap:
     True
     False
 
-fn main %fn () () \():
+fn main %fn unit unit \unit:
     let x %LocalToken LocalToken @token_id
     let v %BoolWrap BoolWrap::True
     match v:
         BoolWrap::True:
             let y %LocalToken x
-            ()
+            unit
         BoolWrap::False:
-            ()
+            unit
     let z %LocalToken x
 ```
 
@@ -994,7 +994,7 @@ enum RefOpt:
     Some %&LocalToken
     None
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let e %RefOpt RefOpt::Some &x
     match e:
@@ -1027,7 +1027,7 @@ enum RefOpt:
     Some %&LocalToken
     None
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let x %LocalToken LocalToken @token_id
     let e %RefOpt RefOpt::Some &x
     let actual %i32 match e:
@@ -1059,11 +1059,11 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn leak %fn () &LocalToken \():
+fn leak %fn unit &LocalToken \unit:
     let t %LocalToken LocalToken @token_id
     &t
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let r %&LocalToken leak
     0
 ```
@@ -1083,7 +1083,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let r %&LocalToken block:
         let t %LocalToken LocalToken @token_id
         &t
@@ -1105,7 +1105,7 @@ struct LocalToken:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let outer %LocalToken LocalToken @token_id
     let mut r %&LocalToken &outer
     block:
@@ -1132,12 +1132,12 @@ struct RefBox:
 fn token_id %fn i32 i32 \x:
     x
 
-fn leak %fn () RefBox \():
+fn leak %fn unit RefBox \unit:
     let t %LocalToken LocalToken @token_id
     let b %RefBox RefBox &t
     b
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let b %RefBox leak
     0
 ```
@@ -1160,7 +1160,7 @@ struct RefBox:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let b %RefBox block:
         let t %LocalToken LocalToken @token_id
         let local %RefBox RefBox &t
@@ -1186,7 +1186,7 @@ struct RefBox:
 fn token_id %fn i32 i32 \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let outer %LocalToken LocalToken @token_id
     let mut b %RefBox RefBox &outer
     block:
@@ -1214,7 +1214,7 @@ fn token_id %fn i32 i32 \x:
 fn id_ref %fn &LocalToken &LocalToken \x:
     x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let r %&LocalToken block:
         let t %LocalToken LocalToken @token_id
         id_ref &t
@@ -1242,7 +1242,7 @@ fn token_id %fn i32 i32 \x:
 fn box_ref %fn &LocalToken RefBox \x:
     RefBox x
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let b %RefBox block:
         let t %LocalToken LocalToken @token_id
         box_ref &t
@@ -1271,7 +1271,7 @@ fn token_id %fn i32 i32 \x:
 fn step %fn LocalToken Result LocalToken i32 \token:
     Result<LocalToken, i32>::Ok token
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut cur %LocalToken LocalToken @token_id
     let mut i %i32 0
     while lt i 3:
@@ -1310,7 +1310,7 @@ fn token_id %fn i32 i32 \x:
 fn step %fn LocalToken Result LocalToken i32 \token:
     Result<LocalToken, i32>::Ok token
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let mut cur %LocalToken LocalToken @token_id
     let mut i %i32 0
     while lt i 3:
@@ -1353,7 +1353,7 @@ fn observe %fn &LocalToken i32 \_w:
 fn consume %fn Pair i32 \_p:
     0
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let p %Pair Pair (LocalToken @token_id) 7
     let token_ref %&LocalToken field::get_ref &p "token"
     let count %i32 *field::get_ref &p "count"
@@ -1393,7 +1393,7 @@ fn observe %fn &LocalToken i32 \_w:
 fn consume %fn Pair i32 \_p:
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let p %Pair Pair (LocalToken @token_id) 7
     let token_ref %&LocalToken field::get_ref &p "token"
     consume p
@@ -1421,11 +1421,11 @@ struct Pair:
     token %LocalToken
     count %i32
 
-fn leak %fn () &LocalToken \():
+fn leak %fn unit &LocalToken \unit:
     let p %Pair Pair (LocalToken @token_id) 7
     field::get_ref &p "token"
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let r %&LocalToken leak
     0
 ```

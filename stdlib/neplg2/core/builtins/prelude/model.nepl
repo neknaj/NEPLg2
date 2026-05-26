@@ -118,7 +118,7 @@ impl Copy for SelfhostBuiltinFunction:
 //:
 //: [目的/もくてき]:
 //: - primitive type の名前解決と表示に使う canonical name を `SelfhostTypeKind` と対応付けます。
-//: - source parser が `()` のような専用 token で扱う型でも、registry 上の canonical name は `unit` として保持します。
+//: - source parser が `unit` のような専用 token で扱う型でも、registry 上の canonical name は `unit` として保持します。
 pub struct SelfhostPrimitiveTypeName:
     name %str
     kind %SelfhostTypeKind

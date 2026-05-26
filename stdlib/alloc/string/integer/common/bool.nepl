@@ -34,7 +34,7 @@
 //:| #import "alloc/string" as *
 //:| #import "core/math" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "string_from_bool_doc"
 //:         |> test_report_push assert_str_eq "format true" "true" from_bool true
@@ -97,7 +97,7 @@ pub fn from_bool %fn bool str \b:
 //:         Result::Err _:
 //:             assert label true
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "string_to_bool_doc"
 //:         |> test_report_push assert_bool_ok "parse true" (to_bool "true") true

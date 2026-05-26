@@ -167,17 +167,15 @@ function findTopLevelArrow(src) {
 
 function convertFunctionTypeParams(paramsText, effect) {
   const trimmed = paramsText.trim();
-  if (trimmed === "") return `${effect} ()`;
-  if (trimmed === "(())") return `${effect} (())`;
+  if (trimmed === "" || trimmed === "()" || trimmed === "(())") return `${effect} unit`;
   const parts = splitTopLevel(trimmed, ",");
-  if (parts.length === 0) return `${effect} ()`;
+  if (parts.length === 0) return `${effect} unit`;
   return parts.map((part) => `${effect} ${convertTypeExpr(part)}`).join(" ");
 }
 
 function stripSingleOuterParens(src) {
   const trimmed = src.trim();
-  if (trimmed === "()") return trimmed;
-  if (trimmed === "(())") return trimmed;
+  if (trimmed === "()" || trimmed === "(())") return "unit";
   if (!trimmed.startsWith("(")) return trimmed;
   const end = matching(trimmed, 0, "(", ")");
   if (end === trimmed.length - 1) return trimmed.slice(1, -1).trim();
@@ -201,7 +199,7 @@ function convertTypeExpr(src) {
   }
 
   text = stripSingleOuterParens(text);
-  if (text === "()") return "()";
+  if (text === "()" || text === "unit") return "unit";
 
   let out = "";
   for (let i = 0; i < text.length; i++) {
@@ -261,7 +259,7 @@ function isTypeParamList(text) {
 function isLikelyStandaloneTypeExpr(text) {
   const trimmed = text.trim();
   if (trimmed === "") return false;
-  if (trimmed === "()") return true;
+  if (trimmed === "()" || trimmed === "unit") return true;
   if (trimmed.startsWith("(") || trimmed.startsWith("&") || trimmed.startsWith(".")) return true;
   if (/^(i32|u32|i64|u64|i128|u128|u8|f32|f64|bool|char|never|str)\b/.test(trimmed)) return true;
   if (/^(fn|impure\s+fn)\b/.test(trimmed)) return true;
@@ -332,17 +330,60 @@ function mapOutsideStrings(src, mapper) {
 
 function convertFunctionParamLists(src) {
   return mapOutsideStrings(src, (segment) =>
-    segment.replace(/(^[ \t]*(?:(?:\/\/:\|?[ \t]*)?)(?:(?:pub[ \t]+)?fn|let)[^\r\n]*?%[^\r\n]*?)[ \t]+\(([^()\r\n]*)\)([ \t]*:)/gm, (_m, head, params, tail) => {
+    segment.replace(/(^[ \t]*(?:(?:\/\/:\|?[ \t]*)?)(?:(?:pub[ \t]+)?fn|let)[^\r\n]*?%[^\r\n]*?)[ \t]*\(([^()\r\n]*)\)([ \t]*:)/gm, (_m, head, params, tail) => {
       const converted = params.trim() === ""
-        ? "\\()"
+        ? "\\unit"
         : splitTopLevel(params, ",").map((param) => `\\${param.trim()}`).join("");
       return `${head} ${converted}${tail}`;
     })
   );
 }
 
+function convertLegacyPercentEffectSignatures(src) {
+  return mapOutsideStrings(src, (segment) =>
+    segment.replace(/%unit\*((?:[A-Za-z_][A-Za-z0-9_:]*(?:<[^>\r\n]+>)?)|unit|i32|u8|f32|bool|char|never|str)>/g, (_m, result) =>
+      `%impure fn unit ${convertTypeExpr(result)}`
+    )
+  );
+}
+
+function convertMissingZeroArgLambdaMarker(src) {
+  return mapOutsideStrings(src, (segment) =>
+    segment.replace(/(^[ \t]*(?:(?:\/\/:\|?[ \t]*)?)(?:(?:pub[ \t]+)?fn|let)[^\r\n]*?%(?:impure[ \t]+)?fn[^\r\n\\:]*?)unit([ \t]*:)/gm, "$1\\unit$2")
+  );
+}
+
+function isIntrinsicDirectiveLine(segment, idx) {
+  return /#intrinsic\s+"[^"]+"\s*/.test(linePrefix(segment, idx));
+}
+
+function convertUnitSyntax(src) {
+  return mapOutsideStrings(src, (segment) => {
+    let out = "";
+    for (let i = 0; i < segment.length; i++) {
+      if (segment.startsWith("()", i) && !isIntrinsicDirectiveLine(segment, i)) {
+        out += "unit";
+        i++;
+        continue;
+      }
+      out += segment[i];
+    }
+    return out;
+  });
+}
+
+function restoreIntrinsicArgDelimiters(src) {
+  return src.replace(/(#intrinsic\s+"[^"\r\n]+"\s+(?:<[^>\r\n]*>\s*)?)unit\b/g, "$1()");
+}
+
 function migrateText(src) {
-  return convertFunctionParamLists(convertAngleAnnotations(src));
+  return convertMissingZeroArgLambdaMarker(
+    convertLegacyPercentEffectSignatures(
+      restoreIntrinsicArgDelimiters(
+        convertUnitSyntax(convertFunctionParamLists(convertAngleAnnotations(src)))
+      )
+    )
+  );
 }
 
 function main() {

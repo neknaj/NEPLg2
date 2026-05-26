@@ -23,11 +23,11 @@ pub fn bitset_byte_at %fn &Vec u8 fn i32 Option i32 \bits\byte_idx:
         Option::None:
             none<i32>
 
-pub fn bitset_store_byte %impure fn &Vec u8 impure fn i32 impure fn i32 () \bits\byte_idx\byte_value:
+pub fn bitset_store_byte %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bits\byte_idx\byte_value:
     let byte %u8 cast byte_value
     vec::replace<u8> bits byte_idx byte
 
-pub fn bitset_fill_bytes %impure fn &Vec u8 impure fn i32 impure fn i32 () \bits\nbytes\byte_value:
+pub fn bitset_fill_bytes %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bits\nbytes\byte_value:
     let mut i %i32 0
     while lt i nbytes:
         do:

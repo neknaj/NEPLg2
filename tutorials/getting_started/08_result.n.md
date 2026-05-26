@@ -25,21 +25,21 @@ fn divide_10 %fn i32 Result i32 str \x:
         else:
             Result::Ok div_s 10 x
 
-fn expect_ok %fn Result i32 str fn i32 Result () str \got\expected:
+fn expect_ok %fn Result i32 str fn i32 Result unit str \got\expected:
     match got:
         Result::Ok value:
             check_eq_i32 expected value
         Result::Err msg:
             Result::Err msg
 
-fn expect_err %fn Result i32 str fn str Result () str \got\expected:
+fn expect_err %fn Result i32 str fn str Result unit str \got\expected:
     match got:
         Result::Ok value:
             Result::Err "expected Err"
         Result::Err msg:
             check_str_eq expected msg
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks:
         checks_new
         |> checks_push expect_ok divide_10 2 5

@@ -28,7 +28,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm %BTreeMap i32 i32:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
 //:         |> insert 7 70 |> uwok
@@ -62,7 +62,7 @@ pub fn remove <.K: Ord&Copy,.V: Copy> %impure fn BTreeMap .K .V impure fn .K BTr
 //:| #import "alloc/diag/error" as *
 //:| #import "core/math" as *
 //:| #import "core/result" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let hm %BTreeMap i32 i32:
 //:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
 //:         |> insert 7 70 |> uwok

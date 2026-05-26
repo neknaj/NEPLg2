@@ -19,7 +19,7 @@
 //:| #entry main
 //:| #target core
 //:| #import "nm/parser/json_section" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let s0 %NmJsonSectionState nm_json_section_state_new
 //:     let s1 %NmJsonSectionState nm_json_section_mark_current_has s0
 //:     let s2 %NmJsonSectionState nm_json_section_open_level s1 2
@@ -69,7 +69,7 @@ pub fn nm_json_section_state_make %fn i32 fn bool fn bool fn bool fn bool fn boo
     NmJsonSectionState current_level open1 open2 open3 open4 open5 open6 root_has has1 has2 has3 has4 has5 has6
 
 //: nm_json_section_state_new: 空の JSON section state を[作/つく]る
-pub fn nm_json_section_state_new %fn () NmJsonSectionState \():
+pub fn nm_json_section_state_new %fn unit NmJsonSectionState \unit:
     nm_json_section_state_make 0 false false false false false false false false false false false false false
 
 //: nm_json_section_current_level: 現在開いている最深 section level を[返/かえ]す

@@ -27,7 +27,7 @@ stdout: mlstr:
 #import "core/field" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match source_text_new 7 "sample.nepl" "alpha\nbeta\n":
         Result::Ok text:
@@ -46,7 +46,7 @@ fn main %impure fn () i32 \():
                         |> checks_push check_eq_i32 1 loc_line
                         |> checks_push check_eq_i32 0 loc_column
                     Option::None:
-                        checks_push checks1 Result<(),str>::Err "offset 6 did not resolve"
+                        checks_push checks1 Result<unit,str>::Err "offset 6 did not resolve"
             let checks3:
                 match source_text_location_for_offset &text 11:
                     Option::Some loc:
@@ -56,12 +56,12 @@ fn main %impure fn () i32 \():
                         |> checks_push check_eq_i32 2 loc_line
                         |> checks_push check_eq_i32 0 loc_column
                     Option::None:
-                        checks_push checks2 Result<(),str>::Err "EOF offset did not resolve"
+                        checks_push checks2 Result<unit,str>::Err "EOF offset did not resolve"
             source_text_free text
             let shown checks_print_report checks3
             checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "source_text_new failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "source_text_new failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -91,7 +91,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match source_text_new 3 "crlf.nepl" "a\r\nbc\r\nd":
         Result::Ok text:
@@ -105,7 +105,7 @@ fn main %impure fn () i32 \():
                         |> checks_push check_eq_i32 0 field::get span0 "start"
                         |> checks_push check_eq_i32 1 field::get span0 "end"
                     Option::None:
-                        checks_push checks1 Result<(),str>::Err "line 0 span missing"
+                        checks_push checks1 Result<unit,str>::Err "line 0 span missing"
             let checks3:
                 match source_text_line_span &text 1:
                     Option::Some span1:
@@ -113,12 +113,12 @@ fn main %impure fn () i32 \():
                         |> checks_push check_eq_i32 3 field::get span1 "start"
                         |> checks_push check_eq_i32 5 field::get span1 "end"
                     Option::None:
-                        checks_push checks2 Result<(),str>::Err "line 1 span missing"
+                        checks_push checks2 Result<unit,str>::Err "line 1 span missing"
             source_text_free text
             let shown checks_print_report checks3
             checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "source_text_new failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "source_text_new failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -145,7 +145,7 @@ stdout: mlstr:
 #import "neplg2/core/infra/text" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match source_text_new 2 "range.nepl" "abc":
         Result::Ok text:
@@ -159,7 +159,7 @@ fn main %impure fn () i32 \():
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "source_text_new failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "source_text_new failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -192,7 +192,7 @@ stdout: mlstr:
 #import "std/test" as *
 #import "core/field" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let mut sb %StringBuilder unwrap_ok string_builder_new_result
     let mut i %i32 0
     while lt i 4096:
@@ -218,7 +218,7 @@ fn main %impure fn () i32 \():
                         |> checks_push check_eq_i32 4096 loc_line
                         |> checks_push check_eq_i32 0 loc_column
                     Option::None:
-                        checks_push checks1 Result<(),str>::Err "EOF offset did not resolve"
+                        checks_push checks1 Result<unit,str>::Err "EOF offset did not resolve"
             let checks3:
                 match source_text_line_span &text 4095:
                     Option::Some span:
@@ -228,12 +228,12 @@ fn main %impure fn () i32 \():
                         |> checks_push check_eq_i32 8190 span_start
                         |> checks_push check_eq_i32 8191 span_end
                     Option::None:
-                        checks_push checks2 Result<(),str>::Err "last content line span missing"
+                        checks_push checks2 Result<unit,str>::Err "last content line span missing"
             source_text_free text
             let shown checks_print_report checks3
             checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "source_text_new failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "source_text_new failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```

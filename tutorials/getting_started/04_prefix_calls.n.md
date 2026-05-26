@@ -23,7 +23,7 @@ fn double %fn i32 i32 \x:
 fn add_five %fn i32 i32 \x:
     add x 5
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let prefix %i32 double add_five 10
     let piped %i32:
         10

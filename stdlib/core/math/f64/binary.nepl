@@ -14,7 +14,7 @@
 //:| #target core
 //:| #import "core/math/f64/binary" as *
 //:| #import "core/math/f64/compare" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     if eq add 1.5 0.5 2.0 0 1
 //: ```
 
@@ -41,7 +41,7 @@
 //:| #import "core/test" as *
 //:| #import "core/cast" as *
 //:| #import "core/math" as *
-//: fn main %impure fn () () \():
+//: fn main %impure fn unit unit \unit:
 //:     let one %f64 cast 1;
 //:     let two %f64 cast 2;
 //:     let three %f64 cast 3;

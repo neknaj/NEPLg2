@@ -10,8 +10,8 @@
 #import "alloc/diag/error" as *
 #import "core/result" as *
 
-pub fn sparse_set_diag_len %impure fn () Diag \():
+pub fn sparse_set_diag_len %impure fn unit Diag \unit:
     diag_error StdErrorKind::CapacityExceeded "invalid sparse set length"
 
-pub fn sparse_set_diag_index %impure fn () Diag \():
+pub fn sparse_set_diag_index %impure fn unit Diag \unit:
     diag_error StdErrorKind::IndexOutOfBounds "sparse set index out of bounds"

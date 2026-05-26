@@ -27,7 +27,7 @@ pub fn queue_item_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \items\idx:
             none<.T>
 
 //: queue_store_slot: slot state を[更新/こうしん]する
-pub fn queue_store_slot <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T () \items\idx\item:
+pub fn queue_store_slot <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \items\idx\item:
     vec::replace<Option<.T>> items idx item
 
 //: queue_alloc_slots: `None` で[初期化/しょきか]した slot storage を[確保/かくほ]する
@@ -39,17 +39,17 @@ pub fn queue_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Diag \ca
             diag_err<Vec<Option<.T>>> diag_out_of_memory
 
 //: queue_clear_slots_loop: 全 slot を `None` に[戻/もど]す
-pub fn queue_clear_slots_loop <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 () \items\cap\i:
+pub fn queue_clear_slots_loop <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 unit \items\cap\i:
     if:
         lt i cap
         then:
             queue_store_slot<.T> items i none<.T>
             queue_clear_slots_loop<.T> items cap add i 1
         else:
-            ()
+            unit
 
 //: queue_copy_live_slots: live slot を[論理順/ろんりじゅん]に[新/あたら]しい storage へ[写/うつ]す
-pub fn queue_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn &Vec Option .T impure fn i32 impure fn i32 impure fn i32 () \src\dst\cap\head\len:
+pub fn queue_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn &Vec Option .T impure fn i32 impure fn i32 impure fn i32 unit \src\dst\cap\head\len:
     let mut i %i32 0
     while lt i len:
         do:
@@ -58,5 +58,5 @@ pub fn queue_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn &Vec
                 Option::Some item:
                     queue_store_slot<.T> dst i some<.T> item
                 Option::None:
-                    ()
+                    unit
             set i add i 1

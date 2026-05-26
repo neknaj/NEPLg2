@@ -12,7 +12,7 @@ ret: 0
 #import "core/math" as *
 #import "neplg2/core/mono/mono" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let def0 %SelfhostMonoDefId selfhost_mono_def_id_new 4 12
     let def1 %SelfhostMonoDefId selfhost_mono_def_id_new 4 13
     let args0 %SelfhostMonoTypeArgRange selfhost_mono_type_arg_range_new 20 2
@@ -42,7 +42,7 @@ ret: 0
 #import "core/option" as *
 #import "neplg2/core/mono/mono" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let valid_def %SelfhostMonoDefId selfhost_mono_def_id_new 0 0
     let invalid_def %SelfhostMonoDefId selfhost_mono_def_id_new -1 0
     let valid_range %SelfhostMonoTypeArgRange selfhost_mono_type_arg_range_empty
@@ -80,7 +80,7 @@ ret: 0
 #import "core/math" as *
 #import "neplg2/core/mono/mono" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let def %SelfhostMonoDefId selfhost_mono_def_id_new 1 2
     let args %SelfhostMonoTypeArgRange selfhost_mono_type_arg_range_new 3 4
     let key %SelfhostMonoInstanceKey selfhost_mono_instance_key_new def args
@@ -110,7 +110,7 @@ ret: 0
 #import "core/result" as *
 #import "neplg2/core/mono/mono" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let def %SelfhostMonoDefId selfhost_mono_def_id_new 6 7
     let args %SelfhostMonoTypeArgRange selfhost_mono_type_arg_range_new 8 2
     let key %SelfhostMonoInstanceKey selfhost_mono_instance_key_new def args
@@ -176,7 +176,7 @@ ret: 0
 #import "core/result" as *
 #import "neplg2/core/mono/mono" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let invalid_def %SelfhostMonoDefId selfhost_mono_def_id_new -1 3
     let args %SelfhostMonoTypeArgRange selfhost_mono_type_arg_range_new 0 1
     let invalid_key %SelfhostMonoInstanceKey selfhost_mono_instance_key_new invalid_def args

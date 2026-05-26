@@ -11,7 +11,7 @@ ret: 3
 #indent 4
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s "abc";
     len s
 ```
@@ -26,7 +26,7 @@ ret: 4
 #indent 4
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s from_i32 1234;
     len s
 ```
@@ -43,7 +43,7 @@ ret: 4
 #import "core/result" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s0 from_i32 0;
     let s5 from_i32 5;
     let s42 from_i32 42;
@@ -65,7 +65,7 @@ ret: 3
 #indent 4
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let s from_i32 -42;
     len s
 ```
@@ -81,7 +81,7 @@ ret: 9
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let t from_bool true;
     let f from_bool false;
     add len t len f
@@ -98,7 +98,7 @@ ret: 10
 #import "alloc/string" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let a %i32 match to_bool "true":
         Result::Ok v:
             cast v
@@ -122,7 +122,7 @@ ret: 1
 #indent 4
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_bool "1":
         Result::Ok _:
             0
@@ -140,7 +140,7 @@ ret: 4
 #indent 4
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match from_i32_radix 10 2:
         Result::Ok s:
             len s
@@ -158,7 +158,7 @@ ret: 2
 #indent 4
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match from_i64_radix %i64 cast 255 16:
         Result::Ok s:
             len s
@@ -178,7 +178,7 @@ ret: 3
 #import "core/cast" as *
 #import "core/math" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let n %i64 sub %i64 cast 0 %i64 cast 255;
     match from_i64_radix n 16:
         Result::Ok s:
@@ -197,7 +197,7 @@ ret: 10
 #indent 4
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_i32_radix "1010" 2:
         Result::Ok v:
             v
@@ -216,7 +216,7 @@ ret: 255
 #import "alloc/string" as *
 #import "core/cast" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_i64_radix "Ff" 16:
         Result::Ok v:
             %i32 cast v
@@ -235,7 +235,7 @@ ret: -255
 #import "alloc/string" as *
 #import "core/cast" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_i64_radix "-Ff" 16:
         Result::Ok v:
             %i32 cast v
@@ -253,7 +253,7 @@ ret: 1
 #indent 4
 #import "alloc/string" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_i32_radix "2" 2:
         Result::Ok _:
             0
@@ -272,7 +272,7 @@ ret: 1
 #import "alloc/string" as *
 #import "core/cast" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match from_i64_radix %i64 cast 7 3:
         Result::Ok _:
             0
@@ -292,7 +292,7 @@ ret: 20
 #import "core/math" as *
 #import "core/cast" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %i128 i128 %i64 cast 1 %i64 cast 0;
     let s %str from_i128 v;
     len s
@@ -310,7 +310,7 @@ ret: 17
 #import "core/math" as *
 #import "core/cast" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %i128 i128 %i64 cast 1 %i64 cast 0;
     match from_i128_radix v 16:
         Result::Ok s:
@@ -332,7 +332,7 @@ ret: 11
 #import "core/field" as *
 #import "core/cast" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_i128_radix "10000000000000000" 16:
         Result::Ok v:
             let hi %i64 get v "hi";
@@ -358,7 +358,7 @@ ret: -255
 #import "alloc/string" as *
 #import "core/cast" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_i128_radix "-ff" 16:
         Result::Ok v:
             let v64 %i64 cast v;
@@ -379,7 +379,7 @@ ret: 17
 #import "core/math" as *
 #import "core/cast" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %u128 u128 %i64 cast 1 %i64 cast 0;
     match from_u128_radix v 16:
         Result::Ok s:
@@ -401,7 +401,7 @@ ret: 7
 #import "core/field" as *
 #import "core/cast" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     match to_u128_radix "10000000000000000" 16:
         Result::Ok v:
             if:

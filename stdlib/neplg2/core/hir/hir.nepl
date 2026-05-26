@@ -41,7 +41,7 @@
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/ty/ty" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let checks0 checks_new
 //:     match selfhost_hir_module_new:
 //:         Result::Ok module0:
@@ -72,24 +72,24 @@
 //:                                             checks_exit_code shown
 //:                                         Option::None:
 //:                                             selfhost_hir_module_free module2
-//:                                             let checks6 checks_push checks5 Result<(),str>::Err "missing root expr"
+//:                                             let checks6 checks_push checks5 Result<unit,str>::Err "missing root expr"
 //:                                             let shown checks_print_report checks6
 //:                                             checks_exit_code shown
 //:                                 Option::None:
 //:                                     selfhost_hir_module_free module2
-//:                                     let checks5 checks_push checks4 Result<(),str>::Err "missing function"
+//:                                     let checks5 checks_push checks4 Result<unit,str>::Err "missing function"
 //:                                     let shown checks_print_report checks5
 //:                                     checks_exit_code shown
 //:                         Result::Err _e:
-//:                             let checks1 checks_push checks0 Result<(),str>::Err "function push failed"
+//:                             let checks1 checks_push checks0 Result<unit,str>::Err "function push failed"
 //:                             let shown checks_print_report checks1
 //:                             checks_exit_code shown
 //:                 Result::Err _e:
-//:                     let checks1 checks_push checks0 Result<(),str>::Err "expr push failed"
+//:                     let checks1 checks_push checks0 Result<unit,str>::Err "expr push failed"
 //:                     let shown checks_print_report checks1
 //:                     checks_exit_code shown
 //:         Result::Err _e:
-//:             let checks1 checks_push checks0 Result<(),str>::Err "module alloc failed"
+//:             let checks1 checks_push checks0 Result<unit,str>::Err "module alloc failed"
 //:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
@@ -115,7 +115,7 @@
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/ty/ty" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let checks0 checks_new
 //:     match selfhost_hir_module_new:
 //:         Result::Ok module0:
@@ -156,28 +156,28 @@
 //:                                                     checks_exit_code shown
 //:                                                 Option::None:
 //:                                                     selfhost_hir_module_free module3
-//:                                                     let checks5 checks_push checks4 Result<(),str>::Err "missing parent expr"
+//:                                                     let checks5 checks_push checks4 Result<unit,str>::Err "missing parent expr"
 //:                                                     let shown checks_print_report checks5
 //:                                                     checks_exit_code shown
 //:                                         Option::None:
 //:                                             selfhost_hir_module_free module3
-//:                                             let checks4 checks_push checks3 Result<(),str>::Err "missing child id"
+//:                                             let checks4 checks_push checks3 Result<unit,str>::Err "missing child id"
 //:                                             let shown checks_print_report checks4
 //:                                             checks_exit_code shown
 //:                                 Result::Err _e:
-//:                                     let checks1 checks_push checks0 Result<(),str>::Err "parent expr push failed"
+//:                                     let checks1 checks_push checks0 Result<unit,str>::Err "parent expr push failed"
 //:                                     let shown checks_print_report checks1
 //:                                     checks_exit_code shown
 //:                         Result::Err _e:
-//:                             let checks1 checks_push checks0 Result<(),str>::Err "child range push failed"
+//:                             let checks1 checks_push checks0 Result<unit,str>::Err "child range push failed"
 //:                             let shown checks_print_report checks1
 //:                             checks_exit_code shown
 //:                 Result::Err _e:
-//:                     let checks1 checks_push checks0 Result<(),str>::Err "child expr push failed"
+//:                     let checks1 checks_push checks0 Result<unit,str>::Err "child expr push failed"
 //:                     let shown checks_print_report checks1
 //:                     checks_exit_code shown
 //:         Result::Err _e:
-//:             let checks1 checks_push checks0 Result<(),str>::Err "module alloc failed"
+//:             let checks1 checks_push checks0 Result<unit,str>::Err "module alloc failed"
 //:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```
@@ -203,7 +203,7 @@
 //:| #import "neplg2/core/infra/span" as *
 //:| #import "neplg2/core/ty/ty" as *
 //:| #import "std/test" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let checks0 checks_new
 //:     match selfhost_hir_module_new:
 //:         Result::Ok module0:
@@ -243,28 +243,28 @@
 //:                                                     checks_exit_code shown
 //:                                                 Option::None:
 //:                                                     selfhost_hir_module_free module3
-//:                                                     let checks6 checks_push checks5 Result<(),str>::Err "missing function"
+//:                                                     let checks6 checks_push checks5 Result<unit,str>::Err "missing function"
 //:                                                     let shown checks_print_report checks6
 //:                                                     checks_exit_code shown
 //:                                         Option::None:
 //:                                             selfhost_hir_module_free module3
-//:                                             let checks4 checks_push checks3 Result<(),str>::Err "missing param"
+//:                                             let checks4 checks_push checks3 Result<unit,str>::Err "missing param"
 //:                                             let shown checks_print_report checks4
 //:                                             checks_exit_code shown
 //:                                 Result::Err _e:
-//:                                     let checks1 checks_push checks0 Result<(),str>::Err "function push failed"
+//:                                     let checks1 checks_push checks0 Result<unit,str>::Err "function push failed"
 //:                                     let shown checks_print_report checks1
 //:                                     checks_exit_code shown
 //:                         Result::Err _e:
-//:                             let checks1 checks_push checks0 Result<(),str>::Err "root expr push failed"
+//:                             let checks1 checks_push checks0 Result<unit,str>::Err "root expr push failed"
 //:                             let shown checks_print_report checks1
 //:                             checks_exit_code shown
 //:                 Result::Err _e:
-//:                     let checks1 checks_push checks0 Result<(),str>::Err "param range push failed"
+//:                     let checks1 checks_push checks0 Result<unit,str>::Err "param range push failed"
 //:                     let shown checks_print_report checks1
 //:                     checks_exit_code shown
 //:         Result::Err _e:
-//:             let checks1 checks_push checks0 Result<(),str>::Err "module alloc failed"
+//:             let checks1 checks_push checks0 Result<unit,str>::Err "module alloc failed"
 //:             let shown checks_print_report checks1
 //:             checks_exit_code shown
 //: ```

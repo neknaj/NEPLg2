@@ -31,21 +31,21 @@ fn validate_port %fn i32 Result i32 str \port:
                 else:
                     Result::Ok port
 
-fn expect_port %fn i32 fn i32 Result () str \input\expected:
+fn expect_port %fn i32 fn i32 Result unit str \input\expected:
     match validate_port input:
         Result::Ok port:
             check_eq_i32 expected port
         Result::Err msg:
             Result::Err msg
 
-fn expect_port_error %fn i32 fn str Result () str \input\expected:
+fn expect_port_error %fn i32 fn str Result unit str \input\expected:
     match validate_port input:
         Result::Ok port:
             Result::Err "expected validation error"
         Result::Err msg:
             check_str_eq expected msg
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks:
         checks_new
         |> checks_push expect_port 8080 8080

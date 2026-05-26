@@ -16,7 +16,7 @@
 //:| #entry main
 //:| #target std
 //:| #import "neplg2/core/resource/borrow_state" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let state %SelfhostBorrowState selfhost_borrow_state_unborrowed
 //:     if selfhost_borrow_state_is_unborrowed state 0 1
 //: ```
@@ -57,7 +57,7 @@ impl Copy for SelfhostBorrowRequestKind:
         self
 
 //: selfhost_borrow_state_unborrowed: borrow が存在しない初期状態を[返/かえ]す
-pub fn selfhost_borrow_state_unborrowed %fn () SelfhostBorrowState \():
+pub fn selfhost_borrow_state_unborrowed %fn unit SelfhostBorrowState \unit:
     SelfhostBorrowState::Unborrowed
 
 //: selfhost_borrow_state_shared: shared borrow 状態を[作/つく]る
@@ -65,7 +65,7 @@ pub fn selfhost_borrow_state_shared %fn i32 SelfhostBorrowState \count:
     SelfhostBorrowState::Shared count
 
 //: selfhost_borrow_state_mutable: mutable borrow 状態を[返/かえ]す
-pub fn selfhost_borrow_state_mutable %fn () SelfhostBorrowState \():
+pub fn selfhost_borrow_state_mutable %fn unit SelfhostBorrowState \unit:
     SelfhostBorrowState::Mutable
 
 //: selfhost_borrow_state_is_unborrowed: borrow が存在しない状態か[返/かえ]す

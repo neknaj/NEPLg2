@@ -1,5 +1,5 @@
 #entry main
 
-fn main <()*> ():
+fn main <unit*> unit:
     let value 42;
     value

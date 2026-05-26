@@ -13,7 +13,7 @@
 //:| #import "alloc/string" as *
 //:| #import "core/result" as *
 //:| #import "std/streamio/input" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let r %Result str StdErrorKind read TextInputStream "ab";
 //:     match r:
 //:         Result::Ok s:
@@ -41,7 +41,7 @@
 //: ### [注意/ちゅうい]
 //: - [内部/ないぶ][状態/じょうたい]を[持/も]たないので `Copy` / `Clone` を[実装/じっそう]します。
 pub struct StdinStream:
-    marker %()
+    marker %unit
 
 impl Copy for StdinStream:
     fn copy_mark %fn StdinStream StdinStream \stream:
@@ -90,8 +90,8 @@ impl TextReader for TextInputStream:
         Result::Ok get stream "text"
 
 impl Close for TextInputStream:
-    fn close %impure fn TextInputStream Result () StdErrorKind \_stream:
-        Result::Ok ()
+    fn close %impure fn TextInputStream Result unit StdErrorKind \_stream:
+        Result::Ok unit
 
 impl ByteReader for ByteInputStream:
     fn read_all_bytes %impure fn ByteInputStream Result ByteBuf StdErrorKind \stream:
@@ -102,12 +102,12 @@ impl TextReader for ByteInputStream:
         text_bytebuf_to_utf8_str_result get stream "bytes"
 
 impl Close for ByteInputStream:
-    fn close %impure fn ByteInputStream Result () StdErrorKind \_stream:
-        Result::Ok ()
+    fn close %impure fn ByteInputStream Result unit StdErrorKind \_stream:
+        Result::Ok unit
 
 impl Close for StdinStream:
-    fn close %impure fn StdinStream Result () StdErrorKind \_stream:
-        Result::Ok ()
+    fn close %impure fn StdinStream Result unit StdErrorKind \_stream:
+        Result::Ok unit
 
 //: ## StreamReadableResult
 //: input stream を[指定/してい]した[型/かた]として[読/よ]み[出/だ]す[能力/のうりょく]
@@ -158,15 +158,15 @@ pub fn read <.T: StreamReadableResult> %impure fn ByteInputStream Result .T StdE
 
 //: ## close
 //: `StdinStream` を[閉/と]じる
-pub fn close %impure fn StdinStream Result () StdErrorKind \stream:
+pub fn close %impure fn StdinStream Result unit StdErrorKind \stream:
     io_close stream
 
 //: ## close
 //: `TextInputStream` を[閉/と]じる
-pub fn close %impure fn TextInputStream Result () StdErrorKind \stream:
+pub fn close %impure fn TextInputStream Result unit StdErrorKind \stream:
     io_close stream
 
 //: ## close
 //: `ByteInputStream` を[閉/と]じる
-pub fn close %impure fn ByteInputStream Result () StdErrorKind \stream:
+pub fn close %impure fn ByteInputStream Result unit StdErrorKind \stream:
     io_close stream

@@ -34,7 +34,7 @@
 //: struct NonCopyPayload:
 //:     value %i32
 //:
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     let v %Vec NonCopyPayload vec_empty<NonCopyPayload>
 //:     let ok %bool is_empty<NonCopyPayload> &v
 //:     if ok 0 1
@@ -49,13 +49,13 @@
 //: struct DropPayload:
 //:     value %i32
 //: impl Drop for DropPayload:
-//:     fn drop %impure fn &DropPayload () \_self:
-//:         ()
+//:     fn drop %impure fn &DropPayload unit \_self:
+//:         unit
 //:
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let v %Vec DropPayload vec_empty<DropPayload>
 //:     free<DropPayload> v
 //:     0
 //: ```
-pub fn vec_empty <.T> %fn () Vec .T \():
+pub fn vec_empty <.T> %fn unit Vec .T \unit:
     Vec<.T> (OwnedBuffer<.T> 0 0 0 VecStorage<.T>::Empty)

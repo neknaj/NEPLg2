@@ -5,7 +5,7 @@
 #import "./summary" as *
 
 //: selfhost_module_check_summary_new: [空/から]の module check summary を[作/つく]る
-pub fn selfhost_module_check_summary_new %fn () SelfhostModuleCheckSummary \():
+pub fn selfhost_module_check_summary_new %fn unit SelfhostModuleCheckSummary \unit:
     SelfhostModuleCheckSummary 0 0 0 0 0 0 0 0 0 0 0 0
 
 pub fn selfhost_module_check_summary_record %fn SelfhostModuleCheckSummary fn SelfhostModuleItemKind SelfhostModuleCheckSummary \summary\kind:

@@ -45,7 +45,7 @@ pub let read_file_text %fn* str Result str IoError \path:
                         Result::Err e Result::Err e
 
 
-pub let write_file_text %fn* str fn str Result () IoError \path \content:
+pub let write_file_text %fn* str fn str Result unit IoError \path \content:
     match open path Mode::Write:
         Result::Err e Result::Err e
         Result::Ok file
@@ -56,7 +56,7 @@ pub let write_file_text %fn* str fn str Result () IoError \path \content:
                         Result::Err e Result::Err e
                         Result::Ok file3
                             match close file3:
-                                Result::Ok _ Result::Ok ()
+                                Result::Ok _ Result::Ok unit
                                 Result::Err e Result::Err e
 
 
@@ -73,7 +73,7 @@ let count_lines %fn str i32 \content:
 let word_count %fn str i32 \content:
     length split content " "
 
-pub let analyze_file %fn* str () \path:
+pub let analyze_file %fn* str unit \path:
     match read_file_text path:
         Result::Err e
             println concat "読み込みエラー: " show_io_error e
@@ -91,10 +91,10 @@ pub let analyze_file %fn* str () \path:
 
 pub let prompt %fn* str str \msg:
     print msg
-    read_line ()
+    read_line unit
 
 
-pub let main %fn* () i32 \():
+pub let main %fn* unit i32 \unit:
     let name prompt "ファイル名: "
     analyze_file name
     0

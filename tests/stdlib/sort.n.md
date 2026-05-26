@@ -13,7 +13,7 @@ ret: 1234
 #import "core/math" as *
 #import "core/result" as *
 
-fn make_vec4 %fn () Vec i32 \():
+fn make_vec4 %fn unit Vec i32 \unit:
     let mut v %Vec i32 unwrap_ok new<i32>;
     set v unwrap_ok push<i32> v 4;
     set v unwrap_ok push<i32> v 1;
@@ -21,7 +21,7 @@ fn make_vec4 %fn () Vec i32 \():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %Vec i32 make_vec4;
     sort_quick<i32> &v;
     free<i32> v;
@@ -39,10 +39,10 @@ diag_code: effect.pure.calls_impure
 #import "alloc/collections/vec" as *
 #import "alloc/collections/vec/sort" as *
 
-fn pure_sort %fn &Vec i32 () \v:
+fn pure_sort %fn &Vec i32 unit \v:
     sort<i32> v
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     0
 ```
 
@@ -59,7 +59,7 @@ ret: 1234
 #import "core/math" as *
 #import "core/result" as *
 
-fn make_vec4 %fn () Vec i32 \():
+fn make_vec4 %fn unit Vec i32 \unit:
     let mut v %Vec i32 unwrap_ok new<i32>;
     set v unwrap_ok push<i32> v 4;
     set v unwrap_ok push<i32> v 1;
@@ -67,7 +67,7 @@ fn make_vec4 %fn () Vec i32 \():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %Vec i32 make_vec4;
     match sort_merge<i32> &v:
         Result::Ok _:
@@ -94,7 +94,7 @@ ret: 1334
 #import "core/option" as *
 #import "core/result" as *
 
-fn make_vec4 %fn () Vec i32 \():
+fn make_vec4 %fn unit Vec i32 \unit:
     let mut v %Vec i32 unwrap_ok new<i32>;
     set v unwrap_ok push<i32> v 4;
     set v unwrap_ok push<i32> v 1;
@@ -102,7 +102,7 @@ fn make_vec4 %fn () Vec i32 \():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v sort_quick_ret<i32> make_vec4;
     let n %i32 len<i32> &v;
     let bn %bool eq n 4;
@@ -144,7 +144,7 @@ ret: 0
 #import "core/field" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     let v1 sort_quick_ret<i32> v0;
     let n %i32 len<i32> &v1;
@@ -165,7 +165,7 @@ ret: 1
 #import "core/field" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     let v1 %Vec i32 unwrap_ok push<i32> v0 42;
     let v2 sort_quick_ret<i32> v1;
@@ -187,7 +187,7 @@ ret: 3
 #import "core/field" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     let v1 %Vec i32 unwrap_ok push<i32> v0 4;
     let v2 %Vec i32 unwrap_ok push<i32> v1 1;
@@ -211,7 +211,7 @@ ret: 1234
 #import "core/math" as *
 #import "core/result" as *
 
-fn make_vec4 %fn () Vec i32 \():
+fn make_vec4 %fn unit Vec i32 \unit:
     let mut v %Vec i32 unwrap_ok new<i32>;
     set v unwrap_ok push<i32> v 4;
     set v unwrap_ok push<i32> v 1;
@@ -219,7 +219,7 @@ fn make_vec4 %fn () Vec i32 \():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %Vec i32 make_vec4;
     sort_heap<i32> &v;
     free<i32> v;
@@ -242,7 +242,7 @@ ret: 1434
 #import "core/option" as *
 #import "core/result" as *
 
-fn make_vec4 %fn () Vec i32 \():
+fn make_vec4 %fn unit Vec i32 \unit:
     let mut v %Vec i32 unwrap_ok new<i32>;
     set v unwrap_ok push<i32> v 4;
     set v unwrap_ok push<i32> v 1;
@@ -250,7 +250,7 @@ fn make_vec4 %fn () Vec i32 \():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v sort_heap_ret<i32> make_vec4;
     let n %i32 len<i32> &v;
     let bn %bool eq n 4;
@@ -292,7 +292,7 @@ ret: 0
 #import "core/field" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     let v1 sort_heap_ret<i32> v0;
     let n %i32 len<i32> &v1;
@@ -313,7 +313,7 @@ ret: 1
 #import "core/field" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     let v1 %Vec i32 unwrap_ok push<i32> v0 42;
     let v2 sort_heap_ret<i32> v1;
@@ -335,7 +335,7 @@ ret: 3
 #import "core/field" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     let v1 %Vec i32 unwrap_ok push<i32> v0 4;
     let v2 %Vec i32 unwrap_ok push<i32> v1 1;
@@ -362,7 +362,7 @@ ret: 1534
 #import "core/option" as *
 #import "core/result" as *
 
-fn make_vec4 %fn () Vec i32 \():
+fn make_vec4 %fn unit Vec i32 \unit:
     let mut v %Vec i32 unwrap_ok new<i32>;
     set v unwrap_ok push<i32> v 4;
     set v unwrap_ok push<i32> v 1;
@@ -370,7 +370,7 @@ fn make_vec4 %fn () Vec i32 \():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %Vec i32 unwrap_ok<Vec<i32>, VecSortMergeError<i32>> sort_merge_ret<i32> make_vec4;
     let n %i32 len<i32> &v;
     let bn %bool eq n 4;
@@ -412,7 +412,7 @@ ret: 0
 #import "core/field" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     let v1 %Vec i32 unwrap_ok<Vec<i32>, VecSortMergeError<i32>> sort_merge_ret<i32> v0;
     let n %i32 len<i32> &v1;
@@ -433,7 +433,7 @@ ret: 1
 #import "core/field" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     let v1 %Vec i32 unwrap_ok push<i32> v0 42;
     let v2 %Vec i32 unwrap_ok<Vec<i32>, VecSortMergeError<i32>> sort_merge_ret<i32> v1;
@@ -455,7 +455,7 @@ ret: 3
 #import "core/field" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     let v1 %Vec i32 unwrap_ok push<i32> v0 4;
     let v2 %Vec i32 unwrap_ok push<i32> v1 1;
@@ -479,7 +479,7 @@ diag_codes: type.owner_aggregate.constructor_restricted
 #import "core/field" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     let v1 %Vec i32 unwrap_ok push<i32> v0 7;
     // VecSortMergeError は sort_merge_ret が失敗時に返す owner payload であり、
@@ -501,7 +501,7 @@ ret: 1234
 #import "core/math" as *
 #import "core/result" as *
 
-fn make_vec4 %fn () Vec i32 \():
+fn make_vec4 %fn unit Vec i32 \unit:
     let mut v %Vec i32 unwrap_ok new<i32>;
     set v unwrap_ok push<i32> v 4;
     set v unwrap_ok push<i32> v 1;
@@ -509,7 +509,7 @@ fn make_vec4 %fn () Vec i32 \():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v %Vec i32 make_vec4;
     sort<i32> &v;
     free<i32> v;
@@ -529,7 +529,7 @@ ret: 10
 #import "core/math" as *
 #import "core/result" as *
 
-fn make_vec4 %fn () Vec i32 \():
+fn make_vec4 %fn unit Vec i32 \unit:
     let mut v %Vec i32 unwrap_ok new<i32>;
     set v unwrap_ok push<i32> v 4;
     set v unwrap_ok push<i32> v 1;
@@ -537,7 +537,7 @@ fn make_vec4 %fn () Vec i32 \():
     set v unwrap_ok push<i32> v 2;
     v
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     let before_v %Vec i32 make_vec4;
     let before %bool sort_is_sorted<i32> &before_v;
     free<i32> before_v;
@@ -565,7 +565,7 @@ diag_codes: resolve.identifier.undefined
 #import "alloc/collections/vec/sort" as *
 #import "core/result" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new<i32>;
     sort_i32 0 0;
     free<i32> v0;

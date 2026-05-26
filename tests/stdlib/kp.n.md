@@ -15,7 +15,7 @@ stdout: "10\n20\n30\n"
 #import "std/stdio" as *
 #import "core/result" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
     let a %i32 read &sc;
     let b %i32 read &sc;
@@ -41,7 +41,7 @@ stdout: "hello world"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let line %str read_line;
     unwrap_ok open WriteStream::Stdio
     |> write line
@@ -66,7 +66,7 @@ stdout: "6\n14\n15\n"
 #import "std/streamio" as *
 #import "std/iotarget" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
     let n %i32 read &sc;
     let q %i32 read &sc;
@@ -156,7 +156,7 @@ fn ways %impure fn i32 i64 \n:
                     set i add i 1;
             b
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
     let n %i32 read &sc;
     let ans %i64 ways n;
@@ -181,7 +181,7 @@ stdout: "3.500000\n-2.250000\n100.000000\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
     let a %f64 read &sc;
     let b %f64 read &sc;
@@ -209,7 +209,7 @@ stdout: "1.250000\n"
 #import "std/iotarget" as *
 #import "core/result" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let sc %StreamScanner unwrap_ok open ReadStream::Stdio;
     let v %f32 read &sc;
     close sc;
@@ -235,7 +235,7 @@ stdout: "2 3\n1 2 5\n"
 #import "std/stdio" as *
 #import "alloc/collections/vec" as *
 
-fn main %impure fn () () \():
+fn main %impure fn unit unit \unit:
     let len %i32 6;
     let count_data %Vec i32:
         unwrap_ok with_capacity<i32> len
@@ -266,12 +266,12 @@ fn main %impure fn () () \():
         do:
             if gt i 0:
                 then print " "
-                else ()
+                else unit
             match unique_sorted_vec_i32_get &unique i:
                 Option::Some value:
                     print_i32 value
                 Option::None:
-                    ()
+                    unit
             set i add i 1;
     println "";
     free unique;

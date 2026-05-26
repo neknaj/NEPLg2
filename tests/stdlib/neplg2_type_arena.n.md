@@ -33,9 +33,9 @@ fn check_kind %impure fn TestReport impure fn Option SelfhostTypeKind impure fn 
         Option::Some kind:
             checks_push checks check selfhost_type_kind_eq kind expected
         Option::None:
-            checks_push checks Result<(),str>::Err "type kind was absent"
+            checks_push checks Result<unit,str>::Err "type kind was absent"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -70,27 +70,27 @@ fn main %impure fn () i32 \():
                                                     let shown checks_print_report checks11
                                                     checks_exit_code shown
                                                 Result::Err _e:
-                                                    let checks1 checks_push checks0 Result<(),str>::Err "never type allocation failed"
+                                                    let checks1 checks_push checks0 Result<unit,str>::Err "never type allocation failed"
                                                     let shown checks_print_report checks1
                                                     checks_exit_code shown
                                         Result::Err _e:
-                                            let checks1 checks_push checks0 Result<(),str>::Err "f64 type allocation failed"
+                                            let checks1 checks_push checks0 Result<unit,str>::Err "f64 type allocation failed"
                                             let shown checks_print_report checks1
                                             checks_exit_code shown
                                 Result::Err _e:
-                                    let checks1 checks_push checks0 Result<(),str>::Err "f32 type allocation failed"
+                                    let checks1 checks_push checks0 Result<unit,str>::Err "f32 type allocation failed"
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
                         Result::Err _e:
-                            let checks1 checks_push checks0 Result<(),str>::Err "bool type allocation failed"
+                            let checks1 checks_push checks0 Result<unit,str>::Err "bool type allocation failed"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "unit type allocation failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "unit type allocation failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "type arena allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "type arena allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -123,16 +123,16 @@ fn check_type_id %impure fn TestReport impure fn Option SelfhostTypeId impure fn
         Option::Some type_id:
             checks_push checks check selfhost_type_id_eq type_id expected
         Option::None:
-            checks_push checks Result<(),str>::Err "type id was absent"
+            checks_push checks Result<unit,str>::Err "type id was absent"
 
 fn check_i32_option %impure fn TestReport impure fn Option i32 impure fn i32 TestReport \checks\actual\expected:
     match actual:
         Option::Some value:
             checks_push checks check_eq_i32 expected value
         Option::None:
-            checks_push checks Result<(),str>::Err "i32 option was absent"
+            checks_push checks Result<unit,str>::Err "i32 option was absent"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -162,38 +162,38 @@ fn main %impure fn () i32 \():
                                                             let shown checks_print_report checks6
                                                             checks_exit_code shown
                                                         Result::Err _e:
-                                                            let checks1 checks_push checks0 Result<(),str>::Err "function type allocation failed"
+                                                            let checks1 checks_push checks0 Result<unit,str>::Err "function type allocation failed"
                                                             let shown checks_print_report checks1
                                                             checks_exit_code shown
                                                 Result::Err _e:
                                                     let returned %Vec SelfhostTypeId vec_push_error_vec<SelfhostTypeId> _e
                                                     free<SelfhostTypeId> returned
                                                     selfhost_type_arena_free selfhost_type_arena_alloc_into_arena alloc2
-                                                    let checks1 checks_push checks0 Result<(),str>::Err "second param push failed"
+                                                    let checks1 checks_push checks0 Result<unit,str>::Err "second param push failed"
                                                     let shown checks_print_report checks1
                                                     checks_exit_code shown
                                         Result::Err _e:
                                             let returned %Vec SelfhostTypeId vec_push_error_vec<SelfhostTypeId> _e
                                             free<SelfhostTypeId> returned
                                             selfhost_type_arena_free selfhost_type_arena_alloc_into_arena alloc2
-                                            let checks1 checks_push checks0 Result<(),str>::Err "first param push failed"
+                                            let checks1 checks_push checks0 Result<unit,str>::Err "first param push failed"
                                             let shown checks_print_report checks1
                                             checks_exit_code shown
                                 Result::Err _e:
                                     selfhost_type_arena_free selfhost_type_arena_alloc_into_arena alloc2
-                                    let checks1 checks_push checks0 Result<(),str>::Err "param vector allocation failed"
+                                    let checks1 checks_push checks0 Result<unit,str>::Err "param vector allocation failed"
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
                         Result::Err _e:
-                            let checks1 checks_push checks0 Result<(),str>::Err "bool type allocation failed"
+                            let checks1 checks_push checks0 Result<unit,str>::Err "bool type allocation failed"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "i32 type allocation failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "i32 type allocation failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "type arena allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "type arena allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -219,7 +219,7 @@ stdout: mlstr:
 #import "neplg2/core/ty/ty" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -236,11 +236,11 @@ fn main %impure fn () i32 \():
                     let shown checks_print_report checks4
                     checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "bool type allocation failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "bool type allocation failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "type arena allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "type arena allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -280,7 +280,7 @@ fn add_one_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId im
             selfhost_type_arena_free arena
             Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -303,23 +303,23 @@ fn main %impure fn () i32 \():
                                             let shown checks_print_report checks2
                                             checks_exit_code shown
                                         Result::Err _e:
-                                            let checks1 checks_push checks0 Result<(),str>::Err "second function allocation failed"
+                                            let checks1 checks_push checks0 Result<unit,str>::Err "second function allocation failed"
                                             let shown checks_print_report checks1
                                             checks_exit_code shown
                                 Result::Err _e:
-                                    let checks1 checks_push checks0 Result<(),str>::Err "first function allocation failed"
+                                    let checks1 checks_push checks0 Result<unit,str>::Err "first function allocation failed"
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
                         Result::Err _e:
-                            let checks1 checks_push checks0 Result<(),str>::Err "bool type allocation failed"
+                            let checks1 checks_push checks0 Result<unit,str>::Err "bool type allocation failed"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "i32 type allocation failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "i32 type allocation failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "type arena allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "type arena allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -369,7 +369,7 @@ fn add_zero_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId R
             selfhost_type_arena_free arena
             Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let checks0 checks_new
     match selfhost_type_arena_new:
         Result::Ok arena0:
@@ -401,31 +401,31 @@ fn main %impure fn () i32 \():
                                                             let shown checks_print_report checks4
                                                             checks_exit_code shown
                                                         Result::Err _e:
-                                                            let checks1 checks_push checks0 Result<(),str>::Err "arity mismatch function allocation failed"
+                                                            let checks1 checks_push checks0 Result<unit,str>::Err "arity mismatch function allocation failed"
                                                             let shown checks_print_report checks1
                                                             checks_exit_code shown
                                                 Result::Err _e:
-                                                    let checks1 checks_push checks0 Result<(),str>::Err "result mismatch function allocation failed"
+                                                    let checks1 checks_push checks0 Result<unit,str>::Err "result mismatch function allocation failed"
                                                     let shown checks_print_report checks1
                                                     checks_exit_code shown
                                         Result::Err _e:
-                                            let checks1 checks_push checks0 Result<(),str>::Err "arg mismatch function allocation failed"
+                                            let checks1 checks_push checks0 Result<unit,str>::Err "arg mismatch function allocation failed"
                                             let shown checks_print_report checks1
                                             checks_exit_code shown
                                 Result::Err _e:
-                                    let checks1 checks_push checks0 Result<(),str>::Err "base function allocation failed"
+                                    let checks1 checks_push checks0 Result<unit,str>::Err "base function allocation failed"
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
                         Result::Err _e:
-                            let checks1 checks_push checks0 Result<(),str>::Err "bool type allocation failed"
+                            let checks1 checks_push checks0 Result<unit,str>::Err "bool type allocation failed"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "i32 type allocation failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "i32 type allocation failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "type arena allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "type arena allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```

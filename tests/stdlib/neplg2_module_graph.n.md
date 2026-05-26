@@ -32,7 +32,7 @@ stdout: mlstr:
 fn edge_at %fn &SelfhostModuleGraph fn i32 SelfhostModuleGraphEdge \graph\idx:
     unwrap<SelfhostModuleGraphEdge> selfhost_module_graph_edge_at graph idx
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let root %str "#import \"util.nepl\" as util\n#import \"leaf.nepl\" as *\nfn main <()->i32> \():\n    0\n"
     let util %str "#import \"leaf.nepl\" as leaf\nfn util <()->i32> \():\n    1\n"
     let leaf %str "fn leaf <()->i32> ():\n    2\n"
@@ -64,23 +64,23 @@ fn main %impure fn () i32 \():
                                             checks_exit_code shown
                                         Result::Err _diag:
                                             selfhost_vfs_free vfs3
-                                            let checks1 checks_push checks0 Result<(),str>::Err "module graph returned Err"
+                                            let checks1 checks_push checks0 Result<unit,str>::Err "module graph returned Err"
                                             let shown checks_print_report checks1
                                             checks_exit_code shown
                                 Result::Err _e:
-                                    let checks1 checks_push checks0 Result<(),str>::Err "leaf VFS add failed"
+                                    let checks1 checks_push checks0 Result<unit,str>::Err "leaf VFS add failed"
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
                         Result::Err _e:
-                            let checks1 checks_push checks0 Result<(),str>::Err "util VFS add failed"
+                            let checks1 checks_push checks0 Result<unit,str>::Err "util VFS add failed"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "root VFS add failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "root VFS add failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "VFS allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "VFS allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -112,9 +112,9 @@ fn check_note %impure fn TestReport impure fn Option str TestReport \checks\note
         Option::Some text:
             checks_push checks check_str_eq "missing.nepl" text
         Option::None:
-            checks_push checks Result<(),str>::Err "missing module diagnostic note was absent"
+            checks_push checks Result<unit,str>::Err "missing module diagnostic note was absent"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let root %str "#import \"missing.nepl\" as *\nfn main <()->i32> \():\n    0\n"
     let checks0 checks_new
     match selfhost_vfs_new:
@@ -125,7 +125,7 @@ fn main %impure fn () i32 \():
                         Result::Ok graph:
                             selfhost_module_graph_free graph
                             selfhost_vfs_free vfs1
-                            let checks1 checks_push checks0 Result<(),str>::Err "missing import was accepted"
+                            let checks1 checks_push checks0 Result<unit,str>::Err "missing import was accepted"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                         Result::Err diag:
@@ -135,11 +135,11 @@ fn main %impure fn () i32 \():
                             let shown checks_print_report checks2
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "root VFS add failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "root VFS add failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "VFS allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "VFS allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -171,9 +171,9 @@ fn check_note %impure fn TestReport impure fn Option str TestReport \checks\note
         Option::Some text:
             checks_push checks check_str_eq "a.nepl" text
         Option::None:
-            checks_push checks Result<(),str>::Err "cycle diagnostic note was absent"
+            checks_push checks Result<unit,str>::Err "cycle diagnostic note was absent"
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let source_a %str "#import \"b.nepl\" as b\nfn a <()->i32> \():\n    1\n"
     let source_b %str "#import \"a.nepl\" as a\nfn b <()->i32> \():\n    2\n"
     let checks0 checks_new
@@ -187,7 +187,7 @@ fn main %impure fn () i32 \():
                                 Result::Ok graph:
                                     selfhost_module_graph_free graph
                                     selfhost_vfs_free vfs2
-                                    let checks1 checks_push checks0 Result<(),str>::Err "import cycle was accepted"
+                                    let checks1 checks_push checks0 Result<unit,str>::Err "import cycle was accepted"
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
                                 Result::Err diag:
@@ -197,15 +197,15 @@ fn main %impure fn () i32 \():
                                     let shown checks_print_report checks2
                                     checks_exit_code shown
                         Result::Err _e:
-                            let checks1 checks_push checks0 Result<(),str>::Err "b VFS add failed"
+                            let checks1 checks_push checks0 Result<unit,str>::Err "b VFS add failed"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<(),str>::Err "a VFS add failed"
+                    let checks1 checks_push checks0 Result<unit,str>::Err "a VFS add failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<(),str>::Err "VFS allocation failed"
+            let checks1 checks_push checks0 Result<unit,str>::Err "VFS allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```

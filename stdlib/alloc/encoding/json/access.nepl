@@ -196,7 +196,7 @@ pub fn json_as_object %fn JsonValue Option JsonObject \v:
 //:| #import "core/option" as *
 //:| #import "alloc/encoding/json/builders" as *
 //:| #import "alloc/encoding/json/access" as *
-//: fn main %impure fn () i32 \():
+//: fn main %impure fn unit i32 \unit:
 //:     let checks0 checks_push checks_new assert json_is_null json_null
 //:     let checks1 checks_push checks0 assert is_some json_as_bool json_bool true
 //:     let shown checks_print_report checks1

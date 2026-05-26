@@ -28,21 +28,21 @@
 //:
 //: [計算量/けいさんりょう]:
 //: - 比較 O(n^2)、追加領域 O(1)
-pub fn sort_selection <.T: Ord&Copy> %impure fn &Vec .T () \v:
+pub fn sort_selection <.T: Ord&Copy> %impure fn &Vec .T unit \v:
     match vec_current_copy_invariant<.T> v:
         VecCopyInvariant::Invalid _reason:
-            ()
+            unit
         VecCopyInvariant::Valid:
             let n %i32 len<.T> v
             if:
                 le n 1
-                then ()
+                then unit
                 else:
                     match data_mem_view<.T> v:
                         VecDataView::Empty:
-                            ()
+                            unit
                         VecDataView::Invalid _reason:
-                            ()
+                            unit
                         VecDataView::Data data:
                             let mut i %i32 0
                             while lt i n:
@@ -56,11 +56,11 @@ pub fn sort_selection <.T: Ord&Copy> %impure fn &Vec .T () \v:
                                             if:
                                                 sort_lt<.T> a b
                                                 then set min_idx j
-                                                else ()
+                                                else unit
                                             set j add j 1;
                                     let left %.T load<.T> add mem_ptr_addr data mul i size_of<.T>
                                     let right %.T load<.T> add mem_ptr_addr data mul min_idx size_of<.T>
                                     store<.T> add mem_ptr_addr data mul i size_of<.T> right;
                                     store<.T> add mem_ptr_addr data mul min_idx size_of<.T> left;
                                     set i add i 1;
-                            ()
+                            unit

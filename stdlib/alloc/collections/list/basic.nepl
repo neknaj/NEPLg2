@@ -22,7 +22,7 @@
 //:
 //: ### [実装/じっそう]
 //: - `Vec.new` で backing storage を[作/つく]り、`List` owner として[包/つつ]みます。
-pub fn new <.T: Copy> %impure fn () Result List .T Diag \():
+pub fn new <.T: Copy> %impure fn unit Result List .T Diag \unit:
     match vec::new<.T>:
         Result::Ok items:
             ok<List<.T>, Diag> List<.T> items
@@ -77,5 +77,5 @@ pub fn reverse <.T: Copy> %impure fn List .T List .T \lst:
     List<.T> items
 
 //: free: Copy-only list storage owner を[閉/と]じる
-pub fn free <.T: Copy> %fn List .T () \lst:
+pub fn free <.T: Copy> %fn List .T unit \lst:
     list_free_items<.T> lst

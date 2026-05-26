@@ -18,7 +18,7 @@
 //:| #target std
 //:| #import "neplg2/cli/args/predicates" as *
 //:| #import "neplg2/cli/args/types" as *
-//: fn main %fn () i32 \():
+//: fn main %fn unit i32 \unit:
 //:     if selfhost_cli_error_is_invalid_emit SelfhostCliErrorKind::InvalidEmit 0 1
 //: ```
 

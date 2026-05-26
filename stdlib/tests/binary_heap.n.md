@@ -17,7 +17,7 @@ stdout: "test_report name=\"binary_heap_push_peek_pop\" count=3 failed=0\nassert
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hp0 %BinaryHeap i32:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 4 |> uwok
@@ -74,7 +74,7 @@ stdout: "test_report name=\"binary_heap_empty_and_capacity\" count=2 failed=0\na
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hp0 %BinaryHeap i32 unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 8;
     let ok0 %bool is_empty<i32> &hp0;
     free<i32> hp0;
@@ -109,7 +109,7 @@ stdout: "test_report name=\"binary_heap_borrowed_reads_preserve_owner\" count=2 
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hp %BinaryHeap i32:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 4 |> uwok
@@ -147,7 +147,7 @@ stdout: "test_report name=\"binary_heap_pop_max_returns_owner\" count=3 failed=0
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hp0 %BinaryHeap i32:
         unwrap_ok<BinaryHeap<i32>, Diag> new<i32>
         |> push 4 |> uwok
@@ -194,7 +194,7 @@ stdout: "test_report name=\"binary_heap_grow_preserves_order\" count=2 failed=0\
 #import "core/result" as *
 #import "std/test" as *
 
-fn main %impure fn () i32 \():
+fn main %impure fn unit i32 \unit:
     let hp0 %BinaryHeap i32:
         unwrap_ok<BinaryHeap<i32>, Diag> with_capacity<i32> 1
         |> push 4 |> uwok

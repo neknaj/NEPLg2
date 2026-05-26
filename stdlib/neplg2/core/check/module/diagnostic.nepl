@@ -13,7 +13,7 @@ fn selfhost_module_check_labeled_diag %fn SelfhostCheckerDiagnosticCode fn str f
 fn selfhost_module_check_raw_block_empty_diag %fn SelfhostSourceSpan SelfhostDiagnostic \span:
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::RawBlockEmpty "raw backend block has no raw text items" span "raw backend block starts here"
 
-fn selfhost_module_check_unexpected_proof_diag %fn () SelfhostDiagnostic \():
+fn selfhost_module_check_unexpected_proof_diag %fn unit SelfhostDiagnostic \unit:
     let span %SelfhostSourceSpan source_span_empty 0 0
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module checker received an unexpected proof result" span "unexpected proof result"
 
@@ -47,7 +47,7 @@ fn selfhost_module_check_declaration_header_invalid_diag %fn SelfhostModuleDecla
     let diag %SelfhostDiagnostic selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleDeclarationHeaderInvalid "declaration header evidence is not valid for this declaration kind" issue.span "invalid declaration header evidence"
     selfhost_diag_with_note diag "the parser must preserve a valid header span, keyword span, and declaration head before type/trait/effect checks run"
 
-pub fn selfhost_module_check_index_unavailable_diag %fn () SelfhostDiagnostic \():
+pub fn selfhost_module_check_index_unavailable_diag %fn unit SelfhostDiagnostic \unit:
     let span %SelfhostSourceSpan source_span_empty 0 0
     selfhost_module_check_labeled_diag SelfhostCheckerDiagnosticCode::ModuleItemIndex "module AST item index was unavailable" span "unavailable module item"
 

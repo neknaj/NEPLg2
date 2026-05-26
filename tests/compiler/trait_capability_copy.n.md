@@ -30,6 +30,6 @@ fn use_twice <.T: Reusable> %fn .T i32 \x:
     let b %.T x
     0
 
-fn main %fn () i32 \():
+fn main %fn unit i32 \unit:
     use_twice Token 1
 ```

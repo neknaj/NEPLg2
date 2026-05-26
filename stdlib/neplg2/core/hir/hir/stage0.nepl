@@ -7,7 +7,7 @@
 #import "./arena" as *
 
 //: selfhost_hir_stage0: HIR module の smoke API
-pub fn selfhost_hir_stage0 %impure fn () i32 \():
+pub fn selfhost_hir_stage0 %impure fn unit i32 \unit:
     match selfhost_hir_module_new:
         Result::Ok module:
             let n %i32 selfhost_hir_module_function_len &module

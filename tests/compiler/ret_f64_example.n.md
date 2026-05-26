@@ -10,6 +10,6 @@ diag_codes: type.annotation.mismatch, type.return.mismatch
 #entry main
 #indent 4
 
-fn main %fn () f64():
+fn main %fn unit f64\unit:
     1.25
 ```
