@@ -23,28 +23,28 @@ fn main %impure fn unit i32 \unit:
         |> push_back 10 |> uwok
         |> push_front 5 |> uwok
         |> push_back 20 |> uwok
-    let size %i32 len<i32> &dq0;
-    free<i32> dq0;
+    let size %i32 len &dq0;
+    free dq0;
     let dq1 %Deque i32:
         unwrap_ok new<i32>
         |> push_back 10 |> uwok
         |> push_front 5 |> uwok
-    let ok1 %bool match peek_front<i32> &dq1:
+    let ok1 %bool match peek_front &dq1:
         Option::Some v:
             eq v 5
         Option::None:
             false
-    free<i32> dq1;
+    free dq1;
     let dq2 %Deque i32:
         unwrap_ok new<i32>
         |> push_back 10 |> uwok
         |> push_back 20 |> uwok
-    let ok2 %bool match peek_back<i32> &dq2:
+    let ok2 %bool match peek_back &dq2:
         Option::Some v:
             eq v 20
         Option::None:
             false
-    free<i32> dq2;
+    free dq2;
     let report:
         test_report_new "deque_push_front_back"
         |> test_report_push assert_eq_i32 "deque len" 3 size
@@ -76,28 +76,28 @@ fn main %impure fn unit i32 \unit:
         unwrap_ok new<i32>
         |> push_back 10 |> uwok
         |> push_back 20 |> uwok
-    let p_front %DequePop i32 pop_front<i32> dq_front
-    let ok0 %bool match deque_pop_item<i32> &p_front:
+    let p_front %DequePop i32 pop_front dq_front
+    let ok0 %bool match deque_pop_item &p_front:
         Option::Some v:
             eq v 10
         Option::None:
             false
-    let dq_front_next %Deque i32 deque_pop_deque<i32> p_front
-    let len_front_next %i32 len<i32> &dq_front_next
-    free<i32> dq_front_next
+    let dq_front_next %Deque i32 deque_pop_deque p_front
+    let len_front_next %i32 len &dq_front_next
+    free dq_front_next
     let dq_back %Deque i32:
         unwrap_ok new<i32>
         |> push_back 10 |> uwok
         |> push_back 20 |> uwok
-    let p_back %DequePop i32 pop_back<i32> dq_back
-    let ok1 %bool match deque_pop_item<i32> &p_back:
+    let p_back %DequePop i32 pop_back dq_back
+    let ok1 %bool match deque_pop_item &p_back:
         Option::Some v:
             eq v 20
         Option::None:
             false
-    let dq_back_next %Deque i32 deque_pop_deque<i32> p_back
-    let len_back_next %i32 len<i32> &dq_back_next
-    free<i32> dq_back_next
+    let dq_back_next %Deque i32 deque_pop_deque p_back
+    let len_back_next %i32 len &dq_back_next
+    free dq_back_next
     let report:
         test_report_new "deque_pop_both_ends"
         |> test_report_push assert "pop_front returns front" ok0

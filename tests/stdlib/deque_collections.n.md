@@ -34,18 +34,18 @@ fn main %impure fn unit i32 \unit:
         |> push_back 7 |> uwok
         |> push_front 5 |> uwok
         |> push_back 9 |> uwok
-    let size %i32 len<i32> &dq0;
-    let ok1 %bool match peek_front<i32> &dq0:
+    let size %i32 len &dq0;
+    let ok1 %bool match peek_front &dq0:
         Option::Some v:
             eq v 5
         Option::None:
             false
-    let ok2 %bool match peek_back<i32> &dq0:
+    let ok2 %bool match peek_back &dq0:
         Option::Some v:
             eq v 9
         Option::None:
             false
-    free<i32> dq0
+    free dq0
     let report:
         test_report_new "deque_pipe_usage"
         |> test_report_push assert_eq_i32 "deque len" 3 size
@@ -81,20 +81,20 @@ fn main %impure fn unit i32 \unit:
     let dq1 %Deque i32 unwrap_ok push_back<i32> dq0 10;
     let dq2 %Deque i32 unwrap_ok push_front<i32> dq1 5;
     let dq3 %Deque i32 unwrap_ok push_back<i32> dq2 20;
-    let size %i32 len<i32> &dq3;
-    let ok_front %bool match peek_front<i32> &dq3:
+    let size %i32 len &dq3;
+    let ok_front %bool match peek_front &dq3:
         Option::Some v:
             eq v 5
         Option::None:
             false
-    let ok_back %bool match peek_back<i32> &dq3:
+    let ok_back %bool match peek_back &dq3:
         Option::Some v:
             eq v 20
         Option::None:
             false
-    let dq4 %Deque i32 clear<i32> dq3;
-    let ok_clear %bool is_empty<i32> &dq4;
-    free<i32> dq4;
+    let dq4 %Deque i32 clear dq3;
+    let ok_clear %bool is_empty &dq4;
+    free dq4;
     let report:
         test_report_new "deque_grow_clear_and_free"
         |> test_report_push assert_eq_i32 "len after grow" 3 size
