@@ -63,25 +63,25 @@ fn check_function_declaration_header %fn SelfhostModuleItem Result unit str \ite
                                 Option::Some head:
                                     match head.kind:
                                         SelfhostModuleDeclarationHeadKind::Name:
-                                            Result<unit,str>::Ok unit
+                                            Result::Ok unit
                                         SelfhostModuleDeclarationHeadKind::TypeLabel:
-                                            Result<unit,str>::Err "expected function name head"
+                                            Result::Err "expected function name head"
                                         SelfhostModuleDeclarationHeadKind::GenericParams:
-                                            Result<unit,str>::Err "expected function name head"
+                                            Result::Err "expected function name head"
                                 Option::None:
-                                    Result<unit,str>::Err "expected declaration head"
+                                    Result::Err "expected declaration head"
                         SelfhostModuleDeclarationVisibility::Public:
-                            Result<unit,str>::Err "expected private declaration"
+                            Result::Err "expected private declaration"
                 SelfhostModuleDeclarationKind::Struct:
-                    Result<unit,str>::Err "expected function declaration"
+                    Result::Err "expected function declaration"
                 SelfhostModuleDeclarationKind::Enum:
-                    Result<unit,str>::Err "expected function declaration"
+                    Result::Err "expected function declaration"
                 SelfhostModuleDeclarationKind::Trait:
-                    Result<unit,str>::Err "expected function declaration"
+                    Result::Err "expected function declaration"
                 SelfhostModuleDeclarationKind::Impl:
-                    Result<unit,str>::Err "expected function declaration"
+                    Result::Err "expected function declaration"
         Option::None:
-            Result<unit,str>::Err "expected parser declaration header evidence"
+            Result::Err "expected parser declaration header evidence"
 
 fn main %impure fn unit i32 \unit:
     let source %str "//: doc\nfn add <(i32,i32)->i32> (a,b):\n    #if[target=wasm]\n    #wasm:\n        local.get 0\n        local.get 1\n    #if[target=llvm]\n    #llvmir:\n        %0 = add i32 %a, %b\n        ret i32 %0\n"
@@ -106,7 +106,7 @@ fn main %impure fn unit i32 \unit:
             checks_exit_code shown
         Result::Err diag:
             let _msg %str diag.message
-            let checks1 checks_push checks0 Result<unit,str>::Err "parser returned Err"
+            let checks1 checks_push checks0 Result::Err "parser returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```

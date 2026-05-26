@@ -424,6 +424,14 @@ LLM/手動判断が必要なもの:
 - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_import_spec.n.md tests/stdlib/neplg2_checker_impl_visibility.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_import_spec.n.md -i tests/stdlib/neplg2_checker_impl_visibility.n.md --no-tree -o tmp/neplg21-import-spec-impl-visibility-result-constructors.json -j 1 --dist web/dist --assert-io` は 4 件すべて compile timeout after 60000ms。型診断は出ていない。
 
+### 2026-05-26 neplg2_parser Result constructor checkpoint
+
+- `tests/stdlib/neplg2_parser.n.md` で、helper 戻り値 `Result unit str` または `checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 11 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string fixture と期待 lexeme の旧 `fn add <(i32,i32)->i32> (a,b):` は、selfhost parser の入力/期待値としてこの checkpoint では構文移行していない。
+- subagent の独立レビューでも、対象 11 件は producer/nested generic 推論に絡まず、残すべき `Result<unit,str>::Ok` / `Result<unit,str>::Err` はないと確認した。
+- `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_parser.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/neplg21-parser-result-constructors.json -j 1 --dist web/dist --assert-io` は 1 件 compile timeout after 60000ms。型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

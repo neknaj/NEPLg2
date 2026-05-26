@@ -1,3 +1,14 @@
+# 2026-05-26 Agent 1 neplg2_parser Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、静的な型根拠で解決できる selfhost parser fixture の constructor だけを小さく移行した。
+- `tests/stdlib/neplg2_parser.n.md` で、`check_function_declaration_header` の戻り値 `Result unit str` または `checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 11 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string fixture と期待 lexeme の旧 `fn add <(i32,i32)->i32> (a,b):` は、selfhost parser の入力/期待値としてこの checkpoint では構文移行していない。
+- subagent の独立レビューでも、対象 11 件は producer/nested generic 推論に絡まず、残すべき `Result<unit,str>::Ok` / `Result<unit,str>::Err` はないと確認した。
+- 検証:
+  - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_parser.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_parser.n.md --no-tree -o tmp/neplg21-parser-result-constructors.json -j 1 --dist web/dist --assert-io`: 1 件 compile timeout after 60000ms。型診断は出ていない。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 import spec / impl visibility Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、静的な型根拠で解決できる selfhost fixture の constructor だけを小さく移行した。
