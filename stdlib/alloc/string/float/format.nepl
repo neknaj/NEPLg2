@@ -221,7 +221,7 @@ pub fn from_f64_result %fn f64 Result str i32 \x:
     if:
         ne x x
         then:
-            Result::Ok<str,i32> "nan"
+            Result::Ok "nan"
         else:
             let neg %bool lt x %f64 cast 0;
             let absx %f64 if neg:
@@ -232,7 +232,7 @@ pub fn from_f64_result %fn f64 Result str i32 \x:
             let mut frac %f64 sub absx int_f;
             match from_i64_radix int_part 10:
                 Result::Err e:
-                    Result::Err<str,i32> e
+                    Result::Err e
                 Result::Ok int_s:
                     set frac mul frac %f64 cast 10
                     let d0 %i32 cast frac
@@ -254,9 +254,9 @@ pub fn from_f64_result %fn f64 Result str i32 \x:
                     let trim %i32 from_f64_fraction_trim_len d0 d1 d2 d3 d4 d5
                     match from_f64_build_fixed_result neg int_s trim d0 d1 d2 d3 d4 d5:
                         Result::Ok out:
-                            Result::Ok<str,i32> out
+                            Result::Ok out
                         Result::Err _e:
-                            Result::Err<str,i32> 12
+                            Result::Err 12
 
 pub fn from_f64 %fn f64 str \x:
     match from_f64_result x:

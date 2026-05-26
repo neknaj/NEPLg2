@@ -76,11 +76,11 @@ pub fn map <.T: Copy,.U: Copy> %fn Vec .T fn fn .T .U Result Vec .U VecTransform
     let src_len %i32 *field::get_ref v_buffer_ref "len"
     match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
         VecCopyInvariant::Invalid _reason:
-            Result::Err<Vec<.U>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+            Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             match vec_storage::with_capacity<.U> src_len:
                 Result::Err e:
-                    Result::Err<Vec<.U>, VecTransformError<.T>> VecTransformError<.T> v e
+                    Result::Err VecTransformError<.T> v e
                 Result::Ok out0:
                     let out_buffer_ref %&OwnedBuffer .U field::get_ref &out0 "buffer"
                     let out_cap %i32 *field::get_ref out_buffer_ref "cap"
@@ -92,13 +92,13 @@ pub fn map <.T: Copy,.U: Copy> %fn Vec .T fn fn .T .U Result Vec .U VecTransform
                                     vec_cleanup::free<.T> v
                                     let out_buffer %OwnedBuffer .U field::get out0 "buffer"
                                     let out_storage %VecStorage .U field::get out_buffer "storage"
-                                    Result::Ok<Vec<.U>, VecTransformError<.T>> Vec<.U> (OwnedBuffer<.U> src_len src_len out_cap out_storage)
+                                    Result::Ok Vec<.U> (OwnedBuffer<.U> src_len src_len out_cap out_storage)
                                 else:
                                     vec_cleanup::free<.U> out0
-                                    Result::Err<Vec<.U>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                                    Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
                             vec_cleanup::free<.U> out0
-                            Result::Err<Vec<.U>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                            Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
                         VecDataView::Data out_data:
                             let mut i %i32 0
                             while lt i src_len:
@@ -113,4 +113,4 @@ pub fn map <.T: Copy,.U: Copy> %fn Vec .T fn fn .T .U Result Vec .U VecTransform
                             vec_cleanup::free<.T> v
                             let out_buffer %OwnedBuffer .U field::get out0 "buffer"
                             let out_storage %VecStorage .U field::get out_buffer "storage"
-                            Result::Ok<Vec<.U>, VecTransformError<.T>> Vec<.U> (OwnedBuffer<.U> src_len src_len out_cap out_storage)
+                            Result::Ok Vec<.U> (OwnedBuffer<.U> src_len src_len out_cap out_storage)

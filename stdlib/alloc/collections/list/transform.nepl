@@ -24,7 +24,7 @@ pub fn map <.T: Copy,.U: Copy> %impure fn List .T impure fn fn .T .U Result List
     let n %i32 vec::len<.T> &items
     match vec::with_capacity<.U> n:
         Result::Err e:
-            Result::Err<List<.U>, ListTransformError<.T>> ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error e)
+            Result::Err ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error e)
         Result::Ok out0:
             let mut out %Vec .U out0
             let mut i %i32 0
@@ -51,10 +51,10 @@ pub fn map <.T: Copy,.U: Copy> %impure fn List .T impure fn fn .T .U Result List
                 failed
                 then:
                     vec::free<.U> out
-                    Result::Err<List<.U>, ListTransformError<.T>> ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error failure)
+                    Result::Err ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error failure)
                 else:
                     vec::free<.T> items
-                    Result::Ok<List<.U>, ListTransformError<.T>> List<.U> out
+                    Result::Ok List<.U> out
 
 //: filter: 条件を[満/み]たす[要素/ようそ]だけを[残/のこ]す
 pub fn filter <.T: Copy> %impure fn List .T impure fn fn .T bool Result List .T ListTransformError .T \lst\p:
@@ -62,7 +62,7 @@ pub fn filter <.T: Copy> %impure fn List .T impure fn fn .T bool Result List .T 
     let n %i32 vec::len<.T> &items
     match vec::with_capacity<.T> n:
         Result::Err e:
-            Result::Err<List<.T>, ListTransformError<.T>> ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error e)
+            Result::Err ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error e)
         Result::Ok out0:
             let mut out %Vec .T out0
             let mut i %i32 0
@@ -93,7 +93,7 @@ pub fn filter <.T: Copy> %impure fn List .T impure fn fn .T bool Result List .T 
                 failed
                 then:
                     vec::free<.T> out
-                    Result::Err<List<.T>, ListTransformError<.T>> ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error failure)
+                    Result::Err ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error failure)
                 else:
                     vec::free<.T> items
-                    Result::Ok<List<.T>, ListTransformError<.T>> List<.T> out
+                    Result::Ok List<.T> out

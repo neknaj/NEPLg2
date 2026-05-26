@@ -37,11 +37,11 @@ pub fn cons <.T: Copy> %impure fn .T impure fn List .T Result List .T ListPushEr
     let items %Vec .T field::get tail "items"
     match vec::push<.T> items head:
         Result::Ok next_items:
-            Result::Ok<List<.T>, ListPushError<.T>> List<.T> next_items
+            Result::Ok List<.T> next_items
         Result::Err e:
             let error %StdErrorKind vec::vec_push_error_kind<.T> &e
             let returned_items %Vec .T vec::vec_push_error_vec<.T> e
-            Result::Err<List<.T>, ListPushError<.T>> ListPushError<.T> (List<.T> returned_items) (list_diag_from_vec_error error)
+            Result::Err ListPushError<.T> (List<.T> returned_items) (list_diag_from_vec_error error)
 
 //: push: pipe [向/む]けに[先頭/せんとう][追加/ついか]する
 pub fn push <.T: Copy> %impure fn List .T impure fn .T Result List .T ListPushError .T \lst\head:

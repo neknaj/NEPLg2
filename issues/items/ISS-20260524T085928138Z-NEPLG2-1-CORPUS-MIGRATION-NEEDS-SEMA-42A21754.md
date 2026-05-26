@@ -790,6 +790,18 @@ LLM/手動判断が必要なもの:
 - `trunk build` は pass した。
 - `node nodesrc/tests.js <対象11 NMD files> --no-tree -o tmp/neplg21-helper-postfix-cleanup.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 8 件中 1 pass、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 enum constructor postfix checkpoint
+
+- `Result::Ok<...>` / `Result::Err<...>` / `Option::Some<...>` / `Option::None<...>` の enum constructor postfix を 5 worker の非重複 write scope に分割して並列移行した。
+- collection owner API、Vec storage/mutation、Vec transform、string integer/float、core deserialize、KP search、compiler fixture を対象にし、合計 26 files / 153 件を postfix-free 化した。
+- payload constructor や producer/helper generic postfix は意図的に残した。例えば `Vec<.T>` / `VecTransformError<.T>` / `view::vec_empty<.T>` / `parse_err_to_std<bool>` は今回の enum constructor syntax migration ではない。
+- stale source policy は、owner-preserving failure payload や capacity validation の検査を弱めず、旧 `Result::Err<T,E>` / `Result::Ok<T,E>` と NEPLg2.1 `Result::Err` / `Result::Ok` の両方を契約上同じ constructor boundary として扱う形へ追従した。
+- `nodesrc/test_neplg21_helper_postfix_cleanup.js` は lower-case helper に加えて enum constructor postfix の再導入も禁止するようにした。
+- `rg -n "\b(?:Option::Some|Option::None|Result::Ok|Result::Err)<" stdlib tests examples tutorials -g "*.nepl" -g "*.n.md"` は 0 件になった。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` / `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass した。
+- `trunk build` は pass した。
+- `node nodesrc/tests.js <対象26 files> --no-tree -o tmp/neplg21-enum-constructor-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 8 件中 8 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

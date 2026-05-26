@@ -33,13 +33,13 @@ pub fn vec_alloc_empty <.T: Copy> %fn i32 Result Vec .T StdErrorKind \requested_
     if:
         le requested_cap 0
         then:
-            Result::Ok<Vec<.T>, StdErrorKind> view::vec_empty<.T>
+            Result::Ok view::vec_empty<.T>
         else:
             match alloc_region<.T> requested_cap:
                 Result::Ok region:
-                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> (OwnedBuffer<.T> 0 0 requested_cap (VecStorage<.T>::Owned region))
+                    Result::Ok Vec<.T> (OwnedBuffer<.T> 0 0 requested_cap (VecStorage<.T>::Owned region))
                 Result::Err _e:
-                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
+                    Result::Err StdErrorKind::OutOfMemory
 
 //: ## vec_alloc_empty
 //: Drop payload 用の[空/から] `Vec` storage を[確保/かくほ]する
@@ -55,10 +55,10 @@ pub fn vec_alloc_empty <.T: Drop> %fn i32 Result Vec .T StdErrorKind \requested_
     if:
         le requested_cap 0
         then:
-            Result::Ok<Vec<.T>, StdErrorKind> view::vec_empty<.T>
+            Result::Ok view::vec_empty<.T>
         else:
             match alloc_region<.T> requested_cap:
                 Result::Ok region:
-                    Result::Ok<Vec<.T>, StdErrorKind> Vec<.T> (OwnedBuffer<.T> 0 0 requested_cap (VecStorage<.T>::Owned region))
+                    Result::Ok Vec<.T> (OwnedBuffer<.T> 0 0 requested_cap (VecStorage<.T>::Owned region))
                 Result::Err _e:
-                    Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::OutOfMemory
+                    Result::Err StdErrorKind::OutOfMemory

@@ -126,7 +126,7 @@ pub fn filter <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformErro
     let src_len %i32 *field::get_ref v_buffer_ref "len"
     match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
         VecCopyInvariant::Invalid _reason:
-            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+            Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let mut keep_len %i32 0
             let mut i %i32 0
@@ -142,7 +142,7 @@ pub fn filter <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformErro
                     set i add i 1
             match vec_storage::with_capacity<.T> keep_len:
                 Result::Err e:
-                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v e
+                    Result::Err VecTransformError<.T> v e
                 Result::Ok out0:
                     let out_buffer_ref %&OwnedBuffer .T field::get_ref &out0 "buffer"
                     let out_cap %i32 *field::get_ref out_buffer_ref "cap"
@@ -154,13 +154,13 @@ pub fn filter <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformErro
                                     vec_cleanup::free<.T> v
                                     let out_buffer %OwnedBuffer .T field::get out0 "buffer"
                                     let out_storage %VecStorage .T field::get out_buffer "storage"
-                                    Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
+                                    Result::Ok Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
                                 else:
                                     vec_cleanup::free<.T> out0
-                                    Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                                    Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
                         VecDataView::Invalid _reason:
                             vec_cleanup::free<.T> out0
-                            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                            Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
                         VecDataView::Data out_data:
                             let mut read_i %i32 0
                             let mut write_i %i32 0
@@ -180,7 +180,7 @@ pub fn filter <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformErro
                             vec_cleanup::free<.T> v
                             let out_buffer %OwnedBuffer .T field::get out0 "buffer"
                             let out_storage %VecStorage .T field::get out_buffer "storage"
-                            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
+                            Result::Ok Vec<.T> (OwnedBuffer<.T> keep_len keep_len out_cap out_storage)
 
 //: ## filter
 //: Drop payload を borrowed predicate で選別し、選ばれた owner だけを新しい Vec へ移す
@@ -202,17 +202,17 @@ pub fn filter <.T: Drop> %impure fn Vec .T impure fn fn &.T bool Result Vec .T V
     let src_cap %i32 *field::get_ref v_buffer_ref "cap"
     match vec_buffer_current_storage_invariant<.T> v_buffer_ref:
         VecStorageInvariant::Invalid _reason:
-            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+            Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
         VecStorageInvariant::Valid:
             let v_buffer %OwnedBuffer .T field::get v "buffer"
             let v_storage %VecStorage .T field::get v_buffer "storage"
             match v_storage:
                 VecStorage::Empty:
-                    Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> 0 0 0 VecStorage<.T>::Empty)
+                    Result::Ok Vec<.T> (OwnedBuffer<.T> 0 0 0 VecStorage<.T>::Empty)
                 VecStorage::Owned v_region:
                     match vec_storage::with_capacity<.T> src_len:
                         Result::Err e:
-                            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> (Vec<.T> (OwnedBuffer<.T> src_len src_initialized_len src_cap (VecStorage<.T>::Owned v_region))) e
+                            Result::Err VecTransformError<.T> (Vec<.T> (OwnedBuffer<.T> src_len src_initialized_len src_cap (VecStorage<.T>::Owned v_region))) e
                         Result::Ok out0:
                             let out_buffer_ref %&OwnedBuffer .T field::get_ref &out0 "buffer"
                             let out_cap %i32 *field::get_ref out_buffer_ref "cap"
@@ -223,9 +223,9 @@ pub fn filter <.T: Drop> %impure fn Vec .T impure fn fn &.T bool Result Vec .T V
                                     if:
                                         eq src_len 0
                                         then:
-                                            Result::Ok<Vec<.T>, VecTransformError<.T>> Vec<.T> (OwnedBuffer<.T> 0 0 src_cap (VecStorage<.T>::Owned v_region))
+                                            Result::Ok Vec<.T> (OwnedBuffer<.T> 0 0 src_cap (VecStorage<.T>::Owned v_region))
                                         else:
-                                            Result::Err<Vec<.T>, VecTransformError<.T>> VecTransformError<.T> (Vec<.T> (OwnedBuffer<.T> src_len src_initialized_len src_cap (VecStorage<.T>::Owned v_region))) StdErrorKind::InvalidOperation
+                                            Result::Err VecTransformError<.T> (Vec<.T> (OwnedBuffer<.T> src_len src_initialized_len src_cap (VecStorage<.T>::Owned v_region))) StdErrorKind::InvalidOperation
                                 VecStorage::Owned out_region:
                                     let out_vec %Vec .T vec_filter_drain_to_output<.T> v_region out_region src_initialized_len out_cap p
-                                    Result::Ok<Vec<.T>, VecTransformError<.T>> out_vec
+                                    Result::Ok out_vec

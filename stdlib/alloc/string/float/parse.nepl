@@ -86,7 +86,7 @@ pub fn to_f64 %fn str Result f64 i32 \s:
     let mut frac_scale %f64 cast 1;
     let mut has_digit %i32 0;
     let ten %f64 cast 10;
-    let mut out_res %Result f64 i32 Result::Err<f64,i32> 1;
+    let mut out_res %Result f64 i32 Result::Err 1;
 
     if:
         eq n 0
@@ -276,11 +276,11 @@ pub fn to_f64 %fn str Result f64 i32 \s:
                         then:
                             let zero %f64 cast 0;
                             let signed_out %f64 sub zero out;
-                            set out_res Result::Ok<f64,i32> signed_out;
+                            set out_res Result::Ok signed_out;
                         else:
-                            set out_res Result::Ok<f64,i32> out;
+                            set out_res Result::Ok out;
                 else:
-                    set out_res Result::Err<f64,i32> 1;
+                    set out_res Result::Err 1;
 
     out_res
 
@@ -300,6 +300,6 @@ pub fn to_f64 %fn str Result f64 i32 \s:
 pub fn to_f32 %fn str Result f32 i32 \s:
     match to_f64 s:
         Result::Ok v64:
-            Result::Ok<f32,i32> %f32 cast v64
+            Result::Ok %f32 cast v64
         Result::Err e:
-            Result::Err<f32,i32> e
+            Result::Err e

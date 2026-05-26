@@ -46889,3 +46889,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `node nodesrc/test_neplg21_helper_postfix_cleanup.js` / `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` と `trunk build` は pass。
 - `node nodesrc/tests.js <対象11 NMD files> --no-tree -o tmp/neplg21-helper-postfix-cleanup.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 8 件中 1 pass、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
+## 2026-05-26 Agent 1 enum constructor postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`Result::Ok<...>` / `Result::Err<...>` / `Option::Some<...>` / `Option::None<...>` の enum constructor postfix を 5 worker に分割して並列移行した。`plan.md` は変更していない。
+- worker scope は collection owner API、Vec storage/mutation、Vec transform、string integer、string float + core traits + KP + compiler fixtures に分けた。
+- 26 files / 153 件を postfix-free 化した。payload constructor や producer/helper generic postfix は今回の対象外として残している。
+- `nodesrc/test_neplg21_helper_postfix_cleanup.js` は lower-case helper に加えて enum constructor postfix の再導入も検出するようにした。
+- Stack / Vec の stale source policy は、owner recovery や capacity validation の契約を弱めず、NEPLg2.1 の postfix-free constructor syntax へ追従した。
+- `rg -n "\b(?:Option::Some|Option::None|Result::Ok|Result::Err)<" stdlib tests examples tutorials -g "*.nepl" -g "*.n.md"` は 0 件。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` / `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+- `trunk build` は pass。
+- `node nodesrc/tests.js <対象26 files> --no-tree -o tmp/neplg21-enum-constructor-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 8 件中 8 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。

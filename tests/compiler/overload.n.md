@@ -319,7 +319,7 @@ stdout: "test_report name=\"overload_pair_field_from_generic_result_keeps_tuple_
 
 fn pair_with_empty <.T: Copy> %fn Vec .T Result .Pair StdErrorKind \left:
     let right %Vec .T uwok v::new<.T>;
-    Result::Ok<.Pair, StdErrorKind> Tuple:
+    Result::Ok Tuple:
         left
         right
 

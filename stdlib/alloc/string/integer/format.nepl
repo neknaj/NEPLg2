@@ -157,12 +157,12 @@ pub fn from_u128 %fn u128 str \v:
 pub fn from_u128_radix %fn u128 fn i32 Result str i32 \v\radix:
     match validate_radix radix:
         Result::Err e:
-            Result::Err<str,i32> e
+            Result::Err e
         Result::Ok _:
             if:
                 u128_is_zero v
                 then:
-                    Result::Ok<str,i32> "0"
+                    Result::Ok "0"
                 else:
                     let mut digit_count %i32 0;
                     let mut count_n %u128 v;
@@ -173,7 +173,7 @@ pub fn from_u128_radix %fn u128 fn i32 Result str i32 \v\radix:
                             set count_n get qr_count "quotient";
                     match string_alloc_region digit_count:
                         Result::Err _e:
-                            Result::Err<str,i32> 12
+                            Result::Err 12
                         Result::Ok out_region:
                             let out_data %MemPtr u8 string_region_data_ptr &out_region;
                             let out_raw %i32 mem_ptr_addr out_data;
@@ -185,7 +185,7 @@ pub fn from_u128_radix %fn u128 fn i32 Result str i32 \v\radix:
                                     set pos sub pos 1;
                                     store_u8 add out_raw pos digit_to_char_lower get qr_write "remainder";
                                     set write_n get qr_write "quotient";
-                            Result::Ok<str,i32> string_finish out_region digit_count
+                            Result::Ok string_finish out_region digit_count
 
 // from_i128: i128 を 10 進文字列へ変換する
 //
@@ -231,22 +231,22 @@ pub fn from_i128_radix %fn i128 fn i32 Result str i32 \v\radix:
                 then:
                     match string_builder_with_capacity_result add 1 len body:
                         Result::Err _e:
-                            Result::Err<str,i32> 12
+                            Result::Err 12
                         Result::Ok sb0:
                             match sb_append_byte_result sb0 '-':
                                 Result::Err _e:
-                                    Result::Err<str,i32> 12
+                                    Result::Err 12
                                 Result::Ok sb1:
                                     match sb_append_result sb1 body:
                                         Result::Err _e:
-                                            Result::Err<str,i32> 12
+                                            Result::Err 12
                                         Result::Ok sb2:
                                             match sb_build_result sb2:
                                                 Result::Err _e:
-                                                    Result::Err<str,i32> 12
+                                                    Result::Err 12
                                                 Result::Ok text:
-                                                    Result::Ok<str,i32> text
+                                                    Result::Ok text
                 else:
-                    Result::Ok<str,i32> body
+                    Result::Ok body
         Result::Err e:
-            Result::Err<str,i32> e
+            Result::Err e

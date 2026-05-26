@@ -203,7 +203,7 @@ ret: 11
 
 fn main %fn unit i32 \unit:
     let x %i32 10;
-    let y %i32 match Option::Some<i32> 1:
+    let y %i32 match Option::Some 1:
         Option::Some x:
             add x 10
         Option::None:

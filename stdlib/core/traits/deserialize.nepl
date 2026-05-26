@@ -76,13 +76,13 @@ pub fn deserialize <.T: Deserialize> %fn str Result .T StdErrorKind \s:
 pub fn parse_err_to_std <.T> %fn Result .T i32 Result .T StdErrorKind \r:
     match r:
         Result::Ok v:
-            Result::Ok<.T, StdErrorKind> v
+            Result::Ok v
         Result::Err _e:
-            Result::Err<.T, StdErrorKind> StdErrorKind::ParseError
+            Result::Err StdErrorKind::ParseError
 
 impl Deserialize for str:
     fn deserialize %fn str Result str StdErrorKind \s:
-        Result::Ok<str, StdErrorKind> s
+        Result::Ok s
 
 impl Deserialize for bool:
     fn deserialize %fn str Result bool StdErrorKind \s:
@@ -108,11 +108,11 @@ impl Deserialize for u8:
                     and ge v 0 le v 255
                     then:
                         let byte %u8 cast v
-                        Result::Ok<u8, StdErrorKind> byte
+                        Result::Ok byte
                     else:
-                        Result::Err<u8, StdErrorKind> StdErrorKind::ParseError
+                        Result::Err StdErrorKind::ParseError
             Result::Err _e:
-                Result::Err<u8, StdErrorKind> StdErrorKind::ParseError
+                Result::Err StdErrorKind::ParseError
 
 impl Deserialize for f32:
     fn deserialize %fn str Result f32 StdErrorKind \s:

@@ -82,9 +82,9 @@ fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
 pub fn to_i32 %fn str Result i32 i32 \s:
     match to_i32_radix s 10:
         Result::Ok v:
-            Result::Ok<i32,i32> v
+            Result::Ok v
         Result::Err e:
-            Result::Err<i32,i32> e
+            Result::Err e
 
 // to_i32_radix: 指定基数の文字列を i32 に変換する
 //
@@ -108,11 +108,11 @@ pub fn to_i32_radix %fn str fn i32 Result i32 i32 \s\radix:
             if:
                 and ge v64 %i64 cast -2147483648 le v64 %i64 cast 2147483647
                 then:
-                    Result::Ok<i32,i32> %i32 cast v64
+                    Result::Ok %i32 cast v64
                 else:
-                    Result::Err<i32,i32> 1
+                    Result::Err 1
         Result::Err e:
-            Result::Err<i32,i32> e
+            Result::Err e
 
 //: to_i64: 10 進文字列を i64 として解析する
 //:
@@ -183,11 +183,11 @@ pub fn to_i64_radix %fn str fn i32 Result i64 i32 \s\radix:
             if:
                 i128_fits_i64 v128
                 then:
-                    Result::Ok<i64,i32> %i64 cast v128
+                    Result::Ok %i64 cast v128
                 else:
-                    Result::Err<i64,i32> 1
+                    Result::Err 1
         Result::Err e:
-            Result::Err<i64,i32> e
+            Result::Err e
 
 // to_u128: 10 進文字列を u128 に変換する
 //
@@ -224,7 +224,7 @@ pub fn to_u128 %fn str Result u128 i32 \s:
 pub fn to_u128_radix %fn str fn i32 Result u128 i32 \s\radix:
     match validate_radix radix:
         Result::Err e:
-            Result::Err<u128,i32> e
+            Result::Err e
         Result::Ok _:
             let n %i32 len s;
             let mut i %i32 0;
@@ -269,9 +269,9 @@ pub fn to_u128_radix %fn str fn i32 Result u128 i32 \s\radix:
             if:
                 eq ok 1
                 then:
-                    Result::Ok<u128,i32> res
+                    Result::Ok res
                 else:
-                    Result::Err<u128,i32> 1
+                    Result::Err 1
 
 // i128_positive_magnitude_allowed: 非負 i128 として許される大きさかを判定する
 //
@@ -370,7 +370,7 @@ pub fn to_i128_radix %fn str fn i32 Result i128 i32 \s\radix:
     if:
         eq n 0
         then:
-            Result::Err<i128,i32> 1
+            Result::Err 1
         else:
             let first %i32 integer_parse_byte_or_invalid s 0;
             let neg %bool eq first '-';
@@ -386,10 +386,10 @@ pub fn to_i128_radix %fn str fn i32 Result i128 i32 \s\radix:
                             if:
                                 neg
                                 then:
-                                    Result::Ok<i128,i32> i128_neg base
+                                    Result::Ok i128_neg base
                                 else:
-                                    Result::Ok<i128,i32> base
+                                    Result::Ok base
                         else:
-                            Result::Err<i128,i32> 1
+                            Result::Err 1
                 Result::Err e:
-                    Result::Err<i128,i32> e
+                    Result::Err e

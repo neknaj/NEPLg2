@@ -8,6 +8,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const scanRoots = ['stdlib', 'tests', 'examples', 'tutorials'];
 const sourceExtensions = ['.nepl', '.n.md'];
 const helperPostfixPattern = /\b(?:uwok|uwerr|unwrap_err|unwrap_or|diag_err|some|none|ok|err|is_some|is_none|is_ok|is_err)</g;
+const enumConstructorPostfixPattern = /\b(?:Option::Some|Option::None|Result::Ok|Result::Err)</g;
 
 const violations = [];
 
@@ -27,7 +28,11 @@ for (const root of scanRoots) {
             if (helperPostfixPattern.test(line)) {
                 violations.push(`${relPath}:${index + 1}: ${line.trim()}`);
             }
+            if (enumConstructorPostfixPattern.test(line)) {
+                violations.push(`${relPath}:${index + 1}: ${line.trim()}`);
+            }
             helperPostfixPattern.lastIndex = 0;
+            enumConstructorPostfixPattern.lastIndex = 0;
         });
     }
 }
@@ -35,7 +40,7 @@ for (const root of scanRoots) {
 assert.deepEqual(
     violations,
     [],
-    `NEPLg2.1 executable corpus must not reintroduce lower-case helper generic postfixes:\n${violations.join('\n')}`,
+    `NEPLg2.1 executable corpus must not reintroduce helper or enum constructor generic postfixes:\n${violations.join('\n')}`,
 );
 
 function* walkFiles(dir) {

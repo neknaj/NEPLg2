@@ -240,7 +240,7 @@ pub fn unique_sorted_vec_i32_get %fn &UniqueSortedVecI32 fn i32 Option i32 \u\id
     if:
         or lt idx 0 le n idx
         then:
-            Option::None<i32>
+            Option::None
         else:
             let vec_ref %&Vec i32 field::get_ref u "vec"
             get<i32> vec_ref idx

@@ -70,7 +70,7 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
     let src_len %i32 *field::get_ref v_buffer_ref "len"
     match vec_buffer_current_copy_invariant<.T> v_buffer_ref:
         VecCopyInvariant::Invalid _reason:
-            Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+            Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
         VecCopyInvariant::Valid:
             let mut left_len %i32 0
             let mut i %i32 0
@@ -87,12 +87,12 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
             let right_len %i32 sub src_len left_len
             match vec_storage::with_capacity<.T> left_len:
                 Result::Err e:
-                    Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v e
+                    Result::Err VecTransformError<.T> v e
                 Result::Ok left0:
                     match vec_storage::with_capacity<.T> right_len:
                         Result::Err e:
                             vec_cleanup::free<.T> left0
-                            Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v e
+                            Result::Err VecTransformError<.T> v e
                         Result::Ok right0:
                             let left_buffer_ref %&OwnedBuffer .T field::get_ref &left0 "buffer"
                             let left_cap %i32 *field::get_ref left_buffer_ref "cap"
@@ -102,7 +102,7 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                 VecDataView::Invalid _reason:
                                     vec_cleanup::free<.T> left0
                                     vec_cleanup::free<.T> right0
-                                    Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                                    Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
                                 VecDataView::Empty:
                                     if:
                                         eq left_len 0
@@ -111,7 +111,7 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                                 VecDataView::Invalid _reason:
                                                     vec_cleanup::free<.T> left0
                                                     vec_cleanup::free<.T> right0
-                                                    Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                                                    Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
                                                 VecDataView::Empty:
                                                     if:
                                                         eq right_len 0
@@ -121,11 +121,11 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                                             let left_storage %VecStorage .T field::get left_buffer "storage"
                                                             let right_buffer %OwnedBuffer .T field::get right0 "buffer"
                                                             let right_storage %VecStorage .T field::get right_buffer "storage"
-                                                            Result::Ok<VecPartition<.T>, VecTransformError<.T>> VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))
+                                                            Result::Ok VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))
                                                         else:
                                                             vec_cleanup::free<.T> left0
                                                             vec_cleanup::free<.T> right0
-                                                            Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                                                            Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
                                                 VecDataView::Data right_data:
                                                     let mut read_i %i32 0
                                                     let mut right_i %i32 0
@@ -147,17 +147,17 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                                     let left_storage %VecStorage .T field::get left_buffer "storage"
                                                     let right_buffer %OwnedBuffer .T field::get right0 "buffer"
                                                     let right_storage %VecStorage .T field::get right_buffer "storage"
-                                                    Result::Ok<VecPartition<.T>, VecTransformError<.T>> VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))
+                                                    Result::Ok VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))
                                         else:
                                             vec_cleanup::free<.T> left0
                                             vec_cleanup::free<.T> right0
-                                            Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                                            Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
                                 VecDataView::Data left_data:
                                     match data_mem_view<.T> &right0:
                                         VecDataView::Invalid _reason:
                                             vec_cleanup::free<.T> left0
                                             vec_cleanup::free<.T> right0
-                                            Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                                            Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
                                         VecDataView::Empty:
                                             if:
                                                 eq right_len 0
@@ -182,11 +182,11 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                                     let left_storage %VecStorage .T field::get left_buffer "storage"
                                                     let right_buffer %OwnedBuffer .T field::get right0 "buffer"
                                                     let right_storage %VecStorage .T field::get right_buffer "storage"
-                                                    Result::Ok<VecPartition<.T>, VecTransformError<.T>> VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))
+                                                    Result::Ok VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))
                                                 else:
                                                     vec_cleanup::free<.T> left0
                                                     vec_cleanup::free<.T> right0
-                                                    Result::Err<VecPartition<.T>, VecTransformError<.T>> VecTransformError<.T> v StdErrorKind::InvalidOperation
+                                                    Result::Err VecTransformError<.T> v StdErrorKind::InvalidOperation
                                         VecDataView::Data right_data:
                                             let mut read_i %i32 0
                                             let mut left_i %i32 0
@@ -211,4 +211,4 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                             let left_storage %VecStorage .T field::get left_buffer "storage"
                                             let right_buffer %OwnedBuffer .T field::get right0 "buffer"
                                             let right_storage %VecStorage .T field::get right_buffer "storage"
-                                            Result::Ok<VecPartition<.T>, VecTransformError<.T>> VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))
+                                            Result::Ok VecPartition<.T> (Vec<.T> (OwnedBuffer<.T> left_len left_len left_cap left_storage)) (Vec<.T> (OwnedBuffer<.T> right_len right_len right_cap right_storage))

@@ -141,25 +141,25 @@ pub fn replace_drop_old <.T: Drop> %impure fn Vec .T impure fn i32 impure fn .T 
     let v_storage %VecStorage .T field::get v_buffer "storage"
     match v_invariant:
         VecStorageInvariant::Invalid _reason:
-            Result::Err<Vec<.T>, VecReplaceError<.T>> VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) item) StdErrorKind::InvalidOperation
+            Result::Err VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) item) StdErrorKind::InvalidOperation
         VecStorageInvariant::Valid:
             if:
                 lt idx 0
                 then:
-                    Result::Err<Vec<.T>, VecReplaceError<.T>> VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) item) StdErrorKind::InvalidOperation
+                    Result::Err VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) item) StdErrorKind::InvalidOperation
                 else:
                     if:
                         le v_len idx
                         then:
-                            Result::Err<Vec<.T>, VecReplaceError<.T>> VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) item) StdErrorKind::InvalidOperation
+                            Result::Err VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap v_storage)) item) StdErrorKind::InvalidOperation
                         else:
                             match v_storage:
                                 VecStorage::Empty:
-                                    Result::Err<Vec<.T>, VecReplaceError<.T>> VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) item) StdErrorKind::InvalidOperation
+                                    Result::Err VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) item) StdErrorKind::InvalidOperation
                                 VecStorage::Owned v_region:
                                     let byte_off %i32 mul idx size_of<.T>
                                     vec_replace_drop_old_initialized_slot<.T> &v_region byte_off item
-                                    Result::Ok<Vec<.T>, VecReplaceError<.T>> Vec<.T> (OwnedBuffer<.T> v_len v_len v_cap (VecStorage<.T>::Owned v_region))
+                                    Result::Ok Vec<.T> (OwnedBuffer<.T> v_len v_len v_cap (VecStorage<.T>::Owned v_region))
 
 //: ## vec_replace_error_kind
 //: `replace_drop_old` [失敗/しっぱい]の error kind を owner を[動/うご]かさず[読/よ]む

@@ -179,7 +179,7 @@ pub fn with_capacity <.T: Copy> %fn i32 Result Vec .T StdErrorKind \cap:
     if:
         lt cap 0
         then:
-            Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::InvalidOperation
+            Result::Err StdErrorKind::InvalidOperation
         else:
             alloc::vec_alloc_empty<.T> cap
 
@@ -230,6 +230,6 @@ pub fn with_capacity <.T: Drop> %fn i32 Result Vec .T StdErrorKind \cap:
     if:
         lt cap 0
         then:
-            Result::Err<Vec<.T>, StdErrorKind> StdErrorKind::InvalidOperation
+            Result::Err StdErrorKind::InvalidOperation
         else:
             alloc::vec_alloc_empty<.T> cap

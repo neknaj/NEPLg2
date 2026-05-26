@@ -110,11 +110,11 @@ pub fn to_bool %fn str Result bool i32 \s:
     if:
         str_eq s "true"
         then:
-            Result::Ok<bool,i32> true
+            Result::Ok true
         else:
             if:
                 str_eq s "false"
                 then:
-                    Result::Ok<bool,i32> false
+                    Result::Ok false
                 else:
-                    Result::Err<bool,i32> 1
+                    Result::Err 1

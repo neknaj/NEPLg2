@@ -49,15 +49,15 @@ pub fn push <.T: Copy> %impure fn Stack .T impure fn .T Result Stack .T StackPus
             let new_cap %i32 mul cap0 2
             match stack_alloc_slots<.T> new_cap:
                 Result::Err d:
-                    Result::Err<Stack<.T>, StackPushError<.T>> StackPushError<.T> (Stack<.T> len0 cap0 items) d
+                    Result::Err StackPushError<.T> (Stack<.T> len0 cap0 items) d
                 Result::Ok new_items:
                     stack_copy_live_slots<.T> &items &new_items len0
                     stack_store_slot<.T> &new_items len0 some item
                     vec::free items
-                    Result::Ok<Stack<.T>, StackPushError<.T>> Stack<.T> add len0 1 new_cap new_items
+                    Result::Ok Stack<.T> add len0 1 new_cap new_items
         else:
             stack_store_slot<.T> &items len0 some item
-            Result::Ok<Stack<.T>, StackPushError<.T>> Stack<.T> add len0 1 cap0 items
+            Result::Ok Stack<.T> add len0 1 cap0 items
 
 //: ## pop_top
 //: [末尾/まつび]を[取/と]り[出/だ]し、[更新後/こうしんご]の stack と[値/あたい]を[返/かえ]す
