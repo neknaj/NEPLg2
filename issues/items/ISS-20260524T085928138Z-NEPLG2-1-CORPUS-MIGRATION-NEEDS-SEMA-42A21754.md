@@ -549,6 +549,15 @@ LLM/手動判断が必要なもの:
 - timeout 後に残留していた `node.exe` process は停止した。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 type arena generic Result constructor checkpoint
+
+- `stdlib/neplg2/core/ty/ty/arena.nepl` で、関数戻り値または match/if branch expected type から型が確定する `Result<SelfhostTypeArena, StdErrorKind>::Ok` / `Result<SelfhostTypeArena, StdErrorKind>::Err` / `Result<SelfhostTypeArenaAlloc, StdErrorKind>::Ok` / `Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err` / `Result<Vec<SelfhostTypeId>, StdErrorKind>::Ok` / `Result<Vec<SelfhostTypeId>, StdErrorKind>::Err` 9 件を `Result::Ok` / `Result::Err` へ移行した。
+- `tests/stdlib/neplg2_type_arena.n.md` で、fixture helper の戻り値 `Result SelfhostTypeArenaAlloc StdErrorKind` から型が確定する `Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err` 5 件を `Result::Err` へ移行した。
+- subagent の独立レビューでも、対象 files に残すべき typed constructor はなく、source string fixture や doc comment だけの旧構文もないと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/neplg2/core/ty/ty/arena.nepl tests/stdlib/neplg2_type_arena.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/arena.nepl -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg21-type-arena-generic-result-constructors.json -j 1 --dist web/dist --assert-io` は 5 件すべて compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

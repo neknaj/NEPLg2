@@ -275,10 +275,10 @@ fn add_one_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId im
                     let returned %Vec SelfhostTypeId vec_push_error_vec<SelfhostTypeId> e
                     free<SelfhostTypeId> returned
                     selfhost_type_arena_free arena
-                    Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err error
+                    Result::Err error
         Result::Err e:
             selfhost_type_arena_free arena
-            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+            Result::Err e
 
 fn main %impure fn unit i32 \unit:
     let checks0 checks_new
@@ -356,10 +356,10 @@ fn add_one_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId im
                     let returned %Vec SelfhostTypeId vec_push_error_vec<SelfhostTypeId> e
                     free<SelfhostTypeId> returned
                     selfhost_type_arena_free arena
-                    Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err error
+                    Result::Err error
         Result::Err e:
             selfhost_type_arena_free arena
-            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+            Result::Err e
 
 fn add_zero_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\result_id:
     match new<SelfhostTypeId>:
@@ -367,7 +367,7 @@ fn add_zero_arg_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId R
             selfhost_type_arena_add_function arena params result_id
         Result::Err e:
             selfhost_type_arena_free arena
-            Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err e
+            Result::Err e
 
 fn main %impure fn unit i32 \unit:
     let checks0 checks_new

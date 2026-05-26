@@ -1,3 +1,17 @@
+# 2026-05-26 Agent 1 type arena generic Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる selfhost type arena の constructor だけを移行した。
+- `stdlib/neplg2/core/ty/ty/arena.nepl` で、関数戻り値または match/if branch expected type から型が確定する `Result<SelfhostTypeArena, StdErrorKind>::Ok` / `Result<SelfhostTypeArena, StdErrorKind>::Err` / `Result<SelfhostTypeArenaAlloc, StdErrorKind>::Ok` / `Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err` / `Result<Vec<SelfhostTypeId>, StdErrorKind>::Ok` / `Result<Vec<SelfhostTypeId>, StdErrorKind>::Err` 9 件を `Result::Ok` / `Result::Err` へ移行した。
+- `tests/stdlib/neplg2_type_arena.n.md` で、fixture helper の戻り値 `Result SelfhostTypeArenaAlloc StdErrorKind` から型が確定する `Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err` 5 件を `Result::Err` へ移行した。
+- subagent の独立レビューでも、対象 files に残すべき typed constructor はなく、source string fixture や doc comment だけの旧構文もないと確認した。
+- 検証:
+  - `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/neplg2/core/ty/ty/arena.nepl tests/stdlib/neplg2_type_arena.n.md`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/arena.nepl -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg21-type-arena-generic-result-constructors.json -j 1 --dist web/dist --assert-io`: 5 件すべて compile timeout after 60000ms。型診断は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 allocator/vec capacity Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる production stdlib の constructor だけを小さく移行した。
