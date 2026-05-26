@@ -407,6 +407,15 @@ LLM/手動判断が必要なもの:
 - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_diag_outcome.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/neplg21-diag-outcome-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
 
+### 2026-05-26 neplg2_checker Result constructor checkpoint
+
+- `tests/stdlib/neplg2_checker.n.md` で、`checks_push` の expected type `Result unit str` または helper 戻り値 `Result unit str` から型が確定する `Result<unit,str>::Err` 12 件を `Result::Err` へ移行した。
+- source string fixture 内の旧 `fn main <()->i32> ():` は、selfhost checker の入力文字列として旧構文の扱いを確認する箇所なので構文移行していない。
+- doctest#4 で外側 NEPL 文字列 literal の `\()` が `lexer.string.invalid_escape` になることが分かったため、source string の中身を `\()` のまま保つために literal backslash だけを `\\()` として escape した。
+- subagent の独立レビューでも、対象 12 件は producer/nested generic 推論に絡まず、`\\()` escape は source string fixture の構文移行ではなく外側文字列の root-cause test fix と確認した。
+- `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_checker.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/neplg21-checker-result-constructors.json -j 1 --dist web/dist --assert-io` は 4 件すべて compile timeout after 60000ms。`lexer.string.invalid_escape` は解消し、型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

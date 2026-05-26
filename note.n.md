@@ -1,3 +1,15 @@
+# 2026-05-26 Agent 1 neplg2_checker Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、静的な型根拠で解決できる selfhost checker fixture の constructor だけを小さく移行した。
+- `tests/stdlib/neplg2_checker.n.md` で、`checks_push` の expected type `Result unit str` または `check_duplicate_directive` の戻り値 `Result unit str` から型が確定する `Result<unit,str>::Err` 12 件を `Result::Err` へ移行した。
+- source string fixture 内の旧 `fn main <()->i32> ():` は、この checkpoint では selfhost checker が受け取る入力文字列なので構文移行していない。
+- doctest#4 で外側 NEPL 文字列 literal の `\()` が `lexer.string.invalid_escape` になることが分かったため、source string の中身を `\()` のまま保つために literal backslash だけを `\\()` として escape した。
+- subagent の独立レビューでも、対象 12 件は producer/nested generic 推論に絡まず、`\\()` escape は source string fixture の構文移行ではなく外側文字列の root-cause test fix と確認した。
+- 検証:
+  - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_checker.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_checker.n.md --no-tree -o tmp/neplg21-checker-result-constructors.json -j 1 --dist web/dist --assert-io`: 4 件すべて compile timeout after 60000ms。`lexer.string.invalid_escape` は解消し、型診断は出ていない。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 neplg2_diag_outcome Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、静的な型根拠で解決できる constructor だけを小さく移行した。

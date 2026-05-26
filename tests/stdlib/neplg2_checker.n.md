@@ -51,11 +51,11 @@ fn main %impure fn unit i32 \unit:
                     checks_exit_code shown
                 Result::Err _diag:
                     selfhost_module_ast_free ast
-                    set checks checks_push checks Result<unit,str>::Err "checker returned Err"
+                    set checks checks_push checks Result::Err "checker returned Err"
                     let shown checks_print_report checks
                     checks_exit_code shown
         Result::Err _diag:
-            set checks checks_push checks Result<unit,str>::Err "parser returned Err"
+            set checks checks_push checks Result::Err "parser returned Err"
             let shown checks_print_report checks
             checks_exit_code shown
 ```
@@ -98,13 +98,13 @@ fn check_duplicate_directive %impure fn SelfhostModuleItemKind Result unit str \
                                     result
                                 Result::Ok _summary:
                                     selfhost_module_ast_free ast2
-                                    Result<unit,str>::Err "duplicate singleton directive was accepted"
+                                    Result::Err "duplicate singleton directive was accepted"
                         Result::Err _e:
-                            Result<unit,str>::Err "second module AST push failed"
+                            Result::Err "second module AST push failed"
                 Result::Err _e:
-                    Result<unit,str>::Err "first module AST push failed"
+                    Result::Err "first module AST push failed"
         Result::Err _e:
-            Result<unit,str>::Err "module AST allocation failed"
+            Result::Err "module AST allocation failed"
 
 fn main %impure fn unit i32 \unit:
     let checks0 checks_new
@@ -149,15 +149,15 @@ fn main %impure fn unit i32 \unit:
                             checks_exit_code shown
                         Result::Ok _summary:
                             selfhost_module_ast_free ast
-                            let checks1 checks_push checks0 Result<unit,str>::Err "checker accepted orphan raw text"
+                            let checks1 checks_push checks0 Result::Err "checker accepted orphan raw text"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<unit,str>::Err "module AST push failed"
+                    let checks1 checks_push checks0 Result::Err "module AST push failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<unit,str>::Err "module AST allocation failed"
+            let checks1 checks_push checks0 Result::Err "module AST allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -186,7 +186,7 @@ fn main %impure fn unit i32 \unit:
     match selfhost_module_ast_new:
         Result::Ok ast0:
             let span %SelfhostSourceSpan source_span_new 0 0 24
-            let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl span "fn main <()->i32> \():"
+            let item %SelfhostModuleItem selfhost_module_item_new SelfhostModuleItemKind::FunctionDecl span "fn main <()->i32> \\():"
             match selfhost_module_ast_push ast0 item:
                 Result::Ok ast:
                     match selfhost_check_module_ast &ast:
@@ -197,15 +197,15 @@ fn main %impure fn unit i32 \unit:
                             checks_exit_code shown
                         Result::Ok _summary:
                             selfhost_module_ast_free ast
-                            let checks1 checks_push checks0 Result<unit,str>::Err "checker accepted declaration item without parser header"
+                            let checks1 checks_push checks0 Result::Err "checker accepted declaration item without parser header"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<unit,str>::Err "module AST push failed"
+                    let checks1 checks_push checks0 Result::Err "module AST push failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<unit,str>::Err "module AST allocation failed"
+            let checks1 checks_push checks0 Result::Err "module AST allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
