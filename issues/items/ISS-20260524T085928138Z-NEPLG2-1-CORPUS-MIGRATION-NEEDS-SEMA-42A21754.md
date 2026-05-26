@@ -777,6 +777,19 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_stdlib_collection_cleanup_contract.js` と `node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - `node nodesrc/tests.js -i stdlib/kp/kpprefix.nepl -i stdlib/kp/kpgraph.nepl -i stdlib/kp/kpdsu.nepl -i stdlib/alloc/collections/segment_tree/api/cleanup.nepl -i stdlib/alloc/collections/segment_tree/api/create.nepl -i stdlib/alloc/collections/segment_tree/api/query.nepl -i stdlib/alloc/collections/segment_tree/api/update.nepl -i stdlib/alloc/collections/vec/mutation/push.nepl -i stdlib/alloc/collections/vec/mutation/pop.nepl -i stdlib/alloc/collections/vec/mutation/replace.nepl -i stdlib/alloc/collections/vec/query/predicate.nepl -i stdlib/alloc/collections/vec/query/aggregate.nepl -i stdlib/alloc/collections/vec/storage/api.nepl -i stdlib/alloc/collections/vec/sort.nepl -i stdlib/alloc/collections/vec/sort/merge.nepl -i stdlib/alloc/collections/vec/sort/merge/api.nepl -i tests/stdlib/collection_cleanup_contract.n.md -i tests/stdlib/sort.n.md --no-tree -o tmp/neplg21-kp-vec-segtree-unwrap-ok-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15/121 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 lower-case helper postfix final sweep checkpoint
+
+- `some` / `none` / `ok` / `err` / `is_some` / `is_none` / `is_ok` / `is_err` と、`unwrap_or` / `unwrap_err` / `uwok` / `uwerr` / `diag_err` の lower-case helper postfix 残件を、5 worker の非重複 write scope と親 agent の `stdlib/tests` 範囲に分割して並列移行した。
+- 対象は `tests/compiler` の small fixture、selfhost NMD、core Option/Result doctest、bytebuf / bytebuilder / CLI args、`stdlib/tests` の List / HashMap / JSON / BloomFilter smoke である。
+- `tests/compiler/list_dot_map.n.md` の `result::ok<i32, i32>` / `ok<i32, i32>` は、`let r %Result i32 i32 ...` にして型根拠を明示したうえで postfix を撤廃した。
+- `nodesrc/test_neplg21_helper_postfix_cleanup.js` を追加し、`stdlib` / `tests` / `examples` / `tutorials` の実行対象 source に lower-case helper postfix が再導入されないことを source policy で監視するようにした。
+- `rg -n "\b(uwok|uwerr|unwrap_err|unwrap_or|diag_err|some|none|ok|err|is_some|is_none|is_ok|is_err)<" stdlib tests examples tutorials -g "*.nepl" -g "*.n.md"` は 0 件になった。
+- `Result::Ok<...>` / `Result::Err<...>` / `Option::Some<...>` / `Option::None<...>` など enum constructor 側の旧 postfix はまだ残る。これは lower-case helper family とは別 checkpoint として継続する。
+- `node nodesrc/test_neplg21_helper_postfix_cleanup.js` / `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `trunk build` は pass した。
+- `node nodesrc/tests.js <対象11 NMD files> --no-tree -o tmp/neplg21-helper-postfix-cleanup.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 8 件中 1 pass、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

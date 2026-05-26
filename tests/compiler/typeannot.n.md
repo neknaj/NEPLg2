@@ -274,7 +274,7 @@ fn main %impure fn unit i32 \unit:
     // ジェネリック型に対する型注釈
     // Option<i32> 型の値を生成し、それに型注釈をつける
 
-    let opt %Option i32 some<i32> 42
+    let opt %Option i32 some 42
 
     let actual %i32 match opt:
         Option::Some v:

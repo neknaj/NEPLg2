@@ -228,10 +228,10 @@ fn main %impure fn unit i32 \unit:
                     let bool_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &alloc1
                     let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena alloc1
                     let invalid_id %SelfhostTypeId selfhost_type_id_new -1
-                    let checks1 checks_push checks0 check is_none<SelfhostTypeRecord> selfhost_type_arena_get_record &arena1 invalid_id
-                    let checks2 checks_push checks1 check is_none<i32> selfhost_type_arena_function_arg_count &arena1 bool_id
-                    let checks3 checks_push checks2 check is_none<SelfhostTypeId> selfhost_type_arena_function_arg &arena1 bool_id 0
-                    let checks4 checks_push checks3 check is_none<SelfhostTypeId> selfhost_type_arena_function_result &arena1 invalid_id
+                    let checks1 checks_push checks0 check is_none selfhost_type_arena_get_record &arena1 invalid_id
+                    let checks2 checks_push checks1 check is_none selfhost_type_arena_function_arg_count &arena1 bool_id
+                    let checks3 checks_push checks2 check is_none selfhost_type_arena_function_arg &arena1 bool_id 0
+                    let checks4 checks_push checks3 check is_none selfhost_type_arena_function_result &arena1 invalid_id
                     selfhost_type_arena_free arena1
                     let shown checks_print_report checks4
                     checks_exit_code shown

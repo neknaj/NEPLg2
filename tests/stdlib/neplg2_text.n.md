@@ -151,10 +151,10 @@ fn main %impure fn unit i32 \unit:
         Result::Ok text:
             let checks1:
                 checks0
-                |> checks_push check is_none<SelfhostSourceLocation> source_text_location_for_offset &text -1
-                |> checks_push check is_none<SelfhostSourceLocation> source_text_location_for_offset &text 4
-                |> checks_push check is_none<SelfhostSourceSpan> source_text_line_span &text -1
-                |> checks_push check is_none<SelfhostSourceSpan> source_text_line_span &text 1
+                |> checks_push check is_none source_text_location_for_offset &text -1
+                |> checks_push check is_none source_text_location_for_offset &text 4
+                |> checks_push check is_none source_text_line_span &text -1
+                |> checks_push check is_none source_text_line_span &text 1
             source_text_free text
             let shown checks_print_report checks1
             checks_exit_code shown

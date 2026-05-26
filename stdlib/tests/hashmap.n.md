@@ -46,7 +46,7 @@ fn main %impure fn unit i32 \unit:
     free hm1;
 
     let hm2 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;
-    let hm2_none %bool is_none<i32> get &hm2 1;
+    let hm2_none %bool is_none get &hm2 1;
     free hm2;
 
     let a0 %HashMap i32 i32 DefaultHash32 must_hm new DefaultHash32;

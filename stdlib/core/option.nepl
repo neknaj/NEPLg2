@@ -26,12 +26,13 @@
 //:| #import "std/test" as *
 //:| #import "core/option" as *
 //: fn main %impure fn unit i32 \unit:
+//:     let empty %Option i32 none;
 //:     let report:
 //:         test_report_new "core_option_basic"
 //:         |> test_report_push assert "some is present" is_some some 123
-//:         |> test_report_push assert "none is absent" is_none none<i32>
+//:         |> test_report_push assert "none is absent" is_none empty
 //:         |> test_report_push assert_eq_i32 "unwrap some" 123 unwrap some 123
-//:         |> test_report_push assert_eq_i32 "unwrap_or none" 7 unwrap_or none<i32> 7
+//:         |> test_report_push assert_eq_i32 "unwrap_or none" 7 unwrap_or empty 7
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
@@ -49,9 +50,9 @@
 //:     add x 1
 //:
 //: fn main %impure fn unit i32 \unit:
-//:     let a0 map<i32,i32> some<i32> 9 inc;
-//:     let a1 map<i32,i32> some<i32> 9 inc;
-//:     let b map<i32,i32> none<i32> inc;
+//:     let a0 map<i32,i32> some 9 inc;
+//:     let a1 map<i32,i32> some 9 inc;
+//:     let b map<i32,i32> none inc;
 //:     let report:
 //:         test_report_new "core_option_map"
 //:         |> test_report_push assert "some map result" is_some a0
@@ -73,11 +74,11 @@
 //: fn positive_double %fn i32 Option i32 \x:
 //:     if gt x 0:
 //:         then some mul x 2
-//:         else none<i32>
+//:         else none
 //:
 //: fn main %impure fn unit i32 \unit:
-//:     let a and_then<i32,i32> some<i32> 3 positive_double;
-//:     let b and_then<i32,i32> some<i32> -1 positive_double;
+//:     let a and_then<i32,i32> some 3 positive_double;
+//:     let b and_then<i32,i32> some -1 positive_double;
 //:     let report:
 //:         test_report_new "core_option_and_then"
 //:         |> test_report_push assert_eq_i32 "positive double" 6 unwrap a

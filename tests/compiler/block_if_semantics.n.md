@@ -36,7 +36,7 @@ stdout: "test_report name=\"match_arm_local_drop_preserves_return\" count=1 fail
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let actual %i32 match some<i32> 5:
+    let actual %i32 match some 5:
         Some v:
             let y v;
             v

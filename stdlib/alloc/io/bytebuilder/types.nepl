@@ -259,14 +259,14 @@ pub fn byte_builder_ptr_ref %fn &ByteBuilder Option MemPtr u8 \builder:
     let storage_ref %&ByteBuilderStorage get_ref builder "storage"
     match storage_ref:
         ByteBuilderStorage::Empty:
-            none<MemPtr<u8>>
+            none
         ByteBuilderStorage::Owned _region:
             if:
                 le cap0 0
                 then:
-                    none<MemPtr<u8>>
+                    none
                 else:
-                    some<MemPtr<u8>> byte_builder_data_ptr_ref builder
+                    some byte_builder_data_ptr_ref builder
 
 //: byte_builder_len: builder に現在入っている byte 数を返す
 //:

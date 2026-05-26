@@ -64,7 +64,7 @@ fn main %impure fn unit i32 \unit:
             and selfhost_mono_instance_key_is_valid valid_key assigned_ok
             and:
                 and not selfhost_mono_instance_key_is_valid invalid_key0 not selfhost_mono_instance_key_is_valid invalid_key1
-                is_none<SelfhostMonoInstanceId> pending
+                is_none pending
     if ok 0 1
 ```
 
@@ -118,7 +118,7 @@ fn main %impure fn unit i32 \unit:
     let other_key %SelfhostMonoInstanceKey selfhost_mono_instance_key_new (selfhost_mono_def_id_new 6 8) args
     match selfhost_mono_instance_cache_new:
         Result::Ok cache0:
-            let missing_before %bool is_none<SelfhostMonoInstanceId> selfhost_mono_instance_cache_lookup &cache0 key
+            let missing_before %bool is_none selfhost_mono_instance_cache_lookup &cache0 key
             match selfhost_mono_instance_cache_intern cache0 key:
                 Result::Ok intern0:
                     let id0 %SelfhostMonoInstanceId selfhost_mono_instance_cache_intern_result_id &intern0

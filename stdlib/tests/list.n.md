@@ -72,15 +72,15 @@ fn main %impure fn unit i32 \unit:
     free<i32> l3_2;
 
     let l3_3 %List i32 mk;
-    let l3_3_none %bool is_none<i32> get<i32> &l3_3 3;
+    let l3_3_none %bool is_none get<i32> &l3_3 3;
     free<i32> l3_3;
 
     let l3_100 %List i32 mk;
-    let l3_100_none %bool is_none<i32> get<i32> &l3_100 100;
+    let l3_100_none %bool is_none get<i32> &l3_100 100;
     free<i32> l3_100;
 
     let l3_n1 %List i32 mk;
-    let l3_n1_none %bool is_none<i32> get<i32> &l3_n1 -1;
+    let l3_n1_none %bool is_none get<i32> &l3_n1 -1;
     free<i32> l3_n1;
 
     let l3h %List i32 mk;

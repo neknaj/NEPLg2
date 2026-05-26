@@ -23,13 +23,16 @@
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
+//:     let ok_value %Result i32 str ok 1;
+//:     let err_value %Result i32 str err "oops";
+//:     let fallback_err %Result i32 str err "x";
 //:     let report:
 //:         test_report_new "core_result_basic"
-//:         |> test_report_push assert "ok helper is ok" is_ok ok<i32, str> 1
-//:         |> test_report_push assert "err helper is err" is_err err<i32, str> "oops"
-//:         |> test_report_push assert_eq_i32 "unwrap ok" 1 unwrap_ok ok<i32, str> 1
-//:         |> test_report_push assert_str_eq "unwrap err" "oops" unwrap_err err<i32, str> "oops"
-//:         |> test_report_push assert_eq_i32 "unwrap_or err" 9 unwrap_or err<i32, str> "x" 9
+//:         |> test_report_push assert "ok helper is ok" is_ok ok_value
+//:         |> test_report_push assert "err helper is err" is_err err_value
+//:         |> test_report_push assert_eq_i32 "unwrap ok" 1 unwrap_ok ok_value
+//:         |> test_report_push assert_str_eq "unwrap err" "oops" unwrap_err err_value
+//:         |> test_report_push assert_eq_i32 "unwrap_or err" 9 unwrap_or fallback_err 9
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
@@ -62,8 +65,8 @@
 //:     4
 //:
 //: fn main %impure fn unit i32 \unit:
-//:     let r0 ok<i32,str> 9;
-//:     let r1 err<i32,str> "oops";
+//:     let r0 %Result i32 str ok 9;
+//:     let r1 %Result i32 str err "oops";
 //:     let a map<i32,i32,str> r0 inc;
 //:     let b map_err<i32,str,i32> r1 strlen;
 //:     let report:
@@ -85,12 +88,12 @@
 //:| #import "core/math" as *
 //: fn positive_double %fn i32 Result i32 str \x:
 //:     if gt x 0:
-//:         then ok<i32,str> mul x 2
-//:         else err<i32,str> "non-positive"
+//:         then ok mul x 2
+//:         else err "non-positive"
 //:
 //: fn main %impure fn unit i32 \unit:
-//:     let r0 ok<i32,str> 3;
-//:     let r1 ok<i32,str> -1;
+//:     let r0 %Result i32 str ok 3;
+//:     let r1 %Result i32 str ok -1;
 //:     let a and_then<i32,i32,str> r0 positive_double;
 //:     let b and_then<i32,i32,str> r1 positive_double;
 //:     let report:
@@ -308,9 +311,10 @@ pub fn unwrap_ok <.T, .E> %fn Result .T .E .T \r:
 //:| #import "std/test" as *
 //:| #import "core/result" as *
 //:| fn main %impure fn unit i32 \unit:
+//:     let r %Result i32 str ok 1;
 //:     let report:
 //:         test_report_new "core_result_uwok"
-//:         |> test_report_push assert_eq_i32 "uwok alias" 1 uwok ok<i32, str> 1
+//:         |> test_report_push assert_eq_i32 "uwok alias" 1 uwok r
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```

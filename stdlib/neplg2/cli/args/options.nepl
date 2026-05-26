@@ -56,7 +56,7 @@ pub fn selfhost_cli_options_new %fn bool fn bool fn bool fn bool fn bool fn Self
 //: [目的/もくてき]:
 //: - 引数なしの状態を明示し、parser と doctest が同じ初期値を共有できるようにします。
 pub fn selfhost_cli_default_options %fn unit SelfhostCliOptions \unit:
-    selfhost_cli_options_new false false false false false selfhost_cli_emit_set_default none<SelfhostCliTarget> none<SelfhostCliProfile> none<str> none<str> none<str> none<i32>
+    selfhost_cli_options_new false false false false false selfhost_cli_emit_set_default none none none none none none
 
 //: selfhost_cli_target_to_compile_target: CLI target を core compile target へ[変換/へんかん]する
 //:
@@ -118,7 +118,7 @@ pub fn selfhost_cli_profile_to_build_profile %fn SelfhostCliProfile SelfhostBuil
 //:             test_report_exit_code shown
 //:         Result::Ok opts:
 //:             let compile_options %SelfhostCompileOptions selfhost_cli_options_to_compile_options opts
-//:             let target %SelfhostCompileTarget selfhost_compile_resolve_target compile_options none<SelfhostCompileTarget>
+//:             let target %SelfhostCompileTarget selfhost_compile_resolve_target compile_options none
 //:             let profile %SelfhostBuildProfile selfhost_compile_resolve_profile compile_options SelfhostBuildProfile::Debug
 //:             let target_ok %bool selfhost_compile_target_is_wasi target
 //:             let profile_ok %bool selfhost_build_profile_is_release profile

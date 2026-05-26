@@ -60,7 +60,7 @@ fn main %impure fn unit i32 \unit:
     free bf1
     let ok0 %bool if seen false true;
     let bad %Result BloomFilter i32 DefaultHash32 Diag new DefaultHash32 0;
-    let ok1 %bool is_err<BloomFilter<i32, DefaultHash32>, Diag> bad;
+    let ok1 %bool is_err bad;
     let report:
         test_report_new "bloom_filter_clear_and_invalid_len"
         |> test_report_push assert "clear removes inserted item" ok0

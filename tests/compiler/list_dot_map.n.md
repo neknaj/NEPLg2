@@ -17,7 +17,7 @@ fn inc %fn i32 i32 \x:
     add x 1
 
 fn main %impure fn unit i32 \unit:
-    let r result::ok<i32, i32> 1;
+    let r %Result i32 i32 result::ok 1;
     let mapped result::map r inc;
     let actual %i32 result::unwrap_ok mapped
     let report:
@@ -50,8 +50,8 @@ fn main %impure fn unit i32 \unit:
     let xs0 result::unwrap_ok list::new<i32>;
     let xs result::unwrap_ok list::push<i32> xs0 30;
     let ys result::unwrap_ok list::map<i32, i32> xs inc;
-    let actual %i32 option::unwrap list::get<i32> &ys 0
-    list::free<i32> ys;
+    let actual %i32 option::unwrap list::get &ys 0
+    list::free ys;
     let report:
         test_report_new "list_namespace_map_with_list"
         |> test_report_push assert_eq_i32 "list namespace map first value" 31 actual
@@ -76,7 +76,7 @@ fn inc %fn i32 i32 \x:
     add x 1
 
 fn main %impure fn unit i32 \unit:
-    let r ok<i32, i32> 1;
+    let r %Result i32 i32 ok 1;
     let mapped map<i32, i32, i32> r inc;
     let actual %i32 unwrap_ok mapped
     let report:
@@ -110,8 +110,8 @@ fn main %impure fn unit i32 \unit:
     let xs1 %Vec i32 unwrap_ok push<i32> xs0 1;
     let xs2 %Vec i32 unwrap_ok push<i32> xs1 2;
     let ys %Vec i32 unwrap_ok map<i32, i32> xs2 inc;
-    let out %i32 unwrap get<i32> &ys 1;
-    free<i32> ys;
+    let out %i32 unwrap get &ys 1;
+    free ys;
     let report:
         test_report_new "vec_map_with_star_alias_works"
         |> test_report_push assert_eq_i32 "vec star alias map second value" 3 out

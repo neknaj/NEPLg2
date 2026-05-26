@@ -86,11 +86,11 @@ fn main %impure fn unit i32 \unit:
     set checks checks_push checks check_ne true json_is_null ja1
     let arr2 %JsonArray unwrap_ok json_array_new
     let ja2 %JsonValue json_array arr2
-    set checks checks_push checks check is_none<str> json_as_string ja2
+    set checks checks_push checks check is_none json_as_string ja2
 
     let obj1 %JsonObject unwrap_ok json_object_new
     let jo1 %JsonValue json_object obj1
-    set checks checks_push checks check is_none<str> json_as_string jo1
+    set checks checks_push checks check is_none json_as_string jo1
 
     let shown checks_print_report checks
     checks_exit_code shown

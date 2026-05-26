@@ -101,14 +101,14 @@ pub fn io_bytebuf_ptr_ref %fn &ByteBuf Option MemPtr u8 \buf:
     let storage_ref %&ByteBufStorage get_ref buf "storage"
     match storage_ref:
         ByteBufStorage::Empty:
-            none<MemPtr<u8>>
+            none
         ByteBufStorage::Owned _region:
             if:
                 le byte_len 0
                 then:
-                    none<MemPtr<u8>>
+                    none
                 else:
-                    some<MemPtr<u8>> io_bytebuf_data_ptr_ref buf
+                    some io_bytebuf_data_ptr_ref buf
 
 pub fn io_bytebuf_storage_size %fn i32 i32 \byte_len:
     if:
@@ -123,7 +123,7 @@ pub fn io_bytebuf_byte_at %fn &ByteBuf fn i32 Option i32 \buf\idx:
     if:
         or lt idx 0 ge idx n
         then:
-            none<i32>
+            none
         else:
             load_u8 mem_ptr_add io_bytebuf_data_ptr_ref buf idx
 

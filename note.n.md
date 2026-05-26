@@ -46877,3 +46877,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - documentation contract は baseline を緩めず、`adjacency_matrix_bit_index` に契約、制約、計算量、doctest 付きの doc comment を追加して `declarationNoDoc` を既存 baseline 530 へ戻した。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は 157.3s で warning 0 件になった。
 - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix/layout.nepl --no-tree -o tmp/neplg21-adjacency-layout-doc.json -j 1 --dist web/dist --assert-io` は compile timeout after 60000ms。型診断は出ていない。
+
+## 2026-05-26 Agent 1 lower-case helper postfix final sweep
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、lower-case helper postfix の実行対象 corpus 残件を 5 worker と親 agent の `stdlib/tests` 範囲で並列移行した。`plan.md` は変更していない。
+- worker scope は compiler small fixture、selfhost NMD、selfhost proof fixture、core Option/Result doctest、bytebuf / bytebuilder / CLI args に分けた。親 agent は `stdlib/tests/list.n.md`、`hashmap.n.md`、`json.n.md`、`bloom_filter.n.md` を担当した。
+- `some` / `none` / `ok` / `err` / `is_some` / `is_none` / `is_ok` / `is_err` と、`unwrap_or` / `unwrap_err` / `uwok` / `uwerr` / `diag_err` の lower-case helper postfix は、`stdlib` / `tests` / `examples` / `tutorials` の実行対象 source で 0 件になった。
+- `tests/compiler/list_dot_map.n.md` の `result::ok<i32, i32>` / `ok<i32, i32>` は、`let r %Result i32 i32 ...` として型根拠を明示してから postfix-free 化した。
+- `nodesrc/test_neplg21_helper_postfix_cleanup.js` を追加し、lower-case helper postfix の再導入を source policy で検出するようにした。これはコメント量を制限する検査ではなく、実行対象 corpus の旧呼び出し構文だけを禁止する検査である。
+- `Result::Ok<...>` / `Result::Err<...>` / `Option::Some<...>` / `Option::None<...>` の enum constructor postfix はまだ残るため、次の独立 checkpoint として扱う。
+- `node nodesrc/test_neplg21_helper_postfix_cleanup.js` / `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` と `trunk build` は pass。
+- `node nodesrc/tests.js <対象11 NMD files> --no-tree -o tmp/neplg21-helper-postfix-cleanup.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 8 件中 1 pass、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
