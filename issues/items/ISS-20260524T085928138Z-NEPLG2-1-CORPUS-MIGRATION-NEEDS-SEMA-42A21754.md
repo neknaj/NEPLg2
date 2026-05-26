@@ -322,6 +322,13 @@ LLM/手動判断が必要なもの:
 - `rg -n "unwrap_ok<SparseSet|unwrap_ok<bool|is_err<|is_ok<" stdlib/tests/sparse_set.n.md tests/stdlib/sparse_set_collections.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i stdlib/tests/sparse_set.n.md -i tests/stdlib/sparse_set_collections.n.md --no-tree -o tmp/neplg21-sparse-set-helper-postfix.json -j 1 --dist web/dist --assert-io` は 180s local command timeout。partial JSON では `stdlib/tests/sparse_set.n.md` doctest#1-#2 と `tests/stdlib/sparse_set_collections.n.md` doctest#1 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
 
+### 2026-05-26 fenwick helper postfix checkpoint
+
+- `stdlib/tests/fenwick.n.md` で、代入先 `%Fenwick` / `%i32` または `fw::new` / `fw::sum_prefix` / `fw::sum_range` の戻り値から型が確定する `unwrap_ok<Fenwick, Diag>` / `unwrap_ok<i32, Diag>` を `unwrap_ok` へ移行した。
+- `Fenwick` の `new` / `add` / `sum_*` は型引数を持たないため、nested producer generic 推論問題には踏み込んでいない。
+- `rg -n "unwrap_ok<Fenwick|unwrap_ok<i32|unwrap_ok<bool|is_err<|is_ok<" stdlib/tests/fenwick.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/tests/fenwick.n.md --no-tree -o tmp/neplg21-fenwick-helper-postfix.json -j 1 --dist web/dist --assert-io` は 2 件とも compile timeout after 60000ms。型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

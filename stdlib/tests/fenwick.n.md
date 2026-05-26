@@ -18,14 +18,14 @@ stdout: "test_report name=\"fenwick_add_and_sum\" count=3 failed=0\nassertion in
 
 fn main %impure fn () i32 \():
     let fw %Fenwick:
-        unwrap_ok<Fenwick, Diag> fw::new 5
+        unwrap_ok fw::new 5
         |> fw::add 0 1 |> uwok
         |> fw::add 1 2 |> uwok
         |> fw::add 2 3 |> uwok
         |> fw::add 3 4 |> uwok
     let size %i32 fw::len &fw;
-    let prefix4 %i32 unwrap_ok<i32, Diag> fw::sum_prefix &fw 4;
-    let range_1_4 %i32 unwrap_ok<i32, Diag> fw::sum_range &fw 1 4;
+    let prefix4 %i32 unwrap_ok fw::sum_prefix &fw 4;
+    let range_1_4 %i32 unwrap_ok fw::sum_range &fw 1 4;
     fw::free fw
     let report:
         test_report_new "fenwick_add_and_sum"
@@ -53,7 +53,7 @@ stdout: "test_report name=\"fenwick_bounds_error\" count=1 failed=0\nassertion i
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let fw %Fenwick unwrap_ok<Fenwick, Diag> fw::new 3;
+    let fw %Fenwick unwrap_ok fw::new 3;
     match fw::add fw 5 1:
         Result::Ok next:
             fw::free next

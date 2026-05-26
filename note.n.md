@@ -1,3 +1,12 @@
+# 2026-05-26 Agent 1 fenwick helper postfix cleanup checkpoint
+
+- 非 generic collection helper の小 checkpoint として `stdlib/tests/fenwick.n.md` を対象にした。
+- 代入先 `%Fenwick` / `%i32` または `fw::new` / `fw::sum_prefix` / `fw::sum_range` の戻り値から型が確定する `unwrap_ok<Fenwick, Diag>` / `unwrap_ok<i32, Diag>` を `unwrap_ok` へ移行した。
+- `Fenwick` の `new` / `add` / `sum_*` は型引数を持たないため、nested producer generic 推論問題には踏み込んでいない。
+- 検証:
+  - `rg -n "unwrap_ok<Fenwick|unwrap_ok<i32|unwrap_ok<bool|is_err<|is_ok<" stdlib/tests/fenwick.n.md`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/tests/fenwick.n.md --no-tree -o tmp/neplg21-fenwick-helper-postfix.json -j 1 --dist web/dist --assert-io`: 2 件とも compile timeout after 60000ms。型診断は出ていない。
+
 # 2026-05-26 Agent 1 sparse_set helper postfix cleanup checkpoint
 
 - 非 generic collection helper の小 checkpoint として `stdlib/tests/sparse_set.n.md` / `tests/stdlib/sparse_set_collections.n.md` を対象にした。
