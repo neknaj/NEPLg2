@@ -19,7 +19,7 @@ stdout: "test_report name=\"binary_heap_push_peek_pop\" count=3 failed=0\nassert
 
 fn main %impure fn unit i32 \unit:
     let hp0 %BinaryHeap i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
@@ -27,7 +27,7 @@ fn main %impure fn unit i32 \unit:
     let size0 %i32 len &hp0;
     free hp0;
     let hp1 %BinaryHeap i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
@@ -38,7 +38,7 @@ fn main %impure fn unit i32 \unit:
             false
     free hp1;
     let hp2 %BinaryHeap i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
@@ -75,10 +75,10 @@ stdout: "test_report name=\"binary_heap_empty_and_capacity\" count=2 failed=0\na
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let hp0 %BinaryHeap i32 unwrap_ok with_capacity<i32> 8;
+    let hp0 %BinaryHeap i32 unwrap_ok with_capacity 8;
     let ok0 %bool is_empty &hp0;
     free hp0;
-    let hp1 %BinaryHeap i32 unwrap_ok new<i32>;
+    let hp1 %BinaryHeap i32 unwrap_ok new;
     let ok1 %bool match pop hp1:
         Option::Some _:
             false
@@ -111,7 +111,7 @@ stdout: "test_report name=\"binary_heap_borrowed_reads_preserve_owner\" count=2 
 
 fn main %impure fn unit i32 \unit:
     let hp %BinaryHeap i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
@@ -149,7 +149,7 @@ stdout: "test_report name=\"binary_heap_pop_max_returns_owner\" count=3 failed=0
 
 fn main %impure fn unit i32 \unit:
     let hp0 %BinaryHeap i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
@@ -196,7 +196,7 @@ stdout: "test_report name=\"binary_heap_grow_preserves_order\" count=2 failed=0\
 
 fn main %impure fn unit i32 \unit:
     let hp0 %BinaryHeap i32:
-        unwrap_ok with_capacity<i32> 1
+        unwrap_ok with_capacity 1
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> push 1 |> uwok
