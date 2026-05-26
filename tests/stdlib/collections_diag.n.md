@@ -102,8 +102,8 @@ exit_code: 0
 
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
-    let q %Queue i32 unwrap_ok new<i32>;
-    match pop<i32> q:
+    let q %Queue i32 unwrap_ok new;
+    match pop q:
         Option::Some _v:
             set checks checks_push checks Result::Err "expected none";
         Option::None:
@@ -135,8 +135,8 @@ exit_code: 0
 
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
-    let rb %RingBuffer i32 unwrap_ok new<i32>;
-    match pop<i32> rb:
+    let rb %RingBuffer i32 unwrap_ok new;
+    match pop rb:
         Option::Some _v:
             set checks checks_push checks Result::Err "expected none";
         Option::None:

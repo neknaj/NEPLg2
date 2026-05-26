@@ -1,3 +1,15 @@
+# 2026-05-26 Agent 1 Diagnostics/KP/cost postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として diagnostics / KP / cost fixture / compiler fixture の通常利用 collection helper postfix を 5 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `tests/stdlib/btree_array_cost.n.md` では、`sorted_array_map_*<i32,i32>` / `sorted_array_set_*<i32>` の通常利用を `%BTreeMap i32 i32` / `%BTreeSet i32` local annotation と borrowed receiver evidence から解ける postfix-free 形へ移行した。
+- `tests/stdlib/capacity_stack.n.md` と `tests/stdlib/collections_diag.n.md` では、Vec i32 / Vec Kind / Queue i32 / RingBuffer i32 の `new` / `push` / `len` / `free` / `pop` を postfix-free にした。`alloc_region` / `region_ptr_at` / `dealloc_region` の raw memory generic API は今回対象外として残した。
+- `tests/stdlib/kp.n.md`、`stdlib/kp/kpsearch.nepl`、`stdlib/kp/kpprefix.nepl` では、KP / prefix sum / binary search の Vec helper `filled` / `with_capacity` / `get` / `replace` / `len` / `free` と `vec::...` alias call を postfix-free にした。近傍コメントの `Vec<i32>` は `Vec i32` 表記へ更新した。
+- `stdlib/alloc/diag/diag.nepl`、`stdlib/alloc/diag/error/diags.nepl`、`stdlib/alloc/diag/error/outcome.nepl` では、`Vec Diag` owner helper と `Outcome` doctest の `outcome_ok` を typed local / receiver evidence から解ける形へ移行した。`pub fn <.T,.E>` などの generic 定義は変更していない。
+- `tests/compiler/neplg2.n.md` と `tests/compiler/overload.n.md` では、通常利用の List / Vec helper postfix を撤廃した。`pair_with_empty<i32>`、`Show::show<i32>`、generic 定義内の `v::new<.T>` など、generic/overload 機能そのものを検査する call は残した。
+- `nodesrc/test_neplg21_diagnostics_kp_cost_postfix_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。`nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_btree_borrowed_observers.js` は postfix-free 表記へ追従しつつ、Vec boundary と borrowed observer の検査を維持した。コメント量を制限する検査は追加していない。
+- `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、targeted policy、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js <対象11 files> --no-tree -o tmp/neplg21-diagnostics-kp-cost-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 7/121 件完了、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 Tutorial/core/compiler small helper postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として、tutorial の値引数なし Vec `new`、core Option/Result doctest の transform helper、compiler fixture の List/Result/Vec helper call に残っていた小さな generic postfix を撤廃した。`plan.md` は変更していない。

@@ -72,7 +72,7 @@ fn main %impure fn unit unit \unit:
     let q %i32 read &sc;
 
     let pref_len %i32 add n 1;
-    let pref %Vec i32 unwrap_ok filled<i32> pref_len 0;
+    let pref %Vec i32 unwrap_ok filled pref_len 0;
 
     let mut i %i32 1;
     while le i n:
@@ -81,7 +81,7 @@ fn main %impure fn unit unit \unit:
             let im1 %i32 sub i 1;
             let prev %i32 if and ge im1 0 lt im1 pref_len:
                 then:
-                    match get<i32> &pref im1:
+                    match get &pref im1:
                         Option::Some v:
                             v
                         Option::None:
@@ -91,7 +91,7 @@ fn main %impure fn unit unit \unit:
             let cur %i32 add prev a;
             if and ge i 0 lt i pref_len:
                 then:
-                    replace<i32> &pref i cur
+                    replace &pref i cur
                 else:
                     #intrinsic "unreachable" <> ()
             set i add i 1;
@@ -105,9 +105,9 @@ fn main %impure fn unit unit \unit:
             let l %i32 sub l1 1;
             let diff %i32 if and and ge l 0 lt l pref_len and ge r1 0 lt r1 pref_len:
                 then:
-                    match get<i32> &pref l:
+                    match get &pref l:
                         Option::Some left:
-                            match get<i32> &pref r1:
+                            match get &pref r1:
                                 Option::Some right:
                                     sub right left
                                 Option::None:
@@ -122,7 +122,7 @@ fn main %impure fn unit unit \unit:
     set w flush w;
     close w;
     close sc;
-    free<i32> pref;
+    free pref;
 ```
 
 ## stream_scanner_to_stream_writer_i64
@@ -238,7 +238,7 @@ stdout: "2 3\n1 2 5\n"
 fn main %impure fn unit unit \unit:
     let len %i32 6;
     let count_data %Vec i32:
-        unwrap_ok with_capacity<i32> len
+        unwrap_ok with_capacity len
         |> push 1 |> unwrap_ok
         |> push 1 |> unwrap_ok
         |> push 2 |> unwrap_ok
@@ -247,7 +247,7 @@ fn main %impure fn unit unit \unit:
         |> push 5 |> unwrap_ok
     let cnt2 %i32 count_equal_range_vec_i32 &count_data 2;
     let unique_data %Vec i32:
-        unwrap_ok with_capacity<i32> len
+        unwrap_ok with_capacity len
         |> push 1 |> unwrap_ok
         |> push 1 |> unwrap_ok
         |> push 2 |> unwrap_ok
@@ -259,7 +259,7 @@ fn main %impure fn unit unit \unit:
     print_i32 cnt2;
     print " ";
     println_i32 new_len;
-    free<i32> count_data;
+    free count_data;
 
     let mut i %i32 0;
     while lt i new_len:

@@ -255,10 +255,10 @@ fn size %fn Vec i32 i32 \vec:
 
 fn main %impure fn unit i32 \unit:
     let v %Vec i32:
-        v::new<i32>
+        v::new
         |> uwok
-        |> v::push<i32> 3 |> uwok
-        |> v::push<i32> 5 |> uwok
+        |> v::push 3 |> uwok
+        |> v::push 5 |> uwok
     let a %i32 size v;
     let b %i32 size "x";
     let report:
@@ -283,7 +283,7 @@ stdout: "test_report name=\"overload_new_with_pipe_vec\" count=1 failed=0\nasser
 #import "std/test" as test
 
 fn new %impure fn unit Vec i32 \unit:
-    unwrap_ok v::new<i32>
+    %Vec i32 unwrap_ok v::new
 
 fn new %fn unit bool \unit:
     true
@@ -325,9 +325,9 @@ fn pair_with_empty <.T: Copy> %fn Vec .T Result .Pair StdErrorKind \left:
 
 fn main %impure fn unit i32 \unit:
     let xs %Vec i32:
-        v::new<i32>
+        v::new
         |> uwok
-        |> v::push<i32> 1 |> uwok
+        |> v::push 1 |> uwok
     let parts unwrap_ok pair_with_empty<i32> xs;
     let evens %Vec i32 get parts 0;
     let rest %Vec i32 get parts 1;
@@ -385,7 +385,7 @@ stdout: "test_report name=\"overload_star_import_prefers_concrete_over_generic_n
 #import "std/test" as test
 
 fn new %impure fn unit Vec i32 \unit:
-    unwrap_ok v::new<i32>
+    %Vec i32 unwrap_ok v::new
 
 fn main %impure fn unit i32 \unit:
     let v %Vec i32 %Vec i32 new;

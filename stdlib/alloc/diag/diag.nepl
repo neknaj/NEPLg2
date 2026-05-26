@@ -108,7 +108,7 @@ pub fn diag_to_string %fn Diag str \d:
 //: diags_to_string: `Diags` を[改行/かいぎょう][区切/くぎ]りで[連結/れんけつ]する
 pub fn diags_to_string %fn &Diags str \ds:
     let items %&Vec Diag field::get_ref ds "items";
-    let items_len %i32 v::len<Diag> items;
+    let items_len %i32 v::len items;
     diags_to_string_loop items items_len 0 ""
 
 pub fn diags_to_string %fn Diags str \ds:
@@ -121,7 +121,7 @@ pub fn diags_to_string_loop %fn &Vec Diag fn i32 fn i32 fn str str \items\n\i\ac
         ge i n
         then acc
         else:
-            match v::get<Diag> items i:
+            match v::get items i:
                 Option::Some d:
                     let one %str diag_to_string d;
                     let next %str concat acc one;

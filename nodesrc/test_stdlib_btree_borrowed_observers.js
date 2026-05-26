@@ -78,7 +78,7 @@ assert.ok(pipeSetSection, 'pipe_collections must keep a BTreeSet pipe fixture');
 assert.doesNotMatch(pipeSetSection[0], /\b(?:new|insert|remove)<i32>/, 'pipe BTreeSet fixture must rely on expected type or receiver evidence instead of explicit producer or mutator postfixes');
 
 const costFixture = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/btree_array_cost.n.md'), 'utf8');
-assert.doesNotMatch(costFixture, /\bsorted_array_(?:map|set)_(?:len|get|contains)<[^>]+>\s+(?:m|s)\b/, 'btree_array_cost must not call sorted-array BTree observers by value');
-assert.match(costFixture, /\bsorted_array_(?:map|set)_(?:len|get|contains)<[^>]+>\s+&(?:m|s)\b/, 'btree_array_cost must exercise borrowed sorted-array observer aliases');
+assert.doesNotMatch(costFixture, /\bsorted_array_(?:map|set)_(?:len|get|contains)(?:<[^>]+>)?\s+(?:m|s)\b/, 'btree_array_cost must not call sorted-array BTree observers by value');
+assert.match(costFixture, /\bsorted_array_(?:map|set)_(?:len|get|contains)(?:<[^>]+>)?\s+&(?:m|s)\b/, 'btree_array_cost must exercise borrowed sorted-array observer aliases');
 
 console.log('btree borrowed observer regression passed');

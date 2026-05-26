@@ -72,14 +72,14 @@ stdout: "test_report name=\"stage3_vec_growth_4096\" count=1 failed=0\nassertion
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let mut v %Vec i32 uwok new<i32>;
+    let mut v %Vec i32 uwok new;
     let mut i %i32 0;
     while lt i 4096:
         do:
-            set v uwok push<i32> v i;
+            set v uwok push v i;
             set i add i 1;
-    let actual %i32 len<i32> &v
-    free<i32> v
+    let actual %i32 len &v
+    free v
     let report:
         test_report_new "stage3_vec_growth_4096"
         |> test_report_push assert_eq_i32 "vec length after growth" 4096 actual
@@ -232,14 +232,14 @@ fn depth %fn i32 i32 \n:
         add 1 depth sub n 1
 
 fn main %impure fn unit i32 \unit:
-    let mut v %Vec Kind uwok new<Kind>;
-    set v uwok push<Kind> v Kind::A;
-    set v uwok push<Kind> v Kind::B;
-    set v uwok push<Kind> v Kind::A;
-    set v uwok push<Kind> v Kind::B;
-    set v uwok push<Kind> v Kind::A;
-    let n %i32 len<Kind> &v;
-    free<Kind> v
+    let mut v %Vec Kind uwok new;
+    set v uwok push v Kind::A;
+    set v uwok push v Kind::B;
+    set v uwok push v Kind::A;
+    set v uwok push v Kind::B;
+    set v uwok push v Kind::A;
+    let n %i32 len &v;
+    free v
     let total %i32 add n depth 10
     let report:
         test_report_new "stage6_enum_vec_recursive_mix"

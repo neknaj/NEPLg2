@@ -53,13 +53,13 @@ assert.match(code.root, /pub\s+#import\s+"\.\/*error\/outcome"\s+as\s+\*/, 'root
 assert.doesNotMatch(code.root, /^\s*(fn|struct|enum|impl)\b/m, 'alloc/diag/error.nepl must stay a public facade without implementation bodies');
 assert.doesNotMatch(code.diags, /#import\s+"core\/mem(?:\/(?:internal|raw))?"\s+as\b/, 'Diags owner helpers must not import raw memory modules for read-only observers');
 assert.doesNotMatch(code.diags, /\b(?:mem_ptr_addr|data_mem_(?:ptr|view)|load<Diag>|size_of<Diag>)\b/, 'Diags read-only observers must not scan Vec storage through raw memory');
-assert.match(code.diags, /fn\s+diags_has_errors\s+<\(&Diags\)->bool>[\s\S]*v::len<Diag>[\s\S]*diags_has_errors_loop\s+items\s+items_len\s+0/, 'diags_has_errors must observe Diags through the borrowed Vec boundary');
-assert.match(code.diags, /fn\s+diags_has_errors_loop\s+<\(&Vec<Diag>,i32,i32\)->bool>[\s\S]*match\s+v::get<Diag>\s+items\s+i:/, 'diags_has_errors traversal must use Vec.get rather than raw loads');
+assert.match(code.diags, /fn\s+diags_has_errors\s+<\(&Diags\)->bool>[\s\S]*v::len\s+items[\s\S]*diags_has_errors_loop\s+items\s+items_len\s+0/, 'diags_has_errors must observe Diags through the borrowed Vec boundary');
+assert.match(code.diags, /fn\s+diags_has_errors_loop\s+<\(&Vec<Diag>,i32,i32\)->bool>[\s\S]*match\s+v::get\s+items\s+i:/, 'diags_has_errors traversal must use Vec.get rather than raw loads');
 assert.doesNotMatch(code.diag, /\b(?:mem_ptr_addr|load<Diag>)\b/, 'single diagnostic helpers must not carry direct raw memory evidence');
 assert.doesNotMatch(code.renderer, /#import\s+"core\/mem(?:\/(?:internal|raw))?"\s+as\b/, 'diagnostic renderer must not import raw memory modules');
 assert.doesNotMatch(code.renderer, /\b(?:mem_ptr_addr|data_mem_(?:ptr|view)|load<Diag>|size_of<Diag>)\b/, 'diagnostic renderer must not scan Diags through raw Vec storage');
-assert.match(code.renderer, /fn\s+diags_to_string\s+<\(&Diags\)->str>[\s\S]*v::len<Diag>[\s\S]*diags_to_string_loop\s+items\s+items_len\s+0\s+""/, 'diagnostic renderer must observe Diags through the borrowed Vec boundary');
-assert.match(code.renderer, /fn\s+diags_to_string_loop\s+<\(&Vec<Diag>,i32,i32,str\)->str>[\s\S]*match\s+v::get<Diag>\s+items\s+i:/, 'diagnostic renderer traversal must use Vec.get rather than raw loads');
+assert.match(code.renderer, /fn\s+diags_to_string\s+<\(&Diags\)->str>[\s\S]*v::len\s+items[\s\S]*diags_to_string_loop\s+items\s+items_len\s+0\s+""/, 'diagnostic renderer must observe Diags through the borrowed Vec boundary');
+assert.match(code.renderer, /fn\s+diags_to_string_loop\s+<\(&Vec<Diag>,i32,i32,str\)->str>[\s\S]*match\s+v::get\s+items\s+i:/, 'diagnostic renderer traversal must use Vec.get rather than raw loads');
 
 const lineLimits = {
     root: 80,
@@ -91,13 +91,13 @@ assert.match(code.diag, /fn\s+diag_empty_collection\s+<\(\)\*>Diag>\s+\(\):\s+di
 assert.match(code.diag, /fn\s+diag_capacity_exceeded\s+<\(\)\*>Diag>\s+\(\):\s+diag_error\s+StdErrorKind::CapacityExceeded\s+"capacity exceeded"/, 'diag_capacity_exceeded must be zero-argument and static-message based');
 assert.match(code.diag, /fn\s+diag_key_not_found\s+<\(\)\*>Diag>\s+\(\):\s+diag_error\s+StdErrorKind::KeyNotFound\s+"key not found"/, 'diag_key_not_found must be zero-argument and static-message based');
 
-assert.match(code.diags, /fn\s+diag_empty_diag_vec\s+<\(\)->Vec<Diag>>\s+\(\):\s+v::vec_empty<Diag>/, 'Diags allocation fallback must use typed empty Vec storage');
-assert.match(code.diags, /fn\s+diags_free\s+<\(Diags\)->unit>\s+\(ds\):\s+v::free<Diag>\s+field::get\s+ds\s+"items"/, 'Diags must provide an explicit by-value consumption helper');
+assert.match(code.diags, /fn\s+diag_empty_diag_vec\s+<\(\)->Vec<Diag>>\s+\(\):\s+v::vec_empty\b/, 'Diags allocation fallback must use typed empty Vec storage');
+assert.match(code.diags, /fn\s+diags_free\s+<\(Diags\)->unit>\s+\(ds\):\s+v::free\s+field::get\s+ds\s+"items"/, 'Diags must provide an explicit by-value consumption helper');
 assert.match(code.diags, /fn\s+diags_len\s+<\(Diags\)->i32>\s+\(ds\):[\s\S]*let\s+n\s+<i32>\s+diags_len\s+&ds[\s\S]*diags_free\s+ds[\s\S]*n/, 'by-value diags_len must close the Diags owner after observation');
 assert.match(code.diags, /fn\s+diags_has_errors\s+<\(Diags\)->bool>\s+\(ds\):[\s\S]*let\s+ok\s+<bool>\s+diags_has_errors\s+&ds[\s\S]*diags_free\s+ds[\s\S]*ok/, 'by-value diags_has_errors must close the Diags owner after observation');
 assert.match(code.diags, /match\s+level:[\s\S]*DiagLevel::Error:[\s\S]*DiagLevel::Log:[\s\S]*DiagLevel::Info:[\s\S]*DiagLevel::Warn:/, 'diags_has_errors_loop must branch by exhaustive DiagLevel match arms');
-assert.match(code.diags, /fn\s+diags_one\s+<\(Diag\)\*>Diags>\s+\(d\):[\s\S]*match\s+v::push<Diag>\s+items0\s+d:[\s\S]*Result::Err\s+e:[\s\S]*v::free<Diag>\s+v::vec_push_error_vec<Diag>\s+e[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_one must close the recovered Vec owner before converting push failure to an empty Diags sentinel');
-assert.match(code.diags, /fn\s+diags_push\s+<\(Diags,Diag\)\*>Diags>\s+\(ds,\s*d\):[\s\S]*match\s+v::push<Diag>\s+field::get\s+ds\s+"items"\s+d:[\s\S]*Result::Err\s+e:[\s\S]*v::free<Diag>\s+v::vec_push_error_vec<Diag>\s+e[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_push must close the recovered Vec owner before converting grow failure to an empty Diags sentinel');
+assert.match(code.diags, /fn\s+diags_one\s+<\(Diag\)\*>Diags>\s+\(d\):[\s\S]*match\s+v::push\s+items0\s+d:[\s\S]*Result::Err\s+e:[\s\S]*v::free\s+v::vec_push_error_vec\s+e[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_one must close the recovered Vec owner before converting push failure to an empty Diags sentinel');
+assert.match(code.diags, /fn\s+diags_push\s+<\(Diags,Diag\)\*>Diags>\s+\(ds,\s*d\):[\s\S]*let\s+items\s+<Vec<Diag>>\s+field::get\s+ds\s+"items"[\s\S]*match\s+v::push\s+items\s+d:[\s\S]*Result::Err\s+e:[\s\S]*v::free\s+v::vec_push_error_vec\s+e[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_push must close the recovered Vec owner before converting grow failure to an empty Diags sentinel');
 
 assert.match(code.outcome, /struct\s+Outcome<\.T,\s*\.E>:[\s\S]*result\s+<Result<\.T,\s*\.E>>[\s\S]*diags\s+<Option<Diags>>/, 'Outcome must keep result and Diags as separate axes');
 assert.match(code.outcome, /fn\s+outcome_with_diags[\s\S]*Option::Some\s+old_ds:[\s\S]*diags_free\s+old_ds/, 'outcome_with_diags must close any replaced Diags owner');

@@ -605,16 +605,16 @@ ret: 0
 #import "core/field" as *
 
 fn main %impure fn unit i32 \unit:
-    let lst %List i32 unwrap_ok new<i32>;
-    let lst uwok cons<i32> 1 lst;
-    let r get<i32> &lst 10;
+    let lst %List i32 unwrap_ok new;
+    let lst %List i32 uwok cons 1 lst;
+    let r %Option i32 get &lst 10;
     let out %i32:
         match r:
             Some v:
                 v
             None:
                 0
-    free<i32> lst;
+    free lst;
     out
 ```
 

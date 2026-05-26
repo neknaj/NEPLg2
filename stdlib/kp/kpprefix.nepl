@@ -12,16 +12,16 @@
 //:
 //: [目的/もくてき]:
 //: - 1 次元累積和の構築と区間和クエリを定型化します。
-//: - 公開 API は raw pointer ではなく `Vec<i32>` owner を保持する `PrefixI32` を扱います。
+//: - 公開 API は raw pointer ではなく `Vec i32` owner を保持する `PrefixI32` を扱います。
 //:
 //: [実装/じっそう]:
-//: - `pref[0]=0`, `pref[i+1]=pref[i]+a[i]` で長さ `n+1` の `Vec<i32>` を構築します。
-//: - 入力 `Vec<i32>` は構築関数が消費し、成功時は prefix buffer の owner を `PrefixI32` に移します。
+//: - `pref[0]=0`, `pref[i+1]=pref[i]+a[i]` で長さ `n+1` の `Vec i32` を構築します。
+//: - 入力 `Vec i32` は構築関数が消費し、成功時は prefix buffer の owner を `PrefixI32` に移します。
 //: - raw memory 操作は `Vec` の実装境界に閉じ、ここでは `vec::filled` / `vec::get` / `vec::replace` / `vec::free` だけを使います。
 //:
 //: [注意/ちゅうい]:
 //: - 値型は `i32` です。総和が大きい場合は `i64` 版へ拡張してください。
-//: - `PrefixI32` は内部 `Vec<i32>` の owner であり、`Copy` / `Clone` しません。使い終わったら `prefix_free_i32` で解放します。
+//: - `PrefixI32` は内部 `Vec i32` の owner であり、`Copy` / `Clone` しません。使い終わったら `prefix_free_i32` で解放します。
 //: - 構築失敗や範囲外 query は trap ではなく `Result::Err Diag` として返します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -36,12 +36,12 @@
 //:| #import "std/stdio" as *
 //: fn main %impure fn unit unit \unit:
 //:     let data %Vec i32:
-//:         unwrap_ok v::new<i32>
-//:         |> v::push<i32> 1 |> unwrap_ok
-//:         |> v::push<i32> 2 |> unwrap_ok
-//:         |> v::push<i32> 3 |> unwrap_ok
-//:         |> v::push<i32> 4 |> unwrap_ok
-//:         |> v::push<i32> 5 |> unwrap_ok
+//:         unwrap_ok v::new
+//:         |> v::push 1 |> unwrap_ok
+//:         |> v::push 2 |> unwrap_ok
+//:         |> v::push 3 |> unwrap_ok
+//:         |> v::push 4 |> unwrap_ok
+//:         |> v::push 5 |> unwrap_ok
 //:     let pref %PrefixI32 unwrap_ok prefix_build_vec_i32 data;
 //:     print_i32 unwrap_ok prefix_sum_i32 &pref 0 3;
 //:     print " ";
@@ -52,7 +52,7 @@
 //: PrefixI32: i32 用累積和 buffer の owner handle
 //:
 //: [目的/もくてき]:
-//: - 累積和 `Vec<i32>` の free obligation を 1 つの handle にまとめます。
+//: - 累積和 `Vec i32` の free obligation を 1 つの handle にまとめます。
 //:
 //: [注意/ちゅうい]:
 //: - `data` は公開利用者が直接組み立てる field ではありません。`prefix_build_vec_i32` で作り、`prefix_sum_i32` と `prefix_free_i32` で扱います。
@@ -72,43 +72,44 @@ fn prefix_build_loop_i32 %impure fn &Vec i32 impure fn &Vec i32 impure fn i32 im
     if:
         lt idx n
         then:
-            match vec::get<i32> input idx:
+            match vec::get input idx:
                 Option::Some cur:
                     let next_acc %i32 add acc cur
-                    vec::replace<i32> pref add idx 1 next_acc;
+                    vec::replace pref add idx 1 next_acc;
                     prefix_build_loop_i32 input pref n add idx 1 next_acc
                 Option::None:
                     diag_err prefix_diag_range
         else:
             ok unit
 
-//: prefix_build_vec_i32: `Vec<i32>` から累積和ハンドルを作る
+//: prefix_build_vec_i32: `Vec i32` から累積和ハンドルを作る
 //:
 //: [実装/じっそう]:
-//: - 入力 `Vec<i32>` の長さを読み、`n+1` 個の初期化済み prefix buffer を `Vec` API で確保します。
+//: - 入力 `Vec i32` の長さを読み、`n+1` 個の初期化済み prefix buffer を `Vec` API で確保します。
 //: - 構築中の読み書きも `Vec` API を通すため、この module は raw storage identity を公開面にも実装面にも保持しません。
-//: - 成功・失敗のどちらでも入力 `Vec<i32>` owner をこの関数内で閉じます。
+//: - 成功・失敗のどちらでも入力 `Vec i32` owner をこの関数内で閉じます。
 pub fn prefix_build_vec_i32 %impure fn Vec i32 Result PrefixI32 Diag \input:
-    let n %i32 vec::len<i32> &input
+    let n %i32 vec::len &input
     if:
         gt n 2147483646
         then:
-            vec::free<i32> input
+            vec::free input
             diag_err prefix_diag_capacity
         else:
             let pref_len %i32 add n 1
-            match vec::filled<i32> pref_len 0:
+            let pref_data_result %Result Vec i32 StdErrorKind vec::filled pref_len 0
+            match pref_data_result:
                 Result::Ok pref_data:
                     match prefix_build_loop_i32 &input &pref_data n 0 0:
                         Result::Ok _:
-                            vec::free<i32> input
+                            vec::free input
                             ok PrefixI32 pref_data
                         Result::Err d:
-                            vec::free<i32> input
-                            vec::free<i32> pref_data
+                            vec::free input
+                            vec::free pref_data
                             err d
                 Result::Err e:
-                    vec::free<i32> input
+                    vec::free input
                     diag_err prefix_diag_std_error e
 
 //: prefix_sum_i32: ハンドルから半開区間 `[l,r)` の和を返す
@@ -118,13 +119,13 @@ pub fn prefix_build_vec_i32 %impure fn Vec i32 Result PrefixI32 Diag \input:
 //: - 範囲外は `Diag` を返し、raw load や `unreachable` には落としません。
 pub fn prefix_sum_i32 %impure fn &PrefixI32 impure fn i32 impure fn i32 Result i32 Diag \pref\l\r:
     let data %&Vec i32 field::get_ref pref "data"
-    let pref_len %i32 vec::len<i32> data
+    let pref_len %i32 vec::len data
     if:
         and and le 0 l le l r lt r pref_len
         then:
-            match vec::get<i32> data l:
+            match vec::get data l:
                 Option::Some left:
-                    match vec::get<i32> data r:
+                    match vec::get data r:
                         Option::Some right:
                             ok sub right left
                         Option::None:
@@ -136,4 +137,4 @@ pub fn prefix_sum_i32 %impure fn &PrefixI32 impure fn i32 impure fn i32 Result i
 
 //: prefix_free_i32: 累積和ハンドルの buffer owner を解放する
 pub fn prefix_free_i32 %fn PrefixI32 unit \pref:
-    vec::free<i32> field::get pref "data"
+    vec::free field::get pref "data"

@@ -927,6 +927,17 @@ LLM/手動判断が必要なもの:
 - targeted source policy 5 件、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build`、`git diff --check` は pass した。
 - `node nodesrc/tests.js -i tutorials/getting_started/13_vec_basics.n.md -i tutorials/getting_started/16_drop_and_cleanup.n.md -i tests/compiler/list_dot_map.n.md -i tests/compiler/overload_nested_generic_push.n.md -i stdlib/core/option.nepl -i stdlib/core/result.nepl --no-tree -o tmp/neplg21-small-helper-producer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 7/18 件完了、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 Diagnostics/KP/cost postfix checkpoint
+
+- `tests/stdlib/btree_array_cost.n.md` で、sorted-array BTreeMap / BTreeSet helper の explicit generic postfix を `%BTreeMap i32 i32` / `%BTreeSet i32` local annotation と borrowed receiver evidence へ移した。
+- `tests/stdlib/capacity_stack.n.md` と `tests/stdlib/collections_diag.n.md` で、通常利用の Vec / Queue / RingBuffer helper postfix を撤廃した。raw memory generic API はこの checkpoint の対象外として保持した。
+- `tests/stdlib/kp.n.md`、`stdlib/kp/kpsearch.nepl`、`stdlib/kp/kpprefix.nepl` で、KP / prefix sum / binary search の Vec helper postfix を撤廃し、近傍コメントの `Vec<i32>` を `Vec i32` へ更新した。
+- `stdlib/alloc/diag/diag.nepl`、`stdlib/alloc/diag/error/diags.nepl`、`stdlib/alloc/diag/error/outcome.nepl` で、`Vec Diag` helper と `Outcome` doctest constructor call を postfix-free にした。generic 定義そのものは変更していない。
+- `tests/compiler/neplg2.n.md` と `tests/compiler/overload.n.md` で、通常利用の List / Vec helper postfix を撤廃した。`pair_with_empty<i32>`、`Show::show<i32>`、generic 定義内の `v::new<.T>` など generic/overload 機能そのものの検査は保持した。
+- `nodesrc/test_neplg21_diagnostics_kp_cost_postfix_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。既存の diag / BTree policy は postfix-free 表記へ追従し、Vec boundary と borrowed observer の検査は維持した。
+- `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、targeted policy、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js <対象11 files> --no-tree -o tmp/neplg21-diagnostics-kp-cost-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 7/121 件完了、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
