@@ -229,15 +229,15 @@ pub fn io_bytebuf_from_str_result %fn str Result ByteBuf StdErrorKind \text:
     if:
         eq byte_len 0
         then:
-            Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_empty
+            Result::Ok io_bytebuf_empty
         else:
             match io_bytebuf_alloc_region byte_len:
                 Result::Err e:
-                    Result<ByteBuf, StdErrorKind>::Err e
+                    Result::Err e
                 Result::Ok region:
                     let out_data %MemPtr u8 io_bytebuf_region_ptr &region
                     mem_copy mem_ptr_addr out_data mem_ptr_addr string_data_ptr text byte_len
-                    Result<ByteBuf, StdErrorKind>::Ok io_bytebuf_finish_region region byte_len
+                    Result::Ok io_bytebuf_finish_region region byte_len
 
 //: io_bytebuf_from_str: `str` を `ByteBuf` へ複製する互換 facade
 //:
@@ -280,27 +280,27 @@ pub fn io_bytebuf_to_str_result %fn ByteBuf Result str StdErrorKind \buf:
     if:
         le byte_len 0
         then:
-            Result<str, StdErrorKind>::Ok ""
+            Result::Ok ""
         else:
             let data %MemPtr u8 io_bytebuf_data_ptr_ref &buf
             if:
                 le mem_ptr_addr data 0
                 then:
                     io_bytebuf_free buf
-                    Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                    Result::Err StdErrorKind::OutOfMemory
                 else:
                     match string_utf8_validate_mem data byte_len:
                         Result::Err _e:
                             io_bytebuf_free buf
-                            Result<str, StdErrorKind>::Err StdErrorKind::InvalidUtf8
+                            Result::Err StdErrorKind::InvalidUtf8
                         Result::Ok _:
                             match string_from_mem_unchecked_result data byte_len:
                                 Result::Err _e:
                                     io_bytebuf_free buf
-                                    Result<str, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                                    Result::Err StdErrorKind::OutOfMemory
                                 Result::Ok text:
                                     io_bytebuf_free buf
-                                    Result<str, StdErrorKind>::Ok text
+                                    Result::Ok text
 
 //: io_bytebuf_to_str: `ByteBuf` を `str` へ変換する互換 facade
 //:

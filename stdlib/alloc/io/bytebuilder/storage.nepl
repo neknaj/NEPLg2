@@ -48,18 +48,18 @@ pub fn byte_builder_with_capacity %fn i32 Result ByteBuilder StdErrorKind \capac
     if:
         lt capacity 0
         then:
-            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::InvalidOperation
+            Result::Err StdErrorKind::InvalidOperation
         else:
             if:
                 eq capacity 0
                 then:
-                    Result<ByteBuilder, StdErrorKind>::Ok byte_builder_empty
+                    Result::Ok byte_builder_empty
                 else:
                     match alloc_region_bytes<u8> capacity:
                         Result::Ok region:
-                            Result<ByteBuilder, StdErrorKind>::Ok byte_builder_from_owned_region region 0 capacity
+                            Result::Ok byte_builder_from_owned_region region 0 capacity
                         Result::Err _e:
-                            Result<ByteBuilder, StdErrorKind>::Err StdErrorKind::OutOfMemory
+                            Result::Err StdErrorKind::OutOfMemory
 
 //: byte_builder_new: default capacity の builder を[作/つく]る
 //:
@@ -204,9 +204,9 @@ pub fn byte_builder_next_capacity %fn i32 fn i32 Result i32 StdErrorKind \cap\ne
     if:
         eq failed 1
         then:
-            Result<i32, StdErrorKind>::Err StdErrorKind::CapacityExceeded
+            Result::Err StdErrorKind::CapacityExceeded
         else:
-            Result<i32, StdErrorKind>::Ok next
+            Result::Ok next
 
 //: byte_builder_reserve: 追加 byte [数/すう]ぶんの capacity を[確保/かくほ]する
 //:
@@ -221,7 +221,7 @@ pub fn byte_builder_reserve %fn ByteBuilder fn i32 Result ByteBuilder ByteBuilde
     if:
         lt additional 0
         then:
-            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError builder StdErrorKind::InvalidOperation
+            Result::Err ByteBuilderError builder StdErrorKind::InvalidOperation
         else:
             let needed %i32 add len0 additional
             if:
@@ -230,45 +230,45 @@ pub fn byte_builder_reserve %fn ByteBuilder fn i32 Result ByteBuilder ByteBuilde
                     if:
                         lt needed len0
                         then:
-                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError builder StdErrorKind::CapacityExceeded
+                            Result::Err ByteBuilderError builder StdErrorKind::CapacityExceeded
                         else:
-                            Result<ByteBuilder, ByteBuilderError>::Ok builder
+                            Result::Ok builder
                 else:
                     match byte_builder_next_capacity cap0 needed:
                         Result::Err e:
-                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError builder e
+                            Result::Err ByteBuilderError builder e
                         Result::Ok next_cap:
                             match get builder "storage":
                                 ByteBuilderStorage::Empty:
                                     if:
                                         or gt len0 0 gt cap0 0
                                         then:
-                                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::InvalidOperation
+                                            Result::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::InvalidOperation
                                         else:
                                             if:
                                                 not alloc_payload_fits next_cap
                                                 then:
-                                                    Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::CapacityExceeded
+                                                    Result::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::CapacityExceeded
                                                 else:
                                                     match alloc_region_bytes<u8> next_cap:
                                                         Result::Ok region:
-                                                            Result<ByteBuilder, ByteBuilderError>::Ok byte_builder_from_owned_region region len0 next_cap
+                                                            Result::Ok byte_builder_from_owned_region region len0 next_cap
                                                         Result::Err _e:
-                                                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::OutOfMemory
+                                                            Result::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::OutOfMemory
                                 ByteBuilderStorage::Owned region:
                                     if:
                                         le cap0 0
                                         then:
-                                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::InvalidOperation
+                                            Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::InvalidOperation
                                         else:
                                             if:
                                                 not alloc_payload_fits next_cap
                                                 then:
-                                                    Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::CapacityExceeded
+                                                    Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::CapacityExceeded
                                                 else:
                                                     match byte_builder_realloc_region_or_keep region next_cap:
                                                         Result::Ok next_region:
-                                                            Result<ByteBuilder, ByteBuilderError>::Ok byte_builder_from_owned_region next_region len0 next_cap
+                                                            Result::Ok byte_builder_from_owned_region next_region len0 next_cap
                                                         Result::Err e:
                                                             let old_region %RegionToken u8 region_realloc_error_region<u8> e
-                                                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned old_region) len0 cap0) StdErrorKind::OutOfMemory
+                                                            Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned old_region) len0 cap0) StdErrorKind::OutOfMemory

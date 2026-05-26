@@ -51,26 +51,26 @@
 pub fn byte_builder_push_u8 %fn ByteBuilder fn i32 Result ByteBuilder ByteBuilderError \builder\byte:
     match byte_builder_reserve builder 1:
         Result::Err e:
-            Result<ByteBuilder, ByteBuilderError>::Err e
+            Result::Err e
         Result::Ok reserved:
             let len0 %i32 get reserved "len"
             let cap0 %i32 *get_ref &reserved "cap"
             if:
                 le cap0 0
                 then:
-                    Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
+                    Result::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
                 else:
                     let storage_ref %&ByteBuilderStorage get_ref &reserved "storage"
                     match storage_ref:
                         ByteBuilderStorage::Empty:
-                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
+                            Result::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
                         ByteBuilderStorage::Owned region:
                             let ptr %MemPtr u8 region_ptr region
                             match store_u8 mem_ptr_add ptr len0 byte:
                                 Result::Ok _:
-                                    Result<ByteBuilder, ByteBuilderError>::Ok byte_builder_with_len reserved add len0 1
+                                    Result::Ok byte_builder_with_len reserved add len0 1
                                 Result::Err _e:
-                                    Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
+                                    Result::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
 
 //: byte_builder_push_ascii: ASCII char を 1 byte として[追加/ついか]する
 //:
@@ -85,7 +85,7 @@ pub fn byte_builder_push_ascii %fn ByteBuilder fn char Result ByteBuilder ByteBu
         then:
             byte_builder_push_u8 builder char_to_i32 c
         else:
-            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError builder StdErrorKind::InvalidOperation
+            Result::Err ByteBuilderError builder StdErrorKind::InvalidOperation
 
 //: byte_builder_push_utf8_tail: UTF-8 の後続 byte を追加する
 //:
@@ -98,25 +98,25 @@ pub fn byte_builder_push_utf8_tail %fn ByteBuilder fn char fn i32 Result ByteBui
     if:
         eq count 1
         then:
-            Result<ByteBuilder, ByteBuilderError>::Ok builder
+            Result::Ok builder
         else:
             match byte_builder_push_u8 builder char_utf8_byte1 c:
                 Result::Err e:
-                    Result<ByteBuilder, ByteBuilderError>::Err e
+                    Result::Err e
                 Result::Ok b1:
                     if:
                         eq count 2
                         then:
-                            Result<ByteBuilder, ByteBuilderError>::Ok b1
+                            Result::Ok b1
                         else:
                             match byte_builder_push_u8 b1 char_utf8_byte2 c:
                                 Result::Err e:
-                                    Result<ByteBuilder, ByteBuilderError>::Err e
+                                    Result::Err e
                                 Result::Ok b2:
                                     if:
                                         eq count 3
                                         then:
-                                            Result<ByteBuilder, ByteBuilderError>::Ok b2
+                                            Result::Ok b2
                                         else:
                                             byte_builder_push_u8 b2 char_utf8_byte3 c
 
@@ -131,7 +131,7 @@ pub fn byte_builder_push_char_utf8 %fn ByteBuilder fn char Result ByteBuilder By
     let count %i32 char_utf8_len c
     match byte_builder_push_u8 builder char_utf8_byte0 c:
         Result::Err e:
-            Result<ByteBuilder, ByteBuilderError>::Err e
+            Result::Err e
         Result::Ok b0:
             byte_builder_push_utf8_tail b0 c count
 
@@ -146,36 +146,36 @@ fn byte_builder_push_bytes_ref %fn ByteBuilder fn &MemPtr u8 fn i32 Result ByteB
     if:
         lt data_len 0
         then:
-            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError builder StdErrorKind::InvalidOperation
+            Result::Err ByteBuilderError builder StdErrorKind::InvalidOperation
         else:
             if:
                 eq data_len 0
                 then:
-                    Result<ByteBuilder, ByteBuilderError>::Ok builder
+                    Result::Ok builder
                 else:
                     match byte_builder_reserve builder data_len:
                         Result::Err e:
-                            Result<ByteBuilder, ByteBuilderError>::Err e
+                            Result::Err e
                         Result::Ok reserved:
                             let len0 %i32 get reserved "len"
                             let cap0 %i32 *get_ref &reserved "cap"
                             if:
                                 le cap0 0
                                 then:
-                                    Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
+                                    Result::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
                                 else:
                                     let storage_ref %&ByteBuilderStorage get_ref &reserved "storage"
                                     match storage_ref:
                                         ByteBuilderStorage::Empty:
-                                            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
+                                            Result::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
                                         ByteBuilderStorage::Owned region:
                                             let ptr %MemPtr u8 region_ptr region
                                             let dst %MemPtr u8 mem_ptr_add ptr len0
                                             match mem_copy<u8> dst *src data_len:
                                                 Result::Ok _:
-                                                    Result<ByteBuilder, ByteBuilderError>::Ok byte_builder_with_len reserved add len0 data_len
+                                                    Result::Ok byte_builder_with_len reserved add len0 data_len
                                                 Result::Err _e:
-                                                    Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
+                                                    Result::Err ByteBuilderError reserved StdErrorKind::InvalidOperation
 
 //: byte_builder_push_str: `str` 全体の byte 表現を[追加/ついか]する
 //:
@@ -190,7 +190,7 @@ pub fn byte_builder_push_str %fn ByteBuilder fn str Result ByteBuilder ByteBuild
     if:
         eq s_len 0
         then:
-            Result<ByteBuilder, ByteBuilderError>::Ok builder
+            Result::Ok builder
         else:
             let src %MemPtr u8 string_data_ptr s
             byte_builder_push_bytes_ref builder &src s_len
@@ -209,13 +209,13 @@ pub fn byte_builder_push_str_slice %fn ByteBuilder fn str fn i32 fn i32 Result B
     if:
         or lt start 0 or lt end start gt end n
         then:
-            Result<ByteBuilder, ByteBuilderError>::Err ByteBuilderError builder StdErrorKind::InvalidOperation
+            Result::Err ByteBuilderError builder StdErrorKind::InvalidOperation
         else:
             let data_len %i32 sub end start
             if:
                 eq data_len 0
                 then:
-                    Result<ByteBuilder, ByteBuilderError>::Ok builder
+                    Result::Ok builder
                 else:
                     let src %MemPtr u8 mem_ptr_add string_data_ptr s start
                     byte_builder_push_bytes_ref builder &src data_len
@@ -230,17 +230,17 @@ pub fn byte_builder_push_bytebuf %fn ByteBuilder fn ByteBuf Result ByteBuilder B
         le data_len 0
         then:
             io_bytebuf_free bytes
-            Result<ByteBuilder, ByteBuilderByteBufError>::Ok builder
+            Result::Ok builder
         else:
             let src %MemPtr u8 io_bytebuf_data_ptr_ref &bytes
             match byte_builder_push_bytes_ref builder &src data_len:
                 Result::Ok next:
                     io_bytebuf_free bytes
-                    Result<ByteBuilder, ByteBuilderByteBufError>::Ok next
+                    Result::Ok next
                 Result::Err e:
                     let kind %StdErrorKind byte_builder_error_kind &e
                     let returned %ByteBuilder byte_builder_error_builder e
-                    Result<ByteBuilder, ByteBuilderByteBufError>::Err ByteBuilderByteBufError returned bytes kind
+                    Result::Err ByteBuilderByteBufError returned bytes kind
 
 //: byte_builder_push_leb_u32: u32 LEB128 を[追加/ついか]する
 //:
@@ -261,11 +261,11 @@ pub fn byte_builder_push_leb_u32 %fn ByteBuilder fn i32 Result ByteBuilder ByteB
                 or low 128
     match byte_builder_push_u8 builder out:
         Result::Err e:
-            Result<ByteBuilder, ByteBuilderError>::Err e
+            Result::Err e
         Result::Ok next:
             if:
                 eq rest 0
                 then:
-                    Result<ByteBuilder, ByteBuilderError>::Ok next
+                    Result::Ok next
                 else:
                     byte_builder_push_leb_u32 next rest

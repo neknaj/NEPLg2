@@ -627,6 +627,16 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/std/fs/bytes.nepl -i stdlib/std/fs/dir/open.nepl -i stdlib/std/fs/dir/read_fd.nepl -i stdlib/std/fs/path/entry.nepl -i stdlib/std/fs/path/normalize.nepl -i stdlib/std/fs/path/normalize/build.nepl -i stdlib/std/fs/read/fd.nepl -i stdlib/std/fs/write/fd.nepl -i stdlib/std/fs/write/path.nepl --no-tree -o tmp/neplg21-std-fs-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 alloc/io Result constructor checkpoint
+
+- subagent と並列で `stdlib/alloc/io/bytebuf.nepl` / `stdlib/alloc/io/bytebuilder/storage.nepl` / `stdlib/alloc/io/bytebuilder/build.nepl` / `stdlib/alloc/io/bytebuilder/append.nepl` を確認し、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 64 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string fixture や doc comment として保持すべき旧構文はなく、subagent の独立レビューでも残すべき箇所はないと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/alloc/io/bytebuf.nepl stdlib/alloc/io/bytebuilder/storage.nepl stdlib/alloc/io/bytebuilder/build.nepl stdlib/alloc/io/bytebuilder/append.nepl` は 0 件になった。
+- `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/alloc/io/bytebuf.nepl stdlib/alloc/io/bytebuilder/storage.nepl stdlib/alloc/io/bytebuilder/build.nepl stdlib/alloc/io/bytebuilder/append.nepl` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/alloc/io/bytebuf.nepl -i stdlib/alloc/io/bytebuilder/storage.nepl -i stdlib/alloc/io/bytebuilder/build.nepl -i stdlib/alloc/io/bytebuilder/append.nepl --no-tree -o tmp/neplg21-alloc-io-result-constructors.json -j 1 --dist web/dist --assert-io` は 308s local command timeout。partial JSON では 5/7 件が compile timeout after 60000ms、failed 0。型診断は出ていない。
+- timeout 後に残留していた当該 `node.exe` process は停止した。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

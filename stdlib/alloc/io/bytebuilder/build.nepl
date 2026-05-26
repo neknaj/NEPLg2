@@ -51,31 +51,31 @@ pub fn byte_builder_finish %fn ByteBuilder Result ByteBuf ByteBuilderError \buil
         then:
             match storage:
                 ByteBuilderStorage::Empty:
-                    Result<ByteBuf, ByteBuilderError>::Ok io_bytebuf_empty
+                    Result::Ok io_bytebuf_empty
                 ByteBuilderStorage::Owned region:
                     byte_builder_dealloc_owned_region region
-                    Result<ByteBuf, ByteBuilderError>::Ok io_bytebuf_empty
+                    Result::Ok io_bytebuf_empty
         else:
             match storage:
                 ByteBuilderStorage::Empty:
-                    Result<ByteBuf, ByteBuilderError>::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::InvalidOperation
+                    Result::Err ByteBuilderError (ByteBuilder ByteBuilderStorage::Empty len0 cap0) StdErrorKind::InvalidOperation
                 ByteBuilderStorage::Owned region:
                     if:
                         le cap0 0
                         then:
-                            Result<ByteBuf, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::InvalidOperation
+                            Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned region) len0 cap0) StdErrorKind::InvalidOperation
                         else:
                             if:
                                 eq len0 cap0
                                 then:
-                                    Result<ByteBuf, ByteBuilderError>::Ok io_bytebuf_finish_region region len0
+                                    Result::Ok io_bytebuf_finish_region region len0
                                 else:
                                     match byte_builder_realloc_region_or_keep region len0:
                                         Result::Ok next_region:
-                                            Result<ByteBuf, ByteBuilderError>::Ok io_bytebuf_finish_region next_region len0
+                                            Result::Ok io_bytebuf_finish_region next_region len0
                                         Result::Err e:
                                             let old_region %RegionToken u8 region_realloc_error_region<u8> e
-                                            Result<ByteBuf, ByteBuilderError>::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned old_region) len0 cap0) StdErrorKind::OutOfMemory
+                                            Result::Err ByteBuilderError (ByteBuilder (ByteBuilderStorage::Owned old_region) len0 cap0) StdErrorKind::OutOfMemory
 
 //: io_bytebuf_from_char_utf8_result: char 1 つを UTF-8 `ByteBuf` へ encode する
 //:
@@ -87,18 +87,18 @@ pub fn byte_builder_finish %fn ByteBuilder Result ByteBuf ByteBuilderError \buil
 pub fn io_bytebuf_from_char_utf8_result %fn char Result ByteBuf StdErrorKind \c:
     match byte_builder_with_capacity char_utf8_len c:
         Result::Err e:
-            Result<ByteBuf, StdErrorKind>::Err e
+            Result::Err e
         Result::Ok builder:
             match byte_builder_push_char_utf8 builder c:
                 Result::Err e:
                     let kind %StdErrorKind byte_builder_error_kind &e
                     byte_builder_error_free e
-                    Result<ByteBuf, StdErrorKind>::Err kind
+                    Result::Err kind
                 Result::Ok out:
                     match byte_builder_finish out:
                         Result::Ok bytes:
-                            Result<ByteBuf, StdErrorKind>::Ok bytes
+                            Result::Ok bytes
                         Result::Err e:
                             let kind %StdErrorKind byte_builder_error_kind &e
                             byte_builder_error_free e
-                            Result<ByteBuf, StdErrorKind>::Err kind
+                            Result::Err kind
