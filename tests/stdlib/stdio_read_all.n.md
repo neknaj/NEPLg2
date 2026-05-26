@@ -76,14 +76,14 @@ fn main %impure fn () i32 \():
     let mut checks checks_new;
     match stdio_read_all_bytes_result:
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "stdio_read_all_bytes_result failed"
+            set checks checks_push checks Result::Err "stdio_read_all_bytes_result failed"
         Result::Ok bytes:
             set checks checks_push checks check_eq_i32 3 get bytes "len";
             match stdio_write_bytes_result bytes:
                 Result::Ok _:
                     ()
                 Result::Err _e:
-                    set checks checks_push checks Result<(),str>::Err "stdio_write_bytes_result failed";
+                    set checks checks_push checks Result::Err "stdio_write_bytes_result failed";
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

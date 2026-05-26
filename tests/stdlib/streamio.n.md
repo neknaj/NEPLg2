@@ -317,7 +317,7 @@ fn main %impure fn () i32 \():
     let mut checks checks_new
     match io_bytebuf_alloc_region 1:
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "alloc failed"
+            set checks checks_push checks Result::Err "alloc failed"
         Result::Ok region:
             let data %MemPtr u8 io_bytebuf_region_ptr &region
             match store_u8 data 128:
@@ -327,7 +327,7 @@ fn main %impure fn () i32 \():
                             ()
                         Result::Err _e:
                             ()
-                    set checks checks_push checks Result<(),str>::Err e
+                    set checks checks_push checks Result::Err e
                 Result::Ok _:
                     let sc %StreamScanner unwrap_ok open ReadStream::Bytes io_bytebuf_finish_region region 1
                     let token %str read &sc

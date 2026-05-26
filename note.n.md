@@ -1,3 +1,11 @@
+# 2026-05-26 Agent 1 stdio/streamio Result constructor cleanup checkpoint
+
+- `tests/stdlib/stdio_read_all.n.md` / `tests/stdlib/streamio.n.md` で、`checks_push` の expected type `Result () str` から型が確定する `Result<(),str>::Err` を `Result::Err` へ移行した。
+- `stdio_read_all_bytes_result` / `stdio_write_bytes_result` / `io_bytebuf_alloc_region` / `store_u8` の match branch 内の error aggregation だけを対象にし、producer/update call や nested generic call には踏み込んでいない。
+- 検証:
+  - `rg -n "Result<\\(\\),str>::(Ok|Err)" tests/stdlib/stdio_read_all.n.md tests/stdlib/streamio.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/stdio_read_all.n.md -i tests/stdlib/streamio.n.md --no-tree -o tmp/neplg21-stdio-streamio-result-constructors.json -j 1 --dist web/dist --assert-io`: 190s local command timeout。partial JSON では `tests/stdlib/stdio_read_all.n.md` doctest#1/#2 と `tests/stdlib/streamio.n.md` doctest#1 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 # 2026-05-26 Agent 1 disjoint_set helper postfix cleanup checkpoint
 
 - 非 generic collection helper の小 checkpoint として `stdlib/tests/disjoint_set.n.md` を対象にした。
