@@ -31,7 +31,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let s %SparseSet unwrap_ok<SparseSet, Diag> new 8;
+//:     let s %SparseSet unwrap_ok new 8;
 //:     free s
 //:     0
 //: ```

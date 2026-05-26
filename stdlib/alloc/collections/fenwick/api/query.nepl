@@ -36,11 +36,11 @@
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let fw %Fenwick:
-//:         unwrap_ok<Fenwick, Diag> new 5
+//:         unwrap_ok new 5
 //:         |> add 0 1 |> uwok
 //:         |> add 1 2 |> uwok
 //:         |> add 2 3 |> uwok
-//:     let total %i32 unwrap_ok<i32, Diag> sum_prefix &fw 3;
+//:     let total %i32 unwrap_ok sum_prefix &fw 3;
 //:     free fw
 //:     if eq total 6 1 0
 //: ```
@@ -74,12 +74,12 @@ pub fn sum_prefix %impure fn &Fenwick impure fn i32 Result i32 Diag \fw\r:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let fw %Fenwick:
-//:         unwrap_ok<Fenwick, Diag> new 5
+//:         unwrap_ok new 5
 //:         |> add 0 1 |> uwok
 //:         |> add 1 2 |> uwok
 //:         |> add 2 3 |> uwok
 //:         |> add 3 4 |> uwok
-//:     let total %i32 unwrap_ok<i32, Diag> sum_range &fw 1 4;
+//:     let total %i32 unwrap_ok sum_range &fw 1 4;
 //:     free fw
 //:     if eq total 9 1 0
 //: ```

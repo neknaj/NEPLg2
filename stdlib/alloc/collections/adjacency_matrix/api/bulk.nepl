@@ -34,10 +34,10 @@ pub fn adjacency_matrix_fill_value %impure fn AdjacencyMatrix impure fn i32 Adja
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let g %AdjacencyMatrix:
-//:         unwrap_ok<AdjacencyMatrix, Diag> new 4
+//:         unwrap_ok new 4
 //:         |> insert 0 1 |> uwok
 //:         |> clear
-//:     let ok %bool unwrap_ok<bool, Diag> contains &g 0 1;
+//:     let ok %bool unwrap_ok contains &g 0 1;
 //:     free g
 //:     if not ok 1 0
 //: ```

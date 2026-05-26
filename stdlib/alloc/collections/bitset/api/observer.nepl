@@ -40,9 +40,9 @@ pub fn len %fn &BitSet i32 \bs:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bs %BitSet:
-//:         unwrap_ok<BitSet, Diag> new 32
+//:         unwrap_ok new 32
 //:         |> insert 5 |> uwok
-//:     let ok %bool unwrap_ok<bool, Diag> contains &bs 5;
+//:     let ok %bool unwrap_ok contains &bs 5;
 //:     free bs
 //:     if ok 1 0
 //: ```

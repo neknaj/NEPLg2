@@ -31,7 +31,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let fw %Fenwick unwrap_ok<Fenwick, Diag> new 2;
+//:     let fw %Fenwick unwrap_ok new 2;
 //:     free fw;
 //:     1
 //: ```

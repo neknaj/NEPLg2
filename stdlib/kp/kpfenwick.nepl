@@ -39,13 +39,13 @@ pub #import "alloc/collections/fenwick/types" as @merge
 //:| #import "core/result" as *
 //:| #import "std/stdio" as *
 //: fn main %impure fn unit unit \unit:
-//:     let f0 %Fenwick unwrap_ok<Fenwick, Diag> fenwick_new 5;
-//:     let f1 %Fenwick unwrap_ok<Fenwick, FenwickAddError> fenwick_add f0 0 1;
-//:     let f2 %Fenwick unwrap_ok<Fenwick, FenwickAddError> fenwick_add f1 1 2;
-//:     let f3 %Fenwick unwrap_ok<Fenwick, FenwickAddError> fenwick_add f2 2 3;
-//:     let f4 %Fenwick unwrap_ok<Fenwick, FenwickAddError> fenwick_add f3 3 4;
-//:     let a %i32 unwrap_ok<i32, Diag> fenwick_sum_range &f4 0 3;
-//:     let b %i32 unwrap_ok<i32, Diag> fenwick_sum_range &f4 1 4;
+//:     let f0 %Fenwick unwrap_ok fenwick_new 5;
+//:     let f1 %Fenwick unwrap_ok fenwick_add f0 0 1;
+//:     let f2 %Fenwick unwrap_ok fenwick_add f1 1 2;
+//:     let f3 %Fenwick unwrap_ok fenwick_add f2 2 3;
+//:     let f4 %Fenwick unwrap_ok fenwick_add f3 3 4;
+//:     let a %i32 unwrap_ok fenwick_sum_range &f4 0 3;
+//:     let b %i32 unwrap_ok fenwick_sum_range &f4 1 4;
 //:     print_i32 a;
 //:     print " ";
 //:     println_i32 b;

@@ -40,9 +40,9 @@ pub fn len %fn &AdjacencyMatrix i32 \g:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let g %AdjacencyMatrix:
-//:         unwrap_ok<AdjacencyMatrix, Diag> new 4
+//:         unwrap_ok new 4
 //:         |> insert 1 3 |> uwok
-//:     let ok %bool unwrap_ok<bool, Diag> contains &g 1 3;
+//:     let ok %bool unwrap_ok contains &g 1 3;
 //:     free g
 //:     if ok 1 0
 //: ```

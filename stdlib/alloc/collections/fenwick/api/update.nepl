@@ -47,10 +47,10 @@ pub fn fenwick_add_err %fn Fenwick fn Diag Result Fenwick FenwickAddError \fw\d:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let fw %Fenwick:
-//:         unwrap_ok<Fenwick, Diag> new 4
+//:         unwrap_ok new 4
 //:         |> add 0 2 |> uwok
 //:         |> add 3 5 |> uwok
-//:     let total %i32 unwrap_ok<i32, Diag> sum_range &fw 0 4;
+//:     let total %i32 unwrap_ok sum_range &fw 0 4;
 //:     free fw
 //:     if eq total 7 1 0
 //: ```

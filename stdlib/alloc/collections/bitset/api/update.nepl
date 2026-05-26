@@ -62,9 +62,9 @@ pub fn bitset_update %impure fn BitSet impure fn i32 impure fn bool Result BitSe
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let bs %BitSet unwrap_ok<BitSet, Diag> new 16;
-//:     let bs1 %BitSet unwrap_ok<BitSet, BitSetUpdateError> insert bs 3;
-//:     let ok %bool unwrap_ok<bool, Diag> contains &bs1 3;
+//:     let bs %BitSet unwrap_ok new 16;
+//:     let bs1 %BitSet unwrap_ok insert bs 3;
+//:     let ok %bool unwrap_ok contains &bs1 3;
 //:     free bs1
 //:     if ok 1 0
 //: ```
@@ -83,10 +83,10 @@ pub fn insert %impure fn BitSet impure fn i32 Result BitSet BitSetUpdateError \b
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bs %BitSet:
-//:         unwrap_ok<BitSet, Diag> new 16
+//:         unwrap_ok new 16
 //:         |> insert 3 |> uwok
 //:         |> remove 3 |> uwok
-//:     let ok %bool unwrap_ok<bool, Diag> contains &bs 3;
+//:     let ok %bool unwrap_ok contains &bs 3;
 //:     free bs
 //:     if not ok 1 0
 //: ```

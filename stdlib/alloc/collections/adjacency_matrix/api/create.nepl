@@ -29,7 +29,7 @@
 //:| #import "core/result" as *
 //:| #import "std/test" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let g %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 5;
+//:     let g %AdjacencyMatrix unwrap_ok new 5;
 //:     let size %i32 len &g;
 //:     free g
 //:     let report:

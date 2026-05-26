@@ -33,7 +33,7 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let fw %Fenwick unwrap_ok<Fenwick, Diag> new 5;
+//:     let fw %Fenwick unwrap_ok new 5;
 //:     let observed_len %i32 len &fw;
 //:     let ok %bool eq observed_len 5;
 //:     free fw

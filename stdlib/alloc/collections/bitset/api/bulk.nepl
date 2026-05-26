@@ -34,10 +34,10 @@ pub fn bitset_fill_value %impure fn BitSet impure fn i32 BitSet \bs\byte_value:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bs %BitSet:
-//:         unwrap_ok<BitSet, Diag> new 16
+//:         unwrap_ok new 16
 //:         |> insert 2 |> uwok
 //:         |> clear
-//:     let ok %bool unwrap_ok<bool, Diag> contains &bs 2;
+//:     let ok %bool unwrap_ok contains &bs 2;
 //:     free bs
 //:     if not ok 1 0
 //: ```
@@ -55,9 +55,9 @@ pub fn clear %impure fn BitSet BitSet \bs:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let bs %BitSet unwrap_ok<BitSet, Diag> new 10;
+//:     let bs %BitSet unwrap_ok new 10;
 //:     let bs1 %BitSet fill bs;
-//:     let ok %bool unwrap_ok<bool, Diag> contains &bs1 9;
+//:     let ok %bool unwrap_ok contains &bs1 9;
 //:     free bs1
 //:     if ok 1 0
 //: ```

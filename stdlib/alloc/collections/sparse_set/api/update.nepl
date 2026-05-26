@@ -46,7 +46,7 @@ pub fn sparse_set_update_err %fn SparseSet fn Diag Result SparseSet SparseSetUpd
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let s %SparseSet:
-//:         unwrap_ok<SparseSet, Diag> new 8
+//:         unwrap_ok new 8
 //:         |> insert 3 |> uwok
 //:         |> insert 5 |> uwok
 //:     let observed_len %i32 len &s;
@@ -90,7 +90,7 @@ pub fn insert %impure fn SparseSet impure fn i32 Result SparseSet SparseSetUpdat
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let s %SparseSet:
-//:         unwrap_ok<SparseSet, Diag> new 8
+//:         unwrap_ok new 8
 //:         |> insert 3 |> uwok
 //:         |> insert 5 |> uwok
 //:         |> remove 3 |> uwok

@@ -389,6 +389,16 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i tests/stdlib/string.n.md -i stdlib/tests/hashmap_str.n.md --no-tree -o tmp/neplg21-option-i32-observer-postfix.json -j 1 --dist web/dist --assert-io` は 254s local command timeout。partial JSON では `tests/stdlib/string.n.md` doctest#1-#4 が compile timeout after 60000ms で、型診断は出ていない。
 - `node nodesrc/run_doctest.js -i tests/stdlib/string.n.md -n 8 --dist web/dist` と `node nodesrc/run_doctest.js -i stdlib/tests/hashmap_str.n.md -n 1 --dist web/dist` も 94s local command timeout。残留 node process は停止した。
 
+### 2026-05-26 collection API doc helper checkpoint
+
+- subagent の独立レビューに従い、既に test fixture 側を処理済みの non-generic collection family について、stdlib API doc example 側の `unwrap_ok<...>` を `unwrap_ok` へ移行した。
+- 対象は `stdlib/alloc/collections/adjacency_matrix/**` / `bitset/**` / `sparse_set/**` / `fenwick/**` / `disjoint_set/**`、`stdlib/kp/kpfenwick.nepl`、`tests/stdlib/std_test_namespace_resolution.n.md`。
+- 代入先 `%AdjacencyMatrix` / `%BitSet` / `%SparseSet` / `%Fenwick` / `%DisjointSet` / `%bool` / `%i32`、または引数 `Result T E` から型が確定する helper call だけを対象にした。
+- `new<T>` / `push<T>` / sort / trait-bound 逆推論 / 実装本体の constructor helper には触れていない。
+- `rg -n "unwrap_ok<|is_err<|is_ok<|Result<[^>]+>::(Ok|Err)" stdlib/alloc/collections/adjacency_matrix stdlib/alloc/collections/bitset stdlib/alloc/collections/sparse_set stdlib/alloc/collections/fenwick stdlib/alloc/collections/disjoint_set stdlib/kp/kpfenwick.nepl tests/stdlib/std_test_namespace_resolution.n.md` は 0 件になった。
+- 独立レビューでも、今回外した `unwrap_ok<...>` はすべて `let x %Type` / `let x %Type:` と `Result T E` 引数から型が確定するため安全であり、指定範囲に `is_ok<...>` / `is_err<...>` / `Result<...>::Ok|Err` 候補はないと確認した。
+- `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix/api -i stdlib/alloc/collections/bitset/api -i stdlib/alloc/collections/sparse_set/api -i stdlib/alloc/collections/fenwick/api -i stdlib/alloc/collections/disjoint_set/api -i stdlib/kp/kpfenwick.nepl -i tests/stdlib/std_test_namespace_resolution.n.md --no-tree -o tmp/neplg21-collection-api-doc-helper-postfix.json -j 1 --dist web/dist --assert-io` は 254s local command timeout。partial JSON では `adjacency_matrix/api` doctest#1 系が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

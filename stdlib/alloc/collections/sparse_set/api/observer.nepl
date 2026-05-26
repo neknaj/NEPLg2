@@ -33,7 +33,7 @@ pub fn len %fn &SparseSet i32 \s:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let s %SparseSet unwrap_ok<SparseSet, Diag> new 8;
+//:     let s %SparseSet unwrap_ok new 8;
 //:     let ok %bool eq universe_len &s 8;
 //:     free s
 //:     if ok 1 0
@@ -53,9 +53,9 @@ pub fn universe_len %fn &SparseSet i32 \s:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let s %SparseSet:
-//:         unwrap_ok<SparseSet, Diag> new 8
+//:         unwrap_ok new 8
 //:         |> insert 3 |> uwok
-//:     let ok %bool unwrap_ok<bool, Diag> contains &s 3;
+//:     let ok %bool unwrap_ok contains &s 3;
 //:     free s
 //:     if ok 1 0
 //: ```

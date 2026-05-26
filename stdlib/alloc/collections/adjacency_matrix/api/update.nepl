@@ -63,9 +63,9 @@ pub fn adjacency_matrix_update %impure fn AdjacencyMatrix impure fn i32 impure f
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let g %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, Diag> new 4;
-//:     let g1 %AdjacencyMatrix unwrap_ok<AdjacencyMatrix, AdjacencyMatrixUpdateError> insert g 2 0;
-//:     let ok %bool unwrap_ok<bool, Diag> contains &g1 2 0;
+//:     let g %AdjacencyMatrix unwrap_ok new 4;
+//:     let g1 %AdjacencyMatrix unwrap_ok insert g 2 0;
+//:     let ok %bool unwrap_ok contains &g1 2 0;
 //:     free g1
 //:     if ok 1 0
 //: ```
@@ -84,10 +84,10 @@ pub fn insert %impure fn AdjacencyMatrix impure fn i32 impure fn i32 Result Adja
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let g %AdjacencyMatrix:
-//:         unwrap_ok<AdjacencyMatrix, Diag> new 4
+//:         unwrap_ok new 4
 //:         |> insert 2 0 |> uwok
 //:         |> remove 2 0 |> uwok
-//:     let ok %bool unwrap_ok<bool, Diag> contains &g 2 0;
+//:     let ok %bool unwrap_ok contains &g 2 0;
 //:     free g
 //:     if not ok 1 0
 //: ```

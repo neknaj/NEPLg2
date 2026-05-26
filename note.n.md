@@ -1,3 +1,15 @@
+# 2026-05-26 Agent 1 collection API doc helper postfix cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈による型選択と doc example の検査可能性を揃える小 checkpoint として、stdlib API doc example 側の `unwrap_ok<...>` を対象にした。
+- `stdlib/alloc/collections/adjacency_matrix/**` / `bitset/**` / `sparse_set/**` / `fenwick/**` / `disjoint_set/**`、`stdlib/kp/kpfenwick.nepl`、`tests/stdlib/std_test_namespace_resolution.n.md` で、`unwrap_ok<...>` を `unwrap_ok` へ移行した。
+- 代入先 `%AdjacencyMatrix` / `%BitSet` / `%SparseSet` / `%Fenwick` / `%DisjointSet` / `%bool` / `%i32`、または引数 `Result T E` から型が確定する helper call だけを対象にした。
+- `new<T>` / `push<T>` / sort / trait-bound 逆推論 / 実装本体の constructor helper には触れていない。
+- subagent の独立レビューでも、今回外した `unwrap_ok<...>` はすべて `let x %Type` / `let x %Type:` と `Result T E` 引数から型が確定するため安全であり、指定範囲に `is_ok<...>` / `is_err<...>` / `Result<...>::Ok|Err` 候補はないと確認した。
+- 検証:
+  - `rg -n "unwrap_ok<|is_err<|is_ok<|Result<[^>]+>::(Ok|Err)" stdlib/alloc/collections/adjacency_matrix stdlib/alloc/collections/bitset stdlib/alloc/collections/sparse_set stdlib/alloc/collections/fenwick stdlib/alloc/collections/disjoint_set stdlib/kp/kpfenwick.nepl tests/stdlib/std_test_namespace_resolution.n.md`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix/api -i stdlib/alloc/collections/bitset/api -i stdlib/alloc/collections/sparse_set/api -i stdlib/alloc/collections/fenwick/api -i stdlib/alloc/collections/disjoint_set/api -i stdlib/kp/kpfenwick.nepl -i tests/stdlib/std_test_namespace_resolution.n.md --no-tree -o tmp/neplg21-collection-api-doc-helper-postfix.json -j 1 --dist web/dist --assert-io`: 254s local command timeout。partial JSON では `adjacency_matrix/api` doctest#1 系が compile timeout after 60000ms で、型診断は出ていない。
+  - 残留 node process は停止した。
+
 # 2026-05-26 Agent 1 Option i32 observer postfix cleanup checkpoint
 
 - Zenn 方針を再確認し、静的検査の型 evidence を明示する小 checkpoint として `Option i32` observer の postfix removal だけを対象にした。
