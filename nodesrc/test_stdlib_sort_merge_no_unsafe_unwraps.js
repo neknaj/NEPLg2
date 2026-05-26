@@ -69,7 +69,7 @@ for (const relPath of [
 }
 
 assert.match(apiSrc, /fn\s+sort_merge_buffer_get\s+<\.T:\s*Copy>/, 'merge/api must own private Copy-only scratch buffer reads');
-assert.match(apiSrc, /fn\s+sort_merge_buffer_set\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,i32,\.T\)\*>\(\)>/, 'merge/api must own private Copy-only scratch buffer writes');
+assert.match(apiSrc, /fn\s+sort_merge_buffer_set\s+<\.T:\s*Copy>\s+<\(MemPtr<\.T>,i32,\.T\)\*>(?:\(\)|unit)>/, 'merge/api must own private Copy-only scratch buffer writes');
 assert.match(apiSrc, /fn\s+sort_merge_range_data\s+<\.T:\s*Ord&Copy>/, 'merge/api must own private Copy-only merge range traversal');
 for (const name of ['sort_merge_buffer_get', 'sort_merge_buffer_set', 'sort_merge_range_data']) {
     assert.doesNotMatch(apiSrc, new RegExp(`pub\\s+fn\\s+${name}\\b`), `${name} must not be public`);

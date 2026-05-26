@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-26T07:41:23.482Z",
+  "generated_at": "2026-05-26T08:05:55.200Z",
   "counts": {
     "total": 1264,
-    "open": 13,
-    "resolved": 1251,
+    "open": 12,
+    "resolved": 1252,
     "by_area": {
       "core": {
         "total": 622,
@@ -15,11 +15,6 @@
         "total": 330,
         "open": 5,
         "resolved": 325
-      },
-      "tests": {
-        "total": 3,
-        "open": 1,
-        "resolved": 2
       },
       "selfhost": {
         "total": 110,
@@ -115,6 +110,11 @@
         "total": 13,
         "open": 0,
         "resolved": 13
+      },
+      "tests": {
+        "total": 3,
+        "open": 0,
+        "resolved": 3
       },
       "tooling": {
         "total": 2,
@@ -243,21 +243,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260523T051658073Z-VEC-NON-COPY-TRANSFORMS-NEED-BORROWE-A2D4AFE1.md"
-    },
-    {
-      "id": "ISS-20260526T073859722Z-NEPLG2-1-SOURCE-POLICY-UNIT-AND-CONS-F81D1534",
-      "title": "NEPLg2.1 source policy unit and constructor cleanup drift",
-      "area": "tests",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "maintenance",
-      "created": "2026-05-26",
-      "updated": "2026-05-26",
-      "target": "nodesrc/test_*.js; nodesrc/source_policy/**",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260526T073859722Z-NEPLG2-1-SOURCE-POLICY-UNIT-AND-CONS-F81D1534.md"
     },
     {
       "id": "ISS-20260524T204705172Z-OWNER-CHECKER-DOES-NOT-REFINE-REALLO-C974639A",
@@ -16143,6 +16128,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260524T135842959Z-NEPLG2-1-SOURCE-POLICY-REGEXES-STILL-A09E0B60.md"
+    },
+    {
+      "id": "ISS-20260526T073859722Z-NEPLG2-1-SOURCE-POLICY-UNIT-AND-CONS-F81D1534",
+      "title": "NEPLg2.1 source policy unit and constructor cleanup drift",
+      "area": "tests",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "maintenance",
+      "created": "2026-05-26",
+      "updated": "2026-05-26",
+      "target": "nodesrc/test_*.js; nodesrc/source_policy/**",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260526T073859722Z-NEPLG2-1-SOURCE-POLICY-UNIT-AND-CONS-F81D1534.md"
     },
     {
       "id": "ISS-20260522T052027322Z-COLLECTION-CLEANUP-POLICY-MISCLASSIF-563F7F4F",

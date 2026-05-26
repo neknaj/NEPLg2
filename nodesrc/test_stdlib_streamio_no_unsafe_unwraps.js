@@ -167,17 +167,17 @@ assert.match(
 );
 assert.match(
     writerCode,
-    /\bfn\s+close\s+<\(StreamWriter\)\*>\(\)>\s+\(w\):\s*stream_writer_close_impl\s+w\b/,
+    /\bfn\s+close\s+<\(StreamWriter\)\*>unit>\s+\(w\):\s*stream_writer_close_impl\s+w\b/,
     `${writerRelPath} must expose StreamWriter owner cleanup through the root close facade`,
 );
 assert.match(
     writerStateCode,
-    /\bfn\s+stream_writer_close_impl\s+<\(StreamWriter\)\*>\(\)>/,
+    /\bfn\s+stream_writer_close_impl\s+<\(StreamWriter\)\*>unit>/,
     `${writerStateRelPath} must keep the StreamWriter cleanup implementation helper`,
 );
 assert.doesNotMatch(
     writerStateCode,
-    /\bfn\s+close\s+<\(StreamWriter\)\*>\(\)>/,
+    /\bfn\s+close\s+<\(StreamWriter\)\*>unit>/,
     `${writerStateRelPath} must not expose the public common-name close overload`,
 );
 assert.match(
@@ -238,19 +238,19 @@ assert.match(code, /fn\s+close\s+<\(StreamScanner\)\*>/, 'StreamScanner close mu
 
 assert.match(
     code,
-    /fn\s+stream_scanner_load_pos_result\s+<\(&StreamScanner\)->Result<i32,str>>\s+\(sc\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get<i32>\s+cursor\s+0:[\s\S]*Option::Some\s+pos:[\s\S]*Result<i32,str>::Ok\s+pos[\s\S]*Result<i32,str>::Err\s+"streamio\.stream_scanner_load_pos failed"/,
+    /fn\s+stream_scanner_load_pos_result\s+<\(&StreamScanner\)->Result<i32,str>>\s+\(sc\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get<i32>\s+cursor\s+0:[\s\S]*Option::Some\s+pos:[\s\S]*Result::Ok\s+pos[\s\S]*Result::Err\s+"streamio\.stream_scanner_load_pos failed"/,
     'stream scanner cursor loads must return Result through typed cursor storage instead of trapping',
 );
 
 assert.match(
     code,
-    /fn\s+stream_scanner_store_pos_result\s+<\(&StreamScanner,i32\)\*>Result<\(\),str>>\s+\(sc,\s*pos\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get<i32>\s+cursor\s+0:[\s\S]*Option::Some\s+_old:[\s\S]*vec::replace<i32>\s+cursor\s+0\s+pos[\s\S]*Result<\(\),str>::Ok\s+\(\)[\s\S]*Result<\(\),str>::Err\s+"streamio\.stream_scanner_store_pos failed"/,
+    /fn\s+stream_scanner_store_pos_result\s+<\(&StreamScanner,i32\)\*>Result<unit,str>>\s+\(sc,\s*pos\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get<i32>\s+cursor\s+0:[\s\S]*Option::Some\s+_old:[\s\S]*vec::replace<i32>\s+cursor\s+0\s+pos[\s\S]*Result::Ok\s+unit[\s\S]*Result::Err\s+"streamio\.stream_scanner_store_pos failed"/,
     'stream scanner cursor stores must return Result through typed cursor storage instead of trapping',
 );
 
 assert.match(
     code,
-    /fn\s+scanner_from_bytes\s+<\(ByteBuf\)\*>Result<StreamScanner,str>>\s+\(bytes\):[\s\S]*match\s+io_bytebuf_ptr_ref\s+&bytes:[\s\S]*Option::None:[\s\S]*eq\s+len\s+0[\s\S]*stream_scanner_cursor_new[\s\S]*Result<StreamScanner,str>::Ok\s+StreamScanner\s+bytes\s+cursor[\s\S]*Option::Some\s+_buf:[\s\S]*stream_scanner_cursor_new/,
+    /fn\s+scanner_from_bytes\s+<\(ByteBuf\)\*>Result<StreamScanner,str>>\s+\(bytes\):[\s\S]*match\s+io_bytebuf_ptr_ref\s+&bytes:[\s\S]*Option::None:[\s\S]*eq\s+len\s+0[\s\S]*stream_scanner_cursor_new[\s\S]*Result::Ok\s+StreamScanner\s+bytes\s+cursor[\s\S]*Option::Some\s+_buf:[\s\S]*stream_scanner_cursor_new/,
     'scanner_from_bytes must keep the ByteBuf owner in StreamScanner and allocate only cursor storage separately',
 );
 

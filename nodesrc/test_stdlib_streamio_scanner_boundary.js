@@ -220,7 +220,7 @@ for (const [fnName, relPath, owner] of [
 
 assert.match(
     code,
-    new RegExp(fnSignaturePattern('close', ['StreamScanner'], '()', { effect: 'impure' })),
+    new RegExp(fnSignaturePattern('close', ['StreamScanner'], 'unit', { effect: 'impure' })),
     'StreamScanner close must remain the owner-consuming cleanup API',
 );
 

@@ -167,7 +167,7 @@ for (const obsolete of [
 }
 
 const printStyleMatch = printCode.match(
-    /(?:pub\s+)?fn\s+print_style\s+<\(AnsiTextStyle,str\)\*>\(\)>\s+\(style,\s*s\):([\s\S]*?)\n(?:pub\s+)?fn\s+println_style\s+/,
+    /(?:pub\s+)?fn\s+print_style\s+<\(AnsiTextStyle,str\)\*>unit>\s+\(style,\s*s\):([\s\S]*?)\n(?:pub\s+)?fn\s+println_style\s+/,
 );
 assert.ok(printStyleMatch, 'print_style body must be found');
 assert.match(
@@ -184,13 +184,13 @@ assert.match(
 
 assert.match(
     printCode,
-    /(?:pub\s+)?fn\s+print_style_start\s+<\(AnsiTextStyle\)\*>\(\)>\s+\(style\):[\s\S]*print\s+ansi_text_style_code\s+style/,
+    /(?:pub\s+)?fn\s+print_style_start\s+<\(AnsiTextStyle\)\*>unit>\s+\(style\):[\s\S]*print\s+ansi_text_style_code\s+style/,
     'print_style_start must use the shared typed style code helper',
 );
 
 assert.match(
     printCode,
-    /(?:pub\s+)?fn\s+print_color\s+<\(AnsiColor,str\)\*>\(\)>\s+\(color,\s*s\):[\s\S]*print_style\s+ansi_color_style\s+color\s+s/,
+    /(?:pub\s+)?fn\s+print_color\s+<\(AnsiColor,str\)\*>unit>\s+\(color,\s*s\):[\s\S]*print_style\s+ansi_color_style\s+color\s+s/,
     'print_color must be a typed AnsiColor convenience wrapper',
 );
 

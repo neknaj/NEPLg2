@@ -64,12 +64,12 @@ for (const pattern of forbidden) {
 
 const obsoleteVecAccumulator = [
     /#import\s+"alloc\/collections\/vec"\s+as\s+v/,
-    /\bVec<Result<\(\),str>>/,
+    /\bVec<Result<unit,str>>/,
     /\bchecks_empty_vec\b/,
     /\bchecks_has_err_loop\b/,
     /\bchecks_summary_loop\b/,
     /\bchecks_print_human_loop\b/,
-    /\bload<Result<\(\),str>>/,
+    /\bload<Result<unit,str>>/,
 ];
 
 for (const pattern of obsoleteVecAccumulator) {
@@ -89,8 +89,8 @@ assert.match(typesCode, /struct\s+TestAssertion:[\s\S]*kind\s+<AssertionKind>[\s
 assert.match(typesCode, /struct\s+TestReport:[\s\S]*name\s+<str>[\s\S]*count\s+<i32>[\s\S]*failed_count\s+<i32>[\s\S]*lines\s+<str>/, 'std/test/types must keep a structured TestReport accumulator');
 assert.doesNotMatch(typesCode, /impl\s+Copy\s+for\s+TestAssertion:/, 'TestAssertion must not shallow-copy report strings');
 assert.doesNotMatch(typesCode, /impl\s+Copy\s+for\s+TestReport:/, 'TestReport must not shallow-copy report strings');
-assert.match(typesCode, /fn\s+test_assertion_release\s+<\(TestAssertion\)->\(\)>[\s\S]*test_consume_str\s+get\s+a\s+"label"[\s\S]*test_consume_str\s+get\s+a\s+"message"/, 'TestAssertion must have an explicit owner terminal');
-assert.match(typesCode, /fn\s+test_report_release\s+<\(TestReport\)->\(\)>[\s\S]*test_consume_str\s+get\s+report\s+"name"[\s\S]*test_consume_str\s+get\s+report\s+"legacy_human"/, 'TestReport must have an explicit owner terminal');
+assert.match(typesCode, /fn\s+test_assertion_release\s+<\(TestAssertion\)->unit>[\s\S]*test_consume_str\s+get\s+a\s+"label"[\s\S]*test_consume_str\s+get\s+a\s+"message"/, 'TestAssertion must have an explicit owner terminal');
+assert.match(typesCode, /fn\s+test_report_release\s+<\(TestReport\)->unit>[\s\S]*test_consume_str\s+get\s+report\s+"name"[\s\S]*test_consume_str\s+get\s+report\s+"legacy_human"/, 'TestReport must have an explicit owner terminal');
 
 assert.match(assertionCode, /#import\s+"std\/test\/types"\s+as\s+\*/, 'std/test/assertion must depend on typed assertion data');
 assert.match(assertionCode, /fn\s+noshadow\s+assert_eq_i32\s+<\(str,i32,i32\)->TestAssertion>/, 'assert_eq_i32 must return a structured TestAssertion with a label');
@@ -101,6 +101,6 @@ assert.match(reportCode, /fn\s+test_report_push\s+<\(TestReport,TestAssertion\)\
 assert.match(reportCode, /fn\s+test_report_render\s+<\(&TestReport\)->str>[\s\S]*json::json_quote_string\s+\*get_ref\s+report\s+"name"[\s\S]*concat\s+h5\s+\*get_ref\s+report\s+"lines"/, 'test_report_render must render the canonical stdout report by reference without printing');
 assert.match(reportCode, /fn\s+test_report_print_stdout\s+<\(TestReport\)\*>TestReport>[\s\S]*print\s+test_report_render\s+&report/, 'only the explicit report printer should emit stdout');
 assert.match(reportCode, /fn\s+test_report_exit_code\s+<\(TestReport\)->i32>[\s\S]*test_report_has_failure\s+&report[\s\S]*test_report_release\s+report[\s\S]*code/, 'test_report_exit_code must convert failed_count to 0/1 and consume the report');
-assert.match(reportCode, /fn\s+checks_push\s+<\(TestReport,Result<\(\),str>\)\*>TestReport>/, 'Result-based migration input must be converted through TestReport rather than raw Vec storage');
+assert.match(reportCode, /fn\s+checks_push\s+<\(TestReport,Result<unit,str>\)\*>TestReport>/, 'Result-based migration input must be converted through TestReport rather than raw Vec storage');
 
 console.log('stdlib std/test unsafe unwrap regression passed');

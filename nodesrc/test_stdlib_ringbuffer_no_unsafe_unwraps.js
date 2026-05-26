@@ -48,13 +48,13 @@ assert.match(code, /fn\s+ringbuffer_pop_buffer\s+<\.T:\s*Copy>\s+<\(RingBufferPo
 assert.match(code, /fn\s+ringbuffer_tail_index\s+<\(i32,i32,i32\)->i32>[\s\S]*rem_u\s+add\s+head\s+len\s+cap/, 'RingBuffer index helper must own tail calculation');
 assert.match(code, /fn\s+ringbuffer_next_index\s+<\(i32,i32\)->i32>[\s\S]*rem_u\s+add\s+idx\s+1\s+cap/, 'RingBuffer index helper must own next index calculation');
 assert.match(code, /fn\s+ringbuffer_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'RingBuffer must read initialized slot state through Option<T>');
-assert.match(code, /fn\s+ringbuffer_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>\(\)>[\s\S]*vec::replace<Option<\.T>>/, 'RingBuffer must update slot state through Vec<Option<T>> replacement');
-assert.match(code, /fn\s+ringbuffer_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none<\.T>/, 'RingBuffer allocation must initialize every slot as None');
+assert.match(code, /fn\s+ringbuffer_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>(?:\(\)|unit)>[\s\S]*vec::replace<Option<\.T>>/, 'RingBuffer must update slot state through Vec<Option<T>> replacement');
+assert.match(code, /fn\s+ringbuffer_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none(?:<\.T>)?/, 'RingBuffer allocation must initialize every slot as None');
 assert.match(code, /fn\s+push\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>,\.T\)\*>Result<RingBuffer<\.T>,\s*RingBufferPushError<\.T>>>/, 'RingBuffer push must expose owner-preserving Result<RingBuffer<T>, RingBufferPushError<T>>');
-assert.match(code, /fn\s+push\s+<\.T:\s*Copy>[\s\S]*Result::Err\s+d:[\s\S]*Result::Err<RingBuffer<\.T>,\s*RingBufferPushError<\.T>>\s+RingBufferPushError<\.T>\s+\(RingBuffer<\.T>\s+len0\s+cap0\s+head0\s+items\)\s+d/, 'RingBuffer push grow failure must return the consumed buffer owner in RingBufferPushError');
+assert.match(code, /fn\s+push\s+<\.T:\s*Copy>[\s\S]*Result::Err\s+d:[\s\S]*(?:Result::Err<RingBuffer<\.T>,\s*RingBufferPushError<\.T>>|Result::Err)\s+RingBufferPushError<\.T>\s+\(RingBuffer<\.T>\s+len0\s+cap0\s+head0\s+items\)\s+d/, 'RingBuffer push grow failure must return the consumed buffer owner in RingBufferPushError');
 assert.doesNotMatch(code, /Result::Err\s+d:[\s\S]{0,120}vec::free<Option<\.T>>\s+items[\s\S]{0,120}err<RingBuffer<\.T>,\s*Diag>\s+d/, 'RingBuffer push grow failure must not destroy the consumed owner and return Diag only');
-assert.match(code, /fn\s+pop_front\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>\)\*>RingBufferPop<\.T>>[\s\S]*ringbuffer_store_slot<\.T>\s+&items\s+head0\s+none<\.T>[\s\S]*RingBufferPop<\.T>/, 'RingBuffer pop_front must clear the consumed slot and return the updated owner');
-assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>\)->\(\)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+rb\s+"items"/, 'RingBuffer.free must close the Copy-only Vec<Option<T>> owner');
+assert.match(code, /fn\s+pop_front\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>\)\*>RingBufferPop<\.T>>[\s\S]*ringbuffer_store_slot<\.T>\s+&items\s+head0\s+none(?:<\.T>)?[\s\S]*RingBufferPop<\.T>/, 'RingBuffer pop_front must clear the consumed slot and return the updated owner');
+assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(RingBuffer<\.T>\)->(?:\(\)|unit)>[\s\S]*vec::free<Option<\.T>>\s+field::get\s+rb\s+"items"/, 'RingBuffer.free must close the Copy-only Vec<Option<T>> owner');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'RingBuffer must not reintroduce raw header or raw element storage');
 
 for (const testPath of [

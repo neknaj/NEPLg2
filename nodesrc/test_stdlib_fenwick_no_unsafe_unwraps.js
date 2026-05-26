@@ -87,9 +87,9 @@ assert.match(storageCode, /fn\s+fenwick_alloc_bit\s+<\(i32\)\*>Result<Vec<i32>,\
 assert.match(storageCode, /fn\s+fenwick_free_bit\s+<\(Vec<i32>\)->unit>[\s\S]*vec::free<i32>\s+bit/, 'Fenwick storage module must centralize Vec cleanup');
 assert.match(mutationCode, /fn\s+fenwick_add_storage\s+<\(&Vec<i32>,i32,i32,i32\)\*>bool>[\s\S]*fenwick_load_owned[\s\S]*fenwick_store_owned/, 'Fenwick mutation module must own add traversal');
 assert.match(queryCode, /fn\s+fenwick_sum_prefix_storage\s+<\(&Vec<i32>,i32\)->Option<i32>>[\s\S]*fenwick_load_owned[\s\S]*some\s+acc\s+none/, 'Fenwick query module must own prefix traversal');
-assert.match(apiDiagnosticCode, /fn\s+fenwick_diag_len\s+<\(unit\)\*>Diag>/, 'Fenwick diagnostic module must own invalid length diagnostics');
-assert.match(apiDiagnosticCode, /fn\s+fenwick_diag_index\s+<\(unit\)\*>Diag>/, 'Fenwick diagnostic module must own index diagnostics');
-assert.match(apiDiagnosticCode, /fn\s+fenwick_diag_range\s+<\(unit\)\*>Diag>/, 'Fenwick diagnostic module must own range diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+fenwick_diag_len\s+<\(\)\*>Diag>/, 'Fenwick diagnostic module must own invalid length diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+fenwick_diag_index\s+<\(\)\*>Diag>/, 'Fenwick diagnostic module must own index diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+fenwick_diag_range\s+<\(\)\*>Diag>/, 'Fenwick diagnostic module must own range diagnostics');
 assert.match(apiCreateCode, /fn\s+new\s+<\(i32\)\*>Result<Fenwick,\s*Diag>>[\s\S]*lt\s+n\s+0[\s\S]*fenwick_diag_len[\s\S]*fenwick_alloc_bit\s+bit_len/, 'Fenwick.new must reject negative lengths and use storage allocation helper');
 assert.match(apiObserverCode, /fn\s+len\s+<\(&Fenwick\)->i32>\s+\(fw\):/, 'Fenwick.len must borrow the owner');
 assert.match(apiUpdateCode, /fn\s+fenwick_add_err\s+<\(Fenwick,Diag\)->Result<Fenwick,\s*FenwickAddError>>[\s\S]*FenwickAddError\s+fw\s+d/, 'Fenwick update module must centralize owner-preserving add errors');

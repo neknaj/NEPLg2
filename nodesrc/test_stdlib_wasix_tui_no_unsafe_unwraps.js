@@ -103,15 +103,15 @@ for (const submodule of ['storage', 'wrap', 'present']) {
 }
 assert.doesNotMatch(bufferCode, /\b(fn|struct|enum)\s+\w+/, 'wasix tui buffer facade must not regain implementation bodies');
 assert.match(ttyCode, /pub\s+struct\s+TtyState:[\s\S]*region\s+<RegionToken<u8>>/, 'TTY state must carry its free obligation as a RegionToken owner');
-assert.match(ttyCode, /fn\s+get_tty_state_result\s+<\(\)\*>Result<TtyState,i32>>\s+\(\):[\s\S]*alloc_region_bytes<u8>\s+24[\s\S]*Result<TtyState,i32>::Ok\s+state[\s\S]*Result<TtyState,i32>::Err\s+errno/, 'TTY state acquisition must return a typed owner instead of a raw pointer sentinel');
+assert.match(ttyCode, /fn\s+get_tty_state_result\s+<\(\)\*>Result<TtyState,i32>>\s+\(\):[\s\S]*alloc_region_bytes<u8>\s+24[\s\S]*Result::Ok\s+state[\s\S]*Result::Err\s+errno/, 'TTY state acquisition must return a typed owner instead of a raw pointer sentinel');
 assert.match(ttyCode, /fn\s+tty_state_raw\s+<\(&TtyState\)->i32>\s+\(state\):\s+mem_ptr_addr\s+tty_state_ptr\s+state/, 'TTY raw address extraction must stay inside the TTY boundary helper');
 assert.match(ttyCode, /pub\s+fn\s+enter_raw_mode\s+<\(\)\*>Result<TtyState,i32>>\s+\(\):/, 'enter_raw_mode must return a typed TtyState owner on success');
 assert.match(ttyCode, /pub\s+fn\s+restore_mode\s+<\(TtyState\)\*>i32>\s+\(old_state\):/, 'restore_mode must consume the typed TtyState owner');
 assert.doesNotMatch(ttyCode, /\b(?:alloc_raw|dealloc_raw)\b/, 'TTY state owner allocation must not use raw i32 allocation APIs');
 assert.doesNotMatch(ttyCode, /fn\s+get_tty_state\s+<\(\)\*>i32>/, 'TTY state acquisition must not return raw i32 sentinel values');
 assert.doesNotMatch(ttyCode, /pub\s+fn\s+enter_raw_mode\s+<\(\)\*>i32>|pub\s+fn\s+restore_mode\s+<\(i32\)\*>/, 'TTY raw mode APIs must not expose raw i32 state owners');
-assert.match(ansiCode, /fn\s+set_fg_color\s+<\(AnsiColor\)\*>\(\)>\s+\(color\):[\s\S]*print\s+ansi_color_code\s+color/, 'set_fg_color must use typed AnsiColor conversion');
-assert.match(ansiCode, /fn\s+set_bg_color\s+<\(AnsiColor\)\*>\(\)>\s+\(color\):[\s\S]*print\s+ansi_background_color_code\s+color/, 'set_bg_color must use typed AnsiColor conversion');
+assert.match(ansiCode, /fn\s+set_fg_color\s+<\(AnsiColor\)\*>unit>\s+\(color\):[\s\S]*print\s+ansi_color_code\s+color/, 'set_fg_color must use typed AnsiColor conversion');
+assert.match(ansiCode, /fn\s+set_bg_color\s+<\(AnsiColor\)\*>unit>\s+\(color\):[\s\S]*print\s+ansi_background_color_code\s+color/, 'set_bg_color must use typed AnsiColor conversion');
 assert.match(styleCode, /fn\s+style_text\s+<\(AnsiTextStyle,str\)\*>str>\s+\(style,\s*s\):[\s\S]*ansi_text_style_code\s+style[\s\S]*ansi_reset_code/, 'style_text must use typed AnsiTextStyle conversion');
 assert.match(boxCode, /fn\s+line_box_styled\s+<\(AnsiTextStyle,str,i32\)\*>str>\s+\(style,\s*content,\s*cols\):[\s\S]*style_text\s+style\s+body/, 'line_box_styled must accept typed AnsiTextStyle instead of numeric color codes');
 assert.doesNotMatch(code, /fn\s+(?:set_fg_color|set_bg_color)\s+<\(i32\)\*>/, 'TUI color setters must not accept raw i32 ANSI color codes');
@@ -123,10 +123,10 @@ assert.match(textWidthCode, /fn\s+tui_text_byte_width\s+<\(TuiTextByteKind\)->i3
 assert.match(textWidthCode, /fn\s+str_display_width\s+<\(str\)\*>i32>\s+\(s\):[\s\S]*tui_skip_escape_sequence[\s\S]*tui_text_byte_kind/, 'str_display_width must share escape skipping and byte classification helpers');
 assert.match(textLineCode, /fn\s+line_clip_to_cols\s+<\(str,i32\)\*>str>\s+\(s,\s*cols\):[\s\S]*tui_text_byte_kind[\s\S]*tui_text_byte_len[\s\S]*tui_text_byte_width/, 'line clipping must use shared TUI byte classification helpers');
 assert.match(bufferStorageCode, /fn\s+buffer_new\s+<\(i32,i32\)\*>i32>\s+\(cols,\s*rows\):[\s\S]*alloc_raw[\s\S]*store<str>/, 'TUI buffer storage module must own raw slot allocation');
-assert.match(bufferStorageCode, /fn\s+buffer_set_line\s+<\(i32,i32,str\)\*>\(\)>\s+\(b,\s*row,\s*line\):[\s\S]*store<str>/, 'TUI buffer storage module must own raw slot writes');
-assert.match(bufferWrapCode, /fn\s+buffer_set_wrapped_text\s+<\(i32,i32,i32,i32,str\)\*>\(\)>\s+\(b,\s*start_row,\s*cols,\s*height,\s*text\):[\s\S]*tui_text_byte_kind[\s\S]*tui_text_byte_len[\s\S]*tui_text_byte_width/, 'TUI buffer wrapped text must use shared TUI byte classification helpers');
+assert.match(bufferStorageCode, /fn\s+buffer_set_line\s+<\(i32,i32,str\)\*>unit>\s+\(b,\s*row,\s*line\):[\s\S]*store<str>/, 'TUI buffer storage module must own raw slot writes');
+assert.match(bufferWrapCode, /fn\s+buffer_set_wrapped_text\s+<\(i32,i32,i32,i32,str\)\*>unit>\s+\(b,\s*start_row,\s*cols,\s*height,\s*text\):[\s\S]*tui_text_byte_kind[\s\S]*tui_text_byte_len[\s\S]*tui_text_byte_width/, 'TUI buffer wrapped text must use shared TUI byte classification helpers');
 assert.match(bufferWrapCode, /fn\s+buffer_set_wrapped_text[\s\S]*buffer_set_line/, 'TUI buffer wrap module must delegate raw slot updates to storage');
-assert.match(bufferPresentCode, /fn\s+buffer_present_diff\s+<\(i32\)\*>\(\)>\s+\(b\):[\s\S]*move_cursor[\s\S]*print/, 'TUI buffer present module must own cursor output policy');
+assert.match(bufferPresentCode, /fn\s+buffer_present_diff\s+<\(i32\)\*>unit>\s+\(b\):[\s\S]*move_cursor[\s\S]*print/, 'TUI buffer present module must own cursor output policy');
 assert.match(textWrapCode, /fn\s+tui_empty_str_vec\s+<\(\)->Vec<str>>\s+\(\):\s+v::vec_empty<str>/, 'text_wrap_lines allocation fallback must use typed empty Vec storage');
 assert.match(textWrapCode, /fn\s+tui_push_str\s+<\(Vec<str>,str\)->TuiStrPushRes>\s+\(items,\s*item\):[\s\S]*match\s+v::push<str>\s+items\s+item:[\s\S]*Result::Err\s+e:[\s\S]*TuiStrPushRes\s+v::vec_push_error_vec<str>\s+e\s+false/, 'text_wrap_lines push must preserve the Vec owner and convert grow failure to ok=false');
 assert.match(textWrapCode, /fn\s+text_wrap_lines\s+<\(str,i32\)\*>Vec<str>>\s+\(text,\s*cols\):[\s\S]*match\s+v::new<str>:[\s\S]*Result::Err\s+_e:[\s\S]*set\s+failed\s+true/, 'text_wrap_lines must handle Vec allocation failure');

@@ -55,22 +55,22 @@ assert.match(
 
 assert.match(
     enabledCode,
-    new RegExp(`#if\\[profile=debug\\][\\s\\S]*${fnSignaturePattern('debug', ['str'], '()', { effect: 'impure' })}\\s+\\\\s:[\\s\\S]*\\bprint\\s+s\\b`),
+    new RegExp(`#if\\[profile=debug\\][\\s\\S]*${fnSignaturePattern('debug', ['str'], 'unit', { effect: 'impure' })}\\s+\\\\s:[\\s\\S]*\\bprint\\s+s\\b`),
     'debug profile debug must delegate to print',
 );
 assert.match(
     enabledCode,
-    new RegExp(fnSignaturePattern('debug_color', ['AnsiColor', 'str'], '()', { effect: 'impure' })),
+    new RegExp(fnSignaturePattern('debug_color', ['AnsiColor', 'str'], 'unit', { effect: 'impure' })),
     'debug_color must use typed AnsiColor instead of raw str color',
 );
 assert.match(
     enabledCode,
-    new RegExp(fnSignaturePattern('debugln_color', ['AnsiColor', 'str'], '()', { effect: 'impure' })),
+    new RegExp(fnSignaturePattern('debugln_color', ['AnsiColor', 'str'], 'unit', { effect: 'impure' })),
     'debugln_color must use typed AnsiColor instead of raw str color',
 );
 assert.match(
     disabledCode,
-    new RegExp(`#if\\[profile=release\\][\\s\\S]*${fnSignaturePattern('debug', ['str'], '()', { effect: 'impure' })}\\s+\\\\_s:[\\s\\S]*\\(\\)`),
+    new RegExp(`#if\\[profile=release\\][\\s\\S]*${fnSignaturePattern('debug', ['str'], 'unit', { effect: 'impure' })}\\s+\\\\_s:[\\s\\S]*\\bunit\\b`),
     'release profile debug must stay no-op',
 );
 

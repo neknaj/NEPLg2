@@ -90,7 +90,7 @@ assert.match(
 );
 assert.match(
     storageCode,
-    /fn\s+list_free_items\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->\(\)>[\s\S]*field::get\s+lst\s+"items"[\s\S]*vec::free<\.T>\s+items/,
+    /fn\s+list_free_items\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->(?:\(\)|unit)>[\s\S]*field::get\s+lst\s+"items"[\s\S]*vec::free<\.T>\s+items/,
     'List storage helper must close the Copy-only Vec<T> owner',
 );
 assert.match(
@@ -105,7 +105,7 @@ assert.match(
 );
 assert.match(
     basicCode,
-    /Result::Err\s+e:[\s\S]*vec::vec_push_error_vec<\.T>\s+e[\s\S]*Result::Err<List<\.T>,\s*ListPushError<\.T>>\s+ListPushError<\.T>\s+\(List<\.T>\s+returned_items\)\s+\(list_diag_from_vec_error\s+error\)/,
+    /Result::Err\s+e:[\s\S]*vec::vec_push_error_vec<\.T>\s+e[\s\S]*(?:Result::Err<List<\.T>,\s*ListPushError<\.T>>|Result::Err)\s+ListPushError<\.T>\s+\(List<\.T>\s+returned_items\)\s+\(list_diag_from_vec_error\s+error\)/,
     'List.cons Vec.push failure must return the consumed List owner in ListPushError',
 );
 assert.doesNotMatch(
@@ -115,7 +115,7 @@ assert.doesNotMatch(
 );
 assert.match(
     basicCode,
-    /fn\s+tail\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->Option<List<\.T>>>[\s\S]*vec::pop<\.T>\s+items[\s\S]*some<List<\.T>>\s+List<\.T>\s+next_items/,
+    /fn\s+tail\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->Option<List<\.T>>>[\s\S]*vec::pop<\.T>\s+items[\s\S]*some(?:<List<\.T>>)?\s+List<\.T>\s+next_items/,
     'List.tail must remove the logical head by returning the Vec.pop owner',
 );
 assert.match(
@@ -125,7 +125,7 @@ assert.match(
 );
 assert.match(
     basicCode,
-    /fn\s+free\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->\(\)>[\s\S]*list_free_items<\.T>\s+lst/,
+    /fn\s+free\s+<\.T:\s*Copy>\s+<\(List<\.T>\)->(?:\(\)|unit)>[\s\S]*list_free_items<\.T>\s+lst/,
     'List.free must close the Copy-only Vec<T> owner',
 );
 assert.match(
@@ -155,12 +155,12 @@ assert.doesNotMatch(
 );
 assert.match(
     transformCode,
-    /fn\s+map\s+<\.T:\s*Copy,\.U:\s*Copy>\s+<\(List<\.T>,\s*\(\.T\)->\.U\)\*>Result<List<\.U>,\s*ListTransformError<\.T>>>[\s\S]*vec::with_capacity<\.U>\s+n[\s\S]*Result::Err<List<\.U>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::push<\.U>\s+out\s+mapped[\s\S]*vec::free<\.U>\s+out[\s\S]*Result::Err<List<\.U>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::free<\.T>\s+items[\s\S]*Result::Ok<List<\.U>,\s*ListTransformError<\.T>>\s+List<\.U>\s+out/,
+    /fn\s+map\s+<\.T:\s*Copy,\.U:\s*Copy>\s+<\(List<\.T>,\s*\(\.T\)->\.U\)\*>Result<List<\.U>,\s*ListTransformError<\.T>>>[\s\S]*vec::with_capacity<\.U>\s+n[\s\S]*(?:Result::Err<List<\.U>,\s*ListTransformError<\.T>>|Result::Err)\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::push<\.U>\s+out\s+mapped[\s\S]*vec::free<\.U>\s+out[\s\S]*(?:Result::Err<List<\.U>,\s*ListTransformError<\.T>>|Result::Err)\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::free<\.T>\s+items[\s\S]*(?:Result::Ok<List<\.U>,\s*ListTransformError<\.T>>|Result::Ok)\s+List<\.U>\s+out/,
     'List.map must return an owner-preserving ListTransformError on failure and close the input storage owner only on success',
 );
 assert.match(
     transformCode,
-    /fn\s+filter\s+<\.T:\s*Copy>\s+<\(List<\.T>,\s*\(\.T\)->bool\)\*>Result<List<\.T>,\s*ListTransformError<\.T>>>[\s\S]*vec::with_capacity<\.T>\s+n[\s\S]*Result::Err<List<\.T>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::push<\.T>\s+out\s+value[\s\S]*vec::free<\.T>\s+out[\s\S]*Result::Err<List<\.T>,\s*ListTransformError<\.T>>\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::free<\.T>\s+items[\s\S]*Result::Ok<List<\.T>,\s*ListTransformError<\.T>>\s+List<\.T>\s+out/,
+    /fn\s+filter\s+<\.T:\s*Copy>\s+<\(List<\.T>,\s*\(\.T\)->bool\)\*>Result<List<\.T>,\s*ListTransformError<\.T>>>[\s\S]*vec::with_capacity<\.T>\s+n[\s\S]*(?:Result::Err<List<\.T>,\s*ListTransformError<\.T>>|Result::Err)\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::push<\.T>\s+out\s+value[\s\S]*vec::free<\.T>\s+out[\s\S]*(?:Result::Err<List<\.T>,\s*ListTransformError<\.T>>|Result::Err)\s+ListTransformError<\.T>\s+\(List<\.T>\s+items\)[\s\S]*vec::free<\.T>\s+items[\s\S]*(?:Result::Ok<List<\.T>,\s*ListTransformError<\.T>>|Result::Ok)\s+List<\.T>\s+out/,
     'List.filter must return an owner-preserving ListTransformError on failure and close the input storage owner only on success',
 );
 assert.doesNotMatch(

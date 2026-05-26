@@ -82,7 +82,7 @@ assert.doesNotMatch(code.types, /struct\s+Diag:[\s\S]*help\s+<Vec<str>>/, 'Diag 
 assert.match(code.types, /struct\s+Diags:[\s\S]*items\s+<Vec<Diag>>/, 'Diags must remain the sole Vec-backed diagnostic group owner');
 assert.doesNotMatch(code.types, /struct\s+Outcome/, 'Outcome must live in the outcome module, not in the shared type/core diagnostic group module');
 
-assert.match(code.diag, /fn\s+diag_new\s+<\(DiagKind,str\)\*>Diag>\s+\(kind,\s*message\):\s+Diag\s+kind\s+message\s+none<Span>\s+""\s+""\s+none<str>/, 'diag_new must initialize note/help text without allocating Vec<str>');
+assert.match(code.diag, /fn\s+diag_new\s+<\(DiagKind,str\)\*>Diag>\s+\(kind,\s*message\):\s+Diag\s+kind\s+message\s+none\s+""\s+""\s+none/, 'diag_new must initialize note/help text without allocating Vec<str>');
 assert.match(code.diag, /fn\s+diag_add_note\s+<\(Diag,str\)\*>Diag>\s+\(d,\s*note\):\s+Diag[\s\S]*\snote\s+/, 'diag_add_note must store an owner-neutral note fragment directly');
 assert.match(code.diag, /fn\s+diag_add_help\s+<\(Diag,str\)\*>Diag>\s+\(d,\s*help_item\):\s+Diag[\s\S]*\shelp_item\s+/, 'diag_add_help must store an owner-neutral help fragment directly');
 assert.doesNotMatch(code.diag, /fn\s+diag_add_note\s+<\(Diag,str\)\*>Diag>[\s\S]*?\n\s*fn\s+diag_add_help[\s\S]*?concat/, 'Diag note/help mutation must not build owned concatenated text blocks');
@@ -92,7 +92,7 @@ assert.match(code.diag, /fn\s+diag_capacity_exceeded\s+<\(\)\*>Diag>\s+\(\):\s+d
 assert.match(code.diag, /fn\s+diag_key_not_found\s+<\(\)\*>Diag>\s+\(\):\s+diag_error\s+StdErrorKind::KeyNotFound\s+"key not found"/, 'diag_key_not_found must be zero-argument and static-message based');
 
 assert.match(code.diags, /fn\s+diag_empty_diag_vec\s+<\(\)->Vec<Diag>>\s+\(\):\s+v::vec_empty<Diag>/, 'Diags allocation fallback must use typed empty Vec storage');
-assert.match(code.diags, /fn\s+diags_free\s+<\(Diags\)->\(\)>\s+\(ds\):\s+v::free<Diag>\s+field::get\s+ds\s+"items"/, 'Diags must provide an explicit by-value consumption helper');
+assert.match(code.diags, /fn\s+diags_free\s+<\(Diags\)->unit>\s+\(ds\):\s+v::free<Diag>\s+field::get\s+ds\s+"items"/, 'Diags must provide an explicit by-value consumption helper');
 assert.match(code.diags, /fn\s+diags_len\s+<\(Diags\)->i32>\s+\(ds\):[\s\S]*let\s+n\s+<i32>\s+diags_len\s+&ds[\s\S]*diags_free\s+ds[\s\S]*n/, 'by-value diags_len must close the Diags owner after observation');
 assert.match(code.diags, /fn\s+diags_has_errors\s+<\(Diags\)->bool>\s+\(ds\):[\s\S]*let\s+ok\s+<bool>\s+diags_has_errors\s+&ds[\s\S]*diags_free\s+ds[\s\S]*ok/, 'by-value diags_has_errors must close the Diags owner after observation');
 assert.match(code.diags, /match\s+level:[\s\S]*DiagLevel::Error:[\s\S]*DiagLevel::Log:[\s\S]*DiagLevel::Info:[\s\S]*DiagLevel::Warn:/, 'diags_has_errors_loop must branch by exhaustive DiagLevel match arms');

@@ -199,7 +199,7 @@ for (const submodule of ['fd', 'text', 'bytes', 'byte']) {
 }
 assert.doesNotMatch(writeCode, /\bfn\s+/, 'std/stdio/write facade must not keep write implementation bodies');
 const writeFdMatch = writeFdCode.match(
-    new RegExp(`${fnSignaturePattern('stdio_write_fd_mem_result', ['i32', 'MemPtr u8', 'i32'], 'Result () StdErrorKind', { effect: 'impure' })}\\s+\\\\fd\\\\data\\\\data_len:([\\s\\S]*?)\\n(?:pub\\s+)?fn\\s+stdio_write_fd_str_result\\s+`),
+    new RegExp(`${fnSignaturePattern('stdio_write_fd_mem_result', ['i32', 'MemPtr u8', 'i32'], 'Result unit StdErrorKind', { effect: 'impure' })}\\s+\\\\fd\\\\data\\\\data_len:([\\s\\S]*?)\\n(?:pub\\s+)?fn\\s+stdio_write_fd_str_result\\s+`),
 );
 assert.ok(writeFdMatch, 'stdio_write_fd_mem_result body must be found');
 assert.match(
@@ -399,7 +399,7 @@ for (const helper of [
 }
 
 const readAllMatch = readBytesCode.match(
-    new RegExp(`${fnSignaturePattern('stdio_read_all_bytes_result', [], 'Result ByteBuf StdErrorKind', { effect: 'impure' })}\\s+\\\\\\(\\):([\\s\\S]*?)\\n(?:pub\\s+)?fn\\s+stdio_read_all_bytes\\s+`),
+    new RegExp(`${fnSignaturePattern('stdio_read_all_bytes_result', [], 'Result ByteBuf StdErrorKind', { effect: 'impure' })}\\s+\\\\unit:([\\s\\S]*?)\\n(?:pub\\s+)?fn\\s+stdio_read_all_bytes\\s+`),
 );
 assert.ok(readAllMatch, 'stdio_read_all_bytes_result body must be found');
 assert.match(
@@ -429,7 +429,7 @@ assert.doesNotMatch(
 );
 assert.match(
     readTextCode,
-    new RegExp(`${fnSignaturePattern('stdio_read_line_result', [], 'Result str StdErrorKind', { effect: 'impure' })}\\s+\\\\\\(\\):[\\s\\S]*\\bmatch\\s+stdio_read_line_buffer_result\\b[\\s\\S]*\\btext_bytebuf_to_utf8_str_result\\s+bytes\\b`),
+    new RegExp(`${fnSignaturePattern('stdio_read_line_result', [], 'Result str StdErrorKind', { effect: 'impure' })}\\s+\\\\unit:[\\s\\S]*\\bmatch\\s+stdio_read_line_buffer_result\\b[\\s\\S]*\\btext_bytebuf_to_utf8_str_result\\s+bytes\\b`),
     'stdio_read_line_result must delegate raw line reading to read/buffer and only perform UTF-8 conversion',
 );
 assert.doesNotMatch(
@@ -440,12 +440,12 @@ assert.doesNotMatch(
 
 assert.match(
     readTextCode,
-    new RegExp(`${fnSignaturePattern('stdio_read_all_text_result', [], 'Result str StdErrorKind', { effect: 'impure' })}\\s+\\\\\\(\\):[\\s\\S]*stdio_read_all_bytes_result[\\s\\S]*text_bytebuf_to_utf8_str_result`),
+    new RegExp(`${fnSignaturePattern('stdio_read_all_text_result', [], 'Result str StdErrorKind', { effect: 'impure' })}\\s+\\\\unit:[\\s\\S]*stdio_read_all_bytes_result[\\s\\S]*text_bytebuf_to_utf8_str_result`),
     'stdio_read_all_text_result must convert the read/bytes result through std/text',
 );
 
 const readLineMatch = readTextCode.match(
-    new RegExp(`${fnSignaturePattern('read_line', [], 'str', { effect: 'impure', noshadow: true })}\\s+\\\\\\(\\):([\\s\\S]*?)$`),
+    new RegExp(`${fnSignaturePattern('read_line', [], 'str', { effect: 'impure', noshadow: true })}\\s+\\\\unit:([\\s\\S]*?)$`),
 );
 assert.ok(readLineMatch, 'read_line body must be found');
 const readLineBody = readLineMatch[1];

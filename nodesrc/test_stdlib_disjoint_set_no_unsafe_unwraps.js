@@ -70,8 +70,8 @@ assert.match(storageCode, /fn\s+dsu_store_owned\s+<\(&Vec<i32>,i32,i32\)\*>unit>
 assert.match(queryCode, /fn\s+dsu_root_storage\s+<\(&Vec<i32>,i32\)->Option<i32>>[\s\S]*while[\s\S]*dsu_load_owned[\s\S]*Option::None:[\s\S]*set\s+valid\s+false/, 'DisjointSet query module must own bounded root traversal');
 assert.match(queryCode, /fn\s+dsu_size_storage\s+<\(&Vec<i32>,i32\)->Option<i32>>[\s\S]*dsu_load_owned\s+sizes\s+root/, 'DisjointSet query module must own size lookup');
 
-assert.match(apiDiagnosticCode, /fn\s+dsu_diag_len\s+<\(unit\)\*>Diag>/, 'DisjointSet diagnostic module must own length diagnostic constructor');
-assert.match(apiDiagnosticCode, /fn\s+dsu_diag_index\s+<\(unit\)\*>Diag>/, 'DisjointSet diagnostic module must own index diagnostic constructor');
+assert.match(apiDiagnosticCode, /fn\s+dsu_diag_len\s+<\(\)\*>Diag>/, 'DisjointSet diagnostic module must own length diagnostic constructor');
+assert.match(apiDiagnosticCode, /fn\s+dsu_diag_index\s+<\(\)\*>Diag>/, 'DisjointSet diagnostic module must own index diagnostic constructor');
 assert.match(apiCreateCode, /fn\s+new\s+<\(i32\)\*>Result<DisjointSet,\s*Diag>>[\s\S]*lt\s+n\s+0[\s\S]*dsu_diag_len[\s\S]*vec::filled<i32>\s+n\s+0[\s\S]*vec::filled<i32>\s+n\s+1/, 'DisjointSet.new must reject negative lengths and allocate initialized typed storage through Vec.filled');
 assert.match(apiObserverCode, /fn\s+len\s+<\(&DisjointSet\)->i32>\s+\(dsu\):/, 'DisjointSet.len must borrow the owner');
 assert.match(apiObserverCode, /fn\s+find\s+<\(&DisjointSet,i32\)\*>Result<i32,\s*Diag>>\s+\(dsu,\s*idx\):/, 'DisjointSet.find must borrow the owner');

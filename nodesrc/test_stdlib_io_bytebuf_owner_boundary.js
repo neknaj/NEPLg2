@@ -190,7 +190,7 @@ assert.match(
 
 assert.match(
     fromStr,
-    /\bResult<ByteBuf, StdErrorKind>::Ok\s+io_bytebuf_finish_region\s+region\s+byte_len\b/,
+    /\bResult::Ok\s+io_bytebuf_finish_region\s+region\s+byte_len\b/,
     'io_bytebuf_from_str_result must transfer the output owner into ByteBuf exactly at finish',
 );
 
@@ -259,7 +259,7 @@ assert.match(
 
 assert.match(
     fsFinish,
-    /<\(RegionToken<u8>,i32\)\*>[\s\S]*\beq\s+data_len\s+0[\s\S]*?\bmatch\s+dealloc_region<u8>\s+region:[\s\S]*?\bResult<ByteBuf,i32>::Ok\s+io_bytebuf_empty\b[\s\S]*\brealloc_region_bytes_keep<u8>\s+region\s+data_len[\s\S]*\bio_bytebuf_finish_region\b/,
+    /<\(RegionToken<u8>,i32\)\*>[\s\S]*\beq\s+data_len\s+0[\s\S]*?\bmatch\s+dealloc_region<u8>\s+region:[\s\S]*?\bResult::Ok\s+io_bytebuf_empty\b[\s\S]*\brealloc_region_bytes_keep<u8>\s+region\s+data_len[\s\S]*\bio_bytebuf_finish_region\b/,
     'fs_finish_read_buffer must consume private scratch storage through RegionToken cleanup before returning an empty ByteBuf',
 );
 

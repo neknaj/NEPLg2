@@ -88,8 +88,8 @@ assert.match(storageCode, /fn\s+bitset_alloc_bits\s+<\(i32,i32\)\*>Result<Vec<u8
 assert.match(storageCode, /fn\s+bitset_byte_at\s+<\(&Vec<u8>,i32\)->Option<i32>>[\s\S]*vec::get<u8>[\s\S]*Option::None:[\s\S]*none/, 'BitSet must read bit bytes through Vec.get and expose missing bytes as Option');
 assert.match(storageCode, /fn\s+bitset_store_byte\s+<\(&Vec<u8>,i32,i32\)\*>unit>[\s\S]*vec::replace<u8>/, 'BitSet must update bit bytes through Vec.replace');
 assert.match(mutationCode, /fn\s+bitset_write_masked\s+<\(&Vec<u8>,i32,i32,bool\)\*>bool>[\s\S]*bitset_byte_at[\s\S]*bitset_store_byte/, 'BitSet mutation module must centralize byte read-modify-write');
-assert.match(apiDiagnosticCode, /fn\s+bitset_invalid_len_diag\s+<\(unit\)\*>Diag>/, 'BitSet diagnostic module must own invalid length diagnostics');
-assert.match(apiDiagnosticCode, /fn\s+bitset_index_diag\s+<\(unit\)\*>Diag>/, 'BitSet diagnostic module must own index diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+bitset_invalid_len_diag\s+<\(\)\*>Diag>/, 'BitSet diagnostic module must own invalid length diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+bitset_index_diag\s+<\(\)\*>Diag>/, 'BitSet diagnostic module must own index diagnostics');
 assert.match(apiCreateCode, /fn\s+new\s+<\(i32\)\*>Result<BitSet,\s*Diag>>[\s\S]*bitset_byte_len\s+nbits[\s\S]*bitset_alloc_bits\s+nbytes\s+0/, 'BitSet.new must use layout and storage helpers');
 assert.match(apiObserverCode, /fn\s+len\s+<\(&BitSet\)->i32>\s+\(bs\):/, 'BitSet.len must borrow the owner');
 assert.match(apiObserverCode, /fn\s+contains\s+<\(&BitSet,i32\)\*>Result<bool,\s*Diag>>\s+\(bs,\s*idx\):/, 'BitSet.contains must borrow the owner');

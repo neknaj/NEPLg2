@@ -46783,3 +46783,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 変更範囲に直結する source policy は、collection family no-unsafe/update/storage policy 18 件、`nodesrc/test_stdlib_collection_cleanup_contract.js`、`nodesrc/test_selfhost_def_id_absence.js` を pass へ戻した。`VecStorageInvariant` proof 検査は出現順に依存しない構造確認へ直し、`unit` keyword view では unit-only parameter list を payload を受け取らない surface として扱う。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は 134.3s で完走し、29 warning を報告した。これは stdio / streamio / ByteBuf / string/text owner boundary などに残る unit / constructor cleanup 未追従の stale policy であり、`ISS-20260526T073859722Z-NEPLG2-1-SOURCE-POLICY-UNIT-AND-CONS-F81D1534` として分離した。
 - `node nodesrc/neplg21_syntax_migrate.js --check` は pass。
+
+## 2026-05-26 Agent 1 source policy unit / constructor drift cleanup
+
+- `ISS-20260526T073859722Z-NEPLG2-1-SOURCE-POLICY-UNIT-AND-CONS-F81D1534` を修正し、fixed / resolved にした。`plan.md` は変更していない。
+- Zenn 方針を再確認し、source policy warning を黙らせるのではなく、静的検査の意味契約を維持して NEPLg2.1 surface syntax へ追従した。
+- 5 worker に分割し、collection、stdio/streamio、ByteBuf/builder/Vec、documentation/tutorial/resource/selfhost、diag/std_test/kpgraph/wasix の source policy を並列更新した。
+- root cause として、`unit` は実引数ではなく zero-argument marker であるため、`legacyTypeSyntaxView` は `fn unit T` / `\unit` を旧 view の `()` として扱うように修正した。`fnSignaturePattern(..., [])` は NEPLg2.1 の `%fn unit T` を期待する。
+- `Result<T,E>::Ok/Err`、`Option<T>::Some/None`、`some<T>` / `none<T>` / `ok<T,E>` / `err<T,E>` 期待は、postfix-free constructor/helper call を同じ owner / boundary contract として検査する形へ更新した。
+- documentation contract は baseline を緩めず、`adjacency_matrix_bit_index` に契約、制約、計算量、doctest 付きの doc comment を追加して `declarationNoDoc` を既存 baseline 530 へ戻した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は 157.3s で warning 0 件になった。
+- `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix/layout.nepl --no-tree -o tmp/neplg21-adjacency-layout-doc.json -j 1 --dist web/dist --assert-io` は compile timeout after 60000ms。型診断は出ていない。

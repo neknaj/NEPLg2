@@ -2,8 +2,8 @@
 id: ISS-20260526T073859722Z-NEPLG2-1-SOURCE-POLICY-UNIT-AND-CONS-F81D1534
 title: "NEPLg2.1 source policy unit and constructor cleanup drift"
 area: tests
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: maintenance
 created: 2026-05-26
@@ -43,9 +43,17 @@ Migrate the residual policy tests to legacyTypeSyntaxView, fnSignaturePattern, o
 ## 進捗
 
 - 2026-05-26: collection helper postfix cleanup に直結する source policy は更新済み。`none<T>` / `some<T>` 前提を postfix-free constructor へ移し、`VecStorageInvariant` proof の検査は出現順に依存しない構造確認へ直した。
-- 2026-05-26: `unit` keyword の legacy view では `fn unit T` / `\unit` が `<(unit)->T>` / `(unit):` と見えるため、collection cleanup policy は unit-only parameter list を payload を受け取らない surface として扱うようにした。
-- 残件は stdio / streamio / ByteBuf / string/text owner boundary などに分散しているため、次 checkpoint では 5 worker に 4 module 前後ずつ割り振って source policy regex を並列更新する。
+- 2026-05-26: root cause を再確認し、`unit` は実引数ではなく zero-argument marker なので、`legacyTypeSyntaxView` は `fn unit T` / `\unit` を旧 view の `()` として扱うように修正した。`fnSignaturePattern(..., [])` も NEPLg2.1 の `%fn unit T` を期待する。
+- 2026-05-26: 5 worker に分割し、collection、stdio/streamio、ByteBuf/builder/Vec、documentation/tutorial/resource/selfhost、diag/std_test/kpgraph/wasix の source policy を並列更新した。
+- 2026-05-26: documentation contract は baseline を緩めず、`adjacency_matrix_bit_index` に契約・計算量・doctest 付き doc comment を追加して `declarationNoDoc` を既存 baseline 530 へ戻した。
+- 2026-05-26: `node nodesrc/run_source_policy_regressions.js --warn-only` は warning 0 件になった。
 
 ## 検証
 
-node nodesrc/run_source_policy_regressions.js --warn-only; node nodesrc/issues.js check --dir issues; git diff --check
+- `node nodesrc/test_source_policy_nepl_source_view.js`
+- `node nodesrc/run_source_policy_regressions.js --warn-only`
+- `node nodesrc/test_stdlib_documentation_contract.js`
+- `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix/layout.nepl --no-tree -o tmp/neplg21-adjacency-layout-doc.json -j 1 --dist web/dist --assert-io` (compile timeout after 60000ms; 型診断なし)
+- `node nodesrc/neplg21_syntax_migrate.js --check`
+- `node nodesrc/issues.js check --dir issues`
+- `git diff --check`

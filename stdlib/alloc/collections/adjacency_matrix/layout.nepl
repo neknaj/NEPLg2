@@ -8,6 +8,31 @@
 
 #import "core/math" as *
 
+//: adjacency_matrix_bit_index: vertex pair を bit index に[変換/へんかん]する
+//:
+//: ### [目的/もくてき]
+//: - `nverts x nverts` の row-major bit matrix で、`from -> to` edge が[対応/たいおう]する bit 位置を[返/かえ]します。
+//: - この helper は境界検査を行わず、呼び出し側が `adjacency_matrix_valid_edge` などで vertex 範囲を確認した後に使う前提です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 時間計算量は O(1)、追加の空間計算量は O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"adjacency_matrix_bit_index_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"row major edge\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"first edge\" expected=\"0\" actual=\"0\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/collections/adjacency_matrix/layout" as *
+//: fn main %impure fn unit i32 \unit:
+//:     let report:
+//:         test_report_new "adjacency_matrix_bit_index_doc"
+//:         |> test_report_push assert_eq_i32 "row major edge" 7 adjacency_matrix_bit_index 3 2 1
+//:         |> test_report_push assert_eq_i32 "first edge" 0 adjacency_matrix_bit_index 3 0 0
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn adjacency_matrix_bit_index %fn i32 fn i32 fn i32 i32 \nverts\from\to:
     add mul from nverts to
 

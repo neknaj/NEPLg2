@@ -33,7 +33,7 @@ assert.match(
     "Vec basics doctest must print the check report before deriving the exit code",
 );
 assert.equal(
-    [...doctest.code.matchAll(/free<i32>\s+vec_push_error_vec<i32>\s+e/g)].length,
+    [...doctest.code.matchAll(/\bfree\s+vec_push_error_vec\s+e\b/g)].length,
     2,
     "Vec basics doctest must recover and free the Vec owner from both push error paths",
 );

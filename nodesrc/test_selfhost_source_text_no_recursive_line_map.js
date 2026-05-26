@@ -69,7 +69,7 @@ assert.match(
 );
 assert.match(
     collect,
-    /failed[\s\S]*then:[\s\S]*v::free<i32>\s+out[\s\S]*Result<Vec<i32>,\s*StdErrorKind>::Err\s+StdErrorKind::OutOfMemory/,
+    /failed[\s\S]*then:[\s\S]*v::free<i32>\s+out[\s\S]*Result::Err\s+StdErrorKind::OutOfMemory/,
     'source_text_collect_line_starts must close the replacement Vec owner before returning Err'
 );
 assert.match(

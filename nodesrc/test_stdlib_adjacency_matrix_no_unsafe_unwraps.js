@@ -89,8 +89,8 @@ assert.match(storageCode, /fn\s+adjacency_matrix_alloc_bits\s+<\(i32,i32\)\*>Res
 assert.match(storageCode, /fn\s+adjacency_matrix_byte_at\s+<\(&Vec<u8>,i32\)->Option<i32>>[\s\S]*vec::get<u8>[\s\S]*Option::None:[\s\S]*none/, 'AdjacencyMatrix must read matrix bytes through Vec.get and expose missing bytes as Option');
 assert.match(storageCode, /fn\s+adjacency_matrix_store_byte\s+<\(&Vec<u8>,i32,i32\)\*>unit>[\s\S]*vec::replace<u8>/, 'AdjacencyMatrix must update matrix bytes through Vec.replace');
 assert.match(mutationCode, /fn\s+adjacency_matrix_write_masked\s+<\(&Vec<u8>,i32,i32,bool\)\*>bool>[\s\S]*adjacency_matrix_byte_at[\s\S]*adjacency_matrix_store_byte/, 'AdjacencyMatrix mutation module must centralize byte read-modify-write');
-assert.match(apiDiagnosticCode, /fn\s+adjacency_matrix_invalid_len_diag\s+<\(unit\)\*>Diag>/, 'AdjacencyMatrix diagnostic module must own invalid length diagnostics');
-assert.match(apiDiagnosticCode, /fn\s+adjacency_matrix_vertex_diag\s+<\(unit\)\*>Diag>/, 'AdjacencyMatrix diagnostic module must own vertex diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+adjacency_matrix_invalid_len_diag\s+<\(\)\*>Diag>/, 'AdjacencyMatrix diagnostic module must own invalid length diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+adjacency_matrix_vertex_diag\s+<\(\)\*>Diag>/, 'AdjacencyMatrix diagnostic module must own vertex diagnostics');
 assert.match(apiCreateCode, /fn\s+new\s+<\(i32\)\*>Result<AdjacencyMatrix,\s*Diag>>[\s\S]*adjacency_matrix_byte_len\s+nverts[\s\S]*adjacency_matrix_alloc_bits\s+nbytes\s+0/, 'AdjacencyMatrix.new must use layout and storage helpers');
 assert.match(apiObserverCode, /fn\s+len\s+<\(&AdjacencyMatrix\)->i32>\s+\(g\):/, 'AdjacencyMatrix.len must borrow the owner');
 assert.match(apiObserverCode, /fn\s+contains\s+<\(&AdjacencyMatrix,i32,i32\)\*>Result<bool,\s*Diag>>\s+\(g,\s*from,\s*to\):/, 'AdjacencyMatrix.contains must borrow the owner');

@@ -38,7 +38,7 @@ function typeAnnotationPattern(typeExpr) {
 function fnTypePattern(params, result, options = {}) {
     const effect = options.effect === "impure" ? "impure\\s+fn" : "fn";
     const pieces = [`%${effect}`];
-    const normalizedParams = params.length === 0 ? ["()"] : params;
+    const normalizedParams = params.length === 0 ? ["unit"] : params;
     for (const param of normalizedParams) {
         pieces.push(typeExprPattern(param));
         pieces.push(effect);
@@ -176,7 +176,7 @@ function convertLegacyTypeLine(line, options = {}) {
 
 function legacyLambdaParams(text) {
     const trimmed = text.trim();
-    if (trimmed === "\\():") {
+    if (trimmed === "\\():" || trimmed === "\\unit:") {
         return "()";
     }
     const params = [...trimmed.matchAll(/\\([A-Za-z_][A-Za-z0-9_]*)/g)].map((match) => match[1]);
@@ -247,7 +247,7 @@ function parseLegacyFnType(tokens, index, effect) {
         if (!result) {
             return null;
         }
-        const oldParams = param.text === "()" && params.length === 0 ? "" : [...params, param.text].join(",");
+        const oldParams = (param.text === "()" || param.text === "unit") && params.length === 0 ? "" : [...params, param.text].join(",");
         return { text: `(${oldParams})${marker}${result.text}`, next: result.next };
     }
     return null;

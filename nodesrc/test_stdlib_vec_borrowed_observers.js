@@ -98,7 +98,7 @@ assert.doesNotMatch(vecCode, /\bfn\s+data_ptr\b/, "Vec must not expose a raw i32
 
 assert.match(vecCode, /fn\s+get\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>,i32\)->Option<\.T>>\s+\(v,\s*idx\):/, "Vec.get must borrow the owner and require Copy");
 assert.doesNotMatch(vecCode, /fn\s+get\s+<\.T>\s+<\(Vec<\.T>,i32\)->Option<\.T>>/, "Vec.get must not consume the owner");
-assert.match(vecCode, /fn\s+replace\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>,i32,\.T\)\*>\(\)>\s+\(v,\s*idx,\s*item\):/, "Vec.replace must borrow the owner and require Copy");
+assert.match(vecCode, /fn\s+replace\s+<\.T:\s*Copy>\s+<\(&Vec<\.T>,i32,\.T\)\*>unit>\s+\(v,\s*idx,\s*item\):/, "Vec.replace must borrow the owner and require Copy");
 assert.doesNotMatch(vecCode, /fn\s+replace\s+<\.T>\s+<\(Vec<\.T>,i32,\.T\)->\(\)>/, "Vec.replace must not consume the owner");
 
 for (const [name, signature] of [
@@ -152,9 +152,9 @@ for (const testRelPath of [
 ]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testRelPath), "utf8");
     assert.doesNotMatch(testSrc, /\b(?:len_ref|cap_ref|is_empty_ref|get_ref|data_ptr_ref|data_mem_ptr_ref|data_len_ref|replace_ref)<i32>/, `${testRelPath} must not use removed Vec *_ref observers`);
-    assert.match(testSrc, /\blen<i32>\s+&/, `${testRelPath} must exercise borrowed Vec.len`);
-    assert.match(testSrc, /\bget<i32>\s+&/, `${testRelPath} must exercise borrowed Vec.get`);
-    assert.match(testSrc, /\bfree<i32>\s+/, `${testRelPath} must explicitly free observed Vec owners`);
+    assert.match(testSrc, /\blen(?:<i32>)?\s+&/, `${testRelPath} must exercise borrowed Vec.len`);
+    assert.match(testSrc, /\bget(?:<i32>)?\s+&/, `${testRelPath} must exercise borrowed Vec.get`);
+    assert.match(testSrc, /\bfree(?:<i32>)?\s+/, `${testRelPath} must explicitly free observed Vec owners`);
 }
 
 for (const relPath of [

@@ -41,11 +41,11 @@ assert.match(code, /#import\s+"alloc\/collections\/vec"\s+as\s+v/, 'kpgraph must
 assert.doesNotMatch(code, /\b(?:KpI32PushRes|kp_i32_empty_vec|kp_push_i32|dense_graph_bfs_dist_raw)\b/, 'kpgraph must not keep legacy raw-BFS fallback helpers');
 assert.match(code, /pub\s+fn\s+dense_graph_bfs_dist\s+<\(&DenseGraph,i32\)\*>Result<Vec<i32>,\s*Diag>>/, 'BFS must expose the typed DenseGraph owner API');
 assert.doesNotMatch(bfs, /\bv::push<i32>\b/, 'BFS must not accumulate results through growable push failure sentinels');
-assert.match(bfs, /match\s+v::filled<i32>\s+n\s+unvisited:[\s\S]*Result::Err\s+e:[\s\S]*let\s+d\s+<Diag>\s+dense_graph_diag_std_error\s+e[\s\S]*err<Vec<i32>,\s*Diag>\s+d/, 'BFS distance allocation failure must be reported as Result Err');
-assert.match(bfs, /match\s+v::filled<i32>\s+n\s+0:[\s\S]*Result::Err\s+e:[\s\S]*v::free<i32>\s+dist[\s\S]*let\s+d\s+<Diag>\s+dense_graph_diag_std_error\s+e[\s\S]*err<Vec<i32>,\s*Diag>\s+d/, 'BFS queue allocation failure must free the distance Vec owner');
+assert.match(bfs, /match\s+v::filled<i32>\s+n\s+unvisited:[\s\S]*Result::Err\s+e:[\s\S]*let\s+d\s+<Diag>\s+dense_graph_diag_std_error\s+e[\s\S]*err\s+d/, 'BFS distance allocation failure must be reported as Result Err');
+assert.match(bfs, /match\s+v::filled<i32>\s+n\s+0:[\s\S]*Result::Err\s+e:[\s\S]*v::free<i32>\s+dist[\s\S]*let\s+d\s+<Diag>\s+dense_graph_diag_std_error\s+e[\s\S]*err\s+d/, 'BFS queue allocation failure must free the distance Vec owner');
 assert.match(bfs, /v::replace<i32>\s+&dist\s+start\s+0[\s\S]*v::replace<i32>\s+&queue\s+0\s+start/, 'BFS must initialize preallocated distance and queue Vec storage through Vec APIs');
 assert.match(bfs, /match\s+v::get<i32>\s+&queue\s+head:[\s\S]*Option::None:[\s\S]*set\s+failed\s+true/, 'BFS queue reads must detect impossible Vec access failure');
 assert.match(bfs, /match\s+dense_graph_has_edge\s+g\s+node\s+to:[\s\S]*Result::Err\s+_d:[\s\S]*set\s+failed\s+true/, 'BFS graph access failure must mark the traversal as failed');
-assert.match(bfs, /v::free<i32>\s+queue[\s\S]*if:[\s\S]*failed[\s\S]*then:[\s\S]*v::free<i32>\s+dist[\s\S]*diag_err<Vec<i32>>\s+dense_graph_diag_storage[\s\S]*else:[\s\S]*ok<Vec<i32>,\s*Diag>\s+dist/, 'BFS must close queue storage and either return dist owner or free it on invariant failure');
+assert.match(bfs, /v::free<i32>\s+queue[\s\S]*if:[\s\S]*failed[\s\S]*then:[\s\S]*v::free<i32>\s+dist[\s\S]*diag_err<Vec<i32>>\s+dense_graph_diag_storage[\s\S]*else:[\s\S]*ok\s+dist/, 'BFS must close queue storage and either return dist owner or free it on invariant failure');
 
 console.log('stdlib kpgraph unsafe unwrap regression passed');

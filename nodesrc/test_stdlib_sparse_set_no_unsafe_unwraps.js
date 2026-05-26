@@ -89,8 +89,8 @@ assert.match(membershipCode, /fn\s+sparse_set_valid_index\s+<\(i32,i32\)->bool>/
 assert.match(membershipCode, /fn\s+sparse_set_contains_raw\s+<\(i32,&Vec<i32>,&Vec<i32>,i32,i32\)->bool>[\s\S]*match\s+sparse_set_load_owned\s+sparse\s+value[\s\S]*match\s+sparse_set_load_owned\s+dense\s+idx/, 'SparseSet membership must read dense/sparse cells through Option-aware storage helpers');
 assert.match(mutationCode, /fn\s+sparse_set_insert_storage\s+<\(i32,&Vec<i32>,&Vec<i32>,i32,i32\)\*>Option<i32>>[\s\S]*sparse_set_store_owned\s+dense\s+len0\s+value[\s\S]*sparse_set_store_owned\s+sparse\s+value\s+len0/, 'SparseSet insert mutation must centralize dense/sparse writes and return the next length');
 assert.match(mutationCode, /fn\s+sparse_set_remove_storage\s+<\(i32,&Vec<i32>,&Vec<i32>,i32,i32\)\*>Option<i32>>[\s\S]*sparse_set_store_owned\s+dense\s+idx\s+last_value[\s\S]*sparse_set_store_owned\s+sparse\s+last_value\s+idx/, 'SparseSet remove mutation must centralize swap-with-last writes and return the next length');
-assert.match(apiDiagnosticCode, /fn\s+sparse_set_diag_len\s+<\(unit\)\*>Diag>/, 'SparseSet diagnostic module must own invalid length diagnostics');
-assert.match(apiDiagnosticCode, /fn\s+sparse_set_diag_index\s+<\(unit\)\*>Diag>/, 'SparseSet diagnostic module must own index diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+sparse_set_diag_len\s+<\(\)\*>Diag>/, 'SparseSet diagnostic module must own invalid length diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+sparse_set_diag_index\s+<\(\)\*>Diag>/, 'SparseSet diagnostic module must own index diagnostics');
 assert.match(apiCreateCode, /fn\s+new\s+<\(i32\)\*>Result<SparseSet,\s*Diag>>[\s\S]*sparse_set_alloc_array\s+n[\s\S]*ok\s+SparseSet\s+n\s+0\s+dense\s+sparse/, 'SparseSet.new must use storage allocation helpers');
 assert.match(apiObserverCode, /fn\s+len\s+<\(&SparseSet\)->i32>\s+\(s\):/, 'SparseSet.len must borrow the owner');
 assert.match(apiObserverCode, /fn\s+universe_len\s+<\(&SparseSet\)->i32>\s+\(s\):/, 'SparseSet.universe_len must borrow the owner');

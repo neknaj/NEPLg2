@@ -161,25 +161,25 @@ const writerNewMatch = stateCode.match(/(?:pub\s+)?fn\s+stream_writer_new\b([\s\
 assert.ok(writerNewMatch, 'stream_writer_new body must be found');
 assert.match(
     writerNewMatch[1],
-    /\bmatch\s+byte_builder_with_capacity\s+4096:[\s\S]*Result<StreamWriter,str>::Ok\s+StreamWriter\s+builder\s+target\s+@stream_writer_noncopy_marker\b/,
+    /\bmatch\s+byte_builder_with_capacity\s+4096:[\s\S]*Result::Ok\s+StreamWriter\s+builder\s+target\s+@stream_writer_noncopy_marker\b/,
     'stream_writer_new must allocate through ByteBuilder and return the builder owner as a StreamWriter field',
 );
 
 assert.match(
     stateCode,
-    new RegExp(fnSignaturePattern('stream_writer_close_impl', ['StreamWriter'], '()', { effect: 'impure' })),
+    new RegExp(fnSignaturePattern('stream_writer_close_impl', ['StreamWriter'], 'unit', { effect: 'impure' })),
     'writer state module must own the StreamWriter cleanup implementation helper',
 );
 
 assert.doesNotMatch(
     stateCode,
-    new RegExp(fnSignaturePattern('close', ['StreamWriter'], '()', { effect: 'impure' })),
+    new RegExp(fnSignaturePattern('close', ['StreamWriter'], 'unit', { effect: 'impure' })),
     'writer state module must not own the public common-name close overload',
 );
 
 assert.match(
     rootCode,
-    new RegExp(`${fnSignaturePattern('close', ['StreamWriter'], '()', { effect: 'impure' })}\\s+\\\\w:\\s*stream_writer_close_impl\\s+w\\b`),
+    new RegExp(`${fnSignaturePattern('close', ['StreamWriter'], 'unit', { effect: 'impure' })}\\s+\\\\w:\\s*stream_writer_close_impl\\s+w\\b`),
     'streamio/writer root must expose owner-consuming close through the public facade',
 );
 

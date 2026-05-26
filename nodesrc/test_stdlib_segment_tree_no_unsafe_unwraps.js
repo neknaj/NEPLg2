@@ -95,9 +95,9 @@ assert.match(mutationCode, /fn\s+seg_replace_storage\s+<\(&Vec<i32>,i32,i32,i32\
 assert.match(mutationCode, /fn\s+seg_add_storage\s+<\(&Vec<i32>,i32,i32,i32\)\*>bool>[\s\S]*seg_load_owned[\s\S]*seg_store_owned[\s\S]*seg_rebuild_parents/, 'SegmentTree mutation module must own add storage update');
 assert.match(rangeCode, /fn\s+seg_sum_range_storage\s+<\(&Vec<i32>,i32,i32,i32\)->Option<i32>>[\s\S]*while\s+and\s+lt\s+left\s+right\s+valid[\s\S]*seg_load_owned/, 'SegmentTree range module must own iterative range traversal');
 
-assert.match(apiDiagnosticCode, /fn\s+seg_diag_len\s+<\(unit\)\*>Diag>/, 'SegmentTree diagnostic module must own invalid length diagnostics');
-assert.match(apiDiagnosticCode, /fn\s+seg_diag_index\s+<\(unit\)\*>Diag>/, 'SegmentTree diagnostic module must own index diagnostics');
-assert.match(apiDiagnosticCode, /fn\s+seg_diag_range\s+<\(unit\)\*>Diag>/, 'SegmentTree diagnostic module must own range diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+seg_diag_len\s+<\(\)\*>Diag>/, 'SegmentTree diagnostic module must own invalid length diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+seg_diag_index\s+<\(\)\*>Diag>/, 'SegmentTree diagnostic module must own index diagnostics');
+assert.match(apiDiagnosticCode, /fn\s+seg_diag_range\s+<\(\)\*>Diag>/, 'SegmentTree diagnostic module must own range diagnostics');
 assert.match(apiCreateCode, /fn\s+new\s+<\(i32\)\*>Result<SegmentTree,\s*Diag>>[\s\S]*lt\s+n\s+0[\s\S]*seg_diag_len[\s\S]*vec::filled<i32>\s+cells\s+0/, 'SegmentTree.new must reject negative lengths and allocate initialized typed storage through Vec.filled');
 assert.match(apiObserverCode, /fn\s+len\s+<\(&SegmentTree\)->i32>\s+\(st\):/, 'SegmentTree.len must borrow the owner');
 assert.match(apiQueryCode, /fn\s+sum_range\s+<\(&SegmentTree,i32,i32\)\*>Result<i32,\s*Diag>>\s+\(st,\s*l,\s*r\):/, 'SegmentTree.sum_range must borrow the owner');
