@@ -1,6 +1,6 @@
 # Advanced: sort / search / prefix sum
 
-sort や prefix sum は、`Vec<i32>` の所有権と読み取り API を理解してから使います。現在の推奨は、mutable な内部表現へ直接触れず、`alloc/collections/vec` と `alloc/collections/vec/sort` の public API を通すことです。
+sort や prefix sum は、`Vec i32` の所有権と読み取り API を理解してから使います。現在の推奨は、mutable な内部表現へ直接触れず、`alloc/collections/vec` と `alloc/collections/vec/sort` の public API を通すことです。
 
 設計時の注意点:
 

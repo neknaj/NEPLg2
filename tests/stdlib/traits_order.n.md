@@ -73,22 +73,22 @@ fn main %impure fn unit i32 \unit:
     let v3 %Vec i32 unwrap_ok push v2 3;
     let v4 %Vec i32 unwrap_ok push v3 2;
     let s sort_quick_ret v4;
-    let b0 %bool match get<i32> &s 0:
+    let b0 %bool match get &s 0:
         Option::Some x:
             eq x 1
         Option::None:
             false
-    let b1 %bool match get<i32> &s 1:
+    let b1 %bool match get &s 1:
         Option::Some x:
             eq x 2
         Option::None:
             false
-    let b2 %bool match get<i32> &s 2:
+    let b2 %bool match get &s 2:
         Option::Some x:
             eq x 3
         Option::None:
             false
-    let b3 %bool match get<i32> &s 3:
+    let b3 %bool match get &s 3:
         Option::Some x:
             eq x 4
         Option::None:
@@ -99,7 +99,7 @@ fn main %impure fn unit i32 \unit:
         |> checks_push assert b1
         |> checks_push assert b2
         |> checks_push assert b3
-    free<i32> s;
+    free s;
     let shown checks_print_report checks
     checks_exit_code shown
 ```

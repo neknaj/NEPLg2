@@ -484,7 +484,7 @@ fn main %impure fn unit i32 \unit:
     let v1 %Vec i32 unwrap_ok push v0 7;
     // VecSortMergeError は sort_merge_ret が失敗時に返す owner payload であり、
     // ordinary source が直接構築して Vec owner を捏造してはいけない。
-    let err %VecSortMergeError i32 VecSortMergeError<i32> v1 StdErrorKind::OutOfMemory;
+    let err %VecSortMergeError i32 VecSortMergeError v1 StdErrorKind::OutOfMemory;
     0
 ```
 

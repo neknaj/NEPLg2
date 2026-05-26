@@ -1,6 +1,6 @@
 # std/test の基本
 
-複数の確認を 1 つの `main` で続けて実行するときは、`std/test` の `checks_new` と `checks_push` を使います。失敗は `Result<unit,str>` として集め、最後に `checks_exit_code` で runner 用の終了 code に変換します。
+複数の確認を 1 つの `main` で続けて実行するときは、`std/test` の `checks_new` と `checks_push` を使います。失敗は `Result unit str` として集め、最後に `checks_exit_code` で runner 用の終了 code に変換します。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0

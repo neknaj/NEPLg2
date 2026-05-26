@@ -114,8 +114,8 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
         Result::Ok m:
             m
         Result::Err e:
-            let _d %Diag btreemap_insert_error_diag<i32,i32> &e
-            btreemap_insert_error_owner<i32,i32> e
+            let _d %Diag btreemap_insert_error_diag &e
+            btreemap_insert_error_owner e
 
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
@@ -176,8 +176,8 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
         Result::Ok s:
             s
         Result::Err e:
-            let _d %Diag btreeset_insert_error_diag<i32> &e
-            btreeset_insert_error_owner<i32> e
+            let _d %Diag btreeset_insert_error_diag &e
+            btreeset_insert_error_owner e
 
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
@@ -244,7 +244,7 @@ fn must_hm %impure fn Result HashMap i32 i32 DefaultHash32 HashMapUpdateError i3
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm %HashMap i32 i32 DefaultHash32 hashmap_update_error_owner<i32,i32,DefaultHash32> e;
+            let hm %HashMap i32 i32 DefaultHash32 hashmap_update_error_owner e;
             free hm;
             #intrinsic "unreachable" <> ()
 
@@ -309,7 +309,7 @@ fn must_hs %impure fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 De
         Result::Ok hs:
             hs
         Result::Err e:
-            let hs %HashSet i32 DefaultHash32 hashset_update_error_owner<i32,DefaultHash32> e;
+            let hs %HashSet i32 DefaultHash32 hashset_update_error_owner e;
             free hs;
             #intrinsic "unreachable" <> ()
 

@@ -1,3 +1,14 @@
+# 2026-05-26 Agent 1 pipe/traits/sort postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として pipe / traits / sort fixture と tutorial prose に残っていた局所的な旧 generic postfix / 旧型適用表記を 4 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `tests/stdlib/pipe_collections.n.md` では、BTreeMap / BTreeSet insert error helper と HashMap / HashSet update error owner helper の explicit generic postfix を error payload / lhs annotation から解ける postfix-free call へ移行した。
+- `tests/stdlib/traits_order.n.md` では、`Vec i32` receiver から型が決まる `get<i32>` と `free<i32>` を postfix-free にした。trait declaration / impl / generic function 検査は変更していない。
+- `tests/stdlib/sort.n.md` では、`%VecSortMergeError i32` lhs annotation から解ける `VecSortMergeError<i32>` constructor を postfix-free `VecSortMergeError` へ移行した。
+- `tutorials/getting_started/02_test_harness.n.md`、`tutorials/getting_started/91_sort_search_prefixsum.n.md`、`tests/stdlib/selfhost_req.n.md` では prose/comment 内の `Result<unit,str>` / `Vec<i32>` / `Vec<u8>` を NEPLg2.1 表記へ更新した。実行コードや source string は変更していない。
+- `nodesrc/test_neplg21_pipe_traits_sort_postfix_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。検査対象は今回移行した旧構文だけで、raw memory generic API、trait/generic 機能検査、source string、コメント量は制限していない。
+- `node nodesrc/test_neplg21_pipe_traits_sort_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js -i tests/stdlib/pipe_collections.n.md -i tests/stdlib/traits_order.n.md -i tests/stdlib/sort.n.md --no-tree -o tmp/neplg21-pipe-traits-sort-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 4 件完了、4 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 selfhost simple postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として selfhost 周辺 fixture に残っていた局所的な通常利用 generic postfix を 5 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
