@@ -1,6 +1,6 @@
 # cleanup と Drop 方針
 
-現在の stdlib では、所有権を持つ collection や buffer は明示的に解放する API を持っています。将来の Drop elaboration と Resource IR では、compiler が安全な解放経路を広げていく計画です。
+現在の stdlib では、所有権を持つ collection や buffer は明示的に解放する API を持っています。将来の Drop elaboration と Resource IR では、compiler が安全な解放経路を広げていく計画です。値引数のない `new` は typed local で `Result Vec i32 StdErrorKind` を明示し、明示 generic postfix に頼らずに要素型を決めます。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
@@ -17,7 +17,8 @@ stdout: mlstr:
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    match new<i32>:
+    let created %Result Vec i32 StdErrorKind new
+    match created:
         Result::Err _e:
             let checks checks_push checks_new Result::Err "vec.new failed"
             let shown checks_print_report checks

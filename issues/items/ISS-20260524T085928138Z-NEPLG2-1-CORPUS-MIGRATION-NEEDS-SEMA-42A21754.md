@@ -917,6 +917,16 @@ LLM/手動判断が必要なもの:
 - targeted source policy、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build`、`git diff --check` は pass した。
 - `node nodesrc/tests.js <対象14 files> --no-tree -o tmp/neplg21-vec-transform-sort-ret-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 16/61 件完了、16 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 Tutorial/core/compiler small helper postfix checkpoint
+
+- `tutorials/getting_started/13_vec_basics.n.md` と `16_drop_and_cleanup.n.md` で、値引数のない `new<i32>` を `%Result Vec i32 StdErrorKind` typed local から解ける postfix-free `new` へ移行した。
+- `stdlib/core/option.nepl` と `stdlib/core/result.nepl` の doctest で、`map` / `map_err` / `and_then` の explicit generic postfix を typed local または result annotation による型根拠へ移した。
+- `tests/compiler/list_dot_map.n.md` で、List / Result / Vec の small helper call を postfix-free にした。List 型注釈は star import で `List i32` を参照し、名前空間付き type annotation を導入しない形にした。
+- `tests/compiler/overload_nested_generic_push.n.md` で、nested `Result unit str` payload の `new` / `len` / `free` postfix を receiver 型または `%Vec Result unit str` local annotation から解ける形へ移行した。
+- `nodesrc/test_tutorial_getting_started_current_style.js`、`nodesrc/test_core_option_doc_report_contract.js`、`nodesrc/test_core_result_doc_report_contract.js`、`nodesrc/test_neplg21_small_fixture_postfix_cleanup.js` に、今回対象の旧 generic postfix 再導入防止を追加した。コメント量を制限する検査ではない。
+- targeted source policy 5 件、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build`、`git diff --check` は pass した。
+- `node nodesrc/tests.js -i tutorials/getting_started/13_vec_basics.n.md -i tutorials/getting_started/16_drop_and_cleanup.n.md -i tests/compiler/list_dot_map.n.md -i tests/compiler/overload_nested_generic_push.n.md -i stdlib/core/option.nepl -i stdlib/core/result.nepl --no-tree -o tmp/neplg21-small-helper-producer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 7/18 件完了、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

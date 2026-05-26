@@ -67,8 +67,8 @@
 //: fn main %impure fn unit i32 \unit:
 //:     let r0 %Result i32 str ok 9;
 //:     let r1 %Result i32 str err "oops";
-//:     let a map<i32,i32,str> r0 inc;
-//:     let b map_err<i32,str,i32> r1 strlen;
+//:     let a %Result i32 str map r0 inc;
+//:     let b %Result i32 i32 map_err r1 strlen;
 //:     let report:
 //:         test_report_new "core_result_map"
 //:         |> test_report_push assert_eq_i32 "map ok" 10 unwrap_ok a
@@ -94,8 +94,8 @@
 //: fn main %impure fn unit i32 \unit:
 //:     let r0 %Result i32 str ok 3;
 //:     let r1 %Result i32 str ok -1;
-//:     let a and_then<i32,i32,str> r0 positive_double;
-//:     let b and_then<i32,i32,str> r1 positive_double;
+//:     let a %Result i32 str and_then r0 positive_double;
+//:     let b %Result i32 str and_then r1 positive_double;
 //:     let report:
 //:         test_report_new "core_result_and_then"
 //:         |> test_report_push assert_eq_i32 "positive double" 6 unwrap_ok a
@@ -159,7 +159,7 @@ pub enum Result<.T, .E>:
 //: Result<Copy, Copy>: payload がどちらも Copy なら Result も Copy として扱う
 //:
 //: 目的:
-//: - `Result<unit, str>` や `Result<i32, str>` のような軽量値を、検査結果や一時 buffer から安全に読み取れるようにします。
+//: - `Result unit str` や `Result i32 str` のような軽量値を、検査結果や一時 buffer から安全に読み取れるようにします。
 //:
 //: 注意:
 //: - `.T` または `.E` が Copy でない場合は shallow copy を避けるため、この impl は使えません。

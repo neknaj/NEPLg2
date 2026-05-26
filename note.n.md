@@ -1,3 +1,15 @@
+# 2026-05-26 Agent 1 Tutorial/core/compiler small helper postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として、tutorial の値引数なし Vec `new`、core Option/Result doctest の transform helper、compiler fixture の List/Result/Vec helper call に残っていた小さな generic postfix を撤廃した。`plan.md` は変更していない。
+- `tutorials/getting_started/13_vec_basics.n.md` と `16_drop_and_cleanup.n.md` では、`new<i32>` を `%Result Vec i32 StdErrorKind` typed local に分けてから `new` を呼ぶ形へ移行した。値引数のない producer は呼び出し単体から要素型が決まらないため、typed local を型根拠として明示した。
+- `stdlib/core/option.nepl` の doctest では、`map<i32,i32>` / `and_then<i32,i32>` を `%Option i32` local と result annotation から解ける postfix-free 形へ移行した。周辺コメントの `Option<i32>` / `Option<str>` も NEPLg2.1 の `Option i32` / `Option str` 表記へ合わせた。
+- `stdlib/core/result.nepl` の doctest では、`map<i32,i32,str>` / `map_err<i32,str,i32>` / `and_then<i32,i32,str>` を `%Result ...` annotation で型根拠を明示する形へ移行した。周辺コメントの `Result<unit, str>` / `Result<i32, str>` も `Result unit str` / `Result i32 str` へ合わせた。
+- `tests/compiler/list_dot_map.n.md` では、List 型注釈のために `#import "alloc/collections/list" as *` を追加し、`list::new<i32>` / `list::push<i32>` / `list::map<i32,i32>`、Result `map<i32,i32,i32>`、Vec `new<i32>` / `push<i32>` を postfix-free にした。
+- `tests/compiler/overload_nested_generic_push.n.md` では、`new<Result<unit,str>>` / `len<Result<unit,str>>` / `free<Result<unit,str>>` を receiver 型または `%Vec Result unit str` local annotation から解ける形へ移行し、prose の旧 nested type notation も更新した。
+- `nodesrc/test_tutorial_getting_started_current_style.js`、`nodesrc/test_core_option_doc_report_contract.js`、`nodesrc/test_core_result_doc_report_contract.js`、`nodesrc/test_neplg21_small_fixture_postfix_cleanup.js` に、今回対象の旧 generic postfix 再導入防止を追加した。これはコメント量を制限する検査ではなく、実行例と対象 fixture の旧構文だけを固定する。
+- targeted source policy 5 件、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build`、`git diff --check` は pass した。
+- `node nodesrc/tests.js -i tutorials/getting_started/13_vec_basics.n.md -i tutorials/getting_started/16_drop_and_cleanup.n.md -i tests/compiler/list_dot_map.n.md -i tests/compiler/overload_nested_generic_push.n.md -i stdlib/core/option.nepl -i stdlib/core/result.nepl --no-tree -o tmp/neplg21-small-helper-producer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 7/18 件完了、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 Vec transform / sort_ret postfix checkpoint
 
 - `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、Vec transform / traversal / sort result 系の後置 generic を 5 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。

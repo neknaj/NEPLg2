@@ -1,6 +1,6 @@
 # Vec の基本
 
-`Vec .T` は所有権を持つ growable collection です。作成や追加は失敗しうるため、`Result` を `match` して扱います。
+`Vec .T` は所有権を持つ growable collection です。作成や追加は失敗しうるため、`Result` を `match` して扱います。値引数のない `new` は typed local で `Result Vec i32 StdErrorKind` を明示し、要素型を呼び出し側の文脈から決めます。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
@@ -21,7 +21,8 @@ stdout: mlstr:
 #import "core/field" as *
 
 fn build_numbers %impure fn unit Result Vec i32 str \unit:
-    match new<i32>:
+    let created %Result Vec i32 StdErrorKind new
+    match created:
         Result::Err _e:
             Result::Err "vec.new failed"
         Result::Ok v0:

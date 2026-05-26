@@ -50,9 +50,12 @@
 //:     add x 1
 //:
 //: fn main %impure fn unit i32 \unit:
-//:     let a0 map<i32,i32> some 9 inc;
-//:     let a1 map<i32,i32> some 9 inc;
-//:     let b map<i32,i32> none inc;
+//:     let some0 %Option i32 some 9;
+//:     let some1 %Option i32 some 9;
+//:     let empty %Option i32 none;
+//:     let a0 %Option i32 map some0 inc;
+//:     let a1 %Option i32 map some1 inc;
+//:     let b %Option i32 map empty inc;
 //:     let report:
 //:         test_report_new "core_option_map"
 //:         |> test_report_push assert "some map result" is_some a0
@@ -77,8 +80,10 @@
 //:         else none
 //:
 //: fn main %impure fn unit i32 \unit:
-//:     let a and_then<i32,i32> some 3 positive_double;
-//:     let b and_then<i32,i32> some -1 positive_double;
+//:     let input %Option i32 some 3;
+//:     let negative %Option i32 some -1;
+//:     let a %Option i32 and_then input positive_double;
+//:     let b %Option i32 and_then negative positive_double;
 //:     let report:
 //:         test_report_new "core_option_and_then"
 //:         |> test_report_push assert_eq_i32 "positive double" 6 unwrap a
@@ -109,7 +114,7 @@ pub enum Option<.T>:
 //: Option<Copy>: payload が Copy なら Option も Copy として扱う
 //:
 //: 目的:
-//: - `Option<i32>` や `Option<str>` のような軽量値を shared reference から安全に読み取れるようにします。
+//: - `Option i32` や `Option str` のような軽量値を shared reference から安全に読み取れるようにします。
 //:
 //: 注意:
 //: - `.T` が Copy でない場合は shallow copy を避けるため、この impl は使えません。

@@ -18,6 +18,13 @@ assert.ok(parsed.doctests.length >= 7, 'core/result must keep its public doc-com
 assert.ok(parsed.doctests[1].tags.includes('compile_fail'), 'core/result doctest#2 must remain a compile_fail diagnostic fixture');
 assert.ok(parsed.doctests[5].tags.includes('compile_fail'), 'core/result doctest#6 must remain a compile_fail diagnostic fixture');
 
+const doctestCode = parsed.doctests.map((doctest) => doctest.code).join('\n');
+assert.doesNotMatch(
+    doctestCode,
+    /\b(?:map|map_err|and_then)<[^>\r\n]+>/,
+    'core/result doctests must use typed locals or result annotations instead of map/map_err/and_then generic postfixes',
+);
+
 for (const { index, name, count } of expected) {
     const doctest = parsed.doctests[index];
     assert.equal(doctest.ret, null, `${name} must not use ret as test-success metadata`);

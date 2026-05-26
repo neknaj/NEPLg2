@@ -15,6 +15,13 @@ const expected = [
 
 assert.ok(parsed.doctests.length >= expected.length, 'core/option must keep its public doc-comment doctests');
 
+const doctestCode = parsed.doctests.map((doctest) => doctest.code).join('\n');
+assert.doesNotMatch(
+    doctestCode,
+    /\b(?:map|and_then)<[^>\r\n]+>/,
+    'core/option doctests must use typed locals or result annotations instead of map/and_then generic postfixes',
+);
+
 for (let i = 0; i < expected.length; i++) {
     const doctest = parsed.doctests[i];
     const name = expected[i];

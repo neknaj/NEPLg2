@@ -97,6 +97,7 @@ function extractNeplBlocks(text) {
 
 const forbiddenCodePatterns = [
     ['old spaced impure unit signature', /fn\s+main\s+<\(\)\*>\s+\(\)>\s+\(\)/],
+    ['old helper generic postfix in tutorial example', /\b(?:new|push|map|and_then|map_err|len|free)<[^>\r\n]+>/],
     ['raw allocator in tutorial example', /\balloc_raw\b/],
     ['raw memory pointer in tutorial example', /\bMemPtr\b/],
     ['panic helper unwrap_ok in tutorial example', /\bunwrap_ok\b|\buwok\b/],

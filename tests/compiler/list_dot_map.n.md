@@ -37,6 +37,7 @@ stdout: "test_report name=\"list_namespace_map_with_list\" count=1 failed=0\nass
 #indent 4
 #target std
 #import "alloc/collections/list" as list
+#import "alloc/collections/list" as *
 #import "core/option" as option
 #import "core/result" as result
 #import "core/math" as *
@@ -47,9 +48,9 @@ fn inc %fn i32 i32 \x:
     add x 1
 
 fn main %impure fn unit i32 \unit:
-    let xs0 result::unwrap_ok list::new<i32>;
-    let xs result::unwrap_ok list::push<i32> xs0 30;
-    let ys result::unwrap_ok list::map<i32, i32> xs inc;
+    let xs0 %List i32 result::unwrap_ok list::new;
+    let xs %List i32 result::unwrap_ok list::push xs0 30;
+    let ys %List i32 result::unwrap_ok list::map xs inc;
     let actual %i32 option::unwrap list::get &ys 0
     list::free ys;
     let report:
@@ -77,7 +78,7 @@ fn inc %fn i32 i32 \x:
 
 fn main %impure fn unit i32 \unit:
     let r %Result i32 i32 ok 1;
-    let mapped map<i32, i32, i32> r inc;
+    let mapped %Result i32 i32 map r inc;
     let actual %i32 unwrap_ok mapped
     let report:
         test_report_new "result_map_with_star_alias_works"
@@ -106,9 +107,9 @@ fn inc %fn i32 i32 \x:
     add x 1
 
 fn main %impure fn unit i32 \unit:
-    let xs0 %Vec i32 unwrap_ok new<i32>;
-    let xs1 %Vec i32 unwrap_ok push<i32> xs0 1;
-    let xs2 %Vec i32 unwrap_ok push<i32> xs1 2;
+    let xs0 %Vec i32 unwrap_ok new;
+    let xs1 %Vec i32 unwrap_ok push xs0 1;
+    let xs2 %Vec i32 unwrap_ok push xs1 2;
     let ys %Vec i32 unwrap_ok map xs2 inc;
     let out %i32 unwrap get &ys 1;
     free ys;
