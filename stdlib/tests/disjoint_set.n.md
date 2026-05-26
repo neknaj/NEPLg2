@@ -17,25 +17,25 @@ stdout: "test_report name=\"disjoint_set_union_same_and_size\" count=4 failed=0\
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let dsu0 %DisjointSet unwrap_ok<DisjointSet, Diag> new 6;
-    let dsu1 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu0 0 1;
-    let dsu2 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu1 2 3;
-    let dsu3 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu2 1 2;
-    let ok0 %bool unwrap_ok<bool, Diag> same &dsu3 0 3;
+    let dsu0 %DisjointSet unwrap_ok new 6;
+    let dsu1 %DisjointSet unwrap_ok union dsu0 0 1;
+    let dsu2 %DisjointSet unwrap_ok union dsu1 2 3;
+    let dsu3 %DisjointSet unwrap_ok union dsu2 1 2;
+    let ok0 %bool unwrap_ok same &dsu3 0 3;
     let dsu_len %i32 len &dsu3;
     free dsu3
-    let dsu4 %DisjointSet unwrap_ok<DisjointSet, Diag> new 6;
-    let dsu5 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu4 0 1;
-    let dsu6 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu5 2 3;
-    let dsu7 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu6 1 2;
-    let ok1 %bool unwrap_ok<bool, Diag> same &dsu7 0 4;
+    let dsu4 %DisjointSet unwrap_ok new 6;
+    let dsu5 %DisjointSet unwrap_ok union dsu4 0 1;
+    let dsu6 %DisjointSet unwrap_ok union dsu5 2 3;
+    let dsu7 %DisjointSet unwrap_ok union dsu6 1 2;
+    let ok1 %bool unwrap_ok same &dsu7 0 4;
     free dsu7
     let disconnected %bool if ok1 false true;
-    let dsu8 %DisjointSet unwrap_ok<DisjointSet, Diag> new 6;
-    let dsu9 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu8 0 1;
-    let dsu10 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu9 2 3;
-    let dsu11 %DisjointSet unwrap_ok<DisjointSet, DisjointSetUpdateError> union dsu10 1 2;
-    let component_size %i32 unwrap_ok<i32, Diag> size &dsu11 2;
+    let dsu8 %DisjointSet unwrap_ok new 6;
+    let dsu9 %DisjointSet unwrap_ok union dsu8 0 1;
+    let dsu10 %DisjointSet unwrap_ok union dsu9 2 3;
+    let dsu11 %DisjointSet unwrap_ok union dsu10 1 2;
+    let component_size %i32 unwrap_ok size &dsu11 2;
     free dsu11
     let report:
         test_report_new "disjoint_set_union_same_and_size"
@@ -64,15 +64,15 @@ stdout: "test_report name=\"disjoint_set_invalid_index\" count=3 failed=0\nasser
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let dsu0 %DisjointSet unwrap_ok<DisjointSet, Diag> new 3;
+    let dsu0 %DisjointSet unwrap_ok new 3;
     let r0 %Result i32 Diag find &dsu0 5;
-    let dsu1 %DisjointSet unwrap_ok<DisjointSet, Diag> new 3;
+    let dsu1 %DisjointSet unwrap_ok new 3;
     let r1 %Result bool Diag same &dsu1 0 4;
-    let ok0 %bool is_err<i32, Diag> r0;
-    let ok1 %bool is_err<bool, Diag> r1;
+    let ok0 %bool is_err r0;
+    let ok1 %bool is_err r1;
     free dsu0
     free dsu1
-    let dsu2 %DisjointSet unwrap_ok<DisjointSet, Diag> new 3;
+    let dsu2 %DisjointSet unwrap_ok new 3;
     let recovered_len %i32 match union dsu2 0 5:
         Result::Ok next:
             free next

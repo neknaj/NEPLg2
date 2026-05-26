@@ -1,3 +1,13 @@
+# 2026-05-26 Agent 1 disjoint_set helper postfix cleanup checkpoint
+
+- 非 generic collection helper の小 checkpoint として `stdlib/tests/disjoint_set.n.md` を対象にした。
+- 代入先 `%DisjointSet` / `%bool` / `%i32` または `new` / `union` / `same` / `size` の戻り値から型が確定する `unwrap_ok<...>` を `unwrap_ok` へ移行した。
+- `r0 %Result i32 Diag` / `r1 %Result bool Diag` から型が確定する `is_err<i32, Diag>` / `is_err<bool, Diag>` を `is_err` へ移行した。
+- `DisjointSet` の `new` / `union` / observer は型引数を持たないため、nested producer generic 推論問題には踏み込んでいない。
+- 検証:
+  - `rg -n "unwrap_ok<DisjointSet|unwrap_ok<bool|unwrap_ok<i32|is_err<|is_ok<" stdlib/tests/disjoint_set.n.md`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/tests/disjoint_set.n.md --no-tree -o tmp/neplg21-disjoint-set-helper-postfix.json -j 1 --dist web/dist --assert-io`: 2 件とも compile timeout after 60000ms。型診断は出ていない。
+
 # 2026-05-26 Agent 1 fenwick helper postfix cleanup checkpoint
 
 - 非 generic collection helper の小 checkpoint として `stdlib/tests/fenwick.n.md` を対象にした。
