@@ -56,19 +56,19 @@ fn main %impure fn unit i32 \unit:
                                     checks_exit_code shown
                                 Result::Err _diag:
                                     selfhost_vfs_free vfs2
-                                    let checks1 checks_push checks0 Result<unit,str>::Err "loader returned Err"
+                                    let checks1 checks_push checks0 Result::Err "loader returned Err"
                                     let shown checks_print_report checks1
                                     checks_exit_code shown
                         Result::Err _e:
-                            let checks1 checks_push checks0 Result<unit,str>::Err "second VFS add failed"
+                            let checks1 checks_push checks0 Result::Err "second VFS add failed"
                             let shown checks_print_report checks1
                             checks_exit_code shown
                 Result::Err _e:
-                    let checks1 checks_push checks0 Result<unit,str>::Err "first VFS add failed"
+                    let checks1 checks_push checks0 Result::Err "first VFS add failed"
                     let shown checks_print_report checks1
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<unit,str>::Err "VFS allocation failed"
+            let checks1 checks_push checks0 Result::Err "VFS allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -98,7 +98,7 @@ fn check_missing_note %impure fn TestReport impure fn Option str TestReport \che
         Option::Some text:
             checks_push checks check_str_eq "missing.nepl" text
         Option::None:
-            checks_push checks Result<unit,str>::Err "missing file diagnostic note was absent"
+            checks_push checks Result::Err "missing file diagnostic note was absent"
 
 fn main %impure fn unit i32 \unit:
     let checks0 checks_new
@@ -108,7 +108,7 @@ fn main %impure fn unit i32 \unit:
                 Result::Ok loaded:
                     selfhost_loaded_module_free loaded
                     selfhost_vfs_free vfs
-                    let checks1 checks_push checks0 Result<unit,str>::Err "missing file was loaded"
+                    let checks1 checks_push checks0 Result::Err "missing file was loaded"
                     let shown checks_print_report checks1
                     checks_exit_code shown
                 Result::Err diag:
@@ -118,7 +118,7 @@ fn main %impure fn unit i32 \unit:
                     let shown checks_print_report checks2
                     checks_exit_code shown
         Result::Err _e:
-            let checks1 checks_push checks0 Result<unit,str>::Err "VFS allocation failed"
+            let checks1 checks_push checks0 Result::Err "VFS allocation failed"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```

@@ -1,3 +1,14 @@
+# 2026-05-26 Agent 1 neplg2_module_loader Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、静的な型根拠で解決できる selfhost module loader fixture の constructor だけを小さく移行した。
+- `tests/stdlib/neplg2_module_loader.n.md` で、`checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Err` 7 件を `Result::Err` へ移行した。
+- source string fixture の旧 `fn main <()->i32> ():` / `fn helper <()->i32> ():` は、module loader の入力文字列としてこの checkpoint では構文移行していない。
+- subagent の独立レビューでも、対象 7 件は producer/nested generic 推論に絡まず、残すべき `Result<unit,str>::Err` はないと確認した。
+- 検証:
+  - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_module_loader.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg21-module-loader-result-constructors.json -j 1 --dist web/dist --assert-io`: 2 件すべて compile timeout after 60000ms。型診断は出ていない。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 neplg2_parser Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、静的な型根拠で解決できる selfhost parser fixture の constructor だけを小さく移行した。
