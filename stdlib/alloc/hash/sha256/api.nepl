@@ -19,9 +19,9 @@
 //: new_sha256: [空/から]の SHA-256 state を[作/つく]る
 //:
 //: [実装/じっそう]:
-//: - 入力 byte buffer として empty `Vec<i32>` を[確保/かくほ]します。
+//: - 入力 byte buffer として empty `Vec i32` を[確保/かくほ]します。
 pub fn new_sha256 %impure fn unit Result Sha256 StdErrorKind \unit:
-    match new<i32>:
+    match new:
         Result::Err e:
             Result::Err e
         Result::Ok buf:
@@ -36,7 +36,7 @@ pub fn new_sha256 %impure fn unit Result Sha256 StdErrorKind \unit:
 //: - 返された state を[使/つか]って[次/つぎ]の update / finalize を[呼/よ]んでください。
 //: - `Err` の[場合/ばあい]も state owner は `sha256_update_error_ctx` で[戻/もど]るため、caller が `sha256_free` などで[閉/と]じます。
 pub fn sha256_update %impure fn Sha256 impure fn i32 Result Sha256 Sha256UpdateError \ctx\byte:
-    match push<i32> field::get ctx "buffer" and byte 255:
+    match push field::get ctx "buffer" and byte 255:
         Result::Err e:
             let error %StdErrorKind vec_push_error_kind &e
             let returned %Vec i32 vec_push_error_vec e
@@ -49,7 +49,7 @@ pub fn sha256_update %impure fn Sha256 impure fn i32 Result Sha256 Sha256UpdateE
 //: [目的/もくてき]:
 //: - `sha256_update` 失敗後に返った state や、finalize せず破棄する state の owner を明示的に閉じます。
 pub fn sha256_free %fn Sha256 unit \ctx:
-    free<i32> field::get ctx "buffer"
+    free field::get ctx "buffer"
 
 //: sha256_finalize: 32 byte SHA-256 digest を[返/かえ]す
 //:
@@ -58,17 +58,17 @@ pub fn sha256_free %fn Sha256 unit \ctx:
 //: - digest 作成後、state が[保持/ほじ]していた入力 buffer を[解放/かいほう]します。
 pub fn sha256_finalize %impure fn Sha256 Result Vec i32 StdErrorKind \ctx:
     let buf %Vec i32 field::get ctx "buffer"
-    let msg_len %i32 len<i32> &buf
+    let msg_len %i32 len &buf
     let total_len %i32 sha256_total_len msg_len
     match sha256_process_blocks &buf msg_len total_len 0 sha256_initial_state:
         Result::Err e:
-            free<i32> buf
+            free buf
             Result::Err e
         Result::Ok final_state:
             match sha256_state_to_digest final_state:
                 Result::Err e:
-                    free<i32> buf
+                    free buf
                     Result::Err e
                 Result::Ok digest:
-                    free<i32> buf
+                    free buf
                     Result::Ok digest

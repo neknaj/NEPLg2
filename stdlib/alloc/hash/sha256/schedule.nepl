@@ -21,19 +21,19 @@
 //: [実装/じっそう]:
 //: - `w[i-16] + sigma0(w[i-15]) + w[i-7] + sigma1(w[i-2])` を 32-bit word として[加算/かさん]します。
 pub fn sha256_schedule_word %fn &Vec i32 fn i32 Result i32 StdErrorKind \w\i:
-    match get<i32> w sub i 2:
+    match get w sub i 2:
         Option::None:
             Result::Err StdErrorKind::IndexOutOfBounds
         Option::Some w2:
-            match get<i32> w sub i 7:
+            match get w sub i 7:
                 Option::None:
                     Result::Err StdErrorKind::IndexOutOfBounds
                 Option::Some w7:
-                    match get<i32> w sub i 15:
+                    match get w sub i 15:
                         Option::None:
                             Result::Err StdErrorKind::IndexOutOfBounds
                         Option::Some w15:
-                            match get<i32> w sub i 16:
+                            match get w sub i 16:
                                 Option::None:
                                     Result::Err StdErrorKind::IndexOutOfBounds
                                 Option::Some w16:
@@ -66,7 +66,7 @@ pub fn sha256_build_schedule_loop %impure fn &Vec i32 impure fn i32 impure fn i3
                     set failure e
                     set failed true
                 Result::Ok word:
-                    match push<i32> out word:
+                    match push out word:
                         Result::Err e:
                             set failure vec_push_error_kind &e
                             set out vec_push_error_vec e
@@ -77,7 +77,7 @@ pub fn sha256_build_schedule_loop %impure fn &Vec i32 impure fn i32 impure fn i3
     if:
         failed
         then:
-            free<i32> out
+            free out
             Result::Err failure
         else:
             Result::Ok out
@@ -85,9 +85,9 @@ pub fn sha256_build_schedule_loop %impure fn &Vec i32 impure fn i32 impure fn i3
 //: sha256_build_schedule: 1 block の message schedule を[初期化/しょきか]する
 //:
 //: [注意/ちゅうい]:
-//: - [返/かえ]った `Vec<i32>` は block compression [後/ご]に `free` してください。
+//: - [返/かえ]った `Vec i32` は block compression [後/ご]に `free` してください。
 pub fn sha256_build_schedule %impure fn &Vec i32 impure fn i32 impure fn i32 impure fn i32 Result Vec i32 StdErrorKind \buf\msg_len\total_len\block_start:
-    match with_capacity<i32> 64:
+    match with_capacity 64:
         Result::Err e:
             Result::Err e
         Result::Ok w0:

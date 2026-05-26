@@ -1012,6 +1012,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js` と `node nodesrc/test_stdlib_collection_cleanup_contract.js` は pass した。
 - `node nodesrc/run_doctest.js -i tests/stdlib/collection_cleanup_contract.n.md -n 6 --dist web/dist` は外側 timeout。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
 
+### 2026-05-27 SHA256 Vec helper postfix checkpoint
+
+- `stdlib/alloc/hash/sha256/{api,compress,digest,padding,schedule}.nepl` で、`Vec i32` receiver / return annotation / value argument から型が決まる `new<i32>` / `with_capacity<i32>` / `push<i32>` / `get<i32>` / `len<i32>` / `free<i32>` を postfix-free call へ移行した。
+- SHA256 module comment の `Vec<i32>` は NEPLg2.1 の `Vec i32` 表記へ更新した。
+- raw memory / intrinsic API ではなく、`Vec i32` に閉じた通常 stdlib helper call だけを対象にした。
+- `nodesrc/test_neplg21_sha256_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量を制限する検査ではない。
+- `node nodesrc/test_neplg21_sha256_postfix_cleanup.js`、`node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_hash_nmd_report_contract.js` は pass した。
+- `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/neplg21-sha256-postfix.json -j 1 --dist web/dist --assert-io` は compile timeout after 60000ms。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

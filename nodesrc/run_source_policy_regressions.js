@@ -49,6 +49,7 @@ const checks = [
     "nodesrc/test_neplg21_pipe_traits_sort_postfix_cleanup.js",
     "nodesrc/test_neplg21_metadata_traits_postfix_cleanup.js",
     "nodesrc/test_neplg21_kpgraph_overload_postfix_cleanup.js",
+    "nodesrc/test_neplg21_sha256_postfix_cleanup.js",
     "nodesrc/test_features_tui_report_contract.js",
     "nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js",
     "nodesrc/test_stdlib_nm_parser_no_block_unwraps.js",

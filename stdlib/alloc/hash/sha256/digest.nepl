@@ -2,7 +2,7 @@
 //: SHA-256 compression state から digest byte 列を作る
 //:
 //: ### [目的/もくてき]
-//: - final state の 8 word を big-endian の 32 byte `Vec<i32>` へ変換します。
+//: - final state の 8 word を big-endian の 32 byte `Vec i32` へ変換します。
 //: - output allocation と byte append を compression から分離します。
 
 #indent 4
@@ -19,11 +19,11 @@
 //: [実装/じっそう]:
 //: - `byte` の lower 8 bit を push し、[確保/かくほ][失敗/しっぱい]は `StdErrorKind::OutOfMemory` として[返/かえ]します。
 pub fn sha256_push_byte %impure fn Vec i32 impure fn i32 Result Vec i32 StdErrorKind \out\byte:
-    match push<i32> out and byte 255:
+    match push out and byte 255:
         Result::Err e:
             let error %StdErrorKind vec_push_error_kind &e
             let returned %Vec i32 vec_push_error_vec e
-            free<i32> returned
+            free returned
             Result::Err error
         Result::Ok next:
             Result::Ok next
@@ -53,7 +53,7 @@ pub fn sha256_push_word_be %impure fn Vec i32 impure fn i32 Result Vec i32 StdEr
 //: [実装/じっそう]:
 //: - `h0`..`h7` を big-endian で[連結/れんけつ]します。
 pub fn sha256_state_to_digest %impure fn Sha256State Result Vec i32 StdErrorKind \state:
-    match with_capacity<i32> 32:
+    match with_capacity 32:
         Result::Err e:
             Result::Err e
         Result::Ok out0:

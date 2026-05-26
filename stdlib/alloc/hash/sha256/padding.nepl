@@ -76,7 +76,7 @@ pub fn sha256_padded_byte_at %fn &Vec i32 fn i32 fn i32 fn i32 Result i32 StdErr
     if:
         lt idx msg_len
         then:
-            match get<i32> buf idx:
+            match get buf idx:
                 Option::Some b:
                     Result::Ok and b 255
                 Option::None:

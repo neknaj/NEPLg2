@@ -27,7 +27,7 @@ pub fn sha256_rounds_loop %impure fn &Vec i32 impure fn i32 impure fn i32 impure
         then:
             Result::Ok Sha256State a b c d e f g h
         else:
-            match get<i32> w i:
+            match get w i:
                 Option::None:
                     Result::Err StdErrorKind::IndexOutOfBounds
                 Option::Some wi:
@@ -63,10 +63,10 @@ pub fn sha256_compress_block %impure fn &Vec i32 impure fn i32 impure fn i32 imp
             let h7 %i32 field::get state "h7"
             match sha256_rounds_loop &w 0 h0 h1 h2 h3 h4 h5 h6 h7:
                 Result::Err e:
-                    free<i32> w
+                    free w
                     Result::Err e
                 Result::Ok rounds:
-                    free<i32> w
+                    free w
                     let r0 %i32 field::get rounds "h0"
                     let r1 %i32 field::get rounds "h1"
                     let r2 %i32 field::get rounds "h2"
