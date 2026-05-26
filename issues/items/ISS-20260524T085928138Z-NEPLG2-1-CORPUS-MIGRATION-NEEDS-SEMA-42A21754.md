@@ -354,6 +354,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i tests/stdlib/fenwick_collections.n.md -i tests/stdlib/disjoint_set_collections.n.md -i stdlib/tests/segment_tree.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/neplg21-nongeneric-collection-helper-postfix.json -j 1 --dist web/dist --assert-io` は 250s local command timeout。partial JSON では `tests/stdlib/fenwick_collections.n.md` doctest#1-#4 が compile timeout after 60000ms で、型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 fs/pipe_collections Result constructor checkpoint
+
+- subagent の独立レビューに従い、`checks_push` の expected type `Result () str` から型が確定する `Result<(),str>::Ok` / `Result<(),str>::Err` だけを対象にした。
+- `tests/stdlib/fs.n.md` / `tests/stdlib/pipe_collections.n.md` で、該当 constructor を `Result::Ok` / `Result::Err` へ移行した。
+- `pipe_collections` に残る `new<T>` / `push<T>` / `get<T>` / `unwrap_ok<...>` / update helper postfix は producer/update/nested generic 側であり、この constructor checkpoint には混ぜていない。
+- `rg -n "Result<\\(\\),str>::(Ok|Err)" tests/stdlib/fs.n.md tests/stdlib/pipe_collections.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/fs.n.md -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/neplg21-fs-pipe-result-constructors.json -j 1 --dist web/dist --assert-io` は 250s local command timeout。partial JSON では `tests/stdlib/fs.n.md` doctest#1-#4 が compile timeout after 60000ms で、型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

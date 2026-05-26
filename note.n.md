@@ -1,3 +1,15 @@
+# 2026-05-26 Agent 1 fs/pipe_collections Result constructor cleanup checkpoint
+
+- subagent の独立レビューに従い、`checks_push` の expected type `Result () str` から型が確定する `Result<(),str>::Ok` / `Result<(),str>::Err` だけを対象にした。
+- `tests/stdlib/fs.n.md` / `tests/stdlib/pipe_collections.n.md` で、該当 constructor を `Result::Ok` / `Result::Err` へ移行した。
+- `pipe_collections` に残る `new<T>` / `push<T>` / `get<T>` / `unwrap_ok<...>` / update helper postfix は producer/update/nested generic 側であり、この constructor checkpoint には混ぜていない。
+- 検証:
+  - `rg -n "Result<\\(\\),str>::(Ok|Err)" tests/stdlib/fs.n.md tests/stdlib/pipe_collections.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/fs.n.md -i tests/stdlib/pipe_collections.n.md --no-tree -o tmp/neplg21-fs-pipe-result-constructors.json -j 1 --dist web/dist --assert-io`: 250s local command timeout。partial JSON では `tests/stdlib/fs.n.md` doctest#1-#4 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+
 # 2026-05-26 Agent 1 Fenwick/DisjointSet/SegmentTree collection helper cleanup checkpoint
 
 - subagent の独立レビューに従い、producer generic を持たない `Fenwick` / `DisjointSet` / `SegmentTree` の collection doctest helper だけを対象にした。

@@ -39,7 +39,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check_eq_i32 2 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "pipe list get failed"
+            set checks checks_push checks Result::Err "pipe list get failed"
     free<i32> xs1;
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -83,7 +83,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check_eq_i32 20 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "pipe stack pop failed"
+            set checks checks_push checks Result::Err "pipe stack pop failed"
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -137,7 +137,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check_eq_i32 30 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "pipe btreemap get failed";
+            set checks checks_push checks Result::Err "pipe btreemap get failed";
     free<i32,i32> m1;
     let m2 %BTreeMap i32 i32:
         unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
@@ -268,7 +268,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check_eq_i32 90 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "pipe hashmap get failed";
+            set checks checks_push checks Result::Err "pipe hashmap get failed";
     free hm1;
     let hm2 %HashMap i32 i32 DefaultHash32:
         must_hm new DefaultHash32
@@ -376,7 +376,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check_eq_i32 11 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "pipe ringbuffer peek failed"
+            set checks checks_push checks Result::Err "pipe ringbuffer peek failed"
     free<i32> rb2;
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -418,7 +418,7 @@ fn main %impure fn () i32 \():
         Option::Some v:
             set checks checks_push checks check_eq_i32 3 v
         Option::None:
-            set checks checks_push checks Result<(),str>::Err "pipe queue peek failed"
+            set checks checks_push checks Result::Err "pipe queue peek failed"
     free<i32> q2;
     let shown checks_print_report checks;
     checks_exit_code shown

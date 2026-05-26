@@ -25,7 +25,7 @@ fn main %impure fn () i32 \():
         Result::Ok s:
             set checks checks_push checks check_str_eq "__expected_missing_file_error__" s
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Ok ();
+            set checks checks_push checks Result::Ok ();
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -83,15 +83,15 @@ fn main %impure fn () i32 \():
     let mut checks checks_new;
     match fs_write_to_string path "first-longer":
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "first write failed"
+            set checks checks_push checks Result::Err "first write failed"
         Result::Ok _:
             match fs_write_to_string path "second":
                 Result::Err _e:
-                    set checks checks_push checks Result<(),str>::Err "second write failed"
+                    set checks checks_push checks Result::Err "second write failed"
                 Result::Ok _:
                     match fs_read_to_string path:
                         Result::Err _e:
-                            set checks checks_push checks Result<(),str>::Err "read after write failed"
+                            set checks checks_push checks Result::Err "read after write failed"
                         Result::Ok text:
                             set checks checks_push checks check_str_eq "second" text;
     let shown checks_print_report checks;
@@ -128,32 +128,32 @@ fn main %impure fn () i32 \():
     let mut checks checks_new;
     match io_bytebuf_from_str_result "A\x00B":
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "alloc failed"
+            set checks checks_push checks Result::Err "alloc failed"
         Result::Ok data:
             match fs_write_to_bytes path data:
                 Result::Err _e:
-                    set checks checks_push checks Result<(),str>::Err "binary write failed"
+                    set checks checks_push checks Result::Err "binary write failed"
                 Result::Ok _:
                     match fs_read_to_bytes path:
                         Result::Err _e:
-                            set checks checks_push checks Result<(),str>::Err "binary read failed"
+                            set checks checks_push checks Result::Err "binary read failed"
                         Result::Ok read_buf:
                             set checks checks_push checks check_eq_i32 3 io_bytebuf_len_ref &read_buf;
                             match io_bytebuf_byte_at &read_buf 0:
                                 Option::Some b0:
                                     set checks checks_push checks check_eq_i32 65 b0;
                                 Option::None:
-                                    set checks checks_push checks Result<(),str>::Err "missing byte 0";
+                                    set checks checks_push checks Result::Err "missing byte 0";
                             match io_bytebuf_byte_at &read_buf 1:
                                 Option::Some b1:
                                     set checks checks_push checks check_eq_i32 0 b1;
                                 Option::None:
-                                    set checks checks_push checks Result<(),str>::Err "missing byte 1";
+                                    set checks checks_push checks Result::Err "missing byte 1";
                             match io_bytebuf_byte_at &read_buf 2:
                                 Option::Some b2:
                                     set checks checks_push checks check_eq_i32 66 b2;
                                 Option::None:
-                                    set checks checks_push checks Result<(),str>::Err "missing byte 2";
+                                    set checks checks_push checks Result::Err "missing byte 2";
                             io_bytebuf_free read_buf;
     let shown checks_print_report checks;
     checks_exit_code shown
@@ -189,9 +189,9 @@ fn main %impure fn () i32 \():
     if:
         fs_exists "tests/fixtures/fs/__missing__.txt"
         then:
-            set checks checks_push checks Result<(),str>::Err "missing path unexpectedly exists"
+            set checks checks_push checks Result::Err "missing path unexpectedly exists"
         else:
-            set checks checks_push checks Result<(),str>::Ok ();
+            set checks checks_push checks Result::Ok ();
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -224,12 +224,12 @@ fn main %impure fn () i32 \():
         Result::Ok path:
             set checks checks_push checks check_str_eq "tests/fixtures/fs/read_sample.txt" path
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "normalizing internal parent failed";
+            set checks checks_push checks Result::Err "normalizing internal parent failed";
     match fs_normalize_relative "a/./b//c":
         Result::Ok path:
             set checks checks_push checks check_str_eq "a/b/c" path
         Result::Err _e:
-            set checks checks_push checks Result<(),str>::Err "normalizing dot and empty components failed";
+            set checks checks_push checks Result::Err "normalizing dot and empty components failed";
     match fs_normalize_relative "../outside":
         Result::Ok path:
             set checks checks_push checks check_str_eq "__expected_parent_escape_error__" path
