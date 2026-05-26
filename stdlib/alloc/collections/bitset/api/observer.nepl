@@ -58,6 +58,6 @@ pub fn contains %impure fn &BitSet impure fn i32 Result bool Diag \bs\idx:
                 Option::Some cur:
                     ok ne and cur mask 0
                 Option::None:
-                    diag_err<bool> bitset_index_diag
+                    diag_err bitset_index_diag
         else:
-            diag_err<bool> bitset_index_diag
+            diag_err bitset_index_diag

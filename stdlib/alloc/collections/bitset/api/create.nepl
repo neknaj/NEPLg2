@@ -37,7 +37,7 @@ pub fn new %impure fn i32 Result BitSet Diag \nbits:
     if:
         le nbits 0
         then:
-            diag_err<BitSet> bitset_invalid_len_diag
+            diag_err bitset_invalid_len_diag
         else:
             let nbytes %i32 bitset_byte_len nbits
             match bitset_alloc_bits nbytes 0:

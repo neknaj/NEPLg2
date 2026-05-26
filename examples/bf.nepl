@@ -98,7 +98,7 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
         Result::Ok jump_table:
             match stk::new<i32>:
                 Result::Err _:
-                    v::free<i32> jump_table;
+                    v::free jump_table;
                     err "out of memory"
                 Result::Ok stk0:
                     let mut stack_state %Result Stack i32 str ok stk0
@@ -122,8 +122,8 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                                 Result::Ok next_stack:
                                                     set stack_state ok next_stack
                                                 Result::Err e:
-                                                    let returned_stack %Stack i32 stk::stack_push_error_stack<i32> e
-                                                    stk::free<i32> returned_stack;
+                                                    let returned_stack %Stack i32 stk::stack_push_error_stack e
+                                                    stk::free returned_stack;
                                                     set error true;
                                                     set error_msg "out of memory";
                                                     set stack_state err "out of memory"
@@ -132,17 +132,17 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                                 eq ch 93 // ']'
                                                 then:
                                                     let popped %StackPop i32 stk::pop_top<i32> stk
-                                                    let start_opt %Option i32 stk::stack_pop_item<i32> &popped
-                                                    let next_stack %Stack i32 stk::stack_pop_stack<i32> popped
+                                                    let start_opt %Option i32 stk::stack_pop_item &popped
+                                                    let next_stack %Stack i32 stk::stack_pop_stack popped
                                                     match start_opt:
                                                         Option::Some start_pc:
-                                                            v::replace<i32> &jump_table start_pc pc;
-                                                            v::replace<i32> &jump_table pc start_pc;
+                                                            v::replace &jump_table start_pc pc;
+                                                            v::replace &jump_table pc start_pc;
                                                             set stack_state ok next_stack
                                                         Option::None:
                                                             set error true;
                                                             set error_msg "unmatched ']'";
-                                                            stk::free<i32> next_stack;
+                                                            stk::free next_stack;
                                                             set stack_state err "unmatched ']'"
                                                 else:
                                                     set stack_state ok stk
@@ -157,26 +157,26 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                         then:
                             match stack_state:
                                 Result::Ok stk:
-                                    stk::free<i32> stk
+                                    stk::free stk
                                 Result::Err msg:
                                     string_access::len msg;
                                     unit
-                            v::free<i32> jump_table;
+                            v::free jump_table;
                             err error_msg
                         else:
                             match stack_state:
                                 Result::Ok stk:
-                                    let empty %bool stk::is_empty<i32> &stk
-                                    stk::free<i32> stk;
+                                    let empty %bool stk::is_empty &stk
+                                    stk::free stk;
                                     if:
                                         not empty
                                         then:
-                                            v::free<i32> jump_table;
+                                            v::free jump_table;
                                             err "unmatched '['"
                                         else:
                                             ok jump_table
                                 Result::Err msg:
-                                    v::free<i32> jump_table;
+                                    v::free jump_table;
                                     err msg
 
 //: current_cell: テープの現在セルを読む
@@ -232,12 +232,12 @@ fn eval_line %impure fn i32 impure fn str unit \tape_len\code:
 
                             if:
                                 eq cmd 43 // '+'
-                                then: v::replace<i32> &tape ptr_idx cell_inc cell
+                                then: v::replace &tape ptr_idx cell_inc cell
                                 else: unit
 
                             if:
                                 eq cmd 45 // '-'
-                                then: v::replace<i32> &tape ptr_idx cell_dec cell
+                                then: v::replace &tape ptr_idx cell_dec cell
                                 else: unit
 
                             if:
@@ -267,7 +267,7 @@ fn eval_line %impure fn i32 impure fn str unit \tape_len\code:
 
                             if:
                                 eq cmd 44 // ','
-                                then: v::replace<i32> &tape ptr_idx 0
+                                then: v::replace &tape ptr_idx 0
                                 else: unit
 
                             if:
@@ -297,9 +297,9 @@ fn eval_line %impure fn i32 impure fn str unit \tape_len\code:
                             set pc add pc 1;
 
                     print "\n";
-                    v::free<i32> jump_table
+                    v::free jump_table
 
-            v::free<i32> tape
+            v::free tape
 
 //: main: Brainfuck REPL のエントリーポイント
 //:

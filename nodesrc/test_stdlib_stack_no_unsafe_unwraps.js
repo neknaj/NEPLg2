@@ -70,8 +70,8 @@ for (const testPath of [
     assert.doesNotMatch(testSrc, /\bs[0-9]?\s+\|>\s+(?:len|is_empty|peek|get)(?:<i32>)?\b/, `${testPath} must not pipe Stack owners into observers`);
     assert.match(testSrc, /\b(?:len|peek|get)(?:<i32>)?\s+&s[0-9]?\b/, `${testPath} must exercise borrowed Stack observers through primary names`);
     assert.doesNotMatch(testSrc, /field::get(?:_ref)?\s+&?p[0-9]?\s+"(?:item|stack)"/, `${testPath} must not project StackPop fields directly`);
-    assert.match(testSrc, /\bstack_pop_item<i32>\s+&p[0-9]?\b/, `${testPath} must exercise StackPop item accessor`);
-    assert.match(testSrc, /\bstack_pop_stack<i32>\s+p[0-9]?\b/, `${testPath} must exercise StackPop stack accessor`);
+    assert.match(testSrc, /\bstack_pop_item\s+&p[0-9]?\b/, `${testPath} must exercise StackPop item accessor`);
+    assert.match(testSrc, /\bstack_pop_stack\s+p[0-9]?\b/, `${testPath} must exercise StackPop stack accessor`);
     assert.doesNotMatch(testSrc, /unwrap_ok<Stack<i32>,\s*Diag>\s+push<i32>|\|>\s+unwrap_ok<Stack<i32>,\s*Diag>/, `${testPath} must unwrap Stack push with StackPushError, while Stack new keeps Diag`);
 }
 
@@ -83,8 +83,8 @@ for (const rel of [
     const exampleSrc = fs.readFileSync(path.join(repoRoot, rel), 'utf8');
     assert.doesNotMatch(exampleSrc, /\bstk::(?:len_ref|is_empty_ref|peek_ref|get_ref)\b/, `${rel} must use primary borrowed Stack observer names`);
     assert.doesNotMatch(exampleSrc, /field::get(?:_ref)?\s+&?popped(?:_[ab])?\s+"(?:item|stack)"/, `${rel} must not project StackPop fields directly`);
-    assert.match(exampleSrc, /\bstk::stack_pop_item<i32>\s+&popped(?:_[ab])?\b/, `${rel} must use StackPop item accessor`);
-    assert.match(exampleSrc, /\bstk::stack_pop_stack<i32>\s+popped(?:_[ab])?\b/, `${rel} must use StackPop stack accessor`);
+    assert.match(exampleSrc, /\bstk::stack_pop_item\s+&popped(?:_[ab])?\b/, `${rel} must use StackPop item accessor`);
+    assert.match(exampleSrc, /\bstk::stack_pop_stack\s+popped(?:_[ab])?\b/, `${rel} must use StackPop stack accessor`);
 }
 
 const pipeCollections = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/pipe_collections.n.md'), 'utf8');

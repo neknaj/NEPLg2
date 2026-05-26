@@ -721,6 +721,18 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は完走したが、NEPLg2.1 unit / constructor cleanup に未追従の residual policy warning が 29 件残ったため、`ISS-20260526T073859722Z-NEPLG2-1-SOURCE-POLICY-UNIT-AND-CONS-F81D1534` として分離した。
 - `node nodesrc/neplg21_syntax_migrate.js --check` は pass。
 
+### 2026-05-26 diag_err / Stack accessor postfix checkpoint
+
+- `diag_err<T>` の撤廃を 5 worker の非重複 write scope に分割し、`stdlib/kp`、collection storage、Fenwick/BitSet/DisjointSet/AdjacencyMatrix、SparseSet/SegmentTree/BloomFilter/CountingBloomFilter、Deque/BinaryHeap/Stack/Queue/RingBuffer/List を並列移行した。
+- 合計 76 件の `diag_err<...>` を `diag_err` へ移行した。対象は関数戻り値または `%Result ... Diag` local/block から `T` が確定する箇所に限定し、`new<T>` / `push<T>` / `unwrap_ok<T,E>` などの producer 系 generic postfix はこの checkpoint では残した。
+- `examples/rpn.nepl` / `examples/rpn_legacy.nepl` / `examples/bf.nepl` と Stack API doctest / stack collection fixture では、`Stack i32` / `Vec i32` の引数型やlocal annotationから確定する accessor/observer/free だけを postfix-free へ移行した。
+- source policy は旧 `diag_err<Vec<i32>>` / `stack_pop_item<i32>` / `stack_pop_stack<i32>` を期待していた2検査を NEPLg2.1 postfix-free 期待へ更新した。owner recovery、borrowed observer、cleanup 境界の assertion は弱めていない。
+- `rg -n "\bdiag_err<" stdlib tests examples -g "*.nepl" -g "*.n.md"` は 0 件になった。
+- `rg -n "stk::(stack_push_error_stack|stack_pop_item|stack_pop_stack|len|get|free|is_empty)<|v::(free|replace)<i32>|stack_(pop_item|pop_stack)<i32>"` 対象 files は 0 件になった。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl --no-tree -o tmp/neplg21-examples-stack-accessor-postfix.json -j 1 --dist web/dist --assert-io` は 5 件すべて compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/neplg21-stack-accessor-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 6/18 件完了、6 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

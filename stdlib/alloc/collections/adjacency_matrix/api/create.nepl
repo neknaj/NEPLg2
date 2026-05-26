@@ -42,7 +42,7 @@ pub fn new %impure fn i32 Result AdjacencyMatrix Diag \nverts:
     if:
         le nverts 0
         then:
-            diag_err<AdjacencyMatrix> adjacency_matrix_invalid_len_diag
+            diag_err adjacency_matrix_invalid_len_diag
         else:
             let nbytes %i32 adjacency_matrix_byte_len nverts
             match adjacency_matrix_alloc_bits nbytes 0:

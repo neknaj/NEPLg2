@@ -61,7 +61,7 @@ pub fn btreeset_free_storage <.T: Copy> %fn BTreeSetStorage .T unit \storage:
 pub fn btreeset_alloc_storage <.T: Copy> %impure fn i32 Result BTreeSetStorage .T Diag \cap:
     match vec::filled<Option<.T>> cap none:
         Result::Err _e:
-            diag_err<BTreeSetStorage<.T>> diag_out_of_memory
+            diag_err diag_out_of_memory
         Result::Ok keys:
             ok BTreeSetStorage<.T> keys
 

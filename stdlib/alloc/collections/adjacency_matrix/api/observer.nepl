@@ -59,6 +59,6 @@ pub fn contains %impure fn &AdjacencyMatrix impure fn i32 impure fn i32 Result b
                 Option::Some cur:
                     ok ne and cur mask 0
                 Option::None:
-                    diag_err<bool> adjacency_matrix_vertex_diag
+                    diag_err adjacency_matrix_vertex_diag
         else:
-            diag_err<bool> adjacency_matrix_vertex_diag
+            diag_err adjacency_matrix_vertex_diag

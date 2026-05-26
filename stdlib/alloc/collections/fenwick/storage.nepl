@@ -22,7 +22,7 @@ pub fn fenwick_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit 
 pub fn fenwick_alloc_bit %impure fn i32 Result Vec i32 Diag \bit_len:
     match vec::filled<i32> bit_len 0:
         Result::Err _e:
-            diag_err<Vec<i32>> diag_out_of_memory
+            diag_err diag_out_of_memory
         Result::Ok bit:
             ok bit
 

@@ -43,7 +43,7 @@ pub fn new %impure fn i32 Result Fenwick Diag \n:
     if:
         lt n 0
         then:
-            diag_err<Fenwick> fenwick_diag_len
+            diag_err fenwick_diag_len
         else:
             let bit_len %i32 add n 1
             match fenwick_alloc_bit bit_len:

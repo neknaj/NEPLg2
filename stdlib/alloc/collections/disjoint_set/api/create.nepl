@@ -39,16 +39,16 @@
 pub fn new %impure fn i32 Result DisjointSet Diag \n:
     if:
         lt n 0
-        then diag_err<DisjointSet> dsu_diag_len
+        then diag_err dsu_diag_len
         else:
             match vec::filled<i32> n 0:
                 Result::Err _e:
-                    diag_err<DisjointSet> diag_out_of_memory
+                    diag_err diag_out_of_memory
                 Result::Ok parent:
                     match vec::filled<i32> n 1:
                         Result::Err _e:
                             vec::free<i32> parent
-                            diag_err<DisjointSet> diag_out_of_memory
+                            diag_err diag_out_of_memory
                         Result::Ok sizes:
                             let mut i %i32 0
                             while lt i n:

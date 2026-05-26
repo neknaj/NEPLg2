@@ -117,11 +117,11 @@ pub fn hashset_free_storage <.T: Copy> %fn HashSetStorage .T unit \storage:
 pub fn hashset_alloc_storage <.T: Copy> %impure fn i32 Result HashSetStorage .T Diag \cap:
     match vec::filled<HashSetBucketState> cap HashSetBucketState::Empty:
         Result::Err _e:
-            diag_err<HashSetStorage<.T>> diag_out_of_memory
+            diag_err diag_out_of_memory
         Result::Ok states:
             match vec::filled<Option<.T>> cap none:
                 Result::Err _e:
                     vec::free<HashSetBucketState> states
-                    diag_err<HashSetStorage<.T>> diag_out_of_memory
+                    diag_err diag_out_of_memory
                 Result::Ok keys:
                     ok HashSetStorage<.T> states keys

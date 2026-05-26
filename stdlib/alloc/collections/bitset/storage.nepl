@@ -40,4 +40,4 @@ pub fn bitset_alloc_bits %impure fn i32 impure fn i32 Result Vec u8 Diag \nbytes
         Result::Ok bits:
             ok bits
         Result::Err _e:
-            diag_err<Vec<u8>> diag_out_of_memory
+            diag_err diag_out_of_memory

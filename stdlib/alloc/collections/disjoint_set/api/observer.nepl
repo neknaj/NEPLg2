@@ -61,7 +61,7 @@ pub fn find %impure fn &DisjointSet impure fn i32 Result i32 Diag \dsu\idx:
                 Option::Some root:
                     ok root
                 Option::None:
-                    diag_err<i32> dsu_diag_index
+                    diag_err dsu_diag_index
         else:
             let d %Diag dsu_diag_index
             err d
@@ -103,9 +103,9 @@ pub fn same %impure fn &DisjointSet impure fn i32 impure fn i32 Result bool Diag
                         Option::Some rb:
                             ok eq ra rb
                         Option::None:
-                            diag_err<bool> dsu_diag_index
+                            diag_err dsu_diag_index
                 Option::None:
-                    diag_err<bool> dsu_diag_index
+                    diag_err dsu_diag_index
         else:
             let d %Diag dsu_diag_index
             err d
@@ -144,9 +144,9 @@ pub fn size %impure fn &DisjointSet impure fn i32 Result i32 Diag \dsu\idx:
                         Option::Some out:
                             ok out
                         Option::None:
-                            diag_err<i32> dsu_diag_index
+                            diag_err dsu_diag_index
                 Option::None:
-                    diag_err<i32> dsu_diag_index
+                    diag_err dsu_diag_index
         else:
             let d %Diag dsu_diag_index
             err d

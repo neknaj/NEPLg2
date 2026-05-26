@@ -16,7 +16,7 @@
 //:
 //: [実装/じっそう]:
 //: - 入力行は space 区切りで走査し、token ごとに `str_slice_result` で取り出します。
-//: - 計算スタックは `Stack<i32>` を使い、`push` / `pop_top` の更新後 owner を受け取り直します。
+//: - 計算スタックは `Stack i32` を使い、`push` / `pop_top` の更新後 owner を受け取り直します。
 //: - 数値解析は `to_i32` に委譲し、文字列や stack の内部 layout は直接読みません。
 //:
 //: [注意/ちゅうい]:
@@ -83,8 +83,8 @@ fn push_or_report %impure fn Stack i32 impure fn i32 Result Stack i32 str \stack
         Result::Ok next_stack:
             ok next_stack
         Result::Err e:
-            let returned %Stack i32 stk::stack_push_error_stack<i32> e
-            stk::free<i32> returned;
+            let returned %Stack i32 stk::stack_push_error_stack e
+            stk::free returned;
             print_error "out of memory";
             err "out of memory"
 
@@ -95,19 +95,19 @@ fn push_or_report %impure fn Stack i32 impure fn i32 Result Stack i32 str \stack
 //: - stack が不足する場合はエラーを表示し、stack をそのまま返します。
 fn apply_op %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token:
     if:
-        lt stk::len<i32> &stack 2
+        lt stk::len &stack 2
         then:
             print_error "stack underflow";
             ok stack
         else:
             let popped_b %StackPop i32 stk::pop_top<i32> stack
-            let b_opt %Option i32 stk::stack_pop_item<i32> &popped_b
-            let stack_b %Stack i32 stk::stack_pop_stack<i32> popped_b
+            let b_opt %Option i32 stk::stack_pop_item &popped_b
+            let stack_b %Stack i32 stk::stack_pop_stack popped_b
             match b_opt:
                 Option::Some b:
                     let popped_a %StackPop i32 stk::pop_top<i32> stack_b
-                    let a_opt %Option i32 stk::stack_pop_item<i32> &popped_a
-                    let stack_a %Stack i32 stk::stack_pop_stack<i32> popped_a
+                    let a_opt %Option i32 stk::stack_pop_item &popped_a
+                    let stack_a %Stack i32 stk::stack_pop_stack popped_a
                     match a_opt:
                         Option::Some a:
                             let res %i32:
@@ -161,7 +161,7 @@ fn process_token_state %impure fn Result Stack i32 str impure fn str Result Stac
 fn token_error_state %impure fn Result Stack i32 str impure fn str Result Stack i32 str \state\msg:
     match state:
         Result::Ok stack:
-            stk::free<i32> stack;
+            stk::free stack;
             err msg
         Result::Err old_msg:
             err old_msg
@@ -170,7 +170,7 @@ fn token_error_state %impure fn Result Stack i32 str impure fn str Result Stack 
 //:
 //: [目的/もくてき]:
 //: - スペース区切りの RPN 式を評価し、結果または stack 個数エラーを表示します。
-//: - token 配列を作らず、処理中の `Stack<i32>` owner だけを明示的に受け渡します。
+//: - token 配列を作らず、処理中の `Stack i32` owner だけを明示的に受け渡します。
 fn eval_line %impure fn str unit \line:
     let trimmed %str string_slice::str_trim line;
     let n %i32 string_access::len trimmed;
@@ -208,27 +208,27 @@ fn eval_line %impure fn str unit \line:
 
             match stack_state:
                 Result::Ok stack:
-                    let sp %i32 stk::len<i32> &stack;
+                    let sp %i32 stk::len &stack;
                     if:
                         eq sp 1
                         then:
                             let popped %StackPop i32 stk::pop_top<i32> stack
-                            let val_opt %Option i32 stk::stack_pop_item<i32> &popped
-                            let next_stack %Stack i32 stk::stack_pop_stack<i32> popped
+                            let val_opt %Option i32 stk::stack_pop_item &popped
+                            let next_stack %Stack i32 stk::stack_pop_stack popped
                             match val_opt:
                                 Option::Some val:
                                     print_result val
                                 Option::None:
                                     unit
-                            stk::free<i32> next_stack
+                            stk::free next_stack
                         else:
                             if:
                                 eq sp 0
                                 then:
-                                    stk::free<i32> stack
+                                    stk::free stack
                                 else:
                                     print_error string_concat::concat3 "stack has " string_format::from_i32 sp " values";
-                                    stk::free<i32> stack
+                                    stk::free stack
                 Result::Err msg:
                     string_access::len msg;
                     unit

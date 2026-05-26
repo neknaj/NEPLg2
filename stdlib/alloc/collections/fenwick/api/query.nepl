@@ -54,7 +54,7 @@ pub fn sum_prefix %impure fn &Fenwick impure fn i32 Result i32 Diag \fw\r:
                 Option::Some acc:
                     ok acc
                 Option::None:
-                    diag_err<i32> fenwick_diag_index
+                    diag_err fenwick_diag_index
         else:
             let d %Diag fenwick_diag_index
             err d
@@ -95,9 +95,9 @@ pub fn sum_range %impure fn &Fenwick impure fn i32 impure fn i32 Result i32 Diag
                         Option::Some sl:
                             ok sub sr sl
                         Option::None:
-                            diag_err<i32> fenwick_diag_range
+                            diag_err fenwick_diag_range
                 Option::None:
-                    diag_err<i32> fenwick_diag_range
+                    diag_err fenwick_diag_range
         else:
             let d %Diag fenwick_diag_range
             err d

@@ -1,3 +1,19 @@
+# 2026-05-26 Agent 1 diag_err / Stack accessor postfix checkpoint
+
+- Zenn 方針を再確認し、`diag_err<T>` の後置genericを 5 worker の非重複 write scope へ分割して並列移行した。
+- `stdlib/kp`、collection storage、Fenwick/BitSet/DisjointSet/AdjacencyMatrix、SparseSet/SegmentTree/BloomFilter/CountingBloomFilter、Deque/BinaryHeap/Stack/Queue/RingBuffer/List の合計 76 件を `diag_err` へ移行した。対象は関数戻り値または `%Result ... Diag` local/block から `T` が確定する箇所だけに限定し、`new<T>` / `push<T>` / `unwrap_ok<T,E>` などの producer 系は触っていない。
+- 親 agent 側では `examples/rpn.nepl` / `examples/rpn_legacy.nepl` / `examples/bf.nepl` と Stack API doctest / stack collection fixture の `stack_pop_item<T>` / `stack_pop_stack<T>` / `len<T>` / `get<T>` / `free<T>` / `is_empty<T>` / `v::replace<T>` / `v::free<T>` のうち、引数型やlocal annotationから型が確定する箇所を移行した。
+- source policy は旧後置genericを期待していた `kpgraph` / `stack` の2検査を、NEPLg2.1 の postfix-free 期待へ更新した。検査対象の構造保証は弱めていない。
+- 検証:
+  - `rg -n "\\bdiag_err<" stdlib tests examples -g "*.nepl" -g "*.n.md"`: 0 件。
+  - `rg -n "stk::(stack_push_error_stack|stack_pop_item|stack_pop_stack|len|get|free|is_empty)<|v::(free|replace)<i32>|stack_(pop_item|pop_stack)<i32>"` 対象 files: 0 件。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: `would update 0 file(s)`。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。LF/CRLF warning のみ。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass。
+  - `node nodesrc/tests.js -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl --no-tree -o tmp/neplg21-examples-stack-accessor-postfix.json -j 1 --dist web/dist --assert-io`: 5 件すべて compile timeout after 60000ms。型診断は出ていない。
+  - `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md --no-tree -o tmp/neplg21-stack-accessor-postfix.json -j 1 --dist web/dist --assert-io`: 外側 timeout。partial JSON は 6/18 件完了、6 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 final source Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、実コード側に残っていた typed `Result<...>::Ok` / `Result<...>::Err` を、5 worker の非重複 write scope へ分割して並列移行した。

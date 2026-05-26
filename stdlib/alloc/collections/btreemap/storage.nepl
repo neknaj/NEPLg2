@@ -100,12 +100,12 @@ pub fn btreemap_free_storage <.K: Copy,.V: Copy> %fn BTreeMapStorage .K .V unit 
 pub fn btreemap_alloc_storage <.K: Copy,.V: Copy> %impure fn i32 Result BTreeMapStorage .K .V Diag \cap:
     match vec::filled<Option<.K>> cap none:
         Result::Err _e:
-            diag_err<BTreeMapStorage<.K,.V>> diag_out_of_memory
+            diag_err diag_out_of_memory
         Result::Ok keys:
             match vec::filled<Option<.V>> cap none:
                 Result::Err _e:
                     vec::free<Option<.K>> keys
-                    diag_err<BTreeMapStorage<.K,.V>> diag_out_of_memory
+                    diag_err diag_out_of_memory
                 Result::Ok values:
                     ok BTreeMapStorage<.K,.V> keys values
 

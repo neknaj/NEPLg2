@@ -40,7 +40,7 @@ pub fn adjacency_matrix_update %impure fn AdjacencyMatrix impure fn i32 impure f
                     then:
                         ok unit
                     else:
-                        diag_err<unit> adjacency_matrix_vertex_diag
+                        diag_err adjacency_matrix_vertex_diag
             match result:
                 Result::Ok _unit:
                     ok g

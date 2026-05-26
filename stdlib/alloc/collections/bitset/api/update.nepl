@@ -39,7 +39,7 @@ pub fn bitset_update %impure fn BitSet impure fn i32 impure fn bool Result BitSe
                     then:
                         ok unit
                     else:
-                        diag_err<unit> bitset_index_diag
+                        diag_err bitset_index_diag
             match result:
                 Result::Ok _unit:
                     ok bs

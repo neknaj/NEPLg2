@@ -66,7 +66,7 @@ pub fn add %impure fn Fenwick impure fn i32 impure fn i32 Result Fenwick Fenwick
                     then:
                         ok unit
                     else:
-                        diag_err<unit> fenwick_diag_index
+                        diag_err fenwick_diag_index
             match result:
                 Result::Ok _unit:
                     fenwick_add_ok fw

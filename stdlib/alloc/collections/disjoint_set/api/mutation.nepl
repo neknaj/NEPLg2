@@ -74,17 +74,17 @@ pub fn union %impure fn DisjointSet impure fn i32 impure fn i32 Result DisjointS
                                                                         dsu_store_owned sizes root_keep add sk sd
                                                                         ok unit
                                                                     Option::None:
-                                                                        diag_err<unit> dsu_diag_index
+                                                                        diag_err dsu_diag_index
                                                             Option::None:
-                                                                diag_err<unit> dsu_diag_index
+                                                                diag_err dsu_diag_index
                                                     Option::None:
-                                                        diag_err<unit> dsu_diag_index
+                                                        diag_err dsu_diag_index
                                             Option::None:
-                                                diag_err<unit> dsu_diag_index
+                                                diag_err dsu_diag_index
                             Option::None:
-                                diag_err<unit> dsu_diag_index
+                                diag_err dsu_diag_index
                     Option::None:
-                        diag_err<unit> dsu_diag_index
+                        diag_err dsu_diag_index
             match result:
                 Result::Ok _unit:
                     ok dsu
