@@ -1,3 +1,13 @@
+# 2026-05-26 Agent 1 sparse_set helper postfix cleanup checkpoint
+
+- 非 generic collection helper の小 checkpoint として `stdlib/tests/sparse_set.n.md` / `tests/stdlib/sparse_set_collections.n.md` を対象にした。
+- 代入先 `%SparseSet` または `new` / `contains` の戻り値から型が確定する `unwrap_ok<SparseSet, Diag>` / `unwrap_ok<bool, Diag>` を `unwrap_ok` へ移行した。
+- `r0 %Result bool Diag` から型が確定する `is_err<bool, Diag> r0` を `is_err r0` へ移行した。
+- `SparseSet` の `new` / `insert` / `remove` は型引数を持たないため、nested producer generic 推論問題には踏み込んでいない。
+- 検証:
+  - `rg -n "unwrap_ok<SparseSet|unwrap_ok<bool|is_err<|is_ok<" stdlib/tests/sparse_set.n.md tests/stdlib/sparse_set_collections.n.md`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/tests/sparse_set.n.md -i tests/stdlib/sparse_set_collections.n.md --no-tree -o tmp/neplg21-sparse-set-helper-postfix.json -j 1 --dist web/dist --assert-io`: 180s local command timeout。partial JSON では `stdlib/tests/sparse_set.n.md` doctest#1-#2 と `tests/stdlib/sparse_set_collections.n.md` doctest#1 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+
 # 2026-05-26 Agent 1 adjacency_matrix helper postfix cleanup checkpoint
 
 - 非 generic collection helper の小 checkpoint として `stdlib/tests/adjacency_matrix.n.md` / `tests/stdlib/adjacency_matrix_collections.n.md` を対象にした。

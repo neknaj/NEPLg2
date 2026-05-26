@@ -31,13 +31,13 @@ stdout: "test_report name=\"sparse_set_pipe_usage\" count=5 failed=0\nassertion 
 
 fn main %impure fn () i32 \():
     let s0 %SparseSet:
-        unwrap_ok<SparseSet, Diag> new 12
+        unwrap_ok new 12
         |> insert 1 |> uwok
         |> insert 5 |> uwok
         |> insert 9 |> uwok
         |> remove 5 |> uwok
-    let ok0 %bool unwrap_ok<bool, Diag> contains &s0 9;
-    let ok1 %bool not unwrap_ok<bool, Diag> contains &s0 5;
+    let ok0 %bool unwrap_ok contains &s0 9;
+    let ok1 %bool not unwrap_ok contains &s0 5;
     let size %i32 len &s0;
     let universe %i32 universe_len &s0;
     let s1 %SparseSet clear s0;
@@ -81,7 +81,7 @@ stdout: "test_report name=\"sparse_set_clear_free_reallocates\" count=1 failed=0
 
 fn main %impure fn () i32 \():
     let s_free %SparseSet:
-        unwrap_ok<SparseSet, Diag> new 12
+        unwrap_ok new 12
         |> insert 1 |> uwok
         |> insert 5 |> uwok
         |> insert 9 |> uwok
@@ -89,9 +89,9 @@ fn main %impure fn () i32 \():
         |> clear
     free s_free
     let s0 %SparseSet:
-        unwrap_ok<SparseSet, Diag> new 12
+        unwrap_ok new 12
         |> insert 7 |> uwok
-    let ok0 %bool unwrap_ok<bool, Diag> contains &s0 7;
+    let ok0 %bool unwrap_ok contains &s0 7;
     free s0
     let report:
         test_report_new "sparse_set_clear_free_reallocates"
@@ -146,7 +146,7 @@ fn main %impure fn () i32 \():
                 Result::Err _e:
                     true
     let free_ok %bool block:
-        let empty %SparseSet unwrap_ok<SparseSet, Diag> new 0
+        let empty %SparseSet unwrap_ok new 0
         free empty
         true
     let realloc_ok %bool match new 2:

@@ -18,13 +18,13 @@ stdout: "test_report name=\"sparse_set_insert_remove_and_membership\" count=4 fa
 
 fn main %impure fn () i32 \():
     let s %SparseSet:
-        unwrap_ok<SparseSet, Diag> new 10
+        unwrap_ok new 10
         |> insert 2 |> uwok
         |> insert 4 |> uwok
         |> insert 7 |> uwok
         |> remove 4 |> uwok
-    let ok0 %bool unwrap_ok<bool, Diag> contains &s 2;
-    let ok1 %bool not unwrap_ok<bool, Diag> contains &s 4;
+    let ok0 %bool unwrap_ok contains &s 2;
+    let ok1 %bool not unwrap_ok contains &s 4;
     let size %i32 len &s;
     let universe %i32 universe_len &s;
     free s
@@ -55,9 +55,9 @@ stdout: "test_report name=\"sparse_set_invalid_index\" count=3 failed=0\nasserti
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let s0 %SparseSet unwrap_ok<SparseSet, Diag> new 6;
+    let s0 %SparseSet unwrap_ok new 6;
     let r0 %Result bool Diag contains &s0 8;
-    let s1 %SparseSet unwrap_ok<SparseSet, Diag> new 6;
+    let s1 %SparseSet unwrap_ok new 6;
     let ok1 %bool match insert s1 8:
         Result::Ok bad:
             free bad
@@ -67,7 +67,7 @@ fn main %impure fn () i32 \():
             let recovered %SparseSet sparse_set_update_error_owner e
             free recovered
             true
-    let s2 %SparseSet unwrap_ok<SparseSet, Diag> new 6;
+    let s2 %SparseSet unwrap_ok new 6;
     let ok2 %bool match remove s2 8:
         Result::Ok bad:
             free bad
@@ -77,7 +77,7 @@ fn main %impure fn () i32 \():
             let recovered %SparseSet sparse_set_update_error_owner e
             free recovered
             true
-    let ok0 %bool is_err<bool, Diag> r0;
+    let ok0 %bool is_err r0;
     free s0
     let report:
         test_report_new "sparse_set_invalid_index"
