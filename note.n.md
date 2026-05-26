@@ -1,3 +1,19 @@
+# 2026-05-26 Agent 1 trait proof/type arena Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、静的な型根拠で解決できる selfhost trait/type arena fixture の constructor だけを小さく移行した。
+- `tests/stdlib/neplg2_trait_proof.n.md` で、helper 戻り値 `Result unit str` と match branch expected type から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 43 件を `Result::Ok` / `Result::Err` へ移行した。
+- `tests/stdlib/neplg2_type_arena.n.md` で、`checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Err` 30 件を `Result::Err` へ移行した。
+- subagent の独立レビューでも、対象 2 files に残すべき `Result<unit,str>::Ok` / `Result<unit,str>::Err` はなく、source string fixture や doc comment だけの旧構文もないと確認した。
+- `Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err` など `Result unit str` ではない constructor は、この checkpoint では対象外として保持した。
+- 検証:
+  - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_trait_proof.n.md tests/stdlib/neplg2_type_arena.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_trait_proof.n.md -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg21-trait-type-arena-result-constructors.json -j 1 --dist web/dist --assert-io`: 244s local command timeout。partial JSON では 4/6 件が compile timeout after 60000ms、型診断は出ていない。
+  - timeout 後に残留していた `node.exe` process は停止した。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 type proof Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、静的な型根拠で解決できる selfhost type proof fixture の constructor だけを小さく移行した。

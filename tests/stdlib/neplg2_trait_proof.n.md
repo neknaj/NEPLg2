@@ -25,28 +25,28 @@ stdout: mlstr:
 fn check_relation_different_trait %fn SelfhostTraitImplRelation Result unit str \relation:
     match relation:
         SelfhostTraitImplRelation::DifferentTrait:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostTraitImplRelation::InvalidCandidate:
-            Result<unit,str>::Err "expected different trait relation"
+            Result::Err "expected different trait relation"
         SelfhostTraitImplRelation::InvalidExisting:
-            Result<unit,str>::Err "expected different trait relation"
+            Result::Err "expected different trait relation"
         SelfhostTraitImplRelation::SameTraitDifferentSelfType:
-            Result<unit,str>::Err "expected different trait relation"
+            Result::Err "expected different trait relation"
         SelfhostTraitImplRelation::SameTraitSameSelfType:
-            Result<unit,str>::Err "expected different trait relation"
+            Result::Err "expected different trait relation"
 
 fn check_relation_same_trait_different_self %fn SelfhostTraitImplRelation Result unit str \relation:
     match relation:
         SelfhostTraitImplRelation::SameTraitDifferentSelfType:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostTraitImplRelation::InvalidCandidate:
-            Result<unit,str>::Err "expected same trait different self type relation"
+            Result::Err "expected same trait different self type relation"
         SelfhostTraitImplRelation::InvalidExisting:
-            Result<unit,str>::Err "expected same trait different self type relation"
+            Result::Err "expected same trait different self type relation"
         SelfhostTraitImplRelation::DifferentTrait:
-            Result<unit,str>::Err "expected same trait different self type relation"
+            Result::Err "expected same trait different self type relation"
         SelfhostTraitImplRelation::SameTraitSameSelfType:
-            Result<unit,str>::Err "expected same trait different self type relation"
+            Result::Err "expected same trait different self type relation"
 
 fn check_non_overlap_relation %fn Result SelfhostTraitImplRelation SelfhostProofRefutation fn SelfhostTraitImplRelation Result unit str \result\expected:
     match result:
@@ -57,91 +57,91 @@ fn check_non_overlap_relation %fn Result SelfhostTraitImplRelation SelfhostProof
                 SelfhostTraitImplRelation::SameTraitDifferentSelfType:
                     check_relation_same_trait_different_self relation
                 SelfhostTraitImplRelation::InvalidCandidate:
-                    Result<unit,str>::Err "invalid candidate should not prove non-overlap"
+                    Result::Err "invalid candidate should not prove non-overlap"
                 SelfhostTraitImplRelation::InvalidExisting:
-                    Result<unit,str>::Err "invalid existing should not prove non-overlap"
+                    Result::Err "invalid existing should not prove non-overlap"
                 SelfhostTraitImplRelation::SameTraitSameSelfType:
-                    Result<unit,str>::Err "duplicate impl should not prove non-overlap"
+                    Result::Err "duplicate impl should not prove non-overlap"
         Result::Err _refutation:
-            Result<unit,str>::Err "expected trait impl non-overlap proof"
+            Result::Err "expected trait impl non-overlap proof"
 
 fn check_duplicate_issue %fn SelfhostTraitImplCoherenceIssue Result unit str \issue:
     match issue.reason:
         SelfhostTraitImplCoherenceError::DuplicateImpl:
             match issue.relation:
                 SelfhostTraitImplRelation::SameTraitSameSelfType:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostTraitImplRelation::InvalidCandidate:
-                    Result<unit,str>::Err "duplicate impl should preserve same self relation"
+                    Result::Err "duplicate impl should preserve same self relation"
                 SelfhostTraitImplRelation::InvalidExisting:
-                    Result<unit,str>::Err "duplicate impl should preserve same self relation"
+                    Result::Err "duplicate impl should preserve same self relation"
                 SelfhostTraitImplRelation::DifferentTrait:
-                    Result<unit,str>::Err "duplicate impl should preserve same self relation"
+                    Result::Err "duplicate impl should preserve same self relation"
                 SelfhostTraitImplRelation::SameTraitDifferentSelfType:
-                    Result<unit,str>::Err "duplicate impl should preserve same self relation"
+                    Result::Err "duplicate impl should preserve same self relation"
         SelfhostTraitImplCoherenceError::InvalidCandidateKey:
-            Result<unit,str>::Err "expected duplicate impl reason"
+            Result::Err "expected duplicate impl reason"
         SelfhostTraitImplCoherenceError::InvalidExistingKey:
-            Result<unit,str>::Err "expected duplicate impl reason"
+            Result::Err "expected duplicate impl reason"
 
 fn check_invalid_candidate_issue %fn SelfhostTraitImplCoherenceIssue Result unit str \issue:
     match issue.reason:
         SelfhostTraitImplCoherenceError::InvalidCandidateKey:
             match issue.relation:
                 SelfhostTraitImplRelation::InvalidCandidate:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostTraitImplRelation::InvalidExisting:
-                    Result<unit,str>::Err "invalid candidate should preserve invalid relation"
+                    Result::Err "invalid candidate should preserve invalid relation"
                 SelfhostTraitImplRelation::DifferentTrait:
-                    Result<unit,str>::Err "invalid candidate should preserve invalid relation"
+                    Result::Err "invalid candidate should preserve invalid relation"
                 SelfhostTraitImplRelation::SameTraitDifferentSelfType:
-                    Result<unit,str>::Err "invalid candidate should preserve invalid relation"
+                    Result::Err "invalid candidate should preserve invalid relation"
                 SelfhostTraitImplRelation::SameTraitSameSelfType:
-                    Result<unit,str>::Err "invalid candidate should preserve invalid relation"
+                    Result::Err "invalid candidate should preserve invalid relation"
         SelfhostTraitImplCoherenceError::DuplicateImpl:
-            Result<unit,str>::Err "expected invalid candidate reason"
+            Result::Err "expected invalid candidate reason"
         SelfhostTraitImplCoherenceError::InvalidExistingKey:
-            Result<unit,str>::Err "expected invalid candidate reason"
+            Result::Err "expected invalid candidate reason"
 
 fn check_coherence_refutation %fn SelfhostProofRefutation fn fn SelfhostTraitImplCoherenceIssue Result unit str Result unit str \refutation\checker:
     match refutation:
         SelfhostProofRefutation::TraitImplCoherenceInvalid issue:
             checker issue
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::UnexpectedEvidence _issue:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::TypeKindMismatch _issue:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-            Result<unit,str>::Err "expected trait impl coherence refutation"
+            Result::Err "expected trait impl coherence refutation"
 
 fn check_coherence_error %fn Result SelfhostTraitImplRelation SelfhostProofRefutation fn fn SelfhostTraitImplCoherenceIssue Result unit str Result unit str \result\checker:
     match result:
         Result::Err refutation:
             check_coherence_refutation refutation checker
         Result::Ok _relation:
-            Result<unit,str>::Err "trait impl coherence error was accepted"
+            Result::Err "trait impl coherence error was accepted"
 
 fn run_with_types %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId i32 \arena\i32_id\bool_id:
     let span %SelfhostSourceSpan source_span_new 0 0 5

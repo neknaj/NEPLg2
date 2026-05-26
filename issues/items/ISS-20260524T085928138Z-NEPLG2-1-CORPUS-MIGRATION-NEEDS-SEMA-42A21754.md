@@ -518,6 +518,17 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_type_proof.n.md --no-tree -o tmp/neplg21-type-proof-result-constructors.json -j 1 --dist web/dist --assert-io` は 1 件 compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 trait proof/type arena Result constructor checkpoint
+
+- `tests/stdlib/neplg2_trait_proof.n.md` で、helper 戻り値 `Result unit str` と match branch expected type から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 43 件を `Result::Ok` / `Result::Err` へ移行した。
+- `tests/stdlib/neplg2_type_arena.n.md` で、`checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Err` 30 件を `Result::Err` へ移行した。
+- subagent の独立レビューでも、対象 2 files に残すべき `Result<unit,str>::Ok` / `Result<unit,str>::Err` はなく、source string fixture や doc comment だけの旧構文もないと確認した。
+- `Result<SelfhostTypeArenaAlloc, StdErrorKind>::Err` など `Result unit str` ではない constructor は、この checkpoint では対象外として保持した。
+- `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_trait_proof.n.md tests/stdlib/neplg2_type_arena.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_trait_proof.n.md -i tests/stdlib/neplg2_type_arena.n.md --no-tree -o tmp/neplg21-trait-type-arena-result-constructors.json -j 1 --dist web/dist --assert-io` は 244s local command timeout。partial JSON では 4/6 件が compile timeout after 60000ms、型診断は出ていない。
+- timeout 後に残留していた `node.exe` process は停止した。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
