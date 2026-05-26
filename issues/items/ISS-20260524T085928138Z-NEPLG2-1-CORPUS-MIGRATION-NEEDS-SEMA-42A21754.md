@@ -646,6 +646,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/std/stdio/read/buffer.nepl -i stdlib/std/stdio/read/text.nepl --no-tree -o tmp/neplg21-stdio-read-result-constructors.json -j 1 --dist web/dist --assert-io` は 5 件すべて compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 stdio write Result constructor checkpoint
+
+- subagent と並列で `stdlib/std/stdio/write/fd.nepl` を確認し、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 20 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string fixture や doc comment として保持すべき旧構文はなく、subagent の独立レビューでも残すべき箇所はないと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/std/stdio/write/fd.nepl` は 0 件になった。
+- `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/std/stdio/write/fd.nepl` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/std/stdio/write/fd.nepl --no-tree -o tmp/neplg21-stdio-write-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
