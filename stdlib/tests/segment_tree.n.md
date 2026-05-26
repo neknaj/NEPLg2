@@ -17,16 +17,16 @@ stdout: "test_report name=\"segment_tree_set_add_and_sum\" count=3 failed=0\nass
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let st0 %SegmentTree unwrap_ok<SegmentTree, Diag> new 6;
-    let st1 %SegmentTree unwrap_ok<SegmentTree, SegmentTreeUpdateError> replace st0 2 5;
-    let st2 %SegmentTree unwrap_ok<SegmentTree, SegmentTreeUpdateError> add st1 4 3;
-    let total0 %i32 unwrap_ok<i32, Diag> sum_range &st2 0 6;
+    let st0 %SegmentTree unwrap_ok new 6;
+    let st1 %SegmentTree unwrap_ok replace st0 2 5;
+    let st2 %SegmentTree unwrap_ok add st1 4 3;
+    let total0 %i32 unwrap_ok sum_range &st2 0 6;
     let st_len %i32 len &st2;
     free st2
-    let st3 %SegmentTree unwrap_ok<SegmentTree, Diag> new 6;
-    let st4 %SegmentTree unwrap_ok<SegmentTree, SegmentTreeUpdateError> replace st3 2 5;
-    let st5 %SegmentTree unwrap_ok<SegmentTree, SegmentTreeUpdateError> add st4 4 3;
-    let total1 %i32 unwrap_ok<i32, Diag> sum_range &st5 2 5;
+    let st3 %SegmentTree unwrap_ok new 6;
+    let st4 %SegmentTree unwrap_ok replace st3 2 5;
+    let st5 %SegmentTree unwrap_ok add st4 4 3;
+    let total1 %i32 unwrap_ok sum_range &st5 2 5;
     free st5
     let report:
         test_report_new "segment_tree_set_add_and_sum"
@@ -54,7 +54,7 @@ stdout: "test_report name=\"segment_tree_invalid_range\" count=2 failed=0\nasser
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let st0 %SegmentTree unwrap_ok<SegmentTree, Diag> new 4;
+    let st0 %SegmentTree unwrap_ok new 4;
     match replace st0 9 1:
         Result::Ok st_bad:
             free st_bad
@@ -63,9 +63,9 @@ fn main %impure fn () i32 \():
             let recovered %SegmentTree segment_tree_update_error_owner e0
             let recovered_len %i32 len &recovered
             free recovered
-            let st1 %SegmentTree unwrap_ok<SegmentTree, Diag> new 4;
+            let st1 %SegmentTree unwrap_ok new 4;
             let r1 %Result i32 Diag sum_range &st1 3 1;
-            let ok1 %bool is_err<i32, Diag> r1;
+            let ok1 %bool is_err r1;
             free st1
             let report:
                 test_report_new "segment_tree_invalid_range"

@@ -29,13 +29,13 @@ stdout: "test_report name=\"fenwick_pipe_usage\" count=3 failed=0\nassertion ind
 
 fn main %impure fn () i32 \():
     let fw %Fenwick:
-        unwrap_ok<Fenwick, Diag> fw::new 6
+        unwrap_ok fw::new 6
         |> fw::add 0 2 |> uwok
         |> fw::add 2 5 |> uwok
         |> fw::add 4 7 |> uwok
     let size %i32 fw::len &fw;
-    let prefix5 %i32 unwrap_ok<i32, Diag> fw::sum_prefix &fw 5;
-    let range_2_5 %i32 unwrap_ok<i32, Diag> fw::sum_range &fw 2 5;
+    let prefix5 %i32 unwrap_ok fw::sum_prefix &fw 5;
+    let range_2_5 %i32 unwrap_ok fw::sum_range &fw 2 5;
     fw::free fw
     let report:
         test_report_new "fenwick_pipe_usage"
@@ -72,11 +72,11 @@ stdout: "test_report name=\"fenwick_free_releases_owned_storage\" count=1 failed
 
 fn main %impure fn () i32 \():
     let fw0 %Fenwick:
-        unwrap_ok<Fenwick, Diag> fw::new 6
+        unwrap_ok fw::new 6
         |> fw::add 1 3 |> uwok
     fw::free fw0
     let fw1 %Fenwick:
-        unwrap_ok<Fenwick, Diag> fw::new 6
+        unwrap_ok fw::new 6
         |> fw::add 2 5 |> uwok
     fw::free fw1
     let report:
@@ -111,7 +111,7 @@ stdout: "test_report name=\"fenwick_add_error_returns_owner\" count=1 failed=0\n
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let fw %Fenwick unwrap_ok<Fenwick, Diag> fw::new 4;
+    let fw %Fenwick unwrap_ok fw::new 4;
     match fw::add fw 8 3:
         Result::Ok next:
             fw::free next

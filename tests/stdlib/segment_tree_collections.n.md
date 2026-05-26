@@ -29,11 +29,11 @@ stdout: "test_report name=\"segment_tree_pipe_usage\" count=2 failed=0\nassertio
 
 fn main %impure fn () i32 \():
     let st %SegmentTree:
-        unwrap_ok<SegmentTree, Diag> new 5
+        unwrap_ok new 5
         |> replace 0 2 |> uwok
         |> replace 2 4 |> uwok
         |> add 2 1 |> uwok
-    let total %i32 unwrap_ok<i32, Diag> sum_range &st 0 3;
+    let total %i32 unwrap_ok sum_range &st 0 3;
     let st_len %i32 len &st;
     free st
     let report:
@@ -72,18 +72,18 @@ stdout: "test_report name=\"segment_tree_update_free_reallocates\" count=1 faile
 
 fn main %impure fn () i32 \():
     let st_free %SegmentTree:
-        unwrap_ok<SegmentTree, Diag> new 5
+        unwrap_ok new 5
         |> replace 0 2 |> uwok
         |> replace 2 4 |> uwok
         |> add 2 1 |> uwok
     free st_free
-    let st_empty %SegmentTree unwrap_ok<SegmentTree, Diag> new 0;
+    let st_empty %SegmentTree unwrap_ok new 0;
     free st_empty
     let st0 %SegmentTree:
-        unwrap_ok<SegmentTree, Diag> new 5
+        unwrap_ok new 5
         |> replace 4 6 |> uwok
         |> add 4 1 |> uwok
-    let total %i32 unwrap_ok<i32, Diag> sum_range &st0 4 5;
+    let total %i32 unwrap_ok sum_range &st0 4 5;
     free st0
     let report:
         test_report_new "segment_tree_update_free_reallocates"
@@ -119,7 +119,7 @@ stdout: "test_report name=\"segment_tree_update_error_returns_owner\" count=2 fa
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let st %SegmentTree unwrap_ok<SegmentTree, Diag> new 4;
+    let st %SegmentTree unwrap_ok new 4;
     match replace st 8 1:
         Result::Ok next0:
             free next0

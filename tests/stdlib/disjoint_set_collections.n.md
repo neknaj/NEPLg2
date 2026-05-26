@@ -29,19 +29,19 @@ stdout: "test_report name=\"disjoint_set_pipe_usage\" count=3 failed=0\nassertio
 
 fn main %impure fn () i32 \():
     let dsu0 %DisjointSet:
-        unwrap_ok<DisjointSet, Diag> new 5
+        unwrap_ok new 5
         |> union 0 1 |> uwok
         |> union 3 4 |> uwok
         |> union 1 4 |> uwok
-    let ok0 %bool unwrap_ok<bool, Diag> same &dsu0 0 3;
+    let ok0 %bool unwrap_ok same &dsu0 0 3;
     let dsu_len %i32 len &dsu0;
     free dsu0
     let dsu1 %DisjointSet:
-        unwrap_ok<DisjointSet, Diag> new 5
+        unwrap_ok new 5
         |> union 0 1 |> uwok
         |> union 3 4 |> uwok
         |> union 1 4 |> uwok
-    let component_size %i32 unwrap_ok<i32, Diag> size &dsu1 4;
+    let component_size %i32 unwrap_ok size &dsu1 4;
     free dsu1
     let report:
         test_report_new "disjoint_set_pipe_usage"
@@ -78,15 +78,15 @@ stdout: "test_report name=\"disjoint_set_union_free_reallocates\" count=1 failed
 
 fn main %impure fn () i32 \():
     let dsu_free %DisjointSet:
-        unwrap_ok<DisjointSet, Diag> new 4
+        unwrap_ok new 4
         |> union 0 1 |> uwok
         |> union 2 3 |> uwok
         |> union 1 2 |> uwok
     free dsu_free
     let dsu0 %DisjointSet:
-        unwrap_ok<DisjointSet, Diag> new 4
+        unwrap_ok new 4
         |> union 0 3 |> uwok
-    let ok0 %bool unwrap_ok<bool, Diag> same &dsu0 0 3;
+    let ok0 %bool unwrap_ok same &dsu0 0 3;
     free dsu0
     let report:
         test_report_new "disjoint_set_union_free_reallocates"
@@ -141,7 +141,7 @@ fn main %impure fn () i32 \():
             free dsu
             ok
     let free_ok %bool block:
-        let empty %DisjointSet unwrap_ok<DisjointSet, Diag> new 0
+        let empty %DisjointSet unwrap_ok new 0
         free empty
         true
     let realloc_ok %bool match new 1:
@@ -191,7 +191,7 @@ stdout: "test_report name=\"disjoint_set_union_error_returns_owner\" count=1 fai
 #import "std/test" as *
 
 fn main %impure fn () i32 \():
-    let dsu %DisjointSet unwrap_ok<DisjointSet, Diag> new 4;
+    let dsu %DisjointSet unwrap_ok new 4;
     match union dsu 1 9:
         Result::Ok next:
             free next

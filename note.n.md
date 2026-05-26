@@ -1,3 +1,16 @@
+# 2026-05-26 Agent 1 Fenwick/DisjointSet/SegmentTree collection helper cleanup checkpoint
+
+- subagent の独立レビューに従い、producer generic を持たない `Fenwick` / `DisjointSet` / `SegmentTree` の collection doctest helper だけを対象にした。
+- `tests/stdlib/fenwick_collections.n.md` / `tests/stdlib/disjoint_set_collections.n.md` / `stdlib/tests/segment_tree.n.md` / `tests/stdlib/segment_tree_collections.n.md` で、代入先 `%Fenwick` / `%DisjointSet` / `%SegmentTree` / `%i32` / `%bool` または戻り値型から型が確定する `unwrap_ok<...>` を `unwrap_ok` へ移行した。
+- `r1 %Result i32 Diag` から型が確定する `is_err<i32, Diag> r1` を `is_err r1` へ移行した。
+- `new` / `replace` / `add` / `same` / `size` / `sum_range` は対象 collection では関数名側に型引数を持たないため、nested producer generic 推論問題には踏み込んでいない。
+- 検証:
+  - `rg -n "unwrap_ok<|is_err<|is_ok<|Result<[^>]+>::(Ok|Err)" tests/stdlib/fenwick_collections.n.md tests/stdlib/disjoint_set_collections.n.md stdlib/tests/segment_tree.n.md tests/stdlib/segment_tree_collections.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/fenwick_collections.n.md -i tests/stdlib/disjoint_set_collections.n.md -i stdlib/tests/segment_tree.n.md -i tests/stdlib/segment_tree_collections.n.md --no-tree -o tmp/neplg21-nongeneric-collection-helper-postfix.json -j 1 --dist web/dist --assert-io`: 250s local command timeout。partial JSON では `tests/stdlib/fenwick_collections.n.md` doctest#1-#4 が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+
 # 2026-05-26 Agent 1 stdio/streamio Result constructor cleanup checkpoint
 
 - `tests/stdlib/stdio_read_all.n.md` / `tests/stdlib/streamio.n.md` で、`checks_push` の expected type `Result () str` から型が確定する `Result<(),str>::Err` を `Result::Err` へ移行した。
