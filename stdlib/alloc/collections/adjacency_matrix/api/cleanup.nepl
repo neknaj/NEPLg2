@@ -16,8 +16,8 @@
 //: [内部/ないぶ] byte [配列/はいれつ]を[解放/かいほう]する
 //:
 //: ### [仕様/しよう]
-//: - `AdjacencyMatrix` は `new` が[確保/かくほ]した `nbytes > 0` の matrix byte `Vec<u8>` を[所有/しょゆう]します。
-//: - `free` はその owner invariant に[基/もと]づき、`Vec<u8>` owner を[閉/と]じます。
+//: - `AdjacencyMatrix` は `new` が[確保/かくほ]した `nbytes > 0` の matrix byte `Vec u8` を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、`Vec u8` owner を[閉/と]じます。
 //: - caller は `free` [後/ご]の `AdjacencyMatrix` を[再利用/さいりよう]してはいけません。
 //:
 //: neplg2:test
@@ -34,4 +34,4 @@
 //: ```
 pub fn free %fn AdjacencyMatrix unit \g:
     let bits %Vec u8 field::get g "bits"
-    vec::free<u8> bits
+    vec::free bits

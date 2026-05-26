@@ -16,7 +16,7 @@
 //: [内部/ないぶ] byte [配列/はいれつ]を[解放/かいほう]する
 //:
 //: ### [仕様/しよう]
-//: - `BitSet` は `new` が[確保/かくほ]した `Vec<u8>` bit storage を[所有/しょゆう]します。
+//: - `BitSet` は `new` が[確保/かくほ]した `Vec u8` bit storage を[所有/しょゆう]します。
 //: - `free` はその owner invariant に[基/もと]づき、`vec::free` で[解放/かいほう]します。
 //: - caller は `free` [後/ご]の `BitSet` を[再利用/さいりよう]してはいけません。
 //:
@@ -34,4 +34,4 @@
 //: ```
 pub fn free %fn BitSet unit \bs:
     let bits %Vec u8 field::get bs "bits"
-    vec::free<u8> bits
+    vec::free bits

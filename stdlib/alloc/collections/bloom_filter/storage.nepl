@@ -2,7 +2,7 @@
 //: `BloomFilter` の typed byte storage 操作
 //:
 //: ### [目的/もくてき]
-//: - `Vec<u8>` の byte 読み書き、全 byte 初期化、allocation、cleanup を集約します。
+//: - `Vec u8` の byte 読み書き、全 byte 初期化、allocation、cleanup を集約します。
 //: - public API が raw pointer や raw byte load/store を扱わない構成を保ちます。
 
 #indent 4
@@ -16,7 +16,7 @@
 #import "core/field" as *
 
 pub fn bloom_byte_at %fn &Vec u8 fn i32 Option i32 \bits\byte_idx:
-    match vec::get<u8> bits byte_idx:
+    match vec::get bits byte_idx:
         Option::Some byte:
             let value %i32 cast byte
             some value
@@ -25,7 +25,7 @@ pub fn bloom_byte_at %fn &Vec u8 fn i32 Option i32 \bits\byte_idx:
 
 pub fn bloom_store_byte %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bits\byte_idx\byte_value:
     let byte %u8 cast byte_value
-    vec::replace<u8> bits byte_idx byte
+    vec::replace bits byte_idx byte
 
 pub fn bloom_fill_bytes %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bits\nbytes\byte_value:
     let mut i %i32 0
@@ -36,11 +36,11 @@ pub fn bloom_fill_bytes %impure fn &Vec u8 impure fn i32 impure fn i32 unit \bit
 
 pub fn bloom_alloc_bits %impure fn i32 impure fn i32 Result Vec u8 Diag \nbytes\byte_value:
     let byte %u8 cast byte_value
-    match vec::filled<u8> nbytes byte:
+    match vec::filled nbytes byte:
         Result::Ok bits:
             ok bits
         Result::Err _e:
             diag_err diag_out_of_memory
 
 pub fn bloom_free_bits %fn Vec u8 unit \bits:
-    vec::free<u8> bits
+    vec::free bits

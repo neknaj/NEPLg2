@@ -2,7 +2,7 @@
 //: `CountingBloomFilter` の typed counter storage 操作
 //:
 //: ### [目的/もくてき]
-//: - `Vec<u8>` counter の読み書き、全 counter 初期化、allocation、cleanup を集約します。
+//: - `Vec u8` counter の読み書き、全 counter 初期化、allocation、cleanup を集約します。
 //: - public API が raw pointer や raw byte load/store を扱わない構成を保ちます。
 
 #indent 4
@@ -16,7 +16,7 @@
 #import "core/field" as *
 
 pub fn counting_bloom_counter_at %fn &Vec u8 fn i32 Option i32 \counters\idx:
-    match vec::get<u8> counters idx:
+    match vec::get counters idx:
         Option::Some counter:
             let value %i32 cast counter
             some value
@@ -25,7 +25,7 @@ pub fn counting_bloom_counter_at %fn &Vec u8 fn i32 Option i32 \counters\idx:
 
 pub fn counting_bloom_store_counter %impure fn &Vec u8 impure fn i32 impure fn i32 unit \counters\idx\value:
     let counter %u8 cast value
-    vec::replace<u8> counters idx counter
+    vec::replace counters idx counter
 
 pub fn counting_bloom_fill_counters %impure fn &Vec u8 impure fn i32 impure fn i32 unit \counters\nslots\value:
     let mut i %i32 0
@@ -36,11 +36,11 @@ pub fn counting_bloom_fill_counters %impure fn &Vec u8 impure fn i32 impure fn i
 
 pub fn counting_bloom_alloc_counters %impure fn i32 impure fn i32 Result Vec u8 Diag \nslots\value:
     let counter %u8 cast value
-    match vec::filled<u8> nslots counter:
+    match vec::filled nslots counter:
         Result::Ok counters:
             ok counters
         Result::Err _e:
             diag_err diag_out_of_memory
 
 pub fn counting_bloom_free_counters %fn Vec u8 unit \counters:
-    vec::free<u8> counters
+    vec::free counters
