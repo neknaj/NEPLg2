@@ -43,16 +43,16 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
     if:
         normalize_validate::fs_path_has_forbidden_host_byte path
         then:
-            Result<StringBuilder,i32>::Err fs_errno_notcapable
+            Result::Err fs_errno_notcapable
         else:
             if:
                 and gt path_len 0 string_byte_eq path 0 47
                 then:
-                    Result<StringBuilder,i32>::Err fs_errno_notcapable
+                    Result::Err fs_errno_notcapable
                 else:
                     match v::with_capacity<i32> path_len:
                         Result::Err _e:
-                            Result<StringBuilder,i32>::Err 12
+                            Result::Err 12
                         Result::Ok stack0:
                             let mut stack %Vec i32 stack0
                             let mut cursor %i32 0
@@ -95,7 +95,7 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
                                 then:
                                     normalize_build::fs_normalize_build_ranges_builder path &stack
                                 else:
-                                    Result<StringBuilder,i32>::Err err
+                                    Result::Err err
                             v::free<i32> stack
                             result
 
@@ -114,10 +114,10 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
 pub fn fs_normalize_relative %fn str Result str i32 \path:
     match fs_normalize_relative_builder path:
         Result::Err e:
-            Result<str,i32>::Err e
+            Result::Err e
         Result::Ok sb:
             match sb_build_result sb:
                 Result::Err _e:
-                    Result<str,i32>::Err 12
+                    Result::Err 12
                 Result::Ok normalized:
-                    Result<str,i32>::Ok normalized
+                    Result::Ok normalized

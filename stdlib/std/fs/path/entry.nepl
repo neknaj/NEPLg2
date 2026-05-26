@@ -108,8 +108,8 @@ pub fn fs_sort_strings %impure fn &Vec str Result unit i32 \entries:
             set i add i 1
     if:
         eq err 0
-        then Result<unit,i32>::Ok unit
-        else Result<unit,i32>::Err err
+        then Result::Ok unit
+        else Result::Err err
 
 pub fn fs_dir_name_is_dot %fn str bool \name:
     or str_eq name "." str_eq name ".."

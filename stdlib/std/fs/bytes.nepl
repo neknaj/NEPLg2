@@ -73,9 +73,9 @@ pub fn fs_std_error_to_errno %fn StdErrorKind i32 \kind:
 pub fn fs_bytes_to_string_result %impure fn ByteBuf Result str i32 \buf:
     match io_bytebuf_to_str_result buf:
         Result::Ok text:
-            Result<str,i32>::Ok text
+            Result::Ok text
         Result::Err e:
-            Result<str,i32>::Err fs_std_error_to_errno e
+            Result::Err fs_std_error_to_errno e
 
 //: fs_bytes_to_string: `ByteBuf` を str に変換する互換 facade
 //:
@@ -138,6 +138,6 @@ pub fn fs_bytes_to_string %impure fn ByteBuf str \buf:
 pub fn fs_bytes_to_utf8_string_result %impure fn ByteBuf Result str i32 \buf:
     match text_bytebuf_to_utf8_str_result buf:
         Result::Ok text:
-            Result<str,i32>::Ok text
+            Result::Ok text
         Result::Err e:
-            Result<str,i32>::Err fs_std_error_to_errno e
+            Result::Err fs_std_error_to_errno e

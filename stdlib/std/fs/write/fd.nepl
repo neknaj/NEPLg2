@@ -42,12 +42,12 @@ fn fs_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u
     if:
         lt data_len 0
         then:
-            Result<i32,i32>::Err fs_errno_inval
+            Result::Err fs_errno_inval
         else:
             if:
                 eq data_len 0
                 then:
-                    Result<i32,i32>::Ok 0
+                    Result::Ok 0
                 else:
                     let iov_raw %i32 mem_ptr_addr iov
                     let nwritten_raw %i32 mem_ptr_addr nwritten
@@ -55,7 +55,7 @@ fn fs_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u
                     if:
                         or or le iov_raw 0 le nwritten_raw 0 le data_raw 0
                         then:
-                            Result<i32,i32>::Err fs_errno_inval
+                            Result::Err fs_errno_inval
                         else:
                             store_i32 iov_raw data_raw
                             store_i32 add iov_raw 4 data_len
@@ -64,9 +64,9 @@ fn fs_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u
                             if:
                                 ne errno 0
                                 then:
-                                    Result<i32,i32>::Err errno
+                                    Result::Err errno
                                 else:
-                                    Result<i32,i32>::Ok load_i32 nwritten_raw
+                                    Result::Ok load_i32 nwritten_raw
 
 //: fs_write_fd_mem_result: fd へ raw memory range をすべて書き込む内部 helper
 //:
@@ -89,11 +89,11 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
     if:
         le data_len 0
         then:
-            Result<unit,i32>::Ok unit
+            Result::Ok unit
         else:
             match alloc_region<u8> 8:
                 Result::Err _e:
-                    Result<unit,i32>::Err 12
+                    Result::Err 12
                 Result::Ok iov_region:
                     let iov_buf %MemPtr u8 region_ptr &iov_region
                     match alloc_region<u8> 4:
@@ -103,7 +103,7 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
                                     unit
                                 Result::Err _:
                                     unit
-                            Result<unit,i32>::Err 12
+                            Result::Err 12
                         Result::Ok nwritten_region:
                             let nwritten_buf %MemPtr u8 region_ptr &nwritten_region
                             let mut off %i32 0
@@ -141,9 +141,9 @@ fn fs_write_fd_mem_result %impure fn i32 impure fn MemPtr u8 impure fn i32 Resul
                             if:
                                 eq err 0
                                 then:
-                                    Result<unit,i32>::Ok unit
+                                    Result::Ok unit
                                 else:
-                                    Result<unit,i32>::Err err
+                                    Result::Err err
 
 //: fs_write_fd_bytes: fd へ `ByteBuf` をすべて書き込む
 //:
@@ -165,7 +165,7 @@ pub fn fs_write_fd_bytes %impure fn i32 impure fn ByteBuf Result unit i32 \fd\by
         le data_len 0
         then:
             io_bytebuf_free bytes
-            Result<unit,i32>::Ok unit
+            Result::Ok unit
         else:
             let data %MemPtr u8 io_bytebuf_data_ptr_ref &bytes
             let result %Result unit i32 fs_write_fd_mem_result fd data data_len

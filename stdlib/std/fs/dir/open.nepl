@@ -30,6 +30,6 @@
 pub fn fs_open_dir %impure fn str Result i32 i32 \path:
     match fs_normalize_relative path:
         Result::Err e:
-            Result<i32,i32>::Err e
+            Result::Err e
         Result::Ok normalized:
             fs_open_with_flags normalized fs_oflags_directory fs_right_fd_readdir

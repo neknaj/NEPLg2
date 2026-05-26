@@ -42,13 +42,13 @@
 fn fs_dirent_name_to_string %fn MemPtr u8 fn i32 Result str i32 \src_ptr\byte_len:
     match string_utf8_validate_mem src_ptr byte_len:
         Result::Err _e:
-            Result<str,i32>::Err fs_errno_ilseq
+            Result::Err fs_errno_ilseq
         Result::Ok _:
             match string_from_mem_unchecked_result src_ptr byte_len:
                 Result::Err _e:
-                    Result<str,i32>::Err 12
+                    Result::Err 12
                 Result::Ok text:
-                    Result<str,i32>::Ok text
+                    Result::Ok text
 
 //: fs_read_dir_fd: directory fd から entry 名を読み出す
 //:

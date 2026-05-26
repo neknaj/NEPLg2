@@ -41,12 +41,12 @@ fn fs_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8
     if:
         lt data_len 0
         then:
-            Result<i32,i32>::Err fs_errno_inval
+            Result::Err fs_errno_inval
         else:
             if:
                 eq data_len 0
                 then:
-                    Result<i32,i32>::Ok 0
+                    Result::Ok 0
                 else:
                     let iov_raw %i32 mem_ptr_addr iov
                     let nread_raw %i32 mem_ptr_addr nread
@@ -54,7 +54,7 @@ fn fs_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8
                     if:
                         or or le iov_raw 0 le nread_raw 0 le data_raw 0
                         then:
-                            Result<i32,i32>::Err fs_errno_inval
+                            Result::Err fs_errno_inval
                         else:
                             store_i32 iov_raw data_raw
                             store_i32 add iov_raw 4 data_len
@@ -63,9 +63,9 @@ fn fs_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8
                             if:
                                 ne errno 0
                                 then:
-                                    Result<i32,i32>::Err errno
+                                    Result::Err errno
                                 else:
-                                    Result<i32,i32>::Ok load_i32 nread_raw
+                                    Result::Ok load_i32 nread_raw
 
 //: fs_discard_read_buffer: owner 付き読み込み buffer を破棄して Err を返す内部 helper
 //:
@@ -81,7 +81,7 @@ fn fs_discard_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf
             unit
         Result::Err _:
             unit
-    Result<ByteBuf,i32>::Err errno
+    Result::Err errno
 
 //: fs_finish_read_buffer: capacity 付き読み込み buffer を ByteBuf の所有権 invariant へ詰め直す内部 helper
 //:
@@ -109,7 +109,7 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
                     unit
                 Result::Err _:
                     unit
-            Result<ByteBuf,i32>::Err fs_errno_inval
+            Result::Err fs_errno_inval
         else:
             if:
                 eq data_len 0
@@ -119,16 +119,16 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
                             unit
                         Result::Err _:
                             unit
-                    Result<ByteBuf,i32>::Ok io_bytebuf_empty
+                    Result::Ok io_bytebuf_empty
                 else:
                     if:
                         eq data_len cap
                         then:
-                            Result<ByteBuf,i32>::Ok io_bytebuf_finish_region region data_len
+                            Result::Ok io_bytebuf_finish_region region data_len
                         else:
                             match realloc_region_bytes_keep<u8> region data_len:
                                 Result::Ok exact_region:
-                                    Result<ByteBuf,i32>::Ok io_bytebuf_finish_region exact_region data_len
+                                    Result::Ok io_bytebuf_finish_region exact_region data_len
                                 Result::Err _e:
                                     let old_region %RegionToken u8 region_realloc_error_region<u8> _e
                                     match dealloc_region<u8> old_region:
@@ -136,7 +136,7 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
                                             unit
                                         Result::Err _:
                                             unit
-                                    Result<ByteBuf,i32>::Err 12
+                                    Result::Err 12
 
 //: fs_read_fd_bytes: fd から全て読み込んで `ByteBuf` を返す
 //:
@@ -185,7 +185,7 @@ pub fn fs_read_fd_bytes %impure fn i32 Result ByteBuf i32 \fd:
     let mut cap %i32 65536;
     match alloc_region<u8> cap:
         Result::Err _e:
-            Result<ByteBuf,i32>::Err 12
+            Result::Err 12
         Result::Ok buf0_region:
             let mut buf_region %RegionToken u8 buf0_region;
             match alloc_region<u8> 8:

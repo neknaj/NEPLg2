@@ -35,7 +35,7 @@ pub fn fs_write_to_bytes %impure fn str impure fn ByteBuf Result unit i32 \path\
     match fs_open_write path:
         Result::Err e:
             io_bytebuf_free bytes
-            Result<unit,i32>::Err e
+            Result::Err e
         Result::Ok fd:
             match fs_write_fd_bytes fd bytes:
                 Result::Ok _:
@@ -46,7 +46,7 @@ pub fn fs_write_to_bytes %impure fn str impure fn ByteBuf Result unit i32 \path\
                             unit
                         Result::Err _:
                             unit
-                    Result<unit,i32>::Err e
+                    Result::Err e
 
 //: fs_write_to_string: path へ str を create/truncate して書き込む
 //:
@@ -92,4 +92,4 @@ pub fn fs_write_to_string %impure fn str impure fn str Result unit i32 \path\tex
         Result::Ok bytes:
             fs_write_to_bytes path bytes
         Result::Err e:
-            Result<unit,i32>::Err fs_std_error_to_errno e
+            Result::Err fs_std_error_to_errno e

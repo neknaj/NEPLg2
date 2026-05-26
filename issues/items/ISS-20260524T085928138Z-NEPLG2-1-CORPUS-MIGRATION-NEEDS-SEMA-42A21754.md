@@ -618,6 +618,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/std/fs/fd.nepl -i stdlib/std/fs/stat.nepl --no-tree -o tmp/neplg21-fs-fd-stat-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 std fs Result constructor checkpoint
+
+- `stdlib/std/fs/bytes.nepl` / `dir/open.nepl` / `dir/read_fd.nepl` / `path/entry.nepl` / `path/normalize.nepl` / `path/normalize/build.nepl` / `read/fd.nepl` / `write/fd.nepl` / `write/path.nepl` で、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 52 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/std/fs/fd.nepl` / `stdlib/std/fs/stat.nepl` は直前 checkpoint で移行済みのため、この checkpoint では追加差分なし。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/std/fs` は 0 件になった。
+- `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/std/fs` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/std/fs/bytes.nepl -i stdlib/std/fs/dir/open.nepl -i stdlib/std/fs/dir/read_fd.nepl -i stdlib/std/fs/path/entry.nepl -i stdlib/std/fs/path/normalize.nepl -i stdlib/std/fs/path/normalize/build.nepl -i stdlib/std/fs/read/fd.nepl -i stdlib/std/fs/write/fd.nepl -i stdlib/std/fs/write/path.nepl --no-tree -o tmp/neplg21-std-fs-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

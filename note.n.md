@@ -1,3 +1,17 @@
+# 2026-05-26 Agent 1 std fs Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる std/fs 領域の constructor だけを移行した。
+- `stdlib/std/fs/bytes.nepl` / `dir/open.nepl` / `dir/read_fd.nepl` / `path/entry.nepl` / `path/normalize.nepl` / `path/normalize/build.nepl` / `read/fd.nepl` / `write/fd.nepl` / `write/path.nepl` で、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 52 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/std/fs/fd.nepl` / `stdlib/std/fs/stat.nepl` は直前 checkpoint で移行済みのため、この checkpoint では追加差分なし。
+- 検証:
+  - `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/std/fs`: 0 件。
+  - `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/std/fs`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/std/fs/bytes.nepl -i stdlib/std/fs/dir/open.nepl -i stdlib/std/fs/dir/read_fd.nepl -i stdlib/std/fs/path/entry.nepl -i stdlib/std/fs/path/normalize.nepl -i stdlib/std/fs/path/normalize/build.nepl -i stdlib/std/fs/read/fd.nepl -i stdlib/std/fs/write/fd.nepl -i stdlib/std/fs/write/path.nepl --no-tree -o tmp/neplg21-std-fs-result-constructors.json -j 1 --dist web/dist --assert-io`: 3 件すべて compile timeout after 60000ms。型診断は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 fs fd/stat Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる std/fs fd/stat 領域の constructor だけを移行した。

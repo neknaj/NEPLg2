@@ -34,16 +34,16 @@ pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilde
     let stack_len %i32 v::len<i32> stack
     match string_builder_new_result:
         Result::Err _e:
-            Result<StringBuilder,i32>::Err 12
+            Result::Err 12
         Result::Ok sb0:
             if:
                 eq stack_len 0
                 then:
                     match sb_append_result sb0 ".":
                         Result::Err _e:
-                            Result<StringBuilder,i32>::Err 12
+                            Result::Err 12
                         Result::Ok dot:
-                            Result<StringBuilder,i32>::Ok dot
+                            Result::Ok dot
                 else:
                     let mut sb %StringBuilder sb0
                     let mut i %i32 0
@@ -66,7 +66,7 @@ pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilde
                                                 then:
                                                     sb_append_result sb "/"
                                                 else:
-                                                    Result<StringBuilder,str>::Ok sb
+                                                    Result::Ok sb
                                             match sep_added:
                                                 Result::Err _e:
                                                     set sb string_builder_empty
@@ -83,10 +83,10 @@ pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilde
                     if:
                         eq ok 1
                         then:
-                            Result<StringBuilder,i32>::Ok sb
+                            Result::Ok sb
                         else:
                             string_builder_free sb
-                            Result<StringBuilder,i32>::Err 12
+                            Result::Err 12
 
 //: fs_normalize_build_ranges: range stack から正規 path 文字列を組み立てる
 //:
@@ -98,10 +98,10 @@ pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilde
 pub fn fs_normalize_build_ranges %fn str fn &Vec i32 Result str i32 \path\stack:
     match fs_normalize_build_ranges_builder path stack:
         Result::Err e:
-            Result<str,i32>::Err e
+            Result::Err e
         Result::Ok sb:
             match sb_build_result sb:
                 Result::Err _e:
-                    Result<str,i32>::Err 12
+                    Result::Err 12
                 Result::Ok out:
-                    Result<str,i32>::Ok out
+                    Result::Ok out
