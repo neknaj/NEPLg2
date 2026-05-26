@@ -318,7 +318,7 @@ stdout: "test_report name=\"overload_pair_field_from_generic_result_keeps_tuple_
 #import "std/test" as test
 
 fn pair_with_empty <.T: Copy> %fn Vec .T Result .Pair StdErrorKind \left:
-    let right %Vec .T uwok v::new<.T>;
+    let right %Vec .T uwok v::new;
     Result::Ok Tuple:
         left
         right
@@ -328,7 +328,7 @@ fn main %impure fn unit i32 \unit:
         v::new
         |> uwok
         |> v::push 1 |> uwok
-    let parts unwrap_ok pair_with_empty<i32> xs;
+    let parts unwrap_ok pair_with_empty xs;
     let evens %Vec i32 get parts 0;
     let rest %Vec i32 get parts 1;
     let n %i32 v::len &evens;
