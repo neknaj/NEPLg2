@@ -440,6 +440,16 @@ LLM/手動判断が必要なもの:
 - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_module_loader.n.md` は 0 件になった。
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_loader.n.md --no-tree -o tmp/neplg21-module-loader-result-constructors.json -j 1 --dist web/dist --assert-io` は 2 件すべて compile timeout after 60000ms。型診断は出ていない。
 
+### 2026-05-26 neplg2_stdlib_map Result constructor checkpoint
+
+- `tests/stdlib/neplg2_stdlib_map.n.md` で、`checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Err` 7 件を `Result::Err` へ移行した。
+- source string fixture の旧 `fn main <()->i32> \():` / `fn util <()->i32> ():` は、stdlib map の入力文字列としてこの checkpoint では構文移行していない。
+- 外側 NEPL 文字列 literal の `\()` は、source string の中身を `\()` のまま保つために literal backslash だけを `\\()` として escape した。
+- subagent の独立レビューでも、対象 7 件は producer/nested generic 推論に絡まず、残すべき `Result<unit,str>::Err` はないと確認した。
+- `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_stdlib_map.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_stdlib_map.n.md --no-tree -o tmp/neplg21-stdlib-map-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断や `lexer.string.invalid_escape` は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
