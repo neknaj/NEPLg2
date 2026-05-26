@@ -19,7 +19,7 @@ stdout: "test_report name=\"counting_bloom_filter_insert_remove_contains\" count
 
 fn main %impure fn unit i32 \unit:
     let bf0 %CountingBloomFilter i32 DefaultHash32:
-        unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
+        unwrap_ok new DefaultHash32 64
         |> insert 4
         |> insert 9
         |> insert 15
@@ -27,7 +27,7 @@ fn main %impure fn unit i32 \unit:
     let size0 %i32 len &bf0;
     free bf0
     let bf1 %CountingBloomFilter i32 DefaultHash32:
-        unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
+        unwrap_ok new DefaultHash32 64
         |> insert 4
         |> insert 9
         |> insert 15
@@ -62,7 +62,7 @@ stdout: "test_report name=\"counting_bloom_filter_clear\" count=1 failed=0\nasse
 
 fn main %impure fn unit i32 \unit:
     let bf0 %CountingBloomFilter i32 DefaultHash32:
-        unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
+        unwrap_ok new DefaultHash32 64
         |> insert 7
         |> clear
     let ok0 %bool not contains &bf0 7;

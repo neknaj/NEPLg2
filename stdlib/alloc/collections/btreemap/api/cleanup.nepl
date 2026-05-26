@@ -24,7 +24,7 @@
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm %BTreeMap i32 i32 unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>;
+//:     let hm %BTreeMap i32 i32 unwrap_ok new<i32, i32>;
 //:     free hm;
 //:     0
 //: ```

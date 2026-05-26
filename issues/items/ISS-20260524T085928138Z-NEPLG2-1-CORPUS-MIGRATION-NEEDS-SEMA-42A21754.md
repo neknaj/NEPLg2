@@ -755,6 +755,17 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - `node nodesrc/tests.js -i stdlib/tests/queue.n.md -i tests/stdlib/queue_collections.n.md -i stdlib/tests/ringbuffer.n.md -i tests/stdlib/ringbuffer_collections.n.md -i stdlib/tests/list.n.md -i tests/stdlib/list_collections.n.md -i stdlib/tests/binary_heap.n.md -i tests/stdlib/binary_heap_collections.n.md -i stdlib/tests/deque.n.md -i tests/stdlib/deque_collections.n.md -i tests/stdlib/pipe_collections.n.md -i tests/compiler/overload.n.md -i tests/compiler/neplg2.n.md --no-tree -o tmp/neplg21-collection-unwrap-ok-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15/123 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 BTree/Hash/Bloom unwrap_ok postfix checkpoint
+
+- BTreeMap / BTreeSet / HashMap / HashSet / BloomFilter / CountingBloomFilter の `unwrap_ok<T,E>` を 5 worker の非重複 write scope に分割して並列移行した。
+- BTree API doctest 15 件、BTree test fixture 19 件、Hash API doctest 34 件、Hash rehash fixture 16 件、Bloom / CountingBloomFilter doctest・fixture 25 件を移行し、合計 25 files / 109 件の `unwrap_ok<...>` を `unwrap_ok` へ移行した。
+- 対象は `let` の型注釈、`set` 先の型、または pipe の直前結果から型根拠が十分な箇所に限定した。
+- この checkpoint では `new` / `with_capacity` / `insert` / `remove` / `contains` / `free` などの producer / observer postfix は触っていない。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` の NEPLg2.1 `unwrap_ok` postfix 再導入防止リストへ BTree / Hash / Bloom 対象ファイルを追加した。既存の owner recovery / cleanup / borrowed observer boundary の検査は弱めていない。
+- `rg -n "unwrap_ok<(BTreeMap|BTreeSet|HashMap|HashSet|BloomFilter|CountingBloomFilter)<" <対象files>` は 0 件になった。
+- `node nodesrc/test_stdlib_collection_cleanup_contract.js` と `node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md -i tests/stdlib/btree_array_cost.n.md -i tests/stdlib/hash_collection_rehash.n.md -i stdlib/tests/bloom_filter.n.md -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/neplg21-btree-hash-bloom-unwrap-ok-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15/31 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

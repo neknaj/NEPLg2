@@ -143,7 +143,7 @@ pub struct HashSet<.T,.H>:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashSetUpdateError i32 DefaultHash32 HashSetUpdateError<i32,DefaultHash32> hs d0;
 //:     0
@@ -168,7 +168,7 @@ pub struct HashSetUpdateError<.T,.H>:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashSetUpdateError i32 DefaultHash32 HashSetUpdateError<i32,DefaultHash32> hs d0;
 //:     0
@@ -195,7 +195,7 @@ pub fn hashset_update_error_diag <.T,.H> %fn &HashSetUpdateError .T .H Diag \e:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashSetUpdateError i32 DefaultHash32 HashSetUpdateError<i32,DefaultHash32> hs d0;
 //:     0

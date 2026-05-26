@@ -19,7 +19,7 @@ stdout: "test_report name=\"bloom_filter_insert_and_contains\" count=2 failed=0\
 
 fn main %impure fn unit i32 \unit:
     let bf %BloomFilter i32 DefaultHash32:
-        unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
+        unwrap_ok new DefaultHash32 64
         |> insert 4
         |> insert 9
         |> insert 15
@@ -53,7 +53,7 @@ stdout: "test_report name=\"bloom_filter_clear_and_invalid_len\" count=2 failed=
 
 fn main %impure fn unit i32 \unit:
     let bf0 %BloomFilter i32 DefaultHash32:
-        unwrap_ok<BloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
+        unwrap_ok new DefaultHash32 64
         |> insert 7
     let bf1 %BloomFilter i32 DefaultHash32 clear bf0;
     let seen %bool contains<i32, DefaultHash32> &bf1 7;

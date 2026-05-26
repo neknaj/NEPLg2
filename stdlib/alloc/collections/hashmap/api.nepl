@@ -15,8 +15,8 @@
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 1 10;
+//:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
+//:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok insert hm0 1 10;
 //:     let found %bool contains<i32, i32, DefaultHash32> &hm1 1;
 //:     let ok %i32 if found 0 1;
 //:     free hm1;
@@ -59,7 +59,7 @@
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let observed_len %i32 len<i32, i32, DefaultHash32> &hm;
 //:     let empty %bool eq observed_len 0;
 //:     let ok %i32 if empty 0 1;
@@ -85,7 +85,7 @@ pub fn new <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn .H Result 
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> with_capacity DefaultHash32 4;
+//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok with_capacity DefaultHash32 4;
 //:     let observed_len %i32 len<i32, i32, DefaultHash32> &hm;
 //:     let empty %bool eq observed_len 0;
 //:     let ok %i32 if empty 0 1;
@@ -118,8 +118,8 @@ pub fn with_capacity <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn 
 //:| #import "core/option" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 7 70;
+//:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
+//:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok insert hm0 7 70;
 //:     let ok %i32:
 //:         match get &hm1 7:
 //:             Option::Some x:
@@ -176,8 +176,8 @@ pub fn insert <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap
 //:| #import "core/option" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 2 20;
+//:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
+//:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok insert hm0 2 20;
 //:     let ok %i32 match get &hm1 2:
 //:         Option::Some x:
 //:             if eq x 20 0 1
@@ -212,8 +212,8 @@ pub fn get <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMap .K .V .H
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 3 30;
+//:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
+//:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok insert hm0 3 30;
 //:     let found %bool contains<i32, i32, DefaultHash32> &hm1 3;
 //:     let ok %i32 if found 0 1;
 //:     free hm1;
@@ -243,9 +243,9 @@ pub fn contains <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMap .K 
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> insert hm0 4 40;
-//:     let hm2 %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, HashMapUpdateError<i32, i32, DefaultHash32>> remove hm1 4;
+//:     let hm0 %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
+//:     let hm1 %HashMap i32 i32 DefaultHash32 unwrap_ok insert hm0 4 40;
+//:     let hm2 %HashMap i32 i32 DefaultHash32 unwrap_ok remove hm1 4;
 //:     let found %bool contains<i32, i32, DefaultHash32> &hm2 4;
 //:     let ok %i32 if found 1 0;
 //:     free hm2;
@@ -282,7 +282,7 @@ pub fn remove <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn HashMap
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let observed_len %i32 len<i32, i32, DefaultHash32> &hm;
 //:     let empty %bool eq observed_len 0;
 //:     let ok %i32 if empty 0 1;
@@ -311,7 +311,7 @@ pub fn len <.K,.V,.H> %fn &HashMap .K .V .H i32 \hm:
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32, i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     free hm;
 //:     0
 //: ```

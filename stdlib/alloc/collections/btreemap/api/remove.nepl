@@ -30,7 +30,7 @@
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let hm %BTreeMap i32 i32:
-//:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+//:         unwrap_ok new<i32, i32>
 //:         |> insert 7 70 |> uwok
 //:         |> remove 7
 //:     let observed_len %i32 len<i32, i32> &hm
@@ -64,7 +64,7 @@ pub fn remove <.K: Ord&Copy,.V: Copy> %impure fn BTreeMap .K .V impure fn .K BTr
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let hm %BTreeMap i32 i32:
-//:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+//:         unwrap_ok new<i32, i32>
 //:         |> insert 7 70 |> uwok
 //:         |> clear
 //:     let observed_len %i32 len<i32, i32> &hm

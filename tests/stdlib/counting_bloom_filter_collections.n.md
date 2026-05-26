@@ -31,7 +31,7 @@ stdout: "test_report name=\"counting_bloom_filter_pipe_usage\" count=3 failed=0\
 
 fn main %impure fn unit i32 \unit:
     let bf0 %CountingBloomFilter i32 DefaultHash32:
-        unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
+        unwrap_ok new DefaultHash32 128
         |> insert 3
         |> insert 8
         |> insert 21
@@ -40,7 +40,7 @@ fn main %impure fn unit i32 \unit:
     let size0 %i32 len &bf0;
     free bf0
     let bf1 %CountingBloomFilter i32 DefaultHash32:
-        unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
+        unwrap_ok new DefaultHash32 128
         |> insert 3
         |> insert 8
         |> insert 21
@@ -83,12 +83,12 @@ stdout: "test_report name=\"counting_bloom_filter_free_releases_owned_storage\" 
 
 fn main %impure fn unit i32 \unit:
     let bf0 %CountingBloomFilter i32 DefaultHash32:
-        unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
+        unwrap_ok new DefaultHash32 128
         |> insert 8
         |> remove 8
     free bf0
     let bf1 %CountingBloomFilter i32 DefaultHash32:
-        unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 128
+        unwrap_ok new DefaultHash32 128
         |> insert 21
     free bf1
     let report:

@@ -25,7 +25,7 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 
 fn main %impure fn unit i32 \unit:
     let s0 %BTreeSet i32:
-        unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 1
@@ -67,7 +67,7 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 
 fn main %impure fn unit i32 \unit:
     let s0 %BTreeSet i32:
-        unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> insert<i32> 0
         |> must_set
         |> insert<i32> 1
@@ -122,7 +122,7 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 
 fn main %impure fn unit i32 \unit:
     let s0 %BTreeSet i32:
-        unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 1
@@ -131,7 +131,7 @@ fn main %impure fn unit i32 \unit:
     free<i32> s0;
 
     let s1 %BTreeSet i32:
-        unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 1
@@ -141,7 +141,7 @@ fn main %impure fn unit i32 \unit:
     free<i32> s1;
 
     let s2 %BTreeSet i32:
-        unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 1
@@ -184,7 +184,7 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 
 fn main %impure fn unit i32 \unit:
     let s0 %BTreeSet i32:
-        unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> insert<i32> 3
         |> must_set
         |> insert<i32> 3
@@ -224,7 +224,7 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 
 fn main %impure fn unit i32 \unit:
     let s %BTreeSet i32:
-        unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+        unwrap_ok new<i32>
         |> insert<i32> 2
         |> must_set
         |> insert<i32> 1

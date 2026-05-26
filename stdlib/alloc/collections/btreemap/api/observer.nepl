@@ -31,7 +31,7 @@
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let hm %BTreeMap i32 i32:
-//:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+//:         unwrap_ok new<i32, i32>
 //:         |> insert 3 30 |> uwok
 //:         |> insert 7 70 |> uwok
 //:     let observed_len %i32 len<i32, i32> &hm
@@ -54,7 +54,7 @@ pub fn len <.K,.V> %fn &BTreeMap .K .V i32 \hm:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let hm %BTreeMap i32 i32:
-//:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+//:         unwrap_ok new<i32, i32>
 //:         |> insert 7 70 |> uwok
 //:     let ok %bool contains<i32, i32> &hm 7
 //:     free<i32, i32> hm
@@ -81,7 +81,7 @@ pub fn contains <.K: Ord&Copy,.V: Copy> %fn &BTreeMap .K .V fn .K bool \hm\key:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let hm %BTreeMap i32 i32:
-//:         unwrap_ok<BTreeMap<i32, i32>, Diag> new<i32, i32>
+//:         unwrap_ok new<i32, i32>
 //:         |> insert 7 70 |> uwok
 //:     let ok %bool match get<i32, i32> &hm 7:
 //:         Option::Some v:

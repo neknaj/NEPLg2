@@ -1,3 +1,20 @@
+# 2026-05-26 Agent 1 BTree/Hash/Bloom unwrap_ok postfix checkpoint
+
+- BTreeMap / BTreeSet / HashMap / HashSet / BloomFilter / CountingBloomFilter の `unwrap_ok<T,E>` を 5 worker の非重複 write scope へ分割して並列移行した。
+- BTree API doctest 15 件、BTree test fixture 19 件、Hash API doctest 34 件、Hash rehash fixture 16 件、Bloom / CountingBloomFilter doctest・fixture 25 件を移行し、合計 25 files / 109 件の `unwrap_ok<...>` を `unwrap_ok` へ移行した。
+- 対象は `let` の型注釈、`set` 先の型、または pipe の直前結果から型根拠が十分な箇所に限定した。
+- この checkpoint では `new` / `with_capacity` / `insert` / `remove` / `contains` / `free` などの producer / observer postfix は触っていない。
+- `nodesrc/test_stdlib_collection_cleanup_contract.js` の NEPLg2.1 `unwrap_ok` postfix 再導入防止リストへ BTree / Hash / Bloom 対象ファイルを追加した。既存の owner recovery / cleanup / borrowed observer boundary の検査は弱めていない。
+- 検証:
+  - `rg -n "unwrap_ok<(BTreeMap|BTreeSet|HashMap|HashSet|BloomFilter|CountingBloomFilter)<" <対象files>`: 0 件。
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: `would update 0 file(s)`。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。LF/CRLF warning のみ。
+  - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md -i tests/stdlib/btree_array_cost.n.md -i tests/stdlib/hash_collection_rehash.n.md -i stdlib/tests/bloom_filter.n.md -i stdlib/tests/counting_bloom_filter.n.md -i tests/stdlib/bloom_filter_collections.n.md -i tests/stdlib/counting_bloom_filter_collections.n.md --no-tree -o tmp/neplg21-btree-hash-bloom-unwrap-ok-postfix.json -j 1 --dist web/dist --assert-io`: 外側 timeout。partial JSON は 15/31 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+  - worker 側で `node nodesrc/neplg21_syntax_migrate.js --check` / `git diff --check`: pass。LF/CRLF warning のみ。
+
 # 2026-05-26 Agent 1 collection unwrap_ok postfix checkpoint
 
 - Zenn 方針を再確認済みの NEPLg2.1 corpus migration として、collection fixture / doctest の `unwrap_ok<T,E>` を 5 worker の非重複 write scope へ分割して並列移行した。

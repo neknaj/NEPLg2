@@ -31,7 +31,7 @@
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let s %BTreeSet i32:
-//:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+//:         unwrap_ok new<i32>
 //:         |> insert 3 |> uwok
 //:         |> insert 7 |> uwok
 //:     let observed_len %i32 len<i32> &s
@@ -54,7 +54,7 @@ pub fn len <.T> %fn &BTreeSet .T i32 \set0:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let s %BTreeSet i32:
-//:         unwrap_ok<BTreeSet<i32>, Diag> new<i32>
+//:         unwrap_ok new<i32>
 //:         |> insert 7 |> uwok
 //:     let ok %bool contains<i32> &s 7
 //:     free<i32> s

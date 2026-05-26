@@ -15,8 +15,8 @@
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 1;
+//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
+//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok insert hs0 1;
 //:     let found %bool contains<i32, DefaultHash32> &hs1 1;
 //:     let ok %i32 if found 0 1;
 //:     free hs1;
@@ -58,7 +58,7 @@
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let observed_len %i32 len<i32, DefaultHash32> &hs;
 //:     let empty %bool eq observed_len 0;
 //:     let ok %i32 if empty 0 1;
@@ -84,7 +84,7 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H Result HashSet .
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> with_capacity DefaultHash32 4;
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok with_capacity DefaultHash32 4;
 //:     let observed_len %i32 len<i32, DefaultHash32> &hs;
 //:     let empty %bool eq observed_len 0;
 //:     let ok %i32 if empty 0 1;
@@ -115,8 +115,8 @@ pub fn with_capacity <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 7;
+//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
+//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok insert hs0 7;
 //:     let found %bool contains<i32, DefaultHash32> &hs1 7;
 //:     let ok %i32 if found 0 1;
 //:     free hs1;
@@ -169,8 +169,8 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H im
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 2;
+//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
+//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok insert hs0 2;
 //:     let found %bool contains<i32, DefaultHash32> &hs1 2;
 //:     let ok %i32 if found 0 1;
 //:     free hs1;
@@ -203,9 +203,9 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &HashSet .T .H fn .T 
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
-//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> insert hs0 3;
-//:     let hs2 %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, HashSetUpdateError<i32, DefaultHash32>> remove hs1 3;
+//:     let hs0 %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
+//:     let hs1 %HashSet i32 DefaultHash32 unwrap_ok insert hs0 3;
+//:     let hs2 %HashSet i32 DefaultHash32 unwrap_ok remove hs1 3;
 //:     let found %bool contains<i32, DefaultHash32> &hs2 3;
 //:     let ok %i32 if found 1 0;
 //:     free hs2;
@@ -245,7 +245,7 @@ pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn HashSet .T .H im
 //:| #import "core/result" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let observed_len %i32 len<i32, DefaultHash32> &hs;
 //:     let empty %bool eq observed_len 0;
 //:     let ok %i32 if empty 0 1;
@@ -276,7 +276,7 @@ pub fn len <.T,.H> %fn &HashSet .T .H i32 \hs:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hs %HashSet i32 DefaultHash32 unwrap_ok<HashSet<i32, DefaultHash32>, Diag> new DefaultHash32;
+//:     let hs %HashSet i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     free hs;
 //:     0
 //: ```

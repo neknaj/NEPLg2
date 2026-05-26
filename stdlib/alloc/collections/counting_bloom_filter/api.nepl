@@ -40,7 +40,7 @@ pub fn counting_bloom_invalid_len_diag %impure fn unit Diag \unit:
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let bf %CountingBloomFilter i32 DefaultHash32 unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//:     let bf %CountingBloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
 //:     let observed_len %i32 len<i32, DefaultHash32> &bf;
 //:     let ok %bool eq observed_len 64;
 //:     free bf
@@ -75,7 +75,7 @@ pub fn len <.T,.H> %fn &CountingBloomFilter .T .H i32 \bf:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let bf0 %CountingBloomFilter i32 DefaultHash32 unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//:     let bf0 %CountingBloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
 //:     let bf1 %CountingBloomFilter i32 DefaultHash32 insert bf0 7;
 //:     let ok %bool contains &bf1 7;
 //:     free bf1
@@ -108,7 +108,7 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn CountingBloomFil
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bf0 %CountingBloomFilter i32 DefaultHash32:
-//:         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
+//:         unwrap_ok new DefaultHash32 64
 //:         |> insert 7
 //:         |> remove 7
 //:     let ok %bool contains &bf0 7;
@@ -145,7 +145,7 @@ pub fn remove <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn CountingBloomFil
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bf0 %CountingBloomFilter i32 DefaultHash32:
-//:         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
+//:         unwrap_ok new DefaultHash32 64
 //:         |> insert 7
 //:         |> insert 12
 //:     let ok %bool contains &bf0 12;
@@ -179,7 +179,7 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &CountingBloomFilter 
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bf0 %CountingBloomFilter i32 DefaultHash32:
-//:         unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64
+//:         unwrap_ok new DefaultHash32 64
 //:         |> insert 7
 //:         |> clear
 //:     let ok %bool contains &bf0 7;
@@ -210,7 +210,7 @@ pub fn clear <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn CountingBloomFilt
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let bf %CountingBloomFilter i32 DefaultHash32 unwrap_ok<CountingBloomFilter<i32, DefaultHash32>, Diag> new DefaultHash32 64;
+//:     let bf %CountingBloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
 //:     free bf;
 //:     0
 //: ```

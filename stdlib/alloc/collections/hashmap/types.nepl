@@ -144,7 +144,7 @@ pub struct HashMap<.K,.V,.H>:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashMapUpdateError i32 i32 DefaultHash32 HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
 //:     0
@@ -169,7 +169,7 @@ pub struct HashMapUpdateError<.K,.V,.H>:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashMapUpdateError i32 i32 DefaultHash32 HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
 //:     0
@@ -196,7 +196,7 @@ pub fn hashmap_update_error_diag <.K,.V,.H> %fn &HashMapUpdateError .K .V .H Dia
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok<HashMap<i32,i32,DefaultHash32>, Diag> new DefaultHash32;
+//:     let hm %HashMap i32 i32 DefaultHash32 unwrap_ok new DefaultHash32;
 //:     let d0 %Diag diag_key_not_found;
 //:     let e %HashMapUpdateError i32 i32 DefaultHash32 HashMapUpdateError<i32,i32,DefaultHash32> hm d0;
 //:     0

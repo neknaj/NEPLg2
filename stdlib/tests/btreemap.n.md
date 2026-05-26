@@ -25,7 +25,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 
 fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
-        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
+        unwrap_ok new<i32,i32>
         |> insert<i32,i32> 5 50
         |> must_map
         |> insert<i32,i32> 1 10
@@ -69,7 +69,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 
 fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
-        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
+        unwrap_ok new<i32,i32>
         |> insert<i32,i32> 0 0
         |> must_map
         |> insert<i32,i32> 1 10
@@ -131,7 +131,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 
 fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
-        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
+        unwrap_ok new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
         |> insert<i32,i32> 1 10
@@ -145,7 +145,7 @@ fn main %impure fn unit i32 \unit:
     free<i32,i32> m0;
 
     let m1 %BTreeMap i32 i32:
-        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
+        unwrap_ok new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
         |> insert<i32,i32> 1 10
@@ -190,7 +190,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 
 fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
-        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
+        unwrap_ok new<i32,i32>
         |> insert<i32,i32> 7 70
         |> must_map
         |> insert<i32,i32> 7 71
@@ -237,7 +237,7 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 
 fn main %impure fn unit i32 \unit:
     let m %BTreeMap i32 i32:
-        unwrap_ok<BTreeMap<i32,i32>, Diag> new<i32,i32>
+        unwrap_ok new<i32,i32>
         |> insert<i32,i32> 2 20
         |> must_map
         |> insert<i32,i32> 1 10
