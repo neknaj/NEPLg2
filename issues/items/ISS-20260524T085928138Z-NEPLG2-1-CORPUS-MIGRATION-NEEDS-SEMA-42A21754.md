@@ -1021,6 +1021,14 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_neplg21_sha256_postfix_cleanup.js`、`node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_hash_nmd_report_contract.js` は pass した。
 - `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/neplg21-sha256-postfix.json -j 1 --dist web/dist --assert-io` は compile timeout after 60000ms。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
 
+### 2026-05-27 Vec facade doc postfix checkpoint
+
+- `stdlib/alloc/collections/vec.nepl` の facade doc / doctest 例で、通常の利用例として残っていた `Vec<.T>`、`new<i32>`、`with_capacity<i32>`、`get<i32>`、`len<i32>`、`clear<i32>`、`free<i32>` を NEPLg2.1 表記へ移行した。
+- すべて `%Vec i32` local / block result annotation / receiver evidence から型が決まる使用例であり、旧構文そのものの説明ではない。
+- `nodesrc/test_neplg21_vec_doc_postfix_cleanup.js` を追加し、今回撤廃した old facade doc syntax だけを検出するようにした。コメント量を制限する検査ではない。
+- `node nodesrc/test_neplg21_vec_doc_postfix_cleanup.js`、`node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_vec_borrowed_observers.js`、`node nodesrc/test_stdlib_vec_pop_doc_report_contract.js` は pass した。
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/neplg21-vec-doc-postfix.json -j 1 --dist web/dist --assert-io` は 3 doctest とも compile timeout after 60000ms。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

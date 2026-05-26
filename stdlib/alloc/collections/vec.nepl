@@ -2,7 +2,7 @@
 //: [連続/れんぞく]メモリを[用/もち]いる[可変長/かへんちょう][配列/はいれつ] facade
 //:
 //: ### [目的/もくてき]
-//: - `Vec<.T>` を[提供/ていきょう]し、`push` / `filled` / `get` / `pop` / `replace` などの[基本/きほん][操作/そうさ]を[共通/きょうつう] API として[使/つか]えるようにします。
+//: - `Vec .T` を[提供/ていきょう]し、`push` / `filled` / `get` / `pop` / `replace` などの[基本/きほん][操作/そうさ]を[共通/きょうつう] API として[使/つか]えるようにします。
 //: - `alloc/collections` の[他/ほか]の[構造/こうぞう]が[依存/いそん]する[基礎/きそ][配列/はいれつ]として[機能/きのう]します。
 //:
 //: ### [実装/じっそう]
@@ -36,19 +36,19 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let empty %Vec i32 unwrap_ok new<i32>
-//:     let checks0 checks_push checks_new assert_eq_i32 0 len<i32> &empty
+//:     let empty %Vec i32 unwrap_ok new
+//:     let checks0 checks_push checks_new assert_eq_i32 0 len &empty
 //:     free empty;
 //:     let a2 %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 10 |> uwok
 //:         |> push 20 |> uwok
-//:     let checks1 checks_push checks0 assert_eq_i32 2 len<i32> &a2
+//:     let checks1 checks_push checks0 assert_eq_i32 2 len &a2
 //:     let b2 %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 10 |> uwok
 //:         |> push 20 |> uwok
-//:     let checks2 match get<i32> &b2 1:
+//:     let checks2 match get &b2 1:
 //:         Option::Some x:
 //:             checks_push checks1 assert_eq_i32 20 x
 //:         Option::None:
@@ -70,22 +70,22 @@
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let v2 %Vec i32:
-//:         unwrap_ok with_capacity<i32> 2
+//:         unwrap_ok with_capacity 2
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:     let ok0 %i32:
-//:         match get<i32> &v2 0:
+//:         match get &v2 0:
 //:             Option::Some x:
 //:                 if ne x 1 then 1 else 0
 //:             Option::None:
 //:                 1
-//:     free<i32> v2;
+//:     free v2;
 //:     let w2 %Vec i32:
-//:         unwrap_ok with_capacity<i32> 2
+//:         unwrap_ok with_capacity 2
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let ok1 %bool is_none get<i32> &w2 3
-//:     free<i32> w2;
+//:     let ok1 %bool is_none get &w2 3
+//:     free w2;
 //:     if and eq ok0 0 ok1 0 1
 //: ```
 //:
@@ -98,13 +98,13 @@
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let cleared %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 11 |> uwok
 //:         |> push 22 |> uwok
-//:         |> clear<i32>
-//:     let observed_len %i32 len<i32> &cleared
+//:         |> clear
+//:     let observed_len %i32 len &cleared
 //:     let ok %bool eq observed_len 0
-//:     free<i32> cleared;
+//:     free cleared;
 //:     if ok 0 1
 //: ```
 

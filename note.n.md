@@ -47157,3 +47157,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_neplg21_sha256_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量を制限する検査ではない。
 - `node nodesrc/test_neplg21_sha256_postfix_cleanup.js`、`node nodesrc/test_stdlib_sha256_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_hash_nmd_report_contract.js` は pass した。
 - `node nodesrc/tests.js -i stdlib/tests/hash.n.md --no-tree -o tmp/neplg21-sha256-postfix.json -j 1 --dist web/dist --assert-io` は compile timeout after 60000ms。型診断は出ていない。
+
+## 2026-05-27 Agent 1 Vec facade doc postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`stdlib/alloc/collections/vec.nepl` の facade doc / doctest 例を NEPLg2.1 の postfix-free 表記へ更新した。`plan.md` は変更していない。
+- `Vec<.T>` は通常 prose なので `Vec .T` にし、`new` / `with_capacity` は `%Vec i32` local または block result annotation、`get` / `len` / `clear` / `free` は receiver evidence から型が決まる形にした。
+- `nodesrc/test_neplg21_vec_doc_postfix_cleanup.js` を追加し、今回撤廃した facade doc の旧構文だけを検出するようにした。コメント量を制限する検査ではない。
+- `node nodesrc/test_neplg21_vec_doc_postfix_cleanup.js`、`node nodesrc/test_stdlib_vec_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_vec_borrowed_observers.js`、`node nodesrc/test_stdlib_vec_pop_doc_report_contract.js` は pass した。
+- `node nodesrc/tests.js -i stdlib/alloc/collections/vec.nepl --no-tree -o tmp/neplg21-vec-doc-postfix.json -j 1 --dist web/dist --assert-io` は 3 doctest とも compile timeout after 60000ms。型診断は出ていない。
