@@ -36,7 +36,7 @@ pub fn queue_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Diag \ca
         Result::Ok items:
             ok items
         Result::Err _e:
-            diag_err<Vec<Option<.T>>> diag_out_of_memory
+            diag_err diag_out_of_memory
 
 //: queue_clear_slots_loop: 全 slot を `None` に[戻/もど]す
 pub fn queue_clear_slots_loop <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn i32 unit \items\cap\i:

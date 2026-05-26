@@ -34,7 +34,7 @@ pub fn heap_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Diag \cap
         Result::Ok items:
             ok items
         Result::Err _e:
-            diag_err<Vec<Option<.T>>> diag_out_of_memory
+            diag_err diag_out_of_memory
 
 pub fn heap_copy_live_slots <.T: Copy> %impure fn &Vec Option .T impure fn &Vec Option .T impure fn i32 unit \src\dst\len0:
     let mut i %i32 0

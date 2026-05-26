@@ -27,7 +27,7 @@ pub fn new <.T: Copy> %impure fn unit Result List .T Diag \unit:
         Result::Ok items:
             ok List<.T> items
         Result::Err e:
-            diag_err<List<.T>> list_diag_from_vec_error e
+            diag_err list_diag_from_vec_error e
 
 //: cons: [先頭/せんとう]に[要素/ようそ]を[追加/ついか]する
 //:
