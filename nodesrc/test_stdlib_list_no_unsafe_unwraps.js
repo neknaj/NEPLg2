@@ -180,6 +180,7 @@ for (const testPath of ['stdlib/tests/list.n.md', 'tests/stdlib/list_collections
     assert.match(testSrc, /\bget\s+&/, `${testPath} must exercise borrowed List.get`);
     assert.doesNotMatch(testSrc, /\blen\s+(?!&)\w+/, `${testPath} must not call List.len by value`);
     assert.doesNotMatch(testSrc, /\bget\s+(?!&)\w+/, `${testPath} must not call List.get by value`);
+    assert.doesNotMatch(testSrc, /\b(?:new|push|cons|reverse)<i32>/, `${testPath} must rely on List expected type or receiver evidence instead of explicit producer or owner-return postfixes`);
     assert.match(testSrc, /\bfree\s+/, `${testPath} must explicitly free observed List owners`);
 }
 

@@ -850,6 +850,22 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check --dir issues`、`trunk build`、`git diff --check` は pass した。`git diff --check` は LF/CRLF warning のみ。
 - `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md -i stdlib/tests/queue.n.md -i tests/stdlib/queue_collections.n.md -i stdlib/tests/ringbuffer.n.md -i tests/stdlib/ringbuffer_collections.n.md --no-tree -o tmp/neplg21-stack-queue-ringbuffer-producer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15/26 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 List/BinaryHeap/Deque producer postfix checkpoint
+
+- `stdlib/tests/list.n.md` / `tests/stdlib/list_collections.n.md`、`stdlib/tests/binary_heap.n.md` / `tests/stdlib/binary_heap_collections.n.md`、`stdlib/tests/deque.n.md` / `tests/stdlib/deque_collections.n.md` を 3 worker の非重複 write scope に分割して並列移行した。
+- List fixture では `new<i32>` / `push<i32>` / `cons<i32>` / `reverse<i32>` を postfix-free にした。
+- BinaryHeap fixture では `new<i32>` / `with_capacity<i32>` / `push<i32>` を postfix-free にした。
+- Deque fixture では `new<i32>` / `with_capacity<i32>` / `push_back<i32>` / `push_front<i32>` を postfix-free にした。
+- 対象は `%List i32` / `%BinaryHeap i32` / `%Deque i32` local annotation、または receiver / argument 型から型根拠が明確な箇所に限定した。
+- `nodesrc/test_stdlib_list_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js` に、今回の対象 fixture が explicit producer / mutator postfix へ戻らないことを固定した。owner recovery、borrowed observer、cleanup 境界の検査は弱めていない。
+- `rg -n "\b(new|push|cons|reverse)<" stdlib/tests/list.n.md tests/stdlib/list_collections.n.md` は 0 件になった。
+- `rg -n "\b(new|with_capacity|push)<" stdlib/tests/binary_heap.n.md tests/stdlib/binary_heap_collections.n.md` は 0 件になった。
+- `rg -n "\b(new|with_capacity|push_back|push_front)<" stdlib/tests/deque.n.md tests/stdlib/deque_collections.n.md` は 0 件になった。
+- `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_collection_cleanup_contract.js` は pass した。
+- `node nodesrc/neplg21_syntax_migrate.js --check` は `would update 0 file(s)` になった。
+- `node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build`、`git diff --check` は pass した。`git diff --check` は LF/CRLF warning のみ。
+- `node nodesrc/tests.js -i stdlib/tests/list.n.md -i tests/stdlib/list_collections.n.md -i stdlib/tests/binary_heap.n.md -i tests/stdlib/binary_heap_collections.n.md -i stdlib/tests/deque.n.md -i tests/stdlib/deque_collections.n.md --no-tree -o tmp/neplg21-list-heap-deque-producer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15/17 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

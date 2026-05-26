@@ -135,4 +135,12 @@ for (const testPath of [
     assert.doesNotMatch(testSrc, /\b(?:new|with_capacity|push)<i32>/, `${testPath} must rely on Queue expected type or receiver evidence instead of explicit producer or mutator postfixes`);
 }
 
+for (const testPath of [
+    'stdlib/tests/deque.n.md',
+    'tests/stdlib/deque_collections.n.md',
+]) {
+    const testSrc = fs.readFileSync(path.join(repoRoot, testPath), 'utf8');
+    assert.doesNotMatch(testSrc, /\b(?:new|with_capacity|push_back|push_front)<i32>/, `${testPath} must rely on Deque expected type or receiver evidence instead of explicit producer or mutator postfixes`);
+}
+
 console.log('queue/deque unsafe unwrap regression passed');

@@ -1,3 +1,26 @@
+# 2026-05-26 Agent 1 List/BinaryHeap/Deque producer postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として List / BinaryHeap / Deque fixture の producer / mutator / owner-return 系後置 generic を撤廃した。
+- `stdlib/tests/list.n.md` / `tests/stdlib/list_collections.n.md`、`stdlib/tests/binary_heap.n.md` / `tests/stdlib/binary_heap_collections.n.md`、`stdlib/tests/deque.n.md` / `tests/stdlib/deque_collections.n.md` を 3 worker の非重複 write scope に分割して並列移行した。
+- List fixture では `new<i32>` / `push<i32>` / `cons<i32>` / `reverse<i32>` を postfix-free にした。
+- BinaryHeap fixture では `new<i32>` / `with_capacity<i32>` / `push<i32>` を postfix-free にした。
+- Deque fixture では `new<i32>` / `with_capacity<i32>` / `push_back<i32>` / `push_front<i32>` を postfix-free にした。
+- 対象は `%List i32` / `%BinaryHeap i32` / `%Deque i32` local annotation、または receiver / argument 型から型根拠が明確な箇所に限定した。
+- `nodesrc/test_stdlib_list_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`、`nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js` に、今回の対象 fixture が explicit producer / mutator postfix へ戻らないことを固定した。owner recovery、borrowed observer、cleanup 境界の検査は弱めていない。
+- 検証:
+  - `rg -n "\b(new|push|cons|reverse)<" stdlib/tests/list.n.md tests/stdlib/list_collections.n.md`: 0 件。
+  - `rg -n "\b(new|with_capacity|push)<" stdlib/tests/binary_heap.n.md tests/stdlib/binary_heap_collections.n.md`: 0 件。
+  - `rg -n "\b(new|with_capacity|push_back|push_front)<" stdlib/tests/deque.n.md tests/stdlib/deque_collections.n.md`: 0 件。
+  - `node nodesrc/test_stdlib_list_no_unsafe_unwraps.js`: pass。
+  - `node nodesrc/test_stdlib_binary_heap_no_unsafe_unwraps.js`: pass。
+  - `node nodesrc/test_stdlib_queue_deque_no_unsafe_unwraps.js`: pass。
+  - `node nodesrc/test_stdlib_collection_cleanup_contract.js`: pass。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: `would update 0 file(s)`。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass。
+  - `trunk build`: pass。
+  - `git diff --check`: pass。LF/CRLF warning のみ。
+  - `node nodesrc/tests.js -i stdlib/tests/list.n.md -i tests/stdlib/list_collections.n.md -i stdlib/tests/binary_heap.n.md -i tests/stdlib/binary_heap_collections.n.md -i stdlib/tests/deque.n.md -i tests/stdlib/deque_collections.n.md --no-tree -o tmp/neplg21-list-heap-deque-producer-postfix.json -j 1 --dist web/dist --assert-io`: 外側 timeout。partial JSON は 15/17 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 Stack/Queue/RingBuffer producer postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として、Stack / Queue / RingBuffer fixture の producer / mutator 系後置 generic を撤廃した。

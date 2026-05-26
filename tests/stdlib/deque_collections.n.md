@@ -30,7 +30,7 @@ stdout: "test_report name=\"deque_pipe_usage\" count=3 failed=0\nassertion index
 
 fn main %impure fn unit i32 \unit:
     let dq0 %Deque i32:
-        unwrap_ok new<i32>
+        unwrap_ok new
         |> push_back 7 |> uwok
         |> push_front 5 |> uwok
         |> push_back 9 |> uwok
@@ -77,10 +77,10 @@ stdout: "test_report name=\"deque_grow_clear_and_free\" count=4 failed=0\nassert
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let dq0 %Deque i32 unwrap_ok with_capacity<i32> 1;
-    let dq1 %Deque i32 unwrap_ok push_back<i32> dq0 10;
-    let dq2 %Deque i32 unwrap_ok push_front<i32> dq1 5;
-    let dq3 %Deque i32 unwrap_ok push_back<i32> dq2 20;
+    let dq0 %Deque i32 unwrap_ok with_capacity 1;
+    let dq1 %Deque i32 unwrap_ok push_back dq0 10;
+    let dq2 %Deque i32 unwrap_ok push_front dq1 5;
+    let dq3 %Deque i32 unwrap_ok push_back dq2 20;
     let size %i32 len &dq3;
     let ok_front %bool match peek_front &dq3:
         Option::Some v:

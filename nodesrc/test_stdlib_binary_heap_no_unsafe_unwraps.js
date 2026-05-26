@@ -107,6 +107,7 @@ for (const testPath of [
     'tests/stdlib/binary_heap_collections.n.md',
 ]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testPath), 'utf8');
+    assert.doesNotMatch(testSrc, /\b(?:new|with_capacity|push)<i32>/, `${testPath} must rely on BinaryHeap expected type or receiver evidence instead of explicit producer or mutator postfixes`);
     assert.doesNotMatch(testSrc, /\b(?:len_ref|cap_ref|is_empty_ref|peek_ref)<i32>/, `${testPath} must not use removed BinaryHeap *_ref observers`);
     assert.doesNotMatch(testSrc, /\b(?:len|cap|is_empty|peek)(?:<i32>)?\s+hp[0-9]?\b/, `${testPath} must not call BinaryHeap observers by value`);
     assert.doesNotMatch(testSrc, /\bhp[0-9]?\s+\|>\s+peek(?:<i32>)?\b/, `${testPath} must not pipe BinaryHeap owners into peek`);
