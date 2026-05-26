@@ -8,7 +8,7 @@
 //: - import graph や module loader が、parser へ依存せずに source lookup だけを[使/つか]えるようにします。
 //:
 //: [実装/じっそう]:
-//: - `SelfhostVirtualFileSystem` は `Vec<SelfhostVirtualFile>` を所有します。
+//: - `SelfhostVirtualFileSystem` は `Vec SelfhostVirtualFile` を所有します。
 //: - `file_id` は追加順の連番です。lexer / parser diagnostic の span に同じ ID を[渡/わた]します。
 //: - path lookup は現段階では線形探索です。module graph の要求が固まったら HashMap へ移行できます。
 //:
@@ -91,7 +91,8 @@ pub fn selfhost_vfs_file_new %fn i32 fn str fn str SelfhostVirtualFile \file_id\
 
 //: selfhost_vfs_new: [空/から]の VFS を[作/つく]る
 pub fn selfhost_vfs_new %impure fn unit Result SelfhostVirtualFileSystem StdErrorKind \unit:
-    match v::new<SelfhostVirtualFile>:
+    let files_result %Result Vec SelfhostVirtualFile StdErrorKind v::new
+    match files_result:
         Result::Ok files:
             Result::Ok SelfhostVirtualFileSystem files
         Result::Err e:
@@ -104,7 +105,7 @@ pub fn selfhost_vfs_new %impure fn unit Result SelfhostVirtualFileSystem StdErro
 pub fn selfhost_vfs_add %impure fn SelfhostVirtualFileSystem impure fn str impure fn str Result SelfhostVirtualFileSystem StdErrorKind \vfs\path\source:
     let file_id %i32 selfhost_vfs_len &vfs
     let file %SelfhostVirtualFile selfhost_vfs_file_new file_id path source
-    match v::push<SelfhostVirtualFile> field::get vfs "files" file:
+    match v::push field::get vfs "files" file:
         Result::Ok files:
             Result::Ok SelfhostVirtualFileSystem files
         Result::Err e:

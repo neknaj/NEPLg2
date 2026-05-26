@@ -74,7 +74,7 @@ assert.match(
 );
 assert.match(
     newSourceText,
-    /match\s+v::filled<i32>\s+1\s+0:/,
+    /match\s+v::filled\s+1\s+0:/,
     'source_text_new must build the initial line-start table without a separate consuming push'
 );
 

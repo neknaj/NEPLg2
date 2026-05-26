@@ -1040,6 +1040,17 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_neplg21_core_traits_postfix_cleanup.js`、`node nodesrc/test_core_traits_doc_report_contract.js`、`node nodesrc/test_stdlib_traits_hash_report_contract.js`、`node nodesrc/test_stdlib_traits_serde_report_contract.js`、`node nodesrc/neplg21_syntax_migrate.js --check` は pass した。
 - `target\debug\nepl-cli.exe --check -i tmp\neplg21_core_traits_deserialize_smoke.neplg2 --target core` は 124s timeout。残留 `node` / `nepl-cli` process は停止した。型診断は出ていないため、full smoke は performance issue 側で継続確認する。
 
+### 2026-05-27 selfhost/TUI Vec helper postfix checkpoint
+
+- `stdlib/platforms/wasix/tui/text/wrap.nepl` と `text.nepl` で、prose の `Vec<str>` を `Vec str` に更新し、`v::vec_empty<str>` / `v::push<str>` / `v::vec_push_error_vec<str>` / `v::new<str>` を postfix-free call へ移行した。
+- `v::new` は値引数がなく型根拠が弱いため、`let initial %Result Vec str StdErrorKind v::new` の typed local を置いてから match する形にした。
+- `stdlib/neplg2/core/infra/text.nepl` では、line start table の prose を `Vec i32` に更新し、`v::push<i32>` / `v::filled<i32>` を `Vec i32` receiver / value evidence から解ける postfix-free call へ移行した。
+- `stdlib/neplg2/core/mono/mono.nepl` と `stdlib/neplg2/core/module/vfs.nepl` では、prose の `Option<SelfhostMonoInstanceId>` / `Vec<SelfhostVirtualFile>` を NEPLg2.1 表記にし、`v::new` は typed local、`v::push` / `v::vec_push_error_kind` は receiver / value evidence で postfix-free にした。
+- 3 worker に TUI text、selfhost source text、selfhost mono/VFS を非重複 write scope として割り当て、親 agent が stale policy を NEPLg2.1 表記へ追従した。
+- `nodesrc/test_neplg21_selfhost_tui_vec_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量や doccomment の増加を制限する検査ではない。
+- `node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js`、`node nodesrc/test_selfhost_source_text_no_recursive_line_map.js`、`node nodesrc/test_selfhost_mono_instance_absence.js`、`node nodesrc/test_selfhost_cli_file_io_boundary.js`、`node nodesrc/test_neplg21_selfhost_tui_vec_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check` は pass した。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/mono/mono.nepl -i stdlib/neplg2/core/module/vfs.nepl --no-tree -o tmp/worker3-selfhost-mono-vfs.json -j 1` は両 doctest compile timeout。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

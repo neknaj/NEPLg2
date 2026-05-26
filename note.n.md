@@ -47176,3 +47176,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_neplg21_core_traits_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量や doccomment の増加を妨げる検査ではない。
 - `node nodesrc/test_neplg21_core_traits_postfix_cleanup.js`、`node nodesrc/test_core_traits_doc_report_contract.js`、`node nodesrc/test_stdlib_traits_hash_report_contract.js`、`node nodesrc/test_stdlib_traits_serde_report_contract.js`、`node nodesrc/neplg21_syntax_migrate.js --check` は pass した。
 - `target\debug\nepl-cli.exe --check -i tmp\neplg21_core_traits_deserialize_smoke.neplg2 --target core` は 124s timeout。型診断は出ていない。残留 `node` / `nepl-cli` process は停止した。
+
+## 2026-05-27 Agent 1 selfhost/TUI Vec helper postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、TUI text、selfhost source text、selfhost mono/VFS の Vec helper postfix を 3 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `stdlib/platforms/wasix/tui/text/wrap.nepl` と `text.nepl` では、`Vec<str>` prose を `Vec str` にし、`v::vec_empty` / `v::push` / `v::vec_push_error_vec` / `v::new` を postfix-free にした。`v::new` は `let initial %Result Vec str StdErrorKind v::new` で型根拠を明示した。
+- `stdlib/neplg2/core/infra/text.nepl` では、line start table の `Vec<i32>` prose を `Vec i32` にし、`v::push` / `v::filled` を `Vec i32` receiver / value evidence から解ける形にした。
+- `stdlib/neplg2/core/mono/mono.nepl` と `stdlib/neplg2/core/module/vfs.nepl` では、`Option<SelfhostMonoInstanceId>` / `Vec<SelfhostVirtualFile>` prose を NEPLg2.1 表記にし、`v::new` は typed local、`v::push` / `v::vec_push_error_kind` は receiver / value evidence から解ける形にした。
+- stale source policy は、owner recovery、typed cache storage、line map construction、TUI wrap allocation failure handling の契約を保ったまま postfix-free call を確認する形へ追従した。
+- `nodesrc/test_neplg21_selfhost_tui_vec_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量や doccomment の増加を妨げる検査ではない。
+- `node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js`、`node nodesrc/test_selfhost_source_text_no_recursive_line_map.js`、`node nodesrc/test_selfhost_mono_instance_absence.js`、`node nodesrc/test_selfhost_cli_file_io_boundary.js`、`node nodesrc/test_neplg21_selfhost_tui_vec_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check` は pass した。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/mono/mono.nepl -i stdlib/neplg2/core/module/vfs.nepl --no-tree -o tmp/worker3-selfhost-mono-vfs.json -j 1` は両 doctest compile timeout。型診断は出ていない。

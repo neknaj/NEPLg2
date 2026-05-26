@@ -112,7 +112,7 @@ impl Copy for SelfhostMonoInstanceId:
 //:
 //: [目的/もくてき]:
 //: - lookup key と stable instance id を組にし、cache storage / name mangling / codegen が loose tuple を共有しないようにします。
-//: - 未割り当て状態はこの record では表さず、lookup result 側の `Option<SelfhostMonoInstanceId>` で扱います。
+//: - 未割り当て状態はこの record では表さず、lookup result 側の `Option SelfhostMonoInstanceId` で扱います。
 pub struct SelfhostMonoInstanceRecord:
     key %SelfhostMonoInstanceKey
     instance_id %SelfhostMonoInstanceId
@@ -129,7 +129,7 @@ impl Copy for SelfhostMonoInstanceRecord:
 //:
 //: [目的/もくてき]:
 //: - cache storage を `SelfhostMonoInstanceRecord` の table として保持し、key と id を別々の配列や raw tuple として扱わないようにします。
-//: - lookup は `Option<SelfhostMonoInstanceId>` を返し、未登録状態を invalid id で表さない設計を維持します。
+//: - lookup は `Option SelfhostMonoInstanceId` を返し、未登録状態を invalid id で表さない設計を維持します。
 //:
 //: [注意/ちゅうい]:
 //: - 現段階では小さい stage fixture 向けの線形探索です。hash bucket を追加する場合も identity は seed ではなく full key equality で確認してください。
@@ -239,7 +239,8 @@ pub fn selfhost_mono_instance_record_matches_key %fn SelfhostMonoInstanceRecord 
 
 //: selfhost_mono_instance_cache_new: 空の mono instance cache を作る
 pub fn selfhost_mono_instance_cache_new %impure fn unit Result SelfhostMonoInstanceCache StdErrorKind \unit:
-    match v::new<SelfhostMonoInstanceRecord>:
+    let records_result %Result Vec SelfhostMonoInstanceRecord StdErrorKind v::new
+    match records_result:
         Result::Ok records:
             Result::Ok SelfhostMonoInstanceCache records
         Result::Err e:
@@ -339,11 +340,11 @@ pub fn selfhost_mono_instance_cache_intern %impure fn SelfhostMonoInstanceCache 
                     let instance_id %SelfhostMonoInstanceId selfhost_mono_instance_id_new selfhost_mono_instance_cache_len &cache
                     let record %SelfhostMonoInstanceRecord selfhost_mono_instance_record_new key instance_id
                     let records %Vec SelfhostMonoInstanceRecord field::get cache "records"
-                    match v::push<SelfhostMonoInstanceRecord> records record:
+                    match v::push records record:
                         Result::Ok next_records:
                             Result::Ok selfhost_mono_instance_cache_intern_result_new (SelfhostMonoInstanceCache next_records) instance_id
                         Result::Err e:
-                            let error %StdErrorKind v::vec_push_error_kind<SelfhostMonoInstanceRecord> &e
+                            let error %StdErrorKind v::vec_push_error_kind &e
                             v::free v::vec_push_error_vec e
                             Result::Err selfhost_mono_instance_cache_intern_error_storage error
 

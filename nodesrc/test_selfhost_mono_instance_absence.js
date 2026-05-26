@@ -95,7 +95,8 @@ assert.match(cacheIntern, /\bselfhost_mono_instance_cache_free\s+cache\b/, "cach
 assert.match(cacheIntern, /\bselfhost_mono_instance_cache_intern_error_invalid_key\s+key\b/, "cache intern must report invalid keys through the typed error enum");
 assert.match(cacheIntern, /\bmatch\s+selfhost_mono_instance_cache_lookup\s+&cache\s+key:/, "cache intern must check existing keys before allocating");
 assert.match(cacheIntern, /\bselfhost_mono_instance_record_new\s+key\s+instance_id\b/, "cache intern must store key/id as a typed record");
-assert.match(cacheIntern, /\bv::push<SelfhostMonoInstanceRecord>\s+records\s+record\b/, "cache intern must append typed records to storage");
+assert.match(cacheIntern, /\blet\s+records\s+<Vec<SelfhostMonoInstanceRecord>>\s+field::get\s+cache\s+"records"/, "cache intern must recover typed record storage before append");
+assert.match(cacheIntern, /\bv::push\s+records\s+record\b/, "cache intern must append typed records to storage");
 assert.match(cacheIntern, /\bselfhost_mono_instance_cache_intern_error_storage\s+error\b/, "cache intern must wrap storage failures in the typed error enum");
 assert.doesNotMatch(cacheIntern, /Result<SelfhostMonoInstanceCacheInternResult,\s*StdErrorKind>/, "cache intern must not collapse invalid key and storage errors into StdErrorKind");
 assert.doesNotMatch(cacheIntern, /\bSelfhostMonoInstanceId\b\s+-1\b|\bselfhost_mono_instance_id_new\s+-1\b/, "cache intern must not reintroduce invalid IDs");

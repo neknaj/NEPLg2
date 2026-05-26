@@ -8,7 +8,7 @@
 //: - `SourceText` が source [文字列/もじれつ]と line start table を[保持/ほじ]し、各 stage が source を[個別/こべつ]に[再走査/さいそうさ]しないようにします。
 //:
 //: [実装/じっそう]:
-//: - line start table は 0-origin の byte offset を[昇順/しょうじゅん]に[保持/ほじ]する `Vec<i32>` です。
+//: - line start table は 0-origin の byte offset を[昇順/しょうじゅん]に[保持/ほじ]する `Vec i32` です。
 //: - LF / CRLF / CR を newline として[扱/あつか]い、line span は newline byte を[除/のぞ]いた `[start, end)` を[返/かえ]します。
 //:
 //: [注意/ちゅうい]:
@@ -129,7 +129,7 @@ pub fn source_text_next_index_after_cr %fn str fn i32 fn i32 i32 \source\n\idx:
 //: - `Vec::push` は consuming API なので、while loop の accumulator へ戻す owner を成功/失敗の両方で明示します。
 //: - 失敗時、`Vec::push` が返した入力 Vec owner を保持し、呼び出し側が cleanup できるようにします。
 pub fn source_text_push_line_start %fn Vec i32 fn i32 SourceTextLineStartPush \starts\offset:
-    match v::push<i32> starts offset:
+    match v::push starts offset:
         Result::Ok next_starts:
             SourceTextLineStartPush SourceTextLineStartPushState::Ok next_starts
         Result::Err e:
@@ -139,7 +139,7 @@ pub fn source_text_push_line_start %fn Vec i32 fn i32 SourceTextLineStartPush \s
 //:
 //: [実装/じっそう]:
 //: - source byte を while で前から 1 回だけ[走査/そうさ]します。
-//: - LF / CR / CRLF を[見/み]つけたときだけ次 line start を `Vec<i32>` へ[追加/ついか]します。
+//: - LF / CR / CRLF を[見/み]つけたときだけ次 line start を `Vec i32` へ[追加/ついか]します。
 //:
 //: [注意/ちゅうい]:
 //: - allocation failure は `Result::Err StdErrorKind::OutOfMemory` として[返/かえ]します。
@@ -192,7 +192,7 @@ pub fn source_text_collect_line_starts %fn str fn i32 fn i32 fn Vec i32 Result V
 //: [注意/ちゅうい]:
 //: - `path` は diagnostic [表示用/ひょうじよう]の[名前/なまえ]です。filesystem へは[接続/せつぞく]しません。
 pub fn source_text_new %fn i32 fn str fn str Result SelfhostSourceText StdErrorKind \file_id\path\source:
-    match v::filled<i32> 1 0:
+    match v::filled 1 0:
         Result::Ok starts:
             let n %i32 string_access::len source
             match source_text_collect_line_starts source n 0 starts:
