@@ -18,7 +18,7 @@
 //: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>;
 //:     let v1 %Vec i32 uwok push v0 2;
-//:     let sorted %Vec i32 unwrap_ok sort_merge_ret<i32> v1;
+//:     let sorted %Vec i32 unwrap_ok sort_merge_ret v1;
 //:     let ok %i32 len<i32> &sorted;
 //:     free<i32> sorted;
 //:     if eq ok 1 0 1

@@ -62,7 +62,7 @@
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
-//:     let ys %Vec i32 unwrap_ok map<i32,i32> xs inc;
+//:     let ys %Vec i32 unwrap_ok map xs inc;
 //:     match get<i32> &ys 2:
 //:         Option::Some x:
 //:             free<i32> ys;

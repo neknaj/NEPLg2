@@ -96,7 +96,7 @@ fn vec_copy_range_to_raw <.T: Copy> %fn &Vec .T fn MemPtr .T fn i32 fn i32 unit 
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
-//:     let ys %Vec i32 unwrap_ok take_while<i32> xs lt_three;
+//:     let ys %Vec i32 unwrap_ok take_while xs lt_three;
 //:     let observed_len %i32 len<i32> &ys
 //:     let ok %bool eq observed_len 2
 //:     free<i32> ys;
@@ -172,7 +172,7 @@ pub fn take_while <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransform
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
-//:     let ys %Vec i32 unwrap_ok drop_while<i32> xs lt_three;
+//:     let ys %Vec i32 unwrap_ok drop_while xs lt_three;
 //:     match get<i32> &ys 0:
 //:         Option::Some x:
 //:             free<i32> ys;

@@ -37,7 +37,7 @@
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
 //:     let ok %bool eq vec_partition_matched_len<i32> &parts 1;
 //:     vec_partition_free<i32> parts;
 //:     if ok 0 1
@@ -65,7 +65,7 @@ pub fn vec_partition_matched_len <.T> %fn &VecPartition .T i32 \parts:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
 //:     let ok %bool eq vec_partition_rest_len<i32> &parts 1;
 //:     vec_partition_free<i32> parts;
 //:     if ok 0 1
@@ -98,7 +98,7 @@ pub fn vec_partition_rest_len <.T> %fn &VecPartition .T i32 \parts:
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
 //:     let item %Option i32 vec_partition_matched_get<i32> &parts 0;
 //:     vec_partition_free<i32> parts;
 //:     match item:
@@ -130,7 +130,7 @@ pub fn vec_partition_matched_get <.T: Copy> %fn &VecPartition .T fn i32 Option .
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
 //:     let item %Option i32 vec_partition_rest_get<i32> &parts 0;
 //:     vec_partition_free<i32> parts;
 //:     match item:
@@ -231,7 +231,7 @@ pub fn vec_partition_with <.T,.R> %impure fn VecPartition .T impure fn impure fn
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
 //:     vec_partition_free<i32> parts;
 //:     0
 //: ```

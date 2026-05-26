@@ -72,7 +72,7 @@ fn main %impure fn unit i32 \unit:
     let v2 %Vec i32 unwrap_ok push v1 1;
     let v3 %Vec i32 unwrap_ok push v2 3;
     let v4 %Vec i32 unwrap_ok push v3 2;
-    let s sort_quick_ret<i32> v4;
+    let s sort_quick_ret v4;
     let b0 %bool match get<i32> &s 0:
         Option::Some x:
             eq x 1

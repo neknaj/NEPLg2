@@ -96,7 +96,7 @@ fn main %impure fn unit i32 \unit:
         |> push 2 |> uwok
         |> push 4 |> uwok
         |> push 1 |> uwok
-    let sorted %Vec i32 unwrap_ok sort_merge_ret<i32> unsorted;
+    let sorted %Vec i32 unwrap_ok sort_merge_ret unsorted;
     let first_ok %bool match get &sorted 0:
         Option::Some v:
             eq v 1
@@ -150,7 +150,8 @@ stdout: "test_report name=\"vec_negative_capacity_rejected\" count=1 failed=0\na
 
 fn main %impure fn unit i32 \unit:
     let neg %i32 sub 0 1
-    let actual %str match with_capacity<i32> neg:
+    let capacity_result %Result Vec i32 StdErrorKind with_capacity neg
+    let actual %str match capacity_result:
         Result::Ok v:
             free v
             "Ok"

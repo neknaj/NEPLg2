@@ -109,7 +109,7 @@ fn main %impure fn unit i32 \unit:
     let xs0 %Vec i32 unwrap_ok new<i32>;
     let xs1 %Vec i32 unwrap_ok push<i32> xs0 1;
     let xs2 %Vec i32 unwrap_ok push<i32> xs1 2;
-    let ys %Vec i32 unwrap_ok map<i32, i32> xs2 inc;
+    let ys %Vec i32 unwrap_ok map xs2 inc;
     let out %i32 unwrap get &ys 1;
     free ys;
     let report:

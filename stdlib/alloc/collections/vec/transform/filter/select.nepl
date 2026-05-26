@@ -36,7 +36,7 @@
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
 //:         |> push 4 |> uwok
-//:     let zs %Vec i32 unwrap_ok filter<i32> ys is_even;
+//:     let zs %Vec i32 unwrap_ok filter ys is_even;
 //:     let observed_len %i32 len<i32> &zs
 //:     let ok %bool eq observed_len 2
 //:     free<i32> zs;

@@ -60,7 +60,7 @@
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
-//:     let parts unwrap_ok partition<i32> xs is_even;
+//:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
 //:     let ok %bool eq vec_partition_matched_len<i32> &parts 1
 //:     vec_partition_free<i32> parts;
 //:     if ok 0 1

@@ -196,7 +196,7 @@ pub fn vec_transform_error_kind <.T> %fn &VecTransformError .T StdErrorKind \e:
 //: fn main %impure fn unit i32 \unit:
 //:     let v0 %Vec i32 unwrap_ok new<i32>
 //:     let v1 %Vec i32 unwrap_ok push<i32> v0 1
-//:     match map<i32,i32> v1 @inc:
+//:     match map v1 @inc:
 //:         Result::Ok out:
 //:             let ok %bool eq len<i32> &out 1
 //:             free<i32> out
@@ -349,7 +349,7 @@ pub fn vec_pop_with <.T,.R> %impure fn VecPop .T impure fn impure fn Vec .T impu
 //:         unwrap_ok new<i32>
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
-//:     let parts %VecPartition i32 unwrap_ok partition<i32> xs is_even;
+//:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
 //:     let ok %bool and (eq vec_partition_matched_len<i32> &parts 1) (eq vec_partition_rest_len<i32> &parts 1);
 //:     vec_partition_free<i32> parts;
 //:     if ok 0 1

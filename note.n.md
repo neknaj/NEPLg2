@@ -1,3 +1,15 @@
+# 2026-05-26 Agent 1 Vec transform / sort_ret postfix checkpoint
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、Vec transform / traversal / sort result 系の後置 generic を 5 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `stdlib/tests/vec.n.md` では `map<i32,i32>` / `filter<i32>` / `partition<i32>` / `take_while<i32>` / `drop_while<i32>` / `fold<i32,i32>` / `reduce<i32>` / `find<i32>` / `any<i32>` / `all<i32>` / `count<i32>` を postfix-free にした。`partition` result は `%VecPartition i32` typed local を追加して型根拠を明示した。
+- `tests/stdlib/sort.n.md`、`tests/stdlib/traits_order.n.md`、`tests/stdlib/vec_collections.n.md` では `sort_quick_ret<i32>` / `sort_heap_ret<i32>` / `sort_merge_ret<i32>` を input `Vec i32` または `%Vec i32` result annotation から解ける postfix-free 形へ移行した。
+- `tests/stdlib/vec_collections.n.md` の `with_capacity<i32> neg` は `%Result Vec i32 StdErrorKind` typed local を置いて `with_capacity neg` にした。
+- Vec transform / sort doccomment examples と `tests/compiler/list_dot_map.n.md` の Vec map case も postfix-free にした。`list::map<i32,i32>` と Result `map<i32,i32,i32>` は Vec API ではないため今回対象外として残した。
+- `nodesrc/test_stdlib_vec_borrowed_observers.js` に、今回対象の Vec transform / traversal / sort_ret postfix 再導入防止を追加した。これはコメント量を制限する検査ではない。
+- `rg -n "sort_(quick|heap|merge)_ret<|\b(map|filter|partition|take_while|drop_while|fold|reduce|find|any|all|count)<|with_capacity<i32>\s+neg" <対象files>` は、List / Result map の対象外 2 件だけが残る状態になった。
+- targeted source policy、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build`、`git diff --check` は pass した。
+- `node nodesrc/tests.js <対象14 files> --no-tree -o tmp/neplg21-vec-transform-sort-ret-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 16/61 件完了、16 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 Vec/sort/Stack producer postfix checkpoint
 
 - `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、Vec / sort fixture と Stack examples の producer / mutator 系後置 generic を 5 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。

@@ -103,7 +103,7 @@ fn make_vec4 %fn unit Vec i32 \unit:
     v
 
 fn main %impure fn unit i32 \unit:
-    let v sort_quick_ret<i32> make_vec4;
+    let v sort_quick_ret make_vec4;
     let n %i32 len &v;
     let bn %bool eq n 4;
     let b0 %bool match get &v 0:
@@ -146,7 +146,7 @@ ret: 0
 
 fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new;
-    let v1 sort_quick_ret<i32> v0;
+    let v1 sort_quick_ret v0;
     let n %i32 len &v1;
     free v1;
     n
@@ -168,7 +168,7 @@ ret: 1
 fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 42;
-    let v2 sort_quick_ret<i32> v1;
+    let v2 sort_quick_ret v1;
     let n %i32 len &v2;
     free v2;
     n
@@ -191,7 +191,7 @@ fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 4;
     let v2 %Vec i32 unwrap_ok push v1 1;
-    let v3 sort_quick_ret<i32> v2;
+    let v3 sort_quick_ret v2;
     let v4 %Vec i32 unwrap_ok push v3 5;
     let n %i32 len &v4;
     free v4;
@@ -251,7 +251,7 @@ fn make_vec4 %fn unit Vec i32 \unit:
     v
 
 fn main %impure fn unit i32 \unit:
-    let v sort_heap_ret<i32> make_vec4;
+    let v sort_heap_ret make_vec4;
     let n %i32 len &v;
     let bn %bool eq n 4;
     let b0 %bool match get &v 0:
@@ -294,7 +294,7 @@ ret: 0
 
 fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new;
-    let v1 sort_heap_ret<i32> v0;
+    let v1 sort_heap_ret v0;
     let n %i32 len &v1;
     free v1;
     n
@@ -316,7 +316,7 @@ ret: 1
 fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 42;
-    let v2 sort_heap_ret<i32> v1;
+    let v2 sort_heap_ret v1;
     let n %i32 len &v2;
     free v2;
     n
@@ -339,7 +339,7 @@ fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 4;
     let v2 %Vec i32 unwrap_ok push v1 1;
-    let v3 sort_heap_ret<i32> v2;
+    let v3 sort_heap_ret v2;
     let v4 %Vec i32 unwrap_ok push v3 5;
     let n %i32 len &v4;
     free v4;
@@ -371,7 +371,7 @@ fn make_vec4 %fn unit Vec i32 \unit:
     v
 
 fn main %impure fn unit i32 \unit:
-    let v %Vec i32 unwrap_ok sort_merge_ret<i32> make_vec4;
+    let v %Vec i32 unwrap_ok sort_merge_ret make_vec4;
     let n %i32 len &v;
     let bn %bool eq n 4;
     let b0 %bool match get &v 0:
@@ -414,7 +414,7 @@ ret: 0
 
 fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new;
-    let v1 %Vec i32 unwrap_ok sort_merge_ret<i32> v0;
+    let v1 %Vec i32 unwrap_ok sort_merge_ret v0;
     let n %i32 len &v1;
     free v1;
     n
@@ -436,7 +436,7 @@ ret: 1
 fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 42;
-    let v2 %Vec i32 unwrap_ok sort_merge_ret<i32> v1;
+    let v2 %Vec i32 unwrap_ok sort_merge_ret v1;
     let n %i32 len &v2;
     free v2;
     n
@@ -459,7 +459,7 @@ fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 unwrap_ok new;
     let v1 %Vec i32 unwrap_ok push v0 4;
     let v2 %Vec i32 unwrap_ok push v1 1;
-    let v3 %Vec i32 unwrap_ok sort_merge_ret<i32> v2;
+    let v3 %Vec i32 unwrap_ok sort_merge_ret v2;
     let v4 %Vec i32 unwrap_ok push v3 5;
     let n %i32 len &v4;
     free v4;

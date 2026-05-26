@@ -166,7 +166,7 @@ fn main %impure fn unit i32 \unit:
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
-    let mapped %Vec i32 unwrap_ok map<i32,i32> mapped_src inc;
+    let mapped %Vec i32 unwrap_ok map mapped_src inc;
     let mut mapped_value %i32 -1;
     match get &mapped 2:
         Option::Some x:
@@ -180,7 +180,7 @@ fn main %impure fn unit i32 \unit:
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let filtered_len %Vec i32 unwrap_ok filter<i32> filtered_len_src is_even;
+    let filtered_len %Vec i32 unwrap_ok filter filtered_len_src is_even;
     let filtered_len_value %i32 len &filtered_len;
     let filtered_get_src %Vec i32:
         unwrap_ok new
@@ -188,7 +188,7 @@ fn main %impure fn unit i32 \unit:
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let filtered_get %Vec i32 unwrap_ok filter<i32> filtered_get_src is_even;
+    let filtered_get %Vec i32 unwrap_ok filter filtered_get_src is_even;
     let mut filtered_value %i32 -1;
     match get &filtered_get 1:
         Option::Some x:
@@ -202,7 +202,7 @@ fn main %impure fn unit i32 \unit:
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let folded_sum %i32 fold<i32,i32> &folded_src 0 add_acc;
+    let folded_sum %i32 fold &folded_src 0 add_acc;
 
     let reduced_src %Vec i32:
         unwrap_ok new
@@ -211,7 +211,7 @@ fn main %impure fn unit i32 \unit:
         |> push 3 |> uwok
         |> push 4 |> uwok
     let mut reduced_value %i32 -1;
-    match reduce<i32> &reduced_src add_acc:
+    match reduce &reduced_src add_acc:
         Option::Some x:
             set reduced_value x
         Option::None:
@@ -223,7 +223,7 @@ fn main %impure fn unit i32 \unit:
         |> push 2 |> uwok
         |> push 3 |> uwok
     let mut find_value %i32 -1;
-    match find<i32> &find_src gt_two:
+    match find &find_src gt_two:
         Option::Some x:
             set find_value x
         Option::None:
@@ -234,14 +234,14 @@ fn main %impure fn unit i32 \unit:
         |> push 1 |> uwok
         |> push 2 |> uwok
         |> push 3 |> uwok
-    let any_value %bool any<i32> &any_src gt_two;
+    let any_value %bool any &any_src gt_two;
 
     let all_src %Vec i32:
         unwrap_ok new
         |> push 2 |> uwok
         |> push 4 |> uwok
         |> push 6 |> uwok
-    let all_value %bool all<i32> &all_src is_even;
+    let all_value %bool all &all_src is_even;
 
     free mapped;
     free filtered_len;
@@ -293,7 +293,7 @@ fn main %impure fn unit i32 \unit:
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let parts_even_len unwrap_ok partition<i32> partition_even_len_src is_even;
+    let parts_even_len %VecPartition i32 unwrap_ok partition partition_even_len_src is_even;
     let evens_len_value %i32 vec_partition_matched_len &parts_even_len;
     let partition_even_get_src %Vec i32:
         unwrap_ok new
@@ -301,7 +301,7 @@ fn main %impure fn unit i32 \unit:
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let parts_even_get unwrap_ok partition<i32> partition_even_get_src is_even;
+    let parts_even_get %VecPartition i32 unwrap_ok partition partition_even_get_src is_even;
     let mut evens_get_value %i32 -1;
     match vec_partition_matched_get &parts_even_get 1:
         Option::Some x:
@@ -314,7 +314,7 @@ fn main %impure fn unit i32 \unit:
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let parts_odds_len unwrap_ok partition<i32> partition_odds_len_src is_even;
+    let parts_odds_len %VecPartition i32 unwrap_ok partition partition_odds_len_src is_even;
     let odds_len_value %i32 vec_partition_rest_len &parts_odds_len;
     let partition_odds_get_src %Vec i32:
         unwrap_ok new
@@ -322,7 +322,7 @@ fn main %impure fn unit i32 \unit:
         |> push 2 |> uwok
         |> push 3 |> uwok
         |> push 4 |> uwok
-    let parts_odds_get unwrap_ok partition<i32> partition_odds_get_src is_even;
+    let parts_odds_get %VecPartition i32 unwrap_ok partition partition_odds_get_src is_even;
     let mut odds_get_value %i32 -1;
     match vec_partition_rest_get &parts_odds_get 0:
         Option::Some x:
@@ -372,7 +372,7 @@ fn main %impure fn unit i32 \unit:
         |> push 3 |> uwok
         |> push 5 |> uwok
         |> push 6 |> uwok
-    let taken %Vec i32 unwrap_ok take_while<i32> take_src lt_four;
+    let taken %Vec i32 unwrap_ok take_while take_src lt_four;
     let taken_len %i32 len &taken;
     free taken;
 
@@ -412,7 +412,7 @@ fn main %impure fn unit i32 \unit:
         |> push 3 |> uwok
         |> push 5 |> uwok
         |> push 6 |> uwok
-    let dropped %Vec i32 unwrap_ok drop_while<i32> drop_src lt_four;
+    let dropped %Vec i32 unwrap_ok drop_while drop_src lt_four;
     let mut dropped_first %i32 -1;
     match get &dropped 0:
         Option::Some x:
@@ -455,7 +455,7 @@ fn main %impure fn unit i32 \unit:
         |> push 3 |> uwok
         |> push 4 |> uwok
         |> push 5 |> uwok
-    let even_count %i32 count<i32> &count_src is_even;
+    let even_count %i32 count &count_src is_even;
     free count_src;
     let report:
         test_report_new "vec_count_helper"

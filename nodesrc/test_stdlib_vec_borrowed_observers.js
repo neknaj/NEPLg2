@@ -158,14 +158,30 @@ for (const testRelPath of [
 }
 
 for (const [testRelPath, pattern] of [
-    ["stdlib/tests/vec.n.md", /\b(?:new|with_capacity|push)<(?:i32|u8)>/],
-    ["tests/stdlib/vec_collections.n.md", /\b(?:new|push)<i32>|\bwith_capacity<i32>\s+0\b/],
-    ["tests/stdlib/sort.n.md", /\b(?:new|push)<i32>/],
+    ["stdlib/tests/vec.n.md", /\b(?:new|with_capacity|push)<(?:i32|u8)>|\b(?:map|filter|partition|take_while|drop_while|reduce|find|any|all|count)<i32>|\b(?:fold|map)<i32\s*,\s*i32>/],
+    ["tests/stdlib/vec_collections.n.md", /\b(?:new|with_capacity|push)<i32>|\bsort_merge_ret<i32>/],
+    ["tests/stdlib/sort.n.md", /\b(?:new|push)<i32>|\bsort_(?:quick|heap|merge)_ret<i32>/],
     ["tests/stdlib/sort_simple.n.md", /\b(?:new|push)<i32>/],
-    ["tests/stdlib/traits_order.n.md", /\b(?:new|push)<i32>/],
+    ["tests/stdlib/traits_order.n.md", /\b(?:new|push)<i32>|\bsort_quick_ret<i32>/],
+    ["tests/compiler/list_dot_map.n.md", /\blet\s+ys\s+%Vec\s+i32\s+unwrap_ok\s+map</],
 ]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testRelPath), "utf8");
     assert.doesNotMatch(testSrc, pattern, `${testRelPath} must rely on NEPLg2.1 Vec expected type or receiver evidence instead of explicit producer or mutator postfixes`);
+}
+
+for (const relPath of [
+    "stdlib/alloc/collections/vec/types.nepl",
+    "stdlib/alloc/collections/vec/transform/filter.nepl",
+    "stdlib/alloc/collections/vec/transform/filter/partition/build.nepl",
+    "stdlib/alloc/collections/vec/transform/filter/partition/view.nepl",
+    "stdlib/alloc/collections/vec/transform/filter/select.nepl",
+    "stdlib/alloc/collections/vec/transform/map.nepl",
+    "stdlib/alloc/collections/vec/transform/prefix.nepl",
+    "stdlib/alloc/collections/vec/sort.nepl",
+    "stdlib/alloc/collections/vec/sort/merge.nepl",
+]) {
+    const src = fs.readFileSync(path.join(repoRoot, relPath), "utf8");
+    assert.doesNotMatch(src, /\b(?:map|filter|partition|take_while|drop_while|sort_quick_ret|sort_heap_ret|sort_merge_ret)<i32(?:\s*,\s*i32)?>/, `${relPath} examples must rely on NEPLg2.1 Vec expected type or receiver evidence instead of explicit transform or sort-ret postfixes`);
 }
 
 for (const relPath of [

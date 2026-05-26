@@ -905,6 +905,18 @@ LLM/手動判断が必要なもの:
 - targeted source policy、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
 - `node nodesrc/tests.js <対象9 files> --no-tree -o tmp/neplg21-vec-sort-stack-producer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 16/44 件完了、16 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 Vec transform / sort_ret postfix checkpoint
+
+- `stdlib/tests/vec.n.md`、`tests/stdlib/sort.n.md`、`tests/stdlib/traits_order.n.md`、`tests/stdlib/vec_collections.n.md`、Vec transform / sort doccomment examples、`tests/compiler/list_dot_map.n.md` を 5 worker の非重複 write scope に分割して並列移行した。
+- `map<i32,i32>` / `filter<i32>` / `partition<i32>` / `take_while<i32>` / `drop_while<i32>` / `fold<i32,i32>` / `reduce<i32>` / `find<i32>` / `any<i32>` / `all<i32>` / `count<i32>` は、input `Vec i32`、callback 型、戻り値 annotation、または `%VecPartition i32` typed local から型根拠を明示して postfix-free にした。
+- `sort_quick_ret<i32>` / `sort_heap_ret<i32>` / `sort_merge_ret<i32>` は、input `Vec i32` または `%Vec i32` result annotation から解ける call site と doccomment example を postfix-free にした。
+- `tests/stdlib/vec_collections.n.md` の `with_capacity<i32> neg` は `%Result Vec i32 StdErrorKind` typed local を置いて `with_capacity neg` へ移行した。
+- `tests/compiler/list_dot_map.n.md` では Vec map case だけを対象にし、`list::map<i32,i32>` と Result `map<i32,i32,i32>` は別 API として残した。
+- `nodesrc/test_stdlib_vec_borrowed_observers.js` に、今回対象の Vec transform / traversal / sort_ret postfix 再導入防止を追加した。コメント量を制限する検査ではない。
+- `rg -n "sort_(quick|heap|merge)_ret<|\b(map|filter|partition|take_while|drop_while|fold|reduce|find|any|all|count)<|with_capacity<i32>\s+neg" <対象files>` は、List / Result map の対象外 2 件だけが残る状態になった。
+- targeted source policy、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build`、`git diff --check` は pass した。
+- `node nodesrc/tests.js <対象14 files> --no-tree -o tmp/neplg21-vec-transform-sort-ret-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 16/61 件完了、16 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
