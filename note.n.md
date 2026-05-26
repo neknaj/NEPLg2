@@ -1,3 +1,24 @@
+# 2026-05-26 Agent 1 BTree producer postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として BTreeMap / BTreeSet fixture と pipe collection の BTree section に残っていた producer / mutator 系後置 generic を撤廃した。
+- `stdlib/tests/btreemap.n.md`、`stdlib/tests/btreeset.n.md`、`tests/stdlib/pipe_collections.n.md` を 3 worker の非重複 write scope に分割して並列移行した。
+- BTreeMap fixture では `new<i32,i32>` / `insert<i32,i32>` / `remove<i32,i32>` を postfix-free にした。
+- BTreeSet fixture では `new<i32>` / `insert<i32>` / `remove<i32>` を postfix-free にした。
+- `tests/stdlib/pipe_collections.n.md` では `pipe_btreemap_usage` / `pipe_btreeset_usage` section だけを対象にし、他 collection section の既存 `new<i32>` は次 checkpoint へ残した。
+- 対象は `%BTreeMap i32 i32` / `%BTreeSet i32` local annotation、または pipe receiver / argument 型から型根拠が明確な箇所に限定した。
+- `nodesrc/test_stdlib_btree_borrowed_observers.js` に、stdlib BTree fixture と pipe BTree section が explicit producer / mutator postfix へ戻らないことを固定した。borrowed observer、owner recovery、storage cleanup 境界の検査は弱めていない。
+- 検証:
+  - `rg -n "\b(new|insert|remove)<" stdlib/tests/btreemap.n.md stdlib/tests/btreeset.n.md`: 0 件。
+  - `tests/stdlib/pipe_collections.n.md` の `pipe_btreemap_usage` / `pipe_btreeset_usage` section: 対象 postfix 0 件。
+  - `node nodesrc/test_stdlib_btree_borrowed_observers.js`: pass。
+  - `node nodesrc/test_stdlib_btree_insert_no_unsafe_grow_unwraps.js`: pass。
+  - `node nodesrc/test_stdlib_btreemap_report_contract.js`: pass。
+  - `node nodesrc/test_stdlib_btreeset_report_contract.js`: pass。
+  - `node nodesrc/test_stdlib_pipe_collections_report_contract.js`: pass。
+  - worker 側で `node nodesrc/neplg21_syntax_migrate.js --check`: `would update 0 file(s)`。
+  - worker 側で `git diff --check`: pass。LF/CRLF warning のみ。
+  - focused doctest は既存の per-program compile-time issue と同系の timeout。`stdlib/tests/btreemap.n.md` と `tests/stdlib/pipe_collections.n.md` の BTree doctest は compile timeout after 60000ms で型診断なし。
+
 # 2026-05-26 Agent 1 List/BinaryHeap/Deque producer postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として List / BinaryHeap / Deque fixture の producer / mutator / owner-return 系後置 generic を撤廃した。

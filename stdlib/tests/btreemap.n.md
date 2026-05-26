@@ -25,12 +25,12 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 
 fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
-        unwrap_ok new<i32,i32>
-        |> insert<i32,i32> 5 50
+        unwrap_ok new
+        |> insert 5 50
         |> must_map
-        |> insert<i32,i32> 1 10
+        |> insert 1 10
         |> must_map
-        |> insert<i32,i32> 3 30
+        |> insert 3 30
         |> must_map
     let m0_len %i32 len &m0;
     free m0;
@@ -69,24 +69,24 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 
 fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
-        unwrap_ok new<i32,i32>
-        |> insert<i32,i32> 0 0
+        unwrap_ok new
+        |> insert 0 0
         |> must_map
-        |> insert<i32,i32> 1 10
+        |> insert 1 10
         |> must_map
-        |> insert<i32,i32> 2 20
+        |> insert 2 20
         |> must_map
-        |> insert<i32,i32> 3 30
+        |> insert 3 30
         |> must_map
-        |> insert<i32,i32> 4 40
+        |> insert 4 40
         |> must_map
-        |> insert<i32,i32> 5 50
+        |> insert 5 50
         |> must_map
-        |> insert<i32,i32> 6 60
+        |> insert 6 60
         |> must_map
-        |> insert<i32,i32> 7 70
+        |> insert 7 70
         |> must_map
-        |> insert<i32,i32> 8 80
+        |> insert 8 80
         |> must_map
     let mut get8_value %i32 -1;
     match get &m0 8:
@@ -131,10 +131,10 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 
 fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
-        unwrap_ok new<i32,i32>
-        |> insert<i32,i32> 3 30
+        unwrap_ok new
+        |> insert 3 30
         |> must_map
-        |> insert<i32,i32> 1 10
+        |> insert 1 10
         |> must_map
     let mut get3_value %i32 -1;
     match get &m0 3:
@@ -145,12 +145,12 @@ fn main %impure fn unit i32 \unit:
     free m0;
 
     let m1 %BTreeMap i32 i32:
-        unwrap_ok new<i32,i32>
-        |> insert<i32,i32> 3 30
+        unwrap_ok new
+        |> insert 3 30
         |> must_map
-        |> insert<i32,i32> 1 10
+        |> insert 1 10
         |> must_map
-        |> remove<i32,i32> 1
+        |> remove 1
     let m1_len %i32 len &m1;
     free m1;
 
@@ -190,10 +190,10 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 
 fn main %impure fn unit i32 \unit:
     let m0 %BTreeMap i32 i32:
-        unwrap_ok new<i32,i32>
-        |> insert<i32,i32> 7 70
+        unwrap_ok new
+        |> insert 7 70
         |> must_map
-        |> insert<i32,i32> 7 71
+        |> insert 7 71
         |> must_map
     let mut updated_value %i32 -1;
     match get &m0 7:
@@ -237,10 +237,10 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 
 fn main %impure fn unit i32 \unit:
     let m %BTreeMap i32 i32:
-        unwrap_ok new<i32,i32>
-        |> insert<i32,i32> 2 20
+        unwrap_ok new
+        |> insert 2 20
         |> must_map
-        |> insert<i32,i32> 1 10
+        |> insert 1 10
         |> must_map
     let m_len %i32 len &m;
     let m_contains_1 %bool contains &m 1;

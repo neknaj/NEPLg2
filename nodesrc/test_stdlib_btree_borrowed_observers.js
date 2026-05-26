@@ -61,6 +61,22 @@ for (const testPath of [
     assert.doesNotMatch(src, /\b(?:len|contains|get)<i32(?:,i32)?>\s+(?:m|m[0-9]|s|s[0-9])\b/, `${testPath} must not call BTree observers by value`);
 }
 
+for (const testPath of [
+    'stdlib/tests/btreemap.n.md',
+    'stdlib/tests/btreeset.n.md',
+]) {
+    const src = fs.readFileSync(path.join(repoRoot, testPath), 'utf8');
+    assert.doesNotMatch(src, /\b(?:new|insert|remove)<i32(?:,i32)?>/, `${testPath} must rely on BTree expected type or receiver evidence instead of explicit producer or mutator postfixes`);
+}
+
+const pipeCollections = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/pipe_collections.n.md'), 'utf8');
+const pipeMapSection = pipeCollections.match(/## pipe_btreemap_usage[\s\S]*?(?=\n## |$)/);
+assert.ok(pipeMapSection, 'pipe_collections must keep a BTreeMap pipe fixture');
+assert.doesNotMatch(pipeMapSection[0], /\b(?:new|insert|remove)<i32,i32>/, 'pipe BTreeMap fixture must rely on expected type or receiver evidence instead of explicit producer or mutator postfixes');
+const pipeSetSection = pipeCollections.match(/## pipe_btreeset_usage[\s\S]*?(?=\n## |$)/);
+assert.ok(pipeSetSection, 'pipe_collections must keep a BTreeSet pipe fixture');
+assert.doesNotMatch(pipeSetSection[0], /\b(?:new|insert|remove)<i32>/, 'pipe BTreeSet fixture must rely on expected type or receiver evidence instead of explicit producer or mutator postfixes');
+
 const costFixture = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/btree_array_cost.n.md'), 'utf8');
 assert.doesNotMatch(costFixture, /\bsorted_array_(?:map|set)_(?:len|get|contains)<[^>]+>\s+(?:m|s)\b/, 'btree_array_cost must not call sorted-array BTree observers by value');
 assert.match(costFixture, /\bsorted_array_(?:map|set)_(?:len|get|contains)<[^>]+>\s+&(?:m|s)\b/, 'btree_array_cost must exercise borrowed sorted-array observer aliases');
