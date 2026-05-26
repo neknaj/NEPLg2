@@ -120,18 +120,18 @@ fn must_map %impure fn Result BTreeMap i32 i32 BTreeMapInsertError i32 i32 BTree
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let m0 %BTreeMap i32 i32:
-        unwrap_ok new<i32,i32>
-        |> insert<i32,i32> 3 30
+        unwrap_ok new
+        |> insert 3 30
         |> must_map
-        |> insert<i32,i32> 1 10
+        |> insert 1 10
         |> must_map
     set checks checks_push checks check_eq_i32 2 len &m0;
     free m0;
     let m1 %BTreeMap i32 i32:
-        unwrap_ok new<i32,i32>
-        |> insert<i32,i32> 3 30
+        unwrap_ok new
+        |> insert 3 30
         |> must_map
-        |> insert<i32,i32> 1 10
+        |> insert 1 10
         |> must_map
     match get &m1 3:
         Option::Some v:
@@ -140,10 +140,10 @@ fn main %impure fn unit i32 \unit:
             set checks checks_push checks Result::Err "pipe btreemap get failed";
     free m1;
     let m2 %BTreeMap i32 i32:
-        unwrap_ok new<i32,i32>
-        |> insert<i32,i32> 3 30
+        unwrap_ok new
+        |> insert 3 30
         |> must_map
-        |> insert<i32,i32> 1 10
+        |> insert 1 10
         |> must_map
     set checks checks_push checks check contains &m2 1;
     free m2;
@@ -182,28 +182,28 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 fn main %impure fn unit i32 \unit:
     let mut checks checks_new;
     let s0 %BTreeSet i32:
-        unwrap_ok new<i32>
-        |> insert<i32> 5
+        unwrap_ok new
+        |> insert 5
         |> must_set
-        |> insert<i32> 2
+        |> insert 2
         |> must_set
     set checks checks_push checks check contains &s0 5;
     free s0;
     let s1 %BTreeSet i32:
-        unwrap_ok new<i32>
-        |> insert<i32> 5
+        unwrap_ok new
+        |> insert 5
         |> must_set
-        |> insert<i32> 2
+        |> insert 2
         |> must_set
     set checks checks_push checks check_eq_i32 2 len &s1;
     free s1;
     let s2 %BTreeSet i32:
-        unwrap_ok new<i32>
-        |> insert<i32> 5
+        unwrap_ok new
+        |> insert 5
         |> must_set
-        |> insert<i32> 2
+        |> insert 2
         |> must_set
-        |> remove<i32> 5
+        |> remove 5
     set checks checks_push checks check not contains &s2 5;
     free s2;
     let shown checks_print_report checks;
