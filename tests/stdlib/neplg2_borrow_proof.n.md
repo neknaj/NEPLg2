@@ -28,111 +28,111 @@ fn check_shared_one %fn Result SelfhostBorrowState SelfhostProofRefutation Resul
         Result::Ok state:
             match state:
                 SelfhostBorrowState::Shared shared_count:
-                    if eq shared_count 1 Result<unit,str>::Ok unit Result<unit,str>::Err "expected one shared borrow"
+                    if eq shared_count 1 Result::Ok unit Result::Err "expected one shared borrow"
                 SelfhostBorrowState::Unborrowed:
-                    Result<unit,str>::Err "expected one shared borrow"
+                    Result::Err "expected one shared borrow"
                 SelfhostBorrowState::Mutable:
-                    Result<unit,str>::Err "expected one shared borrow"
+                    Result::Err "expected one shared borrow"
         Result::Err _refutation:
-            Result<unit,str>::Err "expected borrow access proof"
+            Result::Err "expected borrow access proof"
 
 fn check_unborrowed %fn Result SelfhostBorrowState SelfhostProofRefutation Result unit str \result:
     match result:
         Result::Ok state:
             match state:
                 SelfhostBorrowState::Unborrowed:
-                    Result<unit,str>::Ok unit
+                    Result::Ok unit
                 SelfhostBorrowState::Shared _count:
-                    Result<unit,str>::Err "expected unborrowed state"
+                    Result::Err "expected unborrowed state"
                 SelfhostBorrowState::Mutable:
-                    Result<unit,str>::Err "expected unborrowed state"
+                    Result::Err "expected unborrowed state"
         Result::Err _refutation:
-            Result<unit,str>::Err "expected borrow access proof"
+            Result::Err "expected borrow access proof"
 
 fn check_mutable_while_shared %fn SelfhostBorrowAccessError Result unit str \reason:
     match reason:
         SelfhostBorrowAccessError::MutableBorrowWhileShared:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostBorrowAccessError::InvalidSharedBorrowCount:
-            Result<unit,str>::Err "expected mutable while shared"
+            Result::Err "expected mutable while shared"
         SelfhostBorrowAccessError::SharedBorrowWhileMutable:
-            Result<unit,str>::Err "expected mutable while shared"
+            Result::Err "expected mutable while shared"
         SelfhostBorrowAccessError::MutableBorrowWhileMutable:
-            Result<unit,str>::Err "expected mutable while shared"
+            Result::Err "expected mutable while shared"
         SelfhostBorrowAccessError::EndSharedWithoutSharedBorrow:
-            Result<unit,str>::Err "expected mutable while shared"
+            Result::Err "expected mutable while shared"
         SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow:
-            Result<unit,str>::Err "expected mutable while shared"
+            Result::Err "expected mutable while shared"
 
 fn check_shared_while_mutable %fn SelfhostBorrowAccessError Result unit str \reason:
     match reason:
         SelfhostBorrowAccessError::SharedBorrowWhileMutable:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostBorrowAccessError::InvalidSharedBorrowCount:
-            Result<unit,str>::Err "expected shared while mutable"
+            Result::Err "expected shared while mutable"
         SelfhostBorrowAccessError::MutableBorrowWhileShared:
-            Result<unit,str>::Err "expected shared while mutable"
+            Result::Err "expected shared while mutable"
         SelfhostBorrowAccessError::MutableBorrowWhileMutable:
-            Result<unit,str>::Err "expected shared while mutable"
+            Result::Err "expected shared while mutable"
         SelfhostBorrowAccessError::EndSharedWithoutSharedBorrow:
-            Result<unit,str>::Err "expected shared while mutable"
+            Result::Err "expected shared while mutable"
         SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow:
-            Result<unit,str>::Err "expected shared while mutable"
+            Result::Err "expected shared while mutable"
 
 fn check_invalid_shared_count %fn SelfhostBorrowAccessError Result unit str \reason:
     match reason:
         SelfhostBorrowAccessError::InvalidSharedBorrowCount:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostBorrowAccessError::SharedBorrowWhileMutable:
-            Result<unit,str>::Err "expected invalid shared count"
+            Result::Err "expected invalid shared count"
         SelfhostBorrowAccessError::MutableBorrowWhileShared:
-            Result<unit,str>::Err "expected invalid shared count"
+            Result::Err "expected invalid shared count"
         SelfhostBorrowAccessError::MutableBorrowWhileMutable:
-            Result<unit,str>::Err "expected invalid shared count"
+            Result::Err "expected invalid shared count"
         SelfhostBorrowAccessError::EndSharedWithoutSharedBorrow:
-            Result<unit,str>::Err "expected invalid shared count"
+            Result::Err "expected invalid shared count"
         SelfhostBorrowAccessError::EndMutableWithoutMutableBorrow:
-            Result<unit,str>::Err "expected invalid shared count"
+            Result::Err "expected invalid shared count"
 
 fn check_borrow_refutation %fn SelfhostProofRefutation fn fn SelfhostBorrowAccessError Result unit str Result unit str \refutation\checker:
     match refutation:
         SelfhostProofRefutation::BorrowAccessInvalid issue:
             checker issue.reason
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::UnexpectedEvidence _issue:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::TypeKindMismatch _issue:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-            Result<unit,str>::Err "expected borrow access refutation"
+            Result::Err "expected borrow access refutation"
 
 fn check_borrow_error %fn Result SelfhostBorrowState SelfhostProofRefutation fn fn SelfhostBorrowAccessError Result unit str Result unit str \result\checker:
     match result:
         Result::Err refutation:
             check_borrow_refutation refutation checker
         Result::Ok _state:
-            Result<unit,str>::Err "borrow conflict was accepted"
+            Result::Err "borrow conflict was accepted"
 
 fn main %impure fn unit i32 \unit:
     let span %SelfhostSourceSpan source_span_new 0 0 4
