@@ -19,24 +19,24 @@ stdout: "test_report name=\"list_main\" count=15 failed=0\nassertion index=0 sta
 #import "core/field" as *
 
 fn mk %impure fn unit List i32 \unit:
-    let l0 %List i32 unwrap_ok new<i32>;
-    let l1 %List i32 uwok cons<i32> 10 l0;
-    let l2 %List i32 uwok cons<i32> 20 l1;
-    uwok cons<i32> 30 l2
+    let l0 %List i32 unwrap_ok new;
+    let l1 %List i32 uwok cons 10 l0;
+    let l2 %List i32 uwok cons 20 l1;
+    uwok cons 30 l2
 
 fn main %impure fn unit i32 \unit:
-    let l0 %List i32 unwrap_ok new<i32>;
+    let l0 %List i32 unwrap_ok new;
     let l0_len %i32 len &l0;
     free l0;
 
-    let l0a %List i32 unwrap_ok new<i32>;
-    let l1 %List i32 uwok cons<i32> 10 l0a;
+    let l0a %List i32 unwrap_ok new;
+    let l1 %List i32 uwok cons 10 l0a;
     let l1_len %i32 len &l1;
     free l1;
 
-    let l0b %List i32 unwrap_ok new<i32>;
-    let l1b %List i32 uwok cons<i32> 10 l0b;
-    let l2 %List i32 uwok cons<i32> 20 l1b;
+    let l0b %List i32 unwrap_ok new;
+    let l1b %List i32 uwok cons 10 l0b;
+    let l2 %List i32 uwok cons 20 l1b;
     let l2_len %i32 len &l2;
     free l2;
 
@@ -106,7 +106,7 @@ fn main %impure fn unit i32 \unit:
             unit
 
     let l3r0 %List i32 mk;
-    let l_rev %List i32 reverse<i32> l3r0;
+    let l_rev %List i32 reverse l3r0;
     let mut l_rev0_value %i32 -1;
     match get &l_rev 0:
         Option::Some x:
@@ -116,7 +116,7 @@ fn main %impure fn unit i32 \unit:
     free l_rev;
 
     let l3r1 %List i32 mk;
-    let l_rev2 %List i32 reverse<i32> l3r1;
+    let l_rev2 %List i32 reverse l3r1;
     let mut l_rev2_value %i32 -1;
     match get &l_rev2 2:
         Option::Some x:
@@ -170,11 +170,11 @@ stdout: "test_report name=\"list_functional_helpers\" count=10 failed=0\nasserti
 
 fn mk %impure fn unit List i32 \unit:
     let xs %List i32:
-        unwrap_ok new<i32>
-        |> push<i32> 4 |> uwok
-        |> push<i32> 3 |> uwok
-        |> push<i32> 2 |> uwok
-        |> push<i32> 1 |> uwok
+        unwrap_ok new
+        |> push 4 |> uwok
+        |> push 3 |> uwok
+        |> push 2 |> uwok
+        |> push 1 |> uwok
     xs
 
 fn inc %fn i32 i32 \x:
