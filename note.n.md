@@ -1,3 +1,16 @@
+# 2026-05-26 Agent 1 selfhost module graph Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる selfhost module graph 領域の constructor だけを移行した。
+- subagent と並列で `stdlib/neplg2/core/module/graph.nepl` / `stdlib/neplg2/core/module/stdlib_map.nepl` を確認し、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 49 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string fixture として旧構文を保持すべき箇所はなく、subagent の独立レビューでも残すべき typed constructor はないと確認した。
+- 検証:
+  - `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/neplg2/core/module/graph.nepl stdlib/neplg2/core/module/stdlib_map.nepl`: 0 件。
+  - `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/neplg2/core/module/graph.nepl stdlib/neplg2/core/module/stdlib_map.nepl`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree -o tmp/neplg21-selfhost-module-graph-result-constructors.json -j 1 --dist web/dist --assert-io`: 2 件とも compile timeout after 60000ms。型診断は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 move/memory fixture Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる move/memory fixture の constructor だけを移行した。

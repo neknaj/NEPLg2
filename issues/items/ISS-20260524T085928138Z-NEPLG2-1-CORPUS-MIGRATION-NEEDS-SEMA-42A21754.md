@@ -664,6 +664,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md -i tests/compiler/move_check.n.md -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/neplg21-move-memory-fixture-result-constructors.json -j 1 --dist web/dist --assert-io` は 308s local command timeout。partial JSON では 10/230 件完了、10 件 pass、failed 0、errored 0、top_issues 0。型診断は出ていない。timeout 後の残留 process は停止した。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 selfhost module graph Result constructor checkpoint
+
+- subagent と並列で `stdlib/neplg2/core/module/graph.nepl` / `stdlib/neplg2/core/module/stdlib_map.nepl` を確認し、関数戻り値、local annotation、match/if branch expected type から型が確定する `Result<...>::Ok` / `Result<...>::Err` 49 件を `Result::Ok` / `Result::Err` へ移行した。
+- source string fixture として旧構文を保持すべき箇所はなく、subagent の独立レビューでも残すべき typed constructor はないと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/neplg2/core/module/graph.nepl stdlib/neplg2/core/module/stdlib_map.nepl` は 0 件になった。
+- `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/neplg2/core/module/graph.nepl stdlib/neplg2/core/module/stdlib_map.nepl` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/neplg2/core/module/graph.nepl -i stdlib/neplg2/core/module/stdlib_map.nepl --no-tree -o tmp/neplg21-selfhost-module-graph-result-constructors.json -j 1 --dist web/dist --assert-io` は 2 件とも compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

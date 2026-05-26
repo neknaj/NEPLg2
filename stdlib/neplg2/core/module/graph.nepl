@@ -112,12 +112,12 @@ pub fn selfhost_module_graph_new %impure fn unit Result SelfhostModuleGraph StdE
         Result::Ok nodes:
             match v::new<SelfhostModuleGraphEdge>:
                 Result::Ok edges:
-                    Result<SelfhostModuleGraph, StdErrorKind>::Ok SelfhostModuleGraph nodes edges
+                    Result::Ok SelfhostModuleGraph nodes edges
                 Result::Err e:
                     v::free<SelfhostModuleGraphNode> nodes
-                    Result<SelfhostModuleGraph, StdErrorKind>::Err e
+                    Result::Err e
         Result::Err e:
-            Result<SelfhostModuleGraph, StdErrorKind>::Err e
+            Result::Err e
 
 //: selfhost_module_graph_free: graph が所有する buffer を[解放/かいほう]する
 pub fn selfhost_module_graph_free %impure fn SelfhostModuleGraph unit \graph:
@@ -204,11 +204,11 @@ pub fn selfhost_module_graph_push_node %impure fn SelfhostModuleGraph impure fn 
     let edges %Vec SelfhostModuleGraphEdge field::get graph "edges"
     match v::push<SelfhostModuleGraphNode> nodes node:
         Result::Ok next_nodes:
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok SelfhostModuleGraph next_nodes edges
+            Result::Ok SelfhostModuleGraph next_nodes edges
         Result::Err e:
             v::free<SelfhostModuleGraphNode> v::vec_push_error_vec<SelfhostModuleGraphNode> e
             v::free<SelfhostModuleGraphEdge> edges
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_oom_diag span
+            Result::Err selfhost_module_graph_oom_diag span
 
 //: selfhost_module_graph_push_edge: edge を graph に[追加/ついか]する
 pub fn selfhost_module_graph_push_edge %impure fn SelfhostModuleGraph impure fn SelfhostModuleGraphEdge impure fn SelfhostSourceSpan Result SelfhostModuleGraph SelfhostDiagnostic \graph\edge\span:
@@ -216,11 +216,11 @@ pub fn selfhost_module_graph_push_edge %impure fn SelfhostModuleGraph impure fn 
     let edges %Vec SelfhostModuleGraphEdge field::get graph "edges"
     match v::push<SelfhostModuleGraphEdge> edges edge:
         Result::Ok next_edges:
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok SelfhostModuleGraph nodes next_edges
+            Result::Ok SelfhostModuleGraph nodes next_edges
         Result::Err e:
             v::free<SelfhostModuleGraphEdge> v::vec_push_error_vec<SelfhostModuleGraphEdge> e
             v::free<SelfhostModuleGraphNode> nodes
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_oom_diag span
+            Result::Err selfhost_module_graph_oom_diag span
 
 //: selfhost_module_graph_set_node: node を in-place に[置/お]き[換/か]える
 pub fn selfhost_module_graph_set_node %impure fn SelfhostModuleGraph impure fn i32 impure fn SelfhostModuleGraphNode SelfhostModuleGraph \graph\idx\node:
@@ -245,7 +245,7 @@ pub fn selfhost_module_graph_visit_import_records %impure fn &SelfhostVirtualFil
     if:
         ge idx n
         then:
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok graph
+            Result::Ok graph
         else:
             match v::get<SelfhostImportRecord> imports idx:
                 Option::Some record:
@@ -256,19 +256,19 @@ pub fn selfhost_module_graph_visit_import_records %impure fn &SelfhostVirtualFil
                                 Result::Ok next_graph:
                                     selfhost_module_graph_visit_import_records vfs from_path imports n add idx 1 next_graph
                                 Result::Err diag:
-                                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                                    Result::Err diag
                         Result::Err diag:
-                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                            Result::Err diag
                 Option::None:
                     selfhost_module_graph_free graph
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_internal_diag source_span_empty 0 0 "import record index was unavailable"
+                    Result::Err selfhost_module_graph_internal_diag source_span_empty 0 0 "import record index was unavailable"
 
 //: selfhost_module_graph_visit_import_records_with_path_map: path map で import record を DFS 展開する
 pub fn selfhost_module_graph_visit_import_records_with_path_map %impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModulePathMap impure fn str impure fn &Vec SelfhostImportRecord impure fn i32 impure fn i32 impure fn SelfhostModuleGraph Result SelfhostModuleGraph SelfhostDiagnostic \vfs\path_map\from_path\imports\n\idx\graph:
     if:
         ge idx n
         then:
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok graph
+            Result::Ok graph
         else:
             match v::get<SelfhostImportRecord> imports idx:
                 Option::Some record:
@@ -281,15 +281,15 @@ pub fn selfhost_module_graph_visit_import_records_with_path_map %impure fn &Self
                                         Result::Ok next_graph:
                                             selfhost_module_graph_visit_import_records_with_path_map vfs path_map from_path imports n add idx 1 next_graph
                                         Result::Err diag:
-                                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                                            Result::Err diag
                                 Result::Err diag:
-                                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                                    Result::Err diag
                         Result::Err diag:
                             selfhost_module_graph_free graph
-                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                            Result::Err diag
                 Option::None:
                     selfhost_module_graph_free graph
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_internal_diag source_span_empty 0 0 "import record index was unavailable"
+                    Result::Err selfhost_module_graph_internal_diag source_span_empty 0 0 "import record index was unavailable"
 
 //: selfhost_module_graph_extract_scanned_imports: lightweight import scan 結果から graph edge を展開する
 pub fn selfhost_module_graph_extract_scanned_imports %impure fn &SelfhostVirtualFileSystem impure fn str impure fn i32 impure fn SelfhostModuleGraph impure fn Vec SelfhostImportRecord Result SelfhostModuleGraph SelfhostDiagnostic \vfs\path\node_idx\graph\imports:
@@ -298,10 +298,10 @@ pub fn selfhost_module_graph_extract_scanned_imports %impure fn &SelfhostVirtual
     match selfhost_module_graph_visit_import_records vfs path &imports import_count 0 graph_with_count:
         Result::Ok graph_after_imports:
             v::free<SelfhostImportRecord> imports
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok selfhost_module_graph_set_state graph_after_imports node_idx SelfhostModuleGraphNodeStatus::Done import_count
+            Result::Ok selfhost_module_graph_set_state graph_after_imports node_idx SelfhostModuleGraphNodeStatus::Done import_count
         Result::Err diag:
             v::free<SelfhostImportRecord> imports
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+            Result::Err diag
 
 //: selfhost_module_graph_extract_scanned_imports_with_path_map: path map 付き lightweight import scan 結果を graph edge にする
 pub fn selfhost_module_graph_extract_scanned_imports_with_path_map %impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModulePathMap impure fn str impure fn i32 impure fn SelfhostModuleGraph impure fn Vec SelfhostImportRecord Result SelfhostModuleGraph SelfhostDiagnostic \vfs\path_map\path\node_idx\graph\imports:
@@ -310,10 +310,10 @@ pub fn selfhost_module_graph_extract_scanned_imports_with_path_map %impure fn &S
     match selfhost_module_graph_visit_import_records_with_path_map vfs path_map path &imports import_count 0 graph_with_count:
         Result::Ok graph_after_imports:
             v::free<SelfhostImportRecord> imports
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok selfhost_module_graph_set_state graph_after_imports node_idx SelfhostModuleGraphNodeStatus::Done import_count
+            Result::Ok selfhost_module_graph_set_state graph_after_imports node_idx SelfhostModuleGraphNodeStatus::Done import_count
         Result::Err diag:
             v::free<SelfhostImportRecord> imports
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+            Result::Err diag
 
 //: selfhost_module_graph_visit_new: 未訪問 module を parse して import を[辿/たど]る
 pub fn selfhost_module_graph_visit_new %impure fn &SelfhostVirtualFileSystem impure fn str impure fn SelfhostSourceSpan impure fn SelfhostModuleGraph Result SelfhostModuleGraph SelfhostDiagnostic \vfs\path\span\graph:
@@ -328,13 +328,13 @@ pub fn selfhost_module_graph_visit_new %impure fn &SelfhostVirtualFileSystem imp
                             selfhost_module_graph_extract_scanned_imports vfs file.path node_idx graph_with_node imports
                         Result::Err diag:
                             v::free<SelfhostImportRecord> imports
-                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                            Result::Err diag
                 Result::Err diag:
                     selfhost_module_graph_free graph
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                    Result::Err diag
         Option::None:
             selfhost_module_graph_free graph
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_missing_diag span path
+            Result::Err selfhost_module_graph_missing_diag span path
 
 //: selfhost_module_graph_visit_new_with_path_map: path map 付きで未訪問 module を DFS に[取/と]り[込/こ]む
 pub fn selfhost_module_graph_visit_new_with_path_map %impure fn &SelfhostVirtualFileSystem impure fn &SelfhostModulePathMap impure fn str impure fn SelfhostSourceSpan impure fn SelfhostModuleGraph Result SelfhostModuleGraph SelfhostDiagnostic \vfs\path_map\path\span\graph:
@@ -349,13 +349,13 @@ pub fn selfhost_module_graph_visit_new_with_path_map %impure fn &SelfhostVirtual
                             selfhost_module_graph_extract_scanned_imports_with_path_map vfs path_map file.path node_idx graph_with_node imports
                         Result::Err diag:
                             v::free<SelfhostImportRecord> imports
-                            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                            Result::Err diag
                 Result::Err diag:
                     selfhost_module_graph_free graph
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err diag
+                    Result::Err diag
         Option::None:
             selfhost_module_graph_free graph
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_missing_diag span path
+            Result::Err selfhost_module_graph_missing_diag span path
 
 //: selfhost_module_graph_visit_existing: 既存 node の状態に応じて再訪問を[処理/しょり]する
 pub fn selfhost_module_graph_visit_existing %impure fn str impure fn SelfhostSourceSpan impure fn SelfhostModuleGraph impure fn i32 Result SelfhostModuleGraph SelfhostDiagnostic \path\span\graph\idx:
@@ -364,12 +364,12 @@ pub fn selfhost_module_graph_visit_existing %impure fn str impure fn SelfhostSou
             match node.status:
                 SelfhostModuleGraphNodeStatus::Visiting:
                     selfhost_module_graph_free graph
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_cycle_diag span path
+                    Result::Err selfhost_module_graph_cycle_diag span path
                 SelfhostModuleGraphNodeStatus::Done:
-                    Result<SelfhostModuleGraph, SelfhostDiagnostic>::Ok graph
+                    Result::Ok graph
         Option::None:
             selfhost_module_graph_free graph
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_internal_diag span "module node index was unavailable"
+            Result::Err selfhost_module_graph_internal_diag span "module node index was unavailable"
 
 //: selfhost_module_graph_visit: 1 module path を import graph に[取/と]り[込/こ]む
 pub fn selfhost_module_graph_visit %impure fn &SelfhostVirtualFileSystem impure fn str impure fn SelfhostSourceSpan impure fn SelfhostModuleGraph Result SelfhostModuleGraph SelfhostDiagnostic \vfs\path\span\graph:
@@ -396,7 +396,7 @@ pub fn selfhost_build_module_graph %impure fn &SelfhostVirtualFileSystem impure 
         Result::Ok graph:
             selfhost_module_graph_visit vfs root_path source_span_empty 0 0 graph
         Result::Err _e:
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_oom_diag source_span_empty 0 0
+            Result::Err selfhost_module_graph_oom_diag source_span_empty 0 0
 
 //: selfhost_build_module_graph_with_path_map: stdlib/user root を解決しながら import graph を[構築/こうちく]する
 //:
@@ -408,7 +408,7 @@ pub fn selfhost_build_module_graph_with_path_map %impure fn &SelfhostVirtualFile
         Result::Ok graph:
             selfhost_module_graph_visit_with_path_map vfs path_map root_path source_span_empty 0 0 graph
         Result::Err _e:
-            Result<SelfhostModuleGraph, SelfhostDiagnostic>::Err selfhost_module_graph_oom_diag source_span_empty 0 0
+            Result::Err selfhost_module_graph_oom_diag source_span_empty 0 0
 
 //: selfhost_module_graph_stage0: VFS から import graph を[作/つく]る smoke API
 pub fn selfhost_module_graph_stage0 %impure fn unit i32 \unit:
