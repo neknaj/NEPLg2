@@ -25,12 +25,12 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 
 fn main %impure fn unit i32 \unit:
     let s0 %BTreeSet i32:
-        unwrap_ok new<i32>
-        |> insert<i32> 5
+        unwrap_ok new
+        |> insert 5
         |> must_set
-        |> insert<i32> 1
+        |> insert 1
         |> must_set
-        |> insert<i32> 3
+        |> insert 3
         |> must_set
     let s0_len %i32 len &s0;
     free s0;
@@ -67,24 +67,24 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 
 fn main %impure fn unit i32 \unit:
     let s0 %BTreeSet i32:
-        unwrap_ok new<i32>
-        |> insert<i32> 0
+        unwrap_ok new
+        |> insert 0
         |> must_set
-        |> insert<i32> 1
+        |> insert 1
         |> must_set
-        |> insert<i32> 2
+        |> insert 2
         |> must_set
-        |> insert<i32> 3
+        |> insert 3
         |> must_set
-        |> insert<i32> 4
+        |> insert 4
         |> must_set
-        |> insert<i32> 5
+        |> insert 5
         |> must_set
-        |> insert<i32> 6
+        |> insert 6
         |> must_set
-        |> insert<i32> 7
+        |> insert 7
         |> must_set
-        |> insert<i32> 8
+        |> insert 8
         |> must_set
     let s0_contains_8 %bool contains &s0 8;
     free s0;
@@ -122,31 +122,31 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 
 fn main %impure fn unit i32 \unit:
     let s0 %BTreeSet i32:
-        unwrap_ok new<i32>
-        |> insert<i32> 5
+        unwrap_ok new
+        |> insert 5
         |> must_set
-        |> insert<i32> 1
+        |> insert 1
         |> must_set
     let s0_contains_1 %bool contains &s0 1;
     free s0;
 
     let s1 %BTreeSet i32:
-        unwrap_ok new<i32>
-        |> insert<i32> 5
+        unwrap_ok new
+        |> insert 5
         |> must_set
-        |> insert<i32> 1
+        |> insert 1
         |> must_set
-        |> remove<i32> 1
+        |> remove 1
     let s1_missing_1 %bool not contains &s1 1;
     free s1;
 
     let s2 %BTreeSet i32:
-        unwrap_ok new<i32>
-        |> insert<i32> 5
+        unwrap_ok new
+        |> insert 5
         |> must_set
-        |> insert<i32> 1
+        |> insert 1
         |> must_set
-        |> remove<i32> 1
+        |> remove 1
     let s2_len %i32 len &s2;
     free s2;
 
@@ -184,10 +184,10 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 
 fn main %impure fn unit i32 \unit:
     let s0 %BTreeSet i32:
-        unwrap_ok new<i32>
-        |> insert<i32> 3
+        unwrap_ok new
+        |> insert 3
         |> must_set
-        |> insert<i32> 3
+        |> insert 3
         |> must_set
     let s0_len %i32 len &s0;
     free s0;
@@ -224,10 +224,10 @@ fn must_set %impure fn Result BTreeSet i32 BTreeSetInsertError i32 BTreeSet i32 
 
 fn main %impure fn unit i32 \unit:
     let s %BTreeSet i32:
-        unwrap_ok new<i32>
-        |> insert<i32> 2
+        unwrap_ok new
+        |> insert 2
         |> must_set
-        |> insert<i32> 1
+        |> insert 1
         |> must_set
     let s_len %i32 len &s;
     let s_contains_1 %bool contains &s 1;
