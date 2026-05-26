@@ -1,3 +1,14 @@
+# 2026-05-26 Agent 1 neplg2_diag_outcome Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、静的な型根拠で解決できる constructor だけを小さく移行した。
+- `tests/stdlib/neplg2_diag_outcome.n.md` で、`checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Err` 11 件を `Result::Err` へ移行した。
+- `selfhost_outcome_ok<i32,str>` / `selfhost_outcome_push_diagnostic<i32,str>` / `selfhost_outcome_result<i32,str>` などの outcome API generic call は、今回の constructor checkpoint とは別の型推論根拠が必要なため残した。
+- subagent の独立レビューでも、対象 11 件はすべて `checks_push` overload の `Result unit str` 引数に乗っており、source string fixture や型 evidence が弱い箇所ではないと確認した。
+- 検証:
+  - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_diag_outcome.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/neplg21-diag-outcome-result-constructors.json -j 1 --dist web/dist --assert-io`: 3 件すべて compile timeout after 60000ms。型診断は出ていない。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 collection API doc helper postfix cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈による型選択と doc example の検査可能性を揃える小 checkpoint として、stdlib API doc example 側の `unwrap_ok<...>` を対象にした。

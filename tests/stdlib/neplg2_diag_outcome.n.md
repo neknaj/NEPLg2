@@ -43,12 +43,12 @@ fn main %impure fn unit i32 \unit:
             set checks checks_push checks check_eq_i32 10 field::get got_span "start"
             set checks checks_push checks check_str_eq "identifier" field::get got "message"
         Option::None:
-            set checks checks_push checks Result<unit,str>::Err "expected primary label"
+            set checks checks_push checks Result::Err "expected primary label"
     match field::get diag2 "note":
         Option::Some note:
             set checks checks_push checks check_str_eq "while parsing import" note
         Option::None:
-            set checks checks_push checks Result<unit,str>::Err "expected note"
+            set checks checks_push checks Result::Err "expected note"
 
     match selfhost_diagnostics_one diag2:
         Result::Ok ds0:
@@ -61,12 +61,12 @@ fn main %impure fn unit i32 \unit:
                         Option::Some got:
                             set checks checks_push checks check_str_eq "warning" selfhost_diag_severity_name field::get got "severity"
                         Option::None:
-                            set checks checks_push checks Result<unit,str>::Err "expected second diagnostic"
+                            set checks checks_push checks Result::Err "expected second diagnostic"
                     selfhost_diagnostics_free ds1
                 Result::Err _e:
-                    set checks checks_push checks Result<unit,str>::Err "diagnostics push failed"
+                    set checks checks_push checks Result::Err "diagnostics push failed"
         Result::Err _e:
-            set checks checks_push checks Result<unit,str>::Err "diagnostics one failed"
+            set checks checks_push checks Result::Err "diagnostics one failed"
 
     let shown checks_print_report checks
     checks_exit_code shown
@@ -114,11 +114,11 @@ fn main %impure fn unit i32 \unit:
                         Result::Ok value:
                             set checks checks_push checks check_eq_i32 42 value
                         Result::Err _e:
-                            set checks checks_push checks Result<unit,str>::Err "expected ok result"
+                            set checks checks_push checks Result::Err "expected ok result"
                 Result::Err _e:
-                    set checks checks_push checks Result<unit,str>::Err "push warning failed"
+                    set checks checks_push checks Result::Err "push warning failed"
         Result::Err _e:
-            set checks checks_push checks Result<unit,str>::Err "outcome ok failed"
+            set checks checks_push checks Result::Err "outcome ok failed"
 
     match selfhost_outcome_err<i32,str> "bad":
         Result::Ok err0:
@@ -129,13 +129,13 @@ fn main %impure fn unit i32 \unit:
                     set checks checks_push checks check selfhost_outcome_has_errors<i32,str> &err1
                     match selfhost_outcome_result<i32,str> err1:
                         Result::Ok _value:
-                            set checks checks_push checks Result<unit,str>::Err "expected err result"
+                            set checks checks_push checks Result::Err "expected err result"
                         Result::Err msg:
                             set checks checks_push checks check_str_eq "bad" msg
                 Result::Err _e:
-                    set checks checks_push checks Result<unit,str>::Err "push error diagnostic failed"
+                    set checks checks_push checks Result::Err "push error diagnostic failed"
         Result::Err _e:
-            set checks checks_push checks Result<unit,str>::Err "outcome err failed"
+            set checks checks_push checks Result::Err "outcome err failed"
 
     let shown checks_print_report checks
     checks_exit_code shown

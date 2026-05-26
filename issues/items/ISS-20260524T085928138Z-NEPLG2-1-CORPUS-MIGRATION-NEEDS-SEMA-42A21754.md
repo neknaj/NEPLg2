@@ -399,6 +399,14 @@ LLM/手動判断が必要なもの:
 - 独立レビューでも、今回外した `unwrap_ok<...>` はすべて `let x %Type` / `let x %Type:` と `Result T E` 引数から型が確定するため安全であり、指定範囲に `is_ok<...>` / `is_err<...>` / `Result<...>::Ok|Err` 候補はないと確認した。
 - `node nodesrc/tests.js -i stdlib/alloc/collections/adjacency_matrix/api -i stdlib/alloc/collections/bitset/api -i stdlib/alloc/collections/sparse_set/api -i stdlib/alloc/collections/fenwick/api -i stdlib/alloc/collections/disjoint_set/api -i stdlib/kp/kpfenwick.nepl -i tests/stdlib/std_test_namespace_resolution.n.md --no-tree -o tmp/neplg21-collection-api-doc-helper-postfix.json -j 1 --dist web/dist --assert-io` は 254s local command timeout。partial JSON では `adjacency_matrix/api` doctest#1 系が compile timeout after 60000ms で、型診断は出ていない。残留 node process は停止した。
 
+### 2026-05-26 neplg2_diag_outcome Result constructor checkpoint
+
+- `tests/stdlib/neplg2_diag_outcome.n.md` で、`checks_push` の expected type `Result unit str` から型が確定する `Result<unit,str>::Err` 11 件を `Result::Err` へ移行した。
+- outcome API の `selfhost_outcome_ok<i32,str>` / `selfhost_outcome_push_diagnostic<i32,str>` / `selfhost_outcome_result<i32,str>` は、constructor ではなく関数呼び出し側の generic evidence なのでこの checkpoint には混ぜず残した。
+- subagent の独立レビューでも、対象はすべて `checks_push` overload の `Result unit str` 引数に乗っており、source string fixture や型 evidence が弱い箇所ではないと確認した。
+- `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_diag_outcome.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_diag_outcome.n.md --no-tree -o tmp/neplg21-diag-outcome-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
