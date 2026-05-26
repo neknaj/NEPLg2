@@ -26,88 +26,88 @@ stdout: mlstr:
 fn check_relation_proven %fn Result SelfhostLifetimeRelation SelfhostProofRefutation fn SelfhostLifetimeRelation Result unit str \result\expected:
     match result:
         Result::Ok relation:
-            if selfhost_lifetime_relation_proves_outlives relation Result<unit,str>::Ok unit Result<unit,str>::Err "expected outlives relation"
+            if selfhost_lifetime_relation_proves_outlives relation Result::Ok unit Result::Err "expected outlives relation"
         Result::Err _refutation:
-            Result<unit,str>::Err "expected lifetime proof"
+            Result::Err "expected lifetime proof"
 
 fn check_required_mismatch %fn SelfhostLifetimeOutlivesError Result unit str \reason:
     match reason:
         SelfhostLifetimeOutlivesError::RequiredLifetimeMismatch:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostLifetimeOutlivesError::InvalidSubjectLifetime:
-            Result<unit,str>::Err "expected required lifetime mismatch"
+            Result::Err "expected required lifetime mismatch"
         SelfhostLifetimeOutlivesError::InvalidRequiredLifetime:
-            Result<unit,str>::Err "expected required lifetime mismatch"
+            Result::Err "expected required lifetime mismatch"
         SelfhostLifetimeOutlivesError::SubjectDoesNotOutliveRequired:
-            Result<unit,str>::Err "expected required lifetime mismatch"
+            Result::Err "expected required lifetime mismatch"
         SelfhostLifetimeOutlivesError::UnrelatedLifetimes:
-            Result<unit,str>::Err "expected required lifetime mismatch"
+            Result::Err "expected required lifetime mismatch"
 
 fn check_subject_shorter %fn SelfhostLifetimeOutlivesError Result unit str \reason:
     match reason:
         SelfhostLifetimeOutlivesError::SubjectDoesNotOutliveRequired:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostLifetimeOutlivesError::RequiredLifetimeMismatch:
-            Result<unit,str>::Err "expected shorter subject lifetime"
+            Result::Err "expected shorter subject lifetime"
         SelfhostLifetimeOutlivesError::InvalidSubjectLifetime:
-            Result<unit,str>::Err "expected shorter subject lifetime"
+            Result::Err "expected shorter subject lifetime"
         SelfhostLifetimeOutlivesError::InvalidRequiredLifetime:
-            Result<unit,str>::Err "expected shorter subject lifetime"
+            Result::Err "expected shorter subject lifetime"
         SelfhostLifetimeOutlivesError::UnrelatedLifetimes:
-            Result<unit,str>::Err "expected shorter subject lifetime"
+            Result::Err "expected shorter subject lifetime"
 
 fn check_invalid_subject %fn SelfhostLifetimeOutlivesError Result unit str \reason:
     match reason:
         SelfhostLifetimeOutlivesError::InvalidSubjectLifetime:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostLifetimeOutlivesError::RequiredLifetimeMismatch:
-            Result<unit,str>::Err "expected invalid subject lifetime"
+            Result::Err "expected invalid subject lifetime"
         SelfhostLifetimeOutlivesError::InvalidRequiredLifetime:
-            Result<unit,str>::Err "expected invalid subject lifetime"
+            Result::Err "expected invalid subject lifetime"
         SelfhostLifetimeOutlivesError::SubjectDoesNotOutliveRequired:
-            Result<unit,str>::Err "expected invalid subject lifetime"
+            Result::Err "expected invalid subject lifetime"
         SelfhostLifetimeOutlivesError::UnrelatedLifetimes:
-            Result<unit,str>::Err "expected invalid subject lifetime"
+            Result::Err "expected invalid subject lifetime"
 
 fn check_lifetime_refutation %fn SelfhostProofRefutation fn fn SelfhostLifetimeOutlivesError Result unit str Result unit str \refutation\checker:
     match refutation:
         SelfhostProofRefutation::LifetimeOutlivesInvalid issue:
             checker issue.reason
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::UnexpectedEvidence _issue:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::TypeKindMismatch _issue:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::OwnerTransitionInvalid _issue:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-            Result<unit,str>::Err "expected lifetime outlives refutation"
+            Result::Err "expected lifetime outlives refutation"
 
 fn check_lifetime_error %fn Result SelfhostLifetimeRelation SelfhostProofRefutation fn fn SelfhostLifetimeOutlivesError Result unit str Result unit str \result\checker:
     match result:
         Result::Err refutation:
             check_lifetime_refutation refutation checker
         Result::Ok _relation:
-            Result<unit,str>::Err "invalid lifetime relation was accepted"
+            Result::Err "invalid lifetime relation was accepted"
 
 fn main %impure fn unit i32 \unit:
     let span %SelfhostSourceSpan source_span_new 0 0 4

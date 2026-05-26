@@ -483,6 +483,16 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i tests/stdlib/neplg2_module_graph.n.md --no-tree -o tmp/neplg21-module-graph-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断や `lexer.string.invalid_escape` は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 proof fixture Result constructor checkpoint
+
+- `tests/stdlib/neplg2_effect_proof.n.md` で、helper 戻り値 `Result unit str` と match branch expected type から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 44 件を `Result::Ok` / `Result::Err` へ移行した。
+- `tests/stdlib/neplg2_lifetime_proof.n.md` で、helper 戻り値 `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 32 件を `Result::Ok` / `Result::Err` へ移行した。
+- `tests/stdlib/neplg2_owner_proof.n.md` で、helper 戻り値 `Result unit str` から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 72 件を `Result::Ok` / `Result::Err` へ移行した。
+- subagent の独立レビューでも、対象 3 ファイルに残すべき `Result<unit,str>::Ok` / `Result<unit,str>::Err` はなく、source string fixture や doc comment だけの旧構文もないと確認した。
+- `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests/stdlib/neplg2_effect_proof.n.md tests/stdlib/neplg2_lifetime_proof.n.md tests/stdlib/neplg2_owner_proof.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/neplg2_effect_proof.n.md -i tests/stdlib/neplg2_lifetime_proof.n.md -i tests/stdlib/neplg2_owner_proof.n.md --no-tree -o tmp/neplg21-proof-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

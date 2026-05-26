@@ -30,178 +30,178 @@ fn check_owned %fn Result SelfhostOwnerState SelfhostProofRefutation fn Selfhost
         Result::Ok state:
             match state:
                 SelfhostOwnerState::Owned storage:
-                    if selfhost_owner_storage_id_eq storage expected Result<unit,str>::Ok unit Result<unit,str>::Err "expected same owned storage"
+                    if selfhost_owner_storage_id_eq storage expected Result::Ok unit Result::Err "expected same owned storage"
                 SelfhostOwnerState::NoOwner:
-                    Result<unit,str>::Err "expected owned state"
+                    Result::Err "expected owned state"
                 SelfhostOwnerState::Moved _storage:
-                    Result<unit,str>::Err "expected owned state"
+                    Result::Err "expected owned state"
                 SelfhostOwnerState::Released _storage:
-                    Result<unit,str>::Err "expected owned state"
+                    Result::Err "expected owned state"
         Result::Err _refutation:
-            Result<unit,str>::Err "expected owner proof"
+            Result::Err "expected owner proof"
 
 fn check_moved %fn Result SelfhostOwnerState SelfhostProofRefutation fn SelfhostOwnerStorageId Result unit str \result\expected:
     match result:
         Result::Ok state:
             match state:
                 SelfhostOwnerState::Moved storage:
-                    if selfhost_owner_storage_id_eq storage expected Result<unit,str>::Ok unit Result<unit,str>::Err "expected same moved storage"
+                    if selfhost_owner_storage_id_eq storage expected Result::Ok unit Result::Err "expected same moved storage"
                 SelfhostOwnerState::NoOwner:
-                    Result<unit,str>::Err "expected moved state"
+                    Result::Err "expected moved state"
                 SelfhostOwnerState::Owned _storage:
-                    Result<unit,str>::Err "expected moved state"
+                    Result::Err "expected moved state"
                 SelfhostOwnerState::Released _storage:
-                    Result<unit,str>::Err "expected moved state"
+                    Result::Err "expected moved state"
         Result::Err _refutation:
-            Result<unit,str>::Err "expected owner move proof"
+            Result::Err "expected owner move proof"
 
 fn check_released %fn Result SelfhostOwnerState SelfhostProofRefutation fn SelfhostOwnerStorageId Result unit str \result\expected:
     match result:
         Result::Ok state:
             match state:
                 SelfhostOwnerState::Released storage:
-                    if selfhost_owner_storage_id_eq storage expected Result<unit,str>::Ok unit Result<unit,str>::Err "expected same released storage"
+                    if selfhost_owner_storage_id_eq storage expected Result::Ok unit Result::Err "expected same released storage"
                 SelfhostOwnerState::NoOwner:
-                    Result<unit,str>::Err "expected released state"
+                    Result::Err "expected released state"
                 SelfhostOwnerState::Owned _storage:
-                    Result<unit,str>::Err "expected released state"
+                    Result::Err "expected released state"
                 SelfhostOwnerState::Moved _storage:
-                    Result<unit,str>::Err "expected released state"
+                    Result::Err "expected released state"
         Result::Err _refutation:
-            Result<unit,str>::Err "expected owner release proof"
+            Result::Err "expected owner release proof"
 
 fn check_invalid_storage_id %fn SelfhostOwnerTransitionError Result unit str \actual:
     match actual:
         SelfhostOwnerTransitionError::InvalidStorageId:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostOwnerTransitionError::StorageIdMismatch:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::AcquireWhileOwned:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::AcquireAfterMove:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::AcquireAfterRelease:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::MoveWithoutOwner:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::MoveAfterMove:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::MoveAfterRelease:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::ReleaseWithoutOwner:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::ReleaseAfterMove:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::ReleaseAfterRelease:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::ViewWithoutOwner:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::ViewAfterMove:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
         SelfhostOwnerTransitionError::ViewAfterRelease:
-            Result<unit,str>::Err "expected invalid storage id"
+            Result::Err "expected invalid storage id"
 
 fn check_storage_id_mismatch %fn SelfhostOwnerTransitionError Result unit str \actual:
     match actual:
         SelfhostOwnerTransitionError::StorageIdMismatch:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostOwnerTransitionError::InvalidStorageId:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::AcquireWhileOwned:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::AcquireAfterMove:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::AcquireAfterRelease:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::MoveWithoutOwner:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::MoveAfterMove:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::MoveAfterRelease:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::ReleaseWithoutOwner:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::ReleaseAfterMove:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::ReleaseAfterRelease:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::ViewWithoutOwner:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::ViewAfterMove:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
         SelfhostOwnerTransitionError::ViewAfterRelease:
-            Result<unit,str>::Err "expected storage id mismatch"
+            Result::Err "expected storage id mismatch"
 
 fn check_release_after_release %fn SelfhostOwnerTransitionError Result unit str \actual:
     match actual:
         SelfhostOwnerTransitionError::ReleaseAfterRelease:
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         SelfhostOwnerTransitionError::InvalidStorageId:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::StorageIdMismatch:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::AcquireWhileOwned:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::AcquireAfterMove:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::AcquireAfterRelease:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::MoveWithoutOwner:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::MoveAfterMove:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::MoveAfterRelease:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::ReleaseWithoutOwner:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::ReleaseAfterMove:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::ViewWithoutOwner:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::ViewAfterMove:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
         SelfhostOwnerTransitionError::ViewAfterRelease:
-            Result<unit,str>::Err "expected release after release"
+            Result::Err "expected release after release"
 
 fn check_owner_refutation %fn SelfhostProofRefutation fn fn SelfhostOwnerTransitionError Result unit str Result unit str \refutation\checker:
     match refutation:
         SelfhostProofRefutation::OwnerTransitionInvalid issue:
             checker issue.reason
         SelfhostProofRefutation::FactObligationMismatch _mismatch:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::UnexpectedEvidence _issue:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::SourceSpanInvalid _span:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::RawBackendTextWithoutBlock _item:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::RawBackendBlockEmpty _open_block:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::ModuleDirectiveDuplicate _duplicate:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderMissing _issue:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::ModuleDeclarationHeaderInvalid _issue:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::TypeKindMismatch _issue:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::TraitImplCoherenceInvalid _issue:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::LifetimeOutlivesInvalid _issue:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::ResourceCellTransitionInvalid _issue:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::BorrowAccessInvalid _issue:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
         SelfhostProofRefutation::EffectBoundaryInvalid _issue:
-            Result<unit,str>::Err "expected owner refutation"
+            Result::Err "expected owner refutation"
 
 fn check_owner_error %fn Result SelfhostOwnerState SelfhostProofRefutation fn fn SelfhostOwnerTransitionError Result unit str Result unit str \result\checker:
     match result:
         Result::Err refutation:
             check_owner_refutation refutation checker
         Result::Ok _state:
-            Result<unit,str>::Err "invalid owner transition was accepted"
+            Result::Err "invalid owner transition was accepted"
 
 fn main %impure fn unit i32 \unit:
     let span %SelfhostSourceSpan source_span_new 0 0 4
