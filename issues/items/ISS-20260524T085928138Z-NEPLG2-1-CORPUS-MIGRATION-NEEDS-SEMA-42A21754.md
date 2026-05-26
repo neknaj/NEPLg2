@@ -609,6 +609,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/std/streamio/writer.nepl -i stdlib/std/streamio/writer/state.nepl --no-tree -o tmp/neplg21-streamio-writer-result-constructors.json -j 1 --dist web/dist --assert-io` は 1 件 compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 fs fd/stat Result constructor checkpoint
+
+- `stdlib/std/fs/fd.nepl` で、`fs_open_with_flags` / `fs_close` の戻り値と local `res` annotation から型が確定する `Result<i32,i32>::Ok` / `Result<i32,i32>::Err` / `Result<unit,i32>::Ok` / `Result<unit,i32>::Err` 6 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/std/fs/stat.nepl` で、`fs_path_filetype` の戻り値と local `res` annotation から型が確定する `Result<i32,i32>::Ok` / `Result<i32,i32>::Err` 4 件を `Result::Ok` / `Result::Err` へ移行した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/std/fs/fd.nepl stdlib/std/fs/stat.nepl` は 0 件になった。
+- `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/std/fs/fd.nepl stdlib/std/fs/stat.nepl` は 0 件になった。
+- `node nodesrc/tests.js -i stdlib/std/fs/fd.nepl -i stdlib/std/fs/stat.nepl --no-tree -o tmp/neplg21-fs-fd-stat-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

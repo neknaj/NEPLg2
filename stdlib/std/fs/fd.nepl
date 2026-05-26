@@ -37,14 +37,14 @@
 pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 i32 \path\oflags\rights:
     match alloc_region<u8> 4:
         Result::Err _e:
-            Result<i32,i32>::Err 12
+            Result::Err 12
         Result::Ok fd_out_region:
             let fd_out_buf %MemPtr u8 region_ptr &fd_out_region
             let fd_out_raw %i32 mem_ptr_addr fd_out_buf
             let res %Result i32 i32 if:
                 le fd_out_raw 0
                 then:
-                    Result<i32,i32>::Err fs_errno_inval
+                    Result::Err fs_errno_inval
                 else:
                     store_i32 fd_out_raw 0
                     let path_ptr %i32 mem_ptr_addr string_data_ptr path
@@ -53,9 +53,9 @@ pub fn fs_open_with_flags %impure fn str impure fn i32 impure fn i64 Result i32 
                     if:
                         eq errno 0
                         then:
-                            Result<i32,i32>::Ok load_i32 fd_out_raw
+                            Result::Ok load_i32 fd_out_raw
                         else:
-                            Result<i32,i32>::Err errno
+                            Result::Err errno
             match dealloc_region<u8> fd_out_region:
                 Result::Ok _:
                     unit
@@ -168,6 +168,6 @@ pub fn fs_close %impure fn i32 Result unit i32 \fd:
     if:
         eq errno 0
         then:
-            Result<unit,i32>::Ok unit
+            Result::Ok unit
         else:
-            Result<unit,i32>::Err errno
+            Result::Err errno

@@ -1,3 +1,17 @@
+# 2026-05-26 Agent 1 fs fd/stat Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる std/fs fd/stat 領域の constructor だけを移行した。
+- `stdlib/std/fs/fd.nepl` で、`fs_open_with_flags` / `fs_close` の戻り値と local `res` annotation から型が確定する `Result<i32,i32>::Ok` / `Result<i32,i32>::Err` / `Result<unit,i32>::Ok` / `Result<unit,i32>::Err` 6 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/std/fs/stat.nepl` で、`fs_path_filetype` の戻り値と local `res` annotation から型が確定する `Result<i32,i32>::Ok` / `Result<i32,i32>::Err` 4 件を `Result::Ok` / `Result::Err` へ移行した。
+- 検証:
+  - `rg -n "Result<[^>]+>::(Ok|Err)" stdlib/std/fs/fd.nepl stdlib/std/fs/stat.nepl`: 0 件。
+  - `rg --pcre2 -n "Result::(?!Ok|Err)" stdlib/std/fs/fd.nepl stdlib/std/fs/stat.nepl`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/std/fs/fd.nepl -i stdlib/std/fs/stat.nepl --no-tree -o tmp/neplg21-fs-fd-stat-result-constructors.json -j 1 --dist web/dist --assert-io`: 3 件すべて compile timeout after 60000ms。型診断は出ていない。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 streamio writer Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる streamio writer 領域の constructor だけを移行した。

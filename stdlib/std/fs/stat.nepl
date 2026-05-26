@@ -49,12 +49,12 @@
 pub fn fs_path_filetype %impure fn str Result i32 i32 \path:
     match fs_normalize_relative_builder path:
         Result::Err e:
-            Result<i32,i32>::Err e
+            Result::Err e
         Result::Ok normalized:
             match alloc_region<u8> 64:
                 Result::Err _e:
                     string_builder_free normalized
-                    Result<i32,i32>::Err 12
+                    Result::Err 12
                 Result::Ok stat_region:
                     let stat_buf %MemPtr u8 region_ptr &stat_region
                     let path_len %i32 string_builder_len_ref &normalized
@@ -74,9 +74,9 @@ pub fn fs_path_filetype %impure fn str Result i32 i32 \path:
                     let res %Result i32 i32 if:
                         eq errno 0
                         then:
-                            Result<i32,i32>::Ok load_u8 add stat_raw 16
+                            Result::Ok load_u8 add stat_raw 16
                         else:
-                            Result<i32,i32>::Err errno
+                            Result::Err errno
                     string_builder_free normalized
                     match dealloc_region<u8> stat_region:
                         Result::Ok _:
