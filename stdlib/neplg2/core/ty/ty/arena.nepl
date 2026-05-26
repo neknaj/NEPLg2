@@ -27,25 +27,25 @@ pub fn selfhost_type_arena_new %impure fn unit Result SelfhostTypeArena StdError
                 Result::Ok function_args:
                     Result::Ok SelfhostTypeArena records function_args
                 Result::Err e:
-                    v::free<SelfhostTypeRecord> records
+                    v::free records
                     Result::Err e
         Result::Err e:
             Result::Err e
 
 //: selfhost_type_arena_free: TypeArena が所有する buffer を[解放/かいほう]する
 pub fn selfhost_type_arena_free %impure fn SelfhostTypeArena unit \arena:
-    v::free<SelfhostTypeRecord> field::get arena "records"
-    v::free<SelfhostTypeId> field::get arena "function_args"
+    v::free field::get arena "records"
+    v::free field::get arena "function_args"
 
 //: selfhost_type_arena_len: arena に登録された型数を[返/かえ]す
 pub fn selfhost_type_arena_len %fn &SelfhostTypeArena i32 \arena:
     let records %&Vec SelfhostTypeRecord field::get_ref arena "records"
-    v::len<SelfhostTypeRecord> records
+    v::len records
 
 //: selfhost_type_arena_function_arg_len: function argument table の長さを[返/かえ]す
 pub fn selfhost_type_arena_function_arg_len %fn &SelfhostTypeArena i32 \arena:
     let function_args %&Vec SelfhostTypeId field::get_ref arena "function_args"
-    v::len<SelfhostTypeId> function_args
+    v::len function_args
 
 //: selfhost_type_arena_alloc_new: 型追加結果を[作/つく]る
 pub fn selfhost_type_arena_alloc_new %impure fn SelfhostTypeArena impure fn SelfhostTypeId SelfhostTypeArenaAlloc \arena\type_id:
@@ -77,8 +77,8 @@ pub fn selfhost_type_arena_push_record %impure fn SelfhostTypeArena impure fn Se
             Result::Ok selfhost_type_arena_alloc_new (SelfhostTypeArena next_records function_args) type_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free<SelfhostTypeRecord> field::get e "vec"
-            v::free<SelfhostTypeId> function_args
+            v::free field::get e "vec"
+            v::free function_args
             Result::Err error
 
 //: selfhost_type_arena_add_primitive: primitive type を arena に[追加/ついか]する
@@ -92,17 +92,17 @@ pub fn selfhost_type_arena_copy_function_args %impure fn Vec SelfhostTypeId impu
         then:
             Result::Ok out
         else:
-            match v::get<SelfhostTypeId> params idx:
+            match v::get params idx:
                 Option::Some type_id:
                     match v::push<SelfhostTypeId> out type_id:
                         Result::Ok next_out:
                             selfhost_type_arena_copy_function_args next_out params n add idx 1
                         Result::Err e:
                             let error %StdErrorKind field::get e "error"
-                            v::free<SelfhostTypeId> field::get e "vec"
+                            v::free field::get e "vec"
                             Result::Err error
                 Option::None:
-                    v::free<SelfhostTypeId> out
+                    v::free out
                     Result::Err StdErrorKind::IndexOutOfBounds
 
 //: selfhost_type_arena_add_function: function type を arena に[追加/ついか]する
@@ -111,17 +111,17 @@ pub fn selfhost_type_arena_copy_function_args %impure fn Vec SelfhostTypeId impu
 //: - `params` はこの関数が消費し、成功・失敗どちらでも解放します。
 pub fn selfhost_type_arena_add_function %impure fn SelfhostTypeArena impure fn Vec SelfhostTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\params\result:
     let first_arg %i32 selfhost_type_arena_function_arg_len &arena
-    let arg_count %i32 v::len<SelfhostTypeId> &params
+    let arg_count %i32 v::len &params
     let records %Vec SelfhostTypeRecord field::get arena "records"
     let function_args %Vec SelfhostTypeId field::get arena "function_args"
     match selfhost_type_arena_copy_function_args function_args &params arg_count 0:
         Result::Ok next_args:
-            v::free<SelfhostTypeId> params
+            v::free params
             let record %SelfhostTypeRecord selfhost_type_record_function first_arg arg_count result
             selfhost_type_arena_push_record (SelfhostTypeArena records next_args) record
         Result::Err e:
-            v::free<SelfhostTypeRecord> records
-            v::free<SelfhostTypeId> params
+            v::free records
+            v::free params
             Result::Err e
 
 //: selfhost_type_arena_get_record: TypeId の record を[返/かえ]す
@@ -132,7 +132,7 @@ pub fn selfhost_type_arena_get_record %fn &SelfhostTypeArena fn SelfhostTypeId O
             none
         else:
             let records %&Vec SelfhostTypeRecord field::get_ref arena "records"
-            v::get<SelfhostTypeRecord> records type_id.index
+            v::get records type_id.index
 
 //: selfhost_type_arena_get_kind: TypeId の TypeKind を[返/かえ]す
 pub fn selfhost_type_arena_get_kind %fn &SelfhostTypeArena fn SelfhostTypeId Option SelfhostTypeKind \arena\type_id:
@@ -172,7 +172,7 @@ pub fn selfhost_type_arena_function_arg %fn &SelfhostTypeArena fn SelfhostTypeId
                             none
                         else:
                             let function_args %&Vec SelfhostTypeId field::get_ref arena "function_args"
-                            v::get<SelfhostTypeId> function_args add function.first_arg arg_idx
+                            v::get function_args add function.first_arg arg_idx
         Option::None:
             none
 

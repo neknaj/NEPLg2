@@ -31,7 +31,7 @@
 //: 計算量:
 //: - 出力 byte 数 n に対して O(n)
 pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilder i32 \path\stack:
-    let stack_len %i32 v::len<i32> stack
+    let stack_len %i32 v::len stack
     match string_builder_new_result:
         Result::Err _e:
             Result::Err 12
@@ -51,8 +51,8 @@ pub fn fs_normalize_build_ranges_builder %fn str fn &Vec i32 Result StringBuilde
                     let mut ok %i32 1
                     while and eq ok 1 lt i stack_len:
                         do:
-                            let start_opt %Option i32 v::get<i32> stack i
-                            let end_opt %Option i32 v::get<i32> stack add i 1
+                            let start_opt %Option i32 v::get stack i
+                            let end_opt %Option i32 v::get stack add i 1
                             match start_opt:
                                 Option::None:
                                     set ok 0

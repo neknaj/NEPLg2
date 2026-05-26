@@ -35,8 +35,8 @@ fn main %impure fn unit i32 \unit:
         |> uwok
         |> push 9
         |> uwok
-    let size %i32 len<i32> &rb;
-    free<i32> rb
+    let size %i32 len &rb;
+    free rb
     let rb2 %RingBuffer i32:
         unwrap_ok new<i32>
         |> push 4
@@ -87,18 +87,18 @@ fn main %impure fn unit i32 \unit:
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> clear
-    let ok0 %bool is_empty<i32> &rb_clear;
-    free<i32> rb_clear
+    let ok0 %bool is_empty &rb_clear;
+    free rb_clear
     let rb0 %RingBuffer i32:
         unwrap_ok with_capacity<i32> 1
         |> push 4 |> uwok
         |> push 9 |> uwok
         |> clear
-    free<i32> rb0
+    free rb0
     let rb1 %RingBuffer i32:
         unwrap_ok with_capacity<i32> 1
         |> push 12 |> uwok
-    free<i32> rb1
+    free rb1
     let report:
         test_report_new "ringbuffer_grow_clear_free"
         |> test_report_push assert "clear empties ringbuffer" ok0

@@ -54,7 +54,7 @@ assert.match(
 );
 assert.match(
     pushLineStart,
-    /Result::Err\s+e:[\s\S]*SourceTextLineStartPush\s+SourceTextLineStartPushState::Err\s+v::vec_push_error_vec<i32>\s+e/,
+    /Result::Err\s+e:[\s\S]*SourceTextLineStartPush\s+SourceTextLineStartPushState::Err\s+v::vec_push_error_vec\s+e/,
     'source_text_push_line_start must return the Vec owner carried by VecPushError on push failure'
 );
 assert.doesNotMatch(
@@ -69,7 +69,7 @@ assert.match(
 );
 assert.match(
     collect,
-    /failed[\s\S]*then:[\s\S]*v::free<i32>\s+out[\s\S]*Result::Err\s+StdErrorKind::OutOfMemory/,
+    /failed[\s\S]*then:[\s\S]*v::free\s+out[\s\S]*Result::Err\s+StdErrorKind::OutOfMemory/,
     'source_text_collect_line_starts must close the replacement Vec owner before returning Err'
 );
 assert.match(

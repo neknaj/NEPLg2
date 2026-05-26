@@ -24,7 +24,7 @@ fn make_vec4 %fn unit Vec i32 \unit:
     v
 
 fn check_at %fn &Vec i32 fn i32 fn i32 bool \v\idx\expected:
-    match get<i32> v idx:
+    match get v idx:
         Option::Some value:
             eq value expected
         Option::None:
@@ -39,39 +39,39 @@ fn check_sorted4 %fn &Vec i32 bool \v:
 
 fn main %impure fn unit i32 \unit:
     let v0 %Vec i32 make_vec4;
-    sort_insertion<i32> &v0;
+    sort_insertion &v0;
     let ok0 %bool check_sorted4 &v0;
-    free<i32> v0;
+    free v0;
 
     let v1 %Vec i32 make_vec4;
-    sort_gnome<i32> &v1;
+    sort_gnome &v1;
     let ok1 %bool check_sorted4 &v1;
-    free<i32> v1;
+    free v1;
 
     let v2 %Vec i32 make_vec4;
-    sort_selection<i32> &v2;
+    sort_selection &v2;
     let ok2 %bool check_sorted4 &v2;
-    free<i32> v2;
+    free v2;
 
     let v3 %Vec i32 make_vec4;
-    sort_bubble<i32> &v3;
+    sort_bubble &v3;
     let ok3 %bool check_sorted4 &v3;
-    free<i32> v3;
+    free v3;
 
     let v4 %Vec i32 make_vec4;
-    sort_cocktail<i32> &v4;
+    sort_cocktail &v4;
     let ok4 %bool check_sorted4 &v4;
-    free<i32> v4;
+    free v4;
 
     let v5 %Vec i32 make_vec4;
-    sort_shell<i32> &v5;
+    sort_shell &v5;
     let ok5 %bool check_sorted4 &v5;
-    free<i32> v5;
+    free v5;
 
     let v6 %Vec i32 make_vec4;
-    sort_comb<i32> &v6;
+    sort_comb &v6;
     let ok6 %bool check_sorted4 &v6;
-    free<i32> v6;
+    free v6;
 
     let ok %bool and ok0 and ok1 and ok2 and ok3 and ok4 and ok5 ok6;
     if ok 1734 0

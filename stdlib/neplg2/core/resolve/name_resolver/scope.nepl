@@ -32,12 +32,12 @@ pub fn selfhost_name_scope_new %impure fn unit Result SelfhostNameScope StdError
 
 //: selfhost_name_scope_free: scope の binding table を[解放/かいほう]する
 pub fn selfhost_name_scope_free %impure fn SelfhostNameScope unit \scope:
-    v::free<SelfhostNameBinding> field::get scope "bindings"
+    v::free field::get scope "bindings"
 
 //: selfhost_name_scope_len: scope 内の binding 数を[返/かえ]す
 pub fn selfhost_name_scope_len %fn &SelfhostNameScope i32 \scope:
     let bindings %&Vec SelfhostNameBinding field::get_ref scope "bindings"
-    v::len<SelfhostNameBinding> bindings
+    v::len bindings
 
 //: selfhost_name_scope_add_result_new: add result を[作/つく]る
 pub fn selfhost_name_scope_add_result_new %impure fn SelfhostNameScope impure fn SelfhostDefId SelfhostNameScopeAddResult \scope\def_id:
@@ -75,7 +75,7 @@ pub fn selfhost_name_scope_add_binding %impure fn SelfhostNameScope impure fn Se
             Result::Ok selfhost_name_scope_add_result_new (SelfhostNameScope next_bindings) def_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free<SelfhostNameBinding> field::get e "vec"
+            v::free field::get e "vec"
             Result::Err error
 
 //: selfhost_name_scope_get: DefId の binding record を[返/かえ]す
@@ -86,7 +86,7 @@ pub fn selfhost_name_scope_get %fn &SelfhostNameScope fn SelfhostDefId Option Se
             none
         else:
             let bindings %&Vec SelfhostNameBinding field::get_ref scope "bindings"
-            v::get<SelfhostNameBinding> bindings def_id.index
+            v::get bindings def_id.index
 
 //: selfhost_name_scope_find_loop: 指定名の binding を末尾から[探/さが]す
 //:

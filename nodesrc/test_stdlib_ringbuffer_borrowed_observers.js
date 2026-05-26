@@ -44,15 +44,21 @@ for (const testPath of [
     "tests/stdlib/ringbuffer_collections.n.md",
     "tests/stdlib/pipe_collections.n.md",
 ]) {
-    const testSrc = fs.readFileSync(path.join(repoRoot, testPath), "utf8");
-    assert.match(testSrc, /len<i32>\s+&rb[0-9]?\b/, `${testPath} must exercise borrowed RingBuffer.len`);
-    assert.match(testSrc, /free<i32>\s+rb[0-9]?\b/, `${testPath} must explicitly free observed RingBuffer owners`);
+    const testSrc = neplCodeBlocks(fs.readFileSync(path.join(repoRoot, testPath), "utf8"));
+    assert.match(testSrc, /len\s+&rb[0-9]?\b/, `${testPath} must exercise borrowed RingBuffer.len`);
+    assert.match(testSrc, /free\s+rb[0-9]?\b/, `${testPath} must explicitly free observed RingBuffer owners`);
     assert.doesNotMatch(testSrc, /\b(?:len_ref|cap_ref|is_empty_ref|peek_ref)<i32>/, `${testPath} must not use removed RingBuffer *_ref observers`);
-    assert.doesNotMatch(testSrc, /(?:len|peek)<i32>\s+rb[0-9]?\b/, `${testPath} must not call by-value RingBuffer observers`);
+    assert.doesNotMatch(testSrc, /(?:len|peek)\s+rb[0-9]?\b/, `${testPath} must not call by-value RingBuffer observers`);
     assert.doesNotMatch(testSrc, /\brb[0-9]?\s+\|>\s+peek(?:<i32>)?\b/, `${testPath} must not pipe RingBuffer owners into peek`);
 }
 
-const pipeCollections = fs.readFileSync(path.join(repoRoot, "tests/stdlib/pipe_collections.n.md"), "utf8");
-assert.match(pipeCollections, /peek<i32>\s+&rb2\b/, "pipe_collections must borrow RingBuffer.peek explicitly");
+const pipeCollections = neplCodeBlocks(fs.readFileSync(path.join(repoRoot, "tests/stdlib/pipe_collections.n.md"), "utf8"));
+assert.match(pipeCollections, /peek\s+&rb2\b/, "pipe_collections must borrow RingBuffer.peek explicitly");
 
 console.log("ringbuffer borrowed observer regression passed");
+
+function neplCodeBlocks(markdown) {
+    return [...markdown.matchAll(/```neplg2\r?\n([\s\S]*?)```/g)]
+        .map((match) => match[1])
+        .join("\n");
+}

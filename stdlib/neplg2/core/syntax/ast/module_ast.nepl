@@ -342,22 +342,22 @@ pub fn selfhost_module_ast_push %impure fn SelfhostModuleAst impure fn SelfhostM
             Result::Ok SelfhostModuleAst items
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free<SelfhostModuleItem> field::get e "vec"
+            v::free field::get e "vec"
             Result::Err error
 
 //: selfhost_module_ast_len: module item [数/すう]を[返/かえ]す
 pub fn selfhost_module_ast_len %fn &SelfhostModuleAst i32 \ast:
     let items %&Vec SelfhostModuleItem field::get_ref ast "items"
-    v::len<SelfhostModuleItem> items
+    v::len items
 
 //: selfhost_module_ast_get: index の module item を[返/かえ]す
 pub fn selfhost_module_ast_get %fn &SelfhostModuleAst fn i32 Option SelfhostModuleItem \ast\idx:
     let items %&Vec SelfhostModuleItem field::get_ref ast "items"
-    v::get<SelfhostModuleItem> items idx
+    v::get items idx
 
 //: selfhost_module_ast_free: module AST が所有する item buffer を[解放/かいほう]する
 pub fn selfhost_module_ast_free %impure fn SelfhostModuleAst unit \ast:
-    v::free<SelfhostModuleItem> field::get ast "items"
+    v::free field::get ast "items"
 
 //: selfhost_module_ast_stage0: AST root の smoke API
 pub fn selfhost_module_ast_stage0 %impure fn unit i32 \unit:

@@ -13,7 +13,7 @@
 pub fn selfhost_parse_module_tokens %impure fn str impure fn &Vec SelfhostToken Result SelfhostModuleAst SelfhostDiagnostic \source\tokens:
     match selfhost_module_ast_new:
         Result::Ok ast:
-            let n %i32 v::len<SelfhostToken> tokens
+            let n %i32 v::len tokens
             selfhost_parse_module_loop source tokens n 0 0 SelfhostParserRawMode::Normal ast
         Result::Err _e:
             Result::Err selfhost_parser_oom_diag
@@ -27,10 +27,10 @@ pub fn selfhost_parse_module_source_with_file_id %impure fn str impure fn i32 Re
         Result::Ok tokens:
             match selfhost_parse_module_tokens source &tokens:
                 Result::Ok ast:
-                    v::free<SelfhostToken> tokens
+                    v::free tokens
                     Result::Ok ast
                 Result::Err diag:
-                    v::free<SelfhostToken> tokens
+                    v::free tokens
                     Result::Err diag
         Result::Err lex_diag:
             Result::Err selfhost_parser_diag_from_lex lex_diag

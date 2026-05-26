@@ -32,8 +32,8 @@ fn main %impure fn unit i32 \unit:
         |> must_set
         |> insert<i32> 3
         |> must_set
-    let s0_len %i32 len<i32> &s0;
-    free<i32> s0;
+    let s0_len %i32 len &s0;
+    free s0;
 
     let report:
         test_report_new "btreeset_insert_and_len"
@@ -86,8 +86,8 @@ fn main %impure fn unit i32 \unit:
         |> must_set
         |> insert<i32> 8
         |> must_set
-    let s0_contains_8 %bool contains<i32> &s0 8;
-    free<i32> s0;
+    let s0_contains_8 %bool contains &s0 8;
+    free s0;
 
     let report:
         test_report_new "btreeset_insert_growth_boundary"
@@ -127,8 +127,8 @@ fn main %impure fn unit i32 \unit:
         |> must_set
         |> insert<i32> 1
         |> must_set
-    let s0_contains_1 %bool contains<i32> &s0 1;
-    free<i32> s0;
+    let s0_contains_1 %bool contains &s0 1;
+    free s0;
 
     let s1 %BTreeSet i32:
         unwrap_ok new<i32>
@@ -137,8 +137,8 @@ fn main %impure fn unit i32 \unit:
         |> insert<i32> 1
         |> must_set
         |> remove<i32> 1
-    let s1_missing_1 %bool not contains<i32> &s1 1;
-    free<i32> s1;
+    let s1_missing_1 %bool not contains &s1 1;
+    free s1;
 
     let s2 %BTreeSet i32:
         unwrap_ok new<i32>
@@ -147,8 +147,8 @@ fn main %impure fn unit i32 \unit:
         |> insert<i32> 1
         |> must_set
         |> remove<i32> 1
-    let s2_len %i32 len<i32> &s2;
-    free<i32> s2;
+    let s2_len %i32 len &s2;
+    free s2;
 
     let report:
         test_report_new "btreeset_contains_and_remove"
@@ -189,8 +189,8 @@ fn main %impure fn unit i32 \unit:
         |> must_set
         |> insert<i32> 3
         |> must_set
-    let s0_len %i32 len<i32> &s0;
-    free<i32> s0;
+    let s0_len %i32 len &s0;
+    free s0;
 
     let report:
         test_report_new "btreeset_duplicate_insert"
@@ -229,8 +229,8 @@ fn main %impure fn unit i32 \unit:
         |> must_set
         |> insert<i32> 1
         |> must_set
-    let s_len %i32 len<i32> &s;
-    let s_contains_1 %bool contains<i32> &s 1;
+    let s_len %i32 len &s;
+    let s_contains_1 %bool contains &s 1;
     free s;
 
     let report:

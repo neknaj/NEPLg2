@@ -802,6 +802,25 @@ LLM/手動判断が必要なもの:
 - `trunk build` は pass した。
 - `node nodesrc/tests.js <対象26 files> --no-tree -o tmp/neplg21-enum-constructor-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 8 件中 8 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 collection observer / selfhost Vec accessor postfix checkpoint
+
+- collection fixture の observer / cleanup / accessor 系 postfix を、Queue/RingBuffer、List、BinaryHeap/Deque、BTreeMap/BTreeSet、Vec/Sort の 5 worker 非重複 write scope に分割して並列移行した。
+- 親 agent 側では worker commit と衝突しないよう再確認しながら、selfhost / std fs 内の `v::len<T>` / `v::get<T>` / `v::free<T>` / `v::vec_push_error_vec<T>` を receiver 型または local annotation から解ける postfix-free 形へ移行した。
+- 合計 42 files で、`len` / `get` / `contains` / `free` / `peek` / `pop` / `pop_front` / `pop_back` / `pop_max` / collection pop accessor / `head` / `tail` / `list_transform_error_list` / `vec_partition_*` / in-place `sort_*` / `v::len` / `v::get` / `v::free` / `v::vec_push_error_vec` の後置 generic を撤廃した。
+- 対象は receiver 型、local annotation、戻り値 annotation、または wrapper result の型から型根拠が明確な箇所に限定した。
+- `new<T>` / `push<T>` / `with_capacity<T>` / `insert<T>` / `remove<T>` / `map<T,U>` / `filter<T>` / `partition<T>` / `take_while<T>` / `drop_while<T>` / `sort_*_ret<T>` / `reverse<T>` / `cons<T>` は、producer / mutator / transform result 系として今回の checkpoint では残した。
+- subagent 報告と実体に差があった BTreeMap/BTreeSet については、親 agent 側の `rg` で残件を検出し、同じ checkpoint 内で再適用した。
+- `tests/stdlib/pipe_collections.n.md` は source policy 追従中に stale な observer / cleanup / accessor postfix を検出したため、同じ checkpoint に含めた。producer / mutator / owner recovery 系の postfix はこの段階では残した。
+- `rg -n "\b(len|get|contains|free|peek|pop|pop_front|pop_back|pop_max|queue_pop_item|queue_pop_queue|ringbuffer_pop_item|ringbuffer_pop_buffer|binary_heap_pop_item|binary_heap_pop_heap|deque_pop_item|deque_pop_deque|head|tail|list_transform_error_list|vec_partition_matched_len|vec_partition_rest_len|vec_partition_matched_get|vec_partition_rest_get|vec_partition_free|sort_quick|sort_heap|sort_merge|sort_is_sorted)<" <collection対象files>` は 0 件になった。
+- `rg -n "\bv::(len|get|free|vec_push_error_vec)<" stdlib/neplg2 stdlib/std/fs/path stdlib/std/fs/dir -g "*.nepl"` は 0 件になった。
+- `node nodesrc/neplg21_syntax_migrate.js --check` は `would update 0 file(s)` になった。
+- `node nodesrc/test_neplg21_helper_postfix_cleanup.js` は pass した。
+- `node nodesrc/issues.js check --dir issues` は pass した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `trunk build` は pass した。
+- `git diff --check` は pass した。LF/CRLF warning のみ。
+- `node nodesrc/tests.js <対象35 files> --no-tree -o tmp/neplg21-collection-observer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15 件中 15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

@@ -114,7 +114,7 @@ pub fn selfhost_parse_module_loop %impure fn str impure fn &Vec SelfhostToken im
         then:
             Result::Ok ast
         else:
-            match v::get<SelfhostToken> tokens idx:
+            match v::get tokens idx:
                 Option::Some token:
                     let kind %TokenKind token.kind
                     match selfhost_parser_token_action kind:

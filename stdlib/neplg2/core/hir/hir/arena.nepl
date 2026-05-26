@@ -22,46 +22,46 @@ pub fn selfhost_hir_module_new %impure fn unit Result SelfhostHirModule StdError
                                 Result::Ok expr_children:
                                     Result::Ok SelfhostHirModule functions params exprs expr_children
                                 Result::Err e:
-                                    v::free<SelfhostHirFunction> functions
-                                    v::free<SelfhostHirParam> params
-                                    v::free<SelfhostHirExpr> exprs
+                                    v::free functions
+                                    v::free params
+                                    v::free exprs
                                     Result::Err e
                         Result::Err e:
-                            v::free<SelfhostHirFunction> functions
-                            v::free<SelfhostHirParam> params
+                            v::free functions
+                            v::free params
                             Result::Err e
                 Result::Err e:
-                    v::free<SelfhostHirFunction> functions
+                    v::free functions
                     Result::Err e
         Result::Err e:
             Result::Err e
 
 //: selfhost_hir_module_free: HIR module が所有する table を[解放/かいほう]する
 pub fn selfhost_hir_module_free %impure fn SelfhostHirModule unit \module:
-    v::free<SelfhostHirFunction> field::get module "functions"
-    v::free<SelfhostHirParam> field::get module "params"
-    v::free<SelfhostHirExpr> field::get module "exprs"
-    v::free<SelfhostHirExprId> field::get module "expr_children"
+    v::free field::get module "functions"
+    v::free field::get module "params"
+    v::free field::get module "exprs"
+    v::free field::get module "expr_children"
 
 //: selfhost_hir_module_function_len: function table の要素数を[返/かえ]す
 pub fn selfhost_hir_module_function_len %fn &SelfhostHirModule i32 \module:
     let functions %&Vec SelfhostHirFunction field::get_ref module "functions"
-    v::len<SelfhostHirFunction> functions
+    v::len functions
 
 //: selfhost_hir_module_param_len: parameter table の要素数を[返/かえ]す
 pub fn selfhost_hir_module_param_len %fn &SelfhostHirModule i32 \module:
     let params %&Vec SelfhostHirParam field::get_ref module "params"
-    v::len<SelfhostHirParam> params
+    v::len params
 
 //: selfhost_hir_module_expr_len: expression table の要素数を[返/かえ]す
 pub fn selfhost_hir_module_expr_len %fn &SelfhostHirModule i32 \module:
     let exprs %&Vec SelfhostHirExpr field::get_ref module "exprs"
-    v::len<SelfhostHirExpr> exprs
+    v::len exprs
 
 //: selfhost_hir_module_child_len: expression child table の要素数を[返/かえ]す
 pub fn selfhost_hir_module_child_len %fn &SelfhostHirModule i32 \module:
     let expr_children %&Vec SelfhostHirExprId field::get_ref module "expr_children"
-    v::len<SelfhostHirExprId> expr_children
+    v::len expr_children
 
 //: selfhost_hir_module_add_expr_alloc_new: expression 追加結果を[作/つく]る
 pub fn selfhost_hir_module_add_expr_alloc_new %impure fn SelfhostHirModule impure fn SelfhostHirExprId SelfhostHirModuleExprAlloc \module\expr_id:
@@ -144,17 +144,17 @@ pub fn selfhost_hir_module_copy_params %impure fn Vec SelfhostHirParam impure fn
         then:
             Result::Ok out
         else:
-            match v::get<SelfhostHirParam> params idx:
+            match v::get params idx:
                 Option::Some param:
                     match v::push<SelfhostHirParam> out param:
                         Result::Ok next_out:
                             selfhost_hir_module_copy_params next_out params n add idx 1
                         Result::Err e:
                             let error %StdErrorKind field::get e "error"
-                            v::free<SelfhostHirParam> field::get e "vec"
+                            v::free field::get e "vec"
                             Result::Err error
                 Option::None:
-                    v::free<SelfhostHirParam> out
+                    v::free out
                     Result::Err StdErrorKind::IndexOutOfBounds
 
 //: selfhost_hir_module_copy_expr_children: child id 列を expression child table に[複製/ふくせい]する
@@ -164,17 +164,17 @@ pub fn selfhost_hir_module_copy_expr_children %impure fn Vec SelfhostHirExprId i
         then:
             Result::Ok out
         else:
-            match v::get<SelfhostHirExprId> children idx:
+            match v::get children idx:
                 Option::Some expr_id:
                     match v::push<SelfhostHirExprId> out expr_id:
                         Result::Ok next_out:
                             selfhost_hir_module_copy_expr_children next_out children n add idx 1
                         Result::Err e:
                             let error %StdErrorKind field::get e "error"
-                            v::free<SelfhostHirExprId> field::get e "vec"
+                            v::free field::get e "vec"
                             Result::Err error
                 Option::None:
-                    v::free<SelfhostHirExprId> out
+                    v::free out
                     Result::Err StdErrorKind::IndexOutOfBounds
 
 //: selfhost_hir_module_add_expr: expression table に record を[追加/ついか]する
@@ -192,10 +192,10 @@ pub fn selfhost_hir_module_add_expr %impure fn SelfhostHirModule impure fn Selfh
             Result::Ok selfhost_hir_module_add_expr_alloc_new (SelfhostHirModule functions params next_exprs expr_children) expr_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free<SelfhostHirExpr> field::get e "vec"
-            v::free<SelfhostHirFunction> functions
-            v::free<SelfhostHirParam> params
-            v::free<SelfhostHirExprId> expr_children
+            v::free field::get e "vec"
+            v::free functions
+            v::free params
+            v::free expr_children
             Result::Err error
 
 //: selfhost_hir_module_add_function: function table に record を[追加/ついか]する
@@ -213,10 +213,10 @@ pub fn selfhost_hir_module_add_function %impure fn SelfhostHirModule impure fn S
             Result::Ok selfhost_hir_module_add_function_alloc_new (SelfhostHirModule next_functions params exprs expr_children) function_id
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free<SelfhostHirFunction> field::get e "vec"
-            v::free<SelfhostHirParam> params
-            v::free<SelfhostHirExpr> exprs
-            v::free<SelfhostHirExprId> expr_children
+            v::free field::get e "vec"
+            v::free params
+            v::free exprs
+            v::free expr_children
             Result::Err error
 
 //: selfhost_hir_module_add_param_range: parameter table に parameter record 列を[追加/ついか]する
@@ -228,11 +228,11 @@ pub fn selfhost_hir_module_add_function %impure fn SelfhostHirModule impure fn S
 //: - `params_to_add` はこの関数が消費し、成功・失敗どちらでも解放します。
 //: - 失敗時、入力 module の owner はこの関数が消費し、残り table を解放してから `Err` を返します。
 pub fn selfhost_hir_module_add_param_range %impure fn SelfhostHirModule impure fn Vec SelfhostHirParam Result SelfhostHirModuleParamRangeAlloc StdErrorKind \module\params_to_add:
-    let param_count %i32 v::len<SelfhostHirParam> &params_to_add
+    let param_count %i32 v::len &params_to_add
     if:
         eq param_count 0
         then:
-            v::free<SelfhostHirParam> params_to_add
+            v::free params_to_add
             Result::Ok selfhost_hir_module_add_param_range_alloc_new module selfhost_hir_param_range_empty
         else:
             let first_param %i32 selfhost_hir_module_param_len &module
@@ -242,14 +242,14 @@ pub fn selfhost_hir_module_add_param_range %impure fn SelfhostHirModule impure f
             let expr_children %Vec SelfhostHirExprId field::get module "expr_children"
             match selfhost_hir_module_copy_params params &params_to_add param_count 0:
                 Result::Ok next_params:
-                    v::free<SelfhostHirParam> params_to_add
+                    v::free params_to_add
                     let param_range %SelfhostHirParamRange selfhost_hir_param_range_new first_param param_count
                     Result::Ok selfhost_hir_module_add_param_range_alloc_new (SelfhostHirModule functions next_params exprs expr_children) param_range
                 Result::Err e:
-                    v::free<SelfhostHirFunction> functions
-                    v::free<SelfhostHirExpr> exprs
-                    v::free<SelfhostHirExprId> expr_children
-                    v::free<SelfhostHirParam> params_to_add
+                    v::free functions
+                    v::free exprs
+                    v::free expr_children
+                    v::free params_to_add
                     Result::Err e
 
 //: selfhost_hir_module_add_child_range: expression child table に child id 列を[追加/ついか]する
@@ -261,11 +261,11 @@ pub fn selfhost_hir_module_add_param_range %impure fn SelfhostHirModule impure f
 //: - `children` はこの関数が消費し、成功・失敗どちらでも解放します。
 //: - 失敗時、入力 module の owner はこの関数が消費し、残り table を解放してから `Err` を返します。
 pub fn selfhost_hir_module_add_child_range %impure fn SelfhostHirModule impure fn Vec SelfhostHirExprId Result SelfhostHirModuleChildRangeAlloc StdErrorKind \module\children:
-    let child_count %i32 v::len<SelfhostHirExprId> &children
+    let child_count %i32 v::len &children
     if:
         eq child_count 0
         then:
-            v::free<SelfhostHirExprId> children
+            v::free children
             Result::Ok selfhost_hir_module_add_child_range_alloc_new module selfhost_hir_child_range_empty
         else:
             let first_child %i32 selfhost_hir_module_child_len &module
@@ -275,14 +275,14 @@ pub fn selfhost_hir_module_add_child_range %impure fn SelfhostHirModule impure f
             let expr_children %Vec SelfhostHirExprId field::get module "expr_children"
             match selfhost_hir_module_copy_expr_children expr_children &children child_count 0:
                 Result::Ok next_expr_children:
-                    v::free<SelfhostHirExprId> children
+                    v::free children
                     let child_range %SelfhostHirChildRange selfhost_hir_child_range_new first_child child_count
                     Result::Ok selfhost_hir_module_add_child_range_alloc_new (SelfhostHirModule functions params exprs next_expr_children) child_range
                 Result::Err e:
-                    v::free<SelfhostHirFunction> functions
-                    v::free<SelfhostHirParam> params
-                    v::free<SelfhostHirExpr> exprs
-                    v::free<SelfhostHirExprId> children
+                    v::free functions
+                    v::free params
+                    v::free exprs
+                    v::free children
                     Result::Err e
 
 //: selfhost_hir_module_get_function: function id の record を[返/かえ]す
@@ -293,7 +293,7 @@ pub fn selfhost_hir_module_get_function %fn &SelfhostHirModule fn SelfhostHirFun
             none
         else:
             let functions %&Vec SelfhostHirFunction field::get_ref module "functions"
-            v::get<SelfhostHirFunction> functions function_id.index
+            v::get functions function_id.index
 
 //: selfhost_hir_module_get_expr: expression id の record を[返/かえ]す
 pub fn selfhost_hir_module_get_expr %fn &SelfhostHirModule fn SelfhostHirExprId Option SelfhostHirExpr \module\expr_id:
@@ -303,7 +303,7 @@ pub fn selfhost_hir_module_get_expr %fn &SelfhostHirModule fn SelfhostHirExprId 
             none
         else:
             let exprs %&Vec SelfhostHirExpr field::get_ref module "exprs"
-            v::get<SelfhostHirExpr> exprs expr_id.index
+            v::get exprs expr_id.index
 
 //: selfhost_hir_module_get_param: parameter range 内の parameter record を[返/かえ]す
 pub fn selfhost_hir_module_get_param %fn &SelfhostHirModule fn SelfhostHirParamRange fn i32 Option SelfhostHirParam \module\param_range\idx:
@@ -317,7 +317,7 @@ pub fn selfhost_hir_module_get_param %fn &SelfhostHirModule fn SelfhostHirParamR
                     none
                 else:
                     let params %&Vec SelfhostHirParam field::get_ref module "params"
-                    v::get<SelfhostHirParam> params add range.first_param idx
+                    v::get params add range.first_param idx
 
 //: selfhost_hir_module_get_child: child range 内の expression id を[返/かえ]す
 pub fn selfhost_hir_module_get_child %fn &SelfhostHirModule fn SelfhostHirChildRange fn i32 Option SelfhostHirExprId \module\child_range\idx:
@@ -331,4 +331,4 @@ pub fn selfhost_hir_module_get_child %fn &SelfhostHirModule fn SelfhostHirChildR
                     none
                 else:
                     let expr_children %&Vec SelfhostHirExprId field::get_ref module "expr_children"
-                    v::get<SelfhostHirExprId> expr_children add range.first_child idx
+                    v::get expr_children add range.first_child idx

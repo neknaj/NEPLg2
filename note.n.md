@@ -1,3 +1,24 @@
+# 2026-05-26 Agent 1 collection observer / selfhost Vec accessor postfix checkpoint
+
+- Zenn 方針を再確認し、後方互換より不整合解消を優先する NEPLg2.1 corpus migration として、型根拠が明確な observer / cleanup / accessor 系の後置 generic を撤廃した。
+- collection fixture は Queue/RingBuffer、List、BinaryHeap/Deque、BTreeMap/BTreeSet、Vec/Sort の 5 worker 非重複 write scope に分割して並列移行した。
+- 親 agent 側では selfhost / std fs 内の `v::len<T>` / `v::get<T>` / `v::free<T>` / `v::vec_push_error_vec<T>` を receiver 型または local annotation から解ける postfix-free 形へ移行した。
+- 合計 42 files で、`len` / `get` / `contains` / `free` / `peek` / `pop` / collection pop accessor / `head` / `tail` / `list_transform_error_list` / `vec_partition_*` / in-place `sort_*` / selfhost `v::*` observer-cleanup の postfix を撤廃した。
+- 対象は receiver 型、local annotation、戻り値 annotation、または wrapper result の型から型根拠が十分な箇所に限定した。
+- `new<T>` / `push<T>` / `with_capacity<T>` / `insert<T>` / `remove<T>` / `map<T,U>` / `filter<T>` / `partition<T>` / `take_while<T>` / `drop_while<T>` / `sort_*_ret<T>` / `reverse<T>` / `cons<T>` は producer / mutator / transform result 系として残した。
+- subagent 報告と実体に差があった BTreeMap/BTreeSet は、親 agent 側の `rg` で残件を検出し、同じ checkpoint 内で再適用した。
+- `tests/stdlib/pipe_collections.n.md` は source policy 追従中に stale な observer / cleanup / accessor postfix を検出したため、同じ checkpoint に含めた。producer / mutator / owner recovery 系の postfix はこの段階では残した。
+- 検証:
+  - `rg -n "\b(len|get|contains|free|peek|pop|pop_front|pop_back|pop_max|queue_pop_item|queue_pop_queue|ringbuffer_pop_item|ringbuffer_pop_buffer|binary_heap_pop_item|binary_heap_pop_heap|deque_pop_item|deque_pop_deque|head|tail|list_transform_error_list|vec_partition_matched_len|vec_partition_rest_len|vec_partition_matched_get|vec_partition_rest_get|vec_partition_free|sort_quick|sort_heap|sort_merge|sort_is_sorted)<" <collection対象files>`: 0 件。
+  - `rg -n "\bv::(len|get|free|vec_push_error_vec)<" stdlib/neplg2 stdlib/std/fs/path stdlib/std/fs/dir -g "*.nepl"`: 0 件。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: `would update 0 file(s)`。
+  - `node nodesrc/test_neplg21_helper_postfix_cleanup.js`: pass。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only`: pass。
+  - `trunk build`: pass。
+  - `git diff --check`: pass。LF/CRLF warning のみ。
+  - `node nodesrc/tests.js <対象35 files> --no-tree -o tmp/neplg21-collection-observer-postfix.json -j 1 --dist web/dist --assert-io`: 外側 timeout。partial JSON は 15 件中 15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 KP/Vec/SegmentTree unwrap_ok postfix checkpoint
 
 - KP doctest、SegmentTree API doctest、Vec mutation/query/sort doctest、collection cleanup fixture の `unwrap_ok<T,E>` を 5 worker の非重複 write scope へ分割して並列移行した。

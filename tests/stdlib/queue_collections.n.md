@@ -34,8 +34,8 @@ fn main %impure fn unit i32 \unit:
         |> uwok
         |> push<i32> 8
         |> uwok
-    let size %i32 len<i32> &q;
-    let ok1 %bool match q |> pop<i32>:
+    let size %i32 len &q;
+    let ok1 %bool match q |> pop:
         Option::Some v:
             eq v 7
         Option::None:
@@ -73,15 +73,15 @@ fn main %impure fn unit i32 \unit:
     let q0 %Queue i32 unwrap_ok with_capacity<i32> 1;
     let q1 %Queue i32 unwrap_ok push<i32> q0 10;
     let q2 %Queue i32 unwrap_ok push<i32> q1 20;
-    let size %i32 len<i32> &q2;
-    let ok_peek %bool match peek<i32> &q2:
+    let size %i32 len &q2;
+    let ok_peek %bool match peek &q2:
         Option::Some v:
             eq v 10
         Option::None:
             false
-    let q3 %Queue i32 clear<i32> q2;
-    let ok_clear %bool is_empty<i32> &q3;
-    free<i32> q3;
+    let q3 %Queue i32 clear q2;
+    let ok_clear %bool is_empty &q3;
+    free q3;
     let report:
         test_report_new "queue_grow_clear_and_free"
         |> test_report_push assert_eq_i32 "len after grow" 2 size

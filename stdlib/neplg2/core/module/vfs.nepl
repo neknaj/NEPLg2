@@ -109,18 +109,18 @@ pub fn selfhost_vfs_add %impure fn SelfhostVirtualFileSystem impure fn str impur
             Result::Ok SelfhostVirtualFileSystem files
         Result::Err e:
             let error %StdErrorKind field::get e "error"
-            v::free<SelfhostVirtualFile> field::get e "vec"
+            v::free field::get e "vec"
             Result::Err error
 
 //: selfhost_vfs_len: VFS に[登録/とうろく]された file 数を[返/かえ]す
 pub fn selfhost_vfs_len %fn &SelfhostVirtualFileSystem i32 \vfs:
     let files %&Vec SelfhostVirtualFile field::get_ref vfs "files"
-    v::len<SelfhostVirtualFile> files
+    v::len files
 
 //: selfhost_vfs_get: index の VFS entry を[返/かえ]す
 pub fn selfhost_vfs_get %fn &SelfhostVirtualFileSystem fn i32 Option SelfhostVirtualFile \vfs\idx:
     let files %&Vec SelfhostVirtualFile field::get_ref vfs "files"
-    v::get<SelfhostVirtualFile> files idx
+    v::get files idx
 
 //: selfhost_vfs_find_loop: path が[一致/いっち]する entry を線形探索する
 pub fn selfhost_vfs_find_loop %fn &SelfhostVirtualFileSystem fn str fn i32 fn i32 Option SelfhostVirtualFile \vfs\path\n\idx:
@@ -146,4 +146,4 @@ pub fn selfhost_vfs_find %fn &SelfhostVirtualFileSystem fn str Option SelfhostVi
 
 //: selfhost_vfs_free: VFS の file entry buffer を[解放/かいほう]する
 pub fn selfhost_vfs_free %impure fn SelfhostVirtualFileSystem unit \vfs:
-    v::free<SelfhostVirtualFile> field::get vfs "files"
+    v::free field::get vfs "files"

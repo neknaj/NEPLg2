@@ -32,8 +32,8 @@ fn main %impure fn unit i32 \unit:
         |> must_map
         |> insert<i32,i32> 3 30
         |> must_map
-    let m0_len %i32 len<i32,i32> &m0;
-    free<i32,i32> m0;
+    let m0_len %i32 len &m0;
+    free m0;
 
     let report:
         test_report_new "btreemap_insert_and_len"
@@ -89,12 +89,12 @@ fn main %impure fn unit i32 \unit:
         |> insert<i32,i32> 8 80
         |> must_map
     let mut get8_value %i32 -1;
-    match get<i32,i32> &m0 8:
+    match get &m0 8:
         Option::Some v:
             set get8_value v
         Option::None:
             unit
-    free<i32,i32> m0;
+    free m0;
 
     let report:
         test_report_new "btreemap_insert_growth_boundary"
@@ -137,12 +137,12 @@ fn main %impure fn unit i32 \unit:
         |> insert<i32,i32> 1 10
         |> must_map
     let mut get3_value %i32 -1;
-    match get<i32,i32> &m0 3:
+    match get &m0 3:
         Option::Some v:
             set get3_value v
         Option::None:
             unit
-    free<i32,i32> m0;
+    free m0;
 
     let m1 %BTreeMap i32 i32:
         unwrap_ok new<i32,i32>
@@ -151,8 +151,8 @@ fn main %impure fn unit i32 \unit:
         |> insert<i32,i32> 1 10
         |> must_map
         |> remove<i32,i32> 1
-    let m1_len %i32 len<i32,i32> &m1;
-    free<i32,i32> m1;
+    let m1_len %i32 len &m1;
+    free m1;
 
     let report:
         test_report_new "btreemap_get_and_remove"
@@ -196,12 +196,12 @@ fn main %impure fn unit i32 \unit:
         |> insert<i32,i32> 7 71
         |> must_map
     let mut updated_value %i32 -1;
-    match get<i32,i32> &m0 7:
+    match get &m0 7:
         Option::Some v:
             set updated_value v
         Option::None:
             unit
-    free<i32,i32> m0;
+    free m0;
 
     let report:
         test_report_new "btreemap_update_existing"
@@ -242,10 +242,10 @@ fn main %impure fn unit i32 \unit:
         |> must_map
         |> insert<i32,i32> 1 10
         |> must_map
-    let m_len %i32 len<i32,i32> &m;
-    let m_contains_1 %bool contains<i32,i32> &m 1;
+    let m_len %i32 len &m;
+    let m_contains_1 %bool contains &m 1;
     let mut get2_value %i32 -1;
-    match get<i32,i32> &m 2:
+    match get &m 2:
         Option::Some v:
             set get2_value v
         Option::None:

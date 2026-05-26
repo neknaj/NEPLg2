@@ -21,9 +21,9 @@ pub fn selfhost_type_arena_function_args_equal %fn &SelfhostTypeArena fn i32 fn 
             true
         else:
             let function_args %&Vec SelfhostTypeId field::get_ref arena "function_args"
-            match v::get<SelfhostTypeId> function_args add first_a idx:
+            match v::get function_args add first_a idx:
                 Option::Some arg_a:
-                    match v::get<SelfhostTypeId> function_args add first_b idx:
+                    match v::get function_args add first_b idx:
                         Option::Some arg_b:
                             if:
                                 selfhost_type_arena_types_equal arena arg_a arg_b

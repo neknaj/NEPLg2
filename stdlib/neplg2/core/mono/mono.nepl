@@ -247,12 +247,12 @@ pub fn selfhost_mono_instance_cache_new %impure fn unit Result SelfhostMonoInsta
 
 //: selfhost_mono_instance_cache_free: cache storage を解放する
 pub fn selfhost_mono_instance_cache_free %impure fn SelfhostMonoInstanceCache unit \cache:
-    v::free<SelfhostMonoInstanceRecord> field::get cache "records"
+    v::free field::get cache "records"
 
 //: selfhost_mono_instance_cache_len: cache 内の record 数を返す
 pub fn selfhost_mono_instance_cache_len %fn &SelfhostMonoInstanceCache i32 \cache:
     let records %&Vec SelfhostMonoInstanceRecord field::get_ref cache "records"
-    v::len<SelfhostMonoInstanceRecord> records
+    v::len records
 
 //: selfhost_mono_instance_cache_record_at: instance id に対応する record を返す
 //:
@@ -266,7 +266,7 @@ pub fn selfhost_mono_instance_cache_record_at %fn &SelfhostMonoInstanceCache fn 
             none
         else:
             let records %&Vec SelfhostMonoInstanceRecord field::get_ref cache "records"
-            v::get<SelfhostMonoInstanceRecord> records instance_id.index
+            v::get records instance_id.index
 
 //: selfhost_mono_instance_cache_lookup_loop: record table を先頭から探索する
 //:
@@ -344,7 +344,7 @@ pub fn selfhost_mono_instance_cache_intern %impure fn SelfhostMonoInstanceCache 
                             Result::Ok selfhost_mono_instance_cache_intern_result_new (SelfhostMonoInstanceCache next_records) instance_id
                         Result::Err e:
                             let error %StdErrorKind v::vec_push_error_kind<SelfhostMonoInstanceRecord> &e
-                            v::free<SelfhostMonoInstanceRecord> v::vec_push_error_vec<SelfhostMonoInstanceRecord> e
+                            v::free v::vec_push_error_vec e
                             Result::Err selfhost_mono_instance_cache_intern_error_storage error
 
 //: selfhost_mono_seed_mix: mangle seed 用の 32-bit mixing step

@@ -30,14 +30,14 @@
 pub fn fs_normalize_range_push %fn Vec i32 fn i32 fn i32 Result Vec i32 i32 \stack\start\end:
     match v::push<i32> stack start:
         Result::Err e:
-            let returned %Vec i32 v::vec_push_error_vec<i32> e
-            v::free<i32> returned
+            let returned %Vec i32 v::vec_push_error_vec e
+            v::free returned
             Result::Err 12
         Result::Ok with_start:
             match v::push<i32> with_start end:
                 Result::Err e:
-                    let returned %Vec i32 v::vec_push_error_vec<i32> e
-                    v::free<i32> returned
+                    let returned %Vec i32 v::vec_push_error_vec e
+                    v::free returned
                     Result::Err 12
                 Result::Ok with_end:
                     Result::Ok with_end

@@ -16,7 +16,7 @@
 //: - この scanner は full parser ではありません。import graph の root closure に必要な top-level import directive だけを読む専用経路です。
 //: - indented block 内や raw backend block 内の `#import` 文字列は top-level directive ではないため無視します。
 //: - 返された `SelfhostImportRecord.path` / `alias` は source slice に由来します。caller は VFS source の lifetime を graph 構築中に保ってください。
-//: - 成功時の `Vec<SelfhostImportRecord>` は caller が `v::free<SelfhostImportRecord>` で[解放/かいほう]します。
+//: - 成功時の `Vec<SelfhostImportRecord>` は caller が `v::free` で[解放/かいほう]します。
 //:
 //: [計算量/けいさんりょう]:
 //: - source byte 数 n、import directive 文字数合計 k に対して O(n + k) です。
@@ -33,7 +33,7 @@
 //:| #import "neplg2/core/module/import_scan" as *
 //:| #import "std/test" as *
 //: fn record_at %fn &Vec SelfhostImportRecord fn i32 SelfhostImportRecord \records\idx:
-//:     unwrap<SelfhostImportRecord> v::get<SelfhostImportRecord> records idx
+//:     unwrap<SelfhostImportRecord> v::get records idx
 //:
 //: fn main %impure fn unit i32 \unit:
 //:     match selfhost_scan_module_imports_with_file_id "#import \"./util\" as util\n#import \"core/result\" as *\n    #import \"ignored\" as inner\nfn main %fn unit i32 \\unit:\n    0\n" 0:
@@ -41,10 +41,10 @@
 //:             let r0 %SelfhostImportRecord record_at &records 0
 //:             let r1 %SelfhostImportRecord record_at &records 1
 //:             let report0 %TestReport test_report_new "selfhost_import_scan_basic"
-//:             let report1 %TestReport test_report_push report0 assert_eq_i32 "count" 2 v::len<SelfhostImportRecord> &records
+//:             let report1 %TestReport test_report_push report0 assert_eq_i32 "count" 2 v::len &records
 //:             let report2 %TestReport test_report_push report1 assert_str_eq "first" "./util" r0.path
 //:             let report3 %TestReport test_report_push report2 assert_str_eq "second" "core/result" r1.path
-//:             v::free<SelfhostImportRecord> records
+//:             v::free records
 //:             test_report_exit_code test_report_print_stdout report3
 //:         Result::Err _diag:
 //:             1
@@ -186,10 +186,10 @@ pub fn selfhost_scan_module_imports_loop %impure fn str impure fn i32 impure fn 
                                 Result::Ok next_out:
                                     selfhost_scan_module_imports_loop source file_id n next_line next_out
                                 Result::Err e:
-                                    v::free<SelfhostImportRecord> v::vec_push_error_vec<SelfhostImportRecord> e
+                                    v::free v::vec_push_error_vec e
                                     Result::Err selfhost_import_scan_oom_diag source_span_new file_id line_start line_end
                         Result::Err diag:
-                            v::free<SelfhostImportRecord> out
+                            v::free out
                             Result::Err diag
                 else:
                     selfhost_scan_module_imports_loop source file_id n next_line out

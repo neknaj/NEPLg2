@@ -33,18 +33,18 @@ pub fn selfhost_diagnostics_push %fn SelfhostDiagnostics fn SelfhostDiagnostic R
         Result::Ok items:
             Result::Ok SelfhostDiagnostics items
         Result::Err e:
-            v::free<SelfhostDiagnostic> v::vec_push_error_vec<SelfhostDiagnostic> e
+            v::free v::vec_push_error_vec e
             Result::Err StdErrorKind::OutOfMemory
 
 //: selfhost_diagnostics_len: diagnostic [件数/けんすう]を[返/かえ]す
 pub fn selfhost_diagnostics_len %fn &SelfhostDiagnostics i32 \diagnostics:
     let items %&Vec SelfhostDiagnostic field::get_ref diagnostics "items"
-    v::len<SelfhostDiagnostic> items
+    v::len items
 
 //: selfhost_diagnostics_get: index の diagnostic を[返/かえ]す
 pub fn selfhost_diagnostics_get %fn &SelfhostDiagnostics fn i32 Option SelfhostDiagnostic \diagnostics\idx:
     let items %&Vec SelfhostDiagnostic field::get_ref diagnostics "items"
-    v::get<SelfhostDiagnostic> items idx
+    v::get items idx
 
 //: selfhost_diagnostics_has_errors_loop: error diagnostic を[探/さが]す
 pub fn selfhost_diagnostics_has_errors_loop %fn &SelfhostDiagnostics fn i32 fn i32 bool \diagnostics\n\idx:
@@ -71,4 +71,4 @@ pub fn selfhost_diagnostics_has_errors %fn &SelfhostDiagnostics bool \diagnostic
 
 //: selfhost_diagnostics_free: diagnostic collection の[内部/ないぶ] buffer を[解放/かいほう]する
 pub fn selfhost_diagnostics_free %fn SelfhostDiagnostics unit \diagnostics:
-    v::free<SelfhostDiagnostic> field::get diagnostics "items"
+    v::free field::get diagnostics "items"

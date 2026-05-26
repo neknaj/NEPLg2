@@ -19,7 +19,7 @@ fn selfhost_parser_declaration_visibility %fn &Vec SelfhostToken fn i32 Selfhost
         then:
             SelfhostModuleDeclarationVisibility::Private
         else:
-            match v::get<SelfhostToken> tokens sub idx 1:
+            match v::get tokens sub idx 1:
                 Option::Some prev:
                     match prev.kind:
                         TokenKind::KwPub:
@@ -172,7 +172,7 @@ fn selfhost_parser_declaration_visibility %fn &Vec SelfhostToken fn i32 Selfhost
 fn selfhost_parser_declaration_header_start %fn &Vec SelfhostToken fn i32 fn SelfhostToken i32 \tokens\idx\token:
     match selfhost_parser_declaration_visibility tokens idx:
         SelfhostModuleDeclarationVisibility::Public:
-            match v::get<SelfhostToken> tokens sub idx 1:
+            match v::get tokens sub idx 1:
                 Option::Some prev:
                     prev.span.start
                 Option::None:
@@ -334,7 +334,7 @@ fn selfhost_parser_declaration_head %fn &Vec SelfhostToken fn i32 fn i32 Option 
         then:
             none
         else:
-            match v::get<SelfhostToken> tokens head_idx:
+            match v::get tokens head_idx:
                 Option::Some head:
                     match selfhost_parser_declaration_head_kind head.kind:
                         Option::Some kind:
@@ -350,7 +350,7 @@ fn selfhost_parser_header_end_loop %fn &Vec SelfhostToken fn i32 fn i32 fn i32 i
         then:
             last_end
         else:
-            match v::get<SelfhostToken> tokens idx:
+            match v::get tokens idx:
                 Option::Some token:
                     match selfhost_parser_token_action token.kind:
                         SelfhostParserTokenAction::End:

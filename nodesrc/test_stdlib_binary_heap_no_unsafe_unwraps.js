@@ -99,8 +99,8 @@ assert.match(apiCleanupCode, /fn\s+free\s+<\.T:\s*Copy>\s+<\(BinaryHeap<\.T>\)->
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\brealloc_ptr\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'BinaryHeap must not reintroduce raw header or raw element storage');
 
 const binaryHeapStdlibTests = fs.readFileSync(path.join(repoRoot, 'stdlib/tests/binary_heap.n.md'), 'utf8');
-assert.match(binaryHeapStdlibTests, /\bbinary_heap_pop_item<i32>\s+&(?:popped|p[0-9])\b/, 'stdlib/tests/binary_heap.n.md must exercise BinaryHeapPop item accessor');
-assert.match(binaryHeapStdlibTests, /\bbinary_heap_pop_heap<i32>\s+(?:popped|p[0-9])\b/, 'stdlib/tests/binary_heap.n.md must exercise BinaryHeapPop heap accessor');
+assert.match(binaryHeapStdlibTests, /\bbinary_heap_pop_item\s+&(?:popped|p[0-9])\b/, 'stdlib/tests/binary_heap.n.md must exercise BinaryHeapPop item accessor');
+assert.match(binaryHeapStdlibTests, /\bbinary_heap_pop_heap\s+(?:popped|p[0-9])\b/, 'stdlib/tests/binary_heap.n.md must exercise BinaryHeapPop heap accessor');
 
 for (const testPath of [
     'stdlib/tests/binary_heap.n.md',

@@ -74,12 +74,12 @@ pub fn fs_str_lt %fn str fn str bool \a\b:
 //: 計算量:
 //: - entry 数 n、名前長比較を含めて最悪 O(n^2)
 pub fn fs_sort_strings %impure fn &Vec str Result unit i32 \entries:
-    let n %i32 v::len<str> entries
+    let n %i32 v::len entries
     let mut i %i32 1
     let mut err %i32 0
     while and eq err 0 lt i n:
         do:
-            match v::get<str> entries i:
+            match v::get entries i:
                 Option::None:
                     set err fs_errno_inval
                 Option::Some key:
@@ -88,7 +88,7 @@ pub fn fs_sort_strings %impure fn &Vec str Result unit i32 \entries:
                     while and and eq err 0 moving gt j 0:
                         do:
                             let prev_idx %i32 sub j 1
-                            match v::get<str> entries prev_idx:
+                            match v::get entries prev_idx:
                                 Option::None:
                                     set err fs_errno_inval
                                 Option::Some prev:

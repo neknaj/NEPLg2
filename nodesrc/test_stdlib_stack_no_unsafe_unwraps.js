@@ -87,11 +87,17 @@ for (const rel of [
     assert.match(exampleSrc, /\bstk::stack_pop_stack\s+popped(?:_[ab])?\b/, `${rel} must use StackPop stack accessor`);
 }
 
-const pipeCollections = fs.readFileSync(path.join(repoRoot, 'tests/stdlib/pipe_collections.n.md'), 'utf8');
-assert.match(pipeCollections, /\blen<i32>\s+&s0\b/, 'pipe_collections stack case must borrow Stack.len');
-assert.doesNotMatch(pipeCollections, /\blen<i32>\s+s0\b/, 'pipe_collections stack case must not consume Stack.len');
+const pipeCollections = neplCodeBlocks(fs.readFileSync(path.join(repoRoot, 'tests/stdlib/pipe_collections.n.md'), 'utf8'));
+assert.match(pipeCollections, /\blen\s+&s0\b/, 'pipe_collections stack case must borrow Stack.len');
+assert.doesNotMatch(pipeCollections, /\blen\s+s0\b/, 'pipe_collections stack case must not consume Stack.len');
 
 const overloadTests = fs.readFileSync(path.join(repoRoot, 'tests/compiler/overload.n.md'), 'utf8');
 assert.doesNotMatch(overloadTests, /\blen_ref<i32>\s+&st\b/, 'overload tests must not use removed Stack.len_ref');
 
 console.log('stack unsafe unwrap regression passed');
+
+function neplCodeBlocks(markdown) {
+    return [...markdown.matchAll(/```neplg2\r?\n([\s\S]*?)```/g)]
+        .map((match) => match[1])
+        .join('\n');
+}

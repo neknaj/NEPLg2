@@ -75,7 +75,7 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
             let buf_len %i32 fs_readdir_buf_size
             match alloc_region<u8> buf_len:
                 Result::Err _e:
-                    v::free<str> entries
+                    v::free entries
                     Result::Err 12
                 Result::Ok buf_region:
                     match alloc_region<u8> 4:
@@ -85,7 +85,7 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                     unit
                                 Result::Err _:
                                     unit
-                            v::free<str> entries
+                            v::free entries
                             Result::Err 12
                         Result::Ok used_region:
                             let mut cookie %i64 %i64 cast 0
@@ -142,7 +142,7 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                                                                                 Result::Ok next_entries:
                                                                                                     set entries next_entries
                                                                                                 Result::Err e:
-                                                                                                    set entries v::vec_push_error_vec<str> e
+                                                                                                    set entries v::vec_push_error_vec e
                                                                                                     set err 12
                                                                             set cookie %i64 cast next_cookie_low
                                                                             set off name_off
@@ -169,8 +169,8 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                         Result::Ok _:
                                             Result::Ok entries
                                         Result::Err e:
-                                            v::free<str> entries
+                                            v::free entries
                                             Result::Err e
                                 else:
-                                    v::free<str> entries
+                                    v::free entries
                                     Result::Err err

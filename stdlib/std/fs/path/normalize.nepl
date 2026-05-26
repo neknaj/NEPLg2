@@ -75,7 +75,7 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
                                                     if:
                                                         str_range_eq path part_start part_end ".."
                                                         then:
-                                                            let stack_len %i32 v::len<i32> &stack
+                                                            let stack_len %i32 v::len &stack
                                                             if:
                                                                 eq stack_len 0
                                                                 then:
@@ -96,7 +96,7 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
                                     normalize_build::fs_normalize_build_ranges_builder path &stack
                                 else:
                                     Result::Err err
-                            v::free<i32> stack
+                            v::free stack
                             result
 
 //: fs_normalize_relative: `/` 区切りの相対 path を preopen root 内の正規形へ畳む

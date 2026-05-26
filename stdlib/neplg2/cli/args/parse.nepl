@@ -38,12 +38,12 @@
 //: - `Vec<str>` を消費せず、parser 内部で index access します。
 //:
 //: [実装/じっそう]:
-//: - `Vec<str>` の borrowed observer である `v::get<str>` を使い、境界外なら `None` を返します。
+//: - `Vec<str>` の borrowed observer である `v::get` を使い、境界外なら `None` を返します。
 //:
 //: [注意/ちゅうい]:
 //: - parser は入力 `Vec<str>` を変更しません。argv の所有権は呼び出し側が保持します。
 pub fn selfhost_cli_arg_at %fn &Vec str fn i32 Option str \args\idx:
-    v::get<str> args idx
+    v::get args idx
 
 //: selfhost_cli_next_value: 値を必要とする option の次 token を読む
 //:
@@ -204,7 +204,7 @@ pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Optio
 //:         |> v::push<str> "main.nepl" |> uwok
 //:     match selfhost_cli_parse_args &args:
 //:         Result::Err _e:
-//:             v::free<str> args;
+//:             v::free args;
 //:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_parse_args_doc"
 //:                 |> test_report_push assert "parse succeeds" false
@@ -227,7 +227,7 @@ pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Optio
 //:                     false
 //:             let check_ok %bool *check_ref
 //:             let emit_ok %bool selfhost_cli_emit_is_wasm *emit_ref
-//:             v::free<str> args;
+//:             v::free args;
 //:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_parse_args_doc"
 //:                 |> test_report_push assert "parse succeeds" true
@@ -239,7 +239,7 @@ pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Optio
 //:             test_report_exit_code shown
 //: ```
 pub fn selfhost_cli_parse_args %fn &Vec str Result SelfhostCliOptions SelfhostCliErrorKind \args:
-    let count %i32 v::len<str> args;
+    let count %i32 v::len args;
     selfhost_cli_parse_loop args count 0 none none none none selfhost_cli_emit_set_default none false false false false false
 
 //: selfhost_cli_parse_argv: argv[0] を含む raw argv を解析する
@@ -276,7 +276,7 @@ pub fn selfhost_cli_parse_args %fn &Vec str Result SelfhostCliOptions SelfhostCl
 //:         |> v::push<str> "main.nepl" |> uwok
 //:     match selfhost_cli_parse_argv &argv:
 //:         Result::Err _e:
-//:             v::free<str> argv;
+//:             v::free argv;
 //:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_parse_argv_doc"
 //:                 |> test_report_push assert "parse succeeds" false
@@ -295,7 +295,7 @@ pub fn selfhost_cli_parse_args %fn &Vec str Result SelfhostCliOptions SelfhostCl
 //:                     str_eq input "main.nepl"
 //:                 Option::None:
 //:                     false
-//:             v::free<str> argv;
+//:             v::free argv;
 //:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_parse_argv_doc"
 //:                 |> test_report_push assert "parse succeeds" true
@@ -305,5 +305,5 @@ pub fn selfhost_cli_parse_args %fn &Vec str Result SelfhostCliOptions SelfhostCl
 //:             test_report_exit_code shown
 //: ```
 pub fn selfhost_cli_parse_argv %fn &Vec str Result SelfhostCliOptions SelfhostCliErrorKind \argv:
-    let count %i32 v::len<str> argv;
+    let count %i32 v::len argv;
     selfhost_cli_parse_loop argv count 1 none none none none selfhost_cli_emit_set_default none false false false false false

@@ -28,19 +28,19 @@ fn main %impure fn unit i32 \unit:
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
-    set checks checks_push checks check_eq_i32 3 len<i32> &xs0;
-    free<i32> xs0;
+    set checks checks_push checks check_eq_i32 3 len &xs0;
+    free xs0;
     let xs1 %List i32:
         unwrap_ok new<i32>
         |> push<i32> 3 |> uwok
         |> push<i32> 2 |> uwok
         |> push<i32> 1 |> uwok
-    match get<i32> &xs1 1:
+    match get &xs1 1:
         Option::Some v:
             set checks checks_push checks check_eq_i32 2 v
         Option::None:
             set checks checks_push checks Result::Err "pipe list get failed"
-    free<i32> xs1;
+    free xs1;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -72,13 +72,13 @@ fn main %impure fn unit i32 \unit:
         unwrap_ok new<i32>
         |> push<i32> 10 |> unwrap_ok
         |> push<i32> 20 |> unwrap_ok
-    set checks checks_push checks check_eq_i32 2 len<i32> &s0;
-    free<i32> s0;
+    set checks checks_push checks check_eq_i32 2 len &s0;
+    free s0;
     let s1 %Stack i32:
         unwrap_ok new<i32>
         |> push<i32> 10 |> unwrap_ok
         |> push<i32> 20 |> unwrap_ok
-    let p pop<i32> s1;
+    let p pop s1;
     match p:
         Option::Some v:
             set checks checks_push checks check_eq_i32 20 v
@@ -125,28 +125,28 @@ fn main %impure fn unit i32 \unit:
         |> must_map
         |> insert<i32,i32> 1 10
         |> must_map
-    set checks checks_push checks check_eq_i32 2 len<i32,i32> &m0;
-    free<i32,i32> m0;
+    set checks checks_push checks check_eq_i32 2 len &m0;
+    free m0;
     let m1 %BTreeMap i32 i32:
         unwrap_ok new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
         |> insert<i32,i32> 1 10
         |> must_map
-    match get<i32,i32> &m1 3:
+    match get &m1 3:
         Option::Some v:
             set checks checks_push checks check_eq_i32 30 v
         Option::None:
             set checks checks_push checks Result::Err "pipe btreemap get failed";
-    free<i32,i32> m1;
+    free m1;
     let m2 %BTreeMap i32 i32:
         unwrap_ok new<i32,i32>
         |> insert<i32,i32> 3 30
         |> must_map
         |> insert<i32,i32> 1 10
         |> must_map
-    set checks checks_push checks check contains<i32,i32> &m2 1;
-    free<i32,i32> m2;
+    set checks checks_push checks check contains &m2 1;
+    free m2;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -187,16 +187,16 @@ fn main %impure fn unit i32 \unit:
         |> must_set
         |> insert<i32> 2
         |> must_set
-    set checks checks_push checks check contains<i32> &s0 5;
-    free<i32> s0;
+    set checks checks_push checks check contains &s0 5;
+    free s0;
     let s1 %BTreeSet i32:
         unwrap_ok new<i32>
         |> insert<i32> 5
         |> must_set
         |> insert<i32> 2
         |> must_set
-    set checks checks_push checks check_eq_i32 2 len<i32> &s1;
-    free<i32> s1;
+    set checks checks_push checks check_eq_i32 2 len &s1;
+    free s1;
     let s2 %BTreeSet i32:
         unwrap_ok new<i32>
         |> insert<i32> 5
@@ -204,8 +204,8 @@ fn main %impure fn unit i32 \unit:
         |> insert<i32> 2
         |> must_set
         |> remove<i32> 5
-    set checks checks_push checks check not contains<i32> &s2 5;
-    free<i32> s2;
+    set checks checks_push checks check not contains &s2 5;
+    free s2;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -366,18 +366,18 @@ fn main %impure fn unit i32 \unit:
         unwrap_ok new<i32>
         |> push 11 |> uwok
         |> push 22 |> uwok
-    set checks checks_push checks check_eq_i32 2 len<i32> &rb;
-    free<i32> rb;
+    set checks checks_push checks check_eq_i32 2 len &rb;
+    free rb;
     let rb2 %RingBuffer i32:
         unwrap_ok new<i32>
         |> push 11 |> uwok
         |> push 22 |> uwok
-    match peek<i32> &rb2:
+    match peek &rb2:
         Option::Some v:
             set checks checks_push checks check_eq_i32 11 v
         Option::None:
             set checks checks_push checks Result::Err "pipe ringbuffer peek failed"
-    free<i32> rb2;
+    free rb2;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```
@@ -408,18 +408,18 @@ fn main %impure fn unit i32 \unit:
         unwrap_ok new<i32>
         |> push 3 |> uwok
         |> push 4 |> uwok
-    set checks checks_push checks check_eq_i32 2 len<i32> &q;
-    free<i32> q;
+    set checks checks_push checks check_eq_i32 2 len &q;
+    free q;
     let q2 %Queue i32:
         unwrap_ok new<i32>
         |> push 3 |> uwok
         |> push 4 |> uwok
-    match peek<i32> &q2:
+    match peek &q2:
         Option::Some v:
             set checks checks_push checks check_eq_i32 3 v
         Option::None:
             set checks checks_push checks Result::Err "pipe queue peek failed"
-    free<i32> q2;
+    free q2;
     let shown checks_print_report checks;
     checks_exit_code shown
 ```

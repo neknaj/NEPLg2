@@ -164,13 +164,13 @@ pub fn lex_indent_directive_unit %fn str fn i32 fn i32 fn i32 i32 \source\n\cont
 
 //: lex_stack_top_result: indent stack の末尾を[読/よ]む
 pub fn lex_stack_top_result %fn &Vec i32 fn i32 fn i32 Result i32 LexDiagnostic \stack\file_id\offset:
-    let stack_len %i32 len<i32> stack
+    let stack_len %i32 len stack
     if:
         le stack_len 0
         then:
             Result::Err lex_diag_new SelfhostLexerDiagnosticCode::IndentLevelMismatch source_span_empty file_id offset "lexer indent stack is empty"
         else:
-            match get<i32> stack sub stack_len 1:
+            match get stack sub stack_len 1:
                 Option::Some top:
                     Result::Ok top
                 Option::None:

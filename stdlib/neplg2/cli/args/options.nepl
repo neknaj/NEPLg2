@@ -110,7 +110,7 @@ pub fn selfhost_cli_profile_to_build_profile %fn SelfhostCliProfile SelfhostBuil
 //:         |> v::push<str> "--verbose" |> uwok
 //:     match selfhost_cli_parse_args &args:
 //:         Result::Err _e:
-//:             v::free<str> args;
+//:             v::free args;
 //:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_options_to_compile_options_doc"
 //:                 |> test_report_push assert "parse succeeds" false
@@ -123,7 +123,7 @@ pub fn selfhost_cli_profile_to_build_profile %fn SelfhostCliProfile SelfhostBuil
 //:             let target_ok %bool selfhost_compile_target_is_wasi target
 //:             let profile_ok %bool selfhost_build_profile_is_release profile
 //:             let verbose_ok %bool selfhost_compile_options_verbose compile_options
-//:             v::free<str> args;
+//:             v::free args;
 //:             let report %TestReport:
 //:                 test_report_new "selfhost_cli_options_to_compile_options_doc"
 //:                 |> test_report_push assert "parse succeeds" true

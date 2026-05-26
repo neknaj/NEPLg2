@@ -168,7 +168,7 @@ fn main %impure fn unit i32 \unit:
         |> push 3 |> uwok
     let mapped %Vec i32 unwrap_ok map<i32,i32> mapped_src inc;
     let mut mapped_value %i32 -1;
-    match get<i32> &mapped 2:
+    match get &mapped 2:
         Option::Some x:
             set mapped_value x
         Option::None:
@@ -181,7 +181,7 @@ fn main %impure fn unit i32 \unit:
         |> push 3 |> uwok
         |> push 4 |> uwok
     let filtered_len %Vec i32 unwrap_ok filter<i32> filtered_len_src is_even;
-    let filtered_len_value %i32 len<i32> &filtered_len;
+    let filtered_len_value %i32 len &filtered_len;
     let filtered_get_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -190,7 +190,7 @@ fn main %impure fn unit i32 \unit:
         |> push 4 |> uwok
     let filtered_get %Vec i32 unwrap_ok filter<i32> filtered_get_src is_even;
     let mut filtered_value %i32 -1;
-    match get<i32> &filtered_get 1:
+    match get &filtered_get 1:
         Option::Some x:
             set filtered_value x
         Option::None:
@@ -243,14 +243,14 @@ fn main %impure fn unit i32 \unit:
         |> push 6 |> uwok
     let all_value %bool all<i32> &all_src is_even;
 
-    free<i32> mapped;
-    free<i32> filtered_len;
-    free<i32> filtered_get;
-    free<i32> folded_src;
-    free<i32> reduced_src;
-    free<i32> find_src;
-    free<i32> any_src;
-    free<i32> all_src;
+    free mapped;
+    free filtered_len;
+    free filtered_get;
+    free folded_src;
+    free reduced_src;
+    free find_src;
+    free any_src;
+    free all_src;
     let report:
         test_report_new "vec_functional_helpers"
         |> test_report_push assert_eq_i32 "map get 2" 4 mapped_value
@@ -294,7 +294,7 @@ fn main %impure fn unit i32 \unit:
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_even_len unwrap_ok partition<i32> partition_even_len_src is_even;
-    let evens_len_value %i32 vec_partition_matched_len<i32> &parts_even_len;
+    let evens_len_value %i32 vec_partition_matched_len &parts_even_len;
     let partition_even_get_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -303,7 +303,7 @@ fn main %impure fn unit i32 \unit:
         |> push 4 |> uwok
     let parts_even_get unwrap_ok partition<i32> partition_even_get_src is_even;
     let mut evens_get_value %i32 -1;
-    match vec_partition_matched_get<i32> &parts_even_get 1:
+    match vec_partition_matched_get &parts_even_get 1:
         Option::Some x:
             set evens_get_value x
         Option::None:
@@ -315,7 +315,7 @@ fn main %impure fn unit i32 \unit:
         |> push 3 |> uwok
         |> push 4 |> uwok
     let parts_odds_len unwrap_ok partition<i32> partition_odds_len_src is_even;
-    let odds_len_value %i32 vec_partition_rest_len<i32> &parts_odds_len;
+    let odds_len_value %i32 vec_partition_rest_len &parts_odds_len;
     let partition_odds_get_src %Vec i32:
         unwrap_ok new<i32>
         |> push 1 |> uwok
@@ -324,16 +324,16 @@ fn main %impure fn unit i32 \unit:
         |> push 4 |> uwok
     let parts_odds_get unwrap_ok partition<i32> partition_odds_get_src is_even;
     let mut odds_get_value %i32 -1;
-    match vec_partition_rest_get<i32> &parts_odds_get 0:
+    match vec_partition_rest_get &parts_odds_get 0:
         Option::Some x:
             set odds_get_value x
         Option::None:
             unit
 
-    vec_partition_free<i32> parts_even_len;
-    vec_partition_free<i32> parts_even_get;
-    vec_partition_free<i32> parts_odds_len;
-    vec_partition_free<i32> parts_odds_get;
+    vec_partition_free parts_even_len;
+    vec_partition_free parts_even_get;
+    vec_partition_free parts_odds_len;
+    vec_partition_free parts_odds_get;
     let report:
         test_report_new "vec_partition_helpers"
         |> test_report_push assert_eq_i32 "partition evens len" 2 evens_len_value
@@ -373,8 +373,8 @@ fn main %impure fn unit i32 \unit:
         |> push 5 |> uwok
         |> push 6 |> uwok
     let taken %Vec i32 unwrap_ok take_while<i32> take_src lt_four;
-    let taken_len %i32 len<i32> &taken;
-    free<i32> taken;
+    let taken_len %i32 len &taken;
+    free taken;
 
     let report:
         test_report_new "vec_prefix_helpers"
@@ -414,12 +414,12 @@ fn main %impure fn unit i32 \unit:
         |> push 6 |> uwok
     let dropped %Vec i32 unwrap_ok drop_while<i32> drop_src lt_four;
     let mut dropped_first %i32 -1;
-    match get<i32> &dropped 0:
+    match get &dropped 0:
         Option::Some x:
             set dropped_first x
         Option::None:
             unit
-    free<i32> dropped;
+    free dropped;
 
     let report:
         test_report_new "vec_drop_while_helper"
@@ -456,7 +456,7 @@ fn main %impure fn unit i32 \unit:
         |> push 4 |> uwok
         |> push 5 |> uwok
     let even_count %i32 count<i32> &count_src is_even;
-    free<i32> count_src;
+    free count_src;
     let report:
         test_report_new "vec_count_helper"
         |> test_report_push assert_eq_i32 "count even" 2 even_count

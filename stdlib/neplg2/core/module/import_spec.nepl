@@ -238,21 +238,21 @@ pub fn selfhost_import_specs_loop %impure fn &SelfhostModuleAst impure fn i32 im
                                         Result::Ok next_out:
                                             selfhost_import_specs_loop ast n add idx 1 next_out
                                         Result::Err e:
-                                            v::free<SelfhostImportSpec> v::vec_push_error_vec<SelfhostImportSpec> e
+                                            v::free v::vec_push_error_vec e
                                             Result::Err selfhost_import_diag item.span SelfhostParserDiagnosticCode::OutOfMemory "import spec buffer allocation failed" "allocation failed"
                                 Result::Err diag:
-                                    v::free<SelfhostImportSpec> out
+                                    v::free out
                                     Result::Err diag
                         else:
                             selfhost_import_specs_loop ast n add idx 1 out
                 Option::None:
-                    v::free<SelfhostImportSpec> out
+                    v::free out
                     Result::Err selfhost_import_diag source_span_empty 0 0 SelfhostParserDiagnosticCode::ImportAstIndex "module AST item index was unavailable" "missing module item"
 
 //: selfhost_module_import_specs: ModuleAst の import directive を typed spec として[集/あつ]める
 //:
 //: [注意/ちゅうい]:
-//: - 成功時の `Vec<SelfhostImportSpec>` は caller が `v::free<SelfhostImportSpec>` してください。
+//: - 成功時の `Vec<SelfhostImportSpec>` は caller が `v::free` してください。
 pub fn selfhost_module_import_specs %impure fn &SelfhostModuleAst Result Vec SelfhostImportSpec SelfhostDiagnostic \ast:
     match v::new<SelfhostImportSpec>:
         Result::Ok out:

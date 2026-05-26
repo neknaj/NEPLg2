@@ -77,7 +77,7 @@ assert.doesNotMatch(internError, /\bstr\b|\"invalid|\"storage/i, "mono cache int
 
 const cacheRecordAt = topLevelBlock(mono, "fn", "selfhost_mono_instance_cache_record_at");
 assert.match(cacheRecordAt, /Option<SelfhostMonoInstanceRecord>/, "cache record lookup must use typed Option absence");
-assert.match(cacheRecordAt, /\bv::get<SelfhostMonoInstanceRecord>\s+records\s+instance_id\.index\b/, "cache record lookup must index the typed record table with the instance id payload");
+assert.match(cacheRecordAt, /\bv::get\s+records\s+instance_id\.index\b/, "cache record lookup must index the typed record table with the instance id payload");
 
 const cacheLookup = topLevelBlock(mono, "fn", "selfhost_mono_instance_cache_lookup");
 assert.match(cacheLookup, /Option<SelfhostMonoInstanceId>/, "cache key lookup must return Option<SelfhostMonoInstanceId>");

@@ -26,25 +26,25 @@ fn main %impure fn unit i32 \unit:
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    let size0 %i32 len<i32> &rb0;
-    free<i32> rb0
+    let size0 %i32 len &rb0;
+    free rb0
     let rb1 %RingBuffer i32:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    let ok1 %bool match peek<i32> &rb1:
+    let ok1 %bool match peek &rb1:
         Option::Some v:
             eq v 10
         Option::None:
             false
-    free<i32> rb1
+    free rb1
     let rb2 %RingBuffer i32:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
-    let ok2 %bool match pop<i32> rb2:
+    let ok2 %bool match pop rb2:
         Option::Some v:
             eq v 10
         Option::None:
@@ -55,20 +55,20 @@ fn main %impure fn unit i32 \unit:
         |> unwrap_ok
         |> push<i32> 40
         |> unwrap_ok
-    let p0 %RingBufferPop i32 pop_front<i32> rb3
-    let ok3 %bool match ringbuffer_pop_item<i32> &p0:
+    let p0 %RingBufferPop i32 pop_front rb3
+    let ok3 %bool match ringbuffer_pop_item &p0:
         Option::Some v:
             eq v 30
         Option::None:
             false
-    let rb4 %RingBuffer i32 ringbuffer_pop_buffer<i32> p0
+    let rb4 %RingBuffer i32 ringbuffer_pop_buffer p0
     let ok4 %bool:
-        match peek<i32> &rb4:
+        match peek &rb4:
             Option::Some v:
-                and eq len<i32> &rb4 1 eq v 40
+                and eq len &rb4 1 eq v 40
             Option::None:
                 false
-    free<i32> rb4;
+    free rb4;
     let report:
         test_report_new "ringbuffer_push_pop"
         |> test_report_push assert_eq_i32 "len after push" 2 size0
@@ -98,7 +98,7 @@ stdout: "test_report name=\"ringbuffer_pop_empty\" count=1 failed=0\nassertion i
 
 fn main %impure fn unit i32 \unit:
     let rb %RingBuffer i32 unwrap_ok new<i32>;
-    let ok %bool match pop<i32> rb:
+    let ok %bool match pop rb:
         Option::Some _:
             false
         Option::None:
