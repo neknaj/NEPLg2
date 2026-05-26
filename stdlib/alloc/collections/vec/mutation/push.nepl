@@ -225,26 +225,26 @@ fn vec_next_capacity <.T> %fn i32 Result i32 StdErrorKind \cap0:
     if:
         or lt cap0 0 le elem_size 0
         then:
-            Result<i32, StdErrorKind>::Err StdErrorKind::InvalidOperation
+            Result::Err StdErrorKind::InvalidOperation
         else:
             let max_count %i32 div_s max_alloc_payload_bytes elem_size
             if:
                 ge cap0 max_count
                 then:
-                    Result<i32, StdErrorKind>::Err StdErrorKind::CapacityExceeded
+                    Result::Err StdErrorKind::CapacityExceeded
                 else:
                     if:
                         eq cap0 0
                         then:
-                            Result<i32, StdErrorKind>::Ok 1
+                            Result::Ok 1
                         else:
                             let half_limit %i32 div_s max_count 2
                             if:
                                 gt cap0 half_limit
                                 then:
-                                    Result<i32, StdErrorKind>::Ok max_count
+                                    Result::Ok max_count
                                 else:
-                                    Result<i32, StdErrorKind>::Ok mul cap0 2
+                                    Result::Ok mul cap0 2
 
 //: ## vec_realloc_region_or_keep
 //: 既存 storage owner token を grow し、失敗時は旧 token を error payload に戻す

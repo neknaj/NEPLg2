@@ -321,9 +321,9 @@ pub fn alloc %fn i32 Result i32 str \size:
     if:
         lt 0 ptr
         then:
-            Result<i32,str>::Ok ptr
+            Result::Ok ptr
         else:
-            Result<i32,str>::Err "mem.alloc failed"
+            Result::Err "mem.alloc failed"
 
 //: realloc: realloc の結果を Result で返す安全API
 //:
@@ -343,15 +343,15 @@ pub fn realloc %fn i32 fn i32 fn i32 Result i32 str \ptr\old_size\new_size:
     if:
         le new_size 0
         then:
-            Result<i32,str>::Err "mem.realloc invalid new_size"
+            Result::Err "mem.realloc invalid new_size"
         else:
             let new_ptr %i32 realloc_raw ptr old_size new_size
             if:
                 lt 0 new_ptr
                 then:
-                    Result<i32,str>::Ok new_ptr
+                    Result::Ok new_ptr
                 else:
-                    Result<i32,str>::Err "mem.realloc failed"
+                    Result::Err "mem.realloc failed"
 
 //: dealloc: dealloc の前提を検査する安全API
 //:

@@ -1,3 +1,18 @@
+# 2026-05-26 Agent 1 allocator/vec capacity Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる production stdlib の constructor だけを小さく移行した。
+- `stdlib/core/mem/allocator.nepl` で、`alloc` / `realloc` の戻り値 `Result i32 str` から型が確定する `Result<i32,str>::Ok` / `Result<i32,str>::Err` 5 件を `Result::Ok` / `Result::Err` へ移行した。
+- `stdlib/alloc/collections/vec/mutation/push.nepl` で、`vec_next_capacity` の戻り値 `Result i32 StdErrorKind` から型が確定する `Result<i32, StdErrorKind>::Ok` / `Result<i32, StdErrorKind>::Err` 5 件を `Result::Ok` / `Result::Err` へ移行した。
+- `Result::Err<RegionToken<.T>, VecReallocRegionError<.T>>` のような constructor generic postfix は、この checkpoint では semantic rewrite 対象として保持した。
+- 検証:
+  - `rg -n "Result<i32,str>::(Ok|Err)|Result<i32, StdErrorKind>::(Ok|Err)" stdlib/core/mem/allocator.nepl stdlib/alloc/collections/vec/mutation/push.nepl`: 0 件。
+  - `node nodesrc/tests.js -i stdlib/core/mem/allocator.nepl -i stdlib/alloc/collections/vec/mutation/push.nepl --no-tree -o tmp/neplg21-allocator-vec-capacity-result-constructors.json -j 1 --dist web/dist --assert-io`: 304s local command timeout。partial JSON では 2 件 pass、4 件 compile timeout after 60000ms、failed 0。`compile_fail` 期待の `resource.raw.memory_outside_boundary` 以外に型診断は出ていない。
+  - timeout 後に残留していた `node.exe` process は停止した。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 remaining unit-str Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、静的な型根拠で解決できる残りの `Result unit str` constructor だけを移行した。
