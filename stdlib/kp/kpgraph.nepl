@@ -165,7 +165,7 @@ pub fn dense_graph_read_undirected_1indexed %impure fn &StreamScanner Result Den
     if:
         or lt n 1 lt m 0
         then:
-            diag_err<DenseGraph> dense_graph_diag_input
+            diag_err dense_graph_diag_input
         else:
             match dense_graph_new n:
                 Result::Err d:
@@ -191,7 +191,7 @@ pub fn dense_graph_read_undirected_1indexed %impure fn &StreamScanner Result Den
                         failed
                         then:
                             dense_graph_free graph
-                            diag_err<DenseGraph> dense_graph_diag_vertex
+                            diag_err dense_graph_diag_vertex
                         else:
                             ok graph
 
@@ -211,7 +211,7 @@ pub fn dense_graph_bfs_dist %impure fn &DenseGraph impure fn i32 Result Vec i32 
     if:
         not and le 0 start lt start n
         then:
-            diag_err<Vec<i32>> dense_graph_diag_vertex
+            diag_err dense_graph_diag_vertex
         else:
             let unvisited %i32 sub 0 1
             match v::filled<i32> n unvisited:
@@ -276,6 +276,6 @@ pub fn dense_graph_bfs_dist %impure fn &DenseGraph impure fn i32 Result Vec i32 
                                 failed
                                 then:
                                     v::free<i32> dist
-                                    diag_err<Vec<i32>> dense_graph_diag_storage
+                                    diag_err dense_graph_diag_storage
                                 else:
                                     ok dist

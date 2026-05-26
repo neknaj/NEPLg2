@@ -60,7 +60,7 @@ pub fn fenwick_new %impure fn i32 Result Fenwick Diag \n:
     if:
         lt n 0
         then:
-            diag_err<Fenwick> fenwick_diag_len
+            diag_err fenwick_diag_len
         else:
             let bit_len %i32 add n 1
             match fenwick_alloc_bit bit_len:
@@ -93,7 +93,7 @@ pub fn fenwick_add %impure fn Fenwick impure fn i32 impure fn i32 Result Fenwick
                     then:
                         ok unit
                     else:
-                        diag_err<unit> fenwick_diag_index
+                        diag_err fenwick_diag_index
             match result:
                 Result::Ok _unit:
                     ok tree
@@ -114,7 +114,7 @@ pub fn fenwick_sum_prefix %impure fn &Fenwick impure fn i32 Result i32 Diag \tre
                 Option::Some acc:
                     ok acc
                 Option::None:
-                    diag_err<i32> fenwick_diag_index
+                    diag_err fenwick_diag_index
         else:
             let d %Diag fenwick_diag_index
             err d
@@ -132,9 +132,9 @@ pub fn fenwick_sum_range %impure fn &Fenwick impure fn i32 impure fn i32 Result 
                         Option::Some sl:
                             ok sub sr sl
                         Option::None:
-                            diag_err<i32> fenwick_diag_range
+                            diag_err fenwick_diag_range
                 Option::None:
-                    diag_err<i32> fenwick_diag_range
+                    diag_err fenwick_diag_range
         else:
             let d %Diag fenwick_diag_range
             err d

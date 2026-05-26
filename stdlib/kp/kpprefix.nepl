@@ -78,7 +78,7 @@ fn prefix_build_loop_i32 %impure fn &Vec i32 impure fn &Vec i32 impure fn i32 im
                     vec::replace<i32> pref add idx 1 next_acc;
                     prefix_build_loop_i32 input pref n add idx 1 next_acc
                 Option::None:
-                    diag_err<unit> prefix_diag_range
+                    diag_err prefix_diag_range
         else:
             ok unit
 
@@ -94,7 +94,7 @@ pub fn prefix_build_vec_i32 %impure fn Vec i32 Result PrefixI32 Diag \input:
         gt n 2147483646
         then:
             vec::free<i32> input
-            diag_err<PrefixI32> prefix_diag_capacity
+            diag_err prefix_diag_capacity
         else:
             let pref_len %i32 add n 1
             match vec::filled<i32> pref_len 0:
@@ -109,7 +109,7 @@ pub fn prefix_build_vec_i32 %impure fn Vec i32 Result PrefixI32 Diag \input:
                             err d
                 Result::Err e:
                     vec::free<i32> input
-                    diag_err<PrefixI32> prefix_diag_std_error e
+                    diag_err prefix_diag_std_error e
 
 //: prefix_sum_i32: ハンドルから半開区間 `[l,r)` の和を返す
 //:
@@ -128,11 +128,11 @@ pub fn prefix_sum_i32 %impure fn &PrefixI32 impure fn i32 impure fn i32 Result i
                         Option::Some right:
                             ok sub right left
                         Option::None:
-                            diag_err<i32> prefix_diag_range
+                            diag_err prefix_diag_range
                 Option::None:
-                    diag_err<i32> prefix_diag_range
+                    diag_err prefix_diag_range
         else:
-            diag_err<i32> prefix_diag_range
+            diag_err prefix_diag_range
 
 //: prefix_free_i32: 累積和ハンドルの buffer owner を解放する
 pub fn prefix_free_i32 %fn PrefixI32 unit \pref:
