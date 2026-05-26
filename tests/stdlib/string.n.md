@@ -166,7 +166,8 @@ fn main %impure fn unit i32 \unit:
             eq b 90
         Option::None:
             false
-    let ok2 %bool is_none<i32> byte_at "AZ" 2
+    let missing %Option i32 byte_at "AZ" 2
+    let ok2 %bool is_none missing
     if and ok0 and ok1 ok2 0 1
 ```
 

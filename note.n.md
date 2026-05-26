@@ -1,3 +1,17 @@
+# 2026-05-26 Agent 1 Option i32 observer postfix cleanup checkpoint
+
+- Zenn 方針を再確認し、静的検査の型 evidence を明示する小 checkpoint として `Option i32` observer の postfix removal だけを対象にした。
+- `tests/stdlib/string.n.md` で、`byte_at "AZ" 2` を `missing %Option i32` local に置き、`is_none<i32>` を `is_none` へ移行した。
+- `stdlib/tests/hashmap_str.n.md` で、既存の `hm2_got %Option i32` local から型が確定する `is_none<i32> hm2_got` を `is_none hm2_got` へ移行した。
+- producer 本体、`new DefaultHash32`、HashMap update helper、trait-bound 逆推論には触れていない。
+- subagent 調査では、既存の非 generic collection test fixture helper は概ね処理済みで、次候補は stdlib API doc example 側の helper postfix と `%Type` local annotation 付き collection call と確認した。
+- 検証:
+  - `rg -n "is_none<i32>|is_some<i32>|unwrap_ok<|Result<|Option<|Vec<" tests/stdlib/string.n.md stdlib/tests/hashmap_str.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/string.n.md -i stdlib/tests/hashmap_str.n.md --no-tree -o tmp/neplg21-option-i32-observer-postfix.json -j 1 --dist web/dist --assert-io`: 254s local command timeout。partial JSON では `tests/stdlib/string.n.md` doctest#1-#4 が compile timeout after 60000ms で、型診断は出ていない。
+  - `node nodesrc/run_doctest.js -i tests/stdlib/string.n.md -n 8 --dist web/dist`: 94s local command timeout。
+  - `node nodesrc/run_doctest.js -i stdlib/tests/hashmap_str.n.md -n 1 --dist web/dist`: 94s local command timeout。
+  - 残留 node process は停止した。
+
 # 2026-05-26 Agent 1 BTree error helper postfix cleanup checkpoint
 
 - subagent の独立レビューに従い、`Err e` payload と `%Diag` local annotation / `must_map`・`must_set` の戻り型から型が確定する BTree error helper だけを対象にした。

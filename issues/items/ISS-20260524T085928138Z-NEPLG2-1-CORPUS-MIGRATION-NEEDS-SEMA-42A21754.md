@@ -380,6 +380,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/tests/btreemap.n.md -i stdlib/tests/btreeset.n.md -i tests/stdlib/btree_array_cost.n.md --no-tree -o tmp/neplg21-btree-error-helper-postfix.json -j 1 --dist web/dist --assert-io` は 250s local command timeout。partial JSON では `stdlib/tests/btreemap.n.md` doctest#1-#4 が compile timeout after 60000ms で、型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 Option i32 observer checkpoint
+
+- `tests/stdlib/string.n.md` で、`byte_at "AZ" 2` を `%Option i32` local に置き、`is_none<i32>` を `is_none` へ移行した。
+- `stdlib/tests/hashmap_str.n.md` で、`hm2_got %Option i32` local から型が確定する `is_none<i32> hm2_got` を `is_none hm2_got` へ移行した。
+- `byte_at` / `HashMap.get` の producer 本体や `new DefaultHash32` には触れていないため、nested producer generic 推論問題には踏み込んでいない。
+- `rg -n "is_none<i32>|is_some<i32>|unwrap_ok<|Result<|Option<|Vec<" tests/stdlib/string.n.md stdlib/tests/hashmap_str.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/stdlib/string.n.md -i stdlib/tests/hashmap_str.n.md --no-tree -o tmp/neplg21-option-i32-observer-postfix.json -j 1 --dist web/dist --assert-io` は 254s local command timeout。partial JSON では `tests/stdlib/string.n.md` doctest#1-#4 が compile timeout after 60000ms で、型診断は出ていない。
+- `node nodesrc/run_doctest.js -i tests/stdlib/string.n.md -n 8 --dist web/dist` と `node nodesrc/run_doctest.js -i stdlib/tests/hashmap_str.n.md -n 1 --dist web/dist` も 94s local command timeout。残留 node process は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
