@@ -172,12 +172,12 @@ fn apply_op %impure fn Stack i32 impure fn str Result Stack i32 str \stack\token
             print_error "stack underflow";
             ok stack
         else:
-            let popped_b %StackPop i32 stk::pop_top<i32> stack
+            let popped_b %StackPop i32 stk::pop_top stack
             let b_opt %Option i32 stk::stack_pop_item &popped_b
             let stack_b %Stack i32 stk::stack_pop_stack popped_b
             match b_opt:
                 Option::Some b:
-                    let popped_a %StackPop i32 stk::pop_top<i32> stack_b
+                    let popped_a %StackPop i32 stk::pop_top stack_b
                     let a_opt %Option i32 stk::stack_pop_item &popped_a
                     let stack_a %Stack i32 stk::stack_pop_stack popped_a
                     match a_opt:
@@ -294,7 +294,7 @@ fn eval_line %impure fn str unit \line:
                     if:
                         eq sp 1
                         then:
-                            let popped %StackPop i32 stk::pop_top<i32> stack
+                            let popped %StackPop i32 stk::pop_top stack
                             let val_opt %Option i32 stk::stack_pop_item &popped
                             let next_stack %Stack i32 stk::stack_pop_stack popped
                             match val_opt:

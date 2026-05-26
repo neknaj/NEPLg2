@@ -249,8 +249,8 @@ fn size %fn str i32 \s:
     add 1000 1
 
 fn size %fn Vec i32 i32 \vec:
-    let n %i32 v::len<i32> &vec;
-    v::free<i32> vec;
+    let n %i32 v::len &vec;
+    v::free vec;
     n
 
 fn main %impure fn unit i32 \unit:
@@ -293,8 +293,8 @@ fn main %impure fn unit i32 \unit:
         %Vec i32 new
         |> v::push 1 |> uwok
         |> v::push 2 |> uwok
-    let n %i32 v::len<i32> &v;
-    v::free<i32> v;
+    let n %i32 v::len &v;
+    v::free v;
     let report:
         test::test_report_new "overload_new_with_pipe_vec"
         |> test::test_report_push test::assert_eq_i32 "pipe keeps Vec constructor overload" 2 n
@@ -331,9 +331,9 @@ fn main %impure fn unit i32 \unit:
     let parts unwrap_ok pair_with_empty<i32> xs;
     let evens %Vec i32 get parts 0;
     let rest %Vec i32 get parts 1;
-    let n %i32 v::len<i32> &evens;
-    v::free<i32> evens;
-    v::free<i32> rest;
+    let n %i32 v::len &evens;
+    v::free evens;
+    v::free rest;
     let report:
         test::test_report_new "overload_pair_field_from_generic_result_keeps_tuple_type"
         |> test::test_report_push test::assert_eq_i32 "generic Result tuple field keeps Vec type" 1 n
@@ -389,8 +389,8 @@ fn new %impure fn unit Vec i32 \unit:
 
 fn main %impure fn unit i32 \unit:
     let v %Vec i32 %Vec i32 new;
-    let n %i32 v::len<i32> &v;
-    v::free<i32> v;
+    let n %i32 v::len &v;
+    v::free v;
     let report:
         test::test_report_new "overload_star_import_prefers_concrete_over_generic_new"
         |> test::test_report_push test::assert_eq_i32 "let annotation selects Vec new overload" 0 n
@@ -462,8 +462,8 @@ fn main %impure fn unit i32 \unit:
     let s %str "abc";
     let st %Stack i32 unwrap_ok new;
     let n1 %i32 len s;
-    let n2 %i32 len<i32> &st;
-    free<i32> st;
+    let n2 %i32 len &st;
+    free st;
     let report:
         test::test_report_new "overload_nested_len_with_stack_and_string"
         |> test::test_report_push test::assert_eq_i32 "str len overload selected" 3 n1
@@ -565,10 +565,10 @@ fn main %impure fn unit i32 \unit:
     let v %Vec i32:
         new
         |> unwrap_ok
-    let sn %i32 len<i32> &st;
-    free<i32> st;
-    let vn %i32 len<i32> &v;
-    free<i32> v;
+    let sn %i32 len &st;
+    free st;
+    let vn %i32 len &v;
+    free v;
     let report:
         test::test_report_new "overload_new_resolve_with_typed_block_context"
         |> test::test_report_push test::assert_eq_i32 "typed block selects Stack new overload" 0 sn
@@ -599,8 +599,8 @@ fn main %impure fn unit i32 \unit:
         |> unwrap_ok
         |> push 10
         |> unwrap_ok
-    let n %i32 len<i32> &st;
-    free<i32> st;
+    let n %i32 len &st;
+    free st;
     let report:
         test::test_report_new "overload_new_resolve_with_typed_block_and_pipe"
         |> test::test_report_push test::assert_eq_i32 "typed block pipe selects Stack push overload" 1 n

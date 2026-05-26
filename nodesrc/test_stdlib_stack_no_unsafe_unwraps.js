@@ -66,9 +66,10 @@ for (const testPath of [
 ]) {
     const testSrc = fs.readFileSync(path.join(repoRoot, testPath), 'utf8');
     assert.doesNotMatch(testSrc, /\b(?:len_ref|is_empty_ref|peek_ref|get_ref)<i32>/, `${testPath} must not use removed Stack *_ref observers`);
+    assert.doesNotMatch(testSrc, /\b(?:len|get|peek|pop|pop_top|free|clear)<i32>/, `${testPath} must rely on Stack receiver type evidence instead of explicit observer or cleanup postfixes`);
     assert.doesNotMatch(testSrc, /\b(?:len|is_empty|peek|get)(?:<i32>)?\s+s[0-9]?\b/, `${testPath} must not call Stack observers by value`);
     assert.doesNotMatch(testSrc, /\bs[0-9]?\s+\|>\s+(?:len|is_empty|peek|get)(?:<i32>)?\b/, `${testPath} must not pipe Stack owners into observers`);
-    assert.match(testSrc, /\b(?:len|peek|get)(?:<i32>)?\s+&s[0-9]?\b/, `${testPath} must exercise borrowed Stack observers through primary names`);
+    assert.match(testSrc, /\b(?:len|peek|get)\s+&s[0-9]?\b/, `${testPath} must exercise borrowed Stack observers through primary names`);
     assert.doesNotMatch(testSrc, /field::get(?:_ref)?\s+&?p[0-9]?\s+"(?:item|stack)"/, `${testPath} must not project StackPop fields directly`);
     assert.match(testSrc, /\bstack_pop_item\s+&p[0-9]?\b/, `${testPath} must exercise StackPop item accessor`);
     assert.match(testSrc, /\bstack_pop_stack\s+p[0-9]?\b/, `${testPath} must exercise StackPop stack accessor`);
@@ -82,6 +83,7 @@ for (const rel of [
 ]) {
     const exampleSrc = fs.readFileSync(path.join(repoRoot, rel), 'utf8');
     assert.doesNotMatch(exampleSrc, /\bstk::(?:len_ref|is_empty_ref|peek_ref|get_ref)\b/, `${rel} must use primary borrowed Stack observer names`);
+    assert.doesNotMatch(exampleSrc, /\bstk::pop_top<[^>]+>/, `${rel} must rely on Stack owner type evidence instead of explicit pop_top postfix`);
     assert.doesNotMatch(exampleSrc, /field::get(?:_ref)?\s+&?popped(?:_[ab])?\s+"(?:item|stack)"/, `${rel} must not project StackPop fields directly`);
     assert.match(exampleSrc, /\bstk::stack_pop_item\s+&popped(?:_[ab])?\b/, `${rel} must use StackPop item accessor`);
     assert.match(exampleSrc, /\bstk::stack_pop_stack\s+popped(?:_[ab])?\b/, `${rel} must use StackPop stack accessor`);
@@ -93,6 +95,8 @@ assert.doesNotMatch(pipeCollections, /\blen\s+s0\b/, 'pipe_collections stack cas
 
 const overloadTests = fs.readFileSync(path.join(repoRoot, 'tests/compiler/overload.n.md'), 'utf8');
 assert.doesNotMatch(overloadTests, /\blen_ref<i32>\s+&st\b/, 'overload tests must not use removed Stack.len_ref');
+assert.doesNotMatch(overloadTests, /\b(?:len|free)<i32>\s+&?st\b/, 'overload tests must rely on Stack receiver type evidence instead of explicit observer or cleanup postfixes');
+assert.doesNotMatch(overloadTests, /\bv::(?:len|free)<i32>\s+&?(?:vec|v|evens|rest)\b/, 'overload tests must rely on Vec receiver type evidence instead of explicit observer or cleanup postfixes');
 
 console.log('stack unsafe unwrap regression passed');
 

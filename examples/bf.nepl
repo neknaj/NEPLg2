@@ -131,7 +131,7 @@ fn compile_jumps %impure fn str Result Vec i32 str \code:
                                             if:
                                                 eq ch 93 // ']'
                                                 then:
-                                                    let popped %StackPop i32 stk::pop_top<i32> stk
+                                                    let popped %StackPop i32 stk::pop_top stk
                                                     let start_opt %Option i32 stk::stack_pop_item &popped
                                                     let next_stack %Stack i32 stk::stack_pop_stack popped
                                                     match start_opt:

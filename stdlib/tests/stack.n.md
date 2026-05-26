@@ -20,8 +20,8 @@ fn main %impure fn unit i32 \unit:
     let mut s %Stack i32 unwrap_ok new<i32>;
     set s unwrap_ok push<i32> s 10;
     set s unwrap_ok push<i32> s 20;
-    let stack_len %i32 len<i32> &s;
-    free<i32> s;
+    let stack_len %i32 len &s;
+    free s;
     let report:
         test_report_new "stack_new_and_len"
         |> test_report_push assert_eq_i32 "len after pushes" 2 stack_len
@@ -54,19 +54,19 @@ fn main %impure fn unit i32 \unit:
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    let ok0 %bool match peek<i32> &s0:
+    let ok0 %bool match peek &s0:
         Option::Some v:
             eq v 20
         Option::None:
             false
-    free<i32> s0;
+    free s0;
     let s1 %Stack i32:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    let p pop<i32> s1;
+    let p pop s1;
     let ok1 %bool match p:
         Option::Some v:
             eq v 20
@@ -100,7 +100,7 @@ stdout: "test_report name=\"stack_pop_empty\" count=1 failed=0\nassertion index=
 
 fn main %impure fn unit i32 \unit:
     let s %Stack i32 unwrap_ok new<i32>;
-    let p pop<i32> s;
+    let p pop s;
     let is_empty_pop %bool match p:
         Option::Some _:
             false
@@ -136,8 +136,8 @@ fn main %impure fn unit i32 \unit:
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    let stack_len %i32 len<i32> &s;
-    free<i32> s;
+    let stack_len %i32 len &s;
+    free s;
     let report:
         test_report_new "stack_new_and_len_pipe"
         |> test_report_push assert_eq_i32 "pipe len after pushes" 2 stack_len
@@ -170,19 +170,19 @@ fn main %impure fn unit i32 \unit:
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    let ok0 %bool match peek<i32> &s0:
+    let ok0 %bool match peek &s0:
         Option::Some v:
             eq v 20
         Option::None:
             false
-    free<i32> s0;
+    free s0;
     let s1 %Stack i32:
         unwrap_ok new<i32>
         |> push<i32> 10
         |> unwrap_ok
         |> push<i32> 20
         |> unwrap_ok
-    let p %Option i32 pop<i32> s1;
+    let p %Option i32 pop s1;
     let ok1 %bool match p:
         Option::Some v:
             eq v 20
@@ -216,7 +216,7 @@ stdout: "test_report name=\"stack_pop_empty_pipe\" count=1 failed=0\nassertion i
 
 fn main %impure fn unit i32 \unit:
     let s %Stack i32 unwrap_ok new<i32>;
-    let p %Option i32 pop<i32> s;
+    let p %Option i32 pop s;
     let is_empty_pop %bool match p:
         Option::Some _:
             false
@@ -296,15 +296,15 @@ fn main %impure fn unit i32 \unit:
     let mut s %Stack i32 unwrap_ok new<i32>;
     set s unwrap_ok push<i32> s 10;
     set s unwrap_ok push<i32> s 20;
-    let first_ok %bool match get<i32> &s 0:
+    let first_ok %bool match get &s 0:
         Option::Some v:
             eq v 10
         Option::None:
             false
-    let len_before %i32 len<i32> &s;
+    let len_before %i32 len &s;
     set s unwrap_ok push<i32> s 30;
-    let len_after %i32 len<i32> &s;
-    free<i32> s;
+    let len_after %i32 len &s;
+    free s;
     let report:
         test_report_new "stack_get_keeps_stack"
         |> test_report_push assert "get index 0" first_ok
@@ -337,15 +337,15 @@ fn main %impure fn unit i32 \unit:
     let mut s %Stack i32 unwrap_ok new<i32>;
     set s unwrap_ok push<i32> s 10;
     set s unwrap_ok push<i32> s 20;
-    let p0 %StackPop i32 pop_top<i32> s;
+    let p0 %StackPop i32 pop_top s;
     let a %Option i32 stack_pop_item &p0;
     let s1 %Stack i32 stack_pop_stack p0;
-    let p1 %StackPop i32 pop_top<i32> s1;
+    let p1 %StackPop i32 pop_top s1;
     let b %Option i32 stack_pop_item &p1;
     let s2 %Stack i32 stack_pop_stack p1;
-    let empty_len %i32 len<i32> &s2;
+    let empty_len %i32 len &s2;
     let s3 %Stack i32 unwrap_ok push<i32> s2 30;
-    let repush_len %i32 len<i32> &s3;
+    let repush_len %i32 len &s3;
     let a_ok %bool match a:
         Option::Some v:
             eq v 20
@@ -356,7 +356,7 @@ fn main %impure fn unit i32 \unit:
             eq v 10
         Option::None:
             false
-    free<i32> s3;
+    free s3;
     let report:
         test_report_new "stack_pop_top_keeps_stack"
         |> test_report_push assert "first pop top" a_ok

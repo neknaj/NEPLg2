@@ -821,6 +821,20 @@ LLM/手動判断が必要なもの:
 - `git diff --check` は pass した。LF/CRLF warning のみ。
 - `node nodesrc/tests.js <対象35 files> --no-tree -o tmp/neplg21-collection-observer-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15 件中 15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 Stack observer / pop result postfix checkpoint
+
+- `stdlib/tests/stack.n.md`、`tests/stdlib/stack_collections.n.md`、`examples/rpn.nepl`、`examples/rpn_legacy.nepl`、`examples/bf.nepl`、`tests/compiler/overload.n.md` を 4 worker の非重複 write scope に分割して並列移行した。
+- Stack fixture では `len<i32>` / `get<i32>` / `free<i32>` / `peek<i32>` / `pop<i32>` / `pop_top<i32>` / `clear<i32>` を postfix-free にした。
+- examples では `%StackPop i32` local annotation と Stack owner 引数から型が確定する `stk::pop_top<i32>` を `stk::pop_top` へ移行した。
+- overload fixture では `Stack i32` / `Vec i32` receiver から型が確定する `len<i32>` / `free<i32>` / `v::len<i32>` / `v::free<i32>` を postfix-free にした。
+- `new<i32>` / `push<i32>` / `v::new<i32>` / `v::push<i32>` / `pair_with_empty<i32>` / `Show::show<i32>` は producer / generic function under test / trait method generic として今回の checkpoint では残した。
+- `nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` に Stack fixture、examples、overload fixture の postfix-free 契約を追加した。owner recovery、borrowed observer、cleanup 境界の検査は弱めていない。
+- `rg -n "\b(?:len|get|free|peek|pop|pop_top|clear)<" stdlib/tests/stack.n.md tests/stdlib/stack_collections.n.md` は 0 件になった。
+- `rg -n "\bstk::pop_top<|\b(?:v::)?(?:len|free)<" examples/rpn.nepl examples/rpn_legacy.nepl examples/bf.nepl tests/compiler/overload.n.md` は 0 件になった。
+- `node nodesrc/test_stdlib_stack_no_unsafe_unwraps.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/test_neplg21_helper_postfix_cleanup.js`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `trunk build` と `git diff --check` は pass した。`git diff --check` は LF/CRLF warning のみ。
+- `node nodesrc/tests.js -i stdlib/tests/stack.n.md -i tests/stdlib/stack_collections.n.md -i examples/rpn.nepl -i examples/rpn_legacy.nepl -i examples/bf.nepl -i tests/compiler/overload.n.md --no-tree -o tmp/neplg21-stack-observer-pop-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 15/68 件完了、15 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
