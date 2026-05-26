@@ -997,7 +997,7 @@ diag_code: resource.raw.memory_outside_boundary
 fn forge_region_from_region_ptr_at %impure fn RegionToken u8 Result unit str \token:
     match region_ptr_at<u8,u8> &token 0:
         Result::Err e:
-            Result<unit, str>::Err e
+            Result::Err e
         Result::Ok p:
             let raw %i32 mem_ptr_addr p
             let forged %RegionToken u8 region_new<u8> raw 1

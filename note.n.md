@@ -1,3 +1,18 @@
+# 2026-05-26 Agent 1 move/memory fixture Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、型注釈と静的推論で解決できる move/memory fixture の constructor だけを移行した。
+- `tests/compiler/move_effect.n.md` / `tests/compiler/move_check.n.md` / `tests/stdlib/memory_safety.n.md` で、local annotation または helper 戻り値から型が確定する `Result<...>::Ok` / `Result<...>::Err` 8 件を `Result::Ok` / `Result::Err` へ移行した。
+- 対象箇所は実行される NEPL source block であり、旧構文そのものを期待する negative fixture ではないと確認した。
+- 検証:
+  - `rg -n "Result<[^>]+>::(Ok|Err)" tests/compiler/move_effect.n.md tests/compiler/move_check.n.md tests/stdlib/memory_safety.n.md`: 0 件。
+  - `rg --pcre2 -n "Result::(?!Ok|Err)" tests/compiler/move_effect.n.md tests/compiler/move_check.n.md tests/stdlib/memory_safety.n.md`: 0 件。
+  - `node nodesrc/tests.js -i tests/compiler/move_effect.n.md -i tests/compiler/move_check.n.md -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/neplg21-move-memory-fixture-result-constructors.json -j 1 --dist web/dist --assert-io`: 308s local command timeout。partial JSON では 10/230 件完了、10 件 pass、failed 0、errored 0、top_issues 0。型診断は出ていない。
+  - timeout 後に残留していた当該 `node.exe` process は停止した。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 stdio write Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、型注釈と静的推論で解決できる stdio write 領域の constructor だけを移行した。

@@ -655,6 +655,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/tests.js -i stdlib/std/stdio/write/fd.nepl --no-tree -o tmp/neplg21-stdio-write-result-constructors.json -j 1 --dist web/dist --assert-io` は 3 件すべて compile timeout after 60000ms。型診断は出ていない。
 - `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
 
+### 2026-05-26 move/memory fixture Result constructor checkpoint
+
+- `tests/compiler/move_effect.n.md` / `tests/compiler/move_check.n.md` / `tests/stdlib/memory_safety.n.md` で、local annotation または helper 戻り値から型が確定する `Result<...>::Ok` / `Result<...>::Err` 8 件を `Result::Ok` / `Result::Err` へ移行した。
+- 対象箇所は実行される NEPL source block であり、旧構文そのものを期待する negative fixture ではないと確認した。
+- `rg -n "Result<[^>]+>::(Ok|Err)" tests/compiler/move_effect.n.md tests/compiler/move_check.n.md tests/stdlib/memory_safety.n.md` は 0 件になった。
+- `rg --pcre2 -n "Result::(?!Ok|Err)" tests/compiler/move_effect.n.md tests/compiler/move_check.n.md tests/stdlib/memory_safety.n.md` は 0 件になった。
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md -i tests/compiler/move_check.n.md -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/neplg21-move-memory-fixture-result-constructors.json -j 1 --dist web/dist --assert-io` は 308s local command timeout。partial JSON では 10/230 件完了、10 件 pass、failed 0、errored 0、top_issues 0。型診断は出ていない。timeout 後の残留 process は停止した。
+- `node nodesrc/neplg21_syntax_migrate.js --check` / `node nodesrc/issues.js check --dir issues` / `git diff --check` は pass。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

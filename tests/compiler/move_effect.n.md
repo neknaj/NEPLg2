@@ -1346,7 +1346,7 @@ fn token_id %fn i32 i32 \x:
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let holder %PtrHolder PtrHolder p
-    let res %Result PtrHolder str Result<PtrHolder,str>::Ok holder
+    let res %Result PtrHolder str Result::Ok holder
     match res:
         Result::Ok h:
             let q %MemPtr LocalToken field::get h "ptr"
@@ -1386,12 +1386,12 @@ fn token_id %fn i32 i32 \x:
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let holder %PtrHolder PtrHolder p
-    let mut res %Result PtrHolder str Result<PtrHolder,str>::Err "none"
+    let mut res %Result PtrHolder str Result::Err "none"
     if true:
         then:
-            set res Result<PtrHolder,str>::Ok holder
+            set res Result::Ok holder
         else:
-            set res Result<PtrHolder,str>::Ok holder
+            set res Result::Ok holder
     match res:
         Result::Ok h:
             let q %MemPtr LocalToken field::get h "ptr"
@@ -1533,7 +1533,7 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn ok_holder %fn PtrHolder Result PtrHolder str \holder:
-    Result<PtrHolder,str>::Ok holder
+    Result::Ok holder
 
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16

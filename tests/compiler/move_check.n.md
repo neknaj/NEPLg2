@@ -1269,7 +1269,7 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn step %fn LocalToken Result LocalToken i32 \token:
-    Result<LocalToken, i32>::Ok token
+    Result::Ok token
 
 fn main %impure fn unit i32 \unit:
     let mut cur %LocalToken LocalToken @token_id
@@ -1308,7 +1308,7 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn step %fn LocalToken Result LocalToken i32 \token:
-    Result<LocalToken, i32>::Ok token
+    Result::Ok token
 
 fn main %fn unit i32 \unit:
     let mut cur %LocalToken LocalToken @token_id
