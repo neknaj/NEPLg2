@@ -69,7 +69,7 @@ fn main %impure fn unit i32 \unit:
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -143,7 +143,7 @@ fn main %impure fn unit i32 \unit:
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -186,7 +186,7 @@ fn main %impure fn unit i32 \unit:
             match lex_all_with_file_id "a:\n   b\n" 11:
                 Result::Ok bad_tokens:
                     free<SelfhostToken> bad_tokens
-                    let checks2 checks_push checks1 Result<unit,str>::Err "invalid indentation was accepted"
+                    let checks2 checks_push checks1 Result::Err "invalid indentation was accepted"
                     let shown checks_print_report checks2
                     checks_exit_code shown
                 Result::Err diag:
@@ -195,7 +195,7 @@ fn main %impure fn unit i32 \unit:
                     let shown checks_print_report checks2
                     checks_exit_code shown
         Result::Err _diag:
-            let checks1 checks_push checks0 Result<unit,str>::Err "file_id lexer returned Err"
+            let checks1 checks_push checks0 Result::Err "file_id lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -260,7 +260,7 @@ fn main %impure fn unit i32 \unit:
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -294,7 +294,7 @@ fn main %impure fn unit i32 \unit:
     match lex_all "a:\n    b\n  c\n":
         Result::Ok tokens:
             free<SelfhostToken> tokens
-            let checks1 checks_push checks0 Result<unit,str>::Err "indent mismatch was accepted"
+            let checks1 checks_push checks0 Result::Err "indent mismatch was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -338,7 +338,7 @@ fn main %impure fn unit i32 \unit:
     match lex_all "a:\n   b\n":
         Result::Ok tokens:
             free<SelfhostToken> tokens
-            let checks1 checks_push checks0 Result<unit,str>::Err "indent width mismatch was accepted"
+            let checks1 checks_push checks0 Result::Err "indent width mismatch was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -382,7 +382,7 @@ fn main %impure fn unit i32 \unit:
     match lex_all "name // skip this\n$":
         Result::Ok tokens:
             free<SelfhostToken> tokens
-            let checks1 checks_push checks0 Result<unit,str>::Err "unexpected character was accepted"
+            let checks1 checks_push checks0 Result::Err "unexpected character was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -426,7 +426,7 @@ fn main %impure fn unit i32 \unit:
     match lex_all "\"abc":
         Result::Ok tokens:
             free<SelfhostToken> tokens
-            let checks1 checks_push checks0 Result<unit,str>::Err "unterminated string was accepted"
+            let checks1 checks_push checks0 Result::Err "unterminated string was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -487,7 +487,7 @@ fn main %impure fn unit i32 \unit:
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -520,7 +520,7 @@ fn main %impure fn unit i32 \unit:
     match lex_all "'abc":
         Result::Ok tokens:
             free<SelfhostToken> tokens
-            let checks1 checks_push checks0 Result<unit,str>::Err "unterminated char was accepted"
+            let checks1 checks_push checks0 Result::Err "unterminated char was accepted"
             let shown checks_print_report checks1
             checks_exit_code shown
         Result::Err diag:
@@ -639,7 +639,7 @@ fn main %impure fn unit i32 \unit:
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -700,7 +700,7 @@ fn main %impure fn unit i32 \unit:
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```
@@ -776,7 +776,7 @@ fn main %impure fn unit i32 \unit:
             checks_exit_code shown
         Result::Err diag:
             let _msg %str field::get diag "message"
-            let checks1 checks_push checks0 Result<unit,str>::Err "lexer returned Err"
+            let checks1 checks_push checks0 Result::Err "lexer returned Err"
             let shown checks_print_report checks1
             checks_exit_code shown
 ```

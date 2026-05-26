@@ -87,9 +87,9 @@ pub fn stream_scanner_store_pos_result %impure fn &StreamScanner impure fn i32 R
     match vec::get<i32> cursor 0:
         Option::Some _old:
             vec::replace<i32> cursor 0 pos
-            Result<unit,str>::Ok unit
+            Result::Ok unit
         Option::None:
-            Result<unit,str>::Err "streamio.stream_scanner_store_pos failed"
+            Result::Err "streamio.stream_scanner_store_pos failed"
 
 //: ## stream_scanner_store_pos
 //: scanner cursor position を書く互換 facade

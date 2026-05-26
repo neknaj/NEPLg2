@@ -1,3 +1,18 @@
+# 2026-05-26 Agent 1 remaining unit-str Result constructor cleanup checkpoint
+
+- Zenn 方針を再確認し、静的な型根拠で解決できる残りの `Result unit str` constructor だけを移行した。
+- `tests/stdlib/neplg2_text.n.md` / `tests/stdlib/neplg2_lexer.n.md` / `tests/compiler/intrinsic.n.md` / `stdlib/std/streamio/scanner/state.nepl` / `stdlib/neplg2/core/resolve/name_resolver.nepl` / `stdlib/neplg2/core/hir/hir.nepl` で、関数戻り値、local annotation、`checks_push` expected type、または doc comment 内 doctest の expected type から型が確定する `Result<unit,str>::Ok` / `Result<unit,str>::Err` 54 件を `Result::Ok` / `Result::Err` へ移行した。
+- subagent の独立レビューでも、対象 files に残すべき `Result<unit,str>::Ok` / `Result<unit,str>::Err` はなく、source string fixture 内の旧構文もないと確認した。
+- `Result<unit,i64>::Err` や `Result<unit,StdErrorKind>::Err` など `Result unit str` ではない constructor は、この checkpoint では対象外として保持した。
+- 検証:
+  - `rg -n "Result<unit,str>::(Ok|Err)|Result<\\(\\),str>::(Ok|Err)" tests stdlib tutorials doc/examples`: 0 件。
+  - `node nodesrc/tests.js -i tests/stdlib/neplg2_text.n.md -i tests/stdlib/neplg2_lexer.n.md -i tests/compiler/intrinsic.n.md -i stdlib/std/streamio/scanner/state.nepl -i stdlib/neplg2/core/resolve/name_resolver.nepl -i stdlib/neplg2/core/hir/hir.nepl --no-tree -o tmp/neplg21-remaining-unit-str-result-constructors.json -j 1 --dist web/dist --assert-io`: 304s local command timeout。partial JSON では 5/32 件が compile timeout after 60000ms、型診断は出ていない。
+  - timeout 後に残留していた `node.exe` process は停止した。
+  - `node nodesrc/neplg21_syntax_migrate.js --check`: would update 0 file(s)。
+  - `node nodesrc/issues.js check --dir issues`: pass。
+  - `git diff --check`: pass。
+  - 残留 `node.exe` / `nepl-cli.exe` process はなし。
+
 # 2026-05-26 Agent 1 trait proof/type arena Result constructor cleanup checkpoint
 
 - Zenn 方針を再確認し、静的な型根拠で解決できる selfhost trait/type arena fixture の constructor だけを小さく移行した。

@@ -132,7 +132,7 @@ ret: 0
 #import "core/result" as *
 
 fn main %fn unit i32 \unit:
-    let r %Result unit str Result<unit,str>::Ok unit;
+    let r %Result unit str Result::Ok unit;
     match r:
         Result::Ok _u:
             0
