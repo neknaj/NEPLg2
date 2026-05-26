@@ -3,7 +3,7 @@
 //:
 //: ### 目的
 //: - 端末表示幅の近似、padding / clipping、折り返し helper を既存の import path から公開します。
-//: - 実装は repeat / width / line / wrap に分け、ANSI/OSC8 width handling と `Vec<str>` owner handling が同居しないようにします。
+//: - 実装は repeat / width / line / wrap に分け、ANSI/OSC8 width handling と `Vec str` owner handling が同居しないようにします。
 //:
 //: ### 注意
 //: - 表示幅計算は厳密な East Asian Width 判定ではなく、UTF-8 先頭バイトに基づく近似です。

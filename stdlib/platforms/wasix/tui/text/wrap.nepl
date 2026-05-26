@@ -2,7 +2,7 @@
 //: 表示幅に基づく TUI text wrapping
 //:
 //: ### 目的
-//: - `Vec<str>` owner handling と折り返し走査をこの module に閉じ込めます。
+//: - `Vec str` owner handling と折り返し走査をこの module に閉じ込めます。
 //: - 文字幅の推定は `text/width` に委譲し、byte range 判定を複数箇所へ重複させません。
 
 #indent 4
@@ -15,7 +15,7 @@
 #import "./width" as *
 #import "core/field" as *
 
-//: TuiStrPushRes: `Vec<str>` push の結果
+//: TuiStrPushRes: `Vec str` push の結果
 //:
 //: [目的/もくてき]:
 //: - `text_wrap_lines` の行配列 owner と push 成否を同時に返します。
@@ -23,20 +23,20 @@ pub struct TuiStrPushRes:
     items %Vec str
     ok %bool
 
-//: tui_empty_str_vec: 空の `Vec<str>` を作る
+//: tui_empty_str_vec: 空の `Vec str` を作る
 //:
 //: [目的/もくてき]:
 //: - `Vec` 初期確保に失敗した場合の空の折り返し結果を作ります。
 pub fn tui_empty_str_vec %fn unit Vec str \unit:
-    v::vec_empty<str>
+    v::vec_empty
 
-//: tui_push_str: `Vec<str>` push を trap せず結果化する
+//: tui_push_str: `Vec str` push を trap せず結果化する
 pub fn tui_push_str %fn Vec str fn str TuiStrPushRes \items\item:
-    match v::push<str> items item:
+    match v::push items item:
         Result::Ok next:
             TuiStrPushRes next true
         Result::Err e:
-            TuiStrPushRes v::vec_push_error_vec<str> e false
+            TuiStrPushRes v::vec_push_error_vec e false
 
 //: text_wrap_lines: 表示幅で折り返した行配列を作る
 //:
@@ -56,7 +56,8 @@ pub fn tui_push_str %fn Vec str fn str TuiStrPushRes \items\item:
 pub fn text_wrap_lines %impure fn str impure fn i32 Vec str \text\cols:
     let mut out %Vec str tui_empty_str_vec;
     let mut failed %bool false;
-    match v::new<str>:
+    let initial %Result Vec str StdErrorKind v::new;
+    match initial:
         Result::Ok out0:
             set out out0
         Result::Err _e:
