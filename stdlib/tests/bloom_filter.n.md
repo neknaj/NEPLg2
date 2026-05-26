@@ -56,7 +56,7 @@ fn main %impure fn unit i32 \unit:
         unwrap_ok new DefaultHash32 64
         |> insert 7
     let bf1 %BloomFilter i32 DefaultHash32 clear bf0;
-    let seen %bool contains<i32, DefaultHash32> &bf1 7;
+    let seen %bool contains &bf1 7;
     free bf1
     let ok0 %bool if seen false true;
     let bad %Result BloomFilter i32 DefaultHash32 Diag new DefaultHash32 0;

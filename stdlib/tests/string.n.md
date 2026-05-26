@@ -170,7 +170,7 @@ fn main %impure fn unit i32 \unit:
 ## string_result_allocation_apis
 
 `concat_result` / `str_slice_result` / `str_split_next` / `StringBuilder` の Result API が、所有権を明示した形で期待内容を返せることを確認します。
-allocator failure を trap へ寄せず、owned `Vec<str>` split に戻らない self-host 用入口を固定するための回帰テストです。
+allocator failure を trap へ寄せず、owned `Vec str` split に戻らない self-host 用入口を固定するための回帰テストです。
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0

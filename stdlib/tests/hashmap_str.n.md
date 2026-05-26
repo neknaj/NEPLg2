@@ -33,7 +33,7 @@ fn must_hms %impure fn Result HashMap str i32 DefaultHash32 HashMapUpdateError s
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner<str,i32,DefaultHash32> e;
+            let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner e;
             free hm;
             #intrinsic "unreachable" <> ()
 
@@ -113,7 +113,7 @@ fn main %impure fn unit i32 \unit:
                 free hm;
                 false
             Result::Err e:
-                let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner<str,i32,DefaultHash32> e;
+                let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner e;
                 free hm;
                 true
 
@@ -163,7 +163,7 @@ fn must_hms %impure fn Result HashMap str i32 DefaultHash32 HashMapUpdateError s
         Result::Ok hm:
             hm
         Result::Err e:
-            let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner<str,i32,DefaultHash32> e;
+            let hm %HashMap str i32 DefaultHash32 hashmap_update_error_owner e;
             free hm;
             #intrinsic "unreachable" <> ()
 

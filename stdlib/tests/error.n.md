@@ -169,32 +169,37 @@ fn assert_kind_parse_error %fn str fn Result i32 StdErrorKind TestAssertion \lab
 
 fn main %impure fn unit i32 \unit:
     let mut report test_report_new "outcome_helpers_keep_result_and_diags_separate";
-    let ok0 %Outcome i32 StdErrorKind outcome_ok<i32, StdErrorKind> 42;
+    let ok0 %Outcome i32 StdErrorKind outcome_ok 42;
     set report test_report_push report assert_result_ok_i32 "ok0 result" outcome_result &ok0 42;
     set report test_report_push report assert_eq_i32 "ok0 empty diags" 0 diags_len outcome_diags_or_empty ok0;
 
     let ds %Diags diags_one diag_warn "careful";
-    let ok1 %Outcome i32 StdErrorKind outcome_with_diags outcome_ok<i32, StdErrorKind> 42 ds;
+    let ok1_base %Outcome i32 StdErrorKind outcome_ok 42;
+    let ok1 %Outcome i32 StdErrorKind outcome_with_diags ok1_base ds;
     set report test_report_push report assert_result_ok_i32 "ok1 result" outcome_result &ok1 42;
     set report test_report_push report assert "ok1 is ok" outcome_is_ok &ok1;
     set report test_report_push report assert "ok1 is not err" not outcome_is_err &ok1;
     set report test_report_push report assert_eq_i32 "ok1 diags length" 1 diags_len outcome_diags_or_empty ok1;
-    let ok2 %Outcome i32 StdErrorKind outcome_with_diags outcome_ok<i32, StdErrorKind> 42 diags_one diag_warn "careful";
+    let ok2_base %Outcome i32 StdErrorKind outcome_ok 42;
+    let ok2 %Outcome i32 StdErrorKind outcome_with_diags ok2_base diags_one diag_warn "careful";
     set report test_report_push report assert "ok2 warns only" not outcome_has_errors ok2;
 
-    let replace0 %Outcome i32 StdErrorKind outcome_with_diags outcome_ok<i32, StdErrorKind> 7 diags_one diag_warn "old";
+    let replace0_base %Outcome i32 StdErrorKind outcome_ok 7;
+    let replace0 %Outcome i32 StdErrorKind outcome_with_diags replace0_base diags_one diag_warn "old";
     let replace1 %Outcome i32 StdErrorKind outcome_with_diags replace0 diags_one diag_warn "new";
     set report test_report_push report assert_result_ok_i32 "replace result" outcome_result replace1 7;
 
-    let err0 %Outcome i32 StdErrorKind outcome_err<i32, StdErrorKind> StdErrorKind::IoError;
+    let err0 %Outcome i32 StdErrorKind outcome_err StdErrorKind::IoError;
     set report test_report_push report assert_kind_io_error "err0 kind" outcome_result &err0;
     set report test_report_push report assert "err0 is not ok" not outcome_is_ok &err0;
     set report test_report_push report assert "err0 is err" outcome_is_err &err0;
     set report test_report_push report assert_eq_i32 "err0 empty diags" 0 diags_len outcome_diags_or_empty err0;
-    set report test_report_push report assert "err0 has no errors" not outcome_has_errors outcome_err<i32, StdErrorKind> StdErrorKind::IoError;
+    let err0_empty %Outcome i32 StdErrorKind outcome_err StdErrorKind::IoError;
+    set report test_report_push report assert "err0 has no errors" not outcome_has_errors err0_empty;
 
+    let err1_result %Result i32 StdErrorKind Result::Err StdErrorKind::ParseError;
     let err1 %Outcome i32 StdErrorKind:
-        result_to_outcome<i32, StdErrorKind> Result::Err StdErrorKind::ParseError
+        result_to_outcome err1_result
     set report test_report_push report assert_kind_parse_error "err1 kind" outcome_result &err1;
     let shown test_report_print_stdout report
     test_report_exit_code shown
@@ -248,7 +253,8 @@ fn main %impure fn unit i32 \unit:
             set report test_report_push report test_assertion_fail "o0 result" "expected outcome ok";
 
     let ds %Diags diags_one diag_warn "careful";
-    let o1 %Outcome i32 StdErrorKind outcome_with_diags outcome_ok<i32, StdErrorKind> 3 ds;
+    let o1_base %Outcome i32 StdErrorKind outcome_ok 3;
+    let o1 %Outcome i32 StdErrorKind outcome_with_diags o1_base ds;
     let o2 %Outcome i32 StdErrorKind into_outcome o1;
     set report test_report_push report assert "o2 is ok" result_like_is_ok &o2;
     set report test_report_push report assert_eq_i32 "o2 diags length" 1 diags_len outcome_diags_or_empty o2;

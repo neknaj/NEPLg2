@@ -938,6 +938,16 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、targeted policy、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - `node nodesrc/tests.js <対象11 files> --no-tree -o tmp/neplg21-diagnostics-kp-cost-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 7/121 件完了、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-26 stdlib small fixture postfix checkpoint
+
+- `stdlib/tests/hashmap.n.md` と `stdlib/tests/hashmap_str.n.md` で、`hashmap_update_error_owner<...>` を `%HashMap ...` local annotation から解ける postfix-free call へ移行した。
+- `stdlib/tests/error.n.md` で、`outcome_ok` / `outcome_err` / `result_to_outcome` の通常利用 generic postfix を撤廃し、必要な箇所には `%Outcome i32 StdErrorKind` / `%Result i32 StdErrorKind` local を型根拠として追加した。
+- `stdlib/tests/bloom_filter.n.md` で、`contains<i32, DefaultHash32>` を borrowed receiver evidence から解ける `contains` へ移行した。
+- `stdlib/tests/string.n.md` では prose の `Vec<str>` を `Vec str` へ更新した。raw memory generic API は今回対象外として保持した。
+- `nodesrc/test_neplg21_stdlib_small_fixture_postfix_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。検査は今回移行した旧構文だけを対象にし、コメント量を制限していない。
+- `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js <対象5 files> --no-tree -o tmp/neplg21-stdlib-small-fixture-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 7/17 件完了、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

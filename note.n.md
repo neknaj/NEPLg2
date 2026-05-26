@@ -1,3 +1,14 @@
+# 2026-05-26 Agent 1 stdlib small fixture postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として stdlib test fixture に残っていた小さな通常利用 generic postfix を 4 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `stdlib/tests/hashmap.n.md` と `stdlib/tests/hashmap_str.n.md` では、`hashmap_update_error_owner<...>` を `%HashMap ...` local annotation から解ける postfix-free `hashmap_update_error_owner` へ移行した。
+- `stdlib/tests/error.n.md` では、`outcome_ok<i32, StdErrorKind>` / `outcome_err<i32, StdErrorKind>` / `result_to_outcome<i32, StdErrorKind>` を撤廃し、必要な箇所は `%Outcome i32 StdErrorKind` / `%Result i32 StdErrorKind` の中間 local を型根拠として追加した。
+- `stdlib/tests/bloom_filter.n.md` では、`contains<i32, DefaultHash32>` を `BloomFilter i32 DefaultHash32` receiver evidence で解ける `contains` へ移行した。
+- `stdlib/tests/string.n.md` では、prose の旧表記 `Vec<str>` を `Vec str` へ更新した。`alloc_region_bytes<u8>` / `dealloc_region<u8>` の raw memory generic API は今回対象外として残した。
+- `nodesrc/test_neplg21_stdlib_small_fixture_postfix_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。検査対象は今回移行した旧構文だけで、コメント量や raw memory generic API は制限していない。
+- `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js -i stdlib/tests/hashmap.n.md -i stdlib/tests/hashmap_str.n.md -i stdlib/tests/error.n.md -i stdlib/tests/bloom_filter.n.md -i stdlib/tests/string.n.md --no-tree -o tmp/neplg21-stdlib-small-fixture-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 7/17 件完了、7 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-26 Agent 1 Diagnostics/KP/cost postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として diagnostics / KP / cost fixture / compiler fixture の通常利用 collection helper postfix を 5 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
