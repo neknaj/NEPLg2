@@ -2,7 +2,7 @@
 //: `SegmentTree` の構築 API
 //:
 //: ### [目的/もくてき]
-//: - logical length から base と storage cell count を計算し、初期化済み `Vec<i32>` を確保します。
+//: - logical length から base と storage cell count を計算し、初期化済み `Vec i32` を確保します。
 //: - invalid length / allocation failure は `Diag` として返し、trap にしません。
 
 #indent 4
@@ -40,7 +40,7 @@ pub fn new %impure fn i32 Result SegmentTree Diag \n:
         else:
             let base %i32 seg_next_pow2 if eq n 0 1 n
             let cells %i32 seg_expected_cells base
-            match vec::filled<i32> cells 0:
+            match vec::filled cells 0:
                 Result::Err _e:
                     diag_err diag_out_of_memory
                 Result::Ok data:

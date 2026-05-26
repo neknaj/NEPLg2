@@ -2,7 +2,7 @@
 //: `DisjointSet` の構築 API
 //:
 //: ### [目的/もくてき]
-//: - typed `Vec<i32>` storage の初期化と root parent 書き込みを構築処理に閉じ込めます。
+//: - typed `Vec i32` storage の初期化と root parent 書き込みを構築処理に閉じ込めます。
 //: - 負の長さや allocation failure を typed `Diag` として返します。
 
 #indent 4
@@ -41,13 +41,13 @@ pub fn new %impure fn i32 Result DisjointSet Diag \n:
         lt n 0
         then diag_err dsu_diag_len
         else:
-            match vec::filled<i32> n 0:
+            match vec::filled n 0:
                 Result::Err _e:
                     diag_err diag_out_of_memory
                 Result::Ok parent:
-                    match vec::filled<i32> n 1:
+                    match vec::filled n 1:
                         Result::Err _e:
-                            vec::free<i32> parent
+                            vec::free parent
                             diag_err diag_out_of_memory
                         Result::Ok sizes:
                             let mut i %i32 0

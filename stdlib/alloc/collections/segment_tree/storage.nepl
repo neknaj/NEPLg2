@@ -1,8 +1,8 @@
 //: # segment_tree/storage
-//: `SegmentTree` の typed `Vec<i32>` storage 操作
+//: `SegmentTree` の typed `Vec i32` storage 操作
 //:
 //: ### [目的/もくてき]
-//: - tree cell の読み書きと sibling pair sum を `Vec<i32>` API に集約します。
+//: - tree cell の読み書きと sibling pair sum を `Vec i32` API に集約します。
 //: - public API と更新/query helper が raw pointer や sentinel を扱わないようにします。
 
 #indent 4
@@ -13,14 +13,14 @@
 #import "core/field" as *
 
 pub fn seg_load_owned %fn &Vec i32 fn i32 Option i32 \data\idx:
-    match vec::get<i32> data idx:
+    match vec::get data idx:
         Option::Some v:
             some v
         Option::None:
             none
 
 pub fn seg_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit \data\idx\value:
-    vec::replace<i32> data idx value
+    vec::replace data idx value
 
 pub fn seg_pair_sum %fn &Vec i32 fn i32 fn i32 Option i32 \data\left\right:
     match seg_load_owned data left:

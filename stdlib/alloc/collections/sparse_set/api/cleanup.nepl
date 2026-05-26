@@ -17,7 +17,7 @@
 //: dense/sparse [配列/はいれつ]を[解放/かいほう]する
 //:
 //: ### [実装/じっそう]
-//: - dense/sparse はそれぞれ `Vec<i32>` として `new` が[確保/かくほ]し、`SparseSet` が[所有/しょゆう]します。
+//: - dense/sparse はそれぞれ `Vec i32` として `new` が[確保/かくほ]し、`SparseSet` が[所有/しょゆう]します。
 //: - owner invariant に[基/もと]づき、内部 cleanup は `vec::free` で[行/おこな]います。
 //:
 //: ### [注意/ちゅうい]

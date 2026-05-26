@@ -15,7 +15,7 @@
 //: dense/sparse [配列/はいれつ]を[所有/しょゆう]する integer set
 //:
 //: ### [目的/もくてき]
-//: - domain [長/なが]さ、active [要素数/ようそすう]、dense/sparse `Vec<i32>` owner を 1 [値/あたい]として[受/う]け[渡/わた]しします。
+//: - domain [長/なが]さ、active [要素数/ようそすう]、dense/sparse `Vec i32` owner を 1 [値/あたい]として[受/う]け[渡/わた]しします。
 //:
 //: ### [注意/ちゅうい]
 //: - `n = 0` のとき dense/sparse は empty `Vec` で、null pointer sentinel を owner state として[使/つか]いません。

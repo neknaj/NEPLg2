@@ -45,7 +45,7 @@ pub fn new %impure fn i32 Result SparseSet Diag \n:
                 Result::Ok dense:
                     match sparse_set_alloc_array n:
                         Result::Err d:
-                            vec::free<i32> dense
+                            vec::free dense
                             err d
                         Result::Ok sparse:
                             ok SparseSet n 0 dense sparse

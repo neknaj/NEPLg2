@@ -2,7 +2,7 @@
 //: `Fenwick` の構築 API
 //:
 //: ### [目的/もくてき]
-//: - logical length から 1-indexed internal storage 長を計算し、初期化済み `Vec<i32>` を確保します。
+//: - logical length から 1-indexed internal storage 長を計算し、初期化済み `Vec i32` を確保します。
 //: - invalid length / allocation failure は `Diag` として返し、trap にしません。
 
 #indent 4

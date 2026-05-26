@@ -17,7 +17,7 @@ pub fn dsu_root_storage %fn &Vec i32 fn i32 Option i32 \parent\idx:
     let mut done %bool false
     let mut valid %bool true
     let mut steps %i32 0
-    let limit %i32 vec::len<i32> parent
+    let limit %i32 vec::len parent
     while and and not done valid lt steps limit:
         do:
             match dsu_load_owned parent cur:

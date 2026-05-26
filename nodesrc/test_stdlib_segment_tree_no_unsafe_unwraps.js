@@ -85,11 +85,11 @@ assert.match(typesCode, /struct\s+SegmentTreeUpdateError:\s+[\s\S]*owner\s+<Segm
 assert.match(typesCode, /fn\s+segment_tree_update_error_diag\s+<\(&SegmentTreeUpdateError\)->Diag>/, 'SegmentTree update diagnostics must be readable without moving the owner');
 assert.match(typesCode, /fn\s+segment_tree_update_error_owner\s+<\(SegmentTreeUpdateError\)->SegmentTree>/, 'SegmentTree update error owner recovery helper is required');
 
-assert.match(storageCode, /fn\s+seg_load_owned\s+<\(&Vec<i32>,i32\)->Option<i32>>[\s\S]*vec::get<i32>[\s\S]*Option::None:[\s\S]*none/, 'SegmentTree must read tree cells through Vec.get and expose missing cells as Option');
-assert.match(storageCode, /fn\s+seg_store_owned\s+<\(&Vec<i32>,i32,i32\)\*>unit>[\s\S]*vec::replace<i32>/, 'SegmentTree must update tree cells through Vec.replace');
+assert.match(storageCode, /fn\s+seg_load_owned\s+<\(&Vec<i32>,i32\)->Option<i32>>[\s\S]*vec::get\s+data\s+idx[\s\S]*Option::None:[\s\S]*none/, 'SegmentTree must read tree cells through Vec.get and expose missing cells as Option');
+assert.match(storageCode, /fn\s+seg_store_owned\s+<\(&Vec<i32>,i32,i32\)\*>unit>[\s\S]*vec::replace\s+data\s+idx\s+value/, 'SegmentTree must update tree cells through Vec.replace');
 assert.match(storageCode, /fn\s+seg_pair_sum\s+<\(&Vec<i32>,i32,i32\)->Option<i32>>[\s\S]*seg_load_owned[\s\S]*some\s+add\s+lv\s+rv/, 'SegmentTree storage module must own sibling pair sum');
 assert.match(layoutCode, /fn\s+seg_next_pow2\s+<\(i32\)->i32>[\s\S]*while\s+lt\s+x\s+n/, 'SegmentTree layout module must own base power-of-two rounding');
-assert.match(layoutCode, /fn\s+seg_storage_has_expected_len\s+<\(&Vec<i32>,i32\)->bool>[\s\S]*vec::len<i32>\s+data[\s\S]*seg_expected_cells\s+base/, 'SegmentTree layout module must own storage length invariant checks');
+assert.match(layoutCode, /fn\s+seg_storage_has_expected_len\s+<\(&Vec<i32>,i32\)->bool>[\s\S]*vec::len\s+data[\s\S]*seg_expected_cells\s+base/, 'SegmentTree layout module must own storage length invariant checks');
 assert.match(mutationCode, /fn\s+seg_rebuild_parents\s+<\(&Vec<i32>,i32\)\*>bool>[\s\S]*seg_pair_sum[\s\S]*seg_store_owned/, 'SegmentTree mutation module must centralize parent rebuild');
 assert.match(mutationCode, /fn\s+seg_replace_storage\s+<\(&Vec<i32>,i32,i32,i32\)\*>bool>[\s\S]*seg_store_owned[\s\S]*seg_rebuild_parents/, 'SegmentTree mutation module must own replace storage update');
 assert.match(mutationCode, /fn\s+seg_add_storage\s+<\(&Vec<i32>,i32,i32,i32\)\*>bool>[\s\S]*seg_load_owned[\s\S]*seg_store_owned[\s\S]*seg_rebuild_parents/, 'SegmentTree mutation module must own add storage update');
@@ -98,7 +98,7 @@ assert.match(rangeCode, /fn\s+seg_sum_range_storage\s+<\(&Vec<i32>,i32,i32,i32\)
 assert.match(apiDiagnosticCode, /fn\s+seg_diag_len\s+<\(\)\*>Diag>/, 'SegmentTree diagnostic module must own invalid length diagnostics');
 assert.match(apiDiagnosticCode, /fn\s+seg_diag_index\s+<\(\)\*>Diag>/, 'SegmentTree diagnostic module must own index diagnostics');
 assert.match(apiDiagnosticCode, /fn\s+seg_diag_range\s+<\(\)\*>Diag>/, 'SegmentTree diagnostic module must own range diagnostics');
-assert.match(apiCreateCode, /fn\s+new\s+<\(i32\)\*>Result<SegmentTree,\s*Diag>>[\s\S]*lt\s+n\s+0[\s\S]*seg_diag_len[\s\S]*vec::filled<i32>\s+cells\s+0/, 'SegmentTree.new must reject negative lengths and allocate initialized typed storage through Vec.filled');
+assert.match(apiCreateCode, /fn\s+new\s+<\(i32\)\*>Result<SegmentTree,\s*Diag>>[\s\S]*lt\s+n\s+0[\s\S]*seg_diag_len[\s\S]*vec::filled\s+cells\s+0/, 'SegmentTree.new must reject negative lengths and allocate initialized typed storage through Vec.filled');
 assert.match(apiObserverCode, /fn\s+len\s+<\(&SegmentTree\)->i32>\s+\(st\):/, 'SegmentTree.len must borrow the owner');
 assert.match(apiQueryCode, /fn\s+sum_range\s+<\(&SegmentTree,i32,i32\)\*>Result<i32,\s*Diag>>\s+\(st,\s*l,\s*r\):/, 'SegmentTree.sum_range must borrow the owner');
 assert.match(apiUpdateCode, /fn\s+seg_update_err\s+<\(SegmentTree,Diag\)->Result<SegmentTree,\s*SegmentTreeUpdateError>>[\s\S]*SegmentTreeUpdateError\s+st\s+d/, 'SegmentTree update module must centralize owner-preserving errors');
@@ -106,7 +106,7 @@ assert.match(apiUpdateCode, /fn\s+replace\s+<\(SegmentTree,i32,i32\)\*>Result<Se
 assert.match(apiUpdateCode, /fn\s+add\s+<\(SegmentTree,i32,i32\)\*>Result<SegmentTree,\s*SegmentTreeUpdateError>>\s+\(st,\s*idx,\s*delta\):/, 'SegmentTree.add must return an owner-carrying error type');
 assert.doesNotMatch(apiUpdateCode, /fn\s+(?:replace|add)\s+<\(SegmentTree,i32,i32\)\*>Result<SegmentTree,\s*Diag>>/, 'SegmentTree mutating APIs must not lose the owner through Err(Diag)');
 assert.match(apiUpdateCode, /seg_update_err\s+st\s+d/, 'SegmentTree mutating Err paths must return the input owner in SegmentTreeUpdateError');
-assert.match(apiCleanupCode, /fn\s+free\s+<\(SegmentTree\)->unit>\s+\(st\):[\s\S]*field::get\s+st\s+"data"[\s\S]*vec::free<i32>\s+data/, 'SegmentTree.free must consume and close typed Vec<i32> storage');
+assert.match(apiCleanupCode, /fn\s+free\s+<\(SegmentTree\)->unit>\s+\(st\):[\s\S]*field::get\s+st\s+"data"[\s\S]*vec::free\s+data/, 'SegmentTree.free must consume and close typed Vec<i32> storage');
 assert.doesNotMatch(apiCleanupCode, /fn\s+free\s+<\(SegmentTree\)->unit>\s+\(st\):[\s\S]*field::get_ref\s+&st\s+"data"/, 'SegmentTree.free must not borrow-read the data owner field');
 
 assert.doesNotMatch(code, /\bMemPtr\b/, 'SegmentTree must not expose raw MemPtr storage');

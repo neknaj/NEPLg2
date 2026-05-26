@@ -1051,6 +1051,18 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js`、`node nodesrc/test_selfhost_source_text_no_recursive_line_map.js`、`node nodesrc/test_selfhost_mono_instance_absence.js`、`node nodesrc/test_selfhost_cli_file_io_boundary.js`、`node nodesrc/test_neplg21_selfhost_tui_vec_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check` は pass した。
 - `node nodesrc/tests.js -i stdlib/neplg2/core/mono/mono.nepl -i stdlib/neplg2/core/module/vfs.nepl --no-tree -o tmp/worker3-selfhost-mono-vfs.json -j 1` は両 doctest compile timeout。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
 
+### 2026-05-27 collection storage Vec helper postfix checkpoint
+
+- `adjacency_matrix` / `bitset` / `bloom_filter` / `counting_bloom_filter` の `Vec u8` storage helper で、`vec::get<u8>` / `vec::replace<u8>` / `vec::filled<u8>` / `vec::free<u8>` を receiver / value / return evidence から解ける postfix-free call へ移行した。
+- `disjoint_set` / `fenwick` / `sparse_set` / `segment_tree` の `Vec i32` storage helper で、`vec::get<i32>` / `vec::replace<i32>` / `vec::filled<i32>` / `vec::free<i32>` / `vec::len<i32>` を postfix-free call へ移行した。
+- prose の `Vec<u8>` / `Vec<i32>` も NEPLg2.1 の `Vec u8` / `Vec i32` 表記へ更新した。
+- raw memory / intrinsic API / generic `.T` storage / `Option<.T>` slot storage はこの checkpoint の対象外として保持した。
+- 3 worker に `Vec u8` storage、DisjointSet/Fenwick、SparseSet/SegmentTree を非重複 write scope として割り当て、親 agent が no-unsafe policy の stale call spelling を postfix-free contract へ追従した。
+- `nodesrc/test_neplg21_collection_storage_vec_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量や doccomment の増加を制限する検査ではない。
+- targeted policy: `test_stdlib_adjacency_matrix_no_unsafe_unwraps.js`、`test_stdlib_bitset_no_unsafe_unwraps.js`、`test_stdlib_bloom_filter_no_unsafe_unwraps.js`、`test_stdlib_counting_bloom_filter_no_unsafe_unwraps.js`、`test_stdlib_disjoint_set_no_unsafe_unwraps.js`、`test_stdlib_fenwick_no_unsafe_unwraps.js`、`test_stdlib_sparse_set_no_unsafe_unwraps.js`、`test_stdlib_segment_tree_no_unsafe_unwraps.js` は pass した。
+- `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
+- SparseSet / SegmentTree API doctest 直接実行は 240s timeout。partial JSON は compile timeout のみで型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

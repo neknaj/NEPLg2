@@ -2,7 +2,7 @@
 //: `Fenwick` owner の cleanup API
 //:
 //: ### [目的/もくてき]
-//: - `Fenwick` owner から internal bit storage owner を取り出し、`Vec<i32>` として閉じます。
+//: - `Fenwick` owner から internal bit storage owner を取り出し、`Vec i32` として閉じます。
 //: - cleanup を observer / update / query から分離し、free obligation の境界を明確にします。
 
 #indent 4
@@ -16,8 +16,8 @@
 //: [内部/ないぶ][配列/はいれつ]を[解放/かいほう]する
 //:
 //: ### [仕様/しよう]
-//: - `Fenwick` は `new` が[確保/かくほ]した `n + 1` 要素の 1-indexed `bit` `Vec<i32>` を[所有/しょゆう]します。
-//: - `free` はその owner invariant に[基/もと]づき、`Vec<i32>` owner を[閉/と]じます。
+//: - `Fenwick` は `new` が[確保/かくほ]した `n + 1` 要素の 1-indexed `bit` `Vec i32` を[所有/しょゆう]します。
+//: - `free` はその owner invariant に[基/もと]づき、`Vec i32` owner を[閉/と]じます。
 //: - caller は `free` [後/ご]の `Fenwick` を[再利用/さいりよう]してはいけません。
 //:
 //: ### [計算量/けいさんりょう]

@@ -47187,3 +47187,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_neplg21_selfhost_tui_vec_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量や doccomment の増加を妨げる検査ではない。
 - `node nodesrc/test_stdlib_wasix_tui_no_unsafe_unwraps.js`、`node nodesrc/test_selfhost_source_text_no_recursive_line_map.js`、`node nodesrc/test_selfhost_mono_instance_absence.js`、`node nodesrc/test_selfhost_cli_file_io_boundary.js`、`node nodesrc/test_neplg21_selfhost_tui_vec_postfix_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check` は pass した。
 - `node nodesrc/tests.js -i stdlib/neplg2/core/mono/mono.nepl -i stdlib/neplg2/core/module/vfs.nepl --no-tree -o tmp/worker3-selfhost-mono-vfs.json -j 1` は両 doctest compile timeout。型診断は出ていない。
+
+## 2026-05-27 Agent 1 collection storage Vec helper postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、typed collection storage の `Vec u8` / `Vec i32` helper postfix を 3 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `adjacency_matrix` / `bitset` / `bloom_filter` / `counting_bloom_filter` では、`Vec u8` receiver / owner / return / value evidence から型が決まる `vec::get` / `vec::replace` / `vec::filled` / `vec::free` に移行した。
+- `disjoint_set` / `fenwick` / `sparse_set` / `segment_tree` では、`Vec i32` receiver / owner / return / value evidence から型が決まる `vec::get` / `vec::replace` / `vec::filled` / `vec::free` / `vec::len` に移行した。
+- prose の `Vec<u8>` / `Vec<i32>` は `Vec u8` / `Vec i32` に更新した。raw memory / intrinsic / generic `.T` storage / `Option<.T>` slot storage は対象外として保持した。
+- no-unsafe policy は、typed storage owner、Option-aware read、replace/fill/free boundary の契約を維持したまま、postfix-free call を確認する regex へ追従した。
+- `nodesrc/test_neplg21_collection_storage_vec_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量や doccomment の増加を妨げる検査ではない。
+- targeted policy 9 件、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
+- SparseSet / SegmentTree API doctest 直接実行は 240s timeout。partial JSON は compile timeout のみで型診断は出ていない。

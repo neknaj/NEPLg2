@@ -55,10 +55,10 @@ assert.match(hashCode, /fn\s+bloom_probe_index\s+<\(i32,i32,i32\)->i32>[\s\S]*re
 assert.match(layoutCode, /fn\s+bloom_byte_len\s+<\(i32\)->i32>[\s\S]*div_s\s+add\s+nbits\s+7\s+8/, 'BloomFilter layout module must own byte length rounding');
 assert.match(layoutCode, /fn\s+bloom_byte_index\s+<\(i32\)->i32>[\s\S]*div_s\s+bit_idx\s+8/, 'BloomFilter layout module must own byte index calculation');
 assert.match(layoutCode, /fn\s+bloom_bit_mask\s+<\(i32\)->i32>[\s\S]*shl\s+1\s+rem_s\s+bit_idx\s+8/, 'BloomFilter layout module must own bit mask calculation');
-assert.match(storageCode, /fn\s+bloom_alloc_bits\s+<\(i32,i32\)\*>Result<Vec<u8>,\s*Diag>>[\s\S]*vec::filled<u8>\s+nbytes\s+byte/, 'BloomFilter must allocate initialized byte storage through Vec.filled');
-assert.match(storageCode, /fn\s+bloom_byte_at\s+<\(&Vec<u8>,i32\)->Option<i32>>[\s\S]*vec::get<u8>[\s\S]*Option::None:[\s\S]*none/, 'BloomFilter must read bit bytes through Vec.get and expose missing bytes as Option');
-assert.match(storageCode, /fn\s+bloom_store_byte\s+<\(&Vec<u8>,i32,i32\)\*>unit>[\s\S]*vec::replace<u8>/, 'BloomFilter must update bit bytes through Vec.replace');
-assert.match(storageCode, /fn\s+bloom_free_bits\s+<\(Vec<u8>\)->unit>[\s\S]*vec::free<u8>\s+bits/, 'BloomFilter storage module must centralize Vec cleanup');
+assert.match(storageCode, /fn\s+bloom_alloc_bits\s+<\(i32,i32\)\*>Result<Vec<u8>,\s*Diag>>[\s\S]*vec::filled\s+nbytes\s+byte/, 'BloomFilter must allocate initialized byte storage through Vec.filled');
+assert.match(storageCode, /fn\s+bloom_byte_at\s+<\(&Vec<u8>,i32\)->Option<i32>>[\s\S]*vec::get\s+bits\s+byte_idx[\s\S]*Option::None:[\s\S]*none/, 'BloomFilter must read bit bytes through Vec.get and expose missing bytes as Option');
+assert.match(storageCode, /fn\s+bloom_store_byte\s+<\(&Vec<u8>,i32,i32\)\*>unit>[\s\S]*vec::replace\s+bits\s+byte_idx\s+byte/, 'BloomFilter must update bit bytes through Vec.replace');
+assert.match(storageCode, /fn\s+bloom_free_bits\s+<\(Vec<u8>\)->unit>[\s\S]*vec::free\s+bits/, 'BloomFilter storage module must centralize Vec cleanup');
 assert.match(mutationCode, /fn\s+bloom_set_bit\s+<\(&Vec<u8>,i32\)\*>unit>[\s\S]*bloom_byte_index[\s\S]*bloom_bit_mask[\s\S]*bloom_store_byte/, 'BloomFilter mutation module must own bit set read-modify-write');
 assert.match(mutationCode, /fn\s+bloom_test_bit\s+<\(&Vec<u8>,i32\)->bool>[\s\S]*bloom_byte_at[\s\S]*ne\s+and\s+cur\s+mask\s+0/, 'BloomFilter mutation module must own bit test');
 assert.match(apiCode, /fn\s+new\s+<\.T:\s*HashKey&Copy,\.H:\s*Hasher<\.T>&Copy>[\s\S]*bloom_byte_len\s+nbits[\s\S]*bloom_alloc_bits\s+nbytes\s+0/, 'BloomFilter.new must use layout and storage helpers');

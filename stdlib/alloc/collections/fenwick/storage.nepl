@@ -1,5 +1,5 @@
 //: # fenwick/storage
-//: `Fenwick` の typed `Vec<i32>` storage 操作
+//: `Fenwick` の typed `Vec i32` storage 操作
 //:
 //: ### [目的/もくてき]
 //: - 1-indexed `bit` cell の読み書き、allocation、cleanup を集約します。
@@ -14,17 +14,17 @@
 #import "core/field" as *
 
 pub fn fenwick_load_owned %fn &Vec i32 fn i32 Option i32 \bit\idx:
-    vec::get<i32> bit idx
+    vec::get bit idx
 
 pub fn fenwick_store_owned %impure fn &Vec i32 impure fn i32 impure fn i32 unit \bit\idx\value:
-    vec::replace<i32> bit idx value
+    vec::replace bit idx value
 
 pub fn fenwick_alloc_bit %impure fn i32 Result Vec i32 Diag \bit_len:
-    match vec::filled<i32> bit_len 0:
+    match vec::filled bit_len 0:
         Result::Err _e:
             diag_err diag_out_of_memory
         Result::Ok bit:
             ok bit
 
 pub fn fenwick_free_bit %fn Vec i32 unit \bit:
-    vec::free<i32> bit
+    vec::free bit

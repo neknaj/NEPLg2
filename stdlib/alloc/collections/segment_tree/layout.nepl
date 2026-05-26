@@ -20,4 +20,4 @@ pub fn seg_expected_cells %fn i32 i32 \base:
     mul base 2
 
 pub fn seg_storage_has_expected_len %fn &Vec i32 fn i32 bool \data\base:
-    eq vec::len<i32> data seg_expected_cells base
+    eq vec::len data seg_expected_cells base
