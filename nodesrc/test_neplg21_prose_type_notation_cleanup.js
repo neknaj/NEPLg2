@@ -12,10 +12,14 @@ const targetRoots = [
     "stdlib/alloc/io",
     "stdlib/alloc/string",
     "stdlib/core",
-    "stdlib/std/test",
-    "stdlib/std/text",
+    "stdlib/nm",
+    "stdlib/std",
     "stdlib/tests",
     "tests/stdlib",
+];
+
+const targetFiles = [
+    "stdlib/neplg2/README.md",
 ];
 
 const typeLikeOldApplication =
@@ -59,6 +63,9 @@ function proseText(line, inFence, relPath) {
 const files = [];
 for (const relRoot of targetRoots) {
     walk(path.join(repoRoot, relRoot), files);
+}
+for (const relFile of targetFiles) {
+    files.push(path.join(repoRoot, relFile));
 }
 
 const violations = [];

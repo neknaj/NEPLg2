@@ -1127,6 +1127,16 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_neplg21_streamio_scanner_postfix_cleanup.js`、streamio targeted source policy、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
 - `node nodesrc/tests.js -i stdlib/std/streamio/scanner.nepl -i stdlib/std/streamio/scanner/state.nepl --no-tree -o tmp/neplg21-streamio-scanner-postfix.json -j 1 --dist web/dist --assert-io` は `scanner.nepl::doctest#1` の compile timeout after 60000ms。型診断は出ていない。
 
+### 2026-05-27 prose tail type notation checkpoint
+
+- `stdlib/std/**`、`stdlib/nm/**`、`stdlib/neplg2/README.md` に残っていた prose-only の旧 `Type<...>` 型表記を NEPLg2.1 prefix 型式へ更新した。
+- 2 worker に std raw owner 型説明と nm/selfhost README 型説明を非重複 write scope として割り当てた。実コード、`//:|` doctest code、raw memory generic call、HTML literal、generic declaration は変更していない。
+- `Result<unit,str>`、`RegionToken<u8>`、`MemPtr<u8>`、`Vec<Node>`、`Vec<Inline>`、`Option<SelfhostMonoInstanceId>`、`Vec<SelfhostMonoInstanceRecord>` を prefix 型式へ移行した。
+- `nodesrc/test_neplg21_prose_type_notation_cleanup.js` の対象を `stdlib/std` と `stdlib/nm` 全体、`stdlib/neplg2/README.md` へ拡張した。検査は prose の旧型適用表記だけを検出し、コメント量や doccomment 増加を制限しない。
+- read-only subagent が `doc/examples/**` の `%fn*` 残件を source example migration 候補として分類した。これは prose-only ではないため次 checkpoint へ分離する。
+- `node nodesrc/test_neplg21_prose_type_notation_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
+- `node nodesrc/tests.js -i stdlib/std/test.nepl -i stdlib/std/env/cliarg/raw.nepl -i stdlib/std/env/cliarg/cstr.nepl -i stdlib/std/stdio/write/fd.nepl -i stdlib/std/stdio/read/buffer.nepl -i stdlib/platforms/wasix/tui/tty.nepl -i stdlib/nm/html_gen.nepl -i stdlib/nm/parser/document.nepl -i stdlib/nm/README.n.md --no-tree -o tmp/neplg21-prose-tail-type-notation.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 5/14 件完了、5 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

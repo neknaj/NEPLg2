@@ -5,7 +5,7 @@
 //: - `Document` は source view を保持し、JSON/HTML 変換時に direct serializer が再走査します。
 //:
 //: [実装/じっそう]:
-//: - strict move checking に合わせ、`Vec<Inline>` / `Vec<Node>` のような non-Copy AST raw storage を使いません。
+//: - strict move checking に合わせ、`Vec Inline` / `Vec Node` のような non-Copy AST raw storage を使いません。
 //: - block parser は入力文字列を byte index で走査し、JSON section stack は `parser/json_section` が管理します。
 //: - inline parser は `parser/json_inline` が所有し、この module は block 走査と document-level JSON 出力に集中します。
 //:
@@ -94,7 +94,7 @@ pub fn parse_markdown %fn str Document \input:
 //:
 //: [実装/じっそう]:
 //: - section stack と comma state は `parser/json_section` の Copy state で保持し、JSON の children array は section close 時に閉じます。
-//: - `Vec<Node>` / `Vec<Inline>` は使わず、StringBuilder だけで出力します。
+//: - `Vec Node` / `Vec Inline` は使わず、StringBuilder だけで出力します。
 //:
 //: [注意/ちゅうい]:
 //: - `---` は `hr` node を出力した後、現在 section を 1 段閉じます。

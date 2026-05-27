@@ -37,7 +37,7 @@ pub struct TerminalSize:
 //: TtyState: WASIX TTY state の owner
 //:
 //: [目的/もくてき]:
-//: - `tty_get` / `tty_set` に渡す 24 byte state buffer の free obligation を `RegionToken<u8>` として保持します。
+//: - `tty_get` / `tty_set` に渡す 24 byte state buffer の free obligation を `RegionToken u8` として保持します。
 //: - public API が raw `i32` pointer を所有権として返さないようにします。
 //:
 //: [注意/ちゅうい]:
@@ -48,35 +48,35 @@ pub struct TtyState:
 //: tty_state_region_ref: TTY state の region owner を借用する
 //:
 //: [目的/もくてき]:
-//: - ABI raw address を作るときだけ、`TtyState` 内部の `RegionToken<u8>` を借用します。
+//: - ABI raw address を作るときだけ、`TtyState` 内部の `RegionToken u8` を借用します。
 fn tty_state_region_ref %fn &TtyState &RegionToken u8 \state:
     field::get_ref state "region"
 
 //: tty_state_region: TTY state の region owner を取り出す
 //:
 //: [目的/もくてき]:
-//: - `restore_mode` や cleanup が free obligation を消費できるように、`TtyState` から `RegionToken<u8>` を move します。
+//: - `restore_mode` や cleanup が free obligation を消費できるように、`TtyState` から `RegionToken u8` を move します。
 fn tty_state_region %fn TtyState RegionToken u8 \state:
     field::get state "region"
 
 //: tty_state_ptr: TTY state buffer の non-owning pointer view を得る
 //:
 //: [目的/もくてき]:
-//: - `TtyState` が保持する owner から `MemPtr<u8>` view を作ります。free obligation は `TtyState` 側に残します。
+//: - `TtyState` が保持する owner から `MemPtr u8` view を作ります。free obligation は `TtyState` 側に残します。
 fn tty_state_ptr %fn &TtyState MemPtr u8 \state:
     region_ptr tty_state_region_ref state
 
 //: tty_state_raw: WASIX ABI に渡す raw address を得る
 //:
 //: [目的/もくてき]:
-//: - `tty_get` / `tty_set` の ABI 境界だけで `MemPtr<u8>` view を raw `i32` address へ落とします。
+//: - `tty_get` / `tty_set` の ABI 境界だけで `MemPtr u8` view を raw `i32` address へ落とします。
 fn tty_state_raw %fn &TtyState i32 \state:
     mem_ptr_addr tty_state_ptr state
 
 //: tty_state_free: TTY state owner を解放する
 //:
 //: [目的/もくてき]:
-//: - `TtyState` が持つ `RegionToken<u8>` を消費し、24 byte state buffer の free obligation を閉じます。
+//: - `TtyState` が持つ `RegionToken u8` を消費し、24 byte state buffer の free obligation を閉じます。
 fn tty_state_free %impure fn TtyState Result unit str \state:
     dealloc_region<u8> tty_state_region state
 

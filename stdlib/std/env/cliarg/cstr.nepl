@@ -19,7 +19,7 @@
 //: cstr_len_bounded_result: NUL 終端文字列の長さを bounded checked load で求める
 //:
 //: 目的:
-//: - `MemPtr<u8>` と読み取り上限で与えられた C 文字列の長さを返します。
+//: - `MemPtr u8` と読み取り上限で与えられた C 文字列の長さを返します。
 //: - NUL が上限内に見つからない場合は `Err` にします。
 //:
 //: 実装(アルゴリズム):
@@ -92,7 +92,7 @@ pub fn cstr_len_bounded_result %impure fn MemPtr u8 impure fn i32 Result i32 str
 //: cstr_to_str_bounded_result: NUL 終端文字列を UTF-8 検証して `str` にコピーする
 //:
 //: 目的:
-//: - `MemPtr<u8>` と読み取り上限で与えられた C 文字列を、独立した `str` にコピーします。
+//: - `MemPtr u8` と読み取り上限で与えられた C 文字列を、独立した `str` にコピーします。
 //: - NUL 終端が上限内にあることと、NUL より前の byte 列が UTF-8 として妥当であることを確認します。
 //:
 //: 実装(アルゴリズム):

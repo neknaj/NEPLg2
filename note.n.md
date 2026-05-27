@@ -1,3 +1,13 @@
+# 2026-05-27 Agent 1 prose tail type notation checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として `stdlib/std/**`、`stdlib/nm/**`、`stdlib/neplg2/README.md` に残っていた prose-only 旧 `Type<...>` 表記を prefix 型式へ更新した。`plan.md` は確認したが変更していない。
+- 2 worker に `stdlib/std` 側の raw owner 型説明と、`stdlib/nm` / selfhost README 側の AST / mono cache 型説明を非重複 write scope として割り当てた。編集対象は doccomment / README prose だけで、実コード、`//:|` doctest code、raw memory generic call、HTML literal、generic declaration は変更していない。
+- `Result<unit,str>`、`RegionToken<u8>`、`MemPtr<u8>`、`Vec<Node>`、`Vec<Inline>`、`Option<SelfhostMonoInstanceId>`、`Vec<SelfhostMonoInstanceRecord>` を `Result unit str`、`RegionToken u8`、`MemPtr u8`、`Vec Node`、`Vec Inline`、`Option SelfhostMonoInstanceId`、`Vec SelfhostMonoInstanceRecord` へ移行した。
+- `nodesrc/test_neplg21_prose_type_notation_cleanup.js` の対象を `stdlib/std` と `stdlib/nm` 全体、`stdlib/neplg2/README.md` へ拡張した。この検査は prose の旧型適用表記だけを検出し、コメント量や doccomment の増加を妨げない。
+- subagent の独立調査では、`doc/examples/**` の `%fn*` は source example と prose の両方に残っており、`%impure fn` / `impure fn` への機械移行候補として確認した。multi-argument の `%fn* str fn str ...` は parser/type normalization を確認して次 checkpoint で扱う。
+- `node nodesrc/test_neplg21_prose_type_notation_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
+- `node nodesrc/tests.js -i stdlib/std/test.nepl -i stdlib/std/env/cliarg/raw.nepl -i stdlib/std/env/cliarg/cstr.nepl -i stdlib/std/stdio/write/fd.nepl -i stdlib/std/stdio/read/buffer.nepl -i stdlib/platforms/wasix/tui/tty.nepl -i stdlib/nm/html_gen.nepl -i stdlib/nm/parser/document.nepl -i stdlib/nm/README.n.md --no-tree -o tmp/neplg21-prose-tail-type-notation.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 5/14 件完了、5 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
+
 # 2026-05-27 Agent 1 streamio scanner postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として `streamio` scanner の cursor state に残っていた `Vec i32` helper call postfix を撤廃した。`plan.md` は変更していない。

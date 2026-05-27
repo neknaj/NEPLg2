@@ -72,7 +72,7 @@ fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr
 //: stdio_discard_read_buffer: owner 付き読込 region を破棄して Err を返す
 //:
 //: [目的/もくてき]:
-//: - read loop 側の error path で、`RegionToken<u8>` owner の破棄と `Result::Err` の構築を同じ所有権境界に閉じ込めます。
+//: - read loop 側の error path で、`RegionToken u8` owner の破棄と `Result::Err` の構築を同じ所有権境界に閉じ込めます。
 //:
 //: [注意/ちゅうい]:
 //: - `region` はこの関数が必ず消費します。
@@ -113,12 +113,12 @@ pub fn stdio_discard_read_buffer %impure fn RegionToken u8 impure fn StdErrorKin
 //: stdio_finish_read_buffer: capacity 付き読込 region を ByteBuf の所有権 invariant へ詰め直す
 //:
 //: [目的/もくてき]:
-//: - `RegionToken<u8>` で所有している一時読込 buffer を、`ByteBuf.region` が `ByteBuf.len` byte の所有領域を持つ形へ戻します。
+//: - `RegionToken u8` で所有している一時読込 buffer を、`ByteBuf.region` が `ByteBuf.len` byte の所有領域を持つ形へ戻します。
 //:
 //: [実装/じっそう]:
 //: - 読込長が 0 の場合は元 region を解放し、空 `ByteBuf` を返します。
 //: - 読込長が region size 未満の場合は `realloc_region_bytes_keep` で exact-size に shrink してから `ByteBuf` にします。
-//: - `MemPtr` は non-owning view なので、この helper は `RegionToken<u8>` owner だけを受け取り、成功/失敗のどちらでも owner の行方を閉じます。
+//: - `MemPtr` は non-owning view なので、この helper は `RegionToken u8` owner だけを受け取り、成功/失敗のどちらでも owner の行方を閉じます。
 //:
 //: [注意/ちゅうい]:
 //: - 成功時は返った `ByteBuf` が buffer を所有します。

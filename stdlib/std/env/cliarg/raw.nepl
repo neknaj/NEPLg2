@@ -4,7 +4,7 @@
 //: ### [目的/もくてき]
 //: - `args_sizes_get` / `args_get` と、その LLVM fallback を `std/env/cliarg` root から分離します。
 //: - public `cliarg_*` API は raw syscall / scratch buffer の詳細を直接持たず、この module の checked helper を使います。
-//: - scratch buffer の free obligation は `RegionToken<u8>` が持ち、`MemPtr<u8>` は raw ABI と checked byte access の non-owning view としてだけ使います。
+//: - scratch buffer の free obligation は `RegionToken u8` が持ち、`MemPtr u8` は raw ABI と checked byte access の non-owning view としてだけ使います。
 
 #indent 4
 

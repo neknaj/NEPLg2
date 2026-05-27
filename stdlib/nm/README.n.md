@@ -153,7 +153,7 @@ B-1-a の[中/なか]です。
 # [設計/せっけい]の[考/かんが]えかた（source view と direct serializer）
 現在の stdlib 実装では、[静的/せいてき][検査/けんさ]の raw memory ownership [制約/せいやく]に[合/あ]わせて、`Document` は source view として[入力/にゅうりょく][文字列/もじれつ]を[保持/ほじ]します。
 
-JSON / HTML [変換/へんかん]は、`Document` の source を[再走査/さいそうさ]して direct に[出力/しゅつりょく][文字列/もじれつ]を[構築/こうちく]します。これにより、`Vec<Inline>` や `Vec<Node>` のような non-Copy AST を raw storage に[置/お]かず、strict move checking と[矛盾/むじゅん]しない[形/かたち]にしています。
+JSON / HTML [変換/へんかん]は、`Document` の source を[再走査/さいそうさ]して direct に[出力/しゅつりょく][文字列/もじれつ]を[構築/こうちく]します。これにより、`Vec Inline` や `Vec Node` のような non-Copy AST を raw storage に[置/お]かず、strict move checking と[矛盾/むじゅん]しない[形/かたち]にしています。
 
 将来、compiler 側に owned AST の field move / drop / arena ownership を[安全/あんぜん]に[扱/あつか]う Resource IR が[入/はい]った[段階/だんかい]で、下のような AST [表現/ひょうげん]を[公開/こうかい][構造/こうぞう]として[戻/もど]すか[検討/けんとう]します。
 

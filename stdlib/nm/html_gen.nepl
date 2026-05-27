@@ -4,7 +4,7 @@
 //: - `nm/parser` の `Document` source view を HTML へ変換します。
 //:
 //: [実装/じっそう]:
-//: - parser と同じく source を direct に再走査し、`Vec<Node>` / `Vec<Inline>` の non-Copy AST raw storage を作りません。
+//: - parser と同じく source を direct に再走査し、`Vec Node` / `Vec Inline` の non-Copy AST raw storage を作りません。
 //: - section stack は最大 heading level 6 の Copy state で管理し、HTML tag は close 時に直接出力します。
 //:
 //: [注意/ちゅうい]:
@@ -40,7 +40,7 @@
 //:
 //: [目的/もくてき]:
 //: - Document source を block 単位で走査し、section / heading / paragraph / code fence / horizontal rule を HTML にします。
-//: - `Vec<Node>` を構築せず、parser の source view から直接 serializer output を作ります。
+//: - `Vec Node` を構築せず、parser の source view から直接 serializer output を作ります。
 //:
 //: [実装/じっそう]:
 //: - section stack の state 遷移と tag 生成は `html_section` module に委譲します。

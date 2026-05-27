@@ -32,7 +32,7 @@
 //:
 //: ### [注意/ちゅうい]
 //: - `iov` は 8 byte、`nwritten` は 4 byte、`data` は `data_len` byte 以上の有効領域を指している必要があります。
-//: - 呼び出し元の `stdio_write_fd_mem_result` は `iov` / `nwritten` を local `RegionToken<u8>` owner から導出します。
+//: - 呼び出し元の `stdio_write_fd_mem_result` は `iov` / `nwritten` を local `RegionToken u8` owner から導出します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -80,7 +80,7 @@ fn stdio_fd_write_from_result %impure fn i32 impure fn MemPtr u8 impure fn MemPt
 //: ### [実装/じっそう]
 //: - WASI `fd_write(fd, iov, 1, nwritten)` を[呼/よ]び、`nwritten` が[残/のこ]り byte [数/すう]より[小/ちい]さい[場合/ばあい]は offset を[進/すす]めて[再試行/さいしこう]します。
 //: - `fd_write` error、`nwritten == 0`、iov [確保/かくほ][失敗/しっぱい]は `StdErrorKind::IoError` へ[正規化/せいきか]します。
-//: - `iov` / `nwritten` はこの関数だけが所有する `RegionToken<u8>` scratch 領域です。raw ABI layout は `std/stdio/raw` 境界へ委譲し、終了前に `dealloc_region` で必ず解放します。
+//: - `iov` / `nwritten` はこの関数だけが所有する `RegionToken u8` scratch 領域です。raw ABI layout は `std/stdio/raw` 境界へ委譲し、終了前に `dealloc_region` で必ず解放します。
 //:
 //: ### [注意/ちゅうい]
 //: - `data` の[所有権/しょゆうけん]は[受/う]け[取/と]りません。呼び出し側が lifetime と解放を[管理/かんり]します。
@@ -259,7 +259,7 @@ pub fn stdio_write_fd_bytebuilder_prefix_result %impure fn i32 impure fn &ByteBu
 //: fd を[指定/してい]して 1 byte を[書/か]き[出/だ]す
 //:
 //: ### [目的/もくてき]
-//: - 1 byte scratch owner を `RegionToken<u8>` に閉じ、single-byte output が raw `MemPtr` API を公開しないようにします。
+//: - 1 byte scratch owner を `RegionToken u8` に閉じ、single-byte output が raw `MemPtr` API を公開しないようにします。
 //:
 //: neplg2:test
 //: ret: 0
