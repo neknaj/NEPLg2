@@ -128,11 +128,25 @@ async function runShellWorkerRegression() {
         assert.deepEqual(Array.from(FakeWorker.instances[0].messages[0].runtimeVfsData['/out/cache.bin']), [1, 2, 3]);
         assert.ok(vfs.readFile('/out.wasm') instanceof Uint8Array);
         assert.equal(vfs.readFile('/out.wat'), '(module)');
+        assert.equal(FakeWorker.instances[0].terminated, false);
+
+        const secondBuildResult = await shell.cmdNeplg2(['build', '-i', '/examples/demo.nepl', '--emit', 'wasm']);
+        assert.equal(secondBuildResult, 'Build complete.');
+        assert.equal(FakeWorker.instances.length, 1);
+        assert.equal(FakeWorker.instances[0].messages[1].type, 'execute-neplg2');
 
         const runResult = await shell.cmdWasmi(['/out.wasm']);
         assert.equal(runResult, null);
         assert.equal(FakeWorker.instances[1].messages[0].type, 'run-wasm');
-        assert.equal(terminal.written.join(''), 'ok\n');
+        assert.equal(FakeWorker.instances[1].terminated, true);
+
+        const compileAndRunResult = await shell.cmdNeplg2(['run', '-i', '/examples/demo.nepl']);
+        assert.equal(compileAndRunResult, null);
+        assert.equal(FakeWorker.instances[0].messages[2].type, 'execute-neplg2');
+        assert.equal(FakeWorker.instances[0].messages[2].runAfterBuild, false);
+        assert.equal(FakeWorker.instances[2].messages[0].type, 'run-wasm');
+        assert.equal(FakeWorker.instances[2].terminated, true);
+        assert.equal(terminal.written.join(''), 'ok\nok\n');
 
         return {
             ok: true,
@@ -140,6 +154,8 @@ async function runShellWorkerRegression() {
                 'compiler asset urls resolve from the explicit window snapshot',
                 'neplg2 build uses the worker compile protocol instead of main-thread bindings',
                 'compile worker requests separate source overlay from runtime VFS state',
+                'neplg2 build reuses one compiler worker across compile requests',
+                'neplg2 run compiles through the persistent worker and executes through an ephemeral runtime worker',
                 'compile outputs are written back to the VFS on the main thread',
                 'wasmi execution also uses the worker protocol and streams stdout',
             ],

@@ -8,9 +8,11 @@ const path = require("node:path");
 const repoRoot = path.resolve(__dirname, "..");
 const tutorialRuntimePath = path.join(repoRoot, "nodesrc", "static", "playground_runtime.js");
 const workerPath = path.join(repoRoot, "web", "src", "runtime", "worker.ts");
+const shellPath = path.join(repoRoot, "web", "src", "terminal", "shell.ts");
 
 const tutorialRuntime = fs.readFileSync(tutorialRuntimePath, "utf8");
 const worker = fs.readFileSync(workerPath, "utf8");
+const shell = fs.readFileSync(shellPath, "utf8");
 
 assert.match(
     tutorialRuntime,
@@ -62,6 +64,26 @@ assert.match(
     worker,
     /request\.runtimeVfsData/,
     "playground worker must keep the full runtime VFS for WASI execution",
+);
+assert.match(
+    shell,
+    /private\s+compilerWorker:\s*Worker\s*\|\s*null/,
+    "playground shell must retain a compiler worker across compile requests",
+);
+assert.match(
+    shell,
+    /compilerWorkerForSession\(request\.compiler\)/,
+    "playground shell must route execute-neplg2 through the persistent compiler worker",
+);
+assert.match(
+    shell,
+    /keepWorkerAlive:\s*true/,
+    "playground shell must keep the compiler worker alive after successful compile requests",
+);
+assert.match(
+    shell,
+    /finish\(true\)/,
+    "playground shell must terminate the persistent compiler worker after a worker-level error",
 );
 
 console.log("playground compiler session policy passed");

@@ -47349,3 +47349,10 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_playground_compiler_session_policy.js` を追加し、Web worker と tutorial runtime が session-aware API を優先することを固定した。コメントや doccomment の増加を妨げる検査ではない。
 - `trunk build --release` 後の smoke では、release WASM minimal warm `compile_ms=3`、`stdlib_vfs_mode=bundled`、`compiler_session=true` を確認した。
 - `cargo fmt --check`、`npm --prefix web run build:ts`、`trunk build --release`、`node nodesrc/playground_shell_worker_test_runner.js`、`node nodesrc/playground_workspace_test_runner.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/test_run_test_compiler_session.js` は pass した。
+
+## 2026-05-27 Agent 1 persistent playground compiler worker
+
+- Web terminal の `execute-neplg2` compile worker を artifact URL 単位で保持し、連続 build が同じ Worker / WASM instance / `CompilerSession` を再利用するようにした。`plan.md` は変更していない。
+- subagent review に従い、`neplg2 run` は compile だけ persistent worker を使い、生成 wasm の実行は一回限りの runtime worker へ分離した。これにより CompilerSession の warm state と WASI process の stdin / runtime VFS / trap state が混ざらない。
+- compile worker の `worker.onerror` と interrupt は persistent worker を破棄する。worker が post する compile phase の recoverable error は session を維持できる形にし、fatal worker error と区別した。
+- `nodesrc/playground_shell_worker_test_runner.js` と `nodesrc/test_playground_compiler_session_policy.js` を更新し、連続 build での Worker 再利用、`neplg2 run` の compile/runtime worker 分離、persistent worker の fatal error 破棄を固定した。コメントや doccomment の増加を妨げる検査ではない。

@@ -21,6 +21,8 @@ type WorkerExitMessage = {
 type WorkerErrorMessage = {
     type: 'error';
     message: string;
+    phase: 'compile' | 'runtime' | 'worker';
+    recoverable: boolean;
 };
 
 type WorkerMessage =
@@ -222,7 +224,7 @@ async function runWasmBinary(bin: Uint8Array, args: string[], env: Record<string
     }
 }
 
-async function executeNeplg2(request: ExecuteNeplg2Request) {
+async function compileNeplg2Outputs(request: ExecuteNeplg2Request): Promise<Record<string, string | Uint8Array>> {
     const compilerModule = await loadCompilerBindings(request.compiler);
     const compilerApi = compilerApiForSession(compilerModule);
     const emitArg: string | string[] = request.emitValues.length === 1 ? request.emitValues[0] : request.emitValues;
@@ -233,7 +235,11 @@ async function executeNeplg2(request: ExecuteNeplg2Request) {
         emitArg,
         request.attachSource
     );
-    const clonedOutputs = cloneCompileOutputs(outputs);
+    return cloneCompileOutputs(outputs);
+}
+
+async function executeNeplg2(request: ExecuteNeplg2Request) {
+    const clonedOutputs = await compileNeplg2Outputs(request);
     postWorkerMessage({ type: 'compile_result', outputs: clonedOutputs });
 
     if (!request.runAfterBuild) {
@@ -269,9 +275,12 @@ self.onmessage = async (event: MessageEvent<IncomingMessage>) => {
             await executeNeplg2(message);
         }
     } catch (error: any) {
+        const phase = message.type === 'execute-neplg2' && !message.runAfterBuild ? 'compile' : 'runtime';
         postWorkerMessage({
             type: 'error',
             message: error?.message ? String(error.message) : String(error),
+            phase,
+            recoverable: phase === 'compile',
         });
     }
 };

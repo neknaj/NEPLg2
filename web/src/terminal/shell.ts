@@ -20,6 +20,8 @@ type WorkerExitMessage = {
 type WorkerErrorMessage = {
     type: 'error';
     message: string;
+    phase?: 'compile' | 'runtime' | 'worker';
+    recoverable?: boolean;
 };
 
 type WorkerMessage =
@@ -57,6 +59,8 @@ type WorkerRequest = RunWasmWorkerRequest | ExecuteNeplg2WorkerRequest;
 
 type WorkerProcessOptions = {
     onCompileResult?: (outputs: Record<string, string | Uint8Array>) => void;
+    /** Compile 用 Worker の WASM instance と CompilerSession を次回 compile に再利用する。 */
+    keepWorkerAlive?: boolean;
 };
 
 export class Shell {
@@ -67,6 +71,8 @@ export class Shell {
     history: string[];
     historyIndex: number;
     private activeWorker: Worker | null;
+    private compilerWorker: Worker | null;
+    private compilerWorkerAssetKey: string | null;
     private sab: SharedArrayBuffer | null;
     private stdinBuffer: Int32Array | null;
     private stdinData: Uint8Array | null;
@@ -84,6 +90,8 @@ export class Shell {
         this.history = [];
         this.historyIndex = 0;
         this.activeWorker = null;
+        this.compilerWorker = null;
+        this.compilerWorkerAssetKey = null;
         this.sab = null;
         this.stdinBuffer = null;
         this.stdinData = null;
@@ -226,14 +234,15 @@ export class Shell {
             runtimeVfsData: this.vfs.serialize(),
             emitValues,
             attachSource,
-            runAfterBuild: wantsRun,
-            runArgs: wasmOutFile ? [wasmOutFile] : [],
+            runAfterBuild: false,
+            runArgs: [],
             env: Object.fromEntries(this.env),
             sab: this.ensureStdinBuffer(),
         };
 
         try {
-            const result = await this.runWorkerProcess(request, {
+            await this.runWorkerProcess(request, {
+                keepWorkerAlive: true,
                 onCompileResult: (outputs) => {
                     this.persistCompileOutputs(outBase, outputs);
                     this.terminal.print('Compilation finished.');
@@ -242,9 +251,31 @@ export class Shell {
             if (!wantsRun) {
                 return 'Build complete.';
             }
-            return result;
         } catch (error: any) {
             return error?.message ? `Compilation Failed: ${error.message}` : `Compilation Failed: ${error}`;
+        }
+
+        if (!wasmOutFile) {
+            return 'Compilation Failed: compiled outputs do not contain a runnable wasm binary';
+        }
+
+        const wasmOutput = this.vfs.readFile(wasmOutFile);
+        if (!(wasmOutput instanceof Uint8Array)) {
+            return 'Compilation Failed: compiled outputs do not contain a runnable wasm binary';
+        }
+
+        this.terminal.print(`Executing ${wasmOutFile} ...`);
+        try {
+            return await this.runWorkerProcess({
+                type: 'run-wasm',
+                bin: wasmOutput,
+                args: [wasmOutFile],
+                env: Object.fromEntries(this.env),
+                vfsData: this.vfs.serialize(),
+                sab: this.ensureStdinBuffer(),
+            });
+        } catch (error: any) {
+            return `Execution Failed: ${error?.message ? error.message : error}`;
         }
     }
 
@@ -391,20 +422,51 @@ export class Shell {
         return new Worker(new URL('../runtime/worker.js', import.meta.url), { type: 'module' });
     }
 
+    /** Compiler artifact が変わったかを判定するための session identity を作る。 */
+    private compilerAssetKey(compiler: CompilerAssetUrls): string {
+        return `${compiler.moduleUrl}\n${compiler.wasmUrl}`;
+    }
+
+    /**
+     * Compile 専用 Worker は、同じ artifact を使う限り複数 compile にまたがって保持する。
+     * Worker 内の wasm-bindgen module と CompilerSession が温まることで、次段階の
+     * parsed stdlib / typecheck cache を UI 側の API 変更なしに利用できる。
+     */
+    private compilerWorkerForSession(compiler: CompilerAssetUrls): Worker {
+        const key = this.compilerAssetKey(compiler);
+        if (this.compilerWorker && this.compilerWorkerAssetKey !== key) {
+            this.compilerWorker.terminate();
+            this.compilerWorker = null;
+            this.compilerWorkerAssetKey = null;
+        }
+        if (!this.compilerWorker) {
+            this.compilerWorker = this.createWorker();
+            this.compilerWorkerAssetKey = key;
+        }
+        return this.compilerWorker;
+    }
+
     private async runWorkerProcess(request: WorkerRequest, options: WorkerProcessOptions = {}): Promise<any> {
         if (this.stdinBuffer) {
             Atomics.store(this.stdinBuffer, 0, 0);
         }
 
         return new Promise((resolve, reject) => {
-            const worker = this.createWorker();
+            const worker = request.type === 'execute-neplg2' && options.keepWorkerAlive
+                ? this.compilerWorkerForSession(request.compiler)
+                : this.createWorker();
             this.activeWorker = worker;
             this.currentProcessReject = reject;
 
-            const finish = () => {
+            const shouldKeepWorker = options.keepWorkerAlive && worker === this.compilerWorker;
+            const finish = (forceTerminate: boolean = false) => {
                 this.activeWorker = null;
                 this.currentProcessReject = null;
-                worker.terminate();
+                worker.onmessage = null;
+                worker.onerror = null;
+                if (forceTerminate || !shouldKeepWorker) {
+                    worker.terminate();
+                }
             };
 
             worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
@@ -423,7 +485,13 @@ export class Shell {
                         resolve(message.code === 0 ? null : `Program exited with code ${message.code}`);
                         break;
                     case 'error':
-                        finish();
+                        if (worker === this.compilerWorker && !message.recoverable) {
+                            this.compilerWorker = null;
+                            this.compilerWorkerAssetKey = null;
+                            finish(true);
+                        } else {
+                            finish();
+                        }
                         reject(new Error(message.message));
                         break;
                     case 'stdin_request':
@@ -432,7 +500,11 @@ export class Shell {
             };
 
             worker.onerror = (event) => {
-                finish();
+                if (worker === this.compilerWorker) {
+                    this.compilerWorker = null;
+                    this.compilerWorkerAssetKey = null;
+                }
+                finish(true);
                 reject(new Error(`Worker error: ${event.message}`));
             };
 
@@ -557,6 +629,10 @@ export class Shell {
     interrupt() {
         if (!this.activeWorker) {
             return;
+        }
+        if (this.activeWorker === this.compilerWorker) {
+            this.compilerWorker = null;
+            this.compilerWorkerAssetKey = null;
         }
         this.activeWorker.terminate();
         this.activeWorker = null;

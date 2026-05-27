@@ -36,6 +36,7 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - 同 checkpoint で bundled stdlib content hash を artifact に埋め込み、Node runner は hash が一致する場合にだけ bundled stdlib を使う。hash API のない旧 artifact では mtime fallback を維持する。
 - Web playground worker と tutorial runtime も method 単位で `CompilerSession` を優先するようにし、full stdlib VFS object を通常の compile path から外した。
 - Web playground の workspace compile request は read-only stdlib files と runtime data files を overlay VFS へ含めず、editable `.nepl` user source だけを送るようにした。WASI 実行用の full VFS snapshot は `runtimeVfsData` として compile overlay から分離した。
+- Web terminal は compile 用 Worker を artifact URL 単位で保持するようにし、連続 build では同じ WASM instance / `CompilerSession` を再利用する。`neplg2 run` は compile だけ persistent Worker を使い、生成 wasm の実行は一回限りの runtime Worker に分離した。
 
 ## 問題
 
@@ -55,7 +56,7 @@ MVP は次の順に進める。
 
 1. `nepl-web` に `CompilerSession` wasm-bindgen class を公開し、Node runner が session API を優先する状態にする。
 2. `nepl-core` に source text / lex / parse / import graph / type arity を query として分離する session API を追加する。
-3. Web terminal の worker を compile ごとに破棄せず、同一 WASM instance / `CompilerSession` が複数 compile にまたがって warm state を保持するようにする。
+3. Web terminal の worker を compile ごとに破棄せず、同一 WASM instance / `CompilerSession` が複数 compile にまたがって warm state を保持するようにする。これは実装済みなので、次は `CompilerSession` 側へ semantic cache を載せる。
 4. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。
 5. stdlib artifact に public signature table、trait impl index、source capability tableを持たせ、通常 compile では entry source と overlay source だけを新規処理する。
 6. Resource IR summary を function hash + source capability hash + type argument hash で cache し、entry から到達する changed functions だけを再計算する。
