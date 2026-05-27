@@ -301,7 +301,7 @@ hash に含めないもの:
 - `FileId`、`Span`、`SourceMap`、`ImportResolution`。
 - typed HIR、`TypeCtx` / `TypeId`、mangled symbol、Resource IR、codegen fragment。
 
-subagent review では、public signature text が同じでも private import / prelude / include の解決先が変われば typed public surface が変わり得ること、public alias が private helper を公開する場合は helper signature を key に含める必要があること、`noshadow` は cross-file binding behavior の一部であることが指摘された。今回の実装ではこの範囲を loader artifact に反映した。一方で、dependency aggregate hash、reverse graph、canonical typed signature table はまだ未実装であるため、次 checkpoint では `SourceImportEdge` と module `public_surface_hash` を畳み込む query を `LoaderSessionCache` とは別の semantic cache 境界へ接続する。
+subagent review では、public signature text が同じでも private import / prelude / include の解決先が変われば typed public surface が変わり得ること、public alias が private helper を公開する場合は helper signature を key に含める必要があること、`noshadow` は cross-file binding behavior の一部であることが指摘された。今回の実装ではこの範囲を loader artifact に反映した。この時点では dependency aggregate hash、reverse graph、canonical typed signature table が未実装だったため、次 checkpoint で `SourceImportEdge` と module `public_surface_hash` を畳み込む query を `LoaderSessionCache` とは別の semantic cache 境界へ接続する方針にした。
 
 追加 regression:
 
@@ -333,7 +333,7 @@ subagent review では、public signature text が同じでも private import / 
 - aggregate cache key は canonical stdlib root、canonical module path、module public surface hash、child dependency aggregate hash であり、source body hash ではない。これにより body-only edit は parsed module cache miss になっても aggregate public surface cache は再利用できる。
 - non-stdlib dependency edge は bundled stdlib aggregate cache の対象外なので、provider で読まず conservative external hash にして `dependency_aggregate_public_surface_hash_bypasses` で観測する。
 - import cycle に戻る edge は source hash を含む conservative cycle hash にする。body-only edit でも過剰 invalidation し得るが、stale typed cache を作らないことを優先する。
-- `CompilerSession.prewarm_loader_cache_for_source` は source-directed prewarm だけを行う。dependency aggregate public surface hash は typed public surface / Resource IR summary cache の invalidation key として使う設計段階の artifact であり、Web playground の compile 前 hot path ではまだ計算しない。
+- `CompilerSession.prewarm_loader_cache_for_source` は source-directed prewarm だけを行う。dependency aggregate public surface hash は通常の bundled-stdlib compile path で `ResourceSummaryCacheNamespaceKey` の入力として消費するが、Web playground の compile 前 prewarm hot path では計算しない。
 - `CompilerSession.loader_cache_stats_json()` は `dependency_aggregate_public_surface_hash_hits` / `misses` / `stores` / `bypasses` を返す。
 
 追加 regression:
@@ -378,7 +378,7 @@ subagent review では、public signature text が同じでも private import / 
 | Web release RPN doctest first | `web/examples/rpn.nepl` + same `CompilerSession` | `compile_ms=8976`、`prewarm_ms=193`、`wasm_call_ms=8783`、`compiled_output_cache_hits=0`、`stores=2` |
 | Web release RPN doctest second | same source / same `CompilerSession` | `compile_ms=1`、`prewarm_ms=1`、`wasm_call_ms=0`、`compiled_output_cache_hits=1`、`stores=2` |
 
-この checkpoint は「同じ入力の再compile」を 10ms 未満にするが、初回 compile はまだ 9 秒級である。RPN では `resource_initialized_raw_init_summaries` と `resource_initialized_function_checks` が支配的であり、i32 scalar query cache 後も full Resource IR pipeline が残る。したがって次段階は、dependency aggregate public surface hash を typed public signature table / Resource IR summary cache の invalidation key に接続し、変更されていない stdlib / user function の summary を再利用する。
+この checkpoint は「同じ入力の再compile」を 10ms 未満にするが、初回 compile はまだ 9 秒級である。RPN では `resource_initialized_raw_init_summaries` と `resource_initialized_function_checks` が支配的であり、i32 scalar query cache 後も full Resource IR pipeline が残る。したがって次段階は、dependency aggregate public surface hash と typed public signature hash を使う Resource summary namespace の下で、変更されていない stdlib / user function の summary value を再利用する。
 
 現在の compiled-output cache key は stale hit を避けるため、entry source と compile VFS 全体を含める。これは安全だが、未使用の editable `.nepl` file が変わっただけでも false miss になる。依存 closure に基づく output cache key は、typed public surface / import graph cache と同じ invalidation 証明が必要なので、この checkpoint では実装しない。
 
@@ -444,17 +444,23 @@ table に含める内容:
 
 table には関数本体を含めない。これにより body-only edit は semantic cache key を変えず、public callable type edit は key を変える。現在は `TypeCheckResult.public_signatures` として露出し、regression では body-only edit で `stable_hash` が不変、public callable return type edit で変化することを固定している。
 
-この checkpoint は Resource IR summary reuse にはまだ接続しない。次段階では、loader の dependency aggregate public surface hash と typed public signature hash を組み合わせ、stdlib module の typed check / Resource IR summary cache の invalidation key として使う。
+この checkpoint は Resource IR summary reuse にはまだ接続しない。次段階では、loader の dependency aggregate public surface hash と typed public signature hash を組み合わせる namespace key を compiler pipeline へ接続し、stdlib module の typed check / Resource IR summary cache の invalidation key として使う。
 
 2026-05-28 の追加 staging では、`TypedPublicSignatureTable` を `TypeCheckResult` から `PreparedProgram` まで通すようにした。これは cache value の再利用ではなく、Resource IR summary cache key を構築するための入力を compiler pipeline の後段へ運ぶだけである。`PreparedProgram` に保持される table も stable text / hash のみで、typed HIR や `TypeId` を session cache value として保存するものではない。
 
-2026-05-28 の Resource summary namespace key checkpoint では、`ResourceSummaryCacheNamespaceKey` を `PreparedProgram` に追加した。この key は `neplg2-resource-summary-cache-namespace-v1`、target、profile、typed public signature hash、任意の dependency public surface hash を決定的に hash 化する。現時点の compile path では dependency aggregate をまだ渡さず `None` とし、Web / Node prewarm hot path でも dependency aggregate を同期計算しない。
+2026-05-28 の Resource summary namespace key checkpoint では、`ResourceSummaryCacheNamespaceKey` を `PreparedProgram` に追加した。この key は `neplg2-resource-summary-cache-namespace-v1`、target、profile、typed public signature hash、任意の dependency public surface hash を決定的に hash 化する。最初の checkpoint では compile path へ dependency aggregate をまだ渡さず `None` とし、Web / Node prewarm hot path でも dependency aggregate を同期計算しない境界だけを固定した。
 
 この key は Resource IR summary cache の「名前空間」を分けるための staging artifact であり、Resource IR summary value の hit / store はまだ実装しない。`TypeId`、`Span`、`SourceMap`、typed HIR、Resource IR body、diagnostic span、codegen fragment は key に保存しない。次段階では、この namespace key に function body hash、source capability policy hash、generic type-argument hash を組み合わせ、到達 function ごとの summary reuse へ進める。
 
 regression では、public function の body-only edit で namespace key が変わらず、public callable return type edit で変わることを固定した。さらに dependency public surface hash option が変われば同じ typed public signature hash でも別 namespace になることを固定し、loader から dependency aggregate を接続する次段階の入力境界を明確にした。
 
 native release RPN stage-only 測定は、`resource_typecheck=121ms`、`resource_initialized_i32_scalar_summaries=1270ms`、`resource_initialized_raw_init_summaries=2187ms`、`resource_initialized_function_checks=3063ms`、`resource_static_check=7353ms` だった。この checkpoint は namespace key の staging であり、summary value reuse による初回 compile 0.5 秒未満はまだ達成していない。
+
+2026-05-28 の dependency namespace connection checkpoint では、session-backed bundled stdlib compile path だけが loader の `root_dependency_aggregate_public_surface_hash_for_source_with_cache` を呼び、その結果を `ResourceSummaryCacheNamespaceKey` へ渡すようにした。汎用 `CompileOptions` は増やさず、明示 helper `compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash` で Web session path からだけ入力する。
+
+この接続は prewarm では実行しない。`nodesrc/test_run_test_compiler_session.js` では、`prewarm_loader_cache_for_source` の前後で dependency aggregate counter が増えず、compile call の前後でだけ増えることを固定した。compiled-output cache hit を返す経路でも、dependency aggregate counter が増えないことを stub で固定した。`/stdlib` overlay や forced stdlib VFS では loader cache が bypass されるため、namespace key には dependency public surface hash を渡さない。
+
+Web release RPN doctest 測定では、初回 `compile_ms=9095`、`prewarm_ms=210`、`wasm_call_ms=8884`、2 回目 `compile_ms=1`、`wasm_call_ms=0` だった。prewarm cache stats では dependency aggregate hit/miss/store が増えず、compile 本体で `dependency_aggregate_public_surface_hash_hits` が `0 -> 4`、`misses` が `4 -> 122`、`stores` が `4 -> 122` になった。これは Resource summary value reuse ではないため、初回 compile 0.5 秒未満はまだ未達である。
 
 2026-05-28 の variant-param summary checkpoint では、raw initialization summary 内の variant-param collector を呼ぶ前に、return value を直接 output とする top-level `Branch` が block に存在するかを確認するようにした。collector は現時点でその `Branch` だけを facts 抽出対象にしているため、該当しない block で `ResourceCheckEngine` prefix replay を起動しても新しい variant-param facts は得られない。このため、観測できる証明境界を広げずに探索空間だけを削減する。
 

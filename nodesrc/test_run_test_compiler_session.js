@@ -16,6 +16,7 @@ const { runSingle } = require('./run_test');
     let sessionCalled = false;
     let prewarmCalled = false;
     let cacheStatsCalls = 0;
+    let dependencyAggregateHits = 3;
     const result = await runSingle(
         {
             id: 'nodesrc/run_test/compiler-session',
@@ -48,7 +49,7 @@ const { runSingle } = require('./run_test');
                             public_surface_hash_hits: cacheStatsCalls,
                             public_surface_hash_stores: 0,
                             public_surface_hash_bypasses: 0,
-                            dependency_aggregate_public_surface_hash_hits: cacheStatsCalls,
+                            dependency_aggregate_public_surface_hash_hits: dependencyAggregateHits,
                             dependency_aggregate_public_surface_hash_misses: 0,
                             dependency_aggregate_public_surface_hash_stores: 0,
                             dependency_aggregate_public_surface_hash_bypasses: 0,
@@ -63,6 +64,7 @@ const { runSingle } = require('./run_test');
                     },
                     compile_source_with_vfs_and_profile() {
                         sessionCalled = true;
+                        dependencyAggregateHits += 1;
                         throw new Error('session compile failure');
                     },
                 },
@@ -82,6 +84,8 @@ const { runSingle } = require('./run_test');
     assert.equal(result.timing.compiler_session_cache_after.parsed_module_hits, 4);
     assert.equal(result.timing.compiler_session_cache_before.arity_surface_hits, 3);
     assert.equal(result.timing.compiler_session_cache_after.arity_surface_hits, 4);
+    assert.equal(result.timing.compiler_session_prewarm_cache_before.dependency_aggregate_public_surface_hash_hits, 3);
+    assert.equal(result.timing.compiler_session_prewarm_cache_after.dependency_aggregate_public_surface_hash_hits, 3);
     assert.equal(result.timing.compiler_session_cache_before.dependency_aggregate_public_surface_hash_hits, 3);
     assert.equal(result.timing.compiler_session_cache_after.dependency_aggregate_public_surface_hash_hits, 4);
     assert.match(String(result.compile_error || ''), /session compile failure/);
@@ -96,6 +100,9 @@ const { runSingle } = require('./run_test');
     let reusePrewarmed = false;
     let reusePrewarmHits = 0;
     let reusePrewarmStores = 0;
+    let reuseCompileCalls = 0;
+    let reuseCompiledOutputHits = 0;
+    let reuseDependencyAggregateHits = 5;
     const prewarmReuseLoaded = {
         api: {
             compile_source_with_vfs_and_profile() {
@@ -121,11 +128,13 @@ const { runSingle } = require('./run_test');
                         public_surface_hash_hits: 13,
                         public_surface_hash_stores: 2,
                         public_surface_hash_bypasses: 0,
-                        dependency_aggregate_public_surface_hash_hits: 5,
+                        dependency_aggregate_public_surface_hash_hits: reuseDependencyAggregateHits,
                         dependency_aggregate_public_surface_hash_misses: 2,
                         dependency_aggregate_public_surface_hash_stores: 2,
                         dependency_aggregate_public_surface_hash_bypasses: 0,
                         stdlib_override_bypasses: 0,
+                        compiled_output_cache_hits: reuseCompiledOutputHits,
+                        compiled_output_cache_stores: reuseCompileCalls,
                         prewarm_surface_hits: reusePrewarmHits,
                         prewarm_surface_stores: reusePrewarmStores,
                     });
@@ -140,6 +149,11 @@ const { runSingle } = require('./run_test');
                     return 2;
                 },
                 compile_source_with_vfs_and_profile() {
+                    if (reuseCompiledOutputHits > 0) {
+                        throw new Error('session compiled-output cache hit failure');
+                    }
+                    reuseCompileCalls += 1;
+                    reuseDependencyAggregateHits += 1;
                     throw new Error('session compile failure after reused prewarm surface');
                 },
             },
@@ -171,6 +185,27 @@ const { runSingle } = require('./run_test');
     assert.match(
         String(prewarmReuseSecond.compile_error || ''),
         /session compile failure after reused prewarm surface/,
+    );
+
+    reuseCompiledOutputHits = 1;
+    const compiledOutputHit = await runSingle(
+        {
+            id: 'nodesrc/run_test/compiler-session-compiled-output-hit',
+            source: '#target std\nfn main <()->i32> ():\n    1\n',
+            tags: ['compile_fail'],
+        },
+        prewarmReuseLoaded,
+    );
+    assert.equal(compiledOutputHit.ok, true);
+    assert.equal(compiledOutputHit.timing.compiler_session_cache_before.compiled_output_cache_hits, 1);
+    assert.equal(compiledOutputHit.timing.compiler_session_cache_after.compiled_output_cache_hits, 1);
+    assert.equal(
+        compiledOutputHit.timing.compiler_session_cache_before.dependency_aggregate_public_surface_hash_hits,
+        reuseDependencyAggregateHits,
+    );
+    assert.equal(
+        compiledOutputHit.timing.compiler_session_cache_after.dependency_aggregate_public_surface_hash_hits,
+        reuseDependencyAggregateHits,
     );
 
     fs.rmSync(tmpDirPrewarmReuse, { recursive: true, force: true });

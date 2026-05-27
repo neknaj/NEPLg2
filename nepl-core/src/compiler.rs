@@ -166,6 +166,26 @@ pub fn compile_module_with_source_map_and_artifact_options(
     options: CompileOptions,
     artifact_options: CompilationArtifactOptions,
 ) -> Result<CompilationArtifact, CoreError> {
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash(
+        module,
+        source_map,
+        options,
+        artifact_options,
+        None,
+    )
+}
+
+pub fn compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    dependency_public_surface_hash: Option<u64>,
+) -> Result<CompilationArtifact, CoreError> {
+    // loader が計算した dependency public surface hash を artifact pipeline へ渡す。
+    // この入力は Resource summary namespace key だけに使い、汎用 `CompileOptions`
+    // へは入れない。通常の CLI / test compile と、session-backed bundled stdlib compile
+    // で必要な cache invalidation 境界が異なるためである。
     crate::log::set_verbose(options.verbose);
     let target = resolve_target(&module, options)?;
     if matches!(target, CompileTarget::Llvm) {
@@ -180,8 +200,13 @@ pub fn compile_module_with_source_map_and_artifact_options(
     let profile = options
         .profile
         .unwrap_or(BuildProfile::default_source_profile());
-    let prepared =
-        prepare_module_for_codegen_with_source_map(&module, target, profile, source_map)?;
+    let prepared = prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
+        &module,
+        target,
+        profile,
+        source_map,
+        dependency_public_surface_hash,
+    )?;
     let pre_codegen_diags =
         passes::codegen_precheck::precheck_wasm_codegen(&prepared.types, &prepared.hir_module);
     if pre_codegen_diags
@@ -223,7 +248,9 @@ pub fn check_module_with_source_map(
     let profile = options
         .profile
         .unwrap_or(BuildProfile::default_source_profile());
-    prepare_module_for_codegen_with_source_map(&module, target, profile, source_map)?;
+    prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
+        &module, target, profile, source_map, None,
+    )?;
     Ok(())
 }
 
@@ -996,6 +1023,22 @@ mod tests {
             .resource_summary_cache_namespace_key
     }
 
+    fn prepared_resource_summary_cache_namespace_key_with_dependency_hash(
+        source: &str,
+        dependency_public_surface_hash: u64,
+    ) -> ResourceSummaryCacheNamespaceKey {
+        let module = parse_test_module(source);
+        prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
+            &module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            None,
+            Some(dependency_public_surface_hash),
+        )
+        .expect("test module should pass prepare")
+        .resource_summary_cache_namespace_key
+    }
+
     #[test]
     fn resource_reachability_keeps_only_entry_direct_graph() {
         let mut types = crate::types::TypeCtx::new();
@@ -1089,6 +1132,20 @@ mod tests {
 
         assert_ne!(base, with_dependency);
         assert_ne!(with_dependency, other_dependency);
+    }
+
+    /// loader が計算した dependency public surface hash は、prepare phase を通じて
+    /// Resource summary namespace key の一部になる。これは compile path で消費する
+    /// semantic invalidation input であり、prewarm 専用 artifact ではない。
+    #[test]
+    fn resource_summary_cache_namespace_key_uses_prepare_dependency_surface_hash() {
+        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let without_dependency = prepared_resource_summary_cache_namespace_key(source);
+        let with_dependency =
+            prepared_resource_summary_cache_namespace_key_with_dependency_hash(source, 123);
+
+        assert_eq!(with_dependency.dependency_public_surface_hash, Some(123));
+        assert_ne!(without_dependency, with_dependency);
     }
 
     #[test]
@@ -2062,6 +2119,18 @@ pub fn prepare_module_for_codegen_with_source_map(
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
 ) -> Result<PreparedProgram, CoreError> {
+    prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
+        module, target, profile, source_map, None,
+    )
+}
+
+pub fn prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
+    module: &ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    source_map: Option<&SourceMap>,
+    dependency_public_surface_hash: Option<u64>,
+) -> Result<PreparedProgram, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let precheck_diags =
@@ -2082,8 +2151,12 @@ pub fn prepare_module_for_codegen_with_source_map(
     let mut diagnostics = resource_tc.diagnostics;
     let mut types = resource_tc.types;
     let public_signatures = resource_tc.public_signatures;
-    let resource_summary_cache_namespace_key =
-        ResourceSummaryCacheNamespaceKey::new(target, profile, public_signatures.stable_hash, None);
+    let resource_summary_cache_namespace_key = ResourceSummaryCacheNamespaceKey::new(
+        target,
+        profile,
+        public_signatures.stable_hash,
+        dependency_public_surface_hash,
+    );
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let resource_monomorphize = monomorphize::monomorphize(&mut types, resource_tc.module);

@@ -6,7 +6,9 @@ use js_sys::{Reflect, Uint8Array};
 use nepl_core::ast::{
     Block, Directive, FnBody, MatchArm, MatchPattern, PrefixExpr, PrefixItem, Stmt, Symbol,
 };
-use nepl_core::compiler::compile_module_with_source_map_and_artifact_options;
+use nepl_core::compiler::{
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash,
+};
 use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
 use nepl_core::error::CoreError;
@@ -3323,7 +3325,23 @@ fn compile_wasm_with_bundled_sources_and_cache(
         loader.load_inline_with_provider(PathBuf::from(entry_path), source.to_string(), &mut provider)
     }
     .map_err(|e| render_loader_error(e, loader.source_map()))?;
-    let artifact = compile_module_with_source_map_and_artifact_options(
+    // dependency aggregate は compile path が実際に必要とする namespace key 入力である。
+    // prewarm では計算せず、stdlib overlay で cache を bypass した場合も利用しない。
+    let dependency_public_surface_hash = if let Some(cache) = loader_cache.as_deref_mut() {
+        Some(
+            loader
+                .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+                    PathBuf::from(entry_path),
+                    source,
+                    &mut provider,
+                    cache,
+                )
+                .map_err(|e| render_loader_error(e, loader.source_map()))?,
+        )
+    } else {
+        None
+    };
+    let artifact = compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash(
         loaded.module,
         Some(&loaded.source_map),
         CompileOptions {
@@ -3334,6 +3352,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
         CompilationArtifactOptions {
             include_wat_comments,
         },
+        dependency_public_surface_hash,
     )
     .map_err(|e| render_core_error(e, &loaded.source_map))?;
     Ok(CompiledWasm {
