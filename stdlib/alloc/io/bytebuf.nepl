@@ -3,7 +3,7 @@
 //:
 //: [目的/もくてき]:
 //: - binary I/O の媒体になる `ByteBuf` と、その文字列変換境界をまとめます。
-//: - raw byte 領域の所有権は `RegionToken<u8>` に集約し、`MemPtr<u8>` は借用 view としてだけ取り出します。
+//: - raw byte 領域の所有権は `RegionToken u8` に集約し、`MemPtr u8` は借用 view としてだけ取り出します。
 //:
 //: [注意/ちゅうい]:
 //: - `ByteBuf` は所有権を持つので `Copy` / `Clone` を実装しません。
@@ -69,7 +69,7 @@ pub enum ByteBufStorage:
 //: [連続/れんぞく]した raw byte buffer を[所有/しょゆう]する handle
 //:
 //: ### [目的/もくてき]
-//: - `Vec<u8>` の[内部表現/ないぶひょうげん]に[依存/いそん]せず、binary I/O の[媒体/ばいたい]を[明示的/めいじてき]に[表/あらわ]します。
+//: - `Vec u8` の[内部表現/ないぶひょうげん]に[依存/いそん]せず、binary I/O の[媒体/ばいたい]を[明示的/めいじてき]に[表/あらわ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `storage` は `ByteBufStorage::Empty` または `ByteBufStorage::Owned(region)` です。
@@ -141,7 +141,7 @@ pub fn io_bytebuf_free %fn ByteBuf unit \buf:
 //: io_bytebuf_alloc_region: `ByteBuf` 用の byte 領域を確保する
 //:
 //: [目的/もくてき]:
-//: - `ByteBuf` の本文になる領域を `RegionToken<u8>` として確保し、確定前の所有権を token に集約します。
+//: - `ByteBuf` の本文になる領域を `RegionToken u8` として確保し、確定前の所有権を token に集約します。
 //:
 //: [実装/じっそう]:
 //: - `alloc_region_bytes<u8>` に必要 byte 数を渡します。`ByteBuf` は header を持たないため、確保 size はそのまま byte 数です。
@@ -167,7 +167,7 @@ pub fn io_bytebuf_alloc_region %fn i32 Result RegionToken u8 StdErrorKind \byte_
 //: io_bytebuf_region_ptr: 確定前 `ByteBuf` 領域の本文 pointer を参照から得る
 //:
 //: [目的/もくてき]:
-//: - `RegionToken` の所有権を動かさず、copy 先として使う `MemPtr<u8>` だけを得ます。
+//: - `RegionToken` の所有権を動かさず、copy 先として使う `MemPtr u8` だけを得ます。
 //:
 //: [実装/じっそう]:
 //: - `RegionToken` から `region_ptr` で non-owning pointer view を借ります。

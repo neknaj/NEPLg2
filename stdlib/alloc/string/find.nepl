@@ -1,7 +1,7 @@
 //: find: string の Option-returning byte search helper
 //:
 //: [目的/もくてき]:
-//: - pattern が最初に現れる byte index を `Option<i32>` として返します。
+//: - pattern が最初に現れる byte index を `Option i32` として返します。
 //: - numeric sentinel ではなく `Option` で存在有無を表します。
 //:
 //: [注意/ちゅうい]:
@@ -17,7 +17,7 @@
 //: find: 最初に一致した byte index を返す
 //:
 //: [目的/もくてき]:
-//: - `s` の中に `pat` が最初に出る byte index を `Option<i32>` で返します。
+//: - `s` の中に `pat` が最初に出る byte index を `Option i32` で返します。
 //: - 見つからない場合は `Option::None` を返します。
 //:
 //: [実装/じっそう]:

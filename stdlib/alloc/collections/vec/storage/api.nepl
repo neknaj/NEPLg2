@@ -30,13 +30,13 @@
 #import "./alloc" as alloc
 
 //: ## new
-//: [既定/きてい][容量/ようりょう]の[空/から] `Vec<.T>` を[作/つく]る
+//: [既定/きてい][容量/ようりょう]の[空/から] `Vec .T` を[作/つく]る
 //:
 //: ### [目的/もくてき]
-//: - [空/から]の `Vec<.T>` を[返/かえ]し、`push` [連鎖/れんさ]の[起点/きてん]として[使/つか]えるようにします。
+//: - [空/から]の `Vec .T` を[返/かえ]し、`push` [連鎖/れんさ]の[起点/きてん]として[使/つか]えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - [初期/しょき][容量/ようりょう]を 8 とし、その要素数ぶん typed `alloc_region<.T>` で[確保/かくほ]します。
+//: - [初期/しょき][容量/ようりょう]を 8 とし、その要素数ぶん typed `alloc_region .T` で[確保/かくほ]します。
 //: - `len = 0`、`cap = 8`、`region = allocated token` の struct を[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
@@ -82,14 +82,14 @@ pub fn new <.T: Copy> %fn unit Result Vec .T StdErrorKind \unit:
     alloc::vec_alloc_empty<.T> 8
 
 //: ## new
-//: Drop payload の[空/から] `Vec<.T>` を[作/つく]る
+//: Drop payload の[空/から] `Vec .T` を[作/つく]る
 //:
 //: ### [目的/もくてき]
-//: - `.T: Drop` の owning payload を将来[格納/かくのう]できる `Vec<.T>` の storage owner を[作/つく]ります。
+//: - `.T: Drop` の owning payload を将来[格納/かくのう]できる `Vec .T` の storage owner を[作/つく]ります。
 //:
 //: ### [実装/じっそう]
 //: - `len = initialized_len = 0` のため、この constructor は payload を[生成/せいせい]せず、Drop を[呼/よ]びません。
-//: - storage owner の解放責任は `VecStorage::Owned(region)` に[保持/ほじ]され、`free<.T>` の Drop overload が initialized prefix cleanup と raw dealloc proof を同じ implementation boundary で[閉/と]じます。
+//: - storage owner の解放責任は `VecStorage::Owned(region)` に[保持/ほじ]され、`free .T` の Drop overload が initialized prefix cleanup と raw dealloc proof を同じ implementation boundary で[閉/と]じます。
 //:
 //: ### [使用例/しようれい]
 //:
@@ -128,13 +128,13 @@ pub fn new <.T: Drop> %fn unit Result Vec .T StdErrorKind \unit:
     alloc::vec_alloc_empty<.T> 8
 
 //: ## with_capacity
-//: [初期/しょき][容量/ようりょう]を[指定/してい]して `Vec<.T>` を[作/つく]る
+//: [初期/しょき][容量/ようりょう]を[指定/してい]して `Vec .T` を[作/つく]る
 //:
 //: ### [目的/もくてき]
-//: - [事前/じぜん]に[必要/ひつよう]な[容量/ようりょう]が[分/わ]かっている[場面/ばめん]で、[再確保/さいかくほ]を[減/へ]らした `Vec<.T>` を[作/つく]ります。
+//: - [事前/じぜん]に[必要/ひつよう]な[容量/ようりょう]が[分/わ]かっている[場面/ばめん]で、[再確保/さいかくほ]を[減/へ]らした `Vec .T` を[作/つく]ります。
 //:
 //: ### [実装/じっそう]
-//: - [指定/してい]した `cap` に[応/おう]じて typed `alloc_region<.T>` を[呼/よ]び、`len = 0` で[返/かえ]します。
+//: - [指定/してい]した `cap` に[応/おう]じて typed `alloc_region .T` を[呼/よ]び、`len = 0` で[返/かえ]します。
 //: - `cap = 0` は null pointer sentinel ではなく、`VecStorage::Empty` に[正規化/せいきか]します。
 //:
 //: ### [注意/ちゅうい]
@@ -184,14 +184,14 @@ pub fn with_capacity <.T: Copy> %fn i32 Result Vec .T StdErrorKind \cap:
             alloc::vec_alloc_empty<.T> cap
 
 //: ## with_capacity
-//: Drop payload の[初期/しょき][容量/ようりょう]を[指定/してい]して `Vec<.T>` を[作/つく]る
+//: Drop payload の[初期/しょき][容量/ようりょう]を[指定/してい]して `Vec .T` を[作/つく]る
 //:
 //: ### [目的/もくてき]
 //: - `.T: Drop` の payload について、要素をまだ[初期化/しょきか]しない storage owner だけを[確保/かくほ]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `cap < 0` は Copy overload と同じく `StdErrorKind::InvalidOperation` です。
-//: - `cap > 0` でも `initialized_len = 0` のため、直後の `free<.T>` は storage release だけで完了します。
+//: - `cap > 0` でも `initialized_len = 0` のため、直後の `free .T` は storage release だけで完了します。
 //:
 //: neplg2:test
 //: ```neplg2

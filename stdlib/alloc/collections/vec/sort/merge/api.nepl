@@ -160,10 +160,10 @@ pub fn vec_sort_merge_error_vec <.T: Copy> %fn VecSortMergeError .T Vec .T \e:
     field::get e "vec"
 
 //: ## sort_merge
-//: `Vec<.T>` を merge sort で破壊的に整列する
+//: `Vec .T` を merge sort で破壊的に整列する
 //:
 //: ### [目的/もくてき]
-//: - 安定な O(n log n) sort として `Vec<.T>` を昇順へ並べ替えます。
+//: - 安定な O(n log n) sort として `Vec .T` を昇順へ並べ替えます。
 //:
 //: ### [使用例/しようれい]
 //: neplg2:test
@@ -190,7 +190,7 @@ pub fn vec_sort_merge_error_vec <.T: Copy> %fn VecSortMergeError .T Vec .T \e:
 //: ```
 //:
 //: ### [実装/じっそう]
-//: - `Vec` の `data` view と `.T` 配列 1 本分の作業 buffer を使い、buffer owner は `alloc_region<.T>` / `dealloc_region<.T>` で閉じます。
+//: - `Vec` の `data` view と `.T` 配列 1 本分の作業 buffer を使い、buffer owner は `alloc_region .T` / `dealloc_region .T` で閉じます。
 //:
 //: ### [計算量/けいさんりょう]
 //: - 時間計算量は O(n log n)、追加空間計算量は O(n) です。

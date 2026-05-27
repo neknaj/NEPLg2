@@ -2,7 +2,7 @@
 //: `BinaryHeap` の構築 API
 //:
 //: ### [目的/もくてき]
-//: - 初期 capacity を正規化し、`Vec<Option<T>>` の空 slot storage を確保します。
+//: - 初期 capacity を正規化し、`Vec Option .T` の空 slot storage を確保します。
 //: - allocation failure は `Diag` として返し、trap にしません。
 
 #indent 4

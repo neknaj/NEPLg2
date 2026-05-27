@@ -1,6 +1,6 @@
 # collections の診断（Diag）検証
 
-`alloc/collections` の不正操作が `Result<_,Diag>` で返るとき、
+`alloc/collections` の不正操作が `Result _ Diag` で返るとき、
 `Diag` の `StdErrorKind` が[期待/きたい]どおりに[分類/ぶんるい]されていることを[確認/かくにん]します。
 
 ## hashmap_remove_missing_key_returns_diag

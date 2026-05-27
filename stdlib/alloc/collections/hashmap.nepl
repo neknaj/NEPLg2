@@ -2,19 +2,19 @@
 //: key trait と hasher [型/がた]に[基/もと]づく generic [連想配列/れんそうはいれつ]
 //:
 //: ### [目的/もくてき]
-//: - `HashMap<.K, .V, .H>` を[提供/ていきょう]し、`new` / `insert` / `get` / `contains` / `remove` / `len` / `free` の bare 名で[操作/そうさ]できるようにします。
+//: - `HashMap .K .V .H` を[提供/ていきょう]し、`new` / `insert` / `get` / `contains` / `remove` / `len` / `free` の bare 名で[操作/そうさ]できるようにします。
 //: - key [比較/ひかく]は `HashKey` trait に、hash [計算/けいさん]は hasher value へ[対/たい]する `hash32` overload に[委譲/いじょう]します。
 //:
 //: ### [実装/じっそう]
 //: - open addressing + linear probing の hash table です。
 //: - bucket [状態/じょうたい]は `HashMapBucketState` enum で[管理/かんり]し、numeric sentinel ではなく `match` の[網羅性/もうらせい]を[使/つか]います。
-//: - key/value storage は `Vec<Option<.K>>` / `Vec<Option<.V>>` とし、全 slot を `None` で初期化します。
+//: - key/value storage は `Vec Option .K` / `Vec Option .V` とし、全 slot を `None` で初期化します。
 //: - `Full` 状態の slot では key/value が `Some` であることを HashMap の内部不変条件とします。
 //:
 //: ### [注意/ちゅうい]
 //: - key 型 `.K` は `HashKey` と標準 `Copy` の impl を[持/も]つ[必要/ひつよう]があります。
 //: - value 型 `.V` も標準 `Copy` を[要求/ようきゅう]します。現行 stdlib には HashMap 内 payload の drop traversal がまだ無いため、非 Copy payload は受け入れません。
-//: - hasher 型 `.H` は `Hasher<.K>` と標準 `Copy` を impl する[必要/ひつよう]があります。
+//: - hasher 型 `.H` は `Hasher .K` と標準 `Copy` を impl する[必要/ひつよう]があります。
 //:
 //: ### [計算量/けいさんりょう]
 //: - [平均/へいきん] `insert` / `get` / `contains` / `remove` は O(1) です。

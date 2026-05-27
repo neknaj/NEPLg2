@@ -6,7 +6,7 @@
 //: - `VecStorageInvariant` と compiler-owned `BorrowRead` proof を[組/く]み[合/あ]わせ、initialized slot を[保/たも]ったまま observer を[呼/よ]びます。
 //:
 //: ### [注意/ちゅうい]
-//: - `MemPtr<T>` や `VecDataView<T>` は[返/かえ]しません。borrowed observer は raw pointer view ではなく、Resource IR の borrow / lifetime proof に[接続/せつぞく]する API です。
+//: - `MemPtr .T` や `VecDataView .T` は[返/かえ]しません。borrowed observer は raw pointer view ではなく、Resource IR の borrow / lifetime proof に[接続/せつぞく]する API です。
 //: - `&T` を[返/かえ]す helper は[提供/ていきょう]しません。借用は callback 呼び出しの[間/あいだ]だけ[有効/ゆうこう]です。
 
 #indent 4
@@ -37,12 +37,12 @@ fn vec_borrow_slot_predicate <.T> %fn &RegionToken .T fn i32 fn fn &.T bool bool
 //:
 //: ### [目的/もくてき]
 //: - non-Copy payload を copy-out せず、判定だけを行う observer API を[提供/ていきょう]します。
-//: - `get<T: Copy>` と[異/こと]なり、要素 owner を[移動/いどう]せず、slot の initialized state を[維持/いじ]します。
+//: - `get`（`.T: Copy`）と[異/こと]なり、要素 owner を[移動/いどう]せず、slot の initialized state を[維持/いじ]します。
 //:
 //: ### [実装/じっそう]
 //: - `Vec` facade から `OwnedBuffer` と `VecStorage` を[借用/しゃくよう]します。
 //: - `VecStorageInvariant::Valid`、`0 <= idx < len`、`VecStorage::Owned(region)` を[確認/かくにん]した branch だけで slot borrow を[作/つく]ります。
-//: - slot offset は `idx * size_of<T>` で[計算/けいさん]します。capacity と storage extent の整合性は invariant が[保証/ほしょう]します。
+//: - slot offset は `idx * size_of .T` で[計算/けいさん]します。capacity と storage extent の整合性は invariant が[保証/ほしょう]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `predicate` は `&T` を[受/う]け[取/と]りますが、戻り値は `bool` に[固定/こてい]します。参照を戻り値や aggregate の field として外へ[逃/に]がす API shape は[提供/ていきょう]しません。

@@ -17,7 +17,7 @@
 #import "core/field" as *
 #import "core/math" as *
 
-//: 現行 storage view は `Vec<Option<K>>` の payload storage 形状を返すため、non-Copy collection drop traversal が入るまで key 側を Copy に限定します。
+//: 現行 storage view は `Vec Option .K` の payload storage 形状を返すため、non-Copy collection drop traversal が入るまで key 側を Copy に限定します。
 //:
 //: neplg2:test[compile_fail]
 //: diag_code: type.trait_bound.unsatisfied
@@ -38,7 +38,7 @@
 pub fn btreemap_storage_keys <.K: Copy,.V> %fn &BTreeMapStorage .K .V &Vec Option .K \storage:
     field::get_ref storage "keys"
 
-//: 現行 storage view は `Vec<Option<V>>` の payload storage 形状を返すため、non-Copy collection drop traversal が入るまで value 側を Copy に限定します。
+//: 現行 storage view は `Vec Option .V` の payload storage 形状を返すため、non-Copy collection drop traversal が入るまで value 側を Copy に限定します。
 //:
 //: neplg2:test[compile_fail]
 //: diag_code: type.trait_bound.unsatisfied

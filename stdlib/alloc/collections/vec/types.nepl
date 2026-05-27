@@ -6,9 +6,9 @@
 //: - storage owner state と backing allocation owner を同じ enum に[保持/ほじ]し、null pointer sentinel や分離 owner field を public owner state に[戻/もど]さないための型境界を[明確/めいかく]にします。
 //:
 //: ### [注意/ちゅうい]
-//: - `OwnedBuffer<T>` は backing storage owner と len / initialized_len / cap metadata を[束/たば]ねます。shallow copy せず、owner を move して[扱/あつか]います。
-//: - `Vec<T>` は public collection facade で、storage owner は `OwnedBuffer<T>` field に[委譲/いじょう]します。
-//: - backing storage の free obligation は `VecStorage<T>::Owned(RegionToken<T>)` に[集約/しゅうやく]し、`MemPtr<T>` は参照から得る data view としてだけ[扱/あつか]います。
+//: - `OwnedBuffer .T` は backing storage owner と len / initialized_len / cap metadata を[束/たば]ねます。shallow copy せず、owner を move して[扱/あつか]います。
+//: - `Vec .T` は public collection facade で、storage owner は `OwnedBuffer .T` field に[委譲/いじょう]します。
+//: - backing storage の free obligation は `VecStorage .T` の `Owned(RegionToken .T)` に[集約/しゅうやく]し、`MemPtr .T` は参照から得る data view としてだけ[扱/あつか]います。
 
 #indent 4
 
@@ -49,18 +49,18 @@ pub enum VecStorage<.T>:
 //:
 //: ### [目的/もくてき]
 //: - storage owner state、API から[見/み]える[長/なが]さ、[初期化済/しょきかず]み prefix、[容量/ようりょう]を 1 つの owner aggregate に[束/たば]ねます。
-//: - `Vec<.T>` facade が storage の内部表現を直接[保持/ほじ]せず、buffer owner に[委譲/いじょう]するための境界です。
+//: - `Vec .T` facade が storage の内部表現を直接[保持/ほじ]せず、buffer owner に[委譲/いじょう]するための境界です。
 //:
 //: ### [実装/じっそう]
 //: - `len` は public `Vec` API から[観測/かんそく]できる live element [長/なが]さです。
 //: - `initialized_len` は storage 先頭から[何件/なんけん]が初期化済み cell として drop / move state の対象になるかを[表/あらわ]す prefix [長/なが]です。
 //: - `.T: Copy` の mutation API と `.T: Drop` の `push` / `pop` / `replace_drop_old` は、private lifecycle proof を通して `len == initialized_len` を[保/たも]ちます。`.T: Drop` の `clear` / `free` は initialized prefix を actual Drop traversal で[閉/と]じてから `initialized_len` を 0 にします。
 //: - `cap` は backing storage の[容量/ようりょう]です。
-//: - `storage` は `VecStorage<.T>` で、allocation がない `Empty` と free obligation を持つ `Owned(region)` を enum として[分/わ]けます。
+//: - `storage` は `VecStorage .T` で、allocation がない `Empty` と free obligation を持つ `Owned(region)` を enum として[分/わ]けます。
 //:
 //: ### [注意/ちゅうい]
 //: - `new` / `with_capacity` / `push` / `pop` / `replace_drop_old` / `drop_last` / `clear` / `free` は `.T: Drop` payload でも使えます。`get`、borrowed `replace`、値渡し query、transform / sort は payload copy-out や owner-preserving transform design が未完成なので引き続き `.T: Copy` に[限定/げんてい]します。scalar / index だけを[返/かえ]す `*_ref` query は `BorrowRead` proof により `.T: Copy` を[要求/ようきゅう]しません。
-//: - non-Copy payload を[扱/あつか]う API は、`VecPushRejected<T>`、`VecReplaceRejected<T>`、`VecPop<T>` と eliminator callback により、`Vec` owner と item owner を同じ型境界で[回収/かいしゅう]できる形にします。
+//: - non-Copy payload を[扱/あつか]う API は、`VecPushRejected .T`、`VecReplaceRejected .T`、`VecPop .T` と eliminator callback により、`Vec` owner と item owner を同じ型境界で[回収/かいしゅう]できる形にします。
 //:
 //: neplg2:test[compile_fail]
 //: diag_codes: type.owner_aggregate.constructor_restricted
@@ -82,16 +82,16 @@ pub struct OwnedBuffer<.T>:
 //: [可変長/かへんちょう][配列/はいれつ]の[本体/ほんたい]
 //:
 //: ### [目的/もくてき]
-//: - `OwnedBuffer<.T>` を[保持/ほじ]し、`alloc/collections` の[他/ほか] API から[共通/きょうつう]に[扱/あつか]える facade として[振/ふ]る[舞/ま]います。
+//: - `OwnedBuffer .T` を[保持/ほじ]し、`alloc/collections` の[他/ほか] API から[共通/きょうつう]に[扱/あつか]える facade として[振/ふ]る[舞/ま]います。
 //:
 //: ### [実装/じっそう]
-//: - `Vec<.T>` [自体/じたい]は `buffer: OwnedBuffer<.T>` だけを[保持/ほじ]します。
-//: - `len`、`initialized_len`、`cap`、`storage` は `OwnedBuffer<.T>` 内に[閉/と]じます。
+//: - `Vec .T` [自体/じたい]は `buffer: OwnedBuffer .T` だけを[保持/ほじ]します。
+//: - `len`、`initialized_len`、`cap`、`storage` は `OwnedBuffer .T` 内に[閉/と]じます。
 //: - [実体/じったい]の[配列/はいれつ]はヒープ[上/じょう]の[連続/れんぞく][領域/りょういき]です。
 //:
 //: ### [注意/ちゅうい]
-//: - `Vec<.T>` [自体/じたい]は `OwnedBuffer<.T>` を通して backing [領域/りょういき]の[所有権/しょゆうけん]を[持/も]ちます。
-//: - `Vec<.T>` は shallow copy できません。値を[渡/わた]すと[所有権/しょゆうけん]が[移動/いどう]します。
+//: - `Vec .T` [自体/じたい]は `OwnedBuffer .T` を通して backing [領域/りょういき]の[所有権/しょゆうけん]を[持/も]ちます。
+//: - `Vec .T` は shallow copy できません。値を[渡/わた]すと[所有権/しょゆうけん]が[移動/いどう]します。
 //: - [再確保/さいかくほ]により `region` から得た data view の[番地/ばんち]が[変/か]わるため、[生/なま]アドレスを[長期/ちょうき]に[保持/ほじ]してはいけません。
 //:
 //: ### [計算量/けいさんりょう]
@@ -118,7 +118,7 @@ pub struct Vec<.T>:
 //: `push` [失敗/しっぱい]で[挿入/そうにゅう]されなかった owner をまとめて[返/かえ]す payload
 //:
 //: ### [目的/もくてき]
-//: - [容量/ようりょう][計算/けいさん]、[確保/かくほ]、[再確保/さいかくほ]、metadata invariant のいずれかで `push` が[失敗/しっぱい]したとき、消費した `Vec<.T>` owner とまだ storage に入っていない `item` owner を同じ値で[返/かえ]します。
+//: - [容量/ようりょう][計算/けいさん]、[確保/かくほ]、[再確保/さいかくほ]、metadata invariant のいずれかで `push` が[失敗/しっぱい]したとき、消費した `Vec .T` owner とまだ storage に入っていない `item` owner を同じ値で[返/かえ]します。
 //: - non-Copy payload では、`Vec` だけを[取/と]り[出/だ]す accessor が `item` owner を[見/み]えないまま[捨/す]てる形になるため、失敗時 owner recovery はこの payload を[単位/たんい]にします。
 //: - `Vec` owner と `item` owner を名前付き field に[分/わ]け、匿名 tuple や index field ではなく field 名で Resource IR に渡します。
 pub struct VecPushRejected<.T>:
@@ -129,7 +129,7 @@ pub struct VecPushRejected<.T>:
 //: `push` の[失敗/しっぱい]時に rejected owner payload と error kind を[返/かえ]す error payload
 //:
 //: ### [目的/もくてき]
-//: - `rejected` に、消費した `Vec<.T>` と[挿入/そうにゅう]されなかった `item` の owner を[保持/ほじ]します。
+//: - `rejected` に、消費した `Vec .T` と[挿入/そうにゅう]されなかった `item` の owner を[保持/ほじ]します。
 //: - `push` は `.T: Copy` と `.T: Drop` の overload を持ちます。失敗時 owner の[行方/ゆくえ]が API 型に[現/あらわ]れるよう、`Vec` と rejected item を同じ payload に[保持/ほじ]します。
 //: - [診断/しんだん]用の error kind は Copy な `StdErrorKind` として[分離/ぶんり]し、owner [回収/かいしゅう]と error [確認/かくにん]を別操作にします。
 pub struct VecPushError<.T>:
@@ -140,7 +140,7 @@ pub struct VecPushError<.T>:
 //: `replace_drop_old` [失敗/しっぱい]で[置換/ちかん]されなかった owner をまとめて[返/かえ]す payload
 //:
 //: ### [目的/もくてき]
-//: - [範囲外/はんいがい]、metadata invariant failure、storage state mismatch のいずれでも、消費した `Vec<.T>` owner とまだ slot に入っていない `item` owner を同じ値で[返/かえ]します。
+//: - [範囲外/はんいがい]、metadata invariant failure、storage state mismatch のいずれでも、消費した `Vec .T` owner とまだ slot に入っていない `item` owner を同じ値で[返/かえ]します。
 //: - non-Copy payload では `item` owner の[行方/ゆくえ]が API 型から[消/き]えると memory safety を型で追えなくなるため、失敗時 recovery はこの payload を[単位/たんい]にします。
 pub struct VecReplaceRejected<.T>:
     vec %Vec .T
@@ -150,7 +150,7 @@ pub struct VecReplaceRejected<.T>:
 //: `replace_drop_old` の[失敗/しっぱい]時に owner recovery payload と error kind を[返/かえ]す
 //:
 //: ### [目的/もくてき]
-//: - `rejected` に、元の `Vec<.T>` owner と storage へ入らなかった `item` owner を[保持/ほじ]します。
+//: - `rejected` に、元の `Vec .T` owner と storage へ入らなかった `item` owner を[保持/ほじ]します。
 //: - old slot を drop して new item を store する[成功/せいこう] path と、何も置換しない[失敗/しっぱい] path を型で[分/わ]けます。
 //: - error kind は Copy な `StdErrorKind` とし、owner recovery と診断分類を[分離/ぶんり]します。
 pub struct VecReplaceError<.T>:
@@ -161,8 +161,8 @@ pub struct VecReplaceError<.T>:
 //: `Vec` の owner-consuming transform が[失敗/しっぱい]したときに、入力 owner を[返/かえ]す error payload
 //:
 //: ### [目的/もくてき]
-//: - `map` / `filter` / `partition` / `take_while` / `drop_while` は入力 `Vec<.T>` を[消費/しょうひ]して新しい collection を[作/つく]ります。
-//: - [途中/とちゅう]の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]でも、入力 `Vec<.T>` owner を `Err` payload に[戻/もど]し、caller が cleanup、再試行、診断を[選/えら]べるようにします。
+//: - `map` / `filter` / `partition` / `take_while` / `drop_while` は入力 `Vec .T` を[消費/しょうひ]して新しい collection を[作/つく]ります。
+//: - [途中/とちゅう]の[確保/かくほ]に[失敗/しっぱい]した[場合/ばあい]でも、入力 `Vec .T` owner を `Err` payload に[戻/もど]し、caller が cleanup、再試行、診断を[選/えら]べるようにします。
 //: - `StdErrorKind` だけを[返/かえ]して内部で入力を[破棄/はき]すると、owner の[行方/ゆくえ]が API 型に[現/あらわ]れないため、この型で明示します。
 pub struct VecTransformError<.T>:
     vec %Vec .T
@@ -177,7 +177,7 @@ pub fn vec_transform_error_kind <.T> %fn &VecTransformError .T StdErrorKind \e:
 //: transform [失敗/しっぱい] payload の入力 `Vec` owner と error kind を同じ callback に[渡/わた]す
 //:
 //: ### [目的/もくてき]
-//: - `VecTransformError<T>` は owner-backed aggregate なので、non-Copy payload では利用側が field を直接[分解/ぶんかい]して入力 `Vec` owner だけを[取/と]り[出/だ]す設計にはしません。
+//: - `VecTransformError .T` は owner-backed aggregate なので、non-Copy payload では利用側が field を直接[分解/ぶんかい]して入力 `Vec` owner だけを[取/と]り[出/だ]す設計にはしません。
 //: - この eliminator が `vec` owner と `StdErrorKind` を同じ callback 境界に[渡/わた]し、caller が cleanup、再試行、診断変換を同じ control-flow で[実装/じっそう]できるようにします。
 //: - 現行 transform family はまだ `.T: Copy` 専用ですが、将来 non-Copy transform を追加するときの失敗時 recovery surface はこの関数を使います。
 //:
@@ -213,7 +213,7 @@ pub fn vec_transform_error_with <.T,.R> %impure fn VecTransformError .T impure f
 //: transform [失敗/しっぱい]で[戻/もど]された入力 `Vec` owner を[取/と]り[出/だ]す
 //:
 //: ### [注意/ちゅうい]
-//: - 現行 transform family は `.T: Copy` 専用です。non-Copy payload の入力 owner は、owner と error kind を同時に[渡/わた]す `vec_transform_error_with<T, R>` から[回収/かいしゅう]します。
+//: - 現行 transform family は `.T: Copy` 専用です。non-Copy payload の入力 owner は、owner と error kind を同時に[渡/わた]す `vec_transform_error_with`（`.T`, `.R`）から[回収/かいしゅう]します。
 //: - この accessor は error kind を返さず入力 `Vec` owner だけを[取/と]り[出/だ]すため、Copy payload の便宜 API に[限定/げんてい]します。
 pub fn vec_transform_error_vec <.T: Copy> %fn VecTransformError .T Vec .T \e:
     field::get e "vec"
@@ -224,7 +224,7 @@ pub fn vec_transform_error_vec <.T: Copy> %fn VecTransformError .T Vec .T \e:
 //: ### [目的/もくてき]
 //: - `.Pair` の数値 field ではなく、`vec` と `item` を名前付き field として Resource IR に渡します。
 //: - 返却された `vec` owner を呼び出し側が明示的に回収できます。
-//: - Drop payload では `vec_pop_with<T, R>` を使い、更新後 `Vec<T>` owner と popped `Option<T>` owner を同じ callback に[渡/わた]します。
+//: - Drop payload では `vec_pop_with`（`.T`, `.R`）を使い、更新後 `Vec .T` owner と popped `Option .T` owner を同じ callback に[渡/わた]します。
 //:
 //: neplg2:test
 //: exit_code: 0
@@ -257,7 +257,7 @@ pub struct VecPop<.T>:
 //:
 //: ### [目的/もくてき]
 //: - `VecPop` は[更新後/こうしんご]の `Vec` owner を[含/ふく]むため、caller が field を直接 projection しないようにします。
-//: - `item` は `Option<T>` として[複製/ふくせい]して[読/よ]むだけなので `.T: Copy` に[限定/げんてい]します。
+//: - `item` は `Option .T` として[複製/ふくせい]して[読/よ]むだけなので `.T: Copy` に[限定/げんてい]します。
 //:
 //: neplg2:test
 //: exit_code: 0
@@ -292,7 +292,7 @@ pub fn vec_pop_item <.T: Copy> %fn &VecPop .T Option .T \p:
 //: - owner を[含/ふく]む field projection は `Vec` 実装境界に[閉/と]じます。
 //:
 //: ### [注意/ちゅうい]
-//: - `VecPop` には[取/と]り[出/だ]した `Option<T>` も[含/ふく]まれます。この accessor はその item を[返/かえ]さずに[捨/す]てるため、`.T: Copy` に[限定/げんてい]します。Drop payload では `vec_pop_with<T, R>` を[使/つか]います。
+//: - `VecPop` には[取/と]り[出/だ]した `Option .T` も[含/ふく]まれます。この accessor はその item を[返/かえ]さずに[捨/す]てるため、`.T: Copy` に[限定/げんてい]します。Drop payload では `vec_pop_with`（`.T`, `.R`）を[使/つか]います。
 //:
 //: neplg2:test
 //: exit_code: 0
@@ -316,11 +316,11 @@ pub fn vec_pop_vec <.T: Copy> %fn VecPop .T Vec .T \p:
     field::get p "vec"
 
 //: ## vec_pop_with
-//: `pop` の[結果/けっか]から、[更新後/こうしんご]の `Vec` owner と popped `Option<T>` owner を同じ callback に[渡/わた]す
+//: `pop` の[結果/けっか]から、[更新後/こうしんご]の `Vec` owner と popped `Option .T` owner を同じ callback に[渡/わた]す
 //:
 //: ### [目的/もくてき]
-//: - `VecPop<T>` は owner-backed aggregate なので、non-Copy payload では `vec` だけ、または `item` だけを単独で[取/と]り[出/だ]す accessor を[提供/ていきょう]しません。
-//: - この eliminator が `Vec` owner と `Option<T>` owner を同じ callback に[渡/わた]し、caller が両方を同じ control-flow で cleanup / retry / 返却できます。
+//: - `VecPop .T` は owner-backed aggregate なので、non-Copy payload では `vec` だけ、または `item` だけを単独で[取/と]り[出/だ]す accessor を[提供/ていきょう]しません。
+//: - この eliminator が `Vec` owner と `Option .T` owner を同じ callback に[渡/わた]し、caller が両方を同じ control-flow で cleanup / retry / 返却できます。
 //: - `.T: Copy` でも使えますが、主な目的は `.T: Drop` payload の owner recovery を型で[見/み]える形にすることです。
 pub fn vec_pop_with <.T,.R> %impure fn VecPop .T impure fn impure fn Vec .T impure fn Option .T .R .R \p\callback:
     let vec %Vec .T field::get p "vec"

@@ -2,7 +2,7 @@
 //: [順序付き/じゅんじょつき] set の public facade
 //:
 //: ### [目的/もくてき]
-//: - `BTreeSet<.T>` と sorted-array set alias を既存 import path から公開します。
+//: - `BTreeSet .T` と sorted-array set alias を既存 import path から公開します。
 //: - 型定義、storage 操作、検索、public API、alias を submodule に分け、root file へ実装本体を戻さない構成にします。
 //:
 //: ### [注意/ちゅうい]

@@ -2,7 +2,7 @@
 //: [順序付き/じゅんじょつき] map の public facade
 //:
 //: ### [目的/もくてき]
-//: - `BTreeMap<.K, .V>` と sorted-array map alias を既存 import path から公開します。
+//: - `BTreeMap .K .V` と sorted-array map alias を既存 import path から公開します。
 //: - 型定義、storage 操作、検索、public API、alias を submodule に分け、root file へ実装本体を戻さない構成にします。
 //:
 //: ### [注意/ちゅうい]

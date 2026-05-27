@@ -200,7 +200,7 @@ fn vec_storage_invalid_to_copy_invalid %fn VecStorageInvariantInvalid VecCopyInv
 //: ### [目的/もくてき]
 //: - `0 <= len == initialized_len <= cap` を[確認/かくにん]します。
 //: - `VecStorage::Empty` は `len = initialized_len = cap = 0` の時だけ[妥当/だとう]とします。
-//: - `VecStorage::Owned(region)` は `cap > 0` かつ `region_size(region) == cap * size_of<T>` の時だけ[妥当/だとう]とします。
+//: - `VecStorage::Owned(region)` は `cap > 0` かつ `region_size(region) == cap * size_of .T` の時だけ[妥当/だとう]とします。
 //: - payload を raw load / store しないため `.T: Copy` を[要求/ようきゅう]しません。
 //:
 //: ### [計算量/けいさんりょう]
@@ -287,7 +287,7 @@ pub fn vec_current_storage_invariant <.T> %fn &Vec .T VecStorageInvariant \v:
 //: ### [目的/もくてき]
 //: - `0 <= len == initialized_len <= cap` を[確認/かくにん]します。
 //: - `VecStorage::Empty` は `len = initialized_len = cap = 0` の時だけ[妥当/だとう]とします。
-//: - `VecStorage::Owned(region)` は `cap > 0` かつ `region_size(region) == cap * size_of<T>` の時だけ[妥当/だとう]とします。
+//: - `VecStorage::Owned(region)` は `cap > 0` かつ `region_size(region) == cap * size_of .T` の時だけ[妥当/だとう]とします。
 //: - byte 数の[計算/けいさん]は allocator payload 上限から先に[確認/かくにん]し、overflow した capacity を raw access の[前提/ぜんてい]として[認/みと]めません。
 //: - [結果/けっか]は bool ではなく `VecCopyInvariant` にし、caller は `match` により `Valid` / `Invalid` を[明示/めいじ]します。
 //: - 実際の metadata / extent 検査は `VecStorageInvariant` に[委譲/いじょう]し、Copy-only raw access proof は payload read/write の境界だけを[表/あらわ]します。

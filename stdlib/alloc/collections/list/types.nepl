@@ -2,7 +2,7 @@
 //: `List` の owner 型と push error 型
 //:
 //: ### [目的/もくてき]
-//: - raw node pointer ではなく `Vec<T>` owner を保持する list storage を定義します。
+//: - raw node pointer ではなく `Vec .T` owner を保持する list storage を定義します。
 //: - owner-consuming cons / push の[失敗/しっぱい]時にも、caller が list owner を[回収/かいしゅう]できる error payload を[定義/ていぎ]します。
 
 #indent 4
@@ -16,7 +16,7 @@
 //: list の storage owner
 //:
 //: ### [目的/もくてき]
-//: - raw node pointer ではなく `Vec<T>` を[保持/ほじ]し、storage owner state を `VecStorage<T>` 側へ[集約/しゅうやく]します。
+//: - raw node pointer ではなく `Vec .T` を[保持/ほじ]し、storage owner state を `VecStorage .T` 側へ[集約/しゅうやく]します。
 //:
 //: ### [不変条件/ふへんじょうけん]
 //: - `items` の末尾が論理上の先頭です。
@@ -60,7 +60,7 @@ pub struct ListPushError<.T>:
 //: - 変換途中で作った出力 storage は実装側で[閉/と]じますが、入力 owner の[扱/あつか]いを `Diag` だけの戻り値に[隠/かく]しません。
 //:
 //: ### [注意/ちゅうい]
-//: - 現行 List は `Vec<T>` storage を Copy-only payload に[限定/げんてい]しているため、owner 取り出し accessor も `.T: Copy` に[限定/げんてい]します。
+//: - 現行 List は `Vec .T` storage を Copy-only payload に[限定/げんてい]しているため、owner 取り出し accessor も `.T: Copy` に[限定/げんてい]します。
 //:
 //: - error payload は `map` / `filter` 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
 //:
@@ -110,7 +110,7 @@ pub fn list_push_error_diag <.T> %fn &ListPushError .T Diag \e:
 //: push [失敗/しっぱい]で[戻/もど]された list owner を[取/と]り[出/だ]す
 //:
 //: ### [注意/ちゅうい]
-//: - 現行 List は `Vec<T>` storage を Copy-only payload に[限定/げんてい]しているため、この accessor も `.T: Copy` に[限定/げんてい]します。
+//: - 現行 List は `Vec .T` storage を Copy-only payload に[限定/げんてい]しているため、この accessor も `.T: Copy` に[限定/げんてい]します。
 //:
 //: - error payload は `push` / `cons` 失敗から得るもので、user code で owner-backed aggregate を直接作れません。
 //:

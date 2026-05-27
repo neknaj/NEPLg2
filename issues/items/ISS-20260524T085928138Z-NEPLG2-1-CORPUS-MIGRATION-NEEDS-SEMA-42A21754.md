@@ -1109,6 +1109,15 @@ LLM/手動判断が必要なもの:
 - `rg -n "\\b[A-Za-z_][A-Za-z0-9_:]*<[A-Za-z_.]" stdlib/neplg2 -g "*.nepl"` は、現行 declaration syntax の `pub struct SelfhostOutcome<.T, .E>` だけになった。
 - `node nodesrc/test_neplg21_selfhost_prose_type_postfix_cleanup.js`、`node nodesrc/test_selfhost_import_spec_report_contract.js`、`node nodesrc/test_selfhost_module_graph_report_contract.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 
+### 2026-05-27 stdlib prose type notation checkpoint
+
+- `stdlib/alloc/collections/**`、`stdlib/core/**`、`stdlib/alloc/string/**`、`stdlib/alloc/io/**`、`stdlib/std/text/**`、`stdlib/std/test/**`、`tests/stdlib/**` の doccomment prose / markdown prose に残っていた旧 `Type<...>` 説明を NEPLg2.1 prefix 型式へ更新した。
+- 4 worker に Vec prose、非 Vec collection prose、core/string/io/text/test prose、tests/stdlib prose を非重複 write scope として割り当てた。
+- 変更対象は `.nepl` の `//:` prose と `.n.md` の fenced block 外本文・見出しに限定した。`//:|` doctest code、実コード、compile_fail / negative fixture、raw memory generic API、intrinsic、現行 generic declaration syntax は保持した。
+- `nodesrc/test_neplg21_prose_type_notation_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。検査は prose の旧型適用表記だけを検出し、コメント量や doccomment の増加を妨げない。
+- `node nodesrc/test_neplg21_prose_type_notation_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、targeted doc/source policy、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/neplg21-prose-type-notation-cleanup.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 18/67 件完了、12 pass、compile timeout 5 件、`memory_safety.n.md::doctest#14` の既存 raw memory case で `resource.cell.uninit` 1 件。今回の prose-only 変更に伴う型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

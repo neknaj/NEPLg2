@@ -111,7 +111,7 @@ pub enum Option<.T>:
     None
     Some %.T
 
-//: Option<Copy>: payload が Copy なら Option も Copy として扱う
+//: Option Copy: payload が Copy なら Option も Copy として扱う
 //:
 //: 目的:
 //: - `Option i32` や `Option str` のような軽量値を shared reference から安全に読み取れるようにします。
@@ -267,7 +267,7 @@ pub fn map <.T,.U> %fn Option .T fn fn .T .U Option .U \o\f:
 //: - match で Some/None を分岐し、Some のときのみ Option を返す関数を呼びます。
 //:
 //: 注意(重要):
-//: - `map` が `a -> b` を受けるのに対し、`and_then` は `a -> Option<b>` を受けます。
+//: - `map` が `a -> b` を受けるのに対し、`and_then` は `a -> Option .b` を受けます。
 //:
 //: 計算量:
 //: - O(1)

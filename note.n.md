@@ -1,3 +1,15 @@
+# 2026-05-27 Agent 1 stdlib prose type notation checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として stdlib / stdlib test prose に残っていた旧 `Type<...>` 型説明を 4 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `stdlib/alloc/collections/vec/**` と `stdlib/alloc/collections/vec.nepl` では、`Vec<T>` / `Option<T>` / `VecPop<T>` / `OwnedBuffer<T>` などの doccomment prose を `Vec .T` / `Option .T` / `VecPop .T` / `OwnedBuffer .T` 表記へ更新した。`//:|` doctest code、実コード、declaration / constructor / intrinsic は変更していない。
+- `stdlib/alloc/collections` の非 Vec collection modules では、`Vec<Option<T>>`、`HashMap<K,V,H>`、`BinaryHeap<T>` などの説明表記を prefix 型式へ更新した。fenced code block と現行 generic declaration syntax は保持した。
+- `stdlib/core`、`stdlib/alloc/string`、`stdlib/alloc/io`、`stdlib/std/text`、`stdlib/std/test` では、`Result<T,E>` / `Option<T>` / `MemPtr<T>` / `RegionToken<T>` / `Vec<T>` 系の説明を NEPLg2.1 表記へ更新した。`alloc_region<u8>` や `size_of<T>` などの raw memory / intrinsic call spelling は今回対象外として保持した。
+- `tests/stdlib/collection_cleanup_contract.n.md`、`tests/stdlib/collections_diag.n.md`、`tests/stdlib/memory_safety.n.md` では、本文・見出しの旧型表記だけを更新した。compile_fail fixture、negative contract、raw boundary example は変更していない。
+- `nodesrc/test_neplg21_prose_type_notation_cleanup.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ組み込んだ。この検査は `.nepl` の `//:` doccomment prose と `.n.md` の fenced block 外本文だけを対象にし、実コード・doctest code・コメント量・コメント追加を制限しない。
+- `node nodesrc/test_neplg21_prose_type_notation_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、targeted doc/source policy、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- `git diff --unified=0 -- '*.nepl'` の検査では、`.nepl` 差分は `//:` doccomment 行だけだった。
+- `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/neplg21-prose-type-notation-cleanup.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 18/67 件完了、12 pass、compile timeout 5 件、`memory_safety.n.md::doctest#14` の既存 raw memory case で `resource.cell.uninit` 1 件。今回変更した見出し 2 箇所の実行コードは未変更で、旧型表記移行に伴う型診断は出ていない。残留 runner は停止した。
+
 # 2026-05-27 Agent 1 metadata/traits postfix checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として collection metadata observer、traits helper call、prose/comment の旧 generic postfix / 旧型適用表記を 4 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。

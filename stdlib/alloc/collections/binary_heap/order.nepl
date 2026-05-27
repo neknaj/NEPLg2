@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - index 計算、slot swap、sift-up / sift-down を public API から分離します。
-//: - ordering は `Ord` と `Vec<Option<T>>` slot state の `match` に基づき、未初期化 slot を数値 sentinel で扱わないようにします。
+//: - ordering は `Ord` と `Vec Option .T` slot state の `match` に基づき、未初期化 slot を数値 sentinel で扱わないようにします。
 
 #indent 4
 

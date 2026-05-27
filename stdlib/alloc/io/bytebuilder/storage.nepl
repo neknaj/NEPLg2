@@ -71,7 +71,7 @@ pub fn byte_builder_new %fn unit Result ByteBuilder StdErrorKind \unit:
 //: byte_builder_dealloc_owned_region: builder が所有する byte 領域 token を解放する
 //:
 //: [目的/もくてき]:
-//: - `ByteBuilder` が持つ `RegionToken<u8>` の解放責務をここに集約します。
+//: - `ByteBuilder` が持つ `RegionToken u8` の解放責務をここに集約します。
 //:
 //: [注意/ちゅうい]:
 //: - token は必ず `dealloc_region` へ渡し、compiler が token owner の消費を直接追跡できる形にします。
@@ -106,10 +106,10 @@ pub fn byte_builder_dealloc_owned_region %fn RegionToken u8 unit \region:
 //: byte_builder_realloc_region_or_keep: storage token を grow し失敗時に旧 token を戻す
 //:
 //: [目的/もくてき]:
-//: - `ByteBuilder` の grow で、旧 `RegionToken<u8>` の free obligation を新しい token へ移す処理を集約します。
+//: - `ByteBuilder` の grow で、旧 `RegionToken u8` の free obligation を新しい token へ移す処理を集約します。
 //:
 //: [注意/ちゅうい]:
-//: - 成功時は返った `RegionToken<u8>` が storage owner です。
+//: - 成功時は返った `RegionToken u8` が storage owner です。
 //: - 失敗時は旧 token を `RegionReallocError` に戻し、caller が builder error payload へ包み直します。
 pub fn byte_builder_realloc_region_or_keep %fn RegionToken u8 fn i32 Result RegionToken u8 RegionReallocError u8 \region\new_cap:
     realloc_region_bytes_keep<u8> region new_cap
@@ -117,7 +117,7 @@ pub fn byte_builder_realloc_region_or_keep %fn RegionToken u8 fn i32 Result Regi
 //: byte_builder_free: builder が保持する storage を解放する
 //:
 //: [目的/もくてき]:
-//: - builder の `RegionToken<u8>` を取り出し、token の size に従って owned storage を解放します。
+//: - builder の `RegionToken u8` を取り出し、token の size に従って owned storage を解放します。
 pub fn byte_builder_free %fn ByteBuilder unit \builder:
     match get builder "storage":
         ByteBuilderStorage::Empty:

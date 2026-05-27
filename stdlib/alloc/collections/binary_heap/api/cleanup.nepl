@@ -2,7 +2,7 @@
 //: `BinaryHeap` owner の cleanup API
 //:
 //: ### [目的/もくてき]
-//: - heap owner から backing slot storage owner を取り出し、`Vec<Option<T>>` として閉じます。
+//: - heap owner から backing slot storage owner を取り出し、`Vec Option .T` として閉じます。
 //: - cleanup を observer / push / pop から分離し、free obligation の境界を明確にします。
 
 #indent 4

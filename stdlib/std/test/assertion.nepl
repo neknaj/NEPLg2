@@ -10,7 +10,7 @@
 //: `std/test` の assertion 生成と quiet check helper
 //:
 //: [目的/もくてき]:
-//: - stdout や report 集約を行わず、assertion の評価結果だけを `TestAssertion` または `Result<unit,str>` として返します。
+//: - stdout や report 集約を行わず、assertion の評価結果だけを `TestAssertion` または `Result unit str` として返します。
 //: - `AssertionKind` を使うことで、assertion の種類を文字列ではなく静的検査可能な enum として扱います。
 
 //: test_str_eq: [文字列/もじれつ]が[等/ひと]しいか[判定/はんてい]する
@@ -120,7 +120,7 @@ pub fn noshadow assert_str_eq %fn str fn str fn str TestAssertion \label\expecte
 pub fn noshadow assert_str_eq %fn str fn str TestAssertion \expected\actual:
     assert_str_eq "assert_str_eq" expected actual
 
-//: assert_ok_i32: `Result<i32,i32>` が Ok であることを[検査/けんさ]する
+//: assert_ok_i32: `Result i32 i32` が Ok であることを[検査/けんさ]する
 pub fn noshadow assert_ok_i32 %fn str fn Result i32 i32 TestAssertion \label\r:
     match r:
         Result::Ok v:
@@ -134,7 +134,7 @@ pub fn noshadow assert_ok_i32 %fn str fn Result i32 i32 TestAssertion \label\r:
 pub fn noshadow assert_ok_i32 %fn Result i32 i32 TestAssertion \r:
     assert_ok_i32 "assert_ok_i32" r
 
-//: assert_err_i32: `Result<i32,i32>` が Err であることを[検査/けんさ]する
+//: assert_err_i32: `Result i32 i32` が Err であることを[検査/けんさ]する
 pub fn noshadow assert_err_i32 %fn str fn Result i32 i32 TestAssertion \label\r:
     match r:
         Result::Ok v:

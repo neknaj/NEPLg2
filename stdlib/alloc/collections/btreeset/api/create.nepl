@@ -15,7 +15,7 @@
 #import "core/math" as *
 
 //: ## new
-//: [空/から]の `BTreeSet<.T>` を[作/つく]る
+//: [空/から]の `BTreeSet .T` を[作/つく]る
 //:
 //: neplg2:test
 //: ```neplg2

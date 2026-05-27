@@ -2,7 +2,7 @@
 //: `BinaryHeap` の slot storage 操作
 //:
 //: ### [目的/もくてき]
-//: - capacity 正規化、`Vec<Option<T>>` slot 読み書き、確保、live slot copy を所有します。
+//: - capacity 正規化、`Vec Option .T` slot 読み書き、確保、live slot copy を所有します。
 //: - heap ordering と public API が slot 表現の詳細を重複して持たないようにします。
 
 #indent 4

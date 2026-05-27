@@ -238,7 +238,7 @@ pub fn byte_builder_from_owned_region %fn RegionToken u8 fn i32 fn i32 ByteBuild
 //: byte_builder_with_len: builder の storage owner を保ったまま length だけ更新する
 //:
 //: [目的/もくてき]:
-//: - append が書き込みに成功したあと、`RegionToken<u8>` owner を取り出して包み直さず、field 全体を次の builder へ移します。
+//: - append が書き込みに成功したあと、`RegionToken u8` owner を取り出して包み直さず、field 全体を次の builder へ移します。
 //:
 //: [注意/ちゅうい]:
 //: - `new_len` は `cap` 以下でなければなりません。capacity 確保は呼び出し前に `byte_builder_reserve` で済ませます。

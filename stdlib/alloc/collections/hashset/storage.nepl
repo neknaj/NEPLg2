@@ -2,7 +2,7 @@
 //: HashSet typed storage の初期化・slot 読み書き・解放 helper
 //:
 //: ### [目的/もくてき]
-//: - `Vec<HashSetBucketState>` / `Vec<Option<T>>` の 2 owner を扱う処理を集約します。
+//: - `Vec HashSetBucketState` / `Vec Option .T` の 2 owner を扱う処理を集約します。
 //: - raw memory ではなく typed Vec storage を維持し、未初期化 bucket を作らないようにします。
 
 #indent 4

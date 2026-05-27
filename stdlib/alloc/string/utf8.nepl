@@ -6,7 +6,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - この module は検証だけを所有します。検証済み byte 列から `str` を構築する処理は `alloc/string/storage` 側が所有します。
-//: - `MemPtr<u8>` の指す領域は caller が `byte_len` byte ぶん有効に保つ必要があります。
+//: - `MemPtr u8` の指す領域は caller が `byte_len` byte ぶん有効に保つ必要があります。
 
 #indent 4
 

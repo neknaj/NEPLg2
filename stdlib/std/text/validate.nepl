@@ -2,7 +2,7 @@
 //: UTF-8 byte [列/れつ]の[分類/ぶんるい]と[検証/けんしょう]を[担当/たんとう]する submodule
 //:
 //: ### [目的/もくてき]
-//: - raw `MemPtr<u8>` と byte [長/なが]さを、`str` や `char` として[扱/あつか]う[前/まえ]に UTF-8 として[検証/けんしょう]します。
+//: - raw `MemPtr u8` と byte [長/なが]さを、`str` や `char` として[扱/あつか]う[前/まえ]に UTF-8 として[検証/けんしょう]します。
 //: - leading byte の[種類/しゅるい]を enum にし、sequence [長/なが]さごとの[検証/けんしょう]を `match` で[分岐/ぶんき]します。
 //:
 //: ### [注意/ちゅうい]
@@ -114,7 +114,7 @@ pub fn text_utf8_lead_kind %fn i32 TextUtf8LeadKind \b:
 //: text_utf8_byte_at_checked: byte_len で[範囲/はんい]を[縛/しば]った UTF-8 byte reader
 //:
 //: [目的/もくてき]:
-//: - `text_utf8_validate_mem` と `text_utf8_decode_next` が、同じ `MemPtr<u8>` / byte_len contract で byte を[読/よ]めるようにします。
+//: - `text_utf8_validate_mem` と `text_utf8_decode_next` が、同じ `MemPtr u8` / byte_len contract で byte を[読/よ]めるようにします。
 //: - index が[負/ふ]、または byte_len 以上なら raw pointer [計算/けいさん]へ[進/すす]まず `IndexOutOfBounds` を[返/かえ]します。
 //:
 //: [注意/ちゅうい]:
@@ -259,7 +259,7 @@ fn text_utf8_validate_four %fn MemPtr u8 fn i32 fn i32 fn i32 Result unit StdErr
 //: text_utf8_validate_mem: raw byte [列/れつ]が UTF-8 として[妥当/だとう]か[検証/けんしょう]する
 //:
 //: [目的/もくてき]:
-//: - `MemPtr<u8>` と byte [長/なが]さで[表/あらわ]された[領域/りょういき]を、`str` へ[変換/へんかん]する[前/まえ]に[検査/けんさ]します。
+//: - `MemPtr u8` と byte [長/なが]さで[表/あらわ]された[領域/りょういき]を、`str` へ[変換/へんかん]する[前/まえ]に[検査/けんさ]します。
 //:
 //: [実装/じっそう]:
 //: - leading byte を `TextUtf8LeadKind` に[分類/ぶんるい]し、sequence [長/なが]さごとに continuation byte と overlong/surrogate [制約/せいやく]を[確認/かくにん]します。

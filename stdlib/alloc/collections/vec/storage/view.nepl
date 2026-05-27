@@ -13,11 +13,11 @@
 //:
 //: ### [目的/もくてき]
 //: - OOM fallback など追加 allocation を行えない場面でも、null pointer ではなく `VecStorage::Empty` で空 storage を[表/あらわ]します。
-//: - `Empty` storage は runtime allocation、`RegionToken<T>` owner、initialized slot をどれも[持/も]たないため、payload の copy / move-out / drop / storage release 権限を[発生/はっせい]させません。
-//: - そのため、この constructor だけは non-Copy payload の `Vec<T>` metadata owner を[作/つく]れます。
+//: - `Empty` storage は runtime allocation、`RegionToken .T` owner、initialized slot をどれも[持/も]たないため、payload の copy / move-out / drop / storage release 権限を[発生/はっせい]させません。
+//: - そのため、この constructor だけは non-Copy payload の `Vec .T` metadata owner を[作/つく]れます。
 //:
 //: ### [制約/せいやく]
-//: - Empty state は runtime allocation も `RegionToken<T>` owner も[持/も]ちません。
+//: - Empty state は runtime allocation も `RegionToken .T` owner も[持/も]ちません。
 //: - `new` / `with_capacity` は `.T: Copy` または `.T: Drop` の capability がある場合だけ allocated storage を[作/つく]れます。
 //: - `clear` / `free` は `.T: Copy` では destructor 不要の range proof、`.T: Drop` では actual Drop traversal proof を使います。
 //: - `push` / payload access は initialized slot の move-out / replacement / failure recovery が未完成なので Copy-only のままです。

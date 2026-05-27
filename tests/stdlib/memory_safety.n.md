@@ -608,7 +608,7 @@ fn main %impure fn unit i32 \unit:
             0
 ```
 
-## load_i32 は MemPtr<i32> だけを受け付ける
+## load_i32 は MemPtr i32 だけを受け付ける
 
 neplg2:test[compile_fail]
 diag_code: type.overload.no_match
@@ -670,7 +670,7 @@ fn main %fn unit i32 \unit:
     0
 ```
 
-## store_u8 は MemPtr<u8> だけを受け付ける
+## store_u8 は MemPtr u8 だけを受け付ける
 
 neplg2:test[compile_fail]
 diag_code: type.overload.no_match

@@ -40,10 +40,10 @@
 #import "../internal" as *
 #import "../raw" as *
 
-//: memset_u8: MemPtr<u8> の byte range を同じ値で埋める
+//: memset_u8: MemPtr u8 の byte range を同じ値で埋める
 //:
 //: 目的:
-//: - raw address を public caller に出さず、`MemPtr<u8>` 経由で byte fill を行います。
+//: - raw address を public caller に出さず、`MemPtr u8` 経由で byte fill を行います。
 //:
 //: 実装(アルゴリズム):
 //: - pointer と長さを検査し、内部では raw `memset_u8(i32,i32,i32)` に委譲します。
@@ -98,7 +98,7 @@ pub fn memset_u8 %fn MemPtr u8 fn i32 fn i32 Result unit str \ptr\len\value:
             memset_u8 raw len value
             Result::Ok unit
 
-//: fill_u8: MemPtr<u8> を受け取る安全オーバーロード
+//: fill_u8: MemPtr u8 を受け取る安全オーバーロード
 //:
 //: 目的:
 //: - `fill_u8` を `MemPtr` で利用できるようにし、呼び出し側の生ポインタ露出を減らします。
@@ -111,7 +111,7 @@ pub fn memset_u8 %fn MemPtr u8 fn i32 fn i32 Result unit str \ptr\len\value:
 pub fn fill_u8 %fn MemPtr u8 fn i32 fn i32 Result unit str \ptr\len\value:
     memset_u8 ptr len value
 
-//: fill_i32: MemPtr<i32> を受け取る安全オーバーロード
+//: fill_i32: MemPtr i32 を受け取る安全オーバーロード
 //:
 //: 目的:
 //: - 無効ポインタを `Result::Err` として扱い、`i32` 生ポインタ境界を減らします。

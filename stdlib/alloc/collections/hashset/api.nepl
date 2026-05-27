@@ -40,7 +40,7 @@
 #import "core/field" as *
 
 //: ## new
-//: [空/から]の `HashSet<.T, .H>` を[作/つく]る
+//: [空/から]の `HashSet .T .H` を[作/つく]る
 //:
 //: ### [目的/もくてき]
 //: - hasher [値/あたい]を[受/う]け[取/と]り、[空/から]の hash set を[初期化/しょきか]します。
@@ -69,7 +69,7 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H Result HashSet .
     hashset_new_with_capacity<.T,.H> hasher 16
 
 //: ## with_capacity
-//: [指定/してい]した[初期容量/しょきようりょう]で `HashSet<.T, .H>` を[作/つく]る
+//: [指定/してい]した[初期容量/しょきようりょう]で `HashSet .T .H` を[作/つく]る
 //:
 //: ### [目的/もくてき]
 //: - self-host compiler の visited set など、要素数の[見積/みつ]もりがある用途で rehash 回数を[減/へ]らします。

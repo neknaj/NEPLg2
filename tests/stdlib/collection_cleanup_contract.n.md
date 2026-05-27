@@ -3,7 +3,7 @@
 ## 概要
 
 [目的/もくてき]:
-- 現行 collection のうち `Vec<Option<T>>` / `Vec<T>` storage に[載/の]る派生 collection は、`OwnedBuffer<T>` と element drop traversal が[完成/かんせい]するまで Copy-only 契約で[閉/と]じることを[確認/かくにん]します。
+- 現行 collection のうち `Vec Option T` / `Vec T` storage に[載/の]る派生 collection は、`OwnedBuffer T` と element drop traversal が[完成/かんせい]するまで Copy-only 契約で[閉/と]じることを[確認/かくにん]します。
 - cleanup/free だけが generic のまま[残/のこ]り、non-Copy payload を[安全/あんぜん]に free できるように[見/み]える退行を[防/ふせ]ぎます。
 - 各 doctest は collection family または API ごとに[独立/どくりつ]しており、別 API の trait bound error で[偶然/ぐうぜん]成功することを[避/さ]けます。
 

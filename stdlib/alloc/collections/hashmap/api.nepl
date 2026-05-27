@@ -41,7 +41,7 @@
 #import "core/field" as *
 
 //: ## new
-//: [空/から]の `HashMap<.K, .V, .H>` を[作/つく]る
+//: [空/から]の `HashMap .K .V .H` を[作/つく]る
 //:
 //: ### [目的/もくてき]
 //: - hasher [値/あたい]を[受/う]け[取/と]り、[空/から]の hash map を[初期化/しょきか]します。
@@ -70,7 +70,7 @@ pub fn new <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure fn .H Result 
     hashmap_new_with_capacity<.K,.V,.H> hasher 16
 
 //: ## with_capacity
-//: [指定/してい]した[初期容量/しょきようりょう]で `HashMap<.K, .V, .H>` を[作/つく]る
+//: [指定/してい]した[初期容量/しょきようりょう]で `HashMap .K .V .H` を[作/つく]る
 //:
 //: ### [目的/もくてき]
 //: - self-host compiler の symbol table など、要素数の[見積/みつ]もりがある用途で rehash 回数を[減/へ]らします。

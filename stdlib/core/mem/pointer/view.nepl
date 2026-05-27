@@ -3,7 +3,7 @@
 //: mem/pointer/view: MemPtr の non-owning pointer view helper
 //:
 //: 目的:
-//: - `MemPtr<T>` から別の `MemPtr<T>` view を作る helper をまとめます。
+//: - `MemPtr .T` から別の `MemPtr .T` view を作る helper をまとめます。
 //: - storage の確保・再確保・解放を行う owner boundary API とは分離し、public safe facade から使えるのは non-owning view 操作だけにします。
 //:
 //: neplg2:test
@@ -32,10 +32,10 @@
 //: mem_ptr_add: MemPtr の byte offset view を作る
 //:
 //: 目的:
-//: - `MemPtr<T>` の raw address view に byte offset を加えた別の non-owning pointer view を返します。
+//: - `MemPtr .T` の raw address view に byte offset を加えた別の non-owning pointer view を返します。
 //:
 //: 実装(アルゴリズム):
-//: - internal boundary で raw view を取り出し、`add` 後に `MemPtr<T>` として包みます。
+//: - internal boundary で raw view を取り出し、`add` 後に `MemPtr .T` として包みます。
 //:
 //: 注意(重要):
 //: - 範囲検査は行いません。RegionToken に紐づく bounds が必要な場合は `region_ptr_at` を使います。

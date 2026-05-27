@@ -20,7 +20,7 @@
 #import "core/field" as *
 
 //: ## filled
-//: [同/おな]じ Copy [値/あたい]で[満/み]たした `Vec<.T>` を[作/つく]る
+//: [同/おな]じ Copy [値/あたい]で[満/み]たした `Vec .T` を[作/つく]る
 //:
 //: ### [目的/もくてき]
 //: - [固定長/こていちょう]の buffer や table を、`with_capacity` + `push` の loop ではなく 1 つの API で[作成/さくせい]します。
@@ -28,7 +28,7 @@
 //:
 //: ### [実装/じっそう]
 //: - `n <= 0` なら `VecStorage::Empty` の[空/から]の `Vec` を[返/かえ]します。
-//: - `n > 0` なら `n` [要素分/ようそぶん]を typed `alloc_region<.T>` で[確保/かくほ]し、先頭から順に `store` で同じ値を書き込みます。
+//: - `n > 0` なら `n` [要素分/ようそぶん]を typed `alloc_region .T` で[確保/かくほ]し、先頭から順に `store` で同じ値を書き込みます。
 //: - 各 `store` の直後に slot initialization proof を[発行/はっこう]し、書き込み済み範囲が `initialized_len` と一致することを Resource IR の collection slot summary へ[渡/わた]します。
 //: - 書き込み完了後は `len = initialized_len = cap = n` の `OwnedBuffer` を[持/も]つ `Vec` として[返/かえ]します。
 //:
@@ -68,7 +68,7 @@
 //: `filled` の payload store と slot initialization proof を同じ private 境界で発行する
 //:
 //: ### [目的/もくてき]
-//: - raw `store<T>` と `collection_slot_initialize_empty` marker を[同/おな]じ helper に[閉/と]じます。
+//: - raw `store .T` と `collection_slot_initialize_empty` marker を[同/おな]じ helper に[閉/と]じます。
 //: - `filled` が `len = initialized_len = cap` の `Vec` を[返/かえ]すため、各 slot が[実際/じっさい]に[初期化/しょきか]されたことを Resource IR の summary に[残/のこ]します。
 //:
 //: ### [注意/ちゅうい]

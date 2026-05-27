@@ -1,5 +1,5 @@
 //: # stack
-//: `Vec<Option<T>>` backed LIFO stack の public facade
+//: `Vec Option .T` backed LIFO stack の public facade
 //:
 //: ### [目的/もくてき]
 //: - `push` / `pop_top` / `stack_pop_item` / `stack_pop_stack` / `peek` / `get` / `len` など、stack 操作の既存 import path を[保/たも]ちます。

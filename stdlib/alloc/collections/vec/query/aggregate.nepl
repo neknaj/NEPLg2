@@ -6,7 +6,7 @@
 //: - non-Copy payload を値として[読/よ]まない predicate count は、scoped borrowed observer として同じ module に[置/お]きます。
 //:
 //: ### [注意/ちゅうい]
-//: - 要素の読み取りは `get<T: Copy>` を[通/とお]し、raw load の結果を callback に直接[渡/わた]しません。
+//: - 要素の読み取りは `get`（`.T: Copy`）を[通/とお]し、raw load の結果を callback に直接[渡/わた]しません。
 //: - `count_ref` は payload を copy-out せず、`BorrowRead` proof を[使/つか]う borrowed predicate API です。
 
 #indent 4
@@ -78,7 +78,7 @@ pub fn count <.T: Copy> %fn &Vec .T fn fn .T bool i32 \v\p:
 //: count_ref: 借用 predicate で[条件/じょうけん]を[満/み]たす[要素数/ようそすう]を[数/かぞ]える
 //:
 //: ### [目的/もくてき]
-//: - non-Copy payload を `get<T: Copy>` で[読/よ]み[出/だ]さず、各 slot を `&T` として predicate に[渡/わた]します。
+//: - non-Copy payload を `get`（`.T: Copy`）で[読/よ]み[出/だ]さず、各 slot を `&T` として predicate に[渡/わた]します。
 //: - 戻り値は `i32` だけなので、要素 owner は `Vec` の中に[残/のこ]ります。
 //:
 //: ### [実装/じっそう]

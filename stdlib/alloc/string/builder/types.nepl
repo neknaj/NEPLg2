@@ -71,7 +71,7 @@ pub fn string_builder_len_ref %fn &StringBuilder i32 \sb:
 //: - WASI syscall など、`str` owner へ確定せず byte buffer を読む境界へ渡すための pointer view を作ります。
 //:
 //: [注意/ちゅうい]:
-//: - 返る `MemPtr<u8>` は non-owning view です。free obligation は引き続き `StringBuilder` 内の `ByteBuilder` が持ちます。
+//: - 返る `MemPtr u8` は non-owning view です。free obligation は引き続き `StringBuilder` 内の `ByteBuilder` が持ちます。
 //: - 呼び出し側は元の builder を解放または build するまで有効な一時 view としてだけ扱ってください。
 pub fn string_builder_data_ptr_ref %fn &StringBuilder MemPtr u8 \sb:
     let bytes_ref %&ByteBuilder get_ref sb "bytes"

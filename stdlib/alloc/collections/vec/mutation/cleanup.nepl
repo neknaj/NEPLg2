@@ -153,7 +153,7 @@ pub fn clear <.T: Drop> %impure fn Vec .T Vec .T \v:
 //: [内部/ないぶ]メモリを[解放/かいほう]する
 //:
 //: ### [目的/もくてき]
-//: - `Vec<.T>` が `VecStorage::Owned` payload として[所有/しょゆう]する storage [領域/りょういき]を[明示的/めいじてき]に[解放/かいほう]します。
+//: - `Vec .T` が `VecStorage::Owned` payload として[所有/しょゆう]する storage [領域/りょういき]を[明示的/めいじてき]に[解放/かいほう]します。
 //:
 //: ### [実装/じっそう]
 //: - `OwnedBuffer` から `storage` owner と `initialized_len` を[取/と]り[出/だ]します。

@@ -108,12 +108,12 @@
 //: StdErrorKind: stdlib [全体/ぜんたい]で[共有/きょうゆう]する[軽量/けいりょう]な[失敗/しっぱい][分類/ぶんるい]
 //:
 //: 目的:
-//: - `Result<T, E>` の `E` として[使/つか]う[標準/ひょうじゅん] error kind を[定義/ていぎ]します。
+//: - `Result .T .E` の `.E` として[使/つか]う[標準/ひょうじゅん] error kind を[定義/ていぎ]します。
 //: - richer な `Diag` とは[分離/ぶんり]し、`core` / `alloc` / `std` が[循環/じゅんかん]せずに[共有/きょうゆう]できるようにします。
 //:
 //: 注意(重要):
 //: - [詳細/しょうさい]な[背景/はいけい]や[位置/いち]は `alloc/diag/error` の `Diag` [側/がわ]で[補/おぎな]います。
-//: - reboot [方針/ほうしん]では、[通常/つうじょう]の stdlib API は `Result<T, StdErrorKind>` を[基本/きほん]にします。
+//: - reboot [方針/ほうしん]では、[通常/つうじょう]の stdlib API は `Result .T StdErrorKind` を[基本/きほん]にします。
 //:
 //: 計算量:
 //: - O(1)
@@ -156,7 +156,7 @@ pub enum Result<.T, .E>:
     Ok %.T
     Err %.E
 
-//: Result<Copy, Copy>: payload がどちらも Copy なら Result も Copy として扱う
+//: Result Copy Copy: payload がどちらも Copy なら Result も Copy として扱う
 //:
 //: 目的:
 //: - `Result unit str` や `Result i32 str` のような軽量値を、検査結果や一時 buffer から安全に読み取れるようにします。
@@ -323,7 +323,7 @@ pub fn unwrap_ok <.T, .E> %fn Result .T .E .T \r:
 //: - `unwrap_ok` への[別名/べつめい]です。
 //:
 //: ### [注意/ちゅうい]
-//: - [左側/ひだりがわ]の `Result<T, E>` から `T` が[推論/すいろん]できる[場面/ばめん]では、ふつうは[型注釈/かたちゅうしゃく]は[不要/ふよう]です。
+//: - [左側/ひだりがわ]の `Result .T .E` から `.T` が[推論/すいろん]できる[場面/ばめん]では、ふつうは[型注釈/かたちゅうしゃく]は[不要/ふよう]です。
 //:
 //: ### [計算量/けいさんりょう]
 //: - `unwrap_ok` と[同/おな]じです。
@@ -469,7 +469,7 @@ pub fn map_err <.T, .E, .F> %fn Result .T .E fn fn .E .F Result .T .F \r\f:
 //: - match で Ok/Err を分岐し、Ok のときのみ Result を返す関数を呼びます。
 //:
 //: 注意(重要):
-//: - `map` が `a -> b` を受けるのに対し、`and_then` は `a -> Result<b,e>` を受けます。
+//: - `map` が `a -> b` を受けるのに対し、`and_then` は `a -> Result .b .e` を受けます。
 //:
 //: 計算量:
 //: - O(1)

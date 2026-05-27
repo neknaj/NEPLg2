@@ -8,7 +8,7 @@
 //:
 //: 注意(重要):
 //: - raw load/store と allocator の実装は `mem/raw` / `mem/allocator` / `mem/internal` 側に閉じます。
-//: - allocation owner は `RegionToken<T>` が保持し、`MemPtr<T>` は non-owning view としてだけ公開します。
+//: - allocation owner は `RegionToken .T` が保持し、`MemPtr .T` は non-owning view としてだけ公開します。
 //: - この facade は raw-memory-boundary capability を持たず、関数本体も所有しません。
 //:
 //: neplg2:test

@@ -6,7 +6,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - `string_from_mem_unchecked_result` は UTF-8 検証を行いません。外部入力には `string_from_utf8_mem_result` を使います。
-//: - `string_finish` 後は `RegionToken<u8>` の所有権が `str` 側へ移ります。
+//: - `string_finish` 後は `RegionToken u8` の所有権が `str` 側へ移ります。
 //: - raw address から `str` を作る変換は、この module 内の `string_finish` 境界に閉じます。
 
 #indent 4
@@ -25,7 +25,7 @@
 //: - 先頭 4 バイトの長さヘッダを含む文字列領域を確保します。
 //:
 //: [実装/じっそう]:
-//: - `alloc_region_bytes<u8>` に `4 + byte_len` を渡し、文字列レイアウト専用の `RegionToken<u8>` を返します。
+//: - `alloc_region_bytes<u8>` に `4 + byte_len` を渡し、文字列レイアウト専用の `RegionToken u8` を返します。
 //:
 //: [注意/ちゅうい]:
 //: - `byte_len` は文字列本文のバイト数です。
@@ -44,10 +44,10 @@ pub fn string_alloc_region %fn i32 Result RegionToken u8 str \byte_len:
 //: string_region_data_ptr: 文字列本文先頭への型付きポインタを得る
 //:
 //: [目的/もくてき]:
-//: - 文字列本文の 1 バイト目を `MemPtr<u8>` として扱えるようにします。
+//: - 文字列本文の 1 バイト目を `MemPtr u8` として扱えるようにします。
 //:
 //: [実装/じっそう]:
-//: - `RegionToken` の所有権を動かさず、checked projection から基底 `MemPtr<u8>` を得て 4 バイト進めます。
+//: - `RegionToken` の所有権を動かさず、checked projection から基底 `MemPtr u8` を得て 4 バイト進めます。
 //:
 //: [注意/ちゅうい]:
 //: - 先頭 4 バイトが長さヘッダであることを前提にしています。
@@ -79,7 +79,7 @@ fn string_addr %fn str i32 \s:
 //: - `str` の内部表現を直接露出せずに、本文領域へアクセスします。
 //:
 //: [実装/じっそう]:
-//: - 長さヘッダの直後を `MemPtr<u8>` として包みます。
+//: - 長さヘッダの直後を `MemPtr u8` として包みます。
 //:
 //: [注意/ちゅうい]:
 //: - 既存の `str` 表現に依存する内部ヘルパです。
@@ -117,7 +117,7 @@ pub fn string_finish %fn RegionToken u8 fn i32 str \region\byte_len:
 //: - compiler intrinsic により、`i32` の生アドレスを `str` 表現へ明示的に境界変換します。
 //:
 //: [注意/ちゅうい]:
-//: - この helper は公開しません。所有権移行は `RegionToken<u8>` を消費する `string_finish` だけが行います。
+//: - この helper は公開しません。所有権移行は `RegionToken u8` を消費する `string_finish` だけが行います。
 //: - UTF-8 検証済みで、文字列レイアウトを満たす領域にだけ使います。任意の整数を渡すと未定義動作になります。
 //:
 //: [計算量/けいさんりょう]:

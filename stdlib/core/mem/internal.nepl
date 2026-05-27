@@ -85,11 +85,11 @@ pub fn region_token_raw_ref <.T> %fn &RegionToken .T &i32 \token:
 //:
 //: 目的:
 //: - allocator wrapper が所有領域の raw identity と size をまとめ、free obligation owner token を作ります。
-//: - token 内部には `MemPtr<T>` ではなく raw owner identity を保存し、`MemPtr<T>` は projection view としてだけ外へ作ります。
+//: - token 内部には `MemPtr .T` ではなく raw owner identity を保存し、`MemPtr .T` は projection view としてだけ外へ作ります。
 //:
 //: 注意(重要):
 //: - 呼び出し側は raw が allocator から得た owned storage identity であることを保証します。
-//: - `MemPtr<T>` は non-owning view なので、この関数の入力にはしません。
+//: - `MemPtr .T` は non-owning view なので、この関数の入力にはしません。
 //: - public source へ露出すると任意 raw address から owner token を forged できるため、root facade からは公開しません。
 //:
 //: neplg2:test[compile_fail]

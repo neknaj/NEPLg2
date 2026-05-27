@@ -2,13 +2,13 @@
 //: `Ord` を[用/もち]いた max-heap priority queue の public facade
 //:
 //: ### [目的/もくてき]
-//: - `BinaryHeap<.T>` と最大値の push / peek / pop API を既存 import path から公開します。
+//: - `BinaryHeap .T` と最大値の push / peek / pop API を既存 import path から公開します。
 //: - 型定義、slot storage、heap ordering、public API を submodule に分け、root file へ実装本体を戻さない構成にします。
 //:
 //: ### [注意/ちゅうい]
 //: - `.T` は `Copy` を[要求/ようきゅう]します。現行 stdlib には heap payload の drop traversal がまだ無いため、非 Copy payload は[扱/あつか]いません。
 //: - `peek` / `len` / `cap` / `is_empty` は heap を[借用/しゃくよう]して[観測/かんそく]します。
-//: - `pop_max` は[更新後/こうしんご]の owner と[取/と]り[出/だ]した `Option<T>` を[同時/どうじ]に[返/かえ]します。結果は `binary_heap_pop_item` / `binary_heap_pop_heap` で[分解/ぶんかい]します。
+//: - `pop_max` は[更新後/こうしんご]の owner と[取/と]り[出/だ]した `Option .T` を[同時/どうじ]に[返/かえ]します。結果は `binary_heap_pop_item` / `binary_heap_pop_heap` で[分解/ぶんかい]します。
 
 #indent 4
 #import "core/math" as *

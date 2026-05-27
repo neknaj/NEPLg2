@@ -24,8 +24,8 @@
 //: `push` の payload store と slot initialization proof を同じ private 境界で発行する
 //:
 //: ### [目的/もくてき]
-//: - raw `store<T>` と `collection_slot_initialize_empty` marker を `push` implementation file 内の private helper に[閉/と]じます。
-//: - public `push` 本体は `RegionToken<T>` owner と byte offset を渡すだけにし、raw pointer projection と Resource IR marker の対応をこの helper で一貫して[扱/あつか]います。
+//: - raw `store .T` と `collection_slot_initialize_empty` marker を `push` implementation file 内の private helper に[閉/と]じます。
+//: - public `push` 本体は `RegionToken .T` owner と byte offset を渡すだけにし、raw pointer projection と Resource IR marker の対応をこの helper で一貫して[扱/あつか]います。
 //:
 //: ### [注意/ちゅうい]
 //: - この helper は public にしません。`collection_slot_*` marker authority は direct import 可能な public helper として[公開/こうかい]せず、public collection API の内部実装だけが使います。
@@ -41,15 +41,15 @@ fn vec_push_slot_store_initialized <.T> %fn &RegionToken .T fn i32 fn .T unit \s
 //: [末尾/まつび]に[要素/ようそ]を[追加/ついか]する
 //:
 //: ### [目的/もくてき]
-//: - `item` を[末尾/まつび]へ[追加/ついか]し、[必要/ひつよう]なら[再確保/さいかくほ]した `Vec<.T>` を[返/かえ]します。
+//: - `item` を[末尾/まつび]へ[追加/ついか]し、[必要/ひつよう]なら[再確保/さいかくほ]した `Vec .T` を[返/かえ]します。
 //:
 //: ### [実装/じっそう]
 //: - `len` / `cap` は `&v.buffer` から Copy field として[読/よ]み、`storage` owner は `OwnedBuffer` から[取/と]り[出/だ]して[戻/もど]り[値/ち]または grow cleanup へ[移動/いどう]します。
-//: - [容量/ようりょう][不足/ぶそく]なら allocator payload 上限を[確認/かくにん]したうえで 2 [倍/ばい]を[基準/きじゅん]に[拡張/かくちょう]し、typed `RegionToken<.T>` を新しい token へ[移/うつ]します。
+//: - [容量/ようりょう][不足/ぶそく]なら allocator payload 上限を[確認/かくにん]したうえで 2 [倍/ばい]を[基準/きじゅん]に[拡張/かくちょう]し、typed `RegionToken .T` を新しい token へ[移/うつ]します。
 //: - [空/から][容量/ようりょう] 0 の `Vec` に対しては 1 [要素分/ようそぶん]から[開始/かいし]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [返/かえ]り[値/あたい]は `Result<Vec<.T>, VecPushError<.T>>` です。`Err` の[場合/ばあい]も `Vec` owner と[挿入/そうにゅう]されなかった `item` owner が `VecPushError.rejected` に[戻/もど]るため、caller が cleanup、再試行、item recovery を[選/えら]べます。
+//: - [返/かえ]り[値/あたい]は `Result (Vec .T) (VecPushError .T)` です。`Err` の[場合/ばあい]も `Vec` owner と[挿入/そうにゅう]されなかった `item` owner が `VecPushError.rejected` に[戻/もど]るため、caller が cleanup、再試行、item recovery を[選/えら]べます。
 //: - [再確保/さいかくほ]が[起/お]きると[内部/ないぶ]バッファ[番地/ばんち]は[変/か]わります。
 //: - `push` は `.T: Copy` と `.T: Drop` の overload を[持/も]ちます。いずれも payload 非依存の `VecStorageInvariant` と private slot initialize helper に[接続/せつぞく]し、Copy raw-access proof へ[依存/いぞん]しません。
 //: - [容量/ようりょう][拡張/かくちょう]に[失敗/しっぱい]した[場合/ばあい]、旧 buffer と `item` は[解放/かいほう]せず `VecPushError.rejected` に[戻/もど]します。`push` の API 型が owner の[行方/ゆくえ]を[表/あらわ]すため、実装 discipline に[依存/いぞん]しません。
@@ -123,7 +123,7 @@ pub fn vec_push_error_kind <.T> %fn &VecPushError .T StdErrorKind \e:
 //:
 //: ### [目的/もくてき]
 //: - non-Copy payload では、失敗時に `Vec` owner だけを[取/と]り[出/だ]すと `item` owner の[行方/ゆくえ]が API 型から[消/き]えます。
-//: - この accessor は `VecPushRejected<T>` を[返/かえ]し、caller が両 owner を同じ回収単位として[扱/あつか]えるようにします。
+//: - この accessor は `VecPushRejected .T` を[返/かえ]し、caller が両 owner を同じ回収単位として[扱/あつか]えるようにします。
 pub fn vec_push_error_rejected <.T> %fn VecPushError .T VecPushRejected .T \e:
     field::get e "rejected"
 
@@ -131,7 +131,7 @@ pub fn vec_push_error_rejected <.T> %fn VecPushError .T VecPushRejected .T \e:
 //: `push` [失敗/しっぱい] payload の `Vec` owner と rejected item owner を同じ callback に[渡/わた]す
 //:
 //: ### [目的/もくてき]
-//: - `VecPushRejected<T>` は owner-backed aggregate なので、non-Copy payload では利用側が片方の field だけを[取/と]り[出/だ]す設計にはしません。
+//: - `VecPushRejected .T` は owner-backed aggregate なので、non-Copy payload では利用側が片方の field だけを[取/と]り[出/だ]す設計にはしません。
 //: - この eliminator が `vec` と `item` を同時に取り出し、caller が渡した callback へ両 owner を同じ control-flow 上で[渡/わた]します。
 //: - cleanup、retry、診断変換など、push failure recovery を rejected item owner を[隠/かく]さず[実装/じっそう]できます。
 //:
@@ -172,7 +172,7 @@ pub fn vec_push_rejected_with <.T,.R> %impure fn VecPushRejected .T impure fn im
 //: `push` [失敗/しっぱい]で[戻/もど]された `Vec` owner を[取/と]り[出/だ]す
 //:
 //: ### [注意/ちゅうい]
-//: - この accessor は `.T: Copy` 専用です。`item` owner を一緒に[返/かえ]さないため、non-Copy payload では `vec_push_error_rejected<T>` と `vec_push_rejected_with<T, R>` を[使/つか]って `Vec` と `item` を同時に[回収/かいしゅう]します。
+//: - この accessor は `.T: Copy` 専用です。`item` owner を一緒に[返/かえ]さないため、non-Copy payload では `vec_push_error_rejected`（`.T`）と `vec_push_rejected_with`（`.T`, `.R`）を[使/つか]って `Vec` と `item` を同時に[回収/かいしゅう]します。
 pub fn vec_push_error_vec <.T: Copy> %fn VecPushError .T Vec .T \e:
     let rejected %VecPushRejected .T vec_push_error_rejected<.T> e
     field::get rejected "vec"
@@ -181,7 +181,7 @@ pub fn vec_push_error_vec <.T: Copy> %fn VecPushError .T Vec .T \e:
 //: grow [失敗/しっぱい]時に旧 `RegionToken` owner を[返/かえ]す private payload
 //:
 //: ### [注意/ちゅうい]
-//: - この型は `Vec.push` 実装 file の内部だけで使います。public error recovery surface へは出さず、`VecPushError<T>` が public API として返す owner を表します。
+//: - この型は `Vec.push` 実装 file の内部だけで使います。public error recovery surface へは出さず、`VecPushError .T` が public API として返す owner を表します。
 //: - payload slot を読まない storage owner 操作なので `.T: Copy` は要求しません。
 struct VecReallocRegionError<.T>:
     region %RegionToken .T
@@ -250,7 +250,7 @@ fn vec_next_capacity <.T> %fn i32 Result i32 StdErrorKind \cap0:
 //: 既存 storage owner token を grow し、失敗時は旧 token を error payload に戻す
 //:
 //: ### [目的/もくてき]
-//: - `Vec` の grow で、old `RegionToken<T>` の free obligation を新しい `RegionToken<T>` へ移す処理を 1 箇所へ[集約/しゅうやく]します。
+//: - `Vec` の grow で、old `RegionToken .T` の free obligation を新しい `RegionToken .T` へ移す処理を 1 箇所へ[集約/しゅうやく]します。
 //:
 //: ### [注意/ちゅうい]
 //: - 成功時は返った token が storage owner です。失敗時は旧 token が `VecReallocRegionError.region` に[戻/もど]ります。

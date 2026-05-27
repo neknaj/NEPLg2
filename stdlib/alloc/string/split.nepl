@@ -2,7 +2,7 @@
 //:
 //: [目的/もくてき]:
 //: - `str` を separator で分割するときの byte range 走査を提供します。
-//: - `Vec<str>` や `Vec<i32>` を返さず、呼び出し側が `StrSplitStep` を `match` して処理できる形にします。
+//: - `Vec str` や `Vec i32` を返さず、呼び出し側が `StrSplitStep` を `match` して処理できる形にします。
 //:
 //: [注意/ちゅうい]:
 //: - split range は byte index です。range を `str` として切り出す場合は `str_slice_result` など UTF-8 boundary を検査する API を使います。
@@ -95,7 +95,7 @@ pub fn str_split_done_step %fn unit StrSplitStep \unit:
 //:
 //: [目的/もくてき]:
 //: - `s` を `sep` で分割した時の次の `[start,end)` byte range を 1 件返します。
-//: - `Vec<str>` も `Vec<i32>` も返さず、呼び出し側の loop state だけで処理できるようにします。
+//: - `Vec str` も `Vec i32` も返さず、呼び出し側の loop state だけで処理できるようにします。
 //:
 //: [実装/じっそう]:
 //: - `cursor` から前方へ `sep` を探し、見つかれば `cursor..i` と次 cursor `i + len(sep)` を返します。

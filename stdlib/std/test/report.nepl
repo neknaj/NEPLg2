@@ -15,7 +15,7 @@
 //:
 //: [目的/もくてき]:
 //: - `TestAssertion` を `TestReport` に集約し、stdout report と exit code の責務を分けます。
-//: - 旧 `checks_*` API は `TestReport` へ委譲し、`Result<unit,str>` の raw accumulator へ戻さないようにします。
+//: - 旧 `checks_*` API は `TestReport` へ委譲し、`Result unit str` の raw accumulator へ戻さないようにします。
 
 //: test_report_new: [空/から] report を[作/つく]る
 pub fn test_report_new %fn str TestReport \name:

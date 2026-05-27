@@ -58,7 +58,7 @@ pub enum VecDataView<.T>:
 //: [内部/ないぶ]データ[領域/りょういき]を typed data view として[返/かえ]す
 //:
 //: ### [目的/もくてき]
-//: - `alloc/collections` [内部/ないぶ]で `Vec<.T>` の[要素/ようそ][領域/りょういき]を型付き view として[安全/あんぜん]に[扱/あつか]えるようにします。
+//: - `alloc/collections` [内部/ないぶ]で `Vec .T` の[要素/ようそ][領域/りょういき]を型付き view として[安全/あんぜん]に[扱/あつか]えるようにします。
 //:
 //: ### [実装/じっそう]
 //: - `Vec` の `buffer` field を[借用/しゃくよう]し、current Copy-only invariant が[成/な]り[立/た]つことを[確認/かくにん]します。
@@ -68,7 +68,7 @@ pub enum VecDataView<.T>:
 //:
 //: ### [注意/ちゅうい]
 //: - [主/おも]に stdlib [内部/ないぶ]の[実装/じっそう][補助/ほじょ]を[想定/そうてい]した API です。
-//: - public API は typed `VecDataView<.T>` で止め、raw `i32` address observer は[提供/ていきょう]しません。raw-memory boundary の[実装/じっそう]が番地を必要とする場合だけ、`VecDataView::Data` branch 内で明示的に `mem_ptr_addr` を使います。
+//: - public API は typed `VecDataView .T` で止め、raw `i32` address observer は[提供/ていきょう]しません。raw-memory boundary の[実装/じっそう]が番地を必要とする場合だけ、`VecDataView::Data` branch 内で明示的に `mem_ptr_addr` を使います。
 //: - [再確保/さいかくほ]が[起/お]きると pointer は[無効化/むこうか]されうるので、[長期/ちょうき][保持/ほじ]は[避/さ]けます。
 //: - 現行 raw data observer は `.T: Copy` 専用です。non-Copy payload の borrowed observer は pointer escape ではなく dedicated API として[設計/せっけい]します。
 //:

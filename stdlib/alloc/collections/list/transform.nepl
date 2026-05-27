@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - input owner を消費し、新しい `Vec` storage を持つ output list を返します。
-//: - 失敗時は部分的な output storage owner だけを閉じ、input owner は `ListTransformError<T>` に戻します。
+//: - 失敗時は部分的な output storage owner だけを閉じ、input owner は `ListTransformError .T` に戻します。
 
 #indent 4
 

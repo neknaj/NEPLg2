@@ -6,7 +6,7 @@
 //: - non-Copy payload を copy-out しない predicate scan は、`&T` を callback scope に[閉/と]じる `*_ref` API として[提供/ていきょう]します。
 //:
 //: ### [注意/ちゅうい]
-//: - 要素の読み取りは `get<T: Copy>` を[通/とお]し、raw load の結果を callback に直接[渡/わた]しません。
+//: - 要素の読み取りは `get`（`.T: Copy`）を[通/とお]し、raw load の結果を callback に直接[渡/わた]しません。
 //: - `*_ref` API は `get` を[使/つか]わず、`BorrowRead` proof を[発行/はっこう]する borrowed observer boundary を[通/とお]ります。
 
 #indent 4
@@ -89,7 +89,7 @@ pub fn find <.T: Copy> %fn &Vec .T fn fn .T bool Option .T \v\p:
 //: find_index_ref: 借用 predicate に[合/あ]う[最初/さいしょ]の index を[返/かえ]す
 //:
 //: ### [目的/もくてき]
-//: - `find<T: Copy>` のように要素を `Option<T>` として copy-out せず、見つかった[位置/いち]だけを `Option<i32>` で[返/かえ]します。
+//: - `find`（`.T: Copy`）のように要素を `Option .T` として copy-out せず、見つかった[位置/いち]だけを `Option i32` で[返/かえ]します。
 //: - non-Copy payload の owner は `Vec` の slot に[残/のこ]り、predicate は `&T` を callback scope 内で[観測/かんそく]します。
 //:
 //: ### [実装/じっそう]

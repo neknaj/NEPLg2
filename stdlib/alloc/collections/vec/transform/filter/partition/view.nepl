@@ -79,7 +79,7 @@ pub fn vec_partition_rest_len <.T> %fn &VecPartition .T i32 \parts:
 //: `partition` の true 側から index の[要素/ようそ]を[読/よ]む
 //:
 //: ### [目的/もくてき]
-//: - `matched` 側の `Vec` を[借用/しゃくよう]し、`Vec.get` と同じ境界規則で `Option<T>` を[返/かえ]します。
+//: - `matched` 側の `Vec` を[借用/しゃくよう]し、`Vec.get` と同じ境界規則で `Option .T` を[返/かえ]します。
 //: - `.T: Copy` に[限定/げんてい]し、要素 owner の move-out をこの API では[扱/あつか]いません。
 //:
 //: neplg2:test
@@ -147,9 +147,9 @@ pub fn vec_partition_rest_get <.T: Copy> %fn &VecPartition .T fn i32 Option .T \
 //: 2 本の `Vec` owner を `VecPartition` に[束/たば]ねる
 //:
 //: ### [目的/もくてき]
-//: - caller が `VecPartition<T>` の direct constructor を[使/つか]わなくても、2 本の `Vec<T>` owner を 1 つの named result にまとめられるようにします。
-//: - `matched` / `rest` の owner obligation はそのまま `VecPartition<T>` に[移/うつ]るため、payload の copy、drop、storage release は行いません。
-//: - `vec_partition_with<T, R>` と対になる safe constructor boundary です。field を直接[触/さわ]らず、constructor と eliminator の型で owner flow を表します。
+//: - caller が `VecPartition .T` の direct constructor を[使/つか]わなくても、2 本の `Vec .T` owner を 1 つの named result にまとめられるようにします。
+//: - `matched` / `rest` の owner obligation はそのまま `VecPartition .T` に[移/うつ]るため、payload の copy、drop、storage release は行いません。
+//: - `vec_partition_with`（`.T`, `.R`）と対になる safe constructor boundary です。field を直接[触/さわ]らず、constructor と eliminator の型で owner flow を表します。
 //:
 //: neplg2:test
 //: exit_code: 0
@@ -179,7 +179,7 @@ pub fn vec_partition_from_parts <.T> %fn Vec .T fn Vec .T VecPartition .T \match
 //: `VecPartition` の `matched` owner と `rest` owner を同じ callback に[渡/わた]す
 //:
 //: ### [目的/もくてき]
-//: - `VecPartition<T>` は 2 本の `Vec<T>` owner を[持/も]つ owner-backed aggregate です。
+//: - `VecPartition .T` は 2 本の `Vec .T` owner を[持/も]つ owner-backed aggregate です。
 //: - non-Copy payload の partition を追加するとき、caller が片方の field だけを[取/と]り[出/だ]す設計にはせず、この eliminator で両 owner を同じ control-flow へ[渡/わた]します。
 //: - cleanup、再結合、診断変換など、2 本の owner obligation を API 型から[消/け]さずに[実装/じっそう]できます。
 //:
@@ -214,7 +214,7 @@ pub fn vec_partition_with <.T,.R> %impure fn VecPartition .T impure fn impure fn
 //: ### [目的/もくてき]
 //: - `matched` と `rest` の両方の owner を実装境界内で[取/と]り[出/だ]し、解放漏れを避けます。
 //: - caller は owner aggregate field を直接 projection せず、`VecPartition` 全体をこの関数へ[渡/わた]します。
-//: - `.T: Copy` の便宜 API として残します。non-Copy payload では `vec_partition_with<T, R>` を使い、callback 内で両 `Vec<T>` owner を回収します。
+//: - `.T: Copy` の便宜 API として残します。non-Copy payload では `vec_partition_with`（`.T`, `.R`）を使い、callback 内で両 `Vec .T` owner を回収します。
 //:
 //: neplg2:test
 //: exit_code: 0

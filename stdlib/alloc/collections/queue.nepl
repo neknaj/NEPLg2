@@ -1,5 +1,5 @@
 //: # queue
-//: `Vec<Option<T>>` backed FIFO queue の public facade
+//: `Vec Option .T` backed FIFO queue の public facade
 //:
 //: ### [目的/もくてき]
 //: - [末尾/まつび]へ[追加/ついか]し、[先頭/せんとう]から[取/と]り[出/だ]す queue API の既存 import path を[保/たも]ちます。

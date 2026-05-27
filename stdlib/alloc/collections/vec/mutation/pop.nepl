@@ -77,10 +77,10 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //: - [要素/ようそ]がある[場合/ばあい]は[最後/さいご]の 1 [件/けん]を typed `load` し、`len - 1` の `Vec` と[組/く]にして[返/かえ]します。
 //:
 //: ### [注意/ちゅうい]
-//: - [返/かえ]り[値/あたい]は `VecPop<.T>` です。
+//: - [返/かえ]り[値/あたい]は `VecPop .T` です。
 //: - [確保/かくほ]も[解放/かいほう]も[行/おこな]わないため O(1) です。
 //: - `.T: Copy` では `vec_pop_item` / `vec_pop_vec` で従来どおり値を読むことができます。
-//: - `.T: Drop` payload では `vec_pop_with` を使い、更新後の `Vec` owner と `Option<T>` owner を同じ callback で同時に回収します。
+//: - `.T: Drop` payload では `vec_pop_with` を使い、更新後の `Vec` owner と `Option .T` owner を同じ callback で同時に回収します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)
@@ -157,11 +157,11 @@ pub fn pop <.T: Copy> %fn Vec .T VecPop .T \v:
 //: Drop payload の[末尾/まつび][要素/ようそ]を owner として[取/と]り[出/だ]す
 //:
 //: ### [目的/もくてき]
-//: - `.T: Drop` の removed tail slot を move-out し、caller が `Option<T>` owner として受け取れるようにします。
+//: - `.T: Drop` の removed tail slot を move-out し、caller が `Option .T` owner として受け取れるようにします。
 //: - `Drop::drop` は `pop` 内では行いません。caller が `Option::Some value` を match して使うか drop し、更新後の `Vec` owner も同じ control-flow で処理します。
 //:
 //: ### [注意/ちゅうい]
-//: - `vec_pop_vec<T: Copy>` は item owner を捨てる accessor なので、Drop payload では使えません。`vec_pop_with<T, R>` を使います。
+//: - `vec_pop_vec`（`.T: Copy`）は item owner を捨てる accessor なので、Drop payload では使えません。`vec_pop_with`（`.T`, `.R`）を使います。
 pub fn pop <.T: Drop> %fn Vec .T VecPop .T \v:
     vec_pop_storage_checked<.T> v
 

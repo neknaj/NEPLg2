@@ -53,7 +53,7 @@ pub fn str_match_at %fn str fn str fn i32 fn i32 bool \s\sep\pos\sep_len:
 //:
 //: [注意/ちゅうい]:
 //: - 戻り値は byte index です。UTF-8 の文字 index ではありません。
-//: - parser の delimiter 検索のように、所有 `Vec<str>` を作らず位置だけ欲しい用途で使います。
+//: - parser の delimiter 検索のように、所有 `Vec str` を作らず位置だけ欲しい用途で使います。
 //:
 //: [計算量/けいさんりょう]:
 //: - n を `s` の byte 長、m を `pat` の byte 長として O(n * m) です。

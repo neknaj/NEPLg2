@@ -6,7 +6,7 @@
 //: - raw `MemPtr` range traversal は各 sort implementation file と merge scratch boundary に閉じ、この facade からは公開しません。
 //:
 //: [注意/ちゅうい]:
-//: - 現行 sort family は raw `load` / `store` による swap と scratch buffer copy を使うため、`.T: Ord&Copy` に限定します。non-Copy payload の sort は `OwnedBuffer<T>` と move/drop-aware algorithm が入るまで提供しません。
+//: - 現行 sort family は raw `load` / `store` による swap と scratch buffer copy を使うため、`.T: Ord&Copy` に限定します。non-Copy payload の sort は `OwnedBuffer .T` と move/drop-aware algorithm が入るまで提供しません。
 //: - stable sort が必要なら `sort_merge` を使います。
 //: - heap sort は O(n log n)、追加領域 O(1) です。
 //:

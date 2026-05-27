@@ -5,7 +5,7 @@
 //: - canonical sort facade から raw `MemPtr` helper を公開しないよう、比較規約と sortedness observer だけをここに置きます。
 //:
 //: [注意/ちゅうい]:
-//: - 現行 sort family は raw load/store による in-place swap を使うため、`OwnedBuffer<T>` と move/drop-aware sort が入るまでは `.T: Copy` に限定します。
+//: - 現行 sort family は raw load/store による in-place swap を使うため、`OwnedBuffer .T` と move/drop-aware sort が入るまでは `.T: Copy` に限定します。
 
 #indent 4
 

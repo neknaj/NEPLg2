@@ -70,7 +70,7 @@ pub fn binary_heap_pop_item <.T: Copy> %fn &BinaryHeapPop .T Option .T \p:
 //: - owner を[含/ふく]む field projection は binary heap 実装境界の責務に[閉/と]じ、caller はこの関数で owner flow を[継続/けいぞく]します。
 //:
 //: ### [注意/ちゅうい]
-//: - `BinaryHeapPop` には[取/と]り[出/だ]した `Option<T>` も[含/ふく]まれます。この accessor はその item を[返/かえ]さないため、現行の drop traversal 未実装段階では `.T: Copy` に[限定/げんてい]します。
+//: - `BinaryHeapPop` には[取/と]り[出/だ]した `Option .T` も[含/ふく]まれます。この accessor はその item を[返/かえ]さないため、現行の drop traversal 未実装段階では `.T: Copy` に[限定/げんてい]します。
 //:
 //: ### [計算量/けいさんりょう]
 //: - O(1)

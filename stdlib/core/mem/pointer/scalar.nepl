@@ -3,7 +3,7 @@
 //: mem/pointer/scalar: MemPtr scalar load/store wrapper
 //:
 //: 目的:
-//: - `MemPtr<i32>` / `MemPtr<u8>` の scalar load/store を `Option` / `Result` で検査付き API にします。
+//: - `MemPtr i32` / `MemPtr u8` の scalar load/store を `Option` / `Result` で検査付き API にします。
 //: - raw address の取り出しと raw load/store 呼び出しはこの implementation module に閉じます。
 //:
 //: neplg2:test
@@ -46,7 +46,7 @@
 #import "../internal" as *
 #import "../raw" as *
 
-//: load_i32: MemPtr<i32> から i32 を安全に読み出すオーバーロード
+//: load_i32: MemPtr i32 から i32 を安全に読み出すオーバーロード
 //:
 //: 目的:
 //: - 無効ポインタを `Option::None` として扱います。
@@ -59,7 +59,7 @@ pub fn load_i32 %fn MemPtr i32 Option i32 \p:
         else:
             Option::Some load_i32 raw
 
-//: store_i32: MemPtr<i32> へ i32 を安全に書き込むオーバーロード
+//: store_i32: MemPtr i32 へ i32 を安全に書き込むオーバーロード
 //:
 //: 目的:
 //: - 無効ポインタを `Result::Err` として返し、未定義動作を避けます。
@@ -73,7 +73,7 @@ pub fn store_i32 %fn MemPtr i32 fn i32 Result unit str \p\v:
             store_i32 raw v
             Result::Ok unit
 
-//: load_u8: MemPtr<u8> から 1 バイトを安全に読み出すオーバーロード
+//: load_u8: MemPtr u8 から 1 バイトを安全に読み出すオーバーロード
 //:
 //: 目的:
 //: - 無効ポインタを `Option::None` として扱います。
@@ -86,7 +86,7 @@ pub fn load_u8 %fn MemPtr u8 Option i32 \p:
         else:
             Option::Some load_u8 raw
 
-//: store_u8: MemPtr<u8> へ 1 バイトを書き込む安全オーバーロード
+//: store_u8: MemPtr u8 へ 1 バイトを書き込む安全オーバーロード
 //:
 //: 目的:
 //: - 無効ポインタを `Result::Err` として返し、未定義動作を避けます。

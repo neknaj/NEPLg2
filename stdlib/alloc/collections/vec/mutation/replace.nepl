@@ -21,7 +21,7 @@
 //: Copy payload の initialized slot を[置換/ちかん]し、Resource IR 上の replacement state と[対応/たいおう]させる private helper
 //:
 //: ### [目的/もくてき]
-//: - `replace<T: Copy>` の raw `load` / `store` と `collection_slot_replace_drop_old` marker を同じ source boundary に[閉/と]じます。
+//: - `replace`（`.T: Copy`）の raw `load` / `store` と `collection_slot_replace_drop_old` marker を同じ source boundary に[閉/と]じます。
 //: - Copy payload では old value の destructor は不要ですが、slot が initialized であり、上書き後も initialized として残ることを Resource IR lifecycle に[渡/わた]します。
 fn vec_replace_copy_initialized_slot <.T: Copy> %impure fn &RegionToken .T impure fn i32 impure fn .T unit \storage\byte_off\item:
     let data %MemPtr .T region_ptr storage
@@ -105,12 +105,12 @@ pub fn replace <.T: Copy> %impure fn &Vec .T impure fn i32 impure fn .T unit \v\
 //: Drop payload の[要素/ようそ]を[置換/ちかん]し、旧[要素/ようそ]を drop する
 //:
 //: ### [目的/もくてき]
-//: - `Vec<.T>` owner と new `item` owner を[消費/しょうひ]し、範囲内なら old slot を drop して new item を store した `Vec<.T>` owner を[返/かえ]します。
-//: - [失敗/しっぱい]時は `VecReplaceError<.T>` に元の `Vec` とまだ挿入されていない `item` を[戻/もど]します。
+//: - `Vec .T` owner と new `item` owner を[消費/しょうひ]し、範囲内なら old slot を drop して new item を store した `Vec .T` owner を[返/かえ]します。
+//: - [失敗/しっぱい]時は `VecReplaceError .T` に元の `Vec` とまだ挿入されていない `item` を[戻/もど]します。
 //:
 //: ### [注意/ちゅうい]
 //: - `.T: Drop` 専用です。old value を caller に返す `replace_return_old` は、old owner を返す API 型と accessors を別途設計してから追加します。
-//: - borrowed `replace<T: Copy>` と異なり、範囲外や invariant failure を silently no-op にしません。non-Copy owner の[行方/ゆくえ]を型で追うため、`Result` で[明示/めいじ]します。
+//: - borrowed `replace`（`.T: Copy`）と異なり、範囲外や invariant failure を silently no-op にしません。non-Copy owner の[行方/ゆくえ]を型で追うため、`Result` で[明示/めいじ]します。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -175,7 +175,7 @@ pub fn vec_replace_error_rejected <.T> %fn VecReplaceError .T VecReplaceRejected
 //: `replace_drop_old` [失敗/しっぱい] payload の `Vec` owner と rejected item owner を同じ callback に[渡/わた]す
 //:
 //: ### [目的/もくてき]
-//: - `VecReplaceRejected<T>` は owner-backed aggregate なので、利用側が `field::get` で内部 field を直接[分解/ぶんかい]する設計にはしません。
+//: - `VecReplaceRejected .T` は owner-backed aggregate なので、利用側が `field::get` で内部 field を直接[分解/ぶんかい]する設計にはしません。
 //: - この eliminator が stdlib 境界内で `vec` と `item` を同時に取り出し、caller が渡した callback へ両 owner を同じ control-flow 上で[渡/わた]します。
 //: - cleanup、retry、診断変換など、non-Copy payload の失敗時 recovery を item owner を[隠/かく]さず[実装/じっそう]できます。
 pub fn vec_replace_rejected_with <.T,.R> %impure fn VecReplaceRejected .T impure fn impure fn Vec .T impure fn .T .R .R \rejected\callback:
@@ -187,7 +187,7 @@ pub fn vec_replace_rejected_with <.T,.R> %impure fn VecReplaceRejected .T impure
 //: `replace_drop_old` [失敗/しっぱい]で[戻/もど]された `Vec` owner だけを[取/と]り[出/だ]す Copy payload 用 accessor
 //:
 //: ### [注意/ちゅうい]
-//: - この accessor は `item` owner を返さないため `.T: Copy` 専用です。non-Copy payload では `vec_replace_error_rejected<T>` で両 owner を同時に[回収/かいしゅう]します。
+//: - この accessor は `item` owner を返さないため `.T: Copy` 専用です。non-Copy payload では `vec_replace_error_rejected`（`.T`）で両 owner を同時に[回収/かいしゅう]します。
 pub fn vec_replace_error_vec <.T: Copy> %fn VecReplaceError .T Vec .T \e:
     let rejected %VecReplaceRejected .T vec_replace_error_rejected<.T> e
     field::get rejected "vec"

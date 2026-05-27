@@ -59,7 +59,7 @@ pub fn str_byte_len %fn str i32 \s:
 //: byte_at: 文字列の指定 byte を読む
 //:
 //: [目的/もくてき]:
-//: - `str` の UTF-8 byte 列から、指定した byte index の値を `Option<i32>` として返します。
+//: - `str` の UTF-8 byte 列から、指定した byte index の値を `Option i32` として返します。
 //: - VM や tokenizer のように ASCII byte を直接見たい処理で、呼び出し側が raw pointer を扱わずに済むようにします。
 //:
 //: [実装/じっそう]:

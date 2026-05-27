@@ -45,7 +45,7 @@ pub fn vec_alloc_empty <.T: Copy> %fn i32 Result Vec .T StdErrorKind \requested_
 //: Drop payload 用の[空/から] `Vec` storage を[確保/かくほ]する
 //:
 //: ### [目的/もくてき]
-//: - `.T: Drop` の payload について、まだ要素を 1 つも[初期化/しょきか]していない `Vec<.T>` を[作/つく]ります。
+//: - `.T: Drop` の payload について、まだ要素を 1 つも[初期化/しょきか]していない `Vec .T` を[作/つく]ります。
 //: - constructor 自体は slot を[生成/せいせい]しないため、Drop 実行は不要です。将来の cleanup は `mutation/cleanup` の Drop traversal helper が `initialized_len` の範囲だけを[処理/しょり]します。
 //:
 //: ### [注意/ちゅうい]

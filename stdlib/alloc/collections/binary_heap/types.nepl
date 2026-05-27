@@ -84,7 +84,7 @@ pub fn binary_heap_push_error_diag <.T> %fn &BinaryHeapPushError .T Diag \e:
 //: `push` [失敗/しっぱい]で[戻/もど]された heap owner を[取/と]り[出/だ]す
 //:
 //: ### [注意/ちゅうい]
-//: - 現行 BinaryHeap は `Vec<Option<T>>` storage を Copy-only payload に[限定/げんてい]しているため、この accessor も `.T: Copy` に[限定/げんてい]します。
+//: - 現行 BinaryHeap は `Vec Option .T` storage を Copy-only payload に[限定/げんてい]しているため、この accessor も `.T: Copy` に[限定/げんてい]します。
 //:
 //: neplg2:test
 //: ```neplg2

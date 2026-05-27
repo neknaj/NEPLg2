@@ -2,7 +2,7 @@
 //: [近似/きんじ] membership test を[提供/ていきょう]する Bloom Filter の public facade
 //:
 //: ### [目的/もくてき]
-//: - `BloomFilter<.T, .H>` と `new` / `len` / `insert` / `contains` / `clear` / `free` の既存 import path を保ちます。
+//: - `BloomFilter .T .H` と `new` / `len` / `insert` / `contains` / `clear` / `free` の既存 import path を保ちます。
 //: - 型定義、hash/probe 計算、bit layout、typed byte storage、bit mutation、public API を submodule に分けます。
 //:
 //: ### [注意/ちゅうい]

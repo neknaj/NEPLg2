@@ -1,5 +1,5 @@
 //: # ringbuffer
-//: `Vec<Option<T>>` backed circular FIFO buffer の public facade
+//: `Vec Option .T` backed circular FIFO buffer の public facade
 //:
 //: ### [目的/もくてき]
 //: - `push` / `pop` / `peek` を[備/そな]えた FIFO [基盤/きばん]の既存 import path を[保/たも]ちます。

@@ -3,8 +3,8 @@
 //: mem/pointer/region: RegionToken owner wrapper
 //:
 //: 目的:
-//: - allocator storage を `RegionToken<T>` として扱い、bounds 付き pointer projection を提供します。
-//: - `RegionToken<T>` は free obligation owner であり、`MemPtr<T>` とは責務を分けます。
+//: - allocator storage を `RegionToken .T` として扱い、bounds 付き pointer projection を提供します。
+//: - `RegionToken .T` は free obligation owner であり、`MemPtr .T` とは責務を分けます。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -37,11 +37,11 @@
 //: region_ptr: RegionToken の基底を non-owning MemPtr view として得る
 //:
 //: 目的:
-//: - `RegionToken<T>` の free obligation owner を動かさず、領域先頭を `MemPtr<T>` として観察します。
+//: - `RegionToken .T` の free obligation owner を動かさず、領域先頭を `MemPtr .T` として観察します。
 //:
 //: 注意(重要):
-//: - 返される `MemPtr<T>` は free obligation owner ではありません。
-//: - owner を消費する dealloc / realloc は `RegionToken<T>` を受け取る core/mem helper に集約します。
+//: - 返される `MemPtr .T` は free obligation owner ではありません。
+//: - owner を消費する dealloc / realloc は `RegionToken .T` を受け取る core/mem helper に集約します。
 //:
 //: 計算量:
 //: - O(1)
@@ -92,10 +92,10 @@ pub fn region_ptr <.T> %fn &RegionToken .T MemPtr .T \token:
 //: 実装(アルゴリズム):
 //: - `.U` の `size_of` を使って `off..off+size_of<U>` が region size に収まるかを確認します。
 //: - `.U` の `align_of` を使って `base + off` が typed pointer projection として正しく整列しているかを確認します。
-//: - 範囲内かつ整列済みであれば base pointer の raw view に offset を加え、`MemPtr<U>` として包みます。
+//: - 範囲内かつ整列済みであれば base pointer の raw view に offset を加え、`MemPtr .U` として包みます。
 //:
 //: 注意(重要):
-//: - 返される `MemPtr<U>` は free obligation owner ではありません。
+//: - 返される `MemPtr .U` は free obligation owner ではありません。
 //: - bounds と alignment はこの owner boundary で検査します。呼び出し側に typed pointer safety の証明を押し出しません。
 //:
 //: 計算量:
@@ -173,14 +173,14 @@ pub fn region_ptr_at <.T, .U> %fn &RegionToken .T fn i32 Result MemPtr .U str \t
 //: alloc_region_bytes: byte 数を指定して RegionToken を確保する
 //:
 //: 目的:
-//: - allocator から得た storage owner を `RegionToken<T>` として束ねます。
+//: - allocator から得た storage owner を `RegionToken .T` として束ねます。
 //:
 //: 実装(アルゴリズム):
 //: - `bytes` が負、または allocator payload 上限を超える場合は `Err` を返します。
 //: - allocator の raw allocation 結果をこの owner boundary 内で検査し、成功時だけ `region_new` で owner token に束ねます。
 //:
 //: 注意(重要):
-//: - `RegionToken<T>` は free obligation owner です。使用後は `dealloc_region` で閉じます。
+//: - `RegionToken .T` は free obligation owner です。使用後は `dealloc_region` で閉じます。
 //: - `T` は pointer view の型であり、領域内の各 cell が initialized であることは別の Resource IR state が管理します。
 //:
 //: 計算量:
@@ -222,8 +222,8 @@ pub fn alloc_region_bytes <.T> %fn i32 Result RegionToken .T str \bytes:
 //: RegionReallocError: `RegionToken` の[再確保/さいかくほ]に[失敗/しっぱい]したときの owner payload
 //:
 //: 目的:
-//: - `realloc_region_bytes_keep` が[失敗/しっぱい]したとき、旧 `RegionToken<T>` owner を caller に[返/かえ]します。
-//: - `Result<RegionToken<T>, str>` では、失敗時に旧 owner を[保持/ほじ]しているのか、内部で[解放/かいほう]したのかが型から[読/よ]めません。
+//: - `realloc_region_bytes_keep` が[失敗/しっぱい]したとき、旧 `RegionToken .T` owner を caller に[返/かえ]します。
+//: - `Result RegionToken .T str` では、失敗時に旧 owner を[保持/ほじ]しているのか、内部で[解放/かいほう]したのかが型から[読/よ]めません。
 //:
 //: 注意(重要):
 //: - この struct は owner token を field に[持/も]つため、通常 source から直接[構築/こうちく]せず、accessor 経由で旧 token を[回収/かいしゅう]します。
@@ -314,8 +314,8 @@ fn realloc_region_bytes_keep_relocating <.T> %fn RegionToken .T fn i32 Result Re
 //: realloc_region_bytes_keep: `RegionToken` owner を byte [数/すう]指定で[再確保/さいかくほ]する
 //:
 //: 目的:
-//: - `RegionToken<T>` の pointer/size field を caller に[分解/ぶんかい]させず、core/mem が[再確保/さいかくほ]境界を[所有/しょゆう]します。
-//: - [成功/せいこう]時は新しい `RegionToken<T>` owner、[失敗/しっぱい]時は旧 `RegionToken<T>` owner を `RegionReallocError` に[戻/もど]します。
+//: - `RegionToken .T` の pointer/size field を caller に[分解/ぶんかい]させず、core/mem が[再確保/さいかくほ]境界を[所有/しょゆう]します。
+//: - [成功/せいこう]時は新しい `RegionToken .T` owner、[失敗/しっぱい]時は旧 `RegionToken .T` owner を `RegionReallocError` に[戻/もど]します。
 //:
 //: 実装(アルゴリズム):
 //: - 新 byte 数が allocator payload 上限に[収/おさ]まることを先に[確認/かくにん]します。
@@ -323,7 +323,7 @@ fn realloc_region_bytes_keep_relocating <.T> %fn RegionToken .T fn i32 Result Re
 //: - storage relocation proof は core/mem 内部 helper で発行し、public API からは marker authority を[公開/こうかい]しません。
 //:
 //: 注意(重要):
-//: - `MemPtr<T>` は owner ではありません。この関数の API は常に `RegionToken<T>` owner を[受/う]け[取/と]り、成功/失敗のどちらかで owner を[返/かえ]します。
+//: - `MemPtr .T` は owner ではありません。この関数の API は常に `RegionToken .T` owner を[受/う]け[取/と]り、成功/失敗のどちらかで owner を[返/かえ]します。
 //: - element の initialized/drop state は別の Resource IR state が[検査/けんさ]します。この関数は storage owner の[再確保/さいかくほ]だけを[扱/あつか]います。
 //:
 //: neplg2:test
@@ -429,7 +429,7 @@ pub fn alloc_region <.T> %fn i32 Result RegionToken .T str \count:
 //: dealloc_region: RegionToken が所有する storage を解放する
 //:
 //: 目的:
-//: - `RegionToken<T>` の free obligation を消費して allocator へ返します。
+//: - `RegionToken .T` の free obligation を消費して allocator へ返します。
 //:
 //: 実装(アルゴリズム):
 //: - token 内の raw owner identity と size を取り出し、owner-consuming raw dealloc 境界へ直接渡します。
