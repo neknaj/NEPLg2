@@ -3074,6 +3074,11 @@ pub fn get_bundled_stdlib_vfs() -> JsValue {
 }
 
 #[wasm_bindgen]
+pub fn get_bundled_stdlib_hash() -> String {
+    stdlib_hash().to_string()
+}
+
+#[wasm_bindgen]
 pub fn get_example_files() -> JsValue {
     let entries = example_entries();
     let arr = js_sys::Array::new();
@@ -3172,22 +3177,44 @@ fn compile_wasm_with_entry_and_profile_and_stdlib(
 ) -> Result<CompiledWasm, String> {
     let stdlib_root = PathBuf::from("/stdlib");
     let bundled_sources = stdlib_sources(&stdlib_root);
+    compile_wasm_with_bundled_sources(
+        entry_path,
+        source,
+        &stdlib_root,
+        &bundled_sources,
+        vfs,
+        stdlib_vfs,
+        profile,
+        include_wat_comments,
+    )
+}
+
+fn compile_wasm_with_bundled_sources(
+    entry_path: &str,
+    source: &str,
+    stdlib_root: &PathBuf,
+    bundled_sources: &BTreeMap<PathBuf, &'static str>,
+    vfs: Option<JsValue>,
+    stdlib_vfs: Option<JsValue>,
+    profile: Option<BuildProfile>,
+    include_wat_comments: bool,
+) -> Result<CompiledWasm, String> {
     let mut overlay_sources = BTreeMap::new();
     // stdlib 差し替えが指定された場合は、先に上書きで適用する
     merge_vfs_sources(&mut overlay_sources, stdlib_vfs);
     // 呼び出し元 VFS は最後に適用する
     merge_vfs_sources(&mut overlay_sources, vfs);
 
-    let mut loader = Loader::new(stdlib_root);
+    let mut loader = Loader::new(stdlib_root.clone());
     let mut provider = |path: &PathBuf| {
         lookup_web_source(&bundled_sources, &overlay_sources, path).ok_or_else(|| {
-                let msg = format!(
-                    "missing source: {}. Available sources: {:?}",
-                    path.display(),
+            let msg = format!(
+                "missing source: {}. Available sources: {:?}",
+                path.display(),
                 overlay_sources.keys().collect::<Vec<_>>()
-                );
-                nepl_core::loader::LoaderError::Io(msg)
-            })
+            );
+            nepl_core::loader::LoaderError::Io(msg)
+        })
     };
     let loaded = loader
         .load_inline_with_provider(PathBuf::from(entry_path), source.to_string(), &mut provider)
@@ -3211,6 +3238,96 @@ fn compile_wasm_with_entry_and_profile_and_stdlib(
         wasm: artifact.wasm,
         wat_comments: artifact.wat_comments,
     })
+}
+
+/// WASM instance 内で再利用するコンパイラセッション。
+///
+/// このセッションは、bundled stdlib の source table を保持し、compile 呼び出しごとの
+/// table 再構築を避ける。parse/typecheck/Resource IR の query cache は次段階で追加するが、
+/// 公開 API は最初から session 単位にしておくことで、Node runner や Web playground が
+/// 後続の cache 改良を API 変更なしに受け取れるようにする。
+#[wasm_bindgen]
+pub struct CompilerSession {
+    stdlib_root: PathBuf,
+    bundled_sources: BTreeMap<PathBuf, &'static str>,
+}
+
+#[wasm_bindgen]
+impl CompilerSession {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> CompilerSession {
+        let stdlib_root = PathBuf::from("/stdlib");
+        let bundled_sources = stdlib_sources(&stdlib_root);
+        CompilerSession {
+            stdlib_root,
+            bundled_sources,
+        }
+    }
+
+    /// 現在の release artifact に埋め込まれている stdlib source 数を返す。
+    ///
+    /// Node 側の smoke test と診断表示で、session が bundled stdlib を保持していることを
+    /// 確認するための軽量な観測点として使う。
+    pub fn bundled_stdlib_file_count(&self) -> usize {
+        self.bundled_sources.len()
+    }
+
+    /// 現在の release artifact に埋め込まれている stdlib content hash を返す。
+    ///
+    /// 長時間動く Node / Web session では mtime だけで鮮度を判定すると、同一時刻の
+    /// 内容差し替えや process-local cache により stale artifact を見落とす可能性がある。
+    /// 呼び出し元はこの hash と local stdlib tree の hash を比較して、bundled stdlib を
+    /// 使ってよいかを決める。
+    pub fn bundled_stdlib_hash(&self) -> String {
+        stdlib_hash().to_string()
+    }
+
+    pub fn compile_source_with_vfs_and_profile(
+        &self,
+        entry_path: &str,
+        source: &str,
+        vfs: JsValue,
+        profile: &str,
+    ) -> Result<Vec<u8>, JsValue> {
+        let parsed = parse_profile(profile)
+            .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
+        compile_wasm_with_bundled_sources(
+            entry_path,
+            source,
+            &self.stdlib_root,
+            &self.bundled_sources,
+            Some(vfs),
+            None,
+            Some(parsed),
+            false,
+        )
+        .map(|a| a.wasm)
+        .map_err(|msg| JsValue::from_str(&msg))
+    }
+
+    pub fn compile_source_with_vfs_stdlib_and_profile(
+        &self,
+        entry_path: &str,
+        source: &str,
+        vfs: JsValue,
+        stdlib_vfs: JsValue,
+        profile: &str,
+    ) -> Result<Vec<u8>, JsValue> {
+        let parsed = parse_profile(profile)
+            .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
+        compile_wasm_with_bundled_sources(
+            entry_path,
+            source,
+            &self.stdlib_root,
+            &self.bundled_sources,
+            Some(vfs),
+            Some(stdlib_vfs),
+            Some(parsed),
+            false,
+        )
+        .map(|a| a.wasm)
+        .map_err(|msg| JsValue::from_str(&msg))
+    }
 }
 
 #[wasm_bindgen]
@@ -3402,6 +3519,10 @@ include!(concat!(env!("OUT_DIR"), "/stdlib_entries.rs"));
 
 fn stdlib_entries() -> &'static [(&'static str, &'static str)] {
     STD_LIB_ENTRIES
+}
+
+fn stdlib_hash() -> &'static str {
+    STD_LIB_HASH
 }
 
 fn example_entries() -> &'static [(&'static str, &'static str)] {

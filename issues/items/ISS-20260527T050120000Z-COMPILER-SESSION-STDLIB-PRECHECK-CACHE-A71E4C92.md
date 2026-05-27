@@ -32,6 +32,8 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - 同じ release artifact の minimal warm は `compile_ms=5`。
 - aggregate warm は `compile_ms=22` で、10ms 未満にはまだ届いていない。
 - direct WASM API の同一 source 連続 compile は初回 127ms、以後 3-5ms であり、release artifact と warm process の効果は確認できた。
+- first checkpoint で `nepl-web` に `CompilerSession` を公開し、Node runner は session API を優先するようにした。release WASM session smoke では minimal warm `compile_ms=3`、aggregate warm `compile_ms=16`、cold minimal `compile_ms=160` だった。
+- 同 checkpoint で bundled stdlib content hash を artifact に埋め込み、Node runner は hash が一致する場合にだけ bundled stdlib を使う。hash API のない旧 artifact では mtime fallback を維持する。
 
 ## 問題
 
@@ -49,17 +51,19 @@ Web playground、Node doctest runner、selfhost compiler 開発で、実行時�
 
 MVP は次の順に進める。
 
-1. `nepl-core` に source text / lex / parse / import graph / type arity を query として分離する session API を追加する。
-2. `nepl-web` に `CompilerSession` wasm-bindgen class を公開し、bundled stdlib の parsed module / import graph / type arity を warm state として保持する。
-3. stdlib artifact に public signature table、trait impl index、source capability tableを持たせ、通常 compile では entry source と overlay source だけを新規処理する。
-4. Resource IR summary を function hash + source capability hash + type argument hash で cache し、entry から到達する changed functions だけを再計算する。
-5. codegen fragment cache を function hash 単位にし、unchanged fragments を signature/index table へ再接続する。
+1. `nepl-web` に `CompilerSession` wasm-bindgen class を公開し、Node runner が session API を優先する状態にする。
+2. `nepl-core` に source text / lex / parse / import graph / type arity を query として分離する session API を追加する。
+3. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。
+4. stdlib artifact に public signature table、trait impl index、source capability tableを持たせ、通常 compile では entry source と overlay source だけを新規処理する。
+5. Resource IR summary を function hash + source capability hash + type argument hash で cache し、entry から到達する changed functions だけを再計算する。
+6. codegen fragment cache を function hash 単位にし、unchanged fragments を signature/index table へ再接続する。
 
 ## 完了条件
 
 - release WASM + warm `CompilerSession` で、最小 entry source の同一 compile と 1 行変更 compile が 10ms 未満になる。
 - aggregate/generic の小規模 program でも、stdlib artifact が unchanged の場合は 10ms 台を安定して維持する。
 - local stdlib が release artifact より新しい場合は cache を使わず、FS stdlib override / artifact refresh に戻る。
+- local stdlib content hash が release artifact の bundled stdlib hash と一致しない場合は、mtime に関係なく FS stdlib override / artifact refresh に戻る。
 - raw LLVM、raw wasm direct call、indirect call、曖昧な function reference は conservative-all で検査漏れしない。
 - stale diagnostic span や stale source capability が別 source へ流用されないことを regression test で固定する。
 
@@ -68,6 +72,7 @@ MVP は次の順に進める。
 - `trunk build --release`
 - `node nodesrc/run_test.js` minimal / aggregate timing
 - session API の unit test
+- `node nodesrc/test_run_test_compiler_session.js`
 - stdlib artifact invalidation test
 - Resource IR summary cache invalidation test
 - `node nodesrc/issues.js check --dir issues`

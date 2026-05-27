@@ -8,6 +8,7 @@ const path = require('node:path');
 const {
     loadStdlibVfsFromFs,
     newestStdlibMtimeMs,
+    stdlibContentHashFromFs,
     stdlibOverrideIsNewerThanArtifact,
     clearStdlibVfsCacheForTests,
     stdlibVfsCacheSizeForTests,
@@ -62,18 +63,32 @@ try {
 
     clearStdlibVfsCacheForTests();
     assert.ok(newestStdlibMtimeMs(rootA) > 0);
+    const hashBeforeContentChange = stdlibContentHashFromFs(rootA);
+    assert.match(hashBeforeContentChange, /^fnv1a64:[0-9a-f]{16}$/);
     const artifactPath = path.join(rootA, 'artifact.wasm');
     fs.writeFileSync(artifactPath, 'wasm artifact placeholder', 'utf8');
     const newerThanStdlib = new Date(Date.now() + 60_000);
     fs.utimesSync(artifactPath, newerThanStdlib, newerThanStdlib);
     clearStdlibVfsCacheForTests();
     assert.equal(stdlibOverrideIsNewerThanArtifact(rootA, artifactPath), false);
+    assert.equal(
+        stdlibOverrideIsNewerThanArtifact(rootA, artifactPath, { artifactHash: hashBeforeContentChange }),
+        false,
+    );
 
     const sourcePath = path.join(rootA, 'core', 'two.nepl');
     const newerThanArtifact = new Date(Date.now() + 120_000);
     fs.utimesSync(sourcePath, newerThanArtifact, newerThanArtifact);
     clearStdlibVfsCacheForTests();
     assert.equal(stdlibOverrideIsNewerThanArtifact(rootA, artifactPath), true);
+    fs.utimesSync(sourcePath, newerThanStdlib, newerThanStdlib);
+    fs.writeFileSync(sourcePath, 'fn two <()->i32> ():\n    22\n', 'utf8');
+    clearStdlibVfsCacheForTests();
+    assert.notEqual(stdlibContentHashFromFs(rootA), hashBeforeContentChange);
+    assert.equal(
+        stdlibOverrideIsNewerThanArtifact(rootA, artifactPath, { artifactHash: hashBeforeContentChange }),
+        true,
+    );
 
     console.log('stdlib VFS cache tests passed');
 } finally {

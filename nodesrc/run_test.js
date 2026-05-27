@@ -394,10 +394,11 @@ function selectStdlibVfsMode(meta, forceStdlibVfs = false) {
         return 'forced';
     }
     const artifactPath = meta && (meta.wasmPath || meta.jsPath);
+    const artifactHash = meta && meta.bundledStdlibHash ? meta.bundledStdlibHash : null;
     const needsOverride = stdlibOverrideIsNewerThanArtifact(
         path.resolve(process.cwd(), 'stdlib'),
         artifactPath,
-        { missing: 'empty' },
+        { missing: 'empty', artifactHash },
     );
     return needsOverride ? 'fs_override' : 'bundled';
 }
@@ -428,16 +429,22 @@ function callCompilerForTiming(fn, metrics = null) {
     }
 }
 
+function compileApiForRun(api, meta = null) {
+    return meta && meta.compilerSession ? meta.compilerSession : api;
+}
+
 function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, forceStdlibVfs = false, metrics = null) {
     const stdlibVfsMode = selectStdlibVfsMode(meta, forceStdlibVfs);
     const mustPassStdlibVfs = stdlibVfsMode !== 'bundled';
+    const compilerApi = compileApiForRun(api, meta);
     if (metrics) {
         metrics.stdlib_vfs_mode = stdlibVfsMode;
+        metrics.compiler_session = compilerApi !== api;
     }
-    if (mustPassStdlibVfs && typeof api.compile_source_with_vfs_stdlib_and_profile === 'function') {
+    if (mustPassStdlibVfs && typeof compilerApi.compile_source_with_vfs_stdlib_and_profile === 'function') {
         const stdlibVfs = loadStdlibVfsForCompile(metrics);
         return callCompilerForTiming(() =>
-            api.compile_source_with_vfs_stdlib_and_profile(
+            compilerApi.compile_source_with_vfs_stdlib_and_profile(
                 '/virtual/entry.nepl',
                 source,
                 vfs,
@@ -447,10 +454,10 @@ function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, f
             metrics
         );
     }
-    if (mustPassStdlibVfs && typeof api.compile_source_with_vfs_and_stdlib === 'function') {
+    if (mustPassStdlibVfs && typeof compilerApi.compile_source_with_vfs_and_stdlib === 'function') {
         const stdlibVfs = loadStdlibVfsForCompile(metrics);
         return callCompilerForTiming(() =>
-            api.compile_source_with_vfs_and_stdlib(
+            compilerApi.compile_source_with_vfs_and_stdlib(
                 '/virtual/entry.nepl',
                 source,
                 vfs,
@@ -465,9 +472,9 @@ function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, f
             ...vfs,
         }
         : vfs;
-    if (typeof api.compile_source_with_vfs_and_profile === 'function') {
+    if (typeof compilerApi.compile_source_with_vfs_and_profile === 'function') {
         return callCompilerForTiming(() =>
-            api.compile_source_with_vfs_and_profile(
+            compilerApi.compile_source_with_vfs_and_profile(
                 '/virtual/entry.nepl',
                 source,
                 effectiveVfs,
@@ -476,16 +483,33 @@ function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, f
             metrics
         );
     }
-    if (typeof api.compile_source_with_vfs === 'function') {
+    if (typeof compilerApi.compile_source_with_vfs === 'function') {
         return callCompilerForTiming(() =>
-            api.compile_source_with_vfs('/virtual/entry.nepl', source, effectiveVfs),
+            compilerApi.compile_source_with_vfs('/virtual/entry.nepl', source, effectiveVfs),
             metrics
         );
     }
-    if (typeof api.compile_source_with_profile === 'function') {
-        return callCompilerForTiming(() => api.compile_source_with_profile(source, profile), metrics);
+    if (typeof compilerApi.compile_source_with_profile === 'function') {
+        return callCompilerForTiming(() => compilerApi.compile_source_with_profile(source, profile), metrics);
     }
-    return callCompilerForTiming(() => api.compile_source(source), metrics);
+    return callCompilerForTiming(() => compilerApi.compile_source(source), metrics);
+}
+
+function createCompilerSession(api) {
+    if (typeof api.CompilerSession !== 'function') {
+        return null;
+    }
+    return new api.CompilerSession();
+}
+
+function bundledStdlibHashForCompiler(api, session) {
+    if (session && typeof session.bundled_stdlib_hash === 'function') {
+        return session.bundled_stdlib_hash();
+    }
+    if (typeof api.get_bundled_stdlib_hash === 'function') {
+        return api.get_bundled_stdlib_hash();
+    }
+    return null;
 }
 
 function warmCompiler(api, meta) {
@@ -525,6 +549,15 @@ function withConsoleSuppressed(fn) {
 async function createRunner(distHint) {
     const candidates = candidateDistDirs(distHint || '');
     const loaded = await withConsoleSuppressed(() => loadCompilerFromCandidates(candidates));
+    loaded.meta.compilerSession = createCompilerSession(loaded.api);
+    loaded.meta.bundledStdlibHash = bundledStdlibHashForCompiler(
+        loaded.api,
+        loaded.meta.compilerSession,
+    );
+    loaded.meta.compilerSessionFileCount = loaded.meta.compilerSession
+        && typeof loaded.meta.compilerSession.bundled_stdlib_file_count === 'function'
+        ? loaded.meta.compilerSession.bundled_stdlib_file_count()
+        : null;
     let warmupMs = 0;
     if (process.env.NEPL_RUN_TEST_SKIP_COMPILER_WARMUP !== '1') {
         const warmupStart = Date.now();
@@ -550,6 +583,7 @@ async function runSingle(req, preloaded, onProgress = null) {
         collect_vfs_ms: null,
         stdlib_vfs_ms: 0,
         stdlib_vfs_mode: null,
+        compiler_session: false,
         wasm_call_ms: null,
         compile_ms: null,
         run_ms: null,
@@ -600,6 +634,7 @@ async function runSingle(req, preloaded, onProgress = null) {
         const compileMetrics = {
             stdlib_vfs_mode: null,
             stdlib_vfs_ms: 0,
+            compiler_session: false,
             wasm_call_ms: 0,
         };
         try {
@@ -621,6 +656,7 @@ async function runSingle(req, preloaded, onProgress = null) {
             timing.compile_ms = Date.now() - compileStart;
             timing.stdlib_vfs_mode = compileMetrics.stdlib_vfs_mode;
             timing.stdlib_vfs_ms = compileMetrics.stdlib_vfs_ms;
+            timing.compiler_session = compileMetrics.compiler_session;
             timing.wasm_call_ms = compileMetrics.wasm_call_ms;
             notifyPhaseProgress(onProgress, {
                 id,

@@ -47328,3 +47328,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `rg -n "\\b[A-Za-z_][A-Za-z0-9_:]*<[A-Za-z_.]" stdlib/neplg2 -g "*.nepl"` は、現行 declaration syntax の `pub struct SelfhostOutcome<.T, .E>` だけになった。
 - `node nodesrc/test_neplg21_selfhost_prose_type_postfix_cleanup.js`、`node nodesrc/test_selfhost_import_spec_report_contract.js`、`node nodesrc/test_selfhost_module_graph_report_contract.js` は pass した。
 - `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` も pass した。
+
+## 2026-05-27 Agent 1 CompilerSession first checkpoint
+
+- Zenn の試作段階方針を再確認し、performance 改善の次 checkpoint として `CompilerSession` の公開 API 境界を先に実装した。`plan.md` は変更していない。
+- `nepl-web` に `CompilerSession` wasm-bindgen class を追加し、WASM instance 内で bundled stdlib source table を保持するようにした。parse / typecheck / Resource IR summary cache は次 checkpoint の対象として、設計文書と issue に残した。
+- 既存の stateless compile API は保持し、Node runner だけが `CompilerSession` を利用可能な場合に session API を優先する。timing には `compiler_session` を追加した。
+- subagent review で指摘された mtime freshness の弱さに対し、`nepl-web` build artifact に bundled stdlib content hash を埋め込み、Node runner は hash が一致する場合にだけ bundled stdlib を使うようにした。hash API がない旧 artifact では mtime fallback を維持する。
+- `nodesrc/test_run_test_compiler_session.js` を追加し、session がある場合に stateless API ではなく session API を使うことを固定した。コメントや doccomment の増加を妨げる検査ではない。
+- `trunk build --release` 後の実測では、session minimal warm `compile_ms=3`、session aggregate warm `compile_ms=16`、session cold minimal `compile_ms=160` だった。aggregate 10ms 未満には semantic cache が必要なので、`ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92` は open のまま維持する。
+- `cargo fmt --check`、`trunk build --release`、`node nodesrc/test_run_test_timing_metadata.js`、`node nodesrc/test_run_test_compiler_session.js` は pass した。

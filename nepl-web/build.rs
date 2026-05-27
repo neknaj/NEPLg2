@@ -64,7 +64,10 @@ fn main() {
 
     let readme_path = manifest_dir.join("../README.md");
 
+    let stdlib_hash = hash_stdlib_files(&stdlib_root, &std_files);
+
     let mut out = String::new();
+    out.push_str(&format!("pub static STD_LIB_HASH: &str = \"{}\";\n", stdlib_hash));
     out.push_str("pub static STD_LIB_ENTRIES: &[(&str, &str)] = &[\n");
     for path in &std_files {
         let rel = path.strip_prefix(&stdlib_root).unwrap();
@@ -144,4 +147,31 @@ fn sort_paths(paths: &mut Vec<PathBuf>) {
         let b_str = b.to_string_lossy();
         a_str.cmp(&b_str)
     });
+}
+
+fn hash_stdlib_files(root: &Path, files: &[PathBuf]) -> String {
+    let mut hash = FNV_OFFSET_BASIS;
+    for path in files {
+        let rel = path
+            .strip_prefix(root)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        fnv1a_update(&mut hash, rel.as_bytes());
+        fnv1a_update(&mut hash, &[0]);
+        let bytes = fs::read(path).unwrap_or_default();
+        fnv1a_update(&mut hash, &bytes);
+        fnv1a_update(&mut hash, &[0xff]);
+    }
+    format!("fnv1a64:{hash:016x}")
+}
+
+const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+const FNV_PRIME: u64 = 0x100000001b3;
+
+fn fnv1a_update(hash: &mut u64, bytes: &[u8]) {
+    for byte in bytes {
+        *hash ^= u64::from(*byte);
+        *hash = hash.wrapping_mul(FNV_PRIME);
+    }
 }

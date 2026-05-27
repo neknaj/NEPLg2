@@ -56,6 +56,27 @@ release WASM では、最小 program の warm compile が 10ms 未満になっ�
 - WASM wrapper の bundled stdlib lookup を `&'static str` source table + overlay source に分離。
 - Node runner の stdlib VFS freshness 判定、warm compile、timing metadata。
 - Resource IR の per-function timing instrumentation は環境変数 `NEPL_RESOURCE_PER_FUNCTION_TIMING` で明示した時だけ出す。
+- `nepl-web` に `CompilerSession` wasm-bindgen class を公開し、WASM instance 内で bundled stdlib source table を保持する。
+- Node runner は `CompilerSession` が利用できる場合に session API を優先し、JSON timing に `compiler_session` を出す。
+- `nepl-web` build artifact に bundled stdlib content hash を埋め込み、Node runner の stdlib freshness 判定は hash を優先する。
+
+## CompilerSession first checkpoint
+
+2026-05-27 の first checkpoint では、公開 API の境界を先に session 化した。現在の `CompilerSession` は bundled stdlib source table の保持までを行い、parse / typecheck / Resource IR summary cache はまだ持たない。
+
+この段階での目的は、Web / Node 側の呼び出し元を「1 compile call = stateless function」から「WASM instance 内の session」へ移すことである。これにより、後続の parsed stdlib module、public signature table、Resource IR summary template を同じ API に追加できる。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| Web release session minimal smoke | `nodesrc/run_test.js` default warmup | `compiler_session=true`、`compile_ms=3`、`wasm_call_ms=3`、`stdlib_vfs_mode=bundled` |
+| Web release session aggregate smoke | `tmp/perf_alloc_probe.nepl` + default warmup | `compiler_session=true`、`compile_ms=16`、`wasm_call_ms=16`、`stdlib_vfs_mode=bundled` |
+| Web release session cold minimal | `NEPL_RUN_TEST_SKIP_COMPILER_WARMUP=1` + `tmp/minimal_perf.nepl` | `compiler_session=true`、`compile_ms=160`、`wasm_call_ms=113`、`stdlib_vfs_mode=bundled` |
+
+`CompilerSession` がまだ semantic cache を持たないため、aggregate case は 10ms 未満には届いていない。次の checkpoint では、stdlib parse/import/type arity/typecheck artifact を session に持たせる。
+
+stdlib freshness は、同一 timestamp や process-local mtime cache の stale 判定を避けるため、artifact に埋め込まれた `fnv1a64` content hash と local stdlib tree hash の比較を優先する。旧 artifact で hash API が存在しない場合だけ mtime fallback を使う。
 
 ## 次段階の CompilerSession 設計
 
@@ -99,8 +120,8 @@ artifact に含めるもの:
 
 MVP では次の順に実装する。
 
-1. Web / Node に `CompilerSession` API を追加し、bundled stdlib source table と warm parsed stdlib module cache を保持する。
-2. entry source が変わっても stdlib parse/import/type arity/typecheck artifact を再利用する。
+1. Web / Node に `CompilerSession` API を追加し、bundled stdlib source table を保持する。
+2. `CompilerSession` に warm parsed stdlib module cache を追加し、entry source が変わっても stdlib parse/import/type arity/typecheck artifact を再利用する。
 3. Resource IR summary を function hash 単位で cache し、entry から到達する changed functions だけを再計算する。
 4. codegen fragment を function hash 単位にし、unchanged functions は index と signature table だけを再接続する。
 5. diagnostic rendering は最後に行い、cache には typed diagnostic enum と source span だけを保持する。
@@ -114,6 +135,7 @@ MVP では次の順に実装する。
 - generic substitution 後の Resource IR summary は、type argument hash を key に含める。
 - cache hit しても、diagnostics は現在の source map へ再投影できる span だけを表示する。
 - release artifact の stdlib hash が local stdlib より古い場合は、bundled stdlib を使わず FS stdlib override に戻す。
+- session が保持する bundled stdlib hash と local stdlib content hash が一致しない場合は、mtime に関係なく FS stdlib override に戻す。
 
 ## 関連 issue
 
