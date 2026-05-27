@@ -264,12 +264,14 @@ pub fn compile_wasm(
 struct TypedProgram {
     types: crate::types::TypeCtx,
     module: crate::hir::HirModule,
+    public_signatures: crate::typecheck::TypedPublicSignatureTable,
     diagnostics: Vec<Diagnostic>,
 }
 
 pub struct PreparedProgram {
     pub types: crate::types::TypeCtx,
     pub hir_module: crate::hir::HirModule,
+    pub public_signatures: crate::typecheck::TypedPublicSignatureTable,
     pub resource_drop_elaboration_plan: crate::resource::ResourceDropElaborationPlan,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -291,6 +293,7 @@ fn run_typecheck(
         Some(m) => Ok(TypedProgram {
             types: tc.types,
             module: m,
+            public_signatures: tc.public_signatures,
             diagnostics: tc.diagnostics,
         }),
         None => Err(CoreError::from_diagnostics(tc.diagnostics)),
@@ -1890,6 +1893,7 @@ pub fn prepare_module_for_codegen_with_source_map(
     log_compile_stage_timing("resource_typecheck", stage_start);
     let mut diagnostics = resource_tc.diagnostics;
     let mut types = resource_tc.types;
+    let public_signatures = resource_tc.public_signatures;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let resource_monomorphize = monomorphize::monomorphize(&mut types, resource_tc.module);
@@ -1941,6 +1945,7 @@ pub fn prepare_module_for_codegen_with_source_map(
     Ok(PreparedProgram {
         types,
         hir_module,
+        public_signatures,
         resource_drop_elaboration_plan,
         diagnostics,
     })
