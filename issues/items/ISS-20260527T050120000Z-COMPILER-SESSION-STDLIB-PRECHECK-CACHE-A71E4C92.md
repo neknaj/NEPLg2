@@ -59,6 +59,10 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - root prewarm surface hash は loader cache version、canonical stdlib root、root default prelude state、`#no_prelude`、lexer error outcome、prelude/import/include edge の kind / resolved target path / visibility / import clause / source order を含む。root source body、local type arity hints、`FileId` / `Span` / `ImportResolution` / typed HIR / `TypeId` / Resource IR / codegen fragment は含めない。
 - forced stdlib VFS、FS stdlib override、compile VFS 内の `/stdlib` overlay では bundled stdlib prewarm を呼ばない。prewarm failure では surface hash を記録せず、同じ source を次回再試行できる。
 - `CompilerSession.loader_cache_stats_json()` は `prewarm_surface_hits` / `prewarm_surface_stores` を返す。body-only edit の同一 session 実測では aggregate case が `compile_ms=3` / `prewarm_ms=0` / `prewarm_surface_hits=1` / `wasm_call_ms=3` になった。
+- seventh checkpoint では、typed public surface cache へ進む前の未型付け artifact として `module_public_surface_hash` を追加した。value は stdlib parsed module cache に付随し、`LoaderSessionCache` の hit/store/bypass 統計として観測する。
+- `module_public_surface_hash` は public declaration header、logical import/prelude/include edge、public re-export、public extern、public alias target の local callable signature、public `noshadow`、trait capability、impl header / method signature を含む。docs、comments、function body、`FileId` / `Span` / `SourceMap` / `ImportResolution` / typed HIR / `TypeId` / Resource IR / codegen fragment は含めない。
+- subagent review により、private import / prelude / include が public signature の名前解決に影響し得ること、public alias が private helper signature を公開し得ること、`noshadow` が cross-file binding behavior の一部であることを確認した。今回の checkpoint ではこの missing context を hash に反映したが、dependency aggregate hash と typed public signature table はまだ未実装である。
+- `trunk build --release` 後の public surface hash checkpoint 実測では、aggregate first が `compile_ms=17` / `prewarm_ms=3` / `wasm_call_ms=14` / `public_surface_hash_hits=13`、aggregate second が `compile_ms=3` / `prewarm_ms=0` / `wasm_call_ms=3` / `public_surface_hash_hits=18`、body-only edit が `compile_ms=3` / `prewarm_ms=0` / `wasm_call_ms=3` / `public_surface_hash_hits=23` だった。
 
 ## 問題
 
@@ -79,7 +83,7 @@ MVP は次の順に進める。
 1. `nepl-web` に `CompilerSession` wasm-bindgen class を公開し、Node runner が session API を優先する状態にする。
 2. `nepl-core` に source text / lex / parse / import graph / type arity を query として分離する session API を追加する。現在は source arity surface cache と parsed stdlib module cache まで実装済みで、typed public surface cache は未実装。
 3. Web terminal の worker を compile ごとに破棄せず、同一 WASM instance / `CompilerSession` が複数 compile にまたがって warm state を保持するようにする。これは実装済みなので、次は `CompilerSession` 側へ semantic cache を載せる。
-4. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。raw parsed module、stdlib-only source import/arity surface、source-directed loader prewarm は実装済み。次 checkpoint は typed public surface へ進む前に、logical import graph と dependency public surface hash の安定表現を設計する。
+4. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。raw parsed module、stdlib-only source import/arity surface、source-directed loader prewarm、stdlib module public surface hash は実装済み。次 checkpoint は `SourceImportEdge` と module public surface hash を畳み込む dependency aggregate hash を semantic cache 境界へ接続する。
 5. stdlib artifact に public signature table、trait impl index、source capability tableを持たせ、通常 compile では entry source と overlay source だけを新規処理する。
 6. Resource IR summary を function hash + source capability hash + type argument hash で cache し、entry から到達する changed functions だけを再計算する。
 7. codegen fragment cache を function hash 単位にし、unchanged fragments を signature/index table へ再接続する。
@@ -106,6 +110,8 @@ MVP は次の順に進める。
 - user source arity surface が long-lived `LoaderSessionCache` に保存されないことの unit test
 - source import surface が visibility / import clause / source order を保持し、preload path と public re-export path を同じ edge list から派生することの unit test
 - root prewarm surface hash が body-only edit で変わらず、import path / import clause / relative import resolution / lexer error outcome で変わることの unit test
+- module public surface hash が body-only edit で変わらず、public signature / re-export / alias target signature / private import edge / public `noshadow` で変わることの unit test
+- provider prewarm 後の同一 session load で `public_surface_hash_hits` が増えることの unit test
 - 同じ `CompilerSession` の 2 回目 prewarm reuse を `prewarm_surface_hits` で観測できることの Node runner regression test
 - compile VFS に `/stdlib` overlay がある場合、bundled prewarm を skip することの Node runner regression test
 - forced stdlib VFS path が session cache を使わないことの Node runner regression test

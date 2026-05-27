@@ -1,4 +1,7 @@
-use crate::ast::{remap_module_file_id, Directive, ImportClause, Module, Stmt, Visibility};
+use crate::ast::{
+    remap_module_file_id, Directive, Effect, EnumDef, FnAlias, FnDef, ImplDef, ImportClause,
+    Module, Stmt, StructDef, TraitCapability, TraitDef, TraitRef, TypeExpr, TypeParam, Visibility,
+};
 use crate::diagnostic::Severity;
 use crate::error::CoreError;
 use crate::lexer::{self, TokenKind};
@@ -74,6 +77,9 @@ pub struct LoaderSessionCacheStats {
     pub arity_surface_misses: usize,
     pub arity_surface_stores: usize,
     pub arity_surface_bypasses: usize,
+    pub public_surface_hash_hits: usize,
+    pub public_surface_hash_stores: usize,
+    pub public_surface_hash_bypasses: usize,
     pub stdlib_override_bypasses: usize,
 }
 
@@ -184,6 +190,18 @@ impl LoaderSessionCache {
     fn record_arity_surface_bypass(&mut self) {
         self.stats.arity_surface_bypasses += 1;
     }
+
+    fn record_public_surface_hash_hit(&mut self, _hash: u64) {
+        self.stats.public_surface_hash_hits += 1;
+    }
+
+    fn record_public_surface_hash_store(&mut self) {
+        self.stats.public_surface_hash_stores += 1;
+    }
+
+    fn record_public_surface_hash_bypass(&mut self) {
+        self.stats.public_surface_hash_bypasses += 1;
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -208,6 +226,7 @@ struct LoaderAritySurfaceKey {
 struct CachedParsedModule {
     module: Module,
     capabilities: SourceCapabilities,
+    public_surface_hash: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -801,11 +820,17 @@ impl Loader {
             provider,
             session_cache.as_deref_mut(),
         )?;
+        let public_surface_dependency = if self.configured_stdlib_source_path(&canon) {
+            Some(self.source_arity_surface(&canon, file_id, &src, session_cache.as_deref_mut()))
+        } else {
+            None
+        };
         let (module, capabilities) = self.parse_provider_module_with_session_cache(
             &canon,
             file_id,
             src,
             type_arity_hints,
+            public_surface_dependency.as_ref(),
             session_cache.as_deref_mut(),
         )?;
         sm.set_capabilities(file_id, capabilities);
@@ -1430,6 +1455,7 @@ impl Loader {
         file_id: FileId,
         src: String,
         type_arity_hints: Vec<(String, usize)>,
+        public_surface_dependency: Option<&CachedAritySurface>,
         session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<(Module, SourceCapabilities), CoreError> {
         let Some(session_cache) = session_cache else {
@@ -1440,6 +1466,7 @@ impl Loader {
 
         if !self.configured_stdlib_source_path(canon) {
             session_cache.record_parsed_module_bypass();
+            session_cache.record_public_surface_hash_bypass();
             let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
             let capabilities = self.source_capabilities_for_module(canon, &module);
             return Ok((module, capabilities));
@@ -1449,18 +1476,22 @@ impl Loader {
         if let Some(entry) = session_cache.get_parsed_module(&key) {
             let mut module = entry.module;
             remap_module_file_id(&mut module, CACHED_MODULE_FILE_ID, file_id);
+            session_cache.record_public_surface_hash_hit(entry.public_surface_hash);
             return Ok((module, entry.capabilities));
         }
 
         let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
         let capabilities = self.source_capabilities_for_module(canon, &module);
+        let public_surface_hash = module_public_surface_hash(&module, public_surface_dependency);
         let mut cached_module = module.clone();
         remap_module_file_id(&mut cached_module, file_id, CACHED_MODULE_FILE_ID);
+        session_cache.record_public_surface_hash_store();
         session_cache.store_parsed_module(
             key,
             CachedParsedModule {
                 module: cached_module,
                 capabilities: capabilities.clone(),
+                public_surface_hash,
             },
         );
         Ok((module, capabilities))
@@ -1657,6 +1688,327 @@ fn hash_type_arity_hints(type_arity_hints: &[(String, usize)]) -> u64 {
         fnv1a64_update(&mut hash, &[0xff]);
     }
     hash
+}
+
+/// Hash the module surface that can affect downstream modules.
+///
+/// This is intentionally a stable frontend artifact, not a typed HIR cache. It
+/// includes public declaration headers, logical import/prelude/include edges,
+/// public re-export directives, and impl headers because those can affect name
+/// lookup, kind boundaries, trait lookup, and later typed public-surface cache
+/// invalidation. It excludes docs, spans, private function bodies, `SourceMap`,
+/// `ImportResolution`, `TypeId`, Resource IR, and codegen fragments.
+fn module_public_surface_hash(
+    module: &Module,
+    dependency_surface: Option<&CachedAritySurface>,
+) -> u64 {
+    let mut hash = FNV_OFFSET_BASIS;
+    fnv1a64_update(&mut hash, LOADER_SESSION_CACHE_VERSION.as_bytes());
+    hash_str(&mut hash, "module-public-surface-v1");
+    match dependency_surface {
+        Some(surface) => {
+            hash_u8(&mut hash, 1);
+            hash_public_dependency_surface(&mut hash, surface);
+        }
+        None => hash_u8(&mut hash, 0),
+    }
+    for directive in &module.directives {
+        hash_public_directive_surface(&mut hash, directive, dependency_surface.is_some());
+    }
+    for stmt in &module.root.items {
+        hash_public_stmt_surface(&mut hash, stmt, module, dependency_surface.is_some());
+    }
+    hash
+}
+
+fn hash_public_dependency_surface(hash: &mut u64, surface: &CachedAritySurface) {
+    hash_str(hash, "dependency-surface");
+    hash_bool(hash, surface.no_prelude);
+    hash_bool(hash, surface.implicit_default_prelude);
+    hash_path(hash, &surface.default_prelude_path);
+    let mut dependency_edges = surface.edges.iter().collect::<Vec<_>>();
+    dependency_edges.sort_by_key(|edge| edge.source_order);
+    hash_usize(hash, dependency_edges.len());
+    for edge in dependency_edges {
+        hash_source_import_edge(hash, edge);
+    }
+}
+
+fn hash_public_directive_surface(
+    hash: &mut u64,
+    directive: &Directive,
+    dependency_surface_hashed: bool,
+) {
+    match directive {
+        Directive::Import {
+            path, clause, vis, ..
+        } if *vis == Visibility::Pub && !dependency_surface_hashed => {
+            hash_str(hash, "directive.import.pub");
+            hash_str(hash, path);
+            hash_import_clause(hash, clause);
+        }
+        Directive::Include { path, .. } if !dependency_surface_hashed => {
+            hash_str(hash, "directive.include.pub");
+            hash_str(hash, path);
+        }
+        Directive::Extern {
+            vis,
+            module,
+            name,
+            func,
+            signature,
+            ..
+        } if *vis == Visibility::Pub => {
+            hash_str(hash, "directive.extern.pub");
+            hash_str(hash, module);
+            hash_str(hash, name);
+            hash_str(hash, &func.name);
+            hash_type_expr(hash, signature);
+        }
+        Directive::IfTarget { target, .. } => {
+            hash_str(hash, "directive.if_target");
+            hash_str(hash, target);
+        }
+        Directive::IfProfile { profile, .. } => {
+            hash_str(hash, "directive.if_profile");
+            hash_str(hash, profile);
+        }
+        Directive::NoPrelude { .. } => hash_str(hash, "directive.no_prelude"),
+        Directive::Prelude { path, .. } if !dependency_surface_hashed => {
+            hash_str(hash, "directive.prelude");
+            hash_str(hash, path);
+        }
+        Directive::Entry { .. } | Directive::Target { .. } | Directive::IndentWidth { .. } => {}
+        Directive::Import { .. }
+        | Directive::Extern { .. }
+        | Directive::Include { .. }
+        | Directive::Prelude { .. } => {}
+        Directive::Use { path, .. } => {
+            hash_str(hash, "directive.use");
+            hash_str(hash, path);
+        }
+    }
+}
+
+fn hash_public_stmt_surface(
+    hash: &mut u64,
+    stmt: &Stmt,
+    module: &Module,
+    dependency_surface_hashed: bool,
+) {
+    match stmt {
+        Stmt::Directive(directive) => {
+            hash_public_directive_surface(hash, directive, dependency_surface_hashed)
+        }
+        Stmt::FnDef(def) if def.vis == Visibility::Pub => hash_fn_def_signature(hash, def),
+        Stmt::FnAlias(alias) if alias.vis == Visibility::Pub => hash_fn_alias(hash, alias, module),
+        Stmt::StructDef(def) if def.vis == Visibility::Pub => hash_struct_def(hash, def),
+        Stmt::EnumDef(def) if def.vis == Visibility::Pub => hash_enum_def(hash, def),
+        Stmt::Trait(def) if def.vis == Visibility::Pub => hash_trait_def(hash, def),
+        Stmt::Impl(def) => hash_impl_def(hash, def),
+        Stmt::FnDef(_)
+        | Stmt::FnAlias(_)
+        | Stmt::StructDef(_)
+        | Stmt::EnumDef(_)
+        | Stmt::Trait(_)
+        | Stmt::Expr(_)
+        | Stmt::ExprSemi(_, _)
+        | Stmt::Wasm(_)
+        | Stmt::LlvmIr(_) => {}
+    }
+}
+
+fn hash_fn_def_signature(hash: &mut u64, def: &FnDef) {
+    hash_str(hash, "fn");
+    hash_visibility(hash, def.vis);
+    hash_str(hash, &def.name.name);
+    hash_bool(hash, def.no_shadow);
+    hash_type_params(hash, &def.type_params);
+    hash_type_expr(hash, &def.signature);
+    hash_usize(hash, def.params.len());
+}
+
+fn hash_fn_alias(hash: &mut u64, alias: &FnAlias, module: &Module) {
+    hash_str(hash, "fn_alias");
+    hash_visibility(hash, alias.vis);
+    hash_str(hash, &alias.name.name);
+    hash_bool(hash, alias.no_shadow);
+    hash_str(hash, &alias.target.name);
+    let matching_targets = module
+        .root
+        .items
+        .iter()
+        .filter_map(|stmt| match stmt {
+            Stmt::FnDef(def) if def.name.name == alias.target.name => Some(def),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    hash_usize(hash, matching_targets.len());
+    for target in matching_targets {
+        hash_fn_def_signature(hash, target);
+    }
+}
+
+fn hash_struct_def(hash: &mut u64, def: &StructDef) {
+    hash_str(hash, "struct");
+    hash_str(hash, &def.name.name);
+    hash_type_params(hash, &def.type_params);
+    hash_usize(hash, def.fields.len());
+    for (name, ty) in &def.fields {
+        hash_str(hash, &name.name);
+        hash_type_expr(hash, ty);
+    }
+}
+
+fn hash_enum_def(hash: &mut u64, def: &EnumDef) {
+    hash_str(hash, "enum");
+    hash_str(hash, &def.name.name);
+    hash_type_params(hash, &def.type_params);
+    hash_usize(hash, def.variants.len());
+    for variant in &def.variants {
+        hash_str(hash, &variant.name.name);
+        match &variant.payload {
+            Some(payload) => {
+                hash_u8(hash, 1);
+                hash_type_expr(hash, payload);
+            }
+            None => hash_u8(hash, 0),
+        }
+    }
+}
+
+fn hash_trait_def(hash: &mut u64, def: &TraitDef) {
+    hash_str(hash, "trait");
+    hash_str(hash, &def.name.name);
+    hash_type_params(hash, &def.type_params);
+    hash_usize(hash, def.capabilities.len());
+    for capability in &def.capabilities {
+        hash_trait_capability(hash, capability);
+    }
+    hash_usize(hash, def.methods.len());
+    for method in &def.methods {
+        hash_fn_def_signature(hash, method);
+    }
+}
+
+fn hash_impl_def(hash: &mut u64, def: &ImplDef) {
+    hash_str(hash, "impl");
+    hash_type_params(hash, &def.type_params);
+    match &def.trait_ref {
+        Some(trait_ref) => {
+            hash_u8(hash, 1);
+            hash_trait_ref(hash, trait_ref);
+        }
+        None => hash_u8(hash, 0),
+    }
+    hash_type_expr(hash, &def.target_ty);
+    hash_usize(hash, def.methods.len());
+    for method in &def.methods {
+        hash_fn_def_signature(hash, method);
+    }
+}
+
+fn hash_type_params(hash: &mut u64, params: &[TypeParam]) {
+    hash_usize(hash, params.len());
+    for param in params {
+        hash_str(hash, &param.name.name);
+        hash_usize(hash, param.bounds.len());
+        for bound in &param.bounds {
+            hash_trait_ref(hash, bound);
+        }
+    }
+}
+
+fn hash_trait_ref(hash: &mut u64, trait_ref: &TraitRef) {
+    hash_str(hash, &trait_ref.name.name);
+    hash_usize(hash, trait_ref.args.len());
+    for arg in &trait_ref.args {
+        hash_type_expr(hash, arg);
+    }
+}
+
+fn hash_trait_capability(hash: &mut u64, capability: &TraitCapability) {
+    match capability {
+        TraitCapability::Copy => hash_str(hash, "copy"),
+        TraitCapability::Clone => hash_str(hash, "clone"),
+        TraitCapability::Drop => hash_str(hash, "drop"),
+        TraitCapability::Unknown(name) => {
+            hash_str(hash, "unknown");
+            hash_str(hash, name);
+        }
+    }
+}
+
+fn hash_type_expr(hash: &mut u64, ty: &TypeExpr) {
+    match ty.as_unspanned() {
+        TypeExpr::Unit => hash_str(hash, "unit"),
+        TypeExpr::I32 => hash_str(hash, "i32"),
+        TypeExpr::U8 => hash_str(hash, "u8"),
+        TypeExpr::F32 => hash_str(hash, "f32"),
+        TypeExpr::Bool => hash_str(hash, "bool"),
+        TypeExpr::Char => hash_str(hash, "char"),
+        TypeExpr::Never => hash_str(hash, "never"),
+        TypeExpr::Str => hash_str(hash, "str"),
+        TypeExpr::Label(label) => {
+            hash_str(hash, "label");
+            match label {
+                Some(label) => {
+                    hash_u8(hash, 1);
+                    hash_str(hash, label);
+                }
+                None => hash_u8(hash, 0),
+            }
+        }
+        TypeExpr::Named(name) => {
+            hash_str(hash, "named");
+            hash_str(hash, name);
+        }
+        TypeExpr::Apply(base, args) => {
+            hash_str(hash, "apply");
+            hash_type_expr(hash, base);
+            hash_usize(hash, args.len());
+            for arg in args {
+                hash_type_expr(hash, arg);
+            }
+        }
+        TypeExpr::Boxed(inner) => {
+            hash_str(hash, "boxed");
+            hash_type_expr(hash, inner);
+        }
+        TypeExpr::Reference(inner, mutable) => {
+            hash_str(hash, "ref");
+            hash_bool(hash, *mutable);
+            hash_type_expr(hash, inner);
+        }
+        TypeExpr::Tuple(items) => {
+            hash_str(hash, "tuple");
+            hash_usize(hash, items.len());
+            for item in items {
+                hash_type_expr(hash, item);
+            }
+        }
+        TypeExpr::Function {
+            params,
+            result,
+            effect,
+        } => {
+            hash_str(hash, "fn");
+            hash_effect(hash, *effect);
+            hash_usize(hash, params.len());
+            for param in params {
+                hash_type_expr(hash, param);
+            }
+            hash_type_expr(hash, result);
+        }
+        TypeExpr::Spanned(_, _) => unreachable!("as_unspanned removes span wrappers"),
+    }
+}
+
+fn hash_effect(hash: &mut u64, effect: Effect) {
+    match effect {
+        Effect::Pure => hash_str(hash, "pure"),
+        Effect::Impure => hash_str(hash, "impure"),
+    }
 }
 
 fn hash_source_import_edge(hash: &mut u64, edge: &SourceImportEdge) {
@@ -2263,6 +2615,162 @@ mod tests {
     }
 
     #[test]
+    fn module_public_surface_hash_ignores_body_and_private_edits() {
+        let loader = Loader::new(PathBuf::from("C:/nepl-test/stdlib"));
+        let first = loader
+            .parse_module_with_type_arity_hints(
+                FileId(0),
+                "fn helper %fn unit i32 \\unit:\n    1\npub fn api %fn unit i32 \\unit:\n    helper unit\n"
+                    .to_string(),
+                Vec::new(),
+            )
+            .expect("first module should parse");
+        let body_edit = loader
+            .parse_module_with_type_arity_hints(
+                FileId(0),
+                "fn helper %fn unit u8 \\unit:\n    2\npub fn api %fn unit i32 \\unit:\n    3\n"
+                    .to_string(),
+                Vec::new(),
+            )
+            .expect("body edit module should parse");
+
+        assert_eq!(
+            module_public_surface_hash(&first, None),
+            module_public_surface_hash(&body_edit, None),
+            "private helper signatures and public function bodies are not downstream public surface",
+        );
+    }
+
+    #[test]
+    fn module_public_surface_hash_tracks_public_signature_and_reexports() {
+        let loader = Loader::new(PathBuf::from("C:/nepl-test/stdlib"));
+        let first = loader
+            .parse_module_with_type_arity_hints(
+                FileId(0),
+                "#import pub \"types\" as { Box as PublicBox }\npub fn api %fn unit i32 \\unit:\n    1\n"
+                    .to_string(),
+                Vec::new(),
+            )
+            .expect("first module should parse");
+        let signature_edit = loader
+            .parse_module_with_type_arity_hints(
+                FileId(0),
+                "#import pub \"types\" as { Box as PublicBox }\npub fn api %fn unit u8 \\unit:\n    1\n"
+                    .to_string(),
+                Vec::new(),
+            )
+            .expect("signature edit module should parse");
+        let reexport_edit = loader
+            .parse_module_with_type_arity_hints(
+                FileId(0),
+                "#import pub \"types\" as { Box as RenamedBox }\npub fn api %fn unit i32 \\unit:\n    1\n"
+                    .to_string(),
+                Vec::new(),
+            )
+            .expect("reexport edit module should parse");
+
+        let first_hash = module_public_surface_hash(&first, None);
+        assert_ne!(
+            first_hash,
+            module_public_surface_hash(&signature_edit, None),
+            "public function signature changes must invalidate the public surface",
+        );
+        assert_ne!(
+            first_hash,
+            module_public_surface_hash(&reexport_edit, None),
+            "public re-export clause changes must invalidate the public surface",
+        );
+    }
+
+    #[test]
+    fn module_public_surface_hash_tracks_lookup_context_and_alias_targets() {
+        let loader = Loader::new(PathBuf::from("C:/nepl-test/stdlib"));
+        let base = PathBuf::from("C:/nepl-test/stdlib/pkg/main.nepl");
+        let first_src =
+            "#import \"a\" as *\nfn helper %fn unit i32 \\unit:\n    1\npub fn api helper;\n";
+        let body_edit_src =
+            "#import \"a\" as *\nfn helper %fn unit i32 \\unit:\n    2\npub fn api helper;\n";
+        let target_signature_edit_src =
+            "#import \"a\" as *\nfn helper %fn unit u8 \\unit:\n    1\npub fn api helper;\n";
+        let private_import_edit_src =
+            "#import \"b\" as *\nfn helper %fn unit i32 \\unit:\n    1\npub fn api helper;\n";
+
+        let first = loader
+            .parse_module_with_type_arity_hints(FileId(0), first_src.to_string(), Vec::new())
+            .expect("first module should parse");
+        let body_edit = loader
+            .parse_module_with_type_arity_hints(FileId(0), body_edit_src.to_string(), Vec::new())
+            .expect("body edit module should parse");
+        let target_signature_edit = loader
+            .parse_module_with_type_arity_hints(
+                FileId(0),
+                target_signature_edit_src.to_string(),
+                Vec::new(),
+            )
+            .expect("target signature edit module should parse");
+        let private_import_edit = loader
+            .parse_module_with_type_arity_hints(
+                FileId(0),
+                private_import_edit_src.to_string(),
+                Vec::new(),
+            )
+            .expect("private import edit module should parse");
+
+        let first_surface = loader.compute_source_arity_surface(&base, FileId(0), first_src);
+        let body_edit_surface =
+            loader.compute_source_arity_surface(&base, FileId(0), body_edit_src);
+        let target_signature_edit_surface =
+            loader.compute_source_arity_surface(&base, FileId(0), target_signature_edit_src);
+        let private_import_edit_surface =
+            loader.compute_source_arity_surface(&base, FileId(0), private_import_edit_src);
+
+        let first_hash = module_public_surface_hash(&first, Some(&first_surface));
+        assert_eq!(
+            first_hash,
+            module_public_surface_hash(&body_edit, Some(&body_edit_surface)),
+            "public alias targets should ignore private target body edits",
+        );
+        assert_ne!(
+            first_hash,
+            module_public_surface_hash(
+                &target_signature_edit,
+                Some(&target_signature_edit_surface)
+            ),
+            "public alias targets must include local callable signatures exposed through the alias",
+        );
+        assert_ne!(
+            first_hash,
+            module_public_surface_hash(&private_import_edit, Some(&private_import_edit_surface)),
+            "private import edges can affect public signature name resolution and must invalidate the surface",
+        );
+    }
+
+    #[test]
+    fn module_public_surface_hash_tracks_public_no_shadow_contract() {
+        let loader = Loader::new(PathBuf::from("C:/nepl-test/stdlib"));
+        let ordinary = loader
+            .parse_module_with_type_arity_hints(
+                FileId(0),
+                "pub fn api %fn unit i32 \\unit:\n    1\n".to_string(),
+                Vec::new(),
+            )
+            .expect("ordinary module should parse");
+        let no_shadow = loader
+            .parse_module_with_type_arity_hints(
+                FileId(0),
+                "pub fn noshadow api %fn unit i32 \\unit:\n    1\n".to_string(),
+                Vec::new(),
+            )
+            .expect("noshadow module should parse");
+
+        assert_ne!(
+            module_public_surface_hash(&ordinary, None),
+            module_public_surface_hash(&no_shadow, None),
+            "noshadow participates in cross-file binding behavior and is part of the public contract",
+        );
+    }
+
+    #[test]
     fn root_prewarm_surface_hash_ignores_body_edits_but_tracks_import_surface() {
         let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
         let loader = Loader::new(stdlib_root.clone());
@@ -2483,6 +2991,10 @@ mod tests {
             "prewarm should store source arity surfaces for the same stdlib dependency graph",
         );
         assert!(
+            after_prewarm.public_surface_hash_stores >= 2,
+            "prewarm should compute stable public-surface hashes for parsed stdlib modules",
+        );
+        assert!(
             after_prewarm.arity_surface_bypasses >= 1,
             "the entry source itself is not a long-lived stdlib artifact and should bypass arity caching",
         );
@@ -2510,6 +3022,10 @@ mod tests {
         assert!(
             after_load.arity_surface_hits > after_prewarm.arity_surface_hits,
             "a later load in the same session should hit the prewarmed arity-surface cache",
+        );
+        assert!(
+            after_load.public_surface_hash_hits > after_prewarm.public_surface_hash_hits,
+            "a later load in the same session should observe prewarmed public-surface hashes",
         );
     }
 

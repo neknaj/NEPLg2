@@ -276,6 +276,49 @@ prewarm しない対象:
 
 この checkpoint で微小変更時の loader prewarm は 10ms budget からほぼ外れた。一方で aggregate first は `wasm_call_ms=13` が支配的であり、初回に未cache typed public surface / Resource IR summary / codegen が残る。したがって次段階は、logical import graph と dependency public surface hash を安定化し、typed public surface cache へ進む。
 
+## Public surface hash checkpoint
+
+2026-05-27 の seventh checkpoint では、typed public surface cache に進む前の未型付け artifact として、stdlib parsed module cache に `public_surface_hash` を追加した。これは downstream module に見える signature / lookup context の変化を観測するための staging であり、この hash だけで typed HIR、`TypeId`、Resource IR summary、codegen fragment を再利用しない。
+
+hash に含めるもの:
+
+- loader cache version。
+- source import surface から得られる prelude / import / include edge の kind、resolved target path、visibility、import clause、source order。
+- `#no_prelude`、implicit default prelude、default prelude path。
+- public function signature、generic type parameter bounds、effect、arity、`noshadow`。
+- public function alias の alias 名、target 名、`noshadow`、同一 module 内 target callable signature。
+- public struct / enum / trait の header、trait capability、trait method signature。
+- impl header と method signature。trait / inherent impl lookup に影響し得るため、public filter はまだ掛けない。
+- public extern signature、public re-export directive。dependency surface が渡されない単体 test では raw import/include/prelude directive も conservative に含める。
+
+hash に含めないもの:
+
+- docs / comments / whitespace。
+- private function body、public function body、raw wasm / raw llvm body。
+- `FileId`、`Span`、`SourceMap`、`ImportResolution`。
+- typed HIR、`TypeCtx` / `TypeId`、mangled symbol、Resource IR、codegen fragment。
+
+subagent review では、public signature text が同じでも private import / prelude / include の解決先が変われば typed public surface が変わり得ること、public alias が private helper を公開する場合は helper signature を key に含める必要があること、`noshadow` は cross-file binding behavior の一部であることが指摘された。今回の実装ではこの範囲を loader artifact に反映した。一方で、dependency aggregate hash、reverse graph、canonical typed signature table はまだ未実装であるため、次 checkpoint では `SourceImportEdge` と module `public_surface_hash` を畳み込む query を `LoaderSessionCache` とは別の semantic cache 境界へ接続する。
+
+追加 regression:
+
+- public function body と private helper の非alias signature change では hash が変わらない。
+- public function signature と public re-export clause では hash が変わる。
+- public alias が指す local callable signature では hash が変わり、target body-only edit では変わらない。
+- private import edge の resolved target path / clause は、public signature text が同じでも hash に反映される。
+- public `noshadow` の有無は hash に反映される。
+- provider prewarm 後の同一 session load で `public_surface_hash_hits` が増える。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| Web release public-surface aggregate first | `tmp/perf_alloc_probe.nepl` + same `CompilerSession` | `compile_ms=17`、`prewarm_ms=3`、`wasm_call_ms=14`、`public_surface_hash_hits=13`、`public_surface_hash_stores=5` |
+| Web release public-surface aggregate second | same source / same `CompilerSession` | `compile_ms=3`、`prewarm_ms=0`、`wasm_call_ms=3`、`public_surface_hash_hits=18` |
+| Web release public-surface body-only edit | return literalだけを変更 + same `CompilerSession` | `compile_ms=3`、`prewarm_ms=0`、`wasm_call_ms=3`、`public_surface_hash_hits=23` |
+
+この checkpoint は correctness-first の staging であり、aggregate first の compile time を直接下げるものではない。Zenn 方針の「純粋性や責務分割を活かした探索空間削減」に沿って、次の typed public surface cache が body-only edit を安全に再利用し、public dependency change では確実に invalidation できる根拠を用意した。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

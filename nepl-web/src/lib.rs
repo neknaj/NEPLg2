@@ -3391,7 +3391,7 @@ impl CompilerSession {
     pub fn loader_cache_stats_json(&self) -> String {
         let stats = self.loader_cache.borrow().stats();
         format!(
-            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"stdlib_override_bypasses\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{}}}",
+            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{}}}",
             stats.parsed_module_hits,
             stats.parsed_module_misses,
             stats.parsed_module_stores,
@@ -3400,6 +3400,9 @@ impl CompilerSession {
             stats.arity_surface_misses,
             stats.arity_surface_stores,
             stats.arity_surface_bypasses,
+            stats.public_surface_hash_hits,
+            stats.public_surface_hash_stores,
+            stats.public_surface_hash_bypasses,
             stats.stdlib_override_bypasses,
             *self.prewarm_surface_hits.borrow(),
             *self.prewarm_surface_stores.borrow(),

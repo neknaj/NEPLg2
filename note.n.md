@@ -1,3 +1,14 @@
+# 2026-05-27 Public surface hash checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を再確認し、純粋 query と dependency surface によって探索空間を削る方針を維持した。今回の変更は typed HIR cache ではなく、typed public surface cache に進む前の未型付け public surface hash を stdlib parsed module cache に付随させる checkpoint である。
+- subagent 2 件で設計と pipeline をレビューした。Maxwell は `LoaderSessionCache` に置けるのは path/source-hash keyed な loader/parser artifact までであり、typed HIR / `TypeId` / Resource IR summary は別の semantic cache に分けるべきだと確認した。Hilbert は private import / prelude / include、public alias target signature、`noshadow` を hash に含めないと typed public surface cache で stale hit になる危険があると指摘した。
+- `nepl-core/src/loader.rs` に `module_public_surface_hash` を追加した。hash は loader cache version、source import surface の resolved edge、public declaration header、public re-export、public extern、public alias が指す同一 module 内 callable signature、public `noshadow`、trait capability、impl header / method signature を含む。
+- hash には docs / comments / whitespace、private function body、public function body、raw wasm / raw llvm body、`FileId` / `Span` / `SourceMap` / `ImportResolution`、typed HIR、`TypeCtx` / `TypeId`、Resource IR、codegen fragment を含めない。
+- `LoaderSessionCache` の parsed stdlib cache entry は `public_surface_hash` を保持し、`CompilerSession.loader_cache_stats_json()` は `public_surface_hash_hits` / `public_surface_hash_stores` / `public_surface_hash_bypasses` を返す。user source や `/stdlib` overlay は引き続き long-lived cache value に保存せず bypass として観測する。
+- 追加 regression: public body / private helper body edit では hash が変わらないこと、public signature / re-export / public alias target signature / private import edge / public `noshadow` では hash が変わること、prewarm 後の同一 session load で public surface hash hit が増えること。
+- release WASM 実測では、`tmp/perf_alloc_probe.nepl` の aggregate first は `compile_ms=17` / `prewarm_ms=3` / `wasm_call_ms=14` / `public_surface_hash_hits=13`、同一 source の second は `compile_ms=3` / `prewarm_ms=0` / `wasm_call_ms=3` / `public_surface_hash_hits=18`、return literal だけを変えた body-only edit は `compile_ms=3` / `prewarm_ms=0` / `wasm_call_ms=3` / `public_surface_hash_hits=23` だった。
+- この checkpoint 単体では aggregate first の `wasm_call_ms=14` は直接下がらない。次段階は `SourceImportEdge` と module `public_surface_hash` を畳み込む dependency aggregate hash を追加し、それを typed public signature table / Resource IR summary cache の invalidation key へ接続する。
+
 # 2026-05-27 Root import surface prewarm guard checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を再確認し、純粋 query と dependency surface を用いて探索空間を削る方針を維持した。今回の変更は semantic cache ではなく、同じ root import surface に対する loader prewarm の重複実行を避ける guard として扱う。
