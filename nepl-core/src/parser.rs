@@ -135,6 +135,85 @@ pub fn type_arity_hints_from_module(module: &Module) -> Vec<(String, usize)> {
     hints
 }
 
+/// Parse the payload of a `#import` directive into the same semantic parts used
+/// by the full parser.
+///
+/// The lexer stores directive payloads as text so that the parser can own the
+/// syntax. Loader-level source surfaces need the same interpretation for import
+/// graph edges, but they must not create parser diagnostics or allocate
+/// `FileId`-dependent state. This helper keeps the parser and loader from
+/// drifting on visibility, path, alias, merge, and selective import clauses.
+pub fn parse_import_directive_parts(text: &str) -> (String, ImportClause, Visibility) {
+    let rest = text.trim();
+    let (vis, mut rest) = match rest.strip_prefix("pub") {
+        Some(r) => (Visibility::Pub, r.trim()),
+        None => (Visibility::Private, rest),
+    };
+    let mut path = String::new();
+    if rest.starts_with('"') {
+        if let Some(end) = rest[1..].find('"') {
+            path = rest[1..1 + end].to_string();
+            rest = &rest[1 + end + 1..];
+        }
+    } else {
+        let mut parts = rest.splitn(2, char::is_whitespace);
+        path = parts.next().unwrap_or("").to_string();
+        rest = parts.next().unwrap_or("");
+    }
+    rest = rest.trim();
+    let clause = if rest.is_empty() {
+        ImportClause::DefaultAlias
+    } else if let Some(r) = rest.strip_prefix("as") {
+        let c = r.trim();
+        if c.starts_with('*') {
+            ImportClause::Open
+        } else if c.starts_with("@merge") {
+            ImportClause::Merge
+        } else if c.starts_with('{') {
+            let mut items = Vec::new();
+            if let Some(end) = c.find('}') {
+                let inner = &c[1..end];
+                for part in inner.split(',') {
+                    let p = part.trim();
+                    if p.is_empty() {
+                        continue;
+                    }
+                    let glob = p.ends_with("::*");
+                    if glob {
+                        let name = p.trim_end_matches("::*").to_string();
+                        items.push(ImportItem {
+                            name,
+                            alias: None,
+                            glob: true,
+                        });
+                        continue;
+                    }
+                    let mut segs = p.split_whitespace();
+                    let first = segs.next().unwrap_or("").to_string();
+                    let mut alias = None;
+                    if let Some("as") = segs.next() {
+                        alias = segs.next().map(|s| s.to_string());
+                    }
+                    items.push(ImportItem {
+                        name: first,
+                        alias,
+                        glob: false,
+                    });
+                }
+                ImportClause::Selective(items)
+            } else {
+                ImportClause::DefaultAlias
+            }
+        } else {
+            let alias = c.split_whitespace().next().unwrap_or("").to_string();
+            ImportClause::Alias(alias)
+        }
+    } else {
+        ImportClause::DefaultAlias
+    };
+    (path, clause, vis)
+}
+
 /// Scan declaration heads before full parsing to support forward references.
 ///
 /// This pass deliberately reads only the shallow declaration shape:
@@ -651,73 +730,7 @@ impl Parser {
     }
 
     fn parse_import_directive(&mut self, text: &str, span: Span) -> Directive {
-        let rest = text.trim();
-        let (vis, mut rest) = match rest.strip_prefix("pub") {
-            Some(r) => (Visibility::Pub, r.trim()),
-            None => (Visibility::Private, rest),
-        };
-        let mut path = String::new();
-        if rest.starts_with('"') {
-            if let Some(end) = rest[1..].find('"') {
-                path = rest[1..1 + end].to_string();
-                rest = &rest[1 + end + 1..];
-            }
-        } else {
-            let mut parts = rest.splitn(2, char::is_whitespace);
-            path = parts.next().unwrap_or("").to_string();
-            rest = parts.next().unwrap_or("");
-        }
-        rest = rest.trim();
-        let clause = if rest.is_empty() {
-            ImportClause::DefaultAlias
-        } else if let Some(r) = rest.strip_prefix("as") {
-            let c = r.trim();
-            if c.starts_with('*') {
-                ImportClause::Open
-            } else if c.starts_with("@merge") {
-                ImportClause::Merge
-            } else if c.starts_with('{') {
-                let mut items = Vec::new();
-                if let Some(end) = c.find('}') {
-                    let inner = &c[1..end];
-                    for part in inner.split(',') {
-                        let p = part.trim();
-                        if p.is_empty() {
-                            continue;
-                        }
-                        let glob = p.ends_with("::*");
-                        if glob {
-                            let name = p.trim_end_matches("::*").to_string();
-                            items.push(ImportItem {
-                                name,
-                                alias: None,
-                                glob: true,
-                            });
-                            continue;
-                        }
-                        let mut segs = p.split_whitespace();
-                        let first = segs.next().unwrap_or("").to_string();
-                        let mut alias = None;
-                        if let Some("as") = segs.next() {
-                            alias = segs.next().map(|s| s.to_string());
-                        }
-                        items.push(ImportItem {
-                            name: first,
-                            alias,
-                            glob: false,
-                        });
-                    }
-                    ImportClause::Selective(items)
-                } else {
-                    ImportClause::DefaultAlias
-                }
-            } else {
-                let alias = c.split_whitespace().next().unwrap_or("").to_string();
-                ImportClause::Alias(alias)
-            }
-        } else {
-            ImportClause::DefaultAlias
-        };
+        let (path, clause, vis) = parse_import_directive_parts(text);
         Directive::Import {
             path,
             clause,

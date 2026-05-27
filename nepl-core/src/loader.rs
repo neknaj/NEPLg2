@@ -1,4 +1,4 @@
-use crate::ast::{remap_module_file_id, Directive, Module, Stmt};
+use crate::ast::{remap_module_file_id, Directive, ImportClause, Module, Stmt, Visibility};
 use crate::diagnostic::Severity;
 use crate::error::CoreError;
 use crate::lexer::{self, TokenKind};
@@ -210,12 +210,38 @@ struct CachedParsedModule {
     capabilities: SourceCapabilities,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SourceImportEdgeKind {
+    Prelude,
+    Import,
+    Include,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SourceImportEdge {
+    kind: SourceImportEdgeKind,
+    target_path: PathBuf,
+    visibility: Visibility,
+    import_clause: Option<ImportClause>,
+    source_order: usize,
+}
+
+impl SourceImportEdge {
+    fn public_reexport_eligible(&self) -> bool {
+        match self.kind {
+            SourceImportEdgeKind::Include => true,
+            SourceImportEdgeKind::Import => {
+                self.visibility == Visibility::Pub && self.import_clause.is_some()
+            }
+            SourceImportEdgeKind::Prelude => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct CachedAritySurface {
     local_type_arity_hints: Vec<(String, usize)>,
-    prelude_paths: Vec<PathBuf>,
-    module_paths: Vec<PathBuf>,
-    public_reexport_paths: Vec<PathBuf>,
+    edges: Vec<SourceImportEdge>,
     default_prelude_path: PathBuf,
     no_prelude: bool,
     implicit_default_prelude: bool,
@@ -224,16 +250,39 @@ struct CachedAritySurface {
 impl CachedAritySurface {
     fn preload_paths(&self, is_root: bool) -> Vec<PathBuf> {
         let mut paths = Vec::new();
-        if is_root
-            && self.implicit_default_prelude
-            && !self.no_prelude
-            && self.prelude_paths.is_empty()
-        {
+        let has_explicit_prelude = self
+            .edges
+            .iter()
+            .any(|edge| edge.kind == SourceImportEdgeKind::Prelude);
+        if is_root && self.implicit_default_prelude && !self.no_prelude && !has_explicit_prelude {
             paths.push(self.default_prelude_path.clone());
         }
-        paths.extend(self.prelude_paths.clone());
-        paths.extend(self.module_paths.clone());
+        let mut dependency_edges = self.edges.iter().collect::<Vec<_>>();
+        dependency_edges.sort_by_key(|edge| edge.source_order);
+        paths.extend(
+            dependency_edges
+                .into_iter()
+                .filter(|edge| {
+                    matches!(
+                        edge.kind,
+                        SourceImportEdgeKind::Prelude
+                            | SourceImportEdgeKind::Import
+                            | SourceImportEdgeKind::Include
+                    )
+                })
+                .map(|edge| edge.target_path.clone()),
+        );
         paths
+    }
+
+    fn public_reexport_paths(&self) -> Vec<PathBuf> {
+        let mut reexport_edges = self.edges.iter().collect::<Vec<_>>();
+        reexport_edges.sort_by_key(|edge| edge.source_order);
+        reexport_edges
+            .into_iter()
+            .filter(|edge| edge.public_reexport_eligible())
+            .map(|edge| edge.target_path.clone())
+            .collect()
     }
 }
 
@@ -885,8 +934,9 @@ impl Loader {
         mut session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<Vec<(String, usize)>, LoaderError> {
         let surface = self.source_arity_surface(canon, file_id, src, session_cache.as_deref_mut());
+        let public_reexport_paths = surface.public_reexport_paths();
         let mut hints = surface.local_type_arity_hints;
-        for dep in surface.public_reexport_paths {
+        for dep in public_reexport_paths {
             let dep_hints = self.shallow_type_arity_hints_from_file_with(
                 &dep,
                 file_id,
@@ -908,30 +958,8 @@ impl Loader {
         // Cycle recovery must stay shallow. Normal imports may pull in large
         // implementation graphs, while public facade re-exports and includes
         // are the paths that can contribute visible type constructors.
-        let lex = lexer::lex(file_id, src);
-        if lex
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.severity == Severity::Error)
-        {
-            return Vec::new();
-        }
-        let mut paths = Vec::new();
-        for token in lex.tokens {
-            match token.kind {
-                TokenKind::DirImport(text) => {
-                    if let Some(path) = public_import_path_from_directive_text(&text) {
-                        paths.push(path);
-                    }
-                }
-                TokenKind::DirInclude(path) => paths.push(path),
-                _ => {}
-            }
-        }
-        paths
-            .into_iter()
-            .map(|path| self.resolve_path(base, &path))
-            .collect()
+        self.compute_source_arity_surface(base, file_id, src)
+            .public_reexport_paths()
     }
 
     fn type_arity_preload_paths(
@@ -1001,35 +1029,47 @@ impl Loader {
         {
             return CachedAritySurface {
                 local_type_arity_hints: Vec::new(),
-                prelude_paths: Vec::new(),
-                module_paths: Vec::new(),
-                public_reexport_paths: Vec::new(),
+                edges: Vec::new(),
                 default_prelude_path: self.resolve_path(base, "std/prelude_base"),
                 no_prelude: false,
                 implicit_default_prelude: false,
             };
         }
 
-        let mut prelude_paths = Vec::new();
-        let mut module_paths = Vec::new();
-        let mut public_reexport_paths = Vec::new();
+        let mut edges = Vec::new();
         let mut no_prelude = false;
         for token in &lex.tokens {
             match &token.kind {
-                TokenKind::DirPrelude(path) => prelude_paths.push(self.resolve_path(base, path)),
+                TokenKind::DirPrelude(path) => {
+                    edges.push(SourceImportEdge {
+                        kind: SourceImportEdgeKind::Prelude,
+                        target_path: self.resolve_path(base, path),
+                        visibility: Visibility::Private,
+                        import_clause: None,
+                        source_order: edges.len(),
+                    });
+                }
                 TokenKind::DirNoPrelude => no_prelude = true,
                 TokenKind::DirImport(text) => {
-                    if let Some(path) = import_path_from_directive_text(&text) {
-                        module_paths.push(self.resolve_path(base, &path));
-                    }
-                    if let Some(path) = public_import_path_from_directive_text(&text) {
-                        public_reexport_paths.push(self.resolve_path(base, &path));
+                    let (path, clause, visibility) = parser::parse_import_directive_parts(text);
+                    if !path.is_empty() {
+                        edges.push(SourceImportEdge {
+                            kind: SourceImportEdgeKind::Import,
+                            target_path: self.resolve_path(base, &path),
+                            visibility,
+                            import_clause: Some(clause),
+                            source_order: edges.len(),
+                        });
                     }
                 }
                 TokenKind::DirInclude(path) => {
-                    let resolved = self.resolve_path(base, path);
-                    module_paths.push(resolved.clone());
-                    public_reexport_paths.push(resolved);
+                    edges.push(SourceImportEdge {
+                        kind: SourceImportEdgeKind::Include,
+                        target_path: self.resolve_path(base, path),
+                        visibility: Visibility::Pub,
+                        import_clause: None,
+                        source_order: edges.len(),
+                    });
                 }
                 _ => {}
             }
@@ -1037,9 +1077,7 @@ impl Loader {
 
         CachedAritySurface {
             local_type_arity_hints: parser::type_arity_hints_from_tokens(&lex.tokens),
-            prelude_paths,
-            module_paths,
-            public_reexport_paths,
+            edges,
             default_prelude_path: self.resolve_path(base, "std/prelude_base"),
             no_prelude,
             implicit_default_prelude: true,
@@ -1535,36 +1573,6 @@ fn path_to_source_label(path: &PathBuf) -> String {
 
 fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> bool {
     imported_once.insert(canonicalize_path(target))
-}
-
-/// Extract the path portion from a `#import` directive body.
-///
-/// The lexer stores the directive payload as raw text because the parser owns
-/// import-clause interpretation. Arity preloading needs only the module path, so
-/// it mirrors the parser's path prefix rule and deliberately ignores alias or
-/// selective import clauses.
-fn import_path_from_directive_text(text: &str) -> Option<String> {
-    let rest = text.trim();
-    let rest = rest.strip_prefix("pub").map(str::trim).unwrap_or(rest);
-    if let Some(quoted) = rest.strip_prefix('"') {
-        return quoted.find('"').map(|end| quoted[..end].to_string());
-    }
-    rest.split_whitespace().next().map(str::to_string)
-}
-
-/// Extract only public import paths from a directive body.
-///
-/// This is used by shallow cycle recovery, where private implementation
-/// imports would make arity discovery walk the whole stdlib graph. Public
-/// imports and merge facades are the dependency edges that can expose type
-/// constructors to the module currently being parsed.
-fn public_import_path_from_directive_text(text: &str) -> Option<String> {
-    let rest = text.trim();
-    let rest = rest.strip_prefix("pub")?.trim();
-    if let Some(quoted) = rest.strip_prefix('"') {
-        return quoted.find('"').map(|end| quoted[..end].to_string());
-    }
-    rest.split_whitespace().next().map(str::to_string)
 }
 
 /// Merge dependency arity hints while preserving the latest known declaration.
@@ -2068,6 +2076,51 @@ mod tests {
         assert_eq!(
             stats.arity_surface_bypasses, 2,
             "bypass stats should make the stdlib-only cache boundary observable",
+        );
+    }
+
+    #[test]
+    fn source_import_surface_preserves_clause_visibility_and_order() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let path = canonicalize_path(&stdlib_path(&stdlib_root, &["facade.nepl"]));
+        let source = [
+            "#prelude std/prelude_base",
+            "#import pub \"types\" as { Box as PublicBox, Result::* }",
+            "#include \"included\"",
+            "",
+        ]
+        .join("\n");
+
+        let surface = loader.compute_source_arity_surface(&path, FileId(0), &source);
+        assert_eq!(
+            surface.preload_paths(false),
+            vec![
+                canonicalize_path(&stdlib_path(&stdlib_root, &["std", "prelude_base.nepl"],)),
+                canonicalize_path(&stdlib_path(&stdlib_root, &["types.nepl"])),
+                canonicalize_path(&stdlib_path(&stdlib_root, &["included.nepl"])),
+            ],
+            "preload paths should be derived from source-order import edges",
+        );
+        assert_eq!(
+            surface.public_reexport_paths(),
+            vec![
+                canonicalize_path(&stdlib_path(&stdlib_root, &["types.nepl"])),
+                canonicalize_path(&stdlib_path(&stdlib_root, &["included.nepl"])),
+            ],
+            "public re-export recovery should use the same import surface edges",
+        );
+
+        let import_edge = surface
+            .edges
+            .iter()
+            .find(|edge| edge.kind == SourceImportEdgeKind::Import)
+            .expect("test source should contain one import edge");
+        assert_eq!(import_edge.visibility, Visibility::Pub);
+        assert_eq!(import_edge.source_order, 1);
+        assert!(
+            matches!(import_edge.import_clause, Some(ImportClause::Selective(_))),
+            "logical import graph groundwork must preserve import clauses instead of reducing them to path-only edges",
         );
     }
 

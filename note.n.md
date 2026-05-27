@@ -1,3 +1,13 @@
+# 2026-05-27 Source import surface checkpoint
+
+- logical import graph / dependency public surface hash の設計について subagent 2 件でレビューした。`ImportResolution` は `FileId` に依存し、typed HIR / `TypeId` / mangled symbol は compile ごとの `TypeCtx` / `Span` に依存するため、この checkpoint では cache value に入れない方針を確認した。
+- まず `process_directives_with` や `ImportResolution` を置き換えず、loader の未型付け source surface を import edge 表現へ広げた。これは compile 結果を変えず、後続の logical import graph を安全に載せるための足場である。
+- `nepl-core/src/parser.rs` に `parse_import_directive_parts` を追加した。loader と parser が `#import` payload を別々に解釈すると visibility / alias / selective import / merge clause がずれるため、parser の解釈を共有する。
+- `nepl-core/src/loader.rs` の `CachedAritySurface` 内部を `SourceImportEdge` list に変更した。edge は kind (`Prelude` / `Import` / `Include`)、resolved target path、visibility、import clause、source order を持つ。`FileId` / `Span` / `ImportResolution` / AST / HIR は持たない。
+- `type_arity_preload_paths` と shallow public re-export recovery は、この edge list から従来と同じ path list を派生する。root-only default prelude、lexer error 時の no-preload、stdlib-only long-lived cache boundary は維持した。
+- 追加 regression: `#import pub "types" as { Box as PublicBox, Result::* }` の visibility と selective clause が path-only edge へ潰れないこと、preload path と public re-export path が同じ source-order edge list から派生すること。
+- release WASM 実測では、minimal が `compile_ms=2` / `prewarm_ms=0` / `wasm_call_ms=2`、aggregate first が `compile_ms=16` / `prewarm_ms=3` / `wasm_call_ms=13`、aggregate second が `compile_ms=4` / `prewarm_ms=1` / `wasm_call_ms=3` だった。source import surface は次の graph cache の足場なので、aggregate first の 10ms 未満固定は次段階の typed public surface / Resource IR summary cache 待ちである。
+
 # 2026-05-27 CompilerSession source-directed loader prewarm checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を再確認し、静的検査を削らず、純粋 query cache と dependency boundary で探索空間を減らす方針を維持した。

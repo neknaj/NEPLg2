@@ -216,6 +216,34 @@ prewarm しない対象:
 
 この checkpoint は cache boundary と観測性を改善したが、aggregate first の total `compile_ms` はまだ 10ms 未満へ固定できていない。prewarm は loader-level query だけなので、初回 aggregate には typecheck / typed public surface / Resource IR / codegen の未cache work が残る。次 checkpoint は、typed public surface に進む前に logical import graph と dependency public surface hash の安定表現を実装し、stdlib facade / re-export 変更時の invalidation を明確にする。
 
+## Source import surface checkpoint
+
+2026-05-27 の fifth checkpoint では、logical import graph を `ImportResolution` の置き換えとしていきなり導入せず、まず loader の未型付け source surface を import edge 表現へ広げた。subagent review では、`ImportResolution` が `FileId` に依存すること、typed public surface hash に `TypeId` や mangled symbol をそのまま使うと compile ごとの arena / `Span` に依存することが指摘された。そのため、この checkpoint では `FileId` / `Span` / `ImportResolution` / typed HIR / `TypeId` を cache value に入れない境界を維持する。
+
+変更した境界:
+
+- parser に `parse_import_directive_parts` を追加し、loader の raw `#import` text parsing と parser の import clause parsing が分岐しないようにした。
+- `CachedAritySurface` の内部表現を path list から `SourceImportEdge` list へ変更した。
+- edge value は kind (`Prelude` / `Import` / `Include`)、resolved target path、visibility、import clause、source order を持つ。
+- `type_arity_preload_paths` と shallow public re-export recovery は、この edge list から従来と同じ path list を派生する。
+- root-only default prelude、lexer error 時の no-preload、stdlib-only long-lived cache boundary は維持する。
+
+この checkpoint は observational な下準備であり、merged module 作成、typecheck、Resource IR、codegen の入力は変えない。今後の logical import graph は、この source import surface から path/source-hash keyed な nodes / edges / reverse edges / public re-export edges を作り、compile ごとの `SourceMap` へ materialize して `ImportResolution` を段階的に置き換える。
+
+追加 regression:
+
+- import surface が source order を保ったまま preload path を派生する。
+- public import と include が同じ surface から public re-export path として派生する。
+- `#import pub "types" as { Box as PublicBox, Result::* }` の visibility と selective import clause が path-only edge へ潰れない。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| Web release source-import-surface minimal | `tmp/minimal_perf.nepl` + same `CompilerSession` | `compile_ms=2`、`prewarm_ms=0`、`wasm_call_ms=2` |
+| Web release source-import-surface aggregate first | `tmp/perf_alloc_probe.nepl` + same `CompilerSession` | `compile_ms=16`、`prewarm_ms=3`、`wasm_call_ms=13` |
+| Web release source-import-surface aggregate second | same source / same `CompilerSession` | `compile_ms=4`、`prewarm_ms=1`、`wasm_call_ms=3` |
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。
