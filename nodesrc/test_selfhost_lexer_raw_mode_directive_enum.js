@@ -130,7 +130,7 @@ assert.doesNotMatch(
 const stackDropTop = functionBlock(lexer, "lex_stack_drop_top");
 assert.match(
     stackDropTop,
-    /\bdrop_last<i32>\s+stack\b/,
+    /\bdrop_last\s+stack\b/,
     "lex_stack_drop_top must drop the indent stack top through the public Vec owner API",
 );
 

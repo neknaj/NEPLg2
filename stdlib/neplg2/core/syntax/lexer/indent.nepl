@@ -178,7 +178,7 @@ pub fn lex_stack_top_result %fn &Vec i32 fn i32 fn i32 Result i32 LexDiagnostic 
 
 //: lex_stack_drop_top: indent stack の末尾 level を[捨/す]てた Vec を[返/かえ]す
 pub fn lex_stack_drop_top %fn Vec i32 Vec i32 \stack:
-    drop_last<i32> stack
+    drop_last stack
 
 //: lex_indent_aligned: indent 幅が offside unit に[揃/そろ]っているか[返/かえ]す
 pub fn lex_indent_aligned %fn i32 fn i32 bool \indent_width\indent_unit:

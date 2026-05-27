@@ -1084,6 +1084,23 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - worker focused doctest では CLI examples が compile timeout。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
 
+### 2026-05-27 selfhost prose / outcome / lexer postfix checkpoint
+
+- `stdlib/neplg2/core/infra/outcome.nepl` で、doccomment の `Result<T,E>` / `SelfhostOutcome<T,E>` を NEPLg2.1 の `Result .T .E` / `SelfhostOutcome .T .E` 表記へ更新した。
+- `selfhost_outcome_new` / `selfhost_outcome_from_result` / `selfhost_outcome_ok` / `selfhost_outcome_err` / `selfhost_outcome_free` などは、引数型・戻り値型・明示 local annotation から型が決まる箇所だけ postfix-free call へ移行した。
+- `.E` が値から出にくい doctest と `selfhost_outcome_stage0` では、`%Result SelfhostOutcome i32 str StdErrorKind` local を置いてから `selfhost_outcome_ok` を呼ぶ形にした。
+- `pub struct SelfhostOutcome<.T, .E>` は現行の generic declaration syntax なので保持した。
+- `stdlib/neplg2/core/syntax/lexer/{tokenize,indent}.nepl` では、`push<T>` / `drop_last<T>` / `vec_push_error_vec<T>` を receiver / value / error payload evidence から解ける postfix-free call へ移行した。
+- `new<SelfhostToken>` / `new<i32>` は値引数がないため、`%Result Vec SelfhostToken StdErrorKind` / `%Result Vec i32 StdErrorKind` typed local を置いてから `match` する形にした。
+- selfhost CLI/module/syntax と stdlib fs の doccomment に残っていた `Vec<...>` / `RegionToken<u8>` / `MemPtr<u8>` などの prose 型表記を prefix 型式へ更新した。実コードの `alloc_region<u8>` など raw memory generic call はこの checkpoint の対象外として保持した。
+- 4 worker に outcome、lexer、selfhost prose、stdlib fs prose を非重複 write scope として割り当て、親 agent が限定 regression を追加した。
+- `nodesrc/test_neplg21_selfhost_prose_type_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量や doccomment の増加を妨げる検査ではない。
+- `lex_stack_drop_top` の source policy は、public Vec owner API を通る契約を維持したまま、旧 `drop_last<i32>` ではなく postfix-free `drop_last stack` を確認する形へ追従した。
+- focused policy: `test_selfhost_diag_outcome_report_contract.js`、`test_selfhost_diag_split_contract.js`、`test_selfhost_lexer_report_contract.js`、`test_selfhost_lexer_split_contract.js`、`test_selfhost_cli_args_doc_report_contract.js`、`test_selfhost_import_spec_report_contract.js`、`test_selfhost_module_graph_report_contract.js`、`test_selfhost_token_split_contract.js`、`test_stdlib_fs_no_unsafe_unwraps.js`、`test_stdlib_fs_nmd_report_contract.js` は pass した。
+- `node nodesrc/test_neplg21_selfhost_prose_type_postfix_cleanup.js` と `node nodesrc/neplg21_syntax_migrate.js --check` は pass した。
+- `node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- worker focused doctest では outcome / CLI examples が compile timeout。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

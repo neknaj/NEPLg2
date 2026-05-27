@@ -5,11 +5,15 @@
 //:
 //: [目的/もくてき]:
 //: - parser / resolver / checker のように、[成否/せいひ]と diagnostic [列/れつ]を[同時/どうじ]に[返/かえ]る stage の[共通/きょうつう] return [型/かた]を[定義/ていぎ]します。
-//: - `Result<T,E>` と `SelfhostDiagnostics` を[分離/ぶんり]して[保持/ほじ]し、error 以外の warning / info も[失/うしな]わずに[運/はこ]びます。
+//: - `Result .T .E` と `SelfhostDiagnostics` を[分離/ぶんり]して[保持/ほじ]し、error 以外の warning / info も[失/うしな]わずに[運/はこ]びます。
 //:
 //: [実装/じっそう]:
-//: - `SelfhostOutcome<T,E>` は result を owned field として[保持/ほじ]し、diagnostics と[分離/ぶんり]して[運/はこ]びます。
+//: - `SelfhostOutcome .T .E` は result を owned field として[保持/ほじ]し、diagnostics と[分離/ぶんり]して[運/はこ]びます。
 //: - empty diagnostics を[作/つく]る API は diagnostics buffer の allocation failure を `Result::Err StdErrorKind::OutOfMemory` で[返/かえ]します。
+//:
+//: [NEPLg2.1 [移行/いこう][根拠/こんきょ]]:
+//: - Zenn [方針/ほうしん]に[合/あ]わせ、doccomment の型適用は angle bracket ではなく prefix 型式（`Result .T .E` / `SelfhostOutcome .T .E`）で[書/か]きます。
+//: - 実コードの generic postfix は、引数型・戻り値の期待型・明示 local annotation から型引数が[一意/いちい]に[決/き]まる呼び[出/だ]しだけで[省略/しょうりゃく]します。
 //:
 //: [注意/ちゅうい]:
 //: - `selfhost_outcome_result` は outcome を[消費/しょうひ]し、diagnostics buffer を[解放/かいほう]してから result を[返/かえ]します。
@@ -26,7 +30,8 @@
 //:| #import "core/result" as *
 //:| #import "neplg2/core/infra/outcome" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match selfhost_outcome_ok<i32,str> 7:
+//:     let ok_result %Result SelfhostOutcome i32 str StdErrorKind selfhost_outcome_ok 7
+//:     match ok_result:
 //:         Result::Ok outcome:
 //:             match selfhost_outcome_result outcome:
 //:                 Result::Ok value:
@@ -54,7 +59,7 @@ pub struct SelfhostOutcome<.T, .E>:
 //: - outcome を result として[取/と]り[出/だ]さずに[捨/す]てる[経路/けいろ]で、Ok / Err payload を caller 指定の cleanup に[渡/わた]します。
 //:
 //: [実装/じっそう]:
-//: - owned field の `Result<T,E>` を match し、payload binding として[所有権/しょゆうけん]を[受/う]けます。
+//: - owned field の `Result .T .E` を match し、payload binding として[所有権/しょゆうけん]を[受/う]けます。
 //: - Ok payload には `drop_ok`、Err payload には `drop_err` を[呼/よ]びます。callback は payload を[消費/しょうひ]します。
 //:
 //: [注意/ちゅうい]:
@@ -76,23 +81,26 @@ pub fn selfhost_outcome_ignore_str %impure fn str unit \value:
 
 //: selfhost_outcome_new: result と diagnostics から outcome を[作/つく]る
 pub fn selfhost_outcome_new <.T, .E> %fn Result .T .E fn SelfhostDiagnostics Result SelfhostOutcome .T .E StdErrorKind \result\diagnostics:
-    Result::Ok SelfhostOutcome<.T, .E> result diagnostics
+    let outcome %SelfhostOutcome .T .E SelfhostOutcome result diagnostics
+    Result::Ok outcome
 
 //: selfhost_outcome_from_result: Result に empty diagnostics を[付/つ]けて outcome へ[昇格/しょうかく]する
 pub fn selfhost_outcome_from_result <.T, .E> %fn Result .T .E Result SelfhostOutcome .T .E StdErrorKind \result:
     match selfhost_diagnostics_new:
         Result::Ok diagnostics:
-            selfhost_outcome_new<.T, .E> result diagnostics
+            selfhost_outcome_new result diagnostics
         Result::Err e:
             Result::Err e
 
 //: selfhost_outcome_ok: success result と empty diagnostics を[持/も]つ outcome を[作/つく]る
 pub fn selfhost_outcome_ok <.T, .E> %fn .T Result SelfhostOutcome .T .E StdErrorKind \value:
-    selfhost_outcome_from_result<.T, .E> Result::Ok value
+    let result %Result .T .E Result::Ok value
+    selfhost_outcome_from_result result
 
 //: selfhost_outcome_err: error result と empty diagnostics を[持/も]つ outcome を[作/つく]る
 pub fn selfhost_outcome_err <.T, .E> %fn .E Result SelfhostOutcome .T .E StdErrorKind \err_value:
-    selfhost_outcome_from_result<.T, .E> Result::Err err_value
+    let result %Result .T .E Result::Err err_value
+    selfhost_outcome_from_result result
 
 //: selfhost_outcome_with_diagnostics: diagnostics を[差/さ]し[替/か]えた outcome を[作/つく]る
 //:
@@ -102,7 +110,7 @@ pub fn selfhost_outcome_with_diagnostics <.T, .E> %impure fn SelfhostOutcome .T 
     let result %Result .T .E field::get outcome "result"
     let old_diagnostics %SelfhostDiagnostics field::get outcome "diagnostics"
     selfhost_diagnostics_free old_diagnostics
-    SelfhostOutcome<.T, .E> result diagnostics
+    SelfhostOutcome result diagnostics
 
 //: selfhost_outcome_push_diagnostic: outcome の diagnostics に 1 [件/けん][追加/ついか]する
 pub fn selfhost_outcome_push_diagnostic <.T, .E> %impure fn SelfhostOutcome .T .E impure fn SelfhostDiagnostic impure fn impure fn .T unit impure fn impure fn .E unit Result SelfhostOutcome .T .E StdErrorKind \outcome\diag\drop_ok\drop_err:
@@ -110,9 +118,10 @@ pub fn selfhost_outcome_push_diagnostic <.T, .E> %impure fn SelfhostOutcome .T .
     let diagnostics %SelfhostDiagnostics field::get outcome "diagnostics"
     match selfhost_diagnostics_push diagnostics diag:
         Result::Ok next_diagnostics:
-            Result::Ok SelfhostOutcome<.T, .E> result next_diagnostics
+            let next_outcome %SelfhostOutcome .T .E SelfhostOutcome result next_diagnostics
+            Result::Ok next_outcome
         Result::Err e:
-            selfhost_outcome_drop_result_payload<.T, .E> result drop_ok drop_err
+            selfhost_outcome_drop_result_payload result drop_ok drop_err
             Result::Err e
 
 //: selfhost_outcome_diagnostics_len: outcome が[保持/ほじ]する diagnostic [件数/けんすう]を[返/かえ]す
@@ -134,15 +143,16 @@ pub fn selfhost_outcome_result <.T, .E> %impure fn SelfhostOutcome .T .E Result 
 
 //: selfhost_outcome_free: result payload と diagnostics を[解放/かいほう]する
 pub fn selfhost_outcome_free <.T, .E> %impure fn SelfhostOutcome .T .E impure fn impure fn .T unit impure fn impure fn .E unit unit \outcome\drop_ok\drop_err:
-    let result %Result .T .E selfhost_outcome_result<.T, .E> outcome
-    selfhost_outcome_drop_result_payload<.T, .E> result drop_ok drop_err
+    let result %Result .T .E selfhost_outcome_result outcome
+    selfhost_outcome_drop_result_payload result drop_ok drop_err
 
 //: selfhost_outcome_stage0: outcome [基盤/きばん]の smoke API
 pub fn selfhost_outcome_stage0 %impure fn unit i32 \unit:
-    match selfhost_outcome_ok<i32,str> 1:
+    let ok_result %Result SelfhostOutcome i32 str StdErrorKind selfhost_outcome_ok 1
+    match ok_result:
         Result::Ok outcome:
-            let n %i32 selfhost_outcome_diagnostics_len<i32,str> &outcome
-            match selfhost_outcome_result<i32,str> outcome:
+            let n %i32 selfhost_outcome_diagnostics_len &outcome
+            match selfhost_outcome_result outcome:
                 Result::Ok value:
                     if and eq n 0 eq value 1 0 1
                 Result::Err _e:

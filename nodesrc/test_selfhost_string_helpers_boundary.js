@@ -118,7 +118,7 @@ assert.doesNotMatch(
 
 assert.match(
     lexerSrc,
-    /fn\s+lex_stack_drop_top\s+<\(Vec<i32>\)->Vec<i32>>\s+\(stack\):\s*[\r\n]+\s*drop_last<i32>\s+stack\b/,
+    /fn\s+lex_stack_drop_top\s+<\(Vec<i32>\)->Vec<i32>>\s+\(stack\):\s*[\r\n]+\s*drop_last\s+stack\b/,
     'lex_stack_drop_top must drop the indent stack top through the public Vec owner API',
 );
 
