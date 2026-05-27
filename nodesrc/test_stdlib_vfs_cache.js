@@ -7,6 +7,8 @@ const path = require('node:path');
 
 const {
     loadStdlibVfsFromFs,
+    newestStdlibMtimeMs,
+    stdlibOverrideIsNewerThanArtifact,
     clearStdlibVfsCacheForTests,
     stdlibVfsCacheSizeForTests,
 } = require('./stdlib_vfs_cache');
@@ -57,6 +59,21 @@ try {
     clearStdlibVfsCacheForTests();
     assert.deepEqual(loadStdlibVfsFromFs(missingRoot, { missing: 'empty' }), {});
     assert.throws(() => cli.loadStdlibVfsFromFs(missingRoot), /stdlib root not found/);
+
+    clearStdlibVfsCacheForTests();
+    assert.ok(newestStdlibMtimeMs(rootA) > 0);
+    const artifactPath = path.join(rootA, 'artifact.wasm');
+    fs.writeFileSync(artifactPath, 'wasm artifact placeholder', 'utf8');
+    const newerThanStdlib = new Date(Date.now() + 60_000);
+    fs.utimesSync(artifactPath, newerThanStdlib, newerThanStdlib);
+    clearStdlibVfsCacheForTests();
+    assert.equal(stdlibOverrideIsNewerThanArtifact(rootA, artifactPath), false);
+
+    const sourcePath = path.join(rootA, 'core', 'two.nepl');
+    const newerThanArtifact = new Date(Date.now() + 120_000);
+    fs.utimesSync(sourcePath, newerThanArtifact, newerThanArtifact);
+    clearStdlibVfsCacheForTests();
+    assert.equal(stdlibOverrideIsNewerThanArtifact(rootA, artifactPath), true);
 
     console.log('stdlib VFS cache tests passed');
 } finally {

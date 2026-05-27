@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-05-24
-updated: 2026-05-25
+updated: 2026-05-27
 target: "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio"
 ---
 
@@ -52,6 +52,24 @@ Local and CI feedback can no longer distinguish semantic regressions from compil
 ## 修正方針
 
 Create a fixed per-program benchmark corpus, keep compile_ms and run_ms evidence in issues, profile compiler stage timing, and reduce the dominant static-check/import-graph cost at the root. Do not solve this by globally raising timeouts or deleting coverage.
+
+2026-05-27 の修正で、最小 program / small aggregate の root cause は次の 3 点に分解された。
+
+- Resource IR が entry から到達しない stdlib functions まで summary 固定点へ入れていた。
+- default prelude の `Copy` capability import が `core/mem` allocator graph まで引いていた。
+- Node runner が release artifact より古くない stdlib に対しても full FS stdlib VFS を毎回 WASM API へ渡していた。
+
+対応として、Resource IR 前の entry reachability pruning、`core/traits/copy` と `core/mem/types` の依存境界整理、Node/WASM の bundled stdlib freshness 判定を入れた。設計詳細は [NEPLg2.1 compiler performance / cache design 2026-05-27](../../doc/neplg2/compiler_performance_cache_design.md) に固定した。
+
+この issue は、stdlib-heavy / KP / collection lifecycle の representative corpus を 0.5 秒未満へ戻す親 issue として open のまま維持する。微小変更 10ms 未満のための CompilerSession / prechecked stdlib artifact は [ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92](./ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92.md) に分離した。
+
+2026-05-27 checkpoint の測定:
+
+- native minimal check: elapsed 160ms、`resource_typecheck=5ms`、`resource_static_check=1ms`。
+- native aggregate check: elapsed 166ms、`resource_typecheck=6ms`、`resource_static_check=1ms`。
+- release WASM minimal cold: `compile_ms=231`, `total_ms=257`, `stdlib_vfs_mode=bundled`。
+- release WASM minimal warm: `compile_ms=5`。
+- release WASM aggregate warm: `compile_ms=22`。
 
 まず、代表 program を次の階層に分けて固定する。
 

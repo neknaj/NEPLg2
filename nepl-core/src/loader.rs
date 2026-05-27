@@ -2317,10 +2317,7 @@ mod tests {
             &["core", "mem", "types.nepl"],
         ));
         let src = read_file_to_string(&path).expect("read core/mem/types.nepl");
-        let module = loader
-            .parse_module(FileId(0), src)
-            .expect("parse core/mem/types.nepl");
-        let capabilities = loader.source_capabilities_for_module(&path, &module);
+        let capabilities = load_source_capabilities(&loader, path, &src);
 
         assert!(capabilities.allows_compiler_memory_type_definition(
             crate::source_map::CompilerMemoryType::RawPointer

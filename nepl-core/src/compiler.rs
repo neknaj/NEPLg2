@@ -779,6 +779,166 @@ mod tests {
         })
     }
 
+    fn test_hir_function(
+        types: &mut crate::types::TypeCtx,
+        name: &str,
+        body: crate::hir::HirBody,
+    ) -> crate::hir::HirFunction {
+        let i32_ty = types.i32();
+        crate::hir::HirFunction {
+            doc: None,
+            name: String::from(name),
+            origin_name: String::from(name),
+            func_ty: types.function(Vec::new(), Vec::new(), i32_ty, ast::Effect::Pure),
+            params: Vec::new(),
+            result: i32_ty,
+            effect: ast::Effect::Pure,
+            body,
+            span: Span::dummy(),
+        }
+    }
+
+    fn test_literal_body(types: &mut crate::types::TypeCtx, value: i32) -> crate::hir::HirBody {
+        let i32_ty = types.i32();
+        crate::hir::HirBody::Block(crate::hir::HirBlock {
+            lines: vec![crate::hir::HirLine {
+                expr: crate::hir::HirExpr {
+                    ty: i32_ty,
+                    kind: crate::hir::HirExprKind::LiteralI32(value),
+                    span: Span::dummy(),
+                },
+                drop_result: false,
+            }],
+            ty: i32_ty,
+            span: Span::dummy(),
+        })
+    }
+
+    fn test_direct_call_body(
+        types: &mut crate::types::TypeCtx,
+        callee: &str,
+    ) -> crate::hir::HirBody {
+        let i32_ty = types.i32();
+        crate::hir::HirBody::Block(crate::hir::HirBlock {
+            lines: vec![crate::hir::HirLine {
+                expr: crate::hir::HirExpr {
+                    ty: i32_ty,
+                    kind: crate::hir::HirExprKind::Call {
+                        callee: crate::hir::FuncRef::User(String::from(callee), Vec::new(), None),
+                        args: Vec::new(),
+                    },
+                    span: Span::dummy(),
+                },
+                drop_result: false,
+            }],
+            ty: i32_ty,
+            span: Span::dummy(),
+        })
+    }
+
+    fn test_module(functions: Vec<crate::hir::HirFunction>) -> crate::hir::HirModule {
+        crate::hir::HirModule {
+            functions,
+            entry: Some(String::from("main")),
+            externs: Vec::new(),
+            string_literals: Vec::new(),
+            traits: Vec::new(),
+            impls: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn resource_reachability_keeps_only_entry_direct_graph() {
+        let mut types = crate::types::TypeCtx::new();
+        let main_body = test_direct_call_body(&mut types, "used");
+        let used_body = test_literal_body(&mut types, 1);
+        let unused_body = test_literal_body(&mut types, 2);
+        let main = test_hir_function(&mut types, "main", main_body);
+        let used = test_hir_function(&mut types, "used", used_body);
+        let unused = test_hir_function(&mut types, "unused", unused_body);
+        let module = test_module(vec![main, used, unused]);
+
+        let reachable = collect_reachable_function_set(&module, &[String::from("main")]);
+
+        assert!(!reachable.is_conservative_all);
+        assert!(reachable.names.contains("main"));
+        assert!(reachable.names.contains("used"));
+        assert!(!reachable.names.contains("unused"));
+    }
+
+    #[test]
+    fn resource_reachability_is_conservative_for_ambiguous_mangled_call() {
+        let mut types = crate::types::TypeCtx::new();
+        let main_body = test_direct_call_body(&mut types, "helper");
+        let helper_i32_body = test_literal_body(&mut types, 1);
+        let helper_u8_body = test_literal_body(&mut types, 2);
+        let main = test_hir_function(&mut types, "main", main_body);
+        let helper_i32 = test_hir_function(&mut types, "helper__i32", helper_i32_body);
+        let helper_u8 = test_hir_function(&mut types, "helper__u8", helper_u8_body);
+        let module = test_module(vec![main, helper_i32, helper_u8]);
+
+        let reachable = collect_reachable_function_set(&module, &[String::from("main")]);
+
+        assert!(reachable.is_conservative_all);
+        assert_eq!(reachable.names.len(), 3);
+    }
+
+    #[test]
+    fn resource_reachability_is_conservative_for_indirect_call() {
+        let mut types = crate::types::TypeCtx::new();
+        let i32_ty = types.i32();
+        let fn_ty = types.function(Vec::new(), Vec::new(), i32_ty, ast::Effect::Pure);
+        let main_body = crate::hir::HirBody::Block(crate::hir::HirBlock {
+            lines: vec![crate::hir::HirLine {
+                expr: crate::hir::HirExpr {
+                    ty: i32_ty,
+                    kind: crate::hir::HirExprKind::CallIndirect {
+                        callee: Box::new(crate::hir::HirExpr {
+                            ty: fn_ty,
+                            kind: crate::hir::HirExprKind::FnValue(String::from("used")),
+                            span: Span::dummy(),
+                        }),
+                        params: Vec::new(),
+                        result: i32_ty,
+                        effect: ast::Effect::Pure,
+                        args: Vec::new(),
+                    },
+                    span: Span::dummy(),
+                },
+                drop_result: false,
+            }],
+            ty: i32_ty,
+            span: Span::dummy(),
+        });
+        let main = test_hir_function(&mut types, "main", main_body);
+        let used_body = test_literal_body(&mut types, 1);
+        let used = test_hir_function(&mut types, "used", used_body);
+        let module = test_module(vec![main, used]);
+
+        let reachable = collect_reachable_function_set(&module, &[String::from("main")]);
+
+        assert!(reachable.is_conservative_all);
+        assert_eq!(reachable.names.len(), 2);
+    }
+
+    #[test]
+    fn resource_reachability_is_conservative_for_raw_llvm_body() {
+        let mut types = crate::types::TypeCtx::new();
+        let raw_body = crate::hir::HirBody::LlvmIr(ast::LlvmIrBlock {
+            lines: vec![String::from("  ret i32 0")],
+            span: Span::dummy(),
+        });
+        let main = test_hir_function(&mut types, "main", raw_body);
+        let unused_body = test_literal_body(&mut types, 1);
+        let unused = test_hir_function(&mut types, "unused", unused_body);
+        let module = test_module(vec![main, unused]);
+
+        let reachable = collect_reachable_function_set(&module, &[String::from("main")]);
+
+        assert!(reachable.is_conservative_all);
+        assert_eq!(reachable.names.len(), 2);
+    }
+
     fn owner_token_construct_capabilities(span: Span) -> SourceCapabilities {
         use_site_capabilities(SourceCapabilityUseSite::OwnerTokenConstructBoundary {
             span: SourceCapabilitySpan::from_span(span),
@@ -1726,6 +1886,11 @@ pub fn prepare_module_for_codegen_with_source_map(
     }
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    prune_hir_module_to_entry_reachable(module, &mut hir_module, &types)?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("resource_reachable_prune", stage_start);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
     let resource_drop_elaboration_plan =
         run_resource_static_check(&hir_module, &types, &mut diagnostics, source_map)?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
@@ -1856,6 +2021,49 @@ fn resolve_hir_entry_name(
     ]))
 }
 
+fn prune_hir_module_to_entry_reachable(
+    ast_module: &ast::Module,
+    hir_module: &mut crate::hir::HirModule,
+    _types: &crate::types::TypeCtx,
+) -> Result<(), CoreError> {
+    // 実行可能 program では、entry から到達できる関数だけが後段の安全性検査と codegen の対象になる。
+    // 標準ライブラリの未使用関数を同じ固定点へ入れると、純粋な検査結果を毎回再計算することになるため、
+    // HIR の呼び出しグラフ上で必要な関数集合を先に確定する。
+    let Some(entry) = hir_module.entry.clone() else {
+        return Ok(());
+    };
+    let resolved_entry = resolve_hir_entry_name(ast_module, hir_module, entry.as_str())?;
+    let reachable = collect_reachable_function_set(hir_module, &[resolved_entry.clone()]);
+    if reachable.is_conservative_all {
+        // 呼び出しグラフが静的に閉じない場合は、安全性検査の取りこぼしを避けるため pruning しない。
+        #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+        if crate::log::is_verbose() || std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {
+            std::eprintln!(
+                "[compile-stage] resource_reachable_prune_functions={} kept={} reason=unknown_call_graph",
+                hir_module.functions.len(),
+                hir_module.functions.len()
+            );
+        }
+        return Ok(());
+    }
+
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let before = hir_module.functions.len();
+    hir_module
+        .functions
+        .retain(|function| reachable.names.contains(&function.name));
+    hir_module.entry = Some(resolved_entry);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    if crate::log::is_verbose() || std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {
+        std::eprintln!(
+            "[compile-stage] resource_reachable_prune_functions={} kept={}",
+            before,
+            hir_module.functions.len()
+        );
+    }
+    Ok(())
+}
+
 fn find_entry_directive_span(module: &ast::Module, entry: &str) -> Option<Span> {
     module.root.items.iter().find_map(|stmt| match stmt {
         ast::Stmt::Directive(ast::Directive::Entry { name }) if name.name == entry => {
@@ -1892,77 +2100,156 @@ fn find_mangled_signature_separator(name: &str) -> Option<usize> {
     None
 }
 
+struct ReachableFunctionSet {
+    names: BTreeSet<String>,
+    is_conservative_all: bool,
+}
+
 fn collect_reachable_functions(module: &crate::hir::HirModule, entry: &str) -> Vec<String> {
+    collect_reachable_function_set(module, &[String::from(entry)])
+        .names
+        .into_iter()
+        .collect()
+}
+
+fn collect_reachable_function_set(
+    module: &crate::hir::HirModule,
+    roots: &[String],
+) -> ReachableFunctionSet {
     let mut function_map: BTreeMap<String, &crate::hir::HirFunction> = BTreeMap::new();
+    let mut all_names: BTreeSet<String> = BTreeSet::new();
     for f in &module.functions {
         function_map.insert(f.name.clone(), f);
+        all_names.insert(f.name.clone());
     }
     let mut visited: BTreeSet<String> = BTreeSet::new();
     let mut stack = Vec::new();
-    stack.push(String::from(entry));
+    let mut requires_conservative_all = false;
+    for root in roots {
+        stack.push(root.clone());
+    }
     while let Some(name) = stack.pop() {
-        if !visited.insert(name.clone()) {
+        let resolved_name = match resolve_hir_function_ref_name(&all_names, name.as_str()) {
+            HirFunctionRefResolution::Resolved(name) => name,
+            HirFunctionRefResolution::Missing => continue,
+            HirFunctionRefResolution::Ambiguous => {
+                requires_conservative_all = true;
+                continue;
+            }
+        };
+        if !visited.insert(resolved_name.clone()) {
             continue;
         }
-        let Some(func) = function_map.get(name.as_str()) else {
+        let Some(func) = function_map.get(resolved_name.as_str()) else {
             continue;
         };
-        collect_called_functions_from_body(&func.body, &mut stack);
+        collect_called_functions_from_body(&func.body, &mut stack, &mut requires_conservative_all);
     }
-    visited.into_iter().collect()
+    if requires_conservative_all {
+        return ReachableFunctionSet {
+            names: all_names,
+            is_conservative_all: true,
+        };
+    }
+    ReachableFunctionSet {
+        names: visited,
+        is_conservative_all: false,
+    }
 }
 
-fn collect_called_functions_from_body(body: &crate::hir::HirBody, stack: &mut Vec<String>) {
+enum HirFunctionRefResolution {
+    Resolved(String),
+    Missing,
+    Ambiguous,
+}
+
+fn resolve_hir_function_ref_name(
+    all_names: &BTreeSet<String>,
+    name: &str,
+) -> HirFunctionRefResolution {
+    if all_names.contains(name) {
+        return HirFunctionRefResolution::Resolved(String::from(name));
+    }
+    let mut prefix = String::from(name);
+    prefix.push_str("__");
+    let mut found: Option<String> = None;
+    for candidate in all_names {
+        if candidate.starts_with(prefix.as_str()) {
+            if found.is_some() {
+                return HirFunctionRefResolution::Ambiguous;
+            }
+            found = Some(candidate.clone());
+        }
+    }
+    found
+        .map(HirFunctionRefResolution::Resolved)
+        .unwrap_or(HirFunctionRefResolution::Missing)
+}
+
+fn collect_called_functions_from_body(
+    body: &crate::hir::HirBody,
+    stack: &mut Vec<String>,
+    requires_conservative_all: &mut bool,
+) {
     match body {
-        crate::hir::HirBody::Block(block) => collect_called_functions_from_block(block, stack),
-        crate::hir::HirBody::Wasm(_) => {}
-        crate::hir::HirBody::LlvmIr(block) => {
+        crate::hir::HirBody::Block(block) => {
+            collect_called_functions_from_block(block, stack, requires_conservative_all)
+        }
+        crate::hir::HirBody::Wasm(block) => {
             for line in &block.lines {
-                // LLVM IR における call @name(...) または call void @name(...) などのパターンを最低限拾う。
-                // 実際には codegen_llvm.rs 側の parse_llvm_call_requirement と同等のロジックを期待。
-                // 簡略化して "@名前(" 形式を抽出する。
-                let mut s = line.as_str();
-                while let Some(at_idx) = s.find('@') {
-                    let after_at = &s[at_idx + 1..];
-                    if let Some(open_idx) = after_at.find('(') {
-                        let mut name = after_at[..open_idx].trim();
-                        // クォートされている場合は外す
-                        if name.starts_with('"') && name.ends_with('"') && name.len() >= 2 {
-                            name = &name[1..name.len() - 1];
-                        }
-                        if !name.is_empty() {
-                            stack.push(String::from(name));
-                        }
-                        s = &after_at[open_idx + 1..];
-                    } else {
-                        break;
-                    }
+                if wasm_raw_body_line_contains_direct_call(line) {
+                    *requires_conservative_all = true;
                 }
             }
         }
+        crate::hir::HirBody::LlvmIr(_) => {
+            // LLVM IR は extern、宣言、metadata、間接呼び出しの構文を持つため、ここで簡略 parser を持たない。
+            // raw LLVM 関数が到達した場合は pruning を無効化し、後段の LLVM 専用 reachability に委ねる。
+            *requires_conservative_all = true;
+        }
     }
 }
 
-fn collect_called_functions_from_block(block: &crate::hir::HirBlock, stack: &mut Vec<String>) {
+fn wasm_raw_body_line_contains_direct_call(line: &str) -> bool {
+    let semi = line.find(";;");
+    let slash = line.find("//");
+    let code = match (semi, slash) {
+        (Some(a), Some(b)) => &line[..core::cmp::min(a, b)],
+        (Some(a), None) | (None, Some(a)) => &line[..a],
+        (None, None) => line,
+    };
+    code.trim_start().starts_with("call ")
+}
+
+fn collect_called_functions_from_block(
+    block: &crate::hir::HirBlock,
+    stack: &mut Vec<String>,
+    requires_conservative_all: &mut bool,
+) {
     for line in &block.lines {
-        collect_called_functions_from_expr(&line.expr, stack);
+        collect_called_functions_from_expr(&line.expr, stack, requires_conservative_all);
     }
 }
 
-fn collect_called_functions_from_expr(expr: &crate::hir::HirExpr, stack: &mut Vec<String>) {
+fn collect_called_functions_from_expr(
+    expr: &crate::hir::HirExpr,
+    stack: &mut Vec<String>,
+    requires_conservative_all: &mut bool,
+) {
     match &expr.kind {
         crate::hir::HirExprKind::Call { callee, args } => {
             if let crate::hir::FuncRef::User(name, _, _) = callee {
                 stack.push(name.clone());
             }
             for arg in args {
-                collect_called_functions_from_expr(arg, stack);
+                collect_called_functions_from_expr(arg, stack, requires_conservative_all);
             }
         }
         crate::hir::HirExprKind::CallIndirect { callee, args, .. } => {
-            collect_called_functions_from_expr(callee, stack);
+            *requires_conservative_all = true;
+            collect_called_functions_from_expr(callee, stack, requires_conservative_all);
             for arg in args {
-                collect_called_functions_from_expr(arg, stack);
+                collect_called_functions_from_expr(arg, stack, requires_conservative_all);
             }
         }
         crate::hir::HirExprKind::If {
@@ -1970,40 +2257,40 @@ fn collect_called_functions_from_expr(expr: &crate::hir::HirExpr, stack: &mut Ve
             then_branch,
             else_branch,
         } => {
-            collect_called_functions_from_expr(cond, stack);
-            collect_called_functions_from_expr(then_branch, stack);
-            collect_called_functions_from_expr(else_branch, stack);
+            collect_called_functions_from_expr(cond, stack, requires_conservative_all);
+            collect_called_functions_from_expr(then_branch, stack, requires_conservative_all);
+            collect_called_functions_from_expr(else_branch, stack, requires_conservative_all);
         }
         crate::hir::HirExprKind::While { cond, body } => {
-            collect_called_functions_from_expr(cond, stack);
-            collect_called_functions_from_expr(body, stack);
+            collect_called_functions_from_expr(cond, stack, requires_conservative_all);
+            collect_called_functions_from_expr(body, stack, requires_conservative_all);
         }
         crate::hir::HirExprKind::Match { scrutinee, arms } => {
-            collect_called_functions_from_expr(scrutinee, stack);
+            collect_called_functions_from_expr(scrutinee, stack, requires_conservative_all);
             for arm in arms {
-                collect_called_functions_from_expr(&arm.body, stack);
+                collect_called_functions_from_expr(&arm.body, stack, requires_conservative_all);
             }
         }
         crate::hir::HirExprKind::EnumConstruct { payload, .. } => {
             if let Some(payload) = payload {
-                collect_called_functions_from_expr(payload, stack);
+                collect_called_functions_from_expr(payload, stack, requires_conservative_all);
             }
         }
         crate::hir::HirExprKind::StructConstruct { fields, .. }
         | crate::hir::HirExprKind::TupleConstruct { items: fields }
         | crate::hir::HirExprKind::Intrinsic { args: fields, .. } => {
             for field in fields {
-                collect_called_functions_from_expr(field, stack);
+                collect_called_functions_from_expr(field, stack, requires_conservative_all);
             }
         }
         crate::hir::HirExprKind::Block(block) => {
-            collect_called_functions_from_block(block, stack);
+            collect_called_functions_from_block(block, stack, requires_conservative_all);
         }
         crate::hir::HirExprKind::Let { value, .. }
         | crate::hir::HirExprKind::Set { value, .. }
         | crate::hir::HirExprKind::AddrOf(value)
         | crate::hir::HirExprKind::Deref(value) => {
-            collect_called_functions_from_expr(value, stack);
+            collect_called_functions_from_expr(value, stack, requires_conservative_all);
         }
         crate::hir::HirExprKind::LiteralI32(_)
         | crate::hir::HirExprKind::LiteralF32(_)
@@ -2011,8 +2298,8 @@ fn collect_called_functions_from_expr(expr: &crate::hir::HirExpr, stack: &mut Ve
         | crate::hir::HirExprKind::LiteralStr(_)
         | crate::hir::HirExprKind::Unit
         | crate::hir::HirExprKind::Var(_)
-        | crate::hir::HirExprKind::FnValue(_)
         | crate::hir::HirExprKind::Drop { .. } => {}
+        crate::hir::HirExprKind::FnValue(name) => stack.push(name.clone()),
     }
 }
 

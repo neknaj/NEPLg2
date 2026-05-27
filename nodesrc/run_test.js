@@ -17,7 +17,10 @@ const { WASI } = require('node:wasi');
 const { candidateDistDirs } = require('./util_paths');
 const { loadCompilerFromCandidates } = require('./compiler_loader');
 const { wasmerRunMountArgs } = require('./wasmer_args');
-const { loadStdlibVfsFromFs } = require('./stdlib_vfs_cache');
+const {
+    loadStdlibVfsFromFs,
+    stdlibOverrideIsNewerThanArtifact,
+} = require('./stdlib_vfs_cache');
 
 function readStdinAll() {
     return new Promise((resolve) => {
@@ -386,48 +389,118 @@ function collectVfsSources(entrySource, testFile) {
     return vfs;
 }
 
-function compileWithFsStdlib(api, source, vfs, profile = 'debug') {
-    const stdlibVfs = loadStdlibVfsFromFs(path.resolve(process.cwd(), 'stdlib'), { missing: 'empty' });
-    if (typeof api.compile_source_with_vfs_stdlib_and_profile === 'function') {
-        return withConsoleSuppressed(() =>
+function selectStdlibVfsMode(meta, forceStdlibVfs = false) {
+    if (forceStdlibVfs || process.env.NEPL_RUN_TEST_FORCE_STDLIB_VFS === '1') {
+        return 'forced';
+    }
+    const artifactPath = meta && (meta.wasmPath || meta.jsPath);
+    const needsOverride = stdlibOverrideIsNewerThanArtifact(
+        path.resolve(process.cwd(), 'stdlib'),
+        artifactPath,
+        { missing: 'empty' },
+    );
+    return needsOverride ? 'fs_override' : 'bundled';
+}
+
+function shouldPassFsStdlib(meta, forceStdlibVfs = false) {
+    return selectStdlibVfsMode(meta, forceStdlibVfs) !== 'bundled';
+}
+
+function loadStdlibVfsForCompile(metrics = null) {
+    const start = Date.now();
+    try {
+        return loadStdlibVfsFromFs(path.resolve(process.cwd(), 'stdlib'), { missing: 'empty' });
+    } finally {
+        if (metrics) {
+            metrics.stdlib_vfs_ms = (metrics.stdlib_vfs_ms || 0) + (Date.now() - start);
+        }
+    }
+}
+
+function callCompilerForTiming(fn, metrics = null) {
+    const start = Date.now();
+    try {
+        return withConsoleSuppressed(fn);
+    } finally {
+        if (metrics) {
+            metrics.wasm_call_ms = (metrics.wasm_call_ms || 0) + (Date.now() - start);
+        }
+    }
+}
+
+function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, forceStdlibVfs = false, metrics = null) {
+    const stdlibVfsMode = selectStdlibVfsMode(meta, forceStdlibVfs);
+    const mustPassStdlibVfs = stdlibVfsMode !== 'bundled';
+    if (metrics) {
+        metrics.stdlib_vfs_mode = stdlibVfsMode;
+    }
+    if (mustPassStdlibVfs && typeof api.compile_source_with_vfs_stdlib_and_profile === 'function') {
+        const stdlibVfs = loadStdlibVfsForCompile(metrics);
+        return callCompilerForTiming(() =>
             api.compile_source_with_vfs_stdlib_and_profile(
                 '/virtual/entry.nepl',
                 source,
                 vfs,
                 stdlibVfs,
                 profile,
-            )
+            ),
+            metrics
         );
     }
-    if (typeof api.compile_source_with_vfs_and_stdlib === 'function') {
-        return withConsoleSuppressed(() =>
+    if (mustPassStdlibVfs && typeof api.compile_source_with_vfs_and_stdlib === 'function') {
+        const stdlibVfs = loadStdlibVfsForCompile(metrics);
+        return callCompilerForTiming(() =>
             api.compile_source_with_vfs_and_stdlib(
                 '/virtual/entry.nepl',
                 source,
                 vfs,
                 stdlibVfs,
-            )
+            ),
+            metrics
         );
     }
+    const effectiveVfs = mustPassStdlibVfs
+        ? {
+            ...loadStdlibVfsForCompile(metrics),
+            ...vfs,
+        }
+        : vfs;
     if (typeof api.compile_source_with_vfs_and_profile === 'function') {
-        return withConsoleSuppressed(() =>
+        return callCompilerForTiming(() =>
             api.compile_source_with_vfs_and_profile(
                 '/virtual/entry.nepl',
                 source,
-                { ...stdlibVfs, ...vfs },
+                effectiveVfs,
                 profile,
-            )
+            ),
+            metrics
         );
     }
     if (typeof api.compile_source_with_vfs === 'function') {
-        return withConsoleSuppressed(() =>
-            api.compile_source_with_vfs('/virtual/entry.nepl', source, { ...stdlibVfs, ...vfs })
+        return callCompilerForTiming(() =>
+            api.compile_source_with_vfs('/virtual/entry.nepl', source, effectiveVfs),
+            metrics
         );
     }
     if (typeof api.compile_source_with_profile === 'function') {
-        return withConsoleSuppressed(() => api.compile_source_with_profile(source, profile));
+        return callCompilerForTiming(() => api.compile_source_with_profile(source, profile), metrics);
     }
-    return withConsoleSuppressed(() => api.compile_source(source));
+    return callCompilerForTiming(() => api.compile_source(source), metrics);
+}
+
+function warmCompiler(api, meta) {
+    const source = [
+        '#entry main',
+        '#target wasm',
+        '#indent 4',
+        '',
+        'fn main %fn unit i32 \\unit:',
+        '    0',
+        '',
+    ].join('\n');
+    try {
+        compileWithFsStdlib(api, source, {}, 'debug', meta, false, null);
+    } catch {}
 }
 
 function withConsoleSuppressed(fn) {
@@ -452,6 +525,13 @@ function withConsoleSuppressed(fn) {
 async function createRunner(distHint) {
     const candidates = candidateDistDirs(distHint || '');
     const loaded = await withConsoleSuppressed(() => loadCompilerFromCandidates(candidates));
+    let warmupMs = 0;
+    if (process.env.NEPL_RUN_TEST_SKIP_COMPILER_WARMUP !== '1') {
+        const warmupStart = Date.now();
+        withConsoleSuppressed(() => warmCompiler(loaded.api, loaded.meta));
+        warmupMs = Date.now() - warmupStart;
+    }
+    loaded.meta.warmupMs = warmupMs;
     return loaded;
 }
 
@@ -466,6 +546,11 @@ async function runSingle(req, preloaded, onProgress = null) {
     const t0 = Date.now();
     const timing = {
         load_ms: 0,
+        warmup_ms: 0,
+        collect_vfs_ms: null,
+        stdlib_vfs_ms: 0,
+        stdlib_vfs_mode: null,
+        wasm_call_ms: null,
         compile_ms: null,
         run_ms: null,
     };
@@ -491,6 +576,9 @@ async function runSingle(req, preloaded, onProgress = null) {
         const loadStart = Date.now();
         const loaded = preloaded || await createRunner(req.distHint || '');
         timing.load_ms = Date.now() - loadStart;
+        timing.warmup_ms = loaded.meta && Number.isFinite(loaded.meta.warmupMs)
+            ? loaded.meta.warmupMs
+            : 0;
         notifyPhaseProgress(onProgress, { id, phase: 'load', event: 'end', elapsed_ms: Date.now() - t0, phase_ms: timing.load_ms });
         const { api, meta } = loaded;
         if (hasTag(tags, 'skip')) {
@@ -509,13 +597,31 @@ async function runSingle(req, preloaded, onProgress = null) {
         let compileError = null;
         notifyPhaseProgress(onProgress, { id, phase: 'compile', event: 'start', elapsed_ms: Date.now() - t0 });
         const compileStart = Date.now();
+        const compileMetrics = {
+            stdlib_vfs_mode: null,
+            stdlib_vfs_ms: 0,
+            wasm_call_ms: 0,
+        };
         try {
+            const collectVfsStart = Date.now();
             const vfs = collectVfsSources(source, req.file);
-            wasmU8 = compileWithFsStdlib(api, source, vfs, 'debug');
+            timing.collect_vfs_ms = Date.now() - collectVfsStart;
+            wasmU8 = compileWithFsStdlib(
+                api,
+                source,
+                vfs,
+                'debug',
+                meta,
+                Boolean(req.forceStdlibVfs),
+                compileMetrics,
+            );
         } catch (e) {
             compileError = formatError(e);
         } finally {
             timing.compile_ms = Date.now() - compileStart;
+            timing.stdlib_vfs_mode = compileMetrics.stdlib_vfs_mode;
+            timing.stdlib_vfs_ms = compileMetrics.stdlib_vfs_ms;
+            timing.wasm_call_ms = compileMetrics.wasm_call_ms;
             notifyPhaseProgress(onProgress, {
                 id,
                 phase: 'compile',

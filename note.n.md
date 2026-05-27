@@ -47201,6 +47201,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `trunk build` は pass。
 - `node nodesrc/tests.js <対象26 files> --no-tree -o tmp/neplg21-enum-constructor-postfix.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 8 件中 8 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+## 2026-05-27 Agent compiler latency root fix / cache design
+
+- Zenn 記事の「試作段階における開発方針」を再確認し、後方互換よりも根本設計と静的検査の正確性を優先する前提で compile-time performance を調査した。`plan.md` は変更していない。
+- Resource IR 前に entry reachability pruning を追加し、未到達 stdlib functions を Resource IR summary 固定点から外した。`CallIndirect`、曖昧な mangled prefix、raw LLVM body、raw wasm direct call は conservative-all に倒し、検査漏れを避ける。
+- `std/prelude_base` は `core/traits/copy` の互換 surface を維持しつつ、`core/traits/copy` が `core/mem` 全体ではなく `core/mem/types` だけへ依存する形にした。`core/mem/types` から bounds check を `core/mem/pointer/region` へ移し、default prelude が allocator graph を読まないようにした。
+- Web/WASM compile path は bundled stdlib source table と overlay VFS を分離し、Node runner は artifact mtime が local stdlib より新しい場合に FS stdlib VFS を渡さない。`run_test.js` の timing JSON に `stdlib_vfs_mode`、`stdlib_vfs_ms`、`wasm_call_ms`、`warmup_ms` を追加した。
+- 設計書 `doc/neplg2/compiler_performance_cache_design.md` を追加し、CompilerSession、stdlib prechecked artifact、incremental query cache の次段階設計を固定した。
+- 追加 issue: `ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92`。既存 performance 親 issue `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` は representative corpus と stdlib-heavy case の親として open 継続。
+- 測定: native minimal check は 160ms、native aggregate check は 166ms。`trunk build --release` 後の release WASM minimal cold は `compile_ms=231`、warm minimal は `compile_ms=5`、warm aggregate は `compile_ms=22`。最小 warm session は 10ms 未満に到達したが、aggregate / stdlib-heavy の微小変更 10ms 未満は CompilerSession 実装へ分離した。
+
 ## 2026-05-27 Agent 1 kpgraph / overload postfix migration
 
 - `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、`stdlib/kp/kpgraph.nepl` と `tests/compiler/overload.n.md` の safe call-site postfix を撤廃した。`plan.md` は変更していない。

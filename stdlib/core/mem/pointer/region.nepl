@@ -35,6 +35,52 @@
 #import "../allocator" as allocator
 #import "core/field" as *
 
+//: region_in_bounds: RegionToken 内の byte range が有効範囲に収まるか確認する
+//:
+//: 目的:
+//: - `off` から `bytes` 分の範囲が token の管理する領域内にあるかを、負数と加算 overflow を含めて検査します。
+//:
+//: 実装(アルゴリズム):
+//: - まず `off` と `bytes` が負でないことを確認します。
+//: - `end = off + bytes` を計算し、`end <= total` と `end >= off` の両方を要求します。
+//: - `end >= off` により signed i32 の加算 wrap を検出します。
+//:
+//: 計算量:
+//: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/mem" as *
+//:| #import "core/result" as *
+//: fn main %impure fn unit i32 \unit:
+//:     let allocated %Result RegionToken u8 str alloc_region 8
+//:     match allocated:
+//:         Result::Ok region:
+//:             let ok %bool region_in_bounds &region 2 4
+//:             let bad %bool region_in_bounds &region 7 4
+//:             match dealloc_region region:
+//:                 Result::Ok _:
+//:                     if ok:
+//:                         if bad 0 1
+//:                     else:
+//:                         0
+//:                 Result::Err _:
+//:                     0
+//:         Result::Err _:
+//:             0
+//: ```
+pub fn region_in_bounds <.T> %fn &RegionToken .T fn i32 fn i32 bool \token\off\bytes:
+    let total %i32 *region_token_size_ref token
+    if:
+        or lt off 0 lt bytes 0
+        then:
+            false
+        else:
+            let end %i32 add off bytes
+            and le end total ge end off
+
 //: region_ptr: RegionToken の基底を non-owning MemPtr view として得る
 //:
 //: 目的:

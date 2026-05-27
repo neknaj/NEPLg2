@@ -31,8 +31,13 @@ const { runSingle } = require('./run_test');
     assert.equal(typeof result.duration_ms, 'number');
     assert.equal(typeof result.timing.total_ms, 'number');
     assert.equal(typeof result.timing.load_ms, 'number');
+    assert.equal(typeof result.timing.warmup_ms, 'number');
+    assert.equal(typeof result.timing.collect_vfs_ms, 'number');
+    assert.equal(typeof result.timing.stdlib_vfs_ms, 'number');
+    assert.equal(typeof result.timing.wasm_call_ms, 'number');
     assert.equal(typeof result.timing.compile_ms, 'number');
     assert.equal(result.timing.run_ms, null);
+    assert.ok(['bundled', 'fs_override', 'forced'].includes(result.timing.stdlib_vfs_mode));
     assert.match(String(result.compile_error || ''), /intentional compile failure/);
 
     assert.ok(progress.some((event) => event.phase === 'load' && event.event === 'start'));

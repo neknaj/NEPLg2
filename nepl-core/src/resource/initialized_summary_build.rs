@@ -29,6 +29,7 @@ use super::place_utils::reference_target_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
 use super::summary_worklist::SummaryWorklist;
+use super::timing::ResourceFunctionTimer;
 
 pub(super) fn compute_raw_cell_initialization_function_summaries(
     module: &ResourceModule,
@@ -42,6 +43,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
+        let function_start = ResourceFunctionTimer::start();
         let raw_init_summary_index = RawCellInitializationFunctionSummaryIndex::new(&summaries);
         let summary = function_raw_cell_initialization_summary(
             function,
@@ -50,6 +52,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
             &i32_scalar_summary_index,
             &raw_init_summary_index,
         );
+        function_start.log("raw_init_summary", function);
         if update_raw_cell_initialization_summary(&mut summaries, summary) {
             worklist.notify_changed(function_index);
         }

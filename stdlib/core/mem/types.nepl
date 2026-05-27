@@ -8,6 +8,7 @@
 //: - raw address との相互変換は `mem/internal` に分離し、public facade からは再公開しません。
 //: - `MemPtr .T` は non-owning view であり、`RegionToken .T` は free obligation owner です。
 //:   token 内部では owner identity を raw address として保持し、`MemPtr .T` field を owner state として持ちません。
+//: - bounds check などの操作は `mem/pointer/region` に置き、この file は default prelude から読まれても軽い型境界に保ちます。
 //:
 //: neplg2:test
 //: ```neplg2
@@ -18,9 +19,6 @@
 //: fn main %impure fn unit i32 \unit:
 //:     if ge size_of<MemPtr<i32>> 4 1 0
 //: ```
-
-#import "core/math" as *
-
 pub struct MemPtr<.T>:
     raw %i32
 
@@ -37,13 +35,3 @@ pub fn region_token_size_ref <.T> %fn &RegionToken .T &i32 \token:
 
 pub fn region_size <.T> %fn &RegionToken .T i32 \token:
     *region_token_size_ref token
-
-pub fn region_in_bounds <.T> %fn &RegionToken .T fn i32 fn i32 bool \token\off\bytes:
-    let total %i32 *region_token_size_ref token
-    if:
-        or lt off 0 lt bytes 0
-        then:
-            false
-        else:
-            let end %i32 add off bytes
-            and le end total ge end off

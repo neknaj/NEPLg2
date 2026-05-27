@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-27T03:46:10.107Z",
+  "generated_at": "2026-05-27T05:14:58.260Z",
   "counts": {
-    "total": 1265,
-    "open": 13,
+    "total": 1266,
+    "open": 14,
     "resolved": 1252,
     "by_area": {
       "core": {
-        "total": 622,
-        "open": 6,
+        "total": 623,
+        "open": 7,
         "resolved": 616
       },
       "stdlib": {
@@ -198,7 +198,7 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-05-24",
-      "updated": "2026-05-25",
+      "updated": "2026-05-27",
       "target": "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio",
       "legacy_id": "",
       "source": "",
@@ -218,6 +218,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260525T154712899Z-RESOURCE-IR-RETURN-PATH-REPLAY-UNIT--010D6DB7.md"
+    },
+    {
+      "id": "ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92",
+      "title": "CompilerSession needs prechecked stdlib artifact and incremental query cache",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-27",
+      "updated": "2026-05-27",
+      "target": "nepl-core, nepl-web, nodesrc/run_test.js, stdlib",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92.md"
     },
     {
       "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",

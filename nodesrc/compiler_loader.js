@@ -98,6 +98,9 @@ async function loadCompilerFromDist(distDir) {
         api: nepl,
         meta: {
             distDir,
+            jsPath: pair.jsPath,
+            wasmPath: pair.wasmPath,
+            artifactMtimeMs: pair.mtime,
             jsFile: pair.jsFile,
             wasmFile: pair.wasmFile,
         },

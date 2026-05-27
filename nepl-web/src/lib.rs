@@ -2156,12 +2156,13 @@ pub fn analyze_name_resolution_with_vfs(
         .unwrap_or(true);
 
     let stdlib_root = PathBuf::from("/stdlib");
-    let mut sources = stdlib_sources(&stdlib_root);
-    merge_vfs_sources(&mut sources, Some(vfs));
+    let bundled_sources = stdlib_sources(&stdlib_root);
+    let mut overlay_sources = BTreeMap::new();
+    merge_vfs_sources(&mut overlay_sources, Some(vfs));
 
     let mut loader = Loader::new(stdlib_root);
     let mut provider = |path: &PathBuf| {
-        sources.get(path).cloned().ok_or_else(|| {
+        lookup_web_source(&bundled_sources, &overlay_sources, path).ok_or_else(|| {
             nepl_core::loader::LoaderError::Io(format!("missing source: {}", path.display()))
         })
     };
@@ -2583,14 +2584,13 @@ pub fn analyze_semantics(source: &str) -> JsValue {
 #[wasm_bindgen]
 pub fn analyze_semantics_with_vfs(entry_path: &str, source: &str, vfs: JsValue) -> JsValue {
     let stdlib_root = PathBuf::from("/stdlib");
-    let mut sources = stdlib_sources(&stdlib_root);
-    merge_vfs_sources(&mut sources, Some(vfs));
+    let bundled_sources = stdlib_sources(&stdlib_root);
+    let mut overlay_sources = BTreeMap::new();
+    merge_vfs_sources(&mut overlay_sources, Some(vfs));
 
     let mut loader = Loader::new(stdlib_root);
     let mut provider = |path: &PathBuf| {
-        sources
-            .get(path)
-            .cloned()
+        lookup_web_source(&bundled_sources, &overlay_sources, path)
             .ok_or_else(|| nepl_core::loader::LoaderError::Io(format!("missing source: {}", path.display())))
     };
 
@@ -3151,6 +3151,17 @@ fn merge_vfs_sources(
     }
 }
 
+fn lookup_web_source(
+    bundled_sources: &BTreeMap<PathBuf, &'static str>,
+    overlay_sources: &BTreeMap<PathBuf, String>,
+    path: &PathBuf,
+) -> Option<String> {
+    overlay_sources
+        .get(path)
+        .cloned()
+        .or_else(|| bundled_sources.get(path).map(|source| (*source).to_string()))
+}
+
 fn compile_wasm_with_entry_and_profile_and_stdlib(
     entry_path: &str,
     source: &str,
@@ -3160,42 +3171,29 @@ fn compile_wasm_with_entry_and_profile_and_stdlib(
     include_wat_comments: bool,
 ) -> Result<CompiledWasm, String> {
     let stdlib_root = PathBuf::from("/stdlib");
-    let mut sources = stdlib_sources(&stdlib_root);
+    let bundled_sources = stdlib_sources(&stdlib_root);
+    let mut overlay_sources = BTreeMap::new();
     // stdlib 差し替えが指定された場合は、先に上書きで適用する
-    merge_vfs_sources(&mut sources, stdlib_vfs);
+    merge_vfs_sources(&mut overlay_sources, stdlib_vfs);
     // 呼び出し元 VFS は最後に適用する
-    merge_vfs_sources(&mut sources, vfs);
-
-    #[cfg(target_arch = "wasm32")]
-    web_sys::console::log_1(&format!("Loader context contains {} files", sources.len()).into());
+    merge_vfs_sources(&mut overlay_sources, vfs);
 
     let mut loader = Loader::new(stdlib_root);
     let mut provider = |path: &PathBuf| {
-        sources
-            .get(path)
-            .cloned()
-            .ok_or_else(|| {
+        lookup_web_source(&bundled_sources, &overlay_sources, path).ok_or_else(|| {
                 let msg = format!(
                     "missing source: {}. Available sources: {:?}",
                     path.display(),
-                    sources.keys().collect::<Vec<_>>()
+                overlay_sources.keys().collect::<Vec<_>>()
                 );
-                #[cfg(target_arch = "wasm32")]
-                web_sys::console::error_1(&msg.clone().into());
                 nepl_core::loader::LoaderError::Io(msg)
             })
     };
-    #[cfg(target_arch = "wasm32")]
-    web_sys::console::log_1(&format!("[nepl-web] calling load_inline_with_provider for {:?}", entry_path).into());
     let loaded = loader
         .load_inline_with_provider(PathBuf::from(entry_path), source.to_string(), &mut provider)
         .map_err(|e| {
-            #[cfg(target_arch = "wasm32")]
-            web_sys::console::error_1(&format!("[nepl-web] load_inline_with_provider failed: {:?}", e).into());
             render_loader_error(e, loader.source_map())
         })?;
-    #[cfg(target_arch = "wasm32")]
-    web_sys::console::log_1(&"[nepl-web] loading success. Proceeding to compilation phases.".into());
     let artifact = compile_module_with_source_map_and_artifact_options(
         loaded.module,
         Some(&loaded.source_map),
@@ -3392,10 +3390,10 @@ fn render_diagnostics(diags: &[Diagnostic], sm: &SourceMap) -> String {
     out
 }
 
-fn stdlib_sources(root: &PathBuf) -> BTreeMap<PathBuf, String> {
+fn stdlib_sources(root: &PathBuf) -> BTreeMap<PathBuf, &'static str> {
     let mut map = BTreeMap::new();
     for (path, src) in stdlib_entries() {
-        map.insert(root.join(path), src.to_string());
+        map.insert(root.join(path), *src);
     }
     map
 }

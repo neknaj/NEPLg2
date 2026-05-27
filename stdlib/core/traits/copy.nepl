@@ -1,164 +1,28 @@
-//: copy: [`Copy/Clone`][Copy/Clone] の[能力/のうりょく]を[標準化/ひょうじゅんか]する trait [群/ぐん]
-//:
-//: [目的/もくてき]:
-//: - `Copy` と `Clone` を stdlib [側/がわ]で[明示的/めいじてき]に[定義/ていぎ]し、capability として[再利用/さいりよう]できるようにします。
-//: - compiler [内部/ないぶ]の[固定表/こていひょう]に[頼/たよ]らず、`.nepl` の trait [宣言/せんげん]と impl によって copy/clone を[決定/けってい]する[基盤/きばん]を[提供/ていきょう]します。
-//:
-//: [注意/ちゅうい]:
-//: - ここで[定義/ていぎ]する `Copy` / `Clone` は「どういう[値/あたい]を[暗黙的/あんもくてき]に[複製/ふくせい]してよいか」を[表/あらわ]す capability です。
-//: - [実装/じっそう]する trait [自体/じたい]は[軽量/けいりょう]ですが、どの[型/かた]へ impl するかは[所有権/しょゆうけん]と[意味論/いみろん]に[強/つよ]く[関係/かんけい]します。
-//:
-//: [計算量/けいさんりょう]:
-//: - trait [宣言/せんげん]そのものは O(1) です。
-
 #indent 4
 
-#import "core/mem" as *
-
-//: Clone: [明示的/めいじてき]な[複製/ふくせい] capability
+//: copy: [`Copy/Clone`][Copy/Clone] capability の facade
 //:
 //: [目的/もくてき]:
-//: - `Clone::clone &x` の[形/かたち]で、[元/もと]の[値/あたい]を[消費/しょうひ]せずに[明示的/めいじてき]に[複製/ふくせい]できる[能力/のうりょく]を[表/あらわ]します。
+//: - primitive [型/がた]の `Copy` / `Clone` 定義は `copy/primitive` へ分け、default prelude が heap allocator や memory wrapper を[読/よ]まないようにします。
+//: - `MemPtr .T` の impl は `core/mem/types` の公開型だけを必要とするため、allocator や pointer API へ依存を広げずに接続します。
 //:
 //: [注意/ちゅうい]:
-//: - `Clone` が[独立/どくりつ]した[複製/ふくせい]か、[共有/きょうゆう]を[増/ふ]やす[複製/ふくせい]かは、各 impl の[意味/いみ]に[従/したが]います。
-//: - [利用者/りようしゃ]は、[型/かた]ごとの[注意/ちゅうい]を[確認/かくにん]する[必要/ひつよう]があります。
-trait Clone:
-    #capability clone
-    fn clone %fn &Self Self \x:
-        *x
-
-//: Copy: [暗黙的/あんもくてき]な[再利用/さいりよう]を[許可/きょか]する capability
+//: - default prelude からこの facade を import しても、raw allocator 実装や memory wrapper 全体は読み込まれません。
+//: - pointer wrapper の具体的な操作が必要な caller は、別途 `core/mem` facade を import します。
 //:
-//: [目的/もくてき]:
-//: - `Copy` を[持/も]つ[型/かた]が、move ではなく copy として[扱/あつか]えることを[示/しめ]します。
-//:
-//: [注意/ちゅうい]:
-//: - `Copy` は `Clone` より[強/つよ]い[制約/せいやく]です。
-//: - [所有権/しょゆうけん]のある[資源/しげん]を[持/も]つ[型/かた]には impl しない[前提/ぜんてい]です。
-trait Copy:
-    #capability copy
-    fn copy_mark %fn Self Self \x:
-        x
+//: [計算量/けいさんりょう]:
+//: - primitive capability の登録に加え、`MemPtr .T` の generic impl を 1 組追加するだけなので O(1) です。
 
-//: bool は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-impl Clone for bool:
-    fn clone %fn &bool bool \x:
-        *x
+pub #import "./copy/primitive" as *
 
-impl Copy for bool:
-    fn copy_mark %fn bool bool \x:
-        x
-
-//: char は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-//:
-//: [目的/もくてき]:
-//: - `char` は Unicode scalar value を i32 幅で[表現/ひょうげん]する[値/あたい]型です。
-//: - [所有権/しょゆうけん]を[持/も]たないため、move ではなく copy として[扱/あつか]えます。
-impl Clone for char:
-    fn clone %fn &char char \x:
-        *x
-
-impl Copy for char:
-    fn copy_mark %fn char char \x:
-        x
-
-//: i32 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-impl Clone for i32:
-    fn clone %fn &i32 i32 \x:
-        *x
-
-impl Copy for i32:
-    fn copy_mark %fn i32 i32 \x:
-        x
-
-//: i64 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-impl Clone for i64:
-    fn clone %fn &i64 i64 \x:
-        *x
-
-impl Copy for i64:
-    fn copy_mark %fn i64 i64 \x:
-        x
-
-//: i128 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-impl Clone for i128:
-    fn clone %fn &i128 i128 \x:
-        *x
-
-impl Copy for i128:
-    fn copy_mark %fn i128 i128 \x:
-        x
-
-//: u128 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-impl Clone for u128:
-    fn clone %fn &u128 u128 \x:
-        *x
-
-impl Copy for u128:
-    fn copy_mark %fn u128 u128 \x:
-        x
-
-//: u8 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-impl Clone for u8:
-    fn clone %fn &u8 u8 \x:
-        *x
-
-impl Copy for u8:
-    fn copy_mark %fn u8 u8 \x:
-        x
-
-//: f32 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-impl Clone for f32:
-    fn clone %fn &f32 f32 \x:
-        *x
-
-impl Copy for f32:
-    fn copy_mark %fn f32 f32 \x:
-        x
-
-//: f64 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-impl Clone for f64:
-    fn clone %fn &f64 f64 \x:
-        *x
-
-impl Copy for f64:
-    fn copy_mark %fn f64 f64 \x:
-        x
-
-//: str は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-//:
-//: ### [目的/もくてき]
-//: - `str` は[長/なが]さつき[文字列/もじれつ] view であり、[所有権/しょゆうけん]を[持/も]たないため、[共有/きょうゆう] view の[複製/ふくせい]を capability として[明示/めいじ]します。
-//:
-//: ### [注意/ちゅうい]
-//: - [複製/ふくせい]されるのは[内容/ないよう]そのものではなく、view としての `str` です。
-impl Clone for str:
-    fn clone %fn &str str \x:
-        *x
-
-impl Copy for str:
-    fn copy_mark %fn str str \x:
-        x
-
-//: unit は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-//:
-//: ### [目的/もくてき]
-//: - `unit` は[状態/じょうたい]を[持/も]たないため、move ではなく copy として[扱/あつか]ってよいことを[明示/めいじ]します。
-impl Clone for unit:
-    fn clone %fn &unit unit \x:
-        *x
-
-impl Copy for unit:
-    fn copy_mark %fn (unit) unit \x:
-        x
+#import "core/mem/types" as *
 
 //: MemPtr は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
 //:
-//: ### [目的/もくてき]
+//: [目的/もくてき]:
 //: - `MemPtr .T` は[所有権/しょゆうけん]を[持/も]たない[型付/かたづ]き[アドレス/あどれす]なので、move ではなく copy として[扱/あつか]えることを[明示/めいじ]します。
 //:
-//: ### [注意/ちゅうい]
+//: [注意/ちゅうい]:
 //: - [複製/ふくせい]されるのは[領域/りょういき]そのものではなく、[参照先/さんしょうさき]を[指/さ]す[軽量/けいりょう]ハンドルです。
 //: - [所有権/しょゆうけん]と[解放責任/かいほうせきにん]は `RegionToken .T` [側/がわ]で[管理/かんり]します。
 impl<.T> Clone for MemPtr<.T>:
