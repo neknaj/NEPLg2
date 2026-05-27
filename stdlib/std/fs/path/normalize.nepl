@@ -50,7 +50,8 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
                 then:
                     Result::Err fs_errno_notcapable
                 else:
-                    match v::with_capacity<i32> path_len:
+                    let stack_result %Result Vec i32 StdErrorKind v::with_capacity path_len
+                    match stack_result:
                         Result::Err _e:
                             Result::Err 12
                         Result::Ok stack0:
@@ -87,7 +88,8 @@ pub fn fs_normalize_relative_builder %fn str Result StringBuilder i32 \path:
                                                                 Result::Ok next_stack:
                                                                     set stack next_stack
                                                                 Result::Err e:
-                                                                    set stack v::vec_empty<i32>
+                                                                    let empty_stack %Vec i32 v::vec_empty
+                                                                    set stack empty_stack
                                                                     set err e
                                             set cursor get step "next"
                             let result %Result StringBuilder i32 if:

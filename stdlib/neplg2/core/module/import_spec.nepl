@@ -234,7 +234,7 @@ pub fn selfhost_import_specs_loop %impure fn &SelfhostModuleAst impure fn i32 im
                         then:
                             match selfhost_import_spec_parse_item item idx:
                                 Result::Ok spec:
-                                    match v::push<SelfhostImportSpec> out spec:
+                                    match v::push out spec:
                                         Result::Ok next_out:
                                             selfhost_import_specs_loop ast n add idx 1 next_out
                                         Result::Err e:
@@ -254,7 +254,8 @@ pub fn selfhost_import_specs_loop %impure fn &SelfhostModuleAst impure fn i32 im
 //: [注意/ちゅうい]:
 //: - 成功時の `Vec<SelfhostImportSpec>` は caller が `v::free` してください。
 pub fn selfhost_module_import_specs %impure fn &SelfhostModuleAst Result Vec SelfhostImportSpec SelfhostDiagnostic \ast:
-    match v::new<SelfhostImportSpec>:
+    let out_result %Result Vec SelfhostImportSpec StdErrorKind v::new
+    match out_result:
         Result::Ok out:
             selfhost_import_specs_loop ast selfhost_module_ast_len ast 0 out
         Result::Err _e:

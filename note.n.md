@@ -47211,3 +47211,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `node nodesrc/test_neplg21_collection_wrapper_vec_postfix_cleanup.js` と、list / binary_heap / queue_deque / ringbuffer / stack / btree / hashset / hashmap の関連 source policy は pass した。
 - `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - worker focused doctest では list と btree 系で compile timeout が出たが、partial JSON では型診断は出ていない。
+
+## 2026-05-27 Agent 1 selfhost / stdlib Vec alias postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、selfhost / stdlib fs の `v::...<...>` helper postfix を 4 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `stdlib/neplg2/cli/{driver,args/options,args/parse}.nepl` では doccomment examples の `v::new<str>` / `v::push<str>` を、既存の `%Vec str` evidence に基づく postfix-free example へ更新した。
+- `stdlib/neplg2/core/hir` / `core/ty` では arena initialization の `v::new` に `%Result Vec ... StdErrorKind` local を置き、`v::push` は receiver/value evidence で postfix-free にした。
+- `stdlib/neplg2/core/module` / `core/resolve` / `core/infra` / `core/syntax` では `v::new` / `v::push` / `v::replace` を同様に typed local または receiver/value evidence へ移行した。
+- `stdlib/std/fs` では directory entry accumulation、path normalize range stack、entry sort の `v::with_capacity` / `v::vec_empty` / `v::push` / `v::pop` / `v::replace` を postfix-free にし、FS owner recovery と errno mapping は維持した。
+- `nodesrc/test_neplg21_selfhost_stdlib_v_postfix_cleanup.js` を追加し、今回対象ファイルの旧 `v::...<...>` helper call だけを検出するようにした。コメント量や doccomment の増加を妨げる検査ではない。
+- `node nodesrc/test_neplg21_selfhost_stdlib_v_postfix_cleanup.js`、`node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`、selfhost HIR/TY/CLI/module/diag/parser focused policies は pass した。
+- `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- worker focused doctest では CLI examples が compile timeout。型診断は出ていない。

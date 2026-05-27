@@ -329,7 +329,8 @@ pub fn selfhost_module_item_kind_name %fn SelfhostModuleItemKind str \kind:
 
 //: selfhost_module_ast_new: [空/から]の module AST を[作/つく]る
 pub fn selfhost_module_ast_new %impure fn unit Result SelfhostModuleAst StdErrorKind \unit:
-    match v::new<SelfhostModuleItem>:
+    let items_result %Result Vec SelfhostModuleItem StdErrorKind v::new
+    match items_result:
         Result::Ok items:
             Result::Ok SelfhostModuleAst items
         Result::Err e:
@@ -337,7 +338,7 @@ pub fn selfhost_module_ast_new %impure fn unit Result SelfhostModuleAst StdError
 
 //: selfhost_module_ast_push: module item を 1 件[追加/ついか]する
 pub fn selfhost_module_ast_push %impure fn SelfhostModuleAst impure fn SelfhostModuleItem Result SelfhostModuleAst StdErrorKind \ast\item:
-    match v::push<SelfhostModuleItem> field::get ast "items" item:
+    match v::push field::get ast "items" item:
         Result::Ok items:
             Result::Ok SelfhostModuleAst items
         Result::Err e:

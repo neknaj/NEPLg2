@@ -12,13 +12,17 @@
 
 //: selfhost_hir_module_new: [空/から]の HIR module を[作/つく]る
 pub fn selfhost_hir_module_new %impure fn unit Result SelfhostHirModule StdErrorKind \unit:
-    match v::new<SelfhostHirFunction>:
+    let functions_result %Result Vec SelfhostHirFunction StdErrorKind v::new
+    match functions_result:
         Result::Ok functions:
-            match v::new<SelfhostHirParam>:
+            let params_result %Result Vec SelfhostHirParam StdErrorKind v::new
+            match params_result:
                 Result::Ok params:
-                    match v::new<SelfhostHirExpr>:
+                    let exprs_result %Result Vec SelfhostHirExpr StdErrorKind v::new
+                    match exprs_result:
                         Result::Ok exprs:
-                            match v::new<SelfhostHirExprId>:
+                            let expr_children_result %Result Vec SelfhostHirExprId StdErrorKind v::new
+                            match expr_children_result:
                                 Result::Ok expr_children:
                                     Result::Ok SelfhostHirModule functions params exprs expr_children
                                 Result::Err e:
@@ -146,7 +150,7 @@ pub fn selfhost_hir_module_copy_params %impure fn Vec SelfhostHirParam impure fn
         else:
             match v::get params idx:
                 Option::Some param:
-                    match v::push<SelfhostHirParam> out param:
+                    match v::push out param:
                         Result::Ok next_out:
                             selfhost_hir_module_copy_params next_out params n add idx 1
                         Result::Err e:
@@ -166,7 +170,7 @@ pub fn selfhost_hir_module_copy_expr_children %impure fn Vec SelfhostHirExprId i
         else:
             match v::get children idx:
                 Option::Some expr_id:
-                    match v::push<SelfhostHirExprId> out expr_id:
+                    match v::push out expr_id:
                         Result::Ok next_out:
                             selfhost_hir_module_copy_expr_children next_out children n add idx 1
                         Result::Err e:
@@ -187,7 +191,7 @@ pub fn selfhost_hir_module_add_expr %impure fn SelfhostHirModule impure fn Selfh
     let params %Vec SelfhostHirParam field::get module "params"
     let exprs %Vec SelfhostHirExpr field::get module "exprs"
     let expr_children %Vec SelfhostHirExprId field::get module "expr_children"
-    match v::push<SelfhostHirExpr> exprs expr:
+    match v::push exprs expr:
         Result::Ok next_exprs:
             Result::Ok selfhost_hir_module_add_expr_alloc_new (SelfhostHirModule functions params next_exprs expr_children) expr_id
         Result::Err e:
@@ -208,7 +212,7 @@ pub fn selfhost_hir_module_add_function %impure fn SelfhostHirModule impure fn S
     let params %Vec SelfhostHirParam field::get module "params"
     let exprs %Vec SelfhostHirExpr field::get module "exprs"
     let expr_children %Vec SelfhostHirExprId field::get module "expr_children"
-    match v::push<SelfhostHirFunction> functions func:
+    match v::push functions func:
         Result::Ok next_functions:
             Result::Ok selfhost_hir_module_add_function_alloc_new (SelfhostHirModule next_functions params exprs expr_children) function_id
         Result::Err e:

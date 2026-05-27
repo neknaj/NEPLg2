@@ -108,9 +108,11 @@ pub fn selfhost_module_graph_edge_new %fn str fn str fn SelfhostSourceSpan Selfh
 
 //: selfhost_module_graph_new: [空/から]の module graph を[作/つく]る
 pub fn selfhost_module_graph_new %impure fn unit Result SelfhostModuleGraph StdErrorKind \unit:
-    match v::new<SelfhostModuleGraphNode>:
+    let nodes_result %Result Vec SelfhostModuleGraphNode StdErrorKind v::new
+    match nodes_result:
         Result::Ok nodes:
-            match v::new<SelfhostModuleGraphEdge>:
+            let edges_result %Result Vec SelfhostModuleGraphEdge StdErrorKind v::new
+            match edges_result:
                 Result::Ok edges:
                     Result::Ok SelfhostModuleGraph nodes edges
                 Result::Err e:
@@ -202,7 +204,7 @@ pub fn selfhost_module_graph_internal_diag %fn SelfhostSourceSpan fn str Selfhos
 pub fn selfhost_module_graph_push_node %impure fn SelfhostModuleGraph impure fn SelfhostModuleGraphNode impure fn SelfhostSourceSpan Result SelfhostModuleGraph SelfhostDiagnostic \graph\node\span:
     let nodes %Vec SelfhostModuleGraphNode field::get graph "nodes"
     let edges %Vec SelfhostModuleGraphEdge field::get graph "edges"
-    match v::push<SelfhostModuleGraphNode> nodes node:
+    match v::push nodes node:
         Result::Ok next_nodes:
             Result::Ok SelfhostModuleGraph next_nodes edges
         Result::Err e:
@@ -214,7 +216,7 @@ pub fn selfhost_module_graph_push_node %impure fn SelfhostModuleGraph impure fn 
 pub fn selfhost_module_graph_push_edge %impure fn SelfhostModuleGraph impure fn SelfhostModuleGraphEdge impure fn SelfhostSourceSpan Result SelfhostModuleGraph SelfhostDiagnostic \graph\edge\span:
     let nodes %Vec SelfhostModuleGraphNode field::get graph "nodes"
     let edges %Vec SelfhostModuleGraphEdge field::get graph "edges"
-    match v::push<SelfhostModuleGraphEdge> edges edge:
+    match v::push edges edge:
         Result::Ok next_edges:
             Result::Ok SelfhostModuleGraph nodes next_edges
         Result::Err e:
@@ -225,7 +227,7 @@ pub fn selfhost_module_graph_push_edge %impure fn SelfhostModuleGraph impure fn 
 //: selfhost_module_graph_set_node: node を in-place に[置/お]き[換/か]える
 pub fn selfhost_module_graph_set_node %impure fn SelfhostModuleGraph impure fn i32 impure fn SelfhostModuleGraphNode SelfhostModuleGraph \graph\idx\node:
     let nodes %&Vec SelfhostModuleGraphNode field::get_ref &graph "nodes"
-    v::replace<SelfhostModuleGraphNode> nodes idx node
+    v::replace nodes idx node
     graph
 
 //: selfhost_module_graph_set_state: node の状態と import 数を[更新/こうしん]する

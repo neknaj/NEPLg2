@@ -28,13 +28,13 @@
 //: 計算量:
 //: - ならし O(1)
 pub fn fs_normalize_range_push %fn Vec i32 fn i32 fn i32 Result Vec i32 i32 \stack\start\end:
-    match v::push<i32> stack start:
+    match v::push stack start:
         Result::Err e:
             let returned %Vec i32 v::vec_push_error_vec e
             v::free returned
             Result::Err 12
         Result::Ok with_start:
-            match v::push<i32> with_start end:
+            match v::push with_start end:
                 Result::Err e:
                     let returned %Vec i32 v::vec_push_error_vec e
                     v::free returned
@@ -56,7 +56,7 @@ pub fn fs_normalize_range_push %fn Vec i32 fn i32 fn i32 Result Vec i32 i32 \sta
 //: 計算量:
 //: - O(1)
 pub fn fs_normalize_range_pop %fn Vec i32 Vec i32 \stack:
-    let popped_end v::pop<i32> stack
+    let popped_end v::pop stack
     let without_end %Vec i32 field::get popped_end "vec"
-    let popped_start v::pop<i32> without_end
+    let popped_start v::pop without_end
     field::get popped_start "vec"

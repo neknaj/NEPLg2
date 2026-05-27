@@ -24,7 +24,8 @@ pub struct SelfhostNameScopeAddResult:
 
 //: selfhost_name_scope_new: [空/から]の scope を[作/つく]る
 pub fn selfhost_name_scope_new %impure fn unit Result SelfhostNameScope StdErrorKind \unit:
-    match v::new<SelfhostNameBinding>:
+    let bindings_result %Result Vec SelfhostNameBinding StdErrorKind v::new
+    match bindings_result:
         Result::Ok bindings:
             Result::Ok SelfhostNameScope bindings
         Result::Err e:
@@ -70,7 +71,7 @@ pub fn selfhost_name_scope_add_binding %impure fn SelfhostNameScope impure fn Se
     let def_id %SelfhostDefId selfhost_def_id_new selfhost_name_scope_len &scope
     let bindings %Vec SelfhostNameBinding field::get scope "bindings"
     let item %SelfhostNameBinding selfhost_name_binding_new binding.name selfhost_def_id_assigned def_id binding.kind binding.span
-    match v::push<SelfhostNameBinding> bindings item:
+    match v::push bindings item:
         Result::Ok next_bindings:
             Result::Ok selfhost_name_scope_add_result_new (SelfhostNameScope next_bindings) def_id
         Result::Err e:

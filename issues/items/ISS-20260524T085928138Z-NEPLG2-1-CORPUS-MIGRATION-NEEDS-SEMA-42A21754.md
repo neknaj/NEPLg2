@@ -1074,6 +1074,16 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - worker focused doctest では list と btree 系で compile timeout が出たが、partial JSON では型診断は出ていない。full doctest green 化は performance issue 側で継続確認する。
 
+### 2026-05-27 selfhost / stdlib Vec alias postfix checkpoint
+
+- `stdlib/neplg2/cli/**` の doccomment examples、`stdlib/neplg2/core/{hir,ty,module,resolve,infra,syntax}/**`、`stdlib/std/fs/**` に残っていた `v::new<T>` / `v::push<T>` / `v::replace<T>` / `v::with_capacity<T>` / `v::pop<T>` / `v::vec_empty<T>` を postfix-free call へ移行した。
+- zero-argument の `v::new` / `v::vec_empty` / `v::with_capacity` など、型根拠が弱い箇所では `%Result Vec ... StdErrorKind` や `%Vec ...` local を置き、型注釈で選択する NEPLg2.1 方針に合わせた。
+- 4 worker に CLI doc examples、selfhost HIR/TY、selfhost module/resolve/syntax/diag、std/fs を非重複 write scope として割り当てた。
+- `nodesrc/test_neplg21_selfhost_stdlib_v_postfix_cleanup.js` を追加し、今回対象ファイルの旧 `v::...<...>` helper call だけを検出するようにした。コメント量や doccomment の増加を妨げる検査ではない。
+- `node nodesrc/test_neplg21_selfhost_stdlib_v_postfix_cleanup.js`、`node nodesrc/test_stdlib_fs_no_unsafe_unwraps.js`、selfhost HIR/TY/CLI/module/diag/parser の focused policies は pass した。
+- `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- worker focused doctest では CLI examples が compile timeout。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

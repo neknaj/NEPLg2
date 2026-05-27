@@ -33,9 +33,9 @@
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let args %Vec str:
-//:         unwrap_ok v::new<str>
-//:         |> v::push<str> "-i" |> uwok
-//:         |> v::push<str> "main.nepl" |> uwok
+//:         unwrap_ok v::new
+//:         |> v::push "-i" |> uwok
+//:         |> v::push "main.nepl" |> uwok
 //:     match selfhost_cli_parse_args &args:
 //:         Result::Err _e:
 //:             v::free args;

@@ -95,14 +95,14 @@ pub fn fs_sort_strings %impure fn &Vec str Result unit i32 \entries:
                                     if:
                                         fs_str_lt key prev
                                         then:
-                                            v::replace<str> entries j prev
+                                            v::replace entries j prev
                                             set j prev_idx
                                         else:
                                             set moving false
                     if:
                         eq err 0
                         then:
-                            v::replace<str> entries j key
+                            v::replace entries j key
                         else:
                             unit
             set i add i 1

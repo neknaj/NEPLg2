@@ -21,9 +21,11 @@ pub struct SelfhostTypeArenaAlloc:
 
 //: selfhost_type_arena_new: [空/から]の TypeArena を[作/つく]る
 pub fn selfhost_type_arena_new %impure fn unit Result SelfhostTypeArena StdErrorKind \unit:
-    match v::new<SelfhostTypeRecord>:
+    let records_result %Result Vec SelfhostTypeRecord StdErrorKind v::new
+    match records_result:
         Result::Ok records:
-            match v::new<SelfhostTypeId>:
+            let function_args_result %Result Vec SelfhostTypeId StdErrorKind v::new
+            match function_args_result:
                 Result::Ok function_args:
                     Result::Ok SelfhostTypeArena records function_args
                 Result::Err e:
@@ -72,7 +74,7 @@ pub fn selfhost_type_arena_push_record %impure fn SelfhostTypeArena impure fn Se
     let type_id %SelfhostTypeId selfhost_type_id_new selfhost_type_arena_len &arena
     let records %Vec SelfhostTypeRecord field::get arena "records"
     let function_args %Vec SelfhostTypeId field::get arena "function_args"
-    match v::push<SelfhostTypeRecord> records record:
+    match v::push records record:
         Result::Ok next_records:
             Result::Ok selfhost_type_arena_alloc_new (SelfhostTypeArena next_records function_args) type_id
         Result::Err e:
@@ -94,7 +96,7 @@ pub fn selfhost_type_arena_copy_function_args %impure fn Vec SelfhostTypeId impu
         else:
             match v::get params idx:
                 Option::Some type_id:
-                    match v::push<SelfhostTypeId> out type_id:
+                    match v::push out type_id:
                         Result::Ok next_out:
                             selfhost_type_arena_copy_function_args next_out params n add idx 1
                         Result::Err e:

@@ -67,7 +67,8 @@ fn fs_dirent_name_to_string %fn MemPtr u8 fn i32 Result str i32 \src_ptr\byte_le
 //: 計算量:
 //: - entry 総 byte 数 n と sort の O(k^2)
 pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
-    match v::new<str>:
+    let entries_result %Result Vec str StdErrorKind v::new
+    match entries_result:
         Result::Err _e:
             Result::Err 12
         Result::Ok entries0:
@@ -138,7 +139,7 @@ pub fn fs_read_dir_fd %impure fn i32 Result Vec str i32 \fd:
                                                                                         then:
                                                                                             unit
                                                                                         else:
-                                                                                            match v::push<str> entries name:
+                                                                                            match v::push entries name:
                                                                                                 Result::Ok next_entries:
                                                                                                     set entries next_entries
                                                                                                 Result::Err e:

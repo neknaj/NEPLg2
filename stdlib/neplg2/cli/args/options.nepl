@@ -102,12 +102,12 @@ pub fn selfhost_cli_profile_to_build_profile %fn SelfhostCliProfile SelfhostBuil
 //:| #import "std/test" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let args %Vec str:
-//:         unwrap_ok v::new<str>
-//:         |> v::push<str> "--target" |> uwok
-//:         |> v::push<str> "std" |> uwok
-//:         |> v::push<str> "--profile" |> uwok
-//:         |> v::push<str> "release" |> uwok
-//:         |> v::push<str> "--verbose" |> uwok
+//:         unwrap_ok v::new
+//:         |> v::push "--target" |> uwok
+//:         |> v::push "std" |> uwok
+//:         |> v::push "--profile" |> uwok
+//:         |> v::push "release" |> uwok
+//:         |> v::push "--verbose" |> uwok
 //:     match selfhost_cli_parse_args &args:
 //:         Result::Err _e:
 //:             v::free args;

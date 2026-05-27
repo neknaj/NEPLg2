@@ -126,8 +126,8 @@
 //:                 Result::Ok child_alloc:
 //:                     let child_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &child_alloc
 //:                     let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module child_alloc
-//:                     let child_ids0 %Vec SelfhostHirExprId unwrap_ok v::new<SelfhostHirExprId>
-//:                     let child_ids1 %Vec SelfhostHirExprId unwrap_ok v::push<SelfhostHirExprId> child_ids0 child_id
+//:                     let child_ids0 %Vec SelfhostHirExprId unwrap_ok v::new
+//:                     let child_ids1 %Vec SelfhostHirExprId unwrap_ok v::push child_ids0 child_id
 //:                     match selfhost_hir_module_add_child_range module1 child_ids1:
 //:                         Result::Ok range_alloc:
 //:                             let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
@@ -210,8 +210,8 @@
 //:             let span %SelfhostSourceSpan source_span_new 5 30 35
 //:             let result_ty %SelfhostTypeId selfhost_type_id_new 1
 //:             let param0 %SelfhostHirParam selfhost_hir_param_new "x" result_ty true span
-//:             let params0 %Vec SelfhostHirParam unwrap_ok v::new<SelfhostHirParam>
-//:             let params1 %Vec SelfhostHirParam unwrap_ok v::push<SelfhostHirParam> params0 param0
+//:             let params0 %Vec SelfhostHirParam unwrap_ok v::new
+//:             let params1 %Vec SelfhostHirParam unwrap_ok v::push params0 param0
 //:             match selfhost_hir_module_add_param_range module0 params1:
 //:                 Result::Ok param_alloc:
 //:                     let param_range %SelfhostHirParamRange selfhost_hir_module_param_range_alloc_param_range &param_alloc

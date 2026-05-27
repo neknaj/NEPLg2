@@ -13,7 +13,8 @@ pub struct SelfhostDiagnostics:
 
 //: selfhost_diagnostics_new: [空/から]の diagnostic collection を[作/つく]る
 pub fn selfhost_diagnostics_new %fn unit Result SelfhostDiagnostics StdErrorKind \unit:
-    match v::new<SelfhostDiagnostic>:
+    let items_result %Result Vec SelfhostDiagnostic StdErrorKind v::new
+    match items_result:
         Result::Ok items:
             Result::Ok SelfhostDiagnostics items
         Result::Err _e:
@@ -29,7 +30,7 @@ pub fn selfhost_diagnostics_one %fn SelfhostDiagnostic Result SelfhostDiagnostic
 
 //: selfhost_diagnostics_push: diagnostic を 1 [件/けん][追加/ついか]する
 pub fn selfhost_diagnostics_push %fn SelfhostDiagnostics fn SelfhostDiagnostic Result SelfhostDiagnostics StdErrorKind \diagnostics\diag:
-    match v::push<SelfhostDiagnostic> field::get diagnostics "items" diag:
+    match v::push field::get diagnostics "items" diag:
         Result::Ok items:
             Result::Ok SelfhostDiagnostics items
         Result::Err e:

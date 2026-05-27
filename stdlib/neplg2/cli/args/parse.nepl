@@ -195,13 +195,13 @@ pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Optio
 //:| #import "std/test" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let args %Vec str:
-//:         unwrap_ok v::new<str>
-//:         |> v::push<str> "--check" |> uwok
-//:         |> v::push<str> "--emit" |> uwok
-//:         |> v::push<str> "wasm" |> uwok
-//:         |> v::push<str> "-o" |> uwok
-//:         |> v::push<str> "out.wasm" |> uwok
-//:         |> v::push<str> "main.nepl" |> uwok
+//:         unwrap_ok v::new
+//:         |> v::push "--check" |> uwok
+//:         |> v::push "--emit" |> uwok
+//:         |> v::push "wasm" |> uwok
+//:         |> v::push "-o" |> uwok
+//:         |> v::push "out.wasm" |> uwok
+//:         |> v::push "main.nepl" |> uwok
 //:     match selfhost_cli_parse_args &args:
 //:         Result::Err _e:
 //:             v::free args;
@@ -268,12 +268,12 @@ pub fn selfhost_cli_parse_args %fn &Vec str Result SelfhostCliOptions SelfhostCl
 //:| #import "std/test" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let argv %Vec str:
-//:         unwrap_ok v::new<str>
-//:         |> v::push<str> "neplg2" |> uwok
-//:         |> v::push<str> "--target" |> uwok
-//:         |> v::push<str> "std" |> uwok
-//:         |> v::push<str> "-i" |> uwok
-//:         |> v::push<str> "main.nepl" |> uwok
+//:         unwrap_ok v::new
+//:         |> v::push "neplg2" |> uwok
+//:         |> v::push "--target" |> uwok
+//:         |> v::push "std" |> uwok
+//:         |> v::push "-i" |> uwok
+//:         |> v::push "main.nepl" |> uwok
 //:     match selfhost_cli_parse_argv &argv:
 //:         Result::Err _e:
 //:             v::free argv;

@@ -182,7 +182,7 @@ pub fn selfhost_scan_module_imports_loop %impure fn str impure fn i32 impure fn 
                 then:
                     match selfhost_import_record_from_line source file_id line_start line_end:
                         Result::Ok record:
-                            match v::push<SelfhostImportRecord> out record:
+                            match v::push out record:
                                 Result::Ok next_out:
                                     selfhost_scan_module_imports_loop source file_id n next_line next_out
                                 Result::Err e:
@@ -196,7 +196,8 @@ pub fn selfhost_scan_module_imports_loop %impure fn str impure fn i32 impure fn 
 
 //: selfhost_scan_module_imports_with_file_id: source text から import record を[集/あつ]める
 pub fn selfhost_scan_module_imports_with_file_id %impure fn str impure fn i32 Result Vec SelfhostImportRecord SelfhostDiagnostic \source\file_id:
-    match v::new<SelfhostImportRecord>:
+    let out_result %Result Vec SelfhostImportRecord StdErrorKind v::new
+    match out_result:
         Result::Ok out:
             selfhost_scan_module_imports_loop source file_id string_access::len source 0 out
         Result::Err _e:
