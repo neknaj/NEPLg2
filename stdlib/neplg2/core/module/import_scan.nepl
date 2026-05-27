@@ -33,7 +33,7 @@
 //:| #import "neplg2/core/module/import_scan" as *
 //:| #import "std/test" as *
 //: fn record_at %fn &Vec SelfhostImportRecord fn i32 SelfhostImportRecord \records\idx:
-//:     unwrap<SelfhostImportRecord> v::get records idx
+//:     unwrap v::get records idx
 //:
 //: fn main %impure fn unit i32 \unit:
 //:     match selfhost_scan_module_imports_with_file_id "#import \"./util\" as util\n#import \"core/result\" as *\n    #import \"ignored\" as inner\nfn main %fn unit i32 \\unit:\n    0\n" 0:

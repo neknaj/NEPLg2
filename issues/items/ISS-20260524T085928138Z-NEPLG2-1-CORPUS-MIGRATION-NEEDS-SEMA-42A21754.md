@@ -1101,6 +1101,14 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - worker focused doctest では outcome / CLI examples が compile timeout。型診断は出ていないため、full doctest green 化は performance issue 側で継続確認する。
 
+### 2026-05-27 selfhost import scan doc unwrap checkpoint
+
+- `stdlib/neplg2/core/module/import_scan.nepl` の doctest helper `record_at` に残っていた `unwrap<SelfhostImportRecord>` を postfix-free `unwrap` へ移行した。
+- `record_at` の戻り値型 `SelfhostImportRecord` と `v::get records idx` の入力 `&Vec SelfhostImportRecord` から `Option SelfhostImportRecord` が決まるため、明示 type args を残す必要がない。
+- `nodesrc/test_neplg21_selfhost_prose_type_postfix_cleanup.js` に、selfhost doccomment 内の `unwrap<Selfhost...>` 系 helper postfix を検出する pattern を追加した。コメント量や doccomment の増加を妨げる検査ではない。
+- `rg -n "\\b[A-Za-z_][A-Za-z0-9_:]*<[A-Za-z_.]" stdlib/neplg2 -g "*.nepl"` は、現行 declaration syntax の `pub struct SelfhostOutcome<.T, .E>` だけになった。
+- `node nodesrc/test_neplg21_selfhost_prose_type_postfix_cleanup.js`、`node nodesrc/test_selfhost_import_spec_report_contract.js`、`node nodesrc/test_selfhost_module_graph_report_contract.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

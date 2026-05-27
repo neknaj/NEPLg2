@@ -37,6 +37,7 @@ const lexerCallFiles = [
 const outcomeFile = "stdlib/neplg2/core/infra/outcome.nepl";
 
 const oldCommentTypeApplication = /\b(?:Vec|Result|Option|Selfhost[A-Za-z0-9_]*|RegionToken|MemPtr)<[^>]+>/;
+const oldSelfhostCommentHelperPostfix = /\b(?:unwrap|unwrap_ok|unwrap_err)<Selfhost[A-Za-z0-9_]*>/;
 const oldLexerHelperPostfix = /\b(?:push|new|drop_last|vec_push_error_vec)<[A-Za-z_.]/;
 const oldOutcomeHelperPostfix = /\bselfhost_outcome_[A-Za-z0-9_]+<[A-Za-z_.]/;
 const oldOutcomeConstructorApplication = /\bSelfhostOutcome<\s*\./;
@@ -50,7 +51,10 @@ function readLines(relPath) {
 for (const relPath of commentTypeFiles) {
     const lines = readLines(relPath);
     lines.forEach((line, index) => {
-        if (line.trimStart().startsWith("//") && oldCommentTypeApplication.test(line)) {
+        if (
+            line.trimStart().startsWith("//") &&
+            (oldCommentTypeApplication.test(line) || oldSelfhostCommentHelperPostfix.test(line))
+        ) {
             violations.push(`${relPath}:${index + 1}: ${line.trim()}`);
         }
     });
