@@ -14,10 +14,11 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<i32> 1:
+//:     let allocated %Result RegionToken i32 str alloc_region 1
+//:     match allocated:
 //:         Result::Ok region:
 //:             let ok %bool eq region_size &region 4
-//:             match dealloc_region<i32> region:
+//:             match dealloc_region region:
 //:                 Result::Ok _:
 //:                     if ok 1 0
 //:                 Result::Err _:
@@ -55,7 +56,8 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<i32> 1:
+//:     let allocated %Result RegionToken i32 str alloc_region 1
+//:     match allocated:
 //:         Result::Ok region:
 //:             let ptr %MemPtr i32 region_ptr &region
 //:             let stored %Result unit str store_i32 ptr 42
@@ -67,13 +69,13 @@
 //:                             eq value 42
 //:                         Option::None:
 //:                             false
-//:                     match dealloc_region<i32> region:
+//:                     match dealloc_region region:
 //:                         Result::Ok _:
 //:                             if ok 1 0
 //:                         Result::Err _:
 //:                             0
 //:                 Result::Err _:
-//:                     match dealloc_region<i32> region:
+//:                     match dealloc_region region:
 //:                         Result::Ok _:
 //:                             0
 //:                         Result::Err _:
@@ -108,17 +110,19 @@ pub fn region_ptr <.T> %fn &RegionToken .T MemPtr .T \token:
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<i32> 1:
+//:     let allocated %Result RegionToken i32 str alloc_region 1
+//:     match allocated:
 //:         Result::Ok region:
-//:             match region_ptr_at<i32, i32> &region 0:
+//:             let projected %Result MemPtr i32 str region_ptr_at &region 0
+//:             match projected:
 //:                 Result::Ok _ptr:
-//:                     match dealloc_region<i32> region:
+//:                     match dealloc_region region:
 //:                         Result::Ok _:
 //:                             1
 //:                         Result::Err _:
 //:                             0
 //:                 Result::Err _:
-//:                     match dealloc_region<i32> region:
+//:                     match dealloc_region region:
 //:                         Result::Ok _:
 //:                             0
 //:                         Result::Err _:
@@ -134,14 +138,16 @@ pub fn region_ptr <.T> %fn &RegionToken .T MemPtr .T \token:
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<u8> 8:
+//:     let allocated %Result RegionToken u8 str alloc_region 8
+//:     match allocated:
 //:         Result::Ok region:
-//:             let ok %bool match region_ptr_at<u8, i32> &region 1:
+//:             let projected %Result MemPtr i32 str region_ptr_at &region 1
+//:             let ok %bool match projected:
 //:                 Result::Ok _ptr:
 //:                     false
 //:                 Result::Err _:
 //:                     true
-//:             match dealloc_region<u8> region:
+//:             match dealloc_region region:
 //:                 Result::Ok _:
 //:                     if ok 1 0
 //:                 Result::Err _:
@@ -194,10 +200,11 @@ pub fn region_ptr_at <.T, .U> %fn &RegionToken .T fn i32 Result MemPtr .U str \t
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region_bytes<i32> 4:
+//:     let bytes_allocated %Result RegionToken i32 str alloc_region_bytes 4
+//:     match bytes_allocated:
 //:         Result::Ok region:
 //:             let ok %bool eq region_size &region 4
-//:             match dealloc_region<i32> region:
+//:             match dealloc_region region:
 //:                 Result::Ok _:
 //:                     if ok 1 0
 //:                 Result::Err _:
@@ -236,19 +243,21 @@ pub fn alloc_region_bytes <.T> %fn i32 Result RegionToken .T str \bytes:
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region_bytes<i32> 4:
+//:     let bytes_allocated %Result RegionToken i32 str alloc_region_bytes 4
+//:     match bytes_allocated:
 //:         Result::Ok region:
-//:             match realloc_region_bytes_keep<i32> region sub 0 1:
+//:             let resized %Result RegionToken i32 RegionReallocError i32 realloc_region_bytes_keep region sub 0 1
+//:             match resized:
 //:                 Result::Err e:
-//:                     let old %RegionToken i32 region_realloc_error_region<i32> e
+//:                     let old %RegionToken i32 region_realloc_error_region e
 //:                     let ok %bool eq region_size &old 4
-//:                     match dealloc_region<i32> old:
+//:                     match dealloc_region old:
 //:                         Result::Ok _:
 //:                             if ok 1 0
 //:                         Result::Err _:
 //:                             0
 //:                 Result::Ok grown:
-//:                     match dealloc_region<i32> grown:
+//:                     match dealloc_region grown:
 //:                         Result::Ok _:
 //:                             0
 //:                         Result::Err _:
@@ -269,19 +278,21 @@ pub struct RegionReallocError<.T>:
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region_bytes<i32> 4:
+//:     let bytes_allocated %Result RegionToken i32 str alloc_region_bytes 4
+//:     match bytes_allocated:
 //:         Result::Ok region:
-//:             match realloc_region_bytes_keep<i32> region sub 0 1:
+//:             let resized %Result RegionToken i32 RegionReallocError i32 realloc_region_bytes_keep region sub 0 1
+//:             match resized:
 //:                 Result::Err e:
-//:                     let old %RegionToken i32 region_realloc_error_region<i32> e
+//:                     let old %RegionToken i32 region_realloc_error_region e
 //:                     let ok %bool eq region_size &old 4
-//:                     match dealloc_region<i32> old:
+//:                     match dealloc_region old:
 //:                         Result::Ok _:
 //:                             if ok 1 0
 //:                         Result::Err _:
 //:                             0
 //:                 Result::Ok grown:
-//:                     match dealloc_region<i32> grown:
+//:                     match dealloc_region grown:
 //:                         Result::Ok _:
 //:                             0
 //:                         Result::Err _:
@@ -334,19 +345,21 @@ fn realloc_region_bytes_keep_relocating <.T> %fn RegionToken .T fn i32 Result Re
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region_bytes<i32> 4:
+//:     let bytes_allocated %Result RegionToken i32 str alloc_region_bytes 4
+//:     match bytes_allocated:
 //:         Result::Ok region:
-//:             match realloc_region_bytes_keep<i32> region 8:
+//:             let resized %Result RegionToken i32 RegionReallocError i32 realloc_region_bytes_keep region 8
+//:             match resized:
 //:                 Result::Ok grown:
 //:                     let ok %bool eq region_size &grown 8
-//:                     match dealloc_region<i32> grown:
+//:                     match dealloc_region grown:
 //:                         Result::Ok _:
 //:                             if ok 1 0
 //:                         Result::Err _:
 //:                             0
 //:                 Result::Err e:
-//:                     let old %RegionToken i32 region_realloc_error_region<i32> e
-//:                     match dealloc_region<i32> old:
+//:                     let old %RegionToken i32 region_realloc_error_region e
+//:                     match dealloc_region old:
 //:                         Result::Ok _:
 //:                             0
 //:                         Result::Err _:
@@ -381,10 +394,11 @@ pub fn realloc_region_bytes_keep <.T> %fn RegionToken .T fn i32 Result RegionTok
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<i32> 2:
+//:     let allocated %Result RegionToken i32 str alloc_region 2
+//:     match allocated:
 //:         Result::Ok region:
 //:             let ok %bool eq region_size &region 8
-//:             match dealloc_region<i32> region:
+//:             match dealloc_region region:
 //:                 Result::Ok _:
 //:                     if ok 1 0
 //:                 Result::Err _:
@@ -400,11 +414,12 @@ pub fn realloc_region_bytes_keep <.T> %fn RegionToken .T fn i32 Result RegionTok
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<i32> 536870909:
+//:     let allocated %Result RegionToken i32 str alloc_region 536870909
+//:     match allocated:
 //:         Result::Err _:
 //:             1
 //:         Result::Ok region:
-//:             match dealloc_region<i32> region:
+//:             match dealloc_region region:
 //:                 Result::Ok _:
 //:                     0
 //:                 Result::Err _:
@@ -450,9 +465,10 @@ pub fn alloc_region <.T> %fn i32 Result RegionToken .T str \count:
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<u8> 4:
+//:     let allocated %Result RegionToken u8 str alloc_region 4
+//:     match allocated:
 //:         Result::Ok region:
-//:             match dealloc_region<u8> region:
+//:             match dealloc_region region:
 //:                 Result::Ok _:
 //:                     1
 //:                 Result::Err _:

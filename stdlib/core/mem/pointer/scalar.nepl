@@ -14,7 +14,8 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<i32> 1:
+//:     let allocated %Result RegionToken i32 str alloc_region 1
+//:     match allocated:
 //:         Result::Ok region:
 //:             let p %MemPtr i32 region_ptr &region
 //:             match store_i32 p 12:
@@ -24,13 +25,13 @@
 //:                             n
 //:                         Option::None:
 //:                             0
-//:                     match dealloc_region<i32> region:
+//:                     match dealloc_region region:
 //:                         Result::Ok _:
 //:                             v
 //:                         Result::Err _:
 //:                             0
 //:                 Result::Err _:
-//:                     match dealloc_region<i32> region:
+//:                     match dealloc_region region:
 //:                         Result::Ok _:
 //:                             0
 //:                         Result::Err _:

@@ -45,26 +45,27 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<i32> 1:
+//:     let allocated %Result RegionToken i32 str alloc_region 1
+//:     match allocated:
 //:         Result::Ok region:
 //:             let p %MemPtr i32 region_ptr &region
 //:             match store_i32 p 123:
 //:                 Result::Ok _:
 //:                     match load_i32 p:
 //:                         Option::Some v:
-//:                             match dealloc_region<i32> region:
+//:                             match dealloc_region region:
 //:                                 Result::Ok _:
 //:                                     if eq v 123 1 0
 //:                                 Result::Err _:
 //:                                     0
 //:                         Option::None:
-//:                             match dealloc_region<i32> region:
+//:                             match dealloc_region region:
 //:                                 Result::Ok _:
 //:                                     0
 //:                                 Result::Err _:
 //:                                     0
 //:                 Result::Err _:
-//:                     match dealloc_region<i32> region:
+//:                     match dealloc_region region:
 //:                         Result::Ok _:
 //:                             0
 //:                         Result::Err _:
@@ -81,10 +82,11 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<i32> 2:
+//:     let allocated %Result RegionToken i32 str alloc_region 2
+//:     match allocated:
 //:         Result::Ok region:
 //:             let ok %bool eq region_size &region 8;
-//:             match dealloc_region<i32> region:
+//:             match dealloc_region region:
 //:                 Result::Ok _:
 //:                     if ok 1 0
 //:                 Result::Err _:

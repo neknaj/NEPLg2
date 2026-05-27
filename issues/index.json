@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-26T14:17:26.475Z",
+  "generated_at": "2026-05-27T03:46:10.107Z",
   "counts": {
-    "total": 1264,
-    "open": 12,
+    "total": 1265,
+    "open": 13,
     "resolved": 1252,
     "by_area": {
       "core": {
@@ -15,6 +15,11 @@
         "total": 330,
         "open": 5,
         "resolved": 325
+      },
+      "neplg21": {
+        "total": 1,
+        "open": 1,
+        "resolved": 0
       },
       "selfhost": {
         "total": 110,
@@ -163,7 +168,7 @@
       "priority": "P0",
       "type": "maintenance",
       "created": "2026-05-24",
-      "updated": "2026-05-26",
+      "updated": "2026-05-27",
       "target": "stdlib/**, tests/**, tutorials/**, doc/examples/**",
       "legacy_id": "",
       "source": "",
@@ -213,6 +218,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260525T154712899Z-RESOURCE-IR-RETURN-PATH-REPLAY-UNIT--010D6DB7.md"
+    },
+    {
+      "id": "ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9",
+      "title": "NEPLg2.1 needs postfix-free syntax for type-only layout generic calls",
+      "area": "neplg21",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-27",
+      "updated": "2026-05-27",
+      "target": "nepl-core/src/parser/**; nepl-core/src/typecheck/**; stdlib/core/mem/{layout,types}.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",

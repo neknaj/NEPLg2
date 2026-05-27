@@ -18,9 +18,10 @@
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     match alloc_region<i32> 1:
+//:     let allocated %Result RegionToken i32 str alloc_region 1
+//:     match allocated:
 //:         Result::Ok region:
-//:             match dealloc_region<i32> region:
+//:             match dealloc_region region:
 //:                 Result::Ok _:
 //:                     1
 //:                 Result::Err _:
