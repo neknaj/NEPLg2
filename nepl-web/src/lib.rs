@@ -3343,6 +3343,7 @@ pub struct CompilerSession {
     bundled_sources: BTreeMap<PathBuf, &'static str>,
     loader_cache: RefCell<LoaderSessionCache>,
     prewarmed_import_surfaces: RefCell<BTreeMap<u64, usize>>,
+    prewarmed_dependency_aggregate_surfaces: RefCell<BTreeMap<u64, u64>>,
     prewarm_surface_hits: RefCell<usize>,
     prewarm_surface_stores: RefCell<usize>,
 }
@@ -3358,6 +3359,7 @@ impl CompilerSession {
             bundled_sources,
             loader_cache: RefCell::new(LoaderSessionCache::new(stdlib_hash())),
             prewarmed_import_surfaces: RefCell::new(BTreeMap::new()),
+            prewarmed_dependency_aggregate_surfaces: RefCell::new(BTreeMap::new()),
             prewarm_surface_hits: RefCell::new(0),
             prewarm_surface_stores: RefCell::new(0),
         }
@@ -3391,7 +3393,7 @@ impl CompilerSession {
     pub fn loader_cache_stats_json(&self) -> String {
         let stats = self.loader_cache.borrow().stats();
         format!(
-            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{}}}",
+            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{}}}",
             stats.parsed_module_hits,
             stats.parsed_module_misses,
             stats.parsed_module_stores,
@@ -3403,6 +3405,10 @@ impl CompilerSession {
             stats.public_surface_hash_hits,
             stats.public_surface_hash_stores,
             stats.public_surface_hash_bypasses,
+            stats.dependency_aggregate_public_surface_hash_hits,
+            stats.dependency_aggregate_public_surface_hash_misses,
+            stats.dependency_aggregate_public_surface_hash_stores,
+            stats.dependency_aggregate_public_surface_hash_bypasses,
             stats.stdlib_override_bypasses,
             *self.prewarm_surface_hits.borrow(),
             *self.prewarm_surface_stores.borrow(),
@@ -3417,6 +3423,9 @@ impl CompilerSession {
     pub fn clear_loader_cache(&self) {
         self.loader_cache.borrow_mut().clear();
         self.prewarmed_import_surfaces.borrow_mut().clear();
+        self.prewarmed_dependency_aggregate_surfaces
+            .borrow_mut()
+            .clear();
         *self.prewarm_surface_hits.borrow_mut() = 0;
         *self.prewarm_surface_stores.borrow_mut() = 0;
     }
@@ -3459,9 +3468,20 @@ impl CompilerSession {
         let warmed = loader
             .prewarm_provider_cache(&roots, &mut provider, &mut cache)
             .map_err(|e| JsValue::from_str(&format!("{e}")))?;
+        let dependency_aggregate_public_surface_hash = loader
+            .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+                PathBuf::from(entry_path),
+                source,
+                &mut provider,
+                &mut cache,
+            )
+            .map_err(|e| JsValue::from_str(&format!("{e}")))?;
         self.prewarmed_import_surfaces
             .borrow_mut()
             .insert(surface_hash, warmed);
+        self.prewarmed_dependency_aggregate_surfaces
+            .borrow_mut()
+            .insert(surface_hash, dependency_aggregate_public_surface_hash);
         *self.prewarm_surface_stores.borrow_mut() += 1;
         Ok(warmed)
     }

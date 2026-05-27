@@ -48,6 +48,10 @@ const { runSingle } = require('./run_test');
                             public_surface_hash_hits: cacheStatsCalls,
                             public_surface_hash_stores: 0,
                             public_surface_hash_bypasses: 0,
+                            dependency_aggregate_public_surface_hash_hits: cacheStatsCalls,
+                            dependency_aggregate_public_surface_hash_misses: 0,
+                            dependency_aggregate_public_surface_hash_stores: 0,
+                            dependency_aggregate_public_surface_hash_bypasses: 0,
                             stdlib_override_bypasses: 0,
                         });
                     },
@@ -78,6 +82,8 @@ const { runSingle } = require('./run_test');
     assert.equal(result.timing.compiler_session_cache_after.parsed_module_hits, 4);
     assert.equal(result.timing.compiler_session_cache_before.arity_surface_hits, 3);
     assert.equal(result.timing.compiler_session_cache_after.arity_surface_hits, 4);
+    assert.equal(result.timing.compiler_session_cache_before.dependency_aggregate_public_surface_hash_hits, 3);
+    assert.equal(result.timing.compiler_session_cache_after.dependency_aggregate_public_surface_hash_hits, 4);
     assert.match(String(result.compile_error || ''), /session compile failure/);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -115,6 +121,10 @@ const { runSingle } = require('./run_test');
                         public_surface_hash_hits: 13,
                         public_surface_hash_stores: 2,
                         public_surface_hash_bypasses: 0,
+                        dependency_aggregate_public_surface_hash_hits: 5,
+                        dependency_aggregate_public_surface_hash_misses: 2,
+                        dependency_aggregate_public_surface_hash_stores: 2,
+                        dependency_aggregate_public_surface_hash_bypasses: 0,
                         stdlib_override_bypasses: 0,
                         prewarm_surface_hits: reusePrewarmHits,
                         prewarm_surface_stores: reusePrewarmStores,
@@ -206,6 +216,10 @@ const { runSingle } = require('./run_test');
                             public_surface_hash_hits: 0,
                             public_surface_hash_stores: 0,
                             public_surface_hash_bypasses: 0,
+                            dependency_aggregate_public_surface_hash_hits: 0,
+                            dependency_aggregate_public_surface_hash_misses: 0,
+                            dependency_aggregate_public_surface_hash_stores: 0,
+                            dependency_aggregate_public_surface_hash_bypasses: 0,
                             stdlib_override_bypasses: 0,
                             prewarm_surface_hits: 0,
                             prewarm_surface_stores: 0,
@@ -272,6 +286,10 @@ const { runSingle } = require('./run_test');
                             public_surface_hash_hits: 0,
                             public_surface_hash_stores: 0,
                             public_surface_hash_bypasses: 0,
+                            dependency_aggregate_public_surface_hash_hits: 0,
+                            dependency_aggregate_public_surface_hash_misses: 0,
+                            dependency_aggregate_public_surface_hash_stores: 0,
+                            dependency_aggregate_public_surface_hash_bypasses: 0,
                             stdlib_override_bypasses: forcedStdlibSessionCalled ? 1 : 0,
                         });
                     },
@@ -340,6 +358,10 @@ const { runSingle } = require('./run_test');
                             public_surface_hash_hits: 0,
                             public_surface_hash_stores: 0,
                             public_surface_hash_bypasses: 0,
+                            dependency_aggregate_public_surface_hash_hits: 0,
+                            dependency_aggregate_public_surface_hash_misses: 0,
+                            dependency_aggregate_public_surface_hash_stores: 0,
+                            dependency_aggregate_public_surface_hash_bypasses: 0,
                             stdlib_override_bypasses: 0,
                         });
                     },

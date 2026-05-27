@@ -1,3 +1,15 @@
+# 2026-05-27 Dependency aggregate public surface checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を再確認し、純粋 query と dependency DAG により探索空間を削る方針を維持した。今回の変更は typed HIR cache ではなく、stdlib dependency closure の public surface を畳み込む loader-level staging artifact である。
+- subagent 2 件で設計・観測点をレビューした。Harvey の指摘に基づき、module 単体の `public_surface_hash_*` と区別するため、closure 側の統計名は `dependency_aggregate_public_surface_hash_*` にした。Aquinas は `SourceImportEdge` を path-only に潰さず、root surface と ordered dependency entries を畳み込む方針を確認した。
+- `nepl-core/src/loader.rs` に `root_dependency_aggregate_public_surface_hash_for_source_with_cache` を追加した。root source の import surface と、到達する stdlib dependency entry `(canonical path, dependency aggregate hash)` を順序付きで hash する。
+- stdlib module の aggregate hash は、module 自身の `module_public_surface_hash`、child dependency aggregate hash、ordered dependency entries を含む。cache key は source body hash ではなく module public surface hash と child aggregate hash なので、dependency body-only edit では aggregate cache hit になり、public signature edit では invalidation される。
+- user source / user VFS module / stdlib overlay は長寿命 bundled stdlib cache に保持しない。non-stdlib dependency edge は provider で読まず conservative external hash にして `dependency_aggregate_public_surface_hash_bypasses` で観測する。
+- `nepl-web/src/lib.rs` の `CompilerSession.prewarm_loader_cache_for_source` は source-directed prewarm 後に dependency aggregate hash を計算し、root prewarm surface hash から aggregate hash を引ける map に保持する。ただし、その hash を typed HIR / Resource IR / codegen へはまだ接続しない。`loader_cache_stats_json()` は `dependency_aggregate_public_surface_hash_hits` / `misses` / `stores` / `bypasses` を返す。
+- 追加 regression: re-exported stdlib dependency の body-only edit では root aggregate hash が変わらず hit が増えること、public signature edit では hash が変わること、non-stdlib relative import は provider read されず bypass になること、Node runner の session stats JSON に新 counter が流れること。
+- release WASM 実測では、`tmp/perf_alloc_probe.nepl` の aggregate first が `compile_ms=17` / `prewarm_ms=3` / `wasm_call_ms=14` / `dependency_aggregate_public_surface_hash_hits=4` / `misses=5` / `stores=5`、同一 source の second が `compile_ms=4` / `prewarm_ms=0` / `wasm_call_ms=4` / `prewarm_surface_hits=1`、return literal だけを変えた body-only edit が `compile_ms=4` / `prewarm_ms=0` / `wasm_call_ms=4` / `prewarm_surface_hits=2` だった。
+- 次段階は、この dependency aggregate public surface hash を typed public signature table / Resource IR summary cache の invalidation key に接続する semantic cache 境界を設計・実装する。
+
 # 2026-05-27 Public surface hash checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を再確認し、純粋 query と dependency surface によって探索空間を削る方針を維持した。今回の変更は typed HIR cache ではなく、typed public surface cache に進む前の未型付け public surface hash を stdlib parsed module cache に付随させる checkpoint である。

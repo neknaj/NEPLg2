@@ -319,6 +319,37 @@ subagent review では、public signature text が同じでも private import / 
 
 この checkpoint は correctness-first の staging であり、aggregate first の compile time を直接下げるものではない。Zenn 方針の「純粋性や責務分割を活かした探索空間削減」に沿って、次の typed public surface cache が body-only edit を安全に再利用し、public dependency change では確実に invalidation できる根拠を用意した。
 
+## Dependency aggregate public surface checkpoint
+
+2026-05-27 の eighth checkpoint では、module 単体の `public_surface_hash` を、root source から到達する configured stdlib dependency closure の aggregate hash へ畳み込む query を追加した。これは typed public signature table ではなく、typed cache key の入力にするための loader-level staging artifact である。
+
+追加した境界:
+
+- `Loader::root_dependency_aggregate_public_surface_hash_for_source_with_cache` は root source の import surface と、到達する stdlib dependency entry `(canonical path, dependency aggregate hash)` を順序付きで畳み込む。
+- stdlib module の dependency aggregate hash は、module 自身の `module_public_surface_hash`、children aggregate hash、ordered dependency entries を含む。
+- aggregate cache key は canonical stdlib root、canonical module path、module public surface hash、child dependency aggregate hash であり、source body hash ではない。これにより body-only edit は parsed module cache miss になっても aggregate public surface cache は再利用できる。
+- non-stdlib dependency edge は bundled stdlib aggregate cache の対象外なので、provider で読まず conservative external hash にして `dependency_aggregate_public_surface_hash_bypasses` で観測する。
+- import cycle に戻る edge は source hash を含む conservative cycle hash にする。body-only edit でも過剰 invalidation し得るが、stale typed cache を作らないことを優先する。
+- `CompilerSession.prewarm_loader_cache_for_source` は source-directed prewarm 後に aggregate hash を計算し、root prewarm surface hash から dependency aggregate hash を引ける map に保持する。typed HIR / `ImportResolution` / `TypeId` / Resource IR / codegen fragment はまだ保持しない。
+- `CompilerSession.loader_cache_stats_json()` は `dependency_aggregate_public_surface_hash_hits` / `misses` / `stores` / `bypasses` を返す。
+
+追加 regression:
+
+- re-exported stdlib dependency の public body-only edit では root dependency aggregate hash が変わらず、aggregate cache hit が増える。
+- re-exported stdlib dependency の public signature edit では root dependency aggregate hash が変わる。
+- root source からの non-stdlib relative import は bundled stdlib aggregate cache で provider read されず、bypass として観測される。
+- Node runner の session stats stub は dependency aggregate counter を timing JSON へ通す。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| Web release dependency-aggregate first | `tmp/perf_alloc_probe.nepl` + same `CompilerSession` | `compile_ms=17`、`prewarm_ms=3`、`wasm_call_ms=14`、`dependency_aggregate_public_surface_hash_hits=4`、`misses=5`、`stores=5` |
+| Web release dependency-aggregate second | same source / same `CompilerSession` | `compile_ms=4`、`prewarm_ms=0`、`wasm_call_ms=4`、`prewarm_surface_hits=1` |
+| Web release dependency-aggregate body-only edit | return literalだけを変更 + same `CompilerSession` | `compile_ms=4`、`prewarm_ms=0`、`wasm_call_ms=4`、`prewarm_surface_hits=2` |
+
+この checkpoint でも aggregate first の compile time は大きくは下がらない。効果は、次段階の typed public surface / Resource IR summary cache が「同じ dependency aggregate public surface なら再利用し、public dependency change なら invalidation する」ための安全な key を得ることにある。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

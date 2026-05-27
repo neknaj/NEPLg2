@@ -80,6 +80,10 @@ pub struct LoaderSessionCacheStats {
     pub public_surface_hash_hits: usize,
     pub public_surface_hash_stores: usize,
     pub public_surface_hash_bypasses: usize,
+    pub dependency_aggregate_public_surface_hash_hits: usize,
+    pub dependency_aggregate_public_surface_hash_misses: usize,
+    pub dependency_aggregate_public_surface_hash_stores: usize,
+    pub dependency_aggregate_public_surface_hash_bypasses: usize,
     pub stdlib_override_bypasses: usize,
 }
 
@@ -96,6 +100,7 @@ pub struct LoaderSessionCache {
     namespace_hash: String,
     parsed_modules: BTreeMap<LoaderParsedModuleKey, CachedParsedModule>,
     arity_surfaces: BTreeMap<LoaderAritySurfaceKey, CachedAritySurface>,
+    dependency_aggregate_public_surfaces: BTreeMap<LoaderDependencyAggregatePublicSurfaceKey, u64>,
     stats: LoaderSessionCacheStats,
 }
 
@@ -105,6 +110,7 @@ impl LoaderSessionCache {
             namespace_hash: namespace_hash.into(),
             parsed_modules: BTreeMap::new(),
             arity_surfaces: BTreeMap::new(),
+            dependency_aggregate_public_surfaces: BTreeMap::new(),
             stats: LoaderSessionCacheStats::default(),
         }
     }
@@ -116,6 +122,7 @@ impl LoaderSessionCache {
     pub fn clear(&mut self) {
         self.parsed_modules.clear();
         self.arity_surfaces.clear();
+        self.dependency_aggregate_public_surfaces.clear();
         self.stats = LoaderSessionCacheStats::default();
     }
 
@@ -202,6 +209,49 @@ impl LoaderSessionCache {
     fn record_public_surface_hash_bypass(&mut self) {
         self.stats.public_surface_hash_bypasses += 1;
     }
+
+    fn dependency_aggregate_public_surface_key_for(
+        &self,
+        stdlib_root: &PathBuf,
+        canon: &PathBuf,
+        module_public_surface_hash: u64,
+        dependency_aggregate_public_surface_hash: u64,
+    ) -> LoaderDependencyAggregatePublicSurfaceKey {
+        LoaderDependencyAggregatePublicSurfaceKey {
+            cache_version: String::from(LOADER_SESSION_CACHE_VERSION),
+            namespace_hash: self.namespace_hash.clone(),
+            stdlib_root: canonicalize_path(stdlib_root),
+            path: canon.clone(),
+            module_public_surface_hash,
+            dependency_aggregate_public_surface_hash,
+        }
+    }
+
+    fn get_dependency_aggregate_public_surface(
+        &mut self,
+        key: &LoaderDependencyAggregatePublicSurfaceKey,
+    ) -> Option<u64> {
+        if let Some(hash) = self.dependency_aggregate_public_surfaces.get(key) {
+            self.stats.dependency_aggregate_public_surface_hash_hits += 1;
+            Some(*hash)
+        } else {
+            self.stats.dependency_aggregate_public_surface_hash_misses += 1;
+            None
+        }
+    }
+
+    fn store_dependency_aggregate_public_surface(
+        &mut self,
+        key: LoaderDependencyAggregatePublicSurfaceKey,
+        hash: u64,
+    ) {
+        self.stats.dependency_aggregate_public_surface_hash_stores += 1;
+        self.dependency_aggregate_public_surfaces.insert(key, hash);
+    }
+
+    fn record_dependency_aggregate_public_surface_bypass(&mut self) {
+        self.stats.dependency_aggregate_public_surface_hash_bypasses += 1;
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -220,6 +270,16 @@ struct LoaderAritySurfaceKey {
     stdlib_root: PathBuf,
     path: PathBuf,
     source_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct LoaderDependencyAggregatePublicSurfaceKey {
+    cache_version: String,
+    namespace_hash: String,
+    stdlib_root: PathBuf,
+    path: PathBuf,
+    module_public_surface_hash: u64,
+    dependency_aggregate_public_surface_hash: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -573,6 +633,46 @@ impl Loader {
         let hash = surface.prewarm_surface_hash(true, &self.stdlib_root);
         let roots = surface.preload_paths(true);
         (hash, roots)
+    }
+
+    /// Compute the public surface hash of stdlib dependencies reachable from a root source.
+    ///
+    /// This query is a loader-level staging artifact for future typed public
+    /// surface caches.  It folds the root import surface together with the
+    /// public surface hashes of reachable configured stdlib modules, but it
+    /// deliberately does not retain the root source, `SourceMap`,
+    /// `ImportResolution`, typed HIR, `TypeId`, Resource IR, or codegen
+    /// fragments.  User modules and stdlib overlays are outside the long-lived
+    /// bundled stdlib cache and therefore become conservative bypass edges.
+    pub fn root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+        &self,
+        entry_path: PathBuf,
+        source: &str,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: &mut LoaderSessionCache,
+    ) -> Result<u64, LoaderError> {
+        let canon = canonicalize_path(&entry_path);
+        let mut sm = SourceMap::new();
+        let file_id = sm.add_with_capabilities(
+            path_to_source_label(&canon),
+            source.to_string(),
+            SourceCapabilities::none(),
+        );
+        let surface = self.source_arity_surface(&canon, file_id, source, Some(session_cache));
+        let mut visiting = BTreeSet::new();
+        let dependencies = self.dependency_aggregate_public_surface_hashes_for_paths(
+            surface.preload_paths(true),
+            provider,
+            session_cache,
+            &mut visiting,
+        )?;
+        let mut hash = FNV_OFFSET_BASIS;
+        fnv1a64_update(&mut hash, LOADER_SESSION_CACHE_VERSION.as_bytes());
+        hash_str(&mut hash, "root-dependency-public-surface-v1");
+        hash_path(&mut hash, &canonicalize_path(&self.stdlib_root));
+        hash_public_dependency_surface(&mut hash, &surface);
+        hash_dependency_aggregate_public_surface_entries(&mut hash, &dependencies);
+        Ok(hash)
     }
 
     pub fn load(&mut self, entry: &PathBuf) -> Result<LoadResult, LoaderError> {
@@ -1064,6 +1164,119 @@ impl Loader {
     ) -> Vec<PathBuf> {
         self.source_arity_surface(base, file_id, src, session_cache)
             .preload_paths(is_root)
+    }
+
+    fn dependency_aggregate_public_surface_hashes_for_paths(
+        &self,
+        paths: Vec<PathBuf>,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: &mut LoaderSessionCache,
+        visiting: &mut BTreeSet<PathBuf>,
+    ) -> Result<Vec<(PathBuf, u64)>, LoaderError> {
+        let mut entries = Vec::new();
+        for path in paths {
+            let canon = canonicalize_path(&path);
+            let hash = self.dependency_aggregate_public_surface_hash_for_path_with(
+                &canon,
+                provider,
+                session_cache,
+                visiting,
+            )?;
+            entries.push((canon, hash));
+        }
+        Ok(entries)
+    }
+
+    fn dependency_aggregate_public_surface_hash_for_path_with(
+        &self,
+        canon: &PathBuf,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: &mut LoaderSessionCache,
+        visiting: &mut BTreeSet<PathBuf>,
+    ) -> Result<u64, LoaderError> {
+        if !self.configured_stdlib_source_path(canon) {
+            session_cache.record_dependency_aggregate_public_surface_bypass();
+            return Ok(external_dependency_aggregate_public_surface_hash(canon));
+        }
+
+        if !visiting.insert(canon.clone()) {
+            session_cache.record_dependency_aggregate_public_surface_bypass();
+            let src = provider(canon)?;
+            return Ok(cyclic_dependency_aggregate_public_surface_hash(canon, &src));
+        }
+
+        let src = provider(canon)?;
+        let mut sm = SourceMap::new();
+        let file_id = sm.add_with_capabilities(
+            path_to_source_label(canon),
+            src.clone(),
+            SourceCapabilities::none(),
+        );
+        let surface = self.source_arity_surface(canon, file_id, &src, Some(session_cache));
+        let dependencies = self.dependency_aggregate_public_surface_hashes_for_paths(
+            surface.preload_paths(false),
+            provider,
+            session_cache,
+            visiting,
+        )?;
+
+        let mut child_hash = FNV_OFFSET_BASIS;
+        fnv1a64_update(&mut child_hash, LOADER_SESSION_CACHE_VERSION.as_bytes());
+        hash_str(&mut child_hash, "dependency-public-surface-children-v1");
+        hash_dependency_aggregate_public_surface_entries(&mut child_hash, &dependencies);
+
+        let mut module_sm = SourceMap::new();
+        let module_file_id = module_sm.add_with_capabilities(
+            path_to_source_label(canon),
+            src.clone(),
+            SourceCapabilities::none(),
+        );
+        let mut module_cache = BTreeMap::new();
+        let mut processing = BTreeSet::new();
+        processing.insert(canon.clone());
+        let imported_once = BTreeSet::new();
+        let type_arity_hints = self.imported_type_arity_hints_with(
+            canon,
+            module_file_id,
+            &src,
+            &mut module_sm,
+            &mut module_cache,
+            &mut processing,
+            &imported_once,
+            false,
+            provider,
+            Some(session_cache),
+        )?;
+        let (module, _) = self.parse_provider_module_with_session_cache(
+            canon,
+            module_file_id,
+            src,
+            type_arity_hints,
+            Some(&surface),
+            Some(session_cache),
+        )?;
+        let module_hash = module_public_surface_hash(&module, Some(&surface));
+        let key = session_cache.dependency_aggregate_public_surface_key_for(
+            &self.stdlib_root,
+            canon,
+            module_hash,
+            child_hash,
+        );
+        if let Some(hash) = session_cache.get_dependency_aggregate_public_surface(&key) {
+            visiting.remove(canon);
+            return Ok(hash);
+        }
+
+        let mut aggregate_hash = FNV_OFFSET_BASIS;
+        fnv1a64_update(&mut aggregate_hash, LOADER_SESSION_CACHE_VERSION.as_bytes());
+        hash_str(&mut aggregate_hash, "dependency-public-surface-v1");
+        hash_path(&mut aggregate_hash, canon);
+        hash_u64(&mut aggregate_hash, module_hash);
+        hash_u64(&mut aggregate_hash, child_hash);
+        hash_dependency_aggregate_public_surface_entries(&mut aggregate_hash, &dependencies);
+        session_cache.store_dependency_aggregate_public_surface(key, aggregate_hash);
+        visiting.remove(canon);
+        Ok(aggregate_hash)
     }
 
     fn source_arity_surface(
@@ -1734,6 +1947,32 @@ fn hash_public_dependency_surface(hash: &mut u64, surface: &CachedAritySurface) 
     }
 }
 
+fn external_dependency_aggregate_public_surface_hash(path: &PathBuf) -> u64 {
+    let mut hash = FNV_OFFSET_BASIS;
+    fnv1a64_update(&mut hash, LOADER_SESSION_CACHE_VERSION.as_bytes());
+    hash_str(&mut hash, "external-dependency-public-surface-v1");
+    hash_path(&mut hash, path);
+    hash
+}
+
+fn cyclic_dependency_aggregate_public_surface_hash(path: &PathBuf, source: &str) -> u64 {
+    let mut hash = FNV_OFFSET_BASIS;
+    fnv1a64_update(&mut hash, LOADER_SESSION_CACHE_VERSION.as_bytes());
+    hash_str(&mut hash, "cyclic-dependency-public-surface-v1");
+    hash_path(&mut hash, path);
+    hash_u64(&mut hash, fnv1a64(source.as_bytes()));
+    hash
+}
+
+fn hash_dependency_aggregate_public_surface_entries(hash: &mut u64, entries: &[(PathBuf, u64)]) {
+    hash_usize(hash, entries.len());
+    for (source_order, (path, dependency_hash)) in entries.iter().enumerate() {
+        hash_usize(hash, source_order);
+        hash_path(hash, path);
+        hash_u64(hash, *dependency_hash);
+    }
+}
+
 fn hash_public_directive_surface(
     hash: &mut u64,
     directive: &Directive,
@@ -2085,6 +2324,11 @@ fn hash_bool(hash: &mut u64, value: bool) {
 
 fn hash_usize(hash: &mut u64, value: usize) {
     fnv1a64_update(hash, value.to_string().as_bytes());
+    fnv1a64_update(hash, &[0]);
+}
+
+fn hash_u64(hash: &mut u64, value: u64) {
+    fnv1a64_update(hash, &value.to_le_bytes());
     fnv1a64_update(hash, &[0]);
 }
 
@@ -2767,6 +3011,128 @@ mod tests {
             module_public_surface_hash(&ordinary, None),
             module_public_surface_hash(&no_shadow, None),
             "noshadow participates in cross-file binding behavior and is part of the public contract",
+        );
+    }
+
+    #[test]
+    fn root_dependency_aggregate_public_surface_hash_tracks_reexported_stdlib_changes() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let entry_path = PathBuf::from("C:/nepl-test/user/main.nepl");
+        let facade_path = canonicalize_path(&stdlib_path(&stdlib_root, &["facade.nepl"]));
+        let types_path = canonicalize_path(&stdlib_path(&stdlib_root, &["types.nepl"]));
+        let root_source =
+            "#no_prelude\n#import \"facade\" as *\nfn main %fn unit i32 \\unit:\n    exported unit\n";
+        let facade_source = "#import pub \"types\" as *\n";
+
+        let mut cache = LoaderSessionCache::new("dependency-public-surface-test");
+        let mut sources = BTreeMap::new();
+        sources.insert(facade_path.clone(), facade_source.to_string());
+        sources.insert(
+            types_path.clone(),
+            "pub fn exported %fn unit i32 \\unit:\n    1\n".to_string(),
+        );
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(&canonicalize_path(path))
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {}", path.display())))
+        };
+        let first_hash = loader
+            .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+                entry_path.clone(),
+                root_source,
+                &mut provider,
+                &mut cache,
+            )
+            .expect("first dependency surface should hash");
+        let after_first = cache.stats();
+        assert!(
+            after_first.dependency_aggregate_public_surface_hash_stores >= 2,
+            "facade and re-exported dependency should store aggregate public-surface hashes",
+        );
+
+        sources.insert(
+            types_path.clone(),
+            "pub fn exported %fn unit i32 \\unit:\n    2\n".to_string(),
+        );
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(&canonicalize_path(path))
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {}", path.display())))
+        };
+        let body_edit_hash = loader
+            .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+                entry_path.clone(),
+                root_source,
+                &mut provider,
+                &mut cache,
+            )
+            .expect("body edit dependency surface should hash");
+        let after_body_edit = cache.stats();
+        assert_eq!(
+            first_hash, body_edit_hash,
+            "dependency aggregate hash should ignore re-exported function body-only edits",
+        );
+        assert!(
+            after_body_edit.dependency_aggregate_public_surface_hash_hits
+                > after_first.dependency_aggregate_public_surface_hash_hits,
+            "body-only edits should reuse aggregate public-surface entries keyed by the stable public surface",
+        );
+
+        sources.insert(
+            types_path,
+            "pub fn exported %fn unit u8 \\unit:\n    1\n".to_string(),
+        );
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(&canonicalize_path(path))
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {}", path.display())))
+        };
+        let signature_edit_hash = loader
+            .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+                entry_path,
+                root_source,
+                &mut provider,
+                &mut cache,
+            )
+            .expect("signature edit dependency surface should hash");
+        assert_ne!(
+            first_hash, signature_edit_hash,
+            "dependency aggregate hash must change when a re-exported public signature changes",
+        );
+    }
+
+    #[test]
+    fn root_dependency_aggregate_public_surface_hash_bypasses_non_stdlib_edges() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root);
+        let entry_path = PathBuf::from("C:/nepl-test/user/main.nepl");
+        let root_source =
+            "#no_prelude\n#import \"./helper\" as *\nfn main %fn unit i32 \\unit:\n    1\n";
+        let mut cache = LoaderSessionCache::new("dependency-public-surface-test");
+        let mut provider = |_path: &PathBuf| {
+            Err(LoaderError::Io(
+                "non-stdlib dependency should not be read by bundled stdlib aggregate hash".into(),
+            ))
+        };
+
+        let _hash = loader
+            .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+                entry_path,
+                root_source,
+                &mut provider,
+                &mut cache,
+            )
+            .expect("non-stdlib dependency edges should become conservative bypass hashes");
+        assert!(
+            cache
+                .stats()
+                .dependency_aggregate_public_surface_hash_bypasses
+                >= 1,
+            "user dependency edges are outside the bundled stdlib aggregate cache boundary",
         );
     }
 
