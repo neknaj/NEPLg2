@@ -69,6 +69,7 @@ release WASM では、最小 program の warm compile が 10ms 未満になっ�
 - source arity surface は `cache version + stdlib namespace hash + stdlib root + canonical path + source hash` を key にする。public re-export 先の arity result は親 surface へ畳み込まず、依存先 source hash の別 query として再評価する。
 - Web playground の `trunk build` は Rust/WASM artifact を release profile で生成する。NEPL source 側の `#if[profile=...]` 既定値は `debug` のまま分離し、compiler artifact の最適化状態で source semantics が変わらないようにする。
 - `CompilerSession` は同一 source / VFS / profile / WAT comment mode の compiled output を小さな LRU 風 cache に保持する。これは同一 session の再compileでResource IR全体を再実行しないための応急的な出力cacheであり、typed public surface / Resource IR summary の semantic incremental cache を置き換えるものではない。
+- `PreparedProgram` は `ResourceSummaryCacheNamespaceKey` を保持する。これは target / profile / typed public signature hash / dependency public surface hash option から決定的に作る module-level namespace key であり、Resource IR summary value の再利用はまだ行わない。
 
 ## CompilerSession first checkpoint
 
@@ -446,6 +447,14 @@ table には関数本体を含めない。これにより body-only edit は sem
 この checkpoint は Resource IR summary reuse にはまだ接続しない。次段階では、loader の dependency aggregate public surface hash と typed public signature hash を組み合わせ、stdlib module の typed check / Resource IR summary cache の invalidation key として使う。
 
 2026-05-28 の追加 staging では、`TypedPublicSignatureTable` を `TypeCheckResult` から `PreparedProgram` まで通すようにした。これは cache value の再利用ではなく、Resource IR summary cache key を構築するための入力を compiler pipeline の後段へ運ぶだけである。`PreparedProgram` に保持される table も stable text / hash のみで、typed HIR や `TypeId` を session cache value として保存するものではない。
+
+2026-05-28 の Resource summary namespace key checkpoint では、`ResourceSummaryCacheNamespaceKey` を `PreparedProgram` に追加した。この key は `neplg2-resource-summary-cache-namespace-v1`、target、profile、typed public signature hash、任意の dependency public surface hash を決定的に hash 化する。現時点の compile path では dependency aggregate をまだ渡さず `None` とし、Web / Node prewarm hot path でも dependency aggregate を同期計算しない。
+
+この key は Resource IR summary cache の「名前空間」を分けるための staging artifact であり、Resource IR summary value の hit / store はまだ実装しない。`TypeId`、`Span`、`SourceMap`、typed HIR、Resource IR body、diagnostic span、codegen fragment は key に保存しない。次段階では、この namespace key に function body hash、source capability policy hash、generic type-argument hash を組み合わせ、到達 function ごとの summary reuse へ進める。
+
+regression では、public function の body-only edit で namespace key が変わらず、public callable return type edit で変わることを固定した。さらに dependency public surface hash option が変われば同じ typed public signature hash でも別 namespace になることを固定し、loader から dependency aggregate を接続する次段階の入力境界を明確にした。
+
+native release RPN stage-only 測定は、`resource_typecheck=121ms`、`resource_initialized_i32_scalar_summaries=1270ms`、`resource_initialized_raw_init_summaries=2187ms`、`resource_initialized_function_checks=3063ms`、`resource_static_check=7353ms` だった。この checkpoint は namespace key の staging であり、summary value reuse による初回 compile 0.5 秒未満はまだ達成していない。
 
 2026-05-28 の variant-param summary checkpoint では、raw initialization summary 内の variant-param collector を呼ぶ前に、return value を直接 output とする top-level `Branch` が block に存在するかを確認するようにした。collector は現時点でその `Branch` だけを facts 抽出対象にしているため、該当しない block で `ResourceCheckEngine` prefix replay を起動しても新しい variant-param facts は得られない。このため、観測できる証明境界を広げずに探索空間だけを削減する。
 

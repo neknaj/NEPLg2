@@ -272,6 +272,7 @@ pub struct PreparedProgram {
     pub types: crate::types::TypeCtx,
     pub hir_module: crate::hir::HirModule,
     pub public_signatures: crate::typecheck::TypedPublicSignatureTable,
+    pub resource_summary_cache_namespace_key: ResourceSummaryCacheNamespaceKey,
     pub resource_drop_elaboration_plan: crate::resource::ResourceDropElaborationPlan,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -280,6 +281,108 @@ pub struct PreparedLlvmProgram {
     pub program: PreparedProgram,
     pub reachable_set: BTreeSet<String>,
     pub resolved_entries: BTreeMap<String, String>,
+}
+
+/// Resource IR summary cache の module-level namespace key。
+///
+/// この key は `TypeId`、`Span`、`SourceMap`、typed HIR、Resource IR body を保持しない。
+/// それらは compile session ごとの arena や source-map allocation に結び付くため、
+/// 長寿命 cache value の key として直接保存すると stale hit の原因になる。
+///
+/// 現段階では、target/profile と typed public signature hash だけを使う staging
+/// artifact である。実際に Resource IR summary value を再利用する段階では、
+/// この namespace key に dependency public surface hash、function body hash、
+/// generic type-argument hash、source capability policy hash を組み合わせる。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceSummaryCacheNamespaceKey {
+    pub stable_hash: u64,
+    pub typed_public_signature_hash: u64,
+    pub dependency_public_surface_hash: Option<u64>,
+    pub target: CompileTarget,
+    pub profile: BuildProfile,
+}
+
+impl ResourceSummaryCacheNamespaceKey {
+    pub fn new(
+        target: CompileTarget,
+        profile: BuildProfile,
+        typed_public_signature_hash: u64,
+        dependency_public_surface_hash: Option<u64>,
+    ) -> Self {
+        let stable_hash = resource_summary_cache_namespace_hash(
+            target,
+            profile,
+            typed_public_signature_hash,
+            dependency_public_surface_hash,
+        );
+        Self {
+            stable_hash,
+            typed_public_signature_hash,
+            dependency_public_surface_hash,
+            target,
+            profile,
+        }
+    }
+}
+
+const RESOURCE_SUMMARY_CACHE_NAMESPACE_KEY_VERSION: &str =
+    "neplg2-resource-summary-cache-namespace-v1";
+
+fn resource_summary_cache_namespace_hash(
+    target: CompileTarget,
+    profile: BuildProfile,
+    typed_public_signature_hash: u64,
+    dependency_public_surface_hash: Option<u64>,
+) -> u64 {
+    let mut hash = 0xcbf29ce484222325;
+    resource_summary_cache_hash_str(&mut hash, RESOURCE_SUMMARY_CACHE_NAMESPACE_KEY_VERSION);
+    resource_summary_cache_hash_str(&mut hash, resource_summary_cache_target_tag(target));
+    resource_summary_cache_hash_str(&mut hash, resource_summary_cache_profile_tag(profile));
+    resource_summary_cache_hash_u64(&mut hash, typed_public_signature_hash);
+    match dependency_public_surface_hash {
+        Some(value) => {
+            resource_summary_cache_hash_u8(&mut hash, 1);
+            resource_summary_cache_hash_u64(&mut hash, value);
+        }
+        None => resource_summary_cache_hash_u8(&mut hash, 0),
+    }
+    hash
+}
+
+fn resource_summary_cache_target_tag(target: CompileTarget) -> &'static str {
+    match target {
+        CompileTarget::Wasm => "wasm",
+        CompileTarget::Wasi => "wasi",
+        CompileTarget::Wasix => "wasix",
+        CompileTarget::Llvm => "llvm",
+    }
+}
+
+fn resource_summary_cache_profile_tag(profile: BuildProfile) -> &'static str {
+    match profile {
+        BuildProfile::Debug => "debug",
+        BuildProfile::Release => "release",
+    }
+}
+
+fn resource_summary_cache_hash_str(hash: &mut u64, value: &str) {
+    resource_summary_cache_hash_bytes(hash, value.as_bytes());
+    resource_summary_cache_hash_bytes(hash, &[0]);
+}
+
+fn resource_summary_cache_hash_u64(hash: &mut u64, value: u64) {
+    resource_summary_cache_hash_bytes(hash, &value.to_le_bytes());
+}
+
+fn resource_summary_cache_hash_u8(hash: &mut u64, value: u8) {
+    resource_summary_cache_hash_bytes(hash, &[value, 0xff]);
+}
+
+fn resource_summary_cache_hash_bytes(hash: &mut u64, bytes: &[u8]) {
+    for byte in bytes {
+        *hash ^= u64::from(*byte);
+        *hash = hash.wrapping_mul(0x100000001b3);
+    }
 }
 
 fn run_typecheck(
@@ -867,6 +970,32 @@ mod tests {
         }
     }
 
+    fn parse_test_module(source: &str) -> ast::Module {
+        let file_id = FileId(0);
+        let lex = lexer::lex(file_id, source);
+        assert!(
+            lex.diagnostics.is_empty(),
+            "lexer diagnostics: {:?}",
+            lex.diagnostics
+        );
+        let parsed = parser::parse_tokens(file_id, lex);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "parser diagnostics: {:?}",
+            parsed.diagnostics
+        );
+        parsed.module.expect("parser should produce a module")
+    }
+
+    fn prepared_resource_summary_cache_namespace_key(
+        source: &str,
+    ) -> ResourceSummaryCacheNamespaceKey {
+        let module = parse_test_module(source);
+        prepare_module_for_codegen(&module, CompileTarget::Wasm, BuildProfile::Debug)
+            .expect("test module should pass prepare")
+            .resource_summary_cache_namespace_key
+    }
+
     #[test]
     fn resource_reachability_keeps_only_entry_direct_graph() {
         let mut types = crate::types::TypeCtx::new();
@@ -901,6 +1030,65 @@ mod tests {
 
         assert!(reachable.is_conservative_all);
         assert_eq!(reachable.names.len(), 3);
+    }
+
+    /// Resource summary namespace key は typed public signature を invalidation 境界にする。
+    /// 関数本体だけの差分は stdlib summary namespace を変えず、後続の function body hash が
+    /// 個別 summary value を invalidation する段階まで過剰に広げない。
+    #[test]
+    fn resource_summary_cache_namespace_key_ignores_function_body_only_edits() {
+        let first = prepared_resource_summary_cache_namespace_key(
+            "pub fn answer %fn unit i32 \\unit:\n    1\n",
+        );
+        let second = prepared_resource_summary_cache_namespace_key(
+            "pub fn answer %fn unit i32 \\unit:\n    2\n",
+        );
+
+        assert_eq!(first, second);
+        assert_eq!(first.dependency_public_surface_hash, None);
+    }
+
+    /// public callable の型境界が変わる場合は、Resource IR summary cache の namespace も
+    /// stale hit を避けるために変わる。これは typed HIR や `TypeId` を保存せず、
+    /// stable text/hash だけで公開面の差分を検出するための contract である。
+    #[test]
+    fn resource_summary_cache_namespace_key_tracks_public_signature_edits() {
+        let returns_i32 = prepared_resource_summary_cache_namespace_key(
+            "pub fn answer %fn unit i32 \\unit:\n    1\n",
+        );
+        let returns_unit = prepared_resource_summary_cache_namespace_key(
+            "pub fn answer %fn unit unit \\unit:\n    unit\n",
+        );
+
+        assert_ne!(returns_i32, returns_unit);
+    }
+
+    /// dependency public surface hash は loader から compiler へ接続する次段階の入力である。
+    /// 同じ typed public signature でも dependency aggregate が変わる場合、namespace key は
+    /// 別物として扱える形にしておく。
+    #[test]
+    fn resource_summary_cache_namespace_key_tracks_dependency_surface_input() {
+        let base = ResourceSummaryCacheNamespaceKey::new(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            7,
+            None,
+        );
+        let with_dependency = ResourceSummaryCacheNamespaceKey::new(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            7,
+            Some(1),
+        );
+        let other_dependency = ResourceSummaryCacheNamespaceKey::new(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            7,
+            Some(2),
+        );
+
+        assert_ne!(base, with_dependency);
+        assert_ne!(with_dependency, other_dependency);
     }
 
     #[test]
@@ -1894,6 +2082,8 @@ pub fn prepare_module_for_codegen_with_source_map(
     let mut diagnostics = resource_tc.diagnostics;
     let mut types = resource_tc.types;
     let public_signatures = resource_tc.public_signatures;
+    let resource_summary_cache_namespace_key =
+        ResourceSummaryCacheNamespaceKey::new(target, profile, public_signatures.stable_hash, None);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let resource_monomorphize = monomorphize::monomorphize(&mut types, resource_tc.module);
@@ -1946,6 +2136,7 @@ pub fn prepare_module_for_codegen_with_source_map(
         types,
         hir_module,
         public_signatures,
+        resource_summary_cache_namespace_key,
         resource_drop_elaboration_plan,
         diagnostics,
     })
