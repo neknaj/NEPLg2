@@ -90,11 +90,11 @@ pub fn binary_heap_pop_heap <.T: Copy> %fn BinaryHeapPop .T BinaryHeap .T \p:
 //:| #import "core/result" as *
 //:| #import "core/option" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hp0 %BinaryHeap i32 unwrap_ok new<i32>;
-//:     let hp1 %BinaryHeap i32 unwrap_ok push<i32> hp0 4;
-//:     let hp2 %BinaryHeap i32 unwrap_ok push<i32> hp1 9;
-//:     let hp3 %BinaryHeap i32 unwrap_ok push<i32> hp2 1;
-//:     match pop<i32> hp3:
+//:     let hp0 %BinaryHeap i32 unwrap_ok new;
+//:     let hp1 %BinaryHeap i32 unwrap_ok push hp0 4;
+//:     let hp2 %BinaryHeap i32 unwrap_ok push hp1 9;
+//:     let hp3 %BinaryHeap i32 unwrap_ok push hp2 1;
+//:     match pop hp3:
 //:         Option::Some v:
 //:             if eq v 9 1 0
 //:         Option::None:

@@ -41,14 +41,14 @@ pub struct BinaryHeap<.T>:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hp0 %BinaryHeap i32 unwrap_ok new<i32>;
-//:     match push<i32> hp0 7:
+//:     let hp0 %BinaryHeap i32 unwrap_ok new;
+//:     match push hp0 7:
 //:         Result::Ok hp1:
-//:             free<i32> hp1;
+//:             free hp1;
 //:             0
 //:         Result::Err e:
-//:             let hp2 %BinaryHeap i32 binary_heap_push_error_heap<i32> e;
-//:             free<i32> hp2;
+//:             let hp2 %BinaryHeap i32 binary_heap_push_error_heap e;
+//:             free hp2;
 //:             1
 //: ```
 pub struct BinaryHeapPushError<.T>:
@@ -66,15 +66,15 @@ pub struct BinaryHeapPushError<.T>:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hp0 %BinaryHeap i32 unwrap_ok new<i32>;
-//:     match push<i32> hp0 7:
+//:     let hp0 %BinaryHeap i32 unwrap_ok new;
+//:     match push hp0 7:
 //:         Result::Ok hp1:
-//:             free<i32> hp1;
+//:             free hp1;
 //:             0
 //:         Result::Err e:
-//:             let _d %Diag binary_heap_push_error_diag<i32> &e;
-//:             let hp2 %BinaryHeap i32 binary_heap_push_error_heap<i32> e;
-//:             free<i32> hp2;
+//:             let _d %Diag binary_heap_push_error_diag &e;
+//:             let hp2 %BinaryHeap i32 binary_heap_push_error_heap e;
+//:             free hp2;
 //:             1
 //: ```
 pub fn binary_heap_push_error_diag <.T> %fn &BinaryHeapPushError .T Diag \e:
@@ -94,14 +94,14 @@ pub fn binary_heap_push_error_diag <.T> %fn &BinaryHeapPushError .T Diag \e:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hp0 %BinaryHeap i32 unwrap_ok with_capacity<i32> 1;
-//:     match push<i32> hp0 7:
+//:     let hp0 %BinaryHeap i32 unwrap_ok with_capacity 1;
+//:     match push hp0 7:
 //:         Result::Ok hp1:
-//:             free<i32> hp1;
+//:             free hp1;
 //:             0
 //:         Result::Err e:
-//:             let hp2 %BinaryHeap i32 binary_heap_push_error_heap<i32> e;
-//:             free<i32> hp2;
+//:             let hp2 %BinaryHeap i32 binary_heap_push_error_heap e;
+//:             free hp2;
 //:             1
 //: ```
 pub fn binary_heap_push_error_heap <.T: Copy> %fn BinaryHeapPushError .T BinaryHeap .T \e:

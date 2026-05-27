@@ -44,15 +44,15 @@ pub fn is_empty <.T> %fn &BinaryHeap .T bool \hp:
 //:| #import "core/result" as *
 //:| #import "core/option" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let hp0 %BinaryHeap i32 unwrap_ok new<i32>;
-//:     let hp1 %BinaryHeap i32 unwrap_ok push<i32> hp0 4;
-//:     let hp2 %BinaryHeap i32 unwrap_ok push<i32> hp1 9;
-//:     let ok %bool match peek<i32> &hp2:
+//:     let hp0 %BinaryHeap i32 unwrap_ok new;
+//:     let hp1 %BinaryHeap i32 unwrap_ok push hp0 4;
+//:     let hp2 %BinaryHeap i32 unwrap_ok push hp1 9;
+//:     let ok %bool match peek &hp2:
 //:         Option::Some v:
 //:             eq v 9
 //:         Option::None:
 //:             false
-//:     free<i32> hp2
+//:     free hp2
 //:     if ok 1 0
 //: ```
 pub fn peek <.T: Copy> %fn &BinaryHeap .T Option .T \hp:
