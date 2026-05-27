@@ -42,14 +42,14 @@ pub struct Deque<.T>:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let dq0 %Deque i32 unwrap_ok new<i32>;
-//:     match push_back<i32> dq0 7:
+//:     let dq0 %Deque i32 unwrap_ok new;
+//:     match push_back dq0 7:
 //:         Result::Ok dq1:
-//:             free<i32> dq1;
+//:             free dq1;
 //:             0
 //:         Result::Err e:
-//:             let dq2 %Deque i32 deque_push_error_deque<i32> e;
-//:             free<i32> dq2;
+//:             let dq2 %Deque i32 deque_push_error_deque e;
+//:             free dq2;
 //:             1
 //: ```
 pub struct DequePushError<.T>:
@@ -67,15 +67,15 @@ pub struct DequePushError<.T>:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let dq0 %Deque i32 unwrap_ok new<i32>;
-//:     match push_front<i32> dq0 7:
+//:     let dq0 %Deque i32 unwrap_ok new;
+//:     match push_front dq0 7:
 //:         Result::Ok dq1:
-//:             free<i32> dq1;
+//:             free dq1;
 //:             0
 //:         Result::Err e:
-//:             let _d %Diag deque_push_error_diag<i32> &e;
-//:             let dq2 %Deque i32 deque_push_error_deque<i32> e;
-//:             free<i32> dq2;
+//:             let _d %Diag deque_push_error_diag &e;
+//:             let dq2 %Deque i32 deque_push_error_deque e;
+//:             free dq2;
 //:             1
 //: ```
 pub fn deque_push_error_diag <.T> %fn &DequePushError .T Diag \e:
@@ -95,14 +95,14 @@ pub fn deque_push_error_diag <.T> %fn &DequePushError .T Diag \e:
 //:| #import "alloc/diag/error" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let dq0 %Deque i32 unwrap_ok with_capacity<i32> 1;
-//:     match push_back<i32> dq0 7:
+//:     let dq0 %Deque i32 unwrap_ok with_capacity 1;
+//:     match push_back dq0 7:
 //:         Result::Ok dq1:
-//:             free<i32> dq1;
+//:             free dq1;
 //:             0
 //:         Result::Err e:
-//:             let dq2 %Deque i32 deque_push_error_deque<i32> e;
-//:             free<i32> dq2;
+//:             let dq2 %Deque i32 deque_push_error_deque e;
+//:             free dq2;
 //:             1
 //: ```
 pub fn deque_push_error_deque <.T: Copy> %fn DequePushError .T Deque .T \e:

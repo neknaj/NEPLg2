@@ -35,10 +35,10 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let dq %Deque i32 unwrap_ok new<i32>;
-//:     let observed_len %i32 len<i32> &dq
+//:     let dq %Deque i32 unwrap_ok new;
+//:     let observed_len %i32 len &dq
 //:     let ok %bool eq observed_len 0
-//:     free<i32> dq
+//:     free dq
 //:     if ok 1 0
 //: ```
 pub fn new <.T: Copy> %impure fn unit Result Deque .T Diag \unit:
@@ -56,9 +56,9 @@ pub fn new <.T: Copy> %impure fn unit Result Deque .T Diag \unit:
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let dq %Deque i32 unwrap_ok with_capacity<i32> 16;
-//:     let ok %bool eq cap<i32> &dq 16
-//:     free<i32> dq
+//:     let dq %Deque i32 unwrap_ok with_capacity 16;
+//:     let ok %bool eq cap &dq 16
+//:     free dq
 //:     if ok 1 0
 //: ```
 pub fn with_capacity <.T: Copy> %impure fn i32 Result Deque .T Diag \cap:
