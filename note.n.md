@@ -1,3 +1,15 @@
+# 2026-05-27 Root import surface prewarm guard checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を再確認し、純粋 query と dependency surface を用いて探索空間を削る方針を維持した。今回の変更は semantic cache ではなく、同じ root import surface に対する loader prewarm の重複実行を避ける guard として扱う。
+- subagent 2 件で設計・観測点をレビューした。初期実装では user source arity bypass 統計が増えない問題を指摘されたため、`root_prewarm_surface_for_source_with_cache` で user source scan を `LoaderSessionCache` の bypass として観測しながら、cache value には user source artifact を保持しない形に修正した。
+- `nepl-core/src/loader.rs` に root prewarm surface hash と roots を同時に計算する helper を追加した。hash は loader cache version、canonical stdlib root、root default prelude state、`#no_prelude`、lexer error outcome、prelude/import/include edge の kind / resolved target path / visibility / import clause / source order を含む。root source body、local type arity hints、`FileId` / `Span` / `ImportResolution` / typed HIR / `TypeId` / Resource IR / codegen fragment は含めない。
+- `nepl-web/src/lib.rs` の `CompilerSession` は、prewarm 成功後に surface hash と warmed root count だけを保持する。2 回目以降の同一 surface では provider traversal を行わず、前回の warmed root count を返す。no-op は `loader_cache_stats_json()` の `prewarm_surface_hits` / `prewarm_surface_stores` で観測する。
+- `clear_loader_cache()` は parsed module / arity surface cache と同時に prewarmed surface map と hit/store counter を消す。prewarm failure では surface hash を記録しないため、次回再試行できる。
+- `nodesrc/run_test.js` は compile VFS に `/stdlib` overlay が含まれる場合、bundled stdlib prewarm を skip し、`compiler_session_prewarm_skipped_reason = "stdlib_overlay"` を残す。forced stdlib VFS / FS override の skip は既存方針を維持する。
+- 追加 regression: body-only edit では prewarm surface hash が変わらないこと、import path / import clause / relative import resolution / lexer error outcome は hash に反映されること、既存 prewarm regression の user-source bypass 観測を壊さないこと、Node runner が同一 surface reuse と `/stdlib` overlay skip を観測できること。
+- release WASM 実測では、`tmp/perf_alloc_probe.nepl` の aggregate first は `compile_ms=16` / `prewarm_ms=3` / `prewarm_count=2` / `wasm_call_ms=13`、return literal だけを変えた body-only edit は `compile_ms=3` / `prewarm_ms=0` / `prewarm_count=2` / `prewarm_surface_hits=1` / `wasm_call_ms=3` だった。
+- この checkpoint により微小変更時の loader prewarm は 10ms budget からほぼ外れた。一方で aggregate first は `wasm_call_ms=13` が残るため、次段階は logical import graph と dependency public surface hash を安定化し、typed public surface / Resource IR summary cache へ進む。
+
 # 2026-05-27 Source import surface checkpoint
 
 - logical import graph / dependency public surface hash の設計について subagent 2 件でレビューした。`ImportResolution` は `FileId` に依存し、typed HIR / `TypeId` / mangled symbol は compile ごとの `TypeCtx` / `Span` に依存するため、この checkpoint では cache value に入れない方針を確認した。

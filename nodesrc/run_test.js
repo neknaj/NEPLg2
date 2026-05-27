@@ -407,6 +407,18 @@ function shouldPassFsStdlib(meta, forceStdlibVfs = false) {
     return selectStdlibVfsMode(meta, forceStdlibVfs) !== 'bundled';
 }
 
+function vfsHasStdlibOverlay(vfs) {
+    for (const rawPath of Object.keys(vfs || {})) {
+        let normalized = String(rawPath).replace(/\\/g, '/');
+        if (!normalized.startsWith('/')) normalized = `/${normalized}`;
+        normalized = path.posix.normalize(normalized);
+        if (normalized === '/stdlib' || normalized.startsWith('/stdlib/')) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function loadStdlibVfsForCompile(metrics = null) {
     const start = Date.now();
     try {
@@ -459,7 +471,7 @@ function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, f
         metrics.compiler_session = compilerApi !== api;
     }
     if (compilerApi !== api) {
-        prewarmCompilerSession(meta, source, stdlibVfsMode, metrics);
+        prewarmCompilerSession(meta, source, stdlibVfsMode, metrics, vfs);
     }
     if (mustPassStdlibVfs && typeof compilerApi.compile_source_with_vfs_stdlib_and_profile === 'function') {
         const stdlibVfs = loadStdlibVfsForCompile(metrics);
@@ -570,7 +582,7 @@ function warmCompiler(api, meta) {
     return metrics;
 }
 
-function prewarmCompilerSession(meta, source, stdlibVfsMode, metrics = null) {
+function prewarmCompilerSession(meta, source, stdlibVfsMode, metrics = null, vfs = null) {
     const session = meta && meta.compilerSession;
     if (!session || typeof session.prewarm_loader_cache_for_source !== 'function') {
         if (metrics) {
@@ -581,6 +593,12 @@ function prewarmCompilerSession(meta, source, stdlibVfsMode, metrics = null) {
     if (stdlibVfsMode !== 'bundled') {
         if (metrics) {
             metrics.compiler_session_prewarm_skipped_reason = stdlibVfsMode || 'unknown_stdlib_mode';
+        }
+        return null;
+    }
+    if (vfsHasStdlibOverlay(vfs)) {
+        if (metrics) {
+            metrics.compiler_session_prewarm_skipped_reason = 'stdlib_overlay';
         }
         return null;
     }
@@ -755,7 +773,10 @@ async function runSingle(req, preloaded, onProgress = null) {
         };
         try {
             const collectVfsStart = Date.now();
-            const vfs = collectVfsSources(source, req.file);
+            const vfs = {
+                ...collectVfsSources(source, req.file),
+                ...(req.vfs && typeof req.vfs === 'object' ? req.vfs : {}),
+            };
             timing.collect_vfs_ms = Date.now() - collectVfsStart;
             wasmU8 = compileWithFsStdlib(
                 api,

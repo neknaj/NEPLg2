@@ -55,6 +55,10 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - `trunk build --release` 後の source-directed prewarm 実測では、minimal は `compile_ms=3` / `prewarm_ms=1` / `wasm_call_ms=2`、aggregate first は `compile_ms=15` / `prewarm_ms=3` / `wasm_call_ms=11-12`、aggregate second は `compile_ms=4-5` / `prewarm_ms=1` / `wasm_call_ms=3-4` だった。aggregate first の total `compile_ms` はまだ 10ms 未満に固定できていないため、logical import graph / typed public surface / Resource IR summary cache が次の根本対応である。
 - fifth checkpoint では、logical import graph の前段として loader の source arity surface を source import edge 表現へ広げた。edge は kind、resolved target path、visibility、import clause、source order を持つが、`FileId` / `Span` / `ImportResolution` / typed HIR / `TypeId` は持たない。
 - parser に `parse_import_directive_parts` を追加し、loader の raw `#import` text parsing と parser の import clause parsing が分岐しないようにした。これにより、今後の graph cache で visibility / alias / selective import / merge clause を path-only edge に潰さない足場ができた。
+- sixth checkpoint では、同じ root import surface に対する source-directed prewarm を `CompilerSession` 内で no-op にする guard を追加した。これは semantic cache ではなく、成功済み prewarm surface hash と warmed root count だけを保持する軽量な差分 compile guard である。
+- root prewarm surface hash は loader cache version、canonical stdlib root、root default prelude state、`#no_prelude`、lexer error outcome、prelude/import/include edge の kind / resolved target path / visibility / import clause / source order を含む。root source body、local type arity hints、`FileId` / `Span` / `ImportResolution` / typed HIR / `TypeId` / Resource IR / codegen fragment は含めない。
+- forced stdlib VFS、FS stdlib override、compile VFS 内の `/stdlib` overlay では bundled stdlib prewarm を呼ばない。prewarm failure では surface hash を記録せず、同じ source を次回再試行できる。
+- `CompilerSession.loader_cache_stats_json()` は `prewarm_surface_hits` / `prewarm_surface_stores` を返す。body-only edit の同一 session 実測では aggregate case が `compile_ms=3` / `prewarm_ms=0` / `prewarm_surface_hits=1` / `wasm_call_ms=3` になった。
 
 ## 問題
 
@@ -101,6 +105,9 @@ MVP は次の順に進める。
 - prewarm error が本来の compile diagnostic を置き換えないことの Node runner regression test
 - user source arity surface が long-lived `LoaderSessionCache` に保存されないことの unit test
 - source import surface が visibility / import clause / source order を保持し、preload path と public re-export path を同じ edge list から派生することの unit test
+- root prewarm surface hash が body-only edit で変わらず、import path / import clause / relative import resolution / lexer error outcome で変わることの unit test
+- 同じ `CompilerSession` の 2 回目 prewarm reuse を `prewarm_surface_hits` で観測できることの Node runner regression test
+- compile VFS に `/stdlib` overlay がある場合、bundled prewarm を skip することの Node runner regression test
 - forced stdlib VFS path が session cache を使わないことの Node runner regression test
 - `node nodesrc/test_run_test_compiler_session.js`
 - `node nodesrc/test_playground_compiler_session_policy.js`

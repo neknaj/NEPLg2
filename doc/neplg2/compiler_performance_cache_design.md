@@ -244,6 +244,38 @@ prewarm しない対象:
 | Web release source-import-surface aggregate first | `tmp/perf_alloc_probe.nepl` + same `CompilerSession` | `compile_ms=16`、`prewarm_ms=3`、`wasm_call_ms=13` |
 | Web release source-import-surface aggregate second | same source / same `CompilerSession` | `compile_ms=4`、`prewarm_ms=1`、`wasm_call_ms=3` |
 
+## Root import surface prewarm guard checkpoint
+
+2026-05-27 の sixth checkpoint では、source-directed prewarm を semantic cache と混同せず、同じ root import surface に対する loader prewarm の重複実行だけを session 内で省略する guard として実装した。
+
+追加した境界:
+
+- `nepl-core::loader` は root source から prewarm surface hash と prewarm roots を同時に計算する。
+- hash には loader cache version、canonical stdlib root、root default prelude state、`#no_prelude`、lexer error outcome、prelude/import/include edge の kind / resolved target path / visibility / import clause / source order を含める。
+- hash には root source body、コメント、空白、local type arity hints、`FileId`、`Span`、`ImportResolution`、typed HIR、`TypeId`、Resource IR、codegen fragment を含めない。
+- `CompilerSession` は prewarm 成功後に surface hash と前回の warmed root count だけを保持する。user source の AST / surface value / token stream は保持しない。
+- 同じ surface の再 prewarm は前回の warmed root count を返し、provider traversal と stdlib loader query traversal は実行しない。no-op だった事実は `prewarm_surface_hits` / `prewarm_surface_stores` で観測する。
+- prewarm failure では surface hash を記録しないため、同じ source を次回再試行できる。
+- `clear_loader_cache()` は parsed module / arity surface cache と同時に prewarmed surface map と hit/store counter を消す。
+- forced stdlib VFS、FS stdlib override、compile VFS 内の `/stdlib` overlay では bundled stdlib prewarm を呼ばない。
+
+追加 regression:
+
+- body-only edit では root prewarm surface hash と roots が変わらない。
+- import path、import clause、relative import の解決先、lexer error outcome は hash に反映される。
+- `provider_session_cache_can_prewarm_stdlib_loader_queries` の user-source arity bypass 観測を維持する。
+- Node runner は同じ session の 2 回目 prewarm reuse を `prewarm_surface_hits` で観測する。
+- Node runner は `/stdlib` overlay がある compile request では bundled prewarm を skip する。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| Web release aggregate first after prewarm guard | `tmp/perf_alloc_probe.nepl` + same `CompilerSession` | `compile_ms=16`、`prewarm_ms=3`、`prewarm_count=2`、`wasm_call_ms=13` |
+| Web release aggregate body-only edit | return literalだけを変更 + same `CompilerSession` | `compile_ms=3`、`prewarm_ms=0`、`prewarm_count=2`、`prewarm_surface_hits=1`、`wasm_call_ms=3` |
+
+この checkpoint で微小変更時の loader prewarm は 10ms budget からほぼ外れた。一方で aggregate first は `wasm_call_ms=13` が支配的であり、初回に未cache typed public surface / Resource IR summary / codegen が残る。したがって次段階は、logical import graph と dependency public surface hash を安定化し、typed public surface cache へ進む。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

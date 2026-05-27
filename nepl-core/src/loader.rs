@@ -248,6 +248,23 @@ struct CachedAritySurface {
 }
 
 impl CachedAritySurface {
+    fn prewarm_surface_hash(&self, is_root: bool, stdlib_root: &PathBuf) -> u64 {
+        let mut hash = FNV_OFFSET_BASIS;
+        fnv1a64_update(&mut hash, LOADER_SESSION_CACHE_VERSION.as_bytes());
+        fnv1a64_update(&mut hash, &[0]);
+        hash_path(&mut hash, stdlib_root);
+        hash_bool(&mut hash, is_root);
+        hash_bool(&mut hash, self.no_prelude);
+        hash_bool(&mut hash, self.implicit_default_prelude);
+        hash_path(&mut hash, &self.default_prelude_path);
+        let mut dependency_edges = self.edges.iter().collect::<Vec<_>>();
+        dependency_edges.sort_by_key(|edge| edge.source_order);
+        for edge in dependency_edges {
+            hash_source_import_edge(&mut hash, edge);
+        }
+        hash
+    }
+
     fn preload_paths(&self, is_root: bool) -> Vec<PathBuf> {
         let mut paths = Vec::new();
         let has_explicit_prelude = self
@@ -482,6 +499,49 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         session_cache: &mut LoaderSessionCache,
     ) -> Result<usize, LoaderError> {
+        let (_, roots) =
+            self.root_prewarm_surface_for_source_with_cache(entry_path, source, session_cache);
+        self.prewarm_provider_cache(&roots, provider, session_cache)
+    }
+
+    /// Compute the stable loader warmup surface for a root source.
+    ///
+    /// The hash intentionally describes only the dependency surface that can
+    /// affect loader prewarm: root default prelude state plus prelude/import/include
+    /// edges with their visibility and import clauses.  Function bodies and local
+    /// type declarations are not part of this key, so body-only edits can reuse
+    /// the already warmed stdlib loader artifacts.  The value is still computed
+    /// from the current source text and contains no `FileId`, `Span`,
+    /// `ImportResolution`, typed HIR, or `TypeId`.
+    pub fn root_prewarm_surface_for_source(
+        &self,
+        entry_path: PathBuf,
+        source: &str,
+    ) -> (u64, Vec<PathBuf>) {
+        self.compute_root_prewarm_surface_for_source(entry_path, source, None)
+    }
+
+    /// Compute a root prewarm surface while recording loader-cache bypass stats.
+    ///
+    /// User entry source is intentionally not retained in `LoaderSessionCache`,
+    /// but the scan should still be visible in session statistics. This helper is
+    /// used by prewarm paths that already own a session cache so the observable
+    /// boundary stays the same as normal loader query traversal.
+    pub fn root_prewarm_surface_for_source_with_cache(
+        &self,
+        entry_path: PathBuf,
+        source: &str,
+        session_cache: &mut LoaderSessionCache,
+    ) -> (u64, Vec<PathBuf>) {
+        self.compute_root_prewarm_surface_for_source(entry_path, source, Some(session_cache))
+    }
+
+    fn compute_root_prewarm_surface_for_source(
+        &self,
+        entry_path: PathBuf,
+        source: &str,
+        mut session_cache: Option<&mut LoaderSessionCache>,
+    ) -> (u64, Vec<PathBuf>) {
         let canon = canonicalize_path(&entry_path);
         let mut sm = SourceMap::new();
         let file_id = sm.add_with_capabilities(
@@ -489,14 +549,11 @@ impl Loader {
             source.to_string(),
             SourceCapabilities::none(),
         );
-        let roots = self.type_arity_preload_paths_with_cache(
-            &canon,
-            file_id,
-            source,
-            true,
-            Some(session_cache),
-        );
-        self.prewarm_provider_cache(&roots, provider, session_cache)
+        let surface =
+            self.source_arity_surface(&canon, file_id, source, session_cache.as_deref_mut());
+        let hash = surface.prewarm_surface_hash(true, &self.stdlib_root);
+        let roots = surface.preload_paths(true);
+        (hash, roots)
     }
 
     pub fn load(&mut self, entry: &PathBuf) -> Result<LoadResult, LoaderError> {
@@ -1602,6 +1659,87 @@ fn hash_type_arity_hints(type_arity_hints: &[(String, usize)]) -> u64 {
     hash
 }
 
+fn hash_source_import_edge(hash: &mut u64, edge: &SourceImportEdge) {
+    hash_u8(
+        hash,
+        match edge.kind {
+            SourceImportEdgeKind::Prelude => 1,
+            SourceImportEdgeKind::Import => 2,
+            SourceImportEdgeKind::Include => 3,
+        },
+    );
+    hash_path(hash, &edge.target_path);
+    hash_visibility(hash, edge.visibility);
+    match &edge.import_clause {
+        Some(clause) => {
+            hash_u8(hash, 1);
+            hash_import_clause(hash, clause);
+        }
+        None => hash_u8(hash, 0),
+    }
+    hash_usize(hash, edge.source_order);
+}
+
+fn hash_import_clause(hash: &mut u64, clause: &ImportClause) {
+    match clause {
+        ImportClause::DefaultAlias => hash_u8(hash, 1),
+        ImportClause::Alias(name) => {
+            hash_u8(hash, 2);
+            hash_str(hash, name);
+        }
+        ImportClause::Open => hash_u8(hash, 3),
+        ImportClause::Selective(items) => {
+            hash_u8(hash, 4);
+            hash_usize(hash, items.len());
+            for item in items {
+                hash_str(hash, &item.name);
+                match &item.alias {
+                    Some(alias) => {
+                        hash_u8(hash, 1);
+                        hash_str(hash, alias);
+                    }
+                    None => hash_u8(hash, 0),
+                }
+                hash_bool(hash, item.glob);
+            }
+        }
+        ImportClause::Merge => hash_u8(hash, 5),
+    }
+}
+
+fn hash_visibility(hash: &mut u64, visibility: Visibility) {
+    hash_u8(
+        hash,
+        match visibility {
+            Visibility::Pub => 1,
+            Visibility::Private => 2,
+        },
+    );
+}
+
+fn hash_path(hash: &mut u64, path: &PathBuf) {
+    let canonical = canonicalize_path(path);
+    hash_str(hash, &canonical.to_string_lossy());
+}
+
+fn hash_str(hash: &mut u64, value: &str) {
+    fnv1a64_update(hash, value.as_bytes());
+    fnv1a64_update(hash, &[0]);
+}
+
+fn hash_bool(hash: &mut u64, value: bool) {
+    hash_u8(hash, if value { 1 } else { 0 });
+}
+
+fn hash_usize(hash: &mut u64, value: usize) {
+    fnv1a64_update(hash, value.to_string().as_bytes());
+    fnv1a64_update(hash, &[0]);
+}
+
+fn hash_u8(hash: &mut u64, value: u8) {
+    fnv1a64_update(hash, &[value, 0xff]);
+}
+
 fn fnv1a64(bytes: &[u8]) -> u64 {
     let mut hash = FNV_OFFSET_BASIS;
     fnv1a64_update(&mut hash, bytes);
@@ -2122,6 +2260,95 @@ mod tests {
             matches!(import_edge.import_clause, Some(ImportClause::Selective(_))),
             "logical import graph groundwork must preserve import clauses instead of reducing them to path-only edges",
         );
+    }
+
+    #[test]
+    fn root_prewarm_surface_hash_ignores_body_edits_but_tracks_import_surface() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let first_source =
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    1\n";
+        let body_edit_source =
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    2\n";
+        let import_edit_source =
+            "#no_prelude\n#import \"bar\" as *\nfn main %fn unit i32 \\unit:\n    2\n";
+        let clause_edit_source =
+            "#no_prelude\n#import \"foo\" as { value as renamed }\nfn main %fn unit i32 \\unit:\n    2\n";
+
+        let (first_hash, first_roots) =
+            loader.root_prewarm_surface_for_source(entry_path.clone(), first_source);
+        let (body_hash, body_roots) =
+            loader.root_prewarm_surface_for_source(entry_path.clone(), body_edit_source);
+        let (import_hash, import_roots) =
+            loader.root_prewarm_surface_for_source(entry_path.clone(), import_edit_source);
+        let (clause_hash, clause_roots) =
+            loader.root_prewarm_surface_for_source(entry_path, clause_edit_source);
+
+        assert_eq!(
+            body_hash, first_hash,
+            "body-only edits should reuse the same loader prewarm surface",
+        );
+        assert_eq!(
+            body_roots, first_roots,
+            "body-only edits must not change prewarm roots",
+        );
+        assert_ne!(
+            import_hash, first_hash,
+            "changing the imported module path must invalidate the prewarm surface",
+        );
+        assert_ne!(
+            import_roots, first_roots,
+            "changed import paths should produce different prewarm roots",
+        );
+        assert_ne!(
+            clause_hash, first_hash,
+            "the hash keeps import-clause changes visible for the future logical import graph",
+        );
+        assert_eq!(
+            clause_roots, first_roots,
+            "alias-only changes still warm the same loader roots even though the graph surface hash changes",
+        );
+    }
+
+    #[test]
+    fn root_prewarm_surface_hash_tracks_relative_import_resolution_and_lexer_errors() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root);
+        let left_entry = canonicalize_path(&PathBuf::from("C:/nepl-test/user/left/main.nepl"));
+        let right_entry = canonicalize_path(&PathBuf::from("C:/nepl-test/user/right/main.nepl"));
+        let relative_source = "#no_prelude\n#import \"./shared\" as *\n";
+        let invalid_source = "fn main %fn unit i32 \\unit:\n    \"unterminated\n";
+        let valid_no_prelude_source = "#no_prelude\n";
+
+        let (left_hash, left_roots) =
+            loader.root_prewarm_surface_for_source(left_entry, relative_source);
+        let (right_hash, right_roots) =
+            loader.root_prewarm_surface_for_source(right_entry, relative_source);
+        let (invalid_hash, invalid_roots) = loader.root_prewarm_surface_for_source(
+            PathBuf::from("C:/nepl-test/user/main.nepl"),
+            invalid_source,
+        );
+        let (valid_no_prelude_hash, valid_no_prelude_roots) = loader
+            .root_prewarm_surface_for_source(
+                PathBuf::from("C:/nepl-test/user/main.nepl"),
+                valid_no_prelude_source,
+            );
+
+        assert_ne!(
+            left_hash, right_hash,
+            "relative imports must hash the resolved target path, not only the literal spec",
+        );
+        assert_ne!(
+            left_roots, right_roots,
+            "entry paths in different directories should resolve relative imports to different roots",
+        );
+        assert_ne!(
+            invalid_hash, valid_no_prelude_hash,
+            "lexer-error surfaces must not collide with valid no-prelude surfaces",
+        );
+        assert!(invalid_roots.is_empty());
+        assert!(valid_no_prelude_roots.is_empty());
     }
 
     #[test]

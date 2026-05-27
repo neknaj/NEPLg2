@@ -79,6 +79,151 @@ const { runSingle } = require('./run_test');
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
 
+    const tmpDirPrewarmReuse = fs.mkdtempSync(path.join(os.tmpdir(), 'nepl-session-prewarm-reuse-'));
+    const prewarmReuseArtifactPath = path.join(tmpDirPrewarmReuse, 'nepl-web-test_bg.wasm');
+    fs.writeFileSync(prewarmReuseArtifactPath, '');
+    fs.utimesSync(prewarmReuseArtifactPath, future, future);
+
+    let reusePrewarmed = false;
+    let reusePrewarmHits = 0;
+    let reusePrewarmStores = 0;
+    const prewarmReuseLoaded = {
+        api: {
+            compile_source_with_vfs_and_profile() {
+                throw new Error('stateless compiler API should not be used for prewarm reuse test');
+            },
+        },
+        meta: {
+            distDir: 'stub',
+            jsFile: 'stub.js',
+            wasmFile: 'stub.wasm',
+            wasmPath: prewarmReuseArtifactPath,
+            compilerSession: {
+                loader_cache_stats_json() {
+                    return JSON.stringify({
+                        parsed_module_hits: 7,
+                        parsed_module_misses: 0,
+                        parsed_module_stores: 0,
+                        parsed_module_bypasses: 0,
+                        arity_surface_hits: 11,
+                        arity_surface_misses: 0,
+                        arity_surface_stores: 0,
+                        arity_surface_bypasses: 0,
+                        stdlib_override_bypasses: 0,
+                        prewarm_surface_hits: reusePrewarmHits,
+                        prewarm_surface_stores: reusePrewarmStores,
+                    });
+                },
+                prewarm_loader_cache_for_source() {
+                    if (reusePrewarmed) {
+                        reusePrewarmHits += 1;
+                        return 2;
+                    }
+                    reusePrewarmed = true;
+                    reusePrewarmStores += 1;
+                    return 2;
+                },
+                compile_source_with_vfs_and_profile() {
+                    throw new Error('session compile failure after reused prewarm surface');
+                },
+            },
+        },
+    };
+    await runSingle(
+        {
+            id: 'nodesrc/run_test/compiler-session-prewarm-reuse-first',
+            source: '#target std\nfn main <()->i32> ():\n    0\n',
+            tags: ['compile_fail'],
+        },
+        prewarmReuseLoaded,
+    );
+    const prewarmReuseSecond = await runSingle(
+        {
+            id: 'nodesrc/run_test/compiler-session-prewarm-reuse-second',
+            source: '#target std\nfn main <()->i32> ():\n    1\n',
+            tags: ['compile_fail'],
+        },
+        prewarmReuseLoaded,
+    );
+
+    assert.equal(prewarmReuseSecond.ok, true);
+    assert.equal(prewarmReuseSecond.timing.compiler_session_prewarm_count, 2);
+    assert.equal(prewarmReuseSecond.timing.compiler_session_prewarm_skipped_reason, null);
+    assert.equal(prewarmReuseSecond.timing.compiler_session_prewarm_cache_before.prewarm_surface_hits, 0);
+    assert.equal(prewarmReuseSecond.timing.compiler_session_prewarm_cache_after.prewarm_surface_hits, 1);
+    assert.equal(prewarmReuseSecond.timing.compiler_session_prewarm_cache_after.prewarm_surface_stores, 1);
+    assert.match(
+        String(prewarmReuseSecond.compile_error || ''),
+        /session compile failure after reused prewarm surface/,
+    );
+
+    fs.rmSync(tmpDirPrewarmReuse, { recursive: true, force: true });
+
+    const tmpDirStdlibOverlay = fs.mkdtempSync(path.join(os.tmpdir(), 'nepl-session-stdlib-overlay-'));
+    const stdlibOverlayArtifactPath = path.join(tmpDirStdlibOverlay, 'nepl-web-test_bg.wasm');
+    fs.writeFileSync(stdlibOverlayArtifactPath, '');
+    fs.utimesSync(stdlibOverlayArtifactPath, future, future);
+
+    let stdlibOverlayCompileCalled = false;
+    let stdlibOverlayPrewarmCalled = false;
+    const stdlibOverlayResult = await runSingle(
+        {
+            id: 'nodesrc/run_test/compiler-session-stdlib-overlay',
+            source: '#target std\nfn main <()->i32> ():\n    0\n',
+            tags: ['compile_fail'],
+            vfs: {
+                '/stdlib/std/prelude_base.nepl': '',
+            },
+        },
+        {
+            api: {
+                compile_source_with_vfs_and_profile() {
+                    throw new Error('stateless compiler API should not be used for stdlib overlay test');
+                },
+            },
+            meta: {
+                distDir: 'stub',
+                jsFile: 'stub.js',
+                wasmFile: 'stub.wasm',
+                wasmPath: stdlibOverlayArtifactPath,
+                compilerSession: {
+                    loader_cache_stats_json() {
+                        return JSON.stringify({
+                            parsed_module_hits: 0,
+                            parsed_module_misses: 0,
+                            parsed_module_stores: 0,
+                            parsed_module_bypasses: 0,
+                            arity_surface_hits: 0,
+                            arity_surface_misses: 0,
+                            arity_surface_stores: 0,
+                            arity_surface_bypasses: 0,
+                            stdlib_override_bypasses: 0,
+                            prewarm_surface_hits: 0,
+                            prewarm_surface_stores: 0,
+                        });
+                    },
+                    prewarm_loader_cache_for_source() {
+                        stdlibOverlayPrewarmCalled = true;
+                        throw new Error('stdlib overlay compile must not prewarm bundled stdlib');
+                    },
+                    compile_source_with_vfs_and_profile() {
+                        stdlibOverlayCompileCalled = true;
+                        throw new Error('session stdlib overlay compile failure');
+                    },
+                },
+            },
+        },
+    );
+
+    assert.equal(stdlibOverlayResult.ok, true);
+    assert.equal(stdlibOverlayCompileCalled, true);
+    assert.equal(stdlibOverlayPrewarmCalled, false);
+    assert.equal(stdlibOverlayResult.timing.compiler_session_prewarm_count, null);
+    assert.equal(stdlibOverlayResult.timing.compiler_session_prewarm_skipped_reason, 'stdlib_overlay');
+    assert.match(String(stdlibOverlayResult.compile_error || ''), /session stdlib overlay compile failure/);
+
+    fs.rmSync(tmpDirStdlibOverlay, { recursive: true, force: true });
+
     const tmpDirForced = fs.mkdtempSync(path.join(os.tmpdir(), 'nepl-session-forced-stdlib-'));
     const forcedArtifactPath = path.join(tmpDirForced, 'nepl-web-test_bg.wasm');
     fs.writeFileSync(forcedArtifactPath, '');

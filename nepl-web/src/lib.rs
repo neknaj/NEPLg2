@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use js_sys::{Reflect, Uint8Array};
@@ -3342,6 +3342,9 @@ pub struct CompilerSession {
     stdlib_root: PathBuf,
     bundled_sources: BTreeMap<PathBuf, &'static str>,
     loader_cache: RefCell<LoaderSessionCache>,
+    prewarmed_import_surfaces: RefCell<BTreeMap<u64, usize>>,
+    prewarm_surface_hits: RefCell<usize>,
+    prewarm_surface_stores: RefCell<usize>,
 }
 
 #[wasm_bindgen]
@@ -3354,6 +3357,9 @@ impl CompilerSession {
             stdlib_root,
             bundled_sources,
             loader_cache: RefCell::new(LoaderSessionCache::new(stdlib_hash())),
+            prewarmed_import_surfaces: RefCell::new(BTreeMap::new()),
+            prewarm_surface_hits: RefCell::new(0),
+            prewarm_surface_stores: RefCell::new(0),
         }
     }
 
@@ -3385,7 +3391,7 @@ impl CompilerSession {
     pub fn loader_cache_stats_json(&self) -> String {
         let stats = self.loader_cache.borrow().stats();
         format!(
-            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"stdlib_override_bypasses\":{}}}",
+            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"stdlib_override_bypasses\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{}}}",
             stats.parsed_module_hits,
             stats.parsed_module_misses,
             stats.parsed_module_stores,
@@ -3395,6 +3401,8 @@ impl CompilerSession {
             stats.arity_surface_stores,
             stats.arity_surface_bypasses,
             stats.stdlib_override_bypasses,
+            *self.prewarm_surface_hits.borrow(),
+            *self.prewarm_surface_stores.borrow(),
         )
     }
 
@@ -3405,6 +3413,9 @@ impl CompilerSession {
     /// 固定したいため、cache の寿命を観測可能にしておく。
     pub fn clear_loader_cache(&self) {
         self.loader_cache.borrow_mut().clear();
+        self.prewarmed_import_surfaces.borrow_mut().clear();
+        *self.prewarm_surface_hits.borrow_mut() = 0;
+        *self.prewarm_surface_stores.borrow_mut() = 0;
     }
 
     /// entry source から到達する bundled stdlib の loader cache を warm する。
@@ -3420,6 +3431,20 @@ impl CompilerSession {
     ) -> Result<usize, JsValue> {
         let mut cache = self.loader_cache.borrow_mut();
         let loader = Loader::new(self.stdlib_root.clone());
+        let (surface_hash, roots) = loader.root_prewarm_surface_for_source_with_cache(
+            PathBuf::from(entry_path),
+            source,
+            &mut cache,
+        );
+        if let Some(warmed_count) = self
+            .prewarmed_import_surfaces
+            .borrow()
+            .get(&surface_hash)
+            .copied()
+        {
+            *self.prewarm_surface_hits.borrow_mut() += 1;
+            return Ok(warmed_count);
+        }
         let mut provider = |path: &PathBuf| {
             self.bundled_sources.get(path).map(|src| (*src).to_string()).ok_or_else(|| {
                 nepl_core::loader::LoaderError::Io(format!(
@@ -3428,14 +3453,14 @@ impl CompilerSession {
                 ))
             })
         };
-        loader
-            .prewarm_provider_cache_for_source(
-                PathBuf::from(entry_path),
-                source,
-                &mut provider,
-                &mut cache,
-            )
-            .map_err(|e| JsValue::from_str(&format!("{e}")))
+        let warmed = loader
+            .prewarm_provider_cache(&roots, &mut provider, &mut cache)
+            .map_err(|e| JsValue::from_str(&format!("{e}")))?;
+        self.prewarmed_import_surfaces
+            .borrow_mut()
+            .insert(surface_hash, warmed);
+        *self.prewarm_surface_stores.borrow_mut() += 1;
+        Ok(warmed)
     }
 
     pub fn compile_source_with_vfs_and_profile(
