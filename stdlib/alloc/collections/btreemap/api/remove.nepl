@@ -30,12 +30,12 @@
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let hm %BTreeMap i32 i32:
-//:         unwrap_ok new<i32, i32>
+//:         unwrap_ok new
 //:         |> insert 7 70 |> uwok
 //:         |> remove 7
-//:     let observed_len %i32 len<i32, i32> &hm
+//:     let observed_len %i32 len &hm
 //:     let ok %bool eq observed_len 0
-//:     free<i32, i32> hm
+//:     free hm
 //:     if ok 1 0
 //: ```
 pub fn remove <.K: Ord&Copy,.V: Copy> %impure fn BTreeMap .K .V impure fn .K BTreeMap .K .V \hm\key:
@@ -64,12 +64,12 @@ pub fn remove <.K: Ord&Copy,.V: Copy> %impure fn BTreeMap .K .V impure fn .K BTr
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let hm %BTreeMap i32 i32:
-//:         unwrap_ok new<i32, i32>
+//:         unwrap_ok new
 //:         |> insert 7 70 |> uwok
 //:         |> clear
-//:     let observed_len %i32 len<i32, i32> &hm
+//:     let observed_len %i32 len &hm
 //:     let ok %bool eq observed_len 0
-//:     free<i32, i32> hm
+//:     free hm
 //:     if ok 1 0
 //: ```
 pub fn clear <.K: Copy,.V: Copy> %impure fn BTreeMap .K .V BTreeMap .K .V \hm:
