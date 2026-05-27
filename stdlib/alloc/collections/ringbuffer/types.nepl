@@ -128,16 +128,16 @@ pub struct RingBufferPop<.T>:
 //: #import "core/option" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let rb0 %RingBuffer i32 unwrap_ok new<i32>;
-//:     let rb1 %RingBuffer i32 unwrap_ok push<i32> rb0 7;
-//:     let p %RingBufferPop i32 pop_front<i32> rb1;
-//:     let ok %bool match ringbuffer_pop_item<i32> &p:
+//:     let rb0 %RingBuffer i32 unwrap_ok new;
+//:     let rb1 %RingBuffer i32 unwrap_ok push rb0 7;
+//:     let p %RingBufferPop i32 pop_front rb1;
+//:     let ok %bool match ringbuffer_pop_item &p:
 //:         Option::Some v:
 //:             eq v 7
 //:         Option::None:
 //:             false
-//:     let rb2 %RingBuffer i32 ringbuffer_pop_buffer<i32> p;
-//:     free<i32> rb2;
+//:     let rb2 %RingBuffer i32 ringbuffer_pop_buffer p;
+//:     free rb2;
 //:     if ok 1 0
 //: ```
 pub fn ringbuffer_pop_item <.T: Copy> %fn &RingBufferPop .T Option .T \p:
@@ -156,12 +156,12 @@ pub fn ringbuffer_pop_item <.T: Copy> %fn &RingBufferPop .T Option .T \p:
 //: #import "alloc/diag/error" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let rb0 %RingBuffer i32 unwrap_ok new<i32>;
-//:     let rb1 %RingBuffer i32 unwrap_ok push<i32> rb0 7;
-//:     let p %RingBufferPop i32 pop_front<i32> rb1;
-//:     let rb2 %RingBuffer i32 ringbuffer_pop_buffer<i32> p;
-//:     let ok %bool is_empty<i32> &rb2;
-//:     free<i32> rb2;
+//:     let rb0 %RingBuffer i32 unwrap_ok new;
+//:     let rb1 %RingBuffer i32 unwrap_ok push rb0 7;
+//:     let p %RingBufferPop i32 pop_front rb1;
+//:     let rb2 %RingBuffer i32 ringbuffer_pop_buffer p;
+//:     let ok %bool is_empty &rb2;
+//:     free rb2;
 //:     if ok 1 0
 //: ```
 pub fn ringbuffer_pop_buffer <.T: Copy> %fn RingBufferPop .T RingBuffer .T \p:
