@@ -21,7 +21,7 @@
 //: - self-host compiler の stdlib discovery と import root scanning に必要な directory traversal を提供します。
 //:
 //: 実装(アルゴリズム):
-//: - path を正規化して directory fd を開き、`fd_readdir` の結果を `Vec<str>` に変換して sort します。
+//: - path を正規化して directory fd を開き、`fd_readdir` の結果を `Vec str` に変換して sort します。
 //:
 //: 注意(重要):
 //: - 戻り値は entry 名だけです。親 path との結合は caller が `/` 区切りで行います。

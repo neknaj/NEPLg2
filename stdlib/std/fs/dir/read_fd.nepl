@@ -2,7 +2,7 @@
 //: directory fd から entry 名を読み出す helper
 //:
 //: ### 目的
-//: - `fd_readdir` の raw dirent 配列を `Vec<str>` に変換する処理を path API から分離します。
+//: - `fd_readdir` の raw dirent 配列を `Vec str` に変換する処理を path API から分離します。
 //:
 //: ### 注意
 //: - fd の open/close は呼び出し側の責務です。
@@ -30,7 +30,7 @@
 //: - WASI dirent buffer 内の一時 byte 列を、UTF-8 として妥当な場合だけ戻り値として保持できる `str` に変換します。
 //:
 //: 実装(アルゴリズム):
-//: - caller が `RegionToken` 所有 buffer から導出した `MemPtr<u8>` view と byte length を受け取ります。
+//: - caller が `RegionToken` 所有 buffer から導出した `MemPtr u8` view と byte length を受け取ります。
 //: - `string_utf8_validate_mem` で byte 列を検証し、成功時だけ `string_from_mem_unchecked_result` で複製します。
 //:
 //: 注意(重要):
@@ -53,11 +53,11 @@ fn fs_dirent_name_to_string %fn MemPtr u8 fn i32 Result str i32 \src_ptr\byte_le
 //: fs_read_dir_fd: directory fd から entry 名を読み出す
 //:
 //: 目的:
-//: - `fd_readdir` の raw dirent 配列を `Vec<str>` に変換し、`fs_read_dir` の本体処理を分離します。
+//: - `fd_readdir` の raw dirent 配列を `Vec str` に変換し、`fs_read_dir` の本体処理を分離します。
 //:
 //: 実装(アルゴリズム):
 //: - 64KiB buffer で `fd_readdir` を繰り返し、dirent header と name byte 列を順に読みます。
-//: - fd_readdir buffer と used out-pointer は `RegionToken<u8>` が所有し、raw ABI へ渡す address は token から借りた non-owning view からだけ得ます。
+//: - fd_readdir buffer と used out-pointer は `RegionToken u8` が所有し、raw ABI へ渡す address は token から借りた non-owning view からだけ得ます。
 //: - `.` / `..` を除外してから byte 辞書順に sort します。
 //: - directory entry name の蓄積で確保に失敗した場合は `Err(12)` を返します。
 //:

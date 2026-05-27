@@ -26,7 +26,7 @@
 //:
 //: 実装(アルゴリズム):
 //: - fd_out 用の 4 byte buffer を確保し、`path_open` 成功時だけ fd を読み出して返します。
-//: - scratch の所有権は `RegionToken<u8>` が持ち、raw address view には解放責務を移しません。
+//: - scratch の所有権は `RegionToken u8` が持ち、raw address view には解放責務を移しません。
 //:
 //: 注意(重要):
 //: - dirfd は 3 (preopen) を仮定します。

@@ -39,7 +39,7 @@
 //: - path を `fs_normalize_relative_builder` で正規化し、WASI `path_filestat_get` の filestat.filetype byte を読みます。
 //: - 正規化後 path は `StringBuilder` owner のまま syscall へ渡し、呼び出し後に `string_builder_free` で閉じます。
 //: - syscall 成功時に読む filetype byte は呼び出し前に初期化し、外部 out-buffer 境界を Resource IR が追跡できる形にします。
-//: - filestat scratch の free obligation は `RegionToken<u8>` が持ち、raw address view には移しません。
+//: - filestat scratch の free obligation は `RegionToken u8` が持ち、raw address view には移しません。
 //:
 //: 注意(重要):
 //: - 戻り値は WASI filetype の整数値です。regular file は 4、directory は 3 です。

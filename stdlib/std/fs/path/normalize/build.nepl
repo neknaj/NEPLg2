@@ -26,7 +26,7 @@
 //: - component 間には `/` を挟みます。
 //:
 //: 注意(重要):
-//: - owned `Vec<str>` や一時 substring を作らないため、collection element owner cleanup に依存しません。
+//: - owned `Vec str` や一時 substring を作らないため、collection element owner cleanup に依存しません。
 //:
 //: 計算量:
 //: - 出力 byte 数 n に対して O(n)

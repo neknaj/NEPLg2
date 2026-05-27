@@ -2,7 +2,7 @@
 //: path component range stack の owner 操作
 //:
 //: ### 目的
-//: - 正規化中の component stack を `Vec<i32>` の `[start,end)` pair として扱う操作を集約します。
+//: - 正規化中の component stack を `Vec i32` の `[start,end)` pair として扱う操作を集約します。
 //:
 //: ### 注意
 //: - stack element は Copy な byte offset だけです。owned substring は作らず、元 path 上の range だけを保持します。
@@ -20,7 +20,7 @@
 //: - path component の `[start,end)` byte range を Copy な `i32` pair として stack に積みます。
 //:
 //: 実装(アルゴリズム):
-//: - `Vec<i32>` に start/end を順に push します。
+//: - `Vec i32` に start/end を順に push します。
 //:
 //: 注意(重要):
 //: - 失敗時は `v::push` が返した stack owner をこの関数内で閉じ、呼び出し側へ errno 12 を返します。
@@ -48,7 +48,7 @@ pub fn fs_normalize_range_push %fn Vec i32 fn i32 fn i32 Result Vec i32 i32 \sta
 //: - `..` component を処理するため、直前の start/end pair を stack から取り除きます。
 //:
 //: 実装(アルゴリズム):
-//: - `Vec<i32>` は `[start0,end0,start1,end1,...]` なので、末尾を 2 回 `pop` します。
+//: - `Vec i32` は `[start0,end0,start1,end1,...]` なので、末尾を 2 回 `pop` します。
 //:
 //: 注意(重要):
 //: - 呼び出し側は stack に少なくとも 1 component、つまり 2 要素あることを確認してから呼びます。

@@ -8,7 +8,7 @@
 //: ### 注意
 //: - 権限/パス解決はホスト環境に依存します。
 //: - この fallback は stdlib API の互換実装であり、WASI preopen model の完全再現ではありません。
-//: - Linux syscall に渡す一時 C string は `RegionToken<u8>` が所有し、`MemPtr<u8>` は syscall address を得るための non-owning view としてだけ使います。
+//: - Linux syscall に渡す一時 C string は `RegionToken u8` が所有し、`MemPtr u8` は syscall address を得るための non-owning view としてだけ使います。
 
 #indent 4
 

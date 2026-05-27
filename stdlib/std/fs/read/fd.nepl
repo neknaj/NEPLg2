@@ -29,7 +29,7 @@
 //: 実装(アルゴリズム):
 //: - `iov` の base/len と `nread` の初期値を raw address に対して同じ関数内で store します。
 //: - `fd_read` 成功後、同じ raw address から `nread` を load します。
-//: - 任意の `MemPtr<i32>` を作って関数境界越しに読む形にはしません。Resource IR の RawMemoryLoadCell が初期化 store を追跡できるようにするためです。
+//: - 任意の `MemPtr i32` を作って関数境界越しに読む形にはしません。Resource IR の RawMemoryLoadCell が初期化 store を追跡できるようにするためです。
 //:
 //: 注意(重要):
 //: - `iov` は 8 byte、`nread` は 4 byte、`data` は `data_len` byte 以上の有効領域を指している必要があります。
@@ -70,7 +70,7 @@ fn fs_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr u8
 //: fs_discard_read_buffer: owner 付き読み込み buffer を破棄して Err を返す内部 helper
 //:
 //: 目的:
-//: - read loop 側の error path で、`RegionToken<u8>` owner の破棄と `Result::Err` の構築を同じ所有権境界に閉じ込めます。
+//: - read loop 側の error path で、`RegionToken u8` owner の破棄と `Result::Err` の構築を同じ所有権境界に閉じ込めます。
 //:
 //: 注意(重要):
 //: - `region` はこの関数が必ず消費します。
@@ -86,12 +86,12 @@ fn fs_discard_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf
 //: fs_finish_read_buffer: capacity 付き読み込み buffer を ByteBuf の所有権 invariant へ詰め直す内部 helper
 //:
 //: 目的:
-//: - `RegionToken<u8>` で所有している一時読み込み buffer を、`ByteBuf` の storage が `ByteBuf.len` byte の所有領域を持つ形へ戻します。
+//: - `RegionToken u8` で所有している一時読み込み buffer を、`ByteBuf` の storage が `ByteBuf.len` byte の所有領域を持つ形へ戻します。
 //:
 //: 実装(アルゴリズム):
 //: - 読み込み長が 0 の場合は元 buffer を解放し、空 `ByteBuf` を返します。
 //: - 読み込み長が capacity 未満の場合は owner-preserving `realloc_region_bytes_keep` で exact-size に shrink してから `ByteBuf` にします。
-//: - `MemPtr` は non-owning view なので、この helper は `RegionToken<u8>` owner だけを受け取り、成功/失敗のどちらでも owner の行方を閉じます。
+//: - `MemPtr` は non-owning view なので、この helper は `RegionToken u8` owner だけを受け取り、成功/失敗のどちらでも owner の行方を閉じます。
 //:
 //: 注意(重要):
 //: - 成功時は返った `ByteBuf` が buffer を所有します。
@@ -145,7 +145,7 @@ fn fs_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result ByteBuf 
 //:
 //: 実装(アルゴリズム):
 //: - 64KiB から開始する連続 buffer を必要に応じて再確保し、EOF まで `fd_read` を繰り返します。
-//: - 読み込み buffer と iovec / nread scratch は `RegionToken<u8>` が所有し、raw ABI へ渡す `MemPtr<u8>` は `region_ptr` から得る非所有 view に限定します。
+//: - 読み込み buffer と iovec / nread scratch は `RegionToken u8` が所有し、raw ABI へ渡す `MemPtr u8` は `region_ptr` から得る非所有 view に限定します。
 //:
 //: 注意(重要):
 //: - 途中でエラーが出た場合は Err(errno) を返します。

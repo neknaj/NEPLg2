@@ -58,7 +58,7 @@ pub fn fs_str_lt %fn str fn str bool \a\b:
         then answer
         else lt la lb
 
-//: fs_sort_strings: Vec<str> を in-place に安定した byte 順へ並べる
+//: fs_sort_strings: Vec str を in-place に安定した byte 順へ並べる
 //:
 //: 目的:
 //: - `fs_read_dir` の戻り値を platform 非依存の順序に揃えます。
