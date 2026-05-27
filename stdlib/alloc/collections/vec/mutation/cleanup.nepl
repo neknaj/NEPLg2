@@ -74,7 +74,7 @@ fn vec_cleanup_release_storage <.T> %fn RegionToken .T unit \region:
     let raw %i32 field::get region "raw"
     let total_size %i32 field::get region "size"
     allocator::dealloc_raw raw total_size
-    #intrinsic "collection_slot_storage_dealloc" <> (&region)
+    #intrinsic "collection_slot_storage_dealloc" <.T> (&region)
 
 //: ## clear
 //: [要素/ようそ]をすべて[削除/さくじょ]する

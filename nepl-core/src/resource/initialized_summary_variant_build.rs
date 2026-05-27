@@ -145,6 +145,10 @@ pub(super) fn collect_variant_param_initialized_raw_cells_from_return(
             },
         );
         engine.auto_drop_points.clear();
+        // variant-param summary は return value を作るまでの prefix state だけを必要とする。
+        // control op 自体の分岐効果は merged state に反映済みなので、path alternatives を
+        // 次の兄弟 op へ持ち越すと、後続 op が同じ分岐積を何度も再生してしまう。
+        engine.path_alternatives = Default::default();
     }
 }
 
@@ -209,6 +213,10 @@ fn collect_branch_variant_param_initialized_raw_cells(
         },
     );
     path_engine.auto_drop_points.clear();
+    // branch arm 内の variant-param collection でも、以降で参照するのは arm の
+    // merged post-state である。path alternatives はこの局所 scan の内部状態なので、
+    // param fact 抽出へ持ち込まない。
+    path_engine.path_alternatives = Default::default();
 
     let mut path_param_cells = Vec::new();
     collect_param_initialized_raw_cells(&mut path_param_cells, &path_cells, &path_aliases, params);

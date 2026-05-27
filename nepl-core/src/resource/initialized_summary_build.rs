@@ -21,13 +21,16 @@ use super::initialized_summary_param_byte_ranges::collect_param_initialized_raw_
 use super::initialized_summary_param_cells::collect_param_initialized_raw_cells;
 use super::initialized_summary_release_build::collect_param_release_requirements_from_ops;
 use super::initialized_summary_return_byte_ranges::collect_return_initialized_raw_byte_ranges;
-use super::initialized_summary_seed::seed_summary_input_place;
+use super::initialized_summary_seed::{
+    seed_summary_input_place, summary_input_type_may_seed_raw_address_alias,
+};
 use super::initialized_summary_variant_build::collect_variant_param_initialized_raw_cells_from_return;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{ResourceFunction, ResourceModule, ResourceTerminator};
 use super::place_utils::reference_target_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
+use super::summary_dependency::build_function_summary_dependencies;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
@@ -37,9 +40,11 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
     raw_alias_summaries: &[RawCellAddressReturnSummary],
     i32_scalar_summaries: &[I32ScalarReturnSummary],
 ) -> Vec<RawCellInitializationFunctionSummary> {
-    let mut worklist = SummaryWorklist::new(module);
-    let mut summaries = Vec::new();
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
+    let relevant =
+        raw_cell_initialization_summary_relevance(module, types, &raw_alias_summary_index);
+    let mut worklist = SummaryWorklist::new_filtered(module, relevant);
+    let mut summaries = Vec::new();
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
@@ -66,6 +71,127 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
         );
     }
     summaries
+}
+
+fn raw_cell_initialization_summary_relevance(
+    module: &ResourceModule,
+    types: &TypeCtx,
+    raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
+) -> Vec<bool> {
+    let signature_relevant = module
+        .functions
+        .iter()
+        .map(|function| function_raw_cell_initialization_signature_relevant(types, function))
+        .collect::<Vec<_>>();
+    let mut relevant = module
+        .functions
+        .iter()
+        .enumerate()
+        .map(|(index, function)| {
+            signature_relevant[index]
+                && (raw_alias_summaries.get(&function.name).is_some()
+                    || function_has_direct_raw_initialization_summary_op(function))
+        })
+        .collect::<Vec<_>>();
+    let dependencies = build_function_summary_dependencies(module);
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for (index, function_dependencies) in dependencies.iter().enumerate() {
+            if relevant[index] || !signature_relevant[index] {
+                continue;
+            }
+            if function_dependencies
+                .iter()
+                .any(|dependency| relevant[*dependency])
+            {
+                relevant[index] = true;
+                changed = true;
+            }
+        }
+    }
+    relevant
+}
+
+fn function_raw_cell_initialization_signature_relevant(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+) -> bool {
+    // raw initialization summary は raw address / byte-range / release requirement を
+    // call 境界で受け渡すための要約である。`i32` は raw address の表現にも使われるが、
+    // すべての整数関数を summary 対象にすると、普通の算術処理まで raw memory 解析へ
+    // 巻き込んでしまう。まず公開可能な型を持つ関数だけを候補にし、実際の raw alias
+    // summary・raw memory 系 op・関連 callee から到達できるものだけを計算対象にする。
+    summary_input_type_may_seed_raw_address_alias(types, function.result)
+        || function
+            .params
+            .iter()
+            .any(|param| place_may_seed_raw_initialization_summary(types, &param.place))
+}
+
+fn place_may_seed_raw_initialization_summary(types: &TypeCtx, place: &super::model::Place) -> bool {
+    summary_input_type_may_seed_raw_address_alias(types, place.ty)
+        || reference_target_type(types, place.ty).is_some_and(|target_ty| {
+            summary_input_type_may_seed_raw_address_alias(types, target_ty)
+        })
+}
+
+fn function_has_direct_raw_initialization_summary_op(function: &ResourceFunction) -> bool {
+    function
+        .blocks
+        .iter()
+        .any(|block| ops_have_direct_raw_initialization_summary_op(&block.ops))
+}
+
+fn ops_have_direct_raw_initialization_summary_op(ops: &[super::model::ResourceOp]) -> bool {
+    ops.iter().any(op_has_direct_raw_initialization_summary_op)
+}
+
+fn op_has_direct_raw_initialization_summary_op(op: &super::model::ResourceOp) -> bool {
+    match op {
+        // Collection slot ops are not raw-memory instructions themselves, but the
+        // initialized-cell facts they create are consumed through the same raw init
+        // summary boundary at call sites. Treat them as direct triggers so helper
+        // functions without explicit RawMemory ops are not pruned out.
+        super::model::ResourceOp::RawMemory { .. }
+        | super::model::ResourceOp::RawAddressAlias { .. }
+        | super::model::ResourceOp::RawAddressView { .. }
+        | super::model::ResourceOp::StorageOrigin { .. }
+        | super::model::ResourceOp::IndirectCall { .. }
+        | super::model::ResourceOp::CollectionSlotLifecycle { .. }
+        | super::model::ResourceOp::CollectionStorageRelocate { .. }
+        | super::model::ResourceOp::CollectionSlotDropTraversal { .. }
+        | super::model::ResourceOp::CollectionSlotTransformRange { .. } => true,
+        super::model::ResourceOp::Branch {
+            then_ops, else_ops, ..
+        } => {
+            ops_have_direct_raw_initialization_summary_op(then_ops)
+                || ops_have_direct_raw_initialization_summary_op(else_ops)
+        }
+        super::model::ResourceOp::Loop {
+            condition_ops,
+            body_ops,
+            ..
+        } => {
+            ops_have_direct_raw_initialization_summary_op(condition_ops)
+                || ops_have_direct_raw_initialization_summary_op(body_ops)
+        }
+        super::model::ResourceOp::Match { arms, .. } => arms
+            .iter()
+            .any(|arm| ops_have_direct_raw_initialization_summary_op(&arm.ops)),
+        super::model::ResourceOp::Call { .. }
+        | super::model::ResourceOp::Expr { .. }
+        | super::model::ResourceOp::DeclareLocal { .. }
+        | super::model::ResourceOp::Read { .. }
+        | super::model::ResourceOp::Assign { .. }
+        | super::model::ResourceOp::Borrow { .. }
+        | super::model::ResourceOp::Move { .. }
+        | super::model::ResourceOp::Drop { .. }
+        | super::model::ResourceOp::EndScope { .. }
+        | super::model::ResourceOp::CallEffect { .. }
+        | super::model::ResourceOp::FunctionValue { .. }
+        | super::model::ResourceOp::Construct { .. } => false,
+    }
 }
 
 fn update_raw_cell_initialization_summary(
@@ -237,6 +363,60 @@ fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
     match types.get_ref(resolved) {
         TypeKind::Reference(target, _) => Some(*target),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::String;
+    use alloc::vec;
+
+    use crate::ast::Effect;
+    use crate::span::Span;
+    use crate::types::TypeCtx;
+
+    use super::super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
+    use super::super::model::{
+        Place, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceOp, ResourceTerminator,
+    };
+    use super::*;
+
+    /// collection slot helper は raw memory op を直接持たない場合でも、
+    /// call 境界で raw initialization summary と同じ initialized-cell facts を運ぶ。
+    /// relevance pruning がこれを落とすと、helper 経由の slot 初期化証明が消える。
+    #[test]
+    fn collection_slot_ops_are_raw_initialization_summary_triggers() {
+        let types = TypeCtx::new();
+        let unit = types.unit();
+        let slot = Place::local(String::from("slot"), unit);
+        let function = ResourceFunction {
+            name: String::from("slot_helper"),
+            origin_name: String::from("slot_helper"),
+            type_params: vec![],
+            params: vec![],
+            result: unit,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![ResourceOp::CollectionSlotLifecycle {
+                    target: slot,
+                    event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: unit },
+                    span: Span::dummy(),
+                }],
+                terminator: ResourceTerminator::Return {
+                    value: None,
+                    span: Span::dummy(),
+                },
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        };
+
+        assert!(
+            function_has_direct_raw_initialization_summary_op(&function),
+            "collection slot marker だけを持つ helper も raw initialization summary worklist の seed である必要がある"
+        );
     }
 }
 

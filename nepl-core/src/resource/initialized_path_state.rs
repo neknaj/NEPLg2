@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::vec;
 use alloc::vec::Vec;
 
 use super::cell_state::CellTable;
@@ -14,6 +15,8 @@ use super::{
     drop_point_path::ResourceDropPointPath,
     initialized_variant::PendingVariantRawCellInitializations,
 };
+
+const MAX_PATH_SENSITIVE_ALTERNATIVES: usize = 4;
 
 #[derive(Clone)]
 pub(super) struct ResourceCheckState {
@@ -53,10 +56,17 @@ pub(super) enum ResourcePathAlternatives {
 }
 
 impl ResourcePathAlternatives {
-    pub(super) fn from_states(states: Vec<ResourceCheckState>) -> Self {
+    pub(super) fn from_states(mut states: Vec<ResourceCheckState>) -> Self {
         // 空の候補集合は、既存の path-sensitive replay が全候補を棄却した
         // 結果として使われる。単に path-sensitive refinement が存在しない
         // 場合は、呼び出し元で `None` のままにして直線状態を保持する。
+        if states.len() > MAX_PATH_SENSITIVE_ALTERNATIVES {
+            // 分岐ごとの replay は診断位置を細かく保つための精密化であり、
+            // 安全性そのものは merge lattice で保守的に表現できる。上限を
+            // 超えた場合は全候補を一つの merged state に畳み、探索空間が
+            // 後続 operation ごとに指数的に増え続けることを防ぐ。
+            states = vec![merge_resource_check_states(&states)];
+        }
         Self::Feasible(states)
     }
 
@@ -64,6 +74,14 @@ impl ResourcePathAlternatives {
         match self {
             ResourcePathAlternatives::None => None,
             ResourcePathAlternatives::Feasible(states) => Some(states),
+        }
+    }
+
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    pub(super) fn len(&self) -> usize {
+        match self {
+            ResourcePathAlternatives::None => 0,
+            ResourcePathAlternatives::Feasible(states) => states.len(),
         }
     }
 }
@@ -115,18 +133,7 @@ impl ResourceCheckEngine<'_> {
     }
 }
 
-pub(super) fn merge_path_alternatives_into(
-    alternatives: &[ResourceCheckState],
-    cells: &mut CellTable,
-    collection_slots: &mut CollectionSlotStateTable,
-    raw_aliases: &mut RawCellAddressAliases,
-    function_aliases: &mut FunctionAliasTable,
-    pending_reallocs: &mut PendingRawReallocs,
-    variant_initializations: &mut PendingVariantRawCellInitializations,
-) {
-    if alternatives.is_empty() {
-        return;
-    }
+fn merge_resource_check_states(alternatives: &[ResourceCheckState]) -> ResourceCheckState {
     let cell_paths = alternatives
         .iter()
         .map(|state| state.cells.clone())
@@ -152,12 +159,67 @@ pub(super) fn merge_path_alternatives_into(
         .map(|state| state.variant_initializations.clone())
         .collect::<Vec<_>>();
     let merged_raw_aliases = RawCellAddressAliases::merge_paths(&alias_paths);
-    *cells =
-        CellTable::merge_paths_with_raw_aliases(&cell_paths, &alias_paths, &merged_raw_aliases);
-    *collection_slots = CollectionSlotStateTable::merge_paths(&collection_slot_paths);
-    *raw_aliases = merged_raw_aliases;
-    *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
-    *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
-    *variant_initializations =
-        PendingVariantRawCellInitializations::merge_paths(&variant_initialization_paths);
+    ResourceCheckState {
+        cells: CellTable::merge_paths_with_raw_aliases(
+            &cell_paths,
+            &alias_paths,
+            &merged_raw_aliases,
+        ),
+        collection_slots: CollectionSlotStateTable::merge_paths(&collection_slot_paths),
+        raw_aliases: merged_raw_aliases,
+        function_aliases: FunctionAliasTable::merge_paths(&function_alias_paths),
+        pending_reallocs: PendingRawReallocs::merge_paths(&pending_realloc_paths),
+        variant_initializations: PendingVariantRawCellInitializations::merge_paths(
+            &variant_initialization_paths,
+        ),
+    }
+}
+
+pub(super) fn merge_path_alternatives_into(
+    alternatives: &[ResourceCheckState],
+    cells: &mut CellTable,
+    collection_slots: &mut CollectionSlotStateTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    function_aliases: &mut FunctionAliasTable,
+    pending_reallocs: &mut PendingRawReallocs,
+    variant_initializations: &mut PendingVariantRawCellInitializations,
+) {
+    if alternatives.is_empty() {
+        return;
+    }
+    let merged = merge_resource_check_states(alternatives);
+    *cells = merged.cells;
+    *collection_slots = merged.collection_slots;
+    *raw_aliases = merged.raw_aliases;
+    *function_aliases = merged.function_aliases;
+    *pending_reallocs = merged.pending_reallocs;
+    *variant_initializations = merged.variant_initializations;
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec;
+
+    use super::*;
+
+    #[test]
+    fn path_alternatives_merge_to_single_state_after_precision_budget() {
+        let state = ResourceCheckState::new(
+            CellTable::default(),
+            CollectionSlotStateTable::new(),
+            RawCellAddressAliases::default(),
+            FunctionAliasTable::default(),
+            PendingRawReallocs::default(),
+            PendingVariantRawCellInitializations::default(),
+        );
+        let alternatives = vec![state; MAX_PATH_SENSITIVE_ALTERNATIVES + 1];
+
+        let ResourcePathAlternatives::Feasible(states) =
+            ResourcePathAlternatives::from_states(alternatives)
+        else {
+            panic!("from_states should keep feasible path alternatives");
+        };
+
+        assert_eq!(states.len(), 1);
+    }
 }

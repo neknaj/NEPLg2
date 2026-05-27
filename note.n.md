@@ -1,3 +1,17 @@
+# 2026-05-28 Web playground compile timeout fix checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を確認し、試作段階では不整合や未使用の重い処理を残さず、純粋 query / DAG / cache boundary で根本から探索空間を削る方針を維持した。
+- Web playground で compile が終了しない問題について、subagent 2 件で独立レビューした。共通した結論は、Rust/WASM release artifact と compiled-output cache 自体ではなく、`CompilerSession.prewarm_loader_cache_for_source` が source-directed prewarm 後に未使用の dependency aggregate public surface hash を同期計算している点が RPN で 120 秒 timeout を引き起こしている、というものだった。
+- `nepl-web/src/lib.rs` では、Web compile 前 prewarm を loader/parser cache の warmup だけへ戻した。dependency aggregate public surface hash は typed public surface / Resource IR summary cache の invalidation key として設計中の artifact であり、まだ消費していない段階では hot path で計算しない。
+- `nepl-core/src/loader.rs` の dependency aggregate query には同一 traversal 内 memo を追加した。将来この query を semantic cache へ接続するとき、diamond dependency graph で同じ configured stdlib module の部分木を何度も展開しないためである。
+- subagent review の正確性指摘に基づき、Branch / Match の sibling variant return facts を保持する path merge、collection slot operation の raw initialization relevance、offset / constant derived equality を戻した。速度だけを優先して静的検査の false negative を作らない判断である。
+- `Trunk.toml` と `web/index.html` で Rust/WASM artifact は release build に固定したが、NEPL source profile の既定値は `BuildProfile::default_source_profile() == Debug` として分離した。compiler artifact の最適化状態で `#if[profile=release]` の source semantics が変わらないようにした。
+- `CompilerSession` に同一 source / VFS / profile / WAT comment mode の compiled-output cache を追加した。cache value は wasm bytes と WAT debug comment だけで、`SourceMap` / typed HIR / `TypeId` / Resource IR summary / diagnostic span は保持しない。
+- 直接 prewarm 実測では RPN source の `CompilerSession.prewarm_loader_cache_for_source` が `prewarm_ms=267` / `prewarm_count=16` で完了し、dependency aggregate counters は 0 のままだった。
+- `node nodesrc/tests.js -i web/examples/rpn.nepl -o tmp/rpn_wasm_after_prewarm_fix.json --dist web/dist --runner wasm --no-tree -j 1` は 2/2 pass。初回 compile は `compile_ms=8976` / `prewarm_ms=193` / `wasm_call_ms=8783`、同一 session の 2 回目は `compile_ms=1` / `wasm_call_ms=0` / `compiled_output_cache_hits=1` だった。
+- native release RPN static check は `resource_static_check=9202ms`、`resource_initialized_i32_scalar_summaries=2012ms`、`resource_initialized_raw_init_summaries=2520ms`、`resource_initialized_function_checks=3730ms`。初回 0.5 秒未満には未達なので、次は typed public signature table / Resource IR summary cache へ進める。
+- `doc/neplg2/compiler_performance_cache_design.md`、`ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5`、`ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92` を更新し、Web prewarm の境界、dependency aggregate の扱い、実測値、compiled-output cache の false miss リスクを記録した。
+
 # 2026-05-27 Dependency aggregate public surface checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を再確認し、純粋 query と dependency DAG により探索空間を削る方針を維持した。今回の変更は typed HIR cache ではなく、stdlib dependency closure の public surface を畳み込む loader-level staging artifact である。

@@ -63,6 +63,12 @@ pub(super) fn collect_param_release_requirements_from_ops(
                 steps: Vec::new(),
             },
         );
+        // Release summary collection already scans branch, loop, and match bodies when it sees
+        // the control operation itself.  Carrying every feasible path into the following sibling
+        // operation would replay the same merged summary state exponentially on large allocator
+        // control flow, while adding no new release obligation that the nested scan did not
+        // already collect.
+        step_engine.path_alternatives = Default::default();
         step_engine.auto_drop_points.clear();
     }
 }

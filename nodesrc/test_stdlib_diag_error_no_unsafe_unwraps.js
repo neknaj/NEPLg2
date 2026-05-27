@@ -53,8 +53,17 @@ assert.match(code.root, /pub\s+#import\s+"\.\/*error\/outcome"\s+as\s+\*/, 'root
 assert.doesNotMatch(code.root, /^\s*(fn|struct|enum|impl)\b/m, 'alloc/diag/error.nepl must stay a public facade without implementation bodies');
 assert.doesNotMatch(code.diags, /#import\s+"core\/mem(?:\/(?:internal|raw))?"\s+as\b/, 'Diags owner helpers must not import raw memory modules for read-only observers');
 assert.doesNotMatch(code.diags, /\b(?:mem_ptr_addr|data_mem_(?:ptr|view)|load<Diag>|size_of<Diag>)\b/, 'Diags read-only observers must not scan Vec storage through raw memory');
-assert.match(code.diags, /fn\s+diags_has_errors\s+<\(&Diags\)->bool>[\s\S]*v::len\s+items[\s\S]*diags_has_errors_loop\s+items\s+items_len\s+0/, 'diags_has_errors must observe Diags through the borrowed Vec boundary');
-assert.match(code.diags, /fn\s+diags_has_errors_loop\s+<\(&Vec<Diag>,i32,i32\)->bool>[\s\S]*match\s+v::get\s+items\s+i:/, 'diags_has_errors traversal must use Vec.get rather than raw loads');
+assert.doesNotMatch(code.types, /#import\s+"alloc\/collections\/vec"\s+as\s+v/, 'Diag type definitions must not import the broad Vec root facade just to name Vec-backed fields');
+assert.doesNotMatch(code.diags, /#import\s+"alloc\/collections\/vec"\s+as\s+v/, 'Diags owner helpers must not import the broad Vec root facade');
+assert.match(code.types, /#import\s+"alloc\/collections\/vec\/types"\s+as\s+\*/, 'Diag type definitions must import Vec types directly');
+assert.match(code.diags, /#import\s+"alloc\/collections\/vec\/storage\/view"\s+as\s+vec_view/, 'Diags fallback storage must import Vec empty storage directly');
+assert.match(code.diags, /#import\s+"alloc\/collections\/vec\/storage\/api"\s+as\s+vec_alloc/, 'Diags allocation must import Vec constructors directly');
+assert.match(code.diags, /#import\s+"alloc\/collections\/vec\/mutation\/push"\s+as\s+vec_push/, 'Diags append must import Vec push directly');
+assert.match(code.diags, /#import\s+"alloc\/collections\/vec\/mutation\/cleanup"\s+as\s+vec_cleanup/, 'Diags cleanup must import Vec cleanup directly');
+assert.match(code.diags, /#import\s+"alloc\/collections\/vec\/access\/header"\s+as\s+vec_header/, 'Diags observers must import Vec header observers directly');
+assert.match(code.diags, /#import\s+"alloc\/collections\/vec\/query\/get"\s+as\s+vec_get/, 'Diags error scan must import Vec get directly');
+assert.match(code.diags, /fn\s+diags_has_errors\s+<\(&Diags\)->bool>[\s\S]*vec_header::len\s+items[\s\S]*diags_has_errors_loop\s+items\s+items_len\s+0/, 'diags_has_errors must observe Diags through the borrowed Vec boundary');
+assert.match(code.diags, /fn\s+diags_has_errors_loop\s+<\(&Vec<Diag>,i32,i32\)->bool>[\s\S]*match\s+vec_get::get\s+items\s+i:/, 'diags_has_errors traversal must use Vec.get rather than raw loads');
 assert.doesNotMatch(code.diag, /\b(?:mem_ptr_addr|load<Diag>)\b/, 'single diagnostic helpers must not carry direct raw memory evidence');
 assert.doesNotMatch(code.renderer, /#import\s+"core\/mem(?:\/(?:internal|raw))?"\s+as\b/, 'diagnostic renderer must not import raw memory modules');
 assert.doesNotMatch(code.renderer, /\b(?:mem_ptr_addr|data_mem_(?:ptr|view)|load<Diag>|size_of<Diag>)\b/, 'diagnostic renderer must not scan Diags through raw Vec storage');
@@ -91,13 +100,13 @@ assert.match(code.diag, /fn\s+diag_empty_collection\s+<\(\)\*>Diag>\s+\(\):\s+di
 assert.match(code.diag, /fn\s+diag_capacity_exceeded\s+<\(\)\*>Diag>\s+\(\):\s+diag_error\s+StdErrorKind::CapacityExceeded\s+"capacity exceeded"/, 'diag_capacity_exceeded must be zero-argument and static-message based');
 assert.match(code.diag, /fn\s+diag_key_not_found\s+<\(\)\*>Diag>\s+\(\):\s+diag_error\s+StdErrorKind::KeyNotFound\s+"key not found"/, 'diag_key_not_found must be zero-argument and static-message based');
 
-assert.match(code.diags, /fn\s+diag_empty_diag_vec\s+<\(\)->Vec<Diag>>\s+\(\):\s+v::vec_empty\b/, 'Diags allocation fallback must use typed empty Vec storage');
-assert.match(code.diags, /fn\s+diags_free\s+<\(Diags\)->unit>\s+\(ds\):\s+v::free\s+field::get\s+ds\s+"items"/, 'Diags must provide an explicit by-value consumption helper');
+assert.match(code.diags, /fn\s+diag_empty_diag_vec\s+<\(\)->Vec<Diag>>\s+\(\):\s+vec_view::vec_empty\b/, 'Diags allocation fallback must use typed empty Vec storage');
+assert.match(code.diags, /fn\s+diags_free\s+<\(Diags\)->unit>\s+\(ds\):\s+vec_cleanup::free\s+field::get\s+ds\s+"items"/, 'Diags must provide an explicit by-value consumption helper');
 assert.match(code.diags, /fn\s+diags_len\s+<\(Diags\)->i32>\s+\(ds\):[\s\S]*let\s+n\s+<i32>\s+diags_len\s+&ds[\s\S]*diags_free\s+ds[\s\S]*n/, 'by-value diags_len must close the Diags owner after observation');
 assert.match(code.diags, /fn\s+diags_has_errors\s+<\(Diags\)->bool>\s+\(ds\):[\s\S]*let\s+ok\s+<bool>\s+diags_has_errors\s+&ds[\s\S]*diags_free\s+ds[\s\S]*ok/, 'by-value diags_has_errors must close the Diags owner after observation');
 assert.match(code.diags, /match\s+level:[\s\S]*DiagLevel::Error:[\s\S]*DiagLevel::Log:[\s\S]*DiagLevel::Info:[\s\S]*DiagLevel::Warn:/, 'diags_has_errors_loop must branch by exhaustive DiagLevel match arms');
-assert.match(code.diags, /fn\s+diags_one\s+<\(Diag\)\*>Diags>\s+\(d\):[\s\S]*match\s+v::push\s+items0\s+d:[\s\S]*Result::Err\s+e:[\s\S]*v::free\s+v::vec_push_error_vec\s+e[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_one must close the recovered Vec owner before converting push failure to an empty Diags sentinel');
-assert.match(code.diags, /fn\s+diags_push\s+<\(Diags,Diag\)\*>Diags>\s+\(ds,\s*d\):[\s\S]*let\s+items\s+<Vec<Diag>>\s+field::get\s+ds\s+"items"[\s\S]*match\s+v::push\s+items\s+d:[\s\S]*Result::Err\s+e:[\s\S]*v::free\s+v::vec_push_error_vec\s+e[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_push must close the recovered Vec owner before converting grow failure to an empty Diags sentinel');
+assert.match(code.diags, /fn\s+diags_one\s+<\(Diag\)\*>Diags>\s+\(d\):[\s\S]*match\s+vec_push::push\s+items0\s+d:[\s\S]*Result::Err\s+e:[\s\S]*vec_cleanup::free\s+vec_push::vec_push_error_vec\s+e[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_one must close the recovered Vec owner before converting push failure to an empty Diags sentinel');
+assert.match(code.diags, /fn\s+diags_push\s+<\(Diags,Diag\)\*>Diags>\s+\(ds,\s*d\):[\s\S]*let\s+items\s+<Vec<Diag>>\s+field::get\s+ds\s+"items"[\s\S]*match\s+vec_push::push\s+items\s+d:[\s\S]*Result::Err\s+e:[\s\S]*vec_cleanup::free\s+vec_push::vec_push_error_vec\s+e[\s\S]*Diags\s+diag_empty_diag_vec/, 'diags_push must close the recovered Vec owner before converting grow failure to an empty Diags sentinel');
 
 assert.match(code.outcome, /struct\s+Outcome<\.T,\s*\.E>:[\s\S]*result\s+<Result<\.T,\s*\.E>>[\s\S]*diags\s+<Option<Diags>>/, 'Outcome must keep result and Diags as separate axes');
 assert.match(code.outcome, /fn\s+outcome_with_diags[\s\S]*Option::Some\s+old_ds:[\s\S]*diags_free\s+old_ds/, 'outcome_with_diags must close any replaced Diags owner');

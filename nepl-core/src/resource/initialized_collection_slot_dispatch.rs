@@ -1,4 +1,7 @@
 use super::cell_state::CellTable;
+use super::collection_slot_payload_tracking::{
+    collection_slot_lifecycle_event_needs_tracking, collection_slot_payload_type_needs_tracking,
+};
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
@@ -19,6 +22,9 @@ pub(super) fn check_initialized_collection_slot_op(
             event,
             span,
         } => {
+            if !collection_slot_lifecycle_event_needs_tracking(engine.types, *event) {
+                return true;
+            }
             engine.apply_collection_slot_lifecycle_with_aliases(
                 cells,
                 collection_slots,
@@ -51,6 +57,9 @@ pub(super) fn check_initialized_collection_slot_op(
             expected_ty,
             span,
         } => {
+            if !collection_slot_payload_type_needs_tracking(engine.types, *expected_ty) {
+                return true;
+            }
             engine.apply_local_collection_slot_drop_traversal(
                 cells,
                 collection_slots,
@@ -70,6 +79,9 @@ pub(super) fn check_initialized_collection_slot_op(
             expected_ty,
             span,
         } => {
+            if !collection_slot_payload_type_needs_tracking(engine.types, *expected_ty) {
+                return true;
+            }
             engine.apply_local_collection_slot_transform_range_with_aliases(
                 cells,
                 collection_slots,

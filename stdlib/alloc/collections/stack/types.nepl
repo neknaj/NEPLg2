@@ -15,7 +15,7 @@
 #import "core/option" as *
 #import "core/field" as field
 #import "core/traits/copy" as *
-#import "alloc/diag/error" as *
+#import "alloc/diag/error/types" as *
 #import "alloc/collections/vec/types" as *
 
 //: ## Stack

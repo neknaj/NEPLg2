@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-05-27
-updated: 2026-05-27
+updated: 2026-05-28
 target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 ---
 
@@ -65,8 +65,13 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - `trunk build --release` 後の public surface hash checkpoint 実測では、aggregate first が `compile_ms=17` / `prewarm_ms=3` / `wasm_call_ms=14` / `public_surface_hash_hits=13`、aggregate second が `compile_ms=3` / `prewarm_ms=0` / `wasm_call_ms=3` / `public_surface_hash_hits=18`、body-only edit が `compile_ms=3` / `prewarm_ms=0` / `wasm_call_ms=3` / `public_surface_hash_hits=23` だった。
 - eighth checkpoint では、`SourceImportEdge` と module `public_surface_hash` を畳み込む `root_dependency_aggregate_public_surface_hash_for_source_with_cache` を追加した。root source の import surface、canonical stdlib path、module public surface hash、child dependency aggregate hash を使う loader-level query であり、typed HIR / `ImportResolution` / `TypeId` / Resource IR / codegen fragment はまだ保持しない。
 - dependency aggregate cache key は source body hash ではなく module public surface hash と child aggregate hash を使う。これにより dependency body-only edit では aggregate hit になり、public signature edit では invalidation される。non-stdlib dependency edge は provider で読まず conservative external hash として bypass する。
-- `CompilerSession.prewarm_loader_cache_for_source` は source-directed prewarm 後に aggregate hash を計算し、root prewarm surface hash から dependency aggregate hash を引ける map に保持する。`CompilerSession.loader_cache_stats_json()` は `dependency_aggregate_public_surface_hash_hits` / `misses` / `stores` / `bypasses` を返す。
+- `CompilerSession.loader_cache_stats_json()` は `dependency_aggregate_public_surface_hash_hits` / `misses` / `stores` / `bypasses` を返す。ただし 2026-05-28 の修正で、`CompilerSession.prewarm_loader_cache_for_source` は dependency aggregate hash を同期計算しない形へ戻した。これは typed public surface / Resource IR summary cache がまだこの hash を消費しておらず、RPN のような stdlib-heavy source では compile 前 prewarm が private implementation graph を広く歩いて 120 秒 timeout するためである。
 - `trunk build --release` 後の dependency aggregate checkpoint 実測では、aggregate first が `compile_ms=17` / `prewarm_ms=3` / `wasm_call_ms=14` / `dependency_aggregate_public_surface_hash_hits=4` / `misses=5` / `stores=5`、aggregate second が `compile_ms=4` / `prewarm_ms=0` / `wasm_call_ms=4` / `prewarm_surface_hits=1`、body-only edit が `compile_ms=4` / `prewarm_ms=0` / `wasm_call_ms=4` / `prewarm_surface_hits=2` だった。
+- 2026-05-28 checkpoint では、Web playground の通常 `trunk build` が Rust/WASM release artifact を作るように `Trunk.toml` の `[build].release = true` と HTML Rust asset の `data-cargo-profile="release"` を固定した。debug WASM を配布して compile が終了しないように見える経路を避ける。
+- 同 checkpoint で、NEPL source profile の既定値を `debug` に固定した。compiler artifact 自身が release build でも、明示 profile がなければ `#if[profile=release]` は有効化しない。
+- 同 checkpoint で `CompilerSession` に compiled-output cache を追加した。key は entry path、source、compile VFS、NEPL source profile、WAT comment mode であり、value は `CompiledWasm` だけである。`SourceMap` / typed HIR / `TypeId` / Resource IR summary / diagnostic span は保持しない。
+- RPN の release WASM doctest 実測では、dependency aggregate を prewarm hot path から外した後、2 件とも完走した。同一 session の初回 compile は `compile_ms=8976` / `prewarm_ms=193` / `wasm_call_ms=8783`、同一 source 2 回目は `compile_ms=1` / `wasm_call_ms=0` / `compiled_output_cache_hits=1` だった。これは同一入力の再compile停止を避ける応急境界であり、初回 0.5 秒未満の目標は未達である。
+- native release RPN static check は correctness review 修正後に `resource_initialized_i32_scalar_summaries=2012ms`、`resource_initialized_raw_init_summaries=2520ms`、`resource_initialized_function_checks=3730ms`、`resource_static_check=9202ms` だった。次は dependency aggregate public surface hash を typed public signature table / Resource IR summary cache の invalidation key へ接続し、未変更 dependency の Resource IR summary を再利用する。
 
 ## 問題
 
@@ -87,7 +92,7 @@ MVP は次の順に進める。
 1. `nepl-web` に `CompilerSession` wasm-bindgen class を公開し、Node runner が session API を優先する状態にする。
 2. `nepl-core` に source text / lex / parse / import graph / type arity を query として分離する session API を追加する。現在は source arity surface cache と parsed stdlib module cache まで実装済みで、typed public surface cache は未実装。
 3. Web terminal の worker を compile ごとに破棄せず、同一 WASM instance / `CompilerSession` が複数 compile にまたがって warm state を保持するようにする。これは実装済みなので、次は `CompilerSession` 側へ semantic cache を載せる。
-4. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。raw parsed module、stdlib-only source import/arity surface、source-directed loader prewarm、stdlib module public surface hash、dependency aggregate public surface hash は実装済み。次 checkpoint はこの aggregate hash を typed public signature table / Resource IR summary cache の invalidation key へ接続する semantic cache 境界を設計する。
+4. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。raw parsed module、stdlib-only source import/arity surface、source-directed loader prewarm、stdlib module public surface hash、dependency aggregate public surface hash query、同一入力 compiled-output cache は実装済み。dependency aggregate query は Web prewarm hot path から外しているため、次 checkpoint はこの aggregate hash を typed public signature table / Resource IR summary cache の invalidation key として実際に消費する semantic cache 境界を設計する。
 5. stdlib artifact に public signature table、trait impl index、source capability tableを持たせ、通常 compile では entry source と overlay source だけを新規処理する。
 6. Resource IR summary を function hash + source capability hash + type argument hash で cache し、entry から到達する changed functions だけを再計算する。
 7. codegen fragment cache を function hash 単位にし、unchanged fragments を signature/index table へ再接続する。
@@ -118,6 +123,8 @@ MVP は次の順に進める。
 - provider prewarm 後の同一 session load で `public_surface_hash_hits` が増えることの unit test
 - dependency aggregate public surface hash が re-exported stdlib dependency の body-only edit で変わらず、public signature edit で変わることの unit test
 - non-stdlib dependency edge が bundled stdlib aggregate cache で provider read されず、bypass として観測されることの unit test
+- 同一 `CompilerSession` の compiled-output cache hit が compile_ms を 10ms 未満へ下げ、source / VFS / profile / WAT comment mode の変更で stale hit しないことの Node/Web regression test
+- compiled-output cache は現時点では compile VFS 全体を key に含めるため、未使用 editable `.nepl` file の変更で false miss し得る。依存 closure based key は typed public surface / import graph cache と同じ invalidation 証明を持つ段階で追加する。
 - 同じ `CompilerSession` の 2 回目 prewarm reuse を `prewarm_surface_hits` で観測できることの Node runner regression test
 - compile VFS に `/stdlib` overlay がある場合、bundled prewarm を skip することの Node runner regression test
 - forced stdlib VFS path が session cache を使わないことの Node runner regression test

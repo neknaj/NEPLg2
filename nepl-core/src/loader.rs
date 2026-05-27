@@ -282,6 +282,20 @@ struct LoaderDependencyAggregatePublicSurfaceKey {
     dependency_aggregate_public_surface_hash: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct LoaderShallowTypeArityKey {
+    path: PathBuf,
+    source_hash: u64,
+}
+
+type ShallowTypeArityHintCache = BTreeMap<LoaderShallowTypeArityKey, Vec<(String, usize)>>;
+
+#[derive(Debug, Clone)]
+struct ShallowTypeArityHints {
+    hints: Vec<(String, usize)>,
+    complete: bool,
+}
+
 #[derive(Debug, Clone)]
 struct CachedParsedModule {
     module: Module,
@@ -346,39 +360,41 @@ impl CachedAritySurface {
 
     fn preload_paths(&self, is_root: bool) -> Vec<PathBuf> {
         let mut paths = Vec::new();
+        let mut seen = BTreeSet::new();
         let has_explicit_prelude = self
             .edges
             .iter()
             .any(|edge| edge.kind == SourceImportEdgeKind::Prelude);
         if is_root && self.implicit_default_prelude && !self.no_prelude && !has_explicit_prelude {
-            paths.push(self.default_prelude_path.clone());
+            push_unique_canonical_path(&mut paths, &mut seen, &self.default_prelude_path);
         }
         let mut dependency_edges = self.edges.iter().collect::<Vec<_>>();
         dependency_edges.sort_by_key(|edge| edge.source_order);
-        paths.extend(
-            dependency_edges
-                .into_iter()
-                .filter(|edge| {
-                    matches!(
-                        edge.kind,
-                        SourceImportEdgeKind::Prelude
-                            | SourceImportEdgeKind::Import
-                            | SourceImportEdgeKind::Include
-                    )
-                })
-                .map(|edge| edge.target_path.clone()),
-        );
+        for edge in dependency_edges.into_iter().filter(|edge| {
+            matches!(
+                edge.kind,
+                SourceImportEdgeKind::Prelude
+                    | SourceImportEdgeKind::Import
+                    | SourceImportEdgeKind::Include
+            )
+        }) {
+            push_unique_canonical_path(&mut paths, &mut seen, &edge.target_path);
+        }
         paths
     }
 
     fn public_reexport_paths(&self) -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        let mut seen = BTreeSet::new();
         let mut reexport_edges = self.edges.iter().collect::<Vec<_>>();
         reexport_edges.sort_by_key(|edge| edge.source_order);
-        reexport_edges
+        for edge in reexport_edges
             .into_iter()
             .filter(|edge| edge.public_reexport_eligible())
-            .map(|edge| edge.target_path.clone())
-            .collect()
+        {
+            push_unique_canonical_path(&mut paths, &mut seen, &edge.target_path);
+        }
+        paths
     }
 }
 
@@ -394,7 +410,7 @@ pub struct Loader {
 impl Loader {
     pub fn new(stdlib_root: PathBuf) -> Self {
         Self {
-            stdlib_root,
+            stdlib_root: canonicalize_path(&stdlib_root),
             source_map: SourceMap::new(),
         }
     }
@@ -409,6 +425,7 @@ impl Loader {
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
+        let mut shallow_type_arity_cache = BTreeMap::new();
         let module = match self.load_from_contents(
             path,
             src,
@@ -416,6 +433,7 @@ impl Loader {
             &mut cache,
             &mut processing,
             &mut imported,
+            &mut shallow_type_arity_cache,
             true,
         ) {
             Ok(m) => m,
@@ -442,6 +460,7 @@ impl Loader {
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
+        let mut shallow_type_arity_cache = BTreeMap::new();
         let module = match self.load_from_contents_with(
             path,
             src,
@@ -449,6 +468,7 @@ impl Loader {
             &mut cache,
             &mut processing,
             &mut imported,
+            &mut shallow_type_arity_cache,
             true,
             provider,
             None,
@@ -486,6 +506,7 @@ impl Loader {
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
+        let mut shallow_type_arity_cache = BTreeMap::new();
         let module = match self.load_from_contents_with(
             path,
             src,
@@ -493,6 +514,7 @@ impl Loader {
             &mut cache,
             &mut processing,
             &mut imported,
+            &mut shallow_type_arity_cache,
             true,
             provider,
             Some(session_cache),
@@ -540,6 +562,7 @@ impl Loader {
         let mut sm = SourceMap::new();
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut warmed = 0;
+        let mut shallow_type_arity_cache = BTreeMap::new();
         for root in roots {
             let canon = canonicalize_path(root);
             if !self.configured_stdlib_source_path(&canon) {
@@ -548,12 +571,19 @@ impl Loader {
             }
             let mut processing = BTreeSet::new();
             let mut imported_once = BTreeSet::new();
+            // Prewarm starts from an already selected import root.  Facade modules
+            // may re-enter that root through public re-export cycles, and normal
+            // compile treats that edge as already imported rather than as a hard
+            // loader failure.  Mark the root before traversal so warmup mirrors
+            // the real import-once boundary.
+            imported_once.insert(canon.clone());
             self.load_file_with(
                 &canon,
                 &mut sm,
                 &mut cache,
                 &mut processing,
                 &mut imported_once,
+                &mut shallow_type_arity_cache,
                 false,
                 provider,
                 Some(session_cache),
@@ -660,11 +690,13 @@ impl Loader {
         );
         let surface = self.source_arity_surface(&canon, file_id, source, Some(session_cache));
         let mut visiting = BTreeSet::new();
+        let mut computed = BTreeMap::new();
         let dependencies = self.dependency_aggregate_public_surface_hashes_for_paths(
             surface.preload_paths(true),
             provider,
             session_cache,
             &mut visiting,
+            &mut computed,
         )?;
         let mut hash = FNV_OFFSET_BASIS;
         fnv1a64_update(&mut hash, LOADER_SESSION_CACHE_VERSION.as_bytes());
@@ -680,12 +712,14 @@ impl Loader {
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
+        let mut shallow_type_arity_cache = BTreeMap::new();
         let module = match self.load_file(
             entry,
             &mut sm,
             &mut cache,
             &mut processing,
             &mut imported,
+            &mut shallow_type_arity_cache,
             true,
         ) {
             Ok(m) => m,
@@ -709,6 +743,7 @@ impl Loader {
         cache: &mut BTreeMap<PathBuf, Module>,
         processing: &mut BTreeSet<PathBuf>,
         imported_once: &mut BTreeSet<PathBuf>,
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         is_root: bool,
     ) -> Result<Module, LoaderError> {
         // For pseudo files (stdin) canonicalize may fail; fall back to provided path.
@@ -735,6 +770,7 @@ impl Loader {
             cache,
             processing,
             imported_once,
+            shallow_type_arity_cache,
             is_root,
         )?;
         let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
@@ -749,6 +785,7 @@ impl Loader {
             cache,
             processing,
             imported_once,
+            shallow_type_arity_cache,
             is_root,
         )?;
         processing.remove(&canon);
@@ -764,6 +801,7 @@ impl Loader {
         cache: &mut BTreeMap<PathBuf, Module>,
         processing: &mut BTreeSet<PathBuf>,
         imported_once: &mut BTreeSet<PathBuf>,
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
@@ -796,6 +834,7 @@ impl Loader {
             cache,
             processing,
             imported_once,
+            shallow_type_arity_cache,
             is_root,
             provider,
             session_cache.as_deref_mut(),
@@ -813,6 +852,7 @@ impl Loader {
             cache,
             processing,
             imported_once,
+            shallow_type_arity_cache,
             is_root,
             provider,
             session_cache.as_deref_mut(),
@@ -830,6 +870,7 @@ impl Loader {
         cache: &mut BTreeMap<PathBuf, Module>,
         processing: &mut BTreeSet<PathBuf>,
         imported_once: &mut BTreeSet<PathBuf>,
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         is_root: bool,
     ) -> Result<Module, LoaderError> {
         let canon = canonicalize_path(&path);
@@ -858,6 +899,7 @@ impl Loader {
             cache,
             processing,
             imported_once,
+            shallow_type_arity_cache,
             is_root,
         )?;
         let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
@@ -873,6 +915,7 @@ impl Loader {
             cache,
             processing,
             imported_once,
+            shallow_type_arity_cache,
             is_root,
         )?;
         loader_log!("[Loader] Finished loading: {:?}", canon);
@@ -888,6 +931,7 @@ impl Loader {
         cache: &mut BTreeMap<PathBuf, Module>,
         processing: &mut BTreeSet<PathBuf>,
         imported_once: &mut BTreeSet<PathBuf>,
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
@@ -916,6 +960,7 @@ impl Loader {
             cache,
             processing,
             imported_once,
+            shallow_type_arity_cache,
             is_root,
             provider,
             session_cache.as_deref_mut(),
@@ -941,6 +986,7 @@ impl Loader {
             cache,
             processing,
             imported_once,
+            shallow_type_arity_cache,
             is_root,
             provider,
             session_cache.as_deref_mut(),
@@ -955,38 +1001,42 @@ impl Loader {
         base: &PathBuf,
         file_id: FileId,
         src: &str,
-        sm: &mut SourceMap,
-        cache: &mut BTreeMap<PathBuf, Module>,
+        _sm: &mut SourceMap,
+        _cache: &mut BTreeMap<PathBuf, Module>,
         processing: &mut BTreeSet<PathBuf>,
-        imported_once: &BTreeSet<PathBuf>,
+        _imported_once: &BTreeSet<PathBuf>,
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         is_root: bool,
     ) -> Result<Vec<(String, usize)>, LoaderError> {
-        // NEPLg2.1 prefix type annotations need import arities before the
-        // importing module can be parsed. This preload path uses the normal
-        // loader recursively so dependency modules are parsed with the same
-        // source-map and directive semantics as the later full import pass.
+        // NEPLg2.1 prefix type annotations need type-constructor arities before
+        // the importing module can be parsed. The arity query must stay shallow:
+        // it reads declaration heads from direct dependencies and public
+        // facade re-exports, but it does not run the normal loader. A full
+        // load would cache context-dependent merged modules before the real
+        // import pass and can multiply diamond stdlib graphs into very large
+        // merged ASTs.
         let paths = self.type_arity_preload_paths(base, file_id, src, is_root);
         let mut hints = Vec::new();
         for path in paths {
+            let mut visited = BTreeSet::new();
             let canon = canonicalize_path(&path);
             if processing.contains(&canon) {
-                let mut visited = BTreeSet::new();
-                let shallow_hints =
-                    self.shallow_type_arity_hints_from_file(&path, file_id, &mut visited)?;
-                push_loader_type_arity_hints(&mut hints, shallow_hints);
+                let shallow_hints = self.shallow_type_arity_hints_from_file(
+                    &path,
+                    file_id,
+                    &mut visited,
+                    shallow_type_arity_cache,
+                )?;
+                push_loader_type_arity_hints(&mut hints, shallow_hints.hints);
                 continue;
             }
-            let mut preload_imported_once = imported_once.clone();
-            preload_imported_once.insert(canon);
-            let module = self.load_file(
-                &path,
-                sm,
-                cache,
-                processing,
-                &mut preload_imported_once,
-                false,
+            let shallow_hints = self.shallow_type_arity_hints_from_file(
+                &canon,
+                file_id,
+                &mut visited,
+                shallow_type_arity_cache,
             )?;
-            push_loader_type_arity_hints(&mut hints, parser::type_arity_hints_from_module(&module));
+            push_loader_type_arity_hints(&mut hints, shallow_hints.hints);
         }
         Ok(hints)
     }
@@ -996,18 +1046,20 @@ impl Loader {
         base: &PathBuf,
         file_id: FileId,
         src: &str,
-        sm: &mut SourceMap,
-        cache: &mut BTreeMap<PathBuf, Module>,
+        _sm: &mut SourceMap,
+        _cache: &mut BTreeMap<PathBuf, Module>,
         processing: &mut BTreeSet<PathBuf>,
-        imported_once: &BTreeSet<PathBuf>,
+        _imported_once: &BTreeSet<PathBuf>,
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<Vec<(String, usize)>, LoaderError> {
-        // Provider-backed loading has the same arity contract as filesystem
-        // loading, but every dependency source must come from the caller's
-        // virtual file provider so tests and web-facing callers stay
-        // platform-independent.
+        // Provider-backed loading has the same shallow arity contract as
+        // filesystem loading. Every dependency source comes from the caller's
+        // virtual file provider, but this query still avoids normal loading so
+        // Web sessions do not cache merged modules from a speculative preload
+        // context.
         let paths = self.type_arity_preload_paths_with_cache(
             base,
             file_id,
@@ -1017,32 +1069,29 @@ impl Loader {
         );
         let mut hints = Vec::new();
         for path in paths {
+            let mut visited = BTreeSet::new();
             let canon = canonicalize_path(&path);
             if processing.contains(&canon) {
-                let mut visited = BTreeSet::new();
                 let shallow_hints = self.shallow_type_arity_hints_from_file_with(
-                    &path,
+                    &canon,
                     file_id,
                     &mut visited,
+                    shallow_type_arity_cache,
                     provider,
                     session_cache.as_deref_mut(),
                 )?;
-                push_loader_type_arity_hints(&mut hints, shallow_hints);
+                push_loader_type_arity_hints(&mut hints, shallow_hints.hints);
                 continue;
             }
-            let mut preload_imported_once = imported_once.clone();
-            preload_imported_once.insert(canon);
-            let module = self.load_file_with(
-                &path,
-                sm,
-                cache,
-                processing,
-                &mut preload_imported_once,
-                false,
+            let shallow_hints = self.shallow_type_arity_hints_from_file_with(
+                &canon,
+                file_id,
+                &mut visited,
+                shallow_type_arity_cache,
                 provider,
                 session_cache.as_deref_mut(),
             )?;
-            push_loader_type_arity_hints(&mut hints, parser::type_arity_hints_from_module(&module));
+            push_loader_type_arity_hints(&mut hints, shallow_hints.hints);
         }
         Ok(hints)
     }
@@ -1052,13 +1101,37 @@ impl Loader {
         path: &PathBuf,
         file_id: FileId,
         visited: &mut BTreeSet<PathBuf>,
-    ) -> Result<Vec<(String, usize)>, LoaderError> {
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
+    ) -> Result<ShallowTypeArityHints, LoaderError> {
         let canon = canonicalize_path(path);
         if !visited.insert(canon.clone()) {
-            return Ok(Vec::new());
+            return Ok(ShallowTypeArityHints {
+                hints: Vec::new(),
+                complete: false,
+            });
         }
         let src = read_file_to_string(&canon)?;
-        Ok(self.shallow_type_arity_hints_from_source(&canon, file_id, &src, visited))
+        let key = LoaderShallowTypeArityKey {
+            path: canon.clone(),
+            source_hash: fnv1a64(src.as_bytes()),
+        };
+        if let Some(hints) = shallow_type_arity_cache.get(&key) {
+            return Ok(ShallowTypeArityHints {
+                hints: hints.clone(),
+                complete: true,
+            });
+        }
+        let hints = self.shallow_type_arity_hints_from_source(
+            &canon,
+            file_id,
+            &src,
+            visited,
+            shallow_type_arity_cache,
+        );
+        if hints.complete {
+            shallow_type_arity_cache.insert(key, hints.hints.clone());
+        }
+        Ok(hints)
     }
 
     fn shallow_type_arity_hints_from_file_with(
@@ -1066,22 +1139,41 @@ impl Loader {
         path: &PathBuf,
         file_id: FileId,
         visited: &mut BTreeSet<PathBuf>,
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         session_cache: Option<&mut LoaderSessionCache>,
-    ) -> Result<Vec<(String, usize)>, LoaderError> {
+    ) -> Result<ShallowTypeArityHints, LoaderError> {
         let canon = canonicalize_path(path);
         if !visited.insert(canon.clone()) {
-            return Ok(Vec::new());
+            return Ok(ShallowTypeArityHints {
+                hints: Vec::new(),
+                complete: false,
+            });
         }
         let src = provider(&canon)?;
-        self.shallow_type_arity_hints_from_source_with(
+        let key = LoaderShallowTypeArityKey {
+            path: canon.clone(),
+            source_hash: fnv1a64(src.as_bytes()),
+        };
+        if let Some(hints) = shallow_type_arity_cache.get(&key) {
+            return Ok(ShallowTypeArityHints {
+                hints: hints.clone(),
+                complete: true,
+            });
+        }
+        let hints = self.shallow_type_arity_hints_from_source_with(
             &canon,
             file_id,
             &src,
             visited,
+            shallow_type_arity_cache,
             provider,
             session_cache,
-        )
+        )?;
+        if hints.complete {
+            shallow_type_arity_cache.insert(key, hints.hints.clone());
+        }
+        Ok(hints)
     }
 
     fn shallow_type_arity_hints_from_source(
@@ -1090,20 +1182,30 @@ impl Loader {
         file_id: FileId,
         src: &str,
         visited: &mut BTreeSet<PathBuf>,
-    ) -> Vec<(String, usize)> {
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
+    ) -> ShallowTypeArityHints {
         // A module that is already on the import stack cannot be fully parsed
-        // again, but its declaration heads and facade re-exports are still
-        // enough kind metadata for NEPLg2.1 prefix type parsing. This keeps
-        // `%Vec Diag` parseable when `Vec` is reached through a cyclic facade.
+        // again, but its declaration heads and public re-export/include
+        // declaration heads are still enough kind metadata for NEPLg2.1 prefix
+        // type parsing. Private implementation imports are intentionally not
+        // followed here: exposing them to parser-facing type annotations would
+        // both leak module boundaries and multiply stdlib implementation
+        // graphs during speculative arity discovery.
         let mut hints = parser::type_arity_hints_from_source(file_id, src);
-        for dep in self.shallow_type_arity_reexport_paths(canon, file_id, src) {
-            let Ok(dep_hints) = self.shallow_type_arity_hints_from_file(&dep, file_id, visited)
-            else {
+        let mut complete = true;
+        for dep in self.shallow_type_arity_dependency_paths(canon, file_id, src) {
+            let Ok(dep_hints) = self.shallow_type_arity_hints_from_file(
+                &dep,
+                file_id,
+                visited,
+                shallow_type_arity_cache,
+            ) else {
                 continue;
             };
-            push_loader_type_arity_hints(&mut hints, dep_hints);
+            complete &= dep_hints.complete;
+            push_loader_type_arity_hints(&mut hints, dep_hints.hints);
         }
-        hints
+        ShallowTypeArityHints { hints, complete }
     }
 
     fn shallow_type_arity_hints_from_source_with(
@@ -1112,34 +1214,40 @@ impl Loader {
         file_id: FileId,
         src: &str,
         visited: &mut BTreeSet<PathBuf>,
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
-    ) -> Result<Vec<(String, usize)>, LoaderError> {
+    ) -> Result<ShallowTypeArityHints, LoaderError> {
         let surface = self.source_arity_surface(canon, file_id, src, session_cache.as_deref_mut());
-        let public_reexport_paths = surface.public_reexport_paths();
+        let dependency_paths = surface.public_reexport_paths();
         let mut hints = surface.local_type_arity_hints;
-        for dep in public_reexport_paths {
+        let mut complete = true;
+        for dep in dependency_paths {
             let dep_hints = self.shallow_type_arity_hints_from_file_with(
                 &dep,
                 file_id,
                 visited,
+                shallow_type_arity_cache,
                 provider,
                 session_cache.as_deref_mut(),
             )?;
-            push_loader_type_arity_hints(&mut hints, dep_hints);
+            complete &= dep_hints.complete;
+            push_loader_type_arity_hints(&mut hints, dep_hints.hints);
         }
-        Ok(hints)
+        Ok(ShallowTypeArityHints { hints, complete })
     }
 
-    fn shallow_type_arity_reexport_paths(
+    fn shallow_type_arity_dependency_paths(
         &self,
         base: &PathBuf,
         file_id: FileId,
         src: &str,
     ) -> Vec<PathBuf> {
-        // Cycle recovery must stay shallow. Normal imports may pull in large
-        // implementation graphs, while public facade re-exports and includes
-        // are the paths that can contribute visible type constructors.
+        // Cycle recovery must stay shallow. Parser-facing type arities follow
+        // public facade edges and includes, but not private implementation
+        // imports. That keeps `%FacadeType ...` parseable through public
+        // re-exports without making every implementation helper's private
+        // dependencies visible to unrelated importers.
         self.compute_source_arity_surface(base, file_id, src)
             .public_reexport_paths()
     }
@@ -1172,6 +1280,7 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         session_cache: &mut LoaderSessionCache,
         visiting: &mut BTreeSet<PathBuf>,
+        computed: &mut BTreeMap<PathBuf, u64>,
     ) -> Result<Vec<(PathBuf, u64)>, LoaderError> {
         let mut entries = Vec::new();
         for path in paths {
@@ -1181,6 +1290,7 @@ impl Loader {
                 provider,
                 session_cache,
                 visiting,
+                computed,
             )?;
             entries.push((canon, hash));
         }
@@ -1193,10 +1303,16 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         session_cache: &mut LoaderSessionCache,
         visiting: &mut BTreeSet<PathBuf>,
+        computed: &mut BTreeMap<PathBuf, u64>,
     ) -> Result<u64, LoaderError> {
+        if let Some(hash) = computed.get(canon) {
+            return Ok(*hash);
+        }
         if !self.configured_stdlib_source_path(canon) {
             session_cache.record_dependency_aggregate_public_surface_bypass();
-            return Ok(external_dependency_aggregate_public_surface_hash(canon));
+            let hash = external_dependency_aggregate_public_surface_hash(canon);
+            computed.insert(canon.clone(), hash);
+            return Ok(hash);
         }
 
         if !visiting.insert(canon.clone()) {
@@ -1218,6 +1334,7 @@ impl Loader {
             provider,
             session_cache,
             visiting,
+            computed,
         )?;
 
         let mut child_hash = FNV_OFFSET_BASIS;
@@ -1235,6 +1352,7 @@ impl Loader {
         let mut processing = BTreeSet::new();
         processing.insert(canon.clone());
         let imported_once = BTreeSet::new();
+        let mut shallow_type_arity_cache = BTreeMap::new();
         let type_arity_hints = self.imported_type_arity_hints_with(
             canon,
             module_file_id,
@@ -1243,6 +1361,7 @@ impl Loader {
             &mut module_cache,
             &mut processing,
             &imported_once,
+            &mut shallow_type_arity_cache,
             false,
             provider,
             Some(session_cache),
@@ -1264,6 +1383,7 @@ impl Loader {
         );
         if let Some(hash) = session_cache.get_dependency_aggregate_public_surface(&key) {
             visiting.remove(canon);
+            computed.insert(canon.clone(), hash);
             return Ok(hash);
         }
 
@@ -1276,6 +1396,7 @@ impl Loader {
         hash_dependency_aggregate_public_surface_entries(&mut aggregate_hash, &dependencies);
         session_cache.store_dependency_aggregate_public_surface(key, aggregate_hash);
         visiting.remove(canon);
+        computed.insert(canon.clone(), aggregate_hash);
         Ok(aggregate_hash)
     }
 
@@ -1387,6 +1508,7 @@ impl Loader {
         cache: &mut BTreeMap<PathBuf, Module>,
         processing: &mut BTreeSet<PathBuf>,
         imported_once: &mut BTreeSet<PathBuf>,
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         is_root: bool,
     ) -> Result<Module, LoaderError> {
         let mut directives = module.directives.clone();
@@ -1406,8 +1528,15 @@ impl Loader {
         for path in prelude_paths {
             let target = self.resolve_path(&base, &path);
             if import_not_seen(imported_once, &target) {
-                let imp_mod =
-                    self.load_file(&target, sm, cache, processing, imported_once, false)?;
+                let imp_mod = self.load_file(
+                    &target,
+                    sm,
+                    cache,
+                    processing,
+                    imported_once,
+                    shallow_type_arity_cache,
+                    false,
+                )?;
                 for d in imp_mod.directives.clone() {
                     if let Directive::Entry { .. } = d {
                         continue;
@@ -1439,8 +1568,15 @@ impl Loader {
                 Stmt::Directive(Directive::Import { path, .. }) => {
                     let target = self.resolve_path(&base, path);
                     if import_not_seen(imported_once, &target) {
-                        let imp_mod =
-                            self.load_file(&target, sm, cache, processing, imported_once, false)?;
+                        let imp_mod = self.load_file(
+                            &target,
+                            sm,
+                            cache,
+                            processing,
+                            imported_once,
+                            shallow_type_arity_cache,
+                            false,
+                        )?;
                         // Propagate non-file-scoped directives (e.g., externs) so
                         // symbols declared in stdlib become visible to the parent
                         // module during later compilation phases.
@@ -1473,8 +1609,15 @@ impl Loader {
                 }
                 Stmt::Directive(Directive::Include { path, .. }) => {
                     let target = self.resolve_path(&base, path);
-                    let inc_mod =
-                        self.load_file(&target, sm, cache, processing, imported_once, false)?;
+                    let inc_mod = self.load_file(
+                        &target,
+                        sm,
+                        cache,
+                        processing,
+                        imported_once,
+                        shallow_type_arity_cache,
+                        false,
+                    )?;
                     // Propagate non-file-scoped directives from included modules as well.
                     for d in inc_mod.directives.clone() {
                         if let Directive::Entry { .. } = d {
@@ -1518,6 +1661,7 @@ impl Loader {
         cache: &mut BTreeMap<PathBuf, Module>,
         processing: &mut BTreeSet<PathBuf>,
         imported_once: &mut BTreeSet<PathBuf>,
+        shallow_type_arity_cache: &mut ShallowTypeArityHintCache,
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
@@ -1545,6 +1689,7 @@ impl Loader {
                     cache,
                     processing,
                     imported_once,
+                    shallow_type_arity_cache,
                     false,
                     provider,
                     session_cache.as_deref_mut(),
@@ -1586,6 +1731,7 @@ impl Loader {
                             cache,
                             processing,
                             imported_once,
+                            shallow_type_arity_cache,
                             false,
                             provider,
                             session_cache.as_deref_mut(),
@@ -1624,6 +1770,7 @@ impl Loader {
                         cache,
                         processing,
                         imported_once,
+                        shallow_type_arity_cache,
                         false,
                         provider,
                         session_cache.as_deref_mut(),
@@ -1751,6 +1898,7 @@ impl Loader {
         if p.extension().is_none() {
             p = p.with_extension("nepl");
         }
+        let p = canonicalize_path(&p);
         loader_log!(
             "[Loader] resolve_path: base={:?}, spec={:?} -> {:?}",
             base,
@@ -1874,6 +2022,17 @@ fn path_to_source_label(path: &PathBuf) -> String {
 
 fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> bool {
     imported_once.insert(canonicalize_path(target))
+}
+
+fn push_unique_canonical_path(
+    paths: &mut Vec<PathBuf>,
+    seen: &mut BTreeSet<PathBuf>,
+    path: &PathBuf,
+) {
+    let canon = canonicalize_path(path);
+    if seen.insert(canon.clone()) {
+        paths.push(canon);
+    }
 }
 
 /// Merge dependency arity hints while preserving the latest known declaration.
@@ -2541,6 +2700,7 @@ mod tests {
         let mut cache = BTreeMap::new();
         let mut processing = BTreeSet::new();
         let mut imported_once = BTreeSet::new();
+        let mut shallow_type_arity_cache = BTreeMap::new();
         let _ = loader
             .load_from_contents(
                 path,
@@ -2549,6 +2709,7 @@ mod tests {
                 &mut cache,
                 &mut processing,
                 &mut imported_once,
+                &mut shallow_type_arity_cache,
                 false,
             )
             .expect("test source should parse");
@@ -2565,6 +2726,78 @@ mod tests {
         assert!(
             !import_not_seen(&mut imported_once, &direct),
             "same import reached through a lexical parent path must not be loaded twice"
+        );
+    }
+
+    #[test]
+    fn resolve_path_returns_canonical_loader_key() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let base = path_from_segments(
+            "C:/nepl-test/stdlib/alloc/collections/vec",
+            &["storage", "view.nepl"],
+        );
+
+        assert_eq!(
+            loader.resolve_path(&base, "../types"),
+            canonicalize_path(&stdlib_path(
+                &stdlib_root,
+                &["alloc", "collections", "vec", "types.nepl"],
+            )),
+            "relative imports must enter loader surfaces as canonical cache keys",
+        );
+        assert_eq!(
+            loader.resolve_path(&base, "core/result"),
+            canonicalize_path(&stdlib_path(&stdlib_root, &["core", "result.nepl"])),
+            "stdlib imports must use the same canonical root as cache and import-once checks",
+        );
+    }
+
+    #[test]
+    fn arity_preload_does_not_cache_merged_diamond_import_modules() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let a_path = canonicalize_path(&stdlib_path(&stdlib_root, &["a.nepl"]));
+        let b_path = canonicalize_path(&stdlib_path(&stdlib_root, &["b.nepl"]));
+        let c_path = canonicalize_path(&stdlib_path(&stdlib_root, &["c.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#import \"a\" as *\n#import \"b\" as *\nfn main %fn unit i32 \\unit:\n    0\n",
+        );
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            a_path,
+            String::from("#import \"c\" as *\npub fn a_value %fn unit i32 \\unit:\n    1\n"),
+        );
+        sources.insert(
+            b_path,
+            String::from("#import \"c\" as *\npub fn b_value %fn unit i32 \\unit:\n    2\n"),
+        );
+        sources.insert(
+            c_path,
+            String::from("pub struct Shared<.T>:\n    value %.T\n"),
+        );
+
+        let mut loader = Loader::new(stdlib_root);
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+        let loaded = loader
+            .load_inline_with_provider(entry_path, entry_source, &mut provider)
+            .expect("diamond import graph should load through shallow arity preload");
+        let shared_count = loaded
+            .module
+            .root
+            .items
+            .iter()
+            .filter(|stmt| matches!(stmt, Stmt::StructDef(def) if def.name.name == "Shared"))
+            .count();
+
+        assert_eq!(
+            shared_count, 1,
+            "type-arity preload must not cache context-dependent merged modules before the real import-once pass",
         );
     }
 
@@ -3396,6 +3629,74 @@ mod tests {
     }
 
     #[test]
+    fn shallow_type_arity_cache_does_not_reuse_cycle_partial_hints() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let a_path = canonicalize_path(&stdlib_path(&stdlib_root, &["a.nepl"]));
+        let b_path = canonicalize_path(&stdlib_path(&stdlib_root, &["b.nepl"]));
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            a_path.clone(),
+            String::from("#import pub \"b\" as *\npub struct AType<.T>:\n    value %.T\n"),
+        );
+        sources.insert(
+            b_path.clone(),
+            String::from("#import pub \"a\" as *\npub struct BType<.T>:\n    value %.T\n"),
+        );
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+        let mut shallow_type_arity_cache = BTreeMap::new();
+
+        {
+            let mut provider = |path: &PathBuf| {
+                sources
+                    .get(path)
+                    .cloned()
+                    .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+            };
+            let mut visited = BTreeSet::new();
+            let hints = loader
+                .shallow_type_arity_hints_from_file_with(
+                    &a_path,
+                    FileId(0),
+                    &mut visited,
+                    &mut shallow_type_arity_cache,
+                    &mut provider,
+                    Some(&mut session_cache),
+                )
+                .expect("the first cycle traversal should return the whole reachable type surface");
+            assert!(
+                hints.hints.iter().any(|(name, _)| name == "AType")
+                    && hints.hints.iter().any(|(name, _)| name == "BType"),
+                "cycle recovery should keep every reachable type constructor visible to prefix type parsing",
+            );
+        }
+
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+        let mut visited = BTreeSet::new();
+        let hints = loader
+            .shallow_type_arity_hints_from_file_with(
+                &b_path,
+                FileId(0),
+                &mut visited,
+                &mut shallow_type_arity_cache,
+                &mut provider,
+                Some(&mut session_cache),
+            )
+            .expect("the second cycle traversal should not reuse a partial cache entry");
+
+        assert!(
+            hints.hints.iter().any(|(name, _)| name == "AType")
+                && hints.hints.iter().any(|(name, _)| name == "BType"),
+            "cycle-dependent shallow arity results are intentionally not cached as complete aggregate surfaces",
+        );
+    }
+
+    #[test]
     fn shallow_arity_surface_rechecks_public_reexport_dependency_source_hash() {
         let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
         let loader = Loader::new(stdlib_root.clone());
@@ -3420,17 +3721,20 @@ mod tests {
                     .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
             };
             let mut visited = BTreeSet::new();
+            let mut shallow_type_arity_cache = BTreeMap::new();
             let hints = loader
                 .shallow_type_arity_hints_from_file_with(
                     &facade_path,
                     FileId(0),
                     &mut visited,
+                    &mut shallow_type_arity_cache,
                     &mut provider,
                     Some(&mut session_cache),
                 )
                 .expect("shallow public reexport arity discovery should read provider sources");
             assert!(
                 hints
+                    .hints
                     .iter()
                     .any(|(name, arity)| name == "Box" && *arity == expected_arity),
                 "dependency source hash changes must be observed even when the facade surface is cached",

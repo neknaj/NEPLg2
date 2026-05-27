@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 
 use crate::types::TypeId;
 
+use super::collection_slot_payload_tracking::collection_slot_payload_type_needs_tracking;
 use super::collection_slot_state_identity::slot_requires_range_proof;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
@@ -23,6 +24,9 @@ pub(super) fn collect_summary_drop_traversal_op(
     initialized_count: &Place,
     expected_ty: TypeId,
 ) {
+    if !collection_slot_payload_type_needs_tracking(engine.types, expected_ty) {
+        return;
+    }
     let storage_place = state.raw_aliases.canonicalize_owner_cell_address(storage);
     let initialized_count_place = state.raw_aliases.canonicalize_scalar(initialized_count);
     if let Some(certificate) =

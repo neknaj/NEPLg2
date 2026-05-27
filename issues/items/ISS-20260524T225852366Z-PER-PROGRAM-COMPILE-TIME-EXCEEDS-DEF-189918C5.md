@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-05-24
-updated: 2026-05-27
+updated: 2026-05-28
 target: "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio"
 ---
 
@@ -70,6 +70,15 @@ Create a fixed per-program benchmark corpus, keep compile_ms and run_ms evidence
 - release WASM minimal cold: `compile_ms=231`, `total_ms=257`, `stdlib_vfs_mode=bundled`。
 - release WASM minimal warm: `compile_ms=5`。
 - release WASM aggregate warm: `compile_ms=22`。
+
+2026-05-28 checkpoint の測定:
+
+- native release RPN check: `resource_static_check=9202ms`、`resource_initialized_i32_scalar_summaries=2012ms`、`resource_initialized_raw_init_summaries=2520ms`、`resource_initialized_function_checks=3730ms`。
+- release WASM RPN same-session first compile: `compile_ms=8976`、`prewarm_ms=193`、`wasm_call_ms=8783`。
+- release WASM RPN same-session second compile: `compile_ms=1`、`wasm_call_ms=0`、`compiled_output_cache_hits=1`。
+- Web playground compile timeout の直接原因として、source-directed prewarm 後にまだ消費していない dependency aggregate public surface hash を同期計算していたことを確認した。RPN ではこの追加 query が private implementation graph を広く歩き、wasm doctest が compile phase で 120 秒 timeout したため、Web prewarm hot path から外した。
+
+RPN では同一入力の再compileは 10ms 未満になったが、初回 compile はまだ 0.5 秒未満から遠い。次の根本対応は raw init summary / function check の path-sensitive exploration を function hash と dependency aggregate public surface hash で再利用する Resource IR summary cache である。
 
 まず、代表 program を次の階層に分けて固定する。
 

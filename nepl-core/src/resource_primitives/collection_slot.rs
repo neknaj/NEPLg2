@@ -59,7 +59,8 @@ impl CollectionSlotLifecyclePrimitive {
             | Self::DropTraversal
             | Self::TransformRange => 1,
             Self::ReplaceReturnOld | Self::ReplaceDropOld => 2,
-            Self::StorageDealloc | Self::StorageRelocate => 0,
+            Self::StorageDealloc => 1,
+            Self::StorageRelocate => 0,
         }
     }
 
@@ -147,7 +148,8 @@ impl CollectionSlotLifecyclePrimitive {
             | Self::DropTraversal
             | Self::TransformRange => Some(0),
             Self::ReplaceReturnOld | Self::ReplaceDropOld => Some(0),
-            Self::StorageDealloc | Self::StorageRelocate => None,
+            Self::StorageDealloc => Some(0),
+            Self::StorageRelocate => None,
         }
     }
 }

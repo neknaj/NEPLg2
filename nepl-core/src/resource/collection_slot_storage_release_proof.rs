@@ -18,7 +18,7 @@ pub(super) fn collection_slot_storage_release_obligation(
     event: CollectionSlotLifecycleEvent,
 ) -> bool {
     match event {
-        CollectionSlotLifecycleEvent::StorageDealloc => true,
+        CollectionSlotLifecycleEvent::StorageDealloc { .. } => true,
         CollectionSlotLifecycleEvent::InitializeEmpty { .. }
         | CollectionSlotLifecycleEvent::BorrowRead { .. }
         | CollectionSlotLifecycleEvent::MoveOut { .. }

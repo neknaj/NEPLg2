@@ -23,6 +23,7 @@ use super::model::{ResourceFunction, ResourceModule};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::report::ResourceCheckDeferred;
 use super::summary_worklist::SummaryWorklist;
+use super::timing::ResourceFunctionTimer;
 
 pub(super) fn compute_collection_slot_lifecycle_function_summaries(
     module: &ResourceModule,
@@ -31,18 +32,16 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
     i32_scalar_summaries: &[I32ScalarReturnSummary],
     raw_init_summaries: &[RawCellInitializationFunctionSummary],
 ) -> Vec<CollectionSlotLifecycleFunctionSummary> {
-    let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
     let relevant_functions = collection_slot_summary_relevant_functions(module, types);
+    let mut worklist = SummaryWorklist::new_filtered(module, relevant_functions);
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
     let raw_init_summary_index = RawCellInitializationFunctionSummaryIndex::new(raw_init_summaries);
     while let Some(function_index) = worklist.pop() {
         let collection_summary_index = CollectionSlotLifecycleFunctionSummaryIndex::new(&summaries);
         let function = &module.functions[function_index];
-        if !relevant_functions[function_index] {
-            continue;
-        }
+        let function_start = ResourceFunctionTimer::start();
         let summary = function_collection_slot_lifecycle_summary(
             function,
             types,
@@ -51,6 +50,7 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
             &raw_init_summary_index,
             &collection_summary_index,
         );
+        function_start.log("collection_slot_summary", function);
         if update_collection_slot_lifecycle_summary(&mut summaries, summary) {
             worklist.notify_changed(function_index);
         }
@@ -163,9 +163,11 @@ mod tests {
     use alloc::vec;
     use alloc::vec::Vec;
 
+    use crate::source_map::CompilerMemoryType;
     use crate::span::Span;
     use crate::types::{TypeCtx, TypeId, TypeKind};
 
+    use super::super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
     use super::super::model::{
         Place, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceLocal, ResourceModule,
         ResourceTerminator,
@@ -201,6 +203,46 @@ mod tests {
         }
     }
 
+    fn collection_storage_marker_function(
+        storage_ty: TypeId,
+        value_ty: TypeId,
+    ) -> ResourceFunction {
+        let span = Span::dummy();
+        let storage = Place::local("storage".to_string(), storage_ty);
+        ResourceFunction {
+            name: "mark_collection_storage".to_string(),
+            origin_name: "mark_collection_storage".to_string(),
+            type_params: Vec::new(),
+            params: Vec::new(),
+            result: value_ty,
+            effect: crate::ast::Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    super::super::model::ResourceOp::CollectionSlotLifecycle {
+                        target: storage.clone(),
+                        event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty },
+                        span,
+                    },
+                    super::super::model::ResourceOp::Call {
+                        output: Place::local("storage_out".to_string(), storage_ty),
+                        target: super::super::model::ResourceCallTarget::User {
+                            name: "identity_storage".to_string(),
+                            type_args: Vec::new(),
+                        },
+                        args: vec![storage],
+                        effect: super::super::model::EffectOp::Pure,
+                        span,
+                    },
+                ],
+                terminator: ResourceTerminator::Return { value: None, span },
+                span,
+            }],
+            span,
+        }
+    }
+
     fn register_empty_struct(types: &mut TypeCtx, name: &str) -> TypeId {
         types.register_named(
             String::from(name),
@@ -213,16 +255,35 @@ mod tests {
         )
     }
 
+    fn register_region_token(types: &mut TypeCtx) -> TypeId {
+        let raw_ty = types.i32();
+        let value_ty = types.fresh_var(Some("T".to_string()));
+        let region_token_ty = types.register_named(
+            "RegionToken".to_string(),
+            TypeKind::Struct {
+                name: "RegionToken".to_string(),
+                type_params: vec![value_ty],
+                fields: vec![raw_ty, raw_ty],
+                field_names: vec!["raw".to_string(), "size".to_string()],
+            },
+        );
+        types.mark_compiler_memory_type(region_token_ty, CompilerMemoryType::OwnerToken);
+        region_token_ty
+    }
+
     #[test]
-    fn collection_slot_summary_keeps_identity_transfer_for_structural_copy_storage() {
+    fn collection_slot_summary_keeps_identity_transfer_for_non_copy_owner_token_storage() {
         let mut types = TypeCtx::new();
         types.set_copy_trait_enabled(true);
         types.register_copy_impl_target(types.unit());
-        let copied_payload_ty = register_empty_struct(&mut types, "Owned");
-        types.register_copy_impl_target(copied_payload_ty);
-        let storage_ty = register_empty_struct(&mut types, "CollectionStorage");
+        let payload_ty = register_empty_struct(&mut types, "OwnedPayload");
+        let region_token = register_region_token(&mut types);
+        let storage_ty = types.apply(region_token, vec![payload_ty]);
         let module = ResourceModule {
-            functions: vec![identity_storage_function(storage_ty)],
+            functions: vec![
+                collection_storage_marker_function(storage_ty, payload_ty),
+                identity_storage_function(storage_ty),
+            ],
             entry: None,
             string_literals: vec![],
         };
@@ -230,7 +291,10 @@ mod tests {
         let summaries =
             compute_collection_slot_lifecycle_function_summaries(&module, &types, &[], &[], &[]);
 
-        assert_eq!(summaries.len(), 1, "summaries: {summaries:#?}");
-        assert_eq!(summaries[0].return_transfers.len(), 1, "{summaries:#?}");
+        let identity_summary = summaries
+            .iter()
+            .find(|summary| summary.function == "identity_storage")
+            .expect("identity_storage should keep its return transfer summary");
+        assert_eq!(identity_summary.return_transfers.len(), 1, "{summaries:#?}");
     }
 }

@@ -17,7 +17,7 @@ fn storage_dealloc_rejects_live_slot_and_releases_vacant_slot() {
         apply_collection_slot_lifecycle_event(
             &types,
             CollectionSlotState::Initialized(owned),
-            CollectionSlotLifecycleEvent::StorageDealloc,
+            CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned },
         ),
         Err(CollectionSlotLifecycleRefutation::LiveSlotDuringStorageDealloc { slot_ty: owned })
     );
@@ -25,7 +25,7 @@ fn storage_dealloc_rejects_live_slot_and_releases_vacant_slot() {
         apply_collection_slot_lifecycle_event(
             &types,
             CollectionSlotState::Dropped(owned),
-            CollectionSlotLifecycleEvent::StorageDealloc,
+            CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned },
         ),
         Ok(CollectionSlotState::Released)
     );

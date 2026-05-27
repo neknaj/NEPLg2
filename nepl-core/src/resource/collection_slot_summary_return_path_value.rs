@@ -107,18 +107,22 @@ fn collect_direct_return_path(
         value,
         target_suffix,
     );
-    let i32_scalar_facts = collect_i32_scalar_return_facts_for_value_suffix(
-        params,
-        engine.types,
-        &path.state.raw_aliases,
-        value,
-        target_suffix,
-    );
-    if !return_transfers.is_empty()
+    let has_lifecycle_facts = !path.ops.is_empty()
+        || !return_transfers.is_empty()
         || !return_slots.is_empty()
-        || !return_ranges.is_empty()
-        || !i32_scalar_facts.is_empty()
-    {
+        || !return_ranges.is_empty();
+    if has_lifecycle_facts {
+        // collection return path は lifecycle fact を運ぶための構造であり、
+        // scalar fact だけの path は後段で破棄される。先に lifecycle fact の有無を
+        // 判定してから i32 fact を集めることで、Result/branch の多い関数で不要な
+        // scalar projection 展開を繰り返さない。
+        let i32_scalar_facts = collect_i32_scalar_return_facts_for_value_suffix(
+            params,
+            engine.types,
+            &path.state.raw_aliases,
+            value,
+            target_suffix,
+        );
         push_return_path(
             out,
             CollectionSlotLifecycleReturnPath {
@@ -480,6 +484,10 @@ fn collect_construct_output_return_ranges(
             output,
             target_suffix,
         );
+        let has_lifecycle_facts = !path.ops.is_empty() || !return_ranges.is_empty();
+        if !has_lifecycle_facts {
+            continue;
+        }
         let i32_scalar_facts = collect_i32_scalar_return_facts_for_value_suffix(
             params,
             engine.types,
@@ -487,9 +495,6 @@ fn collect_construct_output_return_ranges(
             output,
             target_suffix,
         );
-        if return_ranges.is_empty() && i32_scalar_facts.is_empty() {
-            continue;
-        }
         push_return_path(
             out,
             CollectionSlotLifecycleReturnPath {

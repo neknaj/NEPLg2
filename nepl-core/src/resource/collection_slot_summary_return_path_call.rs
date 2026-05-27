@@ -140,6 +140,13 @@ fn collect_return_paths_from_summary(
             &callee_path.return_ranges,
             target_suffix,
         );
+        if translated_ops.is_empty()
+            && return_transfers.is_empty()
+            && return_slots.is_empty()
+            && return_ranges.is_empty()
+        {
+            continue;
+        }
         let preconditions = translate_return_path_preconditions_for_call(
             engine,
             args,
@@ -147,6 +154,9 @@ fn collect_return_paths_from_summary(
             &callsite.state.raw_aliases,
             &callee_path.preconditions,
         );
+        // collection lifecycle を持たない callee path はこの summary では運ばない。
+        // lifecycle fact がある path だけに scalar facts を付随させると、caller 側の
+        // range 証明に必要な条件は残しつつ、scalar-only path の再翻訳を避けられる。
         let i32_scalar_facts = translate_i32_scalar_return_facts_for_call(
             params,
             engine.types,
@@ -155,15 +165,6 @@ fn collect_return_paths_from_summary(
             target_suffix,
             &callee_path.i32_scalar_facts,
         );
-        if translated_ops.is_empty()
-            && return_transfers.is_empty()
-            && return_slots.is_empty()
-            && return_ranges.is_empty()
-            && preconditions.is_empty()
-            && i32_scalar_facts.is_empty()
-        {
-            continue;
-        }
         let mut ops = callsite.ops.clone();
         ops.extend(translated_ops);
         push_return_path(

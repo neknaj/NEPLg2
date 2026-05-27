@@ -43,6 +43,21 @@ impl RawCellAddressAliases {
         self.i32_condition_truth_inner(place, condition, 0, false, context) == Some(true)
     }
 
+    pub(super) fn i32_value_with_context(
+        &self,
+        place: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Option<i32> {
+        if let Some(result) = context.value_result(place) {
+            return result;
+        }
+        let result = self
+            .direct_i32_value_with_context(place, context)
+            .or_else(|| self.i32_value_from_bounded_offsets_with_context(place, context));
+        context.memoize_value(place, result);
+        result
+    }
+
     pub(super) fn i32_condition_truth_inner(
         &self,
         place: &Place,
@@ -77,14 +92,18 @@ impl RawCellAddressAliases {
         derive_false: bool,
         context: &mut I32ConditionQueryContext,
     ) -> Option<bool> {
-        if let Some(value) = self.i32_value(place) {
+        if let Some(value) = self.direct_i32_value_with_context(place, context) {
             return Some(condition.holds(value));
         }
+        let aliases = self.scalar_aliases_for_value_with_context(place, context);
         if let Some(truth) = self
             .i32_facts
-            .condition_truth_for_aliases(&self.scalar_aliases_for(place), condition)
+            .condition_truth_for_aliases(&aliases, condition)
         {
             return Some(truth);
+        }
+        if let Some(value) = self.i32_value_with_context(place, context) {
+            return Some(condition.holds(value));
         }
         if depth >= I32_CONDITION_DERIVATION_DEPTH {
             return None;
@@ -118,7 +137,7 @@ impl RawCellAddressAliases {
         derive_false: bool,
         context: &mut I32ConditionQueryContext,
     ) -> Option<bool> {
-        let (source, scale) = self.i32_scaled_source(place)?;
+        let (source, scale) = self.i32_scaled_source_with_context(place, context)?;
         if scale == 0 {
             return None;
         }
@@ -133,7 +152,7 @@ impl RawCellAddressAliases {
         derive_false: bool,
         context: &mut I32ConditionQueryContext,
     ) -> Option<bool> {
-        for (source, offset) in self.i32_offset_sources(place) {
+        for (source, offset) in self.i32_offset_sources_with_context(place, context) {
             for source_condition in I32_OFFSET_SOURCE_CONDITIONS {
                 if !offset_condition_implication(source_condition, offset, condition) {
                     continue;

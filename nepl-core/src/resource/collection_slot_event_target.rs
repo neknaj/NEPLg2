@@ -11,7 +11,7 @@ pub(super) fn collection_slot_event_target(
     raw_aliases: &RawCellAddressAliases,
 ) -> Place {
     match event {
-        CollectionSlotLifecycleEvent::StorageDealloc => {
+        CollectionSlotLifecycleEvent::StorageDealloc { .. } => {
             place_with_canonical_symbolic_offsets(target, raw_aliases)
         }
         CollectionSlotLifecycleEvent::InitializeEmpty { .. }

@@ -119,7 +119,7 @@ fn vec_filter_release_storage <.T> %impure fn RegionToken .T unit \region:
     let raw %i32 field::get region "raw"
     let total_size %i32 field::get region "size"
     allocator::dealloc_raw raw total_size
-    #intrinsic "collection_slot_storage_dealloc" <> (&region)
+    #intrinsic "collection_slot_storage_dealloc" <.T> (&region)
 
 pub fn filter <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformError .T \v\p:
     let v_buffer_ref %&OwnedBuffer .T field::get_ref &v "buffer"

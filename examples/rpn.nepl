@@ -47,7 +47,9 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/field" as field
-#import "std/stdio" as *
+#import "std/stdio/print" as *
+#import "std/stdio/ansi" as *
+#import "std/stdio/read/text" as *
 #import "alloc/string/access" as string_access
 #import "alloc/string/search" as string_search
 #import "alloc/string/slice" as string_slice
@@ -55,7 +57,7 @@
 #import "alloc/string/integer/format" as string_format
 #import "alloc/string/concat" as string_concat
 #import "alloc/collections/stack" as stk
-#import "alloc/diag/error" as *
+#import "alloc/diag/error/types" as *
 
 //: print_error: エラーメッセージを赤色太字で出力する
 //:

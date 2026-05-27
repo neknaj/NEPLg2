@@ -5,6 +5,9 @@ use alloc::vec::Vec;
 
 use crate::types::TypeKind;
 
+use super::collection_slot_payload_tracking::{
+    collection_slot_lifecycle_event_needs_tracking, collection_slot_payload_type_needs_tracking,
+};
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_build_drop_traversal::collect_summary_drop_traversal_op;
 use super::collection_slot_summary_build_event::collect_summary_event_op;
@@ -121,6 +124,12 @@ fn apply_summary_state_after_op(
         collection_slot_summaries,
         op,
     );
+    // The summary stream already records control-flow structure as Merge/Loop operations.
+    // Keeping every feasible ResourceCheckState for the next sibling operation makes large
+    // allocator and collection code replay branch products repeatedly.  The mutable summary
+    // state is already the merged post-control state, so following operations can continue from
+    // that finite abstraction without losing the lifecycle summary emitted for each branch.
+    engine.path_alternatives = Default::default();
 }
 
 fn apply_summary_transform_range_state(
@@ -139,6 +148,9 @@ fn apply_summary_transform_range_state(
     else {
         return;
     };
+    if !collection_slot_payload_type_needs_tracking(engine.types, *expected_ty) {
+        return;
+    }
     let Some(candidate) = transform_range_certificate_candidate_for_op(
         state,
         source_storage,
@@ -418,6 +430,9 @@ pub(super) fn collect_summary_ops_from_op(
 ) {
     match op {
         ResourceOp::CollectionSlotLifecycle { target, event, .. } => {
+            if !collection_slot_lifecycle_event_needs_tracking(engine.types, *event) {
+                return;
+            }
             collect_summary_event_op(out, engine, state, params, target, *event);
         }
         ResourceOp::CollectionStorageRelocate {
@@ -462,6 +477,9 @@ pub(super) fn collect_summary_ops_from_op(
             expected_ty,
             ..
         } => {
+            if !collection_slot_payload_type_needs_tracking(engine.types, *expected_ty) {
+                return;
+            }
             collect_summary_drop_traversal_op(
                 out,
                 engine,
@@ -480,6 +498,9 @@ pub(super) fn collect_summary_ops_from_op(
             expected_ty,
             ..
         } => {
+            if !collection_slot_payload_type_needs_tracking(engine.types, *expected_ty) {
+                return;
+            }
             collect_summary_transform_range_op(
                 out,
                 state,

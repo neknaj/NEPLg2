@@ -14,7 +14,9 @@ The active profile is controlled by the CLI option:
 - `--profile debug`
 - `--profile release`
 
-If omitted, the compiler uses the build profile it was compiled with.
+If omitted, the source profile defaults to `debug`. The compiler binary may
+itself be built in release mode for performance, but that does not change
+`#if[profile=...]` selection.
 
 ## Debug output helpers
 

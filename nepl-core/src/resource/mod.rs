@@ -54,6 +54,7 @@ mod collection_slot_owner_carrier;
 mod collection_slot_owner_carrier_tests;
 mod collection_slot_owner_transfer;
 mod collection_slot_owner_transfer_proof;
+mod collection_slot_payload_tracking;
 mod collection_slot_state_alias;
 mod collection_slot_state_identity;
 mod collection_slot_state_merge;

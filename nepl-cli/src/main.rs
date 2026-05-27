@@ -607,7 +607,7 @@ fn execute_inner(cli: Cli) -> Result<()> {
         ProfileArg::Debug => BuildProfile::Debug,
         ProfileArg::Release => BuildProfile::Release,
     });
-    let active_profile = profile.unwrap_or(BuildProfile::detect());
+    let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
     let options = CompileOptions {
         target: target_override,
         verbose: cli.verbose,

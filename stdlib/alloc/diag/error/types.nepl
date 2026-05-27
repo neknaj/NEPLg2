@@ -26,7 +26,7 @@
 
 #import "core/option" as *
 #import "core/result" as *
-#import "alloc/collections/vec" as v
+#import "alloc/collections/vec/types" as *
 //: DiagLevel: [診断/しんだん]の[大分類/だいぶんるい]
 //:
 //: [目的/もくてき]:

@@ -49,7 +49,7 @@ pub fn apply_collection_slot_lifecycle_event(
             CollectionSlotLifecycleOp::DropInitialized,
         )
         .map(CollectionSlotState::Dropped),
-        CollectionSlotLifecycleEvent::StorageDealloc => storage_dealloc_slot(state),
+        CollectionSlotLifecycleEvent::StorageDealloc { .. } => storage_dealloc_slot(state),
     }
 }
 

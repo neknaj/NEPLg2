@@ -36,7 +36,9 @@ pub enum CollectionSlotLifecycleEvent {
     DropInitialized {
         expected_ty: TypeId,
     },
-    StorageDealloc,
+    StorageDealloc {
+        value_ty: TypeId,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

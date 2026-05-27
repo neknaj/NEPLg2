@@ -56,6 +56,19 @@ pub enum BuildProfile {
 }
 
 impl BuildProfile {
+    /// ソース側の条件付きコンパイルで使う既定 profile。
+    ///
+    /// コンパイラ自身を release build にしても、ユーザーソースの
+    /// `#if[profile=...]` が暗黙に release へ切り替わるべきではない。
+    /// profile を明示しない場合は debug を選び、実行環境や配布 artifact の
+    /// build mode と source semantics を分離する。
+    pub fn default_source_profile() -> Self {
+        BuildProfile::Debug
+    }
+
+    /// コンパイラ実行ファイルそのものの Rust build profile を返す。
+    ///
+    /// これは診断や内部観測用であり、ソース側の profile 既定値には使わない。
     pub fn detect() -> Self {
         if cfg!(debug_assertions) {
             BuildProfile::Debug
@@ -164,7 +177,9 @@ pub fn compile_module_with_source_map_and_artifact_options(
         ));
         return Err(CoreError::from_diagnostics(diags));
     }
-    let profile = options.profile.unwrap_or(BuildProfile::detect());
+    let profile = options
+        .profile
+        .unwrap_or(BuildProfile::default_source_profile());
     let prepared =
         prepare_module_for_codegen_with_source_map(&module, target, profile, source_map)?;
     let pre_codegen_diags =
@@ -205,7 +220,9 @@ pub fn check_module_with_source_map(
 ) -> Result<(), CoreError> {
     crate::log::set_verbose(options.verbose);
     let target = resolve_target(&module, options)?;
-    let profile = options.profile.unwrap_or(BuildProfile::detect());
+    let profile = options
+        .profile
+        .unwrap_or(BuildProfile::default_source_profile());
     prepare_module_for_codegen_with_source_map(&module, target, profile, source_map)?;
     Ok(())
 }

@@ -265,7 +265,9 @@ fn collection_slot_lifecycle_event(
             })
         }
         CollectionSlotLifecyclePrimitive::StorageDealloc => {
-            Some(CollectionSlotLifecycleEvent::StorageDealloc)
+            Some(CollectionSlotLifecycleEvent::StorageDealloc {
+                value_ty: type_args.first().copied()?,
+            })
         }
         CollectionSlotLifecyclePrimitive::DropTraversal
         | CollectionSlotLifecyclePrimitive::TransformRange

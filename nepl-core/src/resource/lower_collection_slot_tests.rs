@@ -170,6 +170,7 @@ fn collection_slot_lifecycle_intrinsic_lowers_slot_event_from_pointer_and_offset
 fn collection_slot_lifecycle_intrinsic_lowers_storage_dealloc_from_owner_token() {
     let mut types = TypeCtx::new();
     let unit_ty = types.unit();
+    let i32_ty = types.i32();
     let owner_ty = owner_token_type(&mut types);
     let ref_owner_ty = types.reference(owner_ty, false);
     let expr = HirExpr {
@@ -178,7 +179,7 @@ fn collection_slot_lifecycle_intrinsic_lowers_storage_dealloc_from_owner_token()
             name: CollectionSlotLifecyclePrimitive::StorageDealloc
                 .intrinsic_name()
                 .to_string(),
-            type_args: vec![],
+            type_args: vec![i32_ty],
             args: vec![HirExpr {
                 ty: ref_owner_ty,
                 kind: HirExprKind::AddrOf(Box::new(var("region", owner_ty))),
@@ -203,9 +204,9 @@ fn collection_slot_lifecycle_intrinsic_lowers_storage_dealloc_from_owner_token()
     assert!(ops.iter().any(|op| matches!(
         op,
         ResourceOp::CollectionSlotLifecycle {
-            event: CollectionSlotLifecycleEvent::StorageDealloc,
+            event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty },
             ..
-        }
+        } if *value_ty == i32_ty
     )));
 }
 

@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 
 use crate::layout::{extend_type_mapping, mapped_type_id};
 use crate::resource_primitives::{type_is_owner_token, type_is_raw_pointer};
+use crate::source_map::CompilerMemoryType;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 pub(super) fn type_carries_collection_slot_owner(types: &TypeCtx, ty: TypeId) -> bool {
@@ -18,6 +19,9 @@ fn type_carries_collection_slot_owner_mapped(
     seen: &mut Vec<TypeId>,
 ) -> bool {
     let resolved = mapped_type_id(types, ty, mapping);
+    if let Some(value_ty) = direct_owner_token_value_type(types, resolved) {
+        return !types.is_copy(types.resolve_named_type_id(types.resolve_id(value_ty)));
+    }
     if type_is_owner_token(types, resolved) {
         return true;
     }
@@ -103,4 +107,16 @@ fn type_carries_collection_slot_owner_mapped(
     };
     seen.pop();
     result
+}
+
+fn direct_owner_token_value_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
+    let resolved = types.resolve_named_type_id(types.resolve_id(ty));
+    let TypeKind::Apply { base, args } = types.get_ref(resolved) else {
+        return None;
+    };
+    if args.len() != 1 {
+        return None;
+    }
+    let base = types.resolve_named_type_id(*base);
+    (types.compiler_memory_type(base) == Some(CompilerMemoryType::OwnerToken)).then_some(args[0])
 }

@@ -3,6 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::initialized_alias::RawCellAddressAliases;
+use super::initialized_alias_i32_condition_context::I32ConditionQueryContext;
 use super::initialized_alias_relation_op::relation_holds;
 use super::model::{I32ValueCondition, Place, PlaceProjection, PlaceRoot, ResourceI32RelationOp};
 use super::place_utils::push_unique_place;
@@ -91,12 +92,24 @@ impl RawCellAddressAliases {
             .or_else(|| self.i32_value_from_bounded_offsets(place))
     }
 
-    fn direct_i32_value(&self, place: &Place) -> Option<i32> {
+    pub(super) fn direct_i32_value(&self, place: &Place) -> Option<i32> {
         if let PlaceRoot::I32Constant(value) = place.root {
             return Some(value);
         }
         self.i32_facts
             .value_for_aliases(&self.scalar_aliases_for(place))
+    }
+
+    pub(super) fn direct_i32_value_with_context(
+        &self,
+        place: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Option<i32> {
+        if let PlaceRoot::I32Constant(value) = place.root {
+            return Some(value);
+        }
+        let aliases = self.scalar_aliases_for_value_with_context(place, context);
+        self.i32_facts.value_for_aliases(&aliases)
     }
 
     pub(super) fn i32_relation_truth(
@@ -121,6 +134,35 @@ impl RawCellAddressAliases {
             .or_else(|| self.i32_offset_relation_truth(left, op, right))
     }
 
+    pub(super) fn i32_relation_truth_with_context(
+        &self,
+        left: &Place,
+        op: ResourceI32RelationOp,
+        right: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Option<bool> {
+        if let (Some(left_value), Some(right_value)) = (
+            self.i32_value_with_context(left, context),
+            self.i32_value_with_context(right, context),
+        ) {
+            return Some(relation_holds(left_value, op, right_value));
+        }
+        let left_aliases = self.scalar_aliases_for_value_with_context(left, context);
+        let right_aliases = self.scalar_aliases_for_value_with_context(right, context);
+        if let Some(truth) =
+            self.i32_relations
+                .relation_truth_for_aliases(&left_aliases, op, &right_aliases)
+        {
+            return Some(truth);
+        }
+        if let Some(truth) =
+            self.i32_relation_truth_from_zero_condition_with_context(left, op, right, context)
+        {
+            return Some(truth);
+        }
+        self.i32_offset_relation_truth_with_context(left, op, right, context)
+    }
+
     fn i32_relation_truth_from_zero_condition(
         &self,
         left: &Place,
@@ -132,6 +174,26 @@ impl RawCellAddressAliases {
         match (left_value, right_value) {
             (Some(0), None) => self.i32_relation_truth_from_condition_against_zero(right, op, true),
             (None, Some(0)) => self.i32_relation_truth_from_condition_against_zero(left, op, false),
+            _ => None,
+        }
+    }
+
+    fn i32_relation_truth_from_zero_condition_with_context(
+        &self,
+        left: &Place,
+        op: ResourceI32RelationOp,
+        right: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Option<bool> {
+        let left_value = self.direct_i32_value_with_context(left, context);
+        let right_value = self.direct_i32_value_with_context(right, context);
+        match (left_value, right_value) {
+            (Some(0), None) => self.i32_relation_truth_from_condition_against_zero_with_context(
+                right, op, true, context,
+            ),
+            (None, Some(0)) => self.i32_relation_truth_from_condition_against_zero_with_context(
+                left, op, false, context,
+            ),
             _ => None,
         }
     }
@@ -162,6 +224,35 @@ impl RawCellAddressAliases {
             }
         };
         self.i32_condition_truth(place, condition)
+    }
+
+    fn i32_relation_truth_from_condition_against_zero_with_context(
+        &self,
+        place: &Place,
+        op: ResourceI32RelationOp,
+        zero_on_left: bool,
+        context: &mut I32ConditionQueryContext,
+    ) -> Option<bool> {
+        let condition = if zero_on_left {
+            match op {
+                ResourceI32RelationOp::Lt => I32ValueCondition::Positive,
+                ResourceI32RelationOp::Le => I32ValueCondition::NonNegative,
+                ResourceI32RelationOp::Gt => I32ValueCondition::Negative,
+                ResourceI32RelationOp::Ge => I32ValueCondition::NonPositive,
+                ResourceI32RelationOp::Eq => I32ValueCondition::EqZero,
+                ResourceI32RelationOp::Ne => I32ValueCondition::NeZero,
+            }
+        } else {
+            match op {
+                ResourceI32RelationOp::Lt => I32ValueCondition::Negative,
+                ResourceI32RelationOp::Le => I32ValueCondition::NonPositive,
+                ResourceI32RelationOp::Gt => I32ValueCondition::Positive,
+                ResourceI32RelationOp::Ge => I32ValueCondition::NonNegative,
+                ResourceI32RelationOp::Eq => I32ValueCondition::EqZero,
+                ResourceI32RelationOp::Ne => I32ValueCondition::NeZero,
+            }
+        };
+        self.i32_condition_truth_inner(place, condition, 0, true, context)
     }
 
     fn i32_relation_value(&self, place: &Place) -> Option<i32> {
@@ -200,9 +291,63 @@ impl RawCellAddressAliases {
         value
     }
 
+    pub(super) fn i32_value_from_bounded_offsets_with_context(
+        &self,
+        place: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Option<i32> {
+        let aliases = self.scalar_aliases_for_value_with_context(place, context);
+        if !self.i32_offsets.has_offset_for_aliases(&aliases)
+            && !self.i32_scales.has_scaled_source_for_aliases(&aliases)
+        {
+            return None;
+        }
+        let mut value = None;
+        for (reachable, offset) in self.i32_offset_reachable_from_with_context(place, context) {
+            let Some(reachable_value) = self.direct_i32_value_with_context(&reachable, context)
+            else {
+                continue;
+            };
+            let Some(candidate) = i64::from(reachable_value)
+                .checked_sub(offset)
+                .and_then(|value| i32::try_from(value).ok())
+            else {
+                continue;
+            };
+            merge_i32_derived_value(&mut value, Some(candidate))?;
+        }
+        if let Some((source, scale)) = self.i32_scaled_source_with_context(place, context) {
+            let candidate = self
+                .direct_i32_value_with_context(&source, context)
+                .and_then(|source_value| {
+                    i64::from(source_value)
+                        .checked_mul(i64::try_from(scale).ok()?)
+                        .and_then(|value| i32::try_from(value).ok())
+                });
+            merge_i32_derived_value(&mut value, candidate)?;
+        }
+        value
+    }
+
     pub(super) fn i32_scaled_source(&self, place: &Place) -> Option<(Place, usize)> {
         let mut out = None;
         for candidate in self.i32_scaled_source_candidates(place) {
+            match &out {
+                Some(existing) if existing != &candidate => return None,
+                Some(_) => {}
+                None => out = Some(candidate),
+            }
+        }
+        out
+    }
+
+    pub(super) fn i32_scaled_source_with_context(
+        &self,
+        place: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Option<(Place, usize)> {
+        let mut out = None;
+        for candidate in self.i32_scaled_source_candidates_with_context(place, context) {
             match &out {
                 Some(existing) if existing != &candidate => return None,
                 Some(_) => {}
@@ -219,6 +364,25 @@ impl RawCellAddressAliases {
             .scaled_sources_for_aliases(&self.scalar_aliases_for(place))
         {
             let candidate = (self.canonicalize_scalar(&source), scale);
+            if !out.iter().any(|existing| existing == &candidate) {
+                out.push(candidate);
+            }
+        }
+        out
+    }
+
+    fn i32_scaled_source_candidates_with_context(
+        &self,
+        place: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Vec<(Place, usize)> {
+        let aliases = self.scalar_aliases_for_value_with_context(place, context);
+        let mut out = Vec::new();
+        for (source, scale) in self.i32_scales.scaled_sources_for_aliases(&aliases) {
+            let candidate = (
+                self.canonicalize_scalar_with_context(&source, context),
+                scale,
+            );
             if !out.iter().any(|existing| existing == &candidate) {
                 out.push(candidate);
             }
@@ -271,6 +435,31 @@ impl RawCellAddressAliases {
         self.scalar_aliases_for(place)
     }
 
+    pub(super) fn scalar_aliases_for_value_with_context(
+        &self,
+        place: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Vec<Place> {
+        if let Some(aliases) = context.scalar_aliases(place) {
+            return aliases;
+        }
+        let aliases = self.scalar_aliases_for_value(place);
+        context.memoize_scalar_aliases(place, aliases.clone());
+        aliases
+    }
+
+    fn canonicalize_scalar_with_context(
+        &self,
+        place: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Place {
+        self.scalar_aliases_for_value_with_context(place, context)
+            .into_iter()
+            .filter(|alias| !place_has_raw_address_projection(alias))
+            .min_by_key(scalar_alias_rank)
+            .unwrap_or_else(|| place.clone())
+    }
+
     fn scalar_fact_recording_sources(&self, place: &Place) -> Vec<Place> {
         let mut sources = Vec::new();
         push_unique_place(&mut sources, &self.canonicalize_scalar(place));
@@ -288,6 +477,36 @@ impl RawCellAddressAliases {
     ) -> Option<bool> {
         let left_reachable = self.i32_offset_reachable_from(left);
         let right_reachable = self.i32_offset_reachable_from(right);
+        let mut truth = None;
+        for (left_place, left_offset) in &left_reachable {
+            for (right_place, right_offset) in &right_reachable {
+                if left_place != right_place {
+                    continue;
+                }
+                let Some(left_value) = left_offset.checked_neg() else {
+                    continue;
+                };
+                let Some(right_value) = right_offset.checked_neg() else {
+                    continue;
+                };
+                merge_i32_offset_relation_truth(
+                    &mut truth,
+                    relation_holds_i64(left_value, op, right_value),
+                )?;
+            }
+        }
+        truth
+    }
+
+    fn i32_offset_relation_truth_with_context(
+        &self,
+        left: &Place,
+        op: ResourceI32RelationOp,
+        right: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Option<bool> {
+        let left_reachable = self.i32_offset_reachable_from_with_context(left, context);
+        let right_reachable = self.i32_offset_reachable_from_with_context(right, context);
         let mut truth = None;
         for (left_place, left_offset) in &left_reachable {
             for (right_place, right_offset) in &right_reachable {
@@ -362,6 +581,117 @@ impl RawCellAddressAliases {
             }
         }
         out
+    }
+
+    pub(super) fn i32_offset_reachable_from_with_context(
+        &self,
+        start: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Vec<(Place, i64)> {
+        if let Some(reachable) = context.offset_reachable(start) {
+            return reachable;
+        }
+        let mut out = Vec::new();
+        let mut queue = Vec::new();
+        for alias in self.scalar_aliases_for_value_with_context(start, context) {
+            push_i32_offset_reachable_state(
+                &mut out,
+                &mut queue,
+                self.canonicalize_scalar_with_context(&alias, context),
+                0,
+                0,
+            );
+        }
+        push_i32_offset_reachable_state(
+            &mut out,
+            &mut queue,
+            self.canonicalize_scalar_with_context(start, context),
+            0,
+            0,
+        );
+
+        let mut index = 0;
+        while index < queue.len() {
+            let (place, offset, depth) = queue[index].clone();
+            index += 1;
+            if depth >= I32_OFFSET_RELATION_DERIVATION_DEPTH {
+                continue;
+            }
+            for (target, step) in self.i32_offset_targets_with_context(&place, context) {
+                let Some(next_offset) = offset.checked_add(step) else {
+                    continue;
+                };
+                push_i32_offset_reachable_state(
+                    &mut out,
+                    &mut queue,
+                    self.canonicalize_scalar_with_context(&target, context),
+                    next_offset,
+                    depth + 1,
+                );
+            }
+            for (source, step) in self.i32_offset_sources_with_context(&place, context) {
+                let Some(next_offset) = offset.checked_sub(step) else {
+                    continue;
+                };
+                push_i32_offset_reachable_state(
+                    &mut out,
+                    &mut queue,
+                    self.canonicalize_scalar_with_context(&source, context),
+                    next_offset,
+                    depth + 1,
+                );
+            }
+        }
+        context.memoize_offset_reachable(start, out.clone());
+        out
+    }
+
+    pub(super) fn i32_offset_sources_with_context(
+        &self,
+        target: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Vec<(Place, i64)> {
+        if let Some(sources) = context.offset_sources(target) {
+            return sources;
+        }
+        let aliases = self.scalar_aliases_for_value_with_context(target, context);
+        let sources: Vec<(Place, i64)> = self
+            .i32_offsets
+            .offset_sources_for_target_aliases(&aliases)
+            .into_iter()
+            .map(|(source, offset)| {
+                (
+                    self.canonicalize_scalar_with_context(&source, context),
+                    offset,
+                )
+            })
+            .collect();
+        context.memoize_offset_sources(target, sources.clone());
+        sources
+    }
+
+    fn i32_offset_targets_with_context(
+        &self,
+        source: &Place,
+        context: &mut I32ConditionQueryContext,
+    ) -> Vec<(Place, i64)> {
+        if let Some(targets) = context.offset_targets(source) {
+            return targets;
+        }
+        let aliases = self.scalar_aliases_for_value_with_context(source, context);
+        let targets: Vec<(Place, i64)> = self
+            .i32_offsets
+            .offset_targets_for_source_aliases(&aliases)
+            .into_iter()
+            .map(|(target, offset)| {
+                (
+                    self.canonicalize_scalar_with_context(&target, context),
+                    offset,
+                )
+            })
+            .collect();
+        context.memoize_offset_targets(source, targets.clone());
+        targets
     }
 }
 

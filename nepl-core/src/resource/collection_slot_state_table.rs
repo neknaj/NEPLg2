@@ -434,7 +434,9 @@ fn collection_slot_event_operation(
         CollectionSlotLifecycleEvent::DropInitialized { .. } => {
             CollectionSlotLifecycleOp::DropInitialized
         }
-        CollectionSlotLifecycleEvent::StorageDealloc => CollectionSlotLifecycleOp::StorageDealloc,
+        CollectionSlotLifecycleEvent::StorageDealloc { .. } => {
+            CollectionSlotLifecycleOp::StorageDealloc
+        }
     }
 }
 

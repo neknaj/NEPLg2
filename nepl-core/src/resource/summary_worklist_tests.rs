@@ -34,10 +34,55 @@ fn initial_summary_order_places_callees_before_callers() {
     assert_eq!(order.iter().filter(|index| **index == 3).count(), 1);
 }
 
+#[test]
+fn filtered_summary_worklist_initially_queues_only_relevant_functions() {
+    let module = ResourceModule {
+        functions: vec![
+            function_with_ops("caller", vec![call("callee")]),
+            function_with_ops("callee", vec![call("leaf")]),
+            function_with_ops("leaf", vec![]),
+            function_with_ops("unrelated", vec![]),
+        ],
+        entry: None,
+        string_literals: vec![],
+    };
+    let mut worklist = SummaryWorklist::new_filtered(&module, vec![true, false, true, false]);
+
+    assert_eq!(drain_worklist(&mut worklist), vec![2, 0]);
+}
+
+#[test]
+fn filtered_summary_worklist_notify_changed_skips_irrelevant_dependents() {
+    let module = ResourceModule {
+        functions: vec![
+            function_with_ops("relevant_caller", vec![call("callee")]),
+            function_with_ops("callee", vec![]),
+            function_with_ops("irrelevant_caller", vec![call("callee")]),
+        ],
+        entry: None,
+        string_literals: vec![],
+    };
+    let mut worklist = SummaryWorklist::new_filtered(&module, vec![true, true, false]);
+
+    assert_eq!(worklist.pop(), Some(1));
+    assert_eq!(worklist.pop(), Some(0));
+    worklist.notify_changed(1);
+
+    assert_eq!(drain_worklist(&mut worklist), vec![0]);
+}
+
 fn assert_before(order: &[usize], left: usize, right: usize) {
     let left_pos = order.iter().position(|index| *index == left).unwrap();
     let right_pos = order.iter().position(|index| *index == right).unwrap();
     assert!(left_pos < right_pos);
+}
+
+fn drain_worklist(worklist: &mut SummaryWorklist) -> Vec<usize> {
+    let mut out = Vec::new();
+    while let Some(index) = worklist.pop() {
+        out.push(index);
+    }
+    out
 }
 
 fn function_with_ops(name: &str, ops: Vec<ResourceOp>) -> ResourceFunction {

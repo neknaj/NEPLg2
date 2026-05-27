@@ -138,7 +138,7 @@ fn compiler_memory_value_type_requires_applied_element_type() {
 }
 
 #[test]
-fn collection_slot_lifecycle_primitive_uses_old_type_as_replace_target() {
+fn collection_slot_lifecycle_primitive_uses_payload_type_for_slot_target() {
     assert_eq!(
         CollectionSlotLifecyclePrimitive::ReplaceReturnOld.slot_target_type_arg_index(),
         Some(0)
@@ -149,7 +149,7 @@ fn collection_slot_lifecycle_primitive_uses_old_type_as_replace_target() {
     );
     assert_eq!(
         CollectionSlotLifecyclePrimitive::StorageDealloc.slot_target_type_arg_index(),
-        None
+        Some(0)
     );
 }
 

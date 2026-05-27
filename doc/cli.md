@@ -48,7 +48,9 @@ nepl-cli --input examples/counter.nepl --output target/counter --emit wasm,wat,w
 - `--profile debug` enables `#if[profile=debug]`
 - `--profile release` enables `#if[profile=release]`
 
-If omitted, the compiler uses the build profile it was compiled with.
+If omitted, the source profile defaults to `debug`. This keeps source
+conditional compilation deterministic even when the compiler executable or Web
+artifact is built in release mode for speed.
 
 ## Run and program arguments
 

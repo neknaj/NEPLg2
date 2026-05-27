@@ -50,7 +50,7 @@ use super::report::{
     ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
     ResourceFunctionCheck,
 };
-use super::timing::ResourceStageTimer;
+use super::timing::{ResourceFunctionTimer, ResourceStageTimer};
 
 pub fn check_resource_initialized_moves(
     module: &ResourceModule,
@@ -92,6 +92,7 @@ pub fn check_resource_initialized_moves(
     let stage_start = ResourceStageTimer::start();
 
     for function in &module.functions {
+        let function_start = ResourceFunctionTimer::start();
         let mut engine = ResourceCheckEngine {
             function: function.name.as_str(),
             types,
@@ -116,6 +117,7 @@ pub fn check_resource_initialized_moves(
             auto_drop_points: engine.auto_drop_points,
             deferred: engine.deferred,
         });
+        function_start.log("resource_initialized_function_check", function);
     }
     stage_start.log("resource_initialized_function_checks");
 
@@ -136,12 +138,77 @@ fn dedup_resource_check_diagnostics(diagnostics: &mut Vec<ResourceCheckDiagnosti
     *diagnostics = unique;
 }
 
+#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+fn resource_op_kind(op: &ResourceOp) -> &'static str {
+    match op {
+        ResourceOp::Expr { .. } => "expr",
+        ResourceOp::DeclareLocal { .. } => "declare_local",
+        ResourceOp::Read { .. } => "read",
+        ResourceOp::Assign { .. } => "assign",
+        ResourceOp::Borrow { .. } => "borrow",
+        ResourceOp::Move { .. } => "move",
+        ResourceOp::Drop { .. } => "drop",
+        ResourceOp::EndScope { .. } => "end_scope",
+        ResourceOp::CallEffect { .. } => "call_effect",
+        ResourceOp::FunctionValue { .. } => "function_value",
+        ResourceOp::Call { .. } => "call",
+        ResourceOp::IndirectCall { .. } => "indirect_call",
+        ResourceOp::RawMemory { .. } => "raw_memory",
+        ResourceOp::RawAddressAlias { .. } => "raw_address_alias",
+        ResourceOp::RawAddressView { .. } => "raw_address_view",
+        ResourceOp::StorageOrigin { .. } => "storage_origin",
+        ResourceOp::CollectionSlotLifecycle { .. } => "collection_slot_lifecycle",
+        ResourceOp::CollectionStorageRelocate { .. } => "collection_storage_relocate",
+        ResourceOp::CollectionSlotDropTraversal { .. } => "collection_slot_drop_traversal",
+        ResourceOp::CollectionSlotTransformRange { .. } => "collection_slot_transform_range",
+        ResourceOp::Construct { .. } => "construct",
+        ResourceOp::Branch { .. } => "branch",
+        ResourceOp::Loop { .. } => "loop",
+        ResourceOp::Match { .. } => "match",
+    }
+}
+
+fn op_can_run_on_merged_path_state(types: &TypeCtx, op: &ResourceOp) -> bool {
+    match op {
+        ResourceOp::EndScope { locals, .. } => {
+            // path alternatives は branch/match/call return の診断精度を保つための
+            // 精密化であり、Drop 候補を持たない scope 終了では merged state と
+            // 同じ安全性になる。Copy local だけの EndScope を各 path で再実行すると、
+            // 文字列処理の loop 内で同じ no-op cleanup を何千回も replay してしまう。
+            locals.iter().all(|local| types.is_copy(local.ty))
+        }
+        ResourceOp::CallEffect { .. } => true,
+        ResourceOp::Expr { .. }
+        | ResourceOp::DeclareLocal { .. }
+        | ResourceOp::Read { .. }
+        | ResourceOp::Assign { .. }
+        | ResourceOp::Borrow { .. }
+        | ResourceOp::Move { .. }
+        | ResourceOp::Drop { .. }
+        | ResourceOp::FunctionValue { .. }
+        | ResourceOp::Call { .. }
+        | ResourceOp::IndirectCall { .. }
+        | ResourceOp::RawMemory { .. }
+        | ResourceOp::RawAddressAlias { .. }
+        | ResourceOp::RawAddressView { .. }
+        | ResourceOp::StorageOrigin { .. }
+        | ResourceOp::CollectionSlotLifecycle { .. }
+        | ResourceOp::CollectionStorageRelocate { .. }
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::CollectionSlotTransformRange { .. }
+        | ResourceOp::Construct { .. }
+        | ResourceOp::Branch { .. }
+        | ResourceOp::Loop { .. }
+        | ResourceOp::Match { .. } => false,
+    }
+}
+
 fn collection_slot_event_precondition_state(
     event: CollectionSlotLifecycleEvent,
 ) -> Option<CollectionSlotState> {
     match event {
         CollectionSlotLifecycleEvent::InitializeEmpty { .. }
-        | CollectionSlotLifecycleEvent::StorageDealloc => None,
+        | CollectionSlotLifecycleEvent::StorageDealloc { .. } => None,
         CollectionSlotLifecycleEvent::BorrowRead { expected_ty }
         | CollectionSlotLifecycleEvent::MoveOut { expected_ty }
         | CollectionSlotLifecycleEvent::DropInitialized { expected_ty } => {
@@ -373,6 +440,24 @@ impl ResourceCheckEngine<'_> {
         path: ResourceDropPointPath,
     ) {
         for (index, op) in ops.iter().enumerate() {
+            #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+            let op_timing = std::env::var_os("NEPL_RESOURCE_OP_TIMING").map(|_| {
+                if let Some(filter) = std::env::var("NEPL_RESOURCE_OP_TIMING_FUNCTION")
+                    .ok()
+                    .filter(|filter| !self.function.contains(filter))
+                {
+                    let _ = filter;
+                    return None;
+                }
+                std::eprintln!(
+                    "[resource-op-timing] start function={} op={} kind={} incoming_paths={}",
+                    self.function,
+                    index,
+                    resource_op_kind(op),
+                    self.path_alternatives.len()
+                );
+                Some(std::time::Instant::now())
+            });
             let mut pending_transform_range_certificates = self
                 .pending_local_transform_range_certificates(
                     cells,
@@ -397,23 +482,47 @@ impl ResourceCheckEngine<'_> {
                     op_path,
                 ),
                 ResourcePathAlternatives::Feasible(alternatives) => {
-                    let advanced =
-                        self.advance_path_alternatives_after_op(&alternatives, op, op_path);
-                    merge_path_alternatives_into(
-                        &advanced,
-                        cells,
-                        collection_slots,
-                        raw_aliases,
-                        function_aliases,
-                        pending_reallocs,
-                        variant_initializations,
-                    );
-                    self.path_alternatives = ResourcePathAlternatives::from_states(advanced);
+                    if op_can_run_on_merged_path_state(self.types, op) {
+                        self.check_op(
+                            cells,
+                            collection_slots,
+                            raw_aliases,
+                            function_aliases,
+                            pending_reallocs,
+                            variant_initializations,
+                            op,
+                            op_path,
+                        );
+                    } else {
+                        let advanced =
+                            self.advance_path_alternatives_after_op(&alternatives, op, op_path);
+                        merge_path_alternatives_into(
+                            &advanced,
+                            cells,
+                            collection_slots,
+                            raw_aliases,
+                            function_aliases,
+                            pending_reallocs,
+                            variant_initializations,
+                        );
+                        self.path_alternatives = ResourcePathAlternatives::from_states(advanced);
+                    }
                 }
             }
             self.retain_local_transform_range_certificates_after_op(raw_aliases, op);
             if let Some(candidates) = &mut self.transform_range_certificates {
                 candidates.append(&mut pending_transform_range_certificates);
+            }
+            #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+            if let Some(Some(start)) = op_timing {
+                std::eprintln!(
+                    "[resource-op-timing] end function={} op={} kind={} outgoing_paths={} elapsed_ms={}",
+                    self.function,
+                    index,
+                    resource_op_kind(op),
+                    self.path_alternatives.len(),
+                    start.elapsed().as_millis()
+                );
             }
         }
     }

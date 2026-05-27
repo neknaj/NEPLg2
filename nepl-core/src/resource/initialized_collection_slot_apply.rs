@@ -38,7 +38,7 @@ impl ResourceCheckEngine<'_> {
             .unwrap_or_else(|| target.clone());
         let target = &canonical_target;
         let result = match event {
-            CollectionSlotLifecycleEvent::StorageDealloc => raw_aliases
+            CollectionSlotLifecycleEvent::StorageDealloc { .. } => raw_aliases
                 .map(|raw_aliases| {
                     collection_slots.storage_release_precondition_with_aliases(target, raw_aliases)
                 })

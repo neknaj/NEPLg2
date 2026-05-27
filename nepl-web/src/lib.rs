@@ -3004,6 +3004,16 @@ fn compile_outputs_with_bundled_sources_and_cache(
         loader_cache,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
+    compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
+}
+
+fn compile_outputs_from_compiled(
+    compiled: &CompiledWasm,
+    entry_path: &str,
+    source: &str,
+    emit_list: Vec<String>,
+    attach_source: bool,
+) -> Result<JsValue, JsValue> {
     let obj = js_sys::Object::new();
 
     for e in emit_list {
@@ -3158,6 +3168,7 @@ pub fn compile_test(name: &str) -> Result<Vec<u8>, JsValue> {
         .map_err(|msg| JsValue::from_str(&msg))
 }
 
+#[derive(Clone)]
 struct CompiledWasm {
     wasm: Vec<u8>,
     wat_comments: String,
@@ -3342,11 +3353,21 @@ pub struct CompilerSession {
     stdlib_root: PathBuf,
     bundled_sources: BTreeMap<PathBuf, &'static str>,
     loader_cache: RefCell<LoaderSessionCache>,
+    compiled_output_cache: RefCell<Vec<CompiledOutputCacheEntry>>,
     prewarmed_import_surfaces: RefCell<BTreeMap<u64, usize>>,
-    prewarmed_dependency_aggregate_surfaces: RefCell<BTreeMap<u64, u64>>,
+    compiled_output_cache_hits: RefCell<usize>,
+    compiled_output_cache_stores: RefCell<usize>,
     prewarm_surface_hits: RefCell<usize>,
     prewarm_surface_stores: RefCell<usize>,
 }
+
+#[derive(Clone)]
+struct CompiledOutputCacheEntry {
+    key: String,
+    compiled: CompiledWasm,
+}
+
+const COMPILED_OUTPUT_CACHE_LIMIT: usize = 8;
 
 #[wasm_bindgen]
 impl CompilerSession {
@@ -3358,8 +3379,10 @@ impl CompilerSession {
             stdlib_root,
             bundled_sources,
             loader_cache: RefCell::new(LoaderSessionCache::new(stdlib_hash())),
+            compiled_output_cache: RefCell::new(Vec::new()),
             prewarmed_import_surfaces: RefCell::new(BTreeMap::new()),
-            prewarmed_dependency_aggregate_surfaces: RefCell::new(BTreeMap::new()),
+            compiled_output_cache_hits: RefCell::new(0),
+            compiled_output_cache_stores: RefCell::new(0),
             prewarm_surface_hits: RefCell::new(0),
             prewarm_surface_stores: RefCell::new(0),
         }
@@ -3393,7 +3416,7 @@ impl CompilerSession {
     pub fn loader_cache_stats_json(&self) -> String {
         let stats = self.loader_cache.borrow().stats();
         format!(
-            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{}}}",
+            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"compiled_output_cache_hits\":{},\"compiled_output_cache_stores\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{}}}",
             stats.parsed_module_hits,
             stats.parsed_module_misses,
             stats.parsed_module_stores,
@@ -3410,6 +3433,8 @@ impl CompilerSession {
             stats.dependency_aggregate_public_surface_hash_stores,
             stats.dependency_aggregate_public_surface_hash_bypasses,
             stats.stdlib_override_bypasses,
+            *self.compiled_output_cache_hits.borrow(),
+            *self.compiled_output_cache_stores.borrow(),
             *self.prewarm_surface_hits.borrow(),
             *self.prewarm_surface_stores.borrow(),
         )
@@ -3422,10 +3447,10 @@ impl CompilerSession {
     /// 固定したいため、cache の寿命を観測可能にしておく。
     pub fn clear_loader_cache(&self) {
         self.loader_cache.borrow_mut().clear();
+        self.compiled_output_cache.borrow_mut().clear();
         self.prewarmed_import_surfaces.borrow_mut().clear();
-        self.prewarmed_dependency_aggregate_surfaces
-            .borrow_mut()
-            .clear();
+        *self.compiled_output_cache_hits.borrow_mut() = 0;
+        *self.compiled_output_cache_stores.borrow_mut() = 0;
         *self.prewarm_surface_hits.borrow_mut() = 0;
         *self.prewarm_surface_stores.borrow_mut() = 0;
     }
@@ -3436,6 +3461,12 @@ impl CompilerSession {
     /// `ImportResolution`、Resource IR、codegen fragment は保持しない。対象は root
     /// source の default prelude / prelude / import / include から解決できる stdlib
     /// closure に限定し、bundled artifact のファイル一覧を総なめしない。
+    ///
+    /// dependency aggregate public surface hash は typed public surface cache の
+    /// invalidation key として使う設計段階の artifact であり、この関数では計算しない。
+    /// Web playground の compile 前 prewarm は compile を始めるために必要な query だけを
+    /// warm し、まだ消費していない将来用 artifact のために private implementation graph を
+    /// 再帰的に歩かない。
     pub fn prewarm_loader_cache_for_source(
         &self,
         entry_path: &str,
@@ -3468,20 +3499,9 @@ impl CompilerSession {
         let warmed = loader
             .prewarm_provider_cache(&roots, &mut provider, &mut cache)
             .map_err(|e| JsValue::from_str(&format!("{e}")))?;
-        let dependency_aggregate_public_surface_hash = loader
-            .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
-                PathBuf::from(entry_path),
-                source,
-                &mut provider,
-                &mut cache,
-            )
-            .map_err(|e| JsValue::from_str(&format!("{e}")))?;
         self.prewarmed_import_surfaces
             .borrow_mut()
             .insert(surface_hash, warmed);
-        self.prewarmed_dependency_aggregate_surfaces
-            .borrow_mut()
-            .insert(surface_hash, dependency_aggregate_public_surface_hash);
         *self.prewarm_surface_stores.borrow_mut() += 1;
         Ok(warmed)
     }
@@ -3495,8 +3515,19 @@ impl CompilerSession {
     ) -> Result<Vec<u8>, JsValue> {
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
+        let key = compiled_output_cache_key(entry_path, source, &vfs, false, profile);
+        if let Some(compiled) = self
+            .compiled_output_cache
+            .borrow()
+            .iter()
+            .find(|entry| entry.key == key)
+            .map(|entry| entry.compiled.clone())
+        {
+            *self.compiled_output_cache_hits.borrow_mut() += 1;
+            return Ok(compiled.wasm);
+        }
         let mut cache = self.loader_cache.borrow_mut();
-        compile_wasm_with_bundled_sources_and_cache(
+        let compiled = compile_wasm_with_bundled_sources_and_cache(
             entry_path,
             source,
             &self.stdlib_root,
@@ -3507,8 +3538,9 @@ impl CompilerSession {
             false,
             Some(&mut cache),
         )
-        .map(|a| a.wasm)
-        .map_err(|msg| JsValue::from_str(&msg))
+        .map_err(|msg| JsValue::from_str(&msg))?;
+        self.store_compiled_output_cache_entry(key, compiled.clone());
+        Ok(compiled.wasm)
     }
 
     pub fn compile_source_with_vfs_stdlib_and_profile(
@@ -3550,18 +3582,91 @@ impl CompilerSession {
         emit: JsValue,
         attach_source: bool,
     ) -> Result<JsValue, JsValue> {
-        let mut cache = self.loader_cache.borrow_mut();
-        compile_outputs_with_bundled_sources_and_cache(
+        let emit_list = parse_emit_list(emit)?;
+        let include_wat_comments = emit_list.iter().any(|kind| kind == "wat");
+        let key = compiled_output_cache_key(entry_path, source, &vfs, include_wat_comments, "debug");
+        if let Some(compiled) = self
+            .compiled_output_cache
+            .borrow()
+            .iter()
+            .find(|entry| entry.key == key)
+            .map(|entry| entry.compiled.clone())
+        {
+            *self.compiled_output_cache_hits.borrow_mut() += 1;
+            return compile_outputs_from_compiled(
+                &compiled,
+                entry_path,
+                source,
+                emit_list,
+                attach_source,
+            );
+        }
+        let mut loader_cache = self.loader_cache.borrow_mut();
+        let compiled = compile_wasm_with_bundled_sources_and_cache(
             entry_path,
             source,
             &self.stdlib_root,
             &self.bundled_sources,
             Some(vfs),
-            emit,
-            attach_source,
-            Some(&mut cache),
+            None,
+            Some(BuildProfile::default_source_profile()),
+            include_wat_comments,
+            Some(&mut loader_cache),
         )
+        .map_err(|msg| JsValue::from_str(&msg))?;
+        self.store_compiled_output_cache_entry(key, compiled.clone());
+        compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
     }
+
+    fn store_compiled_output_cache_entry(&self, key: String, compiled: CompiledWasm) {
+        let mut cache = self.compiled_output_cache.borrow_mut();
+        if cache.len() >= COMPILED_OUTPUT_CACHE_LIMIT {
+            cache.remove(0);
+        }
+        cache.push(CompiledOutputCacheEntry { key, compiled });
+        *self.compiled_output_cache_stores.borrow_mut() += 1;
+    }
+}
+
+fn compiled_output_cache_key(
+    entry_path: &str,
+    source: &str,
+    vfs: &JsValue,
+    include_wat_comments: bool,
+    profile: &str,
+) -> String {
+    let mut key = String::new();
+    push_cache_key_part(&mut key, entry_path);
+    push_cache_key_part(&mut key, profile);
+    push_cache_key_part(&mut key, if include_wat_comments { "wat" } else { "wasm" });
+    push_cache_key_part(&mut key, source);
+    if vfs.is_object() {
+        let mut entries = js_sys::Object::entries(&vfs.clone().into())
+            .iter()
+            .filter_map(|entry| {
+                let pair = js_sys::Array::from(&entry);
+                let path = pair.get(0).as_string().unwrap_or_default();
+                if path.is_empty() {
+                    return None;
+                }
+                let content = pair.get(1).as_string().unwrap_or_default();
+                Some((path, content))
+            })
+            .collect::<Vec<_>>();
+        entries.sort_by(|left, right| left.0.cmp(&right.0));
+        for (path, content) in entries {
+            push_cache_key_part(&mut key, &path);
+            push_cache_key_part(&mut key, &content);
+        }
+    }
+    key
+}
+
+fn push_cache_key_part(key: &mut String, value: &str) {
+    key.push_str(&value.len().to_string());
+    key.push(':');
+    key.push_str(value);
+    key.push('\n');
 }
 
 #[wasm_bindgen]

@@ -31,7 +31,13 @@
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
-#import "alloc/collections/vec" as v
+#import "alloc/collections/vec/types" as *
+#import "alloc/collections/vec/storage/view" as vec_view
+#import "alloc/collections/vec/storage/api" as vec_alloc
+#import "alloc/collections/vec/mutation/push" as vec_push
+#import "alloc/collections/vec/mutation/cleanup" as vec_cleanup
+#import "alloc/collections/vec/access/header" as vec_header
+#import "alloc/collections/vec/query/get" as vec_get
 #import "alloc/diag/error/types" as *
 #import "alloc/diag/error/diag" as *
 #import "core/field" as *
@@ -40,12 +46,12 @@
 //: [目的/もくてき]:
 //: - `Diags` [構築/こうちく]で allocation failure が[起/お]きても trap せず、[空/から]の[診断群/しんだんぐん]へ[丸/まる]めます。
 pub fn diag_empty_diag_vec %fn unit Vec Diag \unit:
-    v::vec_empty
+    vec_view::vec_empty
 
 //: diags_new: [空/から]の `Diags` を[作/つく]る
 pub fn diags_new %impure fn unit Diags \unit:
     let mut items %Vec Diag diag_empty_diag_vec;
-    let created %Result Vec Diag StdErrorKind v::new;
+    let created %Result Vec Diag StdErrorKind vec_alloc::new;
     match created:
         Result::Ok items0:
             set items items0
@@ -55,14 +61,14 @@ pub fn diags_new %impure fn unit Diags \unit:
 
 //: diags_one: `Diag` 1 [件/けん]から `Diags` を[作/つく]る
 pub fn diags_one %impure fn Diag Diags \d:
-    let created %Result Vec Diag StdErrorKind v::new;
+    let created %Result Vec Diag StdErrorKind vec_alloc::new;
     match created:
         Result::Ok items0:
-            match v::push items0 d:
+            match vec_push::push items0 d:
                 Result::Ok items:
                     Diags items
                 Result::Err e:
-                    v::free v::vec_push_error_vec e
+                    vec_cleanup::free vec_push::vec_push_error_vec e
                     Diags diag_empty_diag_vec
         Result::Err _e:
             Diags diag_empty_diag_vec
@@ -70,17 +76,17 @@ pub fn diags_one %impure fn Diag Diags \d:
 //: diags_push: `Diags` に `Diag` を 1 [件/けん][追加/ついか]する
 pub fn diags_push %impure fn Diags impure fn Diag Diags \ds\d:
     let items %Vec Diag field::get ds "items";
-    match v::push items d:
+    match vec_push::push items d:
         Result::Ok items:
             Diags items
         Result::Err e:
-            v::free v::vec_push_error_vec e
+            vec_cleanup::free vec_push::vec_push_error_vec e
             Diags diag_empty_diag_vec
 
 //: diags_len: [診断/しんだん][件数/けんすう]を[返/かえ]す
 pub fn diags_len %fn &Diags i32 \ds:
     let items %&Vec Diag field::get_ref ds "items";
-    v::len items
+    vec_header::len items
 
 pub fn diags_len %fn Diags i32 \ds:
     let n %i32 diags_len &ds
@@ -90,7 +96,7 @@ pub fn diags_len %fn Diags i32 \ds:
 //: diags_has_errors: error level の[診断/しんだん]を 1 [件/けん]でも[含/ふく]むか[判定/はんてい]する
 pub fn diags_has_errors %fn &Diags bool \ds:
     let items %&Vec Diag field::get_ref ds "items";
-    let items_len %i32 v::len items;
+    let items_len %i32 vec_header::len items;
     diags_has_errors_loop items items_len 0
 
 pub fn diags_has_errors %fn Diags bool \ds:
@@ -103,7 +109,7 @@ pub fn diags_has_errors_loop %fn &Vec Diag fn i32 fn i32 bool \items\n\i:
         ge i n
         then false
         else:
-            match v::get items i:
+            match vec_get::get items i:
                 Option::Some d:
                     let level %DiagLevel diag_level d;
                     match level:
@@ -124,4 +130,4 @@ pub fn diags_has_errors_loop %fn &Vec Diag fn i32 fn i32 bool \items\n\i:
 //: - `Diags` を[値/あたい]として[消費/しょうひ]し、`items` の backing storage を[閉/と]じます。
 //: - `Diag` 本体は Copy な text fragment だけを[保持/ほじ]するため、要素ごとの drop traversal は[行/おこな]いません。
 pub fn diags_free %fn Diags unit \ds:
-    v::free field::get ds "items"
+    vec_cleanup::free field::get ds "items"

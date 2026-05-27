@@ -60,7 +60,7 @@ pub(super) fn collection_slot_drop_obligation(
         | CollectionSlotLifecycleEvent::InitializeEmpty { .. }
         | CollectionSlotLifecycleEvent::BorrowRead { .. }
         | CollectionSlotLifecycleEvent::MoveOut { .. }
-        | CollectionSlotLifecycleEvent::StorageDealloc => return None,
+        | CollectionSlotLifecycleEvent::StorageDealloc { .. } => return None,
     };
     resource_type_needs_drop_code(types, value_ty).then_some(
         CollectionSlotDropObligation::DropLoadedValue {

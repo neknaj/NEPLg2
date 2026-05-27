@@ -66,7 +66,7 @@ pub(super) fn collection_slot_owner_transfer_obligation(
         }
         CollectionSlotLifecycleEvent::BorrowRead { .. }
         | CollectionSlotLifecycleEvent::DropInitialized { .. }
-        | CollectionSlotLifecycleEvent::StorageDealloc => None,
+        | CollectionSlotLifecycleEvent::StorageDealloc { .. } => None,
     }
 }
 

@@ -9,7 +9,7 @@
 
 #indent 4
 
-#import "alloc/diag/error" as *
+#import "alloc/diag/error/types" as *
 #import "core/mem" as *
 #import "alloc/io/bytebuilder" as *
 #import "core/result" as *

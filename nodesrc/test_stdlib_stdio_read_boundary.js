@@ -380,6 +380,28 @@ assert.match(
     /#import\s+"\.\/buffer"\s+as\s+\*/,
     'std/stdio/read/bytes must depend on read/buffer boundary helpers',
 );
+assert.doesNotMatch(
+    readBufferSrc,
+    /#import\s+"alloc\/io"\s+as\s+\*/,
+    'std/stdio/read/buffer must import ByteBuf helpers from alloc/io/bytebuf instead of the alloc/io root facade',
+);
+assert.match(
+    readBufferCode,
+    /#import\s+"alloc\/io\/bytebuf"\s+as\s+\*/,
+    'std/stdio/read/buffer must import ByteBuf helpers from the direct bytebuf submodule',
+);
+assert.doesNotMatch(
+    readBufferSrc,
+    /#import\s+"core\/mem"\s+as\s+\*/,
+    'std/stdio/read/buffer must import direct core/mem submodules for region and pointer helpers',
+);
+for (const memSubmodule of ['layout', 'pointer/region', 'pointer/scalar', 'pointer/view', 'types']) {
+    assert.match(
+        readBufferCode,
+        new RegExp(`#import\\s+"core\\/mem\\/${memSubmodule}"\\s+as\\s+\\*`),
+        `std/stdio/read/buffer must import core/mem/${memSubmodule} directly`,
+    );
+}
 assert.match(
     readBufferCode,
     /#import\s+"std\/stdio\/raw"\s+as\s+\*/,
@@ -414,6 +436,36 @@ assert.match(
     readTextCode,
     /#import\s+"\.\/bytes"\s+as\s+\*/,
     'std/stdio/read/text must build on read/bytes for read_all text conversion',
+);
+assert.doesNotMatch(
+    readTextSrc,
+    /#import\s+"std\/text"\s+as\s+\*/,
+    'std/stdio/read/text must import std/text/convert directly instead of the std/text root facade',
+);
+assert.match(
+    readTextCode,
+    /#import\s+"std\/text\/convert"\s+as\s+\*/,
+    'std/stdio/read/text must import UTF-8 ByteBuf conversion from the direct std/text/convert submodule',
+);
+assert.doesNotMatch(
+    readBytesSrc,
+    /#import\s+"alloc\/io"\s+as\s+\*/,
+    'std/stdio/read/bytes must import ByteBuf helpers from alloc/io/bytebuf instead of the alloc/io root facade',
+);
+assert.match(
+    readBytesCode,
+    /#import\s+"alloc\/io\/bytebuf"\s+as\s+\*/,
+    'std/stdio/read/bytes must import ByteBuf helpers from the direct bytebuf submodule',
+);
+assert.doesNotMatch(
+    readTextSrc,
+    /#import\s+"alloc\/io"\s+as\s+\*/,
+    'std/stdio/read/text must import ByteBuf helpers from alloc/io/bytebuf instead of the alloc/io root facade',
+);
+assert.match(
+    readTextCode,
+    /#import\s+"alloc\/io\/bytebuf"\s+as\s+\*/,
+    'std/stdio/read/text must import ByteBuf helpers from the direct bytebuf submodule',
 );
 
 for (const helper of [

@@ -67,6 +67,8 @@ release WASM では、最小 program の warm compile が 10ms 未満になっ�
 - stdlib override / overlay が `/stdlib` 以下を差し替える場合は parsed module cache を bypass し、bundled stdlib 用 artifact を local override へ混ぜない。
 - `LoaderSessionCache` は source arity surface cache も保持する。value は local type arity hints、prelude/import/include/public re-export の resolved path、root-only default prelude 判定だけであり、`FileId` / `Span` / `ImportResolution` / typed HIR / `TypeId` は保存しない。
 - source arity surface は `cache version + stdlib namespace hash + stdlib root + canonical path + source hash` を key にする。public re-export 先の arity result は親 surface へ畳み込まず、依存先 source hash の別 query として再評価する。
+- Web playground の `trunk build` は Rust/WASM artifact を release profile で生成する。NEPL source 側の `#if[profile=...]` 既定値は `debug` のまま分離し、compiler artifact の最適化状態で source semantics が変わらないようにする。
+- `CompilerSession` は同一 source / VFS / profile / WAT comment mode の compiled output を小さな LRU 風 cache に保持する。これは同一 session の再compileでResource IR全体を再実行しないための応急的な出力cacheであり、typed public surface / Resource IR summary の semantic incremental cache を置き換えるものではない。
 
 ## CompilerSession first checkpoint
 
@@ -330,7 +332,7 @@ subagent review では、public signature text が同じでも private import / 
 - aggregate cache key は canonical stdlib root、canonical module path、module public surface hash、child dependency aggregate hash であり、source body hash ではない。これにより body-only edit は parsed module cache miss になっても aggregate public surface cache は再利用できる。
 - non-stdlib dependency edge は bundled stdlib aggregate cache の対象外なので、provider で読まず conservative external hash にして `dependency_aggregate_public_surface_hash_bypasses` で観測する。
 - import cycle に戻る edge は source hash を含む conservative cycle hash にする。body-only edit でも過剰 invalidation し得るが、stale typed cache を作らないことを優先する。
-- `CompilerSession.prewarm_loader_cache_for_source` は source-directed prewarm 後に aggregate hash を計算し、root prewarm surface hash から dependency aggregate hash を引ける map に保持する。typed HIR / `ImportResolution` / `TypeId` / Resource IR / codegen fragment はまだ保持しない。
+- `CompilerSession.prewarm_loader_cache_for_source` は source-directed prewarm だけを行う。dependency aggregate public surface hash は typed public surface / Resource IR summary cache の invalidation key として使う設計段階の artifact であり、Web playground の compile 前 hot path ではまだ計算しない。
 - `CompilerSession.loader_cache_stats_json()` は `dependency_aggregate_public_surface_hash_hits` / `misses` / `stores` / `bypasses` を返す。
 
 追加 regression:
@@ -348,7 +350,54 @@ subagent review では、public signature text が同じでも private import / 
 | Web release dependency-aggregate second | same source / same `CompilerSession` | `compile_ms=4`、`prewarm_ms=0`、`wasm_call_ms=4`、`prewarm_surface_hits=1` |
 | Web release dependency-aggregate body-only edit | return literalだけを変更 + same `CompilerSession` | `compile_ms=4`、`prewarm_ms=0`、`wasm_call_ms=4`、`prewarm_surface_hits=2` |
 
-この checkpoint でも aggregate first の compile time は大きくは下がらない。効果は、次段階の typed public surface / Resource IR summary cache が「同じ dependency aggregate public surface なら再利用し、public dependency change なら invalidation する」ための安全な key を得ることにある。
+2026-05-28 の修正で、dependency aggregate query には同一 traversal 内の memo を追加した。diamond dependency graph で同じ configured stdlib module を何度も展開しないためである。ただし、RPN のような stdlib-heavy source では、この query を `CompilerSession.prewarm_loader_cache_for_source` から同期実行すると private implementation import closure を広く歩き、compile phase が 120 秒 timeout になることを確認した。
+
+したがって、この checkpoint の成果は「将来の semantic cache key」として保持し、Web playground の compile 前 prewarm からは外した。aggregate first の compile time を直接下げる効果はまだない。次段階の typed public surface / Resource IR summary cache が実際にこの key を消費する段階で、public surface 境界と invalidation 範囲を再確認して接続する。
+
+## Web playground release / compiled-output cache checkpoint
+
+2026-05-28 の checkpoint では、Web playground で compile が終了しない体感問題を先に緩和するため、build artifact と同一 session 再compileの境界を修正した。
+
+追加した境界:
+
+- `trunk build` の通常実行が Rust/WASM release artifact を作るように、`Trunk.toml` の `[build].release = true` を固定した。HTML の Rust asset も `data-cargo-profile="release"` を持つ。
+- NEPL source profile の既定値は `BuildProfile::Debug` に固定した。明示的な `--profile release` / `compile_source_with_*_profile(..., "release")` だけが `#if[profile=release]` を有効化する。
+- `CompilerSession.compile_outputs_with_vfs` と `CompilerSession.compile_source_with_vfs_and_profile` は、entry path、source、compile VFS、NEPL source profile、WAT comment mode を key にして `CompiledWasm` を保持する。
+- cache value は wasm bytes と NEPL WAT debug comment だけであり、`SourceMap`、typed HIR、`TypeId`、Resource IR summary、diagnostic span は保持しない。
+- VFS key は `merge_vfs_sources` と同じ正規化規則で作る。path が空の entry は除外し、非文字列 content は compile 側と同じく空文字列として扱う。
+- cache limit は 8 entries に抑え、Web session が無制限に wasm bytes を保持しないようにする。
+- `clear_loader_cache()` は loader cache と同時に compiled-output cache と hit/store counter を消す。
+- `loader_cache_stats_json()` は `compiled_output_cache_hits` / `compiled_output_cache_stores` を返す。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| Web release RPN prewarm direct | `CompilerSession.prewarm_loader_cache_for_source("/virtual/entry.nepl", rpn)` | `prewarm_ms=267`、`prewarm_count=16`、dependency aggregate counters `0` |
+| Web release RPN doctest first | `web/examples/rpn.nepl` + same `CompilerSession` | `compile_ms=8976`、`prewarm_ms=193`、`wasm_call_ms=8783`、`compiled_output_cache_hits=0`、`stores=2` |
+| Web release RPN doctest second | same source / same `CompilerSession` | `compile_ms=1`、`prewarm_ms=1`、`wasm_call_ms=0`、`compiled_output_cache_hits=1`、`stores=2` |
+
+この checkpoint は「同じ入力の再compile」を 10ms 未満にするが、初回 compile はまだ 9 秒級である。RPN では `resource_initialized_raw_init_summaries` と `resource_initialized_function_checks` が支配的であり、i32 scalar query cache 後も full Resource IR pipeline が残る。したがって次段階は、dependency aggregate public surface hash を typed public signature table / Resource IR summary cache の invalidation key に接続し、変更されていない stdlib / user function の summary を再利用する。
+
+現在の compiled-output cache key は stale hit を避けるため、entry source と compile VFS 全体を含める。これは安全だが、未使用の editable `.nepl` file が変わっただけでも false miss になる。依存 closure に基づく output cache key は、typed public surface / import graph cache と同じ invalidation 証明が必要なので、この checkpoint では実装しない。
+
+## Resource IR scalar query cache checkpoint
+
+2026-05-28 の Resource IR 側 checkpoint では、i32 scalar condition / alias / offset query を `I32ConditionQueryContext` に集約し、summary 内で同じ純粋 query を繰り返さないようにした。
+
+追加した境界:
+
+- direct i32 value、bounded offset value、scalar alias、offset source / target / reachable の query を context-aware helper へ分けた。
+- return fact collection は同じ context を共有し、条件判定と return fact 変換で同一の alias / offset graph を再探索しない。
+- raw initialization summary は、signature relevance、raw alias summary、direct raw op、関連 callee の dependency closure で対象を絞る。ただし reference parameter から seed される raw initialization 前提を落とさないよう、signature relevance を先に残す。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| native release RPN static check | `target/release/nepl-cli.exe --check -i examples/rpn.nepl --target std --stdlib-root stdlib` | `resource_static_check=9202ms`、`resource_initialized_i32_scalar_summaries=2012ms`、`resource_initialized_raw_init_summaries=2520ms`、`resource_initialized_function_checks=3730ms` |
+
+subagent review 後に、Branch / Match の sibling variant return facts、collection slot operation の raw initialization relevance、offset/constant derived equality を戻した。これにより correctness-first の path preservation が増え、i32 scalar summary は最小値の 571ms から 2012ms へ戻ったが、false negative を避けるための必要な修正である。total static check はまだ 9 秒台であり、raw init / function check の path-sensitive exploration が次の主要ボトルネックである。
 
 ## 次段階の CompilerSession 設計
 

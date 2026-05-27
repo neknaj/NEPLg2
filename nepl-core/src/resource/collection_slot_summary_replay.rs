@@ -3,6 +3,9 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use super::cell_state::CellTable;
+use super::collection_slot_payload_tracking::{
+    collection_slot_lifecycle_event_needs_tracking, collection_slot_payload_type_needs_tracking,
+};
 use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryOp, CollectionSlotLifecycleSummaryRelocateProof,
@@ -31,6 +34,9 @@ impl ResourceCheckEngine<'_> {
                     event,
                     proof,
                 } => {
+                    if !collection_slot_lifecycle_event_needs_tracking(self.types, *event) {
+                        continue;
+                    }
                     if let Some(target) =
                         instantiate_summary_target_with_aliases(self, args, raw_aliases, target)
                     {
@@ -83,6 +89,9 @@ impl ResourceCheckEngine<'_> {
                     expected_ty,
                     coverage,
                 } => {
+                    if !collection_slot_payload_type_needs_tracking(self.types, *expected_ty) {
+                        continue;
+                    }
                     apply_drop_traversal_summary_op(
                         self,
                         cells,
@@ -104,6 +113,9 @@ impl ResourceCheckEngine<'_> {
                     expected_ty,
                     certificate,
                 } => {
+                    if !collection_slot_payload_type_needs_tracking(self.types, *expected_ty) {
+                        continue;
+                    }
                     apply_transform_range_summary_op(
                         self,
                         cells,
@@ -125,6 +137,9 @@ impl ResourceCheckEngine<'_> {
                     expected_ty,
                     certificate,
                 } => {
+                    if !collection_slot_payload_type_needs_tracking(self.types, *expected_ty) {
+                        continue;
+                    }
                     let Some(source_storage) = instantiate_summary_target_with_aliases(
                         self,
                         args,

@@ -258,6 +258,70 @@ fn collection_slot_summary_branch_condition_fact_does_not_certify_forall_drop_tr
     );
 }
 
+/// Copy payload の lifecycle marker が、summary 対象の関数内にあっても
+/// collection slot summary op として記録されないことを確認する。
+///
+/// Copy payload の初期化済み状態は raw initialization 側の責務であり、
+/// collection slot summary に混ぜると Copy 専用 helper が非 Copy 用の探索空間を
+/// 不必要に広げる。このテストは、summary builder 側で同じ境界が守られることを
+/// 小さい入力で固定する。
+#[test]
+fn collection_slot_summary_builder_skips_copy_payload_lifecycle_event() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    types.register_copy_impl_target(types.i32());
+    let i32_ty = types.i32();
+    let unit_ty = types.unit();
+    let span = Span::dummy();
+    let storage = Place::local("storage".to_string(), i32_ty);
+    let initialized_count = Place::local("initialized_count".to_string(), i32_ty);
+    let function = summary_test_function(unit_ty, i32_ty, span, storage.clone(), initialized_count);
+    let raw_alias_summaries = [];
+    let i32_scalar_summaries = [];
+    let raw_init_summaries = [];
+    let collection_slot_summaries = [];
+    let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(&raw_alias_summaries);
+    let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(&i32_scalar_summaries);
+    let raw_init_summary_index =
+        RawCellInitializationFunctionSummaryIndex::new(&raw_init_summaries);
+    let collection_slot_summary_index =
+        CollectionSlotLifecycleFunctionSummaryIndex::new(&collection_slot_summaries);
+    let mut engine = ResourceCheckEngine {
+        function: function.name.as_str(),
+        types: &types,
+        raw_alias_summaries: &raw_alias_summary_index,
+        i32_scalar_summaries: &i32_scalar_summary_index,
+        raw_init_summaries: &raw_init_summary_index,
+        collection_slot_summaries: &collection_slot_summary_index,
+        transform_range_certificates: None,
+        diagnostics: Vec::new(),
+        auto_drop_points: Vec::new(),
+        deferred: ResourceCheckDeferred::default(),
+        path_alternatives: Default::default(),
+    };
+    let mut state = CollectionSlotSummaryBuildState::new(&types, &function);
+    let mut out = Vec::new();
+
+    collect_summary_ops_from_ops(
+        &mut out,
+        &mut engine,
+        &mut state,
+        &function.params,
+        &collection_slot_summary_index,
+        &[ResourceOp::CollectionSlotLifecycle {
+            target: storage,
+            event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty: i32_ty },
+            span,
+        }],
+    );
+
+    assert!(
+        out.is_empty(),
+        "Copy payload lifecycle marker must not become collection slot summary ops: {out:#?}"
+    );
+}
+
 fn summary_contains_drop_traversal(op: &CollectionSlotLifecycleSummaryOp) -> bool {
     match op {
         CollectionSlotLifecycleSummaryOp::DropTraversal { .. } => true,

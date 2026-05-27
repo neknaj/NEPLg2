@@ -10,9 +10,9 @@
 
 #indent 4
 
-#import "alloc/io" as *
+#import "alloc/io/bytebuf" as *
 #import "core/result" as *
-#import "std/text" as *
+#import "std/text/convert" as *
 #import "./buffer" as *
 #import "./bytes" as *
 

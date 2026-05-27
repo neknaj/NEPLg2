@@ -7,10 +7,11 @@
 
 #indent 4
 
-#import "alloc/diag/error" as *
+#import "alloc/diag/error/types" as *
 #import "alloc/io/bytebuf" as *
 #import "core/field" as *
 #import "core/math" as *
+#import "core/result" as *
 
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0

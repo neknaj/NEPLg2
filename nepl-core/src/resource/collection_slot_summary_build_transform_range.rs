@@ -7,6 +7,7 @@ use crate::layout::storage_size_bytes;
 use super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::collection_slot_lifecycle::CollectionSlotLifecycleOp;
 use super::collection_slot_owner_transfer::CollectionSlotOwnerTransferObligation;
+use super::collection_slot_payload_tracking::collection_slot_payload_type_needs_tracking;
 use super::collection_slot_summary_build_nested::apply_summary_condition_fact;
 use super::collection_slot_summary_build_range_bound::initialized_range_loop_bound;
 use super::collection_slot_summary_build_range_step::loop_body_increment_step;
@@ -193,6 +194,10 @@ fn transform_candidates_from_body(
         let Some(address) = args.first() else {
             continue;
         };
+        if !collection_slot_payload_type_needs_tracking(engine.types, loaded.ty) {
+            propagate_transform_alias_facts(engine, &mut aliases, &mut function_aliases, op);
+            continue;
+        }
         for address in aliases.raw_address_aliases_for_value(address) {
             let Some((source_storage, element_stride)) =
                 storage_scaled_by_index(&address, read_index, &aliases)

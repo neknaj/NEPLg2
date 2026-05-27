@@ -12,6 +12,8 @@
 
 #import "alloc/io/bytebuilder" as *
 #import "core/field" as *
+#import "core/mem/types" as *
+#import "core/option" as *
 
 //: StringBuilder: 複数の str 片を byte buffer に追加して最後に 1 つへまとめる
 //:

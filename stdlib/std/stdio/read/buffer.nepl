@@ -10,9 +10,13 @@
 
 #indent 4
 
-#import "alloc/io" as *
+#import "alloc/io/bytebuf" as *
 #import "core/math" as math
-#import "core/mem" as *
+#import "core/mem/layout" as *
+#import "core/mem/pointer/region" as *
+#import "core/mem/pointer/scalar" as *
+#import "core/mem/pointer/view" as *
+#import "core/mem/types" as *
 #import "core/mem/internal" as *
 #import "core/mem/raw" as *
 #import "core/option" as *
@@ -83,8 +87,9 @@ fn stdio_fd_read_into_result %impure fn i32 impure fn MemPtr u8 impure fn MemPtr
 //: ```neplg2
 //:| #entry main
 //:| #target wasi
-//:| #import "alloc/io" as *
-//:| #import "core/mem" as *
+//:| #import "alloc/io/bytebuf" as *
+//:| #import "core/mem/pointer/region" as *
+//:| #import "core/mem/types" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
 //: fn main %impure fn unit i32 \unit:
@@ -194,7 +199,7 @@ pub fn stdio_finish_read_buffer %impure fn RegionToken u8 impure fn i32 Result B
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| #import "alloc/io" as *
+//:| #import "alloc/io/bytebuf" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
 //: fn main %impure fn unit i32 \unit:
@@ -339,7 +344,7 @@ pub fn stdio_read_all_buffer_result %impure fn unit Result ByteBuf StdErrorKind 
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| #import "alloc/io" as *
+//:| #import "alloc/io/bytebuf" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/read/buffer" as *
 //: fn main %impure fn unit i32 \unit:

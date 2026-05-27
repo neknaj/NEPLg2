@@ -12,7 +12,7 @@ impl RawCellAddressAliases {
         derive_false: bool,
         context: &mut I32ConditionQueryContext,
     ) -> Option<bool> {
-        let aliases = self.scalar_aliases_for(place);
+        let aliases = self.scalar_aliases_for_value_with_context(place, context);
         for fact in self.i32_relations.relations_touching_aliases(&aliases) {
             if aliases.iter().any(|alias| alias == &fact.left)
                 && self.relation_implies_condition(

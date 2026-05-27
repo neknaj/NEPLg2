@@ -1,6 +1,7 @@
 [build]
 target = "web/index.html"
 public_url = "/NEPLg2/"
+release = true
 
 [watch]
 ignore = ["web/dist_ts"]
