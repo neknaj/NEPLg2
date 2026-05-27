@@ -8,7 +8,7 @@
 //: - full AST へ進む前の S1 では、top-level 宣言、directive、doc comment、raw backend block の本文を失わずに保持します。
 //:
 //: [実装/じっそう]:
-//: - `SelfhostModuleAst` は `Vec<SelfhostModuleItem>` を所有します。
+//: - `SelfhostModuleAst` は `Vec SelfhostModuleItem` を所有します。
 //: - `SelfhostModuleItem` は kind / span / lexeme に加えて、宣言 item だけが typed declaration header evidence を持ちます。raw block の本文は `WasmText` / `LlvmIrText` item として行ごとに保持します。
 //:
 //: [注意/ちゅうい]:

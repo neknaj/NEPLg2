@@ -66,7 +66,7 @@ fn selfhost_import_spec_byte_or_end %fn str fn i32 i32 \s\idx:
 //:
 //: [目的/もくてき]:
 //: - import path / alias の lexeme 内範囲、wildcard import かどうか、元 directive の span を 1 [値/あたい]として[扱/あつか]います。
-//: - `str` owner は保持せず、`Vec<SelfhostImportSpec>` に入れても collection 側の element Drop に依存しない Copy-only data にします。
+//: - `str` owner は保持せず、`Vec SelfhostImportSpec` に入れても collection 側の element Drop に依存しない Copy-only data にします。
 pub struct SelfhostImportSpec:
     span %SelfhostSourceSpan
     item_index %i32
@@ -252,7 +252,7 @@ pub fn selfhost_import_specs_loop %impure fn &SelfhostModuleAst impure fn i32 im
 //: selfhost_module_import_specs: ModuleAst の import directive を typed spec として[集/あつ]める
 //:
 //: [注意/ちゅうい]:
-//: - 成功時の `Vec<SelfhostImportSpec>` は caller が `v::free` してください。
+//: - 成功時の `Vec SelfhostImportSpec` は caller が `v::free` してください。
 pub fn selfhost_module_import_specs %impure fn &SelfhostModuleAst Result Vec SelfhostImportSpec SelfhostDiagnostic \ast:
     let out_result %Result Vec SelfhostImportSpec StdErrorKind v::new
     match out_result:

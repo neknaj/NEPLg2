@@ -16,7 +16,7 @@
 //: - この scanner は full parser ではありません。import graph の root closure に必要な top-level import directive だけを読む専用経路です。
 //: - indented block 内や raw backend block 内の `#import` 文字列は top-level directive ではないため無視します。
 //: - 返された `SelfhostImportRecord.path` / `alias` は source slice に由来します。caller は VFS source の lifetime を graph 構築中に保ってください。
-//: - 成功時の `Vec<SelfhostImportRecord>` は caller が `v::free` で[解放/かいほう]します。
+//: - 成功時の `Vec SelfhostImportRecord` は caller が `v::free` で[解放/かいほう]します。
 //:
 //: [計算量/けいさんりょう]:
 //: - source byte 数 n、import directive 文字数合計 k に対して O(n + k) です。

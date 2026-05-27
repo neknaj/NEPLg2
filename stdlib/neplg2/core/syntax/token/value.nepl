@@ -8,7 +8,7 @@
 //: SelfhostToken: kind / span を[持/も]つ token
 //:
 //: [注意/ちゅうい]:
-//: - token は `Vec<SelfhostToken>` に[格納/かくのう]される Copy 値です。owned `str` を field に[持/も]たせず、lexeme は source text と span から必要な境界でだけ[切/き]り[出/だ]します。
+//: - token は `Vec SelfhostToken` に[格納/かくのう]される Copy 値です。owned `str` を field に[持/も]たせず、lexeme は source text と span から必要な境界でだけ[切/き]り[出/だ]します。
 pub struct SelfhostToken:
     kind %TokenKind
     span %SelfhostSourceSpan

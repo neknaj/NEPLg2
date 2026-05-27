@@ -10,7 +10,7 @@
 //: [実装/じっそう]:
 //: - `SelfhostDiagnostic` は Copy [値/あたい]だけを[保持/ほじ]し、collection から安全に[読/よ]み[出/だ]せるようにします。
 //: - diagnostic code は[内部/ないぶ]では enum として[保持/ほじ]し、stable string は reporter の[表示/ひょうじ]境界でだけ `selfhost_diag_code_name` により[生成/せいせい]します。
-//: - `SelfhostDiagnostics` は `Vec<SelfhostDiagnostic>` を[所有/しょゆう]し、push の allocation failure を `Result::Err StdErrorKind::OutOfMemory` で[返/かえ]します。
+//: - `SelfhostDiagnostics` は `Vec SelfhostDiagnostic` を[所有/しょゆう]し、push の allocation failure を `Result::Err StdErrorKind::OutOfMemory` で[返/かえ]します。
 //:
 //: [注意/ちゅうい]:
 //: - 複数 label / 複数 note は後続 parser recovery の要求に合わせて拡張します。初期段階では primary label と note を 1 [件/けん]ずつ[保持/ほじ]します。

@@ -16,7 +16,7 @@
 //: [目的/もくてき]:
 //: - raw argv provider と pure option parser を分離し、self-host CLI parity test の入口にします。
 //: - `--target` / `--emit` / `--stdlib-root` / `-o` / `-i` / input path を、filesystem や stdio に依存せず解釈します。
-//: - `std/env/cliarg` は argv の取得だけを担い、このモジュールは渡された `Vec<str>` を読むだけにします。
+//: - `std/env/cliarg` は argv の取得だけを担い、このモジュールは渡された `Vec str` を読むだけにします。
 //:
 //: [実装/じっそう]:
 //: - argv token / option value の分類は `args/classify` に委譲します。
@@ -35,13 +35,13 @@
 //: selfhost_cli_arg_at: argv から index 指定で文字列を読む
 //:
 //: [目的/もくてき]:
-//: - `Vec<str>` を消費せず、parser 内部で index access します。
+//: - `Vec str` を消費せず、parser 内部で index access します。
 //:
 //: [実装/じっそう]:
-//: - `Vec<str>` の borrowed observer である `v::get` を使い、境界外なら `None` を返します。
+//: - `Vec str` の borrowed observer である `v::get` を使い、境界外なら `None` を返します。
 //:
 //: [注意/ちゅうい]:
-//: - parser は入力 `Vec<str>` を変更しません。argv の所有権は呼び出し側が保持します。
+//: - parser は入力 `Vec str` を変更しません。argv の所有権は呼び出し側が保持します。
 pub fn selfhost_cli_arg_at %fn &Vec str fn i32 Option str \args\idx:
     v::get args idx
 
@@ -175,7 +175,7 @@ pub fn selfhost_cli_parse_loop %fn &Vec str fn i32 fn i32 fn Option str fn Optio
 //: - test fixture や driver 内部から、program name を除いた CLI args を pure に解析します。
 //:
 //: [実装/じっそう]:
-//: - `Vec<str>` を borrow し、index 0 から `selfhost_cli_parse_loop` へ渡します。
+//: - `Vec str` を borrow し、index 0 から `selfhost_cli_parse_loop` へ渡します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0

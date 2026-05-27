@@ -8,7 +8,7 @@
 //: - missing module と import cycle を `SelfhostDiagnostic` として[返/かえ]し、resolver が loader/parser の内部表現へ直接依存しないようにします。
 //:
 //: [実装/じっそう]:
-//: - `SelfhostModuleGraph` は `Vec<SelfhostModuleGraphNode>` と `Vec<SelfhostModuleGraphEdge>` を所有します。
+//: - `SelfhostModuleGraph` は `Vec SelfhostModuleGraphNode` と `Vec SelfhostModuleGraphEdge` を所有します。
 //: - node は `Visiting` / `Done` の状態を持ち、DFS 中の再訪問を cycle として検出します。
 //: - module source から top-level import directive だけを scan し、graph には path、file_id、edge span だけを残します。
 //:
