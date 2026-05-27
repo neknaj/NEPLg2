@@ -82,6 +82,8 @@ Create a fixed per-program benchmark corpus, keep compile_ms and run_ms evidence
 - `I32ConditionQueryContext` 全体の `BTreeMap` 化と loop initialized range body guard は実測で悪化したため採用しなかった。次の根本対応は typed public signature table を invalidation 境界にした Resource IR summary cache である。
 - merged literal fast path checkpoint では、path-sensitive replay 後に merged state だけで実行してよい `ResourceOp::Expr` を fresh temporary の `LiteralI32` / `LayoutSizeOf` に限定して追加した。local や projection 付き output は path ごとの alias / scalar fact を壊し得るため対象外にしている。
 - 同 checkpoint の native release RPN stage-only 測定は `resource_static_check=8033ms`、`resource_initialized_i32_scalar_summaries=1309ms`、`resource_initialized_raw_init_summaries=2509ms`、`resource_initialized_function_checks=3317ms`。初回 compile はまだ 0.5 秒未満ではないが、function check の path-sensitive exploration をさらに削減できた。
+- typed public signature checkpoint では、typecheck 成功時に arena 非依存の `TypedPublicSignatureTable` を返すようにした。public callable / struct / enum / trait / impl header の stable text と hash だけを持ち、`TypeId`、`Span`、typed HIR、Resource IR は保存しない。
+- 同 checkpoint の regression では、public function の body-only edit で hash が不変、public callable return type edit で hash が変化することを確認した。次はこの hash を dependency aggregate public surface hash と組み合わせて Resource IR summary cache の invalidation key に使う。
 
 RPN では同一入力の再compileは 10ms 未満になったが、初回 compile はまだ 0.5 秒未満から遠い。次の根本対応は raw init summary / function check の path-sensitive exploration を function hash と dependency aggregate public surface hash で再利用する Resource IR summary cache である。
 

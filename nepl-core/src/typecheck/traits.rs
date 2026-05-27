@@ -4,6 +4,7 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::ast::TypeParam;
+use crate::ast::Visibility;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::span::Span;
@@ -16,6 +17,7 @@ use super::type_expr::{type_from_expr, LabelEnv};
 #[derive(Debug, Clone)]
 pub(super) struct TraitInfo {
     pub(super) doc: Option<String>,
+    pub(super) visibility: Visibility,
     pub(super) type_params: Vec<TypeId>,
     pub(super) capabilities: Vec<TraitCapability>,
     pub(super) methods: BTreeMap<String, TypeId>,

@@ -36,6 +36,7 @@ mod overload_candidate;
 mod overload_narrowing;
 mod overload_selection;
 mod prefix_check;
+mod public_signature;
 mod selected_call_apply;
 mod signature;
 mod struct_shape;
@@ -57,3 +58,6 @@ use model::{AssignKind, FieldIdx, ScalarMatchKind, StackEntry};
 use traits::BoundEnv;
 
 pub use driver::{typecheck, TypeCheckResult};
+pub use public_signature::{
+    TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
+};

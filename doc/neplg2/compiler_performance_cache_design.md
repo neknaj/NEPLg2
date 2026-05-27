@@ -431,6 +431,20 @@ local や projection 付き output は、path ごとに alias / scalar fact が�
 
 この変更は Resource IR summary cache ではなく、同一 function check 内の path replay 削減である。初回 compile の 0.5 秒未満にはまだ届かないが、`resource_initialized_function_checks` が 3470ms から 3317ms に下がったため、path-sensitive exploration が実際に残り hot path であることを確認した。次段階は、subagent review で安全境界を確認した typed public signature table を arena 非依存の semantic cache key として構築し、typed HIR / `TypeId` / Resource IR を直接保持せずに stdlib summary 再利用へ接続する。
 
+2026-05-28 の typed public signature checkpoint では、typecheck 成功時に `TypedPublicSignatureTable` を生成するようにした。これは後続 cache をまだ再利用しない観測用 artifact であり、`TypeId`、`Span`、`SourceMap`、typed HIR、Resource IR を保持しない。table value は stable text entry と deterministic hash だけで構成する。
+
+table に含める内容:
+
+- public callable の名前、関数型 signature、`noshadow`。
+- public struct の type parameter、field type、constructor policy。
+- public enum の type parameter、variant payload type。
+- public trait の type parameter、capability、method signature。
+- impl header の trait application と target type。
+
+table には関数本体を含めない。これにより body-only edit は semantic cache key を変えず、public callable type edit は key を変える。現在は `TypeCheckResult.public_signatures` として露出し、regression では body-only edit で `stable_hash` が不変、public callable return type edit で変化することを固定している。
+
+この checkpoint は Resource IR summary reuse にはまだ接続しない。次段階では、loader の dependency aggregate public surface hash と typed public signature hash を組み合わせ、stdlib module の typed check / Resource IR summary cache の invalidation key として使う。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

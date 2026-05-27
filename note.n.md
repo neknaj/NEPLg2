@@ -47481,3 +47481,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - local output や projection 付き temporary は、path ごとに異なる alias / scalar fact を持ち得るため対象外にした。一般の `Literal`、`FunctionValue`、`DeclareLocal` も今回の slice では許可していない。
 - `op_can_run_on_merged_path_state` の unit test を追加し、fresh temporary は true、local / projection / non-scalar literal は false になることを固定した。
 - native release RPN stage-only 測定は `resource_initialized_i32_scalar_summaries=1309ms`、`resource_initialized_raw_init_summaries=2509ms`、`resource_initialized_function_checks=3317ms`、`resource_initialized_moves=7200ms`、`resource_static_check=8033ms`。前 checkpoint の `resource_static_check=8389ms` から改善したが、初回 compile 0.5 秒未満にはまだ Resource IR summary cache が必要である。
+
+## 2026-05-28 Agent typed public signature table checkpoint
+
+- subagent review の指摘に従い、typecheck 成功時に `TypedPublicSignatureTable` を生成する最小実装を追加した。`plan.md` は変更していない。
+- `TypedPublicSignatureTable` は public callable / struct / enum / trait / impl header を stable text entry と deterministic hash に落とす。`TypeId`、`Span`、`SourceMap`、typed HIR、Resource IR は保存しない。
+- public callable は関数型 signature と `noshadow` を含める。struct は field type と constructor policy、enum は variant payload、trait は capability と method signature、impl は trait application と target type を含める。
+- `TraitInfo` に visibility を保持し、public trait だけを table に載せられるようにした。これは HIR ではなく typecheck 内の公開 surface 生成に必要な情報である。
+- `typed_public_signature_hash_ignores_function_body_only_edits` と `typed_public_signature_hash_tracks_public_callable_type_edits` を追加し、body-only edit では hash 不変、public callable 型 edit では hash 変化を固定した。
+- この checkpoint はまだ Resource IR summary reuse には接続していない。次段階では loader の dependency aggregate public surface hash とこの typed public signature hash を組み合わせ、stdlib summary cache の invalidation key として使う。
