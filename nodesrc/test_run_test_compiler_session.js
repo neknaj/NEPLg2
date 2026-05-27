@@ -14,6 +14,7 @@ const { runSingle } = require('./run_test');
     fs.utimesSync(artifactPath, future, future);
 
     let sessionCalled = false;
+    let cacheStatsCalls = 0;
     const result = await runSingle(
         {
             id: 'nodesrc/run_test/compiler-session',
@@ -32,6 +33,16 @@ const { runSingle } = require('./run_test');
                 wasmFile: 'stub.wasm',
                 wasmPath: artifactPath,
                 compilerSession: {
+                    loader_cache_stats_json() {
+                        cacheStatsCalls += 1;
+                        return JSON.stringify({
+                            parsed_module_hits: cacheStatsCalls,
+                            parsed_module_misses: 0,
+                            parsed_module_stores: 0,
+                            parsed_module_bypasses: 0,
+                            stdlib_override_bypasses: 0,
+                        });
+                    },
                     compile_source_with_vfs_and_profile() {
                         sessionCalled = true;
                         throw new Error('session compile failure');
@@ -46,9 +57,67 @@ const { runSingle } = require('./run_test');
     assert.equal(sessionCalled, true);
     assert.equal(result.timing.compiler_session, true);
     assert.equal(result.timing.stdlib_vfs_mode, 'bundled');
+    assert.equal(result.timing.compiler_session_cache_before.parsed_module_hits, 1);
+    assert.equal(result.timing.compiler_session_cache_after.parsed_module_hits, 2);
     assert.match(String(result.compile_error || ''), /session compile failure/);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
+
+    const tmpDirForced = fs.mkdtempSync(path.join(os.tmpdir(), 'nepl-session-forced-stdlib-'));
+    const forcedArtifactPath = path.join(tmpDirForced, 'nepl-web-test_bg.wasm');
+    fs.writeFileSync(forcedArtifactPath, '');
+    fs.utimesSync(forcedArtifactPath, future, future);
+
+    let forcedStdlibSessionCalled = false;
+    const forcedResult = await runSingle(
+        {
+            id: 'nodesrc/run_test/compiler-session-forced-stdlib',
+            source: '#target std\nfn main <()->i32> ():\n    0\n',
+            tags: ['compile_fail'],
+            forceStdlibVfs: true,
+        },
+        {
+            api: {
+                compile_source_with_vfs_and_profile() {
+                    throw new Error('stateless compiler API should not be used for forced stdlib session compile');
+                },
+            },
+            meta: {
+                distDir: 'stub',
+                jsFile: 'stub.js',
+                wasmFile: 'stub.wasm',
+                wasmPath: forcedArtifactPath,
+                compilerSession: {
+                    loader_cache_stats_json() {
+                        return JSON.stringify({
+                            parsed_module_hits: 0,
+                            parsed_module_misses: 0,
+                            parsed_module_stores: 0,
+                            parsed_module_bypasses: 0,
+                            stdlib_override_bypasses: forcedStdlibSessionCalled ? 1 : 0,
+                        });
+                    },
+                    compile_source_with_vfs_stdlib_and_profile() {
+                        forcedStdlibSessionCalled = true;
+                        throw new Error('session forced stdlib compile failure');
+                    },
+                },
+            },
+        },
+    );
+
+    assert.equal(forcedResult.ok, true);
+    assert.equal(forcedResult.phase, 'compile');
+    assert.equal(forcedStdlibSessionCalled, true);
+    assert.equal(forcedResult.timing.compiler_session, true);
+    assert.equal(forcedResult.timing.stdlib_vfs_mode, 'forced');
+    assert.equal(
+        forcedResult.timing.compiler_session_cache_after.stdlib_override_bypasses,
+        1,
+    );
+    assert.match(String(forcedResult.compile_error || ''), /session forced stdlib compile failure/);
+
+    fs.rmSync(tmpDirForced, { recursive: true, force: true });
     console.log('run_test compiler session regression passed');
 })().catch((err) => {
     console.error(err);

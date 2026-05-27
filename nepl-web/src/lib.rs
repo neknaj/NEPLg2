@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::cell::RefCell;
 use std::path::PathBuf;
 
 use js_sys::{Reflect, Uint8Array};
@@ -11,7 +12,7 @@ use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
 use nepl_core::error::CoreError;
 use nepl_core::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine};
 use nepl_core::lexer::{lex, Token, TokenKind};
-use nepl_core::loader::{Loader, LoaderError, SourceMap};
+use nepl_core::loader::{Loader, LoaderError, LoaderSessionCache, SourceMap};
 use nepl_core::parser::parse_tokens;
 use nepl_core::resolve::DefId;
 use nepl_core::span::{FileId, Span};
@@ -2967,9 +2968,31 @@ fn compile_outputs_with_bundled_sources(
     emit: JsValue,
     attach_source: bool,
 ) -> Result<JsValue, JsValue> {
+    compile_outputs_with_bundled_sources_and_cache(
+        entry_path,
+        source,
+        stdlib_root,
+        bundled_sources,
+        vfs,
+        emit,
+        attach_source,
+        None,
+    )
+}
+
+fn compile_outputs_with_bundled_sources_and_cache(
+    entry_path: &str,
+    source: &str,
+    stdlib_root: &PathBuf,
+    bundled_sources: &BTreeMap<PathBuf, &'static str>,
+    vfs: Option<JsValue>,
+    emit: JsValue,
+    attach_source: bool,
+    loader_cache: Option<&mut LoaderSessionCache>,
+) -> Result<JsValue, JsValue> {
     let emit_list = parse_emit_list(emit)?;
     let include_wat_comments = emit_list.iter().any(|kind| kind == "wat");
-    let compiled = compile_wasm_with_bundled_sources(
+    let compiled = compile_wasm_with_bundled_sources_and_cache(
         entry_path,
         source,
         stdlib_root,
@@ -2978,6 +3001,7 @@ fn compile_outputs_with_bundled_sources(
         None,
         None,
         include_wat_comments,
+        loader_cache,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
     let obj = js_sys::Object::new();
@@ -3225,11 +3249,46 @@ fn compile_wasm_with_bundled_sources(
     profile: Option<BuildProfile>,
     include_wat_comments: bool,
 ) -> Result<CompiledWasm, String> {
+    compile_wasm_with_bundled_sources_and_cache(
+        entry_path,
+        source,
+        stdlib_root,
+        bundled_sources,
+        vfs,
+        stdlib_vfs,
+        profile,
+        include_wat_comments,
+        None,
+    )
+}
+
+fn compile_wasm_with_bundled_sources_and_cache(
+    entry_path: &str,
+    source: &str,
+    stdlib_root: &PathBuf,
+    bundled_sources: &BTreeMap<PathBuf, &'static str>,
+    vfs: Option<JsValue>,
+    stdlib_vfs: Option<JsValue>,
+    profile: Option<BuildProfile>,
+    include_wat_comments: bool,
+    loader_cache: Option<&mut LoaderSessionCache>,
+) -> Result<CompiledWasm, String> {
     let mut overlay_sources = BTreeMap::new();
     // stdlib 差し替えが指定された場合は、先に上書きで適用する
     merge_vfs_sources(&mut overlay_sources, stdlib_vfs);
     // 呼び出し元 VFS は最後に適用する
     merge_vfs_sources(&mut overlay_sources, vfs);
+    let overlay_overrides_stdlib = overlay_sources
+        .keys()
+        .any(|path| path.starts_with(stdlib_root));
+    let mut loader_cache = if overlay_overrides_stdlib {
+        if let Some(cache) = loader_cache {
+            cache.record_stdlib_override_bypass();
+        }
+        None
+    } else {
+        loader_cache
+    };
 
     let mut loader = Loader::new(stdlib_root.clone());
     let mut provider = |path: &PathBuf| {
@@ -3242,11 +3301,17 @@ fn compile_wasm_with_bundled_sources(
             nepl_core::loader::LoaderError::Io(msg)
         })
     };
-    let loaded = loader
-        .load_inline_with_provider(PathBuf::from(entry_path), source.to_string(), &mut provider)
-        .map_err(|e| {
-            render_loader_error(e, loader.source_map())
-        })?;
+    let loaded = if let Some(cache) = loader_cache.as_deref_mut() {
+        loader.load_inline_with_provider_and_cache(
+            PathBuf::from(entry_path),
+            source.to_string(),
+            &mut provider,
+            cache,
+        )
+    } else {
+        loader.load_inline_with_provider(PathBuf::from(entry_path), source.to_string(), &mut provider)
+    }
+    .map_err(|e| render_loader_error(e, loader.source_map()))?;
     let artifact = compile_module_with_source_map_and_artifact_options(
         loaded.module,
         Some(&loaded.source_map),
@@ -3276,6 +3341,7 @@ fn compile_wasm_with_bundled_sources(
 pub struct CompilerSession {
     stdlib_root: PathBuf,
     bundled_sources: BTreeMap<PathBuf, &'static str>,
+    loader_cache: RefCell<LoaderSessionCache>,
 }
 
 #[wasm_bindgen]
@@ -3287,6 +3353,7 @@ impl CompilerSession {
         CompilerSession {
             stdlib_root,
             bundled_sources,
+            loader_cache: RefCell::new(LoaderSessionCache::new(stdlib_hash())),
         }
     }
 
@@ -3308,6 +3375,33 @@ impl CompilerSession {
         stdlib_hash().to_string()
     }
 
+    /// `CompilerSession` 内の loader cache 統計を JSON 文字列として返す。
+    ///
+    /// Web / Node 側では Rust の構造体を直接読めないため、warm compile が
+    /// stdlib parsed module cache を実際に踏んだかを確認する観測点として使う。
+    /// 値は累積統計であり、cache の正しさは path/hash key と loader 側の
+    /// `FileId` 再投影によって担保する。
+    pub fn loader_cache_stats_json(&self) -> String {
+        let stats = self.loader_cache.borrow().stats();
+        format!(
+            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"stdlib_override_bypasses\":{}}}",
+            stats.parsed_module_hits,
+            stats.parsed_module_misses,
+            stats.parsed_module_stores,
+            stats.parsed_module_bypasses,
+            stats.stdlib_override_bypasses,
+        )
+    }
+
+    /// Loader cache を明示的に空にする。
+    ///
+    /// 通常の Web session では artifact refresh 時に Worker ごと作り直すが、
+    /// Node の regression test では同じ `CompilerSession` で cold/warm 境界を
+    /// 固定したいため、cache の寿命を観測可能にしておく。
+    pub fn clear_loader_cache(&self) {
+        self.loader_cache.borrow_mut().clear();
+    }
+
     pub fn compile_source_with_vfs_and_profile(
         &self,
         entry_path: &str,
@@ -3317,7 +3411,8 @@ impl CompilerSession {
     ) -> Result<Vec<u8>, JsValue> {
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
-        compile_wasm_with_bundled_sources(
+        let mut cache = self.loader_cache.borrow_mut();
+        compile_wasm_with_bundled_sources_and_cache(
             entry_path,
             source,
             &self.stdlib_root,
@@ -3326,6 +3421,7 @@ impl CompilerSession {
             None,
             Some(parsed),
             false,
+            Some(&mut cache),
         )
         .map(|a| a.wasm)
         .map_err(|msg| JsValue::from_str(&msg))
@@ -3341,6 +3437,7 @@ impl CompilerSession {
     ) -> Result<Vec<u8>, JsValue> {
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
+        self.loader_cache.borrow_mut().record_stdlib_override_bypass();
         compile_wasm_with_bundled_sources(
             entry_path,
             source,
@@ -3369,7 +3466,8 @@ impl CompilerSession {
         emit: JsValue,
         attach_source: bool,
     ) -> Result<JsValue, JsValue> {
-        compile_outputs_with_bundled_sources(
+        let mut cache = self.loader_cache.borrow_mut();
+        compile_outputs_with_bundled_sources_and_cache(
             entry_path,
             source,
             &self.stdlib_root,
@@ -3377,6 +3475,7 @@ impl CompilerSession {
             Some(vfs),
             emit,
             attach_source,
+            Some(&mut cache),
         )
     }
 }

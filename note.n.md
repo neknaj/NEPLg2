@@ -1,3 +1,16 @@
+# 2026-05-27 CompilerSession stdlib parsed-module cache checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を確認し、試作段階では後方互換よりも設計の正しさ、純粋 query、DAG 化、cache による探索空間削減を優先する方針を再確認した。
+- subagent 2 件で設計・計画・実装根拠を独立レビューし、`SourceMap` / typed HIR / `TypeCtx` / Resource IR summary を安易に cache せず、まず stdlib の span-safe parsed module artifact へ限定する判断で一致した。
+- `nepl-core/src/ast.rs` に AST の `FileId` 再投影関数を追加した。`Span::dummy()` は実 source 位置ではないため保持し、cached stdlib AST だけを現在 compile の `SourceMap` file slot へ投影する。
+- `nepl-core/src/loader.rs` に `LoaderSessionCache` を追加した。key は `cache version + stdlib namespace hash + canonical path + source hash + imported type arity hint hash` であり、cache value は raw parsed `Module` と `SourceCapabilities` に限定した。
+- `nepl-web/src/lib.rs` の `CompilerSession` は `LoaderSessionCache` を保持し、bundled stdlib path の parsed module を warm session で再利用するようにした。stdlib override / overlay が `/stdlib` 以下を差し替える場合は cache を bypass する。
+- `CompilerSession.loader_cache_stats_json()` と `nodesrc/run_test.js` の `timing.compiler_session_cache_before` / `timing.compiler_session_cache_after` を追加し、compile_ms だけでなく query cache hit を JSON output で確認できるようにした。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92` に、今回実装した cache boundary と未実装の typed public surface / Resource IR / codegen cache を明記した。
+- 実装後 subagent review では重大問題なし、ただし source hash / imported type arity / forced stdlib VFS の regression test 不足と `LoaderSessionCache::default()` の空 namespace が指摘された。これに対応し、source hash 変更、imported type arity hint 変更、forced stdlib VFS bypass のテストを追加し、`LoaderSessionCache` の `Default` derive を外した。
+- release WASM 実測では、`tmp/minimal_perf.nepl` の warm session compile は `compile_ms=2` / cache 4 hit、`tmp/perf_alloc_probe.nepl` の first after warmup は `compile_ms=19` / 1 miss/store、同一 process / 同一 `CompilerSession` の aggregate 2 回目は `compile_ms=3` / cache hits 4->9 だった。未warm moduleを含む初回 aggregate はまだ 10ms を超えるため、次は public surface / import graph / Resource IR summary cache を進める。
+- 検証: `cargo check -p nepl-core`、`cargo check --manifest-path nepl-web/Cargo.toml`、`cargo test -p nepl-core provider_session_cache`、`node nodesrc/test_run_test_compiler_session.js`、`node --check nodesrc/run_test.js`、`node --check nodesrc/test_run_test_compiler_session.js`、`trunk build --release`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
+
 # 2026-05-27 BTreeMap public doccomment postfix cleanup checkpoint
 
 - `plan.md`、`README.md`、`doc/neplg2/neplg21_syntax_migration_plan.md`、`doc/neplg2/stdlib_documentation_style_guide.md` を確認し、NEPLg2.1 の call postfix generic 撤廃方針に沿って `stdlib/alloc/collections/btreemap/**.nepl` の public doccomment を点検した。`plan.md` は変更していない。

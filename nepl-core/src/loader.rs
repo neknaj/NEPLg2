@@ -1,4 +1,4 @@
-use crate::ast::{Directive, Module, Stmt};
+use crate::ast::{remap_module_file_id, Directive, Module, Stmt};
 use crate::diagnostic::Severity;
 use crate::error::CoreError;
 use crate::lexer::{self, TokenKind};
@@ -17,6 +17,9 @@ use std::path::{Component, PathBuf};
 extern crate std;
 
 pub use crate::source_map::{SourceCapabilities, SourceMap, SourcePath};
+
+const LOADER_SESSION_CACHE_VERSION: &str = "neplg2-loader-session-cache-v1";
+const CACHED_MODULE_FILE_ID: FileId = FileId(u32::MAX - 1);
 
 macro_rules! loader_log {
     ($($arg:tt)*) => {
@@ -54,6 +57,107 @@ impl From<CoreError> for LoaderError {
 pub struct LoadResult {
     pub module: Module,
     pub source_map: SourceMap,
+}
+
+/// Cumulative counters for a loader session cache.
+///
+/// The counters are intentionally about compiler query behavior, not wall-clock
+/// time.  A caller can use them to prove that a warm compile avoided stdlib
+/// parsing before judging the result with higher-level timing metadata.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LoaderSessionCacheStats {
+    pub parsed_module_hits: usize,
+    pub parsed_module_misses: usize,
+    pub parsed_module_stores: usize,
+    pub parsed_module_bypasses: usize,
+    pub stdlib_override_bypasses: usize,
+}
+
+/// Session-local cache for pure loader queries.
+///
+/// This cache is designed for long-lived compiler sessions such as the Web
+/// playground's `CompilerSession`.  It keeps only path/hash keyed stdlib
+/// artifacts and never stores `SourceMap` or typed HIR state.  Cached parsed
+/// modules are normalized to a neutral `FileId` and remapped into the fresh
+/// `SourceMap` allocated for each compile, so diagnostic spans and source
+/// capabilities still belong to the current load.
+#[derive(Debug)]
+pub struct LoaderSessionCache {
+    namespace_hash: String,
+    parsed_modules: BTreeMap<LoaderParsedModuleKey, CachedParsedModule>,
+    stats: LoaderSessionCacheStats,
+}
+
+impl LoaderSessionCache {
+    pub fn new(namespace_hash: impl Into<String>) -> Self {
+        Self {
+            namespace_hash: namespace_hash.into(),
+            parsed_modules: BTreeMap::new(),
+            stats: LoaderSessionCacheStats::default(),
+        }
+    }
+
+    pub fn stats(&self) -> LoaderSessionCacheStats {
+        self.stats
+    }
+
+    pub fn clear(&mut self) {
+        self.parsed_modules.clear();
+        self.stats = LoaderSessionCacheStats::default();
+    }
+
+    pub fn record_stdlib_override_bypass(&mut self) {
+        self.stats.stdlib_override_bypasses += 1;
+    }
+
+    fn key_for(
+        &self,
+        canon: &PathBuf,
+        src: &str,
+        type_arity_hints: &[(String, usize)],
+    ) -> LoaderParsedModuleKey {
+        LoaderParsedModuleKey {
+            cache_version: String::from(LOADER_SESSION_CACHE_VERSION),
+            namespace_hash: self.namespace_hash.clone(),
+            path: canon.clone(),
+            source_hash: fnv1a64(src.as_bytes()),
+            type_arity_hints_hash: hash_type_arity_hints(type_arity_hints),
+        }
+    }
+
+    fn get_parsed_module(&mut self, key: &LoaderParsedModuleKey) -> Option<CachedParsedModule> {
+        if let Some(entry) = self.parsed_modules.get(key) {
+            self.stats.parsed_module_hits += 1;
+            Some(entry.clone())
+        } else {
+            self.stats.parsed_module_misses += 1;
+            None
+        }
+    }
+
+    fn store_parsed_module(&mut self, key: LoaderParsedModuleKey, entry: CachedParsedModule) {
+        self.stats.parsed_module_stores += 1;
+        self.parsed_modules.insert(key, entry);
+    }
+
+    fn record_parsed_module_bypass(&mut self) {
+        self.stats.parsed_module_bypasses += 1;
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct LoaderParsedModuleKey {
+    cache_version: String,
+    namespace_hash: String,
+    path: PathBuf,
+    source_hash: u64,
+    type_arity_hints_hash: u64,
+}
+
+#[derive(Debug, Clone)]
+struct CachedParsedModule {
+    module: Module,
+    capabilities: SourceCapabilities,
 }
 
 /// Loader that builds a single merged module from an entry file,
@@ -125,6 +229,7 @@ impl Loader {
             &mut imported,
             true,
             provider,
+            None,
         ) {
             Ok(m) => m,
             Err(e) => {
@@ -135,6 +240,53 @@ impl Loader {
         };
         loader_log!(
             "[Loader] load_inline_with_provider: success. cache_size={}",
+            cache.len()
+        );
+        self.source_map = sm.clone();
+        Ok(LoadResult {
+            module,
+            source_map: sm,
+        })
+    }
+
+    pub fn load_inline_with_provider_and_cache(
+        &mut self,
+        path: PathBuf,
+        src: String,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: &mut LoaderSessionCache,
+    ) -> Result<LoadResult, LoaderError> {
+        loader_log!(
+            "[Loader] load_inline_with_provider_and_cache: path={:?}",
+            path
+        );
+        let mut sm = SourceMap::new();
+        let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
+        let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
+        let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
+        let module = match self.load_from_contents_with(
+            path,
+            src,
+            &mut sm,
+            &mut cache,
+            &mut processing,
+            &mut imported,
+            true,
+            provider,
+            Some(session_cache),
+        ) {
+            Ok(m) => m,
+            Err(e) => {
+                loader_log!(
+                    "[Loader] load_inline_with_provider_and_cache: failed: {:?}",
+                    e
+                );
+                self.source_map = sm.clone();
+                return Err(e);
+            }
+        };
+        loader_log!(
+            "[Loader] load_inline_with_provider_and_cache: success. cache_size={}",
             cache.len()
         );
         self.source_map = sm.clone();
@@ -235,6 +387,7 @@ impl Loader {
         imported_once: &mut BTreeSet<PathBuf>,
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        mut session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<Module, LoaderError> {
         let canon = canonicalize_path(&path);
         loader_log!(
@@ -266,6 +419,7 @@ impl Loader {
             imported_once,
             is_root,
             provider,
+            session_cache.as_deref_mut(),
         )?;
         let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
         sm.set_capabilities(
@@ -282,6 +436,7 @@ impl Loader {
             imported_once,
             is_root,
             provider,
+            session_cache.as_deref_mut(),
         )?;
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
@@ -356,6 +511,7 @@ impl Loader {
         imported_once: &mut BTreeSet<PathBuf>,
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        mut session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<Module, LoaderError> {
         let canon = canonicalize_path(&path);
         if let Some(m) = cache.get(&canon) {
@@ -383,12 +539,16 @@ impl Loader {
             imported_once,
             is_root,
             provider,
+            session_cache.as_deref_mut(),
         )?;
-        let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
-        sm.set_capabilities(
+        let (module, capabilities) = self.parse_provider_module_with_session_cache(
+            &canon,
             file_id,
-            self.source_capabilities_for_module(&canon, &module),
-        );
+            src,
+            type_arity_hints,
+            session_cache.as_deref_mut(),
+        )?;
+        sm.set_capabilities(file_id, capabilities);
         let module = self.process_directives_with(
             canon.clone(),
             module,
@@ -398,6 +558,7 @@ impl Loader {
             imported_once,
             is_root,
             provider,
+            session_cache.as_deref_mut(),
         )?;
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
@@ -456,6 +617,7 @@ impl Loader {
         imported_once: &BTreeSet<PathBuf>,
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        mut session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<Vec<(String, usize)>, LoaderError> {
         // Provider-backed loading has the same arity contract as filesystem
         // loading, but every dependency source must come from the caller's
@@ -486,6 +648,7 @@ impl Loader {
                 &mut preload_imported_once,
                 false,
                 provider,
+                session_cache.as_deref_mut(),
             )?;
             push_loader_type_arity_hints(&mut hints, parser::type_arity_hints_from_module(&module));
         }
@@ -783,6 +946,7 @@ impl Loader {
         imported_once: &mut BTreeSet<PathBuf>,
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        mut session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<Module, LoaderError> {
         let mut directives = module.directives.clone();
         let mut items = Vec::new();
@@ -809,6 +973,7 @@ impl Loader {
                     imported_once,
                     false,
                     provider,
+                    session_cache.as_deref_mut(),
                 )?;
                 for d in imp_mod.directives.clone() {
                     if let Directive::Entry { .. } = d {
@@ -849,6 +1014,7 @@ impl Loader {
                             imported_once,
                             false,
                             provider,
+                            session_cache.as_deref_mut(),
                         )?;
                         for d in imp_mod.directives.clone() {
                             if let Directive::Entry { .. } = d {
@@ -886,6 +1052,7 @@ impl Loader {
                         imported_once,
                         false,
                         provider,
+                        session_cache.as_deref_mut(),
                     )?;
                     for d in inc_mod.directives.clone() {
                         if let Directive::Entry { .. } = d {
@@ -919,6 +1086,48 @@ impl Loader {
         module.directives = directives;
         module.root.items = items;
         Ok(module)
+    }
+
+    fn parse_provider_module_with_session_cache(
+        &self,
+        canon: &PathBuf,
+        file_id: FileId,
+        src: String,
+        type_arity_hints: Vec<(String, usize)>,
+        session_cache: Option<&mut LoaderSessionCache>,
+    ) -> Result<(Module, SourceCapabilities), CoreError> {
+        let Some(session_cache) = session_cache else {
+            let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
+            let capabilities = self.source_capabilities_for_module(canon, &module);
+            return Ok((module, capabilities));
+        };
+
+        if !self.configured_stdlib_source_path(canon) {
+            session_cache.record_parsed_module_bypass();
+            let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
+            let capabilities = self.source_capabilities_for_module(canon, &module);
+            return Ok((module, capabilities));
+        }
+
+        let key = session_cache.key_for(canon, &src, &type_arity_hints);
+        if let Some(entry) = session_cache.get_parsed_module(&key) {
+            let mut module = entry.module;
+            remap_module_file_id(&mut module, CACHED_MODULE_FILE_ID, file_id);
+            return Ok((module, entry.capabilities));
+        }
+
+        let module = self.parse_module_with_type_arity_hints(file_id, src, type_arity_hints)?;
+        let capabilities = self.source_capabilities_for_module(canon, &module);
+        let mut cached_module = module.clone();
+        remap_module_file_id(&mut cached_module, file_id, CACHED_MODULE_FILE_ID);
+        session_cache.store_parsed_module(
+            key,
+            CachedParsedModule {
+                module: cached_module,
+                capabilities: capabilities.clone(),
+            },
+        );
+        Ok((module, capabilities))
     }
 
     fn parse_module_with_type_arity_hints(
@@ -1133,6 +1342,33 @@ fn push_loader_type_arity_hints(target: &mut Vec<(String, usize)>, source: Vec<(
     }
 }
 
+fn hash_type_arity_hints(type_arity_hints: &[(String, usize)]) -> u64 {
+    let mut hash = FNV_OFFSET_BASIS;
+    for (name, arity) in type_arity_hints {
+        fnv1a64_update(&mut hash, name.as_bytes());
+        fnv1a64_update(&mut hash, &[0]);
+        fnv1a64_update(&mut hash, arity.to_string().as_bytes());
+        fnv1a64_update(&mut hash, &[0xff]);
+    }
+    hash
+}
+
+fn fnv1a64(bytes: &[u8]) -> u64 {
+    let mut hash = FNV_OFFSET_BASIS;
+    fnv1a64_update(&mut hash, bytes);
+    hash
+}
+
+fn fnv1a64_update(hash: &mut u64, bytes: &[u8]) {
+    for byte in bytes {
+        *hash ^= u64::from(*byte);
+        *hash = hash.wrapping_mul(FNV_PRIME);
+    }
+}
+
+const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+const FNV_PRIME: u64 = 0x100000001b3;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1345,6 +1581,176 @@ mod tests {
         assert!(
             !import_not_seen(&mut imported_once, &direct),
             "same import reached through a lexical parent path must not be loaded twice"
+        );
+    }
+
+    #[test]
+    fn provider_session_cache_reuses_stdlib_parsed_modules_with_fresh_file_ids() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+        );
+        let foo_source = String::from("pub fn foo %fn unit i32 \\unit:\n    1\n");
+        let mut sources = BTreeMap::new();
+        sources.insert(foo_path, foo_source);
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+
+        for _ in 0..2 {
+            let mut loader = Loader::new(stdlib_root.clone());
+            let mut provider = |path: &PathBuf| {
+                sources
+                    .get(path)
+                    .cloned()
+                    .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+            };
+            let loaded = loader
+                .load_inline_with_provider_and_cache(
+                    entry_path.clone(),
+                    entry_source.clone(),
+                    &mut provider,
+                    &mut session_cache,
+                )
+                .expect("provider-backed load should parse");
+            let foo_file_id = loaded
+                .source_map
+                .iter_paths()
+                .find_map(|(file_id, path)| {
+                    (path.to_string_lossy().ends_with("/foo.nepl")
+                        || path.to_string_lossy().ends_with("\\foo.nepl"))
+                    .then_some(file_id)
+                })
+                .expect("imported stdlib file should be present in the fresh source map");
+            let foo_def = loaded
+                .module
+                .root
+                .items
+                .iter()
+                .find_map(|stmt| match stmt {
+                    Stmt::FnDef(def) if def.name.name == "foo" => Some(def),
+                    _ => None,
+                })
+                .expect("imported stdlib function should be merged into the loaded module");
+            assert_eq!(
+                foo_def.name.span.file_id, foo_file_id,
+                "cached stdlib AST spans must be projected to the current SourceMap file id",
+            );
+        }
+
+        let stats = session_cache.stats();
+        assert!(
+            stats.parsed_module_stores >= 1,
+            "the first stdlib load should populate the parsed-module cache",
+        );
+        assert!(
+            stats.parsed_module_hits >= 1,
+            "the second stdlib load should reuse the parsed-module cache",
+        );
+    }
+
+    #[test]
+    fn provider_session_cache_misses_when_stdlib_source_hash_changes() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+        );
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            foo_path.clone(),
+            String::from("pub fn foo %fn unit i32 \\unit:\n    1\n"),
+        );
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+
+        for body_value in ["1", "2"] {
+            sources.insert(
+                foo_path.clone(),
+                format!("pub fn foo %fn unit i32 \\unit:\n    {body_value}\n"),
+            );
+            let mut loader = Loader::new(stdlib_root.clone());
+            let mut provider = |path: &PathBuf| {
+                sources
+                    .get(path)
+                    .cloned()
+                    .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+            };
+            loader
+                .load_inline_with_provider_and_cache(
+                    entry_path.clone(),
+                    entry_source.clone(),
+                    &mut provider,
+                    &mut session_cache,
+                )
+                .expect("provider-backed load should parse");
+        }
+
+        let stats = session_cache.stats();
+        assert_eq!(
+            stats.parsed_module_hits, 0,
+            "changing stdlib source text for the same canonical path must not hit the old parsed module",
+        );
+        assert_eq!(
+            stats.parsed_module_misses, 2,
+            "each distinct stdlib source hash should create a separate parsed-module key",
+        );
+        assert_eq!(
+            stats.parsed_module_stores, 2,
+            "both source versions should be stored independently",
+        );
+    }
+
+    #[test]
+    fn provider_session_cache_misses_when_imported_type_arity_hints_change() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
+        let defs_path = canonicalize_path(&stdlib_path(&stdlib_root, &["defs.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+        );
+        let foo_source =
+            String::from("#import \"defs\" as *\npub fn foo %fn unit i32 \\unit:\n    1\n");
+        let mut sources = BTreeMap::new();
+        sources.insert(foo_path.clone(), foo_source);
+        sources.insert(defs_path.clone(), String::new());
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+
+        for defs_source in [
+            "pub struct Box<.T>:\n    value %.T\n",
+            "pub struct Box<.T,.U>:\n    first %.T\n    second %.U\n",
+        ] {
+            sources.insert(defs_path.clone(), String::from(defs_source));
+            let mut loader = Loader::new(stdlib_root.clone());
+            let mut provider = |path: &PathBuf| {
+                sources
+                    .get(path)
+                    .cloned()
+                    .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+            };
+            loader
+                .load_inline_with_provider_and_cache(
+                    entry_path.clone(),
+                    entry_source.clone(),
+                    &mut provider,
+                    &mut session_cache,
+                )
+                .expect("provider-backed load should parse");
+        }
+
+        let stats = session_cache.stats();
+        assert_eq!(
+            stats.parsed_module_hits, 0,
+            "changing imported type arity metadata must not reuse a parsed module keyed with old parser boundary hints",
+        );
+        assert_eq!(
+            stats.parsed_module_misses, 4,
+            "both defs.nepl and foo.nepl should miss again when the imported public type arity changes",
+        );
+        assert_eq!(
+            stats.parsed_module_stores, 4,
+            "cache entries should be separated by imported type arity hint hash as well as source hash",
         );
     }
 

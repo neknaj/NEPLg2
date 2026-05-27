@@ -418,13 +418,30 @@ function loadStdlibVfsForCompile(metrics = null) {
     }
 }
 
-function callCompilerForTiming(fn, metrics = null) {
+function compilerSessionCacheStats(compilerApi) {
+    if (!compilerApi || typeof compilerApi.loader_cache_stats_json !== 'function') {
+        return null;
+    }
+    try {
+        return JSON.parse(compilerApi.loader_cache_stats_json());
+    } catch (err) {
+        return { parse_error: String(err && err.message ? err.message : err) };
+    }
+}
+
+function callCompilerForTiming(fn, metrics = null, compilerApi = null) {
     const start = Date.now();
+    if (metrics && compilerApi) {
+        metrics.compiler_session_cache_before = compilerSessionCacheStats(compilerApi);
+    }
     try {
         return withConsoleSuppressed(fn);
     } finally {
         if (metrics) {
             metrics.wasm_call_ms = (metrics.wasm_call_ms || 0) + (Date.now() - start);
+            if (compilerApi) {
+                metrics.compiler_session_cache_after = compilerSessionCacheStats(compilerApi);
+            }
         }
     }
 }
@@ -451,7 +468,8 @@ function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, f
                 stdlibVfs,
                 profile,
             ),
-            metrics
+            metrics,
+            compilerApi,
         );
     }
     if (mustPassStdlibVfs && typeof compilerApi.compile_source_with_vfs_and_stdlib === 'function') {
@@ -463,7 +481,8 @@ function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, f
                 vfs,
                 stdlibVfs,
             ),
-            metrics
+            metrics,
+            compilerApi,
         );
     }
     const effectiveVfs = mustPassStdlibVfs
@@ -480,19 +499,25 @@ function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, f
                 effectiveVfs,
                 profile,
             ),
-            metrics
+            metrics,
+            compilerApi,
         );
     }
     if (typeof compilerApi.compile_source_with_vfs === 'function') {
         return callCompilerForTiming(() =>
             compilerApi.compile_source_with_vfs('/virtual/entry.nepl', source, effectiveVfs),
-            metrics
+            metrics,
+            compilerApi,
         );
     }
     if (typeof compilerApi.compile_source_with_profile === 'function') {
-        return callCompilerForTiming(() => compilerApi.compile_source_with_profile(source, profile), metrics);
+        return callCompilerForTiming(
+            () => compilerApi.compile_source_with_profile(source, profile),
+            metrics,
+            compilerApi,
+        );
     }
-    return callCompilerForTiming(() => compilerApi.compile_source(source), metrics);
+    return callCompilerForTiming(() => compilerApi.compile_source(source), metrics, compilerApi);
 }
 
 function createCompilerSession(api) {
@@ -584,6 +609,8 @@ async function runSingle(req, preloaded, onProgress = null) {
         stdlib_vfs_ms: 0,
         stdlib_vfs_mode: null,
         compiler_session: false,
+        compiler_session_cache_before: null,
+        compiler_session_cache_after: null,
         wasm_call_ms: null,
         compile_ms: null,
         run_ms: null,
@@ -635,6 +662,8 @@ async function runSingle(req, preloaded, onProgress = null) {
             stdlib_vfs_mode: null,
             stdlib_vfs_ms: 0,
             compiler_session: false,
+            compiler_session_cache_before: null,
+            compiler_session_cache_after: null,
             wasm_call_ms: 0,
         };
         try {
@@ -657,6 +686,8 @@ async function runSingle(req, preloaded, onProgress = null) {
             timing.stdlib_vfs_mode = compileMetrics.stdlib_vfs_mode;
             timing.stdlib_vfs_ms = compileMetrics.stdlib_vfs_ms;
             timing.compiler_session = compileMetrics.compiler_session;
+            timing.compiler_session_cache_before = compileMetrics.compiler_session_cache_before;
+            timing.compiler_session_cache_after = compileMetrics.compiler_session_cache_after;
             timing.wasm_call_ms = compileMetrics.wasm_call_ms;
             notifyPhaseProgress(onProgress, {
                 id,
