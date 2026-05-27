@@ -47490,3 +47490,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `TraitInfo` に visibility を保持し、public trait だけを table に載せられるようにした。これは HIR ではなく typecheck 内の公開 surface 生成に必要な情報である。
 - `typed_public_signature_hash_ignores_function_body_only_edits` と `typed_public_signature_hash_tracks_public_callable_type_edits` を追加し、body-only edit では hash 不変、public callable 型 edit では hash 変化を固定した。
 - この checkpoint はまだ Resource IR summary reuse には接続していない。次段階では loader の dependency aggregate public surface hash とこの typed public signature hash を組み合わせ、stdlib summary cache の invalidation key として使う。
+
+## 2026-05-28 Agent typed public signature pipeline staging
+
+- `TypedPublicSignatureTable` を `TypeCheckResult` から `TypedProgram` / `PreparedProgram` まで運ぶようにした。`plan.md` は変更していない。
+- これは cache value 再利用ではなく、後段の Resource IR summary cache key を構築するための staging である。保持する値は stable text / hash だけで、typed HIR、`TypeId`、`Span`、SourceMap、Resource IR body は保存していない。
+- 設計文書では、Resource IR summary cache key に含めるべき要素と、保存してはいけない session-local value を分けて記録した。
+- `cargo fmt --check`、`cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build` は pass した。
+
+## 2026-05-28 Agent Resource IR variant-param summary pre-skip checkpoint
+
+- Zenn の試作段階方針と性能追求方針を再確認し、subagent review で低リスクとされた Resource IR raw initialization summary の無駄な prefix replay 削減を実装した。`plan.md` は変更していない。
+- variant-param summary collector は、現時点では return value を直接 output とする top-level `Branch` だけを facts 抽出対象にしている。その `Branch` が存在しない return block では `ResourceCheckEngine` を再生しても variant-param facts が増えないため、collector 呼び出し前に前提判定を置いた。
+- この判定は nested branch や match の意味を新しく解釈せず、既存 collector が観測できる境界だけを守る。証明能力を広げず、かつ削らず、該当しない block の探索だけを減らす。
+- `variant_param_summary_scan_skips_without_return_branch_output` と `variant_param_summary_scan_detects_return_branch_output` を追加し、return branch がない場合は skip、return value と branch output が一致する場合は collector 候補になることを固定した。テストの doccomment には、この最適化が何を守るかと、なぜ prefix replay を避けられるかを記述した。
+- native release RPN stage-only 測定は `resource_typecheck=125ms`、`resource_initialized_i32_scalar_summaries=1232ms`、`resource_raw_init_summary_recomputations=148 summaries=78`、`resource_initialized_raw_init_summaries=2281ms`、`resource_initialized_function_checks=3090ms`、`resource_static_check=7443ms`。直前 checkpoint の `resource_initialized_raw_init_summaries=2421ms`、`resource_initialized_function_checks=3224ms`、`resource_static_check=7776ms` から改善した。
+- `cargo fmt --check`、`cargo test -p nepl-core variant_param_summary --lib -- --nocapture`、`cargo build --release -p nepl-cli`、`target\release\nepl-cli.exe --check -i examples\rpn.nepl --target std --stdlib-root stdlib` with `NEPL_COMPILE_STAGE_TIMING=1`、`trunk build`、`node nodesrc/tests.js -i examples/rpn.nepl -o tmp/rpn_tests_variant_skip.json -j 1 --runner wasm --no-tree`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。

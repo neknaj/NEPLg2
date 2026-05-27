@@ -26,7 +26,7 @@ use super::initialized_summary_seed::{
 };
 use super::initialized_summary_variant_build::collect_variant_param_initialized_raw_cells_from_return;
 use super::initialized_variant::PendingVariantRawCellInitializations;
-use super::model::{ResourceFunction, ResourceModule, ResourceTerminator};
+use super::model::{Place, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator};
 use super::place_utils::reference_target_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
@@ -336,19 +336,21 @@ fn function_raw_cell_initialization_summary(
             value: Some(value), ..
         } = &block.terminator
         {
-            collect_variant_param_initialized_raw_cells_from_return(
-                &mut out.variant_param_cells,
-                &mut out.variant_param_byte_ranges,
-                &mut out.variant_required_param_cells,
-                &mut out.variant_conditions,
-                function,
-                types,
-                raw_alias_summaries,
-                i32_scalar_summaries,
-                raw_init_summaries,
-                &block.ops,
-                value,
-            );
+            if ops_have_top_level_branch_output_for_return(&block.ops, value) {
+                collect_variant_param_initialized_raw_cells_from_return(
+                    &mut out.variant_param_cells,
+                    &mut out.variant_param_byte_ranges,
+                    &mut out.variant_required_param_cells,
+                    &mut out.variant_conditions,
+                    function,
+                    types,
+                    raw_alias_summaries,
+                    i32_scalar_summaries,
+                    raw_init_summaries,
+                    &block.ops,
+                    value,
+                );
+            }
         }
     }
     out.return_cells = guaranteed_return_cells.unwrap_or_default();
@@ -356,6 +358,15 @@ fn function_raw_cell_initialization_summary(
     out.param_cells = guaranteed_param_cells.unwrap_or_default();
     out.param_byte_ranges = guaranteed_param_byte_ranges.unwrap_or_default();
     out
+}
+
+fn ops_have_top_level_branch_output_for_return(ops: &[ResourceOp], return_value: &Place) -> bool {
+    // variant-param summary の collector は、現時点では return value そのものを
+    // output とする top-level Branch だけを facts の抽出対象にしている。
+    // その Branch がない block では collector を起動しても block prefix の再生だけが走るため、
+    // 観測境界を保ったままここで探索対象から外す。
+    ops.iter()
+        .any(|op| matches!(op, ResourceOp::Branch { output, .. } if output == return_value))
 }
 
 fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
@@ -417,6 +428,68 @@ mod tests {
             function_has_direct_raw_initialization_summary_op(&function),
             "collection slot marker だけを持つ helper も raw initialization summary worklist の seed である必要がある"
         );
+    }
+
+    /// variant-param summary の前提判定は、collector が実際に読む
+    /// top-level Branch の output と return value の一致だけを見る。
+    /// 一致しない Branch を候補に含めると、variant-param facts を作れない block でも
+    /// ResourceCheckEngine の prefix replay が起動し、性能劣化だけが残る。
+    #[test]
+    fn variant_param_summary_scan_skips_without_return_branch_output() {
+        let types = TypeCtx::new();
+        let unit = types.unit();
+        let return_value = Place::local(String::from("ret"), unit);
+        let other_value = Place::local(String::from("other"), unit);
+        let condition = Place::local(String::from("cond"), unit);
+
+        assert!(!ops_have_top_level_branch_output_for_return(
+            &[],
+            &return_value
+        ));
+
+        let ops = vec![ResourceOp::Branch {
+            output: other_value.clone(),
+            condition,
+            condition_fact: None,
+            then_ops: vec![],
+            then_value: other_value.clone(),
+            else_ops: vec![],
+            else_value: other_value,
+            span: Span::dummy(),
+        }];
+
+        assert!(!ops_have_top_level_branch_output_for_return(
+            &ops,
+            &return_value
+        ));
+    }
+
+    /// return value を直接作る top-level Branch は、variant-param summary が
+    /// 分岐ごとの param-cell facts を回収するための入口である。
+    /// この入口を保つことで、性能最適化が既存の variant 証明能力を削らないことを確認する。
+    #[test]
+    fn variant_param_summary_scan_detects_return_branch_output() {
+        let types = TypeCtx::new();
+        let unit = types.unit();
+        let return_value = Place::local(String::from("ret"), unit);
+        let condition = Place::local(String::from("cond"), unit);
+        let then_value = Place::local(String::from("then"), unit);
+        let else_value = Place::local(String::from("else"), unit);
+        let ops = vec![ResourceOp::Branch {
+            output: return_value.clone(),
+            condition,
+            condition_fact: None,
+            then_ops: vec![],
+            then_value,
+            else_ops: vec![],
+            else_value,
+            span: Span::dummy(),
+        }];
+
+        assert!(ops_have_top_level_branch_output_for_return(
+            &ops,
+            &return_value
+        ));
     }
 }
 
