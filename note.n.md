@@ -7,6 +7,14 @@
 - 検証: `rg -n "^//:.*\\b(?:contains|len)<|^//:.*HashMapUpdateError<|^//:.*\\b(?:new|with_capacity)<" stdlib\\alloc\\collections\\hashmap -g "*.nepl"` は direct aggregate constructor compile_fail 3 件だけを検出した。`node nodesrc/test_neplg21_map_set_positive_doc_postfix_cleanup.js`、`node nodesrc/test_stdlib_hashmap_storage_contract.js`、`node nodesrc/test_stdlib_collection_cleanup_contract.js`、`node nodesrc/test_stdlib_documentation_contract.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`git diff --check`、`trunk build` は pass した。
 - `node nodesrc/tests.js -i stdlib\\alloc\\collections\\hashmap\\api.nepl -i stdlib\\alloc\\collections\\hashmap\\types.nepl --no-tree -o tmp\\neplg21-hashmap-doccomment-postfix.json -j 1 --dist web\\dist --assert-io` は外側 300 秒 timeout。partial JSON は `api.nepl::doctest#1` から `#5` まで compile timeout after 60000ms、型診断なし。こちらが起動した残留 runner PID 12944 は停止した。
 
+# 2026-05-27 HashSet public doccomment postfix cleanup checkpoint
+
+- `plan.md` と `doc/neplg2/neplg21_syntax_migration_plan.md` の NEPLg2.1 方針を確認し、`stdlib/alloc/collections/hashset/**.nepl` の public doccomment に限定して positive doctest の旧 generic postfix を整理した。`plan.md` は変更していない。
+- `stdlib/alloc/collections/hashset/api.nepl` では、`%HashSet i32 DefaultHash32` local と `&HashSet i32 DefaultHash32` receiver から型引数を推論できる `contains<i32, DefaultHash32>` / `len<i32, DefaultHash32>` を postfix-free `contains` / `len` へ移行した。
+- `new` / `with_capacity` / `insert` / `remove` / `free` の positive doctest は既に `%HashSet i32 DefaultHash32` 型注釈または receiver evidence による postfix-free call だったため、nested producer inference 既知 issue に触れる追加変更は行っていない。
+- `stdlib/alloc/collections/hashset/types.nepl` の `HashSetUpdateError<i32,DefaultHash32>` は `neplg2:test[compile_fail]` の direct aggregate constructor 制限確認であり、今回の positive doctest 移行対象外として保持した。
+- 実装本体の `<.T,.H>`、型 constructor、generic declaration は変更していない。
+
 # 2026-05-27 Agent 1 doc examples impure fn checkpoint
 
 - Zenn 方針と `doc/neplg2/neplg21_syntax_migration_plan.md` を確認し、NEPLg2.1 の正規表記である `impure fn` に合わせて `doc/examples/**` の旧 draft `%fn*` / `fn*` を移行した。`plan.md` は変更していない。
