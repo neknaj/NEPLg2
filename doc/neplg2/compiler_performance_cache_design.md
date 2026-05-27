@@ -65,6 +65,8 @@ release WASM では、最小 program の warm compile が 10ms 未満になっ�
 - parsed stdlib module cache は `cache version + stdlib namespace hash + canonical path + source hash + imported type arity hint hash` を key にし、`SourceMap` / typed HIR / `TypeId` を保存しない。
 - cached AST は中立 `FileId` に正規化して保持し、compile ごとの fresh `SourceMap` で採番された `FileId` へ再投影してから merged module へ使う。
 - stdlib override / overlay が `/stdlib` 以下を差し替える場合は parsed module cache を bypass し、bundled stdlib 用 artifact を local override へ混ぜない。
+- `LoaderSessionCache` は source arity surface cache も保持する。value は local type arity hints、prelude/import/include/public re-export の resolved path、root-only default prelude 判定だけであり、`FileId` / `Span` / `ImportResolution` / typed HIR / `TypeId` は保存しない。
+- source arity surface は `cache version + stdlib namespace hash + stdlib root + canonical path + source hash` を key にする。public re-export 先の arity result は親 surface へ畳み込まず、依存先 source hash の別 query として再評価する。
 
 ## CompilerSession first checkpoint
 
@@ -132,6 +134,46 @@ subagent review 後に、次の safety regression を追加した。
 | Web release session aggregate second same process | same preloaded runner / same `CompilerSession` | `compiler_session=true`、`compile_ms=3`、`wasm_call_ms=3`、`cache hits 4 -> 9` |
 
 同一 session で同じ aggregate source を再compileした場合は、stdlib parsed module cache が全て hit し、10ms 未満に入った。一方で、まだ初回に import されていない stdlib module を含む aggregate case では、追加 module の parse / import / typecheck / Resource IR / codegen が残るため 10ms を超えることがある。次 checkpoint は public surface / import graph / Resource IR summary cache へ進める。
+
+## Source arity surface checkpoint
+
+2026-05-27 の third checkpoint では、loader-level の source arity surface cache を `LoaderSessionCache` に追加した。これは typed public signature table ではなく、NEPLg2.1 prefix type parser が依存 module の型arity境界を知るための未型付け artifact である。
+
+cache する artifact:
+
+- source 内で宣言された `struct` / `enum` / `trait` の local type arity hints。
+- `#prelude`、`#import`、`#include` から得られる type arity preload path。
+- shallow cycle recovery が見る `#import pub` と `#include` の public re-export path。
+- root source だけに適用する default prelude の resolved path と `#no_prelude` 判定。
+- cache hit / miss / store の統計。
+
+cache しない artifact:
+
+- 依存先 module を再帰的に畳み込んだ type arity result。
+- `SourceMap` / `FileId` / `Span`。
+- `ImportResolution`。
+- typed signature / typed HIR。
+- `TypeCtx` / `TypeId`。
+- Resource IR summary。
+
+依存先の public type arity を親 module の surface value に畳み込まない理由は、依存先 source が変わったときに親 source hash が変わらなくても parser boundary が変わり得るためである。親 surface は public re-export edge だけを保持し、依存先 surface は依存先の source hash で別 query として引き直す。これにより、facade source が unchanged で cache hit しても、re-export 先の `Box<.T>` が `Box<.T,.U>` に変わった場合は新しい arity が使われる。
+
+`CompilerSession.loader_cache_stats_json()` は `arity_surface_hits` / `arity_surface_misses` / `arity_surface_stores` を返す。Node / Web 側の timing JSON は既存の `compiler_session_cache_before` / `compiler_session_cache_after` 経由でこの統計を観測できる。
+
+追加 regression:
+
+- source text が同じ場合、source arity surface が session 内で再利用される。
+- 同じ cached surface から root / non-root の preload path を計算しても、default prelude は root にだけ入る。
+- lexer error のある source では、旧 `type_arity_preload_paths` と同じく default prelude を preload せず、通常 parser path の lexer diagnostic を優先する。
+- public re-export facade が cache hit しても、re-export 先 source hash の変化は新しい type arity として反映される。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| Web release session minimal after arity surface cache | `tmp/minimal_perf.nepl` + same preloaded `CompilerSession` | `compile_ms=2`、`wasm_call_ms=2`、parsed cache `4 hit / 4 store`、arity surface `4 hit / 6 store` |
+| Web release session aggregate first after arity surface cache | `tmp/perf_alloc_probe.nepl` + same preloaded `CompilerSession` | `compile_ms=15`、`wasm_call_ms=15`、parsed cache `8 hit / 5 store`、arity surface `8 hit / 8 store` |
+| Web release session aggregate second after arity surface cache | same source / same `CompilerSession` | `compile_ms=4`、`wasm_call_ms=4`、parsed cache hits `8 -> 13`、arity surface hits `8 -> 14` |
 
 ## 次段階の CompilerSession 設計
 

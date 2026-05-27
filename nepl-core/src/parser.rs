@@ -100,6 +100,16 @@ pub fn type_arity_hints_from_source(file_id: FileId, src: &str) -> Vec<(String, 
     collect_type_arity_hints_from_tokens(&lex.tokens)
 }
 
+/// Collect parser-facing type arity metadata from an already lexed token stream.
+///
+/// Loader-side cache queries already need to lex source text to inspect import
+/// directives.  Reusing that token stream keeps the arity scan as a pure
+/// frontend query and avoids a second lexer pass before the normal parser path
+/// performs full syntax validation and diagnostic reporting.
+pub fn type_arity_hints_from_tokens(tokens: &[Token]) -> Vec<(String, usize)> {
+    collect_type_arity_hints_from_tokens(tokens)
+}
+
 /// Collect public parser-facing arity metadata from a parsed module.
 ///
 /// The loader uses this after parsing dependency modules so an importing module

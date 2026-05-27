@@ -1,3 +1,16 @@
+# 2026-05-27 CompilerSession source arity surface cache checkpoint
+
+- Zenn 記事の 2026-05-27 更新版と subagent review を確認し、typed public signature table や Resource IR summary に進む前の安全な性能改善として、未型付けの source arity surface cache を先に実装した。
+- `nepl-core/src/parser.rs` に、既に lex 済みの token stream から type arity hints を収集する公開 helper を追加した。loader の directive scan と arity scan が同じ token stream を使えるため、cache miss 時も lexer pass を増やさない。
+- `nepl-core/src/loader.rs` の `LoaderSessionCache` に source arity surface cache を追加した。value は local type arity hints、prelude/import/include/public re-export path、root-only default prelude 判定だけであり、`FileId` / `Span` / `ImportResolution` / typed HIR / `TypeCtx` / `TypeId` / Resource IR summary は保持しない。
+- source arity surface key は `cache version + stdlib namespace hash + stdlib root + canonical path + source hash` である。public re-export 先の arity result は親 surface に畳み込まず、依存先 source hash の別 query として再評価するため、facade が cache hit しても依存先型arity変更は stale にならない。
+- `nepl-web/src/lib.rs` の `CompilerSession.loader_cache_stats_json()` は `arity_surface_hits` / `arity_surface_misses` / `arity_surface_stores` を返すようにした。`nodesrc/test_run_test_compiler_session.js` の stub も同じ観測fieldへ追従した。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92` に今回の cache boundary、未cache対象、次段階の logical import graph / typed public surface との境界を追記した。
+- 追加 regression: source text が同じ場合の arity surface reuse、同じ surface から root / non-root を計算したとき default prelude が root にだけ入ること、public re-export facade が cache hit しても re-export 先 source hash 変更が反映されること。
+- subagent review で、lexer error のある root source でも cached surface から default prelude が preload され得る点を指摘された。これは本来の lexer diagnostic より先に loader error を出す危険があるため、lexer error surface では implicit default prelude を無効化し、旧 `type_arity_preload_paths` と同じ no-preload behavior を保つ regression を追加した。
+- subagent review で、Node runner regression が新しい `arity_surface_*` fields を assert していない点も指摘された。`nodesrc/test_run_test_compiler_session.js` で before / after の `arity_surface_hits` を固定した。
+- release WASM 実測では、same preloaded `CompilerSession` で `tmp/minimal_perf.nepl` が `compile_ms=2`、`tmp/perf_alloc_probe.nepl` の first が `compile_ms=15`、同じ aggregate source の second が `compile_ms=4` だった。aggregate second では parsed module hits が 8 から 13、arity surface hits が 8 から 14 へ増えた。
+
 # 2026-05-27 CompilerSession stdlib parsed-module cache checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を確認し、試作段階では後方互換よりも設計の正しさ、純粋 query、DAG 化、cache による探索空間削減を優先する方針を再確認した。

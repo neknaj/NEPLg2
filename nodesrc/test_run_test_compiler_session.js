@@ -40,6 +40,9 @@ const { runSingle } = require('./run_test');
                             parsed_module_misses: 0,
                             parsed_module_stores: 0,
                             parsed_module_bypasses: 0,
+                            arity_surface_hits: cacheStatsCalls,
+                            arity_surface_misses: 0,
+                            arity_surface_stores: 0,
                             stdlib_override_bypasses: 0,
                         });
                     },
@@ -59,6 +62,8 @@ const { runSingle } = require('./run_test');
     assert.equal(result.timing.stdlib_vfs_mode, 'bundled');
     assert.equal(result.timing.compiler_session_cache_before.parsed_module_hits, 1);
     assert.equal(result.timing.compiler_session_cache_after.parsed_module_hits, 2);
+    assert.equal(result.timing.compiler_session_cache_before.arity_surface_hits, 1);
+    assert.equal(result.timing.compiler_session_cache_after.arity_surface_hits, 2);
     assert.match(String(result.compile_error || ''), /session compile failure/);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -94,6 +99,9 @@ const { runSingle } = require('./run_test');
                             parsed_module_misses: 0,
                             parsed_module_stores: 0,
                             parsed_module_bypasses: 0,
+                            arity_surface_hits: 0,
+                            arity_surface_misses: 0,
+                            arity_surface_stores: 0,
                             stdlib_override_bypasses: forcedStdlibSessionCalled ? 1 : 0,
                         });
                     },

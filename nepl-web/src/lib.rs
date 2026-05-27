@@ -3378,17 +3378,21 @@ impl CompilerSession {
     /// `CompilerSession` 内の loader cache 統計を JSON 文字列として返す。
     ///
     /// Web / Node 側では Rust の構造体を直接読めないため、warm compile が
-    /// stdlib parsed module cache を実際に踏んだかを確認する観測点として使う。
+    /// stdlib parsed module cache と arity surface cache を実際に踏んだかを
+    /// 確認する観測点として使う。
     /// 値は累積統計であり、cache の正しさは path/hash key と loader 側の
     /// `FileId` 再投影によって担保する。
     pub fn loader_cache_stats_json(&self) -> String {
         let stats = self.loader_cache.borrow().stats();
         format!(
-            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"stdlib_override_bypasses\":{}}}",
+            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"stdlib_override_bypasses\":{}}}",
             stats.parsed_module_hits,
             stats.parsed_module_misses,
             stats.parsed_module_stores,
             stats.parsed_module_bypasses,
+            stats.arity_surface_hits,
+            stats.arity_surface_misses,
+            stats.arity_surface_stores,
             stats.stdlib_override_bypasses,
         )
     }

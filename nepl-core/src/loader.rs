@@ -70,6 +70,9 @@ pub struct LoaderSessionCacheStats {
     pub parsed_module_misses: usize,
     pub parsed_module_stores: usize,
     pub parsed_module_bypasses: usize,
+    pub arity_surface_hits: usize,
+    pub arity_surface_misses: usize,
+    pub arity_surface_stores: usize,
     pub stdlib_override_bypasses: usize,
 }
 
@@ -85,6 +88,7 @@ pub struct LoaderSessionCacheStats {
 pub struct LoaderSessionCache {
     namespace_hash: String,
     parsed_modules: BTreeMap<LoaderParsedModuleKey, CachedParsedModule>,
+    arity_surfaces: BTreeMap<LoaderAritySurfaceKey, CachedAritySurface>,
     stats: LoaderSessionCacheStats,
 }
 
@@ -93,6 +97,7 @@ impl LoaderSessionCache {
         Self {
             namespace_hash: namespace_hash.into(),
             parsed_modules: BTreeMap::new(),
+            arity_surfaces: BTreeMap::new(),
             stats: LoaderSessionCacheStats::default(),
         }
     }
@@ -103,6 +108,7 @@ impl LoaderSessionCache {
 
     pub fn clear(&mut self) {
         self.parsed_modules.clear();
+        self.arity_surfaces.clear();
         self.stats = LoaderSessionCacheStats::default();
     }
 
@@ -125,6 +131,21 @@ impl LoaderSessionCache {
         }
     }
 
+    fn arity_surface_key_for(
+        &self,
+        stdlib_root: &PathBuf,
+        canon: &PathBuf,
+        src: &str,
+    ) -> LoaderAritySurfaceKey {
+        LoaderAritySurfaceKey {
+            cache_version: String::from(LOADER_SESSION_CACHE_VERSION),
+            namespace_hash: self.namespace_hash.clone(),
+            stdlib_root: canonicalize_path(stdlib_root),
+            path: canon.clone(),
+            source_hash: fnv1a64(src.as_bytes()),
+        }
+    }
+
     fn get_parsed_module(&mut self, key: &LoaderParsedModuleKey) -> Option<CachedParsedModule> {
         if let Some(entry) = self.parsed_modules.get(key) {
             self.stats.parsed_module_hits += 1;
@@ -143,6 +164,21 @@ impl LoaderSessionCache {
     fn record_parsed_module_bypass(&mut self) {
         self.stats.parsed_module_bypasses += 1;
     }
+
+    fn get_arity_surface(&mut self, key: &LoaderAritySurfaceKey) -> Option<CachedAritySurface> {
+        if let Some(entry) = self.arity_surfaces.get(key) {
+            self.stats.arity_surface_hits += 1;
+            Some(entry.clone())
+        } else {
+            self.stats.arity_surface_misses += 1;
+            None
+        }
+    }
+
+    fn store_arity_surface(&mut self, key: LoaderAritySurfaceKey, entry: CachedAritySurface) {
+        self.stats.arity_surface_stores += 1;
+        self.arity_surfaces.insert(key, entry);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -154,10 +190,46 @@ struct LoaderParsedModuleKey {
     type_arity_hints_hash: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct LoaderAritySurfaceKey {
+    cache_version: String,
+    namespace_hash: String,
+    stdlib_root: PathBuf,
+    path: PathBuf,
+    source_hash: u64,
+}
+
 #[derive(Debug, Clone)]
 struct CachedParsedModule {
     module: Module,
     capabilities: SourceCapabilities,
+}
+
+#[derive(Debug, Clone)]
+struct CachedAritySurface {
+    local_type_arity_hints: Vec<(String, usize)>,
+    prelude_paths: Vec<PathBuf>,
+    module_paths: Vec<PathBuf>,
+    public_reexport_paths: Vec<PathBuf>,
+    default_prelude_path: PathBuf,
+    no_prelude: bool,
+    implicit_default_prelude: bool,
+}
+
+impl CachedAritySurface {
+    fn preload_paths(&self, is_root: bool) -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        if is_root
+            && self.implicit_default_prelude
+            && !self.no_prelude
+            && self.prelude_paths.is_empty()
+        {
+            paths.push(self.default_prelude_path.clone());
+        }
+        paths.extend(self.prelude_paths.clone());
+        paths.extend(self.module_paths.clone());
+        paths
+    }
 }
 
 /// Loader that builds a single merged module from an entry file,
@@ -623,7 +695,13 @@ impl Loader {
         // loading, but every dependency source must come from the caller's
         // virtual file provider so tests and web-facing callers stay
         // platform-independent.
-        let paths = self.type_arity_preload_paths(base, file_id, src, is_root);
+        let paths = self.type_arity_preload_paths_with_cache(
+            base,
+            file_id,
+            src,
+            is_root,
+            session_cache.as_deref_mut(),
+        );
         let mut hints = Vec::new();
         for path in paths {
             let canon = canonicalize_path(&path);
@@ -634,6 +712,7 @@ impl Loader {
                     file_id,
                     &mut visited,
                     provider,
+                    session_cache.as_deref_mut(),
                 )?;
                 push_loader_type_arity_hints(&mut hints, shallow_hints);
                 continue;
@@ -675,13 +754,21 @@ impl Loader {
         file_id: FileId,
         visited: &mut BTreeSet<PathBuf>,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<Vec<(String, usize)>, LoaderError> {
         let canon = canonicalize_path(path);
         if !visited.insert(canon.clone()) {
             return Ok(Vec::new());
         }
         let src = provider(&canon)?;
-        self.shallow_type_arity_hints_from_source_with(&canon, file_id, &src, visited, provider)
+        self.shallow_type_arity_hints_from_source_with(
+            &canon,
+            file_id,
+            &src,
+            visited,
+            provider,
+            session_cache,
+        )
     }
 
     fn shallow_type_arity_hints_from_source(
@@ -713,11 +800,18 @@ impl Loader {
         src: &str,
         visited: &mut BTreeSet<PathBuf>,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        mut session_cache: Option<&mut LoaderSessionCache>,
     ) -> Result<Vec<(String, usize)>, LoaderError> {
-        let mut hints = parser::type_arity_hints_from_source(file_id, src);
-        for dep in self.shallow_type_arity_reexport_paths(canon, file_id, src) {
-            let dep_hints =
-                self.shallow_type_arity_hints_from_file_with(&dep, file_id, visited, provider)?;
+        let surface = self.source_arity_surface(canon, file_id, src, session_cache.as_deref_mut());
+        let mut hints = surface.local_type_arity_hints;
+        for dep in surface.public_reexport_paths {
+            let dep_hints = self.shallow_type_arity_hints_from_file_with(
+                &dep,
+                file_id,
+                visited,
+                provider,
+                session_cache.as_deref_mut(),
+            )?;
             push_loader_type_arity_hints(&mut hints, dep_hints);
         }
         Ok(hints)
@@ -765,44 +859,104 @@ impl Loader {
         src: &str,
         is_root: bool,
     ) -> Vec<PathBuf> {
-        // This scan reads only file-level dependency directives. Full directive
-        // validation and import-clause visibility remain the responsibility of
-        // `process_directives`; arity preloading only decides which modules may
-        // define type constructors needed to parse the current file.
+        self.type_arity_preload_paths_with_cache(base, file_id, src, is_root, None)
+    }
+
+    fn type_arity_preload_paths_with_cache(
+        &self,
+        base: &PathBuf,
+        file_id: FileId,
+        src: &str,
+        is_root: bool,
+        session_cache: Option<&mut LoaderSessionCache>,
+    ) -> Vec<PathBuf> {
+        self.source_arity_surface(base, file_id, src, session_cache)
+            .preload_paths(is_root)
+    }
+
+    fn source_arity_surface(
+        &self,
+        base: &PathBuf,
+        file_id: FileId,
+        src: &str,
+        session_cache: Option<&mut LoaderSessionCache>,
+    ) -> CachedAritySurface {
+        let canon = canonicalize_path(base);
+        let Some(session_cache) = session_cache else {
+            return self.compute_source_arity_surface(&canon, file_id, src);
+        };
+
+        let key = session_cache.arity_surface_key_for(&self.stdlib_root, &canon, src);
+        if let Some(surface) = session_cache.get_arity_surface(&key) {
+            return surface;
+        }
+        let surface = self.compute_source_arity_surface(&canon, file_id, src);
+        session_cache.store_arity_surface(key, surface.clone());
+        surface
+    }
+
+    fn compute_source_arity_surface(
+        &self,
+        base: &PathBuf,
+        file_id: FileId,
+        src: &str,
+    ) -> CachedAritySurface {
+        // This scan reads only file-level dependency directives and declaration
+        // heads. Full directive validation, import-clause visibility, and body
+        // diagnostics remain the responsibility of the normal parser and
+        // `process_directives` path; this artifact is only kind metadata for
+        // NEPLg2.1 prefix type boundaries.
         let lex = lexer::lex(file_id, src);
         if lex
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.severity == Severity::Error)
         {
-            return Vec::new();
+            return CachedAritySurface {
+                local_type_arity_hints: Vec::new(),
+                prelude_paths: Vec::new(),
+                module_paths: Vec::new(),
+                public_reexport_paths: Vec::new(),
+                default_prelude_path: self.resolve_path(base, "std/prelude_base"),
+                no_prelude: false,
+                implicit_default_prelude: false,
+            };
         }
 
         let mut prelude_paths = Vec::new();
         let mut module_paths = Vec::new();
+        let mut public_reexport_paths = Vec::new();
         let mut no_prelude = false;
-        for token in lex.tokens {
-            match token.kind {
-                TokenKind::DirPrelude(path) => prelude_paths.push(path),
+        for token in &lex.tokens {
+            match &token.kind {
+                TokenKind::DirPrelude(path) => prelude_paths.push(self.resolve_path(base, path)),
                 TokenKind::DirNoPrelude => no_prelude = true,
                 TokenKind::DirImport(text) => {
                     if let Some(path) = import_path_from_directive_text(&text) {
-                        module_paths.push(path);
+                        module_paths.push(self.resolve_path(base, &path));
+                    }
+                    if let Some(path) = public_import_path_from_directive_text(&text) {
+                        public_reexport_paths.push(self.resolve_path(base, &path));
                     }
                 }
-                TokenKind::DirInclude(path) => module_paths.push(path),
+                TokenKind::DirInclude(path) => {
+                    let resolved = self.resolve_path(base, path);
+                    module_paths.push(resolved.clone());
+                    public_reexport_paths.push(resolved);
+                }
                 _ => {}
             }
         }
 
-        if is_root && !no_prelude && prelude_paths.is_empty() {
-            prelude_paths.push(String::from("std/prelude_base"));
+        CachedAritySurface {
+            local_type_arity_hints: parser::type_arity_hints_from_tokens(&lex.tokens),
+            prelude_paths,
+            module_paths,
+            public_reexport_paths,
+            default_prelude_path: self.resolve_path(base, "std/prelude_base"),
+            no_prelude,
+            implicit_default_prelude: true,
         }
-        prelude_paths
-            .into_iter()
-            .chain(module_paths)
-            .map(|path| self.resolve_path(base, &path))
-            .collect()
     }
 
     fn process_directives(
@@ -1379,6 +1533,7 @@ mod tests {
     };
     use crate::source_map::{CompilerMemoryField, CompilerMemoryType, SourceCapabilityUseSite};
     use crate::span::Span;
+    use alloc::vec;
 
     trait SourceCapabilitiesTestExt {
         fn allows_raw_memory_structural_boundary(&self) -> bool;
@@ -1751,6 +1906,170 @@ mod tests {
         assert_eq!(
             stats.parsed_module_stores, 4,
             "cache entries should be separated by imported type arity hint hash as well as source hash",
+        );
+    }
+
+    #[test]
+    fn provider_session_cache_reuses_source_arity_surfaces() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let entry_source = "#no_prelude\n#import \"foo\" as *\n";
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+
+        for _ in 0..2 {
+            let paths = loader.type_arity_preload_paths_with_cache(
+                &entry_path,
+                FileId(0),
+                entry_source,
+                true,
+                Some(&mut session_cache),
+            );
+            assert_eq!(
+                paths,
+                vec![canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]))],
+                "arity preload must keep using the same directive semantics on cache hit",
+            );
+        }
+
+        let stats = session_cache.stats();
+        assert_eq!(
+            stats.arity_surface_stores, 1,
+            "the first source scan should store one arity surface artifact",
+        );
+        assert_eq!(
+            stats.arity_surface_hits, 1,
+            "the second source scan should reuse the path/source-hash keyed arity surface",
+        );
+    }
+
+    #[test]
+    fn source_arity_surface_keeps_root_default_prelude_out_of_non_root_loads() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+
+        let root_paths = loader.type_arity_preload_paths_with_cache(
+            &entry_path,
+            FileId(0),
+            "",
+            true,
+            Some(&mut session_cache),
+        );
+        let non_root_paths = loader.type_arity_preload_paths_with_cache(
+            &entry_path,
+            FileId(0),
+            "",
+            false,
+            Some(&mut session_cache),
+        );
+
+        assert_eq!(
+            root_paths,
+            vec![canonicalize_path(&stdlib_path(
+                &stdlib_root,
+                &["std", "prelude_base.nepl"],
+            ))],
+            "root sources without explicit prelude should preload the default prelude",
+        );
+        assert!(
+            non_root_paths.is_empty(),
+            "the same cached surface must not inject the root-only default prelude into non-root modules",
+        );
+        assert_eq!(
+            session_cache.stats().arity_surface_hits,
+            1,
+            "root and non-root path lists should be derived from one cached surface, not from stale path output",
+        );
+    }
+
+    #[test]
+    fn source_arity_surface_skips_default_prelude_when_lexer_errors() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let loader = test_loader();
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+
+        let paths = loader.type_arity_preload_paths_with_cache(
+            &entry_path,
+            FileId(0),
+            "#target wasm\nlet broken \"unterminated\n",
+            true,
+            Some(&mut session_cache),
+        );
+
+        assert!(
+            paths.is_empty(),
+            "lexer errors must not trigger default prelude preloading before the normal parser path reports the real diagnostic",
+        );
+        let paths_again = loader.type_arity_preload_paths_with_cache(
+            &entry_path,
+            FileId(0),
+            "#target wasm\nlet broken \"unterminated\n",
+            true,
+            Some(&mut session_cache),
+        );
+        assert!(
+            paths_again.is_empty(),
+            "cached lexer-error surfaces must preserve the old no-preload behavior",
+        );
+        assert_eq!(
+            session_cache.stats().arity_surface_hits,
+            1,
+            "the lexer-error surface is still a pure source-hash query and can be reused safely",
+        );
+    }
+
+    #[test]
+    fn shallow_arity_surface_rechecks_public_reexport_dependency_source_hash() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let facade_path = canonicalize_path(&stdlib_path(&stdlib_root, &["facade.nepl"]));
+        let types_path = canonicalize_path(&stdlib_path(&stdlib_root, &["types.nepl"]));
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            facade_path.clone(),
+            String::from("#import pub \"types\" as *\n"),
+        );
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+
+        for (src, expected_arity) in [
+            ("pub struct Box<.T>:\n    value %.T\n", 1),
+            ("pub struct Box<.T,.U>:\n    first %.T\n    second %.U\n", 2),
+        ] {
+            sources.insert(types_path.clone(), String::from(src));
+            let mut provider = |path: &PathBuf| {
+                sources
+                    .get(path)
+                    .cloned()
+                    .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+            };
+            let mut visited = BTreeSet::new();
+            let hints = loader
+                .shallow_type_arity_hints_from_file_with(
+                    &facade_path,
+                    FileId(0),
+                    &mut visited,
+                    &mut provider,
+                    Some(&mut session_cache),
+                )
+                .expect("shallow public reexport arity discovery should read provider sources");
+            assert!(
+                hints
+                    .iter()
+                    .any(|(name, arity)| name == "Box" && *arity == expected_arity),
+                "dependency source hash changes must be observed even when the facade surface is cached",
+            );
+        }
+
+        let stats = session_cache.stats();
+        assert!(
+            stats.arity_surface_hits >= 1,
+            "the unchanged facade should hit the arity surface cache on the second pass",
+        );
+        assert!(
+            stats.arity_surface_stores >= 3,
+            "the facade plus both dependency source versions should be stored under separate surface keys",
         );
     }
 
