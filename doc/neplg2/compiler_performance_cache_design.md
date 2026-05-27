@@ -399,6 +399,16 @@ subagent review では、public signature text が同じでも private import / 
 
 subagent review 後に、Branch / Match の sibling variant return facts、collection slot operation の raw initialization relevance、offset/constant derived equality を戻した。これにより correctness-first の path preservation が増え、i32 scalar summary は最小値の 571ms から 2012ms へ戻ったが、false negative を避けるための必要な修正である。total static check はまだ 9 秒台であり、raw init / function check の path-sensitive exploration が次の主要ボトルネックである。
 
+2026-05-28 の追加 checkpoint では、Resource IR 内の純粋 query と局所証明をさらに狭めた。`CollectionSlotTransformRange` を含まない関数では local transform-range certificate の候補を構築しない。これは同じ関数内の transform-range op だけが消費する局所証明なので、消費先がない関数では静的検査の結果を変えない。また、i32 scalar return leaf relation 収集では、leaf pair ごとに `I32ConditionQueryContext` を作り直さず、relation 収集全体で共有する。alias / offset 到達性は同じ raw alias graph に対する純粋 query であり、context 共有により同じ探索を繰り返さない。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| native release RPN static check after Resource IR query pruning | `target/release/nepl-cli.exe --check -i examples/rpn.nepl --target std --stdlib-root stdlib` | `resource_static_check=8389ms`、`resource_initialized_i32_scalar_summaries=1372ms`、`resource_initialized_raw_init_summaries=2613ms`、`resource_initialized_function_checks=3470ms` |
+
+`I32ConditionQueryContext` 全体を `BTreeMap` memo に置き換える案と、loop initialized range の body guard を先行する案は実測で悪化したため採用しない。今回の checkpoint で i32 scalar summary は軽くなったが、初回 compile はまだ 0.5 秒未満から遠い。次段階は typed public signature table を semantic invalidation 境界にし、Resource IR summary を function hash と dependency typed public signature hash で再利用する。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

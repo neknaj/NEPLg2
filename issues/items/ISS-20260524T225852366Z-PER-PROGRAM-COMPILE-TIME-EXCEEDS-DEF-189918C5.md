@@ -77,6 +77,9 @@ Create a fixed per-program benchmark corpus, keep compile_ms and run_ms evidence
 - release WASM RPN same-session first compile: `compile_ms=8976`、`prewarm_ms=193`、`wasm_call_ms=8783`。
 - release WASM RPN same-session second compile: `compile_ms=1`、`wasm_call_ms=0`、`compiled_output_cache_hits=1`。
 - Web playground compile timeout の直接原因として、source-directed prewarm 後にまだ消費していない dependency aggregate public surface hash を同期計算していたことを確認した。RPN ではこの追加 query が private implementation graph を広く歩き、wasm doctest が compile phase で 120 秒 timeout したため、Web prewarm hot path から外した。
+- Resource IR query pruning checkpoint では、local transform-range certificate を `CollectionSlotTransformRange` 消費関数だけで構築するようにし、i32 scalar return leaf relation 収集では `I32ConditionQueryContext` を leaf pair ごとではなく relation 収集全体で共有した。
+- 同 checkpoint の native release RPN stage-only 測定は `resource_static_check=8389ms`、`resource_initialized_i32_scalar_summaries=1372ms`、`resource_initialized_raw_init_summaries=2613ms`、`resource_initialized_function_checks=3470ms`。i32 scalar summary は軽くなったが、raw init summary / function check がまだ支配的である。
+- `I32ConditionQueryContext` 全体の `BTreeMap` 化と loop initialized range body guard は実測で悪化したため採用しなかった。次の根本対応は typed public signature table を invalidation 境界にした Resource IR summary cache である。
 
 RPN では同一入力の再compileは 10ms 未満になったが、初回 compile はまだ 0.5 秒未満から遠い。次の根本対応は raw init summary / function check の path-sensitive exploration を function hash と dependency aggregate public surface hash で再利用する Resource IR summary cache である。
 

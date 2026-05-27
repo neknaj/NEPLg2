@@ -47462,3 +47462,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `storage.nepl` は `Vec` 型、`get`、`replace`、`filled` をそれぞれ `types` / `query/get` / `mutation/replace` / `storage/fill` から読むようにした。
 - `api.nepl` は `Vec` 型と `free` を `types` / `mutation/cleanup` から読むようにし、`Stack.free` では `items` owner を型付き local に移してから cleanup へ渡すことで stack wrapper の所有権回収経路を維持した。
 - `nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` は、旧 `vec::...` 呼び出しではなく narrow module import と `vec_get` / `vec_replace` / `vec_fill` / `vec_cleanup` 境界を固定する policy に更新した。
+
+## 2026-05-28 Agent Resource IR query pruning checkpoint
+
+- Zenn の試作段階方針を再確認し、RPN 初回 compile の Resource IR bottleneck を `NEPL_COMPILE_STAGE_TIMING` / `NEPL_RESOURCE_PER_FUNCTION_TIMING` / op timing で再測定した。`plan.md` は変更していない。
+- `ResourceCheckEngine` の local transform-range certificate は、同一関数内の `CollectionSlotTransformRange` だけが消費する局所証明であるため、消費先が存在しない関数では候補構築を無効化した。`str_trim` / `to_i128_radix` のような collection transform を含まない loop-heavy 関数で不要な証明探索を避ける。
+- transform-range 消費先の判定は、top-level だけでなく Branch / Loop / Match の nested ops も走査する。関数内に消費先がある場合は従来どおり候補を構築する。
+- i32 scalar return fact の leaf relation 収集では、leaf pair ごとに `I32ConditionQueryContext` を作り直さず、relation 収集全体で共有するようにした。alias / offset 到達性は同じ raw alias graph に対する純粋 query なので、同じ探索を繰り返さない。
+- `I32ConditionQueryContext` 全体を `BTreeMap` memo に置き換える案と、loop initialized range の body guard を先行する案は実測で悪化したため採用しなかった。
+- native release RPN stage-only 測定は `resource_initialized_i32_scalar_summaries=1372ms`、`resource_initialized_raw_init_summaries=2613ms`、`resource_initialized_function_checks=3470ms`、`resource_static_check=8389ms`。初回 compile はまだ 0.5 秒未満に届かないため、typed public signature / Resource IR summary cache を継続課題にする。
+- `trunk build` は pass した。`node nodesrc/tests.js -i examples/rpn.nepl -o tmp/rpn_tests_final.json -j 1 --runner wasm --no-tree` は `total=2, passed=2`。`node nodesrc/issues.js check --dir issues` と `git diff --check` も pass した。

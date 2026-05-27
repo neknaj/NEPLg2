@@ -100,7 +100,10 @@ pub fn check_resource_initialized_moves(
             i32_scalar_summaries: &i32_scalar_summary_index,
             raw_init_summaries: &raw_init_summary_index,
             collection_slot_summaries: &collection_slot_summary_index,
-            transform_range_certificates: Some(Vec::new()),
+            transform_range_certificates: function_needs_local_transform_range_certificates(
+                function,
+            )
+            .then(Vec::new),
             diagnostics: Vec::new(),
             auto_drop_points: Vec::new(),
             deferred: ResourceCheckDeferred::default(),
@@ -200,6 +203,64 @@ fn op_can_run_on_merged_path_state(types: &TypeCtx, op: &ResourceOp) -> bool {
         | ResourceOp::Branch { .. }
         | ResourceOp::Loop { .. }
         | ResourceOp::Match { .. } => false,
+    }
+}
+
+fn function_needs_local_transform_range_certificates(function: &ResourceFunction) -> bool {
+    // transform range certificate は同一関数内の
+    // `CollectionSlotTransformRange` が消費する局所証明である。関数内に消費先が
+    // 存在しない場合、loop ごとに候補を構築しても静的検査の結果には影響せず、
+    // 文字列処理など collection transform を含まない hot path で不要な探索になる。
+    function
+        .blocks
+        .iter()
+        .any(|block| ops_need_local_transform_range_certificates(&block.ops))
+}
+
+fn ops_need_local_transform_range_certificates(ops: &[ResourceOp]) -> bool {
+    ops.iter().any(op_needs_local_transform_range_certificates)
+}
+
+fn op_needs_local_transform_range_certificates(op: &ResourceOp) -> bool {
+    match op {
+        ResourceOp::CollectionSlotTransformRange { .. } => true,
+        ResourceOp::Branch {
+            then_ops, else_ops, ..
+        } => {
+            ops_need_local_transform_range_certificates(then_ops)
+                || ops_need_local_transform_range_certificates(else_ops)
+        }
+        ResourceOp::Loop {
+            condition_ops,
+            body_ops,
+            ..
+        } => {
+            ops_need_local_transform_range_certificates(condition_ops)
+                || ops_need_local_transform_range_certificates(body_ops)
+        }
+        ResourceOp::Match { arms, .. } => arms
+            .iter()
+            .any(|arm| ops_need_local_transform_range_certificates(&arm.ops)),
+        ResourceOp::Expr { .. }
+        | ResourceOp::DeclareLocal { .. }
+        | ResourceOp::Read { .. }
+        | ResourceOp::Assign { .. }
+        | ResourceOp::Borrow { .. }
+        | ResourceOp::Move { .. }
+        | ResourceOp::Drop { .. }
+        | ResourceOp::EndScope { .. }
+        | ResourceOp::CallEffect { .. }
+        | ResourceOp::FunctionValue { .. }
+        | ResourceOp::Call { .. }
+        | ResourceOp::IndirectCall { .. }
+        | ResourceOp::RawMemory { .. }
+        | ResourceOp::RawAddressAlias { .. }
+        | ResourceOp::RawAddressView { .. }
+        | ResourceOp::StorageOrigin { .. }
+        | ResourceOp::CollectionSlotLifecycle { .. }
+        | ResourceOp::CollectionStorageRelocate { .. }
+        | ResourceOp::CollectionSlotDropTraversal { .. }
+        | ResourceOp::Construct { .. } => false,
     }
 }
 
@@ -1130,4 +1191,122 @@ fn merge_deferred(target: &mut ResourceCheckDeferred, source: ResourceCheckDefer
     target.branch_merges += source.branch_merges;
     target.loop_merges += source.loop_merges;
     target.match_merges += source.match_merges;
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::String;
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    use crate::ast::Effect;
+    use crate::resource::model::{PlaceRoot, ResourceMatchArm, ResourceMatchPattern};
+    use crate::span::Span;
+
+    use super::*;
+
+    fn local(name: &str) -> Place {
+        Place {
+            root: PlaceRoot::Local(String::from(name)),
+            projections: Vec::new(),
+            ty: TypeId(0),
+        }
+    }
+
+    fn function_with_ops(ops: Vec<ResourceOp>) -> ResourceFunction {
+        ResourceFunction {
+            name: String::from("test"),
+            origin_name: String::from("test"),
+            type_params: Vec::new(),
+            params: Vec::new(),
+            result: TypeId(0),
+            effect: Effect::Pure,
+            entry_block: super::super::model::ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: super::super::model::ResourceBlockId(0),
+                ops,
+                terminator: ResourceTerminator::Return {
+                    value: None,
+                    span: Span::dummy(),
+                },
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        }
+    }
+
+    fn literal_op(output: &str) -> ResourceOp {
+        ResourceOp::Expr {
+            kind: ResourceExprKind::Literal,
+            output: local(output),
+            ty: TypeId(0),
+            span: Span::dummy(),
+        }
+    }
+
+    fn transform_range_op() -> ResourceOp {
+        ResourceOp::CollectionSlotTransformRange {
+            source_storage: local("source_storage"),
+            source_initialized_count: local("source_count"),
+            output_storage: local("output_storage"),
+            output_initialized_count: local("output_count"),
+            expected_ty: TypeId(0),
+            span: Span::dummy(),
+        }
+    }
+
+    /// loop や分岐を含んでいても、関数内に transform-range 証明の消費先が
+    /// ないなら候補構築を起動しないことを確認する。
+    #[test]
+    fn local_transform_range_certificate_scan_skips_functions_without_consumer() {
+        let function = function_with_ops(vec![ResourceOp::Loop {
+            condition_ops: vec![literal_op("condition_tmp")],
+            condition: local("condition"),
+            condition_fact: None,
+            body_ops: vec![ResourceOp::Branch {
+                output: local("branch_output"),
+                condition: local("branch_condition"),
+                condition_fact: None,
+                then_ops: vec![literal_op("then_value")],
+                then_value: local("then_value"),
+                else_ops: vec![literal_op("else_value")],
+                else_value: local("else_value"),
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        }]);
+
+        assert!(!function_needs_local_transform_range_certificates(
+            &function
+        ));
+    }
+
+    /// transform-range 証明の消費先が nested control flow の内側にある場合でも、
+    /// 関数全体として候補構築を有効にすることを確認する。
+    #[test]
+    fn local_transform_range_certificate_scan_finds_nested_consumer() {
+        let function = function_with_ops(vec![ResourceOp::Match {
+            output: local("match_output"),
+            scrutinee: local("scrutinee"),
+            scrutinee_is_borrow_target: false,
+            arms: vec![ResourceMatchArm {
+                pattern: ResourceMatchPattern::Wildcard,
+                bind_local: None,
+                bind_source_name: None,
+                bind_mode: None,
+                ops: vec![ResourceOp::Loop {
+                    condition_ops: Vec::new(),
+                    condition: local("condition"),
+                    condition_fact: None,
+                    body_ops: vec![transform_range_op()],
+                    span: Span::dummy(),
+                }],
+                value: local("arm_value"),
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        }]);
+
+        assert!(function_needs_local_transform_range_certificates(&function));
+    }
 }

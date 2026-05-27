@@ -422,10 +422,19 @@ fn collect_i32_scalar_return_leaf_relations(
     target_suffix: &[PlaceProjection],
     facts: &mut I32ScalarReturnFacts,
 ) {
+    // leaf 間の等価性照会は同じ raw alias graph に対する純粋な問い合わせである。
+    // return value に多数の i32 leaf がある場合でも、alias/offset 到達性の memo を
+    // relation 収集全体で共有し、同じ探索を leaf pair ごとに繰り返さない。
+    let mut condition_context = I32ConditionQueryContext::default();
     for (left_index, left) in leaves.iter().enumerate() {
         for right in leaves.iter().skip(left_index + 1) {
             if left.place.ty != right.place.ty
-                || !i32_scalar_leaf_places_are_known_equal(raw_aliases, &left.place, &right.place)
+                || !i32_scalar_leaf_places_are_known_equal(
+                    raw_aliases,
+                    &left.place,
+                    &right.place,
+                    &mut condition_context,
+                )
             {
                 continue;
             }
@@ -451,15 +460,13 @@ fn i32_scalar_leaf_places_are_known_equal(
     raw_aliases: &RawCellAddressAliases,
     left: &Place,
     right: &Place,
+    condition_context: &mut I32ConditionQueryContext,
 ) -> bool {
     if left == right {
         return true;
     }
-    let mut condition_context = I32ConditionQueryContext::default();
-    let left_aliases =
-        raw_aliases.scalar_aliases_for_value_with_context(left, &mut condition_context);
-    let right_aliases =
-        raw_aliases.scalar_aliases_for_value_with_context(right, &mut condition_context);
+    let left_aliases = raw_aliases.scalar_aliases_for_value_with_context(left, condition_context);
+    let right_aliases = raw_aliases.scalar_aliases_for_value_with_context(right, condition_context);
     left_aliases.iter().any(|left_alias| {
         right_aliases
             .iter()
@@ -468,7 +475,7 @@ fn i32_scalar_leaf_places_are_known_equal(
         left,
         ResourceI32RelationOp::Eq,
         right,
-        &mut condition_context,
+        condition_context,
     ) == Some(true)
 }
 
