@@ -56,6 +56,7 @@ const checks = [
     "nodesrc/test_neplg21_selfhost_stdlib_v_postfix_cleanup.js",
     "nodesrc/test_neplg21_selfhost_prose_type_postfix_cleanup.js",
     "nodesrc/test_neplg21_prose_type_notation_cleanup.js",
+    "nodesrc/test_neplg21_doc_examples_impure_fn_cleanup.js",
     "nodesrc/test_neplg21_streamio_scanner_postfix_cleanup.js",
     "nodesrc/test_neplg21_collection_storage_vec_postfix_cleanup.js",
     "nodesrc/test_neplg21_collection_wrapper_vec_postfix_cleanup.js",

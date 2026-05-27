@@ -8,7 +8,7 @@
 //: - Pure な[計算/けいさん]ロジックを Impure な IO から[分離/ぶんり]するパターンを示す。
 //:
 //: ### [注意/ちゅうい]
-//: - `fn A B` は Pure な 1 引数関数型、`fn* A B` は Impure な 1 引数関数型。
+//: - `fn A B` は Pure な 1 引数関数型、`impure fn A B` は Impure な 1 引数関数型。
 //: - 先頭の `%` は、その関数型を続く lambda 式に前置して型注釈として使っている。
 //: - Pure 関数の中から Impure 関数を呼ぶことはできない。逆は可。
 
@@ -33,7 +33,7 @@ use core::list as *
 //: - `read` が失敗した場合、`File` ハンドルは消費済みとなり再利用不可（言語仕様。`Err` 側に `File` は返らない）。
 //: - `File` を[途中/とちゅう]で落とすと "linear value not consumed" エラー。`match` の全アームで消費すること。
 
-pub let read_file_text %fn* str Result str IoError \path:
+pub let read_file_text %impure fn str Result str IoError \path:
     match open path Mode::Read:
         Result::Err e Result::Err e
         Result::Ok file
@@ -45,7 +45,7 @@ pub let read_file_text %fn* str Result str IoError \path:
                         Result::Err e Result::Err e
 
 
-pub let write_file_text %fn* str fn str Result unit IoError \path \content:
+pub let write_file_text %impure fn str fn str Result unit IoError \path \content:
     match open path Mode::Write:
         Result::Err e Result::Err e
         Result::Ok file
@@ -65,7 +65,7 @@ pub let write_file_text %fn* str fn str Result unit IoError \path \content:
 //:
 //: ### [実装/じっそう]
 //: - `count_lines` / `word_count` は Pure。テストのためにエントリポイントから切り離せる。
-//: - Impure な[境界/きょうかい]はこの関数だけ。[計算/けいさん]ロジック側に `%fn*` は伝染しない。
+//: - Impure な[境界/きょうかい]はこの関数だけ。[計算/けいさん]ロジック側に `%impure fn` は伝染しない。
 
 let count_lines %fn str i32 \content:
     length split content "\n"
@@ -73,7 +73,7 @@ let count_lines %fn str i32 \content:
 let word_count %fn str i32 \content:
     length split content " "
 
-pub let analyze_file %fn* str unit \path:
+pub let analyze_file %impure fn str unit \path:
     match read_file_text path:
         Result::Err e
             println concat "読み込みエラー: " show_io_error e
@@ -89,12 +89,12 @@ pub let analyze_file %fn* str unit \path:
 //: - `stdin` / `stdout` は runtime-borrowed capability であり `close` 不可。
 //: - `read_line` が返す `str` の末尾に改行文字が含まれる場合がある（trim が必要）。
 
-pub let prompt %fn* str str \msg:
+pub let prompt %impure fn str str \msg:
     print msg
     read_line unit
 
 
-pub let main %fn* unit i32 \unit:
+pub let main %impure fn unit i32 \unit:
     let name prompt "ファイル名: "
     analyze_file name
     0

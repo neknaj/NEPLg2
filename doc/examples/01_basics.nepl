@@ -2,7 +2,7 @@
 //: NEPLg3 の[基本構文/きほんこうぶん]を示すサンプルファイル
 //:
 //: ### [目的/もくてき]
-//: - `\x expr` / `\x:` による lambda と、`fn` / `fn*` の関数型を `%...` で式に前置する書き方・パイプ `|>` の対応を一覧する。
+//: - `\x expr` / `\x:` による lambda と、`fn` / `impure fn` の関数型を `%...` で式に前置する書き方・パイプ `|>` の対応を一覧する。
 //: - Pure 関数の内部で `set` による[可変/かへん][更新/こうしん]が許される[条件/じょうけん]を示す。
 //: - Impure 操作（`println`）を Pure な[計算/けいさん]ロジックから[分離/ぶんり]するパターンを示す。
 //:
@@ -104,9 +104,9 @@ let grade %fn i32 str \score:
 //: ### [注意/ちゅうい]
 //: - Pure な[計算/けいさん]関数を Impure な `println` から[切/き]り[離/はな]している。
 //: - [計算/けいさん]ロジック側のテストは `println` を含まずに書ける。
-//: - `main` に `%fn* unit i32` を付けているのは、`println` の呼び出しを含む Impure 関数だから。
+//: - `main` に `%impure fn unit i32` を付けているのは、`println` の呼び出しを含む Impure 関数だから。
 
-pub let main %fn* unit i32 \unit:
+pub let main %impure fn unit i32 \unit:
     println concat "10! = "        to_str factorial 10
     println concat "sum(1..10) = " to_str sum_to 10
     println concat "grade(85) = "  grade 85

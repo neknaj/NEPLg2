@@ -1,3 +1,12 @@
+# 2026-05-27 Agent 1 doc examples impure fn checkpoint
+
+- Zenn 方針と `doc/neplg2/neplg21_syntax_migration_plan.md` を確認し、NEPLg2.1 の正規表記である `impure fn` に合わせて `doc/examples/**` の旧 draft `%fn*` / `fn*` を移行した。`plan.md` は変更していない。
+- 2 worker に `doc/examples/01_basics.nepl` / `07_modules.nepl` と `doc/examples/05_io_and_resources.nepl` を非重複 write scope として割り当てた。
+- 実行例の `%fn* ...` は `%impure fn ...` へ更新し、説明文の `fn*` / `%fn*` も `impure fn` / `%impure fn` へ更新した。`%impure fn str fn str Result unit IoError` では、2 引数目以降を表す nested pure `fn str ...` を保持した。
+- `nodesrc/test_neplg21_doc_examples_impure_fn_cleanup.js` を追加し、`doc/examples/*.nepl` に旧 draft spelling が戻らないようにした。この検査は `%fn*` / `fn*` だけを検出し、コメント量や説明追加を妨げない。
+- `rg -n "%fn\\*|fn\\*" doc/examples -g "*.nepl"` は 0 件、`node nodesrc/test_neplg21_doc_examples_impure_fn_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
+- `node nodesrc/tests.js -i doc/examples/01_basics.nepl -i doc/examples/05_io_and_resources.nepl -i doc/examples/07_modules.nepl --no-tree -o tmp/neplg21-doc-examples-impure-fn.json -j 1 --dist web/dist --assert-io` は `nodesrc/tests/no-runnable-doctests`。対象 `doc/examples` は runner 上 runnable doctest として収集されなかった。
+
 # 2026-05-27 Agent 1 prose tail type notation checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として `stdlib/std/**`、`stdlib/nm/**`、`stdlib/neplg2/README.md` に残っていた prose-only 旧 `Type<...>` 表記を prefix 型式へ更新した。`plan.md` は確認したが変更していない。

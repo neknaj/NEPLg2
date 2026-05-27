@@ -1137,6 +1137,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_neplg21_prose_type_notation_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
 - `node nodesrc/tests.js -i stdlib/std/test.nepl -i stdlib/std/env/cliarg/raw.nepl -i stdlib/std/env/cliarg/cstr.nepl -i stdlib/std/stdio/write/fd.nepl -i stdlib/std/stdio/read/buffer.nepl -i stdlib/platforms/wasix/tui/tty.nepl -i stdlib/nm/html_gen.nepl -i stdlib/nm/parser/document.nepl -i stdlib/nm/README.n.md --no-tree -o tmp/neplg21-prose-tail-type-notation.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 5/14 件完了、5 件 compile timeout after 60000ms、型診断なし。残留 runner は停止した。
 
+### 2026-05-27 doc examples impure fn checkpoint
+
+- `doc/neplg2/neplg21_syntax_migration_plan.md` の正規表記に合わせ、`doc/examples/**` に残っていた旧 draft `%fn*` / `fn*` を `%impure fn` / `impure fn` へ移行した。
+- 2 worker に `01_basics` / `07_modules` と `05_io_and_resources` を非重複 write scope として割り当てた。
+- `05_io_and_resources.nepl` の multi-argument function example は `%impure fn str fn str Result unit IoError` とし、2 引数目以降を表す nested pure `fn str ...` は保持した。
+- `nodesrc/test_neplg21_doc_examples_impure_fn_cleanup.js` を追加し、`doc/examples/*.nepl` に旧 draft spelling が戻らないようにした。検査は `%fn*` / `fn*` だけを検出し、コメント量や説明追加を制限しない。
+- `rg -n "%fn\\*|fn\\*" doc/examples -g "*.nepl"` は 0 件、`node nodesrc/test_neplg21_doc_examples_impure_fn_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
+- `node nodesrc/tests.js -i doc/examples/01_basics.nepl -i doc/examples/05_io_and_resources.nepl -i doc/examples/07_modules.nepl --no-tree -o tmp/neplg21-doc-examples-impure-fn.json -j 1 --dist web/dist --assert-io` は `nodesrc/tests/no-runnable-doctests`。対象 `doc/examples` は runner 上 runnable doctest として収集されなかった。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
