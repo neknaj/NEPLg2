@@ -21,8 +21,9 @@
 //: map: 各要素へ[関数/かんすう]を[適用/てきよう]して[新/あたら]しい list を[返/かえ]す
 pub fn map <.T: Copy,.U: Copy> %impure fn List .T impure fn fn .T .U Result List .U ListTransformError .T \lst\f:
     let items %Vec .T field::get lst "items"
-    let n %i32 vec::len<.T> &items
-    match vec::with_capacity<.U> n:
+    let n %i32 vec::len &items
+    let out_result %Result Vec .U StdErrorKind vec::with_capacity n
+    match out_result:
         Result::Err e:
             Result::Err ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error e)
         Result::Ok out0:
@@ -32,16 +33,16 @@ pub fn map <.T: Copy,.U: Copy> %impure fn List .T impure fn fn .T .U Result List
             let mut failure %StdErrorKind StdErrorKind::OutOfMemory
             while and lt i n not failed:
                 do:
-                    match vec::get<.T> &items i:
+                    match vec::get &items i:
                         Option::Some value:
                             let mapped %.U f value
-                            match vec::push<.U> out mapped:
+                            match vec::push out mapped:
                                 Result::Ok next_out:
                                     set out next_out
                                     set i add i 1
                                 Result::Err e:
-                                    let error %StdErrorKind vec::vec_push_error_kind<.U> &e
-                                    set out vec::vec_push_error_vec<.U> e
+                                    let error %StdErrorKind vec::vec_push_error_kind &e
+                                    set out vec::vec_push_error_vec e
                                     set failure error
                                     set failed true
                         Option::None:
@@ -50,17 +51,18 @@ pub fn map <.T: Copy,.U: Copy> %impure fn List .T impure fn fn .T .U Result List
             if:
                 failed
                 then:
-                    vec::free<.U> out
+                    vec::free out
                     Result::Err ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error failure)
                 else:
-                    vec::free<.T> items
+                    vec::free items
                     Result::Ok List<.U> out
 
 //: filter: 条件を[満/み]たす[要素/ようそ]だけを[残/のこ]す
 pub fn filter <.T: Copy> %impure fn List .T impure fn fn .T bool Result List .T ListTransformError .T \lst\p:
     let items %Vec .T field::get lst "items"
-    let n %i32 vec::len<.T> &items
-    match vec::with_capacity<.T> n:
+    let n %i32 vec::len &items
+    let out_result %Result Vec .T StdErrorKind vec::with_capacity n
+    match out_result:
         Result::Err e:
             Result::Err ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error e)
         Result::Ok out0:
@@ -70,17 +72,17 @@ pub fn filter <.T: Copy> %impure fn List .T impure fn fn .T bool Result List .T 
             let mut failure %StdErrorKind StdErrorKind::OutOfMemory
             while and lt i n not failed:
                 do:
-                    match vec::get<.T> &items i:
+                    match vec::get &items i:
                         Option::Some value:
                             if:
                                 p value
                                 then:
-                                    match vec::push<.T> out value:
+                                    match vec::push out value:
                                         Result::Ok next_out:
                                             set out next_out
                                         Result::Err e:
-                                            let error %StdErrorKind vec::vec_push_error_kind<.T> &e
-                                            set out vec::vec_push_error_vec<.T> e
+                                            let error %StdErrorKind vec::vec_push_error_kind &e
+                                            set out vec::vec_push_error_vec e
                                             set failure error
                                             set failed true
                                 else:
@@ -92,8 +94,8 @@ pub fn filter <.T: Copy> %impure fn List .T impure fn fn .T bool Result List .T 
             if:
                 failed
                 then:
-                    vec::free<.T> out
+                    vec::free out
                     Result::Err ListTransformError<.T> (List<.T> items) (list_diag_from_vec_error failure)
                 else:
-                    vec::free<.T> items
+                    vec::free items
                     Result::Ok List<.T> out

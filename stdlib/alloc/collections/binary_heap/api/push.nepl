@@ -60,7 +60,7 @@ pub fn push <.T: Ord&Copy> %impure fn BinaryHeap .T impure fn .T Result BinaryHe
                     heap_copy_live_slots<.T> &items &next_items len0
                     heap_store_slot<.T> &next_items len0 some item
                     heap_sift_up<.T> &next_items len0
-                    vec::free<Option<.T>> items
+                    vec::free items
                     Result::Ok BinaryHeap<.T> add len0 1 grown_cap next_items
         else:
             heap_store_slot<.T> &items len0 some item

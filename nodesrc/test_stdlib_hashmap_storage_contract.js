@@ -132,13 +132,13 @@ assert.match(
 
 assert.match(
     allocStorageSection,
-    /vec::filled<HashMapBucketState>\s+cap\s+HashMapBucketState::Empty[\s\S]*vec::filled<Option<\.K>>\s+cap\s+none[\s\S]*vec::filled<Option<\.V>>\s+cap\s+none[\s\S]*ok\s+HashMapStorage<\.K,\.V>\s+states\s+keys\s+values/,
+    /vec::filled\s+cap\s+HashMapBucketState::Empty[\s\S]*vec::filled\s+cap\s+none[\s\S]*vec::filled\s+cap\s+none[\s\S]*ok\s+HashMapStorage<\.K,\.V>\s+states\s+keys\s+values/,
     'HashMap storage allocation must initialize all state/key/value slots',
 );
 
 assert.match(
     allocStorageSection,
-    /Result::Err\s+_e:[\s\S]*vec::free<HashMapBucketState>\s+states[\s\S]*Result::Err\s+_e:[\s\S]*vec::free<HashMapBucketState>\s+states[\s\S]*vec::free<Option<\.K>>\s+keys/,
+    /Result::Err\s+_e:[\s\S]*vec::free\s+states[\s\S]*Result::Err\s+_e:[\s\S]*vec::free\s+states[\s\S]*vec::free\s+keys/,
     'HashMap storage allocation failures must release already allocated Vec owners',
 );
 

@@ -62,7 +62,8 @@ pub fn hashset_load_limit %fn i32 i32 \cap:
 //: ### [注意/ちゅうい]
 //: - 呼び出し側は `0 <= idx < cap` を[守/まも]る設計です。`Option::None` は不変条件破れの防護として empty に[倒/たお]します。
 pub fn hashset_state_at %fn &Vec HashSetBucketState fn i32 HashSetBucketState \states\idx:
-    match vec::get<HashSetBucketState> states idx:
+    let slot %Option HashSetBucketState vec::get states idx
+    match slot:
         Option::Some state:
             state
         Option::None:
@@ -70,7 +71,8 @@ pub fn hashset_state_at %fn &Vec HashSetBucketState fn i32 HashSetBucketState \s
 
 //: hashset_key_at: key slot を Option として[読/よ]む
 pub fn hashset_key_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \keys\idx:
-    match vec::get<Option<.T>> keys idx:
+    let slot %Option Option .T vec::get keys idx
+    match slot:
         Option::Some key_opt:
             key_opt
         Option::None:
@@ -78,11 +80,11 @@ pub fn hashset_key_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \keys\idx:
 
 //: hashset_store_state: state slot を[書/か]き[換/か]える
 pub fn hashset_store_state %impure fn &Vec HashSetBucketState impure fn i32 impure fn HashSetBucketState unit \states\idx\state:
-    vec::replace<HashSetBucketState> states idx state
+    vec::replace states idx state
 
 //: hashset_store_key: key slot を[書/か]き[換/か]える
 pub fn hashset_store_key <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \keys\idx\key:
-    vec::replace<Option<.T>> keys idx key
+    vec::replace keys idx key
 
 //: hashset_store_full: slot を Full にして key を[格納/かくのう]する
 //:
@@ -104,8 +106,8 @@ pub fn hashset_store_tombstone <.T: Copy> %impure fn &HashSetStorage .T impure f
 pub fn hashset_free_storage <.T: Copy> %fn HashSetStorage .T unit \storage:
     let states %Vec HashSetBucketState field::get storage "states"
     let keys %Vec Option .T field::get storage "keys"
-    vec::free<HashSetBucketState> states
-    vec::free<Option<.T>> keys
+    vec::free states
+    vec::free keys
 
 //: hashset_alloc_storage: empty storage を[作/つく]る
 //:
@@ -115,13 +117,15 @@ pub fn hashset_free_storage <.T: Copy> %fn HashSetStorage .T unit \storage:
 //: ### [計算量/けいさんりょう]
 //: - O(cap)
 pub fn hashset_alloc_storage <.T: Copy> %impure fn i32 Result HashSetStorage .T Diag \cap:
-    match vec::filled<HashSetBucketState> cap HashSetBucketState::Empty:
+    let states_result %Result Vec HashSetBucketState StdErrorKind vec::filled cap HashSetBucketState::Empty
+    match states_result:
         Result::Err _e:
             diag_err diag_out_of_memory
         Result::Ok states:
-            match vec::filled<Option<.T>> cap none:
+            let keys_result %Result Vec Option .T StdErrorKind vec::filled cap none
+            match keys_result:
                 Result::Err _e:
-                    vec::free<HashSetBucketState> states
+                    vec::free states
                     diag_err diag_out_of_memory
                 Result::Ok keys:
                     ok HashSetStorage<.T> states keys

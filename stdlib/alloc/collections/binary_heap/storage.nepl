@@ -20,17 +20,17 @@ pub fn heap_normalize_capacity %fn i32 i32 \cap:
     if lt cap 1 1 cap
 
 pub fn heap_item_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \items\idx:
-    match vec::get<Option<.T>> items idx:
+    match vec::get items idx:
         Option::Some item:
             item
         Option::None:
             none
 
 pub fn heap_store_slot <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \items\idx\item:
-    vec::replace<Option<.T>> items idx item
+    vec::replace items idx item
 
 pub fn heap_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Diag \cap:
-    match vec::filled<Option<.T>> cap none:
+    match vec::filled cap none:
         Result::Ok items:
             ok items
         Result::Err _e:

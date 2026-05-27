@@ -47198,3 +47198,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_neplg21_collection_storage_vec_postfix_cleanup.js` を追加し、今回撤廃した旧構文だけを検出するようにした。コメント量や doccomment の増加を妨げる検査ではない。
 - targeted policy 9 件、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
 - SparseSet / SegmentTree API doctest 直接実行は 240s timeout。partial JSON は compile timeout のみで型診断は出ていない。
+
+## 2026-05-27 Agent 1 collection wrapper Vec helper postfix migration
+
+- `ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754` の次 checkpoint として、collection wrapper / storage の `Vec Option ...` helper postfix を 5 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。
+- `list` では `vec::new` / `vec::with_capacity` に `%Result Vec ... StdErrorKind` local を置き、`vec::push` / `vec::get` / `vec::replace` / `vec::free` / `vec::pop` / `vec::vec_*` は receiver / result local から型が決まる形にした。
+- `stack` / `queue` / `ringbuffer` / `deque` / `binary_heap` では、`Vec Option .T` receiver と owner local から `vec::get` / `vec::replace` / `vec::filled` / `vec::free` を postfix-free にした。
+- `btreeset` / `btreemap` / `hashset` / `hashmap` では、slot read local に `%Option Option ...`、allocation result に `%Result Vec ... StdErrorKind` を明示して、old `vec::...<Option<...>>` を撤廃した。
+- `BinaryHeap<.T>` / `HashSet<.T,.H>` / `HashMap<.K,.V,.H>` などの constructor / type form と、generic declaration はこの checkpoint の対象外として保持した。
+- list/hash の stale source policy は、owner-preserving failure、typed storage initialization、allocated Vec cleanup の契約を維持したまま postfix-free call を確認する regex へ追従した。
+- `nodesrc/test_neplg21_collection_wrapper_vec_postfix_cleanup.js` を追加し、今回対象ファイルの旧 `vec::...<...>` helper call だけを検出するようにした。コメント量や doccomment の増加を妨げる検査ではない。
+- `node nodesrc/test_neplg21_collection_wrapper_vec_postfix_cleanup.js` と、list / binary_heap / queue_deque / ringbuffer / stack / btree / hashset / hashmap の関連 source policy は pass した。
+- `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- worker focused doctest では list と btree 系で compile timeout が出たが、partial JSON では型診断は出ていない。

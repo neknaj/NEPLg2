@@ -19,7 +19,7 @@
 //: len: list を[借用/しゃくよう]して[要素数/ようそすう]を[返/かえ]す
 pub fn len <.T> %fn &List .T i32 \lst:
     let items %&Vec .T field::get_ref lst "items"
-    vec::len<.T> items
+    vec::len items
 
 //: is_empty: list を[借用/しゃくよう]して[空/から]かどうかを[返/かえ]す
 pub fn is_empty <.T> %fn &List .T bool \lst:
@@ -31,13 +31,13 @@ pub fn is_empty <.T> %fn &List .T bool \lst:
 //: - 論理 index 0 は storage 末尾なので、`len - 1 - idx` へ[変換/へんかん]して `Vec.get` します。
 pub fn get <.T: Copy> %fn &List .T fn i32 Option .T \lst\idx:
     let items %&Vec .T field::get_ref lst "items"
-    let n %i32 vec::len<.T> items
+    let n %i32 vec::len items
     if:
         or lt idx 0 le n idx
         then:
             none
         else:
-            vec::get<.T> items list_physical_index n idx
+            vec::get items list_physical_index n idx
 
 //: head: list を[借用/しゃくよう]して[先頭/せんとう][要素/ようそ]を[返/かえ]す
 pub fn head <.T: Copy> %fn &List .T Option .T \lst:
@@ -46,12 +46,12 @@ pub fn head <.T: Copy> %fn &List .T Option .T \lst:
 //: fold: list を[借用/しゃくよう]して[左/ひだり]から[畳/たた]み[込/こ]む
 pub fn fold <.T: Copy,.U> %fn &List .T fn .U fn fn .U fn .T .U .U \lst\acc\f:
     let items %&Vec .T field::get_ref lst "items"
-    let mut remaining %i32 vec::len<.T> items
+    let mut remaining %i32 vec::len items
     let mut out %.U acc
     while gt remaining 0:
         do:
             set remaining sub remaining 1
-            match vec::get<.T> items remaining:
+            match vec::get items remaining:
                 Option::Some value:
                     set out f out value
                 Option::None:
@@ -61,13 +61,13 @@ pub fn fold <.T: Copy,.U> %fn &List .T fn .U fn fn .U fn .T .U .U \lst\acc\f:
 //: reduce: list を[借用/しゃくよう]して[初期値/しょきち]なしで[畳/たた]み[込/こ]む
 pub fn reduce <.T: Copy> %fn &List .T fn fn .T fn .T .T Option .T \lst\f:
     let items %&Vec .T field::get_ref lst "items"
-    let n %i32 vec::len<.T> items
+    let n %i32 vec::len items
     if:
         eq n 0
         then:
             none
         else:
-            match vec::get<.T> items sub n 1:
+            match vec::get items sub n 1:
                 Option::None:
                     none
                 Option::Some first:
@@ -76,7 +76,7 @@ pub fn reduce <.T: Copy> %fn &List .T fn fn .T fn .T .T Option .T \lst\f:
                     while gt remaining 0:
                         do:
                             set remaining sub remaining 1
-                            match vec::get<.T> items remaining:
+                            match vec::get items remaining:
                                 Option::Some value:
                                     set out f out value
                                 Option::None:
@@ -86,13 +86,13 @@ pub fn reduce <.T: Copy> %fn &List .T fn fn .T fn .T .T Option .T \lst\f:
 //: find: 条件に[合/あ]う[最初/さいしょ]の[要素/ようそ]を[返/かえ]す
 pub fn find <.T: Copy> %fn &List .T fn fn .T bool Option .T \lst\p:
     let items %&Vec .T field::get_ref lst "items"
-    let mut remaining %i32 vec::len<.T> items
+    let mut remaining %i32 vec::len items
     let mut found %Option .T none
     let mut done %bool false
     while and gt remaining 0 not done:
         do:
             set remaining sub remaining 1
-            match vec::get<.T> items remaining:
+            match vec::get items remaining:
                 Option::Some value:
                     if:
                         p value
@@ -108,12 +108,12 @@ pub fn find <.T: Copy> %fn &List .T fn fn .T bool Option .T \lst\p:
 //: any: 条件を[満/み]たす[要素/ようそ]が 1 つでもあるか[返/かえ]す
 pub fn any <.T: Copy> %fn &List .T fn fn .T bool bool \lst\p:
     let items %&Vec .T field::get_ref lst "items"
-    let mut remaining %i32 vec::len<.T> items
+    let mut remaining %i32 vec::len items
     let mut result %bool false
     while and gt remaining 0 not result:
         do:
             set remaining sub remaining 1
-            match vec::get<.T> items remaining:
+            match vec::get items remaining:
                 Option::Some value:
                     if:
                         p value
@@ -128,12 +128,12 @@ pub fn any <.T: Copy> %fn &List .T fn fn .T bool bool \lst\p:
 //: all: 全要素が条件を[満/み]たすか[返/かえ]す
 pub fn all <.T: Copy> %fn &List .T fn fn .T bool bool \lst\p:
     let items %&Vec .T field::get_ref lst "items"
-    let mut remaining %i32 vec::len<.T> items
+    let mut remaining %i32 vec::len items
     let mut result %bool true
     while and gt remaining 0 result:
         do:
             set remaining sub remaining 1
-            match vec::get<.T> items remaining:
+            match vec::get items remaining:
                 Option::Some value:
                     if:
                         p value

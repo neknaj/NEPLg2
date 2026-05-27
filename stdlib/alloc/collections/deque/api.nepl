@@ -104,7 +104,7 @@ pub fn push_front <.T: Copy> %impure fn Deque .T impure fn .T Result Deque .T De
                 Result::Ok new_items:
                     deque_store_slot<.T> &new_items 0 some item
                     deque_copy_live_slots<.T> &items &new_items cap0 head0 len0 1
-                    vec::free<Option<.T>> items
+                    vec::free items
                     Result::Ok Deque<.T> add len0 1 new_cap 0 new_items
         else:
             let head1 %i32 deque_prev_index head0 cap0
@@ -131,7 +131,7 @@ pub fn push_back <.T: Copy> %impure fn Deque .T impure fn .T Result Deque .T Deq
                 Result::Ok new_items:
                     deque_copy_live_slots<.T> &items &new_items cap0 head0 len0 0
                     deque_store_slot<.T> &new_items len0 some item
-                    vec::free<Option<.T>> items
+                    vec::free items
                     Result::Ok Deque<.T> add len0 1 new_cap 0 new_items
         else:
             let tail %i32 deque_tail_index head0 len0 cap0
@@ -227,4 +227,4 @@ pub fn clear <.T: Copy> %impure fn Deque .T Deque .T \dq:
 //: ## free
 //: deque が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
 pub fn free <.T: Copy> %fn Deque .T unit \dq:
-    vec::free<Option<.T>> field::get dq "items"
+    vec::free field::get dq "items"

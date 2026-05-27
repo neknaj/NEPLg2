@@ -84,7 +84,7 @@ pub fn push <.T: Copy> %impure fn RingBuffer .T impure fn .T Result RingBuffer .
                 Result::Ok new_items:
                     ringbuffer_copy_live_slots<.T> &items &new_items cap0 head0 len0
                     ringbuffer_store_slot<.T> &new_items len0 some item
-                    vec::free<Option<.T>> items
+                    vec::free items
                     Result::Ok RingBuffer<.T> add len0 1 new_cap 0 new_items
         else:
             let tail %i32 ringbuffer_tail_index head0 len0 cap0
@@ -143,4 +143,4 @@ pub fn clear <.T: Copy> %impure fn RingBuffer .T RingBuffer .T \rb:
 //: ## free
 //: buffer が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
 pub fn free <.T: Copy> %fn RingBuffer .T unit \rb:
-    vec::free<Option<.T>> field::get rb "items"
+    vec::free field::get rb "items"

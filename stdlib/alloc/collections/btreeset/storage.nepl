@@ -39,14 +39,15 @@ pub fn btreeset_storage_keys <.T: Copy> %fn &BTreeSetStorage .T &Vec Option .T \
     field::get_ref storage "keys"
 
 pub fn btreeset_key_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \keys\idx:
-    match vec::get<Option<.T>> keys idx:
+    let slot %Option Option .T vec::get keys idx
+    match slot:
         Option::Some key_opt:
             key_opt
         Option::None:
             none
 
 pub fn btreeset_store_key <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \keys\idx\key:
-    vec::replace<Option<.T>> keys idx key
+    vec::replace keys idx key
 
 pub fn btreeset_key_slot <.T: Copy> %fn &BTreeSetStorage .T fn i32 Option .T \storage\idx:
     btreeset_key_at<.T> btreeset_storage_keys<.T> storage idx
@@ -56,10 +57,11 @@ pub fn btreeset_store_key_slot <.T: Copy> %impure fn &BTreeSetStorage .T impure 
 
 pub fn btreeset_free_storage <.T: Copy> %fn BTreeSetStorage .T unit \storage:
     let keys %Vec Option .T field::get storage "keys"
-    vec::free<Option<.T>> keys
+    vec::free keys
 
 pub fn btreeset_alloc_storage <.T: Copy> %impure fn i32 Result BTreeSetStorage .T Diag \cap:
-    match vec::filled<Option<.T>> cap none:
+    let keys_result %Result Vec Option .T StdErrorKind vec::filled cap none
+    match keys_result:
         Result::Err _e:
             diag_err diag_out_of_memory
         Result::Ok keys:

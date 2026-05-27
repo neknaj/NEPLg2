@@ -131,13 +131,13 @@ assert.match(
 
 assert.match(
     allocStorageSection,
-    /vec::filled<HashSetBucketState>\s+cap\s+HashSetBucketState::Empty[\s\S]*vec::filled<Option<\.T>>\s+cap\s+none[\s\S]*ok\s+HashSetStorage<\.T>\s+states\s+keys/,
+    /vec::filled\s+cap\s+HashSetBucketState::Empty[\s\S]*vec::filled\s+cap\s+none[\s\S]*ok\s+HashSetStorage<\.T>\s+states\s+keys/,
     'HashSet storage allocation must initialize all state/key slots',
 );
 
 assert.match(
     allocStorageSection,
-    /Result::Err\s+_e:[\s\S]*vec::free<HashSetBucketState>\s+states/,
+    /Result::Err\s+_e:[\s\S]*vec::free\s+states/,
     'HashSet key storage allocation failure must release already allocated state Vec owner',
 );
 

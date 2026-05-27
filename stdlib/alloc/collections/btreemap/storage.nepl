@@ -60,24 +60,26 @@ pub fn btreemap_storage_values <.K,.V: Copy> %fn &BTreeMapStorage .K .V &Vec Opt
     field::get_ref storage "values"
 
 pub fn btreemap_key_at <.K: Copy> %fn &Vec Option .K fn i32 Option .K \keys\idx:
-    match vec::get<Option<.K>> keys idx:
+    let slot %Option Option .K vec::get keys idx
+    match slot:
         Option::Some key_opt:
             key_opt
         Option::None:
             none
 
 pub fn btreemap_value_at <.V: Copy> %fn &Vec Option .V fn i32 Option .V \values\idx:
-    match vec::get<Option<.V>> values idx:
+    let slot %Option Option .V vec::get values idx
+    match slot:
         Option::Some value_opt:
             value_opt
         Option::None:
             none
 
 pub fn btreemap_store_key <.K: Copy> %impure fn &Vec Option .K impure fn i32 impure fn Option .K unit \keys\idx\key:
-    vec::replace<Option<.K>> keys idx key
+    vec::replace keys idx key
 
 pub fn btreemap_store_value <.V: Copy> %impure fn &Vec Option .V impure fn i32 impure fn Option .V unit \values\idx\value:
-    vec::replace<Option<.V>> values idx value
+    vec::replace values idx value
 
 pub fn btreemap_key_slot <.K: Copy,.V: Copy> %fn &BTreeMapStorage .K .V fn i32 Option .K \storage\idx:
     btreemap_key_at<.K> btreemap_storage_keys<.K,.V> storage idx
@@ -94,17 +96,19 @@ pub fn btreemap_store_value_slot <.K: Copy,.V: Copy> %impure fn &BTreeMapStorage
 pub fn btreemap_free_storage <.K: Copy,.V: Copy> %fn BTreeMapStorage .K .V unit \storage:
     let keys %Vec Option .K field::get storage "keys"
     let values %Vec Option .V field::get storage "values"
-    vec::free<Option<.K>> keys
-    vec::free<Option<.V>> values
+    vec::free keys
+    vec::free values
 
 pub fn btreemap_alloc_storage <.K: Copy,.V: Copy> %impure fn i32 Result BTreeMapStorage .K .V Diag \cap:
-    match vec::filled<Option<.K>> cap none:
+    let keys_result %Result Vec Option .K StdErrorKind vec::filled cap none
+    match keys_result:
         Result::Err _e:
             diag_err diag_out_of_memory
         Result::Ok keys:
-            match vec::filled<Option<.V>> cap none:
+            let values_result %Result Vec Option .V StdErrorKind vec::filled cap none
+            match values_result:
                 Result::Err _e:
-                    vec::free<Option<.K>> keys
+                    vec::free keys
                     diag_err diag_out_of_memory
                 Result::Ok values:
                     ok BTreeMapStorage<.K,.V> keys values

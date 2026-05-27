@@ -1063,6 +1063,17 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
 - SparseSet / SegmentTree API doctest 直接実行は 240s timeout。partial JSON は compile timeout のみで型診断は出ていない。
 
+### 2026-05-27 collection wrapper Vec helper postfix checkpoint
+
+- `list` / `stack` / `queue` / `ringbuffer` / `deque` / `binary_heap` / `btreeset` / `btreemap` / `hashset` / `hashmap` の wrapper / storage 層で、`vec::get<Option<...>>` / `vec::replace<Option<...>>` / `vec::filled<Option<...>>` / `vec::free<Option<...>>` などの Vec helper postfix を撤廃した。
+- `list` の `vec::new` / `vec::with_capacity`、btree/hash storage の `vec::filled` は、値引数だけでは型根拠が弱い箇所に `%Result Vec ... StdErrorKind` または `%Option ...` local を置いてから postfix-free call へ移行した。
+- `BinaryHeap<.T>` / `HashSet<.T,.H>` / `HashMap<.K,.V,.H>` などの constructor / type form と、`pub fn f <.T>` の generic declaration は現行構文として保持した。
+- 5 worker に list、small linear collections、binary_heap、btree、hash storage を非重複 write scope として割り当て、親 agent が stale source policy の call spelling を NEPLg2.1 へ追従した。
+- `nodesrc/test_neplg21_collection_wrapper_vec_postfix_cleanup.js` を追加し、今回対象ファイルの旧 `vec::...<...>` helper call だけを検出するようにした。コメント量や doccomment の増加を妨げる検査ではない。
+- `node nodesrc/test_neplg21_collection_wrapper_vec_postfix_cleanup.js` と、list / binary_heap / queue_deque / ringbuffer / stack / btree / hashset / hashmap の関連 source policy は pass した。
+- `node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
+- worker focused doctest では list と btree 系で compile timeout が出たが、partial JSON では型診断は出ていない。full doctest green 化は performance issue 側で継続確認する。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.

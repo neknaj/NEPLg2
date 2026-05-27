@@ -54,6 +54,7 @@ const checks = [
     "nodesrc/test_neplg21_core_traits_postfix_cleanup.js",
     "nodesrc/test_neplg21_selfhost_tui_vec_postfix_cleanup.js",
     "nodesrc/test_neplg21_collection_storage_vec_postfix_cleanup.js",
+    "nodesrc/test_neplg21_collection_wrapper_vec_postfix_cleanup.js",
     "nodesrc/test_features_tui_report_contract.js",
     "nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js",
     "nodesrc/test_stdlib_nm_parser_no_block_unwraps.js",

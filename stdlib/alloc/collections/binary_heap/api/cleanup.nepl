@@ -29,4 +29,4 @@
 //:     0
 //: ```
 pub fn free <.T: Copy> %fn BinaryHeap .T unit \hp:
-    vec::free<Option<.T>> field::get hp "items"
+    vec::free field::get hp "items"
