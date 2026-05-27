@@ -1,3 +1,13 @@
+# 2026-05-27 Agent 1 streamio scanner postfix checkpoint
+
+- Zenn 方針を再確認し、NEPLg2.1 corpus migration として `streamio` scanner の cursor state に残っていた `Vec i32` helper call postfix を撤廃した。`plan.md` は変更していない。
+- `stdlib/std/streamio/scanner.nepl` では `vec::free<i32>` を、`stdlib/std/streamio/scanner/state.nepl` では `vec::get<i32>` / `vec::replace<i32>` / `vec::filled<i32>` を、既存の `Vec i32` receiver / return annotation / value evidence から解ける postfix-free call へ移行した。
+- `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_streamio_scanner_boundary.js` は、cursor storage boundary の検査を維持したまま NEPLg2.1 の postfix-free spelling へ追従した。
+- `nodesrc/test_neplg21_streamio_scanner_postfix_cleanup.js` を追加し、今回対象ファイルの旧 `vec::get<i32>` / `vec::replace<i32>` / `vec::filled<i32>` / `vec::free<i32>` だけを検出するようにした。実コードを対象にし、コメント量や doccomment の増加を妨げる検査ではない。
+- subagent の独立調査では、`tests/stdlib/**` は raw memory boundary / compile_fail fixture / source string fixture が主であり、今回すぐに worker へ渡せる通常 API 移行候補はなかった。`stdlib/std/**` と `stdlib/nm/**` には prose-only の旧型表記候補が残るため、次 checkpoint で doc-only cleanup として扱える。`stdlib/alloc/collections/vec/**` は positive doctest に限れば worker 分割可能だが、raw memory / transform / sort non-Copy 設計待ち箇所は保持する。
+- `node nodesrc/test_neplg21_streamio_scanner_postfix_cleanup.js`、`node nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js`、`node nodesrc/test_stdlib_streamio_scanner_boundary.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
+- `node nodesrc/tests.js -i stdlib/std/streamio/scanner.nepl -i stdlib/std/streamio/scanner/state.nepl --no-tree -o tmp/neplg21-streamio-scanner-postfix.json -j 1 --dist web/dist --assert-io` は `stdlib/std/streamio/scanner.nepl::doctest#1` の compile timeout after 60000ms。型診断は出ておらず、残留 runner もなかった。
+
 # 2026-05-27 Agent 1 stdlib prose type notation checkpoint
 
 - Zenn 方針を再確認し、NEPLg2.1 corpus migration として stdlib / stdlib test prose に残っていた旧 `Type<...>` 型説明を 4 worker の非重複 write scope に分割して並列移行した。`plan.md` は変更していない。

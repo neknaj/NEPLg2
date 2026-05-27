@@ -177,4 +177,4 @@ pub fn close %impure fn StreamScanner unit \sc:
     let bytes %ByteBuf get sc "bytes";
     let cursor %Vec i32 get sc "cursor";
     io_bytebuf_free bytes;
-    vec::free<i32> cursor
+    vec::free cursor

@@ -240,7 +240,7 @@ assert.doesNotMatch(
 );
 assert.match(
     scannerHeaderMatch[1],
-    /\bvec::get<i32>\s+cursor\s+0[\s\S]*\bvec::replace<i32>\s+cursor\s+0\s+pos/,
+    /\bvec::get\s+cursor\s+0[\s\S]*\bvec::replace\s+cursor\s+0\s+pos/,
     'StreamScanner cursor stores must use typed Vec cursor storage instead of a raw header owner field',
 );
 

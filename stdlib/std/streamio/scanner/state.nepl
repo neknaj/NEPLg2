@@ -59,7 +59,7 @@ pub fn stream_scanner_byte_at %fn &ByteBuf fn i32 i32 \bytes\pos:
 //: - cursor storage の破損は `Result` として返し、public facade が必要に応じて sentinel へ丸めます。
 pub fn stream_scanner_load_pos_result %fn &StreamScanner Result i32 str \sc:
     let cursor %&Vec i32 get_ref sc "cursor";
-    match vec::get<i32> cursor 0:
+    match vec::get cursor 0:
         Option::Some pos:
             Result::Ok pos
         Option::None:
@@ -84,9 +84,9 @@ pub fn stream_scanner_load_pos %fn &StreamScanner i32 \sc:
 //: - `read &sc` のような borrowed API で scanner owner を移動せず、typed cursor position だけを scanner state boundary として更新します。
 pub fn stream_scanner_store_pos_result %impure fn &StreamScanner impure fn i32 Result unit str \sc\pos:
     let cursor %&Vec i32 get_ref sc "cursor";
-    match vec::get<i32> cursor 0:
+    match vec::get cursor 0:
         Option::Some _old:
-            vec::replace<i32> cursor 0 pos
+            vec::replace cursor 0 pos
             Result::Ok unit
         Option::None:
             Result::Err "streamio.stream_scanner_store_pos failed"
@@ -143,7 +143,7 @@ pub fn stream_scanner_slice_to_str_result %impure fn &StreamScanner impure fn i3
 //: ### [目的/もくてき]
 //: - input buffer owner とは別に、borrowed scanner API が更新する 1 element の typed cursor storage を確保します。
 pub fn stream_scanner_cursor_new %fn unit Result Vec i32 str \unit:
-    match vec::filled<i32> 1 0:
+    match vec::filled 1 0:
         Result::Err _e:
             Result::Err "streamio.scanner cursor alloc failed"
         Result::Ok cursor:

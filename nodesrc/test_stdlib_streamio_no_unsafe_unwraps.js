@@ -238,13 +238,13 @@ assert.match(code, /fn\s+close\s+<\(StreamScanner\)\*>/, 'StreamScanner close mu
 
 assert.match(
     code,
-    /fn\s+stream_scanner_load_pos_result\s+<\(&StreamScanner\)->Result<i32,str>>\s+\(sc\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get<i32>\s+cursor\s+0:[\s\S]*Option::Some\s+pos:[\s\S]*Result::Ok\s+pos[\s\S]*Result::Err\s+"streamio\.stream_scanner_load_pos failed"/,
+    /fn\s+stream_scanner_load_pos_result\s+<\(&StreamScanner\)->Result<i32,str>>\s+\(sc\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get\s+cursor\s+0:[\s\S]*Option::Some\s+pos:[\s\S]*Result::Ok\s+pos[\s\S]*Result::Err\s+"streamio\.stream_scanner_load_pos failed"/,
     'stream scanner cursor loads must return Result through typed cursor storage instead of trapping',
 );
 
 assert.match(
     code,
-    /fn\s+stream_scanner_store_pos_result\s+<\(&StreamScanner,i32\)\*>Result<unit,str>>\s+\(sc,\s*pos\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get<i32>\s+cursor\s+0:[\s\S]*Option::Some\s+_old:[\s\S]*vec::replace<i32>\s+cursor\s+0\s+pos[\s\S]*Result::Ok\s+unit[\s\S]*Result::Err\s+"streamio\.stream_scanner_store_pos failed"/,
+    /fn\s+stream_scanner_store_pos_result\s+<\(&StreamScanner,i32\)\*>Result<unit,str>>\s+\(sc,\s*pos\):[\s\S]*let\s+cursor\s+<&Vec<i32>>\s+get_ref\s+sc\s+"cursor"[\s\S]*match\s+vec::get\s+cursor\s+0:[\s\S]*Option::Some\s+_old:[\s\S]*vec::replace\s+cursor\s+0\s+pos[\s\S]*Result::Ok\s+unit[\s\S]*Result::Err\s+"streamio\.stream_scanner_store_pos failed"/,
     'stream scanner cursor stores must return Result through typed cursor storage instead of trapping',
 );
 

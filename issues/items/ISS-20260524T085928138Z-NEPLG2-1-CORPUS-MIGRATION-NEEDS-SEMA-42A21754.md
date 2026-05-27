@@ -1118,6 +1118,15 @@ LLM/手動判断が必要なもの:
 - `node nodesrc/test_neplg21_prose_type_notation_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、targeted doc/source policy、`trunk build`、`node nodesrc/run_source_policy_regressions.js --warn-only` は pass した。
 - `node nodesrc/tests.js -i tests/stdlib/collections_diag.n.md -i tests/stdlib/memory_safety.n.md --no-tree -o tmp/neplg21-prose-type-notation-cleanup.json -j 1 --dist web/dist --assert-io` は外側 timeout。partial JSON は 18/67 件完了、12 pass、compile timeout 5 件、`memory_safety.n.md::doctest#14` の既存 raw memory case で `resource.cell.uninit` 1 件。今回の prose-only 変更に伴う型診断は出ていない。
 
+### 2026-05-27 streamio scanner postfix checkpoint
+
+- `stdlib/std/streamio/scanner.nepl` と `stdlib/std/streamio/scanner/state.nepl` で、`Vec i32` cursor storage に閉じた `vec::free<i32>` / `vec::get<i32>` / `vec::replace<i32>` / `vec::filled<i32>` を postfix-free call へ移行した。
+- `nodesrc/test_stdlib_streamio_no_unsafe_unwraps.js` と `nodesrc/test_stdlib_streamio_scanner_boundary.js` は、typed cursor storage boundary を維持したまま NEPLg2.1 の call spelling へ追従した。
+- `nodesrc/test_neplg21_streamio_scanner_postfix_cleanup.js` を追加し、今回対象ファイルの旧 `vec::...<i32>` helper call だけを検出するようにした。コメント量や doccomment 増加は制限しない。
+- subagent 分類では、`tests/stdlib/**` の残件は raw memory boundary / compile_fail / source string fixture が主で、今回すぐに通常 API 移行へ回す対象はなかった。`stdlib/alloc/collections/vec/**` の positive doctest と、`stdlib/std/**` / `stdlib/nm/**` の prose-only 残件は次以降の安全な分割候補として残した。
+- `node nodesrc/test_neplg21_streamio_scanner_postfix_cleanup.js`、streamio targeted source policy、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
+- `node nodesrc/tests.js -i stdlib/std/streamio/scanner.nepl -i stdlib/std/streamio/scanner/state.nepl --no-tree -o tmp/neplg21-streamio-scanner-postfix.json -j 1 --dist web/dist --assert-io` は `scanner.nepl::doctest#1` の compile timeout after 60000ms。型診断は出ていない。
+
 ## 検証
 
 Run stdlib/source policy tests, trunk build, and nodesrc CLI JSON tests after migration.
