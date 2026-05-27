@@ -131,16 +131,16 @@ pub struct QueuePop<.T>:
 //: #import "core/option" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let q0 %Queue i32 unwrap_ok new<i32>;
-//:     let q1 %Queue i32 unwrap_ok push<i32> q0 7;
-//:     let p %QueuePop i32 pop_front<i32> q1;
-//:     let ok %bool match queue_pop_item<i32> &p:
+//:     let q0 %Queue i32 unwrap_ok new;
+//:     let q1 %Queue i32 unwrap_ok push q0 7;
+//:     let p %QueuePop i32 pop_front q1;
+//:     let ok %bool match queue_pop_item &p:
 //:         Option::Some v:
 //:             eq v 7
 //:         Option::None:
 //:             false
-//:     let q2 %Queue i32 queue_pop_queue<i32> p;
-//:     free<i32> q2;
+//:     let q2 %Queue i32 queue_pop_queue p;
+//:     free q2;
 //:     if ok 1 0
 //: ```
 pub fn queue_pop_item <.T: Copy> %fn &QueuePop .T Option .T \p:
@@ -160,12 +160,12 @@ pub fn queue_pop_item <.T: Copy> %fn &QueuePop .T Option .T \p:
 //: #import "core/math" as *
 //: #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let q0 %Queue i32 unwrap_ok new<i32>;
-//:     let q1 %Queue i32 unwrap_ok push<i32> q0 7;
-//:     let p %QueuePop i32 pop_front<i32> q1;
-//:     let q2 %Queue i32 queue_pop_queue<i32> p;
-//:     let ok %bool is_empty<i32> &q2;
-//:     free<i32> q2;
+//:     let q0 %Queue i32 unwrap_ok new;
+//:     let q1 %Queue i32 unwrap_ok push q0 7;
+//:     let p %QueuePop i32 pop_front q1;
+//:     let q2 %Queue i32 queue_pop_queue p;
+//:     let ok %bool is_empty &q2;
+//:     free q2;
 //:     if ok 1 0
 //: ```
 pub fn queue_pop_queue <.T: Copy> %fn QueuePop .T Queue .T \p:
