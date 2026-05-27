@@ -42,7 +42,7 @@ pub fn bloom_invalid_len_diag %impure fn unit Diag \unit:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
-//:     let observed_len %i32 len<i32, DefaultHash32> &bf;
+//:     let observed_len %i32 len &bf;
 //:     let ok %bool eq observed_len 64;
 //:     free bf
 //:     if ok 1 0
@@ -74,7 +74,7 @@ pub fn new <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn .H impure fn i32 Re
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bf %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 32;
-//:     let observed_len %i32 len<i32, DefaultHash32> &bf;
+//:     let observed_len %i32 len &bf;
 //:     let ok %bool eq observed_len 32;
 //:     free bf
 //:     if ok 1 0
@@ -99,8 +99,8 @@ pub fn len <.T,.H> %fn &BloomFilter .T .H i32 \bf:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
-//:     let bf1 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf0 7;
-//:     let ok %bool contains<i32, DefaultHash32> &bf1 7;
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 7;
+//:     let ok %bool contains &bf1 7;
 //:     free bf1
 //:     if ok 1 0
 //: ```
@@ -137,9 +137,9 @@ pub fn insert <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %impure fn BloomFilter .T .
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
-//:     let bf1 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf0 7;
-//:     let bf2 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf1 12;
-//:     let ok %bool contains<i32, DefaultHash32> &bf2 7;
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 7;
+//:     let bf2 %BloomFilter i32 DefaultHash32 insert bf1 12;
+//:     let ok %bool contains &bf2 7;
 //:     free bf2
 //:     if ok 1 0
 //: ```
@@ -174,9 +174,9 @@ pub fn contains <.T: HashKey&Copy,.H: Hasher<.T>&Copy> %fn &BloomFilter .T .H fn
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let bf0 %BloomFilter i32 DefaultHash32 unwrap_ok new DefaultHash32 64;
-//:     let bf1 %BloomFilter i32 DefaultHash32 insert<i32, DefaultHash32> bf0 7;
-//:     let bf2 %BloomFilter i32 DefaultHash32 clear<i32, DefaultHash32> bf1;
-//:     let ok %bool contains<i32, DefaultHash32> &bf2 7;
+//:     let bf1 %BloomFilter i32 DefaultHash32 insert bf0 7;
+//:     let bf2 %BloomFilter i32 DefaultHash32 clear bf1;
+//:     let ok %bool contains &bf2 7;
 //:     free bf2
 //:     if ok 0 1
 //: ```
