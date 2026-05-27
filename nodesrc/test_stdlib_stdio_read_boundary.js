@@ -207,6 +207,46 @@ assert.match(
     /#import\s+"std\/stdio\/raw"\s+as\s+\*/,
     'std/stdio/write/fd must import std/stdio/raw explicitly when crossing the raw ABI boundary',
 );
+assert.doesNotMatch(
+    writeFdCode,
+    /#import\s+"alloc\/io"\s+as\s+\*/,
+    'std/stdio/write/fd must import direct alloc/io submodules instead of the alloc/io root facade',
+);
+assert.match(
+    writeFdCode,
+    /#import\s+"alloc\/io\/bytebuf"\s+as\s+\*/,
+    'std/stdio/write/fd must import ByteBuf helpers from the direct bytebuf submodule',
+);
+assert.match(
+    writeFdCode,
+    /#import\s+"alloc\/io\/bytebuilder\/types"\s+as\s+\*/,
+    'std/stdio/write/fd must import borrowed ByteBuilder helpers from the direct types submodule',
+);
+assert.doesNotMatch(
+    writeFdCode,
+    /#import\s+"alloc\/string"\s+as\b/,
+    'std/stdio/write/fd must import direct alloc/string submodules instead of the alloc/string root facade',
+);
+assert.match(
+    writeFdCode,
+    /#import\s+"alloc\/string\/access"\s+as\s+string\b/,
+    'std/stdio/write/fd must import string length helpers from alloc/string/access',
+);
+assert.match(
+    writeFdCode,
+    /#import\s+"alloc\/string\/storage"\s+as\s+string_storage\b/,
+    'std/stdio/write/fd must import string storage helpers from alloc/string/storage',
+);
+assert.doesNotMatch(
+    writeBytesCode,
+    /#import\s+"alloc\/io"\s+as\s+\*/,
+    'std/stdio/write/bytes must import ByteBuf from the direct bytebuf submodule instead of alloc/io root',
+);
+assert.match(
+    writeBytesCode,
+    /#import\s+"alloc\/io\/bytebuf"\s+as\s+\*/,
+    'std/stdio/write/bytes must import ByteBuf from the direct bytebuf submodule',
+);
 assert.match(
     writeFdMatch[1],
     /\balloc_region<u8>/,

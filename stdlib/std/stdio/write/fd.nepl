@@ -7,8 +7,9 @@
 
 #indent 4
 
-#import "alloc/io" as *
-#import "alloc/string" as string
+#import "alloc/io/bytebuf" as *
+#import "alloc/io/bytebuilder/types" as *
+#import "alloc/string/access" as string
 #import "alloc/string/storage" as string_storage
 #import "core/field" as *
 #import "core/math" as math
@@ -194,7 +195,7 @@ pub fn stdio_write_fd_str_result %impure fn i32 impure fn str Result unit StdErr
 //: ```neplg2
 //:| #entry main
 //:| #target std
-//:| #import "alloc/io" as *
+//:| #import "alloc/io/bytebuf" as *
 //:| #import "core/result" as *
 //:| #import "std/stdio/write/fd" as *
 //: fn main %impure fn unit i32 \unit:

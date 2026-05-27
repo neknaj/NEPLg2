@@ -7,7 +7,7 @@
 
 #indent 4
 
-#import "alloc/io" as *
+#import "alloc/io/bytebuf" as *
 #import "core/result" as *
 #import "./fd" as *
 
