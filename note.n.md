@@ -1,3 +1,12 @@
+# 2026-05-27 HashMap doccomment postfix cleanup checkpoint
+
+- `plan.md`、`README.md`、`doc/neplg2/neplg21_syntax_migration_plan.md`、`doc/neplg2/stdlib_documentation_style_guide.md` を確認し、NEPLg2.1 の call postfix generic 撤廃方針に沿って `stdlib/alloc/collections/hashmap/**.nepl` の public doccomment を点検した。`plan.md` は変更していない。
+- `stdlib/alloc/collections/hashmap/api.nepl` の positive doctest では、`%HashMap i32 i32 DefaultHash32` owner/local と `&hm` receiver から `contains` / `len` の `.K` / `.V` / `.H` が確定するため、`contains<i32, i32, DefaultHash32>` と `len<i32, i32, DefaultHash32>` を postfix-free call へ移行した。
+- `stdlib/alloc/collections/hashmap/types.nepl` の `HashMapUpdateError<i32,i32,DefaultHash32>` 3 件は `neplg2:test[compile_fail]` で direct aggregate constructor 制限 `type.owner_aggregate.constructor_restricted` を確認する fixture なので、今回の positive doctest cleanup では保持した。
+- HashMap producer call の旧 postfix は対象 doccomment 内では見つからなかった。`new DefaultHash32` / `with_capacity DefaultHash32 4` は既に postfix-free で、既存の `%HashMap i32 i32 DefaultHash32` 型注釈と hasher 引数が型証拠になっているため変更不要。
+- 検証: `rg -n "^//:.*\\b(?:contains|len)<|^//:.*HashMapUpdateError<|^//:.*\\b(?:new|with_capacity)<" stdlib\\alloc\\collections\\hashmap -g "*.nepl"` は direct aggregate constructor compile_fail 3 件だけを検出した。`node nodesrc/test_neplg21_map_set_positive_doc_postfix_cleanup.js`、`node nodesrc/test_stdlib_hashmap_storage_contract.js`、`node nodesrc/test_stdlib_collection_cleanup_contract.js`、`node nodesrc/test_stdlib_documentation_contract.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`git diff --check`、`trunk build` は pass した。
+- `node nodesrc/tests.js -i stdlib\\alloc\\collections\\hashmap\\api.nepl -i stdlib\\alloc\\collections\\hashmap\\types.nepl --no-tree -o tmp\\neplg21-hashmap-doccomment-postfix.json -j 1 --dist web\\dist --assert-io` は外側 300 秒 timeout。partial JSON は `api.nepl::doctest#1` から `#5` まで compile timeout after 60000ms、型診断なし。こちらが起動した残留 runner PID 12944 は停止した。
+
 # 2026-05-27 Agent 1 doc examples impure fn checkpoint
 
 - Zenn 方針と `doc/neplg2/neplg21_syntax_migration_plan.md` を確認し、NEPLg2.1 の正規表記である `impure fn` に合わせて `doc/examples/**` の旧 draft `%fn*` / `fn*` を移行した。`plan.md` は変更していない。
