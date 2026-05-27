@@ -38,8 +38,8 @@ use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
 use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{
-    CellState, CellStateEntry, Place, ResourceBlock, ResourceCallTarget, ResourceExprKind,
-    ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
+    CellState, CellStateEntry, Place, PlaceRoot, ResourceBlock, ResourceCallTarget,
+    ResourceExprKind, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{
     construct_aggregate_field_place, reference_target_place,
@@ -173,6 +173,7 @@ fn resource_op_kind(op: &ResourceOp) -> &'static str {
 
 fn op_can_run_on_merged_path_state(types: &TypeCtx, op: &ResourceOp) -> bool {
     match op {
+        ResourceOp::Expr { kind, output, .. } => expr_can_run_on_merged_path_state(*kind, output),
         ResourceOp::EndScope { locals, .. } => {
             // path alternatives は branch/match/call return の診断精度を保つための
             // 精密化であり、Drop 候補を持たない scope 終了では merged state と
@@ -181,8 +182,7 @@ fn op_can_run_on_merged_path_state(types: &TypeCtx, op: &ResourceOp) -> bool {
             locals.iter().all(|local| types.is_copy(local.ty))
         }
         ResourceOp::CallEffect { .. } => true,
-        ResourceOp::Expr { .. }
-        | ResourceOp::DeclareLocal { .. }
+        ResourceOp::DeclareLocal { .. }
         | ResourceOp::Read { .. }
         | ResourceOp::Assign { .. }
         | ResourceOp::Borrow { .. }
@@ -204,6 +204,19 @@ fn op_can_run_on_merged_path_state(types: &TypeCtx, op: &ResourceOp) -> bool {
         | ResourceOp::Loop { .. }
         | ResourceOp::Match { .. } => false,
     }
+}
+
+fn expr_can_run_on_merged_path_state(kind: ResourceExprKind, output: &Place) -> bool {
+    // path-sensitive alternatives を保持している最中に merged state だけを進めると、
+    // その operation のあとで alternatives は破棄される。ここで許可する式は、
+    // 既存 place を読まず、診断も生成せず、fresh temporary だけに確定値を置くものに
+    // 限定する。local や projection 付き output を許すと、別 path の alias / scalar fact
+    // を merged state 上で上書きし、後続診断の精度を落とす可能性がある。
+    matches!(
+        kind,
+        ResourceExprKind::LiteralI32(_) | ResourceExprKind::LayoutSizeOf(_)
+    ) && matches!(output.root, PlaceRoot::Temporary(_))
+        && output.projections.is_empty()
 }
 
 fn function_needs_local_transform_range_certificates(function: &ResourceFunction) -> bool {
@@ -1200,7 +1213,9 @@ mod tests {
     use alloc::vec::Vec;
 
     use crate::ast::Effect;
-    use crate::resource::model::{PlaceRoot, ResourceMatchArm, ResourceMatchPattern};
+    use crate::resource::model::{
+        PlaceProjection, PlaceRoot, ResourceId, ResourceMatchArm, ResourceMatchPattern,
+    };
     use crate::span::Span;
 
     use super::*;
@@ -1210,6 +1225,14 @@ mod tests {
             root: PlaceRoot::Local(String::from(name)),
             projections: Vec::new(),
             ty: TypeId(0),
+        }
+    }
+
+    fn temporary(id: usize) -> Place {
+        Place {
+            root: PlaceRoot::Temporary(ResourceId(id)),
+            projections: Vec::new(),
+            ty: TypeId(1),
         }
     }
 
@@ -1233,6 +1256,63 @@ mod tests {
             }],
             span: Span::dummy(),
         }
+    }
+
+    /// fresh temporary へ書く i32 scalar 生成は、path ごとの入力を読まず診断も
+    /// 生成しないため、分岐後の merged state で一度だけ処理できることを確認する。
+    #[test]
+    fn merged_path_state_accepts_fresh_temporary_i32_scalar_exprs() {
+        let types = TypeCtx::new();
+        let literal = ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(42),
+            output: temporary(0),
+            ty: TypeId(1),
+            span: Span::dummy(),
+        };
+        let layout_size = ResourceOp::Expr {
+            kind: ResourceExprKind::LayoutSizeOf(TypeId(1)),
+            output: temporary(1),
+            ty: TypeId(1),
+            span: Span::dummy(),
+        };
+
+        assert!(op_can_run_on_merged_path_state(&types, &literal));
+        assert!(op_can_run_on_merged_path_state(&types, &layout_size));
+    }
+
+    /// local や projection 付き output は、path ごとに異なる alias / scalar fact を
+    /// 持ち得るため、merged state だけで処理しないことを確認する。
+    #[test]
+    fn merged_path_state_rejects_non_fresh_scalar_expr_outputs() {
+        let types = TypeCtx::new();
+        let local_output = ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(7),
+            output: local("x"),
+            ty: TypeId(1),
+            span: Span::dummy(),
+        };
+        let projected_temporary = ResourceOp::Expr {
+            kind: ResourceExprKind::LiteralI32(7),
+            output: temporary(0).with_projection(PlaceProjection::Deref, TypeId(1)),
+            ty: TypeId(1),
+            span: Span::dummy(),
+        };
+        let non_scalar_literal = ResourceOp::Expr {
+            kind: ResourceExprKind::Literal,
+            output: temporary(1),
+            ty: TypeId(0),
+            span: Span::dummy(),
+        };
+
+        assert!(!op_can_run_on_merged_path_state(&types, &local_output));
+        assert!(!op_can_run_on_merged_path_state(
+            &types,
+            &projected_temporary
+        ));
+        assert!(!op_can_run_on_merged_path_state(
+            &types,
+            &non_scalar_literal
+        ));
     }
 
     fn literal_op(output: &str) -> ResourceOp {

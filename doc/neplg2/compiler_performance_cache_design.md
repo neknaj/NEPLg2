@@ -409,6 +409,28 @@ subagent review 後に、Branch / Match の sibling variant return facts、colle
 
 `I32ConditionQueryContext` 全体を `BTreeMap` memo に置き換える案と、loop initialized range の body guard を先行する案は実測で悪化したため採用しない。今回の checkpoint で i32 scalar summary は軽くなったが、初回 compile はまだ 0.5 秒未満から遠い。次段階は typed public signature table を semantic invalidation 境界にし、Resource IR summary を function hash と dependency typed public signature hash で再利用する。
 
+2026-05-28 の追加 checkpoint では、Resource IR initialized check の path-sensitive replay をさらに限定した。Branch / Match / call return 後の `path_alternatives` は診断精度を保つための精密化だが、operation ごとに全 path へ同じ処理を replay すると scalar-heavy 関数で探索が膨らむ。そこで、merged state だけで処理してもよい operation を「入力 place を読まず、診断を生成せず、fresh temporary にだけ確定 i32 scalar fact を置く式」に限定して追加した。
+
+許可した式:
+
+- `LiteralI32`
+- `LayoutSizeOf`
+
+許可条件:
+
+- `output.root` が `Temporary` である。
+- `output.projections` が空である。
+
+local や projection 付き output は、path ごとに alias / scalar fact が異なり得るため対象外にした。一般の `Literal`、`DeclareLocal`、`FunctionValue` も、str storage layout や function alias precision、fresh local 前提への依存があるため今回の slice には含めない。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| native release RPN static check after merged literal fast path | `target/release/nepl-cli.exe --check -i examples/rpn.nepl --target std --stdlib-root stdlib` | `resource_static_check=8033ms`、`resource_initialized_i32_scalar_summaries=1309ms`、`resource_initialized_raw_init_summaries=2509ms`、`resource_initialized_function_checks=3317ms` |
+
+この変更は Resource IR summary cache ではなく、同一 function check 内の path replay 削減である。初回 compile の 0.5 秒未満にはまだ届かないが、`resource_initialized_function_checks` が 3470ms から 3317ms に下がったため、path-sensitive exploration が実際に残り hot path であることを確認した。次段階は、subagent review で安全境界を確認した typed public signature table を arena 非依存の semantic cache key として構築し、typed HIR / `TypeId` / Resource IR を直接保持せずに stdlib summary 再利用へ接続する。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

@@ -47472,3 +47472,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `I32ConditionQueryContext` 全体を `BTreeMap` memo に置き換える案と、loop initialized range の body guard を先行する案は実測で悪化したため採用しなかった。
 - native release RPN stage-only 測定は `resource_initialized_i32_scalar_summaries=1372ms`、`resource_initialized_raw_init_summaries=2613ms`、`resource_initialized_function_checks=3470ms`、`resource_static_check=8389ms`。初回 compile はまだ 0.5 秒未満に届かないため、typed public signature / Resource IR summary cache を継続課題にする。
 - `trunk build` は pass した。`node nodesrc/tests.js -i examples/rpn.nepl -o tmp/rpn_tests_final.json -j 1 --runner wasm --no-tree` は `total=2, passed=2`。`node nodesrc/issues.js check --dir issues` と `git diff --check` も pass した。
+
+## 2026-05-28 Agent Resource IR merged literal fast path checkpoint
+
+- Zenn の試作段階方針と性能追求方針を再確認し、subagent で typed public signature cache 境界と Resource IR initialized path replay の安全 slice を独立レビューした。`plan.md` は変更していない。
+- typed public signature table は arena 非依存の semantic cache key として妥当だが、typed HIR / `TypeId` / Resource IR を保存しない観測用 cache から段階導入するべきだと判断した。これは次 checkpoint の候補に残し、今回の commit には混ぜない。
+- Resource IR initialized check では、Branch / Match / call return 後の `path_alternatives` が scalar-heavy 関数で同じ i32 literal / layout-size 生成を path ごとに replay していた。入力 place を読まず診断を生成しない fresh temporary の `LiteralI32` / `LayoutSizeOf` だけを merged state で処理できるようにした。
+- local output や projection 付き temporary は、path ごとに異なる alias / scalar fact を持ち得るため対象外にした。一般の `Literal`、`FunctionValue`、`DeclareLocal` も今回の slice では許可していない。
+- `op_can_run_on_merged_path_state` の unit test を追加し、fresh temporary は true、local / projection / non-scalar literal は false になることを固定した。
+- native release RPN stage-only 測定は `resource_initialized_i32_scalar_summaries=1309ms`、`resource_initialized_raw_init_summaries=2509ms`、`resource_initialized_function_checks=3317ms`、`resource_initialized_moves=7200ms`、`resource_static_check=8033ms`。前 checkpoint の `resource_static_check=8389ms` から改善したが、初回 compile 0.5 秒未満にはまだ Resource IR summary cache が必要である。
