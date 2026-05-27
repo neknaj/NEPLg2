@@ -51,6 +51,7 @@ const checks = [
     "nodesrc/test_neplg21_kpgraph_overload_postfix_cleanup.js",
     "nodesrc/test_neplg21_sha256_postfix_cleanup.js",
     "nodesrc/test_neplg21_vec_doc_postfix_cleanup.js",
+    "nodesrc/test_neplg21_vec_positive_doc_postfix_cleanup.js",
     "nodesrc/test_neplg21_core_traits_postfix_cleanup.js",
     "nodesrc/test_neplg21_selfhost_tui_vec_postfix_cleanup.js",
     "nodesrc/test_neplg21_selfhost_stdlib_v_postfix_cleanup.js",

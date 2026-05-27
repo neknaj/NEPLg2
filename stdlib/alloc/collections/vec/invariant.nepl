@@ -80,13 +80,13 @@ pub enum VecStorageInvariantInvalid:
 //:     fn drop %impure fn &DropPayload unit \_self:
 //:         unit
 //: fn main %impure fn unit i32 \unit:
-//:     let v %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let ok %bool match vec_current_storage_invariant<DropPayload> &v:
+//:     let v %Vec DropPayload unwrap_ok new
+//:     let ok %bool match vec_current_storage_invariant &v:
 //:         VecStorageInvariant::Valid:
 //:             true
 //:         VecStorageInvariant::Invalid _reason:
 //:             false
-//:     free<DropPayload> v
+//:     free v
 //:     if ok 0 1
 //: ```
 pub enum VecStorageInvariant:
@@ -148,13 +148,13 @@ pub enum VecCopyInvariantInvalid:
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v %Vec i32 unwrap_ok new<i32>
-//:     let valid_ok %bool match vec_current_copy_invariant<i32> &v:
+//:     let v %Vec i32 unwrap_ok new
+//:     let valid_ok %bool match vec_current_copy_invariant &v:
 //:         VecCopyInvariant::Valid:
 //:             true
 //:         VecCopyInvariant::Invalid _reason:
 //:             false
-//:     free<i32> v
+//:     free v
 //:     let invalid %VecCopyInvariant VecCopyInvariant::Invalid VecCopyInvariantInvalid::OwnedStorageExtentMismatch
 //:     let invalid_ok %bool match invalid:
 //:         VecCopyInvariant::Valid:
@@ -268,13 +268,13 @@ pub fn vec_buffer_current_storage_invariant <.T> %fn &OwnedBuffer .T VecStorageI
 //:     fn drop %impure fn &DropPayload unit \_self:
 //:         unit
 //: fn main %impure fn unit i32 \unit:
-//:     let v %Vec DropPayload unwrap_ok with_capacity<DropPayload> 2
-//:     let ok %bool match vec_current_storage_invariant<DropPayload> &v:
+//:     let v %Vec DropPayload unwrap_ok with_capacity 2
+//:     let ok %bool match vec_current_storage_invariant &v:
 //:         VecStorageInvariant::Valid:
 //:             true
 //:         VecStorageInvariant::Invalid _reason:
 //:             false
-//:     free<DropPayload> v
+//:     free v
 //:     if ok 0 1
 //: ```
 pub fn vec_current_storage_invariant <.T> %fn &Vec .T VecStorageInvariant \v:
@@ -303,13 +303,13 @@ pub fn vec_current_storage_invariant <.T> %fn &Vec .T VecStorageInvariant \v:
 //:| #import "alloc/collections/vec/invariant" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v %Vec i32 unwrap_ok new<i32>;
-//:     let ok %bool match vec_current_copy_invariant<i32> &v:
+//:     let v %Vec i32 unwrap_ok new;
+//:     let ok %bool match vec_current_copy_invariant &v:
 //:         VecCopyInvariant::Valid:
 //:             true
 //:         VecCopyInvariant::Invalid _reason:
 //:             false
-//:     free<i32> v;
+//:     free v;
 //:     if ok 0 1
 //: ```
 pub fn vec_buffer_current_copy_invariant <.T: Copy> %fn &OwnedBuffer .T VecCopyInvariant \buffer:
@@ -334,14 +334,14 @@ pub fn vec_buffer_current_copy_invariant <.T: Copy> %fn &OwnedBuffer .T VecCopyI
 //:| #import "alloc/collections/vec/invariant" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec i32 unwrap_ok new<i32>
-//:     let v1 %Vec i32 unwrap_ok push<i32> v0 1
-//:     let ok %bool match vec_current_copy_invariant<i32> &v1:
+//:     let v0 %Vec i32 unwrap_ok new
+//:     let v1 %Vec i32 unwrap_ok push v0 1
+//:     let ok %bool match vec_current_copy_invariant &v1:
 //:         VecCopyInvariant::Valid:
 //:             true
 //:         VecCopyInvariant::Invalid _reason:
 //:             false
-//:     free<i32> v1
+//:     free v1
 //:     if ok 0 1
 //: ```
 pub fn vec_current_copy_invariant <.T: Copy> %fn &Vec .T VecCopyInvariant \v:

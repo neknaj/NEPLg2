@@ -49,15 +49,15 @@
 //:     gt x 2
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 3 |> uwok
-//:     match find<i32> &xs gt_two:
+//:     match find &xs gt_two:
 //:         Option::Some x:
-//:             free<i32> xs;
+//:             free xs;
 //:             if eq x 3 0 1
 //:         Option::None:
-//:             free<i32> xs;
+//:             free xs;
 //:             1
 //: ```
 pub fn find <.T: Copy> %fn &Vec .T fn fn .T bool Option .T \v\p:
@@ -117,15 +117,15 @@ pub fn find <.T: Copy> %fn &Vec .T fn fn .T bool Option .T \v\p:
 //: fn is_value_9 %fn &DropPayload bool \item:
 //:     eq *field::get_ref item "value" 9
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 7)
-//:     let v2 %Vec DropPayload unwrap_ok push<DropPayload> v1 (DropPayload 9)
-//:     let ok %bool match find_index_ref<DropPayload> &v2 @is_value_9:
+//:     let v0 %Vec DropPayload unwrap_ok new
+//:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 7)
+//:     let v2 %Vec DropPayload unwrap_ok push v1 (DropPayload 9)
+//:     let ok %bool match find_index_ref &v2 @is_value_9:
 //:         Option::Some idx:
 //:             eq idx 1
 //:         Option::None:
 //:             false
-//:     free<DropPayload> v2
+//:     free v2
 //:     if ok 0 1
 //: ```
 pub fn find_index_ref <.T> %fn &Vec .T fn fn &.T bool Option i32 \v\p:
@@ -177,11 +177,11 @@ pub fn find_index_ref <.T> %fn &Vec .T fn fn &.T bool Option i32 \v\p:
 //:     gt x 2
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 3 |> uwok
-//:     let ok %bool any<i32> &xs gt_two
-//:     free<i32> xs;
+//:     let ok %bool any &xs gt_two
+//:     free xs;
 //:     if ok 0 1
 //: ```
 pub fn any <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
@@ -232,10 +232,10 @@ pub fn any <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
 //: fn is_value_5 %fn &DropPayload bool \item:
 //:     eq *field::get_ref item "value" 5
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 5)
-//:     let ok %bool any_ref<DropPayload> &v1 @is_value_5
-//:     free<DropPayload> v1
+//:     let v0 %Vec DropPayload unwrap_ok new
+//:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 5)
+//:     let ok %bool any_ref &v1 @is_value_5
+//:     free v1
 //:     if ok 0 1
 //: ```
 pub fn any_ref <.T> %fn &Vec .T fn fn &.T bool bool \v\p:
@@ -280,11 +280,11 @@ pub fn any_ref <.T> %fn &Vec .T fn fn &.T bool bool \v\p:
 //:     eq rem_s x 2 0
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
-//:     let ok %bool all<i32> &xs is_even
-//:     free<i32> xs;
+//:     let ok %bool all &xs is_even
+//:     free xs;
 //:     if ok 0 1
 //: ```
 pub fn all <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
@@ -336,11 +336,11 @@ pub fn all <.T: Copy> %fn &Vec .T fn fn .T bool bool \v\p:
 //: fn is_positive %fn &DropPayload bool \item:
 //:     lt 0 *field::get_ref item "value"
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 1)
-//:     let v2 %Vec DropPayload unwrap_ok push<DropPayload> v1 (DropPayload 2)
-//:     let ok %bool all_ref<DropPayload> &v2 @is_positive
-//:     free<DropPayload> v2
+//:     let v0 %Vec DropPayload unwrap_ok new
+//:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 1)
+//:     let v2 %Vec DropPayload unwrap_ok push v1 (DropPayload 2)
+//:     let ok %bool all_ref &v2 @is_positive
+//:     free v2
 //:     if ok 0 1
 //: ```
 pub fn all_ref <.T> %fn &Vec .T fn fn &.T bool bool \v\p:

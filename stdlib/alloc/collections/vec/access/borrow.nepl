@@ -66,9 +66,9 @@ fn vec_borrow_slot_predicate <.T> %fn &RegionToken .T fn i32 fn fn &.T bool bool
 //: fn is_42 %fn &i32 bool \item:
 //:     eq *item 42
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec i32 unwrap_ok new<i32>
-//:     let observed %bool borrow_at_predicate_or<i32> &v0 0 @is_42 false
-//:     free<i32> v0
+//:     let v0 %Vec i32 unwrap_ok new
+//:     let observed %bool borrow_at_predicate_or &v0 0 @is_42 false
+//:     free v0
 //:     if not observed 0 1
 //: ```
 pub fn borrow_at_predicate_or <.T> %fn &Vec .T fn i32 fn fn &.T bool fn bool bool \v\idx\predicate\fallback:

@@ -56,13 +56,13 @@
 //:     eq rem_s x 2 0
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
 //:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
-//:     let ok %bool eq vec_partition_matched_len<i32> &parts 1
-//:     vec_partition_free<i32> parts;
+//:     let ok %bool eq vec_partition_matched_len &parts 1
+//:     vec_partition_free parts;
 //:     if ok 0 1
 //: ```
 pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecTransformError .T \v\p:

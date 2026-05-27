@@ -29,24 +29,24 @@
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let empty %Vec i32 unwrap_ok with_capacity<i32> 0;
-//:     let empty_ok %bool match data_mem_view<i32> &empty:
+//:     let empty %Vec i32 unwrap_ok with_capacity 0;
+//:     let empty_ok %bool match data_mem_view &empty:
 //:         VecDataView::Empty:
 //:             true
 //:         VecDataView::Data _ptr:
 //:             false
 //:         VecDataView::Invalid _reason:
 //:             false
-//:     free<i32> empty;
-//:     let v %Vec i32 unwrap_ok new<i32>;
-//:     let data_ok %bool match data_mem_view<i32> &v:
+//:     free empty;
+//:     let v %Vec i32 unwrap_ok new;
+//:     let data_ok %bool match data_mem_view &v:
 //:         VecDataView::Empty:
 //:             false
 //:         VecDataView::Data _ptr:
 //:             true
 //:         VecDataView::Invalid _reason:
 //:             false
-//:     free<i32> v;
+//:     free v;
 //:     if and empty_ok data_ok 0 1
 //: ```
 pub enum VecDataView<.T>:
@@ -86,15 +86,15 @@ pub enum VecDataView<.T>:
 //:| #import "core/mem" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v %Vec i32 unwrap_ok with_capacity<i32> 0;
-//:     let ok %bool match data_mem_view<i32> &v:
+//:     let v %Vec i32 unwrap_ok with_capacity 0;
+//:     let ok %bool match data_mem_view &v:
 //:         VecDataView::Empty:
 //:             true
 //:         VecDataView::Data _p:
 //:             false
 //:         VecDataView::Invalid _reason:
 //:             false
-//:     free<i32> v;
+//:     free v;
 //:     if ok 0 1
 //: ```
 //:

@@ -95,11 +95,11 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec i32 unwrap_ok new<i32>;
+//:     let v0 %Vec i32 unwrap_ok new;
 //:     let v1 %Vec i32 unwrap_ok push v0 4;
-//:     let p pop<i32> v1;
-//:     let next %Vec i32 vec_pop_vec<i32> p;
-//:     free<i32> next;
+//:     let p pop v1;
+//:     let next %Vec i32 vec_pop_vec p;
+//:     free next;
 //:     0
 //: ```
 //:
@@ -118,20 +118,20 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
 //:     fn drop %impure fn &DropPayload unit \_self:
 //:         unit
 //: fn finish %impure fn Vec DropPayload impure fn Option DropPayload i32 \next\item:
-//:     let len_ok %bool eq len<DropPayload> &next 0
+//:     let len_ok %bool eq len &next 0
 //:     match item:
 //:         Option::Some value:
 //:             Drop::drop &value
-//:             free<DropPayload> next
+//:             free next
 //:             if len_ok 0 1
 //:         Option::None:
-//:             free<DropPayload> next
+//:             free next
 //:             1
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 4)
-//:     let p %VecPop DropPayload pop<DropPayload> v1
-//:     vec_pop_with<DropPayload,i32> p @finish
+//:     let v0 %Vec DropPayload unwrap_ok new
+//:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 4)
+//:     let p %VecPop DropPayload pop v1
+//:     vec_pop_with p @finish
 //: ```
 //:
 //: neplg2:test[compile_fail]
@@ -213,14 +213,14 @@ fn vec_drop_last_drop_initialized_slot <.T: Drop> %impure fn &RegionToken .T imp
 //:| #import "std/test" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let v %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 10 |> uwok
 //:         |> push 20 |> uwok
-//:         |> drop_last<i32>
+//:         |> drop_last
 //:     let report:
 //:         test_report_new "vec_drop_last_keeps_owner"
-//:         |> test_report_push assert_eq_i32 "drop_last length" 1 len<i32> &v
-//:     free<i32> v
+//:         |> test_report_push assert_eq_i32 "drop_last length" 1 len &v
+//:     free v
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
@@ -247,12 +247,12 @@ pub fn drop_last <.T: Copy> %fn Vec .T Vec .T \v:
 //:     fn drop %impure fn &DropPayload unit \_self:
 //:         unit
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 1)
-//:     let v2 %Vec DropPayload unwrap_ok push<DropPayload> v1 (DropPayload 2)
-//:     let v3 %Vec DropPayload drop_last<DropPayload> v2
-//:     let ok %bool eq len<DropPayload> &v3 1
-//:     free<DropPayload> v3
+//:     let v0 %Vec DropPayload unwrap_ok new
+//:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 1)
+//:     let v2 %Vec DropPayload unwrap_ok push v1 (DropPayload 2)
+//:     let v3 %Vec DropPayload drop_last v2
+//:     let ok %bool eq len &v3 1
+//:     free v3
 //:     if ok 0 1
 //: ```
 pub fn drop_last <.T: Drop> %impure fn Vec .T Vec .T \v:

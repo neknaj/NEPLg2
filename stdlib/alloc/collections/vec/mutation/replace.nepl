@@ -72,10 +72,10 @@ fn vec_replace_drop_old_initialized_slot <.T: Drop> %impure fn &RegionToken .T i
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec i32 unwrap_ok new<i32>;
+//:     let v0 %Vec i32 unwrap_ok new;
 //:     let v1 %Vec i32 unwrap_ok push v0 1;
-//:     replace<i32> &v1 0 5;
-//:     free<i32> v1;
+//:     replace &v1 0 5;
+//:     free v1;
 //:     0
 //: ```
 pub fn replace <.T: Copy> %impure fn &Vec .T impure fn i32 impure fn .T unit \v\idx\item:
@@ -125,10 +125,10 @@ pub fn replace <.T: Copy> %impure fn &Vec .T impure fn i32 impure fn .T unit \v\
 //:     fn drop %impure fn &DropPayload unit \_self:
 //:         unit
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec DropPayload unwrap_ok new<DropPayload>
-//:     let v1 %Vec DropPayload unwrap_ok push<DropPayload> v0 (DropPayload 1)
-//:     let v2 %Vec DropPayload unwrap_ok replace_drop_old<DropPayload> v1 0 (DropPayload 2)
-//:     free<DropPayload> v2
+//:     let v0 %Vec DropPayload unwrap_ok new
+//:     let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 1)
+//:     let v2 %Vec DropPayload unwrap_ok replace_drop_old v1 0 (DropPayload 2)
+//:     free v2
 //:     0
 //: ```
 pub fn replace_drop_old <.T: Drop> %impure fn Vec .T impure fn i32 impure fn .T Result Vec .T VecReplaceError .T \v\idx\item:

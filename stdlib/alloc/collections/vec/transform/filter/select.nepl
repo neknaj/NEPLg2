@@ -31,15 +31,15 @@
 //:     eq rem_s x 2 0
 //: fn main %impure fn unit i32 \unit:
 //:     let ys %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
 //:         |> push 4 |> uwok
 //:     let zs %Vec i32 unwrap_ok filter ys is_even;
-//:     let observed_len %i32 len<i32> &zs
+//:     let observed_len %i32 len &zs
 //:     let ok %bool eq observed_len 2
-//:     free<i32> zs;
+//:     free zs;
 //:     if ok 0 1
 //: ```
 

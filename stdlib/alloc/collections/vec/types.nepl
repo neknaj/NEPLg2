@@ -191,18 +191,18 @@ pub fn vec_transform_error_kind <.T> %fn &VecTransformError .T StdErrorKind \e:
 //: fn inc %fn i32 i32 \x:
 //:     add x 1
 //: fn recover_transform %impure fn Vec i32 impure fn StdErrorKind i32 \returned\_error:
-//:     free<i32> returned
+//:     free returned
 //:     1
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec i32 unwrap_ok new<i32>
-//:     let v1 %Vec i32 unwrap_ok push<i32> v0 1
+//:     let v0 %Vec i32 unwrap_ok new
+//:     let v1 %Vec i32 unwrap_ok push v0 1
 //:     match map v1 @inc:
 //:         Result::Ok out:
-//:             let ok %bool eq len<i32> &out 1
-//:             free<i32> out
+//:             let ok %bool eq len &out 1
+//:             free out
 //:             if ok 0 1
 //:         Result::Err e:
-//:             vec_transform_error_with<i32,i32> e @recover_transform
+//:             vec_transform_error_with e @recover_transform
 //: ```
 pub fn vec_transform_error_with <.T,.R> %impure fn VecTransformError .T impure fn impure fn Vec .T impure fn StdErrorKind .R .R \e\callback:
     let vec %Vec .T field::get e "vec"
@@ -236,12 +236,12 @@ pub fn vec_transform_error_vec <.T: Copy> %fn VecTransformError .T Vec .T \e:
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec i32 unwrap_ok new<i32>;
-//:     let v1 %Vec i32 unwrap_ok push<i32> v0 4;
-//:     let p %VecPop i32 pop<i32> v1;
-//:     let item %Option i32 vec_pop_item<i32> &p;
-//:     let next %Vec i32 vec_pop_vec<i32> p;
-//:     free<i32> next;
+//:     let v0 %Vec i32 unwrap_ok new;
+//:     let v1 %Vec i32 unwrap_ok push v0 4;
+//:     let p %VecPop i32 pop v1;
+//:     let item %Option i32 vec_pop_item &p;
+//:     let next %Vec i32 vec_pop_vec p;
+//:     free next;
 //:     match item:
 //:         Option::Some x:
 //:             if eq x 4 0 1
@@ -269,12 +269,12 @@ pub struct VecPop<.T>:
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec i32 unwrap_ok new<i32>;
-//:     let v1 %Vec i32 unwrap_ok push<i32> v0 8;
-//:     let p %VecPop i32 pop<i32> v1;
-//:     let item %Option i32 vec_pop_item<i32> &p;
-//:     let next %Vec i32 vec_pop_vec<i32> p;
-//:     free<i32> next;
+//:     let v0 %Vec i32 unwrap_ok new;
+//:     let v1 %Vec i32 unwrap_ok push v0 8;
+//:     let p %VecPop i32 pop v1;
+//:     let item %Option i32 vec_pop_item &p;
+//:     let next %Vec i32 vec_pop_vec p;
+//:     free next;
 //:     match item:
 //:         Option::Some x:
 //:             if eq x 8 0 1
@@ -303,13 +303,13 @@ pub fn vec_pop_item <.T: Copy> %fn &VecPop .T Option .T \p:
 //:| #import "core/math" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec i32 unwrap_ok new<i32>;
-//:     let v1 %Vec i32 unwrap_ok push<i32> v0 9;
-//:     let p %VecPop i32 pop<i32> v1;
-//:     let next %Vec i32 vec_pop_vec<i32> p;
-//:     let observed_len %i32 len<i32> &next;
+//:     let v0 %Vec i32 unwrap_ok new;
+//:     let v1 %Vec i32 unwrap_ok push v0 9;
+//:     let p %VecPop i32 pop v1;
+//:     let next %Vec i32 vec_pop_vec p;
+//:     let observed_len %i32 len &next;
 //:     let ok %bool eq observed_len 0;
-//:     free<i32> next;
+//:     free next;
 //:     if ok 0 1
 //: ```
 pub fn vec_pop_vec <.T: Copy> %fn VecPop .T Vec .T \p:
@@ -346,12 +346,12 @@ pub fn vec_pop_with <.T,.R> %impure fn VecPop .T impure fn impure fn Vec .T impu
 //:     eq rem_s x 2 0
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
-//:     let ok %bool and (eq vec_partition_matched_len<i32> &parts 1) (eq vec_partition_rest_len<i32> &parts 1);
-//:     vec_partition_free<i32> parts;
+//:     let ok %bool and (eq vec_partition_matched_len &parts 1) (eq vec_partition_rest_len &parts 1);
+//:     vec_partition_free parts;
 //:     if ok 0 1
 //: ```
 pub struct VecPartition<.T>:

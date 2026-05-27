@@ -92,14 +92,14 @@ fn vec_copy_range_to_raw <.T: Copy> %fn &Vec .T fn MemPtr .T fn i32 fn i32 unit 
 //:     lt x 3
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
 //:     let ys %Vec i32 unwrap_ok take_while xs lt_three;
-//:     let observed_len %i32 len<i32> &ys
+//:     let observed_len %i32 len &ys
 //:     let ok %bool eq observed_len 2
-//:     free<i32> ys;
+//:     free ys;
 //:     if ok 0 1
 //: ```
 pub fn take_while <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformError .T \v\p:
@@ -168,17 +168,17 @@ pub fn take_while <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransform
 //:     lt x 3
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 4 |> uwok
 //:     let ys %Vec i32 unwrap_ok drop_while xs lt_three;
-//:     match get<i32> &ys 0:
+//:     match get &ys 0:
 //:         Option::Some x:
-//:             free<i32> ys;
+//:             free ys;
 //:             if eq x 4 0 1
 //:         Option::None:
-//:             free<i32> ys;
+//:             free ys;
 //:             1
 //: ```
 pub fn drop_while <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformError .T \v\p:

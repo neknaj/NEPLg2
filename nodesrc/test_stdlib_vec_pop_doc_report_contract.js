@@ -11,7 +11,7 @@ const parsed = parseFile(file);
 
 assert.equal(parsed.doctests.length, 5, "vec/mutation/pop.nepl doctest count changed");
 
-const doctest = parsed.doctests.find((case_) => case_.code.includes("drop_last<i32>"));
+const doctest = parsed.doctests.find((case_) => case_.code.includes('test_report_new "vec_drop_last_keeps_owner"'));
 assert.ok(doctest, "drop_last doctest must stay present");
 
 const expectedStdout = [
@@ -33,7 +33,7 @@ assert.match(doctest.code, /test_report_print_stdout\b/, "drop_last doctest must
 assert.match(doctest.code, /test_report_exit_code\b/, "drop_last doctest must derive exit code from the shown report");
 assert.match(
     doctest.code,
-    /free<i32>\s+v[\s\S]*let shown test_report_print_stdout report/,
+    /free\s+v[\s\S]*let shown test_report_print_stdout report/,
     "drop_last doctest must keep Vec owner cleanup before printing the report",
 );
 assert.doesNotMatch(doctest.code, /\bchecks_exit_code\b/, "drop_last doctest must not hide report details behind checks_exit_code");

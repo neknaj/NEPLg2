@@ -34,12 +34,12 @@
 //:     eq rem_s x 2 0
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
-//:     let ok %bool eq vec_partition_matched_len<i32> &parts 1;
-//:     vec_partition_free<i32> parts;
+//:     let ok %bool eq vec_partition_matched_len &parts 1;
+//:     vec_partition_free parts;
 //:     if ok 0 1
 //: ```
 pub fn vec_partition_matched_len <.T> %fn &VecPartition .T i32 \parts:
@@ -62,12 +62,12 @@ pub fn vec_partition_matched_len <.T> %fn &VecPartition .T i32 \parts:
 //:     eq rem_s x 2 0
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
-//:     let ok %bool eq vec_partition_rest_len<i32> &parts 1;
-//:     vec_partition_free<i32> parts;
+//:     let ok %bool eq vec_partition_rest_len &parts 1;
+//:     vec_partition_free parts;
 //:     if ok 0 1
 //: ```
 pub fn vec_partition_rest_len <.T> %fn &VecPartition .T i32 \parts:
@@ -95,12 +95,12 @@ pub fn vec_partition_rest_len <.T> %fn &VecPartition .T i32 \parts:
 //:     eq rem_s x 2 0
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
-//:     let item %Option i32 vec_partition_matched_get<i32> &parts 0;
-//:     vec_partition_free<i32> parts;
+//:     let item %Option i32 vec_partition_matched_get &parts 0;
+//:     vec_partition_free parts;
 //:     match item:
 //:         Option::Some x:
 //:             if eq x 2 0 1
@@ -127,12 +127,12 @@ pub fn vec_partition_matched_get <.T: Copy> %fn &VecPartition .T fn i32 Option .
 //:     eq rem_s x 2 0
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
-//:     let item %Option i32 vec_partition_rest_get<i32> &parts 0;
-//:     vec_partition_free<i32> parts;
+//:     let item %Option i32 vec_partition_rest_get &parts 0;
+//:     vec_partition_free parts;
 //:     match item:
 //:         Option::Some x:
 //:             if eq x 1 0 1
@@ -162,15 +162,15 @@ pub fn vec_partition_rest_get <.T: Copy> %fn &VecPartition .T fn i32 Option .T \
 //:| #import "alloc/collections/vec/transform/filter/partition/view" as *
 //:| #import "core/math" as *
 //: fn finish_partition %impure fn Vec i32 impure fn Vec i32 i32 \matched\rest:
-//:     let ok %bool and (eq len<i32> &matched 0) (eq len<i32> &rest 0)
-//:     free<i32> matched
-//:     free<i32> rest
+//:     let ok %bool and (eq len &matched 0) (eq len &rest 0)
+//:     free matched
+//:     free rest
 //:     if ok 0 1
 //: fn main %impure fn unit i32 \unit:
-//:     let matched %Vec i32 vec_empty<i32>
-//:     let rest %Vec i32 vec_empty<i32>
-//:     let parts %VecPartition i32 vec_partition_from_parts<i32> matched rest
-//:     vec_partition_with<i32,i32> parts @finish_partition
+//:     let matched %Vec i32 vec_empty
+//:     let rest %Vec i32 vec_empty
+//:     let parts %VecPartition i32 vec_partition_from_parts matched rest
+//:     vec_partition_with parts @finish_partition
 //: ```
 pub fn vec_partition_from_parts <.T> %fn Vec .T fn Vec .T VecPartition .T \matched\rest:
     VecPartition<.T> matched rest
@@ -228,11 +228,11 @@ pub fn vec_partition_with <.T,.R> %impure fn VecPartition .T impure fn impure fn
 //:     eq rem_s x 2 0
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:     let parts %VecPartition i32 unwrap_ok partition xs is_even;
-//:     vec_partition_free<i32> parts;
+//:     vec_partition_free parts;
 //:     0
 //: ```
 pub fn vec_partition_free <.T: Copy> %fn VecPartition .T unit \parts:

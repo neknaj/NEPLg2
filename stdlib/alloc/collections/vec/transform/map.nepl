@@ -58,17 +58,17 @@
 //:     add x 1
 //: fn main %impure fn unit i32 \unit:
 //:     let xs %Vec i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> push 1 |> uwok
 //:         |> push 2 |> uwok
 //:         |> push 3 |> uwok
 //:     let ys %Vec i32 unwrap_ok map xs inc;
-//:     match get<i32> &ys 2:
+//:     match get &ys 2:
 //:         Option::Some x:
-//:             free<i32> ys;
+//:             free ys;
 //:             if eq x 4 0 1
 //:         Option::None:
-//:             free<i32> ys;
+//:             free ys;
 //:             1
 //: ```
 pub fn map <.T: Copy,.U: Copy> %fn Vec .T fn fn .T .U Result Vec .U VecTransformError .T \v\f:

@@ -48,14 +48,14 @@
 //:| #import "core/math" as *
 //:| #import "core/field" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let v0 %Vec i32 unwrap_ok new<i32>;
+//:     let v0 %Vec i32 unwrap_ok new;
 //:     let v1 %Vec i32 unwrap_ok push v0 9;
-//:     match get<i32> &v1 0:
+//:     match get &v1 0:
 //:         Option::Some x:
-//:             free<i32> v1;
+//:             free v1;
 //:             if eq x 9 0 1
 //:         Option::None:
-//:             free<i32> v1;
+//:             free v1;
 //:             1
 //: ```
 pub fn get <.T: Copy> %fn &Vec .T fn i32 Option .T \v\idx:
