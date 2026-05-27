@@ -73,6 +73,7 @@ pub struct LoaderSessionCacheStats {
     pub arity_surface_hits: usize,
     pub arity_surface_misses: usize,
     pub arity_surface_stores: usize,
+    pub arity_surface_bypasses: usize,
     pub stdlib_override_bypasses: usize,
 }
 
@@ -178,6 +179,10 @@ impl LoaderSessionCache {
     fn store_arity_surface(&mut self, key: LoaderAritySurfaceKey, entry: CachedAritySurface) {
         self.stats.arity_surface_stores += 1;
         self.arity_surfaces.insert(key, entry);
+    }
+
+    fn record_arity_surface_bypass(&mut self) {
+        self.stats.arity_surface_bypasses += 1;
     }
 }
 
@@ -366,6 +371,83 @@ impl Loader {
             module,
             source_map: sm,
         })
+    }
+
+    /// Prewarm the session-local provider cache for configured stdlib roots.
+    ///
+    /// This is a loader-only query warmup. It parses stdlib modules through the
+    /// same provider path as normal Web/Node compilation, stores only the
+    /// path/hash keyed artifacts owned by `LoaderSessionCache`, and discards the
+    /// temporary `SourceMap` and merged modules created during traversal. That
+    /// keeps the long-lived cache free of per-compile `FileId`,
+    /// `ImportResolution`, typed HIR, and Resource IR state.
+    ///
+    /// The caller must provide roots derived from the current source/import
+    /// graph. Walking the whole bundled stdlib file list would make warmup depend
+    /// on packaging details rather than program dependencies and would blur the
+    /// invalidation boundary for future prechecked artifacts.
+    pub fn prewarm_provider_cache(
+        &self,
+        roots: &[PathBuf],
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: &mut LoaderSessionCache,
+    ) -> Result<usize, LoaderError> {
+        let mut sm = SourceMap::new();
+        let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
+        let mut warmed = 0;
+        for root in roots {
+            let canon = canonicalize_path(root);
+            if !self.configured_stdlib_source_path(&canon) {
+                session_cache.record_parsed_module_bypass();
+                continue;
+            }
+            let mut processing = BTreeSet::new();
+            let mut imported_once = BTreeSet::new();
+            self.load_file_with(
+                &canon,
+                &mut sm,
+                &mut cache,
+                &mut processing,
+                &mut imported_once,
+                false,
+                provider,
+                Some(session_cache),
+            )?;
+            warmed += 1;
+        }
+        Ok(warmed)
+    }
+
+    /// Prewarm loader queries reachable from a root source's import surface.
+    ///
+    /// NEPLg2.1 type syntax requires import arity information before the root
+    /// module is fully parsed. The same shallow source surface also gives a
+    /// stable warmup boundary: default prelude, explicit prelude, import, and
+    /// include roots are resolved first, then only configured stdlib roots are
+    /// loaded into `LoaderSessionCache`. User modules and stdlib overlays are
+    /// left to the normal compile path.
+    pub fn prewarm_provider_cache_for_source(
+        &self,
+        entry_path: PathBuf,
+        source: &str,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: &mut LoaderSessionCache,
+    ) -> Result<usize, LoaderError> {
+        let canon = canonicalize_path(&entry_path);
+        let mut sm = SourceMap::new();
+        let file_id = sm.add_with_capabilities(
+            path_to_source_label(&canon),
+            source.to_string(),
+            SourceCapabilities::none(),
+        );
+        let roots = self.type_arity_preload_paths_with_cache(
+            &canon,
+            file_id,
+            source,
+            true,
+            Some(session_cache),
+        );
+        self.prewarm_provider_cache(&roots, provider, session_cache)
     }
 
     pub fn load(&mut self, entry: &PathBuf) -> Result<LoadResult, LoaderError> {
@@ -885,6 +967,11 @@ impl Loader {
         let Some(session_cache) = session_cache else {
             return self.compute_source_arity_surface(&canon, file_id, src);
         };
+
+        if !self.configured_stdlib_source_path(&canon) {
+            session_cache.record_arity_surface_bypass();
+            return self.compute_source_arity_surface(&canon, file_id, src);
+        }
 
         let key = session_cache.arity_surface_key_for(&self.stdlib_root, &canon, src);
         if let Some(surface) = session_cache.get_arity_surface(&key) {
@@ -1911,6 +1998,43 @@ mod tests {
 
     #[test]
     fn provider_session_cache_reuses_source_arity_surfaces() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
+        let loader = Loader::new(stdlib_root.clone());
+        let foo_source = "#import \"defs\" as *\n";
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+
+        for _ in 0..2 {
+            let paths = loader.type_arity_preload_paths_with_cache(
+                &foo_path,
+                FileId(0),
+                foo_source,
+                false,
+                Some(&mut session_cache),
+            );
+            assert_eq!(
+                paths,
+                vec![canonicalize_path(&stdlib_path(
+                    &stdlib_root,
+                    &["defs.nepl"]
+                ))],
+                "arity preload must keep using the same directive semantics on cache hit",
+            );
+        }
+
+        let stats = session_cache.stats();
+        assert_eq!(
+            stats.arity_surface_stores, 1,
+            "the first source scan should store one arity surface artifact",
+        );
+        assert_eq!(
+            stats.arity_surface_hits, 1,
+            "the second source scan should reuse the path/source-hash keyed arity surface",
+        );
+    }
+
+    #[test]
+    fn provider_session_cache_does_not_store_user_source_arity_surfaces() {
         let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
         let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
         let loader = Loader::new(stdlib_root.clone());
@@ -1928,25 +2052,29 @@ mod tests {
             assert_eq!(
                 paths,
                 vec![canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]))],
-                "arity preload must keep using the same directive semantics on cache hit",
+                "user source scans should still resolve stdlib import roots for prewarm",
             );
         }
 
         let stats = session_cache.stats();
         assert_eq!(
-            stats.arity_surface_stores, 1,
-            "the first source scan should store one arity surface artifact",
+            stats.arity_surface_stores, 0,
+            "long-lived LoaderSessionCache must not retain user-source arity surfaces",
         );
         assert_eq!(
-            stats.arity_surface_hits, 1,
-            "the second source scan should reuse the path/source-hash keyed arity surface",
+            stats.arity_surface_hits, 0,
+            "user source arity scans should be recomputed instead of becoming session hits",
+        );
+        assert_eq!(
+            stats.arity_surface_bypasses, 2,
+            "bypass stats should make the stdlib-only cache boundary observable",
         );
     }
 
     #[test]
     fn source_arity_surface_keeps_root_default_prelude_out_of_non_root_loads() {
-        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
         let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let entry_path = canonicalize_path(&stdlib_path(&stdlib_root, &["root_like.nepl"]));
         let loader = Loader::new(stdlib_root.clone());
         let mut session_cache = LoaderSessionCache::new("test-stdlib");
 
@@ -1986,7 +2114,10 @@ mod tests {
 
     #[test]
     fn source_arity_surface_skips_default_prelude_when_lexer_errors() {
-        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let entry_path = canonicalize_path(&stdlib_path(
+            &PathBuf::from("C:/nepl-test/stdlib"),
+            &["broken.nepl"],
+        ));
         let loader = test_loader();
         let mut session_cache = LoaderSessionCache::new("test-stdlib");
 
@@ -2017,6 +2148,88 @@ mod tests {
             session_cache.stats().arity_surface_hits,
             1,
             "the lexer-error surface is still a pure source-hash query and can be reused safely",
+        );
+    }
+
+    #[test]
+    fn provider_session_cache_can_prewarm_stdlib_loader_queries() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
+        let defs_path = canonicalize_path(&stdlib_path(&stdlib_root, &["defs.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+        );
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            foo_path.clone(),
+            String::from("#import \"defs\" as *\npub fn foo %fn unit Box i32 \\unit:\n    Box 1\n"),
+        );
+        sources.insert(
+            defs_path,
+            String::from("pub struct Box<.T>:\n    value %.T\n"),
+        );
+        let loader = Loader::new(stdlib_root.clone());
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+
+        {
+            let mut provider = |path: &PathBuf| {
+                sources
+                    .get(path)
+                    .cloned()
+                    .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+            };
+            let warmed = loader
+                .prewarm_provider_cache_for_source(
+                    entry_path.clone(),
+                    &entry_source,
+                    &mut provider,
+                    &mut session_cache,
+                )
+                .expect("prewarm should load stdlib roots through the provider cache");
+            assert_eq!(
+                warmed, 1,
+                "prewarm should count configured stdlib roots reached from the root source",
+            );
+        }
+
+        let after_prewarm = session_cache.stats();
+        assert!(
+            after_prewarm.parsed_module_stores >= 2,
+            "prewarm should store parsed modules for the root and its imported arity dependency",
+        );
+        assert!(
+            after_prewarm.arity_surface_stores >= 2,
+            "prewarm should store source arity surfaces for the same stdlib dependency graph",
+        );
+        assert!(
+            after_prewarm.arity_surface_bypasses >= 1,
+            "the entry source itself is not a long-lived stdlib artifact and should bypass arity caching",
+        );
+
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+        let mut fresh_loader = Loader::new(stdlib_root);
+        fresh_loader
+            .load_inline_with_provider_and_cache(
+                entry_path,
+                entry_source,
+                &mut provider,
+                &mut session_cache,
+            )
+            .expect("compile-time load should reuse prewarmed stdlib artifacts");
+        let after_load = session_cache.stats();
+        assert!(
+            after_load.parsed_module_hits > after_prewarm.parsed_module_hits,
+            "a later load in the same session should hit the prewarmed parsed-module cache",
+        );
+        assert!(
+            after_load.arity_surface_hits > after_prewarm.arity_surface_hits,
+            "a later load in the same session should hit the prewarmed arity-surface cache",
         );
     }
 

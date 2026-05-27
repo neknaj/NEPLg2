@@ -458,6 +458,9 @@ function compileWithFsStdlib(api, source, vfs, profile = 'debug', meta = null, f
         metrics.stdlib_vfs_mode = stdlibVfsMode;
         metrics.compiler_session = compilerApi !== api;
     }
+    if (compilerApi !== api) {
+        prewarmCompilerSession(meta, source, stdlibVfsMode, metrics);
+    }
     if (mustPassStdlibVfs && typeof compilerApi.compile_source_with_vfs_stdlib_and_profile === 'function') {
         const stdlibVfs = loadStdlibVfsForCompile(metrics);
         return callCompilerForTiming(() =>
@@ -547,9 +550,63 @@ function warmCompiler(api, meta) {
         '    0',
         '',
     ].join('\n');
+    const metrics = {
+        stdlib_vfs_mode: null,
+        stdlib_vfs_ms: 0,
+        compiler_session: false,
+        compiler_session_cache_before: null,
+        compiler_session_cache_after: null,
+        compiler_session_prewarm_ms: 0,
+        compiler_session_prewarm_count: null,
+        compiler_session_prewarm_skipped_reason: null,
+        compiler_session_prewarm_error: null,
+        compiler_session_prewarm_cache_before: null,
+        compiler_session_prewarm_cache_after: null,
+        wasm_call_ms: 0,
+    };
     try {
-        compileWithFsStdlib(api, source, {}, 'debug', meta, false, null);
+        compileWithFsStdlib(api, source, {}, 'debug', meta, false, metrics);
     } catch {}
+    return metrics;
+}
+
+function prewarmCompilerSession(meta, source, stdlibVfsMode, metrics = null) {
+    const session = meta && meta.compilerSession;
+    if (!session || typeof session.prewarm_loader_cache_for_source !== 'function') {
+        if (metrics) {
+            metrics.compiler_session_prewarm_skipped_reason = 'missing_session_api';
+        }
+        return null;
+    }
+    if (stdlibVfsMode !== 'bundled') {
+        if (metrics) {
+            metrics.compiler_session_prewarm_skipped_reason = stdlibVfsMode || 'unknown_stdlib_mode';
+        }
+        return null;
+    }
+
+    const start = Date.now();
+    if (metrics) {
+        metrics.compiler_session_prewarm_cache_before = compilerSessionCacheStats(session);
+    }
+    try {
+        const count = session.prewarm_loader_cache_for_source('/virtual/entry.nepl', source);
+        if (metrics) {
+            metrics.compiler_session_prewarm_count = count;
+        }
+        return count;
+    } catch (err) {
+        if (metrics) {
+            metrics.compiler_session_prewarm_error = String(err && err.message ? err.message : err);
+        }
+        return null;
+    } finally {
+        if (metrics) {
+            metrics.compiler_session_prewarm_ms =
+                (metrics.compiler_session_prewarm_ms || 0) + (Date.now() - start);
+            metrics.compiler_session_prewarm_cache_after = compilerSessionCacheStats(session);
+        }
+    }
 }
 
 function withConsoleSuppressed(fn) {
@@ -584,9 +641,27 @@ async function createRunner(distHint) {
         ? loaded.meta.compilerSession.bundled_stdlib_file_count()
         : null;
     let warmupMs = 0;
+    loaded.meta.compilerSessionPrewarmCount = null;
+    loaded.meta.compilerSessionPrewarmMs = 0;
+    loaded.meta.compilerSessionPrewarmSkippedReason = null;
+    loaded.meta.compilerSessionPrewarmError = null;
     if (process.env.NEPL_RUN_TEST_SKIP_COMPILER_WARMUP !== '1') {
         const warmupStart = Date.now();
-        withConsoleSuppressed(() => warmCompiler(loaded.api, loaded.meta));
+        const warmupMetrics = withConsoleSuppressed(() => warmCompiler(loaded.api, loaded.meta));
+        loaded.meta.compilerSessionPrewarmCount =
+            warmupMetrics && warmupMetrics.compiler_session_prewarm_count !== undefined
+                ? warmupMetrics.compiler_session_prewarm_count
+                : null;
+        loaded.meta.compilerSessionPrewarmMs =
+            warmupMetrics && Number.isFinite(warmupMetrics.compiler_session_prewarm_ms)
+                ? warmupMetrics.compiler_session_prewarm_ms
+                : 0;
+        loaded.meta.compilerSessionPrewarmSkippedReason = warmupMetrics
+            ? warmupMetrics.compiler_session_prewarm_skipped_reason
+            : null;
+        loaded.meta.compilerSessionPrewarmError = warmupMetrics
+            ? warmupMetrics.compiler_session_prewarm_error
+            : null;
         warmupMs = Date.now() - warmupStart;
     }
     loaded.meta.warmupMs = warmupMs;
@@ -611,6 +686,12 @@ async function runSingle(req, preloaded, onProgress = null) {
         compiler_session: false,
         compiler_session_cache_before: null,
         compiler_session_cache_after: null,
+        compiler_session_prewarm_ms: 0,
+        compiler_session_prewarm_count: null,
+        compiler_session_prewarm_skipped_reason: null,
+        compiler_session_prewarm_error: null,
+        compiler_session_prewarm_cache_before: null,
+        compiler_session_prewarm_cache_after: null,
         wasm_call_ms: null,
         compile_ms: null,
         run_ms: null,
@@ -664,6 +745,12 @@ async function runSingle(req, preloaded, onProgress = null) {
             compiler_session: false,
             compiler_session_cache_before: null,
             compiler_session_cache_after: null,
+            compiler_session_prewarm_ms: 0,
+            compiler_session_prewarm_count: null,
+            compiler_session_prewarm_skipped_reason: null,
+            compiler_session_prewarm_error: null,
+            compiler_session_prewarm_cache_before: null,
+            compiler_session_prewarm_cache_after: null,
             wasm_call_ms: 0,
         };
         try {
@@ -688,6 +775,15 @@ async function runSingle(req, preloaded, onProgress = null) {
             timing.compiler_session = compileMetrics.compiler_session;
             timing.compiler_session_cache_before = compileMetrics.compiler_session_cache_before;
             timing.compiler_session_cache_after = compileMetrics.compiler_session_cache_after;
+            timing.compiler_session_prewarm_ms = compileMetrics.compiler_session_prewarm_ms;
+            timing.compiler_session_prewarm_count = compileMetrics.compiler_session_prewarm_count;
+            timing.compiler_session_prewarm_skipped_reason =
+                compileMetrics.compiler_session_prewarm_skipped_reason;
+            timing.compiler_session_prewarm_error = compileMetrics.compiler_session_prewarm_error;
+            timing.compiler_session_prewarm_cache_before =
+                compileMetrics.compiler_session_prewarm_cache_before;
+            timing.compiler_session_prewarm_cache_after =
+                compileMetrics.compiler_session_prewarm_cache_after;
             timing.wasm_call_ms = compileMetrics.wasm_call_ms;
             notifyPhaseProgress(onProgress, {
                 id,

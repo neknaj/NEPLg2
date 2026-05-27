@@ -48,6 +48,11 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - source arity surface cache は `cache version + stdlib namespace hash + stdlib root + canonical path + source hash` を key にし、public re-export 先の arity result は親 surface へ畳み込まない。依存先 source hash が変わった場合は、facade source が cache hit しても依存先 surface を再評価する。
 - `CompilerSession.loader_cache_stats_json()` は `arity_surface_hits` / `arity_surface_misses` / `arity_surface_stores` も返すようになった。
 - `trunk build --release` 後の same preloaded `CompilerSession` 実測では、minimal は `compile_ms=2`、aggregate first は `compile_ms=15`、aggregate second は `compile_ms=4` だった。aggregate second では parsed module hits が 8 から 13、arity surface hits が 8 から 14 に増えた。
+- fourth checkpoint で source-directed loader prewarm を追加した。全 bundled stdlib file list の総なめは subagent review で却下し、root source の default prelude / prelude / import / include から到達する configured stdlib closure だけを prewarm する。
+- 同 checkpoint で arity surface cache を configured stdlib path に限定した。user entry source や user VFS module は `arity_surface_bypasses` として観測し、長寿命 `CompilerSession` の cache value には残さない。
+- Node runner は `selectStdlibVfsMode(meta) == "bundled"` の場合だけ `CompilerSession.prewarm_loader_cache_for_source()` を呼ぶ。forced stdlib VFS / fs override では skip reason を timing に残し、bundled stdlib prewarm は実行しない。
+- prewarm 中の loader error は `compiler_session_prewarm_error` として観測し、通常 compile path は続行する。これにより、prewarm 専用の失敗が本来の compile diagnostic を隠さない。
+- `trunk build --release` 後の source-directed prewarm 実測では、minimal は `compile_ms=3` / `prewarm_ms=1` / `wasm_call_ms=2`、aggregate first は `compile_ms=15` / `prewarm_ms=3` / `wasm_call_ms=11-12`、aggregate second は `compile_ms=4-5` / `prewarm_ms=1` / `wasm_call_ms=3-4` だった。aggregate first の total `compile_ms` はまだ 10ms 未満に固定できていないため、logical import graph / typed public surface / Resource IR summary cache が次の根本対応である。
 
 ## 問題
 
@@ -68,7 +73,7 @@ MVP は次の順に進める。
 1. `nepl-web` に `CompilerSession` wasm-bindgen class を公開し、Node runner が session API を優先する状態にする。
 2. `nepl-core` に source text / lex / parse / import graph / type arity を query として分離する session API を追加する。現在は source arity surface cache と parsed stdlib module cache まで実装済みで、typed public surface cache は未実装。
 3. Web terminal の worker を compile ごとに破棄せず、同一 WASM instance / `CompilerSession` が複数 compile にまたがって warm state を保持するようにする。これは実装済みなので、次は `CompilerSession` 側へ semantic cache を載せる。
-4. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。raw parsed module と source arity surface は実装済み。次 checkpoint は typed public surface へ進む前に、logical import graph と dependency public surface hash の安定表現を設計する。
+4. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。raw parsed module、stdlib-only source arity surface、source-directed loader prewarm は実装済み。次 checkpoint は typed public surface へ進む前に、logical import graph と dependency public surface hash の安定表現を設計する。
 5. stdlib artifact に public signature table、trait impl index、source capability tableを持たせ、通常 compile では entry source と overlay source だけを新規処理する。
 6. Resource IR summary を function hash + source capability hash + type argument hash で cache し、entry から到達する changed functions だけを再計算する。
 7. codegen fragment cache を function hash 単位にし、unchanged fragments を signature/index table へ再接続する。
@@ -90,6 +95,9 @@ MVP は次の順に進める。
 - loader parsed stdlib cache の `FileId` 再投影 unit test
 - loader parsed stdlib cache の source hash / imported type arity hint invalidation test
 - source arity surface cache の source hash / root default prelude / lexer error no-preload / public re-export dependency invalidation test
+- source-directed prewarm が bundled mode だけで実行され、forced / fs override では skip されることの Node runner regression test
+- prewarm error が本来の compile diagnostic を置き換えないことの Node runner regression test
+- user source arity surface が long-lived `LoaderSessionCache` に保存されないことの unit test
 - forced stdlib VFS path が session cache を使わないことの Node runner regression test
 - `node nodesrc/test_run_test_compiler_session.js`
 - `node nodesrc/test_playground_compiler_session_policy.js`

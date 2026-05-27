@@ -3385,7 +3385,7 @@ impl CompilerSession {
     pub fn loader_cache_stats_json(&self) -> String {
         let stats = self.loader_cache.borrow().stats();
         format!(
-            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"stdlib_override_bypasses\":{}}}",
+            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"stdlib_override_bypasses\":{}}}",
             stats.parsed_module_hits,
             stats.parsed_module_misses,
             stats.parsed_module_stores,
@@ -3393,6 +3393,7 @@ impl CompilerSession {
             stats.arity_surface_hits,
             stats.arity_surface_misses,
             stats.arity_surface_stores,
+            stats.arity_surface_bypasses,
             stats.stdlib_override_bypasses,
         )
     }
@@ -3404,6 +3405,37 @@ impl CompilerSession {
     /// 固定したいため、cache の寿命を観測可能にしておく。
     pub fn clear_loader_cache(&self) {
         self.loader_cache.borrow_mut().clear();
+    }
+
+    /// entry source から到達する bundled stdlib の loader cache を warm する。
+    ///
+    /// ここで行うのは loader / parser 境界の query prewarm だけであり、typed HIR、
+    /// `ImportResolution`、Resource IR、codegen fragment は保持しない。対象は root
+    /// source の default prelude / prelude / import / include から解決できる stdlib
+    /// closure に限定し、bundled artifact のファイル一覧を総なめしない。
+    pub fn prewarm_loader_cache_for_source(
+        &self,
+        entry_path: &str,
+        source: &str,
+    ) -> Result<usize, JsValue> {
+        let mut cache = self.loader_cache.borrow_mut();
+        let loader = Loader::new(self.stdlib_root.clone());
+        let mut provider = |path: &PathBuf| {
+            self.bundled_sources.get(path).map(|src| (*src).to_string()).ok_or_else(|| {
+                nepl_core::loader::LoaderError::Io(format!(
+                    "missing bundled stdlib source during prewarm: {}",
+                    path.display()
+                ))
+            })
+        };
+        loader
+            .prewarm_provider_cache_for_source(
+                PathBuf::from(entry_path),
+                source,
+                &mut provider,
+                &mut cache,
+            )
+            .map_err(|e| JsValue::from_str(&format!("{e}")))
     }
 
     pub fn compile_source_with_vfs_and_profile(

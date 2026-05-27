@@ -1,3 +1,16 @@
+# 2026-05-27 CompilerSession source-directed loader prewarm checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を再確認し、静的検査を削らず、純粋 query cache と dependency boundary で探索空間を減らす方針を維持した。
+- subagent 2 件で設計・計画・実装根拠をレビューした。全 bundled stdlib file list の総なめ prewarm は、program dependency graph ではなく packaging file list に依存し、未使用 module の parse failure や将来の invalidation boundary を曖昧にするため採用しない判断にした。
+- `nepl-core/src/loader.rs` に `prewarm_provider_cache_for_source` を追加した。root source の default prelude / explicit prelude / import / include から到達する configured stdlib roots だけを loader cache に入れ、`SourceMap` / `ImportResolution` / typed HIR / Resource IR / codegen fragment は保持しない。
+- subagent review で、既存の source arity surface cache が user source も長寿命 `LoaderSessionCache` に保存し得る点を指摘された。これは cache の安全性というより memory/lifetime boundary の設計不一致なので、arity surface cache を configured stdlib path に限定し、user source は `arity_surface_bypasses` として観測するよう修正した。
+- `nepl-web/src/lib.rs` の `CompilerSession` は `prewarm_loader_cache_for_source(entry_path, source)` だけを公開する。全ファイルprewarm APIは公開しない。
+- `nodesrc/run_test.js` は bundled stdlib mode のときだけ source-directed prewarm を実行し、`compiler_session_prewarm_ms` / `compiler_session_prewarm_count` / skip reason / prewarm error / prewarm前後cache stats を timing JSON に出す。forced stdlib VFS / fs override では bundled prewarm を呼ばない。
+- prewarm 専用の loader error が本来の compile diagnostic を隠さないよう、prewarm error は観測fieldへ記録して通常 compile path を続行する。
+- 追加 regression: user source arity surface は store/hit されず bypass になること、source-directed prewarm が stdlib dependency closure を cache すること、forced stdlib VFS では prewarm しないこと、prewarm error 後も compile error が本来の値であること。
+- release WASM 実測では、warmup prewarm は `prewarm_count=1` / `prewarm_ms=18` / `warmup_ms=405`、minimal は `compile_ms=3` / `prewarm_ms=1` / `wasm_call_ms=2`、aggregate first は `compile_ms=15` / `prewarm_ms=3` / `wasm_call_ms=11-12`、aggregate second は `compile_ms=4-5` / `prewarm_ms=1` / `wasm_call_ms=3-4` だった。
+- 今回の checkpoint は cache boundary と観測性を改善したが、aggregate first の total `compile_ms` はまだ 10ms 未満へ固定できていない。次段階は typed public surface へ進む前に logical import graph と dependency public surface hash の安定表現を実装する。
+
 # 2026-05-27 CompilerSession source arity surface cache checkpoint
 
 - Zenn 記事の 2026-05-27 更新版と subagent review を確認し、typed public signature table や Resource IR summary に進む前の安全な性能改善として、未型付けの source arity surface cache を先に実装した。
