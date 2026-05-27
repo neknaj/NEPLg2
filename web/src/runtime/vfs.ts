@@ -89,6 +89,28 @@ export class VFS {
         return obj;
     }
 
+    /**
+     * Compile 用の VFS overlay は、利用者が編集した NEPL source module だけを渡す。
+     * bundled stdlib は CompilerSession が保持しているため read-only file を混ぜず、
+     * `.txt` や WASM binary などの runtime-only data も source module として扱わない。
+     */
+    serializeForCompile(): Record<string, string> {
+        const obj: Record<string, string> = {};
+        for (const [path, content] of this.files.entries()) {
+            if (this.readOnlyFiles.has(path)) {
+                continue;
+            }
+            if (!path.endsWith('.nepl')) {
+                continue;
+            }
+            if (typeof content !== 'string') {
+                continue;
+            }
+            obj[path] = content;
+        }
+        return obj;
+    }
+
     deserialize(data: Record<string, string | Uint8Array>) {
         for (const [path, content] of Object.entries(data)) {
             this.files.set(path, content);

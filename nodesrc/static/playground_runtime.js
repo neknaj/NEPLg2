@@ -174,6 +174,33 @@ export function initPlayground(config) {
     return mod;
   }
 
+  let tutorialCompilerSession = null;
+
+  function compilerApiForRun(bindings) {
+    if (!tutorialCompilerSession && typeof bindings.CompilerSession === 'function') {
+      tutorialCompilerSession = new bindings.CompilerSession();
+    }
+    return tutorialCompilerSession || bindings;
+  }
+
+  function compileRunnableSnippet(bindings, sourceText) {
+    const compilerApi = compilerApiForRun(bindings);
+    if (typeof compilerApi.compile_source_with_vfs_and_profile === 'function') {
+      return compilerApi.compile_source_with_vfs_and_profile('/virtual/entry.nepl', sourceText, {}, 'debug');
+    }
+    if (typeof bindings.compile_source_with_vfs_and_profile === 'function') {
+      return bindings.compile_source_with_vfs_and_profile('/virtual/entry.nepl', sourceText, {}, 'debug');
+    }
+    if (typeof bindings.compile_source_with_vfs_and_stdlib === 'function' && typeof bindings.get_bundled_stdlib_vfs === 'function') {
+      const stdlibVfs = bindings.get_bundled_stdlib_vfs();
+      return bindings.compile_source_with_vfs_and_stdlib('/virtual/entry.nepl', sourceText, {}, stdlibVfs);
+    }
+    if (typeof bindings.compile_source === 'function') {
+      return bindings.compile_source(sourceText);
+    }
+    return null;
+  }
+
   function makeWorkerScript() {
     return `
 self.onmessage = async (e) => {
@@ -609,13 +636,7 @@ self.onmessage = async (e) => {
       try {
         const bindings = await loadBindings();
         if (!running) return;
-        let wasmBytes = null;
-        if (typeof bindings.compile_source_with_vfs_and_stdlib === 'function' && typeof bindings.get_bundled_stdlib_vfs === 'function') {
-          const stdlibVfs = bindings.get_bundled_stdlib_vfs();
-          wasmBytes = bindings.compile_source_with_vfs_and_stdlib('/virtual/entry.nepl', src.value, {}, stdlibVfs);
-        } else if (typeof bindings.compile_source === 'function') {
-          wasmBytes = bindings.compile_source(src.value);
-        }
+        const wasmBytes = compileRunnableSnippet(bindings, src.value);
         setStatus('running...', '');
         const blob = new Blob([makeWorkerScript()], { type: 'text/javascript' });
         worker = new Worker(URL.createObjectURL(blob));

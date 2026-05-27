@@ -107,6 +107,10 @@ async function runShellWorkerRegression() {
         const terminal = createTerminalStub();
         const vfs = new VFS();
         vfs.writeFile('/examples/demo.nepl', 'print "demo"\n');
+        vfs.writeFile('/stdlib/std/io.nepl', 'fn io', { force: true });
+        vfs.setReadOnly('/stdlib/std/io.nepl', true);
+        vfs.writeFile('/data/input.txt', 'runtime data\n');
+        vfs.writeFile('/out/cache.bin', new Uint8Array([1, 2, 3]));
         const shell = new Shell(terminal, vfs);
 
         const compilerAssets = compilerAssetsModule.resolveCompilerAssets(global.window, global.document);
@@ -116,6 +120,12 @@ async function runShellWorkerRegression() {
         assert.equal(buildResult, 'Build complete.');
         assert.equal(FakeWorker.instances[0].messages[0].type, 'execute-neplg2');
         assert.equal(FakeWorker.instances[0].messages[0].compiler.moduleUrl, global.window.NEPLg2CompilerAssets.moduleUrl);
+        assert.deepEqual(FakeWorker.instances[0].messages[0].compileVfsData, {
+            '/examples/demo.nepl': 'print "demo"\n',
+        });
+        assert.equal(FakeWorker.instances[0].messages[0].runtimeVfsData['/data/input.txt'], 'runtime data\n');
+        assert.equal(FakeWorker.instances[0].messages[0].runtimeVfsData['/stdlib/std/io.nepl'], 'fn io');
+        assert.deepEqual(Array.from(FakeWorker.instances[0].messages[0].runtimeVfsData['/out/cache.bin']), [1, 2, 3]);
         assert.ok(vfs.readFile('/out.wasm') instanceof Uint8Array);
         assert.equal(vfs.readFile('/out.wat'), '(module)');
 
@@ -129,6 +139,7 @@ async function runShellWorkerRegression() {
             checks: [
                 'compiler asset urls resolve from the explicit window snapshot',
                 'neplg2 build uses the worker compile protocol instead of main-thread bindings',
+                'compile worker requests separate source overlay from runtime VFS state',
                 'compile outputs are written back to the VFS on the main thread',
                 'wasmi execution also uses the worker protocol and streams stdout',
             ],

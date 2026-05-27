@@ -44,7 +44,8 @@ type ExecuteNeplg2Request = {
     compiler: CompilerAssetUrls;
     entryPath: string;
     source: string;
-    vfsData: Record<string, string | Uint8Array>;
+    compileVfsData: Record<string, string>;
+    runtimeVfsData: Record<string, string | Uint8Array>;
     emitValues: string[];
     attachSource: boolean;
     runAfterBuild: boolean;
@@ -56,6 +57,8 @@ type ExecuteNeplg2Request = {
 type IncomingMessage = RunWasmRequest | ExecuteNeplg2Request;
 
 let compilerInitPromise: Promise<any> | null = null;
+let compilerSession: any | null = null;
+let compilerSessionChecked = false;
 
 class WorkerWASI extends WASI {
     stdinBuffer: Int32Array | null = null;
@@ -175,6 +178,19 @@ async function loadCompilerBindings(assets: CompilerAssetUrls): Promise<any> {
     return compilerInitPromise;
 }
 
+function compilerApiForSession(compilerModule: any): any {
+    if (!compilerSessionChecked) {
+        compilerSessionChecked = true;
+        if (typeof compilerModule.CompilerSession === 'function') {
+            const session = new compilerModule.CompilerSession();
+            if (typeof session.compile_outputs_with_vfs === 'function') {
+                compilerSession = session;
+            }
+        }
+    }
+    return compilerSession || compilerModule;
+}
+
 function cloneCompileOutputs(outputs: any): Record<string, string | Uint8Array> {
     const cloned: Record<string, string | Uint8Array> = {};
     for (const [key, value] of Object.entries(outputs || {})) {
@@ -208,11 +224,12 @@ async function runWasmBinary(bin: Uint8Array, args: string[], env: Record<string
 
 async function executeNeplg2(request: ExecuteNeplg2Request) {
     const compilerModule = await loadCompilerBindings(request.compiler);
+    const compilerApi = compilerApiForSession(compilerModule);
     const emitArg: string | string[] = request.emitValues.length === 1 ? request.emitValues[0] : request.emitValues;
-    const outputs = compilerModule.compile_outputs_with_vfs(
+    const outputs = compilerApi.compile_outputs_with_vfs(
         request.entryPath,
         request.source,
-        request.vfsData,
+        request.compileVfsData,
         emitArg,
         request.attachSource
     );
@@ -233,7 +250,7 @@ async function executeNeplg2(request: ExecuteNeplg2Request) {
         wasmOutput,
         request.runArgs,
         request.env,
-        request.vfsData,
+        request.runtimeVfsData,
         request.sab
     );
     postWorkerMessage({ type: 'exit', code: 0 });

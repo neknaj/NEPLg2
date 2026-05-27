@@ -47338,3 +47338,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `nodesrc/test_run_test_compiler_session.js` を追加し、session がある場合に stateless API ではなく session API を使うことを固定した。コメントや doccomment の増加を妨げる検査ではない。
 - `trunk build --release` 後の実測では、session minimal warm `compile_ms=3`、session aggregate warm `compile_ms=16`、session cold minimal `compile_ms=160` だった。aggregate 10ms 未満には semantic cache が必要なので、`ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92` は open のまま維持する。
 - `cargo fmt --check`、`trunk build --release`、`node nodesrc/test_run_test_timing_metadata.js`、`node nodesrc/test_run_test_compiler_session.js` は pass した。
+
+## 2026-05-27 Agent 1 playground CompilerSession routing
+
+- Zenn の試作段階方針を再確認し、`CompilerSession` scaffold の次 checkpoint として Web playground worker と tutorial runtime の compile path を session 優先にした。`plan.md` は変更していない。
+- `CompilerSession` に `compile_outputs_with_vfs` を追加し、terminal worker の build/run も session API から compile できるようにした。既存の stateless `compile_outputs_with_vfs` は旧 artifact fallback として保持した。
+- `nodesrc/static/playground_runtime.js` では `CompilerSession` があれば `compile_source_with_vfs_and_profile` を使い、full stdlib VFS object を渡す旧経路は fallback に下げた。
+- `web/src/runtime/vfs.ts` に `serializeForCompile` を追加し、workspace compile request では read-only stdlib files、`.nepl` 以外の runtime data files、binary output を worker の compile overlay へ送らないようにした。WASI 実行用の full VFS snapshot は `runtimeVfsData` として分離した。
+- subagent review で compile overlay と runtime VFS の混同、および旧 artifact の session method fallback 不足を検出したため、`execute-neplg2` request を `compileVfsData` / `runtimeVfsData` に分け、`CompilerSession` は `compile_outputs_with_vfs` method がある場合だけ選択するように修正した。
+- `nodesrc/test_playground_compiler_session_policy.js` を追加し、Web worker と tutorial runtime が session-aware API を優先することを固定した。コメントや doccomment の増加を妨げる検査ではない。
+- `trunk build --release` 後の smoke では、release WASM minimal warm `compile_ms=3`、`stdlib_vfs_mode=bundled`、`compiler_session=true` を確認した。
+- `cargo fmt --check`、`npm --prefix web run build:ts`、`trunk build --release`、`node nodesrc/playground_shell_worker_test_runner.js`、`node nodesrc/playground_workspace_test_runner.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/test_run_test_compiler_session.js` は pass した。

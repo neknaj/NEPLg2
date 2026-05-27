@@ -43,7 +43,8 @@ type ExecuteNeplg2WorkerRequest = {
     compiler: CompilerAssetUrls;
     entryPath: string;
     source: string;
-    vfsData: Record<string, string | Uint8Array>;
+    compileVfsData: Record<string, string>;
+    runtimeVfsData: Record<string, string | Uint8Array>;
     emitValues: string[];
     attachSource: boolean;
     runAfterBuild: boolean;
@@ -221,7 +222,8 @@ export class Shell {
             compiler,
             entryPath: sourceInput.inputPath,
             source: sourceInput.source,
-            vfsData: this.vfs.serialize(),
+            compileVfsData: this.vfs.serializeForCompile(),
+            runtimeVfsData: this.vfs.serialize(),
             emitValues,
             attachSource,
             runAfterBuild: wantsRun,

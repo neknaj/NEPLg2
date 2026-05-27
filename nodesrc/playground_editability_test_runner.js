@@ -88,6 +88,7 @@ async function runEditabilityRegression() {
         vfs.setReadOnly('/stdlib/std/io.nepl', true);
         vfs.writeFile('/README', 'help text', { force: true });
         vfs.setReadOnly('/README', true);
+        vfs.writeFile('/data/input.txt', 'runtime data\n', { force: true });
         vfs.writeFile('/examples/demo.nepl', '#entry main\nprint "ok"\n', { force: true });
         vfs.setReadOnly('/examples/demo.nepl', false);
 
@@ -95,6 +96,9 @@ async function runEditabilityRegression() {
         assert.equal(vfs.isEditable('/README'), false);
         assert.equal(vfs.isEditable('/examples/demo.nepl'), true);
         assert.throws(() => vfs.writeFile('/README', 'overwrite'), /read-only/);
+        assert.deepEqual(vfs.serializeForCompile(), {
+            '/examples/demo.nepl': '#entry main\nprint "ok"\n',
+        });
 
         const editor = createMockEditor();
         const tabs = new TabManager(createMockContainer(), editor, vfs);
@@ -138,6 +142,7 @@ async function runEditabilityRegression() {
             ok: true,
             checks: [
                 'readonly files are not editable in VFS',
+                'compile serialization excludes readonly bundled files and runtime data files',
                 'readonly tabs disable editor mutation and skip save',
                 'editable example files remain writable',
                 'tab switching propagates editable state to the editor surface',

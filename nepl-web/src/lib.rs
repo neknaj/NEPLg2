@@ -2945,12 +2945,38 @@ fn compile_outputs_impl(
     emit: JsValue,
     attach_source: bool,
 ) -> Result<JsValue, JsValue> {
-    let emit_list = parse_emit_list(emit)?;
-    let include_wat_comments = emit_list.iter().any(|kind| kind == "wat");
-    let compiled = compile_wasm_with_entry_and_comments(
+    let stdlib_root = PathBuf::from("/stdlib");
+    let bundled_sources = stdlib_sources(&stdlib_root);
+    compile_outputs_with_bundled_sources(
         entry_path,
         source,
+        &stdlib_root,
+        &bundled_sources,
         vfs,
+        emit,
+        attach_source,
+    )
+}
+
+fn compile_outputs_with_bundled_sources(
+    entry_path: &str,
+    source: &str,
+    stdlib_root: &PathBuf,
+    bundled_sources: &BTreeMap<PathBuf, &'static str>,
+    vfs: Option<JsValue>,
+    emit: JsValue,
+    attach_source: bool,
+) -> Result<JsValue, JsValue> {
+    let emit_list = parse_emit_list(emit)?;
+    let include_wat_comments = emit_list.iter().any(|kind| kind == "wat");
+    let compiled = compile_wasm_with_bundled_sources(
+        entry_path,
+        source,
+        stdlib_root,
+        bundled_sources,
+        vfs,
+        None,
+        None,
         include_wat_comments,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
@@ -3327,6 +3353,31 @@ impl CompilerSession {
         )
         .map(|a| a.wasm)
         .map_err(|msg| JsValue::from_str(&msg))
+    }
+
+    /// bundled stdlib を保持したまま、複数 emit の compiler output を生成する。
+    ///
+    /// Web playground worker は編集可能な source overlay だけを `vfs` に渡し、
+    /// read-only stdlib はこの session 内の `bundled_sources` を再利用する。
+    /// これにより compile ごとの stdlib table 再構築と巨大 overlay 転送を避け、
+    /// 後続の parse/typecheck query cache を同じ API 境界へ追加できる。
+    pub fn compile_outputs_with_vfs(
+        &self,
+        entry_path: &str,
+        source: &str,
+        vfs: JsValue,
+        emit: JsValue,
+        attach_source: bool,
+    ) -> Result<JsValue, JsValue> {
+        compile_outputs_with_bundled_sources(
+            entry_path,
+            source,
+            &self.stdlib_root,
+            &self.bundled_sources,
+            Some(vfs),
+            emit,
+            attach_source,
+        )
     }
 }
 

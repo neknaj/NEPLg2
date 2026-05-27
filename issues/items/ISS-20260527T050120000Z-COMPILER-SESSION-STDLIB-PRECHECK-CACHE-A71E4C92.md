@@ -34,6 +34,8 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - direct WASM API の同一 source 連続 compile は初回 127ms、以後 3-5ms であり、release artifact と warm process の効果は確認できた。
 - first checkpoint で `nepl-web` に `CompilerSession` を公開し、Node runner は session API を優先するようにした。release WASM session smoke では minimal warm `compile_ms=3`、aggregate warm `compile_ms=16`、cold minimal `compile_ms=160` だった。
 - 同 checkpoint で bundled stdlib content hash を artifact に埋め込み、Node runner は hash が一致する場合にだけ bundled stdlib を使う。hash API のない旧 artifact では mtime fallback を維持する。
+- Web playground worker と tutorial runtime も method 単位で `CompilerSession` を優先するようにし、full stdlib VFS object を通常の compile path から外した。
+- Web playground の workspace compile request は read-only stdlib files と runtime data files を overlay VFS へ含めず、editable `.nepl` user source だけを送るようにした。WASI 実行用の full VFS snapshot は `runtimeVfsData` として compile overlay から分離した。
 
 ## 問題
 
@@ -53,10 +55,11 @@ MVP は次の順に進める。
 
 1. `nepl-web` に `CompilerSession` wasm-bindgen class を公開し、Node runner が session API を優先する状態にする。
 2. `nepl-core` に source text / lex / parse / import graph / type arity を query として分離する session API を追加する。
-3. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。
-4. stdlib artifact に public signature table、trait impl index、source capability tableを持たせ、通常 compile では entry source と overlay source だけを新規処理する。
-5. Resource IR summary を function hash + source capability hash + type argument hash で cache し、entry から到達する changed functions だけを再計算する。
-6. codegen fragment cache を function hash 単位にし、unchanged fragments を signature/index table へ再接続する。
+3. Web terminal の worker を compile ごとに破棄せず、同一 WASM instance / `CompilerSession` が複数 compile にまたがって warm state を保持するようにする。
+4. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。
+5. stdlib artifact に public signature table、trait impl index、source capability tableを持たせ、通常 compile では entry source と overlay source だけを新規処理する。
+6. Resource IR summary を function hash + source capability hash + type argument hash で cache し、entry から到達する changed functions だけを再計算する。
+7. codegen fragment cache を function hash 単位にし、unchanged fragments を signature/index table へ再接続する。
 
 ## 完了条件
 
@@ -73,6 +76,7 @@ MVP は次の順に進める。
 - `node nodesrc/run_test.js` minimal / aggregate timing
 - session API の unit test
 - `node nodesrc/test_run_test_compiler_session.js`
+- `node nodesrc/test_playground_compiler_session_policy.js`
 - stdlib artifact invalidation test
 - Resource IR summary cache invalidation test
 - `node nodesrc/issues.js check --dir issues`
