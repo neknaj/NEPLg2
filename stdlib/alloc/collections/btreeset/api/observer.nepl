@@ -31,12 +31,12 @@
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let s %BTreeSet i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> insert 3 |> uwok
 //:         |> insert 7 |> uwok
-//:     let observed_len %i32 len<i32> &s
+//:     let observed_len %i32 len &s
 //:     let ok %bool eq observed_len 2
-//:     free<i32> s
+//:     free s
 //:     if ok 1 0
 //: ```
 pub fn len <.T> %fn &BTreeSet .T i32 \set0:
@@ -54,10 +54,10 @@ pub fn len <.T> %fn &BTreeSet .T i32 \set0:
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
 //:     let s %BTreeSet i32:
-//:         unwrap_ok new<i32>
+//:         unwrap_ok new
 //:         |> insert 7 |> uwok
-//:     let ok %bool contains<i32> &s 7
-//:     free<i32> s
+//:     let ok %bool contains &s 7
+//:     free s
 //:     if ok 1 0
 //: ```
 pub fn contains <.T: Ord&Copy> %fn &BTreeSet .T fn .T bool \set0\key:

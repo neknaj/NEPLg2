@@ -35,8 +35,9 @@ for (const { rel, name, helper } of contracts) {
         `${name} must pin canonical stdout report`,
     );
     assert.match(doctest.code, new RegExp(`test_report_new "${name}"`), `${name} must construct a named TestReport`);
-    assert.match(doctest.code, new RegExp(`${helper}<i32> 7 7`), `${name} must exercise equal keys`);
-    assert.match(doctest.code, new RegExp(`${helper}<i32> 7 9`), `${name} must exercise unequal keys`);
+    assert.match(doctest.code, new RegExp(`${helper} 7 7`), `${name} must exercise equal keys`);
+    assert.match(doctest.code, new RegExp(`${helper} 7 9`), `${name} must exercise unequal keys`);
+    assert.doesNotMatch(doctest.code, new RegExp(`${helper}<[^>]+>`), `${name} must rely on argument evidence instead of explicit helper postfixes`);
     assert.match(doctest.code, /test_report_print_stdout report/, `${name} must print the report`);
     assert.match(doctest.code, /test_report_exit_code shown/, `${name} must derive exit code from the shown report`);
     assert.doesNotMatch(source, /\bchecks_exit_code\b/, `${rel.join('/')} must not hide report details behind checks_exit_code`);
