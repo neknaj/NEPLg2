@@ -17,7 +17,8 @@
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "alloc/diag/error" as *
-#import "alloc/collections/vec" as vec
+#import "alloc/collections/vec/types" as *
+#import "alloc/collections/vec/mutation/cleanup" as vec_cleanup
 #import "./types" as *
 #import "./storage" as *
 #import "core/field" as *
@@ -53,7 +54,7 @@ pub fn push <.T: Copy> %impure fn Stack .T impure fn .T Result Stack .T StackPus
                 Result::Ok new_items:
                     stack_copy_live_slots<.T> &items &new_items len0
                     stack_store_slot<.T> &new_items len0 some item
-                    vec::free items
+                    vec_cleanup::free items
                     Result::Ok Stack<.T> add len0 1 new_cap new_items
         else:
             stack_store_slot<.T> &items len0 some item
@@ -201,4 +202,5 @@ pub fn clear <.T: Copy> %impure fn Stack .T Stack .T \stk:
 //: ## free
 //: stack が[所有/しょゆう]する Copy-only backing storage を[解放/かいほう]する
 pub fn free <.T: Copy> %fn Stack .T unit \stk:
-    vec::free field::get stk "items"
+    let items %Vec Option .T field::get stk "items"
+    vec_cleanup::free items

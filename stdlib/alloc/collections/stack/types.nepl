@@ -16,7 +16,7 @@
 #import "core/field" as field
 #import "core/traits/copy" as *
 #import "alloc/diag/error" as *
-#import "alloc/collections/vec" as vec
+#import "alloc/collections/vec/types" as *
 
 //: ## Stack
 //: LIFO stack の owner

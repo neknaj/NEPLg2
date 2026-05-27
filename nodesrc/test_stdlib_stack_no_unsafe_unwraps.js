@@ -42,9 +42,16 @@ assert.match(code, /struct\s+StackPushError<\.T>:[\s\S]*stack\s+<Stack<\.T>>[\s\
 assert.match(code, /fn\s+stack_push_error_diag\s+<\.T>\s+<\(&StackPushError<\.T>\)->Diag>[\s\S]*field::get_ref\s+e\s+"diag"/, 'StackPushError diag access must borrow the error payload');
 assert.match(code, /fn\s+stack_push_error_stack\s+<\.T:\s*Copy>\s+<\(StackPushError<\.T>\)->Stack<\.T>>[\s\S]*field::get\s+e\s+"stack"/, 'StackPushError stack extraction must move the returned owner and remain Copy-only while Stack is Copy-only');
 assert.match(code, /struct\s+StackPop<\.T>:[\s\S]*stack\s+<Stack<\.T>>[\s\S]*item\s+<Option<\.T>>/, 'Stack must expose an owner-preserving pop result');
+assert.doesNotMatch(code, /#import\s+"alloc\/collections\/vec"\s+as\s+vec/, 'Stack implementation modules must not import the broad Vec root facade');
+assert.match(code, /#import\s+"alloc\/collections\/vec\/types"\s+as\s+\*/, 'Stack implementation modules must import Vec types directly');
+assert.match(code, /#import\s+"alloc\/collections\/vec\/query\/get"\s+as\s+vec_get/, 'Stack storage must import Vec get from its query module');
+assert.match(code, /#import\s+"alloc\/collections\/vec\/mutation\/replace"\s+as\s+vec_replace/, 'Stack storage must import Vec replace from its mutation module');
+assert.match(code, /#import\s+"alloc\/collections\/vec\/storage\/fill"\s+as\s+vec_fill/, 'Stack storage must import Vec filled construction from its storage module');
+assert.match(code, /#import\s+"alloc\/collections\/vec\/mutation\/cleanup"\s+as\s+vec_cleanup/, 'Stack API must import Vec cleanup from its mutation module');
 assert.match(code, /fn\s+stack_item_at\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32\)->Option<\.T>>/, 'Stack must read initialized slot state through Option<T>');
-assert.match(code, /fn\s+stack_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>unit>[\s\S]*vec::replace\s+items\s+idx\s+item/, 'Stack must update slot state through Vec<Option<T>> replacement');
-assert.match(code, /fn\s+stack_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec::filled\s+cap\s+none/, 'Stack allocation must initialize every slot as None');
+assert.match(code, /fn\s+stack_item_at\s+<\.T:\s*Copy>[\s\S]*vec_get::get\s+items\s+idx/, 'Stack must read slot state through the narrow Vec get module');
+assert.match(code, /fn\s+stack_store_slot\s+<\.T:\s*Copy>\s+<\(&Vec<Option<\.T>>,i32,Option<\.T>\)\*>unit>[\s\S]*vec_replace::replace\s+items\s+idx\s+item/, 'Stack must update slot state through the narrow Vec replace module');
+assert.match(code, /fn\s+stack_alloc_slots\s+<\.T:\s*Copy>[\s\S]*vec_fill::filled\s+cap\s+none/, 'Stack allocation must initialize every slot through the narrow Vec fill module');
 assert.match(code, /fn\s+push\s+<\.T:\s*Copy>\s+<\(Stack<\.T>,\.T\)\*>Result<Stack<\.T>,\s*StackPushError<\.T>>>/, 'Stack push must expose owner-preserving Result<Stack<T>, StackPushError<T>>');
 assert.match(code, /fn\s+push\s+<\.T:\s*Copy>[\s\S]*Result::Err\s+d:[\s\S]*(?:Result::Err<Stack<\.T>,\s*StackPushError<\.T>>|Result::Err)\s+StackPushError<\.T>\s+\(Stack<\.T>\s+len0\s+cap0\s+items\)\s+d/, 'Stack push grow failure must return the consumed stack owner in StackPushError');
 assert.doesNotMatch(code, /Result::Err\s+d:[\s\S]{0,120}vec::free\s+items[\s\S]{0,120}err<Stack<\.T>,\s*Diag>\s+d/, 'Stack push grow failure must not destroy the consumed owner and return Diag only');
@@ -57,7 +64,7 @@ assert.match(code, /fn\s+peek\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>\)->Option<\.T>>\s
 assert.match(code, /fn\s+get\s+<\.T:\s*Copy>\s+<\(&Stack<\.T>,i32\)->Option<\.T>>\s+\(stk,\s*idx\):/, 'Stack.get must borrow the owner');
 assert.doesNotMatch(code, /fn\s+(?:len_ref|is_empty_ref|peek_ref|get_ref)\b/, 'Stack must not keep duplicate *_ref observer surfaces');
 assert.doesNotMatch(code, /fn\s+(?:len|is_empty|peek|get)\s+<[^>]+>\s+<\(Stack<\.T>\)/, 'Stack observers must not consume the owner');
-assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Stack<\.T>\)->unit>[\s\S]*vec::free(?:<Option<\.T>>)?\s+field::get\s+stk\s+"items"/, 'Stack.free must close the Copy-only Vec<Option<T>> owner');
+assert.match(code, /fn\s+free\s+<\.T:\s*Copy>\s+<\(Stack<\.T>\)->unit>[\s\S]*let\s+items\s+<Vec<Option<\.T>>>\s+field::get\s+stk\s+"items"[\s\S]*vec_cleanup::free\s+items/, 'Stack.free must move the Copy-only Vec<Option<T>> owner into a typed local and close it through the narrow Vec cleanup module');
 assert.doesNotMatch(code, /\bMemPtr\b|\balloc_ptr\b|\balloc_raw\b|\brealloc_ptr\b|\bdealloc_raw\b|\bload_i32\b|\bstore_i32\b|\bmem_ptr_addr\b|dealloc_ptr/, 'Stack must not reintroduce raw header or raw element storage');
 
 for (const testPath of [

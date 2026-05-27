@@ -15,7 +15,10 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "alloc/diag/error" as *
-#import "alloc/collections/vec" as vec
+#import "alloc/collections/vec/types" as *
+#import "alloc/collections/vec/query/get" as vec_get
+#import "alloc/collections/vec/mutation/replace" as vec_replace
+#import "alloc/collections/vec/storage/fill" as vec_fill
 #import "core/field" as *
 
 //: stack_normalize_capacity: 1 [以上/いじょう]の capacity に[正規化/せいきか]する
@@ -24,7 +27,7 @@ pub fn stack_normalize_capacity %fn i32 i32 \cap:
 
 //: stack_item_at: slot の `Option .T` を[読/よ]み[出/だ]す
 pub fn stack_item_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \items\idx:
-    match vec::get items idx:
+    match vec_get::get items idx:
         Option::Some item:
             item
         Option::None:
@@ -32,11 +35,11 @@ pub fn stack_item_at <.T: Copy> %fn &Vec Option .T fn i32 Option .T \items\idx:
 
 //: stack_store_slot: slot state を[更新/こうしん]する
 pub fn stack_store_slot <.T: Copy> %impure fn &Vec Option .T impure fn i32 impure fn Option .T unit \items\idx\item:
-    vec::replace items idx item
+    vec_replace::replace items idx item
 
 //: stack_alloc_slots: `None` で[初期化/しょきか]した slot storage を[確保/かくほ]する
 pub fn stack_alloc_slots <.T: Copy> %impure fn i32 Result Vec Option .T Diag \cap:
-    match vec::filled cap none:
+    match vec_fill::filled cap none:
         Result::Ok items:
             ok items
         Result::Err _e:

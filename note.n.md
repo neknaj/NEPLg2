@@ -47440,3 +47440,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review に従い、`neplg2 run` は compile だけ persistent worker を使い、生成 wasm の実行は一回限りの runtime worker へ分離した。これにより CompilerSession の warm state と WASI process の stdin / runtime VFS / trap state が混ざらない。
 - compile worker の `worker.onerror` と interrupt は persistent worker を破棄する。worker が post する compile phase の recoverable error は session を維持できる形にし、fatal worker error と区別した。
 - `nodesrc/playground_shell_worker_test_runner.js` と `nodesrc/test_playground_compiler_session_policy.js` を更新し、連続 build での Worker 再利用、`neplg2 run` の compile/runtime worker 分離、persistent worker の fatal error 破棄を固定した。コメントや doccomment の増加を妨げる検査ではない。
+
+## 2026-05-28 Agent stack Vec facade import narrowing
+
+- `web/examples/rpn.nepl` compile が stack 経由で広い `alloc/collections/vec` facade を読む問題に対し、`stdlib/alloc/collections/stack/{types,storage,api}.nepl` の root Vec facade import を必要な実体 module import に狭めた。`plan.md` は変更していない。
+- `types.nepl` は `Vec` 型だけを `alloc/collections/vec/types` から読むようにした。
+- `storage.nepl` は `Vec` 型、`get`、`replace`、`filled` をそれぞれ `types` / `query/get` / `mutation/replace` / `storage/fill` から読むようにした。
+- `api.nepl` は `Vec` 型と `free` を `types` / `mutation/cleanup` から読むようにし、`Stack.free` では `items` owner を型付き local に移してから cleanup へ渡すことで stack wrapper の所有権回収経路を維持した。
+- `nodesrc/test_stdlib_stack_no_unsafe_unwraps.js` は、旧 `vec::...` 呼び出しではなく narrow module import と `vec_get` / `vec_replace` / `vec_fill` / `vec_cleanup` 境界を固定する policy に更新した。
