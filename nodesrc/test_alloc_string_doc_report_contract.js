@@ -34,7 +34,6 @@ const contracts = [
     },
     {
         rel: ['stdlib', 'alloc', 'string', 'search', 'compare.nepl'],
-        index: 0,
         name: 'str_starts_with_at_doc',
         count: 6,
     },
@@ -67,13 +66,17 @@ const contracts = [
 for (const { rel, index, name, count } of contracts) {
     const file = path.join(repoRoot, ...rel);
     const parsed = parseFile(file);
-    assert.ok(
-        parsed.doctests.length > index,
-        `${rel.join('/')} must keep doc-comment doctest #${index + 1}`,
+    const matchingDoctests = parsed.doctests.filter((doctest) =>
+        new RegExp(`test_report_new "${name}"`).test(doctest.code),
+    );
+    assert.equal(
+        matchingDoctests.length,
+        1,
+        `${rel.join('/')} must keep exactly one doc-comment doctest for ${name}`,
     );
 
     const source = fs.readFileSync(file, 'utf8');
-    const doctest = parsed.doctests[index];
+    const doctest = matchingDoctests[0];
     assert.equal(doctest.ret, null, `${name} must not use ret as test-success metadata`);
     assert.equal(doctest.exit_code, 0, `${name} must pin exit_code: 0`);
     assert.match(

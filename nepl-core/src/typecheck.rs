@@ -7,6 +7,7 @@ mod assignment_apply;
 mod binding_rules;
 mod block_check;
 mod call_binding_lookup;
+mod call_pipe;
 mod call_reduction;
 mod call_resolution;
 mod compiler_memory_type;

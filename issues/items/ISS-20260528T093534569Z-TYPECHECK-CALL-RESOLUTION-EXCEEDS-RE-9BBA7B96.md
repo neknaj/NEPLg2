@@ -2,8 +2,8 @@
 id: ISS-20260528T093534569Z-TYPECHECK-CALL-RESOLUTION-EXCEEDS-RE-9BBA7B96
 title: "typecheck call resolution exceeds responsibility split limit after public signature test split"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-28
@@ -43,3 +43,11 @@ Split call_resolution responsibilities into focused modules without changing the
 ## 検証
 
 node nodesrc/test_static_check_boundary_responsibility.js; cargo check -p nepl-core; node nodesrc/issues.js check --dir issues; git diff --check
+
+## 2026-05-28 修正
+
+- `call_resolution.rs` から pipe-specific pending segment resolution を `typecheck/call_pipe.rs` へ分離した。
+- 分離対象は `pipe_target_input_type`、`reduce_pipe_pending_segment_with_target`、`pipe_pending_base`、`pipe_segment_reduces_to_single_value` である。
+- `call_resolution.rs` は outer consumer inference、unresolved overload 判定、callable signature extraction、arity selection の責務に絞り、`call_pipe.rs` は `|>` の pending segment を target argument type と rollback-scoped reduction で 1 値へ畳む責務を持つ。
+- static check boundary policy は変更していない。
+- `nodesrc/test_type_expectation_model_policy.js` は、helper split 後も typed outer-consumer expectation construction が `call_resolution.rs` / `call_pipe.rs` の分割境界を越えて保持されることを見るように追従した。

@@ -8,6 +8,7 @@ const typeExpectationPath = path.join(repoRoot, 'nepl-core/src/typecheck/type_ex
 const prefixCheckPath = path.join(repoRoot, 'nepl-core/src/typecheck/prefix_check.rs');
 const callReductionPath = path.join(repoRoot, 'nepl-core/src/typecheck/call_reduction.rs');
 const callResolutionPath = path.join(repoRoot, 'nepl-core/src/typecheck/call_resolution.rs');
+const callPipePath = path.join(repoRoot, 'nepl-core/src/typecheck/call_pipe.rs');
 const functionApplyPath = path.join(repoRoot, 'nepl-core/src/typecheck/function_apply.rs');
 const genericCallConstraintsPath = path.join(repoRoot, 'nepl-core/src/typecheck/generic_call_constraints.rs');
 const overloadSelectionPath = path.join(repoRoot, 'nepl-core/src/typecheck/overload_selection.rs');
@@ -23,6 +24,7 @@ const typeExpectation = fs.readFileSync(typeExpectationPath, 'utf8');
 const prefixCheck = fs.readFileSync(prefixCheckPath, 'utf8');
 const callReduction = fs.readFileSync(callReductionPath, 'utf8');
 const callResolution = fs.readFileSync(callResolutionPath, 'utf8');
+const callPipe = fs.readFileSync(callPipePath, 'utf8');
 const functionApply = fs.readFileSync(functionApplyPath, 'utf8');
 const genericCallConstraints = fs.readFileSync(genericCallConstraintsPath, 'utf8');
 const overloadSelection = fs.readFileSync(overloadSelectionPath, 'utf8');
@@ -76,7 +78,11 @@ assert.doesNotMatch(
 );
 assert.match(prefixCheck, /TypeExpectation::explicit_ascription/);
 assert.match(prefixCheck, /TypeExpectation::block_result/);
-assert.match(callResolution, /TypeExpectation::outer_consumer_argument/);
+assert.match(
+    `${callResolution}\n${callPipe}`,
+    /TypeExpectation::outer_consumer_argument/,
+    'outer-consumer expectation construction must remain typed after call-resolution helper splits',
+);
 assert.match(callReduction, /call_result_expectation_after_args/);
 assert.match(
     overloadSelection,

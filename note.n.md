@@ -1,3 +1,13 @@
+# 2026-05-28 Typecheck call pipe split checkpoint
+
+- `ISS-20260528T093534569Z-TYPECHECK-CALL-RESOLUTION-EXCEEDS-RE-9BBA7B96` の対応として、`call_resolution.rs` から pipe-specific pending segment resolution を `typecheck/call_pipe.rs` へ分離した。
+- `pipe_target_input_type`、`reduce_pipe_pending_segment_with_target`、`pipe_pending_base`、`pipe_segment_reduces_to_single_value` は `|>` の pending segment を target argument type と rollback-scoped reduction で 1 値へ畳む責務なので、call candidate / outer consumer inference と同じ file に置かない。
+- source policy の responsibility split limit は変更していない。
+- `nodesrc/test_type_expectation_model_policy.js` は、helper split 後も typed outer-consumer expectation construction が `call_resolution.rs` / `call_pipe.rs` の分割境界を越えて保持されることを見るように追従した。
+- `nodesrc/test_alloc_string_doc_report_contract.js` は、前 checkpoint の `compare.nepl` doctest 追加で順序前提が露出したため、doctest 番号ではなく `test_report_new` の名前で対象 doctest を選ぶ形へ修正した。
+- `cargo check -p nepl-core`、`node nodesrc/test_static_check_boundary_responsibility.js`、`node nodesrc/test_type_expectation_model_policy.js`、`node nodesrc/test_alloc_string_doc_report_contract.js` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 String predicate doctest gap checkpoint
 
 - subagent 調査により、stdlib documentation contract の `declarationNoDoctest=1065 > 1062` は、string predicate 性能 checkpoint で追加された 3 declaration の doctest 不足が原因だと確認した。
