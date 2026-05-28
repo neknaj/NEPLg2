@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: architecture
 created: 2026-05-20
-updated: 2026-05-20
+updated: 2026-05-28
 target: "nepl-core/src/typecheck/driver.rs, nepl-core/src/typecheck/driver_span.rs, nepl-core/src/typecheck/overload_selection.rs, nepl-core/src/typecheck/overload_candidate.rs, nepl-core/src/typecheck/overload_narrowing.rs, nepl-core/src/typecheck.rs, nodesrc/test_static_check_boundary_responsibility.js"
 ---
 
@@ -61,3 +61,11 @@ line limit は変更していない。`driver.rs` と `overload_selection.rs` �
 - `cargo test -p nepl-core --test generics -- --nocapture`: 25 passed
 - `node nodesrc/issues.js check`: passed
 - `git diff --check`: passed
+
+## 2026-05-28 public signature test split
+
+`perf: expose typed public signatures` 後に、public signature hash の契約テストが `typecheck/driver.rs` 末尾へ入り、`node nodesrc/test_static_check_boundary_responsibility.js` が再び `driver.rs` の responsibility split limit 超過を報告していた。
+
+production code の driver orchestration ではなく、typed public signature table の cache invalidation 契約を検証するテスト配置が直接原因だったため、該当 `#[cfg(test)]` module を `typecheck/public_signature.rs` へ移した。`TypeCheckResult.public_signatures` と driver 内の table construction call は、typecheck の統合結果として自然な位置にあるため、この checkpoint では動かしていない。
+
+この修正で `driver.rs` blocker は解消し、同じ policy は次の別 blocker として `typecheck/call_resolution.rs has 802 implementation lines; responsibility split limit is 760` を報告するようになった。これは `ISS-20260528T093534569Z-TYPECHECK-CALL-RESOLUTION-EXCEEDS-RE-9BBA7B96` として分離した。

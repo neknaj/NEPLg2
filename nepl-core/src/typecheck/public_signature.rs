@@ -313,3 +313,69 @@ fn push_type_params(
         out.push_str(&signature_type_string(ctx, *type_param, generics));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::compiler::{BuildProfile, CompileTarget};
+    use crate::lexer;
+    use crate::parser;
+    use crate::span::FileId;
+    use crate::typecheck::{typecheck, TypeCheckResult};
+
+    use super::TypedPublicSignatureKind;
+
+    fn typecheck_source(source: &str) -> TypeCheckResult {
+        let file_id = FileId(0);
+        let lex = lexer::lex(file_id, source);
+        assert!(
+            lex.diagnostics.is_empty(),
+            "lexer diagnostics: {:?}",
+            lex.diagnostics
+        );
+        let parsed = parser::parse_tokens(file_id, lex);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "parser diagnostics: {:?}",
+            parsed.diagnostics
+        );
+        let module = parsed.module.expect("parser should produce a module");
+        let checked = typecheck(&module, CompileTarget::Wasm, BuildProfile::Debug, None);
+        assert!(
+            checked.diagnostics.is_empty(),
+            "typecheck diagnostics: {:?}",
+            checked.diagnostics
+        );
+        checked
+    }
+
+    /// public signature table は関数本体ではなく、公開 callable の型境界を
+    /// 表す。body-only edit で hash が変わらないことを固定し、後続の
+    /// semantic cache が無関係な本文差分で過剰 invalidation しない根拠にする。
+    #[test]
+    fn typed_public_signature_hash_ignores_function_body_only_edits() {
+        let first = typecheck_source("pub fn answer %fn unit i32 \\unit:\n    1\n");
+        let second = typecheck_source("pub fn answer %fn unit i32 \\unit:\n    2\n");
+
+        assert_eq!(
+            first.public_signatures.stable_hash,
+            second.public_signatures.stable_hash
+        );
+        assert!(first.public_signatures.entries.iter().any(|entry| {
+            entry.kind == TypedPublicSignatureKind::Callable && entry.name == "answer"
+        }));
+    }
+
+    /// 公開 callable の型が変わる場合は同じ名前でも semantic cache を
+    /// invalidation する必要がある。typed public signature hash がその差分を
+    /// 観測できることを確認する。
+    #[test]
+    fn typed_public_signature_hash_tracks_public_callable_type_edits() {
+        let returns_i32 = typecheck_source("pub fn answer %fn unit i32 \\unit:\n    1\n");
+        let returns_unit = typecheck_source("pub fn answer %fn unit unit \\unit:\n    unit\n");
+
+        assert_ne!(
+            returns_i32.public_signatures.stable_hash,
+            returns_unit.public_signatures.stable_hash
+        );
+    }
+}

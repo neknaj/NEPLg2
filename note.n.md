@@ -1,3 +1,12 @@
+# 2026-05-28 Typecheck public signature test split checkpoint
+
+- subagent 調査により、`typecheck/driver.rs` の responsibility split warning は production code の新しい肥大ではなく、typed public signature hash の契約テストが driver 末尾へ置かれたことが直接原因だと確認した。
+- public signature table の cache invalidation 契約は `typecheck/public_signature.rs` の責務なので、該当 `#[cfg(test)]` module を `driver.rs` から `public_signature.rs` へ移した。
+- `TypeCheckResult.public_signatures` と driver 内の `build_typed_public_signature_table` 呼び出しは、typecheck 統合結果を組み立てる場所として妥当なため、この checkpoint では動かしていない。
+- `cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture` は 2/2 pass。
+- `node nodesrc/test_static_check_boundary_responsibility.js` は driver blocker を越え、次の別件として `typecheck/call_resolution.rs has 802 implementation lines; responsibility split limit is 760` を検出した。これは `ISS-20260528T093534569Z-TYPECHECK-CALL-RESOLUTION-EXCEEDS-RE-9BBA7B96` として分離した。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 Vec cleanup storage dealloc source policy checkpoint
 
 - `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` の Vec cleanup storage release policy が、現行 stdlib source の `collection_slot_storage_dealloc <.T>` を旧い空 type-arg marker として期待していたため、payload type `.T` 付き proof を検査する形へ更新した。
