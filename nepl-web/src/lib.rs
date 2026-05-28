@@ -3448,7 +3448,7 @@ impl CompilerSession {
         let stats = self.loader_cache.borrow().stats();
         let resource_stats = self.resource_summary_value_cache.borrow().stats();
         format!(
-            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"compiled_output_cache_hits\":{},\"compiled_output_cache_stores\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{},\"resource_summary_value_hits\":{},\"resource_summary_value_misses\":{},\"resource_summary_value_stores\":{},\"resource_summary_value_bypasses\":{},\"resource_summary_value_drop_traversal_forall_hits\":{},\"resource_summary_value_drop_traversal_forall_stores\":{},\"resource_summary_value_drop_traversal_forall_bypasses\":{}}}",
+            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"compiled_output_cache_hits\":{},\"compiled_output_cache_stores\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{},\"resource_summary_value_hits\":{},\"resource_summary_value_misses\":{},\"resource_summary_value_stores\":{},\"resource_summary_value_bypasses\":{},\"resource_summary_value_replay_hits\":{},\"resource_summary_value_replay_bypasses\":{},\"resource_summary_value_replayed_ops\":{},\"resource_summary_value_recomputed_ops\":{},\"resource_summary_value_drop_traversal_forall_hits\":{},\"resource_summary_value_drop_traversal_forall_stores\":{},\"resource_summary_value_drop_traversal_forall_bypasses\":{}}}",
             stats.parsed_module_hits,
             stats.parsed_module_misses,
             stats.parsed_module_stores,
@@ -3473,6 +3473,10 @@ impl CompilerSession {
             resource_stats.resource_summary_value_misses,
             resource_stats.resource_summary_value_stores,
             resource_stats.resource_summary_value_bypasses,
+            resource_stats.resource_summary_value_replay_hits,
+            resource_stats.resource_summary_value_replay_bypasses,
+            resource_stats.resource_summary_value_replayed_ops,
+            resource_stats.resource_summary_value_recomputed_ops,
             resource_stats.resource_summary_value_drop_traversal_forall_hits,
             resource_stats.resource_summary_value_drop_traversal_forall_stores,
             resource_stats.resource_summary_value_drop_traversal_forall_bypasses,

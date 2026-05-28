@@ -394,18 +394,21 @@ mod tests {
         Span::new(FileId(0), 1, 2)
     }
 
-    fn forall_drop_traversal_op() -> CollectionSlotLifecycleSummaryOp {
-        forall_drop_traversal_op_with_count(1)
+    fn forall_drop_traversal_op(types: &TypeCtx) -> CollectionSlotLifecycleSummaryOp {
+        forall_drop_traversal_op_with_count(types, 1)
     }
 
-    fn forall_drop_traversal_op_with_count(count: i32) -> CollectionSlotLifecycleSummaryOp {
+    fn forall_drop_traversal_op_with_count(
+        types: &TypeCtx,
+        count: i32,
+    ) -> CollectionSlotLifecycleSummaryOp {
         CollectionSlotLifecycleSummaryOp::DropTraversal {
-            storage: summary_place(0, TypeId(0)),
+            storage: summary_place(0, types.i32()),
             initialized_count: CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
                 value: count,
-                ty: TypeId(1),
+                ty: types.i32(),
             },
-            expected_ty: TypeId(2),
+            expected_ty: types.i32(),
             coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
                 CollectionSlotInitializedRangeDropTraversalCertificate {
                     element_stride: 4,
@@ -439,7 +442,7 @@ mod tests {
             function: "identity_storage".to_string(),
             type_params: Vec::new(),
             ops: vec![
-                forall_drop_traversal_op(),
+                forall_drop_traversal_op(&types),
                 CollectionSlotLifecycleSummaryOp::DropTraversal {
                     storage: summary_place(0, TypeId(0)),
                     initialized_count: CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
@@ -452,11 +455,11 @@ mod tests {
                     ),
                 },
                 CollectionSlotLifecycleSummaryOp::Merge {
-                    paths: vec![vec![forall_drop_traversal_op()]],
+                    paths: vec![vec![forall_drop_traversal_op(&types)]],
                 },
                 CollectionSlotLifecycleSummaryOp::Loop {
-                    condition_ops: vec![forall_drop_traversal_op()],
-                    body_ops: vec![forall_drop_traversal_op()],
+                    condition_ops: vec![forall_drop_traversal_op(&types)],
+                    body_ops: vec![forall_drop_traversal_op(&types)],
                 },
             ],
             return_transfers: Vec::new(),
@@ -465,7 +468,7 @@ mod tests {
             return_paths: vec![CollectionSlotLifecycleReturnPath {
                 return_variant: None,
                 preconditions: Vec::new(),
-                ops: vec![forall_drop_traversal_op()],
+                ops: vec![forall_drop_traversal_op(&types)],
                 return_transfers: Vec::new(),
                 return_slots: Vec::new(),
                 return_ranges: Vec::new(),
@@ -513,8 +516,8 @@ mod tests {
             function: "identity_storage".to_string(),
             type_params: Vec::new(),
             ops: vec![
-                forall_drop_traversal_op_with_count(1),
-                forall_drop_traversal_op_with_count(2),
+                forall_drop_traversal_op_with_count(&types, 1),
+                forall_drop_traversal_op_with_count(&types, 2),
             ],
             return_transfers: Vec::new(),
             return_slots: Vec::new(),
@@ -576,7 +579,7 @@ mod tests {
         let summary = CollectionSlotLifecycleFunctionSummary {
             function: "raw_body".to_string(),
             type_params: Vec::new(),
-            ops: vec![forall_drop_traversal_op()],
+            ops: vec![forall_drop_traversal_op(&types)],
             return_transfers: Vec::new(),
             return_slots: Vec::new(),
             return_ranges: Vec::new(),
@@ -617,7 +620,7 @@ mod tests {
         let summary = CollectionSlotLifecycleFunctionSummary {
             function: "identity_storage".to_string(),
             type_params: vec![types.fresh_var(None)],
-            ops: vec![forall_drop_traversal_op()],
+            ops: vec![forall_drop_traversal_op(&types)],
             return_transfers: Vec::new(),
             return_slots: Vec::new(),
             return_ranges: Vec::new(),
@@ -658,7 +661,7 @@ mod tests {
         let summary = CollectionSlotLifecycleFunctionSummary {
             function: String::new(),
             type_params: Vec::new(),
-            ops: vec![forall_drop_traversal_op()],
+            ops: vec![forall_drop_traversal_op(&types)],
             return_transfers: Vec::new(),
             return_slots: Vec::new(),
             return_ranges: Vec::new(),

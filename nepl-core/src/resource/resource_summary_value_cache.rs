@@ -23,19 +23,28 @@ use self::candidate_key::{
     drop_traversal_forall_candidate_key_and_value, ResourceSummaryGenericTypeArgumentKeyInput,
 };
 use self::key::ResourceSummaryValueCacheKey;
-use self::stable_mirror::ResourceSummaryStableDropTraversalForallValue;
+use self::stable_mirror::{
+    reproject_drop_traversal_forall_value, ResourceSummaryStableDropTraversalForallValue,
+    ResourceSummaryTypeReprojection,
+};
 
 /// Resource IR summary value cache の累積統計。
 ///
-/// この統計は compiled-output cache とは別に、Resource IR の証明結果そのものが
-/// 再利用されたかを観測するために使う。初期実装では安全に保存できる stable
-/// mirror がまだ限定されるため、hit/store だけでなく bypass も明示的に数える。
+/// この統計は compiled-output cache とは別に、Resource IR の証明結果を stable value
+/// として保存・再投影できるかを観測するために使う。`resource_summary_value_hits` は
+/// 既存 stable value が再投影可能だった候補 hit であり、fixed-point worklist の skip
+/// までは意味しない。実際に summary op を replay して compile work を減らす段階では、
+/// `resource_summary_value_replay_*` を別 counter として増やす。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_hits: usize,
     pub resource_summary_value_misses: usize,
     pub resource_summary_value_stores: usize,
     pub resource_summary_value_bypasses: usize,
+    pub resource_summary_value_replay_hits: usize,
+    pub resource_summary_value_replay_bypasses: usize,
+    pub resource_summary_value_replayed_ops: usize,
+    pub resource_summary_value_recomputed_ops: usize,
     pub resource_summary_value_drop_traversal_forall_hits: usize,
     pub resource_summary_value_drop_traversal_forall_stores: usize,
     pub resource_summary_value_drop_traversal_forall_bypasses: usize,
@@ -77,9 +86,10 @@ impl ResourceSummaryValueCache {
 
     /// `DropTraversal + ForallInitializedRange` の store/hit 候補を作る。
     ///
-    /// hit した stable value を現在の `CollectionSlotLifecycleSummaryOp` へ戻す逆投影は
-    /// まだ実装しない。この段階では、session をまたいで同じ pure summary query が
-    /// 再利用可能だったことを統計として観測し、stale hit になり得る value は保存しない。
+    /// この候補は compile work skip ではなく、現在の function boundary へ fail-closed に
+    /// 逆投影できる stable value だけを store/hit 統計へ渡すための境界である。逆投影
+    /// できない value は、同じ key に見えても次の session で stale replay になる可能性が
+    /// あるため、hit 候補にせず bypass として扱う。
     pub(super) fn drop_traversal_forall_candidate(
         &self,
         context: &ResourceSummaryValueCacheContext,
@@ -107,6 +117,8 @@ impl ResourceSummaryValueCache {
             generic_type_args,
             op,
         )?;
+        let reprojection = ResourceSummaryTypeReprojection::new(types, function, type_params)?;
+        reproject_drop_traversal_forall_value(&reprojection, &value)?;
         Some(ResourceSummaryDropTraversalForallCandidate { key, value })
     }
 

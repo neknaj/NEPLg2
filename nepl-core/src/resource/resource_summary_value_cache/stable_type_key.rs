@@ -27,6 +27,10 @@ impl ResourceSummaryStableTypeKey {
     pub(super) fn as_str(&self) -> &str {
         &self.0
     }
+
+    pub(super) fn matches_type(&self, types: &TypeCtx, ty: TypeId) -> bool {
+        Self::from_type(types, ty).is_some_and(|key| key == *self)
+    }
 }
 
 fn stable_type_key_string(

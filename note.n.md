@@ -1,3 +1,14 @@
+# 2026-05-28 Resource summary reverse projection candidate checkpoint
+
+- Zenn 記事の試作段階方針を再確認し、compile timeout や静的検査の削減ではなく、純粋な Resource summary query の stable value を安全に再利用する境界を狭く実装した。
+- subagent 3 件で独立レビューし、現状の `resource_summary_value_hits` を compile work skip の成果として扱うのは早いと確認した。固定点 worklist への seed / skip は、ordered complete summary と依存関係の安全条件を別 checkpoint で設計する。
+- `ResourceSummaryTypeReprojection` を追加し、builtin 型、function-local type parameter boundary、現在の function signature から stable type key と現在の `TypeId` の対応を作るようにした。曖昧な generic boundary、範囲外 parameter index、projection layout mismatch、stride mismatch、stable type key から現在の `TypeId` へ戻せない value は no-store / bypass に倒す。
+- `ResourceSummaryValueCache::drop_traversal_forall_candidate` は、key/value を作った後に stable value を現在 compile の `CollectionSlotLifecycleSummaryOp::DropTraversal` へ逆投影できる場合だけ store/hit 候補として返す。これにより、統計上の hit も「逆投影可能な candidate hit」に限定される。
+- JSON timing に `resource_summary_value_replay_hits` / `resource_summary_value_replay_bypasses` / `resource_summary_value_replayed_ops` / `resource_summary_value_recomputed_ops` を追加した。現 checkpoint では常に 0 のままであり、実際の summary replay と fixed-point skip はこの counter で別に測る。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92` を更新し、candidate hit と real replay hit を明確に分けた。
+- 検証: `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core stable_drop_traversal_forall_value --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_value_store --lib -- --nocapture`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-resource-summary-reprojection.json` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 Resource summary stable mirror conversion checkpoint
 
 - Zenn 記事の試作段階方針に従い、既存 summary struct をそのまま長寿命 cache value にするのではなく、arena 非依存の stable mirror 型へ変換する方針を維持した。

@@ -58,6 +58,10 @@ const { runSingle } = require('./run_test');
                             resource_summary_value_misses: 0,
                             resource_summary_value_stores: 0,
                             resource_summary_value_bypasses: 2,
+                            resource_summary_value_replay_hits: 0,
+                            resource_summary_value_replay_bypasses: 0,
+                            resource_summary_value_replayed_ops: 0,
+                            resource_summary_value_recomputed_ops: 0,
                             resource_summary_value_drop_traversal_forall_hits: 11,
                             resource_summary_value_drop_traversal_forall_stores: 0,
                             resource_summary_value_drop_traversal_forall_bypasses: 2,
@@ -153,6 +157,10 @@ const { runSingle } = require('./run_test');
                         resource_summary_value_misses: reuseResourceSummaryMisses,
                         resource_summary_value_stores: reuseResourceSummaryStores,
                         resource_summary_value_bypasses: 0,
+                        resource_summary_value_replay_hits: 0,
+                        resource_summary_value_replay_bypasses: 0,
+                        resource_summary_value_replayed_ops: 0,
+                        resource_summary_value_recomputed_ops: 0,
                         resource_summary_value_drop_traversal_forall_hits: reuseResourceSummaryHits,
                         resource_summary_value_drop_traversal_forall_stores: reuseResourceSummaryStores,
                         resource_summary_value_drop_traversal_forall_bypasses: 0,
@@ -248,6 +256,8 @@ const { runSingle } = require('./run_test');
         compiledOutputHit.timing.compiler_session_cache_after.resource_summary_value_stores,
         reuseResourceSummaryStores,
     );
+    assert.equal(compiledOutputHit.timing.compiler_session_cache_before.resource_summary_value_replay_hits, 0);
+    assert.equal(compiledOutputHit.timing.compiler_session_cache_after.resource_summary_value_replay_hits, 0);
 
     fs.rmSync(tmpDirPrewarmReuse, { recursive: true, force: true });
 
