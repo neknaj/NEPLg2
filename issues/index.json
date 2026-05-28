@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-28T09:21:39.402Z",
+  "generated_at": "2026-05-28T09:26:45.685Z",
   "counts": {
     "total": 1268,
     "open": 14,
@@ -16188,7 +16188,7 @@
       "priority": "P1",
       "type": "maintenance",
       "created": "2026-05-24",
-      "updated": "2026-05-24",
+      "updated": "2026-05-28",
       "target": "nodesrc/test_stdlib_*.js; nodesrc/source_policy/**",
       "legacy_id": "",
       "source": "",

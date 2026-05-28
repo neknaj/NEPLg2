@@ -7,7 +7,7 @@ resolved: true
 priority: P1
 type: maintenance
 created: 2026-05-24
-updated: 2026-05-24
+updated: 2026-05-28
 target: "nodesrc/test_stdlib_*.js; nodesrc/source_policy/**"
 ---
 
@@ -70,6 +70,7 @@ Migrate source policy regexes to NEPLg2.1 syntax or introduce explicit syntax-aw
 - selfhost 系 14 件を subagent 調査とローカル確認で分類し、すべて NEPLg2.1 表記移行に伴う stale source expectation と確認した。実装未達やコメント増加を阻害する検査は主因ではなかった。
 - selfhost policy は `legacyTypeSyntaxView` 経由で executable source view を正規化し、`Result` 直持ち、`Vec.get` 経由の argv read、typed diagnostic enum、typed Option absence、HIR payload/range 分離などの意味契約を弱めずに検査するようにした。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は source policy warning 0 件になった。
+- 2026-05-28 regression: `Vec` cleanup の storage release policy が `collection_slot_storage_dealloc <>` を期待していたが、現行 stdlib source は `RegionToken .T` に対応する `collection_slot_storage_dealloc <.T>` を発行している。payload type 付き proof を検査する形へ更新し、owner cleanup 契約は弱めていない。
 
 ## 検証
 

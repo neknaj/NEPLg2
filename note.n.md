@@ -1,3 +1,10 @@
+# 2026-05-28 Vec cleanup storage dealloc source policy checkpoint
+
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` の Vec cleanup storage release policy が、現行 stdlib source の `collection_slot_storage_dealloc <.T>` を旧い空 type-arg marker として期待していたため、payload type `.T` 付き proof を検査する形へ更新した。
+- 実装側の `vec_cleanup_release_storage` は `RegionToken .T` の raw owner identity と size を読んで `allocator::dealloc_raw` した直後に、同じ private helper で `collection_slot_storage_dealloc <.T> (&region)` を発行している。この source boundary 自体は正しいため、テスト側の stale expectation だけを修正した。
+- コメント量や doccomment 増加を制限する検査は追加していない。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 NEPLg2.1 collection layout query postfix-free checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を再確認し、試作段階では後方互換より仕様整合性・静的検査・根本修正を優先する方針で進めた。
