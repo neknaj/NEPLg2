@@ -184,7 +184,7 @@ impl SourceCapabilities {
     /// 別 source へ誤って再利用できてしまう。この hash は canonical path と source hash を
     /// 必ず含め、同じ file content 上の同じ use-site proof set だけを同一 policy とみなす。
     #[allow(dead_code)]
-    pub(crate) fn stable_policy_hash(&self, canonical_path: &str, source_hash: u64) -> u64 {
+    fn stable_policy_hash(&self, canonical_path: &str, source_hash: u64) -> u64 {
         let mut hash = 0xcbf29ce484222325;
         source_capability_policy_hash_str(&mut hash, "neplg2-source-capability-policy-v1");
         source_capability_policy_hash_str(&mut hash, canonical_path);
@@ -333,12 +333,14 @@ impl SourceMap {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn source_capability_policy_hash(
-        &self,
-        id: FileId,
-        source_hash: u64,
-    ) -> Option<u64> {
+    /// Resource summary value cache key に含める source capability policy hash を返す。
+    ///
+    /// source text は `SourceMap` が保持しているため、caller に source hash を渡させない。
+    /// これにより別 source の hash や sentinel 値を誤って渡す経路を作らず、path、source
+    /// content、capability proof set が同じ場合だけ同じ policy とみなせる。
+    pub(crate) fn source_capability_policy_hash_for_file(&self, id: FileId) -> Option<u64> {
         self.files.get(id.0 as usize).map(|file| {
+            let source_hash = source_capability_source_hash(file.src.as_bytes());
             file.capabilities
                 .stable_policy_hash(file.path.as_str(), source_hash)
         })
@@ -647,6 +649,18 @@ fn source_capability_policy_hash_bytes(hash: &mut u64, bytes: &[u8]) {
     }
 }
 
+#[allow(dead_code)]
+/// SourceMap 内の source text を policy hash 入力へ変換する deterministic hash。
+///
+/// loader cache の source hash と同じ FNV-1a 64bit 形を使うが、この関数は source
+/// capability policy の内部入力に閉じる。caller へ source hash の指定権を渡さないことが
+/// stale capability proof を避けるための重要な境界である。
+fn source_capability_source_hash(bytes: &[u8]) -> u64 {
+    let mut hash = 0xcbf29ce484222325;
+    source_capability_policy_hash_bytes(&mut hash, bytes);
+    hash
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::string::String;
@@ -909,18 +923,49 @@ mod tests {
     }
 
     #[test]
-    fn source_map_source_capability_policy_hash_uses_file_path() {
+    fn source_capability_source_hash_matches_loader_source_hash_contract() {
+        assert_eq!(
+            super::source_capability_source_hash(b"fn load %i32 1"),
+            0x2aa54b28b4377481
+        );
+    }
+
+    #[test]
+    fn source_map_source_capability_policy_hash_uses_file_path_and_source_text() {
         let mut source_map = SourceMap::new();
         let capabilities = use_site_capabilities(raw_load_use_site(Span::new(FileId(0), 8, 16)));
         let file = source_map.add_with_capabilities(
             "core/mem.nepl",
-            String::from(""),
+            String::from("fn load %i32 1"),
             capabilities.clone(),
         );
 
         assert_eq!(
-            source_map.source_capability_policy_hash(file, 7),
-            Some(capabilities.stable_policy_hash("core/mem.nepl", 7))
+            source_map.source_capability_policy_hash_for_file(file),
+            Some(capabilities.stable_policy_hash(
+                "core/mem.nepl",
+                super::source_capability_source_hash(b"fn load %i32 1")
+            ))
+        );
+
+        let same_path_different_source = source_map.add_with_capabilities(
+            "core/mem.nepl",
+            String::from("fn load %i32 2"),
+            capabilities.clone(),
+        );
+        let different_path_same_source = source_map.add_with_capabilities(
+            "core/other.nepl",
+            String::from("fn load %i32 1"),
+            capabilities,
+        );
+
+        assert_ne!(
+            source_map.source_capability_policy_hash_for_file(file),
+            source_map.source_capability_policy_hash_for_file(same_path_different_source)
+        );
+        assert_ne!(
+            source_map.source_capability_policy_hash_for_file(file),
+            source_map.source_capability_policy_hash_for_file(different_path_same_source)
         );
     }
 }

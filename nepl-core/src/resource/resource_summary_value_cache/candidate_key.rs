@@ -24,7 +24,7 @@ use super::type_boundary::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ResourceSummaryCacheNamespaceHash(u64);
 
-/// `SourceMap::source_capability_policy_hash` から作られた source policy hash。
+/// `SourceMap::source_capability_policy_hash_for_file` から作られた source policy hash。
 ///
 /// source capability proof は span range を含むため、現在の source path と source hash に
 /// 結び付いた policy hash だけを key に入れる。未計算の状態を `0` などで表さず、

@@ -47657,3 +47657,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - builder は function identity、function body hash、type parameter boundary hash、generic argument hash、stable `DropTraversal + ForallInitializedRange` mirror がすべて作れる場合だけ `ResourceSummaryValueCacheKey` を返す。non-forall coverage、空 function identity、未取得 generic args、nominal generic argument は no-store 候補へ倒す。
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core candidate_key --lib`、`cargo test -p nepl-core resource_summary_value_cache --lib`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
 - `trunk build` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-candidate-key-20260528.json` は `caseCount=13, passedCount=13, failedCount=0` だった。
+
+## 2026-05-28 Agent Source capability policy hash owner checkpoint
+
+- Resource summary value key へ source capability policy hash を接続する前に、source hash を caller から受け取る API をやめ、`SourceMap` が保持する source text から計算する `source_capability_policy_hash_for_file` へ差し替えた。`plan.md` は変更していない。
+- subagent review では、caller-supplied source hash を受ける経路に `0` や別種の hash を渡すと stale hit の原因になるため、stored source から policy hash を作るべきだと確認した。
+- `SourceCapabilities::stable_policy_hash` は source_map 内の private helper に絞り、`SourceMap` 経由の API では canonical path、stored source text hash、capability proof set を一体で hash する。これにより caller が sentinel source hash を混ぜる経路を作らない。
+- subagent review の指摘を受け、loader の source hash contract と同じ FNV-1a 64bit 形であることを golden test で固定した。
+- regression として、同じ path / capability でも source text が違えば policy hash が変わり、同じ source text / capability でも path が違えば policy hash が変わることを固定した。
+- `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core source_capability_policy_hash --lib`、`cargo test -p nepl-core source_capability_source_hash --lib`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
+- `trunk build` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-source-policy-owner-final-20260528.json` は `caseCount=13, passedCount=13, failedCount=0` だった。
