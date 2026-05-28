@@ -47648,3 +47648,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ResourceSummaryFunctionIdentity::from_resource_function` を追加し、canonical symbol と origin name が空でないことを Resource summary value candidate gate でも確認するようにした。
 - function body hash、type boundary hash、stable mirror value が作れても、compile session 間で対応する callable 境界を特定できない function は store 候補として観測しない。
 - empty function identity を持つ人工的な ResourceFunction が bypass counter に入らない regression を追加した。
+
+## 2026-05-28 Agent Resource summary candidate key builder checkpoint
+
+- Zenn の試作段階方針と性能追求方針を再確認し、store/hit の前に Resource summary value key を作れる候補だけを private builder で判定する境界を追加した。`plan.md` は変更していない。
+- subagent review では、`namespace_hash` / `source_capability_policy_hash` / generic type arguments に仮値を入れないこと、現行 collection slot summary が concrete call-site generic args を保持しないことを確認した。そのため実 production path への store/hit 接続はまだ行っていない。
+- `resource_summary_value_cache::candidate_key` は namespace hash と source capability policy hash を型名付き wrapper で受ける。generic type argument は `NonGeneric` / `TemplateBoundaryOnly` / `KnownInstantiation` の enum で意味を明示し、空 slice が「非 generic」「generic template」「実引数の取り忘れ」のどれなのか曖昧にならないようにした。
+- builder は function identity、function body hash、type parameter boundary hash、generic argument hash、stable `DropTraversal + ForallInitializedRange` mirror がすべて作れる場合だけ `ResourceSummaryValueCacheKey` を返す。non-forall coverage、空 function identity、未取得 generic args、nominal generic argument は no-store 候補へ倒す。
+- `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core candidate_key --lib`、`cargo test -p nepl-core resource_summary_value_cache --lib`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
+- `trunk build` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-candidate-key-20260528.json` は `caseCount=13, passedCount=13, failedCount=0` だった。

@@ -4,6 +4,7 @@ use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
 use super::model::ResourceFunction;
 
 mod body_hash;
+mod candidate_key;
 mod key;
 mod stable_hash;
 mod stable_mirror;

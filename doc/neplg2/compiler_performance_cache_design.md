@@ -554,6 +554,8 @@ type boundary hash checkpoint では、per-summary-value key の `type_parameter
 
 function identity gate checkpoint では、top-level `DropTraversal + ForallInitializedRange` の候補を数える前に `ResourceSummaryFunctionIdentity::from_resource_function` も通すようにした。canonical symbol と origin name が空の function は、compile session 間で対応する callable 境界を特定できないため、body hash や type boundary hash が作れても store 候補として観測しない。
 
+candidate key builder checkpoint では、`resource_summary_value_cache::candidate_key` private staging module を追加し、per-value key を作るための全入力を一箇所で合成する境界を固定した。builder は namespace hash、source capability policy hash、function identity、function body hash、function-local type parameter boundary hash、generic type argument key、stable mirror value がすべて作れる場合だけ `ResourceSummaryValueCacheKey` を返す。namespace hash と source capability policy hash は型名付き wrapper で受け、`0` や empty を未計算 sentinel として扱わない。generic type argument は `NonGeneric` / `TemplateBoundaryOnly` / `KnownInstantiation` の明示 enum にし、現行 summary が concrete call-site args を持たないことと、将来の instantiated cache key が実引数を取り忘れないことを両立させる。
+
 必須 regression:
 
 - 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。
