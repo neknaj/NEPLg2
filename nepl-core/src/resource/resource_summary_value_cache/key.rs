@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 extern crate alloc;
 
 use alloc::string::{String, ToString};
@@ -7,9 +5,9 @@ use alloc::string::{String, ToString};
 use super::super::model::ResourceFunction;
 use super::stable_hash::ResourceSummaryStableHasher;
 
-// この module は store/hit 実装の直前に key 形状を固定する staging module である。
-// function body hash と source capability policy hash を compiler pipeline から渡すまで
-// 実 cache path へ接続しないため、module 全体の未使用 warning はここで局所的に抑止する。
+// この module は Resource summary value cache の key 形状を定義する。
+// key は stale hit を避けるための invalidation 入力を field として保持し、保存 map の
+// ordering と deterministic hash の両方に使う。
 
 /// Resource summary value cache の value 単位 key。
 ///

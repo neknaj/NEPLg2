@@ -112,6 +112,9 @@ const { runSingle } = require('./run_test');
     let reuseCompileCalls = 0;
     let reuseCompiledOutputHits = 0;
     let reuseDependencyAggregateHits = 5;
+    let reuseResourceSummaryHits = 0;
+    let reuseResourceSummaryMisses = 0;
+    let reuseResourceSummaryStores = 0;
     const prewarmReuseLoaded = {
         api: {
             compile_source_with_vfs_and_profile() {
@@ -146,6 +149,13 @@ const { runSingle } = require('./run_test');
                         compiled_output_cache_stores: reuseCompileCalls,
                         prewarm_surface_hits: reusePrewarmHits,
                         prewarm_surface_stores: reusePrewarmStores,
+                        resource_summary_value_hits: reuseResourceSummaryHits,
+                        resource_summary_value_misses: reuseResourceSummaryMisses,
+                        resource_summary_value_stores: reuseResourceSummaryStores,
+                        resource_summary_value_bypasses: 0,
+                        resource_summary_value_drop_traversal_forall_hits: reuseResourceSummaryHits,
+                        resource_summary_value_drop_traversal_forall_stores: reuseResourceSummaryStores,
+                        resource_summary_value_drop_traversal_forall_bypasses: 0,
                     });
                 },
                 prewarm_loader_cache_for_source() {
@@ -163,6 +173,12 @@ const { runSingle } = require('./run_test');
                     }
                     reuseCompileCalls += 1;
                     reuseDependencyAggregateHits += 1;
+                    if (reuseCompileCalls > 1) {
+                        reuseResourceSummaryHits += 1;
+                    } else {
+                        reuseResourceSummaryMisses += 1;
+                        reuseResourceSummaryStores += 1;
+                    }
                     throw new Error('session compile failure after reused prewarm surface');
                 },
             },
@@ -215,6 +231,22 @@ const { runSingle } = require('./run_test');
     assert.equal(
         compiledOutputHit.timing.compiler_session_cache_after.dependency_aggregate_public_surface_hash_hits,
         reuseDependencyAggregateHits,
+    );
+    assert.equal(
+        compiledOutputHit.timing.compiler_session_cache_before.resource_summary_value_hits,
+        reuseResourceSummaryHits,
+    );
+    assert.equal(
+        compiledOutputHit.timing.compiler_session_cache_after.resource_summary_value_hits,
+        reuseResourceSummaryHits,
+    );
+    assert.equal(
+        compiledOutputHit.timing.compiler_session_cache_before.resource_summary_value_stores,
+        reuseResourceSummaryStores,
+    );
+    assert.equal(
+        compiledOutputHit.timing.compiler_session_cache_after.resource_summary_value_stores,
+        reuseResourceSummaryStores,
     );
 
     fs.rmSync(tmpDirPrewarmReuse, { recursive: true, force: true });

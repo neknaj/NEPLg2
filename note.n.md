@@ -47677,3 +47677,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ResourceSummaryValueCache::record_drop_traversal_forall_bypass_if_keyable` は candidate key builder を通してから bypass counter を増やす。store/hit map はまだ実装していない。
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core resource_summary_value_cache --lib`、`cargo test -p nepl-core resource_summary_value_bypass --lib`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
 - `trunk build` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-source-policy-context-20260528.json` は `caseCount=13, passedCount=13, failedCount=0` だった。
+
+## 2026-05-28 Agent Resource summary store/hit MVP checkpoint
+
+- Zenn の試作段階方針と性能追求方針を再確認し、Resource summary value cache の最初の store/hit MVP を追加した。`plan.md` は変更していない。
+- `ResourceSummaryValueCache` は `DropTraversal + ForallInitializedRange` の keyable stable mirror value を `CompilerSession` 内の map に保存し、次 compile 以降の同じ key/value を hit として観測する。
+- hit した stable value を現在 compile の `CollectionSlotLifecycleSummaryOp` へ逆投影する実 summary reuse はまだ行わない。`TypeId` 逆投影、stable place / offset / drop proof の再構築、固定点 worklist への差し込み設計が必要なため、今回の hit は統計上の再利用可能性確認に限定する。
+- map key は namespace、function identity、function body hash、type parameter boundary、generic type argument、source capability policy、summary kind/version を含む。map value は stable mirror だけで、`TypeId`、`Span`、`SourceMap`、typed HIR、Resource IR body、diagnostic span、raw alias graph は保存しない。
+- 同じ function/body/kind key に複数の top-level value がある場合に上書きしないよう、key ごとに複数 value を保持する。hit 判定は記録開始時点で存在した value だけを対象にし、同じ summary build pass 内で store した value を即 hit と数えない。
+- コメントは proof boundary、no-store 理由、逆投影を遅らせる理由を丁寧に説明するために追加した。コメント増加や doccomment 増加を妨げる検査は追加していない。
+- `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core resource_summary_value_cache --lib`、`cargo test -p nepl-core resource_summary_value_store --lib`、`cargo test -p nepl-core resource_summary_value_bypass --lib`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
+- `trunk build` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-resource-summary-store-hit-20260528.json` は `caseCount=13, passedCount=13, failedCount=0` だった。

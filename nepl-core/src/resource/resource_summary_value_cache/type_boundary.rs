@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 extern crate alloc;
 
 use alloc::collections::BTreeSet;
@@ -11,9 +9,9 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 use super::stable_hash::ResourceSummaryStableHasher;
 use super::stable_type_key::ResourceSummaryStableTypeKey;
 
-// この module は store/hit 実装の直前に、type parameter boundary と generic type
-// argument の key 入力を固定する staging module である。cache map に接続するまでは
-// テストからだけ参照されるため、module 全体の未使用 warning はここで局所的に抑止する。
+// この module は type parameter boundary と generic type argument を stable key 入力へ
+// 変換する。summary value 内の generic variable を別 compile session へ対応付けられない
+// 場合は、store/hit 候補から外すために `None` を返す。
 
 /// Resource summary value key に入れる function-local type parameter boundary hash。
 ///

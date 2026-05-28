@@ -1,20 +1,19 @@
-#![allow(dead_code)]
-
 use crate::types::{TypeCtx, TypeId};
 
 use super::super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
 use super::super::model::ResourceFunction;
 use super::body_hash::resource_function_body_hash;
 use super::key::{ResourceSummaryFunctionIdentity, ResourceSummaryValueCacheKey};
-use super::stable_mirror::stable_drop_traversal_forall_value;
+use super::stable_mirror::{
+    stable_drop_traversal_forall_value, ResourceSummaryStableDropTraversalForallValue,
+};
 use super::type_boundary::{
     resource_summary_generic_type_argument_hash, resource_summary_type_parameter_boundary_hash,
 };
 
-// この module は Resource summary value cache の store/hit を有効化する前に、keyable
-// candidate の全入力が揃っているかを一箇所で判定する staging module である。
-// namespace や source capability policy に仮値を入れないため、実 pipeline へ接続する
-// まではテストからだけ参照される。
+// この module は Resource summary value cache に保存してよい候補だけを作る境界である。
+// namespace や source capability policy に仮値を入れず、key と stable value の両方を
+// 作れる場合だけ store/hit の対象へ渡す。
 
 /// `ResourceSummaryCacheNamespaceKey::stable_hash` として作られた hash。
 ///
@@ -42,6 +41,10 @@ pub(super) struct ResourceSummarySourceCapabilityPolicyHash(u64);
 pub(super) enum ResourceSummaryGenericTypeArgumentKeyInput<'a> {
     NonGeneric,
     TemplateBoundaryOnly,
+    /// 将来、call-site の concrete generic argument list を保存できるようになった段階で
+    /// instantiated summary key に使う。現 MVP は summary 側に実引数 list がないため、
+    /// production path ではまだ構築しない。
+    #[allow(dead_code)]
     KnownInstantiation(&'a [TypeId]),
 }
 
@@ -72,6 +75,7 @@ impl ResourceSummarySourceCapabilityPolicyHash {
 /// namespace をすべて揃えられる場合だけ `Some` を返す。generic argument が空でよいのは
 /// caller が `NonGeneric` または `TemplateBoundaryOnly` を明示した場合だけである。generic
 /// instantiation の実引数を取得できない場合は、空 slice ではなく no-store 候補へ倒す。
+#[cfg(test)]
 pub(super) fn drop_traversal_forall_candidate_key(
     types: &TypeCtx,
     namespace_hash: ResourceSummaryCacheNamespaceHash,
@@ -81,21 +85,48 @@ pub(super) fn drop_traversal_forall_candidate_key(
     generic_type_args: ResourceSummaryGenericTypeArgumentKeyInput<'_>,
     op: &CollectionSlotLifecycleSummaryOp,
 ) -> Option<ResourceSummaryValueCacheKey> {
+    drop_traversal_forall_candidate_key_and_value(
+        types,
+        namespace_hash,
+        source_capability_policy_hash,
+        function,
+        type_params,
+        generic_type_args,
+        op,
+    )
+    .map(|(key, _)| key)
+}
+
+pub(super) fn drop_traversal_forall_candidate_key_and_value(
+    types: &TypeCtx,
+    namespace_hash: ResourceSummaryCacheNamespaceHash,
+    source_capability_policy_hash: ResourceSummarySourceCapabilityPolicyHash,
+    function: &ResourceFunction,
+    type_params: &[TypeId],
+    generic_type_args: ResourceSummaryGenericTypeArgumentKeyInput<'_>,
+    op: &CollectionSlotLifecycleSummaryOp,
+) -> Option<(
+    ResourceSummaryValueCacheKey,
+    ResourceSummaryStableDropTraversalForallValue,
+)> {
     let function_identity = ResourceSummaryFunctionIdentity::from_resource_function(function)?;
     let function_body_hash = resource_function_body_hash(types, function)?;
     let type_parameter_boundary_hash =
         resource_summary_type_parameter_boundary_hash(types, type_params)?;
     let generic_type_argument_hash =
         generic_type_argument_key_hash(types, function, type_params, generic_type_args)?;
-    stable_drop_traversal_forall_value(types, op)?;
+    let stable_value = stable_drop_traversal_forall_value(types, op)?;
 
-    Some(ResourceSummaryValueCacheKey::new_drop_traversal_forall(
-        namespace_hash.as_u64(),
-        function_identity,
-        function_body_hash,
-        type_parameter_boundary_hash,
-        generic_type_argument_hash,
-        source_capability_policy_hash.as_u64(),
+    Some((
+        ResourceSummaryValueCacheKey::new_drop_traversal_forall(
+            namespace_hash.as_u64(),
+            function_identity,
+            function_body_hash,
+            type_parameter_boundary_hash,
+            generic_type_argument_hash,
+            source_capability_policy_hash.as_u64(),
+        ),
+        stable_value,
     ))
 }
 

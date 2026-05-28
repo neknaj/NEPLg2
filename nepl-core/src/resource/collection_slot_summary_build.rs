@@ -25,7 +25,8 @@ use super::model::{ResourceFunction, ResourceModule};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::report::ResourceCheckDeferred;
 use super::resource_summary_value_cache::{
-    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+    ResourceSummaryDropTraversalForallCandidate, ResourceSummaryValueCache,
+    ResourceSummaryValueCacheContext,
 };
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
@@ -66,20 +67,19 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        record_resource_summary_value_cache_bypass_candidates(
-            cache, context, types, module, &summaries,
-        );
+        record_resource_summary_value_cache_candidates(cache, context, types, module, &summaries);
     }
     summaries
 }
 
-fn record_resource_summary_value_cache_bypass_candidates(
+fn record_resource_summary_value_cache_candidates(
     cache: &mut ResourceSummaryValueCache,
     context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
     module: &ResourceModule,
     summaries: &[CollectionSlotLifecycleFunctionSummary],
 ) {
+    let mut candidates = Vec::new();
     let mut functions = BTreeMap::new();
     for function in &module.functions {
         functions.insert(function.name.as_str(), function);
@@ -88,20 +88,28 @@ fn record_resource_summary_value_cache_bypass_candidates(
         let Some(function) = functions.get(summary.function.as_str()) else {
             continue;
         };
-        record_resource_summary_value_cache_bypass_candidates_from_summary(
-            cache, context, types, function, summary,
+        collect_resource_summary_value_cache_candidates_from_summary(
+            &mut candidates,
+            cache,
+            context,
+            types,
+            function,
+            summary,
         );
     }
+    cache.record_drop_traversal_forall_candidates(candidates);
 }
 
-fn record_resource_summary_value_cache_bypass_candidates_from_summary(
+fn collect_resource_summary_value_cache_candidates_from_summary(
+    candidates: &mut Vec<ResourceSummaryDropTraversalForallCandidate>,
     cache: &mut ResourceSummaryValueCache,
     context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
     function: &ResourceFunction,
     summary: &CollectionSlotLifecycleFunctionSummary,
 ) {
-    record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
+    collect_resource_summary_value_cache_candidates_from_top_level_ops(
+        candidates,
         cache,
         context,
         types,
@@ -111,7 +119,8 @@ fn record_resource_summary_value_cache_bypass_candidates_from_summary(
     );
 }
 
-fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
+fn collect_resource_summary_value_cache_candidates_from_top_level_ops(
+    candidates: &mut Vec<ResourceSummaryDropTraversalForallCandidate>,
     cache: &mut ResourceSummaryValueCache,
     context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
@@ -128,13 +137,16 @@ fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
                 coverage:
                     CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(_),
                 ..
-            } => cache.record_drop_traversal_forall_bypass_if_keyable(
+            } => match cache.drop_traversal_forall_candidate(
                 context,
                 types,
                 function,
                 type_params,
                 op,
-            ),
+            ) {
+                Some(candidate) => candidates.push(candidate),
+                None => cache.record_drop_traversal_forall_bypass(),
+            },
             CollectionSlotLifecycleSummaryOp::Event { .. }
             | CollectionSlotLifecycleSummaryOp::Relocate { .. }
             | CollectionSlotLifecycleSummaryOp::DropTraversal { .. }
@@ -383,10 +395,14 @@ mod tests {
     }
 
     fn forall_drop_traversal_op() -> CollectionSlotLifecycleSummaryOp {
+        forall_drop_traversal_op_with_count(1)
+    }
+
+    fn forall_drop_traversal_op_with_count(count: i32) -> CollectionSlotLifecycleSummaryOp {
         CollectionSlotLifecycleSummaryOp::DropTraversal {
             storage: summary_place(0, TypeId(0)),
             initialized_count: CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
-                value: 1,
+                value: count,
                 ty: TypeId(1),
             },
             expected_ty: TypeId(2),
@@ -410,7 +426,7 @@ mod tests {
     /// return path や control-flow container 内の leaf は、stable mirror の key/value
     /// を別途設計するまで候補数に含めない。
     #[test]
-    fn resource_summary_value_bypass_counts_only_final_top_level_forall_drop_traversal() {
+    fn resource_summary_value_store_hit_counts_only_final_top_level_forall_drop_traversal() {
         let mut cache = ResourceSummaryValueCache::new();
         let types = TypeCtx::new();
         let function = identity_storage_function(types.i32());
@@ -457,21 +473,72 @@ mod tests {
             }],
         };
         let context = test_summary_value_cache_context();
+        let summaries = vec![summary];
 
-        record_resource_summary_value_cache_bypass_candidates(
-            &mut cache,
-            &context,
-            &types,
-            &module,
-            &[summary],
+        record_resource_summary_value_cache_candidates(
+            &mut cache, &context, &types, &module, &summaries,
         );
 
         let stats = cache.stats();
-        assert_eq!(stats.resource_summary_value_bypasses, 1);
-        assert_eq!(
-            stats.resource_summary_value_drop_traversal_forall_bypasses,
-            1
+        assert_eq!(stats.resource_summary_value_misses, 1);
+        assert_eq!(stats.resource_summary_value_stores, 1);
+        assert_eq!(stats.resource_summary_value_bypasses, 0);
+        assert_eq!(stats.resource_summary_value_drop_traversal_forall_stores, 1);
+
+        record_resource_summary_value_cache_candidates(
+            &mut cache, &context, &types, &module, &summaries,
         );
+
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_hits, 1);
+        assert_eq!(stats.resource_summary_value_misses, 1);
+        assert_eq!(stats.resource_summary_value_stores, 1);
+        assert_eq!(stats.resource_summary_value_drop_traversal_forall_hits, 1);
+    }
+
+    /// 現在の MVP key は function/body/kind 単位であり、同じ function に複数の
+    /// `DropTraversal + ForallInitializedRange` が現れる可能性がある。そのため value は
+    /// key ごとに複数保存し、同じ key の後続 value で上書きしない。
+    #[test]
+    fn resource_summary_value_store_keeps_multiple_values_under_the_same_key() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let types = TypeCtx::new();
+        let function = identity_storage_function(types.i32());
+        let module = ResourceModule {
+            functions: vec![function],
+            entry: None,
+            string_literals: Vec::new(),
+        };
+        let summary = CollectionSlotLifecycleFunctionSummary {
+            function: "identity_storage".to_string(),
+            type_params: Vec::new(),
+            ops: vec![
+                forall_drop_traversal_op_with_count(1),
+                forall_drop_traversal_op_with_count(2),
+            ],
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            return_paths: Vec::new(),
+        };
+        let context = test_summary_value_cache_context();
+        let summaries = vec![summary];
+
+        record_resource_summary_value_cache_candidates(
+            &mut cache, &context, &types, &module, &summaries,
+        );
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_misses, 2);
+        assert_eq!(stats.resource_summary_value_stores, 2);
+        assert_eq!(stats.resource_summary_value_hits, 0);
+
+        record_resource_summary_value_cache_candidates(
+            &mut cache, &context, &types, &module, &summaries,
+        );
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_hits, 2);
+        assert_eq!(stats.resource_summary_value_misses, 2);
+        assert_eq!(stats.resource_summary_value_stores, 2);
     }
 
     /// Resource summary value cache の初期 store 候補は、summary value だけでなく
@@ -517,7 +584,7 @@ mod tests {
         };
         let context = test_summary_value_cache_context();
 
-        record_resource_summary_value_cache_bypass_candidates(
+        record_resource_summary_value_cache_candidates(
             &mut cache,
             &context,
             &types,
@@ -526,10 +593,10 @@ mod tests {
         );
 
         let stats = cache.stats();
-        assert_eq!(stats.resource_summary_value_bypasses, 0);
+        assert_eq!(stats.resource_summary_value_bypasses, 1);
         assert_eq!(
             stats.resource_summary_value_drop_traversal_forall_bypasses,
-            0
+            1
         );
     }
 
@@ -558,7 +625,7 @@ mod tests {
         };
         let context = test_summary_value_cache_context();
 
-        record_resource_summary_value_cache_bypass_candidates(
+        record_resource_summary_value_cache_candidates(
             &mut cache,
             &context,
             &types,
@@ -567,10 +634,10 @@ mod tests {
         );
 
         let stats = cache.stats();
-        assert_eq!(stats.resource_summary_value_bypasses, 0);
+        assert_eq!(stats.resource_summary_value_bypasses, 1);
         assert_eq!(
             stats.resource_summary_value_drop_traversal_forall_bypasses,
-            0
+            1
         );
     }
 
@@ -599,7 +666,7 @@ mod tests {
         };
         let context = test_summary_value_cache_context();
 
-        record_resource_summary_value_cache_bypass_candidates(
+        record_resource_summary_value_cache_candidates(
             &mut cache,
             &context,
             &types,
@@ -608,10 +675,10 @@ mod tests {
         );
 
         let stats = cache.stats();
-        assert_eq!(stats.resource_summary_value_bypasses, 0);
+        assert_eq!(stats.resource_summary_value_bypasses, 1);
         assert_eq!(
             stats.resource_summary_value_drop_traversal_forall_bypasses,
-            0
+            1
         );
     }
 
