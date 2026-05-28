@@ -544,6 +544,8 @@ Resource summary value cache の owner は `LoaderSessionCache` ではなく `Co
 
 2026-05-28 の structured key staging checkpoint では、`resource_summary_value_cache::key` private module に per-summary-value key の型だけを追加した。これは map store/hit ではなく、namespace hash、function identity、function body hash、function-local type parameter boundary hash、generic type-argument hash、source capability policy hash、summary kind/version を裸の hash blob にまとめず、field として分けたまま扱うための足場である。追加 review では、function body hash と source capability policy hash が compiler pipeline から渡るまで store/hit を入れないべきだと確認したため、この checkpoint では key 型と invalidation input regression だけを固定する。
 
+2026-05-28 の source capability policy hash checkpoint では、`SourceCapabilities::stable_policy_hash(canonical_path, source_hash)` と `SourceMap::source_capability_policy_hash(file_id, source_hash)` を追加した。これは source capability を広く許可する query ではなく、Resource summary value key に入れるための deterministic fingerprint である。use-site proof は byte range を持つため、canonical path と source hash を必ず hash に含め、同じ proof range が別 source に流用されないようにする。現時点では function body hash と Resource summary store/hit にはまだ接続せず、path/source hash/use-site/span/order の regression だけを固定する。
+
 必須 regression:
 
 - 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。

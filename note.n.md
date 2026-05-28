@@ -47609,3 +47609,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review では、key 型の先行導入は有効だが、function body hash と source capability policy hash が pipeline から渡るまでは `BTreeMap` store/hit を入れないべきだと確認した。そのため key module は staging module とし、store/hit API はまだ公開していない。
 - `ResourceSummaryCacheNamespaceKey` の doccomment が dependency public surface hash 接続前の説明に寄っていたため、現在の target/profile + typed public signature hash + optional dependency public surface hash の説明へ更新した。
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo test -p nepl-core resource_summary_value_cache_key --lib -- --nocapture` は pass した。
+
+## 2026-05-28 Agent source capability policy hash checkpoint
+
+- Resource summary value key の入力に使う `source_capability_policy_hash` の足場を `SourceCapabilities` / `SourceMap` に追加した。`plan.md` は変更していない。
+- この hash は source capability を広く許可する query ではなく、canonical path、source hash、use-site proof set を deterministic に fingerprint するための内部 API である。proof の span range だけでは別 source へ流用できてしまうため、path と source hash を必ず混ぜる。
+- `SourceCapabilityUseSite` は `BTreeSet` に保持されているので insertion order に依存しない。raw memory op、raw body memory op、owner aggregate constructor name、compiler memory field/type、collection slot primitive、span start/end を明示 tag で hash する。
+- 現時点では function body hash と Resource summary store/hit にはまだ接続していない。store/hit API は、function body hash と source capability policy hash が compiler pipeline から渡る段階まで公開しない。
+- `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core source_capability_policy_hash --lib -- --nocapture`、`node nodesrc/test_resource_gate_order.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warning として stdlib documentation gap、Vec cleanup policy、typecheck line limit、resource checker responsibility、string slice import policy が残っているが、今回の source capability policy hash 追加による新規 blocking failure はない。
