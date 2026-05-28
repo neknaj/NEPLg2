@@ -504,6 +504,37 @@ native release RPN stage-only 測定では、safe revision 後に `resource_init
 
 この checkpoint も Resource summary value reuse ではない。subagent review では、既存 summary struct が `TypeId` や `Span` を含むため、そのまま長寿命 cache value にしないことを確認した。次段階では namespace key に function body hash、generic type-argument hash、source capability policy hash、summary kind/version を追加し、arena 非依存の stable mirror value へ落としてから stdlib summary reuse に接続する。
 
+2026-05-28 の追加 review では、RPN の call graph pruning が保守的に全関数へ倒れているのではなく、monomorphized function 290 件のうち 287 件が実際に entry から到達していることを確認した。したがって、次の大きな削減余地は import pruning ではなく、到達済み関数の Resource summary value を namespace 内で再利用することである。
+
+Resource summary value cache の owner は `LoaderSessionCache` ではなく `CompilerSession` の別 field とする。`LoaderSessionCache` は source / AST / loader surface の未型付け artifact を持つ層であり、Resource IR summary は typed public signature、dependency public surface、target/profile、source capability policy、generic type argument、summary kind/version に依存する。loader cache に入れると、未型付け artifact と Resource IR proof artifact の invalidation 境界が混ざる。
+
+初期 cache value は既存 summary struct 全体ではなく、arena 非依存の stable mirror として定義する。最初の対象は `CollectionSlotLifecycleSummaryOp::DropTraversal` と `ForallInitializedRange` に限定する。これらは drop traversal と initialized range proof の小さい事実へ落としやすく、`RawCellInitializationFunctionSummary` 全体のように session-local `PlaceProjection` / `TypeId` / raw alias state を広く含まない。
+
+初期実装で store する条件:
+
+- namespace key があり、summary kind/version が一致する。
+- function body hash、generic type-argument hash、source capability policy hash が現在 compile の入力から決定できる。
+- value は stable summary place / projection / type key、known i32、expected type、element stride、`StateOnly` / `LoadedValueDrop` proof のような arena 非依存データだけで表現できる。
+- cache hit 後も現在 compile の Resource IR place / type context へ再投影できる。
+
+初期実装で store しない条件:
+
+- `CertifiedSlots`、`TransformRange`、`Event`、`Relocate`、return path facts、Merge / Loop にまたがる proof。
+- `RawCellInitializationFunctionSummary` 全体、raw alias graph、session-local `TypeId`、`Span`、`SourceMap`、typed HIR、diagnostic span を含む value。
+- `expected_ty` や `LoadedValueDrop` proof 内の型が stable type key へ正規化されておらず、現在 compile の `TypeCtx` へ再投影できない value。
+- source capability policy hash、generic type-argument hash、target/profile、dependency public surface hash のいずれかが未確定の compile。
+- `/stdlib` overlay、forced stdlib VFS、local stdlib override のように bundled stdlib proof と source が一致しない compile。
+
+`CompilerSession.loader_cache_stats_json()` とは別に、Resource summary value cache は `resource_summary_value_hits` / `misses` / `stores` / `bypasses` と、summary kind 別の hit/store/bypass counter を持つ。compiled-output cache hit で速くなった場合と、compiled-output cache miss だが Resource summary value が hit して速くなった場合を JSON timing で分けて測定する。
+
+必須 regression:
+
+- 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。
+- entry body-only edit で compiled-output cache は miss するが、unchanged stdlib の `DropTraversal` / `ForallInitializedRange` stable summary は hit する。
+- public callable type edit、dependency public surface hash edit、generic type-argument edit、source capability policy edit、target/profile edit では stale hit しない。
+- `/stdlib` overlay、forced stdlib VFS、local stdlib override では bundled stdlib Resource summary value cache を bypass する。
+- cache hit value を現在 compile の Resource IR context へ再投影できない場合は miss/bypass に倒し、diagnostic span や capability proof を古い source へ流用しない。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。
@@ -519,7 +550,7 @@ session が持つ query cache は次の階層に分ける。
 | type arity | module public type decl hash | type arity table | public type declaration change |
 | name/typecheck | module hash + dependency public surface hash + target/profile | typed HIR / diagnostics / trait table | dependency public surface or local source change |
 | monomorphize | typed HIR hash + instantiation root set | monomorphized HIR | reachable root or generic instantiation change |
-| resource summary | function HIR hash + source capability hash | Resource IR summaries | function body or capability change |
+| resource summary | namespace key + function body hash + generic type-argument hash + source capability policy hash + summary kind/version | arena 非依存 stable mirror summary | public surface / function body / type argument / capability / target/profile change |
 | codegen | monomorphized reachable HIR hash + target/profile | wasm / llvm fragment | reachable lowered HIR change |
 
 各 query は入力値だけで決まり、FileSystem や StdIO を内部で読まない。host 依存の file read は CLI / Web wrapper 側で source text table に変換してから session へ渡す。
@@ -549,7 +580,7 @@ MVP では次の順に実装する。
 1. Web / Node に `CompilerSession` API を追加し、bundled stdlib source table を保持する。
 2. Web terminal は compile ごとに worker を破棄せず、明示的な artifact refresh まで同一 worker / WASM instance / `CompilerSession` を維持する。
 3. `CompilerSession` に warm parsed stdlib module cache を追加し、entry source が変わっても stdlib parse/import/type arity/typecheck artifact を再利用する。
-4. Resource IR summary を function hash 単位で cache し、entry から到達する changed functions だけを再計算する。
+4. Resource IR summary stable mirror を function hash 単位で cache し、entry から到達する changed functions だけを再計算する。MVP では `DropTraversal` / `ForallInitializedRange` から始め、raw initialization summary 全体は store しない。
 5. codegen fragment を function hash 単位にし、unchanged functions は index と signature table だけを再接続する。
 6. diagnostic rendering は最後に行い、cache には typed diagnostic enum と source span だけを保持する。
 

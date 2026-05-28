@@ -81,6 +81,11 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - 同 checkpoint の native release RPN stage-only 測定は `resource_initialized_i32_scalar_summaries=1256ms`、`resource_initialized_raw_init_summaries=2549ms`、`resource_initialized_function_checks=3139ms`、`resource_static_check=7870ms`。初回 0.5 秒未満にはまだ届かない。
 - Resource summary value cache の設計レビューを追加で行い、cache owner は `LoaderSessionCache` ではなく `CompilerSession` の別 field とする方針を確認した。初期 stable mirror は `RawCellInitializationFunctionSummary` 全体ではなく、`CollectionSlotLifecycleSummaryOp::DropTraversal` のような小さい summary kind から始める。
 - RPN signed integer parse checkpoint では、Resource summary value cache の前に、`to_i128_radix` の signed-body `str_slice` と nested `Result` match を削除した。native release RPN stage-only 測定は best run で `resource_initialized_i32_scalar_summaries=1172ms`、`resource_initialized_raw_init_summaries=2239ms`、`resource_initialized_function_checks=1767ms`、`resource_static_check=6104ms`、`trunk build --release` 後の再確認で `resource_initialized_i32_scalar_summaries=1450ms`、`resource_initialized_raw_init_summaries=2647ms`、`resource_initialized_function_checks=1965ms`、`resource_static_check=7086ms`。これは局所探索削減であり、次 checkpoint の Resource summary value cache 方針は維持する。
+- 追加 review では、RPN call graph pruning が conservative-all へ倒れているのではなく、monomorphized function 290 件のうち 287 件が実際に到達していることを確認した。次の大きな削減余地は import pruning ではなく、到達済み関数の Resource summary value reuse である。
+- Resource summary value cache の初期 implementation boundary は `CompilerSession` の別 field とし、`LoaderSessionCache` には入れない。`LoaderSessionCache` は未型付け source / AST / loader surface の cache であり、Resource IR proof artifact と invalidation 境界を混ぜないためである。
+- 初期 stable mirror は `CollectionSlotLifecycleSummaryOp::DropTraversal` と `ForallInitializedRange` に限定する。key は namespace key、function body hash、generic type-argument hash、source capability policy hash、summary kind/version を含める。value は stable summary place / projection / type key、known i32、expected type、element stride、`StateOnly` / `LoadedValueDrop` proof のような arena 非依存データだけにする。
+- 初期実装では `CertifiedSlots`、`TransformRange`、`Event`、`Relocate`、return path facts、Merge / Loop にまたがる proof、`RawCellInitializationFunctionSummary` 全体、raw alias graph、`TypeId`、`Span`、`SourceMap`、typed HIR、diagnostic span を store しない。`expected_ty` や `LoadedValueDrop` proof 内の型も stable type key へ落とし、現在 compile の `TypeCtx` へ再投影できる場合だけ store する。
+- metrics は compiled-output cache と分け、`resource_summary_value_hits` / `misses` / `stores` / `bypasses` と summary kind 別 counter を JSON timing から観測できるようにする。entry body-only edit で compiled-output cache が miss しても、unchanged stdlib summary value が hit することを regression で固定する。
 
 ## 問題
 
@@ -103,7 +108,7 @@ MVP は次の順に進める。
 3. Web terminal の worker を compile ごとに破棄せず、同一 WASM instance / `CompilerSession` が複数 compile にまたがって warm state を保持するようにする。これは実装済みなので、次は `CompilerSession` 側へ semantic cache を載せる。
 4. `CompilerSession` に bundled stdlib の parsed module / import graph / type arity を warm state として保持する。raw parsed module、stdlib-only source import/arity surface、source-directed loader prewarm、stdlib module public surface hash、dependency aggregate public surface hash query、同一入力 compiled-output cache は実装済み。dependency aggregate query は Web prewarm hot path から外し、session-backed bundled stdlib compile path では `ResourceSummaryCacheNamespaceKey` に typed public signature hash とともに渡す。次 checkpoint は、この namespace の下で Resource IR summary value を実際に hit/store する semantic cache 境界を設計する。
 5. stdlib artifact に public signature table、trait impl index、source capability tableを持たせ、通常 compile では entry source と overlay source だけを新規処理する。
-6. Resource IR summary を function hash + source capability hash + type argument hash で cache し、entry から到達する changed functions だけを再計算する。
+6. Resource IR summary stable mirror を namespace key + function body hash + source capability policy hash + type argument hash + summary kind/version で cache し、entry から到達する changed functions だけを再計算する。MVP は `DropTraversal` / `ForallInitializedRange` から始め、raw initialization summary 全体は store しない。
 7. codegen fragment cache を function hash 単位にし、unchanged fragments を signature/index table へ再接続する。
 
 ## 完了条件
@@ -132,6 +137,9 @@ MVP は次の順に進める。
 - provider prewarm 後の同一 session load で `public_surface_hash_hits` が増えることの unit test
 - dependency aggregate public surface hash が re-exported stdlib dependency の body-only edit で変わらず、public signature edit で変わることの unit test
 - Resource summary namespace key が public function body-only edit で変わらず、public callable type edit と dependency public surface hash input で変わることの unit test
+- Resource summary value cache が entry body-only edit で compiled-output cache miss / unchanged stdlib stable summary hit を分けて観測できることの Node runner regression test
+- Resource summary value cache が generic type-argument / source capability policy / target / profile / dependency public surface hash の違いで stale hit しないことの unit test
+- forced stdlib VFS、local stdlib override、compile VFS の `/stdlib` overlay で bundled Resource summary value cache を bypass することの Node/Web regression test
 - session-backed bundled stdlib compile path で loader aggregate hash が `ResourceSummaryCacheNamespaceKey` へ渡り、prewarm path と compiled-output cache hit path では dependency aggregate counter が増えないことの Node runner regression test
 - non-stdlib dependency edge が bundled stdlib aggregate cache で provider read されず、bypass として観測されることの unit test
 - 同一 `CompilerSession` の compiled-output cache hit が compile_ms を 10ms 未満へ下げ、source / VFS / profile / WAT comment mode の変更で stale hit しないことの Node/Web regression test

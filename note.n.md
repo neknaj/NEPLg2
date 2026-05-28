@@ -47556,3 +47556,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - native release RPN stage-only 測定は `resource_initialized_i32_scalar_summaries=1256ms`、`resource_initialized_raw_init_summaries=2549ms`、`resource_initialized_function_checks=3139ms`、`resource_static_check=7870ms`。per-function timing run では `str_trim` の function check が `1018ms` から `699ms` へ下がったが、全体はまだ 7 秒台である。
 - `cargo fmt -p nepl-core --check`、`cargo test -p nepl-core initialized_path_state --lib -- --nocapture`、`cargo build --release -p nepl-cli`、`target\release\nepl-cli.exe --check -i examples\rpn.nepl --target std --stdlib-root stdlib` with stage/function timing、`node nodesrc/test_string_trim_doc_report_contract.js`、`node nodesrc/test_stdlib_string_access_boundary.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
 - `trunk build --release` 後、`node nodesrc/run_doctest.js -i stdlib/alloc/string/slice/trim.nepl -n 1 --dist web/dist` は pass し、bundled stdlib mode で `compile_ms=6396` だった。`node nodesrc/tests.js -i examples/rpn.nepl -o tmp/rpn_duplicate_dedup_checked_space_wasm_20260528.json -j 1 --runner wasm --no-tree --dist web/dist` は `total=2, passed=2` だった。
+
+## 2026-05-28 Agent Resource summary value cache design boundary
+
+- Zenn の試作段階方針と性能追求方針を再確認した。後方互換ではなく設計の正しさを優先する段階だが、静的検査やコメント・doctestを削って速度を得る方針は採らない。`plan.md` は変更していない。
+- `str_trim` の境界doctestに、空文字列と ASCII whitespace だけの文字列を追加した。これは public contract の境界を固定するためのテスト追加であり、コメント量や doctest の増加を妨げる検査ではない。
+- `str_trim` の `done` flag を直接 `while and ... string_byte_is_ascii_space` 条件へ畳む案は、release WASM doctest compile が 52 秒級、RPN compile が 60 秒級へ悪化したため撤回した。構文上は短くても、現在の prefix call reduction / Resource IR exploration では探索空間を広げるため、根本的な性能改善ではない。
+- `search/compare` に byte predicate wrapper を増やす案、unit control value transfer の特殊化、Resource IR merge の clone-if-equal fast path も実測で悪化または改善なしだったため採用しない。特に merge clone fast path は collection slot range の弱化や raw alias 正規化を省く危険があるため、既存 merge lattice の代替にはしない。
+- RPN call graph pruning は conservative-all に倒れているのではなく、monomorphized function 290 件のうち 287 件が実際に到達していることを subagent review で確認した。次の根本削減は import pruning ではなく、到達済み function の Resource summary value reuse である。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92` に、Resource summary value cache の初期境界を追記した。cache owner は `LoaderSessionCache` ではなく `CompilerSession` の別 field とする。
+- 初期 stable mirror は `CollectionSlotLifecycleSummaryOp::DropTraversal` と `ForallInitializedRange` に限定する。`RawCellInitializationFunctionSummary` 全体、raw alias graph、`TypeId`、`Span`、`SourceMap`、typed HIR、diagnostic span は長寿命 cache value に保存しない。
+- 初期 key は Resource summary namespace key に function body hash、generic type-argument hash、source capability policy hash、summary kind/version を加える。metrics は compiled-output cache と分け、compiled-output miss かつ Resource summary value hit のケースを JSON timing で観測できるようにする。
+- 追加 subagent review でも同じ境界が妥当と確認した。特に `expected_ty` や `LoadedValueDrop` proof 内の `TypeId` を stable type key へ落とさず保存することが最大リスクなので、再投影できない value は no-store / bypass に倒す。

@@ -25,7 +25,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
-//: stdout: "test_report name=\"string_trim_doc\" count=6 failed=0\nassertion index=0 status=ok kind=str_eq label=\"suffix cr removed\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"suffix without cr kept\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=2 status=ok kind=str_eq label=\"slice suffix cr removed\" expected=\"bcd\" actual=\"bcd\" message=\"\"\nassertion index=3 status=ok kind=str_eq label=\"slice clamps low start\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=4 status=ok kind=str_eq label=\"ascii whitespace trimmed\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=5 status=ok kind=str_eq label=\"interior space kept\" expected=\"a b\" actual=\"a b\" message=\"\"\n"
+//: stdout: "test_report name=\"string_trim_doc\" count=8 failed=0\nassertion index=0 status=ok kind=str_eq label=\"suffix cr removed\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"suffix without cr kept\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=2 status=ok kind=str_eq label=\"slice suffix cr removed\" expected=\"bcd\" actual=\"bcd\" message=\"\"\nassertion index=3 status=ok kind=str_eq label=\"slice clamps low start\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=4 status=ok kind=str_eq label=\"ascii whitespace trimmed\" expected=\"abc\" actual=\"abc\" message=\"\"\nassertion index=5 status=ok kind=str_eq label=\"interior space kept\" expected=\"a b\" actual=\"a b\" message=\"\"\nassertion index=6 status=ok kind=str_eq label=\"empty kept\" expected=\"\" actual=\"\" message=\"\"\nassertion index=7 status=ok kind=str_eq label=\"all ascii whitespace trimmed\" expected=\"\" actual=\"\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -40,6 +40,8 @@
 //:         |> test_report_push assert_str_eq "slice clamps low start" "abc" str_slice_trim_suffix_cr "abc\r" -3 4
 //:         |> test_report_push assert_str_eq "ascii whitespace trimmed" "abc" str_trim " \tabc\r\n"
 //:         |> test_report_push assert_str_eq "interior space kept" "a b" str_trim " a b "
+//:         |> test_report_push assert_str_eq "empty kept" "" str_trim ""
+//:         |> test_report_push assert_str_eq "all ascii whitespace trimmed" "" str_trim " \t\r\n"
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
