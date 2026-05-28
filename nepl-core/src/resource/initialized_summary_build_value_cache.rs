@@ -10,9 +10,8 @@ use super::initialized_summary_build_value_cache_eligibility::function_allows_co
 use super::model::{ResourceFunction, ResourceModule};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::resource_summary_value_cache::{
-    raw_init_dependency_closure_hash, RawInitParamFactsLeafEntryCandidateReject,
-    ResourceSummaryRawInitParamFactsLeafEntryCandidate, ResourceSummaryValueCache,
-    ResourceSummaryValueCacheContext,
+    raw_init_dependency_closure_hash, ResourceSummaryRawInitParamFactsLeafEntryCandidate,
+    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 
 pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
@@ -37,7 +36,7 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
         if !function_allows_complete_leaf_entry_replay(function) {
             continue;
         }
-        let Some(dependency_closure_hash) =
+        let Ok(dependency_closure_hash) =
             raw_init_dependency_closure_hash(context, types, module, dependencies, function_index)
         else {
             continue;
@@ -127,14 +126,18 @@ fn collect_raw_init_param_facts_leaf_entry_candidate_from_summary(
         cache.record_raw_init_param_facts_recomputed_ops(eligible_fact_count);
     }
     let type_params = owner_summary_type_params(types, function);
-    let Some(dependency_closure_hash) =
-        raw_init_dependency_closure_hash(context, types, module, all_dependencies, function_index)
-    else {
-        cache.record_raw_init_param_facts_candidate_bypass(
-            RawInitParamFactsLeafEntryCandidateReject::UnstableKey,
-            eligible_fact_count,
-        );
-        return;
+    let dependency_closure_hash = match raw_init_dependency_closure_hash(
+        context,
+        types,
+        module,
+        all_dependencies,
+        function_index,
+    ) {
+        Ok(hash) => hash,
+        Err(reason) => {
+            cache.record_raw_init_dependency_closure_bypass(reason, eligible_fact_count);
+            return;
+        }
     };
     match cache.raw_init_param_facts_leaf_entry_candidate(
         context,

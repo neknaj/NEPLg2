@@ -8,6 +8,7 @@ use super::candidate_key::{
     raw_init_param_facts_leaf_entry_key, ResourceSummaryDependencyClosureHash,
     ResourceSummaryGenericTypeArgumentKeyInput,
 };
+use super::dependency_hash::RawInitDependencyClosureHashReject;
 use super::stable_mirror::{
     reproject_raw_init_param_facts_leaf_entry, stable_raw_init_param_facts_leaf_entry,
     ResourceSummaryTypeReprojection,
@@ -126,6 +127,43 @@ impl ResourceSummaryValueCache {
             RawInitParamFactsLeafEntryCandidateReject::Reprojection => {
                 self.stats
                     .resource_summary_value_raw_init_param_facts_reprojection_bypasses +=
+                    fact_count;
+            }
+        }
+    }
+
+    pub(in crate::resource) fn record_raw_init_dependency_closure_bypass(
+        &mut self,
+        reason: RawInitDependencyClosureHashReject,
+        fact_count: usize,
+    ) {
+        self.record_raw_init_param_facts_bypass_count(fact_count);
+        self.stats
+            .resource_summary_value_raw_init_param_facts_unstable_key_bypasses += fact_count;
+        match reason {
+            RawInitDependencyClosureHashReject::DependencyGraph => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_dependency_graph_bypasses +=
+                    fact_count;
+            }
+            RawInitDependencyClosureHashReject::DependencyFunctionIdentity => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_dependency_identity_bypasses +=
+                    fact_count;
+            }
+            RawInitDependencyClosureHashReject::DependencyFunctionBody => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_dependency_body_hash_bypasses +=
+                    fact_count;
+            }
+            RawInitDependencyClosureHashReject::DependencySourcePolicy => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_dependency_source_policy_bypasses +=
+                    fact_count;
+            }
+            RawInitDependencyClosureHashReject::DependencyTypeBoundary => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_dependency_type_boundary_bypasses +=
                     fact_count;
             }
         }

@@ -1,3 +1,15 @@
+# 2026-05-28 Resource summary raw body dependency key checkpoint
+
+- Zenn 記事の試作段階方針を再確認し、compile performance 改善でも unsafe な cache hit を作らず、Resource proof の入力を静的に列挙する方針を維持した。
+- subagent 2 件で raw-init cache 残件を読み取り専用レビューした。両者とも `unstable_key=176` の最有力原因は dependency closure 内の `core/mem/raw` 系 raw body callee であり、`incomplete_leaf` と generic nominal 再投影は別 issue へ分けるべきだと確認した。
+- `resource_function_body_hash` は `ResourceTerminator::RawBody` を backend kind として hash するようにした。raw body 本文は `ResourceFunction` に残らないため、source path / source content hash / raw body capability use-site を含む `source_capability_policy_hash_for_function` と組み合わせる契約で stale hit を防ぐ。
+- `raw_init_dependency_closure_hash` の失敗を dependency graph / identity / body hash / source policy / type boundary へ分割し、`loader_cache_stats_json()` でも reason counter を観測できるようにした。
+- focused regression として raw body dependency が source policy 付きで keyable になること、source policy edit で dependency closure hash が変わること、source policy / type boundary 欠落が別理由で返ることを追加した。
+- `trunk build --release` 後の RPN same-session code-edit 測定では、初回 `compile_ms=9546`、2 回目 `compile_ms=8920`。raw-init は `raw_init_param_facts_stores=2`、2 回目 `hits=2` / `resource_summary_value_replay_hits=2` を維持し、`raw_init_param_facts_unstable_key_bypasses` は `176 -> 0` になった。
+- 残件は `raw_init_param_facts_unstable_entry_bypasses=119` と `raw_init_param_facts_reprojection_bypasses=67` に移ったため、前者を `ISS-20260528T125932150Z-RESOURCE-SUMMARY-RAW-INIT-STABLE-ENT-AE09D7D6` として追加し、後者は既存 `ISS-20260528T123956303Z-RESOURCE-SUMMARY-TYPE-REPROJECTION-N-78929A8E` で扱う。
+- 検証: `cargo check -p nepl-core`、`cargo test -p nepl-core raw_init_dependency_closure_hash -- --nocapture`、`cargo test -p nepl-core resource_summary_value -- --nocapture`、`node nodesrc/test_run_test_compiler_session.js`、`trunk build --release` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 Resource summary nominal identity checkpoint
 
 - Zenn 記事の 2026-05-27 更新版と試作段階方針を再確認し、性能改善でも静的検査や Resource proof の安全境界を削らず、cache key の根本 identity を整備する方針で進めた。

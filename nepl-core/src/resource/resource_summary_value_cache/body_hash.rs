@@ -12,7 +12,7 @@ use super::super::collection_slot_lifecycle_model::{
 };
 use super::super::model::{
     AggregateKind, BorrowKind, EffectOp, I32ValueCondition, Place, PlaceProjection, PlaceRoot,
-    RawAddressAliasKind, RawAddressViewKind, ResourceBlockId, ResourceCallTarget,
+    RawAddressAliasKind, RawAddressViewKind, RawBodyKind, ResourceBlockId, ResourceCallTarget,
     ResourceConditionFact, ResourceExprKind, ResourceFunction, ResourceI32RelationOp, ResourceId,
     ResourceLocal, ResourceMatchArm, ResourceMatchBindMode, ResourceMatchPattern, ResourceOffset,
     ResourceOp, ResourceTerminator, StorageId, StorageOrigin,
@@ -38,6 +38,11 @@ use super::stable_type_key::ResourceSummaryStableTypeKey;
 /// 関数本文の traversal で最初に現れた順へ正規化し、同じ本文内の storage root の同一性
 /// だけを hash に残す。storage の所有元や寿命上の意味は `StorageOrigin` /
 /// collection lifecycle op 側で別途 hash する。
+///
+/// raw body の本文文字列は `ResourceFunction` には残らないが、source text と raw body
+/// capability use-site は `ResourceSummaryValueCacheContext` の source capability policy hash
+/// に含まれる。そのため body hash では backend kind だけを固定し、cache key の caller が
+/// source policy hash と組み合わせることを契約にする。
 pub(super) fn resource_function_body_hash(
     types: &TypeCtx,
     function: &ResourceFunction,
@@ -427,7 +432,10 @@ fn hash_terminator(
         ResourceTerminator::Unreachable { .. } => {
             hash.write_str("unreachable");
         }
-        ResourceTerminator::RawBody { .. } => return None,
+        ResourceTerminator::RawBody { kind, .. } => {
+            hash.write_str("raw_body");
+            hash_raw_body_kind(hash, *kind);
+        }
     }
     Some(())
 }
@@ -877,6 +885,13 @@ fn hash_effect(hash: &mut ResourceSummaryStableHasher, effect: Effect) {
     }
 }
 
+fn hash_raw_body_kind(hash: &mut ResourceSummaryStableHasher, kind: RawBodyKind) {
+    match kind {
+        RawBodyKind::Wasm => hash.write_str("wasm"),
+        RawBodyKind::LlvmIr => hash.write_str("llvmir"),
+    }
+}
+
 fn hash_borrow_kind(hash: &mut ResourceSummaryStableHasher, kind: BorrowKind) {
     match kind {
         BorrowKind::Shared => hash.write_str("shared"),
@@ -1066,9 +1081,9 @@ mod tests {
     }
 
     #[test]
-    fn resource_function_body_hash_rejects_raw_body_until_source_body_hash_exists() {
+    fn resource_function_body_hash_accepts_raw_body_kind_with_external_source_policy() {
         let types = TypeCtx::new();
-        let function = ResourceFunction {
+        let raw_function = |kind| ResourceFunction {
             name: "raw".into(),
             origin_name: "raw".into(),
             type_params: Vec::new(),
@@ -1080,15 +1095,22 @@ mod tests {
                 id: ResourceBlockId(0),
                 ops: Vec::new(),
                 terminator: ResourceTerminator::RawBody {
-                    kind: super::super::super::model::RawBodyKind::Wasm,
-                    span: Span::dummy(),
+                    kind,
+                    span: Span::new(FileId(1), 10, 20),
                 },
-                span: Span::dummy(),
+                span: Span::new(FileId(1), 0, 20),
             }],
-            span: Span::dummy(),
+            span: Span::new(FileId(1), 0, 20),
         };
 
-        assert!(resource_function_body_hash(&types, &function).is_none());
+        let wasm = raw_function(super::super::super::model::RawBodyKind::Wasm);
+        let llvm = raw_function(super::super::super::model::RawBodyKind::LlvmIr);
+
+        assert!(resource_function_body_hash(&types, &wasm).is_some());
+        assert_ne!(
+            resource_function_body_hash(&types, &wasm),
+            resource_function_body_hash(&types, &llvm)
+        );
     }
 
     #[test]
