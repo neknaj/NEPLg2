@@ -17,6 +17,13 @@ const rootCode = legacyTypeSyntaxView(rootSrc);
 const accessCode = legacyTypeSyntaxView(accessSrc);
 const byteIndexCode = legacyTypeSyntaxView(byteIndexSrc);
 
+function neplFunctionBody(src, name) {
+    const re = new RegExp(`(?:pub\\s+)?fn\\s+${name}\\b[\\s\\S]*?(?=\\n(?:pub\\s+)?fn\\s+|\\nstruct\\s+|\\n#|$)`);
+    const match = src.match(re);
+    assert.ok(match, `${name} must be defined`);
+    return match[0];
+}
+
 assert.match(rootSrc, /pub #import "\.\/string\/access" as \*/, 'alloc/string facade must re-export string/access');
 assert.doesNotMatch(rootSrc, /pub #import "\.\/string\/byte_index" as \*/, 'alloc/string facade must not re-export raw string byte-index helpers');
 assert.doesNotMatch(accessSrc, /#import "alloc\/string\/storage" as \*/, 'string/access must not depend on public storage raw-address helpers');
@@ -57,13 +64,35 @@ assert.match(
 );
 assert.doesNotMatch(
     byteIndexCode,
+    /\bpub\s+fn\s+string_byte_or_invalid\b/,
+    'the private sentinel helper must not become public API',
+);
+assert.doesNotMatch(
+    byteIndexCode,
     /\bstring_byte_at_checked_or_unreachable\b|#intrinsic\s+"unreachable"/,
     'string/byte_index must not keep the transitional trap helper',
 );
+const stringByteEqBody = neplFunctionBody(byteIndexCode, 'string_byte_eq');
+assert.doesNotMatch(
+    stringByteEqBody,
+    /\bload_u8\b|\bstring_byte_access_addr\b|#intrinsic\s+"unreachable"/,
+    'string_byte_eq must not perform raw byte access or trap directly',
+);
 assert.match(
-    byteIndexCode,
-    /fn\s+string_byte_eq[\s\S]*match\s+checked_string_byte_at\s+s\s+idx:[\s\S]*Option::Some\s+actual:[\s\S]*eq\s+actual\s+expected[\s\S]*Option::None:[\s\S]*false/,
-    'string_byte_eq must fold checked byte evidence into a safe comparison',
+    stringByteEqBody,
+    /\bexpected\b/,
+    'string_byte_eq must compare against the expected byte value',
+);
+const stringByteAsciiSpaceBody = neplFunctionBody(byteIndexCode, 'string_byte_is_ascii_space');
+assert.doesNotMatch(
+    stringByteAsciiSpaceBody,
+    /\bload_u8\b|\bstring_byte_access_addr\b|#intrinsic\s+"unreachable"/,
+    'string_byte_is_ascii_space must not perform raw byte access or trap directly',
+);
+assert.match(
+    stringByteAsciiSpaceBody,
+    /' '[\s\S]*'\\t'[\s\S]*'\\n'[\s\S]*'\\r'/,
+    'string_byte_is_ascii_space must cover the documented ASCII whitespace bytes',
 );
 assert.match(
     byteIndexCode,

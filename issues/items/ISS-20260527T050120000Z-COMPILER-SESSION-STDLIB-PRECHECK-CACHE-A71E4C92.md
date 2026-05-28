@@ -76,6 +76,9 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - namespace key checkpoint 後の native release RPN stage-only 測定は `resource_typecheck=121ms`、`resource_initialized_i32_scalar_summaries=1270ms`、`resource_initialized_raw_init_summaries=2187ms`、`resource_initialized_function_checks=3063ms`、`resource_static_check=7353ms`。key staging 自体は summary value reuse ではないため、初回 compile 0.5 秒未満はまだ未達である。
 - session-backed bundled stdlib compile path では、loader の dependency aggregate public surface hash を `ResourceSummaryCacheNamespaceKey` へ渡すようにした。汎用 `CompileOptions` は増やさず、Web session path だけが明示 helper 経由で渡す。Web / Node prewarm hot path では引き続き dependency aggregate を同期計算しない。
 - RPN の release WASM doctest 実測では、初回 `compile_ms=9095` / `prewarm_ms=210` / `wasm_call_ms=8884`、同一 source 2 回目は `compile_ms=1` / `wasm_call_ms=0` / `compiled_output_cache_hits=1` だった。prewarm 前後では dependency aggregate counter は増えず、compile 本体でだけ dependency aggregate counter が増えた。
+- duplicate path dedup / string byte predicate checkpoint では、Resource IR summary value cache の前に安全な局所探索削減を追加した。これは cache value reuse ではなく、budget 超過時の完全重複 path-state replay と `str_trim` の Option branch 展開を減らすものである。
+- subagent review では、既存 Resource summary struct が `TypeId` / `Span` を含むため、そのまま `CompilerSession` の長寿命 value に保存しないことを確認した。次 checkpoint の Resource summary value cache は namespace key に function body hash、generic type-argument hash、source capability policy hash、summary kind/version を足し、arena 非依存の stable mirror value だけを保存する。
+- 同 checkpoint の native release RPN stage-only 測定は `resource_initialized_i32_scalar_summaries=1256ms`、`resource_initialized_raw_init_summaries=2549ms`、`resource_initialized_function_checks=3139ms`、`resource_static_check=7870ms`。初回 0.5 秒未満にはまだ届かない。
 
 ## 問題
 

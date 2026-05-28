@@ -11,10 +11,8 @@
 #indent 4
 
 #import "core/math" as *
-#import "core/option" as *
 #import "alloc/string/access" as *
 #import "alloc/string/byte_index" as *
-#import "alloc/string/search" as *
 #import "./byte" as *
 
 //: str_trim_suffix_cr: 末尾 CR を 1 byte だけ取り除く
@@ -92,7 +90,8 @@ pub fn str_slice_trim_suffix_cr %fn str fn i32 fn i32 str \s\start\end:
 //: - 先頭と末尾の space/tab/LF/CR を除いた文字列を返します。
 //:
 //: [実装/じっそう]:
-//: - 先頭側と末尾側から `str_is_space` が true の byte を読み飛ばします。
+//: - 先頭側と末尾側から `string_byte_is_ascii_space` が true の位置を読み飛ばします。
+//: - 範囲確認と raw read は `byte_index` module に閉じ、trim 側は範囲外を false とする predicate だけを使います。
 //: - 最後に残った byte 範囲を `str_slice` で切り出します。
 //:
 //: [注意/ちゅうい]:
@@ -111,14 +110,10 @@ pub fn str_trim %fn str str \s:
             if:
                 lt start end
                 then:
-                    match checked_string_byte_at s start:
-                        Option::Some b:
-                            if:
-                                str_is_space b
-                                then set start %i32 add start 1
-                                else set done 1
-                        Option::None:
-                            set done 1
+                    if:
+                        string_byte_is_ascii_space s start
+                        then set start %i32 add start 1
+                        else set done 1
                 else:
                     set done 1
     let mut done2 %i32 0;
@@ -128,14 +123,10 @@ pub fn str_trim %fn str str \s:
                 lt start end
                 then:
                     let idx %i32 sub end 1;
-                    match checked_string_byte_at s idx:
-                        Option::Some b:
-                            if:
-                                str_is_space b
-                                then set end %i32 sub end 1
-                                else set done2 1
-                        Option::None:
-                            set done2 1
+                    if:
+                        string_byte_is_ascii_space s idx
+                        then set end %i32 sub end 1
+                        else set done2 1
                 else:
                     set done2 1
     str_slice s start end

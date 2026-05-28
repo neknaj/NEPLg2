@@ -130,6 +130,25 @@ pub fn checked_string_byte_at %fn str fn i32 Option i32 \s\idx:
         Option::None:
             none
 
+//: string_byte_or_invalid: byte を読み、範囲外なら private sentinel を返す
+//:
+//: [目的/もくてき]:
+//: - byte_index module 内部で、範囲外を false に畳み込む小さな helper から使います。
+//: - `checked_string_byte_at` と同じ境界確認を行い、raw read は `StringByteIndex` witness を経由します。
+//:
+//: [注意/ちゅうい]:
+//: - 有効な byte は 0..255 なので、-1 は byte と衝突しない sentinel として扱えます。
+//: - sentinel は public API に出しません。範囲外を値として扱う caller は `checked_string_byte_at` を使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn string_byte_or_invalid %fn str fn i32 i32 \s\idx:
+    match checked_string_byte_index s idx:
+        Option::Some proof:
+            string_byte_at_checked s proof
+        Option::None:
+            -1
+
 //: string_byte_eq: byte index の値が期待 byte と一致するかを checked に判定する
 //:
 //: [目的/もくてき]:
@@ -149,11 +168,37 @@ pub fn checked_string_byte_at %fn str fn i32 Option i32 \s\idx:
 //:     if and string_byte_eq "AZ" 0 'A' not string_byte_eq "AZ" 2 'Z' 0 1
 //: ```
 pub fn string_byte_eq %fn str fn i32 fn i32 bool \s\idx\expected:
-    match checked_string_byte_at s idx:
-        Option::Some actual:
-            eq actual expected
-        Option::None:
-            false
+    let actual %i32 string_byte_or_invalid s idx
+    and ne actual -1 eq actual expected
+
+//: string_byte_is_ascii_space: byte index の値が ASCII 空白かを checked に判定する
+//:
+//: [目的/もくてき]:
+//: - trim や scanner が `idx` の byte を ASCII space/tab/LF/CR と比較するとき、範囲外を `false` として扱います。
+//: - 範囲証明と raw read は byte_index module に閉じ、caller は sentinel 値を扱いません。
+//:
+//: [実装/じっそう]:
+//: - private helper で byte を 1 回だけ読み、ASCII 空白 4 種に対して比較します。
+//:
+//: [注意/ちゅうい]:
+//: - 判定対象は ASCII の space/tab/LF/CR のみです。Unicode 空白は扱いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn string_byte_is_ascii_space %fn str fn i32 bool \s\idx:
+    let actual %i32 string_byte_or_invalid s idx
+    if:
+        eq actual ' '
+        then true
+        else:
+            if:
+                eq actual '\t'
+                then true
+                else:
+                    if:
+                        eq actual '\n'
+                        then true
+                        else eq actual '\r'
 
 //: string_bytes_eq: 2 つの文字列 byte が同じかを checked に判定する
 //:

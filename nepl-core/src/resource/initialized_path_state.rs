@@ -18,7 +18,7 @@ use super::{
 
 const MAX_PATH_SENSITIVE_ALTERNATIVES: usize = 4;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct ResourceCheckState {
     pub(super) cells: CellTable,
     pub(super) collection_slots: CollectionSlotStateTable,
@@ -57,6 +57,9 @@ pub(super) enum ResourcePathAlternatives {
 
 impl ResourcePathAlternatives {
     pub(super) fn from_states(mut states: Vec<ResourceCheckState>) -> Self {
+        if states.len() > MAX_PATH_SENSITIVE_ALTERNATIVES {
+            dedup_resource_check_states(&mut states);
+        }
         // 空の候補集合は、既存の path-sensitive replay が全候補を棄却した
         // 結果として使われる。単に path-sensitive refinement が存在しない
         // 場合は、呼び出し元で `None` のままにして直線状態を保持する。
@@ -175,6 +178,16 @@ fn merge_resource_check_states(alternatives: &[ResourceCheckState]) -> ResourceC
     }
 }
 
+fn dedup_resource_check_states(states: &mut Vec<ResourceCheckState>) {
+    let mut unique = Vec::new();
+    for state in states.drain(..) {
+        if !unique.iter().any(|existing| existing == &state) {
+            unique.push(state);
+        }
+    }
+    *states = unique;
+}
+
 pub(super) fn merge_path_alternatives_into(
     alternatives: &[ResourceCheckState],
     cells: &mut CellTable,
@@ -198,20 +211,61 @@ pub(super) fn merge_path_alternatives_into(
 
 #[cfg(test)]
 mod tests {
+    use alloc::format;
+    use alloc::string::String;
     use alloc::vec;
+
+    use crate::resource::model::Place;
+    use crate::types::TypeId;
 
     use super::*;
 
-    #[test]
-    fn path_alternatives_merge_to_single_state_after_precision_budget() {
-        let state = ResourceCheckState::new(
+    fn empty_resource_check_state() -> ResourceCheckState {
+        ResourceCheckState::new(
             CellTable::default(),
             CollectionSlotStateTable::new(),
             RawCellAddressAliases::default(),
             FunctionAliasTable::default(),
             PendingRawReallocs::default(),
             PendingVariantRawCellInitializations::default(),
+        )
+    }
+
+    fn resource_check_state_with_function_alias(index: usize) -> ResourceCheckState {
+        let mut function_aliases = FunctionAliasTable::default();
+        let name = format!("f{index}");
+        function_aliases.set_alias(
+            &Place::local(String::from("callback"), TypeId(0)),
+            String::from(name),
         );
+        ResourceCheckState::new(
+            CellTable::default(),
+            CollectionSlotStateTable::new(),
+            RawCellAddressAliases::default(),
+            function_aliases,
+            PendingRawReallocs::default(),
+            PendingVariantRawCellInitializations::default(),
+        )
+    }
+
+    #[test]
+    fn path_alternatives_merge_to_single_state_after_precision_budget() {
+        let alternatives = (0..=MAX_PATH_SENSITIVE_ALTERNATIVES)
+            .map(resource_check_state_with_function_alias)
+            .collect::<Vec<_>>();
+
+        let ResourcePathAlternatives::Feasible(states) =
+            ResourcePathAlternatives::from_states(alternatives)
+        else {
+            panic!("from_states should keep feasible path alternatives");
+        };
+
+        assert_eq!(states.len(), 1);
+    }
+
+    #[test]
+    fn path_alternatives_drop_duplicate_states_before_precision_budgeting() {
+        let state = empty_resource_check_state();
         let alternatives = vec![state; MAX_PATH_SENSITIVE_ALTERNATIVES + 1];
 
         let ResourcePathAlternatives::Feasible(states) =

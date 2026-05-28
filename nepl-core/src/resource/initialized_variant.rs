@@ -65,7 +65,7 @@ struct PendingConcreteVariant {
     variant: String,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct PendingVariantRawCellInitializations {
     entries: Vec<PendingVariantRawCellInitialization>,
     byte_ranges: Vec<PendingVariantRawByteRangeInitialization>,

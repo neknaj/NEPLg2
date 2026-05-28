@@ -466,6 +466,14 @@ Web release RPN doctest 測定では、初回 `compile_ms=9095`、`prewarm_ms=21
 
 native release RPN stage-only 測定では、直前 checkpoint の `resource_initialized_raw_init_summaries=2421ms`、`resource_initialized_function_checks=3224ms`、`resource_static_check=7776ms` に対し、今回 checkpoint は `resource_initialized_raw_init_summaries=2281ms`、`resource_initialized_function_checks=3090ms`、`resource_static_check=7443ms` だった。初回 compile 0.5 秒未満にはまだ届かないため、次は typed public signature hash と dependency public surface hash を使う Resource IR summary cache に進む。
 
+2026-05-28 の duplicate path dedup / string byte predicate checkpoint では、Resource IR initialized check の `ResourcePathAlternatives::from_states` で budget 超過時に完全重複候補だけを先に落とすようにした。subagent review では、全候補が同一でも既存 merge が collection slot range の弱化や raw alias 正規化を行うことを確認したため、merge lattice を clone で省略する fast path は採用しない。dedup は exact duplicate だけを落とし、残った候補は従来どおり conservative merge に通す。
+
+同 checkpoint では、`string/byte_index` に private `string_byte_or_invalid` と public `string_byte_is_ascii_space` を追加した。sentinel 値は byte_index module 内部に閉じ、public API は `bool` predicate のままにする。`str_trim` は loop 本体で `Option` branch を直接展開せず、この checked predicate だけを使う。これにより raw read の範囲証明は byte_index module に閉じ、Zenn 方針の Option/Result public boundary と性能上の branch 削減を両立する。
+
+native release RPN stage-only 測定では、safe revision 後に `resource_initialized_i32_scalar_summaries=1256ms`、`resource_initialized_raw_init_summaries=2549ms`、`resource_initialized_function_checks=3139ms`、`resource_static_check=7870ms` だった。per-function timing run では `str_trim` の function check が before の `1018ms` から `699ms` へ下がった。一方で全体はまだ 7 秒台で、raw init summary と function check が支配的である。
+
+この checkpoint も Resource summary value reuse ではない。subagent review では、既存 summary struct が `TypeId` や `Span` を含むため、そのまま長寿命 cache value にしないことを確認した。次段階では namespace key に function body hash、generic type-argument hash、source capability policy hash、summary kind/version を追加し、arena 非依存の stable mirror value へ落としてから stdlib summary reuse に接続する。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

@@ -19,7 +19,7 @@ struct CertifiedRawStorageRelocation {
     result: Place,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct PendingRawReallocs {
     entries: Vec<PendingRawRealloc>,
     certified_relocations: Vec<CertifiedRawStorageRelocation>,

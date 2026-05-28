@@ -16,7 +16,7 @@ use super::place_utils::{
 use super::raw_cell_value_flow::RawCellValueFlowFacts;
 use super::type_pattern::type_pattern_matches;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct CellTable {
     cells: Vec<CellStateEntry>,
     owned_raw_storage_roots: Vec<Place>,
