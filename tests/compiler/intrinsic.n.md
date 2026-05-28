@@ -63,10 +63,10 @@ ret: 0
 #import "core/mem/raw" as *
 
 fn main %fn unit i32 \unit:
-    let s_i64 %i32 size_of<i64>;
-    let a_i64 %i32 align_of<i64>;
-    let s_f64 %i32 size_of<f64>;
-    let a_f64 %i32 align_of<f64>;
+    let s_i64 %i32 size_of %i64;
+    let a_i64 %i32 align_of %i64;
+    let s_f64 %i32 size_of %f64;
+    let a_f64 %i32 align_of %f64;
     if:
         and eq s_i64 8 and eq a_i64 8 and eq s_f64 8 eq a_f64 8
         then:
@@ -159,10 +159,10 @@ fn main %impure fn unit i32 \unit:
     let high %i64 mul %i64 cast 65536 %i64 cast 65536;
     let v %i64 add high %i64 cast 7;
     let r %Result unit i64 Result::Err v;
-    let p %i32 alloc_raw size_of<Result<unit,i64>>;
+    let p %i32 alloc_raw size_of %Result unit i64;
     store<Result<unit,i64>> p r;
     let got %Result unit i64 load<Result<unit,i64>> p;
-    dealloc_raw p size_of<Result<unit,i64>>;
+    dealloc_raw p size_of %Result unit i64;
     match got:
         Result::Ok _u:
             1
@@ -229,12 +229,12 @@ struct Pair:
 
 fn main %fn unit i32 \unit:
     if:
-        eq size_of<str> 4
+        eq size_of %str 4
         then:
             if:
-                eq size_of<Pair> 8
+                eq size_of %Pair 8
                 then:
-                    if eq align_of<Pair> 4 0 3
+                    if eq align_of %Pair 4 0 3
                 else:
                     2
         else:

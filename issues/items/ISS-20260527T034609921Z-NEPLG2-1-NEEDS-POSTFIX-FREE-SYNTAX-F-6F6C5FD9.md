@@ -2,13 +2,13 @@
 id: ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9
 title: "NEPLg2.1 needs postfix-free syntax for type-only layout generic calls"
 area: neplg21
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: architecture
 created: 2026-05-27
-updated: 2026-05-27
-target: "nepl-core/src/parser/**; nepl-core/src/typecheck/**; stdlib/core/mem/{layout,types}.nepl"
+updated: 2026-05-28
+target: "nepl-core/src/parser/**; nepl-core/src/typecheck/**; stdlib/core/mem/{layout,types}.nepl; tests/compiler/{intrinsic,sizeof}.n.md"
 ---
 
 # ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9: NEPLg2.1 needs postfix-free syntax for type-only layout generic calls
@@ -42,3 +42,32 @@ Define an official postfix-free source form or compiler-owned exception for type
 ## 検証
 
 Add parser/typechecker coverage for the selected postfix-free type-only generic form and extend the NEPLg2.1 core/mem doccomment source-policy so size_of and align_of no longer need an exclusion.
+
+## 2026-05-28 解決内容
+
+- `size_of %T` / `align_of %T` を NEPLg2.1 の公式 postfix-free layout query 形として採用した。
+- parser は `size_of` / `align_of` の直後に限って `%` type expression を explicit type args として `Symbol::Ident` に保持する。これは値注釈でも部分適用でもなく、layout query 専用の compiler-owned type metadata である。
+- 通常関数の `callee %i32 value` は従来どおり value-level type ascription として扱う回帰テストを追加した。
+- `stdlib/core/mem/layout.nepl`、`stdlib/core/mem/types.nepl`、`tests/compiler/intrinsic.n.md`、`tests/compiler/sizeof.n.md` の layout query 呼び出しを `size_of %...` / `align_of %...` へ移行した。
+- source policy regression は executable code / doctest code fence だけを対象にし、コメントや doccomment の増加そのものを制限しない形で旧 `size_of<...>` / `align_of<...>` を検出する。
+
+## 残件の分離
+
+- `size_of_t<i32>` のような値引数なし・戻り値 `i32` の user generic wrapper は、型根拠が call site に残らないため本 issue とは別問題として扱う。
+- 追加 issue: `ISS-20260528T085628387Z-NEPLG2-1-NEEDS-POSTFIX-FREE-TYPE-EVI-43646AFF`
+
+## 2026-05-28 検証
+
+- pass: `cargo fmt -p nepl-core --check`
+- pass: `cargo check -p nepl-core`
+- pass: `cargo check --manifest-path nepl-web\Cargo.toml`
+- pass: `cargo test -p nepl-core --test intrinsic intrinsic_size_and_align_neplg21_type_marker -- --nocapture`
+- pass: `cargo test -p nepl-core --test resource_ir resource_ir_layout_intrinsics_use_shared_core_intrinsic_kind -- --nocapture`
+- pass: `cargo test -p nepl-core --test typeannot test_neplg21_percent_after_normal_callee_remains_value_annotation -- --nocapture`
+- pass: `trunk build`
+- pass: `node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --no-tree -o tmp/neplg21-core-mem-type-query-intrinsic-20260528.json -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/tests.js -i stdlib/core/mem/layout.nepl -i stdlib/core/mem/types.nepl --no-tree -o tmp/neplg21-core-mem-layout-type-query-20260528.json -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/tests.js -i tests/compiler/sizeof.n.md --no-tree -o tmp/neplg21-core-mem-sizeof-type-query-20260528.json -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/test_neplg21_core_mem_layout_type_query_cleanup.js`
+- pass: `node nodesrc/test_neplg21_core_mem_positive_doc_postfix_cleanup.js`
+- pass with existing warn-only findings: `node nodesrc/run_source_policy_regressions.js --warn-only`

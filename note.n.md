@@ -1,3 +1,17 @@
+# 2026-05-28 NEPLg2.1 layout query postfix-free type marker checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を確認し、試作段階では後方互換より仕様整合性と静的検査の正確性を優先する方針で進めた。
+- `size_of %T` / `align_of %T` を NEPLg2.1 の postfix-free layout query 形として実装した。parser は `size_of` / `align_of` の直後に限って `%` type expression を explicit type args として `Symbol::Ident` に保持し、value ascription や部分適用とは別の compiler-owned metadata として扱う。
+- 通常関数の `callee %i32 value` が引き続き value-level type ascription になることを Rust 回帰テストで固定した。
+- `stdlib/core/mem/layout.nepl`、`stdlib/core/mem/types.nepl`、`tests/compiler/intrinsic.n.md`、`tests/compiler/sizeof.n.md` の `size_of<...>` / `align_of<...>` を新記法へ移行した。`sizeof` fixture の collection layout 期待値は private storage enum ではなく `Vec .T` の documented aggregate field である `OwnedBuffer .T` に寄せた。
+- source policy は executable source と doctest fence の旧 layout query spelling だけを検出し、コメントや doccomment の増加を妨げない形にした。core/mem positive doctest policy も `size_of` / `align_of` を migrated helper に加えた。
+- subagent 2 件で設計と移行範囲を独立レビューした。`size_of %T` / `align_of %T` は一般的な `callee %T` 構文ではなく layout query 専用例外とすること、第一 checkpoint は core/mem positive doctest と focused compiler fixtures に絞ることを確認した。
+- `size_of_t<i32>` のような値引数なし・戻り値 `i32` の user generic wrapper は、call site に型根拠が残らない別問題として `ISS-20260528T085628387Z-NEPLG2-1-NEEDS-POSTFIX-FREE-TYPE-EVI-43646AFF` に分離した。
+- `ISS-20260527T034609921Z-NEPLG2-1-NEEDS-POSTFIX-FREE-SYNTAX-F-6F6C5FD9` は verified 済み。
+- 検証: `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core --test intrinsic intrinsic_size_and_align_neplg21_type_marker -- --nocapture`、`cargo test -p nepl-core --test resource_ir resource_ir_layout_intrinsics_use_shared_core_intrinsic_kind -- --nocapture`、`cargo test -p nepl-core --test typeannot test_neplg21_percent_after_normal_callee_remains_value_annotation -- --nocapture`、`trunk build`、`node nodesrc/tests.js -i tests/compiler/intrinsic.n.md --no-tree -o tmp/neplg21-core-mem-type-query-intrinsic-20260528.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i stdlib/core/mem/layout.nepl -i stdlib/core/mem/types.nepl --no-tree -o tmp/neplg21-core-mem-layout-type-query-20260528.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i tests/compiler/sizeof.n.md --no-tree -o tmp/neplg21-core-mem-sizeof-type-query-20260528.json -j 1 --dist web/dist --assert-io`、`node nodesrc/test_neplg21_core_mem_layout_type_query_cleanup.js`、`node nodesrc/test_neplg21_core_mem_positive_doc_postfix_cleanup.js` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warn-only 警告として documentation gap、Vec cleanup stale NEPLg2.0 regex、typecheck/driver.rs line split limit が残る。今回追加した parser helper の責務境界警告は `qualified_name::member_tail` へ寄せて解消済み。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 NEPLg2.1 collection cleanup contract postfix checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を確認し、試作段階では後方互換より静的検査の正確性と根本修正を優先する方針で進めた。

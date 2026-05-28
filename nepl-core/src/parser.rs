@@ -10,6 +10,7 @@ use crate::ast::*;
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::{DiagnosticCode, ParserDiagnosticCode};
 use crate::lexer::{LexResult, Token, TokenKind};
+use crate::qualified_name::member_tail;
 use crate::span::{FileId, Span};
 
 mod neplg21_type_expr;
@@ -3967,6 +3968,23 @@ impl Parser {
                     }
                 }
             }
+
+            // NEPLg2.1 removes ordinary postfix generic calls, but layout queries are
+            // type-space queries whose result is always an i32.  The `%T` marker here is
+            // therefore parsed as compiler-owned explicit type metadata for the layout
+            // query, not as value-level type ascription or partial application syntax.
+            if type_args.is_empty()
+                && Self::is_neplg21_type_only_layout_query_name(&full)
+                && self.check(&TokenKind::Percent)
+            {
+                self.next();
+                let ty = self.parse_neplg21_type_expr()?;
+                type_args.push(ty);
+                end_span = end_span
+                    .join(self.previous_span().unwrap_or(end_span))
+                    .unwrap_or(end_span);
+                continue;
+            }
             break;
         }
 
@@ -3995,6 +4013,10 @@ impl Parser {
 
     fn is_reserved_layout_word(name: &str) -> bool {
         matches!(name, "cond" | "then" | "else" | "do")
+    }
+
+    fn is_neplg21_type_only_layout_query_name(name: &str) -> bool {
+        matches!(member_tail(name), "size_of" | "align_of")
     }
 
     fn is_allowed_layout_marker_usage(current_items: &[PrefixItem], name: &str) -> bool {

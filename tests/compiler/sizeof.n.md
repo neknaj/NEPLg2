@@ -1,6 +1,6 @@
 # sizeof の検証
 
-`size_of<T>` が基本型とジェネリクスで正しく動作するかを確認します。
+`size_of %T` が基本型とジェネリクスで正しく動作するかを確認します。
 
 ## sizeof_primitives
 
@@ -17,18 +17,18 @@ stdout: "test_report name=\"sizeof_primitives\" count=1 failed=0\nassertion inde
 
 fn main %impure fn unit i32 \unit:
     let actual %i32 if:
-        eq size_of<i32> 4
+        eq size_of %i32 4
         then:
             if:
-                eq size_of<i64> 8
+                eq size_of %i64 8
                 then:
                     if:
-                        eq size_of<f32> 4
+                        eq size_of %f32 4
                         then:
                             if:
-                                eq size_of<f64> 8
+                                eq size_of %f64 8
                                 then:
-                                    if eq size_of<str> 4 0 5
+                                    if eq size_of %str 4 0 5
                                 else:
                                     4
                         else:
@@ -58,16 +58,16 @@ stdout: "test_report name=\"sizeof_generic_function\" count=1 failed=0\nassertio
 #import "std/test" as *
 
 fn size_of_t <.T> %fn unit i32 \unit:
-    size_of<.T>
+    size_of %.T
 
 fn main %impure fn unit i32 \unit:
     let actual %i32 if:
-        eq size_of<i32> size_of_t<i32>
+        eq size_of %i32 size_of_t<i32>
         then:
             if:
-                eq size_of<i64> size_of_t<i64>
+                eq size_of %i64 size_of_t<i64>
                 then:
-                    if eq size_of<str> size_of_t<str> 0 3
+                    if eq size_of %str size_of_t<str> 0 3
                 else:
                     2
         else:
@@ -97,9 +97,9 @@ struct Wrap<.T>:
 
 fn main %impure fn unit i32 \unit:
     let actual %i32 if:
-        eq size_of<i32> size_of<Wrap<i32>>
+        eq size_of %i32 size_of %Wrap i32
         then:
-            if eq size_of<str> size_of<Wrap<str>> 0 2
+            if eq size_of %str size_of %Wrap str 0 2
         else:
             1
     let report:
@@ -132,9 +132,9 @@ struct WidePair:
 
 fn main %impure fn unit i32 \unit:
     let actual %i32 if:
-        eq size_of<Pair> 8
+        eq size_of %Pair 8
         then:
-            if eq size_of<WidePair> 12 0 2
+            if eq size_of %WidePair 12 0 2
         else:
             1
     let report:
@@ -160,11 +160,11 @@ stdout: "test_report name=\"sizeof_algebraic_types\" count=1 failed=0\nassertion
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let s_i32 %i32 size_of<i32>;
-    let s_str %i32 size_of<str>;
-    let s_opt_i32 %i32 size_of<Option<i32>>;
-    let s_opt_str %i32 size_of<Option<str>>;
-    let s_res_i32_str %i32 size_of<Result<i32,str>>;
+    let s_i32 %i32 size_of %i32;
+    let s_str %i32 size_of %str;
+    let s_opt_i32 %i32 size_of %Option i32;
+    let s_opt_str %i32 size_of %Option str;
+    let s_res_i32_str %i32 size_of %Result i32 str;
     let actual %i32 if:
         lt s_opt_i32 s_i32
         then:
@@ -211,10 +211,10 @@ struct Node<.T>:
     tail %Option .T
 
 fn main %impure fn unit i32 \unit:
-    let s_cell_i64 %i32 size_of<Cell<i64>>;
-    let s_i64 %i32 size_of<i64>;
-    let s_node_i32 %i32 size_of<Node<i32>>;
-    let s_res %i32 size_of<Result<Node<i32>, Cell<i64>>>;
+    let s_cell_i64 %i32 size_of %Cell i64;
+    let s_i64 %i32 size_of %i64;
+    let s_node_i32 %i32 size_of %Node i32;
+    let s_res %i32 size_of %Result Node i32 Cell i64;
     let actual %i32 if:
         eq s_cell_i64 s_i64
         then:
@@ -258,18 +258,18 @@ stdout: "test_report name=\"sizeof_collection_structs\" count=1 failed=0\nassert
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let vec_expected %i32 add (add 4 4) size_of<VecStorage<i32>>;
-    let stack_expected %i32 add (add 4 4) size_of<Vec<Option<i32>>>;
+    let vec_expected %i32 size_of %OwnedBuffer i32;
+    let stack_expected %i32 add (add 4 4) size_of %Vec Option i32;
     let actual %i32 if:
-        eq size_of<Vec<i32>> vec_expected
+        eq size_of %Vec i32 vec_expected
         then:
             if:
-                eq size_of<Stack<i32>> stack_expected
+                eq size_of %Stack i32 stack_expected
                 then:
                     if:
-                        gt size_of<HashMap<i32, i32, DefaultHash32>> 0
+                        gt size_of %HashMap i32 i32 DefaultHash32 0
                         then:
-                            if gt size_of<HashSet<i32, DefaultHash32>> 0 0 4
+                            if gt size_of %HashSet i32 DefaultHash32 0 0 4
                         else:
                             3
                 else:
@@ -306,16 +306,16 @@ stdout: "test_report name=\"sizeof_diag_structs\" count=1 failed=0\nassertion in
 
 fn main %impure fn unit i32 \unit:
     let actual %i32 if:
-        eq size_of<Span> 12
+        eq size_of %Span 12
         then:
             if:
-                gt size_of<Diag> 0
+                gt size_of %Diag 0
                 then:
                     if:
-                        gt size_of<Diags> 0
+                        gt size_of %Diags 0
                         then:
                             if:
-                                gt size_of<Outcome<i32, StdErrorKind>> 0
+                                gt size_of %Outcome i32 StdErrorKind 0
                                 then:
                                     0
                                 else:
@@ -333,19 +333,16 @@ fn main %impure fn unit i32 \unit:
     test_report_exit_code shown
 ```
 
-## sizeof_generic_param_requires_dot
+## sizeof_unresolved_type_name_is_rejected
 
 neplg2:test[compile_fail]
-diag_codes: parser.type_expr.invalid
+diag_codes: type.generic_call.unresolved_type_args
 ```neplg2
 #target std
 #entry main
 #indent 4
 #import "core/mem" as *
 
-fn bad_sizeof %T %fn unit i32 \unit:
-    size_of<T>
-
 fn main %impure fn unit unit \unit:
-    bad_sizeof<i32>;
+    let _size %i32 size_of %T;
 ```

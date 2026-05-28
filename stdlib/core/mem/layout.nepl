@@ -120,7 +120,7 @@ pub fn alloc_payload_fits %fn i32 bool \bytes:
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     if eq size_of<i32> 4 1 0
+//:     if eq size_of %i32 4 1 0
 //: ```
 pub fn size_of <.T> %fn unit i32 \unit:
     #intrinsic "size_of" <.T> ()
@@ -147,7 +147,7 @@ pub fn size_of <.T> %fn unit i32 \unit:
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     if ge align_of<i32> 1 1 0
+//:     if ge align_of %i32 1 1 0
 //: ```
 pub fn align_of <.T> %fn unit i32 \unit:
     #intrinsic "align_of" <.T> ()

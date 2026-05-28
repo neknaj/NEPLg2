@@ -41,6 +41,24 @@ fn main %fn unit i32 \unit:
 }
 
 #[test]
+fn test_neplg21_percent_after_normal_callee_remains_value_annotation() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn bump %fn i32 i32 \x:
+    add x 1
+
+fn main %fn unit i32 \unit:
+    bump %i32 41
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 42);
+}
+
+#[test]
 fn test_neplg21_prefix_generic_type_annot() {
     let src = r#"
 #entry main

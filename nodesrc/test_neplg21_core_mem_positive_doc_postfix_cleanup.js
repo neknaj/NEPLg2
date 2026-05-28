@@ -15,6 +15,7 @@ const coreMemSources = [
 const migratedHelpers = [
     "alloc_region",
     "alloc_region_bytes",
+    "align_of",
     "dealloc_region",
     "mem_ptr_add",
     "mem_ptr_wrap",
@@ -22,6 +23,7 @@ const migratedHelpers = [
     "region_new",
     "region_ptr_at",
     "region_realloc_error_region",
+    "size_of",
 ];
 
 const helperCallPattern = new RegExp(`\\b(?:${migratedHelpers.map(escapeRegExp).join("|")})<`);

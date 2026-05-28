@@ -17,7 +17,7 @@
 //:| #import "core/mem" as *
 //:| #import "core/math" as *
 //: fn main %impure fn unit i32 \unit:
-//:     if ge size_of<MemPtr<i32>> 4 1 0
+//:     if ge size_of %MemPtr i32 4 1 0
 //: ```
 pub struct MemPtr<.T>:
     raw %i32

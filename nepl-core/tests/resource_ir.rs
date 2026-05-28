@@ -547,11 +547,11 @@ struct Pair:
     right <i32>
 
 fn pair_size <()->i32> ():
-    size_of<Pair>
+    size_of %Pair
 
 fn main <()->i32> ():
     let size <i32> pair_size
-    let align <i32> align_of<Pair>
+    let align <i32> align_of %Pair
     add size align
 "#;
 
@@ -560,12 +560,12 @@ fn main <()->i32> ():
     let dump = resource.dump_text();
     assert!(
         dump.contains("expr LiteralI32(8)"),
-        "size_of<Pair> wrapper call must lower to a Resource IR scalar fact:\n{}",
+        "size_of %Pair wrapper call must lower to a Resource IR scalar fact:\n{}",
         dump
     );
     assert!(
         dump.contains("expr LiteralI32(4)"),
-        "align_of<Pair> intrinsic must lower to a Resource IR scalar fact:\n{}",
+        "align_of %Pair intrinsic must lower to a Resource IR scalar fact:\n{}",
         dump
     );
 }

@@ -29,6 +29,31 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn intrinsic_size_and_align_neplg21_type_marker() {
+    let src = r#"
+#target wasm
+#entry main
+#indent 4
+#import "core/math" as *
+#import "core/mem" as *
+
+struct Pair:
+    left %i32
+    right %i32
+
+fn pair_size %fn unit i32 \unit:
+    size_of %Pair
+
+fn main %fn unit i32 \unit:
+    let s_i32 %i32 size_of %i32
+    let a_pair %i32 align_of %Pair
+    let pair_size0 %i32 pair_size
+    if and eq s_i32 4 and eq pair_size0 8 ge a_pair 1 0 1
+"#;
+    assert_eq!(run_main_i32(src), 0);
+}
+
+#[test]
 fn intrinsic_load_store_i64() {
     let src = r#"
 #target wasi
