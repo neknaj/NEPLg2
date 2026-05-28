@@ -15618,7 +15618,7 @@ fn main <()*>i32> ():
                     matches!(
                         op,
                         ResourceOp::CollectionSlotLifecycle {
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc { .. },
                             ..
                         }
                     )
@@ -15817,7 +15817,7 @@ fn main <()*>i32> ():
                     matches!(
                         op,
                         ResourceOp::CollectionSlotLifecycle {
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc { .. },
                             ..
                         }
                     )
@@ -26400,7 +26400,7 @@ fn cleanup_region <(&RegionToken<LocalOwner>,LocalOwner,LocalOwner)->i32> (stora
                     matches!(
                         op,
                         ResourceOp::CollectionSlotLifecycle {
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc { .. },
                             ..
                         }
                     )
@@ -27084,7 +27084,7 @@ fn resource_ir_collection_slot_drop_traversal_accepts_all_loaded_value_drops() {
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -27399,7 +27399,7 @@ fn resource_ir_collection_storage_dealloc_rejects_moved_symbolic_slot_without_ra
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -27491,7 +27491,7 @@ fn resource_ir_collection_slot_drop_traversal_summary_rejects_marker_only_cleanu
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -27793,7 +27793,7 @@ fn resource_ir_collection_slot_drop_traversal_keeps_partial_branch_maybe_live() 
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -28358,7 +28358,7 @@ fn resource_ir_collection_slot_move_transfers_slot_state_to_output() {
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: moved_storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -28439,7 +28439,7 @@ fn resource_ir_collection_slot_construct_transfers_slot_state_to_field() {
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: field_storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -28530,7 +28530,7 @@ fn resource_ir_collection_slot_merges_branch_liveness_before_storage_dealloc() {
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -28606,7 +28606,7 @@ fn resource_ir_collection_slot_call_summary_moves_slot_before_storage_dealloc() 
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -28694,7 +28694,9 @@ fn resource_ir_collection_slot_call_summary_returns_live_slot_state() {
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -28802,7 +28804,9 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_return
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -28925,7 +28929,9 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_return
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -29123,7 +29129,9 @@ fn resource_ir_collection_slot_call_summary_uses_callsite_raw_alias_for_nested_r
                                     ops: vec![
                                         ResourceOp::CollectionSlotLifecycle {
                                             target: recovered_storage,
-                                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                                value_ty: owned_ty,
+                                            },
                                             span,
                                         },
                                         ResourceOp::Expr {
@@ -29304,7 +29312,9 @@ fn resource_ir_collection_slot_call_summary_transfers_match_bound_returned_paylo
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -29402,7 +29412,9 @@ fn resource_ir_collection_slot_call_summary_collects_match_bound_lifecycle_event
                                     },
                                     ResourceOp::CollectionSlotLifecycle {
                                         target: callee_err_storage,
-                                        event: CollectionSlotLifecycleEvent::StorageDealloc,
+                                        event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                            value_ty: owned_ty,
+                                        },
                                         span,
                                     },
                                     ResourceOp::Expr {
@@ -29614,7 +29626,9 @@ fn resource_ir_collection_slot_call_summary_transfers_caller_slot_through_return
                                     ops: vec![
                                         ResourceOp::CollectionSlotLifecycle {
                                             target: recovered_storage,
-                                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                                value_ty: owned_ty,
+                                            },
                                             span,
                                         },
                                         ResourceOp::Expr {
@@ -29892,7 +29906,9 @@ fn assert_collection_slot_nested_returned_enum_payload_transfer(
                                     ops: vec![
                                         ResourceOp::CollectionSlotLifecycle {
                                             target: recovered_storage,
-                                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                                value_ty: owned_ty,
+                                            },
                                             span,
                                         },
                                         ResourceOp::Expr {
@@ -29989,7 +30005,9 @@ fn resource_ir_collection_slot_call_summary_returns_released_storage_marker() {
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: helper_storage.clone(),
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -30252,7 +30270,9 @@ fn resource_ir_collection_slot_return_summary_does_not_cross_join_indirect_calle
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -30466,7 +30486,9 @@ fn resource_ir_collection_slot_return_summary_skips_never_branch_path_effects() 
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -30698,7 +30720,9 @@ fn resource_ir_collection_slot_return_summary_skips_never_match_arm_path_effects
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -30828,7 +30852,9 @@ fn resource_ir_collection_slot_return_value_producer_skips_never_branch_value() 
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -30974,7 +31000,9 @@ fn resource_ir_collection_slot_return_value_producer_skips_never_match_value() {
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -31029,7 +31057,7 @@ fn resource_ir_collection_slot_return_path_state_only_replay_does_not_duplicate_
                     id: ResourceBlockId(0),
                     ops: vec![ResourceOp::CollectionSlotLifecycle {
                         target: helper_storage.clone(),
-                        event: CollectionSlotLifecycleEvent::StorageDealloc,
+                        event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                         span,
                     }],
                     terminator: ResourceTerminator::Return {
@@ -31196,7 +31224,9 @@ fn resource_ir_collection_slot_call_summary_replaces_stale_output_slot_state() {
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                     ],
@@ -31320,7 +31350,7 @@ fn resource_ir_collection_storage_relocate_transfers_after_realloc_success_proof
                     },
                     ResourceOp::CollectionSlotLifecycle {
                         target: new_storage,
-                        event: CollectionSlotLifecycleEvent::StorageDealloc,
+                        event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                         span,
                     },
                     ResourceOp::Expr {
@@ -31424,7 +31454,7 @@ fn resource_ir_collection_storage_relocate_accepts_live_non_copy_payload_after_r
                     },
                     ResourceOp::CollectionSlotLifecycle {
                         target: new_slot,
-                        event: CollectionSlotLifecycleEvent::StorageDealloc,
+                        event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                         span,
                     },
                     ResourceOp::Expr {
@@ -31752,7 +31782,7 @@ fn resource_ir_collection_storage_relocate_call_summary_does_not_replay_without_
 
 #[test]
 fn resource_ir_collection_storage_dealloc_requires_raw_release_proof() {
-    let (types, owned_ty) = types_with_copy_owned();
+    let (types, owned_ty) = types_with_non_copy_owned();
     let unit_ty = types.unit();
     let span = Span::dummy();
     let storage = Place::local("buffer".to_string(), owned_ty);
@@ -31761,7 +31791,7 @@ fn resource_ir_collection_storage_dealloc_requires_raw_release_proof() {
         span,
         vec![ResourceOp::CollectionSlotLifecycle {
             target: storage.clone(),
-            event: CollectionSlotLifecycleEvent::StorageDealloc,
+            event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
             span,
         }],
     );
@@ -31783,7 +31813,7 @@ fn resource_ir_collection_storage_dealloc_requires_raw_release_proof() {
 
 #[test]
 fn resource_ir_collection_storage_dealloc_accepts_raw_dealloc_release_proof() {
-    let (types, owned_ty) = types_with_copy_owned();
+    let (types, owned_ty) = types_with_non_copy_owned();
     let unit_ty = types.unit();
     let span = Span::dummy();
     let storage = Place::local("buffer".to_string(), owned_ty);
@@ -31805,7 +31835,7 @@ fn resource_ir_collection_storage_dealloc_accepts_raw_dealloc_release_proof() {
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -31980,7 +32010,7 @@ fn resource_ir_raw_dealloc_releases_collection_slots_after_drop_proof() {
 
 #[test]
 fn resource_ir_collection_storage_dealloc_consumes_raw_release_proof_once() {
-    let (types, owned_ty) = types_with_copy_owned();
+    let (types, owned_ty) = types_with_non_copy_owned();
     let unit_ty = types.unit();
     let span = Span::dummy();
     let storage = Place::local("buffer".to_string(), owned_ty);
@@ -32002,12 +32032,12 @@ fn resource_ir_collection_storage_dealloc_consumes_raw_release_proof_once() {
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage.clone(),
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage.clone(),
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -32045,7 +32075,7 @@ fn resource_ir_collection_storage_dealloc_call_summary_does_not_replay_without_p
         "release_without_raw_dealloc",
         vec![ResourceOp::CollectionSlotLifecycle {
             target: Place::local("slot_storage".to_string(), owned_ty),
-            event: CollectionSlotLifecycleEvent::StorageDealloc,
+            event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
             span,
         }],
         vec![
@@ -32141,7 +32171,7 @@ fn resource_ir_collection_slot_call_summary_rejects_live_slot_during_storage_dea
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -32236,7 +32266,7 @@ fn resource_ir_collection_slot_call_summary_merges_callee_branch_effects() {
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -32308,7 +32338,7 @@ fn resource_ir_collection_slot_indirect_call_summary_applies_function_alias() {
             },
             ResourceOp::CollectionSlotLifecycle {
                 target: storage,
-                event: CollectionSlotLifecycleEvent::StorageDealloc,
+                event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
                 span,
             },
         ],
@@ -32482,7 +32512,9 @@ fn resource_ir_collection_slot_indirect_return_summary_preserves_path_correlatio
                         },
                         ResourceOp::CollectionSlotLifecycle {
                             target: returned_storage,
-                            event: CollectionSlotLifecycleEvent::StorageDealloc,
+                            event: CollectionSlotLifecycleEvent::StorageDealloc {
+                                value_ty: owned_ty,
+                            },
                             span,
                         },
                         ResourceOp::Expr {
@@ -32733,7 +32765,7 @@ fn symbolic_collection_slot_drop_traversal_resource(
         });
         then_ops.push(ResourceOp::CollectionSlotLifecycle {
             target: storage.clone(),
-            event: CollectionSlotLifecycleEvent::StorageDealloc,
+            event: CollectionSlotLifecycleEvent::StorageDealloc { value_ty: owned_ty },
             span,
         });
     }
