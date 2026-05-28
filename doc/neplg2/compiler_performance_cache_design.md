@@ -512,9 +512,11 @@ Resource summary value cache の owner は `LoaderSessionCache` ではなく `Co
 
 初期実装で store する条件:
 
-- namespace key があり、summary kind/version が一致する。
-- function body hash、generic type-argument hash、source capability policy hash が現在 compile の入力から決定できる。
+- namespace key があり、summary kind/version が一致する。namespace key は target/profile、typed public signature hash、dependency public surface hash の外枠であり、単独で summary value cache の key にはしない。
+- per-summary-value key は structured key として保持し、namespace key、canonical function identity、function body hash、function-local type parameter boundary、generic type-argument hash、source capability policy hash、summary kind/version を分けて持つ。短い hash だけを保存せず、debug / regression で stale hit の原因を追える形にする。
 - value は stable summary place / projection / type key、known i32、expected type、element stride、`StateOnly` / `LoadedValueDrop` proof のような arena 非依存データだけで表現できる。
+- nominal type は module/path/definition identity まで含む qualified stable type key にできる場合だけ store する。qualified identity が得られない場合は、型名文字列が一致しても別定義へ stale hit し得るため bypass に倒す。
+- label 付き generic variable は label だけでは store key として不十分である。function-local type parameter ordinal / boundary と generic type-argument hash を per-value key に含め、hit 後に現在 compile の type parameter へ再投影できる場合だけ store する。
 - cache hit 後も現在 compile の Resource IR place / type context へ再投影できる。
 
 初期実装で store しない条件:
@@ -522,6 +524,9 @@ Resource summary value cache の owner は `LoaderSessionCache` ではなく `Co
 - `CertifiedSlots`、`TransformRange`、`Event`、`Relocate`、return path facts、Merge / Loop にまたがる proof。
 - `RawCellInitializationFunctionSummary` 全体、raw alias graph、session-local `TypeId`、`Span`、`SourceMap`、typed HIR、diagnostic span を含む value。
 - `expected_ty` や `LoadedValueDrop` proof 内の型が stable type key へ正規化されておらず、現在 compile の `TypeCtx` へ再投影できない value。
+- `SummaryOffset::Unknown` のように、hit 後に exact place / offset を現在 compile の Resource IR context へ再投影できない projection。
+- nominal type identity が unqualified name だけで、module/path/definition identity と結びついていない value。
+- label 付き generic variable が function-local type parameter boundary と type-argument hash に結びついていない value。
 - source capability policy hash、generic type-argument hash、target/profile、dependency public surface hash のいずれかが未確定の compile。
 - `/stdlib` overlay、forced stdlib VFS、local stdlib override のように bundled stdlib proof と source が一致しない compile。
 
@@ -534,6 +539,8 @@ Resource summary value cache の owner は `LoaderSessionCache` ではなく `Co
 この checkpoint で記録するのは、worklist 固定点が収束した後の最終 `CollectionSlotLifecycleFunctionSummary` に top-level op として残る `CollectionSlotLifecycleSummaryOp::DropTraversal` かつ `ForallInitializedRange` の候補だけである。stable mirror key/value の再投影はまだ実装していないため、候補は hit/store ではなく `resource_summary_value_drop_traversal_forall_bypasses` として数える。return path facts や `Merge` / `Loop` 内の leaf は、初期 MVP の store 対象外なのでこの counter へ含めない。これは「安全に保存できる候補が実 workload にどれだけ存在するか」を compiled-output cache とは別に測るための段階であり、`TypeId` / `Span` / `SourceMap` / typed HIR / Resource IR body を長寿命 value に保存しない方針を維持する。
 
 2026-05-28 の stable mirror conversion checkpoint では、`DropTraversal + ForallInitializedRange` を既存 summary struct のまま cache value にせず、`ResourceSummaryStableDropTraversalForallValue` へ変換する足場を追加した。型は `TypeId` ではなく `ResourceSummaryStableTypeKey` へ変換し、無名 type variable や cycle のように arena slot へ依存する型は保存候補から外す。`SummaryPlace` / projection / symbolic offset / known i32 / `StateOnly` / `LoadedValueDrop` proof も stable mirror 型へコピーする。現 checkpoint ではまだ `BTreeMap` への store/hit は行わず、bypass counter も stable mirror へ変換できた top-level 候補だけを数える。
+
+2026-05-28 の stable mirror split checkpoint では、stable mirror 変換を `ResourceSummaryValueCache` の sibling module ではなく、`resource_summary_value_cache::stable_mirror` private submodule へ分離した。これは cache owner の public/internal API を増やさず、store/hit 実装が入る前に「統計と map 所有」と「session-local value から stable value への変換」を別責務に分けるためである。追加 review の指摘により、`SummaryOffset::Unknown` は現時点で exact offset を再投影できないため stable mirror 変換で拒否する。nominal type key と generic variable key は、per-value key に qualified definition identity / function type parameter boundary / generic type-argument hash を含めるまで store 対象にしない。
 
 必須 regression:
 

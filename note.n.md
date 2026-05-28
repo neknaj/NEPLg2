@@ -47593,3 +47593,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 追加 subagent review でも同じ境界が妥当と確認した。特に `expected_ty` や `LoadedValueDrop` proof 内の `TypeId` を stable type key へ落とさず保存することが最大リスクなので、再投影できない value は no-store / bypass に倒す。
 - implementation staging として `nepl-core::resource::ResourceSummaryValueCache` / `ResourceSummaryValueCacheStats` を追加し、`CompilerSession` が `LoaderSessionCache` とは別 field で所有するようにした。`loader_cache_stats_json()` は `resource_summary_value_*` と `resource_summary_value_drop_traversal_forall_*` counter を返す。
 - `node nodesrc/test_run_test_compiler_session.js` に、Resource summary value stats が timing JSON へ保持される regression を追加した。現時点では stable mirror value の hit/store はまだ実装していない。
+
+## 2026-05-28 Agent Resource summary stable mirror split checkpoint
+
+- Resource summary value cache の store/hit 実装へ進む前に、`ResourceSummaryValueCache` の責務を cache owner / statistics に絞り、stable mirror 変換を `resource_summary_value_cache::stable_mirror` private submodule へ分離した。`plan.md` は変更していない。
+- stable mirror module は `TypeId` を含む Resource IR summary value を、session-local arena に依存しない保存候補へ変換する責務を持つ。無名 type variable は引き続き拒否し、label 付き generic variable だけを capability 付きの stable key にする。
+- この分離は性能最適化そのものではなく、次 checkpoint の structured map key / store-hit 実装で、cache owner に型変換や projection 変換の詳細を混ぜないための設計整理である。subagent review では sibling module にすると stable mirror 型の可視性が `resource` 全体へ広がると指摘されたため、cache owner からだけ呼べる private submodule にした。
+- 追加 review では、`SummaryOffset::Unknown` は exact offset を再投影できないこと、nominal type は unqualified name だけでは定義衝突が残ること、label 付き generic variable は function-local type parameter boundary と generic type-argument hash なしでは store key にならないことが指摘された。これを受け、`SummaryOffset::Unknown` は stable mirror 変換で拒否し、design doc / issue に per-summary-value structured key の必須要素を追記した。
+- `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core stable_type_key --lib -- --nocapture`、`cargo test -p nepl-core stable_drop_traversal_forall_value --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_value_bypass_counts_only_final_top_level_forall_drop_traversal --lib -- --nocapture`、`node nodesrc/test_resource_gate_order.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
