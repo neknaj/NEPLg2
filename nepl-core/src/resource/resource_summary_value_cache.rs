@@ -2,8 +2,11 @@ use crate::types::TypeCtx;
 
 use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
 
+mod body_hash;
 mod key;
+mod stable_hash;
 mod stable_mirror;
+mod stable_type_key;
 
 use self::stable_mirror::stable_drop_traversal_forall_value;
 

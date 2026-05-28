@@ -4,6 +4,8 @@ extern crate alloc;
 
 use alloc::string::{String, ToString};
 
+use super::stable_hash::ResourceSummaryStableHasher;
+
 // この module は store/hit 実装の直前に key 形状を固定する staging module である。
 // function body hash と source capability policy hash を compiler pipeline から渡すまで
 // 実 cache path へ接続しないため、module 全体の未使用 warning はここで局所的に抑止する。
@@ -114,17 +116,16 @@ fn resource_summary_value_cache_key_hash(
     source_capability_policy_hash: u64,
     summary_kind: ResourceSummaryValueKind,
 ) -> u64 {
-    let mut hash = 0xcbf29ce484222325;
-    resource_summary_value_hash_str(&mut hash, "neplg2-resource-summary-value-key-v1");
-    resource_summary_value_hash_u64(&mut hash, namespace_hash);
-    resource_summary_value_hash_str(&mut hash, &function_identity.canonical_symbol);
-    resource_summary_value_hash_str(&mut hash, &function_identity.origin_name);
-    resource_summary_value_hash_u64(&mut hash, function_body_hash);
-    resource_summary_value_hash_u64(&mut hash, type_parameter_boundary_hash);
-    resource_summary_value_hash_u64(&mut hash, generic_type_argument_hash);
-    resource_summary_value_hash_u64(&mut hash, source_capability_policy_hash);
-    resource_summary_value_hash_str(&mut hash, summary_kind.tag());
-    hash
+    let mut hash = ResourceSummaryStableHasher::new("neplg2-resource-summary-value-key-v1");
+    hash.write_u64(namespace_hash);
+    hash.write_str(&function_identity.canonical_symbol);
+    hash.write_str(&function_identity.origin_name);
+    hash.write_u64(function_body_hash);
+    hash.write_u64(type_parameter_boundary_hash);
+    hash.write_u64(generic_type_argument_hash);
+    hash.write_u64(source_capability_policy_hash);
+    hash.write_str(summary_kind.tag());
+    hash.finish()
 }
 
 impl ResourceSummaryValueKind {
@@ -134,22 +135,6 @@ impl ResourceSummaryValueKind {
                 "collection-slot-drop-traversal-forall-v1"
             }
         }
-    }
-}
-
-fn resource_summary_value_hash_str(hash: &mut u64, value: &str) {
-    resource_summary_value_hash_bytes(hash, value.as_bytes());
-    resource_summary_value_hash_bytes(hash, &[0]);
-}
-
-fn resource_summary_value_hash_u64(hash: &mut u64, value: u64) {
-    resource_summary_value_hash_bytes(hash, &value.to_le_bytes());
-}
-
-fn resource_summary_value_hash_bytes(hash: &mut u64, bytes: &[u8]) {
-    for byte in bytes {
-        *hash ^= u64::from(*byte);
-        *hash = hash.wrapping_mul(0x100000001b3);
     }
 }
 
@@ -212,5 +197,12 @@ mod tests {
         let second = key_with_parts(1, 2, 3, 4, 5);
 
         assert_eq!(first.stable_hash(), second.stable_hash());
+    }
+
+    #[test]
+    fn resource_summary_value_cache_key_hash_has_fixed_golden_value() {
+        let key = key_with_parts(1, 2, 3, 4, 5);
+
+        assert_eq!(key.stable_hash(), 0x6a45c0d38f322e2d);
     }
 }

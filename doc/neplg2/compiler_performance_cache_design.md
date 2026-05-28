@@ -546,6 +546,8 @@ Resource summary value cache の owner は `LoaderSessionCache` ではなく `Co
 
 2026-05-28 の source capability policy hash checkpoint では、`SourceCapabilities::stable_policy_hash(canonical_path, source_hash)` と `SourceMap::source_capability_policy_hash(file_id, source_hash)` を追加した。これは source capability を広く許可する query ではなく、Resource summary value key に入れるための deterministic fingerprint である。use-site proof は byte range を持つため、canonical path と source hash を必ず hash に含め、同じ proof range が別 source に流用されないようにする。現時点では function body hash と Resource summary store/hit にはまだ接続せず、path/source hash/use-site/span/order の regression だけを固定する。
 
+2026-05-28 の function body hash staging checkpoint では、`resource_summary_value_cache::stable_type_key` を `stable_mirror` から独立させ、summary value と function body hash が同じ TypeId 安定化規則を共有できるようにした。hash writer も `stable_hash` に分け、per-summary-value key と body hash が同じ区切り付き FNV-1a 系 writer を使う。`resource_summary_value_cache::body_hash` は `ResourceFunction` の `Span` を無視し、`TypeId` を stable type key へ変換し、temporary / block id は body 内 ordinal に正規化する。`StorageId` は owner/checker state 側の割当に由来し、body だけでは安定した storage origin identity へ再投影できないため、現時点では `PlaceRoot::Storage(_)` を見たら `None` として store 候補から外す。raw body は本文が `ResourceFunction` に残らないため、raw body/source hash を key へ追加するまでは拒否する。nominal type も qualified definition identity がないため、同名別定義への stale hit を避ける目的で stable type key 変換時に拒否する。この checkpoint でも map store/hit はまだ実装しない。
+
 必須 regression:
 
 - 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。

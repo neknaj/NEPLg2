@@ -1,13 +1,10 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::collections::BTreeSet;
-use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::ast::Effect;
-use crate::types::{TypeCtx, TypeId, TypeKind};
+use crate::types::TypeCtx;
 
 use super::super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::super::collection_slot_lifecycle::CollectionSlotLifecycleOp;
@@ -17,14 +14,7 @@ use super::super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryOp,
 };
 use super::super::summary_projection::{SummaryOffset, SummaryPlace, SummaryProjection};
-
-/// Resource summary cache に保存できる型 key。
-///
-/// `TypeId` は typecheck arena の slot 番号であり、compile session をまたいで意味が
-/// 安定しない。そのため stable mirror value では、型を決定的な文字列表現へ落とした
-/// key だけを保持する。無名の未解決 type variable は arena slot に依存するため拒否する。
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct ResourceSummaryStableTypeKey(String);
+use super::stable_type_key::ResourceSummaryStableTypeKey;
 
 /// Resource summary cache に保存できる `SummaryPlace` の mirror。
 ///
@@ -290,113 +280,8 @@ fn stable_summary_offset(
     })
 }
 
-impl ResourceSummaryStableTypeKey {
-    fn from_type(types: &TypeCtx, ty: TypeId) -> Option<Self> {
-        let mut seen = BTreeSet::new();
-        stable_type_key_string(types, ty, &mut seen).map(Self)
-    }
-
-    #[cfg(test)]
-    fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-fn stable_type_key_string(
-    types: &TypeCtx,
-    ty: TypeId,
-    seen: &mut BTreeSet<TypeId>,
-) -> Option<String> {
-    let resolved = types.resolve_id(ty);
-    if !seen.insert(resolved) {
-        return None;
-    }
-    let result = match types.get(resolved) {
-        TypeKind::Unit => Some(String::from("unit")),
-        TypeKind::I32 => Some(String::from("i32")),
-        TypeKind::U8 => Some(String::from("u8")),
-        TypeKind::F32 => Some(String::from("f32")),
-        TypeKind::Bool => Some(String::from("bool")),
-        TypeKind::Char => Some(String::from("char")),
-        TypeKind::Str => Some(String::from("str")),
-        TypeKind::Never => Some(String::from("never")),
-        TypeKind::Named(name) => Some(format!("named({name})")),
-        TypeKind::Enum {
-            name, type_params, ..
-        } => stable_type_key_list(types, &type_params, seen)
-            .map(|params| format!("enum({name})<{params}>")),
-        TypeKind::Struct {
-            name, type_params, ..
-        } => stable_type_key_list(types, &type_params, seen)
-            .map(|params| format!("struct({name})<{params}>")),
-        TypeKind::Tuple { items } => {
-            stable_type_key_list(types, &items, seen).map(|items| format!("tuple({items})"))
-        }
-        TypeKind::Function {
-            type_params,
-            params,
-            result,
-            effect,
-        } => {
-            let type_params = stable_type_key_list(types, &type_params, seen)?;
-            let params = stable_type_key_list(types, &params, seen)?;
-            let result = stable_type_key_string(types, result, seen)?;
-            Some(format!(
-                "fn<{type_params}>({params})->{result}:{}",
-                stable_effect_tag(effect)
-            ))
-        }
-        TypeKind::Var(var) => match var.binding {
-            Some(binding) => stable_type_key_string(types, binding, seen),
-            None => var.label.map(|label| {
-                // label 付き generic variable は、function-local type parameter 境界と
-                // generic type-argument hash を store key 側へ含める場合にだけ再投影できる。
-                format!(
-                    "var({label}:copy={}:clone={}:drop={})",
-                    var.copy_cap, var.clone_cap, var.drop_cap
-                )
-            }),
-        },
-        TypeKind::Apply { base, args } => {
-            let base = stable_type_key_string(types, base, seen)?;
-            let args = stable_type_key_list(types, &args, seen)?;
-            Some(format!("apply({base})<{args}>"))
-        }
-        TypeKind::Box(inner) => {
-            stable_type_key_string(types, inner, seen).map(|inner| format!("box({inner})"))
-        }
-        TypeKind::Reference(inner, is_mut) => stable_type_key_string(types, inner, seen)
-            .map(|inner| format!("ref(mut={is_mut},{inner})")),
-    };
-    seen.remove(&resolved);
-    result
-}
-
-fn stable_type_key_list(
-    types: &TypeCtx,
-    items: &[TypeId],
-    seen: &mut BTreeSet<TypeId>,
-) -> Option<String> {
-    let mut out = String::new();
-    for (index, item) in items.iter().enumerate() {
-        if index > 0 {
-            out.push(',');
-        }
-        out.push_str(&stable_type_key_string(types, *item, seen)?);
-    }
-    Some(out)
-}
-
-fn stable_effect_tag(effect: Effect) -> &'static str {
-    match effect {
-        Effect::Pure => "pure",
-        Effect::Impure => "impure",
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use alloc::string::ToString;
     use alloc::vec;
     use alloc::vec::Vec;
 
@@ -407,25 +292,6 @@ mod tests {
         CollectionSlotInitializedRangeDropTraversalProof,
     };
     use super::*;
-
-    #[test]
-    fn stable_type_key_rejects_unlabeled_type_variables() {
-        let mut types = TypeCtx::new();
-        let anonymous = types.fresh_var(None);
-
-        assert!(ResourceSummaryStableTypeKey::from_type(&types, anonymous).is_none());
-    }
-
-    #[test]
-    fn stable_type_key_uses_labels_and_capabilities_for_generic_variables() {
-        let mut types = TypeCtx::new();
-        let generic = types.fresh_var(Some("T".to_string()));
-
-        let key = ResourceSummaryStableTypeKey::from_type(&types, generic)
-            .expect("labelled generic parameter should have a stable key");
-
-        assert_eq!(key.as_str(), "var(T:copy=false:clone=false:drop=false)");
-    }
 
     #[test]
     fn stable_drop_traversal_forall_value_rejects_non_forall_coverage() {

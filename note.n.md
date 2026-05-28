@@ -47618,3 +47618,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 現時点では function body hash と Resource summary store/hit にはまだ接続していない。store/hit API は、function body hash と source capability policy hash が compiler pipeline から渡る段階まで公開しない。
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core source_capability_policy_hash --lib -- --nocapture`、`node nodesrc/test_resource_gate_order.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warning として stdlib documentation gap、Vec cleanup policy、typecheck line limit、resource checker responsibility、string slice import policy が残っているが、今回の source capability policy hash 追加による新規 blocking failure はない。
+
+## 2026-05-28 Agent Resource function body hash staging checkpoint
+
+- Zenn の試作段階方針と性能追求方針を再確認し、Resource summary value cache の store/hit へ進む前に function body hash の安全境界を追加した。`plan.md` は変更していない。
+- `ResourceSummaryStableTypeKey` を `stable_mirror` から `resource_summary_value_cache::stable_type_key` private module へ分離した。summary value と body hash が同じ TypeId 安定化規則を共有し、無名 type variable は引き続き cache 候補から外す。
+- key hash の byte writer を `resource_summary_value_cache::stable_hash` へ分け、per-summary-value key と body hash が同じ区切り付き deterministic hash writer を使うようにした。
+- `resource_summary_value_cache::body_hash` は `ResourceFunction` の `Span` を hash せず、`TypeId` を stable type key へ変換し、temporary / block id を body 内 ordinal に正規化する。
+- subagent review では、`StorageId` は owner/checker state 側の割当に由来し、body だけでは安定した storage origin identity へ再投影できないと指摘された。また raw body は本文が `ResourceFunction` に残らないため、kind だけを hash すると stale hit になる。これを受け、`PlaceRoot::Storage(_)` と `RawBody` を含む function body は `None` で cache 候補から外す契約にした。
+- nominal type は qualified definition identity がまだないため、`ResourceSummaryStableTypeKey` では `Named` / `Struct` / `Enum` を拒否する。primitive、tuple、function、box、reference、label 付き generic variable だけを現時点の保存候補にする。
+- 追加 regression として、body hash が Span を無視すること、body operation の変更を追跡すること、function-local temporary id を正規化すること、Storage root / RawBody / 無名 type variable / nominal type を拒否すること、per-summary-value key hash の golden value を固定した。
