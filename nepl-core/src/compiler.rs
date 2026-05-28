@@ -182,6 +182,30 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
     artifact_options: CompilationArtifactOptions,
     dependency_public_surface_hash: Option<u64>,
 ) -> Result<CompilationArtifact, CoreError> {
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache(
+        module,
+        source_map,
+        options,
+        artifact_options,
+        dependency_public_surface_hash,
+        None,
+    )
+}
+
+/// Resource summary value cache を明示的に受け取る artifact pipeline。
+///
+/// 通常の CLI / stateless compile API は cache を持たないため、従来の wrapper から
+/// `None` を渡す。`CompilerSession` のように session 寿命を持つ呼び出し元だけが、
+/// compiled-output cache miss の実 compile に限ってこの経路を使う。
+/// 現段階の cache は stable mirror value を保存せず、保存候補の bypass 計測だけを行う。
+pub fn compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    dependency_public_surface_hash: Option<u64>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+) -> Result<CompilationArtifact, CoreError> {
     // loader が計算した dependency public surface hash を artifact pipeline へ渡す。
     // この入力は Resource summary namespace key だけに使い、汎用 `CompileOptions`
     // へは入れない。通常の CLI / test compile と、session-backed bundled stdlib compile
@@ -200,12 +224,13 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
     let profile = options
         .profile
         .unwrap_or(BuildProfile::default_source_profile());
-    let prepared = prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
+    let prepared = prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache(
         &module,
         target,
         profile,
         source_map,
         dependency_public_surface_hash,
+        resource_summary_value_cache,
     )?;
     let pre_codegen_diags =
         passes::codegen_precheck::precheck_wasm_codegen(&prepared.types, &prepared.hir_module);
@@ -451,6 +476,7 @@ fn run_resource_static_check(
     types: &crate::types::TypeCtx,
     diagnostics: &mut Vec<Diagnostic>,
     source_map: Option<&SourceMap>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
 ) -> Result<crate::resource::ResourceDropElaborationPlan, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
@@ -471,7 +497,12 @@ fn run_resource_static_check(
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    let initialized_moves = crate::resource::check_resource_initialized_moves(&resource, types);
+    let initialized_moves = match resource_summary_value_cache {
+        Some(cache) => crate::resource::check_resource_initialized_moves_with_summary_cache(
+            &resource, types, cache,
+        ),
+        None => crate::resource::check_resource_initialized_moves(&resource, types),
+    };
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_initialized_moves", stage_start);
     run_resource_cell_gate(&initialized_moves, diagnostics)?;
@@ -2131,6 +2162,30 @@ pub fn prepare_module_for_codegen_with_source_map_and_dependency_public_surface_
     source_map: Option<&SourceMap>,
     dependency_public_surface_hash: Option<u64>,
 ) -> Result<PreparedProgram, CoreError> {
+    prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache(
+        module,
+        target,
+        profile,
+        source_map,
+        dependency_public_surface_hash,
+        None,
+    )
+}
+
+/// Resource summary value cache を Resource IR static check へ渡す prepare phase。
+///
+/// target/profile、typed public signature hash、dependency public surface hash は
+/// `ResourceSummaryCacheNamespaceKey` の材料であり、この関数はその namespace と
+/// session cache の寿命を同じ compile の中で結び付ける。cache value はまだ再利用せず、
+/// `DropTraversal + ForallInitializedRange` の最終 summary 候補を bypass として観測する。
+pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache(
+    module: &ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    source_map: Option<&SourceMap>,
+    dependency_public_surface_hash: Option<u64>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+) -> Result<PreparedProgram, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let precheck_diags =
@@ -2175,8 +2230,13 @@ pub fn prepare_module_for_codegen_with_source_map_and_dependency_public_surface_
     log_compile_stage_timing("resource_reachable_prune", stage_start);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    let resource_drop_elaboration_plan =
-        run_resource_static_check(&hir_module, &types, &mut diagnostics, source_map)?;
+    let resource_drop_elaboration_plan = run_resource_static_check(
+        &hir_module,
+        &types,
+        &mut diagnostics,
+        source_map,
+        resource_summary_value_cache,
+    )?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_static_check", stage_start);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]

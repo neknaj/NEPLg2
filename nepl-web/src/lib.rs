@@ -7,7 +7,7 @@ use nepl_core::ast::{
     Block, Directive, FnBody, MatchArm, MatchPattern, PrefixExpr, PrefixItem, Stmt, Symbol,
 };
 use nepl_core::compiler::{
-    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash,
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache,
 };
 use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
@@ -3005,6 +3005,7 @@ fn compile_outputs_with_bundled_sources_and_cache(
         None,
         include_wat_comments,
         loader_cache,
+        None,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
     compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
@@ -3273,6 +3274,7 @@ fn compile_wasm_with_bundled_sources(
         profile,
         include_wat_comments,
         None,
+        None,
     )
 }
 
@@ -3286,6 +3288,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
     profile: Option<BuildProfile>,
     include_wat_comments: bool,
     loader_cache: Option<&mut LoaderSessionCache>,
+    resource_summary_value_cache: Option<&mut ResourceSummaryValueCache>,
 ) -> Result<CompiledWasm, String> {
     let mut overlay_sources = BTreeMap::new();
     // stdlib 差し替えが指定された場合は、先に上書きで適用する
@@ -3302,6 +3305,11 @@ fn compile_wasm_with_bundled_sources_and_cache(
         None
     } else {
         loader_cache
+    };
+    let mut resource_summary_value_cache = if overlay_overrides_stdlib {
+        None
+    } else {
+        resource_summary_value_cache
     };
 
     let mut loader = Loader::new(stdlib_root.clone());
@@ -3342,7 +3350,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
     } else {
         None
     };
-    let artifact = compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash(
+    let artifact = compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache(
         loaded.module,
         Some(&loaded.source_map),
         CompileOptions {
@@ -3354,6 +3362,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
             include_wat_comments,
         },
         dependency_public_surface_hash,
+        resource_summary_value_cache.as_deref_mut(),
     )
     .map_err(|e| render_core_error(e, &loaded.source_map))?;
     Ok(CompiledWasm {
@@ -3558,6 +3567,7 @@ impl CompilerSession {
             return Ok(compiled.wasm);
         }
         let mut cache = self.loader_cache.borrow_mut();
+        let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
         let compiled = compile_wasm_with_bundled_sources_and_cache(
             entry_path,
             source,
@@ -3568,6 +3578,7 @@ impl CompilerSession {
             Some(parsed),
             false,
             Some(&mut cache),
+            Some(&mut resource_summary_value_cache),
         )
         .map_err(|msg| JsValue::from_str(&msg))?;
         self.store_compiled_output_cache_entry(key, compiled.clone());
@@ -3633,6 +3644,7 @@ impl CompilerSession {
             );
         }
         let mut loader_cache = self.loader_cache.borrow_mut();
+        let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
         let compiled = compile_wasm_with_bundled_sources_and_cache(
             entry_path,
             source,
@@ -3643,6 +3655,7 @@ impl CompilerSession {
             Some(BuildProfile::default_source_profile()),
             include_wat_comments,
             Some(&mut loader_cache),
+            Some(&mut resource_summary_value_cache),
         )
         .map_err(|msg| JsValue::from_str(&msg))?;
         self.store_compiled_output_cache_entry(key, compiled.clone());

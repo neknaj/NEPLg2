@@ -8,7 +8,8 @@ use super::collection_slot_summary_build_ops::collect_summary_ops_from_ops;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
 use super::collection_slot_summary_model::{
     CollectionSlotLifecycleFunctionSummary, CollectionSlotLifecycleFunctionSummaryIndex,
-    CollectionSlotLifecycleReturnPath,
+    CollectionSlotLifecycleReturnPath, CollectionSlotLifecycleSummaryDropTraversalCoverage,
+    CollectionSlotLifecycleSummaryOp,
 };
 use super::collection_slot_summary_relevance::collection_slot_summary_relevant_functions;
 use super::collection_slot_summary_return_build::collect_return_facts_from_terminator;
@@ -22,6 +23,7 @@ use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
 use super::model::{ResourceFunction, ResourceModule};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::report::ResourceCheckDeferred;
+use super::resource_summary_value_cache::ResourceSummaryValueCache;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
@@ -31,6 +33,7 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
     raw_alias_summaries: &[RawCellAddressReturnSummary],
     i32_scalar_summaries: &[I32ScalarReturnSummary],
     raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
 ) -> Vec<CollectionSlotLifecycleFunctionSummary> {
     let mut summaries = Vec::new();
     let relevant_functions = collection_slot_summary_relevant_functions(module, types);
@@ -55,7 +58,44 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
             worklist.notify_changed(function_index);
         }
     }
+    if let Some(cache) = summary_value_cache.as_deref_mut() {
+        for summary in &summaries {
+            record_resource_summary_value_cache_bypass_candidates(cache, summary);
+        }
+    }
     summaries
+}
+
+fn record_resource_summary_value_cache_bypass_candidates(
+    cache: &mut ResourceSummaryValueCache,
+    summary: &CollectionSlotLifecycleFunctionSummary,
+) {
+    record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(cache, &summary.ops);
+}
+
+fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
+    cache: &mut ResourceSummaryValueCache,
+    ops: &[CollectionSlotLifecycleSummaryOp],
+) {
+    // 初期 MVP では top-level leaf だけを store 候補にする。
+    // return path や control-flow container 内の leaf は、分岐条件や path precondition
+    // と一体で stable mirror を設計する必要があるため、この counter へ含めない。
+    for op in ops {
+        match op {
+            CollectionSlotLifecycleSummaryOp::DropTraversal {
+                coverage:
+                    CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(_),
+                ..
+            } => cache.record_drop_traversal_forall_bypass(),
+            CollectionSlotLifecycleSummaryOp::Event { .. }
+            | CollectionSlotLifecycleSummaryOp::Relocate { .. }
+            | CollectionSlotLifecycleSummaryOp::DropTraversal { .. }
+            | CollectionSlotLifecycleSummaryOp::TransformRange { .. }
+            | CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain { .. }
+            | CollectionSlotLifecycleSummaryOp::Merge { .. }
+            | CollectionSlotLifecycleSummaryOp::Loop { .. } => {}
+        }
+    }
 }
 
 fn update_collection_slot_lifecycle_summary(
@@ -168,10 +208,19 @@ mod tests {
     use crate::types::{TypeCtx, TypeId, TypeKind};
 
     use super::super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
+    use super::super::collection_slot_summary_model::{
+        CollectionSlotInitializedRangeDropTraversalCertificate,
+        CollectionSlotInitializedRangeDropTraversalProof,
+        CollectionSlotLifecycleSummaryDropTraversalCoverage,
+        CollectionSlotLifecycleSummaryI32Operand, CollectionSlotLifecycleSummaryOp,
+    };
+    use super::super::i32_scalar_return_facts::I32ScalarReturnFacts;
     use super::super::model::{
         Place, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceLocal, ResourceModule,
         ResourceTerminator,
     };
+    use super::super::resource_summary_value_cache::ResourceSummaryValueCache;
+    use super::super::summary_projection::SummaryPlace;
     use super::*;
 
     fn identity_storage_function(storage_ty: TypeId) -> ResourceFunction {
@@ -271,6 +320,86 @@ mod tests {
         region_token_ty
     }
 
+    fn summary_place(parameter_index: usize, ty: TypeId) -> SummaryPlace {
+        SummaryPlace {
+            parameter_index,
+            suffix: Vec::new(),
+            ty,
+        }
+    }
+
+    fn forall_drop_traversal_op() -> CollectionSlotLifecycleSummaryOp {
+        CollectionSlotLifecycleSummaryOp::DropTraversal {
+            storage: summary_place(0, TypeId(0)),
+            initialized_count: CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
+                value: 1,
+                ty: TypeId(1),
+            },
+            expected_ty: TypeId(2),
+            coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
+                CollectionSlotInitializedRangeDropTraversalCertificate {
+                    element_stride: 4,
+                    drop_proof: CollectionSlotInitializedRangeDropTraversalProof::StateOnly,
+                },
+            ),
+        }
+    }
+
+    /// Resource summary value cache の初期 MVP は、固定点収束後の top-level
+    /// `DropTraversal + ForallInitializedRange` だけを store 候補として扱う。
+    /// return path や control-flow container 内の leaf は、stable mirror の key/value
+    /// を別途設計するまで候補数に含めない。
+    #[test]
+    fn resource_summary_value_bypass_counts_only_final_top_level_forall_drop_traversal() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let summary = CollectionSlotLifecycleFunctionSummary {
+            function: "drop_all".to_string(),
+            type_params: Vec::new(),
+            ops: vec![
+                forall_drop_traversal_op(),
+                CollectionSlotLifecycleSummaryOp::DropTraversal {
+                    storage: summary_place(0, TypeId(0)),
+                    initialized_count: CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
+                        value: 1,
+                        ty: TypeId(1),
+                    },
+                    expected_ty: TypeId(2),
+                    coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(
+                        vec![summary_place(0, TypeId(2))],
+                    ),
+                },
+                CollectionSlotLifecycleSummaryOp::Merge {
+                    paths: vec![vec![forall_drop_traversal_op()]],
+                },
+                CollectionSlotLifecycleSummaryOp::Loop {
+                    condition_ops: vec![forall_drop_traversal_op()],
+                    body_ops: vec![forall_drop_traversal_op()],
+                },
+            ],
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            return_paths: vec![CollectionSlotLifecycleReturnPath {
+                return_variant: None,
+                preconditions: Vec::new(),
+                ops: vec![forall_drop_traversal_op()],
+                return_transfers: Vec::new(),
+                return_slots: Vec::new(),
+                return_ranges: Vec::new(),
+                i32_scalar_facts: I32ScalarReturnFacts::default(),
+            }],
+        };
+
+        record_resource_summary_value_cache_bypass_candidates(&mut cache, &summary);
+
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_bypasses, 1);
+        assert_eq!(
+            stats.resource_summary_value_drop_traversal_forall_bypasses,
+            1
+        );
+    }
+
     #[test]
     fn collection_slot_summary_keeps_identity_transfer_for_non_copy_owner_token_storage() {
         let mut types = TypeCtx::new();
@@ -288,8 +417,14 @@ mod tests {
             string_literals: vec![],
         };
 
-        let summaries =
-            compute_collection_slot_lifecycle_function_summaries(&module, &types, &[], &[], &[]);
+        let summaries = compute_collection_slot_lifecycle_function_summaries(
+            &module,
+            &types,
+            &[],
+            &[],
+            &[],
+            None,
+        );
 
         let identity_summary = summaries
             .iter()

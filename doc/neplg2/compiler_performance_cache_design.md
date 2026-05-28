@@ -529,6 +529,10 @@ Resource summary value cache の owner は `LoaderSessionCache` ではなく `Co
 
 2026-05-28 の implementation staging では、`ResourceSummaryValueCache` と `ResourceSummaryValueCacheStats` を `nepl-core::resource` に追加し、`CompilerSession` が `LoaderSessionCache` とは別 field として所有する形にした。`loader_cache_stats_json()` は `resource_summary_value_*` と `resource_summary_value_drop_traversal_forall_*` の counter を返す。現時点では stable mirror value の store/hit はまだ行わず、compiled-output cache と Resource summary value cache の観測境界だけを固定する。
 
+2026-05-28 の bypass instrumentation checkpoint では、`CompilerSession` の compiled-output cache miss から実際に走る compile path だけへ `ResourceSummaryValueCache` を渡すようにした。`check_resource_initialized_moves` の既存 API は残し、session-backed compile だけが `check_resource_initialized_moves_with_summary_cache` を使う。これにより CLI や stateless Web API の挙動を変えず、session cache の観測を Web / Node の timing JSON に限定して追加できる。
+
+この checkpoint で記録するのは、worklist 固定点が収束した後の最終 `CollectionSlotLifecycleFunctionSummary` に top-level op として残る `CollectionSlotLifecycleSummaryOp::DropTraversal` かつ `ForallInitializedRange` の候補だけである。stable mirror key/value の再投影はまだ実装していないため、候補は hit/store ではなく `resource_summary_value_drop_traversal_forall_bypasses` として数える。return path facts や `Merge` / `Loop` 内の leaf は、初期 MVP の store 対象外なのでこの counter へ含めない。これは「安全に保存できる候補が実 workload にどれだけ存在するか」を compiled-output cache とは別に測るための段階であり、`TypeId` / `Span` / `SourceMap` / typed HIR / Resource IR body を長寿命 value に保存しない方針を維持する。
+
 必須 regression:
 
 - 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。

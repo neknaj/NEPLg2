@@ -50,11 +50,33 @@ use super::report::{
     ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
     ResourceFunctionCheck,
 };
+use super::resource_summary_value_cache::ResourceSummaryValueCache;
 use super::timing::{ResourceFunctionTimer, ResourceStageTimer};
 
 pub fn check_resource_initialized_moves(
     module: &ResourceModule,
     types: &TypeCtx,
+) -> ResourceCheckReport {
+    check_resource_initialized_moves_inner(module, types, None)
+}
+
+/// Resource summary value cache の観測を伴う initialized-state checker。
+///
+/// この関数は通常の安全性判定を変えず、collection slot summary build の完了後に
+/// stable mirror の初期候補だけを cache 統計へ記録する。現 checkpoint では
+/// `TypeId` や `Span` を含む summary value を保存せず、hit/store も行わない。
+pub fn check_resource_initialized_moves_with_summary_cache(
+    module: &ResourceModule,
+    types: &TypeCtx,
+    summary_value_cache: &mut ResourceSummaryValueCache,
+) -> ResourceCheckReport {
+    check_resource_initialized_moves_inner(module, types, Some(summary_value_cache))
+}
+
+fn check_resource_initialized_moves_inner(
+    module: &ResourceModule,
+    types: &TypeCtx,
+    mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
 ) -> ResourceCheckReport {
     let stage_start = ResourceStageTimer::start();
     let mut functions = Vec::new();
@@ -85,6 +107,7 @@ pub fn check_resource_initialized_moves(
         &raw_alias_summaries,
         &i32_scalar_summaries,
         &raw_init_summaries,
+        summary_value_cache.as_deref_mut(),
     );
     let collection_slot_summary_index =
         CollectionSlotLifecycleFunctionSummaryIndex::new(&collection_slot_summaries);

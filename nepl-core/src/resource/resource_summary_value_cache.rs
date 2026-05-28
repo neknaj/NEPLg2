@@ -37,4 +37,15 @@ impl ResourceSummaryValueCache {
     pub fn stats(&self) -> ResourceSummaryValueCacheStats {
         self.stats
     }
+
+    /// `DropTraversal + ForallInitializedRange` は初期 stable mirror の対象である。
+    ///
+    /// 現 checkpoint では key/value の再投影をまだ実装しないため、候補を見つけたら
+    /// bypass として数える。これにより、compiled-output cache ではなく Resource
+    /// summary value cache がどの程度効き得るかを timing JSON から確認できる。
+    pub(super) fn record_drop_traversal_forall_bypass(&mut self) {
+        self.stats.resource_summary_value_bypasses += 1;
+        self.stats
+            .resource_summary_value_drop_traversal_forall_bypasses += 1;
+    }
 }

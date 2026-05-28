@@ -44,6 +44,7 @@ assert(
 for (const gate of [
     'crate::resource::lower_hir_module(hir_module, types)',
     'run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)',
+    'crate::resource::check_resource_initialized_moves_with_summary_cache(',
     'crate::resource::check_resource_initialized_moves(&resource, types)',
     'run_resource_cell_gate(&initialized_moves, diagnostics)',
     'crate::resource::compute_resource_drop_elaboration_plan(&resource, &initialized_moves)',
@@ -77,7 +78,24 @@ const compilerRelative = source
     .includes('passes::move_check::run');
 assert(!compilerRelative, 'compiler.rs must not retain legacy move_check fallback');
 
-const prepareBody = extractFunctionBody(source, 'prepare_module_for_codegen_with_source_map');
+const prepareWrapperBody = extractFunctionBody(source, 'prepare_module_for_codegen_with_source_map');
+assert(
+    prepareWrapperBody.includes('prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash('),
+    'prepare_module_for_codegen_with_source_map must delegate to the dependency-surface wrapper',
+);
+const prepareDependencyWrapperBody = extractFunctionBody(
+    source,
+    'prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash',
+);
+assert(
+    prepareDependencyWrapperBody.includes('prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache(')
+        && prepareDependencyWrapperBody.includes('None'),
+    'prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash must keep the cache-free public wrapper',
+);
+const prepareBody = extractFunctionBody(
+    source,
+    'prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache',
+);
 const resourceTypecheckIndex = prepareBody.indexOf('let resource_tc = run_typecheck(');
 const resourceMonomorphizeIndex = prepareBody.indexOf(
     'monomorphize::monomorphize(',

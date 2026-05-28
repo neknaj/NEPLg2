@@ -1,3 +1,16 @@
+# 2026-05-28 Resource summary value cache bypass instrumentation checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を再確認し、試作段階でも静的検査の削除や timeout 延長ではなく、純粋 query と cache boundary によって探索空間を削る方針を維持した。
+- Resource summary value cache は `LoaderSessionCache` に混ぜず、`CompilerSession` の別 field として所有する方針を維持した。loader cache は未型付け source / AST / import surface の cache であり、Resource IR proof artifact の invalidation 境界とは分ける。
+- `nepl-core::resource::check_resource_initialized_moves_with_summary_cache` を追加し、既存の `check_resource_initialized_moves` は stateless / CLI 経路向けに残した。session-backed compile path だけが cache 付き関数を呼ぶ。
+- `compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache` と `prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache` を追加し、既存 API は cache なし wrapper として維持した。
+- `CollectionSlotLifecycleSummaryOp::DropTraversal` かつ `ForallInitializedRange` の候補を、worklist 固定点が収束した後の最終 summary から走査し、現 checkpoint では hit/store せず `resource_summary_value_drop_traversal_forall_bypasses` として計測する。return path facts や `Merge` / `Loop` 内の leaf は初期 MVP の store 対象外なので、この counter には含めない。stable mirror key/value の再投影は次 checkpoint に分け、`TypeId` / `Span` / `SourceMap` / typed HIR / Resource IR body は長寿命 value に保存しない。
+- `nepl-web::CompilerSession` は compiled-output cache miss の実 compile だけで loader cache と Resource summary value cache を同時に借りる。compiled-output cache hit、stateless API、forced stdlib VFS、`/stdlib` overlay はこの Resource summary value cache 経路を通らない。
+- subagent review では、worklist 内の途中結果を数えると transient recomputation を過大計測すること、return path / `Merge` / `Loop` 内の leaf は初期 MVP の store 対象と分けるべきことを確認したため、最終 summary の top-level 候補だけを bypass 計測する形に修正した。
+- 検証: `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core resource_summary_value_bypass_counts_only_final_top_level_forall_drop_traversal --lib -- --nocapture`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/test_resource_gate_order.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-resource-summary-bypass.json`、`node nodesrc/run_doctest.js -i stdlib/alloc/string/slice/trim.nepl -n 1 --dist web/dist` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。warn-only の既存警告として `test_stdlib_documentation_contract`、`test_stdlib_vec_no_unsafe_unwraps`、`test_static_check_boundary_responsibility`、`test_resource_checker_responsibility`、`test_stdlib_string_slice_boundary` が残っている。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 RPN signed integer parse / path-state ownership checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を確認し、試作段階では静的検査の削除や timeout 延長ではなく、純粋な処理単位と DAG / cache boundary で探索空間を削る方針を維持した。

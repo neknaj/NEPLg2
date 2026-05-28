@@ -550,7 +550,9 @@ pub use effect_counts::ResourceEffectCounts;
 pub use effect_counts_host::{ExternalIoEffectCounts, NondetEffectCounts};
 pub use effect_counts_raw::RawMemoryEffectCounts;
 pub use effect_diagnostic::{ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind};
-pub use initialized::check_resource_initialized_moves;
+pub use initialized::{
+    check_resource_initialized_moves, check_resource_initialized_moves_with_summary_cache,
+};
 pub use lower::{lower_hir_module, lower_hir_module_skeleton};
 pub use model::{
     AggregateKind, BorrowKind, BorrowState, BorrowStateEntry, CellState, CellStateEntry, EffectOp,
