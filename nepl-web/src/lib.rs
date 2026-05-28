@@ -16,6 +16,7 @@ use nepl_core::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine};
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{Loader, LoaderError, LoaderSessionCache, SourceMap};
 use nepl_core::parser::parse_tokens;
+use nepl_core::resource::ResourceSummaryValueCache;
 use nepl_core::resolve::DefId;
 use nepl_core::span::{FileId, Span};
 use nepl_core::typecheck::typecheck;
@@ -3372,6 +3373,7 @@ pub struct CompilerSession {
     stdlib_root: PathBuf,
     bundled_sources: BTreeMap<PathBuf, &'static str>,
     loader_cache: RefCell<LoaderSessionCache>,
+    resource_summary_value_cache: RefCell<ResourceSummaryValueCache>,
     compiled_output_cache: RefCell<Vec<CompiledOutputCacheEntry>>,
     prewarmed_import_surfaces: RefCell<BTreeMap<u64, usize>>,
     compiled_output_cache_hits: RefCell<usize>,
@@ -3398,6 +3400,7 @@ impl CompilerSession {
             stdlib_root,
             bundled_sources,
             loader_cache: RefCell::new(LoaderSessionCache::new(stdlib_hash())),
+            resource_summary_value_cache: RefCell::new(ResourceSummaryValueCache::new()),
             compiled_output_cache: RefCell::new(Vec::new()),
             prewarmed_import_surfaces: RefCell::new(BTreeMap::new()),
             compiled_output_cache_hits: RefCell::new(0),
@@ -3434,8 +3437,9 @@ impl CompilerSession {
     /// `FileId` 再投影によって担保する。
     pub fn loader_cache_stats_json(&self) -> String {
         let stats = self.loader_cache.borrow().stats();
+        let resource_stats = self.resource_summary_value_cache.borrow().stats();
         format!(
-            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"compiled_output_cache_hits\":{},\"compiled_output_cache_stores\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{}}}",
+            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"compiled_output_cache_hits\":{},\"compiled_output_cache_stores\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{},\"resource_summary_value_hits\":{},\"resource_summary_value_misses\":{},\"resource_summary_value_stores\":{},\"resource_summary_value_bypasses\":{},\"resource_summary_value_drop_traversal_forall_hits\":{},\"resource_summary_value_drop_traversal_forall_stores\":{},\"resource_summary_value_drop_traversal_forall_bypasses\":{}}}",
             stats.parsed_module_hits,
             stats.parsed_module_misses,
             stats.parsed_module_stores,
@@ -3456,6 +3460,13 @@ impl CompilerSession {
             *self.compiled_output_cache_stores.borrow(),
             *self.prewarm_surface_hits.borrow(),
             *self.prewarm_surface_stores.borrow(),
+            resource_stats.resource_summary_value_hits,
+            resource_stats.resource_summary_value_misses,
+            resource_stats.resource_summary_value_stores,
+            resource_stats.resource_summary_value_bypasses,
+            resource_stats.resource_summary_value_drop_traversal_forall_hits,
+            resource_stats.resource_summary_value_drop_traversal_forall_stores,
+            resource_stats.resource_summary_value_drop_traversal_forall_bypasses,
         )
     }
 
@@ -3466,6 +3477,7 @@ impl CompilerSession {
     /// 固定したいため、cache の寿命を観測可能にしておく。
     pub fn clear_loader_cache(&self) {
         self.loader_cache.borrow_mut().clear();
+        self.resource_summary_value_cache.borrow_mut().clear();
         self.compiled_output_cache.borrow_mut().clear();
         self.prewarmed_import_surfaces.borrow_mut().clear();
         *self.compiled_output_cache_hits.borrow_mut() = 0;

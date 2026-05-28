@@ -527,6 +527,8 @@ Resource summary value cache の owner は `LoaderSessionCache` ではなく `Co
 
 `CompilerSession.loader_cache_stats_json()` とは別に、Resource summary value cache は `resource_summary_value_hits` / `misses` / `stores` / `bypasses` と、summary kind 別の hit/store/bypass counter を持つ。compiled-output cache hit で速くなった場合と、compiled-output cache miss だが Resource summary value が hit して速くなった場合を JSON timing で分けて測定する。
 
+2026-05-28 の implementation staging では、`ResourceSummaryValueCache` と `ResourceSummaryValueCacheStats` を `nepl-core::resource` に追加し、`CompilerSession` が `LoaderSessionCache` とは別 field として所有する形にした。`loader_cache_stats_json()` は `resource_summary_value_*` と `resource_summary_value_drop_traversal_forall_*` の counter を返す。現時点では stable mirror value の store/hit はまだ行わず、compiled-output cache と Resource summary value cache の観測境界だけを固定する。
+
 必須 regression:
 
 - 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。

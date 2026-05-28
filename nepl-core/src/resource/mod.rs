@@ -486,6 +486,7 @@ mod raw_pointer_type_tests;
 mod raw_realloc;
 mod report;
 mod report_collection_slot;
+mod resource_summary_value_cache;
 mod result_variant;
 mod scalar_primitive;
 mod shadow;
@@ -569,4 +570,5 @@ pub use report::{
     ResourceOwnerCheckDeferred, ResourceOwnerCheckReport, ResourceOwnerDiagnostic,
     ResourceOwnerFunctionCheck, ResourceOwnerOperation, ResourceSafetyShadowReport,
 };
+pub use resource_summary_value_cache::{ResourceSummaryValueCache, ResourceSummaryValueCacheStats};
 pub use shadow::check_hir_resource_safety_shadow;

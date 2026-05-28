@@ -54,6 +54,13 @@ const { runSingle } = require('./run_test');
                             dependency_aggregate_public_surface_hash_stores: 0,
                             dependency_aggregate_public_surface_hash_bypasses: 0,
                             stdlib_override_bypasses: 0,
+                            resource_summary_value_hits: 17,
+                            resource_summary_value_misses: 0,
+                            resource_summary_value_stores: 0,
+                            resource_summary_value_bypasses: 2,
+                            resource_summary_value_drop_traversal_forall_hits: 11,
+                            resource_summary_value_drop_traversal_forall_stores: 0,
+                            resource_summary_value_drop_traversal_forall_bypasses: 2,
                         });
                     },
                     prewarm_loader_cache_for_source(entryPath, source) {
@@ -88,6 +95,8 @@ const { runSingle } = require('./run_test');
     assert.equal(result.timing.compiler_session_prewarm_cache_after.dependency_aggregate_public_surface_hash_hits, 3);
     assert.equal(result.timing.compiler_session_cache_before.dependency_aggregate_public_surface_hash_hits, 3);
     assert.equal(result.timing.compiler_session_cache_after.dependency_aggregate_public_surface_hash_hits, 4);
+    assert.equal(result.timing.compiler_session_cache_before.resource_summary_value_hits, 17);
+    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_drop_traversal_forall_bypasses, 2);
     assert.match(String(result.compile_error || ''), /session compile failure/);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });

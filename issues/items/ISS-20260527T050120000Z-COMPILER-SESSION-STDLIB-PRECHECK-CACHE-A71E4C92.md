@@ -86,6 +86,7 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - 初期 stable mirror は `CollectionSlotLifecycleSummaryOp::DropTraversal` と `ForallInitializedRange` に限定する。key は namespace key、function body hash、generic type-argument hash、source capability policy hash、summary kind/version を含める。value は stable summary place / projection / type key、known i32、expected type、element stride、`StateOnly` / `LoadedValueDrop` proof のような arena 非依存データだけにする。
 - 初期実装では `CertifiedSlots`、`TransformRange`、`Event`、`Relocate`、return path facts、Merge / Loop にまたがる proof、`RawCellInitializationFunctionSummary` 全体、raw alias graph、`TypeId`、`Span`、`SourceMap`、typed HIR、diagnostic span を store しない。`expected_ty` や `LoadedValueDrop` proof 内の型も stable type key へ落とし、現在 compile の `TypeCtx` へ再投影できる場合だけ store する。
 - metrics は compiled-output cache と分け、`resource_summary_value_hits` / `misses` / `stores` / `bypasses` と summary kind 別 counter を JSON timing から観測できるようにする。entry body-only edit で compiled-output cache が miss しても、unchanged stdlib summary value が hit することを regression で固定する。
+- implementation staging として `nepl-core::resource::ResourceSummaryValueCache` / `ResourceSummaryValueCacheStats` を追加し、`CompilerSession` が `LoaderSessionCache` とは別 field で所有するようにした。`loader_cache_stats_json()` は `resource_summary_value_*` と `resource_summary_value_drop_traversal_forall_*` を返す。現時点では stable mirror value の hit/store はまだ行わない。
 
 ## 問題
 
