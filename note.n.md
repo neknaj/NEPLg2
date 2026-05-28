@@ -47628,3 +47628,9 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review では、`StorageId` は owner/checker state 側の割当に由来し、body だけでは安定した storage origin identity へ再投影できないと指摘された。また raw body は本文が `ResourceFunction` に残らないため、kind だけを hash すると stale hit になる。これを受け、`PlaceRoot::Storage(_)` と `RawBody` を含む function body は `None` で cache 候補から外す契約にした。
 - nominal type は qualified definition identity がまだないため、`ResourceSummaryStableTypeKey` では `Named` / `Struct` / `Enum` を拒否する。primitive、tuple、function、box、reference、label 付き generic variable だけを現時点の保存候補にする。
 - 追加 regression として、body hash が Span を無視すること、body operation の変更を追跡すること、function-local temporary id を正規化すること、Storage root / RawBody / 無名 type variable / nominal type を拒否すること、per-summary-value key hash の golden value を固定した。
+
+## 2026-05-28 Agent Resource summary bypass body-hash gate checkpoint
+
+- Resource summary value cache の bypass counter を、stable mirror value だけでなく対応する `ResourceFunction` body hash も作れる場合だけ増やすようにした。これは store/hit 実装前の観測値を、実際に per-summary-value key を作れる候補へ近づけるためである。
+- `collection_slot_summary_build` は最終 summary list と `ResourceModule` の関数名を対応付け、top-level `DropTraversal + ForallInitializedRange` を数える前に `resource_summary_value_cache::body_hash` を通す。
+- raw body のように summary value は人工的に作れても function body hash が安全でない関数は候補数に含めない regression を追加した。

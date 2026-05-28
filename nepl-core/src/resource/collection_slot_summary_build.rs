@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use crate::types::TypeCtx;
@@ -59,9 +60,7 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
         }
     }
     if let Some(cache) = summary_value_cache.as_deref_mut() {
-        for summary in &summaries {
-            record_resource_summary_value_cache_bypass_candidates(cache, types, summary);
-        }
+        record_resource_summary_value_cache_bypass_candidates(cache, types, module, &summaries);
     }
     summaries
 }
@@ -69,11 +68,33 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
 fn record_resource_summary_value_cache_bypass_candidates(
     cache: &mut ResourceSummaryValueCache,
     types: &TypeCtx,
+    module: &ResourceModule,
+    summaries: &[CollectionSlotLifecycleFunctionSummary],
+) {
+    let mut functions = BTreeMap::new();
+    for function in &module.functions {
+        functions.insert(function.name.as_str(), function);
+    }
+    for summary in summaries {
+        let Some(function) = functions.get(summary.function.as_str()) else {
+            continue;
+        };
+        record_resource_summary_value_cache_bypass_candidates_from_summary(
+            cache, types, function, summary,
+        );
+    }
+}
+
+fn record_resource_summary_value_cache_bypass_candidates_from_summary(
+    cache: &mut ResourceSummaryValueCache,
+    types: &TypeCtx,
+    function: &ResourceFunction,
     summary: &CollectionSlotLifecycleFunctionSummary,
 ) {
     record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
         cache,
         types,
+        function,
         &summary.ops,
     );
 }
@@ -81,6 +102,7 @@ fn record_resource_summary_value_cache_bypass_candidates(
 fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
     cache: &mut ResourceSummaryValueCache,
     types: &TypeCtx,
+    function: &ResourceFunction,
     ops: &[CollectionSlotLifecycleSummaryOp],
 ) {
     // 初期 MVP では top-level leaf だけを store 候補にする。
@@ -92,7 +114,7 @@ fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
                 coverage:
                     CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(_),
                 ..
-            } => cache.record_drop_traversal_forall_bypass_if_stable(types, op),
+            } => cache.record_drop_traversal_forall_bypass_if_stable(types, function, op),
             CollectionSlotLifecycleSummaryOp::Event { .. }
             | CollectionSlotLifecycleSummaryOp::Relocate { .. }
             | CollectionSlotLifecycleSummaryOp::DropTraversal { .. }
@@ -359,8 +381,14 @@ mod tests {
     fn resource_summary_value_bypass_counts_only_final_top_level_forall_drop_traversal() {
         let mut cache = ResourceSummaryValueCache::new();
         let types = TypeCtx::new();
+        let function = identity_storage_function(types.i32());
+        let module = ResourceModule {
+            functions: vec![function],
+            entry: None,
+            string_literals: Vec::new(),
+        };
         let summary = CollectionSlotLifecycleFunctionSummary {
-            function: "drop_all".to_string(),
+            function: "identity_storage".to_string(),
             type_params: Vec::new(),
             ops: vec![
                 forall_drop_traversal_op(),
@@ -397,13 +425,75 @@ mod tests {
             }],
         };
 
-        record_resource_summary_value_cache_bypass_candidates(&mut cache, &types, &summary);
+        record_resource_summary_value_cache_bypass_candidates(
+            &mut cache,
+            &types,
+            &module,
+            &[summary],
+        );
 
         let stats = cache.stats();
         assert_eq!(stats.resource_summary_value_bypasses, 1);
         assert_eq!(
             stats.resource_summary_value_drop_traversal_forall_bypasses,
             1
+        );
+    }
+
+    /// Resource summary value cache の初期 store 候補は、summary value だけでなく
+    /// function body hash も安定化できる場合に限る。raw body は本文が
+    /// `ResourceFunction` に残らないため、raw source/body hash を key に追加するまで
+    /// 候補数に含めない。
+    #[test]
+    fn resource_summary_value_bypass_rejects_unstable_function_body_hash() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let types = TypeCtx::new();
+        let span = Span::dummy();
+        let module = ResourceModule {
+            functions: vec![ResourceFunction {
+                name: "raw_body".to_string(),
+                origin_name: "raw_body".to_string(),
+                type_params: Vec::new(),
+                params: Vec::new(),
+                result: types.i32(),
+                effect: crate::ast::Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: Vec::new(),
+                    terminator: ResourceTerminator::RawBody {
+                        kind: super::super::model::RawBodyKind::Wasm,
+                        span,
+                    },
+                    span,
+                }],
+                span,
+            }],
+            entry: None,
+            string_literals: Vec::new(),
+        };
+        let summary = CollectionSlotLifecycleFunctionSummary {
+            function: "raw_body".to_string(),
+            type_params: Vec::new(),
+            ops: vec![forall_drop_traversal_op()],
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            return_paths: Vec::new(),
+        };
+
+        record_resource_summary_value_cache_bypass_candidates(
+            &mut cache,
+            &types,
+            &module,
+            &[summary],
+        );
+
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_bypasses, 0);
+        assert_eq!(
+            stats.resource_summary_value_drop_traversal_forall_bypasses,
+            0
         );
     }
 
