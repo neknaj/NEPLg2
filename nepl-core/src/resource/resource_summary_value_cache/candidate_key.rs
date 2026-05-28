@@ -109,15 +109,35 @@ pub(super) fn drop_traversal_forall_leaf_entry_candidate_key_and_entry(
     ResourceSummaryValueCacheKey,
     ResourceSummaryStableDropTraversalForallLeafEntry,
 )> {
+    let key = drop_traversal_forall_leaf_entry_key(
+        types,
+        namespace_hash,
+        source_capability_policy_hash,
+        function,
+        type_params,
+        generic_type_args,
+    )?;
+    let stable_entry = stable_drop_traversal_forall_leaf_entry(types, ops)?;
+
+    Some((key, stable_entry))
+}
+
+pub(super) fn drop_traversal_forall_leaf_entry_key(
+    types: &TypeCtx,
+    namespace_hash: ResourceSummaryCacheNamespaceHash,
+    source_capability_policy_hash: ResourceSummarySourceCapabilityPolicyHash,
+    function: &ResourceFunction,
+    type_params: &[TypeId],
+    generic_type_args: ResourceSummaryGenericTypeArgumentKeyInput<'_>,
+) -> Option<ResourceSummaryValueCacheKey> {
     let function_identity = ResourceSummaryFunctionIdentity::from_resource_function(function)?;
     let function_body_hash = resource_function_body_hash(types, function)?;
     let type_parameter_boundary_hash =
         resource_summary_type_parameter_boundary_hash(types, type_params)?;
     let generic_type_argument_hash =
         generic_type_argument_key_hash(types, function, type_params, generic_type_args)?;
-    let stable_entry = stable_drop_traversal_forall_leaf_entry(types, ops)?;
 
-    Some((
+    Some(
         ResourceSummaryValueCacheKey::new_drop_traversal_forall_leaf_entry(
             namespace_hash.as_u64(),
             function_identity,
@@ -126,8 +146,7 @@ pub(super) fn drop_traversal_forall_leaf_entry_candidate_key_and_entry(
             generic_type_argument_hash,
             source_capability_policy_hash.as_u64(),
         ),
-        stable_entry,
-    ))
+    )
 }
 
 fn generic_type_argument_key_hash(

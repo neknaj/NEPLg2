@@ -20,7 +20,7 @@ mod type_boundary;
 pub use self::context::ResourceSummaryValueCacheContext;
 
 use self::candidate_key::{
-    drop_traversal_forall_leaf_entry_candidate_key_and_entry,
+    drop_traversal_forall_leaf_entry_candidate_key_and_entry, drop_traversal_forall_leaf_entry_key,
     ResourceSummaryGenericTypeArgumentKeyInput,
 };
 use self::key::ResourceSummaryValueCacheKey;
@@ -126,6 +126,59 @@ impl ResourceSummaryValueCache {
         self.stats.resource_summary_value_bypasses += 1;
         self.stats
             .resource_summary_value_drop_traversal_forall_bypasses += 1;
+    }
+
+    /// complete leaf entry を現在の compile session の summary op 列として replay する。
+    ///
+    /// この API は fixed-point worklist の前でだけ使う。key が存在しない場合は通常の
+    /// recompute に戻る miss であり、replay counter は動かさない。既存 entry があるのに
+    /// 現在の型境界へ再投影できない場合だけ、cache value が意図的に使えなかった
+    /// replay bypass として記録する。
+    pub(super) fn replay_drop_traversal_forall_leaf_entry(
+        &mut self,
+        context: &ResourceSummaryValueCacheContext,
+        types: &TypeCtx,
+        function: &ResourceFunction,
+        type_params: &[TypeId],
+    ) -> Option<Vec<CollectionSlotLifecycleSummaryOp>> {
+        let source_capability_policy_hash =
+            context.source_capability_policy_hash_for_function(function)?;
+        let generic_type_args = if function.type_params.is_empty() && type_params.is_empty() {
+            ResourceSummaryGenericTypeArgumentKeyInput::NonGeneric
+        } else {
+            ResourceSummaryGenericTypeArgumentKeyInput::TemplateBoundaryOnly
+        };
+        let key = drop_traversal_forall_leaf_entry_key(
+            types,
+            context.namespace_hash(),
+            source_capability_policy_hash,
+            function,
+            type_params,
+            generic_type_args,
+        )?;
+        let entry = self.drop_traversal_forall_leaf_entries.get(&key)?.clone();
+        let op_count = entry.len();
+        let Some(reprojection) = ResourceSummaryTypeReprojection::new(types, function, type_params)
+        else {
+            self.record_drop_traversal_forall_replay_bypass(op_count);
+            return None;
+        };
+        let Some(ops) = reproject_drop_traversal_forall_leaf_entry(&reprojection, &entry) else {
+            self.record_drop_traversal_forall_replay_bypass(op_count);
+            return None;
+        };
+
+        self.stats.resource_summary_value_replay_hits += op_count;
+        self.stats.resource_summary_value_replayed_ops += op_count;
+        Some(ops)
+    }
+
+    pub(super) fn record_drop_traversal_forall_recomputed_ops(&mut self, op_count: usize) {
+        self.stats.resource_summary_value_recomputed_ops += op_count;
+    }
+
+    fn record_drop_traversal_forall_replay_bypass(&mut self, op_count: usize) {
+        self.stats.resource_summary_value_replay_bypasses += op_count;
     }
 
     /// keyable な `DropTraversal + ForallInitializedRange` 候補を session cache に記録する。

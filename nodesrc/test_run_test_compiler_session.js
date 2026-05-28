@@ -97,10 +97,19 @@ const { runSingle } = require('./run_test');
     assert.equal(result.timing.compiler_session_cache_after.arity_surface_hits, 4);
     assert.equal(result.timing.compiler_session_prewarm_cache_before.dependency_aggregate_public_surface_hash_hits, 3);
     assert.equal(result.timing.compiler_session_prewarm_cache_after.dependency_aggregate_public_surface_hash_hits, 3);
+    assert.equal(result.timing.compiler_session_prewarm_cache_before.resource_summary_value_replay_hits, 0);
+    assert.equal(result.timing.compiler_session_prewarm_cache_after.resource_summary_value_replay_hits, 0);
+    assert.equal(result.timing.compiler_session_prewarm_cache_before.resource_summary_value_replayed_ops, 0);
+    assert.equal(result.timing.compiler_session_prewarm_cache_after.resource_summary_value_replayed_ops, 0);
+    assert.equal(result.timing.compiler_session_prewarm_cache_before.resource_summary_value_recomputed_ops, 0);
+    assert.equal(result.timing.compiler_session_prewarm_cache_after.resource_summary_value_recomputed_ops, 0);
     assert.equal(result.timing.compiler_session_cache_before.dependency_aggregate_public_surface_hash_hits, 3);
     assert.equal(result.timing.compiler_session_cache_after.dependency_aggregate_public_surface_hash_hits, 4);
     assert.equal(result.timing.compiler_session_cache_before.resource_summary_value_hits, 17);
     assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_drop_traversal_forall_bypasses, 2);
+    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_replay_hits, 0);
+    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_replayed_ops, 0);
+    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_recomputed_ops, 0);
     assert.match(String(result.compile_error || ''), /session compile failure/);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -215,6 +224,11 @@ const { runSingle } = require('./run_test');
     assert.equal(prewarmReuseSecond.timing.compiler_session_prewarm_cache_before.prewarm_surface_hits, 0);
     assert.equal(prewarmReuseSecond.timing.compiler_session_prewarm_cache_after.prewarm_surface_hits, 1);
     assert.equal(prewarmReuseSecond.timing.compiler_session_prewarm_cache_after.prewarm_surface_stores, 1);
+    assert.equal(prewarmReuseSecond.timing.compiler_session_cache_before.resource_summary_value_hits, 0);
+    assert.equal(prewarmReuseSecond.timing.compiler_session_cache_after.resource_summary_value_hits, 1);
+    assert.equal(prewarmReuseSecond.timing.compiler_session_cache_after.resource_summary_value_replay_hits, 0);
+    assert.equal(prewarmReuseSecond.timing.compiler_session_cache_after.resource_summary_value_replayed_ops, 0);
+    assert.equal(prewarmReuseSecond.timing.compiler_session_cache_after.resource_summary_value_recomputed_ops, 0);
     assert.match(
         String(prewarmReuseSecond.compile_error || ''),
         /session compile failure after reused prewarm surface/,
@@ -258,6 +272,10 @@ const { runSingle } = require('./run_test');
     );
     assert.equal(compiledOutputHit.timing.compiler_session_cache_before.resource_summary_value_replay_hits, 0);
     assert.equal(compiledOutputHit.timing.compiler_session_cache_after.resource_summary_value_replay_hits, 0);
+    assert.equal(compiledOutputHit.timing.compiler_session_cache_before.resource_summary_value_replayed_ops, 0);
+    assert.equal(compiledOutputHit.timing.compiler_session_cache_after.resource_summary_value_replayed_ops, 0);
+    assert.equal(compiledOutputHit.timing.compiler_session_cache_before.resource_summary_value_recomputed_ops, 0);
+    assert.equal(compiledOutputHit.timing.compiler_session_cache_after.resource_summary_value_recomputed_ops, 0);
 
     fs.rmSync(tmpDirPrewarmReuse, { recursive: true, force: true });
 

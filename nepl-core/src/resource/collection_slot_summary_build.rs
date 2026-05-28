@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use alloc::collections::BTreeMap;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::types::TypeCtx;
@@ -43,7 +44,26 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
 ) -> Vec<CollectionSlotLifecycleFunctionSummary> {
     let mut summaries = Vec::new();
     let relevant_functions = collection_slot_summary_relevant_functions(module, types);
-    let mut worklist = SummaryWorklist::new_filtered(module, relevant_functions);
+    let dependencies = build_function_summary_dependencies(module);
+    let mut worklist_relevant_functions = relevant_functions.clone();
+    let mut preseeded_functions = vec![false; module.functions.len()];
+    if let (Some(cache), Some(context)) = (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    ) {
+        preseed_collection_slot_lifecycle_summaries_from_value_cache(
+            cache,
+            context,
+            types,
+            module,
+            &relevant_functions,
+            &dependencies,
+            &mut worklist_relevant_functions,
+            &mut preseeded_functions,
+            &mut summaries,
+        );
+    }
+    let mut worklist = SummaryWorklist::new_filtered(module, worklist_relevant_functions);
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
     let raw_init_summary_index = RawCellInitializationFunctionSummaryIndex::new(raw_init_summaries);
@@ -68,9 +88,67 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        record_resource_summary_value_cache_candidates(cache, context, types, module, &summaries);
+        record_resource_summary_value_cache_candidates(
+            cache,
+            context,
+            types,
+            module,
+            &dependencies,
+            &preseeded_functions,
+            &summaries,
+        );
     }
     summaries
+}
+
+fn preseed_collection_slot_lifecycle_summaries_from_value_cache(
+    cache: &mut ResourceSummaryValueCache,
+    context: &ResourceSummaryValueCacheContext,
+    types: &TypeCtx,
+    module: &ResourceModule,
+    relevant_functions: &[bool],
+    dependencies: &[Vec<usize>],
+    worklist_relevant_functions: &mut [bool],
+    preseeded_functions: &mut [bool],
+    summaries: &mut Vec<CollectionSlotLifecycleFunctionSummary>,
+) {
+    for (function_index, function) in module.functions.iter().enumerate() {
+        if !relevant_functions
+            .get(function_index)
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        let dependencies = dependencies
+            .get(function_index)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        if !function_allows_complete_leaf_entry_replay(function, dependencies) {
+            continue;
+        }
+        let type_params = owner_summary_type_params(types, function);
+        let Some(ops) =
+            cache.replay_drop_traversal_forall_leaf_entry(context, types, function, &type_params)
+        else {
+            continue;
+        };
+        summaries.push(CollectionSlotLifecycleFunctionSummary {
+            function: function.name.clone(),
+            type_params,
+            ops,
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            return_paths: Vec::new(),
+        });
+        if let Some(is_relevant) = worklist_relevant_functions.get_mut(function_index) {
+            *is_relevant = false;
+        }
+        if let Some(is_preseeded) = preseeded_functions.get_mut(function_index) {
+            *is_preseeded = true;
+        }
+    }
 }
 
 fn record_resource_summary_value_cache_candidates(
@@ -78,10 +156,11 @@ fn record_resource_summary_value_cache_candidates(
     context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
     module: &ResourceModule,
+    dependencies: &[Vec<usize>],
+    preseeded_functions: &[bool],
     summaries: &[CollectionSlotLifecycleFunctionSummary],
 ) {
     let mut candidates = Vec::new();
-    let dependencies = build_function_summary_dependencies(module);
     let mut functions = BTreeMap::new();
     for (index, function) in module.functions.iter().enumerate() {
         functions.insert(function.name.as_str(), (index, function));
@@ -100,6 +179,10 @@ fn record_resource_summary_value_cache_candidates(
                 .get(*function_index)
                 .map(Vec::as_slice)
                 .unwrap_or(&[]),
+            preseeded_functions
+                .get(*function_index)
+                .copied()
+                .unwrap_or(false),
             summary,
         );
     }
@@ -113,6 +196,7 @@ fn collect_resource_summary_value_cache_leaf_entry_candidate_from_summary(
     types: &TypeCtx,
     function: &ResourceFunction,
     dependencies: &[usize],
+    was_preseeded: bool,
     summary: &CollectionSlotLifecycleFunctionSummary,
 ) {
     let eligible_op_count = top_level_forall_drop_traversal_op_count(&summary.ops);
@@ -120,13 +204,15 @@ fn collect_resource_summary_value_cache_leaf_entry_candidate_from_summary(
         return;
     }
     if !summary_is_complete_forall_drop_traversal_leaf_entry(summary)
-        || !dependencies.is_empty()
-        || function_has_indirect_call(function)
+        || !function_allows_complete_leaf_entry_replay(function, dependencies)
     {
         for _ in 0..eligible_op_count {
             cache.record_drop_traversal_forall_bypass();
         }
         return;
+    }
+    if !was_preseeded {
+        cache.record_drop_traversal_forall_recomputed_ops(eligible_op_count);
     }
     match cache.drop_traversal_forall_leaf_entry_candidate(
         context,
@@ -142,6 +228,13 @@ fn collect_resource_summary_value_cache_leaf_entry_candidate_from_summary(
             }
         }
     }
+}
+
+fn function_allows_complete_leaf_entry_replay(
+    function: &ResourceFunction,
+    dependencies: &[usize],
+) -> bool {
+    dependencies.is_empty() && !function_has_indirect_call(function)
 }
 
 fn summary_is_complete_forall_drop_traversal_leaf_entry(
@@ -496,6 +589,26 @@ mod tests {
         context
     }
 
+    fn record_test_resource_summary_value_cache_candidates(
+        cache: &mut ResourceSummaryValueCache,
+        context: &ResourceSummaryValueCacheContext,
+        types: &TypeCtx,
+        module: &ResourceModule,
+        summaries: &[CollectionSlotLifecycleFunctionSummary],
+    ) {
+        let dependencies = build_function_summary_dependencies(module);
+        let preseeded_functions = vec![false; module.functions.len()];
+        record_resource_summary_value_cache_candidates(
+            cache,
+            context,
+            types,
+            module,
+            &dependencies,
+            &preseeded_functions,
+            summaries,
+        );
+    }
+
     /// Resource summary value cache の replay 用 entry は、固定点収束後の summary 全体が
     /// top-level `DropTraversal + ForallInitializedRange` だけで構成される場合に限って
     /// store 候補にする。部分的に保存できる leaf だけを切り出すと、replay 時に function
@@ -522,7 +635,7 @@ mod tests {
         let context = test_summary_value_cache_context();
         let summaries = vec![summary];
 
-        record_resource_summary_value_cache_candidates(
+        record_test_resource_summary_value_cache_candidates(
             &mut cache, &context, &types, &module, &summaries,
         );
 
@@ -532,7 +645,7 @@ mod tests {
         assert_eq!(stats.resource_summary_value_bypasses, 0);
         assert_eq!(stats.resource_summary_value_drop_traversal_forall_stores, 1);
 
-        record_resource_summary_value_cache_candidates(
+        record_test_resource_summary_value_cache_candidates(
             &mut cache, &context, &types, &module, &summaries,
         );
 
@@ -595,7 +708,7 @@ mod tests {
         };
         let context = test_summary_value_cache_context();
 
-        record_resource_summary_value_cache_candidates(
+        record_test_resource_summary_value_cache_candidates(
             &mut cache,
             &context,
             &types,
@@ -635,7 +748,7 @@ mod tests {
         };
         let context = test_summary_value_cache_context();
 
-        record_resource_summary_value_cache_candidates(
+        record_test_resource_summary_value_cache_candidates(
             &mut cache,
             &context,
             &types,
@@ -677,7 +790,7 @@ mod tests {
         let context = test_summary_value_cache_context();
         let summaries = vec![summary];
 
-        record_resource_summary_value_cache_candidates(
+        record_test_resource_summary_value_cache_candidates(
             &mut cache, &context, &types, &module, &summaries,
         );
         let stats = cache.stats();
@@ -685,13 +798,93 @@ mod tests {
         assert_eq!(stats.resource_summary_value_stores, 2);
         assert_eq!(stats.resource_summary_value_hits, 0);
 
-        record_resource_summary_value_cache_candidates(
+        record_test_resource_summary_value_cache_candidates(
             &mut cache, &context, &types, &module, &summaries,
         );
         let stats = cache.stats();
         assert_eq!(stats.resource_summary_value_hits, 2);
         assert_eq!(stats.resource_summary_value_misses, 2);
         assert_eq!(stats.resource_summary_value_stores, 2);
+    }
+
+    /// preseed は、cache に保存済みの complete leaf entry をそのまま function summary として
+    /// 注入し、固定点 worklist の初期キューから対象関数を外す。これにより、candidate hit
+    /// とは別に実際の replay counter が増え、op の順序と重複も保持される。
+    #[test]
+    fn resource_summary_value_preseed_replays_leaf_entry_and_skips_worklist() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let types = TypeCtx::new();
+        let function = identity_storage_function(types.i32());
+        let module = ResourceModule {
+            functions: vec![function],
+            entry: None,
+            string_literals: Vec::new(),
+        };
+        let summary = CollectionSlotLifecycleFunctionSummary {
+            function: "identity_storage".to_string(),
+            type_params: Vec::new(),
+            ops: vec![
+                forall_drop_traversal_op_with_count(&types, 1),
+                forall_drop_traversal_op_with_count(&types, 1),
+            ],
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            return_paths: Vec::new(),
+        };
+        let context = test_summary_value_cache_context();
+        record_test_resource_summary_value_cache_candidates(
+            &mut cache,
+            &context,
+            &types,
+            &module,
+            core::slice::from_ref(&summary),
+        );
+
+        let dependencies = build_function_summary_dependencies(&module);
+        let relevant_functions = vec![true];
+        let mut worklist_relevant_functions = relevant_functions.clone();
+        let mut preseeded_functions = vec![false; module.functions.len()];
+        let mut summaries = Vec::new();
+
+        preseed_collection_slot_lifecycle_summaries_from_value_cache(
+            &mut cache,
+            &context,
+            &types,
+            &module,
+            &relevant_functions,
+            &dependencies,
+            &mut worklist_relevant_functions,
+            &mut preseeded_functions,
+            &mut summaries,
+        );
+
+        assert_eq!(worklist_relevant_functions, vec![false]);
+        assert_eq!(preseeded_functions, vec![true]);
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].ops, summary.ops);
+
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_replay_hits, 2);
+        assert_eq!(stats.resource_summary_value_replayed_ops, 2);
+        assert_eq!(stats.resource_summary_value_recomputed_ops, 2);
+        assert_eq!(stats.resource_summary_value_hits, 0);
+
+        record_resource_summary_value_cache_candidates(
+            &mut cache,
+            &context,
+            &types,
+            &module,
+            &dependencies,
+            &preseeded_functions,
+            &summaries,
+        );
+
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_hits, 2);
+        assert_eq!(stats.resource_summary_value_replay_hits, 2);
+        assert_eq!(stats.resource_summary_value_replayed_ops, 2);
+        assert_eq!(stats.resource_summary_value_recomputed_ops, 2);
     }
 
     /// Resource summary value cache の初期 store 候補は、summary value だけでなく
@@ -737,7 +930,7 @@ mod tests {
         };
         let context = test_summary_value_cache_context();
 
-        record_resource_summary_value_cache_candidates(
+        record_test_resource_summary_value_cache_candidates(
             &mut cache,
             &context,
             &types,
@@ -778,7 +971,7 @@ mod tests {
         };
         let context = test_summary_value_cache_context();
 
-        record_resource_summary_value_cache_candidates(
+        record_test_resource_summary_value_cache_candidates(
             &mut cache,
             &context,
             &types,
@@ -819,7 +1012,7 @@ mod tests {
         };
         let context = test_summary_value_cache_context();
 
-        record_resource_summary_value_cache_candidates(
+        record_test_resource_summary_value_cache_candidates(
             &mut cache,
             &context,
             &types,

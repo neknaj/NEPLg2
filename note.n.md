@@ -1,3 +1,14 @@
+# 2026-05-28 Resource summary complete leaf entry preseed checkpoint
+
+- Zenn 記事の性能追求方針と試作段階方針に従い、Resource summary value cache の candidate hit 計測だけで止めず、dependency-free complete leaf entry を実際の fixed-point worklist skip に接続した。
+- subagent review では、store predicate と replay predicate のズレが stale hit の主リスクであること、dependency fingerprint が未実装の間は direct call / `FunctionValue` / `IndirectCall` を持つ関数を replay しないこと、candidate hit と actual replay hit を counter で分離することを確認した。
+- `ResourceSummaryValueCache::replay_drop_traversal_forall_leaf_entry` を追加し、保存済み entry を現在 compile の `CollectionSlotLifecycleSummaryOp` 列へ逆投影できる場合だけ replay するようにした。key-only builder は store 側と共有し、store / replay の invalidation input が分岐しないようにした。
+- `compute_collection_slot_lifecycle_function_summaries` は worklist 作成前に replay 可能な summary を `summaries` へ preseed し、対応する関数を初期 pending から外す。preseed 対象は collection-slot relevant で、summary dependency がなく、`IndirectCall` を含まない関数だけである。
+- `resource_summary_value_replay_hits` と `resource_summary_value_replayed_ops` は実 replay 時だけ増やし、通常 recompute した complete leaf entry は `resource_summary_value_recomputed_ops` に数える。`resource_summary_value_hits` は引き続き candidate hit であり、compile work skip の実績とは分ける。
+- Node session regression では、prewarm と compiled-output cache hit が replay / recompute counter を動かさないこと、candidate hit だけでは replay counter が増えないことを明示した。
+- 検証: `cargo fmt -p nepl-core --check`、`cargo test -p nepl-core resource_summary_value_preseed --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_value_store --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_value_leaf_entry --lib -- --nocapture`、`cargo test -p nepl-core stable_drop_traversal_forall --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_value_cache_key --lib -- --nocapture`、`cargo test -p nepl-core candidate_key --lib -- --nocapture`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-resource-summary-leaf-preseed.json` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 Resource summary complete leaf entry checkpoint
 
 - Zenn 記事の試作段階方針に従い、fixed-point skip へ進む前に cache value の形を根本から修正した。
