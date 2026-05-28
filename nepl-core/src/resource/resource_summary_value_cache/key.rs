@@ -44,11 +44,11 @@ pub(super) struct ResourceSummaryFunctionIdentity {
 /// だけを対象にする。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum ResourceSummaryValueKind {
-    CollectionSlotDropTraversalForallV1,
+    CollectionSlotDropTraversalForallLeafEntryV1,
 }
 
 impl ResourceSummaryValueCacheKey {
-    pub(super) fn new_drop_traversal_forall(
+    pub(super) fn new_drop_traversal_forall_leaf_entry(
         namespace_hash: u64,
         function_identity: ResourceSummaryFunctionIdentity,
         function_body_hash: u64,
@@ -56,7 +56,7 @@ impl ResourceSummaryValueCacheKey {
         generic_type_argument_hash: u64,
         source_capability_policy_hash: u64,
     ) -> Self {
-        let summary_kind = ResourceSummaryValueKind::CollectionSlotDropTraversalForallV1;
+        let summary_kind = ResourceSummaryValueKind::CollectionSlotDropTraversalForallLeafEntryV1;
         let stable_hash = resource_summary_value_cache_key_hash(
             namespace_hash,
             &function_identity,
@@ -134,8 +134,8 @@ fn resource_summary_value_cache_key_hash(
 impl ResourceSummaryValueKind {
     fn tag(self) -> &'static str {
         match self {
-            ResourceSummaryValueKind::CollectionSlotDropTraversalForallV1 => {
-                "collection-slot-drop-traversal-forall-v1"
+            ResourceSummaryValueKind::CollectionSlotDropTraversalForallLeafEntryV1 => {
+                "collection-slot-drop-traversal-forall-leaf-entry-v1"
             }
         }
     }
@@ -157,7 +157,7 @@ mod tests {
         generic_type_argument_hash: u64,
         source_capability_policy_hash: u64,
     ) -> ResourceSummaryValueCacheKey {
-        ResourceSummaryValueCacheKey::new_drop_traversal_forall(
+        ResourceSummaryValueCacheKey::new_drop_traversal_forall_leaf_entry(
             namespace_hash,
             function_identity(),
             function_body_hash,
@@ -206,6 +206,6 @@ mod tests {
     fn resource_summary_value_cache_key_hash_has_fixed_golden_value() {
         let key = key_with_parts(1, 2, 3, 4, 5);
 
-        assert_eq!(key.stable_hash(), 0x6a45c0d38f322e2d);
+        assert_eq!(key.stable_hash(), 0x2cc676efa6c78ac1);
     }
 }

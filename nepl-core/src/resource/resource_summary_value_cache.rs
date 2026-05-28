@@ -20,11 +20,12 @@ mod type_boundary;
 pub use self::context::ResourceSummaryValueCacheContext;
 
 use self::candidate_key::{
-    drop_traversal_forall_candidate_key_and_value, ResourceSummaryGenericTypeArgumentKeyInput,
+    drop_traversal_forall_leaf_entry_candidate_key_and_entry,
+    ResourceSummaryGenericTypeArgumentKeyInput,
 };
 use self::key::ResourceSummaryValueCacheKey;
 use self::stable_mirror::{
-    reproject_drop_traversal_forall_value, ResourceSummaryStableDropTraversalForallValue,
+    reproject_drop_traversal_forall_leaf_entry, ResourceSummaryStableDropTraversalForallLeafEntry,
     ResourceSummaryTypeReprojection,
 };
 
@@ -60,14 +61,14 @@ pub struct ResourceSummaryValueCacheStats {
 #[derive(Debug, Default)]
 pub struct ResourceSummaryValueCache {
     stats: ResourceSummaryValueCacheStats,
-    drop_traversal_forall_values:
-        BTreeMap<ResourceSummaryValueCacheKey, Vec<ResourceSummaryStableDropTraversalForallValue>>,
+    drop_traversal_forall_leaf_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableDropTraversalForallLeafEntry>,
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct ResourceSummaryDropTraversalForallCandidate {
+pub(super) struct ResourceSummaryDropTraversalForallLeafEntryCandidate {
     key: ResourceSummaryValueCacheKey,
-    value: ResourceSummaryStableDropTraversalForallValue,
+    entry: ResourceSummaryStableDropTraversalForallLeafEntry,
 }
 
 impl ResourceSummaryValueCache {
@@ -77,27 +78,26 @@ impl ResourceSummaryValueCache {
 
     pub fn clear(&mut self) {
         self.stats = ResourceSummaryValueCacheStats::default();
-        self.drop_traversal_forall_values.clear();
+        self.drop_traversal_forall_leaf_entries.clear();
     }
 
     pub fn stats(&self) -> ResourceSummaryValueCacheStats {
         self.stats
     }
 
-    /// `DropTraversal + ForallInitializedRange` の store/hit 候補を作る。
+    /// complete leaf-only `DropTraversal + ForallInitializedRange` entry 候補を作る。
     ///
     /// この候補は compile work skip ではなく、現在の function boundary へ fail-closed に
-    /// 逆投影できる stable value だけを store/hit 統計へ渡すための境界である。逆投影
-    /// できない value は、同じ key に見えても次の session で stale replay になる可能性が
-    /// あるため、hit 候補にせず bypass として扱う。
-    pub(super) fn drop_traversal_forall_candidate(
+    /// 逆投影できる stable entry だけを store/hit 統計へ渡すための境界である。entry は
+    /// top-level op の順序と重複を保持し、部分的に変換できる leaf だけを保存しない。
+    pub(super) fn drop_traversal_forall_leaf_entry_candidate(
         &self,
         context: &ResourceSummaryValueCacheContext,
         types: &TypeCtx,
         function: &ResourceFunction,
         type_params: &[TypeId],
-        op: &CollectionSlotLifecycleSummaryOp,
-    ) -> Option<ResourceSummaryDropTraversalForallCandidate> {
+        ops: &[CollectionSlotLifecycleSummaryOp],
+    ) -> Option<ResourceSummaryDropTraversalForallLeafEntryCandidate> {
         let Some(source_capability_policy_hash) =
             context.source_capability_policy_hash_for_function(function)
         else {
@@ -108,18 +108,18 @@ impl ResourceSummaryValueCache {
         } else {
             ResourceSummaryGenericTypeArgumentKeyInput::TemplateBoundaryOnly
         };
-        let (key, value) = drop_traversal_forall_candidate_key_and_value(
+        let (key, entry) = drop_traversal_forall_leaf_entry_candidate_key_and_entry(
             types,
             context.namespace_hash(),
             source_capability_policy_hash,
             function,
             type_params,
             generic_type_args,
-            op,
+            ops,
         )?;
         let reprojection = ResourceSummaryTypeReprojection::new(types, function, type_params)?;
-        reproject_drop_traversal_forall_value(&reprojection, &value)?;
-        Some(ResourceSummaryDropTraversalForallCandidate { key, value })
+        reproject_drop_traversal_forall_leaf_entry(&reprojection, &entry)?;
+        Some(ResourceSummaryDropTraversalForallLeafEntryCandidate { key, entry })
     }
 
     pub(super) fn record_drop_traversal_forall_bypass(&mut self) {
@@ -130,42 +130,38 @@ impl ResourceSummaryValueCache {
 
     /// keyable な `DropTraversal + ForallInitializedRange` 候補を session cache に記録する。
     ///
-    /// hit 判定は、この呼び出しが始まる前から cache に存在した value だけを対象にする。
-    /// 同じ summary build pass 内で先に store した value を即 hit と数えると、微小変更時の
-    /// 再利用可能性を過大評価するためである。
-    pub(super) fn record_drop_traversal_forall_candidates(
+    /// hit 判定は、この呼び出しが始まる前から cache に存在した complete entry だけを
+    /// 対象にする。同じ summary build pass 内で先に store した entry を即 hit と数えると、
+    /// 微小変更時の再利用可能性を過大評価するためである。
+    pub(super) fn record_drop_traversal_forall_leaf_entry_candidates(
         &mut self,
-        candidates: Vec<ResourceSummaryDropTraversalForallCandidate>,
+        candidates: Vec<ResourceSummaryDropTraversalForallLeafEntryCandidate>,
     ) {
         let candidates_with_hits = candidates
             .into_iter()
             .map(|candidate| {
                 let existed_before_recording = self
-                    .drop_traversal_forall_values
+                    .drop_traversal_forall_leaf_entries
                     .get(&candidate.key)
-                    .is_some_and(|values| values.contains(&candidate.value));
+                    .is_some_and(|entry| entry == &candidate.entry);
                 (candidate, existed_before_recording)
             })
             .collect::<Vec<_>>();
 
         for (candidate, existed_before_recording) in candidates_with_hits {
+            let op_count = candidate.entry.len();
             if existed_before_recording {
-                self.stats.resource_summary_value_hits += 1;
-                self.stats.resource_summary_value_drop_traversal_forall_hits += 1;
+                self.stats.resource_summary_value_hits += op_count;
+                self.stats.resource_summary_value_drop_traversal_forall_hits += op_count;
                 continue;
             }
 
-            self.stats.resource_summary_value_misses += 1;
-            let values = self
-                .drop_traversal_forall_values
-                .entry(candidate.key)
-                .or_default();
-            if !values.contains(&candidate.value) {
-                values.push(candidate.value);
-                self.stats.resource_summary_value_stores += 1;
-                self.stats
-                    .resource_summary_value_drop_traversal_forall_stores += 1;
-            }
+            self.stats.resource_summary_value_misses += op_count;
+            self.drop_traversal_forall_leaf_entries
+                .insert(candidate.key, candidate.entry);
+            self.stats.resource_summary_value_stores += op_count;
+            self.stats
+                .resource_summary_value_drop_traversal_forall_stores += op_count;
         }
     }
 }

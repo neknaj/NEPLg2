@@ -5,7 +5,7 @@ use super::super::model::ResourceFunction;
 use super::body_hash::resource_function_body_hash;
 use super::key::{ResourceSummaryFunctionIdentity, ResourceSummaryValueCacheKey};
 use super::stable_mirror::{
-    stable_drop_traversal_forall_value, ResourceSummaryStableDropTraversalForallValue,
+    stable_drop_traversal_forall_leaf_entry, ResourceSummaryStableDropTraversalForallLeafEntry,
 };
 use super::type_boundary::{
     resource_summary_generic_type_argument_hash, resource_summary_type_parameter_boundary_hash,
@@ -85,29 +85,29 @@ pub(super) fn drop_traversal_forall_candidate_key(
     generic_type_args: ResourceSummaryGenericTypeArgumentKeyInput<'_>,
     op: &CollectionSlotLifecycleSummaryOp,
 ) -> Option<ResourceSummaryValueCacheKey> {
-    drop_traversal_forall_candidate_key_and_value(
+    drop_traversal_forall_leaf_entry_candidate_key_and_entry(
         types,
         namespace_hash,
         source_capability_policy_hash,
         function,
         type_params,
         generic_type_args,
-        op,
+        core::slice::from_ref(op),
     )
     .map(|(key, _)| key)
 }
 
-pub(super) fn drop_traversal_forall_candidate_key_and_value(
+pub(super) fn drop_traversal_forall_leaf_entry_candidate_key_and_entry(
     types: &TypeCtx,
     namespace_hash: ResourceSummaryCacheNamespaceHash,
     source_capability_policy_hash: ResourceSummarySourceCapabilityPolicyHash,
     function: &ResourceFunction,
     type_params: &[TypeId],
     generic_type_args: ResourceSummaryGenericTypeArgumentKeyInput<'_>,
-    op: &CollectionSlotLifecycleSummaryOp,
+    ops: &[CollectionSlotLifecycleSummaryOp],
 ) -> Option<(
     ResourceSummaryValueCacheKey,
-    ResourceSummaryStableDropTraversalForallValue,
+    ResourceSummaryStableDropTraversalForallLeafEntry,
 )> {
     let function_identity = ResourceSummaryFunctionIdentity::from_resource_function(function)?;
     let function_body_hash = resource_function_body_hash(types, function)?;
@@ -115,10 +115,10 @@ pub(super) fn drop_traversal_forall_candidate_key_and_value(
         resource_summary_type_parameter_boundary_hash(types, type_params)?;
     let generic_type_argument_hash =
         generic_type_argument_key_hash(types, function, type_params, generic_type_args)?;
-    let stable_value = stable_drop_traversal_forall_value(types, op)?;
+    let stable_entry = stable_drop_traversal_forall_leaf_entry(types, ops)?;
 
     Some((
-        ResourceSummaryValueCacheKey::new_drop_traversal_forall(
+        ResourceSummaryValueCacheKey::new_drop_traversal_forall_leaf_entry(
             namespace_hash.as_u64(),
             function_identity,
             function_body_hash,
@@ -126,7 +126,7 @@ pub(super) fn drop_traversal_forall_candidate_key_and_value(
             generic_type_argument_hash,
             source_capability_policy_hash.as_u64(),
         ),
-        stable_value,
+        stable_entry,
     ))
 }
 

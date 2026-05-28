@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
-use crate::types::{TypeCtx, TypeId};
+use crate::types::TypeCtx;
 
 use super::collection_slot_summary_build_ops::collect_summary_ops_from_ops;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
@@ -25,9 +25,10 @@ use super::model::{ResourceFunction, ResourceModule};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::report::ResourceCheckDeferred;
 use super::resource_summary_value_cache::{
-    ResourceSummaryDropTraversalForallCandidate, ResourceSummaryValueCache,
+    ResourceSummaryDropTraversalForallLeafEntryCandidate, ResourceSummaryValueCache,
     ResourceSummaryValueCacheContext,
 };
+use super::summary_dependency::build_function_summary_dependencies;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
@@ -80,82 +81,153 @@ fn record_resource_summary_value_cache_candidates(
     summaries: &[CollectionSlotLifecycleFunctionSummary],
 ) {
     let mut candidates = Vec::new();
+    let dependencies = build_function_summary_dependencies(module);
     let mut functions = BTreeMap::new();
-    for function in &module.functions {
-        functions.insert(function.name.as_str(), function);
+    for (index, function) in module.functions.iter().enumerate() {
+        functions.insert(function.name.as_str(), (index, function));
     }
     for summary in summaries {
-        let Some(function) = functions.get(summary.function.as_str()) else {
+        let Some((function_index, function)) = functions.get(summary.function.as_str()) else {
             continue;
         };
-        collect_resource_summary_value_cache_candidates_from_summary(
+        collect_resource_summary_value_cache_leaf_entry_candidate_from_summary(
             &mut candidates,
             cache,
             context,
             types,
             function,
+            dependencies
+                .get(*function_index)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]),
             summary,
         );
     }
-    cache.record_drop_traversal_forall_candidates(candidates);
+    cache.record_drop_traversal_forall_leaf_entry_candidates(candidates);
 }
 
-fn collect_resource_summary_value_cache_candidates_from_summary(
-    candidates: &mut Vec<ResourceSummaryDropTraversalForallCandidate>,
+fn collect_resource_summary_value_cache_leaf_entry_candidate_from_summary(
+    candidates: &mut Vec<ResourceSummaryDropTraversalForallLeafEntryCandidate>,
     cache: &mut ResourceSummaryValueCache,
     context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
     function: &ResourceFunction,
+    dependencies: &[usize],
     summary: &CollectionSlotLifecycleFunctionSummary,
 ) {
-    collect_resource_summary_value_cache_candidates_from_top_level_ops(
-        candidates,
-        cache,
+    let eligible_op_count = top_level_forall_drop_traversal_op_count(&summary.ops);
+    if eligible_op_count == 0 {
+        return;
+    }
+    if !summary_is_complete_forall_drop_traversal_leaf_entry(summary)
+        || !dependencies.is_empty()
+        || function_has_indirect_call(function)
+    {
+        for _ in 0..eligible_op_count {
+            cache.record_drop_traversal_forall_bypass();
+        }
+        return;
+    }
+    match cache.drop_traversal_forall_leaf_entry_candidate(
         context,
         types,
         function,
         &summary.type_params,
         &summary.ops,
-    );
-}
-
-fn collect_resource_summary_value_cache_candidates_from_top_level_ops(
-    candidates: &mut Vec<ResourceSummaryDropTraversalForallCandidate>,
-    cache: &mut ResourceSummaryValueCache,
-    context: &ResourceSummaryValueCacheContext,
-    types: &TypeCtx,
-    function: &ResourceFunction,
-    type_params: &[TypeId],
-    ops: &[CollectionSlotLifecycleSummaryOp],
-) {
-    // 初期 MVP では top-level leaf だけを store 候補にする。
-    // return path や control-flow container 内の leaf は、分岐条件や path precondition
-    // と一体で stable mirror を設計する必要があるため、この counter へ含めない。
-    for op in ops {
-        match op {
-            CollectionSlotLifecycleSummaryOp::DropTraversal {
-                coverage:
-                    CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(_),
-                ..
-            } => match cache.drop_traversal_forall_candidate(
-                context,
-                types,
-                function,
-                type_params,
-                op,
-            ) {
-                Some(candidate) => candidates.push(candidate),
-                None => cache.record_drop_traversal_forall_bypass(),
-            },
-            CollectionSlotLifecycleSummaryOp::Event { .. }
-            | CollectionSlotLifecycleSummaryOp::Relocate { .. }
-            | CollectionSlotLifecycleSummaryOp::DropTraversal { .. }
-            | CollectionSlotLifecycleSummaryOp::TransformRange { .. }
-            | CollectionSlotLifecycleSummaryOp::TransformRangeSourceDrain { .. }
-            | CollectionSlotLifecycleSummaryOp::Merge { .. }
-            | CollectionSlotLifecycleSummaryOp::Loop { .. } => {}
+    ) {
+        Some(candidate) => candidates.push(candidate),
+        None => {
+            for _ in 0..eligible_op_count {
+                cache.record_drop_traversal_forall_bypass();
+            }
         }
     }
+}
+
+fn summary_is_complete_forall_drop_traversal_leaf_entry(
+    summary: &CollectionSlotLifecycleFunctionSummary,
+) -> bool {
+    !summary.ops.is_empty()
+        && summary.return_transfers.is_empty()
+        && summary.return_slots.is_empty()
+        && summary.return_ranges.is_empty()
+        && summary.return_paths.is_empty()
+        && summary.ops.iter().all(op_is_forall_drop_traversal_leaf)
+}
+
+fn top_level_forall_drop_traversal_op_count(ops: &[CollectionSlotLifecycleSummaryOp]) -> usize {
+    ops.iter()
+        .filter(|op| op_is_forall_drop_traversal_leaf(*op))
+        .count()
+}
+
+fn op_is_forall_drop_traversal_leaf(op: &CollectionSlotLifecycleSummaryOp) -> bool {
+    matches!(
+        op,
+        CollectionSlotLifecycleSummaryOp::DropTraversal {
+            coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
+                _
+            ),
+            ..
+        }
+    )
+}
+
+fn function_has_indirect_call(function: &ResourceFunction) -> bool {
+    function
+        .blocks
+        .iter()
+        .any(|block| ops_have_indirect_call(&block.ops))
+}
+
+fn ops_have_indirect_call(ops: &[super::model::ResourceOp]) -> bool {
+    for op in ops {
+        match op {
+            super::model::ResourceOp::IndirectCall { .. } => return true,
+            super::model::ResourceOp::Branch {
+                then_ops, else_ops, ..
+            } => {
+                if ops_have_indirect_call(then_ops) || ops_have_indirect_call(else_ops) {
+                    return true;
+                }
+            }
+            super::model::ResourceOp::Loop {
+                condition_ops,
+                body_ops,
+                ..
+            } => {
+                if ops_have_indirect_call(condition_ops) || ops_have_indirect_call(body_ops) {
+                    return true;
+                }
+            }
+            super::model::ResourceOp::Match { arms, .. } => {
+                if arms.iter().any(|arm| ops_have_indirect_call(&arm.ops)) {
+                    return true;
+                }
+            }
+            super::model::ResourceOp::Expr { .. }
+            | super::model::ResourceOp::DeclareLocal { .. }
+            | super::model::ResourceOp::Read { .. }
+            | super::model::ResourceOp::Assign { .. }
+            | super::model::ResourceOp::Borrow { .. }
+            | super::model::ResourceOp::Move { .. }
+            | super::model::ResourceOp::Drop { .. }
+            | super::model::ResourceOp::EndScope { .. }
+            | super::model::ResourceOp::CallEffect { .. }
+            | super::model::ResourceOp::FunctionValue { .. }
+            | super::model::ResourceOp::Call { .. }
+            | super::model::ResourceOp::RawMemory { .. }
+            | super::model::ResourceOp::RawAddressAlias { .. }
+            | super::model::ResourceOp::RawAddressView { .. }
+            | super::model::ResourceOp::StorageOrigin { .. }
+            | super::model::ResourceOp::CollectionSlotLifecycle { .. }
+            | super::model::ResourceOp::CollectionStorageRelocate { .. }
+            | super::model::ResourceOp::CollectionSlotDropTraversal { .. }
+            | super::model::ResourceOp::CollectionSlotTransformRange { .. }
+            | super::model::ResourceOp::Construct { .. } => {}
+        }
+    }
+    false
 }
 
 fn update_collection_slot_lifecycle_summary(
@@ -424,12 +496,58 @@ mod tests {
         context
     }
 
-    /// Resource summary value cache の初期 MVP は、固定点収束後の top-level
-    /// `DropTraversal + ForallInitializedRange` だけを store 候補として扱う。
-    /// return path や control-flow container 内の leaf は、stable mirror の key/value
-    /// を別途設計するまで候補数に含めない。
+    /// Resource summary value cache の replay 用 entry は、固定点収束後の summary 全体が
+    /// top-level `DropTraversal + ForallInitializedRange` だけで構成される場合に限って
+    /// store 候補にする。部分的に保存できる leaf だけを切り出すと、replay 時に function
+    /// summary の surface を復元できないためである。
     #[test]
     fn resource_summary_value_store_hit_counts_only_final_top_level_forall_drop_traversal() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let types = TypeCtx::new();
+        let function = identity_storage_function(types.i32());
+        let module = ResourceModule {
+            functions: vec![function],
+            entry: None,
+            string_literals: Vec::new(),
+        };
+        let summary = CollectionSlotLifecycleFunctionSummary {
+            function: "identity_storage".to_string(),
+            type_params: Vec::new(),
+            ops: vec![forall_drop_traversal_op(&types)],
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            return_paths: Vec::new(),
+        };
+        let context = test_summary_value_cache_context();
+        let summaries = vec![summary];
+
+        record_resource_summary_value_cache_candidates(
+            &mut cache, &context, &types, &module, &summaries,
+        );
+
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_misses, 1);
+        assert_eq!(stats.resource_summary_value_stores, 1);
+        assert_eq!(stats.resource_summary_value_bypasses, 0);
+        assert_eq!(stats.resource_summary_value_drop_traversal_forall_stores, 1);
+
+        record_resource_summary_value_cache_candidates(
+            &mut cache, &context, &types, &module, &summaries,
+        );
+
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_hits, 1);
+        assert_eq!(stats.resource_summary_value_misses, 1);
+        assert_eq!(stats.resource_summary_value_stores, 1);
+        assert_eq!(stats.resource_summary_value_drop_traversal_forall_hits, 1);
+    }
+
+    /// complete leaf entry ではない summary surface は、top-level leaf があっても
+    /// store 対象にしない。return path や control-flow container 内の leaf を分離して
+    /// 保存すると、将来の replay が function summary 全体を復元できなくなる。
+    #[test]
+    fn resource_summary_value_leaf_entry_rejects_partial_summary_surface() {
         let mut cache = ResourceSummaryValueCache::new();
         let types = TypeCtx::new();
         let function = identity_storage_function(types.i32());
@@ -476,32 +594,64 @@ mod tests {
             }],
         };
         let context = test_summary_value_cache_context();
-        let summaries = vec![summary];
 
         record_resource_summary_value_cache_candidates(
-            &mut cache, &context, &types, &module, &summaries,
+            &mut cache,
+            &context,
+            &types,
+            &module,
+            &[summary],
         );
 
         let stats = cache.stats();
-        assert_eq!(stats.resource_summary_value_misses, 1);
-        assert_eq!(stats.resource_summary_value_stores, 1);
-        assert_eq!(stats.resource_summary_value_bypasses, 0);
-        assert_eq!(stats.resource_summary_value_drop_traversal_forall_stores, 1);
-
-        record_resource_summary_value_cache_candidates(
-            &mut cache, &context, &types, &module, &summaries,
-        );
-
-        let stats = cache.stats();
-        assert_eq!(stats.resource_summary_value_hits, 1);
-        assert_eq!(stats.resource_summary_value_misses, 1);
-        assert_eq!(stats.resource_summary_value_stores, 1);
-        assert_eq!(stats.resource_summary_value_drop_traversal_forall_hits, 1);
+        assert_eq!(stats.resource_summary_value_bypasses, 1);
+        assert_eq!(stats.resource_summary_value_stores, 0);
+        assert_eq!(stats.resource_summary_value_hits, 0);
     }
 
-    /// 現在の MVP key は function/body/kind 単位であり、同じ function に複数の
-    /// `DropTraversal + ForallInitializedRange` が現れる可能性がある。そのため value は
-    /// key ごとに複数保存し、同じ key の後続 value で上書きしない。
+    /// 関数本文が他の summary に依存する場合は、caller body が不変でも callee summary の
+    /// 変化で top-level op が変わり得る。dependency fingerprint を key に入れるまで、
+    /// complete leaf entry の store/replay 候補にはしない。
+    #[test]
+    fn resource_summary_value_leaf_entry_rejects_function_dependencies() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let types = TypeCtx::new();
+        let module = ResourceModule {
+            functions: vec![
+                collection_storage_marker_function(types.i32(), types.i32()),
+                identity_storage_function(types.i32()),
+            ],
+            entry: None,
+            string_literals: Vec::new(),
+        };
+        let summary = CollectionSlotLifecycleFunctionSummary {
+            function: "mark_collection_storage".to_string(),
+            type_params: Vec::new(),
+            ops: vec![forall_drop_traversal_op(&types)],
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            return_paths: Vec::new(),
+        };
+        let context = test_summary_value_cache_context();
+
+        record_resource_summary_value_cache_candidates(
+            &mut cache,
+            &context,
+            &types,
+            &module,
+            &[summary],
+        );
+
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_bypasses, 1);
+        assert_eq!(stats.resource_summary_value_stores, 0);
+        assert_eq!(stats.resource_summary_value_hits, 0);
+    }
+
+    /// complete leaf entry は同じ stable value の重複も summary op 列の一部として保持する。
+    /// 個別 value を `contains` で dedup すると `[A, A]` を replay できないため、entry の
+    /// store/hit counter も op の multiplicity で増やす。
     #[test]
     fn resource_summary_value_store_keeps_multiple_values_under_the_same_key() {
         let mut cache = ResourceSummaryValueCache::new();
@@ -517,7 +667,7 @@ mod tests {
             type_params: Vec::new(),
             ops: vec![
                 forall_drop_traversal_op_with_count(&types, 1),
-                forall_drop_traversal_op_with_count(&types, 2),
+                forall_drop_traversal_op_with_count(&types, 1),
             ],
             return_transfers: Vec::new(),
             return_slots: Vec::new(),

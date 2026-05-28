@@ -77,6 +77,23 @@ pub(super) struct ResourceSummaryStableDropTraversalForallValue {
     drop_proof: ResourceSummaryStableDropTraversalProof,
 }
 
+/// 完全な leaf-only `DropTraversal + ForallInitializedRange` summary entry。
+///
+/// 個別 value の `Vec` では、同じ value が複数回現れる場合に multiplicity を失い、
+/// replay 時に元の summary op 列を復元できない。この entry は function summary の
+/// top-level op 列としての順序と重複をそのまま保存し、将来の fixed-point skip が
+///「この関数 summary 全体を再現できる」ことを確認するための単位にする。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ResourceSummaryStableDropTraversalForallLeafEntry {
+    leaves: Vec<ResourceSummaryStableDropTraversalForallValue>,
+}
+
+impl ResourceSummaryStableDropTraversalForallLeafEntry {
+    pub(super) fn len(&self) -> usize {
+        self.leaves.len()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ResourceSummaryStableI32Operand {
     Place(ResourceSummaryStablePlace),
@@ -215,6 +232,20 @@ pub(super) fn stable_drop_traversal_forall_value(
     })
 }
 
+pub(super) fn stable_drop_traversal_forall_leaf_entry(
+    types: &TypeCtx,
+    ops: &[CollectionSlotLifecycleSummaryOp],
+) -> Option<ResourceSummaryStableDropTraversalForallLeafEntry> {
+    if ops.is_empty() {
+        return None;
+    }
+    let leaves = ops
+        .iter()
+        .map(|op| stable_drop_traversal_forall_value(types, op))
+        .collect::<Option<Vec<_>>>()?;
+    Some(ResourceSummaryStableDropTraversalForallLeafEntry { leaves })
+}
+
 pub(super) fn reproject_drop_traversal_forall_value(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     value: &ResourceSummaryStableDropTraversalForallValue,
@@ -236,6 +267,20 @@ pub(super) fn reproject_drop_traversal_forall_value(
             },
         ),
     })
+}
+
+pub(super) fn reproject_drop_traversal_forall_leaf_entry(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    entry: &ResourceSummaryStableDropTraversalForallLeafEntry,
+) -> Option<Vec<CollectionSlotLifecycleSummaryOp>> {
+    if entry.leaves.is_empty() {
+        return None;
+    }
+    entry
+        .leaves
+        .iter()
+        .map(|value| reproject_drop_traversal_forall_value(ctx, value))
+        .collect()
 }
 
 fn reproject_i32_operand(
@@ -850,6 +895,59 @@ mod tests {
             .expect("symbolic storage offset should reproject");
 
         assert_eq!(reprojected, op);
+    }
+
+    #[test]
+    fn stable_drop_traversal_forall_leaf_entry_preserves_order_and_duplicates() {
+        let types = TypeCtx::new();
+        let function = function_with_param(types.i32());
+        let first = CollectionSlotLifecycleSummaryOp::DropTraversal {
+            storage: SummaryPlace {
+                parameter_index: 0,
+                suffix: Vec::new(),
+                ty: types.i32(),
+            },
+            initialized_count: CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
+                value: 2,
+                ty: types.i32(),
+            },
+            expected_ty: types.i32(),
+            coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
+                CollectionSlotInitializedRangeDropTraversalCertificate {
+                    element_stride: 4,
+                    drop_proof: CollectionSlotInitializedRangeDropTraversalProof::StateOnly,
+                },
+            ),
+        };
+        let second = CollectionSlotLifecycleSummaryOp::DropTraversal {
+            storage: SummaryPlace {
+                parameter_index: 0,
+                suffix: Vec::new(),
+                ty: types.i32(),
+            },
+            initialized_count: CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
+                value: 1,
+                ty: types.i32(),
+            },
+            expected_ty: types.i32(),
+            coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
+                CollectionSlotInitializedRangeDropTraversalCertificate {
+                    element_stride: 4,
+                    drop_proof: CollectionSlotInitializedRangeDropTraversalProof::StateOnly,
+                },
+            ),
+        };
+        let ops = vec![first.clone(), second.clone(), first.clone()];
+        let entry = stable_drop_traversal_forall_leaf_entry(&types, &ops)
+            .expect("complete leaf entry should convert");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let reprojected = reproject_drop_traversal_forall_leaf_entry(&ctx, &entry)
+            .expect("complete leaf entry should reproject");
+
+        assert_eq!(entry.len(), 3);
+        assert_eq!(reprojected, ops);
     }
 
     #[test]

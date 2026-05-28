@@ -1,3 +1,14 @@
+# 2026-05-28 Resource summary complete leaf entry checkpoint
+
+- Zenn 記事の試作段階方針に従い、fixed-point skip へ進む前に cache value の形を根本から修正した。
+- subagent review では、個別 `DropTraversal + ForallInitializedRange` value を key ごとの dedup `Vec` に保存すると、同じ value が複数回現れる summary の順序と重複を復元できないため replay unsafe だと確認した。
+- `ResourceSummaryStableDropTraversalForallLeafEntry` を追加し、function summary の top-level leaf op 列として順序と重複を保持するようにした。entry は現在 compile の `CollectionSlotLifecycleSummaryOp` 列へ逆投影できる場合だけ store/hit 候補になる。
+- `record_resource_summary_value_cache_candidates` は、summary 全体が top-level `DropTraversal + ForallInitializedRange` のみで、return facts が空で、summary dependency と `IndirectCall` がない場合だけ complete leaf entry 候補を作る。partial summary surface、依存あり caller、unstable key/value は bypass に倒す。
+- `ResourceSummaryValueKind` は `collection-slot-drop-traversal-forall-leaf-entry-v1` に更新した。これは個別 value 形式と replay 用 complete entry 形式を混同しないためである。
+- 現 checkpoint でも fixed-point worklist の seed / skip はまだ行わない。次は dependency-free complete leaf entry を worklist 前に preseed し、`resource_summary_value_replay_*` counter を実際に動かす段階へ進む。
+- 検証: `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core stable_drop_traversal_forall --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_value_store --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_value_leaf_entry --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_value_cache_key --lib -- --nocapture`、`cargo test -p nepl-core candidate_key --lib -- --nocapture`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-resource-summary-leaf-entry.json` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 Resource summary reverse projection candidate checkpoint
 
 - Zenn 記事の試作段階方針を再確認し、compile timeout や静的検査の削減ではなく、純粋な Resource summary query の stable value を安全に再利用する境界を狭く実装した。
