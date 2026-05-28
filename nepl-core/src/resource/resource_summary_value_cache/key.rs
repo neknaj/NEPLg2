@@ -4,6 +4,7 @@ extern crate alloc;
 
 use alloc::string::{String, ToString};
 
+use super::super::model::ResourceFunction;
 use super::stable_hash::ResourceSummaryStableHasher;
 
 // この module は store/hit 実装の直前に key 形状を固定する staging module である。
@@ -99,6 +100,10 @@ impl ResourceSummaryFunctionIdentity {
             canonical_symbol: canonical_symbol.to_string(),
             origin_name: origin_name.to_string(),
         })
+    }
+
+    pub(super) fn from_resource_function(function: &ResourceFunction) -> Option<Self> {
+        Self::new(&function.name, &function.origin_name)
     }
 
     #[cfg(test)]

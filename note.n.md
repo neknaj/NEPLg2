@@ -47642,3 +47642,9 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - type parameter boundary は unbound かつ label 付きの type variable だけを許可し、arity、ordinal、label、copy/clone/drop capability を hash する。同じ stable parameter key が重複する場合、anonymous variable、bound variable、concrete type、nominal type は no-store 候補にする。
 - generic type argument hash は順序付き argument list として扱い、各 argument を `ResourceSummaryStableTypeKey` に変換できる場合だけ作る。nominal identity が未確定の argument は拒否する。
 - bypass counter は、stable mirror value と function body hash に加え、`summary.type_params` の boundary hash も作れる場合だけ増やすようにした。
+
+## 2026-05-28 Agent Resource summary function identity gate checkpoint
+
+- `ResourceSummaryFunctionIdentity::from_resource_function` を追加し、canonical symbol と origin name が空でないことを Resource summary value candidate gate でも確認するようにした。
+- function body hash、type boundary hash、stable mirror value が作れても、compile session 間で対応する callable 境界を特定できない function は store 候補として観測しない。
+- empty function identity を持つ人工的な ResourceFunction が bypass counter に入らない regression を追加した。

@@ -96,6 +96,7 @@ target: "nepl-core, nepl-web, nodesrc/run_test.js, stdlib"
 - function body hash staging checkpoint として、`ResourceSummaryStableTypeKey` を shared private module へ分け、`resource_summary_value_cache::body_hash` で `ResourceFunction` の stable body hash を作る足場を追加した。`Span` は hash せず、`TypeId` は stable type key へ変換し、temporary / block id は body 内 ordinal に正規化する。subagent review により `StorageId` は body だけでは安定 origin へ対応付けられず、raw body は本文が `ResourceFunction` に残らないと判断し、`PlaceRoot::Storage(_)` と `RawBody` を含む function は store 候補から外す。nominal type も qualified definition identity が得られるまで stable type key として保存しない。
 - bypass candidate connection checkpoint として、top-level `DropTraversal + ForallInitializedRange` の bypass counter を増やす前に、対応する `ResourceFunction` の body hash が作れることも確認するようにした。これにより、summary value だけは stable mirror 化できても per-summary-value key を安全に作れない関数は store 候補として観測しない。
 - type boundary hash checkpoint として、`resource_summary_value_cache::type_boundary` private module を追加した。`type_parameter_boundary_hash` は `summary.type_params` の ordered boundary を使い、arity、ordinal、label、copy/clone/drop capability を含める。anonymous / bound / concrete / nominal type と、同じ stable parameter key の重複は no-store 候補にする。`generic_type_argument_hash` は順序付き argument list を stable type key で hash し、nominal identity がない argument は拒否する。
+- function identity gate checkpoint として、`ResourceSummaryFunctionIdentity::from_resource_function` を追加し、canonical symbol と origin name が空でないことを bypass candidate gate でも確認するようにした。compile session 間で対応する callable 境界を特定できない function は store 候補として観測しない。
 
 ## 問題
 

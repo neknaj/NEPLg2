@@ -552,6 +552,8 @@ Resource summary value cache の owner は `LoaderSessionCache` ではなく `Co
 
 type boundary hash checkpoint では、per-summary-value key の `type_parameter_boundary_hash` と `generic_type_argument_hash` を作る private staging module を追加した。type parameter boundary は `summary.type_params` を基準にし、unbound かつ label 付きの type variable だけを許可する。hash には arity、ordinal、label、copy/clone/drop capability を含め、同じ stable parameter key が重複した場合は再投影先が曖昧になるため拒否する。anonymous variable、bound variable、concrete type、nominal type は boundary として保存しない。generic type argument hash は順序付きの argument list として扱い、各 argument を `ResourceSummaryStableTypeKey` に変換できる場合だけ作る。nominal identity が未確定の間は store 候補が狭くなるが、同名別定義への stale hit を避けるため安全側に倒す。
 
+function identity gate checkpoint では、top-level `DropTraversal + ForallInitializedRange` の候補を数える前に `ResourceSummaryFunctionIdentity::from_resource_function` も通すようにした。canonical symbol と origin name が空の function は、compile session 間で対応する callable 境界を特定できないため、body hash や type boundary hash が作れても store 候補として観測しない。
+
 必須 regression:
 
 - 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。

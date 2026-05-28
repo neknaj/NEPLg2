@@ -543,6 +543,45 @@ mod tests {
         );
     }
 
+    /// Resource summary value key は function identity を必須入力にする。
+    /// `ResourceFunction.name` または `origin_name` が空なら、compile session 間で対応する
+    /// callable 境界を特定できないため、stable mirror value が作れても候補数に含めない。
+    #[test]
+    fn resource_summary_value_bypass_rejects_empty_function_identity() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let types = TypeCtx::new();
+        let mut function = identity_storage_function(types.i32());
+        function.name.clear();
+        let module = ResourceModule {
+            functions: vec![function],
+            entry: None,
+            string_literals: Vec::new(),
+        };
+        let summary = CollectionSlotLifecycleFunctionSummary {
+            function: String::new(),
+            type_params: Vec::new(),
+            ops: vec![forall_drop_traversal_op()],
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            return_paths: Vec::new(),
+        };
+
+        record_resource_summary_value_cache_bypass_candidates(
+            &mut cache,
+            &types,
+            &module,
+            &[summary],
+        );
+
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_bypasses, 0);
+        assert_eq!(
+            stats.resource_summary_value_drop_traversal_forall_bypasses,
+            0
+        );
+    }
+
     #[test]
     fn collection_slot_summary_keeps_identity_transfer_for_non_copy_owner_token_storage() {
         let mut types = TypeCtx::new();

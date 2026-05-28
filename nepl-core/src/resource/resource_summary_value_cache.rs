@@ -11,6 +11,7 @@ mod stable_type_key;
 mod type_boundary;
 
 use self::body_hash::resource_function_body_hash;
+use self::key::ResourceSummaryFunctionIdentity;
 use self::stable_mirror::stable_drop_traversal_forall_value;
 use self::type_boundary::resource_summary_type_parameter_boundary_hash;
 
@@ -68,6 +69,9 @@ impl ResourceSummaryValueCache {
         type_params: &[TypeId],
         op: &CollectionSlotLifecycleSummaryOp,
     ) {
+        if ResourceSummaryFunctionIdentity::from_resource_function(function).is_none() {
+            return;
+        }
         if resource_function_body_hash(types, function).is_none() {
             return;
         }
