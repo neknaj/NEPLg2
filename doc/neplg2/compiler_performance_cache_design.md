@@ -542,6 +542,8 @@ Resource summary value cache の owner は `LoaderSessionCache` ではなく `Co
 
 2026-05-28 の stable mirror split checkpoint では、stable mirror 変換を `ResourceSummaryValueCache` の sibling module ではなく、`resource_summary_value_cache::stable_mirror` private submodule へ分離した。これは cache owner の public/internal API を増やさず、store/hit 実装が入る前に「統計と map 所有」と「session-local value から stable value への変換」を別責務に分けるためである。追加 review の指摘により、`SummaryOffset::Unknown` は現時点で exact offset を再投影できないため stable mirror 変換で拒否する。nominal type key と generic variable key は、per-value key に qualified definition identity / function type parameter boundary / generic type-argument hash を含めるまで store 対象にしない。
 
+2026-05-28 の structured key staging checkpoint では、`resource_summary_value_cache::key` private module に per-summary-value key の型だけを追加した。これは map store/hit ではなく、namespace hash、function identity、function body hash、function-local type parameter boundary hash、generic type-argument hash、source capability policy hash、summary kind/version を裸の hash blob にまとめず、field として分けたまま扱うための足場である。追加 review では、function body hash と source capability policy hash が compiler pipeline から渡るまで store/hit を入れないべきだと確認したため、この checkpoint では key 型と invalidation input regression だけを固定する。
+
 必須 regression:
 
 - 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。

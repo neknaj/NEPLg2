@@ -2,6 +2,7 @@ use crate::types::TypeCtx;
 
 use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
 
+mod key;
 mod stable_mirror;
 
 use self::stable_mirror::stable_drop_traversal_forall_value;

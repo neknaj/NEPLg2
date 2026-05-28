@@ -341,10 +341,11 @@ pub struct PreparedLlvmProgram {
 /// それらは compile session ごとの arena や source-map allocation に結び付くため、
 /// 長寿命 cache value の key として直接保存すると stale hit の原因になる。
 ///
-/// 現段階では、target/profile と typed public signature hash だけを使う staging
-/// artifact である。実際に Resource IR summary value を再利用する段階では、
-/// この namespace key に dependency public surface hash、function body hash、
-/// generic type-argument hash、source capability policy hash を組み合わせる。
+/// 現段階では、target/profile、typed public signature hash、任意の dependency
+/// public surface hash から作る staging artifact である。実際に Resource IR
+/// summary value を再利用する段階では、この namespace key に function body hash、
+/// generic type-argument hash、source capability policy hash、summary kind/version を
+/// 組み合わせた per-summary-value key を作る。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceSummaryCacheNamespaceKey {
     pub stable_hash: u64,

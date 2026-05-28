@@ -47601,3 +47601,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - この分離は性能最適化そのものではなく、次 checkpoint の structured map key / store-hit 実装で、cache owner に型変換や projection 変換の詳細を混ぜないための設計整理である。subagent review では sibling module にすると stable mirror 型の可視性が `resource` 全体へ広がると指摘されたため、cache owner からだけ呼べる private submodule にした。
 - 追加 review では、`SummaryOffset::Unknown` は exact offset を再投影できないこと、nominal type は unqualified name だけでは定義衝突が残ること、label 付き generic variable は function-local type parameter boundary と generic type-argument hash なしでは store key にならないことが指摘された。これを受け、`SummaryOffset::Unknown` は stable mirror 変換で拒否し、design doc / issue に per-summary-value structured key の必須要素を追記した。
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core stable_type_key --lib -- --nocapture`、`cargo test -p nepl-core stable_drop_traversal_forall_value --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_value_bypass_counts_only_final_top_level_forall_drop_traversal --lib -- --nocapture`、`node nodesrc/test_resource_gate_order.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
+
+## 2026-05-28 Agent Resource summary structured key staging checkpoint
+
+- Resource summary value cache の store/hit を入れる前に、per-summary-value key の形を `resource_summary_value_cache::key` private module として追加した。`plan.md` は変更していない。
+- key は namespace hash、canonical function identity、function body hash、function-local type parameter boundary hash、generic type-argument hash、source capability policy hash、summary kind/version を field として分ける。短い hash だけを裸で持つと stale hit の原因を調べられないため、構造化したまま保持する。
+- subagent review では、key 型の先行導入は有効だが、function body hash と source capability policy hash が pipeline から渡るまでは `BTreeMap` store/hit を入れないべきだと確認した。そのため key module は staging module とし、store/hit API はまだ公開していない。
+- `ResourceSummaryCacheNamespaceKey` の doccomment が dependency public surface hash 接続前の説明に寄っていたため、現在の target/profile + typed public signature hash + optional dependency public surface hash の説明へ更新した。
+- `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo test -p nepl-core resource_summary_value_cache_key --lib -- --nocapture` は pass した。
