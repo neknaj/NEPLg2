@@ -22,7 +22,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_vec_clear %fn Vec CleanupPayload unit \v:
-    let next %Vec CleanupPayload clear<CleanupPayload> v
+    let next %Vec CleanupPayload clear v
     unit
 
 fn main %fn unit i32 \unit:
@@ -44,7 +44,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_vec_free %fn Vec CleanupPayload unit \v:
-    free<CleanupPayload> v
+    free v
 
 fn main %fn unit i32 \unit:
     0
@@ -85,7 +85,8 @@ struct CleanupPayload:
     value %i32
 
 fn make_vec_new %fn unit Result Vec CleanupPayload StdErrorKind \unit:
-    new<CleanupPayload>
+    let r %Result Vec CleanupPayload StdErrorKind new
+    r
 
 fn main %fn unit i32 \unit:
     0
@@ -94,7 +95,7 @@ fn main %fn unit i32 \unit:
 ## vec_with_capacity_rejects_plain_payload_without_copy_or_drop
 
 neplg2:test[compile_fail]
-diag_code: type.overload.no_match
+diag_code: type.trait_bound.unsatisfied
 ```neplg2
 #entry main
 #indent 4
@@ -107,7 +108,8 @@ struct CleanupPayload:
     value %i32
 
 fn make_vec_with_capacity %fn unit Result Vec CleanupPayload StdErrorKind \unit:
-    with_capacity<CleanupPayload> 4
+    let r %Result Vec CleanupPayload StdErrorKind with_capacity 4
+    r
 
 fn main %fn unit i32 \unit:
     0
@@ -133,9 +135,11 @@ impl Drop for DropPayload:
     fn drop %impure fn &DropPayload unit \_self:
         unit
 
-fn main %fn unit i32 \unit:
-    let v0 %Vec DropPayload unwrap_ok new
-    let v1 %Vec DropPayload unwrap_ok push v0 (DropPayload 7)
+fn main %impure fn unit i32 \unit:
+    let new_result %Result Vec DropPayload StdErrorKind new
+    let v0 %Vec DropPayload unwrap_ok new_result
+    let push_result %Result Vec DropPayload VecPushError DropPayload push v0 (DropPayload 7)
+    let v1 %Vec DropPayload unwrap_ok push_result
     let ok %bool eq len &v1 1
     free v1
     if ok 0 1
@@ -144,19 +148,20 @@ fn main %fn unit i32 \unit:
 ## vec_push_rejects_plain_payload_without_copy_or_drop
 
 neplg2:test[compile_fail]
-diag_code: type.overload.no_match
+diag_code: type.trait_bound.unsatisfied
 ```neplg2
 #entry main
 #indent 4
 #target std
 
 #import "alloc/collections/vec" as *
+#import "core/result" as *
 
 struct CleanupPayload:
     value %i32
 
 fn push_plain_vec %fn Vec CleanupPayload fn CleanupPayload Result Vec CleanupPayload VecPushError CleanupPayload \v\item:
-    push<CleanupPayload> v item
+    push v item
 
 fn main %fn unit i32 \unit:
     0
@@ -178,7 +183,7 @@ struct CleanupPayload:
     value %i32
 
 fn read_non_copy_vec %fn &Vec CleanupPayload fn i32 Option CleanupPayload \v\idx:
-    get<CleanupPayload> v idx
+    get v idx
 
 fn main %fn unit i32 \unit:
     0
@@ -240,7 +245,7 @@ struct CleanupPayload:
     value %i32
 
 fn prove_non_copy_vec_invariant %fn &Vec CleanupPayload VecCopyInvariant \v:
-    vec_current_copy_invariant<CleanupPayload> v
+    vec_current_copy_invariant v
 
 fn main %fn unit i32 \unit:
     0
@@ -281,7 +286,7 @@ struct CleanupPayload:
     value %i32
 
 fn recover_vec_from_pop %fn VecPop CleanupPayload Vec CleanupPayload \p:
-    vec_pop_vec<CleanupPayload> p
+    vec_pop_vec p
 
 fn main %fn unit i32 \unit:
     0
@@ -302,7 +307,7 @@ struct CleanupPayload:
     value %i32
 
 fn recover_heap_from_pop %fn BinaryHeapPop CleanupPayload BinaryHeap CleanupPayload \p:
-    binary_heap_pop_heap<CleanupPayload> p
+    binary_heap_pop_heap p
 
 fn main %fn unit i32 \unit:
     0
@@ -323,7 +328,7 @@ struct CleanupPayload:
     value %i32
 
 fn recover_vec_from_push_error %fn VecPushError CleanupPayload Vec CleanupPayload \e:
-    vec_push_error_vec<CleanupPayload> e
+    vec_push_error_vec e
 
 fn main %fn unit i32 \unit:
     0
@@ -344,7 +349,7 @@ struct CleanupPayload:
     value %i32
 
 fn recover_vec_from_transform_error %fn VecTransformError CleanupPayload Vec CleanupPayload \e:
-    vec_transform_error_vec<CleanupPayload> e
+    vec_transform_error_vec e
 
 fn main %fn unit i32 \unit:
     0
@@ -366,7 +371,7 @@ struct CleanupPayload:
     value %i32
 
 fn recover_vec_from_sort_merge_error %fn VecSortMergeError CleanupPayload Vec CleanupPayload \e:
-    vec_sort_merge_error_vec<CleanupPayload> e
+    vec_sort_merge_error_vec e
 
 fn main %fn unit i32 \unit:
     0
@@ -417,7 +422,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_stack %fn Stack CleanupPayload unit \s:
-    free<CleanupPayload> s
+    free s
 
 fn main %fn unit i32 \unit:
     0
@@ -438,7 +443,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_queue %fn Queue CleanupPayload unit \q:
-    free<CleanupPayload> q
+    free q
 
 fn main %fn unit i32 \unit:
     0
@@ -459,7 +464,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_deque %fn Deque CleanupPayload unit \dq:
-    free<CleanupPayload> dq
+    free dq
 
 fn main %fn unit i32 \unit:
     0
@@ -480,7 +485,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_ringbuffer %fn RingBuffer CleanupPayload unit \rb:
-    free<CleanupPayload> rb
+    free rb
 
 fn main %fn unit i32 \unit:
     0
@@ -501,7 +506,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_binary_heap %fn BinaryHeap CleanupPayload unit \heap:
-    free<CleanupPayload> heap
+    free heap
 
 fn main %fn unit i32 \unit:
     0
@@ -522,7 +527,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_btreeset %fn BTreeSet CleanupPayload unit \set0:
-    free<CleanupPayload> set0
+    free set0
 
 fn main %fn unit i32 \unit:
     0
@@ -543,7 +548,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_btreemap_key %fn BTreeMap CleanupPayload i32 unit \hm:
-    free<CleanupPayload, i32> hm
+    free hm
 
 fn main %fn unit i32 \unit:
     0
@@ -564,7 +569,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_btreemap_value %fn BTreeMap i32 CleanupPayload unit \hm:
-    free<i32, CleanupPayload> hm
+    free hm
 
 fn main %fn unit i32 \unit:
     0
@@ -580,12 +585,13 @@ diag_code: type.trait_bound.unsatisfied
 #target std
 
 #import "alloc/collections/btreemap" as *
+#import "core/result" as *
 
 struct CleanupPayload:
     value %i32
 
 fn insert_btreemap_value %impure fn BTreeMap i32 CleanupPayload impure fn CleanupPayload Result BTreeMap i32 CleanupPayload BTreeMapInsertError i32 CleanupPayload \hm\value:
-    insert<i32, CleanupPayload> hm 1 value
+    insert hm 1 value
 
 fn main %fn unit i32 \unit:
     0
@@ -606,7 +612,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_list %fn List CleanupPayload unit \lst:
-    free<CleanupPayload> lst
+    free lst
 
 fn main %fn unit i32 \unit:
     0
@@ -707,7 +713,7 @@ struct CleanupPayload:
     value %i32
 
 fn recover_list_from_transform_error %fn ListTransformError CleanupPayload List CleanupPayload \e:
-    list_transform_error_list<CleanupPayload> e
+    list_transform_error_list e
 
 fn main %fn unit i32 \unit:
     0
@@ -765,12 +771,13 @@ diag_code: type.trait_bound.unsatisfied
 
 #import "alloc/collections/hashmap" as *
 #import "core/traits/hash" as *
+#import "core/result" as *
 
 struct CleanupPayload:
     value %i32
 
 fn insert_hashmap_value %impure fn HashMap i32 CleanupPayload DefaultHash32 impure fn CleanupPayload Result HashMap i32 CleanupPayload DefaultHash32 HashMapUpdateError i32 CleanupPayload DefaultHash32 \hm\value:
-    insert<i32, CleanupPayload, DefaultHash32> hm 1 value
+    insert hm 1 value
 
 fn main %fn unit i32 \unit:
     0
@@ -792,7 +799,7 @@ struct CleanupPayload:
     value %i32
 
 fn close_hashmap_value %fn HashMap i32 CleanupPayload DefaultHash32 unit \hm:
-    free<i32, CleanupPayload, DefaultHash32> hm
+    free hm
 
 fn main %fn unit i32 \unit:
     0
@@ -825,7 +832,7 @@ impl HashKey for NonCopyHashKey:
         0
 
 fn close_hashset_key %fn HashSet NonCopyHashKey DefaultHash32 unit \hs:
-    free<NonCopyHashKey, DefaultHash32> hs
+    free hs
 
 fn main %fn unit i32 \unit:
     0
@@ -854,7 +861,7 @@ impl Hasher<i32> for StatefulHasher:
         key
 
 fn close_hashset_hasher %fn HashSet i32 StatefulHasher unit \hs:
-    free<i32, StatefulHasher> hs
+    free hs
 
 fn main %fn unit i32 \unit:
     0
@@ -887,7 +894,7 @@ impl HashKey for NonCopyHashKey:
         0
 
 fn close_hashmap_key %fn HashMap NonCopyHashKey i32 DefaultHash32 unit \hm:
-    free<NonCopyHashKey, i32, DefaultHash32> hm
+    free hm
 
 fn main %fn unit i32 \unit:
     0
@@ -916,7 +923,7 @@ impl Hasher<i32> for StatefulHasher:
         key
 
 fn close_hashmap_hasher %fn HashMap i32 i32 StatefulHasher unit \hm:
-    free<i32, i32, StatefulHasher> hm
+    free hm
 
 fn main %fn unit i32 \unit:
     0
@@ -970,7 +977,7 @@ struct CleanupPayload:
     value %i32
 
 fn borrow_btreemap_keys %fn &BTreeMapStorage CleanupPayload i32 &Vec Option CleanupPayload \storage:
-    btreemap_storage_keys<CleanupPayload, i32> storage
+    btreemap_storage_keys storage
 
 fn main %fn unit i32 \unit:
     0
@@ -994,7 +1001,7 @@ struct CleanupPayload:
     value %i32
 
 fn borrow_btreemap_values %fn &BTreeMapStorage i32 CleanupPayload &Vec Option CleanupPayload \storage:
-    btreemap_storage_values<i32, CleanupPayload> storage
+    btreemap_storage_values storage
 
 fn main %fn unit i32 \unit:
     0
@@ -1018,7 +1025,7 @@ struct CleanupPayload:
     value %i32
 
 fn borrow_btreeset_keys %fn &BTreeSetStorage CleanupPayload &Vec Option CleanupPayload \storage:
-    btreeset_storage_keys<CleanupPayload> storage
+    btreeset_storage_keys storage
 
 fn main %fn unit i32 \unit:
     0
@@ -1042,7 +1049,7 @@ struct CleanupPayload:
     value %i32
 
 fn borrow_hashmap_keys %fn &HashMapStorage CleanupPayload i32 &Vec Option CleanupPayload \storage:
-    hashmap_storage_keys<CleanupPayload, i32> storage
+    hashmap_storage_keys storage
 
 fn main %fn unit i32 \unit:
     0
@@ -1066,7 +1073,7 @@ struct CleanupPayload:
     value %i32
 
 fn borrow_hashmap_values %fn &HashMapStorage i32 CleanupPayload &Vec Option CleanupPayload \storage:
-    hashmap_storage_values<i32, CleanupPayload> storage
+    hashmap_storage_values storage
 
 fn main %fn unit i32 \unit:
     0
@@ -1090,7 +1097,7 @@ struct CleanupPayload:
     value %i32
 
 fn borrow_hashset_keys %fn &HashSetStorage CleanupPayload &Vec Option CleanupPayload \storage:
-    hashset_storage_keys<CleanupPayload> storage
+    hashset_storage_keys storage
 
 fn main %fn unit i32 \unit:
     0
@@ -1119,7 +1126,7 @@ impl Hasher<i32> for StatefulHasher:
         key
 
 fn close_bloom_filter %fn BloomFilter i32 StatefulHasher unit \bf:
-    free<i32, StatefulHasher> bf
+    free bf
 
 fn main %fn unit i32 \unit:
     0
@@ -1148,7 +1155,7 @@ impl Hasher<i32> for StatefulHasher:
         key
 
 fn clear_bloom_filter %impure fn BloomFilter i32 StatefulHasher BloomFilter i32 StatefulHasher \bf:
-    clear<i32, StatefulHasher> bf
+    clear bf
 
 fn main %fn unit i32 \unit:
     0
@@ -1177,7 +1184,7 @@ impl Hasher<i32> for StatefulHasher:
         key
 
 fn close_counting_bloom_filter %fn CountingBloomFilter i32 StatefulHasher unit \bf:
-    free<i32, StatefulHasher> bf
+    free bf
 
 fn main %fn unit i32 \unit:
     0
@@ -1206,7 +1213,7 @@ impl Hasher<i32> for StatefulHasher:
         key
 
 fn clear_counting_bloom_filter %impure fn CountingBloomFilter i32 StatefulHasher CountingBloomFilter i32 StatefulHasher \bf:
-    clear<i32, StatefulHasher> bf
+    clear bf
 
 fn main %fn unit i32 \unit:
     0

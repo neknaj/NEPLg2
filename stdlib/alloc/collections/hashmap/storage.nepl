@@ -109,15 +109,15 @@ pub fn hashmap_store_value <.V: Copy> %impure fn &Vec Option .V impure fn i32 im
 //: ### [目的/もくてき]
 //: - state と key/value option を同じ slot index で[同時/どうじ]に[更新/こうしん]します。
 pub fn hashmap_store_full <.K: Copy,.V: Copy> %impure fn &HashMapStorage .K .V impure fn i32 impure fn .K impure fn .V unit \storage\idx\key\value:
-    hashmap_store_key<.K> hashmap_storage_keys<.K,.V> storage idx some key
-    hashmap_store_value<.V> hashmap_storage_values<.K,.V> storage idx some value
-    hashmap_store_state hashmap_storage_states<.K,.V> storage idx HashMapBucketState::Full
+    hashmap_store_key hashmap_storage_keys storage idx some key
+    hashmap_store_value hashmap_storage_values storage idx some value
+    hashmap_store_state hashmap_storage_states storage idx HashMapBucketState::Full
 
 //: hashmap_store_tombstone: slot を tombstone にして payload を None に[戻/もど]す
 pub fn hashmap_store_tombstone <.K: Copy,.V: Copy> %impure fn &HashMapStorage .K .V impure fn i32 unit \storage\idx:
-    hashmap_store_key<.K> hashmap_storage_keys<.K,.V> storage idx none
-    hashmap_store_value<.V> hashmap_storage_values<.K,.V> storage idx none
-    hashmap_store_state hashmap_storage_states<.K,.V> storage idx HashMapBucketState::Tombstone
+    hashmap_store_key hashmap_storage_keys storage idx none
+    hashmap_store_value hashmap_storage_values storage idx none
+    hashmap_store_state hashmap_storage_states storage idx HashMapBucketState::Tombstone
 
 //: hashmap_free_storage: backing storage を[解放/かいほう]する
 //:

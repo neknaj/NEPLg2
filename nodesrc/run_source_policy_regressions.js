@@ -63,6 +63,7 @@ const checks = [
     "nodesrc/test_neplg21_streamio_scanner_postfix_cleanup.js",
     "nodesrc/test_neplg21_collection_storage_vec_postfix_cleanup.js",
     "nodesrc/test_neplg21_collection_wrapper_vec_postfix_cleanup.js",
+    "nodesrc/test_neplg21_collection_cleanup_contract_postfix_cleanup.js",
     "nodesrc/test_neplg21_wrapper_collection_positive_doc_postfix_cleanup.js",
     "nodesrc/test_neplg21_map_set_positive_doc_postfix_cleanup.js",
     "nodesrc/test_neplg21_filter_stack_positive_doc_postfix_cleanup.js",

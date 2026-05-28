@@ -8,6 +8,7 @@
 
 #import "core/math" as *
 #import "core/option" as *
+#import "alloc/collections/vec" as vec
 #import "./storage" as *
 
 pub fn counting_bloom_counter_inc %impure fn &Vec u8 impure fn i32 unit \counters\idx:

@@ -7,7 +7,7 @@ resolved: false
 priority: P0
 type: maintenance
 created: 2026-05-24
-updated: 2026-05-27
+updated: 2026-05-28
 target: "stdlib/**, tests/**, tutorials/**, doc/examples/**"
 ---
 
@@ -1145,6 +1145,19 @@ LLM/手動判断が必要なもの:
 - `nodesrc/test_neplg21_doc_examples_impure_fn_cleanup.js` を追加し、`doc/examples/*.nepl` に旧 draft spelling が戻らないようにした。検査は `%fn*` / `fn*` だけを検出し、コメント量や説明追加を制限しない。
 - `rg -n "%fn\\*|fn\\*" doc/examples -g "*.nepl"` は 0 件、`node nodesrc/test_neplg21_doc_examples_impure_fn_cleanup.js`、`node nodesrc/neplg21_syntax_migrate.js --check`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`trunk build` は pass した。
 - `node nodesrc/tests.js -i doc/examples/01_basics.nepl -i doc/examples/05_io_and_resources.nepl -i doc/examples/07_modules.nepl --no-tree -o tmp/neplg21-doc-examples-impure-fn.json -j 1 --dist web/dist --assert-io` は `nodesrc/tests/no-runnable-doctests`。対象 `doc/examples` は runner 上 runnable doctest として収集されなかった。
+
+### 2026-05-28 collection cleanup contract postfix checkpoint
+
+- `tests/stdlib/collection_cleanup_contract.n.md` の collection cleanup 契約 fixture で、receiver / 引数 / 戻り値型から確定できる public collection API 呼び出しを generic postfix なしへ移行した。
+- `new` / `with_capacity` のように値引数だけでは payload 型が出ない producer は、`%Result Vec ... StdErrorKind` local を置いてから返す形にし、関数名ではなく型注釈で選択する NEPLg2.1 方針に合わせた。
+- Drop payload を扱う positive fixture は、`free` が Drop cleanup overload を通るため `main` を `%impure fn unit i32` にした。effect 検査を弱めず、契約例の側を正しい effect boundary へ合わせた。
+- `HashMap` 内部の storage accessor 呼び出しに残っていた `hashmap_storage_states<...>` / `hashmap_storage_keys<...>` / `hashmap_storage_values<...>` を、storage receiver と期待型から解決する形へ整理した。
+- `bloom_filter/mutation.nepl` と `counting_bloom_filter/mutation.nepl` は `&Vec u8` を公開型シグネチャで使うため、`alloc/collections/vec` import を明示し、prefix type arity preload が facade 経由の偶然に依存しないようにした。
+- overload selection は、構造的に候補が materialize された後、全候補が trait bound 不足だけで拒否された場合に `type.trait_bound.unsatisfied` を報告するようにした。arity mismatch や argument type mismatch は従来どおり `type.overload.no_match` 系へ残す。
+- subagent 2 件で、fixture / stdlib import / compiler diagnostic の切り分けと、trait-bound-only overload rejection の診断方針を独立レビューした。
+- `nodesrc/test_neplg21_collection_cleanup_contract_postfix_cleanup.js` を追加し、今回撤廃した旧 postfix call だけを fenced executable fixture から検出するようにした。コメント量や doccomment 増加を妨げる検査ではない。
+- 検証: `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web/Cargo.toml`、`cargo test -p nepl-core --test neplg2 overload_selection_reports_trait_bound_when_all_candidates_fail_bounds -- --nocapture`、`trunk build`、`node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/neplg21-collection-cleanup-contract-postfix-20260528-final.json -j 1 --dist web/dist --assert-io` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warn-only 警告として documentation gap、Vec cleanup stale NEPLg2.0 regex、typecheck/driver.rs line split limit が残る。
 
 ## 検証
 

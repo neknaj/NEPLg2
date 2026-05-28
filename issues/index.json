@@ -1,20 +1,20 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-28T07:30:35.097Z",
+  "generated_at": "2026-05-28T08:34:26.738Z",
   "counts": {
     "total": 1267,
-    "open": 15,
-    "resolved": 1252,
+    "open": 14,
+    "resolved": 1253,
     "by_area": {
-      "core": {
-        "total": 624,
-        "open": 8,
-        "resolved": 616
-      },
       "stdlib": {
         "total": 330,
         "open": 5,
         "resolved": 325
+      },
+      "core": {
+        "total": 624,
+        "open": 7,
+        "resolved": 617
       },
       "neplg21": {
         "total": 1,
@@ -145,21 +145,6 @@
   },
   "issues": [
     {
-      "id": "ISS-20260525T233735956Z-NEPLG2-1-NESTED-PRODUCER-GENERIC-CAL-B1C7C74C",
-      "title": "NEPLg2.1 nested producer generic call does not use outer expected parameter type",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P0",
-      "type": "bug",
-      "created": "2026-05-25",
-      "updated": "2026-05-25",
-      "target": "nepl-core/src/typecheck/**; stdlib/tests/hashset.n.md; stdlib/tests/hashset_str.n.md",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260525T233735956Z-NEPLG2-1-NESTED-PRODUCER-GENERIC-CAL-B1C7C74C.md"
-    },
-    {
       "id": "ISS-20260524T085928138Z-NEPLG2-1-CORPUS-MIGRATION-NEEDS-SEMA-42A21754",
       "title": "NEPLg2.1 corpus migration needs semantic generic rewrite",
       "area": "stdlib",
@@ -168,7 +153,7 @@
       "priority": "P0",
       "type": "maintenance",
       "created": "2026-05-24",
-      "updated": "2026-05-27",
+      "updated": "2026-05-28",
       "target": "stdlib/**, tests/**, tutorials/**, doc/examples/**",
       "legacy_id": "",
       "source": "",
@@ -923,6 +908,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260525T213016826Z-NEPLG2-1-TYPE-ARITY-PRELOAD-DROPS-CY-F74EBA18.md"
+    },
+    {
+      "id": "ISS-20260525T233735956Z-NEPLG2-1-NESTED-PRODUCER-GENERIC-CAL-B1C7C74C",
+      "title": "NEPLg2.1 nested producer generic call does not use outer expected parameter type",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P0",
+      "type": "bug",
+      "created": "2026-05-25",
+      "updated": "2026-05-28",
+      "target": "nepl-core/src/typecheck/**; stdlib/tests/hashset.n.md; stdlib/tests/hashset_str.n.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260525T233735956Z-NEPLG2-1-NESTED-PRODUCER-GENERIC-CAL-B1C7C74C.md"
     },
     {
       "id": "ISS-20260526T004744719Z-NEPLG2-1-UNIT-LITERAL-SHOULD-USE-UNI-ECE4D70B",

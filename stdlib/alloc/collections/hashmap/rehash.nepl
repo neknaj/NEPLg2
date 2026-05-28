@@ -38,9 +38,9 @@ pub fn hashmap_rehash_to <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %impure
         Result::Err d:
             Result::Err HashMapUpdateError<.K,.V,.H> (HashMap<.K,.V,.H> count0 old_cap tombstones0 old_storage hasher) d
         Result::Ok new_storage:
-            let states %&Vec HashMapBucketState hashmap_storage_states<.K,.V> &old_storage
-            let keys %&Vec Option .K hashmap_storage_keys<.K,.V> &old_storage
-            let values %&Vec Option .V hashmap_storage_values<.K,.V> &old_storage
+            let states hashmap_storage_states &old_storage
+            let keys hashmap_storage_keys &old_storage
+            let values hashmap_storage_values &old_storage
             let mut i %i32 0
             while lt i old_cap:
                 do:

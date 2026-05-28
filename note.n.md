@@ -1,3 +1,16 @@
+# 2026-05-28 NEPLg2.1 collection cleanup contract postfix checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を確認し、試作段階では後方互換より静的検査の正確性と根本修正を優先する方針で進めた。
+- `tests/stdlib/collection_cleanup_contract.n.md` の collection cleanup 契約 fixture で、receiver / 引数 / 戻り値型から解ける `clear<T>` / `free<T>` / `push<T>` / `get<T>` / `insert<...>` / storage view helper などを postfix-free call へ移行した。
+- `new` / `with_capacity` は値引数から payload 型が出ないため、`%Result Vec ... StdErrorKind` local を置いてから返す形にし、型注釈で選択する NEPLg2.1 方針を保った。
+- `HashMap` 内部の storage accessor 呼び出しは `hashmap_storage_*<...>` ではなく、storage receiver と期待型から解決する形へ整理した。Bloom 系 mutation module は `&Vec u8` を型シグネチャで使うため、`Vec` の arity import を明示した。
+- overload selection は、候補が構造的に materialize された後で全候補が trait bound 不足だけで落ちた場合に `type.trait_bound.unsatisfied` を報告するようにした。`GenericConstraintConflict` / type argument mismatch / arity・引数型不一致の優先順位は維持している。
+- subagent 2 件で、collection cleanup doctest の失敗分類と compiler 診断方針を独立レビューした。fixture 側の import/effect 修正、stdlib 内部 postfix 残り、compiler 診断の責務が分離できた。
+- `nodesrc/test_neplg21_collection_cleanup_contract_postfix_cleanup.js` を追加し、今回撤廃対象の旧 postfix call だけを executable fixture から検出するようにした。コメント量や doccomment 増加は制限しない。
+- 検証: `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web/Cargo.toml`、`cargo test -p nepl-core --test neplg2 overload_selection_reports_trait_bound_when_all_candidates_fail_bounds -- --nocapture`、`trunk build`、`node nodesrc/tests.js -i tests/stdlib/collection_cleanup_contract.n.md --no-tree -o tmp/neplg21-collection-cleanup-contract-postfix-20260528-final.json -j 1 --dist web/dist --assert-io` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warn-only 警告として documentation gap、Vec cleanup stale NEPLg2.0 regex、typecheck/driver.rs line split limit が残る。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 NEPLg2.1 nested producer generic inference checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を確認し、型名付き public API や個別 allowlist ではなく、型注釈と静的 overload 解決から producer generic を解く方針で修正した。

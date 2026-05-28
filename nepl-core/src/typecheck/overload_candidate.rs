@@ -119,6 +119,15 @@ impl OverloadCandidateStats {
         self.rejected_before_materialization
     }
 
+    pub(super) fn rejected_only_by_trait_bounds_after_materialization(&self) -> bool {
+        self.accepted == 0
+            && self.materialized > 0
+            && self.trait_bound_unsatisfied > 0
+            && self.rejected_before_materialization == 0
+            && self.rejected_after_materialization == self.trait_bound_unsatisfied
+            && self.materialized == self.trait_bound_unsatisfied
+    }
+
     pub(super) fn assert_materialization_guard(&self) {
         debug_assert!(self.materialized + self.pre_materialized_rejections() <= self.considered);
     }

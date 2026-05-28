@@ -51,8 +51,8 @@ pub fn hashmap_next_slot %fn i32 fn i32 i32 \idx\cap:
 //: - hash index から linear probing し、`Empty` で chain 終端、`Tombstone` は[通過/つうか]、`Full` は key equality で[判定/はんてい]します。
 //: - [見/み]つからなければ -1 を[返/かえ]します。
 pub fn hashmap_find_present <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMapStorage .K .V fn i32 fn .H fn .K i32 \storage\cap\hasher\key:
-    let states %&Vec HashMapBucketState hashmap_storage_states<.K,.V> storage
-    let keys %&Vec Option .K hashmap_storage_keys<.K,.V> storage
+    let states hashmap_storage_states storage
+    let keys hashmap_storage_keys storage
     let start %i32 hashmap_bucket_index<.K,.H> cap hasher key
     let mut cur %i32 start
     let mut found %i32 -1
@@ -83,7 +83,7 @@ pub fn hashmap_find_present <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn 
 //: ### [実装/じっそう]
 //: - 最初の tombstone を[覚/おぼ]えつつ probe し、empty に[到達/とうたつ]したら tombstone 優先で[返/かえ]します。
 pub fn hashmap_find_insert_slot <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMapStorage .K .V fn i32 fn .H fn .K HashMapInsertSlot \storage\cap\hasher\key:
-    let states %&Vec HashMapBucketState hashmap_storage_states<.K,.V> storage
+    let states hashmap_storage_states storage
     let start %i32 hashmap_bucket_index<.K,.H> cap hasher key
     let mut cur %i32 start
     let mut first_tomb %i32 -1

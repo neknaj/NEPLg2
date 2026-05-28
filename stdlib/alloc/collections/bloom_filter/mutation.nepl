@@ -8,6 +8,7 @@
 
 #import "core/math" as *
 #import "core/option" as *
+#import "alloc/collections/vec" as vec
 #import "./layout" as *
 #import "./storage" as *
 

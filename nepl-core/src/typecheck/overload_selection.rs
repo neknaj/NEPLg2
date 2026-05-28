@@ -386,6 +386,12 @@ impl<'a> BlockChecker<'a> {
                     "type arguments do not match any overload",
                     span,
                 ));
+            } else if stats.rejected_only_by_trait_bounds_after_materialization() {
+                self.diagnostics.push(type_error(
+                    TypeDiagnosticCode::TraitBoundUnsatisfied,
+                    "no overload candidate satisfies the required trait bounds",
+                    span,
+                ));
             } else {
                 self.diagnostics.push(type_error(
                     TypeDiagnosticCode::OverloadNoMatch,

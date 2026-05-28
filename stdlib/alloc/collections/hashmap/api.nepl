@@ -190,7 +190,7 @@ pub fn get <.K: HashKey&Copy,.V: Copy,.H: Hasher<.K>&Copy> %fn &HashMap .K .V .H
     let cap0 %i32 *field::get_ref hm "cap"
     let hasher %.H *field::get_ref hm "hasher"
     let storage %&HashMapStorage .K .V field::get_ref hm "storage"
-    let values %&Vec Option .V hashmap_storage_values<.K,.V> storage
+    let values hashmap_storage_values storage
     let idx %i32 hashmap_find_present<.K,.V,.H> storage cap0 hasher key
     if:
         lt idx 0

@@ -1869,6 +1869,38 @@ fn main <()->i32> ():
 }
 
 #[test]
+fn overload_selection_reports_trait_bound_when_all_candidates_fail_bounds() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+
+trait CopyPayload:
+    fn score <(Self)->i32> (_self):
+        0
+
+trait DropPayload:
+    fn score <(Self)->i32> (_self):
+        0
+
+struct Owned:
+    value <i32>
+
+fn choose <.T: CopyPayload> <(.T)->i32> (value):
+    CopyPayload::score value
+
+fn choose <.T: DropPayload> <(.T)->i32> (value):
+    DropPayload::score value
+
+fn main <()->i32> ():
+    let owned <Owned> Owned 5
+    choose owned
+"#;
+    compile_err_has_type_code(src, TypeDiagnosticCode::TraitBoundUnsatisfied);
+}
+
+#[test]
 fn overload_selection_bound_distinguished_same_signature_candidates_do_not_shadow() {
     let src = r#"
 #entry main
