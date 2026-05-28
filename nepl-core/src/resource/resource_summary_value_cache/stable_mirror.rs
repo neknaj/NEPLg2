@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::layout::{aggregate_fields_with_offsets, storage_size_bytes};
@@ -14,6 +14,12 @@ use super::super::collection_slot_summary_model::{
     CollectionSlotInitializedRangeDropTraversalProof,
     CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryI32Operand,
     CollectionSlotLifecycleSummaryOp,
+};
+use super::super::initialized_summary::{
+    RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
+};
+use super::super::initialized_summary_release_model::{
+    RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
 };
 use super::super::model::{PlaceProjection, ResourceFunction, ResourceOffset};
 use super::super::place_utils::projection_result_type;
@@ -92,6 +98,59 @@ impl ResourceSummaryStableDropTraversalForallLeafEntry {
     pub(super) fn len(&self) -> usize {
         self.leaves.len()
     }
+}
+
+/// raw initialization summary のうち、parameter に対する facts だけで完結する leaf entry。
+///
+/// `RawCellInitializationFunctionSummary` 全体には return facts、variant 条件、path-sensitive
+/// release などが混在する。この entry は dependency-free 関数の param facts だけを
+/// fixed-point worklist 前に再投影するための最小単位であり、`TypeId` は stable type key、
+/// projection は layout を検証できる形式に落として保持する。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ResourceSummaryStableRawInitParamFactsLeafEntry {
+    param_cells: Vec<ResourceSummaryStableRawInitParamCell>,
+    param_release_requirements: Vec<ResourceSummaryStableRawCellReleaseParamRequirement>,
+}
+
+impl ResourceSummaryStableRawInitParamFactsLeafEntry {
+    pub(super) fn len(&self) -> usize {
+        self.param_cells.len() + self.param_release_requirements.len()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableRawInitParamCell {
+    param_index: usize,
+    suffix: Vec<ResourceSummaryStableProjection>,
+    ty: ResourceSummaryStableTypeKey,
+    holds_raw_address: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableRawCellReleaseParamRequirement {
+    param_index: usize,
+    suffix: Vec<ResourceSummaryStablePlaceProjection>,
+    ty: ResourceSummaryStableTypeKey,
+    kind: ResourceSummaryStableRawCellReleaseRequirementKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ResourceSummaryStablePlaceProjection {
+    Field { index: usize, offset_bytes: usize },
+    TupleField { index: usize, offset_bytes: usize },
+    EnumPayload { variant: String },
+    Deref,
+    StorageOffsetKnown(usize),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResourceSummaryStableRawCellReleaseRequirementKind {
+    Store,
+    Dealloc,
+    Realloc,
+    Fill,
+    BulkDestination,
+    BulkSource,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -283,6 +342,70 @@ pub(super) fn reproject_drop_traversal_forall_leaf_entry(
         .collect()
 }
 
+pub(super) fn stable_raw_init_param_facts_leaf_entry(
+    types: &TypeCtx,
+    summary: &RawCellInitializationFunctionSummary,
+) -> Option<ResourceSummaryStableRawInitParamFactsLeafEntry> {
+    if !raw_init_summary_is_param_facts_leaf(summary) {
+        return None;
+    }
+    let param_cells = summary
+        .param_cells
+        .iter()
+        .map(|cell| stable_raw_init_param_cell(types, cell))
+        .collect::<Option<Vec<_>>>()?;
+    let param_release_requirements = summary
+        .param_release_requirements
+        .iter()
+        .map(|requirement| stable_raw_cell_release_param_requirement(types, requirement))
+        .collect::<Option<Vec<_>>>()?;
+    Some(ResourceSummaryStableRawInitParamFactsLeafEntry {
+        param_cells,
+        param_release_requirements,
+    })
+}
+
+pub(super) fn reproject_raw_init_param_facts_leaf_entry(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    function_name: &str,
+    entry: &ResourceSummaryStableRawInitParamFactsLeafEntry,
+) -> Option<RawCellInitializationFunctionSummary> {
+    if entry.len() == 0 {
+        return None;
+    }
+    Some(RawCellInitializationFunctionSummary {
+        function: function_name.to_string(),
+        return_cells: Vec::new(),
+        return_byte_ranges: Vec::new(),
+        param_cells: entry
+            .param_cells
+            .iter()
+            .map(|cell| reproject_raw_init_param_cell(ctx, cell))
+            .collect::<Option<Vec<_>>>()?,
+        param_byte_ranges: Vec::new(),
+        param_release_requirements: entry
+            .param_release_requirements
+            .iter()
+            .map(|requirement| reproject_raw_cell_release_param_requirement(ctx, requirement))
+            .collect::<Option<Vec<_>>>()?,
+        variant_param_cells: Vec::new(),
+        variant_param_byte_ranges: Vec::new(),
+        variant_required_param_cells: Vec::new(),
+        variant_conditions: Vec::new(),
+    })
+}
+
+fn raw_init_summary_is_param_facts_leaf(summary: &RawCellInitializationFunctionSummary) -> bool {
+    (!summary.param_cells.is_empty() || !summary.param_release_requirements.is_empty())
+        && summary.return_cells.is_empty()
+        && summary.return_byte_ranges.is_empty()
+        && summary.param_byte_ranges.is_empty()
+        && summary.variant_param_cells.is_empty()
+        && summary.variant_param_byte_ranges.is_empty()
+        && summary.variant_required_param_cells.is_empty()
+        && summary.variant_conditions.is_empty()
+}
+
 fn reproject_i32_operand(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     operand: &ResourceSummaryStableI32Operand,
@@ -471,6 +594,94 @@ fn stable_summary_projection(
     })
 }
 
+fn stable_raw_init_param_cell(
+    types: &TypeCtx,
+    cell: &RawCellInitializationParamCell,
+) -> Option<ResourceSummaryStableRawInitParamCell> {
+    Some(ResourceSummaryStableRawInitParamCell {
+        param_index: cell.param_index,
+        suffix: cell
+            .suffix
+            .iter()
+            .map(|projection| stable_summary_projection(types, projection))
+            .collect::<Option<Vec<_>>>()?,
+        ty: ResourceSummaryStableTypeKey::from_type(types, cell.ty)?,
+        holds_raw_address: cell.holds_raw_address,
+    })
+}
+
+fn stable_raw_cell_release_param_requirement(
+    types: &TypeCtx,
+    requirement: &RawCellReleaseParamRequirement,
+) -> Option<ResourceSummaryStableRawCellReleaseParamRequirement> {
+    Some(ResourceSummaryStableRawCellReleaseParamRequirement {
+        param_index: requirement.param_index,
+        suffix: requirement
+            .suffix
+            .iter()
+            .map(stable_place_projection)
+            .collect::<Option<Vec<_>>>()?,
+        ty: ResourceSummaryStableTypeKey::from_type(types, requirement.ty)?,
+        kind: stable_raw_cell_release_requirement_kind(requirement.kind),
+    })
+}
+
+fn stable_place_projection(
+    projection: &PlaceProjection,
+) -> Option<ResourceSummaryStablePlaceProjection> {
+    Some(match projection {
+        PlaceProjection::Field {
+            index,
+            offset_bytes,
+        } => ResourceSummaryStablePlaceProjection::Field {
+            index: *index,
+            offset_bytes: *offset_bytes,
+        },
+        PlaceProjection::TupleField {
+            index,
+            offset_bytes,
+        } => ResourceSummaryStablePlaceProjection::TupleField {
+            index: *index,
+            offset_bytes: *offset_bytes,
+        },
+        PlaceProjection::EnumPayload { variant } => {
+            ResourceSummaryStablePlaceProjection::EnumPayload {
+                variant: variant.clone(),
+            }
+        }
+        PlaceProjection::Deref => ResourceSummaryStablePlaceProjection::Deref,
+        PlaceProjection::StorageOffset(ResourceOffset::Known(value)) => {
+            ResourceSummaryStablePlaceProjection::StorageOffsetKnown(*value)
+        }
+        PlaceProjection::StorageOffset(_) => return None,
+    })
+}
+
+fn stable_raw_cell_release_requirement_kind(
+    kind: RawCellReleaseRequirementKind,
+) -> ResourceSummaryStableRawCellReleaseRequirementKind {
+    match kind {
+        RawCellReleaseRequirementKind::Store => {
+            ResourceSummaryStableRawCellReleaseRequirementKind::Store
+        }
+        RawCellReleaseRequirementKind::Dealloc => {
+            ResourceSummaryStableRawCellReleaseRequirementKind::Dealloc
+        }
+        RawCellReleaseRequirementKind::Realloc => {
+            ResourceSummaryStableRawCellReleaseRequirementKind::Realloc
+        }
+        RawCellReleaseRequirementKind::Fill => {
+            ResourceSummaryStableRawCellReleaseRequirementKind::Fill
+        }
+        RawCellReleaseRequirementKind::BulkDestination => {
+            ResourceSummaryStableRawCellReleaseRequirementKind::BulkDestination
+        }
+        RawCellReleaseRequirementKind::BulkSource => {
+            ResourceSummaryStableRawCellReleaseRequirementKind::BulkSource
+        }
+    }
+}
+
 fn stable_summary_offset(
     types: &TypeCtx,
     offset: &SummaryOffset,
@@ -586,6 +797,154 @@ fn reproject_summary_offset(
             scale: *scale,
         },
     })
+}
+
+fn reproject_raw_init_param_cell(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    cell: &ResourceSummaryStableRawInitParamCell,
+) -> Option<RawCellInitializationParamCell> {
+    let base = ctx.function.params.get(cell.param_index)?.ty;
+    let (suffix, ty) = reproject_summary_projection_suffix(ctx, base, &cell.suffix)?;
+    if !cell.ty.matches_type(ctx.types, ty) {
+        return None;
+    }
+    Some(RawCellInitializationParamCell {
+        param_index: cell.param_index,
+        suffix,
+        ty,
+        holds_raw_address: cell.holds_raw_address,
+    })
+}
+
+fn reproject_raw_cell_release_param_requirement(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    requirement: &ResourceSummaryStableRawCellReleaseParamRequirement,
+) -> Option<RawCellReleaseParamRequirement> {
+    let base = ctx.function.params.get(requirement.param_index)?.ty;
+    let (suffix, ty) = reproject_place_projection_suffix(ctx, base, &requirement.suffix)?;
+    if !requirement.ty.matches_type(ctx.types, ty) {
+        return None;
+    }
+    Some(RawCellReleaseParamRequirement {
+        param_index: requirement.param_index,
+        suffix,
+        ty,
+        kind: reproject_raw_cell_release_requirement_kind(requirement.kind),
+    })
+}
+
+fn reproject_summary_projection_suffix(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    base_ty: TypeId,
+    suffix: &[ResourceSummaryStableProjection],
+) -> Option<(Vec<SummaryProjection>, TypeId)> {
+    let mut out = Vec::new();
+    let mut current_ty = base_ty;
+    for projection in suffix {
+        let projection = reproject_summary_projection(ctx, projection)?;
+        validate_projection_layout(ctx.types, current_ty, &projection)?;
+        current_ty = summary_projection_result_type(ctx.types, current_ty, &projection)?;
+        out.push(projection);
+    }
+    Some((out, current_ty))
+}
+
+fn reproject_place_projection_suffix(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    base_ty: TypeId,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+) -> Option<(Vec<PlaceProjection>, TypeId)> {
+    let mut out = Vec::new();
+    let mut current_ty = base_ty;
+    for projection in suffix {
+        let projection = reproject_place_projection(projection);
+        validate_place_projection_layout(ctx.types, current_ty, &projection)?;
+        current_ty = projection_result_type(ctx.types, current_ty, &projection)?;
+        out.push(projection);
+    }
+    Some((out, current_ty))
+}
+
+fn reproject_place_projection(
+    projection: &ResourceSummaryStablePlaceProjection,
+) -> PlaceProjection {
+    match projection {
+        ResourceSummaryStablePlaceProjection::Field {
+            index,
+            offset_bytes,
+        } => PlaceProjection::Field {
+            index: *index,
+            offset_bytes: *offset_bytes,
+        },
+        ResourceSummaryStablePlaceProjection::TupleField {
+            index,
+            offset_bytes,
+        } => PlaceProjection::TupleField {
+            index: *index,
+            offset_bytes: *offset_bytes,
+        },
+        ResourceSummaryStablePlaceProjection::EnumPayload { variant } => {
+            PlaceProjection::EnumPayload {
+                variant: variant.clone(),
+            }
+        }
+        ResourceSummaryStablePlaceProjection::Deref => PlaceProjection::Deref,
+        ResourceSummaryStablePlaceProjection::StorageOffsetKnown(value) => {
+            PlaceProjection::StorageOffset(ResourceOffset::Known(*value))
+        }
+    }
+}
+
+fn validate_place_projection_layout(
+    types: &TypeCtx,
+    base_ty: TypeId,
+    projection: &PlaceProjection,
+) -> Option<()> {
+    match projection {
+        PlaceProjection::Field {
+            index,
+            offset_bytes,
+        }
+        | PlaceProjection::TupleField {
+            index,
+            offset_bytes,
+        } => {
+            let field = aggregate_fields_with_offsets(types, base_ty)
+                .get(*index)
+                .copied()?;
+            (field.offset == *offset_bytes).then_some(())
+        }
+        PlaceProjection::EnumPayload { .. }
+        | PlaceProjection::Deref
+        | PlaceProjection::StorageOffset(_) => {
+            projection_result_type(types, base_ty, projection).map(|_| ())
+        }
+    }
+}
+
+fn reproject_raw_cell_release_requirement_kind(
+    kind: ResourceSummaryStableRawCellReleaseRequirementKind,
+) -> RawCellReleaseRequirementKind {
+    match kind {
+        ResourceSummaryStableRawCellReleaseRequirementKind::Store => {
+            RawCellReleaseRequirementKind::Store
+        }
+        ResourceSummaryStableRawCellReleaseRequirementKind::Dealloc => {
+            RawCellReleaseRequirementKind::Dealloc
+        }
+        ResourceSummaryStableRawCellReleaseRequirementKind::Realloc => {
+            RawCellReleaseRequirementKind::Realloc
+        }
+        ResourceSummaryStableRawCellReleaseRequirementKind::Fill => {
+            RawCellReleaseRequirementKind::Fill
+        }
+        ResourceSummaryStableRawCellReleaseRequirementKind::BulkDestination => {
+            RawCellReleaseRequirementKind::BulkDestination
+        }
+        ResourceSummaryStableRawCellReleaseRequirementKind::BulkSource => {
+            RawCellReleaseRequirementKind::BulkSource
+        }
+    }
 }
 
 fn validate_projection_layout(

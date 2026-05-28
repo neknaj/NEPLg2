@@ -412,6 +412,21 @@ subagent review では、public signature text が同じでも private import / 
 
 現在の compiled-output cache key は stale hit を避けるため、entry source と compile VFS 全体を含める。これは安全だが、未使用の editable `.nepl` file が変わっただけでも false miss になる。依存 closure に基づく output cache key は、typed public surface / import graph cache と同じ invalidation 証明が必要なので、この checkpoint では実装しない。
 
+2026-05-28 の semantic source key checkpoint では、compiled-output cache key の source 部分を raw text から `nepl-core::source_cache_key::compiled_source_cache_key_part` へ差し替えた。この関数は lexer token stream を使う pure function であり、ordinary comment、doc comment、position-only span change は compiled output の key に入れない。一方で `Indent` / `Dedent` / `Newline`、directive、raw wasm / llvm text、`mlstr` line、literal / identifier payload は保持する。lexer diagnostic がある source では raw text key へ戻し、以前の successful compile が新しい lexer error を隠さないようにする。
+
+doc comment を無視するのは compiled output cache だけの契約である。documentation extraction、doccomment test、nm document 生成の cache key としてこの key を流用してはならない。これはコメント増加を性能上の不利益にしないための境界であり、コメントの意味を使う機能では別の documentation-oriented key を使う。
+
+追加測定:
+
+| case | command / artifact | result |
+|---|---|---|
+| Web release RPN base | `web/examples/rpn.nepl` + same `CompilerSession` | `compile_ms=9013`、`prewarm_ms=235`、`wasm_call_ms=8778`、`compiled_output_cache_hits=0`、`stores=2` |
+| Web release RPN ordinary comment edit | same source with ordinary comment-only line + same `CompilerSession` | `compile_ms=2`、`prewarm_ms=1`、`wasm_call_ms=0`、`compiled_output_cache_hits=1` |
+| Web release RPN doc comment edit | same source with doccomment text edit + same `CompilerSession` | `compile_ms=1`、`prewarm_ms=0`、`wasm_call_ms=1`、`compiled_output_cache_hits=2` |
+| Web release RPN code edit | same source with string literal edit + same `CompilerSession` | `compile_ms=8347`、`prewarm_ms=0`、`wasm_call_ms=8347`、`compiled_output_cache_hits=2`、`stores=3` |
+
+この checkpoint で、comment-only / doccomment-only の微小変更は 10ms 未満になった。code edit はまだ full compile になり、raw initialization summary と function check が支配的であるため、次段階の Resource summary value reuse は引き続き必要である。
+
 ## Resource IR scalar query cache checkpoint
 
 2026-05-28 の Resource IR 側 checkpoint では、i32 scalar condition / alias / offset query を `I32ConditionQueryContext` に集約し、summary 内で同じ純粋 query を繰り返さないようにした。
@@ -565,6 +580,14 @@ reverse projection checkpoint では、hit 候補にする前に `ResourceSummar
 complete leaf entry checkpoint では、cache value を個別 leaf の dedup 可能な `Vec` ではなく、順序と重複を保持する `ResourceSummaryStableDropTraversalForallLeafEntry` へ変更した。fixed-point skip で使える entry は function summary 全体の surface を復元できる必要があるため、`ops` がすべて top-level `DropTraversal + ForallInitializedRange` で、`return_transfers` / `return_slots` / `return_ranges` / `return_paths` が空の場合だけ store/hit 候補にする。依存関数を持つ caller、`IndirectCall` を含む関数、`CertifiedSlots` / `Merge` / `Loop` / `TransformRange` などを含む summary は、dependency fingerprint と追加 stable mirror を設計するまで bypass に倒す。
 
 complete leaf entry preseed checkpoint では、dependency-free かつ `IndirectCall` を持たない関数だけを対象に、保存済み entry を現在 compile の `CollectionSlotLifecycleSummaryOp` 列へ逆投影してから `summaries` に先に入れ、`SummaryWorklist` の初期 pending から外す。これにより replay できた関数は通常の fixed-point recompute を行わず、`resource_summary_value_replay_hits` と `resource_summary_value_replayed_ops` が op 数ぶん増える。通常 recompute した complete leaf entry は `resource_summary_value_recomputed_ops` に数え、candidate hit だけを示す `resource_summary_value_hits` と実 compile work skip を示す replay counter を分離する。
+
+raw-init param facts checkpoint では、`RawCellInitializationParamCell` と simple projection の `RawCellReleaseParamRequirement` を complete leaf entry として stable mirror 化する足場を追加した。store 対象は dependency-free、`IndirectCall` なし、return / byte-range / variant facts なしの summary に限定する。raw alias graph、partial summary、diagnostic span、`TypeId`、`Span`、`SourceMap` は保存しない。
+
+同 checkpoint の追加 review では、raw-init preseed が実際に fixed-point worklist を skip する経路になったため、Rust 側 regression を追加した。保存済み entry が同じ summary surface として再投影されること、function body hash、source policy hash、signature type boundary のいずれかが変わると preseed miss になり通常 worklist に戻ることを固定する。raw body は source policy hash があっても本文が `ResourceFunction` に残らないため、body hash では引き続き拒否する。
+
+RPN 実測では、raw-init param facts は `raw_init_param_facts_bypasses=225`、`raw_init_param_facts_stores=0` だった。subagent review では、store 対象が狭いことに加えて `ResourceSummaryStableTypeKey` が `Named` / `Struct` / `Enum` を拒否しているため、nominal 型を多く含む stdlib summary が候補化できない可能性が高いと確認した。このため、qualified nominal type identity を別 issue `ISS-20260528T110220373Z-RESOURCE-SUMMARY-CACHE-NEEDS-QUALIFI-08D1AA04` に分離する。
+
+同 review で、`ResourceFunction.name` には重複定義用の source span mangle が入る場合があり、cache key の false miss を増やすと確認した。`ResourceSummaryFunctionIdentity` は `__def<file>_<start>_<end>` の定義 span component を key から外し、function body hash と source capability policy hash で実体差分を追う。これは stale hit を増やすためではなく、SourceMap / Span に依存しない function identity へ近づけるための正規化である。
 
 map key は namespace hash、function identity、function body hash、type parameter boundary hash、generic type argument hash、source capability policy hash、summary kind/version を含む。map value は `ResourceSummaryStableDropTraversalForallLeafEntry` だけであり、`ResourceFunction`、Resource IR body、既存 summary struct 全体、`TypeId`、`Span`、`SourceMap`、typed HIR、diagnostic span、raw alias graph、`RawCellInitializationFunctionSummary` 全体は保存しない。同じ関数内に複数の top-level `DropTraversal + ForallInitializedRange` が現れた場合は、entry 内で順序と重複を保持する。
 

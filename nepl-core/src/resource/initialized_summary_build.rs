@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::types::TypeCtx;
@@ -19,6 +20,11 @@ use super::initialized_summary::{
 use super::initialized_summary_build_relevance::{
     raw_cell_initialization_summary_relevance, reference_target_type,
 };
+use super::initialized_summary_build_update::update_raw_cell_initialization_summary;
+use super::initialized_summary_build_value_cache::{
+    preseed_raw_cell_initialization_summaries_from_value_cache,
+    record_raw_cell_initialization_summary_value_cache_candidates,
+};
 use super::initialized_summary_cells::collect_return_initialized_raw_cells;
 use super::initialized_summary_param_byte_ranges::collect_param_initialized_raw_byte_ranges;
 use super::initialized_summary_param_cells::collect_param_initialized_raw_cells;
@@ -31,6 +37,10 @@ use super::model::{Place, ResourceFunction, ResourceModule, ResourceOp, Resource
 use super::place_utils::reference_target_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
+use super::resource_summary_value_cache::{
+    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+};
+use super::summary_dependency::build_function_summary_dependencies;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
@@ -39,12 +49,33 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
     types: &TypeCtx,
     raw_alias_summaries: &[RawCellAddressReturnSummary],
     i32_scalar_summaries: &[I32ScalarReturnSummary],
+    mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> Vec<RawCellInitializationFunctionSummary> {
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
     let relevant =
         raw_cell_initialization_summary_relevance(module, types, &raw_alias_summary_index);
-    let mut worklist = SummaryWorklist::new_filtered(module, relevant);
+    let dependencies = build_function_summary_dependencies(module);
+    let mut worklist_relevant_functions = relevant.clone();
+    let mut preseeded_functions = vec![false; module.functions.len()];
     let mut summaries = Vec::new();
+    if let (Some(cache), Some(context)) = (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    ) {
+        preseed_raw_cell_initialization_summaries_from_value_cache(
+            cache,
+            context,
+            types,
+            module,
+            &relevant,
+            &dependencies,
+            &mut worklist_relevant_functions,
+            &mut preseeded_functions,
+            &mut summaries,
+        );
+    }
+    let mut worklist = SummaryWorklist::new_filtered(module, worklist_relevant_functions);
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
@@ -62,6 +93,20 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
             worklist.notify_changed(function_index);
         }
     }
+    if let (Some(cache), Some(context)) = (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    ) {
+        record_raw_cell_initialization_summary_value_cache_candidates(
+            cache,
+            context,
+            types,
+            module,
+            &dependencies,
+            &preseeded_functions,
+            &summaries,
+        );
+    }
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     if std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {
         std::eprintln!(
@@ -71,40 +116,6 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
         );
     }
     summaries
-}
-
-fn update_raw_cell_initialization_summary(
-    summaries: &mut Vec<RawCellInitializationFunctionSummary>,
-    summary: RawCellInitializationFunctionSummary,
-) -> bool {
-    let has_facts = !summary.return_cells.is_empty()
-        || !summary.return_byte_ranges.is_empty()
-        || !summary.param_cells.is_empty()
-        || !summary.param_byte_ranges.is_empty()
-        || !summary.param_release_requirements.is_empty()
-        || !summary.variant_param_cells.is_empty()
-        || !summary.variant_param_byte_ranges.is_empty()
-        || !summary.variant_required_param_cells.is_empty()
-        || !summary.variant_conditions.is_empty();
-    let position = summaries
-        .iter()
-        .position(|existing| existing.function == summary.function);
-    match (has_facts, position) {
-        (true, Some(index)) if summaries[index] == summary => false,
-        (true, Some(index)) => {
-            summaries[index] = summary;
-            true
-        }
-        (true, None) => {
-            summaries.push(summary);
-            true
-        }
-        (false, Some(index)) => {
-            summaries.remove(index);
-            true
-        }
-        (false, None) => false,
-    }
 }
 
 fn function_raw_cell_initialization_summary(

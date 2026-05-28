@@ -58,13 +58,16 @@ const { runSingle } = require('./run_test');
                             resource_summary_value_misses: 0,
                             resource_summary_value_stores: 0,
                             resource_summary_value_bypasses: 2,
-                            resource_summary_value_replay_hits: 0,
+                            resource_summary_value_replay_hits: sessionCalled ? 5 : 0,
                             resource_summary_value_replay_bypasses: 0,
-                            resource_summary_value_replayed_ops: 0,
-                            resource_summary_value_recomputed_ops: 0,
+                            resource_summary_value_replayed_ops: sessionCalled ? 5 : 0,
+                            resource_summary_value_recomputed_ops: sessionCalled ? 3 : 0,
                             resource_summary_value_drop_traversal_forall_hits: 11,
                             resource_summary_value_drop_traversal_forall_stores: 0,
                             resource_summary_value_drop_traversal_forall_bypasses: 2,
+                            resource_summary_value_raw_init_param_facts_hits: sessionCalled ? 5 : 0,
+                            resource_summary_value_raw_init_param_facts_stores: 3,
+                            resource_summary_value_raw_init_param_facts_bypasses: 0,
                         });
                     },
                     prewarm_loader_cache_for_source(entryPath, source) {
@@ -107,9 +110,10 @@ const { runSingle } = require('./run_test');
     assert.equal(result.timing.compiler_session_cache_after.dependency_aggregate_public_surface_hash_hits, 4);
     assert.equal(result.timing.compiler_session_cache_before.resource_summary_value_hits, 17);
     assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_drop_traversal_forall_bypasses, 2);
-    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_replay_hits, 0);
-    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_replayed_ops, 0);
-    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_recomputed_ops, 0);
+    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_replay_hits, 5);
+    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_replayed_ops, 5);
+    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_recomputed_ops, 3);
+    assert.equal(result.timing.compiler_session_cache_after.resource_summary_value_raw_init_param_facts_hits, 5);
     assert.match(String(result.compile_error || ''), /session compile failure/);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });

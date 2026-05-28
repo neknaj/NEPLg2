@@ -1,11 +1,14 @@
 use crate::types::{TypeCtx, TypeId};
 
 use super::super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
+use super::super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::super::model::ResourceFunction;
 use super::body_hash::resource_function_body_hash;
 use super::key::{ResourceSummaryFunctionIdentity, ResourceSummaryValueCacheKey};
 use super::stable_mirror::{
-    stable_drop_traversal_forall_leaf_entry, ResourceSummaryStableDropTraversalForallLeafEntry,
+    stable_drop_traversal_forall_leaf_entry, stable_raw_init_param_facts_leaf_entry,
+    ResourceSummaryStableDropTraversalForallLeafEntry,
+    ResourceSummaryStableRawInitParamFactsLeafEntry,
 };
 use super::type_boundary::{
     resource_summary_generic_type_argument_hash, resource_summary_type_parameter_boundary_hash,
@@ -139,6 +142,58 @@ pub(super) fn drop_traversal_forall_leaf_entry_key(
 
     Some(
         ResourceSummaryValueCacheKey::new_drop_traversal_forall_leaf_entry(
+            namespace_hash.as_u64(),
+            function_identity,
+            function_body_hash,
+            type_parameter_boundary_hash,
+            generic_type_argument_hash,
+            source_capability_policy_hash.as_u64(),
+        ),
+    )
+}
+
+pub(super) fn raw_init_param_facts_leaf_entry_candidate_key_and_entry(
+    types: &TypeCtx,
+    namespace_hash: ResourceSummaryCacheNamespaceHash,
+    source_capability_policy_hash: ResourceSummarySourceCapabilityPolicyHash,
+    function: &ResourceFunction,
+    type_params: &[TypeId],
+    generic_type_args: ResourceSummaryGenericTypeArgumentKeyInput<'_>,
+    summary: &RawCellInitializationFunctionSummary,
+) -> Option<(
+    ResourceSummaryValueCacheKey,
+    ResourceSummaryStableRawInitParamFactsLeafEntry,
+)> {
+    let key = raw_init_param_facts_leaf_entry_key(
+        types,
+        namespace_hash,
+        source_capability_policy_hash,
+        function,
+        type_params,
+        generic_type_args,
+    )?;
+    let stable_entry = stable_raw_init_param_facts_leaf_entry(types, summary)?;
+
+    Some((key, stable_entry))
+}
+
+pub(super) fn raw_init_param_facts_leaf_entry_key(
+    types: &TypeCtx,
+    namespace_hash: ResourceSummaryCacheNamespaceHash,
+    source_capability_policy_hash: ResourceSummarySourceCapabilityPolicyHash,
+    function: &ResourceFunction,
+    type_params: &[TypeId],
+    generic_type_args: ResourceSummaryGenericTypeArgumentKeyInput<'_>,
+) -> Option<ResourceSummaryValueCacheKey> {
+    let function_identity = ResourceSummaryFunctionIdentity::from_resource_function(function)?;
+    let function_body_hash = resource_function_body_hash(types, function)?;
+    let type_parameter_boundary_hash =
+        resource_summary_type_parameter_boundary_hash(types, type_params)?;
+    let generic_type_argument_hash =
+        generic_type_argument_key_hash(types, function, type_params, generic_type_args)?;
+
+    Some(
+        ResourceSummaryValueCacheKey::new_raw_init_param_facts_leaf_entry(
             namespace_hash.as_u64(),
             function_identity,
             function_body_hash,

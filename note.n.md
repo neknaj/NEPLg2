@@ -47867,3 +47867,20 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review では、高 severity の破綻は見つからなかった。一方で、今回の監視復旧により既存の大きい module の一部を current baseline に同期している点は Low finding として指摘されたため、残件を `ISS-20260528T073034861Z-RESOURCE-CHECKER-RESIDUAL-LARGE-MODU-55E5FDF0` に分離した。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。今回対象の `nodesrc/test_resource_checker_responsibility.js` は pass した。既存 warning として `test_stdlib_documentation_contract`、`test_stdlib_vec_no_unsafe_unwraps`、`test_static_check_boundary_responsibility` が残っている。
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`node nodesrc/test_resource_checker_responsibility.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-resource-responsibility-split-20260528.json` は pass した。
+
+## 2026-05-28 Agent CompilerSession semantic source key checkpoint
+
+- Zenn の性能追求方針、純粋性方針、試作段階方針を再確認した。`plan.md` は変更していない。
+- `CompilerSession` の compiled-output cache key で、entry source / VFS content を raw text ではなく `nepl-core::source_cache_key::compiled_source_cache_key_part` に通すようにした。この関数は lexer token stream から key を作る pure function であり、ordinary comment、doc comment、span-only change は compiled output の key に入れない。
+- offside rule の意味を壊さないよう、`Indent` / `Dedent` / `Newline`、directive、raw wasm / llvm text、`mlstr` line、literal / identifier payload は key に保持する。lexer diagnostic がある source では raw source key に戻し、過去の successful compile が新しい lexer error を隠さないようにした。
+- doc comment を無視する契約は compiled output cache だけに限定した。documentation extraction、doccomment test、nm document 生成ではこの key を流用しない。コメントを丁寧に増やす方針を性能上阻害しないための境界であり、コメントの意味を使う機能は別 key を持つ。
+- release WASM RPN same-session 測定では、base compile が `compile_ms=9013`、ordinary comment-only edit が `compile_ms=2`、doccomment text edit が `compile_ms=1`、code edit が `compile_ms=8347` だった。コメント編集は 10ms 未満になったが、実コード編集はまだ Resource IR summary reuse が必要である。
+- Resource summary value cache の raw-init param facts leaf entry の足場を追加したが、RPN 測定では `raw_init_param_facts_stores=0` / `bypasses=225` だった。subagent review では nominal-heavy stdlib summary が `Named` / `Struct` / `Enum` stable type key 未対応で候補化できない可能性が高いと確認した。
+- その根本残件として `ISS-20260528T110220373Z-RESOURCE-SUMMARY-CACHE-NEEDS-QUALIFI-08D1AA04` を追加した。qualified nominal type identity がない状態で unqualified name だけを cache key に入れることはしない。
+- subagent review の指摘により、`ResourceFunction.name` の重複定義用 `__def<file>_<start>_<end>` span component を Resource summary function identity から外した。function body hash と source capability policy hash は維持し、SourceMap / Span に依存しない key 境界へ寄せた。
+- `initialized_summary_build_value_cache.rs` を resource checker responsibility monitor へ追加した。これは implementation line だけを数える監視であり、コメントや doccomment の増加を妨げる検査ではない。
+- raw-init summary build の orchestration file が責務監視上の上限を超えたため、summary list update helper を `initialized_summary_build_update.rs` に分離した。これは今回追加した value-cache orchestration と既存 summary update 責務を混ぜないための分割である。
+- value-cache file も単独責務に収めるため、dependency-free / indirect-call なしの replay eligibility 判定を `initialized_summary_build_value_cache_eligibility.rs` に分離した。
+- `resource_summary_value_cache.rs` の raw-init param facts cache method を `resource_summary_value_cache/raw_init.rs` へ分離した。cache owner 本体は統計、map、drop traversal 既存境界を持ち、raw-init 固有の candidate / replay / record は submodule が受け持つ。
+- subagent review で、`RawBody` を body kind だけで hash すると設計書の「raw body/source hash 追加まで拒否」と矛盾すると指摘されたため、`resource_function_body_hash` は `RawBody` を再び `None` に倒すように戻した。raw body 本文が `ResourceFunction` に残らない現状では、source policy hash だけで stale hit を防ぐ設計にしない。
+- 同 review で raw-init preseed の実 replay 経路に focused regression が不足していると指摘されたため、`initialized_summary_build_value_cache_tests.rs` を追加した。保存済み raw-init param facts が同じ summary surface として replay されること、function body / source policy / signature type boundary のいずれかが変わると preseed miss になり通常 worklist に戻ることを固定した。

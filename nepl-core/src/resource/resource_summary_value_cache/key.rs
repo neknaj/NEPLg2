@@ -40,11 +40,12 @@ pub(super) struct ResourceSummaryFunctionIdentity {
 /// Resource summary value cache が区別する summary kind と format version。
 ///
 /// stable mirror の構造が変わる場合は、既存 key と衝突しないように kind tag を
-/// 増やす。初期 MVP は collection slot の `DropTraversal + ForallInitializedRange`
-/// だけを対象にする。
+/// 増やす。summary kind は「どの解析 stage のどの完結 leaf entry か」まで含め、
+/// partial summary と complete summary が同じ key 空間で混ざらないようにする。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum ResourceSummaryValueKind {
     CollectionSlotDropTraversalForallLeafEntryV1,
+    RawInitParamFactsLeafEntryV1,
 }
 
 impl ResourceSummaryValueCacheKey {
@@ -57,6 +58,36 @@ impl ResourceSummaryValueCacheKey {
         source_capability_policy_hash: u64,
     ) -> Self {
         let summary_kind = ResourceSummaryValueKind::CollectionSlotDropTraversalForallLeafEntryV1;
+        let stable_hash = resource_summary_value_cache_key_hash(
+            namespace_hash,
+            &function_identity,
+            function_body_hash,
+            type_parameter_boundary_hash,
+            generic_type_argument_hash,
+            source_capability_policy_hash,
+            summary_kind,
+        );
+        Self {
+            namespace_hash,
+            function_identity,
+            function_body_hash,
+            type_parameter_boundary_hash,
+            generic_type_argument_hash,
+            source_capability_policy_hash,
+            summary_kind,
+            stable_hash,
+        }
+    }
+
+    pub(super) fn new_raw_init_param_facts_leaf_entry(
+        namespace_hash: u64,
+        function_identity: ResourceSummaryFunctionIdentity,
+        function_body_hash: u64,
+        type_parameter_boundary_hash: u64,
+        generic_type_argument_hash: u64,
+        source_capability_policy_hash: u64,
+    ) -> Self {
+        let summary_kind = ResourceSummaryValueKind::RawInitParamFactsLeafEntryV1;
         let stable_hash = resource_summary_value_cache_key_hash(
             namespace_hash,
             &function_identity,
@@ -101,12 +132,62 @@ impl ResourceSummaryFunctionIdentity {
     }
 
     pub(super) fn from_resource_function(function: &ResourceFunction) -> Option<Self> {
-        Self::new(&function.name, &function.origin_name)
+        let canonical_symbol = strip_definition_span_mangle(&function.name);
+        Self::new(&canonical_symbol, &function.origin_name)
     }
 
     #[cfg(test)]
     fn canonical_symbol(&self) -> &str {
         &self.canonical_symbol
+    }
+}
+
+fn strip_definition_span_mangle(symbol: &str) -> String {
+    let mut search_start = 0usize;
+    while let Some(relative) = symbol[search_start..].find("__def") {
+        let marker_start = search_start + relative;
+        let digits_start = marker_start + "__def".len();
+        if let Some(component_end) = definition_span_mangle_end(symbol, digits_start) {
+            let mut normalized = String::new();
+            normalized.push_str(&symbol[..marker_start]);
+            normalized.push_str(&symbol[component_end..]);
+            return normalized;
+        }
+        search_start = marker_start + "__def".len();
+    }
+    symbol.to_string()
+}
+
+fn definition_span_mangle_end(symbol: &str, mut cursor: usize) -> Option<usize> {
+    cursor = consume_ascii_digits(symbol, cursor)?;
+    cursor = consume_byte(symbol, cursor, b'_')?;
+    cursor = consume_ascii_digits(symbol, cursor)?;
+    cursor = consume_byte(symbol, cursor, b'_')?;
+    cursor = consume_ascii_digits(symbol, cursor)?;
+    if symbol[cursor..].starts_with("__") {
+        Some(cursor)
+    } else {
+        None
+    }
+}
+
+fn consume_ascii_digits(symbol: &str, mut cursor: usize) -> Option<usize> {
+    let start = cursor;
+    let bytes = symbol.as_bytes();
+    while cursor < bytes.len() && bytes[cursor].is_ascii_digit() {
+        cursor += 1;
+    }
+    if cursor == start {
+        None
+    } else {
+        Some(cursor)
+    }
+}
+
+fn consume_byte(symbol: &str, cursor: usize, expected: u8) -> Option<usize> {
+    match symbol.as_bytes().get(cursor) {
+        Some(actual) if *actual == expected => Some(cursor + 1),
+        _ => None,
     }
 }
 
@@ -136,6 +217,9 @@ impl ResourceSummaryValueKind {
         match self {
             ResourceSummaryValueKind::CollectionSlotDropTraversalForallLeafEntryV1 => {
                 "collection-slot-drop-traversal-forall-leaf-entry-v1"
+            }
+            ResourceSummaryValueKind::RawInitParamFactsLeafEntryV1 => {
+                "raw-init-param-facts-leaf-entry-v1"
             }
         }
     }
@@ -174,6 +258,25 @@ mod tests {
         assert_eq!(
             key.function_identity().canonical_symbol(),
             "std::vec::clear#i32"
+        );
+    }
+
+    #[test]
+    fn resource_summary_function_identity_strips_definition_span_mangle() {
+        let identity = ResourceSummaryFunctionIdentity::new(
+            &strip_definition_span_mangle("add__def7_123_150__i32_i32__i32__pure"),
+            "add",
+        )
+        .expect("normalized identity should be valid");
+
+        assert_eq!(identity.canonical_symbol(), "add__i32_i32__i32__pure");
+    }
+
+    #[test]
+    fn resource_summary_function_identity_keeps_non_span_def_text() {
+        assert_eq!(
+            strip_definition_span_mangle("user__def_name__i32__i32__pure"),
+            "user__def_name__i32__i32__pure"
         );
     }
 

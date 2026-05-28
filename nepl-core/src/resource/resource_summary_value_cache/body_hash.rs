@@ -30,9 +30,12 @@ use super::stable_type_key::ResourceSummaryStableTypeKey;
 /// 一方で `TypeId` や一時値・storage・block の数値 ID は compile session 内の割当で
 /// あり、そのまま保存境界へ出すと別 session の同じ body を別物として扱ったり、逆に
 /// unsafe な対応付けを招いたりする。この関数は `TypeId` を stable type key に変換し、
-/// temporary/block は body 内の ordinal に正規化する。`StorageId` は owner/checker
-/// state 側の割当に由来するため、安定した storage origin mapping を別途設計するまで
-/// hash せず `None` で cache 候補から外す。
+/// temporary/block は body 内の ordinal に正規化する。raw wasm / LLVM body の本文は
+/// `ResourceFunction` には残らないため、raw body/source hash を key に追加するまでは
+/// body hash を作らず cache 候補から外す。
+///
+/// `StorageId` は owner/checker state 側の割当に由来するため、安定した storage origin
+/// mapping を別途設計するまで hash せず `None` で cache 候補から外す。
 pub(super) fn resource_function_body_hash(
     types: &TypeCtx,
     function: &ResourceFunction,
@@ -1042,7 +1045,7 @@ mod tests {
     }
 
     #[test]
-    fn resource_function_body_hash_rejects_raw_body_without_source_hash() {
+    fn resource_function_body_hash_rejects_raw_body_until_source_body_hash_exists() {
         let types = TypeCtx::new();
         let function = ResourceFunction {
             name: "raw".into(),

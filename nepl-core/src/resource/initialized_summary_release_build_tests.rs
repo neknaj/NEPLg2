@@ -22,8 +22,14 @@ fn release_summary_does_not_seed_plain_string_view_parameters() {
         types.i32(),
     );
     let function = raw_copy_from_view_function("copy_from_str", source, raw_source, types.i32());
-    let summaries =
-        compute_raw_cell_initialization_function_summaries(&module(function), &types, &[], &[]);
+    let summaries = compute_raw_cell_initialization_function_summaries(
+        &module(function),
+        &types,
+        &[],
+        &[],
+        None,
+        None,
+    );
 
     assert!(summaries
         .iter()
@@ -44,8 +50,14 @@ fn release_summary_keeps_requirements_for_registered_raw_pointer_fields() {
     );
     let function =
         raw_copy_from_view_function("copy_from_mem_ptr", source, raw_source, types.i32());
-    let summaries =
-        compute_raw_cell_initialization_function_summaries(&module(function), &types, &[], &[]);
+    let summaries = compute_raw_cell_initialization_function_summaries(
+        &module(function),
+        &types,
+        &[],
+        &[],
+        None,
+        None,
+    );
     let summary = summaries
         .iter()
         .find(|summary| summary.function == "copy_from_mem_ptr")

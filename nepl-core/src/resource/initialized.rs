@@ -59,9 +59,10 @@ pub fn check_resource_initialized_moves(
 
 /// Resource summary value cache の観測を伴う initialized-state checker。
 ///
-/// この関数は通常の安全性判定を変えず、collection slot summary build の完了後に
-/// stable mirror の初期候補だけを cache 統計へ記録する。現 checkpoint では
-/// `TypeId` や `Span` を含む summary value を保存せず、hit/store も行わない。
+/// この関数は通常の安全性判定を変えず、Resource summary のうち stable mirror へ
+/// 変換できる小さな leaf entry だけを session cache へ保存・再投影する。長寿命の
+/// value には `TypeId` や `Span` を保持せず、現在の compile の `TypeCtx` と source
+/// policy 境界へ戻せる場合だけ worklist 前の preseed に使う。
 pub fn check_resource_initialized_moves_with_summary_cache(
     module: &ResourceModule,
     types: &TypeCtx,
@@ -100,6 +101,8 @@ fn check_resource_initialized_moves_inner(
         types,
         &raw_alias_summaries,
         &i32_scalar_summaries,
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
     );
     let raw_init_summary_index =
         RawCellInitializationFunctionSummaryIndex::new(&raw_init_summaries);

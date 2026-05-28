@@ -18,6 +18,7 @@ use nepl_core::loader::{Loader, LoaderError, LoaderSessionCache, SourceMap};
 use nepl_core::parser::parse_tokens;
 use nepl_core::resource::ResourceSummaryValueCache;
 use nepl_core::resolve::DefId;
+use nepl_core::source_cache_key::compiled_source_cache_key_part;
 use nepl_core::span::{FileId, Span};
 use nepl_core::typecheck::typecheck;
 use nepl_core::{BuildProfile, CompilationArtifactOptions, CompileOptions, CompileTarget};
@@ -3448,7 +3449,7 @@ impl CompilerSession {
         let stats = self.loader_cache.borrow().stats();
         let resource_stats = self.resource_summary_value_cache.borrow().stats();
         format!(
-            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"compiled_output_cache_hits\":{},\"compiled_output_cache_stores\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{},\"resource_summary_value_hits\":{},\"resource_summary_value_misses\":{},\"resource_summary_value_stores\":{},\"resource_summary_value_bypasses\":{},\"resource_summary_value_replay_hits\":{},\"resource_summary_value_replay_bypasses\":{},\"resource_summary_value_replayed_ops\":{},\"resource_summary_value_recomputed_ops\":{},\"resource_summary_value_drop_traversal_forall_hits\":{},\"resource_summary_value_drop_traversal_forall_stores\":{},\"resource_summary_value_drop_traversal_forall_bypasses\":{}}}",
+            "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"compiled_output_cache_hits\":{},\"compiled_output_cache_stores\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{},\"resource_summary_value_hits\":{},\"resource_summary_value_misses\":{},\"resource_summary_value_stores\":{},\"resource_summary_value_bypasses\":{},\"resource_summary_value_replay_hits\":{},\"resource_summary_value_replay_bypasses\":{},\"resource_summary_value_replayed_ops\":{},\"resource_summary_value_recomputed_ops\":{},\"resource_summary_value_drop_traversal_forall_hits\":{},\"resource_summary_value_drop_traversal_forall_stores\":{},\"resource_summary_value_drop_traversal_forall_bypasses\":{},\"resource_summary_value_raw_init_param_facts_hits\":{},\"resource_summary_value_raw_init_param_facts_stores\":{},\"resource_summary_value_raw_init_param_facts_bypasses\":{}}}",
             stats.parsed_module_hits,
             stats.parsed_module_misses,
             stats.parsed_module_stores,
@@ -3480,6 +3481,9 @@ impl CompilerSession {
             resource_stats.resource_summary_value_drop_traversal_forall_hits,
             resource_stats.resource_summary_value_drop_traversal_forall_stores,
             resource_stats.resource_summary_value_drop_traversal_forall_bypasses,
+            resource_stats.resource_summary_value_raw_init_param_facts_hits,
+            resource_stats.resource_summary_value_raw_init_param_facts_stores,
+            resource_stats.resource_summary_value_raw_init_param_facts_bypasses,
         )
     }
 
@@ -3687,7 +3691,7 @@ fn compiled_output_cache_key(
     push_cache_key_part(&mut key, entry_path);
     push_cache_key_part(&mut key, profile);
     push_cache_key_part(&mut key, if include_wat_comments { "wat" } else { "wasm" });
-    push_cache_key_part(&mut key, source);
+    push_cache_key_part(&mut key, &compiled_source_cache_key_part(source));
     if vfs.is_object() {
         let mut entries = js_sys::Object::entries(&vfs.clone().into())
             .iter()
@@ -3704,7 +3708,7 @@ fn compiled_output_cache_key(
         entries.sort_by(|left, right| left.0.cmp(&right.0));
         for (path, content) in entries {
             push_cache_key_part(&mut key, &path);
-            push_cache_key_part(&mut key, &content);
+            push_cache_key_part(&mut key, &compiled_source_cache_key_part(&content));
         }
     }
     key

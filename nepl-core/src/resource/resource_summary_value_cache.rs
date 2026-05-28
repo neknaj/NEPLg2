@@ -12,6 +12,7 @@ mod body_hash;
 mod candidate_key;
 mod context;
 mod key;
+mod raw_init;
 mod stable_hash;
 mod stable_mirror;
 mod stable_type_key;
@@ -26,7 +27,7 @@ use self::candidate_key::{
 use self::key::ResourceSummaryValueCacheKey;
 use self::stable_mirror::{
     reproject_drop_traversal_forall_leaf_entry, ResourceSummaryStableDropTraversalForallLeafEntry,
-    ResourceSummaryTypeReprojection,
+    ResourceSummaryStableRawInitParamFactsLeafEntry, ResourceSummaryTypeReprojection,
 };
 
 /// Resource IR summary value cache の累積統計。
@@ -49,6 +50,9 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_drop_traversal_forall_hits: usize,
     pub resource_summary_value_drop_traversal_forall_stores: usize,
     pub resource_summary_value_drop_traversal_forall_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_hits: usize,
+    pub resource_summary_value_raw_init_param_facts_stores: usize,
+    pub resource_summary_value_raw_init_param_facts_bypasses: usize,
 }
 
 /// `CompilerSession` が所有する Resource IR summary value cache の境界。
@@ -63,12 +67,20 @@ pub struct ResourceSummaryValueCache {
     stats: ResourceSummaryValueCacheStats,
     drop_traversal_forall_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableDropTraversalForallLeafEntry>,
+    raw_init_param_facts_leaf_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawInitParamFactsLeafEntry>,
 }
 
 #[derive(Debug, Clone)]
 pub(super) struct ResourceSummaryDropTraversalForallLeafEntryCandidate {
     key: ResourceSummaryValueCacheKey,
     entry: ResourceSummaryStableDropTraversalForallLeafEntry,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct ResourceSummaryRawInitParamFactsLeafEntryCandidate {
+    key: ResourceSummaryValueCacheKey,
+    entry: ResourceSummaryStableRawInitParamFactsLeafEntry,
 }
 
 impl ResourceSummaryValueCache {
@@ -79,6 +91,7 @@ impl ResourceSummaryValueCache {
     pub fn clear(&mut self) {
         self.stats = ResourceSummaryValueCacheStats::default();
         self.drop_traversal_forall_leaf_entries.clear();
+        self.raw_init_param_facts_leaf_entries.clear();
     }
 
     pub fn stats(&self) -> ResourceSummaryValueCacheStats {

@@ -97,6 +97,12 @@ Create a fixed per-program benchmark corpus, keep compile_ms and run_ms evidence
 
 RPN では同一入力の再compileは 10ms 未満になったが、初回 compile はまだ 0.5 秒未満から遠い。次の根本対応は raw init summary / function check の path-sensitive exploration を function hash と dependency aggregate public surface hash で再利用する Resource IR summary cache である。
 
+2026-05-28 の semantic source key checkpoint で、RPN same-session の ordinary comment-only edit は `compile_ms=2`、doccomment text edit は `compile_ms=1` になった。コメント追加・修正は compiled-output cache で 10ms 未満に入ったが、code edit は `compile_ms=8347` の full compile になり、初回 / 実コード微小変更の目標は未達である。
+
+raw-init param facts cache staging の実測では RPN が `raw_init_param_facts_stores=0` / `bypasses=225` だった。nominal 型 identity が未整備で stdlib summary を安全に stable key 化できない問題を `ISS-20260528T110220373Z-RESOURCE-SUMMARY-CACHE-NEEDS-QUALIFI-08D1AA04` に分離した。
+
+raw-init preseed は実際に fixed-point worklist を skip するため、function body / source policy / signature type boundary が変わる場合に stale summary を使わない regression を追加した。raw body は本文が `ResourceFunction` に残らないため、source policy hash だけではなく raw body/source hash 設計が入るまで Resource summary body hash で拒否する。
+
 まず、代表 program を次の階層に分けて固定する。
 
 - core only: stdlib import を含まない `#target core` の最小 return case。
