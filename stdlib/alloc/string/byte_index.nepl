@@ -174,13 +174,14 @@ pub fn string_byte_eq %fn str fn i32 fn i32 bool \s\idx\expected:
 //: string_byte_is_ascii_space: byte index の値が ASCII 空白かを checked に判定する
 //:
 //: [目的/もくてき]:
-//: - trim や scanner が `idx` の byte を ASCII space/tab/LF/CR と比較するとき、範囲外を `false` として扱います。
+//: - 検索 predicate や scanner が `idx` の byte を ASCII space/tab/LF/CR と比較するとき、範囲外を `false` として扱います。
 //: - 範囲証明と raw read は byte_index module に閉じ、caller は sentinel 値を扱いません。
 //:
 //: [実装/じっそう]:
 //: - private helper で byte を 1 回だけ読み、ASCII 空白 4 種に対して比較します。
 //:
 //: [注意/ちゅうい]:
+//: - 高水準 module は `string/search` の `str_byte_is_ascii_space_at` を使います。
 //: - 判定対象は ASCII の space/tab/LF/CR のみです。Unicode 空白は扱いません。
 //:
 //: [計算量/けいさんりょう]:

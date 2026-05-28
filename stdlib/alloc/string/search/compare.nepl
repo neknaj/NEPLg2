@@ -85,6 +85,23 @@ pub fn str_is_space %fn i32 bool \b:
         _:
             false
 
+//: str_byte_is_ascii_space_at: 文字列内 byte が ASCII 空白か checked に判定する
+//:
+//: [目的/もくてき]:
+//: - trim や scanner が `idx` の byte を ASCII 空白として扱えるかを、安全な検索 predicate として提供します。
+//: - 範囲外 index は `false` とし、raw read の境界証明は `byte_index` module に閉じます。
+//:
+//: [実装/じっそう]:
+//: - `string_byte_is_ascii_space` により範囲外を `false` として扱い、byte_index 側の範囲証明を再利用します。
+//:
+//: [注意/ちゅうい]:
+//: - 判定対象は ASCII の space/tab/LF/CR のみです。Unicode 空白は扱いません。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+pub fn str_byte_is_ascii_space_at %fn str fn i32 bool \s\idx:
+    string_byte_is_ascii_space s idx
+
 //: str_starts_with: 先頭 byte 列が prefix と一致するか判定する
 //:
 //: [目的/もくてき]:

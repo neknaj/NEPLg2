@@ -47721,3 +47721,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - コメントは proof boundary、no-store 理由、逆投影を遅らせる理由を丁寧に説明するために追加した。コメント増加や doccomment 増加を妨げる検査は追加していない。
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core resource_summary_value_cache --lib`、`cargo test -p nepl-core resource_summary_value_store --lib`、`cargo test -p nepl-core resource_summary_value_bypass --lib`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
 - `trunk build` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-resource-summary-store-hit-20260528.json` は `caseCount=13, passedCount=13, failedCount=0` だった。
+
+## 2026-05-28 Agent string trim search predicate boundary checkpoint
+
+- Zenn の試作段階方針と性能追求方針を再確認した。`plan.md` は変更していない。
+- `stdlib/alloc/string/slice/trim.nepl` は `alloc/string/search` を import し、前後の ASCII 空白 scan で `str_byte_is_ascii_space_at` を使うようにした。CR suffix 判定は既存の checked byte equality `string_byte_eq` を使うため、`alloc/string/byte_index` import は維持している。
+- `str_byte_is_ascii_space_at` は `string/search/compare` が所有し、実際の範囲証明と sentinel は `string/byte_index` の `string_byte_is_ascii_space` に閉じる。slice は byte-index の低水準 predicate ではなく search predicate を呼ぶので、string/slice と string/search の責務境界を保てる。
+- 直接 `while and lt start end ...` 条件へ畳む案は再測定で `resource_initialized_function_checks=52993ms`、`resource_static_check=58183ms` まで悪化したため採用しない。現在の prefix call reduction / Resource IR exploration では短い表記が探索空間削減になるとは限らない。
+- done-flag 形へ戻した後の trim doctest は `compile_ms=6212`、`run_ms=13` で pass した。native release RPN stage 測定は `resource_initialized_i32_scalar_summaries=1561ms`、`resource_initialized_raw_init_summaries=2956ms`、`resource_initialized_function_checks=2212ms`、`resource_static_check=7841ms` だった。per-function timing では `str_trim__str__str__pure` が `897ms` だった。
+- `nodesrc/test_stdlib_string_search_boundary.js` に `str_byte_is_ascii_space_at` の所有と byte-index predicate delegation を追加し、`nodesrc/test_stdlib_string_slice_boundary.js` は trim が search predicate を使う boundary を固定する。コメントや doctest 増加を妨げる検査は追加していない。

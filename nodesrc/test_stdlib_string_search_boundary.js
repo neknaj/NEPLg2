@@ -36,6 +36,7 @@ const ownerByName = new Map([
     ['str_eq', compareCode],
     ['str_eq_loop', compareCode],
     ['str_is_space', compareCode],
+    ['str_byte_is_ascii_space_at', compareCode],
     ['str_starts_with', compareCode],
     ['str_eq_at', compareCode],
     ['str_starts_with_at', compareCode],
@@ -50,6 +51,7 @@ for (const name of [
     'str_eq',
     'str_eq_loop',
     'str_is_space',
+    'str_byte_is_ascii_space_at',
     'str_starts_with',
     'str_eq_at',
     'str_starts_with_at',
@@ -68,6 +70,11 @@ assert.match(
     compareCode,
     /fn\s+str_is_space[\s\S]*match\s+b:[\s\S]*' ':[\s\S]*'\\t':[\s\S]*'\\n':[\s\S]*'\\r':[\s\S]*_:/,
     'str_is_space must stay as char-literal match instead of nested if chains',
+);
+assert.match(
+    compareCode,
+    /fn\s+str_byte_is_ascii_space_at[\s\S]*string_byte_is_ascii_space\s+s\s+idx/,
+    'str_byte_is_ascii_space_at must expose byte-index whitespace evidence through string/search',
 );
 assert.match(
     boundaryCode,

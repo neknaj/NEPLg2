@@ -13,6 +13,7 @@
 #import "core/math" as *
 #import "alloc/string/access" as *
 #import "alloc/string/byte_index" as *
+#import "alloc/string/search" as *
 #import "./byte" as *
 
 //: str_trim_suffix_cr: 末尾 CR を 1 byte だけ取り除く
@@ -92,7 +93,7 @@ pub fn str_slice_trim_suffix_cr %fn str fn i32 fn i32 str \s\start\end:
 //: - 先頭と末尾の space/tab/LF/CR を除いた文字列を返します。
 //:
 //: [実装/じっそう]:
-//: - 先頭側と末尾側から `string_byte_is_ascii_space` が true の位置を読み飛ばします。
+//: - 先頭側と末尾側から `str_byte_is_ascii_space_at` が true の位置を読み飛ばします。
 //: - 範囲確認と raw read は `byte_index` module に閉じ、trim 側は範囲外を false とする predicate だけを使います。
 //: - 最後に残った byte 範囲を `str_slice` で切り出します。
 //:
@@ -113,7 +114,7 @@ pub fn str_trim %fn str str \s:
                 lt start end
                 then:
                     if:
-                        string_byte_is_ascii_space s start
+                        str_byte_is_ascii_space_at s start
                         then set start %i32 add start 1
                         else set done 1
                 else:
@@ -126,7 +127,7 @@ pub fn str_trim %fn str str \s:
                 then:
                     let idx %i32 sub end 1;
                     if:
-                        string_byte_is_ascii_space s idx
+                        str_byte_is_ascii_space_at s idx
                         then set end %i32 sub end 1
                         else set done2 1
                 else:

@@ -498,7 +498,7 @@ native release RPN stage-only 測定では、直前 checkpoint の `resource_ini
 
 2026-05-28 の duplicate path dedup / string byte predicate checkpoint では、Resource IR initialized check の `ResourcePathAlternatives::from_states` で budget 超過時に完全重複候補だけを先に落とすようにした。subagent review では、全候補が同一でも既存 merge が collection slot range の弱化や raw alias 正規化を行うことを確認したため、merge lattice を clone で省略する fast path は採用しない。dedup は exact duplicate だけを落とし、残った候補は従来どおり conservative merge に通す。
 
-同 checkpoint では、`string/byte_index` に private `string_byte_or_invalid` と public `string_byte_is_ascii_space` を追加した。sentinel 値は byte_index module 内部に閉じ、public API は `bool` predicate のままにする。`str_trim` は loop 本体で `Option` branch を直接展開せず、この checked predicate だけを使う。これにより raw read の範囲証明は byte_index module に閉じ、Zenn 方針の Option/Result public boundary と性能上の branch 削減を両立する。
+同 checkpoint では、`string/byte_index` に private `string_byte_or_invalid` と低水準 `string_byte_is_ascii_space` を置き、slice から使う public predicate は `string/search/compare` の `str_byte_is_ascii_space_at` にした。sentinel 値と raw read 境界は byte_index module 内部に閉じ、search predicate はその証明済み predicate を高水準 module へ渡す facade になる。`str_trim` は loop 本体で `Option` branch を直接展開せず、この checked search predicate だけを使う。これにより raw read の範囲証明は byte_index module に閉じつつ、slice module が検索 predicate を使う責務境界を維持する。
 
 native release RPN stage-only 測定では、safe revision 後に `resource_initialized_i32_scalar_summaries=1256ms`、`resource_initialized_raw_init_summaries=2549ms`、`resource_initialized_function_checks=3139ms`、`resource_static_check=7870ms` だった。per-function timing run では `str_trim` の function check が before の `1018ms` から `699ms` へ下がった。一方で全体はまだ 7 秒台で、raw init summary と function check が支配的である。
 
