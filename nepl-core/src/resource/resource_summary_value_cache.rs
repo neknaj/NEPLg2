@@ -1,4 +1,4 @@
-use crate::types::TypeCtx;
+use crate::types::{TypeCtx, TypeId};
 
 use super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
 use super::model::ResourceFunction;
@@ -8,9 +8,11 @@ mod key;
 mod stable_hash;
 mod stable_mirror;
 mod stable_type_key;
+mod type_boundary;
 
 use self::body_hash::resource_function_body_hash;
 use self::stable_mirror::stable_drop_traversal_forall_value;
+use self::type_boundary::resource_summary_type_parameter_boundary_hash;
 
 /// Resource IR summary value cache の累積統計。
 ///
@@ -63,9 +65,13 @@ impl ResourceSummaryValueCache {
         &mut self,
         types: &TypeCtx,
         function: &ResourceFunction,
+        type_params: &[TypeId],
         op: &CollectionSlotLifecycleSummaryOp,
     ) {
         if resource_function_body_hash(types, function).is_none() {
+            return;
+        }
+        if resource_summary_type_parameter_boundary_hash(types, type_params).is_none() {
             return;
         }
         if stable_drop_traversal_forall_value(types, op).is_none() {

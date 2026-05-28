@@ -550,6 +550,8 @@ Resource summary value cache の owner は `LoaderSessionCache` ではなく `Co
 
 同日の bypass candidate connection checkpoint では、最終 `CollectionSlotLifecycleFunctionSummary` の top-level `DropTraversal + ForallInitializedRange` を候補として数える前に、対応する `ResourceFunction` の body hash が作れることも確認するようにした。これにより、stable mirror value だけは作れても raw body / storage root / nominal type などで per-summary-value key を安全に作れない関数は、store/hit 実装前の観測 counter からも外れる。
 
+type boundary hash checkpoint では、per-summary-value key の `type_parameter_boundary_hash` と `generic_type_argument_hash` を作る private staging module を追加した。type parameter boundary は `summary.type_params` を基準にし、unbound かつ label 付きの type variable だけを許可する。hash には arity、ordinal、label、copy/clone/drop capability を含め、同じ stable parameter key が重複した場合は再投影先が曖昧になるため拒否する。anonymous variable、bound variable、concrete type、nominal type は boundary として保存しない。generic type argument hash は順序付きの argument list として扱い、各 argument を `ResourceSummaryStableTypeKey` に変換できる場合だけ作る。nominal identity が未確定の間は store 候補が狭くなるが、同名別定義への stale hit を避けるため安全側に倒す。
+
 必須 regression:
 
 - 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。

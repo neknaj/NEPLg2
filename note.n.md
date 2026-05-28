@@ -47634,3 +47634,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - Resource summary value cache の bypass counter を、stable mirror value だけでなく対応する `ResourceFunction` body hash も作れる場合だけ増やすようにした。これは store/hit 実装前の観測値を、実際に per-summary-value key を作れる候補へ近づけるためである。
 - `collection_slot_summary_build` は最終 summary list と `ResourceModule` の関数名を対応付け、top-level `DropTraversal + ForallInitializedRange` を数える前に `resource_summary_value_cache::body_hash` を通す。
 - raw body のように summary value は人工的に作れても function body hash が安全でない関数は候補数に含めない regression を追加した。
+
+## 2026-05-28 Agent Resource summary type boundary hash checkpoint
+
+- Resource summary value cache の per-summary-value key に入れる `type_parameter_boundary_hash` と `generic_type_argument_hash` の staging module を追加した。`plan.md` は変更していない。
+- subagent review では、`ResourceFunction.type_params` と `summary.type_params` は同じ意味ではなく、stable mirror 内の generic variable を再投影する境界としては `summary.type_params` を基準にするべきだと確認した。
+- type parameter boundary は unbound かつ label 付きの type variable だけを許可し、arity、ordinal、label、copy/clone/drop capability を hash する。同じ stable parameter key が重複する場合、anonymous variable、bound variable、concrete type、nominal type は no-store 候補にする。
+- generic type argument hash は順序付き argument list として扱い、各 argument を `ResourceSummaryStableTypeKey` に変換できる場合だけ作る。nominal identity が未確定の argument は拒否する。
+- bypass counter は、stable mirror value と function body hash に加え、`summary.type_params` の boundary hash も作れる場合だけ増やすようにした。

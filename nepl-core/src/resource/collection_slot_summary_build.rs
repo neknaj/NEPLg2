@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
-use crate::types::TypeCtx;
+use crate::types::{TypeCtx, TypeId};
 
 use super::collection_slot_summary_build_ops::collect_summary_ops_from_ops;
 use super::collection_slot_summary_build_state::CollectionSlotSummaryBuildState;
@@ -95,6 +95,7 @@ fn record_resource_summary_value_cache_bypass_candidates_from_summary(
         cache,
         types,
         function,
+        &summary.type_params,
         &summary.ops,
     );
 }
@@ -103,6 +104,7 @@ fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
     cache: &mut ResourceSummaryValueCache,
     types: &TypeCtx,
     function: &ResourceFunction,
+    type_params: &[TypeId],
     ops: &[CollectionSlotLifecycleSummaryOp],
 ) {
     // 初期 MVP では top-level leaf だけを store 候補にする。
@@ -114,7 +116,12 @@ fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
                 coverage:
                     CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(_),
                 ..
-            } => cache.record_drop_traversal_forall_bypass_if_stable(types, function, op),
+            } => cache.record_drop_traversal_forall_bypass_if_stable(
+                types,
+                function,
+                type_params,
+                op,
+            ),
             CollectionSlotLifecycleSummaryOp::Event { .. }
             | CollectionSlotLifecycleSummaryOp::Relocate { .. }
             | CollectionSlotLifecycleSummaryOp::DropTraversal { .. }
@@ -475,6 +482,45 @@ mod tests {
         let summary = CollectionSlotLifecycleFunctionSummary {
             function: "raw_body".to_string(),
             type_params: Vec::new(),
+            ops: vec![forall_drop_traversal_op()],
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            return_paths: Vec::new(),
+        };
+
+        record_resource_summary_value_cache_bypass_candidates(
+            &mut cache,
+            &types,
+            &module,
+            &[summary],
+        );
+
+        let stats = cache.stats();
+        assert_eq!(stats.resource_summary_value_bypasses, 0);
+        assert_eq!(
+            stats.resource_summary_value_drop_traversal_forall_bypasses,
+            0
+        );
+    }
+
+    /// function body と stable mirror value が保存可能でも、function-local type parameter
+    /// boundary が再投影できない場合は Resource summary value key を安全に作れない。
+    /// anonymous type variable は compile session の arena slot に依存するため、初期
+    /// cache 候補から外す。
+    #[test]
+    fn resource_summary_value_bypass_rejects_unstable_type_parameter_boundary() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let mut types = TypeCtx::new();
+        let function = identity_storage_function(types.i32());
+        let module = ResourceModule {
+            functions: vec![function],
+            entry: None,
+            string_literals: Vec::new(),
+        };
+        let summary = CollectionSlotLifecycleFunctionSummary {
+            function: "identity_storage".to_string(),
+            type_params: vec![types.fresh_var(None)],
             ops: vec![forall_drop_traversal_op()],
             return_transfers: Vec::new(),
             return_slots: Vec::new(),
