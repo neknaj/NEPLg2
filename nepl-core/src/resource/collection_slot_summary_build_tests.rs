@@ -1,0 +1,634 @@
+use alloc::string::{String, ToString};
+use alloc::vec;
+use alloc::vec::Vec;
+
+use crate::source_map::CompilerMemoryType;
+use crate::span::{FileId, Span};
+use crate::types::{TypeCtx, TypeId, TypeKind};
+
+use super::super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
+use super::super::collection_slot_summary_model::{
+    CollectionSlotInitializedRangeDropTraversalCertificate,
+    CollectionSlotInitializedRangeDropTraversalProof,
+    CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryI32Operand,
+    CollectionSlotLifecycleSummaryOp,
+};
+use super::super::i32_scalar_return_facts::I32ScalarReturnFacts;
+use super::super::model::{
+    Place, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceLocal, ResourceModule,
+    ResourceTerminator,
+};
+use super::super::resource_summary_value_cache::{
+    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+};
+use super::super::summary_projection::SummaryPlace;
+use super::*;
+
+fn identity_storage_function(storage_ty: TypeId) -> ResourceFunction {
+    let span = test_span();
+    let param = Place::local("storage".to_string(), storage_ty);
+    ResourceFunction {
+        name: "identity_storage".to_string(),
+        origin_name: "identity_storage".to_string(),
+        type_params: Vec::new(),
+        params: vec![ResourceLocal {
+            name: "storage".to_string(),
+            ty: storage_ty,
+            mutable: false,
+            place: param.clone(),
+        }],
+        result: storage_ty,
+        effect: crate::ast::Effect::Pure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops: Vec::new(),
+            terminator: ResourceTerminator::Return {
+                value: Some(param),
+                span,
+            },
+            span,
+        }],
+        span,
+    }
+}
+
+fn collection_storage_marker_function(storage_ty: TypeId, value_ty: TypeId) -> ResourceFunction {
+    let span = test_span();
+    let storage = Place::local("storage".to_string(), storage_ty);
+    ResourceFunction {
+        name: "mark_collection_storage".to_string(),
+        origin_name: "mark_collection_storage".to_string(),
+        type_params: Vec::new(),
+        params: Vec::new(),
+        result: value_ty,
+        effect: crate::ast::Effect::Pure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops: vec![
+                super::super::model::ResourceOp::CollectionSlotLifecycle {
+                    target: storage.clone(),
+                    event: CollectionSlotLifecycleEvent::InitializeEmpty { value_ty },
+                    span,
+                },
+                super::super::model::ResourceOp::Call {
+                    output: Place::local("storage_out".to_string(), storage_ty),
+                    target: super::super::model::ResourceCallTarget::User {
+                        name: "identity_storage".to_string(),
+                        type_args: Vec::new(),
+                    },
+                    args: vec![storage],
+                    effect: super::super::model::EffectOp::Pure,
+                    span,
+                },
+            ],
+            terminator: ResourceTerminator::Return { value: None, span },
+            span,
+        }],
+        span,
+    }
+}
+
+fn register_empty_struct(types: &mut TypeCtx, name: &str) -> TypeId {
+    types.register_named(
+        String::from(name),
+        TypeKind::Struct {
+            name: String::from(name),
+            type_params: vec![],
+            fields: vec![],
+            field_names: vec![],
+        },
+    )
+}
+
+fn register_region_token(types: &mut TypeCtx) -> TypeId {
+    let raw_ty = types.i32();
+    let value_ty = types.fresh_var(Some("T".to_string()));
+    let region_token_ty = types.register_named(
+        "RegionToken".to_string(),
+        TypeKind::Struct {
+            name: "RegionToken".to_string(),
+            type_params: vec![value_ty],
+            fields: vec![raw_ty, raw_ty],
+            field_names: vec!["raw".to_string(), "size".to_string()],
+        },
+    );
+    types.mark_compiler_memory_type(region_token_ty, CompilerMemoryType::OwnerToken);
+    region_token_ty
+}
+
+fn summary_place(parameter_index: usize, ty: TypeId) -> SummaryPlace {
+    SummaryPlace {
+        parameter_index,
+        suffix: Vec::new(),
+        ty,
+    }
+}
+
+fn test_span() -> Span {
+    Span::new(FileId(0), 1, 2)
+}
+
+fn forall_drop_traversal_op(types: &TypeCtx) -> CollectionSlotLifecycleSummaryOp {
+    forall_drop_traversal_op_with_count(types, 1)
+}
+
+fn forall_drop_traversal_op_with_count(
+    types: &TypeCtx,
+    count: i32,
+) -> CollectionSlotLifecycleSummaryOp {
+    CollectionSlotLifecycleSummaryOp::DropTraversal {
+        storage: summary_place(0, types.i32()),
+        initialized_count: CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
+            value: count,
+            ty: types.i32(),
+        },
+        expected_ty: types.i32(),
+        coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
+            CollectionSlotInitializedRangeDropTraversalCertificate {
+                element_stride: 4,
+                drop_proof: CollectionSlotInitializedRangeDropTraversalProof::StateOnly,
+            },
+        ),
+    }
+}
+
+fn test_summary_value_cache_context() -> ResourceSummaryValueCacheContext {
+    let mut context = ResourceSummaryValueCacheContext::new(7);
+    context.insert_source_policy_hash(FileId(0), 11);
+    context
+}
+
+fn record_test_resource_summary_value_cache_candidates(
+    cache: &mut ResourceSummaryValueCache,
+    context: &ResourceSummaryValueCacheContext,
+    types: &TypeCtx,
+    module: &ResourceModule,
+    summaries: &[CollectionSlotLifecycleFunctionSummary],
+) {
+    let dependencies = build_function_summary_dependencies(module);
+    let preseeded_functions = vec![false; module.functions.len()];
+    record_resource_summary_value_cache_candidates(
+        cache,
+        context,
+        types,
+        module,
+        &dependencies,
+        &preseeded_functions,
+        summaries,
+    );
+}
+
+/// Resource summary value cache の replay 用 entry は、固定点収束後の summary 全体が
+/// top-level `DropTraversal + ForallInitializedRange` だけで構成される場合に限って
+/// store 候補にする。部分的に保存できる leaf だけを切り出すと、replay 時に function
+/// summary の surface を復元できないためである。
+#[test]
+fn resource_summary_value_store_hit_counts_only_final_top_level_forall_drop_traversal() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let function = identity_storage_function(types.i32());
+    let module = ResourceModule {
+        functions: vec![function],
+        entry: None,
+        string_literals: Vec::new(),
+    };
+    let summary = CollectionSlotLifecycleFunctionSummary {
+        function: "identity_storage".to_string(),
+        type_params: Vec::new(),
+        ops: vec![forall_drop_traversal_op(&types)],
+        return_transfers: Vec::new(),
+        return_slots: Vec::new(),
+        return_ranges: Vec::new(),
+        return_paths: Vec::new(),
+    };
+    let context = test_summary_value_cache_context();
+    let summaries = vec![summary];
+
+    record_test_resource_summary_value_cache_candidates(
+        &mut cache, &context, &types, &module, &summaries,
+    );
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_misses, 1);
+    assert_eq!(stats.resource_summary_value_stores, 1);
+    assert_eq!(stats.resource_summary_value_bypasses, 0);
+    assert_eq!(stats.resource_summary_value_drop_traversal_forall_stores, 1);
+
+    record_test_resource_summary_value_cache_candidates(
+        &mut cache, &context, &types, &module, &summaries,
+    );
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_hits, 1);
+    assert_eq!(stats.resource_summary_value_misses, 1);
+    assert_eq!(stats.resource_summary_value_stores, 1);
+    assert_eq!(stats.resource_summary_value_drop_traversal_forall_hits, 1);
+}
+
+/// complete leaf entry ではない summary surface は、top-level leaf があっても
+/// store 対象にしない。return path や control-flow container 内の leaf を分離して
+/// 保存すると、将来の replay が function summary 全体を復元できなくなる。
+#[test]
+fn resource_summary_value_leaf_entry_rejects_partial_summary_surface() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let function = identity_storage_function(types.i32());
+    let module = ResourceModule {
+        functions: vec![function],
+        entry: None,
+        string_literals: Vec::new(),
+    };
+    let summary = CollectionSlotLifecycleFunctionSummary {
+        function: "identity_storage".to_string(),
+        type_params: Vec::new(),
+        ops: vec![
+            forall_drop_traversal_op(&types),
+            CollectionSlotLifecycleSummaryOp::DropTraversal {
+                storage: summary_place(0, TypeId(0)),
+                initialized_count: CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
+                    value: 1,
+                    ty: TypeId(1),
+                },
+                expected_ty: TypeId(2),
+                coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::CertifiedSlots(
+                    vec![summary_place(0, TypeId(2))],
+                ),
+            },
+            CollectionSlotLifecycleSummaryOp::Merge {
+                paths: vec![vec![forall_drop_traversal_op(&types)]],
+            },
+            CollectionSlotLifecycleSummaryOp::Loop {
+                condition_ops: vec![forall_drop_traversal_op(&types)],
+                body_ops: vec![forall_drop_traversal_op(&types)],
+            },
+        ],
+        return_transfers: Vec::new(),
+        return_slots: Vec::new(),
+        return_ranges: Vec::new(),
+        return_paths: vec![CollectionSlotLifecycleReturnPath {
+            return_variant: None,
+            preconditions: Vec::new(),
+            ops: vec![forall_drop_traversal_op(&types)],
+            return_transfers: Vec::new(),
+            return_slots: Vec::new(),
+            return_ranges: Vec::new(),
+            i32_scalar_facts: I32ScalarReturnFacts::default(),
+        }],
+    };
+    let context = test_summary_value_cache_context();
+
+    record_test_resource_summary_value_cache_candidates(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        &[summary],
+    );
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_bypasses, 1);
+    assert_eq!(stats.resource_summary_value_stores, 0);
+    assert_eq!(stats.resource_summary_value_hits, 0);
+}
+
+/// 関数本文が他の summary に依存する場合は、caller body が不変でも callee summary の
+/// 変化で top-level op が変わり得る。dependency fingerprint を key に入れるまで、
+/// complete leaf entry の store/replay 候補にはしない。
+#[test]
+fn resource_summary_value_leaf_entry_rejects_function_dependencies() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let module = ResourceModule {
+        functions: vec![
+            collection_storage_marker_function(types.i32(), types.i32()),
+            identity_storage_function(types.i32()),
+        ],
+        entry: None,
+        string_literals: Vec::new(),
+    };
+    let summary = CollectionSlotLifecycleFunctionSummary {
+        function: "mark_collection_storage".to_string(),
+        type_params: Vec::new(),
+        ops: vec![forall_drop_traversal_op(&types)],
+        return_transfers: Vec::new(),
+        return_slots: Vec::new(),
+        return_ranges: Vec::new(),
+        return_paths: Vec::new(),
+    };
+    let context = test_summary_value_cache_context();
+
+    record_test_resource_summary_value_cache_candidates(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        &[summary],
+    );
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_bypasses, 1);
+    assert_eq!(stats.resource_summary_value_stores, 0);
+    assert_eq!(stats.resource_summary_value_hits, 0);
+}
+
+/// complete leaf entry は同じ stable value の重複も summary op 列の一部として保持する。
+/// 個別 value を `contains` で dedup すると `[A, A]` を replay できないため、entry の
+/// store/hit counter も op の multiplicity で増やす。
+#[test]
+fn resource_summary_value_store_keeps_multiple_values_under_the_same_key() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let function = identity_storage_function(types.i32());
+    let module = ResourceModule {
+        functions: vec![function],
+        entry: None,
+        string_literals: Vec::new(),
+    };
+    let summary = CollectionSlotLifecycleFunctionSummary {
+        function: "identity_storage".to_string(),
+        type_params: Vec::new(),
+        ops: vec![
+            forall_drop_traversal_op_with_count(&types, 1),
+            forall_drop_traversal_op_with_count(&types, 1),
+        ],
+        return_transfers: Vec::new(),
+        return_slots: Vec::new(),
+        return_ranges: Vec::new(),
+        return_paths: Vec::new(),
+    };
+    let context = test_summary_value_cache_context();
+    let summaries = vec![summary];
+
+    record_test_resource_summary_value_cache_candidates(
+        &mut cache, &context, &types, &module, &summaries,
+    );
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_misses, 2);
+    assert_eq!(stats.resource_summary_value_stores, 2);
+    assert_eq!(stats.resource_summary_value_hits, 0);
+
+    record_test_resource_summary_value_cache_candidates(
+        &mut cache, &context, &types, &module, &summaries,
+    );
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_hits, 2);
+    assert_eq!(stats.resource_summary_value_misses, 2);
+    assert_eq!(stats.resource_summary_value_stores, 2);
+}
+
+/// preseed は、cache に保存済みの complete leaf entry をそのまま function summary として
+/// 注入し、固定点 worklist の初期キューから対象関数を外す。これにより、candidate hit
+/// とは別に実際の replay counter が増え、op の順序と重複も保持される。
+#[test]
+fn resource_summary_value_preseed_replays_leaf_entry_and_skips_worklist() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let function = identity_storage_function(types.i32());
+    let module = ResourceModule {
+        functions: vec![function],
+        entry: None,
+        string_literals: Vec::new(),
+    };
+    let summary = CollectionSlotLifecycleFunctionSummary {
+        function: "identity_storage".to_string(),
+        type_params: Vec::new(),
+        ops: vec![
+            forall_drop_traversal_op_with_count(&types, 1),
+            forall_drop_traversal_op_with_count(&types, 1),
+        ],
+        return_transfers: Vec::new(),
+        return_slots: Vec::new(),
+        return_ranges: Vec::new(),
+        return_paths: Vec::new(),
+    };
+    let context = test_summary_value_cache_context();
+    record_test_resource_summary_value_cache_candidates(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        core::slice::from_ref(&summary),
+    );
+
+    let dependencies = build_function_summary_dependencies(&module);
+    let relevant_functions = vec![true];
+    let mut worklist_relevant_functions = relevant_functions.clone();
+    let mut preseeded_functions = vec![false; module.functions.len()];
+    let mut summaries = Vec::new();
+
+    preseed_collection_slot_lifecycle_summaries_from_value_cache(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        &relevant_functions,
+        &dependencies,
+        &mut worklist_relevant_functions,
+        &mut preseeded_functions,
+        &mut summaries,
+    );
+
+    assert_eq!(worklist_relevant_functions, vec![false]);
+    assert_eq!(preseeded_functions, vec![true]);
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].ops, summary.ops);
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_replay_hits, 2);
+    assert_eq!(stats.resource_summary_value_replayed_ops, 2);
+    assert_eq!(stats.resource_summary_value_recomputed_ops, 2);
+    assert_eq!(stats.resource_summary_value_hits, 0);
+
+    record_resource_summary_value_cache_candidates(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        &dependencies,
+        &preseeded_functions,
+        &summaries,
+    );
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_hits, 2);
+    assert_eq!(stats.resource_summary_value_replay_hits, 2);
+    assert_eq!(stats.resource_summary_value_replayed_ops, 2);
+    assert_eq!(stats.resource_summary_value_recomputed_ops, 2);
+}
+
+/// Resource summary value cache の初期 store 候補は、summary value だけでなく
+/// function body hash も安定化できる場合に限る。raw body は本文が
+/// `ResourceFunction` に残らないため、raw source/body hash を key に追加するまで
+/// 候補数に含めない。
+#[test]
+fn resource_summary_value_bypass_rejects_unstable_function_body_hash() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let span = Span::dummy();
+    let module = ResourceModule {
+        functions: vec![ResourceFunction {
+            name: "raw_body".to_string(),
+            origin_name: "raw_body".to_string(),
+            type_params: Vec::new(),
+            params: Vec::new(),
+            result: types.i32(),
+            effect: crate::ast::Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: Vec::new(),
+                terminator: ResourceTerminator::RawBody {
+                    kind: super::super::model::RawBodyKind::Wasm,
+                    span,
+                },
+                span,
+            }],
+            span,
+        }],
+        entry: None,
+        string_literals: Vec::new(),
+    };
+    let summary = CollectionSlotLifecycleFunctionSummary {
+        function: "raw_body".to_string(),
+        type_params: Vec::new(),
+        ops: vec![forall_drop_traversal_op(&types)],
+        return_transfers: Vec::new(),
+        return_slots: Vec::new(),
+        return_ranges: Vec::new(),
+        return_paths: Vec::new(),
+    };
+    let context = test_summary_value_cache_context();
+
+    record_test_resource_summary_value_cache_candidates(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        &[summary],
+    );
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_bypasses, 1);
+    assert_eq!(
+        stats.resource_summary_value_drop_traversal_forall_bypasses,
+        1
+    );
+}
+
+/// function body と stable mirror value が保存可能でも、function-local type parameter
+/// boundary が再投影できない場合は Resource summary value key を安全に作れない。
+/// anonymous type variable は compile session の arena slot に依存するため、初期
+/// cache 候補から外す。
+#[test]
+fn resource_summary_value_bypass_rejects_unstable_type_parameter_boundary() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let mut types = TypeCtx::new();
+    let function = identity_storage_function(types.i32());
+    let module = ResourceModule {
+        functions: vec![function],
+        entry: None,
+        string_literals: Vec::new(),
+    };
+    let summary = CollectionSlotLifecycleFunctionSummary {
+        function: "identity_storage".to_string(),
+        type_params: vec![types.fresh_var(None)],
+        ops: vec![forall_drop_traversal_op(&types)],
+        return_transfers: Vec::new(),
+        return_slots: Vec::new(),
+        return_ranges: Vec::new(),
+        return_paths: Vec::new(),
+    };
+    let context = test_summary_value_cache_context();
+
+    record_test_resource_summary_value_cache_candidates(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        &[summary],
+    );
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_bypasses, 1);
+    assert_eq!(
+        stats.resource_summary_value_drop_traversal_forall_bypasses,
+        1
+    );
+}
+
+/// Resource summary value key は function identity を必須入力にする。
+/// `ResourceFunction.name` または `origin_name` が空なら、compile session 間で対応する
+/// callable 境界を特定できないため、stable mirror value が作れても候補数に含めない。
+#[test]
+fn resource_summary_value_bypass_rejects_empty_function_identity() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let mut function = identity_storage_function(types.i32());
+    function.name.clear();
+    let module = ResourceModule {
+        functions: vec![function],
+        entry: None,
+        string_literals: Vec::new(),
+    };
+    let summary = CollectionSlotLifecycleFunctionSummary {
+        function: String::new(),
+        type_params: Vec::new(),
+        ops: vec![forall_drop_traversal_op(&types)],
+        return_transfers: Vec::new(),
+        return_slots: Vec::new(),
+        return_ranges: Vec::new(),
+        return_paths: Vec::new(),
+    };
+    let context = test_summary_value_cache_context();
+
+    record_test_resource_summary_value_cache_candidates(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        &[summary],
+    );
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_bypasses, 1);
+    assert_eq!(
+        stats.resource_summary_value_drop_traversal_forall_bypasses,
+        1
+    );
+}
+
+#[test]
+fn collection_slot_summary_keeps_identity_transfer_for_non_copy_owner_token_storage() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.unit());
+    let payload_ty = register_empty_struct(&mut types, "OwnedPayload");
+    let region_token = register_region_token(&mut types);
+    let storage_ty = types.apply(region_token, vec![payload_ty]);
+    let module = ResourceModule {
+        functions: vec![
+            collection_storage_marker_function(storage_ty, payload_ty),
+            identity_storage_function(storage_ty),
+        ],
+        entry: None,
+        string_literals: vec![],
+    };
+
+    let summaries = compute_collection_slot_lifecycle_function_summaries(
+        &module,
+        &types,
+        &[],
+        &[],
+        &[],
+        None,
+        None,
+    );
+
+    let identity_summary = summaries
+        .iter()
+        .find(|summary| summary.function == "identity_storage")
+        .expect("identity_storage should keep its return transfer summary");
+    assert_eq!(identity_summary.return_transfers.len(), 1, "{summaries:#?}");
+}

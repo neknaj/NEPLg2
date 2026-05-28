@@ -8,6 +8,10 @@ use super::collection_slot_state_table::CollectionSlotStateTable;
 use super::function_alias::FunctionAliasTable;
 use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
+pub(super) use super::initialized_path_state_merge::merge_path_alternatives_into;
+use super::initialized_path_state_merge::{
+    dedup_resource_check_states, merge_resource_check_states,
+};
 use super::initialized_summary_engine::summary_check_engine;
 use super::model::ResourceOp;
 use super::raw_realloc::PendingRawReallocs;
@@ -135,144 +139,6 @@ impl ResourceCheckEngine<'_> {
     }
 }
 
-fn merge_resource_check_states(alternatives: &[ResourceCheckState]) -> ResourceCheckState {
-    let cell_paths = alternatives
-        .iter()
-        .map(|state| state.cells.clone())
-        .collect::<Vec<_>>();
-    let collection_slot_paths = alternatives
-        .iter()
-        .map(|state| state.collection_slots.clone())
-        .collect::<Vec<_>>();
-    let alias_paths = alternatives
-        .iter()
-        .map(|state| state.raw_aliases.clone())
-        .collect::<Vec<_>>();
-    let function_alias_paths = alternatives
-        .iter()
-        .map(|state| state.function_aliases.clone())
-        .collect::<Vec<_>>();
-    let pending_realloc_paths = alternatives
-        .iter()
-        .map(|state| state.pending_reallocs.clone())
-        .collect::<Vec<_>>();
-    let variant_initialization_paths = alternatives
-        .iter()
-        .map(|state| state.variant_initializations.clone())
-        .collect::<Vec<_>>();
-    let merged_raw_aliases = RawCellAddressAliases::merge_paths(&alias_paths);
-    ResourceCheckState {
-        cells: CellTable::merge_paths_with_raw_aliases(
-            &cell_paths,
-            &alias_paths,
-            &merged_raw_aliases,
-        ),
-        collection_slots: CollectionSlotStateTable::merge_paths(&collection_slot_paths),
-        raw_aliases: merged_raw_aliases,
-        function_aliases: FunctionAliasTable::merge_paths(&function_alias_paths),
-        pending_reallocs: PendingRawReallocs::merge_paths(&pending_realloc_paths),
-        variant_initializations: PendingVariantRawCellInitializations::merge_paths(
-            &variant_initialization_paths,
-        ),
-    }
-}
-
-fn dedup_resource_check_states(states: &mut Vec<ResourceCheckState>) {
-    let mut unique = Vec::new();
-    for state in states.drain(..) {
-        if !unique.iter().any(|existing| existing == &state) {
-            unique.push(state);
-        }
-    }
-    *states = unique;
-}
-
-pub(super) fn merge_path_alternatives_into(
-    alternatives: &[ResourceCheckState],
-    cells: &mut CellTable,
-    collection_slots: &mut CollectionSlotStateTable,
-    raw_aliases: &mut RawCellAddressAliases,
-    function_aliases: &mut FunctionAliasTable,
-    pending_reallocs: &mut PendingRawReallocs,
-    variant_initializations: &mut PendingVariantRawCellInitializations,
-) {
-    if alternatives.is_empty() {
-        return;
-    }
-    let merged = merge_resource_check_states(alternatives);
-    *cells = merged.cells;
-    *collection_slots = merged.collection_slots;
-    *raw_aliases = merged.raw_aliases;
-    *function_aliases = merged.function_aliases;
-    *pending_reallocs = merged.pending_reallocs;
-    *variant_initializations = merged.variant_initializations;
-}
-
 #[cfg(test)]
-mod tests {
-    use alloc::format;
-    use alloc::string::String;
-    use alloc::vec;
-
-    use crate::resource::model::Place;
-    use crate::types::TypeId;
-
-    use super::*;
-
-    fn empty_resource_check_state() -> ResourceCheckState {
-        ResourceCheckState::new(
-            CellTable::default(),
-            CollectionSlotStateTable::new(),
-            RawCellAddressAliases::default(),
-            FunctionAliasTable::default(),
-            PendingRawReallocs::default(),
-            PendingVariantRawCellInitializations::default(),
-        )
-    }
-
-    fn resource_check_state_with_function_alias(index: usize) -> ResourceCheckState {
-        let mut function_aliases = FunctionAliasTable::default();
-        let name = format!("f{index}");
-        function_aliases.set_alias(
-            &Place::local(String::from("callback"), TypeId(0)),
-            String::from(name),
-        );
-        ResourceCheckState::new(
-            CellTable::default(),
-            CollectionSlotStateTable::new(),
-            RawCellAddressAliases::default(),
-            function_aliases,
-            PendingRawReallocs::default(),
-            PendingVariantRawCellInitializations::default(),
-        )
-    }
-
-    #[test]
-    fn path_alternatives_merge_to_single_state_after_precision_budget() {
-        let alternatives = (0..=MAX_PATH_SENSITIVE_ALTERNATIVES)
-            .map(resource_check_state_with_function_alias)
-            .collect::<Vec<_>>();
-
-        let ResourcePathAlternatives::Feasible(states) =
-            ResourcePathAlternatives::from_states(alternatives)
-        else {
-            panic!("from_states should keep feasible path alternatives");
-        };
-
-        assert_eq!(states.len(), 1);
-    }
-
-    #[test]
-    fn path_alternatives_drop_duplicate_states_before_precision_budgeting() {
-        let state = empty_resource_check_state();
-        let alternatives = vec![state; MAX_PATH_SENSITIVE_ALTERNATIVES + 1];
-
-        let ResourcePathAlternatives::Feasible(states) =
-            ResourcePathAlternatives::from_states(alternatives)
-        else {
-            panic!("from_states should keep feasible path alternatives");
-        };
-
-        assert_eq!(states.len(), 1);
-    }
-}
+#[path = "initialized_path_state_tests.rs"]
+mod tests;

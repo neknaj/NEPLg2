@@ -1,14 +1,14 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-27T06:05:27.884Z",
+  "generated_at": "2026-05-28T07:30:35.097Z",
   "counts": {
-    "total": 1266,
-    "open": 14,
+    "total": 1267,
+    "open": 15,
     "resolved": 1252,
     "by_area": {
       "core": {
-        "total": 623,
-        "open": 7,
+        "total": 624,
+        "open": 8,
         "resolved": 616
       },
       "stdlib": {
@@ -198,7 +198,7 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-05-24",
-      "updated": "2026-05-27",
+      "updated": "2026-05-28",
       "target": "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio",
       "legacy_id": "",
       "source": "",
@@ -228,7 +228,7 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-05-27",
-      "updated": "2026-05-27",
+      "updated": "2026-05-28",
       "target": "nepl-core, nepl-web, nodesrc/run_test.js, stdlib",
       "legacy_id": "",
       "source": "",
@@ -308,6 +308,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260524T215206241Z-RESOURCE-CHECKER-LOSES-GUARDED-RAW-F-FA0B4DEC.md"
+    },
+    {
+      "id": "ISS-20260528T073034861Z-RESOURCE-CHECKER-RESIDUAL-LARGE-MODU-55E5FDF0",
+      "title": "Resource checker residual large modules need second responsibility split",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P2",
+      "type": "architecture",
+      "created": "2026-05-28",
+      "updated": "2026-05-28",
+      "target": "nepl-core/src/resource/*; nodesrc/test_resource_checker_responsibility.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260528T073034861Z-RESOURCE-CHECKER-RESIDUAL-LARGE-MODU-55E5FDF0.md"
     },
     {
       "id": "ISS-20260425T000000Z-RV-STDLIB-008-F4BCB5DD",

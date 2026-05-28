@@ -11,27 +11,31 @@ use super::condition_fact::record_condition_fact_value_constraints;
 use super::function_alias::FunctionAliasTable;
 use super::i32_scalar_return_facts::{
     apply_i32_scalar_return_facts, collect_i32_scalar_return_facts_for_value_suffix_cached,
-    I32ScalarParameterCondition, I32ScalarReturnAlias, I32ScalarReturnCondition,
-    I32ScalarReturnConstant, I32ScalarReturnFacts, I32ScalarReturnOffset, I32ScalarReturnRelation,
+    I32ScalarReturnFacts,
 };
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
 use super::initialized_scalar_flow_ops::propagate_i32_scalar_op;
+use super::initialized_scalar_flow_return_facts::{
+    i32_scalar_return_fact_projections, merge_i32_scalar_parameter_condition_paths,
+    merge_i32_scalar_return_fact_paths, merge_i32_scalar_return_relation_paths,
+};
+use super::initialized_scalar_flow_variant::{
+    merge_i32_scalar_concrete_variants, propagate_i32_scalar_concrete_variant_op,
+};
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::model::{
-    AggregateKind, Place, PlaceProjection, ResourceCallTarget, ResourceFunction, ResourceModule,
-    ResourceOp, ResourceTerminator,
+    Place, PlaceProjection, ResourceCallTarget, ResourceFunction, ResourceModule, ResourceOp,
+    ResourceTerminator,
 };
 use super::owner_summary_i32_condition_leaf::I32LeafProjectionCache;
 use super::place_utils::{
-    construct_aggregate_field_place, match_bind_payload_place, place_suffix_after_prefix,
-    projection_result_type, reference_target_place, replace_place_prefix,
+    match_bind_payload_place, place_suffix_after_prefix, reference_target_place,
     type_can_seed_raw_address_alias,
 };
 use super::summary_index::{FunctionSummary, SummaryIndex};
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
-use super::variant_name::normalize_variant_name;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct I32ScalarReturnSummary {
@@ -56,14 +60,14 @@ struct I32ScalarPathState {
 }
 
 #[derive(Clone, Default, PartialEq, Eq)]
-struct I32ScalarConcreteVariants {
-    entries: Vec<I32ScalarConcreteVariant>,
+pub(super) struct I32ScalarConcreteVariants {
+    pub(super) entries: Vec<I32ScalarConcreteVariant>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-struct I32ScalarConcreteVariant {
-    place: Place,
-    variant: String,
+pub(super) struct I32ScalarConcreteVariant {
+    pub(super) place: Place,
+    pub(super) variant: String,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -755,439 +759,6 @@ fn apply_i32_scalar_summary(
     types: &TypeCtx,
 ) -> bool {
     apply_i32_scalar_return_facts(raw_aliases, output, args, &summary.facts, types)
-}
-
-trait I32ScalarReturnProjectedFact: Clone + Eq {
-    fn return_projection(&self) -> &[PlaceProjection];
-}
-
-impl I32ScalarReturnProjectedFact for I32ScalarReturnAlias {
-    fn return_projection(&self) -> &[PlaceProjection] {
-        &self.return_projection
-    }
-}
-
-impl I32ScalarReturnProjectedFact for I32ScalarReturnOffset {
-    fn return_projection(&self) -> &[PlaceProjection] {
-        &self.return_projection
-    }
-}
-
-impl I32ScalarReturnProjectedFact for I32ScalarReturnConstant {
-    fn return_projection(&self) -> &[PlaceProjection] {
-        &self.return_projection
-    }
-}
-
-impl I32ScalarReturnProjectedFact for I32ScalarReturnCondition {
-    fn return_projection(&self) -> &[PlaceProjection] {
-        &self.return_projection
-    }
-}
-
-fn i32_scalar_return_fact_projections(
-    types: &TypeCtx,
-    value: &Place,
-    facts: &I32ScalarReturnFacts,
-    concrete_variants: &I32ScalarConcreteVariants,
-    leaf_cache: &mut I32LeafProjectionCache,
-) -> Vec<Vec<PlaceProjection>> {
-    let mut projections = Vec::new();
-    for leaf in leaf_cache.leaf_places_for_conditions(types, value) {
-        if !concrete_variants.projection_is_possible(types, value, &leaf.suffix) {
-            continue;
-        }
-        push_unique_i32_scalar_return_projection(&mut projections, &leaf.suffix);
-    }
-    concrete_variants.push_variant_projection_paths(value, &mut projections);
-    for alias in &facts.aliases {
-        push_unique_i32_scalar_return_projection(&mut projections, &alias.return_projection);
-    }
-    for offset in &facts.offsets {
-        push_unique_i32_scalar_return_projection(&mut projections, &offset.return_projection);
-    }
-    for relation in &facts.relations {
-        push_unique_i32_scalar_return_projection(
-            &mut projections,
-            &relation.left_return_projection,
-        );
-        push_unique_i32_scalar_return_projection(
-            &mut projections,
-            &relation.right_return_projection,
-        );
-    }
-    for constant in &facts.constants {
-        push_unique_i32_scalar_return_projection(&mut projections, &constant.return_projection);
-    }
-    for condition in &facts.return_conditions {
-        push_unique_i32_scalar_return_projection(&mut projections, &condition.return_projection);
-    }
-    projections
-}
-
-fn push_unique_i32_scalar_return_projection(
-    projections: &mut Vec<Vec<PlaceProjection>>,
-    projection: &[PlaceProjection],
-) {
-    if !projections
-        .iter()
-        .any(|existing| existing.as_slice() == projection)
-    {
-        projections.push(projection.to_vec());
-    }
-}
-
-fn merge_i32_scalar_return_fact_paths<T>(
-    paths: Vec<Vec<T>>,
-    projection_paths: &[Vec<Vec<PlaceProjection>>],
-) -> Vec<T>
-where
-    T: I32ScalarReturnProjectedFact,
-{
-    if paths.len() == 1 {
-        let mut out = Vec::new();
-        for fact in paths.into_iter().next().unwrap_or_default() {
-            push_unique_i32_scalar_return_fact(&mut out, fact);
-        }
-        return out;
-    }
-    let mut candidates = Vec::new();
-    for path in &paths {
-        for fact in path {
-            push_unique_i32_scalar_return_fact(&mut candidates, fact.clone());
-        }
-    }
-    candidates
-        .into_iter()
-        .filter(|fact| {
-            paths
-                .iter()
-                .zip(projection_paths)
-                .all(|(path, projections)| {
-                    path.iter().any(|path_fact| path_fact == fact)
-                        || projections.iter().any(|projection| {
-                            return_projections_target_sibling_variant(
-                                fact.return_projection(),
-                                projection,
-                            )
-                        })
-                })
-        })
-        .collect()
-}
-
-fn merge_i32_scalar_return_relation_paths(
-    paths: Vec<Vec<I32ScalarReturnRelation>>,
-    projection_paths: &[Vec<Vec<PlaceProjection>>],
-) -> Vec<I32ScalarReturnRelation> {
-    if paths.len() == 1 {
-        let mut out = Vec::new();
-        for relation in paths.into_iter().next().unwrap_or_default() {
-            push_unique_i32_scalar_return_relation(&mut out, relation);
-        }
-        return out;
-    }
-    let mut candidates = Vec::new();
-    for path in &paths {
-        for relation in path {
-            push_unique_i32_scalar_return_relation(&mut candidates, relation.clone());
-        }
-    }
-    candidates
-        .into_iter()
-        .filter(|relation| {
-            paths
-                .iter()
-                .zip(projection_paths)
-                .all(|(path, projections)| {
-                    path.iter().any(|path_relation| path_relation == relation)
-                        || relation_projection_targets_sibling_variant(relation, projections)
-                })
-        })
-        .collect()
-}
-
-fn relation_projection_targets_sibling_variant(
-    relation: &I32ScalarReturnRelation,
-    projections: &[Vec<PlaceProjection>],
-) -> bool {
-    projections.iter().any(|projection| {
-        return_projections_target_sibling_variant(&relation.left_return_projection, projection)
-            || return_projections_target_sibling_variant(
-                &relation.right_return_projection,
-                projection,
-            )
-    })
-}
-
-fn push_unique_i32_scalar_return_relation(
-    relations: &mut Vec<I32ScalarReturnRelation>,
-    relation: I32ScalarReturnRelation,
-) {
-    if !relations.iter().any(|existing| existing == &relation) {
-        relations.push(relation);
-    }
-}
-
-fn push_unique_i32_scalar_return_fact<T>(facts: &mut Vec<T>, fact: T)
-where
-    T: I32ScalarReturnProjectedFact,
-{
-    if !facts.iter().any(|existing| existing == &fact) {
-        facts.push(fact);
-    }
-}
-
-fn merge_i32_scalar_parameter_condition_paths(
-    paths: Vec<Vec<I32ScalarParameterCondition>>,
-) -> Vec<I32ScalarParameterCondition> {
-    if paths.len() == 1 {
-        let mut out = Vec::new();
-        for fact in paths.into_iter().next().unwrap_or_default() {
-            push_unique_i32_scalar_parameter_condition(&mut out, fact);
-        }
-        return out;
-    }
-    let mut out = Vec::new();
-    if let Some(first) = paths.first() {
-        for fact in first {
-            if paths
-                .iter()
-                .skip(1)
-                .all(|path| path.iter().any(|existing| existing == fact))
-            {
-                push_unique_i32_scalar_parameter_condition(&mut out, fact.clone());
-            }
-        }
-    }
-    out
-}
-
-fn push_unique_i32_scalar_parameter_condition(
-    facts: &mut Vec<I32ScalarParameterCondition>,
-    fact: I32ScalarParameterCondition,
-) {
-    if !facts.iter().any(|existing| existing == &fact) {
-        facts.push(fact);
-    }
-}
-
-fn return_projections_target_sibling_variant(
-    left_projection: &[PlaceProjection],
-    right_projection: &[PlaceProjection],
-) -> bool {
-    left_projection
-        .iter()
-        .zip(right_projection)
-        .enumerate()
-        .any(|(index, (left, right))| {
-            matches!(
-                (left, right),
-                (
-                    PlaceProjection::EnumPayload { variant: left_variant },
-                    PlaceProjection::EnumPayload {
-                        variant: right_variant
-                    },
-                ) if left_variant != right_variant
-                    && place_projection_prefixes_match(
-                        &left_projection[..index],
-                        &right_projection[..index],
-                    )
-            )
-        })
-}
-
-fn place_projection_prefixes_match(left: &[PlaceProjection], right: &[PlaceProjection]) -> bool {
-    left.len() == right.len() && left.iter().zip(right).all(|(left, right)| left == right)
-}
-
-impl I32ScalarConcreteVariants {
-    fn clear(&mut self, place: &Place) {
-        self.entries.retain(|entry| {
-            super::place_utils::place_suffix_after_prefix(&entry.place, place).is_none()
-        });
-    }
-
-    fn set(&mut self, place: &Place, variant: &str) {
-        self.clear(place);
-        self.entries.push(I32ScalarConcreteVariant {
-            place: place.clone(),
-            variant: normalize_variant_name(variant),
-        });
-    }
-
-    fn copy(&mut self, source: &Place, target: &Place) {
-        if source == target {
-            return;
-        }
-        let copied = self
-            .entries
-            .iter()
-            .filter_map(|entry| {
-                replace_place_prefix(&entry.place, source, target).map(|place| {
-                    I32ScalarConcreteVariant {
-                        place,
-                        variant: entry.variant.clone(),
-                    }
-                })
-            })
-            .collect::<Vec<_>>();
-        self.clear(target);
-        for entry in copied {
-            self.push_unique(entry);
-        }
-    }
-
-    fn variant_for(&self, place: &Place) -> Option<&str> {
-        self.entries
-            .iter()
-            .find(|entry| entry.place == *place)
-            .map(|entry| entry.variant.as_str())
-    }
-
-    fn push_variant_projection_paths(
-        &self,
-        value: &Place,
-        projections: &mut Vec<Vec<PlaceProjection>>,
-    ) {
-        for entry in &self.entries {
-            let Some(prefix) = super::place_utils::place_suffix_after_prefix(&entry.place, value)
-            else {
-                continue;
-            };
-            let mut projection = prefix;
-            projection.push(PlaceProjection::EnumPayload {
-                variant: entry.variant.clone(),
-            });
-            push_unique_i32_scalar_return_projection(projections, &projection);
-        }
-    }
-
-    fn projection_is_possible(
-        &self,
-        types: &TypeCtx,
-        value: &Place,
-        projection: &[PlaceProjection],
-    ) -> bool {
-        let mut prefix = Vec::new();
-        let mut current_ty = value.ty;
-        for item in projection {
-            if let PlaceProjection::EnumPayload { variant } = item {
-                let enum_place = super::place_utils::place_with_suffix(value, &prefix, current_ty);
-                if let Some(known) = self.variant_for(&enum_place) {
-                    if known != normalize_variant_name(variant) {
-                        return false;
-                    }
-                }
-            }
-            current_ty = projection_result_type(types, current_ty, item).unwrap_or(current_ty);
-            prefix.push(item.clone());
-        }
-        true
-    }
-
-    fn push_unique(&mut self, entry: I32ScalarConcreteVariant) {
-        if self.entries.iter().any(|existing| existing == &entry) {
-            return;
-        }
-        self.entries.push(entry);
-    }
-}
-
-fn propagate_i32_scalar_concrete_variant_op(
-    variants: &mut I32ScalarConcreteVariants,
-    op: &ResourceOp,
-) {
-    match op {
-        ResourceOp::DeclareLocal {
-            place, initializer, ..
-        } => {
-            if let Some(initializer) = initializer {
-                variants.copy(initializer, place);
-            } else {
-                variants.clear(place);
-            }
-        }
-        ResourceOp::Read { source, output, .. }
-        | ResourceOp::Move { source, output, .. }
-        | ResourceOp::Assign {
-            target: output,
-            value: source,
-            ..
-        } => variants.copy(source, output),
-        ResourceOp::Construct {
-            output,
-            kind,
-            inputs,
-            ..
-        } => {
-            variants.clear(output);
-            for (index, input) in inputs.iter().enumerate() {
-                let field = construct_aggregate_field_place(output, kind, index, input);
-                variants.copy(input, &field);
-            }
-            if let AggregateKind::Enum { variant, .. } = kind {
-                variants.set(output, variant);
-            }
-        }
-        ResourceOp::Loop {
-            condition_ops,
-            body_ops,
-            ..
-        } => {
-            let mut condition_variants = variants.clone();
-            propagate_i32_scalar_concrete_variant_ops(&mut condition_variants, condition_ops);
-            let mut body_variants = condition_variants.clone();
-            propagate_i32_scalar_concrete_variant_ops(&mut body_variants, body_ops);
-            *variants = merge_i32_scalar_concrete_variants(&[condition_variants, body_variants]);
-        }
-        ResourceOp::Expr { output, .. }
-        | ResourceOp::Call { output, .. }
-        | ResourceOp::IndirectCall { output, .. }
-        | ResourceOp::FunctionValue { output, .. }
-        | ResourceOp::RawMemory { output, .. }
-        | ResourceOp::Borrow { output, .. } => variants.clear(output),
-        ResourceOp::Drop { place, .. } => variants.clear(place),
-        ResourceOp::Branch { .. }
-        | ResourceOp::Match { .. }
-        | ResourceOp::CallEffect { .. }
-        | ResourceOp::EndScope { .. }
-        | ResourceOp::RawAddressAlias { .. }
-        | ResourceOp::RawAddressView { .. }
-        | ResourceOp::StorageOrigin { .. }
-        | ResourceOp::CollectionSlotLifecycle { .. }
-        | ResourceOp::CollectionStorageRelocate { .. }
-        | ResourceOp::CollectionSlotDropTraversal { .. }
-        | ResourceOp::CollectionSlotTransformRange { .. } => {}
-    }
-}
-
-fn propagate_i32_scalar_concrete_variant_ops(
-    variants: &mut I32ScalarConcreteVariants,
-    ops: &[ResourceOp],
-) {
-    for op in ops {
-        propagate_i32_scalar_concrete_variant_op(variants, op);
-    }
-}
-
-fn merge_i32_scalar_concrete_variants(
-    paths: &[I32ScalarConcreteVariants],
-) -> I32ScalarConcreteVariants {
-    let mut out = I32ScalarConcreteVariants::default();
-    let Some(first) = paths.first() else {
-        return out;
-    };
-    for entry in &first.entries {
-        if paths
-            .iter()
-            .skip(1)
-            .all(|path| path.entries.iter().any(|path_entry| path_entry == entry))
-        {
-            out.push_unique(entry.clone());
-        }
-    }
-    out
 }
 
 fn reference_target_type(types: &TypeCtx, ty: TypeId) -> Option<TypeId> {
