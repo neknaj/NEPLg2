@@ -1,14 +1,11 @@
 use crate::types::{TypeCtx, TypeId};
 
 use super::super::collection_slot_summary_model::CollectionSlotLifecycleSummaryOp;
-use super::super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::super::model::ResourceFunction;
 use super::body_hash::resource_function_body_hash;
 use super::key::{ResourceSummaryFunctionIdentity, ResourceSummaryValueCacheKey};
 use super::stable_mirror::{
-    stable_drop_traversal_forall_leaf_entry, stable_raw_init_param_facts_leaf_entry,
-    ResourceSummaryStableDropTraversalForallLeafEntry,
-    ResourceSummaryStableRawInitParamFactsLeafEntry,
+    stable_drop_traversal_forall_leaf_entry, ResourceSummaryStableDropTraversalForallLeafEntry,
 };
 use super::type_boundary::{
     resource_summary_generic_type_argument_hash, resource_summary_type_parameter_boundary_hash,
@@ -33,6 +30,14 @@ pub(super) struct ResourceSummaryCacheNamespaceHash(u64);
 /// caller がこの wrapper を作れない場合は candidate builder を呼ばない。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ResourceSummarySourceCapabilityPolicyHash(u64);
+
+/// raw-init summary が依存する user function closure の stable invalidation hash。
+///
+/// raw-init param facts は call 境界で callee summary を取り込むことがある。依存関係を
+/// 持つ関数を cache する場合、この hash を key に含め、依存先の body / source policy /
+/// signature boundary が変わったら caller summary も必ず miss させる。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::resource) struct ResourceSummaryDependencyClosureHash(u64);
 
 /// generic type argument を key に入れる方法。
 ///
@@ -63,6 +68,16 @@ impl ResourceSummaryCacheNamespaceHash {
 
 impl ResourceSummarySourceCapabilityPolicyHash {
     pub(super) fn from_stable_hash(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub(super) fn as_u64(self) -> u64 {
+        self.0
+    }
+}
+
+impl ResourceSummaryDependencyClosureHash {
+    pub(in crate::resource) fn from_stable_hash(value: u64) -> Self {
         Self(value)
     }
 
@@ -152,35 +167,11 @@ pub(super) fn drop_traversal_forall_leaf_entry_key(
     )
 }
 
-pub(super) fn raw_init_param_facts_leaf_entry_candidate_key_and_entry(
-    types: &TypeCtx,
-    namespace_hash: ResourceSummaryCacheNamespaceHash,
-    source_capability_policy_hash: ResourceSummarySourceCapabilityPolicyHash,
-    function: &ResourceFunction,
-    type_params: &[TypeId],
-    generic_type_args: ResourceSummaryGenericTypeArgumentKeyInput<'_>,
-    summary: &RawCellInitializationFunctionSummary,
-) -> Option<(
-    ResourceSummaryValueCacheKey,
-    ResourceSummaryStableRawInitParamFactsLeafEntry,
-)> {
-    let key = raw_init_param_facts_leaf_entry_key(
-        types,
-        namespace_hash,
-        source_capability_policy_hash,
-        function,
-        type_params,
-        generic_type_args,
-    )?;
-    let stable_entry = stable_raw_init_param_facts_leaf_entry(types, summary)?;
-
-    Some((key, stable_entry))
-}
-
 pub(super) fn raw_init_param_facts_leaf_entry_key(
     types: &TypeCtx,
     namespace_hash: ResourceSummaryCacheNamespaceHash,
     source_capability_policy_hash: ResourceSummarySourceCapabilityPolicyHash,
+    dependency_closure_hash: ResourceSummaryDependencyClosureHash,
     function: &ResourceFunction,
     type_params: &[TypeId],
     generic_type_args: ResourceSummaryGenericTypeArgumentKeyInput<'_>,
@@ -197,6 +188,7 @@ pub(super) fn raw_init_param_facts_leaf_entry_key(
             namespace_hash.as_u64(),
             function_identity,
             function_body_hash,
+            dependency_closure_hash.as_u64(),
             type_parameter_boundary_hash,
             generic_type_argument_hash,
             source_capability_policy_hash.as_u64(),
@@ -240,7 +232,7 @@ mod tests {
 
     use crate::ast::Effect;
     use crate::span::Span;
-    use crate::types::{TypeCtx, TypeKind};
+    use crate::types::{NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeKind};
 
     use super::super::super::collection_slot_summary_model::{
         CollectionSlotInitializedRangeDropTraversalCertificate,
@@ -539,6 +531,42 @@ mod tests {
             &op,
         )
         .is_none());
+    }
+
+    #[test]
+    fn candidate_key_accepts_resolved_nominal_generic_arguments() {
+        let mut types = TypeCtx::new();
+        let generic = types.fresh_var(Some("T".to_string()));
+        let payload = types.i32();
+        let nominal = types.register_named_with_stable_identity(
+            "Nominal".to_string(),
+            TypeKind::Struct {
+                name: "Nominal".to_string(),
+                type_params: Vec::new(),
+                fields: vec![payload],
+                field_names: vec!["payload".to_string()],
+            },
+            NominalStableTypeIdentity::new(
+                NominalStableTypeKind::Struct,
+                "/user/types.nepl".to_string(),
+                "Nominal".to_string(),
+                0,
+                1,
+            ),
+        );
+        let function = generic_function(&types, generic);
+        let op = forall_drop_traversal_op(&types);
+
+        assert!(drop_traversal_forall_candidate_key(
+            &types,
+            namespace(10),
+            source_policy(20),
+            &function,
+            &[generic],
+            ResourceSummaryGenericTypeArgumentKeyInput::KnownInstantiation(&[nominal]),
+            &op,
+        )
+        .is_some());
     }
 
     #[test]

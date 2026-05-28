@@ -56,14 +56,15 @@ fn type_parameter_boundary_key(types: &TypeCtx, ty: TypeId) -> Option<String> {
 ///
 /// call site の type argument は順序付きの concrete substitution であるため、重複する型
 /// argument 自体は許可する。ただし各 `TypeId` は stable type key へ変換できる必要がある。
-/// nominal type は qualified definition identity がまだないため、`stable_type_key` 側で
-/// 拒否され、この hash も `None` へ倒れる。
+/// nominal type は namespace / public-surface hash と組み合わせる stable definition-shape
+/// key へ変換できる場合だけ許可する。未解決 `Named` placeholder のように現在 compile の
+/// 定義へ一意に再投影できない型は、`stable_type_key` 側で拒否される。
 pub(super) fn resource_summary_generic_type_argument_hash(
     types: &TypeCtx,
     type_args: &[TypeId],
 ) -> Option<u64> {
     let mut hash =
-        ResourceSummaryStableHasher::new("neplg2-resource-summary-generic-type-arguments-v1");
+        ResourceSummaryStableHasher::new("neplg2-resource-summary-generic-type-arguments-v2");
     hash.write_usize(type_args.len());
     for (index, ty) in type_args.iter().enumerate() {
         let key = ResourceSummaryStableTypeKey::from_type(types, *ty)?;
@@ -76,8 +77,10 @@ pub(super) fn resource_summary_generic_type_argument_hash(
 #[cfg(test)]
 mod tests {
     use alloc::string::ToString;
+    use alloc::vec;
+    use alloc::vec::Vec;
 
-    use crate::types::{TypeCtx, TypeKind};
+    use crate::types::{NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeKind};
 
     use super::*;
 
@@ -149,6 +152,30 @@ mod tests {
         assert!(resource_summary_type_parameter_boundary_hash(&types, &[bound]).is_none());
         assert!(resource_summary_type_parameter_boundary_hash(&types, &[types.i32()]).is_none());
         assert!(resource_summary_generic_type_argument_hash(&types, &[nominal]).is_none());
+    }
+
+    #[test]
+    fn generic_type_argument_hash_accepts_resolved_nominal_definitions() {
+        let mut types = TypeCtx::new();
+        let field = types.i32();
+        let nominal = types.register_named_with_stable_identity(
+            "Nominal".to_string(),
+            TypeKind::Struct {
+                name: "Nominal".to_string(),
+                type_params: Vec::new(),
+                fields: vec![field],
+                field_names: vec!["value".to_string()],
+            },
+            NominalStableTypeIdentity::new(
+                NominalStableTypeKind::Struct,
+                "/user/types.nepl".to_string(),
+                "Nominal".to_string(),
+                0,
+                1,
+            ),
+        );
+
+        assert!(resource_summary_generic_type_argument_hash(&types, &[nominal]).is_some());
     }
 
     #[test]

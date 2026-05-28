@@ -29,6 +29,69 @@ macro_rules! type_log {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TypeId(pub usize);
 
+/// 長寿命 cache で名義型定義を区別するための型種別。
+///
+/// `TypeKind` の arena slot は compile session ごとに変わるため、Resource summary などの
+/// cache key には直接入れない。この enum は stable identity に含める公開境界であり、
+/// `Struct` と `Enum` を同名でも別の定義として扱う。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum NominalStableTypeKind {
+    Enum,
+    Struct,
+}
+
+/// compile session をまたいで名義型定義を対応付ける identity。
+///
+/// `source_path` は loader / `SourceMap` から得た正規化済み path 文字列、`definition_hash`
+/// は field / variant / type parameter の型境界から作る fingerprint である。`TypeId` や
+/// `Span` を保存せず、同じ path/name でも定義形状が変わった場合は別 identity にする。
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NominalStableTypeIdentity {
+    kind: NominalStableTypeKind,
+    source_path: String,
+    name: String,
+    arity: usize,
+    definition_hash: u64,
+}
+
+impl NominalStableTypeIdentity {
+    pub fn new(
+        kind: NominalStableTypeKind,
+        source_path: String,
+        name: String,
+        arity: usize,
+        definition_hash: u64,
+    ) -> Self {
+        Self {
+            kind,
+            source_path,
+            name,
+            arity,
+            definition_hash,
+        }
+    }
+
+    pub fn stable_key_component(&self) -> String {
+        format!(
+            "nominal(kind={},path={},name={},arity={},hash={:016x})",
+            self.kind.tag(),
+            stable_text_component(&self.source_path),
+            stable_text_component(&self.name),
+            self.arity,
+            self.definition_hash
+        )
+    }
+}
+
+impl NominalStableTypeKind {
+    fn tag(self) -> &'static str {
+        match self {
+            Self::Enum => "enum",
+            Self::Struct => "struct",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeKind {
     Unit,
@@ -103,6 +166,7 @@ pub struct TypeCtx {
     str_ty: TypeId,
     never_ty: TypeId,
     named: alloc::collections::BTreeMap<alloc::string::String, TypeId>,
+    nominal_identities: BTreeMap<TypeId, NominalStableTypeIdentity>,
     copy_impl_targets: Vec<TypeId>,
     clone_impl_targets: Vec<TypeId>,
     copy_trait_enabled: bool,
@@ -121,6 +185,10 @@ enum TypeCtxUndo {
     Named {
         name: String,
         previous: Option<TypeId>,
+    },
+    NominalIdentity {
+        id: TypeId,
+        previous: Option<NominalStableTypeIdentity>,
     },
 }
 
@@ -156,6 +224,7 @@ impl Clone for TypeCtx {
             str_ty: self.str_ty,
             never_ty: self.never_ty,
             named: self.named.clone(),
+            nominal_identities: self.nominal_identities.clone(),
             copy_impl_targets: self.copy_impl_targets.clone(),
             clone_impl_targets: self.clone_impl_targets.clone(),
             copy_trait_enabled: self.copy_trait_enabled,
@@ -207,6 +276,7 @@ impl TypeCtx {
             str_ty,
             never_ty,
             named: alloc::collections::BTreeMap::new(),
+            nominal_identities: BTreeMap::new(),
             copy_impl_targets: Vec::new(),
             clone_impl_targets: Vec::new(),
             copy_trait_enabled: false,
@@ -247,9 +317,18 @@ impl TypeCtx {
                         self.named.remove(&name);
                     }
                 }
+                TypeCtxUndo::NominalIdentity { id, previous } => {
+                    if let Some(previous) = previous {
+                        self.nominal_identities.insert(id, previous);
+                    } else {
+                        self.nominal_identities.remove(&id);
+                    }
+                }
             }
         }
         self.arena.truncate(checkpoint.arena_len);
+        self.nominal_identities
+            .retain(|id, _| id.0 < checkpoint.arena_len);
         self.copy_impl_targets
             .truncate(checkpoint.copy_impl_targets_len);
         self.clone_impl_targets
@@ -279,6 +358,16 @@ impl TypeCtx {
         self.undo_log.push(TypeCtxUndo::Named {
             name: name.clone(),
             previous: self.named.get(name).copied(),
+        });
+    }
+
+    fn record_nominal_identity_update(&mut self, id: TypeId) {
+        if self.active_snapshots == 0 {
+            return;
+        }
+        self.undo_log.push(TypeCtxUndo::NominalIdentity {
+            id,
+            previous: self.nominal_identities.get(&id).cloned(),
         });
     }
 
@@ -457,6 +546,195 @@ impl TypeCtx {
             self.named.insert(name, id);
             id
         }
+    }
+
+    pub fn register_named_with_stable_identity(
+        &mut self,
+        name: alloc::string::String,
+        kind: TypeKind,
+        identity: NominalStableTypeIdentity,
+    ) -> TypeId {
+        let id = self.register_named(name, kind);
+        self.record_nominal_identity_update(id);
+        self.nominal_identities.insert(id, identity);
+        id
+    }
+
+    pub fn nominal_stable_identity(&self, id: TypeId) -> Option<&NominalStableTypeIdentity> {
+        let resolved = self.resolve_named_type_id(id);
+        if let Some(identity) = self.nominal_identities.get(&resolved) {
+            return Some(identity);
+        }
+        let name = match self.get_ref(resolved) {
+            TypeKind::Enum { name, .. } | TypeKind::Struct { name, .. } => name,
+            _ => return None,
+        };
+        let named_id = self.named.get(name).copied()?;
+        let named_id = self.resolve_named_type_id(named_id);
+        self.nominal_identities.get(&named_id)
+    }
+
+    pub fn nominal_definition_hash(&self, kind: &TypeKind) -> Option<u64> {
+        let mut hash = NominalDefinitionHasher::new("neplg2-nominal-definition-surface-v1");
+        match kind {
+            TypeKind::Enum {
+                type_params,
+                variants,
+                ..
+            } => {
+                hash.write_str("enum");
+                self.hash_nominal_type_list(&mut hash, type_params)?;
+                hash.write_usize(variants.len());
+                for variant in variants {
+                    hash.write_str(&variant.name);
+                    match variant.payload {
+                        Some(payload) => {
+                            hash.write_bool(true);
+                            self.hash_nominal_type_surface(
+                                &mut hash,
+                                payload,
+                                &mut BTreeSet::new(),
+                            )?;
+                        }
+                        None => hash.write_bool(false),
+                    }
+                }
+            }
+            TypeKind::Struct {
+                type_params,
+                fields,
+                field_names,
+                ..
+            } => {
+                if fields.len() != field_names.len() {
+                    return None;
+                }
+                hash.write_str("struct");
+                self.hash_nominal_type_list(&mut hash, type_params)?;
+                hash.write_usize(fields.len());
+                for (field_name, field_ty) in field_names.iter().zip(fields.iter()) {
+                    hash.write_str(field_name);
+                    self.hash_nominal_type_surface(&mut hash, *field_ty, &mut BTreeSet::new())?;
+                }
+            }
+            _ => return None,
+        }
+        Some(hash.finish())
+    }
+
+    fn hash_nominal_type_list(
+        &self,
+        hash: &mut NominalDefinitionHasher,
+        items: &[TypeId],
+    ) -> Option<()> {
+        hash.write_usize(items.len());
+        for item in items {
+            self.hash_nominal_type_surface(hash, *item, &mut BTreeSet::new())?;
+        }
+        Some(())
+    }
+
+    fn hash_nominal_type_surface(
+        &self,
+        hash: &mut NominalDefinitionHasher,
+        ty: TypeId,
+        seen: &mut BTreeSet<TypeId>,
+    ) -> Option<()> {
+        let resolved = self.resolve_named_type_id(ty);
+        if !seen.insert(resolved) {
+            return None;
+        }
+        let result = match self.get_ref(resolved) {
+            TypeKind::Unit => {
+                hash.write_str("unit");
+                Some(())
+            }
+            TypeKind::I32 => {
+                hash.write_str("i32");
+                Some(())
+            }
+            TypeKind::U8 => {
+                hash.write_str("u8");
+                Some(())
+            }
+            TypeKind::F32 => {
+                hash.write_str("f32");
+                Some(())
+            }
+            TypeKind::Bool => {
+                hash.write_str("bool");
+                Some(())
+            }
+            TypeKind::Char => {
+                hash.write_str("char");
+                Some(())
+            }
+            TypeKind::Str => {
+                hash.write_str("str");
+                Some(())
+            }
+            TypeKind::Never => {
+                hash.write_str("never");
+                Some(())
+            }
+            TypeKind::Named(name) => {
+                let scalar = BackendScalarType::from_name(name.as_str())?;
+                hash.write_str("backend-scalar");
+                hash.write_str(scalar.source_name());
+                Some(())
+            }
+            TypeKind::Enum { .. } | TypeKind::Struct { .. } => {
+                let identity = self.nominal_stable_identity(resolved)?;
+                hash.write_str(identity.stable_key_component().as_str());
+                Some(())
+            }
+            TypeKind::Tuple { items } => {
+                hash.write_str("tuple");
+                self.hash_nominal_type_list(hash, items)
+            }
+            TypeKind::Function {
+                type_params,
+                params,
+                result,
+                effect,
+            } => {
+                hash.write_str("fn");
+                hash.write_str(match effect {
+                    Effect::Pure => "pure",
+                    Effect::Impure => "impure",
+                });
+                self.hash_nominal_type_list(hash, type_params)?;
+                self.hash_nominal_type_list(hash, params)?;
+                self.hash_nominal_type_surface(hash, *result, seen)
+            }
+            TypeKind::Var(var) => match var.binding {
+                Some(binding) => self.hash_nominal_type_surface(hash, binding, seen),
+                None => {
+                    hash.write_str("var");
+                    hash.write_str(var.label.as_deref()?);
+                    hash.write_bool(var.copy_cap);
+                    hash.write_bool(var.clone_cap);
+                    hash.write_bool(var.drop_cap);
+                    Some(())
+                }
+            },
+            TypeKind::Apply { base, args } => {
+                hash.write_str("apply");
+                self.hash_nominal_type_surface(hash, *base, seen)?;
+                self.hash_nominal_type_list(hash, args)
+            }
+            TypeKind::Box(inner) => {
+                hash.write_str("box");
+                self.hash_nominal_type_surface(hash, *inner, seen)
+            }
+            TypeKind::Reference(inner, is_mut) => {
+                hash.write_str("ref");
+                hash.write_bool(*is_mut);
+                self.hash_nominal_type_surface(hash, *inner, seen)
+            }
+        };
+        seen.remove(&resolved);
+        result
     }
 
     pub fn lookup_named(&self, name: &str) -> Option<TypeId> {
@@ -2249,6 +2527,54 @@ impl TypeCtx {
             TypeKind::Reference(inner, _) => self.occurs_in(var, inner, seen),
         }
     }
+}
+
+struct NominalDefinitionHasher {
+    state: u64,
+}
+
+impl NominalDefinitionHasher {
+    fn new(namespace: &str) -> Self {
+        let mut hasher = Self {
+            state: 0xcbf29ce484222325,
+        };
+        hasher.write_str(namespace);
+        hasher
+    }
+
+    fn write_str(&mut self, value: &str) {
+        self.write_usize(value.len());
+        for byte in value.as_bytes() {
+            self.write_u8(*byte);
+        }
+    }
+
+    fn write_usize(&mut self, value: usize) {
+        self.write_u64(value as u64);
+    }
+
+    fn write_u64(&mut self, value: u64) {
+        for byte in value.to_le_bytes() {
+            self.write_u8(byte);
+        }
+    }
+
+    fn write_bool(&mut self, value: bool) {
+        self.write_u8(u8::from(value));
+    }
+
+    fn write_u8(&mut self, value: u8) {
+        self.state ^= u64::from(value);
+        self.state = self.state.wrapping_mul(0x100000001b3);
+    }
+
+    fn finish(self) -> u64 {
+        self.state
+    }
+}
+
+fn stable_text_component(text: &str) -> String {
+    format!("{}:{text}", text.len())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

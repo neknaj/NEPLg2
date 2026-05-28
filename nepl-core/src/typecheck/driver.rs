@@ -1,6 +1,6 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::ast::*;
@@ -11,7 +11,9 @@ use crate::hir::*;
 use crate::resolve::{DefId, ImportResolution};
 use crate::source_map::{CompilerMemoryType, SourceMap};
 use crate::span::Span;
-use crate::types::{EnumVariantInfo, TypeCtx, TypeId, TypeKind};
+use crate::types::{
+    EnumVariantInfo, NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeId, TypeKind,
+};
 
 use super::binding_rules::{
     detect_field_accessor_fn, find_invalid_same_file_overload, find_same_signature_func_in_file,
@@ -58,6 +60,28 @@ macro_rules! driver_log {
 
 fn type_patterns_overlap(ctx: &TypeCtx, lhs: TypeId, rhs: TypeId) -> bool {
     ctx.type_pattern_matches(lhs, rhs) || ctx.type_pattern_matches(rhs, lhs)
+}
+
+fn nominal_stable_identity_for_definition(
+    ctx: &TypeCtx,
+    source_map: Option<&SourceMap>,
+    span: Span,
+    kind: NominalStableTypeKind,
+    name: &str,
+    arity: usize,
+    type_kind: &TypeKind,
+) -> Option<NominalStableTypeIdentity> {
+    let source_path = source_map?
+        .path(span.file_id)
+        .map(|path| path.as_str().to_string())?;
+    let definition_hash = ctx.nominal_definition_hash(type_kind)?;
+    Some(NominalStableTypeIdentity::new(
+        kind,
+        source_path,
+        name.to_string(),
+        arity,
+        definition_hash,
+    ))
 }
 
 #[cfg(not(target_os = "none"))]
@@ -311,14 +335,27 @@ pub fn typecheck(
                         payload: payload_ty,
                     });
                 }
-                let ty = ctx.register_named(
-                    e.name.name.clone(),
-                    TypeKind::Enum {
-                        name: e.name.name.clone(),
-                        type_params: tps.clone(),
-                        variants: vars.clone(),
-                    },
-                );
+                let enum_kind = TypeKind::Enum {
+                    name: e.name.name.clone(),
+                    type_params: tps.clone(),
+                    variants: vars.clone(),
+                };
+                let ty = match nominal_stable_identity_for_definition(
+                    &ctx,
+                    source_map,
+                    e.name.span,
+                    NominalStableTypeKind::Enum,
+                    &e.name.name,
+                    tps.len(),
+                    &enum_kind,
+                ) {
+                    Some(identity) => ctx.register_named_with_stable_identity(
+                        e.name.name.clone(),
+                        enum_kind,
+                        identity,
+                    ),
+                    None => ctx.register_named(e.name.name.clone(), enum_kind),
+                };
                 label_env.insert(e.name.name.clone(), ty);
                 enums.insert(
                     e.name.name.clone(),
@@ -420,15 +457,28 @@ pub fn typecheck(
                     fs.push(type_from_expr(&mut ctx, &mut s_labels, ty_expr));
                     f_names.push(ident.name.clone());
                 }
-                let ty = ctx.register_named(
-                    s.name.name.clone(),
-                    TypeKind::Struct {
-                        name: s.name.name.clone(),
-                        type_params: tps.clone(),
-                        fields: fs.clone(),
-                        field_names: f_names.clone(),
-                    },
-                );
+                let struct_kind = TypeKind::Struct {
+                    name: s.name.name.clone(),
+                    type_params: tps.clone(),
+                    fields: fs.clone(),
+                    field_names: f_names.clone(),
+                };
+                let ty = match nominal_stable_identity_for_definition(
+                    &ctx,
+                    source_map,
+                    s.name.span,
+                    NominalStableTypeKind::Struct,
+                    &s.name.name,
+                    tps.len(),
+                    &struct_kind,
+                ) {
+                    Some(identity) => ctx.register_named_with_stable_identity(
+                        s.name.name.clone(),
+                        struct_kind,
+                        identity,
+                    ),
+                    None => ctx.register_named(s.name.name.clone(), struct_kind),
+                };
                 let compiler_memory_type = compiler_memory_type_definition_allowed(
                     s, &fs, &f_names, &tps, &ctx, source_map,
                 );

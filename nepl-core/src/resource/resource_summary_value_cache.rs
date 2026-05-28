@@ -11,6 +11,7 @@ use super::model::ResourceFunction;
 mod body_hash;
 mod candidate_key;
 mod context;
+mod dependency_hash;
 mod key;
 mod raw_init;
 mod stable_hash;
@@ -19,6 +20,8 @@ mod stable_type_key;
 mod type_boundary;
 
 pub use self::context::ResourceSummaryValueCacheContext;
+pub(super) use self::dependency_hash::raw_init_dependency_closure_hash;
+pub(super) use self::raw_init::RawInitParamFactsLeafEntryCandidateReject;
 
 use self::candidate_key::{
     drop_traversal_forall_leaf_entry_candidate_key_and_entry, drop_traversal_forall_leaf_entry_key,
@@ -53,6 +56,12 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_raw_init_param_facts_hits: usize,
     pub resource_summary_value_raw_init_param_facts_stores: usize,
     pub resource_summary_value_raw_init_param_facts_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_incomplete_leaf_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_dependency_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_missing_source_policy_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_unstable_key_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_unstable_entry_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_reprojection_bypasses: usize,
 }
 
 /// `CompilerSession` が所有する Resource IR summary value cache の境界。

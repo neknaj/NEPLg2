@@ -5,16 +5,25 @@ use crate::types::{TypeCtx, TypeId};
 use super::super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::super::model::ResourceFunction;
 use super::candidate_key::{
-    raw_init_param_facts_leaf_entry_candidate_key_and_entry, raw_init_param_facts_leaf_entry_key,
+    raw_init_param_facts_leaf_entry_key, ResourceSummaryDependencyClosureHash,
     ResourceSummaryGenericTypeArgumentKeyInput,
 };
 use super::stable_mirror::{
-    reproject_raw_init_param_facts_leaf_entry, ResourceSummaryTypeReprojection,
+    reproject_raw_init_param_facts_leaf_entry, stable_raw_init_param_facts_leaf_entry,
+    ResourceSummaryTypeReprojection,
 };
 use super::{
     ResourceSummaryRawInitParamFactsLeafEntryCandidate, ResourceSummaryValueCache,
     ResourceSummaryValueCacheContext,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::resource) enum RawInitParamFactsLeafEntryCandidateReject {
+    MissingSourcePolicy,
+    UnstableKey,
+    UnstableEntry,
+    Reprojection,
+}
 
 impl ResourceSummaryValueCache {
     pub(in crate::resource) fn raw_init_param_facts_leaf_entry_candidate(
@@ -23,36 +32,103 @@ impl ResourceSummaryValueCache {
         types: &TypeCtx,
         function: &ResourceFunction,
         type_params: &[TypeId],
+        dependency_closure_hash: ResourceSummaryDependencyClosureHash,
         summary: &RawCellInitializationFunctionSummary,
-    ) -> Option<ResourceSummaryRawInitParamFactsLeafEntryCandidate> {
+    ) -> Result<
+        ResourceSummaryRawInitParamFactsLeafEntryCandidate,
+        RawInitParamFactsLeafEntryCandidateReject,
+    > {
         let Some(source_capability_policy_hash) =
             context.source_capability_policy_hash_for_function(function)
         else {
-            return None;
+            return Err(RawInitParamFactsLeafEntryCandidateReject::MissingSourcePolicy);
         };
         let generic_type_args = if function.type_params.is_empty() && type_params.is_empty() {
             ResourceSummaryGenericTypeArgumentKeyInput::NonGeneric
         } else {
             ResourceSummaryGenericTypeArgumentKeyInput::TemplateBoundaryOnly
         };
-        let (key, entry) = raw_init_param_facts_leaf_entry_candidate_key_and_entry(
+        let Some(key) = raw_init_param_facts_leaf_entry_key(
             types,
             context.namespace_hash(),
             source_capability_policy_hash,
+            dependency_closure_hash,
             function,
             type_params,
             generic_type_args,
-            summary,
-        )?;
-        let reprojection = ResourceSummaryTypeReprojection::new(types, function, type_params)?;
-        reproject_raw_init_param_facts_leaf_entry(&reprojection, &function.name, &entry)?;
-        Some(ResourceSummaryRawInitParamFactsLeafEntryCandidate { key, entry })
+        ) else {
+            return Err(RawInitParamFactsLeafEntryCandidateReject::UnstableKey);
+        };
+        let Some(entry) = stable_raw_init_param_facts_leaf_entry(types, summary) else {
+            return Err(RawInitParamFactsLeafEntryCandidateReject::UnstableEntry);
+        };
+        let Some(reprojection) = ResourceSummaryTypeReprojection::new(types, function, type_params)
+        else {
+            return Err(RawInitParamFactsLeafEntryCandidateReject::Reprojection);
+        };
+        if reproject_raw_init_param_facts_leaf_entry(&reprojection, &function.name, &entry)
+            .is_none()
+        {
+            return Err(RawInitParamFactsLeafEntryCandidateReject::Reprojection);
+        }
+        Ok(ResourceSummaryRawInitParamFactsLeafEntryCandidate { key, entry })
     }
 
-    pub(in crate::resource) fn record_raw_init_param_facts_bypass(&mut self) {
-        self.stats.resource_summary_value_bypasses += 1;
+    pub(in crate::resource) fn record_raw_init_param_facts_bypass_count(
+        &mut self,
+        fact_count: usize,
+    ) {
+        self.stats.resource_summary_value_bypasses += fact_count;
         self.stats
-            .resource_summary_value_raw_init_param_facts_bypasses += 1;
+            .resource_summary_value_raw_init_param_facts_bypasses += fact_count;
+    }
+
+    pub(in crate::resource) fn record_raw_init_param_facts_incomplete_leaf_bypass(
+        &mut self,
+        fact_count: usize,
+    ) {
+        self.record_raw_init_param_facts_bypass_count(fact_count);
+        self.stats
+            .resource_summary_value_raw_init_param_facts_incomplete_leaf_bypasses += fact_count;
+    }
+
+    pub(in crate::resource) fn record_raw_init_param_facts_dependency_bypass(
+        &mut self,
+        fact_count: usize,
+    ) {
+        self.record_raw_init_param_facts_bypass_count(fact_count);
+        self.stats
+            .resource_summary_value_raw_init_param_facts_dependency_bypasses += fact_count;
+    }
+
+    pub(in crate::resource) fn record_raw_init_param_facts_candidate_bypass(
+        &mut self,
+        reason: RawInitParamFactsLeafEntryCandidateReject,
+        fact_count: usize,
+    ) {
+        self.record_raw_init_param_facts_bypass_count(fact_count);
+        match reason {
+            RawInitParamFactsLeafEntryCandidateReject::MissingSourcePolicy => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_missing_source_policy_bypasses +=
+                    fact_count;
+            }
+            RawInitParamFactsLeafEntryCandidateReject::UnstableKey => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_unstable_key_bypasses +=
+                    fact_count;
+            }
+            RawInitParamFactsLeafEntryCandidateReject::UnstableEntry => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_unstable_entry_bypasses +=
+                    fact_count;
+            }
+            RawInitParamFactsLeafEntryCandidateReject::Reprojection => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_bypasses +=
+                    fact_count;
+            }
+        }
     }
 
     pub(in crate::resource) fn replay_raw_init_param_facts_leaf_entry(
@@ -61,6 +137,7 @@ impl ResourceSummaryValueCache {
         types: &TypeCtx,
         function: &ResourceFunction,
         type_params: &[TypeId],
+        dependency_closure_hash: ResourceSummaryDependencyClosureHash,
     ) -> Option<RawCellInitializationFunctionSummary> {
         let source_capability_policy_hash =
             context.source_capability_policy_hash_for_function(function)?;
@@ -73,6 +150,7 @@ impl ResourceSummaryValueCache {
             types,
             context.namespace_hash(),
             source_capability_policy_hash,
+            dependency_closure_hash,
             function,
             type_params,
             generic_type_args,

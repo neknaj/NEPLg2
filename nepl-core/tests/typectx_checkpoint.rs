@@ -1,5 +1,5 @@
 use nepl_core::ast::Effect;
-use nepl_core::types::{TypeCtx, TypeKind};
+use nepl_core::types::{NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeKind};
 
 #[test]
 fn checkpoint_rolls_back_bindings_and_temporary_arena_entries() {
@@ -45,6 +45,36 @@ fn checkpoint_rolls_back_named_and_trait_model_state() {
     assert!(ctx.lookup_named("Temporary").is_none());
     assert!(!ctx.is_copy(i32_ty));
     assert!(!ctx.has_drop_impl_target(i32_ty));
+}
+
+#[test]
+fn checkpoint_rolls_back_nominal_stable_identity_state() {
+    let mut ctx = TypeCtx::new();
+    let checkpoint = ctx.checkpoint();
+
+    let i32_ty = ctx.i32();
+    let temporary = ctx.register_named_with_stable_identity(
+        "Temporary".to_string(),
+        TypeKind::Struct {
+            name: "Temporary".to_string(),
+            type_params: Vec::new(),
+            fields: vec![i32_ty],
+            field_names: vec!["value".to_string()],
+        },
+        NominalStableTypeIdentity::new(
+            NominalStableTypeKind::Struct,
+            "/user/types.nepl".to_string(),
+            "Temporary".to_string(),
+            0,
+            1,
+        ),
+    );
+
+    assert!(ctx.nominal_stable_identity(temporary).is_some());
+
+    ctx.rollback(checkpoint);
+
+    assert!(ctx.lookup_named("Temporary").is_none());
 }
 
 #[test]

@@ -1,10 +1,7 @@
 use super::model::{ResourceFunction, ResourceOp};
 
-pub(super) fn function_allows_complete_leaf_entry_replay(
-    function: &ResourceFunction,
-    dependencies: &[usize],
-) -> bool {
-    dependencies.is_empty() && !function_has_indirect_call(function)
+pub(super) fn function_allows_complete_leaf_entry_replay(function: &ResourceFunction) -> bool {
+    !function_has_indirect_call(function)
 }
 
 fn function_has_indirect_call(function: &ResourceFunction) -> bool {

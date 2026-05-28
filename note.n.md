@@ -1,3 +1,20 @@
+# 2026-05-28 Resource summary nominal identity checkpoint
+
+- Zenn 記事の 2026-05-27 更新版と試作段階方針を再確認し、性能改善でも静的検査や Resource proof の安全境界を削らず、cache key の根本 identity を整備する方針で進めた。
+- subagent 2 件で `TypeCtx` と `resource_summary_value_cache` の nominal 型境界を独立調査した。両者とも、現状の `TypeKind::{Named, Struct, Enum}` と `TypeCtx.named` は裸の名前だけを持ち、そのまま cache key に使うと別 module 同名型で stale hit し得ると確認した。
+- `TypeCtx` に `NominalStableTypeIdentity` を追加した。identity は `TypeId` / `Span` を含まず、`SourceMap` から得た source path、定義 kind/name/arity、field / variant / type parameter から作る definition fingerprint を持つ。
+- `typecheck::driver` は `StructDef` / `EnumDef` 登録時に stable identity を `TypeCtx` へ保存する。checkpoint rollback は nominal identity map も戻す。
+- `ResourceSummaryStableTypeKey` は identity 付き `Struct` / `Enum` / resolved `Named` だけを受け入れ、identity のない unresolved `Named` は従来どおり拒否する。backend scalar の `u32` / `i64` / `u64` / `f64` は compiler-owned scalar として別 key にした。
+- `generic_type_argument_hash` と `resource_function_body_hash` は nominal stable key 境界変更に合わせて version を更新した。
+- `ResourceSummaryTypeReprojection` は function signature から到達する nested nominal type も登録するようにした。raw-init stable entry の field / payload 型が signature tree の内側にしか現れない場合でも replay 境界に載せるためである。
+- `resource_function_body_hash` は `StorageId` の数値を直接保存境界へ出さず、function body 内の出現順 ordinal へ正規化するようにした。
+- raw-init dependency closure hash を key に追加し、依存先 function identity / body hash / source capability policy hash / type boundary hash が変わると caller summary も miss するようにした。
+- raw-init cache の bypass reason を分割し、RPN same-session code-edit の残件を計測可能にした。
+- `trunk build --release` 後の RPN same-session code-edit 測定で、初回 `raw_init_param_facts_stores=2`、2 回目 `raw_init_param_facts_hits=2` / `resource_summary_value_replay_hits=2` を確認したため、`ISS-20260528T110220373Z-RESOURCE-SUMMARY-CACHE-NEEDS-QUALIFI-08D1AA04` は verified / closed とした。
+- 残件は `ISS-20260528T123956177Z-RESOURCE-SUMMARY-RAW-INIT-DEPENDENCY-70A9D8F6`、`ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5`、`ISS-20260528T123956303Z-RESOURCE-SUMMARY-TYPE-REPROJECTION-N-78929A8E` に分離した。
+- focused 検証: `cargo test -p nepl-core stable_type_key -- --nocapture`、`cargo test -p nepl-core type_boundary -- --nocapture`、`cargo test -p nepl-core candidate_key -- --nocapture`、`cargo test -p nepl-core stable_drop_traversal_forall_value_reprojects_nominal_expected_type -- --nocapture`、`cargo test -p nepl-core --test typectx_checkpoint -- --nocapture`、`cargo test -p nepl-core --test check_pipeline typecheck_records_nominal_stable_identity_from_source_map -- --nocapture` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 NEPLg2.1 Vec type arity import checkpoint
 
 - `cargo test -p nepl-core --test pipe_operator pipe_complete_overloaded_source_call_into_target -- --nocapture` の parser error は、`bitset/mutation.nepl` が `&Vec u8` を public helper signature に書きながら `Vec` の type arity を直接 import していなかったことが原因だった。

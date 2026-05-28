@@ -10,8 +10,8 @@ use super::super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
 };
 use super::super::model::{
-    Place, ResourceBlock, ResourceBlockId, ResourceExprKind, ResourceFunction, ResourceId,
-    ResourceLocal, ResourceModule, ResourceOp, ResourceTerminator,
+    EffectOp, Place, ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceExprKind,
+    ResourceFunction, ResourceId, ResourceLocal, ResourceModule, ResourceOp, ResourceTerminator,
 };
 use super::super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
@@ -31,6 +31,7 @@ fn test_context(policy_hash: u64) -> ResourceSummaryValueCacheContext {
 
 fn raw_init_leaf_function(
     types: &TypeCtx,
+    name: &str,
     param_ty: TypeId,
     body_variant: bool,
 ) -> ResourceFunction {
@@ -47,8 +48,8 @@ fn raw_init_leaf_function(
         Vec::new()
     };
     ResourceFunction {
-        name: String::from("raw_init_leaf"),
-        origin_name: String::from("raw_init_leaf"),
+        name: String::from(name),
+        origin_name: String::from(name),
         type_params: Vec::new(),
         params: vec![ResourceLocal {
             name: String::from("raw"),
@@ -70,8 +71,12 @@ fn raw_init_leaf_function(
 }
 
 fn raw_init_leaf_summary(ty: TypeId) -> RawCellInitializationFunctionSummary {
+    raw_init_leaf_summary_for("raw_init_leaf", ty)
+}
+
+fn raw_init_leaf_summary_for(name: &str, ty: TypeId) -> RawCellInitializationFunctionSummary {
     RawCellInitializationFunctionSummary {
-        function: String::from("raw_init_leaf"),
+        function: String::from(name),
         return_cells: Vec::new(),
         return_byte_ranges: Vec::new(),
         param_cells: vec![RawCellInitializationParamCell {
@@ -86,6 +91,46 @@ fn raw_init_leaf_summary(ty: TypeId) -> RawCellInitializationFunctionSummary {
         variant_param_byte_ranges: Vec::new(),
         variant_required_param_cells: Vec::new(),
         variant_conditions: Vec::new(),
+    }
+}
+
+fn raw_init_dependent_function(
+    types: &TypeCtx,
+    name: &str,
+    dependency: &str,
+    param_ty: TypeId,
+) -> ResourceFunction {
+    let span = test_span();
+    let param = Place::local(String::from("raw"), param_ty);
+    ResourceFunction {
+        name: String::from(name),
+        origin_name: String::from(name),
+        type_params: Vec::new(),
+        params: vec![ResourceLocal {
+            name: String::from("raw"),
+            ty: param_ty,
+            mutable: false,
+            place: param.clone(),
+        }],
+        result: types.unit(),
+        effect: Effect::Pure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops: vec![ResourceOp::Call {
+                output: Place::temporary(ResourceId(10), types.unit()),
+                target: ResourceCallTarget::User {
+                    name: String::from(dependency),
+                    type_args: Vec::new(),
+                },
+                args: vec![param],
+                effect: EffectOp::Pure,
+                span,
+            }],
+            terminator: ResourceTerminator::Return { value: None, span },
+            span,
+        }],
+        span,
     }
 }
 
@@ -152,7 +197,12 @@ fn preseed_leaf_summaries(
 fn raw_init_param_facts_preseed_replays_same_summary_surface() {
     let mut cache = ResourceSummaryValueCache::new();
     let types = TypeCtx::new();
-    let module = raw_init_leaf_module(raw_init_leaf_function(&types, types.i32(), false));
+    let module = raw_init_leaf_module(raw_init_leaf_function(
+        &types,
+        "raw_init_leaf",
+        types.i32(),
+        false,
+    ));
     let summary = raw_init_leaf_summary(types.i32());
     let context = test_context(11);
     record_leaf_summary(&mut cache, &context, &types, &module, &summary);
@@ -175,14 +225,29 @@ fn raw_init_param_facts_preseed_replays_same_summary_surface() {
 fn raw_init_param_facts_preseed_misses_on_body_source_or_signature_change() {
     let mut cache = ResourceSummaryValueCache::new();
     let types = TypeCtx::new();
-    let base_module = raw_init_leaf_module(raw_init_leaf_function(&types, types.i32(), false));
+    let base_module = raw_init_leaf_module(raw_init_leaf_function(
+        &types,
+        "raw_init_leaf",
+        types.i32(),
+        false,
+    ));
     let summary = raw_init_leaf_summary(types.i32());
     let context = test_context(11);
     record_leaf_summary(&mut cache, &context, &types, &base_module, &summary);
 
-    let body_changed = raw_init_leaf_module(raw_init_leaf_function(&types, types.i32(), true));
+    let body_changed = raw_init_leaf_module(raw_init_leaf_function(
+        &types,
+        "raw_init_leaf",
+        types.i32(),
+        true,
+    ));
     let source_changed = test_context(12);
-    let signature_changed = raw_init_leaf_module(raw_init_leaf_function(&types, types.u8(), false));
+    let signature_changed = raw_init_leaf_module(raw_init_leaf_function(
+        &types,
+        "raw_init_leaf",
+        types.u8(),
+        false,
+    ));
 
     for (module, context) in [
         (&body_changed, &context),
@@ -199,4 +264,46 @@ fn raw_init_param_facts_preseed_misses_on_body_source_or_signature_change() {
     let stats = cache.stats();
     assert_eq!(stats.resource_summary_value_replay_hits, 0);
     assert_eq!(stats.resource_summary_value_replayed_ops, 0);
+}
+
+/// raw-init param facts cache は依存先 summary を取り込む関数も保存できるが、key には
+/// dependency closure の body / source policy / type boundary hash を入れる。これにより
+/// caller body が同じでも callee implementation edit 後は stale replay せず通常 worklist
+/// に戻る。
+#[test]
+fn raw_init_param_facts_dependency_closure_invalidates_on_callee_body_change() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let callee = raw_init_leaf_function(&types, "callee", types.i32(), false);
+    let caller = raw_init_dependent_function(&types, "caller", "callee", types.i32());
+    let module = ResourceModule {
+        functions: vec![callee, caller],
+        entry: None,
+        string_literals: Vec::new(),
+    };
+    let context = test_context(11);
+    let summary = raw_init_leaf_summary_for("caller", types.i32());
+    record_leaf_summary(&mut cache, &context, &types, &module, &summary);
+
+    let (worklist_relevant_functions, preseeded_functions, summaries) =
+        preseed_leaf_summaries(&mut cache, &context, &types, &module);
+    assert_eq!(worklist_relevant_functions, vec![true, false]);
+    assert_eq!(preseeded_functions, vec![false, true]);
+    assert_eq!(summaries, vec![summary]);
+
+    let changed_callee = raw_init_leaf_function(&types, "callee", types.i32(), true);
+    let changed_module = ResourceModule {
+        functions: vec![
+            changed_callee,
+            raw_init_dependent_function(&types, "caller", "callee", types.i32()),
+        ],
+        entry: None,
+        string_literals: Vec::new(),
+    };
+    let (worklist_relevant_functions, preseeded_functions, summaries) =
+        preseed_leaf_summaries(&mut cache, &context, &types, &changed_module);
+
+    assert_eq!(worklist_relevant_functions, vec![true, true]);
+    assert_eq!(preseeded_functions, vec![false, false]);
+    assert!(summaries.is_empty());
 }

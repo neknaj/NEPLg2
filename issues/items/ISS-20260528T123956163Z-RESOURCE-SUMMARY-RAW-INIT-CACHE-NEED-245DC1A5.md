@@ -1,0 +1,44 @@
+---
+id: ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5
+title: "Resource summary raw-init cache needs complete byte-range and variant leaf mirrors"
+area: core
+status: open
+resolved: false
+priority: P1
+type: performance
+created: 2026-05-28
+updated: 2026-05-28
+target: "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/resource/initialized_summary*.rs"
+---
+
+# ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5: Resource summary raw-init cache needs complete byte-range and variant leaf mirrors
+
+## 概要
+
+RPN same-session code edit reports raw_init_param_facts_incomplete_leaf_bypasses=37. The current raw-init stable mirror only stores param_cells and param_release_requirements, so summaries containing byte-range, return, or variant facts are correctly rejected.
+
+## 対象
+
+- `nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/resource/initialized_summary*.rs`
+
+## 根拠
+
+- `ISS-20260528T110220373Z-RESOURCE-SUMMARY-CACHE-NEEDS-QUALIFI-08D1AA04` の verified 測定で、`raw_init_param_facts_incomplete_leaf_bypasses=37` が残った。
+- 現在の `ResourceSummaryStableRawInitParamFactsLeafEntry` は `param_cells` と `param_release_requirements` だけを保存し、`return_cells` / byte-range facts / variant facts を含む summary surface は完全再投影できないため no-store に倒している。
+- partial summary を保存すると replay 後の raw initialization proof が欠落するため、byte-range / variant / return facts は個別にではなく complete entry として設計する必要がある。
+
+## 問題
+
+RPN same-session code edit reports raw_init_param_facts_incomplete_leaf_bypasses=37. The current raw-init stable mirror only stores param_cells and param_release_requirements, so summaries containing byte-range, return, or variant facts are correctly rejected.
+
+## 影響
+
+A significant part of raw initialization proof work remains outside the session cache, especially string and collection helpers that track initialized byte ranges or variant-dependent payload facts.
+
+## 修正方針
+
+Design stable mirrors for byte-range and variant raw-init summary surfaces as complete entries, with fail-closed replay and layout/type revalidation. Do not store partial summaries that would hide missing facts.
+
+## 検証
+
+RPN same-session code edit shows incomplete_leaf_bypasses decreasing while raw-init replay preserves all byte-range and variant facts in focused regression tests.

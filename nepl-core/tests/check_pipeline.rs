@@ -5,12 +5,18 @@ use nepl_core::resource::{
     PlaceRoot, ResourceDropElaborationFunction, ResourceDropElaborationPlan,
     ResourceDropRequirement,
 };
+use nepl_core::source_map::{SourceMap, SourcePath};
 use nepl_core::span::FileId;
+use nepl_core::typecheck;
 use nepl_core::{check_module, compile_wasm, lexer, parser, CompileOptions, CompileTarget};
 
 fn parse_module(source: &str) -> nepl_core::ast::Module {
-    let lexed = lexer::lex(FileId(0), source);
-    let parsed = parser::parse_tokens(FileId(0), lexed);
+    parse_module_with_file(FileId(0), source)
+}
+
+fn parse_module_with_file(file_id: FileId, source: &str) -> nepl_core::ast::Module {
+    let lexed = lexer::lex(file_id, source);
+    let parsed = parser::parse_tokens(file_id, lexed);
     assert!(
         parsed.diagnostics.is_empty(),
         "parser diagnostics: {:?}",
@@ -61,6 +67,46 @@ fn prepare_codegen_accepts_deep_prefix_chain_without_stack_overflow() {
     )
     .expect("prepare codegen should not recurse through a deep prefix call chain");
     assert!(!prepared.hir_module.functions.is_empty());
+}
+
+#[test]
+fn typecheck_records_nominal_stable_identity_from_source_map() {
+    let source = r#"#indent 4
+#target core
+#no_prelude
+
+struct Record:
+    value <i32>
+"#;
+    let mut source_map = SourceMap::new();
+    let file_id = source_map.add(SourcePath::new("/user/types.nepl"), source.to_string());
+    let module = parse_module_with_file(file_id, source);
+
+    let checked = typecheck::typecheck(
+        &module,
+        CompileTarget::Wasm,
+        nepl_core::BuildProfile::Debug,
+        Some(&source_map),
+    );
+
+    assert!(
+        checked.diagnostics.is_empty(),
+        "typecheck diagnostics: {:?}",
+        checked.diagnostics
+    );
+    let record = checked
+        .types
+        .lookup_named("Record")
+        .expect("struct definition should be registered");
+    let identity = checked
+        .types
+        .nominal_stable_identity(record)
+        .expect("struct definition should carry source-map based stable identity");
+
+    assert!(identity
+        .stable_key_component()
+        .contains("path=16:/user/types.nepl"));
+    assert!(identity.stable_key_component().contains("name=6:Record"));
 }
 
 #[test]

@@ -10,6 +10,7 @@ use super::initialized_summary_build_value_cache_eligibility::function_allows_co
 use super::model::{ResourceFunction, ResourceModule};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::resource_summary_value_cache::{
+    raw_init_dependency_closure_hash, RawInitParamFactsLeafEntryCandidateReject,
     ResourceSummaryRawInitParamFactsLeafEntryCandidate, ResourceSummaryValueCache,
     ResourceSummaryValueCacheContext,
 };
@@ -33,17 +34,22 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
         {
             continue;
         }
-        let dependencies = dependencies
-            .get(function_index)
-            .map(Vec::as_slice)
-            .unwrap_or(&[]);
-        if !function_allows_complete_leaf_entry_replay(function, dependencies) {
+        if !function_allows_complete_leaf_entry_replay(function) {
             continue;
         }
-        let type_params = owner_summary_type_params(types, function);
-        let Some(summary) =
-            cache.replay_raw_init_param_facts_leaf_entry(context, types, function, &type_params)
+        let Some(dependency_closure_hash) =
+            raw_init_dependency_closure_hash(context, types, module, dependencies, function_index)
         else {
+            continue;
+        };
+        let type_params = owner_summary_type_params(types, function);
+        let Some(summary) = cache.replay_raw_init_param_facts_leaf_entry(
+            context,
+            types,
+            function,
+            &type_params,
+            dependency_closure_hash,
+        ) else {
             continue;
         };
         summaries.push(summary);
@@ -79,11 +85,10 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
             cache,
             context,
             types,
+            module,
             function,
-            dependencies
-                .get(*function_index)
-                .map(Vec::as_slice)
-                .unwrap_or(&[]),
+            *function_index,
+            dependencies,
             preseeded_functions
                 .get(*function_index)
                 .copied()
@@ -99,8 +104,10 @@ fn collect_raw_init_param_facts_leaf_entry_candidate_from_summary(
     cache: &mut ResourceSummaryValueCache,
     context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
+    module: &ResourceModule,
     function: &ResourceFunction,
-    dependencies: &[usize],
+    function_index: usize,
+    all_dependencies: &[Vec<usize>],
     was_preseeded: bool,
     summary: &RawCellInitializationFunctionSummary,
 ) {
@@ -108,30 +115,38 @@ fn collect_raw_init_param_facts_leaf_entry_candidate_from_summary(
     if eligible_fact_count == 0 {
         return;
     }
-    if !summary_is_complete_raw_init_param_facts_leaf_entry(summary)
-        || !function_allows_complete_leaf_entry_replay(function, dependencies)
-    {
-        for _ in 0..eligible_fact_count {
-            cache.record_raw_init_param_facts_bypass();
-        }
+    if !summary_is_complete_raw_init_param_facts_leaf_entry(summary) {
+        cache.record_raw_init_param_facts_incomplete_leaf_bypass(eligible_fact_count);
+        return;
+    }
+    if !function_allows_complete_leaf_entry_replay(function) {
+        cache.record_raw_init_param_facts_dependency_bypass(eligible_fact_count);
         return;
     }
     if !was_preseeded {
         cache.record_raw_init_param_facts_recomputed_ops(eligible_fact_count);
     }
     let type_params = owner_summary_type_params(types, function);
+    let Some(dependency_closure_hash) =
+        raw_init_dependency_closure_hash(context, types, module, all_dependencies, function_index)
+    else {
+        cache.record_raw_init_param_facts_candidate_bypass(
+            RawInitParamFactsLeafEntryCandidateReject::UnstableKey,
+            eligible_fact_count,
+        );
+        return;
+    };
     match cache.raw_init_param_facts_leaf_entry_candidate(
         context,
         types,
         function,
         &type_params,
+        dependency_closure_hash,
         summary,
     ) {
-        Some(candidate) => candidates.push(candidate),
-        None => {
-            for _ in 0..eligible_fact_count {
-                cache.record_raw_init_param_facts_bypass();
-            }
+        Ok(candidate) => candidates.push(candidate),
+        Err(reason) => {
+            cache.record_raw_init_param_facts_candidate_bypass(reason, eligible_fact_count);
         }
     }
 }

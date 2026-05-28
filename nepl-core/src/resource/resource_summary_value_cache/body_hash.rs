@@ -15,7 +15,7 @@ use super::super::model::{
     RawAddressAliasKind, RawAddressViewKind, ResourceBlockId, ResourceCallTarget,
     ResourceConditionFact, ResourceExprKind, ResourceFunction, ResourceI32RelationOp, ResourceId,
     ResourceLocal, ResourceMatchArm, ResourceMatchBindMode, ResourceMatchPattern, ResourceOffset,
-    ResourceOp, ResourceTerminator, StorageOrigin,
+    ResourceOp, ResourceTerminator, StorageId, StorageOrigin,
 };
 use super::stable_hash::ResourceSummaryStableHasher;
 use super::stable_type_key::ResourceSummaryStableTypeKey;
@@ -34,14 +34,16 @@ use super::stable_type_key::ResourceSummaryStableTypeKey;
 /// `ResourceFunction` には残らないため、raw body/source hash を key に追加するまでは
 /// body hash を作らず cache 候補から外す。
 ///
-/// `StorageId` は owner/checker state 側の割当に由来するため、安定した storage origin
-/// mapping を別途設計するまで hash せず `None` で cache 候補から外す。
+/// `StorageId` は owner/checker state 側の割当に由来するため、数値を直接 hash しない。
+/// 関数本文の traversal で最初に現れた順へ正規化し、同じ本文内の storage root の同一性
+/// だけを hash に残す。storage の所有元や寿命上の意味は `StorageOrigin` /
+/// collection lifecycle op 側で別途 hash する。
 pub(super) fn resource_function_body_hash(
     types: &TypeCtx,
     function: &ResourceFunction,
 ) -> Option<u64> {
     let mut ctx = ResourceFunctionBodyHashContext::new(types, function)?;
-    let mut hash = ResourceSummaryStableHasher::new("neplg2-resource-function-body-v1");
+    let mut hash = ResourceSummaryStableHasher::new("neplg2-resource-function-body-v2");
 
     hash_type_list(&mut hash, &ctx, &function.type_params)?;
     hash_resource_locals(&mut hash, &mut ctx, &function.params)?;
@@ -62,6 +64,7 @@ struct ResourceFunctionBodyHashContext<'a> {
     types: &'a TypeCtx,
     block_ordinals: BTreeMap<ResourceBlockId, usize>,
     temporary_ordinals: BTreeMap<ResourceId, usize>,
+    storage_ordinals: BTreeMap<StorageId, usize>,
 }
 
 impl<'a> ResourceFunctionBodyHashContext<'a> {
@@ -79,6 +82,7 @@ impl<'a> ResourceFunctionBodyHashContext<'a> {
             types,
             block_ordinals,
             temporary_ordinals: BTreeMap::new(),
+            storage_ordinals: BTreeMap::new(),
         })
     }
 
@@ -92,6 +96,15 @@ impl<'a> ResourceFunctionBodyHashContext<'a> {
         }
         let ordinal = self.temporary_ordinals.len();
         self.temporary_ordinals.insert(id, ordinal);
+        ordinal
+    }
+
+    fn storage_ordinal(&mut self, id: StorageId) -> usize {
+        if let Some(ordinal) = self.storage_ordinals.get(&id) {
+            return *ordinal;
+        }
+        let ordinal = self.storage_ordinals.len();
+        self.storage_ordinals.insert(id, ordinal);
         ordinal
     }
 }
@@ -513,7 +526,10 @@ fn hash_place_root(
             hash.write_i32(*value);
         }
         PlaceRoot::Return => hash.write_str("return_place"),
-        PlaceRoot::Storage(_) => return None,
+        PlaceRoot::Storage(id) => {
+            hash.write_str("storage");
+            hash.write_usize(ctx.storage_ordinal(*id));
+        }
         PlaceRoot::Unknown => hash.write_str("unknown"),
     }
     Some(())
@@ -1013,35 +1029,40 @@ mod tests {
     }
 
     #[test]
-    fn resource_function_body_hash_rejects_storage_roots_until_origin_mapping_exists() {
+    fn resource_function_body_hash_normalizes_storage_roots() {
         let types = TypeCtx::new();
         let ty = types.i32();
-        let output = Place {
-            root: PlaceRoot::Storage(StorageId(0)),
-            projections: Vec::new(),
-            ty,
-        };
-        let function = ResourceFunction {
-            name: "storage".into(),
-            origin_name: "storage".into(),
-            type_params: Vec::new(),
-            params: Vec::new(),
-            result: ty,
-            effect: Effect::Pure,
-            entry_block: ResourceBlockId(0),
-            blocks: vec![super::super::super::model::ResourceBlock {
-                id: ResourceBlockId(0),
-                ops: Vec::new(),
-                terminator: ResourceTerminator::Return {
-                    value: Some(output),
+        let storage_function = |storage: StorageId| {
+            let output = Place {
+                root: PlaceRoot::Storage(storage),
+                projections: Vec::new(),
+                ty,
+            };
+            ResourceFunction {
+                name: "storage".into(),
+                origin_name: "storage".into(),
+                type_params: Vec::new(),
+                params: Vec::new(),
+                result: ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![super::super::super::model::ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: Vec::new(),
+                    terminator: ResourceTerminator::Return {
+                        value: Some(output),
+                        span: Span::dummy(),
+                    },
                     span: Span::dummy(),
-                },
+                }],
                 span: Span::dummy(),
-            }],
-            span: Span::dummy(),
+            }
         };
 
-        assert!(resource_function_body_hash(&types, &function).is_none());
+        assert_eq!(
+            resource_function_body_hash(&types, &storage_function(StorageId(0))),
+            resource_function_body_hash(&types, &storage_function(StorageId(99)))
+        );
     }
 
     #[test]

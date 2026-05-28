@@ -19,6 +19,7 @@ pub(super) struct ResourceSummaryValueCacheKey {
     namespace_hash: u64,
     function_identity: ResourceSummaryFunctionIdentity,
     function_body_hash: u64,
+    dependency_closure_hash: u64,
     type_parameter_boundary_hash: u64,
     generic_type_argument_hash: u64,
     source_capability_policy_hash: u64,
@@ -62,6 +63,7 @@ impl ResourceSummaryValueCacheKey {
             namespace_hash,
             &function_identity,
             function_body_hash,
+            0,
             type_parameter_boundary_hash,
             generic_type_argument_hash,
             source_capability_policy_hash,
@@ -71,6 +73,7 @@ impl ResourceSummaryValueCacheKey {
             namespace_hash,
             function_identity,
             function_body_hash,
+            dependency_closure_hash: 0,
             type_parameter_boundary_hash,
             generic_type_argument_hash,
             source_capability_policy_hash,
@@ -83,6 +86,7 @@ impl ResourceSummaryValueCacheKey {
         namespace_hash: u64,
         function_identity: ResourceSummaryFunctionIdentity,
         function_body_hash: u64,
+        dependency_closure_hash: u64,
         type_parameter_boundary_hash: u64,
         generic_type_argument_hash: u64,
         source_capability_policy_hash: u64,
@@ -92,6 +96,7 @@ impl ResourceSummaryValueCacheKey {
             namespace_hash,
             &function_identity,
             function_body_hash,
+            dependency_closure_hash,
             type_parameter_boundary_hash,
             generic_type_argument_hash,
             source_capability_policy_hash,
@@ -101,6 +106,7 @@ impl ResourceSummaryValueCacheKey {
             namespace_hash,
             function_identity,
             function_body_hash,
+            dependency_closure_hash,
             type_parameter_boundary_hash,
             generic_type_argument_hash,
             source_capability_policy_hash,
@@ -139,6 +145,11 @@ impl ResourceSummaryFunctionIdentity {
     #[cfg(test)]
     fn canonical_symbol(&self) -> &str {
         &self.canonical_symbol
+    }
+
+    pub(super) fn write_stable(&self, hash: &mut ResourceSummaryStableHasher) {
+        hash.write_str(&self.canonical_symbol);
+        hash.write_str(&self.origin_name);
     }
 }
 
@@ -195,16 +206,17 @@ fn resource_summary_value_cache_key_hash(
     namespace_hash: u64,
     function_identity: &ResourceSummaryFunctionIdentity,
     function_body_hash: u64,
+    dependency_closure_hash: u64,
     type_parameter_boundary_hash: u64,
     generic_type_argument_hash: u64,
     source_capability_policy_hash: u64,
     summary_kind: ResourceSummaryValueKind,
 ) -> u64 {
-    let mut hash = ResourceSummaryStableHasher::new("neplg2-resource-summary-value-key-v1");
+    let mut hash = ResourceSummaryStableHasher::new("neplg2-resource-summary-value-key-v2");
     hash.write_u64(namespace_hash);
-    hash.write_str(&function_identity.canonical_symbol);
-    hash.write_str(&function_identity.origin_name);
+    function_identity.write_stable(&mut hash);
     hash.write_u64(function_body_hash);
+    hash.write_u64(dependency_closure_hash);
     hash.write_u64(type_parameter_boundary_hash);
     hash.write_u64(generic_type_argument_hash);
     hash.write_u64(source_capability_policy_hash);
@@ -309,6 +321,6 @@ mod tests {
     fn resource_summary_value_cache_key_hash_has_fixed_golden_value() {
         let key = key_with_parts(1, 2, 3, 4, 5);
 
-        assert_eq!(key.stable_hash(), 0x2cc676efa6c78ac1);
+        assert_eq!(key.stable_hash(), 0x1e1a04999fb1863e);
     }
 }

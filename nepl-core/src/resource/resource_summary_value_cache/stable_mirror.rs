@@ -1,11 +1,12 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
+use alloc::collections::BTreeSet;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::layout::{aggregate_fields_with_offsets, storage_size_bytes};
-use crate::types::{TypeCtx, TypeId};
+use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::super::collection_slot_lifecycle::CollectionSlotLifecycleOp;
@@ -236,12 +237,14 @@ impl<'a> ResourceSummaryTypeReprojection<'a> {
         let Some(key) = ResourceSummaryStableTypeKey::from_type(self.types, ty) else {
             return Some(());
         };
-        self.insert_type_key(ty, key)
+        self.insert_type_key(ty, key)?;
+        self.insert_type_children(ty, &mut BTreeSet::new())
     }
 
     fn insert_required_type(&mut self, ty: TypeId) -> Option<()> {
         let key = ResourceSummaryStableTypeKey::from_type(self.types, ty)?;
-        self.insert_type_key(ty, key)
+        self.insert_type_key(ty, key)?;
+        self.insert_type_children(ty, &mut BTreeSet::new())
     }
 
     fn insert_type_key(&mut self, ty: TypeId, key: ResourceSummaryStableTypeKey) -> Option<()> {
@@ -265,6 +268,92 @@ impl<'a> ResourceSummaryTypeReprojection<'a> {
             .iter()
             .find(|(existing_key, _)| existing_key == key)
             .map(|(_, ty)| *ty)
+    }
+
+    fn insert_type_children(&mut self, ty: TypeId, seen: &mut BTreeSet<TypeId>) -> Option<()> {
+        let resolved = self.types.resolve_named_type_id(ty);
+        if !seen.insert(resolved) {
+            return Some(());
+        }
+        let kind = self.types.get_ref(resolved).clone();
+        match kind {
+            TypeKind::Unit
+            | TypeKind::I32
+            | TypeKind::U8
+            | TypeKind::F32
+            | TypeKind::Bool
+            | TypeKind::Char
+            | TypeKind::Str
+            | TypeKind::Never
+            | TypeKind::Named(_) => {}
+            TypeKind::Var(var) => {
+                if let Some(binding) = var.binding {
+                    self.insert_type_tree_required(binding, seen)?;
+                }
+            }
+            TypeKind::Enum {
+                type_params,
+                variants,
+                ..
+            } => {
+                for type_param in type_params {
+                    self.insert_type_tree_required(type_param, seen)?;
+                }
+                for variant in variants {
+                    if let Some(payload) = variant.payload {
+                        self.insert_type_tree_required(payload, seen)?;
+                    }
+                }
+            }
+            TypeKind::Struct {
+                type_params,
+                fields,
+                ..
+            } => {
+                for type_param in type_params {
+                    self.insert_type_tree_required(type_param, seen)?;
+                }
+                for field in fields {
+                    self.insert_type_tree_required(field, seen)?;
+                }
+            }
+            TypeKind::Tuple { items } => {
+                for item in items {
+                    self.insert_type_tree_required(item, seen)?;
+                }
+            }
+            TypeKind::Function {
+                type_params,
+                params,
+                result,
+                ..
+            } => {
+                for type_param in type_params {
+                    self.insert_type_tree_required(type_param, seen)?;
+                }
+                for param in params {
+                    self.insert_type_tree_required(param, seen)?;
+                }
+                self.insert_type_tree_required(result, seen)?;
+            }
+            TypeKind::Apply { base, args } => {
+                self.insert_type_tree_required(base, seen)?;
+                for arg in args {
+                    self.insert_type_tree_required(arg, seen)?;
+                }
+            }
+            TypeKind::Box(inner) | TypeKind::Reference(inner, _) => {
+                self.insert_type_tree_required(inner, seen)?;
+            }
+        }
+        seen.remove(&resolved);
+        Some(())
+    }
+
+    fn insert_type_tree_required(&mut self, ty: TypeId, seen: &mut BTreeSet<TypeId>) -> Option<()> {
+        let key = ResourceSummaryStableTypeKey::from_type(self.types, ty)?;
+        self.insert_type_key(ty, key)?;
+        self.insert_type_children(ty, seen)
     }
 }
 
@@ -1027,11 +1116,14 @@ mod tests {
 
     use crate::ast::Effect;
     use crate::span::Span;
-    use crate::types::TypeCtx;
+    use crate::types::{NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeKind};
 
     use super::super::super::collection_slot_summary_model::{
         CollectionSlotInitializedRangeDropTraversalCertificate,
         CollectionSlotInitializedRangeDropTraversalProof,
+    };
+    use super::super::super::initialized_summary::{
+        RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
     };
     use super::super::super::model::{Place, ResourceBlockId, ResourceFunction, ResourceLocal};
     use super::*;
@@ -1059,6 +1151,16 @@ mod tests {
         let mut function = function_with_param(type_param);
         function.type_params.push(type_param);
         function
+    }
+
+    fn nominal_struct_identity(name: &str) -> NominalStableTypeIdentity {
+        NominalStableTypeIdentity::new(
+            NominalStableTypeKind::Struct,
+            "/user/types.nepl".to_string(),
+            name.to_string(),
+            0,
+            1,
+        )
     }
 
     #[test]
@@ -1172,6 +1274,96 @@ mod tests {
             .expect("stable state-only value should reproject");
 
         assert_eq!(reprojected, op);
+    }
+
+    #[test]
+    fn stable_drop_traversal_forall_value_reprojects_nominal_expected_type() {
+        let mut types = TypeCtx::new();
+        let field = types.i32();
+        let nominal = types.register_named_with_stable_identity(
+            "Record".to_string(),
+            TypeKind::Struct {
+                name: "Record".to_string(),
+                type_params: Vec::new(),
+                fields: vec![field],
+                field_names: vec!["value".to_string()],
+            },
+            nominal_struct_identity("Record"),
+        );
+        let function = function_with_param(nominal);
+        let op = CollectionSlotLifecycleSummaryOp::DropTraversal {
+            storage: SummaryPlace {
+                parameter_index: 0,
+                suffix: Vec::new(),
+                ty: nominal,
+            },
+            initialized_count: CollectionSlotLifecycleSummaryI32Operand::KnownI32 {
+                value: 1,
+                ty: types.i32(),
+            },
+            expected_ty: nominal,
+            coverage: CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(
+                CollectionSlotInitializedRangeDropTraversalCertificate {
+                    element_stride: 4,
+                    drop_proof: CollectionSlotInitializedRangeDropTraversalProof::StateOnly,
+                },
+            ),
+        };
+        let value = stable_drop_traversal_forall_value(&types, &op)
+            .expect("nominal forall drop traversal should convert");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("nominal function boundary should be reprojectable");
+
+        let reprojected = reproject_drop_traversal_forall_value(&ctx, &value)
+            .expect("nominal stable value should reproject");
+
+        assert_eq!(reprojected, op);
+    }
+
+    #[test]
+    fn stable_raw_init_param_facts_reprojects_nominal_field_type_from_signature_tree() {
+        let mut types = TypeCtx::new();
+        let field = types.i32();
+        let nominal = types.register_named_with_stable_identity(
+            "Record".to_string(),
+            TypeKind::Struct {
+                name: "Record".to_string(),
+                type_params: Vec::new(),
+                fields: vec![field],
+                field_names: vec!["value".to_string()],
+            },
+            nominal_struct_identity("Record"),
+        );
+        let function = function_with_param(nominal);
+        let summary = RawCellInitializationFunctionSummary {
+            function: function.name.clone(),
+            return_cells: Vec::new(),
+            return_byte_ranges: Vec::new(),
+            param_cells: vec![RawCellInitializationParamCell {
+                param_index: 0,
+                suffix: vec![SummaryProjection::Field {
+                    index: 0,
+                    offset_bytes: 0,
+                }],
+                ty: field,
+                holds_raw_address: false,
+            }],
+            param_byte_ranges: Vec::new(),
+            param_release_requirements: Vec::new(),
+            variant_param_cells: Vec::new(),
+            variant_param_byte_ranges: Vec::new(),
+            variant_required_param_cells: Vec::new(),
+            variant_conditions: Vec::new(),
+        };
+        let entry = stable_raw_init_param_facts_leaf_entry(&types, &summary)
+            .expect("nominal field param facts should convert");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("signature tree should register nominal field type");
+
+        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+            .expect("nominal field fact should reproject");
+
+        assert_eq!(reprojected, summary);
     }
 
     #[test]
