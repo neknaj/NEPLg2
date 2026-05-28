@@ -93,7 +93,7 @@ pub fn filled <.T: Copy> %fn i32 fn .T Result Vec .T StdErrorKind \n\value:
                     let mut i %i32 0
                     while lt i n:
                         do:
-                            let write_off %i32 mul i size_of<.T>
+                            let write_off %i32 mul i size_of %.T
                             vec_filled_slot_store_initialized<.T> &region write_off value
                             set i add i 1
                     Result::Ok Vec<.T> (OwnedBuffer<.T> n n n (VecStorage<.T>::Owned region))

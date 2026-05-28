@@ -89,7 +89,7 @@ fn vec_filter_drain_to_output <.T: Drop> %impure fn RegionToken .T impure fn Reg
     let mut write_i %i32 0
     while lt read_i src_initialized_len:
         do:
-            let source_byte_off %i32 mul read_i size_of<.T>
+            let source_byte_off %i32 mul read_i size_of %.T
             let keep %bool vec_filter_borrow_slot_predicate<.T> &source source_byte_off predicate
             let source_slot %MemPtr .T mem_ptr_add<.T> source_data source_byte_off
             let source_raw %i32 mem_ptr_addr source_slot
@@ -97,7 +97,7 @@ fn vec_filter_drain_to_output <.T: Drop> %impure fn RegionToken .T impure fn Reg
             if:
                 keep
                 then:
-                    let out_byte_off %i32 mul write_i size_of<.T>
+                    let out_byte_off %i32 mul write_i size_of %.T
                     let out_slot %MemPtr .T mem_ptr_add<.T> out_data out_byte_off
                     let out_raw %i32 mem_ptr_addr out_slot
                     store<.T> out_raw loaded
@@ -171,7 +171,7 @@ pub fn filter <.T: Copy> %fn Vec .T fn fn .T bool Result Vec .T VecTransformErro
                                             if:
                                                 cond p item
                                                 then:
-                                                    store<.T> add mem_ptr_addr out_data mul write_i size_of<.T> item
+                                                    store<.T> add mem_ptr_addr out_data mul write_i size_of %.T item
                                                     set write_i add write_i 1
                                                 else unit
                                         Option::None:

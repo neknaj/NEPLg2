@@ -59,6 +59,17 @@ LLM/手動判断が必要なもの:
 - owner-preserving callback signature、borrowed predicate、effect `*` が絡む stdlib API。
 - selfhost parser/compiler 実装側の source string fixture。
 
+### 2026-05-28 collection layout query postfix-free checkpoint
+
+- `stdlib/alloc/collections/vec/**` と `tests/compiler/move_effect.n.md` の executable source / doctest fence に残っていた `size_of<...>` / `align_of<...>` layout query を `size_of %...` / `align_of %...` へ移行した。
+- subagent 5 件で Vec invariant / storage / access / mutation、transform、simple sort、quick/heap/merge sort、`move_effect` fixture を分担し、layout query 専用の旧 postfix spelling だけを置き換えた。
+- `load<...>` / `store<...>` / constructor / generic declaration は layout query ではないため、この checkpoint では変更していない。
+- `nodesrc/test_neplg21_collection_layout_type_query_cleanup.js` を追加し、対象の実行 source と NEPL code fence で旧 `size_of<...>` / `align_of<...>` が戻らないことを検査する。通常コメントや doccomment prose は対象にしないため、コメント増加を妨げない。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` の `size_of` 関連 regex は新記法へ追従した。残る `collection_slot_storage_dealloc` の旧構文 regex 警告は別の既存 source policy drift として扱う。
+- 検証: `node nodesrc/test_neplg21_collection_layout_type_query_cleanup.js`、`node nodesrc/test_stdlib_vec_sort_module_split.js`、`node nodesrc/test_stdlib_vec_borrowed_observers.js`、`node nodesrc/test_stdlib_collection_cleanup_contract.js` は pass。
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/neplg21-move-effect-layout-query-20260528.json -j 1 --dist web/dist --assert-io` は 106/115 pass。失敗 9 件は既存 diagnostic expectation drift で、今回の layout query spelling 変更とは別問題として残す。
+- この issue は、positive corpus 全体の semantic generic rewrite がまだ残るため open のまま継続する。
+
 ### 2026-05-24 checkpoint
 
 - branch: `feature/neplg21-syntax-migration-20260524`

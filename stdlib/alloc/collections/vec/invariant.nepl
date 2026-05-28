@@ -230,7 +230,7 @@ pub fn vec_buffer_current_storage_invariant <.T> %fn &OwnedBuffer .T VecStorageI
                             if:
                                 gt cap0 0
                                 then:
-                                    let elem_size %i32 size_of<.T>
+                                    let elem_size %i32 size_of %.T
                                     if:
                                         le elem_size 0
                                         then VecStorageInvariant::Invalid VecStorageInvariantInvalid::OwnedStorageCapacityMismatch

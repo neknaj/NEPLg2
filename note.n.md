@@ -1,3 +1,15 @@
+# 2026-05-28 NEPLg2.1 collection layout query postfix-free checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を再確認し、試作段階では後方互換より仕様整合性・静的検査・根本修正を優先する方針で進めた。
+- `stdlib/alloc/collections/vec/**` と `tests/compiler/move_effect.n.md` の executable source / doctest fence に残っていた `size_of<...>` / `align_of<...>` layout query を、NEPLg2.1 の `size_of %...` / `align_of %...` へ移行した。
+- `load<...>` / `store<...>` / constructor / generic declaration など、今回の layout query 専用構文とは意味が違う postfix は変更していない。
+- subagent 5 件で Vec invariant / storage / access / mutation、transform、simple sort、quick/heap/merge sort、`move_effect` fixture を分担し、各 worker は割当範囲だけを更新した。
+- `nodesrc/test_neplg21_collection_layout_type_query_cleanup.js` を追加し、Vec collection と `move_effect` の実行対象 source で旧 layout query spelling が戻らないことを確認する。通常コメントや doccomment prose は検査しないため、コメント増加を妨げない。
+- `nodesrc/test_stdlib_vec_no_unsafe_unwraps.js` の `size_of` 関連 regex は新記法へ追従した。残る `collection_slot_storage_dealloc` の旧構文 regex 警告は、今回の layout query 移行とは別の既存 source policy drift として残す。
+- 検証: `node nodesrc/test_neplg21_collection_layout_type_query_cleanup.js`、`node nodesrc/test_stdlib_vec_sort_module_split.js`、`node nodesrc/test_stdlib_vec_borrowed_observers.js`、`node nodesrc/test_stdlib_collection_cleanup_contract.js` は pass。
+- `node nodesrc/tests.js -i tests/compiler/move_effect.n.md --no-tree -o tmp/neplg21-move-effect-layout-query-20260528.json -j 1 --dist web/dist --assert-io` は 106/115 pass。失敗 9 件は既存の diagnostic expectation drift で、旧 `size_of<...>` 構文移行とは別問題として扱う。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 NEPLg2.1 core/mem pointer layout query cleanup checkpoint
 
 - `size_of %T` / `align_of %T` の layout query 新記法に合わせ、`stdlib/core/mem/pointer/region.nepl` と `stdlib/core/mem/pointer/bulk.nepl` の実装行を postfix-free 化した。

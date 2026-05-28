@@ -59,7 +59,7 @@ fn vec_copy_range_to_raw <.T: Copy> %fn &Vec .T fn MemPtr .T fn i32 fn i32 unit 
         do:
             match vec_get::get<.T> src add src_from i:
                 Option::Some item:
-                    store<.T> add mem_ptr_addr out_data mul i size_of<.T> item
+                    store<.T> add mem_ptr_addr out_data mul i size_of %.T item
                 Option::None:
                     unit
             set i add i 1

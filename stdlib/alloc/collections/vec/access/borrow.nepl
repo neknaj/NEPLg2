@@ -93,5 +93,5 @@ pub fn borrow_at_predicate_or <.T> %fn &Vec .T fn i32 fn fn &.T bool fn bool boo
                                 VecStorage::Empty:
                                     fallback
                                 VecStorage::Owned region:
-                                    let byte_off %i32 mul idx size_of<.T>
+                                    let byte_off %i32 mul idx size_of %.T
                                     vec_borrow_slot_predicate<.T> region byte_off predicate

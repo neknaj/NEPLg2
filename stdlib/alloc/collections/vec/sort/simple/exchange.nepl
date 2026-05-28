@@ -51,13 +51,13 @@ pub fn sort_bubble <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                     while lt i end:
                                         do:
                                             let next_i %i32 add i 1
-                                            let a %.T load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                                            let b %.T load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
+                                            let a %.T load<.T> add mem_ptr_addr data mul i size_of %.T;
+                                            let b %.T load<.T> add mem_ptr_addr data mul next_i size_of %.T;
                                             if:
                                                 sort_lt<.T> b a
                                                 then:
-                                                    store<.T> add mem_ptr_addr data mul i size_of<.T> b;
-                                                    store<.T> add mem_ptr_addr data mul next_i size_of<.T> a
+                                                    store<.T> add mem_ptr_addr data mul i size_of %.T b;
+                                                    store<.T> add mem_ptr_addr data mul next_i size_of %.T a
                                                 else unit
                                             set i add i 1;
                                     set end sub end 1;
@@ -105,13 +105,13 @@ pub fn sort_cocktail <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                     while lt i end:
                                         do:
                                             let next_i %i32 add i 1
-                                            let a %.T load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                                            let b %.T load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
+                                            let a %.T load<.T> add mem_ptr_addr data mul i size_of %.T;
+                                            let b %.T load<.T> add mem_ptr_addr data mul next_i size_of %.T;
                                             if:
                                                 sort_lt<.T> b a
                                                 then:
-                                                    store<.T> add mem_ptr_addr data mul i size_of<.T> b;
-                                                    store<.T> add mem_ptr_addr data mul next_i size_of<.T> a;
+                                                    store<.T> add mem_ptr_addr data mul i size_of %.T b;
+                                                    store<.T> add mem_ptr_addr data mul next_i size_of %.T a;
                                                     set swapped 1;
                                                     unit
                                                 else unit
@@ -129,13 +129,13 @@ pub fn sort_cocktail <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                     while lt start j:
                                         do:
                                             let prev_j %i32 sub j 1
-                                            let a %.T load<.T> add mem_ptr_addr data mul prev_j size_of<.T>;
-                                            let b %.T load<.T> add mem_ptr_addr data mul j size_of<.T>;
+                                            let a %.T load<.T> add mem_ptr_addr data mul prev_j size_of %.T;
+                                            let b %.T load<.T> add mem_ptr_addr data mul j size_of %.T;
                                             if:
                                                 sort_lt<.T> b a
                                                 then:
-                                                    store<.T> add mem_ptr_addr data mul prev_j size_of<.T> b;
-                                                    store<.T> add mem_ptr_addr data mul j size_of<.T> a;
+                                                    store<.T> add mem_ptr_addr data mul prev_j size_of %.T b;
+                                                    store<.T> add mem_ptr_addr data mul j size_of %.T a;
                                                     set swapped 1;
                                                     unit
                                                 else unit

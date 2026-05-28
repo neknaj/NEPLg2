@@ -51,16 +51,16 @@ pub fn sort_selection <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                     let mut j %i32 add i 1;
                                     while lt j n:
                                         do:
-                                            let a %.T load<.T> add mem_ptr_addr data mul j size_of<.T>;
-                                            let b %.T load<.T> add mem_ptr_addr data mul min_idx size_of<.T>;
+                                            let a %.T load<.T> add mem_ptr_addr data mul j size_of %.T;
+                                            let b %.T load<.T> add mem_ptr_addr data mul min_idx size_of %.T;
                                             if:
                                                 sort_lt<.T> a b
                                                 then set min_idx j
                                                 else unit
                                             set j add j 1;
-                                    let left %.T load<.T> add mem_ptr_addr data mul i size_of<.T>
-                                    let right %.T load<.T> add mem_ptr_addr data mul min_idx size_of<.T>
-                                    store<.T> add mem_ptr_addr data mul i size_of<.T> right;
-                                    store<.T> add mem_ptr_addr data mul min_idx size_of<.T> left;
+                                    let left %.T load<.T> add mem_ptr_addr data mul i size_of %.T
+                                    let right %.T load<.T> add mem_ptr_addr data mul min_idx size_of %.T
+                                    store<.T> add mem_ptr_addr data mul i size_of %.T right;
+                                    store<.T> add mem_ptr_addr data mul min_idx size_of %.T left;
                                     set i add i 1;
                             unit

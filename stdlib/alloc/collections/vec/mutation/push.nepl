@@ -221,7 +221,7 @@ fn vec_realloc_region_error_kind <.T> %fn &VecReallocRegionError .T StdErrorKind
 //:     if ok 0 1
 //: ```
 fn vec_next_capacity <.T> %fn i32 Result i32 StdErrorKind \cap0:
-    let elem_size %i32 size_of<.T>
+    let elem_size %i32 size_of %.T
     if:
         or lt cap0 0 le elem_size 0
         then:
@@ -256,7 +256,7 @@ fn vec_next_capacity <.T> %fn i32 Result i32 StdErrorKind \cap0:
 //: - 成功時は返った token が storage owner です。失敗時は旧 token が `VecReallocRegionError.region` に[戻/もど]ります。
 //: - payload の raw load / raw store は行いません。この helper は storage owner の再確保境界だけを扱うため、`.T: Copy` を要求しません。
 fn vec_realloc_region_or_keep <.T> %fn RegionToken .T fn i32 Result RegionToken .T VecReallocRegionError .T \region\new_cap:
-    let elem_size %i32 size_of<.T>
+    let elem_size %i32 size_of %.T
     if:
         or le new_cap 0 le elem_size 0
         then:
@@ -311,7 +311,7 @@ fn vec_push_storage_checked <.T> %fn Vec .T fn .T Result Vec .T VecPushError .T 
                                             match alloc_region<.T> grown_cap:
                                                 Result::Ok grown_region:
                                                     let next_len %i32 add v_len 1
-                                                    let byte_off %i32 mul v_len size_of<.T>
+                                                    let byte_off %i32 mul v_len size_of %.T
                                                     vec_push_slot_store_initialized<.T> &grown_region byte_off item
                                                     Result::Ok Vec<.T> (OwnedBuffer<.T> next_len next_len grown_cap (VecStorage<.T>::Owned grown_region))
                                                 Result::Err _e:
@@ -322,7 +322,7 @@ fn vec_push_storage_checked <.T> %fn Vec .T fn .T Result Vec .T VecPushError .T 
                                     match vec_realloc_region_or_keep<.T> v_region grown_cap:
                                         Result::Ok grown_region:
                                             let next_len %i32 add v_len 1
-                                            let byte_off %i32 mul v_len size_of<.T>
+                                            let byte_off %i32 mul v_len size_of %.T
                                             vec_push_slot_store_initialized<.T> &grown_region byte_off item
                                             Result::Ok Vec<.T> (OwnedBuffer<.T> next_len next_len grown_cap (VecStorage<.T>::Owned grown_region))
                                         Result::Err e:
@@ -335,7 +335,7 @@ fn vec_push_storage_checked <.T> %fn Vec .T fn .T Result Vec .T VecPushError .T 
                             Result::Err VecPushError<.T> (VecPushRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) item) StdErrorKind::InvalidOperation
                         VecStorage::Owned v_region:
                             let next_len %i32 add v_len 1
-                            let byte_off %i32 mul v_len size_of<.T>
+                            let byte_off %i32 mul v_len size_of %.T
                             vec_push_slot_store_initialized<.T> &v_region byte_off item
                             Result::Ok Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))
 

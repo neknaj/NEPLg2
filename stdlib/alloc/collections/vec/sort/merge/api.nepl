@@ -36,7 +36,7 @@
 //:     0
 //: ```
 fn sort_merge_buffer_get <.T: Copy> %fn MemPtr .T fn i32 .T \buf\idx:
-    let off %i32 mul idx size_of<.T>
+    let off %i32 mul idx size_of %.T
     load<.T> add mem_ptr_addr buf off
 
 //: sort_merge_buffer_set: merge sort private buffer へ 1 要素を書き込む
@@ -54,7 +54,7 @@ fn sort_merge_buffer_get <.T: Copy> %fn MemPtr .T fn i32 .T \buf\idx:
 //:     0
 //: ```
 fn sort_merge_buffer_set <.T: Copy> %impure fn MemPtr .T impure fn i32 impure fn .T unit \buf\idx\val:
-    let off %i32 mul idx size_of<.T>
+    let off %i32 mul idx size_of %.T
     store<.T> add mem_ptr_addr buf off val;
     unit
 
@@ -87,7 +87,7 @@ fn sort_merge_range_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn MemPtr .T
             let mut i0 %i32 l;
             while lt i0 r:
                 do:
-                    let x %.T load<.T> add mem_ptr_addr data_ptr mul i0 size_of<.T>;
+                    let x %.T load<.T> add mem_ptr_addr data_ptr mul i0 size_of %.T;
                     sort_merge_buffer_set<.T> buf i0 x;
                     set i0 add i0 1;
 
@@ -108,11 +108,11 @@ fn sort_merge_range_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn MemPtr .T
                             if:
                                 sort_lt<.T> b a
                                 then:
-                                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> b;
+                                    store<.T> add mem_ptr_addr data_ptr mul k size_of %.T b;
                                     set j add j 1;
                                     unit
                                 else:
-                                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> a;
+                                    store<.T> add mem_ptr_addr data_ptr mul k size_of %.T a;
                                     set i add i 1;
                                     unit;
                             set k add k 1;
@@ -122,14 +122,14 @@ fn sort_merge_range_data <.T: Ord&Copy> %impure fn MemPtr .T impure fn MemPtr .T
             while lt i mid:
                 do:
                     let a %.T sort_merge_buffer_get<.T> buf i;
-                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> a;
+                    store<.T> add mem_ptr_addr data_ptr mul k size_of %.T a;
                     set i add i 1;
                     set k add k 1;
 
             while lt j r:
                 do:
                     let b %.T sort_merge_buffer_get<.T> buf j;
-                    store<.T> add mem_ptr_addr data_ptr mul k size_of<.T> b;
+                    store<.T> add mem_ptr_addr data_ptr mul k size_of %.T b;
                     set j add j 1;
                     set k add k 1;
 

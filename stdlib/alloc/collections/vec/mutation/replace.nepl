@@ -98,7 +98,7 @@ pub fn replace <.T: Copy> %impure fn &Vec .T impure fn i32 impure fn .T unit \v\
                                 VecStorage::Empty:
                                     unit
                                 VecStorage::Owned region:
-                                    let byte_off %i32 mul idx size_of<.T>
+                                    let byte_off %i32 mul idx size_of %.T
                                     vec_replace_copy_initialized_slot<.T> region byte_off item
 
 //: ## replace_drop_old
@@ -157,7 +157,7 @@ pub fn replace_drop_old <.T: Drop> %impure fn Vec .T impure fn i32 impure fn .T 
                                 VecStorage::Empty:
                                     Result::Err VecReplaceError<.T> (VecReplaceRejected<.T> (Vec<.T> (OwnedBuffer<.T> v_len v_initialized_len v_cap VecStorage<.T>::Empty)) item) StdErrorKind::InvalidOperation
                                 VecStorage::Owned v_region:
-                                    let byte_off %i32 mul idx size_of<.T>
+                                    let byte_off %i32 mul idx size_of %.T
                                     vec_replace_drop_old_initialized_slot<.T> &v_region byte_off item
                                     Result::Ok Vec<.T> (OwnedBuffer<.T> v_len v_len v_cap (VecStorage<.T>::Owned v_region))
 

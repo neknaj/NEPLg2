@@ -31,7 +31,7 @@ fn vec_cleanup_copy_initialized_prefix <.T: Copy> %fn &RegionToken .T fn i32 uni
     let mut i %i32 0
     while lt i initialized_len:
         do:
-            let byte_off %i32 mul i size_of<.T>
+            let byte_off %i32 mul i size_of %.T
             let slot %MemPtr .T mem_ptr_add<.T> data byte_off
             let raw %i32 mem_ptr_addr slot
             let _value %.T load<.T> raw
@@ -53,7 +53,7 @@ fn vec_cleanup_drop_initialized_prefix <.T: Drop> %impure fn &RegionToken .T imp
     let mut i %i32 0
     while lt i initialized_len:
         do:
-            let byte_off %i32 mul i size_of<.T>
+            let byte_off %i32 mul i size_of %.T
             let slot %MemPtr .T mem_ptr_add<.T> data byte_off
             let raw %i32 mem_ptr_addr slot
             let loaded %.T load<.T> raw

@@ -18,11 +18,11 @@
 
 //: sort_heap_get_data: heap sort の検査済み range 内で raw data view から Copy 要素を読む
 fn sort_heap_get_data <.T: Copy> %fn MemPtr .T fn i32 .T \data_ptr\idx:
-    load<.T> add mem_ptr_addr data_ptr mul idx size_of<.T>
+    load<.T> add mem_ptr_addr data_ptr mul idx size_of %.T
 
 //: sort_heap_set_data: heap sort の検査済み range 内で raw data view へ Copy 要素を書く
 fn sort_heap_set_data <.T: Copy> %impure fn MemPtr .T impure fn i32 impure fn .T unit \data_ptr\idx\val:
-    store<.T> add mem_ptr_addr data_ptr mul idx size_of<.T> val;
+    store<.T> add mem_ptr_addr data_ptr mul idx size_of %.T val;
     unit
 
 //: sort_heap_swap_data: heap sort の検査済み range 内で 2 要素を入れ替える

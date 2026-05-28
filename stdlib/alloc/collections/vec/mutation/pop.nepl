@@ -62,7 +62,7 @@ fn vec_pop_storage_checked <.T> %fn Vec .T VecPop .T \v:
                         VecStorage::Empty:
                             VecPop<.T> vec_storage::vec_empty<.T> none
                         VecStorage::Owned v_region:
-                            let byte_off %i32 mul next_len size_of<.T>
+                            let byte_off %i32 mul next_len size_of %.T
                             let item %.T vec_pop_move_out_initialized_slot<.T> &v_region byte_off
                             VecPop<.T> (Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))) some item
 
@@ -282,7 +282,7 @@ fn vec_drop_last_storage_checked_copy <.T: Copy> %fn Vec .T Vec .T \v:
                         VecStorage::Empty:
                             Vec<.T> (OwnedBuffer<.T> 0 0 v_cap VecStorage<.T>::Empty)
                         VecStorage::Owned v_region:
-                            let byte_off %i32 mul next_len size_of<.T>
+                            let byte_off %i32 mul next_len size_of %.T
                             vec_drop_last_copy_initialized_slot<.T> &v_region byte_off
                             Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))
 
@@ -310,6 +310,6 @@ fn vec_drop_last_storage_checked_drop <.T: Drop> %impure fn Vec .T Vec .T \v:
                         VecStorage::Empty:
                             Vec<.T> (OwnedBuffer<.T> 0 0 v_cap VecStorage<.T>::Empty)
                         VecStorage::Owned v_region:
-                            let byte_off %i32 mul next_len size_of<.T>
+                            let byte_off %i32 mul next_len size_of %.T
                             vec_drop_last_drop_initialized_slot<.T> &v_region byte_off
                             Vec<.T> (OwnedBuffer<.T> next_len next_len v_cap (VecStorage<.T>::Owned v_region))

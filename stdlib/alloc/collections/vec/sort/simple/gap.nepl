@@ -52,22 +52,22 @@ pub fn sort_shell <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                     let mut i %i32 gap;
                                     while lt i n:
                                         do:
-                                            let temp %.T load<.T> add mem_ptr_addr data mul i size_of<.T>;
+                                            let temp %.T load<.T> add mem_ptr_addr data mul i size_of %.T;
                                             let mut j %i32 i;
 
                                             let mut done %i32 0;
                                             while eq done 0:
                                                 do:
                                                     if:
-                                                        and le gap j sort_lt<.T> temp load<.T> add mem_ptr_addr data mul sub j gap size_of<.T>
+                                                        and le gap j sort_lt<.T> temp load<.T> add mem_ptr_addr data mul sub j gap size_of %.T
                                                         then:
                                                             let src %i32 sub j gap
-                                                            let x %.T load<.T> add mem_ptr_addr data mul src size_of<.T>;
-                                                            store<.T> add mem_ptr_addr data mul j size_of<.T> x;
+                                                            let x %.T load<.T> add mem_ptr_addr data mul src size_of %.T;
+                                                            store<.T> add mem_ptr_addr data mul j size_of %.T x;
                                                             set j sub j gap;
                                                         else set done 1
 
-                                            store<.T> add mem_ptr_addr data mul j size_of<.T> temp;
+                                            store<.T> add mem_ptr_addr data mul j size_of %.T temp;
                                             set i add i 1;
                                     set gap div_s gap 2;
                             unit
@@ -127,13 +127,13 @@ pub fn sort_comb <.T: Ord&Copy> %impure fn &Vec .T unit \v:
                                             if:
                                                 lt next_i n
                                                 then:
-                                                    let a %.T load<.T> add mem_ptr_addr data mul i size_of<.T>;
-                                                    let b %.T load<.T> add mem_ptr_addr data mul next_i size_of<.T>;
+                                                    let a %.T load<.T> add mem_ptr_addr data mul i size_of %.T;
+                                                    let b %.T load<.T> add mem_ptr_addr data mul next_i size_of %.T;
                                                     if:
                                                         sort_lt<.T> b a
                                                         then:
-                                                            store<.T> add mem_ptr_addr data mul i size_of<.T> b;
-                                                            store<.T> add mem_ptr_addr data mul next_i size_of<.T> a;
+                                                            store<.T> add mem_ptr_addr data mul i size_of %.T b;
+                                                            store<.T> add mem_ptr_addr data mul next_i size_of %.T a;
                                                             set sorted 0;
                                                             unit
                                                         else unit

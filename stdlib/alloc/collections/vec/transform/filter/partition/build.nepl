@@ -137,7 +137,7 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                                                         cond p item
                                                                         then unit
                                                                         else:
-                                                                            store<.T> add mem_ptr_addr right_data mul right_i size_of<.T> item
+                                                                            store<.T> add mem_ptr_addr right_data mul right_i size_of %.T item
                                                                             set right_i add right_i 1
                                                                 Option::None:
                                                                     unit
@@ -171,7 +171,7 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                                                     if:
                                                                         cond p item
                                                                         then:
-                                                                            store<.T> add mem_ptr_addr left_data mul left_i size_of<.T> item
+                                                                            store<.T> add mem_ptr_addr left_data mul left_i size_of %.T item
                                                                             set left_i add left_i 1
                                                                         else unit
                                                                 Option::None:
@@ -198,10 +198,10 @@ pub fn partition <.T: Copy> %fn Vec .T fn fn .T bool Result VecPartition .T VecT
                                                             if:
                                                                 cond p item
                                                                 then:
-                                                                    store<.T> add mem_ptr_addr left_data mul left_i size_of<.T> item
+                                                                    store<.T> add mem_ptr_addr left_data mul left_i size_of %.T item
                                                                     set left_i add left_i 1
                                                                 else:
-                                                                    store<.T> add mem_ptr_addr right_data mul right_i size_of<.T> item
+                                                                    store<.T> add mem_ptr_addr right_data mul right_i size_of %.T item
                                                                     set right_i add right_i 1
                                                         Option::None:
                                                             unit

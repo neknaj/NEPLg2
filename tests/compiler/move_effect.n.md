@@ -611,7 +611,7 @@ fn main %impure fn unit i32 \unit:
     let q %MemPtr LocalToken mem_ptr_add<LocalToken> p 0
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let raw %i32 mem_ptr_addr q
-    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of %LocalToken
     let r %Result unit str dealloc_region<LocalToken> token
     0
 ```
@@ -770,7 +770,7 @@ fn main %impure fn unit i32 \unit:
     let q %MemPtr LocalToken mem_ptr_add<LocalToken> p off
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let raw %i32 mem_ptr_addr q
-    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of %LocalToken
     let r %Result unit str dealloc_region<LocalToken> token
     0
 ```
@@ -830,10 +830,10 @@ fn token_id %fn i32 i32 \x:
 
 fn main %impure fn unit i32 \unit:
     let base %i32 24
-    let q %i32 sub base size_of<LocalToken>
+    let q %i32 sub base size_of %LocalToken
     store<LocalToken> q LocalToken @token_id
     let a %LocalToken load<LocalToken> q
-    let b %LocalToken load<LocalToken> sub base size_of<LocalToken>
+    let b %LocalToken load<LocalToken> sub base size_of %LocalToken
     0
 ```
 
@@ -858,12 +858,12 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn slot_ptr <.T,.V> %fn i32 fn i32 i32 \base\idx:
-    add base mul idx add size_of<.T> size_of<.V>
+    add base mul idx add size_of %.T size_of %.V
 
 fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> slot_ptr<LocalToken,i32> p 0 LocalToken @token_id
-    store_i32 add p size_of<LocalToken> 123
+    store_i32 add p size_of %LocalToken 123
     let a %LocalToken load<LocalToken> p
     0
 ```
@@ -889,10 +889,10 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn choose_offset %fn bool i32 \flag:
-    if flag 0 size_of<LocalToken>
+    if flag 0 size_of %LocalToken
 
 fn slot_ptr <.T,.V> %fn i32 fn i32 i32 \base\idx:
-    add base mul idx add size_of<.T> size_of<.V>
+    add base mul idx add size_of %.T size_of %.V
 
 fn main %impure fn unit i32 \unit:
     let p %i32 16
@@ -977,7 +977,7 @@ fn token_id %fn i32 i32 \x:
 fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
-    dealloc_raw p size_of<LocalToken>
+    dealloc_raw p size_of %LocalToken
     0
 ```
 
@@ -1004,7 +1004,7 @@ fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
     let a %LocalToken load<LocalToken> p
-    dealloc_raw p size_of<LocalToken>
+    dealloc_raw p size_of %LocalToken
     0
 ```
 
@@ -1032,7 +1032,7 @@ fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let raw %i32 mem_ptr_addr p
-    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of %LocalToken
     let r %Result unit str dealloc_region<LocalToken> token
     0
 ```
@@ -1060,7 +1060,7 @@ fn token_id %fn i32 i32 \x:
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let raw %i32 mem_ptr_addr p
-    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of %LocalToken
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let r %Result unit str dealloc_region<LocalToken> token
     0
@@ -1124,7 +1124,7 @@ fn token_id %fn i32 i32 \x:
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let raw %i32 mem_ptr_addr p
-    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of %LocalToken
     match region_ptr_at<LocalToken,LocalToken> &token 0:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
@@ -1161,13 +1161,13 @@ fn choose_offset %fn bool i32 \flag:
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let raw %i32 mem_ptr_addr p
-    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of %LocalToken
     let off %i32 choose_offset true
     match region_ptr_at<LocalToken,LocalToken> &token off:
         Result::Ok q:
             store<LocalToken> mem_ptr_addr p LocalToken @token_id
             let forged_raw %i32 mem_ptr_addr q
-            let forged %RegionToken LocalToken region_new<LocalToken> forged_raw size_of<LocalToken>
+            let forged %RegionToken LocalToken region_new<LocalToken> forged_raw size_of %LocalToken
             let r %Result unit str dealloc_region<LocalToken> forged
             0
         Result::Err _e:
@@ -1642,7 +1642,7 @@ fn token_id %fn i32 i32 \x:
 fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
-    let q %i32 realloc_raw p size_of<LocalToken> 32
+    let q %i32 realloc_raw p size_of %LocalToken 32
     q
 ```
 
@@ -1667,17 +1667,17 @@ fn token_id %fn i32 i32 \x:
     x
 
 fn main %impure fn unit i32 \unit:
-    let p %i32 alloc_raw size_of<LocalToken>
+    let p %i32 alloc_raw size_of %LocalToken
     store<LocalToken> p LocalToken @token_id
     let a %LocalToken load<LocalToken> p
-    let q %i32 realloc_raw p size_of<LocalToken> 32
+    let q %i32 realloc_raw p size_of %LocalToken 32
     if:
         lt 0 q
         then:
             dealloc_raw q 32
             0
         else:
-            dealloc_raw p size_of<LocalToken>
+            dealloc_raw p size_of %LocalToken
             0
 ```
 
@@ -1704,7 +1704,7 @@ fn token_id %fn i32 i32 \x:
 fn main %impure fn unit i32 \unit:
     let p %MemPtr LocalToken mem_ptr_wrap<LocalToken> 16
     let raw %i32 mem_ptr_addr p
-    let token %RegionToken LocalToken region_new<LocalToken> raw size_of<LocalToken>
+    let token %RegionToken LocalToken region_new<LocalToken> raw size_of %LocalToken
     store<LocalToken> mem_ptr_addr p LocalToken @token_id
     let r %Result RegionToken LocalToken RegionReallocError LocalToken realloc_region_bytes_keep<LocalToken> token 32
     0
@@ -1733,7 +1733,7 @@ fn main %impure fn unit i32 \unit:
     let src %i32 16
     let dst %i32 64
     store<LocalToken> src LocalToken @token_id
-    mem_copy dst src size_of<LocalToken>
+    mem_copy dst src size_of %LocalToken
     0
 ```
 
@@ -1760,7 +1760,7 @@ fn main %impure fn unit i32 \unit:
     let src %i32 16
     let dst %i32 64
     store<LocalToken> src LocalToken @token_id
-    mem_move dst src size_of<LocalToken>
+    mem_move dst src size_of %LocalToken
     0
 ```
 
@@ -1787,7 +1787,7 @@ fn main %impure fn unit i32 \unit:
     let src %i32 16
     let dst %i32 64
     store<LocalToken> dst LocalToken @token_id
-    mem_copy dst src size_of<LocalToken>
+    mem_copy dst src size_of %LocalToken
     0
 ```
 
@@ -1845,7 +1845,7 @@ fn main %impure fn unit i32 \unit:
     let dst %i32 64
     store<LocalToken> src LocalToken @token_id
     let a %LocalToken load<LocalToken> src
-    mem_copy dst src size_of<LocalToken>
+    mem_copy dst src size_of %LocalToken
     0
 ```
 
@@ -2231,7 +2231,7 @@ fn token_id %fn i32 i32 \x:
 fn main %impure fn unit i32 \unit:
     let p %i32 16
     store<LocalToken> p LocalToken @token_id
-    memset_u8 p size_of<LocalToken> 0
+    memset_u8 p size_of %LocalToken 0
     0
 ```
 

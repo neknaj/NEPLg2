@@ -106,7 +106,7 @@ pub fn map <.T: Copy,.U: Copy> %fn Vec .T fn fn .T .U Result Vec .U VecTransform
                                     match vec_get::get<.T> &v i:
                                         Option::Some item:
                                             let mapped %.U f item
-                                            store<.U> add mem_ptr_addr out_data mul i size_of<.U> mapped
+                                            store<.U> add mem_ptr_addr out_data mul i size_of %.U mapped
                                         Option::None:
                                             unit
                                     set i add i 1

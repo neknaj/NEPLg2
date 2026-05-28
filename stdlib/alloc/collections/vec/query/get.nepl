@@ -84,4 +84,4 @@ pub fn get <.T: Copy> %fn &Vec .T fn i32 Option .T \v\idx:
                                         VecDataView::Invalid _reason:
                                             none
                                         VecDataView::Data v_data:
-                                            some load<.T> add mem_ptr_addr v_data mul idx size_of<.T>
+                                            some load<.T> add mem_ptr_addr v_data mul idx size_of %.T
