@@ -1,15 +1,15 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-28T09:36:30.161Z",
+  "generated_at": "2026-05-28T09:40:48.101Z",
   "counts": {
-    "total": 1269,
+    "total": 1270,
     "open": 15,
-    "resolved": 1254,
+    "resolved": 1255,
     "by_area": {
       "stdlib": {
-        "total": 330,
+        "total": 331,
         "open": 5,
-        "resolved": 325
+        "resolved": 326
       },
       "core": {
         "total": 625,
@@ -15053,6 +15053,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260525T214844057Z-SHA256-STILL-READS-STALE-VECPUSHERRO-77799ACC.md"
+    },
+    {
+      "id": "ISS-20260528T094007190Z-STRING-PREDICATE-HELPERS-LACK-DECLAR-0D839544",
+      "title": "String predicate helpers lack declaration doctests",
+      "area": "stdlib",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "doc",
+      "created": "2026-05-28",
+      "updated": "2026-05-28",
+      "target": "stdlib/alloc/string/byte_index.nepl, stdlib/alloc/string/search/compare.nepl",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260528T094007190Z-STRING-PREDICATE-HELPERS-LACK-DECLAR-0D839544.md"
     },
     {
       "id": "ISS-20260429T101413560Z-NODESRC-DOCTEST-PARSER-RUNTIME-IGNOR-6E5E5A79",

@@ -142,6 +142,18 @@ pub fn checked_string_byte_at %fn str fn i32 Option i32 \s\idx:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string/byte_index" as *
+//:| #import "core/math" as *
+//: fn main %impure fn unit i32 \unit:
+//:     let in_range %bool string_byte_eq "AZ" 1 'Z'
+//:     let out_of_range %bool not string_byte_eq "AZ" 2 'Z'
+//:     if and in_range out_of_range 0 1
+//: ```
 fn string_byte_or_invalid %fn str fn i32 i32 \s\idx:
     match checked_string_byte_index s idx:
         Option::Some proof:
@@ -186,6 +198,20 @@ pub fn string_byte_eq %fn str fn i32 fn i32 bool \s\idx\expected:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/string/byte_index" as *
+//:| #import "core/math" as *
+//: fn main %impure fn unit i32 \unit:
+//:     let space %bool string_byte_is_ascii_space " A" 0
+//:     let tab %bool string_byte_is_ascii_space "\tA" 0
+//:     let normal %bool not string_byte_is_ascii_space " A" 1
+//:     let outside %bool not string_byte_is_ascii_space " A" 2
+//:     if and and space tab and normal outside 0 1
+//: ```
 pub fn string_byte_is_ascii_space %fn str fn i32 bool \s\idx:
     let actual %i32 string_byte_or_invalid s idx
     if:

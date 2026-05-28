@@ -99,6 +99,30 @@ pub fn str_is_space %fn i32 bool \b:
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"str_byte_is_ascii_space_at_doc\" count=7 failed=0\nassertion index=0 status=ok kind=bool label=\"space in range\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=1 status=ok kind=bool label=\"tab in range\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"lf in range\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"cr in range\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"non-space byte rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"negative index rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"end index rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "alloc/string" as *
+//:| #import "core/math" as *
+//: fn main %impure fn unit i32 \unit:
+//:     let s " \t\n\rx";
+//:     let report:
+//:         test_report_new "str_byte_is_ascii_space_at_doc"
+//:         |> test_report_push assert "space in range" str_byte_is_ascii_space_at s 0
+//:         |> test_report_push assert "tab in range" str_byte_is_ascii_space_at s 1
+//:         |> test_report_push assert "lf in range" str_byte_is_ascii_space_at s 2
+//:         |> test_report_push assert "cr in range" str_byte_is_ascii_space_at s 3
+//:         |> test_report_push assert "non-space byte rejected" not str_byte_is_ascii_space_at s 4
+//:         |> test_report_push assert "negative index rejected" not str_byte_is_ascii_space_at s -1
+//:         |> test_report_push assert "end index rejected" not str_byte_is_ascii_space_at s 5
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 pub fn str_byte_is_ascii_space_at %fn str fn i32 bool \s\idx:
     string_byte_is_ascii_space s idx
 

@@ -1,3 +1,13 @@
+# 2026-05-28 String predicate doctest gap checkpoint
+
+- subagent 調査により、stdlib documentation contract の `declarationNoDoctest=1065 > 1062` は、string predicate 性能 checkpoint で追加された 3 declaration の doctest 不足が原因だと確認した。
+- `string_byte_or_invalid` は private sentinel helper なので直接呼ばず、public `string_byte_eq` 経由で範囲内一致と範囲外非一致を固定する doctest を追加した。
+- `string_byte_is_ascii_space` には space / tab の true case と、通常 byte / 範囲外 index の false case を固定する doctest を追加した。
+- `str_byte_is_ascii_space_at` は subagent に `stdlib/alloc/string/search/compare.nepl` だけを割り当て、root `alloc/string` facade 経由で space / tab / LF / CR の true case と、通常 byte / negative index / end index の false case を固定する doctest を追加した。
+- `ISS-20260528T094007190Z-STRING-PREDICATE-HELPERS-LACK-DECLAR-0D839544` を作成し、この checkpoint で verified とした。
+- baseline 緩和やコメント削除は行っていない。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 Typecheck public signature test split checkpoint
 
 - subagent 調査により、`typecheck/driver.rs` の responsibility split warning は production code の新しい肥大ではなく、typed public signature hash の契約テストが driver 末尾へ置かれたことが直接原因だと確認した。
