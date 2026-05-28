@@ -222,6 +222,54 @@ fn main %fn unit i32 \unit:
 }
 
 #[test]
+fn function_neplg21_nested_generic_producer_uses_overloaded_consumer_argument() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#no_prelude
+#import "core/field" as field
+#import "core/result" as *
+
+struct DefaultHash32:
+    tag %unit
+
+struct HashSet<.T,.H>:
+    marker %i32
+
+struct HashSetUpdateError<.T,.H>:
+    owner %HashSet .T .H
+
+struct HashMap<.K,.V,.H>:
+    marker %i32
+
+fn new <.T,.H> %fn .H Result HashSet .T .H str \_hasher:
+    ok HashSet<.T,.H> 0
+
+fn new <.K,.V,.H> %fn .H Result HashMap .K .V .H str \_hasher:
+    ok HashMap<.K,.V,.H> 0
+
+fn must_hs %fn Result HashSet i32 DefaultHash32 str HashSet i32 DefaultHash32 \r:
+    unwrap_ok r
+
+fn must_hs %fn Result HashSet i32 DefaultHash32 HashSetUpdateError i32 DefaultHash32 HashSet i32 DefaultHash32 \r:
+    match r:
+        Result::Ok hs:
+            hs
+        Result::Err e:
+            let hs %HashSet i32 DefaultHash32 field::get e "owner"
+            hs
+
+fn main %fn unit i32 \unit:
+    let hs %HashSet i32 DefaultHash32 must_hs new DefaultHash32
+    let marker %i32 field::get hs "marker"
+    marker
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
+
+#[test]
 fn function_neplg21_unconstrained_generic_call_type_args_are_type_error() {
     let option_src = r#"
 #entry main

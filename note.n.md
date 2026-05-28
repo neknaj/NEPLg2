@@ -1,3 +1,14 @@
+# 2026-05-28 NEPLg2.1 nested producer generic inference checkpoint
+
+- Zenn 記事の 2026-05-27 更新版を確認し、型名付き public API や個別 allowlist ではなく、型注釈と静的 overload 解決から producer generic を解く方針で修正した。
+- subagent 2 件で独立調査し、`must_hs new DefaultHash32` では内側 `new` の型引数を決める証拠が外側 `must_hs` の引数型にあるが、未解決外側 overload を期待型推論が飛ばしていたことを確認した。
+- `infer_expected_from_outer_consumer` / `infer_expected_from_outer_consumer_next_arg` は、未解決外側 overload の候補群から同じ引数位置の共通型構造を抽出する。候補間で異なる error payload などは fresh type variable に落とし、`Result HashSet i32 DefaultHash32 ?E` のような producer 解決に必要な部分だけを伝える。
+- overload の戻り値早期 filter は rollback-scoped unification を用いるようにした。宣言側 result と外側期待型の両方に未解決変数がある場合でも、後段の正式な candidate check 前に過剰拒否しないためである。
+- `stdlib/alloc/collections/hashset/{probe,rehash,storage}.nepl` に残っていた `hashset_storage_states<.T>` / `hashset_storage_keys<.T>` などの内部 helper postfix 呼び出しを、NEPLg2.1 の文脈型推論へ任せる形に整理した。
+- `ISS-20260525T233735956Z-NEPLG2-1-NESTED-PRODUCER-GENERIC-CAL-B1C7C74C` は verified 済み。`stdlib/tests/hashset.n.md` と `stdlib/tests/hashset_str.n.md` の focused doctest 4 件は pass。
+- 検証: `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web/Cargo.toml`、`cargo test -p nepl-core --test functions function_neplg21_ -- --nocapture`、`trunk build`、`node nodesrc/tests.js -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/neplg21-hashset-nested-producer-20260528-after3.json -j 1 --dist web/dist --assert-io` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 Resource summary complete leaf entry preseed checkpoint
 
 - Zenn 記事の性能追求方針と試作段階方針に従い、Resource summary value cache の candidate hit 計測だけで止めず、dependency-free complete leaf entry を実際の fixed-point worklist skip に接続した。

@@ -2,12 +2,12 @@
 id: ISS-20260525T233735956Z-NEPLG2-1-NESTED-PRODUCER-GENERIC-CAL-B1C7C74C
 title: "NEPLg2.1 nested producer generic call does not use outer expected parameter type"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P0
 type: bug
 created: 2026-05-25
-updated: 2026-05-25
+updated: 2026-05-28
 target: "nepl-core/src/typecheck/**; stdlib/tests/hashset.n.md; stdlib/tests/hashset_str.n.md"
 ---
 
@@ -41,6 +41,17 @@ Semantic corpus migration cannot remove producer generic postfixes safely for ne
 
 Propagate the selected outer callable argument expectation into nested prefix-call reduction so producer generic calls can solve their type parameters from the consumer parameter type without relying on explicit postfixes. Keep the fix in frontend/typecheck inference and do not weaken Resource IR checks or add stdlib-name allowlists.
 
+## 修正内容
+
+- `infer_expected_from_outer_consumer` / `infer_expected_from_outer_consumer_next_arg` が、未解決の外側 overload を単に飛ばさず、各候補の同じ引数位置から共通する期待型を作るようにした。
+- 外側 overload の error payload など候補ごとに異なる部分は fresh type variable に落とし、`Result HashSet i32 DefaultHash32 ?E` のような下限情報として内側 producer へ渡す。
+- overload の戻り値早期 filter は rollback-scoped unification を使い、宣言側 generic と外側期待型側の未解決変数が異なる位置にある場合を過剰に拒否しないようにした。
+- `hashset_storage_states` / `hashset_storage_keys` 周辺に残っていた、今回の nested producer 修正を妨げる旧 postfix helper 呼び出しを、NEPLg2.1 の型推論に任せる形へ整理した。
+
 ## 検証
 
-Add focused Rust/typecheck regressions for must_hs new DefaultHash32 style nested producer calls, then rerun stdlib/tests/hashset.n.md and stdlib/tests/hashset_str.n.md focused doctests after the compile-time baseline allows them to complete.
+- `cargo test -p nepl-core --test functions function_neplg21_ -- --nocapture`
+- `cargo check -p nepl-core`
+- `cargo check --manifest-path nepl-web/Cargo.toml`
+- `trunk build`
+- `node nodesrc/tests.js -i stdlib/tests/hashset.n.md -i stdlib/tests/hashset_str.n.md --no-tree -o tmp/neplg21-hashset-nested-producer-20260528-after3.json -j 1 --dist web/dist --assert-io`

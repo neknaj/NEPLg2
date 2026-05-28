@@ -8,7 +8,7 @@ use crate::ast::{
 use crate::hir::{HirExpr, HirExprKind};
 use crate::types::{TypeId, TypeKind};
 
-use super::env::BindingKind;
+use super::env::{Binding, BindingKind};
 use super::traits::insert_substitution_mapping;
 use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
@@ -220,6 +220,126 @@ impl<'a> BlockChecker<'a> {
         })
     }
 
+    fn unresolved_overload_argument_expectation(
+        &mut self,
+        bindings: &[Binding],
+        user_arg_idx: usize,
+    ) -> Option<TypeId> {
+        // An unresolved outer overload can still provide useful consumer-side
+        // evidence when all viable overloads agree on the current argument
+        // shape. This keeps nested producer inference type-directed without
+        // choosing the outer overload before its argument has been reduced.
+        let mut expected = None;
+        for binding in bindings {
+            let BindingKind::Func { arity, .. } = &binding.kind else {
+                continue;
+            };
+            if user_arg_idx >= *arity {
+                continue;
+            }
+            let TypeKind::Function { params, .. } = self.ctx.get(binding.ty) else {
+                continue;
+            };
+            let capture_len = params.len().saturating_sub(*arity);
+            let param_idx = capture_len + user_arg_idx;
+            let Some(param_ty) = params.get(param_idx).copied() else {
+                continue;
+            };
+            let param_ty = self.ctx.resolve_id(param_ty);
+            expected = match expected {
+                Some(current) => self.merge_expected_argument_type(current, param_ty),
+                None => Some(param_ty),
+            };
+            expected?;
+        }
+        expected
+    }
+
+    fn merge_expected_argument_type(&mut self, left: TypeId, right: TypeId) -> Option<TypeId> {
+        // The merged type is a lower-information expectation: common structure
+        // is preserved, while positions that differ between outer overloads are
+        // replaced by fresh variables so the inner producer can still solve
+        // the parts that are actually fixed by the consumer.
+        let left = self.ctx.resolve_id(left);
+        let right = self.ctx.resolve_id(right);
+        if self.ctx.same_type(left, right) {
+            return Some(left);
+        }
+        match (self.ctx.get(left), self.ctx.get(right)) {
+            (
+                TypeKind::Apply {
+                    base: left_base,
+                    args: left_args,
+                },
+                TypeKind::Apply {
+                    base: right_base,
+                    args: right_args,
+                },
+            ) if left_args.len() == right_args.len()
+                && self.ctx.same_type(left_base, right_base) =>
+            {
+                let mut args = Vec::with_capacity(left_args.len());
+                for (left_arg, right_arg) in left_args.into_iter().zip(right_args.into_iter()) {
+                    args.push(
+                        self.merge_expected_argument_type(left_arg, right_arg)
+                            .unwrap_or_else(|| self.ctx.fresh_var(None)),
+                    );
+                }
+                Some(self.ctx.apply(left_base, args))
+            }
+            (
+                TypeKind::Reference(left_inner, left_mut),
+                TypeKind::Reference(right_inner, right_mut),
+            ) if left_mut == right_mut => self
+                .merge_expected_argument_type(left_inner, right_inner)
+                .map(|inner| self.ctx.reference(inner, left_mut)),
+            (TypeKind::Box(left_inner), TypeKind::Box(right_inner)) => self
+                .merge_expected_argument_type(left_inner, right_inner)
+                .map(|inner| self.ctx.box_ty(inner)),
+            (TypeKind::Tuple { items: left_items }, TypeKind::Tuple { items: right_items })
+                if left_items.len() == right_items.len() =>
+            {
+                let mut items = Vec::with_capacity(left_items.len());
+                for (left_item, right_item) in left_items.into_iter().zip(right_items.into_iter()) {
+                    items.push(
+                        self.merge_expected_argument_type(left_item, right_item)
+                            .unwrap_or_else(|| self.ctx.fresh_var(None)),
+                    );
+                }
+                Some(self.ctx.tuple(items))
+            }
+            (
+                TypeKind::Function {
+                    params: left_params,
+                    result: left_result,
+                    effect: left_effect,
+                    ..
+                },
+                TypeKind::Function {
+                    params: right_params,
+                    result: right_result,
+                    effect: right_effect,
+                    ..
+                },
+            ) if left_params.len() == right_params.len() && left_effect == right_effect => {
+                let mut params = Vec::with_capacity(left_params.len());
+                for (left_param, right_param) in
+                    left_params.into_iter().zip(right_params.into_iter())
+                {
+                    params.push(
+                        self.merge_expected_argument_type(left_param, right_param)
+                            .unwrap_or_else(|| self.ctx.fresh_var(None)),
+                    );
+                }
+                let result = self
+                    .merge_expected_argument_type(left_result, right_result)
+                    .unwrap_or_else(|| self.ctx.fresh_var(None));
+                Some(self.ctx.function(Vec::new(), params, result, left_effect))
+            }
+            _ => None,
+        }
+    }
+
     pub(super) fn infer_expected_from_outer_consumer(
         &mut self,
         stack: &[StackEntry],
@@ -228,7 +348,20 @@ impl<'a> BlockChecker<'a> {
     ) -> Option<TypeId> {
         for j in (min_func_pos..inner_pos).rev() {
             if self.is_unresolved_overloaded_callable_entry(&stack[j]) {
-                continue;
+                if inner_pos < j + 1 {
+                    continue;
+                }
+                let user_arg_idx = inner_pos - (j + 1);
+                let HirExprKind::Var(name) = &stack[j].expr.kind else {
+                    continue;
+                };
+                let bindings = self
+                    .env
+                    .lookup_all_callables(name)
+                    .into_iter()
+                    .cloned()
+                    .collect::<Vec<_>>();
+                return self.unresolved_overload_argument_expectation(&bindings, user_arg_idx);
             }
             if !stack[j].auto_call {
                 continue;
@@ -286,7 +419,20 @@ impl<'a> BlockChecker<'a> {
     ) -> Option<TypeId> {
         for j in (min_func_pos..inner_pos).rev() {
             if self.is_unresolved_overloaded_callable_entry(&stack[j]) {
-                continue;
+                if inner_pos < j + 1 {
+                    continue;
+                }
+                let user_arg_idx = inner_pos - (j + 1);
+                let HirExprKind::Var(name) = &stack[j].expr.kind else {
+                    continue;
+                };
+                let bindings = self
+                    .env
+                    .lookup_all_callables(name)
+                    .into_iter()
+                    .cloned()
+                    .collect::<Vec<_>>();
+                return self.unresolved_overload_argument_expectation(&bindings, user_arg_idx);
             }
             if !stack[j].auto_call {
                 continue;

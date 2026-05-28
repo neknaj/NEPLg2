@@ -35,13 +35,21 @@ macro_rules! overload_selection_log {
 }
 
 fn result_may_satisfy_expectation(
-    ctx: &TypeCtx,
+    ctx: &mut TypeCtx,
     declared_result: TypeId,
     expectation: TypeExpectation,
 ) -> bool {
     let expected = expectation.target();
-    ctx.type_pattern_matches(declared_result, expected)
-        || ctx.type_pattern_matches(expected, declared_result)
+    // This is only a pre-materialization filter. Rollback-scoped unification
+    // accepts cases where the declared generic result and the outer expected
+    // result contain unknowns in different positions, while preserving the
+    // actual TypeCtx state for the real candidate check below.
+    let checkpoint = ctx.checkpoint();
+    let may_satisfy = ctx.unify(declared_result, expected).is_ok()
+        || ctx.type_pattern_matches(declared_result, expected)
+        || ctx.type_pattern_matches(expected, declared_result);
+    ctx.rollback(checkpoint);
+    may_satisfy
 }
 
 impl<'a> BlockChecker<'a> {
