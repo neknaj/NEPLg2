@@ -1,3 +1,14 @@
+# 2026-05-28 NEPLg2.1 core/mem pointer layout query cleanup checkpoint
+
+- `size_of %T` / `align_of %T` の layout query 新記法に合わせ、`stdlib/core/mem/pointer/region.nepl` と `stdlib/core/mem/pointer/bulk.nepl` の実装行を postfix-free 化した。
+- `region_ptr_at` は `size_of %.U` / `align_of %.U` を使って bounds と alignment を確認する。`alloc_region` は `size_of %.T` を使って allocator payload 上限との乗算前検査を続ける。
+- `mem_copy` / `mem_move` は `size_of %.T` から byte 数を作る形へ移行し、`.T: Copy` boundary と raw bulk operation の分離は維持した。
+- `nodesrc/test_neplg21_core_mem_layout_type_query_cleanup.js` の対象に pointer region / bulk を追加した。通常の説明コメントは検査せず、doctest fence と実行行だけを対象にするため、コメント増加を妨げない。
+- `nodesrc/test_stdlib_core_mem_boundary.js` は旧 `align_of<.U>` ではなく `align_of %.U` を alignment proof の証拠として見るように更新した。
+- subagent 2 件で移行対象と source policy の compile_fail fence 扱いをレビューした。旧構文拒否そのものを pointer doc に置かない限り、compile_fail fence も含めて旧 layout query spelling を禁止する方針で問題ないと確認した。
+- 検証: `node nodesrc/test_neplg21_core_mem_layout_type_query_cleanup.js`、`node nodesrc/test_stdlib_core_mem_boundary.js`、`node nodesrc/test_neplg21_core_mem_positive_doc_postfix_cleanup.js`、`node nodesrc/tests.js -i stdlib/core/mem/pointer/region.nepl -i stdlib/core/mem/pointer/bulk.nepl --no-tree -o tmp/neplg21-core-mem-pointer-layout-query-20260528.json -j 1 --dist web/dist --assert-io` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 NEPLg2.1 layout query postfix-free type marker checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を確認し、試作段階では後方互換より仕様整合性と静的検査の正確性を優先する方針で進めた。

@@ -138,7 +138,7 @@ pub fn region_ptr <.T> %fn &RegionToken .T MemPtr .T \token:
 //: - owned region の範囲内にある byte offset を、型付きの non-owning pointer view へ変換します。
 //:
 //: 実装(アルゴリズム):
-//: - `.U` の `size_of` を使って `off..off+size_of<U>` が region size に収まるかを確認します。
+//: - `.U` の `size_of %.U` を使って `off..off+size_of %.U` が region size に収まるかを確認します。
 //: - `.U` の `align_of` を使って `base + off` が typed pointer projection として正しく整列しているかを確認します。
 //: - 範囲内かつ整列済みであれば base pointer の raw view に offset を加え、`MemPtr .U` として包みます。
 //:
@@ -202,8 +202,8 @@ pub fn region_ptr <.T> %fn &RegionToken .T MemPtr .T \token:
 //:             0
 //: ```
 pub fn region_ptr_at <.T, .U> %fn &RegionToken .T fn i32 Result MemPtr .U str \token\off:
-    let bytes %i32 size_of<.U>
-    let align %i32 align_of<.U>
+    let bytes %i32 size_of %.U
+    let align %i32 align_of %.U
     let total %i32 *region_token_size_ref token
     let base_raw %i32 *region_token_raw_ref token
     let addr %i32 add base_raw off
@@ -423,11 +423,11 @@ pub fn realloc_region_bytes_keep <.T> %fn RegionToken .T fn i32 Result RegionTok
 //: - `.T` の `count` 個ぶんの storage を確保し、owner token として返します。
 //:
 //: 実装(アルゴリズム):
-//: - `count` と `size_of<T>` から乗算前に最大 count を計算し、overflow しない場合だけ byte 数へ変換します。
+//: - `count` と `size_of %.T` から乗算前に最大 count を計算し、overflow しない場合だけ byte 数へ変換します。
 //:
 //: 注意(重要):
 //: - `count <= 0` の場合は `Err` を返します。
-//: - `count * size_of<T>` が allocator payload 上限を超える場合は、wrap した byte 数を作らず `Err` を返します。
+//: - `count * size_of %.T` が allocator payload 上限を超える場合は、wrap した byte 数を作らず `Err` を返します。
 //:
 //: 計算量:
 //: - allocator の free list 探索に依存し、最悪 O(n) です。
@@ -472,7 +472,7 @@ pub fn realloc_region_bytes_keep <.T> %fn RegionToken .T fn i32 Result RegionTok
 //:                     0
 //: ```
 pub fn alloc_region <.T> %fn i32 Result RegionToken .T str \count:
-    let elem_size %i32 size_of<.T>
+    let elem_size %i32 size_of %.T
     if:
         or le count 0 le elem_size 0
         then:

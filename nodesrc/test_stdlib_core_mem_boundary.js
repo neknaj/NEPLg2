@@ -113,7 +113,7 @@ assertMatch(pointerRegion, /\brealloc_region_bytes_keep_relocating[\s\S]*not\s+a
 assertMatch(pointerRegion, /pub\s+fn\s+realloc_region_bytes_keep[\s\S]*let\s+result\s+<Result<RegionToken<\.T>,\s*RegionReallocError<\.T>>>\s+realloc_region_bytes_keep_relocating<\.T>\s+region\s+new_size[\s\S]*\n\s+result\b/, "public RegionToken realloc API must remain an owner-preserving non-transparent wrapper");
 assertNoMatch(pointerRegion, /pub\s+fn\s+realloc_region_bytes_keep[\s\S]*#intrinsic\s+"collection_slot_storage_relocate"/, "public RegionToken realloc API must not expose lifecycle marker authority directly");
 assertNoMatch(pointerRegion, /\b(?:alloc_ptr|realloc_ptr|dealloc_ptr)\b/, "RegionToken owner API must not route allocation through MemPtr owner wrappers");
-assertMatch(pointerRegion, /\balign_of<\.U>/, "region_ptr_at must prove target type alignment");
+assertMatch(pointerRegion, /\balign_of\s+%\.U\b/, "region_ptr_at must prove target type alignment");
 assertMatch(pointerRegion, /\brem_s\s+addr\s+align\s+0\b/, "region_ptr_at must reject unaligned typed addresses");
 assertNoMatch(pointerRegion, /alignment は現時点では検査しません/, "region_ptr_at must not delegate alignment proof to callers");
 assertMatch(pointerRegion, /\bmax_alloc_payload_bytes\b/, "alloc_region must prove count * size before multiplication");

@@ -140,7 +140,7 @@ pub fn fill_i32 %fn MemPtr i32 fn i32 fn i32 Result unit str \ptr\count\value:
 //: - `.T: Copy` の値だけを対象にし、所有権を持つ non-Copy 値の浅い複製を防ぎます。
 //:
 //: 実装(アルゴリズム):
-//: - `count * size_of<.T>` を byte 数に変換し、raw `mem_copy` に委譲します。
+//: - `count * size_of %.T` を byte 数に変換し、raw `mem_copy` に委譲します。
 //:
 //: 注意(重要):
 //: - `dst` と `src` の対象範囲が重ならない場合に使います。
@@ -148,7 +148,7 @@ pub fn fill_i32 %fn MemPtr i32 fn i32 fn i32 Result unit str \ptr\count\value:
 //: - non-Copy 値を移動初期化する用途には使えません。将来の所有権付き region API で扱います。
 //:
 //: 計算量:
-//: - O(count * size_of<.T>)
+//: - O(count * size_of %.T)
 pub fn mem_copy <.T: Copy> %fn MemPtr .T fn MemPtr .T fn i32 Result unit str \dst\src\count:
     let dst_raw %i32 mem_ptr_addr dst;
     let src_raw %i32 mem_ptr_addr src;
@@ -167,7 +167,7 @@ pub fn mem_copy <.T: Copy> %fn MemPtr .T fn MemPtr .T fn i32 Result unit str \ds
                         then:
                             Result::Err "mem.mem_copy invalid pointer"
                         else:
-                            mem_copy dst_raw src_raw mul count size_of<.T>
+                            mem_copy dst_raw src_raw mul count size_of %.T
                             Result::Ok unit
 
 //: mem_move: MemPtr の要素列を重なりを許してまとめてコピーする安全オーバーロード
@@ -177,7 +177,7 @@ pub fn mem_copy <.T: Copy> %fn MemPtr .T fn MemPtr .T fn i32 Result unit str \ds
 //: - `.T: Copy` の値だけを対象にし、所有権を持つ non-Copy 値の浅い複製を防ぎます。
 //:
 //: 実装(アルゴリズム):
-//: - `count * size_of<.T>` を byte 数に変換し、raw `mem_move` に委譲します。
+//: - `count * size_of %.T` を byte 数に変換し、raw `mem_move` に委譲します。
 //:
 //: 注意(重要):
 //: - `dst` と `src` の対象範囲が重なり得る場合はこちらを使います。
@@ -185,7 +185,7 @@ pub fn mem_copy <.T: Copy> %fn MemPtr .T fn MemPtr .T fn i32 Result unit str \ds
 //: - 名前は low-level memory move に合わせていますが、source の所有権を未初期化へ変える操作ではありません。
 //:
 //: 計算量:
-//: - O(count * size_of<.T>)
+//: - O(count * size_of %.T)
 pub fn mem_move <.T: Copy> %fn MemPtr .T fn MemPtr .T fn i32 Result unit str \dst\src\count:
     let dst_raw %i32 mem_ptr_addr dst;
     let src_raw %i32 mem_ptr_addr src;
@@ -204,5 +204,5 @@ pub fn mem_move <.T: Copy> %fn MemPtr .T fn MemPtr .T fn i32 Result unit str \ds
                         then:
                             Result::Err "mem.mem_move invalid pointer"
                         else:
-                            mem_move dst_raw src_raw mul count size_of<.T>
+                            mem_move dst_raw src_raw mul count size_of %.T
                             Result::Ok unit

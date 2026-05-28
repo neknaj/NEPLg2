@@ -9,6 +9,8 @@ const repoRoot = path.resolve(__dirname, "..");
 const relPaths = [
     "stdlib/core/mem/layout.nepl",
     "stdlib/core/mem/types.nepl",
+    "stdlib/core/mem/pointer/bulk.nepl",
+    "stdlib/core/mem/pointer/region.nepl",
     "tests/compiler/intrinsic.n.md",
     "tests/compiler/sizeof.n.md",
 ];
