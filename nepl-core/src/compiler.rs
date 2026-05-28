@@ -438,6 +438,20 @@ fn resource_summary_cache_hash_bytes(hash: &mut u64, bytes: &[u8]) {
     }
 }
 
+fn resource_summary_value_cache_context(
+    namespace_key: &ResourceSummaryCacheNamespaceKey,
+    source_map: Option<&SourceMap>,
+) -> Option<crate::resource::ResourceSummaryValueCacheContext> {
+    let source_map = source_map?;
+    let mut context =
+        crate::resource::ResourceSummaryValueCacheContext::new(namespace_key.stable_hash);
+    for (file_id, _) in source_map.iter_paths() {
+        let policy_hash = source_map.source_capability_policy_hash_for_file(file_id)?;
+        context.insert_source_policy_hash(file_id, policy_hash);
+    }
+    Some(context)
+}
+
 fn run_typecheck(
     module: &ast::Module,
     target: CompileTarget,
@@ -478,6 +492,9 @@ fn run_resource_static_check(
     diagnostics: &mut Vec<Diagnostic>,
     source_map: Option<&SourceMap>,
     resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    resource_summary_value_cache_context: Option<
+        &crate::resource::ResourceSummaryValueCacheContext,
+    >,
 ) -> Result<crate::resource::ResourceDropElaborationPlan, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
@@ -498,11 +515,18 @@ fn run_resource_static_check(
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    let initialized_moves = match resource_summary_value_cache {
-        Some(cache) => crate::resource::check_resource_initialized_moves_with_summary_cache(
-            &resource, types, cache,
-        ),
-        None => crate::resource::check_resource_initialized_moves(&resource, types),
+    let initialized_moves = match (
+        resource_summary_value_cache,
+        resource_summary_value_cache_context,
+    ) {
+        (Some(cache), Some(context)) => {
+            crate::resource::check_resource_initialized_moves_with_summary_cache(
+                &resource, types, cache, context,
+            )
+        }
+        (Some(_), None) | (None, _) => {
+            crate::resource::check_resource_initialized_moves(&resource, types)
+        }
     };
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_initialized_moves", stage_start);
@@ -2213,6 +2237,11 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
         public_signatures.stable_hash,
         dependency_public_surface_hash,
     );
+    let resource_summary_value_cache_context = if resource_summary_value_cache.is_some() {
+        resource_summary_value_cache_context(&resource_summary_cache_namespace_key, source_map)
+    } else {
+        None
+    };
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let resource_monomorphize = monomorphize::monomorphize(&mut types, resource_tc.module);
@@ -2237,6 +2266,7 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
         &mut diagnostics,
         source_map,
         resource_summary_value_cache,
+        resource_summary_value_cache_context.as_ref(),
     )?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_static_check", stage_start);

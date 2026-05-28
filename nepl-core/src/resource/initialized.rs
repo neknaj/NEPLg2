@@ -50,14 +50,16 @@ use super::report::{
     ResourceCheckDeferred, ResourceCheckDiagnostic, ResourceCheckOperation, ResourceCheckReport,
     ResourceFunctionCheck,
 };
-use super::resource_summary_value_cache::ResourceSummaryValueCache;
+use super::resource_summary_value_cache::{
+    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+};
 use super::timing::{ResourceFunctionTimer, ResourceStageTimer};
 
 pub fn check_resource_initialized_moves(
     module: &ResourceModule,
     types: &TypeCtx,
 ) -> ResourceCheckReport {
-    check_resource_initialized_moves_inner(module, types, None)
+    check_resource_initialized_moves_inner(module, types, None, None)
 }
 
 /// Resource summary value cache の観測を伴う initialized-state checker。
@@ -69,14 +71,21 @@ pub fn check_resource_initialized_moves_with_summary_cache(
     module: &ResourceModule,
     types: &TypeCtx,
     summary_value_cache: &mut ResourceSummaryValueCache,
+    summary_value_cache_context: &ResourceSummaryValueCacheContext,
 ) -> ResourceCheckReport {
-    check_resource_initialized_moves_inner(module, types, Some(summary_value_cache))
+    check_resource_initialized_moves_inner(
+        module,
+        types,
+        Some(summary_value_cache),
+        Some(summary_value_cache_context),
+    )
 }
 
 fn check_resource_initialized_moves_inner(
     module: &ResourceModule,
     types: &TypeCtx,
     mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> ResourceCheckReport {
     let stage_start = ResourceStageTimer::start();
     let mut functions = Vec::new();
@@ -108,6 +117,7 @@ fn check_resource_initialized_moves_inner(
         &i32_scalar_summaries,
         &raw_init_summaries,
         summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
     );
     let collection_slot_summary_index =
         CollectionSlotLifecycleFunctionSummaryIndex::new(&collection_slot_summaries);

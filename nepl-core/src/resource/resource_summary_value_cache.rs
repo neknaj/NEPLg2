@@ -5,16 +5,18 @@ use super::model::ResourceFunction;
 
 mod body_hash;
 mod candidate_key;
+mod context;
 mod key;
 mod stable_hash;
 mod stable_mirror;
 mod stable_type_key;
 mod type_boundary;
 
-use self::body_hash::resource_function_body_hash;
-use self::key::ResourceSummaryFunctionIdentity;
-use self::stable_mirror::stable_drop_traversal_forall_value;
-use self::type_boundary::resource_summary_type_parameter_boundary_hash;
+pub use self::context::ResourceSummaryValueCacheContext;
+
+use self::candidate_key::{
+    drop_traversal_forall_candidate_key, ResourceSummaryGenericTypeArgumentKeyInput,
+};
 
 /// Resource IR summary value cache の累積統計。
 ///
@@ -63,23 +65,35 @@ impl ResourceSummaryValueCache {
     /// 変換できる候補だけを bypass として数える。これにより、compiled-output cache
     /// ではなく Resource summary value cache がどの程度効き得るかを timing JSON から
     /// 確認できる。
-    pub(super) fn record_drop_traversal_forall_bypass_if_stable(
+    pub(super) fn record_drop_traversal_forall_bypass_if_keyable(
         &mut self,
+        context: &ResourceSummaryValueCacheContext,
         types: &TypeCtx,
         function: &ResourceFunction,
         type_params: &[TypeId],
         op: &CollectionSlotLifecycleSummaryOp,
     ) {
-        if ResourceSummaryFunctionIdentity::from_resource_function(function).is_none() {
+        let Some(source_capability_policy_hash) =
+            context.source_capability_policy_hash_for_function(function)
+        else {
             return;
-        }
-        if resource_function_body_hash(types, function).is_none() {
-            return;
-        }
-        if resource_summary_type_parameter_boundary_hash(types, type_params).is_none() {
-            return;
-        }
-        if stable_drop_traversal_forall_value(types, op).is_none() {
+        };
+        let generic_type_args = if function.type_params.is_empty() && type_params.is_empty() {
+            ResourceSummaryGenericTypeArgumentKeyInput::NonGeneric
+        } else {
+            ResourceSummaryGenericTypeArgumentKeyInput::TemplateBoundaryOnly
+        };
+        if drop_traversal_forall_candidate_key(
+            types,
+            context.namespace_hash(),
+            source_capability_policy_hash,
+            function,
+            type_params,
+            generic_type_args,
+            op,
+        )
+        .is_none()
+        {
             return;
         }
         self.stats.resource_summary_value_bypasses += 1;

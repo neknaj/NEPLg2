@@ -556,6 +556,8 @@ function identity gate checkpoint では、top-level `DropTraversal + ForallInit
 
 candidate key builder checkpoint では、`resource_summary_value_cache::candidate_key` private staging module を追加し、per-value key を作るための全入力を一箇所で合成する境界を固定した。builder は namespace hash、source capability policy hash、function identity、function body hash、function-local type parameter boundary hash、generic type argument key、stable mirror value がすべて作れる場合だけ `ResourceSummaryValueCacheKey` を返す。namespace hash と source capability policy hash は型名付き wrapper で受け、`0` や empty を未計算 sentinel として扱わない。generic type argument は `NonGeneric` / `TemplateBoundaryOnly` / `KnownInstantiation` の明示 enum にし、現行 summary が concrete call-site args を持たないことと、将来の instantiated cache key が実引数を取り忘れないことを両立させる。
 
+source policy context checkpoint では、`ResourceSummaryValueCacheContext` を追加し、compiler pipeline で作った `ResourceSummaryCacheNamespaceKey::stable_hash` と `SourceMap::source_capability_policy_hash_for_file` の結果だけを Resource initialized check へ渡すようにした。Resource checker には raw `SourceMap` を渡さず、`FileId -> source policy hash` の小さな context だけを渡す。context は `ResourceFunction` / block / op / terminator / nested control-flow op / match arm の distinct file id を集め、対応する source policy hash がすべて存在する場合だけ per-function source policy hash を作る。`Span::dummy()` は source file 0 とみなさず無視し、実 source policy が取れない候補は no-store / no-bypass に倒す。現 checkpoint でも map store/hit はまだ行わず、keyable candidate だけを bypass counter として観測する。
+
 必須 regression:
 
 - 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。

@@ -332,7 +332,6 @@ impl SourceMap {
             .unwrap_or_default()
     }
 
-    #[allow(dead_code)]
     /// Resource summary value cache key に含める source capability policy hash を返す。
     ///
     /// source text は `SourceMap` が保持しているため、caller に source hash を渡させない。

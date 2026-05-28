@@ -47667,3 +47667,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - regression として、同じ path / capability でも source text が違えば policy hash が変わり、同じ source text / capability でも path が違えば policy hash が変わることを固定した。
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core source_capability_policy_hash --lib`、`cargo test -p nepl-core source_capability_source_hash --lib`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
 - `trunk build` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-source-policy-owner-final-20260528.json` は `caseCount=13, passedCount=13, failedCount=0` だった。
+
+## 2026-05-28 Agent Resource summary source policy context checkpoint
+
+- Zenn の試作段階方針と性能追求方針を再確認し、Resource summary value cache の keyable candidate を実 pipeline の namespace/source policy 入力へ接続した。`plan.md` は変更していない。
+- subagent review では、raw `SourceMap` を initialized checker 全体へ渡すのではなく、namespace hash と source policy hash だけを持つ narrow context を渡すべきだと確認した。これを受けて `ResourceSummaryValueCacheContext` を追加した。
+- compiler pipeline は `ResourceSummaryCacheNamespaceKey::stable_hash` と `SourceMap::source_capability_policy_hash_for_file` から context を作る。source map がない場合は cache-aware initialized path へ入らず、従来の `check_resource_initialized_moves` を使う。
+- context は `ResourceFunction` / block / op / terminator / nested Branch / Loop / Match / match arm の distinct file id を集め、対応する source policy hash がすべて存在する場合だけ per-function source policy hash を作る。`Span::dummy()` は source file 0 とみなさず、実 source span がない candidate は no-store / no-bypass に倒す。
+- `ResourceSummaryValueCache::record_drop_traversal_forall_bypass_if_keyable` は candidate key builder を通してから bypass counter を増やす。store/hit map はまだ実装していない。
+- `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core resource_summary_value_cache --lib`、`cargo test -p nepl-core resource_summary_value_bypass --lib`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。
+- `trunk build` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-source-policy-context-20260528.json` は `caseCount=13, passedCount=13, failedCount=0` だった。

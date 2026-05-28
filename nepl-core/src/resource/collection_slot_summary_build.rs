@@ -24,7 +24,9 @@ use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
 use super::model::{ResourceFunction, ResourceModule};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::report::ResourceCheckDeferred;
-use super::resource_summary_value_cache::ResourceSummaryValueCache;
+use super::resource_summary_value_cache::{
+    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+};
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
@@ -35,6 +37,7 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
     i32_scalar_summaries: &[I32ScalarReturnSummary],
     raw_init_summaries: &[RawCellInitializationFunctionSummary],
     mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> Vec<CollectionSlotLifecycleFunctionSummary> {
     let mut summaries = Vec::new();
     let relevant_functions = collection_slot_summary_relevant_functions(module, types);
@@ -59,14 +62,20 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
             worklist.notify_changed(function_index);
         }
     }
-    if let Some(cache) = summary_value_cache.as_deref_mut() {
-        record_resource_summary_value_cache_bypass_candidates(cache, types, module, &summaries);
+    if let (Some(cache), Some(context)) = (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    ) {
+        record_resource_summary_value_cache_bypass_candidates(
+            cache, context, types, module, &summaries,
+        );
     }
     summaries
 }
 
 fn record_resource_summary_value_cache_bypass_candidates(
     cache: &mut ResourceSummaryValueCache,
+    context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
     module: &ResourceModule,
     summaries: &[CollectionSlotLifecycleFunctionSummary],
@@ -80,19 +89,21 @@ fn record_resource_summary_value_cache_bypass_candidates(
             continue;
         };
         record_resource_summary_value_cache_bypass_candidates_from_summary(
-            cache, types, function, summary,
+            cache, context, types, function, summary,
         );
     }
 }
 
 fn record_resource_summary_value_cache_bypass_candidates_from_summary(
     cache: &mut ResourceSummaryValueCache,
+    context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
     function: &ResourceFunction,
     summary: &CollectionSlotLifecycleFunctionSummary,
 ) {
     record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
         cache,
+        context,
         types,
         function,
         &summary.type_params,
@@ -102,6 +113,7 @@ fn record_resource_summary_value_cache_bypass_candidates_from_summary(
 
 fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
     cache: &mut ResourceSummaryValueCache,
+    context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
     function: &ResourceFunction,
     type_params: &[TypeId],
@@ -116,7 +128,8 @@ fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
                 coverage:
                     CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(_),
                 ..
-            } => cache.record_drop_traversal_forall_bypass_if_stable(
+            } => cache.record_drop_traversal_forall_bypass_if_keyable(
+                context,
                 types,
                 function,
                 type_params,
@@ -239,7 +252,7 @@ mod tests {
     use alloc::vec::Vec;
 
     use crate::source_map::CompilerMemoryType;
-    use crate::span::Span;
+    use crate::span::{FileId, Span};
     use crate::types::{TypeCtx, TypeId, TypeKind};
 
     use super::super::collection_slot_lifecycle::CollectionSlotLifecycleEvent;
@@ -254,12 +267,14 @@ mod tests {
         Place, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceLocal, ResourceModule,
         ResourceTerminator,
     };
-    use super::super::resource_summary_value_cache::ResourceSummaryValueCache;
+    use super::super::resource_summary_value_cache::{
+        ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+    };
     use super::super::summary_projection::SummaryPlace;
     use super::*;
 
     fn identity_storage_function(storage_ty: TypeId) -> ResourceFunction {
-        let span = Span::dummy();
+        let span = test_span();
         let param = Place::local("storage".to_string(), storage_ty);
         ResourceFunction {
             name: "identity_storage".to_string(),
@@ -291,7 +306,7 @@ mod tests {
         storage_ty: TypeId,
         value_ty: TypeId,
     ) -> ResourceFunction {
-        let span = Span::dummy();
+        let span = test_span();
         let storage = Place::local("storage".to_string(), storage_ty);
         ResourceFunction {
             name: "mark_collection_storage".to_string(),
@@ -363,6 +378,10 @@ mod tests {
         }
     }
 
+    fn test_span() -> Span {
+        Span::new(FileId(0), 1, 2)
+    }
+
     fn forall_drop_traversal_op() -> CollectionSlotLifecycleSummaryOp {
         CollectionSlotLifecycleSummaryOp::DropTraversal {
             storage: summary_place(0, TypeId(0)),
@@ -378,6 +397,12 @@ mod tests {
                 },
             ),
         }
+    }
+
+    fn test_summary_value_cache_context() -> ResourceSummaryValueCacheContext {
+        let mut context = ResourceSummaryValueCacheContext::new(7);
+        context.insert_source_policy_hash(FileId(0), 11);
+        context
     }
 
     /// Resource summary value cache の初期 MVP は、固定点収束後の top-level
@@ -431,9 +456,11 @@ mod tests {
                 i32_scalar_facts: I32ScalarReturnFacts::default(),
             }],
         };
+        let context = test_summary_value_cache_context();
 
         record_resource_summary_value_cache_bypass_candidates(
             &mut cache,
+            &context,
             &types,
             &module,
             &[summary],
@@ -488,9 +515,11 @@ mod tests {
             return_ranges: Vec::new(),
             return_paths: Vec::new(),
         };
+        let context = test_summary_value_cache_context();
 
         record_resource_summary_value_cache_bypass_candidates(
             &mut cache,
+            &context,
             &types,
             &module,
             &[summary],
@@ -527,9 +556,11 @@ mod tests {
             return_ranges: Vec::new(),
             return_paths: Vec::new(),
         };
+        let context = test_summary_value_cache_context();
 
         record_resource_summary_value_cache_bypass_candidates(
             &mut cache,
+            &context,
             &types,
             &module,
             &[summary],
@@ -566,9 +597,11 @@ mod tests {
             return_ranges: Vec::new(),
             return_paths: Vec::new(),
         };
+        let context = test_summary_value_cache_context();
 
         record_resource_summary_value_cache_bypass_candidates(
             &mut cache,
+            &context,
             &types,
             &module,
             &[summary],
@@ -605,6 +638,7 @@ mod tests {
             &[],
             &[],
             &[],
+            None,
             None,
         );
 
