@@ -60,7 +60,7 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
     }
     if let Some(cache) = summary_value_cache.as_deref_mut() {
         for summary in &summaries {
-            record_resource_summary_value_cache_bypass_candidates(cache, summary);
+            record_resource_summary_value_cache_bypass_candidates(cache, types, summary);
         }
     }
     summaries
@@ -68,13 +68,19 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
 
 fn record_resource_summary_value_cache_bypass_candidates(
     cache: &mut ResourceSummaryValueCache,
+    types: &TypeCtx,
     summary: &CollectionSlotLifecycleFunctionSummary,
 ) {
-    record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(cache, &summary.ops);
+    record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
+        cache,
+        types,
+        &summary.ops,
+    );
 }
 
 fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
     cache: &mut ResourceSummaryValueCache,
+    types: &TypeCtx,
     ops: &[CollectionSlotLifecycleSummaryOp],
 ) {
     // 初期 MVP では top-level leaf だけを store 候補にする。
@@ -86,7 +92,7 @@ fn record_resource_summary_value_cache_bypass_candidates_from_top_level_ops(
                 coverage:
                     CollectionSlotLifecycleSummaryDropTraversalCoverage::ForallInitializedRange(_),
                 ..
-            } => cache.record_drop_traversal_forall_bypass(),
+            } => cache.record_drop_traversal_forall_bypass_if_stable(types, op),
             CollectionSlotLifecycleSummaryOp::Event { .. }
             | CollectionSlotLifecycleSummaryOp::Relocate { .. }
             | CollectionSlotLifecycleSummaryOp::DropTraversal { .. }
@@ -352,6 +358,7 @@ mod tests {
     #[test]
     fn resource_summary_value_bypass_counts_only_final_top_level_forall_drop_traversal() {
         let mut cache = ResourceSummaryValueCache::new();
+        let types = TypeCtx::new();
         let summary = CollectionSlotLifecycleFunctionSummary {
             function: "drop_all".to_string(),
             type_params: Vec::new(),
@@ -390,7 +397,7 @@ mod tests {
             }],
         };
 
-        record_resource_summary_value_cache_bypass_candidates(&mut cache, &summary);
+        record_resource_summary_value_cache_bypass_candidates(&mut cache, &types, &summary);
 
         let stats = cache.stats();
         assert_eq!(stats.resource_summary_value_bypasses, 1);

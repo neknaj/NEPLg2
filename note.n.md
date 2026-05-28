@@ -1,3 +1,13 @@
+# 2026-05-28 Resource summary stable mirror conversion checkpoint
+
+- Zenn 記事の試作段階方針に従い、既存 summary struct をそのまま長寿命 cache value にするのではなく、arena 非依存の stable mirror 型へ変換する方針を維持した。
+- `ResourceSummaryStableDropTraversalForallValue`、stable place / projection / offset / i32 operand / drop proof / type key を追加した。
+- `ResourceSummaryStableTypeKey` は `TypeId` を保存せず、型を決定的な文字列 key へ落とす。無名 type variable と cycle は arena slot へ依存するため保存候補から外す。
+- `DropTraversal + ForallInitializedRange` の bypass counter は、stable mirror へ変換できる top-level 候補だけを数える形にした。これにより、次 checkpoint の store/hit 実装で保存できない候補を過大に数えない。
+- subagent review では、`signature_type_string` 系の stable 表現を参考にしつつ `var_{TypeId}` fallback を使わないこと、SourceCapabilities の span/use-site を value に保存せず stable policy hash へ落とすことが確認された。今回の checkpoint では前者を実装し、後者は次の map key 実装へ残す。
+- 検証: `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo test -p nepl-core stable_type_key --lib -- --nocapture`、`cargo test -p nepl-core stable_drop_traversal_forall_value --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_value_bypass_counts_only_final_top_level_forall_drop_traversal --lib -- --nocapture` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 Resource summary value cache bypass instrumentation checkpoint
 
 - Zenn 記事の 2026-05-27 更新版を再確認し、試作段階でも静的検査の削除や timeout 延長ではなく、純粋 query と cache boundary によって探索空間を削る方針を維持した。
