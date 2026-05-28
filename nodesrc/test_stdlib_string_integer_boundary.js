@@ -48,7 +48,6 @@ for (const importPath of [
 
 for (const importPath of [
     'alloc/string/access',
-    'alloc/string/slice',
 ]) {
     assert.match(parseSrc, new RegExp(`#import "${importPath}" as \\*`), `string/integer/parse must import ${importPath} directly`);
 }
@@ -143,6 +142,16 @@ assert.match(
     /fn\s+to_u128_radix[\s\S]*u128_can_mul_add_small/,
     'u128 parsing must keep overflow checks before multiply-add',
 );
+assert.match(
+    parseCode,
+    /fn\s+parse_u128_radix_digits_from[\s\S]*u128_can_mul_add_small[\s\S]*u128_add_small[\s\S]*u128_mul_small/,
+    'shared u128 digit parsing must check overflow before multiply-add',
+);
+assert.doesNotMatch(
+    parseCode,
+    /fn\s+to_i128_radix[\s\S]*str_slice/,
+    'i128 parsing must avoid allocating a signed-body slice before digit parsing',
+);
 assert.ok(implementationLineCount(integerSrc) <= 80, `${integerRelPath} should stay within the public integer facade implementation boundary`);
 assert.doesNotMatch(commonCode, /\b(?:fn|struct|enum)\s+/, `${commonRelPath} must stay as a small common facade`);
 assert.ok(implementationLineCount(commonSrc) <= 40, `${commonRelPath} should stay within the common facade implementation boundary`);
@@ -150,7 +159,7 @@ assert.ok(implementationLineCount(commonBoolSrc) <= 120, `${commonBoolRelPath} s
 assert.ok(implementationLineCount(commonRadixSrc) <= 120, `${commonRadixRelPath} should stay within the radix helper implementation boundary`);
 assert.ok(implementationLineCount(commonU128Src) <= 330, `${commonU128RelPath} should stay within the u128 helper implementation boundary`);
 assert.ok(implementationLineCount(formatSrc) <= 300, `${formatRelPath} should stay within the format implementation boundary`);
-assert.ok(implementationLineCount(parseSrc) <= 380, `${parseRelPath} should stay within the parse implementation boundary`);
+assert.ok(implementationLineCount(parseSrc) <= 420, `${parseRelPath} should stay within the parse implementation boundary`);
 assert.match(formatCode, /\b(?:mem_ptr_addr|store_u8|RegionToken)\b/, 'string/integer/format must carry source-level raw memory evidence');
 assert.doesNotMatch(integerCode, /\b(?:mem_ptr_addr|store_u8|load_u8|mem_copy|RegionToken)\b/, 'string/integer facade must not carry direct raw memory evidence');
 

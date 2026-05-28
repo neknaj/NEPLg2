@@ -19,7 +19,6 @@
 #import "core/option" as *
 #import "alloc/string/access" as *
 #import "alloc/string/byte_index" as *
-#import "alloc/string/slice" as *
 #import "./common" as *
 
 fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
@@ -31,7 +30,7 @@ fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
 
 //: neplg2:test[stdio, normalize_newlines]
 //: exit_code: 0
-//: stdout: "test_report name=\"string_integer_parse_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"parse hex i32\" expected=\"42\" actual=\"42\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"parse negative hex i128\" expected=\"-42\" actual=\"-42\" message=\"\"\n"
+//: stdout: "test_report name=\"string_integer_parse_doc\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"parse hex i32\" expected=\"42\" actual=\"42\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"parse negative hex i128\" expected=\"-42\" actual=\"-42\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"reject bare minus i128\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"reject invalid radix i128\" expected=\"1\" actual=\"1\" message=\"\"\n"
 //: ```neplg2
 //:| #entry main
 //:| #target std
@@ -55,11 +54,20 @@ fn integer_parse_byte_or_invalid %fn str fn i32 i32 \s\idx:
 //:         Result::Err _:
 //:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "i128 parse failed unexpectedly"
 //:
+//: fn assert_i128_err_i32 %fn str fn Result i128 i32 fn i32 TestAssertion \label\got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected from_i128 actual "i128 parse succeeded unexpectedly"
+//:         Result::Err e:
+//:             assert_eq_i32 label expected e
+//:
 //: fn main %impure fn unit i32 \unit:
 //:     let report:
 //:         test_report_new "string_integer_parse_doc"
 //:         |> test_report_push assert_i32_ok "parse hex i32" (to_i32_radix "2a" 16) 42
 //:         |> test_report_push assert_i128_ok_i32 "parse negative hex i128" (to_i128_radix "-2a" 16) -42
+//:         |> test_report_push assert_i128_err_i32 "reject bare minus i128" (to_i128_radix "-" 10) 1
+//:         |> test_report_push assert_i128_err_i32 "reject invalid radix i128" (to_i128_radix "10" 3) 1
 //:     let shown test_report_print_stdout report
 //:     test_report_exit_code shown
 //: ```
@@ -226,52 +234,93 @@ pub fn to_u128_radix %fn str fn i32 Result u128 i32 \s\radix:
         Result::Err e:
             Result::Err e
         Result::Ok _:
-            let n %i32 len s;
-            let mut i %i32 0;
-            let mut res %u128 u128_zero;
-            let mut ok %i32 1;
-            let max_qr %U128DivRem u128_divrem_small u128_max radix;
-            let max_quotient %u128 get max_qr "quotient";
-            let max_remainder %i32 get max_qr "remainder";
-            if:
-                eq n 0
-                then:
-                    set ok 0;
-                else:
-                    let first %i32 integer_parse_byte_or_invalid s 0;
-                    if:
-                        eq first '-'
-                        then:
-                            set ok 0;
-                        else:
-                            while lt i n:
-                                do:
-                                    let digit_chr %i32 integer_parse_byte_or_invalid s i;
-                                    match digit_from_char digit_chr:
-                                        Result::Ok digit:
-                                            if:
-                                                ge digit radix
-                                                then:
-                                                    set ok 0;
-                                                    set i n;
-                                                else:
-                                                    if:
-                                                        u128_can_mul_add_small res digit max_quotient max_remainder
-                                                        then:
-                                                            set res u128_add_small u128_mul_small res radix digit;
-                                                            set i add i 1;
-                                                        else:
-                                                            set ok 0;
-                                                            set i n;
-                                        Result::Err _:
+            parse_u128_radix_digits_from s radix 0
+
+//: parse_u128_radix_digits_from: 途中 index から u128 magnitude を読む
+//:
+//: [目的/もくてき]:
+//: - `to_u128_radix` と `to_i128_radix` が同じ digit loop と overflow 検査を共有できるようにします。
+//: - signed parse では先頭 `-` を消すための一時 `str` を作らず、開始 index だけを変えて同じ処理を使います。
+//:
+//: [実装/じっそう]:
+//: - `start` から末尾までを `digit_from_char` で数値化し、`res = res * radix + digit` を構築します。
+//: - 更新前に `u128_max / radix` の商と余りで overflow を検査します。
+//:
+//: [注意/ちゅうい]:
+//: - radix は呼び出し元で `validate_radix` 済みであることを前提にします。
+//: - `start` が末尾以上、または digit として読めない byte があれば `Result::Err 1` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(n - start)
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: exit_code: 0
+//: stdout: "test_report name=\"string_integer_parse_digit_window_doc\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"positive hex window\" expected=\"255\" actual=\"255\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"negative hex window\" expected=\"-255\" actual=\"-255\" message=\"\"\n"
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "std/test" as *
+//:| #import "core/result" as *
+//:| #import "alloc/string/integer/parse" as *
+//:| #import "alloc/string/integer/format" as *
+//:| #import "core/cast" as *
+//:
+//: fn assert_i128_ok_i32 %fn str fn Result i128 i32 fn i32 TestAssertion \label\got\expected:
+//:     match got:
+//:         Result::Ok actual:
+//:             assert_eq_i32 label expected %i32 cast actual
+//:         Result::Err _:
+//:             test_assertion_failed AssertionKind::EqI32 label from_i32 expected "Err" "i128 parse failed unexpectedly"
+//:
+//: fn main %impure fn unit i32 \unit:
+//:     let report:
+//:         test_report_new "string_integer_parse_digit_window_doc"
+//:         |> test_report_push assert_i128_ok_i32 "positive hex window" (to_i128_radix "ff" 16) 255
+//:         |> test_report_push assert_i128_ok_i32 "negative hex window" (to_i128_radix "-ff" 16) -255
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
+fn parse_u128_radix_digits_from %fn str fn i32 fn i32 Result u128 i32 \s\radix\start:
+    let n %i32 len s;
+    let mut i %i32 start;
+    let mut res %u128 u128_zero;
+    let mut ok %i32 1;
+    let max_qr %U128DivRem u128_divrem_small u128_max radix;
+    let max_quotient %u128 get max_qr "quotient";
+    let max_remainder %i32 get max_qr "remainder";
+    if:
+        le n start
+        then:
+            set ok 0;
+        else:
+            while lt i n:
+                do:
+                    let digit_chr %i32 integer_parse_byte_or_invalid s i;
+                    match digit_from_char digit_chr:
+                        Result::Ok digit:
+                            if:
+                                ge digit radix
+                                then:
+                                    set ok 0;
+                                    set i n;
+                                else:
+                                    if:
+                                        u128_can_mul_add_small res digit max_quotient max_remainder
+                                        then:
+                                            set res u128_add_small u128_mul_small res radix digit;
+                                            set i add i 1;
+                                        else:
                                             set ok 0;
                                             set i n;
-            if:
-                eq ok 1
-                then:
-                    Result::Ok res
-                else:
-                    Result::Err 1
+                        Result::Err _:
+                            set ok 0;
+                            set i n;
+    if:
+        eq ok 1
+        then:
+            Result::Ok res
+        else:
+            Result::Err 1
 
 // i128_positive_magnitude_allowed: 非負 i128 として許される大きさかを判定する
 //
@@ -355,7 +404,7 @@ pub fn to_i128 %fn str Result i128 i32 \s:
 // - 2 / 8 / 10 / 16 進の符号付き文字列を `i128` に変換します。
 //
 // 実装(アルゴリズム):
-// - 先頭の `-` を切り出した後、残りを `to_u128_radix` で非負の大きさとして解析します。
+// - 先頭の `-` を確認し、読み始める index を切り替えて共通 digit parser に渡します。
 // - 符号に応じた i128 の表現域を確認し、範囲外なら `Result::Err` にします。
 // - 符号が負なら `i128_neg` で符号反転します。
 //
@@ -366,30 +415,34 @@ pub fn to_i128 %fn str Result i128 i32 \s:
 // 計算量:
 // - O(n)
 pub fn to_i128_radix %fn str fn i32 Result i128 i32 \s\radix:
-    let n %i32 len s;
-    if:
-        eq n 0
-        then:
-            Result::Err 1
-        else:
-            let first %i32 integer_parse_byte_or_invalid s 0;
-            let neg %bool eq first '-';
-            let body %str if neg:
-                then str_slice s 1 n
-                else s
-            match to_u128_radix body radix:
-                Result::Ok mag:
-                    if:
-                        i128_magnitude_allowed mag neg
-                        then:
-                            let base %i128 i128_from_u128_bits mag;
+    match validate_radix radix:
+        Result::Err e:
+            Result::Err e
+        Result::Ok _:
+            let n %i32 len s;
+            if:
+                eq n 0
+                then:
+                    Result::Err 1
+                else:
+                    let first %i32 integer_parse_byte_or_invalid s 0;
+                    let neg %bool eq first '-';
+                    let start %i32 if neg:
+                        then 1
+                        else 0
+                    match parse_u128_radix_digits_from s radix start:
+                        Result::Ok mag:
                             if:
-                                neg
+                                i128_magnitude_allowed mag neg
                                 then:
-                                    Result::Ok i128_neg base
+                                    let base %i128 i128_from_u128_bits mag;
+                                    if:
+                                        neg
+                                        then:
+                                            Result::Ok i128_neg base
+                                        else:
+                                            Result::Ok base
                                 else:
-                                    Result::Ok base
-                        else:
-                            Result::Err 1
-                Result::Err e:
-                    Result::Err e
+                                    Result::Err 1
+                        Result::Err e:
+                            Result::Err e

@@ -70,6 +70,36 @@ release WASM では、最小 program の warm compile が 10ms 未満になっ�
 - Web playground の `trunk build` は Rust/WASM artifact を release profile で生成する。NEPL source 側の `#if[profile=...]` 既定値は `debug` のまま分離し、compiler artifact の最適化状態で source semantics が変わらないようにする。
 - `CompilerSession` は同一 source / VFS / profile / WAT comment mode の compiled output を小さな LRU 風 cache に保持する。これは同一 session の再compileでResource IR全体を再実行しないための応急的な出力cacheであり、typed public surface / Resource IR summary の semantic incremental cache を置き換えるものではない。
 - `PreparedProgram` は `ResourceSummaryCacheNamespaceKey` を保持する。これは target / profile / typed public signature hash / dependency public surface hash option から決定的に作る module-level namespace key であり、Resource IR summary value の再利用はまだ行わない。
+- `stdlib/alloc/string/integer/parse.nepl` の signed integer parse は、`str_slice` で一時 signed body を構築してから `to_u128_radix` の `Result` を再度 match する形をやめ、private digit parser を開始 index 指定で共有する。これは stdlib 実装を軽くするだけでなく、Resource IR の branch / match / owner-state exploration を減らす。
+- Resource path-state replay では、branch / match 後に保持する alternatives と replay 対象 alternatives を所有権移動で渡し、丸ごと clone を避ける。重複排除を常時行う案は equality cost が高く、budget 超過時のみに留める。
+
+## RPN signed integer parse checkpoint
+
+2026-05-28 の checkpoint では、Resource summary value cache の本体実装へ入る前に、RPN workload で実測上重かった stdlib integer parse と path-sensitive replay の clone を整理した。
+
+`to_i128_radix` の旧実装は、先頭 `-` を見つけると `str_slice s 1 n` で本文を作り、`to_u128_radix` を呼んでから `Result` を match していた。この形は実行時には単純でも、Resource IR 静的検査では slice construction、callee summary、Result branch、i128 範囲判定が重なり、`to_i128_radix` 自体の initialized function check が RPN の上位コストになっていた。
+
+新しい境界:
+
+- `parse_u128_radix_digits_from s radix start` は private helper である。
+- `to_u128_radix` は `validate_radix` 後に `start=0` で helper を呼ぶ。
+- `to_i128_radix` は `validate_radix` 後、負号がある場合だけ `start=1` にして helper を呼ぶ。
+- helper は `u128_can_mul_add_small` による overflow check を `u128_mul_small` / `u128_add_small` の前に行う。
+- `to_i128_radix` は helper の magnitude に `i128_magnitude_allowed` を適用し、正の `2^127` を拒否し、負の `-2^127` を許可する。
+
+source policy では、`to_i128_radix` に `str_slice` が戻らないこと、shared u128 digit parser が overflow check 前置を維持することを固定した。doctest には `"-"` と invalid radix の Err case を追加した。
+
+同 checkpoint の native release RPN stage-only 測定。`after best` は同一変更後の最良 warm run、`after post-trunk` は `trunk build --release` 後に改めて実行した確認値である。
+
+| stage | before | after best | after post-trunk |
+|---|---:|---:|---:|
+| `resource_initialized_i32_scalar_summaries` | 1256ms | 1172ms | 1450ms |
+| `resource_initialized_raw_init_summaries` | 2549ms | 2239ms | 2647ms |
+| `resource_initialized_function_checks` | 3139ms | 1767ms | 1965ms |
+| `resource_initialized_moves` | - | 5236ms | 6139ms |
+| `resource_static_check` | 7870ms | 6104ms | 7086ms |
+
+この改善は stdlib 実装と path-state ownership の局所削減であり、初回 compile 0.5 秒未満にはまだ届かない。次の根本対応は、`ResourceSummaryCacheNamespaceKey` の下で function body hash、generic type-argument hash、source capability policy hash、summary kind/version を組み合わせ、arena 非依存の Resource summary stable mirror value だけを session cache へ保存することである。
 
 ## CompilerSession first checkpoint
 

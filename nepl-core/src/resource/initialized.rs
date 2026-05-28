@@ -569,7 +569,7 @@ impl ResourceCheckEngine<'_> {
                         );
                     } else {
                         let advanced =
-                            self.advance_path_alternatives_after_op(&alternatives, op, op_path);
+                            self.advance_path_alternatives_after_op(alternatives, op, op_path);
                         merge_path_alternatives_into(
                             &advanced,
                             cells,

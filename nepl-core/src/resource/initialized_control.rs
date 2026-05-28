@@ -156,8 +156,8 @@ impl ResourceCheckEngine<'_> {
             ));
         }
 
-        if !branch_paths.is_empty() {
-            self.path_alternatives = ResourcePathAlternatives::from_states(branch_paths.clone());
+        let has_branch_paths = !branch_paths.is_empty();
+        if has_branch_paths {
             merge_path_alternatives_into(
                 &branch_paths,
                 cells,
@@ -167,8 +167,9 @@ impl ResourceCheckEngine<'_> {
                 pending_reallocs,
                 variant_initializations,
             );
+            self.path_alternatives = ResourcePathAlternatives::from_states(branch_paths);
         }
-        if paths_available && !branch_paths.is_empty() {
+        if paths_available && has_branch_paths {
             cells.set_state(output, CellState::Initialized(output.ty));
             seed_str_storage_layout(self.types, cells, raw_aliases, output);
         } else {
@@ -460,8 +461,8 @@ impl ResourceCheckEngine<'_> {
         if match_paths.is_empty() {
             arms_available = false;
         }
-        if !match_paths.is_empty() {
-            self.path_alternatives = ResourcePathAlternatives::from_states(match_paths.clone());
+        let has_match_paths = !match_paths.is_empty();
+        if has_match_paths {
             merge_path_alternatives_into(
                 &match_paths,
                 cells,
@@ -471,6 +472,7 @@ impl ResourceCheckEngine<'_> {
                 pending_reallocs,
                 variant_initializations,
             );
+            self.path_alternatives = ResourcePathAlternatives::from_states(match_paths);
         }
         if scrutinee_available && arms_available {
             cells.set_state(output, CellState::Initialized(output.ty));

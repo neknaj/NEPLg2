@@ -92,14 +92,13 @@ impl ResourcePathAlternatives {
 impl ResourceCheckEngine<'_> {
     pub(super) fn advance_path_alternatives_after_op(
         &mut self,
-        alternatives: &[ResourceCheckState],
+        alternatives: Vec<ResourceCheckState>,
         op: &ResourceOp,
         path: ResourceDropPointPath,
     ) -> Vec<ResourceCheckState> {
         let mut out = Vec::new();
-        for alternative in alternatives {
+        for mut state in alternatives {
             let mut path_engine = summary_check_engine(self);
-            let mut state = alternative.clone();
             path_engine.check_op(
                 &mut state.cells,
                 &mut state.collection_slots,
