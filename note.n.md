@@ -1,3 +1,11 @@
+# 2026-05-28 NEPLg2.1 Vec type arity import checkpoint
+
+- `cargo test -p nepl-core --test pipe_operator pipe_complete_overloaded_source_call_into_target -- --nocapture` の parser error は、`bitset/mutation.nepl` が `&Vec u8` を public helper signature に書きながら `Vec` の type arity を直接 import していなかったことが原因だった。
+- NEPLg2.1 の `Vec u8` は `Vec` の arity がなければ `Vec` 単体の型として一度閉じてしまい、後続の `u8 impure fn ...` を result 側の式として誤読する。
+- `adjacency_matrix/mutation.nepl`、`bitset/mutation.nepl`、`fenwick/api/cleanup.nepl`、`segment_tree/mutation.nepl`、`segment_tree/range.nepl`、`kp/kpfenwick.nepl` に `alloc/collections/vec/types` の直接 import を追加し、型式で使う型constructorの依存を明示した。
+- `nodesrc/test_neplg21_vec_type_arity_imports.js` を追加し、実コード行で `Vec T` prefix type を使う module が `alloc/collections/vec/types` か `alloc/collections/vec` を直接 import していることを検査する。doccomment や通常コメントは対象外なので、コメント増加を妨げない。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 Typecheck call pipe split checkpoint
 
 - `ISS-20260528T093534569Z-TYPECHECK-CALL-RESOLUTION-EXCEEDS-RE-9BBA7B96` の対応として、`call_resolution.rs` から pipe-specific pending segment resolution を `typecheck/call_pipe.rs` へ分離した。

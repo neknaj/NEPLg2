@@ -64,6 +64,7 @@ const checks = [
     "nodesrc/test_neplg21_collection_storage_vec_postfix_cleanup.js",
     "nodesrc/test_neplg21_collection_wrapper_vec_postfix_cleanup.js",
     "nodesrc/test_neplg21_collection_cleanup_contract_postfix_cleanup.js",
+    "nodesrc/test_neplg21_vec_type_arity_imports.js",
     "nodesrc/test_neplg21_core_mem_layout_type_query_cleanup.js",
     "nodesrc/test_neplg21_collection_layout_type_query_cleanup.js",
     "nodesrc/test_neplg21_wrapper_collection_positive_doc_postfix_cleanup.js",

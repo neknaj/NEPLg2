@@ -5,6 +5,7 @@
 #import "alloc/collections/fenwick/mutation" as *
 #import "alloc/collections/fenwick/query" as *
 #import "alloc/collections/fenwick/storage" as *
+#import "alloc/collections/vec/types" as *
 #import "alloc/diag/error" as *
 #import "core/field" as field
 #import "core/math" as *

@@ -9,6 +9,7 @@
 
 #import "core/math" as *
 #import "core/option" as *
+#import "alloc/collections/vec/types" as *
 #import "./storage" as *
 
 pub fn seg_sum_range_storage %fn &Vec i32 fn i32 fn i32 fn i32 Option i32 \data\base\l\r:

@@ -9,6 +9,7 @@
 
 #import "core/math" as *
 #import "core/option" as *
+#import "alloc/collections/vec/types" as *
 #import "./storage" as *
 
 pub fn bitset_write_masked %impure fn &Vec u8 impure fn i32 impure fn i32 impure fn bool bool \bits\byte_idx\mask\set_bit:

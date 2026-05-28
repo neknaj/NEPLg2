@@ -59,6 +59,14 @@ LLM/手動判断が必要なもの:
 - owner-preserving callback signature、borrowed predicate、effect `*` が絡む stdlib API。
 - selfhost parser/compiler 実装側の source string fixture。
 
+### 2026-05-28 Vec type arity import checkpoint
+
+- `pipe_complete_overloaded_source_call_into_target` は `bitset/mutation.nepl` の `&Vec u8` signature で parser が `Vec` の arity を知らず、`u8 impure fn ...` を result 側の不正 token として読んでいた。
+- NEPLg2.1 prefix type syntax では、型式で使う type constructor の arity evidence をその module が直接得る必要がある。private implementation import の依存を caller 側 parser に漏らすと module boundary と preload 性能が崩れるため、transitive import へ依存しない。
+- `adjacency_matrix/mutation.nepl`、`bitset/mutation.nepl`、`fenwick/api/cleanup.nepl`、`segment_tree/mutation.nepl`、`segment_tree/range.nepl`、`kp/kpfenwick.nepl` に `alloc/collections/vec/types` を直接 import した。
+- `nodesrc/test_neplg21_vec_type_arity_imports.js` を追加し、実コード行で `Vec T` prefix type を使う module が `alloc/collections/vec/types` か `alloc/collections/vec` を直接 import することを確認する。コメントや doccomment prose は対象にしない。
+- 検証: `cargo test -p nepl-core --test pipe_operator pipe_complete_overloaded_source_call_into_target -- --nocapture` は pass。
+
 ### 2026-05-28 collection layout query postfix-free checkpoint
 
 - `stdlib/alloc/collections/vec/**` と `tests/compiler/move_effect.n.md` の executable source / doctest fence に残っていた `size_of<...>` / `align_of<...>` layout query を `size_of %...` / `align_of %...` へ移行した。
