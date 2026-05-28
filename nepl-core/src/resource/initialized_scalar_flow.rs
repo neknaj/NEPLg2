@@ -77,10 +77,13 @@ pub(super) fn compute_i32_scalar_return_summaries(
     types: &TypeCtx,
     raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
 ) -> Vec<I32ScalarReturnSummary> {
+    let mut relevance_leaf_cache = I32LeafProjectionCache::default();
     let relevant = module
         .functions
         .iter()
-        .map(|function| function_i32_scalar_summary_relevant(types, function))
+        .map(|function| {
+            function_i32_scalar_summary_relevant(types, function, &mut relevance_leaf_cache)
+        })
         .collect();
     let mut worklist = SummaryWorklist::new_filtered(module, relevant);
     let mut summaries = Vec::new();
@@ -137,19 +140,27 @@ fn log_i32_scalar_summary_fact_counts(
     }
 }
 
-fn function_i32_scalar_summary_relevant(types: &TypeCtx, function: &ResourceFunction) -> bool {
+fn function_i32_scalar_summary_relevant(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    leaf_cache: &mut I32LeafProjectionCache,
+) -> bool {
     // i32 scalar summary は call 境界を越えて i32 leaf の alias/offset/condition を
     // 伝播するための要約である。引数にも戻り値にも i32 leaf が存在しない関数は、
     // summary を適用できる場所がないため、再計算 worklist から外す。
-    type_has_i32_scalar_leaf(types, function.result)
+    type_has_i32_scalar_leaf(types, function.result, leaf_cache)
         || function
             .params
             .iter()
-            .any(|param| type_has_i32_scalar_leaf(types, param.place.ty))
+            .any(|param| type_has_i32_scalar_leaf(types, param.place.ty, leaf_cache))
 }
 
-fn type_has_i32_scalar_leaf(types: &TypeCtx, ty: TypeId) -> bool {
-    !I32LeafProjectionCache::default()
+fn type_has_i32_scalar_leaf(
+    types: &TypeCtx,
+    ty: TypeId,
+    leaf_cache: &mut I32LeafProjectionCache,
+) -> bool {
+    !leaf_cache
         .leaf_places_for_conditions(types, &Place::unknown(ty))
         .is_empty()
 }
@@ -211,9 +222,18 @@ fn function_i32_scalar_return_summary(
     let mut parameter_condition_paths = Vec::new();
     let mut projection_paths = Vec::new();
     let mut i32_leaf_cache = I32LeafProjectionCache::default();
+    let shared_initial_state = if function.blocks.len() > 1 {
+        Some(initial_i32_scalar_path_state(function, types))
+    } else {
+        None
+    };
     for block in &function.blocks {
+        let initial_state = match &shared_initial_state {
+            Some(state) => state.clone(),
+            None => initial_i32_scalar_path_state(function, types),
+        };
         let states = i32_scalar_path_states_after_ops(
-            vec![initial_i32_scalar_path_state(function, types)],
+            vec![initial_state],
             &block.ops,
             &function.name,
             scalar_summaries,
@@ -824,6 +844,13 @@ fn merge_i32_scalar_return_fact_paths<T>(
 where
     T: I32ScalarReturnProjectedFact,
 {
+    if paths.len() == 1 {
+        let mut out = Vec::new();
+        for fact in paths.into_iter().next().unwrap_or_default() {
+            push_unique_i32_scalar_return_fact(&mut out, fact);
+        }
+        return out;
+    }
     let mut candidates = Vec::new();
     for path in &paths {
         for fact in path {
@@ -853,6 +880,13 @@ fn merge_i32_scalar_return_relation_paths(
     paths: Vec<Vec<I32ScalarReturnRelation>>,
     projection_paths: &[Vec<Vec<PlaceProjection>>],
 ) -> Vec<I32ScalarReturnRelation> {
+    if paths.len() == 1 {
+        let mut out = Vec::new();
+        for relation in paths.into_iter().next().unwrap_or_default() {
+            push_unique_i32_scalar_return_relation(&mut out, relation);
+        }
+        return out;
+    }
     let mut candidates = Vec::new();
     for path in &paths {
         for relation in path {
@@ -907,6 +941,13 @@ where
 fn merge_i32_scalar_parameter_condition_paths(
     paths: Vec<Vec<I32ScalarParameterCondition>>,
 ) -> Vec<I32ScalarParameterCondition> {
+    if paths.len() == 1 {
+        let mut out = Vec::new();
+        for fact in paths.into_iter().next().unwrap_or_default() {
+            push_unique_i32_scalar_parameter_condition(&mut out, fact);
+        }
+        return out;
+    }
     let mut out = Vec::new();
     if let Some(first) = paths.first() {
         for fact in first {

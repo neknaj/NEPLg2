@@ -47730,3 +47730,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 直接 `while and lt start end ...` 条件へ畳む案は再測定で `resource_initialized_function_checks=52993ms`、`resource_static_check=58183ms` まで悪化したため採用しない。現在の prefix call reduction / Resource IR exploration では短い表記が探索空間削減になるとは限らない。
 - done-flag 形へ戻した後の trim doctest は `compile_ms=6212`、`run_ms=13` で pass した。native release RPN stage 測定は `resource_initialized_i32_scalar_summaries=1561ms`、`resource_initialized_raw_init_summaries=2956ms`、`resource_initialized_function_checks=2212ms`、`resource_static_check=7841ms` だった。per-function timing では `str_trim__str__str__pure` が `897ms` だった。
 - `nodesrc/test_stdlib_string_search_boundary.js` に `str_byte_is_ascii_space_at` の所有と byte-index predicate delegation を追加し、`nodesrc/test_stdlib_string_slice_boundary.js` は trim が search predicate を使う boundary を固定する。コメントや doctest 増加を妨げる検査は追加していない。
+
+## 2026-05-28 Agent i32 scalar summary local reuse checkpoint
+
+- Zenn の試作段階方針と性能追求方針を再確認し、RPN hot path のうち `resource_initialized_i32_scalar_summaries` の局所削減を実装した。`plan.md` は変更していない。
+- subagent review では、`initial_i32_scalar_path_state` は `function.params` と `types` だけに依存するため、block ごとに clone して所有 state として渡す限り低リスクと確認した。一方で 1 block 関数は clone 分が増えるため、複数 block 関数だけ初期 state を hoist する形にした。
+- `compute_i32_scalar_return_summaries` の relevance 判定では `I32LeafProjectionCache` を関数列全体で共有するようにした。これは i32 leaf の有無を調べるだけで、summary fact の意味や path preservation は変更しない。
+- return fact merge は path が 1 本の場合、全 path に対する包含確認を省き、同一 path 内の重複除去だけを行う。複数 path の sibling enum variant preservation は従来どおり維持している。
+- Dalton の review に従い、`ResourcePathAlternatives` の常時 dedup / single alternative collapse は同じ checkpoint に混ぜていない。`ResourceCheckState` equality は深く、以前の測定で常時 dedup は悪化しているため、別 checkpoint で測定する。
+- native release RPN stage 測定は `resource_initialized_i32_scalar_summaries=1568ms`、`resource_initialized_raw_init_summaries=2705ms`、`resource_initialized_function_checks=1994ms`、`resource_static_check=7299ms`。直前の string trim search predicate boundary の `resource_static_check=7841ms` から改善したが、初回 0.5 秒未満にはまだ Resource summary value cache が必要である。
+- `node nodesrc/test_resource_checker_responsibility.js` は current main でも `collection_slot_payload_tracking.rs must be monitored` で失敗する既存 policy drift を確認した。`cargo test -p nepl-core --test resource_ir ...` は既存 test fixture が `CollectionSlotLifecycleEvent::StorageDealloc { value_ty }` へ追従していないため compile error で実行できない。今回の i32 scalar summary 変更とは別件として扱う。

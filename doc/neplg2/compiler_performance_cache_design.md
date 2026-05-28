@@ -570,6 +570,10 @@ map key は namespace hash、function identity、function body hash、type param
 
 store/hit 記録は summary build pass の全 candidate を集めてから行う。同じ compile pass 内で先に store した value を即 hit と数えると、微小変更時の再利用可能性を過大評価するため、hit 判定は記録開始時点で map に存在した value に限定する。`clear_loader_cache()` は loader cache、compiled-output cache、prewarm surface と同じ寿命境界で Resource summary value cache の map と stats も消す。
 
+2026-05-28 の i32 scalar summary local reuse checkpoint では、Resource summary cache の大きい設計へ進む前の局所削減として、`compute_i32_scalar_return_summaries` の relevance 判定で `I32LeafProjectionCache` を共有し、複数 block 関数だけ `initial_i32_scalar_path_state` を関数内で 1 回構築して block ごとに clone するようにした。1 block 関数では clone 分が増えるため従来どおりその場で構築する。さらに return fact merge は path が 1 本の場合、全 path に対する包含確認を省き、同一 path 内の重複除去だけを行う。これは sibling enum variant をまたぐ merge 条件を緩める変更ではなく、複数 path が存在しない場合の同値な fast path である。
+
+同 checkpoint の native release RPN stage-only 測定は、`resource_initialized_i32_scalar_summaries=1568ms`、`resource_initialized_raw_init_summaries=2705ms`、`resource_initialized_function_checks=1994ms`、`resource_static_check=7299ms` だった。前 checkpoint の `resource_static_check=7841ms` からは改善したが、初回 compile 0.5 秒未満にはまだ到達していない。`resource_ir` integration test は、既存 test fixture が `CollectionSlotLifecycleEvent::StorageDealloc { value_ty }` へ追従していないため compile error で実行できず、今回の i32 scalar summary 変更とは別の test drift として扱う。
+
 必須 regression:
 
 - 同じ entry source の 2 回目 compile は compiled-output cache hit として観測される。
