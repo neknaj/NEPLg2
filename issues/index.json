@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T04:29:40.569Z",
+  "generated_at": "2026-05-31T04:44:17.020Z",
   "counts": {
-    "total": 1285,
+    "total": 1286,
     "open": 23,
-    "resolved": 1262,
+    "resolved": 1263,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -12,9 +12,9 @@
         "resolved": 326
       },
       "core": {
-        "total": 640,
+        "total": 641,
         "open": 16,
-        "resolved": 624
+        "resolved": 625
       },
       "neplg21": {
         "total": 2,
@@ -340,8 +340,8 @@
       "file": "items/ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2.md"
     },
     {
-      "id": "ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C",
-      "title": "Raw-init complete leaf replay still has return/byte-range type canonicalization misses",
+      "id": "ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D",
+      "title": "RPN code edit still spends seconds after raw-init replay",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -349,10 +349,10 @@
       "type": "performance",
       "created": "2026-05-31",
       "updated": "2026-05-31",
-      "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/resource/initialized_summary*.rs",
+      "target": "nepl-core/src/resource; nepl-web/src/lib.rs; nodesrc/run_test.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C.md"
+      "file": "items/ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
@@ -9953,6 +9953,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T012124326Z-RESOURCE-SUMMARY-RAW-INIT-VALUE-REPR-88633148.md"
+    },
+    {
+      "id": "ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C",
+      "title": "Raw-init complete leaf replay still has return/byte-range type canonicalization misses",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/resource/initialized_summary*.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

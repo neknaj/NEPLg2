@@ -2,8 +2,8 @@
 id: ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C
 title: "Raw-init complete leaf replay still has return/byte-range type canonicalization misses"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: performance
 created: 2026-05-31
@@ -46,5 +46,12 @@ raw-init summary value cache は code edit 時に有効になり始めている�
 
 ## 検証
 
-- RPN same-session code edit の compiled-output miss 測定で `raw_init_param_facts_reprojection_value_bypasses=0` を確認する。
-- focused regression で return / byte-range / variant の corrupted layout が fail-closed になること、non-final raw `Deref` fallback が拒否されることを維持する。
+- RPN same-session code edit の compiled-output miss 測定 `tmp/rpn_return_type_canonicalization_code_edit_20260531.json` で、base `compile_ms=8861`、edit `compile_ms=6703`、edit delta `raw_init_param_facts_reprojection_value_bypasses=0`、`param_cell_result_type=0` を確認した。
+- edit delta は `raw_init_param_facts_hits=205`、`resource_summary_value_replayed_ops=253`、`resource_summary_value_recomputed_ops=21` だった。
+- focused regression で return cell の projection-derived type が現在 signature 由来になることを追加し、corrupted return byte-range layout と non-final raw `Deref` fallback が fail-closed になることを維持した。
+
+## 完了内容
+
+`reproject_stable_place_projection_suffix_with_expected_type` で、通常の layout projection から型が決まる場合は現在 compile の function result/signature と suffix を authority にした。保存済み stable type key は、final raw `Deref` のように typed projection だけでは値型を得られない場合にだけ proof boundary として照合する。
+
+これにより、param cell 側で既に採用していた projection-derived type replay と return / byte-range 側の replay 規則が揃い、保存済み callee-local type key の stale mismatch で replay を落とす false miss を解消した。

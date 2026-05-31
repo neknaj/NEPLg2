@@ -1895,6 +1895,7 @@ fn reproject_stable_place_projection_suffix_with_expected_type(
 {
     let mut out = Vec::new();
     let mut current_ty = base_ty;
+    let mut used_stored_cell_ty = false;
     for (index, stable_projection) in suffix.iter().enumerate() {
         let projection = reproject_place_projection(ctx, stable_projection).ok_or(
             ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection,
@@ -1910,6 +1911,7 @@ fn reproject_stable_place_projection_suffix_with_expected_type(
                 // raw address 由来の `Deref` は通常の reference 型 dereference ではない。
                 // suffix の最後でだけ保存済みの最終型を proof boundary として使い、
                 // 途中 projection の型を推測して後続 field 検証を弱めない。
+                used_stored_cell_ty = true;
                 reproject_raw_init_stable_type(ctx, expected_ty)?
             }
             _ => {
@@ -1921,7 +1923,11 @@ fn reproject_stable_place_projection_suffix_with_expected_type(
         current_ty = result_ty;
         out.push(projection);
     }
-    if !expected_ty.matches_type(ctx.types, current_ty) {
+    // return / byte-range 側の place projection も、通常の layout 規則で型が決まる
+    // 場合は現在 compile の function signature と suffix が replay authority になる。
+    // 保存済み型 key は raw address `Deref` のように typed projection だけでは値型を
+    // 得られない場合にだけ proof boundary として照合する。
+    if used_stored_cell_ty && !expected_ty.matches_type(ctx.types, current_ty) {
         return Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellResultType);
     }
     Ok((out, current_ty))
@@ -2827,6 +2833,57 @@ mod tests {
     }
 
     #[test]
+    fn stable_raw_init_return_cell_reprojects_final_raw_deref_value_type() {
+        let types = TypeCtx::new();
+        let function = function_with_params(Vec::new(), types.i32());
+        let mut summary = empty_raw_init_summary(&function);
+        summary.return_cells.push(RawCellInitializationReturnCell {
+            suffix: vec![
+                PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+                PlaceProjection::Deref,
+            ],
+            ty: types.u8(),
+            holds_raw_address: false,
+        });
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
+            .expect("final raw-deref return cell should convert with its explicit value type");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive return boundary should be reprojectable");
+
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
+            .expect("final raw-deref return cell should use the stable value type");
+
+        assert_eq!(reprojected, summary);
+    }
+
+    #[test]
+    fn stable_raw_init_return_cell_rejects_non_boundary_open_generic_raw_deref_type() {
+        let mut types = TypeCtx::new();
+        let value_ty = types.fresh_var(Some("T".to_string()));
+        let function = function_with_params(Vec::new(), types.i32());
+        let mut summary = empty_raw_init_summary(&function);
+        summary.return_cells.push(RawCellInitializationReturnCell {
+            suffix: vec![
+                PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+                PlaceProjection::Deref,
+            ],
+            ty: value_ty,
+            holds_raw_address: false,
+        });
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
+            .expect("labelled generic raw return-cell type can be represented as a stable key");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive return boundary should be reprojectable");
+
+        let result = reproject_raw_init_complete_leaf_entry_result(&ctx, &function.name, &entry);
+
+        assert!(matches!(
+            result,
+            Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellStableType)
+        ));
+    }
+
+    #[test]
     fn stable_raw_init_reprojection_uses_signature_type_for_projection_derived_cell() {
         let types = TypeCtx::new();
         let function = function_with_param(types.i32());
@@ -2848,6 +2905,43 @@ mod tests {
             .expect("projection-derived param cell type should come from the current signature");
 
         assert_eq!(reprojected.param_cells[0].ty, types.i32());
+    }
+
+    #[test]
+    fn stable_raw_init_return_cell_uses_signature_type_for_projection_derived_cell() {
+        let mut types = TypeCtx::new();
+        let field = types.i32();
+        let nominal = types.register_named_with_stable_identity(
+            "ReturnRecord".to_string(),
+            TypeKind::Struct {
+                name: "ReturnRecord".to_string(),
+                type_params: Vec::new(),
+                fields: vec![field],
+                field_names: vec!["value".to_string()],
+            },
+            nominal_struct_identity("ReturnRecord"),
+        );
+        let function = function_with_params(Vec::new(), nominal);
+        let mut summary = empty_raw_init_summary(&function);
+        summary.return_cells.push(RawCellInitializationReturnCell {
+            suffix: vec![PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            }],
+            ty: field,
+            holds_raw_address: false,
+        });
+        let mut entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
+            .expect("projection-derived return cell should convert before corruption");
+        entry.return_cells[0].ty = ResourceSummaryStableTypeKey::from_type(&types, types.bool())
+            .expect("bool has a stable type key");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("return signature boundary should be reprojectable");
+
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
+            .expect("projection-derived return cell type should come from the current signature");
+
+        assert_eq!(reprojected.return_cells[0].ty, field);
     }
 
     #[test]

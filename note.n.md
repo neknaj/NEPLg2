@@ -47953,6 +47953,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - RPN same-session code edit 測定 `tmp/rpn_complete_raw_init_mirror_code_edit_20260531.json` では、base `compile_ms=8677`、local `i32` binding 追加 edit `compile_ms=6586` だった。edit delta は `raw_init_param_facts_hits=205`、`resource_summary_value_replayed_ops=238`、`resource_summary_value_recomputed_ops=36`、`raw_init_param_facts_incomplete_leaf_bypasses=0` である。
 - `ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5` は verified / resolved にした。残る edit delta `raw_init_param_facts_reprojection_value_bypasses=15`、`param_cell_result_type=15` は complete mirror 不足ではなく type canonicalization 問題なので、`ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C` に分離した。
 
+## 2026-05-31 Agent raw-init return / byte-range type canonicalization checkpoint
+
+- `reproject_stable_place_projection_suffix_with_expected_type` で、通常の layout projection から型が決まる場合は現在 compile の function result/signature と suffix を replay authority にした。
+- 保存済み stable type key は final raw `Deref` のように typed projection だけでは値型を得られない場合にだけ proof boundary として照合する。non-final raw `Deref` は引き続き拒否し、後続 projection の layout 検証を弱めない。
+- return cell の projection-derived type が現在 signature 由来になる focused regression を追加した。
+- RPN same-session code edit 測定 `tmp/rpn_return_type_canonicalization_code_edit_20260531.json` では、base `compile_ms=8861`、local `i32` binding 追加 edit `compile_ms=6703` だった。edit delta は `raw_init_param_facts_hits=205`、`resource_summary_value_replayed_ops=253`、`resource_summary_value_recomputed_ops=21`、`raw_init_param_facts_bypasses=0`、`raw_init_param_facts_reprojection_value_bypasses=0`、`param_cell_result_type=0` である。
+- `ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C` は verified / resolved にした。raw-init complete leaf replay の false miss は解消したが、compile time はまだ 0.5 秒未満に遠いため、次は replay 後にも残る `recomputed_ops=21` と Resource IR summary 外の固定費を分解する。
+
 ## 2026-05-28 Agent Resource checker responsibility split checkpoint
 
 - Zenn の試作段階方針、静的検査方針、責務分割方針を再確認し、`nodesrc/test_resource_checker_responsibility.js` の stale drift を、単なる失敗回避ではなく監視対象追加と module 分割で復旧した。`plan.md` は変更していない。
