@@ -121,6 +121,12 @@ pub struct CompilationArtifact {
     /// WAT 向けの補助情報（関数・ローカル変数・型）。
     /// 先頭コメントとして付与することを想定し、プレーンテキストで保持する。
     pub wat_comments: String,
+    /// Resource summary proof artifact を作るための compile-context header。
+    ///
+    /// 実際の snapshot payload は `ResourceSummaryValueCache` が保持するため、この成果物には
+    /// header だけを載せる。Web / CLI 側はこの header と現在の cache snapshot を組み合わせて、
+    /// `.neplproof` 相当の in-memory artifact を作る。
+    pub resource_summary_proof_header: Option<crate::resource::ResourceSummaryProofArtifactHeader>,
 }
 
 /// Resource summary proof artifact を compile pipeline へ接続するための入力。
@@ -413,6 +419,35 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
     )
 }
 
+/// Resource summary cache / `.neplproof` preseed / stage timing を同時に受け取る pipeline。
+///
+/// Web `CompilerSession` は compile stage timing と same-session proof artifact の両方を
+/// 観測するため、この wrapper で core 側の canonical header 生成と timing collection を
+/// 同じ経路に通す。
+pub fn compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_neplproof_and_stage_timings(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    dependency_public_surface_hash: Option<u64>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
+    stage_timings: &mut CompileStageTimings,
+    now_ms: CompileStageNow,
+) -> Result<CompilationArtifact, CoreError> {
+    let mut stage_recorder = CompileStageRecorder::enabled(stage_timings, now_ms);
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        module,
+        source_map,
+        options,
+        artifact_options,
+        dependency_public_surface_hash,
+        resource_summary_value_cache,
+        resource_summary_proof_options,
+        &mut stage_recorder,
+    )
+}
+
 fn compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
     module: ast::Module,
     source_map: Option<&SourceMap>,
@@ -473,6 +508,7 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
         &prepared.hir_module,
         prepared.diagnostics,
         artifact_options.include_wat_comments,
+        Some(prepared.resource_summary_proof_header),
         stage_recorder,
     )
 }
@@ -3405,6 +3441,7 @@ fn emit_wasm(
     hir_module: &crate::hir::HirModule,
     mut diagnostics: Vec<Diagnostic>,
     include_wat_comments: bool,
+    resource_summary_proof_header: Option<crate::resource::ResourceSummaryProofArtifactHeader>,
     stage_recorder: &mut CompileStageRecorder<'_>,
 ) -> Result<CompilationArtifact, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
@@ -3473,6 +3510,7 @@ fn emit_wasm(
     Ok(CompilationArtifact {
         wasm: bytes,
         wat_comments,
+        resource_summary_proof_header,
     })
 }
 

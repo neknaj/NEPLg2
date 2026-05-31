@@ -117,3 +117,21 @@ compile pipeline には `ResourceSummaryProofArtifactCacheOptions` と
 を追加した。preseed artifact は Resource static check の直前に header 照合され、mismatch の場合は
 通常 compile へ fail-closed に戻る。disk / IndexedDB codec はまだ実装しない。codec を追加するときは、
 header を先に decode / compare し、mismatch の artifact では payload を decode しない二段階にする。
+
+## 2026-06-01 checkpoint 4
+
+Web `CompilerSession` に same-session `.neplproof` artifact slot を追加した。
+compiled-output cache miss の実 compile では、前回 slot の artifact を core compiler の
+`ResourceSummaryProofArtifactCacheOptions` へ渡し、compile 成功後に現在の
+`ResourceSummaryValueCache` snapshot と core が返した header から新しい artifact を保存する。
+compiled-output cache hit では core pipeline が走らないため、cache entry が保持している artifact を
+session slot へ戻すだけにし、Web 側で header を再計算したり現在 cache から再 export したりしない。
+
+stdlib overlay がある compile では loader cache / Resource summary value cache と同じ条件で
+`.neplproof` preseed/export も無効にする。bundled stdlib hash は `fnv1a64:{hex}` の suffix を
+Rust 側で `u64` へ変換し、変換できない場合は artifact を作らない。JS number / `f64` 経由の
+hash 変換は使わない。
+
+`loader_cache_stats_json` には artifact slot の有無、entry 数、store/preseed candidate 数、
+stdlib hash parse 可否を追加した。payload 本体や diagnostic span、`TypeId`、`SourceMap` は
+JSON へ出さない。

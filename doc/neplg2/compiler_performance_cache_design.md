@@ -1311,6 +1311,23 @@ private effect policy hash はこの path では常に `Some` にし、`None == 
 cache / mask rule の誤共有を避ける。disk / IndexedDB codec はまだ作らず、将来追加するときは
 header decode / compare を payload decode より前に置く。
 
+同日の Web `CompilerSession` checkpoint では、same-session の `.neplproof` artifact slot を
+1 つ追加した。compiled-output cache miss の実 compile だけが、前回 artifact を
+`ResourceSummaryProofArtifactCacheOptions` として core へ渡し、成功後に現在の
+`ResourceSummaryValueCache` から新しい artifact を保存する。compiled-output cache hit では
+core pipeline が走らず expected header も再計算されないため、cache entry に保存していた
+artifact を session slot へ戻すだけにする。
+
+stdlib overlay がある compile では loader cache と Resource summary value cache を bypass する
+既存条件に合わせ、`.neplproof` preseed/export も行わない。bundled stdlib content hash は
+`STD_LIB_HASH` の `fnv1a64:{hex}` suffix を Rust 側で `u64` に変換し、JS number / `f64` を
+通さない。変換できない場合は artifact を作らず、同じ session の memory cache だけを使う。
+
+この slot は disk / IndexedDB codec ではない。payload 本体を JS へ公開せず、
+`loader_cache_stats_json` には artifact の有無、保存可能 entry 数、store/preseed candidate 数、
+stdlib hash parse 可否だけを出す。`TypeId`、`Span`、`SourceMap`、diagnostic span、
+changed-function replay plan は従来どおり `.neplproof` payload には含めない。
+
 ### 2026-05-31 measurement boundary
 
 RPN same-session code edit は、Resource summary value cache の段階的な stable mirror により

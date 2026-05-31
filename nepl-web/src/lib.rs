@@ -7,8 +7,8 @@ use nepl_core::ast::{
     Block, Directive, FnBody, MatchArm, MatchPattern, PrefixExpr, PrefixItem, Stmt, Symbol,
 };
 use nepl_core::compiler::{
-    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache,
-    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_stage_timings,
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_neplproof,
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_neplproof_and_stage_timings,
     CompileStageTimings,
 };
 use nepl_core::diagnostic::{Diagnostic, Severity};
@@ -18,12 +18,15 @@ use nepl_core::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine};
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{Loader, LoaderError, LoaderSessionCache, SourceMap};
 use nepl_core::parser::parse_tokens;
-use nepl_core::resource::ResourceSummaryValueCache;
+use nepl_core::resource::{ResourceSummaryProofArtifact, ResourceSummaryValueCache};
 use nepl_core::resolve::DefId;
 use nepl_core::source_cache_key::compiled_source_cache_key_part;
 use nepl_core::span::{FileId, Span};
 use nepl_core::typecheck::typecheck;
-use nepl_core::{BuildProfile, CompilationArtifactOptions, CompileOptions, CompileTarget};
+use nepl_core::{
+    BuildProfile, CompilationArtifactOptions, CompileOptions, CompileTarget,
+    ResourceSummaryProofArtifactCacheOptions,
+};
 use wasmprinter::print_bytes;
 use wasm_bindgen::{prelude::*, JsCast};
 
@@ -3011,6 +3014,7 @@ fn compile_outputs_with_bundled_sources_and_cache(
         loader_cache,
         None,
         None,
+        None,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
     compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
@@ -3181,6 +3185,7 @@ pub fn compile_test(name: &str) -> Result<Vec<u8>, JsValue> {
 struct CompiledWasm {
     wasm: Vec<u8>,
     wat_comments: String,
+    resource_summary_proof_artifact: Option<ResourceSummaryProofArtifact>,
 }
 
 fn compile_wasm_with_entry_and_comments(
@@ -3281,6 +3286,7 @@ fn compile_wasm_with_bundled_sources(
         None,
         None,
         None,
+        None,
     )
 }
 
@@ -3295,6 +3301,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
     include_wat_comments: bool,
     loader_cache: Option<&mut LoaderSessionCache>,
     resource_summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    preseed_resource_summary_proof_artifact: Option<&ResourceSummaryProofArtifact>,
     stage_timings: Option<&mut CompileStageTimings>,
 ) -> Result<CompiledWasm, String> {
     let mut overlay_sources = BTreeMap::new();
@@ -3317,6 +3324,11 @@ fn compile_wasm_with_bundled_sources_and_cache(
         None
     } else {
         resource_summary_value_cache
+    };
+    let preseed_resource_summary_proof_artifact = if overlay_overrides_stdlib {
+        None
+    } else {
+        preseed_resource_summary_proof_artifact
     };
 
     let mut loader = Loader::new(stdlib_root.clone());
@@ -3365,31 +3377,61 @@ fn compile_wasm_with_bundled_sources_and_cache(
     let artifact_options = CompilationArtifactOptions {
         include_wat_comments,
     };
+    let stdlib_content_hash = bundled_stdlib_hash_u64();
+    let proof_artifact_enabled =
+        resource_summary_value_cache.is_some() && stdlib_content_hash.is_some();
+    let resource_summary_proof_options = ResourceSummaryProofArtifactCacheOptions {
+        preseed_artifact: if proof_artifact_enabled {
+            preseed_resource_summary_proof_artifact
+        } else {
+            None
+        },
+        stdlib_content_hash: if proof_artifact_enabled {
+            stdlib_content_hash
+        } else {
+            None
+        },
+    };
     let artifact = if let Some(stage_timings) = stage_timings {
-        compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_stage_timings(
+        compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_neplproof_and_stage_timings(
             loaded.module,
             Some(&loaded.source_map),
             options,
             artifact_options,
             dependency_public_surface_hash,
             resource_summary_value_cache.as_deref_mut(),
+            resource_summary_proof_options,
             stage_timings,
             compile_stage_now_ms,
         )
     } else {
-        compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache(
+        compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_neplproof(
             loaded.module,
             Some(&loaded.source_map),
             options,
             artifact_options,
             dependency_public_surface_hash,
             resource_summary_value_cache.as_deref_mut(),
+            resource_summary_proof_options,
         )
     }
     .map_err(|e| render_core_error(e, &loaded.source_map))?;
+    let resource_summary_proof_artifact = if proof_artifact_enabled {
+        if let (Some(header), Some(cache)) = (
+            artifact.resource_summary_proof_header,
+            resource_summary_value_cache.as_deref(),
+        ) {
+            Some(cache.export_neplproof_artifact(header))
+        } else {
+            None
+        }
+    } else {
+        None
+    };
     Ok(CompiledWasm {
         wasm: artifact.wasm,
         wat_comments: artifact.wat_comments,
+        resource_summary_proof_artifact,
     })
 }
 
@@ -3421,10 +3463,13 @@ pub struct CompilerSession {
     bundled_sources: BTreeMap<PathBuf, &'static str>,
     loader_cache: RefCell<LoaderSessionCache>,
     resource_summary_value_cache: RefCell<ResourceSummaryValueCache>,
+    resource_summary_proof_artifact: RefCell<Option<ResourceSummaryProofArtifact>>,
     compiled_output_cache: RefCell<Vec<CompiledOutputCacheEntry>>,
     prewarmed_import_surfaces: RefCell<BTreeMap<u64, usize>>,
     compiled_output_cache_hits: RefCell<usize>,
     compiled_output_cache_stores: RefCell<usize>,
+    resource_summary_proof_artifact_preseed_candidates: RefCell<usize>,
+    resource_summary_proof_artifact_stores: RefCell<usize>,
     prewarm_surface_hits: RefCell<usize>,
     prewarm_surface_stores: RefCell<usize>,
     last_compile_stage_timing_status: RefCell<&'static str>,
@@ -3450,10 +3495,13 @@ impl CompilerSession {
             bundled_sources,
             loader_cache: RefCell::new(LoaderSessionCache::new(stdlib_hash())),
             resource_summary_value_cache: RefCell::new(ResourceSummaryValueCache::new()),
+            resource_summary_proof_artifact: RefCell::new(None),
             compiled_output_cache: RefCell::new(Vec::new()),
             prewarmed_import_surfaces: RefCell::new(BTreeMap::new()),
             compiled_output_cache_hits: RefCell::new(0),
             compiled_output_cache_stores: RefCell::new(0),
+            resource_summary_proof_artifact_preseed_candidates: RefCell::new(0),
+            resource_summary_proof_artifact_stores: RefCell::new(0),
             prewarm_surface_hits: RefCell::new(0),
             prewarm_surface_stores: RefCell::new(0),
             last_compile_stage_timing_status: RefCell::new("not_started"),
@@ -3489,6 +3537,11 @@ impl CompilerSession {
     pub fn loader_cache_stats_json(&self) -> String {
         let stats = self.loader_cache.borrow().stats();
         let resource_stats = self.resource_summary_value_cache.borrow().stats();
+        let proof_artifact = self.resource_summary_proof_artifact.borrow();
+        let proof_counts = proof_artifact
+            .as_ref()
+            .map(|artifact| artifact.counts())
+            .unwrap_or_default();
         let mut out = format!(
             "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"compiled_output_cache_hits\":{},\"compiled_output_cache_stores\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{},\"resource_raw_alias_summary_recomputations\":{},\"resource_raw_alias_summary_count\":{},\"resource_i32_scalar_summary_recomputations\":{},\"resource_i32_scalar_summary_count\":{},\"resource_raw_init_summary_recomputations\":{},\"resource_raw_init_summary_count\":{},\"resource_collection_slot_summary_recomputations\":{},\"resource_collection_slot_summary_count\":{},\"resource_initialized_function_checks\":{},\"resource_initialized_function_check_ops\":{},\"resource_summary_value_hits\":{},\"resource_summary_value_misses\":{},\"resource_summary_value_stores\":{},\"resource_summary_value_bypasses\":{},\"resource_summary_value_replay_hits\":{},\"resource_summary_value_replay_bypasses\":{},\"resource_summary_value_replayed_ops\":{},\"resource_summary_value_lazy_pass_hits\":{},\"resource_summary_value_lazy_pass_ops\":{},\"resource_summary_value_recomputed_ops\":{},\"resource_summary_value_drop_traversal_forall_recomputed_ops\":{},\"resource_summary_value_raw_alias_return_entry_recomputed_ops\":{},\"resource_summary_value_i32_scalar_return_facts_recomputed_ops\":{},\"resource_summary_value_raw_init_param_facts_recomputed_ops\":{},\"resource_summary_value_drop_traversal_forall_hits\":{},\"resource_summary_value_drop_traversal_forall_stores\":{},\"resource_summary_value_drop_traversal_forall_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_hits\":{},\"resource_summary_value_raw_alias_return_entry_stores\":{},\"resource_summary_value_raw_alias_return_entry_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_dependency_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_missing_source_policy_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_unstable_key_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_unstable_entry_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_context_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_parameter_index_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_parameter_projection_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_parameter_type_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_return_projection_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_return_type_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_hits\":{},\"resource_summary_value_i32_scalar_return_facts_stores\":{},\"resource_summary_value_i32_scalar_return_facts_misses\":{},\"resource_summary_value_i32_scalar_return_facts_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_dependency_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_missing_source_policy_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_unstable_key_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_unstable_entry_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_unstable_entry_return_projection_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_unstable_entry_parameter_projection_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_unstable_entry_scalar_type_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_reprojection_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_reprojection_context_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_reprojection_value_return_projection_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_projection_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_reprojection_value_scalar_type_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_replay_missing_source_policy_functions\":{},\"resource_summary_value_i32_scalar_return_facts_replay_unstable_key_functions\":{},\"resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions\":{},\"resource_summary_value_i32_scalar_return_facts_replay_reprojection_context_functions\":{},\"resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_functions\":{},\"resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_return_projection_functions\":{},\"resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_parameter_projection_functions\":{},\"resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_scalar_type_functions\":{},\"resource_summary_value_initialized_function_check_hits\":{},\"resource_summary_value_initialized_function_check_stores\":{},\"resource_summary_value_initialized_function_check_bypasses\":{},\"resource_summary_value_initialized_function_check_dependency_bypasses\":{},\"resource_summary_value_initialized_function_check_diagnostic_bypasses\":{},\"resource_summary_value_initialized_function_check_missing_source_policy_bypasses\":{},\"resource_summary_value_initialized_function_check_unstable_key_bypasses\":{},\"resource_summary_value_initialized_function_check_unstable_entry_bypasses\":{},\"resource_summary_value_initialized_function_check_unstable_entry_auto_drop_bypasses\":{},\"resource_summary_value_initialized_function_check_unstable_entry_place_bypasses\":{},\"resource_summary_value_initialized_function_check_unstable_entry_type_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_context_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_place_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_type_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_place_type_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_projection_result_type_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_cell_state_type_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_collection_slot_state_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_hits\":{},\"resource_summary_value_raw_init_param_facts_stores\":{},\"resource_summary_value_raw_init_param_facts_bypasses\":{},\"resource_summary_value_raw_init_param_facts_incomplete_leaf_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_bypasses\":{},\"resource_summary_value_raw_init_param_facts_missing_source_policy_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_key_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_graph_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_identity_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_body_hash_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_source_policy_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_type_boundary_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_entry_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_entry_surface_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_entry_param_cell_projection_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_entry_param_cell_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_entry_param_release_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_context_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_empty_entry_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_projection_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_stable_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_result_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_release_projection_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_release_type_bypasses\":{}}}",
             stats.parsed_module_hits,
@@ -3719,6 +3772,42 @@ impl CompilerSession {
         out.push_str(&resource_stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_return_condition_bypasses.to_string());
         out.push_str(",\"resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_condition_bypasses\":");
         out.push_str(&resource_stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_condition_bypasses.to_string());
+        out.push_str(",\"resource_summary_proof_artifact_present\":");
+        out.push_str(if proof_artifact.is_some() { "true" } else { "false" });
+        out.push_str(",\"resource_summary_proof_artifact_preseed_candidates\":");
+        out.push_str(
+            &self
+                .resource_summary_proof_artifact_preseed_candidates
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"resource_summary_proof_artifact_stores\":");
+        out.push_str(
+            &self
+                .resource_summary_proof_artifact_stores
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"resource_summary_proof_artifact_total_entries\":");
+        out.push_str(&proof_counts.total_entries().to_string());
+        out.push_str(",\"resource_summary_proof_artifact_drop_traversal_forall_leaf_entries\":");
+        out.push_str(&proof_counts.drop_traversal_forall_leaf_entries.to_string());
+        out.push_str(",\"resource_summary_proof_artifact_raw_alias_return_entries\":");
+        out.push_str(&proof_counts.raw_alias_return_entries.to_string());
+        out.push_str(",\"resource_summary_proof_artifact_i32_scalar_return_facts_entries\":");
+        out.push_str(&proof_counts.i32_scalar_return_facts_entries.to_string());
+        out.push_str(",\"resource_summary_proof_artifact_initialized_function_check_entries\":");
+        out.push_str(&proof_counts.initialized_function_check_entries.to_string());
+        out.push_str(",\"resource_summary_proof_artifact_owner_obligation_check_entries\":");
+        out.push_str(&proof_counts.owner_obligation_check_entries.to_string());
+        out.push_str(",\"resource_summary_proof_artifact_raw_init_complete_leaf_entries\":");
+        out.push_str(&proof_counts.raw_init_complete_leaf_entries.to_string());
+        out.push_str(",\"resource_summary_proof_stdlib_hash_u64_parse_ok\":");
+        out.push_str(if bundled_stdlib_hash_u64().is_some() {
+            "true"
+        } else {
+            "false"
+        });
         out.push_str(",\"compile_stage_timing_status\":\"");
         out.push_str(*self.last_compile_stage_timing_status.borrow());
         out.push('"');
@@ -3740,10 +3829,15 @@ impl CompilerSession {
     pub fn clear_loader_cache(&self) {
         self.loader_cache.borrow_mut().clear();
         self.resource_summary_value_cache.borrow_mut().clear();
+        *self.resource_summary_proof_artifact.borrow_mut() = None;
         self.compiled_output_cache.borrow_mut().clear();
         self.prewarmed_import_surfaces.borrow_mut().clear();
         *self.compiled_output_cache_hits.borrow_mut() = 0;
         *self.compiled_output_cache_stores.borrow_mut() = 0;
+        *self
+            .resource_summary_proof_artifact_preseed_candidates
+            .borrow_mut() = 0;
+        *self.resource_summary_proof_artifact_stores.borrow_mut() = 0;
         *self.prewarm_surface_hits.borrow_mut() = 0;
         *self.prewarm_surface_stores.borrow_mut() = 0;
         *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
@@ -3820,6 +3914,9 @@ impl CompilerSession {
             .find(|entry| entry.key == key)
             .map(|entry| entry.compiled.clone())
         {
+            if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
+                *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
+            }
             *self.compiled_output_cache_hits.borrow_mut() += 1;
             *self.last_compile_stage_timing_status.borrow_mut() = "cache_hit";
             *self.last_compile_stage_timings.borrow_mut() = Some(String::from("[]"));
@@ -3827,6 +3924,12 @@ impl CompilerSession {
         }
         let mut cache = self.loader_cache.borrow_mut();
         let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
+        let preseed_artifact = self.resource_summary_proof_artifact.borrow().clone();
+        if preseed_artifact.is_some() {
+            *self
+                .resource_summary_proof_artifact_preseed_candidates
+                .borrow_mut() += 1;
+        }
         let mut stage_timings = CompileStageTimings::new();
         let compiled = match compile_wasm_with_bundled_sources_and_cache(
             entry_path,
@@ -3839,6 +3942,7 @@ impl CompilerSession {
             false,
             Some(&mut cache),
             Some(&mut resource_summary_value_cache),
+            preseed_artifact.as_ref(),
             Some(&mut stage_timings),
         ) {
             Ok(compiled) => compiled,
@@ -3849,6 +3953,10 @@ impl CompilerSession {
                 return Err(JsValue::from_str(&msg));
             }
         };
+        if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
+            *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
+            *self.resource_summary_proof_artifact_stores.borrow_mut() += 1;
+        }
         *self.last_compile_stage_timing_status.borrow_mut() = "compiled";
         *self.last_compile_stage_timings.borrow_mut() = Some(stage_timings.to_json_array());
         self.store_compiled_output_cache_entry(key, compiled.clone());
@@ -3878,6 +3986,7 @@ impl CompilerSession {
             Some(stdlib_vfs),
             Some(parsed),
             false,
+            None,
             None,
             None,
             Some(&mut stage_timings),
@@ -3921,6 +4030,9 @@ impl CompilerSession {
             .find(|entry| entry.key == key)
             .map(|entry| entry.compiled.clone())
         {
+            if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
+                *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
+            }
             *self.compiled_output_cache_hits.borrow_mut() += 1;
             *self.last_compile_stage_timing_status.borrow_mut() = "cache_hit";
             *self.last_compile_stage_timings.borrow_mut() = Some(String::from("[]"));
@@ -3934,6 +4046,12 @@ impl CompilerSession {
         }
         let mut loader_cache = self.loader_cache.borrow_mut();
         let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
+        let preseed_artifact = self.resource_summary_proof_artifact.borrow().clone();
+        if preseed_artifact.is_some() {
+            *self
+                .resource_summary_proof_artifact_preseed_candidates
+                .borrow_mut() += 1;
+        }
         let mut stage_timings = CompileStageTimings::new();
         let compiled = match compile_wasm_with_bundled_sources_and_cache(
             entry_path,
@@ -3946,6 +4064,7 @@ impl CompilerSession {
             include_wat_comments,
             Some(&mut loader_cache),
             Some(&mut resource_summary_value_cache),
+            preseed_artifact.as_ref(),
             Some(&mut stage_timings),
         ) {
             Ok(compiled) => compiled,
@@ -3956,6 +4075,10 @@ impl CompilerSession {
                 return Err(JsValue::from_str(&msg));
             }
         };
+        if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
+            *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
+            *self.resource_summary_proof_artifact_stores.borrow_mut() += 1;
+        }
         *self.last_compile_stage_timing_status.borrow_mut() = "compiled";
         *self.last_compile_stage_timings.borrow_mut() = Some(stage_timings.to_json_array());
         self.store_compiled_output_cache_entry(key, compiled.clone());
@@ -4206,6 +4329,11 @@ fn stdlib_entries() -> &'static [(&'static str, &'static str)] {
 
 fn stdlib_hash() -> &'static str {
     STD_LIB_HASH
+}
+
+fn bundled_stdlib_hash_u64() -> Option<u64> {
+    let hex = stdlib_hash().strip_prefix("fnv1a64:")?;
+    u64::from_str_radix(hex, 16).ok()
 }
 
 fn example_entries() -> &'static [(&'static str, &'static str)] {

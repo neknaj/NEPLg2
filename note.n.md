@@ -1,3 +1,18 @@
+# 2026-06-01 Web .neplproof same-session artifact slot checkpoint
+
+- Zenn 記事の試作段階方針を再確認し、disk codec へ急がず、core が作る `.neplproof` header/preseed 境界を Web `CompilerSession` の same-session slot へ薄く接続した。
+- remote/main は作業開始時点で `0 0` 同期済みで、現在 branch `perf/web-neplproof-session-slot-20260601` の基点は `origin/main` と一致している。
+- subagent 2 件で Web session slot の安全条件を独立レビューした。stdlib overlay では artifact も bypass すること、compiled-output cache hit では header を再計算せず cache entry の artifact だけを復元すること、stdlib hash は Rust 側で `fnv1a64:` から `u64` へ変換することを確認した。
+- `CompilationArtifact` に `resource_summary_proof_header` を追加し、`ResourceSummaryValueCache` の snapshot と組み合わせて host が artifact を作れるようにした。
+- core に stage timing と `.neplproof` options を同時に受け取る wrapper を追加し、Web session compile が timing と artifact preseed を同じ canonical path に通るようにした。
+- `CompilerSession` に `resource_summary_proof_artifact` slot と store/preseed candidate counters を追加した。cache miss compile では前回 slot を preseed 候補として渡し、成功後に新 artifact を保存する。compiled-output cache hit では cache entry に保持した artifact を slot へ戻す。
+- stdlib overlay compile では loader cache / Resource summary value cache と同じ条件で `.neplproof` preseed/export を無効化する。bundled stdlib hash を `u64` に parse できない場合も artifact は作らない。
+- `loader_cache_stats_json` に artifact present、entry counts、store/preseed candidate、stdlib hash parse status を追加した。payload 本体、`TypeId`、`Span`、`SourceMap`、diagnostic span、compile-local replay plan は公開しない。
+- 実測 smoke として、同一 `CompilerSession` で 2 回 compile し、`resource_summary_proof_artifact_present=true`、entry count が非ゼロ、store/preseed candidate counter が増えることを Node inline script で確認した。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web/Cargo.toml`、`cargo test -p nepl-core neplproof --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_proof_header --lib -- --nocapture`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-neplproof-session-slot-20260601.json`、`git diff --check` は pass。
+- `cargo fmt --manifest-path nepl-web/Cargo.toml --check` は既存の全体未format差分で失敗するため、今回の検証には含めていない。無関係な全体format変更は避けた。
+- plan.md 自体は変更していない。
+
 # 2026-06-01 .neplproof compile-context header/preseed checkpoint
 
 - Zenn 記事の試作段階方針を再確認し、コンパイル高速化でも静的検査を削らず、`.neplproof` の stale-hit 防止境界を core compiler 側へ寄せる方針で進めた。
