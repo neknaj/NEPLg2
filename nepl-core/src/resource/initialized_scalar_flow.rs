@@ -80,7 +80,7 @@ pub(super) fn compute_i32_scalar_return_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
     raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
-) -> Vec<I32ScalarReturnSummary> {
+) -> (Vec<I32ScalarReturnSummary>, usize) {
     let mut relevance_leaf_cache = I32LeafProjectionCache::default();
     let relevant = module
         .functions
@@ -115,7 +115,8 @@ pub(super) fn compute_i32_scalar_return_summaries(
             summaries.len()
         );
     }
-    summaries
+    let recomputations = worklist.recomputations();
+    (summaries, recomputations)
 }
 
 fn log_i32_scalar_summary_fact_counts(

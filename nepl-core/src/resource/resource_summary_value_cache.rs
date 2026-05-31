@@ -41,6 +41,16 @@ use self::stable_mirror::{
 /// `resource_summary_value_replay_*` を別 counter として増やす。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ResourceSummaryValueCacheStats {
+    pub resource_raw_alias_summary_recomputations: usize,
+    pub resource_raw_alias_summary_count: usize,
+    pub resource_i32_scalar_summary_recomputations: usize,
+    pub resource_i32_scalar_summary_count: usize,
+    pub resource_raw_init_summary_recomputations: usize,
+    pub resource_raw_init_summary_count: usize,
+    pub resource_collection_slot_summary_recomputations: usize,
+    pub resource_collection_slot_summary_count: usize,
+    pub resource_initialized_function_checks: usize,
+    pub resource_initialized_function_check_ops: usize,
     pub resource_summary_value_hits: usize,
     pub resource_summary_value_misses: usize,
     pub resource_summary_value_stores: usize,
@@ -89,6 +99,20 @@ pub struct ResourceSummaryValueCacheStats {
         usize,
 }
 
+/// initialized-state checker の summary stage を session 統計へ畳むための分類。
+///
+/// 各 stage の value cache 実装状況は異なるが、same-session code edit の残り時間を
+/// root-cause ごとに分けるには、まず「どの固定点計算が何回走ったか」を同じ観測面へ
+/// 出す必要がある。ここでは実行量だけを記録し、cache 可否や safety 判定は各 stage の
+/// 既存実装に委譲する。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ResourceSummaryComputationStage {
+    RawAlias,
+    I32Scalar,
+    RawInit,
+    CollectionSlot,
+}
+
 /// `CompilerSession` が所有する Resource IR summary value cache の境界。
 ///
 /// `LoaderSessionCache` は未型付けの loader artifact を扱うため、typed public
@@ -130,6 +154,47 @@ impl ResourceSummaryValueCache {
 
     pub fn stats(&self) -> ResourceSummaryValueCacheStats {
         self.stats
+    }
+
+    /// initialized-state checker の stage 再計算数を session 統計へ記録する。
+    ///
+    /// これは summary value cache の hit/miss とは別に、cache replay 後にも残っている
+    /// 固定費を Web / Node の same-session 測定 JSON で追うための観測点である。
+    /// 統計だけを増やし、各 stage の判定結果や safety proof には影響しない。
+    pub(super) fn record_initialized_summary_stage(
+        &mut self,
+        stage: ResourceSummaryComputationStage,
+        recomputations: usize,
+        summary_count: usize,
+    ) {
+        match stage {
+            ResourceSummaryComputationStage::RawAlias => {
+                self.stats.resource_raw_alias_summary_recomputations += recomputations;
+                self.stats.resource_raw_alias_summary_count += summary_count;
+            }
+            ResourceSummaryComputationStage::I32Scalar => {
+                self.stats.resource_i32_scalar_summary_recomputations += recomputations;
+                self.stats.resource_i32_scalar_summary_count += summary_count;
+            }
+            ResourceSummaryComputationStage::RawInit => {
+                self.stats.resource_raw_init_summary_recomputations += recomputations;
+                self.stats.resource_raw_init_summary_count += summary_count;
+            }
+            ResourceSummaryComputationStage::CollectionSlot => {
+                self.stats.resource_collection_slot_summary_recomputations += recomputations;
+                self.stats.resource_collection_slot_summary_count += summary_count;
+            }
+        }
+    }
+
+    /// final initialized function check の実行量を session 統計へ記録する。
+    ///
+    /// raw-init summary replay が成功しても、各関数の本体 check が全て走る限り
+    /// `compile_ms` は秒単位で残る。この counter は、その残り固定費を cache stats と
+    /// 同じ JSON 境界で観測するために保持する。
+    pub(super) fn record_initialized_function_check(&mut self, op_count: usize) {
+        self.stats.resource_initialized_function_checks += 1;
+        self.stats.resource_initialized_function_check_ops += op_count;
     }
 
     /// complete leaf-only `DropTraversal + ForallInitializedRange` entry 候補を作る。

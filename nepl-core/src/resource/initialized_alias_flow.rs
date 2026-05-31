@@ -62,10 +62,18 @@ pub(super) fn expr_kind_preserves_read_scalar_facts(kind: ResourceExprKind) -> b
     matches!(kind, ResourceExprKind::Deref)
 }
 
+#[cfg(test)]
 pub(super) fn compute_raw_cell_address_return_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
 ) -> Vec<RawCellAddressReturnSummary> {
+    compute_raw_cell_address_return_summaries_with_recomputations(module, types).0
+}
+
+pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
+    module: &ResourceModule,
+    types: &TypeCtx,
+) -> (Vec<RawCellAddressReturnSummary>, usize) {
     let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
     while let Some(function_index) = worklist.pop() {
@@ -84,7 +92,8 @@ pub(super) fn compute_raw_cell_address_return_summaries(
             summaries.len()
         );
     }
-    summaries
+    let recomputations = worklist.recomputations();
+    (summaries, recomputations)
 }
 
 fn update_raw_cell_address_return_summary(

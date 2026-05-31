@@ -32,7 +32,9 @@
 
 2026-05-31 Compiler performance / memoization purity
 
-- `ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C` に沿って、complete raw-init leaf replay に残る `param_cell_result_type` 型正規化 miss を解消する
+- `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` に沿って、raw-init replay 後も残る RPN code edit の seconds-scale compile time を stage / function / summary kind ごとに分解し、次の cache 実装 issue へ切り分ける
+- `ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93` に沿って、i32 scalar summary の stable mirror / replay を実装する
+- `ISS-20260531T050636303Z-INITIALIZED-FUNCTION-CHECK-NEEDS-STA-66734844` に沿って、final initialized function check の stable result cache または stdlib prechecked artifact 境界を実装する
 - `ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F` に沿って、`PrivateCache` / `PrivateState` internal effect を mask boundary なしでは `Pure` へ fold しない形で追加する
 - `ISS-20260531T025211459Z-HIGHER-ORDER-FUNCTION-PURITY-REQUIRE-A9CB99EE` に沿って、Phase 1 の `memo_call` を non-capturing named pure function value に限定する typecheck regression を追加する
 - `ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4` に沿って、private region escape を Resource IR で拒否する proof domain を設計・実装する

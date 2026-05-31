@@ -259,6 +259,24 @@ prewarm しない対象:
 
 同じ review で、RPN compile の現在の支配点は Resource summary value cache の raw-init replay と再確認した。`tmp/rpn_owner_boundary_20260531.json` の初回測定では `compile_ms=9615`、`raw_init_param_facts_stores=165`、`bypasses=60`、`incomplete_leaf=37`、`reprojection_value=23`、`param_cell_stable_type=23` である。次の性能 checkpoint は、`reprojection_context=0`、`unstable_key=0`、`unstable_entry=0` を維持しながら、labelled open generic の provenance / ordinal を stable entry と key へ加えて `param_cell_stable_type` を減らす。
 
+## RPN code-edit stage breakdown checkpoint
+
+2026-05-31 の complete raw-init leaf replay と return / byte-range type canonicalization 後、RPN same-session code edit は raw-init replay miss をほぼ解消したが、まだ秒単位である。`tmp/rpn_return_type_canonicalization_code_edit_20260531.json` では base `compile_ms=8861`、local `i32` binding 追加 edit `compile_ms=6703`、edit delta は `resource_summary_value_replayed_ops=253`、`resource_summary_value_recomputed_ops=21`、`raw_init_param_facts_bypasses=0` だった。
+
+Native release CLI で同じ RPN workload を stage timing した結果、`resource_static_check=6950ms` の大半は `resource_initialized_moves=6050ms` であり、そこに `resource_initialized_raw_init_summaries=2502ms`、`resource_initialized_i32_scalar_summaries=1558ms`、`resource_initialized_function_checks=1875ms` が含まれている。raw-init summary replay は有効になっているが、i32 scalar summary と final initialized function check はまだ compile ごとに全関数規模で走っている。
+
+この checkpoint では `CompilerSession.loader_cache_stats_json()` に次の counter を追加する。
+
+- `resource_raw_alias_summary_recomputations` / `resource_raw_alias_summary_count`
+- `resource_i32_scalar_summary_recomputations` / `resource_i32_scalar_summary_count`
+- `resource_raw_init_summary_recomputations` / `resource_raw_init_summary_count`
+- `resource_collection_slot_summary_recomputations` / `resource_collection_slot_summary_count`
+- `resource_initialized_function_checks` / `resource_initialized_function_check_ops`
+
+これらは semantic cache hit/miss ではなく、raw-init replay 後に残る fixed-point / final check の実行量を Web / Node の same-session JSON で観測するための補助統計である。通常の安全性判定、source capability、Resource IR proof には影響しない。次の根本対応は、i32 scalar summary の stable mirror / replay と、final initialized function check の stdlib prechecked artifact または function-level stable result cache に分けて進める。
+
+`tmp/rpn_stage_breakdown_code_edit_20260531.json` の first measurement では、unused local 追加 edit が `compile_ms=6771` で、delta は `resource_i32_scalar_summary_recomputations=209`、`resource_raw_init_summary_recomputations=81`、`resource_initialized_function_checks=288`、`resource_initialized_function_check_ops=3642`、`resource_summary_value_replayed_ops=253`、`resource_summary_value_recomputed_ops=21` だった。これにより、raw-init replay をさらに詰めるだけでは不十分で、i32 scalar summary replay と final function check replay を別 issue として進める必要が確定した。
+
 ## Source import surface checkpoint
 
 2026-05-27 の fifth checkpoint では、logical import graph を `ImportResolution` の置き換えとしていきなり導入せず、まず loader の未型付け source surface を import edge 表現へ広げた。subagent review では、`ImportResolution` が `FileId` に依存すること、typed public surface hash に `TypeId` や mangled symbol をそのまま使うと compile ごとの arena / `Span` に依存することが指摘された。そのため、この checkpoint では `FileId` / `Span` / `ImportResolution` / typed HIR / `TypeId` を cache value に入れない境界を維持する。

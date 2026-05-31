@@ -8,7 +8,7 @@ use super::collection_slot_lifecycle::{
     apply_collection_slot_lifecycle_event, CollectionSlotLifecycleEvent, CollectionSlotState,
 };
 use super::collection_slot_state_table::{CollectionSlotStateEntry, CollectionSlotStateTable};
-use super::collection_slot_summary_build::compute_collection_slot_lifecycle_function_summaries;
+use super::collection_slot_summary_build::compute_collection_slot_lifecycle_function_summaries_with_recomputations;
 use super::collection_slot_summary_build_range_lifetime::transform_range_certificate_survives_op;
 use super::collection_slot_summary_build_state::{
     CollectionSlotSummaryBuildState, CollectionSlotTransformRangeCertificateCandidate,
@@ -24,7 +24,7 @@ use super::function_alias::FunctionAliasTable;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_alias_flow::{
     apply_direct_call_raw_alias_summary, apply_indirect_call_raw_alias_summary,
-    compute_raw_cell_address_return_summaries, expr_kind_preserves_raw_alias,
+    compute_raw_cell_address_return_summaries_with_recomputations, expr_kind_preserves_raw_alias,
     expr_kind_preserves_read_scalar_facts, RawCellAddressReturnSummaryIndex,
 };
 use super::initialized_path_state::{merge_path_alternatives_into, ResourcePathAlternatives};
@@ -33,7 +33,7 @@ use super::initialized_scalar_flow::{
 };
 use super::initialized_str_layout::seed_str_storage_layout;
 use super::initialized_summary::RawCellInitializationFunctionSummaryIndex;
-use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries;
+use super::initialized_summary_build::compute_raw_cell_initialization_function_summaries_with_recomputations;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{
     CellStateEntry, Place, PlaceRoot, ResourceBlock, ResourceCallTarget, ResourceExprKind,
@@ -46,7 +46,7 @@ use super::report::{
     ResourceFunctionCheck,
 };
 use super::resource_summary_value_cache::{
-    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+    ResourceSummaryComputationStage, ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 use super::timing::{ResourceFunctionTimer, ResourceStageTimer};
 
@@ -87,36 +87,67 @@ fn check_resource_initialized_moves_inner(
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceCheckDeferred::default();
-    let raw_alias_summaries = compute_raw_cell_address_return_summaries(module, types);
+    let (raw_alias_summaries, raw_alias_recomputations) =
+        compute_raw_cell_address_return_summaries_with_recomputations(module, types);
+    if let Some(cache) = summary_value_cache.as_deref_mut() {
+        cache.record_initialized_summary_stage(
+            ResourceSummaryComputationStage::RawAlias,
+            raw_alias_recomputations,
+            raw_alias_summaries.len(),
+        );
+    }
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(&raw_alias_summaries);
     stage_start.log("resource_initialized_raw_alias_summaries");
     let stage_start = ResourceStageTimer::start();
-    let i32_scalar_summaries =
+    let (i32_scalar_summaries, i32_scalar_recomputations) =
         compute_i32_scalar_return_summaries(module, types, &raw_alias_summary_index);
+    if let Some(cache) = summary_value_cache.as_deref_mut() {
+        cache.record_initialized_summary_stage(
+            ResourceSummaryComputationStage::I32Scalar,
+            i32_scalar_recomputations,
+            i32_scalar_summaries.len(),
+        );
+    }
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(&i32_scalar_summaries);
     stage_start.log("resource_initialized_i32_scalar_summaries");
     let stage_start = ResourceStageTimer::start();
-    let raw_init_summaries = compute_raw_cell_initialization_function_summaries(
-        module,
-        types,
-        &raw_alias_summaries,
-        &i32_scalar_summaries,
-        summary_value_cache.as_deref_mut(),
-        summary_value_cache_context,
-    );
+    let (raw_init_summaries, raw_init_recomputations) =
+        compute_raw_cell_initialization_function_summaries_with_recomputations(
+            module,
+            types,
+            &raw_alias_summaries,
+            &i32_scalar_summaries,
+            summary_value_cache.as_deref_mut(),
+            summary_value_cache_context,
+        );
+    if let Some(cache) = summary_value_cache.as_deref_mut() {
+        cache.record_initialized_summary_stage(
+            ResourceSummaryComputationStage::RawInit,
+            raw_init_recomputations,
+            raw_init_summaries.len(),
+        );
+    }
     let raw_init_summary_index =
         RawCellInitializationFunctionSummaryIndex::new(&raw_init_summaries);
     stage_start.log("resource_initialized_raw_init_summaries");
     let stage_start = ResourceStageTimer::start();
-    let collection_slot_summaries = compute_collection_slot_lifecycle_function_summaries(
-        module,
-        types,
-        &raw_alias_summaries,
-        &i32_scalar_summaries,
-        &raw_init_summaries,
-        summary_value_cache.as_deref_mut(),
-        summary_value_cache_context,
-    );
+    let (collection_slot_summaries, collection_slot_recomputations) =
+        compute_collection_slot_lifecycle_function_summaries_with_recomputations(
+            module,
+            types,
+            &raw_alias_summaries,
+            &i32_scalar_summaries,
+            &raw_init_summaries,
+            summary_value_cache.as_deref_mut(),
+            summary_value_cache_context,
+        );
+    if let Some(cache) = summary_value_cache.as_deref_mut() {
+        cache.record_initialized_summary_stage(
+            ResourceSummaryComputationStage::CollectionSlot,
+            collection_slot_recomputations,
+            collection_slot_summaries.len(),
+        );
+    }
     let collection_slot_summary_index =
         CollectionSlotLifecycleFunctionSummaryIndex::new(&collection_slot_summaries);
     stage_start.log("resource_initialized_collection_slot_summaries");
@@ -124,6 +155,9 @@ fn check_resource_initialized_moves_inner(
 
     for function in &module.functions {
         let function_start = ResourceFunctionTimer::start();
+        if let Some(cache) = summary_value_cache.as_deref_mut() {
+            cache.record_initialized_function_check(resource_function_op_count(function));
+        }
         let mut engine = ResourceCheckEngine {
             function: function.name.as_str(),
             types,
@@ -170,6 +204,10 @@ fn dedup_resource_check_diagnostics(diagnostics: &mut Vec<ResourceCheckDiagnosti
         }
     }
     *diagnostics = unique;
+}
+
+fn resource_function_op_count(function: &ResourceFunction) -> usize {
+    function.blocks.iter().map(|block| block.ops.len()).sum()
 }
 
 #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]

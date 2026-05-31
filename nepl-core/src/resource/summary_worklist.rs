@@ -67,7 +67,6 @@ impl SummaryWorklist {
         }
     }
 
-    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     pub(super) fn recomputations(&self) -> usize {
         self.recomputations
     }

@@ -45,14 +45,34 @@ use super::summary_dependency::build_function_summary_dependencies;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
+#[cfg(test)]
 pub(super) fn compute_raw_cell_initialization_function_summaries(
+    module: &ResourceModule,
+    types: &TypeCtx,
+    raw_alias_summaries: &[RawCellAddressReturnSummary],
+    i32_scalar_summaries: &[I32ScalarReturnSummary],
+    summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
+) -> Vec<RawCellInitializationFunctionSummary> {
+    compute_raw_cell_initialization_function_summaries_with_recomputations(
+        module,
+        types,
+        raw_alias_summaries,
+        i32_scalar_summaries,
+        summary_value_cache,
+        summary_value_cache_context,
+    )
+    .0
+}
+
+pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputations(
     module: &ResourceModule,
     types: &TypeCtx,
     raw_alias_summaries: &[RawCellAddressReturnSummary],
     i32_scalar_summaries: &[I32ScalarReturnSummary],
     mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
-) -> Vec<RawCellInitializationFunctionSummary> {
+) -> (Vec<RawCellInitializationFunctionSummary>, usize) {
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
     let relevant =
         raw_cell_initialization_summary_relevance(module, types, &raw_alias_summary_index);
@@ -116,7 +136,8 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
             summaries.len()
         );
     }
-    summaries
+    let recomputations = worklist.recomputations();
+    (summaries, recomputations)
 }
 
 fn function_raw_cell_initialization_summary(

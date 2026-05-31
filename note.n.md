@@ -47991,3 +47991,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `resource_summary_value_cache.rs` の raw-init param facts cache method を `resource_summary_value_cache/raw_init.rs` へ分離した。cache owner 本体は統計、map、drop traversal 既存境界を持ち、raw-init 固有の candidate / replay / record は submodule が受け持つ。
 - subagent review で、`RawBody` を body kind だけで hash すると設計書の「raw body/source hash 追加まで拒否」と矛盾すると指摘されたため、`resource_function_body_hash` は `RawBody` を再び `None` に倒すように戻した。raw body 本文が `ResourceFunction` に残らない現状では、source policy hash だけで stale hit を防ぐ設計にしない。
 - 同 review で raw-init preseed の実 replay 経路に focused regression が不足していると指摘されたため、`initialized_summary_build_value_cache_tests.rs` を追加した。保存済み raw-init param facts が同じ summary surface として replay されること、function body / source policy / signature type boundary のいずれかが変わると preseed miss になり通常 worklist に戻ることを固定した。
+
+## 2026-05-31 Agent RPN stage breakdown counter checkpoint
+
+- Zenn の試作段階方針、性能追求方針、純粋 query cache 方針を再確認した。`plan.md` は変更していない。
+- `remote/main` は `git fetch origin` 後も `a8c45e08` で local `main` / current branch と一致していた。既存 dirty file は別件として触っていない。
+- native release CLI で RPN の stage timing を再取得した。`resource_static_check=6950ms`、`resource_initialized_moves=6050ms` で、内訳は `raw_init=2502ms`、`i32_scalar=1558ms`、`function_checks=1875ms` だった。
+- `ResourceSummaryValueCacheStats` に initialized-state summary stage の再計算数 / summary count と final function check count / op count を追加した。これは safety proof を変えず、Web / Node same-session JSON から raw-init replay 後の残り固定費を観測するための counter である。
+- `tmp/rpn_stage_breakdown_code_edit_20260531.json` では、base `compile_ms=8919`、unused local 追加 edit `compile_ms=6771` だった。edit delta は `resource_i32_scalar_summary_recomputations=209`、`resource_raw_init_summary_recomputations=81`、`resource_initialized_function_checks=288`、`resource_initialized_function_check_ops=3642`、`resource_summary_value_replayed_ops=253`、`resource_summary_value_recomputed_ops=21` である。
+- この測定に基づき、i32 scalar summary stable mirror / replay を `ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93`、final initialized function check stable result cache を `ISS-20260531T050636303Z-INITIALIZED-FUNCTION-CHECK-NEEDS-STA-66734844` へ分割した。
+- `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` は investigating に更新した。これは計測と root-cause 分解の issue であり、RPN code edit の seconds-scale compile time は未解決である。
+- `node nodesrc/test_resource_checker_responsibility.js` は `owner_summary_type_params.rs has 444 implementation lines` で失敗した。今回変更していない file の既存 responsibility drift であり、別件として扱う。

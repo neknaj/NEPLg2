@@ -34,7 +34,29 @@ use super::summary_dependency::build_function_summary_dependencies;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
+#[cfg(test)]
 pub(super) fn compute_collection_slot_lifecycle_function_summaries(
+    module: &ResourceModule,
+    types: &TypeCtx,
+    raw_alias_summaries: &[RawCellAddressReturnSummary],
+    i32_scalar_summaries: &[I32ScalarReturnSummary],
+    raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
+) -> Vec<CollectionSlotLifecycleFunctionSummary> {
+    compute_collection_slot_lifecycle_function_summaries_with_recomputations(
+        module,
+        types,
+        raw_alias_summaries,
+        i32_scalar_summaries,
+        raw_init_summaries,
+        summary_value_cache,
+        summary_value_cache_context,
+    )
+    .0
+}
+
+pub(super) fn compute_collection_slot_lifecycle_function_summaries_with_recomputations(
     module: &ResourceModule,
     types: &TypeCtx,
     raw_alias_summaries: &[RawCellAddressReturnSummary],
@@ -42,7 +64,7 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
     raw_init_summaries: &[RawCellInitializationFunctionSummary],
     mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
-) -> Vec<CollectionSlotLifecycleFunctionSummary> {
+) -> (Vec<CollectionSlotLifecycleFunctionSummary>, usize) {
     let mut summaries = Vec::new();
     let relevant_functions = collection_slot_summary_relevant_functions(module, types);
     let dependencies = build_function_summary_dependencies(module);
@@ -99,7 +121,8 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
             &summaries,
         );
     }
-    summaries
+    let recomputations = worklist.recomputations();
+    (summaries, recomputations)
 }
 
 fn update_collection_slot_lifecycle_summary(
