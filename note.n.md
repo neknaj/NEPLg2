@@ -48300,3 +48300,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ResourceSummaryValueCacheStats` に Resource static check の function/op 数と、raw alias / i32 scalar / raw-init / collection slot / final initialized check の replay probe / hit / miss function 数を追加した。
 - `tmp/rpn_static_inner_probe_20260601.json` では、RPN same-session unused local edit が base `compile_ms=10377`、edit `compile_ms=2384` だった。edit では `resource_static_initialized_moves=1056.579ms`、`resource_static_owner_obligations=878.709ms`、`resource_typecheck=171.733ms` が支配項である。
 - edit delta は `resource_summary_value_recomputed_ops=0` のままだが、raw alias は 288 probe / 287 hit / 1 miss、i32 scalar は 209 probe / 209 hit、raw-init は 151 probe / 151 hit、final initialized check は 288 probe / 287 hit / 1 miss だった。次は未変更関数の replay probe 自体を避ける changed-function-only proof replay と、owner obligations の function-level pass cache / proof template 化へ進む。
+
+## 2026-06-01 Agent owner obligation pass cache checkpoint
+
+- remote/main と同期済みの `perf/owner-proof-cache-20260601` branch で、Resource static check の `resource_static_owner_obligations` に残る固定費を削る作業を進めた。`plan.md` は変更していない。
+- Zenn の性能追求方針、純粋 query cache 方針、試作段階でも雑設計を避ける方針を再確認し、owner diagnostics を隠す cache ではなく diagnostic-free pass だけを保存する設計にした。
+- subagent review では、`check_resource_owner_obligations` が owner return summary と全関数 `ResourceOwnerCheckEngine` を毎回走らせていること、まず initialized final check と同じ pass-only cache を入れるのが安全だと確認した。
+- `ResourceSummaryValueCache` に owner obligation check entry、dependency closure kind、function-level replay probe / hit / miss counter、checker 実行 function/op counter を追加した。
+- cached pass は function body hash、dependency closure hash、source capability policy hash、type boundary hash を key にし、diagnostics を持つ関数は保存しない。replay 時は `final_owners` を materialize せず、現在の gate が消費する diagnostics-free surface と `deferred` counter だけを返す。
+- focused regression として、owner obligation check が二回目の同一 compile で checker を再実行しないこと、本文変更では miss して再実行されることを追加した。
+- `tmp/rpn_owner_obligation_cache_probe_final_20260601.json` では、release Web RPN same-session string literal edit が base `compile_ms=10801`、edit `compile_ms=3006` だった。edit delta は `resource_owner_obligation_function_checks=0`、`resource_owner_obligation_function_check_ops=0`、`resource_summary_value_owner_obligation_check_replay_hit_functions=288` である。
+- owner checker 本体は skip できたが、edit の `resource_static_owner_obligations=1534.075ms` はまだ残る。これは `compute_owner_return_summaries` の全関数 fixed-point が支配しているためで、`ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2` として分離した。
+- memo_call / 高階関数の subagent review では、Phase 1 の `memo_call @pure_named_func` は typecheck/HIR gate までで、Resource IR では通常 function value に同化していると確認した。次は `PrivateCache` / private state effect、non-escape proof、sealed backend representation を別作業で進める。

@@ -37,6 +37,7 @@ pub(in crate::resource) enum ResourceSummaryDependencyClosureKind {
     RawInit,
     I32Scalar,
     InitializedFunctionCheck,
+    OwnerObligationCheck,
 }
 
 /// summary value key に含める dependency closure hash を作る。
@@ -213,6 +214,23 @@ pub(in crate::resource) fn initialized_function_check_dependency_closure_hash(
     )
 }
 
+pub(in crate::resource) fn owner_obligation_check_dependency_closure_hash(
+    context: &ResourceSummaryValueCacheContext,
+    types: &TypeCtx,
+    module: &ResourceModule,
+    dependencies: &[Vec<usize>],
+    function_index: usize,
+) -> Result<ResourceSummaryDependencyClosureHash, ResourceSummaryDependencyClosureHashReject> {
+    resource_summary_dependency_closure_hash(
+        ResourceSummaryDependencyClosureKind::OwnerObligationCheck,
+        context,
+        types,
+        module,
+        dependencies,
+        function_index,
+    )
+}
+
 fn collect_dependency_closure(
     dependencies: &[Vec<usize>],
     function_index: usize,
@@ -238,6 +256,7 @@ impl ResourceSummaryDependencyClosureKind {
             ResourceSummaryDependencyClosureKind::InitializedFunctionCheck => {
                 "initialized-function-check"
             }
+            ResourceSummaryDependencyClosureKind::OwnerObligationCheck => "owner-obligation-check",
         }
     }
 }

@@ -655,7 +655,7 @@ fn run_resource_static_check(
     types: &crate::types::TypeCtx,
     diagnostics: &mut Vec<Diagnostic>,
     source_map: Option<&SourceMap>,
-    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    mut resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
     resource_summary_value_cache_context: Option<
         &crate::resource::ResourceSummaryValueCacheContext,
     >,
@@ -688,7 +688,7 @@ fn run_resource_static_check(
     let stage_start = std::time::Instant::now();
     let stage_start_ms = stage_recorder.start();
     let initialized_moves = match (
-        resource_summary_value_cache,
+        resource_summary_value_cache.as_deref_mut(),
         resource_summary_value_cache_context,
     ) {
         (Some(cache), Some(context)) => {
@@ -734,7 +734,19 @@ fn run_resource_static_check(
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let stage_start_ms = stage_recorder.start();
-    let owner_obligations = crate::resource::check_resource_owner_obligations(&resource, types);
+    let owner_obligations = match (
+        resource_summary_value_cache.as_deref_mut(),
+        resource_summary_value_cache_context,
+    ) {
+        (Some(cache), Some(context)) => {
+            crate::resource::check_resource_owner_obligations_with_summary_cache(
+                &resource, types, cache, context,
+            )
+        }
+        (Some(_), None) | (None, _) => {
+            crate::resource::check_resource_owner_obligations(&resource, types)
+        }
+    };
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_owner_obligations", stage_start);
     stage_recorder.finish("resource_static_owner_obligations", stage_start_ms);

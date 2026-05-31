@@ -115,6 +115,33 @@ source policy では、`to_i128_radix` に `str_slice` が戻らないこと、s
 
 edit delta では `resource_summary_value_recomputed_ops=0` だが、raw alias は 288 関数 probe / 287 hit / 1 miss、i32 scalar は 209 probe / 209 hit、raw-init は 151 probe / 151 hit、final initialized check は 288 probe / 287 hit / 1 miss だった。したがって残り時間は stable mirror の false miss ではなく、未変更関数の proof replay probe と、owner obligations の全関数再検査による固定費である。
 
+## Owner obligation pass cache checkpoint
+
+2026-06-01 の checkpoint では、owner obligation の全関数再検査を diagnostic-free pass
+cache として `ResourceSummaryValueCache` へ接続した。これは `OwnerReturnSummary` を保存する
+cache ではなく、`ResourceOwnerCheckEngine::check_function` の結果が diagnostics を持たない
+場合だけ、現在の compile でも pass と見なせることを保存する。
+
+cache key は function body hash、dependency closure hash、source capability policy hash、
+function-local type boundary、generic boundary、namespace を含む。diagnostics がある関数は
+保存しない。cached pass では `final_owners` を materialize せず、`deferred` counter だけを
+戻す。現在の compiler gate は owner diagnostics だけを失敗条件として消費するため、この
+API は pass-only replay として閉じる。将来 `final_owners` を後続 stage が読む場合は、別の
+stable owner state mirror を設計し、この fast path とは分ける。
+
+`tmp/rpn_owner_obligation_cache_probe_final_20260601.json` の release Web RPN same-session string
+literal edit 測定では、base `compile_ms=10801`、edit `compile_ms=3006` だった。edit delta
+では `resource_owner_obligation_function_checks=0`、`resource_owner_obligation_function_check_ops=0`、
+`resource_summary_value_owner_obligation_check_replay_hit_functions=288` になり、owner checker
+本体は全関数で replay できている。
+
+ただし edit の `resource_static_owner_obligations` はまだ `1534.075ms` 残る。これは cached
+pass の前に `compute_owner_return_summaries` が全関数 fixed-point を走らせるためである。
+`OwnerReturnSummary` は `TypeId`、projection、variant condition、host memory span、storage
+origin marker などを含むため、単純な session-local `Vec<OwnerReturnSummary>` reuse は不可である。
+次の根本対応は `ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2` として、
+owner return summary の stable mirror value cache を設計する。
+
 ## CompilerSession first checkpoint
 
 2026-05-27 の first checkpoint では、公開 API の境界を先に session 化した。現在の `CompilerSession` は bundled stdlib source table の保持までを行い、parse / typecheck / Resource IR summary cache はまだ持たない。

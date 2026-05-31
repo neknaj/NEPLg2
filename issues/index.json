@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T17:07:21.290Z",
+  "generated_at": "2026-05-31T17:48:46.593Z",
   "counts": {
-    "total": 1297,
-    "open": 26,
+    "total": 1298,
+    "open": 27,
     "resolved": 1271,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 326
       },
       "core": {
-        "total": 652,
-        "open": 19,
+        "total": 653,
+        "open": 20,
         "resolved": 633
       },
       "neplg21": {
@@ -393,11 +393,26 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-05-31",
-      "updated": "2026-05-31",
+      "updated": "2026-06-01",
       "target": "nepl-core/src/resource; nepl-web/src/lib.rs; nodesrc/run_test.js",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D.md"
+    },
+    {
+      "id": "ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2",
+      "title": "Owner return summary needs stable value cache",
+      "area": "core",
+      "status": "investigating",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-06-01",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/resource/owner_summary.rs; nepl-core/src/resource/resource_summary_value_cache",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",

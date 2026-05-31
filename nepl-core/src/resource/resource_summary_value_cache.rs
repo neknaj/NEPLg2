@@ -15,6 +15,7 @@ mod dependency_hash;
 mod i32_scalar;
 mod initialized_check;
 mod key;
+mod owner_obligation;
 mod raw_alias;
 mod raw_init;
 mod stable_hash;
@@ -25,7 +26,8 @@ mod type_boundary;
 pub use self::context::ResourceSummaryValueCacheContext;
 pub(super) use self::dependency_hash::{
     i32_scalar_dependency_closure_hash, initialized_function_check_dependency_closure_hash,
-    raw_alias_dependency_closure_hash, raw_init_dependency_closure_hash,
+    owner_obligation_check_dependency_closure_hash, raw_alias_dependency_closure_hash,
+    raw_init_dependency_closure_hash,
 };
 
 pub(in crate::resource) use self::candidate_key::ResourceSummaryDependencyClosureHash;
@@ -37,7 +39,8 @@ use self::key::ResourceSummaryValueCacheKey;
 use self::stable_mirror::{
     reproject_drop_traversal_forall_leaf_entry, ResourceSummaryStableDropTraversalForallLeafEntry,
     ResourceSummaryStableI32ScalarReturnFactsEntry,
-    ResourceSummaryStableInitializedFunctionCheckEntry, ResourceSummaryStableRawAliasReturnEntry,
+    ResourceSummaryStableInitializedFunctionCheckEntry,
+    ResourceSummaryStableOwnerObligationCheckEntry, ResourceSummaryStableRawAliasReturnEntry,
     ResourceSummaryStableRawInitCompleteLeafEntry, ResourceSummaryTypeReprojection,
 };
 
@@ -62,6 +65,8 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_collection_slot_summary_count: usize,
     pub resource_initialized_function_checks: usize,
     pub resource_initialized_function_check_ops: usize,
+    pub resource_owner_obligation_function_checks: usize,
+    pub resource_owner_obligation_function_check_ops: usize,
     pub resource_summary_value_hits: usize,
     pub resource_summary_value_misses: usize,
     pub resource_summary_value_stores: usize,
@@ -177,6 +182,16 @@ pub struct ResourceSummaryValueCacheStats {
         usize,
     pub resource_summary_value_initialized_function_check_reprojection_value_collection_slot_state_type_bypasses:
         usize,
+    pub resource_summary_value_owner_obligation_check_hits: usize,
+    pub resource_summary_value_owner_obligation_check_stores: usize,
+    pub resource_summary_value_owner_obligation_check_bypasses: usize,
+    pub resource_summary_value_owner_obligation_check_replay_probe_functions: usize,
+    pub resource_summary_value_owner_obligation_check_replay_hit_functions: usize,
+    pub resource_summary_value_owner_obligation_check_replay_miss_functions: usize,
+    pub resource_summary_value_owner_obligation_check_dependency_bypasses: usize,
+    pub resource_summary_value_owner_obligation_check_diagnostic_bypasses: usize,
+    pub resource_summary_value_owner_obligation_check_missing_source_policy_bypasses: usize,
+    pub resource_summary_value_owner_obligation_check_unstable_key_bypasses: usize,
     pub resource_summary_value_raw_init_param_facts_hits: usize,
     pub resource_summary_value_raw_init_param_facts_stores: usize,
     pub resource_summary_value_raw_init_param_facts_bypasses: usize,
@@ -249,6 +264,8 @@ pub struct ResourceSummaryValueCache {
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableI32ScalarReturnFactsEntry>,
     initialized_function_check_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableInitializedFunctionCheckEntry>,
+    owner_obligation_check_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableOwnerObligationCheckEntry>,
     raw_init_complete_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawInitCompleteLeafEntry>,
 }
@@ -284,6 +301,13 @@ pub(super) struct ResourceSummaryInitializedFunctionCheckEntryCandidate {
     op_count: usize,
 }
 
+#[derive(Debug, Clone)]
+pub(super) struct ResourceSummaryOwnerObligationCheckEntryCandidate {
+    key: ResourceSummaryValueCacheKey,
+    entry: ResourceSummaryStableOwnerObligationCheckEntry,
+    op_count: usize,
+}
+
 impl ResourceSummaryValueCache {
     pub fn new() -> Self {
         Self::default()
@@ -295,6 +319,7 @@ impl ResourceSummaryValueCache {
         self.raw_alias_return_entries.clear();
         self.i32_scalar_return_facts_entries.clear();
         self.initialized_function_check_entries.clear();
+        self.owner_obligation_check_entries.clear();
         self.raw_init_complete_leaf_entries.clear();
     }
 
@@ -392,6 +417,21 @@ impl ResourceSummaryValueCache {
             .resource_summary_value_initialized_function_check_replay_miss_functions += 1;
     }
 
+    pub(super) fn record_owner_obligation_check_replay_probe_function(&mut self) {
+        self.stats
+            .resource_summary_value_owner_obligation_check_replay_probe_functions += 1;
+    }
+
+    pub(super) fn record_owner_obligation_check_replay_hit_function(&mut self) {
+        self.stats
+            .resource_summary_value_owner_obligation_check_replay_hit_functions += 1;
+    }
+
+    pub(super) fn record_owner_obligation_check_replay_miss_function(&mut self) {
+        self.stats
+            .resource_summary_value_owner_obligation_check_replay_miss_functions += 1;
+    }
+
     /// initialized-state checker の stage 再計算数を session 統計へ記録する。
     ///
     /// これは summary value cache の hit/miss とは別に、cache replay 後にも残っている
@@ -431,6 +471,16 @@ impl ResourceSummaryValueCache {
     pub(super) fn record_initialized_function_check(&mut self, op_count: usize) {
         self.stats.resource_initialized_function_checks += 1;
         self.stats.resource_initialized_function_check_ops += op_count;
+    }
+
+    /// owner obligation checker の実行量を session 統計へ記録する。
+    ///
+    /// owner obligation は Resource static check の後段で秒単位の固定費になり得る。pass-only
+    /// replay が効いたかを Web / Node の同一 session 測定で判断するため、実際に checker
+    /// 本体を起動した関数数と op 数を initialized check とは別に保持する。
+    pub(super) fn record_owner_obligation_function_check(&mut self, op_count: usize) {
+        self.stats.resource_owner_obligation_function_checks += 1;
+        self.stats.resource_owner_obligation_function_check_ops += op_count;
     }
 
     /// complete leaf-only `DropTraversal + ForallInitializedRange` entry 候補を作る。

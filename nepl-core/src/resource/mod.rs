@@ -407,6 +407,7 @@ mod owner_host_memory_summary;
 mod owner_host_payload_extent;
 mod owner_host_size_outputs;
 mod owner_match_payload;
+mod owner_obligation_value_cache;
 mod owner_raw_address;
 mod owner_raw_memory;
 mod owner_raw_memory_cell;
@@ -580,7 +581,9 @@ pub use model::{
     ResourceOffset, ResourceOp, ResourceState, ResourceTerminator, StorageId, StorageOrigin,
     StorageOriginEntry, UnknownEffectReason,
 };
-pub use owner_entry::check_resource_owner_obligations;
+pub use owner_entry::{
+    check_resource_owner_obligations, check_resource_owner_obligations_with_summary_cache,
+};
 pub use report::{
     ResourceBorrowCheckDeferred, ResourceBorrowCheckReport, ResourceBorrowDiagnostic,
     ResourceBorrowFunctionCheck, ResourceBorrowOperation, ResourceCheckDeferred,

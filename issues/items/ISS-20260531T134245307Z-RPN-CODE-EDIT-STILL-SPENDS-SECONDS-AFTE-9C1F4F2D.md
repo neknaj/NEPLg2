@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-05-31
-updated: 2026-05-31
+updated: 2026-06-01
 target: "nepl-core/src/resource; nepl-web/src/lib.rs; nodesrc/run_test.js"
 ---
 
@@ -442,6 +442,30 @@ propagation ではなく alias / offset の stable mirror surface として継�
 changed-function-only proof replay、typed expression subtree query、stdlib prechecked
 artifact、codegen fragment cache を進め、base compile `resource_static_check` の秒単位固定費も
 別途削る。
+
+## 2026-06-01 owner obligation pass cache 更新
+
+owner obligation の function check は diagnostic-free pass cache として `ResourceSummaryValueCache`
+へ保存するようにした。cache key は function body hash、dependency closure hash、source
+capability policy hash、type boundary hash を含む。diagnostics を持つ関数は保存せず、cached
+pass では `final_owners` を materialize しない。現在の owner obligation gate は diagnostics
+だけを authority として読むため、この pass-only replay は後続 stage の入力を弱めない。
+
+`tmp/rpn_owner_obligation_cache_probe_final_20260601.json` では、`trunk build --release` 後の
+Web RPN same-session string literal edit が次の結果になった。
+
+- base `compile_ms=10801`、`resource_static_owner_obligations=1780.175ms`
+- edit `compile_ms=3006`、`resource_static_owner_obligations=1534.075ms`
+- edit delta は `resource_owner_obligation_function_checks=0`
+- edit delta は `resource_owner_obligation_function_check_ops=0`
+- edit delta は `resource_summary_value_owner_obligation_check_replay_hit_functions=288`
+- edit delta は `resource_summary_value_owner_obligation_check_replay_miss_functions=0`
+
+これにより owner checker 本体の全関数再実行は消えた。一方で owner stage はまだ約 1.4 秒残る。
+残りは `compute_owner_return_summaries` の全関数固定点計算であり、これは
+`ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2` として分離した。
+`OwnerReturnSummary` は `TypeId` や projection-rich な session-local state を含むため、単純な
+in-memory summary reuse ではなく stable mirror value cache として設計する。
 
 ## 検証
 

@@ -51,7 +51,10 @@ use super::super::model::{
     ResourceTerminator, StorageId,
 };
 use super::super::place_utils::projection_result_type;
-use super::super::report::{ResourceCheckDeferred, ResourceFunctionCheck};
+use super::super::report::{
+    ResourceCheckDeferred, ResourceFunctionCheck, ResourceOwnerCheckDeferred,
+    ResourceOwnerFunctionCheck,
+};
 use super::super::summary_projection::{
     summary_place_for_params, SummaryOffset, SummaryPlace, SummaryProjection,
 };
@@ -214,6 +217,18 @@ pub(super) struct ResourceSummaryStableInitializedFunctionCheckEntry {
     final_cells: Vec<ResourceSummaryStableCellStateEntry>,
     final_collection_slots: Vec<ResourceSummaryStableCollectionSlotStateEntry>,
     deferred: ResourceCheckDeferred,
+}
+
+/// owner obligation check の diagnostic-free pass entry。
+///
+/// 現在の owner obligation gate は `ResourceOwnerCheckReport::diagnostics` だけを
+/// authority として使う。`final_owners` は診断作成のために checker 内で使われる
+/// session-local state であり、現在の後続 stage では消費されないため、cached pass では
+/// materialize しない。将来 `final_owners` を後続 stage が読む場合は、この entry とは別に
+/// stable owner state mirror を設計し、pass-only API から明示的に分離する。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ResourceSummaryStableOwnerObligationCheckEntry {
+    deferred: ResourceOwnerCheckDeferred,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1588,6 +1603,31 @@ pub(super) fn reproject_initialized_function_check_entry_result(
         auto_drop_points: Vec::new(),
         deferred: entry.deferred,
     })
+}
+
+pub(super) fn stable_owner_obligation_check_entry(
+    check: &ResourceOwnerFunctionCheck,
+) -> ResourceSummaryStableOwnerObligationCheckEntry {
+    ResourceSummaryStableOwnerObligationCheckEntry {
+        deferred: check.deferred,
+    }
+}
+
+/// cached owner obligation entry を「診断なしの検査済み pass」として戻す。
+///
+/// owner obligation の現在の compile gate は diagnostics のみを失敗条件にするため、entry
+/// key が現在の body / dependency / type / source boundary と一致する場合は checker を
+/// 起動せず pass として扱える。`final_owners` は deliberately empty にし、この API が
+/// owner state 再投影ではなく pass-only replay であることを型とコメントの両方に残す。
+pub(super) fn reproject_owner_obligation_check_entry_pass(
+    function_name: &str,
+    entry: &ResourceSummaryStableOwnerObligationCheckEntry,
+) -> ResourceOwnerFunctionCheck {
+    ResourceOwnerFunctionCheck {
+        name: function_name.to_string(),
+        final_owners: Vec::new(),
+        deferred: entry.deferred,
+    }
 }
 
 fn stable_cell_state_entry(
