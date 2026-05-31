@@ -81,6 +81,27 @@ final initialized function check replay を
 `ISS-20260531T050636303Z-INITIALIZED-FUNCTION-CHECK-NEEDS-STA-66734844`
 へ分割した。
 
+## 2026-05-31 i32 scalar replay 更新
+
+`ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93`
+で `I32ScalarReturnFacts` の stable mirror / replay を実装した。facts が空の relevant
+function も empty entry として cache し、no-fact function が worklist に戻る固定費を
+削った。
+
+`tmp/rpn_i32_scalar_empty_cache_code_edit_20260531.json` では、same-session code edit
+delta が次の通りになった。
+
+- `resource_i32_scalar_summary_recomputations=14`
+- `resource_i32_scalar_summary_count=87`
+- `resource_raw_init_summary_recomputations=81`
+- `resource_initialized_function_checks=288`
+- `resource_summary_value_i32_scalar_return_facts_hits=429`
+- `resource_summary_value_replayed_ops=682`
+
+i32 scalar summary の全関数規模 replay は解消したが、edit compile は `compile_ms=6496`
+でまだ秒単位である。残る支配項は raw-init residual recomputation と final initialized
+function check であり、この issue は open のまま継続する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

@@ -15,7 +15,7 @@ use super::stable_hash::ResourceSummaryStableHasher;
 use super::type_boundary::resource_summary_type_parameter_boundary_hash;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::resource) enum RawInitDependencyClosureHashReject {
+pub(in crate::resource) enum ResourceSummaryDependencyClosureHashReject {
     DependencyGraph,
     DependencyFunctionIdentity,
     DependencyFunctionBody,
@@ -23,52 +23,64 @@ pub(in crate::resource) enum RawInitDependencyClosureHashReject {
     DependencyTypeBoundary,
 }
 
-/// raw-init summary value key に含める dependency closure hash を作る。
+pub(in crate::resource) type RawInitDependencyClosureHashReject =
+    ResourceSummaryDependencyClosureHashReject;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::resource) enum ResourceSummaryDependencyClosureKind {
+    RawInit,
+    I32Scalar,
+}
+
+/// summary value key に含める dependency closure hash を作る。
 ///
-/// raw initialization summary は user call の callee summary を本文解析中に取り込むため、
-/// caller body だけを key にすると callee implementation edit 後に stale hit し得る。
-/// この hash は direct dependency だけでなく reachable dependency closure の body hash、
-/// source capability policy、function-local type boundary をまとめ、依存先の証明入力が
-/// 変わったとき caller の cached raw-init facts も miss するようにする。
+/// raw initialization summary や i32 scalar summary は user call の callee summary を
+/// 本文解析中に取り込むため、caller body だけを key にすると callee implementation
+/// edit 後に stale hit し得る。この hash は direct dependency だけでなく reachable
+/// dependency closure の body hash、source capability policy、function-local type
+/// boundary をまとめ、依存先の証明入力が変わったとき caller の cached summary facts も
+/// miss するようにする。
 ///
 /// 失敗時は、広い `unstable key` ではなく dependency graph、function identity、body
 /// hash、source policy、type boundary のどれが欠けたかを返す。性能改善では残った探索
 /// 空間を定量的に潰す必要があるため、no-store の理由も静的に列挙する。
-pub(in crate::resource) fn raw_init_dependency_closure_hash(
+pub(in crate::resource) fn resource_summary_dependency_closure_hash(
+    kind: ResourceSummaryDependencyClosureKind,
     context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
     module: &ResourceModule,
     dependencies: &[Vec<usize>],
     function_index: usize,
-) -> Result<ResourceSummaryDependencyClosureHash, RawInitDependencyClosureHashReject> {
+) -> Result<ResourceSummaryDependencyClosureHash, ResourceSummaryDependencyClosureHashReject> {
     let mut reachable = BTreeSet::new();
     collect_dependency_closure(dependencies, function_index, &mut reachable)?;
 
     let mut hash =
-        ResourceSummaryStableHasher::new("neplg2-resource-summary-raw-init-dependency-closure-v1");
+        ResourceSummaryStableHasher::new("neplg2-resource-summary-dependency-closure-v1");
+    hash.write_str(kind.tag());
     hash.write_usize(reachable.len());
     for dependency_index in reachable {
         let dependency = module
             .functions
             .get(dependency_index)
-            .ok_or(RawInitDependencyClosureHashReject::DependencyGraph)?;
+            .ok_or(ResourceSummaryDependencyClosureHashReject::DependencyGraph)?;
         let identity = ResourceSummaryFunctionIdentity::from_resource_function(dependency)
-            .ok_or(RawInitDependencyClosureHashReject::DependencyFunctionIdentity)?;
+            .ok_or(ResourceSummaryDependencyClosureHashReject::DependencyFunctionIdentity)?;
         identity.write_stable(&mut hash);
         hash.write_u64(
             resource_function_body_hash(types, dependency)
-                .ok_or(RawInitDependencyClosureHashReject::DependencyFunctionBody)?,
+                .ok_or(ResourceSummaryDependencyClosureHashReject::DependencyFunctionBody)?,
         );
         hash.write_u64(
             context
                 .source_capability_policy_hash_for_function(dependency)
-                .ok_or(RawInitDependencyClosureHashReject::DependencySourcePolicy)?
+                .ok_or(ResourceSummaryDependencyClosureHashReject::DependencySourcePolicy)?
                 .as_u64(),
         );
         let type_params = owner_summary_type_params(types, dependency);
         hash.write_u64(
             resource_summary_type_parameter_boundary_hash(types, &type_params)
-                .ok_or(RawInitDependencyClosureHashReject::DependencyTypeBoundary)?,
+                .ok_or(ResourceSummaryDependencyClosureHashReject::DependencyTypeBoundary)?,
         );
     }
 
@@ -77,20 +89,63 @@ pub(in crate::resource) fn raw_init_dependency_closure_hash(
     ))
 }
 
+pub(in crate::resource) fn raw_init_dependency_closure_hash(
+    context: &ResourceSummaryValueCacheContext,
+    types: &TypeCtx,
+    module: &ResourceModule,
+    dependencies: &[Vec<usize>],
+    function_index: usize,
+) -> Result<ResourceSummaryDependencyClosureHash, RawInitDependencyClosureHashReject> {
+    resource_summary_dependency_closure_hash(
+        ResourceSummaryDependencyClosureKind::RawInit,
+        context,
+        types,
+        module,
+        dependencies,
+        function_index,
+    )
+}
+
+pub(in crate::resource) fn i32_scalar_dependency_closure_hash(
+    context: &ResourceSummaryValueCacheContext,
+    types: &TypeCtx,
+    module: &ResourceModule,
+    dependencies: &[Vec<usize>],
+    function_index: usize,
+) -> Result<ResourceSummaryDependencyClosureHash, ResourceSummaryDependencyClosureHashReject> {
+    resource_summary_dependency_closure_hash(
+        ResourceSummaryDependencyClosureKind::I32Scalar,
+        context,
+        types,
+        module,
+        dependencies,
+        function_index,
+    )
+}
+
 fn collect_dependency_closure(
     dependencies: &[Vec<usize>],
     function_index: usize,
     out: &mut BTreeSet<usize>,
-) -> Result<(), RawInitDependencyClosureHashReject> {
+) -> Result<(), ResourceSummaryDependencyClosureHashReject> {
     for dependency in dependencies
         .get(function_index)
-        .ok_or(RawInitDependencyClosureHashReject::DependencyGraph)?
+        .ok_or(ResourceSummaryDependencyClosureHashReject::DependencyGraph)?
     {
         if out.insert(*dependency) {
             collect_dependency_closure(dependencies, *dependency, out)?;
         }
     }
     Ok(())
+}
+
+impl ResourceSummaryDependencyClosureKind {
+    fn tag(self) -> &'static str {
+        match self {
+            ResourceSummaryDependencyClosureKind::RawInit => "raw-init",
+            ResourceSummaryDependencyClosureKind::I32Scalar => "i32-scalar",
+        }
+    }
 }
 
 #[cfg(test)]

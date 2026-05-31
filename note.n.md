@@ -48002,3 +48002,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - この測定に基づき、i32 scalar summary stable mirror / replay を `ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93`、final initialized function check stable result cache を `ISS-20260531T050636303Z-INITIALIZED-FUNCTION-CHECK-NEEDS-STA-66734844` へ分割した。
 - `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` は investigating に更新した。これは計測と root-cause 分解の issue であり、RPN code edit の seconds-scale compile time は未解決である。
 - `node nodesrc/test_resource_checker_responsibility.js` は `owner_summary_type_params.rs has 444 implementation lines` で失敗した。今回変更していない file の既存 responsibility drift であり、別件として扱う。
+
+## 2026-05-31 Agent i32 scalar summary stable replay checkpoint
+
+- Zenn の試作段階方針、性能追求方針、純粋 query cache 方針を再確認した。`plan.md` は変更していない。
+- `I32ScalarReturnFacts` の aliases / offsets / relations / constants / return conditions / parameter conditions を `ResourceSummaryValueCache` の stable entry へ変換し、現在 compile の function signature へ fail-closed に再投影できる場合だけ replay するようにした。
+- i32 scalar summary は callee summary と raw-alias summary を取り込むため、key には function body だけでなく dependency closure の body / source capability policy / type boundary hash を含めた。
+- facts が空の relevant function も empty entry として cache し、no-fact function が微小編集ごとに worklist へ戻る固定費を消した。empty entry は summary vector へは追加せず、worklist relevant flag だけを落とす。
+- focused regression は complete facts surface replay、empty facts replay、function body / source policy / signature change miss、callee body change miss を確認する。
+- RPN same-session code edit 測定 `tmp/rpn_i32_scalar_empty_cache_code_edit_20260531.json` では、base `compile_ms=10635`、unused local 追加 edit `compile_ms=6496` だった。edit delta は `resource_i32_scalar_summary_recomputations=14`、`resource_i32_scalar_summary_count=87`、`resource_raw_init_summary_recomputations=81`、`resource_initialized_function_checks=288`、`resource_summary_value_i32_scalar_return_facts_hits=429`、`resource_summary_value_replayed_ops=682` である。
+- `ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93` は verified / resolved にした。RPN code edit はまだ秒単位なので、次の支配項は `ISS-20260531T050636303Z-INITIALIZED-FUNCTION-CHECK-NEEDS-STA-66734844` と raw-init residual recomputation として継続する。

@@ -99,8 +99,13 @@ fn check_resource_initialized_moves_inner(
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(&raw_alias_summaries);
     stage_start.log("resource_initialized_raw_alias_summaries");
     let stage_start = ResourceStageTimer::start();
-    let (i32_scalar_summaries, i32_scalar_recomputations) =
-        compute_i32_scalar_return_summaries(module, types, &raw_alias_summary_index);
+    let (i32_scalar_summaries, i32_scalar_recomputations) = compute_i32_scalar_return_summaries(
+        module,
+        types,
+        &raw_alias_summary_index,
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    );
     if let Some(cache) = summary_value_cache.as_deref_mut() {
         cache.record_initialized_summary_stage(
             ResourceSummaryComputationStage::I32Scalar,

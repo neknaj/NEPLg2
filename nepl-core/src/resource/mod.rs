@@ -310,6 +310,7 @@ mod initialized_rekey;
 mod initialized_scalar_flow;
 mod initialized_scalar_flow_ops;
 mod initialized_scalar_flow_return_facts;
+mod initialized_scalar_flow_value_cache;
 mod initialized_scalar_flow_variant;
 mod initialized_str_layout;
 mod initialized_summary;

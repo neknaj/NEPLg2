@@ -277,6 +277,10 @@ Native release CLI で同じ RPN workload を stage timing した結果、`resou
 
 `tmp/rpn_stage_breakdown_code_edit_20260531.json` の first measurement では、unused local 追加 edit が `compile_ms=6771` で、delta は `resource_i32_scalar_summary_recomputations=209`、`resource_raw_init_summary_recomputations=81`、`resource_initialized_function_checks=288`、`resource_initialized_function_check_ops=3642`、`resource_summary_value_replayed_ops=253`、`resource_summary_value_recomputed_ops=21` だった。これにより、raw-init replay をさらに詰めるだけでは不十分で、i32 scalar summary replay と final function check replay を別 issue として進める必要が確定した。
 
+2026-05-31 の i32 scalar stable mirror checkpoint では、`I32ScalarReturnFacts` の aliases / offsets / relations / constants / return conditions / parameter conditions を `ResourceSummaryValueCache` の stable entry として保存し、`TypeId` を現在 compile の function signature へ再投影できる場合だけ worklist 前に preseed するようにした。i32 scalar summary は callee summary と raw-alias summary を取り込むため、key には function body だけでなく dependency closure の body / source capability policy / type boundary hash も含める。facts が空の relevant function も空 summary として cache し、no-fact function が微小編集ごとに worklist へ戻る固定費を消す。
+
+`tmp/rpn_i32_scalar_empty_cache_code_edit_20260531.json` では、RPN same-session code edit の delta が `resource_i32_scalar_summary_recomputations=14` まで減った。`resource_summary_value_i32_scalar_return_facts_hits=429`、`resource_summary_value_replayed_ops=682` で、i32 scalar facts と raw-init facts の replay が同じ session cache 上で効いている。一方で edit compile は `compile_ms=6496` でまだ秒単位であり、次の支配項は `resource_raw_init_summary_recomputations=81` と `resource_initialized_function_checks=288` である。
+
 ## Source import surface checkpoint
 
 2026-05-27 の fifth checkpoint では、logical import graph を `ImportResolution` の置き換えとしていきなり導入せず、まず loader の未型付け source surface を import edge 表現へ広げた。subagent review では、`ImportResolution` が `FileId` に依存すること、typed public surface hash に `TypeId` や mangled symbol をそのまま使うと compile ごとの arena / `Span` に依存することが指摘された。そのため、この checkpoint では `FileId` / `Span` / `ImportResolution` / typed HIR / `TypeId` を cache value に入れない境界を維持する。

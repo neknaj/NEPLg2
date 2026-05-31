@@ -20,6 +20,10 @@ use super::initialized_scalar_flow_return_facts::{
     i32_scalar_return_fact_projections, merge_i32_scalar_parameter_condition_paths,
     merge_i32_scalar_return_fact_paths, merge_i32_scalar_return_relation_paths,
 };
+use super::initialized_scalar_flow_value_cache::{
+    preseed_i32_scalar_return_summaries_from_value_cache,
+    record_i32_scalar_return_summary_value_cache_candidates,
+};
 use super::initialized_scalar_flow_variant::{
     merge_i32_scalar_concrete_variants, propagate_i32_scalar_concrete_variant_op,
 };
@@ -33,6 +37,10 @@ use super::place_utils::{
     match_bind_payload_place, place_suffix_after_prefix, reference_target_place,
     type_can_seed_raw_address_alias,
 };
+use super::resource_summary_value_cache::{
+    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+};
+use super::summary_dependency::build_function_summary_dependencies;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
@@ -80,17 +88,38 @@ pub(super) fn compute_i32_scalar_return_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
     raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
+    mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> (Vec<I32ScalarReturnSummary>, usize) {
     let mut relevance_leaf_cache = I32LeafProjectionCache::default();
-    let relevant = module
+    let relevant: Vec<bool> = module
         .functions
         .iter()
         .map(|function| {
             function_i32_scalar_summary_relevant(types, function, &mut relevance_leaf_cache)
         })
         .collect();
-    let mut worklist = SummaryWorklist::new_filtered(module, relevant);
+    let dependencies = build_function_summary_dependencies(module);
+    let mut worklist_relevant_functions = relevant.clone();
+    let mut preseeded_functions = vec![false; module.functions.len()];
     let mut summaries = Vec::new();
+    if let (Some(cache), Some(context)) = (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    ) {
+        preseed_i32_scalar_return_summaries_from_value_cache(
+            cache,
+            context,
+            types,
+            module,
+            &relevant,
+            &dependencies,
+            &mut worklist_relevant_functions,
+            &mut preseeded_functions,
+            &mut summaries,
+        );
+    }
+    let mut worklist = SummaryWorklist::new_filtered(module, worklist_relevant_functions);
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
         let function_start = ResourceFunctionTimer::start();
@@ -106,6 +135,21 @@ pub(super) fn compute_i32_scalar_return_summaries(
         if update_i32_scalar_return_summary(&mut summaries, summary) {
             worklist.notify_changed(function_index);
         }
+    }
+    if let (Some(cache), Some(context)) = (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    ) {
+        record_i32_scalar_return_summary_value_cache_candidates(
+            cache,
+            context,
+            types,
+            module,
+            &dependencies,
+            &relevant,
+            &preseeded_functions,
+            &summaries,
+        );
     }
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     if std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {

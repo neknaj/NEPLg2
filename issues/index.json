@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T05:08:52.860Z",
+  "generated_at": "2026-05-31T05:42:35.656Z",
   "counts": {
     "total": 1288,
-    "open": 25,
-    "resolved": 1263,
+    "open": 24,
+    "resolved": 1264,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 643,
-        "open": 18,
-        "resolved": 625
+        "open": 17,
+        "resolved": 626
       },
       "neplg21": {
         "total": 2,
@@ -338,21 +338,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2.md"
-    },
-    {
-      "id": "ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93",
-      "title": "i32 scalar summary needs stable mirror replay",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "performance",
-      "created": "2026-05-31",
-      "updated": "2026-05-31",
-      "target": "nepl-core/src/resource/initialized_scalar_flow.rs; nepl-core/src/resource/resource_summary_value_cache",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93.md"
     },
     {
       "id": "ISS-20260531T050636303Z-INITIALIZED-FUNCTION-CHECK-NEEDS-STA-66734844",
@@ -9983,6 +9968,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T012124326Z-RESOURCE-SUMMARY-RAW-INIT-VALUE-REPR-88633148.md"
+    },
+    {
+      "id": "ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93",
+      "title": "i32 scalar summary needs stable mirror replay",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/resource/initialized_scalar_flow.rs; nepl-core/src/resource/resource_summary_value_cache",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93.md"
     },
     {
       "id": "ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C",

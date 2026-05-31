@@ -16,6 +16,10 @@ use super::super::collection_slot_summary_model::{
     CollectionSlotLifecycleSummaryDropTraversalCoverage, CollectionSlotLifecycleSummaryI32Operand,
     CollectionSlotLifecycleSummaryOp,
 };
+use super::super::i32_scalar_return_facts::{
+    I32ScalarParameterCondition, I32ScalarReturnAlias, I32ScalarReturnCondition,
+    I32ScalarReturnConstant, I32ScalarReturnFacts, I32ScalarReturnOffset, I32ScalarReturnRelation,
+};
 use super::super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
     RawCellInitializationReturnCell,
@@ -34,7 +38,8 @@ use super::super::initialized_summary_variant_model::{
     RawCellInitializationVariantParamRequirement,
 };
 use super::super::model::{
-    Place, PlaceProjection, ResourceFunction, ResourceLocal, ResourceOffset,
+    I32ValueCondition, Place, PlaceProjection, ResourceFunction, ResourceI32RelationOp,
+    ResourceLocal, ResourceOffset,
 };
 use super::super::place_utils::projection_result_type;
 use super::super::summary_projection::{
@@ -117,6 +122,34 @@ impl ResourceSummaryStableDropTraversalForallLeafEntry {
     }
 }
 
+/// i32 scalar return facts の complete entry。
+///
+/// `I32ScalarReturnFacts` は return projection、parameter projection、scalar `TypeId` を
+/// 含むため、そのまま session cache に保存できない。この entry は projection と type を
+/// stable key に変換し、現在の関数 signature へ同じ facts を完全に戻せる場合だけ replay
+/// する。部分保存を許すと call 境界の scalar/condition propagation が欠けるため、
+/// aliases/offsets/relations/constants/conditions の全 surface を同じ entry に保持する。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ResourceSummaryStableI32ScalarReturnFactsEntry {
+    aliases: Vec<ResourceSummaryStableI32ScalarReturnAlias>,
+    offsets: Vec<ResourceSummaryStableI32ScalarReturnOffset>,
+    relations: Vec<ResourceSummaryStableI32ScalarReturnRelation>,
+    constants: Vec<ResourceSummaryStableI32ScalarReturnConstant>,
+    return_conditions: Vec<ResourceSummaryStableI32ScalarReturnCondition>,
+    parameter_conditions: Vec<ResourceSummaryStableI32ScalarParameterCondition>,
+}
+
+impl ResourceSummaryStableI32ScalarReturnFactsEntry {
+    pub(super) fn len(&self) -> usize {
+        self.aliases.len()
+            + self.offsets.len()
+            + self.relations.len()
+            + self.constants.len()
+            + self.return_conditions.len()
+            + self.parameter_conditions.len()
+    }
+}
+
 /// raw initialization summary の complete leaf entry。
 ///
 /// `RawCellInitializationFunctionSummary` に含まれる return facts、parameter byte-range、
@@ -167,6 +200,67 @@ pub(in crate::resource) enum ResourceSummaryRawInitCompleteLeafEntryReprojection
     ParamCellResultType,
     ParamReleaseRequirementProjection,
     ParamReleaseRequirementType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::resource) enum ResourceSummaryStableI32ScalarReturnFactsEntryReject {
+    ReturnProjection,
+    ParameterProjection,
+    ScalarType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::resource) enum ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject {
+    ReturnProjection,
+    ParameterProjection,
+    ScalarType,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableI32ScalarReturnAlias {
+    return_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    parameter_index: usize,
+    parameter_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    scalar_ty: ResourceSummaryStableTypeKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableI32ScalarReturnOffset {
+    return_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    parameter_index: usize,
+    parameter_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    scalar_ty: ResourceSummaryStableTypeKey,
+    offset: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableI32ScalarReturnRelation {
+    left_return_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    op: ResourceI32RelationOp,
+    right_return_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    scalar_ty: ResourceSummaryStableTypeKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableI32ScalarReturnConstant {
+    return_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    scalar_ty: ResourceSummaryStableTypeKey,
+    value: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableI32ScalarReturnCondition {
+    return_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    scalar_ty: ResourceSummaryStableTypeKey,
+    condition: I32ValueCondition,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableI32ScalarParameterCondition {
+    parameter_index: usize,
+    parameter_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    scalar_ty: ResourceSummaryStableTypeKey,
+    condition: I32ValueCondition,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -657,6 +751,93 @@ pub(super) fn reproject_drop_traversal_forall_leaf_entry(
         .collect()
 }
 
+pub(super) fn stable_i32_scalar_return_facts_entry(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    facts: &I32ScalarReturnFacts,
+) -> Result<
+    ResourceSummaryStableI32ScalarReturnFactsEntry,
+    ResourceSummaryStableI32ScalarReturnFactsEntryReject,
+> {
+    Ok(ResourceSummaryStableI32ScalarReturnFactsEntry {
+        aliases: facts
+            .aliases
+            .iter()
+            .map(|fact| stable_i32_scalar_return_alias(types, function, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+        offsets: facts
+            .offsets
+            .iter()
+            .map(|fact| stable_i32_scalar_return_offset(types, function, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+        relations: facts
+            .relations
+            .iter()
+            .map(|fact| stable_i32_scalar_return_relation(types, function, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+        constants: facts
+            .constants
+            .iter()
+            .map(|fact| stable_i32_scalar_return_constant(types, function, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+        return_conditions: facts
+            .return_conditions
+            .iter()
+            .map(|fact| stable_i32_scalar_return_condition(types, function, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+        parameter_conditions: facts
+            .parameter_conditions
+            .iter()
+            .map(|fact| stable_i32_scalar_parameter_condition(types, function, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+    })
+}
+
+pub(super) fn reproject_i32_scalar_return_facts_entry(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    entry: &ResourceSummaryStableI32ScalarReturnFactsEntry,
+) -> Option<I32ScalarReturnFacts> {
+    reproject_i32_scalar_return_facts_entry_result(ctx, entry).ok()
+}
+
+pub(super) fn reproject_i32_scalar_return_facts_entry_result(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    entry: &ResourceSummaryStableI32ScalarReturnFactsEntry,
+) -> Result<I32ScalarReturnFacts, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    Ok(I32ScalarReturnFacts {
+        aliases: entry
+            .aliases
+            .iter()
+            .map(|fact| reproject_i32_scalar_return_alias(ctx, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+        offsets: entry
+            .offsets
+            .iter()
+            .map(|fact| reproject_i32_scalar_return_offset(ctx, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+        relations: entry
+            .relations
+            .iter()
+            .map(|fact| reproject_i32_scalar_return_relation(ctx, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+        constants: entry
+            .constants
+            .iter()
+            .map(|fact| reproject_i32_scalar_return_constant(ctx, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+        return_conditions: entry
+            .return_conditions
+            .iter()
+            .map(|fact| reproject_i32_scalar_return_condition(ctx, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+        parameter_conditions: entry
+            .parameter_conditions
+            .iter()
+            .map(|fact| reproject_i32_scalar_parameter_condition(ctx, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+    })
+}
+
 pub(super) fn stable_raw_init_complete_leaf_entry(
     types: &TypeCtx,
     function: &ResourceFunction,
@@ -1001,6 +1182,190 @@ fn stable_summary_projection(
             ResourceSummaryStableProjection::StorageOffset(stable_summary_offset(types, offset)?)
         }
     })
+}
+
+fn stable_i32_scalar_return_alias(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    fact: &I32ScalarReturnAlias,
+) -> Result<
+    ResourceSummaryStableI32ScalarReturnAlias,
+    ResourceSummaryStableI32ScalarReturnFactsEntryReject,
+> {
+    Ok(ResourceSummaryStableI32ScalarReturnAlias {
+        return_projection: stable_i32_scalar_return_projection(
+            types,
+            function,
+            &fact.return_projection,
+        )?,
+        parameter_index: fact.parameter_index,
+        parameter_projection: stable_i32_scalar_parameter_projection(
+            types,
+            function,
+            fact.parameter_index,
+            &fact.parameter_projection,
+        )?,
+        scalar_ty: stable_i32_scalar_type(types, fact.scalar_ty)?,
+    })
+}
+
+fn stable_i32_scalar_return_offset(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    fact: &I32ScalarReturnOffset,
+) -> Result<
+    ResourceSummaryStableI32ScalarReturnOffset,
+    ResourceSummaryStableI32ScalarReturnFactsEntryReject,
+> {
+    Ok(ResourceSummaryStableI32ScalarReturnOffset {
+        return_projection: stable_i32_scalar_return_projection(
+            types,
+            function,
+            &fact.return_projection,
+        )?,
+        parameter_index: fact.parameter_index,
+        parameter_projection: stable_i32_scalar_parameter_projection(
+            types,
+            function,
+            fact.parameter_index,
+            &fact.parameter_projection,
+        )?,
+        scalar_ty: stable_i32_scalar_type(types, fact.scalar_ty)?,
+        offset: fact.offset,
+    })
+}
+
+fn stable_i32_scalar_return_relation(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    fact: &I32ScalarReturnRelation,
+) -> Result<
+    ResourceSummaryStableI32ScalarReturnRelation,
+    ResourceSummaryStableI32ScalarReturnFactsEntryReject,
+> {
+    Ok(ResourceSummaryStableI32ScalarReturnRelation {
+        left_return_projection: stable_i32_scalar_return_projection(
+            types,
+            function,
+            &fact.left_return_projection,
+        )?,
+        op: fact.op,
+        right_return_projection: stable_i32_scalar_return_projection(
+            types,
+            function,
+            &fact.right_return_projection,
+        )?,
+        scalar_ty: stable_i32_scalar_type(types, fact.scalar_ty)?,
+    })
+}
+
+fn stable_i32_scalar_return_constant(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    fact: &I32ScalarReturnConstant,
+) -> Result<
+    ResourceSummaryStableI32ScalarReturnConstant,
+    ResourceSummaryStableI32ScalarReturnFactsEntryReject,
+> {
+    Ok(ResourceSummaryStableI32ScalarReturnConstant {
+        return_projection: stable_i32_scalar_return_projection(
+            types,
+            function,
+            &fact.return_projection,
+        )?,
+        scalar_ty: stable_i32_scalar_type(types, fact.scalar_ty)?,
+        value: fact.value,
+    })
+}
+
+fn stable_i32_scalar_return_condition(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    fact: &I32ScalarReturnCondition,
+) -> Result<
+    ResourceSummaryStableI32ScalarReturnCondition,
+    ResourceSummaryStableI32ScalarReturnFactsEntryReject,
+> {
+    Ok(ResourceSummaryStableI32ScalarReturnCondition {
+        return_projection: stable_i32_scalar_return_projection(
+            types,
+            function,
+            &fact.return_projection,
+        )?,
+        scalar_ty: stable_i32_scalar_type(types, fact.scalar_ty)?,
+        condition: fact.condition,
+    })
+}
+
+fn stable_i32_scalar_parameter_condition(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    fact: &I32ScalarParameterCondition,
+) -> Result<
+    ResourceSummaryStableI32ScalarParameterCondition,
+    ResourceSummaryStableI32ScalarReturnFactsEntryReject,
+> {
+    Ok(ResourceSummaryStableI32ScalarParameterCondition {
+        parameter_index: fact.parameter_index,
+        parameter_projection: stable_i32_scalar_parameter_projection(
+            types,
+            function,
+            fact.parameter_index,
+            &fact.parameter_projection,
+        )?,
+        scalar_ty: stable_i32_scalar_type(types, fact.scalar_ty)?,
+        condition: fact.condition,
+    })
+}
+
+fn stable_i32_scalar_return_projection(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    projection: &[PlaceProjection],
+) -> Result<
+    Vec<ResourceSummaryStablePlaceProjection>,
+    ResourceSummaryStableI32ScalarReturnFactsEntryReject,
+> {
+    stable_i32_scalar_projection(types, function, projection)
+        .map_err(|_| ResourceSummaryStableI32ScalarReturnFactsEntryReject::ReturnProjection)
+}
+
+fn stable_i32_scalar_parameter_projection(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    parameter_index: usize,
+    projection: &[PlaceProjection],
+) -> Result<
+    Vec<ResourceSummaryStablePlaceProjection>,
+    ResourceSummaryStableI32ScalarReturnFactsEntryReject,
+> {
+    if function.params.get(parameter_index).is_none() {
+        return Err(ResourceSummaryStableI32ScalarReturnFactsEntryReject::ParameterProjection);
+    }
+    stable_i32_scalar_projection(types, function, projection)
+        .map_err(|_| ResourceSummaryStableI32ScalarReturnFactsEntryReject::ParameterProjection)
+}
+
+fn stable_i32_scalar_projection(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    projection: &[PlaceProjection],
+) -> Result<
+    Vec<ResourceSummaryStablePlaceProjection>,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
+    projection
+        .iter()
+        .map(|projection| stable_place_projection(types, &function.params, projection))
+        .collect()
+}
+
+fn stable_i32_scalar_type(
+    types: &TypeCtx,
+    ty: TypeId,
+) -> Result<ResourceSummaryStableTypeKey, ResourceSummaryStableI32ScalarReturnFactsEntryReject> {
+    ResourceSummaryStableTypeKey::from_type(types, ty)
+        .ok_or(ResourceSummaryStableI32ScalarReturnFactsEntryReject::ScalarType)
 }
 
 fn stable_raw_init_param_cell(
@@ -1452,6 +1817,158 @@ fn stable_summary_offset(
         },
         SummaryOffset::Unknown => ResourceSummaryStableOffset::Unknown,
     })
+}
+
+fn reproject_i32_scalar_return_alias(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    fact: &ResourceSummaryStableI32ScalarReturnAlias,
+) -> Result<I32ScalarReturnAlias, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    Ok(I32ScalarReturnAlias {
+        return_projection: reproject_i32_scalar_return_projection(
+            ctx,
+            &fact.return_projection,
+            &fact.scalar_ty,
+        )?,
+        parameter_index: fact.parameter_index,
+        parameter_projection: reproject_i32_scalar_parameter_projection(
+            ctx,
+            fact.parameter_index,
+            &fact.parameter_projection,
+            &fact.scalar_ty,
+        )?,
+        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+    })
+}
+
+fn reproject_i32_scalar_return_offset(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    fact: &ResourceSummaryStableI32ScalarReturnOffset,
+) -> Result<I32ScalarReturnOffset, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    Ok(I32ScalarReturnOffset {
+        return_projection: reproject_i32_scalar_return_projection(
+            ctx,
+            &fact.return_projection,
+            &fact.scalar_ty,
+        )?,
+        parameter_index: fact.parameter_index,
+        parameter_projection: reproject_i32_scalar_parameter_projection(
+            ctx,
+            fact.parameter_index,
+            &fact.parameter_projection,
+            &fact.scalar_ty,
+        )?,
+        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+        offset: fact.offset,
+    })
+}
+
+fn reproject_i32_scalar_return_relation(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    fact: &ResourceSummaryStableI32ScalarReturnRelation,
+) -> Result<I32ScalarReturnRelation, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    Ok(I32ScalarReturnRelation {
+        left_return_projection: reproject_i32_scalar_return_projection(
+            ctx,
+            &fact.left_return_projection,
+            &fact.scalar_ty,
+        )?,
+        op: fact.op,
+        right_return_projection: reproject_i32_scalar_return_projection(
+            ctx,
+            &fact.right_return_projection,
+            &fact.scalar_ty,
+        )?,
+        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+    })
+}
+
+fn reproject_i32_scalar_return_constant(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    fact: &ResourceSummaryStableI32ScalarReturnConstant,
+) -> Result<I32ScalarReturnConstant, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    Ok(I32ScalarReturnConstant {
+        return_projection: reproject_i32_scalar_return_projection(
+            ctx,
+            &fact.return_projection,
+            &fact.scalar_ty,
+        )?,
+        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+        value: fact.value,
+    })
+}
+
+fn reproject_i32_scalar_return_condition(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    fact: &ResourceSummaryStableI32ScalarReturnCondition,
+) -> Result<I32ScalarReturnCondition, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    Ok(I32ScalarReturnCondition {
+        return_projection: reproject_i32_scalar_return_projection(
+            ctx,
+            &fact.return_projection,
+            &fact.scalar_ty,
+        )?,
+        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+        condition: fact.condition,
+    })
+}
+
+fn reproject_i32_scalar_parameter_condition(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    fact: &ResourceSummaryStableI32ScalarParameterCondition,
+) -> Result<I32ScalarParameterCondition, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject>
+{
+    Ok(I32ScalarParameterCondition {
+        parameter_index: fact.parameter_index,
+        parameter_projection: reproject_i32_scalar_parameter_projection(
+            ctx,
+            fact.parameter_index,
+            &fact.parameter_projection,
+            &fact.scalar_ty,
+        )?,
+        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+        condition: fact.condition,
+    })
+}
+
+fn reproject_i32_scalar_return_projection(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+    scalar_ty: &ResourceSummaryStableTypeKey,
+) -> Result<Vec<PlaceProjection>, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    let (suffix, ty) = reproject_place_projection_suffix(ctx, ctx.function.result, suffix)
+        .ok_or(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ReturnProjection)?;
+    if !scalar_ty.matches_type(ctx.types, ty) {
+        return Err(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType);
+    }
+    Ok(suffix)
+}
+
+fn reproject_i32_scalar_parameter_projection(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    parameter_index: usize,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+    scalar_ty: &ResourceSummaryStableTypeKey,
+) -> Result<Vec<PlaceProjection>, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    let base_ty = ctx
+        .function
+        .params
+        .get(parameter_index)
+        .ok_or(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ParameterProjection)?
+        .ty;
+    let (suffix, ty) = reproject_place_projection_suffix(ctx, base_ty, suffix)
+        .ok_or(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ParameterProjection)?;
+    if !scalar_ty.matches_type(ctx.types, ty) {
+        return Err(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType);
+    }
+    Ok(suffix)
+}
+
+fn reproject_i32_scalar_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    ty: &ResourceSummaryStableTypeKey,
+) -> Result<TypeId, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    ctx.reproject_type(ty)
+        .ok_or(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType)
 }
 
 fn reproject_summary_place(

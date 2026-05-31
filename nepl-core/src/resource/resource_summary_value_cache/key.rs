@@ -46,6 +46,7 @@ pub(super) struct ResourceSummaryFunctionIdentity {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum ResourceSummaryValueKind {
     CollectionSlotDropTraversalForallLeafEntryV1,
+    I32ScalarReturnFactsEntryV1,
     RawInitCompleteLeafEntryV1,
 }
 
@@ -92,6 +93,39 @@ impl ResourceSummaryValueCacheKey {
         source_capability_policy_hash: u64,
     ) -> Self {
         let summary_kind = ResourceSummaryValueKind::RawInitCompleteLeafEntryV1;
+        let stable_hash = resource_summary_value_cache_key_hash(
+            namespace_hash,
+            &function_identity,
+            function_body_hash,
+            dependency_closure_hash,
+            type_parameter_boundary_hash,
+            generic_type_argument_hash,
+            source_capability_policy_hash,
+            summary_kind,
+        );
+        Self {
+            namespace_hash,
+            function_identity,
+            function_body_hash,
+            dependency_closure_hash,
+            type_parameter_boundary_hash,
+            generic_type_argument_hash,
+            source_capability_policy_hash,
+            summary_kind,
+            stable_hash,
+        }
+    }
+
+    pub(super) fn new_i32_scalar_return_facts_entry(
+        namespace_hash: u64,
+        function_identity: ResourceSummaryFunctionIdentity,
+        function_body_hash: u64,
+        dependency_closure_hash: u64,
+        type_parameter_boundary_hash: u64,
+        generic_type_argument_hash: u64,
+        source_capability_policy_hash: u64,
+    ) -> Self {
+        let summary_kind = ResourceSummaryValueKind::I32ScalarReturnFactsEntryV1;
         let stable_hash = resource_summary_value_cache_key_hash(
             namespace_hash,
             &function_identity,
@@ -229,6 +263,9 @@ impl ResourceSummaryValueKind {
         match self {
             ResourceSummaryValueKind::CollectionSlotDropTraversalForallLeafEntryV1 => {
                 "collection-slot-drop-traversal-forall-leaf-entry-v1"
+            }
+            ResourceSummaryValueKind::I32ScalarReturnFactsEntryV1 => {
+                "i32-scalar-return-facts-entry-v1"
             }
             ResourceSummaryValueKind::RawInitCompleteLeafEntryV1 => {
                 "raw-init-complete-leaf-entry-v1"

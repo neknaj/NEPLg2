@@ -33,6 +33,15 @@ impl I32ScalarReturnFacts {
             && self.parameter_conditions.is_empty()
     }
 
+    pub(super) fn len(&self) -> usize {
+        self.aliases.len()
+            + self.offsets.len()
+            + self.relations.len()
+            + self.constants.len()
+            + self.return_conditions.len()
+            + self.parameter_conditions.len()
+    }
+
     pub(super) fn extend(&mut self, other: I32ScalarReturnFacts) {
         for alias in other.aliases {
             push_unique_i32_scalar_return_alias(&mut self.aliases, alias);
