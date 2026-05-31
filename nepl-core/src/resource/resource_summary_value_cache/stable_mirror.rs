@@ -24,6 +24,9 @@ use super::super::i32_scalar_return_facts::{
     I32ScalarParameterCondition, I32ScalarReturnAlias, I32ScalarReturnCondition,
     I32ScalarReturnConstant, I32ScalarReturnFacts, I32ScalarReturnOffset, I32ScalarReturnRelation,
 };
+use super::super::initialized_alias_flow::{
+    RawCellAddressReturnAlias, RawCellAddressReturnSummary,
+};
 use super::super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
     RawCellInitializationReturnCell,
@@ -176,6 +179,24 @@ impl ResourceSummaryStableI32ScalarReturnFactsEntry {
             + self.constants.len()
             + self.return_conditions.len()
             + self.parameter_conditions.len()
+    }
+}
+
+/// raw address alias return summary の complete entry。
+///
+/// raw alias summary は call 境界で「戻り値の raw address がどの parameter 由来か」を
+/// 伝播する。`RawCellAddressReturnSummary` には `TypeId` と現在の `Place` が含まれるため、
+/// session cache には parameter/return projection と stable type key だけを保存する。
+/// alias が空の関数も entry として保存し、微小変更時に no-alias 関数を再度 fixed-point
+/// worklist へ入れないようにする。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ResourceSummaryStableRawAliasReturnEntry {
+    aliases: Vec<ResourceSummaryStableRawAliasReturnAlias>,
+}
+
+impl ResourceSummaryStableRawAliasReturnEntry {
+    pub(super) fn len(&self) -> usize {
+        self.aliases.len()
     }
 }
 
@@ -663,6 +684,24 @@ pub(in crate::resource) enum ResourceSummaryStableRawInitCompleteLeafEntryReject
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::resource) enum ResourceSummaryStableRawAliasReturnEntryReject {
+    ParameterIndex,
+    ParameterProjection,
+    ParameterType,
+    ReturnProjection,
+    ReturnType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::resource) enum ResourceSummaryRawAliasReturnEntryReprojectionReject {
+    ParameterIndex,
+    ParameterProjection,
+    ParameterType,
+    ReturnProjection,
+    ReturnType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::resource) enum ResourceSummaryRawInitCompleteLeafEntryReprojectionReject {
     EmptyEntry,
     ParamCellProjection,
@@ -731,6 +770,15 @@ struct ResourceSummaryStableI32ScalarParameterCondition {
     parameter_projection: Vec<ResourceSummaryStablePlaceProjection>,
     scalar_ty: ResourceSummaryStableTypeKey,
     condition: I32ValueCondition,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableRawAliasReturnAlias {
+    parameter_index: usize,
+    parameter_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    parameter_ty: ResourceSummaryStableTypeKey,
+    return_projection: Vec<ResourceSummaryStablePlaceProjection>,
+    return_ty: ResourceSummaryStableTypeKey,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1317,6 +1365,48 @@ pub(super) fn reproject_i32_scalar_return_facts_entry_result(
             .parameter_conditions
             .iter()
             .map(|fact| reproject_i32_scalar_parameter_condition(ctx, fact))
+            .collect::<Result<Vec<_>, _>>()?,
+    })
+}
+
+pub(super) fn stable_raw_alias_return_entry(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    summary: &RawCellAddressReturnSummary,
+) -> Result<ResourceSummaryStableRawAliasReturnEntry, ResourceSummaryStableRawAliasReturnEntryReject>
+{
+    Ok(ResourceSummaryStableRawAliasReturnEntry {
+        aliases: summary
+            .aliases
+            .iter()
+            .map(|alias| stable_raw_alias_return_alias(types, function, alias))
+            .collect::<Result<Vec<_>, _>>()?,
+    })
+}
+
+pub(super) fn reproject_raw_alias_return_entry(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    entry: &ResourceSummaryStableRawAliasReturnEntry,
+) -> Option<RawCellAddressReturnSummary> {
+    reproject_raw_alias_return_entry_result(ctx, entry).ok()
+}
+
+pub(super) fn reproject_raw_alias_return_entry_result(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    entry: &ResourceSummaryStableRawAliasReturnEntry,
+) -> Result<RawCellAddressReturnSummary, ResourceSummaryRawAliasReturnEntryReprojectionReject> {
+    Ok(RawCellAddressReturnSummary {
+        function: ctx.function.name.clone(),
+        parameters: ctx
+            .function
+            .params
+            .iter()
+            .map(|param| param.place.clone())
+            .collect(),
+        aliases: entry
+            .aliases
+            .iter()
+            .map(|alias| reproject_raw_alias_return_alias(ctx, alias))
             .collect::<Result<Vec<_>, _>>()?,
     })
 }
@@ -2425,6 +2515,36 @@ fn stable_i32_scalar_type(
         .ok_or(ResourceSummaryStableI32ScalarReturnFactsEntryReject::ScalarType)
 }
 
+fn stable_raw_alias_return_alias(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    alias: &RawCellAddressReturnAlias,
+) -> Result<ResourceSummaryStableRawAliasReturnAlias, ResourceSummaryStableRawAliasReturnEntryReject>
+{
+    if function.params.get(alias.parameter_index).is_none() {
+        return Err(ResourceSummaryStableRawAliasReturnEntryReject::ParameterIndex);
+    }
+    Ok(ResourceSummaryStableRawAliasReturnAlias {
+        parameter_index: alias.parameter_index,
+        parameter_projection: alias
+            .parameter_projection
+            .iter()
+            .map(|projection| stable_place_projection(types, &function.params, projection))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| ResourceSummaryStableRawAliasReturnEntryReject::ParameterProjection)?,
+        parameter_ty: ResourceSummaryStableTypeKey::from_type(types, alias.parameter_ty)
+            .ok_or(ResourceSummaryStableRawAliasReturnEntryReject::ParameterType)?,
+        return_projection: alias
+            .return_projection
+            .iter()
+            .map(|projection| stable_place_projection(types, &function.params, projection))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| ResourceSummaryStableRawAliasReturnEntryReject::ReturnProjection)?,
+        return_ty: ResourceSummaryStableTypeKey::from_type(types, alias.return_ty)
+            .ok_or(ResourceSummaryStableRawAliasReturnEntryReject::ReturnType)?,
+    })
+}
+
 fn stable_raw_init_param_cell(
     types: &TypeCtx,
     cell: &RawCellInitializationParamCell,
@@ -3026,6 +3146,77 @@ fn reproject_i32_scalar_type(
 ) -> Result<TypeId, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
     ctx.reproject_type(ty)
         .ok_or(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType)
+}
+
+fn reproject_raw_alias_return_alias(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    alias: &ResourceSummaryStableRawAliasReturnAlias,
+) -> Result<RawCellAddressReturnAlias, ResourceSummaryRawAliasReturnEntryReprojectionReject> {
+    Ok(RawCellAddressReturnAlias {
+        parameter_index: alias.parameter_index,
+        parameter_projection: reproject_raw_alias_parameter_projection(
+            ctx,
+            alias.parameter_index,
+            &alias.parameter_projection,
+            &alias.parameter_ty,
+        )?,
+        parameter_ty: reproject_raw_alias_type(
+            ctx,
+            &alias.parameter_ty,
+            ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterType,
+        )?,
+        return_projection: reproject_raw_alias_return_projection(
+            ctx,
+            &alias.return_projection,
+            &alias.return_ty,
+        )?,
+        return_ty: reproject_raw_alias_type(
+            ctx,
+            &alias.return_ty,
+            ResourceSummaryRawAliasReturnEntryReprojectionReject::ReturnType,
+        )?,
+    })
+}
+
+fn reproject_raw_alias_parameter_projection(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    parameter_index: usize,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+    expected_ty: &ResourceSummaryStableTypeKey,
+) -> Result<Vec<PlaceProjection>, ResourceSummaryRawAliasReturnEntryReprojectionReject> {
+    let base_ty = ctx
+        .function
+        .params
+        .get(parameter_index)
+        .ok_or(ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterIndex)?
+        .ty;
+    let (suffix, ty) = reproject_place_projection_suffix(ctx, base_ty, suffix)
+        .ok_or(ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterProjection)?;
+    if !expected_ty.matches_type(ctx.types, ty) {
+        return Err(ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterType);
+    }
+    Ok(suffix)
+}
+
+fn reproject_raw_alias_return_projection(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+    expected_ty: &ResourceSummaryStableTypeKey,
+) -> Result<Vec<PlaceProjection>, ResourceSummaryRawAliasReturnEntryReprojectionReject> {
+    let (suffix, ty) = reproject_place_projection_suffix(ctx, ctx.function.result, suffix)
+        .ok_or(ResourceSummaryRawAliasReturnEntryReprojectionReject::ReturnProjection)?;
+    if !expected_ty.matches_type(ctx.types, ty) {
+        return Err(ResourceSummaryRawAliasReturnEntryReprojectionReject::ReturnType);
+    }
+    Ok(suffix)
+}
+
+fn reproject_raw_alias_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    ty: &ResourceSummaryStableTypeKey,
+    reject: ResourceSummaryRawAliasReturnEntryReprojectionReject,
+) -> Result<TypeId, ResourceSummaryRawAliasReturnEntryReprojectionReject> {
+    ctx.reproject_type(ty).ok_or(reject)
 }
 
 fn reproject_summary_place(

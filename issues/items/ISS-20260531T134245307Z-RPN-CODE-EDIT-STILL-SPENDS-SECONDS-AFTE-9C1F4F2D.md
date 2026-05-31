@@ -102,6 +102,30 @@ i32 scalar summary の全関数規模 replay は解消したが、edit compile �
 でまだ秒単位である。残る支配項は raw-init residual recomputation と final initialized
 function check であり、この issue は open のまま継続する。
 
+## 2026-05-31 raw alias replay 更新
+
+`ISS-20260531T071945698Z-RAW-ALIAS-SUMMARIES-NEED-STABLE-MIRR-4DCE44A8`
+で `RawCellAddressReturnSummary` の stable mirror / preseed cache を実装した。alias が空の
+relevant function も empty entry として cache し、no-alias function が worklist に戻る
+固定費を削った。
+
+`tmp/rpn_raw_alias_cache_code_edit_20260531.json` では、same-session code edit delta が
+次の通りになった。
+
+- `resource_raw_alias_summary_recomputations=38`
+- `resource_raw_alias_summary_count=54`
+- `resource_summary_value_raw_alias_return_entry_hits=65`
+- `resource_summary_value_raw_alias_return_entry_stores=73`
+- `resource_summary_value_raw_alias_return_entry_reprojection_value_bypasses=13`
+- `resource_raw_init_summary_recomputations=81`
+- `resource_initialized_function_checks=13`
+
+raw alias summary の全関数規模再計算は解消したが、edit compile は `compile_ms=7142`
+でまだ秒単位である。残る raw alias 側の `reprojection_value` bypass は
+`ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E` に分離し、
+この issue は raw-init residual recomputation、raw alias residual reprojection、
+式枝差し替え query 化を追跡する親 issue として open のまま継続する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

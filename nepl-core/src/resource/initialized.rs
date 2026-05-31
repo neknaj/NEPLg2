@@ -94,7 +94,12 @@ fn check_resource_initialized_moves_inner(
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceCheckDeferred::default();
     let (raw_alias_summaries, raw_alias_recomputations) =
-        compute_raw_cell_address_return_summaries_with_recomputations(module, types);
+        compute_raw_cell_address_return_summaries_with_recomputations(
+            module,
+            types,
+            summary_value_cache.as_deref_mut(),
+            summary_value_cache_context,
+        );
     if let Some(cache) = summary_value_cache.as_deref_mut() {
         cache.record_initialized_summary_stage(
             ResourceSummaryComputationStage::RawAlias,

@@ -23,11 +23,20 @@ impl SummaryWorklist {
     }
 
     pub(super) fn new_filtered(module: &ResourceModule, relevant: Vec<bool>) -> Self {
+        Self::new_filtered_with_initial_skips(module, relevant, vec![false; module.functions.len()])
+    }
+
+    pub(super) fn new_filtered_with_initial_skips(
+        module: &ResourceModule,
+        relevant: Vec<bool>,
+        initially_skipped: Vec<bool>,
+    ) -> Self {
         debug_assert_eq!(relevant.len(), module.functions.len());
+        debug_assert_eq!(initially_skipped.len(), module.functions.len());
         let mut pending = VecDeque::new();
         let mut queued = vec![false; module.functions.len()];
         for index in initial_summary_order(module) {
-            if relevant[index] {
+            if relevant[index] && !initially_skipped[index] {
                 pending.push_back(index);
                 queued[index] = true;
             }

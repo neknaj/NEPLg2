@@ -26,8 +26,12 @@ pub(in crate::resource) enum ResourceSummaryDependencyClosureHashReject {
 pub(in crate::resource) type RawInitDependencyClosureHashReject =
     ResourceSummaryDependencyClosureHashReject;
 
+pub(in crate::resource) type RawAliasDependencyClosureHashReject =
+    ResourceSummaryDependencyClosureHashReject;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::resource) enum ResourceSummaryDependencyClosureKind {
+    RawAlias,
     RawInit,
     I32Scalar,
     InitializedFunctionCheck,
@@ -107,6 +111,23 @@ pub(in crate::resource) fn raw_init_dependency_closure_hash(
     )
 }
 
+pub(in crate::resource) fn raw_alias_dependency_closure_hash(
+    context: &ResourceSummaryValueCacheContext,
+    types: &TypeCtx,
+    module: &ResourceModule,
+    dependencies: &[Vec<usize>],
+    function_index: usize,
+) -> Result<ResourceSummaryDependencyClosureHash, RawAliasDependencyClosureHashReject> {
+    resource_summary_dependency_closure_hash(
+        ResourceSummaryDependencyClosureKind::RawAlias,
+        context,
+        types,
+        module,
+        dependencies,
+        function_index,
+    )
+}
+
 pub(in crate::resource) fn i32_scalar_dependency_closure_hash(
     context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
@@ -160,6 +181,7 @@ fn collect_dependency_closure(
 impl ResourceSummaryDependencyClosureKind {
     fn tag(self) -> &'static str {
         match self {
+            ResourceSummaryDependencyClosureKind::RawAlias => "raw-alias",
             ResourceSummaryDependencyClosureKind::RawInit => "raw-init",
             ResourceSummaryDependencyClosureKind::I32Scalar => "i32-scalar",
             ResourceSummaryDependencyClosureKind::InitializedFunctionCheck => {

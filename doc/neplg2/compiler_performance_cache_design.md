@@ -333,6 +333,26 @@ final check entry は Resource IR body hash と stable place surface が同一�
 
 測定 JSON は `tmp/rpn_final_check_residual_type_fix_20260531.json` に保存した。final check replay の type/place false miss は解消したため、次の支配項は `resource_raw_alias_summary_recomputations=288` と `resource_raw_init_summary_recomputations=81` である。これらは `ISS-20260531T071945698Z-RAW-ALIAS-SUMMARIES-NEED-STABLE-MIRR-4DCE44A8` と `ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE` に分離した。
 
+## Raw alias summary stable mirror checkpoint
+
+2026-05-31 の raw alias checkpoint では、`RawCellAddressReturnSummary` を stable entry として保存し、現在 compile の function signature / projection / type boundary へ再投影できる場合だけ raw alias fixed-point worklist を preseed するようにした。cache key には function body hash、source capability policy hash、dependency closure hash、summary type boundary、generic argument mode を含める。stable value には `TypeId`、`Span`、`SourceMap`、compile ごとの raw address graph state を入れない。
+
+empty summary も entry として保存する。raw alias summary vector 上は「summary なし」と同じ意味だが、worklist へ戻す必要がない no-alias 関数を区別できるため、同じ `CompilerSession` 内の微小編集で fixed-point の初期 pending を減らせる。preseed で初期 pending から外した関数も relevant には残すため、依存先 summary が変わった場合は `notify_changed` により再度 worklist へ入る。
+
+測定:
+
+| case | before | after |
+|---|---:|---:|
+| RPN code edit `compile_ms` | 5770ms | 7142ms |
+| `resource_raw_alias_summary_recomputations` | 288 | 38 |
+| `resource_summary_value_raw_alias_return_entry_hits` | 0 | 65 |
+| `resource_summary_value_raw_alias_return_entry_stores` | 0 | 73 |
+| `resource_summary_value_raw_alias_return_entry_reprojection_value_bypasses` | n/a | 13 |
+| `resource_summary_value_raw_alias_return_entry_unstable_key_bypasses` | n/a | 0 |
+| `resource_summary_value_raw_alias_return_entry_unstable_entry_bypasses` | n/a | 0 |
+
+測定 JSON は `tmp/rpn_raw_alias_cache_code_edit_20260531.json` に保存した。raw alias fixed-point の全関数規模再計算は解消したが、全体 compile time はまだ秒単位であり、同じ測定の edit delta では `resource_raw_init_summary_recomputations=81`、`resource_initialized_function_checks=13` も残る。残った raw alias 側の 13 件の `reprojection_value` bypass は `ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E` に分離した。
+
 ## RPN code-edit stage breakdown checkpoint
 
 2026-05-31 の complete raw-init leaf replay と return / byte-range type canonicalization 後、RPN same-session code edit は raw-init replay miss をほぼ解消したが、まだ秒単位である。`tmp/rpn_return_type_canonicalization_code_edit_20260531.json` では base `compile_ms=8861`、local `i32` binding 追加 edit `compile_ms=6703`、edit delta は `resource_summary_value_replayed_ops=253`、`resource_summary_value_recomputed_ops=21`、`raw_init_param_facts_bypasses=0` だった。
@@ -799,6 +819,43 @@ artifact に含めるもの:
 
 微小変更では、changed source hash から reverse import graph を辿り、影響を受けた query だけを invalidation する。
 
+### 式枝差し替えの 0.1 秒 budget
+
+リテラルの書き換えは、差分コンパイル設計では特別扱いしない。リテラルも式木の leaf であるため、目標は「typed AST / HIR のある式枝を、同じ公開境界を持つ別の式枝へ差し替える」操作全般を同一の incremental query として扱うことである。
+
+同一 `CompilerSession` 内で、次の条件を満たす式枝差し替えは 0.1 秒以下を目標にする。
+
+- 変更範囲が 1 function body または小さい user module 内の式枝に閉じる。
+- module の public type / trait / function signature、import / export surface、source capability policy が変わらない。
+- 差し替え後の式枝が既存の名前解決・型推論境界で解決でき、dependency public surface を変えない。
+- static call graph の conservative-all fallback を起動しない。
+- stdlib artifact と bundled stdlib hash が current session と一致している。
+
+この budget では、source text 全体を key にした compiled-output cache だけでは足りない。compiled-output cache は完全同一またはコメントだけの変更を即時返す境界であり、実コードの式枝差し替えでは miss する。そのため、次の query 境界を function / expression subtree 単位へ分ける。
+
+| query | key | value | 式枝差し替え時の扱い |
+|---|---|---|---|
+| lex / parse | source hash + parser version | AST module | 変更 source だけ再実行する。 |
+| name surface | module public surface hash | public decl table | public surface 不変なら依存 module は invalidation しない。 |
+| typed expr subtree | function identity + lexical path id + subtree semantic hash + expected type boundary | typed expression / diagnostics | 差し替えた枝と、その expected type / local name scope に依存する枝だけ再型検査する。 |
+| function body HIR | function identity + body semantic hash + local binding shape hash | typed HIR body | local binding shape が変わらない枝差し替えは unchanged block / sibling expression を reuse する。 |
+| Resource IR function | typed HIR function hash + source capability policy hash | ResourceFunction | 変更 function だけ lowering し、他 function の Resource summary key は body hash で hit させる。 |
+| Resource summary | namespace + function body hash + dependency closure hash + source policy + summary kind | stable mirror summary | 変更 function とその summary dependents だけ再計算し、他は preseed する。 |
+| codegen fragment | monomorphized function identity + lowered body hash + target/profile | wasm / llvm fragment | 変更 function fragment だけ再生成し、table/signature/link order を再接続する。 |
+
+`lexical path id` は span の byte offset そのものではなく、関数内の AST path と local binding shape から作る stable id にする。単純なリテラル長変更や前方へのコメント追加で id が揺れると 0.1 秒 budget を満たせないためである。一方で、local binding の追加・削除、pattern shape、capture / scope boundary が変わる場合は、その scope の descendant query を invalidation する。
+
+型推論は expected type を前置・外側から受け取れる場合が多いが、NEPLg2 の prefix call reduction は callable candidate / arity / expected type を使って式境界を解決する。したがって、typed expr subtree query は「source substring だけ」ではなく、local name scope、expected type、callable candidate set、generic type argument mode、effect expectation を key に含める。これらを省くと、同じ式 text が別 context で違う型や effect になる stale hit を起こす。
+
+Resource IR 以降は、式枝差し替えを function body hash の変更として扱う。変更 function の final check / raw alias / i32 scalar / raw-init / collection slot summary は必要に応じて再計算し、dependency closure hash により dependent function だけを再投入する。既存の Resource summary value cache はこの境界の下位実装であり、0.1 秒 budget のためには raw alias summary と raw-init residual recomputation も stable preseed へ載せる必要がある。
+
+0.1 秒 budget の対象外:
+
+- stdlib source、public signature、trait impl surface、source capability use-site を変更する場合。
+- local binding shape や scope graph が大きく変わり、式枝の stable path 対応が失われる場合。
+- indirect call / raw body / unresolved function value により call graph が閉じず conservative-all になる場合。
+- diagnostics の source span を現在 source map へ安全に戻せない場合。
+
 MVP では次の順に実装する。
 
 1. Web / Node に `CompilerSession` API を追加し、bundled stdlib source table を保持する。
@@ -823,3 +880,4 @@ MVP では次の順に実装する。
 
 - [ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5](../../issues/items/ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5.md)
 - [ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92](../../issues/items/ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92.md)
+- [ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D](../../issues/items/ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D.md)

@@ -1,16 +1,25 @@
 extern crate alloc;
 
 use alloc::string::String;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::types::{TypeCtx, TypeId};
 
 use super::initialized_alias_flow_raw::function_raw_cell_address_return_aliases;
+use super::initialized_alias_flow_value_cache::{
+    preseed_raw_alias_return_summaries_from_value_cache,
+    record_raw_alias_return_summary_value_cache_candidates,
+};
 use super::initialized_alias_flow_value_projection::function_value_projection_return_aliases;
 use super::model::{
     Place, PlaceProjection, ResourceExprKind, ResourceFunction, ResourceModule, ResourceOffset,
 };
 use super::place_utils::type_preserves_raw_address_alias;
+use super::resource_summary_value_cache::{
+    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+};
+use super::summary_dependency::build_function_summary_dependencies;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 use super::summary_worklist::SummaryWorklist;
 
@@ -67,15 +76,40 @@ pub(super) fn compute_raw_cell_address_return_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
 ) -> Vec<RawCellAddressReturnSummary> {
-    compute_raw_cell_address_return_summaries_with_recomputations(module, types).0
+    compute_raw_cell_address_return_summaries_with_recomputations(module, types, None, None).0
 }
 
 pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
     module: &ResourceModule,
     types: &TypeCtx,
+    mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> (Vec<RawCellAddressReturnSummary>, usize) {
-    let mut worklist = SummaryWorklist::new(module);
+    let relevant_functions = vec![true; module.functions.len()];
+    let dependencies = build_function_summary_dependencies(module);
+    let mut initially_skipped_functions = vec![false; module.functions.len()];
+    let mut preseeded_functions = vec![false; module.functions.len()];
     let mut summaries = Vec::new();
+    if let (Some(cache), Some(context)) = (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    ) {
+        preseed_raw_alias_return_summaries_from_value_cache(
+            cache,
+            context,
+            types,
+            module,
+            &dependencies,
+            &mut initially_skipped_functions,
+            &mut preseeded_functions,
+            &mut summaries,
+        );
+    }
+    let mut worklist = SummaryWorklist::new_filtered_with_initial_skips(
+        module,
+        relevant_functions,
+        initially_skipped_functions,
+    );
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
         let summary_index = RawCellAddressReturnSummaryIndex::new(&summaries);
@@ -83,6 +117,20 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
         if update_raw_cell_address_return_summary(&mut summaries, summary) {
             worklist.notify_changed(function_index);
         }
+    }
+    if let (Some(cache), Some(context)) = (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    ) {
+        record_raw_alias_return_summary_value_cache_candidates(
+            cache,
+            context,
+            types,
+            module,
+            &dependencies,
+            &preseeded_functions,
+            &summaries,
+        );
     }
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     if std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {

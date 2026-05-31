@@ -15,6 +15,7 @@ mod dependency_hash;
 mod i32_scalar;
 mod initialized_check;
 mod key;
+mod raw_alias;
 mod raw_init;
 mod stable_hash;
 mod stable_mirror;
@@ -24,7 +25,7 @@ mod type_boundary;
 pub use self::context::ResourceSummaryValueCacheContext;
 pub(super) use self::dependency_hash::{
     i32_scalar_dependency_closure_hash, initialized_function_check_dependency_closure_hash,
-    raw_init_dependency_closure_hash,
+    raw_alias_dependency_closure_hash, raw_init_dependency_closure_hash,
 };
 
 pub(in crate::resource) use self::candidate_key::ResourceSummaryDependencyClosureHash;
@@ -36,7 +37,7 @@ use self::key::ResourceSummaryValueCacheKey;
 use self::stable_mirror::{
     reproject_drop_traversal_forall_leaf_entry, ResourceSummaryStableDropTraversalForallLeafEntry,
     ResourceSummaryStableI32ScalarReturnFactsEntry,
-    ResourceSummaryStableInitializedFunctionCheckEntry,
+    ResourceSummaryStableInitializedFunctionCheckEntry, ResourceSummaryStableRawAliasReturnEntry,
     ResourceSummaryStableRawInitCompleteLeafEntry, ResourceSummaryTypeReprojection,
 };
 
@@ -70,6 +71,16 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_drop_traversal_forall_hits: usize,
     pub resource_summary_value_drop_traversal_forall_stores: usize,
     pub resource_summary_value_drop_traversal_forall_bypasses: usize,
+    pub resource_summary_value_raw_alias_return_entry_hits: usize,
+    pub resource_summary_value_raw_alias_return_entry_stores: usize,
+    pub resource_summary_value_raw_alias_return_entry_bypasses: usize,
+    pub resource_summary_value_raw_alias_return_entry_dependency_bypasses: usize,
+    pub resource_summary_value_raw_alias_return_entry_missing_source_policy_bypasses: usize,
+    pub resource_summary_value_raw_alias_return_entry_unstable_key_bypasses: usize,
+    pub resource_summary_value_raw_alias_return_entry_unstable_entry_bypasses: usize,
+    pub resource_summary_value_raw_alias_return_entry_reprojection_bypasses: usize,
+    pub resource_summary_value_raw_alias_return_entry_reprojection_context_bypasses: usize,
+    pub resource_summary_value_raw_alias_return_entry_reprojection_value_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_hits: usize,
     pub resource_summary_value_i32_scalar_return_facts_stores: usize,
     pub resource_summary_value_i32_scalar_return_facts_bypasses: usize,
@@ -167,6 +178,8 @@ pub struct ResourceSummaryValueCache {
     stats: ResourceSummaryValueCacheStats,
     drop_traversal_forall_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableDropTraversalForallLeafEntry>,
+    raw_alias_return_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawAliasReturnEntry>,
     i32_scalar_return_facts_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableI32ScalarReturnFactsEntry>,
     initialized_function_check_entries:
@@ -185,6 +198,12 @@ pub(super) struct ResourceSummaryDropTraversalForallLeafEntryCandidate {
 pub(super) struct ResourceSummaryRawInitCompleteLeafEntryCandidate {
     key: ResourceSummaryValueCacheKey,
     entry: ResourceSummaryStableRawInitCompleteLeafEntry,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct ResourceSummaryRawAliasReturnEntryCandidate {
+    key: ResourceSummaryValueCacheKey,
+    entry: ResourceSummaryStableRawAliasReturnEntry,
 }
 
 #[derive(Debug, Clone)]
@@ -208,6 +227,7 @@ impl ResourceSummaryValueCache {
     pub fn clear(&mut self) {
         self.stats = ResourceSummaryValueCacheStats::default();
         self.drop_traversal_forall_leaf_entries.clear();
+        self.raw_alias_return_entries.clear();
         self.i32_scalar_return_facts_entries.clear();
         self.initialized_function_check_entries.clear();
         self.raw_init_complete_leaf_entries.clear();

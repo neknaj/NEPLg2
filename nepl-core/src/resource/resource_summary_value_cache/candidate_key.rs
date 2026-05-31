@@ -196,6 +196,33 @@ pub(super) fn raw_init_complete_leaf_entry_key(
     )
 }
 
+pub(super) fn raw_alias_return_entry_key(
+    types: &TypeCtx,
+    namespace_hash: ResourceSummaryCacheNamespaceHash,
+    source_capability_policy_hash: ResourceSummarySourceCapabilityPolicyHash,
+    dependency_closure_hash: ResourceSummaryDependencyClosureHash,
+    function: &ResourceFunction,
+    type_params: &[TypeId],
+    generic_type_args: ResourceSummaryGenericTypeArgumentKeyInput<'_>,
+) -> Option<ResourceSummaryValueCacheKey> {
+    let function_identity = ResourceSummaryFunctionIdentity::from_resource_function(function)?;
+    let function_body_hash = resource_function_body_hash(types, function)?;
+    let type_parameter_boundary_hash =
+        resource_summary_type_parameter_boundary_hash(types, type_params)?;
+    let generic_type_argument_hash =
+        generic_type_argument_key_hash(types, function, type_params, generic_type_args)?;
+
+    Some(ResourceSummaryValueCacheKey::new_raw_alias_return_entry(
+        namespace_hash.as_u64(),
+        function_identity,
+        function_body_hash,
+        dependency_closure_hash.as_u64(),
+        type_parameter_boundary_hash,
+        generic_type_argument_hash,
+        source_capability_policy_hash.as_u64(),
+    ))
+}
+
 pub(super) fn i32_scalar_return_facts_entry_key(
     types: &TypeCtx,
     namespace_hash: ResourceSummaryCacheNamespaceHash,

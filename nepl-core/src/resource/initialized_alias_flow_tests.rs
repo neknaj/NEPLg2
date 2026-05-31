@@ -2,8 +2,8 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 
 use crate::ast::Effect;
-use crate::span::Span;
-use crate::types::{TypeCtx, TypeId, TypeKind};
+use crate::span::{FileId, Span};
+use crate::types::{NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeId, TypeKind};
 
 use super::*;
 use crate::resource::model::{
@@ -11,6 +11,7 @@ use crate::resource::model::{
     ResourceCallTarget, ResourceFunction, ResourceLocal, ResourceModule, ResourceOffset,
     ResourceOp, ResourceTerminator,
 };
+use crate::resource::{ResourceSummaryValueCache, ResourceSummaryValueCacheContext};
 use crate::source_map::CompilerMemoryType;
 
 #[test]
@@ -49,6 +50,55 @@ fn raw_alias_return_summaries_do_not_seed_plain_scalar_parameters() {
     let summaries = compute_raw_cell_address_return_summaries(&module, &types);
 
     assert!(summaries.is_empty());
+}
+
+#[test]
+fn raw_alias_return_summary_value_cache_preseeds_non_empty_and_empty_functions() {
+    let mut types = TypeCtx::new();
+    let ty = mem_ptr_type(&mut types);
+    types.mark_compiler_memory_type(ty, CompilerMemoryType::RawPointer);
+    let module = ResourceModule {
+        functions: vec![
+            wrapper_function("wrapper", "id", ty),
+            identity_function("id", ty),
+            identity_function("bool_id", types.bool()),
+        ],
+        entry: None,
+        string_literals: vec![],
+    };
+    let mut cache = ResourceSummaryValueCache::new();
+    let mut context = ResourceSummaryValueCacheContext::new(7);
+    context.insert_source_policy_hash(FileId(0), 100);
+
+    let (first_summaries, first_recomputations) =
+        compute_raw_cell_address_return_summaries_with_recomputations(
+            &module,
+            &types,
+            Some(&mut cache),
+            Some(&context),
+        );
+    let (second_summaries, second_recomputations) =
+        compute_raw_cell_address_return_summaries_with_recomputations(
+            &module,
+            &types,
+            Some(&mut cache),
+            Some(&context),
+        );
+
+    assert!(first_recomputations >= module.functions.len());
+    assert_eq!(second_recomputations, 0);
+    assert_eq!(
+        summary(&first_summaries, "id"),
+        summary(&second_summaries, "id")
+    );
+    assert_eq!(
+        summary(&first_summaries, "wrapper"),
+        summary(&second_summaries, "wrapper")
+    );
+    assert!(summary(&second_summaries, "id").aliases.len() == 1);
+    assert!(second_summaries
+        .iter()
+        .all(|summary| summary.function != "bool_id"));
 }
 
 #[test]
@@ -200,9 +250,9 @@ fn function(
             id: ResourceBlockId(0),
             ops,
             terminator,
-            span: Span::dummy(),
+            span: Span::new(FileId(0), 0, 1),
         }],
-        span: Span::dummy(),
+        span: Span::new(FileId(0), 0, 1),
     }
 }
 
@@ -221,7 +271,7 @@ fn place(name: &str, ty: TypeId) -> Place {
 
 fn mem_ptr_type(types: &mut TypeCtx) -> TypeId {
     let raw = types.i32();
-    types.register_named(
+    types.register_named_with_stable_identity(
         String::from("MemPtr"),
         TypeKind::Struct {
             name: String::from("MemPtr"),
@@ -229,5 +279,12 @@ fn mem_ptr_type(types: &mut TypeCtx) -> TypeId {
             fields: vec![raw],
             field_names: vec![String::from("raw")],
         },
+        NominalStableTypeIdentity::new(
+            NominalStableTypeKind::Struct,
+            String::from("/test/mem.nepl"),
+            String::from("MemPtr"),
+            0,
+            1,
+        ),
     )
 }

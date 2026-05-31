@@ -48,6 +48,7 @@ pub(super) enum ResourceSummaryValueKind {
     CollectionSlotDropTraversalForallLeafEntryV1,
     I32ScalarReturnFactsEntryV1,
     InitializedFunctionCheckEntryV1,
+    RawAliasReturnEntryV1,
     RawInitCompleteLeafEntryV1,
 }
 
@@ -94,6 +95,39 @@ impl ResourceSummaryValueCacheKey {
         source_capability_policy_hash: u64,
     ) -> Self {
         let summary_kind = ResourceSummaryValueKind::RawInitCompleteLeafEntryV1;
+        let stable_hash = resource_summary_value_cache_key_hash(
+            namespace_hash,
+            &function_identity,
+            function_body_hash,
+            dependency_closure_hash,
+            type_parameter_boundary_hash,
+            generic_type_argument_hash,
+            source_capability_policy_hash,
+            summary_kind,
+        );
+        Self {
+            namespace_hash,
+            function_identity,
+            function_body_hash,
+            dependency_closure_hash,
+            type_parameter_boundary_hash,
+            generic_type_argument_hash,
+            source_capability_policy_hash,
+            summary_kind,
+            stable_hash,
+        }
+    }
+
+    pub(super) fn new_raw_alias_return_entry(
+        namespace_hash: u64,
+        function_identity: ResourceSummaryFunctionIdentity,
+        function_body_hash: u64,
+        dependency_closure_hash: u64,
+        type_parameter_boundary_hash: u64,
+        generic_type_argument_hash: u64,
+        source_capability_policy_hash: u64,
+    ) -> Self {
+        let summary_kind = ResourceSummaryValueKind::RawAliasReturnEntryV1;
         let stable_hash = resource_summary_value_cache_key_hash(
             namespace_hash,
             &function_identity,
@@ -304,6 +338,7 @@ impl ResourceSummaryValueKind {
             ResourceSummaryValueKind::InitializedFunctionCheckEntryV1 => {
                 "initialized-function-check-entry-v1"
             }
+            ResourceSummaryValueKind::RawAliasReturnEntryV1 => "raw-alias-return-entry-v1",
             ResourceSummaryValueKind::RawInitCompleteLeafEntryV1 => {
                 "raw-init-complete-leaf-entry-v1"
             }

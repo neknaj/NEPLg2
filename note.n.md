@@ -48044,3 +48044,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused regression として、layout helper の再計算型と保存済み open generic place type が異なる場合でも、保存済み final state type を replay authority として使う test を追加した。
 - release Web RPN same-session code edit 測定 `tmp/rpn_final_check_residual_type_fix_20260531.json` では、edit compile が `6021ms` から `5770ms` へ改善した。edit delta は `resource_initialized_function_checks=13`、`resource_initialized_function_check_ops=263`、`resource_summary_value_initialized_function_check_hits=275`、`initialized_function_check_reprojection_value_type_bypasses=0` である。
 - `ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9` は verified / resolved にした。subagent review に基づき、残る支配項を raw alias summary stable mirror issue `ISS-20260531T071945698Z-RAW-ALIAS-SUMMARIES-NEED-STABLE-MIRR-4DCE44A8` と raw-init function-local invalidation issue `ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE` に分離した。
+
+## 2026-05-31 Agent raw alias summary stable mirror checkpoint
+
+- Zenn の試作段階方針、性能追求方針、純粋 query cache 方針を再確認した。`plan.md` は変更していない。
+- `RawCellAddressReturnSummary` の aliases を `ResourceSummaryValueCache` の stable entry として保存し、現在 compile の function signature / projection / type boundary へ fail-closed に再投影できる場合だけ raw alias fixed-point worklist を preseed するようにした。
+- raw alias summary は raw-init / i32 scalar / final check の下流 dependency になるため、key には function body hash、source capability policy hash、dependency closure hash、summary type boundary、generic argument mode を含めた。`TypeId`、`Span`、`SourceMap`、compile ごとの raw address graph state は stable value に保存していない。
+- alias が空の relevant function も empty entry として cache し、no-alias function が微小編集ごとに worklist へ戻る固定費を消した。empty entry は summary vector へは追加せず、worklist initial pending だけを落とす。
+- `SummaryWorklist::new_filtered_with_initial_skips` を追加し、preseed 済み関数を初期 pending から外しつつ relevant flag は維持するようにした。これにより、依存先 summary が変化した場合は `notify_changed` で dependent として再 enqueue される。
+- subagent review では、高 severity の問題は見つからなかった。preseed 済み関数の再 enqueue、stable mirror の fail-closed 境界、source policy / dependency / type / generic を含む key、empty summary replay の意味が妥当と確認された。
+- release Web RPN same-session code edit 測定 `tmp/rpn_raw_alias_cache_code_edit_20260531.json` では、edit delta が `resource_raw_alias_summary_recomputations=288` から `38` へ減った。raw alias entry は `hits=65`、`stores=73`、`bypasses=13`、`unstable_key=0`、`unstable_entry=0` である。
+- `ISS-20260531T071945698Z-RAW-ALIAS-SUMMARIES-NEED-STABLE-MIRR-4DCE44A8` は verified / resolved にした。残る `raw_alias_return_entry_reprojection_value_bypasses=13` は unsafe な stale hit ではなく fail-closed の残差なので、`ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E` に分離した。

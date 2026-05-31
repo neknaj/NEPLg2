@@ -236,6 +236,7 @@ mod initialized_alias_flow;
 mod initialized_alias_flow_apply;
 mod initialized_alias_flow_projection;
 mod initialized_alias_flow_raw;
+mod initialized_alias_flow_value_cache;
 mod initialized_alias_flow_value_projection;
 mod initialized_alias_host_size;
 mod initialized_alias_i32;
