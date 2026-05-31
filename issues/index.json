@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T16:15:03.428Z",
+  "generated_at": "2026-05-31T16:25:32.818Z",
   "counts": {
     "total": 1297,
     "open": 27,
@@ -243,7 +243,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-05-31",
+      "updated": "2026-06-01",
       "target": "nepl-core/src/typecheck; nepl-core/src/resource/lower_call.rs; doc/neplg2/private_effect_memoization_purity_design.md",
       "legacy_id": "",
       "source": "",
@@ -348,7 +348,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-05-31",
+      "updated": "2026-06-01",
       "target": "nepl-core/src/typecheck; nepl-core/src/resource; stdlib",
       "legacy_id": "",
       "source": "",

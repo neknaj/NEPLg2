@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-05-31
+updated: 2026-06-01
 target: "nepl-core/src/typecheck; nepl-core/src/resource; stdlib"
 ---
 
@@ -59,3 +59,10 @@ memo_call @pure_named_func が pure に通り、impure function、capturing func
 追加 checkpoint では `stdlib/core/traits/memo.nepl` の `MemoKey` / `MemoValue` を public signature と compiler-known primitive gate の両方に接続した。gate 側は trait definition の stdlib source identity も確認する。`cargo test -p nepl-core function_memo_call --test functions -- --nocapture` により、structural Copy aggregate acceptance、unit key/value acceptance、Copy struct without `MemoKey` rejection、Copy + `MemoKey` struct without `MemoValue` rejection、`f32` key rejection、`f32` field を持つ structural key rejection、function value key/value rejection、reference key rejection、`MemPtr i32` key/value rejection、`RegionToken i32` key/value rejection を確認した。
 
 GitHub CI で `nepl-language` が `HirExprKind::MemoizedFunctionValue` に追従していないことが判明したため、semantic trace の HIR kind 表示と子走査を更新した。`MemoizedFunctionValue` は `FnValue` と同じ function-value leaf であり、semantic trace では子 expression を持たない。`cargo check -p nepl-language` で確認した。
+
+2026-06-01 の追加 checkpoint では、Phase 1 の compiler-known primitive boundary を
+高階関数経路に対して補強した。`@inc` の local alias、`id_func @inc` の pass-through、
+`choose true` の returned function value、function literal value を `memo_call` に渡す case は
+すべて `MemoCallRequiresFunctionValue` で拒否する。これにより、直接 `memo_call @pure_named_func`
+だけが accepted path であり、関数値が通常 value path を通った時点で private cache proof を
+持たないことを regression として固定した。

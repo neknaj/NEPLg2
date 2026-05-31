@@ -48268,3 +48268,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused regression の debug 実行 `tmp/i32_stable_reprojection_debug_unit_20260601.stderr` では、`function=i32_leaf`、`kind=alias`、`reason=ScalarType`、`ResourceSummaryStableTypeKey("u8")` のログを確認した。
 - `cargo check -p nepl-core -p nepl-language`、`cargo test -p nepl-core resource_summary_value --lib -- --nocapture`、`cargo test -p nepl-core function_memo_call --test functions -- --nocapture` を通した。
 - この checkpoint は観測基盤の追加であり、RPN same-session edit の residual 自体はまだ解消していない。次はこのログを RPN 相当の再現または alias / offset focused regression に適用し、`ParameterProjection` / `ScalarType` の狭い再投影境界を修正する。
+
+## 2026-06-01 Agent memo_call higher-order regression checkpoint
+
+- remote/main と同期済みの `memo/higher-order-regressions-20260601` branch で、`memo_call` Phase 1 の高階関数 rejected matrix を追加した。`plan.md` は変更していない。
+- Zenn の純粋性方針と試作段階方針に従い、private cache region / closure identity / capture の proof が Resource IR に接続されるまでは accepted path を `memo_call @pure_named_func` の直接形だけに固定する方針にした。
+- subagent review では、alias、pass-through、returned function value、function literal は「関数型ではあるが明示 `@name` の直接引数ではない」ため最優先で拒否を固定すべきと確認した。capture 付き named function value は既存の `FunctionValueCapturingUnsupported` で拒否されるのが自然なので、memo_call 専用診断へ寄せない。
+- `nepl-core/tests/functions.rs` に `function_memo_call_rejects_function_value_alias`、`function_memo_call_rejects_passed_through_function_value`、`function_memo_call_rejects_returned_function_value`、`function_memo_call_rejects_function_literal_value` を追加し、いずれも `MemoCallRequiresFunctionValue` を期待する regression にした。
+- `cargo check -p nepl-core -p nepl-language` と `cargo test -p nepl-core function_memo_call --test functions -- --nocapture` で 23 件すべて通過した。
+- `trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-memo-higher-order-20260601.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` も通した。
+- この checkpoint は Phase 1 の境界固定であり、`PrivateCache` / `PrivateState` internal effect、SourceCapability exact use-site、sealed backend representation は引き続き別 issue で進める。

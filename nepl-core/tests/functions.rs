@@ -276,6 +276,121 @@ fn main %fn unit i32 \unit:
     compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallRequiresFunctionValue);
 }
 
+/// `@inc` を一度 local binding に入れると、その値は通常の関数値になる。
+///
+/// Phase 1 の `memo_call` は private cache region と closure identity の proof をまだ
+/// 持たないため、明示的な `@name` がその場で渡された場合だけを compiler-known boundary とする。
+/// alias 経由の関数値を許すと、後続の高階関数経路と同じ扱いになり、capture や identity の
+/// 設計が未確定なまま pure API を広げてしまう。
+#[test]
+fn function_memo_call_rejects_function_value_alias() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+#import "core/memo" as *
+
+fn inc %fn i32 i32 \x:
+    add x 1
+
+fn main %fn unit i32 \unit:
+    let aliased %fn i32 i32 @inc
+    let f %fn i32 i32 memo_call aliased
+    f 41
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallRequiresFunctionValue);
+}
+
+/// 関数値を別の高階関数へ渡して戻した場合も、Phase 1 の `memo_call` には渡せない。
+///
+/// `id_func @inc` の結果は型としては `%fn i32 i32` だが、`memo_call` が要求する
+/// compiler-known boundary は「この場で書かれた `@inc`」である。受け渡し後の関数値を
+/// 許すには、function identity と private cache region が値経路で失われないことを
+/// 別途証明する必要がある。
+#[test]
+fn function_memo_call_rejects_passed_through_function_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+#import "core/memo" as *
+
+fn inc %fn i32 i32 \x:
+    add x 1
+
+fn id_func %fn (fn i32 i32) (fn i32 i32) \func:
+    func
+
+fn main %fn unit i32 \unit:
+    let selected %fn i32 i32 id_func @inc
+    let f %fn i32 i32 memo_call selected
+    f 41
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallRequiresFunctionValue);
+}
+
+/// 高階関数から戻った関数値は、たとえ中身が named pure function であっても、
+/// Phase 1 の `memo_call` では受け取らない。
+///
+/// この制限は部分適用を導入しない NEPLg2.1 の方針と対応している。`memo_call choose true`
+/// のような通常の値経路を compiler-known primitive として扱うには、function identity と
+/// private cache region の non-escape proof を Resource IR まで接続してからにする。
+#[test]
+fn function_memo_call_rejects_returned_function_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+#import "core/memo" as *
+
+fn inc %fn i32 i32 \x:
+    add x 1
+
+fn dec %fn i32 i32 \x:
+    sub x 1
+
+fn choose %fn bool fn i32 i32 \flag:
+    if flag:
+        then:
+            @inc
+        else:
+            @dec
+
+fn main %fn unit i32 \unit:
+    let selected %fn i32 i32 choose true
+    let f %fn i32 i32 memo_call selected
+    f 41
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallRequiresFunctionValue);
+}
+
+/// 関数リテラルは capture の有無や allocation identity を Resource IR で証明するまで
+/// memoization の対象にしない。
+///
+/// 現在の Phase 1 は `memo_call @named_function` だけを許す。非 capture に見える
+/// function literal でも、将来 capture を持つ closure と同じ値表現へ進む可能性があるため、
+/// compiler-known primitive の入力としては拒否し、専用の private cache backend 設計を待つ。
+#[test]
+fn function_memo_call_rejects_function_literal_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+#import "core/memo" as *
+
+fn main %fn unit i32 \unit:
+    let local %fn i32 i32 \x:
+        add x 1
+    let f %fn i32 i32 memo_call local
+    f 41
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallRequiresFunctionValue);
+}
+
 #[test]
 fn function_memo_call_rejects_impure_function_value() {
     let src = r#"
