@@ -57,7 +57,7 @@ pub mod types;
 pub mod wasm_shared;
 
 pub use artifact::{
-    nepl_meta_artifact_header_for_public_signatures, nepl_meta_compiler_identity_hash,
+    nepl_meta_artifact_header_for_public_surface, nepl_meta_compiler_identity_hash,
     nepl_meta_profile_hash, nepl_meta_target_hash, NeplMetaArtifact,
     NeplMetaArtifactCompatibilityReject, NeplMetaArtifactHeader, NeplMetaArtifactPayloadReject,
 };

@@ -1,3 +1,13 @@
+# 2026-06-01 .neplmeta structured public surface checkpoint
+
+- remote/main 同期済みの `perf/neplmeta-structured-surface-20260601` branch で、`.neplmeta` の structured public surface payload を追加中。`plan.md` は変更していない。
+- subagent review では、`TypedPublicSignatureTable` の stable text/hash だけでは `TypeCtx` / `Env` materializer に不足し、public callable / type / trait / impl header を structured payload として保持する必要があると確認した。
+- `TypedPublicSurfaceTable` を追加し、public callable、struct、enum、trait、impl header を arena 非依存の enum/struct として保持するようにした。`TypeId`、`Span`、`FileId`、`SourceMap`、`ImportResolution`、typed HIR、Resource IR、diagnostic span は保存しない。
+- `NeplMetaArtifactHeader` に `structured_public_surface_hash` と `structured_public_surface_entry_count` を追加し、payload consistency check も structured surface hash / entry count を確認するようにした。artifact 形状を変えたため `.neplmeta` schema / hash / compiler identity は v2 に上げた。
+- Web `CompilerSession` stats JSON に structured public surface entry count と hash を追加した。payload 本体は出さない。
+- subagent 指摘により、現 checkpoint の `Named(String)` と `GenericParam(PublicTypeParam)` は materializer authority としては不足すると記録した。次段階では stable nominal identity、binder-indexed generic parameter reference、stable public ABI/link symbol、field accessor kind、generic impl bound を追加する。
+- 現時点の検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture` は pass。
+
 # 2026-06-01 PrivateCache region provenance checkpoint
 
 - Zenn 記事の試作段階方針、静的検査方針、性能追求方針を再確認し、`memo_call` の pure contract を広げずに Resource IR / SourceCapability / artifact hash の provenance を強化した。

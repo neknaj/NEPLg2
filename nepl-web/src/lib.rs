@@ -3802,6 +3802,20 @@ impl CompilerSession {
                 .unwrap_or(0)
                 .to_string(),
         );
+        out.push_str(",\"nepl_meta_artifact_structured_public_surface_entries\":");
+        out.push_str(
+            &nepl_meta_header
+                .map(|header| header.structured_public_surface_entry_count)
+                .unwrap_or(0)
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_structured_public_surface_hash\":");
+        out.push_str(
+            &nepl_meta_header
+                .map(|header| header.structured_public_surface_hash)
+                .unwrap_or(0)
+                .to_string(),
+        );
         out.push_str(",\"nepl_meta_artifact_payload_consistency_ok\":");
         out.push_str(
             if nepl_meta_artifact

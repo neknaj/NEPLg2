@@ -2,16 +2,16 @@ extern crate alloc;
 
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::source_map::SourceMap;
-use crate::typecheck::TypedPublicSignatureTable;
+use crate::typecheck::{TypedPublicSignatureTable, TypedPublicSurfaceTable};
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
-const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 1;
-const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v1";
+const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 2;
+const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v2";
 const NEPL_META_COMPILER_IDENTITY_INPUT: &str = concat!(
     "neplg2-compiler:",
     env!("CARGO_PKG_VERSION"),
-    ":neplmeta-v1"
+    ":neplmeta-v2"
 );
 
 /// `.neplmeta` artifact の invalidation envelope。
@@ -30,6 +30,8 @@ pub struct NeplMetaArtifactHeader {
     pub dependency_public_surface_hash: Option<u64>,
     pub typed_public_signature_hash: u64,
     pub public_entry_count: u32,
+    pub structured_public_surface_hash: u64,
+    pub structured_public_surface_entry_count: u32,
     pub source_capability_policy_set_hash: Option<u64>,
     pub private_effect_policy_hash: Option<u64>,
 }
@@ -43,6 +45,8 @@ impl NeplMetaArtifactHeader {
         dependency_public_surface_hash: Option<u64>,
         typed_public_signature_hash: u64,
         public_entry_count: u32,
+        structured_public_surface_hash: u64,
+        structured_public_surface_entry_count: u32,
         source_capability_policy_set_hash: Option<u64>,
         private_effect_policy_hash: Option<u64>,
     ) -> Self {
@@ -55,6 +59,8 @@ impl NeplMetaArtifactHeader {
             dependency_public_surface_hash,
             typed_public_signature_hash,
             public_entry_count,
+            structured_public_surface_hash,
+            structured_public_surface_entry_count,
             source_capability_policy_set_hash,
             private_effect_policy_hash,
         }
@@ -88,6 +94,14 @@ impl NeplMetaArtifactHeader {
         if self.public_entry_count != expected.public_entry_count {
             return Some(NeplMetaArtifactCompatibilityReject::PublicEntryCount);
         }
+        if self.structured_public_surface_hash != expected.structured_public_surface_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::StructuredPublicSurface);
+        }
+        if self.structured_public_surface_entry_count
+            != expected.structured_public_surface_entry_count
+        {
+            return Some(NeplMetaArtifactCompatibilityReject::StructuredPublicSurfaceEntryCount);
+        }
         if self.source_capability_policy_set_hash != expected.source_capability_policy_set_hash {
             return Some(NeplMetaArtifactCompatibilityReject::SourceCapabilityPolicySet);
         }
@@ -112,6 +126,8 @@ pub enum NeplMetaArtifactCompatibilityReject {
     DependencyPublicSurface,
     TypedPublicSignature,
     PublicEntryCount,
+    StructuredPublicSurface,
+    StructuredPublicSurfaceEntryCount,
     SourceCapabilityPolicySet,
     PrivateEffectPolicy,
 }
@@ -126,36 +142,41 @@ pub enum NeplMetaArtifactCompatibilityReject {
 pub struct NeplMetaArtifact {
     header: NeplMetaArtifactHeader,
     public_signatures: TypedPublicSignatureTable,
+    public_surface: TypedPublicSurfaceTable,
 }
 
 impl NeplMetaArtifact {
     pub fn new(
         header: NeplMetaArtifactHeader,
         public_signatures: TypedPublicSignatureTable,
+        public_surface: TypedPublicSurfaceTable,
     ) -> Self {
         Self {
             header,
             public_signatures,
+            public_surface,
         }
     }
 
-    pub fn from_public_signatures(
+    pub fn from_public_surface(
         target: CompileTarget,
         profile: BuildProfile,
         stdlib_content_hash: Option<u64>,
         dependency_public_surface_hash: Option<u64>,
         source_map: Option<&SourceMap>,
         public_signatures: TypedPublicSignatureTable,
+        public_surface: TypedPublicSurfaceTable,
     ) -> Self {
-        let header = nepl_meta_artifact_header_for_public_signatures(
+        let header = nepl_meta_artifact_header_for_public_surface(
             target,
             profile,
             stdlib_content_hash,
             dependency_public_surface_hash,
             source_map,
             &public_signatures,
+            &public_surface,
         );
-        Self::new(header, public_signatures)
+        Self::new(header, public_signatures, public_surface)
     }
 
     pub fn header(&self) -> NeplMetaArtifactHeader {
@@ -164,6 +185,10 @@ impl NeplMetaArtifact {
 
     pub fn public_signatures(&self) -> &TypedPublicSignatureTable {
         &self.public_signatures
+    }
+
+    pub fn public_surface(&self) -> &TypedPublicSurfaceTable {
+        &self.public_surface
     }
 
     pub fn compatibility_reject(
@@ -182,6 +207,14 @@ impl NeplMetaArtifact {
         {
             return Some(NeplMetaArtifactPayloadReject::PublicEntryCount);
         }
+        if self.header.structured_public_surface_hash != self.public_surface.stable_hash {
+            return Some(NeplMetaArtifactPayloadReject::StructuredPublicSurfaceHash);
+        }
+        if self.header.structured_public_surface_entry_count
+            != usize_to_u32_saturating(self.public_surface.entries.len())
+        {
+            return Some(NeplMetaArtifactPayloadReject::StructuredPublicSurfaceEntryCount);
+        }
         None
     }
 
@@ -199,15 +232,18 @@ impl NeplMetaArtifact {
 pub enum NeplMetaArtifactPayloadReject {
     TypedPublicSignatureHash,
     PublicEntryCount,
+    StructuredPublicSurfaceHash,
+    StructuredPublicSurfaceEntryCount,
 }
 
-pub fn nepl_meta_artifact_header_for_public_signatures(
+pub fn nepl_meta_artifact_header_for_public_surface(
     target: CompileTarget,
     profile: BuildProfile,
     stdlib_content_hash: Option<u64>,
     dependency_public_surface_hash: Option<u64>,
     source_map: Option<&SourceMap>,
     public_signatures: &TypedPublicSignatureTable,
+    public_surface: &TypedPublicSurfaceTable,
 ) -> NeplMetaArtifactHeader {
     NeplMetaArtifactHeader::new(
         nepl_meta_compiler_identity_hash(),
@@ -217,6 +253,8 @@ pub fn nepl_meta_artifact_header_for_public_signatures(
         dependency_public_surface_hash,
         public_signatures.stable_hash,
         usize_to_u32_saturating(public_signatures.entries.len()),
+        public_surface.stable_hash,
+        usize_to_u32_saturating(public_surface.entries.len()),
         crate::compiler::resource_summary_source_capability_policy_set_hash(source_map),
         Some(crate::compiler::resource_summary_private_effect_policy_hash()),
     )
@@ -283,12 +321,14 @@ mod tests {
     use alloc::vec::Vec;
 
     use super::{
-        nepl_meta_artifact_header_for_public_signatures, NeplMetaArtifact,
+        nepl_meta_artifact_header_for_public_surface, NeplMetaArtifact,
         NeplMetaArtifactCompatibilityReject, NeplMetaArtifactHeader, NeplMetaArtifactPayloadReject,
     };
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::typecheck::{
+        PublicCallableSurface, PublicEffect, PublicSurfaceShape, PublicTypeTerm,
         TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
+        TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
     };
 
     fn signature_table(name: &str, signature: &str) -> TypedPublicSignatureTable {
@@ -300,17 +340,38 @@ mod tests {
         )]))
     }
 
+    fn surface_table(name: &str, result: PublicTypeTerm) -> TypedPublicSurfaceTable {
+        TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Callable,
+            name: name.into(),
+            surface: PublicSurfaceShape::Callable(PublicCallableSurface {
+                ty: PublicTypeTerm::Function {
+                    type_params: Vec::new(),
+                    params: Vec::from([PublicTypeTerm::Unit]),
+                    result: alloc::boxed::Box::new(result),
+                    effect: PublicEffect::Pure,
+                },
+                no_shadow: false,
+                arity: 1,
+                effect: PublicEffect::Pure,
+                type_param_bounds: Vec::new(),
+            }),
+        }]))
+    }
+
     fn test_header(
         public_signatures: &TypedPublicSignatureTable,
+        public_surface: &TypedPublicSurfaceTable,
         dependency_hash: Option<u64>,
     ) -> NeplMetaArtifactHeader {
-        nepl_meta_artifact_header_for_public_signatures(
+        nepl_meta_artifact_header_for_public_surface(
             CompileTarget::Wasm,
             BuildProfile::Debug,
             Some(7),
             dependency_hash,
             None,
             public_signatures,
+            public_surface,
         )
     }
 
@@ -320,8 +381,9 @@ mod tests {
     #[test]
     fn neplmeta_header_accepts_matching_public_surface() {
         let public_signatures = signature_table("answer", "fn unit i32");
-        let header = test_header(&public_signatures, Some(11));
-        let artifact = NeplMetaArtifact::new(header, public_signatures);
+        let public_surface = surface_table("answer", PublicTypeTerm::I32);
+        let header = test_header(&public_signatures, &public_surface, Some(11));
+        let artifact = NeplMetaArtifact::new(header, public_signatures, public_surface);
 
         assert_eq!(artifact.compatibility_reject(header), None);
         assert_eq!(artifact.payload_consistency_reject(), None);
@@ -334,11 +396,13 @@ mod tests {
     #[test]
     fn neplmeta_header_rejects_dependency_surface_mismatch() {
         let public_signatures = signature_table("answer", "fn unit i32");
+        let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let artifact = NeplMetaArtifact::new(
-            test_header(&public_signatures, Some(11)),
+            test_header(&public_signatures, &public_surface, Some(11)),
             public_signatures.clone(),
+            public_surface.clone(),
         );
-        let expected = test_header(&public_signatures, Some(12));
+        let expected = test_header(&public_signatures, &public_surface, Some(12));
 
         assert_eq!(
             artifact.compatibility_reject(expected),
@@ -352,12 +416,33 @@ mod tests {
     fn neplmeta_payload_consistency_rejects_mismatched_signature_hash() {
         let header_signatures = signature_table("answer", "fn unit i32");
         let payload_signatures = signature_table("answer", "fn unit unit");
-        let artifact =
-            NeplMetaArtifact::new(test_header(&header_signatures, None), payload_signatures);
+        let public_surface = surface_table("answer", PublicTypeTerm::I32);
+        let artifact = NeplMetaArtifact::new(
+            test_header(&header_signatures, &public_surface, None),
+            payload_signatures,
+            public_surface,
+        );
 
         assert_eq!(
             artifact.payload_consistency_reject(),
             Some(NeplMetaArtifactPayloadReject::TypedPublicSignatureHash)
+        );
+    }
+
+    #[test]
+    fn neplmeta_payload_consistency_rejects_mismatched_structured_surface() {
+        let public_signatures = signature_table("answer", "fn unit i32");
+        let header_surface = surface_table("answer", PublicTypeTerm::I32);
+        let payload_surface = surface_table("answer", PublicTypeTerm::Unit);
+        let artifact = NeplMetaArtifact::new(
+            test_header(&public_signatures, &header_surface, None),
+            public_signatures,
+            payload_surface,
+        );
+
+        assert_eq!(
+            artifact.payload_consistency_reject(),
+            Some(NeplMetaArtifactPayloadReject::StructuredPublicSurfaceHash)
         );
     }
 }

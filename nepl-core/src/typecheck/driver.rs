@@ -31,7 +31,10 @@ use super::driver_span::{span_key, top_level_definition_span};
 use super::env::{Binding, BindingKind, Env};
 use super::extern_import::ExternImportModule;
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
-use super::public_signature::{build_typed_public_signature_table, TypedPublicSignatureTable};
+use super::public_signature::{
+    build_typed_public_signature_table, build_typed_public_surface_table,
+    TypedPublicSignatureTable, TypedPublicSurfaceTable,
+};
 use super::signature::{
     contains_same_type, function_signature_string, mangle_function_symbol,
     mangle_function_symbol_for_def, mangle_impl_method, push_unique_type, same_function_signature,
@@ -128,6 +131,7 @@ pub struct TypeCheckResult {
     pub diagnostics: Vec<Diagnostic>,
     pub types: TypeCtx,
     pub public_signatures: TypedPublicSignatureTable,
+    pub public_surface: TypedPublicSurfaceTable,
 }
 
 pub fn typecheck(
@@ -1726,6 +1730,11 @@ pub fn typecheck(
     } else {
         build_typed_public_signature_table(&ctx, &env, &structs, &enums, &traits, &impls)
     };
+    let public_surface = if has_error {
+        TypedPublicSurfaceTable::default()
+    } else {
+        build_typed_public_surface_table(&ctx, &env, &structs, &enums, &traits, &impls)
+    };
 
     TypeCheckResult {
         module: if has_error {
@@ -1743,6 +1752,7 @@ pub fn typecheck(
         diagnostics,
         types: ctx,
         public_signatures,
+        public_surface,
     }
 }
 

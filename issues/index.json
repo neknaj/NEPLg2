@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T22:39:34.553Z",
+  "generated_at": "2026-05-31T22:55:29.584Z",
   "counts": {
     "total": 1300,
     "open": 29,
@@ -408,7 +408,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-05-31",
+      "updated": "2026-06-01",
       "target": "nepl-core/src/artifact.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/loader.rs",
       "legacy_id": "",
       "source": "",

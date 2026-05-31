@@ -61,5 +61,10 @@ use traits::BoundEnv;
 
 pub use driver::{typecheck, TypeCheckResult};
 pub use public_signature::{
+    PublicCallableSurface, PublicEffect, PublicEnumSurface, PublicEnumVariantSurface,
+    PublicFieldSurface, PublicImplKind, PublicImplSurface, PublicStructConstructorPolicy,
+    PublicStructSurface, PublicSurfaceShape, PublicTraitCapability, PublicTraitMethodSurface,
+    PublicTraitRef, PublicTraitSurface, PublicTypeParam, PublicTypeParamBounds, PublicTypeTerm,
     TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
+    TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
 };

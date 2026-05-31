@@ -1510,6 +1510,26 @@ impl header、`noshadow` / symbol policy などの arena 非依存情報に限�
 import / prelude boundary でこの materializer が使えるようになるまで、`.neplmeta` は base compile
 time を大きく下げる authority ではなく、後続 artifact の安全な invalidation envelope として扱う。
 
+### 2026-06-01 `.neplmeta` structured public surface checkpoint
+
+`.neplmeta` payload に `TypedPublicSurfaceTable` を追加した。既存の
+`TypedPublicSignatureTable` は stable text / hash の互換用 surface として残し、structured
+surface は public callable、struct、enum、trait、impl header を enum/struct payload として
+保持する。header には `structured_public_surface_hash` と
+`structured_public_surface_entry_count` を追加し、payload consistency check でも typed text
+signature と structured surface の両方を確認する。
+
+この checkpoint でも `TypeId`、`Span`、`FileId`、`SourceMap`、`ImportResolution`、typed HIR、
+Resource IR、diagnostic span は `.neplmeta` に保存しない。artifact 形状が変わったため
+`.neplmeta` schema / artifact hash / compiler identity は v2 に上げた。
+
+subagent review では、次の materializer 実装前に `Named(String)` だけの名義型参照、
+名前・capability だけの generic parameter 参照、span-derived callable symbol を
+authority にしてはいけないと確認した。現 structured surface は in-memory payload と
+hash 境界を作る段階に留め、dependency body skip へ使う前に stable nominal identity、
+binder-indexed generic parameter reference、stable public ABI symbol / field accessor surface を
+追加する。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

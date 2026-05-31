@@ -587,6 +587,7 @@ struct TypedProgram {
     types: crate::types::TypeCtx,
     module: crate::hir::HirModule,
     public_signatures: crate::typecheck::TypedPublicSignatureTable,
+    public_surface: crate::typecheck::TypedPublicSurfaceTable,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -594,6 +595,7 @@ pub struct PreparedProgram {
     pub types: crate::types::TypeCtx,
     pub hir_module: crate::hir::HirModule,
     pub public_signatures: crate::typecheck::TypedPublicSignatureTable,
+    pub public_surface: crate::typecheck::TypedPublicSurfaceTable,
     pub nepl_meta_artifact: crate::artifact::NeplMetaArtifact,
     pub resource_summary_cache_namespace_key: ResourceSummaryCacheNamespaceKey,
     pub resource_summary_proof_header: crate::resource::ResourceSummaryProofArtifactHeader,
@@ -815,6 +817,7 @@ fn run_typecheck(
             types: tc.types,
             module: m,
             public_signatures: tc.public_signatures,
+            public_surface: tc.public_surface,
             diagnostics: tc.diagnostics,
         }),
         None => Err(CoreError::from_diagnostics(tc.diagnostics)),
@@ -3032,13 +3035,15 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     let mut diagnostics = resource_tc.diagnostics;
     let mut types = resource_tc.types;
     let public_signatures = resource_tc.public_signatures;
-    let nepl_meta_artifact = crate::artifact::NeplMetaArtifact::from_public_signatures(
+    let public_surface = resource_tc.public_surface;
+    let nepl_meta_artifact = crate::artifact::NeplMetaArtifact::from_public_surface(
         target,
         profile,
         resource_summary_proof_options.stdlib_content_hash,
         dependency_public_surface_hash,
         source_map,
         public_signatures.clone(),
+        public_surface.clone(),
     );
     let resource_summary_cache_namespace_key = ResourceSummaryCacheNamespaceKey::new(
         target,
@@ -3139,6 +3144,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
         types,
         hir_module,
         public_signatures,
+        public_surface,
         nepl_meta_artifact,
         resource_summary_cache_namespace_key,
         resource_summary_proof_header,
