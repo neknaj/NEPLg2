@@ -75,6 +75,28 @@ Web `CompilerSession` stats JSON には structured public surface entry count �
 - `node nodesrc/issues.js check --dir issues`
 - `git diff --check`
 
+## 2026-06-01 stable nominal surface checkpoint
+
+`NominalStableTypeIdentity` の kind / source path / name / arity / definition hash を、structured public surface の `PublicNominalTypeIdentity` へ投影するようにした。
+
+public struct / enum surface は自身の stable nominal identity を保持する。`PublicTypeTerm::Named` は name だけではなく、SourceMap から identity を得られる場合は `PublicNominalTypeIdentity` も保持する。SourceMap がない compile では identity は `None` のままであり、将来の `.neplmeta` materializer はこの entry を fail-closed に拒否できる。
+
+structured public surface hash namespace は `neplg2-typed-public-surface-v2` に上げた。payload 形状が変わったため `.neplmeta` schema、artifact hash version、compiler identity は v3 に上げた。
+
+検証:
+
+- `cargo check -p nepl-core -p nepl-language`
+- `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture`
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `trunk build --release`
+- `node nodesrc/test_run_test_compiler_session.js`
+- `node nodesrc/test_playground_compiler_session_policy.js`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-stable-nominal-surface-20260601.json`
+- `node nodesrc/issues.js check --dir issues`
+- `git diff --check`
+
 追加検証:
 
 - `cargo check -p nepl-core -p nepl-language`
@@ -85,7 +107,8 @@ Web `CompilerSession` stats JSON には structured public surface entry count �
 
 残件:
 
-- `PublicTypeTerm::Named(String)` を materializer authority にしない。stable nominal identity は kind、module/source identity、name、arity、definition hash を持つ structured identity へ置き換える。
+- `PublicTypeTerm::Named` の identity が `None` の entry を materializer で fail-closed に拒否する。
+- trait identity はまだ `PublicTraitRef.name` に依存しているため、trait definition の stable identity を導入する。
 - `GenericParam(PublicTypeParam)` を materializer authority にしない。binder-indexed parameter reference を導入し、同名 nested generic parameter の衝突を防ぐ。
 - callable surface に field accessor kind と stable public ABI/link symbol を追加する。ただし span-derived `mangle_function_symbol_for_def` は保存しない。
 - generic impl parameter / bound を round-trip できるようにするか、materializer では fail-closed に拒否する。

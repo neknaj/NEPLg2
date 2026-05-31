@@ -66,8 +66,9 @@ pub use public_signature::{
 };
 pub use public_surface::{
     PublicCallableSurface, PublicEffect, PublicEnumSurface, PublicEnumVariantSurface,
-    PublicFieldSurface, PublicImplKind, PublicImplSurface, PublicStructConstructorPolicy,
-    PublicStructSurface, PublicSurfaceShape, PublicTraitCapability, PublicTraitMethodSurface,
-    PublicTraitRef, PublicTraitSurface, PublicTypeParam, PublicTypeParamBounds, PublicTypeTerm,
+    PublicFieldSurface, PublicImplKind, PublicImplSurface, PublicNominalTypeIdentity,
+    PublicNominalTypeKind, PublicStructConstructorPolicy, PublicStructSurface,
+    PublicSurfaceShape, PublicTraitCapability, PublicTraitMethodSurface, PublicTraitRef,
+    PublicTraitSurface, PublicTypeParam, PublicTypeParamBounds, PublicTypeTerm,
     TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
 };

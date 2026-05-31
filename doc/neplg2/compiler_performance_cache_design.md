@@ -1543,6 +1543,26 @@ ABI / link symbol を足しても、text signature cache 境界と構造化 payl
 するための前提である。`typecheck.rs` の public re-export は維持し、外部 crate が参照する
 `crate::typecheck::{PublicTypeTerm, TypedPublicSurfaceTable}` などの API は変えない。
 
+### 2026-06-01 `.neplmeta` stable nominal surface checkpoint
+
+structured public surface に `PublicNominalTypeIdentity` を追加した。これは `TypeCtx` の
+`NominalStableTypeIdentity` から kind、source path、name、arity、definition hash を取り出し、
+`TypeId` や `Span` を保存せずに public nominal type を compile session 間で対応付けるための
+payload である。
+
+public struct / enum surface は自身の identity を保持する。`PublicTypeTerm::Named` も、SourceMap
+がある compile では参照先の stable nominal identity を保持する。SourceMap がない compile では
+identity は `None` であり、materializer ではこれを authority として使わず fail-closed に拒否する。
+
+この payload 形状変更に合わせ、structured surface hash namespace は
+`neplg2-typed-public-surface-v2`、`.neplmeta` schema / artifact hash / compiler identity は v3
+へ上げた。これにより、stable nominal identity を持たない古い `.neplmeta` artifact と同じ
+contract として扱わない。
+
+まだ trait identity、binder-indexed generic parameter reference、field accessor surface、
+stable public ABI / link symbol、generic impl bound は残る。したがって、この checkpoint 後も
+dependency body skip へ進む前に materializer authority の残件を解消する必要がある。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

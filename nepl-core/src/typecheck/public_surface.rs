@@ -7,7 +7,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{Effect, Visibility};
-use crate::types::{TypeCtx, TypeId, TypeKind};
+use crate::types::{NominalStableTypeKind, TypeCtx, TypeId, TypeKind};
 
 use super::env::{BindingKind, Env};
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
@@ -77,6 +77,7 @@ pub struct PublicTypeParamBounds {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicStructSurface {
+    pub identity: Option<PublicNominalTypeIdentity>,
     pub type_params: Vec<PublicTypeParam>,
     pub fields: Vec<PublicFieldSurface>,
     pub constructor_policy: PublicStructConstructorPolicy,
@@ -90,6 +91,7 @@ pub struct PublicFieldSurface {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicEnumSurface {
+    pub identity: Option<PublicNominalTypeIdentity>,
     pub type_params: Vec<PublicTypeParam>,
     pub variants: Vec<PublicEnumVariantSurface>,
 }
@@ -143,6 +145,21 @@ pub struct PublicTypeParam {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PublicNominalTypeIdentity {
+    pub kind: PublicNominalTypeKind,
+    pub source_path: String,
+    pub name: String,
+    pub arity: u32,
+    pub definition_hash: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PublicNominalTypeKind {
+    Enum,
+    Struct,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PublicTypeTerm {
     Unit,
     I32,
@@ -152,7 +169,10 @@ pub enum PublicTypeTerm {
     Char,
     Str,
     Never,
-    Named(String),
+    Named {
+        name: String,
+        identity: Option<PublicNominalTypeIdentity>,
+    },
     GenericParam(PublicTypeParam),
     Tuple(Vec<PublicTypeTerm>),
     Function {
@@ -195,7 +215,7 @@ pub enum PublicStructConstructorPolicy {
 
 fn typed_public_surface_hash(entries: &[TypedPublicSurfaceEntry]) -> u64 {
     let mut hash = FNV1A64_OFFSET;
-    hash_str(&mut hash, "neplg2-typed-public-surface-v1");
+    hash_str(&mut hash, "neplg2-typed-public-surface-v2");
     for entry in entries {
         hash_str(&mut hash, entry.kind.as_str());
         hash_str(&mut hash, entry.name.as_str());
@@ -223,6 +243,7 @@ fn hash_public_surface_shape(hash: &mut u64, shape: &PublicSurfaceShape) {
         }
         PublicSurfaceShape::Struct(surface) => {
             hash_str(hash, "struct");
+            hash_optional_public_nominal_identity(hash, surface.identity.as_ref());
             hash_public_type_params(hash, &surface.type_params);
             hash_u32(hash, surface.fields.len() as u32);
             for field in &surface.fields {
@@ -233,6 +254,7 @@ fn hash_public_surface_shape(hash: &mut u64, shape: &PublicSurfaceShape) {
         }
         PublicSurfaceShape::Enum(surface) => {
             hash_str(hash, "enum");
+            hash_optional_public_nominal_identity(hash, surface.identity.as_ref());
             hash_public_type_params(hash, &surface.type_params);
             hash_u32(hash, surface.variants.len() as u32);
             for variant in &surface.variants {
@@ -309,9 +331,10 @@ fn hash_public_type_term(hash: &mut u64, term: &PublicTypeTerm) {
         PublicTypeTerm::Char => hash_str(hash, "char"),
         PublicTypeTerm::Str => hash_str(hash, "str"),
         PublicTypeTerm::Never => hash_str(hash, "never"),
-        PublicTypeTerm::Named(name) => {
+        PublicTypeTerm::Named { name, identity } => {
             hash_str(hash, "named");
             hash_str(hash, name.as_str());
+            hash_optional_public_nominal_identity(hash, identity.as_ref());
         }
         PublicTypeTerm::GenericParam(param) => {
             hash_str(hash, "generic");
@@ -363,6 +386,30 @@ fn hash_public_effect(hash: &mut u64, effect: PublicEffect) {
     hash_str(hash, public_effect_tag(effect));
 }
 
+fn hash_optional_public_nominal_identity(
+    hash: &mut u64,
+    identity: Option<&PublicNominalTypeIdentity>,
+) {
+    match identity {
+        Some(identity) => {
+            hash_bool(hash, true);
+            hash_str(hash, public_nominal_type_kind_tag(identity.kind));
+            hash_str(hash, identity.source_path.as_str());
+            hash_str(hash, identity.name.as_str());
+            hash_u32(hash, identity.arity);
+            hash_u64(hash, identity.definition_hash);
+        }
+        None => hash_bool(hash, false),
+    }
+}
+
+fn public_nominal_type_kind_tag(kind: PublicNominalTypeKind) -> &'static str {
+    match kind {
+        PublicNominalTypeKind::Enum => "enum",
+        PublicNominalTypeKind::Struct => "struct",
+    }
+}
+
 fn hash_str(hash: &mut u64, value: &str) {
     hash_bytes(hash, value.as_bytes());
     hash_bytes(hash, &[0]);
@@ -373,6 +420,10 @@ fn hash_bool(hash: &mut u64, value: bool) {
 }
 
 fn hash_u32(hash: &mut u64, value: u32) {
+    hash_bytes(hash, &value.to_le_bytes());
+}
+
+fn hash_u64(hash: &mut u64, value: u64) {
     hash_bytes(hash, &value.to_le_bytes());
 }
 
@@ -522,6 +573,7 @@ pub(super) fn build_typed_public_surface_table(
 fn public_struct_surface(ctx: &TypeCtx, info: &StructInfo) -> PublicStructSurface {
     let (type_params, generics) = public_type_params(ctx, &info.type_params);
     PublicStructSurface {
+        identity: public_nominal_type_identity(ctx, info.ty),
         type_params,
         fields: info
             .field_names
@@ -539,6 +591,7 @@ fn public_struct_surface(ctx: &TypeCtx, info: &StructInfo) -> PublicStructSurfac
 fn public_enum_surface(ctx: &TypeCtx, info: &EnumInfo) -> PublicEnumSurface {
     let (type_params, generics) = public_type_params(ctx, &info.type_params);
     PublicEnumSurface {
+        identity: public_nominal_type_identity(ctx, info.ty),
         type_params,
         variants: info
             .variants
@@ -660,6 +713,27 @@ fn public_type_param(ctx: &TypeCtx, type_param: TypeId, index: usize) -> PublicT
     }
 }
 
+fn public_nominal_type_identity(
+    ctx: &TypeCtx,
+    ty: TypeId,
+) -> Option<PublicNominalTypeIdentity> {
+    let identity = ctx.nominal_stable_identity(ty)?;
+    Some(PublicNominalTypeIdentity {
+        kind: public_nominal_type_kind(identity.kind()),
+        source_path: String::from(identity.source_path()),
+        name: String::from(identity.name()),
+        arity: usize_to_u32_saturating(identity.arity()),
+        definition_hash: identity.definition_hash(),
+    })
+}
+
+fn public_nominal_type_kind(kind: NominalStableTypeKind) -> PublicNominalTypeKind {
+    match kind {
+        NominalStableTypeKind::Enum => PublicNominalTypeKind::Enum,
+        NominalStableTypeKind::Struct => PublicNominalTypeKind::Struct,
+    }
+}
+
 fn public_type_term(
     ctx: &TypeCtx,
     ty: TypeId,
@@ -678,9 +752,15 @@ fn public_type_term(
         TypeKind::Char => PublicTypeTerm::Char,
         TypeKind::Str => PublicTypeTerm::Str,
         TypeKind::Never => PublicTypeTerm::Never,
-        TypeKind::Named(name) => PublicTypeTerm::Named(name),
+        TypeKind::Named(name) => PublicTypeTerm::Named {
+            name,
+            identity: None,
+        },
         TypeKind::Enum { name, .. } | TypeKind::Struct { name, .. } => {
-            PublicTypeTerm::Named(name)
+            PublicTypeTerm::Named {
+                name,
+                identity: public_nominal_type_identity(ctx, resolved),
+            }
         }
         TypeKind::Tuple { items } => PublicTypeTerm::Tuple(
             items
@@ -753,13 +833,18 @@ fn usize_to_u32_saturating(value: usize) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::String;
+
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::lexer;
     use crate::parser;
+    use crate::source_map::SourceMap;
     use crate::span::FileId;
     use crate::typecheck::{typecheck, TypeCheckResult};
 
-    use super::{PublicSurfaceShape, PublicTypeTerm, TypedPublicSignatureKind};
+    use super::{
+        PublicNominalTypeKind, PublicSurfaceShape, PublicTypeTerm, TypedPublicSignatureKind,
+    };
 
     fn typecheck_source(source: &str) -> TypeCheckResult {
         let file_id = FileId(0);
@@ -777,6 +862,36 @@ mod tests {
         );
         let module = parsed.module.expect("parser should produce a module");
         let checked = typecheck(&module, CompileTarget::Wasm, BuildProfile::Debug, None);
+        assert!(
+            checked.diagnostics.is_empty(),
+            "typecheck diagnostics: {:?}",
+            checked.diagnostics
+        );
+        checked
+    }
+
+    fn typecheck_source_with_path(path: &str, source: &str) -> TypeCheckResult {
+        let mut source_map = SourceMap::new();
+        let file_id = source_map.add(path, String::from(source));
+        let lex = lexer::lex(file_id, source);
+        assert!(
+            lex.diagnostics.is_empty(),
+            "lexer diagnostics: {:?}",
+            lex.diagnostics
+        );
+        let parsed = parser::parse_tokens(file_id, lex);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "parser diagnostics: {:?}",
+            parsed.diagnostics
+        );
+        let module = parsed.module.expect("parser should produce a module");
+        let checked = typecheck(
+            &module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&source_map),
+        );
         assert!(
             checked.diagnostics.is_empty(),
             "typecheck diagnostics: {:?}",
@@ -840,5 +955,67 @@ mod tests {
         assert_eq!(surface.fields[0].ty, PublicTypeTerm::I32);
         assert_eq!(surface.fields[1].name, "right");
         assert_eq!(surface.fields[1].ty, PublicTypeTerm::Bool);
+    }
+
+    /// SourceMap がある compile では public nominal type に session-local `TypeId`
+    /// ではなく source path / name / arity / definition hash から作る stable identity を
+    /// 付与する。materializer はこの identity がない public nominal type を安全側で拒否できる。
+    #[test]
+    fn typed_public_surface_keeps_stable_nominal_identity_for_public_struct() {
+        let checked = typecheck_source_with_path(
+            "project/core/model.nepl",
+            "pub struct Item:\n    value %i32\n",
+        );
+
+        let item = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Struct && entry.name == "Item"
+            })
+            .expect("Item public surface");
+        let PublicSurfaceShape::Struct(surface) = &item.surface else {
+            panic!("Item must be a structured struct surface");
+        };
+        let identity = surface.identity.as_ref().expect("stable nominal identity");
+        assert_eq!(identity.kind, PublicNominalTypeKind::Struct);
+        assert_eq!(identity.source_path, "project/core/model.nepl");
+        assert_eq!(identity.name, "Item");
+        assert_eq!(identity.arity, 0);
+        assert_ne!(identity.definition_hash, 0);
+    }
+
+    /// public field type が別の public nominal type を参照する場合も、単なる名前ではなく
+    /// stable identity を一緒に保持する。同名型を別 module から materialize する段階で、
+    /// `Named(String)` だけを authority にしないための境界である。
+    #[test]
+    fn typed_public_surface_keeps_nominal_identity_on_named_type_reference() {
+        let checked = typecheck_source_with_path(
+            "project/core/holder.nepl",
+            "pub struct Item:\n    value %i32\npub struct Holder:\n    item %Item\n",
+        );
+
+        let holder = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Struct && entry.name == "Holder"
+            })
+            .expect("Holder public surface");
+        let PublicSurfaceShape::Struct(surface) = &holder.surface else {
+            panic!("Holder must be a structured struct surface");
+        };
+        let field = surface.fields.first().expect("Holder.item field");
+        let PublicTypeTerm::Named { name, identity } = &field.ty else {
+            panic!("Holder.item must be a named type term");
+        };
+        let identity = identity.as_ref().expect("Item stable nominal identity");
+        assert_eq!(name, "Item");
+        assert_eq!(identity.kind, PublicNominalTypeKind::Struct);
+        assert_eq!(identity.source_path, "project/core/holder.nepl");
+        assert_eq!(identity.name, "Item");
+        assert_eq!(identity.arity, 0);
     }
 }

@@ -81,10 +81,30 @@ impl NominalStableTypeIdentity {
             self.definition_hash
         )
     }
+
+    pub fn kind(&self) -> NominalStableTypeKind {
+        self.kind
+    }
+
+    pub fn source_path(&self) -> &str {
+        self.source_path.as_str()
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    pub fn arity(&self) -> usize {
+        self.arity
+    }
+
+    pub fn definition_hash(&self) -> u64 {
+        self.definition_hash
+    }
 }
 
 impl NominalStableTypeKind {
-    fn tag(self) -> &'static str {
+    pub fn tag(self) -> &'static str {
         match self {
             Self::Enum => "enum",
             Self::Struct => "struct",

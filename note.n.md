@@ -1,3 +1,12 @@
+# 2026-06-01 .neplmeta stable nominal surface checkpoint
+
+- remote/main 同期済みの `perf/neplmeta-stable-nominal-surface-20260601` branch で、`.neplmeta` structured public surface の stable nominal identity を追加中。`plan.md` は変更していない。
+- `NominalStableTypeIdentity` の kind / source path / name / arity / definition hash を public getter で取り出せるようにした。`TypeId` や `Span` は引き続き外へ出さない。
+- `TypedPublicSurfaceTable` に `PublicNominalTypeIdentity` / `PublicNominalTypeKind` を追加し、public struct / enum surface と `PublicTypeTerm::Named` が stable nominal identity を保持できるようにした。SourceMap がない compile では identity は `None` のままで、将来 materializer が fail-closed にできる。
+- structured public surface hash namespace を `neplg2-typed-public-surface-v2` に上げ、`.neplmeta` schema / artifact hash / compiler identity を v3 に上げた。identity なし payload と identity あり payload を同じ artifact contract として扱わないためである。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-stable-nominal-surface-20260601.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+- 残件: trait identity、binder-indexed generic parameter reference、field accessor surface、stable public ABI/link symbol、generic impl bound はまだ materializer authority として不足している。
+
 # 2026-06-01 .neplmeta public surface module split checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋性、DAG 化、キャッシュによる探索空間削減、試作段階でも品質を落とさない方針を再確認した。
