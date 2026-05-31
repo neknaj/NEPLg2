@@ -10,8 +10,8 @@ use super::candidate_key::{
 };
 use super::dependency_hash::ResourceSummaryDependencyClosureHashReject;
 use super::stable_mirror::{
-    reproject_initialized_function_check_entry, reproject_initialized_function_check_entry_result,
-    stable_initialized_function_check_entry,
+    reproject_initialized_function_check_entry_pass,
+    reproject_initialized_function_check_entry_result, stable_initialized_function_check_entry,
     ResourceSummaryInitializedFunctionCheckEntryReprojectionReject,
     ResourceSummaryStableInitializedFunctionCheckEntryReject, ResourceSummaryTypeReprojection,
 };
@@ -211,7 +211,14 @@ impl ResourceSummaryValueCache {
         }
     }
 
-    pub(in crate::resource) fn replay_initialized_function_check_entry(
+    /// final initialized check の cached pass を、final state を materialize せずに戻す。
+    ///
+    /// `initialized_function_check_entry_key` は body hash、dependency closure、type
+    /// boundary、source capability policy を含むため、key が一致した diagnostic-free /
+    /// auto-drop-free entry は現在 compile でも pass として扱える。後続 stage が必要と
+    /// するのは function name、auto drop point、deferred counter だけなので、ここでは
+    /// final cell / collection slot state の再投影を避ける。
+    pub(in crate::resource) fn replay_initialized_function_check_entry_pass(
         &mut self,
         context: &ResourceSummaryValueCacheContext,
         types: &TypeCtx,
@@ -236,35 +243,17 @@ impl ResourceSummaryValueCache {
             type_params,
             generic_type_args,
         )?;
-        let entry = self.initialized_function_check_entries.get(&key)?.clone();
-        let Some(reprojection) =
-            ResourceSummaryTypeReprojection::new_for_initialized_function_check(
-                types,
-                function,
-                type_params,
-            )
-        else {
-            self.record_initialized_function_check_replay_bypass(op_count);
-            return None;
-        };
-        let Some(check) =
-            reproject_initialized_function_check_entry(&reprojection, &function.name, &entry)
-        else {
-            self.record_initialized_function_check_replay_bypass(op_count);
-            return None;
-        };
+        let entry = self.initialized_function_check_entries.get(&key)?;
 
         self.stats.resource_summary_value_replay_hits += op_count;
-        self.stats.resource_summary_value_replayed_ops += op_count;
+        self.stats.resource_summary_value_lazy_pass_hits += 1;
+        self.stats.resource_summary_value_lazy_pass_ops += op_count;
         self.stats
             .resource_summary_value_initialized_function_check_hits += 1;
-        Some(check)
-    }
-
-    fn record_initialized_function_check_replay_bypass(&mut self, op_count: usize) {
-        self.stats.resource_summary_value_replay_bypasses += op_count;
-        self.stats
-            .resource_summary_value_initialized_function_check_reprojection_bypasses += 1;
+        Some(reproject_initialized_function_check_entry_pass(
+            &function.name,
+            entry,
+        ))
     }
 
     pub(in crate::resource) fn record_initialized_function_check_entry_candidates(

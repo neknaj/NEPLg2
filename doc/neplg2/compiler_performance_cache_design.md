@@ -855,6 +855,43 @@ real compile では target precheck から wasm validation までの粗い stage
 次段階は typed expression subtree query と binary intermediate artifact により、変更されていない
 stdlib / dependency proof と codegen fragment を session または disk artifact から直接差し替える。
 
+### Final Check Lazy Pass Replay
+
+2026-05-31 の final initialized check lazy pass checkpoint では、cache hit した
+final initialized function check を、final cell / collection slot state の materialized
+replay ではなく、diagnostic-free / auto-drop-free な checked pass として戻すようにした。
+保存時点で diagnostics と auto drop points を持つ関数は no-store に倒しているため、hit
+した entry は cell gate と drop elaboration が必要とする surface だけで pass として扱える。
+
+この変更では、後続 stage が現在消費しない `final_cells` / `final_collection_slots` を
+現在 `TypeCtx` / `Place` へ再投影しない。将来 final state を読む stage を追加する場合は、
+lazy pass ではなく明示的な materialized replay API を使う。cache hit の安全条件は
+`initialized_function_check_entry_key` の body hash、dependency closure、type boundary、
+source capability policy に残し、不要な proof value 復元だけを削る。
+
+同時に、`ResourceSummaryValueCacheContext` は function source capability policy hash を
+compile-local に memoize する。summary kind ごとに同じ関数へ繰り返す純粋 query を
+避けるためであり、key は name / origin name / function span を含めて同名関数の誤共有を
+避ける。
+
+release Web RPN same-session string literal edit 測定
+`tmp/rpn_lazy_initialized_check_code_edit_20260531.json` では、base `compile_ms=11612`、
+edit `compile_ms=5454` だった。直前の同種測定
+`tmp/rpn_stage_timing_same_session_code_edit_20260531.json` の edit `compile_ms=5779` /
+`resource_static_check=5492ms` に対し、今回の edit は `resource_static_check=5170ms`
+である。
+
+edit の累積差分は、`resource_raw_alias_summary_recomputations=0`、
+`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` を
+維持しながら、`resource_summary_value_lazy_pass_hits=288`、
+`resource_summary_value_lazy_pass_ops=3639` になった。materialized proof replay は raw alias /
+i32 scalar / raw-init 側の `resource_summary_value_replayed_ops=914` まで縮小しており、
+final check 由来の全関数 final state 復元は支配項から外れた。
+
+ただし edit compile はまだ 0.5 秒未満に届いていない。残りは Resource static check
+pipeline の固定費、stage-local key / dependency hash の重複構築、changed function only
+proof replay、typed expression subtree query に分解して継続する。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。
@@ -949,15 +986,42 @@ MVP では次の順に実装する。
 
 差分コンパイルの仕様では、`.class` 型の「検査済み typed object」と `.o` 型の「target-specific relocatable fragment」を分離する。NEPL の静的検査は Resource IR、effect、source capability、private effect mask proof に依存するため、単に wasm fragment だけを保存しても安全性 proof の再利用条件を説明できない。逆に typed HIR だけでは 10ms 級の最終 output 差し替えに届かないため、backend fragment と link manifest も必要である。
 
-推奨する artifact stack:
+### current design と提案 design の統合
+
+現在進めている設計は、まず同一 `CompilerSession` 内で `LoaderSessionCache` と
+`ResourceSummaryValueCache` を増やし、永続ファイルへ出す前に stale hit しない
+stable key / stable mirror / fail-closed replay を固める方針である。この方針は実装
+リスクが低く、Web playground の秒単位停止を直接削れる。一方で、session をまたいだ
+reuse はできず、現状の RPN code edit のように cache hit 後の全関数 proof replay が
+残る。
+
+新提案の 4 層設計は、interface、typed HIR、Resource proof、backend object を分ける
+点が正しい。NEPLg2 は prefix call boundary を型検査と callable candidate 解決に依存
+するため、`.o` 相当だけでは依存 module の再解析・再型検査を十分に減らせない。最初に
+public interface artifact を固定し、その上へ typed / proof / backend artifact を積む
+必要がある。ただし、typed HIR は `TypeId`、`DefId`、`FileId`、`Span` を含みやすく、
+現状の Rust 実装の値をそのまま disk へ保存してはいけない。
+
+統合した方針は次の通りである。
+
+- 短期: process-local cache で key と stable mirror の正確性を固める。
+- 中期: `.neplmeta` と `.neplproof` を disk-backed artifact にする。
+- 長期: stable lexical path id / stable typed id が揃ってから `.neplhir` を永続化する。
+- backend: Resource / typed artifact が十分に効いた後で `.neplobj` を入れる。
+
+### artifact stack
+
+拡張子は NEPL artifact であることが分かる `.nepl...` 形に統一する。短い `.nei`、
+`.ners`、`.neo` は役割を表しにくく、他の toolchain artifact とも衝突しやすいため
+採用しない。
 
 | artifact | 役割 | 主な key |
 |---|---|---|
-| public surface object | import graph、exported type/function/trait impl surface、effect signature、source capability policy surface を保持する。 | module path、source public surface hash、stdlib hash、compiler schema version |
-| typed module/function object | stable lexical path id、typed HIR、typed diagnostics enum、local binding shape、expected type boundary を保持する。 | function identity、body semantic hash、scope shape hash、callable candidate set、effect expectation |
-| Resource proof object | Resource IR lowering 結果、initialized/owner/borrow/drop/effect summary、private effect mask proof を stable mirror として保持する。 | typed HIR function hash、source capability policy hash、type/effect boundary hash、generic type arguments、summary kind |
-| codegen fragment object | wasm / LLVM の function body fragment、signature table entry、function table entry、data segment、relocation metadata を保持する。 | monomorphized function identity、lowered body hash、target/profile、backend feature set |
-| link manifest | symbol、relocation、table index、data offset、entry point、export/import を再接続する。 | dependency public surface hash、fragment set hash、target/profile |
+| `.neplmeta` | import graph、exported type/function/trait impl surface、effect signature、typed public signature、source capability policy surface を保持する。依存側の名前解決・型検査がまず読む authority である。 | module path、source public surface hash、typed public signature hash、dependency public surface hash、stdlib hash、compiler schema version |
+| `.neplhir` | stable lexical path id、typed HIR、typed diagnostics enum、local binding shape、expected type boundary を保持する。MVP では同一 session cache に限定し、永続化は stable typed id 導入後に行う。 | function identity、body semantic hash、scope shape hash、callable candidate set、effect expectation |
+| `.neplproof` | Resource IR lowering 結果、initialized/owner/borrow/drop/effect summary、private effect mask proof を stable mirror として保持する。 | typed HIR function hash、source capability policy hash、type/effect boundary hash、generic type arguments、summary kind |
+| `.neplobj` | wasm / LLVM の function body fragment、signature table entry、function table entry、data segment、relocation metadata を保持する。 | monomorphized function identity、lowered body hash、target/profile、backend feature set |
+| `.nepllink` | symbol、relocation、table index、data offset、entry point、export/import を再接続する。`.neplobj` を最終 wasm / LLVM artifact へ組み立てる manifest である。 | dependency public surface hash、fragment set hash、target/profile |
 
 この構造では、リテラル変更や同じ expected type への式枝差し替えは、まず typed expression subtree query を invalidation する。public surface と local binding shape が変わらないなら、依存 module の public surface object は再利用し、変更 function の typed object と Resource proof object だけを再計算する。codegen では変更 function fragment だけを再生成し、unchanged fragment は link manifest の再接続で使う。
 
@@ -972,10 +1036,12 @@ binary intermediate artifact は cache hit のために safety proof を弱め�
 - function table / data segment relocation。
 - compiler version、schema version、target/profile、stdlib content hash。
 
-ファイル形式は最初から最終名を固定しない。試作段階では schema version 付きの canonical binary package とし、概念上は次の 2 層に分ける。
-
-- `.neplmeta`: public surface、typed metadata、Resource proof summary など target-independent な検査済み metadata。
-- `.neplobj`: target/profile ごとの codegen fragment と relocation/link manifest。
+最初に実装する disk artifact は `.neplmeta` である。これは既存の public surface hash と
+typed public signature table を外部化するだけなので、`TypeId` や `Span` を保存しない
+既存境界と合っている。次に `.neplproof` を `ResourceSummaryValueCache` の stable mirror
+から作る。`.neplhir` は便利だが、session-local identity を永続化しない設計が先に必要な
+ため、最初は in-memory query cache として扱う。`.neplobj` / `.nepllink` は codegen の
+支配時間が残った段階で導入する。
 
 この分離により、Web playground の warm session は memory cache で同じ構造を使い、CLI / CI / selfhost compiler は disk-backed artifact として同じ invalidation rule を使える。selfhost 実装でも、純粋 query function の結果を private cache へ保存する設計と整合し、cache は外部観測可能な semantics ではなく compile-time acceleration として扱う。
 

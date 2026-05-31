@@ -1,8 +1,9 @@
 extern crate alloc;
 
-use alloc::collections::BTreeSet;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::cell::RefCell;
 
 use crate::source_map::SourceCapabilities;
 use crate::span::{FileId, Span};
@@ -19,11 +20,17 @@ use super::stable_hash::ResourceSummaryStableHasher;
 /// から `FileId -> source capability policy hash` を作り、この context だけを Resource
 /// initialized check へ渡す。これにより、Resource summary value key は実際の namespace
 /// と source policy だけを使い、未計算値を `0` などの sentinel で代用しない。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ResourceSummaryValueCacheContext {
     namespace_hash: u64,
     source_policy_hashes: Vec<(FileId, u64)>,
     source_policy_files: Vec<ResourceSummarySourcePolicyFile>,
+    function_source_policy_cache: RefCell<
+        BTreeMap<
+            ResourceSummaryFunctionSourcePolicyCacheKey,
+            Option<ResourceSummarySourceCapabilityPolicyHash>,
+        >,
+    >,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,16 +48,32 @@ struct SourcePolicyFileRange {
     end: u32,
 }
 
+/// compile-local function source policy query の memo key。
+///
+/// source policy hash は summary kind ごとに同じ関数へ何度も問い合わせられる。cache は
+/// compile-local なので、永続 key ほど広い情報は不要だが、同じ名前の別関数を誤って
+/// 共有しないよう canonical name、origin name、関数 span を合わせて見る。
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct ResourceSummaryFunctionSourcePolicyCacheKey {
+    name: String,
+    origin_name: String,
+    file_id: u32,
+    start: u32,
+    end: u32,
+}
+
 impl ResourceSummaryValueCacheContext {
     pub fn new(namespace_hash: u64) -> Self {
         Self {
             namespace_hash,
             source_policy_hashes: Vec::new(),
             source_policy_files: Vec::new(),
+            function_source_policy_cache: RefCell::new(BTreeMap::new()),
         }
     }
 
     pub fn insert_source_policy_hash(&mut self, file_id: FileId, policy_hash: u64) {
+        self.function_source_policy_cache.get_mut().clear();
         if let Some((_, existing)) = self
             .source_policy_hashes
             .iter_mut()
@@ -69,6 +92,7 @@ impl ResourceSummaryValueCacheContext {
         source: &str,
         capabilities: SourceCapabilities,
     ) {
+        self.function_source_policy_cache.get_mut().clear();
         if let Some(existing) = self
             .source_policy_files
             .iter_mut()
@@ -99,6 +123,26 @@ impl ResourceSummaryValueCacheContext {
     /// function / block / op / terminator / nested control-flow op の file id を集め、対応する
     /// policy hash がすべて存在する場合だけ per-function policy hash を返す。
     pub(super) fn source_capability_policy_hash_for_function(
+        &self,
+        function: &ResourceFunction,
+    ) -> Option<ResourceSummarySourceCapabilityPolicyHash> {
+        let cache_key = ResourceSummaryFunctionSourcePolicyCacheKey::from_function(function);
+        if let Some(cached) = self
+            .function_source_policy_cache
+            .borrow()
+            .get(&cache_key)
+            .copied()
+        {
+            return cached;
+        }
+        let computed = self.compute_source_capability_policy_hash_for_function(function);
+        self.function_source_policy_cache
+            .borrow_mut()
+            .insert(cache_key, computed);
+        computed
+    }
+
+    fn compute_source_capability_policy_hash_for_function(
         &self,
         function: &ResourceFunction,
     ) -> Option<ResourceSummarySourceCapabilityPolicyHash> {
@@ -147,6 +191,18 @@ impl ResourceSummaryValueCacheContext {
             );
         }
         self.source_policy_hash_for_file(range.file_id)
+    }
+}
+
+impl ResourceSummaryFunctionSourcePolicyCacheKey {
+    fn from_function(function: &ResourceFunction) -> Self {
+        Self {
+            name: function.name.clone(),
+            origin_name: function.origin_name.clone(),
+            file_id: function.span.file_id.0,
+            start: function.span.start,
+            end: function.span.end,
+        }
     }
 }
 

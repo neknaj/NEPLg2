@@ -37,15 +37,23 @@ target: "nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_per
 
 ## 修正方針
 
-NEPL object artifact stack を設計し、段階的に実装する。
+NEPL object artifact stack を `.nepl...` 形式の artifact として設計し、段階的に実装する。
+短い `.nei` / `.nehir` / `.ners` / `.neo` 形式は採用しない。NEPL 固有の artifact で
+あることを拡張子から確認できるようにし、役割名も読み取れる形にする。
 
-- public surface object: import graph、exported type/function/trait impl surface、effect signature、source capability policy surface を保持する。
-- typed module/function object: stable lexical path id、typed HIR、typed diagnostics enum、local binding shape、expected type boundary を保持する。
-- Resource proof object: Resource IR summary、private effect mask proof、drop/borrow/owner/initialized proof summary を stable mirror として保持する。
-- target-specific codegen fragment object: wasm / LLVM の function fragment、signature table entry、function table entry、data segment、relocation metadata を保持する。
-- link manifest: fragment の symbol / relocation / table index / data offset を再接続し、final wasm / LLVM artifact を生成する。
+- `.neplmeta`: import graph、exported type/function/trait impl surface、effect signature、typed public signature、source capability policy surface を保持する。
+- `.neplhir`: stable lexical path id、typed HIR、typed diagnostics enum、local binding shape、expected type boundary を保持する。永続化は stable typed id 導入後に行い、MVP では same-session cache に限定する。
+- `.neplproof`: Resource IR summary、private effect mask proof、drop/borrow/owner/initialized proof summary を stable mirror として保持する。
+- `.neplobj`: wasm / LLVM の function fragment、signature table entry、function table entry、data segment、relocation metadata を保持する。
+- `.nepllink`: fragment の symbol / relocation / table index / data offset を再接続し、final wasm / LLVM artifact を生成する。
 
 cache key には compiler version、artifact schema version、target/profile、stdlib content hash、module public surface hash、dependency public surface hash、source capability policy hash、type/effect boundary hash、generic type arguments、backend feature set を含める。どれかが再投影できない場合は stale hit を避けるため fail-closed に再計算する。
+
+実装順序は `.neplmeta`、`.neplproof`、same-session `.neplhir` query cache、`.neplobj` /
+`.nepllink`、persistent `.neplhir` とする。`.neplobj` を先に作る案は採用しない。
+NEPLg2 の prefix call boundary は依存 module の callable candidate / arity / effect /
+generic surface を必要とするため、interface artifact なしでは `.o` 相当を持っても
+再型検査の支配コストを削れないからである。
 
 ## 検証
 

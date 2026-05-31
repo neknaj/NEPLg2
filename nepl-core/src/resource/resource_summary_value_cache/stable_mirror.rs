@@ -1438,12 +1438,37 @@ pub(super) fn stable_initialized_function_check_entry(
     })
 }
 
-pub(super) fn reproject_initialized_function_check_entry(
+#[cfg(test)]
+fn reproject_initialized_function_check_entry(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     function_name: &str,
     entry: &ResourceSummaryStableInitializedFunctionCheckEntry,
 ) -> Option<ResourceFunctionCheck> {
     reproject_initialized_function_check_entry_result(ctx, function_name, entry).ok()
+}
+
+/// cached final check entry を「検査済み pass」として戻す。
+///
+/// final initialized function check entry は、保存時に diagnostic-free かつ auto-drop point
+/// を持たないことを検査している。現行の後続 stage は cell gate では diagnostics だけ、
+/// drop elaboration では auto-drop point だけを見るため、cache hit 時に final cell state
+/// と collection slot state を現在 `TypeCtx` / `Place` へ materialize する必要はない。
+///
+/// ここでは entry key の body/type/source/dependency 境界が一致したことを proof として
+/// 使い、必要な deferred counter だけを戻す。final state が必要な将来の stage を追加する
+/// 場合は、この fast path を通さず `reproject_initialized_function_check_entry_result` で
+/// 明示的に materialize する API に分ける。
+pub(super) fn reproject_initialized_function_check_entry_pass(
+    function_name: &str,
+    entry: &ResourceSummaryStableInitializedFunctionCheckEntry,
+) -> ResourceFunctionCheck {
+    ResourceFunctionCheck {
+        name: function_name.to_string(),
+        final_cells: Vec::new(),
+        final_collection_slots: Vec::new(),
+        auto_drop_points: Vec::new(),
+        deferred: entry.deferred,
+    }
 }
 
 pub(super) fn reproject_initialized_function_check_entry_result(

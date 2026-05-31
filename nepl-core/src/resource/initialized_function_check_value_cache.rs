@@ -56,8 +56,10 @@ pub(super) fn initialized_function_check_cache_input(
 /// cache hit した final function check を現在 compile の型と place id へ戻す。
 ///
 /// hit した場合は caller が `ResourceCheckEngine::check_function` を起動せず、
-/// `ResourceFunctionCheck` をそのまま report へ追加する。reprojection が失敗した場合は
-/// stale value を使わず `None` を返し、既存 checker に authority を戻す。
+/// diagnostic-free / auto-drop-free な checked pass として report へ追加する。後続の
+/// cell gate は diagnostics、drop elaboration は auto-drop point だけを消費するため、
+/// cache hit 時に final cell / collection slot state を materialize しない。key が作れない
+/// 場合や entry がない場合は `None` を返し、既存 checker に authority を戻す。
 pub(super) fn replay_initialized_function_check_from_value_cache(
     cache: Option<&mut ResourceSummaryValueCache>,
     context: Option<&ResourceSummaryValueCacheContext>,
@@ -67,7 +69,7 @@ pub(super) fn replay_initialized_function_check_from_value_cache(
     function_op_count: usize,
 ) -> Option<ResourceFunctionCheck> {
     let (cache, context, input) = (cache?, context?, input?);
-    cache.replay_initialized_function_check_entry(
+    cache.replay_initialized_function_check_entry_pass(
         context,
         types,
         function,

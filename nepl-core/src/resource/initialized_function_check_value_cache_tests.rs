@@ -68,7 +68,7 @@ fn single_function_module(function: ResourceFunction) -> ResourceModule {
 
 /// final initialized function check cache は、診断も auto drop plan も持たない関数だけを
 /// stable entry として保存する。二回目の同一 compile では `ResourceCheckEngine` を
-/// 起動せず、function-check counter を増やさないことで skip を観測できる。
+/// 起動せず、後続 stage が使う checked-pass surface だけを戻すことで skip を観測できる。
 #[test]
 fn final_initialized_function_check_replays_without_rerunning_checker() {
     let types = TypeCtx::new();
@@ -81,7 +81,16 @@ fn final_initialized_function_check_replays_without_rerunning_checker() {
     let second =
         check_resource_initialized_moves_with_summary_cache(&module, &types, &mut cache, &context);
 
-    assert_eq!(first.functions, second.functions);
+    assert_eq!(first.diagnostics, second.diagnostics);
+    assert_eq!(first.deferred, second.deferred);
+    assert_eq!(first.functions.len(), second.functions.len());
+    assert_eq!(first.functions[0].name, second.functions[0].name);
+    assert_eq!(
+        first.functions[0].auto_drop_points,
+        second.functions[0].auto_drop_points
+    );
+    assert!(second.functions[0].final_cells.is_empty());
+    assert!(second.functions[0].final_collection_slots.is_empty());
     let stats = cache.stats();
     assert_eq!(stats.resource_initialized_function_checks, 1);
     assert_eq!(
@@ -92,6 +101,7 @@ fn final_initialized_function_check_replays_without_rerunning_checker() {
         stats.resource_summary_value_initialized_function_check_hits,
         1
     );
+    assert_eq!(stats.resource_summary_value_lazy_pass_hits, 1);
 }
 
 /// cache key は function body hash を含むため、同じ名前と同じ signature でも本文が

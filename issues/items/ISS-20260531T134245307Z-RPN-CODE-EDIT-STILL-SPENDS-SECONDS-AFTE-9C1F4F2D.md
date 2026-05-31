@@ -215,6 +215,32 @@ fallback としてだけ `Date.now()` を使う。
 この issue では typed expression subtree query、changed function only の proof replay、
 codegen fragment cache、binary intermediate artifact を次の分解対象として継続する。
 
+## 2026-05-31 final check lazy pass 更新
+
+final initialized function check の cache hit を、final cell / collection slot state の
+materialized replay ではなく、diagnostic-free / auto-drop-free な checked pass として
+戻すようにした。保存時点で diagnostics と auto drop points を持つ関数は no-store に
+倒しているため、hit entry は cell gate と drop elaboration に必要な surface だけで
+pass として扱える。
+
+`tmp/rpn_lazy_initialized_check_code_edit_20260531.json` では、same-session string literal
+edit が `compile_ms=5454`、`resource_static_check=5170ms` だった。直前の
+`tmp/rpn_stage_timing_same_session_code_edit_20260531.json` の edit `compile_ms=5779` /
+`resource_static_check=5492ms` より小さくなっている。
+
+edit の累積差分は次の通り。
+
+- `resource_raw_alias_summary_recomputations=0`
+- `resource_raw_init_summary_recomputations=0`
+- `resource_initialized_function_checks=0`
+- `resource_summary_value_lazy_pass_hits=288`
+- `resource_summary_value_lazy_pass_ops=3639`
+- `resource_summary_value_replayed_ops=914`
+
+final check 由来の全関数 final state materialize は削れたが、まだ 0.5 秒未満には届いて
+いない。次は stage-local key / dependency closure hash の重複構築、changed function only
+proof replay、typed expression subtree query を分けて進める。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

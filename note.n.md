@@ -1,3 +1,17 @@
+# 2026-05-31 Final initialized check lazy pass checkpoint
+
+- Zenn 記事の試作段階方針を再確認し、性能改善でも静的検査の削除や unsafe な cache hit を使わず、純粋 query と fail-closed key に基づく cache 設計を継続した。
+- remote/main は `c8136c9b` と同期済みで、現在 branch `perf/resource-proof-replay-delta-20260531` の基点は `origin/main` と一致している。
+- subagent 2 件で RPN same-session code edit の残り秒単位コストを読み取り専用レビューした。両者とも、現在の支配項は raw-init / raw-alias / final check の false miss ではなく、cache hit 後の全関数 proof materialize と Resource static check pipeline の固定費だと結論した。
+- final initialized function check の cache hit は、`final_cells` / `final_collection_slots` を現在 `TypeCtx` / `Place` へ再投影せず、diagnostic-free / auto-drop-free な checked pass として戻すようにした。保存時点で diagnostics と auto drop points を持つ関数は no-store に倒しているため、cell gate と drop elaboration が必要とする surface は維持している。
+- `ResourceSummaryValueCacheStats` に `resource_summary_value_lazy_pass_hits` / `resource_summary_value_lazy_pass_ops` を追加し、materialized replay と checked-pass replay を Web / Node JSON で分けて観測できるようにした。
+- `ResourceSummaryValueCacheContext` は function source capability policy hash を compile-local に memoize する。key は name / origin name / function span を含め、同名関数の誤共有を避ける。
+- binary intermediate artifact 設計は、新提案の interface / typed HIR / Resource proof / backend object 分離を取り込み、拡張子を `.neplmeta` / `.neplhir` / `.neplproof` / `.neplobj` / `.nepllink` に統一した。永続 `.neplhir` は `TypeId` / `Span` の stable 化後に回し、MVP は `.neplmeta` と `.neplproof` を優先する。
+- release Web RPN same-session string literal edit 測定 `tmp/rpn_lazy_initialized_check_code_edit_20260531.json` では、base `compile_ms=11612`、edit `compile_ms=5454`、edit `resource_static_check=5170ms` だった。直前の `tmp/rpn_stage_timing_same_session_code_edit_20260531.json` の edit `compile_ms=5779` / `resource_static_check=5492ms` から小幅改善した。
+- 同測定では edit delta が `resource_raw_alias_summary_recomputations=0`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` を維持し、`resource_summary_value_lazy_pass_hits=288`、`resource_summary_value_lazy_pass_ops=3639`、materialized `resource_summary_value_replayed_ops=914` になった。
+- 残件は Resource static check pipeline の固定費、stage-local key / dependency closure hash の重複構築、changed function only proof replay、typed expression subtree query である。
+- plan.md 自体は変更していない。
+
 # 2026-05-31 Resource summary raw-init stable entry checkpoint
 
 - Zenn 記事の 2026-05-27 更新版と試作段階方針を再確認し、性能改善でも静的検査を削らず、Resource summary value cache の stable value / fail-closed replay 境界を広げる方針で進めた。

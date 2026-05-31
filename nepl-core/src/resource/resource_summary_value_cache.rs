@@ -67,6 +67,8 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_replay_hits: usize,
     pub resource_summary_value_replay_bypasses: usize,
     pub resource_summary_value_replayed_ops: usize,
+    pub resource_summary_value_lazy_pass_hits: usize,
+    pub resource_summary_value_lazy_pass_ops: usize,
     pub resource_summary_value_recomputed_ops: usize,
     pub resource_summary_value_drop_traversal_forall_hits: usize,
     pub resource_summary_value_drop_traversal_forall_stores: usize,
