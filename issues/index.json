@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-28T13:00:59.799Z",
+  "generated_at": "2026-05-31T00:50:43.315Z",
   "counts": {
     "total": 1275,
-    "open": 17,
-    "resolved": 1258,
+    "open": 16,
+    "resolved": 1259,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 630,
-        "open": 10,
-        "resolved": 620
+        "open": 9,
+        "resolved": 621
       },
       "neplg21": {
         "total": 2,
@@ -228,7 +228,7 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-05-28",
-      "updated": "2026-05-28",
+      "updated": "2026-05-31",
       "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/resource/initialized_summary*.rs",
       "legacy_id": "",
       "source": "",
@@ -243,26 +243,11 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-05-28",
-      "updated": "2026-05-28",
+      "updated": "2026-05-31",
       "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/types.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260528T123956303Z-RESOURCE-SUMMARY-TYPE-REPROJECTION-N-78929A8E.md"
-    },
-    {
-      "id": "ISS-20260528T125932150Z-RESOURCE-SUMMARY-RAW-INIT-STABLE-ENT-AE09D7D6",
-      "title": "Resource summary raw-init stable entry rejects complete param facts",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "performance",
-      "created": "2026-05-28",
-      "updated": "2026-05-28",
-      "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/resource/initialized_summary_release_model.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260528T125932150Z-RESOURCE-SUMMARY-RAW-INIT-STABLE-ENT-AE09D7D6.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
@@ -9803,6 +9788,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260528T123956177Z-RESOURCE-SUMMARY-RAW-INIT-DEPENDENCY-70A9D8F6.md"
+    },
+    {
+      "id": "ISS-20260528T125932150Z-RESOURCE-SUMMARY-RAW-INIT-STABLE-ENT-AE09D7D6",
+      "title": "Resource summary raw-init stable entry rejects complete param facts",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-28",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/resource/initialized_summary_release_model.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260528T125932150Z-RESOURCE-SUMMARY-RAW-INIT-STABLE-ENT-AE09D7D6.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

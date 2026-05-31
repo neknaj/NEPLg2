@@ -65,6 +65,12 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_raw_init_param_facts_dependency_source_policy_bypasses: usize,
     pub resource_summary_value_raw_init_param_facts_dependency_type_boundary_bypasses: usize,
     pub resource_summary_value_raw_init_param_facts_unstable_entry_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_unstable_entry_surface_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_unstable_entry_param_cell_projection_bypasses:
+        usize,
+    pub resource_summary_value_raw_init_param_facts_unstable_entry_param_cell_type_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_unstable_entry_param_release_type_bypasses:
+        usize,
     pub resource_summary_value_raw_init_param_facts_reprojection_bypasses: usize,
 }
 

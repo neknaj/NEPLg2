@@ -11,7 +11,7 @@ use super::candidate_key::{
 use super::dependency_hash::RawInitDependencyClosureHashReject;
 use super::stable_mirror::{
     reproject_raw_init_param_facts_leaf_entry, stable_raw_init_param_facts_leaf_entry,
-    ResourceSummaryTypeReprojection,
+    ResourceSummaryStableRawInitParamFactsLeafEntryReject, ResourceSummaryTypeReprojection,
 };
 use super::{
     ResourceSummaryRawInitParamFactsLeafEntryCandidate, ResourceSummaryValueCache,
@@ -22,7 +22,7 @@ use super::{
 pub(in crate::resource) enum RawInitParamFactsLeafEntryCandidateReject {
     MissingSourcePolicy,
     UnstableKey,
-    UnstableEntry,
+    UnstableEntry(ResourceSummaryStableRawInitParamFactsLeafEntryReject),
     Reprojection,
 }
 
@@ -60,9 +60,8 @@ impl ResourceSummaryValueCache {
         ) else {
             return Err(RawInitParamFactsLeafEntryCandidateReject::UnstableKey);
         };
-        let Some(entry) = stable_raw_init_param_facts_leaf_entry(types, summary) else {
-            return Err(RawInitParamFactsLeafEntryCandidateReject::UnstableEntry);
-        };
+        let entry = stable_raw_init_param_facts_leaf_entry(types, function, summary)
+            .map_err(RawInitParamFactsLeafEntryCandidateReject::UnstableEntry)?;
         let Some(reprojection) = ResourceSummaryTypeReprojection::new(types, function, type_params)
         else {
             return Err(RawInitParamFactsLeafEntryCandidateReject::Reprojection);
@@ -119,14 +118,44 @@ impl ResourceSummaryValueCache {
                     .resource_summary_value_raw_init_param_facts_unstable_key_bypasses +=
                     fact_count;
             }
-            RawInitParamFactsLeafEntryCandidateReject::UnstableEntry => {
+            RawInitParamFactsLeafEntryCandidateReject::UnstableEntry(reason) => {
                 self.stats
                     .resource_summary_value_raw_init_param_facts_unstable_entry_bypasses +=
                     fact_count;
+                self.record_raw_init_unstable_entry_bypass(reason, fact_count);
             }
             RawInitParamFactsLeafEntryCandidateReject::Reprojection => {
                 self.stats
                     .resource_summary_value_raw_init_param_facts_reprojection_bypasses +=
+                    fact_count;
+            }
+        }
+    }
+
+    fn record_raw_init_unstable_entry_bypass(
+        &mut self,
+        reason: ResourceSummaryStableRawInitParamFactsLeafEntryReject,
+        fact_count: usize,
+    ) {
+        match reason {
+            ResourceSummaryStableRawInitParamFactsLeafEntryReject::Surface => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_unstable_entry_surface_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryStableRawInitParamFactsLeafEntryReject::ParamCellProjection => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_unstable_entry_param_cell_projection_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryStableRawInitParamFactsLeafEntryReject::ParamCellType => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_unstable_entry_param_cell_type_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryStableRawInitParamFactsLeafEntryReject::ParamReleaseRequirementType => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_unstable_entry_param_release_type_bypasses +=
                     fact_count;
             }
         }

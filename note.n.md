@@ -1,3 +1,19 @@
+# 2026-05-31 Resource summary raw-init stable entry checkpoint
+
+- Zenn 記事の 2026-05-27 更新版と試作段階方針を再確認し、性能改善でも静的検査を削らず、Resource summary value cache の stable value / fail-closed replay 境界を広げる方針で進めた。
+- remote/main は `38a95c52` と同期済みで、現在 branch `perf/raw-init-stable-entry-20260528` の基点は `origin/main` と一致している。
+- 現状俯瞰レポートを Discord に送信した。`repo_metrics.ts` では 3,342 files / 523,286 lines / test cases 3,511、`issues` は total 1,275 / open 17 / resolved 1,258、`node nodesrc/issues.js check --dir issues` は pass。
+- subagent に設計・実装レビューと次ボトルネック調査を割り当てたが、現在は使用枠上限で失敗したため、この checkpoint の独立レビューは実施できていない。
+- raw-init param-facts stable entry の `unstable_entry=119` を分解し、主因が `RawCellReleaseParamRequirement` の `StorageOffset` に含まれる `ResourceOffset::Unknown` と、parameter-relative にできない callee-local offset operand であることを確認した。
+- `ResourceSummaryStableOffset` に `Unknown` を追加し、`ResourceOffset::Unknown` / `SummaryOffset::Unknown` を conservative proof value として保存・再投影するようにした。
+- parameter-relative な `ResourceOffset::{Symbolic, ScaledSymbolic, Offset, ScaledOffset}` は stable place として保持し、callee-local operand で現在 compile へ再投影できないものは stale local place を保存せず `Unknown` へ正規化する。既存 overlap semantics では symbolic / offset / unknown は may-overlap なので、これは検査削除ではなく保存不能 identity の保守的な正規化である。
+- release requirement stable entry の reject reason / stats は、実際に no-store へ倒す `surface`、`param_cell_projection`、`param_cell_type`、`param_release_type` へ整理した。
+- RPN same-session code edit 測定では、初回 `compile_ms=9794`、2 回目 `compile_ms=8668`。raw-init param facts は初回 `stores=23`、2 回目 `hits=23` / `resource_summary_value_replay_hits=23` になり、`raw_init_param_facts_unstable_entry_bypasses=0` を確認した。
+- 残件は `raw_init_param_facts_reprojection_bypasses=165` と `raw_init_param_facts_incomplete_leaf_bypasses=37`。前者は `ISS-20260528T123956303Z-RESOURCE-SUMMARY-TYPE-REPROJECTION-N-78929A8E`、後者は `ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5` で継続する。
+- `ISS-20260528T125932150Z-RESOURCE-SUMMARY-RAW-INIT-STABLE-ENT-AE09D7D6` は verified / resolved とした。
+- 検証: `cargo check -p nepl-core`、`cargo test -p nepl-core stable_raw_init_release_requirement -- --nocapture`、`cargo test -p nepl-core resource_summary_value -- --nocapture`、`node nodesrc/test_run_test_compiler_session.js`、`trunk build --release`、RPN same-session code edit 測定は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-28 Resource summary raw body dependency key checkpoint
 
 - Zenn 記事の試作段階方針を再確認し、compile performance 改善でも unsafe な cache hit を作らず、Resource proof の入力を静的に列挙する方針を維持した。

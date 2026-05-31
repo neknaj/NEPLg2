@@ -48,16 +48,17 @@ pub(in crate::resource) fn raw_init_dependency_closure_hash(
         ResourceSummaryStableHasher::new("neplg2-resource-summary-raw-init-dependency-closure-v1");
     hash.write_usize(reachable.len());
     for dependency_index in reachable {
-        let dependency = module.functions.get(dependency_index).ok_or(
-            RawInitDependencyClosureHashReject::DependencyGraph,
-        )?;
-        let identity = ResourceSummaryFunctionIdentity::from_resource_function(dependency).ok_or(
-            RawInitDependencyClosureHashReject::DependencyFunctionIdentity,
-        )?;
+        let dependency = module
+            .functions
+            .get(dependency_index)
+            .ok_or(RawInitDependencyClosureHashReject::DependencyGraph)?;
+        let identity = ResourceSummaryFunctionIdentity::from_resource_function(dependency)
+            .ok_or(RawInitDependencyClosureHashReject::DependencyFunctionIdentity)?;
         identity.write_stable(&mut hash);
-        hash.write_u64(resource_function_body_hash(types, dependency).ok_or(
-            RawInitDependencyClosureHashReject::DependencyFunctionBody,
-        )?);
+        hash.write_u64(
+            resource_function_body_hash(types, dependency)
+                .ok_or(RawInitDependencyClosureHashReject::DependencyFunctionBody)?,
+        );
         hash.write_u64(
             context
                 .source_capability_policy_hash_for_function(dependency)
@@ -65,11 +66,10 @@ pub(in crate::resource) fn raw_init_dependency_closure_hash(
                 .as_u64(),
         );
         let type_params = owner_summary_type_params(types, dependency);
-        hash.write_u64(resource_summary_type_parameter_boundary_hash(
-            types,
-            &type_params,
-        )
-        .ok_or(RawInitDependencyClosureHashReject::DependencyTypeBoundary)?);
+        hash.write_u64(
+            resource_summary_type_parameter_boundary_hash(types, &type_params)
+                .ok_or(RawInitDependencyClosureHashReject::DependencyTypeBoundary)?,
+        );
     }
 
     Ok(ResourceSummaryDependencyClosureHash::from_stable_hash(
@@ -247,10 +247,7 @@ mod tests {
             .unify(generic, types.i32())
             .expect("test setup should bind the dependency type parameter");
         let module = ResourceModule {
-            functions: vec![
-                caller(&types, Vec::new()),
-                caller(&types, vec![generic]),
-            ],
+            functions: vec![caller(&types, Vec::new()), caller(&types, vec![generic])],
             entry: None,
             string_literals: Vec::new(),
         };

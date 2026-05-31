@@ -22,9 +22,13 @@ use super::super::initialized_summary::{
 use super::super::initialized_summary_release_model::{
     RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
 };
-use super::super::model::{PlaceProjection, ResourceFunction, ResourceOffset};
+use super::super::model::{
+    Place, PlaceProjection, ResourceFunction, ResourceLocal, ResourceOffset,
+};
 use super::super::place_utils::projection_result_type;
-use super::super::summary_projection::{SummaryOffset, SummaryPlace, SummaryProjection};
+use super::super::summary_projection::{
+    summary_place_for_params, SummaryOffset, SummaryPlace, SummaryProjection,
+};
 use super::stable_type_key::ResourceSummaryStableTypeKey;
 
 /// Resource summary cache に保存できる `SummaryPlace` の mirror。
@@ -67,6 +71,7 @@ enum ResourceSummaryStableOffset {
         offset: i64,
         scale: usize,
     },
+    Unknown,
 }
 
 /// `DropTraversal + ForallInitializedRange` の stable mirror value。
@@ -119,6 +124,14 @@ impl ResourceSummaryStableRawInitParamFactsLeafEntry {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::resource) enum ResourceSummaryStableRawInitParamFactsLeafEntryReject {
+    Surface,
+    ParamCellProjection,
+    ParamCellType,
+    ParamReleaseRequirementType,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ResourceSummaryStableRawInitParamCell {
     param_index: usize,
@@ -141,7 +154,7 @@ enum ResourceSummaryStablePlaceProjection {
     TupleField { index: usize, offset_bytes: usize },
     EnumPayload { variant: String },
     Deref,
-    StorageOffsetKnown(usize),
+    StorageOffset(ResourceSummaryStableOffset),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -433,22 +446,28 @@ pub(super) fn reproject_drop_traversal_forall_leaf_entry(
 
 pub(super) fn stable_raw_init_param_facts_leaf_entry(
     types: &TypeCtx,
+    function: &ResourceFunction,
     summary: &RawCellInitializationFunctionSummary,
-) -> Option<ResourceSummaryStableRawInitParamFactsLeafEntry> {
+) -> Result<
+    ResourceSummaryStableRawInitParamFactsLeafEntry,
+    ResourceSummaryStableRawInitParamFactsLeafEntryReject,
+> {
     if !raw_init_summary_is_param_facts_leaf(summary) {
-        return None;
+        return Err(ResourceSummaryStableRawInitParamFactsLeafEntryReject::Surface);
     }
     let param_cells = summary
         .param_cells
         .iter()
         .map(|cell| stable_raw_init_param_cell(types, cell))
-        .collect::<Option<Vec<_>>>()?;
+        .collect::<Result<Vec<_>, _>>()?;
     let param_release_requirements = summary
         .param_release_requirements
         .iter()
-        .map(|requirement| stable_raw_cell_release_param_requirement(types, requirement))
-        .collect::<Option<Vec<_>>>()?;
-    Some(ResourceSummaryStableRawInitParamFactsLeafEntry {
+        .map(|requirement| {
+            stable_raw_cell_release_param_requirement(types, &function.params, requirement)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ResourceSummaryStableRawInitParamFactsLeafEntry {
         param_cells,
         param_release_requirements,
     })
@@ -686,39 +705,61 @@ fn stable_summary_projection(
 fn stable_raw_init_param_cell(
     types: &TypeCtx,
     cell: &RawCellInitializationParamCell,
-) -> Option<ResourceSummaryStableRawInitParamCell> {
-    Some(ResourceSummaryStableRawInitParamCell {
+) -> Result<
+    ResourceSummaryStableRawInitParamCell,
+    ResourceSummaryStableRawInitParamFactsLeafEntryReject,
+> {
+    let suffix = cell
+        .suffix
+        .iter()
+        .map(|projection| {
+            stable_summary_projection(types, projection)
+                .ok_or(ResourceSummaryStableRawInitParamFactsLeafEntryReject::ParamCellProjection)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let ty = ResourceSummaryStableTypeKey::from_type(types, cell.ty)
+        .ok_or(ResourceSummaryStableRawInitParamFactsLeafEntryReject::ParamCellType)?;
+    Ok(ResourceSummaryStableRawInitParamCell {
         param_index: cell.param_index,
-        suffix: cell
-            .suffix
-            .iter()
-            .map(|projection| stable_summary_projection(types, projection))
-            .collect::<Option<Vec<_>>>()?,
-        ty: ResourceSummaryStableTypeKey::from_type(types, cell.ty)?,
+        suffix,
+        ty,
         holds_raw_address: cell.holds_raw_address,
     })
 }
 
 fn stable_raw_cell_release_param_requirement(
     types: &TypeCtx,
+    params: &[ResourceLocal],
     requirement: &RawCellReleaseParamRequirement,
-) -> Option<ResourceSummaryStableRawCellReleaseParamRequirement> {
-    Some(ResourceSummaryStableRawCellReleaseParamRequirement {
+) -> Result<
+    ResourceSummaryStableRawCellReleaseParamRequirement,
+    ResourceSummaryStableRawInitParamFactsLeafEntryReject,
+> {
+    let suffix = requirement
+        .suffix
+        .iter()
+        .map(|projection| stable_place_projection(types, params, projection))
+        .collect::<Result<Vec<_>, _>>()?;
+    let ty = ResourceSummaryStableTypeKey::from_type(types, requirement.ty).ok_or(
+        ResourceSummaryStableRawInitParamFactsLeafEntryReject::ParamReleaseRequirementType,
+    )?;
+    Ok(ResourceSummaryStableRawCellReleaseParamRequirement {
         param_index: requirement.param_index,
-        suffix: requirement
-            .suffix
-            .iter()
-            .map(stable_place_projection)
-            .collect::<Option<Vec<_>>>()?,
-        ty: ResourceSummaryStableTypeKey::from_type(types, requirement.ty)?,
+        suffix,
+        ty,
         kind: stable_raw_cell_release_requirement_kind(requirement.kind),
     })
 }
 
 fn stable_place_projection(
+    types: &TypeCtx,
+    params: &[ResourceLocal],
     projection: &PlaceProjection,
-) -> Option<ResourceSummaryStablePlaceProjection> {
-    Some(match projection {
+) -> Result<
+    ResourceSummaryStablePlaceProjection,
+    ResourceSummaryStableRawInitParamFactsLeafEntryReject,
+> {
+    Ok(match projection {
         PlaceProjection::Field {
             index,
             offset_bytes,
@@ -739,11 +780,76 @@ fn stable_place_projection(
             }
         }
         PlaceProjection::Deref => ResourceSummaryStablePlaceProjection::Deref,
-        PlaceProjection::StorageOffset(ResourceOffset::Known(value)) => {
-            ResourceSummaryStablePlaceProjection::StorageOffsetKnown(*value)
+        PlaceProjection::StorageOffset(offset) => {
+            ResourceSummaryStablePlaceProjection::StorageOffset(stable_resource_offset(
+                types, params, offset,
+            ))
         }
-        PlaceProjection::StorageOffset(_) => return None,
     })
+}
+
+fn stable_resource_offset(
+    types: &TypeCtx,
+    params: &[ResourceLocal],
+    offset: &ResourceOffset,
+) -> ResourceSummaryStableOffset {
+    match offset {
+        ResourceOffset::Known(value) => ResourceSummaryStableOffset::Known(*value),
+        ResourceOffset::Symbolic { place } => {
+            if let Some(place) = stable_resource_offset_place(types, params, place) {
+                ResourceSummaryStableOffset::Symbolic {
+                    place: Box::new(place),
+                }
+            } else {
+                ResourceSummaryStableOffset::Unknown
+            }
+        }
+        ResourceOffset::ScaledSymbolic { place, scale } => {
+            if let Some(place) = stable_resource_offset_place(types, params, place) {
+                ResourceSummaryStableOffset::ScaledSymbolic {
+                    place: Box::new(place),
+                    scale: *scale,
+                }
+            } else {
+                ResourceSummaryStableOffset::Unknown
+            }
+        }
+        ResourceOffset::Offset { place, offset } => {
+            if let Some(place) = stable_resource_offset_place(types, params, place) {
+                ResourceSummaryStableOffset::Offset {
+                    place: Box::new(place),
+                    offset: *offset,
+                }
+            } else {
+                ResourceSummaryStableOffset::Unknown
+            }
+        }
+        ResourceOffset::ScaledOffset {
+            place,
+            offset,
+            scale,
+        } => {
+            if let Some(place) = stable_resource_offset_place(types, params, place) {
+                ResourceSummaryStableOffset::ScaledOffset {
+                    place: Box::new(place),
+                    offset: *offset,
+                    scale: *scale,
+                }
+            } else {
+                ResourceSummaryStableOffset::Unknown
+            }
+        }
+        ResourceOffset::Unknown => ResourceSummaryStableOffset::Unknown,
+    }
+}
+
+fn stable_resource_offset_place(
+    types: &TypeCtx,
+    params: &[ResourceLocal],
+    place: &Place,
+) -> Option<ResourceSummaryStablePlace> {
+    let summary_place = summary_place_for_params(params, place)?;
+    stable_summary_place(types, &summary_place)
 }
 
 fn stable_raw_cell_release_requirement_kind(
@@ -799,7 +905,7 @@ fn stable_summary_offset(
             offset: *offset,
             scale: *scale,
         },
-        SummaryOffset::Unknown => return None,
+        SummaryOffset::Unknown => ResourceSummaryStableOffset::Unknown,
     })
 }
 
@@ -885,6 +991,7 @@ fn reproject_summary_offset(
             offset: *offset,
             scale: *scale,
         },
+        ResourceSummaryStableOffset::Unknown => SummaryOffset::Unknown,
     })
 }
 
@@ -946,7 +1053,7 @@ fn reproject_place_projection_suffix(
     let mut out = Vec::new();
     let mut current_ty = base_ty;
     for projection in suffix {
-        let projection = reproject_place_projection(projection);
+        let projection = reproject_place_projection(ctx, projection)?;
         validate_place_projection_layout(ctx.types, current_ty, &projection)?;
         current_ty = projection_result_type(ctx.types, current_ty, &projection)?;
         out.push(projection);
@@ -955,9 +1062,10 @@ fn reproject_place_projection_suffix(
 }
 
 fn reproject_place_projection(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
     projection: &ResourceSummaryStablePlaceProjection,
-) -> PlaceProjection {
-    match projection {
+) -> Option<PlaceProjection> {
+    Some(match projection {
         ResourceSummaryStablePlaceProjection::Field {
             index,
             offset_bytes,
@@ -978,10 +1086,107 @@ fn reproject_place_projection(
             }
         }
         ResourceSummaryStablePlaceProjection::Deref => PlaceProjection::Deref,
-        ResourceSummaryStablePlaceProjection::StorageOffsetKnown(value) => {
-            PlaceProjection::StorageOffset(ResourceOffset::Known(*value))
+        ResourceSummaryStablePlaceProjection::StorageOffset(offset) => {
+            PlaceProjection::StorageOffset(reproject_resource_offset(ctx, offset)?)
         }
+    })
+}
+
+fn reproject_resource_offset(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    offset: &ResourceSummaryStableOffset,
+) -> Option<ResourceOffset> {
+    Some(match offset {
+        ResourceSummaryStableOffset::Known(value) => ResourceOffset::Known(*value),
+        ResourceSummaryStableOffset::Symbolic { place } => ResourceOffset::Symbolic {
+            place: Box::new(reproject_stable_place_to_place(ctx, place)?),
+        },
+        ResourceSummaryStableOffset::ScaledSymbolic { place, scale } => {
+            ResourceOffset::ScaledSymbolic {
+                place: Box::new(reproject_stable_place_to_place(ctx, place)?),
+                scale: *scale,
+            }
+        }
+        ResourceSummaryStableOffset::Offset { place, offset } => ResourceOffset::Offset {
+            place: Box::new(reproject_stable_place_to_place(ctx, place)?),
+            offset: *offset,
+        },
+        ResourceSummaryStableOffset::ScaledOffset {
+            place,
+            offset,
+            scale,
+        } => ResourceOffset::ScaledOffset {
+            place: Box::new(reproject_stable_place_to_place(ctx, place)?),
+            offset: *offset,
+            scale: *scale,
+        },
+        ResourceSummaryStableOffset::Unknown => ResourceOffset::Unknown,
+    })
+}
+
+fn reproject_stable_place_to_place(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    place: &ResourceSummaryStablePlace,
+) -> Option<Place> {
+    let base = ctx
+        .function
+        .params
+        .get(place.parameter_index)?
+        .place
+        .clone();
+    let (suffix, ty) = reproject_stable_projection_suffix_as_place(ctx, base.ty, &place.suffix)?;
+    if !place.ty.matches_type(ctx.types, ty) {
+        return None;
     }
+    let mut out = base;
+    out.projections.extend(suffix);
+    out.ty = ty;
+    Some(out)
+}
+
+fn reproject_stable_projection_suffix_as_place(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    base_ty: TypeId,
+    suffix: &[ResourceSummaryStableProjection],
+) -> Option<(Vec<PlaceProjection>, TypeId)> {
+    let mut out = Vec::new();
+    let mut current_ty = base_ty;
+    for projection in suffix {
+        let projection = reproject_stable_projection_as_place(ctx, projection)?;
+        validate_place_projection_layout(ctx.types, current_ty, &projection)?;
+        current_ty = projection_result_type(ctx.types, current_ty, &projection)?;
+        out.push(projection);
+    }
+    Some((out, current_ty))
+}
+
+fn reproject_stable_projection_as_place(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    projection: &ResourceSummaryStableProjection,
+) -> Option<PlaceProjection> {
+    Some(match projection {
+        ResourceSummaryStableProjection::Field {
+            index,
+            offset_bytes,
+        } => PlaceProjection::Field {
+            index: *index,
+            offset_bytes: *offset_bytes,
+        },
+        ResourceSummaryStableProjection::TupleField {
+            index,
+            offset_bytes,
+        } => PlaceProjection::TupleField {
+            index: *index,
+            offset_bytes: *offset_bytes,
+        },
+        ResourceSummaryStableProjection::EnumPayload { variant } => PlaceProjection::EnumPayload {
+            variant: variant.clone(),
+        },
+        ResourceSummaryStableProjection::Deref => PlaceProjection::Deref,
+        ResourceSummaryStableProjection::StorageOffset(offset) => {
+            PlaceProjection::StorageOffset(reproject_resource_offset(ctx, offset)?)
+        }
+    })
 }
 
 fn validate_place_projection_layout(
@@ -1125,21 +1330,36 @@ mod tests {
     use super::super::super::initialized_summary::{
         RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
     };
-    use super::super::super::model::{Place, ResourceBlockId, ResourceFunction, ResourceLocal};
+    use super::super::super::initialized_summary_release_model::{
+        RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
+    };
+    use super::super::super::model::{
+        Place, PlaceProjection, ResourceBlockId, ResourceFunction, ResourceLocal, ResourceOffset,
+    };
     use super::*;
 
     fn function_with_param(param_ty: crate::types::TypeId) -> ResourceFunction {
+        function_with_params(vec![("storage", param_ty)], param_ty)
+    }
+
+    fn function_with_params(
+        params: Vec<(&str, crate::types::TypeId)>,
+        result_ty: crate::types::TypeId,
+    ) -> ResourceFunction {
         ResourceFunction {
             name: "summary_cache_subject".to_string(),
             origin_name: "summary_cache_subject".to_string(),
             type_params: Vec::new(),
-            params: vec![ResourceLocal {
-                name: "storage".to_string(),
-                ty: param_ty,
-                mutable: false,
-                place: Place::local("storage".to_string(), param_ty),
-            }],
-            result: param_ty,
+            params: params
+                .into_iter()
+                .map(|(name, ty)| ResourceLocal {
+                    name: name.to_string(),
+                    ty,
+                    mutable: false,
+                    place: Place::local(name.to_string(), ty),
+                })
+                .collect(),
+            result: result_ty,
             effect: Effect::Pure,
             entry_block: ResourceBlockId(0),
             blocks: Vec::new(),
@@ -1186,8 +1406,9 @@ mod tests {
     }
 
     #[test]
-    fn stable_drop_traversal_forall_value_rejects_unknown_offsets() {
+    fn stable_drop_traversal_forall_value_reprojects_unknown_offsets() {
         let types = TypeCtx::new();
+        let function = function_with_param(types.i32());
         let op = CollectionSlotLifecycleSummaryOp::DropTraversal {
             storage: SummaryPlace {
                 parameter_index: 0,
@@ -1206,8 +1427,15 @@ mod tests {
                 },
             ),
         };
+        let value = stable_drop_traversal_forall_value(&types, &op)
+            .expect("unknown storage offset is a conservative summary fact");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
 
-        assert!(stable_drop_traversal_forall_value(&types, &op).is_none());
+        let reprojected = reproject_drop_traversal_forall_value(&ctx, &value)
+            .expect("unknown storage offset should reproject as unknown");
+
+        assert_eq!(reprojected, op);
     }
 
     #[test]
@@ -1355,7 +1583,7 @@ mod tests {
             variant_required_param_cells: Vec::new(),
             variant_conditions: Vec::new(),
         };
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &summary)
+        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
             .expect("nominal field param facts should convert");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("signature tree should register nominal field type");
@@ -1364,6 +1592,121 @@ mod tests {
             .expect("nominal field fact should reproject");
 
         assert_eq!(reprojected, summary);
+    }
+
+    #[test]
+    fn stable_raw_init_release_requirement_reprojects_scaled_symbolic_storage_offset() {
+        let types = TypeCtx::new();
+        let function = function_with_params(
+            vec![("storage", types.i32()), ("index", types.i32())],
+            types.unit(),
+        );
+        let suffix = vec![PlaceProjection::StorageOffset(
+            ResourceOffset::ScaledOffset {
+                place: Box::new(Place::local("index".to_string(), types.i32())),
+                offset: 4,
+                scale: 4,
+            },
+        )];
+        let summary = RawCellInitializationFunctionSummary {
+            function: function.name.clone(),
+            return_cells: Vec::new(),
+            return_byte_ranges: Vec::new(),
+            param_cells: Vec::new(),
+            param_byte_ranges: Vec::new(),
+            param_release_requirements: vec![RawCellReleaseParamRequirement {
+                param_index: 0,
+                suffix: suffix.clone(),
+                ty: types.i32(),
+                kind: RawCellReleaseRequirementKind::Store,
+            }],
+            variant_param_cells: Vec::new(),
+            variant_param_byte_ranges: Vec::new(),
+            variant_required_param_cells: Vec::new(),
+            variant_conditions: Vec::new(),
+        };
+        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+            .expect("parameter-relative storage offset should convert");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+            .expect("parameter-relative release requirement should reproject");
+
+        assert_eq!(reprojected, summary);
+    }
+
+    #[test]
+    fn stable_raw_init_release_requirement_reprojects_unknown_storage_offset() {
+        let types = TypeCtx::new();
+        let function = function_with_param(types.i32());
+        let summary = RawCellInitializationFunctionSummary {
+            function: function.name.clone(),
+            return_cells: Vec::new(),
+            return_byte_ranges: Vec::new(),
+            param_cells: Vec::new(),
+            param_byte_ranges: Vec::new(),
+            param_release_requirements: vec![RawCellReleaseParamRequirement {
+                param_index: 0,
+                suffix: vec![PlaceProjection::StorageOffset(ResourceOffset::Unknown)],
+                ty: types.i32(),
+                kind: RawCellReleaseRequirementKind::Store,
+            }],
+            variant_param_cells: Vec::new(),
+            variant_param_byte_ranges: Vec::new(),
+            variant_required_param_cells: Vec::new(),
+            variant_conditions: Vec::new(),
+        };
+        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+            .expect("unknown storage offset should remain a conservative stable fact");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+            .expect("unknown storage offset release requirement should reproject");
+
+        assert_eq!(reprojected, summary);
+    }
+
+    #[test]
+    fn stable_raw_init_release_requirement_degrades_local_offset_to_unknown() {
+        let types = TypeCtx::new();
+        let function = function_with_param(types.i32());
+        let summary = RawCellInitializationFunctionSummary {
+            function: function.name.clone(),
+            return_cells: Vec::new(),
+            return_byte_ranges: Vec::new(),
+            param_cells: Vec::new(),
+            param_byte_ranges: Vec::new(),
+            param_release_requirements: vec![RawCellReleaseParamRequirement {
+                param_index: 0,
+                suffix: vec![PlaceProjection::StorageOffset(
+                    ResourceOffset::ScaledOffset {
+                        place: Box::new(Place::local("local_index".to_string(), types.i32())),
+                        offset: 4,
+                        scale: 4,
+                    },
+                )],
+                ty: types.i32(),
+                kind: RawCellReleaseRequirementKind::Store,
+            }],
+            variant_param_cells: Vec::new(),
+            variant_param_byte_ranges: Vec::new(),
+            variant_required_param_cells: Vec::new(),
+            variant_conditions: Vec::new(),
+        };
+        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+            .expect("local offset should degrade instead of blocking the stable entry");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+            .expect("local offset should reproject through conservative unknown offset");
+
+        assert_eq!(
+            reprojected.param_release_requirements[0].suffix,
+            vec![PlaceProjection::StorageOffset(ResourceOffset::Unknown)]
+        );
     }
 
     #[test]
