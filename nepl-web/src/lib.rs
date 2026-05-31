@@ -3635,6 +3635,12 @@ impl CompilerSession {
         out.push_str(&resource_stats.resource_owner_obligation_function_checks.to_string());
         out.push_str(",\"resource_owner_obligation_function_check_ops\":");
         out.push_str(&resource_stats.resource_owner_obligation_function_check_ops.to_string());
+        out.push_str(",\"resource_owner_return_summary_recomputations\":");
+        out.push_str(&resource_stats.resource_owner_return_summary_recomputations.to_string());
+        out.push_str(",\"resource_owner_return_summary_count\":");
+        out.push_str(&resource_stats.resource_owner_return_summary_count.to_string());
+        out.push_str(",\"resource_owner_return_summary_pass_cache_skip_functions\":");
+        out.push_str(&resource_stats.resource_owner_return_summary_pass_cache_skip_functions.to_string());
         out.push_str(",\"resource_summary_value_drop_traversal_forall_replay_probe_functions\":");
         out.push_str(&resource_stats.resource_summary_value_drop_traversal_forall_replay_probe_functions.to_string());
         out.push_str(",\"resource_summary_value_drop_traversal_forall_replay_hit_functions\":");

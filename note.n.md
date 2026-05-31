@@ -48312,3 +48312,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `tmp/rpn_owner_obligation_cache_probe_final_20260601.json` では、release Web RPN same-session string literal edit が base `compile_ms=10801`、edit `compile_ms=3006` だった。edit delta は `resource_owner_obligation_function_checks=0`、`resource_owner_obligation_function_check_ops=0`、`resource_summary_value_owner_obligation_check_replay_hit_functions=288` である。
 - owner checker 本体は skip できたが、edit の `resource_static_owner_obligations=1534.075ms` はまだ残る。これは `compute_owner_return_summaries` の全関数 fixed-point が支配しているためで、`ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2` として分離した。
 - memo_call / 高階関数の subagent review では、Phase 1 の `memo_call @pure_named_func` は typecheck/HIR gate までで、Resource IR では通常 function value に同化していると確認した。次は `PrivateCache` / private state effect、non-escape proof、sealed backend representation を別作業で進める。
+
+## 2026-06-01 Agent owner summary lazy skip checkpoint
+
+- remote/main と同期済みの `perf/owner-return-summary-cache-20260601` branch で、owner obligation pass cache が全関数 hit した compile では `compute_owner_return_summaries` を構築しない lazy path を追加した。`plan.md` は変更していない。
+- Zenn の性能追求方針、純粋 query cache 方針、試作段階でも雑設計を避ける方針を再確認し、`OwnerReturnSummary` の session-local `TypeId` / projection を直接保存する cache は入れない方針にした。
+- subagent review では、最終形は per-function stable mirror の `OwnerReturnSummaryEntryV1` であり、`TypeId`、`PlaceProjection`、`OwnerProjectionSource`、extent、variant condition を stable type/projection mirror へ変換する必要があると確認した。この checkpoint はその代替ではなく、全関数 pass replay hit 時に不要な summary 構築をしない安全な前段である。
+- `check_resource_owner_obligations_inner` は先に owner obligation pass entry を probe/replay し、miss した関数だけ `pending_checks` として保持する。pending が空なら owner summary 固定点を作らず diagnostics-free report を返す。1 関数でも miss した場合は従来どおり owner summary を構築し、miss した関数だけ checker を実行する。
+- `ResourceSummaryValueCacheStats` と Web JSON に `resource_owner_return_summary_recomputations`、`resource_owner_return_summary_count`、`resource_owner_return_summary_pass_cache_skip_functions` を追加し、summary 固定点が本当に skip されたかを測定できるようにした。
+- focused regression では、同一 module の二回目 compile で owner checker と owner summary が再実行されず、body edit では summary / checker が再実行されることを確認した。
+- `tmp/rpn_owner_summary_lazy_skip_code_literal_20260601.json` では、RPN 実コード文字列 literal edit が base `compile_ms=10254`、edit `compile_ms=2110` だった。edit の `resource_static_owner_obligations=745.034ms`、edit delta は `resource_owner_return_summary_recomputations=0`、`resource_owner_return_summary_pass_cache_skip_functions=288`、`resource_owner_obligation_function_checks=0`、`resource_summary_value_owner_obligation_check_replay_hit_functions=288` である。
+- memo_call / private cache 側の subagent review では、次の安全な実装は accepted path を広げることではなく、`PrivateCache` / `PrivateState` を Resource effect / body hash / SourceCapability に fail-closed で追加し、`MemoizedFunctionValue` を Resource IR で普通の `FnValue` と同化させないことだと確認した。これは別 branch で進める。

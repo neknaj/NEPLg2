@@ -9,7 +9,7 @@ use super::summary_index::{FunctionSummary, SummaryIndex};
 use crate::types::TypeId;
 
 pub(super) use super::borrow_summary::compute_borrow_token_return_summaries;
-pub(super) use super::owner_summary::compute_owner_return_summaries;
+pub(super) use super::owner_summary::compute_owner_return_summaries_with_recomputations;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct BorrowTokenReturnSummary {

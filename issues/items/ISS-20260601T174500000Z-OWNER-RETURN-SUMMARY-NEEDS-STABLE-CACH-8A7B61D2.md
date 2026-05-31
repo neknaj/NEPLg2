@@ -37,6 +37,16 @@ RPN same-session edit では、owner obligation の function check は diagnosti
 - 初期実装では diagnostic replay ではなく summary replay だけを対象にし、owner obligation pass cache と組み合わせて `resource_static_owner_obligations` の edit 固定費を削る。
 - `.neplproof` 永続 artifact へ進められる key 形状を維持し、session-local `TypeId` / `Span` / `OwnerStateEntry` を直接保存しない。
 
+## 2026-06-01 pass-cache lazy summary checkpoint
+
+`OwnerReturnSummary` の stable mirror 本体へ進む前の安全な checkpoint として、owner obligation pass cache が全関数で hit した compile では `compute_owner_return_summaries` を構築しない lazy path を追加した。
+
+この path は `OwnerReturnSummary` を保存しない。既存の owner obligation pass entry が現在の function body hash、dependency closure hash、source capability policy hash、type boundary hash に一致し、全関数で diagnostics-free pass を replay できる場合だけ、後続 gate が不要としている summary 構築を省略する。1 関数でも miss した場合は従来どおり owner return summary 固定点を構築し、miss した関数だけ checker を実行する。
+
+このため、今回の checkpoint は all-hit warm edit の固定費を削るものであり、callee summary だけが変わる partial miss や owner summary 自体の proof reuse はまだ解決していない。最終対応としては、subagent review の通り `OwnerReturnSummaryEntryV1`、owner summary dependency closure kind、stable type/projection mirror、fail-closed bypass reason counter を追加する必要がある。
+
+`tmp/rpn_owner_summary_lazy_skip_code_literal_20260601.json` では、RPN の実コード文字列 literal edit が base `compile_ms=10254`、edit `compile_ms=2110` だった。edit の `resource_static_owner_obligations` は `745.034ms` で、直前 checkpoint の `1534.075ms` から下がった。edit delta は `resource_owner_return_summary_recomputations=0`、`resource_owner_return_summary_count=0`、`resource_owner_return_summary_pass_cache_skip_functions=288`、`resource_owner_obligation_function_checks=0`、`resource_summary_value_owner_obligation_check_replay_hit_functions=288` である。
+
 ## 検証
 
 - focused unit test で、unchanged owner return summary が replay され、function body edit と callee body edit では miss することを確認する。

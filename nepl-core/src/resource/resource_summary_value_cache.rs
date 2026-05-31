@@ -67,6 +67,9 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_initialized_function_check_ops: usize,
     pub resource_owner_obligation_function_checks: usize,
     pub resource_owner_obligation_function_check_ops: usize,
+    pub resource_owner_return_summary_recomputations: usize,
+    pub resource_owner_return_summary_count: usize,
+    pub resource_owner_return_summary_pass_cache_skip_functions: usize,
     pub resource_summary_value_hits: usize,
     pub resource_summary_value_misses: usize,
     pub resource_summary_value_stores: usize,
@@ -481,6 +484,30 @@ impl ResourceSummaryValueCache {
     pub(super) fn record_owner_obligation_function_check(&mut self, op_count: usize) {
         self.stats.resource_owner_obligation_function_checks += 1;
         self.stats.resource_owner_obligation_function_check_ops += op_count;
+    }
+
+    /// owner return summary 固定点計算の実行量を session 統計へ記録する。
+    ///
+    /// owner obligation pass cache が checker 本体を skip しても、pass replay 前に
+    /// owner return summary を全関数分作ると edit compile の固定費が残る。この counter は
+    /// summary 固定点が本当に必要な miss path だけで走っているかを Web / Node の測定 JSON で
+    /// 確認するために保持する。
+    pub(super) fn record_owner_return_summary_stage(
+        &mut self,
+        recomputations: usize,
+        summary_count: usize,
+    ) {
+        self.stats.resource_owner_return_summary_recomputations += recomputations;
+        self.stats.resource_owner_return_summary_count += summary_count;
+    }
+
+    /// owner obligation pass cache により summary 構築そのものを省けた関数数を記録する。
+    ///
+    /// これは安全性判定ではなく観測用の counter である。全関数の pass entry が現在の
+    /// body / dependency / source policy / type boundary に一致した場合だけ増やし、miss が
+    /// ある compile では従来どおり owner summary を構築して checker へ渡す。
+    pub(super) fn record_owner_return_summary_pass_cache_skip(&mut self, function_count: usize) {
+        self.stats.resource_owner_return_summary_pass_cache_skip_functions += function_count;
     }
 
     /// complete leaf-only `DropTraversal + ForallInitializedRange` entry 候補を作る。

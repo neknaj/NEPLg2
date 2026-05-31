@@ -467,6 +467,29 @@ Web RPN same-session string literal edit が次の結果になった。
 `OwnerReturnSummary` は `TypeId` や projection-rich な session-local state を含むため、単純な
 in-memory summary reuse ではなく stable mirror value cache として設計する。
 
+## 2026-06-01 owner summary lazy skip 更新
+
+owner obligation pass cache が全関数で hit した compile では、owner return summary を作らずに
+diagnostics-free report を返す lazy path を追加した。これは `OwnerReturnSummary` の直接 cache
+ではなく、既に body hash / dependency closure hash / source capability policy hash / type
+boundary hash で検証された pass entry が全関数に揃っている場合に、現在の gate が消費しない
+summary 構築を省く変更である。
+
+1 関数でも pass replay が miss した場合は、従来どおり `compute_owner_return_summaries` を
+構築して miss 関数を checker に通す。このため all-hit warm edit の固定費は削れるが、
+partial miss 時の owner summary reuse は未解決である。引き続き
+`ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2` で per-function
+stable mirror entry と dependency closure kind を実装する。
+
+`tmp/rpn_owner_summary_lazy_skip_code_literal_20260601.json` では、RPN 実コード文字列 literal edit
+が base `compile_ms=10254`、edit `compile_ms=2110` だった。edit の
+`resource_static_owner_obligations` は `745.034ms` で、owner obligation pass cache checkpoint の
+`1534.075ms` から改善した。edit delta は `resource_owner_return_summary_recomputations=0`、
+`resource_owner_return_summary_count=0`、`resource_owner_return_summary_pass_cache_skip_functions=288`、
+`resource_owner_obligation_function_checks=0`、`resource_summary_value_owner_obligation_check_replay_hit_functions=288`
+である。RPN edit compile はまだ 0.1 秒以下ではないため、次は initialized side の残り固定費、
+typed expression subtree query、stdlib prechecked artifact を継続する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

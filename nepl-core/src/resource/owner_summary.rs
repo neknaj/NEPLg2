@@ -37,10 +37,10 @@ use super::storage_origin::StorageOriginTable;
 use super::summary::{OwnerExtentSummary, OwnerReturnSummary, OwnerReturnSummaryIndex};
 use super::summary_worklist::SummaryWorklist;
 
-pub(super) fn compute_owner_return_summaries(
+pub(super) fn compute_owner_return_summaries_with_recomputations(
     module: &ResourceModule,
     types: &TypeCtx,
-) -> Vec<OwnerReturnSummary> {
+) -> (Vec<OwnerReturnSummary>, usize) {
     let mut worklist = SummaryWorklist::new(module);
     let mut summaries = Vec::new();
     while let Some(function_index) = worklist.pop() {
@@ -59,7 +59,8 @@ pub(super) fn compute_owner_return_summaries(
             summaries.len()
         );
     }
-    summaries
+    let recomputations = worklist.recomputations();
+    (summaries, recomputations)
 }
 
 fn function_owner_return_summary(

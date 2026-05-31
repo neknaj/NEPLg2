@@ -1285,6 +1285,36 @@ artifact、typed expression subtree query、codegen fragment cache の設計で�
 
 当面の実装順は次の通りにする。
 
+### 2026-06-01 owner obligation pass-cache lazy summary checkpoint
+
+owner obligation pass-only cache により、RPN same-session edit では checker 本体の実行を
+`0` へ落とせた。しかし、その前段の `compute_owner_return_summaries` が全関数固定点を
+毎回構築していたため、`resource_static_owner_obligations` に秒単位の固定費が残っていた。
+
+今回の checkpoint では、owner obligation pass entry が全関数で hit した compile に限り、
+owner return summary の構築そのものを遅延して省略する。これは `OwnerReturnSummary` を
+session-local な `TypeId` / projection ごと保存する cache ではない。すでに body hash、
+dependency closure hash、source capability policy hash、type boundary hash で検証された
+diagnostic-free pass entry が全関数に揃っている場合だけ、現在の owner obligation gate が
+消費しない summary を作らないという整理である。
+
+1 関数でも pass replay が miss した場合は、従来どおり owner return summary 固定点を構築し、
+miss した関数だけ checker を実行する。したがって、この checkpoint は all-hit warm edit の
+固定費削減であり、partial miss での owner summary reuse は解決しない。最終形は
+`.neplproof` に進められる stable mirror として `OwnerReturnSummaryEntryV1` を設計し、
+すべての `TypeId` / `PlaceProjection` / `OwnerProjectionSource` / extent / variant condition を
+現在 compile の `TypeCtx` と function signature へ fail-closed に再投影できる場合だけ replay する。
+
+測定では `tmp/rpn_owner_summary_lazy_skip_code_literal_20260601.json` の RPN 実コード文字列
+literal edit が base `compile_ms=10254`、edit `compile_ms=2110` だった。edit の
+`resource_static_owner_obligations` は `745.034ms` で、owner obligation pass cache checkpoint の
+`1534.075ms` から下がった。edit delta は
+`resource_owner_return_summary_recomputations=0`、
+`resource_owner_return_summary_count=0`、
+`resource_owner_return_summary_pass_cache_skip_functions=288`、
+`resource_owner_obligation_function_checks=0`、
+`resource_summary_value_owner_obligation_check_replay_hit_functions=288` である。
+
 - edit path: i32 scalar residual 解消後も残る秒単位の replay / fixed-cost を changed-function-only proof replay と typed expression subtree query へ分ける。
 - base path: stdlib prechecked artifact と Resource proof template を優先し、初回 compile の fixed-point 探索空間を減らす。
 - shared path: typed expression subtree query と codegen fragment cache は、warm edit と base artifact の両方から使える query 境界として設計する。
