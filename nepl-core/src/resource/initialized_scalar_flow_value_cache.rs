@@ -159,9 +159,52 @@ fn collect_i32_scalar_return_facts_entry_candidate_from_summary(
     ) {
         Ok(candidate) => candidates.push(candidate),
         Err(reason) => {
+            #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+            log_i32_scalar_return_facts_candidate_bypass(function, &reason, facts);
             cache.record_i32_scalar_return_facts_candidate_bypass_for_facts(reason, facts);
         }
     }
+}
+
+/// i32 scalar return facts を stable cache entry にできなかった関数と fact surface を出力する。
+///
+/// このログは residual recomputation の原因を狭めるための host-only 診断であり、通常の
+/// compiler statistics には含めない。通常の JSON 統計に fact 本体を入れると Web playground の
+/// measurement path を重くするため、明示的な環境変数を指定した native 実行だけで出す。
+#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+fn log_i32_scalar_return_facts_candidate_bypass(
+    function: &ResourceFunction,
+    reason: &impl core::fmt::Debug,
+    facts: &I32ScalarReturnFacts,
+) {
+    if std::env::var_os("NEPL_RESOURCE_I32_STABLE_REPROJECTION_DEBUG").is_none() {
+        return;
+    }
+    if let Some(filter) = std::env::var("NEPL_RESOURCE_OP_TIMING_FUNCTION")
+        .ok()
+        .filter(|filter| !function.name.contains(filter.as_str()))
+    {
+        let _ = filter;
+        return;
+    }
+    let counts = facts.fact_counts();
+    std::eprintln!(
+        "[resource-i32-candidate-bypass] function={} reason={:?} total={} aliases={} offsets={} relations={} constants={} return_conditions={} parameter_conditions={}",
+        function.name,
+        reason,
+        counts.total(),
+        counts.aliases,
+        counts.offsets,
+        counts.relations,
+        counts.constants,
+        counts.return_conditions,
+        counts.parameter_conditions
+    );
+    std::eprintln!(
+        "[resource-i32-candidate-bypass-facts] function={} facts={:?}",
+        function.name,
+        facts
+    );
 }
 
 #[cfg(test)]

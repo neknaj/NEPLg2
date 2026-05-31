@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-05-31
-updated: 2026-05-31
+updated: 2026-06-01
 target: "nepl-core/src/resource/initialized_scalar_flow.rs; nepl-core/src/resource/resource_summary_value_cache/i32_scalar.rs"
 ---
 
@@ -158,6 +158,38 @@ relation / condition のどの surface が失われたかまでは分からな�
 採用しない。次の修正では entry key や dependency closure を弱めず、bypass した function /
 fact の具体名を debug-only に分けてから、alias / offset のどの projection surface が
 実際に失敗しているかを確認する。
+
+## 2026-06-01 debug-only fact logging checkpoint
+
+i32 scalar residual の次修正に向けて、通常 JSON stats へ配列や fact 本体を追加せず、
+native debug-only の stderr ログで function / fact / reason を確認できるようにした。
+`NEPL_RESOURCE_I32_STABLE_REPROJECTION_DEBUG=1` を指定した native 実行だけで出力し、
+通常 compile path と Web playground の measurement schema には影響させない。
+
+追加したログは次である。
+
+- `resource-i32-stable-reprojection`: stable entry の再投影時に、最初に失敗した
+  fact の `function`、fact kind、index、reason、stable fact 本体を出す。
+- `resource-i32-candidate-bypass`: candidate 化に失敗した関数の aggregate reason と
+  alias / offset / relation / condition の件数、元の facts を出す。
+
+`tmp/i32_stable_reprojection_debug_unit_20260601.stderr` では、既存 focused regression の
+wrong scalar type case で次のログを確認した。
+
+- `function=i32_leaf`
+- `kind=alias`
+- `reason=ScalarType`
+- `fact=ResourceSummaryStableI32ScalarReturnAlias { ... scalar_ty: ResourceSummaryStableTypeKey("u8") }`
+
+subagent review では、entry-level の reason だけでは fact 単位の失敗位置が潰れるため、
+`reproject_i32_scalar_return_facts_entry_result` 側で fact kind / index を持ったまま
+ログを出すべきだと確認した。今回の変更はその観測境界を追加するものであり、cache key、
+dependency closure、source capability policy、type boundary は変更していない。
+
+次の実修正は、このログを RPN same-session edit 相当の native 再現または focused
+regression に当て、残っている alias / offset の `ParameterProjection` / `ScalarType`
+失敗を `reproject_i32_scalar_projection_suffix_with_stable_type` と
+`reproject_i32_scalar_common_type` の狭い surface で修正する。
 
 ## 検証
 

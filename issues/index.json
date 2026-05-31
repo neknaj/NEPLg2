@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T13:51:41.389Z",
+  "generated_at": "2026-05-31T16:15:03.428Z",
   "counts": {
     "total": 1297,
     "open": 27,
@@ -183,7 +183,7 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-05-24",
-      "updated": "2026-05-28",
+      "updated": "2026-05-31",
       "target": "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio",
       "legacy_id": "",
       "source": "",
@@ -408,7 +408,7 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-05-31",
-      "updated": "2026-05-31",
+      "updated": "2026-06-01",
       "target": "nepl-core/src/resource/initialized_scalar_flow.rs; nepl-core/src/resource/resource_summary_value_cache/i32_scalar.rs",
       "legacy_id": "",
       "source": "",

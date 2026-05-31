@@ -48258,3 +48258,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - release Web RPN same-session unused local edit 測定 `tmp/rpn_i32_fact_kind_counters_final_code_edit_20260531.json` では、base `compile_ms=8931` / `resource_static_check=8318.313ms`、edit `compile_ms=2219` / `resource_static_check=1922.104ms` だった。
 - edit delta は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+10`、reason は scalar type `+8` / parameter projection `+2`、fact kind は alias `+5` / offset `+5` である。condition 系は `0` だった。
 - この checkpoint は性能改善ではなく観測補強であり、base compile の秒単位固定費も未解決である。次は i32 alias / offset residual の function-level debug と、changed-function-only proof replay / typed expression subtree query / stdlib prechecked artifact を継続する。
+
+## 2026-06-01 Agent i32 scalar stable reprojection debug checkpoint
+
+- remote/main と同期済みの `perf/i32-scalar-residual-debug-20260601` branch で、i32 scalar residual の function / fact 単位 debug-only 観測を追加した。`plan.md` は変更していない。
+- Zenn の試作段階方針、静的検査方針、性能追求方針を再確認し、cache key や dependency closure を弱めず、まず失敗 surface を具体化する方針にした。
+- subagent review では、entry-level reason だけでは alias / offset のどの fact が失敗しているかが潰れるため、`reproject_i32_scalar_return_facts_entry_result` 側に fact kind / index を持ったログを入れるべきと確認した。
+- `NEPL_RESOURCE_I32_STABLE_REPROJECTION_DEBUG=1` の native 実行だけで、stable entry 再投影の失敗 fact と candidate bypass の aggregate facts を stderr へ出すようにした。通常の `CompilerSession.loader_cache_stats_json()` には配列や fact 本体を追加せず、Web playground の測定 schema と通常 compile path のコストは増やさない。
+- focused regression の debug 実行 `tmp/i32_stable_reprojection_debug_unit_20260601.stderr` では、`function=i32_leaf`、`kind=alias`、`reason=ScalarType`、`ResourceSummaryStableTypeKey("u8")` のログを確認した。
+- `cargo check -p nepl-core -p nepl-language`、`cargo test -p nepl-core resource_summary_value --lib -- --nocapture`、`cargo test -p nepl-core function_memo_call --test functions -- --nocapture` を通した。
+- この checkpoint は観測基盤の追加であり、RPN same-session edit の residual 自体はまだ解消していない。次はこのログを RPN 相当の再現または alias / offset focused regression に適用し、`ParameterProjection` / `ScalarType` の狭い再投影境界を修正する。

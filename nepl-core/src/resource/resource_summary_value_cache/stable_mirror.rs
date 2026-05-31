@@ -1338,34 +1338,128 @@ pub(super) fn reproject_i32_scalar_return_facts_entry_result(
         aliases: entry
             .aliases
             .iter()
-            .map(|fact| reproject_i32_scalar_return_alias(ctx, fact))
+            .enumerate()
+            .map(|(index, fact)| {
+                let result = reproject_i32_scalar_return_alias(ctx, fact);
+                log_i32_scalar_stable_fact_reprojection_reject(ctx, "alias", index, fact, &result);
+                result
+            })
             .collect::<Result<Vec<_>, _>>()?,
         offsets: entry
             .offsets
             .iter()
-            .map(|fact| reproject_i32_scalar_return_offset(ctx, fact))
+            .enumerate()
+            .map(|(index, fact)| {
+                let result = reproject_i32_scalar_return_offset(ctx, fact);
+                log_i32_scalar_stable_fact_reprojection_reject(ctx, "offset", index, fact, &result);
+                result
+            })
             .collect::<Result<Vec<_>, _>>()?,
         relations: entry
             .relations
             .iter()
-            .map(|fact| reproject_i32_scalar_return_relation(ctx, fact))
+            .enumerate()
+            .map(|(index, fact)| {
+                let result = reproject_i32_scalar_return_relation(ctx, fact);
+                log_i32_scalar_stable_fact_reprojection_reject(
+                    ctx, "relation", index, fact, &result,
+                );
+                result
+            })
             .collect::<Result<Vec<_>, _>>()?,
         constants: entry
             .constants
             .iter()
-            .map(|fact| reproject_i32_scalar_return_constant(ctx, fact))
+            .enumerate()
+            .map(|(index, fact)| {
+                let result = reproject_i32_scalar_return_constant(ctx, fact);
+                log_i32_scalar_stable_fact_reprojection_reject(
+                    ctx, "constant", index, fact, &result,
+                );
+                result
+            })
             .collect::<Result<Vec<_>, _>>()?,
         return_conditions: entry
             .return_conditions
             .iter()
-            .map(|fact| reproject_i32_scalar_return_condition(ctx, fact))
+            .enumerate()
+            .map(|(index, fact)| {
+                let result = reproject_i32_scalar_return_condition(ctx, fact);
+                log_i32_scalar_stable_fact_reprojection_reject(
+                    ctx,
+                    "return_condition",
+                    index,
+                    fact,
+                    &result,
+                );
+                result
+            })
             .collect::<Result<Vec<_>, _>>()?,
         parameter_conditions: entry
             .parameter_conditions
             .iter()
-            .map(|fact| reproject_i32_scalar_parameter_condition(ctx, fact))
+            .enumerate()
+            .map(|(index, fact)| {
+                let result = reproject_i32_scalar_parameter_condition(ctx, fact);
+                log_i32_scalar_stable_fact_reprojection_reject(
+                    ctx,
+                    "parameter_condition",
+                    index,
+                    fact,
+                    &result,
+                );
+                result
+            })
             .collect::<Result<Vec<_>, _>>()?,
     })
+}
+
+/// i32 scalar stable entry の再投影失敗を fact 単位で出力する。
+///
+/// 通常の stats JSON は aggregate counter に留め、具体的な function / fact / projection の
+/// 文字列化は明示的な native 診断に限定する。これにより、Web playground の測定 schema と
+/// 通常 compile path のコストを増やさず、residual の root cause 調査だけを深くできる。
+#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+fn log_i32_scalar_stable_fact_reprojection_reject<T, StableFact>(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    kind: &'static str,
+    index: usize,
+    fact: &StableFact,
+    result: &Result<T, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject>,
+) where
+    StableFact: core::fmt::Debug,
+{
+    let Err(reason) = result else {
+        return;
+    };
+    if std::env::var_os("NEPL_RESOURCE_I32_STABLE_REPROJECTION_DEBUG").is_none() {
+        return;
+    }
+    if let Some(filter) = std::env::var("NEPL_RESOURCE_OP_TIMING_FUNCTION")
+        .ok()
+        .filter(|filter| !ctx.function.name.contains(filter.as_str()))
+    {
+        let _ = filter;
+        return;
+    }
+    std::eprintln!(
+        "[resource-i32-stable-reprojection] function={} kind={} index={} reason={:?} fact={:?}",
+        ctx.function.name,
+        kind,
+        index,
+        reason,
+        fact
+    );
+}
+
+#[cfg(any(target_os = "none", target_arch = "wasm32"))]
+fn log_i32_scalar_stable_fact_reprojection_reject<T, StableFact>(
+    _ctx: &ResourceSummaryTypeReprojection<'_>,
+    _kind: &'static str,
+    _index: usize,
+    _fact: &StableFact,
+    _result: &Result<T, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject>,
+) {
 }
 
 pub(super) fn stable_raw_alias_return_entry(
