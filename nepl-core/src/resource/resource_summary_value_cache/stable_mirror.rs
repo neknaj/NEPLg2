@@ -2113,6 +2113,32 @@ mod tests {
     }
 
     #[test]
+    fn stable_raw_init_param_cell_reprojects_owner_boundary_open_generic_value_type() {
+        let mut types = TypeCtx::new();
+        let value_ty = types.fresh_var(Some("T".to_string()));
+        let function = function_with_param(types.i32());
+        let mut summary = empty_raw_init_summary(&function);
+        summary.param_cells.push(RawCellInitializationParamCell {
+            param_index: 0,
+            suffix: vec![
+                SummaryProjection::StorageOffset(SummaryOffset::Known(0)),
+                SummaryProjection::Deref,
+            ],
+            ty: value_ty,
+            holds_raw_address: false,
+        });
+        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+            .expect("labelled generic raw cell type should convert to a stable key");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[value_ty])
+            .expect("owner summary boundary should make the generic reprojectable");
+
+        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+            .expect("owner summary boundary should reproject the raw cell value type");
+
+        assert_eq!(reprojected, summary);
+    }
+
+    #[test]
     fn stable_raw_init_reprojection_reports_param_release_projection_mismatch() {
         let mut types = TypeCtx::new();
         let field = types.i32();
