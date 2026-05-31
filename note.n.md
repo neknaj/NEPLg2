@@ -47809,6 +47809,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - key hash の byte writer を `resource_summary_value_cache::stable_hash` へ分け、per-summary-value key と body hash が同じ区切り付き deterministic hash writer を使うようにした。
 - `resource_summary_value_cache::body_hash` は `ResourceFunction` の `Span` を hash せず、`TypeId` を stable type key へ変換し、temporary / block id を body 内 ordinal に正規化する。
 - subagent review では、`StorageId` は owner/checker state 側の割当に由来し、body だけでは安定した storage origin identity へ再投影できないと指摘された。また raw body は本文が `ResourceFunction` に残らないため、kind だけを hash すると stale hit になる。これを受け、`PlaceRoot::Storage(_)` と `RawBody` を含む function body は `None` で cache 候補から外す契約にした。
+## 2026-05-31 Agent Resource summary type reprojection checkpoint
+
+- Zenn の試作段階方針と性能追求方針を再確認した。`plan.md` は変更していない。
+- raw-init param facts stable entry の store/hit を阻んでいた `ResourceSummaryTypeReprojection` の false miss を修正した。function-local type parameter boundary は strict に登録し、同じ stable generic key が別 `TypeId` へ割れる場合は引き続き拒否する。
+- nominal definition tree の子型は boundary mapping を shadow しないよう、既存 stable key がある場合は追加登録しない。これにより `Wrapper<function T>.value` のような instantiated generic nominal field は、definition-side `T` ではなく function boundary `T` として再投影できる。
+- function signature 内に同じ stable nominal / structural type key が別 `TypeId` として現れる場合は同じ論理型として扱う。一方で open generic duplicate は再投影 ambiguity なので拒否する。
+- raw-init param facts の reprojection bypass counter を context 構築失敗と value 再投影失敗に分けた。RPN 測定で context 側が `52 -> 0` まで減ったことを確認し、残る value 側 25 件を `ISS-20260531T012124326Z-RESOURCE-SUMMARY-RAW-INIT-VALUE-REPR-88633148` に分離した。
+- release Web RPN same-session code edit 測定は、初回 `compile_ms=9870`、2 回目 `compile_ms=8512`。raw-init param facts は初回 `stores=163`、2 回目 `hits=142` / `resource_summary_value_replay_hits=142` だった。初回 0.5 秒未満にはまだ遠く、次は value replay canonicalization と complete raw-init mirror を進める必要がある。
+- subagent review では、strict boundary / child duplicate 分離に high severity の問題は見つからなかった。追加の signature duplicate 規則について Low 指摘があったため、nested open generic duplicate が owner summary boundary 経由で拒否されること、duplicate nominal / structural signature key が raw-init replay 時に現在 signature 由来の param index / type を保つことを regression として追加した。
+
 - nominal type は qualified definition identity がまだないため、`ResourceSummaryStableTypeKey` では `Named` / `Struct` / `Enum` を拒否する。primitive、tuple、function、box、reference、label 付き generic variable だけを現時点の保存候補にする。
 - 追加 regression として、body hash が Span を無視すること、body operation の変更を追跡すること、function-local temporary id を正規化すること、Storage root / RawBody / 無名 type variable / nominal type を拒否すること、per-summary-value key hash の golden value を固定した。
 

@@ -206,8 +206,9 @@ enum ResourceSummaryStableLifecycleOp {
 /// Resource summary value cache の長寿命 value には arena slot である `TypeId` を
 /// 保存しない。この context は現在の `ResourceFunction` signature と
 /// function-local type parameter boundary から、stable type key と現在の `TypeId` の
-/// 対応を再構築する。対応が一意に決まらない場合は cache replay 側が miss として
-/// 現行の summary build に戻れるよう、構築時点で `None` を返す。
+/// 対応を再構築する。呼び出し側は signature tree の奥にある open generic も含めた
+/// owner summary boundary を渡す。対応が一意に決まらない場合は cache replay 側が
+/// miss として現行の summary build に戻れるよう、構築時点で `None` を返す。
 pub(super) struct ResourceSummaryTypeReprojection<'a> {
     types: &'a TypeCtx,
     function: &'a ResourceFunction,
@@ -233,15 +234,15 @@ impl<'a> ResourceSummaryTypeReprojection<'a> {
         out.insert_required_type(types.char())?;
         out.insert_required_type(types.str())?;
         out.insert_required_type(types.never())?;
-        out.insert_type(function.result)?;
-        for param in &function.params {
-            out.insert_type(param.ty)?;
-        }
         for ty in &function.type_params {
             out.insert_required_type(*ty)?;
         }
         for ty in type_params {
             out.insert_required_type(*ty)?;
+        }
+        out.insert_type(function.result)?;
+        for param in &function.params {
+            out.insert_type(param.ty)?;
         }
         Some(out)
     }
@@ -250,17 +251,21 @@ impl<'a> ResourceSummaryTypeReprojection<'a> {
         let Some(key) = ResourceSummaryStableTypeKey::from_type(self.types, ty) else {
             return Some(());
         };
-        self.insert_type_key(ty, key)?;
+        self.insert_type_key_signature(ty, key)?;
         self.insert_type_children(ty, &mut BTreeSet::new())
     }
 
     fn insert_required_type(&mut self, ty: TypeId) -> Option<()> {
         let key = ResourceSummaryStableTypeKey::from_type(self.types, ty)?;
-        self.insert_type_key(ty, key)?;
+        self.insert_type_key_strict(ty, key)?;
         self.insert_type_children(ty, &mut BTreeSet::new())
     }
 
-    fn insert_type_key(&mut self, ty: TypeId, key: ResourceSummaryStableTypeKey) -> Option<()> {
+    fn insert_type_key_strict(
+        &mut self,
+        ty: TypeId,
+        key: ResourceSummaryStableTypeKey,
+    ) -> Option<()> {
         let resolved = self.types.resolve_id(ty);
         match self
             .type_map
@@ -274,6 +279,51 @@ impl<'a> ResourceSummaryTypeReprojection<'a> {
                 Some(())
             }
         }
+    }
+
+    fn insert_type_key_signature(
+        &mut self,
+        ty: TypeId,
+        key: ResourceSummaryStableTypeKey,
+    ) -> Option<()> {
+        let resolved = self.types.resolve_id(ty);
+        match self
+            .type_map
+            .iter()
+            .find(|(existing_key, _)| existing_key == &key)
+        {
+            Some((_, existing_ty))
+                if self.types.resolve_id(*existing_ty) != resolved
+                    && (self.type_is_open_generic(*existing_ty)
+                        || self.type_is_open_generic(resolved)) =>
+            {
+                None
+            }
+            Some(_) => Some(()),
+            None => {
+                self.type_map.push((key, resolved));
+                Some(())
+            }
+        }
+    }
+
+    fn insert_type_key_if_absent(&mut self, ty: TypeId, key: ResourceSummaryStableTypeKey) {
+        let resolved = self.types.resolve_id(ty);
+        if self
+            .type_map
+            .iter()
+            .any(|(existing_key, _)| existing_key == &key)
+        {
+            return;
+        }
+        self.type_map.push((key, resolved));
+    }
+
+    fn type_is_open_generic(&self, ty: TypeId) -> bool {
+        matches!(
+            self.types.get_ref(self.types.resolve_id(ty)),
+            TypeKind::Var(var) if var.binding.is_none()
+        )
     }
 
     fn reproject_type(&self, key: &ResourceSummaryStableTypeKey) -> Option<TypeId> {
@@ -301,7 +351,7 @@ impl<'a> ResourceSummaryTypeReprojection<'a> {
             | TypeKind::Named(_) => {}
             TypeKind::Var(var) => {
                 if let Some(binding) = var.binding {
-                    self.insert_type_tree_required(binding, seen)?;
+                    self.insert_type_tree_child(binding, seen)?;
                 }
             }
             TypeKind::Enum {
@@ -310,11 +360,11 @@ impl<'a> ResourceSummaryTypeReprojection<'a> {
                 ..
             } => {
                 for type_param in type_params {
-                    self.insert_type_tree_required(type_param, seen)?;
+                    self.insert_type_tree_child(type_param, seen)?;
                 }
                 for variant in variants {
                     if let Some(payload) = variant.payload {
-                        self.insert_type_tree_required(payload, seen)?;
+                        self.insert_type_tree_child(payload, seen)?;
                     }
                 }
             }
@@ -324,15 +374,15 @@ impl<'a> ResourceSummaryTypeReprojection<'a> {
                 ..
             } => {
                 for type_param in type_params {
-                    self.insert_type_tree_required(type_param, seen)?;
+                    self.insert_type_tree_child(type_param, seen)?;
                 }
                 for field in fields {
-                    self.insert_type_tree_required(field, seen)?;
+                    self.insert_type_tree_child(field, seen)?;
                 }
             }
             TypeKind::Tuple { items } => {
                 for item in items {
-                    self.insert_type_tree_required(item, seen)?;
+                    self.insert_type_tree_child(item, seen)?;
                 }
             }
             TypeKind::Function {
@@ -342,30 +392,30 @@ impl<'a> ResourceSummaryTypeReprojection<'a> {
                 ..
             } => {
                 for type_param in type_params {
-                    self.insert_type_tree_required(type_param, seen)?;
+                    self.insert_type_tree_child(type_param, seen)?;
                 }
                 for param in params {
-                    self.insert_type_tree_required(param, seen)?;
+                    self.insert_type_tree_child(param, seen)?;
                 }
-                self.insert_type_tree_required(result, seen)?;
+                self.insert_type_tree_child(result, seen)?;
             }
             TypeKind::Apply { base, args } => {
-                self.insert_type_tree_required(base, seen)?;
+                self.insert_type_tree_child(base, seen)?;
                 for arg in args {
-                    self.insert_type_tree_required(arg, seen)?;
+                    self.insert_type_tree_child(arg, seen)?;
                 }
             }
             TypeKind::Box(inner) | TypeKind::Reference(inner, _) => {
-                self.insert_type_tree_required(inner, seen)?;
+                self.insert_type_tree_child(inner, seen)?;
             }
         }
         seen.remove(&resolved);
         Some(())
     }
 
-    fn insert_type_tree_required(&mut self, ty: TypeId, seen: &mut BTreeSet<TypeId>) -> Option<()> {
+    fn insert_type_tree_child(&mut self, ty: TypeId, seen: &mut BTreeSet<TypeId>) -> Option<()> {
         let key = ResourceSummaryStableTypeKey::from_type(self.types, ty)?;
-        self.insert_type_key(ty, key)?;
+        self.insert_type_key_if_absent(ty, key);
         self.insert_type_children(ty, seen)
     }
 }
@@ -1590,6 +1640,177 @@ mod tests {
 
         let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
             .expect("nominal field fact should reproject");
+
+        assert_eq!(reprojected, summary);
+    }
+
+    #[test]
+    fn stable_raw_init_param_facts_reprojects_instantiated_generic_nominal_field_type() {
+        let mut types = TypeCtx::new();
+        let definition_generic = types.fresh_var(Some("T".to_string()));
+        let nominal = types.register_named_with_stable_identity(
+            "Wrapper".to_string(),
+            TypeKind::Struct {
+                name: "Wrapper".to_string(),
+                type_params: vec![definition_generic],
+                fields: vec![definition_generic],
+                field_names: vec!["value".to_string()],
+            },
+            nominal_struct_identity("Wrapper"),
+        );
+        let function_generic = types.fresh_var(Some("T".to_string()));
+        let applied = types.apply(nominal, vec![function_generic]);
+        let mut function = function_with_params(vec![("storage", applied)], types.unit());
+        function.type_params.push(function_generic);
+        let summary = RawCellInitializationFunctionSummary {
+            function: function.name.clone(),
+            return_cells: Vec::new(),
+            return_byte_ranges: Vec::new(),
+            param_cells: vec![RawCellInitializationParamCell {
+                param_index: 0,
+                suffix: vec![SummaryProjection::Field {
+                    index: 0,
+                    offset_bytes: 0,
+                }],
+                ty: function_generic,
+                holds_raw_address: false,
+            }],
+            param_byte_ranges: Vec::new(),
+            param_release_requirements: Vec::new(),
+            variant_param_cells: Vec::new(),
+            variant_param_byte_ranges: Vec::new(),
+            variant_required_param_cells: Vec::new(),
+            variant_conditions: Vec::new(),
+        };
+        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+            .expect("instantiated generic nominal field param facts should convert");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[function_generic])
+            .expect("definition generic should not shadow the instantiated boundary generic");
+
+        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+            .expect("instantiated generic nominal field fact should reproject");
+
+        assert_eq!(reprojected, summary);
+    }
+
+    #[test]
+    fn stable_type_reprojection_accepts_duplicate_nominal_signature_keys() {
+        let mut types = TypeCtx::new();
+        let identity = nominal_struct_identity("StableRecord");
+        let first = types.register_named_with_stable_identity(
+            "FirstRecord".to_string(),
+            TypeKind::Struct {
+                name: "FirstRecord".to_string(),
+                type_params: Vec::new(),
+                fields: vec![types.i32()],
+                field_names: vec!["value".to_string()],
+            },
+            identity.clone(),
+        );
+        let second = types.register_named_with_stable_identity(
+            "SecondRecord".to_string(),
+            TypeKind::Struct {
+                name: "SecondRecord".to_string(),
+                type_params: Vec::new(),
+                fields: vec![types.i32()],
+                field_names: vec!["value".to_string()],
+            },
+            identity,
+        );
+        let function =
+            function_with_params(vec![("first", first), ("second", second)], types.unit());
+
+        assert!(ResourceSummaryTypeReprojection::new(&types, &function, &[]).is_some());
+        let summary = RawCellInitializationFunctionSummary {
+            function: function.name.clone(),
+            return_cells: Vec::new(),
+            return_byte_ranges: Vec::new(),
+            param_cells: vec![RawCellInitializationParamCell {
+                param_index: 1,
+                suffix: Vec::new(),
+                ty: second,
+                holds_raw_address: false,
+            }],
+            param_byte_ranges: Vec::new(),
+            param_release_requirements: Vec::new(),
+            variant_param_cells: Vec::new(),
+            variant_param_byte_ranges: Vec::new(),
+            variant_required_param_cells: Vec::new(),
+            variant_conditions: Vec::new(),
+        };
+        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+            .expect("duplicate nominal signature fact should convert");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("duplicate nominal stable keys should be accepted as signature aliases");
+
+        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+            .expect("duplicate nominal fact should replay from current signature");
+
+        assert_eq!(reprojected, summary);
+    }
+
+    #[test]
+    fn stable_type_reprojection_rejects_duplicate_open_generic_signature_keys() {
+        let mut types = TypeCtx::new();
+        let first = types.fresh_var(Some("T".to_string()));
+        let second = types.fresh_var(Some("T".to_string()));
+        let function =
+            function_with_params(vec![("first", first), ("second", second)], types.unit());
+
+        assert!(ResourceSummaryTypeReprojection::new(&types, &function, &[]).is_none());
+    }
+
+    #[test]
+    fn stable_type_reprojection_rejects_nested_open_generic_duplicates_through_boundary() {
+        let mut types = TypeCtx::new();
+        let first_generic = types.fresh_var(Some("T".to_string()));
+        let second_generic = types.fresh_var(Some("T".to_string()));
+        let first_box = types.box_ty(first_generic);
+        let second_box = types.box_ty(second_generic);
+        let function = function_with_params(
+            vec![("first", first_box), ("second", second_box)],
+            types.unit(),
+        );
+        let boundary = super::super::super::owner_summary_type_params::owner_summary_type_params(
+            &types, &function,
+        );
+
+        assert_eq!(boundary.len(), 2);
+        assert!(ResourceSummaryTypeReprojection::new(&types, &function, &boundary).is_none());
+    }
+
+    #[test]
+    fn stable_raw_init_param_facts_reprojects_duplicate_structural_signature_key() {
+        let mut types = TypeCtx::new();
+        let item = types.i32();
+        let first = types.tuple(vec![item]);
+        let second = types.tuple(vec![item]);
+        let function =
+            function_with_params(vec![("first", first), ("second", second)], types.unit());
+        let summary = RawCellInitializationFunctionSummary {
+            function: function.name.clone(),
+            return_cells: Vec::new(),
+            return_byte_ranges: Vec::new(),
+            param_cells: vec![RawCellInitializationParamCell {
+                param_index: 1,
+                suffix: Vec::new(),
+                ty: second,
+                holds_raw_address: false,
+            }],
+            param_byte_ranges: Vec::new(),
+            param_release_requirements: Vec::new(),
+            variant_param_cells: Vec::new(),
+            variant_param_byte_ranges: Vec::new(),
+            variant_required_param_cells: Vec::new(),
+            variant_conditions: Vec::new(),
+        };
+        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+            .expect("duplicate structural signature fact should convert");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("duplicate structural stable keys should be accepted as signature aliases");
+
+        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+            .expect("duplicate structural fact should replay from current signature");
 
         assert_eq!(reprojected, summary);
     }

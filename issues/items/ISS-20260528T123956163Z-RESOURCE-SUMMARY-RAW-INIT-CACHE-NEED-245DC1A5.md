@@ -27,6 +27,7 @@ RPN same-session code edit reports raw_init_param_facts_incomplete_leaf_bypasses
 - 現在の `ResourceSummaryStableRawInitParamFactsLeafEntry` は `param_cells` と `param_release_requirements` だけを保存し、`return_cells` / byte-range facts / variant facts を含む summary surface は完全再投影できないため no-store に倒している。
 - partial summary を保存すると replay 後の raw initialization proof が欠落するため、byte-range / variant / return facts は個別にではなく complete entry として設計する必要がある。
 - 2026-05-31 の raw-init stable entry checkpoint 後も RPN same-session code edit の初回 compile で `raw_init_param_facts_incomplete_leaf_bypasses=37` が残った。これは complete param facts stable entry の問題ではなく、byte-range / variant / return facts の complete mirror 不足として継続する。
+- 2026-05-31 の type reprojection checkpoint 後も `raw_init_param_facts_incomplete_leaf_bypasses=37` は変わっていない。generic nominal / signature duplicate 再投影は store/hit を増やしたが、return / byte-range / variant facts を含む summary surface は依然として complete mirror 設計待ちである。
 
 ## 問題
 

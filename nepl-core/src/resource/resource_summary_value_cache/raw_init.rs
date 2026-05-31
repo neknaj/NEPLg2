@@ -23,7 +23,8 @@ pub(in crate::resource) enum RawInitParamFactsLeafEntryCandidateReject {
     MissingSourcePolicy,
     UnstableKey,
     UnstableEntry(ResourceSummaryStableRawInitParamFactsLeafEntryReject),
-    Reprojection,
+    ReprojectionContext,
+    ReprojectionValue,
 }
 
 impl ResourceSummaryValueCache {
@@ -64,12 +65,12 @@ impl ResourceSummaryValueCache {
             .map_err(RawInitParamFactsLeafEntryCandidateReject::UnstableEntry)?;
         let Some(reprojection) = ResourceSummaryTypeReprojection::new(types, function, type_params)
         else {
-            return Err(RawInitParamFactsLeafEntryCandidateReject::Reprojection);
+            return Err(RawInitParamFactsLeafEntryCandidateReject::ReprojectionContext);
         };
         if reproject_raw_init_param_facts_leaf_entry(&reprojection, &function.name, &entry)
             .is_none()
         {
-            return Err(RawInitParamFactsLeafEntryCandidateReject::Reprojection);
+            return Err(RawInitParamFactsLeafEntryCandidateReject::ReprojectionValue);
         }
         Ok(ResourceSummaryRawInitParamFactsLeafEntryCandidate { key, entry })
     }
@@ -124,9 +125,20 @@ impl ResourceSummaryValueCache {
                     fact_count;
                 self.record_raw_init_unstable_entry_bypass(reason, fact_count);
             }
-            RawInitParamFactsLeafEntryCandidateReject::Reprojection => {
+            RawInitParamFactsLeafEntryCandidateReject::ReprojectionContext => {
                 self.stats
                     .resource_summary_value_raw_init_param_facts_reprojection_bypasses +=
+                    fact_count;
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_context_bypasses +=
+                    fact_count;
+            }
+            RawInitParamFactsLeafEntryCandidateReject::ReprojectionValue => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_bypasses +=
+                    fact_count;
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_value_bypasses +=
                     fact_count;
             }
         }
