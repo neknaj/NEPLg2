@@ -1563,6 +1563,35 @@ contract として扱わない。
 stable public ABI / link symbol、generic impl bound は残る。したがって、この checkpoint 後も
 dependency body skip へ進む前に materializer authority の残件を解消する必要がある。
 
+### 2026-06-01 `.neplmeta` binder-indexed generic surface checkpoint
+
+structured public surface の generic parameter 表現を、binder metadata と binder reference に
+分離した。`PublicTypeParam` は binder 側の parameter name / capability / index を表し、
+type term 内の参照は `PublicTypeParamRef { binder_depth, index }` だけを保持する。これにより、
+同名 `.T` が複数の binder に現れても、`.neplmeta` materializer は名前ではなく binder 位置で
+現在 compile の fresh `TypeId` へ対応付けられる。
+
+`binder_depth=0` は最も内側の binder を指す。generic function type が type parameter を導入する
+場合、その function type の内側では新しい binder が depth 0 になり、外側 binder は depth 1
+以降へ押し出される。type parameter を導入しない function type では新しい binder を作らないため、
+外側 generic parameter の depth は変えない。
+
+callable の trait bound は function type term の外側にある surface field だが、対象 parameter は
+root function binder の `PublicTypeParamRef` で表す。binder が確定できない bound target は
+`PublicTypeParamBoundTarget::Unbound`、term 側では `PublicTypeTerm::UnboundGenericParam` として
+残す。これは推測して materialize する fallback ではなく、materializer が fail-closed に拒否して
+通常の source load / typecheck へ戻るための明示的な不完全 payload である。
+
+この payload 形状変更に合わせ、structured surface hash namespace は
+`neplg2-typed-public-surface-v3`、`.neplmeta` schema / artifact hash / compiler identity は v4
+へ上げた。binder-indexed generic reference を持たない古い `.neplmeta` artifact を同じ contract
+として扱わない。
+
+まだ `PublicTypeTerm::Named { identity: None }`、`PublicTypeTerm::UnboundGenericParam`、
+`PublicTypeParamBoundTarget::Unbound` を materializer で fail-closed に拒否する実装が必要である。
+trait identity、field accessor surface、stable public ABI / link symbol、generic impl bound、
+reexport / prelude edge と module canonical path も引き続き dependency body skip の前提として残る。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

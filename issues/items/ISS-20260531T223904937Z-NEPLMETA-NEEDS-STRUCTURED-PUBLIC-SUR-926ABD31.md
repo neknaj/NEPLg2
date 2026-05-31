@@ -105,11 +105,40 @@ structured public surface hash namespace は `neplg2-typed-public-surface-v2` �
 - `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
 - `cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture`
 
+## 2026-06-01 binder-indexed generic surface checkpoint
+
+`PublicTypeParamRef { binder_depth, index }` を追加し、`PublicTypeTerm::GenericParam` は `PublicTypeParam` 全体ではなく binder reference だけを保持するようにした。
+
+`PublicTypeParam` は binder metadata に限定する。term 側へ name / capability / index を複製しないことで、`.neplmeta` materializer が同名 generic parameter を名前だけで誤対応させる経路を閉じる。
+
+nested generic function type では、inner function が type parameter を導入する場合だけ外側 binder depth を 1 つ押し出す。type parameter を導入しない function type は新しい binder を作らない。これにより、`%fn .T .T` のような function type と、`%fn .T fn .T .T` のような nested generic function type を区別できる。
+
+callable の trait bound は `PublicTypeParamBoundTarget` で表す。root function binder に対応できる場合は `Ref(PublicTypeParamRef)`、対応できない場合は `Unbound(PublicTypeParam)` とし、後者は将来 materializer が fail-closed に拒否する。
+
+structured public surface hash namespace は `neplg2-typed-public-surface-v3` に上げた。payload 形状が変わったため `.neplmeta` schema、artifact hash version、compiler identity は v4 に上げた。
+
+検証:
+
+- `cargo check -p nepl-core -p nepl-language`
+- `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
+- `cargo test -p nepl-core public_type_term_shifts_outer_generic_refs_inside_nested_generic_function --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture`
+- `cargo test -p nepl-core generics --lib -- --nocapture`
+- `cargo test -p nepl-core --test generics -- --nocapture`
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `trunk build --release`
+- `node nodesrc/test_run_test_compiler_session.js`
+- `node nodesrc/test_playground_compiler_session_policy.js`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-binder-generic-surface-20260601.json`
+- `node nodesrc/issues.js check --dir issues`
+- `git diff --check`
+
 残件:
 
 - `PublicTypeTerm::Named` の identity が `None` の entry を materializer で fail-closed に拒否する。
 - trait identity はまだ `PublicTraitRef.name` に依存しているため、trait definition の stable identity を導入する。
-- `GenericParam(PublicTypeParam)` を materializer authority にしない。binder-indexed parameter reference を導入し、同名 nested generic parameter の衝突を防ぐ。
+- `PublicTypeTerm::UnboundGenericParam` と `PublicTypeParamBoundTarget::Unbound` を materializer で fail-closed に拒否する。
 - callable surface に field accessor kind と stable public ABI/link symbol を追加する。ただし span-derived `mangle_function_symbol_for_def` は保存しない。
 - generic impl parameter / bound を round-trip できるようにするか、materializer では fail-closed に拒否する。
 - reexport / prelude edge と module canonical path を per-module `.neplmeta` surface に追加する。

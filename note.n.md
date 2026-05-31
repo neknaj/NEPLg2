@@ -1,3 +1,14 @@
+# 2026-06-01 .neplmeta binder-indexed generic surface checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、DAG 化、キャッシュによる探索空間削減、試作段階でも品質を落とさない方針を再確認した。
+- remote/main 同期済みの `perf/neplmeta-binder-generic-surface-20260601` branch で、`.neplmeta` structured public surface の generic parameter 表現を binder-indexed reference へ変更した。`plan.md` は変更していない。
+- subagent 2 件で `.neplmeta` generic surface と `memo_call` / PrivateCache sealed region を独立レビューした。`.neplmeta` 側は `PublicTypeParam` を term 側へ複製せず `binder_depth/index` だけで参照するべきと確認した。`memo_call` 側は `UnsealedIntrinsic` や SourceCapability だけでは pure mask proof にならず、sealed fresh private region proof を次 checkpoint にするべきと確認した。
+- `PublicTypeParamRef { binder_depth, index }` と `PublicTypeParamBoundTarget` を追加し、`PublicTypeTerm::GenericParam` は binder metadata ではなく binder reference だけを保持するようにした。対応する binder を確定できない generic variable は `UnboundGenericParam` / `Unbound` として残し、将来 materializer が fail-closed にできる。
+- nested generic function type では、inner function が type parameter を導入する場合だけ外側 binder depth を 1 つ押し出す。これにより、内外に同名 `.T` がある surface でも名前ではなく binder 位置で対応付ける。
+- structured public surface hash namespace を `neplg2-typed-public-surface-v3` に上げ、`.neplmeta` schema / artifact hash / compiler identity を v4 に上げた。binder-indexed generic reference を持たない payload と同じ artifact contract として扱わないためである。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core public_type_term_shifts_outer_generic_refs_inside_nested_generic_function --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture`、`cargo test -p nepl-core generics --lib -- --nocapture`、`cargo test -p nepl-core --test generics -- --nocapture`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-binder-generic-surface-20260601.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。生成 JSON は `caseCount=13`、`passedCount=13`、`failedCount=0` を確認した。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+- 残件: `UnboundGenericParam` / `PublicTypeParamBoundTarget::Unbound` と `PublicTypeTerm::Named { identity: None }` を materializer で fail-closed に拒否する。trait identity、field accessor surface、stable public ABI/link symbol、generic impl bound、reexport / prelude edge と module canonical path はまだ materializer authority として不足している。
+
 # 2026-06-01 .neplmeta stable nominal surface checkpoint
 
 - remote/main 同期済みの `perf/neplmeta-stable-nominal-surface-20260601` branch で、`.neplmeta` structured public surface の stable nominal identity を追加中。`plan.md` は変更していない。

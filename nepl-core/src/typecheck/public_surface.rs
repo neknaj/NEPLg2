@@ -13,9 +13,7 @@ use super::env::{BindingKind, Env};
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
 use super::public_signature::TypedPublicSignatureKind;
 use super::signature::signature_type_string;
-use super::traits::{
-    BoundEnv, ImplInfo, ImplKind, TraitApplication, TraitCapability, TraitInfo,
-};
+use super::traits::{BoundEnv, ImplInfo, ImplKind, TraitApplication, TraitCapability, TraitInfo};
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
@@ -71,7 +69,7 @@ pub struct PublicCallableSurface {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicTypeParamBounds {
-    pub param: PublicTypeTerm,
+    pub param: PublicTypeParamBoundTarget,
     pub bounds: Vec<PublicTraitRef>,
 }
 
@@ -145,6 +143,35 @@ pub struct PublicTypeParam {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PublicTypeParamRef {
+    /// 現在の type expression から見た generic binder の深さ。
+    ///
+    /// `0` は最も内側の binder を指す。generic function type の内側に入った場合、
+    /// その function type が type parameter を導入すると、外側の binder は `1` 以降へ
+    /// 押し出される。この値は `.neplmeta` materializer が同名 generic parameter を
+    /// 名前だけで誤対応させないための authority である。
+    pub binder_depth: u32,
+    /// `binder_depth` が指す binder 内での parameter index。
+    ///
+    /// index は `PublicTypeTerm::Function.type_params` や nominal type surface の
+    /// `type_params` と対応する。`PublicTypeParam` 全体を term 側へ複製しないことで、
+    /// binder metadata と binder reference の責務を分ける。
+    pub index: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PublicTypeParamBoundTarget {
+    /// structured public surface 内で対応する binder を確定できた bound target。
+    Ref(PublicTypeParamRef),
+    /// 対応する binder を確定できなかった bound target。
+    ///
+    /// これは互換性のために推測して materialize してよい値ではない。将来の
+    /// `.neplmeta` materializer はこの variant を fail-closed に扱い、dependency
+    /// body skip へ進まず通常の source load / typecheck に戻す。
+    Unbound(PublicTypeParam),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicNominalTypeIdentity {
     pub kind: PublicNominalTypeKind,
     pub source_path: String,
@@ -173,7 +200,8 @@ pub enum PublicTypeTerm {
         name: String,
         identity: Option<PublicNominalTypeIdentity>,
     },
-    GenericParam(PublicTypeParam),
+    GenericParam(PublicTypeParamRef),
+    UnboundGenericParam(PublicTypeParam),
     Tuple(Vec<PublicTypeTerm>),
     Function {
         type_params: Vec<PublicTypeParam>,
@@ -215,7 +243,7 @@ pub enum PublicStructConstructorPolicy {
 
 fn typed_public_surface_hash(entries: &[TypedPublicSurfaceEntry]) -> u64 {
     let mut hash = FNV1A64_OFFSET;
-    hash_str(&mut hash, "neplg2-typed-public-surface-v2");
+    hash_str(&mut hash, "neplg2-typed-public-surface-v3");
     for entry in entries {
         hash_str(&mut hash, entry.kind.as_str());
         hash_str(&mut hash, entry.name.as_str());
@@ -234,7 +262,7 @@ fn hash_public_surface_shape(hash: &mut u64, shape: &PublicSurfaceShape) {
             hash_public_effect(hash, surface.effect);
             hash_u32(hash, surface.type_param_bounds.len() as u32);
             for bounds in &surface.type_param_bounds {
-                hash_public_type_term(hash, &bounds.param);
+                hash_public_type_param_bound_target(hash, &bounds.param);
                 hash_u32(hash, bounds.bounds.len() as u32);
                 for bound in &bounds.bounds {
                     hash_public_trait_ref(hash, bound);
@@ -250,7 +278,10 @@ fn hash_public_surface_shape(hash: &mut u64, shape: &PublicSurfaceShape) {
                 hash_str(hash, field.name.as_str());
                 hash_public_type_term(hash, &field.ty);
             }
-            hash_str(hash, public_struct_constructor_policy_tag(surface.constructor_policy));
+            hash_str(
+                hash,
+                public_struct_constructor_policy_tag(surface.constructor_policy),
+            );
         }
         PublicSurfaceShape::Enum(surface) => {
             hash_str(hash, "enum");
@@ -336,8 +367,12 @@ fn hash_public_type_term(hash: &mut u64, term: &PublicTypeTerm) {
             hash_str(hash, name.as_str());
             hash_optional_public_nominal_identity(hash, identity.as_ref());
         }
-        PublicTypeTerm::GenericParam(param) => {
-            hash_str(hash, "generic");
+        PublicTypeTerm::GenericParam(param_ref) => {
+            hash_str(hash, "generic-ref");
+            hash_public_type_param_ref(hash, param_ref);
+        }
+        PublicTypeTerm::UnboundGenericParam(param) => {
+            hash_str(hash, "unbound-generic");
             hash_public_type_param(hash, param);
         }
         PublicTypeTerm::Tuple(items) => {
@@ -378,6 +413,24 @@ fn hash_public_type_term(hash: &mut u64, term: &PublicTypeTerm) {
             hash_str(hash, "ref");
             hash_bool(hash, *mutable);
             hash_public_type_term(hash, inner);
+        }
+    }
+}
+
+fn hash_public_type_param_ref(hash: &mut u64, param_ref: &PublicTypeParamRef) {
+    hash_u32(hash, param_ref.binder_depth);
+    hash_u32(hash, param_ref.index);
+}
+
+fn hash_public_type_param_bound_target(hash: &mut u64, target: &PublicTypeParamBoundTarget) {
+    match target {
+        PublicTypeParamBoundTarget::Ref(param_ref) => {
+            hash_str(hash, "ref");
+            hash_public_type_param_ref(hash, param_ref);
+        }
+        PublicTypeParamBoundTarget::Unbound(param) => {
+            hash_str(hash, "unbound");
+            hash_public_type_param(hash, param);
         }
     }
 }
@@ -523,7 +576,7 @@ pub(super) fn build_typed_public_surface_table(
                         type_param_bounds: public_type_param_bounds(
                             ctx,
                             type_param_bounds,
-                            &BTreeMap::new(),
+                            &public_function_root_generics(ctx, binding.ty),
                         ),
                     }),
                 });
@@ -651,12 +704,12 @@ fn public_impl_surface(ctx: &TypeCtx, info: &ImplInfo) -> PublicImplSurface {
 fn public_type_param_bounds(
     ctx: &TypeCtx,
     bounds: &BoundEnv,
-    generics: &BTreeMap<TypeId, PublicTypeParam>,
+    generics: &BTreeMap<TypeId, PublicTypeParamRef>,
 ) -> Vec<PublicTypeParamBounds> {
     let mut out = bounds
         .iter()
         .map(|(type_param, trait_bounds)| PublicTypeParamBounds {
-            param: public_type_term(ctx, type_param.type_id(), generics),
+            param: public_type_param_bound_target(ctx, type_param.type_id(), generics),
             bounds: trait_bounds
                 .iter()
                 .map(|bound| public_trait_ref_from_application(ctx, &bound.application, generics))
@@ -667,10 +720,21 @@ fn public_type_param_bounds(
     out
 }
 
+fn public_type_param_bound_target(
+    ctx: &TypeCtx,
+    type_param: TypeId,
+    generics: &BTreeMap<TypeId, PublicTypeParamRef>,
+) -> PublicTypeParamBoundTarget {
+    match generics.get(&ctx.resolve_id(type_param)) {
+        Some(param_ref) => PublicTypeParamBoundTarget::Ref(param_ref.clone()),
+        None => PublicTypeParamBoundTarget::Unbound(public_type_param(ctx, type_param, 0)),
+    }
+}
+
 fn public_trait_ref_from_application(
     ctx: &TypeCtx,
     application: &TraitApplication,
-    generics: &BTreeMap<TypeId, PublicTypeParam>,
+    generics: &BTreeMap<TypeId, PublicTypeParamRef>,
 ) -> PublicTraitRef {
     PublicTraitRef {
         name: String::from(application.trait_id.as_str()),
@@ -685,15 +749,44 @@ fn public_trait_ref_from_application(
 fn public_type_params(
     ctx: &TypeCtx,
     type_params: &[TypeId],
-) -> (Vec<PublicTypeParam>, BTreeMap<TypeId, PublicTypeParam>) {
+) -> (Vec<PublicTypeParam>, BTreeMap<TypeId, PublicTypeParamRef>) {
     let mut params = Vec::new();
     let mut generics = BTreeMap::new();
     for (index, type_param) in type_params.iter().enumerate() {
         let param = public_type_param(ctx, *type_param, index);
-        generics.insert(ctx.resolve_id(*type_param), param.clone());
+        generics.insert(
+            ctx.resolve_id(*type_param),
+            PublicTypeParamRef {
+                binder_depth: 0,
+                index: usize_to_u32_saturating(index),
+            },
+        );
         params.push(param);
     }
     (params, generics)
+}
+
+fn public_function_root_generics(
+    ctx: &TypeCtx,
+    ty: TypeId,
+) -> BTreeMap<TypeId, PublicTypeParamRef> {
+    match ctx.get(ctx.resolve_id(ty)) {
+        TypeKind::Function { type_params, .. } => public_type_params(ctx, &type_params).1,
+        _ => BTreeMap::new(),
+    }
+}
+
+fn increment_generic_binder_depths(
+    generics: &BTreeMap<TypeId, PublicTypeParamRef>,
+) -> BTreeMap<TypeId, PublicTypeParamRef> {
+    generics
+        .iter()
+        .map(|(type_id, param_ref)| {
+            let mut shifted = param_ref.clone();
+            shifted.binder_depth = shifted.binder_depth.saturating_add(1);
+            (*type_id, shifted)
+        })
+        .collect()
 }
 
 fn public_type_param(ctx: &TypeCtx, type_param: TypeId, index: usize) -> PublicTypeParam {
@@ -713,10 +806,7 @@ fn public_type_param(ctx: &TypeCtx, type_param: TypeId, index: usize) -> PublicT
     }
 }
 
-fn public_nominal_type_identity(
-    ctx: &TypeCtx,
-    ty: TypeId,
-) -> Option<PublicNominalTypeIdentity> {
+fn public_nominal_type_identity(ctx: &TypeCtx, ty: TypeId) -> Option<PublicNominalTypeIdentity> {
     let identity = ctx.nominal_stable_identity(ty)?;
     Some(PublicNominalTypeIdentity {
         kind: public_nominal_type_kind(identity.kind()),
@@ -737,7 +827,7 @@ fn public_nominal_type_kind(kind: NominalStableTypeKind) -> PublicNominalTypeKin
 fn public_type_term(
     ctx: &TypeCtx,
     ty: TypeId,
-    generics: &BTreeMap<TypeId, PublicTypeParam>,
+    generics: &BTreeMap<TypeId, PublicTypeParamRef>,
 ) -> PublicTypeTerm {
     let resolved = ctx.resolve_id(ty);
     if let Some(param) = generics.get(&resolved) {
@@ -756,12 +846,10 @@ fn public_type_term(
             name,
             identity: None,
         },
-        TypeKind::Enum { name, .. } | TypeKind::Struct { name, .. } => {
-            PublicTypeTerm::Named {
-                name,
-                identity: public_nominal_type_identity(ctx, resolved),
-            }
-        }
+        TypeKind::Enum { name, .. } | TypeKind::Struct { name, .. } => PublicTypeTerm::Named {
+            name,
+            identity: public_nominal_type_identity(ctx, resolved),
+        },
         TypeKind::Tuple { items } => PublicTypeTerm::Tuple(
             items
                 .iter()
@@ -775,7 +863,11 @@ fn public_type_term(
             effect,
         } => {
             let (function_params, function_generics) = public_type_params(ctx, &type_params);
-            let mut scoped_generics = generics.clone();
+            let mut scoped_generics = if type_params.is_empty() {
+                generics.clone()
+            } else {
+                increment_generic_binder_depths(generics)
+            };
             scoped_generics.extend(function_generics);
             PublicTypeTerm::Function {
                 type_params: function_params,
@@ -787,7 +879,7 @@ fn public_type_term(
                 effect: public_effect_from_ast(effect),
             }
         }
-        TypeKind::Var(var) => PublicTypeTerm::GenericParam(PublicTypeParam {
+        TypeKind::Var(var) => PublicTypeTerm::UnboundGenericParam(PublicTypeParam {
             name: var.label.unwrap_or_else(|| String::from("$unbound")),
             copy_cap: var.copy_cap,
             clone_cap: var.clone_cap,
@@ -800,9 +892,9 @@ fn public_type_term(
                 .map(|arg| public_type_term(ctx, *arg, generics))
                 .collect(),
         },
-        TypeKind::Box(inner) => PublicTypeTerm::Boxed(Box::new(public_type_term(
-            ctx, inner, generics,
-        ))),
+        TypeKind::Box(inner) => {
+            PublicTypeTerm::Boxed(Box::new(public_type_term(ctx, inner, generics)))
+        }
         TypeKind::Reference(inner, mutable) => PublicTypeTerm::Reference {
             inner: Box::new(public_type_term(ctx, inner, generics)),
             mutable,
@@ -834,16 +926,20 @@ fn usize_to_u32_saturating(value: usize) -> u32 {
 #[cfg(test)]
 mod tests {
     use alloc::string::String;
+    use alloc::vec::Vec;
 
+    use crate::ast::Effect;
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::lexer;
     use crate::parser;
     use crate::source_map::SourceMap;
     use crate::span::FileId;
     use crate::typecheck::{typecheck, TypeCheckResult};
+    use crate::types::TypeCtx;
 
     use super::{
-        PublicNominalTypeKind, PublicSurfaceShape, PublicTypeTerm, TypedPublicSignatureKind,
+        public_type_params, public_type_term, PublicNominalTypeKind, PublicSurfaceShape,
+        PublicTypeParamBoundTarget, PublicTypeParamRef, PublicTypeTerm, TypedPublicSignatureKind,
     };
 
     fn typecheck_source(source: &str) -> TypeCheckResult {
@@ -935,17 +1031,13 @@ mod tests {
     /// 後から parse するのではなく、この payload を fresh `TypeCtx` へ投影する前提を固定する。
     #[test]
     fn typed_public_surface_keeps_struct_fields_as_terms() {
-        let checked = typecheck_source(
-            "pub struct Pair:\n    left %i32\n    right %bool\n",
-        );
+        let checked = typecheck_source("pub struct Pair:\n    left %i32\n    right %bool\n");
 
         let pair = checked
             .public_surface
             .entries
             .iter()
-            .find(|entry| {
-                entry.kind == TypedPublicSignatureKind::Struct && entry.name == "Pair"
-            })
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Struct && entry.name == "Pair")
             .expect("Pair public surface");
         let PublicSurfaceShape::Struct(surface) = &pair.surface else {
             panic!("Pair must be a structured struct surface");
@@ -971,9 +1063,7 @@ mod tests {
             .public_surface
             .entries
             .iter()
-            .find(|entry| {
-                entry.kind == TypedPublicSignatureKind::Struct && entry.name == "Item"
-            })
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Struct && entry.name == "Item")
             .expect("Item public surface");
         let PublicSurfaceShape::Struct(surface) = &item.surface else {
             panic!("Item must be a structured struct surface");
@@ -1000,9 +1090,7 @@ mod tests {
             .public_surface
             .entries
             .iter()
-            .find(|entry| {
-                entry.kind == TypedPublicSignatureKind::Struct && entry.name == "Holder"
-            })
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Struct && entry.name == "Holder")
             .expect("Holder public surface");
         let PublicSurfaceShape::Struct(surface) = &holder.surface else {
             panic!("Holder must be a structured struct surface");
@@ -1017,5 +1105,157 @@ mod tests {
         assert_eq!(identity.source_path, "project/core/holder.nepl");
         assert_eq!(identity.name, "Item");
         assert_eq!(identity.arity, 0);
+    }
+
+    /// generic parameter term は binder 側の `PublicTypeParam` 全体を複製せず、
+    /// binder depth と index だけで参照する。これにより、同名 generic parameter を
+    /// materializer が名前だけで誤って対応付ける経路を閉じる。
+    #[test]
+    fn typed_public_surface_uses_binder_indexed_refs_for_struct_generic_fields() {
+        let checked = typecheck_source("pub struct Box<.T>:\n    value %.T\n");
+
+        let boxed = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Struct && entry.name == "Box")
+            .expect("Box public surface");
+        let PublicSurfaceShape::Struct(surface) = &boxed.surface else {
+            panic!("Box must be a structured struct surface");
+        };
+        assert_eq!(surface.type_params.len(), 1);
+        assert_eq!(surface.fields.len(), 1);
+        assert_eq!(
+            surface.fields[0].ty,
+            PublicTypeTerm::GenericParam(PublicTypeParamRef {
+                binder_depth: 0,
+                index: 0,
+            })
+        );
+    }
+
+    /// callable surface の root function generic も binder-indexed ref として保持する。
+    /// bounds や materializer は `Function.type_params[0]` と term 内の `.T` を
+    /// `binder_depth=0,index=0` で対応付けられる。
+    #[test]
+    fn typed_public_surface_uses_binder_indexed_refs_for_callable_generics() {
+        let checked = typecheck_source("pub fn id <.T> %fn .T .T \\x:\n    x\n");
+
+        let id = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Callable && entry.name == "id")
+            .expect("id public surface");
+        let PublicSurfaceShape::Callable(callable) = &id.surface else {
+            panic!("id must be a callable surface");
+        };
+        let PublicTypeTerm::Function {
+            type_params,
+            params,
+            result,
+            ..
+        } = &callable.ty
+        else {
+            panic!("id must have a function type surface");
+        };
+        assert_eq!(type_params.len(), 1);
+        assert_eq!(
+            params[0],
+            PublicTypeTerm::GenericParam(PublicTypeParamRef {
+                binder_depth: 0,
+                index: 0,
+            })
+        );
+        assert_eq!(
+            result.as_ref(),
+            &PublicTypeTerm::GenericParam(PublicTypeParamRef {
+                binder_depth: 0,
+                index: 0,
+            })
+        );
+    }
+
+    /// callable の trait bound は function type の外側にある surface field だが、
+    /// 対象 type parameter は root function binder の depth/index を参照する。
+    /// bounds だけ名前解決へ戻ると materializer が同名 generic を誤束縛するため、
+    /// bound target も binder-indexed ref として固定する。
+    #[test]
+    fn typed_public_surface_uses_binder_indexed_refs_for_callable_bounds() {
+        let checked = typecheck_source(
+            "trait Show:\n    fn show %fn Self i32 \\x:\n        0\npub fn call_show <.T: Show> %fn .T i32 \\x:\n    0\n",
+        );
+
+        let call_show = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Callable && entry.name == "call_show"
+            })
+            .expect("call_show public surface");
+        let PublicSurfaceShape::Callable(callable) = &call_show.surface else {
+            panic!("call_show must be a callable surface");
+        };
+        assert_eq!(callable.type_param_bounds.len(), 1);
+        assert_eq!(
+            callable.type_param_bounds[0].param,
+            PublicTypeParamBoundTarget::Ref(PublicTypeParamRef {
+                binder_depth: 0,
+                index: 0,
+            })
+        );
+        assert_eq!(callable.type_param_bounds[0].bounds.len(), 1);
+        assert_eq!(callable.type_param_bounds[0].bounds[0].name, "Show");
+    }
+
+    /// nested generic function type に入ると、その function の type parameter list が
+    /// depth 0 になり、外側 binder は depth 1 へ押し出される。この規則を固定して、
+    /// 同名 `.T` が内外にある場合でも名前ではなく binder 位置で対応付ける。
+    #[test]
+    fn public_type_term_shifts_outer_generic_refs_inside_nested_generic_function() {
+        let mut ctx = TypeCtx::new();
+        let outer_t = ctx.fresh_var(Some(String::from(".T")));
+        let inner_t = ctx.fresh_var(Some(String::from(".T")));
+        let nested_fn = ctx.function(
+            Vec::from([inner_t]),
+            Vec::from([inner_t, outer_t]),
+            outer_t,
+            Effect::Pure,
+        );
+        let (_outer_params, outer_generics) = public_type_params(&ctx, &[outer_t]);
+        let term = public_type_term(&ctx, nested_fn, &outer_generics);
+
+        let PublicTypeTerm::Function {
+            type_params,
+            params,
+            result,
+            ..
+        } = term
+        else {
+            panic!("nested_fn must surface as function");
+        };
+        assert_eq!(type_params.len(), 1);
+        assert_eq!(
+            params[0],
+            PublicTypeTerm::GenericParam(PublicTypeParamRef {
+                binder_depth: 0,
+                index: 0,
+            })
+        );
+        assert_eq!(
+            params[1],
+            PublicTypeTerm::GenericParam(PublicTypeParamRef {
+                binder_depth: 1,
+                index: 0,
+            })
+        );
+        assert_eq!(
+            result.as_ref(),
+            &PublicTypeTerm::GenericParam(PublicTypeParamRef {
+                binder_depth: 1,
+                index: 0,
+            })
+        );
     }
 }
