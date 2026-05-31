@@ -162,12 +162,47 @@ impl ResourceSummaryValueCache {
                     .resource_summary_value_raw_alias_return_entry_reprojection_context_bypasses +=
                     alias_count;
             }
-            RawAliasReturnEntryCandidateReject::ReprojectionValue(_) => {
+            RawAliasReturnEntryCandidateReject::ReprojectionValue(reason) => {
                 self.stats
                     .resource_summary_value_raw_alias_return_entry_reprojection_bypasses +=
                     alias_count;
                 self.stats
                     .resource_summary_value_raw_alias_return_entry_reprojection_value_bypasses +=
+                    alias_count;
+                self.record_raw_alias_reprojection_value_bypass(reason, alias_count);
+            }
+        }
+    }
+
+    fn record_raw_alias_reprojection_value_bypass(
+        &mut self,
+        reason: ResourceSummaryRawAliasReturnEntryReprojectionReject,
+        alias_count: usize,
+    ) {
+        match reason {
+            ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterIndex => {
+                self.stats
+                    .resource_summary_value_raw_alias_return_entry_reprojection_value_parameter_index_bypasses +=
+                    alias_count;
+            }
+            ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterProjection => {
+                self.stats
+                    .resource_summary_value_raw_alias_return_entry_reprojection_value_parameter_projection_bypasses +=
+                    alias_count;
+            }
+            ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterType => {
+                self.stats
+                    .resource_summary_value_raw_alias_return_entry_reprojection_value_parameter_type_bypasses +=
+                    alias_count;
+            }
+            ResourceSummaryRawAliasReturnEntryReprojectionReject::ReturnProjection => {
+                self.stats
+                    .resource_summary_value_raw_alias_return_entry_reprojection_value_return_projection_bypasses +=
+                    alias_count;
+            }
+            ResourceSummaryRawAliasReturnEntryReprojectionReject::ReturnType => {
+                self.stats
+                    .resource_summary_value_raw_alias_return_entry_reprojection_value_return_type_bypasses +=
                     alias_count;
             }
         }

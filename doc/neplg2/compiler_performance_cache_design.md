@@ -809,6 +809,22 @@ release WASM の RPN same-session code edit 測定 `tmp/rpn_empty_source_policy_
 
 `tmp/rpn_function_local_policy_empty_raw_init_filtered_code_edit_20260531.json` では、same-session code edit の `resource_raw_init_summary_recomputations` が `73` から `0` になった。raw-init replay bypass は引き続き `0` であり、下流へ渡す `resource_raw_init_summary_count` も `78` のまま維持した。一方で edit compile は `6105ms` でまだ秒単位であり、raw-init fixed-point は支配項ではなくなった。次は `resource_raw_alias_summary_recomputations=32`、raw alias residual reprojection、typed expression subtree query、codegen fragment cache を分けて進める。
 
+同日の raw alias residual checkpoint では、`raw_alias_return_entry` の value reprojection 失敗を
+reason 別 counter へ分解し、projection で型が決まった後に保存済み stable type key を再度
+`TypeId` へ戻す段階が残件であることを確認した。修正では raw-init complete leaf replay と同じく、
+通常 projection の結果型は現在 compile の function signature / suffix を replay authority とし、
+raw address 由来の終端 `Deref` だけ保存済み stable type key を proof boundary として使う。
+途中 `Deref` 後に field / storage offset などが続く場合は、後続 layout を検証できないため
+fail-closed のまま拒否する。
+
+`tmp/rpn_raw_alias_projection_type_replay_code_edit_20260531.json` では、
+`resource_summary_value_raw_alias_return_entry_reprojection_value_bypasses=0`、
+`resource_summary_value_raw_alias_return_entry_bypasses=0`、
+`resource_raw_alias_summary_recomputations=1` になった。残る 1 件は編集した関数自身の再計算であり、
+raw alias summary の false miss は支配項から外れた。edit compile は `5923ms` で、次は typed
+expression subtree query、codegen fragment cache、変更関数自身の Resource summary 再計算、
+Resource IR summary 外の固定費を分けて進める。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

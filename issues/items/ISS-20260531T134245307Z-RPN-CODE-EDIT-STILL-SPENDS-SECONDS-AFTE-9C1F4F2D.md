@@ -162,6 +162,29 @@ edit の `resource_raw_init_summary_recomputations=0` になった。raw-init by
 `resource_initialized_function_checks=1`、`resource_summary_value_recomputed_ops=29` が残る。
 この親 issue は、raw-init 以外の支配項を追跡するため open のまま継続する。
 
+## 2026-05-31 raw alias residual resolved 更新
+
+`ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E`
+で raw alias return entry の projection / type replay 境界を修正した。
+
+`tmp/rpn_raw_alias_projection_type_replay_code_edit_20260531.json` では、same-session code
+edit の delta が次の通りになった。
+
+- `resource_raw_alias_summary_recomputations=1`
+- `resource_summary_value_raw_alias_return_entry_hits=146`
+- `resource_summary_value_raw_alias_return_entry_stores=13`
+- `resource_summary_value_raw_alias_return_entry_bypasses=0`
+- `resource_summary_value_raw_alias_return_entry_reprojection_value_bypasses=0`
+- `resource_raw_init_summary_recomputations=0`
+- `resource_initialized_function_checks=1`
+- `resource_summary_value_recomputed_ops=16`
+- `resource_summary_value_replayed_ops=4522`
+
+raw alias の residual reprojection miss は解消した。RPN edit compile は `compile_ms=5923` でまだ
+秒単位だが、raw-init / raw alias fixed-point の false miss は支配項ではなくなっている。
+次は typed expression subtree query、変更関数自身の summary 再計算、codegen fragment cache、
+および Resource IR summary 外の固定費を分けて追跡する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

@@ -48076,3 +48076,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused regression として、scoped policy が関数前の byte offset shift で揺れないこと、sibling source text を無視すること、context が file-level hash より scoped surface を優先すること、raw-init empty summary が preseed されることを追加した。
 - release Web RPN same-session code edit 測定 `tmp/rpn_function_local_policy_empty_raw_init_filtered_code_edit_20260531.json` では、`resource_raw_init_summary_recomputations=0`、`resource_raw_init_summary_count=78`、raw-init bypass `0` になった。edit compile は `6105ms` でまだ秒単位なので、次の支配項は `resource_raw_alias_summary_recomputations=32`、raw alias residual reprojection、typed expression subtree query、codegen fragment cacheである。
 - `ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE` は verified / resolved にし、`todo.md` から削除した。`ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` は raw-init 以外の seconds-scale compile time を追う親 issue として open のまま継続する。
+
+## 2026-05-31 Agent raw alias projection/type replay completion
+
+- Zenn の試作段階方針、性能追求方針、純粋 query cache 方針を再確認した。`plan.md` は変更していない。
+- remote/main は `git fetch origin; git pull --ff-only origin main` で同期済みで、作業 branch は `perf/raw-alias-reprojection-20260531` として継続した。
+- raw alias residual reprojection 失敗を reason 別 counter へ分けた。最初の再測定では 13 件すべてが projection そのものではなく `ParameterType=9` / `ReturnType=4` の type replay 境界で落ちていた。
+- raw alias の通常 projection では、現在 compile の function signature と suffix から決まる projection result type を replay authority とするようにした。保存済み stable type key は raw address 由来の終端 `Deref` だけ proof boundary として使う。
+- 途中 `Deref` 後にさらに projection が続くケースは、後続 layout を検証できないため引き続き fail-closed に拒否する。TypeCtx 全体検索で labelled open generic を拾う緩和や、source policy / dependency / body / type boundary key の削除は行っていない。
+- focused regression として、parameter 側 / return 側の terminal raw `Deref` replay、non-final raw `Deref` rejection、projection-derived alias type が current signature から復元されることを追加した。
+- release Web RPN same-session code edit 測定 `tmp/rpn_raw_alias_projection_type_replay_code_edit_20260531.json` では、edit compile が `6105ms` から `5923ms` へ改善した。edit delta は `resource_raw_alias_summary_recomputations=1`、`raw_alias_return_entry_bypasses=0`、`raw_alias_return_entry_reprojection_value_bypasses=0`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=1`、`resource_summary_value_recomputed_ops=16` である。
+- `ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E` は verified / resolved にし、`todo.md` から削除した。RPN edit compile はまだ秒単位なので、親 issue `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` で typed expression subtree query、変更関数自身の summary 再計算、codegen fragment cache、Resource IR summary 外固定費を継続する。
+- memo_call / 高階関数側の subagent 調査では、現状の `FnValue` / `FunctionValue` / `FunctionAliasTable` が string name 依存であることを確認した。Phase 1 は typed function identity、明示 `@` の pure named function value、MemoKey/MemoValue 専用 predicate、compiler-known private cache effect の4点に限定して進める。

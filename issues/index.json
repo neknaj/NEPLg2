@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T08:32:53.724Z",
+  "generated_at": "2026-05-31T09:05:23.960Z",
   "counts": {
     "total": 1295,
-    "open": 27,
-    "resolved": 1268,
+    "open": 26,
+    "resolved": 1269,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 650,
-        "open": 20,
-        "resolved": 630
+        "open": 19,
+        "resolved": 631
       },
       "neplg21": {
         "total": 2,
@@ -383,21 +383,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D.md"
-    },
-    {
-      "id": "ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E",
-      "title": "raw alias residual reprojection value bypasses keep 38 recomputations",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "performance",
-      "created": "2026-05-31",
-      "updated": "2026-05-31",
-      "target": "nepl-core/src/resource/initialized_alias_flow.rs; nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E.md"
     },
     {
       "id": "ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D",
@@ -10088,6 +10073,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE.md"
+    },
+    {
+      "id": "ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E",
+      "title": "raw alias residual reprojection value bypasses keep 38 recomputations",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/resource/initialized_alias_flow.rs; nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E.md"
     },
     {
       "id": "ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C",

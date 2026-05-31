@@ -3132,29 +3132,20 @@ fn reproject_raw_alias_return_alias(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     alias: &ResourceSummaryStableRawAliasReturnAlias,
 ) -> Result<RawCellAddressReturnAlias, ResourceSummaryRawAliasReturnEntryReprojectionReject> {
+    let (parameter_projection, parameter_ty) = reproject_raw_alias_parameter_projection(
+        ctx,
+        alias.parameter_index,
+        &alias.parameter_projection,
+        &alias.parameter_ty,
+    )?;
+    let (return_projection, return_ty) =
+        reproject_raw_alias_return_projection(ctx, &alias.return_projection, &alias.return_ty)?;
     Ok(RawCellAddressReturnAlias {
         parameter_index: alias.parameter_index,
-        parameter_projection: reproject_raw_alias_parameter_projection(
-            ctx,
-            alias.parameter_index,
-            &alias.parameter_projection,
-            &alias.parameter_ty,
-        )?,
-        parameter_ty: reproject_raw_alias_type(
-            ctx,
-            &alias.parameter_ty,
-            ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterType,
-        )?,
-        return_projection: reproject_raw_alias_return_projection(
-            ctx,
-            &alias.return_projection,
-            &alias.return_ty,
-        )?,
-        return_ty: reproject_raw_alias_type(
-            ctx,
-            &alias.return_ty,
-            ResourceSummaryRawAliasReturnEntryReprojectionReject::ReturnType,
-        )?,
+        parameter_projection,
+        parameter_ty,
+        return_projection,
+        return_ty,
     })
 }
 
@@ -3163,32 +3154,76 @@ fn reproject_raw_alias_parameter_projection(
     parameter_index: usize,
     suffix: &[ResourceSummaryStablePlaceProjection],
     expected_ty: &ResourceSummaryStableTypeKey,
-) -> Result<Vec<PlaceProjection>, ResourceSummaryRawAliasReturnEntryReprojectionReject> {
+) -> Result<(Vec<PlaceProjection>, TypeId), ResourceSummaryRawAliasReturnEntryReprojectionReject> {
     let base_ty = ctx
         .function
         .params
         .get(parameter_index)
         .ok_or(ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterIndex)?
         .ty;
-    let (suffix, ty) = reproject_place_projection_suffix(ctx, base_ty, suffix)
-        .ok_or(ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterProjection)?;
-    if !expected_ty.matches_type(ctx.types, ty) {
-        return Err(ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterType);
-    }
-    Ok(suffix)
+    reproject_raw_alias_projection_suffix_with_expected_type(
+        ctx,
+        base_ty,
+        expected_ty,
+        suffix,
+        ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterProjection,
+        ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterType,
+    )
 }
 
 fn reproject_raw_alias_return_projection(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     suffix: &[ResourceSummaryStablePlaceProjection],
     expected_ty: &ResourceSummaryStableTypeKey,
-) -> Result<Vec<PlaceProjection>, ResourceSummaryRawAliasReturnEntryReprojectionReject> {
-    let (suffix, ty) = reproject_place_projection_suffix(ctx, ctx.function.result, suffix)
-        .ok_or(ResourceSummaryRawAliasReturnEntryReprojectionReject::ReturnProjection)?;
-    if !expected_ty.matches_type(ctx.types, ty) {
-        return Err(ResourceSummaryRawAliasReturnEntryReprojectionReject::ReturnType);
+) -> Result<(Vec<PlaceProjection>, TypeId), ResourceSummaryRawAliasReturnEntryReprojectionReject> {
+    reproject_raw_alias_projection_suffix_with_expected_type(
+        ctx,
+        ctx.function.result,
+        expected_ty,
+        suffix,
+        ResourceSummaryRawAliasReturnEntryReprojectionReject::ReturnProjection,
+        ResourceSummaryRawAliasReturnEntryReprojectionReject::ReturnType,
+    )
+}
+
+fn reproject_raw_alias_projection_suffix_with_expected_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    base_ty: TypeId,
+    expected_ty: &ResourceSummaryStableTypeKey,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+    projection_reject: ResourceSummaryRawAliasReturnEntryReprojectionReject,
+    type_reject: ResourceSummaryRawAliasReturnEntryReprojectionReject,
+) -> Result<(Vec<PlaceProjection>, TypeId), ResourceSummaryRawAliasReturnEntryReprojectionReject> {
+    let mut out = Vec::new();
+    let mut current_ty = base_ty;
+    let mut used_stored_value_ty = false;
+    for (index, stable_projection) in suffix.iter().enumerate() {
+        let projection =
+            reproject_place_projection(ctx, stable_projection).ok_or(projection_reject)?;
+        let result_ty = match projection_result_type(ctx.types, current_ty, &projection) {
+            Some(ty)
+                if validate_place_projection_layout(ctx.types, current_ty, &projection)
+                    .is_some() =>
+            {
+                ty
+            }
+            _ if matches!(projection, PlaceProjection::Deref) && index + 1 == suffix.len() => {
+                // raw alias summary には raw address から見た cell view が入る。
+                // その終端 `Deref` は通常の reference dereference ではないため、
+                // 保存済みの安定型を proof boundary として使う。途中 `Deref` は
+                // 後続 projection の layout を検証できなくなるため、従来どおり拒否する。
+                used_stored_value_ty = true;
+                reproject_raw_alias_type(ctx, expected_ty, type_reject)?
+            }
+            _ => return Err(projection_reject),
+        };
+        current_ty = result_ty;
+        out.push(projection);
     }
-    Ok(suffix)
+    if used_stored_value_ty && !expected_ty.matches_type(ctx.types, current_ty) {
+        return Err(type_reject);
+    }
+    Ok((out, current_ty))
 }
 
 fn reproject_raw_alias_type(
@@ -4031,6 +4066,9 @@ mod tests {
         CollectionSlotInitializedRangeDropTraversalCertificate,
         CollectionSlotInitializedRangeDropTraversalProof,
     };
+    use super::super::super::initialized_alias_flow::{
+        RawCellAddressReturnAlias, RawCellAddressReturnSummary,
+    };
     use super::super::super::initialized_summary::{
         RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
         RawCellInitializationReturnCell,
@@ -4099,6 +4137,21 @@ mod tests {
         }
     }
 
+    fn raw_alias_summary_with_alias(
+        function: &ResourceFunction,
+        alias: RawCellAddressReturnAlias,
+    ) -> RawCellAddressReturnSummary {
+        RawCellAddressReturnSummary {
+            function: function.name.clone(),
+            parameters: function
+                .params
+                .iter()
+                .map(|param| param.place.clone())
+                .collect(),
+            aliases: vec![alias],
+        }
+    }
+
     fn nominal_struct_identity(name: &str) -> NominalStableTypeIdentity {
         NominalStableTypeIdentity::new(
             NominalStableTypeKind::Struct,
@@ -4107,6 +4160,121 @@ mod tests {
             0,
             1,
         )
+    }
+
+    #[test]
+    fn stable_raw_alias_reprojects_parameter_terminal_raw_deref_value_type() {
+        let types = TypeCtx::new();
+        let function = function_with_param(types.i32());
+        let summary = raw_alias_summary_with_alias(
+            &function,
+            RawCellAddressReturnAlias {
+                parameter_index: 0,
+                parameter_projection: vec![
+                    PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+                    PlaceProjection::Deref,
+                ],
+                parameter_ty: types.u8(),
+                return_projection: Vec::new(),
+                return_ty: types.i32(),
+            },
+        );
+        let entry = stable_raw_alias_return_entry(&types, &function, &summary)
+            .expect("raw alias terminal deref should convert with its explicit value type");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let reprojected = reproject_raw_alias_return_entry(&ctx, &entry)
+            .expect("raw alias terminal deref should use the stable value type");
+
+        assert_eq!(reprojected, summary);
+    }
+
+    #[test]
+    fn stable_raw_alias_reprojects_return_terminal_raw_deref_value_type() {
+        let types = TypeCtx::new();
+        let function = function_with_param(types.i32());
+        let summary = raw_alias_summary_with_alias(
+            &function,
+            RawCellAddressReturnAlias {
+                parameter_index: 0,
+                parameter_projection: Vec::new(),
+                parameter_ty: types.i32(),
+                return_projection: vec![
+                    PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+                    PlaceProjection::Deref,
+                ],
+                return_ty: types.u8(),
+            },
+        );
+        let entry = stable_raw_alias_return_entry(&types, &function, &summary)
+            .expect("return-side terminal deref should convert with its explicit value type");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let reprojected = reproject_raw_alias_return_entry(&ctx, &entry)
+            .expect("return-side terminal deref should use the stable value type");
+
+        assert_eq!(reprojected, summary);
+    }
+
+    #[test]
+    fn stable_raw_alias_rejects_non_final_raw_deref_fallback() {
+        let types = TypeCtx::new();
+        let function = function_with_param(types.i32());
+        let summary = raw_alias_summary_with_alias(
+            &function,
+            RawCellAddressReturnAlias {
+                parameter_index: 0,
+                parameter_projection: vec![
+                    PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+                    PlaceProjection::Deref,
+                    PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+                ],
+                parameter_ty: types.u8(),
+                return_projection: Vec::new(),
+                return_ty: types.i32(),
+            },
+        );
+        let entry = stable_raw_alias_return_entry(&types, &function, &summary)
+            .expect("non-final raw deref should convert before reprojection validation");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let result = reproject_raw_alias_return_entry_result(&ctx, &entry);
+
+        assert!(matches!(
+            result,
+            Err(ResourceSummaryRawAliasReturnEntryReprojectionReject::ParameterProjection)
+        ));
+    }
+
+    #[test]
+    fn stable_raw_alias_uses_signature_type_for_projection_derived_alias() {
+        let types = TypeCtx::new();
+        let function = function_with_param(types.i32());
+        let summary = raw_alias_summary_with_alias(
+            &function,
+            RawCellAddressReturnAlias {
+                parameter_index: 0,
+                parameter_projection: Vec::new(),
+                parameter_ty: types.i32(),
+                return_projection: Vec::new(),
+                return_ty: types.i32(),
+            },
+        );
+        let mut entry = stable_raw_alias_return_entry(&types, &function, &summary)
+            .expect("projection-derived raw alias should convert before corruption");
+        entry.aliases[0].parameter_ty =
+            ResourceSummaryStableTypeKey::from_type(&types, types.bool())
+                .expect("bool has a stable type key");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let reprojected = reproject_raw_alias_return_entry(&ctx, &entry)
+            .expect("projection-derived raw alias type should come from the current signature");
+
+        assert_eq!(reprojected.aliases[0].parameter_ty, types.i32());
     }
 
     #[test]

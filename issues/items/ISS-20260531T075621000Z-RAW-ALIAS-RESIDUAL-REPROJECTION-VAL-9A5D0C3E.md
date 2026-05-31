@@ -2,8 +2,8 @@
 id: ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E
 title: "raw alias residual reprojection value bypasses keep 38 recomputations"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: performance
 created: 2026-05-31
@@ -47,3 +47,21 @@ RPN code edit の compile time は `7142ms` であり、0.5 秒未満 compile / 
 ## 検証
 
 RPN same-session code edit JSON で `resource_summary_value_raw_alias_return_entry_reprojection_value_bypasses` と `resource_raw_alias_summary_recomputations` がさらに下がり、existing Resource IR safety tests と `node nodesrc/issues.js check --dir issues` が通ることを確認する。
+
+## 2026-05-31 解決
+
+`raw_alias_return_entry` の再投影失敗を reason 別 counter へ分解したところ、
+terminal raw address `Deref` そのものではなく、projection から現在 compile の型が決まった後に
+保存済み stable type key をもう一度 `TypeId` へ戻す段階で落ちていた。
+
+修正では raw-init complete leaf replay と同じ境界を raw alias に適用した。
+
+- 通常の field / tuple / enum / storage offset projection で型が現在の function signature から決まる場合は、現在 compile の projection result type を replay authority とする。
+- raw address 由来の終端 `Deref` だけは、保存済み stable type key を proof boundary として使う。
+- 途中 `Deref` 後にさらに projection が続く場合は、後続 layout を検証できないため fail-closed のまま拒否する。
+- TypeCtx 全体検索で labelled open generic を拾う緩和、type mismatch の無視、source policy / dependency key の削除は行っていない。
+
+`tmp/rpn_raw_alias_projection_type_replay_code_edit_20260531.json` の same-session code edit では、
+`resource_summary_value_raw_alias_return_entry_reprojection_value_bypasses=0`、
+`resource_summary_value_raw_alias_return_entry_bypasses=0`、
+`resource_raw_alias_summary_recomputations=1` になった。残る 1 件は編集した関数自身の再計算であり、residual reprojection miss ではない。
