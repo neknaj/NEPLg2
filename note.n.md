@@ -47909,6 +47909,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_dealloc_requires_raw_release_proof -- --exact --nocapture`、`cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_dealloc_accepts_raw_dealloc_release_proof -- --exact --nocapture`、`cargo test -p nepl-core --test resource_ir resource_ir_collection_storage_dealloc_consumes_raw_release_proof_once -- --exact --nocapture`、`cargo test -p nepl-core --test resource_ir resource_ir_owner_check_refines_zero_alloc_result_branch -- --exact --nocapture`、`cargo test -p nepl-core --test resource_ir resource_ir_branch_path_alternatives_do_not_keep_invalid_output_initialized -- --exact --nocapture`、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`trunk build`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-storage-dealloc-fixtures-20260528.json` は pass した。
 - `cargo test -p nepl-core --test resource_ir -- --nocapture` は 5 分で timeout した。これは今回のfixture追従とは別に進行中の Resource IR performance 問題として扱う。
 
+## 2026-05-31 Agent raw-init value reprojection checkpoint
+
+- Zenn の試作段階方針と性能追求方針を再確認し、raw-init cache の `ReprojectionValue` を根本原因ごとに分割した。`plan.md` は変更していない。
+- subagent review では、`incomplete_leaf` や dependency gate を先に緩めるのではなく、key / stable entry / context を通過した後の value replay 境界を先に直すべきだと確認した。
+- `RawInitParamFactsLeafEntryCandidateReject::ReprojectionValue` に失敗理由を持たせ、param cell projection/type、release requirement projection/type、empty entry を counter で分けた。param cell type はさらに stable type lookup failure と suffix result type mismatch に分けた。
+- raw-init param cell の raw address `Deref` は通常 reference dereference ではないため、stable entry に保存した cell type を使って再投影するようにした。field / tuple / enum payload の layout 検証は維持している。
+- non-signature nominal value type は現在の `TypeCtx` から stable key で探せるようにした。一方で boundary 外 labelled open generic は同名衝突を避けるため、引き続き fail-closed に拒否する。
+- release Web RPN same-session code edit 測定は `tmp/rpn_typectx_lookup_20260531.json` に保存した。初回 `stores=165`、`reprojection_value=23`、`param_cell_projection=0`、`param_cell_stable_type=23`、`incomplete_leaf=37`。2 回目は comment edit の compiled-output cache により `compile_ms=1` だった。
+- `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core stable_raw_init --lib -- --nocapture`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。`trunk build --release` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-raw-init-value-reprojection-20260531.json` は 13/13 pass した。
+
 ## 2026-05-28 Agent Resource checker responsibility split checkpoint
 
 - Zenn の試作段階方針、静的検査方針、責務分割方針を再確認し、`nodesrc/test_resource_checker_responsibility.js` の stale drift を、単なる失敗回避ではなく監視対象追加と module 分割で復旧した。`plan.md` は変更していない。

@@ -396,6 +396,14 @@ impl TypeCtx {
         self.never_ty
     }
 
+    /// 現在の `TypeCtx` に存在する型 arena slot を決定的な順序で走査する。
+    ///
+    /// Resource summary cache のように stable key から現在 session の `TypeId` を探す処理は、
+    /// `TypeId` そのものを cache key に入れず、arena 内の型を stable 表現へ変換して照合する。
+    pub(crate) fn type_ids(&self) -> impl Iterator<Item = TypeId> + '_ {
+        (0..self.arena.len()).map(TypeId)
+    }
+
     pub fn fresh_var(&mut self, label: Option<alloc::string::String>) -> TypeId {
         let id = TypeId(self.arena.len());
         self.arena.push(TypeKind::Var(TypeVar {

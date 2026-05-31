@@ -10,7 +10,9 @@ use super::candidate_key::{
 };
 use super::dependency_hash::RawInitDependencyClosureHashReject;
 use super::stable_mirror::{
-    reproject_raw_init_param_facts_leaf_entry, stable_raw_init_param_facts_leaf_entry,
+    reproject_raw_init_param_facts_leaf_entry, reproject_raw_init_param_facts_leaf_entry_result,
+    stable_raw_init_param_facts_leaf_entry,
+    ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject,
     ResourceSummaryStableRawInitParamFactsLeafEntryReject, ResourceSummaryTypeReprojection,
 };
 use super::{
@@ -24,7 +26,7 @@ pub(in crate::resource) enum RawInitParamFactsLeafEntryCandidateReject {
     UnstableKey,
     UnstableEntry(ResourceSummaryStableRawInitParamFactsLeafEntryReject),
     ReprojectionContext,
-    ReprojectionValue,
+    ReprojectionValue(ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject),
 }
 
 impl ResourceSummaryValueCache {
@@ -67,10 +69,10 @@ impl ResourceSummaryValueCache {
         else {
             return Err(RawInitParamFactsLeafEntryCandidateReject::ReprojectionContext);
         };
-        if reproject_raw_init_param_facts_leaf_entry(&reprojection, &function.name, &entry)
-            .is_none()
+        if let Err(reason) =
+            reproject_raw_init_param_facts_leaf_entry_result(&reprojection, &function.name, &entry)
         {
-            return Err(RawInitParamFactsLeafEntryCandidateReject::ReprojectionValue);
+            return Err(RawInitParamFactsLeafEntryCandidateReject::ReprojectionValue(reason));
         }
         Ok(ResourceSummaryRawInitParamFactsLeafEntryCandidate { key, entry })
     }
@@ -133,12 +135,58 @@ impl ResourceSummaryValueCache {
                     .resource_summary_value_raw_init_param_facts_reprojection_context_bypasses +=
                     fact_count;
             }
-            RawInitParamFactsLeafEntryCandidateReject::ReprojectionValue => {
+            RawInitParamFactsLeafEntryCandidateReject::ReprojectionValue(reason) => {
                 self.stats
                     .resource_summary_value_raw_init_param_facts_reprojection_bypasses +=
                     fact_count;
                 self.stats
                     .resource_summary_value_raw_init_param_facts_reprojection_value_bypasses +=
+                    fact_count;
+                self.record_raw_init_reprojection_value_bypass(reason, fact_count);
+            }
+        }
+    }
+
+    fn record_raw_init_reprojection_value_bypass(
+        &mut self,
+        reason: ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject,
+        fact_count: usize,
+    ) {
+        match reason {
+            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::EmptyEntry => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_value_empty_entry_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellProjection => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_projection_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellStableType => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_type_bypasses +=
+                    fact_count;
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_stable_type_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellResultType => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_type_bypasses +=
+                    fact_count;
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_result_type_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamReleaseRequirementProjection => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_value_param_release_projection_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamReleaseRequirementType => {
+                self.stats
+                    .resource_summary_value_raw_init_param_facts_reprojection_value_param_release_type_bypasses +=
                     fact_count;
             }
         }

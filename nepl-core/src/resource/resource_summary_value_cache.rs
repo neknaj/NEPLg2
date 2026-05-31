@@ -74,6 +74,19 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_raw_init_param_facts_reprojection_bypasses: usize,
     pub resource_summary_value_raw_init_param_facts_reprojection_context_bypasses: usize,
     pub resource_summary_value_raw_init_param_facts_reprojection_value_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_reprojection_value_empty_entry_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_projection_bypasses:
+        usize,
+    pub resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_type_bypasses:
+        usize,
+    pub resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_stable_type_bypasses:
+        usize,
+    pub resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_result_type_bypasses:
+        usize,
+    pub resource_summary_value_raw_init_param_facts_reprojection_value_param_release_projection_bypasses:
+        usize,
+    pub resource_summary_value_raw_init_param_facts_reprojection_value_param_release_type_bypasses:
+        usize,
 }
 
 /// `CompilerSession` が所有する Resource IR summary value cache の境界。

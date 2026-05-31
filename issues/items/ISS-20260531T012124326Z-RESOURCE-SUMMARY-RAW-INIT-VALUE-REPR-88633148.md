@@ -40,6 +40,14 @@ Raw-init param facts store/hit coverage improved substantially, but remaining va
 
 Split reproject_raw_init_param_facts_leaf_entry value failures by param cell projection/type and release requirement projection/type, then canonicalize the replayable projection/type cases without weakening open generic ambiguity checks.
 
+## 2026-05-31 checkpoint
+
+- value reprojection の失敗理由を `param_cell_projection` / `param_cell_type` / `param_release_projection` / `param_release_type` に分割した。
+- raw address 上の raw-init param cell `Deref` は通常の reference dereference ではないため、stable entry に保存した cell 型を復元先として使う再投影境界を追加した。通常の field / tuple / enum payload projection の layout 検証は弱めていない。
+- release Web RPN same-session code edit 測定では、初回 `raw_init_param_facts_reprojection_value_bypasses=25` が `23` へ下がり、`param_cell_projection=2` は `0` になった。
+- 残る `23` 件は `param_cell_stable_type` であり、raw cell value type が function signature / owner summary type boundary に現れない labelled open generic として残っている。open generic は stable key だけで同名衝突を解決できないため、TypeCtx 全体検索では解決しない。
+- non-signature nominal value type は現在の TypeCtx 内 stable key から再投影できるようにしたが、boundary 外 open generic は引き続き fail-closed に拒否する。
+
 ## 検証
 
 RPN same-session code edit should keep reprojection_context_bypasses=0 and decrease reprojection_value_bypasses below the current first_compile value of 25 while preserving resource_summary_value_raw_init_param_facts_unstable_entry_bypasses=0.

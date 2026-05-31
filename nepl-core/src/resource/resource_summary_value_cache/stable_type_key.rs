@@ -35,6 +35,14 @@ impl ResourceSummaryStableTypeKey {
     pub(super) fn matches_type(&self, types: &TypeCtx, ty: TypeId) -> bool {
         Self::from_type(types, ty).is_some_and(|key| key == *self)
     }
+
+    /// function boundary に出ていない labelled generic key かどうかを判定する。
+    ///
+    /// 同じ label の別 generic を stable key だけで区別することはできないため、
+    /// boundary で対応付けられていない open generic は TypeCtx 全体検索の対象にしない。
+    pub(super) fn is_open_generic(&self) -> bool {
+        self.0.starts_with("var(")
+    }
 }
 
 fn stable_type_key_string(
