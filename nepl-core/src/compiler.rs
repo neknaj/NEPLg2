@@ -445,9 +445,16 @@ fn resource_summary_value_cache_context(
     let source_map = source_map?;
     let mut context =
         crate::resource::ResourceSummaryValueCacheContext::new(namespace_key.stable_hash);
-    for (file_id, _) in source_map.iter_paths() {
+    for (file_id, path) in source_map.iter_paths() {
         let policy_hash = source_map.source_capability_policy_hash_for_file(file_id)?;
         context.insert_source_policy_hash(file_id, policy_hash);
+        let source = source_map.get(file_id)?;
+        context.insert_source_policy_file(
+            file_id,
+            path.as_str(),
+            source,
+            source_map.capabilities(file_id),
+        );
     }
     Some(context)
 }

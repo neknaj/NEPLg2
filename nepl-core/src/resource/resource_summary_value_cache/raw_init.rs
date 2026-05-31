@@ -145,11 +145,6 @@ impl ResourceSummaryValueCache {
         fact_count: usize,
     ) {
         match reason {
-            ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::EmptyEntry => {
-                self.stats
-                    .resource_summary_value_raw_init_param_facts_reprojection_value_empty_entry_bypasses +=
-                    fact_count;
-            }
             ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection => {
                 self.stats
                     .resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_projection_bypasses +=
@@ -190,11 +185,6 @@ impl ResourceSummaryValueCache {
         fact_count: usize,
     ) {
         match reason {
-            ResourceSummaryStableRawInitCompleteLeafEntryReject::Surface => {
-                self.stats
-                    .resource_summary_value_raw_init_param_facts_unstable_entry_surface_bypasses +=
-                    fact_count;
-            }
             ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellProjection => {
                 self.stats
                     .resource_summary_value_raw_init_param_facts_unstable_entry_param_cell_projection_bypasses +=

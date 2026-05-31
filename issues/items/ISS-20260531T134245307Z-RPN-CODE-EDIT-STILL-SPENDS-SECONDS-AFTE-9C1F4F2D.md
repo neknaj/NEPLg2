@@ -150,6 +150,18 @@ raw-init replay bypass は引き続き `0` で、stale hit を避ける fail-clo
 raw alias residual reprojection、typed expression subtree query、codegen fragment cache が
 残る支配項として継続する。
 
+## 2026-05-31 raw-init residual resolved 更新
+
+function-local source capability policy と raw-init empty entry replay を実装し、
+`ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE` は verified /
+resolved にした。
+
+`tmp/rpn_function_local_policy_empty_raw_init_filtered_code_edit_20260531.json` では、same-session code
+edit の `resource_raw_init_summary_recomputations=0` になった。raw-init bypass は `0` のまま。
+一方で edit compile は `6105ms` で、`resource_raw_alias_summary_recomputations=32`、
+`resource_initialized_function_checks=1`、`resource_summary_value_recomputed_ops=29` が残る。
+この親 issue は、raw-init 以外の支配項を追跡するため open のまま継続する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

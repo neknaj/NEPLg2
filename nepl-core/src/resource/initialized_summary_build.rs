@@ -124,6 +124,7 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
             types,
             module,
             &dependencies,
+            &relevant,
             &preseeded_functions,
             &summaries,
         );

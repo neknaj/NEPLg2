@@ -803,6 +803,12 @@ release WASM の RPN same-session code edit 測定 `tmp/rpn_empty_source_policy_
 
 ただし、これは function-local exact source capability policy の完成ではない。capability proof を持つ stdlib/compiler-owned source では、source text と exact proof を結び付ける必要が残る。次段階では、関数本文 slice、相対 use-site identity、capability kind、raw body source slice を組み合わせた function-local policy hash を設計し、同一 file の sibling function edit が無関係な raw-init dependency closure を miss させないようにする。
 
+同日の次 checkpoint では、この function-local policy hash を `ResourceSummaryValueCacheContext` に接続した。context は compile-local に source path、source text、`SourceCapabilities` を保持し、`ResourceFunction` の function/block/op/terminator span から file ごとの最小 scope を作る。scope 内に capability proof がある場合だけ、その source slice と相対 use-site span を hash し、scope 外の sibling source text は key に混ぜない。scope と capability proof が部分的に重なる場合は `None` に倒し、summary cache を store/replay しない。
+
+さらに raw-init complete leaf cache は、fact を持たない relevant function も empty entry として保存するようにした。raw-init summary が空であることも fixed-point の結果であり、これを保存しないと no-fact function が微小編集ごとに worklist へ戻るためである。empty entry は現在の function boundary へ再投影できる場合だけ worklist skip として使い、下流の summary index へ空 summary は渡さない。これにより、従来「summary なし」だった呼び出しの意味を変えずに recomputation だけを削る。
+
+`tmp/rpn_function_local_policy_empty_raw_init_filtered_code_edit_20260531.json` では、same-session code edit の `resource_raw_init_summary_recomputations` が `73` から `0` になった。raw-init replay bypass は引き続き `0` であり、下流へ渡す `resource_raw_init_summary_count` も `78` のまま維持した。一方で edit compile は `6105ms` でまだ秒単位であり、raw-init fixed-point は支配項ではなくなった。次は `resource_raw_alias_summary_recomputations=32`、raw alias residual reprojection、typed expression subtree query、codegen fragment cache を分けて進める。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

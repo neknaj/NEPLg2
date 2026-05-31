@@ -202,6 +202,62 @@ impl SourceCapabilities {
         hash
     }
 
+    /// Resource summary cache key に含める、関数範囲へ閉じた source capability policy hash を作る。
+    ///
+    /// file 全体の source hash を使うと、同じ file の sibling function edit でも capability
+    /// proof を持つ関数の summary cache が miss する。この hash は scope 内にある
+    /// capability proof だけを取り込み、use-site span は scope 先頭からの相対位置として
+    /// hash する。関数より前のコメントや別関数の変更で absolute byte offset がずれても、
+    /// 関数本文と proof surface が同じなら同じ policy とみなすためである。
+    ///
+    /// scope 内に capability proof がない場合は、file-level policy と同じく source text を
+    /// 混ぜない。source semantics は Resource IR body hash と typed signature/type boundary
+    /// が固定し、source capability policy は privilege proof surface のみに責務を限定する。
+    #[allow(dead_code)]
+    pub(crate) fn stable_scoped_policy_hash(
+        &self,
+        canonical_path: &str,
+        source: &str,
+        scope_start: u32,
+        scope_end: u32,
+    ) -> Option<u64> {
+        if scope_start > scope_end || scope_end as usize > source.len() {
+            return None;
+        }
+        let scoped_use_sites = self.scoped_use_sites(scope_start, scope_end)?;
+        let mut hash = 0xcbf29ce484222325;
+        source_capability_policy_hash_str(&mut hash, "neplg2-source-capability-scoped-policy-v1");
+        source_capability_policy_hash_str(&mut hash, canonical_path);
+        if !scoped_use_sites.is_empty() {
+            source_capability_policy_hash_u64(&mut hash, u64::from(scope_end - scope_start));
+            source_capability_policy_hash_bytes(
+                &mut hash,
+                &source.as_bytes()[scope_start as usize..scope_end as usize],
+            );
+        }
+        for use_site in scoped_use_sites {
+            source_capability_scoped_use_site_hash(&mut hash, use_site, scope_start);
+        }
+        Some(hash)
+    }
+
+    fn scoped_use_sites(
+        &self,
+        scope_start: u32,
+        scope_end: u32,
+    ) -> Option<Vec<&SourceCapabilityUseSite>> {
+        let mut scoped = Vec::new();
+        for use_site in &self.use_sites {
+            let span = source_capability_use_site_span(use_site);
+            if span.start >= scope_start && span.end <= scope_end {
+                scoped.push(use_site);
+            } else if span.start < scope_end && span.end > scope_start {
+                return None;
+            }
+        }
+        Some(scoped)
+    }
+
     fn allows_use_site(&self, use_site: SourceCapabilityUseSite) -> bool {
         self.use_sites.contains(&use_site)
     }
@@ -350,6 +406,29 @@ impl SourceMap {
             let source_hash = source_capability_source_hash(file.src.as_bytes());
             file.capabilities
                 .stable_policy_hash(file.path.as_str(), source_hash)
+        })
+    }
+
+    /// Resource summary value cache key に含める scoped source capability policy hash を返す。
+    ///
+    /// `scope` は Resource IR の関数本文や block/op span から作られた file-local 範囲である。
+    /// source capability proof が scope 内にある場合だけ、その source slice と相対 proof span
+    /// を key に含める。scope と capability proof が部分的にしか重ならない場合は、関数境界を
+    /// 安全に確定できないため `None` に倒し、summary cache は store/replay しない。
+    #[cfg(test)]
+    pub(crate) fn source_capability_policy_hash_for_span_scope(
+        &self,
+        id: FileId,
+        scope_start: u32,
+        scope_end: u32,
+    ) -> Option<u64> {
+        self.files.get(id.0 as usize).and_then(|file| {
+            file.capabilities.stable_scoped_policy_hash(
+                file.path.as_str(),
+                file.src.as_str(),
+                scope_start,
+                scope_end,
+            )
         })
     }
 
@@ -572,9 +651,108 @@ fn source_capability_use_site_hash(hash: &mut u64, use_site: &SourceCapabilityUs
 }
 
 #[allow(dead_code)]
+fn source_capability_scoped_use_site_hash(
+    hash: &mut u64,
+    use_site: &SourceCapabilityUseSite,
+    scope_start: u32,
+) {
+    match use_site {
+        SourceCapabilityUseSite::RawMemoryStructuralBoundary { span } => {
+            source_capability_policy_hash_str(hash, "raw-memory-structural");
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::RawAddressViewBoundary { span } => {
+            source_capability_policy_hash_str(hash, "raw-address-view");
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::RawAddressAliasBoundary { span } => {
+            source_capability_policy_hash_str(hash, "raw-address-alias");
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::OwnerTokenConstructBoundary { span } => {
+            source_capability_policy_hash_str(hash, "owner-token-construct");
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::RawMemoryOperationBoundary { operation, span } => {
+            source_capability_policy_hash_str(hash, "raw-memory-operation");
+            source_capability_policy_hash_str(hash, operation.as_str());
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::RawBodyMemoryOperationBoundary { operation, span } => {
+            source_capability_policy_hash_str(hash, "raw-body-memory-operation");
+            source_capability_raw_body_memory_op_hash(hash, *operation);
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::OwnerAggregateConstructorBoundary { name, span } => {
+            source_capability_policy_hash_str(hash, "owner-aggregate-constructor");
+            source_capability_policy_hash_str(hash, name);
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::OwnerAggregateFieldBoundary { span } => {
+            source_capability_policy_hash_str(hash, "owner-aggregate-field");
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::CompilerMemoryFieldBoundary { field, span } => {
+            source_capability_policy_hash_str(hash, "compiler-memory-field");
+            source_capability_policy_hash_str(hash, compiler_memory_field_tag(*field));
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::CompilerMemoryTypeDefinition { memory_type, span } => {
+            source_capability_policy_hash_str(hash, "compiler-memory-type-definition");
+            source_capability_policy_hash_str(hash, compiler_memory_type_tag(*memory_type));
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::CollectionSlotLifecycleBoundary { primitive, span } => {
+            source_capability_policy_hash_str(hash, "collection-slot-lifecycle");
+            source_capability_policy_hash_str(
+                hash,
+                collection_slot_lifecycle_primitive_tag(*primitive),
+            );
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+        SourceCapabilityUseSite::CollectionSlotBorrowBoundary { primitive, span } => {
+            source_capability_policy_hash_str(hash, "collection-slot-borrow");
+            source_capability_policy_hash_str(
+                hash,
+                collection_slot_borrow_primitive_tag(*primitive),
+            );
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
+    }
+}
+
+#[allow(dead_code)]
+fn source_capability_use_site_span(use_site: &SourceCapabilityUseSite) -> SourceCapabilitySpan {
+    match use_site {
+        SourceCapabilityUseSite::RawMemoryStructuralBoundary { span }
+        | SourceCapabilityUseSite::RawAddressViewBoundary { span }
+        | SourceCapabilityUseSite::RawAddressAliasBoundary { span }
+        | SourceCapabilityUseSite::OwnerTokenConstructBoundary { span }
+        | SourceCapabilityUseSite::RawMemoryOperationBoundary { span, .. }
+        | SourceCapabilityUseSite::RawBodyMemoryOperationBoundary { span, .. }
+        | SourceCapabilityUseSite::OwnerAggregateConstructorBoundary { span, .. }
+        | SourceCapabilityUseSite::OwnerAggregateFieldBoundary { span }
+        | SourceCapabilityUseSite::CompilerMemoryFieldBoundary { span, .. }
+        | SourceCapabilityUseSite::CompilerMemoryTypeDefinition { span, .. }
+        | SourceCapabilityUseSite::CollectionSlotLifecycleBoundary { span, .. }
+        | SourceCapabilityUseSite::CollectionSlotBorrowBoundary { span, .. } => *span,
+    }
+}
+
+#[allow(dead_code)]
 fn source_capability_span_hash(hash: &mut u64, span: SourceCapabilitySpan) {
     source_capability_policy_hash_u32(hash, span.start);
     source_capability_policy_hash_u32(hash, span.end);
+}
+
+#[allow(dead_code)]
+fn source_capability_relative_span_hash(
+    hash: &mut u64,
+    span: SourceCapabilitySpan,
+    scope_start: u32,
+) {
+    source_capability_policy_hash_u32(hash, span.start.saturating_sub(scope_start));
+    source_capability_policy_hash_u32(hash, span.end.saturating_sub(scope_start));
 }
 
 #[allow(dead_code)]
@@ -1016,6 +1194,79 @@ mod tests {
         assert_ne!(
             source_map.source_capability_policy_hash_for_file(first),
             source_map.source_capability_policy_hash_for_file(different_path_same_source)
+        );
+    }
+
+    #[test]
+    fn scoped_source_capability_policy_hash_uses_relative_function_surface() {
+        let source = String::from("before\nfn a:\n    load_u8 raw\n\nafter\n");
+        let scope_start = source.find("fn a").unwrap() as u32;
+        let scope_end = source.find("\n\nafter").unwrap() as u32;
+        let load_start = source.find("load_u8").unwrap() as u32;
+        let load_end = load_start + "load_u8".len() as u32;
+        let mut source_map = SourceMap::new();
+        let file = FileId(0);
+        let id = source_map.add_with_capabilities(
+            "stdlib/core/mem/raw.nepl",
+            source,
+            use_site_capabilities(raw_load_use_site(Span::new(file, load_start, load_end))),
+        );
+
+        let shifted_source =
+            String::from("// shifted prefix\nbefore\nfn a:\n    load_u8 raw\n\nafter\n");
+        let shifted_scope_start = shifted_source.find("fn a").unwrap() as u32;
+        let shifted_scope_end = shifted_source.find("\n\nafter").unwrap() as u32;
+        let shifted_load_start = shifted_source.find("load_u8").unwrap() as u32;
+        let shifted_load_end = shifted_load_start + "load_u8".len() as u32;
+        let mut shifted_map = SourceMap::new();
+        let shifted_file = FileId(0);
+        let shifted_id = shifted_map.add_with_capabilities(
+            "stdlib/core/mem/raw.nepl",
+            shifted_source,
+            use_site_capabilities(raw_load_use_site(Span::new(
+                shifted_file,
+                shifted_load_start,
+                shifted_load_end,
+            ))),
+        );
+
+        assert_eq!(
+            source_map.source_capability_policy_hash_for_span_scope(id, scope_start, scope_end),
+            shifted_map.source_capability_policy_hash_for_span_scope(
+                shifted_id,
+                shifted_scope_start,
+                shifted_scope_end
+            )
+        );
+    }
+
+    #[test]
+    fn scoped_source_capability_policy_hash_ignores_sibling_source_text() {
+        let source = String::from("fn a:\n    load_u8 raw\n\nfn b:\n    1\n");
+        let scope_start = source.find("fn a").unwrap() as u32;
+        let scope_end = source.find("\n\nfn b").unwrap() as u32;
+        let load_start = source.find("load_u8").unwrap() as u32;
+        let load_end = load_start + "load_u8".len() as u32;
+        let sibling_edit = String::from("fn a:\n    load_u8 raw\n\nfn b:\n    2\n");
+        let mut first_map = SourceMap::new();
+        let mut second_map = SourceMap::new();
+        let file = FileId(0);
+        let capabilities =
+            use_site_capabilities(raw_load_use_site(Span::new(file, load_start, load_end)));
+        let first = first_map.add_with_capabilities(
+            "stdlib/core/mem/raw.nepl",
+            source,
+            capabilities.clone(),
+        );
+        let second = second_map.add_with_capabilities(
+            "stdlib/core/mem/raw.nepl",
+            sibling_edit,
+            capabilities,
+        );
+
+        assert_eq!(
+            first_map.source_capability_policy_hash_for_span_scope(first, scope_start, scope_end),
+            second_map.source_capability_policy_hash_for_span_scope(second, scope_start, scope_end)
         );
     }
 }

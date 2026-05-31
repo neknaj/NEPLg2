@@ -1,8 +1,10 @@
 extern crate alloc;
 
 use alloc::collections::BTreeSet;
+use alloc::string::String;
 use alloc::vec::Vec;
 
+use crate::source_map::SourceCapabilities;
 use crate::span::{FileId, Span};
 
 use super::super::model::{ResourceFunction, ResourceMatchArm, ResourceOp, ResourceTerminator};
@@ -21,6 +23,22 @@ use super::stable_hash::ResourceSummaryStableHasher;
 pub struct ResourceSummaryValueCacheContext {
     namespace_hash: u64,
     source_policy_hashes: Vec<(FileId, u64)>,
+    source_policy_files: Vec<ResourceSummarySourcePolicyFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummarySourcePolicyFile {
+    file_id: FileId,
+    canonical_path: String,
+    source: String,
+    capabilities: SourceCapabilities,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SourcePolicyFileRange {
+    file_id: FileId,
+    start: u32,
+    end: u32,
 }
 
 impl ResourceSummaryValueCacheContext {
@@ -28,6 +46,7 @@ impl ResourceSummaryValueCacheContext {
         Self {
             namespace_hash,
             source_policy_hashes: Vec::new(),
+            source_policy_files: Vec::new(),
         }
     }
 
@@ -41,6 +60,32 @@ impl ResourceSummaryValueCacheContext {
             return;
         }
         self.source_policy_hashes.push((file_id, policy_hash));
+    }
+
+    pub fn insert_source_policy_file(
+        &mut self,
+        file_id: FileId,
+        canonical_path: &str,
+        source: &str,
+        capabilities: SourceCapabilities,
+    ) {
+        if let Some(existing) = self
+            .source_policy_files
+            .iter_mut()
+            .find(|existing| existing.file_id == file_id)
+        {
+            existing.canonical_path = String::from(canonical_path);
+            existing.source = String::from(source);
+            existing.capabilities = capabilities;
+            return;
+        }
+        self.source_policy_files
+            .push(ResourceSummarySourcePolicyFile {
+                file_id,
+                canonical_path: String::from(canonical_path),
+                source: String::from(source),
+                capabilities,
+            });
     }
 
     pub(super) fn namespace_hash(&self) -> ResourceSummaryCacheNamespaceHash {
@@ -57,19 +102,19 @@ impl ResourceSummaryValueCacheContext {
         &self,
         function: &ResourceFunction,
     ) -> Option<ResourceSummarySourceCapabilityPolicyHash> {
-        let mut file_ids = Vec::new();
-        push_file_id(&mut file_ids, function.span);
+        let mut file_ranges = Vec::new();
+        push_span_range(&mut file_ranges, function.span);
         for block in &function.blocks {
-            push_file_id(&mut file_ids, block.span);
-            collect_op_file_ids(&block.ops, &mut file_ids);
-            push_file_id(&mut file_ids, terminator_span(&block.terminator));
+            push_span_range(&mut file_ranges, block.span);
+            collect_op_span_ranges(&block.ops, &mut file_ranges);
+            push_span_range(&mut file_ranges, terminator_span(&block.terminator));
         }
-        if file_ids.is_empty() {
+        if file_ranges.is_empty() {
             return None;
         }
         let mut policy_hashes = BTreeSet::new();
-        for file_id in file_ids {
-            policy_hashes.insert(self.source_policy_hash_for_file(file_id)?);
+        for range in file_ranges {
+            policy_hashes.insert(self.source_policy_hash_for_file_range(range)?);
         }
         let mut hash = ResourceSummaryStableHasher::new("neplg2-resource-summary-source-policy-v1");
         hash.write_usize(policy_hashes.len());
@@ -87,36 +132,62 @@ impl ResourceSummaryValueCacheContext {
             .find(|(existing_file, _)| *existing_file == file_id)
             .map(|(_, policy_hash)| *policy_hash)
     }
+
+    fn source_policy_hash_for_file_range(&self, range: SourcePolicyFileRange) -> Option<u64> {
+        if let Some(file) = self
+            .source_policy_files
+            .iter()
+            .find(|file| file.file_id == range.file_id)
+        {
+            return file.capabilities.stable_scoped_policy_hash(
+                file.canonical_path.as_str(),
+                file.source.as_str(),
+                range.start,
+                range.end,
+            );
+        }
+        self.source_policy_hash_for_file(range.file_id)
+    }
 }
 
-fn push_file_id(file_ids: &mut Vec<FileId>, span: Span) {
+fn push_span_range(ranges: &mut Vec<SourcePolicyFileRange>, span: Span) {
     if span == Span::dummy() {
         return;
     }
-    if !file_ids.contains(&span.file_id) {
-        file_ids.push(span.file_id);
+    if let Some(existing) = ranges
+        .iter_mut()
+        .find(|existing| existing.file_id == span.file_id)
+    {
+        existing.start = existing.start.min(span.start);
+        existing.end = existing.end.max(span.end);
+        return;
     }
+    ranges.push(SourcePolicyFileRange {
+        file_id: span.file_id,
+        start: span.start,
+        end: span.end,
+    });
 }
 
-fn collect_op_file_ids(ops: &[ResourceOp], file_ids: &mut Vec<FileId>) {
+fn collect_op_span_ranges(ops: &[ResourceOp], ranges: &mut Vec<SourcePolicyFileRange>) {
     for op in ops {
-        push_file_id(file_ids, op_span(op));
+        push_span_range(ranges, op_span(op));
         match op {
             ResourceOp::Branch {
                 then_ops, else_ops, ..
             } => {
-                collect_op_file_ids(then_ops, file_ids);
-                collect_op_file_ids(else_ops, file_ids);
+                collect_op_span_ranges(then_ops, ranges);
+                collect_op_span_ranges(else_ops, ranges);
             }
             ResourceOp::Loop {
                 condition_ops,
                 body_ops,
                 ..
             } => {
-                collect_op_file_ids(condition_ops, file_ids);
-                collect_op_file_ids(body_ops, file_ids);
+                collect_op_span_ranges(condition_ops, ranges);
+                collect_op_span_ranges(body_ops, ranges);
             }
-            ResourceOp::Match { arms, .. } => collect_match_arm_file_ids(arms, file_ids),
+            ResourceOp::Match { arms, .. } => collect_match_arm_span_ranges(arms, ranges),
             ResourceOp::Expr { .. }
             | ResourceOp::DeclareLocal { .. }
             | ResourceOp::Read { .. }
@@ -142,10 +213,13 @@ fn collect_op_file_ids(ops: &[ResourceOp], file_ids: &mut Vec<FileId>) {
     }
 }
 
-fn collect_match_arm_file_ids(arms: &[ResourceMatchArm], file_ids: &mut Vec<FileId>) {
+fn collect_match_arm_span_ranges(
+    arms: &[ResourceMatchArm],
+    ranges: &mut Vec<SourcePolicyFileRange>,
+) {
     for arm in arms {
-        push_file_id(file_ids, arm.span);
-        collect_op_file_ids(&arm.ops, file_ids);
+        push_span_range(ranges, arm.span);
+        collect_op_span_ranges(&arm.ops, ranges);
     }
 }
 
@@ -192,6 +266,8 @@ mod tests {
     use alloc::vec::Vec;
 
     use crate::ast::Effect;
+    use crate::effects::RawMemoryOp;
+    use crate::source_map::{SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite};
     use crate::span::{FileId, Span};
     use crate::types::TypeCtx;
 
@@ -309,6 +385,39 @@ mod tests {
         second.insert_source_policy_hash(FileId(1), 201);
 
         assert_ne!(
+            first.source_capability_policy_hash_for_function(&function),
+            second.source_capability_policy_hash_for_function(&function)
+        );
+    }
+
+    #[test]
+    fn source_policy_hash_prefers_scoped_file_surface_over_file_level_hash() {
+        let types = TypeCtx::new();
+        let function = simple_function(&types, FileId(0), FileId(0));
+        let mut capabilities = SourceCapabilities::none();
+        capabilities.insert_use_site(SourceCapabilityUseSite::RawMemoryOperationBoundary {
+            operation: RawMemoryOp::Load,
+            span: SourceCapabilitySpan::from_span(Span::new(FileId(0), 24, 31)),
+        });
+        let source = "fn a:\n    1\n\nfn b:\n    load_u8 raw\n";
+        let mut first = ResourceSummaryValueCacheContext::new(7);
+        first.insert_source_policy_hash(FileId(0), 100);
+        first.insert_source_policy_file(
+            FileId(0),
+            "stdlib/core/mem/raw.nepl",
+            source,
+            capabilities.clone(),
+        );
+        let mut second = ResourceSummaryValueCacheContext::new(7);
+        second.insert_source_policy_hash(FileId(0), 999);
+        second.insert_source_policy_file(
+            FileId(0),
+            "stdlib/core/mem/raw.nepl",
+            source,
+            capabilities,
+        );
+
+        assert_eq!(
             first.source_capability_policy_hash_for_function(&function),
             second.source_capability_policy_hash_for_function(&function)
         );

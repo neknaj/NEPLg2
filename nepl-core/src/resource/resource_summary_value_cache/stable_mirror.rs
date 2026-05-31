@@ -677,7 +677,6 @@ impl ResourceSummaryStableRawInitCompleteLeafEntry {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::resource) enum ResourceSummaryStableRawInitCompleteLeafEntryReject {
-    Surface,
     ParamCellProjection,
     ParamCellType,
     ParamReleaseRequirementType,
@@ -703,7 +702,6 @@ pub(in crate::resource) enum ResourceSummaryRawAliasReturnEntryReprojectionRejec
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::resource) enum ResourceSummaryRawInitCompleteLeafEntryReprojectionReject {
-    EmptyEntry,
     ParamCellProjection,
     ParamCellStableType,
     ParamCellResultType,
@@ -1993,9 +1991,6 @@ pub(super) fn stable_raw_init_complete_leaf_entry(
     ResourceSummaryStableRawInitCompleteLeafEntry,
     ResourceSummaryStableRawInitCompleteLeafEntryReject,
 > {
-    if raw_init_summary_fact_count(summary) == 0 {
-        return Err(ResourceSummaryStableRawInitCompleteLeafEntryReject::Surface);
-    }
     let return_cells = summary
         .return_cells
         .iter()
@@ -2077,9 +2072,6 @@ pub(super) fn reproject_raw_init_complete_leaf_entry_result(
     RawCellInitializationFunctionSummary,
     ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
 > {
-    if entry.len() == 0 {
-        return Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::EmptyEntry);
-    }
     Ok(RawCellInitializationFunctionSummary {
         function: function_name.to_string(),
         type_params: ctx.type_params.clone(),
@@ -2129,18 +2121,6 @@ pub(super) fn reproject_raw_init_complete_leaf_entry_result(
             .map(|condition| reproject_raw_init_variant_condition(ctx, condition))
             .collect::<Result<Vec<_>, _>>()?,
     })
-}
-
-fn raw_init_summary_fact_count(summary: &RawCellInitializationFunctionSummary) -> usize {
-    summary.return_cells.len()
-        + summary.return_byte_ranges.len()
-        + summary.param_cells.len()
-        + summary.param_byte_ranges.len()
-        + summary.param_release_requirements.len()
-        + summary.variant_param_cells.len()
-        + summary.variant_param_byte_ranges.len()
-        + summary.variant_required_param_cells.len()
-        + summary.variant_conditions.len()
 }
 
 fn reproject_i32_operand(

@@ -281,6 +281,7 @@ fn record_leaf_summary(
     summary: &RawCellInitializationFunctionSummary,
 ) {
     let dependencies = build_function_summary_dependencies(module);
+    let relevant_functions = vec![true; module.functions.len()];
     let preseeded_functions = vec![false; module.functions.len()];
     record_raw_cell_initialization_summary_value_cache_candidates(
         cache,
@@ -288,6 +289,7 @@ fn record_leaf_summary(
         types,
         module,
         &dependencies,
+        &relevant_functions,
         &preseeded_functions,
         core::slice::from_ref(summary),
     );
@@ -348,6 +350,44 @@ fn raw_init_complete_leaf_preseed_replays_same_summary_surface() {
     assert_eq!(stats.resource_summary_value_raw_init_param_facts_stores, 1);
     assert_eq!(stats.resource_summary_value_replay_hits, 1);
     assert_eq!(stats.resource_summary_value_replayed_ops, 1);
+}
+
+/// raw-init の relevant function は、summary fact を持たない場合でも fixed-point worklist
+/// へ戻す必要がないことを cache できる。空 summary を保存しないと、微小編集のたびに
+/// no-fact function が再計算される。ただし下流の summary index へ空 summary を渡すと、
+/// 従来「summary なし」だった呼び出しの扱いが変わり得るため、preseed 状態だけ記録する。
+#[test]
+fn raw_init_complete_leaf_preseed_replays_empty_summary_surface() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let module = raw_init_leaf_module(raw_init_leaf_function(
+        &types,
+        "raw_init_empty",
+        types.i32(),
+        false,
+    ));
+    let summary = RawCellInitializationFunctionSummary {
+        function: String::from("raw_init_empty"),
+        type_params: Vec::new(),
+        return_cells: Vec::new(),
+        return_byte_ranges: Vec::new(),
+        param_cells: Vec::new(),
+        param_byte_ranges: Vec::new(),
+        param_release_requirements: Vec::new(),
+        variant_param_cells: Vec::new(),
+        variant_param_byte_ranges: Vec::new(),
+        variant_required_param_cells: Vec::new(),
+        variant_conditions: Vec::new(),
+    };
+    let context = test_context(11);
+    record_leaf_summary(&mut cache, &context, &types, &module, &summary);
+
+    let (worklist_relevant_functions, preseeded_functions, summaries) =
+        preseed_leaf_summaries(&mut cache, &context, &types, &module);
+
+    assert_eq!(worklist_relevant_functions, vec![false]);
+    assert_eq!(preseeded_functions, vec![true]);
+    assert!(summaries.is_empty());
 }
 
 /// complete raw-init leaf cache は、param facts だけではなく return / byte-range /
@@ -452,8 +492,8 @@ fn raw_init_complete_leaf_dependency_closure_invalidates_on_callee_body_change()
 
     let (worklist_relevant_functions, preseeded_functions, summaries) =
         preseed_leaf_summaries(&mut cache, &context, &types, &module);
-    assert_eq!(worklist_relevant_functions, vec![true, false]);
-    assert_eq!(preseeded_functions, vec![false, true]);
+    assert_eq!(worklist_relevant_functions, vec![false, false]);
+    assert_eq!(preseeded_functions, vec![true, true]);
     assert_eq!(summaries, vec![summary]);
 
     let changed_callee = raw_init_leaf_function(&types, "callee", types.i32(), true);

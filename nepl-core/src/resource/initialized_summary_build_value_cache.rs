@@ -51,7 +51,9 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
         ) else {
             continue;
         };
-        summaries.push(summary);
+        if raw_init_complete_leaf_entry_fact_count(&summary) > 0 {
+            summaries.push(summary);
+        }
         if let Some(is_relevant) = worklist_relevant_functions.get_mut(function_index) {
             *is_relevant = false;
         }
@@ -67,6 +69,7 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
     types: &TypeCtx,
     module: &ResourceModule,
     dependencies: &[Vec<usize>],
+    relevant_functions: &[bool],
     preseeded_functions: &[bool],
     summaries: &[RawCellInitializationFunctionSummary],
 ) {
@@ -95,6 +98,37 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
             summary,
         );
     }
+    for (function_index, function) in module.functions.iter().enumerate() {
+        if !relevant_functions
+            .get(function_index)
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        if summaries
+            .iter()
+            .any(|summary| summary.function == function.name)
+        {
+            continue;
+        }
+        let summary = empty_raw_init_complete_leaf_summary(types, function);
+        collect_raw_init_complete_leaf_entry_candidate_from_summary(
+            &mut candidates,
+            cache,
+            context,
+            types,
+            module,
+            function,
+            function_index,
+            dependencies,
+            preseeded_functions
+                .get(function_index)
+                .copied()
+                .unwrap_or(false),
+            &summary,
+        );
+    }
     cache.record_raw_init_complete_leaf_entry_candidates(candidates);
 }
 
@@ -111,13 +145,11 @@ fn collect_raw_init_complete_leaf_entry_candidate_from_summary(
     summary: &RawCellInitializationFunctionSummary,
 ) {
     let eligible_fact_count = raw_init_complete_leaf_entry_fact_count(summary);
-    if eligible_fact_count == 0 {
-        return;
-    }
     // complete leaf entry は現時点で `RawCellInitializationFunctionSummary` の全 surface を
-    // mirror する。新しい surface が追加されたときは、この fact count と stable mirror の
-    // 両方を更新し、古い incomplete counter を再び増やすのではなく fail-closed な
-    // complete entry として扱えるようにする。
+    // mirror する。fact が空の relevant function も empty entry として保存することで、
+    // 微小編集時に no-fact function が worklist へ戻る固定費を避ける。新しい surface が
+    // 追加されたときは、この fact count と stable mirror の両方を更新し、古い incomplete
+    // counter を再び増やすのではなく fail-closed な complete entry として扱えるようにする。
     if !function_allows_complete_leaf_entry_replay(function) {
         cache.record_raw_init_param_facts_dependency_bypass(eligible_fact_count);
         return;
@@ -151,6 +183,25 @@ fn collect_raw_init_complete_leaf_entry_candidate_from_summary(
         Err(reason) => {
             cache.record_raw_init_param_facts_candidate_bypass(reason, eligible_fact_count);
         }
+    }
+}
+
+fn empty_raw_init_complete_leaf_summary(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+) -> RawCellInitializationFunctionSummary {
+    RawCellInitializationFunctionSummary {
+        function: function.name.clone(),
+        type_params: owner_summary_type_params(types, function),
+        return_cells: Vec::new(),
+        return_byte_ranges: Vec::new(),
+        param_cells: Vec::new(),
+        param_byte_ranges: Vec::new(),
+        param_release_requirements: Vec::new(),
+        variant_param_cells: Vec::new(),
+        variant_param_byte_ranges: Vec::new(),
+        variant_required_param_cells: Vec::new(),
+        variant_conditions: Vec::new(),
     }
 }
 

@@ -2,8 +2,8 @@
 id: ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE
 title: "raw init residual recomputations need function local invalidation"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: performance
 created: 2026-05-31
@@ -45,6 +45,14 @@ Split source capability policy invalidation into function-local exact use-site s
 RPN same-session code edit 測定 `tmp/rpn_empty_source_policy_raw_init_code_edit_20260531.json` では、edit compile が直前の `7142ms` から `6164ms` になった。edit delta は `resource_raw_init_summary_recomputations=73`、`resource_summary_value_raw_init_param_facts_stores=48`、`resource_initialized_function_checks=1`、`resource_summary_value_recomputed_ops=29`、raw-init bypass は `0` である。
 
 この checkpoint は capability proof を持たない通常 user source の過大 invalidation を削るものだが、full function-local exact use-site policy ではない。capability proof を持つ stdlib/compiler-owned source では、同一 file の sibling edit で無関係な capability function を miss させないため、関数本文 slice / 相対 use-site identity / capability kind / raw body source slice を key にする設計がまだ必要である。この issue は open のまま継続する。
+
+## 2026-05-31 function-local policy and empty entry checkpoint
+
+`ResourceSummaryValueCacheContext` に compile-local source path / source text / `SourceCapabilities` を渡し、`ResourceFunction` の function/block/op/terminator span から file ごとの scoped source capability policy hash を作るようにした。scope 内に capability proof がある場合だけ source slice と相対 use-site span を key に含め、scope 外の sibling source text は key に混ぜない。capability proof と scope が部分的にしか重ならない場合は unsafe な推測をせず no-store に倒す。
+
+あわせて raw-init complete leaf cache は、fact を持たない relevant function も empty entry として保存するようにした。空 summary は fixed-point の正当な結果なので、保存済み empty entry を現在の function boundary へ再投影できる場合は worklist から外す。ただし下流の summary index には空 summary を渡さず、従来「summary なし」だった呼び出しの意味を変えない。
+
+`tmp/rpn_function_local_policy_empty_raw_init_filtered_code_edit_20260531.json` では、same-session code edit の `resource_raw_init_summary_recomputations=0`、`resource_raw_init_summary_count=78`、`resource_summary_value_raw_init_param_facts_bypasses=0`、`resource_summary_value_raw_init_param_facts_dependency_source_policy_bypasses=0` になった。raw-init residual recomputation は解消したため、この issue は verified / resolved とする。
 
 ## 検証
 

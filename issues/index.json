@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T08:01:24.007Z",
+  "generated_at": "2026-05-31T08:32:53.724Z",
   "counts": {
     "total": 1295,
-    "open": 28,
-    "resolved": 1267,
+    "open": 27,
+    "resolved": 1268,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 650,
-        "open": 21,
-        "resolved": 629
+        "open": 20,
+        "resolved": 630
       },
       "neplg21": {
         "total": 2,
@@ -368,21 +368,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C.md"
-    },
-    {
-      "id": "ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE",
-      "title": "raw init residual recomputations need function local invalidation",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "performance",
-      "created": "2026-05-31",
-      "updated": "2026-05-31",
-      "target": "nepl-core/src/source_map.rs; nepl-core/src/resource/resource_summary_value_cache/context.rs; nepl-core/src/resource/resource_summary_value_cache/dependency_hash.rs; nepl-core/src/resource/resource_summary_value_cache/raw_init.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE.md"
     },
     {
       "id": "ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D",
@@ -10088,6 +10073,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T071945698Z-RAW-ALIAS-SUMMARIES-NEED-STABLE-MIRR-4DCE44A8.md"
+    },
+    {
+      "id": "ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE",
+      "title": "raw init residual recomputations need function local invalidation",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/source_map.rs; nepl-core/src/resource/resource_summary_value_cache/context.rs; nepl-core/src/resource/resource_summary_value_cache/dependency_hash.rs; nepl-core/src/resource/resource_summary_value_cache/raw_init.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE.md"
     },
     {
       "id": "ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C",
