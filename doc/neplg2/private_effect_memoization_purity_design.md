@@ -289,6 +289,18 @@ SourceCapability では suppress しない。SourceCapability は「この opera
 stdlib source の証明済み use-site から来たか」を示すだけであり、fresh private region の
 non-escape proof や cache observation 非露出 proof の代替にはならない。
 
+同日の actual span integration checkpoint では、`private_cache_*` intrinsic 名を
+`PrivateCacheOp` へ変換する shared helper を `effects.rs` に移し、SourceCapability collector
+と Resource IR effect lowering が同じ primitive identity を使うようにした。これにより、
+`private_cache_lookup` は `InternalEffect::PrivateCache { operation: Lookup }` として
+Resource IR の `EffectOp::PrivateCache` まで届く。
+
+SourceCapability proof は intrinsic 名 token ではなく、Resource IR `CallEffect` と同じ
+intrinsic expression span へ付与する。`#intrinsic "private_cache_lookup" <> ()` の場合、
+trusted use-site は `"private_cache_lookup"` だけではなく intrinsic expression 全体である。
+この粒度に揃えることで、compiler gate の exact file / span / operation 照合が、SourceCapability
+proof と Resource IR effect operation の同じ構文単位を見られる。
+
 2026-06-01 の function alias checkpoint では、Resource IR の function value alias 解析を
 `FunctionValueIdentity` だけでなく `ResourceFunctionValueKind` も保持する形へ更新した。
 これにより、同じ resolved function identity を指す plain `@f` と `memo_call @f` が、
@@ -342,6 +354,12 @@ Resource effect boundary gate は、`PrivateCacheOutsideBoundary` を exact Sour
 を確認するための gate であり、pure mask ではない。したがって、同じ span / operation の
 capability が存在しても、`PrivateCacheInPureFunction` は `PrivateCache rho` の region proof
 が実装されるまで拒否される。
+
+private cache use-site の span は Resource IR の `CallEffect` span と一致させる。HIR に
+intrinsic name token span を運搬して Resource IR 側を name span に寄せる案もあり得るが、
+現行 Resource IR は call/effect use-site を expression span で表すため、SourceCapability proof
+も同じ expression span を authority とする。これにより HIR / Resource IR の型を増やさず、
+effect gate の照合単位を一つに保つ。
 
 ## acceptance / rejection matrix
 
@@ -443,3 +461,4 @@ mask boundary がない pure function では dedicated diagnostic により fail
 - trusted `stdlib/memo` backend の sealed private cache representation。
 - cache lookup result が owned/clone/copy value であることの Resource IR 証明。
 - `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape proof。
+- `private_cache_*` intrinsic の typecheck signature と stdlib memo backend integration regression。

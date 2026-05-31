@@ -84,3 +84,25 @@ Tests should show that trusted stdlib memo use-sites are accepted, copied or shi
 - Resource IR private cache operation の actual span を stdlib memo backend の proof span と一致させる integration regression。
 - `PrivateCache` operation に fresh region identity / mask boundary provenance を持たせる。
 - cache lookup result が owned/copy/clone value であり、cache internal reference、stats、clear、raw identity が外へ出ないことを Resource IR で証明する。
+
+## 2026-06-01 actual span integration checkpoint
+
+`private_cache_*` intrinsic 名を `PrivateCacheOp` へ変換する shared helper を `effects.rs` に置き、SourceCapability collector と Resource IR effect lowering が同じ primitive identity を参照するようにした。`intrinsic_internal_effect("private_cache_lookup")` は `InternalEffect::PrivateCache { operation: Lookup }` を返し、Resource IR lowering は `ResourceOp::CallEffect { effect: EffectOp::PrivateCache { .. }, span: expr.span }` を出す。
+
+SourceCapability 側の private cache proof span は intrinsic 名 token ではなく intrinsic expression 全体の span に変更した。これは Resource IR effect boundary gate が `CallEffect` の `expr.span` を照合するためであり、trusted use-site の authority を同じ構文単位へ揃えるためである。あわせて、空引数 intrinsic の parser span が `)` まで含むように修正した。
+
+追加 regression:
+
+- `private_cache_*` intrinsic は内部 effect として `PrivateCache` に分類され、unmasked surface は `Impure` になる。
+- Resource IR lowering は private cache intrinsic から `EffectOp::PrivateCache` を expression span で出す。
+- configured stdlib source の private cache capability は expression span でだけ許可され、intrinsic-name token span では許可されない。
+
+検証:
+
+- `cargo test -p nepl-core private_cache --lib -- --nocapture`
+- `cargo test -p nepl-core private_cache_intrinsic_lowers_call_effect_at_expression_span --lib -- --nocapture`
+
+残件:
+
+- `private_cache_*` intrinsic の typecheck signature はまだ public surface として固定しない。Phase 1 backend の sealed representation と region proof に合わせて stdlib memo backend integration test で扱う。
+- `PrivateCacheInPureFunction` は引き続き fail-closed。fresh region / non-escape proof が入るまで SourceCapability だけでは Pure mask しない。

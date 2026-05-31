@@ -1950,8 +1950,8 @@ impl Parser {
                         return None;
                     };
 
-                    let (args, args_span, _) = if self.consume_if(&TokenKind::RParen) {
-                        let rp = self.peek_span().unwrap_or(lp);
+                    let (args, args_span, _) = if self.check(&TokenKind::RParen) {
+                        let rp = self.next().unwrap().span;
                         (Vec::new(), lp.join(rp).unwrap_or(lp), false)
                     } else {
                         self.parse_tuple_items(lp)?

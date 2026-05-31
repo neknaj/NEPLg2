@@ -48405,3 +48405,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused regression として、private cache outside-boundary diagnostic の code / message、exact match、operation mismatch、span mismatch、file mismatch、capability があっても pure mask しないことを追加した。
 - `ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF`、`doc/neplg2/private_effect_memoization_purity_design.md`、`doc/neplg2/compiler_performance_cache_design.md`、`todo.md` を更新し、完了した exact use-site 照合と残る fresh region / non-escape proof を分けた。
 - `cargo test -p nepl-core private_cache --lib -- --nocapture` と `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture` は通過した。全体検証はこの checkpoint の最終 verification で実施する。
+
+## 2026-06-01 Agent PrivateCache actual span integration checkpoint
+
+- remote/main と同期済みの `memo/private-cache-span-integration-20260601` branch で、PrivateCache SourceCapability proof span と Resource IR `CallEffect` span の統合を進めた。`plan.md` は変更していない。
+- Zenn の静的検査方針と試作段階方針を再確認し、path suffix や intrinsic 名だけを authority にせず、primitive identity と exact use-site span を構造化して扱う方針にした。
+- subagent review では、`private_cache_*` は SourceCapability collector だけが名前を知っており、`effects.rs::named_internal_effect` から Resource IR `EffectOp::PrivateCache` へ自然に落ちていないこと、さらに SourceCapability proof が `name_span` で Resource IR が `expr.span` なので exact gate と一致しないことを確認した。
+- `effects.rs` に `private_cache_op_from_name` を追加し、SourceCapability collector と intrinsic effect lowering が同じ `PrivateCacheOp` 判定を使うようにした。`private_cache_lookup` は `InternalEffect::PrivateCache { Lookup }` になり、unmasked surface は `Impure` のままである。
+- SourceCapability proof は intrinsic 名 token ではなく intrinsic expression span に付与するよう変更した。Resource IR lowering も `EffectOp::PrivateCache` を expression span で出すため、exact gate の照合単位が一致する。
+- 空引数 `#intrinsic ... ()` の parser span が `)` まで含まれるよう修正した。これは private cache に限らず intrinsic expression span の根本的な off-by-one/next-token 依存を避ける修正である。
+- focused regression として、private cache intrinsic effect 分類、Resource IR lowering の `CallEffect` span、configured stdlib source capability が expression spanだけを許可し name token spanを許可しないことを追加した。
+- `cargo test -p nepl-core private_cache --lib -- --nocapture` と `cargo test -p nepl-core private_cache_intrinsic_lowers_call_effect_at_expression_span --lib -- --nocapture` は通過した。全体検証はこの checkpoint の最終 verification で実施する。

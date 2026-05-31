@@ -3905,14 +3905,17 @@ mod tests {
             "    #intrinsic \"private_cache_lookup\" <> ()\n",
         );
         let capabilities = load_source_capabilities(&loader, path, src);
-        let intrinsic_start = src
+        let intrinsic_name_start = src
             .find("\"private_cache_lookup\"")
             .expect("private cache intrinsic") as u32;
-        let intrinsic_span = Span::new(
+        let intrinsic_name_span = Span::new(
             FileId(0),
-            intrinsic_start,
-            intrinsic_start + "\"private_cache_lookup\"".len() as u32,
+            intrinsic_name_start,
+            intrinsic_name_start + "\"private_cache_lookup\"".len() as u32,
         );
+        let intrinsic_start = src.find("#intrinsic").expect("private cache intrinsic") as u32;
+        let intrinsic_end = src.rfind("()").expect("private cache intrinsic args") as u32 + 2;
+        let intrinsic_span = Span::new(FileId(0), intrinsic_start, intrinsic_end);
         let unrelated_span = Span::new(FileId(0), 0, "fn".len() as u32);
 
         assert!(capabilities.allows_private_cache_boundary(PrivateCacheOp::Lookup));
@@ -3922,6 +3925,11 @@ mod tests {
                 intrinsic_span
             ),
             "private cache authority must attach to the exact compiler-owned intrinsic use site"
+        );
+        assert!(
+            !capabilities
+                .allows_private_cache_boundary_at(PrivateCacheOp::Lookup, intrinsic_name_span),
+            "private cache authority must use the Resource IR effect expression span, not the intrinsic-name token span"
         );
         assert!(
             !capabilities

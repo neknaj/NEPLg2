@@ -369,6 +369,8 @@ mod lower_condition;
 mod lower_drop_call;
 mod lower_layout_intrinsic;
 mod lower_match;
+#[cfg(test)]
+mod lower_private_cache_tests;
 mod lower_raw_address;
 mod lower_raw_address_offset;
 mod lower_raw_address_place;

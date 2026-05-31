@@ -735,6 +735,23 @@ impl fmt::Display for PrivateCacheOp {
     }
 }
 
+/// Converts compiler-owned private-cache intrinsic names into typed operations.
+///
+/// This is intentionally shared by SourceCapability proof collection and effect
+/// classification so a trusted use-site proof and the Resource IR effect use the
+/// same primitive identity.
+pub fn private_cache_op_from_name(name: &str) -> Option<PrivateCacheOp> {
+    let base = helper_base_name(name);
+    let operation = match base {
+        "private_cache_create" => PrivateCacheOp::Create,
+        "private_cache_lookup" => PrivateCacheOp::Lookup,
+        "private_cache_insert" => PrivateCacheOp::Insert,
+        "private_cache_drop" => PrivateCacheOp::Drop,
+        _ => return None,
+    };
+    Some(operation)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InternalEffect {
     Pure,
@@ -1023,6 +1040,9 @@ fn raw_memory_internal_effect(name: &str) -> Option<InternalEffect> {
 }
 
 fn named_internal_effect(name: &str) -> InternalEffect {
+    if let Some(operation) = private_cache_op_from_name(name) {
+        return InternalEffect::PrivateCache { operation };
+    }
     if let Some(operation) = nondet_op_from_name(name) {
         return InternalEffect::Nondet { operation };
     }
@@ -1045,5 +1065,25 @@ fn normalize_raw_symbol(symbol: &str) -> String {
         String::from(inner)
     } else {
         String::from(without_prefix)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn private_cache_intrinsics_are_internal_private_cache_effects() {
+        assert_eq!(
+            intrinsic_internal_effect("private_cache_lookup"),
+            InternalEffect::PrivateCache {
+                operation: PrivateCacheOp::Lookup
+            }
+        );
+        assert_eq!(
+            intrinsic_effect("private_cache_lookup"),
+            Effect::Impure,
+            "unmasked private cache operation must not surface as Pure"
+        );
     }
 }

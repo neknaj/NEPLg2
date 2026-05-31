@@ -113,7 +113,7 @@ pub(in crate::source_capability) fn dispatch_source_capability_proof_event(
             collection_slot_surface,
         } => {
             collect_raw_builtin_evidence(sink, name, span);
-            collect_private_cache_boundary_evidence(sink, name, name_span);
+            collect_private_cache_boundary_evidence(sink, name, span);
             match collection_slot_surface {
                 CollectionSlotLifecycleSourceSurface::InternalCallable => {
                     collect_collection_slot_boundary_evidence(sink, name, name_span);
