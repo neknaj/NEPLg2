@@ -18,9 +18,20 @@ use super::super::collection_slot_summary_model::{
 };
 use super::super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
+    RawCellInitializationReturnCell,
 };
+use super::super::initialized_summary_byte_range_model::{
+    RawCellInitializationParamByteRange, RawCellInitializationParamCount,
+    RawCellInitializationReturnByteRange, RawCellInitializationReturnCount,
+    RawCellInitializationVariantParamByteRange,
+};
+use super::super::initialized_summary_condition::RawCellValueCondition;
 use super::super::initialized_summary_release_model::{
     RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
+};
+use super::super::initialized_summary_variant_model::{
+    RawCellInitializationVariantCondition, RawCellInitializationVariantParamCell,
+    RawCellInitializationVariantParamRequirement,
 };
 use super::super::model::{
     Place, PlaceProjection, ResourceFunction, ResourceLocal, ResourceOffset,
@@ -106,26 +117,42 @@ impl ResourceSummaryStableDropTraversalForallLeafEntry {
     }
 }
 
-/// raw initialization summary のうち、parameter に対する facts だけで完結する leaf entry。
+/// raw initialization summary の complete leaf entry。
 ///
-/// `RawCellInitializationFunctionSummary` 全体には return facts、variant 条件、path-sensitive
-/// release などが混在する。この entry は dependency-free 関数の param facts だけを
-/// fixed-point worklist 前に再投影するための最小単位であり、`TypeId` は stable type key、
-/// projection は layout を検証できる形式に落として保持する。
+/// `RawCellInitializationFunctionSummary` に含まれる return facts、parameter byte-range、
+/// variant 条件、path-sensitive release を同じ entry にまとめて保存する。部分的に保存した
+/// summary は replay 後に raw initialization proof を欠落させるため、この entry は
+/// leaf summary surface 全体を再投影できる場合だけ cache value として採用する。
+/// `TypeId` は stable type key、projection は layout を検証できる形式へ落として保持する。
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct ResourceSummaryStableRawInitParamFactsLeafEntry {
+pub(super) struct ResourceSummaryStableRawInitCompleteLeafEntry {
+    return_cells: Vec<ResourceSummaryStableRawInitReturnCell>,
+    return_byte_ranges: Vec<ResourceSummaryStableRawInitReturnByteRange>,
     param_cells: Vec<ResourceSummaryStableRawInitParamCell>,
+    param_byte_ranges: Vec<ResourceSummaryStableRawInitParamByteRange>,
     param_release_requirements: Vec<ResourceSummaryStableRawCellReleaseParamRequirement>,
+    variant_param_cells: Vec<ResourceSummaryStableRawInitVariantParamCell>,
+    variant_param_byte_ranges: Vec<ResourceSummaryStableRawInitVariantParamByteRange>,
+    variant_required_param_cells: Vec<ResourceSummaryStableRawInitVariantParamRequirement>,
+    variant_conditions: Vec<ResourceSummaryStableRawInitVariantCondition>,
 }
 
-impl ResourceSummaryStableRawInitParamFactsLeafEntry {
+impl ResourceSummaryStableRawInitCompleteLeafEntry {
     pub(super) fn len(&self) -> usize {
-        self.param_cells.len() + self.param_release_requirements.len()
+        self.return_cells.len()
+            + self.return_byte_ranges.len()
+            + self.param_cells.len()
+            + self.param_byte_ranges.len()
+            + self.param_release_requirements.len()
+            + self.variant_param_cells.len()
+            + self.variant_param_byte_ranges.len()
+            + self.variant_required_param_cells.len()
+            + self.variant_conditions.len()
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::resource) enum ResourceSummaryStableRawInitParamFactsLeafEntryReject {
+pub(in crate::resource) enum ResourceSummaryStableRawInitCompleteLeafEntryReject {
     Surface,
     ParamCellProjection,
     ParamCellType,
@@ -133,7 +160,7 @@ pub(in crate::resource) enum ResourceSummaryStableRawInitParamFactsLeafEntryReje
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::resource) enum ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject {
+pub(in crate::resource) enum ResourceSummaryRawInitCompleteLeafEntryReprojectionReject {
     EmptyEntry,
     ParamCellProjection,
     ParamCellStableType,
@@ -148,6 +175,94 @@ struct ResourceSummaryStableRawInitParamCell {
     suffix: Vec<ResourceSummaryStableProjection>,
     ty: ResourceSummaryStableTypeKey,
     holds_raw_address: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableRawInitReturnCell {
+    suffix: Vec<ResourceSummaryStablePlaceProjection>,
+    ty: ResourceSummaryStableTypeKey,
+    holds_raw_address: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableRawInitReturnByteRange {
+    address_suffix: Vec<ResourceSummaryStablePlaceProjection>,
+    address_ty: ResourceSummaryStableTypeKey,
+    count: ResourceSummaryStableRawInitReturnCount,
+    unit: super::super::cell_state_raw_range::InitializedRawRangeUnit,
+    ty: ResourceSummaryStableTypeKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ResourceSummaryStableRawInitReturnCount {
+    ReturnValueProjection {
+        suffix: Vec<ResourceSummaryStablePlaceProjection>,
+        ty: ResourceSummaryStableTypeKey,
+    },
+    KnownI32 {
+        value: i32,
+        ty: ResourceSummaryStableTypeKey,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableRawInitParamByteRange {
+    address_param_index: usize,
+    address_suffix: Vec<ResourceSummaryStableProjection>,
+    address_ty: ResourceSummaryStableTypeKey,
+    count: ResourceSummaryStableRawInitParamCount,
+    unit: super::super::cell_state_raw_range::InitializedRawRangeUnit,
+    ty: ResourceSummaryStableTypeKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ResourceSummaryStableRawInitParamCount {
+    ParamProjection {
+        param_index: usize,
+        suffix: Vec<ResourceSummaryStableProjection>,
+        ty: ResourceSummaryStableTypeKey,
+    },
+    KnownI32 {
+        value: i32,
+        ty: ResourceSummaryStableTypeKey,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableRawInitVariantParamCell {
+    variant: String,
+    param_index: usize,
+    suffix: Vec<ResourceSummaryStableProjection>,
+    ty: ResourceSummaryStableTypeKey,
+    holds_raw_address: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableRawInitVariantParamByteRange {
+    variant: String,
+    address_param_index: usize,
+    address_suffix: Vec<ResourceSummaryStableProjection>,
+    address_ty: ResourceSummaryStableTypeKey,
+    count: ResourceSummaryStableRawInitParamCount,
+    unit: super::super::cell_state_raw_range::InitializedRawRangeUnit,
+    ty: ResourceSummaryStableTypeKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableRawInitVariantParamRequirement {
+    variant: String,
+    param_index: usize,
+    suffix: Vec<ResourceSummaryStableProjection>,
+    ty: ResourceSummaryStableTypeKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ResourceSummaryStableRawInitVariantCondition {
+    variant: String,
+    param_index: usize,
+    suffix: Vec<ResourceSummaryStableProjection>,
+    ty: ResourceSummaryStableTypeKey,
+    condition: RawCellValueCondition,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -542,21 +657,36 @@ pub(super) fn reproject_drop_traversal_forall_leaf_entry(
         .collect()
 }
 
-pub(super) fn stable_raw_init_param_facts_leaf_entry(
+pub(super) fn stable_raw_init_complete_leaf_entry(
     types: &TypeCtx,
     function: &ResourceFunction,
     summary: &RawCellInitializationFunctionSummary,
 ) -> Result<
-    ResourceSummaryStableRawInitParamFactsLeafEntry,
-    ResourceSummaryStableRawInitParamFactsLeafEntryReject,
+    ResourceSummaryStableRawInitCompleteLeafEntry,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
 > {
-    if !raw_init_summary_is_param_facts_leaf(summary) {
-        return Err(ResourceSummaryStableRawInitParamFactsLeafEntryReject::Surface);
+    if raw_init_summary_fact_count(summary) == 0 {
+        return Err(ResourceSummaryStableRawInitCompleteLeafEntryReject::Surface);
     }
+    let return_cells = summary
+        .return_cells
+        .iter()
+        .map(|cell| stable_raw_init_return_cell(types, &function.params, cell))
+        .collect::<Result<Vec<_>, _>>()?;
+    let return_byte_ranges = summary
+        .return_byte_ranges
+        .iter()
+        .map(|range| stable_raw_init_return_byte_range(types, &function.params, range))
+        .collect::<Result<Vec<_>, _>>()?;
     let param_cells = summary
         .param_cells
         .iter()
         .map(|cell| stable_raw_init_param_cell(types, cell))
+        .collect::<Result<Vec<_>, _>>()?;
+    let param_byte_ranges = summary
+        .param_byte_ranges
+        .iter()
+        .map(|range| stable_raw_init_param_byte_range(types, range))
         .collect::<Result<Vec<_>, _>>()?;
     let param_release_requirements = summary
         .param_release_requirements
@@ -565,18 +695,45 @@ pub(super) fn stable_raw_init_param_facts_leaf_entry(
             stable_raw_cell_release_param_requirement(types, &function.params, requirement)
         })
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(ResourceSummaryStableRawInitParamFactsLeafEntry {
+    let variant_param_cells = summary
+        .variant_param_cells
+        .iter()
+        .map(|cell| stable_raw_init_variant_param_cell(types, cell))
+        .collect::<Result<Vec<_>, _>>()?;
+    let variant_param_byte_ranges = summary
+        .variant_param_byte_ranges
+        .iter()
+        .map(|range| stable_raw_init_variant_param_byte_range(types, range))
+        .collect::<Result<Vec<_>, _>>()?;
+    let variant_required_param_cells = summary
+        .variant_required_param_cells
+        .iter()
+        .map(|cell| stable_raw_init_variant_param_requirement(types, cell))
+        .collect::<Result<Vec<_>, _>>()?;
+    let variant_conditions = summary
+        .variant_conditions
+        .iter()
+        .map(|condition| stable_raw_init_variant_condition(types, condition))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ResourceSummaryStableRawInitCompleteLeafEntry {
+        return_cells,
+        return_byte_ranges,
         param_cells,
+        param_byte_ranges,
         param_release_requirements,
+        variant_param_cells,
+        variant_param_byte_ranges,
+        variant_required_param_cells,
+        variant_conditions,
     })
 }
 
-pub(super) fn reproject_raw_init_param_facts_leaf_entry(
+pub(super) fn reproject_raw_init_complete_leaf_entry(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     function_name: &str,
-    entry: &ResourceSummaryStableRawInitParamFactsLeafEntry,
+    entry: &ResourceSummaryStableRawInitCompleteLeafEntry,
 ) -> Option<RawCellInitializationFunctionSummary> {
-    reproject_raw_init_param_facts_leaf_entry_result(ctx, function_name, entry).ok()
+    reproject_raw_init_complete_leaf_entry_result(ctx, function_name, entry).ok()
 }
 
 /// stable raw-init param facts entry を現在の Resource IR summary に戻す。
@@ -584,49 +741,78 @@ pub(super) fn reproject_raw_init_param_facts_leaf_entry(
 /// この関数は cache 候補の自己再投影検査でも使うため、`Option` で失敗を潰さず、
 /// projection の不一致と型 key の不一致を分けて返す。再投影できない entry は安全側で
 /// store/replay しないが、失敗面を分けることで次の canonicalization 対象を測定できる。
-pub(super) fn reproject_raw_init_param_facts_leaf_entry_result(
+pub(super) fn reproject_raw_init_complete_leaf_entry_result(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     function_name: &str,
-    entry: &ResourceSummaryStableRawInitParamFactsLeafEntry,
+    entry: &ResourceSummaryStableRawInitCompleteLeafEntry,
 ) -> Result<
     RawCellInitializationFunctionSummary,
-    ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
 > {
     if entry.len() == 0 {
-        return Err(ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::EmptyEntry);
+        return Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::EmptyEntry);
     }
     Ok(RawCellInitializationFunctionSummary {
         function: function_name.to_string(),
         type_params: ctx.type_params.clone(),
-        return_cells: Vec::new(),
-        return_byte_ranges: Vec::new(),
+        return_cells: entry
+            .return_cells
+            .iter()
+            .map(|cell| reproject_raw_init_return_cell(ctx, cell))
+            .collect::<Result<Vec<_>, _>>()?,
+        return_byte_ranges: entry
+            .return_byte_ranges
+            .iter()
+            .map(|range| reproject_raw_init_return_byte_range(ctx, range))
+            .collect::<Result<Vec<_>, _>>()?,
         param_cells: entry
             .param_cells
             .iter()
             .map(|cell| reproject_raw_init_param_cell(ctx, cell))
             .collect::<Result<Vec<_>, _>>()?,
-        param_byte_ranges: Vec::new(),
+        param_byte_ranges: entry
+            .param_byte_ranges
+            .iter()
+            .map(|range| reproject_raw_init_param_byte_range(ctx, range))
+            .collect::<Result<Vec<_>, _>>()?,
         param_release_requirements: entry
             .param_release_requirements
             .iter()
             .map(|requirement| reproject_raw_cell_release_param_requirement(ctx, requirement))
             .collect::<Result<Vec<_>, _>>()?,
-        variant_param_cells: Vec::new(),
-        variant_param_byte_ranges: Vec::new(),
-        variant_required_param_cells: Vec::new(),
-        variant_conditions: Vec::new(),
+        variant_param_cells: entry
+            .variant_param_cells
+            .iter()
+            .map(|cell| reproject_raw_init_variant_param_cell(ctx, cell))
+            .collect::<Result<Vec<_>, _>>()?,
+        variant_param_byte_ranges: entry
+            .variant_param_byte_ranges
+            .iter()
+            .map(|range| reproject_raw_init_variant_param_byte_range(ctx, range))
+            .collect::<Result<Vec<_>, _>>()?,
+        variant_required_param_cells: entry
+            .variant_required_param_cells
+            .iter()
+            .map(|cell| reproject_raw_init_variant_param_requirement(ctx, cell))
+            .collect::<Result<Vec<_>, _>>()?,
+        variant_conditions: entry
+            .variant_conditions
+            .iter()
+            .map(|condition| reproject_raw_init_variant_condition(ctx, condition))
+            .collect::<Result<Vec<_>, _>>()?,
     })
 }
 
-fn raw_init_summary_is_param_facts_leaf(summary: &RawCellInitializationFunctionSummary) -> bool {
-    (!summary.param_cells.is_empty() || !summary.param_release_requirements.is_empty())
-        && summary.return_cells.is_empty()
-        && summary.return_byte_ranges.is_empty()
-        && summary.param_byte_ranges.is_empty()
-        && summary.variant_param_cells.is_empty()
-        && summary.variant_param_byte_ranges.is_empty()
-        && summary.variant_required_param_cells.is_empty()
-        && summary.variant_conditions.is_empty()
+fn raw_init_summary_fact_count(summary: &RawCellInitializationFunctionSummary) -> usize {
+    summary.return_cells.len()
+        + summary.return_byte_ranges.len()
+        + summary.param_cells.len()
+        + summary.param_byte_ranges.len()
+        + summary.param_release_requirements.len()
+        + summary.variant_param_cells.len()
+        + summary.variant_param_byte_ranges.len()
+        + summary.variant_required_param_cells.len()
+        + summary.variant_conditions.len()
 }
 
 fn reproject_i32_operand(
@@ -822,23 +1008,270 @@ fn stable_raw_init_param_cell(
     cell: &RawCellInitializationParamCell,
 ) -> Result<
     ResourceSummaryStableRawInitParamCell,
-    ResourceSummaryStableRawInitParamFactsLeafEntryReject,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
 > {
     let suffix = cell
         .suffix
         .iter()
         .map(|projection| {
             stable_summary_projection(types, projection)
-                .ok_or(ResourceSummaryStableRawInitParamFactsLeafEntryReject::ParamCellProjection)
+                .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellProjection)
         })
         .collect::<Result<Vec<_>, _>>()?;
     let ty = ResourceSummaryStableTypeKey::from_type(types, cell.ty)
-        .ok_or(ResourceSummaryStableRawInitParamFactsLeafEntryReject::ParamCellType)?;
+        .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
     Ok(ResourceSummaryStableRawInitParamCell {
         param_index: cell.param_index,
         suffix,
         ty,
         holds_raw_address: cell.holds_raw_address,
+    })
+}
+
+fn stable_raw_init_return_cell(
+    types: &TypeCtx,
+    params: &[ResourceLocal],
+    cell: &RawCellInitializationReturnCell,
+) -> Result<
+    ResourceSummaryStableRawInitReturnCell,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
+    let suffix = cell
+        .suffix
+        .iter()
+        .map(|projection| stable_place_projection(types, params, projection))
+        .collect::<Result<Vec<_>, _>>()?;
+    let ty = ResourceSummaryStableTypeKey::from_type(types, cell.ty)
+        .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+    Ok(ResourceSummaryStableRawInitReturnCell {
+        suffix,
+        ty,
+        holds_raw_address: cell.holds_raw_address,
+    })
+}
+
+fn stable_raw_init_return_byte_range(
+    types: &TypeCtx,
+    params: &[ResourceLocal],
+    range: &RawCellInitializationReturnByteRange,
+) -> Result<
+    ResourceSummaryStableRawInitReturnByteRange,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
+    let address_suffix = range
+        .address_suffix
+        .iter()
+        .map(|projection| stable_place_projection(types, params, projection))
+        .collect::<Result<Vec<_>, _>>()?;
+    let address_ty = ResourceSummaryStableTypeKey::from_type(types, range.address_ty)
+        .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+    let count = stable_raw_init_return_count(types, params, &range.count)?;
+    let ty = ResourceSummaryStableTypeKey::from_type(types, range.ty)
+        .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+    Ok(ResourceSummaryStableRawInitReturnByteRange {
+        address_suffix,
+        address_ty,
+        count,
+        unit: range.unit,
+        ty,
+    })
+}
+
+fn stable_raw_init_return_count(
+    types: &TypeCtx,
+    params: &[ResourceLocal],
+    count: &RawCellInitializationReturnCount,
+) -> Result<
+    ResourceSummaryStableRawInitReturnCount,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
+    Ok(match count {
+        RawCellInitializationReturnCount::ReturnValueProjection { suffix, ty } => {
+            let suffix = suffix
+                .iter()
+                .map(|projection| stable_place_projection(types, params, projection))
+                .collect::<Result<Vec<_>, _>>()?;
+            let ty = ResourceSummaryStableTypeKey::from_type(types, *ty)
+                .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+            ResourceSummaryStableRawInitReturnCount::ReturnValueProjection { suffix, ty }
+        }
+        RawCellInitializationReturnCount::KnownI32 { value, ty } => {
+            let ty = ResourceSummaryStableTypeKey::from_type(types, *ty)
+                .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+            ResourceSummaryStableRawInitReturnCount::KnownI32 { value: *value, ty }
+        }
+    })
+}
+
+fn stable_raw_init_param_byte_range(
+    types: &TypeCtx,
+    range: &RawCellInitializationParamByteRange,
+) -> Result<
+    ResourceSummaryStableRawInitParamByteRange,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
+    let address_suffix = range
+        .address_suffix
+        .iter()
+        .map(|projection| {
+            stable_summary_projection(types, projection)
+                .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellProjection)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let address_ty = ResourceSummaryStableTypeKey::from_type(types, range.address_ty)
+        .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+    let count = stable_raw_init_param_count(types, &range.count)?;
+    let ty = ResourceSummaryStableTypeKey::from_type(types, range.ty)
+        .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+    Ok(ResourceSummaryStableRawInitParamByteRange {
+        address_param_index: range.address_param_index,
+        address_suffix,
+        address_ty,
+        count,
+        unit: range.unit,
+        ty,
+    })
+}
+
+fn stable_raw_init_param_count(
+    types: &TypeCtx,
+    count: &RawCellInitializationParamCount,
+) -> Result<
+    ResourceSummaryStableRawInitParamCount,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
+    Ok(match count {
+        RawCellInitializationParamCount::ParamProjection {
+            param_index,
+            suffix,
+            ty,
+        } => {
+            let suffix = suffix
+                .iter()
+                .map(|projection| {
+                    stable_summary_projection(types, projection).ok_or(
+                        ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellProjection,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let ty = ResourceSummaryStableTypeKey::from_type(types, *ty)
+                .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+            ResourceSummaryStableRawInitParamCount::ParamProjection {
+                param_index: *param_index,
+                suffix,
+                ty,
+            }
+        }
+        RawCellInitializationParamCount::KnownI32 { value, ty } => {
+            let ty = ResourceSummaryStableTypeKey::from_type(types, *ty)
+                .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+            ResourceSummaryStableRawInitParamCount::KnownI32 { value: *value, ty }
+        }
+    })
+}
+
+fn stable_raw_init_variant_param_cell(
+    types: &TypeCtx,
+    cell: &RawCellInitializationVariantParamCell,
+) -> Result<
+    ResourceSummaryStableRawInitVariantParamCell,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
+    let base = stable_raw_init_param_cell(
+        types,
+        &RawCellInitializationParamCell {
+            param_index: cell.param_index,
+            suffix: cell.suffix.clone(),
+            ty: cell.ty,
+            holds_raw_address: cell.holds_raw_address,
+        },
+    )?;
+    Ok(ResourceSummaryStableRawInitVariantParamCell {
+        variant: cell.variant.clone(),
+        param_index: base.param_index,
+        suffix: base.suffix,
+        ty: base.ty,
+        holds_raw_address: base.holds_raw_address,
+    })
+}
+
+fn stable_raw_init_variant_param_byte_range(
+    types: &TypeCtx,
+    range: &RawCellInitializationVariantParamByteRange,
+) -> Result<
+    ResourceSummaryStableRawInitVariantParamByteRange,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
+    let base = stable_raw_init_param_byte_range(
+        types,
+        &RawCellInitializationParamByteRange {
+            address_param_index: range.address_param_index,
+            address_suffix: range.address_suffix.clone(),
+            address_ty: range.address_ty,
+            count: range.count.clone(),
+            unit: range.unit,
+            ty: range.ty,
+        },
+    )?;
+    Ok(ResourceSummaryStableRawInitVariantParamByteRange {
+        variant: range.variant.clone(),
+        address_param_index: base.address_param_index,
+        address_suffix: base.address_suffix,
+        address_ty: base.address_ty,
+        count: base.count,
+        unit: base.unit,
+        ty: base.ty,
+    })
+}
+
+fn stable_raw_init_variant_param_requirement(
+    types: &TypeCtx,
+    cell: &RawCellInitializationVariantParamRequirement,
+) -> Result<
+    ResourceSummaryStableRawInitVariantParamRequirement,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
+    let suffix = cell
+        .suffix
+        .iter()
+        .map(|projection| {
+            stable_summary_projection(types, projection)
+                .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellProjection)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let ty = ResourceSummaryStableTypeKey::from_type(types, cell.ty)
+        .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+    Ok(ResourceSummaryStableRawInitVariantParamRequirement {
+        variant: cell.variant.clone(),
+        param_index: cell.param_index,
+        suffix,
+        ty,
+    })
+}
+
+fn stable_raw_init_variant_condition(
+    types: &TypeCtx,
+    condition: &RawCellInitializationVariantCondition,
+) -> Result<
+    ResourceSummaryStableRawInitVariantCondition,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
+> {
+    let suffix = condition
+        .suffix
+        .iter()
+        .map(|projection| {
+            stable_summary_projection(types, projection)
+                .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellProjection)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let ty = ResourceSummaryStableTypeKey::from_type(types, condition.ty)
+        .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamCellType)?;
+    Ok(ResourceSummaryStableRawInitVariantCondition {
+        variant: condition.variant.clone(),
+        param_index: condition.param_index,
+        suffix,
+        ty,
+        condition: condition.condition,
     })
 }
 
@@ -848,16 +1281,15 @@ fn stable_raw_cell_release_param_requirement(
     requirement: &RawCellReleaseParamRequirement,
 ) -> Result<
     ResourceSummaryStableRawCellReleaseParamRequirement,
-    ResourceSummaryStableRawInitParamFactsLeafEntryReject,
+    ResourceSummaryStableRawInitCompleteLeafEntryReject,
 > {
     let suffix = requirement
         .suffix
         .iter()
         .map(|projection| stable_place_projection(types, params, projection))
         .collect::<Result<Vec<_>, _>>()?;
-    let ty = ResourceSummaryStableTypeKey::from_type(types, requirement.ty).ok_or(
-        ResourceSummaryStableRawInitParamFactsLeafEntryReject::ParamReleaseRequirementType,
-    )?;
+    let ty = ResourceSummaryStableTypeKey::from_type(types, requirement.ty)
+        .ok_or(ResourceSummaryStableRawInitCompleteLeafEntryReject::ParamReleaseRequirementType)?;
     Ok(ResourceSummaryStableRawCellReleaseParamRequirement {
         param_index: requirement.param_index,
         suffix,
@@ -870,10 +1302,8 @@ fn stable_place_projection(
     types: &TypeCtx,
     params: &[ResourceLocal],
     projection: &PlaceProjection,
-) -> Result<
-    ResourceSummaryStablePlaceProjection,
-    ResourceSummaryStableRawInitParamFactsLeafEntryReject,
-> {
+) -> Result<ResourceSummaryStablePlaceProjection, ResourceSummaryStableRawInitCompleteLeafEntryReject>
+{
     Ok(match projection {
         PlaceProjection::Field {
             index,
@@ -1113,15 +1543,13 @@ fn reproject_summary_offset(
 fn reproject_raw_init_param_cell(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     cell: &ResourceSummaryStableRawInitParamCell,
-) -> Result<
-    RawCellInitializationParamCell,
-    ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject,
-> {
+) -> Result<RawCellInitializationParamCell, ResourceSummaryRawInitCompleteLeafEntryReprojectionReject>
+{
     let base = ctx
         .function
         .params
         .get(cell.param_index)
-        .ok_or(ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellProjection)?
+        .ok_or(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection)?
         .ty;
     let (suffix, ty) =
         reproject_raw_init_param_cell_summary_suffix(ctx, base, &cell.ty, &cell.suffix)?;
@@ -1140,7 +1568,7 @@ fn reproject_raw_init_param_cell_summary_suffix(
     suffix: &[ResourceSummaryStableProjection],
 ) -> Result<
     (Vec<SummaryProjection>, TypeId),
-    ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
 > {
     let stable_key = stable_ty;
     let mut out = Vec::new();
@@ -1148,7 +1576,7 @@ fn reproject_raw_init_param_cell_summary_suffix(
     let mut used_stored_cell_ty = false;
     for stable_projection in suffix {
         let projection = reproject_summary_projection(ctx, stable_projection).ok_or(
-            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellProjection,
+            ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection,
         )?;
         current_ty = reproject_raw_init_param_cell_projection_result_type(
             ctx,
@@ -1165,9 +1593,7 @@ fn reproject_raw_init_param_cell_summary_suffix(
         current_ty,
         used_stored_cell_ty,
     ) {
-        return Err(
-            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellResultType,
-        );
+        return Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellResultType);
     }
     Ok((out, current_ty))
 }
@@ -1178,7 +1604,7 @@ fn reproject_raw_init_param_cell_projection_result_type(
     stable_cell_ty: &ResourceSummaryStableTypeKey,
     projection: &SummaryProjection,
     used_stored_cell_ty: &mut bool,
-) -> Result<TypeId, ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject> {
+) -> Result<TypeId, ResourceSummaryRawInitCompleteLeafEntryReprojectionReject> {
     if matches!(projection, SummaryProjection::Deref) {
         if let Some(ty) = summary_projection_result_type(ctx.types, current_ty, projection) {
             return Ok(ty);
@@ -1188,17 +1614,17 @@ fn reproject_raw_init_param_cell_projection_result_type(
         // cell 型だけを復元先として採用し、field/tuple など通常projectionの検証は
         // 引き続き `summary_projection_result_type` に任せる。
         let stable_cell_ty = ctx.reproject_type(stable_cell_ty).ok_or(
-            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellStableType,
+            ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellStableType,
         )?;
         *used_stored_cell_ty = true;
         return Ok(stable_cell_ty);
     }
     validate_projection_layout(ctx.types, current_ty, projection)
-        .ok_or(ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellProjection)?;
+        .ok_or(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection)?;
     if let Some(ty) = summary_projection_result_type(ctx.types, current_ty, projection) {
         return Ok(ty);
     }
-    Err(ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellProjection)
+    Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection)
 }
 
 fn raw_init_param_cell_type_matches_reprojected_result(
@@ -1221,27 +1647,313 @@ fn raw_init_param_cell_type_matches_reprojected_result(
     false
 }
 
+fn reproject_raw_init_return_cell(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    cell: &ResourceSummaryStableRawInitReturnCell,
+) -> Result<
+    RawCellInitializationReturnCell,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
+> {
+    let (suffix, ty) = reproject_stable_place_projection_suffix_with_expected_type(
+        ctx,
+        ctx.function.result,
+        &cell.ty,
+        &cell.suffix,
+    )?;
+    Ok(RawCellInitializationReturnCell {
+        suffix,
+        ty,
+        holds_raw_address: cell.holds_raw_address,
+    })
+}
+
+fn reproject_raw_init_return_byte_range(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    range: &ResourceSummaryStableRawInitReturnByteRange,
+) -> Result<
+    RawCellInitializationReturnByteRange,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
+> {
+    let (address_suffix, address_ty) = reproject_stable_place_projection_suffix_with_expected_type(
+        ctx,
+        ctx.function.result,
+        &range.address_ty,
+        &range.address_suffix,
+    )?;
+    let count = reproject_raw_init_return_count(ctx, &range.count)?;
+    let ty = reproject_raw_init_stable_type(ctx, &range.ty)?;
+    Ok(RawCellInitializationReturnByteRange {
+        address_suffix,
+        address_ty,
+        count,
+        unit: range.unit,
+        ty,
+    })
+}
+
+fn reproject_raw_init_return_count(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    count: &ResourceSummaryStableRawInitReturnCount,
+) -> Result<
+    RawCellInitializationReturnCount,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
+> {
+    Ok(match count {
+        ResourceSummaryStableRawInitReturnCount::ReturnValueProjection { suffix, ty } => {
+            let (suffix, ty) = reproject_stable_place_projection_suffix_with_expected_type(
+                ctx,
+                ctx.function.result,
+                ty,
+                suffix,
+            )?;
+            RawCellInitializationReturnCount::ReturnValueProjection { suffix, ty }
+        }
+        ResourceSummaryStableRawInitReturnCount::KnownI32 { value, ty } => {
+            RawCellInitializationReturnCount::KnownI32 {
+                value: *value,
+                ty: reproject_raw_init_stable_type(ctx, ty)?,
+            }
+        }
+    })
+}
+
+fn reproject_raw_init_param_byte_range(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    range: &ResourceSummaryStableRawInitParamByteRange,
+) -> Result<
+    RawCellInitializationParamByteRange,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
+> {
+    let base = ctx
+        .function
+        .params
+        .get(range.address_param_index)
+        .ok_or(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection)?
+        .ty;
+    let (address_suffix, address_ty) = reproject_raw_init_param_cell_summary_suffix(
+        ctx,
+        base,
+        &range.address_ty,
+        &range.address_suffix,
+    )?;
+    let count = reproject_raw_init_param_count(ctx, &range.count)?;
+    let ty = reproject_raw_init_stable_type(ctx, &range.ty)?;
+    Ok(RawCellInitializationParamByteRange {
+        address_param_index: range.address_param_index,
+        address_suffix,
+        address_ty,
+        count,
+        unit: range.unit,
+        ty,
+    })
+}
+
+fn reproject_raw_init_param_count(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    count: &ResourceSummaryStableRawInitParamCount,
+) -> Result<
+    RawCellInitializationParamCount,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
+> {
+    Ok(match count {
+        ResourceSummaryStableRawInitParamCount::ParamProjection {
+            param_index,
+            suffix,
+            ty,
+        } => {
+            let base = ctx
+                .function
+                .params
+                .get(*param_index)
+                .ok_or(
+                    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection,
+                )?
+                .ty;
+            let (suffix, ty) = reproject_raw_init_param_cell_summary_suffix(ctx, base, ty, suffix)?;
+            RawCellInitializationParamCount::ParamProjection {
+                param_index: *param_index,
+                suffix,
+                ty,
+            }
+        }
+        ResourceSummaryStableRawInitParamCount::KnownI32 { value, ty } => {
+            RawCellInitializationParamCount::KnownI32 {
+                value: *value,
+                ty: reproject_raw_init_stable_type(ctx, ty)?,
+            }
+        }
+    })
+}
+
+fn reproject_raw_init_variant_param_cell(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    cell: &ResourceSummaryStableRawInitVariantParamCell,
+) -> Result<
+    RawCellInitializationVariantParamCell,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
+> {
+    let base = reproject_raw_init_param_cell(
+        ctx,
+        &ResourceSummaryStableRawInitParamCell {
+            param_index: cell.param_index,
+            suffix: cell.suffix.clone(),
+            ty: cell.ty.clone(),
+            holds_raw_address: cell.holds_raw_address,
+        },
+    )?;
+    Ok(RawCellInitializationVariantParamCell {
+        variant: cell.variant.clone(),
+        param_index: base.param_index,
+        suffix: base.suffix,
+        ty: base.ty,
+        holds_raw_address: base.holds_raw_address,
+    })
+}
+
+fn reproject_raw_init_variant_param_byte_range(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    range: &ResourceSummaryStableRawInitVariantParamByteRange,
+) -> Result<
+    RawCellInitializationVariantParamByteRange,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
+> {
+    let base = reproject_raw_init_param_byte_range(
+        ctx,
+        &ResourceSummaryStableRawInitParamByteRange {
+            address_param_index: range.address_param_index,
+            address_suffix: range.address_suffix.clone(),
+            address_ty: range.address_ty.clone(),
+            count: range.count.clone(),
+            unit: range.unit,
+            ty: range.ty.clone(),
+        },
+    )?;
+    Ok(RawCellInitializationVariantParamByteRange {
+        variant: range.variant.clone(),
+        address_param_index: base.address_param_index,
+        address_suffix: base.address_suffix,
+        address_ty: base.address_ty,
+        count: base.count,
+        unit: base.unit,
+        ty: base.ty,
+    })
+}
+
+fn reproject_raw_init_variant_param_requirement(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    cell: &ResourceSummaryStableRawInitVariantParamRequirement,
+) -> Result<
+    RawCellInitializationVariantParamRequirement,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
+> {
+    let base = ctx
+        .function
+        .params
+        .get(cell.param_index)
+        .ok_or(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection)?
+        .ty;
+    let (suffix, ty) =
+        reproject_raw_init_param_cell_summary_suffix(ctx, base, &cell.ty, &cell.suffix)?;
+    Ok(RawCellInitializationVariantParamRequirement {
+        variant: cell.variant.clone(),
+        param_index: cell.param_index,
+        suffix,
+        ty,
+    })
+}
+
+fn reproject_raw_init_variant_condition(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    condition: &ResourceSummaryStableRawInitVariantCondition,
+) -> Result<
+    RawCellInitializationVariantCondition,
+    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
+> {
+    let base = ctx
+        .function
+        .params
+        .get(condition.param_index)
+        .ok_or(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection)?
+        .ty;
+    let (suffix, ty) =
+        reproject_raw_init_param_cell_summary_suffix(ctx, base, &condition.ty, &condition.suffix)?;
+    Ok(RawCellInitializationVariantCondition {
+        variant: condition.variant.clone(),
+        param_index: condition.param_index,
+        suffix,
+        ty,
+        condition: condition.condition,
+    })
+}
+
+fn reproject_stable_place_projection_suffix_with_expected_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    base_ty: TypeId,
+    expected_ty: &ResourceSummaryStableTypeKey,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+) -> Result<(Vec<PlaceProjection>, TypeId), ResourceSummaryRawInitCompleteLeafEntryReprojectionReject>
+{
+    let mut out = Vec::new();
+    let mut current_ty = base_ty;
+    for (index, stable_projection) in suffix.iter().enumerate() {
+        let projection = reproject_place_projection(ctx, stable_projection).ok_or(
+            ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection,
+        )?;
+        let result_ty = match projection_result_type(ctx.types, current_ty, &projection) {
+            Some(ty)
+                if validate_place_projection_layout(ctx.types, current_ty, &projection)
+                    .is_some() =>
+            {
+                ty
+            }
+            _ if matches!(projection, PlaceProjection::Deref) && index + 1 == suffix.len() => {
+                // raw address 由来の `Deref` は通常の reference 型 dereference ではない。
+                // suffix の最後でだけ保存済みの最終型を proof boundary として使い、
+                // 途中 projection の型を推測して後続 field 検証を弱めない。
+                reproject_raw_init_stable_type(ctx, expected_ty)?
+            }
+            _ => {
+                return Err(
+                    ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection,
+                );
+            }
+        };
+        current_ty = result_ty;
+        out.push(projection);
+    }
+    if !expected_ty.matches_type(ctx.types, current_ty) {
+        return Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellResultType);
+    }
+    Ok((out, current_ty))
+}
+
+fn reproject_raw_init_stable_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    ty: &ResourceSummaryStableTypeKey,
+) -> Result<TypeId, ResourceSummaryRawInitCompleteLeafEntryReprojectionReject> {
+    ctx.reproject_type(ty)
+        .ok_or(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellStableType)
+}
+
 fn reproject_raw_cell_release_param_requirement(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     requirement: &ResourceSummaryStableRawCellReleaseParamRequirement,
-) -> Result<
-    RawCellReleaseParamRequirement,
-    ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject,
-> {
+) -> Result<RawCellReleaseParamRequirement, ResourceSummaryRawInitCompleteLeafEntryReprojectionReject>
+{
     let base = ctx
         .function
         .params
         .get(requirement.param_index)
         .ok_or(
-            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamReleaseRequirementProjection,
+            ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamReleaseRequirementProjection,
         )?
         .ty;
     let (suffix, ty) = reproject_place_projection_suffix(ctx, base, &requirement.suffix).ok_or(
-        ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamReleaseRequirementProjection,
+        ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamReleaseRequirementProjection,
     )?;
     if !requirement.ty.matches_type(ctx.types, ty) {
         return Err(
-            ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamReleaseRequirementType,
+            ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamReleaseRequirementType,
         );
     }
     Ok(RawCellReleaseParamRequirement {
@@ -1536,6 +2248,10 @@ mod tests {
     };
     use super::super::super::initialized_summary::{
         RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
+        RawCellInitializationReturnCell,
+    };
+    use super::super::super::initialized_summary_byte_range_model::{
+        RawCellInitializationReturnByteRange, RawCellInitializationReturnCount,
     };
     use super::super::super::initialized_summary_release_model::{
         RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
@@ -1772,7 +2488,7 @@ mod tests {
     }
 
     #[test]
-    fn stable_raw_init_param_facts_reprojects_nominal_field_type_from_signature_tree() {
+    fn stable_raw_init_complete_leaf_reprojects_nominal_field_type_from_signature_tree() {
         let mut types = TypeCtx::new();
         let field = types.i32();
         let nominal = types.register_named_with_stable_identity(
@@ -1807,19 +2523,19 @@ mod tests {
             variant_required_param_cells: Vec::new(),
             variant_conditions: Vec::new(),
         };
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("nominal field param facts should convert");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("signature tree should register nominal field type");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("nominal field fact should reproject");
 
         assert_eq!(reprojected, summary);
     }
 
     #[test]
-    fn stable_raw_init_param_facts_reprojects_instantiated_generic_nominal_field_type() {
+    fn stable_raw_init_complete_leaf_reprojects_instantiated_generic_nominal_field_type() {
         let mut types = TypeCtx::new();
         let definition_generic = types.fresh_var(Some("T".to_string()));
         let nominal = types.register_named_with_stable_identity(
@@ -1857,12 +2573,12 @@ mod tests {
             variant_required_param_cells: Vec::new(),
             variant_conditions: Vec::new(),
         };
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("instantiated generic nominal field param facts should convert");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[function_generic])
             .expect("definition generic should not shadow the instantiated boundary generic");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("instantiated generic nominal field fact should reproject");
 
         assert_eq!(reprojected, summary);
@@ -1914,12 +2630,12 @@ mod tests {
             variant_required_param_cells: Vec::new(),
             variant_conditions: Vec::new(),
         };
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("duplicate nominal signature fact should convert");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("duplicate nominal stable keys should be accepted as signature aliases");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("duplicate nominal fact should replay from current signature");
 
         assert_eq!(reprojected, summary);
@@ -1956,7 +2672,7 @@ mod tests {
     }
 
     #[test]
-    fn stable_raw_init_param_facts_reprojects_duplicate_structural_signature_key() {
+    fn stable_raw_init_complete_leaf_reprojects_duplicate_structural_signature_key() {
         let mut types = TypeCtx::new();
         let item = types.i32();
         let first = types.tuple(vec![item]);
@@ -1981,12 +2697,12 @@ mod tests {
             variant_required_param_cells: Vec::new(),
             variant_conditions: Vec::new(),
         };
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("duplicate structural signature fact should convert");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("duplicate structural stable keys should be accepted as signature aliases");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("duplicate structural fact should replay from current signature");
 
         assert_eq!(reprojected, summary);
@@ -2017,7 +2733,7 @@ mod tests {
             ty: field,
             holds_raw_address: false,
         });
-        let mut entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let mut entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("valid param cell should convert before corruption");
         entry.param_cells[0].suffix[0] = ResourceSummaryStableProjection::Field {
             index: 0,
@@ -2026,11 +2742,87 @@ mod tests {
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("nominal function boundary should be reprojectable");
 
-        let result = reproject_raw_init_param_facts_leaf_entry_result(&ctx, &function.name, &entry);
+        let result = reproject_raw_init_complete_leaf_entry_result(&ctx, &function.name, &entry);
 
         assert!(matches!(
             result,
-            Err(ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellProjection)
+            Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection)
+        ));
+    }
+
+    #[test]
+    fn stable_raw_init_reprojection_reports_return_byte_range_projection_mismatch() {
+        let mut types = TypeCtx::new();
+        let field = types.i32();
+        let nominal = types.register_named_with_stable_identity(
+            "ReturnRecord".to_string(),
+            TypeKind::Struct {
+                name: "ReturnRecord".to_string(),
+                type_params: Vec::new(),
+                fields: vec![field],
+                field_names: vec!["value".to_string()],
+            },
+            nominal_struct_identity("ReturnRecord"),
+        );
+        let function = function_with_params(Vec::new(), nominal);
+        let mut summary = empty_raw_init_summary(&function);
+        summary
+            .return_byte_ranges
+            .push(RawCellInitializationReturnByteRange {
+                address_suffix: vec![PlaceProjection::Field {
+                    index: 0,
+                    offset_bytes: 0,
+                }],
+                address_ty: field,
+                count: RawCellInitializationReturnCount::KnownI32 {
+                    value: 4,
+                    ty: types.i32(),
+                },
+                unit: super::super::super::cell_state_raw_range::InitializedRawRangeUnit::Bytes,
+                ty: types.u8(),
+            });
+        let mut entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
+            .expect("valid return byte-range fact should convert before corruption");
+        entry.return_byte_ranges[0].address_suffix[0] =
+            ResourceSummaryStablePlaceProjection::Field {
+                index: 0,
+                offset_bytes: 4,
+            };
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("return type boundary should be reprojectable");
+
+        let result = reproject_raw_init_complete_leaf_entry_result(&ctx, &function.name, &entry);
+
+        assert!(matches!(
+            result,
+            Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection)
+        ));
+    }
+
+    #[test]
+    fn stable_raw_init_return_cell_rejects_non_final_raw_deref_fallback() {
+        let types = TypeCtx::new();
+        let function = function_with_params(Vec::new(), types.i32());
+        let mut summary = empty_raw_init_summary(&function);
+        summary.return_cells.push(RawCellInitializationReturnCell {
+            suffix: vec![
+                PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+                PlaceProjection::Deref,
+                PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+            ],
+            ty: types.u8(),
+            holds_raw_address: false,
+        });
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
+            .expect("raw return-cell surface should convert before reprojection validation");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive return boundary should be reprojectable");
+
+        let result = reproject_raw_init_complete_leaf_entry_result(&ctx, &function.name, &entry);
+
+        assert!(matches!(
+            result,
+            Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellProjection)
         ));
     }
 
@@ -2045,14 +2837,14 @@ mod tests {
             ty: types.i32(),
             holds_raw_address: false,
         });
-        let mut entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let mut entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("valid param cell should convert before corruption");
         entry.param_cells[0].ty = ResourceSummaryStableTypeKey::from_type(&types, types.bool())
             .expect("bool has a stable type key");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("primitive function boundary should be reprojectable");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("projection-derived param cell type should come from the current signature");
 
         assert_eq!(reprojected.param_cells[0].ty, types.i32());
@@ -2072,12 +2864,12 @@ mod tests {
             ty: types.u8(),
             holds_raw_address: false,
         });
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("raw-deref param cell should convert with its explicit value type");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("primitive function boundary should be reprojectable");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("raw-deref param cell should use the stable value type");
 
         assert_eq!(reprojected, summary);
@@ -2108,12 +2900,12 @@ mod tests {
             ty: value_ty,
             holds_raw_address: false,
         });
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("non-signature nominal raw cell type should convert to a stable key");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("primitive function boundary should be reprojectable");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("non-signature nominal raw cell type should be found in current TypeCtx");
 
         assert_eq!(reprojected, summary);
@@ -2134,16 +2926,16 @@ mod tests {
             ty: value_ty,
             holds_raw_address: false,
         });
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("labelled generic raw cell type can be represented as a stable key");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("primitive function boundary should be reprojectable");
 
-        let result = reproject_raw_init_param_facts_leaf_entry_result(&ctx, &function.name, &entry);
+        let result = reproject_raw_init_complete_leaf_entry_result(&ctx, &function.name, &entry);
 
         assert!(matches!(
             result,
-            Err(ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamCellStableType)
+            Err(ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamCellStableType)
         ));
     }
 
@@ -2163,12 +2955,12 @@ mod tests {
             ty: value_ty,
             holds_raw_address: false,
         });
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("labelled generic raw cell type should convert to a stable key");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[value_ty])
             .expect("owner summary boundary should make the generic reprojectable");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("owner summary boundary should reproject the raw cell value type");
 
         assert_eq!(reprojected, summary);
@@ -2201,12 +2993,12 @@ mod tests {
             ty: stale_callee_generic,
             holds_raw_address: false,
         });
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("projection-derived open generic value type should remain representable");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("applied signature should be reprojectable");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("projection-derived type should be computed from the current signature");
 
         let mut expected = empty_raw_init_summary(&function);
@@ -2249,7 +3041,7 @@ mod tests {
                 ty: field,
                 kind: RawCellReleaseRequirementKind::Store,
             });
-        let mut entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let mut entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("valid release requirement should convert before corruption");
         entry.param_release_requirements[0].suffix[0] =
             ResourceSummaryStablePlaceProjection::Field {
@@ -2259,12 +3051,12 @@ mod tests {
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("nominal function boundary should be reprojectable");
 
-        let result = reproject_raw_init_param_facts_leaf_entry_result(&ctx, &function.name, &entry);
+        let result = reproject_raw_init_complete_leaf_entry_result(&ctx, &function.name, &entry);
 
         assert!(matches!(
             result,
             Err(
-                ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamReleaseRequirementProjection
+                ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamReleaseRequirementProjection
             )
         ));
     }
@@ -2282,7 +3074,7 @@ mod tests {
                 ty: types.i32(),
                 kind: RawCellReleaseRequirementKind::Store,
             });
-        let mut entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let mut entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("valid release requirement should convert before corruption");
         entry.param_release_requirements[0].ty =
             ResourceSummaryStableTypeKey::from_type(&types, types.bool())
@@ -2290,12 +3082,12 @@ mod tests {
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("primitive function boundary should be reprojectable");
 
-        let result = reproject_raw_init_param_facts_leaf_entry_result(&ctx, &function.name, &entry);
+        let result = reproject_raw_init_complete_leaf_entry_result(&ctx, &function.name, &entry);
 
         assert!(matches!(
             result,
             Err(
-                ResourceSummaryRawInitParamFactsLeafEntryReprojectionReject::ParamReleaseRequirementType
+                ResourceSummaryRawInitCompleteLeafEntryReprojectionReject::ParamReleaseRequirementType
             )
         ));
     }
@@ -2332,12 +3124,12 @@ mod tests {
             variant_required_param_cells: Vec::new(),
             variant_conditions: Vec::new(),
         };
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("parameter-relative storage offset should convert");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("primitive function boundary should be reprojectable");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("parameter-relative release requirement should reproject");
 
         assert_eq!(reprojected, summary);
@@ -2365,12 +3157,12 @@ mod tests {
             variant_required_param_cells: Vec::new(),
             variant_conditions: Vec::new(),
         };
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("unknown storage offset should remain a conservative stable fact");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("primitive function boundary should be reprojectable");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("unknown storage offset release requirement should reproject");
 
         assert_eq!(reprojected, summary);
@@ -2404,12 +3196,12 @@ mod tests {
             variant_required_param_cells: Vec::new(),
             variant_conditions: Vec::new(),
         };
-        let entry = stable_raw_init_param_facts_leaf_entry(&types, &function, &summary)
+        let entry = stable_raw_init_complete_leaf_entry(&types, &function, &summary)
             .expect("local offset should degrade instead of blocking the stable entry");
         let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
             .expect("primitive function boundary should be reprojectable");
 
-        let reprojected = reproject_raw_init_param_facts_leaf_entry(&ctx, &function.name, &entry)
+        let reprojected = reproject_raw_init_complete_leaf_entry(&ctx, &function.name, &entry)
             .expect("local offset should reproject through conservative unknown offset");
 
         assert_eq!(

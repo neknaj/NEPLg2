@@ -10,7 +10,7 @@ use super::initialized_summary_build_value_cache_eligibility::function_allows_co
 use super::model::{ResourceFunction, ResourceModule};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::resource_summary_value_cache::{
-    raw_init_dependency_closure_hash, ResourceSummaryRawInitParamFactsLeafEntryCandidate,
+    raw_init_dependency_closure_hash, ResourceSummaryRawInitCompleteLeafEntryCandidate,
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 
@@ -42,7 +42,7 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
             continue;
         };
         let type_params = owner_summary_type_params(types, function);
-        let Some(summary) = cache.replay_raw_init_param_facts_leaf_entry(
+        let Some(summary) = cache.replay_raw_init_complete_leaf_entry(
             context,
             types,
             function,
@@ -79,7 +79,7 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
         let Some((function_index, function)) = functions.get(summary.function.as_str()) else {
             continue;
         };
-        collect_raw_init_param_facts_leaf_entry_candidate_from_summary(
+        collect_raw_init_complete_leaf_entry_candidate_from_summary(
             &mut candidates,
             cache,
             context,
@@ -95,11 +95,11 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
             summary,
         );
     }
-    cache.record_raw_init_param_facts_leaf_entry_candidates(candidates);
+    cache.record_raw_init_complete_leaf_entry_candidates(candidates);
 }
 
-fn collect_raw_init_param_facts_leaf_entry_candidate_from_summary(
-    candidates: &mut Vec<ResourceSummaryRawInitParamFactsLeafEntryCandidate>,
+fn collect_raw_init_complete_leaf_entry_candidate_from_summary(
+    candidates: &mut Vec<ResourceSummaryRawInitCompleteLeafEntryCandidate>,
     cache: &mut ResourceSummaryValueCache,
     context: &ResourceSummaryValueCacheContext,
     types: &TypeCtx,
@@ -110,14 +110,14 @@ fn collect_raw_init_param_facts_leaf_entry_candidate_from_summary(
     was_preseeded: bool,
     summary: &RawCellInitializationFunctionSummary,
 ) {
-    let eligible_fact_count = raw_init_param_facts_leaf_entry_fact_count(summary);
+    let eligible_fact_count = raw_init_complete_leaf_entry_fact_count(summary);
     if eligible_fact_count == 0 {
         return;
     }
-    if !summary_is_complete_raw_init_param_facts_leaf_entry(summary) {
-        cache.record_raw_init_param_facts_incomplete_leaf_bypass(eligible_fact_count);
-        return;
-    }
+    // complete leaf entry は現時点で `RawCellInitializationFunctionSummary` の全 surface を
+    // mirror する。新しい surface が追加されたときは、この fact count と stable mirror の
+    // 両方を更新し、古い incomplete counter を再び増やすのではなく fail-closed な
+    // complete entry として扱えるようにする。
     if !function_allows_complete_leaf_entry_replay(function) {
         cache.record_raw_init_param_facts_dependency_bypass(eligible_fact_count);
         return;
@@ -139,7 +139,7 @@ fn collect_raw_init_param_facts_leaf_entry_candidate_from_summary(
             return;
         }
     };
-    match cache.raw_init_param_facts_leaf_entry_candidate(
+    match cache.raw_init_complete_leaf_entry_candidate(
         context,
         types,
         function,
@@ -154,23 +154,18 @@ fn collect_raw_init_param_facts_leaf_entry_candidate_from_summary(
     }
 }
 
-fn raw_init_param_facts_leaf_entry_fact_count(
+fn raw_init_complete_leaf_entry_fact_count(
     summary: &RawCellInitializationFunctionSummary,
 ) -> usize {
-    summary.param_cells.len() + summary.param_release_requirements.len()
-}
-
-fn summary_is_complete_raw_init_param_facts_leaf_entry(
-    summary: &RawCellInitializationFunctionSummary,
-) -> bool {
-    raw_init_param_facts_leaf_entry_fact_count(summary) > 0
-        && summary.return_cells.is_empty()
-        && summary.return_byte_ranges.is_empty()
-        && summary.param_byte_ranges.is_empty()
-        && summary.variant_param_cells.is_empty()
-        && summary.variant_param_byte_ranges.is_empty()
-        && summary.variant_required_param_cells.is_empty()
-        && summary.variant_conditions.is_empty()
+    summary.return_cells.len()
+        + summary.return_byte_ranges.len()
+        + summary.param_cells.len()
+        + summary.param_byte_ranges.len()
+        + summary.param_release_requirements.len()
+        + summary.variant_param_cells.len()
+        + summary.variant_param_byte_ranges.len()
+        + summary.variant_required_param_cells.len()
+        + summary.variant_conditions.len()
 }
 
 #[cfg(test)]

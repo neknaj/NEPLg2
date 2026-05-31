@@ -46,7 +46,7 @@ pub(super) struct ResourceSummaryFunctionIdentity {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum ResourceSummaryValueKind {
     CollectionSlotDropTraversalForallLeafEntryV1,
-    RawInitParamFactsLeafEntryV1,
+    RawInitCompleteLeafEntryV1,
 }
 
 impl ResourceSummaryValueCacheKey {
@@ -82,7 +82,7 @@ impl ResourceSummaryValueCacheKey {
         }
     }
 
-    pub(super) fn new_raw_init_param_facts_leaf_entry(
+    pub(super) fn new_raw_init_complete_leaf_entry(
         namespace_hash: u64,
         function_identity: ResourceSummaryFunctionIdentity,
         function_body_hash: u64,
@@ -91,7 +91,7 @@ impl ResourceSummaryValueCacheKey {
         generic_type_argument_hash: u64,
         source_capability_policy_hash: u64,
     ) -> Self {
-        let summary_kind = ResourceSummaryValueKind::RawInitParamFactsLeafEntryV1;
+        let summary_kind = ResourceSummaryValueKind::RawInitCompleteLeafEntryV1;
         let stable_hash = resource_summary_value_cache_key_hash(
             namespace_hash,
             &function_identity,
@@ -230,8 +230,8 @@ impl ResourceSummaryValueKind {
             ResourceSummaryValueKind::CollectionSlotDropTraversalForallLeafEntryV1 => {
                 "collection-slot-drop-traversal-forall-leaf-entry-v1"
             }
-            ResourceSummaryValueKind::RawInitParamFactsLeafEntryV1 => {
-                "raw-init-param-facts-leaf-entry-v1"
+            ResourceSummaryValueKind::RawInitCompleteLeafEntryV1 => {
+                "raw-init-complete-leaf-entry-v1"
             }
         }
     }

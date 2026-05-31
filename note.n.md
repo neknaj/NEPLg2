@@ -47944,6 +47944,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `plan.md` は「試作品では高階関数なし」の前提を持つが、現行実装には明示関数値と indirect call の足場がある。`memo_call` は高階関数全面解禁ではなく、non-capturing named function value の限定導入として扱う。この差分は `plan.md` ではなく `doc/neplg2/private_effect_memoization_purity_design.md` と本 note で管理する。
 - 追加 issue として `ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C`、`ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF`、`ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`、`ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`、`ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2` を追加した。
 
+## 2026-05-31 Agent complete raw-init leaf mirror checkpoint
+
+- Zenn の試作段階方針、性能追求方針、静的検査を弱めない方針を再確認した。`plan.md` は変更していない。
+- `RawCellInitializationFunctionSummary` の `return_cells` / `return_byte_ranges` / `param_cells` / `param_byte_ranges` / `param_release_requirements` / `variant_param_cells` / `variant_param_byte_ranges` / `variant_required_param_cells` / `variant_conditions` を同じ stable entry に保存するようにした。
+- internal type / key / map は complete raw-init leaf entry へ命名を寄せた。`loader_cache_stats_json` の `raw_init_param_facts_*` counter 名は既存測定 JSON 互換のため維持しているが、実体は complete leaf entry である。
+- raw address 由来の final `Deref` だけは保存済み stable type を proof boundary として使う。一方で、non-final `Deref` で後続 projection の layout 検証を弱めないよう、corrupted return byte-range layout と non-final raw `Deref` fallback の拒否 regression を追加した。
+- RPN same-session code edit 測定 `tmp/rpn_complete_raw_init_mirror_code_edit_20260531.json` では、base `compile_ms=8677`、local `i32` binding 追加 edit `compile_ms=6586` だった。edit delta は `raw_init_param_facts_hits=205`、`resource_summary_value_replayed_ops=238`、`resource_summary_value_recomputed_ops=36`、`raw_init_param_facts_incomplete_leaf_bypasses=0` である。
+- `ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5` は verified / resolved にした。残る edit delta `raw_init_param_facts_reprojection_value_bypasses=15`、`param_cell_result_type=15` は complete mirror 不足ではなく type canonicalization 問題なので、`ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C` に分離した。
+
 ## 2026-05-28 Agent Resource checker responsibility split checkpoint
 
 - Zenn の試作段階方針、静的検査方針、責務分割方針を再確認し、`nodesrc/test_resource_checker_responsibility.js` の stale drift を、単なる失敗回避ではなく監視対象追加と module 分割で復旧した。`plan.md` は変更していない。

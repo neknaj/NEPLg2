@@ -167,7 +167,7 @@ pub(super) fn drop_traversal_forall_leaf_entry_key(
     )
 }
 
-pub(super) fn raw_init_param_facts_leaf_entry_key(
+pub(super) fn raw_init_complete_leaf_entry_key(
     types: &TypeCtx,
     namespace_hash: ResourceSummaryCacheNamespaceHash,
     source_capability_policy_hash: ResourceSummarySourceCapabilityPolicyHash,
@@ -184,7 +184,7 @@ pub(super) fn raw_init_param_facts_leaf_entry_key(
         generic_type_argument_key_hash(types, function, type_params, generic_type_args)?;
 
     Some(
-        ResourceSummaryValueCacheKey::new_raw_init_param_facts_leaf_entry(
+        ResourceSummaryValueCacheKey::new_raw_init_complete_leaf_entry(
             namespace_hash.as_u64(),
             function_identity,
             function_body_hash,

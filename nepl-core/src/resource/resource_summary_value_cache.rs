@@ -29,7 +29,7 @@ use self::candidate_key::{
 use self::key::ResourceSummaryValueCacheKey;
 use self::stable_mirror::{
     reproject_drop_traversal_forall_leaf_entry, ResourceSummaryStableDropTraversalForallLeafEntry,
-    ResourceSummaryStableRawInitParamFactsLeafEntry, ResourceSummaryTypeReprojection,
+    ResourceSummaryStableRawInitCompleteLeafEntry, ResourceSummaryTypeReprojection,
 };
 
 /// Resource IR summary value cache の累積統計。
@@ -101,8 +101,8 @@ pub struct ResourceSummaryValueCache {
     stats: ResourceSummaryValueCacheStats,
     drop_traversal_forall_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableDropTraversalForallLeafEntry>,
-    raw_init_param_facts_leaf_entries:
-        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawInitParamFactsLeafEntry>,
+    raw_init_complete_leaf_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawInitCompleteLeafEntry>,
 }
 
 #[derive(Debug, Clone)]
@@ -112,9 +112,9 @@ pub(super) struct ResourceSummaryDropTraversalForallLeafEntryCandidate {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct ResourceSummaryRawInitParamFactsLeafEntryCandidate {
+pub(super) struct ResourceSummaryRawInitCompleteLeafEntryCandidate {
     key: ResourceSummaryValueCacheKey,
-    entry: ResourceSummaryStableRawInitParamFactsLeafEntry,
+    entry: ResourceSummaryStableRawInitCompleteLeafEntry,
 }
 
 impl ResourceSummaryValueCache {
@@ -125,7 +125,7 @@ impl ResourceSummaryValueCache {
     pub fn clear(&mut self) {
         self.stats = ResourceSummaryValueCacheStats::default();
         self.drop_traversal_forall_leaf_entries.clear();
-        self.raw_init_param_facts_leaf_entries.clear();
+        self.raw_init_complete_leaf_entries.clear();
     }
 
     pub fn stats(&self) -> ResourceSummaryValueCacheStats {

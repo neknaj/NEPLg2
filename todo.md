@@ -32,7 +32,7 @@
 
 2026-05-31 Compiler performance / memoization purity
 
-- `ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5` に沿って、byte-range / variant / return facts を含む complete raw-init stable mirror を設計し、`incomplete_leaf=37` bypass を減らす
+- `ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C` に沿って、complete raw-init leaf replay に残る `param_cell_result_type` 型正規化 miss を解消する
 - `ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F` に沿って、`PrivateCache` / `PrivateState` internal effect を mask boundary なしでは `Pure` へ fold しない形で追加する
 - `ISS-20260531T025211459Z-HIGHER-ORDER-FUNCTION-PURITY-REQUIRE-A9CB99EE` に沿って、Phase 1 の `memo_call` を non-capturing named pure function value に限定する typecheck regression を追加する
 - `ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4` に沿って、private region escape を Resource IR で拒否する proof domain を設計・実装する

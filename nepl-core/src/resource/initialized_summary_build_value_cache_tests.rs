@@ -6,8 +6,23 @@ use crate::ast::Effect;
 use crate::span::{FileId, Span};
 use crate::types::{TypeCtx, TypeId};
 
+use super::super::cell_state_raw_range::InitializedRawRangeUnit;
 use super::super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationParamCell,
+    RawCellInitializationReturnCell,
+};
+use super::super::initialized_summary_byte_range_model::{
+    RawCellInitializationParamByteRange, RawCellInitializationParamCount,
+    RawCellInitializationReturnByteRange, RawCellInitializationReturnCount,
+    RawCellInitializationVariantParamByteRange,
+};
+use super::super::initialized_summary_condition::RawCellValueCondition;
+use super::super::initialized_summary_release_model::{
+    RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
+};
+use super::super::initialized_summary_variant_model::{
+    RawCellInitializationVariantCondition, RawCellInitializationVariantParamCell,
+    RawCellInitializationVariantParamRequirement,
 };
 use super::super::model::{
     EffectOp, Place, ResourceBlock, ResourceBlockId, ResourceCallTarget, ResourceExprKind,
@@ -70,6 +85,46 @@ fn raw_init_leaf_function(
     }
 }
 
+fn raw_init_leaf_function_with_result(
+    _types: &TypeCtx,
+    name: &str,
+    param_ty: TypeId,
+    result_ty: TypeId,
+) -> ResourceFunction {
+    let span = test_span();
+    let param = Place::local(String::from("raw"), param_ty);
+    let result = Place::temporary(ResourceId(0), result_ty);
+    ResourceFunction {
+        name: String::from(name),
+        origin_name: String::from(name),
+        type_params: Vec::new(),
+        params: vec![ResourceLocal {
+            name: String::from("raw"),
+            ty: param_ty,
+            mutable: false,
+            place: param,
+        }],
+        result: result_ty,
+        effect: Effect::Pure,
+        entry_block: ResourceBlockId(0),
+        blocks: vec![ResourceBlock {
+            id: ResourceBlockId(0),
+            ops: vec![ResourceOp::Expr {
+                kind: ResourceExprKind::LiteralI32(0),
+                output: result.clone(),
+                ty: result_ty,
+                span,
+            }],
+            terminator: ResourceTerminator::Return {
+                value: Some(result),
+                span,
+            },
+            span,
+        }],
+        span,
+    }
+}
+
 fn raw_init_leaf_summary(ty: TypeId) -> RawCellInitializationFunctionSummary {
     raw_init_leaf_summary_for("raw_init_leaf", ty)
 }
@@ -92,6 +147,81 @@ fn raw_init_leaf_summary_for(name: &str, ty: TypeId) -> RawCellInitializationFun
         variant_param_byte_ranges: Vec::new(),
         variant_required_param_cells: Vec::new(),
         variant_conditions: Vec::new(),
+    }
+}
+
+fn raw_init_complete_leaf_summary_for(
+    name: &str,
+    ty: TypeId,
+) -> RawCellInitializationFunctionSummary {
+    RawCellInitializationFunctionSummary {
+        function: String::from(name),
+        type_params: Vec::new(),
+        return_cells: vec![RawCellInitializationReturnCell {
+            suffix: Vec::new(),
+            ty,
+            holds_raw_address: false,
+        }],
+        return_byte_ranges: vec![RawCellInitializationReturnByteRange {
+            address_suffix: Vec::new(),
+            address_ty: ty,
+            count: RawCellInitializationReturnCount::KnownI32 { value: 4, ty },
+            unit: InitializedRawRangeUnit::Bytes,
+            ty,
+        }],
+        param_cells: vec![RawCellInitializationParamCell {
+            param_index: 0,
+            suffix: Vec::new(),
+            ty,
+            holds_raw_address: false,
+        }],
+        param_byte_ranges: vec![RawCellInitializationParamByteRange {
+            address_param_index: 0,
+            address_suffix: Vec::new(),
+            address_ty: ty,
+            count: RawCellInitializationParamCount::KnownI32 { value: 4, ty },
+            unit: InitializedRawRangeUnit::Elements { stride: 4 },
+            ty,
+        }],
+        param_release_requirements: vec![RawCellReleaseParamRequirement {
+            param_index: 0,
+            suffix: Vec::new(),
+            ty,
+            kind: RawCellReleaseRequirementKind::Store,
+        }],
+        variant_param_cells: vec![RawCellInitializationVariantParamCell {
+            variant: String::from("Ready"),
+            param_index: 0,
+            suffix: Vec::new(),
+            ty,
+            holds_raw_address: false,
+        }],
+        variant_param_byte_ranges: vec![RawCellInitializationVariantParamByteRange {
+            variant: String::from("Ready"),
+            address_param_index: 0,
+            address_suffix: Vec::new(),
+            address_ty: ty,
+            count: RawCellInitializationParamCount::ParamProjection {
+                param_index: 0,
+                suffix: Vec::new(),
+                ty,
+            },
+            unit: InitializedRawRangeUnit::Bytes,
+            ty,
+        }],
+        variant_required_param_cells: vec![RawCellInitializationVariantParamRequirement {
+            variant: String::from("Ready"),
+            param_index: 0,
+            suffix: Vec::new(),
+            ty,
+        }],
+        variant_conditions: vec![RawCellInitializationVariantCondition {
+            variant: String::from("Ready"),
+            param_index: 0,
+            suffix: Vec::new(),
+            ty,
+            condition: RawCellValueCondition::NeZero,
+        }],
     }
 }
 
@@ -195,7 +325,7 @@ fn preseed_leaf_summaries(
 /// raw-init param facts cache は、保存済み leaf entry を fixed-point worklist の前へ
 /// 同じ summary surface として戻せる場合だけ対象関数を skip する。
 #[test]
-fn raw_init_param_facts_preseed_replays_same_summary_surface() {
+fn raw_init_complete_leaf_preseed_replays_same_summary_surface() {
     let mut cache = ResourceSummaryValueCache::new();
     let types = TypeCtx::new();
     let module = raw_init_leaf_module(raw_init_leaf_function(
@@ -220,10 +350,44 @@ fn raw_init_param_facts_preseed_replays_same_summary_surface() {
     assert_eq!(stats.resource_summary_value_replayed_ops, 1);
 }
 
+/// complete raw-init leaf cache は、param facts だけではなく return / byte-range /
+/// variant 条件を含む summary surface 全体を保存・再投影する。partial store に戻ると
+/// replay 後に raw range や variant fact が欠落するため、mixed summary の完全一致を
+/// regression として固定する。
+#[test]
+fn raw_init_complete_leaf_preseed_replays_return_byte_range_and_variant_surface() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let module = raw_init_leaf_module(raw_init_leaf_function_with_result(
+        &types,
+        "raw_init_leaf",
+        types.i32(),
+        types.i32(),
+    ));
+    let summary = raw_init_complete_leaf_summary_for("raw_init_leaf", types.i32());
+    let context = test_context(11);
+    record_leaf_summary(&mut cache, &context, &types, &module, &summary);
+
+    let (worklist_relevant_functions, preseeded_functions, summaries) =
+        preseed_leaf_summaries(&mut cache, &context, &types, &module);
+
+    assert_eq!(worklist_relevant_functions, vec![false]);
+    assert_eq!(preseeded_functions, vec![true]);
+    assert_eq!(summaries, vec![summary]);
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_raw_init_param_facts_stores, 9);
+    assert_eq!(stats.resource_summary_value_replay_hits, 9);
+    assert_eq!(stats.resource_summary_value_replayed_ops, 9);
+    assert_eq!(
+        stats.resource_summary_value_raw_init_param_facts_incomplete_leaf_bypasses,
+        0
+    );
+}
+
 /// raw-init preseed の key は function body、source policy、signature type boundary を
 /// すべて含む。いずれかが変わる場合は保存済み summary を使わず、通常 worklist に戻す。
 #[test]
-fn raw_init_param_facts_preseed_misses_on_body_source_or_signature_change() {
+fn raw_init_complete_leaf_preseed_misses_on_body_source_or_signature_change() {
     let mut cache = ResourceSummaryValueCache::new();
     let types = TypeCtx::new();
     let base_module = raw_init_leaf_module(raw_init_leaf_function(
@@ -272,7 +436,7 @@ fn raw_init_param_facts_preseed_misses_on_body_source_or_signature_change() {
 /// caller body が同じでも callee implementation edit 後は stale replay せず通常 worklist
 /// に戻る。
 #[test]
-fn raw_init_param_facts_dependency_closure_invalidates_on_callee_body_change() {
+fn raw_init_complete_leaf_dependency_closure_invalidates_on_callee_body_change() {
     let mut cache = ResourceSummaryValueCache::new();
     let types = TypeCtx::new();
     let callee = raw_init_leaf_function(&types, "callee", types.i32(), false);
