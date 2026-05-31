@@ -38,7 +38,7 @@
 - `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` に沿って、RPN base compile `compile_ms=8931` / `resource_static_check=8318.313ms` を 0.5 秒未満へ近づけるため、stdlib prechecked artifact と Resource proof template の設計を実装へ落とす
 - `ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F` に沿って、`PrivateCache` / `PrivateState` internal effect を mask boundary なしでは `Pure` へ fold しない形で追加する
 - `ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4` に沿って、private region escape を Resource IR で拒否する proof domain を設計・実装する
-- `ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF` に沿って、private cache operation を SourceCapability exact use-site と policy hash に接続する
+- `ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF` に沿って、SourceCapability exact use-site 照合後の `PrivateCache` fresh region / non-escape proof と stdlib memo backend integration regression を実装する
 - `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` に沿って、MemoKey / MemoValue の structural purity rule を実装する
 - `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` に沿って、memoized function value の backend representation と identity observation ban を固定する
 - `ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2` に沿って、Private* effect の surface fold / diagnostics / Resource summary hash invalidation を接続する

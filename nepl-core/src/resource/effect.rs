@@ -141,6 +141,11 @@ mod tests {
         assert_eq!(
             report.diagnostics,
             vec![
+                ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+                    function: String::from("uses_private_effect"),
+                    operation: PrivateCacheOp::Lookup,
+                    span: Span::dummy(),
+                },
                 ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
                     function: String::from("uses_private_effect"),
                     operation: PrivateCacheOp::Lookup,
@@ -182,7 +187,14 @@ mod tests {
             },
         ));
 
-        assert!(report.diagnostics.is_empty());
+        assert_eq!(
+            report.diagnostics,
+            vec![ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+                function: String::from("uses_private_effect"),
+                operation: PrivateCacheOp::Insert,
+                span: Span::dummy(),
+            }]
+        );
         assert_eq!(report.functions[0].counts.private_cache_ops, 1);
         assert_eq!(report.functions[0].counts.unknown_ops, 0);
     }

@@ -60,3 +60,27 @@ Tests should show that trusted stdlib memo use-sites are accepted, copied or shi
 - shifted/copied source span を Resource summary cache key で stale hit させない regression。
 - Resource IR の `PrivateCache` operation に fresh region identity / mask boundary provenance を持たせる。
 - `SourceCapability` exact span は trusted use-site の証明に留め、region non-escape proof が入るまで `PrivateCacheInPureFunction` は fail-closed のまま維持する。
+
+## 2026-06-01 exact boundary gate checkpoint
+
+`ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary` を追加し、Resource effect boundary gate で `SourceMap::private_cache_boundary_allowed_at(span, operation)` を使うようにした。これにより、Resource IR の `EffectOp::PrivateCache` は trusted SourceCapability proof と同一 file / exact span / same operation の場合だけ boundary 診断を suppress できる。
+
+この checkpoint でも `PrivateCacheInPureFunction` は SourceCapability で suppress しない。SourceCapability は trusted use-site かどうかの証明であり、private cache effect を Pure へ mask する authority ではない。fresh region、non-escape、cache ref/stats/clear 非露出の Resource IR proof が入るまで、pure function 内の `PrivateCache` は fail-closed のまま維持する。
+
+追加 regression:
+
+- exact operation / exact span / exact file の private cache boundary だけを許可する。
+- same span でも `Lookup` proof で `Insert` operation は通さない。
+- same operation でも shifted span や別 file span は通さない。
+- private cache capability があっても `PrivateCacheInPureFunction` は通さない。
+
+検証:
+
+- `cargo test -p nepl-core private_cache --lib -- --nocapture`
+- `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`
+
+残件:
+
+- Resource IR private cache operation の actual span を stdlib memo backend の proof span と一致させる integration regression。
+- `PrivateCache` operation に fresh region identity / mask boundary provenance を持たせる。
+- cache lookup result が owned/copy/clone value であり、cache internal reference、stats、clear、raw identity が外へ出ないことを Resource IR で証明する。

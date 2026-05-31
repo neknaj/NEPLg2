@@ -48394,3 +48394,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `preseed_neplproof_artifact` は header が一致しない artifact を payload merge 前に拒否する。header が一致しても、個別 entry の authority は従来どおり現在 compile の `TypeCtx` / function signature / source capability policy への再投影で確認する。
 - subagent review では、`LoaderSessionCache` へ Resource proof artifact を混ぜず、`CompilerSession` / CLI / selfhost 側で `preseed -> compile -> export` の薄い接続にする方針を確認した。
 - memo_call / PrivateCache 側の subagent review では、次の安全な実装は pure mask ではなく、`EffectOp::PrivateCache` と `SourceCapabilityUseSite::PrivateCacheBoundary` の exact file/span/operation 照合を fail-closed 診断として追加することだと確認した。
+
+## 2026-06-01 Agent PrivateCache exact boundary gate checkpoint
+
+- remote/main と同期済みの `memo/private-cache-exact-span-20260601` branch で、`EffectOp::PrivateCache` と `SourceCapabilityUseSite::PrivateCacheBoundary` の exact 照合を Resource effect boundary gate へ接続した。`plan.md` は変更していない。
+- Zenn の静的検査方針、純粋性方針、性能追求方針を再確認し、SourceCapability を trusted use-site proof としてだけ使い、`PrivateCacheInPureFunction` を Pure へ mask しない fail-closed 境界を維持した。
+- subagent review では、`PrivateCacheOutsideBoundary` を effect checker で診断として出し、compiler gate で `SourceMap::private_cache_boundary_allowed_at(span, operation)` を使って suppress する設計が既存 RawMemory boundary と整合すると確認した。
+- `ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary` を追加し、Resource effect checker は private cache operation ごとに boundary 診断を出す。pure function 内では従来どおり `PrivateCacheInPureFunction` も出る。
+- compiler gate は `PrivateCacheOutsideBoundary` だけを exact file / exact span / same operation の SourceCapability proof で suppress する。same span でも `Lookup` proof で `Insert` は通らず、same operation でも shifted span や別 file span は通らない。
+- focused regression として、private cache outside-boundary diagnostic の code / message、exact match、operation mismatch、span mismatch、file mismatch、capability があっても pure mask しないことを追加した。
+- `ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF`、`doc/neplg2/private_effect_memoization_purity_design.md`、`doc/neplg2/compiler_performance_cache_design.md`、`todo.md` を更新し、完了した exact use-site 照合と残る fresh region / non-escape proof を分けた。
+- `cargo test -p nepl-core private_cache --lib -- --nocapture` と `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture` は通過した。全体検証はこの checkpoint の最終 verification で実施する。

@@ -1286,6 +1286,15 @@ artifact-level miss として扱える。
 
 この分離により、Web playground の warm session は memory cache で同じ構造を使い、CLI / CI / selfhost compiler は disk-backed artifact として同じ invalidation rule を使える。selfhost 実装でも、純粋 query function の結果を private cache へ保存する設計と整合し、cache は外部観測可能な semantics ではなく compile-time acceleration として扱う。
 
+同日の private cache exact boundary checkpoint では、`.neplproof` の `source capability policy set hash`
+が守るべき use-site authority を Resource effect boundary gate にも接続した。`EffectOp::PrivateCache`
+は `PrivateCacheOutsideBoundary` として一度 fail-closed に診断され、現在 compile の
+`SourceMap::private_cache_boundary_allowed_at(span, operation)` が同一 file / exact span /
+same operation を証明した場合だけ trusted use-site 診断を suppress する。この suppress は
+`.neplproof` の stale-hit 防止境界と同じ入力に基づくが、`PrivateCacheInPureFunction` を
+Pure へ mask する authority ではない。private region non-escape proof がない artifact は、
+SourceCapability が一致しても pure memoization proof としては使わない。
+
 ### 2026-05-31 measurement boundary
 
 RPN same-session code edit は、Resource summary value cache の段階的な stable mirror により

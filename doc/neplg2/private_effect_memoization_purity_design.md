@@ -277,6 +277,18 @@ Phase 1 の責務分担:
 - Resource IR private cache operation span と SourceCapability exact use-site proof の照合。
 - accepted pure memoization と rejected observable cache API を固定する regression test。
 
+2026-06-01 の exact boundary checkpoint では、Resource effect boundary gate に
+`PrivateCacheOutsideBoundary` を追加し、Resource IR の private cache operation を
+`SourceMap::private_cache_boundary_allowed_at(span, operation)` で照合するようにした。
+この照合は file、byte span、operation kind の完全一致を要求する。same span でも
+`Lookup` proof で `Insert` operation は通らず、same operation でも shifted span や別 file
+span は通らない。
+
+この checkpoint は trusted use-site の照合だけを固定する。`PrivateCacheInPureFunction` は
+SourceCapability では suppress しない。SourceCapability は「この operation が compiler-owned
+stdlib source の証明済み use-site から来たか」を示すだけであり、fresh private region の
+non-escape proof や cache observation 非露出 proof の代替にはならない。
+
 2026-06-01 の function alias checkpoint では、Resource IR の function value alias 解析を
 `FunctionValueIdentity` だけでなく `ResourceFunctionValueKind` も保持する形へ更新した。
 これにより、同じ resolved function identity を指す plain `@f` と `memo_call @f` が、
@@ -324,6 +336,12 @@ Phase 1 では次のどちらかを選ぶ。
 private cache operation は module allowlist で許可しない。trusted stdlib memo implementation の exact use-site に SourceCapability proof を与え、source path、source hash、span、operation kind、private region boundary を policy hash に含める。
 
 この rule により、stdlib memo code の source や capability use-site が変われば Resource summary value cache key も変わる。user code は同じ関数名や同じ raw intrinsic 文字列を書いても private cache operation を forge できない。
+
+Resource effect boundary gate は、`PrivateCacheOutsideBoundary` を exact SourceCapability proof
+だけで suppress する。これは raw memory boundary と同じく trusted stdlib 実装の use-site
+を確認するための gate であり、pure mask ではない。したがって、同じ span / operation の
+capability が存在しても、`PrivateCacheInPureFunction` は `PrivateCache rho` の region proof
+が実装されるまで拒否される。
 
 ## acceptance / rejection matrix
 
@@ -419,9 +437,9 @@ mask boundary がない pure function では dedicated diagnostic により fail
 
 ## 現時点の未実装
 
-- `PrivateCache rho` / `PrivateState rho` の `EffectOp` 表現。
 - private region id の導入箇所。
 - function value identity を public pure API から禁止する typed diagnostic。
 - closure capture と Resource IR function alias tracking の接続。
 - trusted `stdlib/memo` backend の sealed private cache representation。
 - cache lookup result が owned/clone/copy value であることの Resource IR 証明。
+- `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape proof。

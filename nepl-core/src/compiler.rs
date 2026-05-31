@@ -1137,10 +1137,11 @@ mod tests {
     use super::*;
     use crate::diagnostic_codes::EffectDiagnosticCode;
     use crate::resource::{
-        BorrowState, CellState, OwnerState, Place, RawAddressAliasKind, RawAddressViewKind,
-        RawMemoryOp, ResourceBorrowDiagnostic, ResourceBorrowOperation, ResourceCheckDiagnostic,
-        ResourceCheckOperation, ResourceEffectBoundaryDiagnostic, ResourceEffectCallKind,
-        ResourceId, ResourceOwnerDiagnostic, ResourceOwnerOperation, StorageId,
+        BorrowState, CellState, OwnerState, Place, PrivateCacheOp, RawAddressAliasKind,
+        RawAddressViewKind, RawMemoryOp, ResourceBorrowDiagnostic, ResourceBorrowOperation,
+        ResourceCheckDiagnostic, ResourceCheckOperation, ResourceEffectBoundaryDiagnostic,
+        ResourceEffectCallKind, ResourceId, ResourceOwnerDiagnostic, ResourceOwnerOperation,
+        StorageId,
     };
     use crate::source_map::{
         SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite, SourceMap,
@@ -1161,6 +1162,16 @@ mod tests {
 
     fn raw_memory_operation_capabilities(operation: RawMemoryOp, span: Span) -> SourceCapabilities {
         use_site_capabilities(SourceCapabilityUseSite::RawMemoryOperationBoundary {
+            operation,
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
+
+    fn private_cache_capabilities(
+        operation: PrivateCacheOp,
+        span: Span,
+    ) -> SourceCapabilities {
+        use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
             operation,
             span: SourceCapabilitySpan::from_span(span),
         })
@@ -1911,6 +1922,27 @@ mod tests {
     }
 
     #[test]
+    fn resource_effect_gate_maps_private_cache_outside_boundary_to_resource_raw_code() {
+        let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("memo_backend"),
+            operation: PrivateCacheOp::Lookup,
+            span: Span::dummy(),
+        };
+
+        let error = resource_effect_boundary_diagnostic_to_error(&diagnostic);
+
+        assert_eq!(
+            error.code,
+            DiagnosticCode::Resource(crate::diagnostic_codes::ResourceDiagnosticCode::Raw(
+                crate::diagnostic_codes::ResourceRawDiagnosticCode::MemoryOutsideBoundary,
+            ))
+        );
+        assert!(error.message.contains("private cache operation"));
+        assert!(error.message.contains("private_cache.lookup"));
+        assert!(error.message.contains("outside private-cache boundary"));
+    }
+
+    #[test]
     fn resource_effect_gate_allows_raw_memory_inside_raw_boundary() {
         let mut source_map = SourceMap::new();
         let raw_file = source_map.add("stdlib/core/mem/raw.nepl", String::new());
@@ -1929,6 +1961,110 @@ mod tests {
             &diagnostic,
             Some(&source_map),
         ));
+    }
+
+    #[test]
+    fn resource_effect_gate_allows_private_cache_inside_exact_private_cache_boundary() {
+        let mut source_map = SourceMap::new();
+        let cache_file = source_map.add("stdlib/core/memo/internal.nepl", String::new());
+        let span = Span::new(cache_file, 10, 30);
+        source_map.set_capabilities(
+            cache_file,
+            private_cache_capabilities(PrivateCacheOp::Lookup, span),
+        );
+        let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("memo_backend_lookup"),
+            operation: PrivateCacheOp::Lookup,
+            span,
+        };
+
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &diagnostic,
+            Some(&source_map),
+        ));
+    }
+
+    #[test]
+    fn resource_effect_gate_rejects_private_cache_operation_and_span_mismatch() {
+        let mut source_map = SourceMap::new();
+        let cache_file = source_map.add("stdlib/core/memo/internal.nepl", String::new());
+        let span = Span::new(cache_file, 10, 30);
+        let shifted_span = Span::new(cache_file, 11, 31);
+        source_map.set_capabilities(
+            cache_file,
+            private_cache_capabilities(PrivateCacheOp::Lookup, span),
+        );
+        let operation_mismatch = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("memo_backend_insert"),
+            operation: PrivateCacheOp::Insert,
+            span,
+        };
+        let span_mismatch = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("memo_backend_lookup"),
+            operation: PrivateCacheOp::Lookup,
+            span: shifted_span,
+        };
+
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &operation_mismatch,
+                Some(&source_map),
+            )
+        );
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &span_mismatch,
+                Some(&source_map),
+            )
+        );
+    }
+
+    #[test]
+    fn resource_effect_gate_rejects_private_cache_boundary_from_other_file() {
+        let mut source_map = SourceMap::new();
+        let allowed_file = source_map.add("stdlib/core/memo/internal.nepl", String::new());
+        let user_file = source_map.add("src/main.nepl", String::new());
+        let allowed_span = Span::new(allowed_file, 10, 30);
+        let user_span = Span::new(user_file, 10, 30);
+        source_map.set_capabilities(
+            allowed_file,
+            private_cache_capabilities(PrivateCacheOp::Lookup, allowed_span),
+        );
+        let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("user_lookup"),
+            operation: PrivateCacheOp::Lookup,
+            span: user_span,
+        };
+
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &diagnostic,
+                Some(&source_map),
+            )
+        );
+    }
+
+    #[test]
+    fn resource_effect_gate_does_not_mask_private_cache_in_pure_function() {
+        let mut source_map = SourceMap::new();
+        let cache_file = source_map.add("stdlib/core/memo/internal.nepl", String::new());
+        let span = Span::new(cache_file, 10, 30);
+        source_map.set_capabilities(
+            cache_file,
+            private_cache_capabilities(PrivateCacheOp::Lookup, span),
+        );
+        let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
+            function: String::from("memo_backend_lookup"),
+            operation: PrivateCacheOp::Lookup,
+            span,
+        };
+
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &diagnostic,
+                Some(&source_map),
+            )
+        );
     }
 
     #[test]
@@ -2082,6 +2218,10 @@ fn resource_effect_boundary_diagnostic_span(
             span,
             ..
         }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            span,
+            ..
+        }
         | crate::resource::ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
             span,
             ..
@@ -2133,6 +2273,17 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
             };
             source_map
                 .map(|map| map.raw_memory_operation_boundary_allowed_at(span, *operation))
+                .unwrap_or(false)
+        }
+        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            operation,
+            ..
+        } => {
+            let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
+                return false;
+            };
+            source_map
+                .map(|map| map.private_cache_boundary_allowed_at(span, *operation))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
@@ -2284,6 +2435,18 @@ fn resource_effect_boundary_diagnostic_to_error(
             code,
             format!(
                 "pure function '{}' uses unmasked private cache operation '{}'",
+                function, operation
+            ),
+            *span,
+        ),
+        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function,
+            operation,
+            span,
+        } => Diagnostic::error_with_code(
+            code,
+            format!(
+                "function '{}' uses private cache operation '{}' outside private-cache boundary",
                 function, operation
             ),
             *span,

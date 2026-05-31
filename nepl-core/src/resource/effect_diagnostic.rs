@@ -35,6 +35,11 @@ pub enum ResourceEffectBoundaryDiagnostic {
         operation: PrivateCacheOp,
         span: Span,
     },
+    PrivateCacheOutsideBoundary {
+        function: String,
+        operation: PrivateCacheOp,
+        span: Span,
+    },
     RawMemoryOutsideBoundary {
         function: String,
         operation: RawMemoryOp,
@@ -87,7 +92,8 @@ impl ResourceEffectBoundaryDiagnostic {
             | ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction { .. } => {
                 DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure)
             }
-            ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary { .. }
+            ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary { .. }
+            | ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary { .. }
             | ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary { .. }
             | ResourceEffectBoundaryDiagnostic::RawAddressAliasOutsideBoundary { .. }
             | ResourceEffectBoundaryDiagnostic::CheckedMemPtrOutsideBoundary { .. } => {
