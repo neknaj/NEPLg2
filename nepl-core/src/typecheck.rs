@@ -39,6 +39,7 @@ mod overload_narrowing;
 mod overload_selection;
 mod prefix_check;
 mod public_signature;
+mod public_surface;
 mod selected_call_apply;
 mod signature;
 mod struct_shape;
@@ -61,10 +62,12 @@ use traits::BoundEnv;
 
 pub use driver::{typecheck, TypeCheckResult};
 pub use public_signature::{
+    TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
+};
+pub use public_surface::{
     PublicCallableSurface, PublicEffect, PublicEnumSurface, PublicEnumVariantSurface,
     PublicFieldSurface, PublicImplKind, PublicImplSurface, PublicStructConstructorPolicy,
     PublicStructSurface, PublicSurfaceShape, PublicTraitCapability, PublicTraitMethodSurface,
     PublicTraitRef, PublicTraitSurface, PublicTypeParam, PublicTypeParamBounds, PublicTypeTerm,
-    TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
     TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
 };

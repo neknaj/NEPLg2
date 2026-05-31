@@ -1530,6 +1530,19 @@ hash 境界を作る段階に留め、dependency body skip へ使う前に stabl
 binder-indexed generic parameter reference、stable public ABI symbol / field accessor surface を
 追加する。
 
+### 2026-06-01 `.neplmeta` public surface module split checkpoint
+
+`TypedPublicSurfaceTable` の model / hash / builder / tests を
+`nepl-core/src/typecheck/public_surface.rs` に分離した。`public_signature.rs` は
+`TypedPublicSignatureTable` の stable text / hash 境界に戻し、`.neplmeta` materializer
+向けの structured payload を持たない。
+
+この分割は base compile 改善そのものではなく、次段階の materializer が stable nominal
+identity、binder-indexed generic parameter reference、field accessor surface、stable public
+ABI / link symbol を足しても、text signature cache 境界と構造化 payload 境界が混ざらないように
+するための前提である。`typecheck.rs` の public re-export は維持し、外部 crate が参照する
+`crate::typecheck::{PublicTypeTerm, TypedPublicSurfaceTable}` などの API は変えない。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

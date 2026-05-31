@@ -32,9 +32,9 @@ use super::env::{Binding, BindingKind, Env};
 use super::extern_import::ExternImportModule;
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
 use super::public_signature::{
-    build_typed_public_signature_table, build_typed_public_surface_table,
-    TypedPublicSignatureTable, TypedPublicSurfaceTable,
+    build_typed_public_signature_table, TypedPublicSignatureTable,
 };
+use super::public_surface::{build_typed_public_surface_table, TypedPublicSurfaceTable};
 use super::signature::{
     contains_same_type, function_signature_string, mangle_function_symbol,
     mangle_function_symbol_for_def, mangle_impl_method, push_unique_type, same_function_signature,

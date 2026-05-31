@@ -1,3 +1,12 @@
+# 2026-06-01 .neplmeta public surface module split checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、DAG 化、キャッシュによる探索空間削減、試作段階でも品質を落とさない方針を再確認した。
+- remote/main は作業開始時点で `c08f152f8634dd99403c752468c4c61c353647db` 同期済みで、現在 branch `perf/neplmeta-public-surface-split-20260601` の基点は `origin/main` と一致している。`plan.md` は変更していない。
+- subagent 2 件で `.neplmeta` structured surface と `memo_call` / PrivateCache を独立レビューした。`.neplmeta` 側は `TypedPublicSignatureTable` と `TypedPublicSurfaceTable` の責務分離が妥当で、次に stable nominal identity、binder-indexed generic refs、field accessor surface、stable ABI/link symbol が必要と確認した。`memo_call` 側は `UnsealedIntrinsic` を pure mask 可能な sealed region と扱わず、sealed fresh private region proof を次の根本 checkpoint にするべきと確認した。
+- `nepl-core/src/typecheck/public_surface.rs` を追加し、`.neplmeta` の structured payload model / hash / builder / tests を `public_signature.rs` から分離した。`public_signature.rs` は stable text/hash の invalidation boundary に戻し、materializer 用の structured model を持たない。
+- `typecheck.rs` の public re-export は維持し、外部 crate からの `crate::typecheck::{PublicTypeTerm, TypedPublicSurfaceTable}` などの API は変えない。`driver.rs` は signature と surface の builder を別 module から呼ぶ。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-public-surface-split-20260601.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta structured public surface checkpoint
 
 - remote/main 同期済みの `perf/neplmeta-structured-surface-20260601` branch で、`.neplmeta` の structured public surface payload を追加中。`plan.md` は変更していない。

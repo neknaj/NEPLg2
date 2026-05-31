@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-05-31
 updated: 2026-06-01
-target: "nepl-core/src/artifact.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/loader.rs"
+target: "nepl-core/src/artifact.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/loader.rs"
 ---
 
 # ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31: .neplmeta needs structured public surface payload
@@ -19,7 +19,7 @@ target: "nepl-core/src/artifact.rs; nepl-core/src/typecheck/public_signature.rs;
 
 ## 対象
 
-- `nepl-core/src/artifact.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/loader.rs`
+- `nepl-core/src/artifact.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/loader.rs`
 
 ## 根拠
 
@@ -50,6 +50,30 @@ structured surface は public callable、struct、enum、trait、impl header を
 `NeplMetaArtifactHeader` に `structured_public_surface_hash` と `structured_public_surface_entry_count` を追加し、payload consistency check でも structured surface hash / entry count の不一致を拒否する。artifact 形状を変更したため `.neplmeta` schema、artifact hash version、compiler identity は v2 に上げた。
 
 Web `CompilerSession` stats JSON には structured public surface entry count と hash を追加した。payload 本体は出さない。
+
+## 2026-06-01 public surface module split checkpoint
+
+`TypedPublicSurfaceTable` の model / hash / builder / tests を `nepl-core/src/typecheck/public_surface.rs` へ分離した。
+
+`public_signature.rs` は `TypedPublicSignatureTable` の stable text/hash 境界だけを担当する。structured surface は `.neplmeta` materializer の authority になるため、text signature の互換 hash と同じ module に置いたまま拡張しない。
+
+`typecheck.rs` の public re-export は維持しており、`crate::typecheck::{PublicTypeTerm, TypedPublicSurfaceTable}` などの外部 API は変えない。`driver.rs` は signature builder と surface builder を別 module から呼ぶ。
+
+この checkpoint はまだ `Named(String)` や generic parameter 参照を materializer authority として認めるものではない。次 checkpoint では stable nominal identity と binder-indexed generic reference を導入する。
+
+検証:
+
+- `cargo check -p nepl-core -p nepl-language`
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
+- `cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `trunk build --release`
+- `node nodesrc/test_run_test_compiler_session.js`
+- `node nodesrc/test_playground_compiler_session_policy.js`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-public-surface-split-20260601.json`
+- `node nodesrc/issues.js check --dir issues`
+- `git diff --check`
 
 追加検証:
 
