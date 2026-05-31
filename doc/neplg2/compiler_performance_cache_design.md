@@ -892,6 +892,42 @@ final check 由来の全関数 final state 復元は支配項から外れた。
 pipeline の固定費、stage-local key / dependency hash の重複構築、changed function only
 proof replay、typed expression subtree query に分解して継続する。
 
+### Dependency Closure Base Hash Table
+
+2026-05-31 の dependency closure base hash checkpoint では、Resource summary value
+cache の dependency closure hash を「summary kind tag」と「kind に依存しない closure
+base hash」に分けた。closure base hash は、reachable dependency closure の function
+identity、Resource IR body hash、source capability policy hash、function-local type
+boundary を含む。これは stale hit を避けるための invalidation 入力であり、今回の変更で
+削除していない。
+
+同じ Resource static check stage 内では、raw alias / i32 scalar / raw-init / final
+initialized check が同じ dependency graph と function index に対して同じ closure を
+繰り返し走査する。そこで `ResourceSummaryValueCacheContext` に compile-local な table を
+置き、module functions slice、dependency graph slice、function index を key として
+closure base hash を再利用する。table key は in-memory pointer identity を含むため、
+永続 artifact には保存しない。source capability policy input が追加・更新された場合は、
+function source policy cache と同時に dependency closure base hash table も clear する。
+
+summary kind tag は base hash の外側で `raw-alias`、`raw-init`、`i32-scalar`、
+`initialized-function-check` ごとに重ねる。これにより、同じ closure base を共有しても
+summary kind 間で cache key が衝突しない。
+
+release Web RPN same-session string literal edit 測定
+`tmp/rpn_dependency_closure_base_cache_20260531.json` では、base `compile_ms=9431`、
+edit `compile_ms=3138` だった。edit の `resource_static_check` は `2833ms` で、
+lazy final check checkpoint の `5170ms` から大きく下がった。
+
+この測定の session 統計は累積値であり、base から edit への差分では
+`resource_raw_alias_summary_recomputations=0`、`resource_raw_init_summary_recomputations=0`、
+`resource_initialized_function_checks=0` を維持している。`resource_i32_scalar_summary_recomputations`
+だけ `+7`、`resource_summary_value_recomputed_ops` は `+16` であり、支配点は false miss
+ではなく Resource static check pipeline の未分割固定費へ移っている。
+
+まだ 0.5 秒未満には届いていないため、次段階では changed function only proof replay、
+typed expression subtree query、stdlib prechecked `.neplmeta`、function-level `.neplobj`
+を順に進める。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

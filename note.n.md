@@ -48161,3 +48161,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - この checkpoint では backend private cache はまだ生成していない。cache algorithm correctness、official external handle marker、`MemoKey` / `MemoValue` impl の semantic validation は `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` の残件として継続する。
 - 性能側の subagent 調査では、RPN string literal edit の秒単位残差は raw-init / raw-alias / final check の false miss ではなく、未変更 proof の大量 replay と Resource static check pipeline 固定費が支配的だと確認した。次は `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` で `changed function only` / lazy replay を狭く実装する。
 - 検証は `cargo test -p nepl-core function_memo_call --test functions -- --nocapture` を通した。
+
+## 2026-05-31 Agent dependency closure base hash table checkpoint
+
+- remote/main は `git pull --ff-only` で同期済みで、作業 branch は `perf/resource-summary-key-table-20260531` として作成した。`plan.md` は変更していない。
+- Zenn の試作段階方針、静的検査方針、純粋性と性能追求方針を再確認した。特に純粋 query cache は安全性の証明入力を落とさず、探索空間だけを削る方針で扱った。
+- subagent review では、RPN code edit の残り秒単位コストは raw-init / raw-alias / final check の false miss ではなく、Resource static check 内の key / dependency closure hash 構築と proof replay の固定費だと確認した。
+- `ResourceSummaryValueCacheContext` に compile-local な dependency closure base hash table を追加した。table は module functions slice、dependency graph slice、function index を key にし、same Resource static check 内で同じ dependency closure を何度も走査しない。
+- dependency closure hash は summary kind tag と kind 非依存の base hash に分離した。base hash は function identity、Resource IR body hash、source capability policy hash、function-local type boundary を含むため、stale hit を防ぐ key 材料は削っていない。
+- source capability policy input を追加・更新した場合は function source policy cache と dependency closure base hash table を同時に clear する。これにより capability proof surface の変更後に古い base hash を再利用しない。
+- focused regression として、cached base を共有しても raw-init と raw-alias の summary kind hash が分離されること、source policy missing の cached error が policy 追加後に残らないことを追加した。
+- release Web RPN same-session string literal edit 測定 `tmp/rpn_dependency_closure_base_cache_20260531.json` では、base `compile_ms=9431`、edit `compile_ms=3138` だった。edit の `resource_static_check` は `2833ms` で、lazy final check checkpoint の `5170ms` から改善した。
+- 測定統計は累積値であるため、base から edit への差分としては `resource_raw_alias_summary_recomputations=0`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` を維持し、`resource_i32_scalar_summary_recomputations=+7`、`resource_summary_value_recomputed_ops=+16` が残る。
+- この checkpoint でも 0.5 秒未満 compile / 0.1 秒以下の式枝差し替え budget には届いていない。次は changed function only proof replay、typed expression subtree query、stdlib prechecked artifact、codegen fragment cache に分けて継続する。

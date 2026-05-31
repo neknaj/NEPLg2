@@ -241,6 +241,36 @@ final check 由来の全関数 final state materialize は削れたが、まだ 
 いない。次は stage-local key / dependency closure hash の重複構築、changed function only
 proof replay、typed expression subtree query を分けて進める。
 
+## 2026-05-31 dependency closure base hash 更新
+
+Resource summary dependency closure hash を、summary kind tag と kind 非依存の closure
+base hash に分離した。closure base hash は reachable dependency closure の function
+identity、Resource IR body hash、source capability policy hash、function-local type boundary
+を含むため、stale hit を防ぐ invalidation 入力は維持している。
+
+`ResourceSummaryValueCacheContext` は Resource static check stage 内だけで有効な
+dependency closure base hash table を持つ。raw alias / i32 scalar / raw-init / final
+initialized check が同じ module / dependency graph / function index を何度も問い合わせる場合、
+同じ closure を再走査しない。table key は in-memory pointer identity を含むため、永続
+artifact へは保存しない。source capability policy input の更新時には table を clear する。
+
+`tmp/rpn_dependency_closure_base_cache_20260531.json` では、same-session string literal edit が
+次の結果になった。
+
+- base `compile_ms=9431`、`resource_static_check=8804ms`
+- edit `compile_ms=3138`、`resource_static_check=2833ms`
+- base から edit への差分は `resource_raw_alias_summary_recomputations=0`
+- base から edit への差分は `resource_raw_init_summary_recomputations=0`
+- base から edit への差分は `resource_initialized_function_checks=0`
+- base から edit への差分は `resource_i32_scalar_summary_recomputations=+7`
+- base から edit への差分は `resource_summary_value_recomputed_ops=+16`
+- edit 累積値は `resource_summary_value_lazy_pass_hits=288`、`resource_summary_value_replayed_ops=914`
+
+lazy final check checkpoint の edit `compile_ms=5454` / `resource_static_check=5170ms` からは
+大きく改善したが、0.5 秒未満 compile / 0.1 秒以下の式枝差し替え budget には届いていない。
+この issue は、changed function only proof replay、typed expression subtree query、
+stdlib prechecked artifact、codegen fragment cache へ継続する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

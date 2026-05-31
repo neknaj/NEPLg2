@@ -7,11 +7,16 @@ use core::cell::RefCell;
 
 use crate::source_map::SourceCapabilities;
 use crate::span::{FileId, Span};
+use crate::types::TypeCtx;
 
-use super::super::model::{ResourceFunction, ResourceMatchArm, ResourceOp, ResourceTerminator};
-use super::candidate_key::{
-    ResourceSummaryCacheNamespaceHash, ResourceSummarySourceCapabilityPolicyHash,
+use super::super::model::{
+    ResourceFunction, ResourceMatchArm, ResourceModule, ResourceOp, ResourceTerminator,
 };
+use super::candidate_key::{
+    ResourceSummaryCacheNamespaceHash, ResourceSummaryDependencyClosureHash,
+    ResourceSummarySourceCapabilityPolicyHash,
+};
+use super::dependency_hash::ResourceSummaryDependencyClosureHashReject;
 use super::stable_hash::ResourceSummaryStableHasher;
 
 /// Resource summary value cache の compile-local 入力 context。
@@ -31,6 +36,15 @@ pub struct ResourceSummaryValueCacheContext {
             Option<ResourceSummarySourceCapabilityPolicyHash>,
         >,
     >,
+    dependency_closure_base_hash_cache: RefCell<
+        BTreeMap<
+            ResourceSummaryDependencyClosureBaseCacheKey,
+            Result<
+                ResourceSummaryDependencyClosureHash,
+                ResourceSummaryDependencyClosureHashReject,
+            >,
+        >,
+    >,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,6 +60,22 @@ struct SourcePolicyFileRange {
     file_id: FileId,
     start: u32,
     end: u32,
+}
+
+/// Resource static check 中だけ有効な dependency closure base hash の memo key。
+///
+/// dependency closure hash は summary kind ごとの tag を除くと、同じ module / dependency
+/// graph / function index では同じ body・source policy・type boundary を走査する。
+/// この key は compile-local table なので、永続 artifact には保存しない in-memory pointer
+/// identity を使って「同じ ResourceModule と同じ dependency graph の問い合わせ」を区別する。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) struct ResourceSummaryDependencyClosureBaseCacheKey {
+    type_ctx_ptr: usize,
+    module_functions_ptr: usize,
+    module_function_count: usize,
+    dependencies_ptr: usize,
+    dependency_count: usize,
+    function_index: usize,
 }
 
 /// compile-local function source policy query の memo key。
@@ -69,11 +99,12 @@ impl ResourceSummaryValueCacheContext {
             source_policy_hashes: Vec::new(),
             source_policy_files: Vec::new(),
             function_source_policy_cache: RefCell::new(BTreeMap::new()),
+            dependency_closure_base_hash_cache: RefCell::new(BTreeMap::new()),
         }
     }
 
     pub fn insert_source_policy_hash(&mut self, file_id: FileId, policy_hash: u64) {
-        self.function_source_policy_cache.get_mut().clear();
+        self.clear_derived_query_caches();
         if let Some((_, existing)) = self
             .source_policy_hashes
             .iter_mut()
@@ -92,7 +123,7 @@ impl ResourceSummaryValueCacheContext {
         source: &str,
         capabilities: SourceCapabilities,
     ) {
-        self.function_source_policy_cache.get_mut().clear();
+        self.clear_derived_query_caches();
         if let Some(existing) = self
             .source_policy_files
             .iter_mut()
@@ -114,6 +145,11 @@ impl ResourceSummaryValueCacheContext {
 
     pub(super) fn namespace_hash(&self) -> ResourceSummaryCacheNamespaceHash {
         ResourceSummaryCacheNamespaceHash::from_stable_hash(self.namespace_hash)
+    }
+
+    fn clear_derived_query_caches(&mut self) {
+        self.function_source_policy_cache.get_mut().clear();
+        self.dependency_closure_base_hash_cache.get_mut().clear();
     }
 
     /// 関数本文に含まれる source capability policy hash を集約する。
@@ -192,6 +228,31 @@ impl ResourceSummaryValueCacheContext {
         }
         self.source_policy_hash_for_file(range.file_id)
     }
+
+    pub(super) fn dependency_closure_base_hash(
+        &self,
+        key: ResourceSummaryDependencyClosureBaseCacheKey,
+    ) -> Option<
+        Result<ResourceSummaryDependencyClosureHash, ResourceSummaryDependencyClosureHashReject>,
+    > {
+        self.dependency_closure_base_hash_cache
+            .borrow()
+            .get(&key)
+            .copied()
+    }
+
+    pub(super) fn insert_dependency_closure_base_hash(
+        &self,
+        key: ResourceSummaryDependencyClosureBaseCacheKey,
+        value: Result<
+            ResourceSummaryDependencyClosureHash,
+            ResourceSummaryDependencyClosureHashReject,
+        >,
+    ) {
+        self.dependency_closure_base_hash_cache
+            .borrow_mut()
+            .insert(key, value);
+    }
 }
 
 impl ResourceSummaryFunctionSourcePolicyCacheKey {
@@ -202,6 +263,24 @@ impl ResourceSummaryFunctionSourcePolicyCacheKey {
             file_id: function.span.file_id.0,
             start: function.span.start,
             end: function.span.end,
+        }
+    }
+}
+
+impl ResourceSummaryDependencyClosureBaseCacheKey {
+    pub(super) fn new(
+        types: &TypeCtx,
+        module: &ResourceModule,
+        dependencies: &[Vec<usize>],
+        function_index: usize,
+    ) -> Self {
+        Self {
+            type_ctx_ptr: types as *const TypeCtx as usize,
+            module_functions_ptr: module.functions.as_ptr() as usize,
+            module_function_count: module.functions.len(),
+            dependencies_ptr: dependencies.as_ptr() as usize,
+            dependency_count: dependencies.len(),
+            function_index,
         }
     }
 }

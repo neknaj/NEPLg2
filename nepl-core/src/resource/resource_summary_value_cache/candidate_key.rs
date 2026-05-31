@@ -83,7 +83,7 @@ impl ResourceSummaryDependencyClosureHash {
         Self(value)
     }
 
-    fn as_u64(self) -> u64 {
+    pub(in crate::resource) fn as_u64(self) -> u64 {
         self.0
     }
 }

@@ -9,7 +9,9 @@ use super::super::model::ResourceModule;
 use super::super::owner_summary_type_params::owner_summary_type_params;
 use super::body_hash::resource_function_body_hash;
 use super::candidate_key::ResourceSummaryDependencyClosureHash;
-use super::context::ResourceSummaryValueCacheContext;
+use super::context::{
+    ResourceSummaryDependencyClosureBaseCacheKey, ResourceSummaryValueCacheContext,
+};
 use super::key::ResourceSummaryFunctionIdentity;
 use super::stable_hash::ResourceSummaryStableHasher;
 use super::type_boundary::resource_summary_type_parameter_boundary_hash;
@@ -57,12 +59,61 @@ pub(in crate::resource) fn resource_summary_dependency_closure_hash(
     dependencies: &[Vec<usize>],
     function_index: usize,
 ) -> Result<ResourceSummaryDependencyClosureHash, ResourceSummaryDependencyClosureHashReject> {
+    let base_hash = resource_summary_dependency_closure_base_hash(
+        context,
+        types,
+        module,
+        dependencies,
+        function_index,
+    )?;
+    let mut hash =
+        ResourceSummaryStableHasher::new("neplg2-resource-summary-dependency-closure-v2");
+    hash.write_str(kind.tag());
+    hash.write_u64(base_hash.as_u64());
+    Ok(ResourceSummaryDependencyClosureHash::from_stable_hash(
+        hash.finish(),
+    ))
+}
+
+fn resource_summary_dependency_closure_base_hash(
+    context: &ResourceSummaryValueCacheContext,
+    types: &TypeCtx,
+    module: &ResourceModule,
+    dependencies: &[Vec<usize>],
+    function_index: usize,
+) -> Result<ResourceSummaryDependencyClosureHash, ResourceSummaryDependencyClosureHashReject> {
+    let cache_key = ResourceSummaryDependencyClosureBaseCacheKey::new(
+        types,
+        module,
+        dependencies,
+        function_index,
+    );
+    if let Some(cached) = context.dependency_closure_base_hash(cache_key) {
+        return cached;
+    }
+    let computed = compute_resource_summary_dependency_closure_base_hash(
+        context,
+        types,
+        module,
+        dependencies,
+        function_index,
+    );
+    context.insert_dependency_closure_base_hash(cache_key, computed);
+    computed
+}
+
+fn compute_resource_summary_dependency_closure_base_hash(
+    context: &ResourceSummaryValueCacheContext,
+    types: &TypeCtx,
+    module: &ResourceModule,
+    dependencies: &[Vec<usize>],
+    function_index: usize,
+) -> Result<ResourceSummaryDependencyClosureHash, ResourceSummaryDependencyClosureHashReject> {
     let mut reachable = BTreeSet::new();
     collect_dependency_closure(dependencies, function_index, &mut reachable)?;
 
     let mut hash =
-        ResourceSummaryStableHasher::new("neplg2-resource-summary-dependency-closure-v1");
-    hash.write_str(kind.tag());
+        ResourceSummaryStableHasher::new("neplg2-resource-summary-dependency-closure-base-v1");
     hash.write_usize(reachable.len());
     for dependency_index in reachable {
         let dependency = module
@@ -313,6 +364,34 @@ mod tests {
     }
 
     #[test]
+    fn dependency_closure_hash_keeps_summary_kind_separate_on_cached_base() {
+        let types = TypeCtx::new();
+        let module = ResourceModule {
+            functions: vec![
+                caller(&types, Vec::new()),
+                raw_body_dependency(&types, RawBodyKind::Wasm, FileId(1)),
+            ],
+            entry: None,
+            string_literals: Vec::new(),
+        };
+        let dependencies = vec![vec![1], Vec::new()];
+        let context = context(FileId(1), 100);
+
+        let raw_init =
+            raw_init_dependency_closure_hash(&context, &types, &module, &dependencies, 0)
+                .expect("raw-init closure hash should be stable");
+        let raw_alias =
+            raw_alias_dependency_closure_hash(&context, &types, &module, &dependencies, 0)
+                .expect("raw-alias closure hash should be stable");
+        let raw_init_again =
+            raw_init_dependency_closure_hash(&context, &types, &module, &dependencies, 0)
+                .expect("cached raw-init closure hash should remain stable");
+
+        assert_ne!(raw_init, raw_alias);
+        assert_eq!(raw_init, raw_init_again);
+    }
+
+    #[test]
     fn raw_init_dependency_closure_hash_reports_missing_dependency_source_policy() {
         let types = TypeCtx::new();
         let module = ResourceModule {
@@ -334,6 +413,32 @@ mod tests {
                 0,
             ),
             Err(RawInitDependencyClosureHashReject::DependencySourcePolicy)
+        );
+    }
+
+    #[test]
+    fn dependency_closure_base_cache_is_cleared_when_source_policy_changes() {
+        let types = TypeCtx::new();
+        let module = ResourceModule {
+            functions: vec![
+                caller(&types, Vec::new()),
+                raw_body_dependency(&types, RawBodyKind::Wasm, FileId(1)),
+            ],
+            entry: None,
+            string_literals: Vec::new(),
+        };
+        let dependencies = vec![vec![1], Vec::new()];
+        let mut context = ResourceSummaryValueCacheContext::new(7);
+
+        assert_eq!(
+            raw_init_dependency_closure_hash(&context, &types, &module, &dependencies, 0),
+            Err(RawInitDependencyClosureHashReject::DependencySourcePolicy)
+        );
+
+        context.insert_source_policy_hash(FileId(1), 100);
+
+        assert!(
+            raw_init_dependency_closure_hash(&context, &types, &module, &dependencies, 0).is_ok()
         );
     }
 
