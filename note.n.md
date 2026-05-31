@@ -48119,3 +48119,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - user code に同名 `memo_call` がある場合は通常関数として扱われ、stdlib `core/memo` の compiler-known primitive fast path へ入らない regression を追加した。
 - compile performance 側の subagent 調査では、RPN code edit で Resource summary replay 後も 5 秒台が残っており、次は stage timing と typed expression subtree query / function-level codegen fragment cache の issue に進むべきだと確認した。
 - 検証は `cargo check -p nepl-core`、focused / full `functions` tests、`typeannot` tests、`cargo test -p nepl-core --tests --no-run`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、playground editor JSON、compiler session regression、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
+
+## 2026-05-31 Agent compile stage timing and binary artifact design checkpoint
+
+- Zenn の試作段階方針、性能追求方針、純粋 query cache 方針を再確認した。`plan.md` は変更していない。
+- 現状の NEPLg2 には、JVM の `.class` や C 系の `.o` に相当する永続 binary intermediate artifact はまだ無い。存在するのは process-local な `LoaderSessionCache`、`ResourceSummaryValueCache`、`CompilerSession` compiled-output cache、最終 wasm / WAT 補助情報である。
+- `CompilerSession.loader_cache_stats_json()` に直近 compile の `compile_stage_timings` と `compile_stage_timing_status` を追加した。compiled-output cache hit では status を `cache_hit`、配列を `[]` にし、real compile では target precheck から wasm validation までの粗い stage 配列を JSON に出す。
+- subagent review の指摘に基づき、失敗時も失敗した stage の timing を残すよう、fallible stage の `?` を finish 後に移した。Web / Node の clock は `performance.now()` 優先にし、`Date.now()` は fallback だけにした。
+- `tmp/stage_timing_status_direct_smoke_20260531.json` では、direct `CompilerSession.compile_outputs_with_vfs` で compiled miss が status `compiled` / 12 stages、同一入力 hit が status `cache_hit` / `[]`、型エラーが status `failed` / `target_precheck` + `resource_typecheck` になることを確認した。
+- same-session の RPN string literal edit 測定 `tmp/rpn_stage_timing_same_session_code_edit_20260531.json` では、base `compile_ms=12549`、edit `compile_ms=5779` だった。edit stage は `resource_typecheck=154ms`、`resource_static_check=5492ms`、`wasm_codegen=19ms` で、支配点は引き続き Resource static check である。
+- 同 edit delta は `resource_summary_value_replayed_ops=4553`、`resource_summary_value_recomputed_ops=16`、`resource_raw_alias_summary_recomputations=0`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` だった。raw-init / raw-alias / final check の false miss ではなく、大量の proof replay と Resource static check pipeline 固定費が秒単位で残っている。
+- `doc/neplg2/compiler_performance_cache_design.md` に binary intermediate artifact 設計を追加した。`.class` 型の checked typed/proof artifact と `.o` 型の target-specific relocatable fragment を分離し、`.neplmeta` と `.neplobj` の 2 層案として扱う。
+- 追加 issue として `ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649` を作成した。stdlib prechecked artifact、typed module/function object、Resource proof object、codegen fragment object、link manifest を段階的に実装する。

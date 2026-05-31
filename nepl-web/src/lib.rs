@@ -2,12 +2,14 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use js_sys::{Reflect, Uint8Array};
+use js_sys::{Function, Reflect, Uint8Array};
 use nepl_core::ast::{
     Block, Directive, FnBody, MatchArm, MatchPattern, PrefixExpr, PrefixItem, Stmt, Symbol,
 };
 use nepl_core::compiler::{
     compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache,
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_stage_timings,
+    CompileStageTimings,
 };
 use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
@@ -23,7 +25,7 @@ use nepl_core::span::{FileId, Span};
 use nepl_core::typecheck::typecheck;
 use nepl_core::{BuildProfile, CompilationArtifactOptions, CompileOptions, CompileTarget};
 use wasmprinter::print_bytes;
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::{prelude::*, JsCast};
 
 #[wasm_bindgen(start)]
 pub fn wasm_start() {
@@ -3008,6 +3010,7 @@ fn compile_outputs_with_bundled_sources_and_cache(
         include_wat_comments,
         loader_cache,
         None,
+        None,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
     compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
@@ -3277,6 +3280,7 @@ fn compile_wasm_with_bundled_sources(
         include_wat_comments,
         None,
         None,
+        None,
     )
 }
 
@@ -3291,6 +3295,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
     include_wat_comments: bool,
     loader_cache: Option<&mut LoaderSessionCache>,
     resource_summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    stage_timings: Option<&mut CompileStageTimings>,
 ) -> Result<CompiledWasm, String> {
     let mut overlay_sources = BTreeMap::new();
     // stdlib 差し替えが指定された場合は、先に上書きで適用する
@@ -3352,25 +3357,56 @@ fn compile_wasm_with_bundled_sources_and_cache(
     } else {
         None
     };
-    let artifact = compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache(
-        loaded.module,
-        Some(&loaded.source_map),
-        CompileOptions {
-            target: None,
-            verbose: false,
-            profile,
-        },
-        CompilationArtifactOptions {
-            include_wat_comments,
-        },
-        dependency_public_surface_hash,
-        resource_summary_value_cache.as_deref_mut(),
-    )
+    let options = CompileOptions {
+        target: None,
+        verbose: false,
+        profile,
+    };
+    let artifact_options = CompilationArtifactOptions {
+        include_wat_comments,
+    };
+    let artifact = if let Some(stage_timings) = stage_timings {
+        compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_stage_timings(
+            loaded.module,
+            Some(&loaded.source_map),
+            options,
+            artifact_options,
+            dependency_public_surface_hash,
+            resource_summary_value_cache.as_deref_mut(),
+            stage_timings,
+            compile_stage_now_ms,
+        )
+    } else {
+        compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache(
+            loaded.module,
+            Some(&loaded.source_map),
+            options,
+            artifact_options,
+            dependency_public_surface_hash,
+            resource_summary_value_cache.as_deref_mut(),
+        )
+    }
     .map_err(|e| render_core_error(e, &loaded.source_map))?;
     Ok(CompiledWasm {
         wasm: artifact.wasm,
         wat_comments: artifact.wat_comments,
     })
+}
+
+fn compile_stage_now_ms() -> f64 {
+    let global = js_sys::global();
+    if let Ok(performance) = Reflect::get(&global, &JsValue::from_str("performance")) {
+        if let Ok(now) = Reflect::get(&performance, &JsValue::from_str("now")) {
+            if let Ok(now) = now.dyn_into::<Function>() {
+                if let Ok(value) = now.call0(&performance) {
+                    if let Some(ms) = value.as_f64() {
+                        return ms;
+                    }
+                }
+            }
+        }
+    }
+    js_sys::Date::now()
 }
 
 /// WASM instance 内で再利用するコンパイラセッション。
@@ -3391,6 +3427,8 @@ pub struct CompilerSession {
     compiled_output_cache_stores: RefCell<usize>,
     prewarm_surface_hits: RefCell<usize>,
     prewarm_surface_stores: RefCell<usize>,
+    last_compile_stage_timing_status: RefCell<&'static str>,
+    last_compile_stage_timings: RefCell<Option<String>>,
 }
 
 #[derive(Clone)]
@@ -3418,6 +3456,8 @@ impl CompilerSession {
             compiled_output_cache_stores: RefCell::new(0),
             prewarm_surface_hits: RefCell::new(0),
             prewarm_surface_stores: RefCell::new(0),
+            last_compile_stage_timing_status: RefCell::new("not_started"),
+            last_compile_stage_timings: RefCell::new(None),
         }
     }
 
@@ -3449,7 +3489,7 @@ impl CompilerSession {
     pub fn loader_cache_stats_json(&self) -> String {
         let stats = self.loader_cache.borrow().stats();
         let resource_stats = self.resource_summary_value_cache.borrow().stats();
-        format!(
+        let mut out = format!(
             "{{\"parsed_module_hits\":{},\"parsed_module_misses\":{},\"parsed_module_stores\":{},\"parsed_module_bypasses\":{},\"arity_surface_hits\":{},\"arity_surface_misses\":{},\"arity_surface_stores\":{},\"arity_surface_bypasses\":{},\"public_surface_hash_hits\":{},\"public_surface_hash_stores\":{},\"public_surface_hash_bypasses\":{},\"dependency_aggregate_public_surface_hash_hits\":{},\"dependency_aggregate_public_surface_hash_misses\":{},\"dependency_aggregate_public_surface_hash_stores\":{},\"dependency_aggregate_public_surface_hash_bypasses\":{},\"stdlib_override_bypasses\":{},\"compiled_output_cache_hits\":{},\"compiled_output_cache_stores\":{},\"prewarm_surface_hits\":{},\"prewarm_surface_stores\":{},\"resource_raw_alias_summary_recomputations\":{},\"resource_raw_alias_summary_count\":{},\"resource_i32_scalar_summary_recomputations\":{},\"resource_i32_scalar_summary_count\":{},\"resource_raw_init_summary_recomputations\":{},\"resource_raw_init_summary_count\":{},\"resource_collection_slot_summary_recomputations\":{},\"resource_collection_slot_summary_count\":{},\"resource_initialized_function_checks\":{},\"resource_initialized_function_check_ops\":{},\"resource_summary_value_hits\":{},\"resource_summary_value_misses\":{},\"resource_summary_value_stores\":{},\"resource_summary_value_bypasses\":{},\"resource_summary_value_replay_hits\":{},\"resource_summary_value_replay_bypasses\":{},\"resource_summary_value_replayed_ops\":{},\"resource_summary_value_recomputed_ops\":{},\"resource_summary_value_drop_traversal_forall_hits\":{},\"resource_summary_value_drop_traversal_forall_stores\":{},\"resource_summary_value_drop_traversal_forall_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_hits\":{},\"resource_summary_value_raw_alias_return_entry_stores\":{},\"resource_summary_value_raw_alias_return_entry_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_dependency_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_missing_source_policy_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_unstable_key_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_unstable_entry_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_context_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_parameter_index_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_parameter_projection_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_parameter_type_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_return_projection_bypasses\":{},\"resource_summary_value_raw_alias_return_entry_reprojection_value_return_type_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_hits\":{},\"resource_summary_value_i32_scalar_return_facts_stores\":{},\"resource_summary_value_i32_scalar_return_facts_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_dependency_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_missing_source_policy_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_unstable_key_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_unstable_entry_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_reprojection_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_reprojection_context_bypasses\":{},\"resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses\":{},\"resource_summary_value_initialized_function_check_hits\":{},\"resource_summary_value_initialized_function_check_stores\":{},\"resource_summary_value_initialized_function_check_bypasses\":{},\"resource_summary_value_initialized_function_check_dependency_bypasses\":{},\"resource_summary_value_initialized_function_check_diagnostic_bypasses\":{},\"resource_summary_value_initialized_function_check_missing_source_policy_bypasses\":{},\"resource_summary_value_initialized_function_check_unstable_key_bypasses\":{},\"resource_summary_value_initialized_function_check_unstable_entry_bypasses\":{},\"resource_summary_value_initialized_function_check_unstable_entry_auto_drop_bypasses\":{},\"resource_summary_value_initialized_function_check_unstable_entry_place_bypasses\":{},\"resource_summary_value_initialized_function_check_unstable_entry_type_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_context_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_place_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_type_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_place_type_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_projection_result_type_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_cell_state_type_bypasses\":{},\"resource_summary_value_initialized_function_check_reprojection_value_collection_slot_state_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_hits\":{},\"resource_summary_value_raw_init_param_facts_stores\":{},\"resource_summary_value_raw_init_param_facts_bypasses\":{},\"resource_summary_value_raw_init_param_facts_incomplete_leaf_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_bypasses\":{},\"resource_summary_value_raw_init_param_facts_missing_source_policy_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_key_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_graph_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_identity_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_body_hash_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_source_policy_bypasses\":{},\"resource_summary_value_raw_init_param_facts_dependency_type_boundary_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_entry_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_entry_surface_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_entry_param_cell_projection_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_entry_param_cell_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_unstable_entry_param_release_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_context_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_empty_entry_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_projection_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_stable_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_result_type_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_release_projection_bypasses\":{},\"resource_summary_value_raw_init_param_facts_reprojection_value_param_release_type_bypasses\":{}}}",
             stats.parsed_module_hits,
             stats.parsed_module_misses,
@@ -3564,7 +3604,19 @@ impl CompilerSession {
             resource_stats.resource_summary_value_raw_init_param_facts_reprojection_value_param_cell_result_type_bypasses,
             resource_stats.resource_summary_value_raw_init_param_facts_reprojection_value_param_release_projection_bypasses,
             resource_stats.resource_summary_value_raw_init_param_facts_reprojection_value_param_release_type_bypasses,
-        )
+        );
+        out.pop();
+        out.push_str(",\"compile_stage_timing_status\":\"");
+        out.push_str(*self.last_compile_stage_timing_status.borrow());
+        out.push('"');
+        out.push_str(",\"compile_stage_timings\":");
+        if let Some(stage_timings) = self.last_compile_stage_timings.borrow().as_deref() {
+            out.push_str(stage_timings);
+        } else {
+            out.push_str("null");
+        }
+        out.push('}');
+        out
     }
 
     /// Loader cache を明示的に空にする。
@@ -3581,6 +3633,8 @@ impl CompilerSession {
         *self.compiled_output_cache_stores.borrow_mut() = 0;
         *self.prewarm_surface_hits.borrow_mut() = 0;
         *self.prewarm_surface_stores.borrow_mut() = 0;
+        *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
+        *self.last_compile_stage_timings.borrow_mut() = None;
     }
 
     /// entry source から到達する bundled stdlib の loader cache を warm する。
@@ -3641,6 +3695,8 @@ impl CompilerSession {
         vfs: JsValue,
         profile: &str,
     ) -> Result<Vec<u8>, JsValue> {
+        *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
+        *self.last_compile_stage_timings.borrow_mut() = None;
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
         let key = compiled_output_cache_key(entry_path, source, &vfs, false, profile);
@@ -3652,11 +3708,14 @@ impl CompilerSession {
             .map(|entry| entry.compiled.clone())
         {
             *self.compiled_output_cache_hits.borrow_mut() += 1;
+            *self.last_compile_stage_timing_status.borrow_mut() = "cache_hit";
+            *self.last_compile_stage_timings.borrow_mut() = Some(String::from("[]"));
             return Ok(compiled.wasm);
         }
         let mut cache = self.loader_cache.borrow_mut();
         let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
-        let compiled = compile_wasm_with_bundled_sources_and_cache(
+        let mut stage_timings = CompileStageTimings::new();
+        let compiled = match compile_wasm_with_bundled_sources_and_cache(
             entry_path,
             source,
             &self.stdlib_root,
@@ -3667,8 +3726,18 @@ impl CompilerSession {
             false,
             Some(&mut cache),
             Some(&mut resource_summary_value_cache),
-        )
-        .map_err(|msg| JsValue::from_str(&msg))?;
+            Some(&mut stage_timings),
+        ) {
+            Ok(compiled) => compiled,
+            Err(msg) => {
+                *self.last_compile_stage_timing_status.borrow_mut() = "failed";
+                *self.last_compile_stage_timings.borrow_mut() =
+                    Some(stage_timings.to_json_array());
+                return Err(JsValue::from_str(&msg));
+            }
+        };
+        *self.last_compile_stage_timing_status.borrow_mut() = "compiled";
+        *self.last_compile_stage_timings.borrow_mut() = Some(stage_timings.to_json_array());
         self.store_compiled_output_cache_entry(key, compiled.clone());
         Ok(compiled.wasm)
     }
@@ -3681,10 +3750,13 @@ impl CompilerSession {
         stdlib_vfs: JsValue,
         profile: &str,
     ) -> Result<Vec<u8>, JsValue> {
+        *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
+        *self.last_compile_stage_timings.borrow_mut() = None;
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
         self.loader_cache.borrow_mut().record_stdlib_override_bypass();
-        compile_wasm_with_bundled_sources(
+        let mut stage_timings = CompileStageTimings::new();
+        let compiled = match compile_wasm_with_bundled_sources_and_cache(
             entry_path,
             source,
             &self.stdlib_root,
@@ -3693,9 +3765,21 @@ impl CompilerSession {
             Some(stdlib_vfs),
             Some(parsed),
             false,
-        )
-        .map(|a| a.wasm)
-        .map_err(|msg| JsValue::from_str(&msg))
+            None,
+            None,
+            Some(&mut stage_timings),
+        ) {
+            Ok(compiled) => compiled,
+            Err(msg) => {
+                *self.last_compile_stage_timing_status.borrow_mut() = "failed";
+                *self.last_compile_stage_timings.borrow_mut() =
+                    Some(stage_timings.to_json_array());
+                return Err(JsValue::from_str(&msg));
+            }
+        };
+        *self.last_compile_stage_timing_status.borrow_mut() = "compiled";
+        *self.last_compile_stage_timings.borrow_mut() = Some(stage_timings.to_json_array());
+        Ok(compiled.wasm)
     }
 
     /// bundled stdlib を保持したまま、複数 emit の compiler output を生成する。
@@ -3712,6 +3796,8 @@ impl CompilerSession {
         emit: JsValue,
         attach_source: bool,
     ) -> Result<JsValue, JsValue> {
+        *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
+        *self.last_compile_stage_timings.borrow_mut() = None;
         let emit_list = parse_emit_list(emit)?;
         let include_wat_comments = emit_list.iter().any(|kind| kind == "wat");
         let key = compiled_output_cache_key(entry_path, source, &vfs, include_wat_comments, "debug");
@@ -3723,6 +3809,8 @@ impl CompilerSession {
             .map(|entry| entry.compiled.clone())
         {
             *self.compiled_output_cache_hits.borrow_mut() += 1;
+            *self.last_compile_stage_timing_status.borrow_mut() = "cache_hit";
+            *self.last_compile_stage_timings.borrow_mut() = Some(String::from("[]"));
             return compile_outputs_from_compiled(
                 &compiled,
                 entry_path,
@@ -3733,7 +3821,8 @@ impl CompilerSession {
         }
         let mut loader_cache = self.loader_cache.borrow_mut();
         let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
-        let compiled = compile_wasm_with_bundled_sources_and_cache(
+        let mut stage_timings = CompileStageTimings::new();
+        let compiled = match compile_wasm_with_bundled_sources_and_cache(
             entry_path,
             source,
             &self.stdlib_root,
@@ -3744,8 +3833,18 @@ impl CompilerSession {
             include_wat_comments,
             Some(&mut loader_cache),
             Some(&mut resource_summary_value_cache),
-        )
-        .map_err(|msg| JsValue::from_str(&msg))?;
+            Some(&mut stage_timings),
+        ) {
+            Ok(compiled) => compiled,
+            Err(msg) => {
+                *self.last_compile_stage_timing_status.borrow_mut() = "failed";
+                *self.last_compile_stage_timings.borrow_mut() =
+                    Some(stage_timings.to_json_array());
+                return Err(JsValue::from_str(&msg));
+            }
+        };
+        *self.last_compile_stage_timing_status.borrow_mut() = "compiled";
+        *self.last_compile_stage_timings.borrow_mut() = Some(stage_timings.to_json_array());
         self.store_compiled_output_cache_entry(key, compiled.clone());
         compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
     }

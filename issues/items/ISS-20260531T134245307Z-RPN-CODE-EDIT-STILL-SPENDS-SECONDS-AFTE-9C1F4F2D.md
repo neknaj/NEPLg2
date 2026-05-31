@@ -185,6 +185,36 @@ raw alias の residual reprojection miss は解消した。RPN edit compile は 
 次は typed expression subtree query、変更関数自身の summary 再計算、codegen fragment cache、
 および Resource IR summary 外の固定費を分けて追跡する。
 
+## 2026-05-31 stage timing JSON 更新
+
+Web / Node の `CompilerSession.loader_cache_stats_json()` に、直近 compile の
+`compile_stage_timings` を追加した。native の `NEPL_COMPILE_STAGE_TIMING=1` だけでは
+playground / Node runner の same-session cache miss 後の支配 stage を JSON artifact として
+残せないためである。compiled-output cache hit では `[]`、real compile では target precheck から
+wasm validation までの stage 配列を返す。`compile_stage_timing_status` は
+`not_started` / `cache_hit` / `compiled` / `failed` のいずれかで、stage 配列だけでは曖昧な
+cache hit と早期失敗を分ける。Web / Node の clock は `performance.now()` を優先し、
+fallback としてだけ `Date.now()` を使う。
+
+`tmp/rpn_stage_timing_same_session_code_edit_20260531.json` では、同じ `CompilerSession` で RPN を
+一度 compile した後、`main` 内の表示用 string literal だけを変えた。base は
+`compile_ms=12549`、edit は `compile_ms=5779` だった。edit stage timing は次の通り。
+
+- `resource_typecheck=154ms`
+- `resource_monomorphize=5ms`
+- `resource_static_check=5492ms`
+- `codegen_precheck=5ms`
+- `wasm_codegen=19ms`
+- `wasm_validate=2ms`
+
+同 edit の Resource summary delta は、`resource_summary_value_replayed_ops=4553`、
+`resource_summary_value_recomputed_ops=16`、`resource_raw_alias_summary_recomputations=0`、
+`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` だった。
+したがって、現時点の秒単位コストは raw-init / raw-alias / final check の false miss ではなく、
+大量の proof replay と Resource static check pipeline の固定費として残っている。
+この issue では typed expression subtree query、changed function only の proof replay、
+codegen fragment cache、binary intermediate artifact を次の分解対象として継続する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

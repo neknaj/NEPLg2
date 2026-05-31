@@ -59,6 +59,7 @@ pub use compiler::{
     check_module, check_module_with_source_map, compile_module,
     compile_module_with_artifact_options, compile_module_with_source_map,
     compile_module_with_source_map_and_artifact_options, compile_wasm, BuildProfile,
-    CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileTarget,
+    CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileStageTimings,
+    CompileTarget,
 };
 pub use error::CoreError;

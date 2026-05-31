@@ -123,6 +123,107 @@ pub struct CompilationArtifact {
     pub wat_comments: String,
 }
 
+/// コンパイル pipeline の 1 stage にかかった時間。
+///
+/// Web / Node の same-session 性能測定では、標準エラーへ出す native timing だけでは
+/// compiled-output cache miss 後の支配項を継続観測できない。この構造体は呼び出し元が
+/// 提供した単調時刻に基づき、typecheck / Resource IR / codegen などの粗い stage を
+/// JSON へ運ぶための軽量な測定値である。
+#[derive(Debug, Clone)]
+pub struct CompileStageTiming {
+    pub stage: &'static str,
+    pub elapsed_ms: f64,
+}
+
+/// 1 回の compile 呼び出しで記録された stage timing。
+///
+/// 値は最適化判定用の観測情報であり、診断や cache key には使わない。通常実行で重い
+/// per-op tracing を常時有効化しないため、stage 名と elapsed milliseconds の配列だけを
+/// 保持する。
+#[derive(Debug, Clone, Default)]
+pub struct CompileStageTimings {
+    stages: Vec<CompileStageTiming>,
+}
+
+pub type CompileStageNow = fn() -> f64;
+
+impl CompileStageTimings {
+    pub fn new() -> Self {
+        Self { stages: Vec::new() }
+    }
+
+    pub fn record(&mut self, stage: &'static str, elapsed_ms: f64) {
+        let elapsed_ms = if elapsed_ms.is_finite() && elapsed_ms >= 0.0 {
+            elapsed_ms
+        } else {
+            0.0
+        };
+        self.stages.push(CompileStageTiming { stage, elapsed_ms });
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.stages.is_empty()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &CompileStageTiming> {
+        self.stages.iter()
+    }
+
+    pub fn to_json_array(&self) -> String {
+        let mut out = String::from("[");
+        for (idx, timing) in self.stages.iter().enumerate() {
+            if idx > 0 {
+                out.push(',');
+            }
+            out.push_str("{\"stage\":\"");
+            out.push_str(timing.stage);
+            out.push_str("\",\"elapsed_ms\":");
+            out.push_str(&format!("{:.3}", timing.elapsed_ms));
+            out.push('}');
+        }
+        out.push(']');
+        out
+    }
+}
+
+struct CompileStageRecorder<'a> {
+    timings: Option<&'a mut CompileStageTimings>,
+    now_ms: Option<CompileStageNow>,
+}
+
+impl<'a> CompileStageRecorder<'a> {
+    fn disabled() -> Self {
+        Self {
+            timings: None,
+            now_ms: None,
+        }
+    }
+
+    fn enabled(timings: &'a mut CompileStageTimings, now_ms: CompileStageNow) -> Self {
+        Self {
+            timings: Some(timings),
+            now_ms: Some(now_ms),
+        }
+    }
+
+    fn start(&self) -> Option<f64> {
+        self.now_ms.map(|now_ms| now_ms())
+    }
+
+    fn finish(&mut self, stage: &'static str, start_ms: Option<f64>) {
+        let Some(start_ms) = start_ms else {
+            return;
+        };
+        let Some(now_ms) = self.now_ms else {
+            return;
+        };
+        let Some(timings) = self.timings.as_deref_mut() else {
+            return;
+        };
+        timings.record(stage, now_ms() - start_ms);
+    }
+}
+
 /// 解析済みモジュールを最終成果物へ変換する。
 ///
 /// この関数はコンパイルパイプラインの中核であり、以下の段階を順番に実行する。
@@ -206,6 +307,54 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
     dependency_public_surface_hash: Option<u64>,
     resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
 ) -> Result<CompilationArtifact, CoreError> {
+    let mut stage_recorder = CompileStageRecorder::disabled();
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        module,
+        source_map,
+        options,
+        artifact_options,
+        dependency_public_surface_hash,
+        resource_summary_value_cache,
+        &mut stage_recorder,
+    )
+}
+
+/// Resource summary cache と stage timing collector を同時に受け取る artifact pipeline。
+///
+/// `CompilerSession` のような長寿命呼び出し元は、compiled-output cache miss の実 compile
+/// だけを測定し、結果を Node / Web の JSON timing へ載せる。この関数は測定値を診断や
+/// cache key には使わず、既存 pipeline と同じ静的検査を実行する。
+pub fn compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_stage_timings(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    dependency_public_surface_hash: Option<u64>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    stage_timings: &mut CompileStageTimings,
+    now_ms: CompileStageNow,
+) -> Result<CompilationArtifact, CoreError> {
+    let mut stage_recorder = CompileStageRecorder::enabled(stage_timings, now_ms);
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        module,
+        source_map,
+        options,
+        artifact_options,
+        dependency_public_surface_hash,
+        resource_summary_value_cache,
+        &mut stage_recorder,
+    )
+}
+
+fn compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    dependency_public_surface_hash: Option<u64>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    stage_recorder: &mut CompileStageRecorder<'_>,
+) -> Result<CompilationArtifact, CoreError> {
     // loader が計算した dependency public surface hash を artifact pipeline へ渡す。
     // この入力は Resource summary namespace key だけに使い、汎用 `CompileOptions`
     // へは入れない。通常の CLI / test compile と、session-backed bundled stdlib compile
@@ -224,16 +373,23 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
     let profile = options
         .profile
         .unwrap_or(BuildProfile::default_source_profile());
-    let prepared = prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache(
+    let prepared = prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
         &module,
         target,
         profile,
         source_map,
         dependency_public_surface_hash,
         resource_summary_value_cache,
+        stage_recorder,
     )?;
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let pre_codegen_diags =
         passes::codegen_precheck::precheck_wasm_codegen(&prepared.types, &prepared.hir_module);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("codegen_precheck", stage_start);
+    stage_recorder.finish("codegen_precheck", stage_start_ms);
     if pre_codegen_diags
         .iter()
         .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error))
@@ -248,6 +404,7 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         &prepared.hir_module,
         prepared.diagnostics,
         artifact_options.include_wat_comments,
+        stage_recorder,
     )
 }
 
@@ -2226,12 +2383,35 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
     dependency_public_surface_hash: Option<u64>,
     resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
 ) -> Result<PreparedProgram, CoreError> {
+    let mut stage_recorder = CompileStageRecorder::disabled();
+    prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        module,
+        target,
+        profile,
+        source_map,
+        dependency_public_surface_hash,
+        resource_summary_value_cache,
+        &mut stage_recorder,
+    )
+}
+
+fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+    module: &ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    source_map: Option<&SourceMap>,
+    dependency_public_surface_hash: Option<u64>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    stage_recorder: &mut CompileStageRecorder<'_>,
+) -> Result<PreparedProgram, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let precheck_diags =
         crate::target_precheck::precheck_module_before_codegen(module, target, profile);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("target_precheck", stage_start);
+    stage_recorder.finish("target_precheck", stage_start_ms);
     if precheck_diags
         .iter()
         .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error))
@@ -2240,9 +2420,12 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
     }
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    let resource_tc = run_typecheck(module, target, profile, source_map)?;
+    let stage_start_ms = stage_recorder.start();
+    let resource_tc = run_typecheck(module, target, profile, source_map);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_typecheck", stage_start);
+    stage_recorder.finish("resource_typecheck", stage_start_ms);
+    let resource_tc = resource_tc?;
     let mut diagnostics = resource_tc.diagnostics;
     let mut types = resource_tc.types;
     let public_signatures = resource_tc.public_signatures;
@@ -2259,22 +2442,28 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
     };
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let resource_monomorphize = monomorphize::monomorphize(&mut types, resource_tc.module);
     let mut hir_module = resource_monomorphize.module;
     let resource_unresolved_trait_calls = resource_monomorphize.unresolved_trait_calls;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_monomorphize", stage_start);
+    stage_recorder.finish("resource_monomorphize", stage_start_ms);
     if !resource_unresolved_trait_calls.is_empty() {
         extend_unresolved_trait_call_diagnostics(&mut diagnostics, resource_unresolved_trait_calls);
         return Err(CoreError::from_diagnostics(diagnostics));
     }
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    prune_hir_module_to_entry_reachable(module, &mut hir_module, &types)?;
+    let stage_start_ms = stage_recorder.start();
+    let prune_result = prune_hir_module_to_entry_reachable(module, &mut hir_module, &types);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_reachable_prune", stage_start);
+    stage_recorder.finish("resource_reachable_prune", stage_start_ms);
+    prune_result?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let resource_drop_elaboration_plan = run_resource_static_check(
         &hir_module,
         &types,
@@ -2282,31 +2471,44 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
         source_map,
         resource_summary_value_cache,
         resource_summary_value_cache_context.as_ref(),
-    )?;
+    );
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_static_check", stage_start);
+    stage_recorder.finish("resource_static_check", stage_start_ms);
+    let resource_drop_elaboration_plan = resource_drop_elaboration_plan?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    run_resource_drop_elaboration_hir_bridge_gate(
+    let stage_start_ms = stage_recorder.start();
+    let resource_drop_bridge_result = run_resource_drop_elaboration_hir_bridge_gate(
         &hir_module,
         &resource_drop_elaboration_plan,
         &mut diagnostics,
-    )?;
+    );
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_drop_bridge", stage_start);
+    stage_recorder.finish("resource_drop_bridge", stage_start_ms);
+    resource_drop_bridge_result?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    passes::insert_resource_drops(&mut hir_module, &mut types, &resource_drop_elaboration_plan)
-        .map_err(|_| CoreError::internal("resource drop elaboration plan could not be consumed"))?;
+    let stage_start_ms = stage_recorder.start();
+    let insert_resource_drops_result =
+        passes::insert_resource_drops(&mut hir_module, &mut types, &resource_drop_elaboration_plan)
+            .map_err(|_| {
+                CoreError::internal("resource drop elaboration plan could not be consumed")
+            });
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("insert_resource_drops", stage_start);
+    stage_recorder.finish("insert_resource_drops", stage_start_ms);
+    insert_resource_drops_result?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let codegen_monomorphize = monomorphize::monomorphize(&mut types, hir_module);
     let hir_module = codegen_monomorphize.module;
     let unresolved_trait_calls = codegen_monomorphize.unresolved_trait_calls;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("codegen_monomorphize", stage_start);
+    stage_recorder.finish("codegen_monomorphize", stage_start_ms);
     if !unresolved_trait_calls.is_empty() {
         extend_unresolved_trait_call_diagnostics(&mut diagnostics, unresolved_trait_calls);
         return Err(CoreError::from_diagnostics(diagnostics));
@@ -2703,18 +2905,22 @@ fn emit_wasm(
     hir_module: &crate::hir::HirModule,
     mut diagnostics: Vec<Diagnostic>,
     include_wat_comments: bool,
+    stage_recorder: &mut CompileStageRecorder<'_>,
 ) -> Result<CompilationArtifact, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
-    let cg = match codegen_wasm::generate_wasm(types, hir_module) {
+    let stage_start_ms = stage_recorder.start();
+    let cg = codegen_wasm::generate_wasm(types, hir_module);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("wasm_codegen", stage_start);
+    stage_recorder.finish("wasm_codegen", stage_start_ms);
+    let cg = match cg {
         Ok(cg) => cg,
         Err(mut codegen_diags) => {
             diagnostics.append(&mut codegen_diags);
             return Err(CoreError::from_diagnostics(diagnostics));
         }
     };
-    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
-    log_compile_stage_timing("wasm_codegen", stage_start);
     diagnostics.extend(cg.diagnostics);
     let Some(bytes) = cg.bytes else {
         return Err(CoreError::from_diagnostics(diagnostics));
@@ -2722,8 +2928,13 @@ fn emit_wasm(
 
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let mut validator = Validator::new();
-    if let Err(err) = validator.validate_all(&bytes) {
+    let validation_result = validator.validate_all(&bytes);
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    log_compile_stage_timing("wasm_validate", stage_start);
+    stage_recorder.finish("wasm_validate", stage_start_ms);
+    if let Err(err) = validation_result {
         let err_msg = alloc::format!("invalid wasm generated: {}", err);
         let mut diag = Diagnostic::error_with_code(
             DiagnosticCode::Backend(BackendDiagnosticCode::Wasm(
@@ -2749,9 +2960,8 @@ fn emit_wasm(
         return Err(CoreError::from_diagnostics(diagnostics));
     }
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
-    log_compile_stage_timing("wasm_validate", stage_start);
-    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let wat_comments = if include_wat_comments {
         build_wat_comments(types, hir_module)
     } else {
@@ -2759,6 +2969,7 @@ fn emit_wasm(
     };
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("wat_comments", stage_start);
+    stage_recorder.finish("wat_comments", stage_start_ms);
     Ok(CompilationArtifact {
         wasm: bytes,
         wat_comments,

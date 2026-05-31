@@ -825,6 +825,36 @@ raw alias summary の false miss は支配項から外れた。edit compile は 
 expression subtree query、codegen fragment cache、変更関数自身の Resource summary 再計算、
 Resource IR summary 外の固定費を分けて進める。
 
+同日の stage timing JSON checkpoint では、Web / Node の `CompilerSession.loader_cache_stats_json()` に
+直近 compile の stage timing を追加した。native の `NEPL_COMPILE_STAGE_TIMING=1` は標準エラーへ
+出力するだけなので、playground / Node test runner では compiled-output cache miss 後の支配 stage を
+JSON artifact として残せなかったためである。cache hit では `compile_stage_timings=[]` を返し、
+real compile では target precheck から wasm validation までの粗い stage 配列を返す。
+`compile_stage_timing_status` は `not_started`、`cache_hit`、`compiled`、`failed` のいずれかで、
+`[]` が cache hit なのか stage に到達しない早期失敗なのかを区別する。Web / Node では
+`performance.now()` を優先し、存在しない host だけ `Date.now()` に fallback する。
+
+`tmp/rpn_stage_timing_same_session_code_edit_20260531.json` では、同一 `CompilerSession` で RPN を
+一度 compile した後、`main` 内の表示用 string literal だけを変更した。base は
+`compile_ms=12549`、edit は `compile_ms=5779` で、edit の stage timing は次の通りである。
+
+| stage | elapsed |
+|---|---:|
+| `resource_typecheck` | 154ms |
+| `resource_monomorphize` | 5ms |
+| `resource_static_check` | 5492ms |
+| `codegen_precheck` | 5ms |
+| `wasm_codegen` | 19ms |
+| `wasm_validate` | 2ms |
+
+同 edit の Resource summary delta は `resource_summary_value_replayed_ops=4553`、
+`resource_summary_value_recomputed_ops=16`、`resource_raw_alias_summary_recomputations=0`、
+`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` だった。
+これにより、現時点の秒単位コストは raw-init / raw-alias / final check の false miss ではなく、
+大量の proof replay と Resource static check pipeline の固定費として残っていることが分かった。
+次段階は typed expression subtree query と binary intermediate artifact により、変更されていない
+stdlib / dependency proof と codegen fragment を session または disk artifact から直接差し替える。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。
@@ -913,6 +943,42 @@ MVP では次の順に実装する。
 
 10ms 未満の対象は、CompilerSession が warm で、stdlib artifact が current で、変更が entry source の一部または小さな user module に閉じる場合である。stdlib 自体を変更した直後は artifact refresh が必要なので、この budget の対象外とする。
 
+## binary intermediate artifact
+
+現状の NEPLg2 は、JVM の `.class` や C 系の `.o` に相当する永続的な binary intermediate artifact をまだ作っていない。存在するのは process-local な `LoaderSessionCache`、`ResourceSummaryValueCache`、`CompilerSession` の compiled-output cache、そして最終 wasm / WAT 補助情報である。`PreparedProgram` は typed HIR、型コンテキスト、Resource drop plan、public signature を持つが、現時点では memory 上の中間値であり、session をまたいで読み書きできる object file ではない。
+
+差分コンパイルの仕様では、`.class` 型の「検査済み typed object」と `.o` 型の「target-specific relocatable fragment」を分離する。NEPL の静的検査は Resource IR、effect、source capability、private effect mask proof に依存するため、単に wasm fragment だけを保存しても安全性 proof の再利用条件を説明できない。逆に typed HIR だけでは 10ms 級の最終 output 差し替えに届かないため、backend fragment と link manifest も必要である。
+
+推奨する artifact stack:
+
+| artifact | 役割 | 主な key |
+|---|---|---|
+| public surface object | import graph、exported type/function/trait impl surface、effect signature、source capability policy surface を保持する。 | module path、source public surface hash、stdlib hash、compiler schema version |
+| typed module/function object | stable lexical path id、typed HIR、typed diagnostics enum、local binding shape、expected type boundary を保持する。 | function identity、body semantic hash、scope shape hash、callable candidate set、effect expectation |
+| Resource proof object | Resource IR lowering 結果、initialized/owner/borrow/drop/effect summary、private effect mask proof を stable mirror として保持する。 | typed HIR function hash、source capability policy hash、type/effect boundary hash、generic type arguments、summary kind |
+| codegen fragment object | wasm / LLVM の function body fragment、signature table entry、function table entry、data segment、relocation metadata を保持する。 | monomorphized function identity、lowered body hash、target/profile、backend feature set |
+| link manifest | symbol、relocation、table index、data offset、entry point、export/import を再接続する。 | dependency public surface hash、fragment set hash、target/profile |
+
+この構造では、リテラル変更や同じ expected type への式枝差し替えは、まず typed expression subtree query を invalidation する。public surface と local binding shape が変わらないなら、依存 module の public surface object は再利用し、変更 function の typed object と Resource proof object だけを再計算する。codegen では変更 function fragment だけを再生成し、unchanged fragment は link manifest の再接続で使う。
+
+stdlib は最初の対象にする。stdlib の public surface object、typed object、Resource proof object は release artifact に同梱し、user source の compile では generic type arguments の具体化と link だけを行う形へ寄せる。generic function は template object と specialization object を分け、type arguments、trait impl surface、effect boundary が一致する場合だけ specialization proof を再利用する。
+
+binary intermediate artifact は cache hit のために safety proof を弱めてはならない。次のどれかを現在 compile の context へ再投影できない場合は、artifact を使わず再計算する。
+
+- source capability exact use-site と source policy hash。
+- generic type argument と trait impl surface。
+- private effect mask proof と region non-escape proof。
+- diagnostic span の stable lexical path id。
+- function table / data segment relocation。
+- compiler version、schema version、target/profile、stdlib content hash。
+
+ファイル形式は最初から最終名を固定しない。試作段階では schema version 付きの canonical binary package とし、概念上は次の 2 層に分ける。
+
+- `.neplmeta`: public surface、typed metadata、Resource proof summary など target-independent な検査済み metadata。
+- `.neplobj`: target/profile ごとの codegen fragment と relocation/link manifest。
+
+この分離により、Web playground の warm session は memory cache で同じ構造を使い、CLI / CI / selfhost compiler は disk-backed artifact として同じ invalidation rule を使える。selfhost 実装でも、純粋 query function の結果を private cache へ保存する設計と整合し、cache は外部観測可能な semantics ではなく compile-time acceleration として扱う。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
@@ -927,3 +993,4 @@ MVP では次の順に実装する。
 - [ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5](../../issues/items/ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5.md)
 - [ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92](../../issues/items/ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92.md)
 - [ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D](../../issues/items/ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D.md)
+- [ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649](../../issues/items/ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649.md)

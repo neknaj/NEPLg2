@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T09:43:17.428Z",
+  "generated_at": "2026-05-31T11:35:27.193Z",
   "counts": {
-    "total": 1295,
-    "open": 25,
+    "total": 1296,
+    "open": 26,
     "resolved": 1270,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 326
       },
       "core": {
-        "total": 650,
-        "open": 18,
+        "total": 651,
+        "open": 19,
         "resolved": 632
       },
       "neplg21": {
@@ -368,6 +368,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D.md"
+    },
+    {
+      "id": "ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649",
+      "title": "binary intermediate artifacts needed for incremental compile",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649.md"
     },
     {
       "id": "ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D",

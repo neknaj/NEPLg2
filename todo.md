@@ -42,3 +42,4 @@
 - `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` に沿って、memoized function value の backend representation と identity observation ban を固定する
 - `ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2` に沿って、Private* effect の surface fold / diagnostics / Resource summary hash invalidation を接続する
 - `ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C` に沿って、Phase 1 の `memo_call @pure_named_func` compiler-known primitive 境界を実装する
+- `ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649` に沿って、`.neplmeta` / `.neplobj` 相当の checked metadata と codegen fragment artifact を設計し、stdlib prechecked artifact と 0.1 秒 warm recompile の境界へ接続する
