@@ -18,7 +18,7 @@ pub(super) fn apply_indirect_function_call(
     expected_ret: Option<TypeExpectation>,
 ) -> Option<StackEntry> {
     let allow_indirect = match &func.expr.kind {
-        HirExprKind::FnValue(identity) => {
+        HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
             let has_capture = checker
                 .env
                 .lookup_all_callables_by_symbol(identity.symbol())
@@ -113,6 +113,7 @@ pub(super) fn apply_indirect_function_call(
         },
         type_args: Vec::new(),
         assign: None,
+        explicit_function_ref: false,
         auto_call: true,
     })
 }

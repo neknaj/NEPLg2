@@ -23,7 +23,9 @@ memo_call を pure public API として提供するには、現状の関数値 s
 
 ## 根拠
 
-- 未記入
+- `doc/neplg2/private_effect_memoization_purity_design.md` の Phase 1 方針に従う。
+- `memo_call` は純粋関数の結果を private cache に保存する設計だが、cache が外部観測不能であることを示すまでは通常の `Pure` と同一視しない。
+- 高階関数境界は typed function identity と明示 `@` function value に限定し、通常の部分適用や暗黙 coercion の副産物として扱わない。
 
 ## 問題
 
@@ -37,6 +39,19 @@ primitive 境界を固定しないまま memo_call を通常ライブラリと�
 
 Phase 1 は compiler-known primitive とし、memo_call @pure_named_func だけを受け入れる。typed function identity、MemoKey/MemoValue の保守的構造制約、private cache SourceCapability、sealed backend representation を依存条件として明示する。
 
+## 2026-05-31 checkpoint
+
+- `stdlib/core/memo.nepl` の解決済み `memo_call` 定義だけを compiler-known primitive として検出する typecheck 入口を追加した。
+- overload 選択より前に `memo_call @func` を専用検査へ入れ、impure function value と暗黙 function-value coercion を memo 専用診断で拒否する。
+- `MemoKey` / `MemoValue` Phase 1 predicate は `unit`、primitive scalar、`Copy` が証明された Drop なしの構造値に限定し、`str`、reference、raw pointer / owner token、function value、未解決型を拒否する。
+- `HirExprKind::MemoizedFunctionValue` により typed HIR 上の memoization 境界を残した。
+- `memo_call @func arg` の即時適用は、backend private cache representation が入るまで memoization 境界を消さないために拒否する。
+- user code の同名 `memo_call` は通常関数として扱い、compiler-known primitive fast path へ入れない regression を追加した。
+
+この checkpoint では backend private cache はまだ生成していない。現時点の codegen は `MemoizedFunctionValue` を通常の named function value と同じ可観測結果へ lowering する。private cache SourceCapability、Resource IR `PrivateCache` effect、sealed backend representation はこの issue の残件として継続する。
+
 ## 検証
 
 memo_call @pure_named_func が pure に通り、impure function、capturing function、generic unresolved function、reference/raw pointer key/value、cache stats/clear/ref exposure が拒否される regression matrix を追加する。
+
+現 checkpoint では `cargo check -p nepl-core`、`cargo test -p nepl-core function_memo_call --test functions -- --nocapture`、`cargo test -p nepl-core --test functions -- --nocapture`、`cargo test -p nepl-core --test typeannot -- --nocapture`、`cargo test -p nepl-core --tests --no-run`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-memo-call-phase1-20260531.json`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` により、accepted pure named function value、dedicated HIR boundary、implicit function argument rejection、impure function rejection、`str` key/value rejection、non-Copy struct rejection、generic function value rejection、immediate application rejection、local same-name function fallback を確認した。

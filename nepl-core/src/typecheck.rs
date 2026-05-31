@@ -31,6 +31,7 @@ mod generic_call_constraints;
 mod hir_finalize;
 mod indirect_apply;
 mod match_check;
+mod memo_call;
 mod model;
 mod name_lookup;
 mod overload_candidate;

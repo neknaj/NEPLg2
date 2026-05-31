@@ -16,6 +16,7 @@ use super::field_apply::FieldAccessorApplyResult;
 use super::generic_call_constraints::{
     resolve_generic_type_args_from_constraints, GenericCallConstraint,
 };
+use super::memo_call::compiler_known_primitive_for_callable;
 use super::signature::type_contains_unbound_var;
 use super::trait_call_apply::TraitMethodResolution;
 use super::traits::{insert_substitution_mapping, BoundEnv};
@@ -34,6 +35,8 @@ impl<'a> BlockChecker<'a> {
         result: TypeId,
     ) -> Option<StackEntry> {
         let explicit_type_args = type_args.clone();
+        let compiler_known_primitive =
+            compiler_known_primitive_for_callable(self.source_map, name, &binding);
         let selected_field_accessor = match &binding.kind {
             BindingKind::Func { field_accessor, .. } => *field_accessor,
             _ => None,
@@ -261,6 +264,16 @@ impl<'a> BlockChecker<'a> {
             ConstructorApplyResult::NotHandled => {}
         }
 
+        if let Some(primitive) = compiler_known_primitive {
+            return self.apply_compiler_known_primitive(
+                primitive,
+                &args,
+                resolved_result,
+                span,
+                expected_ret,
+            );
+        }
+
         let trait_resolution = self.resolve_selected_trait_method_call(
             name,
             &args,
@@ -384,6 +397,7 @@ impl<'a> BlockChecker<'a> {
             },
             type_args: Vec::new(),
             assign: None,
+            explicit_function_ref: false,
             auto_call: true,
         })
     }

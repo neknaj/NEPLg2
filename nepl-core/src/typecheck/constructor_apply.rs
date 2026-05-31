@@ -149,6 +149,7 @@ impl<'a> BlockChecker<'a> {
             },
             type_args: Vec::new(),
             assign: None,
+            explicit_function_ref: false,
             auto_call: true,
         }))
     }
@@ -245,6 +246,7 @@ impl<'a> BlockChecker<'a> {
             },
             type_args: Vec::new(),
             assign: None,
+            explicit_function_ref: false,
             auto_call: true,
         }))
     }

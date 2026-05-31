@@ -74,6 +74,7 @@ impl<'a> BlockChecker<'a> {
                 },
                 type_args: Vec::new(),
                 assign: None,
+                explicit_function_ref: false,
                 auto_call: true,
             }));
         } else if field_accessor == FieldAccessorKind::GetRef && args.len() == 2 {
@@ -91,6 +92,7 @@ impl<'a> BlockChecker<'a> {
                 },
                 type_args: Vec::new(),
                 assign: None,
+                explicit_function_ref: false,
                 auto_call: true,
             }));
         } else if field_accessor == FieldAccessorKind::Put && args.len() == 3 {
@@ -129,6 +131,7 @@ impl<'a> BlockChecker<'a> {
                 },
                 type_args: Vec::new(),
                 assign: None,
+                explicit_function_ref: false,
                 auto_call: true,
             }));
         }

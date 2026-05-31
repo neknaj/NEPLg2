@@ -48100,3 +48100,22 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review では、typed function identity は `memo_call` の必要前提として妥当だが、これだけで private cache purity は証明できないと確認した。次段階は compiler-known primitive gate、MemoKey/MemoValue structural predicate、PrivateCache effect、sealed backend cache representation である。
 - `ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C` は verified / resolved にし、`todo.md` から削除した。`memo_call` 本体は `ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C` 以降で扱う。
 - 検証は `cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core --tests --no-run`、focused Resource / body hash / dependency / codegen diagnostic tests、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、playground editor JSON、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。広い `cargo test -p nepl-core --tests` は 10 分で timeout したため、stale cargo process を停止した。
+
+## 2026-05-31 Agent memo_call compiler-known typecheck gate checkpoint
+
+- Zenn の試作段階方針、静的検査方針、純粋性と性能追求方針を再確認した。`plan.md` は変更していない。
+- `memo_call` Phase 1 を通常 stdlib function として overload selection に任せず、`stdlib/core/memo.nepl` の解決済み定義に紐づく compiler-known primitive として扱う typecheck 入口を追加した。
+- `StackEntry` に source の `@name` 由来かどうかを保持し、期待型による暗黙 function-value coercion と明示 function reference を区別した。これにより Phase 1 の `memo_call` は `memo_call @func` だけを受け入れる。
+- `MemoKey` / `MemoValue` Phase 1 predicate は `unit`、primitive scalar、Drop なしの構造値へ限定した。`str`、reference、raw pointer / owner token、function value、未解決 generic type は安全側に拒否する。
+- `HirExprKind::MemoizedFunctionValue` を追加し、typed HIR 上で memoization 境界を残した。backend private cache はまだ未実装であり、現時点の lowering/codegen は通常の named function value と同じ可観測結果を返す。
+- `stdlib/core/memo.nepl` は public API の documentation と identity fallback implementation を持つ。これは private cache insertion 前の Phase 1 surface であり、cache algorithm correctness の実装完了ではない。
+- focused verification は `cargo check -p nepl-core`、`cargo test -p nepl-core function_memo_call --test functions -- --nocapture`、`cargo test -p nepl-core test_neplg21_percent_type_annot_basic --test typeannot -- --nocapture` を通した。
+
+## 2026-05-31 Agent memo_call compiler-known gate hardening checkpoint
+
+- subagent review で、compiler-known fast path が通常 overload selection の trait bound 確認を迂回するため、stdlib signature の `<.K: Copy, .V: Copy>` と同等の検査を primitive 側でも持つ必要があると確認した。
+- `MemoKey` / `MemoValue` predicate は `ctx.is_copy`、`ctx.has_drop`、compiler memory type の拒否を入口で確認し、Copy が証明されない構造値を Phase 1 では拒否するようにした。
+- `memo_call @func arg` の即時適用は、backend private cache representation が入るまで拒否する。これは call reducer が `MemoizedFunctionValue` を underlying named function call へ畳んで typed HIR 境界を消すことを防ぐためである。
+- user code に同名 `memo_call` がある場合は通常関数として扱われ、stdlib `core/memo` の compiler-known primitive fast path へ入らない regression を追加した。
+- compile performance 側の subagent 調査では、RPN code edit で Resource summary replay 後も 5 秒台が残っており、次は stage timing と typed expression subtree query / function-level codegen fragment cache の issue に進むべきだと確認した。
+- 検証は `cargo check -p nepl-core`、focused / full `functions` tests、`typeannot` tests、`cargo test -p nepl-core --tests --no-run`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、playground editor JSON、compiler session regression、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。

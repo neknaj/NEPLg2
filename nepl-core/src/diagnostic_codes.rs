@@ -146,6 +146,12 @@ pub enum TypeDiagnosticCode {
     RawPointerConstructorRestricted,
     OwnerTokenFieldAccessRestricted,
     RawPointerFieldAccessRestricted,
+    MemoCallRequiresFunctionValue,
+    MemoCallRequiresPureFunction,
+    MemoCallUnresolvedFunctionIdentity,
+    MemoCallUnsupportedKey,
+    MemoCallUnsupportedValue,
+    MemoCallBoundaryRestricted,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -443,6 +449,12 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::RawPointerConstructorRestricted),
     DiagnosticCode::Type(TypeDiagnosticCode::OwnerTokenFieldAccessRestricted),
     DiagnosticCode::Type(TypeDiagnosticCode::RawPointerFieldAccessRestricted),
+    DiagnosticCode::Type(TypeDiagnosticCode::MemoCallRequiresFunctionValue),
+    DiagnosticCode::Type(TypeDiagnosticCode::MemoCallRequiresPureFunction),
+    DiagnosticCode::Type(TypeDiagnosticCode::MemoCallUnresolvedFunctionIdentity),
+    DiagnosticCode::Type(TypeDiagnosticCode::MemoCallUnsupportedKey),
+    DiagnosticCode::Type(TypeDiagnosticCode::MemoCallUnsupportedValue),
+    DiagnosticCode::Type(TypeDiagnosticCode::MemoCallBoundaryRestricted),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
         ResourceBorrowDiagnosticCode::ReturnEscape,
     )),
@@ -892,6 +904,18 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::RawPointerFieldAccessRestricted => {
                 "type.raw_pointer.field_access_restricted"
             }
+            TypeDiagnosticCode::MemoCallRequiresFunctionValue => {
+                "type.memo_call.requires_function_value"
+            }
+            TypeDiagnosticCode::MemoCallRequiresPureFunction => {
+                "type.memo_call.requires_pure_function"
+            }
+            TypeDiagnosticCode::MemoCallUnresolvedFunctionIdentity => {
+                "type.memo_call.unresolved_function_identity"
+            }
+            TypeDiagnosticCode::MemoCallUnsupportedKey => "type.memo_call.unsupported_key",
+            TypeDiagnosticCode::MemoCallUnsupportedValue => "type.memo_call.unsupported_value",
+            TypeDiagnosticCode::MemoCallBoundaryRestricted => "type.memo_call.boundary_restricted",
         }
     }
 
@@ -1048,6 +1072,24 @@ impl TypeDiagnosticCode {
             }
             TypeDiagnosticCode::RawPointerFieldAccessRestricted => {
                 "raw pointer fields are restricted to compiler memory boundary"
+            }
+            TypeDiagnosticCode::MemoCallRequiresFunctionValue => {
+                "memo_call requires an explicit function value"
+            }
+            TypeDiagnosticCode::MemoCallRequiresPureFunction => {
+                "memo_call requires a pure function"
+            }
+            TypeDiagnosticCode::MemoCallUnresolvedFunctionIdentity => {
+                "memo_call requires a resolved monomorphic function identity"
+            }
+            TypeDiagnosticCode::MemoCallUnsupportedKey => {
+                "memo_call does not support this key type"
+            }
+            TypeDiagnosticCode::MemoCallUnsupportedValue => {
+                "memo_call does not support this value type"
+            }
+            TypeDiagnosticCode::MemoCallBoundaryRestricted => {
+                "memo_call is restricted to its compiler-known boundary"
             }
         }
     }

@@ -1536,6 +1536,7 @@ fn collect_hir_called_functions_from_expr(expr: &HirExpr, stack: &mut Vec<String
         | HirExprKind::Unit
         | HirExprKind::Var(_)
         | HirExprKind::FnValue(_)
+        | HirExprKind::MemoizedFunctionValue(_)
         | HirExprKind::Drop { .. } => {}
     }
 }
@@ -1842,7 +1843,7 @@ fn lower_hir_expr(
             ));
             Ok(None)
         }
-        HirExprKind::FnValue(name) => {
+        HirExprKind::FnValue(name) | HirExprKind::MemoizedFunctionValue(name) => {
             if let Some(fid) = ctx.function_id_of(name.as_str()) {
                 Ok(Some(LlValue {
                     ty: LlTy::I32,

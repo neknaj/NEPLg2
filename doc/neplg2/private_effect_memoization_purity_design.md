@@ -249,7 +249,7 @@ Phase 1 の責務分担:
 - `memo_call` は通常 stdlib 関数名の allowlist ではなく compiler-known primitive identity として扱う。
 - typecheck、Resource IR、SourceCapability、backend が同じ primitive identity を共有し、path 名や表示名ではなく解決済み定義を根拠にする。
 - `ResourceOp::FunctionValue` と function alias tracking は string name だけでは足りないため、typed function identity の実装を先に行う。
-- `MemoKey` / `MemoValue` は Phase 1 では primitive scalar、`unit`、それらだけで構成された Copy 相当の構造値へ限定し、`str`、reference、raw pointer、owner token、function value、Drop / Clone が絡む値は拒否する。
+- `MemoKey` / `MemoValue` は Phase 1 では primitive scalar、`unit`、それらだけで構成され、かつ `Copy` が既存 trait model で証明される構造値へ限定し、`str`、reference、raw pointer、owner token、function value、Drop / Clone が絡む値は拒否する。
 - `PrivateCache rho` と SourceCapability exact use-site boundary を追加するまでは、raw memory operation を単に pure と見なしてはならない。
 
 | 領域 | 責務 |
@@ -265,6 +265,14 @@ Phase 2 では、`PrivateState rho` と `mask_private` を一般化し、local m
 `memo_call` は stdlib 関数名の allowlist ではなく、compiler-known primitive registry に載せる。typed primitive enum、typecheck rule、Resource IR lowering rule、SourceCapability rule、backend rule を同じ primitive identity に接続し、名前変更や import alias で proof 境界が崩れないようにする。
 
 2026-05-31 の追加 review では、Phase 1 の実装 issue を umbrella issue から独立させた。`ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C` は `memo_call @pure_named_func` の accepted path と、impure function、capturing function、generic unresolved function、reference/raw pointer key/value、cache stats/clear/ref exposure の rejected matrix を同じ受け入れ条件として扱う。
+
+2026-05-31 の typecheck/HIR checkpoint では、`stdlib/core/memo.nepl` の解決済み `memo_call` 定義だけを compiler-known primitive として認識し、user code の同名関数や通常 overload へは適用しない入口を追加した。`memo_call @func` は overload 選択より前に専用検査へ入り、`@` を使わない暗黙 function-value coercion、impure function value、未解決 generic function value、Phase 1 対象外の key/value type を memo 専用診断で拒否する。
+
+同 checkpoint では `HirExprKind::MemoizedFunctionValue` を追加し、typed HIR 上で通常の `FnValue` と区別できる境界を残した。ただし backend private cache はまだ挿入していないため、現時点の lowering/codegen は可観測結果として `@func` と同じ named function value として扱う。この状態は `memo_call` の public contract と rejection matrix を先に固定するための段階であり、`PrivateCache rho`、SourceCapability exact use-site、sealed backend representation が入るまで issue は open のまま維持する。
+
+この段階では `memo_call @func arg` のような即時適用を拒否する。理由は、call reducer が memoized function value をそのまま underlying named function call へ畳むと、将来 backend が private cache wrapper を挿入するための HIR 境界が失われるためである。Phase 1 の呼び出しは `let f %fn K V memo_call @func` のように一度 memoized function value として束縛し、その値を通常の function value として呼び出す形に限定する。sealed backend representation が入り、即時適用でも memoization 境界を保持できるようになった段階で、この制限を再検討する。
+
+現 checkpoint の compiler-known primitive 検出は、解決済み `DefId` と source map 上の `stdlib/core/memo.nepl` path を確認する。これは単なる名前 allowlist より強いが、最終的な proof boundary ではない。SourceCapability exact use-site と stdlib source hash / policy hash が入るまでは、path suffix だけを private cache authority の根拠にしない。
 
 ## backend 表現
 

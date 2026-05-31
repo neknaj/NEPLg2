@@ -449,7 +449,7 @@ pub(super) fn lower_expr_skeleton(
             });
             output
         }
-        HirExprKind::FnValue(identity) => {
+        HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
             let output = ctx.temporary(expr.ty);
             let effect = function_value_effect(identity.symbol(), env);
             ops.push(ResourceOp::FunctionValue {
@@ -1003,7 +1003,8 @@ fn try_lower_simple_direct_call_tree(
                 | HirExprKind::LiteralStr(_)
                 | HirExprKind::Unit
                 | HirExprKind::Var(_)
-                | HirExprKind::FnValue(_) => {
+                | HirExprKind::FnValue(_)
+                | HirExprKind::MemoizedFunctionValue(_) => {
                     values.push(lower_expr_skeleton(expr, ops, ctx, env));
                 }
                 HirExprKind::Call { callee, args } => {
@@ -1041,7 +1042,8 @@ fn is_simple_direct_call_tree(expr: &HirExpr) -> bool {
             | HirExprKind::LiteralStr(_)
             | HirExprKind::Unit
             | HirExprKind::Var(_)
-            | HirExprKind::FnValue(_) => {}
+            | HirExprKind::FnValue(_)
+            | HirExprKind::MemoizedFunctionValue(_) => {}
             HirExprKind::Call { args, .. } => {
                 for arg in args {
                     stack.push(arg);

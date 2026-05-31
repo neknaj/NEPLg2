@@ -1,0 +1,34 @@
+#indent 4
+
+//: memo: 純粋関数のメモ化境界
+//:
+//: [目的/もくてき]:
+//: - `memo_call @func` の形で、compiler が[認識/にんしき]するメモ化 API の公開入口を提供します。
+//: - Phase 1 では、外部観測上の意味を変えない identity 実装を source 側に置き、typecheck が `@func` の純粋性と key/value 型を先に検査します。
+//:
+//: [注意/ちゅうい]:
+//: - この関数は名前だけの allowlist ではなく、この stdlib 定義の解決済み identity として compiler に扱われます。
+//: - 現段階では backend の private cache 挿入は未実装です。`memo_call @func` は `@func` と同じ可観測結果を返す関数値として扱われます。
+//: - 将来 cache が挿入されても、cache hit/miss、cache size、内部参照、内部 raw pointer は public API へ出してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - Phase 1 の source 実装は O(1) で関数値を返します。
+//: - 実際のメモ化 cache の計算量は、PrivateCache backend 表現が導入された段階でこの説明を更新します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target wasm
+//:| #import "core/math" as *
+//:| #import "core/memo" as *
+//:|
+//:| fn inc %fn i32 i32 \x:
+//:|     add x 1
+//:|
+//:| fn main %fn unit i32 \unit:
+//:|     let f %fn i32 i32 memo_call @inc
+//:|     f 41
+//: ```
+
+pub fn memo_call <.K: Copy, .V: Copy> %fn (fn .K .V) (fn .K .V) \func:
+    func

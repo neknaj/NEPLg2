@@ -197,6 +197,7 @@ fn collect_expr_bridge_points(expr: &HirExpr, out: &mut Vec<HirDropBridgePoint>)
             collect_expr_bridge_points(inner, out);
         }
         HirExprKind::FnValue(_)
+        | HirExprKind::MemoizedFunctionValue(_)
         | HirExprKind::Var(_)
         | HirExprKind::LiteralI32(_)
         | HirExprKind::LiteralF32(_)

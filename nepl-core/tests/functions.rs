@@ -1,10 +1,14 @@
 mod harness;
 use harness::{run_main_i32, run_main_wasi_i32};
 
+use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
 use nepl_core::error::CoreError;
+use nepl_core::hir::HirExprKind;
 use nepl_core::loader::Loader;
 use nepl_core::span::FileId;
+use nepl_core::typecheck;
+use nepl_core::BuildProfile;
 use nepl_core::{compile_module_with_source_map, compile_wasm, CompileOptions, CompileTarget};
 use std::path::PathBuf;
 
@@ -78,6 +82,23 @@ fn compile_with_loader_err_has_type_code(src: &str, code: TypeDiagnosticCode) {
         code,
         diags
     );
+}
+
+fn typecheck_with_loader(src: &str) -> typecheck::TypeCheckResult {
+    let mut loader = Loader::new(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("stdlib"),
+    );
+    let loaded = loader
+        .load_inline("<test>".into(), src.to_string())
+        .expect("load");
+    typecheck::typecheck(
+        &loaded.module,
+        CompileTarget::Wasm,
+        BuildProfile::Debug,
+        Some(&loaded.source_map),
+    )
 }
 
 #[test]
@@ -164,6 +185,213 @@ fn main %fn unit i32 \unit:
 "#;
     let v = run_main_i32(src);
     assert_eq!(v, 15);
+}
+
+#[test]
+fn function_memo_call_accepts_explicit_pure_named_function_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+#import "core/memo" as *
+
+fn inc %fn i32 i32 \x:
+    add x 1
+
+fn main %fn unit i32 \unit:
+    let f %fn i32 i32 memo_call @inc
+    f 41
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 42);
+}
+
+#[test]
+fn function_memo_call_lowers_to_dedicated_hir_boundary() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+#import "core/memo" as *
+
+fn inc %fn i32 i32 \x:
+    add x 1
+
+fn main %fn unit i32 \unit:
+    let f %fn i32 i32 memo_call @inc
+    f 41
+"#;
+    let checked = typecheck_with_loader(src);
+    assert!(
+        checked
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !matches!(diagnostic.severity, Severity::Error)),
+        "typecheck diagnostics: {:#?}",
+        checked.diagnostics
+    );
+    let module = checked.module.expect("typed module");
+    let main = module
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "main")
+        .expect("main function");
+    let nepl_core::hir::HirBody::Block(block) = &main.body else {
+        panic!("main should have a block body");
+    };
+    let Some(first_line) = block.lines.first() else {
+        panic!("main should bind the memoized function");
+    };
+    let HirExprKind::Let { value, .. } = &first_line.expr.kind else {
+        panic!(
+            "first line should be a let expression: {:#?}",
+            first_line.expr
+        );
+    };
+    assert!(
+        matches!(value.kind, HirExprKind::MemoizedFunctionValue(_)),
+        "memo_call must preserve a compiler-known HIR boundary: {:#?}",
+        value.kind
+    );
+}
+
+#[test]
+fn function_memo_call_rejects_implicit_function_argument() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+#import "core/memo" as *
+
+fn inc %fn i32 i32 \x:
+    add x 1
+
+fn main %fn unit i32 \unit:
+    let f %fn i32 i32 memo_call inc
+    f 41
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallRequiresFunctionValue);
+}
+
+#[test]
+fn function_memo_call_rejects_impure_function_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/memo" as *
+
+fn touch %impure fn i32 i32 \x:
+    x
+
+fn main %fn unit i32 \unit:
+    let f %fn i32 i32 memo_call @touch
+    f 41
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallRequiresPureFunction);
+}
+
+#[test]
+fn function_memo_call_rejects_phase1_str_key_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/memo" as *
+
+fn same_text %fn str str \s:
+    s
+
+fn main %fn unit i32 \unit:
+    let f %fn str str memo_call @same_text
+    0
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
+}
+
+#[test]
+fn function_memo_call_rejects_phase1_non_copy_struct_key_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/memo" as *
+
+struct Pair:
+    value %i32
+
+fn same_pair %fn Pair Pair \p:
+    p
+
+fn main %fn unit i32 \unit:
+    let f %fn Pair Pair memo_call @same_pair
+    0
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
+}
+
+#[test]
+fn function_memo_call_rejects_phase1_generic_function_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/memo" as *
+
+fn identity <.T: Copy> %fn .T .T \x:
+    x
+
+fn main %fn unit i32 \unit:
+    let f %fn i32 i32 memo_call @identity
+    0
+"#;
+    compile_with_loader_err_has_type_code(
+        src,
+        TypeDiagnosticCode::MemoCallUnresolvedFunctionIdentity,
+    );
+}
+
+#[test]
+fn function_memo_call_rejects_immediate_application_until_private_cache_backend_exists() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+#import "core/memo" as *
+
+fn inc %fn i32 i32 \x:
+    add x 1
+
+fn main %fn unit i32 \unit:
+    memo_call @inc 41
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallBoundaryRestricted);
+}
+
+#[test]
+fn function_memo_call_local_function_with_same_name_is_not_compiler_known() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/math" as *
+
+fn inc %fn i32 i32 \x:
+    add x 1
+
+fn memo_call %fn (fn i32 i32) (fn i32 i32) \func:
+    func
+
+fn main %fn unit i32 \unit:
+    let f %fn i32 i32 memo_call @inc
+    f 41
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 42);
 }
 
 #[test]

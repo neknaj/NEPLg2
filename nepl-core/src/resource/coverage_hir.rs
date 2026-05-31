@@ -84,7 +84,7 @@ impl HirCoverageContext<'_> {
             HirExprKind::Drop { .. } => {
                 counts.drops += 1;
             }
-            HirExprKind::FnValue(_) => {
+            HirExprKind::FnValue(_) | HirExprKind::MemoizedFunctionValue(_) => {
                 counts.function_values += 1;
             }
             HirExprKind::Call { callee, args } => {

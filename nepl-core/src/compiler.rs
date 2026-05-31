@@ -2691,7 +2691,10 @@ fn collect_called_functions_from_expr(
         | crate::hir::HirExprKind::Unit
         | crate::hir::HirExprKind::Var(_)
         | crate::hir::HirExprKind::Drop { .. } => {}
-        crate::hir::HirExprKind::FnValue(identity) => stack.push(identity.symbol.clone()),
+        crate::hir::HirExprKind::FnValue(identity)
+        | crate::hir::HirExprKind::MemoizedFunctionValue(identity) => {
+            stack.push(identity.symbol.clone())
+        }
     }
 }
 
@@ -2957,6 +2960,7 @@ fn collect_expr_locals(
         }
         crate::hir::HirExprKind::Var(_)
         | crate::hir::HirExprKind::FnValue(_)
+        | crate::hir::HirExprKind::MemoizedFunctionValue(_)
         | crate::hir::HirExprKind::LiteralI32(_)
         | crate::hir::HirExprKind::LiteralF32(_)
         | crate::hir::HirExprKind::LiteralBool(_)

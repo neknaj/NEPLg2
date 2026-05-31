@@ -127,6 +127,7 @@ pub(super) fn resolve_type_ids_in_expr(ctx: &TypeCtx, expr: &mut HirExpr) {
                 }
             }
             HirExprKind::FnValue(_)
+            | HirExprKind::MemoizedFunctionValue(_)
             | HirExprKind::Var(_)
             | HirExprKind::Unit
             | HirExprKind::LiteralI32(_)
@@ -306,6 +307,7 @@ fn unresolved_generic_call_type_arg_diagnostics_in_expr(
             }
         }
         HirExprKind::FnValue(_)
+        | HirExprKind::MemoizedFunctionValue(_)
         | HirExprKind::Var(_)
         | HirExprKind::Unit
         | HirExprKind::LiteralI32(_)

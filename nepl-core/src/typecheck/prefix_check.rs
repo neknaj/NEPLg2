@@ -746,6 +746,7 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
+                        explicit_function_ref: false,
                         auto_call: true,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
@@ -807,7 +808,9 @@ impl<'a> BlockChecker<'a> {
                                     .unwrap_or(false);
                                 let expected_function_from_ascription = pending_ascription
                                     .and_then(|expectation| {
-                                        if stack.len() == expectation.base_depth() {
+                                        if stack.len() == expectation.base_depth()
+                                            && idx + 1 >= expr.items.len()
+                                        {
                                             let resolved = self.ctx.resolve(expectation.target());
                                             match self.ctx.get(resolved) {
                                                 TypeKind::Function { .. } => Some(true),
@@ -950,6 +953,7 @@ impl<'a> BlockChecker<'a> {
                                     },
                                     type_args: explicit_args,
                                     assign: None,
+                                    explicit_function_ref: *forced_value,
                                     auto_call,
                                 });
                                 last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1063,6 +1067,7 @@ impl<'a> BlockChecker<'a> {
                                         },
                                         type_args: explicit_args,
                                         assign: None,
+                                        explicit_function_ref: false,
                                         auto_call: !*forced_value,
                                     });
                                     last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1135,6 +1140,7 @@ impl<'a> BlockChecker<'a> {
                                             },
                                             type_args: Vec::new(),
                                             assign: None,
+                                            explicit_function_ref: false,
                                             auto_call: true,
                                         });
                                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1168,6 +1174,7 @@ impl<'a> BlockChecker<'a> {
                                             },
                                             type_args: Vec::new(),
                                             assign: None,
+                                            explicit_function_ref: false,
                                             auto_call: !*forced_value,
                                         });
                                         if crate::log::is_verbose() {
@@ -1275,6 +1282,7 @@ impl<'a> BlockChecker<'a> {
                                                         },
                                                         type_args: explicit_args,
                                                         assign: None,
+                                                        explicit_function_ref: *forced_value,
                                                         auto_call: false,
                                                     });
                                                     last_expr =
@@ -1367,6 +1375,7 @@ impl<'a> BlockChecker<'a> {
                                             },
                                             type_args: explicit_args,
                                             assign: None,
+                                            explicit_function_ref: *forced_value,
                                             auto_call: true,
                                         });
                                         if crate::log::is_verbose() {
@@ -1460,6 +1469,7 @@ impl<'a> BlockChecker<'a> {
                                                 },
                                                 type_args: vec![method_self],
                                                 assign: None,
+                                                explicit_function_ref: *forced_value,
                                                 auto_call: !*forced_value,
                                             });
                                             last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1578,6 +1588,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: Some(AssignKind::Let),
+                            explicit_function_ref: false,
                             auto_call: false,
                         });
                         // defer applying ascription until the expression is complete
@@ -1614,6 +1625,7 @@ impl<'a> BlockChecker<'a> {
                                 },
                                 type_args: Vec::new(),
                                 assign: Some(AssignKind::Set),
+                                explicit_function_ref: false,
                                 auto_call: true,
                             });
                             // defer applying ascription until the expression is complete
@@ -1642,6 +1654,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: Some(AssignKind::AddrOf(*mutable)),
+                            explicit_function_ref: false,
                             auto_call: true,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1659,6 +1672,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: Some(AssignKind::Deref),
+                            explicit_function_ref: false,
                             auto_call: true,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -1683,6 +1697,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: None,
+                            explicit_function_ref: false,
                             auto_call: true,
                         });
                         // defer applying ascription until the expression is complete
@@ -1707,6 +1722,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: None,
+                            explicit_function_ref: false,
                             auto_call: true,
                         });
                         // defer applying ascription until the expression is complete
@@ -1832,6 +1848,7 @@ impl<'a> BlockChecker<'a> {
                                             expr: hexpr.clone(),
                                             type_args: Vec::new(),
                                             assign: None,
+                                            explicit_function_ref: false,
                                             auto_call: true,
                                         });
                                         last_expr = Some(hexpr);
@@ -1888,6 +1905,7 @@ impl<'a> BlockChecker<'a> {
                                             expr: hexpr.clone(),
                                             type_args: Vec::new(),
                                             assign: None,
+                                            explicit_function_ref: false,
                                             auto_call: true,
                                         });
                                         last_expr = Some(hexpr);
@@ -1967,6 +1985,7 @@ impl<'a> BlockChecker<'a> {
                                             expr: hexpr.clone(),
                                             type_args: Vec::new(),
                                             assign: None,
+                                            explicit_function_ref: false,
                                             auto_call: true,
                                         });
                                         last_expr = Some(hexpr);
@@ -2014,6 +2033,7 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
+                        explicit_function_ref: false,
                         auto_call: true,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
@@ -2031,6 +2051,7 @@ impl<'a> BlockChecker<'a> {
                             expr: hexpr,
                             type_args: Vec::new(),
                             assign: None,
+                            explicit_function_ref: false,
                             auto_call: true,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -2059,6 +2080,7 @@ impl<'a> BlockChecker<'a> {
                         },
                         type_args: Vec::new(),
                         assign: None,
+                        explicit_function_ref: false,
                         auto_call: true,
                     });
                     last_expr = Some(stack.last().unwrap().expr.clone());
@@ -2071,6 +2093,7 @@ impl<'a> BlockChecker<'a> {
                             expr: hexpr,
                             type_args: Vec::new(),
                             assign: None,
+                            explicit_function_ref: false,
                             auto_call: true,
                         });
                         last_expr = Some(stack.last().unwrap().expr.clone());
@@ -2093,6 +2116,7 @@ impl<'a> BlockChecker<'a> {
                             },
                             type_args: Vec::new(),
                             assign: None,
+                            explicit_function_ref: false,
                             auto_call: false,
                         });
                         // defer applying ascription until the expression is complete
@@ -2416,6 +2440,7 @@ impl<'a> BlockChecker<'a> {
                     expr: let_expr.clone(),
                     type_args: Vec::new(),
                     assign: None,
+                    explicit_function_ref: false,
                     auto_call: true,
                 });
                 return Some((let_expr, dropped));

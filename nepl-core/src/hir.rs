@@ -89,6 +89,14 @@ pub enum HirExprKind {
     Var(String),
     /// Explicit function-value reference created by `@fn_name`.
     FnValue(FunctionValueIdentity),
+    /// Compiler-known memoized function value created by `memo_call @fn_name`.
+    ///
+    /// This keeps the high-level memoization boundary in typed HIR instead of
+    /// lowering it to an ordinary library call.  Backend cache insertion can
+    /// then distinguish the memoized value from a plain `@fn_name` while the
+    /// current codegen path may still treat both as the same observable
+    /// function value.
+    MemoizedFunctionValue(FunctionValueIdentity),
     Call {
         callee: FuncRef,
         args: Vec<HirExpr>,

@@ -354,6 +354,7 @@ impl<'a> Monomorphizer<'a> {
                     }
                 }
                 HirExprKind::FnValue(_)
+                | HirExprKind::MemoizedFunctionValue(_)
                 | HirExprKind::Var(_)
                 | HirExprKind::Unit
                 | HirExprKind::LiteralI32(_)
@@ -474,6 +475,7 @@ impl<'a> Monomorphizer<'a> {
                     }
                 }
                 HirExprKind::FnValue(_)
+                | HirExprKind::MemoizedFunctionValue(_)
                 | HirExprKind::Var(_)
                 | HirExprKind::Unit
                 | HirExprKind::LiteralI32(_)
@@ -940,7 +942,7 @@ impl<'a> Monomorphizer<'a> {
                         *name = self.request_instantiation(found, Vec::new());
                     }
                 }
-                HirExprKind::FnValue(identity) => {
+                HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
                     identity.function_ty = self.ctx.resolve_id(identity.function_ty);
                     for arg in identity.type_args.iter_mut() {
                         *arg = self.ctx.resolve_id(*arg);
@@ -1121,7 +1123,7 @@ impl<'a> Monomorphizer<'a> {
                     *name = self.request_instantiation(found, Vec::new());
                 }
             }
-            HirExprKind::FnValue(identity) => {
+            HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
                 identity.function_ty = self.ctx.substitute(identity.function_ty, mapping);
                 for arg in identity.type_args.iter_mut() {
                     *arg = self.ctx.substitute(*arg, mapping);
@@ -1346,6 +1348,7 @@ fn collect_local_names_in_expr(expr: &HirExpr, out: &mut BTreeSet<String>) {
         | HirExprKind::LiteralStr(_)
         | HirExprKind::Var(_)
         | HirExprKind::FnValue(_)
+        | HirExprKind::MemoizedFunctionValue(_)
         | HirExprKind::Drop { .. } => {}
     }
 }

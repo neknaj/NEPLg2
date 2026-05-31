@@ -231,7 +231,8 @@ fn check_llvm_expr(expr: &HirExpr, out: &mut Vec<Diagnostic>) {
         | HirExprKind::LiteralBool(_)
         | HirExprKind::LiteralStr(_)
         | HirExprKind::Var(_)
-        | HirExprKind::FnValue(_) => {}
+        | HirExprKind::FnValue(_)
+        | HirExprKind::MemoizedFunctionValue(_) => {}
     }
 }
 
@@ -364,7 +365,8 @@ fn check_indirect_sig_expr(
             | HirExprKind::LiteralBool(_)
             | HirExprKind::LiteralStr(_)
             | HirExprKind::Var(_)
-            | HirExprKind::FnValue(_) => {}
+            | HirExprKind::FnValue(_)
+            | HirExprKind::MemoizedFunctionValue(_) => {}
         }
     }
 }

@@ -767,6 +767,7 @@ fn insert_drops_in_expr(expr: &mut HirExpr, ctx: &mut DropInsertionContext<'_>) 
             insert_drops_in_expr(inner, ctx);
         }
         HirExprKind::FnValue(_)
+        | HirExprKind::MemoizedFunctionValue(_)
         | HirExprKind::Var(_)
         | HirExprKind::LiteralI32(_)
         | HirExprKind::LiteralF32(_)
@@ -809,6 +810,7 @@ fn can_skip_drop_plan_walk_iteratively(expr: &HirExpr) -> bool {
                 }
             }
             HirExprKind::FnValue(_)
+            | HirExprKind::MemoizedFunctionValue(_)
             | HirExprKind::Var(_)
             | HirExprKind::LiteralI32(_)
             | HirExprKind::LiteralF32(_)
@@ -951,6 +953,7 @@ fn collect_expr_local_names(expr: &HirExpr, out: &mut BTreeSet<String>) {
             collect_expr_local_names(inner, out);
         }
         HirExprKind::FnValue(_)
+        | HirExprKind::MemoizedFunctionValue(_)
         | HirExprKind::Var(_)
         | HirExprKind::LiteralI32(_)
         | HirExprKind::LiteralF32(_)

@@ -6032,6 +6032,7 @@ fn resource_drop_insertion_consumes_checked_scope_and_assignment_points() {
             | HirExprKind::AddrOf(value)
             | HirExprKind::Deref(value) => count_trait_drop_calls(value),
             HirExprKind::FnValue(_)
+            | HirExprKind::MemoizedFunctionValue(_)
             | HirExprKind::Var(_)
             | HirExprKind::LiteralI32(_)
             | HirExprKind::LiteralF32(_)
@@ -6106,6 +6107,7 @@ fn resource_drop_insertion_consumes_checked_scope_and_assignment_points() {
             | HirExprKind::AddrOf(value)
             | HirExprKind::Deref(value) => collect_user_calls(value, out),
             HirExprKind::FnValue(_)
+            | HirExprKind::MemoizedFunctionValue(_)
             | HirExprKind::Var(_)
             | HirExprKind::LiteralI32(_)
             | HirExprKind::LiteralF32(_)

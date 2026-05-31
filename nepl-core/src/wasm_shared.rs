@@ -253,7 +253,7 @@ fn collect_called_functions_from_expr(
             HirExprKind::Var(name) => {
                 out.insert(name.clone());
             }
-            HirExprKind::FnValue(identity) => {
+            HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
                 out.insert(identity.symbol.clone());
             }
             HirExprKind::Unit

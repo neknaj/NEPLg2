@@ -123,7 +123,7 @@ impl<'a> BlockChecker<'a> {
                     out.push_str("var:");
                     out.push_str(name);
                 }
-                HirExprKind::FnValue(identity) => {
+                HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
                     out.push_str("fn:");
                     out.push_str(identity.symbol());
                 }
@@ -376,6 +376,7 @@ impl<'a> BlockChecker<'a> {
             expr: current,
             type_args: Vec::new(),
             assign: None,
+            explicit_function_ref: false,
             auto_call: !forced_value,
         })
     }

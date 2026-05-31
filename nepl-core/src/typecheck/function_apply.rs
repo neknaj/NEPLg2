@@ -8,6 +8,7 @@ use crate::types::{TypeId, TypeKind};
 use super::control_apply::SpecialApplyResult;
 use super::diagnostics::{effect_error, type_error};
 use super::indirect_apply::apply_indirect_function_call;
+use super::memo_call::compiler_known_primitive_for_callable;
 use super::trait_call_apply::TraitMethodApplyResult;
 use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
@@ -61,7 +62,9 @@ impl<'a> BlockChecker<'a> {
         // General call or let/set
         if let Some(name) = match &func.expr.kind {
             HirExprKind::Var(name) => Some(name.as_str()),
-            HirExprKind::FnValue(identity) => Some(identity.symbol()),
+            HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
+                Some(identity.symbol())
+            }
             _ => None,
         } {
             if crate::log::is_verbose() {
@@ -80,10 +83,28 @@ impl<'a> BlockChecker<'a> {
                         .join(", ")
                 );
             }
-            let symbol_resolved = matches!(&func.expr.kind, HirExprKind::FnValue(_));
+            let symbol_resolved = matches!(
+                &func.expr.kind,
+                HirExprKind::FnValue(_) | HirExprKind::MemoizedFunctionValue(_)
+            );
             let callable_lookup =
                 self.lookup_callable_apply_bindings(name, symbol_resolved, func.expr.span);
             if !callable_lookup.bindings.is_empty() && !callable_lookup.has_function_value_binding {
+                if callable_lookup.bindings.len() == 1 {
+                    if let Some(primitive) = compiler_known_primitive_for_callable(
+                        self.source_map,
+                        name,
+                        &callable_lookup.bindings[0],
+                    ) {
+                        return self.apply_compiler_known_primitive(
+                            primitive,
+                            &args,
+                            result,
+                            func.expr.span,
+                            expected_ret,
+                        );
+                    }
+                }
                 {
                     let explicit_type_args = type_args.clone();
                     let binding = self.select_overload_candidate(

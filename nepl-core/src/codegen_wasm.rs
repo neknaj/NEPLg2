@@ -680,6 +680,7 @@ fn can_lower_simple_expr_iteratively(expr: &HirExpr) -> bool {
             | HirExprKind::Unit
             | HirExprKind::Var(_)
             | HirExprKind::FnValue(_)
+            | HirExprKind::MemoizedFunctionValue(_)
             | HirExprKind::Drop { .. } => {}
             HirExprKind::CallIndirect { .. }
             | HirExprKind::If { .. }
@@ -844,7 +845,7 @@ fn gen_simple_expr_iteratively(
                         ));
                         }
                     }
-                    HirExprKind::FnValue(name) => {
+                    HirExprKind::FnValue(name) | HirExprKind::MemoizedFunctionValue(name) => {
                         if let Some(fidx) = find_function_value_index(name_map, name.symbol()) {
                             insts.push(Instruction::I32Const(fidx as i32));
                         } else {
@@ -1117,7 +1118,7 @@ fn gen_expr(
                 ));
             }
         }
-        HirExprKind::FnValue(name) => {
+        HirExprKind::FnValue(name) | HirExprKind::MemoizedFunctionValue(name) => {
             if let Some(fidx) = find_function_value_index(name_map, name.symbol()) {
                 insts.push(Instruction::I32Const(fidx as i32));
                 Some(ValType::I32)

@@ -74,5 +74,10 @@ pub(super) struct StackEntry {
     pub(super) expr: HirExpr,
     pub(super) type_args: Vec<TypeId>,
     pub(super) assign: Option<AssignKind>,
+    /// Source の `@name` から直接作られた関数値かどうかを保持する。
+    ///
+    /// `HirExprKind::FnValue` は期待型による暗黙 coercion でも使われるため、
+    /// 明示的な関数参照だけを受け付ける compiler-known primitive ではこの値を検査する。
+    pub(super) explicit_function_ref: bool,
     pub(super) auto_call: bool,
 }
