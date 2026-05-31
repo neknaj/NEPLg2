@@ -1241,6 +1241,35 @@ typed public signature table を外部化するだけなので、`TypeId` や `S
 ため、最初は in-memory query cache として扱う。`.neplobj` / `.nepllink` は codegen の
 支配時間が残った段階で導入する。
 
+### 2026-06-01 `.neplproof` snapshot / preseed boundary
+
+`.neplproof` の最初の実装単位として、`ResourceSummaryValueCache` に
+`export_neplproof_snapshot` と `preseed_neplproof_snapshot` を追加した。この snapshot は
+disk schema ではなく、disk-backed artifact へ出してよい stable payload を `core` 内で
+明確にするための in-memory boundary である。
+
+保存対象は `ResourceSummaryValueCacheKey` と stable mirror entry に限定する。現 checkpoint
+では次を snapshot に含める。
+
+- `CollectionSlotDropTraversalForallLeafEntryV1`
+- `RawAliasReturnEntryV1`
+- `I32ScalarReturnFactsEntryV1`
+- `InitializedFunctionCheckEntryV1`
+- `OwnerObligationCheckEntryV1`
+- `RawInitCompleteLeafEntryV1`
+
+一方で、`ResourceSummaryReplaySnapshot` と `InitializedFunctionCheckPassSnapshot` は
+`.neplproof` payload に含めない。これらは前回 compile の関数順序と local fingerprint に
+依存する changed-function plan であり、disk artifact の authority ではない。diagnostic span、
+`TypeId`、`Span`、`SourceMap`、`ResourceId`、`StorageId` の生値も同じ理由で保存しない。
+
+`preseed_neplproof_snapshot` は既存 cache entry を上書きしない。同じ key で同じ value なら
+既存一致として数え、同じ key で異なる value があれば conflict として拒否する。preseed 後に
+実際に proof を使うかどうかは、従来の replay API が現在の `TypeCtx`、function signature、
+source capability policy、generic boundary へ再投影できるかで決める。したがって、この段階は
+「cache を読む権利」を与えるだけであり、Resource proof 自体の検査を省略する authority では
+ない。
+
 この分離により、Web playground の warm session は memory cache で同じ構造を使い、CLI / CI / selfhost compiler は disk-backed artifact として同じ invalidation rule を使える。selfhost 実装でも、純粋 query function の結果を private cache へ保存する設計と整合し、cache は外部観測可能な semantics ではなく compile-time acceleration として扱う。
 
 ### 2026-05-31 measurement boundary

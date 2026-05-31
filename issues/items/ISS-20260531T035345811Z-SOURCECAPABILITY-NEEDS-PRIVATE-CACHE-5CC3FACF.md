@@ -58,3 +58,5 @@ Tests should show that trusted stdlib memo use-sites are accepted, copied or shi
 
 - private cache operation の span と `SourceCapabilityUseSite::PrivateCacheBoundary` の照合。
 - shifted/copied source span を Resource summary cache key で stale hit させない regression。
+- Resource IR の `PrivateCache` operation に fresh region identity / mask boundary provenance を持たせる。
+- `SourceCapability` exact span は trusted use-site の証明に留め、region non-escape proof が入るまで `PrivateCacheInPureFunction` は fail-closed のまま維持する。

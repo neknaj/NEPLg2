@@ -48376,3 +48376,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `tmp/rpn_final_initialized_pass_plan_20260601.json` では、release Web RPN same-session string literal edit が base `compile_ms=9998`、edit `compile_ms=2178` だった。edit delta は `resource_summary_value_initialized_function_check_plan_skip_functions=288`、`resource_summary_value_initialized_function_check_plan_skip_ops=3639`、`resource_summary_value_initialized_function_check_replay_probe_functions=0` で、final check probe 固定費が消えたことを確認した。
 - focused verification は `cargo test -p nepl-core final_initialized_function_check --lib -- --nocapture` と `cargo test -p nepl-core initialized_pass_plan --lib -- --nocapture` を通した。`initialized_pass_plan` では namespace 不一致、関数順序変更、source capability policy 変更で前回 pass を再利用しない regression を追加した。`cargo check -p nepl-core -p nepl-language` と `cargo check --manifest-path nepl-web/Cargo.toml` も通した。
 - この checkpoint は final initialized check に限定する。raw alias / i32 scalar / raw-init summary preseed loop は callee summary materialization が必要なので、次段階で changed-function/dependency closure ごとの replay plan として別途進める。
+
+## 2026-06-01 Agent `.neplproof` snapshot boundary checkpoint
+
+- remote/main と同期済みの `perf/neplproof-snapshot-20260601` branch で、`.neplproof` の最初の実装境界として `ResourceSummaryValueCache` の in-memory snapshot / preseed API を追加した。`plan.md` は変更していない。
+- Zenn の性能追求、純粋 query cache、試作段階でも雑設計を避ける方針を再確認し、disk schema や serialization を急がず、まず `core` 内で永続 artifact へ出せる stable payload と出してはいけない compile-local plan を分離した。
+- subagent review では、`.neplproof` に保存してよいのは `ResourceSummaryValueCacheKey` と stable mirror entry であり、`ResourceSummaryReplaySnapshot` / `InitializedFunctionCheckPassSnapshot` は前回 compile の関数順序と local fingerprint に依存するので永続化しない方針を確認した。
+- `export_neplproof_snapshot` は `CollectionSlotDropTraversalForallLeafEntryV1`、`RawAliasReturnEntryV1`、`I32ScalarReturnFactsEntryV1`、`InitializedFunctionCheckEntryV1`、`OwnerObligationCheckEntryV1`、`RawInitCompleteLeafEntryV1` の stable maps だけを clone する。
+- `preseed_neplproof_snapshot` は現在 cache の entry を上書きしない。同じ key/value は existing matching として数え、同じ key で異なる value は conflict として拒否する。preseed 時には compile-local replay plan を破棄し、古い関数順序由来の高速化だけが残らないようにした。
+- memo_call / private cache 側の subagent review では、accepted runtime path を広げる段階ではなく、Resource IR に private cache region / provenance を追加し、SourceCapability exact span は trusted use-site 照合に限定して、region non-escape proof までは `PrivateCacheInPureFunction` を fail-closed に維持する方針を確認した。

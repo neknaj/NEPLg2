@@ -295,6 +295,157 @@ pub struct ResourceSummaryValueCache {
     raw_init_complete_leaf_summary_snapshot: Option<summary_plan::ResourceSummaryReplaySnapshot>,
 }
 
+/// `.neplproof` へ進める Resource proof snapshot の stable entry 数。
+///
+/// これは永続化形式そのものではなく、`ResourceSummaryValueCache` が外へ出せる証明情報の
+/// public observation surface である。各 field は保存可能な entry 数だけを数え、
+/// changed-function replay plan や診断 span などの compile session に閉じた情報は含めない。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ResourceSummaryProofSnapshotCounts {
+    pub drop_traversal_forall_leaf_entries: usize,
+    pub raw_alias_return_entries: usize,
+    pub i32_scalar_return_facts_entries: usize,
+    pub initialized_function_check_entries: usize,
+    pub owner_obligation_check_entries: usize,
+    pub raw_init_complete_leaf_entries: usize,
+}
+
+impl ResourceSummaryProofSnapshotCounts {
+    pub fn total_entries(self) -> usize {
+        self.drop_traversal_forall_leaf_entries
+            + self.raw_alias_return_entries
+            + self.i32_scalar_return_facts_entries
+            + self.initialized_function_check_entries
+            + self.owner_obligation_check_entries
+            + self.raw_init_complete_leaf_entries
+    }
+}
+
+/// `.neplproof` preseed 時の kind 別 merge 結果。
+///
+/// snapshot は古い compile session や disk artifact から来る前提なので、現在の cache に
+/// 同じ key で異なる value がある場合は古い値を上書きしない。`rejected_conflict_entries`
+/// はその fail-closed 分岐を数え、次回の通常 Resource check が authority になることを
+/// 呼び出し側が観測できるようにする。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ResourceSummaryProofSnapshotMergeStats {
+    pub accepted_entries: usize,
+    pub existing_matching_entries: usize,
+    pub rejected_conflict_entries: usize,
+}
+
+impl ResourceSummaryProofSnapshotMergeStats {
+    pub fn input_entries(self) -> usize {
+        self.accepted_entries + self.existing_matching_entries + self.rejected_conflict_entries
+    }
+
+    pub fn usable_entries(self) -> usize {
+        self.accepted_entries + self.existing_matching_entries
+    }
+}
+
+/// `.neplproof` snapshot を `ResourceSummaryValueCache` へ preseed した結果。
+///
+/// これは高速化の観測値であり、安全性の根拠ではない。実際に保存 entry を使うかどうかは、
+/// 後続の replay API が現在の `TypeCtx` / function signature / source capability policy へ
+/// 再投影できるかを再度検査して決める。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ResourceSummaryProofSnapshotPreseedStats {
+    pub drop_traversal_forall_leaf_entries: ResourceSummaryProofSnapshotMergeStats,
+    pub raw_alias_return_entries: ResourceSummaryProofSnapshotMergeStats,
+    pub i32_scalar_return_facts_entries: ResourceSummaryProofSnapshotMergeStats,
+    pub initialized_function_check_entries: ResourceSummaryProofSnapshotMergeStats,
+    pub owner_obligation_check_entries: ResourceSummaryProofSnapshotMergeStats,
+    pub raw_init_complete_leaf_entries: ResourceSummaryProofSnapshotMergeStats,
+}
+
+impl ResourceSummaryProofSnapshotPreseedStats {
+    pub fn accepted_entries(self) -> usize {
+        self.drop_traversal_forall_leaf_entries.accepted_entries
+            + self.raw_alias_return_entries.accepted_entries
+            + self.i32_scalar_return_facts_entries.accepted_entries
+            + self.initialized_function_check_entries.accepted_entries
+            + self.owner_obligation_check_entries.accepted_entries
+            + self.raw_init_complete_leaf_entries.accepted_entries
+    }
+
+    pub fn existing_matching_entries(self) -> usize {
+        self.drop_traversal_forall_leaf_entries
+            .existing_matching_entries
+            + self.raw_alias_return_entries.existing_matching_entries
+            + self
+                .i32_scalar_return_facts_entries
+                .existing_matching_entries
+            + self
+                .initialized_function_check_entries
+                .existing_matching_entries
+            + self
+                .owner_obligation_check_entries
+                .existing_matching_entries
+            + self
+                .raw_init_complete_leaf_entries
+                .existing_matching_entries
+    }
+
+    pub fn rejected_conflict_entries(self) -> usize {
+        self.drop_traversal_forall_leaf_entries
+            .rejected_conflict_entries
+            + self.raw_alias_return_entries.rejected_conflict_entries
+            + self
+                .i32_scalar_return_facts_entries
+                .rejected_conflict_entries
+            + self
+                .initialized_function_check_entries
+                .rejected_conflict_entries
+            + self
+                .owner_obligation_check_entries
+                .rejected_conflict_entries
+            + self
+                .raw_init_complete_leaf_entries
+                .rejected_conflict_entries
+    }
+}
+
+/// `.neplproof` の Resource proof payload に相当する in-memory snapshot。
+///
+/// この型は serialization schema ではない。`TypeId`、`Span`、`SourceMap`、diagnostic、
+/// changed-function replay plan を含めず、現行 `ResourceSummaryValueCache` が既に持つ
+/// stable mirror entry だけをまとめる。disk-backed artifact は、この snapshot に
+/// compiler version、schema version、target/profile、stdlib hash、dependency public surface
+/// hash などの envelope を付け、読み込み時には必ず再投影できる entry だけを使う。
+#[derive(Debug, Clone, Default)]
+pub struct ResourceSummaryProofSnapshot {
+    drop_traversal_forall_leaf_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableDropTraversalForallLeafEntry>,
+    raw_alias_return_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawAliasReturnEntry>,
+    i32_scalar_return_facts_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableI32ScalarReturnFactsEntry>,
+    initialized_function_check_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableInitializedFunctionCheckEntry>,
+    owner_obligation_check_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableOwnerObligationCheckEntry>,
+    raw_init_complete_leaf_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawInitCompleteLeafEntry>,
+}
+
+impl ResourceSummaryProofSnapshot {
+    pub fn counts(&self) -> ResourceSummaryProofSnapshotCounts {
+        ResourceSummaryProofSnapshotCounts {
+            drop_traversal_forall_leaf_entries: self.drop_traversal_forall_leaf_entries.len(),
+            raw_alias_return_entries: self.raw_alias_return_entries.len(),
+            i32_scalar_return_facts_entries: self.i32_scalar_return_facts_entries.len(),
+            initialized_function_check_entries: self.initialized_function_check_entries.len(),
+            owner_obligation_check_entries: self.owner_obligation_check_entries.len(),
+            raw_init_complete_leaf_entries: self.raw_init_complete_leaf_entries.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.counts().total_entries() == 0
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct ResourceSummaryDropTraversalForallLeafEntryCandidate {
     key: ResourceSummaryValueCacheKey,
@@ -354,6 +505,69 @@ impl ResourceSummaryValueCache {
 
     pub fn stats(&self) -> ResourceSummaryValueCacheStats {
         self.stats
+    }
+
+    /// 現在の Resource proof cache から `.neplproof` 用 snapshot を作る。
+    ///
+    /// export 対象は stable mirror entry の map だけである。`raw_alias_return_summary_snapshot`
+    /// などの replay plan は関数順序と前回 compile の fingerprint に依存する局所的な
+    /// 高速化材料なので、snapshot へ含めない。
+    pub fn export_neplproof_snapshot(&self) -> ResourceSummaryProofSnapshot {
+        ResourceSummaryProofSnapshot {
+            drop_traversal_forall_leaf_entries: self.drop_traversal_forall_leaf_entries.clone(),
+            raw_alias_return_entries: self.raw_alias_return_entries.clone(),
+            i32_scalar_return_facts_entries: self.i32_scalar_return_facts_entries.clone(),
+            initialized_function_check_entries: self.initialized_function_check_entries.clone(),
+            owner_obligation_check_entries: self.owner_obligation_check_entries.clone(),
+            raw_init_complete_leaf_entries: self.raw_init_complete_leaf_entries.clone(),
+        }
+    }
+
+    /// `.neplproof` 用 snapshot の stable entry を現在の cache へ preseed する。
+    ///
+    /// preseed は Resource proof を確定させる操作ではない。ここでは stable key/value を
+    /// cache map へ足すだけに留め、実際の replay 時に現在の型境界と source capability
+    /// policy へ fail-closed に再投影する。compile-local replay plan は snapshot の外に
+    /// あるため、この時点で破棄して、古い関数順序に依存した高速化だけが残らないようにする。
+    pub fn preseed_neplproof_snapshot(
+        &mut self,
+        snapshot: &ResourceSummaryProofSnapshot,
+    ) -> ResourceSummaryProofSnapshotPreseedStats {
+        self.clear_compile_local_replay_snapshots();
+
+        ResourceSummaryProofSnapshotPreseedStats {
+            drop_traversal_forall_leaf_entries: preseed_neplproof_entry_map(
+                &mut self.drop_traversal_forall_leaf_entries,
+                &snapshot.drop_traversal_forall_leaf_entries,
+            ),
+            raw_alias_return_entries: preseed_neplproof_entry_map(
+                &mut self.raw_alias_return_entries,
+                &snapshot.raw_alias_return_entries,
+            ),
+            i32_scalar_return_facts_entries: preseed_neplproof_entry_map(
+                &mut self.i32_scalar_return_facts_entries,
+                &snapshot.i32_scalar_return_facts_entries,
+            ),
+            initialized_function_check_entries: preseed_neplproof_entry_map(
+                &mut self.initialized_function_check_entries,
+                &snapshot.initialized_function_check_entries,
+            ),
+            owner_obligation_check_entries: preseed_neplproof_entry_map(
+                &mut self.owner_obligation_check_entries,
+                &snapshot.owner_obligation_check_entries,
+            ),
+            raw_init_complete_leaf_entries: preseed_neplproof_entry_map(
+                &mut self.raw_init_complete_leaf_entries,
+                &snapshot.raw_init_complete_leaf_entries,
+            ),
+        }
+    }
+
+    fn clear_compile_local_replay_snapshots(&mut self) {
+        self.raw_alias_return_summary_snapshot = None;
+        self.i32_scalar_return_summary_snapshot = None;
+        self.initialized_function_check_pass_snapshot = None;
+        self.raw_init_complete_leaf_summary_snapshot = None;
     }
 
     /// Resource static check の入力規模を session 統計へ記録する。
@@ -670,5 +884,87 @@ impl ResourceSummaryValueCache {
             self.stats
                 .resource_summary_value_drop_traversal_forall_stores += op_count;
         }
+    }
+}
+
+fn preseed_neplproof_entry_map<K, V>(
+    current: &mut BTreeMap<K, V>,
+    snapshot: &BTreeMap<K, V>,
+) -> ResourceSummaryProofSnapshotMergeStats
+where
+    K: Clone + Ord,
+    V: Clone + PartialEq,
+{
+    let mut stats = ResourceSummaryProofSnapshotMergeStats::default();
+    for (key, snapshot_value) in snapshot {
+        match current.get(key) {
+            Some(current_value) if current_value == snapshot_value => {
+                stats.existing_matching_entries += 1;
+            }
+            Some(_) => {
+                stats.rejected_conflict_entries += 1;
+            }
+            None => {
+                current.insert(key.clone(), snapshot_value.clone());
+                stats.accepted_entries += 1;
+            }
+        }
+    }
+    stats
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        preseed_neplproof_entry_map, ResourceSummaryProofSnapshot,
+        ResourceSummaryProofSnapshotMergeStats, ResourceSummaryValueCache,
+    };
+    use alloc::collections::BTreeMap;
+
+    #[test]
+    fn neplproof_snapshot_excludes_compile_local_replay_plans() {
+        let mut cache = ResourceSummaryValueCache::new();
+
+        let snapshot = cache.export_neplproof_snapshot();
+        let preseed = cache.preseed_neplproof_snapshot(&snapshot);
+
+        assert!(snapshot.is_empty());
+        assert_eq!(snapshot.counts().total_entries(), 0);
+        assert_eq!(preseed.accepted_entries(), 0);
+        assert_eq!(preseed.existing_matching_entries(), 0);
+        assert_eq!(preseed.rejected_conflict_entries(), 0);
+    }
+
+    #[test]
+    fn neplproof_preseed_map_never_overwrites_conflicting_current_value() {
+        let mut current = BTreeMap::new();
+        current.insert(1_u32, 10_u32);
+        current.insert(2_u32, 20_u32);
+
+        let mut snapshot = BTreeMap::new();
+        snapshot.insert(1_u32, 10_u32);
+        snapshot.insert(2_u32, 21_u32);
+        snapshot.insert(3_u32, 30_u32);
+
+        let stats = preseed_neplproof_entry_map(&mut current, &snapshot);
+
+        assert_eq!(
+            stats,
+            ResourceSummaryProofSnapshotMergeStats {
+                accepted_entries: 1,
+                existing_matching_entries: 1,
+                rejected_conflict_entries: 1,
+            }
+        );
+        assert_eq!(current.get(&1), Some(&10));
+        assert_eq!(current.get(&2), Some(&20));
+        assert_eq!(current.get(&3), Some(&30));
+    }
+
+    #[test]
+    fn neplproof_snapshot_counts_sum_all_stable_entry_kinds() {
+        let snapshot = ResourceSummaryProofSnapshot::default();
+
+        assert_eq!(snapshot.counts().total_entries(), 0);
     }
 }

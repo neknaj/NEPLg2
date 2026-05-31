@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-05-31
+updated: 2026-06-01
 target: "nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md"
 ---
 
@@ -64,3 +64,22 @@ same-session と cross-session の RPN expression edit を測定し、次を確�
 - unchanged codegen fragment は relocation/link だけで再接続される。
 - final wasm は full compile と同一の挙動を持つ。
 - source capability、generic substitution、diagnostic span、private effect mask proof を再投影できない場合は cache hit せず安全側に再計算する。
+
+## 2026-06-01 checkpoint
+
+`.neplproof` の disk schema を先に固定せず、`ResourceSummaryValueCache` の stable mirror から
+in-memory snapshot / preseed 境界を追加した。
+
+実装した API は `export_neplproof_snapshot` と `preseed_neplproof_snapshot` である。snapshot
+は `ResourceSummaryValueCacheKey` と stable mirror entry だけを保持し、
+`ResourceSummaryReplaySnapshot` や `InitializedFunctionCheckPassSnapshot` は保持しない。
+これらの replay plan は前回 compile の関数順序と local fingerprint に依存するため、
+cross-session の `.neplproof` authority にはしない。
+
+preseed は現在 cache の entry を上書きしない。同じ key/value は existing hit として扱い、
+同じ key で異なる value は conflict として拒否する。実際の proof replay は従来どおり現在の
+`TypeCtx`、function signature、source capability policy、generic boundary へ再投影できる
+entry だけを使う。
+
+次の作業は、この snapshot に compiler version、schema version、target/profile、stdlib hash、
+dependency public surface hash、private effect policy hash を持つ envelope を付けることである。
