@@ -2,13 +2,13 @@
 id: ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24
 title: "i32 scalar residual reprojection still recomputes RPN edit"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: performance
 created: 2026-05-31
 updated: 2026-06-01
-target: "nepl-core/src/resource/initialized_scalar_flow.rs; nepl-core/src/resource/resource_summary_value_cache/i32_scalar.rs"
+target: "nepl-core/src/resource/initialized_scalar_flow.rs; nepl-core/src/resource/resource_summary_value_cache/i32_scalar.rs; nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs"
 ---
 
 # ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24: i32 scalar residual reprojection still recomputes RPN edit
@@ -191,7 +191,54 @@ regression に当て、残っている alias / offset の `ParameterProjection` 
 失敗を `reproject_i32_scalar_projection_suffix_with_stable_type` と
 `reproject_i32_scalar_common_type` の狭い surface で修正する。
 
+## 2026-06-01 stable reprojection completion checkpoint
+
+RPN debug-only ログで確認した残差は、次の 3 surface に分かれていた。
+
+- `load__i32__T__pure_Option_T_i32` の parameter projection `[Deref, EnumPayload(Some)]`。
+- `string_addr` / `string_access_addr` / `string_byte_access_addr` 系の `str` 全体を raw address scalar carrier として扱う alias。
+- `string_data_ptr` の `str` に対する `StorageOffset(Known(4))` を i32 raw address view として扱う offset。
+
+修正では、i32 scalar alias / offset の `scalar_ty` を構造 projection の終端型と
+同一視しないようにした。projection の `ty` は suffix replay の layout 検証に使う
+構造型であり、i32 leaf としての proof boundary は stable scalar type key で別に持つ。
+そのため、`str` のような raw address carrier や `StorageOffset` を含む suffix は、
+stable scalar type が現在 session の `i32` へ再投影できる場合に限り受け入れる。
+
+non-final `Deref` は引き続き原則拒否する。ただし、parameter suffix が先頭 `Deref` を
+除いて return suffix と完全一致する alias / offset では、先に検証される function result
+型を raw load container authority として使う。これにより、raw address から `Option<i32>`
+を読み出して return 側と同じ `EnumPayload(Some)` leaf を参照する fact だけを
+fail-closed に再投影できる。
+
+focused regression として、次を追加した。
+
+- leading raw `Deref` が return container と同じ suffix に anchored される場合だけ通る。
+- unanchored non-final raw `Deref` は `ParameterProjection` のまま拒否される。
+- `str` 全体の raw address carrier alias が `i32` scalar fact として再投影される。
+- `str` の `StorageOffset(Known(4))` carrier offset が `MemPtr<u8>.addr` の `i32` として再投影される。
+- raw address carrier ではない型の `StorageOffset(Known(_))` は `ScalarType` のまま拒否される。
+- symbolic offset 内の place が callee 側 open generic でも、caller signature の field projection から `i32` に rebased される。
+
+`tmp/rpn_i32_reprojection_fix_measure_20260601.json` では、same-session unused local edit が
+次の結果になった。
+
+- base `compile_ms=9583`
+- edit `compile_ms=2292`
+- edit delta は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=0`
+- edit delta は `resource_summary_value_i32_scalar_return_facts_bypasses=0`
+- edit delta は `resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=0`
+- alias / offset / scalar type / parameter projection の i32 scalar reprojection bypass delta はすべて `0`
+- `resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions` delta も `0`
+
+これにより、この issue の検証条件である「RPN same-session edit の i32 scalar residual
+delta を 0 にする」は満たした。base compile `compile_ms=9583` と edit compile
+`compile_ms=2292` は依然として性能目標に届いていないため、初回 compile 0.5 秒未満、
+式枝差し替え 0.1 秒以下、stdlib prechecked artifact / Resource proof template /
+typed expression subtree query / codegen fragment cache は親 issue 群で継続する。
+
 ## 検証
 
 - RPN same-session edit JSON で、i32 scalar recomputed op delta と i32 scalar reprojection bypass delta が `0` になる。
-- それができない場合は、関数名 / reason / fact kind を持つさらに狭い follow-up issue に分離されている。
+- `cargo test -p nepl-core resource_summary_value --lib -- --nocapture`
+- RPN same-session edit 測定 `tmp/rpn_i32_reprojection_fix_measure_20260601.json`

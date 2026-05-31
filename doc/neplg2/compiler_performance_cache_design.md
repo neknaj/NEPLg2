@@ -1228,9 +1228,23 @@ alias / offset の stable mirror surface である。ただし base compile は�
 `compile_ms=8931`、`resource_static_check=8318.313ms` であり、stdlib prechecked artifact と
 Resource proof template の設計は引き続き優先する。
 
+i32 scalar residual の完了 checkpoint では、debug-only ログで残った alias / offset を
+`load<Option<i32>>` 型の leading raw `Deref`、`str` 全体の raw address carrier、
+`str` からの `StorageOffset(Known(4))` carrier、symbolic offset 内 place の open generic
+rebase に分けた。`StorageOffset` 自体を authority にはせず、raw address carrier ではない
+型の offset は従来通り拒否する。修正後の `tmp/rpn_i32_reprojection_fix_measure_20260601.json` では、
+same-session unused local edit の i32 scalar delta が
+`resource_summary_value_i32_scalar_return_facts_recomputed_ops=0`、
+`resource_summary_value_i32_scalar_return_facts_bypasses=0`、
+`resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=0` になった。
+このため i32 scalar stable mirror の残差 issue は解決済みとする。ただし同測定の
+base `compile_ms=9583`、edit `compile_ms=2292` はまだ性能目標に届いていない。
+次の支配項は i32 scalar mirror ではなく、未変更 proof replay の固定費、stdlib prechecked
+artifact、typed expression subtree query、codegen fragment cache の設計で削る。
+
 当面の実装順は次の通りにする。
 
-- edit path: remaining i32 scalar residual を fact kind / function 単位で分解し、changed-function-only proof replay へ進む。
+- edit path: i32 scalar residual 解消後も残る秒単位の replay / fixed-cost を changed-function-only proof replay と typed expression subtree query へ分ける。
 - base path: stdlib prechecked artifact と Resource proof template を優先し、初回 compile の fixed-point 探索空間を減らす。
 - shared path: typed expression subtree query と codegen fragment cache は、warm edit と base artifact の両方から使える query 境界として設計する。
 

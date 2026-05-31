@@ -48278,3 +48278,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `cargo check -p nepl-core -p nepl-language` と `cargo test -p nepl-core function_memo_call --test functions -- --nocapture` で 23 件すべて通過した。
 - `trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-memo-higher-order-20260601.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` も通した。
 - この checkpoint は Phase 1 の境界固定であり、`PrivateCache` / `PrivateState` internal effect、SourceCapability exact use-site、sealed backend representation は引き続き別 issue で進める。
+
+## 2026-06-01 Agent i32 scalar residual reprojection completion checkpoint
+
+- remote/main と同期済みの `perf/i32-scalar-residual-reprojection-fix-20260601` branch で、RPN same-session edit に残っていた i32 scalar stable mirror の alias / offset residual を解消した。`plan.md` は変更していない。
+- Zenn の性能追求方針と試作段階方針を再確認し、cache key / dependency closure / source capability policy を弱めず、stable mirror の再投影 authority だけを修正した。
+- subagent review では、残差の主因は i32 scalar alias / offset 再投影であり、cache key や dependency closure を緩めるべきではないと確認した。debug-only ログで、`load<Option<i32>>` の leading raw `Deref`、`str` raw address carrier、`str` の `StorageOffset(Known(4))` carrier、symbolic offset 内 place の open generic rebase に分解した。
+- 実装では、i32 scalar fact の `scalar_ty` を構造 projection の終端型と同一視せず、raw address carrier や `StorageOffset` を含む projection は stable scalar type key が現在 session の scalar 型へ再投影できる場合だけ受け入れるようにした。
+- non-final raw `Deref` は引き続き拒否するが、parameter suffix が先頭 `Deref` を除いて return suffix と完全一致する alias / offset では、先に検証される function result 型を raw load container authority として使う。これにより `Deref -> EnumPayload(Some)` のような raw load payload fact だけを fail-closed に再投影する。
+- subagent code review で、`StorageOffset` を持つだけで raw scalar view と見なすのは広すぎると指摘されたため、`str` のような raw address carrier 型に限定し、非 carrier の `StorageOffset` は `ScalarType` で拒否する regression を追加した。
+- focused regression として、anchored leading raw `Deref` の acceptance、unanchored non-final raw `Deref` の rejection、`str` raw address carrier alias、`StorageOffset(Known(4))` carrier offset、非 carrier `StorageOffset` rejection、symbolic offset place type rebase を追加した。
+- `tmp/rpn_i32_reprojection_fix_measure_20260601.json` では、same-session unused local edit が base `compile_ms=9583`、edit `compile_ms=2292` だった。edit delta は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=0`、`resource_summary_value_i32_scalar_return_facts_bypasses=0`、`resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=0`、alias / offset / scalar type / parameter projection bypass delta もすべて `0` になった。
+- `ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24` は verified / resolved にし、`todo.md` から削除した。base compile と edit compile の絶対時間はまだ目標未達なので、`ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D`、per-program compile performance、`.neplmeta` / `.neplobj` artifact、typed expression subtree query は継続する。

@@ -776,6 +776,7 @@ struct ResourceSummaryStableI32ScalarParameterCondition {
 struct ResourceSummaryReprojectedI32ScalarProjection {
     suffix: Vec<PlaceProjection>,
     ty: TypeId,
+    carries_raw_scalar_view: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3102,14 +3103,19 @@ fn reproject_i32_scalar_return_alias(
 ) -> Result<I32ScalarReturnAlias, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
     let return_projection =
         reproject_i32_scalar_return_projection(ctx, &fact.return_projection, &fact.scalar_ty)?;
-    let parameter_projection = reproject_i32_scalar_parameter_projection(
+    let parameter_projection = reproject_i32_scalar_parameter_projection_for_return_fact(
         ctx,
         fact.parameter_index,
         &fact.parameter_projection,
         &fact.scalar_ty,
+        &fact.return_projection,
     )?;
-    let scalar_ty =
-        reproject_i32_scalar_common_type(ctx, return_projection.ty, parameter_projection.ty)?;
+    let scalar_ty = reproject_i32_scalar_common_type(
+        ctx,
+        &fact.scalar_ty,
+        &return_projection,
+        &parameter_projection,
+    )?;
     Ok(I32ScalarReturnAlias {
         return_projection: return_projection.suffix,
         parameter_index: fact.parameter_index,
@@ -3124,14 +3130,19 @@ fn reproject_i32_scalar_return_offset(
 ) -> Result<I32ScalarReturnOffset, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
     let return_projection =
         reproject_i32_scalar_return_projection(ctx, &fact.return_projection, &fact.scalar_ty)?;
-    let parameter_projection = reproject_i32_scalar_parameter_projection(
+    let parameter_projection = reproject_i32_scalar_parameter_projection_for_return_fact(
         ctx,
         fact.parameter_index,
         &fact.parameter_projection,
         &fact.scalar_ty,
+        &fact.return_projection,
     )?;
-    let scalar_ty =
-        reproject_i32_scalar_common_type(ctx, return_projection.ty, parameter_projection.ty)?;
+    let scalar_ty = reproject_i32_scalar_common_type(
+        ctx,
+        &fact.scalar_ty,
+        &return_projection,
+        &parameter_projection,
+    )?;
     Ok(I32ScalarReturnOffset {
         return_projection: return_projection.suffix,
         parameter_index: fact.parameter_index,
@@ -3154,8 +3165,9 @@ fn reproject_i32_scalar_return_relation(
     )?;
     let scalar_ty = reproject_i32_scalar_common_type(
         ctx,
-        left_return_projection.ty,
-        right_return_projection.ty,
+        &fact.scalar_ty,
+        &left_return_projection,
+        &right_return_projection,
     )?;
     Ok(I32ScalarReturnRelation {
         left_return_projection: left_return_projection.suffix,
@@ -3251,6 +3263,53 @@ fn reproject_i32_scalar_parameter_projection(
     )
 }
 
+fn reproject_i32_scalar_parameter_projection_for_return_fact(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    parameter_index: usize,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+    scalar_ty: &ResourceSummaryStableTypeKey,
+    return_suffix: &[ResourceSummaryStablePlaceProjection],
+) -> Result<
+    ResourceSummaryReprojectedI32ScalarProjection,
+    ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
+> {
+    let base_ty = ctx
+        .function
+        .params
+        .get(parameter_index)
+        .ok_or(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ParameterProjection)?
+        .ty;
+    let leading_raw_deref_container_ty =
+        i32_scalar_leading_raw_deref_container_type(ctx, suffix, return_suffix);
+    reproject_i32_scalar_projection_suffix_with_stable_type_and_raw_deref_container(
+        ctx,
+        base_ty,
+        suffix,
+        scalar_ty,
+        leading_raw_deref_container_ty,
+        ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ParameterProjection,
+    )
+}
+
+fn i32_scalar_leading_raw_deref_container_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    parameter_suffix: &[ResourceSummaryStablePlaceProjection],
+    return_suffix: &[ResourceSummaryStablePlaceProjection],
+) -> Option<TypeId> {
+    if !matches!(
+        parameter_suffix.first(),
+        Some(ResourceSummaryStablePlaceProjection::Deref)
+    ) || parameter_suffix.len() <= 1
+    {
+        return None;
+    }
+    if parameter_suffix[1..] == *return_suffix {
+        Some(ctx.function.result)
+    } else {
+        None
+    }
+}
+
 fn reproject_i32_scalar_projection_suffix_with_stable_type(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     base_ty: TypeId,
@@ -3261,8 +3320,30 @@ fn reproject_i32_scalar_projection_suffix_with_stable_type(
     ResourceSummaryReprojectedI32ScalarProjection,
     ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
 > {
+    reproject_i32_scalar_projection_suffix_with_stable_type_and_raw_deref_container(
+        ctx,
+        base_ty,
+        suffix,
+        stable_scalar_ty,
+        None,
+        projection_reject,
+    )
+}
+
+fn reproject_i32_scalar_projection_suffix_with_stable_type_and_raw_deref_container(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    base_ty: TypeId,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+    stable_scalar_ty: &ResourceSummaryStableTypeKey,
+    leading_raw_deref_container_ty: Option<TypeId>,
+    projection_reject: ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
+) -> Result<
+    ResourceSummaryReprojectedI32ScalarProjection,
+    ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
+> {
     let mut out = Vec::new();
     let mut current_ty = base_ty;
+    let mut carries_raw_scalar_view = false;
     for (index, stable_projection) in suffix.iter().enumerate() {
         let projection =
             reproject_place_projection(ctx, stable_projection).ok_or(projection_reject)?;
@@ -3273,18 +3354,40 @@ fn reproject_i32_scalar_projection_suffix_with_stable_type(
             {
                 ty
             }
+            _ if matches!(projection, PlaceProjection::Deref)
+                && index == 0
+                && leading_raw_deref_container_ty.is_some() =>
+            {
+                // i32 scalar summary の alias/offset では、raw address から読み出した
+                // aggregate value の中にある i32 leaf を「return 側の同じ projection」として
+                // 証明することがある。通常の `Deref` と違って base type は reference では
+                // ないため、parameter suffix の `Deref` 以降が return suffix と完全一致する
+                // 場合だけ、先に検証済みの function result 型を container authority とする。
+                // 一致しない途中 `Deref` は、後続 projection の layout を証明できないため
+                // 従来通り拒否する。
+                carries_raw_scalar_view = true;
+                leading_raw_deref_container_ty.expect("checked by is_some")
+            }
             _ if matches!(projection, PlaceProjection::Deref) && index + 1 == suffix.len() => {
+                carries_raw_scalar_view = true;
                 reproject_i32_scalar_type(ctx, stable_scalar_ty)?
             }
             _ => return Err(projection_reject),
         };
+        if matches!(projection, PlaceProjection::StorageOffset(_))
+            && i32_scalar_whole_place_raw_address_carrier_type(ctx, current_ty)
+        {
+            carries_raw_scalar_view = true;
+        }
         out.push(projection);
     }
     let current_ty =
         reproject_i32_scalar_projection_result_type(ctx, current_ty, stable_scalar_ty)?;
+    carries_raw_scalar_view |= i32_scalar_whole_place_raw_address_carrier_type(ctx, current_ty);
     Ok(ResourceSummaryReprojectedI32ScalarProjection {
         suffix: out,
         ty: current_ty,
+        carries_raw_scalar_view,
     })
 }
 
@@ -3305,13 +3408,42 @@ fn reproject_i32_scalar_projection_result_type(
 
 fn reproject_i32_scalar_common_type(
     ctx: &ResourceSummaryTypeReprojection<'_>,
-    left: TypeId,
-    right: TypeId,
+    stable_scalar_ty: &ResourceSummaryStableTypeKey,
+    left: &ResourceSummaryReprojectedI32ScalarProjection,
+    right: &ResourceSummaryReprojectedI32ScalarProjection,
 ) -> Result<TypeId, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
-    if ctx.types.same_type(left, right) {
-        return Ok(left);
+    if let Ok(scalar_ty) = reproject_i32_scalar_type(ctx, stable_scalar_ty) {
+        if i32_scalar_projection_type_accepts_scalar(ctx, left, scalar_ty)
+            && i32_scalar_projection_type_accepts_scalar(ctx, right, scalar_ty)
+        {
+            return Ok(scalar_ty);
+        }
+    }
+    if ctx.types.same_type(left.ty, right.ty) {
+        return Ok(left.ty);
     }
     Err(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType)
+}
+
+fn i32_scalar_projection_type_accepts_scalar(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    projection: &ResourceSummaryReprojectedI32ScalarProjection,
+    scalar_ty: TypeId,
+) -> bool {
+    ctx.types.same_type(projection.ty, scalar_ty)
+        || projection.carries_raw_scalar_view
+        || i32_scalar_whole_place_raw_address_carrier_type(ctx, projection.ty)
+}
+
+fn i32_scalar_whole_place_raw_address_carrier_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    ty: TypeId,
+) -> bool {
+    matches!(
+        ctx.types
+            .get_ref(ctx.types.resolve_named_type_id(ctx.types.resolve_id(ty))),
+        TypeKind::Str
+    )
 }
 
 fn reproject_i32_scalar_type(
@@ -4067,14 +4199,31 @@ fn reproject_stable_place_to_place(
         .get(place.parameter_index)?
         .place
         .clone();
-    let (suffix, ty) = reproject_stable_projection_suffix_as_place(ctx, base.ty, &place.suffix)?;
-    if !place.ty.matches_type(ctx.types, ty) {
-        return None;
-    }
+    let (suffix, projected_ty) =
+        reproject_stable_projection_suffix_as_place(ctx, base.ty, &place.suffix)?;
+    let ty = reproject_stable_place_result_type(ctx, projected_ty, &place.ty)?;
     let mut out = base;
     out.projections.extend(suffix);
     out.ty = ty;
     Some(out)
+}
+
+fn reproject_stable_place_result_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    projected_ty: TypeId,
+    stable_ty: &ResourceSummaryStableTypeKey,
+) -> Option<TypeId> {
+    // symbolic offset の中に入る place は、callee 側では open generic のまま保存され、
+    // caller の現在 signature では field projection から concrete 型へ決まることがある。
+    // その場合は現在 signature と projection を replay authority とし、保存済み key が
+    // concrete 型と食い違う場合は従来どおり reject する。
+    if stable_ty.matches_type(ctx.types, projected_ty) {
+        return Some(projected_ty);
+    }
+    if stable_ty.is_open_generic() && !ctx.type_is_open_generic(projected_ty) {
+        return Some(projected_ty);
+    }
+    None
 }
 
 fn reproject_stable_projection_suffix_as_place(
@@ -4254,7 +4403,9 @@ mod tests {
 
     use crate::ast::Effect;
     use crate::span::Span;
-    use crate::types::{NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeKind};
+    use crate::types::{
+        EnumVariantInfo, NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeKind,
+    };
 
     use super::super::super::collection_slot_summary_model::{
         CollectionSlotInitializedRangeDropTraversalCertificate,
@@ -4349,6 +4500,16 @@ mod tests {
     fn nominal_struct_identity(name: &str) -> NominalStableTypeIdentity {
         NominalStableTypeIdentity::new(
             NominalStableTypeKind::Struct,
+            "/user/types.nepl".to_string(),
+            name.to_string(),
+            0,
+            1,
+        )
+    }
+
+    fn nominal_enum_identity(name: &str) -> NominalStableTypeIdentity {
+        NominalStableTypeIdentity::new(
+            NominalStableTypeKind::Enum,
             "/user/types.nepl".to_string(),
             name.to_string(),
             0,
@@ -4565,6 +4726,250 @@ mod tests {
             result,
             Err(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ReturnProjection)
         ));
+    }
+
+    #[test]
+    fn stable_i32_scalar_alias_reprojects_leading_raw_deref_against_return_container() {
+        let mut types = TypeCtx::new();
+        let option_param = types.fresh_var(Some("T".to_string()));
+        let option = types.register_named_with_stable_identity(
+            "Option".to_string(),
+            TypeKind::Enum {
+                name: "Option".to_string(),
+                type_params: vec![option_param],
+                variants: vec![
+                    EnumVariantInfo {
+                        name: "None".to_string(),
+                        payload: None,
+                    },
+                    EnumVariantInfo {
+                        name: "Some".to_string(),
+                        payload: Some(option_param),
+                    },
+                ],
+            },
+            nominal_enum_identity("Option"),
+        );
+        let option_i32 = types.apply(option, vec![types.i32()]);
+        let function = function_with_params(vec![("ptr", types.i32())], option_i32);
+        let mut facts = I32ScalarReturnFacts::default();
+        facts.aliases.push(I32ScalarReturnAlias {
+            return_projection: vec![PlaceProjection::EnumPayload {
+                variant: "Some".to_string(),
+            }],
+            parameter_index: 0,
+            parameter_projection: vec![
+                PlaceProjection::Deref,
+                PlaceProjection::EnumPayload {
+                    variant: "Some".to_string(),
+                },
+            ],
+            scalar_ty: types.i32(),
+        });
+        let entry = stable_i32_scalar_return_facts_entry(&types, &function, &facts)
+            .expect("raw load payload alias should convert before replay validation");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("option return boundary should be reprojectable");
+
+        let reprojected = reproject_i32_scalar_return_facts_entry_result(&ctx, &entry)
+            .expect("leading raw deref should use the matching return container");
+
+        assert_eq!(reprojected, facts);
+    }
+
+    #[test]
+    fn stable_i32_scalar_alias_rejects_unanchored_non_final_raw_deref() {
+        let mut types = TypeCtx::new();
+        let option_param = types.fresh_var(Some("T".to_string()));
+        let option = types.register_named_with_stable_identity(
+            "Option".to_string(),
+            TypeKind::Enum {
+                name: "Option".to_string(),
+                type_params: vec![option_param],
+                variants: vec![
+                    EnumVariantInfo {
+                        name: "None".to_string(),
+                        payload: None,
+                    },
+                    EnumVariantInfo {
+                        name: "Some".to_string(),
+                        payload: Some(option_param),
+                    },
+                ],
+            },
+            nominal_enum_identity("Option"),
+        );
+        let option_i32 = types.apply(option, vec![types.i32()]);
+        let function = function_with_params(vec![("ptr", types.i32())], option_i32);
+        let mut facts = I32ScalarReturnFacts::default();
+        facts.aliases.push(I32ScalarReturnAlias {
+            return_projection: Vec::new(),
+            parameter_index: 0,
+            parameter_projection: vec![
+                PlaceProjection::Deref,
+                PlaceProjection::EnumPayload {
+                    variant: "Some".to_string(),
+                },
+            ],
+            scalar_ty: types.i32(),
+        });
+        let entry = stable_i32_scalar_return_facts_entry(&types, &function, &facts)
+            .expect("unanchored raw deref alias should convert before replay validation");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("option return boundary should be reprojectable");
+
+        let result = reproject_i32_scalar_return_facts_entry_result(&ctx, &entry);
+
+        assert!(matches!(
+            result,
+            Err(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ParameterProjection)
+        ));
+    }
+
+    #[test]
+    fn stable_i32_scalar_alias_accepts_string_raw_address_carrier_type() {
+        let types = TypeCtx::new();
+        let function = function_with_params(vec![("s", types.str())], types.i32());
+        let mut facts = I32ScalarReturnFacts::default();
+        facts.aliases.push(I32ScalarReturnAlias {
+            return_projection: Vec::new(),
+            parameter_index: 0,
+            parameter_projection: Vec::new(),
+            scalar_ty: types.i32(),
+        });
+        let entry = stable_i32_scalar_return_facts_entry(&types, &function, &facts)
+            .expect("string raw address carrier fact should convert");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("string-to-i32 boundary should be reprojectable");
+
+        let reprojected = reproject_i32_scalar_return_facts_entry_result(&ctx, &entry)
+            .expect("string carrier should be accepted as an i32 raw address view");
+
+        assert_eq!(reprojected, facts);
+    }
+
+    #[test]
+    fn stable_i32_scalar_offset_accepts_storage_offset_carrier_type() {
+        let mut types = TypeCtx::new();
+        let mem_ptr_param = types.fresh_var(Some("T".to_string()));
+        let mem_ptr = types.register_named_with_stable_identity(
+            "MemPtr".to_string(),
+            TypeKind::Struct {
+                name: "MemPtr".to_string(),
+                type_params: vec![mem_ptr_param],
+                fields: vec![types.i32()],
+                field_names: vec!["addr".to_string()],
+            },
+            nominal_struct_identity("MemPtr"),
+        );
+        let mem_ptr_u8 = types.apply(mem_ptr, vec![types.u8()]);
+        let function = function_with_params(vec![("s", types.str())], mem_ptr_u8);
+        let mut facts = I32ScalarReturnFacts::default();
+        facts.offsets.push(I32ScalarReturnOffset {
+            return_projection: vec![PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            }],
+            parameter_index: 0,
+            parameter_projection: vec![PlaceProjection::StorageOffset(ResourceOffset::Known(4))],
+            scalar_ty: types.i32(),
+            offset: 0,
+        });
+        let entry = stable_i32_scalar_return_facts_entry(&types, &function, &facts)
+            .expect("string storage offset carrier fact should convert");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("MemPtr return boundary should be reprojectable");
+
+        let reprojected = reproject_i32_scalar_return_facts_entry_result(&ctx, &entry)
+            .expect("storage offset carrier should be accepted as an i32 raw address view");
+
+        assert_eq!(reprojected, facts);
+    }
+
+    #[test]
+    fn stable_i32_scalar_offset_rejects_storage_offset_on_non_carrier_type() {
+        let types = TypeCtx::new();
+        let function = function_with_params(vec![("byte", types.u8())], types.i32());
+        let mut facts = I32ScalarReturnFacts::default();
+        facts.offsets.push(I32ScalarReturnOffset {
+            return_projection: Vec::new(),
+            parameter_index: 0,
+            parameter_projection: vec![PlaceProjection::StorageOffset(ResourceOffset::Known(4))],
+            scalar_ty: types.i32(),
+            offset: 0,
+        });
+        let entry = stable_i32_scalar_return_facts_entry(&types, &function, &facts)
+            .expect("non-carrier storage offset fact should convert before replay validation");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive boundary should be reprojectable");
+
+        let result = reproject_i32_scalar_return_facts_entry_result(&ctx, &entry);
+
+        assert!(matches!(
+            result,
+            Err(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType)
+        ));
+    }
+
+    #[test]
+    fn stable_i32_scalar_alias_rebases_symbolic_offset_place_type() {
+        let mut types = TypeCtx::new();
+        let definition_generic = types.fresh_var(Some("T".to_string()));
+        let nominal = types.register_named_with_stable_identity(
+            "IndexBox".to_string(),
+            TypeKind::Struct {
+                name: "IndexBox".to_string(),
+                type_params: vec![definition_generic],
+                fields: vec![definition_generic],
+                field_names: vec!["value".to_string()],
+            },
+            nominal_struct_identity("IndexBox"),
+        );
+        let applied = types.apply(nominal, vec![types.i32()]);
+        let stale_callee_generic = types.fresh_var(Some("T".to_string()));
+        let function = function_with_params(
+            vec![("storage", types.u8()), ("index", applied)],
+            types.i32(),
+        );
+        let offset_source = Place::local("index".to_string(), applied).with_projection(
+            PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            },
+            stale_callee_generic,
+        );
+        let mut facts = I32ScalarReturnFacts::default();
+        facts.aliases.push(I32ScalarReturnAlias {
+            return_projection: Vec::new(),
+            parameter_index: 0,
+            parameter_projection: vec![
+                PlaceProjection::StorageOffset(ResourceOffset::ScaledOffset {
+                    place: Box::new(offset_source),
+                    offset: 4,
+                    scale: 4,
+                }),
+                PlaceProjection::Deref,
+            ],
+            scalar_ty: types.i32(),
+        });
+        let entry = stable_i32_scalar_return_facts_entry(&types, &function, &facts)
+            .expect("symbolic offset place should convert with a stable projection");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("applied signature should be reprojectable");
+
+        let reprojected = reproject_i32_scalar_return_facts_entry_result(&ctx, &entry)
+            .expect("symbolic offset place type should come from the current signature");
+
+        let PlaceProjection::StorageOffset(ResourceOffset::ScaledOffset { place, .. }) =
+            &reprojected.aliases[0].parameter_projection[0]
+        else {
+            panic!(
+                "expected scaled symbolic storage offset, got {:?}",
+                reprojected.aliases[0].parameter_projection
+            );
+        };
+        assert_eq!(place.ty, types.i32());
+        assert_eq!(reprojected.aliases[0].scalar_ty, types.i32());
     }
 
     #[test]
