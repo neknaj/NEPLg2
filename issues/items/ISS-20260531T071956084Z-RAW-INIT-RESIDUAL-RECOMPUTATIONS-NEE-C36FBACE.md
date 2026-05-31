@@ -38,6 +38,14 @@ A tiny edit in examples/rpn.nepl likely invalidates too much source capability p
 
 Split source capability policy invalidation into function-local exact use-site surfaces and dependency body/type boundaries, preserving stale-proof rejection for capability byte-range changes while avoiding whole-file invalidation for unrelated body edits.
 
+## 2026-05-31 empty proof policy checkpoint
+
+`SourceCapabilities::stable_policy_hash` を、capability proof が空の file では source text 全体を hash に混ぜず、canonical path と空 proof set だけを policy surface とするようにした。proof が存在する file は従来どおり path、source hash、proof set を結び付けるため、raw memory / collection slot authority を別 source へ再利用しない。
+
+RPN same-session code edit 測定 `tmp/rpn_empty_source_policy_raw_init_code_edit_20260531.json` では、edit compile が直前の `7142ms` から `6164ms` になった。edit delta は `resource_raw_init_summary_recomputations=73`、`resource_summary_value_raw_init_param_facts_stores=48`、`resource_initialized_function_checks=1`、`resource_summary_value_recomputed_ops=29`、raw-init bypass は `0` である。
+
+この checkpoint は capability proof を持たない通常 user source の過大 invalidation を削るものだが、full function-local exact use-site policy ではない。capability proof を持つ stdlib/compiler-owned source では、同一 file の sibling edit で無関係な capability function を miss させないため、関数本文 slice / 相対 use-site identity / capability kind / raw body source slice を key にする設計がまだ必要である。この issue は open のまま継続する。
+
 ## 検証
 
 Compare RPN same-session edits in the same function, another function in the same file, another imported file, and no stdlib change. Raw-init recomputation should only remain where function-local source policy or dependency body/type boundary actually changed.

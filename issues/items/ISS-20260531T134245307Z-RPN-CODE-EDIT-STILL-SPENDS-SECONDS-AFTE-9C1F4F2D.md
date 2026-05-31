@@ -126,6 +126,30 @@ raw alias summary の全関数規模再計算は解消したが、edit compile �
 この issue は raw-init residual recomputation、raw alias residual reprojection、
 式枝差し替え query 化を追跡する親 issue として open のまま継続する。
 
+## 2026-05-31 empty source capability policy 更新
+
+`ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE`
+の部分対応として、capability proof が空の file では source text 全体を source
+capability policy hash に混ぜないようにした。関数 semantics は Resource IR body hash
+と typed signature/type boundary で検出し、source capability policy は privilege proof
+surface の変化だけを見る。
+
+`tmp/rpn_empty_source_policy_raw_init_code_edit_20260531.json` では、same-session code
+edit の compile が `7142ms` から `6164ms` へ改善した。edit delta は次の通り。
+
+- `resource_raw_alias_summary_recomputations=32`
+- `resource_raw_init_summary_recomputations=73`
+- `resource_initialized_function_checks=1`
+- `resource_summary_value_raw_init_param_facts_hits=226`
+- `resource_summary_value_raw_init_param_facts_stores=48`
+- `resource_summary_value_recomputed_ops=29`
+- `resource_summary_value_replayed_ops=4509`
+
+raw-init replay bypass は引き続き `0` で、stale hit を避ける fail-closed 境界は維持している。
+ただし RPN edit compile はまだ秒単位であり、full function-local capability policy、
+raw alias residual reprojection、typed expression subtree query、codegen fragment cache が
+残る支配項として継続する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

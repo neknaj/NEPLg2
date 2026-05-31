@@ -779,6 +779,30 @@ store/hit 記録は summary build pass の全 candidate を集めてから行う
 - `/stdlib` overlay、forced stdlib VFS、local stdlib override では bundled stdlib Resource summary value cache を bypass する。
 - cache hit value を現在 compile の Resource IR context へ再投影できない場合は miss/bypass に倒し、diagnostic span や capability proof を古い source へ流用しない。
 
+## Empty source capability policy checkpoint
+
+2026-05-31 の raw-init residual recomputation 調査では、`ResourceSummaryValueCache` の value replay は fail-closed に動いている一方で、key に含まれる source capability policy が file 全体の source hash に依存していたため、capability proof を持たない通常 source の小さな編集でも dependency closure が広く miss することを確認した。
+
+source capability proof が存在する file は、proof span が byte range であるため、canonical path、source hash、proof set を合わせて policy hash とする必要がある。この境界を弱めると、別 source の同じ byte range に raw memory / collection slot authority を誤って再利用できる。
+
+一方で、proof set が空の file では、source capability policy が保護すべき privilege surface は存在しない。関数の意味変更は Resource IR body hash、typed signature/type boundary、dependency closure hash で検出するため、空 proof file の source text 全体を source capability policy に混ぜると、静的検査の正確性を増やさずに over-invalidation だけを増やす。
+
+この checkpoint では、`SourceCapabilities::stable_policy_hash` を次の境界にした。
+
+- proof set が空でない file は、path、source hash、proof set を hash する。
+- proof set が空の file は、path と空 proof set だけを hash する。
+- raw body text や exact capability use-site を持つ file は従来どおり source hash に結び、stale hit を避ける。
+
+release WASM の RPN same-session code edit 測定 `tmp/rpn_empty_source_policy_raw_init_code_edit_20260531.json` では、edit compile が直前の raw alias checkpoint `7142ms` から `6164ms` へ改善した。edit delta は次の通りである。
+
+- `resource_raw_init_summary_recomputations=73`、直前の `81` から減少。
+- `resource_summary_value_raw_init_param_facts_stores=48`、直前の `69` から減少。
+- `resource_initialized_function_checks=1`、直前の `13` から減少。
+- `resource_summary_value_recomputed_ops=29`、直前の `110` から減少。
+- raw-init replay bypass は `0` のままで、unsafe な stale replay は観測されていない。
+
+ただし、これは function-local exact source capability policy の完成ではない。capability proof を持つ stdlib/compiler-owned source では、source text と exact proof を結び付ける必要が残る。次段階では、関数本文 slice、相対 use-site identity、capability kind、raw body source slice を組み合わせた function-local policy hash を設計し、同一 file の sibling function edit が無関係な raw-init dependency closure を miss させないようにする。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

@@ -48055,3 +48055,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - subagent review では、高 severity の問題は見つからなかった。preseed 済み関数の再 enqueue、stable mirror の fail-closed 境界、source policy / dependency / type / generic を含む key、empty summary replay の意味が妥当と確認された。
 - release Web RPN same-session code edit 測定 `tmp/rpn_raw_alias_cache_code_edit_20260531.json` では、edit delta が `resource_raw_alias_summary_recomputations=288` から `38` へ減った。raw alias entry は `hits=65`、`stores=73`、`bypasses=13`、`unstable_key=0`、`unstable_entry=0` である。
 - `ISS-20260531T071945698Z-RAW-ALIAS-SUMMARIES-NEED-STABLE-MIRR-4DCE44A8` は verified / resolved にした。残る `raw_alias_return_entry_reprojection_value_bypasses=13` は unsafe な stale hit ではなく fail-closed の残差なので、`ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E` に分離した。
+
+## 2026-05-31 Agent empty source capability policy checkpoint
+
+- remote/main は `git fetch origin` / `git pull --ff-only origin main` で同期済みで、作業 branch は `perf/raw-init-residual-cache-20260531` として作成した。`plan.md` は変更していない。
+- Zenn の試作段階方針、性能追求方針、純粋 query cache 方針を再確認し、静的検査や source capability proof を弱めずに cache key の過大 invalidation を削る方針にした。
+- raw-init residual recomputation の subagent review では、`SourceMap::source_capability_policy_hash_for_file` が path、source hash、file 全体 capability proof set を hash し、dependency closure がその file-level policy を取り込むため、capability proof を持たない RPN source の小編集でも広い miss が起きていると確認した。
+- `SourceCapabilities::stable_policy_hash` は、proof set が空の file では source text 全体を policy hash に混ぜず、canonical path と空 proof set だけを policy surface にした。proof がある file は従来どおり path、source hash、proof set を結び、raw memory / collection slot authority が別 source へ流用されないようにしている。
+- focused regression として、空 capability policy hash が同じ path の source text 差分では変わらず、path 差分では変わること、`SourceMap` 経由でも同じ契約になることを追加した。
+- release Web RPN same-session code edit 測定 `tmp/rpn_empty_source_policy_raw_init_code_edit_20260531.json` では、edit compile が直前の `7142ms` から `6164ms` へ改善した。edit delta は `resource_raw_init_summary_recomputations=73`、`resource_summary_value_raw_init_param_facts_stores=48`、`resource_initialized_function_checks=1`、`resource_summary_value_recomputed_ops=29`、raw-init bypass は `0` である。
+- `doc/neplg2/compiler_performance_cache_design.md`、`ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE`、`ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` に今回の partial checkpoint を追記した。full function-local exact use-site policy は未完了なので、raw-init residual issue は open のまま継続する。
+- memo_call / 高階関数側の subagent review では、Phase 1 は通常 stdlib 実装ではなく compiler-known primitive とし、typed function identity、保守的な MemoKey / MemoValue classifier、private cache SourceCapability、sealed backend representation を先に固定すべきだと確認した。このため、raw-init function-local invalidation が安定するまでは `PrivateCache` / `PrivateState` の一般化を急がない。

@@ -180,15 +180,22 @@ impl SourceCapabilities {
 
     /// Resource summary cache key に含める source capability policy hash を作る。
     ///
-    /// capability proof は span の byte range だけを持つため、range 集合だけを hash すると
+    /// capability proof が存在する file では、proof span の byte range だけを hash すると
     /// 別 source へ誤って再利用できてしまう。この hash は canonical path と source hash を
-    /// 必ず含め、同じ file content 上の同じ use-site proof set だけを同一 policy とみなす。
+    /// 含め、同じ file content 上の同じ use-site proof set だけを同一 policy とみなす。
+    ///
+    /// capability proof が空の file では、Resource IR body hash と typed signature が
+    /// function semantics を固定するため、source text 全体を policy に混ぜない。通常の
+    /// source edit が raw memory / collection slot privilege を一切持たない関数まで
+    /// invalidation しないよう、path と空 proof set だけを policy surface にする。
     #[allow(dead_code)]
     fn stable_policy_hash(&self, canonical_path: &str, source_hash: u64) -> u64 {
         let mut hash = 0xcbf29ce484222325;
         source_capability_policy_hash_str(&mut hash, "neplg2-source-capability-policy-v1");
         source_capability_policy_hash_str(&mut hash, canonical_path);
-        source_capability_policy_hash_u64(&mut hash, source_hash);
+        if !self.use_sites.is_empty() {
+            source_capability_policy_hash_u64(&mut hash, source_hash);
+        }
         for use_site in &self.use_sites {
             source_capability_use_site_hash(&mut hash, use_site);
         }
@@ -335,8 +342,9 @@ impl SourceMap {
     /// Resource summary value cache key に含める source capability policy hash を返す。
     ///
     /// source text は `SourceMap` が保持しているため、caller に source hash を渡させない。
-    /// これにより別 source の hash や sentinel 値を誤って渡す経路を作らず、path、source
-    /// content、capability proof set が同じ場合だけ同じ policy とみなせる。
+    /// これにより別 source の hash や sentinel 値を誤って渡す経路を作らない。
+    /// capability proof がある file は path、source content、proof set が同じ場合だけ
+    /// 同じ policy とみなし、proof が空の file は path と空 proof set だけを policy とする。
     pub(crate) fn source_capability_policy_hash_for_file(&self, id: FileId) -> Option<u64> {
         self.files.get(id.0 as usize).map(|file| {
             let source_hash = source_capability_source_hash(file.src.as_bytes());
@@ -922,6 +930,20 @@ mod tests {
     }
 
     #[test]
+    fn empty_source_capability_policy_hash_ignores_source_text() {
+        let none = SourceCapabilities::none();
+
+        assert_eq!(
+            none.stable_policy_hash("examples/rpn.nepl", 7),
+            none.stable_policy_hash("examples/rpn.nepl", 8)
+        );
+        assert_ne!(
+            none.stable_policy_hash("examples/rpn.nepl", 7),
+            none.stable_policy_hash("examples/other.nepl", 7)
+        );
+    }
+
+    #[test]
     fn source_capability_source_hash_matches_loader_source_hash_contract() {
         assert_eq!(
             super::source_capability_source_hash(b"fn load %i32 1"),
@@ -964,6 +986,35 @@ mod tests {
         );
         assert_ne!(
             source_map.source_capability_policy_hash_for_file(file),
+            source_map.source_capability_policy_hash_for_file(different_path_same_source)
+        );
+    }
+
+    #[test]
+    fn source_map_empty_source_capability_policy_hash_ignores_file_source_text() {
+        let mut source_map = SourceMap::new();
+        let first = source_map.add_with_capabilities(
+            "examples/rpn.nepl",
+            String::from("fn main %impure fn unit unit \\unit: 1"),
+            SourceCapabilities::none(),
+        );
+        let same_path_different_source = source_map.add_with_capabilities(
+            "examples/rpn.nepl",
+            String::from("fn main %impure fn unit unit \\unit: 2"),
+            SourceCapabilities::none(),
+        );
+        let different_path_same_source = source_map.add_with_capabilities(
+            "examples/other.nepl",
+            String::from("fn main %impure fn unit unit \\unit: 1"),
+            SourceCapabilities::none(),
+        );
+
+        assert_eq!(
+            source_map.source_capability_policy_hash_for_file(first),
+            source_map.source_capability_policy_hash_for_file(same_path_different_source)
+        );
+        assert_ne!(
+            source_map.source_capability_policy_hash_for_file(first),
             source_map.source_capability_policy_hash_for_file(different_path_same_source)
         );
     }

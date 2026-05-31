@@ -25,9 +25,11 @@ pub(super) struct ResourceSummaryCacheNamespaceHash(u64);
 
 /// `SourceMap::source_capability_policy_hash_for_file` から作られた source policy hash。
 ///
-/// source capability proof は span range を含むため、現在の source path と source hash に
-/// 結び付いた policy hash だけを key に入れる。未計算の状態を `0` などで表さず、
-/// caller がこの wrapper を作れない場合は candidate builder を呼ばない。
+/// source capability proof がある file では、現在の source path、source hash、proof set に
+/// 結び付いた policy hash だけを key に入れる。proof が空の file では、Resource IR body
+/// hash が function semantics を固定するため、path と空 proof set の hash を key に入れる。
+/// 未計算の状態を `0` などで表さず、caller がこの wrapper を作れない場合は candidate
+/// builder を呼ばない。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct ResourceSummarySourceCapabilityPolicyHash(u64);
 
