@@ -84,6 +84,13 @@ pub(super) fn record_resource_summary_value_cache_candidates(
         let Some((function_index, function)) = functions.get(summary.function.as_str()) else {
             continue;
         };
+        if preseeded_functions
+            .get(*function_index)
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
         collect_resource_summary_value_cache_leaf_entry_candidate_from_summary(
             &mut candidates,
             cache,
@@ -94,10 +101,6 @@ pub(super) fn record_resource_summary_value_cache_candidates(
                 .get(*function_index)
                 .map(Vec::as_slice)
                 .unwrap_or(&[]),
-            preseeded_functions
-                .get(*function_index)
-                .copied()
-                .unwrap_or(false),
             summary,
         );
     }
@@ -111,7 +114,6 @@ fn collect_resource_summary_value_cache_leaf_entry_candidate_from_summary(
     types: &TypeCtx,
     function: &ResourceFunction,
     dependencies: &[usize],
-    was_preseeded: bool,
     summary: &CollectionSlotLifecycleFunctionSummary,
 ) {
     let eligible_op_count = top_level_forall_drop_traversal_op_count(&summary.ops);
@@ -126,9 +128,7 @@ fn collect_resource_summary_value_cache_leaf_entry_candidate_from_summary(
         }
         return;
     }
-    if !was_preseeded {
-        cache.record_drop_traversal_forall_recomputed_ops(eligible_op_count);
-    }
+    cache.record_drop_traversal_forall_recomputed_ops(eligible_op_count);
     match cache.drop_traversal_forall_leaf_entry_candidate(
         context,
         types,

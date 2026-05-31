@@ -379,8 +379,9 @@ fn resource_summary_value_store_keeps_multiple_values_under_the_same_key() {
 }
 
 /// preseed は、cache に保存済みの complete leaf entry をそのまま function summary として
-/// 注入し、固定点 worklist の初期キューから対象関数を外す。これにより、candidate hit
-/// とは別に実際の replay counter が増え、op の順序と重複も保持される。
+/// 注入し、固定点 worklist の初期キューから対象関数を外す。replay 済み entry は同じ
+/// compile の末尾で candidate hit として数え直さず、実際に work を削ったことは
+/// replay counter だけで観測する。
 #[test]
 fn resource_summary_value_preseed_replays_leaf_entry_and_skips_worklist() {
     let mut cache = ResourceSummaryValueCache::new();
@@ -452,7 +453,7 @@ fn resource_summary_value_preseed_replays_leaf_entry_and_skips_worklist() {
     );
 
     let stats = cache.stats();
-    assert_eq!(stats.resource_summary_value_hits, 2);
+    assert_eq!(stats.resource_summary_value_hits, 0);
     assert_eq!(stats.resource_summary_value_replay_hits, 2);
     assert_eq!(stats.resource_summary_value_replayed_ops, 2);
     assert_eq!(stats.resource_summary_value_recomputed_ops, 2);

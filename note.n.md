@@ -48174,3 +48174,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - release Web RPN same-session string literal edit 測定 `tmp/rpn_dependency_closure_base_cache_20260531.json` では、base `compile_ms=9431`、edit `compile_ms=3138` だった。edit の `resource_static_check` は `2833ms` で、lazy final check checkpoint の `5170ms` から改善した。
 - 測定統計は累積値であるため、base から edit への差分としては `resource_raw_alias_summary_recomputations=0`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` を維持し、`resource_i32_scalar_summary_recomputations=+7`、`resource_summary_value_recomputed_ops=+16` が残る。
 - この checkpoint でも 0.5 秒未満 compile / 0.1 秒以下の式枝差し替え budget には届いていない。次は changed function only proof replay、typed expression subtree query、stdlib prechecked artifact、codegen fragment cache に分けて継続する。
+
+## 2026-05-31 Agent preseeded summary record skip checkpoint
+
+- remote/main は `git pull --ff-only` で同期済みで、作業 branch は `perf/skip-preseeded-summary-record-20260531` として作成した。`plan.md` は変更していない。
+- Zenn の試作段階方針、静的検査方針、純粋性と性能追求方針を再確認し、Resource summary cache の proof 入力は削らず、replay 済み entry の重複 candidate 化だけを削る方針にした。
+- subagent review では、raw alias / i32 scalar / raw-init complete leaf / collection slot complete leaf の preseed 済み entry を同じ compile の末尾で再記録しない方針は妥当と確認した。final initialized function check は replay hit 時に checker/record へ進まない別経路なので今回の対象外である。
+- `SummaryWorklist` に recomputed 関数 bitset と `unrecomputed_initial_skips` を追加した。これにより、cache replay で初期 skip され、その後 dependent として worklist に戻らなかった関数だけを Resource summary candidate record から外す。preseed 後に再計算された関数は通常どおり candidate 化し、古い cache entry を残さない。
+- `resource_summary_value_hits` と kind 別 hits は「通常 recompute 後に candidate 化した entry が既存 stable value と一致した数」として扱う。preseed replay による実 reuse は `resource_summary_value_replay_hits` / `resource_summary_value_replayed_ops` / `resource_summary_value_lazy_pass_*` で観測する。
+- focused regression として、preseed 済み raw alias / i32 scalar / raw-init / collection slot が candidate hit として再記録されないこと、初期 skip 後に再投入された worklist entry だけは skip から外れることを追加した。
+- release Web RPN same-session string literal edit 測定 `tmp/rpn_skip_preseeded_summary_record_20260531.json` では、base `compile_ms=9403`、edit `compile_ms=2105` だった。edit の `resource_static_check` は `1820ms` で、直前の dependency closure base hash checkpoint の `2833ms` から改善した。
+- 測定統計は累積値であるため、base から edit への差分としては `resource_raw_alias_summary_recomputations=0`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` を維持し、`resource_i32_scalar_summary_recomputations=+7`、`resource_summary_value_recomputed_ops=+16` が残る。edit 累積値は `resource_summary_value_hits=0`、`resource_summary_value_replayed_ops=914`、`resource_summary_value_lazy_pass_hits=288` である。
+- この checkpoint でも 0.5 秒未満 compile / 0.1 秒以下の式枝差し替え budget には届いていない。次は changed function only proof replay、typed expression subtree query、stdlib prechecked artifact、codegen fragment cache に分けて継続する。
+- memo_call / 高階関数側の subagent review では、Phase 1 の typecheck/HIR gate は実装済みだが、private cache effect、SourceCapability exact use-site、Resource escape proof、sealed backend representation は別 branch / 別 commit で進めるべきと確認した。今回の性能 commit には混ぜない。

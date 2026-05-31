@@ -82,6 +82,13 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
         let Some((function_index, function)) = functions.get(summary.function.as_str()) else {
             continue;
         };
+        if preseeded_functions
+            .get(*function_index)
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
         collect_raw_init_complete_leaf_entry_candidate_from_summary(
             &mut candidates,
             cache,
@@ -91,15 +98,18 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
             function,
             *function_index,
             dependencies,
-            preseeded_functions
-                .get(*function_index)
-                .copied()
-                .unwrap_or(false),
             summary,
         );
     }
     for (function_index, function) in module.functions.iter().enumerate() {
         if !relevant_functions
+            .get(function_index)
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        if preseeded_functions
             .get(function_index)
             .copied()
             .unwrap_or(false)
@@ -122,10 +132,6 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
             function,
             function_index,
             dependencies,
-            preseeded_functions
-                .get(function_index)
-                .copied()
-                .unwrap_or(false),
             &summary,
         );
     }
@@ -141,7 +147,6 @@ fn collect_raw_init_complete_leaf_entry_candidate_from_summary(
     function: &ResourceFunction,
     function_index: usize,
     all_dependencies: &[Vec<usize>],
-    was_preseeded: bool,
     summary: &RawCellInitializationFunctionSummary,
 ) {
     let eligible_fact_count = raw_init_complete_leaf_entry_fact_count(summary);
@@ -154,9 +159,7 @@ fn collect_raw_init_complete_leaf_entry_candidate_from_summary(
         cache.record_raw_init_param_facts_dependency_bypass(eligible_fact_count);
         return;
     }
-    if !was_preseeded {
-        cache.record_raw_init_param_facts_recomputed_ops(eligible_fact_count);
-    }
+    cache.record_raw_init_param_facts_recomputed_ops(eligible_fact_count);
     let type_params = owner_summary_type_params(types, function);
     let dependency_closure_hash = match raw_init_dependency_closure_hash(
         context,

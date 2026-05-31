@@ -217,7 +217,8 @@ fn preseed_i32_summaries(
 
 /// i32 scalar summary cache は、aliases / offsets / relations / constants /
 /// conditions を同じ complete entry として保存し、worklist 前に完全な summary
-/// surface として戻せる場合だけ対象関数を skip する。
+/// surface として戻せる場合だけ対象関数を skip する。skip 済み関数は同じ compile
+/// の末尾で candidate hit として再記録せず、replay counter だけで再利用を示す。
 #[test]
 fn i32_scalar_return_facts_preseed_replays_same_summary_surface() {
     let mut cache = ResourceSummaryValueCache::new();
@@ -252,6 +253,23 @@ fn i32_scalar_return_facts_preseed_replays_same_summary_surface() {
     );
     assert_eq!(stats.resource_summary_value_replay_hits, 6);
     assert_eq!(stats.resource_summary_value_replayed_ops, 6);
+
+    let dependencies = build_function_summary_dependencies(&module);
+    let relevant_functions = vec![true; module.functions.len()];
+    record_i32_scalar_return_summary_value_cache_candidates(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        &dependencies,
+        &relevant_functions,
+        &preseeded_functions,
+        &summaries,
+    );
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_i32_scalar_return_facts_hits, 0);
+    assert_eq!(stats.resource_summary_value_recomputed_ops, 6);
 }
 
 /// facts が空の relevant function も「空の summary が固定点結果である」と cache できる。

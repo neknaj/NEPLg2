@@ -71,6 +71,33 @@ fn filtered_summary_worklist_notify_changed_skips_irrelevant_dependents() {
     assert_eq!(drain_worklist(&mut worklist), vec![0]);
 }
 
+#[test]
+fn unrecomputed_initial_skips_keep_only_entries_that_never_reentered_worklist() {
+    let module = ResourceModule {
+        functions: vec![
+            function_with_ops("caller", vec![call("callee")]),
+            function_with_ops("callee", vec![]),
+            function_with_ops("independent", vec![]),
+        ],
+        entry: None,
+        string_literals: vec![],
+    };
+    let mut worklist = SummaryWorklist::new_filtered_with_initial_skips(
+        &module,
+        vec![true, true, true],
+        vec![true, false, true],
+    );
+
+    assert_eq!(worklist.pop(), Some(1));
+    worklist.notify_changed(1);
+    assert_eq!(worklist.pop(), Some(0));
+
+    assert_eq!(
+        worklist.unrecomputed_initial_skips(&[true, false, true]),
+        vec![false, false, true]
+    );
+}
+
 fn assert_before(order: &[usize], left: usize, right: usize) {
     let left_pos = order.iter().position(|index| *index == left).unwrap();
     let right_pos = order.iter().position(|index| *index == right).unwrap();

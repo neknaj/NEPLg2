@@ -928,6 +928,40 @@ lazy final check checkpoint の `5170ms` から大きく下がった。
 typed expression subtree query、stdlib prechecked `.neplmeta`、function-level `.neplobj`
 を順に進める。
 
+### Skip Re-recording Preseeded Summary Entries
+
+2026-05-31 の preseeded summary record skip checkpoint では、Resource summary cache から
+worklist 前に replay 済みの entry を、同じ compile の末尾で candidate として再記録しない
+ようにした。replay 時点で key 作成、stable entry の存在確認、現在の type / place boundary
+への fail-closed な再投影が完了しているため、末尾の candidate 化は安全性 proof を強めず、
+同じ key / dependency closure / stable mirror をもう一度構築する固定費だけを増やしていた。
+
+適用対象は raw alias、i32 scalar、raw-init complete leaf、collection slot complete leaf
+である。ただし、preseed された関数が依存先変更により同じ fixed-point pass 内で再び
+worklist に入った場合は、再計算済みの新しい summary として通常どおり candidate 化する。
+この境界は `SummaryWorklist::unrecomputed_initial_skips` で表し、「初期 skip されたまま
+一度も再計算されなかった関数」だけを record 対象から外す。
+
+この変更により、`resource_summary_value_hits` と summary kind 別 hits は「通常 recompute
+後に candidate 化した entry が既存 stable value と一致した数」を表す。preseed replay に
+よって実際に compile work を削った量は、引き続き `resource_summary_value_replay_hits` /
+`resource_summary_value_replayed_ops` / `resource_summary_value_lazy_pass_*` を見る。
+
+release Web RPN same-session string literal edit 測定
+`tmp/rpn_skip_preseeded_summary_record_20260531.json` では、base `compile_ms=9403`、
+edit `compile_ms=2105` だった。edit の `resource_static_check` は `1820ms` で、直前の
+dependency closure base hash checkpoint の `2833ms` からさらに下がった。base から edit
+への差分では、`resource_raw_alias_summary_recomputations=0`、
+`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` を維持し、
+`resource_i32_scalar_summary_recomputations=+7`、`resource_summary_value_recomputed_ops=+16`
+が残る。preseed 再記録分を数えなくなったため、edit 累積の
+`resource_summary_value_hits` と kind 別 hits は `0` で、実 reuse は
+`resource_summary_value_replayed_ops=914` と `resource_summary_value_lazy_pass_hits=288` に現れる。
+
+0.5 秒未満にはまだ届いていない。残る支配項は Resource static check pipeline の
+changed-function-only 化、typed expression subtree query、stdlib prechecked artifact、
+codegen fragment cache に分けて継続する。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

@@ -325,7 +325,8 @@ fn preseed_leaf_summaries(
 }
 
 /// raw-init param facts cache は、保存済み leaf entry を fixed-point worklist の前へ
-/// 同じ summary surface として戻せる場合だけ対象関数を skip する。
+/// 同じ summary surface として戻せる場合だけ対象関数を skip する。skip 済み関数は同じ
+/// compile の末尾で candidate hit として再記録せず、replay counter だけで再利用を示す。
 #[test]
 fn raw_init_complete_leaf_preseed_replays_same_summary_surface() {
     let mut cache = ResourceSummaryValueCache::new();
@@ -350,6 +351,23 @@ fn raw_init_complete_leaf_preseed_replays_same_summary_surface() {
     assert_eq!(stats.resource_summary_value_raw_init_param_facts_stores, 1);
     assert_eq!(stats.resource_summary_value_replay_hits, 1);
     assert_eq!(stats.resource_summary_value_replayed_ops, 1);
+
+    let dependencies = build_function_summary_dependencies(&module);
+    let relevant_functions = vec![true; module.functions.len()];
+    record_raw_cell_initialization_summary_value_cache_candidates(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        &dependencies,
+        &relevant_functions,
+        &preseeded_functions,
+        &summaries,
+    );
+
+    let stats = cache.stats();
+    assert_eq!(stats.resource_summary_value_raw_init_param_facts_hits, 0);
+    assert_eq!(stats.resource_summary_value_recomputed_ops, 1);
 }
 
 /// raw-init の relevant function は、summary fact を持たない場合でも fixed-point worklist

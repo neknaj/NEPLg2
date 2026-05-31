@@ -96,6 +96,13 @@ pub(super) fn record_i32_scalar_return_summary_value_cache_candidates(
         {
             continue;
         }
+        if preseeded_functions
+            .get(function_index)
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
         let facts = summary_by_function
             .get(function.name.as_str())
             .map(|summary| &summary.facts)
@@ -109,10 +116,6 @@ pub(super) fn record_i32_scalar_return_summary_value_cache_candidates(
             function,
             function_index,
             dependencies,
-            preseeded_functions
-                .get(function_index)
-                .copied()
-                .unwrap_or(false),
             facts,
         );
     }
@@ -128,13 +131,10 @@ fn collect_i32_scalar_return_facts_entry_candidate_from_summary(
     function: &ResourceFunction,
     function_index: usize,
     all_dependencies: &[Vec<usize>],
-    was_preseeded: bool,
     facts: &I32ScalarReturnFacts,
 ) {
     let fact_count = facts.len();
-    if !was_preseeded {
-        cache.record_i32_scalar_return_facts_recomputed_ops(fact_count);
-    }
+    cache.record_i32_scalar_return_facts_recomputed_ops(fact_count);
     let type_params = owner_summary_type_params(types, function);
     let dependency_closure_hash = match i32_scalar_dependency_closure_hash(
         context,

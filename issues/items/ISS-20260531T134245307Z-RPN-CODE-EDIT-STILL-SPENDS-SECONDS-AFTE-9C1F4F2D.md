@@ -271,6 +271,41 @@ lazy final check checkpoint の edit `compile_ms=5454` / `resource_static_check=
 この issue は、changed function only proof replay、typed expression subtree query、
 stdlib prechecked artifact、codegen fragment cache へ継続する。
 
+## 2026-05-31 preseeded summary record skip 更新
+
+Resource summary cache から worklist 前に replay 済みの entry を、同じ compile の末尾で
+candidate として再記録しないようにした。replay 時点で key 作成、stable entry の存在確認、
+現在の type / place boundary への fail-closed な再投影が済んでいるため、末尾の candidate 化は
+安全性 proof を強めず、同じ stable mirror と dependency closure を再構築する固定費だけを増やす。
+
+対象は raw alias、i32 scalar、raw-init complete leaf、collection slot complete leaf である。
+ただし preseed 後に dependent として再び worklist へ入った関数は、再計算済み summary として
+通常どおり candidate 化する。`SummaryWorklist::unrecomputed_initial_skips` により、初期 skip
+されたまま一度も再計算されなかった関数だけを record から外す。
+
+`tmp/rpn_skip_preseeded_summary_record_20260531.json` では、same-session string literal edit が
+次の結果になった。
+
+- base `compile_ms=9403`、`resource_static_check=8789ms`
+- edit `compile_ms=2105`、`resource_static_check=1820ms`
+- base から edit への差分は `resource_raw_alias_summary_recomputations=0`
+- base から edit への差分は `resource_raw_init_summary_recomputations=0`
+- base から edit への差分は `resource_initialized_function_checks=0`
+- base から edit への差分は `resource_i32_scalar_summary_recomputations=+7`
+- base から edit への差分は `resource_summary_value_recomputed_ops=+16`
+- edit 累積値は `resource_summary_value_hits=0`
+- edit 累積値は `resource_summary_value_replayed_ops=914`
+- edit 累積値は `resource_summary_value_lazy_pass_hits=288`
+
+`resource_summary_value_hits` と kind 別 hits は、通常 recompute 後に candidate 化した entry が
+既存 stable value と一致した数を表す。preseed replay による実 reuse は
+`resource_summary_value_replay_*` と `resource_summary_value_lazy_pass_*` で観測する。
+
+dependency closure base hash checkpoint の edit `compile_ms=3138` / `resource_static_check=2833ms`
+からは改善したが、0.5 秒未満 compile / 0.1 秒以下の式枝差し替え budget には届いていない。
+この issue は、changed function only proof replay、typed expression subtree query、
+stdlib prechecked artifact、codegen fragment cache へ継続する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

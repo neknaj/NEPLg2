@@ -66,6 +66,13 @@ pub(super) fn record_raw_alias_return_summary_value_cache_candidates(
         summary_by_function.insert(summary.function.as_str(), summary);
     }
     for (function_index, function) in module.functions.iter().enumerate() {
+        if preseeded_functions
+            .get(function_index)
+            .copied()
+            .unwrap_or(false)
+        {
+            continue;
+        }
         let empty_summary;
         let summary = match summary_by_function.get(function.name.as_str()) {
             Some(summary) => *summary,
@@ -83,10 +90,6 @@ pub(super) fn record_raw_alias_return_summary_value_cache_candidates(
             function,
             function_index,
             dependencies,
-            preseeded_functions
-                .get(function_index)
-                .copied()
-                .unwrap_or(false),
             summary,
         );
     }
@@ -102,13 +105,10 @@ fn collect_raw_alias_return_entry_candidate_from_summary(
     function: &ResourceFunction,
     function_index: usize,
     all_dependencies: &[Vec<usize>],
-    was_preseeded: bool,
     summary: &RawCellAddressReturnSummary,
 ) {
     let alias_count = summary.aliases.len();
-    if !was_preseeded {
-        cache.record_raw_alias_return_entry_recomputed_ops(alias_count);
-    }
+    cache.record_raw_alias_return_entry_recomputed_ops(alias_count);
     let type_params = owner_summary_type_params(types, function);
     let dependency_closure_hash = match raw_alias_dependency_closure_hash(
         context,

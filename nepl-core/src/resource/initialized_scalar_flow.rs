@@ -140,6 +140,8 @@ pub(super) fn compute_i32_scalar_return_summaries(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
+        let candidate_skipped_functions =
+            worklist.unrecomputed_initial_skips(&preseeded_functions);
         record_i32_scalar_return_summary_value_cache_candidates(
             cache,
             context,
@@ -147,7 +149,7 @@ pub(super) fn compute_i32_scalar_return_summaries(
             module,
             &dependencies,
             &relevant,
-            &preseeded_functions,
+            &candidate_skipped_functions,
             &summaries,
         );
     }

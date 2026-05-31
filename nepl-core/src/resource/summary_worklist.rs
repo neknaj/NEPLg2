@@ -13,6 +13,7 @@ pub(super) struct SummaryWorklist {
     pending: VecDeque<usize>,
     queued: Vec<bool>,
     relevant: Vec<bool>,
+    recomputed: Vec<bool>,
     max_recomputations: usize,
     recomputations: usize,
 }
@@ -52,6 +53,7 @@ impl SummaryWorklist {
             pending,
             queued,
             relevant,
+            recomputed: vec![false; module.functions.len()],
             max_recomputations,
             recomputations: 0,
         }
@@ -63,6 +65,7 @@ impl SummaryWorklist {
         }
         let index = self.pending.pop_front()?;
         self.queued[index] = false;
+        self.recomputed[index] = true;
         self.recomputations += 1;
         Some(index)
     }
@@ -78,6 +81,17 @@ impl SummaryWorklist {
 
     pub(super) fn recomputations(&self) -> usize {
         self.recomputations
+    }
+
+    pub(super) fn unrecomputed_initial_skips(&self, initially_skipped: &[bool]) -> Vec<bool> {
+        debug_assert_eq!(initially_skipped.len(), self.recomputed.len());
+        initially_skipped
+            .iter()
+            .zip(self.recomputed.iter())
+            .map(|(was_initially_skipped, was_recomputed)| {
+                *was_initially_skipped && !*was_recomputed
+            })
+            .collect()
     }
 }
 

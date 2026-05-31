@@ -111,13 +111,15 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries_with_recomput
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
+        let candidate_skipped_functions =
+            worklist.unrecomputed_initial_skips(&preseeded_functions);
         record_resource_summary_value_cache_candidates(
             cache,
             context,
             types,
             module,
             &dependencies,
-            &preseeded_functions,
+            &candidate_skipped_functions,
             &summaries,
         );
     }
