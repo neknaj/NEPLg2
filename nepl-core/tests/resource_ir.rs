@@ -3,6 +3,7 @@ use nepl_core::diagnostic::Severity;
 use nepl_core::diagnostic_codes::{
     DiagnosticCode, ResourceDiagnosticCode, ResourceLowerDiagnosticCode,
 };
+use nepl_core::function_identity::FunctionValueIdentity;
 use nepl_core::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule, HirParam,
 };
@@ -41,6 +42,14 @@ fn stdlib_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("..")
         .join("stdlib")
+}
+
+fn function_value_identity(
+    name: &str,
+    function_ty: TypeId,
+    effect: Effect,
+) -> FunctionValueIdentity {
+    FunctionValueIdentity::new(name.to_string(), None, function_ty, effect, vec![])
 }
 
 fn typecheck_resource_source(source: &str) -> (HirModule, TypeCtx) {
@@ -2365,6 +2374,7 @@ fn typed_resource_ir_effect_check_reports_raw_alloc_escape_through_indirect_retu
                         ResourceOp::FunctionValue {
                             output: callee.clone(),
                             name: "slot_id".to_string(),
+                            identity: function_value_identity("slot_id", callee.ty, Effect::Pure),
                             effect: EffectOp::UserCall {
                                 name: "slot_id".to_string(),
                                 effect: Effect::Pure,
@@ -2912,6 +2922,11 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_function_value_call
                         ResourceOp::FunctionValue {
                             output: function_value.clone(),
                             name: "raw_id".to_string(),
+                            identity: function_value_identity(
+                                "raw_id",
+                                function_value.ty,
+                                Effect::Pure,
+                            ),
                             effect: EffectOp::UserCall {
                                 name: "raw_id".to_string(),
                                 effect: Effect::Pure,
@@ -3491,6 +3506,11 @@ fn resource_ir_effect_check_uses_known_function_alias_stored_in_aggregate_field(
                         ResourceOp::FunctionValue {
                             output: function_value.clone(),
                             name: "return_zero".to_string(),
+                            identity: function_value_identity(
+                                "return_zero",
+                                function_value.ty,
+                                Effect::Pure,
+                            ),
                             effect: EffectOp::UserCall {
                                 name: "return_zero".to_string(),
                                 effect: Effect::Pure,
@@ -3604,6 +3624,11 @@ fn resource_ir_effect_check_clears_stale_function_alias_on_assignment() {
                         ResourceOp::FunctionValue {
                             output: known_function.clone(),
                             name: "safe_zero".to_string(),
+                            identity: function_value_identity(
+                                "safe_zero",
+                                known_function.ty,
+                                Effect::Pure,
+                            ),
                             effect: EffectOp::UserCall {
                                 name: "safe_zero".to_string(),
                                 effect: Effect::Pure,
@@ -3751,6 +3776,11 @@ fn resource_ir_effect_check_reports_raw_alloc_escape_through_higher_order_helper
                         ResourceOp::FunctionValue {
                             output: function_value.clone(),
                             name: "raw_id".to_string(),
+                            identity: function_value_identity(
+                                "raw_id",
+                                function_value.ty,
+                                Effect::Pure,
+                            ),
                             effect: EffectOp::UserCall {
                                 name: "raw_id".to_string(),
                                 effect: Effect::Pure,
@@ -4780,7 +4810,11 @@ fn resource_ir_lowering_preserves_call_targets_and_callback_places() {
                             mutable: false,
                             value: Box::new(HirExpr {
                                 ty: fn_ty,
-                                kind: HirExprKind::FnValue("callee".to_string()),
+                                kind: HirExprKind::FnValue(function_value_identity(
+                                    "callee",
+                                    fn_ty,
+                                    Effect::Impure,
+                                )),
                                 span,
                             }),
                         },
@@ -8914,6 +8948,7 @@ fn resource_ir_cell_check_preserves_raw_address_returned_by_function_value() {
                         ResourceOp::FunctionValue {
                             output: callee.clone(),
                             name: "slot_id".to_string(),
+                            identity: function_value_identity("slot_id", callee.ty, Effect::Pure),
                             effect: EffectOp::UserCall {
                                 name: "slot_id".to_string(),
                                 effect: Effect::Pure,
@@ -10954,6 +10989,11 @@ fn resource_ir_owner_check_reports_function_value_alloc_return_leak() {
                         ResourceOp::FunctionValue {
                             output: callee.clone(),
                             name: "alloc_owner".to_string(),
+                            identity: function_value_identity(
+                                "alloc_owner",
+                                callee.ty,
+                                Effect::Pure,
+                            ),
                             effect: EffectOp::UserCall {
                                 name: "alloc_owner".to_string(),
                                 effect: Effect::Pure,
@@ -11061,6 +11101,11 @@ fn resource_ir_owner_check_reports_function_value_stored_in_aggregate_field_allo
                         ResourceOp::FunctionValue {
                             output: function_value.clone(),
                             name: "make_owner".to_string(),
+                            identity: function_value_identity(
+                                "make_owner",
+                                function_value.ty,
+                                Effect::Pure,
+                            ),
                             effect: EffectOp::UserCall {
                                 name: "make_owner".to_string(),
                                 effect: Effect::Pure,
@@ -11192,6 +11237,11 @@ fn resource_ir_owner_check_transfers_aggregate_owner_returned_by_function_value(
                         ResourceOp::FunctionValue {
                             output: callee.clone(),
                             name: "owner_wrapper_id".to_string(),
+                            identity: function_value_identity(
+                                "owner_wrapper_id",
+                                callee.ty,
+                                Effect::Pure,
+                            ),
                             effect: EffectOp::UserCall {
                                 name: "owner_wrapper_id".to_string(),
                                 effect: Effect::Pure,
@@ -18579,6 +18629,7 @@ fn resource_ir_borrow_check_reports_borrow_token_returned_by_function_value() {
                         ResourceOp::FunctionValue {
                             output: callee.clone(),
                             name: "borrow_id".to_string(),
+                            identity: function_value_identity("borrow_id", callee.ty, Effect::Pure),
                             effect: EffectOp::UserCall {
                                 name: "borrow_id".to_string(),
                                 effect: Effect::Pure,
@@ -18679,6 +18730,7 @@ fn resource_ir_borrow_check_releases_non_returned_indirect_call_argument_borrow_
                         ResourceOp::FunctionValue {
                             output: callee.clone(),
                             name: "observe".to_string(),
+                            identity: function_value_identity("observe", callee.ty, Effect::Pure),
                             effect: EffectOp::UserCall {
                                 name: "observe".to_string(),
                                 effect: Effect::Pure,
@@ -18872,6 +18924,11 @@ fn resource_ir_borrow_check_clears_stale_function_alias_on_assignment() {
                     ResourceOp::FunctionValue {
                         output: known_function.clone(),
                         name: "known_no_token_return".to_string(),
+                        identity: function_value_identity(
+                            "known_no_token_return",
+                            known_function.ty,
+                            Effect::Pure,
+                        ),
                         effect: EffectOp::Pure,
                         span,
                     },
@@ -29739,6 +29796,7 @@ fn assert_collection_slot_nested_returned_enum_payload_transfer(
         wrapper_ops.push(ResourceOp::FunctionValue {
             output: callee_fn.clone(),
             name: "identity_storage".to_string(),
+            identity: function_value_identity("identity_storage", callee_fn.ty, Effect::Pure),
             effect: EffectOp::Pure,
             span,
         });
@@ -29755,6 +29813,7 @@ fn assert_collection_slot_nested_returned_enum_payload_transfer(
             wrapper_ops.push(ResourceOp::FunctionValue {
                 output: callee_fn,
                 name: "fresh_storage".to_string(),
+                identity: function_value_identity("fresh_storage", function_ty, Effect::Pure),
                 effect: EffectOp::Pure,
                 span,
             });
@@ -30189,6 +30248,11 @@ fn resource_ir_collection_slot_return_summary_does_not_cross_join_indirect_calle
                                 ResourceOp::FunctionValue {
                                     output: callee_fn.clone(),
                                     name: "fresh_storage".to_string(),
+                                    identity: function_value_identity(
+                                        "fresh_storage",
+                                        callee_fn.ty,
+                                        Effect::Pure,
+                                    ),
                                     effect: EffectOp::Pure,
                                     span,
                                 },
@@ -30204,6 +30268,11 @@ fn resource_ir_collection_slot_return_summary_does_not_cross_join_indirect_calle
                                 ResourceOp::FunctionValue {
                                     output: callee_fn.clone(),
                                     name: "identity_storage".to_string(),
+                                    identity: function_value_identity(
+                                        "identity_storage",
+                                        callee_fn.ty,
+                                        Effect::Pure,
+                                    ),
                                     effect: EffectOp::Pure,
                                     span,
                                 },
@@ -30411,6 +30480,11 @@ fn resource_ir_collection_slot_return_summary_skips_never_branch_path_effects() 
                                 ResourceOp::FunctionValue {
                                     output: callee_fn.clone(),
                                     name: "fresh_storage".to_string(),
+                                    identity: function_value_identity(
+                                        "fresh_storage",
+                                        callee_fn.ty,
+                                        Effect::Pure,
+                                    ),
                                     effect: EffectOp::Pure,
                                     span,
                                 },
@@ -30420,6 +30494,11 @@ fn resource_ir_collection_slot_return_summary_skips_never_branch_path_effects() 
                                 ResourceOp::FunctionValue {
                                     output: callee_fn.clone(),
                                     name: "identity_storage".to_string(),
+                                    identity: function_value_identity(
+                                        "identity_storage",
+                                        callee_fn.ty,
+                                        Effect::Pure,
+                                    ),
                                     effect: EffectOp::Pure,
                                     span,
                                 },
@@ -30635,6 +30714,11 @@ fn resource_ir_collection_slot_return_summary_skips_never_match_arm_path_effects
                                         ResourceOp::FunctionValue {
                                             output: callee_fn.clone(),
                                             name: "fresh_storage".to_string(),
+                                            identity: function_value_identity(
+                                                "fresh_storage",
+                                                callee_fn.ty,
+                                                Effect::Pure,
+                                            ),
                                             effect: EffectOp::Pure,
                                             span,
                                         },
@@ -30651,6 +30735,11 @@ fn resource_ir_collection_slot_return_summary_skips_never_match_arm_path_effects
                                         ResourceOp::FunctionValue {
                                             output: callee_fn.clone(),
                                             name: "identity_storage".to_string(),
+                                            identity: function_value_identity(
+                                                "identity_storage",
+                                                callee_fn.ty,
+                                                Effect::Pure,
+                                            ),
                                             effect: EffectOp::Pure,
                                             span,
                                         },
@@ -32324,6 +32413,7 @@ fn resource_ir_collection_slot_indirect_call_summary_applies_function_alias() {
             ResourceOp::FunctionValue {
                 output: callee.clone(),
                 name: "drain_slot".to_string(),
+                identity: function_value_identity("drain_slot", callee.ty, Effect::Pure),
                 effect: EffectOp::Pure,
                 span,
             },
@@ -32473,6 +32563,11 @@ fn resource_ir_collection_slot_indirect_return_summary_preserves_path_correlatio
                                 ResourceOp::FunctionValue {
                                     output: callee_fn.clone(),
                                     name: "fresh_storage".to_string(),
+                                    identity: function_value_identity(
+                                        "fresh_storage",
+                                        callee_fn.ty,
+                                        Effect::Pure,
+                                    ),
                                     effect: EffectOp::Pure,
                                     span,
                                 },
@@ -32488,6 +32583,11 @@ fn resource_ir_collection_slot_indirect_return_summary_preserves_path_correlatio
                                 ResourceOp::FunctionValue {
                                     output: callee_fn.clone(),
                                     name: "identity_storage".to_string(),
+                                    identity: function_value_identity(
+                                        "identity_storage",
+                                        callee_fn.ty,
+                                        Effect::Pure,
+                                    ),
                                     effect: EffectOp::Pure,
                                     span,
                                 },

@@ -267,10 +267,12 @@ impl ResourceCheckEngine<'_> {
                 }
             }
             ResourceOp::CallEffect { .. } => {}
-            ResourceOp::FunctionValue { output, name, .. } => {
+            ResourceOp::FunctionValue {
+                output, identity, ..
+            } => {
                 cells.mark_initialized(output);
                 raw_aliases.clear(output);
-                function_aliases.set_alias(output, name.clone());
+                function_aliases.set_alias(output, identity.clone());
                 pending_reallocs.clear_result(output);
                 variant_initializations.clear_result(output);
             }

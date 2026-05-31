@@ -208,6 +208,7 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
             name,
             effect,
             span,
+            ..
         } => {
             let _ = writeln!(
                 out,

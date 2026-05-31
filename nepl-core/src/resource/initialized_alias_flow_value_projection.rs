@@ -167,9 +167,11 @@ fn propagate_value_projection_op(
             }
             construct_function_alias_fields(function_aliases, output, kind, inputs);
         }
-        ResourceOp::FunctionValue { output, name, .. } => {
+        ResourceOp::FunctionValue {
+            output, identity, ..
+        } => {
             clear_value_projection_aliases(value_aliases, output);
-            function_aliases.set_alias(output, name.clone());
+            function_aliases.set_alias(output, identity.clone());
         }
         ResourceOp::Call {
             output,
@@ -441,7 +443,7 @@ fn apply_indirect_call_value_projection_summary(
     let functions = function_aliases.functions(callee);
     let mut applied = false;
     for function in functions {
-        if let Some(summary) = summaries.get(function) {
+        if let Some(summary) = summaries.get(function.symbol()) {
             applied |= apply_value_projection_summary(value_aliases, output, args, summary, types);
         }
     }

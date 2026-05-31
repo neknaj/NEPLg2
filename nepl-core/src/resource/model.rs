@@ -7,6 +7,7 @@ use core::fmt;
 
 use crate::ast::Effect;
 pub use crate::effects::{ExternalIoOp, NondetOp, RawMemoryOp};
+use crate::function_identity::FunctionValueIdentity;
 use crate::span::Span;
 use crate::types::TypeId;
 
@@ -124,6 +125,7 @@ pub enum ResourceOp {
     FunctionValue {
         output: Place,
         name: String,
+        identity: FunctionValueIdentity,
         effect: EffectOp,
         span: Span,
     },

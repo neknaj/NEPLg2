@@ -402,8 +402,10 @@ impl ResourceEffectBoundaryEngine<'_> {
                         RawMemoryIdentityTable::merge_paths(&raw_memory_identity_paths);
                 }
             }
-            ResourceOp::FunctionValue { output, name, .. } => {
-                function_aliases.set_alias(output, name.clone());
+            ResourceOp::FunctionValue {
+                output, identity, ..
+            } => {
+                function_aliases.set_alias(output, identity.clone());
             }
             ResourceOp::Expr {
                 kind: ResourceExprKind::LiteralI32(value),

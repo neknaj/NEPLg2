@@ -120,7 +120,7 @@ fn collect_param_release_requirements_from_op(
                     args,
                     raw_aliases,
                     params,
-                    raw_init_summaries.get(function),
+                    raw_init_summaries.get(function.symbol()),
                 );
             }
             if functions.is_empty() && indirect_call_may_release_raw_cells(effect) {

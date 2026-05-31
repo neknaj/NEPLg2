@@ -105,7 +105,7 @@ impl ResourceOwnerCheckEngine<'_> {
             return;
         }
         for function in functions {
-            if let Some(summary) = self.summaries.get(function) {
+            if let Some(summary) = self.summaries.get(function.symbol()) {
                 variant_owner_effects.apply_resolved_parameter_variants(
                     self,
                     owners,

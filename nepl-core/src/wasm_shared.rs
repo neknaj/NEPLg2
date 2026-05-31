@@ -250,8 +250,11 @@ fn collect_called_functions_from_expr(
             HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
                 stack.push(inner);
             }
-            HirExprKind::Var(name) | HirExprKind::FnValue(name) => {
+            HirExprKind::Var(name) => {
                 out.insert(name.clone());
+            }
+            HirExprKind::FnValue(identity) => {
+                out.insert(identity.symbol.clone());
             }
             HirExprKind::Unit
             | HirExprKind::LiteralI32(_)

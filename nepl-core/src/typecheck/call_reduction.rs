@@ -123,9 +123,9 @@ impl<'a> BlockChecker<'a> {
                     out.push_str("var:");
                     out.push_str(name);
                 }
-                HirExprKind::FnValue(name) => {
+                HirExprKind::FnValue(identity) => {
                     out.push_str("fn:");
-                    out.push_str(name);
+                    out.push_str(identity.symbol());
                 }
                 HirExprKind::Call { callee, args } => {
                     out.push_str("call:");

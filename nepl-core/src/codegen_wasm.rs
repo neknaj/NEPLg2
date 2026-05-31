@@ -845,7 +845,7 @@ fn gen_simple_expr_iteratively(
                         }
                     }
                     HirExprKind::FnValue(name) => {
-                        if let Some(fidx) = find_function_value_index(name_map, name) {
+                        if let Some(fidx) = find_function_value_index(name_map, name.symbol()) {
                             insts.push(Instruction::I32Const(fidx as i32));
                         } else {
                             return Err(codegen_error(
@@ -1118,7 +1118,7 @@ fn gen_expr(
             }
         }
         HirExprKind::FnValue(name) => {
-            if let Some(fidx) = find_function_value_index(name_map, name) {
+            if let Some(fidx) = find_function_value_index(name_map, name.symbol()) {
                 insts.push(Instruction::I32Const(fidx as i32));
                 Some(ValType::I32)
             } else {

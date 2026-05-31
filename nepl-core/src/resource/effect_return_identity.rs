@@ -51,7 +51,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             return;
         }
         for function in functions {
-            if let Some(summary) = self.summaries.get(function) {
+            if let Some(summary) = self.summaries.get(function.symbol()) {
                 self.apply_internal_alloc_return_identities(
                     identities,
                     output,

@@ -347,8 +347,10 @@ impl ResourceBorrowCheckEngine<'_> {
                     *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
                 }
             }
-            ResourceOp::FunctionValue { output, name, .. } => {
-                function_aliases.set_alias(output, name.clone());
+            ResourceOp::FunctionValue {
+                output, identity, ..
+            } => {
+                function_aliases.set_alias(output, identity.clone());
             }
             ResourceOp::Call {
                 output,

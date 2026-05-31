@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use alloc::collections::{BTreeMap, BTreeSet};
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -62,9 +62,11 @@ fn collect_op_summary_dependencies(op: &ResourceOp, out: &mut BTreeSet<String>) 
         ResourceOp::Call {
             target: ResourceCallTarget::User { name, .. },
             ..
-        }
-        | ResourceOp::FunctionValue { name, .. } => {
+        } => {
             out.insert(name.clone());
+        }
+        ResourceOp::FunctionValue { identity, .. } => {
+            out.insert(identity.symbol().to_string());
         }
         ResourceOp::Branch {
             then_ops, else_ops, ..
@@ -114,6 +116,7 @@ mod tests {
     use alloc::vec;
 
     use crate::ast::Effect;
+    use crate::function_identity::FunctionValueIdentity;
     use crate::span::Span;
     use crate::types::TypeId;
 
@@ -197,6 +200,13 @@ mod tests {
         ResourceOp::FunctionValue {
             output: place("function_value"),
             name: name.to_string(),
+            identity: FunctionValueIdentity::new(
+                name.to_string(),
+                None,
+                TypeId(0),
+                Effect::Pure,
+                vec![],
+            ),
             effect: super::super::model::EffectOp::Pure,
             span: Span::dummy(),
         }

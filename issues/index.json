@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T09:05:23.960Z",
+  "generated_at": "2026-05-31T09:43:17.428Z",
   "counts": {
     "total": 1295,
-    "open": 26,
-    "resolved": 1269,
+    "open": 25,
+    "resolved": 1270,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 650,
-        "open": 19,
-        "resolved": 631
+        "open": 18,
+        "resolved": 632
       },
       "neplg21": {
         "total": 2,
@@ -263,21 +263,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4.md"
-    },
-    {
-      "id": "ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C",
-      "title": "memo_call needs typed function identity for higher-order values",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-05-31",
-      "updated": "2026-05-31",
-      "target": "nepl-core/src/typecheck; nepl-core/src/resource/model.rs; nepl-core/src/resource/lower_call.rs",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C.md"
     },
     {
       "id": "ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF",
@@ -9998,6 +9983,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T012124326Z-RESOURCE-SUMMARY-RAW-INIT-VALUE-REPR-88633148.md"
+    },
+    {
+      "id": "ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C",
+      "title": "memo_call needs typed function identity for higher-order values",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/typecheck; nepl-core/src/resource/model.rs; nepl-core/src/resource/lower_call.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C.md"
     },
     {
       "id": "ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93",

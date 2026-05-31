@@ -3,6 +3,7 @@ use nepl_core::codegen_wasm;
 use nepl_core::diagnostic_codes::{
     BackendDiagnosticCode, DiagnosticCode, TypeDiagnosticCode, WasmDiagnosticCode,
 };
+use nepl_core::function_identity::FunctionValueIdentity;
 use nepl_core::hir::{
     HirBlock, HirBody, HirExpr, HirExprKind, HirExtern, HirFunction, HirLine, HirModule, HirParam,
 };
@@ -20,6 +21,14 @@ fn empty_module(functions: Vec<HirFunction>, entry: Option<&str>) -> HirModule {
         traits: Vec::new(),
         impls: Vec::new(),
     }
+}
+
+fn function_value_identity(
+    name: &str,
+    function_ty: TypeId,
+    effect: Effect,
+) -> FunctionValueIdentity {
+    FunctionValueIdentity::new(name.to_string(), None, function_ty, effect, Vec::new())
 }
 
 fn zero_arg_function(ctx: &mut TypeCtx, name: &str, result: TypeId, expr: HirExpr) -> HirFunction {
@@ -234,7 +243,11 @@ fn wasm_precheck_reports_indirect_signature_unsupported_code() {
             kind: HirExprKind::CallIndirect {
                 callee: Box::new(HirExpr {
                     ty: callee_ty,
-                    kind: HirExprKind::FnValue("callee".to_string()),
+                    kind: HirExprKind::FnValue(function_value_identity(
+                        "callee",
+                        callee_ty,
+                        Effect::Pure,
+                    )),
                     span: Span::dummy(),
                 }),
                 params: vec![i32_ty],

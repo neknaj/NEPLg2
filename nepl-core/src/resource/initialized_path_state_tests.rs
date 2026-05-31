@@ -2,6 +2,8 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec;
 
+use crate::ast::Effect;
+use crate::function_identity::FunctionValueIdentity;
 use crate::resource::model::Place;
 use crate::types::TypeId;
 
@@ -23,7 +25,7 @@ fn resource_check_state_with_function_alias(index: usize) -> ResourceCheckState 
     let name = format!("f{index}");
     function_aliases.set_alias(
         &Place::local(String::from("callback"), TypeId(0)),
-        String::from(name),
+        FunctionValueIdentity::new(String::from(name), None, TypeId(0), Effect::Pure, vec![]),
     );
     ResourceCheckState::new(
         CellTable::default(),

@@ -1,9 +1,10 @@
 use alloc::collections::BTreeMap;
-use alloc::string::{String, ToString};
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::diagnostic_codes::{EffectDiagnosticCode, TypeDiagnosticCode};
+use crate::function_identity::FunctionValueIdentity;
 use crate::hir::{FuncRef, HirExpr, HirExprKind};
 use crate::span::Span;
 use crate::types::{TypeId, TypeKind};
@@ -317,13 +318,17 @@ impl<'a> BlockChecker<'a> {
                 if self.env.lookup_value(var_name).is_none() {
                     let callables = self.env.lookup_all_callables(var_name);
                     if !callables.is_empty() {
-                        let mut matched_symbol: Option<String> = None;
+                        let mut matched_identity: Option<FunctionValueIdentity> = None;
                         let mut ambiguous = false;
                         for cb in callables {
-                            let (symbol, captures_len) = match &cb.kind {
+                            let (symbol, def_id, effect, captures_len) = match &cb.kind {
                                 BindingKind::Func {
-                                    symbol, captures, ..
-                                } => (symbol.clone(), captures.len()),
+                                    symbol,
+                                    def_id,
+                                    effect,
+                                    captures,
+                                    ..
+                                } => (symbol.clone(), *def_id, *effect, captures.len()),
                                 _ => continue,
                             };
                             if captures_len != 0 {
@@ -334,11 +339,17 @@ impl<'a> BlockChecker<'a> {
                             let matched = self.ctx.unify(cand_ty, *param_ty).is_ok();
                             self.ctx.rollback(checkpoint);
                             if matched {
-                                if matched_symbol.is_some() {
+                                if matched_identity.is_some() {
                                     ambiguous = true;
                                     break;
                                 }
-                                matched_symbol = Some(symbol);
+                                matched_identity = Some(FunctionValueIdentity::new(
+                                    symbol,
+                                    def_id,
+                                    arg_ty,
+                                    effect,
+                                    Vec::new(),
+                                ));
                             }
                         }
                         if ambiguous {
@@ -349,10 +360,10 @@ impl<'a> BlockChecker<'a> {
                             ));
                             return None;
                         }
-                        if let Some(symbol) = matched_symbol {
+                        if let Some(identity) = matched_identity {
                             arg_expr = HirExpr {
                                 ty: arg_ty,
-                                kind: HirExprKind::FnValue(symbol),
+                                kind: HirExprKind::FnValue(identity),
                                 span: arg_expr.span,
                             };
                         }

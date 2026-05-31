@@ -17,6 +17,7 @@ pub mod diagnostic;
 pub mod diagnostic_codes;
 pub mod effects;
 pub mod error;
+pub mod function_identity;
 pub mod span;
 
 pub mod ast;

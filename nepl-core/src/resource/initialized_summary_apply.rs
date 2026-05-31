@@ -50,7 +50,7 @@ impl ResourceCheckEngine<'_> {
     ) -> bool {
         let mut ok = true;
         for function in function_aliases.functions(callee) {
-            let Some(summary) = self.raw_init_summaries.get(function) else {
+            let Some(summary) = self.raw_init_summaries.get(function.symbol()) else {
                 continue;
             };
             ok &= self.apply_raw_cell_initialization_function_summary(

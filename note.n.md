@@ -48088,3 +48088,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - release Web RPN same-session code edit 測定 `tmp/rpn_raw_alias_projection_type_replay_code_edit_20260531.json` では、edit compile が `6105ms` から `5923ms` へ改善した。edit delta は `resource_raw_alias_summary_recomputations=1`、`raw_alias_return_entry_bypasses=0`、`raw_alias_return_entry_reprojection_value_bypasses=0`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=1`、`resource_summary_value_recomputed_ops=16` である。
 - `ISS-20260531T075621000Z-RAW-ALIAS-RESIDUAL-REPROJECTION-VAL-9A5D0C3E` は verified / resolved にし、`todo.md` から削除した。RPN edit compile はまだ秒単位なので、親 issue `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` で typed expression subtree query、変更関数自身の summary 再計算、codegen fragment cache、Resource IR summary 外固定費を継続する。
 - memo_call / 高階関数側の subagent 調査では、現状の `FnValue` / `FunctionValue` / `FunctionAliasTable` が string name 依存であることを確認した。Phase 1 は typed function identity、明示 `@` の pure named function value、MemoKey/MemoValue 専用 predicate、compiler-known private cache effect の4点に限定して進める。
+
+## 2026-05-31 Agent typed function identity checkpoint
+
+- Zenn の試作段階方針、静的検査方針、性能追求方針を再確認した。`plan.md` は変更していない。
+- remote/main と同期済みの `memo/typed-function-identity-20260531` branch で、`memo_call` Phase 1 の前提になる typed function identity を実装した。
+- `FunctionValueIdentity` を追加し、`HirExprKind::FnValue` と `ResourceOp::FunctionValue` が backend symbol 文字列だけでなく、definition id、function type、surface effect、resolved type args を保持するようにした。
+- Resource IR lowering、monomorphize、codegen、function alias tracking、borrow / owner / effect / initialized / collection slot summary の indirect call 適用を `FunctionValueIdentity` に追従させた。既存 summary index は当面 `symbol()` で接続するが、alias table の authority は string ではなく typed identity になった。
+- Resource summary body hash は `neplg2-resource-function-body-v3` に上げ、function value の symbol、function type、effect、type args を hash するようにした。`DefId` は compile session 内の補助 identity なので、長寿命 cache key へ直接入れない。
+- `summary_dependency` と `collection_slot_summary_relevance` は legacy `name` ではなく typed identity から依存 function を集めるようにした。
+- subagent review では、typed function identity は `memo_call` の必要前提として妥当だが、これだけで private cache purity は証明できないと確認した。次段階は compiler-known primitive gate、MemoKey/MemoValue structural predicate、PrivateCache effect、sealed backend cache representation である。
+- `ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C` は verified / resolved にし、`todo.md` から削除した。`memo_call` 本体は `ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C` 以降で扱う。
+- 検証は `cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core --tests --no-run`、focused Resource / body hash / dependency / codegen diagnostic tests、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、playground editor JSON、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。広い `cargo test -p nepl-core --tests` は 10 分で timeout したため、stale cargo process を停止した。

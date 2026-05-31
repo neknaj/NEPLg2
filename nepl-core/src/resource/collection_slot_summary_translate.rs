@@ -46,7 +46,7 @@ pub(super) fn collect_indirect_call_summary_ops(
     let mut paths = Vec::new();
     for function in state.function_aliases.functions(callee) {
         let mut path = Vec::new();
-        if let Some(summary) = collection_slot_summaries.get(function) {
+        if let Some(summary) = collection_slot_summaries.get(function.symbol()) {
             translate_summary_ops_through_args(
                 &mut path,
                 engine,

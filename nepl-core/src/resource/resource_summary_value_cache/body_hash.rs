@@ -5,6 +5,7 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 
 use crate::ast::Effect;
+use crate::function_identity::FunctionValueIdentity;
 use crate::types::{TypeCtx, TypeId};
 
 use super::super::collection_slot_lifecycle_model::{
@@ -39,6 +40,10 @@ use super::stable_type_key::ResourceSummaryStableTypeKey;
 /// だけを hash に残す。storage の所有元や寿命上の意味は `StorageOrigin` /
 /// collection lifecycle op 側で別途 hash する。
 ///
+/// 関数値は backend symbol だけではなく、型検査後の function type、effect、具体化済み
+/// type args を合わせて hash する。`DefId` は compile session 内の補助 identity であり、
+/// 長寿命 cache key へ直接保存しない。
+///
 /// raw body の本文文字列は `ResourceFunction` には残らないが、source text と raw body
 /// capability use-site は `ResourceSummaryValueCacheContext` の source capability policy hash
 /// に含まれる。そのため body hash では backend kind だけを固定し、cache key の caller が
@@ -48,7 +53,7 @@ pub(super) fn resource_function_body_hash(
     function: &ResourceFunction,
 ) -> Option<u64> {
     let mut ctx = ResourceFunctionBodyHashContext::new(types, function)?;
-    let mut hash = ResourceSummaryStableHasher::new("neplg2-resource-function-body-v2");
+    let mut hash = ResourceSummaryStableHasher::new("neplg2-resource-function-body-v3");
 
     hash_type_list(&mut hash, &ctx, &function.type_params)?;
     hash_resource_locals(&mut hash, &mut ctx, &function.params)?;
@@ -242,13 +247,13 @@ fn hash_op(
         }
         ResourceOp::FunctionValue {
             output,
-            name,
+            identity,
             effect,
             ..
         } => {
             hash.write_str("function_value");
             hash_place(hash, ctx, output)?;
-            hash.write_str(name);
+            hash_function_value_identity(hash, ctx, identity)?;
             hash_effect_op(hash, effect);
         }
         ResourceOp::Call {
@@ -416,6 +421,18 @@ fn hash_op(
             hash_match_arms(hash, ctx, arms)?;
         }
     }
+    Some(())
+}
+
+fn hash_function_value_identity(
+    hash: &mut ResourceSummaryStableHasher,
+    ctx: &ResourceFunctionBodyHashContext<'_>,
+    identity: &FunctionValueIdentity,
+) -> Option<()> {
+    hash.write_str(identity.symbol());
+    hash_type(hash, ctx, identity.function_ty)?;
+    hash_effect(hash, identity.effect);
+    hash_type_list(hash, ctx, &identity.type_args)?;
     Some(())
 }
 
@@ -1007,6 +1024,35 @@ mod tests {
         }
     }
 
+    fn function_value_body(output_ty: TypeId, identity: FunctionValueIdentity) -> ResourceFunction {
+        let output = Place::temporary(ResourceId(0), output_ty);
+        ResourceFunction {
+            name: "function_value_holder".into(),
+            origin_name: "function_value_holder".into(),
+            type_params: Vec::new(),
+            params: Vec::new(),
+            result: output_ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![super::super::super::model::ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![ResourceOp::FunctionValue {
+                    output: output.clone(),
+                    name: "legacy_function_name".into(),
+                    identity,
+                    effect: EffectOp::Pure,
+                    span: Span::dummy(),
+                }],
+                terminator: ResourceTerminator::Return {
+                    value: Some(output),
+                    span: Span::dummy(),
+                },
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        }
+    }
+
     #[test]
     fn resource_function_body_hash_ignores_spans() {
         let types = TypeCtx::new();
@@ -1038,6 +1084,37 @@ mod tests {
         let second = simple_function(&types, 99, 1, 0);
 
         assert_eq!(
+            resource_function_body_hash(&types, &first),
+            resource_function_body_hash(&types, &second)
+        );
+    }
+
+    #[test]
+    fn resource_function_body_hash_tracks_function_value_typed_identity() {
+        let mut types = TypeCtx::new();
+        let function_ty = types.function(vec![], vec![types.i32()], types.i32(), Effect::Pure);
+        let first = function_value_body(
+            function_ty,
+            FunctionValueIdentity::new(
+                "same_backend_symbol".into(),
+                None,
+                function_ty,
+                Effect::Pure,
+                vec![types.i32()],
+            ),
+        );
+        let second = function_value_body(
+            function_ty,
+            FunctionValueIdentity::new(
+                "same_backend_symbol".into(),
+                None,
+                function_ty,
+                Effect::Pure,
+                vec![types.bool()],
+            ),
+        );
+
+        assert_ne!(
             resource_function_body_hash(&types, &first),
             resource_function_body_hash(&types, &second)
         );

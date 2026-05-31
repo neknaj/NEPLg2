@@ -181,6 +181,14 @@ NEPLg2.1 の関数型記法は curried-looking だが、部分適用は導入し
 
 この identity は backend table index ではない。backend lowering で一時的に table index や wrapper id を使う場合でも、それを pure source program から equality、hash、address、debug、raw cast、layout query として観測させない。
 
+2026-05-31 の typed function identity checkpoint では、`FunctionValueIdentity` を HIR と Resource IR の関数値 payload として導入した。`FunctionValueIdentity` は backend symbol、compile-time definition id、function type、surface effect、resolved type args を保持する。
+
+この checkpoint の authority は「関数値を string name だけで扱わない」ことである。`ResourceOp::FunctionValue.name` は既存 dump / backend lookup との互換用に残すが、summary dependency、collection-slot relevance、Resource summary body hash、function alias tracking は typed identity を参照する。
+
+Resource summary body hash は function value identity の symbol、function type、effect、type args を hash する。`DefId` は source span 由来の compile-session identity であり、長寿命 cache key へ直接入れない。長寿命 cache は別途 canonical function identity、body hash、source capability policy hash、dependency closure hash と組み合わせる。
+
+この checkpoint は `memo_call` 本体を public API として露出しない。次段階では、compiler-known primitive registry、`MemoKey` / `MemoValue` structural predicate、`PrivateCache` effect、sealed backend cache representation を追加して、`memo_call @pure_named_func` の accepted / rejected matrix を固定する。
+
 ### function value identity
 
 pure function value について、次を public pure API にしてはいけない。

@@ -59,7 +59,11 @@ impl<'a> BlockChecker<'a> {
         }
 
         // General call or let/set
-        if let HirExprKind::Var(name) | HirExprKind::FnValue(name) = &func.expr.kind {
+        if let Some(name) = match &func.expr.kind {
+            HirExprKind::Var(name) => Some(name.as_str()),
+            HirExprKind::FnValue(identity) => Some(identity.symbol()),
+            _ => None,
+        } {
             if crate::log::is_verbose() {
                 function_apply_log!(
                     "apply_function: callee={} type={} args=[{}] explicit_type_args=[{}]",

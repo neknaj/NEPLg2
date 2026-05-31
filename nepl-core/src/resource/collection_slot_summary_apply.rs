@@ -70,7 +70,7 @@ impl ResourceCheckEngine<'_> {
         for function in functions {
             let mut path_slots = collection_slots.clone();
             let mut path_cells = cells.clone();
-            if let Some(summary) = self.collection_slot_summaries.get(function) {
+            if let Some(summary) = self.collection_slot_summaries.get(function.symbol()) {
                 let mut path_aliases = raw_aliases.clone();
                 let mut path_variants = PendingVariantRawCellInitializations::default();
                 self.apply_collection_slot_lifecycle_function_summary(

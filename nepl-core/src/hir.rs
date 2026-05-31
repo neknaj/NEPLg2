@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 
 use crate::ast::TraitCapability;
 use crate::ast::{Effect, LlvmIrBlock, WasmBlock};
+use crate::function_identity::FunctionValueIdentity;
 use crate::resolve::DefId;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId};
@@ -87,7 +88,7 @@ pub enum HirExprKind {
     Unit,
     Var(String),
     /// Explicit function-value reference created by `@fn_name`.
-    FnValue(String),
+    FnValue(FunctionValueIdentity),
     Call {
         callee: FuncRef,
         args: Vec<HirExpr>,

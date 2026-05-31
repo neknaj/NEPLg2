@@ -50,7 +50,7 @@ pub(super) fn collect_return_transfers_from_indirect_call_summary(
     target_suffix: &[PlaceProjection],
 ) {
     for function in function_aliases.functions(callee) {
-        if let Some(summary) = engine.collection_slot_summaries.get(function) {
+        if let Some(summary) = engine.collection_slot_summaries.get(function.symbol()) {
             collect_return_transfers_from_summary(
                 out,
                 engine,

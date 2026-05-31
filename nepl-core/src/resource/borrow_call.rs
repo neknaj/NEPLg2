@@ -41,7 +41,7 @@ pub(super) fn propagate_indirect_call_return_token(
         return;
     }
     for function in functions {
-        if let Some(summary) = summaries.get(function) {
+        if let Some(summary) = summaries.get(function.symbol()) {
             for arg in summary
                 .parameter_indices
                 .iter()

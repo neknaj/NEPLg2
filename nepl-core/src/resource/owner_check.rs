@@ -470,8 +470,10 @@ impl ResourceOwnerCheckEngine<'_> {
                     *span,
                 );
             }
-            ResourceOp::FunctionValue { output, name, .. } => {
-                function_aliases.set_alias(output, name.clone());
+            ResourceOp::FunctionValue {
+                output, identity, ..
+            } => {
+                function_aliases.set_alias(output, identity.clone());
                 raw_views.clear(output);
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);

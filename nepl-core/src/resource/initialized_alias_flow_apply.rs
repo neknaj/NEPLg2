@@ -50,7 +50,7 @@ pub(super) fn apply_indirect_call_raw_alias_summary(
     let functions = function_aliases.functions(callee);
     let mut applied = false;
     for function in functions {
-        if let Some(summary) = summaries.get(function) {
+        if let Some(summary) = summaries.get(function.symbol()) {
             applied |= apply_raw_alias_summary(raw_aliases, output, args, summary, types);
         }
     }

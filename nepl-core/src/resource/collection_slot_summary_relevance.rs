@@ -138,8 +138,8 @@ fn collect_op_collection_slot_summary_call_edges(
                 );
             }
         }
-        ResourceOp::FunctionValue { name, .. } => {
-            if let Some(callee) = function_indices.get(name.as_str()) {
+        ResourceOp::FunctionValue { identity, .. } => {
+            if let Some(callee) = function_indices.get(identity.symbol()) {
                 push_unique_collection_slot_call_edge(
                     out,
                     CollectionSlotSummaryCallEdge {

@@ -6,11 +6,13 @@ use alloc::vec::Vec;
 
 use crate::ast::Effect;
 use crate::effects::raw_callee_internal_effect;
+use crate::function_identity::FunctionValueIdentity;
 use crate::hir::{
     FuncRef, HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirMatchBindMode,
     HirMatchPattern, HirModule, HirParam,
 };
 use crate::layout::aggregate_fields_with_offsets;
+use crate::resolve::DefId;
 use crate::runtime_helpers::helper_base_name;
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
@@ -140,12 +142,18 @@ impl<'a> LoweringEnvironment<'a> {
         }
     }
 
-    fn known_function_value(&self, name: &str, ty: TypeId) -> Option<(String, EffectOp)> {
+    fn known_function_value(&self, name: &str, ty: TypeId) -> Option<FunctionValueIdentity> {
         if self.function_effects.contains_key(name)
             || raw_callee_internal_effect(name).is_some()
             || self.function_effect_ops.contains_key(name)
         {
-            return Some((String::from(name), function_value_effect(name, self)));
+            return Some(FunctionValueIdentity::new(
+                String::from(name),
+                None,
+                ty,
+                self.function_effect(name),
+                Vec::new(),
+            ));
         }
         let mut matches = self
             .functions
@@ -155,9 +163,13 @@ impl<'a> LoweringEnvironment<'a> {
         if matches.next().is_some() {
             return None;
         }
-        let function_name = function.name.clone();
-        let effect = function_value_effect(&function_name, self);
-        Some((function_name, effect))
+        Some(FunctionValueIdentity::new(
+            function.name.clone(),
+            DefId::from_span(function.span),
+            function.func_ty,
+            function.effect,
+            Vec::new(),
+        ))
     }
 
     pub(super) fn function(&self, name: &str) -> Option<&'a HirFunction> {
@@ -404,11 +416,13 @@ pub(super) fn lower_expr_skeleton(
         | HirExprKind::Unit => push_expr(ops, ResourceExprKind::Literal, expr, ctx),
         HirExprKind::Var(name) => {
             if ctx.local_place_for_name(name).is_none() {
-                if let Some((function_name, effect)) = env.known_function_value(name, expr.ty) {
+                if let Some(identity) = env.known_function_value(name, expr.ty) {
+                    let effect = function_value_effect(identity.symbol(), env);
                     let output = ctx.temporary(expr.ty);
                     ops.push(ResourceOp::FunctionValue {
                         output: output.clone(),
-                        name: function_name,
+                        name: identity.symbol.clone(),
+                        identity,
                         effect,
                         span: expr.span,
                     });
@@ -435,14 +449,13 @@ pub(super) fn lower_expr_skeleton(
             });
             output
         }
-        HirExprKind::FnValue(name) => {
+        HirExprKind::FnValue(identity) => {
             let output = ctx.temporary(expr.ty);
-            let (function_name, effect) = env
-                .known_function_value(name, expr.ty)
-                .unwrap_or_else(|| (name.clone(), function_value_effect(name, env)));
+            let effect = function_value_effect(identity.symbol(), env);
             ops.push(ResourceOp::FunctionValue {
                 output: output.clone(),
-                name: function_name,
+                name: identity.symbol.clone(),
+                identity: identity.clone(),
                 effect,
                 span: expr.span,
             });

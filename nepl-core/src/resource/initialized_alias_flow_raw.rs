@@ -130,8 +130,10 @@ fn propagate_raw_address_alias_op(
             construct_raw_cell_address_alias_fields(raw_aliases, output, kind, inputs);
             construct_function_alias_fields(function_aliases, output, kind, inputs);
         }
-        ResourceOp::FunctionValue { output, name, .. } => {
-            function_aliases.set_alias(output, name.clone());
+        ResourceOp::FunctionValue {
+            output, identity, ..
+        } => {
+            function_aliases.set_alias(output, identity.clone());
         }
         ResourceOp::Call {
             output,

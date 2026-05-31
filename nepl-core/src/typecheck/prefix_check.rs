@@ -9,6 +9,7 @@ use crate::ast::{Effect, Ident, Literal, PrefixExpr, PrefixItem, Symbol, Visibil
 use crate::backend_scalar_type::BackendScalarType;
 use crate::diagnostic_codes::{EffectDiagnosticCode, ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::effects::intrinsic_effect;
+use crate::function_identity::FunctionValueIdentity;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::resource_primitives::{
     compiler_memory_value_type, CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive,
@@ -40,6 +41,28 @@ fn prefix_check_dump_enabled() -> bool {
     #[cfg(not(target_os = "none"))]
     {
         std::env::var("NEPL_DUMP_HIR").is_ok()
+    }
+}
+
+fn function_value_identity_from_binding(
+    binding: &Binding,
+    ty: TypeId,
+    type_args: Vec<TypeId>,
+) -> Option<FunctionValueIdentity> {
+    match &binding.kind {
+        BindingKind::Func {
+            symbol,
+            def_id,
+            effect,
+            ..
+        } => Some(FunctionValueIdentity::new(
+            symbol.clone(),
+            *def_id,
+            ty,
+            *effect,
+            type_args,
+        )),
+        _ => None,
     }
 }
 
@@ -874,18 +897,7 @@ impl<'a> BlockChecker<'a> {
                                     }
                                     _ => !*forced_value,
                                 };
-                                let hir_kind = match &binding.kind {
-                                    BindingKind::Func { symbol, .. }
-                                        if *forced_value
-                                            || expected_function_from_outer
-                                            || selected_from_qualified
-                                            || binding.name != id.name =>
-                                    {
-                                        HirExprKind::FnValue(symbol.clone())
-                                    }
-                                    _ => HirExprKind::Var(binding.name.clone()),
-                                };
-                                let explicit_args = match binding.kind {
+                                let explicit_args = match &binding.kind {
                                     BindingKind::Func { .. } => {
                                         let mut args = Vec::new();
                                         for arg_expr in type_args {
@@ -907,6 +919,27 @@ impl<'a> BlockChecker<'a> {
                                         }
                                         Vec::new()
                                     }
+                                };
+                                let hir_kind = match &binding.kind {
+                                    BindingKind::Func {
+                                        symbol,
+                                        def_id,
+                                        effect,
+                                        ..
+                                    } if *forced_value
+                                        || expected_function_from_outer
+                                        || selected_from_qualified
+                                        || binding.name != id.name =>
+                                    {
+                                        HirExprKind::FnValue(FunctionValueIdentity::new(
+                                            symbol.clone(),
+                                            *def_id,
+                                            ty,
+                                            *effect,
+                                            explicit_args.clone(),
+                                        ))
+                                    }
+                                    _ => HirExprKind::Var(binding.name.clone()),
                                 };
                                 stack.push(StackEntry {
                                     ty,
@@ -1011,11 +1044,15 @@ impl<'a> BlockChecker<'a> {
                                         ));
                                     }
                                     let ty = binding.ty;
-                                    let hir_kind = match &binding.kind {
-                                        BindingKind::Func { symbol, .. } => {
-                                            HirExprKind::FnValue(symbol.clone())
-                                        }
-                                        _ => HirExprKind::Var(lookup_name.clone()),
+                                    let hir_kind = if let Some(identity) =
+                                        function_value_identity_from_binding(
+                                            &binding,
+                                            ty,
+                                            explicit_args.clone(),
+                                        ) {
+                                        HirExprKind::FnValue(identity)
+                                    } else {
+                                        HirExprKind::Var(lookup_name.clone())
                                     };
                                     stack.push(StackEntry {
                                         ty,
@@ -1212,19 +1249,28 @@ impl<'a> BlockChecker<'a> {
                                                         }
                                                     }
                                                     let ty = binding.ty;
-                                                    let fn_symbol = match &binding.kind {
-                                                        BindingKind::Func { symbol, .. } => {
-                                                            symbol.clone()
-                                                        }
-                                                        _ => lookup_name.clone(),
-                                                    };
+                                                    let identity =
+                                                        function_value_identity_from_binding(
+                                                            &binding,
+                                                            ty,
+                                                            explicit_args.clone(),
+                                                        )
+                                                        .unwrap_or_else(|| {
+                                                            FunctionValueIdentity::new(
+                                                                lookup_name.clone(),
+                                                                None,
+                                                                ty,
+                                                                Effect::Pure,
+                                                                explicit_args.clone(),
+                                                            )
+                                                        });
                                                     stack.push(StackEntry {
                                                         ty,
                                                         expr: HirExpr {
                                                             ty,
                                                             // 期待関数型で一意に選べた過負荷関数は
                                                             // ここで関数値として確定させる。
-                                                            kind: HirExprKind::FnValue(fn_symbol),
+                                                            kind: HirExprKind::FnValue(identity),
                                                             span: id.span,
                                                         },
                                                         type_args: explicit_args,
@@ -1305,7 +1351,15 @@ impl<'a> BlockChecker<'a> {
                                             expr: HirExpr {
                                                 ty,
                                                 kind: if *forced_value {
-                                                    HirExprKind::FnValue(call_name.clone())
+                                                    HirExprKind::FnValue(
+                                                        FunctionValueIdentity::new(
+                                                            call_name.clone(),
+                                                            None,
+                                                            ty,
+                                                            effect,
+                                                            explicit_args.clone(),
+                                                        ),
+                                                    )
                                                 } else {
                                                     HirExprKind::Var(call_name.clone())
                                                 },
@@ -1384,7 +1438,21 @@ impl<'a> BlockChecker<'a> {
                                                 expr: HirExpr {
                                                     ty: inst_ty,
                                                     kind: if *forced_value {
-                                                        HirExprKind::FnValue(id.name.clone())
+                                                        let effect = match self.ctx.get(inst_ty) {
+                                                            TypeKind::Function {
+                                                                effect, ..
+                                                            } => effect,
+                                                            _ => Effect::Pure,
+                                                        };
+                                                        HirExprKind::FnValue(
+                                                            FunctionValueIdentity::new(
+                                                                id.name.clone(),
+                                                                None,
+                                                                inst_ty,
+                                                                effect,
+                                                                vec![method_self],
+                                                            ),
+                                                        )
                                                     } else {
                                                         HirExprKind::Var(id.name.clone())
                                                     },

@@ -115,9 +115,11 @@ pub(super) fn propagate_i32_scalar_op(
             construct_raw_cell_address_alias_fields(raw_aliases, output, kind, inputs);
             construct_function_alias_fields(function_aliases, output, kind, inputs);
         }
-        ResourceOp::FunctionValue { output, name, .. } => {
+        ResourceOp::FunctionValue {
+            output, identity, ..
+        } => {
             raw_aliases.clear(output);
-            function_aliases.set_alias(output, name.clone());
+            function_aliases.set_alias(output, identity.clone());
         }
         ResourceOp::Call {
             output,

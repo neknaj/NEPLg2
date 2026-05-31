@@ -18,10 +18,14 @@ pub(super) fn apply_indirect_function_call(
     expected_ret: Option<TypeExpectation>,
 ) -> Option<StackEntry> {
     let allow_indirect = match &func.expr.kind {
-        HirExprKind::FnValue(name) => {
-            let has_capture = checker.env.lookup_all_callables_by_symbol(name).iter().any(
-                |b| matches!(&b.kind, BindingKind::Func { captures, .. } if !captures.is_empty()),
-            );
+        HirExprKind::FnValue(identity) => {
+            let has_capture = checker
+                .env
+                .lookup_all_callables_by_symbol(identity.symbol())
+                .iter()
+                .any(
+                    |b| matches!(&b.kind, BindingKind::Func { captures, .. } if !captures.is_empty()),
+                );
             if has_capture {
                 checker.diagnostics.push(type_error(
                     TypeDiagnosticCode::FunctionValueCapturingUnsupported,

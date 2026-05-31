@@ -940,9 +940,14 @@ impl<'a> Monomorphizer<'a> {
                         *name = self.request_instantiation(found, Vec::new());
                     }
                 }
-                HirExprKind::FnValue(name) => {
-                    if let Some(found) = self.resolve_user_function_name(name.as_str()) {
-                        *name = self.request_instantiation(found, Vec::new());
+                HirExprKind::FnValue(identity) => {
+                    identity.function_ty = self.ctx.resolve_id(identity.function_ty);
+                    for arg in identity.type_args.iter_mut() {
+                        *arg = self.ctx.resolve_id(*arg);
+                    }
+                    if let Some(found) = self.resolve_user_function_name(identity.symbol()) {
+                        identity.symbol =
+                            self.request_instantiation(found, identity.type_args.clone());
                     }
                 }
                 HirExprKind::Unit
@@ -1116,9 +1121,13 @@ impl<'a> Monomorphizer<'a> {
                     *name = self.request_instantiation(found, Vec::new());
                 }
             }
-            HirExprKind::FnValue(name) => {
-                if let Some(found) = self.resolve_user_function_name(name.as_str()) {
-                    *name = self.request_instantiation(found, Vec::new());
+            HirExprKind::FnValue(identity) => {
+                identity.function_ty = self.ctx.substitute(identity.function_ty, mapping);
+                for arg in identity.type_args.iter_mut() {
+                    *arg = self.ctx.substitute(*arg, mapping);
+                }
+                if let Some(found) = self.resolve_user_function_name(identity.symbol()) {
+                    identity.symbol = self.request_instantiation(found, identity.type_args.clone());
                 }
             }
             HirExprKind::Call { callee, args } => {

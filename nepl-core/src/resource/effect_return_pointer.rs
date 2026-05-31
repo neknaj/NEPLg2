@@ -68,7 +68,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             return;
         }
         for function in functions {
-            let Some(summary) = self.pointer_summaries.get(function) else {
+            let Some(summary) = self.pointer_summaries.get(function.symbol()) else {
                 continue;
             };
             for parameter_return in &summary.parameter_returns {

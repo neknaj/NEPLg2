@@ -1223,7 +1223,15 @@ mod tests {
                     kind: crate::hir::HirExprKind::CallIndirect {
                         callee: Box::new(crate::hir::HirExpr {
                             ty: fn_ty,
-                            kind: crate::hir::HirExprKind::FnValue(String::from("used")),
+                            kind: crate::hir::HirExprKind::FnValue(
+                                crate::function_identity::FunctionValueIdentity::new(
+                                    String::from("used"),
+                                    None,
+                                    fn_ty,
+                                    ast::Effect::Pure,
+                                    Vec::new(),
+                                ),
+                            ),
                             span: Span::dummy(),
                         }),
                         params: Vec::new(),
@@ -2683,7 +2691,7 @@ fn collect_called_functions_from_expr(
         | crate::hir::HirExprKind::Unit
         | crate::hir::HirExprKind::Var(_)
         | crate::hir::HirExprKind::Drop { .. } => {}
-        crate::hir::HirExprKind::FnValue(name) => stack.push(name.clone()),
+        crate::hir::HirExprKind::FnValue(identity) => stack.push(identity.symbol.clone()),
     }
 }
 
