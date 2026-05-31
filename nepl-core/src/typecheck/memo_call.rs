@@ -8,17 +8,21 @@ use crate::function_identity::FunctionValueIdentity;
 use crate::hir::{HirExpr, HirExprKind};
 use crate::resource_primitives::compiler_memory_type_of_type;
 use crate::source_map::SourceMap;
-use crate::span::FileId;
+use crate::span::{FileId, Span};
 use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::diagnostics::type_error;
 use super::env::{Binding, BindingKind};
 use super::signature::type_contains_unbound_var;
+use super::traits::{TraitApplication, TraitBound, TraitId, TraitInfo};
 use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
 
 const MEMO_CALL_NAME: &str = "memo_call";
 const MEMO_CALL_STDLIB_SUFFIX: &str = "/stdlib/core/memo.nepl";
+const MEMO_TRAITS_STDLIB_SUFFIX: &str = "/stdlib/core/traits/memo.nepl";
+const MEMO_KEY_TRAIT_NAME: &str = "MemoKey";
+const MEMO_VALUE_TRAIT_NAME: &str = "MemoValue";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum CompilerKnownPrimitive {
@@ -165,7 +169,7 @@ impl<'a> BlockChecker<'a> {
         }
         let key_ty = self.ctx.resolve_id(params[0]);
         let value_ty = self.ctx.resolve_id(value_ty);
-        if !memo_phase1_type_supported(self.ctx, key_ty) {
+        if !memo_phase1_key_type_supported(self.ctx, key_ty) {
             self.diagnostics.push(type_error(
                 TypeDiagnosticCode::MemoCallUnsupportedKey,
                 format!(
@@ -176,11 +180,33 @@ impl<'a> BlockChecker<'a> {
             ));
             return None;
         }
-        if !memo_phase1_type_supported(self.ctx, value_ty) {
+        if !self.memo_phase1_key_has_memo_key(key_ty) {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::MemoCallUnsupportedKey,
+                format!(
+                    "memo_call phase1 key type {} must implement MemoKey",
+                    self.ctx.type_to_string(key_ty)
+                ),
+                args[0].expr.span,
+            ));
+            return None;
+        }
+        if !memo_phase1_value_type_supported(self.ctx, value_ty) {
             self.diagnostics.push(type_error(
                 TypeDiagnosticCode::MemoCallUnsupportedValue,
                 format!(
                     "memo_call phase1 does not support value type {}",
+                    self.ctx.type_to_string(value_ty)
+                ),
+                args[0].expr.span,
+            ));
+            return None;
+        }
+        if !self.memo_phase1_value_has_memo_value(value_ty) {
+            self.diagnostics.push(type_error(
+                TypeDiagnosticCode::MemoCallUnsupportedValue,
+                format!(
+                    "memo_call phase1 value type {} must implement MemoValue",
                     self.ctx.type_to_string(value_ty)
                 ),
                 args[0].expr.span,
@@ -223,6 +249,33 @@ impl<'a> BlockChecker<'a> {
             auto_call: false,
         })
     }
+
+    fn memo_phase1_key_has_memo_key(&self, key_ty: TypeId) -> bool {
+        self.memo_phase1_type_has_trait(key_ty, MEMO_KEY_TRAIT_NAME)
+    }
+
+    fn memo_phase1_value_has_memo_value(&self, value_ty: TypeId) -> bool {
+        self.memo_phase1_type_has_trait(value_ty, MEMO_VALUE_TRAIT_NAME)
+    }
+
+    fn memo_phase1_type_has_trait(&self, ty: TypeId, trait_name: &str) -> bool {
+        let Some(trait_info) = self.memo_phase1_stdlib_trait_info(trait_name) else {
+            return false;
+        };
+        let bound = TraitBound {
+            application: TraitApplication {
+                trait_id: TraitId::from_name(trait_name),
+                args: Vec::new(),
+            },
+            trait_self_ty: trait_info.self_ty,
+        };
+        self.trait_bound_satisfied(&bound, ty)
+    }
+
+    fn memo_phase1_stdlib_trait_info(&self, trait_name: &str) -> Option<&TraitInfo> {
+        let trait_info = self.traits.get(trait_name)?;
+        memo_phase1_trait_defined_in_stdlib(self.source_map, trait_info.span).then_some(trait_info)
+    }
 }
 
 fn explicit_function_value_argument(arg: &StackEntry) -> Option<FunctionValueIdentity> {
@@ -235,14 +288,29 @@ fn explicit_function_value_argument(arg: &StackEntry) -> Option<FunctionValueIde
     }
 }
 
-fn memo_phase1_type_supported(ctx: &mut TypeCtx, ty: TypeId) -> bool {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MemoPhase1TypeRole {
+    Key,
+    Value,
+}
+
+fn memo_phase1_key_type_supported(ctx: &mut TypeCtx, ty: TypeId) -> bool {
+    memo_phase1_type_supported(ctx, ty, MemoPhase1TypeRole::Key)
+}
+
+fn memo_phase1_value_type_supported(ctx: &mut TypeCtx, ty: TypeId) -> bool {
+    memo_phase1_type_supported(ctx, ty, MemoPhase1TypeRole::Value)
+}
+
+fn memo_phase1_type_supported(ctx: &mut TypeCtx, ty: TypeId, role: MemoPhase1TypeRole) -> bool {
     let mut visiting = BTreeSet::new();
-    memo_phase1_type_supported_inner(ctx, ty, &mut visiting)
+    memo_phase1_type_supported_inner(ctx, ty, role, &mut visiting)
 }
 
 fn memo_phase1_type_supported_inner(
     ctx: &mut TypeCtx,
     ty: TypeId,
+    role: MemoPhase1TypeRole,
     visiting: &mut BTreeSet<TypeId>,
 ) -> bool {
     let resolved = ctx.resolve_named_type_id(ctx.resolve_id(ty));
@@ -260,19 +328,19 @@ fn memo_phase1_type_supported_inner(
         TypeKind::Unit
         | TypeKind::I32
         | TypeKind::U8
-        | TypeKind::F32
         | TypeKind::Bool
         | TypeKind::Char => true,
+        TypeKind::F32 => matches!(role, MemoPhase1TypeRole::Value),
         TypeKind::Tuple { items } => items
             .iter()
-            .all(|item| memo_phase1_type_supported_inner(ctx, *item, visiting)),
+            .all(|item| memo_phase1_type_supported_inner(ctx, *item, role, visiting)),
         TypeKind::Struct {
             type_params,
             fields,
             ..
         } if type_params.is_empty() => fields
             .iter()
-            .all(|field| memo_phase1_type_supported_inner(ctx, *field, visiting)),
+            .all(|field| memo_phase1_type_supported_inner(ctx, *field, role, visiting)),
         TypeKind::Enum {
             type_params,
             variants,
@@ -280,10 +348,12 @@ fn memo_phase1_type_supported_inner(
         } if type_params.is_empty() => variants.iter().all(|variant| {
             variant
                 .payload
-                .map(|payload| memo_phase1_type_supported_inner(ctx, payload, visiting))
+                .map(|payload| memo_phase1_type_supported_inner(ctx, payload, role, visiting))
                 .unwrap_or(true)
         }),
-        TypeKind::Apply { base, args } => memo_phase1_apply_supported(ctx, base, &args, visiting),
+        TypeKind::Apply { base, args } => {
+            memo_phase1_apply_supported(ctx, base, &args, role, visiting)
+        }
         TypeKind::Never
         | TypeKind::Str
         | TypeKind::Named(_)
@@ -302,6 +372,7 @@ fn memo_phase1_apply_supported(
     ctx: &mut TypeCtx,
     base: TypeId,
     args: &[TypeId],
+    role: MemoPhase1TypeRole,
     visiting: &mut BTreeSet<TypeId>,
 ) -> bool {
     let base = ctx.resolve_named_type_id(ctx.resolve_id(base));
@@ -315,7 +386,7 @@ fn memo_phase1_apply_supported(
             let mapping = type_param_mapping(ctx, &type_params, args);
             fields.iter().all(|field| {
                 let substituted = ctx.substitute(*field, &mapping);
-                memo_phase1_type_supported_inner(ctx, substituted, visiting)
+                memo_phase1_type_supported_inner(ctx, substituted, role, visiting)
             })
         }
         TypeKind::Enum {
@@ -329,7 +400,7 @@ fn memo_phase1_apply_supported(
                     .payload
                     .map(|payload| {
                         let substituted = ctx.substitute(payload, &mapping);
-                        memo_phase1_type_supported_inner(ctx, substituted, visiting)
+                        memo_phase1_type_supported_inner(ctx, substituted, role, visiting)
                     })
                     .unwrap_or(true)
             })
@@ -348,4 +419,16 @@ fn type_param_mapping(
         .zip(args.iter())
         .map(|(param, arg)| (ctx.resolve_id(*param), ctx.resolve_id(*arg)))
         .collect()
+}
+
+fn memo_phase1_trait_defined_in_stdlib(source_map: Option<&SourceMap>, span: Span) -> bool {
+    let Some(source_map) = source_map else {
+        return false;
+    };
+    let Some(path) = source_map.path(span.file_id) else {
+        return false;
+    };
+    let normalized = path.as_str().replace('\\', "/");
+    normalized == "stdlib/core/traits/memo.nepl"
+        || normalized.ends_with(MEMO_TRAITS_STDLIB_SUFFIX)
 }

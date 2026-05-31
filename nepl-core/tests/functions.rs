@@ -312,6 +312,229 @@ fn main %fn unit i32 \unit:
     compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
 }
 
+/// f32 can be a Phase 1 value because it is copied out of the private cache,
+/// but it is not a Phase 1 key.  NaN and equality/hash normalization need an
+/// explicit design before a floating-point key can be admitted.
+#[test]
+fn function_memo_call_rejects_phase1_f32_key_even_with_user_memo_key_impl() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/memo" as *
+#import "core/traits/memo" as *
+
+impl MemoKey for f32:
+    fn memo_key_eq %fn f32 fn f32 bool \a\b:
+        true
+
+    fn memo_key_hash32 %fn f32 i32 \self:
+        0
+
+fn same_float %fn f32 f32 \x:
+    x
+
+fn main %fn unit i32 \unit:
+    let f %fn f32 f32 memo_call @same_float
+    0
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
+}
+
+/// The key predicate is structural.  A nominal wrapper cannot hide an f32 field
+/// behind a user-written MemoKey implementation while floating-point key
+/// equality is still deliberately unsupported.
+#[test]
+fn function_memo_call_rejects_phase1_structural_f32_key_field() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/mem" as *
+#import "core/memo" as *
+#import "core/traits/copy" as *
+#import "core/traits/memo" as *
+
+struct FloatKey:
+    value %f32
+
+impl MemoKey for FloatKey:
+    fn memo_key_eq %fn FloatKey fn FloatKey bool \a\b:
+        true
+
+    fn memo_key_hash32 %fn FloatKey i32 \self:
+        0
+
+impl MemoValue for FloatKey:
+    fn memo_value_mark %fn FloatKey FloatKey \value:
+        value
+
+impl Clone for FloatKey:
+    fn clone %fn &FloatKey FloatKey \x:
+        *x
+
+impl Copy for FloatKey:
+    fn copy_mark %fn FloatKey FloatKey \x:
+        x
+
+fn same_float_key %fn FloatKey FloatKey \x:
+    x
+
+fn main %fn unit i32 \unit:
+    let f %fn FloatKey FloatKey memo_call @same_float_key
+    0
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
+}
+
+/// unit is both a valid key and a valid value when it is written as a grouped
+/// argument type.  This regression protects the distinction between `%fn unit`
+/// as the zero-argument function marker and `%fn (unit)` as a unary function
+/// whose argument value is the unit singleton.
+#[test]
+fn function_memo_call_accepts_phase1_unit_key_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/memo" as *
+
+fn unit_to_i32 %fn (unit) i32 \x:
+    41
+
+fn main %fn unit i32 \unit:
+    let f %fn (unit) i32 memo_call @unit_to_i32
+    f unit
+"#;
+    compile_with_loader(src).expect("unit key/value should be accepted");
+}
+
+/// A user-defined aggregate is accepted only when the ordinary trait model can
+/// prove Copy and no memory-owner or Drop boundary is present.  This keeps the
+/// Phase 1 rule structural without treating every nominal struct as cache-safe.
+#[test]
+fn function_memo_call_accepts_phase1_structural_copy_key_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/field" as field
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/memo" as *
+#import "core/traits/copy" as *
+#import "core/traits/memo" as *
+
+struct Pair:
+    value %i32
+
+impl MemoKey for Pair:
+    fn memo_key_eq %fn Pair fn Pair bool \a\b:
+        eq field::get a "value" field::get b "value"
+
+    fn memo_key_hash32 %fn Pair i32 \self:
+        field::get self "value"
+
+impl MemoValue for Pair:
+    fn memo_value_mark %fn Pair Pair \value:
+        value
+
+impl Clone for Pair:
+    fn clone %fn &Pair Pair \x:
+        *x
+
+impl Copy for Pair:
+    fn copy_mark %fn Pair Pair \x:
+        x
+
+fn same_pair %fn Pair Pair \p:
+    p
+
+fn main %fn unit i32 \unit:
+    let f %fn Pair Pair memo_call @same_pair
+    let p %Pair Pair 41
+    let _q %Pair f p
+    0
+"#;
+    compile_with_loader(src).expect("structural Copy key/value should be accepted");
+}
+
+/// Copy alone is not enough for a memo cache key.  The key side must also have
+/// a MemoKey implementation so the cache lookup contract has stable equality
+/// and hash behavior.
+#[test]
+fn function_memo_call_rejects_phase1_copy_struct_without_memo_key() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/memo" as *
+#import "core/traits/copy" as *
+
+struct Pair:
+    value %i32
+
+impl Clone for Pair:
+    fn clone %fn &Pair Pair \x:
+        *x
+
+impl Copy for Pair:
+    fn copy_mark %fn Pair Pair \x:
+        x
+
+fn same_pair %fn Pair Pair \p:
+    p
+
+fn main %fn unit i32 \unit:
+    let f %fn Pair Pair memo_call @same_pair
+    0
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
+}
+
+/// MemoKey and MemoValue are separate contracts.  A type can be hashable as a
+/// key while still not being approved as a value returned from the private
+/// cache boundary.
+#[test]
+fn function_memo_call_rejects_phase1_copy_struct_without_memo_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/field" as field
+#import "core/math" as *
+#import "core/memo" as *
+#import "core/traits/copy" as *
+#import "core/traits/memo" as *
+
+struct Pair:
+    value %i32
+
+impl MemoKey for Pair:
+    fn memo_key_eq %fn Pair fn Pair bool \a\b:
+        eq field::get a "value" field::get b "value"
+
+    fn memo_key_hash32 %fn Pair i32 \self:
+        field::get self "value"
+
+impl Clone for Pair:
+    fn clone %fn &Pair Pair \x:
+        *x
+
+impl Copy for Pair:
+    fn copy_mark %fn Pair Pair \x:
+        x
+
+fn same_pair %fn Pair Pair \p:
+    p
+
+fn main %fn unit i32 \unit:
+    let f %fn Pair Pair memo_call @same_pair
+    0
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedValue);
+}
+
 #[test]
 fn function_memo_call_rejects_phase1_non_copy_struct_key_value() {
     let src = r#"
@@ -328,6 +551,92 @@ fn same_pair %fn Pair Pair \p:
 
 fn main %fn unit i32 \unit:
     let f %fn Pair Pair memo_call @same_pair
+    0
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
+}
+
+/// RegionToken owns a free obligation.  It must not become a MemoKey or
+/// MemoValue because caching it would hide owner identity and resource
+/// lifecycle from the public pure function type.
+#[test]
+fn function_memo_call_rejects_phase1_region_token_key_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/mem" as *
+#import "core/memo" as *
+
+fn same_region %fn RegionToken i32 RegionToken i32 \region:
+    region
+
+fn main %fn unit i32 \unit:
+    let f %fn RegionToken i32 RegionToken i32 memo_call @same_region
+    0
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
+}
+
+/// Function values have observable identity and callable behavior, so Phase 1
+/// memoization must reject them even if the ordinary Copy model can move the
+/// function reference as a small value.
+#[test]
+fn function_memo_call_rejects_phase1_function_value_key_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/memo" as *
+
+fn same_function %fn (fn i32 i32) (fn i32 i32) \func:
+    func
+
+fn main %fn unit i32 \unit:
+    let f %fn (fn i32 i32) (fn i32 i32) memo_call @same_function
+    0
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
+}
+
+/// References are aliases into another storage lifetime.  A private memo cache
+/// may not key on or return those aliases until the Resource IR can prove that
+/// the lifetime and identity cannot escape the private cache boundary.
+#[test]
+fn function_memo_call_rejects_phase1_reference_key() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/memo" as *
+
+fn read_ref %fn &i32 i32 \x:
+    *x
+
+fn main %fn unit i32 \unit:
+    let f %fn &i32 i32 memo_call @read_ref
+    0
+"#;
+    compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);
+}
+
+/// MemPtr is a non-owning raw-memory view.  It is Copy for low-level boundary
+/// code, but it is not a stable MemoKey or MemoValue because pointer identity
+/// and pointed storage are outside the pure memoized function contract.
+#[test]
+fn function_memo_call_rejects_phase1_mem_ptr_key_value() {
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "core/mem" as *
+#import "core/memo" as *
+
+fn same_ptr %fn MemPtr i32 MemPtr i32 \ptr:
+    ptr
+
+fn main %fn unit i32 \unit:
+    let f %fn MemPtr i32 MemPtr i32 memo_call @same_ptr
     0
 "#;
     compile_with_loader_err_has_type_code(src, TypeDiagnosticCode::MemoCallUnsupportedKey);

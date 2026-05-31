@@ -48131,3 +48131,19 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 同 edit delta は `resource_summary_value_replayed_ops=4553`、`resource_summary_value_recomputed_ops=16`、`resource_raw_alias_summary_recomputations=0`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` だった。raw-init / raw-alias / final check の false miss ではなく、大量の proof replay と Resource static check pipeline 固定費が秒単位で残っている。
 - `doc/neplg2/compiler_performance_cache_design.md` に binary intermediate artifact 設計を追加した。`.class` 型の checked typed/proof artifact と `.o` 型の target-specific relocatable fragment を分離し、`.neplmeta` と `.neplobj` の 2 層案として扱う。
 - 追加 issue として `ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649` を作成した。stdlib prechecked artifact、typed module/function object、Resource proof object、codegen fragment object、link manifest を段階的に実装する。
+
+## 2026-05-31 Agent memo_call MemoKey/MemoValue phase1 regression checkpoint
+
+- Zenn の試作段階方針、静的検査方針、純粋性と性能追求方針を再確認した。`plan.md` は変更していない。
+- remote/main は `git fetch origin; git pull --ff-only origin main` で同期済みで、作業 branch は `memo/memokey-phase1-regressions-20260531` とした。
+- `memo_call` Phase 1 の `MemoKey` / `MemoValue` regression を追加し、structural Copy aggregate は受け入れ、function value、reference、`MemPtr i32`、`RegionToken i32` は拒否することを確認した。
+- `MemPtr` は low-level boundary では `Copy` だが non-owning raw-memory view なので memo cache の stable key/value にはできない。`RegionToken` は free obligation owner なので、pure public function type の裏で cache に保存してはいけない。
+- `stdlib/core/traits/memo.nepl` に `MemoKey` / `MemoValue` trait を追加し、`memo_call` の public signature と compiler-known primitive gate の両方を `.K: MemoKey&Copy, .V: MemoValue&Copy` へ揃えた。
+- Copy だが `MemoKey` がない struct、Copy + `MemoKey` だが `MemoValue` がない struct の regression を追加し、`Copy` だけでは memo cache contract にならないことを固定した。
+- subagent review で、user code が `impl MemoKey for f32` を追加すると `f32` key が通る可能性が指摘された。key predicate と value predicate を分離し、`f32` は value としては許すが、key としては直接型でも aggregate field でも拒否するようにした。
+- `MemoKey` / `MemoValue` の compiler-known primitive gate は、trait 名だけでなく `stdlib/core/traits/memo.nepl` の source identity も確認するようにした。これは `memo_call` 本体の compiler-known 判定と同じく、名前一致だけを proof boundary にしないためである。
+- unit key/value の regression を追加し、`%fn (unit) i32` の grouped unary unit argument と `%fn unit i32` の zero-argument function marker の区別を固定した。
+- `unit` keyword が trait impl method signature の一部経路で fresh type variable になっていたため、type expression lowering で intrinsic type name として扱うようにした。unit 値そのものを引数型にする impl では `%fn (unit) ...` と group して zero-arg function marker と区別する。
+- この checkpoint では backend private cache はまだ生成していない。cache algorithm correctness、official external handle marker、`MemoKey` / `MemoValue` impl の semantic validation は `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` の残件として継続する。
+- 性能側の subagent 調査では、RPN string literal edit の秒単位残差は raw-init / raw-alias / final check の false miss ではなく、未変更 proof の大量 replay と Resource static check pipeline 固定費が支配的だと確認した。次は `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` で `changed function only` / lazy replay を狭く実装する。
+- 検証は `cargo test -p nepl-core function_memo_call --test functions -- --nocapture` を通した。

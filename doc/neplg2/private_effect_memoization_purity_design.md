@@ -272,6 +272,12 @@ Phase 2 では、`PrivateState rho` と `mask_private` を一般化し、local m
 
 この段階では `memo_call @func arg` のような即時適用を拒否する。理由は、call reducer が memoized function value をそのまま underlying named function call へ畳むと、将来 backend が private cache wrapper を挿入するための HIR 境界が失われるためである。Phase 1 の呼び出しは `let f %fn K V memo_call @func` のように一度 memoized function value として束縛し、その値を通常の function value として呼び出す形に限定する。sealed backend representation が入り、即時適用でも memoization 境界を保持できるようになった段階で、この制限を再検討する。
 
+2026-05-31 の MemoKey / MemoValue checkpoint では、`stdlib/core/traits/memo.nepl` に memoization 専用 trait を追加し、`memo_call` の public signature を `.K: MemoKey&Copy, .V: MemoValue&Copy` に更新した。これは `Copy` が「複製してよい」ことだけを表し、cache key の同値性・hash 安定性や cache value の identity 非露出を表さないためである。compiler-known primitive gate も同じ trait bound を確認し、通常 overload の trait bound bypass にならないようにした。gate が参照する `MemoKey` / `MemoValue` trait definition は `stdlib/core/traits/memo.nepl` の source identity も確認する。
+
+同 checkpoint では、Phase 1 の key predicate と value predicate を分離した。`f32` は value としては `Copy` して返せるが、NaN、符号付き zero、正規化、hash consistency の仕様が固定されるまでは key として拒否する。user code が `impl MemoKey for f32` を追加した場合や、`f32` field を持つ nominal aggregate に `MemoKey` を実装した場合も、compiler-known primitive gate は key として受け入れない。
+
+同 checkpoint では、`unit` keyword が trait impl method signature の一部経路で fresh type variable として lower される不整合も修正した。`unit` は zero-argument function type の marker としても使われるため、unit 値そのものを引数型にする標準 impl では `%fn (unit) ...` のように group して書く。これにより `MemoKey for unit` / `MemoValue for unit` は通常の trait impl と同じ経路で検査される。
+
 現 checkpoint の compiler-known primitive 検出は、解決済み `DefId` と source map 上の `stdlib/core/memo.nepl` path を確認する。これは単なる名前 allowlist より強いが、最終的な proof boundary ではない。SourceCapability exact use-site と stdlib source hash / policy hash が入るまでは、path suffix だけを private cache authority の根拠にしない。
 
 ## backend 表現

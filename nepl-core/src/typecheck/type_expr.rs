@@ -51,15 +51,9 @@ pub(super) fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeE
         TypeExpr::Char => ctx.char(),
         TypeExpr::Str => ctx.str(),
         TypeExpr::Never => ctx.never(),
-        TypeExpr::Named(name) => match name.as_str() {
-            "i32" => ctx.i32(),
-            "u8" => ctx.u8(),
-            "f32" => ctx.f32(),
-            "bool" => ctx.bool(),
-            "char" => ctx.char(),
-            "str" => ctx.str(),
-            "never" => ctx.never(),
-            _ => {
+        TypeExpr::Named(name) => match intrinsic_type_from_name(ctx, name) {
+            Some(ty) => ty,
+            None => {
                 if let Some(id) = labels.get(name) {
                     return *id;
                 }
@@ -80,6 +74,9 @@ pub(super) fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeE
         }
         TypeExpr::Label(label) => {
             if let Some(name) = label {
+                if let Some(ty) = intrinsic_type_from_name(ctx, name) {
+                    return ty;
+                }
                 if let Some(existing) = labels.get(name) {
                     *existing
                 } else {
@@ -119,5 +116,19 @@ pub(super) fn type_from_expr(ctx: &mut TypeCtx, labels: &mut LabelEnv, t: &TypeE
             ctx.reference(i, *is_mut)
         }
         TypeExpr::Spanned(inner, _) => type_from_expr(ctx, labels, inner),
+    }
+}
+
+fn intrinsic_type_from_name(ctx: &mut TypeCtx, name: &str) -> Option<TypeId> {
+    match name {
+        "unit" => Some(ctx.unit()),
+        "i32" => Some(ctx.i32()),
+        "u8" => Some(ctx.u8()),
+        "f32" => Some(ctx.f32()),
+        "bool" => Some(ctx.bool()),
+        "char" => Some(ctx.char()),
+        "str" => Some(ctx.str()),
+        "never" => Some(ctx.never()),
+        _ => None,
     }
 }
