@@ -1295,6 +1295,22 @@ same operation を証明した場合だけ trusted use-site 診断を suppress �
 Pure へ mask する authority ではない。private region non-escape proof がない artifact は、
 SourceCapability が一致しても pure memoization proof としては使わない。
 
+同日の `.neplproof` compile-context header checkpoint では、expected header の生成を
+`nepl-core` の compiler pipeline へ寄せた。`ResourceSummaryCacheNamespaceKey` は
+typecheck 後に確定するため、Web / CLI 側で target/profile hash や resource summary namespace
+hash を再実装すると stale-hit 防止境界が分裂する。そこで
+`ResourceSummaryCacheNamespaceKey::resource_summary_proof_header` が compiler identity、
+target/profile、stdlib content hash、dependency public surface hash、Resource summary namespace、
+source capability policy set、private effect policy version から
+`ResourceSummaryProofArtifactHeader` を作る。
+
+`ResourceSummaryProofArtifactCacheOptions` は、host が持つ optional preseed artifact と
+stdlib content hash だけを core compiler へ渡す。artifact は Resource static check の直前に
+expected header と照合され、mismatch なら payload を cache へ merge せず通常 compile へ戻る。
+private effect policy hash はこの path では常に `Some` にし、`None == None` による private
+cache / mask rule の誤共有を避ける。disk / IndexedDB codec はまだ作らず、将来追加するときは
+header decode / compare を payload decode より前に置く。
+
 ### 2026-05-31 measurement boundary
 
 RPN same-session code edit は、Resource summary value cache の段階的な stable mirror により

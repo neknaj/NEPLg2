@@ -98,3 +98,22 @@ function signature / source capability policy へ再投影できる場合だけ�
 
 次の作業は、Web / CLI / selfhost 側でこの header を作るための canonical compiler identity hash、
 target/profile hash、stdlib artifact hash の生成と、preseed/export を session API に薄く接続することである。
+
+## 2026-06-01 checkpoint 3
+
+`.neplproof` の expected header を Web / CLI 側で再実装しないよう、
+`ResourceSummaryCacheNamespaceKey::resource_summary_proof_header` を追加した。
+この API は typecheck 後に確定する typed public signature hash、dependency public surface hash、
+target/profile、source capability policy set、private effect policy version から
+`ResourceSummaryProofArtifactHeader` を作る。
+
+`resource_summary_private_effect_policy_hash` は常に `Some` として header に入れる。
+これにより private effect policy 未実装同士の `None == None` で artifact を受け入れる経路を避ける。
+source capability policy set も `SourceMap` から集約し、private cache use-site の span / operation /
+source content が変わると artifact-level で miss する。
+
+compile pipeline には `ResourceSummaryProofArtifactCacheOptions` と
+`compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_neplproof`
+を追加した。preseed artifact は Resource static check の直前に header 照合され、mismatch の場合は
+通常 compile へ fail-closed に戻る。disk / IndexedDB codec はまだ実装しない。codec を追加するときは、
+header を先に decode / compare し、mismatch の artifact では payload を decode しない二段階にする。

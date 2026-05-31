@@ -123,6 +123,44 @@ pub struct CompilationArtifact {
     pub wat_comments: String,
 }
 
+/// Resource summary proof artifact を compile pipeline へ接続するための入力。
+///
+/// `.neplproof` の expected header は typecheck 後に確定する typed public signature と
+/// `ResourceSummaryCacheNamespaceKey` を必要とするため、Web / CLI 側で同じ hash を
+/// 再実装してはならない。この options は host が持つ optional な artifact と stdlib content
+/// hash だけを渡し、target/profile/source-capability/private-effect policy は core compiler が
+/// canonical な形で組み立てる。
+#[derive(Debug, Clone, Copy)]
+pub struct ResourceSummaryProofArtifactCacheOptions<'a> {
+    pub preseed_artifact: Option<&'a crate::resource::ResourceSummaryProofArtifact>,
+    pub stdlib_content_hash: Option<u64>,
+}
+
+impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
+    pub fn none() -> Self {
+        Self {
+            preseed_artifact: None,
+            stdlib_content_hash: None,
+        }
+    }
+
+    pub fn preseed(
+        artifact: &'a crate::resource::ResourceSummaryProofArtifact,
+        stdlib_content_hash: Option<u64>,
+    ) -> Self {
+        Self {
+            preseed_artifact: Some(artifact),
+            stdlib_content_hash,
+        }
+    }
+}
+
+impl<'a> Default for ResourceSummaryProofArtifactCacheOptions<'a> {
+    fn default() -> Self {
+        Self::none()
+    }
+}
+
 /// コンパイル pipeline の 1 stage にかかった時間。
 ///
 /// Web / Node の same-session 性能測定では、標準エラーへ出す native timing だけでは
@@ -315,6 +353,34 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         artifact_options,
         dependency_public_surface_hash,
         resource_summary_value_cache,
+        ResourceSummaryProofArtifactCacheOptions::none(),
+        &mut stage_recorder,
+    )
+}
+
+/// Resource summary value cache と `.neplproof` preseed artifact を受け取る artifact pipeline。
+///
+/// `.neplproof` artifact は compile 文脈と header が一致した場合だけ cache へ preseed される。
+/// header が一致しない場合は payload を Resource proof authority として扱わず、通常の
+/// Resource IR static check へ fail-closed に戻る。
+pub fn compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_neplproof(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    dependency_public_surface_hash: Option<u64>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
+) -> Result<CompilationArtifact, CoreError> {
+    let mut stage_recorder = CompileStageRecorder::disabled();
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        module,
+        source_map,
+        options,
+        artifact_options,
+        dependency_public_surface_hash,
+        resource_summary_value_cache,
+        resource_summary_proof_options,
         &mut stage_recorder,
     )
 }
@@ -342,6 +408,7 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         artifact_options,
         dependency_public_surface_hash,
         resource_summary_value_cache,
+        ResourceSummaryProofArtifactCacheOptions::none(),
         &mut stage_recorder,
     )
 }
@@ -353,6 +420,7 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
     artifact_options: CompilationArtifactOptions,
     dependency_public_surface_hash: Option<u64>,
     resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
     stage_recorder: &mut CompileStageRecorder<'_>,
 ) -> Result<CompilationArtifact, CoreError> {
     // loader が計算した dependency public surface hash を artifact pipeline へ渡す。
@@ -380,6 +448,7 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
         source_map,
         dependency_public_surface_hash,
         resource_summary_value_cache,
+        resource_summary_proof_options,
         stage_recorder,
     )?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
@@ -482,6 +551,7 @@ pub struct PreparedProgram {
     pub hir_module: crate::hir::HirModule,
     pub public_signatures: crate::typecheck::TypedPublicSignatureTable,
     pub resource_summary_cache_namespace_key: ResourceSummaryCacheNamespaceKey,
+    pub resource_summary_proof_header: crate::resource::ResourceSummaryProofArtifactHeader,
     pub resource_drop_elaboration_plan: crate::resource::ResourceDropElaborationPlan,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -533,10 +603,40 @@ impl ResourceSummaryCacheNamespaceKey {
             profile,
         }
     }
+
+    /// 現在 compile の `.neplproof` expected header を作る。
+    ///
+    /// target/profile と resource summary namespace はこの key から取り出し、source
+    /// capability policy set は `SourceMap` から集約する。private effect policy は
+    /// compiler-owned version hash として常に `Some` にし、`None == None` による stale
+    /// artifact の受け入れを避ける。
+    pub fn resource_summary_proof_header(
+        &self,
+        source_map: Option<&SourceMap>,
+        stdlib_content_hash: Option<u64>,
+    ) -> crate::resource::ResourceSummaryProofArtifactHeader {
+        crate::resource::ResourceSummaryProofArtifactHeader::new(
+            resource_summary_proof_compiler_identity_hash(),
+            resource_summary_proof_target_hash(self.target),
+            resource_summary_proof_profile_hash(self.profile),
+            stdlib_content_hash,
+            self.dependency_public_surface_hash,
+            self.stable_hash,
+            resource_summary_source_capability_policy_set_hash(source_map),
+            Some(resource_summary_private_effect_policy_hash()),
+        )
+    }
 }
 
 const RESOURCE_SUMMARY_CACHE_NAMESPACE_KEY_VERSION: &str =
     "neplg2-resource-summary-cache-namespace-v1";
+const RESOURCE_SUMMARY_PROOF_HEADER_HASH_VERSION: &str = "neplg2-resource-summary-proof-header-v1";
+const RESOURCE_SUMMARY_PROOF_COMPILER_IDENTITY_INPUT: &str = concat!(
+    "neplg2-compiler:",
+    env!("CARGO_PKG_VERSION"),
+    ":resource-summary-proof-v1"
+);
+const RESOURCE_SUMMARY_PRIVATE_EFFECT_POLICY_VERSION: &str = "neplg2-private-effect-policy-v1";
 
 fn resource_summary_cache_namespace_hash(
     target: CompileTarget,
@@ -593,6 +693,48 @@ fn resource_summary_cache_hash_bytes(hash: &mut u64, bytes: &[u8]) {
         *hash ^= u64::from(*byte);
         *hash = hash.wrapping_mul(0x100000001b3);
     }
+}
+
+pub fn resource_summary_proof_compiler_identity_hash() -> u64 {
+    resource_summary_proof_hash_tag("compiler", RESOURCE_SUMMARY_PROOF_COMPILER_IDENTITY_INPUT)
+}
+
+pub fn resource_summary_proof_target_hash(target: CompileTarget) -> u64 {
+    resource_summary_proof_hash_tag("target", resource_summary_cache_target_tag(target))
+}
+
+pub fn resource_summary_proof_profile_hash(profile: BuildProfile) -> u64 {
+    resource_summary_proof_hash_tag("profile", resource_summary_cache_profile_tag(profile))
+}
+
+pub fn resource_summary_private_effect_policy_hash() -> u64 {
+    resource_summary_proof_hash_tag(
+        "private-effect-policy",
+        RESOURCE_SUMMARY_PRIVATE_EFFECT_POLICY_VERSION,
+    )
+}
+
+pub fn resource_summary_source_capability_policy_set_hash(
+    source_map: Option<&SourceMap>,
+) -> Option<u64> {
+    let source_map = source_map?;
+    let mut hash = 0xcbf29ce484222325;
+    resource_summary_cache_hash_str(&mut hash, RESOURCE_SUMMARY_PROOF_HEADER_HASH_VERSION);
+    resource_summary_cache_hash_str(&mut hash, "source-capability-policy-set");
+    for (file_id, path) in source_map.iter_paths() {
+        let policy_hash = source_map.source_capability_policy_hash_for_file(file_id)?;
+        resource_summary_cache_hash_str(&mut hash, path.as_str());
+        resource_summary_cache_hash_u64(&mut hash, policy_hash);
+    }
+    Some(hash)
+}
+
+fn resource_summary_proof_hash_tag(domain: &str, value: &str) -> u64 {
+    let mut hash = 0xcbf29ce484222325;
+    resource_summary_cache_hash_str(&mut hash, RESOURCE_SUMMARY_PROOF_HEADER_HASH_VERSION);
+    resource_summary_cache_hash_str(&mut hash, domain);
+    resource_summary_cache_hash_str(&mut hash, value);
+    hash
 }
 
 fn resource_summary_value_cache_context(
@@ -1167,10 +1309,7 @@ mod tests {
         })
     }
 
-    fn private_cache_capabilities(
-        operation: PrivateCacheOp,
-        span: Span,
-    ) -> SourceCapabilities {
+    fn private_cache_capabilities(operation: PrivateCacheOp, span: Span) -> SourceCapabilities {
         use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
             operation,
             span: SourceCapabilitySpan::from_span(span),
@@ -1406,6 +1545,123 @@ mod tests {
 
         assert_eq!(with_dependency.dependency_public_surface_hash, Some(123));
         assert_ne!(without_dependency, with_dependency);
+    }
+
+    #[test]
+    fn resource_summary_proof_header_uses_compile_namespace_and_policy_hashes() {
+        let namespace = ResourceSummaryCacheNamespaceKey::new(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            7,
+            Some(11),
+        );
+        let mut source_map = SourceMap::new();
+        let span = Span::new(FileId(0), 2, 8);
+        source_map.add_with_capabilities(
+            "/virtual/private-cache.nepl",
+            String::from("private_cache_lookup"),
+            private_cache_capabilities(PrivateCacheOp::Lookup, span),
+        );
+
+        let header = namespace.resource_summary_proof_header(Some(&source_map), Some(13));
+
+        assert_eq!(
+            header.compiler_identity_hash,
+            resource_summary_proof_compiler_identity_hash()
+        );
+        assert_eq!(
+            header.target_hash,
+            resource_summary_proof_target_hash(CompileTarget::Wasm)
+        );
+        assert_eq!(
+            header.profile_hash,
+            resource_summary_proof_profile_hash(BuildProfile::Debug)
+        );
+        assert_eq!(header.stdlib_content_hash, Some(13));
+        assert_eq!(header.dependency_public_surface_hash, Some(11));
+        assert_eq!(
+            header.resource_summary_namespace_hash,
+            namespace.stable_hash
+        );
+        assert_eq!(
+            header.source_capability_policy_set_hash,
+            resource_summary_source_capability_policy_set_hash(Some(&source_map))
+        );
+        assert_eq!(
+            header.private_effect_policy_hash,
+            Some(resource_summary_private_effect_policy_hash())
+        );
+    }
+
+    #[test]
+    fn resource_summary_proof_header_changes_when_source_capability_policy_changes() {
+        let namespace = ResourceSummaryCacheNamespaceKey::new(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            7,
+            None,
+        );
+        let mut lookup_map = SourceMap::new();
+        lookup_map.add_with_capabilities(
+            "/virtual/private-cache.nepl",
+            String::from("private_cache_lookup"),
+            private_cache_capabilities(PrivateCacheOp::Lookup, Span::new(FileId(0), 2, 8)),
+        );
+        let mut insert_map = SourceMap::new();
+        insert_map.add_with_capabilities(
+            "/virtual/private-cache.nepl",
+            String::from("private_cache_insert"),
+            private_cache_capabilities(PrivateCacheOp::Insert, Span::new(FileId(0), 2, 8)),
+        );
+
+        let lookup_header = namespace.resource_summary_proof_header(Some(&lookup_map), None);
+        let insert_header = namespace.resource_summary_proof_header(Some(&insert_map), None);
+
+        assert_ne!(
+            lookup_header.source_capability_policy_set_hash,
+            insert_header.source_capability_policy_set_hash
+        );
+        assert_eq!(
+            lookup_header.compatibility_reject(insert_header),
+            Some(crate::resource::ResourceSummaryProofArtifactCompatibilityReject::SourceCapabilityPolicySet)
+        );
+    }
+
+    #[test]
+    fn prepare_exposes_resource_summary_proof_header() {
+        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let module = parse_test_module(source);
+        let mut source_map = SourceMap::new();
+        source_map.add("/virtual/entry.nepl", String::from(source));
+
+        let prepared =
+            prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
+                &module,
+                CompileTarget::Wasm,
+                BuildProfile::Debug,
+                Some(&source_map),
+                Some(123),
+            )
+            .expect("test module should pass prepare");
+
+        assert_eq!(
+            prepared
+                .resource_summary_proof_header
+                .resource_summary_namespace_hash,
+            prepared.resource_summary_cache_namespace_key.stable_hash
+        );
+        assert_eq!(
+            prepared
+                .resource_summary_proof_header
+                .dependency_public_surface_hash,
+            Some(123)
+        );
+        assert_eq!(
+            prepared
+                .resource_summary_proof_header
+                .private_effect_policy_hash,
+            Some(resource_summary_private_effect_policy_hash())
+        );
     }
 
     #[test]
@@ -2621,6 +2877,7 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
         source_map,
         dependency_public_surface_hash,
         resource_summary_value_cache,
+        ResourceSummaryProofArtifactCacheOptions::none(),
         &mut stage_recorder,
     )
 }
@@ -2631,7 +2888,8 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
     dependency_public_surface_hash: Option<u64>,
-    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    mut resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
     stage_recorder: &mut CompileStageRecorder<'_>,
 ) -> Result<PreparedProgram, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
@@ -2665,11 +2923,21 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
         public_signatures.stable_hash,
         dependency_public_surface_hash,
     );
+    let resource_summary_proof_header = resource_summary_cache_namespace_key
+        .resource_summary_proof_header(
+            source_map,
+            resource_summary_proof_options.stdlib_content_hash,
+        );
     let resource_summary_value_cache_context = if resource_summary_value_cache.is_some() {
         resource_summary_value_cache_context(&resource_summary_cache_namespace_key, source_map)
     } else {
         None
     };
+    if let Some(artifact) = resource_summary_proof_options.preseed_artifact {
+        if let Some(cache) = resource_summary_value_cache.as_deref_mut() {
+            let _ = cache.preseed_neplproof_artifact(artifact, resource_summary_proof_header);
+        }
+    }
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let stage_start_ms = stage_recorder.start();
@@ -2749,6 +3017,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
         hir_module,
         public_signatures,
         resource_summary_cache_namespace_key,
+        resource_summary_proof_header,
         resource_drop_elaboration_plan,
         diagnostics,
     })

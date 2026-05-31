@@ -1,3 +1,16 @@
+# 2026-06-01 .neplproof compile-context header/preseed checkpoint
+
+- Zenn 記事の試作段階方針を再確認し、コンパイル高速化でも静的検査を削らず、`.neplproof` の stale-hit 防止境界を core compiler 側へ寄せる方針で進めた。
+- remote/main は作業開始時点で `0 0` 同期済みで、現在 branch `perf/neplproof-session-api-20260601` の基点は `origin/main` と一致している。
+- subagent 2 件で `.neplproof` session/API 接続を独立レビューした。共通指摘は、expected header を Web 側で再実装せず、typecheck 後に `ResourceSummaryCacheNamespaceKey` が確定した core compiler 内で作るべきというものだった。
+- `ResourceSummaryProofArtifactCacheOptions` を追加し、host は optional preseed artifact と stdlib content hash だけを渡す形にした。target/profile、compiler identity、source capability policy set、private effect policy は core が canonical hash として組み立てる。
+- `ResourceSummaryCacheNamespaceKey::resource_summary_proof_header` を追加した。header は dependency public surface hash、resource summary namespace hash、source capability policy set hash、private effect policy hash を含む。
+- private effect policy hash は `.neplproof` preseed path では常に `Some` とし、未実装同士の `None == None` で private cache / mask rule を誤共有しないようにした。
+- compile pipeline へ `compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_neplproof` を追加し、Resource static check 直前に artifact header を照合してから preseed するようにした。mismatch は通常 compile へ fail-closed に戻す。
+- `ResourceSummaryValueCache::export_neplproof_artifact` を追加し、snapshot と header をまとめた in-memory artifact を作れるようにした。disk / IndexedDB codec はまだ実装せず、将来の codec は header decode / compare を payload decode より前に置く。
+- 検証: `cargo check -p nepl-core`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web/Cargo.toml`、`cargo test -p nepl-core resource_summary_proof_header --lib -- --nocapture`、`cargo test -p nepl-core neplproof --lib -- --nocapture`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-neplproof-header-20260601.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。JSON は 13/13 pass。
+- plan.md 自体は変更していない。
+
 # 2026-06-01 Memoized function alias kind checkpoint
 
 - Zenn 記事の試作段階方針を再確認し、memo_call の pure contract を曖昧に広げず、backend private cache representation に必要な Resource IR alias 境界を先に整えた。

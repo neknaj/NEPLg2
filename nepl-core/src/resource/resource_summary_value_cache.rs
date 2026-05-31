@@ -667,6 +667,18 @@ impl ResourceSummaryValueCache {
         }
     }
 
+    /// 現在の Resource proof cache から `.neplproof` in-memory artifact を作る。
+    ///
+    /// header は呼び出し側で作らせず、通常は `ResourceSummaryCacheNamespaceKey` から作った
+    /// compile-context header を渡す。payload は stable mirror snapshot だけであり、disk
+    /// codec はこの API の外側で header を先に照合してから payload を読む二段階にする。
+    pub fn export_neplproof_artifact(
+        &self,
+        header: ResourceSummaryProofArtifactHeader,
+    ) -> ResourceSummaryProofArtifact {
+        ResourceSummaryProofArtifact::new(header, self.export_neplproof_snapshot())
+    }
+
     /// `.neplproof` 用 snapshot の stable entry を現在の cache へ preseed する。
     ///
     /// preseed は Resource proof を確定させる操作ではない。ここでは stable key/value を
@@ -1168,6 +1180,20 @@ mod tests {
         assert_eq!(result.accepted_entries(), 0);
         assert_eq!(artifact.header(), header);
         assert_eq!(artifact.counts().total_entries(), 0);
+    }
+
+    #[test]
+    fn neplproof_artifact_export_wraps_current_snapshot_with_header() {
+        let cache = ResourceSummaryValueCache::new();
+        let header = test_neplproof_header();
+
+        let artifact = cache.export_neplproof_artifact(header);
+
+        assert_eq!(artifact.header(), header);
+        assert_eq!(
+            artifact.counts(),
+            cache.export_neplproof_snapshot().counts()
+        );
     }
 
     #[test]
