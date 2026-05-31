@@ -681,7 +681,7 @@ const RESOURCE_SUMMARY_PROOF_COMPILER_IDENTITY_INPUT: &str = concat!(
     env!("CARGO_PKG_VERSION"),
     ":resource-summary-proof-v1"
 );
-const RESOURCE_SUMMARY_PRIVATE_EFFECT_POLICY_VERSION: &str = "neplg2-private-effect-policy-v1";
+const RESOURCE_SUMMARY_PRIVATE_EFFECT_POLICY_VERSION: &str = "neplg2-private-effect-policy-v2";
 
 fn resource_summary_cache_namespace_hash(
     target: CompileTarget,
@@ -1330,6 +1330,7 @@ mod tests {
         ResourceEffectCallKind, ResourceId, ResourceOwnerDiagnostic, ResourceOwnerOperation,
         StorageId,
     };
+    use crate::effects::PrivateEffectRegion;
     use crate::source_map::{
         SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite, SourceMap,
     };
@@ -1357,6 +1358,7 @@ mod tests {
     fn private_cache_capabilities(operation: PrivateCacheOp, span: Span) -> SourceCapabilities {
         use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
             operation,
+            region: crate::effects::PrivateEffectRegion::UnsealedIntrinsic,
             span: SourceCapabilitySpan::from_span(span),
         })
     }
@@ -2285,6 +2287,7 @@ mod tests {
         let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
             function: String::from("memo_backend"),
             operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::UnsealedIntrinsic,
             span: Span::dummy(),
         };
 
@@ -2334,6 +2337,7 @@ mod tests {
         let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
             function: String::from("memo_backend_lookup"),
             operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::UnsealedIntrinsic,
             span,
         };
 
@@ -2356,11 +2360,13 @@ mod tests {
         let operation_mismatch = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
             function: String::from("memo_backend_insert"),
             operation: PrivateCacheOp::Insert,
+            region: PrivateEffectRegion::UnsealedIntrinsic,
             span,
         };
         let span_mismatch = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
             function: String::from("memo_backend_lookup"),
             operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::UnsealedIntrinsic,
             span: shifted_span,
         };
 
@@ -2392,6 +2398,7 @@ mod tests {
         let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
             function: String::from("user_lookup"),
             operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::UnsealedIntrinsic,
             span: user_span,
         };
 
@@ -2415,6 +2422,7 @@ mod tests {
         let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
             function: String::from("memo_backend_lookup"),
             operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::UnsealedIntrinsic,
             span,
         };
 
@@ -2636,13 +2644,14 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
             operation,
+            region,
             ..
         } => {
             let Some(span) = resource_effect_boundary_diagnostic_span(diagnostic) else {
                 return false;
             };
             source_map
-                .map(|map| map.private_cache_boundary_allowed_at(span, *operation))
+                .map(|map| map.private_cache_boundary_allowed_at(span, *operation, *region))
                 .unwrap_or(false)
         }
         crate::resource::ResourceEffectBoundaryDiagnostic::RawAddressViewOutsideBoundary {
@@ -2777,36 +2786,39 @@ fn resource_effect_boundary_diagnostic_to_error(
         crate::resource::ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
             function,
             operation,
+            region,
             span,
         } => Diagnostic::error_with_code(
             code,
             format!(
-                "pure function '{}' uses unmasked private state operation '{}'",
-                function, operation
+                "pure function '{}' uses unmasked private state operation '{}' in private effect region '{}'",
+                function, operation, region
             ),
             *span,
         ),
         crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
             function,
             operation,
+            region,
             span,
         } => Diagnostic::error_with_code(
             code,
             format!(
-                "pure function '{}' uses unmasked private cache operation '{}'",
-                function, operation
+                "pure function '{}' uses unmasked private cache operation '{}' in private effect region '{}'",
+                function, operation, region
             ),
             *span,
         ),
         crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
             function,
             operation,
+            region,
             span,
         } => Diagnostic::error_with_code(
             code,
             format!(
-                "function '{}' uses private cache operation '{}' outside private-cache boundary",
-                function, operation
+                "function '{}' uses private cache operation '{}' in private effect region '{}' outside private-cache boundary",
+                function, operation, region
             ),
             *span,
         ),

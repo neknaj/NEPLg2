@@ -2683,6 +2683,7 @@ mod tests {
                     site,
                     SourceCapabilityUseSite::PrivateCacheBoundary {
                         operation: site_operation,
+                        region: crate::effects::PrivateEffectRegion::UnsealedIntrinsic,
                         ..
                     } if *site_operation == operation
                 )

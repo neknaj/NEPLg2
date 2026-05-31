@@ -1,6 +1,6 @@
 use alloc::string::String;
 
-use crate::effects::{PrivateCacheOp, RawBodyMemoryOp, RawMemoryOp};
+use crate::effects::{PrivateCacheOp, PrivateEffectRegion, RawBodyMemoryOp, RawMemoryOp};
 use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::source_map::{
     CompilerMemoryField, CompilerMemoryType, SourceCapabilities, SourceCapabilitySpan,
@@ -22,7 +22,10 @@ pub(in crate::source_capability) enum SourceCapabilityProofFact {
     CompilerMemoryTypeDefinition(CompilerMemoryType),
     CollectionSlotLifecycleBoundary(CollectionSlotLifecyclePrimitive),
     CollectionSlotBorrowBoundary(CollectionSlotBorrowPrimitive),
-    PrivateCacheBoundary(PrivateCacheOp),
+    PrivateCacheBoundary {
+        operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
+    },
 }
 
 #[derive(Debug, Default)]
@@ -116,9 +119,10 @@ impl SourceCapabilityProof {
                     span: Self::site_span(span),
                 });
             }
-            SourceCapabilityProofFact::PrivateCacheBoundary(operation) => {
+            SourceCapabilityProofFact::PrivateCacheBoundary { operation, region } => {
                 self.insert_use_site(SourceCapabilityUseSite::PrivateCacheBoundary {
                     operation,
+                    region,
                     span: Self::site_span(span),
                 });
             }
@@ -137,7 +141,10 @@ mod tests {
         let mut proof = SourceCapabilityProof::default();
 
         proof.insert_fact(
-            SourceCapabilityProofFact::PrivateCacheBoundary(PrivateCacheOp::Lookup),
+            SourceCapabilityProofFact::PrivateCacheBoundary {
+                operation: PrivateCacheOp::Lookup,
+                region: PrivateEffectRegion::UnsealedIntrinsic,
+            },
             proven,
         );
 

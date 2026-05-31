@@ -4,7 +4,7 @@ use alloc::vec;
 use super::lower_hir_module;
 use crate::ast::Effect;
 use crate::hir::{HirBlock, HirBody, HirExpr, HirExprKind, HirFunction, HirLine, HirModule};
-use crate::resource::model::{EffectOp, ResourceOp};
+use crate::resource::model::{EffectOp, PrivateEffectRegion, ResourceOp};
 use crate::resource::PrivateCacheOp;
 use crate::span::{FileId, Span};
 use crate::types::TypeCtx;
@@ -64,6 +64,7 @@ fn private_cache_intrinsic_lowers_call_effect_at_expression_span() {
         (
             &EffectOp::PrivateCache {
                 operation: PrivateCacheOp::Lookup,
+                region: PrivateEffectRegion::UnsealedIntrinsic,
             },
             intrinsic_span,
         )

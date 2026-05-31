@@ -95,8 +95,8 @@ mod tests {
 
     use super::super::effect_diagnostic::ResourceEffectBoundaryDiagnostic;
     use super::super::model::{
-        EffectOp, PrivateCacheOp, PrivateStateOp, ResourceBlock, ResourceBlockId, ResourceFunction,
-        ResourceModule, ResourceOp, ResourceTerminator,
+        EffectOp, PrivateCacheOp, PrivateEffectRegion, PrivateStateOp, ResourceBlock,
+        ResourceBlockId, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator,
     };
     use super::check_resource_effect_boundaries;
 
@@ -135,6 +135,7 @@ mod tests {
             Effect::Pure,
             EffectOp::PrivateCache {
                 operation: PrivateCacheOp::Lookup,
+                region: PrivateEffectRegion::UnsealedIntrinsic,
             },
         ));
 
@@ -144,11 +145,13 @@ mod tests {
                 ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
                     function: String::from("uses_private_effect"),
                     operation: PrivateCacheOp::Lookup,
+                    region: PrivateEffectRegion::UnsealedIntrinsic,
                     span: Span::dummy(),
                 },
                 ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
                     function: String::from("uses_private_effect"),
                     operation: PrivateCacheOp::Lookup,
+                    region: PrivateEffectRegion::UnsealedIntrinsic,
                     span: Span::dummy(),
                 }
             ]
@@ -162,6 +165,7 @@ mod tests {
             Effect::Pure,
             EffectOp::PrivateState {
                 operation: PrivateStateOp::Write,
+                region: PrivateEffectRegion::UnsealedIntrinsic,
             },
         ));
 
@@ -171,6 +175,7 @@ mod tests {
                 ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
                     function: String::from("uses_private_effect"),
                     operation: PrivateStateOp::Write,
+                    region: PrivateEffectRegion::UnsealedIntrinsic,
                     span: Span::dummy(),
                 }
             ]
@@ -184,6 +189,7 @@ mod tests {
             Effect::Impure,
             EffectOp::PrivateCache {
                 operation: PrivateCacheOp::Insert,
+                region: PrivateEffectRegion::UnsealedIntrinsic,
             },
         ));
 
@@ -192,6 +198,7 @@ mod tests {
             vec![ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
                 function: String::from("uses_private_effect"),
                 operation: PrivateCacheOp::Insert,
+                region: PrivateEffectRegion::UnsealedIntrinsic,
                 span: Span::dummy(),
             }]
         );

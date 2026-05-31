@@ -16,8 +16,9 @@ use super::effect_raw_memory_identity::RawMemoryIdentityTable;
 use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSummaryIndex};
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
-    EffectOp, Place, PrivateCacheOp, RawAddressAliasKind, RawAddressViewKind, RawMemoryOp,
-    ResourceBlock, ResourceExprKind, ResourceFunction, ResourceOp, ResourceTerminator,
+    EffectOp, Place, PrivateCacheOp, PrivateEffectRegion, RawAddressAliasKind, RawAddressViewKind,
+    RawMemoryOp, ResourceBlock, ResourceExprKind, ResourceFunction, ResourceOp,
+    ResourceTerminator,
 };
 use super::place_utils::{raw_address_view_candidate_bases, reference_target_place};
 
@@ -593,26 +594,28 @@ impl ResourceEffectBoundaryEngine<'_> {
                     );
                 }
             }
-            EffectOp::PrivateState { operation } => {
+            EffectOp::PrivateState { operation, region } => {
                 self.counts.private_state_ops += 1;
                 if matches!(self.effect, Effect::Pure) {
                     self.diagnostics.push(
                         ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
                             function: String::from(self.function),
                             operation: *operation,
+                            region: *region,
                             span,
                         },
                     );
                 }
             }
-            EffectOp::PrivateCache { operation } => {
+            EffectOp::PrivateCache { operation, region } => {
                 self.counts.private_cache_ops += 1;
-                self.report_private_cache_boundary_use(*operation, span);
+                self.report_private_cache_boundary_use(*operation, *region, span);
                 if matches!(self.effect, Effect::Pure) {
                     self.diagnostics.push(
                         ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
                             function: String::from(self.function),
                             operation: *operation,
+                            region: *region,
                             span,
                         },
                     );
@@ -670,11 +673,17 @@ impl ResourceEffectBoundaryEngine<'_> {
             });
     }
 
-    fn report_private_cache_boundary_use(&mut self, operation: PrivateCacheOp, span: Span) {
+    fn report_private_cache_boundary_use(
+        &mut self,
+        operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
+        span: Span,
+    ) {
         self.diagnostics
             .push(ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
                 function: String::from(self.function),
                 operation,
+                region,
                 span,
             });
     }

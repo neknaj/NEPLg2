@@ -9,8 +9,8 @@ use crate::diagnostic_codes::{
 use crate::span::Span;
 
 use super::model::{
-    ExternalIoOp, NondetOp, Place, PrivateCacheOp, PrivateStateOp, RawAddressAliasKind,
-    RawAddressViewKind, RawMemoryOp, UnknownEffectReason,
+    ExternalIoOp, NondetOp, Place, PrivateCacheOp, PrivateEffectRegion, PrivateStateOp,
+    RawAddressAliasKind, RawAddressViewKind, RawMemoryOp, UnknownEffectReason,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,16 +28,19 @@ pub enum ResourceEffectBoundaryDiagnostic {
     PrivateStateInPureFunction {
         function: String,
         operation: PrivateStateOp,
+        region: PrivateEffectRegion,
         span: Span,
     },
     PrivateCacheInPureFunction {
         function: String,
         operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
         span: Span,
     },
     PrivateCacheOutsideBoundary {
         function: String,
         operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
         span: Span,
     },
     RawMemoryOutsideBoundary {

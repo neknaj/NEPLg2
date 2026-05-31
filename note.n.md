@@ -1,3 +1,15 @@
+# 2026-06-01 PrivateCache region provenance checkpoint
+
+- Zenn 記事の試作段階方針、静的検査方針、性能追求方針を再確認し、`memo_call` の pure contract を広げずに Resource IR / SourceCapability / artifact hash の provenance を強化した。
+- remote/main は作業開始時点で `0 0` 同期済みで、現在 branch `memo/private-cache-provenance-20260601` の基点は `origin/main` と一致している。
+- subagent 2 件で `.neplmeta` と `memo_call` / `PrivateCache` を独立レビューした。`.neplmeta` 側は body skip へ直行せず structured public surface と typecheck materializer を分けるべきと確認し、`ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7` を追加した。`memo_call` 側は `UnsealedIntrinsic` を mask 済み region と扱わず、SourceCapability は trusted use-site proof に限定する方針を確認した。
+- `PrivateEffectRegion::UnsealedIntrinsic` を追加し、`InternalEffect::{PrivateState, PrivateCache}` と Resource IR `EffectOp::{PrivateState, PrivateCache}` が region provenance を保持するようにした。これは fresh / non-escape proof ではないため、`internal_effect_surface_fold` は private effect を `Pure` にしない。
+- `ResourceEffectBoundaryDiagnostic::{PrivateStateInPureFunction, PrivateCacheInPureFunction, PrivateCacheOutsideBoundary}` に region を含め、diagnostic message でも region を表示するようにした。`PrivateCacheOutsideBoundary` だけは SourceCapability exact proof で suppress できるが、`PrivateCacheInPureFunction` は引き続き fail-closed である。
+- `SourceCapabilityUseSite::PrivateCacheBoundary` と `SourceCapabilityProofFact::PrivateCacheBoundary` に region を追加し、exact file / exact span / same operation / same region の proof だけを trusted use-site として扱うようにした。source capability policy hash と Resource summary body hash も region を hash する。
+- private effect policy hash を `neplg2-private-effect-policy-v2` に上げ、region provenance 導入前の `.neplmeta` / `.neplproof` artifact を同一 private effect policy として受け入れないようにした。
+- `doc/neplg2/private_effect_memoization_purity_design.md` と `doc/neplg2/compiler_performance_cache_design.md` に、今回の region provenance と `.neplmeta` 次段階の分割方針を追記した。`plan.md` は変更していない。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo test -p nepl-core private_cache --lib -- --nocapture`、`cargo test -p nepl-core private_effect --lib -- --nocapture`、`cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`、`cargo test -p nepl-core source_capabilit --lib -- --nocapture`、`cargo test -p nepl-core resource_function_body_hash --lib -- --nocapture`、`cargo test -p nepl-core function_memo_call --test functions -- --nocapture`、`cargo test -p nepl-core --tests --no-run`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-private-cache-provenance-20260601.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+
 # 2026-06-01 .neplmeta public interface artifact checkpoint
 
 - Zenn 記事の試作段階方針を再確認し、base compile 改善に必要な中間ファイル境界として `.neplmeta` の in-memory public interface artifact を追加した。

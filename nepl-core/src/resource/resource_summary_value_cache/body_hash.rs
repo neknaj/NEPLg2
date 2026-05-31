@@ -893,13 +893,15 @@ fn hash_effect_op(hash: &mut ResourceSummaryStableHasher, effect: &EffectOp) {
             hash.write_str("unsafe_memory");
             hash.write_str(operation.as_str());
         }
-        EffectOp::PrivateState { operation } => {
+        EffectOp::PrivateState { operation, region } => {
             hash.write_str("private_state");
             hash.write_str(operation.as_str());
+            hash.write_str(region.as_str());
         }
-        EffectOp::PrivateCache { operation } => {
+        EffectOp::PrivateCache { operation, region } => {
             hash.write_str("private_cache");
             hash.write_str(operation.as_str());
+            hash.write_str(region.as_str());
         }
         EffectOp::ExternalIo { operation } => {
             hash.write_str("external_io");

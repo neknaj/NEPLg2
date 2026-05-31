@@ -9,7 +9,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 
-use crate::effects::{PrivateCacheOp, RawBodyMemoryOp, RawMemoryOp};
+use crate::effects::{PrivateCacheOp, PrivateEffectRegion, RawBodyMemoryOp, RawMemoryOp};
 pub use crate::resource_primitives::{
     CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive,
 };
@@ -127,6 +127,7 @@ pub enum SourceCapabilityUseSite {
     },
     PrivateCacheBoundary {
         operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
         span: SourceCapabilitySpan,
     },
 }
@@ -370,8 +371,22 @@ impl SourceCapabilities {
     }
 
     pub fn allows_private_cache_boundary_at(&self, operation: PrivateCacheOp, span: Span) -> bool {
+        self.allows_private_cache_boundary_in_region_at(
+            operation,
+            PrivateEffectRegion::UnsealedIntrinsic,
+            span,
+        )
+    }
+
+    pub fn allows_private_cache_boundary_in_region_at(
+        &self,
+        operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
+        span: Span,
+    ) -> bool {
         self.allows_use_site(SourceCapabilityUseSite::PrivateCacheBoundary {
             operation,
+            region,
             span: SourceCapabilitySpan::from_span(span),
         })
     }
@@ -533,9 +548,14 @@ impl SourceMap {
             .allows_collection_slot_borrow_boundary_at(primitive, span)
     }
 
-    pub fn private_cache_boundary_allowed_at(&self, span: Span, operation: PrivateCacheOp) -> bool {
+    pub fn private_cache_boundary_allowed_at(
+        &self,
+        span: Span,
+        operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
+    ) -> bool {
         self.capabilities(span.file_id)
-            .allows_private_cache_boundary_at(operation, span)
+            .allows_private_cache_boundary_in_region_at(operation, region, span)
     }
 
     pub fn iter_paths(&self) -> impl Iterator<Item = (FileId, &SourcePath)> {
@@ -663,9 +683,14 @@ fn source_capability_use_site_hash(hash: &mut u64, use_site: &SourceCapabilityUs
             );
             source_capability_span_hash(hash, *span);
         }
-        SourceCapabilityUseSite::PrivateCacheBoundary { operation, span } => {
+        SourceCapabilityUseSite::PrivateCacheBoundary {
+            operation,
+            region,
+            span,
+        } => {
             source_capability_policy_hash_str(hash, "private-cache");
             source_capability_policy_hash_str(hash, operation.as_str());
+            source_capability_policy_hash_str(hash, region.as_str());
             source_capability_span_hash(hash, *span);
         }
     }
@@ -739,9 +764,14 @@ fn source_capability_scoped_use_site_hash(
             );
             source_capability_relative_span_hash(hash, *span, scope_start);
         }
-        SourceCapabilityUseSite::PrivateCacheBoundary { operation, span } => {
+        SourceCapabilityUseSite::PrivateCacheBoundary {
+            operation,
+            region,
+            span,
+        } => {
             source_capability_policy_hash_str(hash, "private-cache");
             source_capability_policy_hash_str(hash, operation.as_str());
+            source_capability_policy_hash_str(hash, region.as_str());
             source_capability_relative_span_hash(hash, *span, scope_start);
         }
     }
@@ -877,7 +907,9 @@ fn source_capability_source_hash(bytes: &[u8]) -> u64 {
 mod tests {
     use alloc::string::String;
 
-    use crate::effects::{PrivateCacheOp, RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp};
+    use crate::effects::{
+        PrivateCacheOp, PrivateEffectRegion, RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp,
+    };
     use crate::span::{FileId, Span};
 
     use super::{
@@ -1022,6 +1054,7 @@ mod tests {
 
         let private_cache = use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
             operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::UnsealedIntrinsic,
             span: SourceCapabilitySpan::from_span(proven),
         });
         assert!(private_cache.allows_private_cache_boundary_at(PrivateCacheOp::Lookup, proven));
@@ -1128,6 +1161,7 @@ mod tests {
         let private_cache_operation =
             use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
                 operation: PrivateCacheOp::Lookup,
+                region: PrivateEffectRegion::UnsealedIntrinsic,
                 span: SourceCapabilitySpan::from_span(proven),
             });
 

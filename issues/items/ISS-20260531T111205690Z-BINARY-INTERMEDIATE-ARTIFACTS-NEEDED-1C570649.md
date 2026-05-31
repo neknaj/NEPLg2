@@ -158,3 +158,14 @@ cache hit では cache entry の artifact を session slot へ戻し、通常 co
 typed HIR reuse、dependency module body skip はまだ実装しない。次段階では、この stable
 interface artifact を loader / typecheck の import boundary へ渡し、stdlib や依存 module の
 body 再 typecheck を減らす。
+
+## 2026-06-01 checkpoint 6
+
+subagent review により、`.neplmeta` から base compile time を下げる次段階を body skip へ直行させない方針を確認した。
+
+現 payload は `TypedPublicSignatureTable` の stable text/hash だけであり、`TypeCtx`、`Env`、trait table、impl table を復元する structured public surface ではない。このため、`.neplmeta` の永続 codec や stdlib body skip より先に、次の issue へ分割して進める。
+
+- [ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31](./ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31.md): `.neplmeta` payload に arena 非依存 structured public surface を追加する。
+- [ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7](./ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7.md): structured surface を現在 compile の fresh `TypeCtx` / `Env` へ fail-closed に materialize する。
+
+この分割により、`TypeId`、`Span`、`SourceMap`、typed HIR、Resource IR body を artifact に保存しない方針を維持しつつ、stdlib / dependency body 再 typecheck 削減へ進める。

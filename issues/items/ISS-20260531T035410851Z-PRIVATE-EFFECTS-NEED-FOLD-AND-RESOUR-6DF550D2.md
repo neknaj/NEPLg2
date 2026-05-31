@@ -60,3 +60,25 @@ Resource summary body hash は `PrivateState` / `PrivateCache` operation を has
 - `PrivateCache rho` / `PrivateState rho` の fresh region と non-escape proof。
 - proven mask boundary の accepted regression。
 - private region id を持つ backend/cache operation への一般化。
+
+## 2026-06-01 region provenance checkpoint
+
+`PrivateEffectRegion::UnsealedIntrinsic` を追加し、`InternalEffect::{PrivateState, PrivateCache}` と Resource IR `EffectOp::{PrivateState, PrivateCache}` に region provenance を保持するようにした。
+
+この region は mask 済み region ではなく、trusted intrinsic 由来だが fresh/non-escape proof がまだない private effect を表す。`internal_effect_surface_fold` は従来どおり `Impure` に倒し、pure function 内の `PrivateCache` / `PrivateState` は dedicated diagnostic で fail closed に拒否する。
+
+Resource summary body hash は private effect operation に加えて region provenance も hash する。あわせて private effect policy hash を `neplg2-private-effect-policy-v2` に上げ、古い `.neplproof` / `.neplmeta` artifact が region なしの private effect policy として再利用されないようにした。
+
+追加検証:
+
+- `cargo check -p nepl-core -p nepl-language`
+- `cargo test -p nepl-core private_cache --lib -- --nocapture`
+- `cargo test -p nepl-core private_effect --lib -- --nocapture`
+- `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`
+- `cargo test -p nepl-core resource_function_body_hash --lib -- --nocapture`
+
+残件:
+
+- `UnsealedIntrinsic` ではなく fresh private region id を発行する backend/cache representation。
+- region が public type、return value、global/public field、raw pointer、stats/clear/ref API へ escape しないことの Resource IR proof。
+- proof 済み region だけを Pure へ mask する accepted regression。

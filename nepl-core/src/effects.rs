@@ -711,6 +711,30 @@ impl fmt::Display for PrivateStateOp {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum PrivateEffectRegion {
+    UnsealedIntrinsic,
+}
+
+impl PrivateEffectRegion {
+    /// Private effect region の provenance を stable text にする。
+    ///
+    /// 現 checkpoint では trusted use-site から来た private cache intrinsic だけを扱う。
+    /// これは fresh region / mask proof ではなく、まだ Pure へ畳み込めない unsealed
+    /// internal effect であることを body hash と diagnostics に残すための識別子である。
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            PrivateEffectRegion::UnsealedIntrinsic => "unsealed_intrinsic",
+        }
+    }
+}
+
+impl fmt::Display for PrivateEffectRegion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PrivateCacheOp {
     Create,
     Lookup,
@@ -757,8 +781,14 @@ pub enum InternalEffect {
     Pure,
     InternalAlloc { operation: RawMemoryOp },
     UnsafeMemory { operation: RawMemoryOp },
-    PrivateState { operation: PrivateStateOp },
-    PrivateCache { operation: PrivateCacheOp },
+    PrivateState {
+        operation: PrivateStateOp,
+        region: PrivateEffectRegion,
+    },
+    PrivateCache {
+        operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
+    },
     ExternalIo { operation: ExternalIoOp },
     Nondet { operation: NondetOp },
 }
@@ -769,8 +799,8 @@ impl InternalEffect {
             InternalEffect::Pure => None,
             InternalEffect::InternalAlloc { operation }
             | InternalEffect::UnsafeMemory { operation } => Some(operation.as_str()),
-            InternalEffect::PrivateState { operation } => Some(operation.as_str()),
-            InternalEffect::PrivateCache { operation } => Some(operation.as_str()),
+            InternalEffect::PrivateState { operation, .. } => Some(operation.as_str()),
+            InternalEffect::PrivateCache { operation, .. } => Some(operation.as_str()),
             InternalEffect::ExternalIo { operation } => Some(operation.as_str()),
             InternalEffect::Nondet { operation } => Some(operation.as_str()),
         }
@@ -1041,7 +1071,10 @@ fn raw_memory_internal_effect(name: &str) -> Option<InternalEffect> {
 
 fn named_internal_effect(name: &str) -> InternalEffect {
     if let Some(operation) = private_cache_op_from_name(name) {
-        return InternalEffect::PrivateCache { operation };
+        return InternalEffect::PrivateCache {
+            operation,
+            region: PrivateEffectRegion::UnsealedIntrinsic,
+        };
     }
     if let Some(operation) = nondet_op_from_name(name) {
         return InternalEffect::Nondet { operation };
@@ -1077,7 +1110,8 @@ mod tests {
         assert_eq!(
             intrinsic_internal_effect("private_cache_lookup"),
             InternalEffect::PrivateCache {
-                operation: PrivateCacheOp::Lookup
+                operation: PrivateCacheOp::Lookup,
+                region: PrivateEffectRegion::UnsealedIntrinsic
             }
         );
         assert_eq!(

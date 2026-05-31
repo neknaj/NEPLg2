@@ -59,8 +59,12 @@ pub(super) fn resource_effect_from_internal(effect: InternalEffect) -> EffectOp 
         InternalEffect::Pure => EffectOp::Pure,
         InternalEffect::InternalAlloc { operation } => EffectOp::InternalAlloc { operation },
         InternalEffect::UnsafeMemory { operation } => EffectOp::UnsafeMemory { operation },
-        InternalEffect::PrivateState { operation } => EffectOp::PrivateState { operation },
-        InternalEffect::PrivateCache { operation } => EffectOp::PrivateCache { operation },
+        InternalEffect::PrivateState { operation, region } => {
+            EffectOp::PrivateState { operation, region }
+        }
+        InternalEffect::PrivateCache { operation, region } => {
+            EffectOp::PrivateCache { operation, region }
+        }
         InternalEffect::ExternalIo { operation } => EffectOp::ExternalIo { operation },
         InternalEffect::Nondet { operation } => EffectOp::Nondet { operation },
     }

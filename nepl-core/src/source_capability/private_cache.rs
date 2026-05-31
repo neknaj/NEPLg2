@@ -1,4 +1,4 @@
-use crate::effects::private_cache_op_from_name;
+use crate::effects::{private_cache_op_from_name, PrivateEffectRegion};
 use crate::source_capability::proof_builder::SourceCapabilityProofFact;
 use crate::source_capability::rule::SourceCapabilityProofSink;
 use crate::span::Span;
@@ -10,7 +10,10 @@ pub(in crate::source_capability) fn collect_private_cache_boundary_evidence(
 ) {
     if let Some(operation) = private_cache_op_from_name(name) {
         sink.proof_mut().insert_fact(
-            SourceCapabilityProofFact::PrivateCacheBoundary(operation),
+            SourceCapabilityProofFact::PrivateCacheBoundary {
+                operation,
+                region: PrivateEffectRegion::UnsealedIntrinsic,
+            },
             span,
         );
     }

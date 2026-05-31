@@ -68,6 +68,17 @@ internal effect:
 
 `rho` は compiler が導入する private region である。source program が任意に forge できる値ではなく、Resource IR 上の boundary と provenance によってだけ参照できる。
 
+2026-06-01 の region provenance checkpoint では、`PrivateEffectRegion::UnsealedIntrinsic`
+を導入した。これは `private_cache_*` intrinsic 由来の private cache operation を
+Resource IR、diagnostic、SourceCapability policy hash、Resource summary body hash で
+同じ provenance として追跡するための暫定 region である。
+
+`UnsealedIntrinsic` は fresh region proof ではない。したがって、この region を持つ
+`PrivateCache` / `PrivateState` は引き続き surface fold では `Impure` に倒し、pure
+function 内では `PrivateCacheInPureFunction` / `PrivateStateInPureFunction` として
+fail closed に拒否する。SourceCapability の exact file / exact span / same operation /
+same region は「trusted use-site である」ことだけを証明し、Pure への mask 権限にはしない。
+
 surface fold は次の規則にする。
 
 | internal effect | surface fold | 条件 |

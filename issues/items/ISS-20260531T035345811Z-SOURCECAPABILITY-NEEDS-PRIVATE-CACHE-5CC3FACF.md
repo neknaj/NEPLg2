@@ -106,3 +106,22 @@ SourceCapability 側の private cache proof span は intrinsic 名 token では�
 
 - `private_cache_*` intrinsic の typecheck signature はまだ public surface として固定しない。Phase 1 backend の sealed representation と region proof に合わせて stdlib memo backend integration test で扱う。
 - `PrivateCacheInPureFunction` は引き続き fail-closed。fresh region / non-escape proof が入るまで SourceCapability だけでは Pure mask しない。
+
+## 2026-06-01 region provenance checkpoint
+
+`SourceCapabilityUseSite::PrivateCacheBoundary` と `SourceCapabilityProofFact::PrivateCacheBoundary` に `PrivateEffectRegion` を追加した。`private_cache_*` intrinsic collector は現時点では `PrivateEffectRegion::UnsealedIntrinsic` を発行する。
+
+Resource effect boundary gate は `PrivateCacheOutsideBoundary` について exact file / exact span / same operation / same region の SourceCapability proof だけで suppress する。`PrivateCacheInPureFunction` は引き続き suppress しない。
+
+source capability policy hash は private cache operation と span に加えて region provenance も hash する。これにより、将来 `UnsealedIntrinsic` と fresh sealed region の boundary が分かれたときに、古い proof artifact が同じ capability policy として stale hit しない。
+
+追加検証:
+
+- `cargo test -p nepl-core source_capabilit --lib -- --nocapture`
+- `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`
+- `cargo test -p nepl-core private_cache --lib -- --nocapture`
+
+残件:
+
+- `PrivateCacheBoundary` が trusted use-site であることと、fresh region の non-escape proof を分離したまま stdlib memo backend へ接続する。
+- region mismatch を実際に持てる sealed backend region 導入後、same operation / same span でも別 region proof は通さない regression を追加する。

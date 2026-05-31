@@ -6,7 +6,9 @@ use alloc::vec::Vec;
 use core::fmt;
 
 use crate::ast::Effect;
-pub use crate::effects::{ExternalIoOp, NondetOp, PrivateCacheOp, PrivateStateOp, RawMemoryOp};
+pub use crate::effects::{
+    ExternalIoOp, NondetOp, PrivateCacheOp, PrivateEffectRegion, PrivateStateOp, RawMemoryOp,
+};
 use crate::function_identity::FunctionValueIdentity;
 use crate::span::Span;
 use crate::types::TypeId;
@@ -485,8 +487,14 @@ pub enum EffectOp {
     IndirectCall { effect: Effect },
     InternalAlloc { operation: RawMemoryOp },
     UnsafeMemory { operation: RawMemoryOp },
-    PrivateState { operation: PrivateStateOp },
-    PrivateCache { operation: PrivateCacheOp },
+    PrivateState {
+        operation: PrivateStateOp,
+        region: PrivateEffectRegion,
+    },
+    PrivateCache {
+        operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
+    },
     ExternalIo { operation: ExternalIoOp },
     Nondet { operation: NondetOp },
     Unknown { reason: UnknownEffectReason },

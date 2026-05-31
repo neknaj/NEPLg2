@@ -1498,6 +1498,18 @@ signature hash、payload consistency だけを公開し、payload 本体は出�
 environment を組まない。次の根本対応は、import / prelude boundary で `.neplmeta` から public
 callable/type/trait/impl surface を注入し、stdlib body の再 parse / 再 typecheck を減らすことである。
 
+subagent review では、現在の `.neplmeta` payload は `TypedPublicSignatureTable` の stable
+text / hash に限定されているため、そのままでは `Env` や `TypeCtx` を復元できないと確認した。
+次に進める単位は body skip ではなく、per-module structured public surface を `.neplmeta`
+payload に追加することである。保存する値は `TypeId`、`Span`、`SourceMap`、typed HIR ではなく、
+module canonical path、public callable surface、public type constructor surface、trait bounds、
+impl header、`noshadow` / symbol policy などの arena 非依存情報に限定する。
+
+その後、typecheck materializer が structured public surface を現在 compile の fresh `TypeCtx`
+と `Env` へ投影する。diagnostic span は artifact 内に保存せず import directive 側へ寄せる。
+import / prelude boundary でこの materializer が使えるようになるまで、`.neplmeta` は base compile
+time を大きく下げる authority ではなく、後続 artifact の安全な invalidation envelope として扱う。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

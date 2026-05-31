@@ -736,8 +736,12 @@ fn dump_effect(effect: &EffectOp) -> String {
         EffectOp::IndirectCall { effect } => format!("indirect_call({:?})", effect),
         EffectOp::InternalAlloc { operation } => format!("internal_alloc({})", operation),
         EffectOp::UnsafeMemory { operation } => format!("unsafe_memory({})", operation),
-        EffectOp::PrivateState { operation } => format!("private_state({})", operation),
-        EffectOp::PrivateCache { operation } => format!("private_cache({})", operation),
+        EffectOp::PrivateState { operation, region } => {
+            format!("private_state({},{})", operation, region)
+        }
+        EffectOp::PrivateCache { operation, region } => {
+            format!("private_cache({},{})", operation, region)
+        }
         EffectOp::ExternalIo { operation } => format!("external_io({})", operation),
         EffectOp::Nondet { operation } => format!("nondet({})", operation),
         EffectOp::Unknown { reason } => format!("unknown({})", reason),
