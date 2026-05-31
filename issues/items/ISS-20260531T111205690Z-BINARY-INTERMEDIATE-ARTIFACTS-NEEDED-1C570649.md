@@ -135,3 +135,26 @@ hash 変換は使わない。
 `loader_cache_stats_json` には artifact slot の有無、entry 数、store/preseed candidate 数、
 stdlib hash parse 可否を追加した。payload 本体や diagnostic span、`TypeId`、`SourceMap` は
 JSON へ出さない。
+
+## 2026-06-01 checkpoint 5
+
+`.neplmeta` の最小 in-memory artifact 境界を追加した。payload は
+`TypedPublicSignatureTable` だけであり、依存側 typecheck に必要な public callable / type /
+trait / impl surface を stable text/hash として運ぶ。`TypeId`、`Span`、`SourceMap`、typed HIR、
+Resource IR body、diagnostic span は含めない。
+
+`NeplMetaArtifactHeader` は schema、compiler identity、target/profile、stdlib content hash、
+dependency public surface hash、typed public signature hash、public entry count、
+source capability policy set hash、private effect policy hash を保持する。payload decode 後は
+header が主張する typed public signature hash と entry count が実 payload と一致することも
+別に確認する。
+
+`CompilationArtifact` と Web `CompilerSession` は `.neplmeta` artifact を保持する。compiled-output
+cache hit では cache entry の artifact を session slot へ戻し、通常 compile 成功時は core が
+返した artifact を slot へ保存する。`loader_cache_stats_json` は artifact の有無、public entry
+数、typed public signature hash、payload consistency だけを公開し、payload 本体は JSON へ出さない。
+
+この checkpoint では disk / IndexedDB codec、`.neplmeta` からの typecheck environment 注入、
+typed HIR reuse、dependency module body skip はまだ実装しない。次段階では、この stable
+interface artifact を loader / typecheck の import boundary へ渡し、stdlib や依存 module の
+body 再 typecheck を減らす。

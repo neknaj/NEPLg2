@@ -121,6 +121,13 @@ pub struct CompilationArtifact {
     /// WAT 向けの補助情報（関数・ローカル変数・型）。
     /// 先頭コメントとして付与することを想定し、プレーンテキストで保持する。
     pub wat_comments: String,
+    /// 依存側の型検査へ渡せる `.neplmeta` 相当の public interface artifact。
+    ///
+    /// この artifact は typed public signature と compile context header だけを保持し、
+    /// `TypeId`、`Span`、`SourceMap`、typed HIR、Resource IR body を含まない。
+    /// 実際に依存 module の再 typecheck を省く処理は後続 checkpoint で、この安定
+    /// envelope を loader / typecheck environment へ注入する形で追加する。
+    pub nepl_meta_artifact: crate::artifact::NeplMetaArtifact,
     /// Resource summary proof artifact を作るための compile-context header。
     ///
     /// 実際の snapshot payload は `ResourceSummaryValueCache` が保持するため、この成果物には
@@ -508,6 +515,7 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
         &prepared.hir_module,
         prepared.diagnostics,
         artifact_options.include_wat_comments,
+        prepared.nepl_meta_artifact,
         Some(prepared.resource_summary_proof_header),
         stage_recorder,
     )
@@ -586,6 +594,7 @@ pub struct PreparedProgram {
     pub types: crate::types::TypeCtx,
     pub hir_module: crate::hir::HirModule,
     pub public_signatures: crate::typecheck::TypedPublicSignatureTable,
+    pub nepl_meta_artifact: crate::artifact::NeplMetaArtifact,
     pub resource_summary_cache_namespace_key: ResourceSummaryCacheNamespaceKey,
     pub resource_summary_proof_header: crate::resource::ResourceSummaryProofArtifactHeader,
     pub resource_drop_elaboration_plan: crate::resource::ResourceDropElaborationPlan,
@@ -1697,6 +1706,64 @@ mod tests {
                 .resource_summary_proof_header
                 .private_effect_policy_hash,
             Some(resource_summary_private_effect_policy_hash())
+        );
+    }
+
+    /// prepare phase は `.neplmeta` の public interface artifact も生成する。
+    /// `.neplmeta` は typed public signature table と compile context hash だけを持ち、
+    /// typed HIR や `TypeId` を保存しないため、body-only edit では hash が変わらない。
+    #[test]
+    fn prepare_exposes_neplmeta_artifact_for_public_interface() {
+        let first_source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let second_source = "pub fn answer %fn unit i32 \\unit:\n    2\n";
+        let first_module = parse_test_module(first_source);
+        let second_module = parse_test_module(second_source);
+        let mut first_source_map = SourceMap::new();
+        first_source_map.add("/virtual/entry.nepl", String::from(first_source));
+        let mut second_source_map = SourceMap::new();
+        second_source_map.add("/virtual/entry.nepl", String::from(second_source));
+
+        let first = prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
+            &first_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&first_source_map),
+            Some(123),
+        )
+        .expect("first test module should pass prepare");
+        let second = prepare_module_for_codegen_with_source_map_and_dependency_public_surface_hash(
+            &second_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&second_source_map),
+            Some(123),
+        )
+        .expect("second test module should pass prepare");
+
+        assert_eq!(
+            first
+                .nepl_meta_artifact
+                .header()
+                .typed_public_signature_hash,
+            first.public_signatures.stable_hash
+        );
+        assert_eq!(first.nepl_meta_artifact.payload_consistency_reject(), None);
+        assert_eq!(
+            first
+                .nepl_meta_artifact
+                .header()
+                .typed_public_signature_hash,
+            second
+                .nepl_meta_artifact
+                .header()
+                .typed_public_signature_hash
+        );
+        assert_eq!(
+            first
+                .nepl_meta_artifact
+                .header()
+                .dependency_public_surface_hash,
+            Some(123)
         );
     }
 
@@ -2953,6 +3020,14 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     let mut diagnostics = resource_tc.diagnostics;
     let mut types = resource_tc.types;
     let public_signatures = resource_tc.public_signatures;
+    let nepl_meta_artifact = crate::artifact::NeplMetaArtifact::from_public_signatures(
+        target,
+        profile,
+        resource_summary_proof_options.stdlib_content_hash,
+        dependency_public_surface_hash,
+        source_map,
+        public_signatures.clone(),
+    );
     let resource_summary_cache_namespace_key = ResourceSummaryCacheNamespaceKey::new(
         target,
         profile,
@@ -3052,6 +3127,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
         types,
         hir_module,
         public_signatures,
+        nepl_meta_artifact,
         resource_summary_cache_namespace_key,
         resource_summary_proof_header,
         resource_drop_elaboration_plan,
@@ -3441,6 +3517,7 @@ fn emit_wasm(
     hir_module: &crate::hir::HirModule,
     mut diagnostics: Vec<Diagnostic>,
     include_wat_comments: bool,
+    nepl_meta_artifact: crate::artifact::NeplMetaArtifact,
     resource_summary_proof_header: Option<crate::resource::ResourceSummaryProofArtifactHeader>,
     stage_recorder: &mut CompileStageRecorder<'_>,
 ) -> Result<CompilationArtifact, CoreError> {
@@ -3510,6 +3587,7 @@ fn emit_wasm(
     Ok(CompilationArtifact {
         wasm: bytes,
         wat_comments,
+        nepl_meta_artifact,
         resource_summary_proof_header,
     })
 }

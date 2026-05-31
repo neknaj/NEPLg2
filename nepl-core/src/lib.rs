@@ -20,6 +20,7 @@ pub mod error;
 pub mod function_identity;
 pub mod span;
 
+pub mod artifact;
 pub mod ast;
 mod backend_scalar_type;
 pub mod builtins;
@@ -55,6 +56,11 @@ pub mod typecheck;
 pub mod types;
 pub mod wasm_shared;
 
+pub use artifact::{
+    nepl_meta_artifact_header_for_public_signatures, nepl_meta_compiler_identity_hash,
+    nepl_meta_profile_hash, nepl_meta_target_hash, NeplMetaArtifact,
+    NeplMetaArtifactCompatibilityReject, NeplMetaArtifactHeader, NeplMetaArtifactPayloadReject,
+};
 pub use compiler::{
     check_module, check_module_with_source_map, compile_module,
     compile_module_with_artifact_options, compile_module_with_source_map,

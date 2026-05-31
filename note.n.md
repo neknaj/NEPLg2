@@ -1,3 +1,19 @@
+# 2026-06-01 .neplmeta public interface artifact checkpoint
+
+- Zenn 記事の試作段階方針を再確認し、base compile 改善に必要な中間ファイル境界として `.neplmeta` の in-memory public interface artifact を追加した。
+- remote/main は作業開始時点で `0 0` 同期済みで、現在 branch `perf/neplmeta-interface-artifact-20260601` の基点は `origin/main` と一致している。
+- subagent 2 件で `.neplmeta` と `memo_call` の独立レビューを行った。`.neplmeta` 側は disk codec や typecheck skip へ急がず、`TypedPublicSignatureTable` を authority にした header/payload 境界から始めるべきと確認した。`memo_call` 側は現状 fail-closed で、次に進めるなら PrivateCache の region/provenance を Resource IR と hash へ流す段階だと確認した。
+- `nepl-core/src/artifact.rs` を追加し、`NeplMetaArtifactHeader`、`NeplMetaArtifact`、compatibility reject、payload consistency reject を定義した。payload は `TypedPublicSignatureTable` のみで、`TypeId`、`Span`、`SourceMap`、typed HIR、Resource IR body、diagnostic span は含めない。
+- `.neplmeta` header には schema、compiler identity、target/profile、stdlib content hash、dependency public surface hash、typed public signature hash、public entry count、source capability policy set hash、private effect policy hash を入れる。private effect policy hash は常に `Some` とし、`memo_call` / `PrivateCache` の mask rule 変更で古い artifact を受け入れない。
+- `CompilationArtifact` と `PreparedProgram` に `.neplmeta` artifact を載せ、core compile 成功時に public interface artifact を返すようにした。
+- Web `CompilerSession` に `.neplmeta` slot を追加し、compile 成功時と compiled-output cache hit 時に artifact を保存・復元するようにした。stats JSON には artifact present、public entry 数、typed public signature hash、payload consistency だけを出し、payload 本体は出さない。
+- この checkpoint では disk / IndexedDB codec、`.neplmeta` からの typecheck environment 注入、typed HIR reuse、dependency module body skip はまだ実装していない。
+- focused 検証: `cargo check -p nepl-core`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web/Cargo.toml`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core typed_public_signature_hash --lib -- --nocapture`、`cargo test -p nepl-core resource_summary_proof_header --lib -- --nocapture` は pass。
+- memo / private cache 回帰: `cargo test -p nepl-core private_cache --lib -- --nocapture`、`cargo test -p nepl-core function_memo_call --test functions -- --nocapture` は pass。
+- Web / Node 回帰: `trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、inline Node smoke による `nepl_meta_artifact_present=true` / payload consistency 確認、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-neplmeta-interface-artifact-20260601.json`（13/13）は pass。
+- issue / diff 検証: `node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`cargo fmt -p nepl-core --check` は今回触っていない既存の `loader.rs` / `resource/effect*.rs` / `typecheck/memo_call.rs` の未format箇所で失敗するため、全体format変更は入れていない。
+- plan.md 自体は変更していない。
+
 # 2026-06-01 Web .neplproof same-session artifact slot checkpoint
 
 - Zenn 記事の試作段階方針を再確認し、disk codec へ急がず、core が作る `.neplproof` header/preseed 境界を Web `CompilerSession` の same-session slot へ薄く接続した。

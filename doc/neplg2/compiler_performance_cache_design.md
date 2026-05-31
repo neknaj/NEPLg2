@@ -1472,6 +1472,32 @@ edit delta は `raw_alias_replay_probe_functions=0`、
 - base path: stdlib prechecked artifact と Resource proof template を優先し、初回 compile の fixed-point 探索空間を減らす。
 - shared path: typed expression subtree query と codegen fragment cache は、warm edit と base artifact の両方から使える query 境界として設計する。
 
+### 2026-06-01 `.neplmeta` public interface artifact checkpoint
+
+`.neplmeta` の永続 codec へ進む前に、core compiler が返す in-memory public interface
+artifact を追加した。これは base compile を下げるための依存 module 再 typecheck 削減に
+向けた最初の typed metadata 境界である。
+
+`.neplmeta` の payload は `TypedPublicSignatureTable` に限定する。ここには public callable、
+public struct / enum / trait、impl header の stable text と deterministic hash だけを入れる。
+`TypeId`、`Span`、`FileId`、`SourceMap`、typed HIR、Resource IR、diagnostic span は保存しない。
+これらは compile session の arena や source-map allocation に結び付くため、cross-session
+artifact に入れると stale hit の原因になる。
+
+header には schema、compiler identity、target/profile、stdlib content hash、dependency public
+surface hash、typed public signature hash、public entry count、source capability policy set hash、
+private effect policy hash を入れる。private effect policy hash は常に `Some` とし、`memo_call`
+や `PrivateCache` の mask rule が変わったときに古い interface artifact を受け入れない。
+
+Web `CompilerSession` は `.neplmeta` artifact を slot と compiled-output cache entry に保持する。
+compiled-output cache hit では cache entry の artifact を slot へ復元するだけで、Web 側で header
+を再構築しない。stats JSON は `nepl_meta_artifact_present`、public entry 数、typed public
+signature hash、payload consistency だけを公開し、payload 本体は出さない。
+
+この checkpoint は「artifact を作って観測する」段階であり、まだ `.neplmeta` から typecheck
+environment を組まない。次の根本対応は、import / prelude boundary で `.neplmeta` から public
+callable/type/trait/impl surface を注入し、stdlib body の再 parse / 再 typecheck を減らすことである。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
