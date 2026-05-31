@@ -4,19 +4,13 @@ use alloc::collections::VecDeque;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::types::TypeCtx;
-
 use super::super::model::{ResourceFunction, ResourceModule};
-use super::super::owner_summary_type_params::owner_summary_type_params;
 use super::super::report::{ResourceCheckDeferred, ResourceFunctionCheck};
 use super::super::summary_dependency::ResourceSummaryDependencyGraph;
-use super::body_hash::resource_function_body_hash;
 use super::context::ResourceSummaryValueCacheContext;
-use super::key::ResourceSummaryFunctionIdentity;
-use super::type_boundary::{
-    resource_summary_generic_type_argument_hash, resource_summary_type_parameter_boundary_hash,
-};
+use super::function_fingerprint::ResourceFunctionLocalFingerprint;
 use super::ResourceSummaryValueCache;
+use crate::types::TypeCtx;
 
 /// final initialized check の changed-function replay plan。
 ///
@@ -41,15 +35,6 @@ pub(super) struct InitializedFunctionCheckPassSnapshot {
 struct InitializedFunctionCheckPassSnapshotEntry {
     fingerprint: ResourceFunctionLocalFingerprint,
     pass: Option<ResourceCheckDeferred>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ResourceFunctionLocalFingerprint {
-    identity: ResourceSummaryFunctionIdentity,
-    body_hash: u64,
-    type_parameter_boundary_hash: u64,
-    generic_type_argument_hash: u64,
-    source_capability_policy_hash: u64,
 }
 
 impl ResourceSummaryValueCache {
@@ -232,30 +217,6 @@ impl InitializedFunctionCheckPassSnapshot {
     }
 }
 
-impl ResourceFunctionLocalFingerprint {
-    fn from_function(
-        context: &ResourceSummaryValueCacheContext,
-        types: &TypeCtx,
-        function: &ResourceFunction,
-    ) -> Option<Self> {
-        let identity = ResourceSummaryFunctionIdentity::from_resource_function(function)?;
-        let type_params = owner_summary_type_params(types, function);
-        let source_capability_policy_hash = context
-            .source_capability_policy_hash_for_function(function)?
-            .as_u64();
-        Some(Self {
-            identity,
-            body_hash: resource_function_body_hash(types, function)?,
-            type_parameter_boundary_hash: resource_summary_type_parameter_boundary_hash(
-                types,
-                &type_params,
-            )?,
-            generic_type_argument_hash: resource_summary_generic_type_argument_hash(types, &[])?,
-            source_capability_policy_hash,
-        })
-    }
-}
-
 fn snapshots_keep_function_order(
     previous: &InitializedFunctionCheckPassSnapshot,
     current: &InitializedFunctionCheckPassSnapshot,
@@ -264,7 +225,7 @@ fn snapshots_keep_function_order(
         .functions
         .iter()
         .zip(current.functions.iter())
-        .all(|(previous, current)| previous.fingerprint.identity == current.fingerprint.identity)
+        .all(|(previous, current)| previous.fingerprint.same_identity(&current.fingerprint))
 }
 
 fn affected_closure_from_local_changes(

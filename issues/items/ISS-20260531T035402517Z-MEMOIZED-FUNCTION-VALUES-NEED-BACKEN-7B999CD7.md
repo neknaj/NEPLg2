@@ -55,5 +55,9 @@ HIR の `MemoizedFunctionValue` を Resource IR lowering で plain `FunctionValu
 残件:
 
 - memoized function value の sealed backend representation。
+- `FunctionAliasTable` が `FunctionValueIdentity` だけを運ぶ構造では、local alias / aggregate
+  field / branch merge / indirect call 経由で `ResourceFunctionValueKind::Memoized` と将来の
+  private region identity を落とす。sealed backend representation に進む前に、function value
+  alias が plain / memoized / private-cache-region を区別できる形へ拡張する。
 - function identity equality / hash / raw address / debug observation の禁止を backend と typecheck へ明示接続すること。
 - `memo_call @pure_named_func` の呼び出し実行時に private cache を実際に利用すること。

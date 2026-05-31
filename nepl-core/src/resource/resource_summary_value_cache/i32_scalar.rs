@@ -10,11 +10,13 @@ use super::candidate_key::{
     i32_scalar_return_facts_entry_key, ResourceSummaryDependencyClosureHash,
     ResourceSummaryGenericTypeArgumentKeyInput,
 };
+use super::key::ResourceSummaryValueCacheKey;
 use super::stable_mirror::{
     reproject_i32_scalar_return_facts_entry_result, stable_i32_scalar_return_facts_entry,
     ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
     ResourceSummaryStableI32ScalarReturnFactsEntryReject, ResourceSummaryTypeReprojection,
 };
+use super::summary_plan::ResourceSummaryReplayPlan;
 use super::{
     ResourceSummaryI32ScalarReturnFactsEntryCandidate, ResourceSummaryValueCache,
     ResourceSummaryValueCacheContext,
@@ -241,14 +243,55 @@ impl ResourceSummaryValueCache {
         }
     }
 
-    pub(in crate::resource) fn replay_i32_scalar_return_facts_entry(
+    pub(in crate::resource) fn replay_i32_scalar_return_facts_entry_and_record_plan(
         &mut self,
+        plan: Option<&mut ResourceSummaryReplayPlan>,
+        function_index: usize,
         context: &ResourceSummaryValueCacheContext,
         types: &TypeCtx,
         function: &ResourceFunction,
         type_params: &[TypeId],
         dependency_closure_hash: ResourceSummaryDependencyClosureHash,
     ) -> Option<I32ScalarReturnFacts> {
+        let key = self.i32_scalar_return_facts_entry_replay_key(
+            context,
+            types,
+            function,
+            type_params,
+            dependency_closure_hash,
+        )?;
+        let facts =
+            self.replay_i32_scalar_return_facts_entry_by_key(types, function, type_params, &key)?;
+        if let Some(plan) = plan {
+            plan.record_key(function_index, key);
+        }
+        Some(facts)
+    }
+
+    pub(in crate::resource) fn replay_i32_scalar_return_facts_entry_from_plan(
+        &mut self,
+        plan: &mut ResourceSummaryReplayPlan,
+        types: &TypeCtx,
+        function_index: usize,
+        function: &ResourceFunction,
+        type_params: &[TypeId],
+    ) -> Option<I32ScalarReturnFacts> {
+        let key = plan.previous_key(function_index)?;
+        let facts =
+            self.replay_i32_scalar_return_facts_entry_by_key(types, function, type_params, &key)?;
+        self.record_i32_scalar_summary_plan_skip(facts.len());
+        plan.record_key(function_index, key);
+        Some(facts)
+    }
+
+    fn i32_scalar_return_facts_entry_replay_key(
+        &mut self,
+        context: &ResourceSummaryValueCacheContext,
+        types: &TypeCtx,
+        function: &ResourceFunction,
+        type_params: &[TypeId],
+        dependency_closure_hash: ResourceSummaryDependencyClosureHash,
+    ) -> Option<ResourceSummaryValueCacheKey> {
         let Some(source_capability_policy_hash) =
             context.source_capability_policy_hash_for_function(function)
         else {
@@ -275,7 +318,17 @@ impl ResourceSummaryValueCache {
                 .resource_summary_value_i32_scalar_return_facts_replay_unstable_key_functions += 1;
             return None;
         };
-        let Some(entry) = self.i32_scalar_return_facts_entries.get(&key).cloned() else {
+        Some(key)
+    }
+
+    fn replay_i32_scalar_return_facts_entry_by_key(
+        &mut self,
+        types: &TypeCtx,
+        function: &ResourceFunction,
+        type_params: &[TypeId],
+        key: &ResourceSummaryValueCacheKey,
+    ) -> Option<I32ScalarReturnFacts> {
+        let Some(entry) = self.i32_scalar_return_facts_entries.get(key).cloned() else {
             self.stats
                 .resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions += 1;
             return None;

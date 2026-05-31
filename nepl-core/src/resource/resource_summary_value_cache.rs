@@ -12,6 +12,7 @@ mod body_hash;
 mod candidate_key;
 mod context;
 mod dependency_hash;
+mod function_fingerprint;
 mod i32_scalar;
 mod initialized_check;
 mod key;
@@ -22,6 +23,7 @@ mod raw_init;
 mod stable_hash;
 mod stable_mirror;
 mod stable_type_key;
+mod summary_plan;
 mod type_boundary;
 
 pub use self::context::ResourceSummaryValueCacheContext;
@@ -44,6 +46,7 @@ use self::stable_mirror::{
     ResourceSummaryStableOwnerObligationCheckEntry, ResourceSummaryStableRawAliasReturnEntry,
     ResourceSummaryStableRawInitCompleteLeafEntry, ResourceSummaryTypeReprojection,
 };
+pub(in crate::resource) use self::summary_plan::ResourceSummaryReplayPlan;
 
 /// Resource IR summary value cache の累積統計。
 ///
@@ -52,6 +55,11 @@ use self::stable_mirror::{
 /// 既存 stable value が再投影可能だった候補 hit であり、fixed-point worklist の skip
 /// までは意味しない。実際に summary op を replay して compile work を減らす段階では、
 /// `resource_summary_value_replay_*` を別 counter として増やす。
+///
+/// `*_plan_skip_functions` は changed-function plan により dependency closure hash の
+/// 再構築を省けた関数数である。対応する `*_plan_skip_ops` は、その関数で再投影した
+/// summary fact 数を示す補助指標であり、`resource_summary_value_replayed_ops` へ加算済みの
+/// materialized fact 数と合算して「削減 op 数」と読んではならない。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ResourceSummaryValueCacheStats {
     pub resource_static_function_count: usize,
@@ -85,6 +93,12 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_raw_alias_return_entry_recomputed_ops: usize,
     pub resource_summary_value_i32_scalar_return_facts_recomputed_ops: usize,
     pub resource_summary_value_raw_init_param_facts_recomputed_ops: usize,
+    pub resource_summary_value_raw_alias_return_entry_plan_skip_functions: usize,
+    pub resource_summary_value_raw_alias_return_entry_plan_skip_ops: usize,
+    pub resource_summary_value_i32_scalar_return_facts_plan_skip_functions: usize,
+    pub resource_summary_value_i32_scalar_return_facts_plan_skip_ops: usize,
+    pub resource_summary_value_raw_init_param_facts_plan_skip_functions: usize,
+    pub resource_summary_value_raw_init_param_facts_plan_skip_ops: usize,
     pub resource_summary_value_drop_traversal_forall_hits: usize,
     pub resource_summary_value_drop_traversal_forall_stores: usize,
     pub resource_summary_value_drop_traversal_forall_bypasses: usize,
@@ -266,8 +280,10 @@ pub struct ResourceSummaryValueCache {
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableDropTraversalForallLeafEntry>,
     raw_alias_return_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawAliasReturnEntry>,
+    raw_alias_return_summary_snapshot: Option<summary_plan::ResourceSummaryReplaySnapshot>,
     i32_scalar_return_facts_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableI32ScalarReturnFactsEntry>,
+    i32_scalar_return_summary_snapshot: Option<summary_plan::ResourceSummaryReplaySnapshot>,
     initialized_function_check_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableInitializedFunctionCheckEntry>,
     initialized_function_check_pass_snapshot:
@@ -276,6 +292,7 @@ pub struct ResourceSummaryValueCache {
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableOwnerObligationCheckEntry>,
     raw_init_complete_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawInitCompleteLeafEntry>,
+    raw_init_complete_leaf_summary_snapshot: Option<summary_plan::ResourceSummaryReplaySnapshot>,
 }
 
 #[derive(Debug, Clone)]
@@ -325,11 +342,14 @@ impl ResourceSummaryValueCache {
         self.stats = ResourceSummaryValueCacheStats::default();
         self.drop_traversal_forall_leaf_entries.clear();
         self.raw_alias_return_entries.clear();
+        self.raw_alias_return_summary_snapshot = None;
         self.i32_scalar_return_facts_entries.clear();
+        self.i32_scalar_return_summary_snapshot = None;
         self.initialized_function_check_entries.clear();
         self.initialized_function_check_pass_snapshot = None;
         self.owner_obligation_check_entries.clear();
         self.raw_init_complete_leaf_entries.clear();
+        self.raw_init_complete_leaf_summary_snapshot = None;
     }
 
     pub fn stats(&self) -> ResourceSummaryValueCacheStats {

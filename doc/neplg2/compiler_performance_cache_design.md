@@ -1351,6 +1351,38 @@ literal edit が base `compile_ms=10254`、edit `compile_ms=2110` だった。ed
 `resource_owner_obligation_function_checks=0`、
 `resource_summary_value_owner_obligation_check_replay_hit_functions=288` である。
 
+### 2026-06-01 Resource summary changed-function replay plan checkpoint
+
+final initialized check と同じ changed-function plan を、raw alias / i32 scalar / raw-init
+summary の preseed loop にも広げた。ただし summary fixed-point は caller が callee summary
+index を読むため、final check のように「何も materialize せず pass を返す」ことはしない。
+前回 compile で保存できた stable summary entry の key だけを snapshot に持ち、現在 compile
+で affected ではない関数については dependency closure hash の再構築と replay probe を省き、
+その key から現在の `TypeCtx` / function signature へ summary を再投影して index に入れる。
+
+snapshot は関数 local fingerprint と stable summary key だけを持つ。`TypeId`、`Span`、
+`SourceMap`、summary 本体は保持しない。関数 order、namespace、source capability policy、
+body hash、type boundary、generic boundary の不整合、または stable key / stable value の
+再投影失敗は通常 replay / conservative-all に戻す。subagent review で指摘された span 由来
+symbol の過剰 invalidation については、`ResourceCallTarget::User`、`EffectOp::UserCall`、
+`FunctionValueIdentity` の body hash 入力を `__def{file}_{start}_{end}` 正規化済み symbol
+に揃えた。
+
+測定では `tmp/rpn_summary_replay_plan_code_literal_20260601.json` の RPN 実コード文字列
+literal edit が base `compile_ms=9593`、edit `compile_ms=1521` だった。edit stage は
+`resource_static_check=1222.739ms`、`resource_static_initialized_moves=301.490ms`、
+`resource_static_owner_obligations=805.523ms`、`resource_typecheck=163.275ms` である。
+edit delta は `raw_alias_replay_probe_functions=0`、
+`raw_alias_plan_skip_functions=288`、`i32_scalar_replay_probe_functions=0`、
+`i32_scalar_plan_skip_functions=209`、`raw_init_replay_probe_functions=0`、
+`raw_init_plan_skip_functions=151`、`initialized_function_check_plan_skip_functions=288` だった。
+
+これは warm edit の summary preseed 固定費を削る checkpoint であり、まだ 0.1 秒以下の
+式枝差し替え budget には届いていない。残りの edit 支配項は owner obligation lazy path の
+残コスト、typecheck、lowering / effect / borrow の固定費である。base compile も
+`compile_ms=9593` と秒単位なので、stdlib prechecked artifact と Resource proof template は
+引き続き優先する。
+
 - edit path: i32 scalar residual 解消後も残る秒単位の replay / fixed-cost を changed-function-only proof replay と typed expression subtree query へ分ける。
 - base path: stdlib prechecked artifact と Resource proof template を優先し、初回 compile の fixed-point 探索空間を減らす。
 - shared path: typed expression subtree query と codegen fragment cache は、warm edit と base artifact の両方から使える query 境界として設計する。

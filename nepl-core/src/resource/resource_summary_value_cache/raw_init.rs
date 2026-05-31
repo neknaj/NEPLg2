@@ -9,11 +9,13 @@ use super::candidate_key::{
     ResourceSummaryGenericTypeArgumentKeyInput,
 };
 use super::dependency_hash::RawInitDependencyClosureHashReject;
+use super::key::ResourceSummaryValueCacheKey;
 use super::stable_mirror::{
     reproject_raw_init_complete_leaf_entry, reproject_raw_init_complete_leaf_entry_result,
     stable_raw_init_complete_leaf_entry, ResourceSummaryRawInitCompleteLeafEntryReprojectionReject,
     ResourceSummaryStableRawInitCompleteLeafEntryReject, ResourceSummaryTypeReprojection,
 };
+use super::summary_plan::ResourceSummaryReplayPlan;
 use super::{
     ResourceSummaryRawInitCompleteLeafEntryCandidate, ResourceSummaryValueCache,
     ResourceSummaryValueCacheContext,
@@ -240,14 +242,55 @@ impl ResourceSummaryValueCache {
         }
     }
 
-    pub(in crate::resource) fn replay_raw_init_complete_leaf_entry(
+    pub(in crate::resource) fn replay_raw_init_complete_leaf_entry_and_record_plan(
         &mut self,
+        plan: Option<&mut ResourceSummaryReplayPlan>,
+        function_index: usize,
         context: &ResourceSummaryValueCacheContext,
         types: &TypeCtx,
         function: &ResourceFunction,
         type_params: &[TypeId],
         dependency_closure_hash: ResourceSummaryDependencyClosureHash,
     ) -> Option<RawCellInitializationFunctionSummary> {
+        let key = self.raw_init_complete_leaf_entry_replay_key(
+            context,
+            types,
+            function,
+            type_params,
+            dependency_closure_hash,
+        )?;
+        let summary =
+            self.replay_raw_init_complete_leaf_entry_by_key(types, function, type_params, &key)?;
+        if let Some(plan) = plan {
+            plan.record_key(function_index, key);
+        }
+        Some(summary)
+    }
+
+    pub(in crate::resource) fn replay_raw_init_complete_leaf_entry_from_plan(
+        &mut self,
+        plan: &mut ResourceSummaryReplayPlan,
+        types: &TypeCtx,
+        function_index: usize,
+        function: &ResourceFunction,
+        type_params: &[TypeId],
+    ) -> Option<RawCellInitializationFunctionSummary> {
+        let key = plan.previous_key(function_index)?;
+        let summary =
+            self.replay_raw_init_complete_leaf_entry_by_key(types, function, type_params, &key)?;
+        self.record_raw_init_summary_plan_skip(raw_init_complete_leaf_summary_fact_count(&summary));
+        plan.record_key(function_index, key);
+        Some(summary)
+    }
+
+    fn raw_init_complete_leaf_entry_replay_key(
+        &self,
+        context: &ResourceSummaryValueCacheContext,
+        types: &TypeCtx,
+        function: &ResourceFunction,
+        type_params: &[TypeId],
+        dependency_closure_hash: ResourceSummaryDependencyClosureHash,
+    ) -> Option<ResourceSummaryValueCacheKey> {
         let source_capability_policy_hash =
             context.source_capability_policy_hash_for_function(function)?;
         let generic_type_args = if function.type_params.is_empty() && type_params.is_empty() {
@@ -255,7 +298,7 @@ impl ResourceSummaryValueCache {
         } else {
             ResourceSummaryGenericTypeArgumentKeyInput::TemplateBoundaryOnly
         };
-        let key = raw_init_complete_leaf_entry_key(
+        raw_init_complete_leaf_entry_key(
             types,
             context.namespace_hash(),
             source_capability_policy_hash,
@@ -263,8 +306,17 @@ impl ResourceSummaryValueCache {
             function,
             type_params,
             generic_type_args,
-        )?;
-        let entry = self.raw_init_complete_leaf_entries.get(&key)?.clone();
+        )
+    }
+
+    fn replay_raw_init_complete_leaf_entry_by_key(
+        &mut self,
+        types: &TypeCtx,
+        function: &ResourceFunction,
+        type_params: &[TypeId],
+        key: &ResourceSummaryValueCacheKey,
+    ) -> Option<RawCellInitializationFunctionSummary> {
+        let entry = self.raw_init_complete_leaf_entries.get(key)?.clone();
         let fact_count = entry.len();
         let Some(reprojection) = ResourceSummaryTypeReprojection::new(types, function, type_params)
         else {
@@ -327,4 +379,18 @@ impl ResourceSummaryValueCache {
                 .resource_summary_value_raw_init_param_facts_stores += fact_count;
         }
     }
+}
+
+fn raw_init_complete_leaf_summary_fact_count(
+    summary: &RawCellInitializationFunctionSummary,
+) -> usize {
+    summary.return_cells.len()
+        + summary.return_byte_ranges.len()
+        + summary.param_cells.len()
+        + summary.param_byte_ranges.len()
+        + summary.param_release_requirements.len()
+        + summary.variant_param_cells.len()
+        + summary.variant_param_byte_ranges.len()
+        + summary.variant_required_param_cells.len()
+        + summary.variant_conditions.len()
 }

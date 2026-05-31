@@ -274,7 +274,7 @@ impl ResourceSummaryFunctionIdentity {
     }
 
     pub(super) fn from_resource_function(function: &ResourceFunction) -> Option<Self> {
-        let canonical_symbol = strip_definition_span_mangle(&function.name);
+        let canonical_symbol = normalize_definition_span_mangle(&function.name);
         Self::new(&canonical_symbol, &function.origin_name)
     }
 
@@ -289,7 +289,7 @@ impl ResourceSummaryFunctionIdentity {
     }
 }
 
-fn strip_definition_span_mangle(symbol: &str) -> String {
+pub(super) fn normalize_definition_span_mangle(symbol: &str) -> String {
     let mut search_start = 0usize;
     while let Some(relative) = symbol[search_start..].find("__def") {
         let marker_start = search_start + relative;
@@ -422,7 +422,7 @@ mod tests {
     #[test]
     fn resource_summary_function_identity_strips_definition_span_mangle() {
         let identity = ResourceSummaryFunctionIdentity::new(
-            &strip_definition_span_mangle("add__def7_123_150__i32_i32__i32__pure"),
+            &normalize_definition_span_mangle("add__def7_123_150__i32_i32__i32__pure"),
             "add",
         )
         .expect("normalized identity should be valid");
@@ -433,7 +433,7 @@ mod tests {
     #[test]
     fn resource_summary_function_identity_keeps_non_span_def_text() {
         assert_eq!(
-            strip_definition_span_mangle("user__def_name__i32__i32__pure"),
+            normalize_definition_span_mangle("user__def_name__i32__i32__pure"),
             "user__def_name__i32__i32__pure"
         );
     }

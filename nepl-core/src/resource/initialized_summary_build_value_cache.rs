@@ -11,7 +11,7 @@ use super::model::{ResourceFunction, ResourceModule};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::resource_summary_value_cache::{
     raw_init_dependency_closure_hash, ResourceSummaryRawInitCompleteLeafEntryCandidate,
-    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+    ResourceSummaryReplayPlan, ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 
 pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
@@ -24,6 +24,7 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
     worklist_relevant_functions: &mut [bool],
     preseeded_functions: &mut [bool],
     summaries: &mut Vec<RawCellInitializationFunctionSummary>,
+    mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
     for (function_index, function) in module.functions.iter().enumerate() {
         if !relevant_functions
@@ -36,6 +37,25 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
         if !function_allows_complete_leaf_entry_replay(function) {
             continue;
         }
+        let type_params = owner_summary_type_params(types, function);
+        if let Some(plan) = replay_plan.as_deref_mut() {
+            if let Some(summary) = cache.replay_raw_init_complete_leaf_entry_from_plan(
+                plan,
+                types,
+                function_index,
+                function,
+                &type_params,
+            ) {
+                preseed_raw_init_summary(
+                    function_index,
+                    summary,
+                    worklist_relevant_functions,
+                    preseeded_functions,
+                    summaries,
+                );
+                continue;
+            }
+        }
         cache.record_raw_init_replay_probe_function();
         let Ok(dependency_closure_hash) =
             raw_init_dependency_closure_hash(context, types, module, dependencies, function_index)
@@ -43,8 +63,9 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
             cache.record_raw_init_replay_miss_function();
             continue;
         };
-        let type_params = owner_summary_type_params(types, function);
-        let Some(summary) = cache.replay_raw_init_complete_leaf_entry(
+        let Some(summary) = cache.replay_raw_init_complete_leaf_entry_and_record_plan(
+            replay_plan.as_deref_mut(),
+            function_index,
             context,
             types,
             function,
@@ -55,15 +76,13 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
             continue;
         };
         cache.record_raw_init_replay_hit_function();
-        if raw_init_complete_leaf_entry_fact_count(&summary) > 0 {
-            summaries.push(summary);
-        }
-        if let Some(is_relevant) = worklist_relevant_functions.get_mut(function_index) {
-            *is_relevant = false;
-        }
-        if let Some(is_preseeded) = preseeded_functions.get_mut(function_index) {
-            *is_preseeded = true;
-        }
+        preseed_raw_init_summary(
+            function_index,
+            summary,
+            worklist_relevant_functions,
+            preseeded_functions,
+            summaries,
+        );
     }
 }
 
@@ -76,6 +95,7 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
     relevant_functions: &[bool],
     preseeded_functions: &[bool],
     summaries: &[RawCellInitializationFunctionSummary],
+    mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
     let mut candidates = Vec::new();
     let mut functions = BTreeMap::new();
@@ -103,6 +123,7 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
             *function_index,
             dependencies,
             summary,
+            replay_plan.as_deref_mut(),
         );
     }
     for (function_index, function) in module.functions.iter().enumerate() {
@@ -137,6 +158,7 @@ pub(super) fn record_raw_cell_initialization_summary_value_cache_candidates(
             function_index,
             dependencies,
             &summary,
+            replay_plan.as_deref_mut(),
         );
     }
     cache.record_raw_init_complete_leaf_entry_candidates(candidates);
@@ -152,6 +174,7 @@ fn collect_raw_init_complete_leaf_entry_candidate_from_summary(
     function_index: usize,
     all_dependencies: &[Vec<usize>],
     summary: &RawCellInitializationFunctionSummary,
+    replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
     let eligible_fact_count = raw_init_complete_leaf_entry_fact_count(summary);
     // complete leaf entry は現時点で `RawCellInitializationFunctionSummary` の全 surface を
@@ -186,7 +209,12 @@ fn collect_raw_init_complete_leaf_entry_candidate_from_summary(
         dependency_closure_hash,
         summary,
     ) {
-        Ok(candidate) => candidates.push(candidate),
+        Ok(candidate) => {
+            if let Some(plan) = replay_plan {
+                cache.record_raw_init_summary_candidate_key(plan, function_index, &candidate);
+            }
+            candidates.push(candidate);
+        }
         Err(reason) => {
             cache.record_raw_init_param_facts_candidate_bypass(reason, eligible_fact_count);
         }
@@ -209,6 +237,24 @@ fn empty_raw_init_complete_leaf_summary(
         variant_param_byte_ranges: Vec::new(),
         variant_required_param_cells: Vec::new(),
         variant_conditions: Vec::new(),
+    }
+}
+
+fn preseed_raw_init_summary(
+    function_index: usize,
+    summary: RawCellInitializationFunctionSummary,
+    worklist_relevant_functions: &mut [bool],
+    preseeded_functions: &mut [bool],
+    summaries: &mut Vec<RawCellInitializationFunctionSummary>,
+) {
+    if raw_init_complete_leaf_entry_fact_count(&summary) > 0 {
+        summaries.push(summary);
+    }
+    if let Some(is_relevant) = worklist_relevant_functions.get_mut(function_index) {
+        *is_relevant = false;
+    }
+    if let Some(is_preseeded) = preseeded_functions.get_mut(function_index) {
+        *is_preseeded = true;
     }
 }
 

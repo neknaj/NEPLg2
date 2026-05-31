@@ -500,6 +500,44 @@ affected ではない関数は dependency closure hash の再構築と通常の 
 
 `tmp/rpn_final_initialized_pass_plan_20260601.json` では、release Web RPN same-session string literal edit が base `compile_ms=9998`、edit `compile_ms=2178` だった。edit delta は `resource_summary_value_initialized_function_check_plan_skip_functions=288`、`resource_summary_value_initialized_function_check_plan_skip_ops=3639`、`resource_summary_value_initialized_function_check_replay_probe_functions=0` である。
 
+## 2026-06-01 Resource summary changed-function replay plan 更新
+
+raw alias / i32 scalar / raw-init summary preseed loop に changed-function replay plan を追加した。
+前回 compile の stable summary key と現在 compile の関数 local fingerprint を比較し、変更関数から
+reverse dependents を辿って affected set を作る。affected ではない関数は dependency closure
+hash の再構築と通常 replay probe を省くが、caller summary index が必要とするため summary
+自体は現在の `TypeCtx` と function signature へ再投影して materialize する。
+
+snapshot は stable key と fingerprint だけを持ち、`TypeId`、`Span`、`SourceMap`、summary
+本体は保持しない。関数順序、namespace、source capability policy、body hash、type boundary、
+generic boundary が合わない場合や再投影できない場合は通常 path へ戻る。
+
+subagent review で、body hash が `__def{file}_{start}_{end}` 付き symbol をそのまま hash すると
+span だけがずれた未変更 caller まで affected になる可能性が指摘された。このため
+`ResourceCallTarget::User`、`EffectOp::UserCall`、`FunctionValueIdentity` の body hash 入力を
+Resource summary key と同じ定義 span mangle 正規化に揃えた。
+
+`tmp/rpn_summary_replay_plan_code_literal_20260601.json` では、release Web RPN same-session string
+literal edit が次の結果になった。
+
+- base `compile_ms=9593`
+- edit `compile_ms=1521`
+- edit `resource_static_check=1222.739ms`
+- edit `resource_static_initialized_moves=301.490ms`
+- edit `resource_static_owner_obligations=805.523ms`
+- edit `resource_typecheck=163.275ms`
+- edit delta は `raw_alias_replay_probe_functions=0`
+- edit delta は `raw_alias_plan_skip_functions=288`
+- edit delta は `i32_scalar_replay_probe_functions=0`
+- edit delta は `i32_scalar_plan_skip_functions=209`
+- edit delta は `raw_init_replay_probe_functions=0`
+- edit delta は `raw_init_plan_skip_functions=151`
+- edit delta は `initialized_function_check_plan_skip_functions=288`
+
+RPN edit compile は `2178ms` から `1521ms` へ改善したが、まだ 0.1 秒以下ではない。
+残りは owner obligation lazy path の固定費、typecheck、lowering / effect / borrow stage、
+typed expression subtree query 未実装、stdlib prechecked artifact 未実装に分かれる。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

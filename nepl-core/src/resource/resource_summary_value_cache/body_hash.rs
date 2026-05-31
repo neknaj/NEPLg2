@@ -18,6 +18,7 @@ use super::super::model::{
     ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchBindMode,
     ResourceMatchPattern, ResourceOffset, ResourceOp, ResourceTerminator, StorageId, StorageOrigin,
 };
+use super::key::normalize_definition_span_mangle;
 use super::stable_hash::ResourceSummaryStableHasher;
 use super::stable_type_key::ResourceSummaryStableTypeKey;
 
@@ -431,7 +432,7 @@ fn hash_function_value_identity(
     ctx: &ResourceFunctionBodyHashContext<'_>,
     identity: &FunctionValueIdentity,
 ) -> Option<()> {
-    hash.write_str(identity.symbol());
+    hash_resource_function_symbol(hash, identity.symbol());
     hash_type(hash, ctx, identity.function_ty)?;
     hash_effect(hash, identity.effect);
     hash_type_list(hash, ctx, &identity.type_args)?;
@@ -658,7 +659,7 @@ fn hash_call_target(
         }
         ResourceCallTarget::User { name, type_args } => {
             hash.write_str("user");
-            hash.write_str(name);
+            hash_resource_function_symbol(hash, name);
             hash_type_list(hash, ctx, type_args)?;
         }
         ResourceCallTarget::Trait {
@@ -877,7 +878,7 @@ fn hash_effect_op(hash: &mut ResourceSummaryStableHasher, effect: &EffectOp) {
         EffectOp::Pure => hash.write_str("pure"),
         EffectOp::UserCall { name, effect } => {
             hash.write_str("user_call");
-            hash.write_str(name);
+            hash_resource_function_symbol(hash, name);
             hash_effect(hash, *effect);
         }
         EffectOp::IndirectCall { effect } => {
@@ -993,6 +994,11 @@ fn hash_optional_str(hash: &mut ResourceSummaryStableHasher, value: Option<&str>
     }
 }
 
+fn hash_resource_function_symbol(hash: &mut ResourceSummaryStableHasher, symbol: &str) {
+    let normalized = normalize_definition_span_mangle(symbol);
+    hash.write_str(&normalized);
+}
+
 fn hash_usize_list(hash: &mut ResourceSummaryStableHasher, values: &[usize]) {
     hash.write_usize(values.len());
     for value in values {
@@ -1066,6 +1072,42 @@ mod tests {
                     identity,
                     value_kind,
                     effect: EffectOp::Pure,
+                    span: Span::dummy(),
+                }],
+                terminator: ResourceTerminator::Return {
+                    value: Some(output),
+                    span: Span::dummy(),
+                },
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        }
+    }
+
+    fn call_body(types: &TypeCtx, target_name: &str) -> ResourceFunction {
+        let ty = types.i32();
+        let output = Place::temporary(ResourceId(0), ty);
+        ResourceFunction {
+            name: "caller".into(),
+            origin_name: "caller".into(),
+            type_params: Vec::new(),
+            params: Vec::new(),
+            result: ty,
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![super::super::super::model::ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![ResourceOp::Call {
+                    output: output.clone(),
+                    target: ResourceCallTarget::User {
+                        name: target_name.into(),
+                        type_args: Vec::new(),
+                    },
+                    args: Vec::new(),
+                    effect: EffectOp::UserCall {
+                        name: target_name.into(),
+                        effect: Effect::Pure,
+                    },
                     span: Span::dummy(),
                 }],
                 terminator: ResourceTerminator::Return {
@@ -1169,6 +1211,51 @@ mod tests {
         assert_ne!(
             resource_function_body_hash(&types, &plain),
             resource_function_body_hash(&types, &memoized)
+        );
+    }
+
+    #[test]
+    fn resource_function_body_hash_normalizes_called_function_def_span_mangle() {
+        let types = TypeCtx::new();
+        let first = call_body(&types, "callee__def7_10_20__i32__i32__pure");
+        let second = call_body(&types, "callee__def7_12_22__i32__i32__pure");
+
+        assert_eq!(
+            resource_function_body_hash(&types, &first),
+            resource_function_body_hash(&types, &second)
+        );
+    }
+
+    #[test]
+    fn resource_function_body_hash_normalizes_function_value_def_span_mangle() {
+        let mut types = TypeCtx::new();
+        let function_ty = types.function(vec![], vec![types.i32()], types.i32(), Effect::Pure);
+        let first = function_value_body(
+            function_ty,
+            FunctionValueIdentity::new(
+                "callee__def7_10_20__i32__i32__pure".into(),
+                None,
+                function_ty,
+                Effect::Pure,
+                vec![types.i32()],
+            ),
+            ResourceFunctionValueKind::Plain,
+        );
+        let second = function_value_body(
+            function_ty,
+            FunctionValueIdentity::new(
+                "callee__def7_12_22__i32__i32__pure".into(),
+                None,
+                function_ty,
+                Effect::Pure,
+                vec![types.i32()],
+            ),
+            ResourceFunctionValueKind::Plain,
+        );
+
+        assert_eq!(
+            resource_function_body_hash(&types, &first),
+            resource_function_body_hash(&types, &second)
         );
     }
 

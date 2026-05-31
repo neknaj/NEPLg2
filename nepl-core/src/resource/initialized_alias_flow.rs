@@ -98,6 +98,19 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
     let mut initially_skipped_functions = vec![false; module.functions.len()];
     let mut preseeded_functions = vec![false; module.functions.len()];
     let mut summaries = Vec::new();
+    let mut replay_plan = match (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    ) {
+        (Some(cache), Some(context)) => Some(cache.begin_raw_alias_summary_replay_plan(
+            context,
+            types,
+            module,
+            dependency_graph,
+            &relevant_functions,
+        )),
+        _ => None,
+    };
     if let (Some(cache), Some(context)) = (
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
@@ -111,6 +124,7 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
             &mut initially_skipped_functions,
             &mut preseeded_functions,
             &mut summaries,
+            replay_plan.as_mut(),
         );
     }
     let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph_and_initial_skips(
@@ -140,7 +154,11 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
             dependency_graph.dependencies(),
             &candidate_skipped_functions,
             &summaries,
+            replay_plan.as_mut(),
         );
+    }
+    if let (Some(cache), Some(plan)) = (summary_value_cache.as_deref_mut(), replay_plan) {
+        cache.finish_raw_alias_summary_replay_plan(plan);
     }
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     if std::env::var_os("NEPL_COMPILE_STAGE_TIMING").is_some() {

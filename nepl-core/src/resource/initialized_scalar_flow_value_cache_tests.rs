@@ -187,6 +187,7 @@ fn record_i32_summary(
         &relevant_functions,
         &preseeded_functions,
         summaries,
+        None,
     );
 }
 
@@ -211,6 +212,7 @@ fn preseed_i32_summaries(
         &mut worklist_relevant_functions,
         &mut preseeded_functions,
         &mut summaries,
+        None,
     );
     (worklist_relevant_functions, preseeded_functions, summaries)
 }
@@ -269,6 +271,7 @@ fn i32_scalar_return_facts_preseed_replays_same_summary_surface() {
         &relevant_functions,
         &preseeded_functions,
         &summaries,
+        None,
     );
 
     let stats = cache.stats();

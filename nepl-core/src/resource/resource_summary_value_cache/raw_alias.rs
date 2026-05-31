@@ -10,11 +10,13 @@ use super::candidate_key::{
     raw_alias_return_entry_key, ResourceSummaryDependencyClosureHash,
     ResourceSummaryGenericTypeArgumentKeyInput,
 };
+use super::key::ResourceSummaryValueCacheKey;
 use super::stable_mirror::{
     reproject_raw_alias_return_entry, reproject_raw_alias_return_entry_result,
     stable_raw_alias_return_entry, ResourceSummaryRawAliasReturnEntryReprojectionReject,
     ResourceSummaryStableRawAliasReturnEntryReject, ResourceSummaryTypeReprojection,
 };
+use super::summary_plan::ResourceSummaryReplayPlan;
 use super::{
     ResourceSummaryRawAliasReturnEntryCandidate, ResourceSummaryValueCache,
     ResourceSummaryValueCacheContext,
@@ -75,14 +77,55 @@ impl ResourceSummaryValueCache {
         Ok(ResourceSummaryRawAliasReturnEntryCandidate { key, entry })
     }
 
-    pub(in crate::resource) fn replay_raw_alias_return_entry(
+    pub(in crate::resource) fn replay_raw_alias_return_entry_and_record_plan(
         &mut self,
+        plan: Option<&mut ResourceSummaryReplayPlan>,
+        function_index: usize,
         context: &ResourceSummaryValueCacheContext,
         types: &TypeCtx,
         function: &ResourceFunction,
         type_params: &[TypeId],
         dependency_closure_hash: ResourceSummaryDependencyClosureHash,
     ) -> Option<RawCellAddressReturnSummary> {
+        let key = self.raw_alias_return_entry_replay_key(
+            context,
+            types,
+            function,
+            type_params,
+            dependency_closure_hash,
+        )?;
+        let summary =
+            self.replay_raw_alias_return_entry_by_key(types, function, type_params, &key)?;
+        if let Some(plan) = plan {
+            plan.record_key(function_index, key);
+        }
+        Some(summary)
+    }
+
+    pub(in crate::resource) fn replay_raw_alias_return_entry_from_plan(
+        &mut self,
+        plan: &mut ResourceSummaryReplayPlan,
+        types: &TypeCtx,
+        function_index: usize,
+        function: &ResourceFunction,
+        type_params: &[TypeId],
+    ) -> Option<RawCellAddressReturnSummary> {
+        let key = plan.previous_key(function_index)?;
+        let summary =
+            self.replay_raw_alias_return_entry_by_key(types, function, type_params, &key)?;
+        self.record_raw_alias_summary_plan_skip(summary.aliases.len());
+        plan.record_key(function_index, key);
+        Some(summary)
+    }
+
+    fn raw_alias_return_entry_replay_key(
+        &self,
+        context: &ResourceSummaryValueCacheContext,
+        types: &TypeCtx,
+        function: &ResourceFunction,
+        type_params: &[TypeId],
+        dependency_closure_hash: ResourceSummaryDependencyClosureHash,
+    ) -> Option<ResourceSummaryValueCacheKey> {
         let source_capability_policy_hash =
             context.source_capability_policy_hash_for_function(function)?;
         let generic_type_args = if function.type_params.is_empty() && type_params.is_empty() {
@@ -90,7 +133,7 @@ impl ResourceSummaryValueCache {
         } else {
             ResourceSummaryGenericTypeArgumentKeyInput::TemplateBoundaryOnly
         };
-        let key = raw_alias_return_entry_key(
+        raw_alias_return_entry_key(
             types,
             context.namespace_hash(),
             source_capability_policy_hash,
@@ -98,8 +141,17 @@ impl ResourceSummaryValueCache {
             function,
             type_params,
             generic_type_args,
-        )?;
-        let entry = self.raw_alias_return_entries.get(&key)?.clone();
+        )
+    }
+
+    fn replay_raw_alias_return_entry_by_key(
+        &mut self,
+        types: &TypeCtx,
+        function: &ResourceFunction,
+        type_params: &[TypeId],
+        key: &ResourceSummaryValueCacheKey,
+    ) -> Option<RawCellAddressReturnSummary> {
+        let entry = self.raw_alias_return_entries.get(key)?.clone();
         let alias_count = entry.len();
         let Some(reprojection) = ResourceSummaryTypeReprojection::new(types, function, type_params)
         else {

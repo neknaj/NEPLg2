@@ -10,7 +10,7 @@ use super::model::{ResourceFunction, ResourceModule};
 use super::owner_summary_type_params::owner_summary_type_params;
 use super::resource_summary_value_cache::{
     raw_alias_dependency_closure_hash, ResourceSummaryRawAliasReturnEntryCandidate,
-    ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
+    ResourceSummaryReplayPlan, ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
 
 pub(super) fn preseed_raw_alias_return_summaries_from_value_cache(
@@ -22,8 +22,28 @@ pub(super) fn preseed_raw_alias_return_summaries_from_value_cache(
     initially_skipped_functions: &mut [bool],
     preseeded_functions: &mut [bool],
     summaries: &mut Vec<RawCellAddressReturnSummary>,
+    mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
     for (function_index, function) in module.functions.iter().enumerate() {
+        let type_params = owner_summary_type_params(types, function);
+        if let Some(plan) = replay_plan.as_deref_mut() {
+            if let Some(summary) = cache.replay_raw_alias_return_entry_from_plan(
+                plan,
+                types,
+                function_index,
+                function,
+                &type_params,
+            ) {
+                preseed_raw_alias_summary(
+                    function_index,
+                    summary,
+                    initially_skipped_functions,
+                    preseeded_functions,
+                    summaries,
+                );
+                continue;
+            }
+        }
         cache.record_raw_alias_replay_probe_function();
         let Ok(dependency_closure_hash) =
             raw_alias_dependency_closure_hash(context, types, module, dependencies, function_index)
@@ -31,8 +51,9 @@ pub(super) fn preseed_raw_alias_return_summaries_from_value_cache(
             cache.record_raw_alias_replay_miss_function();
             continue;
         };
-        let type_params = owner_summary_type_params(types, function);
-        let Some(summary) = cache.replay_raw_alias_return_entry(
+        let Some(summary) = cache.replay_raw_alias_return_entry_and_record_plan(
+            replay_plan.as_deref_mut(),
+            function_index,
             context,
             types,
             function,
@@ -43,15 +64,13 @@ pub(super) fn preseed_raw_alias_return_summaries_from_value_cache(
             continue;
         };
         cache.record_raw_alias_replay_hit_function();
-        if !summary.aliases.is_empty() {
-            summaries.push(summary);
-        }
-        if let Some(is_skipped) = initially_skipped_functions.get_mut(function_index) {
-            *is_skipped = true;
-        }
-        if let Some(is_preseeded) = preseeded_functions.get_mut(function_index) {
-            *is_preseeded = true;
-        }
+        preseed_raw_alias_summary(
+            function_index,
+            summary,
+            initially_skipped_functions,
+            preseeded_functions,
+            summaries,
+        );
     }
 }
 
@@ -63,6 +82,7 @@ pub(super) fn record_raw_alias_return_summary_value_cache_candidates(
     dependencies: &[Vec<usize>],
     preseeded_functions: &[bool],
     summaries: &[RawCellAddressReturnSummary],
+    mut replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
     let mut candidates = Vec::new();
     let mut summary_by_function = BTreeMap::new();
@@ -95,6 +115,7 @@ pub(super) fn record_raw_alias_return_summary_value_cache_candidates(
             function_index,
             dependencies,
             summary,
+            replay_plan.as_deref_mut(),
         );
     }
     cache.record_raw_alias_return_entry_candidates(candidates);
@@ -110,6 +131,7 @@ fn collect_raw_alias_return_entry_candidate_from_summary(
     function_index: usize,
     all_dependencies: &[Vec<usize>],
     summary: &RawCellAddressReturnSummary,
+    replay_plan: Option<&mut ResourceSummaryReplayPlan>,
 ) {
     let alias_count = summary.aliases.len();
     cache.record_raw_alias_return_entry_recomputed_ops(alias_count);
@@ -135,10 +157,33 @@ fn collect_raw_alias_return_entry_candidate_from_summary(
         dependency_closure_hash,
         summary,
     ) {
-        Ok(candidate) => candidates.push(candidate),
+        Ok(candidate) => {
+            if let Some(plan) = replay_plan {
+                cache.record_raw_alias_summary_candidate_key(plan, function_index, &candidate);
+            }
+            candidates.push(candidate);
+        }
         Err(reason) => {
             cache.record_raw_alias_return_entry_candidate_bypass(reason, alias_count);
         }
+    }
+}
+
+fn preseed_raw_alias_summary(
+    function_index: usize,
+    summary: RawCellAddressReturnSummary,
+    initially_skipped_functions: &mut [bool],
+    preseeded_functions: &mut [bool],
+    summaries: &mut Vec<RawCellAddressReturnSummary>,
+) {
+    if !summary.aliases.is_empty() {
+        summaries.push(summary);
+    }
+    if let Some(is_skipped) = initially_skipped_functions.get_mut(function_index) {
+        *is_skipped = true;
+    }
+    if let Some(is_preseeded) = preseeded_functions.get_mut(function_index) {
+        *is_preseeded = true;
     }
 }
 

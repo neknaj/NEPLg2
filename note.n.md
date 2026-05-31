@@ -1,3 +1,18 @@
+# 2026-06-01 Resource summary changed-function replay plan checkpoint
+
+- Zenn 記事の試作段階方針を再確認し、性能改善でも静的検査を削らず、Resource proof cache の fail-closed key / replay 境界を狭める方針を維持した。
+- remote/main は `831f2357` と同期済みで、現在 branch `perf/resource-summary-affected-plan-20260601` の基点は `origin/main` と一致している。
+- subagent 2 件で Resource summary replay plan と memo_call / 高階関数 purity を読み取り専用レビューした。Resource summary 側は fail-closed / materialization / reverse dependent closure は妥当だが、body hash の span mangle 由来過剰 invalidation と `*_plan_skip_ops` の読み方に注意すべきと確認した。memo_call 側は現状で危険な Pure 拡張は見つからず、次は FunctionAliasTable の memoized kind 保持、MemoKey law、PrivateCache SourceCapability span 照合を issue 側へ残す判断にした。
+- raw alias / i32 scalar / raw-init summary preseed に `ResourceSummaryReplayPlan` を追加した。前回 compile で保存できた stable summary key と関数 local fingerprint から affected set を作り、affected でない関数では dependency closure hash の再構築と replay probe を省く。
+- summary fixed-point では caller が callee summary index を読むため、plan skip でも summary は現在の `TypeCtx` / function signature へ再投影して materialize する。snapshot には `TypeId`、`Span`、`SourceMap`、summary 本体を保存しない。
+- subagent 指摘に基づき、`ResourceCallTarget::User`、`EffectOp::UserCall`、`FunctionValueIdentity` の Resource body hash 入力を Resource summary key と同じ `__def{file}_{start}_{end}` 正規化済み symbol に揃えた。
+- `ResourceSummaryValueCacheStats` の comment に、`*_plan_skip_ops` は plan skip した関数で再投影された fact 数であり、`resource_summary_value_replayed_ops` と合算して削減 op 数と読んではならないことを明記した。
+- release Web RPN same-session code literal edit 測定 `tmp/rpn_summary_replay_plan_code_literal_20260601.json` では、base `compile_ms=9593`、edit `compile_ms=1521` だった。edit stage は `resource_static_check=1222.739ms`、`resource_static_initialized_moves=301.490ms`、`resource_static_owner_obligations=805.523ms`、`resource_typecheck=163.275ms`。
+- 同測定の edit delta は `raw_alias_replay_probe_functions=0` / `raw_alias_plan_skip_functions=288`、`i32_scalar_replay_probe_functions=0` / `i32_scalar_plan_skip_functions=209`、`raw_init_replay_probe_functions=0` / `raw_init_plan_skip_functions=151`、`initialized_function_check_plan_skip_functions=288` だった。
+- RPN edit compile は `2178ms` から `1521ms` へ改善したが、0.1 秒以下には未達である。次の支配項は owner obligation lazy path の残コスト、typecheck、lowering / effect / borrow 固定費、typed expression subtree query、stdlib prechecked artifact である。base compile `compile_ms=9593` も依然として 0.5 秒未満に届いていない。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core resource_summary_value --lib -- --nocapture`、`cargo test -p nepl-core initialized_summary_build_value_cache --lib -- --nocapture`、`cargo test -p nepl-core initialized_scalar_flow_value_cache --lib -- --nocapture`、`cargo test -p nepl-core initialized_pass_plan --lib -- --nocapture`、`cargo test -p nepl-core summary_replay_plan --lib -- --nocapture`、`cargo test -p nepl-core resource_function_body_hash --lib -- --nocapture`、`cargo test -p nepl-core --tests --no-run`、`cargo test -p nepl-core function_memo_call --test functions -- --nocapture`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-summary-replay-plan-20260601.json`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-05-31 Final initialized check lazy pass checkpoint
 
 - Zenn 記事の試作段階方針を再確認し、性能改善でも静的検査の削除や unsafe な cache hit を使わず、純粋 query と fail-closed key に基づく cache 設計を継続した。
