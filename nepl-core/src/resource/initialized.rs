@@ -94,6 +94,14 @@ fn check_resource_initialized_moves_inner(
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceCheckDeferred::default();
     let dependency_graph = ResourceSummaryDependencyGraph::build(module);
+    if let Some(cache) = summary_value_cache.as_deref_mut() {
+        let op_count = module
+            .functions
+            .iter()
+            .map(resource_function_op_count)
+            .sum();
+        cache.record_resource_static_input_shape(module.functions.len(), op_count);
+    }
     let (raw_alias_summaries, raw_alias_recomputations) =
         compute_raw_cell_address_return_summaries_with_recomputations(
             module,
@@ -186,6 +194,9 @@ fn check_resource_initialized_moves_inner(
             function,
             function_op_count,
         );
+        if let Some(cache) = summary_value_cache.as_deref_mut() {
+            cache.record_initialized_function_check_replay_probe_function();
+        }
         if let Some(replayed_check) = replay_initialized_function_check_from_value_cache(
             summary_value_cache.as_deref_mut(),
             summary_value_cache_context,
@@ -198,6 +209,9 @@ fn check_resource_initialized_moves_inner(
             functions.push(replayed_check);
             function_start.log("resource_initialized_function_check", function);
             continue;
+        }
+        if let Some(cache) = summary_value_cache.as_deref_mut() {
+            cache.record_initialized_function_check_replay_miss_function();
         }
         if let Some(cache) = summary_value_cache.as_deref_mut() {
             cache.record_initialized_function_check(function_op_count);

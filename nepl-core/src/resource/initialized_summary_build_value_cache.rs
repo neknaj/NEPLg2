@@ -36,9 +36,11 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
         if !function_allows_complete_leaf_entry_replay(function) {
             continue;
         }
+        cache.record_raw_init_replay_probe_function();
         let Ok(dependency_closure_hash) =
             raw_init_dependency_closure_hash(context, types, module, dependencies, function_index)
         else {
+            cache.record_raw_init_replay_miss_function();
             continue;
         };
         let type_params = owner_summary_type_params(types, function);
@@ -49,8 +51,10 @@ pub(super) fn preseed_raw_cell_initialization_summaries_from_value_cache(
             &type_params,
             dependency_closure_hash,
         ) else {
+            cache.record_raw_init_replay_miss_function();
             continue;
         };
+        cache.record_raw_init_replay_hit_function();
         if raw_init_complete_leaf_entry_fact_count(&summary) > 0 {
             summaries.push(summary);
         }

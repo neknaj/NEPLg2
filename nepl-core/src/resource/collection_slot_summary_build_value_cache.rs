@@ -42,12 +42,15 @@ pub(super) fn preseed_collection_slot_lifecycle_summaries_from_value_cache(
         if !function_allows_complete_leaf_entry_replay(function, dependencies) {
             continue;
         }
+        cache.record_drop_traversal_replay_probe_function();
         let type_params = owner_summary_type_params(types, function);
         let Some(ops) =
             cache.replay_drop_traversal_forall_leaf_entry(context, types, function, &type_params)
         else {
+            cache.record_drop_traversal_replay_miss_function();
             continue;
         };
+        cache.record_drop_traversal_replay_hit_function();
         summaries.push(CollectionSlotLifecycleFunctionSummary {
             function: function.name.clone(),
             type_params,

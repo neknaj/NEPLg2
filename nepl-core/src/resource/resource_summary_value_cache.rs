@@ -50,6 +50,8 @@ use self::stable_mirror::{
 /// `resource_summary_value_replay_*` を別 counter として増やす。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ResourceSummaryValueCacheStats {
+    pub resource_static_function_count: usize,
+    pub resource_static_op_count: usize,
     pub resource_raw_alias_summary_recomputations: usize,
     pub resource_raw_alias_summary_count: usize,
     pub resource_i32_scalar_summary_recomputations: usize,
@@ -77,9 +79,15 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_drop_traversal_forall_hits: usize,
     pub resource_summary_value_drop_traversal_forall_stores: usize,
     pub resource_summary_value_drop_traversal_forall_bypasses: usize,
+    pub resource_summary_value_drop_traversal_forall_replay_probe_functions: usize,
+    pub resource_summary_value_drop_traversal_forall_replay_hit_functions: usize,
+    pub resource_summary_value_drop_traversal_forall_replay_miss_functions: usize,
     pub resource_summary_value_raw_alias_return_entry_hits: usize,
     pub resource_summary_value_raw_alias_return_entry_stores: usize,
     pub resource_summary_value_raw_alias_return_entry_bypasses: usize,
+    pub resource_summary_value_raw_alias_return_entry_replay_probe_functions: usize,
+    pub resource_summary_value_raw_alias_return_entry_replay_hit_functions: usize,
+    pub resource_summary_value_raw_alias_return_entry_replay_miss_functions: usize,
     pub resource_summary_value_raw_alias_return_entry_dependency_bypasses: usize,
     pub resource_summary_value_raw_alias_return_entry_missing_source_policy_bypasses: usize,
     pub resource_summary_value_raw_alias_return_entry_unstable_key_bypasses: usize,
@@ -101,6 +109,9 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_i32_scalar_return_facts_stores: usize,
     pub resource_summary_value_i32_scalar_return_facts_misses: usize,
     pub resource_summary_value_i32_scalar_return_facts_bypasses: usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_probe_functions: usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_hit_functions: usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_miss_functions: usize,
     pub resource_summary_value_i32_scalar_return_facts_dependency_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_missing_source_policy_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_unstable_key_bypasses: usize,
@@ -142,6 +153,9 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_initialized_function_check_hits: usize,
     pub resource_summary_value_initialized_function_check_stores: usize,
     pub resource_summary_value_initialized_function_check_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_replay_probe_functions: usize,
+    pub resource_summary_value_initialized_function_check_replay_hit_functions: usize,
+    pub resource_summary_value_initialized_function_check_replay_miss_functions: usize,
     pub resource_summary_value_initialized_function_check_dependency_bypasses: usize,
     pub resource_summary_value_initialized_function_check_diagnostic_bypasses: usize,
     pub resource_summary_value_initialized_function_check_missing_source_policy_bypasses: usize,
@@ -166,6 +180,9 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_raw_init_param_facts_hits: usize,
     pub resource_summary_value_raw_init_param_facts_stores: usize,
     pub resource_summary_value_raw_init_param_facts_bypasses: usize,
+    pub resource_summary_value_raw_init_param_facts_replay_probe_functions: usize,
+    pub resource_summary_value_raw_init_param_facts_replay_hit_functions: usize,
+    pub resource_summary_value_raw_init_param_facts_replay_miss_functions: usize,
     pub resource_summary_value_raw_init_param_facts_incomplete_leaf_bypasses: usize,
     pub resource_summary_value_raw_init_param_facts_dependency_bypasses: usize,
     pub resource_summary_value_raw_init_param_facts_missing_source_policy_bypasses: usize,
@@ -283,6 +300,96 @@ impl ResourceSummaryValueCache {
 
     pub fn stats(&self) -> ResourceSummaryValueCacheStats {
         self.stats
+    }
+
+    /// Resource static check の入力規模を session 統計へ記録する。
+    ///
+    /// warm edit で summary value の再計算が 0 になっても、全関数を probe し続けると
+    /// 秒単位の固定費が残る。function 数と op 数を同じ JSON 境界へ出し、次の
+    /// changed-function-only proof replay が「入力を小さくした」のか「replay の中身だけを
+    /// 軽くした」のかを分けて評価できるようにする。
+    pub(super) fn record_resource_static_input_shape(
+        &mut self,
+        function_count: usize,
+        op_count: usize,
+    ) {
+        self.stats.resource_static_function_count += function_count;
+        self.stats.resource_static_op_count += op_count;
+    }
+
+    pub(super) fn record_raw_alias_replay_probe_function(&mut self) {
+        self.stats
+            .resource_summary_value_raw_alias_return_entry_replay_probe_functions += 1;
+    }
+
+    pub(super) fn record_raw_alias_replay_hit_function(&mut self) {
+        self.stats
+            .resource_summary_value_raw_alias_return_entry_replay_hit_functions += 1;
+    }
+
+    pub(super) fn record_raw_alias_replay_miss_function(&mut self) {
+        self.stats
+            .resource_summary_value_raw_alias_return_entry_replay_miss_functions += 1;
+    }
+
+    pub(super) fn record_i32_scalar_replay_probe_function(&mut self) {
+        self.stats
+            .resource_summary_value_i32_scalar_return_facts_replay_probe_functions += 1;
+    }
+
+    pub(super) fn record_i32_scalar_replay_hit_function(&mut self) {
+        self.stats
+            .resource_summary_value_i32_scalar_return_facts_replay_hit_functions += 1;
+    }
+
+    pub(super) fn record_i32_scalar_replay_miss_function(&mut self) {
+        self.stats
+            .resource_summary_value_i32_scalar_return_facts_replay_miss_functions += 1;
+    }
+
+    pub(super) fn record_raw_init_replay_probe_function(&mut self) {
+        self.stats
+            .resource_summary_value_raw_init_param_facts_replay_probe_functions += 1;
+    }
+
+    pub(super) fn record_raw_init_replay_hit_function(&mut self) {
+        self.stats
+            .resource_summary_value_raw_init_param_facts_replay_hit_functions += 1;
+    }
+
+    pub(super) fn record_raw_init_replay_miss_function(&mut self) {
+        self.stats
+            .resource_summary_value_raw_init_param_facts_replay_miss_functions += 1;
+    }
+
+    pub(super) fn record_drop_traversal_replay_probe_function(&mut self) {
+        self.stats
+            .resource_summary_value_drop_traversal_forall_replay_probe_functions += 1;
+    }
+
+    pub(super) fn record_drop_traversal_replay_hit_function(&mut self) {
+        self.stats
+            .resource_summary_value_drop_traversal_forall_replay_hit_functions += 1;
+    }
+
+    pub(super) fn record_drop_traversal_replay_miss_function(&mut self) {
+        self.stats
+            .resource_summary_value_drop_traversal_forall_replay_miss_functions += 1;
+    }
+
+    pub(super) fn record_initialized_function_check_replay_probe_function(&mut self) {
+        self.stats
+            .resource_summary_value_initialized_function_check_replay_probe_functions += 1;
+    }
+
+    pub(super) fn record_initialized_function_check_replay_hit_function(&mut self) {
+        self.stats
+            .resource_summary_value_initialized_function_check_replay_hit_functions += 1;
+    }
+
+    pub(super) fn record_initialized_function_check_replay_miss_function(&mut self) {
+        self.stats
+            .resource_summary_value_initialized_function_check_replay_miss_functions += 1;
     }
 
     /// initialized-state checker の stage 再計算数を session 統計へ記録する。

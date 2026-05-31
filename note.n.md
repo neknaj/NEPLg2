@@ -48290,3 +48290,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused regression として、anchored leading raw `Deref` の acceptance、unanchored non-final raw `Deref` の rejection、`str` raw address carrier alias、`StorageOffset(Known(4))` carrier offset、非 carrier `StorageOffset` rejection、symbolic offset place type rebase を追加した。
 - `tmp/rpn_i32_reprojection_fix_measure_20260601.json` では、same-session unused local edit が base `compile_ms=9583`、edit `compile_ms=2292` だった。edit delta は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=0`、`resource_summary_value_i32_scalar_return_facts_bypasses=0`、`resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=0`、alias / offset / scalar type / parameter projection bypass delta もすべて `0` になった。
 - `ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24` は verified / resolved にし、`todo.md` から削除した。base compile と edit compile の絶対時間はまだ目標未達なので、`ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D`、per-program compile performance、`.neplmeta` / `.neplobj` artifact、typed expression subtree query は継続する。
+
+## 2026-06-01 Agent Resource static inner timing / replay probe checkpoint
+
+- remote/main と同期済みの `perf/rpn-proof-replay-fixed-cost-20260601` branch で、i32 scalar residual 解消後に残る RPN same-session edit の秒単位固定費を分解した。`plan.md` は変更していない。
+- Zenn の試作段階方針と性能追求方針を再確認し、検査削除ではなく、純粋な query cache と proof replay の入力境界を見える化する方針にした。
+- subagent review では、次の根本対応は changed-function-only proof replay だが、その前に Resource static check の内訳 stage と function-level replay probe / hit / miss を Web / Node JSON へ出すべきだと確認した。
+- `run_resource_static_check` の各 gate を `compile_stage_timings` へ追加し、release WASM の same-session 測定でも `resource_static_initialized_moves`、`resource_static_owner_obligations`、borrow/effect/lowering などを分けて読めるようにした。
+- `ResourceSummaryValueCacheStats` に Resource static check の function/op 数と、raw alias / i32 scalar / raw-init / collection slot / final initialized check の replay probe / hit / miss function 数を追加した。
+- `tmp/rpn_static_inner_probe_20260601.json` では、RPN same-session unused local edit が base `compile_ms=10377`、edit `compile_ms=2384` だった。edit では `resource_static_initialized_moves=1056.579ms`、`resource_static_owner_obligations=878.709ms`、`resource_typecheck=171.733ms` が支配項である。
+- edit delta は `resource_summary_value_recomputed_ops=0` のままだが、raw alias は 288 probe / 287 hit / 1 miss、i32 scalar は 209 probe / 209 hit、raw-init は 151 probe / 151 hit、final initialized check は 288 probe / 287 hit / 1 miss だった。次は未変更関数の replay probe 自体を避ける changed-function-only proof replay と、owner obligations の function-level pass cache / proof template 化へ進む。

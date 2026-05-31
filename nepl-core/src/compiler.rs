@@ -659,26 +659,34 @@ fn run_resource_static_check(
     resource_summary_value_cache_context: Option<
         &crate::resource::ResourceSummaryValueCacheContext,
     >,
+    stage_recorder: &mut CompileStageRecorder<'_>,
 ) -> Result<crate::resource::ResourceDropElaborationPlan, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     run_resource_shadow_check(hir_module, types);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_shadow_check", stage_start);
+    stage_recorder.finish("resource_static_shadow_check", stage_start_ms);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let resource = crate::resource::lower_hir_module(hir_module, types);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_lowering", stage_start);
+    stage_recorder.finish("resource_static_lowering", stage_start_ms);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let lowering_coverage =
         crate::resource::compare_hir_resource_lowering_typed(hir_module, &resource, types);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_lowering_coverage", stage_start);
+    stage_recorder.finish("resource_static_lowering_coverage", stage_start_ms);
     run_resource_lowering_coverage_gate(&lowering_coverage, diagnostics)?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let initialized_moves = match (
         resource_summary_value_cache,
         resource_summary_value_cache_context,
@@ -694,33 +702,42 @@ fn run_resource_static_check(
     };
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_initialized_moves", stage_start);
+    stage_recorder.finish("resource_static_initialized_moves", stage_start_ms);
     run_resource_cell_gate(&initialized_moves, diagnostics)?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let drop_elaboration_plan = run_resource_drop_elaboration_plan_gate(
         crate::resource::compute_resource_drop_elaboration_plan(&resource, &initialized_moves),
         diagnostics,
     )?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_drop_elaboration_plan", stage_start);
+    stage_recorder.finish("resource_static_drop_elaboration_plan", stage_start_ms);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let borrow_lifetimes = crate::resource::check_resource_borrow_lifetimes(&resource, types);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_borrow_lifetimes", stage_start);
+    stage_recorder.finish("resource_static_borrow_lifetimes", stage_start_ms);
     run_resource_borrow_lifetime_gate(&borrow_lifetimes, diagnostics)?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let effect_boundaries =
         crate::resource::check_resource_effect_boundaries_typed(&resource, types);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_effect_boundaries", stage_start);
+    stage_recorder.finish("resource_static_effect_boundaries", stage_start_ms);
     run_resource_effect_boundary_gate(&effect_boundaries, diagnostics, source_map)?;
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
+    let stage_start_ms = stage_recorder.start();
     let owner_obligations = crate::resource::check_resource_owner_obligations(&resource, types);
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_owner_obligations", stage_start);
+    stage_recorder.finish("resource_static_owner_obligations", stage_start_ms);
     run_resource_owner_obligation_gate(&owner_obligations, diagnostics)?;
 
     Ok(drop_elaboration_plan)
@@ -2471,6 +2488,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
         source_map,
         resource_summary_value_cache,
         resource_summary_value_cache_context.as_ref(),
+        stage_recorder,
     );
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_static_check", stage_start);

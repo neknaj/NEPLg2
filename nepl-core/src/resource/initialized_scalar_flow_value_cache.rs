@@ -33,6 +33,7 @@ pub(super) fn preseed_i32_scalar_return_summaries_from_value_cache(
         {
             continue;
         }
+        cache.record_i32_scalar_replay_probe_function();
         let Ok(dependency_closure_hash) = i32_scalar_dependency_closure_hash(
             context,
             types,
@@ -40,6 +41,7 @@ pub(super) fn preseed_i32_scalar_return_summaries_from_value_cache(
             dependencies,
             function_index,
         ) else {
+            cache.record_i32_scalar_replay_miss_function();
             continue;
         };
         let type_params = owner_summary_type_params(types, function);
@@ -50,8 +52,10 @@ pub(super) fn preseed_i32_scalar_return_summaries_from_value_cache(
             &type_params,
             dependency_closure_hash,
         ) else {
+            cache.record_i32_scalar_replay_miss_function();
             continue;
         };
+        cache.record_i32_scalar_replay_hit_function();
         if !facts.is_empty() {
             summaries.push(I32ScalarReturnSummary {
                 function: function.name.clone(),

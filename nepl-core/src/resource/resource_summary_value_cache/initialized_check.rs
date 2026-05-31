@@ -250,10 +250,9 @@ impl ResourceSummaryValueCache {
         self.stats.resource_summary_value_lazy_pass_ops += op_count;
         self.stats
             .resource_summary_value_initialized_function_check_hits += 1;
-        Some(reproject_initialized_function_check_entry_pass(
-            &function.name,
-            entry,
-        ))
+        let check = reproject_initialized_function_check_entry_pass(&function.name, entry);
+        self.record_initialized_function_check_replay_hit_function();
+        Some(check)
     }
 
     pub(in crate::resource) fn record_initialized_function_check_entry_candidates(

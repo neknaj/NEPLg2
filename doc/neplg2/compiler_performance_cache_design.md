@@ -101,6 +101,20 @@ source policy では、`to_i128_radix` に `str_slice` が戻らないこと、s
 
 この改善は stdlib 実装と path-state ownership の局所削減であり、初回 compile 0.5 秒未満にはまだ届かない。次の根本対応は、`ResourceSummaryCacheNamespaceKey` の下で function body hash、generic type-argument hash、source capability policy hash、summary kind/version を組み合わせ、arena 非依存の Resource summary stable mirror value だけを session cache へ保存することである。
 
+## Resource static check inner timing checkpoint
+
+2026-06-01 の checkpoint では、RPN same-session edit の残り時間を `resource_static_check` の内訳と function-level replay probe 数へ分解した。これは safety 判定を変える最適化ではなく、changed-function-only proof replay を入れる前の観測境界である。
+
+追加した観測:
+
+- `compile_stage_timings` に `resource_static_lowering`、`resource_static_lowering_coverage`、`resource_static_initialized_moves`、`resource_static_borrow_lifetimes`、`resource_static_effect_boundaries`、`resource_static_owner_obligations` などを追加する。
+- `CompilerSession.loader_cache_stats_json()` に Resource static check の function/op 数を出す。
+- raw alias、i32 scalar、raw-init、collection-slot、final initialized check について、replay probe / hit / miss の function 数を出す。
+
+`tmp/rpn_static_inner_probe_20260601.json` の release Web RPN same-session unused local edit 測定では、base `compile_ms=10377`、edit `compile_ms=2384` だった。edit の主要 stage は `resource_static_initialized_moves=1056.579ms`、`resource_static_owner_obligations=878.709ms`、`resource_typecheck=171.733ms` である。
+
+edit delta では `resource_summary_value_recomputed_ops=0` だが、raw alias は 288 関数 probe / 287 hit / 1 miss、i32 scalar は 209 probe / 209 hit、raw-init は 151 probe / 151 hit、final initialized check は 288 probe / 287 hit / 1 miss だった。したがって残り時間は stable mirror の false miss ではなく、未変更関数の proof replay probe と、owner obligations の全関数再検査による固定費である。
+
 ## CompilerSession first checkpoint
 
 2026-05-27 の first checkpoint では、公開 API の境界を先に session 化した。現在の `CompilerSession` は bundled stdlib source table の保持までを行い、parse / typecheck / Resource IR summary cache はまだ持たない。

@@ -24,9 +24,11 @@ pub(super) fn preseed_raw_alias_return_summaries_from_value_cache(
     summaries: &mut Vec<RawCellAddressReturnSummary>,
 ) {
     for (function_index, function) in module.functions.iter().enumerate() {
+        cache.record_raw_alias_replay_probe_function();
         let Ok(dependency_closure_hash) =
             raw_alias_dependency_closure_hash(context, types, module, dependencies, function_index)
         else {
+            cache.record_raw_alias_replay_miss_function();
             continue;
         };
         let type_params = owner_summary_type_params(types, function);
@@ -37,8 +39,10 @@ pub(super) fn preseed_raw_alias_return_summaries_from_value_cache(
             &type_params,
             dependency_closure_hash,
         ) else {
+            cache.record_raw_alias_replay_miss_function();
             continue;
         };
+        cache.record_raw_alias_replay_hit_function();
         if !summary.aliases.is_empty() {
             summaries.push(summary);
         }
