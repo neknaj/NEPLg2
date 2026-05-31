@@ -121,6 +121,8 @@ impl ResourceSummaryValueCache {
         alias_count: usize,
     ) {
         self.stats.resource_summary_value_recomputed_ops += alias_count;
+        self.stats
+            .resource_summary_value_raw_alias_return_entry_recomputed_ops += alias_count;
     }
 
     pub(in crate::resource) fn record_raw_alias_return_entry_dependency_bypass(

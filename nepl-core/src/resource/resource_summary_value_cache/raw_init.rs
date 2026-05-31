@@ -288,6 +288,8 @@ impl ResourceSummaryValueCache {
         fact_count: usize,
     ) {
         self.stats.resource_summary_value_recomputed_ops += fact_count;
+        self.stats
+            .resource_summary_value_raw_init_param_facts_recomputed_ops += fact_count;
     }
 
     fn record_raw_init_param_facts_replay_bypass(&mut self, fact_count: usize) {

@@ -270,6 +270,10 @@ fn i32_scalar_return_facts_preseed_replays_same_summary_surface() {
     let stats = cache.stats();
     assert_eq!(stats.resource_summary_value_i32_scalar_return_facts_hits, 0);
     assert_eq!(stats.resource_summary_value_recomputed_ops, 6);
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_recomputed_ops,
+        6
+    );
 }
 
 /// facts が空の relevant function も「空の summary が固定点結果である」と cache できる。

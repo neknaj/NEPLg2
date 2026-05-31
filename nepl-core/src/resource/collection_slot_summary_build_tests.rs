@@ -440,6 +440,10 @@ fn resource_summary_value_preseed_replays_leaf_entry_and_skips_worklist() {
     assert_eq!(stats.resource_summary_value_replay_hits, 2);
     assert_eq!(stats.resource_summary_value_replayed_ops, 2);
     assert_eq!(stats.resource_summary_value_recomputed_ops, 2);
+    assert_eq!(
+        stats.resource_summary_value_drop_traversal_forall_recomputed_ops,
+        2
+    );
     assert_eq!(stats.resource_summary_value_hits, 0);
 
     record_resource_summary_value_cache_candidates(
@@ -457,6 +461,10 @@ fn resource_summary_value_preseed_replays_leaf_entry_and_skips_worklist() {
     assert_eq!(stats.resource_summary_value_replay_hits, 2);
     assert_eq!(stats.resource_summary_value_replayed_ops, 2);
     assert_eq!(stats.resource_summary_value_recomputed_ops, 2);
+    assert_eq!(
+        stats.resource_summary_value_drop_traversal_forall_recomputed_ops,
+        2
+    );
 }
 
 /// Resource summary value cache の初期 store 候補は、summary value だけでなく

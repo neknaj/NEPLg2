@@ -306,6 +306,31 @@ dependency closure base hash checkpoint の edit `compile_ms=3138` / `resource_s
 この issue は、changed function only proof replay、typed expression subtree query、
 stdlib prechecked artifact、codegen fragment cache へ継続する。
 
+## 2026-05-31 recomputed ops kind counter 更新
+
+Aggregate `resource_summary_value_recomputed_ops` を summary kind 別に分解する counter を追加した。
+既存 aggregate counter は維持し、追加 counter は raw alias / i32 scalar / raw-init /
+collection slot のどの stable mirror が残差再計算を持つかを観測するためだけに使う。
+
+`tmp/rpn_recomputed_ops_kind_counters_20260531.json` では、same-session string literal edit が
+次の結果になった。
+
+- base `compile_ms=9237`、`resource_static_check=8625ms`
+- edit `compile_ms=3310`、`resource_static_check=3013ms`
+- base から edit への差分は `resource_summary_value_recomputed_ops=+16`
+- base から edit への差分は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+16`
+- base から edit への差分は raw alias / raw-init / drop traversal の kind 別 recomputed ops が `0`
+- base から edit への差分は `resource_summary_value_i32_scalar_return_facts_bypasses=+16`
+- base から edit への差分は `resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+16`
+
+このため、残る `+16` は i32 scalar stable mirror の再投影失敗として扱う。
+`ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24` を追加し、
+entry / function / reason counter と再投影 surface の root cause を別 issue へ分離した。
+
+一方で edit `resource_static_check` はまだ秒単位であり、i32 residual だけを直しても
+0.5 秒未満には届かない。親 issue では changed function only proof replay、typed expression
+subtree query、stdlib prechecked artifact、codegen fragment cache を継続する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

@@ -962,6 +962,27 @@ dependency closure base hash checkpoint の `2833ms` からさらに下がった
 changed-function-only 化、typed expression subtree query、stdlib prechecked artifact、
 codegen fragment cache に分けて継続する。
 
+### Recomputed Ops Kind Counters
+
+2026-05-31 の recomputed ops kind counter checkpoint では、aggregate
+`resource_summary_value_recomputed_ops` を raw alias / i32 scalar / raw-init /
+collection slot の summary kind 別 counter へ分けた。これは safety proof には影響しない
+観測専用の変更であり、既存の aggregate counter は維持する。
+
+`tmp/rpn_recomputed_ops_kind_counters_20260531.json` では、same-session string literal edit の
+base から edit への差分として、`resource_summary_value_recomputed_ops=+16` がすべて
+`resource_summary_value_i32_scalar_return_facts_recomputed_ops=+16` に属することを確認した。
+raw alias、raw-init、drop traversal の kind 別 recomputed-op 差分は `0` である。同じ edit
+では i32 scalar の `resource_summary_value_i32_scalar_return_facts_bypasses=+16` と
+`resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+16` も増えるため、
+残差は i32 scalar stable mirror の再投影失敗として扱う。
+
+この結果に基づき、i32 scalar residual は
+`ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24` へ分離した。
+次に必要なのは entry / function / reason 単位 counter であり、changed-function-only proof
+replay の scope 設計とは混ぜない。Resource static check 全体の秒単位コストは引き続き
+全関数 replay / record / dependency preseed の固定費として、親 issue で追跡する。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

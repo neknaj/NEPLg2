@@ -70,6 +70,10 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_lazy_pass_hits: usize,
     pub resource_summary_value_lazy_pass_ops: usize,
     pub resource_summary_value_recomputed_ops: usize,
+    pub resource_summary_value_drop_traversal_forall_recomputed_ops: usize,
+    pub resource_summary_value_raw_alias_return_entry_recomputed_ops: usize,
+    pub resource_summary_value_i32_scalar_return_facts_recomputed_ops: usize,
+    pub resource_summary_value_raw_init_param_facts_recomputed_ops: usize,
     pub resource_summary_value_drop_traversal_forall_hits: usize,
     pub resource_summary_value_drop_traversal_forall_stores: usize,
     pub resource_summary_value_drop_traversal_forall_bypasses: usize,
@@ -380,6 +384,8 @@ impl ResourceSummaryValueCache {
 
     pub(super) fn record_drop_traversal_forall_recomputed_ops(&mut self, op_count: usize) {
         self.stats.resource_summary_value_recomputed_ops += op_count;
+        self.stats
+            .resource_summary_value_drop_traversal_forall_recomputed_ops += op_count;
     }
 
     fn record_drop_traversal_forall_replay_bypass(&mut self, op_count: usize) {

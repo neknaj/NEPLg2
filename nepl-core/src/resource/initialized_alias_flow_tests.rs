@@ -103,6 +103,10 @@ fn raw_alias_return_summary_value_cache_preseeds_non_empty_and_empty_functions()
     let stats = cache.stats();
     assert_eq!(stats.resource_summary_value_raw_alias_return_entry_hits, 0);
     assert_eq!(stats.resource_summary_value_replay_hits, 2);
+    assert_eq!(
+        stats.resource_summary_value_raw_alias_return_entry_recomputed_ops,
+        2
+    );
 }
 
 #[test]

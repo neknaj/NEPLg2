@@ -48187,3 +48187,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 測定統計は累積値であるため、base から edit への差分としては `resource_raw_alias_summary_recomputations=0`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=0` を維持し、`resource_i32_scalar_summary_recomputations=+7`、`resource_summary_value_recomputed_ops=+16` が残る。edit 累積値は `resource_summary_value_hits=0`、`resource_summary_value_replayed_ops=914`、`resource_summary_value_lazy_pass_hits=288` である。
 - この checkpoint でも 0.5 秒未満 compile / 0.1 秒以下の式枝差し替え budget には届いていない。次は changed function only proof replay、typed expression subtree query、stdlib prechecked artifact、codegen fragment cache に分けて継続する。
 - memo_call / 高階関数側の subagent review では、Phase 1 の typecheck/HIR gate は実装済みだが、private cache effect、SourceCapability exact use-site、Resource escape proof、sealed backend representation は別 branch / 別 commit で進めるべきと確認した。今回の性能 commit には混ぜない。
+
+## 2026-05-31 Agent recomputed ops kind counter checkpoint
+
+- remote/main は `git pull --ff-only origin main` で同期済みで、作業 branch は `perf/changed-function-proof-replay-20260531` として作成した。`plan.md` は変更していない。
+- Zenn の試作段階方針、静的検査方針、純粋 query cache 方針を再確認し、changed-function-only proof replay の前に aggregate `resource_summary_value_recomputed_ops` の summary kind を分解する方針にした。
+- subagent review では、changed-function-only scope は有効だが、まず function-level replay attempt/skip と kind 別 recomputed-op の観測を足し、i32 residual と proof replay pipeline 固定費を混ぜないべきと確認した。
+- `ResourceSummaryValueCacheStats` に `resource_summary_value_drop_traversal_forall_recomputed_ops`、`resource_summary_value_raw_alias_return_entry_recomputed_ops`、`resource_summary_value_i32_scalar_return_facts_recomputed_ops`、`resource_summary_value_raw_init_param_facts_recomputed_ops` を追加した。既存 aggregate counter は維持している。
+- focused regression で、raw alias / i32 scalar / raw-init / collection slot の recomputed-op が対応する kind counter にも入ることを確認した。
+- release Web RPN same-session string literal edit 測定 `tmp/rpn_recomputed_ops_kind_counters_20260531.json` では、base `compile_ms=9237`、edit `compile_ms=3310` だった。edit の `resource_static_check` は `3013ms` で、これは観測 counter 追加後の測定値であり、性能改善 checkpoint ではない。
+- 測定統計は累積値であるため、base から edit への差分として `resource_summary_value_recomputed_ops=+16`、`resource_summary_value_i32_scalar_return_facts_recomputed_ops=+16` が一致した。raw alias / raw-init / drop traversal の kind 別 recomputed-op 差分は `0` だった。
+- 同じ測定で `resource_summary_value_i32_scalar_return_facts_bypasses=+16` と `resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+16` も増えたため、残る `+16` は i32 scalar stable mirror の再投影失敗として扱う。
+- i32 scalar residual は `ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24` として分離し、`todo.md` に追加した。次は entry / function / reason counter を追加して、scalar type / projection surface のどこで失敗しているかを狭める。
+- 親 issue `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` は open のまま、changed-function-only proof replay、typed expression subtree query、stdlib prechecked artifact、codegen fragment cache を継続する。

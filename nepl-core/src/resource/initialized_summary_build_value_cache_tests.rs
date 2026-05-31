@@ -368,6 +368,10 @@ fn raw_init_complete_leaf_preseed_replays_same_summary_surface() {
     let stats = cache.stats();
     assert_eq!(stats.resource_summary_value_raw_init_param_facts_hits, 0);
     assert_eq!(stats.resource_summary_value_recomputed_ops, 1);
+    assert_eq!(
+        stats.resource_summary_value_raw_init_param_facts_recomputed_ops,
+        1
+    );
 }
 
 /// raw-init の relevant function は、summary fact を持たない場合でも fixed-point worklist

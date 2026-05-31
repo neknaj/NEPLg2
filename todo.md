@@ -34,6 +34,7 @@
 
 - `ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D` に沿って、リテラル置換を含む式枝差し替えを typed expression subtree query として扱い、warm `CompilerSession` で 0.1 秒以下にする
 - `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` に沿って、raw-init replay 後も残る RPN code edit の seconds-scale compile time を stage / function / summary kind ごとに分解し、次の cache 実装 issue へ切り分ける
+- `ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24` に沿って、i32 scalar residual の entry / function / reason counter を追加し、reprojection value bypass の根本原因を狭める
 - `ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F` に沿って、`PrivateCache` / `PrivateState` internal effect を mask boundary なしでは `Pure` へ fold しない形で追加する
 - `ISS-20260531T025211459Z-HIGHER-ORDER-FUNCTION-PURITY-REQUIRE-A9CB99EE` に沿って、Phase 1 の `memo_call` を non-capturing named pure function value に限定する typecheck regression を追加する
 - `ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4` に沿って、private region escape を Resource IR で拒否する proof domain を設計・実装する
