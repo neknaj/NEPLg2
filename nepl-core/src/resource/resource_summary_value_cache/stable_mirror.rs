@@ -202,7 +202,9 @@ pub(in crate::resource) enum ResourceSummaryStableInitializedFunctionCheckEntryR
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::resource) enum ResourceSummaryInitializedFunctionCheckEntryReprojectionReject {
     Place,
-    Type,
+    PlaceType,
+    CellStateType,
+    CollectionSlotStateType,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1710,10 +1712,11 @@ fn reproject_cell_state(
 ) -> Result<CellState, ResourceSummaryInitializedFunctionCheckEntryReprojectionReject> {
     Ok(match state {
         ResourceSummaryStableCellState::Uninit => CellState::Uninit,
-        ResourceSummaryStableCellState::Initialized(ty) => CellState::Initialized(
-            ctx.reproject_type(ty)
-                .ok_or(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type)?,
-        ),
+        ResourceSummaryStableCellState::Initialized(ty) => {
+            CellState::Initialized(ctx.reproject_type(ty).ok_or(
+                ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::CellStateType,
+            )?)
+        }
         ResourceSummaryStableCellState::Moved => CellState::Moved,
         ResourceSummaryStableCellState::Dropped => CellState::Dropped,
         ResourceSummaryStableCellState::MaybeMoved => CellState::MaybeMoved,
@@ -1743,7 +1746,9 @@ fn reproject_collection_slot_state(
         ResourceSummaryStableCollectionSlotState::Initialized(ty) => {
             CollectionSlotState::Initialized(
                 ctx.reproject_type(ty)
-                    .ok_or(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type)?,
+                    .ok_or(
+                        ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::CollectionSlotStateType,
+                    )?,
             )
         }
         ResourceSummaryStableCollectionSlotState::MaybeInitialized(ty) => {
@@ -1751,7 +1756,7 @@ fn reproject_collection_slot_state(
                 ty.as_ref()
                     .map(|ty| {
                         ctx.reproject_type(ty).ok_or(
-                            ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type,
+                            ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::CollectionSlotStateType,
                         )
                     })
                     .transpose()?,
@@ -1759,11 +1764,15 @@ fn reproject_collection_slot_state(
         }
         ResourceSummaryStableCollectionSlotState::Moved(ty) => CollectionSlotState::Moved(
             ctx.reproject_type(ty)
-                .ok_or(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type)?,
+                .ok_or(
+                    ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::CollectionSlotStateType,
+                )?,
         ),
         ResourceSummaryStableCollectionSlotState::Dropped(ty) => CollectionSlotState::Dropped(
             ctx.reproject_type(ty)
-                .ok_or(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type)?,
+                .ok_or(
+                    ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::CollectionSlotStateType,
+                )?,
         ),
         ResourceSummaryStableCollectionSlotState::Released => CollectionSlotState::Released,
         ResourceSummaryStableCollectionSlotState::MaybeReleased => {
@@ -1780,15 +1789,24 @@ fn reproject_resource_place(
     let root = reproject_resource_place_root(place_ordinals, &place.root)?;
     let ty = ctx
         .reproject_type(&place.ty)
-        .ok_or(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type)?;
+        .ok_or(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::PlaceType)?;
     if let Some(base_ty) = reproject_resource_place_root_base_type(ctx, &root) {
         let projections = match reproject_place_projection_suffix(ctx, base_ty, &place.projections)
         {
             Some((projections, projected_ty)) => {
                 if !place.ty.matches_type(ctx.types, projected_ty) {
-                    return Err(
-                        ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type,
-                    );
+                    // final check entry は、body hash と stable place surface が一致する場合にだけ
+                    // replay される。projection の layout 自体を検証でき、保存済み place type が
+                    // 現在 boundary へ戻せているなら、その保存済み型を final state の proof
+                    // surface として採用する。これは Resource IR の final state が持っていた
+                    // checked place type を replay するための境界であり、TypeCtx 全体検索で
+                    // 類似型を探す緩和ではない。place 型そのものを再投影できない場合は、この
+                    // 分岐に到達する前に fail-closed で reject される。
+                    return Ok(Place {
+                        root,
+                        projections,
+                        ty,
+                    });
                 }
                 projections
             }
@@ -3969,7 +3987,7 @@ mod tests {
                 &function.name,
                 &entry
             ),
-            Err(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type)
+            Err(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::PlaceType)
         ));
         let body_ctx = ResourceSummaryTypeReprojection::new_for_initialized_function_check(
             &types,
@@ -4118,6 +4136,78 @@ mod tests {
 
         let reprojected = reproject_initialized_function_check_entry(&ctx, &function.name, &entry)
             .expect("layout-opaque stable projection should reproject from the body hash");
+
+        assert_eq!(reprojected.final_cells, check.final_cells);
+    }
+
+    #[test]
+    fn stable_initialized_check_prefers_stored_open_generic_projection_type() {
+        let mut types = TypeCtx::new();
+        let definition_generic = types.fresh_var(Some("DefinitionT".to_string()));
+        let nominal = types.register_named_with_stable_identity(
+            "Wrapper".to_string(),
+            TypeKind::Struct {
+                name: "Wrapper".to_string(),
+                type_params: vec![definition_generic],
+                fields: vec![definition_generic],
+                field_names: vec!["value".to_string()],
+            },
+            nominal_struct_identity("Wrapper"),
+        );
+        let function_generic = types.fresh_var(Some("T".to_string()));
+        let param = Place::local("value".to_string(), nominal);
+        let projected = param.clone().with_projection(
+            PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            },
+            function_generic,
+        );
+        let function = ResourceFunction {
+            name: "stored_open_generic_projection_type".to_string(),
+            origin_name: "stored_open_generic_projection_type".to_string(),
+            type_params: vec![function_generic],
+            params: vec![ResourceLocal {
+                name: "value".to_string(),
+                ty: nominal,
+                mutable: false,
+                place: param,
+            }],
+            result: types.unit(),
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: Vec::new(),
+                terminator: ResourceTerminator::Return {
+                    value: None,
+                    span: Span::dummy(),
+                },
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        };
+        let check = ResourceFunctionCheck {
+            name: function.name.clone(),
+            final_cells: vec![CellStateEntry {
+                place: projected,
+                state: CellState::Initialized(function_generic),
+            }],
+            final_collection_slots: Vec::new(),
+            auto_drop_points: Vec::new(),
+            deferred: ResourceCheckDeferred::default(),
+        };
+        let entry = stable_initialized_function_check_entry(&types, &function, &check)
+            .expect("open generic place type should have a stable final check surface");
+        let ctx = ResourceSummaryTypeReprojection::new_for_initialized_function_check(
+            &types,
+            &function,
+            &[function_generic],
+        )
+        .expect("function and definition generic boundary should build");
+
+        let reprojected = reproject_initialized_function_check_entry(&ctx, &function.name, &entry)
+            .expect("stored open generic place type should be replay authority");
 
         assert_eq!(reprojected.final_cells, check.final_cells);
     }

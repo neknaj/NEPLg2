@@ -313,6 +313,26 @@ release Web RPN same-session code edit 測定 `tmp/rpn_final_check_cache_code_ed
 
 測定 JSON は `tmp/rpn_final_check_reprojection_boundary_20260531.json` に保存した。今回の修正で final check の主要な replay false miss は解消したが、7 件の type-only bypass は `ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9` に分離した。さらに RPN code edit は `resource_raw_alias_summary_recomputations=288`、`resource_raw_init_summary_recomputations=81` も残しており、次の支配項は raw alias / raw-init side の incremental replay である。
 
+## Final initialized function check residual type checkpoint
+
+2026-05-31 の residual type checkpoint では、残った 7 件の final check type-only replay bypass を細分した。追加 counter は `place_type`、`projection_result_type`、`cell_state_type`、`collection_slot_state_type` を分ける。
+
+`tmp/rpn_final_check_residual_type_counter_20260531.json` では、7 件すべてが `projection_result_type` だった。これは stable place type 自体が戻らない問題ではなく、base type + projection suffix から現在 `TypeCtx` で再計算した型と、final checker が保存した place type の canonicalization が一致しない問題である。
+
+final check entry は Resource IR body hash と stable place surface が同一の場合にだけ replay される。保存済み place type が current boundary へ再投影できている場合、その型は Resource IR final state の proof surface として扱えるため、projection layout の再計算型が一致しない場合も保存済み型を採用する。TypeCtx 全体から似た型を探す緩和は導入しない。
+
+測定:
+
+| case | before | after |
+|---|---:|---:|
+| RPN code edit `compile_ms` | 6021ms | 5770ms |
+| `resource_initialized_function_checks` | 20 | 13 |
+| `resource_initialized_function_check_ops` | 371 | 263 |
+| `resource_summary_value_initialized_function_check_hits` | 268 | 275 |
+| `initialized_function_check_reprojection_value_type_bypasses` | 7 | 0 |
+
+測定 JSON は `tmp/rpn_final_check_residual_type_fix_20260531.json` に保存した。final check replay の type/place false miss は解消したため、次の支配項は `resource_raw_alias_summary_recomputations=288` と `resource_raw_init_summary_recomputations=81` である。これらは `ISS-20260531T071945698Z-RAW-ALIAS-SUMMARIES-NEED-STABLE-MIRR-4DCE44A8` と `ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE` に分離した。
+
 ## RPN code-edit stage breakdown checkpoint
 
 2026-05-31 の complete raw-init leaf replay と return / byte-range type canonicalization 後、RPN same-session code edit は raw-init replay miss をほぼ解消したが、まだ秒単位である。`tmp/rpn_return_type_canonicalization_code_edit_20260531.json` では base `compile_ms=8861`、local `i32` binding 追加 edit `compile_ms=6703`、edit delta は `resource_summary_value_replayed_ops=253`、`resource_summary_value_recomputed_ops=21`、`raw_init_param_facts_bypasses=0` だった。

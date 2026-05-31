@@ -96,6 +96,14 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_initialized_function_check_reprojection_value_bypasses: usize,
     pub resource_summary_value_initialized_function_check_reprojection_value_place_bypasses: usize,
     pub resource_summary_value_initialized_function_check_reprojection_value_type_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_reprojection_value_place_type_bypasses:
+        usize,
+    pub resource_summary_value_initialized_function_check_reprojection_value_projection_result_type_bypasses:
+        usize,
+    pub resource_summary_value_initialized_function_check_reprojection_value_cell_state_type_bypasses:
+        usize,
+    pub resource_summary_value_initialized_function_check_reprojection_value_collection_slot_state_type_bypasses:
+        usize,
     pub resource_summary_value_raw_init_param_facts_hits: usize,
     pub resource_summary_value_raw_init_param_facts_stores: usize,
     pub resource_summary_value_raw_init_param_facts_bypasses: usize,

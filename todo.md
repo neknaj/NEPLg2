@@ -33,7 +33,8 @@
 2026-05-31 Compiler performance / memoization purity
 
 - `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` に沿って、raw-init replay 後も残る RPN code edit の seconds-scale compile time を stage / function / summary kind ごとに分解し、次の cache 実装 issue へ切り分ける
-- `ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9` に沿って、final initialized function check replay に残る 7 件の type-only bypass を分解し、stable type provenance を追加する
+- `ISS-20260531T071945698Z-RAW-ALIAS-SUMMARIES-NEED-STABLE-MIRR-4DCE44A8` に沿って、raw alias summary の stable mirror / preseed cache を設計・実装する
+- `ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE` に沿って、raw-init 残再計算を function-local source capability invalidation へ狭める
 - `ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F` に沿って、`PrivateCache` / `PrivateState` internal effect を mask boundary なしでは `Pure` へ fold しない形で追加する
 - `ISS-20260531T025211459Z-HIGHER-ORDER-FUNCTION-PURITY-REQUIRE-A9CB99EE` に沿って、Phase 1 の `memo_call` を non-capturing named pure function value に限定する typecheck regression を追加する
 - `ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4` に沿って、private region escape を Resource IR で拒否する proof domain を設計・実装する

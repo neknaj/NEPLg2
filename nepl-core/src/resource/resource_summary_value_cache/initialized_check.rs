@@ -184,9 +184,28 @@ impl ResourceSummaryValueCache {
                     .resource_summary_value_initialized_function_check_reprojection_value_place_bypasses +=
                     1;
             }
-            ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type => {
+            ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::PlaceType => {
                 self.stats
                     .resource_summary_value_initialized_function_check_reprojection_value_type_bypasses +=
+                    1;
+                self.stats
+                    .resource_summary_value_initialized_function_check_reprojection_value_place_type_bypasses +=
+                    1;
+            }
+            ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::CellStateType => {
+                self.stats
+                    .resource_summary_value_initialized_function_check_reprojection_value_type_bypasses +=
+                    1;
+                self.stats
+                    .resource_summary_value_initialized_function_check_reprojection_value_cell_state_type_bypasses +=
+                    1;
+            }
+            ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::CollectionSlotStateType => {
+                self.stats
+                    .resource_summary_value_initialized_function_check_reprojection_value_type_bypasses +=
+                    1;
+                self.stats
+                    .resource_summary_value_initialized_function_check_reprojection_value_collection_slot_state_type_bypasses +=
                     1;
             }
         }

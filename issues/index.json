@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T06:56:33.257Z",
+  "generated_at": "2026-05-31T07:22:14.372Z",
   "counts": {
-    "total": 1291,
-    "open": 26,
-    "resolved": 1265,
+    "total": 1293,
+    "open": 27,
+    "resolved": 1266,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -12,9 +12,9 @@
         "resolved": 326
       },
       "core": {
-        "total": 646,
-        "open": 19,
-        "resolved": 627
+        "total": 648,
+        "open": 20,
+        "resolved": 628
       },
       "neplg21": {
         "total": 2,
@@ -370,8 +370,8 @@
       "file": "items/ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C.md"
     },
     {
-      "id": "ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9",
-      "title": "final initialized check residual type bypasses need stable type provenance",
+      "id": "ISS-20260531T071945698Z-RAW-ALIAS-SUMMARIES-NEED-STABLE-MIRR-4DCE44A8",
+      "title": "raw alias summaries need stable mirror and preseed cache",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -379,10 +379,25 @@
       "type": "performance",
       "created": "2026-05-31",
       "updated": "2026-05-31",
-      "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs",
+      "target": "nepl-core/src/resource/initialized_alias_flow.rs; nepl-core/src/resource/resource_summary_value_cache",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9.md"
+      "file": "items/ISS-20260531T071945698Z-RAW-ALIAS-SUMMARIES-NEED-STABLE-MIRR-4DCE44A8.md"
+    },
+    {
+      "id": "ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE",
+      "title": "raw init residual recomputations need function local invalidation",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/source_map.rs; nepl-core/src/resource/resource_summary_value_cache/context.rs; nepl-core/src/resource/resource_summary_value_cache/dependency_hash.rs; nepl-core/src/resource/resource_summary_value_cache/raw_init.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T071956084Z-RAW-INIT-RESIDUAL-RECOMPUTATIONS-NEE-C36FBACE.md"
     },
     {
       "id": "ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D",
@@ -10028,6 +10043,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A.md"
+    },
+    {
+      "id": "ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9",
+      "title": "final initialized check residual type bypasses need stable type provenance",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9.md"
     },
     {
       "id": "ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C",
