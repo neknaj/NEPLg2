@@ -249,6 +249,16 @@ prewarm しない対象:
 
 この checkpoint は cache boundary と観測性を改善したが、aggregate first の total `compile_ms` はまだ 10ms 未満へ固定できていない。prewarm は loader-level query だけなので、初回 aggregate には typecheck / typed public surface / Resource IR / codegen の未cache work が残る。次 checkpoint は、typed public surface に進む前に logical import graph と dependency public surface hash の安定表現を実装し、stdlib facade / re-export 変更時の invalidation を明確にする。
 
+## Private memoization purity design checkpoint
+
+2026-05-31 に、compiler cache の将来設計と同じ純粋 query model を source language 側の `memo_call` へ展開するため、[NEPLg2 private effect / memoization purity design](./private_effect_memoization_purity_design.md) を追加した。
+
+この設計では、`Pure` を「内部 mutation がない」ではなく「外部観測可能な effect がない」と定義する。`PrivateCache` / `PrivateState` はそれ自体を `Pure` と同一視せず、fresh private region が return value、public state、raw pointer、reference、owner token、function identity へ escape しない場合だけ `Pure` へ mask する。
+
+短期の `memo_call` は compiler-known trusted primitive とし、non-capturing named pure function value と Copy 相当の `MemoKey` / `MemoValue` だけを対象にする。これは runtime feature の設計だが、self-host compiler の query cache / incremental compile でも「純粋関数の結果を private cache に保存し、外部観測上は pure」と表現するための前提になる。
+
+同じ review で、RPN compile の現在の支配点は Resource summary value cache の raw-init replay と再確認した。`tmp/rpn_owner_boundary_20260531.json` の初回測定では `compile_ms=9615`、`raw_init_param_facts_stores=165`、`bypasses=60`、`incomplete_leaf=37`、`reprojection_value=23`、`param_cell_stable_type=23` である。次の性能 checkpoint は、`reprojection_context=0`、`unstable_key=0`、`unstable_entry=0` を維持しながら、labelled open generic の provenance / ordinal を stable entry と key へ加えて `param_cell_stable_type` を減らす。
+
 ## Source import surface checkpoint
 
 2026-05-27 の fifth checkpoint では、logical import graph を `ImportResolution` の置き換えとしていきなり導入せず、まず loader の未型付け source surface を import edge 表現へ広げた。subagent review では、`ImportResolution` が `FileId` に依存すること、typed public surface hash に `TypeId` や mangled symbol をそのまま使うと compile ごとの arena / `Span` に依存することが指摘された。そのため、この checkpoint では `FileId` / `Span` / `ImportResolution` / typed HIR / `TypeId` を cache value に入れない境界を維持する。

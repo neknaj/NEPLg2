@@ -29,3 +29,10 @@
 - `RV-STDLIB-013` で stdlib collection doctest 群を所有型 API 移行後の実装に合わせ、`stdlib-test` を green に戻す
 - `issues/index.md` の P1 Issue を修正順に分解し、compiler performance 計測 fixture と stdlib memory / I/O 回帰テストを追加する
 - Issue を修正したら対応する `issues/items/*.md` の `resolved` / `status` / `updated` を更新し、`node nodesrc/issues.js index` と `check` を通してから確認結果を `note.n.md` に記録する
+
+2026-05-31 Compiler performance / memoization purity
+
+- `ISS-20260531T012124326Z-RESOURCE-SUMMARY-RAW-INIT-VALUE-REPR-88633148` の continuation として、labelled open generic の provenance / ordinal を raw-init stable entry と key に持たせ、`param_cell_stable_type` bypass を減らす
+- `ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F` に沿って、`PrivateCache` / `PrivateState` internal effect を mask boundary なしでは `Pure` へ fold しない形で追加する
+- `ISS-20260531T025211459Z-HIGHER-ORDER-FUNCTION-PURITY-REQUIRE-A9CB99EE` に沿って、Phase 1 の `memo_call` を non-capturing named pure function value に限定する typecheck regression を追加する
+- `ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4` に沿って、private region escape を Resource IR で拒否する proof domain を設計・実装する

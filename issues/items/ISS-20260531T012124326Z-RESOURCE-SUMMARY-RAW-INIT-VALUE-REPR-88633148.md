@@ -55,6 +55,13 @@ Split reproject_raw_init_param_facts_leaf_entry value failures by param cell pro
 - release Web RPN same-session 測定 `tmp/rpn_owner_boundary_20260531.json` では、初回 `stores=165`、`bypasses=60`、`incomplete_leaf=37`、`reprojection_value=23`、`param_cell_stable_type=23` で、数値改善はまだ出ていない。
 - subagent review と実測から、残る `23` 件は単純な owner boundary 追加ではなく、同名 labelled generic の provenance / ordinal を stable entry と key に持たせる設計が必要と判断した。`var(T:...)` だけを TypeCtx 全体から拾う緩和は stale hit を招くため行わない。
 
+## 2026-05-31 follow-up review
+
+- compile performance 側の独立 review でも、現在の主戦場は到達不能 stdlib、prelude allocator graph、Node/WASM stdlib VFS、LoaderSessionCache ではなく Resource summary value cache の raw-init replay と確認した。
+- `tmp/rpn_owner_boundary_20260531.json` の初回 `compile_ms=9615`、`raw_init_param_facts_stores=165`、`bypasses=60`、`recomputed_ops=188` を基準にする。
+- 残件は `incomplete_leaf=37` と `reprojection_value=23` であり、`reprojection_value` はすべて `param_cell_stable_type=23` である。`unstable_key=0`、`unstable_entry=0`、`reprojection_context=0` は維持されている。
+- 次 checkpoint は labelled open generic の provenance / ordinal を stable entry と key に含め、`param_cell_stable_type` を減らす。`incomplete_leaf=37` は byte-range / variant / return facts を含む別 checkpoint として扱う。
+
 ## 検証
 
 RPN same-session code edit should keep reprojection_context_bypasses=0 and decrease reprojection_value_bypasses below the current first_compile value of 25 while preserving resource_summary_value_raw_init_param_facts_unstable_entry_bypasses=0.

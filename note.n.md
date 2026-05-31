@@ -47922,6 +47922,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - release Web RPN same-session 測定 `tmp/rpn_owner_boundary_20260531.json` では、初回 `compile_ms=9615`、`stores=165`、`bypasses=60`、`incomplete_leaf=37`、`reprojection_value=23`、`param_cell_stable_type=23` だった。単純な owner boundary 追加では数値改善が出ていないため、残件は provenance / ordinal を持つ raw-init value type boundary 設計が必要である。
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core owner_summary_type_params --lib -- --nocapture`、`cargo test -p nepl-core stable_raw_init_param_cell --lib -- --nocapture`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。`trunk build --release` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-owner-boundary-20260531.json` は 13/13 pass した。
 
+## 2026-05-31 Agent memo_call private effect / higher-order design checkpoint
+
+- Zenn の試作段階方針、静的検査方針、性能追求方針を再確認した。`plan.md` は変更していない。
+- `remote/main` は `git fetch origin; git pull --ff-only origin main` で同期済みで、既に up-to-date だった。既存 dirty file は別件として触っていない。
+- `memo_call` を純粋関数として扱う設計は、`PrivateCache` / `PrivateState` を直接 `Pure` とみなすのではなく、fresh private region が外部観測不能であることを Resource IR が証明した場合だけ `Pure` へ mask する方針にした。
+- [NEPLg2 private effect / memoization purity design](doc/neplg2/private_effect_memoization_purity_design.md) を追加した。`Pure = no observable effect`、Phase 1 の `memo_call` は non-capturing named pure function value と Copy 相当の `MemoKey` / `MemoValue` に限定すること、function identity / closure allocation id / cache region id を pure public API で観測させないことを固定した。
+- 新規 issue として `ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F`、`ISS-20260531T025211459Z-HIGHER-ORDER-FUNCTION-PURITY-REQUIRE-A9CB99EE`、`ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4` を追加した。
+- compile performance 側の subagent review では、現在の主戦場は Resource summary value cache の raw-init replay であり、次の小 checkpoint は `param_cell_stable_type=23` を減らす labelled open generic provenance / ordinal 境界と確認した。`incomplete_leaf=37` は別 checkpoint として扱う。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T012124326Z-RESOURCE-SUMMARY-RAW-INIT-VALUE-REPR-88633148` に、上記の memoization design と raw-init performance continuation を追記した。
+
 ## 2026-05-28 Agent Resource checker responsibility split checkpoint
 
 - Zenn の試作段階方針、静的検査方針、責務分割方針を再確認し、`nodesrc/test_resource_checker_responsibility.js` の stale drift を、単なる失敗回避ではなく監視対象追加と module 分割で復旧した。`plan.md` は変更していない。
