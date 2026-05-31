@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::borrow::Cow;
 use alloc::collections::VecDeque;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -10,8 +11,13 @@ use super::summary_dependency::{
 };
 use super::summary_worklist_order::initial_summary_order;
 
-pub(super) struct SummaryWorklist {
-    dependents: Vec<Vec<usize>>,
+/// Resource summary 固定点計算で、変更された callee から caller を再投入する worklist。
+///
+/// 共有 `ResourceSummaryDependencyGraph` から作る経路では `dependents` を借用し、旧 API
+/// から作る経路では同じ型で owned dependents を保持する。これにより、summary kind ごとに
+/// 同じ逆辺リストを clone せず、既存の test helper や独立構築経路も維持できる。
+pub(super) struct SummaryWorklist<'a> {
+    dependents: Cow<'a, [Vec<usize>]>,
     pending: VecDeque<usize>,
     queued: Vec<bool>,
     relevant: Vec<bool>,
@@ -20,7 +26,7 @@ pub(super) struct SummaryWorklist {
     recomputations: usize,
 }
 
-impl SummaryWorklist {
+impl<'a> SummaryWorklist<'a> {
     pub(super) fn new(module: &ResourceModule) -> Self {
         Self::new_filtered(module, vec![true; module.functions.len()])
     }
@@ -40,7 +46,7 @@ impl SummaryWorklist {
             module,
             relevant,
             initially_skipped,
-            &dependents,
+            Cow::Owned(dependents),
             &initial_order,
         )
     }
@@ -48,13 +54,13 @@ impl SummaryWorklist {
     pub(super) fn new_filtered_with_dependency_graph(
         module: &ResourceModule,
         relevant: Vec<bool>,
-        graph: &ResourceSummaryDependencyGraph,
+        graph: &'a ResourceSummaryDependencyGraph,
     ) -> Self {
         Self::new_filtered_with_graph_and_initial_skips(
             module,
             relevant,
             vec![false; module.functions.len()],
-            graph.dependents(),
+            Cow::Borrowed(graph.dependents()),
             graph.initial_order(),
         )
     }
@@ -70,13 +76,13 @@ impl SummaryWorklist {
         module: &ResourceModule,
         relevant: Vec<bool>,
         initially_skipped: Vec<bool>,
-        graph: &ResourceSummaryDependencyGraph,
+        graph: &'a ResourceSummaryDependencyGraph,
     ) -> Self {
         Self::new_filtered_with_graph_and_initial_skips(
             module,
             relevant,
             initially_skipped,
-            graph.dependents(),
+            Cow::Borrowed(graph.dependents()),
             graph.initial_order(),
         )
     }
@@ -85,7 +91,7 @@ impl SummaryWorklist {
         module: &ResourceModule,
         relevant: Vec<bool>,
         initially_skipped: Vec<bool>,
-        dependents: &[Vec<usize>],
+        dependents: Cow<'a, [Vec<usize>]>,
         initial_order: &[usize],
     ) -> Self {
         debug_assert_eq!(relevant.len(), module.functions.len());
@@ -106,7 +112,7 @@ impl SummaryWorklist {
             .max(relevant_function_count)
             .saturating_mul(relevant_function_count.saturating_add(1));
         Self {
-            dependents: dependents.to_vec(),
+            dependents,
             pending,
             queued,
             relevant,

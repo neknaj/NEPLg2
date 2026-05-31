@@ -48236,3 +48236,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `trunk build --release` 後の Web RPN same-session unused local edit 測定 `tmp/rpn_dependency_graph_share_code_edit_20260531.json` では、base `compile_ms=9246` / `resource_static_check=8193.197ms`、edit `compile_ms=2135` / `resource_static_check=1857.811ms` だった。
 - edit delta は `resource_raw_alias_summary_recomputations=+1`、`resource_i32_scalar_summary_recomputations=+5`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=+1`、`resource_summary_value_replayed_ops=+920`、`resource_summary_value_recomputed_ops=+10` である。
 - base compile と実コード微小変更はまだ目標未達であり、次は changed-function-only proof replay、typed expression subtree query、stdlib prechecked artifact、codegen fragment cache を継続する。
+
+## 2026-05-31 Agent borrowed SummaryWorklist dependents checkpoint
+
+- remote/main と同期済みの `perf/borrow-summary-worklist-dependents-20260531` branch で、直前の dependency graph sharing の follow-up を行った。`plan.md` は変更していない。
+- subagent review で、`SummaryWorklist<'a>` が `alloc::borrow::Cow<'a, [Vec<usize>]>` を持ち、legacy constructor は owned、共有 graph constructor は borrowed にする方針が no_std/alloc、lifetime、proof key の面で妥当だと確認した。
+- `SummaryWorklist` は共有 `ResourceSummaryDependencyGraph` から作る場合に `dependents` を clone せず借用する。旧 constructor は owned dependents を保持するため、既存 test helper と独立構築経路は維持している。
+- この変更は Resource summary cache key や replay 判定を変えない。現在 compile に閉じた逆辺リストの所有形態だけを変える follow-up である。
+- Web RPN same-session unused local edit 測定 `tmp/rpn_borrowed_worklist_dependents_code_edit_20260531.json` では、base `compile_ms=9510` / `resource_static_check=8446.129ms`、edit `compile_ms=2251` / `resource_static_check=1943.803ms` だった。
+- edit delta は `resource_raw_alias_summary_recomputations=+1`、`resource_i32_scalar_summary_recomputations=+5`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=+1`、`resource_summary_value_replayed_ops=+920`、`resource_summary_value_recomputed_ops=+10` で、前 checkpoint と同じ形である。
+- elapsed time はまだ秒単位であり、この follow-up 単体を目標達成とは扱わない。次は changed-function-only proof replay と typed expression subtree query を進める。

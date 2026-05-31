@@ -403,6 +403,29 @@ i32 scalar stable reprojection partial checkpoint の edit `compile_ms=2126` /
 budget には届かない。この issue は引き続き changed-function-only proof replay、typed
 expression subtree query、stdlib prechecked artifact、codegen fragment cache を追跡する。
 
+## 2026-05-31 borrowed worklist dependents 更新
+
+共有 `ResourceSummaryDependencyGraph` から作る `SummaryWorklist` が `dependents` を
+clone せず借用するようにした。legacy constructor は owned dependents を保持するため、
+既存の direct test 経路は維持している。これは proof key や replay 判定を変えず、同じ逆辺
+リストの所有形態だけを変える follow-up である。
+
+`tmp/rpn_borrowed_worklist_dependents_code_edit_20260531.json` では、`trunk build --release`
+後の Web RPN same-session unused local 追加 edit が次の結果になった。
+
+- base `compile_ms=9510`、`resource_static_check=8446.129ms`
+- edit `compile_ms=2251`、`resource_static_check=1943.803ms`
+- edit delta は `resource_raw_alias_summary_recomputations=+1`
+- edit delta は `resource_i32_scalar_summary_recomputations=+5`
+- edit delta は `resource_raw_init_summary_recomputations=0`
+- edit delta は `resource_initialized_function_checks=+1`
+- edit delta は `resource_summary_value_replayed_ops=+920`
+- edit delta は `resource_summary_value_recomputed_ops=+10`
+
+counter は dependency graph sharing checkpoint と同じ形で、raw-init / raw-alias / final check
+の大きな false miss は戻っていない。一方で elapsed time はまだ秒単位であり、次は
+changed-function-only proof replay と typed expression subtree query へ進む。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

@@ -122,6 +122,14 @@ base compile は改善傾向だが、0.5 秒未満にはまだ大きく届かな
 stdlib prechecked artifact / Resource proof template / binary intermediate artifact の親 issue
 として open のまま維持する。
 
+同 follow-up として、共有 `ResourceSummaryDependencyGraph` から作る `SummaryWorklist` は
+`dependents` を clone せず借用するようにした。旧 constructor は owned dependents を保持するため、
+既存 test helper は維持している。`tmp/rpn_borrowed_worklist_dependents_code_edit_20260531.json`
+では base `compile_ms=9510`、`resource_static_check=8446.129ms`、unused local 追加 edit
+`compile_ms=2251`、`resource_static_check=1943.803ms` だった。counter は dependency graph
+sharing checkpoint と同じ形で、raw-init residual は増えていない。elapsed time は揺れており、
+この follow-up 単体を 0.5 秒未満化の達成とは扱わない。
+
 raw-init param facts cache staging の実測では RPN が `raw_init_param_facts_stores=0` / `bypasses=225` だった。nominal 型 identity が未整備で stdlib summary を安全に stable key 化できない問題を `ISS-20260528T110220373Z-RESOURCE-SUMMARY-CACHE-NEEDS-QUALIFI-08D1AA04` に分離した。
 
 raw-init preseed は実際に fixed-point worklist を skip するため、function body / source policy / signature type boundary が変わる場合に stale summary を使わない regression を追加した。raw body は本文が `ResourceFunction` に残らないため、source policy hash だけではなく raw body/source hash 設計が入るまで Resource summary body hash で拒否する。

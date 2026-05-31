@@ -1209,6 +1209,15 @@ native release の RPN stage-only 測定では `resource_static_check=6915ms`、
 引き続き、stdlib prechecked artifact、changed-function-only proof replay、typed expression
 subtree query、codegen fragment cache を進める必要がある。
 
+follow-up として、`SummaryWorklist` が共有 `ResourceSummaryDependencyGraph` の
+`dependents` を clone せず `Cow` で借用できるようにした。legacy constructor は owned
+dependents を保持するため、既存 test helper と独立構築経路は維持する。この変更も proof
+key には影響しない。`tmp/rpn_borrowed_worklist_dependents_code_edit_20260531.json` では
+base `compile_ms=9510` / `resource_static_check=8446.129ms`、unused local edit
+`compile_ms=2251` / `resource_static_check=1943.803ms` だった。proof counter は前 checkpoint
+と同じ形で、raw-init residual は `0` のままである。elapsed time は測定揺れの範囲であり、
+この follow-up 単体を 0.5 秒目標の達成要因とは扱わない。
+
 当面の実装順は次の通りにする。
 
 - edit path: remaining i32 scalar residual を fact kind / function 単位で分解し、changed-function-only proof replay へ進む。
