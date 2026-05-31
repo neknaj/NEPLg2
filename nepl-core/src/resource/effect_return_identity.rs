@@ -43,7 +43,7 @@ impl ResourceEffectBoundaryEngine<'_> {
         if !self.propagate_return_provenance {
             return;
         }
-        let functions = function_aliases.functions(callee);
+        let functions = function_aliases.function_symbols(callee);
         if functions.is_empty() {
             for arg in args {
                 identities.merge_identity(arg, output);
@@ -51,7 +51,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             return;
         }
         for function in functions {
-            if let Some(summary) = self.summaries.get(function.symbol()) {
+            if let Some(summary) = self.summaries.get(function) {
                 self.apply_internal_alloc_return_identities(
                     identities,
                     output,

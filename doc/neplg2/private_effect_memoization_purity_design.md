@@ -275,7 +275,18 @@ Phase 1 の責務分担:
 - `mask_private` / `run_private` に相当する一般境界。
 - memoized function value の sealed backend cache representation。
 - Resource IR private cache operation span と SourceCapability exact use-site proof の照合。
-| tests | accepted pure memoization と rejected observable cache API を固定する。 |
+- accepted pure memoization と rejected observable cache API を固定する regression test。
+
+2026-06-01 の function alias checkpoint では、Resource IR の function value alias 解析を
+`FunctionValueIdentity` だけでなく `ResourceFunctionValueKind` も保持する形へ更新した。
+これにより、同じ resolved function identity を指す plain `@f` と `memo_call @f` が、
+local copy、aggregate field copy、branch / match merge、indirect call 候補伝播で同一候補へ
+潰れない。現時点では memoized function value の backend representation はまだ plain
+function table value と同じ lowering に留まるが、alias 解析が kind を捨てないため、次段階の
+private cache region identity / sealed wrapper identity を同じ運搬面へ追加できる。
+既存の indirect-call summary consumer は underlying function symbol だけで summary を引くため、
+plain と memoized の同一 symbol 候補は summary 適用前に重複排除する。kind の保持は将来の
+private cache identity proof 用であり、現段階の summary fixed-point を二重に適用するためではない。
 
 Phase 2 では、`PrivateState rho` と `mask_private` を一般化し、local mutable buffer、private arena、dynamic programming table、union-find、normalization cache に同じ規則を適用する。
 

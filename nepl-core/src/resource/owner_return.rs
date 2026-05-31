@@ -90,7 +90,7 @@ impl ResourceOwnerCheckEngine<'_> {
         args: &[Place],
         span: Span,
     ) {
-        let functions = function_aliases.functions(callee);
+        let functions = function_aliases.function_symbols(callee);
         if functions.is_empty() {
             self.apply_unknown_indirect_call_return_owner(
                 owners,
@@ -105,7 +105,7 @@ impl ResourceOwnerCheckEngine<'_> {
             return;
         }
         for function in functions {
-            if let Some(summary) = self.summaries.get(function.symbol()) {
+            if let Some(summary) = self.summaries.get(function) {
                 variant_owner_effects.apply_resolved_parameter_variants(
                     self,
                     owners,

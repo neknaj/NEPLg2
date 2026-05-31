@@ -55,9 +55,26 @@ HIR の `MemoizedFunctionValue` を Resource IR lowering で plain `FunctionValu
 残件:
 
 - memoized function value の sealed backend representation。
-- `FunctionAliasTable` が `FunctionValueIdentity` だけを運ぶ構造では、local alias / aggregate
-  field / branch merge / indirect call 経由で `ResourceFunctionValueKind::Memoized` と将来の
-  private region identity を落とす。sealed backend representation に進む前に、function value
-  alias が plain / memoized / private-cache-region を区別できる形へ拡張する。
 - function identity equality / hash / raw address / debug observation の禁止を backend と typecheck へ明示接続すること。
 - `memo_call @pure_named_func` の呼び出し実行時に private cache を実際に利用すること。
+
+## 2026-06-01 function alias kind checkpoint
+
+`FunctionAliasTable` は `FunctionValueIdentity` だけでなく `ResourceFunctionValueKind` も
+運ぶようになった。これにより、同じ underlying function identity を持つ plain function value
+と memoized function value が、copy、aggregate field、branch merge、match merge、indirect call
+候補伝播で同一候補として dedupe されない。
+
+既存の indirect call summary consumer はまだ function value kind を解釈せず、underlying
+function symbol で borrow / effect / owner / initialized / collection-slot summary を引く。
+そのため、plain と memoized が同じ symbol を指す場合は、summary 適用前に symbol を重複排除する。
+これは現行 backend が memoized value を plain function table value と同じ可観測結果へ lower する
+段階の互換境界であり、memoized kind を捨てるものではない。
+
+この checkpoint は sealed backend representation そのものではない。目的は、今後 private
+cache region identity や sealed wrapper identity を function value alias に載せる前提として、
+既存の Resource IR 解析が memoized kind を落とさない運搬面を固定することである。
+
+検証:
+
+- `cargo test -p nepl-core function_alias --lib -- --nocapture`

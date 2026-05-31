@@ -4,7 +4,7 @@ use alloc::vec;
 
 use crate::ast::Effect;
 use crate::function_identity::FunctionValueIdentity;
-use crate::resource::model::Place;
+use crate::resource::model::{Place, ResourceFunctionValueKind};
 use crate::types::TypeId;
 
 use super::*;
@@ -26,6 +26,7 @@ fn resource_check_state_with_function_alias(index: usize) -> ResourceCheckState 
     function_aliases.set_alias(
         &Place::local(String::from("callback"), TypeId(0)),
         FunctionValueIdentity::new(String::from(name), None, TypeId(0), Effect::Pure, vec![]),
+        ResourceFunctionValueKind::Plain,
     );
     ResourceCheckState::new(
         CellTable::default(),

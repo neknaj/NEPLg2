@@ -56,8 +56,8 @@ pub(super) fn collect_return_paths_from_indirect_call_summary(
     args: &[Place],
     target_suffix: &[PlaceProjection],
 ) {
-    for function in callsite.state.function_aliases.functions(callee) {
-        if let Some(summary) = engine.collection_slot_summaries.get(function.symbol()) {
+    for function in callsite.state.function_aliases.function_symbols(callee) {
+        if let Some(summary) = engine.collection_slot_summaries.get(function) {
             collect_return_paths_from_summary(
                 out,
                 engine,

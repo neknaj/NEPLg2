@@ -348,9 +348,12 @@ impl ResourceBorrowCheckEngine<'_> {
                 }
             }
             ResourceOp::FunctionValue {
-                output, identity, ..
+                output,
+                identity,
+                value_kind,
+                ..
             } => {
-                function_aliases.set_alias(output, identity.clone());
+                function_aliases.set_alias(output, identity.clone(), *value_kind);
             }
             ResourceOp::Call {
                 output,

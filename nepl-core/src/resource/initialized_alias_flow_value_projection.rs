@@ -168,10 +168,13 @@ fn propagate_value_projection_op(
             construct_function_alias_fields(function_aliases, output, kind, inputs);
         }
         ResourceOp::FunctionValue {
-            output, identity, ..
+            output,
+            identity,
+            value_kind,
+            ..
         } => {
             clear_value_projection_aliases(value_aliases, output);
-            function_aliases.set_alias(output, identity.clone());
+            function_aliases.set_alias(output, identity.clone(), *value_kind);
         }
         ResourceOp::Call {
             output,
@@ -440,10 +443,10 @@ fn apply_indirect_call_value_projection_summary(
     summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> bool {
-    let functions = function_aliases.functions(callee);
+    let functions = function_aliases.function_symbols(callee);
     let mut applied = false;
     for function in functions {
-        if let Some(summary) = summaries.get(function.symbol()) {
+        if let Some(summary) = summaries.get(function) {
             applied |= apply_value_projection_summary(value_aliases, output, args, summary, types);
         }
     }

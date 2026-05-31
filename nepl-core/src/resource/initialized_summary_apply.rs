@@ -49,8 +49,8 @@ impl ResourceCheckEngine<'_> {
         span: crate::span::Span,
     ) -> bool {
         let mut ok = true;
-        for function in function_aliases.functions(callee) {
-            let Some(summary) = self.raw_init_summaries.get(function.symbol()) else {
+        for function in function_aliases.function_symbols(callee) {
+            let Some(summary) = self.raw_init_summaries.get(function) else {
                 continue;
             };
             ok &= self.apply_raw_cell_initialization_function_summary(

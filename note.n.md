@@ -1,3 +1,16 @@
+# 2026-06-01 Memoized function alias kind checkpoint
+
+- Zenn 記事の試作段階方針を再確認し、memo_call の pure contract を曖昧に広げず、backend private cache representation に必要な Resource IR alias 境界を先に整えた。
+- remote/main は `13d4a098` と同期済みで、現在 branch `perf/artifact-memo-next-20260601` の基点は `origin/main` と一致している。
+- 既存 subagent review では、`memo_call` の現 accepted path は危険に `Pure` を広げていない一方で、`FunctionAliasTable` が `FunctionValueIdentity` だけを運ぶと memoized kind / 将来の private region identity が alias propagation で失われると確認した。
+- `FunctionAliasTable` は `FunctionValueIdentity` と `ResourceFunctionValueKind` をまとめた alias value を保持するようになった。これにより plain `@f` と `memo_call @f` が同じ resolved function identity を持っていても、branch merge / copy / aggregate field propagation で同一候補へ潰れない。
+- 既存の indirect call summary consumer はまだ function symbol だけで summary を引くため、plain / memoized が同じ symbol を指す場合は `FunctionAliasTable::function_symbols` で重複排除してから summary を適用する。これにより kind は保持しつつ、現行 backend 互換の summary を二重適用しない。
+- 現 checkpoint は sealed backend cache representation ではない。次段階ではこの alias value に private cache region identity / sealed wrapper identity を載せ、function identity equality / hash / raw address / debug observation の禁止と接続する。
+- subagent review で、kind は保持できているが既存 summary consumer が symbol だけを見るため二重適用 regression が不足していると指摘された。これに対して symbol 重複排除 API を追加し、doc の崩れていた `| tests | ... |` 行も通常の箇条書きへ直した。
+- focused regression として、plain / memoized の same identity が alias 候補としては 2 件残り、summary consumer 向け symbol view では 1 件に dedupe されることを追加した。
+- 検証: `cargo check -p nepl-core`、`cargo check -p nepl-core -p nepl-language`、`cargo test -p nepl-core function_alias --lib -- --nocapture`、`cargo test -p nepl-core function_memo_call --test functions -- --nocapture`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+- plan.md 自体は変更していない。
+
 # 2026-06-01 Resource summary changed-function replay plan checkpoint
 
 - Zenn 記事の試作段階方針を再確認し、性能改善でも静的検査を削らず、Resource proof cache の fail-closed key / replay 境界を狭める方針を維持した。

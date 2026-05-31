@@ -471,9 +471,12 @@ impl ResourceOwnerCheckEngine<'_> {
                 );
             }
             ResourceOp::FunctionValue {
-                output, identity, ..
+                output,
+                identity,
+                value_kind,
+                ..
             } => {
-                function_aliases.set_alias(output, identity.clone());
+                function_aliases.set_alias(output, identity.clone(), *value_kind);
                 raw_views.clear(output);
                 pending_reallocs.clear_result(output);
                 variant_owner_effects.clear_result(output);

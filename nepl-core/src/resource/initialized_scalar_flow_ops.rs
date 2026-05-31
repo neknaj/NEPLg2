@@ -116,10 +116,13 @@ pub(super) fn propagate_i32_scalar_op(
             construct_function_alias_fields(function_aliases, output, kind, inputs);
         }
         ResourceOp::FunctionValue {
-            output, identity, ..
+            output,
+            identity,
+            value_kind,
+            ..
         } => {
             raw_aliases.clear(output);
-            function_aliases.set_alias(output, identity.clone());
+            function_aliases.set_alias(output, identity.clone(), *value_kind);
         }
         ResourceOp::Call {
             output,

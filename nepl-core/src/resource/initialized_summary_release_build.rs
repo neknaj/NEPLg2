@@ -112,15 +112,15 @@ fn collect_param_release_requirements_from_op(
             effect,
             ..
         } => {
-            let functions = function_aliases.functions(callee);
-            for function in functions {
+            let functions = function_aliases.function_symbols(callee);
+            for function in &functions {
                 collect_function_summary_release_requirements(
                     out,
                     engine,
                     args,
                     raw_aliases,
                     params,
-                    raw_init_summaries.get(function.symbol()),
+                    raw_init_summaries.get(*function),
                 );
             }
             if functions.is_empty() && indirect_call_may_release_raw_cells(effect) {

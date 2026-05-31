@@ -35,13 +35,13 @@ pub(super) fn propagate_indirect_call_return_token(
     callee: &Place,
     args: &[Place],
 ) {
-    let functions = function_aliases.functions(callee);
+    let functions = function_aliases.function_symbols(callee);
     if functions.is_empty() {
         propagate_unknown_indirect_call_return_token(borrows, output, args);
         return;
     }
     for function in functions {
-        if let Some(summary) = summaries.get(function.symbol()) {
+        if let Some(summary) = summaries.get(function) {
             for arg in summary
                 .parameter_indices
                 .iter()

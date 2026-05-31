@@ -47,10 +47,10 @@ pub(super) fn apply_indirect_call_raw_alias_summary(
     summaries: &RawCellAddressReturnSummaryIndex<'_>,
     types: &TypeCtx,
 ) -> bool {
-    let functions = function_aliases.functions(callee);
+    let functions = function_aliases.function_symbols(callee);
     let mut applied = false;
     for function in functions {
-        if let Some(summary) = summaries.get(function.symbol()) {
+        if let Some(summary) = summaries.get(function) {
             applied |= apply_raw_alias_summary(raw_aliases, output, args, summary, types);
         }
     }

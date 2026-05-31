@@ -131,9 +131,12 @@ fn propagate_raw_address_alias_op(
             construct_function_alias_fields(function_aliases, output, kind, inputs);
         }
         ResourceOp::FunctionValue {
-            output, identity, ..
+            output,
+            identity,
+            value_kind,
+            ..
         } => {
-            function_aliases.set_alias(output, identity.clone());
+            function_aliases.set_alias(output, identity.clone(), *value_kind);
         }
         ResourceOp::Call {
             output,

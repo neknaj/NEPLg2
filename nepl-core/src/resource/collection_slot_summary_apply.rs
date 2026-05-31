@@ -59,7 +59,7 @@ impl ResourceCheckEngine<'_> {
         args: &[Place],
         span: crate::span::Span,
     ) {
-        let functions = function_aliases.functions(callee);
+        let functions = function_aliases.function_symbols(callee);
         if functions.is_empty() {
             collection_slots.clear_storage_prefix(output);
             self.clear_consumed_collection_slot_args(collection_slots, raw_aliases, args);
@@ -70,7 +70,7 @@ impl ResourceCheckEngine<'_> {
         for function in functions {
             let mut path_slots = collection_slots.clone();
             let mut path_cells = cells.clone();
-            if let Some(summary) = self.collection_slot_summaries.get(function.symbol()) {
+            if let Some(summary) = self.collection_slot_summaries.get(function) {
                 let mut path_aliases = raw_aliases.clone();
                 let mut path_variants = PendingVariantRawCellInitializations::default();
                 self.apply_collection_slot_lifecycle_function_summary(

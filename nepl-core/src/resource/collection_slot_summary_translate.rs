@@ -44,9 +44,9 @@ pub(super) fn collect_indirect_call_summary_ops(
     collection_slot_summaries: &CollectionSlotLifecycleFunctionSummaryIndex<'_>,
 ) {
     let mut paths = Vec::new();
-    for function in state.function_aliases.functions(callee) {
+    for function in state.function_aliases.function_symbols(callee) {
         let mut path = Vec::new();
-        if let Some(summary) = collection_slot_summaries.get(function.symbol()) {
+        if let Some(summary) = collection_slot_summaries.get(function) {
             translate_summary_ops_through_args(
                 &mut path,
                 engine,

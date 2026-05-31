@@ -60,7 +60,7 @@ impl ResourceEffectBoundaryEngine<'_> {
         if !self.propagate_return_provenance {
             return;
         }
-        let functions = function_aliases.functions(callee);
+        let functions = function_aliases.function_symbols(callee);
         if functions.is_empty() {
             for arg in args {
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, arg, output);
@@ -68,7 +68,7 @@ impl ResourceEffectBoundaryEngine<'_> {
             return;
         }
         for function in functions {
-            let Some(summary) = self.pointer_summaries.get(function.symbol()) else {
+            let Some(summary) = self.pointer_summaries.get(function) else {
                 continue;
             };
             for parameter_return in &summary.parameter_returns {
