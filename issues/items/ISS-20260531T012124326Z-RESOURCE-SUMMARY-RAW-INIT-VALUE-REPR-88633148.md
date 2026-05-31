@@ -2,8 +2,8 @@
 id: ISS-20260531T012124326Z-RESOURCE-SUMMARY-RAW-INIT-VALUE-REPR-88633148
 title: "Resource summary raw-init value reprojection needs projection canonicalization"
 area: core
-status: open
-resolved: false
+status: verified
+resolved: true
 priority: P1
 type: performance
 created: 2026-05-31
@@ -62,6 +62,21 @@ Split reproject_raw_init_param_facts_leaf_entry value failures by param cell pro
 - 残件は `incomplete_leaf=37` と `reprojection_value=23` であり、`reprojection_value` はすべて `param_cell_stable_type=23` である。`unstable_key=0`、`unstable_entry=0`、`reprojection_context=0` は維持されている。
 - 次 checkpoint は labelled open generic の provenance / ordinal を stable entry と key に含め、`param_cell_stable_type` を減らす。`incomplete_leaf=37` は byte-range / variant / return facts を含む別 checkpoint として扱う。
 
+## 2026-05-31 projection-derived replay completion
+
+- raw-init param cell の型が base parameter と suffix から通常の layout 規則で決まる場合、stable entry に保存された cell 型を replay authority にしないようにした。
+- 保存済み cell 型は raw address `Deref` のように typed projection だけでは値型を得られない場合の proof boundary としてのみ使う。
+- direct user call の `type_args` を raw-init summary replay に渡し、param/return/release/variant summary 内の型を summary type parameter boundary から instantiation するようにした。
+- release Web RPN same-session code edit 測定 `tmp/rpn_projection_authoritative_raw_init_type_20260531.json` では、初回 `raw_init_param_facts_reprojection_value_bypasses=0`、`param_cell_stable_type=0`、`param_cell_result_type=0` になった。
+- 同測定の 2 回目 compile では `raw_init_param_facts_hits=144`、`resource_summary_value_replay_hits=167`、`recomputed_ops=21` となり、value reprojection 残件は解消した。
+- 残る `raw_init_param_facts_incomplete_leaf_bypasses=37` は、byte-range / variant / return facts を complete mirror 化する [ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5](./ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5.md) で継続する。
+
 ## 検証
 
-RPN same-session code edit should keep reprojection_context_bypasses=0 and decrease reprojection_value_bypasses below the current first_compile value of 25 while preserving resource_summary_value_raw_init_param_facts_unstable_entry_bypasses=0.
+- `cargo test -p nepl-core owner_summary_type_params --lib -- --nocapture`
+- `cargo test -p nepl-core initialized_summary_apply_param --lib -- --nocapture`
+- `cargo test -p nepl-core initialized_summary_build_value_cache --lib -- --nocapture`
+- `cargo test -p nepl-core stable_raw_init_param_cell --lib -- --nocapture`
+- `cargo test -p nepl-core stable_raw_init_reprojection --lib -- --nocapture`
+- `trunk build --release`
+- RPN same-session code edit: `tmp/rpn_projection_authoritative_raw_init_type_20260531.json`

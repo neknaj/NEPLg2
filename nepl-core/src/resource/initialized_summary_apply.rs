@@ -19,7 +19,7 @@ impl ResourceCheckEngine<'_> {
         args: &[Place],
         span: crate::span::Span,
     ) -> bool {
-        let ResourceCallTarget::User { name, .. } = target else {
+        let ResourceCallTarget::User { name, type_args } = target else {
             return true;
         };
         let Some(summary) = self.raw_init_summaries.get(name) else {
@@ -31,6 +31,7 @@ impl ResourceCheckEngine<'_> {
             variant_initializations,
             output,
             args,
+            type_args,
             summary,
             span,
         )
@@ -58,6 +59,7 @@ impl ResourceCheckEngine<'_> {
                 variant_initializations,
                 output,
                 args,
+                &[],
                 summary,
                 span,
             );
@@ -72,17 +74,45 @@ impl ResourceCheckEngine<'_> {
         variant_initializations: &mut PendingVariantRawCellInitializations,
         output: &Place,
         args: &[Place],
+        type_args: &[crate::types::TypeId],
         summary: &RawCellInitializationFunctionSummary,
         span: crate::span::Span,
     ) -> bool {
-        let release_requirements_ok =
-            self.apply_raw_cell_release_requirements(cells, raw_aliases, args, summary, span);
+        let release_requirements_ok = self.apply_raw_cell_release_requirements(
+            cells,
+            raw_aliases,
+            args,
+            type_args,
+            summary,
+            span,
+        );
 
-        variant_initializations.record_call(self.types, raw_aliases, output, args, summary);
+        variant_initializations.record_call(
+            self.types,
+            raw_aliases,
+            output,
+            args,
+            type_args,
+            summary,
+        );
 
-        apply_return_initialization_summary(self.types, cells, raw_aliases, output, summary);
+        apply_return_initialization_summary(
+            self.types,
+            cells,
+            raw_aliases,
+            output,
+            type_args,
+            summary,
+        );
 
-        apply_param_initialization_summary(self.types, cells, raw_aliases, args, summary);
+        apply_param_initialization_summary(
+            self.types,
+            cells,
+            raw_aliases,
+            args,
+            type_args,
+            summary,
+        );
 
         release_requirements_ok
     }

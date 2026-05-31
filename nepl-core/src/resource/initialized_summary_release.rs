@@ -5,6 +5,7 @@ use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellReleaseRequirementKind,
 };
 use super::model::Place;
+use super::owner_extent_summary::instantiate_summary_type;
 use super::place_utils::projected_place_with_concrete_type;
 use super::report::ResourceCheckOperation;
 
@@ -14,6 +15,7 @@ impl ResourceCheckEngine<'_> {
         cells: &mut CellTable,
         raw_aliases: &RawCellAddressAliases,
         args: &[Place],
+        type_args: &[crate::types::TypeId],
         summary: &RawCellInitializationFunctionSummary,
         span: crate::span::Span,
     ) -> bool {
@@ -27,7 +29,7 @@ impl ResourceCheckEngine<'_> {
                 self.types,
                 &arg,
                 &requirement.suffix,
-                requirement.ty,
+                instantiate_summary_type(&summary.type_params, type_args, requirement.ty),
             );
             let address = raw_aliases.canonicalize(&address);
             ok &= self.ensure_no_live_non_copy_raw_cells(

@@ -5,6 +5,7 @@ use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_summary::RawCellInitializationFunctionSummary;
 use super::initialized_summary_byte_range_model::RawCellInitializationReturnCount;
 use super::model::Place;
+use super::owner_extent_summary::instantiate_summary_type;
 use super::place_utils::projected_place_with_concrete_type;
 
 pub(super) fn apply_return_initialization_summary(
@@ -12,13 +13,19 @@ pub(super) fn apply_return_initialization_summary(
     cells: &mut CellTable,
     raw_aliases: &mut RawCellAddressAliases,
     output: &Place,
+    type_args: &[crate::types::TypeId],
     summary: &RawCellInitializationFunctionSummary,
 ) {
     if !summary.return_cells.is_empty() {
         mark_known_raw_address(raw_aliases, output);
     }
     for cell in &summary.return_cells {
-        let place = projected_place_with_concrete_type(types, output, &cell.suffix, cell.ty);
+        let place = projected_place_with_concrete_type(
+            types,
+            output,
+            &cell.suffix,
+            instantiate_summary_type(&summary.type_params, type_args, cell.ty),
+        );
         cells.mark_initialized(&place);
         if cell.holds_raw_address {
             mark_known_raw_address(raw_aliases, &place);
@@ -29,18 +36,29 @@ pub(super) fn apply_return_initialization_summary(
             types,
             output,
             &range.address_suffix,
-            range.address_ty,
+            instantiate_summary_type(&summary.type_params, type_args, range.address_ty),
         );
         let count = match &range.count {
             RawCellInitializationReturnCount::ReturnValueProjection { suffix, ty } => {
-                projected_place_with_concrete_type(types, output, suffix, *ty)
+                projected_place_with_concrete_type(
+                    types,
+                    output,
+                    suffix,
+                    instantiate_summary_type(&summary.type_params, type_args, *ty),
+                )
             }
-            RawCellInitializationReturnCount::KnownI32 { value, ty } => {
-                Place::i32_constant(*value, *ty)
-            }
+            RawCellInitializationReturnCount::KnownI32 { value, ty } => Place::i32_constant(
+                *value,
+                instantiate_summary_type(&summary.type_params, type_args, *ty),
+            ),
         };
         let count = raw_aliases.canonicalize_scalar(&count);
-        cells.mark_initialized_raw_byte_range(&address, &count, range.unit, range.ty);
+        cells.mark_initialized_raw_byte_range(
+            &address,
+            &count,
+            range.unit,
+            instantiate_summary_type(&summary.type_params, type_args, range.ty),
+        );
     }
 }
 

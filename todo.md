@@ -32,7 +32,12 @@
 
 2026-05-31 Compiler performance / memoization purity
 
-- `ISS-20260531T012124326Z-RESOURCE-SUMMARY-RAW-INIT-VALUE-REPR-88633148` の continuation として、labelled open generic の provenance / ordinal を raw-init stable entry と key に持たせ、`param_cell_stable_type` bypass を減らす
+- `ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5` に沿って、byte-range / variant / return facts を含む complete raw-init stable mirror を設計し、`incomplete_leaf=37` bypass を減らす
 - `ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F` に沿って、`PrivateCache` / `PrivateState` internal effect を mask boundary なしでは `Pure` へ fold しない形で追加する
 - `ISS-20260531T025211459Z-HIGHER-ORDER-FUNCTION-PURITY-REQUIRE-A9CB99EE` に沿って、Phase 1 の `memo_call` を non-capturing named pure function value に限定する typecheck regression を追加する
 - `ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4` に沿って、private region escape を Resource IR で拒否する proof domain を設計・実装する
+- `ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C` に沿って、高階関数値を string name ではなく typed function identity で扱う
+- `ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF` に沿って、private cache operation を SourceCapability exact use-site と policy hash に接続する
+- `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` に沿って、MemoKey / MemoValue の structural purity rule を実装する
+- `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` に沿って、memoized function value の backend representation と identity observation ban を固定する
+- `ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2` に沿って、Private* effect の surface fold / diagnostics / Resource summary hash invalidation を接続する

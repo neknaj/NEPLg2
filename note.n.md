@@ -47922,6 +47922,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - release Web RPN same-session 測定 `tmp/rpn_owner_boundary_20260531.json` では、初回 `compile_ms=9615`、`stores=165`、`bypasses=60`、`incomplete_leaf=37`、`reprojection_value=23`、`param_cell_stable_type=23` だった。単純な owner boundary 追加では数値改善が出ていないため、残件は provenance / ordinal を持つ raw-init value type boundary 設計が必要である。
 - `cargo fmt -p nepl-core --check`、`cargo check -p nepl-core`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core owner_summary_type_params --lib -- --nocapture`、`cargo test -p nepl-core stable_raw_init_param_cell --lib -- --nocapture`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass した。`trunk build --release` 後、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-owner-boundary-20260531.json` は 13/13 pass した。
 
+## 2026-05-31 Agent projection-derived raw-init replay completion
+
+- Zenn の試作段階方針と性能追求方針を再確認した。`plan.md` は変更していない。
+- raw-init param cell の型が base parameter と suffix から通常の layout 規則で決まる場合、現在 compile の signature と projection 結果を replay authority にした。stable entry に保存された cell 型は、raw address `Deref` のように typed projection だけでは値型を得られない場合の proof boundary に限定した。
+- direct user call の `type_args` を raw-init summary replay に渡し、param / return / release / variant summary 内の型を summary type parameter boundary から instantiation するようにした。
+- `owner_summary_type_params` は raw address alias / view value type と trait application arguments も owner summary boundary へ含める。これは summary replay の意味に関わる型だけを type boundary hash と strict duplicate check に通す足場であり、TypeCtx 全体検索で open generic を拾う緩和ではない。
+- release Web RPN same-session code edit 測定 `tmp/rpn_projection_authoritative_raw_init_type_20260531.json` では、初回 `raw_init_param_facts_reprojection_value_bypasses=0`、`param_cell_stable_type=0`、`param_cell_result_type=0` になった。2 回目は `raw_init_param_facts_hits=144`、`resource_summary_value_replay_hits=167`、`replayed_ops=167`、`recomputed_ops=21` だった。
+- `ISS-20260531T012124326Z-RESOURCE-SUMMARY-RAW-INIT-VALUE-REPR-88633148` は verified / resolved にした。残る `incomplete_leaf=37` は byte-range / variant / return facts の complete raw-init mirror 不足として `ISS-20260528T123956163Z-RESOURCE-SUMMARY-RAW-INIT-CACHE-NEED-245DC1A5` で継続する。
+
 ## 2026-05-31 Agent memo_call private effect / higher-order design checkpoint
 
 - Zenn の試作段階方針、静的検査方針、性能追求方針を再確認した。`plan.md` は変更していない。
@@ -47931,6 +47940,9 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 新規 issue として `ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F`、`ISS-20260531T025211459Z-HIGHER-ORDER-FUNCTION-PURITY-REQUIRE-A9CB99EE`、`ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4` を追加した。
 - compile performance 側の subagent review では、現在の主戦場は Resource summary value cache の raw-init replay であり、次の小 checkpoint は `param_cell_stable_type=23` を減らす labelled open generic provenance / ordinal 境界と確認した。`incomplete_leaf=37` は別 checkpoint として扱う。
 - `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T012124326Z-RESOURCE-SUMMARY-RAW-INIT-VALUE-REPR-88633148` に、上記の memoization design と raw-init performance continuation を追記した。
+- 追加 subagent review では、既存 3 issue は umbrella として妥当だが、implementation 前に function identity、SourceCapability private cache boundary、MemoKey/MemoValue structural rule、backend representation、Private* effect fold/hash integration を個別 issue に分ける必要があると確認した。
+- `plan.md` は「試作品では高階関数なし」の前提を持つが、現行実装には明示関数値と indirect call の足場がある。`memo_call` は高階関数全面解禁ではなく、non-capturing named function value の限定導入として扱う。この差分は `plan.md` ではなく `doc/neplg2/private_effect_memoization_purity_design.md` と本 note で管理する。
+- 追加 issue として `ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C`、`ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF`、`ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`、`ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`、`ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2` を追加した。
 
 ## 2026-05-28 Agent Resource checker responsibility split checkpoint
 

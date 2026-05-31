@@ -22,6 +22,7 @@ use super::summary_projection::SummaryProjection;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RawCellInitializationFunctionSummary {
     pub(super) function: String,
+    pub(super) type_params: Vec<TypeId>,
     pub(super) return_cells: Vec<RawCellInitializationReturnCell>,
     pub(super) return_byte_ranges: Vec<RawCellInitializationReturnByteRange>,
     pub(super) param_cells: Vec<RawCellInitializationParamCell>,

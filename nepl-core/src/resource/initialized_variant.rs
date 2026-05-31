@@ -14,6 +14,7 @@ use super::initialized_variant_count::{
     pending_variant_count_place, pending_variant_count_source, PendingVariantRawByteRangeCount,
 };
 use super::model::{Place, ResourceMatchPattern};
+use super::owner_extent_summary::instantiate_summary_type;
 use super::place_utils::projected_place_with_concrete_type;
 use super::report::ResourceCheckOperation;
 use super::summary_projection::{
@@ -81,6 +82,7 @@ impl PendingVariantRawCellInitializations {
         raw_aliases: &RawCellAddressAliases,
         output: &Place,
         args: &[Place],
+        type_args: &[crate::types::TypeId],
         summary: &RawCellInitializationFunctionSummary,
     ) {
         self.clear_result(output);
@@ -89,6 +91,8 @@ impl PendingVariantRawCellInitializations {
             raw_aliases,
             output,
             args,
+            &summary.type_params,
+            type_args,
             &summary.variant_conditions,
         );
         for cell in &summary.variant_param_cells {
@@ -96,8 +100,9 @@ impl PendingVariantRawCellInitializations {
                 continue;
             };
             let arg = raw_aliases.canonicalize(arg);
+            let cell_ty = instantiate_summary_type(&summary.type_params, type_args, cell.ty);
             let Some(suffix) =
-                instantiate_summary_suffix_with_types(types, args, arg.ty, &cell.suffix, cell.ty)
+                instantiate_summary_suffix_with_types(types, args, arg.ty, &cell.suffix, cell_ty)
             else {
                 continue;
             };
@@ -106,7 +111,7 @@ impl PendingVariantRawCellInitializations {
                 variant: normalize_variant_name(&cell.variant),
                 arg,
                 suffix,
-                ty: cell.ty,
+                ty: cell_ty,
                 holds_raw_address: cell.holds_raw_address,
             });
         }
@@ -115,17 +120,25 @@ impl PendingVariantRawCellInitializations {
                 continue;
             };
             let address_arg = raw_aliases.canonicalize(address_arg);
+            let address_ty =
+                instantiate_summary_type(&summary.type_params, type_args, range.address_ty);
             let Some(address_suffix) = instantiate_summary_suffix_with_types(
                 types,
                 args,
                 address_arg.ty,
                 &range.address_suffix,
-                range.address_ty,
+                address_ty,
             ) else {
                 continue;
             };
-            let Some(count) = pending_variant_count_source(types, raw_aliases, args, &range.count)
-            else {
+            let Some(count) = pending_variant_count_source(
+                types,
+                raw_aliases,
+                args,
+                &summary.type_params,
+                type_args,
+                &range.count,
+            ) else {
                 continue;
             };
             self.push_unique_byte_range(PendingVariantRawByteRangeInitialization {
@@ -133,10 +146,10 @@ impl PendingVariantRawCellInitializations {
                 variant: normalize_variant_name(&range.variant),
                 address_arg,
                 address_suffix,
-                address_ty: range.address_ty,
+                address_ty,
                 count,
                 unit: range.unit,
-                ty: range.ty,
+                ty: instantiate_summary_type(&summary.type_params, type_args, range.ty),
             });
         }
         for cell in &summary.variant_required_param_cells {
@@ -144,8 +157,9 @@ impl PendingVariantRawCellInitializations {
                 continue;
             };
             let arg = raw_aliases.canonicalize(arg);
+            let cell_ty = instantiate_summary_type(&summary.type_params, type_args, cell.ty);
             let Some(suffix) =
-                instantiate_summary_suffix_with_types(types, args, arg.ty, &cell.suffix, cell.ty)
+                instantiate_summary_suffix_with_types(types, args, arg.ty, &cell.suffix, cell_ty)
             else {
                 continue;
             };
@@ -154,7 +168,7 @@ impl PendingVariantRawCellInitializations {
                 variant: normalize_variant_name(&cell.variant),
                 arg,
                 suffix,
-                ty: cell.ty,
+                ty: cell_ty,
             });
         }
     }
@@ -429,6 +443,8 @@ impl PendingVariantRawCellInitializations {
         raw_aliases: &RawCellAddressAliases,
         output: &Place,
         args: &[Place],
+        summary_type_params: &[crate::types::TypeId],
+        type_args: &[crate::types::TypeId],
         conditions: &[RawCellInitializationVariantCondition],
     ) {
         for condition in conditions {
@@ -441,7 +457,7 @@ impl PendingVariantRawCellInitializations {
                 None,
                 arg,
                 &condition.suffix,
-                condition.ty,
+                instantiate_summary_type(summary_type_params, type_args, condition.ty),
             ) else {
                 continue;
             };

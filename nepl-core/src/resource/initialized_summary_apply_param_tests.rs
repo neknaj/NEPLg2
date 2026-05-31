@@ -40,6 +40,7 @@ fn param_cell_summary_instantiates_symbolic_offset_with_caller_argument() {
         &mut cells,
         &mut raw_aliases,
         &[storage.clone(), index.clone()],
+        &[],
         &summary,
     );
 
@@ -83,6 +84,7 @@ fn param_byte_range_summary_instantiates_symbolic_address_offset_with_caller_arg
         &mut cells,
         &mut raw_aliases,
         &[storage.clone(), index.clone()],
+        &[],
         &summary,
     );
 
@@ -99,6 +101,47 @@ fn param_byte_range_summary_instantiates_symbolic_address_offset_with_caller_arg
         &raw_aliases,
         &types
     ));
+}
+
+#[test]
+fn param_cell_summary_instantiates_template_value_type_with_call_type_argument() {
+    let mut types = TypeCtx::new();
+    let generic_ty = types.fresh_var(Some("T".to_string()));
+    let i32_ty = types.i32();
+    let storage = Place::local("caller_storage".to_string(), i32_ty);
+    let index = Place::local("caller_index".to_string(), i32_ty);
+    let mut summary = summary_with_param_cell(RawCellInitializationParamCell {
+        param_index: 0,
+        suffix: scaled_cell_suffix(i32_ty, 1),
+        ty: generic_ty,
+        holds_raw_address: false,
+    });
+    summary.type_params.push(generic_ty);
+    let mut cells = CellTable::default();
+    let mut raw_aliases = RawCellAddressAliases::default();
+
+    apply_param_initialization_summary(
+        &types,
+        &mut cells,
+        &mut raw_aliases,
+        &[storage.clone(), index.clone()],
+        &[i32_ty],
+        &summary,
+    );
+
+    let expected = storage
+        .with_projection(
+            PlaceProjection::StorageOffset(ResourceOffset::ScaledSymbolic {
+                place: Box::new(index),
+                scale: 4,
+            }),
+            i32_ty,
+        )
+        .with_projection(PlaceProjection::Deref, i32_ty);
+    assert_eq!(
+        cells.availability_state(&expected),
+        CellState::Initialized(i32_ty)
+    );
 }
 
 fn summary_with_param_cell(
@@ -120,6 +163,7 @@ fn summary_with_param_byte_range(
 fn empty_summary() -> RawCellInitializationFunctionSummary {
     RawCellInitializationFunctionSummary {
         function: "test_summary".to_string(),
+        type_params: vec![],
         return_cells: vec![],
         return_byte_ranges: vec![],
         param_cells: vec![],

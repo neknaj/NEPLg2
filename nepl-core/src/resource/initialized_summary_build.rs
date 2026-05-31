@@ -34,6 +34,7 @@ use super::initialized_summary_seed::seed_summary_input_place;
 use super::initialized_summary_variant_build::collect_variant_param_initialized_raw_cells_from_return;
 use super::initialized_variant::PendingVariantRawCellInitializations;
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceOp, ResourceTerminator};
+use super::owner_summary_type_params::owner_summary_type_params;
 use super::place_utils::reference_target_place;
 use super::raw_realloc::PendingRawReallocs;
 use super::report::ResourceCheckDeferred;
@@ -153,6 +154,7 @@ fn function_raw_cell_initialization_summary(
 
     let mut out = RawCellInitializationFunctionSummary {
         function: function.name.clone(),
+        type_params: owner_summary_type_params(types, function),
         return_cells: Vec::new(),
         return_byte_ranges: Vec::new(),
         param_cells: Vec::new(),

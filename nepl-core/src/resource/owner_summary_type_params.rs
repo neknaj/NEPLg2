@@ -76,6 +76,11 @@ fn collect_owner_summary_body_type_vars_from_op(
             }
             collect_type_vars(types, *result, out, 0);
         }
+        ResourceOp::RawAddressAlias { source, target, .. }
+        | ResourceOp::RawAddressView { source, target, .. } => {
+            collect_type_vars(types, source.ty, out, 0);
+            collect_type_vars(types, target.ty, out, 0);
+        }
         ResourceOp::CollectionSlotLifecycle { event, .. } => {
             collect_collection_slot_event_type_vars(types, *event, out);
         }
@@ -122,8 +127,6 @@ fn collect_owner_summary_body_type_vars_from_op(
         | ResourceOp::EndScope { .. }
         | ResourceOp::CallEffect { .. }
         | ResourceOp::FunctionValue { .. }
-        | ResourceOp::RawAddressAlias { .. }
-        | ResourceOp::RawAddressView { .. }
         | ResourceOp::StorageOrigin { .. }
         | ResourceOp::CollectionStorageRelocate { .. }
         | ResourceOp::Construct { .. } => {}
@@ -142,7 +145,16 @@ fn collect_call_target_type_vars(
                 collect_type_vars(types, *ty, out, 0);
             }
         }
-        ResourceCallTarget::Trait { self_ty, .. } => collect_type_vars(types, *self_ty, out, 0),
+        ResourceCallTarget::Trait {
+            application,
+            self_ty,
+            ..
+        } => {
+            for ty in &application.args {
+                collect_type_vars(types, *ty, out, 0);
+            }
+            collect_type_vars(types, *self_ty, out, 0);
+        }
     }
 }
 
@@ -259,8 +271,10 @@ mod tests {
     use crate::span::Span;
 
     use super::super::model::{
-        Place, ResourceBlock, ResourceBlockId, ResourceFunction, ResourceLocal, ResourceTerminator,
+        Place, RawAddressAliasKind, RawAddressViewKind, ResourceBlock, ResourceBlockId,
+        ResourceCallTarget, ResourceFunction, ResourceLocal, ResourceTerminator,
     };
+    use super::super::trait_identity::{ResourceTraitApplication, ResourceTraitMethodId};
     use super::*;
 
     fn function_with_ops(types: &TypeCtx, ops: Vec<ResourceOp>) -> ResourceFunction {
@@ -345,6 +359,68 @@ mod tests {
                 },
                 args: vec![Place::local("address".to_string(), types.i32())],
                 effect: super::super::model::EffectOp::Pure,
+                span: Span::dummy(),
+            }],
+        );
+
+        let boundary = owner_summary_type_params(&types, &function);
+
+        assert!(boundary.contains(&value_ty));
+    }
+
+    #[test]
+    fn owner_summary_type_params_include_trait_application_arguments() {
+        let mut types = TypeCtx::new();
+        let value_ty = types.fresh_var(Some("T".to_string()));
+        let function = function_with_ops(
+            &types,
+            vec![ResourceOp::Call {
+                output: Place::local("out".to_string(), types.unit()),
+                target: ResourceCallTarget::Trait {
+                    application: ResourceTraitApplication::new("Field".to_string(), vec![value_ty]),
+                    method: ResourceTraitMethodId::from_name("get".to_string()),
+                    self_ty: types.i32(),
+                },
+                args: vec![Place::local("address".to_string(), types.i32())],
+                effect: super::super::model::EffectOp::Pure,
+                span: Span::dummy(),
+            }],
+        );
+
+        let boundary = owner_summary_type_params(&types, &function);
+
+        assert!(boundary.contains(&value_ty));
+    }
+
+    #[test]
+    fn owner_summary_type_params_include_raw_address_view_value_type() {
+        let mut types = TypeCtx::new();
+        let value_ty = types.fresh_var(Some("T".to_string()));
+        let function = function_with_ops(
+            &types,
+            vec![ResourceOp::RawAddressView {
+                source: Place::local("address".to_string(), types.i32()),
+                target: Place::local("view".to_string(), value_ty),
+                kind: RawAddressViewKind::InternalHelper,
+                span: Span::dummy(),
+            }],
+        );
+
+        let boundary = owner_summary_type_params(&types, &function);
+
+        assert!(boundary.contains(&value_ty));
+    }
+
+    #[test]
+    fn owner_summary_type_params_include_raw_address_alias_value_type() {
+        let mut types = TypeCtx::new();
+        let value_ty = types.fresh_var(Some("T".to_string()));
+        let function = function_with_ops(
+            &types,
+            vec![ResourceOp::RawAddressAlias {
+                source: Place::local("source".to_string(), value_ty),
+                target: Place::local("target".to_string(), value_ty),
+                kind: RawAddressAliasKind::InternalHelper,
                 span: Span::dummy(),
             }],
         );

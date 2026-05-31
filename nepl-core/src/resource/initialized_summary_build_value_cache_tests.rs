@@ -77,6 +77,7 @@ fn raw_init_leaf_summary(ty: TypeId) -> RawCellInitializationFunctionSummary {
 fn raw_init_leaf_summary_for(name: &str, ty: TypeId) -> RawCellInitializationFunctionSummary {
     RawCellInitializationFunctionSummary {
         function: String::from(name),
+        type_params: Vec::new(),
         return_cells: Vec::new(),
         return_byte_ranges: Vec::new(),
         param_cells: vec![RawCellInitializationParamCell {

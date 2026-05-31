@@ -11,6 +11,11 @@
 - [ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F](../../issues/items/ISS-20260531T025203216Z-PRIVATE-CACHE-EFFECT-MASKING-FOR-PUR-DF36DE4F.md)
 - [ISS-20260531T025211459Z-HIGHER-ORDER-FUNCTION-PURITY-REQUIRE-A9CB99EE](../../issues/items/ISS-20260531T025211459Z-HIGHER-ORDER-FUNCTION-PURITY-REQUIRE-A9CB99EE.md)
 - [ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4](../../issues/items/ISS-20260531T025408584Z-PRIVATE-STATE-MASKING-REQUIRES-RESOU-FCB116B4.md)
+- [ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C](../../issues/items/ISS-20260531T035335856Z-MEMO-CALL-NEEDS-TYPED-FUNCTION-IDENT-3B612E6C.md)
+- [ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF](../../issues/items/ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF.md)
+- [ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7](../../issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md)
+- [ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7](../../issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md)
+- [ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2](../../issues/items/ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2.md)
 
 ## 現行実装の境界
 
@@ -152,11 +157,28 @@ Phase 1 の `MemoValue` は Copy 相当の pure persistent value に限定する
 
 Phase 1 では、`memo_call` に渡せる関数を non-capturing named pure function value に限定する。capture 付き closure は、capture value の lifetime、owner transfer、private cache identity、function equality/hash の扱いが未確定なため、memoization MVP には含めない。
 
+`plan.md` は試作品として高階関数なしの前提を持つが、現行実装には明示関数値と indirect call の足場が既にある。`memo_call` は高階関数全面解禁ではなく、この既存実装差分を限定的に設計へ取り込む作業として扱う。`plan.md` は人が書き換えるため変更せず、この差分は `note.n.md` と本設計文書で管理する。
+
+現行表記では、明示関数値は通常の callable reduction 対象名ではなく function value syntax を通す。Phase 1 の `memo_call` は、`memo_call @func` のような explicit function value を基本形にするか、named function から function value への暗黙 coercion を新設するかを実装前に固定する。曖昧な `memo_call func` を parser/typechecker の偶然に任せない。
+
 ### saturated application
 
 NEPLg2.1 の関数型記法は curried-looking だが、部分適用は導入しない。`pure fn A fn B C` は表層表記であり、内部的には引数列 `[A, B]` と結果 `C` を持つ saturated function type として扱う。
 
 `memo_call func` は `memo_call` の引数が揃った呼び出しであり、その結果が関数値である。`func a` のような通常関数の引数不足を関数値として認めることとは別である。
+
+### typed function identity
+
+`ResourceOp::FunctionValue` が function name string だけを持つ状態では、`memo_call` の purity proof と cache namespace には足りない。Phase 1 の関数値は、少なくとも次を持つ typed identity として扱う。
+
+- definition identity。
+- module / source provenance。
+- resolved function signature。
+- function effect。
+- generic type arguments。
+- overload / trait method resolution 後の call target。
+
+この identity は backend table index ではない。backend lowering で一時的に table index や wrapper id を使う場合でも、それを pure source program から equality、hash、address、debug、raw cast、layout query として観測させない。
 
 ### function value identity
 
@@ -224,6 +246,47 @@ Phase 1 の責務分担:
 | tests | accepted pure memoization と rejected observable cache API を固定する。 |
 
 Phase 2 では、`PrivateState rho` と `mask_private` を一般化し、local mutable buffer、private arena、dynamic programming table、union-find、normalization cache に同じ規則を適用する。
+
+`memo_call` は stdlib 関数名の allowlist ではなく、compiler-known primitive registry に載せる。typed primitive enum、typecheck rule、Resource IR lowering rule、SourceCapability rule、backend rule を同じ primitive identity に接続し、名前変更や import alias で proof 境界が崩れないようにする。
+
+## backend 表現
+
+既存 backend の function value は table index あるいは i32-like id として下がる経路を持つ。しかし memoized function value は hidden private cache を保持するため、単なる named function pointer と同じ representation では扱えない。
+
+Phase 1 では次のどちらかを選ぶ。
+
+- compiler-generated wrapper が private cache region を hidden static/session state として持ち、public function value は sealed wrapper identity だけを持つ。
+- closure object を導入し、environment に private cache region を持たせる。ただし object identity は pure API から観測不能にする。
+
+いずれの方式でも、memoized function value の clone / drop / equality / hash / raw layout は named function pointer と同一視しない。`TypeKind::Function` が Copy / Clone として扱われる既存規則は named non-capturing function value 用であり、private cache を持つ memoized function value へそのまま広げない。
+
+## SourceCapability boundary
+
+private cache operation は module allowlist で許可しない。trusted stdlib memo implementation の exact use-site に SourceCapability proof を与え、source path、source hash、span、operation kind、private region boundary を policy hash に含める。
+
+この rule により、stdlib memo code の source や capability use-site が変われば Resource summary value cache key も変わる。user code は同じ関数名や同じ raw intrinsic 文字列を書いても private cache operation を forge できない。
+
+## acceptance / rejection matrix
+
+Phase 1 で受理するもの:
+
+- non-capturing named pure function value。
+- primitive scalar / unit / structural Copy 相当の `MemoKey`。
+- primitive scalar / unit / structural Copy 相当の `MemoValue`。
+- cache hit/miss/size/storage identity を public result に出さない memoized call。
+
+Phase 1 で拒否するもの:
+
+- impure function。
+- capturing function。
+- unresolved generic function value。
+- partial application。
+- function value key。
+- reference / raw pointer / owner token / external resource handle を含む key/value。
+- non-Copy value、Drop obligation を持つ value、Clone correctness を未証明の value。
+- cache reference、cache size、hit/miss、clear handle、cache storage id を返す API。
+- unknown callback、trait method purity が解決されていない callback。
+- private cache を public field / global / raw memory identity として外へ出す code。
 
 ## 拒否すべき例
 
