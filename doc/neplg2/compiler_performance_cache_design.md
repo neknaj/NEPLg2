@@ -289,6 +289,30 @@ release Web RPN same-session code edit 測定 `tmp/rpn_final_check_cache_code_ed
 
 直前の i32 scalar checkpoint では code edit delta が `resource_initialized_function_checks=288` だったため、final check cache は一部の stdlib function check を skip できている。一方で、まだ `initialized_function_check_reprojection_value_type_bypasses=73` と `initialized_function_check_reprojection_value_place_bypasses=52` が残る。これは final check cache 自体を閉じるには不十分なので、残件は `ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A` で追跡する。
 
+## Final initialized function check reprojection checkpoint
+
+2026-05-31 の final initialized function check checkpoint では、RPN code edit で残っていた replay bypass のうち、body-local type boundary と function-local storage offset place を root cause とするものを解消した。
+
+変更した stable replay boundary:
+
+- `ResourceSummaryTypeReprojection::new_for_initialized_function_check` を追加し、function body に現れる type を final check replay 専用 boundary へ入れる。
+- final check entry の storage offset place は、parameter-relative place だけでなく function-local `Temporary` / `Storage` ordinal を持つ resource place として保存できる。
+- Resource IR body hash が同一である replay では、generic や raw storage view のため現在 `TypeCtx` だけで layout を再計算できない projection suffix を、保存済み stable projection surface から戻す。ただし offset 内 place や type 再投影に失敗した場合は従来通り通常 checker へ戻る。
+- summary/raw-init 系の `SummaryOffset` 再投影は、新しい resource-place offset を受け取らない。これは final check entry 専用 surface を他の summary kind へ混ぜないためである。
+
+測定:
+
+| case | before | after |
+|---|---:|---:|
+| RPN code edit `compile_ms` | 8254ms | 6021ms |
+| `resource_initialized_function_checks` | 128 | 20 |
+| `resource_initialized_function_check_ops` | 2202 | 371 |
+| `resource_summary_value_initialized_function_check_hits` | 160 | 268 |
+| `initialized_function_check_reprojection_value_place_bypasses` | 52 | 0 |
+| `initialized_function_check_reprojection_value_type_bypasses` | 73 | 7 |
+
+測定 JSON は `tmp/rpn_final_check_reprojection_boundary_20260531.json` に保存した。今回の修正で final check の主要な replay false miss は解消したが、7 件の type-only bypass は `ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9` に分離した。さらに RPN code edit は `resource_raw_alias_summary_recomputations=288`、`resource_raw_init_summary_recomputations=81` も残しており、次の支配項は raw alias / raw-init side の incremental replay である。
+
 ## RPN code-edit stage breakdown checkpoint
 
 2026-05-31 の complete raw-init leaf replay と return / byte-range type canonicalization 後、RPN same-session code edit は raw-init replay miss をほぼ解消したが、まだ秒単位である。`tmp/rpn_return_type_canonicalization_code_edit_20260531.json` では base `compile_ms=8861`、local `i32` binding 追加 edit `compile_ms=6703`、edit delta は `resource_summary_value_replayed_ops=253`、`resource_summary_value_recomputed_ops=21`、`raw_init_param_facts_bypasses=0` だった。

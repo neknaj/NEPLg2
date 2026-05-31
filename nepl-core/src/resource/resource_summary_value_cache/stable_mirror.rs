@@ -10,7 +10,9 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 
 use super::super::collection_slot_drop_proof::CollectionSlotDropObligation;
 use super::super::collection_slot_lifecycle::CollectionSlotLifecycleOp;
-use super::super::collection_slot_lifecycle_model::CollectionSlotState;
+use super::super::collection_slot_lifecycle_model::{
+    CollectionSlotLifecycleEvent, CollectionSlotState,
+};
 use super::super::collection_slot_state_table::CollectionSlotStateEntry;
 use super::super::collection_slot_summary_model::{
     CollectionSlotInitializedRangeDropTraversalCertificate,
@@ -41,8 +43,9 @@ use super::super::initialized_summary_variant_model::{
 };
 use super::super::model::{
     CellState, CellStateEntry, I32ValueCondition, Place, PlaceProjection, PlaceRoot,
-    ResourceConditionFact, ResourceFunction, ResourceI32RelationOp, ResourceId, ResourceLocal,
-    ResourceMatchArm, ResourceOffset, ResourceOp, ResourceTerminator, StorageId,
+    ResourceCallTarget, ResourceConditionFact, ResourceExprKind, ResourceFunction,
+    ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceMatchArm, ResourceOffset, ResourceOp,
+    ResourceTerminator, StorageId,
 };
 use super::super::place_utils::projection_result_type;
 use super::super::report::{ResourceCheckDeferred, ResourceFunctionCheck};
@@ -78,12 +81,23 @@ enum ResourceSummaryStableOffset {
     Symbolic {
         place: Box<ResourceSummaryStablePlace>,
     },
+    ResourceSymbolic {
+        place: Box<ResourceSummaryStableResourcePlace>,
+    },
     ScaledSymbolic {
         place: Box<ResourceSummaryStablePlace>,
         scale: usize,
     },
+    ResourceScaledSymbolic {
+        place: Box<ResourceSummaryStableResourcePlace>,
+        scale: usize,
+    },
     Offset {
         place: Box<ResourceSummaryStablePlace>,
+        offset: i64,
+    },
+    ResourceOffset {
+        place: Box<ResourceSummaryStableResourcePlace>,
         offset: i64,
     },
     ScaledOffset {
@@ -91,7 +105,18 @@ enum ResourceSummaryStableOffset {
         offset: i64,
         scale: usize,
     },
+    ResourceScaledOffset {
+        place: Box<ResourceSummaryStableResourcePlace>,
+        offset: i64,
+        scale: usize,
+    },
     Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ResourceSummaryStableOffsetPlace {
+    Parameter(Box<ResourceSummaryStablePlace>),
+    Resource(Box<ResourceSummaryStableResourcePlace>),
 }
 
 /// `DropTraversal + ForallInitializedRange` の stable mirror value。
@@ -241,6 +266,7 @@ struct ResourceFunctionPlaceOrdinalMap {
     temporaries: Vec<ResourceId>,
     storage_ordinals: BTreeMap<StorageId, usize>,
     storages: Vec<StorageId>,
+    type_boundary: Vec<TypeId>,
 }
 
 impl ResourceFunctionPlaceOrdinalMap {
@@ -272,6 +298,17 @@ impl ResourceFunctionPlaceOrdinalMap {
         self.storages.get(ordinal).copied()
     }
 
+    fn type_boundary(&self) -> &[TypeId] {
+        &self.type_boundary
+    }
+
+    fn record_type(&mut self, ty: TypeId) {
+        if self.type_boundary.contains(&ty) {
+            return;
+        }
+        self.type_boundary.push(ty);
+    }
+
     fn record_temporary(&mut self, id: ResourceId) {
         if self.temporary_ordinals.contains_key(&id) {
             return;
@@ -291,6 +328,7 @@ impl ResourceFunctionPlaceOrdinalMap {
     }
 
     fn record_place(&mut self, place: &Place) {
+        self.record_type(place.ty);
         match place.root {
             PlaceRoot::Temporary(id) => self.record_temporary(id),
             PlaceRoot::Storage(id) => self.record_storage(id),
@@ -354,9 +392,18 @@ impl ResourceFunctionPlaceOrdinalMap {
 
     fn record_op(&mut self, op: &ResourceOp) {
         match op {
-            ResourceOp::Expr { output, .. }
-            | ResourceOp::FunctionValue { output, .. }
-            | ResourceOp::RawMemory { output, .. } => self.record_place(output),
+            ResourceOp::Expr {
+                kind, output, ty, ..
+            } => {
+                if let ResourceExprKind::LayoutSizeOf(ty) = kind {
+                    self.record_type(*ty);
+                }
+                self.record_place(output);
+                self.record_type(*ty);
+            }
+            ResourceOp::FunctionValue { output, .. } | ResourceOp::RawMemory { output, .. } => {
+                self.record_place(output)
+            }
             ResourceOp::DeclareLocal {
                 place, initializer, ..
             } => {
@@ -385,8 +432,14 @@ impl ResourceFunctionPlaceOrdinalMap {
                 }
             }
             ResourceOp::CallEffect { .. } => {}
-            ResourceOp::Call { output, args, .. } => {
+            ResourceOp::Call {
+                output,
+                target,
+                args,
+                ..
+            } => {
                 self.record_place(output);
+                self.record_call_target(target);
                 for arg in args {
                     self.record_place(arg);
                 }
@@ -394,11 +447,17 @@ impl ResourceFunctionPlaceOrdinalMap {
             ResourceOp::IndirectCall {
                 output,
                 callee,
+                params,
+                result,
                 args,
                 ..
             } => {
                 self.record_place(output);
                 self.record_place(callee);
+                for param in params {
+                    self.record_type(*param);
+                }
+                self.record_type(*result);
                 for arg in args {
                     self.record_place(arg);
                 }
@@ -408,8 +467,11 @@ impl ResourceFunctionPlaceOrdinalMap {
                 self.record_place(source);
                 self.record_place(target);
             }
-            ResourceOp::StorageOrigin { target, .. }
-            | ResourceOp::CollectionSlotLifecycle { target, .. } => self.record_place(target),
+            ResourceOp::StorageOrigin { target, .. } => self.record_place(target),
+            ResourceOp::CollectionSlotLifecycle { target, event, .. } => {
+                self.record_place(target);
+                self.record_collection_slot_event(*event);
+            }
             ResourceOp::CollectionStorageRelocate {
                 old_storage,
                 new_storage,
@@ -421,22 +483,26 @@ impl ResourceFunctionPlaceOrdinalMap {
             ResourceOp::CollectionSlotDropTraversal {
                 storage,
                 initialized_count,
+                expected_ty,
                 ..
             } => {
                 self.record_place(storage);
                 self.record_place(initialized_count);
+                self.record_type(*expected_ty);
             }
             ResourceOp::CollectionSlotTransformRange {
                 source_storage,
                 source_initialized_count,
                 output_storage,
                 output_initialized_count,
+                expected_ty,
                 ..
             } => {
                 self.record_place(source_storage);
                 self.record_place(source_initialized_count);
                 self.record_place(output_storage);
                 self.record_place(output_initialized_count);
+                self.record_type(*expected_ty);
             }
             ResourceOp::Construct { output, inputs, .. } => {
                 self.record_place(output);
@@ -495,6 +561,49 @@ impl ResourceFunctionPlaceOrdinalMap {
         }
         self.record_ops(&arm.ops);
         self.record_place(&arm.value);
+    }
+
+    fn record_call_target(&mut self, target: &ResourceCallTarget) {
+        match target {
+            ResourceCallTarget::Builtin { .. } => {}
+            ResourceCallTarget::User { type_args, .. } => {
+                for type_arg in type_args {
+                    self.record_type(*type_arg);
+                }
+            }
+            ResourceCallTarget::Trait {
+                application,
+                self_ty,
+                ..
+            } => {
+                for arg in &application.args {
+                    self.record_type(*arg);
+                }
+                self.record_type(*self_ty);
+            }
+        }
+    }
+
+    fn record_collection_slot_event(&mut self, event: CollectionSlotLifecycleEvent) {
+        match event {
+            CollectionSlotLifecycleEvent::InitializeEmpty { value_ty }
+            | CollectionSlotLifecycleEvent::BorrowRead {
+                expected_ty: value_ty,
+            }
+            | CollectionSlotLifecycleEvent::MoveOut {
+                expected_ty: value_ty,
+            }
+            | CollectionSlotLifecycleEvent::DropInitialized {
+                expected_ty: value_ty,
+            }
+            | CollectionSlotLifecycleEvent::StorageDealloc { value_ty } => {
+                self.record_type(value_ty);
+            }
+            CollectionSlotLifecycleEvent::ReplaceInitialized { old_ty, new_ty, .. } => {
+                self.record_type(old_ty);
+                self.record_type(new_ty);
+            }
+        }
     }
 
     fn record_terminator(&mut self, terminator: &ResourceTerminator) {
@@ -823,6 +932,19 @@ impl<'a> ResourceSummaryTypeReprojection<'a> {
         out.insert_type(function.result)?;
         for param in &function.params {
             out.insert_type(param.ty)?;
+        }
+        Some(out)
+    }
+
+    pub(super) fn new_for_initialized_function_check(
+        types: &'a TypeCtx,
+        function: &'a ResourceFunction,
+        type_params: &[TypeId],
+    ) -> Option<Self> {
+        let mut out = Self::new(types, function, type_params)?;
+        let body_boundary = ResourceFunctionPlaceOrdinalMap::new(function);
+        for ty in body_boundary.type_boundary() {
+            out.insert_type(*ty)?;
         }
         Some(out)
     }
@@ -1359,7 +1481,9 @@ fn stable_resource_place(
         projections: place
             .projections
             .iter()
-            .map(|projection| stable_resource_place_projection(types, function, projection))
+            .map(|projection| {
+                stable_resource_place_projection(types, function, place_ordinals, projection)
+            })
             .collect::<Result<Vec<_>, _>>()?,
         ty: ResourceSummaryStableTypeKey::from_type(types, place.ty)
             .ok_or(ResourceSummaryStableInitializedFunctionCheckEntryReject::Type)?,
@@ -1398,6 +1522,7 @@ fn stable_resource_place_root(
 fn stable_resource_place_projection(
     types: &TypeCtx,
     function: &ResourceFunction,
+    place_ordinals: &ResourceFunctionPlaceOrdinalMap,
     projection: &PlaceProjection,
 ) -> Result<
     ResourceSummaryStablePlaceProjection,
@@ -1426,7 +1551,10 @@ fn stable_resource_place_projection(
         PlaceProjection::Deref => ResourceSummaryStablePlaceProjection::Deref,
         PlaceProjection::StorageOffset(offset) => {
             ResourceSummaryStablePlaceProjection::StorageOffset(stable_resource_place_offset(
-                types, function, offset,
+                types,
+                function,
+                place_ordinals,
+                offset,
             )?)
         }
     })
@@ -1435,51 +1563,134 @@ fn stable_resource_place_projection(
 fn stable_resource_place_offset(
     types: &TypeCtx,
     function: &ResourceFunction,
+    place_ordinals: &ResourceFunctionPlaceOrdinalMap,
     offset: &ResourceOffset,
 ) -> Result<ResourceSummaryStableOffset, ResourceSummaryStableInitializedFunctionCheckEntryReject> {
     Ok(match offset {
         ResourceOffset::Known(value) => ResourceSummaryStableOffset::Known(*value),
-        ResourceOffset::Symbolic { place } => ResourceSummaryStableOffset::Symbolic {
-            place: Box::new(stable_resource_offset_place_for_function(
-                types, function, place,
-            )?),
-        },
-        ResourceOffset::ScaledSymbolic { place, scale } => {
-            ResourceSummaryStableOffset::ScaledSymbolic {
-                place: Box::new(stable_resource_offset_place_for_function(
-                    types, function, place,
-                )?),
-                scale: *scale,
-            }
+        ResourceOffset::Symbolic { place } => {
+            stable_resource_symbolic_offset(types, function, place_ordinals, place)?
         }
-        ResourceOffset::Offset { place, offset } => ResourceSummaryStableOffset::Offset {
-            place: Box::new(stable_resource_offset_place_for_function(
-                types, function, place,
-            )?),
-            offset: *offset,
-        },
+        ResourceOffset::ScaledSymbolic { place, scale } => {
+            stable_resource_scaled_symbolic_offset(types, function, place_ordinals, place, *scale)?
+        }
+        ResourceOffset::Offset { place, offset } => {
+            stable_resource_shifted_offset(types, function, place_ordinals, place, *offset)?
+        }
         ResourceOffset::ScaledOffset {
             place,
             offset,
             scale,
-        } => ResourceSummaryStableOffset::ScaledOffset {
-            place: Box::new(stable_resource_offset_place_for_function(
-                types, function, place,
-            )?),
-            offset: *offset,
-            scale: *scale,
-        },
+        } => stable_resource_scaled_shifted_offset(
+            types,
+            function,
+            place_ordinals,
+            place,
+            *offset,
+            *scale,
+        )?,
         ResourceOffset::Unknown => ResourceSummaryStableOffset::Unknown,
     })
+}
+
+fn stable_resource_symbolic_offset(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    place_ordinals: &ResourceFunctionPlaceOrdinalMap,
+    place: &Place,
+) -> Result<ResourceSummaryStableOffset, ResourceSummaryStableInitializedFunctionCheckEntryReject> {
+    Ok(
+        match stable_resource_offset_place_for_function(types, function, place_ordinals, place)? {
+            ResourceSummaryStableOffsetPlace::Parameter(place) => {
+                ResourceSummaryStableOffset::Symbolic { place }
+            }
+            ResourceSummaryStableOffsetPlace::Resource(place) => {
+                ResourceSummaryStableOffset::ResourceSymbolic { place }
+            }
+        },
+    )
+}
+
+fn stable_resource_scaled_symbolic_offset(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    place_ordinals: &ResourceFunctionPlaceOrdinalMap,
+    place: &Place,
+    scale: usize,
+) -> Result<ResourceSummaryStableOffset, ResourceSummaryStableInitializedFunctionCheckEntryReject> {
+    Ok(
+        match stable_resource_offset_place_for_function(types, function, place_ordinals, place)? {
+            ResourceSummaryStableOffsetPlace::Parameter(place) => {
+                ResourceSummaryStableOffset::ScaledSymbolic { place, scale }
+            }
+            ResourceSummaryStableOffsetPlace::Resource(place) => {
+                ResourceSummaryStableOffset::ResourceScaledSymbolic { place, scale }
+            }
+        },
+    )
+}
+
+fn stable_resource_shifted_offset(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    place_ordinals: &ResourceFunctionPlaceOrdinalMap,
+    place: &Place,
+    offset: i64,
+) -> Result<ResourceSummaryStableOffset, ResourceSummaryStableInitializedFunctionCheckEntryReject> {
+    Ok(
+        match stable_resource_offset_place_for_function(types, function, place_ordinals, place)? {
+            ResourceSummaryStableOffsetPlace::Parameter(place) => {
+                ResourceSummaryStableOffset::Offset { place, offset }
+            }
+            ResourceSummaryStableOffsetPlace::Resource(place) => {
+                ResourceSummaryStableOffset::ResourceOffset { place, offset }
+            }
+        },
+    )
+}
+
+fn stable_resource_scaled_shifted_offset(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+    place_ordinals: &ResourceFunctionPlaceOrdinalMap,
+    place: &Place,
+    offset: i64,
+    scale: usize,
+) -> Result<ResourceSummaryStableOffset, ResourceSummaryStableInitializedFunctionCheckEntryReject> {
+    Ok(
+        match stable_resource_offset_place_for_function(types, function, place_ordinals, place)? {
+            ResourceSummaryStableOffsetPlace::Parameter(place) => {
+                ResourceSummaryStableOffset::ScaledOffset {
+                    place,
+                    offset,
+                    scale,
+                }
+            }
+            ResourceSummaryStableOffsetPlace::Resource(place) => {
+                ResourceSummaryStableOffset::ResourceScaledOffset {
+                    place,
+                    offset,
+                    scale,
+                }
+            }
+        },
+    )
 }
 
 fn stable_resource_offset_place_for_function(
     types: &TypeCtx,
     function: &ResourceFunction,
+    place_ordinals: &ResourceFunctionPlaceOrdinalMap,
     place: &Place,
-) -> Result<ResourceSummaryStablePlace, ResourceSummaryStableInitializedFunctionCheckEntryReject> {
-    stable_resource_offset_place(types, &function.params, place)
-        .ok_or(ResourceSummaryStableInitializedFunctionCheckEntryReject::Place)
+) -> Result<
+    ResourceSummaryStableOffsetPlace,
+    ResourceSummaryStableInitializedFunctionCheckEntryReject,
+> {
+    if let Some(place) = stable_resource_offset_place(types, &function.params, place) {
+        return Ok(ResourceSummaryStableOffsetPlace::Parameter(Box::new(place)));
+    }
+    stable_resource_place(types, function, place_ordinals, place)
+        .map(|place| ResourceSummaryStableOffsetPlace::Resource(Box::new(place)))
 }
 
 fn reproject_cell_state_entry(
@@ -1571,12 +1782,20 @@ fn reproject_resource_place(
         .reproject_type(&place.ty)
         .ok_or(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type)?;
     if let Some(base_ty) = reproject_resource_place_root_base_type(ctx, &root) {
-        let (projections, projected_ty) =
-            reproject_place_projection_suffix(ctx, base_ty, &place.projections)
-                .ok_or(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Place)?;
-        if !place.ty.matches_type(ctx.types, projected_ty) {
-            return Err(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type);
-        }
+        let projections = match reproject_place_projection_suffix(ctx, base_ty, &place.projections)
+        {
+            Some((projections, projected_ty)) => {
+                if !place.ty.matches_type(ctx.types, projected_ty) {
+                    return Err(
+                        ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type,
+                    );
+                }
+                projections
+            }
+            None => {
+                reproject_resource_place_projection_suffix_without_layout(ctx, &place.projections)?
+            }
+        };
         return Ok(Place {
             root,
             projections,
@@ -1596,6 +1815,26 @@ fn reproject_resource_place(
             .collect::<Result<Vec<_>, _>>()?,
         ty,
     })
+}
+
+/// final check 用の stable place projection を layout 再計算なしで戻す。
+///
+/// final check entry の key には Resource IR body hash が含まれるため、同じ body に
+/// 対する replay では projection 列そのものが proof surface の一部である。generic や
+/// raw storage view のように現在の `TypeCtx` だけでは field layout を再計算できない場合も、
+/// stable entry に保存済みの projection をそのまま戻し、offset 内 place の再投影に失敗
+/// した場合だけ安全側で reject する。
+fn reproject_resource_place_projection_suffix_without_layout(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+) -> Result<Vec<PlaceProjection>, ResourceSummaryInitializedFunctionCheckEntryReprojectionReject> {
+    suffix
+        .iter()
+        .map(|projection| {
+            reproject_place_projection(ctx, projection)
+                .ok_or(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Place)
+        })
+        .collect()
 }
 
 fn reproject_resource_place_root(
@@ -2834,16 +3073,19 @@ fn reproject_summary_offset(
         ResourceSummaryStableOffset::Symbolic { place } => SummaryOffset::Symbolic {
             place: Box::new(reproject_summary_place(ctx, place)?),
         },
+        ResourceSummaryStableOffset::ResourceSymbolic { .. } => return None,
         ResourceSummaryStableOffset::ScaledSymbolic { place, scale } => {
             SummaryOffset::ScaledSymbolic {
                 place: Box::new(reproject_summary_place(ctx, place)?),
                 scale: *scale,
             }
         }
+        ResourceSummaryStableOffset::ResourceScaledSymbolic { .. } => return None,
         ResourceSummaryStableOffset::Offset { place, offset } => SummaryOffset::Offset {
             place: Box::new(reproject_summary_place(ctx, place)?),
             offset: *offset,
         },
+        ResourceSummaryStableOffset::ResourceOffset { .. } => return None,
         ResourceSummaryStableOffset::ScaledOffset {
             place,
             offset,
@@ -2853,6 +3095,7 @@ fn reproject_summary_offset(
             offset: *offset,
             scale: *scale,
         },
+        ResourceSummaryStableOffset::ResourceScaledOffset { .. } => return None,
         ResourceSummaryStableOffset::Unknown => SummaryOffset::Unknown,
     })
 }
@@ -3343,14 +3586,27 @@ fn reproject_resource_offset(
         ResourceSummaryStableOffset::Symbolic { place } => ResourceOffset::Symbolic {
             place: Box::new(reproject_stable_place_to_place(ctx, place)?),
         },
+        ResourceSummaryStableOffset::ResourceSymbolic { place } => ResourceOffset::Symbolic {
+            place: Box::new(reproject_stable_resource_place_to_place(ctx, place)?),
+        },
         ResourceSummaryStableOffset::ScaledSymbolic { place, scale } => {
             ResourceOffset::ScaledSymbolic {
                 place: Box::new(reproject_stable_place_to_place(ctx, place)?),
                 scale: *scale,
             }
         }
+        ResourceSummaryStableOffset::ResourceScaledSymbolic { place, scale } => {
+            ResourceOffset::ScaledSymbolic {
+                place: Box::new(reproject_stable_resource_place_to_place(ctx, place)?),
+                scale: *scale,
+            }
+        }
         ResourceSummaryStableOffset::Offset { place, offset } => ResourceOffset::Offset {
             place: Box::new(reproject_stable_place_to_place(ctx, place)?),
+            offset: *offset,
+        },
+        ResourceSummaryStableOffset::ResourceOffset { place, offset } => ResourceOffset::Offset {
+            place: Box::new(reproject_stable_resource_place_to_place(ctx, place)?),
             offset: *offset,
         },
         ResourceSummaryStableOffset::ScaledOffset {
@@ -3362,8 +3618,25 @@ fn reproject_resource_offset(
             offset: *offset,
             scale: *scale,
         },
+        ResourceSummaryStableOffset::ResourceScaledOffset {
+            place,
+            offset,
+            scale,
+        } => ResourceOffset::ScaledOffset {
+            place: Box::new(reproject_stable_resource_place_to_place(ctx, place)?),
+            offset: *offset,
+            scale: *scale,
+        },
         ResourceSummaryStableOffset::Unknown => ResourceOffset::Unknown,
     })
+}
+
+fn reproject_stable_resource_place_to_place(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    place: &ResourceSummaryStableResourcePlace,
+) -> Option<Place> {
+    let place_ordinals = ResourceFunctionPlaceOrdinalMap::new(ctx.function);
+    reproject_resource_place(ctx, &place_ordinals, place).ok()
 }
 
 fn reproject_stable_place_to_place(
@@ -3580,7 +3853,9 @@ mod tests {
         RawCellReleaseParamRequirement, RawCellReleaseRequirementKind,
     };
     use super::super::super::model::{
-        Place, PlaceProjection, ResourceBlockId, ResourceFunction, ResourceLocal, ResourceOffset,
+        Place, PlaceProjection, PlaceRoot, ResourceBlock, ResourceBlockId, ResourceExprKind,
+        ResourceFunction, ResourceId, ResourceLocal, ResourceOffset, ResourceOp,
+        ResourceTerminator, StorageId, StorageOrigin,
     };
     use super::*;
 
@@ -3643,6 +3918,208 @@ mod tests {
             0,
             1,
         )
+    }
+
+    #[test]
+    fn stable_initialized_check_reprojects_body_local_generic_state_type() {
+        let mut types = TypeCtx::new();
+        let value_ty = types.fresh_var(Some("T".to_string()));
+        let output = Place::temporary(ResourceId(0), value_ty);
+        let function = ResourceFunction {
+            name: "generic_body_local".to_string(),
+            origin_name: "generic_body_local".to_string(),
+            type_params: Vec::new(),
+            params: Vec::new(),
+            result: types.unit(),
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![ResourceOp::Expr {
+                    kind: ResourceExprKind::Literal,
+                    output: output.clone(),
+                    ty: value_ty,
+                    span: Span::dummy(),
+                }],
+                terminator: ResourceTerminator::Return {
+                    value: None,
+                    span: Span::dummy(),
+                },
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        };
+        let check = ResourceFunctionCheck {
+            name: function.name.clone(),
+            final_cells: vec![CellStateEntry {
+                place: output.clone(),
+                state: CellState::Initialized(value_ty),
+            }],
+            final_collection_slots: Vec::new(),
+            auto_drop_points: Vec::new(),
+            deferred: ResourceCheckDeferred::default(),
+        };
+        let entry = stable_initialized_function_check_entry(&types, &function, &check)
+            .expect("body-local generic final state should be representable");
+        let signature_ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("signature-only context itself should build");
+        assert!(matches!(
+            reproject_initialized_function_check_entry_result(
+                &signature_ctx,
+                &function.name,
+                &entry
+            ),
+            Err(ResourceSummaryInitializedFunctionCheckEntryReprojectionReject::Type)
+        ));
+        let body_ctx = ResourceSummaryTypeReprojection::new_for_initialized_function_check(
+            &types,
+            &function,
+            &[],
+        )
+        .expect("final check context should include function body types");
+
+        let reprojected =
+            reproject_initialized_function_check_entry(&body_ctx, &function.name, &entry)
+                .expect("body-local generic final state should reproject");
+
+        assert_eq!(reprojected.final_cells, check.final_cells);
+    }
+
+    #[test]
+    fn stable_initialized_check_reprojects_temporary_storage_offset_place() {
+        let types = TypeCtx::new();
+        let index = Place::temporary(ResourceId(0), types.i32());
+        let storage = Place {
+            root: PlaceRoot::Storage(StorageId(0)),
+            projections: Vec::new(),
+            ty: types.i32(),
+        };
+        let slot = storage.clone().with_projection(
+            PlaceProjection::StorageOffset(ResourceOffset::ScaledOffset {
+                place: Box::new(index.clone()),
+                offset: 4,
+                scale: 4,
+            }),
+            types.i32(),
+        );
+        let function = ResourceFunction {
+            name: "temporary_storage_offset".to_string(),
+            origin_name: "temporary_storage_offset".to_string(),
+            type_params: Vec::new(),
+            params: Vec::new(),
+            result: types.unit(),
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![
+                    ResourceOp::Expr {
+                        kind: ResourceExprKind::LiteralI32(0),
+                        output: index,
+                        ty: types.i32(),
+                        span: Span::dummy(),
+                    },
+                    ResourceOp::StorageOrigin {
+                        target: storage,
+                        origin: StorageOrigin::Internal,
+                        span: Span::dummy(),
+                    },
+                ],
+                terminator: ResourceTerminator::Return {
+                    value: None,
+                    span: Span::dummy(),
+                },
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        };
+        let check = ResourceFunctionCheck {
+            name: function.name.clone(),
+            final_cells: Vec::new(),
+            final_collection_slots: vec![CollectionSlotStateEntry {
+                slot: slot.clone(),
+                state: CollectionSlotState::Initialized(types.i32()),
+            }],
+            auto_drop_points: Vec::new(),
+            deferred: ResourceCheckDeferred::default(),
+        };
+
+        let entry = stable_initialized_function_check_entry(&types, &function, &check)
+            .expect("function-local offset place should be representable in final check entry");
+        let ctx = ResourceSummaryTypeReprojection::new_for_initialized_function_check(
+            &types,
+            &function,
+            &[],
+        )
+        .expect("primitive final check context should build");
+        let reprojected = reproject_initialized_function_check_entry(&ctx, &function.name, &entry)
+            .expect("function-local offset place should reproject");
+
+        assert_eq!(
+            reprojected.final_collection_slots,
+            check.final_collection_slots
+        );
+    }
+
+    #[test]
+    fn stable_initialized_check_reprojects_layout_opaque_generic_projection() {
+        let mut types = TypeCtx::new();
+        let generic = types.fresh_var(Some("T".to_string()));
+        let param = Place::local("value".to_string(), generic);
+        let projected = param.clone().with_projection(
+            PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            },
+            generic,
+        );
+        let function = ResourceFunction {
+            name: "layout_opaque_projection".to_string(),
+            origin_name: "layout_opaque_projection".to_string(),
+            type_params: vec![generic],
+            params: vec![ResourceLocal {
+                name: "value".to_string(),
+                ty: generic,
+                mutable: false,
+                place: param,
+            }],
+            result: types.unit(),
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: Vec::new(),
+                terminator: ResourceTerminator::Return {
+                    value: None,
+                    span: Span::dummy(),
+                },
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        };
+        let check = ResourceFunctionCheck {
+            name: function.name.clone(),
+            final_cells: vec![CellStateEntry {
+                place: projected,
+                state: CellState::Initialized(generic),
+            }],
+            final_collection_slots: Vec::new(),
+            auto_drop_points: Vec::new(),
+            deferred: ResourceCheckDeferred::default(),
+        };
+        let entry = stable_initialized_function_check_entry(&types, &function, &check)
+            .expect("layout-opaque projection should still have a stable final check surface");
+        let ctx = ResourceSummaryTypeReprojection::new_for_initialized_function_check(
+            &types,
+            &function,
+            &[generic],
+        )
+        .expect("generic final check context should build");
+
+        let reprojected = reproject_initialized_function_check_entry(&ctx, &function.name, &entry)
+            .expect("layout-opaque stable projection should reproject from the body hash");
+
+        assert_eq!(reprojected.final_cells, check.final_cells);
     }
 
     #[test]

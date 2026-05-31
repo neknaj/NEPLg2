@@ -48024,3 +48024,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - release Web RPN same-session code edit 測定 `tmp/rpn_final_check_cache_code_edit_20260531.json` では、base `compile_ms=12465`、unused local 追加 edit `compile_ms=8254` だった。edit delta は `resource_initialized_function_checks=128`、`resource_initialized_function_check_ops=2202`、`resource_summary_value_initialized_function_check_hits=160`、`resource_summary_value_replayed_ops=2122` である。
 - 直前の i32 scalar checkpoint の `resource_initialized_function_checks=288` からは減ったが、まだ `initialized_function_check_reprojection_value_type_bypasses=73`、`initialized_function_check_reprojection_value_place_bypasses=52` が残る。この残件は `ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A` に分離した。
 - memo_call / 高階関数側の subagent review に基づき、Phase 1 は通常ライブラリではなく compiler-known primitive として `memo_call @pure_named_func` に限定する。受け入れ条件を `ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C` に分離した。
+
+## 2026-05-31 Agent final check reprojection boundary checkpoint
+
+- Zenn の試作段階方針、性能追求方針、純粋 query cache 方針を再確認した。`plan.md` は変更していない。
+- subagent review では、125 件の final check replay bypass は stale cache ではなく、entry を現在の function boundary へ戻せない自己再投影の問題だと確認した。特に signature に現れない body-local type と function-local storage offset place が主要因だった。
+- `ResourceSummaryTypeReprojection::new_for_initialized_function_check` を追加し、function body に現れる `place.ty`、layout query type、call target type arguments、indirect call signature、collection slot lifecycle / drop / transform の value type を final check 専用 boundary へ入れた。
+- final check entry の `StorageOffset` は、parameter-relative place だけでなく function-local `Temporary` / `Storage` ordinal を持つ resource place として保存・再投影できるようにした。summary/raw-init の `SummaryOffset` ではこの final check 専用 surface を受け取らず、他 summary kind へ混ぜない。
+- Resource IR body hash が同一の final check replay では、generic や raw storage view のため現在の `TypeCtx` だけで layout を再計算できない projection suffix を、保存済み stable projection surface から戻す。offset 内 place や type の再投影に失敗した場合は従来通り fail-closed に通常 checker へ戻る。
+- focused regression として、body-local generic final state type、temporary を使う storage offset place、layout-opaque generic projection の replay を追加した。
+- release Web RPN same-session code edit 測定 `tmp/rpn_final_check_reprojection_boundary_20260531.json` では、edit compile が `8254ms` から `6021ms` へ改善した。edit delta は `resource_initialized_function_checks=20`、`resource_initialized_function_check_ops=371`、`resource_summary_value_initialized_function_check_hits=268`、`initialized_function_check_reprojection_value_place_bypasses=0`、`initialized_function_check_reprojection_value_type_bypasses=7` である。
+- `ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A` は verified / resolved にした。残った 7 件の type-only bypass は `ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9` に分離した。
+- memo_call / 高階関数側の subagent review では、Phase 1 を `memo_call @pure_named_func` の compiler-known primitive に限定し、通常 stdlib name allowlist、string-only function identity、raw memory pure rollback を避けるべきだと確認した。この結果を `doc/neplg2/private_effect_memoization_purity_design.md` に追記した。

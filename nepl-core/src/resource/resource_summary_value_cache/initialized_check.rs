@@ -66,7 +66,12 @@ impl ResourceSummaryValueCache {
         };
         let entry = stable_initialized_function_check_entry(types, function, check)
             .map_err(InitializedFunctionCheckEntryCandidateReject::UnstableEntry)?;
-        let Some(reprojection) = ResourceSummaryTypeReprojection::new(types, function, type_params)
+        let Some(reprojection) =
+            ResourceSummaryTypeReprojection::new_for_initialized_function_check(
+                types,
+                function,
+                type_params,
+            )
         else {
             return Err(InitializedFunctionCheckEntryCandidateReject::ReprojectionContext);
         };
@@ -213,7 +218,12 @@ impl ResourceSummaryValueCache {
             generic_type_args,
         )?;
         let entry = self.initialized_function_check_entries.get(&key)?.clone();
-        let Some(reprojection) = ResourceSummaryTypeReprojection::new(types, function, type_params)
+        let Some(reprojection) =
+            ResourceSummaryTypeReprojection::new_for_initialized_function_check(
+                types,
+                function,
+                type_params,
+            )
         else {
             self.record_initialized_function_check_replay_bypass(op_count);
             return None;

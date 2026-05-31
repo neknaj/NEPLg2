@@ -238,6 +238,12 @@ memoized function は内部的に private cache を保持する。しかし、�
 
 Phase 1 の責務分担:
 
+- `memo_call` は通常 stdlib 関数名の allowlist ではなく compiler-known primitive identity として扱う。
+- typecheck、Resource IR、SourceCapability、backend が同じ primitive identity を共有し、path 名や表示名ではなく解決済み定義を根拠にする。
+- `ResourceOp::FunctionValue` と function alias tracking は string name だけでは足りないため、typed function identity の実装を先に行う。
+- `MemoKey` / `MemoValue` は Phase 1 では primitive scalar、`unit`、それらだけで構成された Copy 相当の構造値へ限定し、`str`、reference、raw pointer、owner token、function value、Drop / Clone が絡む値は拒否する。
+- `PrivateCache rho` と SourceCapability exact use-site boundary を追加するまでは、raw memory operation を単に pure と見なしてはならない。
+
 | 領域 | 責務 |
 |---|---|
 | typecheck | `f : pure fn K V`、`K: MemoKey`、`V: MemoValue` を検査する。 |

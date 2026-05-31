@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T06:25:03.945Z",
+  "generated_at": "2026-05-31T06:56:33.257Z",
   "counts": {
-    "total": 1290,
+    "total": 1291,
     "open": 26,
-    "resolved": 1264,
+    "resolved": 1265,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -12,9 +12,9 @@
         "resolved": 326
       },
       "core": {
-        "total": 645,
+        "total": 646,
         "open": 19,
-        "resolved": 626
+        "resolved": 627
       },
       "neplg21": {
         "total": 2,
@@ -370,8 +370,8 @@
       "file": "items/ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C.md"
     },
     {
-      "id": "ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A",
-      "title": "final initialized check replay still has reprojection bypasses",
+      "id": "ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9",
+      "title": "final initialized check residual type bypasses need stable type provenance",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -379,10 +379,10 @@
       "type": "performance",
       "created": "2026-05-31",
       "updated": "2026-05-31",
-      "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/resource/initialized.rs",
+      "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A.md"
+      "file": "items/ISS-20260531T065418483Z-FINAL-INITIALIZED-CHECK-RESIDUAL-TYP-320256A9.md"
     },
     {
       "id": "ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D",
@@ -10013,6 +10013,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93.md"
+    },
+    {
+      "id": "ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A",
+      "title": "final initialized check replay still has reprojection bypasses",
+      "area": "core",
+      "status": "verified",
+      "resolved": true,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/resource/resource_summary_value_cache/initialized_check.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A.md"
     },
     {
       "id": "ISS-20260531T132755602Z-RAW-INIT-COMPLETE-LEAF-REPROJECTION-TYPE-CANON-4E8A1A2C",
