@@ -27,6 +27,11 @@ use super::initialized_alias_flow::{
     compute_raw_cell_address_return_summaries_with_recomputations, expr_kind_preserves_raw_alias,
     expr_kind_preserves_read_scalar_facts, RawCellAddressReturnSummaryIndex,
 };
+use super::initialized_function_check_value_cache::{
+    initialized_function_check_cache_input,
+    record_initialized_function_check_value_cache_candidate,
+    replay_initialized_function_check_from_value_cache,
+};
 use super::initialized_path_state::{merge_path_alternatives_into, ResourcePathAlternatives};
 use super::initialized_scalar_flow::{
     compute_i32_scalar_return_summaries, I32ScalarReturnSummaryIndex,
@@ -48,6 +53,7 @@ use super::report::{
 use super::resource_summary_value_cache::{
     ResourceSummaryComputationStage, ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
+use super::summary_dependency::build_function_summary_dependencies;
 use super::timing::{ResourceFunctionTimer, ResourceStageTimer};
 
 pub fn check_resource_initialized_moves(
@@ -157,11 +163,37 @@ fn check_resource_initialized_moves_inner(
         CollectionSlotLifecycleFunctionSummaryIndex::new(&collection_slot_summaries);
     stage_start.log("resource_initialized_collection_slot_summaries");
     let stage_start = ResourceStageTimer::start();
+    let initialized_function_check_dependencies =
+        summary_value_cache_context.map(|_| build_function_summary_dependencies(module));
 
-    for function in &module.functions {
+    for (function_index, function) in module.functions.iter().enumerate() {
         let function_start = ResourceFunctionTimer::start();
+        let function_op_count = resource_function_op_count(function);
+        let function_check_cache_input = initialized_function_check_cache_input(
+            summary_value_cache.as_deref_mut(),
+            summary_value_cache_context,
+            types,
+            module,
+            initialized_function_check_dependencies.as_deref(),
+            function_index,
+            function,
+            function_op_count,
+        );
+        if let Some(replayed_check) = replay_initialized_function_check_from_value_cache(
+            summary_value_cache.as_deref_mut(),
+            summary_value_cache_context,
+            types,
+            function,
+            function_check_cache_input.as_ref(),
+            function_op_count,
+        ) {
+            merge_deferred(&mut deferred, replayed_check.deferred);
+            functions.push(replayed_check);
+            function_start.log("resource_initialized_function_check", function);
+            continue;
+        }
         if let Some(cache) = summary_value_cache.as_deref_mut() {
-            cache.record_initialized_function_check(resource_function_op_count(function));
+            cache.record_initialized_function_check(function_op_count);
         }
         let mut engine = ResourceCheckEngine {
             function: function.name.as_str(),
@@ -182,14 +214,26 @@ fn check_resource_initialized_moves_inner(
         let (final_cells, final_collection_slots) = engine.check_function(function);
         merge_deferred(&mut deferred, engine.deferred);
         dedup_resource_check_diagnostics(&mut engine.diagnostics);
+        let function_has_diagnostics = !engine.diagnostics.is_empty();
         diagnostics.extend(engine.diagnostics);
-        functions.push(ResourceFunctionCheck {
+        let function_check = ResourceFunctionCheck {
             name: function.name.clone(),
             final_cells,
             final_collection_slots,
             auto_drop_points: engine.auto_drop_points,
             deferred: engine.deferred,
-        });
+        };
+        record_initialized_function_check_value_cache_candidate(
+            summary_value_cache.as_deref_mut(),
+            summary_value_cache_context,
+            types,
+            function,
+            function_check_cache_input.as_ref(),
+            &function_check,
+            function_has_diagnostics,
+            function_op_count,
+        );
+        functions.push(function_check);
         function_start.log("resource_initialized_function_check", function);
     }
     stage_start.log("resource_initialized_function_checks");
@@ -1018,3 +1062,7 @@ mod tests {
         assert!(function_needs_local_transform_range_certificates(&function));
     }
 }
+
+#[cfg(test)]
+#[path = "initialized_function_check_value_cache_tests.rs"]
+mod initialized_function_check_value_cache_tests;

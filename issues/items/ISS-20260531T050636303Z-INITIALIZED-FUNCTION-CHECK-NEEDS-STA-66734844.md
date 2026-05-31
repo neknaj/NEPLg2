@@ -60,3 +60,19 @@ inputs で再実行する必要はない。
 - focused unit test で diagnostic-free function check result が同じ body / summary inputs で replay されることを確認する。
 - function body、summary dependency、source capability policy、signature type の変更で stale replay しないことを確認する。
 - RPN same-session code edit JSON で `resource_initialized_function_checks` と `resource_initialized_function_check_ops` が大きく減ることを確認する。
+
+## 2026-05-31 checkpoint
+
+diagnostic-free かつ `auto_drop_points` を持たない `ResourceFunctionCheck` だけを stable entry として保存する MVP を実装した。保存対象は `final_cells`、`final_collection_slots`、`ResourceCheckDeferred` に限定し、diagnostic span と drop elaboration 用 span は cache しない。
+
+key には Resource IR body hash、source capability policy hash、typed signature/type boundary、dependency closure hash を含める。`ResourceId` / `StorageId` は stable value へ直接保存せず、関数本文内の出現順 ordinal として保存し、replay 時に現在の同じ body から実 id へ戻す。
+
+focused regression:
+
+- 同一 diagnostic-free function は二回目 compile で `ResourceCheckEngine` を再実行しない。
+- function body が変わると replay miss になり、通常 checker に戻る。
+- `auto_drop_points` を持つ entry は no-store になる。
+
+RPN same-session code edit 測定 `tmp/rpn_final_check_cache_code_edit_20260531.json` では、edit delta が `resource_initialized_function_checks=128`、`resource_initialized_function_check_ops=2202`、`resource_summary_value_initialized_function_check_hits=160`、`resource_summary_value_replayed_ops=2122` になった。直前の i32 scalar checkpoint の `resource_initialized_function_checks=288` からは減ったが、まだ `initialized_function_check_reprojection_value_type_bypasses=73`、`initialized_function_check_reprojection_value_place_bypasses=52` が残る。
+
+この issue は partial implementation として継続する。残った replay bypass は `ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A` に分離して追跡する。

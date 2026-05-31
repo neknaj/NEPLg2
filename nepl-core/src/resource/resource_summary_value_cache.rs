@@ -13,6 +13,7 @@ mod candidate_key;
 mod context;
 mod dependency_hash;
 mod i32_scalar;
+mod initialized_check;
 mod key;
 mod raw_init;
 mod stable_hash;
@@ -22,9 +23,11 @@ mod type_boundary;
 
 pub use self::context::ResourceSummaryValueCacheContext;
 pub(super) use self::dependency_hash::{
-    i32_scalar_dependency_closure_hash, raw_init_dependency_closure_hash,
+    i32_scalar_dependency_closure_hash, initialized_function_check_dependency_closure_hash,
+    raw_init_dependency_closure_hash,
 };
 
+pub(in crate::resource) use self::candidate_key::ResourceSummaryDependencyClosureHash;
 use self::candidate_key::{
     drop_traversal_forall_leaf_entry_candidate_key_and_entry, drop_traversal_forall_leaf_entry_key,
     ResourceSummaryGenericTypeArgumentKeyInput,
@@ -32,8 +35,9 @@ use self::candidate_key::{
 use self::key::ResourceSummaryValueCacheKey;
 use self::stable_mirror::{
     reproject_drop_traversal_forall_leaf_entry, ResourceSummaryStableDropTraversalForallLeafEntry,
-    ResourceSummaryStableI32ScalarReturnFactsEntry, ResourceSummaryStableRawInitCompleteLeafEntry,
-    ResourceSummaryTypeReprojection,
+    ResourceSummaryStableI32ScalarReturnFactsEntry,
+    ResourceSummaryStableInitializedFunctionCheckEntry,
+    ResourceSummaryStableRawInitCompleteLeafEntry, ResourceSummaryTypeReprojection,
 };
 
 /// Resource IR summary value cache の累積統計。
@@ -76,6 +80,22 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_i32_scalar_return_facts_reprojection_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_reprojection_context_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_hits: usize,
+    pub resource_summary_value_initialized_function_check_stores: usize,
+    pub resource_summary_value_initialized_function_check_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_dependency_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_diagnostic_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_missing_source_policy_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_unstable_key_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_unstable_entry_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_unstable_entry_auto_drop_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_unstable_entry_place_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_unstable_entry_type_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_reprojection_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_reprojection_context_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_reprojection_value_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_reprojection_value_place_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_reprojection_value_type_bypasses: usize,
     pub resource_summary_value_raw_init_param_facts_hits: usize,
     pub resource_summary_value_raw_init_param_facts_stores: usize,
     pub resource_summary_value_raw_init_param_facts_bypasses: usize,
@@ -141,6 +161,8 @@ pub struct ResourceSummaryValueCache {
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableDropTraversalForallLeafEntry>,
     i32_scalar_return_facts_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableI32ScalarReturnFactsEntry>,
+    initialized_function_check_entries:
+        BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableInitializedFunctionCheckEntry>,
     raw_init_complete_leaf_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableRawInitCompleteLeafEntry>,
 }
@@ -163,6 +185,13 @@ pub(super) struct ResourceSummaryI32ScalarReturnFactsEntryCandidate {
     entry: ResourceSummaryStableI32ScalarReturnFactsEntry,
 }
 
+#[derive(Debug, Clone)]
+pub(super) struct ResourceSummaryInitializedFunctionCheckEntryCandidate {
+    key: ResourceSummaryValueCacheKey,
+    entry: ResourceSummaryStableInitializedFunctionCheckEntry,
+    op_count: usize,
+}
+
 impl ResourceSummaryValueCache {
     pub fn new() -> Self {
         Self::default()
@@ -172,6 +201,7 @@ impl ResourceSummaryValueCache {
         self.stats = ResourceSummaryValueCacheStats::default();
         self.drop_traversal_forall_leaf_entries.clear();
         self.i32_scalar_return_facts_entries.clear();
+        self.initialized_function_check_entries.clear();
         self.raw_init_complete_leaf_entries.clear();
     }
 

@@ -16,6 +16,7 @@
 - [ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7](../../issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md)
 - [ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7](../../issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md)
 - [ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2](../../issues/items/ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2.md)
+- [ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C](../../issues/items/ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C.md)
 
 ## 現行実装の境界
 
@@ -248,6 +249,8 @@ Phase 1 の責務分担:
 Phase 2 では、`PrivateState rho` と `mask_private` を一般化し、local mutable buffer、private arena、dynamic programming table、union-find、normalization cache に同じ規則を適用する。
 
 `memo_call` は stdlib 関数名の allowlist ではなく、compiler-known primitive registry に載せる。typed primitive enum、typecheck rule、Resource IR lowering rule、SourceCapability rule、backend rule を同じ primitive identity に接続し、名前変更や import alias で proof 境界が崩れないようにする。
+
+2026-05-31 の追加 review では、Phase 1 の実装 issue を umbrella issue から独立させた。`ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C` は `memo_call @pure_named_func` の accepted path と、impure function、capturing function、generic unresolved function、reference/raw pointer key/value、cache stats/clear/ref exposure の rejected matrix を同じ受け入れ条件として扱う。
 
 ## backend 表現
 

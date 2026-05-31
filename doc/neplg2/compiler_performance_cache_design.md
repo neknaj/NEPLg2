@@ -259,6 +259,36 @@ prewarm しない対象:
 
 同じ review で、RPN compile の現在の支配点は Resource summary value cache の raw-init replay と再確認した。`tmp/rpn_owner_boundary_20260531.json` の初回測定では `compile_ms=9615`、`raw_init_param_facts_stores=165`、`bypasses=60`、`incomplete_leaf=37`、`reprojection_value=23`、`param_cell_stable_type=23` である。次の性能 checkpoint は、`reprojection_context=0`、`unstable_key=0`、`unstable_entry=0` を維持しながら、labelled open generic の provenance / ordinal を stable entry と key へ加えて `param_cell_stable_type` を減らす。
 
+## Final initialized function check cache checkpoint
+
+2026-05-31 の checkpoint では、raw-init / i32 scalar summary replay 後にも残っていた final initialized function check の全関数再実行を削るため、`ResourceFunctionCheck` の diagnostic-free stable entry cache を追加した。
+
+cache する artifact:
+
+- `final_cells`。
+- `final_collection_slots`。
+- `ResourceCheckDeferred`。
+
+cache しない artifact:
+
+- `ResourceCheckDiagnostic`。diagnostic は `Span` を持つため、古い source map 由来の診断を replay しない。
+- `auto_drop_points`。drop elaboration が span 付きの drop plan として後続生成に使うため、span-free drop plan と current body への再束縛を設計するまでは no-store にする。
+- `PlaceRoot::Unknown` を含む final state。
+
+key は Resource IR body hash、source capability policy hash、typed signature/type boundary、generic type argument mode、dependency closure hash を含む。final state に含まれる `TypeId` は `ResourceSummaryStableTypeKey` へ変換し、replay 時に現在 compile の `TypeCtx` へ戻せる場合だけ hit とする。
+
+`ResourceId` / `StorageId` は stable value へ直接保存しない。関数本文を決定的順序で走査し、temporary / storage root を出現順 ordinal に正規化して保存する。replay 側でも現在の同じ body から ordinal を実 id へ戻すため、compile session 内の id 割当が変わっても stale id を直接使わない。
+
+focused regression:
+
+- 同一 diagnostic-free function は二回目 compile で `ResourceCheckEngine` を再実行しない。
+- function body が変わると miss になり通常 checker へ戻る。
+- `auto_drop_points` を持つ function check は no-store になる。
+
+release Web RPN same-session code edit 測定 `tmp/rpn_final_check_cache_code_edit_20260531.json` では、base `compile_ms=12465`、unused local 追加 edit `compile_ms=8254` だった。edit delta は `resource_initialized_function_checks=128`、`resource_initialized_function_check_ops=2202`、`resource_summary_value_initialized_function_check_hits=160`、`resource_summary_value_replayed_ops=2122` である。
+
+直前の i32 scalar checkpoint では code edit delta が `resource_initialized_function_checks=288` だったため、final check cache は一部の stdlib function check を skip できている。一方で、まだ `initialized_function_check_reprojection_value_type_bypasses=73` と `initialized_function_check_reprojection_value_place_bypasses=52` が残る。これは final check cache 自体を閉じるには不十分なので、残件は `ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A` で追跡する。
+
 ## RPN code-edit stage breakdown checkpoint
 
 2026-05-31 の complete raw-init leaf replay と return / byte-range type canonicalization 後、RPN same-session code edit は raw-init replay miss をほぼ解消したが、まだ秒単位である。`tmp/rpn_return_type_canonicalization_code_edit_20260531.json` では base `compile_ms=8861`、local `i32` binding 追加 edit `compile_ms=6703`、edit delta は `resource_summary_value_replayed_ops=253`、`resource_summary_value_recomputed_ops=21`、`raw_init_param_facts_bypasses=0` だった。

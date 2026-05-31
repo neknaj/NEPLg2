@@ -48012,3 +48012,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - focused regression は complete facts surface replay、empty facts replay、function body / source policy / signature change miss、callee body change miss を確認する。
 - RPN same-session code edit 測定 `tmp/rpn_i32_scalar_empty_cache_code_edit_20260531.json` では、base `compile_ms=10635`、unused local 追加 edit `compile_ms=6496` だった。edit delta は `resource_i32_scalar_summary_recomputations=14`、`resource_i32_scalar_summary_count=87`、`resource_raw_init_summary_recomputations=81`、`resource_initialized_function_checks=288`、`resource_summary_value_i32_scalar_return_facts_hits=429`、`resource_summary_value_replayed_ops=682` である。
 - `ISS-20260531T050630951Z-I32-SCALAR-SUMMARY-NEEDS-STABLE-MIRR-E70E2D93` は verified / resolved にした。RPN code edit はまだ秒単位なので、次の支配項は `ISS-20260531T050636303Z-INITIALIZED-FUNCTION-CHECK-NEEDS-STA-66734844` と raw-init residual recomputation として継続する。
+
+## 2026-05-31 Agent final initialized function check cache checkpoint
+
+- Zenn の試作段階方針、性能追求方針、純粋 query cache 方針を再確認した。`plan.md` は変更していない。
+- final initialized function check のうち diagnostic-free かつ `auto_drop_points` を持たない `ResourceFunctionCheck` を stable entry として保存し、replay hit では `ResourceCheckEngine::check_function` を skip するようにした。
+- stable entry は `final_cells`、`final_collection_slots`、`ResourceCheckDeferred` だけを保持する。diagnostic span と drop elaboration 用 span は保存せず、診断あり関数と auto drop あり関数は no-store に倒す。
+- key には Resource IR body hash、source capability policy hash、typed signature/type boundary、generic type argument mode、dependency closure hash を含める。`ResourceId` / `StorageId` は stable value へ直接保存せず、関数本文内出現順 ordinal として保存し、replay 時に現在 body から実 id へ戻す。
+- focused regression では、同一 diagnostic-free function の二回目 compile が final checker を再実行しないこと、body 変更で miss すること、auto drop point が no-store になることを確認した。
+- subagent review では、diagnostics と auto drop plan を MVP で保存しない判断、dependency closure key、function単位 counter、function-local id ordinal 化が妥当と確認した。一方で、高階関数設計を広げるなら `summary_dependency` の indirect call / function value dependency 取りこぼしは再点検が必要である。
+- release Web RPN same-session code edit 測定 `tmp/rpn_final_check_cache_code_edit_20260531.json` では、base `compile_ms=12465`、unused local 追加 edit `compile_ms=8254` だった。edit delta は `resource_initialized_function_checks=128`、`resource_initialized_function_check_ops=2202`、`resource_summary_value_initialized_function_check_hits=160`、`resource_summary_value_replayed_ops=2122` である。
+- 直前の i32 scalar checkpoint の `resource_initialized_function_checks=288` からは減ったが、まだ `initialized_function_check_reprojection_value_type_bypasses=73`、`initialized_function_check_reprojection_value_place_bypasses=52` が残る。この残件は `ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A` に分離した。
+- memo_call / 高階関数側の subagent review に基づき、Phase 1 は通常ライブラリではなく compiler-known primitive として `memo_call @pure_named_func` に限定する。受け入れ条件を `ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C` に分離した。

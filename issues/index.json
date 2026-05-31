@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T05:42:35.656Z",
+  "generated_at": "2026-05-31T06:25:03.945Z",
   "counts": {
-    "total": 1288,
-    "open": 24,
+    "total": 1290,
+    "open": 26,
     "resolved": 1264,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 326
       },
       "core": {
-        "total": 643,
-        "open": 17,
+        "total": 645,
+        "open": 19,
         "resolved": 626
       },
       "neplg21": {
@@ -353,6 +353,36 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T050636303Z-INITIALIZED-FUNCTION-CHECK-NEEDS-STA-66734844.md"
+    },
+    {
+      "id": "ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C",
+      "title": "memo_call phase1 needs compiler-known primitive boundary",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/typecheck; nepl-core/src/resource; stdlib",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C.md"
+    },
+    {
+      "id": "ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A",
+      "title": "final initialized check replay still has reprojection bypasses",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-05-31",
+      "updated": "2026-05-31",
+      "target": "nepl-core/src/resource/resource_summary_value_cache/stable_mirror.rs; nepl-core/src/resource/initialized.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260531T061756145Z-FINAL-INITIALIZED-CHECK-REPLAY-STILL-5CB1018A.md"
     },
     {
       "id": "ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D",

@@ -296,6 +296,7 @@ mod initialized_external_io_input;
 mod initialized_external_io_iov;
 mod initialized_external_io_payload;
 mod initialized_external_seed;
+mod initialized_function_check_value_cache;
 mod initialized_host_dependent;
 mod initialized_op_dispatch;
 mod initialized_path_state;
