@@ -3627,6 +3627,18 @@ impl CompilerSession {
             resource_stats.resource_summary_value_raw_init_param_facts_reprojection_value_param_release_type_bypasses,
         );
         out.pop();
+        out.push_str(",\"resource_summary_value_i32_scalar_return_facts_reprojection_value_alias_bypasses\":");
+        out.push_str(&resource_stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_alias_bypasses.to_string());
+        out.push_str(",\"resource_summary_value_i32_scalar_return_facts_reprojection_value_offset_bypasses\":");
+        out.push_str(&resource_stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_offset_bypasses.to_string());
+        out.push_str(",\"resource_summary_value_i32_scalar_return_facts_reprojection_value_relation_bypasses\":");
+        out.push_str(&resource_stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_relation_bypasses.to_string());
+        out.push_str(",\"resource_summary_value_i32_scalar_return_facts_reprojection_value_constant_bypasses\":");
+        out.push_str(&resource_stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_constant_bypasses.to_string());
+        out.push_str(",\"resource_summary_value_i32_scalar_return_facts_reprojection_value_return_condition_bypasses\":");
+        out.push_str(&resource_stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_return_condition_bypasses.to_string());
+        out.push_str(",\"resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_condition_bypasses\":");
+        out.push_str(&resource_stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_condition_bypasses.to_string());
         out.push_str(",\"compile_stage_timing_status\":\"");
         out.push_str(*self.last_compile_stage_timing_status.borrow());
         out.push('"');

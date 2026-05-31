@@ -1218,6 +1218,16 @@ base `compile_ms=9510` / `resource_static_check=8446.129ms`、unused local edit
 と同じ形で、raw-init residual は `0` のままである。elapsed time は測定揺れの範囲であり、
 この follow-up 単体を 0.5 秒目標の達成要因とは扱わない。
 
+i32 scalar residual については、`ReprojectionValue` bypass を fact 種別へ分解した。
+`tmp/rpn_i32_fact_kind_counters_final_code_edit_20260531.json` では、unused local 追加 edit が
+`compile_ms=2219`、`resource_static_check=1922.104ms` で、edit delta の
+`resource_summary_value_i32_scalar_return_facts_recomputed_ops=+10` は alias `+5` / offset `+5`
+だけだった。reason 内訳は scalar type `+8` / parameter projection `+2`、condition 系は `0`
+である。したがって、次に直すべき i32 residual は condition propagation ではなく、
+alias / offset の stable mirror surface である。ただし base compile は同測定でも
+`compile_ms=8931`、`resource_static_check=8318.313ms` であり、stdlib prechecked artifact と
+Resource proof template の設計は引き続き優先する。
+
 当面の実装順は次の通りにする。
 
 - edit path: remaining i32 scalar residual を fact kind / function 単位で分解し、changed-function-only proof replay へ進む。

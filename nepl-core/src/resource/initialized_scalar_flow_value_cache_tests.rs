@@ -430,7 +430,7 @@ fn i32_scalar_candidate_reprojection_value_bypass_splits_scalar_type_reason() {
     let module = single_function_module(i32_scalar_function(
         &types,
         "i32_leaf",
-        types.i32(),
+        types.u8(),
         types.i32(),
         false,
     ));
@@ -458,6 +458,32 @@ fn i32_scalar_candidate_reprojection_value_bypass_splits_scalar_type_reason() {
         stats
             .resource_summary_value_i32_scalar_return_facts_reprojection_value_scalar_type_bypasses,
         6
+    );
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_alias_bypasses,
+        1
+    );
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_offset_bypasses,
+        1
+    );
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_relation_bypasses,
+        1
+    );
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_constant_bypasses,
+        1
+    );
+    assert_eq!(
+        stats
+            .resource_summary_value_i32_scalar_return_facts_reprojection_value_return_condition_bypasses,
+        1
+    );
+    assert_eq!(
+        stats
+            .resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_condition_bypasses,
+        1
     );
     assert_eq!(
         stats.resource_summary_value_i32_scalar_return_facts_stores,

@@ -63,7 +63,11 @@ impl I32ScalarReturnFacts {
         }
     }
 
-    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+    /// 要約に含まれる fact を種類ごとに数える。
+    ///
+    /// cache replay が失敗したとき、単純な合計だけでは alias / condition / constant の
+    /// どの再投影規則が残差になっているかを判別できない。この集計は通常の検査結果には
+    /// 影響せず、再利用できなかった proof の種類を観測するために使う。
     pub(super) fn fact_counts(&self) -> I32ScalarReturnFactCounts {
         I32ScalarReturnFactCounts {
             aliases: self.aliases.len(),
@@ -76,7 +80,11 @@ impl I32ScalarReturnFacts {
     }
 }
 
-#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+/// i32 scalar return summary に保存された fact の種類別件数。
+///
+/// `I32ScalarReturnFacts::len` は replay 量の合計を表す。一方でこの構造体は、
+/// どの種類の fact が stable value へ再投影できなかったかを cache 統計に分解して
+/// 出すための内訳である。
 pub(super) struct I32ScalarReturnFactCounts {
     pub(super) aliases: usize,
     pub(super) offsets: usize,
@@ -86,8 +94,8 @@ pub(super) struct I32ScalarReturnFactCounts {
     pub(super) parameter_conditions: usize,
 }
 
-#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
 impl I32ScalarReturnFactCounts {
+    #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     pub(super) fn total(&self) -> usize {
         self.aliases
             + self.offsets

@@ -48246,3 +48246,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - Web RPN same-session unused local edit 測定 `tmp/rpn_borrowed_worklist_dependents_code_edit_20260531.json` では、base `compile_ms=9510` / `resource_static_check=8446.129ms`、edit `compile_ms=2251` / `resource_static_check=1943.803ms` だった。
 - edit delta は `resource_raw_alias_summary_recomputations=+1`、`resource_i32_scalar_summary_recomputations=+5`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=+1`、`resource_summary_value_replayed_ops=+920`、`resource_summary_value_recomputed_ops=+10` で、前 checkpoint と同じ形である。
 - elapsed time はまだ秒単位であり、この follow-up 単体を目標達成とは扱わない。次は changed-function-only proof replay と typed expression subtree query を進める。
+
+## 2026-05-31 Agent i32 scalar fact kind counter checkpoint
+
+- remote/main と同期済みの `perf/i32-scalar-residual-reprojection-finish-20260531` branch で、i32 scalar residual の `ReprojectionValue` bypass を fact 種別へ分解した。`plan.md` は変更していない。
+- `ResourceSummaryValueCacheStats` に alias / offset / relation / constant / return condition / parameter condition の種類別 counter を追加し、`CompilerSession.loader_cache_stats_json()` から Web / Node 測定でも読めるようにした。
+- 既存 aggregate と reason counter の意味は変えていない。`resource_summary_value_i32_scalar_return_facts_recomputed_ops` は fact 数の aggregate のまま維持し、追加 counter は `ReprojectionValue` で失われた fact kind の内訳だけを表す。
+- focused regression として、wrong scalar type の candidate が fact 種別 counter を増やすこと、直接 `ReprojectionValue` を記録した場合に 6 種類の fact kind がそれぞれ観測されることを追加した。
+- stable mirror 保存側で構造 projection の終端型を優先する案も検討したが、RPN edit delta が `+10` から `+12` に悪化したため採用せず、差分から外した。次は function / fact 名を debug-only に分けて取ってから狭く修正する。
+- subagent review では、最終差分は `ReprojectionValue` 専用の side counter と JSON 露出に戻っており、既存 aggregate / reason counter の意味変更や二重計上は見当たらないと確認した。
+- release Web RPN same-session unused local edit 測定 `tmp/rpn_i32_fact_kind_counters_final_code_edit_20260531.json` では、base `compile_ms=8931` / `resource_static_check=8318.313ms`、edit `compile_ms=2219` / `resource_static_check=1922.104ms` だった。
+- edit delta は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+10`、reason は scalar type `+8` / parameter projection `+2`、fact kind は alias `+5` / offset `+5` である。condition 系は `0` だった。
+- この checkpoint は性能改善ではなく観測補強であり、base compile の秒単位固定費も未解決である。次は i32 alias / offset residual の function-level debug と、changed-function-only proof replay / typed expression subtree query / stdlib prechecked artifact を継続する。

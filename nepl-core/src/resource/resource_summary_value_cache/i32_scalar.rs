@@ -138,6 +138,55 @@ impl ResourceSummaryValueCache {
         }
     }
 
+    /// i32 scalar return facts の candidate 化に失敗した量を記録する。
+    ///
+    /// `ReprojectionValue` は、現在の関数型や projection に対して保存済み fact を
+    /// 安定な形へ戻せなかったことを意味する。合計値だけでは次の改善対象を選べないため、
+    /// この経路では失敗した fact の種類別件数も同時に記録する。
+    pub(in crate::resource) fn record_i32_scalar_return_facts_candidate_bypass_for_facts(
+        &mut self,
+        reason: I32ScalarReturnFactsEntryCandidateReject,
+        facts: &I32ScalarReturnFacts,
+    ) {
+        if matches!(
+            reason,
+            I32ScalarReturnFactsEntryCandidateReject::ReprojectionValue(_)
+        ) {
+            self.record_i32_scalar_return_facts_reprojection_value_kind_bypasses(facts);
+        }
+        self.record_i32_scalar_return_facts_candidate_bypass(reason, facts.len());
+    }
+
+    /// `ReprojectionValue` で失われた i32 scalar fact を種類別に積算する。
+    ///
+    /// ここで数える値は cache の hit/miss 判定には使わない。RPN の小規模 edit で
+    /// 残っている再計算が alias 由来なのか condition 由来なのかを、Web playground と
+    /// Node 計測から同じ JSON schema で読めるようにするための観測値である。
+    pub(in crate::resource) fn record_i32_scalar_return_facts_reprojection_value_kind_bypasses(
+        &mut self,
+        facts: &I32ScalarReturnFacts,
+    ) {
+        let counts = facts.fact_counts();
+        self.stats
+            .resource_summary_value_i32_scalar_return_facts_reprojection_value_alias_bypasses +=
+            counts.aliases;
+        self.stats
+            .resource_summary_value_i32_scalar_return_facts_reprojection_value_offset_bypasses +=
+            counts.offsets;
+        self.stats
+            .resource_summary_value_i32_scalar_return_facts_reprojection_value_relation_bypasses +=
+            counts.relations;
+        self.stats
+            .resource_summary_value_i32_scalar_return_facts_reprojection_value_constant_bypasses +=
+            counts.constants;
+        self.stats
+            .resource_summary_value_i32_scalar_return_facts_reprojection_value_return_condition_bypasses +=
+            counts.return_conditions;
+        self.stats
+            .resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_condition_bypasses +=
+            counts.parameter_conditions;
+    }
+
     fn record_i32_scalar_return_facts_unstable_entry_bypass(
         &mut self,
         reason: I32ScalarReturnFactsEntryCandidateReject,
@@ -326,5 +375,107 @@ impl ResourceSummaryValueCache {
             self.stats
                 .resource_summary_value_i32_scalar_return_facts_stores += fact_count;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    use crate::types::TypeCtx;
+
+    use super::super::super::i32_scalar_return_facts::{
+        I32ScalarParameterCondition, I32ScalarReturnAlias, I32ScalarReturnCondition,
+        I32ScalarReturnConstant, I32ScalarReturnFacts, I32ScalarReturnOffset,
+        I32ScalarReturnRelation,
+    };
+    use super::super::super::model::{I32ValueCondition, ResourceI32RelationOp};
+    use super::*;
+
+    /// `ReprojectionValue` で complete entry を保存できない場合、aggregate の
+    /// fact 数だけでは次の stable mirror 改善対象を選べない。種類別 counter は、
+    /// alias / offset / condition など、どの surface が失われたかを JSON stats へ
+    /// 出すために同じ fact 集合から積算する。
+    #[test]
+    fn i32_scalar_reprojection_value_bypass_counts_fact_kinds() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let types = TypeCtx::new();
+        let facts = I32ScalarReturnFacts {
+            aliases: vec![I32ScalarReturnAlias {
+                return_projection: Vec::new(),
+                parameter_index: 0,
+                parameter_projection: Vec::new(),
+                scalar_ty: types.i32(),
+            }],
+            offsets: vec![I32ScalarReturnOffset {
+                return_projection: Vec::new(),
+                parameter_index: 0,
+                parameter_projection: Vec::new(),
+                scalar_ty: types.i32(),
+                offset: 1,
+            }],
+            relations: vec![I32ScalarReturnRelation {
+                left_return_projection: Vec::new(),
+                op: ResourceI32RelationOp::Eq,
+                right_return_projection: Vec::new(),
+                scalar_ty: types.i32(),
+            }],
+            constants: vec![I32ScalarReturnConstant {
+                return_projection: Vec::new(),
+                scalar_ty: types.i32(),
+                value: 7,
+            }],
+            return_conditions: vec![I32ScalarReturnCondition {
+                return_projection: Vec::new(),
+                scalar_ty: types.i32(),
+                condition: I32ValueCondition::Positive,
+            }],
+            parameter_conditions: vec![I32ScalarParameterCondition {
+                parameter_index: 0,
+                parameter_projection: Vec::new(),
+                scalar_ty: types.i32(),
+                condition: I32ValueCondition::NonNegative,
+            }],
+        };
+
+        cache.record_i32_scalar_return_facts_candidate_bypass_for_facts(
+            I32ScalarReturnFactsEntryCandidateReject::ReprojectionValue(
+                ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType,
+            ),
+            &facts,
+        );
+
+        let stats = cache.stats();
+        assert_eq!(
+            stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses,
+            6
+        );
+        assert_eq!(
+            stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_alias_bypasses,
+            1
+        );
+        assert_eq!(
+            stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_offset_bypasses,
+            1
+        );
+        assert_eq!(
+            stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_relation_bypasses,
+            1
+        );
+        assert_eq!(
+            stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_constant_bypasses,
+            1
+        );
+        assert_eq!(
+            stats
+                .resource_summary_value_i32_scalar_return_facts_reprojection_value_return_condition_bypasses,
+            1
+        );
+        assert_eq!(
+            stats
+                .resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_condition_bypasses,
+            1
+        );
     }
 }

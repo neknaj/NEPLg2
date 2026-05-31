@@ -159,7 +159,7 @@ fn collect_i32_scalar_return_facts_entry_candidate_from_summary(
     ) {
         Ok(candidate) => candidates.push(candidate),
         Err(reason) => {
-            cache.record_i32_scalar_return_facts_candidate_bypass(reason, fact_count);
+            cache.record_i32_scalar_return_facts_candidate_bypass_for_facts(reason, facts);
         }
     }
 }

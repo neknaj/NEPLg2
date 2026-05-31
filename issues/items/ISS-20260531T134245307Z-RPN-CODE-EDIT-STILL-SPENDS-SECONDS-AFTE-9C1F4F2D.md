@@ -426,6 +426,23 @@ counter は dependency graph sharing checkpoint と同じ形で、raw-init / raw
 の大きな false miss は戻っていない。一方で elapsed time はまだ秒単位であり、次は
 changed-function-only proof replay と typed expression subtree query へ進む。
 
+## 2026-05-31 i32 scalar fact kind 更新
+
+`ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24`
+で、i32 scalar residual の `ReprojectionValue` bypass を fact 種別へ分解した。最終測定
+`tmp/rpn_i32_fact_kind_counters_final_code_edit_20260531.json` では、same-session unused local
+追加 edit が `compile_ms=2219`、`resource_static_check=1922.104ms` だった。
+
+edit delta は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+10` のままで、
+fact kind 内訳は alias `+5` / offset `+5`、reason 内訳は scalar type `+8` /
+parameter projection `+2` である。condition 系は `0` だったため、残差は i32 condition
+propagation ではなく alias / offset の stable mirror surface として継続する。
+
+この checkpoint は支配時間を直接削るものではない。親 issue では引き続き
+changed-function-only proof replay、typed expression subtree query、stdlib prechecked
+artifact、codegen fragment cache を進め、base compile `resource_static_check` の秒単位固定費も
+別途削る。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

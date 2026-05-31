@@ -119,6 +119,14 @@ pub struct ResourceSummaryValueCacheStats {
         usize,
     pub resource_summary_value_i32_scalar_return_facts_reprojection_value_scalar_type_bypasses:
         usize,
+    pub resource_summary_value_i32_scalar_return_facts_reprojection_value_alias_bypasses: usize,
+    pub resource_summary_value_i32_scalar_return_facts_reprojection_value_offset_bypasses: usize,
+    pub resource_summary_value_i32_scalar_return_facts_reprojection_value_relation_bypasses: usize,
+    pub resource_summary_value_i32_scalar_return_facts_reprojection_value_constant_bypasses: usize,
+    pub resource_summary_value_i32_scalar_return_facts_reprojection_value_return_condition_bypasses:
+        usize,
+    pub resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_condition_bypasses:
+        usize,
     pub resource_summary_value_i32_scalar_return_facts_replay_missing_source_policy_functions:
         usize,
     pub resource_summary_value_i32_scalar_return_facts_replay_unstable_key_functions: usize,

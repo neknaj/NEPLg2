@@ -123,6 +123,42 @@ surface を狭く修正する。
 `resource_static_check=8606.798ms` は未解決である。base compile 0.5 秒未満の目標は
 親 issue と per-program compile performance issue で別途追跡する。
 
+## 2026-05-31 fact kind counter checkpoint
+
+i32 scalar residual の `ReprojectionValue` bypass を fact 種別ごとに分解する counter を追加した。
+既存の reason counter は「なぜ stable entry 化できなかったか」を示すが、alias / offset /
+relation / condition のどの surface が失われたかまでは分からなかった。今回の counter は、
+`ReprojectionValue` に限って同じ facts を種類別に集計し、Web / Node の
+`CompilerSession.loader_cache_stats_json()` から読めるようにした。
+
+追加した観測点は次である。
+
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_alias_bypasses`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_offset_bypasses`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_relation_bypasses`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_constant_bypasses`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_return_condition_bypasses`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_condition_bypasses`
+
+`tmp/rpn_i32_fact_kind_counters_final_code_edit_20260531.json` では、same-session unused local
+追加 edit が次の結果になった。
+
+- base `compile_ms=8931`、`resource_static_check=8318.313ms`
+- edit `compile_ms=2219`、`resource_static_check=1922.104ms`
+- edit delta は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+10`
+- edit delta は `resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+10`
+- reason 内訳は `scalar_type=+8`、`parameter_projection=+2`、`return_projection=0`
+- fact kind 内訳は `alias=+5`、`offset=+5`
+- `relation` / `constant` / `return_condition` / `parameter_condition` は `0`
+- `resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions=+5`
+
+したがって、残る i32 residual は condition 系ではなく、alias / offset の stable entry 化が
+`ScalarType` と `ParameterProjection` で落ちる問題として扱う。試作として保存側で
+構造 projection の終端型を優先する案も測定したが、RPN edit delta が `+12` へ悪化したため
+採用しない。次の修正では entry key や dependency closure を弱めず、bypass した function /
+fact の具体名を debug-only に分けてから、alias / offset のどの projection surface が
+実際に失敗しているかを確認する。
+
 ## 検証
 
 - RPN same-session edit JSON で、i32 scalar recomputed op delta と i32 scalar reprojection bypass delta が `0` になる。
