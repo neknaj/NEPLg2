@@ -251,6 +251,10 @@ fn i32_scalar_return_facts_preseed_replays_same_summary_surface() {
         stats.resource_summary_value_i32_scalar_return_facts_stores,
         6
     );
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_misses,
+        6
+    );
     assert_eq!(stats.resource_summary_value_replay_hits, 6);
     assert_eq!(stats.resource_summary_value_replayed_ops, 6);
 
@@ -269,6 +273,10 @@ fn i32_scalar_return_facts_preseed_replays_same_summary_surface() {
 
     let stats = cache.stats();
     assert_eq!(stats.resource_summary_value_i32_scalar_return_facts_hits, 0);
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_misses,
+        6
+    );
     assert_eq!(stats.resource_summary_value_recomputed_ops, 6);
     assert_eq!(
         stats.resource_summary_value_i32_scalar_return_facts_recomputed_ops,
@@ -362,6 +370,99 @@ fn i32_scalar_return_facts_preseed_misses_on_body_source_or_signature_change() {
     let stats = cache.stats();
     assert_eq!(stats.resource_summary_value_replay_hits, 0);
     assert_eq!(stats.resource_summary_value_replayed_ops, 0);
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions,
+        3
+    );
+}
+
+/// replay miss は entry を取得する前に起きることがあるため、fact 数ではなく
+/// function 数として記録する。これにより、same-session edit で key が変わった
+/// 関数数と、recompute 後に store された fact 数を混同せずに追跡できる。
+#[test]
+fn i32_scalar_replay_entry_miss_counter_is_function_count() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let base_module = single_function_module(i32_scalar_function(
+        &types,
+        "i32_leaf",
+        types.i32(),
+        types.i32(),
+        false,
+    ));
+    let changed_module = single_function_module(i32_scalar_function(
+        &types,
+        "i32_leaf",
+        types.i32(),
+        types.i32(),
+        true,
+    ));
+    let context = test_context(11);
+    record_i32_summary(
+        &mut cache,
+        &context,
+        &types,
+        &base_module,
+        core::slice::from_ref(&i32_scalar_summary_for("i32_leaf", types.i32())),
+    );
+
+    let (worklist_relevant_functions, preseeded_functions, summaries) =
+        preseed_i32_summaries(&mut cache, &context, &types, &changed_module);
+
+    assert_eq!(worklist_relevant_functions, vec![true]);
+    assert_eq!(preseeded_functions, vec![false]);
+    assert!(summaries.is_empty());
+    let stats = cache.stats();
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions,
+        1
+    );
+    assert_eq!(stats.resource_summary_value_replayed_ops, 0);
+}
+
+/// i32 scalar の candidate bypass は、stable entry を保存できなかった理由を
+/// return/parameter projection と scalar type に分けて観測する。RPN の残差が
+/// expected place の不一致なのか type surface の不一致なのかを区別するためである。
+#[test]
+fn i32_scalar_candidate_reprojection_value_bypass_splits_scalar_type_reason() {
+    let mut cache = ResourceSummaryValueCache::new();
+    let types = TypeCtx::new();
+    let module = single_function_module(i32_scalar_function(
+        &types,
+        "i32_leaf",
+        types.i32(),
+        types.i32(),
+        false,
+    ));
+    let context = test_context(11);
+    let wrong_scalar_summary = i32_scalar_summary_for("i32_leaf", types.u8());
+
+    record_i32_summary(
+        &mut cache,
+        &context,
+        &types,
+        &module,
+        core::slice::from_ref(&wrong_scalar_summary),
+    );
+
+    let stats = cache.stats();
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_bypasses,
+        6
+    );
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses,
+        6
+    );
+    assert_eq!(
+        stats
+            .resource_summary_value_i32_scalar_return_facts_reprojection_value_scalar_type_bypasses,
+        6
+    );
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_stores,
+        0
+    );
 }
 
 /// i32 scalar summary は callee の i32/raw-alias summary を取り込むため、caller body
@@ -409,4 +510,9 @@ fn i32_scalar_return_facts_dependency_closure_invalidates_on_callee_body_change(
     assert_eq!(worklist_relevant_functions, vec![true, true]);
     assert_eq!(preseeded_functions, vec![false, false]);
     assert!(summaries.is_empty());
+    let stats = cache.stats();
+    assert_eq!(
+        stats.resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions,
+        2
+    );
 }

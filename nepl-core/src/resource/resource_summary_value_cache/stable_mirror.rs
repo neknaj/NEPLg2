@@ -1322,13 +1322,6 @@ pub(super) fn stable_i32_scalar_return_facts_entry(
     })
 }
 
-pub(super) fn reproject_i32_scalar_return_facts_entry(
-    ctx: &ResourceSummaryTypeReprojection<'_>,
-    entry: &ResourceSummaryStableI32ScalarReturnFactsEntry,
-) -> Option<I32ScalarReturnFacts> {
-    reproject_i32_scalar_return_facts_entry_result(ctx, entry).ok()
-}
-
 pub(super) fn reproject_i32_scalar_return_facts_entry_result(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     entry: &ResourceSummaryStableI32ScalarReturnFactsEntry,

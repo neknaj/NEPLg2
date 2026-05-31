@@ -11,8 +11,7 @@ use super::candidate_key::{
     ResourceSummaryGenericTypeArgumentKeyInput,
 };
 use super::stable_mirror::{
-    reproject_i32_scalar_return_facts_entry, reproject_i32_scalar_return_facts_entry_result,
-    stable_i32_scalar_return_facts_entry,
+    reproject_i32_scalar_return_facts_entry_result, stable_i32_scalar_return_facts_entry,
     ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
     ResourceSummaryStableI32ScalarReturnFactsEntryReject, ResourceSummaryTypeReprojection,
 };
@@ -117,6 +116,7 @@ impl ResourceSummaryValueCache {
                 self.stats
                     .resource_summary_value_i32_scalar_return_facts_unstable_entry_bypasses +=
                     fact_count;
+                self.record_i32_scalar_return_facts_unstable_entry_bypass(reason, fact_count);
             }
             I32ScalarReturnFactsEntryCandidateReject::ReprojectionContext => {
                 self.stats
@@ -133,6 +133,61 @@ impl ResourceSummaryValueCache {
                 self.stats
                     .resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses +=
                     fact_count;
+                self.record_i32_scalar_return_facts_reprojection_value_bypass(reason, fact_count);
+            }
+        }
+    }
+
+    fn record_i32_scalar_return_facts_unstable_entry_bypass(
+        &mut self,
+        reason: I32ScalarReturnFactsEntryCandidateReject,
+        fact_count: usize,
+    ) {
+        let I32ScalarReturnFactsEntryCandidateReject::UnstableEntry(reason) = reason else {
+            return;
+        };
+        match reason {
+            ResourceSummaryStableI32ScalarReturnFactsEntryReject::ReturnProjection => {
+                self.stats
+                    .resource_summary_value_i32_scalar_return_facts_unstable_entry_return_projection_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryStableI32ScalarReturnFactsEntryReject::ParameterProjection => {
+                self.stats
+                    .resource_summary_value_i32_scalar_return_facts_unstable_entry_parameter_projection_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryStableI32ScalarReturnFactsEntryReject::ScalarType => {
+                self.stats
+                    .resource_summary_value_i32_scalar_return_facts_unstable_entry_scalar_type_bypasses +=
+                    fact_count;
+            }
+        }
+    }
+
+    fn record_i32_scalar_return_facts_reprojection_value_bypass(
+        &mut self,
+        reason: I32ScalarReturnFactsEntryCandidateReject,
+        fact_count: usize,
+    ) {
+        let I32ScalarReturnFactsEntryCandidateReject::ReprojectionValue(reason) = reason else {
+            return;
+        };
+        match reason {
+            ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ReturnProjection => {
+                self.stats
+                    .resource_summary_value_i32_scalar_return_facts_reprojection_value_return_projection_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ParameterProjection => {
+                self.stats
+                    .resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_projection_bypasses +=
+                    fact_count;
+            }
+            ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType => {
+                self.stats
+                    .resource_summary_value_i32_scalar_return_facts_reprojection_value_scalar_type_bypasses +=
+                    fact_count;
             }
         }
     }
@@ -145,14 +200,20 @@ impl ResourceSummaryValueCache {
         type_params: &[TypeId],
         dependency_closure_hash: ResourceSummaryDependencyClosureHash,
     ) -> Option<I32ScalarReturnFacts> {
-        let source_capability_policy_hash =
-            context.source_capability_policy_hash_for_function(function)?;
+        let Some(source_capability_policy_hash) =
+            context.source_capability_policy_hash_for_function(function)
+        else {
+            self.stats
+                .resource_summary_value_i32_scalar_return_facts_replay_missing_source_policy_functions +=
+                1;
+            return None;
+        };
         let generic_type_args = if function.type_params.is_empty() && type_params.is_empty() {
             ResourceSummaryGenericTypeArgumentKeyInput::NonGeneric
         } else {
             ResourceSummaryGenericTypeArgumentKeyInput::TemplateBoundaryOnly
         };
-        let key = i32_scalar_return_facts_entry_key(
+        let Some(key) = i32_scalar_return_facts_entry_key(
             types,
             context.namespace_hash(),
             source_capability_policy_hash,
@@ -160,22 +221,63 @@ impl ResourceSummaryValueCache {
             function,
             type_params,
             generic_type_args,
-        )?;
-        let entry = self.i32_scalar_return_facts_entries.get(&key)?.clone();
+        ) else {
+            self.stats
+                .resource_summary_value_i32_scalar_return_facts_replay_unstable_key_functions += 1;
+            return None;
+        };
+        let Some(entry) = self.i32_scalar_return_facts_entries.get(&key).cloned() else {
+            self.stats
+                .resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions += 1;
+            return None;
+        };
         let fact_count = entry.len();
         let Some(reprojection) = ResourceSummaryTypeReprojection::new(types, function, type_params)
         else {
             self.record_i32_scalar_return_facts_replay_bypass(fact_count);
+            self.stats
+                .resource_summary_value_i32_scalar_return_facts_replay_reprojection_context_functions +=
+                1;
             return None;
         };
-        let Some(facts) = reproject_i32_scalar_return_facts_entry(&reprojection, &entry) else {
-            self.record_i32_scalar_return_facts_replay_bypass(fact_count);
-            return None;
+        let facts = match reproject_i32_scalar_return_facts_entry_result(&reprojection, &entry) {
+            Ok(facts) => facts,
+            Err(reason) => {
+                self.record_i32_scalar_return_facts_replay_bypass(fact_count);
+                self.record_i32_scalar_return_facts_replay_reprojection_value_function(reason);
+                return None;
+            }
         };
 
         self.stats.resource_summary_value_replay_hits += fact_count;
         self.stats.resource_summary_value_replayed_ops += fact_count;
         Some(facts)
+    }
+
+    fn record_i32_scalar_return_facts_replay_reprojection_value_function(
+        &mut self,
+        reason: ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
+    ) {
+        self.stats
+            .resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_functions +=
+            1;
+        match reason {
+            ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ReturnProjection => {
+                self.stats
+                    .resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_return_projection_functions +=
+                    1;
+            }
+            ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ParameterProjection => {
+                self.stats
+                    .resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_parameter_projection_functions +=
+                    1;
+            }
+            ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType => {
+                self.stats
+                    .resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_scalar_type_functions +=
+                    1;
+            }
+        }
     }
 
     pub(in crate::resource) fn record_i32_scalar_return_facts_recomputed_ops(
@@ -216,6 +318,8 @@ impl ResourceSummaryValueCache {
             }
 
             self.stats.resource_summary_value_misses += fact_count;
+            self.stats
+                .resource_summary_value_i32_scalar_return_facts_misses += fact_count;
             self.i32_scalar_return_facts_entries
                 .insert(candidate.key, candidate.entry);
             self.stats.resource_summary_value_stores += fact_count;

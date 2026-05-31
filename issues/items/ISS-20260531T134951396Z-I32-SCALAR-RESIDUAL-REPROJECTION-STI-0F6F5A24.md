@@ -56,6 +56,41 @@ i32 scalar summary の残差再計算が残っている。kind 別 recomputed-op
 - 必要なら debug-only 測定モードで、bypass した function name と fact count を出す。
 - 原因が scalar type canonicalization など単一 surface に収束したら、dependency closure、source policy、type boundary key を弱めずに stable mirror boundary を修正する。
 
+## 2026-05-31 reason counter checkpoint
+
+i32 scalar residual の発生源を function count と fact count に分けて観測する counter を追加した。
+既存の `resource_summary_value_i32_scalar_return_facts_recomputed_ops` は facts 数の aggregate のまま
+維持し、replay の entry miss は entry 取得前で fact count を持たないため function count として
+別 counter にした。
+
+追加した主な観測点は次である。
+
+- `resource_summary_value_i32_scalar_return_facts_misses`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_return_projection_bypasses`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_projection_bypasses`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_scalar_type_bypasses`
+- `resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions`
+- `resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_*_functions`
+
+`tmp/rpn_i32_residual_reason_counters_20260531.json` では、same-session string literal edit が
+次の結果になった。
+
+- base `compile_ms=8932`、`resource_static_check=8347.574ms`
+- edit `compile_ms=2102`、`resource_static_check=1816.135ms`
+- base から edit への差分は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+16`
+- base から edit への差分は `resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+16`
+- 内訳は `resource_summary_value_i32_scalar_return_facts_reprojection_value_scalar_type_bypasses=+10`
+- 内訳は `resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_projection_bypasses=+6`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_return_projection_bypasses=0`
+- `resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions=+7`
+- `resource_summary_value_i32_scalar_return_facts_misses=0`
+
+したがって、残差は「replay entry が見つからず 7 関数が再計算され、その再計算結果の
+16 facts が stable entry として保存できない」形で発生している。次の修正は、entry key を
+弱めるのではなく、i32 scalar stable mirror の `ParameterProjection` と `ScalarType`
+再投影境界を精査し、source policy / dependency closure / type boundary を保ったまま
+保存可能な surface を増やす。
+
 ## 検証
 
 - RPN same-session edit JSON で、i32 scalar recomputed op delta と i32 scalar reprojection bypass delta が `0` になる。

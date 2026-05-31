@@ -48200,3 +48200,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 同じ測定で `resource_summary_value_i32_scalar_return_facts_bypasses=+16` と `resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+16` も増えたため、残る `+16` は i32 scalar stable mirror の再投影失敗として扱う。
 - i32 scalar residual は `ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24` として分離し、`todo.md` に追加した。次は entry / function / reason counter を追加して、scalar type / projection surface のどこで失敗しているかを狭める。
 - 親 issue `ISS-20260531T134245307Z-RPN-CODE-EDIT-STILL-SPENDS-SECONDS-AFTE-9C1F4F2D` は open のまま、changed-function-only proof replay、typed expression subtree query、stdlib prechecked artifact、codegen fragment cache を継続する。
+
+## 2026-05-31 Agent i32 scalar residual reason counter checkpoint
+
+- remote/main へ `cf6221bc` を fast-forward merge / push した後、作業 branch `perf/i32-residual-reason-counters-20260531` を作成した。`plan.md` は変更していない。
+- Zenn の性能追求方針と試作段階方針を再確認し、i32 scalar residual の原因を fact 数と function 数に分けて観測する方針にした。既存の `resource_summary_value_i32_scalar_return_facts_recomputed_ops` は fact 数のまま維持し、replay entry miss は function count として別 counter にした。
+- subagent review では、`replay_i32_scalar_return_facts_entry` の entry miss / unstable key / source policy miss を function counter として分けること、`record_i32_scalar_return_facts_entry_candidates` の miss を i32 専用 fact counter にすること、`ReprojectionValue` を `ReturnProjection` / `ParameterProjection` / `ScalarType` に分けることが妥当と確認した。
+- 実装では、i32 scalar candidate miss、unstable entry reason、reprojection value reason、replay entry miss、replay reprojection value reason を `ResourceSummaryValueCacheStats` と `loader_cache_stats_json` に追加した。
+- focused regression では、replay entry miss が function count として増えること、wrong scalar type の candidate が `reprojection_value_scalar_type` として bypass され store されないこと、body/source/signature change の replay entry miss が観測されることを確認した。
+- release Web RPN same-session string literal edit 測定 `tmp/rpn_i32_residual_reason_counters_20260531.json` では、base `compile_ms=8932`、edit `compile_ms=2102` だった。edit の `resource_static_check` は `1816.135ms` である。
+- 同じ測定で、base から edit への差分は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+16`、`resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+16` だった。内訳は `scalar_type=+10`、`parameter_projection=+6`、`return_projection=0` で、`resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions=+7`、`resource_summary_value_i32_scalar_return_facts_misses=0` だった。
+- したがって、残差は 7 関数の replay entry miss 後に再計算され、その再計算結果の 16 facts が stable entry 化できていない形である。次は key を弱めず、i32 scalar stable mirror の `ParameterProjection` / `ScalarType` 再投影境界を修正する。
+- memo_call / private cache の subagent review では、現状の `memo_call @pure_named_func` gate は Phase 1 として妥当だが、次は accepted path を広げるのではなく `PrivateCache` / `PrivateState` internal effect を fail-closed に追加し、mask boundary がない pure function では拒否する段階から始めるべきと確認した。

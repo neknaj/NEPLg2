@@ -374,13 +374,20 @@ Zenn 方針では、純粋関数、依存関係の DAG 化、静的検査、ゼ�
 ## 実装順
 
 1. この文書と issue で、`Pure = no observable effect` の contract と高階関数境界を固定する。
-2. `InternalEffect` / `EffectOp` に `PrivateState` / `PrivateCache` を追加する。ただし mask boundary がない場合は `Pure` へ fold しない。
-3. `MemoKey` / `MemoValue` trait を追加し、保守的な primitive/structural impl だけを許可する。Phase 1 の `MemoValue` は Copy 相当に限定する。
-4. `memo_call` を compiler-known trusted primitive として追加し、`f` が non-capturing named pure function value であることと trait bound を typecheck で検査する。
+2. `MemoKey` / `MemoValue` trait を追加し、保守的な primitive/structural impl だけを許可する。Phase 1 の `MemoValue` は Copy 相当に限定する。
+3. `memo_call` を compiler-known trusted primitive として追加し、`f` が non-capturing named pure function value であることと trait bound を typecheck で検査する。
+4. `InternalEffect` / `EffectOp` に `PrivateState` / `PrivateCache` を追加する。ただし mask boundary がない場合は `Pure` へ fold しない。
 5. SourceCapability に private cache boundary use-site を追加し、trusted stdlib memo implementation 以外では private cache operation を発行できないようにする。
 6. Resource IR へ private cache region の fresh/non-escaping 検査を追加する。
 7. `memo_call` の acceptance / rejection regression を stdlib doctest と compiler tests に追加する。
 8. Phase 2 として `PrivateState rho` / `mask_private` を一般化する。
+
+2026-05-31 の追加 review では、Phase 1 の compiler-known `memo_call @pure_named_func`
+typecheck/HIR 境界は妥当だが、次 checkpoint は accepted runtime path を広げる段階ではないと
+整理した。まず `PrivateCache` / `PrivateState` を Resource IR の内部 effect として追加し、
+mask boundary がない pure function では dedicated diagnostic により fail-closed に拒否する。
+この effect を body hash と source capability policy hash に含めるまで、Resource summary cache
+で private cache operation を replay / hit させない。
 
 ## 現時点の未実装
 
@@ -388,6 +395,5 @@ Zenn 方針では、純粋関数、依存関係の DAG 化、静的検査、ゼ�
 - private region id の導入箇所。
 - function value identity を public pure API から禁止する typed diagnostic。
 - closure capture と Resource IR function alias tracking の接続。
-- `MemoKey` / `MemoValue` trait。
-- trusted `stdlib/memo` primitive。
+- trusted `stdlib/memo` backend の sealed private cache representation。
 - cache lookup result が owned/clone/copy value であることの Resource IR 証明。

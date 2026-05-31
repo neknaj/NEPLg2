@@ -983,6 +983,36 @@ raw alias、raw-init、drop traversal の kind 別 recomputed-op 差分は `0` �
 replay の scope 設計とは混ぜない。Resource static check 全体の秒単位コストは引き続き
 全関数 replay / record / dependency preseed の固定費として、親 issue で追跡する。
 
+### I32 Scalar Residual Reason Counters
+
+2026-05-31 の i32 scalar residual reason counter checkpoint では、i32 scalar の残差を
+replay 前の function count と、recompute 後の fact count に分けた。既存の
+`resource_summary_value_i32_scalar_return_facts_recomputed_ops` は facts 数の aggregate として
+維持し、entry 取得前に起きる replay miss は function count の別 counter にする。
+
+追加した counter は、candidate store miss、candidate unstable entry の詳細、
+candidate reprojection value の詳細、replay entry miss、replay reprojection value の詳細である。
+これにより、同じ `+16` の残差が「entry が見つからない」のか「recompute 後の stable entry 化に
+失敗している」のかを分けられる。
+
+release Web RPN same-session string literal edit 測定
+`tmp/rpn_i32_residual_reason_counters_20260531.json` では、base `compile_ms=8932`、
+edit `compile_ms=2102` だった。edit の `resource_static_check` は `1816.135ms` である。
+base から edit への差分は次の通りだった。
+
+- `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+16`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+16`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_scalar_type_bypasses=+10`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_projection_bypasses=+6`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_return_projection_bypasses=0`
+- `resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions=+7`
+- `resource_summary_value_i32_scalar_return_facts_misses=0`
+
+この結果から、RPN edit の i32 scalar 残差は 7 関数の replay entry miss から再計算へ戻り、
+再計算後の 16 facts が stable entry として保存できていないことが分かった。したがって次の
+根本修正は key を弱めることではなく、`ParameterProjection` と `ScalarType` の stable mirror
+再投影 surface を広げることである。
+
 ## 次段階の CompilerSession 設計
 
 `CompilerSession` は、純粋な compiler query を process 内で保持する単位である。CLI では 1 process 1 session、Web / Node test runner では WASM instance 1 session とする。

@@ -331,6 +331,30 @@ entry / function / reason counter と再投影 surface の root cause を別 iss
 0.5 秒未満には届かない。親 issue では changed function only proof replay、typed expression
 subtree query、stdlib prechecked artifact、codegen fragment cache を継続する。
 
+## 2026-05-31 i32 scalar reason counter 更新
+
+i32 scalar residual は `ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24`
+側で function / reason counter を追加した。親 issue では seconds-scale compile time の
+全体支配項を追うが、i32 scalar stable mirror の false miss を changed-function-only proof
+scope の問題と混同しないため、詳細は子 issue に分離して扱う。
+
+`tmp/rpn_i32_residual_reason_counters_20260531.json` では、same-session string literal edit が
+次の結果になった。
+
+- base `compile_ms=8932`、`resource_static_check=8347.574ms`
+- edit `compile_ms=2102`、`resource_static_check=1816.135ms`
+- `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+16`
+- `resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+16`
+- 内訳は scalar type `+10`、parameter projection `+6`、return projection `0`
+- `resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions=+7`
+- `resource_summary_value_i32_scalar_return_facts_misses=0`
+
+この結果から、残差 `+16` は recompute 後の stable entry 化に失敗しており、新規 entry store
+ではない。次は i32 stable mirror の parameter projection / scalar type 境界を修正する。
+ただし edit compile の支配時間はまだ `resource_static_check=1816.135ms` であるため、親 issue
+では引き続き changed-function-only proof replay、typed expression subtree query、stdlib
+prechecked artifact、codegen fragment cache を継続する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

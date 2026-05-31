@@ -99,14 +99,38 @@ pub struct ResourceSummaryValueCacheStats {
         usize,
     pub resource_summary_value_i32_scalar_return_facts_hits: usize,
     pub resource_summary_value_i32_scalar_return_facts_stores: usize,
+    pub resource_summary_value_i32_scalar_return_facts_misses: usize,
     pub resource_summary_value_i32_scalar_return_facts_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_dependency_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_missing_source_policy_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_unstable_key_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_unstable_entry_bypasses: usize,
+    pub resource_summary_value_i32_scalar_return_facts_unstable_entry_return_projection_bypasses:
+        usize,
+    pub resource_summary_value_i32_scalar_return_facts_unstable_entry_parameter_projection_bypasses:
+        usize,
+    pub resource_summary_value_i32_scalar_return_facts_unstable_entry_scalar_type_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_reprojection_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_reprojection_context_bypasses: usize,
     pub resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses: usize,
+    pub resource_summary_value_i32_scalar_return_facts_reprojection_value_return_projection_bypasses:
+        usize,
+    pub resource_summary_value_i32_scalar_return_facts_reprojection_value_parameter_projection_bypasses:
+        usize,
+    pub resource_summary_value_i32_scalar_return_facts_reprojection_value_scalar_type_bypasses:
+        usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_missing_source_policy_functions:
+        usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_unstable_key_functions: usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions: usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_reprojection_context_functions: usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_functions: usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_return_projection_functions:
+        usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_parameter_projection_functions:
+        usize,
+    pub resource_summary_value_i32_scalar_return_facts_replay_reprojection_value_scalar_type_functions:
+        usize,
     pub resource_summary_value_initialized_function_check_hits: usize,
     pub resource_summary_value_initialized_function_check_stores: usize,
     pub resource_summary_value_initialized_function_check_bypasses: usize,
