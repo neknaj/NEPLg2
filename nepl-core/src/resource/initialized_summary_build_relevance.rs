@@ -7,12 +7,27 @@ use crate::types::{TypeCtx, TypeId, TypeKind};
 use super::initialized_alias_flow::RawCellAddressReturnSummaryIndex;
 use super::initialized_summary_seed::summary_input_type_may_seed_raw_address_alias;
 use super::model::{ResourceFunction, ResourceModule};
-use super::summary_dependency::build_function_summary_dependencies;
+use super::summary_dependency::ResourceSummaryDependencyGraph;
 
-pub(super) fn raw_cell_initialization_summary_relevance(
+pub(super) fn raw_cell_initialization_summary_relevance_with_graph(
     module: &ResourceModule,
     types: &TypeCtx,
     raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
+    dependency_graph: &ResourceSummaryDependencyGraph,
+) -> Vec<bool> {
+    raw_cell_initialization_summary_relevance_with_dependencies(
+        module,
+        types,
+        raw_alias_summaries,
+        dependency_graph.dependencies(),
+    )
+}
+
+fn raw_cell_initialization_summary_relevance_with_dependencies(
+    module: &ResourceModule,
+    types: &TypeCtx,
+    raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
+    dependencies: &[Vec<usize>],
 ) -> Vec<bool> {
     let signature_relevant = module
         .functions
@@ -29,7 +44,6 @@ pub(super) fn raw_cell_initialization_summary_relevance(
                     || function_has_direct_raw_initialization_summary_op(function))
         })
         .collect::<Vec<_>>();
-    let dependencies = build_function_summary_dependencies(module);
     let mut changed = true;
     while changed {
         changed = false;

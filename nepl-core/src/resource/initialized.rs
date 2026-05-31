@@ -53,7 +53,7 @@ use super::report::{
 use super::resource_summary_value_cache::{
     ResourceSummaryComputationStage, ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
-use super::summary_dependency::build_function_summary_dependencies;
+use super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::timing::{ResourceFunctionTimer, ResourceStageTimer};
 
 pub fn check_resource_initialized_moves(
@@ -93,10 +93,12 @@ fn check_resource_initialized_moves_inner(
     let mut functions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut deferred = ResourceCheckDeferred::default();
+    let dependency_graph = ResourceSummaryDependencyGraph::build(module);
     let (raw_alias_summaries, raw_alias_recomputations) =
         compute_raw_cell_address_return_summaries_with_recomputations(
             module,
             types,
+            &dependency_graph,
             summary_value_cache.as_deref_mut(),
             summary_value_cache_context,
         );
@@ -114,6 +116,7 @@ fn check_resource_initialized_moves_inner(
         module,
         types,
         &raw_alias_summary_index,
+        &dependency_graph,
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     );
@@ -133,6 +136,7 @@ fn check_resource_initialized_moves_inner(
             types,
             &raw_alias_summaries,
             &i32_scalar_summaries,
+            &dependency_graph,
             summary_value_cache.as_deref_mut(),
             summary_value_cache_context,
         );
@@ -154,6 +158,7 @@ fn check_resource_initialized_moves_inner(
             &raw_alias_summaries,
             &i32_scalar_summaries,
             &raw_init_summaries,
+            &dependency_graph,
             summary_value_cache.as_deref_mut(),
             summary_value_cache_context,
         );
@@ -168,9 +173,6 @@ fn check_resource_initialized_moves_inner(
         CollectionSlotLifecycleFunctionSummaryIndex::new(&collection_slot_summaries);
     stage_start.log("resource_initialized_collection_slot_summaries");
     let stage_start = ResourceStageTimer::start();
-    let initialized_function_check_dependencies =
-        summary_value_cache_context.map(|_| build_function_summary_dependencies(module));
-
     for (function_index, function) in module.functions.iter().enumerate() {
         let function_start = ResourceFunctionTimer::start();
         let function_op_count = resource_function_op_count(function);
@@ -179,7 +181,7 @@ fn check_resource_initialized_moves_inner(
             summary_value_cache_context,
             types,
             module,
-            initialized_function_check_dependencies.as_deref(),
+            Some(dependency_graph.dependencies()),
             function_index,
             function,
             function_op_count,

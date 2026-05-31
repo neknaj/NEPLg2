@@ -1181,6 +1181,34 @@ counter だけを成功条件にしない。base compile では stdlib の parse
 proof template / codegen fragment を `.neplmeta` / `.neplproof` / `.neplobj` へ寄せ、初回から
 「ほぼ link するだけ」に近い状態を作る必要がある。
 
+### 2026-05-31 dependency graph sharing checkpoint
+
+Resource static check 内の raw alias、i32 scalar、raw-init、collection slot、final
+initialized check は、同じ `ResourceModule` の関数依存関係を使って固定点計算を行う。
+これまでは summary kind ごとに caller -> callee の dependency、callee -> caller の
+dependent、初期 worklist 順序を構築していた。今回の checkpoint では
+`ResourceSummaryDependencyGraph` を Resource static check の compile-local view として
+作り、各 summary kind が同じ依存グラフを共有するようにした。
+
+この変更は cache key や proof boundary を弱めない。関数本体 hash、source capability
+policy、typed boundary、generic type argument による stale hit 防止は従来どおり維持し、
+重複した graph construction だけを削る。`ResourceSummaryDependencyGraph` は現在の
+`ResourceModule` に閉じた一時 view であり、`.neplproof` などの永続 artifact には直接保存しない。
+
+測定では `trunk build --release` 後の Web RPN same-session code edit
+`tmp/rpn_dependency_graph_share_code_edit_20260531.json` が、base `compile_ms=9246` /
+`resource_static_check=8193.197ms`、unused local 追加 edit `compile_ms=2135` /
+`resource_static_check=1857.811ms` だった。edit delta は
+`resource_raw_alias_summary_recomputations=+1`、`resource_i32_scalar_summary_recomputations=+5`、
+`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=+1`、
+`resource_summary_value_replayed_ops=+920`、`resource_summary_value_recomputed_ops=+10` である。
+native release の RPN stage-only 測定では `resource_static_check=6915ms`、
+`resource_initialized_moves=5998ms` だった。
+
+これは base compile の固定費を少し削る checkpoint であり、0.5 秒未満の目標達成ではない。
+引き続き、stdlib prechecked artifact、changed-function-only proof replay、typed expression
+subtree query、codegen fragment cache を進める必要がある。
+
 当面の実装順は次の通りにする。
 
 - edit path: remaining i32 scalar residual を fact kind / function 単位で分解し、changed-function-only proof replay へ進む。

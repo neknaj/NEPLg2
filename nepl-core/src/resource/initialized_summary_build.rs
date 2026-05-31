@@ -18,7 +18,7 @@ use super::initialized_summary::{
     RawCellInitializationFunctionSummary, RawCellInitializationFunctionSummaryIndex,
 };
 use super::initialized_summary_build_relevance::{
-    raw_cell_initialization_summary_relevance, reference_target_type,
+    raw_cell_initialization_summary_relevance_with_graph, reference_target_type,
 };
 use super::initialized_summary_build_update::update_raw_cell_initialization_summary;
 use super::initialized_summary_build_value_cache::{
@@ -41,7 +41,7 @@ use super::report::ResourceCheckDeferred;
 use super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
-use super::summary_dependency::build_function_summary_dependencies;
+use super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
@@ -54,11 +54,13 @@ pub(super) fn compute_raw_cell_initialization_function_summaries(
     summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> Vec<RawCellInitializationFunctionSummary> {
+    let dependency_graph = ResourceSummaryDependencyGraph::build(module);
     compute_raw_cell_initialization_function_summaries_with_recomputations(
         module,
         types,
         raw_alias_summaries,
         i32_scalar_summaries,
+        &dependency_graph,
         summary_value_cache,
         summary_value_cache_context,
     )
@@ -70,13 +72,17 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
     types: &TypeCtx,
     raw_alias_summaries: &[RawCellAddressReturnSummary],
     i32_scalar_summaries: &[I32ScalarReturnSummary],
+    dependency_graph: &ResourceSummaryDependencyGraph,
     mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> (Vec<RawCellInitializationFunctionSummary>, usize) {
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
-    let relevant =
-        raw_cell_initialization_summary_relevance(module, types, &raw_alias_summary_index);
-    let dependencies = build_function_summary_dependencies(module);
+    let relevant = raw_cell_initialization_summary_relevance_with_graph(
+        module,
+        types,
+        &raw_alias_summary_index,
+        dependency_graph,
+    );
     let mut worklist_relevant_functions = relevant.clone();
     let mut preseeded_functions = vec![false; module.functions.len()];
     let mut summaries = Vec::new();
@@ -90,13 +96,17 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
             types,
             module,
             &relevant,
-            &dependencies,
+            dependency_graph.dependencies(),
             &mut worklist_relevant_functions,
             &mut preseeded_functions,
             &mut summaries,
         );
     }
-    let mut worklist = SummaryWorklist::new_filtered(module, worklist_relevant_functions);
+    let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph(
+        module,
+        worklist_relevant_functions,
+        dependency_graph,
+    );
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
@@ -118,14 +128,13 @@ pub(super) fn compute_raw_cell_initialization_function_summaries_with_recomputat
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        let candidate_skipped_functions =
-            worklist.unrecomputed_initial_skips(&preseeded_functions);
+        let candidate_skipped_functions = worklist.unrecomputed_initial_skips(&preseeded_functions);
         record_raw_cell_initialization_summary_value_cache_candidates(
             cache,
             context,
             types,
             module,
-            &dependencies,
+            dependency_graph.dependencies(),
             &relevant,
             &candidate_skipped_functions,
             &summaries,

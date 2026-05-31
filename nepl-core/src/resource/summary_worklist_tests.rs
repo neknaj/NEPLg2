@@ -10,6 +10,7 @@ use crate::resource::model::{
 use crate::span::Span;
 use crate::types::TypeId;
 
+use super::super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::super::summary_worklist_order::initial_summary_order;
 use super::*;
 
@@ -49,6 +50,33 @@ fn filtered_summary_worklist_initially_queues_only_relevant_functions() {
     let mut worklist = SummaryWorklist::new_filtered(&module, vec![true, false, true, false]);
 
     assert_eq!(drain_worklist(&mut worklist), vec![2, 0]);
+}
+
+#[test]
+fn dependency_graph_worklist_matches_default_order_and_dependents() {
+    let module = ResourceModule {
+        functions: vec![
+            function_with_ops("caller", vec![call("callee")]),
+            function_with_ops("callee", vec![call("leaf")]),
+            function_with_ops("leaf", vec![]),
+            function_with_ops("unrelated", vec![]),
+        ],
+        entry: None,
+        string_literals: vec![],
+    };
+    let graph = ResourceSummaryDependencyGraph::build(&module);
+    let mut default_worklist =
+        SummaryWorklist::new_filtered(&module, vec![true, false, true, false]);
+    let mut graph_worklist = SummaryWorklist::new_filtered_with_dependency_graph(
+        &module,
+        vec![true, false, true, false],
+        &graph,
+    );
+
+    assert_eq!(
+        drain_worklist(&mut graph_worklist),
+        drain_worklist(&mut default_worklist)
+    );
 }
 
 #[test]

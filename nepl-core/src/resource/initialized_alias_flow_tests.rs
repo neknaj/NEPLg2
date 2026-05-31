@@ -11,6 +11,7 @@ use crate::resource::model::{
     ResourceCallTarget, ResourceFunction, ResourceLocal, ResourceModule, ResourceOffset,
     ResourceOp, ResourceTerminator,
 };
+use crate::resource::summary_dependency::ResourceSummaryDependencyGraph;
 use crate::resource::{ResourceSummaryValueCache, ResourceSummaryValueCacheContext};
 use crate::source_map::CompilerMemoryType;
 
@@ -69,11 +70,13 @@ fn raw_alias_return_summary_value_cache_preseeds_non_empty_and_empty_functions()
     let mut cache = ResourceSummaryValueCache::new();
     let mut context = ResourceSummaryValueCacheContext::new(7);
     context.insert_source_policy_hash(FileId(0), 100);
+    let dependency_graph = ResourceSummaryDependencyGraph::build(&module);
 
     let (first_summaries, first_recomputations) =
         compute_raw_cell_address_return_summaries_with_recomputations(
             &module,
             &types,
+            &dependency_graph,
             Some(&mut cache),
             Some(&context),
         );
@@ -81,6 +84,7 @@ fn raw_alias_return_summary_value_cache_preseeds_non_empty_and_empty_functions()
         compute_raw_cell_address_return_summaries_with_recomputations(
             &module,
             &types,
+            &dependency_graph,
             Some(&mut cache),
             Some(&context),
         );

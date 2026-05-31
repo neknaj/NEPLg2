@@ -6,24 +6,64 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use super::model::{ResourceCallTarget, ResourceFunction, ResourceModule, ResourceOp};
+use super::summary_worklist_order::summary_order_from_dependencies;
 
-pub(super) fn build_function_summary_dependents(module: &ResourceModule) -> Vec<Vec<usize>> {
-    let mut function_indices = BTreeMap::new();
-    for (index, function) in module.functions.iter().enumerate() {
-        function_indices.insert(function.name.as_str(), index);
-    }
+/// Resource summary の固定点計算で共有する関数依存グラフ。
+///
+/// Resource static check では raw alias、i32 scalar、raw initialization、
+/// collection slot、final initialized check が同じ `ResourceModule` の呼び出し関係を
+/// 何度も参照する。各 summary kind が個別に依存関係、逆辺、初期 worklist 順序を
+/// 作り直すと、証明内容は変わらないまま初回 compile の固定費だけが増える。
+///
+/// この構造体は 1 回の Resource static check 内でだけ使う compile-local view である。
+/// 永続 cache key には入れず、既存の body hash / source capability policy /
+/// typed boundary による stale hit 防止を維持したまま、同じグラフ構築を共有する。
+pub(super) struct ResourceSummaryDependencyGraph {
+    dependencies: Vec<Vec<usize>>,
+    dependents: Vec<Vec<usize>>,
+    initial_order: Vec<usize>,
+}
 
-    let mut dependents = vec![Vec::new(); module.functions.len()];
-    for (caller_index, function) in module.functions.iter().enumerate() {
-        let mut dependencies = BTreeSet::new();
-        collect_function_summary_dependencies(function, &mut dependencies);
-        for dependency in dependencies {
-            if let Some(dependency_index) = function_indices.get(dependency.as_str()) {
-                dependents[*dependency_index].push(caller_index);
-            }
+impl ResourceSummaryDependencyGraph {
+    /// `ResourceModule` から summary kind 非依存の依存関係 view を構築する。
+    ///
+    /// `dependencies` は caller から callee、`dependents` は callee から caller への
+    /// 逆辺である。`initial_order` は callee 側を先に評価しやすい順序で、各
+    /// `SummaryWorklist` が同じ初期条件から開始できるように保持する。
+    pub(super) fn build(module: &ResourceModule) -> Self {
+        let dependencies = build_function_summary_dependencies(module);
+        let dependents =
+            invert_function_summary_dependencies(module.functions.len(), &dependencies);
+        let initial_order = summary_order_from_dependencies(module.functions.len(), &dependencies);
+        Self {
+            dependencies,
+            dependents,
+            initial_order,
         }
     }
-    dependents
+
+    /// caller index から、その関数が直接参照する callee index の一覧を返す。
+    pub(super) fn dependencies(&self) -> &[Vec<usize>] {
+        &self.dependencies
+    }
+
+    /// callee index から、その関数の summary 更新で再投入が必要な caller index を返す。
+    pub(super) fn dependents(&self) -> &[Vec<usize>] {
+        &self.dependents
+    }
+
+    /// 固定点計算を開始するときの関数順序を返す。
+    ///
+    /// この順序は正しさの前提ではないが、callee の summary を先に安定させることで
+    /// 不要な再投入を減らすための性能上の入力である。
+    pub(super) fn initial_order(&self) -> &[usize] {
+        &self.initial_order
+    }
+}
+
+pub(super) fn build_function_summary_dependents(module: &ResourceModule) -> Vec<Vec<usize>> {
+    let dependencies = build_function_summary_dependencies(module);
+    invert_function_summary_dependencies(module.functions.len(), &dependencies)
 }
 
 pub(super) fn build_function_summary_dependencies(module: &ResourceModule) -> Vec<Vec<usize>> {
@@ -43,6 +83,21 @@ pub(super) fn build_function_summary_dependencies(module: &ResourceModule) -> Ve
         }
     }
     dependencies
+}
+
+fn invert_function_summary_dependencies(
+    function_count: usize,
+    dependencies: &[Vec<usize>],
+) -> Vec<Vec<usize>> {
+    let mut dependents = vec![Vec::new(); function_count];
+    for (caller_index, function_dependencies) in dependencies.iter().enumerate() {
+        for dependency_index in function_dependencies {
+            if let Some(function_dependents) = dependents.get_mut(*dependency_index) {
+                function_dependents.push(caller_index);
+            }
+        }
+    }
+    dependents
 }
 
 fn collect_function_summary_dependencies(function: &ResourceFunction, out: &mut BTreeSet<String>) {
@@ -159,6 +214,25 @@ mod tests {
         assert_eq!(dependents[1], vec![0]);
         assert_eq!(dependents[2], vec![0]);
         assert_eq!(dependents[3], vec![3]);
+    }
+
+    #[test]
+    fn dependency_graph_reuses_dependency_dependent_and_order_views() {
+        let module = ResourceModule {
+            functions: vec![
+                function_with_ops("caller", vec![call("callee")]),
+                function_with_ops("callee", vec![call("leaf")]),
+                function_with_ops("leaf", vec![]),
+            ],
+            entry: None,
+            string_literals: vec![],
+        };
+
+        let graph = ResourceSummaryDependencyGraph::build(&module);
+
+        assert_eq!(graph.dependencies(), &[vec![1], vec![2], vec![]]);
+        assert_eq!(graph.dependents(), &[vec![], vec![0], vec![1]]);
+        assert_eq!(graph.initial_order(), &[2, 1, 0]);
     }
 
     fn function_with_ops(name: &str, ops: Vec<ResourceOp>) -> ResourceFunction {

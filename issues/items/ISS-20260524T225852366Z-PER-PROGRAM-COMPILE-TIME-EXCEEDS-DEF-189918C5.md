@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-05-24
-updated: 2026-05-28
+updated: 2026-05-31
 target: "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio"
 ---
 
@@ -106,6 +106,21 @@ RPN では同一入力の再compileは 10ms 未満になったが、初回 compi
 まだ届いていない。今後の性能改善では warm edit cache だけではなく、初回 compile の
 stdlib prechecked artifact、Resource static check fixed-point の探索空間削減、binary
 intermediate artifact 化を同時に進める必要がある。
+
+2026-05-31 の dependency graph sharing checkpoint では、Resource static check の各 summary
+kind が個別に構築していた function dependency / dependent / initial worklist order を、
+compile-local な `ResourceSummaryDependencyGraph` として 1 回だけ構築して共有するようにした。
+これは proof key を弱めるものではなく、同じ `ResourceModule` から導ける一時 view の重複構築を
+減らす変更である。
+
+`trunk build --release` 後の Web RPN same-session code edit 測定
+`tmp/rpn_dependency_graph_share_code_edit_20260531.json` では、base `compile_ms=9246`、
+`resource_static_check=8193.197ms`、unused local 追加 edit `compile_ms=2135`、
+`resource_static_check=1857.811ms` だった。native release RPN stage-only 測定では
+`resource_static_check=6915ms`、`resource_initialized_moves=5998ms` だった。
+base compile は改善傾向だが、0.5 秒未満にはまだ大きく届かないため、この issue は
+stdlib prechecked artifact / Resource proof template / binary intermediate artifact の親 issue
+として open のまま維持する。
 
 raw-init param facts cache staging の実測では RPN が `raw_init_param_facts_stores=0` / `bypasses=225` だった。nominal 型 identity が未整備で stdlib summary を安全に stable key 化できない問題を `ISS-20260528T110220373Z-RESOURCE-SUMMARY-CACHE-NEEDS-QUALIFI-08D1AA04` に分離した。
 

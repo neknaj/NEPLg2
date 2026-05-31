@@ -21,6 +21,7 @@ use super::super::model::{
 use super::super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
+use super::super::summary_dependency::build_function_summary_dependencies;
 use super::super::summary_projection::SummaryPlace;
 use super::*;
 

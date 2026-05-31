@@ -40,7 +40,7 @@ use super::place_utils::{
 use super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
-use super::summary_dependency::build_function_summary_dependencies;
+use super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
@@ -88,6 +88,7 @@ pub(super) fn compute_i32_scalar_return_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
     raw_alias_summaries: &RawCellAddressReturnSummaryIndex<'_>,
+    dependency_graph: &ResourceSummaryDependencyGraph,
     mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> (Vec<I32ScalarReturnSummary>, usize) {
@@ -99,7 +100,6 @@ pub(super) fn compute_i32_scalar_return_summaries(
             function_i32_scalar_summary_relevant(types, function, &mut relevance_leaf_cache)
         })
         .collect();
-    let dependencies = build_function_summary_dependencies(module);
     let mut worklist_relevant_functions = relevant.clone();
     let mut preseeded_functions = vec![false; module.functions.len()];
     let mut summaries = Vec::new();
@@ -113,13 +113,17 @@ pub(super) fn compute_i32_scalar_return_summaries(
             types,
             module,
             &relevant,
-            &dependencies,
+            dependency_graph.dependencies(),
             &mut worklist_relevant_functions,
             &mut preseeded_functions,
             &mut summaries,
         );
     }
-    let mut worklist = SummaryWorklist::new_filtered(module, worklist_relevant_functions);
+    let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph(
+        module,
+        worklist_relevant_functions,
+        dependency_graph,
+    );
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
         let function_start = ResourceFunctionTimer::start();
@@ -140,14 +144,13 @@ pub(super) fn compute_i32_scalar_return_summaries(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        let candidate_skipped_functions =
-            worklist.unrecomputed_initial_skips(&preseeded_functions);
+        let candidate_skipped_functions = worklist.unrecomputed_initial_skips(&preseeded_functions);
         record_i32_scalar_return_summary_value_cache_candidates(
             cache,
             context,
             types,
             module,
-            &dependencies,
+            dependency_graph.dependencies(),
             &relevant,
             &candidate_skipped_functions,
             &summaries,

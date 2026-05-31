@@ -378,6 +378,31 @@ i32 residual を子 issue に残しつつ、base compile 短縮のための stdl
 changed-function-only proof replay、typed expression subtree query、codegen fragment cache を
 継続する。edit cache の改善だけで完了扱いにはしない。
 
+## 2026-05-31 dependency graph sharing 更新
+
+Resource static check の各 summary kind が同じ `ResourceModule` から dependency /
+dependent / initial worklist order を作り直していたため、compile-local な
+`ResourceSummaryDependencyGraph` を追加して共有するようにした。これは stale hit を防ぐ
+body hash / source capability policy / typed boundary を変更せず、同じ graph construction の
+固定費だけを削る。
+
+`tmp/rpn_dependency_graph_share_code_edit_20260531.json` では、`trunk build --release` 後の
+Web RPN same-session unused local 追加 edit が次の結果になった。
+
+- base `compile_ms=9246`、`resource_static_check=8193.197ms`
+- edit `compile_ms=2135`、`resource_static_check=1857.811ms`
+- edit delta は `resource_raw_alias_summary_recomputations=+1`
+- edit delta は `resource_i32_scalar_summary_recomputations=+5`
+- edit delta は `resource_raw_init_summary_recomputations=0`
+- edit delta は `resource_initialized_function_checks=+1`
+- edit delta は `resource_summary_value_replayed_ops=+920`
+- edit delta は `resource_summary_value_recomputed_ops=+10`
+
+i32 scalar stable reprojection partial checkpoint の edit `compile_ms=2126` /
+`resource_static_check=1841.527ms` と同程度で、まだ 0.1 秒以下の式枝差し替え
+budget には届かない。この issue は引き続き changed-function-only proof replay、typed
+expression subtree query、stdlib prechecked artifact、codegen fragment cache を追跡する。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

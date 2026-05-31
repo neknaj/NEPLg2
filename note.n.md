@@ -48223,3 +48223,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 直前の `+16` / 7 functions からは改善したが、i32 residual は未解消なので issue は open のまま継続する。
 - ユーザー指摘どおり、base compile も小さくしなければならない。今回の修正は warm edit residual を削るものだが、base compile は `resource_static_check=8606.798ms` であり、stdlib prechecked artifact / Resource proof template / `.neplmeta` / `.neplproof` / `.neplobj` 方向の作業を別途継続する。
 - GitHub CI の `nepl-language` compile failure は、`MemoizedFunctionValue` を semantic trace の HIR kind 表示と子走査で明示していなかったことが原因だった。`FnValue` と同じ function-value leaf として扱い、wildcard ではなく enum variant の追加へ追従する形で修正した。
+
+## 2026-05-31 Agent Resource summary dependency graph sharing checkpoint
+
+- remote/main と同期済みの `perf/base-resource-proof-scope-20260531` branch で、base compile の Resource static check 固定費を削る作業を進めた。`plan.md` は変更していない。
+- Zenn の試作段階方針、静的検査方針、純粋 query cache 方針を再確認し、proof key を弱めずに探索空間と重複計算だけを削る方針にした。
+- subagent review では、base compile の支配項は raw-init / raw-alias の replay miss ではなく cold full Resource static check であり、直近の安全な checkpoint は dependency / dependent / initial worklist order の共有だと確認した。
+- `ResourceSummaryDependencyGraph` を追加し、raw alias、i32 scalar、raw-init、collection slot、final initialized check が同じ `ResourceModule` の依存グラフを共有するようにした。
+- 既存の summary dependency API は互換用に残し、直接 test や旧経路は従来どおり個別構築できる。新しい共有経路は `check_resource_initialized_moves_inner` から一度だけ構築して渡す。
+- doc comment では、この graph が現在 compile に閉じた一時 view であり、永続 artifact key ではないこと、body hash / source capability policy / typed boundary による stale hit 防止は維持することを明示した。
+- native release RPN stage-only 測定では `resource_static_check=6915ms`、`resource_initialized_moves=5998ms` だった。
+- `trunk build --release` 後の Web RPN same-session unused local edit 測定 `tmp/rpn_dependency_graph_share_code_edit_20260531.json` では、base `compile_ms=9246` / `resource_static_check=8193.197ms`、edit `compile_ms=2135` / `resource_static_check=1857.811ms` だった。
+- edit delta は `resource_raw_alias_summary_recomputations=+1`、`resource_i32_scalar_summary_recomputations=+5`、`resource_raw_init_summary_recomputations=0`、`resource_initialized_function_checks=+1`、`resource_summary_value_replayed_ops=+920`、`resource_summary_value_recomputed_ops=+10` である。
+- base compile と実コード微小変更はまだ目標未達であり、次は changed-function-only proof replay、typed expression subtree query、stdlib prechecked artifact、codegen fragment cache を継続する。

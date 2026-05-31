@@ -8,9 +8,16 @@ use super::summary_dependency::build_function_summary_dependencies;
 
 pub(super) fn initial_summary_order(module: &ResourceModule) -> Vec<usize> {
     let dependencies = build_function_summary_dependencies(module);
-    let mut marks = vec![SummaryOrderMark::Unvisited; module.functions.len()];
+    summary_order_from_dependencies(module.functions.len(), &dependencies)
+}
+
+pub(super) fn summary_order_from_dependencies(
+    function_count: usize,
+    dependencies: &[Vec<usize>],
+) -> Vec<usize> {
+    let mut marks = vec![SummaryOrderMark::Unvisited; function_count];
     let mut out = Vec::new();
-    for index in 0..module.functions.len() {
+    for index in 0..function_count {
         push_summary_order(index, &dependencies, &mut marks, &mut out);
     }
     out

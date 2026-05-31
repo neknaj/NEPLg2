@@ -19,7 +19,7 @@ use super::place_utils::type_preserves_raw_address_alias;
 use super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
-use super::summary_dependency::build_function_summary_dependencies;
+use super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::summary_index::{FunctionSummary, SummaryIndex};
 use super::summary_worklist::SummaryWorklist;
 
@@ -76,17 +76,25 @@ pub(super) fn compute_raw_cell_address_return_summaries(
     module: &ResourceModule,
     types: &TypeCtx,
 ) -> Vec<RawCellAddressReturnSummary> {
-    compute_raw_cell_address_return_summaries_with_recomputations(module, types, None, None).0
+    let dependency_graph = ResourceSummaryDependencyGraph::build(module);
+    compute_raw_cell_address_return_summaries_with_recomputations(
+        module,
+        types,
+        &dependency_graph,
+        None,
+        None,
+    )
+    .0
 }
 
 pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
     module: &ResourceModule,
     types: &TypeCtx,
+    dependency_graph: &ResourceSummaryDependencyGraph,
     mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> (Vec<RawCellAddressReturnSummary>, usize) {
     let relevant_functions = vec![true; module.functions.len()];
-    let dependencies = build_function_summary_dependencies(module);
     let mut initially_skipped_functions = vec![false; module.functions.len()];
     let mut preseeded_functions = vec![false; module.functions.len()];
     let mut summaries = Vec::new();
@@ -99,16 +107,17 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
             context,
             types,
             module,
-            &dependencies,
+            dependency_graph.dependencies(),
             &mut initially_skipped_functions,
             &mut preseeded_functions,
             &mut summaries,
         );
     }
-    let mut worklist = SummaryWorklist::new_filtered_with_initial_skips(
+    let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph_and_initial_skips(
         module,
         relevant_functions,
         initially_skipped_functions,
+        dependency_graph,
     );
     while let Some(function_index) = worklist.pop() {
         let function = &module.functions[function_index];
@@ -122,14 +131,13 @@ pub(super) fn compute_raw_cell_address_return_summaries_with_recomputations(
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        let candidate_skipped_functions =
-            worklist.unrecomputed_initial_skips(&preseeded_functions);
+        let candidate_skipped_functions = worklist.unrecomputed_initial_skips(&preseeded_functions);
         record_raw_alias_return_summary_value_cache_candidates(
             cache,
             context,
             types,
             module,
-            &dependencies,
+            dependency_graph.dependencies(),
             &candidate_skipped_functions,
             &summaries,
         );

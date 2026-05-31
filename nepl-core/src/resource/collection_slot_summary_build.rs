@@ -30,7 +30,7 @@ use super::report::ResourceCheckDeferred;
 use super::resource_summary_value_cache::{
     ResourceSummaryValueCache, ResourceSummaryValueCacheContext,
 };
-use super::summary_dependency::build_function_summary_dependencies;
+use super::summary_dependency::ResourceSummaryDependencyGraph;
 use super::summary_worklist::SummaryWorklist;
 use super::timing::ResourceFunctionTimer;
 
@@ -44,12 +44,14 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries(
     summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> Vec<CollectionSlotLifecycleFunctionSummary> {
+    let dependency_graph = ResourceSummaryDependencyGraph::build(module);
     compute_collection_slot_lifecycle_function_summaries_with_recomputations(
         module,
         types,
         raw_alias_summaries,
         i32_scalar_summaries,
         raw_init_summaries,
+        &dependency_graph,
         summary_value_cache,
         summary_value_cache_context,
     )
@@ -62,12 +64,12 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries_with_recomput
     raw_alias_summaries: &[RawCellAddressReturnSummary],
     i32_scalar_summaries: &[I32ScalarReturnSummary],
     raw_init_summaries: &[RawCellInitializationFunctionSummary],
+    dependency_graph: &ResourceSummaryDependencyGraph,
     mut summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     summary_value_cache_context: Option<&ResourceSummaryValueCacheContext>,
 ) -> (Vec<CollectionSlotLifecycleFunctionSummary>, usize) {
     let mut summaries = Vec::new();
     let relevant_functions = collection_slot_summary_relevant_functions(module, types);
-    let dependencies = build_function_summary_dependencies(module);
     let mut worklist_relevant_functions = relevant_functions.clone();
     let mut preseeded_functions = vec![false; module.functions.len()];
     if let (Some(cache), Some(context)) = (
@@ -80,13 +82,17 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries_with_recomput
             types,
             module,
             &relevant_functions,
-            &dependencies,
+            dependency_graph.dependencies(),
             &mut worklist_relevant_functions,
             &mut preseeded_functions,
             &mut summaries,
         );
     }
-    let mut worklist = SummaryWorklist::new_filtered(module, worklist_relevant_functions);
+    let mut worklist = SummaryWorklist::new_filtered_with_dependency_graph(
+        module,
+        worklist_relevant_functions,
+        dependency_graph,
+    );
     let raw_alias_summary_index = RawCellAddressReturnSummaryIndex::new(raw_alias_summaries);
     let i32_scalar_summary_index = I32ScalarReturnSummaryIndex::new(i32_scalar_summaries);
     let raw_init_summary_index = RawCellInitializationFunctionSummaryIndex::new(raw_init_summaries);
@@ -111,14 +117,13 @@ pub(super) fn compute_collection_slot_lifecycle_function_summaries_with_recomput
         summary_value_cache.as_deref_mut(),
         summary_value_cache_context,
     ) {
-        let candidate_skipped_functions =
-            worklist.unrecomputed_initial_skips(&preseeded_functions);
+        let candidate_skipped_functions = worklist.unrecomputed_initial_skips(&preseeded_functions);
         record_resource_summary_value_cache_candidates(
             cache,
             context,
             types,
             module,
-            &dependencies,
+            dependency_graph.dependencies(),
             &candidate_skipped_functions,
             &summaries,
         );
