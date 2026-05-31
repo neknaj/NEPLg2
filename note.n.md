@@ -48212,3 +48212,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - 同じ測定で、base から edit への差分は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+16`、`resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+16` だった。内訳は `scalar_type=+10`、`parameter_projection=+6`、`return_projection=0` で、`resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions=+7`、`resource_summary_value_i32_scalar_return_facts_misses=0` だった。
 - したがって、残差は 7 関数の replay entry miss 後に再計算され、その再計算結果の 16 facts が stable entry 化できていない形である。次は key を弱めず、i32 scalar stable mirror の `ParameterProjection` / `ScalarType` 再投影境界を修正する。
 - memo_call / private cache の subagent review では、現状の `memo_call @pure_named_func` gate は Phase 1 として妥当だが、次は accepted path を広げるのではなく `PrivateCache` / `PrivateState` internal effect を fail-closed に追加し、mask boundary がない pure function では拒否する段階から始めるべきと確認した。
+
+## 2026-05-31 Agent i32 scalar stable reprojection partial checkpoint
+
+- remote/main と同期済みの `perf/i32-scalar-stable-reprojection-20260531` branch で、i32 scalar stable mirror の `ScalarType` / `ParameterProjection` residual を修正した。
+- raw-init / raw-alias と同じく、構造 projection から現在の function signature 上で型が計算できる場合は現在の signature を authority とし、raw address terminal `Deref` や open generic 終端だけ保存済み stable scalar type key を proof boundary として使うようにした。
+- alias / offset / relation では、return 側と parameter 側の再投影後 scalar type が一致することを維持している。key、dependency closure、source capability policy、type boundary を弱める修正はしていない。
+- focused regression として、projection-derived open generic scalar type の rebase、terminal raw `Deref` の stable type replay、non-final raw `Deref` の fail-closed rejection を追加した。
+- release Web RPN same-session code edit 測定 `tmp/rpn_i32_open_generic_reprojection_code_edit_20260531.json` では、base `compile_ms=9231`、edit `compile_ms=2126` だった。edit delta は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+10`、内訳は scalar type `+8`、parameter projection `+2`、replay entry miss functions `+5` である。
+- 直前の `+16` / 7 functions からは改善したが、i32 residual は未解消なので issue は open のまま継続する。
+- ユーザー指摘どおり、base compile も小さくしなければならない。今回の修正は warm edit residual を削るものだが、base compile は `resource_static_check=8606.798ms` であり、stdlib prechecked artifact / Resource proof template / `.neplmeta` / `.neplproof` / `.neplobj` 方向の作業を別途継続する。
+- GitHub CI の `nepl-language` compile failure は、`MemoizedFunctionValue` を semantic trace の HIR kind 表示と子走査で明示していなかったことが原因だった。`FnValue` と同じ function-value leaf として扱い、wildcard ではなく enum variant の追加へ追従する形で修正した。

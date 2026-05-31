@@ -1363,6 +1363,7 @@ fn hir_kind_name(kind: &HirExprKind) -> &'static str {
         HirExprKind::Unit => "Unit",
         HirExprKind::Var(_) => "Var",
         HirExprKind::FnValue(_) => "FnValue",
+        HirExprKind::MemoizedFunctionValue(_) => "MemoizedFunctionValue",
         HirExprKind::Call { .. } => "Call",
         HirExprKind::CallIndirect { .. } => "CallIndirect",
         HirExprKind::If { .. } => "If",
@@ -1428,7 +1429,7 @@ fn collect_semantic_expr(
                 collect_semantic_expr(arg, function_name, types, Some(id), out);
             }
         }
-        HirExprKind::FnValue(_) => {}
+        HirExprKind::FnValue(_) | HirExprKind::MemoizedFunctionValue(_) => {}
         HirExprKind::CallIndirect { callee, args, .. } => {
             collect_semantic_expr(callee, function_name, types, Some(id), out);
             for arg in args {

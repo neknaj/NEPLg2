@@ -159,8 +159,11 @@ impl ResourceSummaryStableDropTraversalForallLeafEntry {
 /// `I32ScalarReturnFacts` は return projection、parameter projection、scalar `TypeId` を
 /// 含むため、そのまま session cache に保存できない。この entry は projection と type を
 /// stable key に変換し、現在の関数 signature へ同じ facts を完全に戻せる場合だけ replay
-/// する。部分保存を許すと call 境界の scalar/condition propagation が欠けるため、
-/// aliases/offsets/relations/constants/conditions の全 surface を同じ entry に保持する。
+/// する。通常の構造 projection から scalar 型を計算できる場合は現在の signature を根拠に
+/// し、raw address の terminal deref など signature だけでは値型を決められない場合だけ
+/// 保存済み stable type key を proof boundary として使う。部分保存を許すと call 境界の
+/// scalar/condition propagation が欠けるため、aliases/offsets/relations/constants/conditions
+/// の全 surface を同じ entry に保持する。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct ResourceSummaryStableI32ScalarReturnFactsEntry {
     aliases: Vec<ResourceSummaryStableI32ScalarReturnAlias>,
@@ -768,6 +771,11 @@ struct ResourceSummaryStableI32ScalarParameterCondition {
     parameter_projection: Vec<ResourceSummaryStablePlaceProjection>,
     scalar_ty: ResourceSummaryStableTypeKey,
     condition: I32ValueCondition,
+}
+
+struct ResourceSummaryReprojectedI32ScalarProjection {
+    suffix: Vec<PlaceProjection>,
+    ty: TypeId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2998,20 +3006,21 @@ fn reproject_i32_scalar_return_alias(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     fact: &ResourceSummaryStableI32ScalarReturnAlias,
 ) -> Result<I32ScalarReturnAlias, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    let return_projection =
+        reproject_i32_scalar_return_projection(ctx, &fact.return_projection, &fact.scalar_ty)?;
+    let parameter_projection = reproject_i32_scalar_parameter_projection(
+        ctx,
+        fact.parameter_index,
+        &fact.parameter_projection,
+        &fact.scalar_ty,
+    )?;
+    let scalar_ty =
+        reproject_i32_scalar_common_type(ctx, return_projection.ty, parameter_projection.ty)?;
     Ok(I32ScalarReturnAlias {
-        return_projection: reproject_i32_scalar_return_projection(
-            ctx,
-            &fact.return_projection,
-            &fact.scalar_ty,
-        )?,
+        return_projection: return_projection.suffix,
         parameter_index: fact.parameter_index,
-        parameter_projection: reproject_i32_scalar_parameter_projection(
-            ctx,
-            fact.parameter_index,
-            &fact.parameter_projection,
-            &fact.scalar_ty,
-        )?,
-        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+        parameter_projection: parameter_projection.suffix,
+        scalar_ty,
     })
 }
 
@@ -3019,20 +3028,21 @@ fn reproject_i32_scalar_return_offset(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     fact: &ResourceSummaryStableI32ScalarReturnOffset,
 ) -> Result<I32ScalarReturnOffset, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    let return_projection =
+        reproject_i32_scalar_return_projection(ctx, &fact.return_projection, &fact.scalar_ty)?;
+    let parameter_projection = reproject_i32_scalar_parameter_projection(
+        ctx,
+        fact.parameter_index,
+        &fact.parameter_projection,
+        &fact.scalar_ty,
+    )?;
+    let scalar_ty =
+        reproject_i32_scalar_common_type(ctx, return_projection.ty, parameter_projection.ty)?;
     Ok(I32ScalarReturnOffset {
-        return_projection: reproject_i32_scalar_return_projection(
-            ctx,
-            &fact.return_projection,
-            &fact.scalar_ty,
-        )?,
+        return_projection: return_projection.suffix,
         parameter_index: fact.parameter_index,
-        parameter_projection: reproject_i32_scalar_parameter_projection(
-            ctx,
-            fact.parameter_index,
-            &fact.parameter_projection,
-            &fact.scalar_ty,
-        )?,
-        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+        parameter_projection: parameter_projection.suffix,
+        scalar_ty,
         offset: fact.offset,
     })
 }
@@ -3041,19 +3051,23 @@ fn reproject_i32_scalar_return_relation(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     fact: &ResourceSummaryStableI32ScalarReturnRelation,
 ) -> Result<I32ScalarReturnRelation, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    let left_return_projection =
+        reproject_i32_scalar_return_projection(ctx, &fact.left_return_projection, &fact.scalar_ty)?;
+    let right_return_projection = reproject_i32_scalar_return_projection(
+        ctx,
+        &fact.right_return_projection,
+        &fact.scalar_ty,
+    )?;
+    let scalar_ty = reproject_i32_scalar_common_type(
+        ctx,
+        left_return_projection.ty,
+        right_return_projection.ty,
+    )?;
     Ok(I32ScalarReturnRelation {
-        left_return_projection: reproject_i32_scalar_return_projection(
-            ctx,
-            &fact.left_return_projection,
-            &fact.scalar_ty,
-        )?,
+        left_return_projection: left_return_projection.suffix,
         op: fact.op,
-        right_return_projection: reproject_i32_scalar_return_projection(
-            ctx,
-            &fact.right_return_projection,
-            &fact.scalar_ty,
-        )?,
-        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+        right_return_projection: right_return_projection.suffix,
+        scalar_ty,
     })
 }
 
@@ -3061,13 +3075,11 @@ fn reproject_i32_scalar_return_constant(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     fact: &ResourceSummaryStableI32ScalarReturnConstant,
 ) -> Result<I32ScalarReturnConstant, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    let return_projection =
+        reproject_i32_scalar_return_projection(ctx, &fact.return_projection, &fact.scalar_ty)?;
     Ok(I32ScalarReturnConstant {
-        return_projection: reproject_i32_scalar_return_projection(
-            ctx,
-            &fact.return_projection,
-            &fact.scalar_ty,
-        )?,
-        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+        return_projection: return_projection.suffix,
+        scalar_ty: return_projection.ty,
         value: fact.value,
     })
 }
@@ -3076,13 +3088,11 @@ fn reproject_i32_scalar_return_condition(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     fact: &ResourceSummaryStableI32ScalarReturnCondition,
 ) -> Result<I32ScalarReturnCondition, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    let return_projection =
+        reproject_i32_scalar_return_projection(ctx, &fact.return_projection, &fact.scalar_ty)?;
     Ok(I32ScalarReturnCondition {
-        return_projection: reproject_i32_scalar_return_projection(
-            ctx,
-            &fact.return_projection,
-            &fact.scalar_ty,
-        )?,
-        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+        return_projection: return_projection.suffix,
+        scalar_ty: return_projection.ty,
         condition: fact.condition,
     })
 }
@@ -3092,15 +3102,16 @@ fn reproject_i32_scalar_parameter_condition(
     fact: &ResourceSummaryStableI32ScalarParameterCondition,
 ) -> Result<I32ScalarParameterCondition, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject>
 {
+    let parameter_projection = reproject_i32_scalar_parameter_projection(
+        ctx,
+        fact.parameter_index,
+        &fact.parameter_projection,
+        &fact.scalar_ty,
+    )?;
     Ok(I32ScalarParameterCondition {
         parameter_index: fact.parameter_index,
-        parameter_projection: reproject_i32_scalar_parameter_projection(
-            ctx,
-            fact.parameter_index,
-            &fact.parameter_projection,
-            &fact.scalar_ty,
-        )?,
-        scalar_ty: reproject_i32_scalar_type(ctx, &fact.scalar_ty)?,
+        parameter_projection: parameter_projection.suffix,
+        scalar_ty: parameter_projection.ty,
         condition: fact.condition,
     })
 }
@@ -3109,13 +3120,17 @@ fn reproject_i32_scalar_return_projection(
     ctx: &ResourceSummaryTypeReprojection<'_>,
     suffix: &[ResourceSummaryStablePlaceProjection],
     scalar_ty: &ResourceSummaryStableTypeKey,
-) -> Result<Vec<PlaceProjection>, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
-    let (suffix, ty) = reproject_place_projection_suffix(ctx, ctx.function.result, suffix)
-        .ok_or(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ReturnProjection)?;
-    if !scalar_ty.matches_type(ctx.types, ty) {
-        return Err(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType);
-    }
-    Ok(suffix)
+) -> Result<
+    ResourceSummaryReprojectedI32ScalarProjection,
+    ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
+> {
+    reproject_i32_scalar_projection_suffix_with_stable_type(
+        ctx,
+        ctx.function.result,
+        suffix,
+        scalar_ty,
+        ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ReturnProjection,
+    )
 }
 
 fn reproject_i32_scalar_parameter_projection(
@@ -3123,19 +3138,86 @@ fn reproject_i32_scalar_parameter_projection(
     parameter_index: usize,
     suffix: &[ResourceSummaryStablePlaceProjection],
     scalar_ty: &ResourceSummaryStableTypeKey,
-) -> Result<Vec<PlaceProjection>, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+) -> Result<
+    ResourceSummaryReprojectedI32ScalarProjection,
+    ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
+> {
     let base_ty = ctx
         .function
         .params
         .get(parameter_index)
         .ok_or(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ParameterProjection)?
         .ty;
-    let (suffix, ty) = reproject_place_projection_suffix(ctx, base_ty, suffix)
-        .ok_or(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ParameterProjection)?;
-    if !scalar_ty.matches_type(ctx.types, ty) {
-        return Err(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType);
+    reproject_i32_scalar_projection_suffix_with_stable_type(
+        ctx,
+        base_ty,
+        suffix,
+        scalar_ty,
+        ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ParameterProjection,
+    )
+}
+
+fn reproject_i32_scalar_projection_suffix_with_stable_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    base_ty: TypeId,
+    suffix: &[ResourceSummaryStablePlaceProjection],
+    stable_scalar_ty: &ResourceSummaryStableTypeKey,
+    projection_reject: ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
+) -> Result<
+    ResourceSummaryReprojectedI32ScalarProjection,
+    ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject,
+> {
+    let mut out = Vec::new();
+    let mut current_ty = base_ty;
+    for (index, stable_projection) in suffix.iter().enumerate() {
+        let projection =
+            reproject_place_projection(ctx, stable_projection).ok_or(projection_reject)?;
+        current_ty = match projection_result_type(ctx.types, current_ty, &projection) {
+            Some(ty)
+                if validate_place_projection_layout(ctx.types, current_ty, &projection)
+                    .is_some() =>
+            {
+                ty
+            }
+            _ if matches!(projection, PlaceProjection::Deref) && index + 1 == suffix.len() => {
+                reproject_i32_scalar_type(ctx, stable_scalar_ty)?
+            }
+            _ => return Err(projection_reject),
+        };
+        out.push(projection);
     }
-    Ok(suffix)
+    let current_ty =
+        reproject_i32_scalar_projection_result_type(ctx, current_ty, stable_scalar_ty)?;
+    Ok(ResourceSummaryReprojectedI32ScalarProjection {
+        suffix: out,
+        ty: current_ty,
+    })
+}
+
+fn reproject_i32_scalar_projection_result_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    current_ty: TypeId,
+    stable_scalar_ty: &ResourceSummaryStableTypeKey,
+) -> Result<TypeId, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    if !ctx.type_is_open_generic(current_ty) {
+        return Ok(current_ty);
+    }
+    // 構造 projection の終端が open generic のまま残る場合、その `TypeId` は
+    // compile session 内の generic slot に依存する。i32 scalar fact は保存時点の
+    // scalar leaf 型を持っているため、この場合だけ stable key を proof boundary として
+    // 使い、現在の type boundary へ再投影できるかを検査する。
+    reproject_i32_scalar_type(ctx, stable_scalar_ty)
+}
+
+fn reproject_i32_scalar_common_type(
+    ctx: &ResourceSummaryTypeReprojection<'_>,
+    left: TypeId,
+    right: TypeId,
+) -> Result<TypeId, ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject> {
+    if ctx.types.same_type(left, right) {
+        return Ok(left);
+    }
+    Err(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ScalarType)
 }
 
 fn reproject_i32_scalar_type(
@@ -4293,6 +4375,102 @@ mod tests {
             .expect("projection-derived raw alias type should come from the current signature");
 
         assert_eq!(reprojected.aliases[0].parameter_ty, types.i32());
+    }
+
+    #[test]
+    fn stable_i32_scalar_alias_rebases_projection_derived_open_generic_scalar_type() {
+        let mut types = TypeCtx::new();
+        let definition_generic = types.fresh_var(Some("T".to_string()));
+        let nominal = types.register_named_with_stable_identity(
+            "Wrapper".to_string(),
+            TypeKind::Struct {
+                name: "Wrapper".to_string(),
+                type_params: vec![definition_generic],
+                fields: vec![definition_generic],
+                field_names: vec!["value".to_string()],
+            },
+            nominal_struct_identity("Wrapper"),
+        );
+        let applied = types.apply(nominal, vec![types.i32()]);
+        let stale_callee_generic = types.fresh_var(Some("T".to_string()));
+        let function = function_with_params(vec![("input", applied)], types.i32());
+        let mut facts = I32ScalarReturnFacts::default();
+        facts.aliases.push(I32ScalarReturnAlias {
+            return_projection: Vec::new(),
+            parameter_index: 0,
+            parameter_projection: vec![PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            }],
+            scalar_ty: stale_callee_generic,
+        });
+        let entry = stable_i32_scalar_return_facts_entry(&types, &function, &facts)
+            .expect("projection-derived open generic scalar type should remain representable");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("applied signature should be reprojectable");
+
+        let reprojected = reproject_i32_scalar_return_facts_entry_result(&ctx, &entry)
+            .expect("projection-derived scalar type should come from the current signature");
+
+        assert_eq!(reprojected.aliases[0].scalar_ty, types.i32());
+        assert_eq!(
+            reprojected.aliases[0].parameter_projection,
+            vec![PlaceProjection::Field {
+                index: 0,
+                offset_bytes: 0,
+            }]
+        );
+    }
+
+    #[test]
+    fn stable_i32_scalar_return_condition_reprojects_terminal_raw_deref_scalar_type() {
+        let types = TypeCtx::new();
+        let function = function_with_params(Vec::new(), types.u8());
+        let mut facts = I32ScalarReturnFacts::default();
+        facts.return_conditions.push(I32ScalarReturnCondition {
+            return_projection: vec![
+                PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+                PlaceProjection::Deref,
+            ],
+            scalar_ty: types.i32(),
+            condition: I32ValueCondition::EqZero,
+        });
+        let entry = stable_i32_scalar_return_facts_entry(&types, &function, &facts)
+            .expect("terminal raw deref scalar fact should convert with its explicit scalar type");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let reprojected = reproject_i32_scalar_return_facts_entry_result(&ctx, &entry)
+            .expect("terminal raw deref scalar fact should use the stable scalar type");
+
+        assert_eq!(reprojected, facts);
+    }
+
+    #[test]
+    fn stable_i32_scalar_return_condition_rejects_non_final_raw_deref_fallback() {
+        let types = TypeCtx::new();
+        let function = function_with_params(Vec::new(), types.u8());
+        let mut facts = I32ScalarReturnFacts::default();
+        facts.return_conditions.push(I32ScalarReturnCondition {
+            return_projection: vec![
+                PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+                PlaceProjection::Deref,
+                PlaceProjection::StorageOffset(ResourceOffset::Known(0)),
+            ],
+            scalar_ty: types.i32(),
+            condition: I32ValueCondition::EqZero,
+        });
+        let entry = stable_i32_scalar_return_facts_entry(&types, &function, &facts)
+            .expect("non-final raw deref should convert before reprojection validation");
+        let ctx = ResourceSummaryTypeReprojection::new(&types, &function, &[])
+            .expect("primitive function boundary should be reprojectable");
+
+        let result = reproject_i32_scalar_return_facts_entry_result(&ctx, &entry);
+
+        assert!(matches!(
+            result,
+            Err(ResourceSummaryI32ScalarReturnFactsEntryReprojectionReject::ReturnProjection)
+        ));
     }
 
     #[test]

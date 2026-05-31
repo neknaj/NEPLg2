@@ -1166,6 +1166,27 @@ typed public signature table を外部化するだけなので、`TypeId` や `S
 
 この分離により、Web playground の warm session は memory cache で同じ構造を使い、CLI / CI / selfhost compiler は disk-backed artifact として同じ invalidation rule を使える。selfhost 実装でも、純粋 query function の結果を private cache へ保存する設計と整合し、cache は外部観測可能な semantics ではなく compile-time acceleration として扱う。
 
+### 2026-05-31 measurement boundary
+
+RPN same-session code edit は、Resource summary value cache の段階的な stable mirror により
+秒単位ではあるが改善している。`tmp/rpn_i32_open_generic_reprojection_code_edit_20260531.json`
+では、code string literal edit が `compile_ms=2126`、`resource_static_check=1841.527ms`
+まで下がった。これは raw-init / raw-alias / final check の false miss を削り、i32 scalar
+stable mirror の projection-derived type replay を一部修正した結果である。
+
+ただし同じ測定の base compile は `compile_ms=9231`、`resource_static_check=8606.798ms`
+である。warm edit path の改善は重要だが、NEPLg2 の性能目標は 1 program compile を
+0.5 秒未満へ近づけることも含む。したがって、次の設計判断では edit cache hit の
+counter だけを成功条件にしない。base compile では stdlib の parse / typecheck / Resource
+proof template / codegen fragment を `.neplmeta` / `.neplproof` / `.neplobj` へ寄せ、初回から
+「ほぼ link するだけ」に近い状態を作る必要がある。
+
+当面の実装順は次の通りにする。
+
+- edit path: remaining i32 scalar residual を fact kind / function 単位で分解し、changed-function-only proof replay へ進む。
+- base path: stdlib prechecked artifact と Resource proof template を優先し、初回 compile の fixed-point 探索空間を減らす。
+- shared path: typed expression subtree query と codegen fragment cache は、warm edit と base artifact の両方から使える query 境界として設計する。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

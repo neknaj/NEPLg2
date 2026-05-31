@@ -99,6 +99,14 @@ RPN では同一入力の再compileは 10ms 未満になったが、初回 compi
 
 2026-05-28 の semantic source key checkpoint で、RPN same-session の ordinary comment-only edit は `compile_ms=2`、doccomment text edit は `compile_ms=1` になった。コメント追加・修正は compiled-output cache で 10ms 未満に入ったが、code edit は `compile_ms=8347` の full compile になり、初回 / 実コード微小変更の目標は未達である。
 
+2026-05-31 の same-session performance work で、RPN の実コード微小変更は
+`tmp/rpn_i32_open_generic_reprojection_code_edit_20260531.json` において `edit compile_ms=2126`
+まで下がった。一方で、同じ測定の base compile は `compile_ms=9231`、
+`resource_static_check=8606.798ms` であり、0.5 秒未満の per-program compile target には
+まだ届いていない。今後の性能改善では warm edit cache だけではなく、初回 compile の
+stdlib prechecked artifact、Resource static check fixed-point の探索空間削減、binary
+intermediate artifact 化を同時に進める必要がある。
+
 raw-init param facts cache staging の実測では RPN が `raw_init_param_facts_stores=0` / `bypasses=225` だった。nominal 型 identity が未整備で stdlib summary を安全に stable key 化できない問題を `ISS-20260528T110220373Z-RESOURCE-SUMMARY-CACHE-NEEDS-QUALIFI-08D1AA04` に分離した。
 
 raw-init preseed は実際に fixed-point worklist を skip するため、function body / source policy / signature type boundary が変わる場合に stale summary を使わない regression を追加した。raw body は本文が `ResourceFunction` に残らないため、source policy hash だけではなく raw body/source hash 設計が入るまで Resource summary body hash で拒否する。

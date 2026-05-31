@@ -355,6 +355,29 @@ scope の問題と混同しないため、詳細は子 issue に分離して扱�
 では引き続き changed-function-only proof replay、typed expression subtree query、stdlib
 prechecked artifact、codegen fragment cache を継続する。
 
+## 2026-05-31 i32 scalar stable reprojection partial 更新
+
+`ISS-20260531T134951396Z-I32-SCALAR-RESIDUAL-REPROJECTION-STI-0F6F5A24`
+で、i32 scalar stable mirror の projection-derived type replay 境界を raw-init / raw-alias
+と同じ方針へ寄せた。構造 projection から現在の function signature 上で型が決まる場合は
+現在の signature を使い、raw address terminal deref や open generic 終端だけ保存済み
+stable scalar type key を使う。
+
+`tmp/rpn_i32_open_generic_reprojection_code_edit_20260531.json` では、same-session code edit が
+次の結果になった。
+
+- base `compile_ms=9231`、`resource_static_check=8606.798ms`
+- edit `compile_ms=2126`、`resource_static_check=1841.527ms`
+- edit delta は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+10`
+- edit delta の内訳は scalar type `+8`、parameter projection `+2`
+- `resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions=+5`
+
+直前の `+16` からは改善したが、edit compile はまだ秒単位で、base compile も
+`resource_static_check=8606.798ms` と 0.5 秒未満から遠い。したがって、この親 issue では
+i32 residual を子 issue に残しつつ、base compile 短縮のための stdlib prechecked artifact、
+changed-function-only proof replay、typed expression subtree query、codegen fragment cache を
+継続する。edit cache の改善だけで完了扱いにはしない。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

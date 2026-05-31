@@ -91,6 +91,38 @@ i32 scalar residual の発生源を function count と fact count に分けて�
 再投影境界を精査し、source policy / dependency closure / type boundary を保ったまま
 保存可能な surface を増やす。
 
+## 2026-05-31 stable reprojection partial checkpoint
+
+i32 scalar stable mirror の projection-derived scalar type 境界を修正した。raw-init / raw-alias
+と同じく、構造 projection から現在の function signature 上で型を計算できる場合は現在の
+signature を authority とし、raw address の terminal `Deref` や終端が open generic のまま
+残る場合だけ保存済み stable scalar type key を proof boundary として使う。alias / offset /
+relation では return 側と parameter 側の再投影後の scalar type が同じであることを維持する。
+
+focused regression では、projection-derived open generic scalar type が現在の applied
+signature から `i32` へ rebased されること、terminal raw `Deref` は保存済み scalar type を
+使って再投影されること、non-final raw `Deref` は後続 layout を検証できないため拒否される
+ことを確認した。
+
+`tmp/rpn_i32_open_generic_reprojection_code_edit_20260531.json` では、same-session code edit が
+次の結果になった。
+
+- base `compile_ms=9231`、`resource_static_check=8606.798ms`
+- edit `compile_ms=2126`、`resource_static_check=1841.527ms`
+- edit delta は `resource_summary_value_i32_scalar_return_facts_recomputed_ops=+10`
+- edit delta は `resource_summary_value_i32_scalar_return_facts_reprojection_value_bypasses=+10`
+- 内訳は scalar type `+8`、parameter projection `+2`、return projection `0`
+- `resource_summary_value_i32_scalar_return_facts_replay_entry_miss_functions=+5`
+
+直前の reason counter checkpoint の `+16` / 7 functions からは改善したが、i32 residual は
+まだ解消していない。この issue は open のまま継続し、次 checkpoint では fact kind /
+function name をさらに分けるか、remaining scalar type / parameter projection の stable mirror
+surface を狭く修正する。
+
+なお、この修正は微小 edit 側の residual を削るものであり、base compile の
+`resource_static_check=8606.798ms` は未解決である。base compile 0.5 秒未満の目標は
+親 issue と per-program compile performance issue で別途追跡する。
+
 ## 検証
 
 - RPN same-session edit JSON で、i32 scalar recomputed op delta と i32 scalar reprojection bypass delta が `0` になる。
