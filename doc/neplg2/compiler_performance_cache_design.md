@@ -1270,6 +1270,20 @@ source capability policy、generic boundary へ再投影できるかで決める
 「cache を読む権利」を与えるだけであり、Resource proof 自体の検査を省略する authority では
 ない。
 
+同日の次 checkpoint では、snapshot に対して `ResourceSummaryProofArtifactHeader` と
+`ResourceSummaryProofArtifact` を追加した。これは `.neplproof` の実 serialization ではなく、
+disk / IndexedDB / bundled stdlib artifact を cache に preseed する前の envelope である。
+header は schema version、compiler identity hash、target hash、profile hash、stdlib content
+hash、dependency public surface hash、Resource summary namespace hash、source capability
+policy set hash、private effect policy hash を分けて持つ。1 field でも現在 compile の期待
+header と一致しない場合は payload を読まずに拒否する。
+
+この envelope は `ResourceSummaryValueCacheKey` に含まれる per-entry invalidation を置き換えない。
+artifact 全体の target / stdlib / dependency / policy 境界を先に検査し、個別 entry は従来どおり
+replay 時に fail-closed に再投影する。これにより、`.neplproof` を stdlib release artifact として
+同梱する場合でも、overlay stdlib、compiler schema 変更、private effect mask policy 変更を
+artifact-level miss として扱える。
+
 この分離により、Web playground の warm session は memory cache で同じ構造を使い、CLI / CI / selfhost compiler は disk-backed artifact として同じ invalidation rule を使える。selfhost 実装でも、純粋 query function の結果を private cache へ保存する設計と整合し、cache は外部観測可能な semantics ではなく compile-time acceleration として扱う。
 
 ### 2026-05-31 measurement boundary

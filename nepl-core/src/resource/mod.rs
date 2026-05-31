@@ -593,6 +593,10 @@ pub use report::{
     ResourceOwnerFunctionCheck, ResourceOwnerOperation, ResourceSafetyShadowReport,
 };
 pub use resource_summary_value_cache::{
-    ResourceSummaryValueCache, ResourceSummaryValueCacheContext, ResourceSummaryValueCacheStats,
+    ResourceSummaryProofArtifact, ResourceSummaryProofArtifactCompatibilityReject,
+    ResourceSummaryProofArtifactHeader, ResourceSummaryProofSnapshot,
+    ResourceSummaryProofSnapshotCounts, ResourceSummaryProofSnapshotMergeStats,
+    ResourceSummaryProofSnapshotPreseedStats, ResourceSummaryValueCache,
+    ResourceSummaryValueCacheContext, ResourceSummaryValueCacheStats,
 };
 pub use shadow::check_hir_resource_safety_shadow;

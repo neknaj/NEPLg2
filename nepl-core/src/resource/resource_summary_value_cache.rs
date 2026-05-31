@@ -406,6 +406,150 @@ impl ResourceSummaryProofSnapshotPreseedStats {
     }
 }
 
+/// `.neplproof` artifact header の現行 schema version。
+///
+/// stable mirror entry の形や envelope に含める invalidation 入力が変わる場合は、この値を
+/// 上げる。古い artifact は読み込めても preseed 前の互換性検査で拒否し、通常の Resource
+/// check へ戻す。
+pub const RESOURCE_SUMMARY_PROOF_ARTIFACT_SCHEMA_VERSION: u32 = 1;
+
+/// `.neplproof` artifact の invalidation envelope。
+///
+/// この header は disk format そのものではなく、artifact を cache へ preseed してよいかを
+/// 判定する typed boundary である。`target_hash`、`profile_hash`、`compiler_identity_hash`
+/// は呼び出し側が canonical な compiler version / target / profile 文字列から作る安定 hash
+/// を渡す。`resource_summary_namespace_hash` は `ResourceSummaryCacheNamespaceKey::stable_hash`
+/// と一致させ、per-entry key の namespace と artifact 全体の namespace を二重に照合する。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResourceSummaryProofArtifactHeader {
+    pub schema_version: u32,
+    pub compiler_identity_hash: u64,
+    pub target_hash: u64,
+    pub profile_hash: u64,
+    pub stdlib_content_hash: Option<u64>,
+    pub dependency_public_surface_hash: Option<u64>,
+    pub resource_summary_namespace_hash: u64,
+    pub source_capability_policy_set_hash: Option<u64>,
+    pub private_effect_policy_hash: Option<u64>,
+}
+
+impl ResourceSummaryProofArtifactHeader {
+    pub fn new(
+        compiler_identity_hash: u64,
+        target_hash: u64,
+        profile_hash: u64,
+        stdlib_content_hash: Option<u64>,
+        dependency_public_surface_hash: Option<u64>,
+        resource_summary_namespace_hash: u64,
+        source_capability_policy_set_hash: Option<u64>,
+        private_effect_policy_hash: Option<u64>,
+    ) -> Self {
+        Self {
+            schema_version: RESOURCE_SUMMARY_PROOF_ARTIFACT_SCHEMA_VERSION,
+            compiler_identity_hash,
+            target_hash,
+            profile_hash,
+            stdlib_content_hash,
+            dependency_public_surface_hash,
+            resource_summary_namespace_hash,
+            source_capability_policy_set_hash,
+            private_effect_policy_hash,
+        }
+    }
+
+    pub fn compatibility_reject(
+        self,
+        expected: Self,
+    ) -> Option<ResourceSummaryProofArtifactCompatibilityReject> {
+        if self.schema_version != expected.schema_version {
+            return Some(ResourceSummaryProofArtifactCompatibilityReject::SchemaVersion);
+        }
+        if self.compiler_identity_hash != expected.compiler_identity_hash {
+            return Some(ResourceSummaryProofArtifactCompatibilityReject::CompilerIdentity);
+        }
+        if self.target_hash != expected.target_hash {
+            return Some(ResourceSummaryProofArtifactCompatibilityReject::Target);
+        }
+        if self.profile_hash != expected.profile_hash {
+            return Some(ResourceSummaryProofArtifactCompatibilityReject::Profile);
+        }
+        if self.stdlib_content_hash != expected.stdlib_content_hash {
+            return Some(ResourceSummaryProofArtifactCompatibilityReject::StdlibContent);
+        }
+        if self.dependency_public_surface_hash != expected.dependency_public_surface_hash {
+            return Some(ResourceSummaryProofArtifactCompatibilityReject::DependencyPublicSurface);
+        }
+        if self.resource_summary_namespace_hash != expected.resource_summary_namespace_hash {
+            return Some(ResourceSummaryProofArtifactCompatibilityReject::ResourceSummaryNamespace);
+        }
+        if self.source_capability_policy_set_hash != expected.source_capability_policy_set_hash {
+            return Some(
+                ResourceSummaryProofArtifactCompatibilityReject::SourceCapabilityPolicySet,
+            );
+        }
+        if self.private_effect_policy_hash != expected.private_effect_policy_hash {
+            return Some(ResourceSummaryProofArtifactCompatibilityReject::PrivateEffectPolicy);
+        }
+        None
+    }
+}
+
+/// `.neplproof` artifact header が現在 compile と一致しない理由。
+///
+/// reject はすべて fail-closed であり、該当 artifact の proof entry は cache へ preseed しない。
+/// どの入力で拒否したかを enum に分け、Web / CLI 側が将来 JSON counter へ出せるようにする。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceSummaryProofArtifactCompatibilityReject {
+    SchemaVersion,
+    CompilerIdentity,
+    Target,
+    Profile,
+    StdlibContent,
+    DependencyPublicSurface,
+    ResourceSummaryNamespace,
+    SourceCapabilityPolicySet,
+    PrivateEffectPolicy,
+}
+
+/// `.neplproof` artifact の in-memory 表現。
+///
+/// payload は `ResourceSummaryProofSnapshot`、invalidation authority は
+/// `ResourceSummaryProofArtifactHeader` に分ける。これにより、disk / IndexedDB / bundled
+/// stdlib artifact の保存方法を後から選んでも、`core` 側の preseed 判定は同じになる。
+#[derive(Debug, Clone)]
+pub struct ResourceSummaryProofArtifact {
+    header: ResourceSummaryProofArtifactHeader,
+    snapshot: ResourceSummaryProofSnapshot,
+}
+
+impl ResourceSummaryProofArtifact {
+    pub fn new(
+        header: ResourceSummaryProofArtifactHeader,
+        snapshot: ResourceSummaryProofSnapshot,
+    ) -> Self {
+        Self { header, snapshot }
+    }
+
+    pub fn header(&self) -> ResourceSummaryProofArtifactHeader {
+        self.header
+    }
+
+    pub fn snapshot(&self) -> &ResourceSummaryProofSnapshot {
+        &self.snapshot
+    }
+
+    pub fn counts(&self) -> ResourceSummaryProofSnapshotCounts {
+        self.snapshot.counts()
+    }
+
+    pub fn compatibility_reject(
+        &self,
+        expected_header: ResourceSummaryProofArtifactHeader,
+    ) -> Option<ResourceSummaryProofArtifactCompatibilityReject> {
+        self.header.compatibility_reject(expected_header)
+    }
+}
+
 /// `.neplproof` の Resource proof payload に相当する in-memory snapshot。
 ///
 /// この型は serialization schema ではない。`TypeId`、`Span`、`SourceMap`、diagnostic、
@@ -561,6 +705,25 @@ impl ResourceSummaryValueCache {
                 &snapshot.raw_init_complete_leaf_entries,
             ),
         }
+    }
+
+    /// `.neplproof` artifact を header 照合後に現在の cache へ preseed する。
+    ///
+    /// header が 1 field でも一致しない場合は snapshot payload を見ずに拒否する。これは
+    /// stale hit を避けるための artifact-level gate であり、成功しても各 entry の再投影検査は
+    /// 後続の replay API で維持する。
+    pub fn preseed_neplproof_artifact(
+        &mut self,
+        artifact: &ResourceSummaryProofArtifact,
+        expected_header: ResourceSummaryProofArtifactHeader,
+    ) -> Result<
+        ResourceSummaryProofSnapshotPreseedStats,
+        ResourceSummaryProofArtifactCompatibilityReject,
+    > {
+        if let Some(reason) = artifact.compatibility_reject(expected_header) {
+            return Err(reason);
+        }
+        Ok(self.preseed_neplproof_snapshot(artifact.snapshot()))
     }
 
     fn clear_compile_local_replay_snapshots(&mut self) {
@@ -916,10 +1079,16 @@ where
 #[cfg(test)]
 mod tests {
     use super::{
-        preseed_neplproof_entry_map, ResourceSummaryProofSnapshot,
-        ResourceSummaryProofSnapshotMergeStats, ResourceSummaryValueCache,
+        preseed_neplproof_entry_map, ResourceSummaryProofArtifact,
+        ResourceSummaryProofArtifactCompatibilityReject, ResourceSummaryProofArtifactHeader,
+        ResourceSummaryProofSnapshot, ResourceSummaryProofSnapshotMergeStats,
+        ResourceSummaryValueCache,
     };
     use alloc::collections::BTreeMap;
+
+    fn test_neplproof_header() -> ResourceSummaryProofArtifactHeader {
+        ResourceSummaryProofArtifactHeader::new(2, 3, 4, Some(5), Some(6), 7, Some(8), Some(9))
+    }
 
     #[test]
     fn neplproof_snapshot_excludes_compile_local_replay_plans() {
@@ -966,5 +1135,50 @@ mod tests {
         let snapshot = ResourceSummaryProofSnapshot::default();
 
         assert_eq!(snapshot.counts().total_entries(), 0);
+    }
+
+    #[test]
+    fn neplproof_artifact_preseed_rejects_schema_mismatch_before_payload_merge() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let expected = test_neplproof_header();
+        let mut stale = expected;
+        stale.schema_version += 1;
+        let artifact =
+            ResourceSummaryProofArtifact::new(stale, ResourceSummaryProofSnapshot::default());
+
+        let result = cache.preseed_neplproof_artifact(&artifact, expected);
+
+        assert_eq!(
+            result,
+            Err(ResourceSummaryProofArtifactCompatibilityReject::SchemaVersion)
+        );
+    }
+
+    #[test]
+    fn neplproof_artifact_preseed_accepts_matching_header() {
+        let mut cache = ResourceSummaryValueCache::new();
+        let header = test_neplproof_header();
+        let artifact =
+            ResourceSummaryProofArtifact::new(header, ResourceSummaryProofSnapshot::default());
+
+        let result = cache
+            .preseed_neplproof_artifact(&artifact, header)
+            .expect("matching artifact header should allow empty snapshot preseed");
+
+        assert_eq!(result.accepted_entries(), 0);
+        assert_eq!(artifact.header(), header);
+        assert_eq!(artifact.counts().total_entries(), 0);
+    }
+
+    #[test]
+    fn neplproof_artifact_header_reports_private_effect_policy_mismatch() {
+        let expected = test_neplproof_header();
+        let mut stale = expected;
+        stale.private_effect_policy_hash = Some(99);
+
+        assert_eq!(
+            stale.compatibility_reject(expected),
+            Some(ResourceSummaryProofArtifactCompatibilityReject::PrivateEffectPolicy)
+        );
     }
 }

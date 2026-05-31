@@ -48385,3 +48385,12 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `export_neplproof_snapshot` は `CollectionSlotDropTraversalForallLeafEntryV1`、`RawAliasReturnEntryV1`、`I32ScalarReturnFactsEntryV1`、`InitializedFunctionCheckEntryV1`、`OwnerObligationCheckEntryV1`、`RawInitCompleteLeafEntryV1` の stable maps だけを clone する。
 - `preseed_neplproof_snapshot` は現在 cache の entry を上書きしない。同じ key/value は existing matching として数え、同じ key で異なる value は conflict として拒否する。preseed 時には compile-local replay plan を破棄し、古い関数順序由来の高速化だけが残らないようにした。
 - memo_call / private cache 側の subagent review では、accepted runtime path を広げる段階ではなく、Resource IR に private cache region / provenance を追加し、SourceCapability exact span は trusted use-site 照合に限定して、region non-escape proof までは `PrivateCacheInPureFunction` を fail-closed に維持する方針を確認した。
+
+## 2026-06-01 Agent `.neplproof` artifact envelope checkpoint
+
+- remote/main と同期済みの `perf/neplproof-envelope-20260601` branch で、`.neplproof` snapshot の外側に `ResourceSummaryProofArtifactHeader` / `ResourceSummaryProofArtifact` を追加した。`plan.md` は変更していない。
+- Zenn のマルチプラットフォーム方針と静的検査方針に従い、disk I/O や codec は `core` に入れず、no_std + alloc の型境界だけを追加した。
+- header は schema version、compiler identity hash、target hash、profile hash、stdlib content hash、dependency public surface hash、Resource summary namespace hash、source capability policy set hash、private effect policy hash を分けて保持する。
+- `preseed_neplproof_artifact` は header が一致しない artifact を payload merge 前に拒否する。header が一致しても、個別 entry の authority は従来どおり現在 compile の `TypeCtx` / function signature / source capability policy への再投影で確認する。
+- subagent review では、`LoaderSessionCache` へ Resource proof artifact を混ぜず、`CompilerSession` / CLI / selfhost 側で `preseed -> compile -> export` の薄い接続にする方針を確認した。
+- memo_call / PrivateCache 側の subagent review では、次の安全な実装は pure mask ではなく、`EffectOp::PrivateCache` と `SourceCapabilityUseSite::PrivateCacheBoundary` の exact file/span/operation 照合を fail-closed 診断として追加することだと確認した。

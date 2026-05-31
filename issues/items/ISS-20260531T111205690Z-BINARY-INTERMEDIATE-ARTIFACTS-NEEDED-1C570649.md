@@ -83,3 +83,18 @@ entry だけを使う。
 
 次の作業は、この snapshot に compiler version、schema version、target/profile、stdlib hash、
 dependency public surface hash、private effect policy hash を持つ envelope を付けることである。
+
+## 2026-06-01 checkpoint 2
+
+`.neplproof` snapshot に `ResourceSummaryProofArtifactHeader` / `ResourceSummaryProofArtifact`
+を追加した。これは disk codec ではなく、artifact payload を cache へ preseed する前に
+schema、compiler identity、target、profile、stdlib content hash、dependency public surface hash、
+Resource summary namespace hash、source capability policy set hash、private effect policy hash を
+照合する envelope である。
+
+`preseed_neplproof_artifact` は header が一致しない artifact を payload merge 前に拒否する。
+header が一致した場合でも、個別 summary entry は従来の replay API が現在の `TypeCtx` /
+function signature / source capability policy へ再投影できる場合だけ使う。
+
+次の作業は、Web / CLI / selfhost 側でこの header を作るための canonical compiler identity hash、
+target/profile hash、stdlib artifact hash の生成と、preseed/export を session API に薄く接続することである。
