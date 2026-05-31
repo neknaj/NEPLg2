@@ -181,9 +181,37 @@ fn check_resource_initialized_moves_inner(
         CollectionSlotLifecycleFunctionSummaryIndex::new(&collection_slot_summaries);
     stage_start.log("resource_initialized_collection_slot_summaries");
     let stage_start = ResourceStageTimer::start();
+    let mut final_check_pass_plan = match (
+        summary_value_cache.as_deref_mut(),
+        summary_value_cache_context,
+    ) {
+        (Some(cache), Some(context)) => Some(cache.begin_initialized_function_check_pass_plan(
+            context,
+            types,
+            module,
+            &dependency_graph,
+        )),
+        _ => None,
+    };
     for (function_index, function) in module.functions.iter().enumerate() {
         let function_start = ResourceFunctionTimer::start();
         let function_op_count = resource_function_op_count(function);
+        if let (Some(cache), Some(plan)) = (
+            summary_value_cache.as_deref_mut(),
+            final_check_pass_plan.as_mut(),
+        ) {
+            if let Some(replayed_check) = cache.replay_unchanged_initialized_function_check_pass(
+                plan,
+                function_index,
+                function,
+                function_op_count,
+            ) {
+                merge_deferred(&mut deferred, replayed_check.deferred);
+                functions.push(replayed_check);
+                function_start.log("resource_initialized_function_check", function);
+                continue;
+            }
+        }
         let function_check_cache_input = initialized_function_check_cache_input(
             summary_value_cache.as_deref_mut(),
             summary_value_cache_context,
@@ -206,6 +234,9 @@ fn check_resource_initialized_moves_inner(
             function_op_count,
         ) {
             merge_deferred(&mut deferred, replayed_check.deferred);
+            if let Some(plan) = final_check_pass_plan.as_mut() {
+                plan.record_pass(function_index, replayed_check.deferred);
+            }
             functions.push(replayed_check);
             function_start.log("resource_initialized_function_check", function);
             continue;
@@ -244,7 +275,7 @@ fn check_resource_initialized_moves_inner(
             auto_drop_points: engine.auto_drop_points,
             deferred: engine.deferred,
         };
-        record_initialized_function_check_value_cache_candidate(
+        let recorded_cache_pass = record_initialized_function_check_value_cache_candidate(
             summary_value_cache.as_deref_mut(),
             summary_value_cache_context,
             types,
@@ -254,8 +285,16 @@ fn check_resource_initialized_moves_inner(
             function_has_diagnostics,
             function_op_count,
         );
+        if recorded_cache_pass {
+            if let Some(plan) = final_check_pass_plan.as_mut() {
+                plan.record_pass(function_index, function_check.deferred);
+            }
+        }
         functions.push(function_check);
         function_start.log("resource_initialized_function_check", function);
+    }
+    if let (Some(cache), Some(plan)) = (summary_value_cache.as_deref_mut(), final_check_pass_plan) {
+        cache.finish_initialized_function_check_pass_plan(plan);
     }
     stage_start.log("resource_initialized_function_checks");
 

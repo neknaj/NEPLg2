@@ -490,6 +490,16 @@ stable mirror entry と dependency closure kind を実装する。
 である。RPN edit compile はまだ 0.1 秒以下ではないため、次は initialized side の残り固定費、
 typed expression subtree query、stdlib prechecked artifact を継続する。
 
+## 2026-06-01 final initialized changed-function plan 更新
+
+final initialized function check の pass-only replay に、compile-local changed-function plan を追加した。前回 compile の diagnostic-free / auto-drop-free pass snapshot と現在の関数 local fingerprint を比較し、関数本文、type boundary、source capability policy、generic boundary が変わった関数から reverse dependents を辿って affected set を作る。
+
+affected ではない関数は dependency closure hash の再構築と通常の replay probe を行わず、前回 pass snapshot の `ResourceCheckDeferred` だけを checked pass として戻す。snapshot は `TypeId`、`Span`、`SourceMap`、final state を保持しない。関数 order、namespace、fingerprint の構築に不整合があれば conservative-all に倒す。
+
+この checkpoint は final check probe 固定費の削減であり、raw alias / i32 scalar / raw-init summary preseed loop にはまだ適用していない。summary fixed-point 側では callee summary materialization が必要なため、次段階で changed-function/dependency closure ごとの replay plan を別途設計する。
+
+`tmp/rpn_final_initialized_pass_plan_20260601.json` では、release Web RPN same-session string literal edit が base `compile_ms=9998`、edit `compile_ms=2178` だった。edit delta は `resource_summary_value_initialized_function_check_plan_skip_functions=288`、`resource_summary_value_initialized_function_check_plan_skip_ops=3639`、`resource_summary_value_initialized_function_check_replay_probe_functions=0` である。
+
 ## 検証
 
 - RPN same-session code edit の compiled-output miss 測定で、支配 stage と function / summary kind を説明できる JSON を残す。

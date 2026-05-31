@@ -147,6 +147,10 @@ impl ResourceSummaryValueCacheContext {
         ResourceSummaryCacheNamespaceHash::from_stable_hash(self.namespace_hash)
     }
 
+    pub(super) fn namespace_stable_hash(&self) -> u64 {
+        self.namespace_hash
+    }
+
     fn clear_derived_query_caches(&mut self) {
         self.function_source_policy_cache.get_mut().clear();
         self.dependency_closure_base_hash_cache.get_mut().clear();

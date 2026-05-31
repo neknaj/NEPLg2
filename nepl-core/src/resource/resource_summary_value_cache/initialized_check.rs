@@ -258,7 +258,7 @@ impl ResourceSummaryValueCache {
     pub(in crate::resource) fn record_initialized_function_check_entry_candidates(
         &mut self,
         candidates: Vec<ResourceSummaryInitializedFunctionCheckEntryCandidate>,
-    ) {
+    ) -> usize {
         let candidates_with_hits = candidates
             .into_iter()
             .map(|candidate| {
@@ -270,11 +270,13 @@ impl ResourceSummaryValueCache {
             })
             .collect::<Vec<_>>();
 
+        let mut accepted_count = 0;
         for (candidate, existed_before_recording) in candidates_with_hits {
             if existed_before_recording {
                 self.stats.resource_summary_value_hits += candidate.op_count;
                 self.stats
                     .resource_summary_value_initialized_function_check_hits += 1;
+                accepted_count += 1;
                 continue;
             }
 
@@ -284,7 +286,9 @@ impl ResourceSummaryValueCache {
             self.stats.resource_summary_value_stores += candidate.op_count;
             self.stats
                 .resource_summary_value_initialized_function_check_stores += 1;
+            accepted_count += 1;
         }
+        accepted_count
     }
 }
 

@@ -102,6 +102,14 @@ fn final_initialized_function_check_replays_without_rerunning_checker() {
         1
     );
     assert_eq!(stats.resource_summary_value_lazy_pass_hits, 1);
+    assert_eq!(
+        stats.resource_summary_value_initialized_function_check_plan_skip_functions,
+        1
+    );
+    assert_eq!(
+        stats.resource_summary_value_initialized_function_check_replay_probe_functions,
+        1
+    );
 }
 
 /// cache key は function body hash を含むため、同じ名前と同じ signature でも本文が
@@ -126,6 +134,10 @@ fn final_initialized_function_check_misses_after_body_change() {
     );
     assert_eq!(
         stats.resource_summary_value_initialized_function_check_hits,
+        0
+    );
+    assert_eq!(
+        stats.resource_summary_value_initialized_function_check_plan_skip_functions,
         0
     );
 }

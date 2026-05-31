@@ -3671,6 +3671,10 @@ impl CompilerSession {
         out.push_str(&resource_stats.resource_summary_value_initialized_function_check_replay_hit_functions.to_string());
         out.push_str(",\"resource_summary_value_initialized_function_check_replay_miss_functions\":");
         out.push_str(&resource_stats.resource_summary_value_initialized_function_check_replay_miss_functions.to_string());
+        out.push_str(",\"resource_summary_value_initialized_function_check_plan_skip_functions\":");
+        out.push_str(&resource_stats.resource_summary_value_initialized_function_check_plan_skip_functions.to_string());
+        out.push_str(",\"resource_summary_value_initialized_function_check_plan_skip_ops\":");
+        out.push_str(&resource_stats.resource_summary_value_initialized_function_check_plan_skip_ops.to_string());
         out.push_str(",\"resource_summary_value_owner_obligation_check_hits\":");
         out.push_str(&resource_stats.resource_summary_value_owner_obligation_check_hits.to_string());
         out.push_str(",\"resource_summary_value_owner_obligation_check_stores\":");

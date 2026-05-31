@@ -94,14 +94,14 @@ pub(super) fn record_initialized_function_check_value_cache_candidate(
     function_check: &ResourceFunctionCheck,
     function_has_diagnostics: bool,
     function_op_count: usize,
-) {
+) -> bool {
     let (cache, context, input) = match (cache, context, input) {
         (Some(cache), Some(context), Some(input)) => (cache, context, input),
-        _ => return,
+        _ => return false,
     };
     if function_has_diagnostics {
         cache.record_initialized_function_check_diagnostic_bypass(function_op_count);
-        return;
+        return false;
     }
     match cache.initialized_function_check_entry_candidate(
         context,
@@ -113,10 +113,11 @@ pub(super) fn record_initialized_function_check_value_cache_candidate(
         function_op_count,
     ) {
         Ok(candidate) => {
-            cache.record_initialized_function_check_entry_candidates(vec![candidate]);
+            cache.record_initialized_function_check_entry_candidates(vec![candidate]) > 0
         }
         Err(reason) => {
             cache.record_initialized_function_check_candidate_bypass(reason, function_op_count);
+            false
         }
     }
 }

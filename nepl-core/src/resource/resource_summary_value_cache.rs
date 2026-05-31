@@ -16,6 +16,7 @@ mod i32_scalar;
 mod initialized_check;
 mod key;
 mod owner_obligation;
+mod pass_plan;
 mod raw_alias;
 mod raw_init;
 mod stable_hash;
@@ -161,6 +162,8 @@ pub struct ResourceSummaryValueCacheStats {
     pub resource_summary_value_initialized_function_check_hits: usize,
     pub resource_summary_value_initialized_function_check_stores: usize,
     pub resource_summary_value_initialized_function_check_bypasses: usize,
+    pub resource_summary_value_initialized_function_check_plan_skip_functions: usize,
+    pub resource_summary_value_initialized_function_check_plan_skip_ops: usize,
     pub resource_summary_value_initialized_function_check_replay_probe_functions: usize,
     pub resource_summary_value_initialized_function_check_replay_hit_functions: usize,
     pub resource_summary_value_initialized_function_check_replay_miss_functions: usize,
@@ -267,6 +270,8 @@ pub struct ResourceSummaryValueCache {
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableI32ScalarReturnFactsEntry>,
     initialized_function_check_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableInitializedFunctionCheckEntry>,
+    initialized_function_check_pass_snapshot:
+        Option<pass_plan::InitializedFunctionCheckPassSnapshot>,
     owner_obligation_check_entries:
         BTreeMap<ResourceSummaryValueCacheKey, ResourceSummaryStableOwnerObligationCheckEntry>,
     raw_init_complete_leaf_entries:
@@ -322,6 +327,7 @@ impl ResourceSummaryValueCache {
         self.raw_alias_return_entries.clear();
         self.i32_scalar_return_facts_entries.clear();
         self.initialized_function_check_entries.clear();
+        self.initialized_function_check_pass_snapshot = None;
         self.owner_obligation_check_entries.clear();
         self.raw_init_complete_leaf_entries.clear();
     }
@@ -507,7 +513,8 @@ impl ResourceSummaryValueCache {
     /// body / dependency / source policy / type boundary に一致した場合だけ増やし、miss が
     /// ある compile では従来どおり owner summary を構築して checker へ渡す。
     pub(super) fn record_owner_return_summary_pass_cache_skip(&mut self, function_count: usize) {
-        self.stats.resource_owner_return_summary_pass_cache_skip_functions += function_count;
+        self.stats
+            .resource_owner_return_summary_pass_cache_skip_functions += function_count;
     }
 
     /// complete leaf-only `DropTraversal + ForallInitializedRange` entry 候補を作る。

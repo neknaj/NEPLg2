@@ -142,6 +142,42 @@ origin marker などを含むため、単純な session-local `Vec<OwnerReturnSu
 次の根本対応は `ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2` として、
 owner return summary の stable mirror value cache を設計する。
 
+## Final initialized pass plan checkpoint
+
+2026-06-01 の checkpoint では、final initialized function check の pass-only replay を
+changed-function-aware にした。これは full `ResourceFunctionCheck` の永続化ではなく、
+diagnostic-free / auto-drop-free pass として既に安全に保存できた関数について、次回 compile で
+dependency closure hash の再構築と replay probe を省くための compile-local plan である。
+
+plan は前回 compile の local fingerprint と現在 compile の local fingerprint を比較する。
+fingerprint は関数 identity、Resource IR body hash、type boundary、generic boundary、source
+capability policy hash から成り、`TypeId`、`Span`、`SourceMap`、final cell state を含まない。
+変化した関数から `ResourceSummaryDependencyGraph` の reverse dependents を辿り、affected set
+を作る。affected ではない関数だけ、前回 snapshot の `ResourceCheckDeferred` を checked pass
+として戻す。
+
+この checkpoint の安全境界:
+
+- namespace、関数 order、fingerprint の構築に失敗した場合は conservative-all に倒す。
+- diagnostic または auto-drop point を持つ関数は snapshot pass にしない。
+- summary fixed-point 側の raw alias / i32 scalar / raw-init preseed loop にはまだ適用しない。
+  これらは affected 関数の再計算に callee summary materialization が必要であり、単純に全関数
+  probe を消すと caller summary が空に見える危険がある。
+
+Web / Node の cache stats には
+`resource_summary_value_initialized_function_check_plan_skip_functions` と
+`resource_summary_value_initialized_function_check_plan_skip_ops` を追加した。これにより、通常の
+`resource_summary_value_initialized_function_check_replay_probe_functions` が減った場合でも、
+checked pass として省略された関数数を確認できる。
+
+`tmp/rpn_final_initialized_pass_plan_20260601.json` では、release Web RPN same-session string
+literal edit が base `compile_ms=9998`、edit `compile_ms=2178` だった。edit delta は
+`resource_summary_value_initialized_function_check_plan_skip_functions=288`、
+`resource_summary_value_initialized_function_check_plan_skip_ops=3639`、
+`resource_summary_value_initialized_function_check_replay_probe_functions=0` である。final check
+の replay probe 固定費は消えたが、total `compile_ms` はまだ 0.1 秒以下ではないため、次は
+summary fixed-point 側と typed expression subtree query を継続する。
+
 ## CompilerSession first checkpoint
 
 2026-05-27 の first checkpoint では、公開 API の境界を先に session 化した。現在の `CompilerSession` は bundled stdlib source table の保持までを行い、parse / typecheck / Resource IR summary cache はまだ持たない。
