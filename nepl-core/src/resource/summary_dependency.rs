@@ -281,6 +281,7 @@ mod tests {
                 Effect::Pure,
                 vec![],
             ),
+            value_kind: super::super::model::ResourceFunctionValueKind::Plain,
             effect: super::super::model::EffectOp::Pure,
             span: Span::dummy(),
         }

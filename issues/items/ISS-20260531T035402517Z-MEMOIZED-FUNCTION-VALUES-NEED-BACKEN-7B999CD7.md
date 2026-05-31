@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-05-31
+updated: 2026-06-01
 target: "nepl-core/src/codegen; nepl-core/src/resource/lower_call.rs; nepl-core/src/resource/effect_check.rs"
 ---
 
@@ -40,3 +40,20 @@ Choose a Phase 1 representation for memoized functions, such as compiler-generat
 ## 検証
 
 Regression tests should accept calling a memoized pure named function and reject identity/hash/address/cast/raw-store observation, function-value key usage, public cache field exposure, and backend paths that require an unsealed closure id.
+
+## 2026-06-01 checkpoint
+
+HIR の `MemoizedFunctionValue` を Resource IR lowering で plain `FunctionValue` と同化しないようにした。`ResourceOp::FunctionValue` は `ResourceFunctionValueKind::{Plain, Memoized}` を持つ。
+
+現時点の backend codegen は、sealed private cache backend が未実装であるため、`MemoizedFunctionValue` を既存の function table value と同じ可観測結果へ lower する。ただし Resource IR と body hash では memoized kind を保持するため、Resource proof cache と将来 backend 実装は plain `@func` と `memo_call @func` を区別できる。
+
+検証:
+
+- `cargo test -p nepl-core function_memo_call --test functions -- --nocapture`
+- `cargo test -p nepl-core resource_function_body_hash_tracks_memoized_function_value_kind --lib -- --nocapture`
+
+残件:
+
+- memoized function value の sealed backend representation。
+- function identity equality / hash / raw address / debug observation の禁止を backend と typecheck へ明示接続すること。
+- `memo_call @pure_named_func` の呼び出し実行時に private cache を実際に利用すること。

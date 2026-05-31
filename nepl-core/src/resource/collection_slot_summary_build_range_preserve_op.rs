@@ -143,6 +143,8 @@ pub(super) fn effect_call_preserves_place(
         EffectOp::UserCall { .. }
         | EffectOp::ExternalIo { .. }
         | EffectOp::Nondet { .. }
+        | EffectOp::PrivateState { .. }
+        | EffectOp::PrivateCache { .. }
         | EffectOp::IndirectCall { .. }
         | EffectOp::Unknown { .. } => args.iter().all(|arg| {
             !consumes_protected_place(engine, raw_aliases, arg, protected)

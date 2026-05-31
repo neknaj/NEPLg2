@@ -14,6 +14,7 @@ mod import_path;
 mod memory_type_definition;
 mod owner_aggregate;
 mod prefix_call;
+mod private_cache;
 mod proof;
 mod proof_builder;
 mod raw_body_operation_compat;

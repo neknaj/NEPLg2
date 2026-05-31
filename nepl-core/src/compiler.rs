@@ -2074,6 +2074,14 @@ fn resource_effect_boundary_diagnostic_span(
             span,
             ..
         }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
+            span,
+            ..
+        }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
+            span,
+            ..
+        }
         | crate::resource::ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary {
             span,
             ..
@@ -2175,6 +2183,12 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
             .map(|map| raw_identity_escape_allowed(*operation, *origin_span, map))
             .unwrap_or(false),
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,
+        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
+            ..
+        }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
+            ..
+        } => false,
         crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect { .. } => false,
     }
 }
@@ -2246,6 +2260,30 @@ fn resource_effect_boundary_diagnostic_to_error(
             code,
             format!(
                 "pure function '{}' uses unsafe memory operation '{}'",
+                function, operation
+            ),
+            *span,
+        ),
+        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
+            function,
+            operation,
+            span,
+        } => Diagnostic::error_with_code(
+            code,
+            format!(
+                "pure function '{}' uses unmasked private state operation '{}'",
+                function, operation
+            ),
+            *span,
+        ),
+        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
+            function,
+            operation,
+            span,
+        } => Diagnostic::error_with_code(
+            code,
+            format!(
+                "pure function '{}' uses unmasked private cache operation '{}'",
                 function, operation
             ),
             *span,

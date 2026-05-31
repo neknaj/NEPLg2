@@ -590,6 +590,30 @@ impl ResourceEffectBoundaryEngine<'_> {
                     );
                 }
             }
+            EffectOp::PrivateState { operation } => {
+                self.counts.private_state_ops += 1;
+                if matches!(self.effect, Effect::Pure) {
+                    self.diagnostics.push(
+                        ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
+                            function: String::from(self.function),
+                            operation: *operation,
+                            span,
+                        },
+                    );
+                }
+            }
+            EffectOp::PrivateCache { operation } => {
+                self.counts.private_cache_ops += 1;
+                if matches!(self.effect, Effect::Pure) {
+                    self.diagnostics.push(
+                        ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
+                            function: String::from(self.function),
+                            operation: *operation,
+                            span,
+                        },
+                    );
+                }
+            }
             EffectOp::ExternalIo { operation } => {
                 self.counts.external_io_ops.record(*operation);
                 self.check_call_effect(

@@ -17,6 +17,7 @@ use crate::source_capability::owner_aggregate::{
     owner_aggregate_explicit_constructor_evidence, owner_aggregate_intrinsic_evidence,
     owner_aggregate_symbol_evidence, OwnerAggregateEvidenceContext,
 };
+use crate::source_capability::private_cache::collect_private_cache_boundary_evidence;
 use crate::source_capability::proof_builder::{SourceCapabilityProof, SourceCapabilityProofFact};
 use crate::source_capability::raw_builtin_evidence::collect_raw_builtin_evidence;
 use crate::source_capability::raw_evidence_gate::raw_symbol_shadow_allows_evidence;
@@ -112,6 +113,7 @@ pub(in crate::source_capability) fn dispatch_source_capability_proof_event(
             collection_slot_surface,
         } => {
             collect_raw_builtin_evidence(sink, name, span);
+            collect_private_cache_boundary_evidence(sink, name, name_span);
             match collection_slot_surface {
                 CollectionSlotLifecycleSourceSurface::InternalCallable => {
                     collect_collection_slot_boundary_evidence(sink, name, name_span);

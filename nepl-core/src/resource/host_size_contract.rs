@@ -81,6 +81,8 @@ pub(super) fn host_size_outputs(effect: &EffectOp) -> &'static [HostSizeOutput] 
         | EffectOp::IndirectCall { .. }
         | EffectOp::InternalAlloc { .. }
         | EffectOp::UnsafeMemory { .. }
+        | EffectOp::PrivateState { .. }
+        | EffectOp::PrivateCache { .. }
         | EffectOp::Unknown { .. } => EMPTY_HOST_SIZE_OUTPUTS,
     }
 }
@@ -100,6 +102,8 @@ pub(super) fn dependent_host_memory_spans(effect: &EffectOp) -> &'static [HostDe
         | EffectOp::IndirectCall { .. }
         | EffectOp::InternalAlloc { .. }
         | EffectOp::UnsafeMemory { .. }
+        | EffectOp::PrivateState { .. }
+        | EffectOp::PrivateCache { .. }
         | EffectOp::Unknown { .. } => EMPTY_DEPENDENT_SPANS,
     }
 }

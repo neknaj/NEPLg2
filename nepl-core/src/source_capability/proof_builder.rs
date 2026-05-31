@@ -1,6 +1,6 @@
 use alloc::string::String;
 
-use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
+use crate::effects::{PrivateCacheOp, RawBodyMemoryOp, RawMemoryOp};
 use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::source_map::{
     CompilerMemoryField, CompilerMemoryType, SourceCapabilities, SourceCapabilitySpan,
@@ -22,6 +22,7 @@ pub(in crate::source_capability) enum SourceCapabilityProofFact {
     CompilerMemoryTypeDefinition(CompilerMemoryType),
     CollectionSlotLifecycleBoundary(CollectionSlotLifecyclePrimitive),
     CollectionSlotBorrowBoundary(CollectionSlotBorrowPrimitive),
+    PrivateCacheBoundary(PrivateCacheOp),
 }
 
 #[derive(Debug, Default)]
@@ -115,6 +116,34 @@ impl SourceCapabilityProof {
                     span: Self::site_span(span),
                 });
             }
+            SourceCapabilityProofFact::PrivateCacheBoundary(operation) => {
+                self.insert_use_site(SourceCapabilityUseSite::PrivateCacheBoundary {
+                    operation,
+                    span: Self::site_span(span),
+                });
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn private_cache_fact_builds_exact_use_site_capability() {
+        let proven = Span::new(crate::span::FileId(7), 11, 19);
+        let shifted = Span::new(crate::span::FileId(7), 12, 20);
+        let mut proof = SourceCapabilityProof::default();
+
+        proof.insert_fact(
+            SourceCapabilityProofFact::PrivateCacheBoundary(PrivateCacheOp::Lookup),
+            proven,
+        );
+
+        let capabilities = proof.into_source_capabilities();
+        assert!(capabilities.allows_private_cache_boundary_at(PrivateCacheOp::Lookup, proven));
+        assert!(!capabilities.allows_private_cache_boundary_at(PrivateCacheOp::Insert, proven));
+        assert!(!capabilities.allows_private_cache_boundary_at(PrivateCacheOp::Lookup, shifted));
     }
 }

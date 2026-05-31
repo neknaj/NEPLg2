@@ -48,8 +48,9 @@ use super::lower_raw_memory::{
 use super::lower_temporary_scope::push_line_copy_state_only_temporary_scope;
 use super::model::{
     AggregateKind, BorrowKind, EffectOp, Place, RawBodyKind, ResourceBlock, ResourceBlockId,
-    ResourceExprKind, ResourceFunction, ResourceId, ResourceLocal, ResourceMatchArm,
-    ResourceMatchBindMode, ResourceMatchPattern, ResourceModule, ResourceOp, ResourceTerminator,
+    ResourceExprKind, ResourceFunction, ResourceFunctionValueKind, ResourceId, ResourceLocal,
+    ResourceMatchArm, ResourceMatchBindMode, ResourceMatchPattern, ResourceModule, ResourceOp,
+    ResourceTerminator,
 };
 
 pub fn lower_hir_module_skeleton(module: &HirModule) -> ResourceModule {
@@ -423,6 +424,7 @@ pub(super) fn lower_expr_skeleton(
                         output: output.clone(),
                         name: identity.symbol.clone(),
                         identity,
+                        value_kind: ResourceFunctionValueKind::Plain,
                         effect,
                         span: expr.span,
                     });
@@ -449,13 +451,33 @@ pub(super) fn lower_expr_skeleton(
             });
             output
         }
-        HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
+        HirExprKind::FnValue(identity) => {
             let output = ctx.temporary(expr.ty);
             let effect = function_value_effect(identity.symbol(), env);
             ops.push(ResourceOp::FunctionValue {
                 output: output.clone(),
                 name: identity.symbol.clone(),
                 identity: identity.clone(),
+                value_kind: ResourceFunctionValueKind::Plain,
+                effect,
+                span: expr.span,
+            });
+            ops.push(ResourceOp::Expr {
+                kind: ResourceExprKind::FunctionValue,
+                output: output.clone(),
+                ty: expr.ty,
+                span: expr.span,
+            });
+            output
+        }
+        HirExprKind::MemoizedFunctionValue(identity) => {
+            let output = ctx.temporary(expr.ty);
+            let effect = function_value_effect(identity.symbol(), env);
+            ops.push(ResourceOp::FunctionValue {
+                output: output.clone(),
+                name: identity.symbol.clone(),
+                identity: identity.clone(),
+                value_kind: ResourceFunctionValueKind::Memoized,
                 effect,
                 span: expr.span,
             });

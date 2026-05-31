@@ -258,6 +258,23 @@ Phase 1 の責務分担:
 | SourceCapability | `stdlib/memo` の trusted private cache use-site だけに boundary proof を与える。 |
 | Resource IR | cache region が fresh / non-escaping で、raw pointer/reference/stats API が漏れないことを検査する。 |
 | trusted stdlib | hash table の algorithm correctness と `cache[key] = f(key)` invariant を保持する。 |
+
+## 2026-06-01 implementation checkpoint
+
+この checkpoint では、`memo_call` の accepted path を広げず、検査の土台だけを fail closed にした。
+
+- `InternalEffect` と Resource IR `EffectOp` に `PrivateState` / `PrivateCache` を追加した。
+- mask boundary はまだ実装していないため、`PrivateState` / `PrivateCache` は無条件に `Pure` へ fold しない。pure function 内で unmasked private effect が現れた場合は dedicated diagnostic を出す。
+- `ResourceOp::FunctionValue` に `ResourceFunctionValueKind::{Plain, Memoized}` を追加し、HIR の `MemoizedFunctionValue` を Resource IR で plain function value と区別する。
+- Resource summary body hash は function value kind と private effect operation を hash する。これにより、plain `@f` と `memo_call @f` が同じ Resource proof cache key へ落ちることを防ぐ。
+- `SourceCapabilityUseSite::PrivateCacheBoundary` を追加し、private cache operation と span が source capability policy hash に入るようにした。`SourceCapabilityProofFact::PrivateCacheBoundary` と compiler-owned `private_cache_*` intrinsic collector も追加し、将来の stdlib memo backend が direct `SourceCapabilities` 構築ではなく既存 proof builder 経由で exact use-site proof を発行できるようにした。
+
+この checkpoint でまだ行っていないこと:
+
+- `PrivateCache rho` の fresh region / non-escape proof。
+- `mask_private` / `run_private` に相当する一般境界。
+- memoized function value の sealed backend cache representation。
+- Resource IR private cache operation span と SourceCapability exact use-site proof の照合。
 | tests | accepted pure memoization と rejected observable cache API を固定する。 |
 
 Phase 2 では、`PrivateState rho` と `mask_private` を一般化し、local mutable buffer、private arena、dynamic programming table、union-find、normalization cache に同じ規則を適用する。

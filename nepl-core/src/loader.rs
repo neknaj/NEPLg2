@@ -2515,7 +2515,7 @@ const FNV_PRIME: u64 = 0x100000001b3;
 mod tests {
     use super::*;
 
-    use crate::effects::{RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp};
+    use crate::effects::{PrivateCacheOp, RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp};
     use crate::resource_primitives::{
         CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive,
     };
@@ -2542,6 +2542,7 @@ mod tests {
             &self,
             primitive: CollectionSlotBorrowPrimitive,
         ) -> bool;
+        fn allows_private_cache_boundary(&self, operation: PrivateCacheOp) -> bool;
     }
 
     impl SourceCapabilitiesTestExt for SourceCapabilities {
@@ -2672,6 +2673,18 @@ mod tests {
                         primitive: site_primitive,
                         ..
                     } if *site_primitive == primitive
+                )
+            })
+        }
+
+        fn allows_private_cache_boundary(&self, operation: PrivateCacheOp) -> bool {
+            self.use_sites_for_tests().any(|site| {
+                matches!(
+                    site,
+                    SourceCapabilityUseSite::PrivateCacheBoundary {
+                        operation: site_operation,
+                        ..
+                    } if *site_operation == operation
                 )
             })
         }
@@ -3877,6 +3890,60 @@ mod tests {
             !user_capabilities
                 .allows_collection_slot_borrow_boundary(CollectionSlotBorrowPrimitive::BorrowRef),
             "matching source text outside configured stdlib must not receive slot borrow authority"
+        );
+    }
+
+    #[test]
+    fn private_cache_boundary_uses_configured_stdlib_source_evidence() {
+        let loader = test_loader();
+        let path = canonicalize_path(&stdlib_path(
+            &loader.stdlib_root,
+            &["core", "memo", "private_cache_boundary.nepl"],
+        ));
+        let src = concat!(
+            "fn helper <()->()> ():\n",
+            "    #intrinsic \"private_cache_lookup\" <> ()\n",
+        );
+        let capabilities = load_source_capabilities(&loader, path, src);
+        let intrinsic_start = src
+            .find("\"private_cache_lookup\"")
+            .expect("private cache intrinsic") as u32;
+        let intrinsic_span = Span::new(
+            FileId(0),
+            intrinsic_start,
+            intrinsic_start + "\"private_cache_lookup\"".len() as u32,
+        );
+        let unrelated_span = Span::new(FileId(0), 0, "fn".len() as u32);
+
+        assert!(capabilities.allows_private_cache_boundary(PrivateCacheOp::Lookup));
+        assert!(
+            capabilities.allows_private_cache_boundary_at(
+                PrivateCacheOp::Lookup,
+                intrinsic_span
+            ),
+            "private cache authority must attach to the exact compiler-owned intrinsic use site"
+        );
+        assert!(
+            !capabilities
+                .allows_private_cache_boundary_at(PrivateCacheOp::Lookup, unrelated_span),
+            "private cache authority must not become file-wide"
+        );
+        assert!(
+            !capabilities.allows_private_cache_boundary(PrivateCacheOp::Insert),
+            "one private cache operation must not authorize another"
+        );
+
+        let user_capabilities = load_source_capabilities(
+            &loader,
+            canonicalize_path(&path_from_segments(
+                "C:/nepl-test/user",
+                &["private_cache_boundary.nepl"],
+            )),
+            src,
+        );
+        assert!(
+            !user_capabilities.allows_private_cache_boundary(PrivateCacheOp::Lookup),
+            "matching source text outside configured stdlib must not receive private cache authority"
         );
     }
 

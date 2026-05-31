@@ -14,9 +14,9 @@ use super::super::collection_slot_lifecycle_model::{
 use super::super::model::{
     AggregateKind, BorrowKind, EffectOp, I32ValueCondition, Place, PlaceProjection, PlaceRoot,
     RawAddressAliasKind, RawAddressViewKind, RawBodyKind, ResourceBlockId, ResourceCallTarget,
-    ResourceConditionFact, ResourceExprKind, ResourceFunction, ResourceI32RelationOp, ResourceId,
-    ResourceLocal, ResourceMatchArm, ResourceMatchBindMode, ResourceMatchPattern, ResourceOffset,
-    ResourceOp, ResourceTerminator, StorageId, StorageOrigin,
+    ResourceConditionFact, ResourceExprKind, ResourceFunction, ResourceFunctionValueKind,
+    ResourceI32RelationOp, ResourceId, ResourceLocal, ResourceMatchArm, ResourceMatchBindMode,
+    ResourceMatchPattern, ResourceOffset, ResourceOp, ResourceTerminator, StorageId, StorageOrigin,
 };
 use super::stable_hash::ResourceSummaryStableHasher;
 use super::stable_type_key::ResourceSummaryStableTypeKey;
@@ -248,10 +248,12 @@ fn hash_op(
         ResourceOp::FunctionValue {
             output,
             identity,
+            value_kind,
             effect,
             ..
         } => {
             hash.write_str("function_value");
+            hash_function_value_kind(hash, *value_kind);
             hash_place(hash, ctx, output)?;
             hash_function_value_identity(hash, ctx, identity)?;
             hash_effect_op(hash, effect);
@@ -434,6 +436,16 @@ fn hash_function_value_identity(
     hash_effect(hash, identity.effect);
     hash_type_list(hash, ctx, &identity.type_args)?;
     Some(())
+}
+
+fn hash_function_value_kind(
+    hash: &mut ResourceSummaryStableHasher,
+    value_kind: ResourceFunctionValueKind,
+) {
+    match value_kind {
+        ResourceFunctionValueKind::Plain => hash.write_str("plain"),
+        ResourceFunctionValueKind::Memoized => hash.write_str("memoized"),
+    }
 }
 
 fn hash_terminator(
@@ -880,6 +892,14 @@ fn hash_effect_op(hash: &mut ResourceSummaryStableHasher, effect: &EffectOp) {
             hash.write_str("unsafe_memory");
             hash.write_str(operation.as_str());
         }
+        EffectOp::PrivateState { operation } => {
+            hash.write_str("private_state");
+            hash.write_str(operation.as_str());
+        }
+        EffectOp::PrivateCache { operation } => {
+            hash.write_str("private_cache");
+            hash.write_str(operation.as_str());
+        }
         EffectOp::ExternalIo { operation } => {
             hash.write_str("external_io");
             hash.write_str(operation.as_str());
@@ -1024,7 +1044,11 @@ mod tests {
         }
     }
 
-    fn function_value_body(output_ty: TypeId, identity: FunctionValueIdentity) -> ResourceFunction {
+    fn function_value_body(
+        output_ty: TypeId,
+        identity: FunctionValueIdentity,
+        value_kind: ResourceFunctionValueKind,
+    ) -> ResourceFunction {
         let output = Place::temporary(ResourceId(0), output_ty);
         ResourceFunction {
             name: "function_value_holder".into(),
@@ -1040,6 +1064,7 @@ mod tests {
                     output: output.clone(),
                     name: "legacy_function_name".into(),
                     identity,
+                    value_kind,
                     effect: EffectOp::Pure,
                     span: Span::dummy(),
                 }],
@@ -1102,6 +1127,7 @@ mod tests {
                 Effect::Pure,
                 vec![types.i32()],
             ),
+            ResourceFunctionValueKind::Plain,
         );
         let second = function_value_body(
             function_ty,
@@ -1112,11 +1138,37 @@ mod tests {
                 Effect::Pure,
                 vec![types.bool()],
             ),
+            ResourceFunctionValueKind::Plain,
         );
 
         assert_ne!(
             resource_function_body_hash(&types, &first),
             resource_function_body_hash(&types, &second)
+        );
+    }
+
+    #[test]
+    fn resource_function_body_hash_tracks_memoized_function_value_kind() {
+        let mut types = TypeCtx::new();
+        let function_ty = types.function(vec![], vec![types.i32()], types.i32(), Effect::Pure);
+        let identity = FunctionValueIdentity::new(
+            "same_backend_symbol".into(),
+            None,
+            function_ty,
+            Effect::Pure,
+            vec![types.i32()],
+        );
+        let plain = function_value_body(
+            function_ty,
+            identity.clone(),
+            ResourceFunctionValueKind::Plain,
+        );
+        let memoized =
+            function_value_body(function_ty, identity, ResourceFunctionValueKind::Memoized);
+
+        assert_ne!(
+            resource_function_body_hash(&types, &plain),
+            resource_function_body_hash(&types, &memoized)
         );
     }
 

@@ -9,8 +9,8 @@ use crate::diagnostic_codes::{
 use crate::span::Span;
 
 use super::model::{
-    ExternalIoOp, NondetOp, Place, RawAddressAliasKind, RawAddressViewKind, RawMemoryOp,
-    UnknownEffectReason,
+    ExternalIoOp, NondetOp, Place, PrivateCacheOp, PrivateStateOp, RawAddressAliasKind,
+    RawAddressViewKind, RawMemoryOp, UnknownEffectReason,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +23,16 @@ pub enum ResourceEffectBoundaryDiagnostic {
     UnsafeMemoryInPureFunction {
         function: String,
         operation: RawMemoryOp,
+        span: Span,
+    },
+    PrivateStateInPureFunction {
+        function: String,
+        operation: PrivateStateOp,
+        span: Span,
+    },
+    PrivateCacheInPureFunction {
+        function: String,
+        operation: PrivateCacheOp,
         span: Span,
     },
     RawMemoryOutsideBoundary {
@@ -72,7 +82,9 @@ impl ResourceEffectBoundaryDiagnostic {
     pub fn diagnostic_code(&self) -> DiagnosticCode {
         match self {
             ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. }
-            | ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction { .. } => {
+            | ResourceEffectBoundaryDiagnostic::UnsafeMemoryInPureFunction { .. }
+            | ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction { .. }
+            | ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction { .. } => {
                 DiagnosticCode::Effect(EffectDiagnosticCode::PureCallsImpure)
             }
             ResourceEffectBoundaryDiagnostic::RawMemoryOutsideBoundary { .. }

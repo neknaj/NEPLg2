@@ -82,3 +82,108 @@ fn check_resource_effect_boundaries_with_types(
         diagnostics,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::String;
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    use crate::ast::Effect;
+    use crate::span::Span;
+    use crate::types::TypeId;
+
+    use super::super::effect_diagnostic::ResourceEffectBoundaryDiagnostic;
+    use super::super::model::{
+        EffectOp, PrivateCacheOp, PrivateStateOp, ResourceBlock, ResourceBlockId, ResourceFunction,
+        ResourceModule, ResourceOp, ResourceTerminator,
+    };
+    use super::check_resource_effect_boundaries;
+
+    fn module_with_effect(function_effect: Effect, effect: EffectOp) -> ResourceModule {
+        ResourceModule {
+            functions: vec![ResourceFunction {
+                name: String::from("uses_private_effect"),
+                origin_name: String::from("uses_private_effect"),
+                type_params: Vec::new(),
+                params: Vec::new(),
+                result: TypeId(0),
+                effect: function_effect,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![ResourceOp::CallEffect {
+                        effect,
+                        span: Span::dummy(),
+                    }],
+                    terminator: ResourceTerminator::Return {
+                        value: None,
+                        span: Span::dummy(),
+                    },
+                    span: Span::dummy(),
+                }],
+                span: Span::dummy(),
+            }],
+            entry: None,
+            string_literals: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn private_cache_effect_is_rejected_in_pure_function_until_masked() {
+        let report = check_resource_effect_boundaries(&module_with_effect(
+            Effect::Pure,
+            EffectOp::PrivateCache {
+                operation: PrivateCacheOp::Lookup,
+            },
+        ));
+
+        assert_eq!(
+            report.diagnostics,
+            vec![
+                ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
+                    function: String::from("uses_private_effect"),
+                    operation: PrivateCacheOp::Lookup,
+                    span: Span::dummy(),
+                }
+            ]
+        );
+        assert_eq!(report.functions[0].counts.private_cache_ops, 1);
+    }
+
+    #[test]
+    fn private_state_effect_is_rejected_in_pure_function_until_masked() {
+        let report = check_resource_effect_boundaries(&module_with_effect(
+            Effect::Pure,
+            EffectOp::PrivateState {
+                operation: PrivateStateOp::Write,
+            },
+        ));
+
+        assert_eq!(
+            report.diagnostics,
+            vec![
+                ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
+                    function: String::from("uses_private_effect"),
+                    operation: PrivateStateOp::Write,
+                    span: Span::dummy(),
+                }
+            ]
+        );
+        assert_eq!(report.functions[0].counts.private_state_ops, 1);
+    }
+
+    #[test]
+    fn private_effect_is_not_silently_counted_as_unknown_in_impure_function() {
+        let report = check_resource_effect_boundaries(&module_with_effect(
+            Effect::Impure,
+            EffectOp::PrivateCache {
+                operation: PrivateCacheOp::Insert,
+            },
+        ));
+
+        assert!(report.diagnostics.is_empty());
+        assert_eq!(report.functions[0].counts.private_cache_ops, 1);
+        assert_eq!(report.functions[0].counts.unknown_ops, 0);
+    }
+}

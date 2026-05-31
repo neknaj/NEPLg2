@@ -206,14 +206,16 @@ fn dump_op(out: &mut String, op: &ResourceOp, indent: usize) {
         ResourceOp::FunctionValue {
             output,
             name,
+            value_kind,
             effect,
             span,
             ..
         } => {
             let _ = writeln!(
                 out,
-                "function_value {} out={} effect={} span={}:{}-{}",
+                "function_value {} kind={} out={} effect={} span={}:{}-{}",
                 name,
+                value_kind,
                 dump_place(output),
                 dump_effect(effect),
                 span.file_id.0,
@@ -734,6 +736,8 @@ fn dump_effect(effect: &EffectOp) -> String {
         EffectOp::IndirectCall { effect } => format!("indirect_call({:?})", effect),
         EffectOp::InternalAlloc { operation } => format!("internal_alloc({})", operation),
         EffectOp::UnsafeMemory { operation } => format!("unsafe_memory({})", operation),
+        EffectOp::PrivateState { operation } => format!("private_state({})", operation),
+        EffectOp::PrivateCache { operation } => format!("private_cache({})", operation),
         EffectOp::ExternalIo { operation } => format!("external_io({})", operation),
         EffectOp::Nondet { operation } => format!("nondet({})", operation),
         EffectOp::Unknown { reason } => format!("unknown({})", reason),

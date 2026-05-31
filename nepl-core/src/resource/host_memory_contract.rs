@@ -208,6 +208,8 @@ pub(super) fn host_memory_spans(effect: &EffectOp) -> &'static [HostMemorySpan] 
         | EffectOp::IndirectCall { .. }
         | EffectOp::InternalAlloc { .. }
         | EffectOp::UnsafeMemory { .. }
+        | EffectOp::PrivateState { .. }
+        | EffectOp::PrivateCache { .. }
         | EffectOp::Unknown { .. } => EMPTY_SPANS,
     }
 }

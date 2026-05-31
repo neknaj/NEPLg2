@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use core::fmt;
 
 use crate::ast::Effect;
-pub use crate::effects::{ExternalIoOp, NondetOp, RawMemoryOp};
+pub use crate::effects::{ExternalIoOp, NondetOp, PrivateCacheOp, PrivateStateOp, RawMemoryOp};
 use crate::function_identity::FunctionValueIdentity;
 use crate::span::Span;
 use crate::types::TypeId;
@@ -126,6 +126,7 @@ pub enum ResourceOp {
         output: Place,
         name: String,
         identity: FunctionValueIdentity,
+        value_kind: ResourceFunctionValueKind,
         effect: EffectOp,
         span: Span,
     },
@@ -282,6 +283,27 @@ pub enum ResourceExprKind {
     Borrow,
     Deref,
     Drop,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceFunctionValueKind {
+    Plain,
+    Memoized,
+}
+
+impl ResourceFunctionValueKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            ResourceFunctionValueKind::Plain => "plain",
+            ResourceFunctionValueKind::Memoized => "memoized",
+        }
+    }
+}
+
+impl fmt::Display for ResourceFunctionValueKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -463,6 +485,8 @@ pub enum EffectOp {
     IndirectCall { effect: Effect },
     InternalAlloc { operation: RawMemoryOp },
     UnsafeMemory { operation: RawMemoryOp },
+    PrivateState { operation: PrivateStateOp },
+    PrivateCache { operation: PrivateCacheOp },
     ExternalIo { operation: ExternalIoOp },
     Nondet { operation: NondetOp },
     Unknown { reason: UnknownEffectReason },

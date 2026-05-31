@@ -6,6 +6,7 @@ use nepl_core::diagnostic_codes::{DiagnosticCode, TypeDiagnosticCode};
 use nepl_core::error::CoreError;
 use nepl_core::hir::HirExprKind;
 use nepl_core::loader::Loader;
+use nepl_core::resource::{lower_hir_module, ResourceFunctionValueKind, ResourceOp};
 use nepl_core::span::FileId;
 use nepl_core::typecheck;
 use nepl_core::BuildProfile;
@@ -254,6 +255,28 @@ fn main %fn unit i32 \unit:
         matches!(value.kind, HirExprKind::MemoizedFunctionValue(_)),
         "memo_call must preserve a compiler-known HIR boundary: {:#?}",
         value.kind
+    );
+
+    let resource = lower_hir_module(&module, &checked.types);
+    let main_resource = resource
+        .functions
+        .iter()
+        .find(|function| function.origin_name == "main")
+        .expect("main resource function");
+    assert!(
+        main_resource
+            .blocks
+            .iter()
+            .flat_map(|block| block.ops.iter())
+            .any(|op| matches!(
+                op,
+                ResourceOp::FunctionValue {
+                    value_kind: ResourceFunctionValueKind::Memoized,
+                    ..
+                }
+            )),
+        "Resource IR must keep memoized function values distinct from plain function values: {:#?}",
+        main_resource
     );
 }
 

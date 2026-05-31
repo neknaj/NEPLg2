@@ -9,7 +9,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 
-use crate::effects::{RawBodyMemoryOp, RawMemoryOp};
+use crate::effects::{PrivateCacheOp, RawBodyMemoryOp, RawMemoryOp};
 pub use crate::resource_primitives::{
     CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive,
 };
@@ -123,6 +123,10 @@ pub enum SourceCapabilityUseSite {
     },
     CollectionSlotBorrowBoundary {
         primitive: CollectionSlotBorrowPrimitive,
+        span: SourceCapabilitySpan,
+    },
+    PrivateCacheBoundary {
+        operation: PrivateCacheOp,
         span: SourceCapabilitySpan,
     },
 }
@@ -364,6 +368,13 @@ impl SourceCapabilities {
             span: SourceCapabilitySpan::from_span(span),
         })
     }
+
+    pub fn allows_private_cache_boundary_at(&self, operation: PrivateCacheOp, span: Span) -> bool {
+        self.allows_use_site(SourceCapabilityUseSite::PrivateCacheBoundary {
+            operation,
+            span: SourceCapabilitySpan::from_span(span),
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -522,6 +533,11 @@ impl SourceMap {
             .allows_collection_slot_borrow_boundary_at(primitive, span)
     }
 
+    pub fn private_cache_boundary_allowed_at(&self, span: Span, operation: PrivateCacheOp) -> bool {
+        self.capabilities(span.file_id)
+            .allows_private_cache_boundary_at(operation, span)
+    }
+
     pub fn iter_paths(&self) -> impl Iterator<Item = (FileId, &SourcePath)> {
         self.files
             .iter()
@@ -647,6 +663,11 @@ fn source_capability_use_site_hash(hash: &mut u64, use_site: &SourceCapabilityUs
             );
             source_capability_span_hash(hash, *span);
         }
+        SourceCapabilityUseSite::PrivateCacheBoundary { operation, span } => {
+            source_capability_policy_hash_str(hash, "private-cache");
+            source_capability_policy_hash_str(hash, operation.as_str());
+            source_capability_span_hash(hash, *span);
+        }
     }
 }
 
@@ -718,6 +739,11 @@ fn source_capability_scoped_use_site_hash(
             );
             source_capability_relative_span_hash(hash, *span, scope_start);
         }
+        SourceCapabilityUseSite::PrivateCacheBoundary { operation, span } => {
+            source_capability_policy_hash_str(hash, "private-cache");
+            source_capability_policy_hash_str(hash, operation.as_str());
+            source_capability_relative_span_hash(hash, *span, scope_start);
+        }
     }
 }
 
@@ -735,7 +761,8 @@ fn source_capability_use_site_span(use_site: &SourceCapabilityUseSite) -> Source
         | SourceCapabilityUseSite::CompilerMemoryFieldBoundary { span, .. }
         | SourceCapabilityUseSite::CompilerMemoryTypeDefinition { span, .. }
         | SourceCapabilityUseSite::CollectionSlotLifecycleBoundary { span, .. }
-        | SourceCapabilityUseSite::CollectionSlotBorrowBoundary { span, .. } => *span,
+        | SourceCapabilityUseSite::CollectionSlotBorrowBoundary { span, .. }
+        | SourceCapabilityUseSite::PrivateCacheBoundary { span, .. } => *span,
     }
 }
 
@@ -850,7 +877,7 @@ fn source_capability_source_hash(bytes: &[u8]) -> u64 {
 mod tests {
     use alloc::string::String;
 
-    use crate::effects::{RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp};
+    use crate::effects::{PrivateCacheOp, RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp};
     use crate::span::{FileId, Span};
 
     use super::{
@@ -886,6 +913,7 @@ mod tests {
         assert!(!none.allows_raw_address_alias_boundary_at(proven));
         assert!(!none.allows_owner_token_construct_boundary_at(proven));
         assert!(!none.allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, proven));
+        assert!(!none.allows_private_cache_boundary_at(PrivateCacheOp::Lookup, proven));
         assert!(!none
             .allows_compiler_memory_type_definition_at(CompilerMemoryType::RawPointer, proven,));
 
@@ -991,6 +1019,15 @@ mod tests {
             .allows_compiler_memory_type_definition_at(CompilerMemoryType::OwnerToken, other));
         assert!(!memory_type
             .allows_compiler_memory_type_definition_at(CompilerMemoryType::RawPointer, proven));
+
+        let private_cache = use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
+            operation: PrivateCacheOp::Lookup,
+            span: SourceCapabilitySpan::from_span(proven),
+        });
+        assert!(private_cache.allows_private_cache_boundary_at(PrivateCacheOp::Lookup, proven));
+        assert!(!private_cache.allows_private_cache_boundary_at(PrivateCacheOp::Lookup, other));
+        assert!(!private_cache.allows_private_cache_boundary_at(PrivateCacheOp::Insert, proven));
+        assert!(!private_cache.allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, proven));
     }
 
     #[test]
@@ -1088,6 +1125,11 @@ mod tests {
                 operation: RawMemoryOp::Store,
                 span: SourceCapabilitySpan::from_span(proven),
             });
+        let private_cache_operation =
+            use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
+                operation: PrivateCacheOp::Lookup,
+                span: SourceCapabilitySpan::from_span(proven),
+            });
 
         assert_ne!(
             base.stable_policy_hash("core/mem.nepl", 7),
@@ -1104,6 +1146,10 @@ mod tests {
         assert_ne!(
             base.stable_policy_hash("core/mem.nepl", 7),
             other_operation.stable_policy_hash("core/mem.nepl", 7)
+        );
+        assert_ne!(
+            base.stable_policy_hash("core/mem.nepl", 7),
+            private_cache_operation.stable_policy_hash("core/mem.nepl", 7)
         );
     }
 

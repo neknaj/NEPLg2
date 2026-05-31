@@ -685,11 +685,63 @@ impl fmt::Display for NondetOp {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum PrivateStateOp {
+    Allocate,
+    Read,
+    Write,
+    Drop,
+}
+
+impl PrivateStateOp {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            PrivateStateOp::Allocate => "private_state.allocate",
+            PrivateStateOp::Read => "private_state.read",
+            PrivateStateOp::Write => "private_state.write",
+            PrivateStateOp::Drop => "private_state.drop",
+        }
+    }
+}
+
+impl fmt::Display for PrivateStateOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum PrivateCacheOp {
+    Create,
+    Lookup,
+    Insert,
+    Drop,
+}
+
+impl PrivateCacheOp {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            PrivateCacheOp::Create => "private_cache.create",
+            PrivateCacheOp::Lookup => "private_cache.lookup",
+            PrivateCacheOp::Insert => "private_cache.insert",
+            PrivateCacheOp::Drop => "private_cache.drop",
+        }
+    }
+}
+
+impl fmt::Display for PrivateCacheOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InternalEffect {
     Pure,
     InternalAlloc { operation: RawMemoryOp },
     UnsafeMemory { operation: RawMemoryOp },
+    PrivateState { operation: PrivateStateOp },
+    PrivateCache { operation: PrivateCacheOp },
     ExternalIo { operation: ExternalIoOp },
     Nondet { operation: NondetOp },
 }
@@ -700,6 +752,8 @@ impl InternalEffect {
             InternalEffect::Pure => None,
             InternalEffect::InternalAlloc { operation }
             | InternalEffect::UnsafeMemory { operation } => Some(operation.as_str()),
+            InternalEffect::PrivateState { operation } => Some(operation.as_str()),
+            InternalEffect::PrivateCache { operation } => Some(operation.as_str()),
             InternalEffect::ExternalIo { operation } => Some(operation.as_str()),
             InternalEffect::Nondet { operation } => Some(operation.as_str()),
         }
@@ -815,6 +869,9 @@ pub fn internal_effect_surface_fold(effect: &InternalEffect) -> Option<Effect> {
     match effect {
         InternalEffect::Pure => Some(Effect::Pure),
         InternalEffect::InternalAlloc { .. } => Some(Effect::Pure),
+        InternalEffect::PrivateState { .. } | InternalEffect::PrivateCache { .. } => {
+            Some(Effect::Impure)
+        }
         InternalEffect::ExternalIo { .. } | InternalEffect::Nondet { .. } => Some(Effect::Impure),
         InternalEffect::UnsafeMemory { .. } => None,
     }
