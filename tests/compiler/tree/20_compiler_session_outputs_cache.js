@@ -51,6 +51,9 @@ function neplMetaPreTypecheckProbeStats(session) {
     return {
         attempts: Number(s.nepl_meta_artifact_store_pre_typecheck_probe_attempts || 0),
         projected: Number(s.nepl_meta_artifact_store_pre_typecheck_probe_projected || 0),
+        missing: Number(s.nepl_meta_artifact_store_pre_typecheck_probe_missing_artifacts || 0),
+        compatibilityRejects: Number(s.nepl_meta_artifact_store_pre_typecheck_probe_compatibility_rejects || 0),
+        projectionRejects: Number(s.nepl_meta_artifact_store_pre_typecheck_probe_projection_rejects || 0),
         rejectKind: Number(s.nepl_meta_artifact_store_last_pre_typecheck_probe_reject_kind || 0),
         rejectCode: Number(s.nepl_meta_artifact_store_last_pre_typecheck_probe_reject_code || 0),
     };
@@ -124,8 +127,8 @@ fn main <()->i32> ():
         assert.equal(firstMetaStore.rejects, 0, 'valid .neplmeta artifact must not be rejected');
         assert.deepEqual(
             neplMetaPreTypecheckProbeStats(cacheSession),
-            { attempts: 0, projected: 0, rejectKind: 0, rejectCode: 0 },
-            'normal compile path must expose pre-typecheck probe stats without invoking the probe yet',
+            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0 },
+            'first compile must expose pre-typecheck probe stats without probing an empty artifact store',
         );
         assert.notEqual(
             neplMetaArtifactStats(cacheSession).sourceKeyHash,
@@ -185,6 +188,11 @@ fn main <()->i32> ():
             wasmBytes(firstOutput),
             'changed imported VFS content must change the compiled wasm instead of returning stale bytes',
         );
+        assert.deepEqual(
+            neplMetaPreTypecheckProbeStats(cacheSession),
+            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 1, rejectKind: 4, rejectCode: 6 },
+            'dependency body-only edit must still report a projection blocker instead of treating a root artifact hit as body-skip ready',
+        );
 
         const stdlibOverlaySession = newSession(api);
         const stdlibOverlaySource = `#entry main
@@ -237,6 +245,11 @@ fn main <()->i32> ():
             false,
         );
         const secondArtifactStats = neplMetaArtifactStats(sourceKeySession);
+        assert.deepEqual(
+            neplMetaPreTypecheckProbeStats(sourceKeySession),
+            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 1, projectionRejects: 0, rejectKind: 3, rejectCode: 6 },
+            'root body token edit must reject the previous .neplmeta artifact by source key before typecheck reuse',
+        );
         assert.equal(
             firstArtifactStats.typedPublicSignatureHash,
             secondArtifactStats.typedPublicSignatureHash,
@@ -248,6 +261,6 @@ fn main <()->i32> ():
             'body-only token edit must change .neplmeta source key hash',
         );
 
-        return { checked: 7 };
+        return { checked: 9 };
     },
 };

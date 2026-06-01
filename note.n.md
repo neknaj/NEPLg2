@@ -1,3 +1,14 @@
+# 2026-06-01 .neplmeta session root pre-typecheck probe checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋 query cache による探索空間削減、試作段階でも設計品質を落とさない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `1aa9e264 Track sealed memo cache proof issue` まで同期済みで、branch `work/neplmeta-loader-probe-20260601` はその `main` から作成した。
+- subagent review で、依存 module 単位の本命 probe は `Loader::process_directives_with` の prelude/import `load_file_with` 成功直後に観測専用 hook として置くべきと確認した。
+- 今 checkpoint ではその前段として、Web `CompilerSession` の実 compile path に root `.neplmeta` artifact の pre-typecheck probe を接続した。
+- store が空の初回 compile では probe せず、前回 artifact がある二回目以降だけ `NeplMetaArtifactPreTypecheckEnvelope` を作って `materializer_import_public_surface_pre_typecheck_mvp` を呼ぶ。戻り値は使わず、通常 load / typecheck / Resource IR / codegen は変えない。
+- dependency body-only edit では previous root artifact が存在しても materializer blocker により projection reject として数えられ、root literal edit では source key mismatch の compatibility reject として数えられる regression を追加した。
+- stdlib overlay compile では従来通り `.neplmeta` store を compile path へ渡さず、通常 stdlib artifact と overlay artifact を混ぜない。
+- docs と issue には、この checkpoint が body skip ではなく、次に import/prelude edge hook へ進むための観測境界であることを追記した。
+
 # 2026-06-01 memo_call sealed private cache region proof issue checkpoint
 
 - Zenn 記事の試作段階方針、静的検査、Pure を外部観測可能 effect がないこととして扱う方針を再確認した。`plan.md` は変更していない。

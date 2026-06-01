@@ -176,6 +176,31 @@ function identity 必須経路へ流れない guard を追加する。
 
 - `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
 
+## 2026-06-01 session root pre-typecheck probe checkpoint
+
+Web `CompilerSession` の実 compile path から、保存済み root `.neplmeta` artifact に対して
+`materializer_import_public_surface_pre_typecheck_mvp` を観測専用に呼ぶようにした。
+
+この checkpoint は body skip ではない。戻り値の `TypedPublicSurfaceTable` は使わず、通常の
+load / typecheck / Resource IR / codegen は従来通り実行する。目的は、既存 store に artifact が
+存在する二回目以降の compile で、pre-typecheck envelope が通るのか、`SourceKey` や
+`DependencyPublicSurface` で拒否されるのかを Web stats から確認できるようにすることである。
+
+安全境界:
+
+- store が空の初回 compile では probe しない。
+- stdlib overlay compile では store を compile path へ渡さない。
+- `TypeCtx` / `Env` への materialize は行わない。
+- `Include`、AST merge、import/prelude edge の load 順は変えない。
+
+regression では、dependency body-only edit で previous root artifact が存在しても現 payload の
+materializer blocker により projection reject になること、root literal edit では projection 前に
+source key mismatch の compatibility reject になることを固定した。
+
+subagent review では、依存 module 単位の本命接続は `Loader::process_directives_with` の
+prelude/import `load_file_with` 成功直後に観測 hook として置くべきと確認した。次 checkpoint では、
+root artifact だけでなく import/prelude edge ごとの module surface と import clause を渡す設計へ進む。
+
 ## 2026-06-01 pre-typecheck probe observation checkpoint
 
 `NeplMetaArtifactStoreStats` に pre-typecheck probe 専用の観測 field を追加した。既存の

@@ -1984,6 +1984,34 @@ projection の大分類であり、code はそれぞれの enum reason を安定
 確認する。次の loader/import 接続では、この統計を先に見ながら fallback rate を測り、body skip
 へ進んでよい edge を限定する。
 
+### 2026-06-01 `.neplmeta` session root pre-typecheck probe checkpoint
+
+Web `CompilerSession` の実 compile path に、保存済み root `.neplmeta` artifact を
+pre-typecheck envelope で照合する観測 probe を接続した。これは dependency body skip ではなく、
+現在の loader/source-map 境界で artifact が再投影可能かを測るための安全な staging である。
+
+接続条件:
+
+- `.neplmeta` store が空でない場合だけ probe する。初回 compile は missing artifact として数えず、
+  実際に再利用候補が存在する二回目以降だけを測る。
+- stdlib overlay compile では従来通り loader/resource/proof cache を bypass し、probe store も
+  compile path へ渡さない。
+- probe は `materializer_import_public_surface_pre_typecheck_mvp` の戻り値を使わず、統計だけを
+  更新する。`TypeCtx` / `Env` 注入、依存 module AST inline 省略、Resource IR skip は行わない。
+
+固定した観測:
+
+- import dependency の body-only edit では、root source key と dependency public surface が変わらない
+  場合でも、現 payload の materializer blocker が残る artifact は projection reject として数えられる。
+  store hit を body-skip ready と誤読しないための確認である。
+- root source の literal edit では、typed public signature が変わらなくても source key mismatch で
+  compatibility reject になり、projection 判定へ進まない。
+
+subagent review では、依存 module 単位の本命 probe は `Loader::process_directives_with` の
+prelude/import `load_file_with` 成功直後に置き、`Include` や AST merge を変えず観測専用 hook として
+接続するのが安全と確認した。この checkpoint はその前段であり、次は import/prelude edge ごとの
+module surface と import clause を渡す loader hook へ進む。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

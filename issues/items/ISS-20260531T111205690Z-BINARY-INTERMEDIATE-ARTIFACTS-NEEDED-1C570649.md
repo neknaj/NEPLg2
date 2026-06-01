@@ -255,3 +255,25 @@ materializer 接続を開始しない。
 - `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
 - `cargo test -p nepl-core neplmeta --lib -- --nocapture`
 - `node tests\compiler\tree\run.js`
+
+## 2026-06-01 checkpoint 11
+
+`.neplmeta` pre-typecheck projection probe を Web `CompilerSession` の実 compile path へ接続した。
+
+現段階では root module artifact だけを観測する。compile 成功時に store 済みの前回 root artifact が
+存在する場合、loader/source-map 由来の `NeplMetaArtifactPreTypecheckEnvelope` を作り、
+`materializer_import_public_surface_pre_typecheck_mvp` で compatibility と projection を確認する。
+結果は stats にだけ反映し、依存 module AST inline 省略や typecheck materializer 接続は行わない。
+
+この checkpoint の意味:
+
+- 中間 artifact が「存在するだけ」では高速化の根拠にならないため、pre-typecheck envelope で
+  再利用可能性を測る実 compile path の観測点を作った。
+- dependency body-only edit では、root source key と dependency public surface が不変でも、
+  現 payload の materializer blocker が残る artifact は projection reject として数えられる。
+- root source literal edit では typed public signature が不変でも source key mismatch で拒否され、
+  projection 判定へ進まない。
+
+次の `.neplmeta` 作業は、subagent review に従い `Loader::process_directives_with` の import/prelude
+edge 単位の probe hook へ進める。そこでは prelude は `import_clause=None`、import は loader が持つ
+`NeplMetaImportClause` を渡し、`Include` は引き続き artifact 境界にしない。

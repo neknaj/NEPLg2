@@ -15,7 +15,10 @@ use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
 use nepl_core::error::CoreError;
 use nepl_core::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine};
-use nepl_core::artifact::{NeplMetaArtifact, NeplMetaArtifactStore};
+use nepl_core::artifact::{
+    nepl_meta_artifact_pre_typecheck_envelope_for_module_surface, NeplMetaArtifact,
+    NeplMetaArtifactStore,
+};
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{Loader, LoaderError, LoaderSessionCache, SourceMap};
 use nepl_core::parser::parse_tokens;
@@ -3016,6 +3019,7 @@ fn compile_outputs_with_bundled_sources_and_cache(
         None,
         None,
         None,
+        None,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
     compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
@@ -3290,6 +3294,7 @@ fn compile_wasm_with_bundled_sources(
         None,
         None,
         None,
+        None,
     )
 }
 
@@ -3306,6 +3311,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
     resource_summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     preseed_resource_summary_proof_artifact: Option<&ResourceSummaryProofArtifact>,
     stage_timings: Option<&mut CompileStageTimings>,
+    nepl_meta_artifact_store: Option<&mut NeplMetaArtifactStore>,
 ) -> Result<CompiledWasm, String> {
     let mut overlay_sources = BTreeMap::new();
     // stdlib 差し替えが指定された場合は、先に上書きで適用する
@@ -3382,6 +3388,27 @@ fn compile_wasm_with_bundled_sources_and_cache(
     };
     let module_surface = loaded.module_surface.clone();
     let stdlib_content_hash = bundled_stdlib_hash_u64();
+    if let (Some(store), Some(surface)) = (
+        nepl_meta_artifact_store.filter(|store| !store.is_empty()),
+        module_surface.as_ref(),
+    ) {
+        if let Ok(envelope) = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+            CompileTarget::Wasm,
+            profile.unwrap_or(BuildProfile::default_source_profile()),
+            stdlib_content_hash,
+            dependency_public_surface_hash,
+            Some(&loaded.source_map),
+            surface,
+        ) {
+            // この probe は body skip ではなく、既存 artifact が現在の loader 境界で
+            // 再投影可能かを測る観測点である。失敗しても通常 source fallback を保つ。
+            let _ = store.materializer_import_public_surface_pre_typecheck_mvp(
+                surface.canonical_module_path.as_str(),
+                envelope,
+                None,
+            );
+        }
+    }
     let proof_artifact_enabled =
         resource_summary_value_cache.is_some() && stdlib_content_hash.is_some();
     let resource_summary_proof_options = ResourceSummaryProofArtifactCacheOptions {
@@ -4129,8 +4156,6 @@ impl CompilerSession {
             *self.last_compile_stage_timings.borrow_mut() = Some(String::from("[]"));
             return Ok(compiled.wasm);
         }
-        let mut cache = self.loader_cache.borrow_mut();
-        let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
         let preseed_artifact = self.resource_summary_proof_artifact.borrow().clone();
         if preseed_artifact.is_some() {
             *self
@@ -4138,26 +4163,32 @@ impl CompilerSession {
                 .borrow_mut() += 1;
         }
         let mut stage_timings = CompileStageTimings::new();
-        let compiled = match compile_wasm_with_bundled_sources_and_cache(
-            entry_path,
-            source,
-            &self.stdlib_root,
-            &self.bundled_sources,
-            Some(vfs),
-            None,
-            Some(parsed),
-            false,
-            Some(&mut cache),
-            Some(&mut resource_summary_value_cache),
-            preseed_artifact.as_ref(),
-            Some(&mut stage_timings),
-        ) {
-            Ok(compiled) => compiled,
-            Err(msg) => {
-                *self.last_compile_stage_timing_status.borrow_mut() = "failed";
-                *self.last_compile_stage_timings.borrow_mut() =
-                    Some(stage_timings.to_json_array());
-                return Err(JsValue::from_str(&msg));
+        let compiled = {
+            let mut cache = self.loader_cache.borrow_mut();
+            let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
+            let mut nepl_meta_artifact_store = self.nepl_meta_artifact_store.borrow_mut();
+            match compile_wasm_with_bundled_sources_and_cache(
+                entry_path,
+                source,
+                &self.stdlib_root,
+                &self.bundled_sources,
+                Some(vfs),
+                None,
+                Some(parsed),
+                false,
+                Some(&mut cache),
+                Some(&mut resource_summary_value_cache),
+                preseed_artifact.as_ref(),
+                Some(&mut stage_timings),
+                Some(&mut nepl_meta_artifact_store),
+            ) {
+                Ok(compiled) => compiled,
+                Err(msg) => {
+                    *self.last_compile_stage_timing_status.borrow_mut() = "failed";
+                    *self.last_compile_stage_timings.borrow_mut() =
+                        Some(stage_timings.to_json_array());
+                    return Err(JsValue::from_str(&msg));
+                }
             }
         };
         if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
@@ -4202,6 +4233,7 @@ impl CompilerSession {
             None,
             None,
             Some(&mut stage_timings),
+            None,
         ) {
             Ok(compiled) => compiled,
             Err(msg) => {
@@ -4258,8 +4290,6 @@ impl CompilerSession {
                 attach_source,
             );
         }
-        let mut loader_cache = self.loader_cache.borrow_mut();
-        let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
         let preseed_artifact = self.resource_summary_proof_artifact.borrow().clone();
         if preseed_artifact.is_some() {
             *self
@@ -4267,26 +4297,32 @@ impl CompilerSession {
                 .borrow_mut() += 1;
         }
         let mut stage_timings = CompileStageTimings::new();
-        let compiled = match compile_wasm_with_bundled_sources_and_cache(
-            entry_path,
-            source,
-            &self.stdlib_root,
-            &self.bundled_sources,
-            Some(vfs),
-            None,
-            Some(BuildProfile::default_source_profile()),
-            include_wat_comments,
-            Some(&mut loader_cache),
-            Some(&mut resource_summary_value_cache),
-            preseed_artifact.as_ref(),
-            Some(&mut stage_timings),
-        ) {
-            Ok(compiled) => compiled,
-            Err(msg) => {
-                *self.last_compile_stage_timing_status.borrow_mut() = "failed";
-                *self.last_compile_stage_timings.borrow_mut() =
-                    Some(stage_timings.to_json_array());
-                return Err(JsValue::from_str(&msg));
+        let compiled = {
+            let mut loader_cache = self.loader_cache.borrow_mut();
+            let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
+            let mut nepl_meta_artifact_store = self.nepl_meta_artifact_store.borrow_mut();
+            match compile_wasm_with_bundled_sources_and_cache(
+                entry_path,
+                source,
+                &self.stdlib_root,
+                &self.bundled_sources,
+                Some(vfs),
+                None,
+                Some(BuildProfile::default_source_profile()),
+                include_wat_comments,
+                Some(&mut loader_cache),
+                Some(&mut resource_summary_value_cache),
+                preseed_artifact.as_ref(),
+                Some(&mut stage_timings),
+                Some(&mut nepl_meta_artifact_store),
+            ) {
+                Ok(compiled) => compiled,
+                Err(msg) => {
+                    *self.last_compile_stage_timing_status.borrow_mut() = "failed";
+                    *self.last_compile_stage_timings.borrow_mut() =
+                        Some(stage_timings.to_json_array());
+                    return Err(JsValue::from_str(&msg));
+                }
             }
         };
         if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
