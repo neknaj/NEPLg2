@@ -3915,6 +3915,67 @@ impl CompilerSession {
         out.push_str(&nepl_meta_artifact_store_stats.compatibility_rejects.to_string());
         out.push_str(",\"nepl_meta_artifact_store_projection_rejects\":");
         out.push_str(&nepl_meta_artifact_store_stats.projection_rejects.to_string());
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_probe_attempts\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_probe_attempts
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_probe_projected\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_probe_projected
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_probe_missing_artifacts\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_probe_missing_artifacts
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_probe_payload_rejects\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_probe_payload_rejects
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_probe_compatibility_rejects\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_probe_compatibility_rejects
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_probe_projection_rejects\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_probe_projection_rejects
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_probe_projected_entries\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_probe_projected_entries
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_last_pre_typecheck_probe_reject_kind\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .last_pre_typecheck_probe_reject_kind
+                .code()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_last_pre_typecheck_probe_reject_code\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .last_pre_typecheck_probe_reject_code
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_last_pre_typecheck_probe_projected_entries\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .last_pre_typecheck_probe_projected_entries
+                .to_string(),
+        );
         out.push_str(",\"resource_summary_proof_artifact_present\":");
         out.push_str(if proof_artifact.is_some() { "true" } else { "false" });
         out.push_str(",\"resource_summary_proof_artifact_preseed_candidates\":");

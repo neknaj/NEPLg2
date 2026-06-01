@@ -1965,6 +1965,25 @@ pre-typecheck envelope が通った後も、store は payload consistency と MV
 文字列解析なしに区別できる。body skip を有効化する前に、この probe の hit/reject 統計を
 Web `CompilerSession` から観測できるようにする。
 
+### 2026-06-01 `.neplmeta` pre-typecheck probe observation checkpoint
+
+`NeplMetaArtifactStoreStats` に pre-typecheck probe 専用の統計を追加した。既存の
+`hits` は module path keyed store 内に artifact が存在した回数であり、projection 成功や
+安全な body skip を意味しない。そのため、probe の `attempts`、`projected`、missing artifact、
+payload reject、compatibility reject、projection reject、projected entry count を別 field として
+記録する。
+
+last reason は `last_pre_typecheck_probe_reject_kind` と
+`last_pre_typecheck_probe_reject_code` に分けた。kind は missing / payload / compatibility /
+projection の大分類であり、code はそれぞれの enum reason を安定した数値に畳んだ値である。
+これにより Web playground や benchmark で、`SourceKey` mismatch と `UnsupportedAlias` のように
+次に直す場所が違う fallback reason を文字列解析なしに分けられる。
+
+この checkpoint でも compile path の意味は変えない。通常 compile は pre-typecheck probe を
+まだ呼ばないため、Web `loader_cache_stats_json` では probe field が 0 として存在することだけを
+確認する。次の loader/import 接続では、この統計を先に見ながら fallback rate を測り、body skip
+へ進んでよい edge を限定する。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

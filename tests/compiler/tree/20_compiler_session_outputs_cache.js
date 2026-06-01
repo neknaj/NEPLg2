@@ -28,6 +28,34 @@ function neplMetaStoreStats(session) {
     };
 }
 
+function neplMetaPreTypecheckProbeStats(session) {
+    const s = stats(session);
+    const keys = [
+        'nepl_meta_artifact_store_pre_typecheck_probe_attempts',
+        'nepl_meta_artifact_store_pre_typecheck_probe_projected',
+        'nepl_meta_artifact_store_pre_typecheck_probe_missing_artifacts',
+        'nepl_meta_artifact_store_pre_typecheck_probe_payload_rejects',
+        'nepl_meta_artifact_store_pre_typecheck_probe_compatibility_rejects',
+        'nepl_meta_artifact_store_pre_typecheck_probe_projection_rejects',
+        'nepl_meta_artifact_store_pre_typecheck_probe_projected_entries',
+        'nepl_meta_artifact_store_last_pre_typecheck_probe_reject_kind',
+        'nepl_meta_artifact_store_last_pre_typecheck_probe_reject_code',
+        'nepl_meta_artifact_store_last_pre_typecheck_probe_projected_entries',
+    ];
+    for (const key of keys) {
+        assert.ok(
+            Object.prototype.hasOwnProperty.call(s, key),
+            `.neplmeta pre-typecheck probe stats must expose ${key}`,
+        );
+    }
+    return {
+        attempts: Number(s.nepl_meta_artifact_store_pre_typecheck_probe_attempts || 0),
+        projected: Number(s.nepl_meta_artifact_store_pre_typecheck_probe_projected || 0),
+        rejectKind: Number(s.nepl_meta_artifact_store_last_pre_typecheck_probe_reject_kind || 0),
+        rejectCode: Number(s.nepl_meta_artifact_store_last_pre_typecheck_probe_reject_code || 0),
+    };
+}
+
 function neplMetaArtifactStats(session) {
     const s = stats(session);
     return {
@@ -94,6 +122,11 @@ fn main <()->i32> ():
         assert.equal(firstMetaStore.entries, 1, 'first compile must store one .neplmeta artifact');
         assert.equal(firstMetaStore.stores, 1, 'first compile must count one .neplmeta store');
         assert.equal(firstMetaStore.rejects, 0, 'valid .neplmeta artifact must not be rejected');
+        assert.deepEqual(
+            neplMetaPreTypecheckProbeStats(cacheSession),
+            { attempts: 0, projected: 0, rejectKind: 0, rejectCode: 0 },
+            'normal compile path must expose pre-typecheck probe stats without invoking the probe yet',
+        );
         assert.notEqual(
             neplMetaArtifactStats(cacheSession).sourceKeyHash,
             '0',
@@ -215,6 +248,6 @@ fn main <()->i32> ():
             'body-only token edit must change .neplmeta source key hash',
         );
 
-        return { checked: 6 };
+        return { checked: 7 };
     },
 };

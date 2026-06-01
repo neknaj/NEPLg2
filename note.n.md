@@ -1,3 +1,15 @@
+# 2026-06-01 .neplmeta pre-typecheck probe observation checkpoint
+
+- Zenn 記事の enum / Result による静的検査、core/no_std 境界、純粋 query cache による探索空間削減方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `d0f622d4 Add neplmeta pre-typecheck store projection` まで同期済みで、branch `work/neplmeta-probe-observation-20260601` の基点は `origin/main` と一致している。
+- subagent review で、次 checkpoint は body skip へ進まず、pre-typecheck store projection probe の fallback reason を観測可能にすることだと確認した。
+- `NeplMetaArtifactStoreStats` に pre-typecheck probe 専用の attempts / projected / missing artifact / payload reject / compatibility reject / projection reject / projected entries を追加した。
+- `last_pre_typecheck_probe_reject_kind` と `last_pre_typecheck_probe_reject_code` を追加し、store hit を performance hit と誤読せず、`SourceKey` mismatch や unsupported alias/glob を enum code で区別できるようにした。
+- `NeplMetaArtifactCompatibilityReject`、`NeplMetaArtifactPayloadReject`、`NeplMetaMaterializerProjectionReject` に stable code を追加した。これは診断文ではなく Web stats / benchmark / future disk codec 用の小さい観測値である。
+- Web `loader_cache_stats_json` に同じ probe stats を追加した。現 checkpoint では通常 compile path はまだ probe を呼ばないため値は 0 のままで、field の存在を tree test で固定した。
+- `doc/neplg2/compiler_performance_cache_design.md`、中間 artifact issue、`.neplmeta` materializer issue に checkpoint を追記した。
+- 検証: `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-probe-observation-20260601.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta pre-typecheck store projection checkpoint
 
 - Zenn 記事の静的検査、enum reason、core/no_std 境界、純粋 query cache による探索空間削減方針を再確認した。`plan.md` は変更していない。

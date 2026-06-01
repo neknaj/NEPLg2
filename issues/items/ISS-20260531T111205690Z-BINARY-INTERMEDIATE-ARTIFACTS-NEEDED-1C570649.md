@@ -225,3 +225,33 @@ payload inconsistency も既存 reason で区別する。
 追加検証:
 
 - `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
+
+## 2026-06-01 checkpoint 10
+
+`.neplmeta` pre-typecheck projection probe の観測統計を追加した。store 全体の `hits` は
+「artifact が module path で見つかった」ことだけを表すため、performance 判断では
+projection success と reject reason を別に見る必要がある。
+
+追加した統計:
+
+- `pre_typecheck_probe_attempts`
+- `pre_typecheck_probe_projected`
+- `pre_typecheck_probe_missing_artifacts`
+- `pre_typecheck_probe_payload_rejects`
+- `pre_typecheck_probe_compatibility_rejects`
+- `pre_typecheck_probe_projection_rejects`
+- `pre_typecheck_probe_projected_entries`
+- `last_pre_typecheck_probe_reject_kind`
+- `last_pre_typecheck_probe_reject_code`
+- `last_pre_typecheck_probe_projected_entries`
+
+compatibility / payload / projection reject enum には stable code を追加した。これは disk / IndexedDB
+codec や Web benchmark から、fallback reason を文字列に依存せず集計するための中間 artifact
+仕様である。通常 compile path はまだ probe を呼ばないため、今回の変更は body skip や import
+materializer 接続を開始しない。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `node tests\compiler\tree\run.js`

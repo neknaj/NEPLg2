@@ -427,6 +427,31 @@ pub enum NeplMetaArtifactCompatibilityReject {
     PrivateEffectPolicy,
 }
 
+impl NeplMetaArtifactCompatibilityReject {
+    pub fn code(self) -> u32 {
+        match self {
+            Self::SchemaVersion => 1,
+            Self::CompilerIdentity => 2,
+            Self::Target => 3,
+            Self::Profile => 4,
+            Self::StdlibContent => 5,
+            Self::SourceKey => 6,
+            Self::DependencyPublicSurface => 7,
+            Self::TypedPublicSignature => 8,
+            Self::PublicEntryCount => 9,
+            Self::ModuleSurface => 10,
+            Self::ModuleDependencyEdgeCount => 11,
+            Self::ExportSurface => 12,
+            Self::LocalExportCount => 13,
+            Self::ReexportProjectionCount => 14,
+            Self::StructuredPublicSurface => 15,
+            Self::StructuredPublicSurfaceEntryCount => 16,
+            Self::SourceCapabilityPolicySet => 17,
+            Self::PrivateEffectPolicy => 18,
+        }
+    }
+}
+
 /// `.neplmeta` artifact の in-memory 表現。
 ///
 /// payload は typed public signature table に限定する。依存 module の body、typed HIR、
@@ -783,6 +808,90 @@ pub struct NeplMetaArtifactStoreStats {
     pub payload_rejects: usize,
     pub compatibility_rejects: usize,
     pub projection_rejects: usize,
+    pub pre_typecheck_probe_attempts: usize,
+    pub pre_typecheck_probe_projected: usize,
+    pub pre_typecheck_probe_missing_artifacts: usize,
+    pub pre_typecheck_probe_payload_rejects: usize,
+    pub pre_typecheck_probe_compatibility_rejects: usize,
+    pub pre_typecheck_probe_projection_rejects: usize,
+    pub pre_typecheck_probe_projected_entries: usize,
+    pub last_pre_typecheck_probe_reject_kind: NeplMetaArtifactProbeRejectKind,
+    pub last_pre_typecheck_probe_reject_code: u32,
+    pub last_pre_typecheck_probe_projected_entries: usize,
+}
+
+/// pre-typecheck probe が通常 source fallback へ戻った理由の大分類。
+///
+/// 個別理由は `last_pre_typecheck_probe_reject_code` に保存する。kind と code を分けると、
+/// compatibility mismatch と projection unsupported を同じ数値空間へ押し込まずに済み、
+/// Web playground 側の JSON も安定した小さい値だけを公開できる。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum NeplMetaArtifactProbeRejectKind {
+    #[default]
+    None,
+    MissingArtifact,
+    PayloadConsistency,
+    Compatibility,
+    Projection,
+}
+
+impl NeplMetaArtifactProbeRejectKind {
+    pub fn code(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::MissingArtifact => 1,
+            Self::PayloadConsistency => 2,
+            Self::Compatibility => 3,
+            Self::Projection => 4,
+        }
+    }
+}
+
+impl NeplMetaArtifactStoreStats {
+    fn record_pre_typecheck_probe_projected(&mut self, entry_count: usize) {
+        self.pre_typecheck_probe_projected += 1;
+        self.pre_typecheck_probe_projected_entries += entry_count;
+        self.last_pre_typecheck_probe_reject_kind = NeplMetaArtifactProbeRejectKind::None;
+        self.last_pre_typecheck_probe_reject_code = 0;
+        self.last_pre_typecheck_probe_projected_entries = entry_count;
+    }
+
+    fn record_pre_typecheck_probe_missing_artifact(&mut self) {
+        self.pre_typecheck_probe_missing_artifacts += 1;
+        self.last_pre_typecheck_probe_reject_kind =
+            NeplMetaArtifactProbeRejectKind::MissingArtifact;
+        self.last_pre_typecheck_probe_reject_code = 0;
+        self.last_pre_typecheck_probe_projected_entries = 0;
+    }
+
+    fn record_pre_typecheck_probe_payload_reject(&mut self, reject: NeplMetaArtifactPayloadReject) {
+        self.pre_typecheck_probe_payload_rejects += 1;
+        self.last_pre_typecheck_probe_reject_kind =
+            NeplMetaArtifactProbeRejectKind::PayloadConsistency;
+        self.last_pre_typecheck_probe_reject_code = reject.code();
+        self.last_pre_typecheck_probe_projected_entries = 0;
+    }
+
+    fn record_pre_typecheck_probe_compatibility_reject(
+        &mut self,
+        reject: NeplMetaArtifactCompatibilityReject,
+    ) {
+        self.pre_typecheck_probe_compatibility_rejects += 1;
+        self.last_pre_typecheck_probe_reject_kind =
+            NeplMetaArtifactProbeRejectKind::Compatibility;
+        self.last_pre_typecheck_probe_reject_code = reject.code();
+        self.last_pre_typecheck_probe_projected_entries = 0;
+    }
+
+    fn record_pre_typecheck_probe_projection_reject(
+        &mut self,
+        reject: &NeplMetaMaterializerProjectionReject,
+    ) {
+        self.pre_typecheck_probe_projection_rejects += 1;
+        self.last_pre_typecheck_probe_reject_kind = NeplMetaArtifactProbeRejectKind::Projection;
+        self.last_pre_typecheck_probe_reject_code = reject.code();
+        self.last_pre_typecheck_probe_projected_entries = 0;
+    }
 }
 
 /// module path keyed な `.neplmeta` artifact store。
@@ -904,8 +1013,10 @@ impl NeplMetaArtifactStore {
         expected_envelope: NeplMetaArtifactPreTypecheckEnvelope,
         import_clause: Option<&NeplMetaImportClause>,
     ) -> Result<TypedPublicSurfaceTable, NeplMetaArtifactStoreReject> {
+        self.stats.pre_typecheck_probe_attempts += 1;
         let Some(artifact) = self.artifacts.get(module_path) else {
             self.stats.misses += 1;
+            self.stats.record_pre_typecheck_probe_missing_artifact();
             return Err(NeplMetaArtifactStoreReject::MissingArtifact {
                 module_path: String::from(module_path),
             });
@@ -913,6 +1024,7 @@ impl NeplMetaArtifactStore {
         self.stats.hits += 1;
         if let Some(reject) = artifact.payload_consistency_reject() {
             self.stats.payload_rejects += 1;
+            self.stats.record_pre_typecheck_probe_payload_reject(reject);
             return Err(NeplMetaArtifactStoreReject::PayloadConsistency(reject));
         }
         if let Some(reject) = artifact
@@ -920,12 +1032,20 @@ impl NeplMetaArtifactStore {
             .pre_typecheck_compatibility_reject(expected_envelope)
         {
             self.stats.compatibility_rejects += 1;
+            self.stats
+                .record_pre_typecheck_probe_compatibility_reject(reject);
             return Err(NeplMetaArtifactStoreReject::Compatibility(reject));
         }
         match artifact.materializer_import_public_surface_mvp(import_clause) {
-            Ok(table) => Ok(table),
+            Ok(table) => {
+                self.stats
+                    .record_pre_typecheck_probe_projected(table.entries.len());
+                Ok(table)
+            }
             Err(reject) => {
                 self.stats.projection_rejects += 1;
+                self.stats
+                    .record_pre_typecheck_probe_projection_reject(&reject);
                 Err(NeplMetaArtifactStoreReject::Projection(reject))
             }
         }
@@ -963,6 +1083,22 @@ pub enum NeplMetaArtifactPayloadReject {
     ReexportProjectionCount,
     StructuredPublicSurfaceHash,
     StructuredPublicSurfaceEntryCount,
+}
+
+impl NeplMetaArtifactPayloadReject {
+    pub fn code(self) -> u32 {
+        match self {
+            Self::TypedPublicSignatureHash => 1,
+            Self::PublicEntryCount => 2,
+            Self::ModuleSurfaceHash => 3,
+            Self::ModuleDependencyEdgeCount => 4,
+            Self::ExportSurfaceHash => 5,
+            Self::LocalExportCount => 6,
+            Self::ReexportProjectionCount => 7,
+            Self::StructuredPublicSurfaceHash => 8,
+            Self::StructuredPublicSurfaceEntryCount => 9,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1017,6 +1153,28 @@ pub enum NeplMetaMaterializerProjectionReject {
         exported_name: String,
         origin_name: String,
     },
+}
+
+impl NeplMetaMaterializerProjectionReject {
+    pub fn code(&self) -> u32 {
+        match self {
+            Self::PayloadConsistency(_) => 1,
+            Self::MissingSourceKey => 2,
+            Self::MissingModuleSurface => 3,
+            Self::MissingExportSurface => 4,
+            Self::MissingModuleIdentity => 5,
+            Self::PublicSurfaceBlocker(_) => 6,
+            Self::UnsupportedReexportProjection => 7,
+            Self::UnsupportedAlias => 8,
+            Self::UnsupportedMerge => 9,
+            Self::UnsupportedGlob => 10,
+            Self::UnsupportedExportKind { .. } => 11,
+            Self::ExportedNameMissing { .. } => 12,
+            Self::ExportedSurfaceMissing { .. } => 13,
+            Self::ExportOriginModuleMismatch { .. } => 14,
+            Self::ExportAliasUnsupported { .. } => 15,
+        }
+    }
 }
 
 impl NeplMetaMaterializerMvpReject {
@@ -1395,7 +1553,8 @@ mod tests {
         nepl_meta_artifact_header_for_public_surface,
         nepl_meta_artifact_pre_typecheck_envelope_for_module_surface, NeplMetaArtifact,
         NeplMetaArtifactCompatibilityReject, NeplMetaArtifactHeader, NeplMetaArtifactPayloadReject,
-        NeplMetaArtifactPreTypecheckEnvelopeReject, NeplMetaArtifactStore,
+        NeplMetaArtifactPreTypecheckEnvelopeReject, NeplMetaArtifactProbeRejectKind,
+        NeplMetaArtifactStore,
         NeplMetaArtifactStoreReject, NeplMetaExportKind, NeplMetaExportSurface,
         NeplMetaImportClause, NeplMetaImportItem, NeplMetaMaterializerMvpReject,
         NeplMetaMaterializerProjectionReject, NeplMetaModuleDependencyEdge,
@@ -2001,6 +2160,15 @@ mod tests {
         assert_eq!(names, Vec::from(["answer", "zero"]));
         assert_eq!(store.stats().hits, 1);
         assert_eq!(store.stats().compatibility_rejects, 0);
+        assert_eq!(store.stats().pre_typecheck_probe_attempts, 1);
+        assert_eq!(store.stats().pre_typecheck_probe_projected, 1);
+        assert_eq!(store.stats().pre_typecheck_probe_projected_entries, 2);
+        assert_eq!(
+            store.stats().last_pre_typecheck_probe_reject_kind,
+            NeplMetaArtifactProbeRejectKind::None
+        );
+        assert_eq!(store.stats().last_pre_typecheck_probe_reject_code, 0);
+        assert_eq!(store.stats().last_pre_typecheck_probe_projected_entries, 2);
     }
 
     /// pre-typecheck envelope は source key を含むため、public signature を再計算する前でも
@@ -2041,6 +2209,16 @@ mod tests {
         );
         assert_eq!(store.stats().hits, 1);
         assert_eq!(store.stats().compatibility_rejects, 1);
+        assert_eq!(store.stats().pre_typecheck_probe_attempts, 1);
+        assert_eq!(store.stats().pre_typecheck_probe_compatibility_rejects, 1);
+        assert_eq!(
+            store.stats().last_pre_typecheck_probe_reject_kind,
+            NeplMetaArtifactProbeRejectKind::Compatibility
+        );
+        assert_eq!(
+            store.stats().last_pre_typecheck_probe_reject_code,
+            NeplMetaArtifactCompatibilityReject::SourceKey.code()
+        );
     }
 
     /// pre-typecheck envelope は source key だけでなく dependency surface と module edge
@@ -2108,6 +2286,97 @@ mod tests {
             Err(NeplMetaArtifactStoreReject::Compatibility(
                 NeplMetaArtifactCompatibilityReject::ModuleSurface
             ))
+        );
+    }
+
+    /// pre-typecheck probe の miss は通常 source fallback の理由であり、store 全体の miss と
+    /// probe 専用の miss を両方記録する。
+    #[test]
+    fn neplmeta_store_pre_typecheck_probe_records_missing_artifact() {
+        let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
+        let mut source_map = SourceMap::new();
+        source_map.add(
+            "/stdlib/core/math.nepl",
+            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+        );
+        let envelope = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            Some(&source_map),
+            &module_surface,
+        )
+        .expect("matching source should produce pre-typecheck envelope");
+        let mut store = NeplMetaArtifactStore::new();
+
+        assert_eq!(
+            store.materializer_import_public_surface_pre_typecheck_mvp(
+                "/stdlib/core/missing.nepl",
+                envelope,
+                Some(&NeplMetaImportClause::Open),
+            ),
+            Err(NeplMetaArtifactStoreReject::MissingArtifact {
+                module_path: "/stdlib/core/missing.nepl".into(),
+            })
+        );
+        assert_eq!(store.stats().misses, 1);
+        assert_eq!(store.stats().pre_typecheck_probe_attempts, 1);
+        assert_eq!(store.stats().pre_typecheck_probe_missing_artifacts, 1);
+        assert_eq!(
+            store.stats().last_pre_typecheck_probe_reject_kind,
+            NeplMetaArtifactProbeRejectKind::MissingArtifact
+        );
+        assert_eq!(store.stats().last_pre_typecheck_probe_reject_code, 0);
+    }
+
+    /// pre-typecheck probe は未対応 import clause を body skip へ進めず、projection reject
+    /// として reason code を残して通常 source fallback へ戻す。
+    #[test]
+    fn neplmeta_store_pre_typecheck_probe_records_projection_reject_reason() {
+        let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
+        let artifact = artifact_for_materializer(
+            module_surface.clone(),
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+        let mut source_map = SourceMap::new();
+        source_map.add(
+            "/stdlib/core/math.nepl",
+            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+        );
+        let envelope = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            Some(&source_map),
+            &module_surface,
+        )
+        .expect("matching source should produce pre-typecheck envelope");
+        let mut store = NeplMetaArtifactStore::new();
+
+        store.store(artifact).unwrap();
+        assert_eq!(
+            store.materializer_import_public_surface_pre_typecheck_mvp(
+                "/stdlib/core/math.nepl",
+                envelope,
+                Some(&NeplMetaImportClause::Alias("math".into())),
+            ),
+            Err(NeplMetaArtifactStoreReject::Projection(
+                NeplMetaMaterializerProjectionReject::UnsupportedAlias
+            ))
+        );
+        assert_eq!(store.stats().hits, 1);
+        assert_eq!(store.stats().projection_rejects, 1);
+        assert_eq!(store.stats().pre_typecheck_probe_attempts, 1);
+        assert_eq!(store.stats().pre_typecheck_probe_projection_rejects, 1);
+        assert_eq!(
+            store.stats().last_pre_typecheck_probe_reject_kind,
+            NeplMetaArtifactProbeRejectKind::Projection
+        );
+        assert_eq!(
+            store.stats().last_pre_typecheck_probe_reject_code,
+            NeplMetaMaterializerProjectionReject::UnsupportedAlias.code()
         );
     }
 

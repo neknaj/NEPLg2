@@ -175,6 +175,29 @@ function identity 必須経路へ流れない guard を追加する。
 追加検証:
 
 - `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
+
+## 2026-06-01 pre-typecheck probe observation checkpoint
+
+`NeplMetaArtifactStoreStats` に pre-typecheck probe 専用の観測 field を追加した。既存の
+`hits` は artifact が store に見つかったことだけを表し、projection 成功や body skip 可能性を
+意味しないため、probe attempts / projected / missing artifact / payload reject /
+compatibility reject / projection reject / projected entries を分離して記録する。
+
+`last_pre_typecheck_probe_reject_kind` は fallback reason の大分類、`last_pre_typecheck_probe_reject_code`
+は対応する enum reason の安定 code である。`SourceKey` mismatch、dependency surface mismatch、
+unsupported alias/glob などを Web stats から文字列解析なしに切り分けるための境界であり、
+通常 source fallback の挙動は変えない。
+
+Web `loader_cache_stats_json` にも同じ field を追加した。現 checkpoint では通常 compile path が
+pre-typecheck probe をまだ呼ばないため値は 0 のままだが、field の存在を tree test で固定した。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `trunk build --release`
+- `node tests\compiler\tree\run.js`
 - `cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`
 
 ## 2026-06-01 function identity guard checkpoint
