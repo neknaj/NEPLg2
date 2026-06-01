@@ -156,6 +156,37 @@ pub struct PublicCallableLinkSymbol {
     pub signature_hash: u64,
 }
 
+/// `.neplmeta` から復元した callable が current session の ABI namespace で使う symbol。
+///
+/// この symbol は user source の関数名ではなく、stable link symbol を current compiler
+/// session の HIR / Resource IR / codegen が扱える形へ写したものである。source path と
+/// signature hash を含めることで、同名 callable や overload を同じ `neplmeta$...` 名へ
+/// 潰さない。関数本体や generic 具体化は含まないため、`.neplobj` の codegen fragment key
+/// ではこの symbol に加えて body hash と generic instantiation hash を必ず組み合わせる。
+pub fn materialized_callable_symbol_for_link_symbol(symbol: &PublicCallableLinkSymbol) -> String {
+    format!(
+        "neplmeta${}${:016x}${:016x}",
+        stable_symbol_component(&symbol.name),
+        fnv1a64(symbol.source_path.as_str()),
+        symbol.signature_hash
+    )
+}
+
+/// public callable link symbol を artifact key 用の安定 hash へ落とす。
+///
+/// `PublicCallableLinkSymbol` は source path、公開名、signature hash で構成される。
+/// ここではそれらを `.neplobj` / `.neplmeta` 間で共有できる小さな hash にまとめる。
+/// body hash ではないため、body-only edit の invalidation には別の selected body hash を
+/// key に入れる必要がある。
+pub fn public_callable_link_symbol_stable_hash(symbol: &PublicCallableLinkSymbol) -> u64 {
+    let mut hash = FNV1A64_OFFSET;
+    hash_str(&mut hash, "neplg2-public-callable-link-symbol-v1");
+    hash_str(&mut hash, symbol.source_path.as_str());
+    hash_str(&mut hash, symbol.name.as_str());
+    hash_u64(&mut hash, symbol.signature_hash);
+    hash
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicTypeParamBounds {
     pub param: PublicTypeParamBoundTarget,
@@ -830,6 +861,31 @@ fn public_nominal_type_kind_tag(kind: PublicNominalTypeKind) -> &'static str {
         PublicNominalTypeKind::Enum => "enum",
         PublicNominalTypeKind::Struct => "struct",
     }
+}
+
+fn stable_symbol_component(text: &str) -> String {
+    let mut out = String::new();
+    for ch in text.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            out.push(ch);
+        } else {
+            out.push('_');
+        }
+    }
+    if out.is_empty() {
+        String::from("_")
+    } else {
+        out
+    }
+}
+
+fn fnv1a64(text: &str) -> u64 {
+    let mut hash = FNV1A64_OFFSET;
+    for byte in text.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(FNV1A64_PRIME);
+    }
+    hash
 }
 
 fn hash_str(hash: &mut u64, value: &str) {

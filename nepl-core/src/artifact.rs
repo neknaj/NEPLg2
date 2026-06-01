@@ -4,7 +4,8 @@ use crate::compiler::{BuildProfile, CompileTarget};
 use crate::source_cache_key::compiled_source_cache_key_part;
 use crate::source_map::SourceMap;
 use crate::typecheck::{
-    PublicSurfaceMaterializerBlocker, TypedPublicSignatureKind,
+    materialized_callable_symbol_for_link_symbol, public_callable_link_symbol_stable_hash,
+    PublicCallableLinkSymbol, PublicSurfaceMaterializerBlocker, TypedPublicSignatureKind,
     TypedPublicSignatureTable, TypedPublicSurfaceTable,
 };
 use alloc::collections::BTreeMap;
@@ -20,6 +21,8 @@ const NEPL_META_COMPILER_IDENTITY_INPUT: &str = concat!(
     env!("CARGO_PKG_VERSION"),
     ":neplmeta-v12"
 );
+const NEPL_OBJ_DIRECT_CALL_SCHEMA_VERSION: u32 = 1;
+const NEPL_OBJ_DIRECT_CALL_HASH_VERSION: &str = "neplg2-neplobj-direct-call-v1";
 
 /// `.neplmeta` が保持する module dependency surface。
 ///
@@ -256,6 +259,117 @@ pub struct NeplMetaArtifactPreTypecheckEnvelope {
     pub module_dependency_edge_count: Option<u32>,
     pub source_capability_policy_set_hash: Option<u64>,
     pub private_effect_policy_hash: Option<u64>,
+}
+
+/// direct call 用 `.neplobj` body fragment の invalidation key。
+///
+/// `.neplmeta` は公開型と名前解決 surface だけを保存するため、dependency callable が
+/// direct call として codegen 入力に残る場合は別途 `.neplobj` 相当の body / backend
+/// fragment authority が必要になる。この key はその最小境界を固定するものであり、
+/// relocatable object file 全体の仕様ではない。
+///
+/// key には stable link symbol、target source key、selected callable body hash、
+/// generic instantiation hash、dependency public surface hash、source capability policy、
+/// backend feature set を含める。これにより、body-only edit、generic 具体化、target/profile、
+/// source capability の変更を別 artifact として扱える。`TypeId`、`Span`、`FileId`、
+/// `SourceMap`、typed HIR body は session-local な値なので保存しない。
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NeplObjDirectCallKey {
+    pub schema_version: u32,
+    pub compiler_identity_hash: u64,
+    pub target_hash: u64,
+    pub profile_hash: u64,
+    pub stdlib_content_hash: Option<u64>,
+    pub backend_feature_set_hash: u64,
+    pub link_symbol: PublicCallableLinkSymbol,
+    pub link_symbol_hash: u64,
+    pub materialized_symbol: String,
+    pub target_source_key_hash: u64,
+    pub selected_callable_body_hash: u64,
+    pub generic_instantiation_hash: u64,
+    pub dependency_public_surface_hash: u64,
+    pub source_capability_policy_hash: u64,
+    pub private_effect_policy_hash: u64,
+    pub stable_hash: u64,
+}
+
+impl NeplObjDirectCallKey {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        target: CompileTarget,
+        profile: BuildProfile,
+        stdlib_content_hash: Option<u64>,
+        link_symbol: PublicCallableLinkSymbol,
+        target_source_key_hash: u64,
+        selected_callable_body_hash: u64,
+        generic_instantiation_hash: u64,
+        dependency_public_surface_hash: u64,
+        source_capability_policy_hash: u64,
+    ) -> Self {
+        let compiler_identity_hash = nepl_meta_compiler_identity_hash();
+        let target_hash = nepl_meta_target_hash(target);
+        let profile_hash = nepl_meta_profile_hash(profile);
+        let backend_feature_set_hash = nepl_obj_direct_call_backend_feature_set_hash();
+        let link_symbol_hash = public_callable_link_symbol_stable_hash(&link_symbol);
+        let materialized_symbol = materialized_callable_symbol_for_link_symbol(&link_symbol);
+        let private_effect_policy_hash =
+            crate::compiler::resource_summary_private_effect_policy_hash();
+        let stable_hash = nepl_obj_direct_call_key_hash(
+            compiler_identity_hash,
+            target_hash,
+            profile_hash,
+            stdlib_content_hash,
+            backend_feature_set_hash,
+            link_symbol_hash,
+            target_source_key_hash,
+            selected_callable_body_hash,
+            generic_instantiation_hash,
+            dependency_public_surface_hash,
+            source_capability_policy_hash,
+            private_effect_policy_hash,
+        );
+        Self {
+            schema_version: NEPL_OBJ_DIRECT_CALL_SCHEMA_VERSION,
+            compiler_identity_hash,
+            target_hash,
+            profile_hash,
+            stdlib_content_hash,
+            backend_feature_set_hash,
+            link_symbol,
+            link_symbol_hash,
+            materialized_symbol,
+            target_source_key_hash,
+            selected_callable_body_hash,
+            generic_instantiation_hash,
+            dependency_public_surface_hash,
+            source_capability_policy_hash,
+            private_effect_policy_hash,
+            stable_hash,
+        }
+    }
+
+    pub fn stable_hash(&self) -> u64 {
+        self.stable_hash
+    }
+}
+
+/// direct call `.neplobj` MVP が仮定する backend feature set。
+///
+/// この値は「現在の wasm/LLVM backend 全体が同じ」という粗い判定ではなく、materialized
+/// direct call の body fragment を再利用する時に必要な backend 契約だけを hash 化する。
+/// 将来、table layout、data relocation、memoized function value、PrivateCache lowering を
+/// 追加する場合は、この feature set を更新して古い `.neplobj` を fail-closed に捨てる。
+pub fn nepl_obj_direct_call_backend_feature_set_hash() -> u64 {
+    nepl_obj_hash_tag("backend-feature-set", "direct-call-fragment-mvp-v1")
+}
+
+/// generic 引数を持たない direct call 用の generic instantiation hash。
+///
+/// `.neplobj` key は generic の有無にかかわらず同じ field を持つ。非 generic callable では
+/// この値を使うことで、「generic 情報を見落とした」のではなく「空の具体化である」と
+/// 明示できる。
+pub fn nepl_obj_empty_generic_instantiation_hash() -> u64 {
+    nepl_obj_hash_tag("generic-instantiation", "empty")
 }
 
 /// `.neplmeta` pre-typecheck envelope を作れない理由。
@@ -1821,6 +1935,47 @@ fn nepl_meta_hash_tag(domain: &str, value: &str) -> u64 {
     hash
 }
 
+fn nepl_obj_hash_tag(domain: &str, value: &str) -> u64 {
+    let mut hash = FNV1A64_OFFSET;
+    hash_str(&mut hash, NEPL_OBJ_DIRECT_CALL_HASH_VERSION);
+    hash_str(&mut hash, domain);
+    hash_str(&mut hash, value);
+    hash
+}
+
+#[allow(clippy::too_many_arguments)]
+fn nepl_obj_direct_call_key_hash(
+    compiler_identity_hash: u64,
+    target_hash: u64,
+    profile_hash: u64,
+    stdlib_content_hash: Option<u64>,
+    backend_feature_set_hash: u64,
+    link_symbol_hash: u64,
+    target_source_key_hash: u64,
+    selected_callable_body_hash: u64,
+    generic_instantiation_hash: u64,
+    dependency_public_surface_hash: u64,
+    source_capability_policy_hash: u64,
+    private_effect_policy_hash: u64,
+) -> u64 {
+    let mut hash = FNV1A64_OFFSET;
+    hash_str(&mut hash, NEPL_OBJ_DIRECT_CALL_HASH_VERSION);
+    hash_u32(&mut hash, NEPL_OBJ_DIRECT_CALL_SCHEMA_VERSION);
+    hash_u64(&mut hash, compiler_identity_hash);
+    hash_u64(&mut hash, target_hash);
+    hash_u64(&mut hash, profile_hash);
+    hash_optional_u64(&mut hash, stdlib_content_hash);
+    hash_u64(&mut hash, backend_feature_set_hash);
+    hash_u64(&mut hash, link_symbol_hash);
+    hash_u64(&mut hash, target_source_key_hash);
+    hash_u64(&mut hash, selected_callable_body_hash);
+    hash_u64(&mut hash, generic_instantiation_hash);
+    hash_u64(&mut hash, dependency_public_surface_hash);
+    hash_u64(&mut hash, source_capability_policy_hash);
+    hash_u64(&mut hash, private_effect_policy_hash);
+    hash
+}
+
 fn hash_str(hash: &mut u64, value: &str) {
     hash_bytes(hash, value.as_bytes());
     hash_bytes(hash, &[0]);
@@ -1836,6 +1991,20 @@ fn hash_u8(hash: &mut u64, value: u8) {
 
 fn hash_u32(hash: &mut u64, value: u32) {
     hash_bytes(hash, &value.to_le_bytes());
+}
+
+fn hash_u64(hash: &mut u64, value: u64) {
+    hash_bytes(hash, &value.to_le_bytes());
+}
+
+fn hash_optional_u64(hash: &mut u64, value: Option<u64>) {
+    match value {
+        Some(value) => {
+            hash_bool(hash, true);
+            hash_u64(hash, value);
+        }
+        None => hash_bool(hash, false),
+    }
 }
 
 fn hash_bytes(hash: &mut u64, bytes: &[u8]) {
@@ -1867,6 +2036,7 @@ mod tests {
         NeplMetaImportClause, NeplMetaImportItem, NeplMetaMaterializerMvpReject,
         NeplMetaMaterializerProjectionReject, NeplMetaModuleDependencyEdge,
         NeplMetaModuleDependencyKind, NeplMetaModuleSurface, NeplMetaVisibility,
+        NeplObjDirectCallKey,
     };
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::source_map::SourceMap;
@@ -1968,6 +2138,33 @@ mod tests {
                 type_param_bounds: Vec::new(),
             }),
         }]))
+    }
+
+    fn callable_link_symbol(name: &str, signature_hash: u64) -> PublicCallableLinkSymbol {
+        PublicCallableLinkSymbol {
+            source_path: "/stdlib/core/math.nepl".into(),
+            name: name.into(),
+            signature_hash,
+        }
+    }
+
+    fn neplobj_direct_call_key(
+        link_symbol: PublicCallableLinkSymbol,
+        target_source_key_hash: u64,
+        selected_callable_body_hash: u64,
+        generic_instantiation_hash: u64,
+    ) -> NeplObjDirectCallKey {
+        NeplObjDirectCallKey::new(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(0x5a),
+            link_symbol,
+            target_source_key_hash,
+            selected_callable_body_hash,
+            generic_instantiation_hash,
+            0x70,
+            0x80,
+        )
     }
 
     fn materializable_multi_surface_table(names: &[&str]) -> TypedPublicSurfaceTable {
@@ -3237,6 +3434,68 @@ mod tests {
             artifact.materializer_mvp_reject(),
             Some(NeplMetaMaterializerMvpReject::UnsupportedInclude)
         );
+    }
+
+    /// `.neplobj` direct call key は `.neplmeta` の stable link symbol だけではなく、
+    /// selected callable body hash も含める。公開 signature が同じまま本文だけ変わる
+    /// edit では `.neplmeta` を再利用できるが、codegen fragment は別物として扱う必要がある。
+    #[test]
+    fn neplobj_direct_call_key_tracks_selected_body_hash() {
+        let link_symbol = callable_link_symbol("answer", 0x10);
+        let first = neplobj_direct_call_key(
+            link_symbol.clone(),
+            0x20,
+            0x30,
+            super::nepl_obj_empty_generic_instantiation_hash(),
+        );
+        let body_edit = neplobj_direct_call_key(
+            link_symbol,
+            0x20,
+            0x31,
+            super::nepl_obj_empty_generic_instantiation_hash(),
+        );
+
+        assert_ne!(first.stable_hash(), body_edit.stable_hash());
+        assert_ne!(
+            first.selected_callable_body_hash,
+            body_edit.selected_callable_body_hash
+        );
+    }
+
+    /// generic callable の direct call fragment は、同じ関数本文でも具体化型ごとに
+    /// backend lowering や Resource proof が変わり得る。generic instantiation hash を
+    /// key に含めることで、`Vec i32` と `Vec u8` のような別具体化を同じ object として
+    /// 誤再利用しない。
+    #[test]
+    fn neplobj_direct_call_key_tracks_generic_instantiation_hash() {
+        let link_symbol = callable_link_symbol("id", 0x10);
+        let i32_instantiation = neplobj_direct_call_key(link_symbol.clone(), 0x20, 0x30, 0x40);
+        let u8_instantiation = neplobj_direct_call_key(link_symbol, 0x20, 0x30, 0x41);
+
+        assert_ne!(
+            i32_instantiation.stable_hash(),
+            u8_instantiation.stable_hash()
+        );
+        assert_ne!(
+            i32_instantiation.generic_instantiation_hash,
+            u8_instantiation.generic_instantiation_hash
+        );
+    }
+
+    /// materialized symbol は direct call の HIR に現れる `neplmeta$...` 名と同じ規則で
+    /// 作る。`.neplobj` key はこの symbol を保持するが、symbol 文字列だけを key にせず、
+    /// body hash や source capability policy と組み合わせる。
+    #[test]
+    fn neplobj_direct_call_key_keeps_materialized_symbol() {
+        let key = neplobj_direct_call_key(
+            callable_link_symbol("read-value", 0x10),
+            0x20,
+            0x30,
+            super::nepl_obj_empty_generic_instantiation_hash(),
+        );
+
+        assert!(key.materialized_symbol.starts_with("neplmeta$read_value$"));
+        assert_ne!(key.link_symbol_hash, 0);
     }
 
     /// merge / alias / glob は target export artifact を読んだうえで衝突や曖昧性を
