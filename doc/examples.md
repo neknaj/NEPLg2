@@ -29,6 +29,12 @@ node nodesrc/tests.js -i examples --no-tree -o tmp/examples-tests.json -j 4
   carriage return と ANSI を使った簡易アニメーション例
 - `fib.nepl`
   状態を持つ逐次計算の例
+- `gui_counter.nepl`
+  `ButtonConfig` の `ActionId` を `GuiEvent::Action` と `Update` へ接続する headless GUI app model 例
+- `gui_life.nepl`
+  Life board を `FillRect` command stream として `MockRenderTarget` へ描画する GUI rendering 例
+- `gui_mandelbrot.nepl`
+  Mandelbrot preview を fixed point 計算から GUI render command stream へ変換する例
 - `stdio.nepl`
   ASCII / UTF-8 の 1 行入力の基本例
 - `bf.nepl`

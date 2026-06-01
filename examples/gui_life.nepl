@@ -1,0 +1,218 @@
+//: neplg2:test[gui_life, normalize_newlines]
+//: [目的/もくてき]: GUI command stream で Life board を描画する例が固定個数の command を生成することを確認する
+//: stdout: mlstr:
+//:     ##: life commands = 25
+//:     ##: life live cells step 3 = 5
+//:     ##: life checksum step 3 = 45
+//:
+//: gui_life: Conway の Life board を GUI render command として描画する例
+//:
+//: [目的/もくてき]:
+//: - game state と描画 command stream を分け、backend なしでも描画 contract を確認できるようにします。
+//: - 5 x 5 の小さな board を 1 cell ずつ `FillRect` command に変換します。
+//:
+//: [実装/じっそう]:
+//: - 初期状態は glider pattern とし、step 3 の状態を純粋関数で計算します。
+//: - `RenderTarget` には live cell と dead cell の両方を描画し、surface 全体の command 数を固定します。
+//:
+//: [注意/ちゅうい]:
+//: - Life の更新は GUI backend から独立しています。
+//: - timer や real surface は後続の `std/gui/runtime` と backend が接続します。
+#entry main
+#indent 4
+#target std
+
+#import "core/cast" as *
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/stdio" as *
+
+fn life_width %fn unit i32 \unit:
+    5
+
+fn life_height %fn unit i32 \unit:
+    5
+
+fn life_draw_step %fn unit i32 \unit:
+    3
+
+fn life_initial_cell %fn i32 fn i32 bool \x\y:
+    let a %bool and eq x 1 eq y 0
+    let b %bool and eq x 2 eq y 1
+    let c %bool and eq x 0 eq y 2
+    let d %bool and eq x 1 eq y 2
+    let e %bool and eq x 2 eq y 2
+    let ab %bool or a b
+    let cd %bool or c d
+    let abcd %bool or ab cd
+    or abcd e
+
+fn life_cell_at_step_bounded %fn i32 fn i32 fn i32 bool \x\y\step:
+    if:
+        or lt x 0 or ge x life_width or lt y 0 ge y life_height
+        then:
+            false
+        else:
+            life_cell_at_step x y step
+
+fn life_bool_to_i32 %fn bool i32 \value:
+    if:
+        value
+        then:
+            1
+        else:
+            0
+
+fn life_neighbor_count %fn i32 fn i32 fn i32 i32 \x\y\step:
+    let xm %i32 sub x 1
+    let xp %i32 add x 1
+    let ym %i32 sub y 1
+    let yp %i32 add y 1
+    let n0 %i32 life_bool_to_i32 life_cell_at_step_bounded xm ym step
+    let n1 %i32 life_bool_to_i32 life_cell_at_step_bounded x ym step
+    let n2 %i32 life_bool_to_i32 life_cell_at_step_bounded xp ym step
+    let n3 %i32 life_bool_to_i32 life_cell_at_step_bounded xm y step
+    let n4 %i32 life_bool_to_i32 life_cell_at_step_bounded xp y step
+    let n5 %i32 life_bool_to_i32 life_cell_at_step_bounded xm yp step
+    let n6 %i32 life_bool_to_i32 life_cell_at_step_bounded x yp step
+    let n7 %i32 life_bool_to_i32 life_cell_at_step_bounded xp yp step
+    let a %i32 add n0 n1
+    let b %i32 add n2 n3
+    let c %i32 add n4 n5
+    let d %i32 add n6 n7
+    let ab %i32 add a b
+    let cd %i32 add c d
+    add ab cd
+
+fn life_cell_at_step %fn i32 fn i32 fn i32 bool \x\y\step:
+    if:
+        eq step 0
+        then:
+            life_initial_cell x y
+        else:
+            let prev_step %i32 sub step 1
+            let alive %bool life_cell_at_step x y prev_step
+            let neighbors %i32 life_neighbor_count x y prev_step
+            if:
+                alive
+                then:
+                    or eq neighbors 2 eq neighbors 3
+                else:
+                    eq neighbors 3
+
+fn life_cell_color %fn bool Rgba8888 \alive:
+    let zero %u8 cast 0
+    let dim %u8 cast 24
+    let live %u8 cast 180
+    let full %u8 cast 255
+    if:
+        alive
+        then:
+            rgba8888_new zero live live full
+        else:
+            rgba8888_new dim dim dim full
+
+fn life_render_cell %fn MockRenderTarget fn i32 fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y\step:
+    let cell_size %i32 3
+    let px %i32 mul x cell_size
+    let py %i32 mul y cell_size
+    let rect %GuiRect gui_rect_new px py cell_size cell_size
+    let alive %bool life_cell_at_step x y step
+    let color %Rgba8888 life_cell_color alive
+    let paint %GuiPaint gui_paint_solid color
+    let command %RenderCommand render_command_fill_rect rect paint
+    render_one target command
+
+fn life_render_row %fn MockRenderTarget fn i32 fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y\step:
+    if:
+        ge x life_width
+        then:
+            Result::Ok target
+        else:
+            match life_render_cell target x y step:
+                Result::Ok next:
+                    let next_x %i32 add x 1
+                    life_render_row next next_x y step
+                Result::Err err:
+                    Result::Err err
+
+fn life_render_rows %fn MockRenderTarget fn i32 fn i32 Result MockRenderTarget GuiError \target\y\step:
+    if:
+        ge y life_height
+        then:
+            Result::Ok target
+        else:
+            match life_render_row target 0 y step:
+                Result::Ok next:
+                    let next_y %i32 add y 1
+                    life_render_rows next next_y step
+                Result::Err err:
+                    Result::Err err
+
+fn life_render %fn unit Result MockRenderTarget GuiError \unit:
+    life_render_rows mock_render_target_new 0 life_draw_step
+
+fn life_live_count_row %fn i32 fn i32 fn i32 i32 \x\y\step:
+    if:
+        ge x life_width
+        then:
+            0
+        else:
+            let next_x %i32 add x 1
+            let rest %i32 life_live_count_row next_x y step
+            let live_value %i32 life_bool_to_i32 life_cell_at_step x y step
+            add live_value rest
+
+fn life_live_count_rows %fn i32 fn i32 i32 \y\step:
+    if:
+        ge y life_height
+        then:
+            0
+        else:
+            let next_y %i32 add y 1
+            let rest %i32 life_live_count_rows next_y step
+            add life_live_count_row 0 y step rest
+
+fn life_state_hash_cell %fn i32 fn i32 fn i32 i32 \x\y\step:
+    let alive %bool life_cell_at_step x y step
+    if:
+        alive
+        then:
+            let hx %i32 add x 1
+            let hy %i32 add y 1
+            mul hx hy
+        else:
+            0
+
+fn life_state_hash_row %fn i32 fn i32 fn i32 i32 \x\y\step:
+    if:
+        ge x life_width
+        then:
+            0
+        else:
+            let next_x %i32 add x 1
+            let rest %i32 life_state_hash_row next_x y step
+            add life_state_hash_cell x y step rest
+
+fn life_state_hash_rows %fn i32 fn i32 i32 \y\step:
+    if:
+        ge y life_height
+        then:
+            0
+        else:
+            let next_y %i32 add y 1
+            let rest %i32 life_state_hash_rows next_y step
+            add life_state_hash_row 0 y step rest
+
+fn main %impure fn unit unit \unit:
+    match life_render:
+        Result::Ok target:
+            print "life commands = "
+            println_i32 mock_render_target_command_count &target
+            print "life live cells step 3 = "
+            println_i32 life_live_count_rows 0 life_draw_step
+            print "life checksum step 3 = "
+            println_i32 life_state_hash_rows 0 life_draw_step
+        Result::Err _:
+            println "life render error"

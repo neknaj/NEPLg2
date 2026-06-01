@@ -1,3 +1,15 @@
+# 2026-06-01 GUI examples checkpoint
+
+- `plan.md` は変更していない。GUI/TUI substrate の現状に合わせ、実 window backend ではなく headless に application update と render command stream を確認する examples を追加した。
+- `examples/gui_mandelbrot.nepl` は 8 x 8 の fixed point Mandelbrot preview を `FillRect` command stream へ変換し、`MockRenderTarget` で 64 command と inside cell count を確認する。
+- `examples/gui_life.nepl` は 5 x 5 の glider を step 3 まで純粋関数で進め、live/dead cell を `FillRect` command として描画し、25 command、live count、state checksum を確認する。
+- `examples/gui_counter.nepl` は `ButtonConfig` の `ActionId` を `GuiEvent::Action` と `counter_update` へ渡し、`Update` の model と redraw effect を確認する。closure callback や platform host は使わない。
+- subagent review は、新規 GUI examples を real backend があるように見せず、`MockRenderTarget` と `GuiEvent::Action` で substrate contract を示す方針、括弧を使わず `let` で中間値を分ける方針を妥当と確認した。
+- `doc/examples.md` に GUI examples 3 件を追記し、`doc/neplg2/gui_tui_implementation_plan.md` の現状に headless examples を追加した。`todo.md` は、今回の examples 追加で新しい未実装項目を作らないため変更していない。
+- NEPLg2 code では括弧を使わない方針に合わせ、新規 examples の executable 行に parenthesized call がないことを `rg -n "^[^/\r\n]*[()]" examples/gui_mandelbrot.nepl examples/gui_life.nepl examples/gui_counter.nepl` で確認した。
+- 検証: `node nodesrc/tests.js -i examples/gui_mandelbrot.nepl -i examples/gui_life.nepl -i examples/gui_counter.nepl --no-tree -o tmp/gui-examples-focused.json -j 1 --dist web/dist --assert-io` は 3/3 pass。
+- 最終検証: `trunk build --release`、`node nodesrc/tests.js -i examples --no-tree -o tmp/examples-gui-samples.json -j 2 --dist web/dist --assert-io` 15/15、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-examples.json` 13/13、`node nodesrc/test_stdlib_gui_layering_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+
 # 2026-06-01 GUI/TUI arena tree and terminal Home-End-Delete input checkpoint
 
 - `plan.md` は変更していない。remote/main を取り込み、`main` を `origin/main` へ fast-forward した後、作業 branch へ merge した。merge conflict は `note.n.md` だけで、GUI/TUI 作業ログと `.neplmeta` 作業ログの両方を残した。

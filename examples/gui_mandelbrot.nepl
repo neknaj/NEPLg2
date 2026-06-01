@@ -1,0 +1,168 @@
+//: neplg2:test[gui_mandelbrot, normalize_newlines]
+//: [目的/もくてき]: GUI command stream で Mandelbrot preview を描画する例が固定個数の command を生成することを確認する
+//: stdout: mlstr:
+//:     ##: mandelbrot commands = 64
+//:     ##: mandelbrot inside = 8
+//:
+//: gui_mandelbrot: Mandelbrot 集合を GUI render command として描画する例
+//:
+//: [目的/もくてき]:
+//: - 実 window backend に依存せず、`RenderCommand` と `MockRenderTarget` だけで描画 contract を示します。
+//: - 8 x 8 の小さな固定小数点 Mandelbrot preview を `FillRect` command stream へ変換します。
+//:
+//: [実装/じっそう]:
+//: - 座標を i32 の fixed point scale 100 で扱い、各 cell の escape iteration を求めます。
+//: - 各 cell を 2 x 2 の `GuiRect` として `render_one` へ streaming します。
+//:
+//: [注意/ちゅうい]:
+//: - これは GUI substrate の例であり、Canvas、DOM、GPU、OS window は使いません。
+//: - 実 backend が接続された後も、同じ command stream を Web や native の surface へ渡せます。
+#entry main
+#indent 4
+#target std
+
+#import "core/cast" as *
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/stdio" as *
+
+fn mandelbrot_width %fn unit i32 \unit:
+    8
+
+fn mandelbrot_height %fn unit i32 \unit:
+    8
+
+fn mandelbrot_limit %fn unit i32 \unit:
+    24
+
+fn mandelbrot_cx %fn i32 i32 \x:
+    let step %i32 50
+    let origin %i32 -200
+    let scaled %i32 mul x step
+    add scaled origin
+
+fn mandelbrot_cy %fn i32 i32 \y:
+    let step %i32 50
+    let origin %i32 -175
+    let scaled %i32 mul y step
+    add scaled origin
+
+fn mandelbrot_escape_loop %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 i32 \zx\zy\cx\cy\limit\iter:
+    let zx2 %i32 mul zx zx
+    let zy2 %i32 mul zy zy
+    let mag2 %i32 add zx2 zy2
+    if:
+        or ge mag2 40000 ge iter limit
+        then:
+            iter
+        else:
+            let zx2_scaled %i32 div_s zx2 100
+            let zy2_scaled %i32 div_s zy2 100
+            let real_delta %i32 sub zx2_scaled zy2_scaled
+            let next_zx %i32 add real_delta cx
+            let cross %i32 mul zx zy
+            let cross_double %i32 mul cross 2
+            let cross_scaled %i32 div_s cross_double 100
+            let next_zy %i32 add cross_scaled cy
+            let next_iter %i32 add iter 1
+            mandelbrot_escape_loop next_zx next_zy cx cy limit next_iter
+
+fn mandelbrot_cell_iter %fn i32 fn i32 i32 \x\y:
+    let cx %i32 mandelbrot_cx x
+    let cy %i32 mandelbrot_cy y
+    mandelbrot_escape_loop 0 0 cx cy mandelbrot_limit 0
+
+fn mandelbrot_color %fn i32 Rgba8888 \iter:
+    let zero %u8 cast 0
+    let full %u8 cast 255
+    let shade_i32 %i32 mul iter 10
+    let shade %u8 cast shade_i32
+    if:
+        eq iter mandelbrot_limit
+        then:
+            rgba8888_new zero zero zero full
+        else:
+            rgba8888_new shade shade full full
+
+fn mandelbrot_render_cell %fn MockRenderTarget fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y:
+    let cell_size %i32 2
+    let px %i32 mul x cell_size
+    let py %i32 mul y cell_size
+    let rect %GuiRect gui_rect_new px py cell_size cell_size
+    let iter %i32 mandelbrot_cell_iter x y
+    let color %Rgba8888 mandelbrot_color iter
+    let paint %GuiPaint gui_paint_solid color
+    let command %RenderCommand render_command_fill_rect rect paint
+    render_one target command
+
+fn mandelbrot_render_row %fn MockRenderTarget fn i32 fn i32 Result MockRenderTarget GuiError \target\x\y:
+    if:
+        ge x mandelbrot_width
+        then:
+            Result::Ok target
+        else:
+            match mandelbrot_render_cell target x y:
+                Result::Ok next:
+                    let next_x %i32 add x 1
+                    mandelbrot_render_row next next_x y
+                Result::Err err:
+                    Result::Err err
+
+fn mandelbrot_render_rows %fn MockRenderTarget fn i32 Result MockRenderTarget GuiError \target\y:
+    if:
+        ge y mandelbrot_height
+        then:
+            Result::Ok target
+        else:
+            match mandelbrot_render_row target 0 y:
+                Result::Ok next:
+                    let next_y %i32 add y 1
+                    mandelbrot_render_rows next next_y
+                Result::Err err:
+                    Result::Err err
+
+fn mandelbrot_render %fn unit Result MockRenderTarget GuiError \unit:
+    mandelbrot_render_rows mock_render_target_new 0
+
+fn mandelbrot_inside_cell %fn i32 fn i32 i32 \x\y:
+    let iter %i32 mandelbrot_cell_iter x y
+    if:
+        eq iter mandelbrot_limit
+        then:
+            1
+        else:
+            0
+
+fn mandelbrot_inside_row %fn i32 fn i32 i32 \x\y:
+    if:
+        ge x mandelbrot_width
+        then:
+            0
+        else:
+            let next_x %i32 add x 1
+            let rest %i32 mandelbrot_inside_row next_x y
+            add mandelbrot_inside_cell x y rest
+
+fn mandelbrot_inside_rows %fn i32 i32 \y:
+    if:
+        ge y mandelbrot_height
+        then:
+            0
+        else:
+            let next_y %i32 add y 1
+            let rest %i32 mandelbrot_inside_rows next_y
+            add mandelbrot_inside_row 0 y rest
+
+fn mandelbrot_inside_count %fn unit i32 \unit:
+    mandelbrot_inside_rows 0
+
+fn main %impure fn unit unit \unit:
+    match mandelbrot_render:
+        Result::Ok target:
+            print "mandelbrot commands = "
+            println_i32 mock_render_target_command_count &target
+            print "mandelbrot inside = "
+            println_i32 mandelbrot_inside_count
+        Result::Err _:
+            println "mandelbrot render error"

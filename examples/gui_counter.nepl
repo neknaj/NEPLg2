@@ -1,0 +1,120 @@
+//: neplg2:test[gui_counter, normalize_newlines]
+//: [目的/もくてき]: ButtonConfig の ActionId が update へ渡り counter model を更新することを確認する
+//: stdout: mlstr:
+//:     ##: counter action = 1
+//:     ##: counter value = 1
+//:     ##: counter redraw target = 0
+//:
+//: gui_counter: button action で数字を increment する GUI app model の例
+//:
+//: [目的/もくてき]:
+//: - button が closure ではなく `ActionId` を持つ設計を実行例として示します。
+//: - `GuiEvent::Action` を `update` で受け取り、model と `GuiEffect` を data として返します。
+//:
+//: [実装/じっそう]:
+//: - `counter_view` は increment 用 button を返します。
+//: - `counter_update` は action id を `match` と比較で扱い、counter を 1 増やして redraw effect を返します。
+//:
+//: [注意/ちゅうい]:
+//: - この例は app model の contract を示すもので、host runtime や real button backend は使いません。
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+#import "std/stdio" as *
+
+struct CounterModel:
+    value %i32
+
+impl Clone for CounterModel:
+    fn clone %fn &CounterModel CounterModel \model:
+        *model
+
+impl Copy for CounterModel:
+    fn copy_mark %fn CounterModel CounterModel \model:
+        model
+
+fn counter_model_new %fn i32 CounterModel \value:
+    CounterModel value
+
+fn counter_model_value %fn &CounterModel i32 \model:
+    *field::get_ref model "value"
+
+fn counter_widget_id %fn unit WidgetId \unit:
+    widget_id 1
+
+fn counter_increment_action %fn unit ActionId \unit:
+    action_id 1
+
+fn counter_view %fn CounterModel ViewNode \model:
+    let current %i32 counter_model_value &model
+    let action %ActionId counter_increment_action
+    let id %WidgetId counter_widget_id
+    let text %str:
+        if:
+            eq current 0
+            then:
+                "Increment"
+            else:
+                "Increment"
+    let config %ButtonConfig button_config id text action
+    button config
+
+fn counter_update %fn CounterModel fn GuiEvent Update CounterModel \model\event:
+    match event:
+        GuiEvent::Action action:
+            let action_value %i32 action_id_value action
+            let expected %i32 action_id_value counter_increment_action
+            if:
+                eq action_value expected
+                then:
+                    let current %i32 counter_model_value &model
+                    let next_value %i32 add current 1
+                    let next_model %CounterModel counter_model_new next_value
+                    let redraw %GuiEffect request_redraw 0
+                    update_result next_model redraw
+                else:
+                    update_result model gui_effect_none
+        _:
+            update_result model gui_effect_none
+
+fn counter_view_action %fn ViewNode ActionId \view:
+    match view:
+        ViewNode::Button config:
+            button_config_action &config
+        _:
+            action_id 0
+
+fn counter_effect_redraw_target %fn GuiEffect i32 \effect:
+    match effect:
+        GuiEffect::RequestRedraw payload:
+            field::get payload "target"
+        _:
+            -1
+
+fn main %impure fn unit unit \unit:
+    let model0 %CounterModel counter_model_new 0
+    let view0 %ViewNode counter_view model0
+    let action %ActionId counter_view_action view0
+    let event %GuiEvent gui_event_action action
+    let update %Update CounterModel counter_update model0 event
+    let model1 %CounterModel *field::get_ref &update "model"
+    let effects %GuiEffectBatch *field::get_ref &update "effects"
+    let effect %GuiEffect:
+        match gui_effect_batch_first &effects:
+            Option::Some found:
+                found
+            Option::None:
+                GuiEffect::None
+    print "counter action = "
+    println_i32 action_id_value action
+    print "counter value = "
+    println_i32 counter_model_value &model1
+    print "counter redraw target = "
+    println_i32 counter_effect_redraw_target effect
