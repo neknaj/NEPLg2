@@ -1,3 +1,14 @@
+# 2026-06-01 GUI/TUI terminal input normalization checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、terminal raw byte input を `platforms/gui/terminal/input` で typed GUI input event へ正規化する境界を追加した。
+- doc review subagent は、`platforms/gui/terminal/input.nepl` を terminal byte / escape normalization の所有者にし、`FocusRouteCommand`、`GuiEvent::Action`、application-specific `ActionId` は作らない契約にするべきだと指摘した。Space / Enter / Tab については keyboard event と text input event の混同を避ける必要があると確認した。
+- implementation worker は `stdlib/platforms/gui/terminal/input.nepl` と `tests/stdlib/gui_terminal_input.n.md` を追加した。`TerminalInputEvents` は `keyboard Option KeyboardEvent` と `text_input Option TextInputEvent` を持ち、Space のように両方へ該当する input を上位 state が分けて扱える。
+- `terminal_input_events_from_byte` は 0 未満または 255 超過を `GuiError::InvalidCommand` で拒否する。Tab(9) は key code 9、LF(10) / CR(13) は key code 13、Space(32) は key code 32 と text input `' '`、printable ASCII(33..126) は text input のみへ正規化する。その他の範囲内 control byte は error ではなく event なしにする。
+- integration で `stdlib/platforms/gui/terminal.nepl` へ input を再公開し、`doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` に terminal input normalization の現 checkpoint と残件を追記した。
+- `todo.md` は terminal 1 byte input normalization を残件から外し、残件を Web / native / mobile raw keyboard normalization と terminal ESC sequence / modifier decoding へ絞った。
+- 検証: `trunk build --release`、terminal input focused doctest 2/2、GUI/TUI focused suite (`gui_core` / `gui_dirty_region` / `gui_dirty_region_set` / `gui_app` / `gui_layout` / `gui_widget` / `gui_tree` / `gui_focus` / `gui_routing` / `gui_focus_routing` / `gui_keymap` / `gui_terminal_input` / `gui_diff` / `gui_text` / `gui_theme` / `gui_accessibility` / `gui_std` / `gui_terminal` / `features_tui`) 58/58、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-terminal-input.json` 13/13、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/test_stdlib_gui_layering_policy.js` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warn-only 警告として stdlib documentation baseline、static check responsibility、resource checker responsibility、resource gate order が残る。documentation warning は今回も `stdlib module doctest gaps increased: 306 > 305` で、前 checkpoint から悪化していない。
+
 # 2026-06-01 GUI/TUI std keymap checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、platform raw keyboard input と `alloc/gui/routing/focus` の間に `std/gui/keymap` を追加した。

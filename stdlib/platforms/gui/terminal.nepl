@@ -9,6 +9,7 @@
 //: - `terminal/capability` は surface kind と backend capability を持ちます。
 //: - `terminal/text_grid` は cell 座標と text run を持ちます。
 //: - `terminal/frame` は 1 frame 分の TextGrid render input を持ちます。
+//: - `terminal/input` は terminal raw byte input を `KeyboardEvent` / `TextInputEvent` へ[正規化/せいきか]します。
 //:
 //: ### [注意/ちゅうい]
 //: - この facade は DOM、OS、TTY raw mode、ANSI escape sequence を公開しません。
@@ -19,3 +20,4 @@
 pub #import "./terminal/capability" as @merge
 pub #import "./terminal/text_grid" as @merge
 pub #import "./terminal/frame" as @merge
+pub #import "./terminal/input" as @merge

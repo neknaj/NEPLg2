@@ -1,0 +1,161 @@
+//: # platforms/gui/terminal/input
+//: terminal raw byte input を typed GUI input event へ[正規化/せいきか]する platform adapter
+//:
+//: ### [目的/もくてき]
+//: - terminal raw mode から[届/とど]く 1 byte を、`KeyboardEvent` と `TextInputEvent` の組へ[変換/へんかん]します。
+//: - raw byte は platform [層/そう]で[閉/と]じ、alloc/gui や application code へは std key code contract と text input event だけを[渡/わた]します。
+//:
+//: ### [現在/げんざい]の[契約/けいやく]
+//: - ANSI escape sequence や modifier sequence はまだ[解釈/かいしゃく]せず、単独 byte の ASCII subset だけを[扱/あつか]います。
+//: - Tab / Enter / Space の keyboard event は `std/gui/keymap::keyboard_event_from_key_code` で[作/つく]り、focus routing と同じ key code contract を[共有/きょうゆう]します。
+//: - printable ASCII の text は `core/char::char_from_i32_result` で[検査/けんさ]してから `TextInputEvent` にします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - 入力 byte を定数回だけ[分岐/ぶんき]するため O(1) です。
+//:
+//: neplg2:test
+//: ret: 1
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "platforms/gui/terminal/input" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let events %TerminalInputEvents unwrap_ok terminal_input_events_from_byte 32
+//:     if terminal_input_events_has_text_input &events:
+//:         then 1
+//:         else 0
+//: ```
+
+#indent 4
+
+#import "core/char" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/keymap" as *
+
+//: TerminalInputEvents: terminal byte 1 個から[得/え]られる GUI input event 群
+//:
+//: [目的/もくてき]:
+//: - keyboard navigation と text input を[分離/ぶんり]し、Space のように両方へ[該当/がいとう]する byte も上位 state が別々に[扱/あつか]えるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - どちらも `Option::None` の場合は、範囲内だが現在の contract では GUI event を[発生/はっせい]させない control byte です。
+pub struct TerminalInputEvents:
+    keyboard %Option KeyboardEvent
+    text_input %Option TextInputEvent
+
+impl Clone for TerminalInputEvents:
+    fn clone %fn &TerminalInputEvents TerminalInputEvents \events:
+        *events
+
+impl Copy for TerminalInputEvents:
+    fn copy_mark %fn TerminalInputEvents TerminalInputEvents \events:
+        events
+
+//: terminal_input_events: keyboard/text input の組を[作/つく]る
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn terminal_input_events %fn Option KeyboardEvent fn Option TextInputEvent TerminalInputEvents \keyboard\text_input:
+    TerminalInputEvents keyboard text_input
+
+//: terminal_input_events_empty: GUI event を[発生/はっせい]させない結果を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 範囲内の未対応 control byte を error ではなく「event なし」として[表/あらわ]します。
+pub fn terminal_input_events_empty %fn unit TerminalInputEvents \unit:
+    terminal_input_events none none
+
+//: terminal_input_events_keyboard: keyboard event を[読/よ]む
+pub fn terminal_input_events_keyboard %fn &TerminalInputEvents Option KeyboardEvent \events:
+    *field::get_ref events "keyboard"
+
+//: terminal_input_events_text_input: text input event を[読/よ]む
+pub fn terminal_input_events_text_input %fn &TerminalInputEvents Option TextInputEvent \events:
+    *field::get_ref events "text_input"
+
+//: terminal_input_events_has_keyboard: keyboard event があるか[判定/はんてい]する
+pub fn terminal_input_events_has_keyboard %fn &TerminalInputEvents bool \events:
+    is_some terminal_input_events_keyboard events
+
+//: terminal_input_events_has_text_input: text input event があるか[判定/はんてい]する
+pub fn terminal_input_events_has_text_input %fn &TerminalInputEvents bool \events:
+    is_some terminal_input_events_text_input events
+
+//: terminal_text_input_event_value: `TextInputEvent` の scalar value を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - test や platform adapter が raw byte に[戻/もど]らず、typed text input の中身を[確認/かくにん]できるようにします。
+pub fn terminal_text_input_event_value %fn &TextInputEvent char \event:
+    *field::get_ref event "value"
+
+fn terminal_keyboard_key_down %fn i32 KeyboardEvent \key_code:
+    keyboard_event_from_key_code KeyboardEventKind::KeyDown key_code 0
+
+fn terminal_input_keyboard_only %fn i32 TerminalInputEvents \key_code:
+    terminal_input_events (some terminal_keyboard_key_down key_code) none
+
+fn terminal_input_text_only %fn TextInputEvent TerminalInputEvents \event:
+    terminal_input_events none some event
+
+fn terminal_input_keyboard_and_text %fn i32 fn TextInputEvent TerminalInputEvents \key_code\event:
+    terminal_input_events (some terminal_keyboard_key_down key_code) (some event)
+
+fn terminal_text_input_event_from_byte %fn i32 Result TextInputEvent GuiError \byte:
+    match char_from_i32_result byte:
+        Result::Ok value:
+            Result::Ok text_input_event_new value
+        Result::Err _message:
+            Result::Err GuiError::InvalidCommand
+
+fn terminal_input_printable_text_only_from_byte %fn i32 Result TerminalInputEvents GuiError \byte:
+    match terminal_text_input_event_from_byte byte:
+        Result::Ok event:
+            Result::Ok terminal_input_text_only event
+        Result::Err error:
+            Result::Err error
+
+fn terminal_input_space_from_byte %fn i32 Result TerminalInputEvents GuiError \byte:
+    match terminal_text_input_event_from_byte byte:
+        Result::Ok event:
+            Result::Ok terminal_input_keyboard_and_text 32 event
+        Result::Err error:
+            Result::Err error
+
+fn terminal_input_events_from_checked_byte %fn i32 Result TerminalInputEvents GuiError \byte:
+    if eq byte 9:
+        then Result::Ok terminal_input_keyboard_only 9
+        else:
+            if or (eq byte 10) (eq byte 13):
+                then Result::Ok terminal_input_keyboard_only 13
+                else:
+                    if eq byte 32:
+                        then terminal_input_space_from_byte byte
+                        else:
+                            if and (ge byte 33) (le byte 126):
+                                then terminal_input_printable_text_only_from_byte byte
+                                else Result::Ok terminal_input_events_empty
+
+//: terminal_input_events_from_byte: terminal raw byte を typed GUI input event へ[正規化/せいきか]する
+//:
+//: [仕様/しよう]:
+//: - 0 未満または 255 超過は `GuiError::InvalidCommand` です。
+//: - Tab(9) は key code 9 の `KeyDown`、LF(10) と CR(13) は key code 13 の `KeyDown` です。
+//: - Space(32) は key code 32 の `KeyDown` と text input `' '` の両方を[返/かえ]します。
+//: - printable ASCII(33..126) は text input だけを[返/かえ]します。
+//: - その他の範囲内 control byte は error ではなく、keyboard/text input の両方が `Option::None` です。
+//:
+//: [注意/ちゅうい]:
+//: - 現在は 1 byte contract であり、ESC から始まる multi-byte sequence は別 slice で[扱/あつか]います。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn terminal_input_events_from_byte %fn i32 Result TerminalInputEvents GuiError \byte:
+    if or (lt byte 0) (gt byte 255):
+        then Result::Err GuiError::InvalidCommand
+        else terminal_input_events_from_checked_byte byte
