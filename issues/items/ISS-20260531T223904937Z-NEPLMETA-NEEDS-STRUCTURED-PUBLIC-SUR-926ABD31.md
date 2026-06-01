@@ -198,7 +198,6 @@ structured public surface hash namespace は `neplg2-typed-public-surface-v5` �
 
 残件:
 
-- generic impl parameter / bound を round-trip できるようにするか、materializer では fail-closed に拒否する。
 - reexport / prelude edge と module canonical path を per-module `.neplmeta` surface に追加する。
 
 検証:
@@ -206,3 +205,24 @@ structured public surface hash namespace は `neplg2-typed-public-surface-v5` �
 - `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
 - `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`
 - `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+
+## 2026-06-01 generic impl surface checkpoint
+
+`ImplInfo` に impl header 自身の generic binder と bound environment を保持し、structured public surface の `PublicImplSurface` へ投影するようにした。
+
+これまで impl surface は `target` と trait application だけを持ち、`public_impl_surface` 側では空の generic map で `target` / trait args を変換していた。そのため `impl<.T: Touch> Touch for Holder .T` の `.T` が binder-indexed ref にならず、materializer が名前から推測するか fail-closed に止まるしかなかった。
+
+新しい surface は `type_params` と `type_param_bounds` を持つ。target type、trait application args、bound target はこの binder を使って `PublicTypeParamRef { binder_depth: 0, index }` へ変換される。bound の trait reference は既存の `PublicTraitIdentity` を使うため、private trait bound や identity 欠落も preflight で fail-closed に検出できる。
+
+`PublicImplKind::Trait` からは trait definition 内部の `Self` type term を外した。これは public impl header の入力ではなく、artifact materializer が復元すべき authority ではないためである。public impl header として必要な情報は stable trait application と impl target type に集約する。
+
+typed public signature hash namespace は `neplg2-typed-public-signature-v2`、structured public surface hash namespace は `neplg2-typed-public-surface-v6`、`.neplmeta` schema / artifact hash / compiler identity は v7 に上げた。
+
+残件:
+
+- reexport / prelude edge と module canonical path を per-module `.neplmeta` surface に追加する。
+- fail-closed materializer を import / prelude boundary へ接続する。
+
+検証:
+
+- `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`

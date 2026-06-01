@@ -175,6 +175,8 @@ pub struct PublicTraitMethodSurface {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicImplSurface {
+    pub type_params: Vec<PublicTypeParam>,
+    pub type_param_bounds: Vec<PublicTypeParamBounds>,
     pub kind: PublicImplKind,
     pub target: PublicTypeTerm,
 }
@@ -182,10 +184,7 @@ pub struct PublicImplSurface {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PublicImplKind {
     Inherent,
-    Trait {
-        application: PublicTraitRef,
-        self_ty: PublicTypeTerm,
-    },
+    Trait { application: PublicTraitRef },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -319,7 +318,7 @@ pub enum PublicStructConstructorPolicy {
 
 fn typed_public_surface_hash(entries: &[TypedPublicSurfaceEntry]) -> u64 {
     let mut hash = FNV1A64_OFFSET;
-    hash_str(&mut hash, "neplg2-typed-public-surface-v5");
+    hash_str(&mut hash, "neplg2-typed-public-surface-v6");
     for entry in entries {
         hash_str(&mut hash, entry.kind.as_str());
         hash_str(&mut hash, entry.name.as_str());
@@ -393,16 +392,14 @@ fn hash_public_surface_shape(hash: &mut u64, shape: &PublicSurfaceShape) {
         }
         PublicSurfaceShape::Impl(surface) => {
             hash_str(hash, "impl");
+            hash_public_type_params(hash, &surface.type_params);
+            hash_public_type_param_bounds(hash, &surface.type_param_bounds);
             hash_public_type_term(hash, &surface.target);
             match &surface.kind {
                 PublicImplKind::Inherent => hash_str(hash, "inherent"),
-                PublicImplKind::Trait {
-                    application,
-                    self_ty,
-                } => {
+                PublicImplKind::Trait { application } => {
                     hash_str(hash, "trait");
                     hash_public_trait_ref(hash, application);
-                    hash_public_type_term(hash, self_ty);
                 }
             }
         }
@@ -478,15 +475,21 @@ fn collect_surface_shape_materializer_blockers(
             }
         }
         PublicSurfaceShape::Impl(surface) => {
+            for bounds in &surface.type_param_bounds {
+                collect_type_param_bound_target_materializer_blockers(
+                    entry,
+                    &bounds.param,
+                    blockers,
+                );
+                for bound in &bounds.bounds {
+                    collect_trait_ref_materializer_blockers(entry, bound, blockers);
+                }
+            }
             collect_type_term_materializer_blockers(entry, &surface.target, blockers);
             match &surface.kind {
                 PublicImplKind::Inherent => {}
-                PublicImplKind::Trait {
-                    application,
-                    self_ty,
-                } => {
+                PublicImplKind::Trait { application } => {
                     collect_trait_ref_materializer_blockers(entry, application, blockers);
-                    collect_type_term_materializer_blockers(entry, self_ty, blockers);
                 }
             }
         }
@@ -613,6 +616,17 @@ fn hash_public_type_param(hash: &mut u64, param: &PublicTypeParam) {
     hash_bool(hash, param.copy_cap);
     hash_bool(hash, param.clone_cap);
     hash_bool(hash, param.drop_cap);
+}
+
+fn hash_public_type_param_bounds(hash: &mut u64, bounds: &[PublicTypeParamBounds]) {
+    hash_u32(hash, bounds.len() as u32);
+    for bound_set in bounds {
+        hash_public_type_param_bound_target(hash, &bound_set.param);
+        hash_u32(hash, bound_set.bounds.len() as u32);
+        for bound in &bound_set.bounds {
+            hash_public_trait_ref(hash, bound);
+        }
+    }
 }
 
 fn hash_public_trait_ref(hash: &mut u64, trait_ref: &PublicTraitRef) {
@@ -1060,14 +1074,15 @@ fn public_impl_surface(
     traits: &BTreeMap<String, TraitInfo>,
     info: &ImplInfo,
 ) -> PublicImplSurface {
-    let generics = BTreeMap::new();
+    let (type_params, generics) = public_type_params(ctx, &info.type_params);
+    let type_param_bounds =
+        public_type_param_bounds(ctx, source_map, traits, &info.type_param_bounds, &generics);
     PublicImplSurface {
+        type_params,
+        type_param_bounds,
         kind: match &info.kind {
             ImplKind::Inherent => PublicImplKind::Inherent,
-            ImplKind::Trait {
-                application,
-                self_ty,
-            } => PublicImplKind::Trait {
+            ImplKind::Trait { application, .. } => PublicImplKind::Trait {
                 application: public_trait_ref_from_application(
                     ctx,
                     source_map,
@@ -1075,7 +1090,6 @@ fn public_impl_surface(
                     application,
                     &generics,
                 ),
-                self_ty: public_type_term(ctx, *self_ty, &generics),
             },
         },
         target: public_type_term(ctx, info.target_ty, &generics),
@@ -1371,16 +1385,47 @@ fn public_type_term(
 }
 
 fn impl_public_name(ctx: &TypeCtx, info: &ImplInfo) -> String {
+    let generics = public_impl_signature_generic_names(ctx, &info.type_params);
     match &info.kind {
-        ImplKind::Inherent => {
-            let generics = BTreeMap::new();
-            format!(
-                "impl:{}",
-                signature_type_string(ctx, info.target_ty, &generics)
-            )
+        ImplKind::Inherent => format!(
+            "impl:{}",
+            signature_type_string(ctx, info.target_ty, &generics)
+        ),
+        ImplKind::Trait { application, .. } => {
+            public_trait_application_signature_name(ctx, application, &generics)
         }
-        ImplKind::Trait { application, .. } => application.display_name(ctx),
     }
+}
+
+fn public_impl_signature_generic_names(
+    ctx: &TypeCtx,
+    type_params: &[TypeId],
+) -> BTreeMap<TypeId, String> {
+    type_params
+        .iter()
+        .enumerate()
+        .map(|(index, type_param)| (ctx.resolve_id(*type_param), format!("$T{index}")))
+        .collect()
+}
+
+fn public_trait_application_signature_name(
+    ctx: &TypeCtx,
+    application: &TraitApplication,
+    generics: &BTreeMap<TypeId, String>,
+) -> String {
+    if application.args.is_empty() {
+        return String::from(application.trait_id.as_str());
+    }
+    let mut name = String::from(application.trait_id.as_str());
+    name.push('<');
+    for (index, arg) in application.args.iter().enumerate() {
+        if index > 0 {
+            name.push(',');
+        }
+        name.push_str(&signature_type_string(ctx, *arg, generics));
+    }
+    name.push('>');
+    name
 }
 
 fn usize_to_u32_saturating(value: usize) -> u32 {
@@ -1947,6 +1992,72 @@ mod tests {
                 .as_ref()
                 .expect("impl trait application identity"),
             trait_identity
+        );
+    }
+
+    /// generic impl header は impl 自身の binder と bound を持つ。
+    /// target type や bound target を名前だけで再構築すると、別 scope の `.T` と誤対応するため、
+    /// `.neplmeta` surface は impl binder の depth/index を authority として保持する。
+    #[test]
+    fn typed_public_surface_uses_binder_indexed_refs_for_generic_impls() {
+        let bounded = typecheck_source_with_path(
+            "project/core/generic_impl.nepl",
+            "pub trait Touch:\n    #capability clone\n    fn touch %fn &Self unit \\x:\n        unit\npub struct Holder<.T>:\n    value %.T\nimpl<.T: Touch> Touch for Holder .T:\n    fn touch %fn &Holder .T unit \\x:\n        unit\n",
+        );
+        let unbounded = typecheck_source_with_path(
+            "project/core/generic_impl.nepl",
+            "pub trait Touch:\n    #capability clone\n    fn touch %fn &Self unit \\x:\n        unit\npub struct Holder<.T>:\n    value %.T\nimpl<.T> Touch for Holder .T:\n    fn touch %fn &Holder .T unit \\x:\n        unit\n",
+        );
+
+        let impl_entry = bounded
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Impl)
+            .expect("generic Touch impl surface");
+        let PublicSurfaceShape::Impl(impl_surface) = &impl_entry.surface else {
+            panic!("generic Touch impl must be a structured impl surface");
+        };
+
+        assert_eq!(impl_surface.type_params.len(), 1);
+        assert_eq!(impl_surface.type_param_bounds.len(), 1);
+        assert_eq!(
+            impl_surface.type_param_bounds[0].param,
+            PublicTypeParamBoundTarget::Ref(PublicTypeParamRef {
+                binder_depth: 0,
+                index: 0,
+            })
+        );
+        assert_eq!(impl_surface.type_param_bounds[0].bounds[0].name, "Touch");
+        assert!(impl_surface.type_param_bounds[0].bounds[0]
+            .identity
+            .is_some());
+
+        let PublicTypeTerm::Apply { base, args } = &impl_surface.target else {
+            panic!("generic impl target must be an applied type");
+        };
+        let PublicTypeTerm::Named { name, identity } = base.as_ref() else {
+            panic!("generic impl target base must be a named type");
+        };
+        assert_eq!(name, "Holder");
+        assert!(identity.is_some());
+        assert_eq!(
+            args.as_slice(),
+            &[PublicTypeTerm::GenericParam(PublicTypeParamRef {
+                binder_depth: 0,
+                index: 0,
+            })]
+        );
+
+        let impl_only = TypedPublicSurfaceTable::new(Vec::from([impl_entry.clone()]));
+        assert!(impl_only.is_materializer_preflight_ready());
+        assert_ne!(
+            bounded.public_surface.stable_hash,
+            unbounded.public_surface.stable_hash
+        );
+        assert_ne!(
+            bounded.public_signatures.stable_hash,
+            unbounded.public_signatures.stable_hash
         );
     }
 

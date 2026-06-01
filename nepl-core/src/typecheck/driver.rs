@@ -716,7 +716,7 @@ pub fn typecheck(
             };
             let trait_self_ty = trait_info.self_ty;
             let mut f_labels = LabelEnv::new();
-            let (_tps, _bounds_vec, _impl_bounds_map) = collect_type_params(
+            let (impl_type_params, _bounds_vec, impl_bounds_map) = collect_type_params(
                 &mut ctx,
                 &mut f_labels,
                 &i.type_params,
@@ -795,6 +795,8 @@ pub fn typecheck(
             }
 
             impls.push(ImplInfo {
+                type_params: impl_type_params,
+                type_param_bounds: impl_bounds_map,
                 kind: ImplKind::Trait {
                     application: trait_application,
                     self_ty: trait_self_ty,

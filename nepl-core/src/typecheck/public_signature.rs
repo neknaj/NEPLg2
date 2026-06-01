@@ -11,7 +11,7 @@ use crate::types::{TypeCtx, TypeId};
 use super::env::Env;
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
 use super::signature::{function_signature_string, signature_type_string};
-use super::traits::{ImplInfo, ImplKind, TraitCapability, TraitInfo};
+use super::traits::{BoundEnv, ImplInfo, ImplKind, TraitApplication, TraitCapability, TraitInfo};
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
@@ -76,7 +76,7 @@ pub enum TypedPublicSignatureKind {
 
 fn typed_public_signature_hash(entries: &[TypedPublicSignatureEntry]) -> u64 {
     let mut hash = FNV1A64_OFFSET;
-    hash_str(&mut hash, "neplg2-typed-public-signature-v1");
+    hash_str(&mut hash, "neplg2-typed-public-signature-v2");
     for entry in entries {
         hash_str(&mut hash, entry.kind.as_str());
         hash_str(&mut hash, entry.name.as_str());
@@ -268,31 +268,35 @@ fn trait_public_signature(ctx: &TypeCtx, info: &TraitInfo) -> String {
 }
 
 fn impl_public_name(ctx: &TypeCtx, info: &ImplInfo) -> String {
+    let generics = signature_generic_names(ctx, &info.type_params);
     match &info.kind {
-        ImplKind::Inherent => {
-            let generics = BTreeMap::new();
-            format!(
-                "impl:{}",
-                signature_type_string(ctx, info.target_ty, &generics)
-            )
+        ImplKind::Inherent => format!(
+            "impl:{}",
+            signature_type_string(ctx, info.target_ty, &generics)
+        ),
+        ImplKind::Trait { application, .. } => {
+            trait_application_signature_name(ctx, application, &generics)
         }
-        ImplKind::Trait { application, .. } => application.display_name(ctx),
     }
 }
 
 fn impl_public_signature(ctx: &TypeCtx, info: &ImplInfo) -> String {
-    let generics = BTreeMap::new();
+    let generics = signature_generic_names(ctx, &info.type_params);
     let target = signature_type_string(ctx, info.target_ty, &generics);
+    let mut prefix = String::new();
+    push_type_params(&mut prefix, ctx, &info.type_params, &generics);
+    prefix.push_str(";bounds=");
+    push_bound_env(&mut prefix, ctx, &info.type_param_bounds, &generics);
     match &info.kind {
-        ImplKind::Inherent => format!("target={target}"),
+        ImplKind::Inherent => format!("{prefix};target={target}"),
         ImplKind::Trait {
             application,
             self_ty,
         } => {
             let trait_self = signature_type_string(ctx, *self_ty, &generics);
             format!(
-                "trait={};self={};target={target}",
-                application.display_name(ctx),
+                "{prefix};trait={};self={};target={target}",
+                trait_application_signature_name(ctx, application, &generics),
                 trait_self
             )
         }
@@ -312,6 +316,52 @@ fn push_type_params(
         }
         out.push_str(&signature_type_string(ctx, *type_param, generics));
     }
+}
+
+fn push_bound_env(
+    out: &mut String,
+    ctx: &TypeCtx,
+    bounds: &BoundEnv,
+    generics: &BTreeMap<TypeId, String>,
+) {
+    let mut rendered = Vec::new();
+    for (type_param, trait_bounds) in bounds.iter() {
+        let type_param_name = signature_type_string(ctx, type_param.type_id(), generics);
+        for bound in trait_bounds {
+            rendered.push(format!(
+                "{}:{}",
+                type_param_name,
+                trait_application_signature_name(ctx, &bound.application, generics)
+            ));
+        }
+    }
+    rendered.sort();
+    for (index, item) in rendered.iter().enumerate() {
+        if index > 0 {
+            out.push('|');
+        }
+        out.push_str(item);
+    }
+}
+
+fn trait_application_signature_name(
+    ctx: &TypeCtx,
+    application: &TraitApplication,
+    generics: &BTreeMap<TypeId, String>,
+) -> String {
+    if application.args.is_empty() {
+        return String::from(application.trait_id.as_str());
+    }
+    let mut name = String::from(application.trait_id.as_str());
+    name.push('<');
+    for (index, arg) in application.args.iter().enumerate() {
+        if index > 0 {
+            name.push(',');
+        }
+        name.push_str(&signature_type_string(ctx, *arg, generics));
+    }
+    name.push('>');
+    name
 }
 
 #[cfg(test)]

@@ -1670,6 +1670,35 @@ materializer preflight は stable link symbol を持たない callable を
 bound、reexport / prelude edge、module canonical path を揃えてから、fail-closed materializer を
 import / prelude boundary へ接続する。
 
+### 2026-06-01 `.neplmeta` generic impl surface checkpoint
+
+`ImplInfo` に impl header の generic binder と bound environment を保持し、`PublicImplSurface`
+へ `type_params` と `type_param_bounds` として投影するようにした。
+
+従来の impl surface は `public_impl_surface` が空の generic map で target type と trait
+application を変換していた。そのため `impl<.T: Touch> Touch for Holder .T` の `.T` が
+`PublicTypeParamRef` にならず、`.neplmeta` materializer が名前から推測するか fail-closed に
+止まるしかなかった。
+
+新しい surface では、impl target、trait application args、impl bound target が impl 自身の
+binder を参照する。bound trait には `PublicTraitIdentity` を保持するため、public trait の
+bound は stable identity で復元でき、private trait bound や identity 欠落は preflight blocker
+として扱える。
+
+`PublicImplKind::Trait` は public impl header に必要な trait application だけを持つ。
+trait definition 内部の `Self` type term は impl header の外部 authority ではなく、fresh
+session で直接 materialize する対象ではないため structured impl surface から外した。
+
+この payload 形状変更に合わせ、typed public signature hash namespace は
+`neplg2-typed-public-signature-v2`、structured public surface hash namespace は
+`neplg2-typed-public-surface-v6`、`.neplmeta` schema / artifact hash / compiler identity は v7
+へ上げた。generic impl binder / bound を持たない古い `.neplmeta` artifact を同じ contract
+として扱わない。
+
+この checkpoint でも `.neplmeta` materializer 本体はまだ未実装である。次は reexport /
+prelude edge と module canonical path を per-module surface に加えたうえで、fail-closed
+materializer を import / prelude boundary へ接続する。
+
 ### 2026-06-01 LLVM dual CI shard checkpoint
 
 GitHub Actions run `26728316260` では、`llvm-dual-test` の `tests` / `stdlib`

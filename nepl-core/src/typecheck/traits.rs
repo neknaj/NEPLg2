@@ -122,6 +122,18 @@ pub(super) enum ImplKind {
 
 #[derive(Debug, Clone)]
 pub(super) struct ImplInfo {
+    /// impl header が導入する generic binder。
+    ///
+    /// `.neplmeta` の public impl surface は、この binder を保持してから target type や
+    /// trait application 内の generic reference を depth/index へ対応付ける。名前だけから
+    /// binder を推測すると、別 scope の同名 generic parameter を誤って materialize する危険がある。
+    pub(super) type_params: Vec<TypeId>,
+    /// impl header の generic parameter bounds。
+    ///
+    /// bounds は trait lookup と materializer preflight の authority になる。ここに保持せず
+    /// structured surface 側で再構築すると、private trait bound や trait identity の欠落を
+    /// fail-closed に検出できなくなる。
+    pub(super) type_param_bounds: BoundEnv,
     pub(super) kind: ImplKind,
     pub(super) target_ty: TypeId,
 }

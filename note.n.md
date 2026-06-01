@@ -48608,3 +48608,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - structured public surface hash namespace を `neplg2-typed-public-surface-v5`、`.neplmeta` schema / artifact hash / compiler identity を v6 に上げた。
 - `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。generic impl parameter / bound、reexport / prelude edge、module canonical path は materializer 前の残件として維持する。
 - focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` generic impl surface checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-generic-impl-surface-20260601` branch で、`.neplmeta` structured public surface の generic impl binder / bound 残件を進めた。`plan.md` は変更していない。
+- Zenn の静的検査と純粋 query cache 方針を再確認し、generic impl の `.T` を名前から推測せず、impl header 自身の binder と bound environment を artifact authority にする方針にした。
+- subagent review では、`ImplInfo` が `kind` と `target_ty` だけを保持しており、`public_impl_surface` が空の generic map で target / trait application を変換しているため、generic impl surface が round-trip できないと確認した。
+- `ImplInfo` に `type_params` と `type_param_bounds` を追加し、impl collection pass で `collect_type_params` の結果を保持するようにした。
+- `PublicImplSurface` は `type_params` と `type_param_bounds` を保持する。impl target、trait application args、bound target は `PublicTypeParamRef { binder_depth, index }` へ投影され、public trait bound は `PublicTraitIdentity` を持つ。
+- `PublicImplKind::Trait` から trait definition 内部の `Self` type term を外した。これは public impl header の入力ではなく、fresh session へ materialize すべき authority ではないためである。
+- typed public signature hash namespace を `neplg2-typed-public-signature-v2`、structured public surface hash namespace を `neplg2-typed-public-surface-v6`、`.neplmeta` schema / artifact hash / compiler identity を v7 に上げた。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。次の残件は reexport / prelude edge と module canonical path、fail-closed materializer 本体である。
+- focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。
