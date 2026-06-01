@@ -395,14 +395,17 @@ platforms/gui:
 | `core/gui/geometry` | `GuiPoint`、`GuiSize`、`GuiRect`、`GuiInsets`、`GuiScaleFactor` | constructor / accessor / basic arithmetic を実装済み |
 | `core/gui/color` | `BinaryColor`、`Gray8`、`Rgb565`、`Rgb888`、`Rgba8888`、`GuiColor` | constructor / accessor を実装済み |
 | `core/gui/event` | `GuiEvent`、`ActionId`、`WidgetId`、pointer / keyboard / lifecycle data | initial data contract を実装済み |
-| `core/gui/text_measure` | `TextMeasurer` contract、request/result、font id | fixed-cell `MockTextMeasurer` を実装済み。host font 実装は `std/gui` / platform 側で継続 |
+| `core/gui/text_measure` | `TextMeasurer` contract、request/result、font id | borrowed `&Self` contract と fixed-cell `MockTextMeasurer` を実装済み。host font 実装は `std/gui` / platform 側で継続 |
 | `core/gui/draw_target` | `DrawTarget`、`FlushTarget`、pixel-level drawing | `MockDrawTarget` と O(1) contract test を実装済み。iterator stream と rasterizer は未実装 |
 | `core/gui/render_target` | streaming `RenderTarget` | `MockRenderTarget` を実装済み。command list / fallback rasterizer は未実装 |
-| `alloc/gui/app` | callback-free app model、`ViewNode`、`GuiEffect`、`Update` | leaf view と redraw/title effect の初期 contract を実装済み |
+| `alloc/gui/app` | callback-free app model、`ViewNode`、`GuiEffect`、`Update` | leaf view、button config、redraw/title effect、bounded `GuiEffectBatch` を実装済み。将来の `Vec GuiEffect` へ置換する境界は `Update.effects` に固定 |
+| `alloc/gui/layout` | `LayoutContext`、constraints、text measurement injection、measure/place result | `TextMeasurer` 注入、constraint validation、fixed text measure、place-at helper を実装済み。tree layout と flex/grid/scroll は未実装 |
+| `alloc/gui/widget` | callback-free widget descriptor、action event、semantic lowering、measure bridge | button / label descriptor、`ActionId` event 生成、semantic node 生成、layout measure bridge を実装済み。retained tree と event routing は未実装 |
+| `alloc/gui/accessibility` | semantic node / role / state / action tree | bounded semantic tree の初期 slice を実装済み。host accessibility bridge は `std/gui` / platform 側で継続 |
 | `std/gui` | host/runtime/window/timer/text/IME/accessibility/error display contract | typed data contract と `GuiEffect -> GuiRuntimeCommand` 解釈を実装済み。platform 実行は未実装 |
 | `platforms/gui/terminal` | terminal as `SurfaceKind::TextGrid` backend | `TerminalProfile` と core `TextCellRun` based frame を実装済み。custom capability は `Result` で検証し、TextGrid 以外を拒否する。ANSI / TTY present は未実装 |
 
-この表にない Web / native / mobile / embedded backend、layout、widget tree、accessibility tree generation、resource loading は未実装である。
+この表にない Web / native / mobile / embedded backend、allocator-backed retained `ViewTree` / `LayoutTree`、diff / invalidation、theme、text buffer、resource loading、real host presentation は未実装である。
 
 ## TUI Migration Contract
 

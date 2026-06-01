@@ -1,0 +1,151 @@
+//: # alloc/gui/widget/types
+//: widget description と lowering helper
+//:
+//: ### [目的/もくてき]
+//: - `ViewNode` を layout と accessibility に[接続/せつぞく]するための、platform 非依存 widget snapshot を[定義/ていぎ]します。
+//: - button activation は callback ではなく `ActionId` / `GuiEvent::Action` として[返/かえ]します。
+//:
+//: ### [契約/けいやく]
+//: - disabled widget は action event を[返/かえ]しません。
+//: - semantic node は draw command から[逆算/ぎゃくさん]せず、widget data から[生成/せいせい]します。
+//:
+//: neplg2:test
+//: ret: 9
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui" as *
+//: fn main %fn unit i32 \unit:
+//:     let descriptor %WidgetDescriptor widget_button (button_config (widget_id 9) "Run" (action_id 4)) (layout_hint_fixed 10 2)
+//:     widget_id_value (widget_descriptor_id &descriptor)
+//: ```
+
+#indent 4
+
+#import "alloc/gui/accessibility" as *
+#import "alloc/gui/app" as *
+#import "alloc/gui/layout" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: LayoutHint: widget が layout へ[渡/わた]す sizing hint
+//:
+//: [目的/もくてき]:
+//: - style や platform widget ではなく、min/max size だけを data として[持/も]たせます。
+pub struct LayoutHint:
+    min_size %GuiSize
+    max_size %GuiSize
+
+impl Clone for LayoutHint:
+    fn clone %fn &LayoutHint LayoutHint \hint:
+        *hint
+
+impl Copy for LayoutHint:
+    fn copy_mark %fn LayoutHint LayoutHint \hint:
+        hint
+
+//: WidgetDescriptor: view node と layout / semantic metadata の snapshot
+pub struct WidgetDescriptor:
+    id %WidgetId
+    view %ViewNode
+    layout_hint %LayoutHint
+    focusable %bool
+    disabled %bool
+    semantic_label %str
+
+impl Clone for WidgetDescriptor:
+    fn clone %fn &WidgetDescriptor WidgetDescriptor \descriptor:
+        *descriptor
+
+impl Copy for WidgetDescriptor:
+    fn copy_mark %fn WidgetDescriptor WidgetDescriptor \descriptor:
+        descriptor
+
+//: layout_hint: min/max size を持つ hint を[作/つく]る
+pub fn layout_hint %fn GuiSize fn GuiSize LayoutHint \min_size\max_size:
+    LayoutHint min_size max_size
+
+//: layout_hint_fixed: 固定 size の hint を[作/つく]る
+pub fn layout_hint_fixed %fn i32 fn i32 LayoutHint \width\height:
+    let size %GuiSize gui_size_new width height
+    LayoutHint size size
+
+//: layout_hint_min_size: min size を[読/よ]む
+pub fn layout_hint_min_size %fn &LayoutHint GuiSize \hint:
+    *field::get_ref hint "min_size"
+
+//: layout_hint_max_size: max size を[読/よ]む
+pub fn layout_hint_max_size %fn &LayoutHint GuiSize \hint:
+    *field::get_ref hint "max_size"
+
+//: widget_descriptor: widget snapshot を[作/つく]る
+pub fn widget_descriptor %fn WidgetId fn ViewNode fn LayoutHint fn bool fn bool fn str WidgetDescriptor \id\view\layout_hint\focusable\disabled\semantic_label:
+    WidgetDescriptor id view layout_hint focusable disabled semantic_label
+
+//: widget_button: ButtonConfig から button widget snapshot を[作/つく]る
+pub fn widget_button %fn ButtonConfig fn LayoutHint WidgetDescriptor \config\hint:
+    widget_descriptor:
+        button_config_id &config
+        button config
+        hint
+        true
+        false
+        button_config_text &config
+
+//: widget_label: label widget snapshot を[作/つく]る
+pub fn widget_label %fn WidgetId fn str fn LayoutHint WidgetDescriptor \id\text\hint:
+    widget_descriptor id (label text) hint false false text
+
+//: widget_descriptor_id: widget id を[読/よ]む
+pub fn widget_descriptor_id %fn &WidgetDescriptor WidgetId \descriptor:
+    *field::get_ref descriptor "id"
+
+//: widget_descriptor_view: view node を[読/よ]む
+pub fn widget_descriptor_view %fn &WidgetDescriptor ViewNode \descriptor:
+    *field::get_ref descriptor "view"
+
+//: widget_descriptor_layout_hint: layout hint を[読/よ]む
+pub fn widget_descriptor_layout_hint %fn &WidgetDescriptor LayoutHint \descriptor:
+    *field::get_ref descriptor "layout_hint"
+
+//: widget_descriptor_is_disabled: disabled flag を[読/よ]む
+pub fn widget_descriptor_is_disabled %fn &WidgetDescriptor bool \descriptor:
+    *field::get_ref descriptor "disabled"
+
+//: widget_descriptor_label: semantic label を[読/よ]む
+pub fn widget_descriptor_label %fn &WidgetDescriptor str \descriptor:
+    *field::get_ref descriptor "semantic_label"
+
+//: widget_action_event: widget activation を GuiEvent として[返/かえ]す
+pub fn widget_action_event %fn &WidgetDescriptor Option GuiEvent \descriptor:
+    if widget_descriptor_is_disabled descriptor:
+        then none
+        else:
+            match widget_descriptor_view descriptor:
+                ViewNode::Button config:
+                    some (gui_event_action (button_config_action &config))
+                _:
+                    none
+
+//: widget_semantic_node: widget snapshot から semantic node を[生成/せいせい]する
+pub fn widget_semantic_node %fn &WidgetDescriptor SemanticNode \descriptor:
+    let id %WidgetId widget_descriptor_id descriptor
+    let semantic_id %SemanticNodeId semantic_node_id (widget_id_value id)
+    let state %SemanticState semantic_state false (widget_descriptor_is_disabled descriptor) false
+    match widget_descriptor_view descriptor:
+        ViewNode::Button _config:
+            semantic_node semantic_id SemanticRole::Button (widget_descriptor_label descriptor) state SemanticAction::Activate
+        ViewNode::Label _text:
+            semantic_node semantic_id SemanticRole::Label (widget_descriptor_label descriptor) state SemanticAction::None
+        ViewNode::Empty:
+            semantic_node semantic_id SemanticRole::Label "" state SemanticAction::None
+
+//: widget_measure: widget を injected TextMeasurer で[測/はか]る
+//:
+//: [注意/ちゅうい]:
+//: - text buffer の[実体/じったい]は alloc/text の後続実装に[委/ゆだ]ねるため、ここでは `TextRunId` と cell count hint を caller から[受/う]け[取/と]ります。
+pub fn widget_measure <.TextMeasurerImpl: TextMeasurer&Copy> %fn &LayoutContext .TextMeasurerImpl fn &WidgetDescriptor fn TextRunId fn FontId fn i32 Result MeasuredNode GuiError \context\descriptor\run_id\font_id\cell_count:
+    layout_measure_text context (widget_descriptor_id descriptor) run_id font_id cell_count

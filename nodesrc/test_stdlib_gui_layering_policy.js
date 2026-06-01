@@ -64,6 +64,26 @@ for (const filePath of [
     );
 }
 
+const allocGuiRoot = path.join(repoRoot, "stdlib", "alloc", "gui");
+for (const filePath of [
+    path.join(repoRoot, "stdlib", "alloc", "gui.nepl"),
+    ...walkNeplFiles(allocGuiRoot),
+]) {
+    const relPath = path.relative(repoRoot, filePath).split(path.sep).join("/");
+    const text = fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+    const source = withoutComments(text);
+    assertNoMatch(
+        source,
+        /^\s*#import\s+"(?:std|platforms)\//m,
+        `${relPath} must not import std/platform modules`,
+    );
+    assertNoMatch(
+        source,
+        /\b(?:DOM|Canvas|ANSI|TTY|WASIX|Win32|UIKit|AndroidView|HtmlCanvas)\b/,
+        `${relPath} must not expose concrete platform names in alloc/gui`,
+    );
+}
+
 const renderCommand = read("stdlib/core/gui/render_command.nepl");
 assertMatch(renderCommand, /pub\s+struct\s+TextGridPoint:/, "core/gui must own TextGridPoint");
 assertMatch(renderCommand, /pub\s+struct\s+TextCellStyle:/, "core/gui must own TextCellStyle");

@@ -22,6 +22,9 @@
 
 #import "core/field" as field
 #import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 
 //: widget_id: raw integer から WidgetId を作る
@@ -66,6 +69,18 @@ impl Copy for ButtonConfig:
 //: button_config: ButtonConfig を作る
 pub fn button_config %fn WidgetId fn str fn ActionId ButtonConfig \id\text\action:
     ButtonConfig id text action
+
+//: button_config_id: ButtonConfig の widget id を[読/よ]む
+pub fn button_config_id %fn &ButtonConfig WidgetId \config:
+    *field::get_ref config "id"
+
+//: button_config_text: ButtonConfig の表示 text を[読/よ]む
+pub fn button_config_text %fn &ButtonConfig str \config:
+    *field::get_ref config "text"
+
+//: button_config_action: ButtonConfig の action id を[読/よ]む
+pub fn button_config_action %fn &ButtonConfig ActionId \config:
+    *field::get_ref config "action"
 
 //: ViewNode: retained view tree の最小 node
 //:
@@ -134,6 +149,34 @@ pub enum GuiEffect:
     RequestRedraw %RequestRedrawEffect
     SetTitle %SetTitleEffect
 
+impl Clone for GuiEffect:
+    fn clone %fn &GuiEffect GuiEffect \effect:
+        *effect
+
+impl Copy for GuiEffect:
+    fn copy_mark %fn GuiEffect GuiEffect \effect:
+        effect
+
+//: GuiEffectBatch: update が返す effect 群
+//:
+//: [目的/もくてき]:
+//: - redraw と title 変更のような複数 effect を、host API を直接呼ばず data としてまとめます。
+//:
+//: [現状/げんじょう]:
+//: - 初期 checkpoint では capacity 2 の bounded batch です。capacity を[超/こ]える追加は `GuiError::ResourceExhausted` を[返/かえ]します。
+pub struct GuiEffectBatch:
+    first %GuiEffect
+    second %GuiEffect
+    count %i32
+
+impl Clone for GuiEffectBatch:
+    fn clone %fn &GuiEffectBatch GuiEffectBatch \batch:
+        *batch
+
+impl Copy for GuiEffectBatch:
+    fn copy_mark %fn GuiEffectBatch GuiEffectBatch \batch:
+        batch
+
 //: gui_effect_none: effect なしを返す
 pub fn gui_effect_none %fn unit GuiEffect \unit:
     GuiEffect::None
@@ -146,28 +189,89 @@ pub fn request_redraw %fn i32 GuiEffect \target:
 pub fn set_title %fn i32 fn str GuiEffect \target\title:
     GuiEffect::SetTitle SetTitleEffect target title
 
+//: gui_effect_batch_empty: 空 effect batch を[作/つく]る
+pub fn gui_effect_batch_empty %fn unit GuiEffectBatch \unit:
+    GuiEffectBatch GuiEffect::None GuiEffect::None 0
+
+//: gui_effect_batch_one: effect 1 個の batch を[作/つく]る
+pub fn gui_effect_batch_one %fn GuiEffect GuiEffectBatch \effect:
+    match effect:
+        GuiEffect::None:
+            gui_effect_batch_empty
+        _:
+            GuiEffectBatch effect GuiEffect::None 1
+
+//: gui_effect_batch_count: batch 内の effect 数を[読/よ]む
+pub fn gui_effect_batch_count %fn &GuiEffectBatch i32 \batch:
+    *field::get_ref batch "count"
+
+//: gui_effect_batch_first: 1 個目の effect を Option で[読/よ]む
+pub fn gui_effect_batch_first %fn &GuiEffectBatch Option GuiEffect \batch:
+    if eq (gui_effect_batch_count batch) 0:
+        then none
+        else:
+            let first %GuiEffect *field::get_ref batch "first"
+            some first
+
+//: gui_effect_batch_second: 2 個目の effect を Option で[読/よ]む
+pub fn gui_effect_batch_second %fn &GuiEffectBatch Option GuiEffect \batch:
+    if lt (gui_effect_batch_count batch) 2:
+        then none
+        else:
+            let second %GuiEffect *field::get_ref batch "second"
+            some second
+
+//: gui_effect_batch_push: bounded batch に effect を[追加/ついか]する
+pub fn gui_effect_batch_push %fn GuiEffectBatch fn GuiEffect Result GuiEffectBatch GuiError \batch\effect:
+    match effect:
+        GuiEffect::None:
+            Result::Ok batch
+        _:
+            let count %i32 gui_effect_batch_count &batch
+            if eq count 0:
+                then Result::Ok GuiEffectBatch effect GuiEffect::None 1
+                else:
+                    if eq count 1:
+                        then:
+                            let first %GuiEffect *field::get_ref &batch "first"
+                            Result::Ok GuiEffectBatch first effect 2
+                        else Result::Err GuiError::ResourceExhausted
+
 //: Update: application update result
 //:
 //: [目的/もくてき]:
-//: - 新しい model と、runtime が実行する effect request をまとめます。
+//: - 新しい model と、runtime が実行する effect request 群をまとめます。
 //:
 //: [注意/ちゅうい]:
 //: - `.Model` は application が所有します。stdlib は model の field や lifecycle を解釈しません。
 pub struct Update<.Model>:
     model %.Model
-    effect %GuiEffect
+    effects %GuiEffectBatch
 
 //: update_result: model と effect から Update を作る
 pub fn update_result <.Model> %fn .Model fn GuiEffect Update .Model \model\effect:
-    Update model effect
+    Update model (gui_effect_batch_one effect)
+
+//: update_result_batch: model と effect batch から Update を[作/つく]る
+pub fn update_result_batch <.Model> %fn .Model fn GuiEffectBatch Update .Model \model\effects:
+    Update model effects
 
 //: update_model: Update から model を取り出す
 pub fn update_model <.Model> %fn Update .Model .Model \update:
     field::get update "model"
 
-//: update_effect: Update から effect を取り出す
+//: update_effects: Update から effect batch を[取/と]り[出/だ]す
+pub fn update_effects <.Model> %fn Update .Model GuiEffectBatch \update:
+    field::get update "effects"
+
+//: update_effect: Update から最初の effect を取り出す
 //:
 //: [注意/ちゅうい]:
-//: - 現 checkpoint では値で取り出します。model と effect を同時に分解する helper は、`Vec GuiEffect` 版の `Update` と合わせて後続で追加します。
+//: - 互換 helper です。複数 effect を解釈する runtime は `update_effects` を使います。
 pub fn update_effect <.Model> %fn Update .Model GuiEffect \update:
-    field::get update "effect"
+    let effects %GuiEffectBatch update_effects update
+    match gui_effect_batch_first &effects:
+        Option::Some effect:
+            effect
+        Option::None:
+            GuiEffect::None

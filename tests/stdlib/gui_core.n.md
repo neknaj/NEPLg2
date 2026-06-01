@@ -107,7 +107,7 @@ ret: 0
 fn main %fn unit i32 \unit:
     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
     let request %TextMeasureRequest text_measure_request_new text_run_id_new 4 font_id_new 1 200 5
-    match measure_text measurer request:
+    match measure_text &measurer request:
         Result::Ok metrics:
             assert_eq_i32 40 text_measure_result_width &metrics
             assert_eq_i32 16 text_measure_result_height &metrics

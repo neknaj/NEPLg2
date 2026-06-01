@@ -1,0 +1,234 @@
+//: # alloc/gui/layout/types
+//: layout constraint と layout result の data contract
+//:
+//: ### [目的/もくてき]
+//: - `ViewNode` や widget が backend 非依存に[測定/そくてい]・[配置/はいち]されるための最小 data contract を[定義/ていぎ]します。
+//: - text measurement は `core/gui` の `TextMeasurer` trait を context に[注入/ちゅうにゅう]し、`alloc/gui` から `std/gui` や platform を[呼/よ]ばないようにします。
+//:
+//: ### [契約/けいやく]
+//: - constraints が[負/ふ]の max size を持つ場合、測定 helper は `GuiError::InvalidGeometry` を[返/かえ]します。
+//: - 測定値は max constraint を[超/こ]えないよう clamp します。
+//:
+//: neplg2:test
+//: ret: 16
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui" as *
+//:| #import "core/result" as *
+//: fn main %impure fn unit i32 \unit:
+//:     let ctx %LayoutContext MockTextMeasurer layout_context (layout_constraints 0 0 200 40) (gui_scale_factor_new 1 1) (mock_text_measurer_new 8 16 12) gui_capabilities_text_grid
+//:     match layout_measure_text_height &ctx (text_run_id_new 2) (font_id_new 3) 2:
+//:         Result::Ok height:
+//:             height
+//:         Result::Err _err:
+//:             1
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: LayoutConstraints: layout に[渡/わた]す min/max size
+//:
+//: [目的/もくてき]:
+//: - available size を raw i32 の[列/れつ]ではなく、名前付き payload として[保持/ほじ]します。
+pub struct LayoutConstraints:
+    min_width %i32
+    min_height %i32
+    max_width %i32
+    max_height %i32
+
+impl Clone for LayoutConstraints:
+    fn clone %fn &LayoutConstraints LayoutConstraints \constraints:
+        *constraints
+
+impl Copy for LayoutConstraints:
+    fn copy_mark %fn LayoutConstraints LayoutConstraints \constraints:
+        constraints
+
+//: LayoutContext: layout 計算に[必要/ひつよう]な backend 非依存 context
+pub struct LayoutContext<.TextMeasurerImpl>:
+    constraints %LayoutConstraints
+    scale %GuiScaleFactor
+    text_measurer %.TextMeasurerImpl
+    capabilities %GuiCapabilities
+
+impl<.TextMeasurerImpl: Copy> Clone for LayoutContext<.TextMeasurerImpl>:
+    fn clone %fn &LayoutContext .TextMeasurerImpl LayoutContext .TextMeasurerImpl \context:
+        *context
+
+impl<.TextMeasurerImpl: Copy> Copy for LayoutContext<.TextMeasurerImpl>:
+    fn copy_mark %fn LayoutContext .TextMeasurerImpl LayoutContext .TextMeasurerImpl \context:
+        context
+
+//: MeasuredNode: measure phase の[結果/けっか]
+pub struct MeasuredNode:
+    id %WidgetId
+    width %i32
+    height %i32
+
+impl Clone for MeasuredNode:
+    fn clone %fn &MeasuredNode MeasuredNode \node:
+        *node
+
+impl Copy for MeasuredNode:
+    fn copy_mark %fn MeasuredNode MeasuredNode \node:
+        node
+
+//: LayoutNode: place phase の[結果/けっか]
+pub struct LayoutNode:
+    id %WidgetId
+    x %i32
+    y %i32
+    width %i32
+    height %i32
+
+impl Clone for LayoutNode:
+    fn clone %fn &LayoutNode LayoutNode \node:
+        *node
+
+impl Copy for LayoutNode:
+    fn copy_mark %fn LayoutNode LayoutNode \node:
+        node
+
+//: layout_constraints: constraints を[作/つく]る
+pub fn layout_constraints %fn i32 fn i32 fn i32 fn i32 LayoutConstraints \min_width\min_height\max_width\max_height:
+    LayoutConstraints min_width min_height max_width max_height
+
+//: layout_constraints_min_width: min width を[読/よ]む
+pub fn layout_constraints_min_width %fn &LayoutConstraints i32 \constraints:
+    *field::get_ref constraints "min_width"
+
+//: layout_constraints_min_height: min height を[読/よ]む
+pub fn layout_constraints_min_height %fn &LayoutConstraints i32 \constraints:
+    *field::get_ref constraints "min_height"
+
+//: layout_constraints_max_width: max width を[読/よ]む
+pub fn layout_constraints_max_width %fn &LayoutConstraints i32 \constraints:
+    *field::get_ref constraints "max_width"
+
+//: layout_constraints_max_height: max height を[読/よ]む
+pub fn layout_constraints_max_height %fn &LayoutConstraints i32 \constraints:
+    *field::get_ref constraints "max_height"
+
+//: layout_constraints_are_valid: max size が 0 以上か[確認/かくにん]する
+pub fn layout_constraints_are_valid %fn &LayoutConstraints bool \constraints:
+    and:
+        and not lt layout_constraints_max_width constraints 0 not lt layout_constraints_max_height constraints 0
+        and not lt layout_constraints_min_width constraints 0 not lt layout_constraints_min_height constraints 0
+
+//: layout_context: layout context を[作/つく]る
+pub fn layout_context <.TextMeasurerImpl: Copy> %fn LayoutConstraints fn GuiScaleFactor fn .TextMeasurerImpl fn GuiCapabilities LayoutContext .TextMeasurerImpl \constraints\scale\text_measurer\capabilities:
+    LayoutContext constraints scale text_measurer capabilities
+
+//: layout_context_constraints: constraints を[読/よ]む
+pub fn layout_context_constraints <.TextMeasurerImpl: Copy> %fn &LayoutContext .TextMeasurerImpl LayoutConstraints \context:
+    *field::get_ref context "constraints"
+
+//: layout_context_text_measurer: text measurer を[読/よ]む
+pub fn layout_context_text_measurer <.TextMeasurerImpl: Copy> %fn &LayoutContext .TextMeasurerImpl .TextMeasurerImpl \context:
+    *field::get_ref context "text_measurer"
+
+//: layout_context_text_measurer_ref: text measurer を borrow で[読/よ]む
+pub fn layout_context_text_measurer_ref <.TextMeasurerImpl: Copy> %fn &LayoutContext .TextMeasurerImpl &.TextMeasurerImpl \context:
+    field::get_ref context "text_measurer"
+
+//: measured_node: measure result を[作/つく]る
+pub fn measured_node %fn WidgetId fn GuiSize MeasuredNode \id\size:
+    MeasuredNode id (gui_size_width &size) (gui_size_height &size)
+
+//: measured_node_id: measured node id を[読/よ]む
+pub fn measured_node_id %fn &MeasuredNode WidgetId \node:
+    *field::get_ref node "id"
+
+//: measured_node_size: measured size を[読/よ]む
+pub fn measured_node_size %fn &MeasuredNode GuiSize \node:
+    GuiSize (*field::get_ref node "width") (*field::get_ref node "height")
+
+//: measured_node_width: measured width を[読/よ]む
+pub fn measured_node_width %fn &MeasuredNode i32 \node:
+    *field::get_ref node "width"
+
+//: measured_node_height: measured height を[読/よ]む
+pub fn measured_node_height %fn &MeasuredNode i32 \node:
+    *field::get_ref node "height"
+
+//: layout_node: layout result を[作/つく]る
+pub fn layout_node %fn WidgetId fn GuiRect LayoutNode \id\bounds:
+    LayoutNode id (gui_rect_x &bounds) (gui_rect_y &bounds) (gui_rect_width &bounds) (gui_rect_height &bounds)
+
+//: layout_node_bounds: layout bounds を[読/よ]む
+pub fn layout_node_bounds %fn &LayoutNode GuiRect \node:
+    GuiRect (*field::get_ref node "x") (*field::get_ref node "y") (*field::get_ref node "width") (*field::get_ref node "height")
+
+//: layout_clamp_axis: 1 axis の measured size を constraints [内/ない]へ[収/おさ]める
+fn layout_clamp_axis %fn i32 fn i32 fn i32 i32 \value\min_value\max_value:
+    if lt value min_value:
+        then min_value
+        else if gt value max_value:
+            then max_value
+            else value
+
+//: layout_measure_text: injected TextMeasurer で text node を[測/はか]る
+pub fn layout_measure_text <.TextMeasurerImpl: TextMeasurer&Copy> %fn &LayoutContext .TextMeasurerImpl fn WidgetId fn TextRunId fn FontId fn i32 Result MeasuredNode GuiError \context\id\run_id\font_id\cell_count:
+    let constraints %LayoutConstraints layout_context_constraints context
+    if not layout_constraints_are_valid &constraints:
+        then Result::Err GuiError::InvalidGeometry
+        else:
+            let request %TextMeasureRequest text_measure_request_new run_id font_id layout_constraints_max_width &constraints cell_count
+            match measure_text (layout_context_text_measurer_ref context) request:
+                Result::Ok metrics:
+                    let width %i32 layout_clamp_axis (text_measure_result_width &metrics) (layout_constraints_min_width &constraints) (layout_constraints_max_width &constraints)
+                    let height %i32 layout_clamp_axis (text_measure_result_height &metrics) (layout_constraints_min_height &constraints) (layout_constraints_max_height &constraints)
+                    Result::Ok MeasuredNode id width height
+                Result::Err error:
+                    Result::Err error
+
+//: layout_measure_text_height: injected TextMeasurer で text height だけを[測/はか]る
+//:
+//: [目的/もくてき]:
+//: - layout test や fixed-cell backend の小さな検査で、`MeasuredNode` の所有を必要とせず scalar contract を確認できます。
+pub fn layout_measure_text_height <.TextMeasurerImpl: TextMeasurer&Copy> %fn &LayoutContext .TextMeasurerImpl fn TextRunId fn FontId fn i32 Result i32 GuiError \context\run_id\font_id\cell_count:
+    let constraints %LayoutConstraints layout_context_constraints context
+    if not layout_constraints_are_valid &constraints:
+        then Result::Err GuiError::InvalidGeometry
+        else:
+            let request %TextMeasureRequest text_measure_request_new run_id font_id layout_constraints_max_width &constraints cell_count
+            match measure_text (layout_context_text_measurer_ref context) request:
+                Result::Ok metrics:
+                    Result::Ok (layout_clamp_axis (text_measure_result_height &metrics) (layout_constraints_min_height &constraints) (layout_constraints_max_height &constraints))
+                Result::Err error:
+                    Result::Err error
+
+//: layout_measure_text_width: injected TextMeasurer で text width だけを[測/はか]る
+//:
+//: [目的/もくてき]:
+//: - max width clamp と invalid constraints を、layout node の所有とは[独立/どくりつ]して検査できるようにします。
+pub fn layout_measure_text_width <.TextMeasurerImpl: TextMeasurer&Copy> %fn &LayoutContext .TextMeasurerImpl fn TextRunId fn FontId fn i32 Result i32 GuiError \context\run_id\font_id\cell_count:
+    let constraints %LayoutConstraints layout_context_constraints context
+    if not layout_constraints_are_valid &constraints:
+        then Result::Err GuiError::InvalidGeometry
+        else:
+            let request %TextMeasureRequest text_measure_request_new run_id font_id layout_constraints_max_width &constraints cell_count
+            match measure_text (layout_context_text_measurer_ref context) request:
+                Result::Ok metrics:
+                    Result::Ok (layout_clamp_axis (text_measure_result_width &metrics) (layout_constraints_min_width &constraints) (layout_constraints_max_width &constraints))
+                Result::Err error:
+                    Result::Err error
+
+
+//: layout_place_at: measured node を指定位置に[配置/はいち]する
+pub fn layout_place_at %fn MeasuredNode fn GuiPoint LayoutNode \node\origin:
+    let size %GuiSize measured_node_size &node
+    layout_node:
+        measured_node_id &node
+        gui_rect_new:
+            gui_point_x &origin
+            gui_point_y &origin
+            gui_size_width &size
+            gui_size_height &size

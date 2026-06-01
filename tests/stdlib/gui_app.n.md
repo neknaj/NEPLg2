@@ -18,6 +18,8 @@ exit_code: 0
 
 #import "alloc/gui" as *
 #import "core/field" as *
+#import "core/option" as *
+#import "core/result" as *
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
@@ -36,6 +38,64 @@ fn main %impure fn unit i32 \unit:
             checks_push checks_new assert false
         ViewNode::Empty:
             checks_push checks_new assert false
+    let shown checks_print_report checks
+    checks_exit_code shown
+```
+
+## gui_app_update_can_batch_multiple_effects
+
+[目的/もくてき]:
+- `update` が redraw と title 変更のような複数 effect を data として返せることを固定します。
+- 現 checkpoint の bounded batch が capacity overflow を `GuiError::ResourceExhausted` として返すことを確認します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "Checked [ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui" as *
+#import "core/field" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn main %impure fn unit i32 \unit:
+    let batch0 %GuiEffectBatch gui_effect_batch_empty
+    let batch1 %GuiEffectBatch unwrap_ok gui_effect_batch_push batch0 request_redraw 1
+    let batch2 %GuiEffectBatch unwrap_ok gui_effect_batch_push batch1 set_title 1 "Main"
+    let upd %Update i32 update_result_batch 44 batch2
+    let effects %GuiEffectBatch update_effects upd
+    let first_check match gui_effect_batch_first &effects:
+        Option::Some effect:
+            match effect:
+                GuiEffect::RequestRedraw payload:
+                    assert_eq_i32 1 get payload "target"
+                _:
+                    assert false
+        Option::None:
+            assert false
+    let second_check match gui_effect_batch_second &effects:
+        Option::Some effect:
+            match effect:
+                GuiEffect::SetTitle payload:
+                    assert_eq_i32 1 get payload "target"
+                _:
+                    assert false
+        Option::None:
+            assert false
+    let overflow_check match gui_effect_batch_push effects request_redraw 2:
+        Result::Ok _next:
+            assert false
+        Result::Err error:
+            match error:
+                GuiError::ResourceExhausted:
+                    assert true
+                _:
+                    assert false
+    let checks checks_push (checks_push (checks_push checks_new first_check) second_check) overflow_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```
