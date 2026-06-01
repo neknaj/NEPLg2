@@ -743,12 +743,28 @@ pub enum PrivateCacheOp {
 }
 
 impl PrivateCacheOp {
+    pub const ALL: [Self; 4] = [Self::Create, Self::Lookup, Self::Insert, Self::Drop];
+
     pub const fn as_str(self) -> &'static str {
         match self {
             PrivateCacheOp::Create => "private_cache.create",
             PrivateCacheOp::Lookup => "private_cache.lookup",
             PrivateCacheOp::Insert => "private_cache.insert",
             PrivateCacheOp::Drop => "private_cache.drop",
+        }
+    }
+
+    /// SourceCapability が証明対象にする compiler-owned intrinsic 名を返す。
+    ///
+    /// private cache effect は operation ごとに exact use-site proof を要求する。
+    /// 表示名と intrinsic 名を分けておくことで、diagnostic / stable hash 用の
+    /// `private_cache.lookup` と、source 上の `private_cache_lookup` を混同しない。
+    pub const fn intrinsic_name(self) -> &'static str {
+        match self {
+            PrivateCacheOp::Create => "private_cache_create",
+            PrivateCacheOp::Lookup => "private_cache_lookup",
+            PrivateCacheOp::Insert => "private_cache_insert",
+            PrivateCacheOp::Drop => "private_cache_drop",
         }
     }
 }
@@ -766,14 +782,9 @@ impl fmt::Display for PrivateCacheOp {
 /// same primitive identity.
 pub fn private_cache_op_from_name(name: &str) -> Option<PrivateCacheOp> {
     let base = helper_base_name(name);
-    let operation = match base {
-        "private_cache_create" => PrivateCacheOp::Create,
-        "private_cache_lookup" => PrivateCacheOp::Lookup,
-        "private_cache_insert" => PrivateCacheOp::Insert,
-        "private_cache_drop" => PrivateCacheOp::Drop,
-        _ => return None,
-    };
-    Some(operation)
+    PrivateCacheOp::ALL
+        .into_iter()
+        .find(|operation| base == operation.intrinsic_name())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

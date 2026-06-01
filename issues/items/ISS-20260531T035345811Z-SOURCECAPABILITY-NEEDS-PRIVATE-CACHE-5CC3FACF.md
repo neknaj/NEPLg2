@@ -125,3 +125,23 @@ source capability policy hash は private cache operation と span に加えて 
 
 - `PrivateCacheBoundary` が trusted use-site であることと、fresh region の non-escape proof を分離したまま stdlib memo backend へ接続する。
 - region mismatch を実際に持てる sealed backend region 導入後、same operation / same span でも別 region proof は通さない regression を追加する。
+
+## 2026-06-01 operation authority checkpoint
+
+`PrivateCacheOp::ALL` と `PrivateCacheOp::intrinsic_name` を追加し、private cache operation の列挙 authority を 1 箇所へ集約した。`private_cache_op_from_name` はこの列挙を使って compiler-owned intrinsic 名を typed operation へ変換する。
+
+この checkpoint は、operation の追加時に SourceCapability collector、Resource IR lowering、Resource effect boundary、Resource summary hash のどれかだけが追従しない状態を防ぐための足場である。現時点では sealed fresh region や pure mask accepted path は追加していない。
+
+追加 regression:
+
+- `PrivateCacheOp::ALL` の全 operation が intrinsic 名から分類される。
+- SourceCapability evidence は全 operation で exact operation / exact span / `UnsealedIntrinsic` region だけを許可する。
+- Resource IR lowering は全 operation を expression span の `EffectOp::PrivateCache` にする。
+- Resource effect boundary は全 operation を pure function 内で `PrivateCacheOutsideBoundary` と `PrivateCacheInPureFunction` の両方により fail-closed に拒否する。
+- impure function 内の private cache effect は全 operation で `Unknown` へ落ちず、private cache operation として count される。
+
+検証:
+
+- `cargo test -p nepl-core private_cache --lib -- --nocapture`
+- `cargo test -p nepl-core private_effect --lib -- --nocapture`
+- `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`

@@ -130,33 +130,36 @@ mod tests {
     }
 
     #[test]
-    fn private_cache_effect_is_rejected_in_pure_function_until_masked() {
-        let report = check_resource_effect_boundaries(&module_with_effect(
-            Effect::Pure,
-            EffectOp::PrivateCache {
-                operation: PrivateCacheOp::Lookup,
-                region: PrivateEffectRegion::UnsealedIntrinsic,
-            },
-        ));
-
-        assert_eq!(
-            report.diagnostics,
-            vec![
-                ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
-                    function: String::from("uses_private_effect"),
-                    operation: PrivateCacheOp::Lookup,
+    fn private_cache_effect_boundary_rejects_all_ops_in_pure_function_until_masked() {
+        for operation in PrivateCacheOp::ALL {
+            let report = check_resource_effect_boundaries(&module_with_effect(
+                Effect::Pure,
+                EffectOp::PrivateCache {
+                    operation,
                     region: PrivateEffectRegion::UnsealedIntrinsic,
-                    span: Span::dummy(),
                 },
-                ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
-                    function: String::from("uses_private_effect"),
-                    operation: PrivateCacheOp::Lookup,
-                    region: PrivateEffectRegion::UnsealedIntrinsic,
-                    span: Span::dummy(),
-                }
-            ]
-        );
-        assert_eq!(report.functions[0].counts.private_cache_ops, 1);
+            ));
+
+            assert_eq!(
+                report.diagnostics,
+                vec![
+                    ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+                        function: String::from("uses_private_effect"),
+                        operation,
+                        region: PrivateEffectRegion::UnsealedIntrinsic,
+                        span: Span::dummy(),
+                    },
+                    ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
+                        function: String::from("uses_private_effect"),
+                        operation,
+                        region: PrivateEffectRegion::UnsealedIntrinsic,
+                        span: Span::dummy(),
+                    }
+                ],
+                "{operation} must remain fail-closed until a sealed mask proof exists"
+            );
+            assert_eq!(report.functions[0].counts.private_cache_ops, 1);
+        }
     }
 
     #[test]
@@ -185,24 +188,28 @@ mod tests {
 
     #[test]
     fn private_effect_is_not_silently_counted_as_unknown_in_impure_function() {
-        let report = check_resource_effect_boundaries(&module_with_effect(
-            Effect::Impure,
-            EffectOp::PrivateCache {
-                operation: PrivateCacheOp::Insert,
-                region: PrivateEffectRegion::UnsealedIntrinsic,
-            },
-        ));
+        for operation in PrivateCacheOp::ALL {
+            let report = check_resource_effect_boundaries(&module_with_effect(
+                Effect::Impure,
+                EffectOp::PrivateCache {
+                    operation,
+                    region: PrivateEffectRegion::UnsealedIntrinsic,
+                },
+            ));
 
-        assert_eq!(
-            report.diagnostics,
-            vec![ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
-                function: String::from("uses_private_effect"),
-                operation: PrivateCacheOp::Insert,
-                region: PrivateEffectRegion::UnsealedIntrinsic,
-                span: Span::dummy(),
-            }]
-        );
-        assert_eq!(report.functions[0].counts.private_cache_ops, 1);
-        assert_eq!(report.functions[0].counts.unknown_ops, 0);
+            assert_eq!(
+                report.diagnostics,
+                vec![
+                    ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+                        function: String::from("uses_private_effect"),
+                        operation,
+                        region: PrivateEffectRegion::UnsealedIntrinsic,
+                        span: Span::dummy(),
+                    }
+                ]
+            );
+            assert_eq!(report.functions[0].counts.private_cache_ops, 1);
+            assert_eq!(report.functions[0].counts.unknown_ops, 0);
+        }
     }
 }

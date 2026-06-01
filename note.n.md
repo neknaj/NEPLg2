@@ -1,3 +1,13 @@
+# 2026-06-01 PrivateCache operation authority checkpoint
+
+- Zenn 記事の試作段階方針、静的検査を enum / match で網羅する方針、Pure を外部観測可能 effect がないこととして扱う方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `ed8982c9 Add neplmeta import projection MVP` まで同期済みで、branch `work/memo-private-cache-20260601` の基点は `origin/main` と一致している。
+- subagent review で、現段階では `memo_call @func` を実 cache backend へ lower したり `PrivateCache` を Pure へ mask したりせず、`PrivateCacheOp` 全 operation の authority を 1 箇所に集約して fail-closed regression を広げるのが妥当と確認した。
+- `PrivateCacheOp::ALL` と `PrivateCacheOp::intrinsic_name` を追加し、`private_cache_op_from_name`、SourceCapability collector、Resource IR lowering regression が同じ operation 集合を参照するようにした。
+- `private_cache_create` / `private_cache_lookup` / `private_cache_insert` / `private_cache_drop` の全 operation について、intrinsic 分類、SourceCapability exact proof、Resource IR `CallEffect` lowering、Resource effect boundary diagnostic、impure function 内で unknown 扱いにならないことを table-driven regression で固定した。
+- この checkpoint は sealed fresh region、non-escape proof、cache backend representation、Pure mask accepted path を実装しない。`UnsealedIntrinsic` は引き続き mask 済み region ではなく、pure function 内では `PrivateCacheInPureFunction` で fail-closed に拒否する。
+- focused verification は `cargo test -p nepl-core private_cache --lib -- --nocapture`、`cargo test -p nepl-core private_effect --lib -- --nocapture`、`cargo test -p nepl-core resource_effect_gate --lib -- --nocapture` を通した。
+
 # 2026-06-01 .neplmeta import projection checkpoint
 
 - Zenn 記事の core/no_std 分離、enum/struct による静的検査、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。

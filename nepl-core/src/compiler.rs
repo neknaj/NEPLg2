@@ -2386,24 +2386,26 @@ mod tests {
 
     #[test]
     fn resource_effect_gate_allows_private_cache_inside_exact_private_cache_boundary() {
-        let mut source_map = SourceMap::new();
-        let cache_file = source_map.add("stdlib/core/memo/internal.nepl", String::new());
-        let span = Span::new(cache_file, 10, 30);
-        source_map.set_capabilities(
-            cache_file,
-            private_cache_capabilities(PrivateCacheOp::Lookup, span),
-        );
-        let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
-            function: String::from("memo_backend_lookup"),
-            operation: PrivateCacheOp::Lookup,
-            region: PrivateEffectRegion::UnsealedIntrinsic,
-            span,
-        };
+        for operation in PrivateCacheOp::ALL {
+            let mut source_map = SourceMap::new();
+            let cache_file = source_map.add("stdlib/core/memo/internal.nepl", String::new());
+            let span = Span::new(cache_file, 10, 30);
+            source_map.set_capabilities(cache_file, private_cache_capabilities(operation, span));
+            let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+                function: String::from("memo_backend"),
+                operation,
+                region: PrivateEffectRegion::UnsealedIntrinsic,
+                span,
+            };
 
-        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
-            &diagnostic,
-            Some(&source_map),
-        ));
+            assert!(
+                resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                    &diagnostic,
+                    Some(&source_map),
+                ),
+                "{operation} must be allowed only by its exact private-cache boundary"
+            );
+        }
     }
 
     #[test]
