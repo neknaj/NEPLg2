@@ -1,3 +1,16 @@
+# 2026-06-01 GUI/TUI arena focus traversal checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` の `.neplmeta` / benchmark reporting checkpoint を作業 branch へ merge し、merge conflict はなかった。
+- Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、callback を持たない data contract 方針に従い、`alloc/gui/focus` へ `ViewTreeArena` 用の next / previous focus traversal を追加した。
+- `focus_next_in_arena` / `focus_previous_in_arena` は `ViewTreeArena` owner を消費せず、arena storage index ではなく `WidgetId` を identity として比較する。`current = none` は先頭 / 末尾から開始し、edge と stale current は `Option::None` を返す。
+- subagent review は、次の最小 slice は arena focus traversal であり、bounded `FocusOrder` に任意長 arena を押し込まず直接 arena を走査するべきだと確認した。routing / diff / layout は z-order、subtree shape、owner recovery の仕様をさらに固めてから進める。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、arena focus traversal 実装済みと、残件が arena routing / diff / layout integration であることに合わせて更新した。
+- NEPLg2 code では括弧を使わない方針に合わせ、今回差分の追加行に parenthesized call がないことを `git diff -U0 -- stdlib/alloc/gui/focus/types.nepl tests/stdlib/gui_focus.n.md | rg "^\\+[^+].*[()]"` で確認した。
+- focused 検証: `node nodesrc/tests.js -i tests/stdlib/gui_focus.n.md -i stdlib/alloc/gui/focus.nepl -i stdlib/alloc/gui/focus/types.nepl --no-tree -o tmp/gui-focus-arena-traversal.json -j 1 --dist web/dist --assert-io` は 5/5 pass。
+- `trunk build --release` 後の現行 `web/dist` では、`nodesrc/tests.js` の 60 秒 case timeout に focus / tree 系が当たる。`node nodesrc/run_doctest.js -i tests/stdlib/gui_focus.n.md -n 1 --dist web/dist`、`-n 2`、`-n 3` はそれぞれ pass し、`-n 3` は新規 arena traversal test である。`stdlib/alloc/gui/focus/types.nepl` に追加した公開関数 doctest は `-n 2` と `-n 3` が pass。
+- 最終検証: `trunk build --release`、`node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp/gui-core-after-new-dist.json -j 1 --dist web/dist --assert-io` 6/6、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-focus-arena.json` 13/13、`node nodesrc/test_stdlib_gui_layering_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 だが、現 branch 既存の documentation / static-check / resource-checker / resource-gate / diagnostic registry warning が残る。`node nodesrc/test_stdlib_documentation_contract.js` の module doctest gap は 306 > 305 で、`origin/agent2/gui-library` と同数の既存状態である。
+
 # 2026-06-01 GUI examples checkpoint
 
 - `plan.md` は変更していない。GUI/TUI substrate の現状に合わせ、実 window backend ではなく headless に application update と render command stream を確認する examples を追加した。

@@ -241,3 +241,157 @@ pub fn focus_next_in_tree %fn &ViewTree fn Option WidgetId Option WidgetId \tree
 pub fn focus_previous_in_tree %fn &ViewTree fn Option WidgetId Option WidgetId \tree\current:
     let order %FocusOrder focus_order_from_view_tree tree
     focus_order_previous &order current
+
+//: focus_arena_candidate_id_at: arena index の node が focus target なら id を[返/かえ]す
+fn focus_arena_candidate_id_at %fn &ViewTreeArena fn i32 Option WidgetId \tree\index:
+    match view_tree_arena_get_node tree index:
+        Option::Some node:
+            let descriptor %WidgetDescriptor view_tree_arena_node_descriptor &node
+            focus_candidate_id &descriptor
+        Option::None:
+            none
+
+//: focus_arena_next_after_loop: arena order で current の[次/つぎ]を[探/さが]す
+fn focus_arena_next_after_loop %fn &ViewTreeArena fn i32 fn i32 fn WidgetId fn bool Option WidgetId \tree\count\index\current\seen_current:
+    if ge index count:
+        then none
+        else:
+            match focus_arena_candidate_id_at tree index:
+                Option::Some id:
+                    if seen_current:
+                        then some id
+                        else:
+                            let next_index %i32 add index 1
+                            let next_seen %bool focus_widget_id_eq id current
+                            focus_arena_next_after_loop tree count next_index current next_seen
+                Option::None:
+                    let next_index %i32 add index 1
+                    focus_arena_next_after_loop tree count next_index current seen_current
+
+//: focus_arena_previous_before_loop: arena order で current の[前/まえ]を[探/さが]す
+fn focus_arena_previous_before_loop %fn &ViewTreeArena fn i32 fn i32 fn WidgetId fn Option WidgetId Option WidgetId \tree\count\index\current\previous:
+    if ge index count:
+        then none
+        else:
+            match focus_arena_candidate_id_at tree index:
+                Option::Some id:
+                    if focus_widget_id_eq id current:
+                        then previous
+                        else:
+                            let next_index %i32 add index 1
+                            let next_previous %Option WidgetId some id
+                            focus_arena_previous_before_loop tree count next_index current next_previous
+                Option::None:
+                    let next_index %i32 add index 1
+                    focus_arena_previous_before_loop tree count next_index current previous
+
+//: focus_arena_last_loop: arena order の[最後/さいご]の focus target を[探/さが]す
+fn focus_arena_last_loop %fn &ViewTreeArena fn i32 fn i32 fn Option WidgetId Option WidgetId \tree\count\index\last:
+    if ge index count:
+        then last
+        else:
+            match focus_arena_candidate_id_at tree index:
+                Option::Some id:
+                    let next_index %i32 add index 1
+                    let next_last %Option WidgetId some id
+                    focus_arena_last_loop tree count next_index next_last
+                Option::None:
+                    let next_index %i32 add index 1
+                    focus_arena_last_loop tree count next_index last
+
+//: focus_next_in_arena: allocator-backed ViewTree と current id から[次/つぎ]の focus target を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - bounded `ViewTree` ではなく `ViewTreeArena` の insertion order を focus traversal に接続します。
+//: - `current` が `none` なら[最初/さいしょ]の focus target を[返/かえ]します。
+//: - `current` が tree に[存在/そんざい]しないか、最後の focus target なら `none` を[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - `WidgetId` は arena index ではありません。current の比較は raw `WidgetId` で行い、node storage index とは分けます。
+//: - 現在の実装は arena を先頭から一回走査するため、時間計算量は node 数に対して O n です。
+//:
+//: neplg2:test
+//: ret: 7
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/app" as *
+//:| #import "alloc/gui/focus" as *
+//:| #import "alloc/gui/tree" as *
+//:| #import "alloc/gui/widget" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root_id %WidgetId widget_id 1
+//:     let root_hint %LayoutHint layout_hint_fixed 8 1
+//:     let root %WidgetDescriptor widget_label root_id "root" root_hint
+//:     let child_id %WidgetId widget_id 7
+//:     let child_action %ActionId action_id 2
+//:     let child_config %ButtonConfig button_config child_id "Run" child_action
+//:     let child_hint %LayoutHint layout_hint_fixed 6 1
+//:     let child %WidgetDescriptor widget_button child_config child_hint
+//:     let arena0 %ViewTreeArena unwrap_ok view_tree_arena_single root
+//:     let arena1 %ViewTreeArena unwrap_ok view_tree_arena_add_child arena0 0 child
+//:     let result %i32 match focus_next_in_arena &arena1 none:
+//:         Option::Some id:
+//:             widget_id_value id
+//:         Option::None:
+//:             0
+//:     view_tree_arena_free arena1
+//:     result
+//: ```
+pub fn focus_next_in_arena %fn &ViewTreeArena fn Option WidgetId Option WidgetId \tree\current:
+    let count %i32 view_tree_arena_len tree
+    match current:
+        Option::Some id:
+            focus_arena_next_after_loop tree count 0 id false
+        Option::None:
+            view_tree_arena_first_focusable_id tree
+
+//: focus_previous_in_arena: allocator-backed ViewTree と current id から[前/まえ]の focus target を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - no_alloc focus API と同じ `Option WidgetId` contract を allocator-backed tree にも[提供/ていきょう]します。
+//: - `current` が `none` なら[最後/さいご]の focus target を[返/かえ]します。
+//: - `current` が tree に[存在/そんざい]しないか、最初の focus target なら `none` を[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - 現在の実装は arena を先頭から一回走査するため、時間計算量は node 数に対して O n です。
+//:
+//: neplg2:test
+//: ret: 7
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/app" as *
+//:| #import "alloc/gui/focus" as *
+//:| #import "alloc/gui/tree" as *
+//:| #import "alloc/gui/widget" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root_id %WidgetId widget_id 1
+//:     let root_hint %LayoutHint layout_hint_fixed 8 1
+//:     let root %WidgetDescriptor widget_label root_id "root" root_hint
+//:     let child_id %WidgetId widget_id 7
+//:     let child_action %ActionId action_id 2
+//:     let child_config %ButtonConfig button_config child_id "Run" child_action
+//:     let child_hint %LayoutHint layout_hint_fixed 6 1
+//:     let child %WidgetDescriptor widget_button child_config child_hint
+//:     let arena0 %ViewTreeArena unwrap_ok view_tree_arena_single root
+//:     let arena1 %ViewTreeArena unwrap_ok view_tree_arena_add_child arena0 0 child
+//:     let result %i32 match focus_previous_in_arena &arena1 none:
+//:         Option::Some id:
+//:             widget_id_value id
+//:         Option::None:
+//:             0
+//:     view_tree_arena_free arena1
+//:     result
+//: ```
+pub fn focus_previous_in_arena %fn &ViewTreeArena fn Option WidgetId Option WidgetId \tree\current:
+    let count %i32 view_tree_arena_len tree
+    match current:
+        Option::Some id:
+            focus_arena_previous_before_loop tree count 0 id none
+        Option::None:
+            focus_arena_last_loop tree count 0 none
