@@ -35,6 +35,31 @@ fn non_copy_owned_type(types: &mut TypeCtx) -> TypeId {
 }
 
 #[test]
+fn availability_state_prefers_non_initialized_ancestor_over_exact_initialized_field() {
+    let mut types = TypeCtx::new();
+    types.set_copy_trait_enabled(true);
+    types.register_copy_impl_target(types.i32());
+    let i32_ty = types.i32();
+    let aggregate = Place::local(String::from("aggregate"), i32_ty);
+    let field = aggregate.clone().with_projection(
+        PlaceProjection::Field {
+            index: 0,
+            offset_bytes: 0,
+        },
+        i32_ty,
+    );
+    let mut cells = CellTable::default();
+
+    cells.mark_initialized(&field);
+    cells.set_state(&aggregate, CellState::Moved);
+
+    assert_eq!(
+        cells.availability_state_with_types(&types, &field),
+        CellState::Moved
+    );
+}
+
+#[test]
 fn copy_store_preserves_unknown_offset_initialized_copy_fact() {
     let mut types = TypeCtx::new();
     types.set_copy_trait_enabled(true);
