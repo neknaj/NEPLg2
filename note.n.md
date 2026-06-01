@@ -1,3 +1,16 @@
+# 2026-06-02 .neplobj direct-call leaf fragment producer checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、cache による探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で同期済みで、branch `perf/neplobj-fragment-producer-20260602` はその `main` から作成した。
+- subagent review で、`.neplobj` producer は direct call の leaf function に限定し、`FnValue`、`MemoizedFunctionValue`、`CallIndirect`、`memo_call` / PrivateCache proof を代替してはならないことを再確認した。
+- `NeplObjDirectCallFragmentExportRequest` を追加し、full/source compile が materialized public surface と loader edge probe から「fragment を作ってよい候補」を core へ渡せるようにした。
+- wasm backend に `export_neplobj_direct_call_fragments_for_wasm` を追加した。現段階では call relocation を持たない leaf function だけを export し、direct call、indirect call、function value、memoized function value、string literal、private-cache intrinsic、generic function、raw wasm/LLVM body は fail-closed に省略する。
+- `.neplobj` key の `selected_callable_body_hash` は HIR から直接作らず、`resource_function_body_stable_hash` を使う。producer は request がある場合だけ final codegen HIR を Resource IR へ lowering し、`TypeId` / `Span` / temporary id を key authority にしない。
+- Web `CompilerSession` の source fallback / full compile 成功時に、生成された direct-call fragment を same-session object store へ保存するようにした。stdlib overlay compile では loader / Resource summary cache と同じく保存しない。
+- materialized compile attempt 側は従来どおり store lookup で完全 key が一致した fragment だけを `PublicInterfaceArtifactInputs` へ渡す。compiled-output cache hit を新規 producer 成功として数えない。
+- この checkpoint は persistent `.neplobj` codec、direct-call relocation producer、generic instantiation fragment、string/data relocation、function value / memoized value backend、PrivateCache mask proof accepted path ではない。これらは引き続き issue の残件として fail-closed に残す。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web/Cargo.toml`、`cargo test -p nepl-core neplobj --lib -- --nocapture`、`cargo test -p nepl-core materialized_body_missing --lib -- --nocapture`、`cargo test -p nepl-core function_memo_call --test functions -- --nocapture`、`cargo test -p nepl-core private_cache --lib -- --nocapture`、`cargo test -p nepl-core private_effect --lib -- --nocapture`、`trunk build --release`、`node tests/compiler/tree/20_compiler_session_outputs_cache.js`、`node tests/compiler/tree/run.js`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_run_test_compiler_session_stats_delta.js`、`node nodesrc/test_compare_git_versions_summary.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-neplobj-producer-20260602.json`、`node nodesrc/issues.js index --dir issues`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-02 .neplobj same-session direct-call fragment store checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋性、cache による探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。

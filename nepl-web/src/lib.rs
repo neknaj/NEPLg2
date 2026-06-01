@@ -21,8 +21,8 @@ use nepl_core::artifact::{
     nepl_meta_artifact_pre_typecheck_envelope_for_module_surface,
     nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity,
     NeplMetaArtifact, NeplMetaArtifactStore, NeplMetaModuleSurface,
-    NeplObjDirectCallFragmentArtifact, NeplObjDirectCallFragmentLookupProbe,
-    NeplObjDirectCallFragmentStore,
+    NeplObjDirectCallFragmentArtifact, NeplObjDirectCallFragmentExportRequest,
+    NeplObjDirectCallFragmentLookupProbe, NeplObjDirectCallFragmentStore,
 };
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{
@@ -33,7 +33,7 @@ use nepl_core::resource::{ResourceSummaryProofArtifact, ResourceSummaryValueCach
 use nepl_core::resolve::DefId;
 use nepl_core::source_cache_key::compiled_source_cache_key_part;
 use nepl_core::span::{FileId, Span};
-use nepl_core::typecheck::{typecheck, MaterializedPublicSurfaceInput};
+use nepl_core::typecheck::{typecheck, MaterializedPublicSurfaceInput, PublicSurfaceShape};
 use nepl_core::{
     BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileTarget,
     ResourceSummaryProofArtifactCacheOptions,
@@ -3419,6 +3419,41 @@ fn populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
     }
 }
 
+fn neplobj_direct_call_export_requests_for_materialized_surfaces(
+    probes: &[NeplMetaDependencyEdgePreTypecheckProbe],
+    materialized_public_surfaces: &[MaterializedPublicSurfaceInput],
+) -> Vec<NeplObjDirectCallFragmentExportRequest> {
+    let mut requests = Vec::new();
+    for surface in materialized_public_surfaces {
+        let Some(probe) = probes
+            .iter()
+            .find(|probe| probe.target_module_path == surface.module_path)
+        else {
+            continue;
+        };
+        let Some(source_capability_policy_hash) =
+            probe.target_source_capability_policy_set_hash
+        else {
+            continue;
+        };
+        for entry in &surface.table.entries {
+            let PublicSurfaceShape::Callable(callable) = &entry.surface else {
+                continue;
+            };
+            let Some(link_symbol) = callable.link_symbol.as_ref() else {
+                continue;
+            };
+            requests.push(NeplObjDirectCallFragmentExportRequest {
+                link_symbol: link_symbol.clone(),
+                target_source_key_hash: probe.target_source_key_hash,
+                dependency_public_surface_hash: probe.dependency_public_surface_hash,
+                source_capability_policy_hash,
+            });
+        }
+    }
+    requests
+}
+
 fn compile_loaded_module_with_public_interface_artifacts(
     module: nepl_core::ast::Module,
     source_map: &SourceMap,
@@ -3428,16 +3463,19 @@ fn compile_loaded_module_with_public_interface_artifacts(
     module_surface: Option<&NeplMetaModuleSurface>,
     materialized_public_surfaces: &[MaterializedPublicSurfaceInput],
     neplobj_direct_call_fragments: &[NeplObjDirectCallFragmentArtifact],
+    neplobj_direct_call_export_requests: &[NeplObjDirectCallFragmentExportRequest],
     resource_summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
     stage_timings: Option<&mut CompileStageTimings>,
 ) -> Result<CompilationArtifact, CoreError> {
-    let public_interface_artifacts = PublicInterfaceArtifactInputs::with_neplobj_direct_call_fragments(
-        dependency_public_surface_hash,
-        module_surface,
-        materialized_public_surfaces,
-        neplobj_direct_call_fragments,
-    );
+    let public_interface_artifacts =
+        PublicInterfaceArtifactInputs::with_neplobj_direct_call_fragments_and_export_requests(
+            dependency_public_surface_hash,
+            module_surface,
+            materialized_public_surfaces,
+            neplobj_direct_call_fragments,
+            neplobj_direct_call_export_requests,
+        );
     if let Some(stage_timings) = stage_timings {
         compile_module_with_source_map_artifact_options_public_interface_artifacts_resource_summary_value_cache_neplproof_and_stage_timings(
             module,
@@ -3889,6 +3927,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
         module_surface.as_ref(),
         &loaded_materialized_public_surfaces,
         &neplobj_direct_call_fragments,
+        &[],
         resource_summary_value_cache.as_deref_mut(),
         resource_summary_proof_options,
         stage_timings.as_deref_mut(),
@@ -3937,6 +3976,11 @@ fn compile_wasm_with_bundled_sources_and_cache(
             let fallback_module_surface = fallback_loaded.module_surface.clone();
             let fallback_source_map = fallback_loaded.source_map;
             let fallback_nepl_meta_edge_probes = fallback_loaded.nepl_meta_edge_probes;
+            let fallback_neplobj_direct_call_export_requests =
+                neplobj_direct_call_export_requests_for_materialized_surfaces(
+                    &loaded_nepl_meta_edge_probes,
+                    &loaded_materialized_public_surfaces,
+                );
             let fallback_artifact = compile_loaded_module_with_public_interface_artifacts(
                 fallback_loaded.module,
                 &fallback_source_map,
@@ -3946,6 +3990,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 fallback_module_surface.as_ref(),
                 &[],
                 &[],
+                &fallback_neplobj_direct_call_export_requests,
                 resource_summary_value_cache.as_deref_mut(),
                 resource_summary_proof_options,
                 stage_timings.as_deref_mut(),
@@ -3998,6 +4043,14 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 loader_cache.as_deref_mut(),
                 &nepl_meta_edge_probes,
             );
+        }
+    }
+    let neplobj_direct_call_fragments = artifact.neplobj_direct_call_fragments.clone();
+    if !overlay_overrides_stdlib {
+        if let Some(store) = nepl_obj_direct_call_fragment_store.as_deref_mut() {
+            for fragment in &neplobj_direct_call_fragments {
+                let _ = store.store(fragment.clone());
+            }
         }
     }
     Ok(CompiledWasm {

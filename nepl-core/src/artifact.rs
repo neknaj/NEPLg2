@@ -293,6 +293,20 @@ pub struct NeplObjDirectCallKey {
     pub stable_hash: u64,
 }
 
+/// full/source compile 成功時に direct-call `.neplobj` fragment の作成を依頼する入力。
+///
+/// producer はこの request を「最適化の依頼」として扱い、現在の HIR / backend から安全に
+/// relocatable body を作れない場合は fragment を返さない。`target_source_key_hash` と
+/// `source_capability_policy_hash` は loader edge probe が計算した source identity であり、
+/// core は function の `SourceMap` path と link symbol を照合したうえで key に写す。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NeplObjDirectCallFragmentExportRequest {
+    pub link_symbol: PublicCallableLinkSymbol,
+    pub target_source_key_hash: u64,
+    pub dependency_public_surface_hash: u64,
+    pub source_capability_policy_hash: u64,
+}
+
 /// direct call 用 `.neplobj` の backend payload。
 ///
 /// key は「どの body fragment か」を判定する metadata であり、backend が実際に呼べる

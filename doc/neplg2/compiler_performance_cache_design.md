@@ -2747,6 +2747,34 @@ edge probe を突き合わせ、store から一致する direct-call fragment �
 source fallback / full compile 後に checked HIR / Resource IR body hash / wasm lowering から
 `NeplObjDirectCallFragmentArtifact` を生成し、store へ保存することである。
 
+## 2026-06-02 direct-call `.neplobj` leaf fragment producer checkpoint
+
+full/source compile 成功時に direct-call `.neplobj` fragment を生成する最初の producer を追加した。
+producer 入力は `NeplObjDirectCallFragmentExportRequest` であり、Web `CompilerSession` は
+materialized public surface と loader edge probe から link symbol、target source key、
+dependency public surface hash、source capability policy hash を渡す。
+
+producer は request が空でない場合だけ動く。通常の base compile や `.neplmeta` materialized compile
+attempt では追加の Resource IR lowering を行わない。request がある fallback/full compile では、final
+codegen HIR を Resource IR へ lowering し、`resource_function_body_stable_hash` から
+`selected_callable_body_hash` を作る。HIR そのもの、`TypeId`、`Span`、temporary id、`FileId` は
+`.neplobj` key authority にしない。
+
+現 checkpoint の export 対象は call relocation を持たない leaf function に限定する。direct call、
+indirect call、function value、memoized function value、string literal、private-cache intrinsic、
+generic function、raw wasm/LLVM body は fragment を返さず通常 source fallback と同じ扱いにする。
+これは performance のために high-order function identity や PrivateCache proof を direct-call artifact で
+代替しないための fail-closed 境界である。
+
+Web `CompilerSession` は source fallback / full compile で生成された fragment を same-session
+`NeplObjDirectCallFragmentStore` へ保存する。stdlib overlay compile では保存しない。次回 compile では
+既存 store lookup が完全 key に一致した fragment だけを `PublicInterfaceArtifactInputs` へ渡すため、
+body-missing skip cache と object availability が同じ edge context で衝突しない。
+
+残件は、direct-call relocation を backend lowering plan から作る producer、generic instantiation hash、
+string/data relocation、raw wasm/LLVM body の relocatable representation、persistent `.neplobj` codec、
+そして function value / memoized value / `memo_call` PrivateCache proof の別 backend である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

@@ -19,6 +19,7 @@ use wasm_encoder::{
 };
 
 use crate::backend_scalar_type::BackendScalarType;
+use crate::compiler::{BuildProfile, CompileTarget};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::DiagnosticCode;
 use crate::hir::*;
@@ -30,6 +31,7 @@ use crate::layout::{
 use crate::resource_primitives::{CollectionSlotBorrowPrimitive, CollectionSlotLifecyclePrimitive};
 use crate::runtime_helpers::{self, RuntimeHelperKind};
 use crate::scalar_primitives::I32ArithmeticPrimitive;
+use crate::source_map::SourceMap;
 use crate::span::Span;
 use crate::typecheck::materialized_callable_symbol_for_link_symbol;
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -112,6 +114,208 @@ fn codegen_error(message: impl Into<String>, span: Span, code: DiagnosticCode) -
 
 pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult, Vec<Diagnostic>> {
     generate_wasm_with_neplobj_direct_call_fragments(ctx, module, &[])
+}
+
+/// full/source compile で確認済みの HIR から direct-call `.neplobj` fragment を作る。
+///
+/// MVP producer は「call relocation を持たない leaf function」だけを export する。direct call、
+/// indirect call、function value、`memo_call`、string literal、raw wasm/LLVM body は、追加の
+/// relocation / table / data / private-cache proof が必要なためここでは省略する。省略は cache
+/// miss と同じ扱いであり、compile 成功や診断を変えない。
+pub fn export_neplobj_direct_call_fragments_for_wasm(
+    ctx: &TypeCtx,
+    module: &HirModule,
+    source_map: &SourceMap,
+    target: CompileTarget,
+    profile: BuildProfile,
+    stdlib_content_hash: Option<u64>,
+    requests: &[crate::artifact::NeplObjDirectCallFragmentExportRequest],
+) -> Vec<crate::artifact::NeplObjDirectCallFragmentArtifact> {
+    if requests.is_empty() {
+        return Vec::new();
+    }
+    let resource = crate::resource::lower_hir_module(module, ctx);
+    let resource_functions = resource
+        .functions
+        .iter()
+        .map(|function| (function.name.as_str(), function))
+        .collect::<BTreeMap<_, _>>();
+    let strings = lower_strings(&module.string_literals);
+    let name_map = BTreeMap::new();
+    let sig_map = BTreeMap::new();
+    let mut fragments = Vec::new();
+    for request in requests {
+        let Some(function) =
+            find_unique_neplobj_export_function(module, source_map, &request.link_symbol)
+        else {
+            continue;
+        };
+        if !neplobj_wasm_can_export_leaf_function(function) {
+            continue;
+        }
+        if crate::wasm_shared::should_skip_wasm_codegen_for_generic(ctx, function) {
+            continue;
+        }
+        let TypeKind::Function { type_params, .. } = ctx.get(function.func_ty) else {
+            continue;
+        };
+        if !type_params.is_empty() {
+            continue;
+        }
+        let Some((params, results)) = wasm_sig(ctx, function.result, &function.params) else {
+            continue;
+        };
+        let Some(params) = neplobj_wasm_val_types_from_encoder(&params) else {
+            continue;
+        };
+        let Some(results) = neplobj_wasm_val_types_from_encoder(&results) else {
+            continue;
+        };
+        let Some(resource_function) = resource_functions.get(function.name.as_str()) else {
+            continue;
+        };
+        let Some(selected_callable_body_hash) = crate::resource::resource_function_body_stable_hash(
+            ctx,
+            resource_function,
+        ) else {
+            continue;
+        };
+        let Ok(body) = lower_user(ctx, function, &name_map, &sig_map, &strings) else {
+            continue;
+        };
+        let Ok(wasm_fragment) = crate::artifact::NeplObjWasmDirectCallFragment::new(
+            params,
+            results,
+            body.into_raw_body(),
+            Vec::new(),
+        ) else {
+            continue;
+        };
+        let key = crate::artifact::NeplObjDirectCallKey::new(
+            target,
+            profile,
+            stdlib_content_hash,
+            request.link_symbol.clone(),
+            request.target_source_key_hash,
+            selected_callable_body_hash,
+            crate::artifact::nepl_obj_empty_generic_instantiation_hash(),
+            request.dependency_public_surface_hash,
+            request.source_capability_policy_hash,
+        );
+        fragments.push(crate::artifact::NeplObjDirectCallFragmentArtifact::new(
+            key,
+            crate::artifact::NeplObjDirectCallBackendFragment::Wasm(wasm_fragment),
+        ));
+    }
+    fragments.sort_by_key(|fragment| fragment.stable_hash());
+    fragments.dedup_by_key(|fragment| fragment.stable_hash());
+    fragments
+}
+
+fn find_unique_neplobj_export_function<'a>(
+    module: &'a HirModule,
+    source_map: &SourceMap,
+    link_symbol: &crate::typecheck::PublicCallableLinkSymbol,
+) -> Option<&'a HirFunction> {
+    let mut found = None;
+    for function in &module.functions {
+        if function.origin_name != link_symbol.name {
+            continue;
+        }
+        let Some(path) = source_map.path(function.span.file_id) else {
+            continue;
+        };
+        if path.as_str() != link_symbol.source_path {
+            continue;
+        }
+        if found.is_some() {
+            return None;
+        }
+        found = Some(function);
+    }
+    found
+}
+
+fn neplobj_wasm_val_types_from_encoder(values: &[ValType]) -> Option<Vec<crate::artifact::NeplObjWasmValType>> {
+    values
+        .iter()
+        .map(|value| match value {
+            ValType::I32 => Some(crate::artifact::NeplObjWasmValType::I32),
+            ValType::I64 => Some(crate::artifact::NeplObjWasmValType::I64),
+            ValType::F32 => Some(crate::artifact::NeplObjWasmValType::F32),
+            ValType::F64 => Some(crate::artifact::NeplObjWasmValType::F64),
+            _ => None,
+        })
+        .collect()
+}
+
+fn neplobj_wasm_can_export_leaf_function(function: &HirFunction) -> bool {
+    let HirBody::Block(block) = &function.body else {
+        return false;
+    };
+    neplobj_wasm_can_export_leaf_block(block)
+}
+
+fn neplobj_wasm_can_export_leaf_block(block: &HirBlock) -> bool {
+    block
+        .lines
+        .iter()
+        .all(|line| neplobj_wasm_can_export_leaf_expr(&line.expr))
+}
+
+fn neplobj_wasm_can_export_leaf_expr(expr: &HirExpr) -> bool {
+    match &expr.kind {
+        HirExprKind::LiteralI32(_)
+        | HirExprKind::LiteralF32(_)
+        | HirExprKind::LiteralBool(_)
+        | HirExprKind::Unit
+        | HirExprKind::Var(_)
+        | HirExprKind::Drop { .. } => true,
+        HirExprKind::LiteralStr(_)
+        | HirExprKind::FnValue(_)
+        | HirExprKind::MemoizedFunctionValue(_)
+        | HirExprKind::Call { .. }
+        | HirExprKind::CallIndirect { .. } => false,
+        HirExprKind::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
+            neplobj_wasm_can_export_leaf_expr(cond)
+                && neplobj_wasm_can_export_leaf_expr(then_branch)
+                && neplobj_wasm_can_export_leaf_expr(else_branch)
+        }
+        HirExprKind::While { cond, body } => {
+            neplobj_wasm_can_export_leaf_expr(cond) && neplobj_wasm_can_export_leaf_expr(body)
+        }
+        HirExprKind::Match { scrutinee, arms } => {
+            neplobj_wasm_can_export_leaf_expr(scrutinee)
+                && arms
+                    .iter()
+                    .all(|arm| neplobj_wasm_can_export_leaf_expr(&arm.body))
+        }
+        HirExprKind::EnumConstruct { payload, .. } => payload
+            .as_deref()
+            .map(neplobj_wasm_can_export_leaf_expr)
+            .unwrap_or(true),
+        HirExprKind::StructConstruct { fields, .. } => fields
+            .iter()
+            .all(neplobj_wasm_can_export_leaf_expr),
+        HirExprKind::TupleConstruct { items } => items
+            .iter()
+            .all(neplobj_wasm_can_export_leaf_expr),
+        HirExprKind::Block(block) => neplobj_wasm_can_export_leaf_block(block),
+        HirExprKind::Let { value, .. }
+        | HirExprKind::Set { value, .. }
+        | HirExprKind::AddrOf(value)
+        | HirExprKind::Deref(value) => neplobj_wasm_can_export_leaf_expr(value),
+        HirExprKind::Intrinsic { name, args, .. } => {
+            if crate::effects::private_cache_op_from_name(name).is_some() {
+                return false;
+            }
+            args.iter().all(neplobj_wasm_can_export_leaf_expr)
+        }
+    }
 }
 
 /// `.neplobj` direct-call fragment を同じ wasm module の function body として組み込む codegen API。
@@ -2850,25 +3054,30 @@ fn parse_wasm_line(line: &str, locals: &LocalMap) -> Result<Vec<Instruction<'sta
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
     use alloc::format;
     use alloc::string::String;
     use alloc::vec::Vec;
 
     use super::{
+        export_neplobj_direct_call_fragments_for_wasm,
         generate_wasm_with_neplobj_direct_call_fragments,
         plan_neplobj_direct_call_fragments_for_wasm, NeplObjWasmDirectCallLinkPlanReject,
     };
     use crate::artifact::{
         nepl_obj_empty_generic_instantiation_hash, NeplObjDirectCallBackendFragment,
-        NeplObjDirectCallFragmentArtifact, NeplObjDirectCallKey, NeplObjWasmDirectCallFragment,
-        NeplObjWasmDirectCallRelocation, NeplObjWasmValType,
+        NeplObjDirectCallFragmentArtifact, NeplObjDirectCallFragmentExportRequest,
+        NeplObjDirectCallKey, NeplObjWasmDirectCallFragment, NeplObjWasmDirectCallRelocation,
+        NeplObjWasmValType,
     };
     use crate::ast::Effect;
     use crate::compiler::{BuildProfile, CompileTarget};
+    use crate::function_identity::FunctionValueIdentity;
     use crate::hir::{
         FuncRef, HirBlock, HirBody, HirExtern, HirExpr, HirExprKind, HirFunction, HirLine,
         HirModule, HirParam,
     };
+    use crate::source_map::SourceMap;
     use crate::span::Span;
     use crate::typecheck::{materialized_callable_symbol_for_link_symbol, PublicCallableLinkSymbol};
     use crate::types::{TypeCtx, TypeId};
@@ -2893,6 +3102,17 @@ mod tests {
             0x40,
             0x50,
         )
+    }
+
+    fn direct_call_export_request(
+        symbol: PublicCallableLinkSymbol,
+    ) -> NeplObjDirectCallFragmentExportRequest {
+        NeplObjDirectCallFragmentExportRequest {
+            link_symbol: symbol,
+            target_source_key_hash: 0x20,
+            dependency_public_surface_hash: 0x40,
+            source_capability_policy_hash: 0x50,
+        }
     }
 
     fn direct_call_fragment(
@@ -2925,6 +3145,54 @@ mod tests {
                 )
                 .expect("test fixture uses a valid wasm direct-call fragment"),
             ),
+        )
+    }
+
+    fn source_map_for_math_module() -> (SourceMap, crate::span::FileId) {
+        let mut source_map = SourceMap::new();
+        let file = source_map.add("/stdlib/core/math.nepl", String::new());
+        (source_map, file)
+    }
+
+    fn dep_i32_module_with_expr(
+        types: &mut TypeCtx,
+        name: &str,
+        span: Span,
+        expr_kind: HirExprKind,
+    ) -> (HirModule, TypeId) {
+        let i32_ty = types.i32();
+        let fn_ty = types.function(Vec::new(), Vec::new(), i32_ty, Effect::Pure);
+        (
+            HirModule {
+                functions: Vec::from([HirFunction {
+                    doc: None,
+                    name: String::from(name),
+                    origin_name: String::from(name),
+                    func_ty: fn_ty,
+                    params: Vec::new(),
+                    result: i32_ty,
+                    effect: Effect::Pure,
+                    body: HirBody::Block(HirBlock {
+                        lines: Vec::from([HirLine {
+                            expr: HirExpr {
+                                ty: i32_ty,
+                                kind: expr_kind,
+                                span,
+                            },
+                            drop_result: false,
+                        }]),
+                        ty: i32_ty,
+                        span,
+                    }),
+                    span,
+                }]),
+                entry: None,
+                externs: Vec::new(),
+                string_literals: Vec::new(),
+                traits: Vec::new(),
+                impls: Vec::new(),
+            },
+            i32_ty,
         )
     }
 
@@ -3052,6 +3320,125 @@ mod tests {
             .expect("main export should have unit -> i32 signature");
         main.call(&mut store, ())
             .expect("main call should execute successfully")
+    }
+
+    /// source fallback で完全な HIR と Resource IR を通った leaf function だけを
+    /// direct-call `.neplobj` fragment として export する。key の selected body hash は
+    /// Resource IR authority から作り、backend body は relocatable call を持たない形に限定する。
+    #[test]
+    fn neplobj_wasm_export_produces_leaf_direct_call_fragment() {
+        let mut types = TypeCtx::new();
+        let (source_map, file) = source_map_for_math_module();
+        let span = Span::new(file, 0, 0);
+        let (module, _) =
+            dep_i32_module_with_expr(&mut types, "dep_value", span, HirExprKind::LiteralI32(7));
+        let symbol = link_symbol("dep_value", 0x21);
+        let request = direct_call_export_request(symbol.clone());
+
+        let fragments = export_neplobj_direct_call_fragments_for_wasm(
+            &types,
+            &module,
+            &source_map,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(0x5a),
+            &[request],
+        );
+
+        assert_eq!(fragments.len(), 1);
+        assert_eq!(fragments[0].key().link_symbol, symbol);
+        assert_eq!(fragments[0].key().target_source_key_hash, 0x20);
+        assert_eq!(fragments[0].key().dependency_public_surface_hash, 0x40);
+        assert_eq!(fragments[0].key().source_capability_policy_hash, 0x50);
+        let NeplObjDirectCallBackendFragment::Wasm(wasm_fragment) = fragments[0].backend();
+        assert!(wasm_fragment.params().is_empty());
+        assert_eq!(wasm_fragment.results(), &[NeplObjWasmValType::I32]);
+        assert!(wasm_fragment.direct_call_relocations().is_empty());
+        assert!(
+            !wasm_fragment.function_body_bytes().is_empty(),
+            "producer must return the wasm function body bytes generated from the checked HIR"
+        );
+    }
+
+    /// producer は source path と origin 名が一意に一致する function だけを export する。
+    /// 依頼された link symbol と異なる source file から body を借りると、別 module の
+    /// dependency surface や capability policy を誤って key に入れるため fail-closed にする。
+    #[test]
+    fn neplobj_wasm_export_rejects_wrong_source_path() {
+        let mut types = TypeCtx::new();
+        let (source_map, file) = source_map_for_math_module();
+        let span = Span::new(file, 0, 0);
+        let (module, _) =
+            dep_i32_module_with_expr(&mut types, "dep_value", span, HirExprKind::LiteralI32(7));
+        let mut symbol = link_symbol("dep_value", 0x21);
+        symbol.source_path = String::from("/stdlib/core/other.nepl");
+
+        let fragments = export_neplobj_direct_call_fragments_for_wasm(
+            &types,
+            &module,
+            &source_map,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(0x5a),
+            &[direct_call_export_request(symbol)],
+        );
+
+        assert!(fragments.is_empty());
+    }
+
+    /// `memo_call` と function value / indirect call は direct-call body fragment ではない。
+    /// これらは function identity や private-cache proof を別に持つ必要があるため、同じ
+    /// callable 名から作られた HIR でも direct-call producer は export しない。
+    #[test]
+    fn neplobj_wasm_export_rejects_non_direct_call_leaf_boundaries() {
+        let mut types = TypeCtx::new();
+        let (source_map, file) = source_map_for_math_module();
+        let span = Span::new(file, 0, 0);
+        let i32_ty = types.i32();
+        let fn_ty = types.function(Vec::new(), Vec::new(), i32_ty, Effect::Pure);
+        let identity =
+            FunctionValueIdentity::new(String::from("dep_value"), None, fn_ty, Effect::Pure, Vec::new());
+        let cases = Vec::from([
+            HirExprKind::FnValue(identity.clone()),
+            HirExprKind::MemoizedFunctionValue(identity.clone()),
+            HirExprKind::CallIndirect {
+                callee: Box::new(HirExpr {
+                    ty: fn_ty,
+                    kind: HirExprKind::FnValue(identity),
+                    span,
+                }),
+                params: Vec::new(),
+                result: i32_ty,
+                effect: Effect::Pure,
+                args: Vec::new(),
+            },
+            HirExprKind::Call {
+                callee: FuncRef::User(String::from("other"), Vec::new(), None),
+                args: Vec::new(),
+            },
+            HirExprKind::LiteralStr(0),
+            HirExprKind::Intrinsic {
+                name: String::from("private_cache_lookup"),
+                type_args: Vec::new(),
+                args: Vec::new(),
+            },
+        ]);
+        for expr_kind in cases {
+            let (module, _) = dep_i32_module_with_expr(&mut types, "dep_value", span, expr_kind);
+            let fragments = export_neplobj_direct_call_fragments_for_wasm(
+                &types,
+                &module,
+                &source_map,
+                CompileTarget::Wasm,
+                BuildProfile::Debug,
+                Some(0x5a),
+                &[direct_call_export_request(link_symbol("dep_value", 0x21))],
+            );
+            assert!(
+                fragments.is_empty(),
+                "direct-call producer must not export function-value, memo, indirect, call, string, or private-cache bodies"
+            );
+        }
     }
 
     /// fragment payload が wasm function index 空間へ登録できる場合だけ token を作る。

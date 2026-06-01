@@ -574,3 +574,25 @@ source fallback / full compile 後に `resource_function_body_stable_hash` と w
 `NeplObjDirectCallFragmentArtifact` を生成して store へ保存する経路は未実装である。`FnValue`、
 `CallIndirect`、`MemoizedFunctionValue`、`memo_call` は direct-call fragment の対象外として
 fail-closed に残す。
+
+## 2026-06-02 direct-call `.neplobj` leaf fragment producer checkpoint
+
+source fallback / full compile 成功時に、checked HIR から direct-call `.neplobj` fragment を生成して
+same-session object store へ保存する最小 producer を追加した。Web `CompilerSession` は
+materialized public surface と loader edge probe から `NeplObjDirectCallFragmentExportRequest` を作り、
+full source fallback compile へ渡す。
+
+producer は call relocation を持たない leaf function に限定する。direct call、indirect call、
+function value、memoized function value、string literal、private-cache intrinsic、generic function、
+raw wasm/LLVM body は fragment を返さない。省略は cache miss と同じ扱いであり、diagnostic や
+compile 成功可否を変えない。
+
+`selected_callable_body_hash` は HIR から作らず、`resource_function_body_stable_hash` を使う。
+request がある場合だけ final codegen HIR を Resource IR へ lowering し、Resource summary value cache
+と同じ body hash authority を `.neplobj` key に使う。これにより `TypeId`、`Span`、temporary id、
+`FileId` を long-lived artifact key に入れない方針を維持する。
+
+この checkpoint でも issue は open のまま維持する。残件は、direct-call relocation producer、
+generic instantiation hash、string/data relocation、raw wasm/LLVM body の relocatable representation、
+persistent `.neplobj` codec、function value / memoized function value backend、`memo_call` PrivateCache
+mask proof accepted path である。
