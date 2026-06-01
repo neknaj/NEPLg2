@@ -1,6 +1,7 @@
 use crate::artifact::{
-    NeplMetaImportClause, NeplMetaImportItem, NeplMetaModuleDependencyEdge,
-    NeplMetaModuleDependencyKind, NeplMetaModuleSurface, NeplMetaVisibility,
+    nepl_meta_source_key_hash_for_source, NeplMetaImportClause, NeplMetaImportItem,
+    NeplMetaModuleDependencyEdge, NeplMetaModuleDependencyKind, NeplMetaModuleSurface,
+    NeplMetaVisibility,
 };
 use crate::ast::{
     remap_module_file_id, Directive, Effect, EnumDef, FnAlias, FnDef, ImplDef, ImportClause,
@@ -65,6 +66,23 @@ pub struct LoadResult {
     pub module: Module,
     pub source_map: SourceMap,
     pub module_surface: Option<NeplMetaModuleSurface>,
+    pub nepl_meta_edge_probes: Vec<NeplMetaDependencyEdgePreTypecheckProbe>,
+}
+
+/// `.neplmeta` import/prelude edge probe に必要な loader-level envelope 入力。
+///
+/// この値は通常 loader が実際に load した dependency edge だけから作る。`#include` は
+/// source merge 境界であり dependency artifact 境界ではないため、この probe には入れない。
+/// target module の body/typecheck 結果は含めず、artifact store 側が pre-typecheck envelope
+/// と import projection を照合できるだけの情報に限定する。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NeplMetaDependencyEdgePreTypecheckProbe {
+    pub target_module_path: String,
+    pub target_module_surface: NeplMetaModuleSurface,
+    pub target_source_key_hash: u64,
+    pub target_source_capability_policy_set_hash: Option<u64>,
+    pub dependency_public_surface_hash: u64,
+    pub import_clause: Option<NeplMetaImportClause>,
 }
 
 /// Cumulative counters for a loader session cache.
@@ -489,6 +507,7 @@ impl Loader {
             module,
             source_map: sm,
             module_surface: Some(module_surface),
+            nepl_meta_edge_probes: Vec::new(),
         })
     }
 
@@ -516,6 +535,7 @@ impl Loader {
             true,
             provider,
             None,
+            None,
         ) {
             Ok(m) => m,
             Err(e) => {
@@ -533,6 +553,7 @@ impl Loader {
             module,
             source_map: sm,
             module_surface: Some(module_surface),
+            nepl_meta_edge_probes: Vec::new(),
         })
     }
 
@@ -542,6 +563,45 @@ impl Loader {
         src: String,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         session_cache: &mut LoaderSessionCache,
+    ) -> Result<LoadResult, LoaderError> {
+        self.load_inline_with_provider_and_cache_maybe_collecting_nepl_meta_edge_probes(
+            path,
+            src,
+            provider,
+            session_cache,
+            false,
+        )
+    }
+
+    /// `.neplmeta` dependency artifact を検査する呼び出し元だけが edge probe を収集する。
+    ///
+    /// 通常の compile path では root source と実際に使われる stdlib module の load だけで
+    /// 十分であり、dependency edge ごとの envelope 入力を作る必要はない。artifact store が
+    /// 空の段階まで probe 材料を作ると base compile の探索範囲を増やしてしまうため、
+    /// 呼び出し元が再投影候補を持つときだけこの入口を使う。
+    pub fn load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
+        &mut self,
+        path: PathBuf,
+        src: String,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: &mut LoaderSessionCache,
+    ) -> Result<LoadResult, LoaderError> {
+        self.load_inline_with_provider_and_cache_maybe_collecting_nepl_meta_edge_probes(
+            path,
+            src,
+            provider,
+            session_cache,
+            true,
+        )
+    }
+
+    fn load_inline_with_provider_and_cache_maybe_collecting_nepl_meta_edge_probes(
+        &mut self,
+        path: PathBuf,
+        src: String,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: &mut LoaderSessionCache,
+        collect_nepl_meta_edge_probes: bool,
     ) -> Result<LoadResult, LoaderError> {
         loader_log!(
             "[Loader] load_inline_with_provider_and_cache: path={:?}",
@@ -554,6 +614,12 @@ impl Loader {
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
         let mut shallow_type_arity_cache = BTreeMap::new();
+        let mut nepl_meta_edge_probes = Vec::new();
+        let nepl_meta_edge_probes_out = if collect_nepl_meta_edge_probes {
+            Some(&mut nepl_meta_edge_probes)
+        } else {
+            None
+        };
         let module = match self.load_from_contents_with(
             path,
             src,
@@ -565,6 +631,7 @@ impl Loader {
             true,
             provider,
             Some(session_cache),
+            nepl_meta_edge_probes_out,
         ) {
             Ok(m) => m,
             Err(e) => {
@@ -585,6 +652,7 @@ impl Loader {
             module,
             source_map: sm,
             module_surface: Some(module_surface),
+            nepl_meta_edge_probes,
         })
     }
 
@@ -635,6 +703,7 @@ impl Loader {
                 false,
                 provider,
                 Some(session_cache),
+                None,
             )?;
             warmed += 1;
         }
@@ -779,6 +848,32 @@ impl Loader {
         Ok(hash)
     }
 
+    /// Compute the public surface hash closure for one resolved dependency module.
+    ///
+    /// This query is the dependency-side counterpart of
+    /// `root_dependency_aggregate_public_surface_hash_for_source_with_cache`.  It is used before
+    /// typechecking when a caller wants to check whether a stored `.neplmeta` artifact for an
+    /// import/prelude target still belongs to the same loader-level dependency context.  Non-stdlib
+    /// paths intentionally become conservative bypass hashes rather than cacheable stdlib
+    /// artifacts.
+    pub fn dependency_aggregate_public_surface_hash_for_path_with_cache(
+        &self,
+        path: PathBuf,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: &mut LoaderSessionCache,
+    ) -> Result<u64, LoaderError> {
+        let canon = canonicalize_path(&path);
+        let mut visiting = BTreeSet::new();
+        let mut computed = BTreeMap::new();
+        self.dependency_aggregate_public_surface_hash_for_path_with(
+            &canon,
+            provider,
+            session_cache,
+            &mut visiting,
+            &mut computed,
+        )
+    }
+
     pub fn load(&mut self, entry: &PathBuf) -> Result<LoadResult, LoaderError> {
         let module_surface = match read_file_to_string(&canonicalize_path(entry)) {
             Ok(source) => Some(self.nepl_meta_module_surface_for_source(entry, &source, None)),
@@ -809,6 +904,7 @@ impl Loader {
             module,
             source_map: sm,
             module_surface,
+            nepl_meta_edge_probes: Vec::new(),
         })
     }
 
@@ -882,6 +978,7 @@ impl Loader {
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
+        mut nepl_meta_edge_probes: Option<&mut Vec<NeplMetaDependencyEdgePreTypecheckProbe>>,
     ) -> Result<Module, LoaderError> {
         let canon = canonicalize_path(&path);
         loader_log!(
@@ -933,6 +1030,7 @@ impl Loader {
             is_root,
             provider,
             session_cache.as_deref_mut(),
+            nepl_meta_edge_probes.as_deref_mut(),
         )?;
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
@@ -1012,6 +1110,7 @@ impl Loader {
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
+        mut nepl_meta_edge_probes: Option<&mut Vec<NeplMetaDependencyEdgePreTypecheckProbe>>,
     ) -> Result<Module, LoaderError> {
         let canon = canonicalize_path(&path);
         if let Some(m) = cache.get(&canon) {
@@ -1067,6 +1166,7 @@ impl Loader {
             is_root,
             provider,
             session_cache.as_deref_mut(),
+            nepl_meta_edge_probes.as_deref_mut(),
         )?;
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
@@ -1742,6 +1842,7 @@ impl Loader {
         is_root: bool,
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
+        mut nepl_meta_edge_probes: Option<&mut Vec<NeplMetaDependencyEdgePreTypecheckProbe>>,
     ) -> Result<Module, LoaderError> {
         let mut directives = module.directives.clone();
         let mut items = Vec::new();
@@ -1770,7 +1871,16 @@ impl Loader {
                     false,
                     provider,
                     session_cache.as_deref_mut(),
+                    nepl_meta_edge_probes.as_deref_mut(),
                 )?;
+                self.push_nepl_meta_dependency_edge_probe_with(
+                    &target,
+                    None,
+                    sm,
+                    provider,
+                    session_cache.as_deref_mut(),
+                    nepl_meta_edge_probes.as_deref_mut(),
+                );
                 for d in imp_mod.directives.clone() {
                     if let Directive::Entry { .. } = d {
                         continue;
@@ -1812,7 +1922,20 @@ impl Loader {
                             false,
                             provider,
                             session_cache.as_deref_mut(),
+                            nepl_meta_edge_probes.as_deref_mut(),
                         )?;
+                        let import_clause = match &stmt {
+                            Stmt::Directive(Directive::Import { clause, .. }) => Some(clause),
+                            _ => None,
+                        };
+                        self.push_nepl_meta_dependency_edge_probe_with(
+                            &target,
+                            import_clause,
+                            sm,
+                            provider,
+                            session_cache.as_deref_mut(),
+                            nepl_meta_edge_probes.as_deref_mut(),
+                        );
                         for d in imp_mod.directives.clone() {
                             if let Directive::Entry { .. } = d {
                                 continue;
@@ -1851,6 +1974,7 @@ impl Loader {
                         false,
                         provider,
                         session_cache.as_deref_mut(),
+                        nepl_meta_edge_probes.as_deref_mut(),
                     )?;
                     for d in inc_mod.directives.clone() {
                         if let Directive::Entry { .. } = d {
@@ -1884,6 +2008,79 @@ impl Loader {
         module.directives = directives;
         module.root.items = items;
         Ok(module)
+    }
+
+    fn push_nepl_meta_dependency_edge_probe_with(
+        &self,
+        target: &PathBuf,
+        import_clause: Option<&ImportClause>,
+        sm: &SourceMap,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: Option<&mut LoaderSessionCache>,
+        probes: Option<&mut Vec<NeplMetaDependencyEdgePreTypecheckProbe>>,
+    ) {
+        let Some(session_cache) = session_cache else {
+            return;
+        };
+        let Some(probes) = probes else {
+            return;
+        };
+        let target = canonicalize_path(target);
+        if !self.configured_stdlib_source_path(&target) {
+            return;
+        }
+        let Ok(source) = provider(&target) else {
+            return;
+        };
+        let target_source_key_hash = nepl_meta_source_key_hash_for_source(source.as_str());
+        let target_source_capability_policy_set_hash =
+            self.nepl_meta_source_capability_policy_set_hash_for_loaded_target(&target, sm);
+        let mut sm = SourceMap::new();
+        let file_id = sm.add_with_capabilities(
+            path_to_source_label(&target),
+            source.clone(),
+            SourceCapabilities::none(),
+        );
+        let target_surface =
+            self.source_arity_surface(&target, file_id, &source, Some(session_cache));
+        let Ok(dependency_public_surface_hash) = self
+            .dependency_aggregate_public_surface_hash_for_path_with_cache(
+                target.clone(),
+                provider,
+                session_cache,
+            )
+        else {
+            return;
+        };
+        let target_module_surface = target_surface.to_nepl_meta_module_surface(&target);
+        probes.push(NeplMetaDependencyEdgePreTypecheckProbe {
+            target_module_path: target_module_surface.canonical_module_path.clone(),
+            target_module_surface,
+            target_source_key_hash,
+            target_source_capability_policy_set_hash,
+            dependency_public_surface_hash,
+            import_clause: import_clause.map(nepl_meta_import_clause),
+        });
+    }
+
+    fn nepl_meta_source_capability_policy_set_hash_for_loaded_target(
+        &self,
+        target: &PathBuf,
+        sm: &SourceMap,
+    ) -> Option<u64> {
+        let target_label = path_to_source_label(target);
+        for (file_id, path) in sm.iter_paths() {
+            if path.as_str() == target_label {
+                let policy_hash = sm.source_capability_policy_hash_for_file(file_id)?;
+                return Some(
+                    crate::compiler::resource_summary_source_capability_policy_set_hash_for_single_file(
+                        path.as_str(),
+                        policy_hash,
+                    ),
+                );
+            }
+        }
+        None
     }
 
     fn parse_provider_module_with_session_cache(
@@ -2985,6 +3182,76 @@ mod tests {
         assert!(
             stats.parsed_module_hits >= 1,
             "the second stdlib load should reuse the parsed-module cache",
+        );
+    }
+
+    #[test]
+    fn neplmeta_edge_probe_uses_target_source_policy_boundary() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+        );
+        let foo_source = String::from("pub fn foo %fn unit i32 \\unit:\n    1\n");
+        let mut sources = BTreeMap::new();
+        sources.insert(foo_path.clone(), foo_source.clone());
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+        let mut loader = Loader::new(stdlib_root);
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+
+        let loaded = loader
+            .load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
+                entry_path,
+                entry_source,
+                &mut provider,
+                &mut session_cache,
+            )
+            .expect("provider-backed load should collect stdlib edge probes");
+        let probe = loaded
+            .nepl_meta_edge_probes
+            .iter()
+            .find(|probe| probe.target_module_path.ends_with("foo.nepl"))
+            .expect("imported stdlib module should produce one edge probe");
+        let (foo_file_id, foo_source_path) = loaded
+            .source_map
+            .iter_paths()
+            .find(|(_, path)| path.as_str() == path_to_source_label(&foo_path))
+            .expect("imported stdlib source should be present in the load source map");
+        let foo_policy_hash = loaded
+            .source_map
+            .source_capability_policy_hash_for_file(foo_file_id)
+            .expect("loaded stdlib source must have a capability policy hash");
+        let expected_target_policy_set_hash =
+            crate::compiler::resource_summary_source_capability_policy_set_hash_for_single_file(
+                foo_source_path.as_str(),
+                foo_policy_hash,
+            );
+        let root_compile_policy_set_hash =
+            crate::compiler::resource_summary_source_capability_policy_set_hash(Some(
+                &loaded.source_map,
+            ))
+            .expect("root compile source map must have a capability policy hash");
+
+        assert_eq!(
+            probe.target_source_key_hash,
+            nepl_meta_source_key_hash_for_source(foo_source.as_str()),
+            "edge probe source key must be computed from the target module source",
+        );
+        assert_eq!(
+            probe.target_source_capability_policy_set_hash,
+            Some(expected_target_policy_set_hash),
+            "edge probe must use the target module policy boundary, not the root compile map",
+        );
+        assert_ne!(
+            probe.target_source_capability_policy_set_hash,
+            Some(root_compile_policy_set_hash),
+            "root source-map scoped policy hash would make dependency artifacts root-dependent",
         );
     }
 

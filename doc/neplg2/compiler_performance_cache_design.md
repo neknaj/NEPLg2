@@ -2012,6 +2012,45 @@ prelude/import `load_file_with` 成功直後に置き、`Include` や AST merge 
 接続するのが安全と確認した。この checkpoint はその前段であり、次は import/prelude edge ごとの
 module surface と import clause を渡す loader hook へ進む。
 
+### 2026-06-01 `.neplmeta` import/prelude edge pre-typecheck probe checkpoint
+
+Loader が実際に load した stdlib `#prelude` / `#import` edge から、
+`.neplmeta` pre-typecheck envelope 用の観測値を作るようにした。root artifact probe と同じ
+`NeplMetaArtifactStore` compatibility / projection 判定を使うが、統計は root probe と分けて
+`pre_typecheck_edge_probe_*` に記録する。
+
+edge envelope の source identity は root compile の `SourceMap` から作らない。loader は target
+module の source key と、target file 単体の source capability policy set hash を probe に含める。
+root file や同時に load された別 dependency の capability policy を混ぜると、同じ stdlib artifact が
+呼び出し元 root によって compatibility reject されるためである。dependency public surface hash は
+別 field として保持し、target の import/prelude 公開面変更はそちらで invalidation する。
+
+安全境界:
+
+- edge probe は `NeplMetaArtifactStore` が空でない compile だけで収集する。初回 compile や
+  artifact 再投影候補がない compile では、dependency edge ごとの source 再読込や dependency hash
+  計算を走らせず、base compile の固定費を増やさない。
+- `#include` は AST merge 境界であり dependency artifact 境界ではないため、probe 対象にしない。
+- non-stdlib VFS edge は `.neplmeta` store lookup 対象にしない。stdlib overlay compile でも
+  従来通り loader / resource / proof cache と `.neplmeta` store を bypass する。
+- probe は統計だけを更新し、`TypedPublicSurfaceTable` を `TypeCtx` / `Env` に注入しない。
+  dependency AST inline 省略、Resource IR skip、codegen skip も行わない。
+
+この checkpoint で分かるのは「import/prelude target artifact がまだ store にない」
+「store にあるが envelope / projection で拒否された」「projection 可能だった」のどれかである。
+body skip や stdlib prechecked artifact の実利用は、edge probe の fallback reason を十分に観測してから
+次段の materializer 接続で行う。
+
+固定した観測:
+
+- root artifact store が埋まった後の dependency body-only edit では、実際に load された stdlib
+  prelude/import edge だけが edge probe attempt として数えられ、現時点では target artifact が
+  store にないため missing artifact として fallback する。
+- `#no_prelude` + `#include` のみの compile では、store が埋まった二回目でも edge probe attempt は
+  0 のままであり、include を dependency artifact edge と誤認しない。
+- loader 単体 regression では、edge probe の source capability policy hash が root compile 全体の
+  `SourceMap` hash ではなく target module file 単体の hash であることを固定した。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

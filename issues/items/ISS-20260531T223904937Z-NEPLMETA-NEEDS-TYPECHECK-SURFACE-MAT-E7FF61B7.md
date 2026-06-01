@@ -176,6 +176,47 @@ function identity 必須経路へ流れない guard を追加する。
 
 - `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
 
+## 2026-06-01 import/prelude edge pre-typecheck probe checkpoint
+
+`Loader::process_directives_with` の prelude / import load 成功地点から、実際に解決・load された
+stdlib dependency edge だけを `.neplmeta` pre-typecheck probe へ渡す観測境界を追加した。
+
+今回の接続は body skip ではない。`NeplMetaDependencyEdgePreTypecheckProbe` は target module の
+module surface、target source key、target file 単体の source capability policy hash、
+dependency public surface hash、import clause だけを持ち、target body の
+typed HIR / Resource IR / `TypeId` / `Span` は保持しない。Web `CompilerSession` はこの probe から
+pre-typecheck envelope を作り、`NeplMetaArtifactStore::materializer_import_public_surface_pre_typecheck_edge_probe_mvp`
+を呼んで root probe とは別の edge probe stats を更新する。
+
+安全境界:
+
+- `.neplmeta` store が空の compile では edge probe 材料を収集しない。再利用候補がない状態で
+  dependency edge ごとの source 再読込や dependency hash 計算を増やさないためである。
+- `#include` は source merge 境界として扱い、dependency artifact edge として計測しない。
+- non-stdlib VFS edge は store lookup へ流さない。
+- projection 結果を `TypeCtx` / `Env` へ注入せず、通常 load / typecheck / Resource IR / codegen の
+  fallback を変えない。
+- edge envelope は root compile の `SourceMap` hash を使わない。root file や他 dependency の
+  capability policy が混ざると、同じ target artifact が呼び出し元 root に依存して reject されるため、
+  loader が target source identity を probe へ運ぶ。
+
+regression では、dependency body-only edit 後に stdlib edge probe が missing artifact として
+数えられること、`#no_prelude` + `#include` のみの compile では store が埋まった二回目でも edge
+probe attempt が 0 のままであること、target source capability policy hash が root `SourceMap`
+hash ではないことを固定した。
+
+追加検証:
+
+- `cargo check -p nepl-core -p nepl-language`
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
+- `cargo test -p nepl-core source_import_surface_preserves_clause_visibility_and_order --lib -- --nocapture`
+- `cargo test -p nepl-core root_dependency_aggregate_public_surface_hash --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta_edge_probe_uses_target_source_policy_boundary --lib -- --nocapture`
+- `trunk build --release`
+- `node tests\compiler\tree\run.js`
+- `node nodesrc\test_run_test_compiler_session.js`
+
 ## 2026-06-01 session root pre-typecheck probe checkpoint
 
 Web `CompilerSession` の実 compile path から、保存済み root `.neplmeta` artifact に対して

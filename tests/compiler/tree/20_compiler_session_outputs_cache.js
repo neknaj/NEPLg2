@@ -59,6 +59,37 @@ function neplMetaPreTypecheckProbeStats(session) {
     };
 }
 
+function neplMetaPreTypecheckEdgeProbeStats(session) {
+    const s = stats(session);
+    const keys = [
+        'nepl_meta_artifact_store_pre_typecheck_edge_probe_attempts',
+        'nepl_meta_artifact_store_pre_typecheck_edge_probe_projected',
+        'nepl_meta_artifact_store_pre_typecheck_edge_probe_missing_artifacts',
+        'nepl_meta_artifact_store_pre_typecheck_edge_probe_payload_rejects',
+        'nepl_meta_artifact_store_pre_typecheck_edge_probe_compatibility_rejects',
+        'nepl_meta_artifact_store_pre_typecheck_edge_probe_projection_rejects',
+        'nepl_meta_artifact_store_pre_typecheck_edge_probe_projected_entries',
+        'nepl_meta_artifact_store_last_pre_typecheck_edge_probe_reject_kind',
+        'nepl_meta_artifact_store_last_pre_typecheck_edge_probe_reject_code',
+        'nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projected_entries',
+    ];
+    for (const key of keys) {
+        assert.ok(
+            Object.prototype.hasOwnProperty.call(s, key),
+            `.neplmeta pre-typecheck edge probe stats must expose ${key}`,
+        );
+    }
+    return {
+        attempts: Number(s.nepl_meta_artifact_store_pre_typecheck_edge_probe_attempts || 0),
+        projected: Number(s.nepl_meta_artifact_store_pre_typecheck_edge_probe_projected || 0),
+        missing: Number(s.nepl_meta_artifact_store_pre_typecheck_edge_probe_missing_artifacts || 0),
+        compatibilityRejects: Number(s.nepl_meta_artifact_store_pre_typecheck_edge_probe_compatibility_rejects || 0),
+        projectionRejects: Number(s.nepl_meta_artifact_store_pre_typecheck_edge_probe_projection_rejects || 0),
+        rejectKind: Number(s.nepl_meta_artifact_store_last_pre_typecheck_edge_probe_reject_kind || 0),
+        rejectCode: Number(s.nepl_meta_artifact_store_last_pre_typecheck_edge_probe_reject_code || 0),
+    };
+}
+
 function neplMetaArtifactStats(session) {
     const s = stats(session);
     return {
@@ -130,6 +161,11 @@ fn main <()->i32> ():
             { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0 },
             'first compile must expose pre-typecheck probe stats without probing an empty artifact store',
         );
+        assert.deepEqual(
+            neplMetaPreTypecheckEdgeProbeStats(cacheSession),
+            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0 },
+            'first compile must expose edge probe stats without probing an empty artifact store',
+        );
         assert.notEqual(
             neplMetaArtifactStats(cacheSession).sourceKeyHash,
             '0',
@@ -192,6 +228,16 @@ fn main <()->i32> ():
             neplMetaPreTypecheckProbeStats(cacheSession),
             { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 1, rejectKind: 4, rejectCode: 6 },
             'dependency body-only edit must still report a projection blocker instead of treating a root artifact hit as body-skip ready',
+        );
+        const dependencyEditEdgeProbe = neplMetaPreTypecheckEdgeProbeStats(cacheSession);
+        assert.ok(
+            dependencyEditEdgeProbe.attempts > 0,
+            'dependency body-only edit must probe stdlib import/prelude edges after the root artifact store is populated',
+        );
+        assert.equal(
+            dependencyEditEdgeProbe.missing,
+            dependencyEditEdgeProbe.attempts,
+            'edge probe must report missing target artifacts instead of treating dependency edges as reusable',
         );
 
         const stdlibOverlaySession = newSession(api);
@@ -261,6 +307,40 @@ fn main <()->i32> ():
             'body-only token edit must change .neplmeta source key hash',
         );
 
-        return { checked: 9 };
+        const includeSession = newSession(api);
+        const includeSource = `#entry main
+#no_prelude
+#include "./included"
+fn main %fn unit i32 \\unit:
+    1
+`;
+        const includedSource = `fn included_value %fn unit i32 \\unit:
+    1
+`;
+        includeSession.compile_outputs_with_vfs(
+            '/virtual/include_root.nepl',
+            includeSource,
+            {
+                '/virtual/included.nepl': includedSource,
+            },
+            ['wasm'],
+            false,
+        );
+        includeSession.compile_outputs_with_vfs(
+            '/virtual/include_root.nepl',
+            `${includeSource}\n`,
+            {
+                '/virtual/included.nepl': includedSource,
+            },
+            ['wasm'],
+            false,
+        );
+        assert.deepEqual(
+            neplMetaPreTypecheckEdgeProbeStats(includeSession),
+            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0 },
+            '#include must not be treated as a dependency artifact edge',
+        );
+
+        return { checked: 12 };
     },
 };

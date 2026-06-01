@@ -832,6 +832,23 @@ pub fn resource_summary_source_capability_policy_set_hash(
     Some(hash)
 }
 
+/// 1つの source file だけを対象にした capability policy set hash を作る。
+///
+/// dependency edge artifact の事前照合では、root compile 全体の `SourceMap` ではなく target
+/// module file の source capability policy だけを boundary にする。dependency の公開面変更は
+/// `dependency_public_surface_hash` で別に invalidation する。
+pub fn resource_summary_source_capability_policy_set_hash_for_single_file(
+    path: &str,
+    policy_hash: u64,
+) -> u64 {
+    let mut hash = 0xcbf29ce484222325;
+    resource_summary_cache_hash_str(&mut hash, RESOURCE_SUMMARY_PROOF_HEADER_HASH_VERSION);
+    resource_summary_cache_hash_str(&mut hash, "source-capability-policy-set");
+    resource_summary_cache_hash_str(&mut hash, path);
+    resource_summary_cache_hash_u64(&mut hash, policy_hash);
+    hash
+}
+
 fn resource_summary_proof_hash_tag(domain: &str, value: &str) -> u64 {
     let mut hash = 0xcbf29ce484222325;
     resource_summary_cache_hash_str(&mut hash, RESOURCE_SUMMARY_PROOF_HEADER_HASH_VERSION);

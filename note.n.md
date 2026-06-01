@@ -1,3 +1,17 @@
+# 2026-06-01 .neplmeta import/prelude edge pre-typecheck probe checkpoint
+
+- Zenn 記事の core/no_std 境界、静的検査、純粋 query cache による探索空間削減、試作段階でも設計品質を落とさない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `cb85fd66 Tighten memo private cache region identity` まで同期済みで、branch `perf/neplmeta-edge-probe-20260601` はその `main` から作成した。
+- subagent review で、依存 module 単位の probe は `Loader::process_directives_with` の prelude/import `load_file_with` 成功直後に置き、`#include` は dependency artifact edge として扱わない方針を確認した。
+- `LoadResult` に `nepl_meta_edge_probes` を追加し、実際に load された stdlib prelude/import edge から `NeplMetaDependencyEdgePreTypecheckProbe` を作るようにした。
+- `load_inline_with_provider_and_cache` は通常通り軽量な経路のままにし、`.neplmeta` store が空でない場合だけ `load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes` を使う。これにより base compile で不要な edge source 再読込や dependency hash 計算を増やさない。
+- subagent 実装レビューで、edge envelope に root compile 全体の `SourceMap` hash を使うと dependency artifact が呼び出し元 root に依存して reject される問題が指摘されたため、probe が target source key と target file 単体の source capability policy hash を運ぶ形に修正した。
+- `NeplMetaArtifactStoreStats` に root probe とは別の edge probe attempts / projected / missing artifact / payload reject / compatibility reject / projection reject / projected entries を追加し、Web `loader_cache_stats_json` から観測できるようにした。
+- edge probe は統計更新だけを行い、`TypedPublicSurfaceTable` を `TypeCtx` / `Env` へ注入せず、通常 load / typecheck / Resource IR / codegen fallback は変えない。
+- regression では、dependency body-only edit 後に stdlib edge probe が missing artifact として数えられること、`#no_prelude` + `#include` のみの compile では二回目でも edge probe attempt が 0 のままであること、edge probe の source capability hash が root `SourceMap` ではなく target file 単体境界であることを固定した。
+- docs と issue には、この checkpoint が body skip ではなく、import/prelude edge ごとの fallback reason を観測するための前段であることを追記した。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta_store --lib -- --nocapture`、`cargo test -p nepl-core source_import_surface_preserves_clause_visibility_and_order --lib -- --nocapture`、`cargo test -p nepl-core root_dependency_aggregate_public_surface_hash --lib -- --nocapture`、`cargo test -p nepl-core neplmeta_edge_probe_uses_target_source_policy_boundary --lib -- --nocapture`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-edge-probe-20260601.json` は pass。追加の issue / whitespace / remote sync 検証は commit 前に実行する。
+
 # 2026-06-01 memo_call private cache region exactness checkpoint
 
 - Zenn 記事の静的検査、純粋性、キャッシュによる探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。

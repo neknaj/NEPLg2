@@ -16,11 +16,14 @@ use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
 use nepl_core::error::CoreError;
 use nepl_core::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine};
 use nepl_core::artifact::{
-    nepl_meta_artifact_pre_typecheck_envelope_for_module_surface, NeplMetaArtifact,
-    NeplMetaArtifactStore,
+    nepl_meta_artifact_pre_typecheck_envelope_for_module_surface,
+    nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity,
+    NeplMetaArtifact, NeplMetaArtifactStore,
 };
 use nepl_core::lexer::{lex, Token, TokenKind};
-use nepl_core::loader::{Loader, LoaderError, LoaderSessionCache, SourceMap};
+use nepl_core::loader::{
+    Loader, LoaderError, LoaderSessionCache, NeplMetaDependencyEdgePreTypecheckProbe, SourceMap,
+};
 use nepl_core::parser::parse_tokens;
 use nepl_core::resource::{ResourceSummaryProofArtifact, ResourceSummaryValueCache};
 use nepl_core::resolve::DefId;
@@ -3298,6 +3301,31 @@ fn compile_wasm_with_bundled_sources(
     )
 }
 
+fn probe_nepl_meta_dependency_edges_pre_typecheck(
+    store: &mut NeplMetaArtifactStore,
+    profile: BuildProfile,
+    stdlib_content_hash: Option<u64>,
+    probes: &[NeplMetaDependencyEdgePreTypecheckProbe],
+) {
+    for probe in probes {
+        let envelope =
+            nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity(
+                CompileTarget::Wasm,
+                profile,
+                stdlib_content_hash,
+                Some(probe.dependency_public_surface_hash),
+                probe.target_source_key_hash,
+                probe.target_source_capability_policy_set_hash,
+                &probe.target_module_surface,
+            );
+        let _ = store.materializer_import_public_surface_pre_typecheck_edge_probe_mvp(
+            probe.target_module_path.as_str(),
+            envelope,
+            probe.import_clause.as_ref(),
+        );
+    }
+}
+
 fn compile_wasm_with_bundled_sources_and_cache(
     entry_path: &str,
     source: &str,
@@ -3351,13 +3379,26 @@ fn compile_wasm_with_bundled_sources_and_cache(
             nepl_core::loader::LoaderError::Io(msg)
         })
     };
+    let collect_nepl_meta_edge_probes = match nepl_meta_artifact_store.as_ref() {
+        Some(store) => !store.is_empty(),
+        None => false,
+    };
     let loaded = if let Some(cache) = loader_cache.as_deref_mut() {
-        loader.load_inline_with_provider_and_cache(
-            PathBuf::from(entry_path),
-            source.to_string(),
-            &mut provider,
-            cache,
-        )
+        if collect_nepl_meta_edge_probes {
+            loader.load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
+                PathBuf::from(entry_path),
+                source.to_string(),
+                &mut provider,
+                cache,
+            )
+        } else {
+            loader.load_inline_with_provider_and_cache(
+                PathBuf::from(entry_path),
+                source.to_string(),
+                &mut provider,
+                cache,
+            )
+        }
     } else {
         loader.load_inline_with_provider(PathBuf::from(entry_path), source.to_string(), &mut provider)
     }
@@ -3388,24 +3429,30 @@ fn compile_wasm_with_bundled_sources_and_cache(
     };
     let module_surface = loaded.module_surface.clone();
     let stdlib_content_hash = bundled_stdlib_hash_u64();
-    if let (Some(store), Some(surface)) = (
-        nepl_meta_artifact_store.filter(|store| !store.is_empty()),
-        module_surface.as_ref(),
-    ) {
-        if let Ok(envelope) = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
-            CompileTarget::Wasm,
-            profile.unwrap_or(BuildProfile::default_source_profile()),
-            stdlib_content_hash,
-            dependency_public_surface_hash,
-            Some(&loaded.source_map),
-            surface,
-        ) {
-            // この probe は body skip ではなく、既存 artifact が現在の loader 境界で
-            // 再投影可能かを測る観測点である。失敗しても通常 source fallback を保つ。
-            let _ = store.materializer_import_public_surface_pre_typecheck_mvp(
-                surface.canonical_module_path.as_str(),
-                envelope,
-                None,
+    if let (Some(store), Some(surface)) = (nepl_meta_artifact_store, module_surface.as_ref()) {
+        if !store.is_empty() {
+            let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
+            if let Ok(envelope) = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+                CompileTarget::Wasm,
+                active_profile,
+                stdlib_content_hash,
+                dependency_public_surface_hash,
+                Some(&loaded.source_map),
+                surface,
+            ) {
+                // この probe は body skip ではなく、既存 artifact が現在の loader 境界で
+                // 再投影可能かを測る観測点である。失敗しても通常 source fallback を保つ。
+                let _ = store.materializer_import_public_surface_pre_typecheck_mvp(
+                    surface.canonical_module_path.as_str(),
+                    envelope,
+                    None,
+                );
+            }
+            probe_nepl_meta_dependency_edges_pre_typecheck(
+                store,
+                active_profile,
+                stdlib_content_hash,
+                &loaded.nepl_meta_edge_probes,
             );
         }
     }
@@ -4001,6 +4048,67 @@ impl CompilerSession {
         out.push_str(
             &nepl_meta_artifact_store_stats
                 .last_pre_typecheck_probe_projected_entries
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_edge_probe_attempts\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_edge_probe_attempts
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_edge_probe_projected\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_edge_probe_projected
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_edge_probe_missing_artifacts\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_edge_probe_missing_artifacts
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_edge_probe_payload_rejects\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_edge_probe_payload_rejects
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_edge_probe_compatibility_rejects\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_edge_probe_compatibility_rejects
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_edge_probe_projection_rejects\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_edge_probe_projection_rejects
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_edge_probe_projected_entries\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .pre_typecheck_edge_probe_projected_entries
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_last_pre_typecheck_edge_probe_reject_kind\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .last_pre_typecheck_edge_probe_reject_kind
+                .code()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_last_pre_typecheck_edge_probe_reject_code\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .last_pre_typecheck_edge_probe_reject_code
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projected_entries\":");
+        out.push_str(
+            &nepl_meta_artifact_store_stats
+                .last_pre_typecheck_edge_probe_projected_entries
                 .to_string(),
         );
         out.push_str(",\"resource_summary_proof_artifact_present\":");
