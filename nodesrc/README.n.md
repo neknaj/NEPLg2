@@ -78,6 +78,7 @@ Node.js から compiler/runtime を[呼/よ]び[出/だ]す CLI です。
 ### [主/おも]な[用途/ようと]
 
 - `body_missing_candidate_surfaces_delta_sum` が[増/ふ]える compile を[探/さが]し、`.neplobj` の[最初/さいしょ]の[対象/たいしょう]を[決/き]める
+- `materialized_fallback_diagnostic_code_counts` で `.neplobj` body missing ではない source fallback の[原因/げんいん]を typed diagnostic code ごとに[分解/ぶんかい]する
 - `compile_ms` と `resource_static_check` / `resource_typecheck` / `wasm_codegen` の stage timing を、同じ session の artifact [温度/おんど]と[一緒/いっしょ]に[確認/かくにん]する
 
 ## `compiler_loader.js`

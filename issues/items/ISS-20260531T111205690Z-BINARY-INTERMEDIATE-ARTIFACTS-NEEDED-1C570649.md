@@ -373,3 +373,25 @@ HIR を artifact 化せず、既存の `.neplmeta` projection 境界と fallback
 cold / warm / body edit sequence を固定する。この script は timing threshold ではなく、`compile_ms`、
 materialized compile delta、`resource_typecheck` / `resource_static_check` / `wasm_codegen` の stage
 timing を JSON に保存する。
+
+## 2026-06-01 checkpoint 16
+
+`OtherCoreError` に丸められていた materialized compile fallback を、primary `DiagnosticCode::as_str()`
+で観測できるようにした。
+
+- `CompilerSession.loader_cache_stats_json()` は
+  `nepl_meta_materialized_compile_last_fallback_diagnostic_code` を返す。
+- `nodesrc/bench_materialized_compile_fallbacks.js` は per-run の
+  `materialized_compile.last_fallback_diagnostic_code` と summary の
+  `materialized_fallback_diagnostic_code_counts` を出す。
+- `PublicSurfaceMaterializeRejectReason` は coarse な
+  `type.public_surface.materializer_rejected` ではなく typed `TypeDiagnosticCode` へ写される。
+
+実測では `tmp/materialized-fallback-detail-20260601.json` の warm compile 3 回すべてが
+`type.public_surface.materializer.field_accessor_unsupported` であり、`.neplobj` body missing では
+なかった。したがって、次の root gap は selected callable body fragment ではなく、field accessor callable
+surface を current session の typecheck environment へ安全に materialize することである。
+
+この root gap は
+`ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B`
+として分離した。

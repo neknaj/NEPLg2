@@ -111,6 +111,7 @@ function neplMetaMaterializedCompileStats(session) {
         'nepl_obj_candidate_body_missing_surfaces',
         'nepl_meta_materialized_compile_last_outcome_code',
         'nepl_meta_materialized_compile_last_fallback_reason_code',
+        'nepl_meta_materialized_compile_last_fallback_diagnostic_code',
         'nepl_meta_materialized_compile_last_attempted_surfaces',
         'nepl_obj_candidate_last_body_missing_surfaces',
     ];
@@ -131,6 +132,7 @@ function neplMetaMaterializedCompileStats(session) {
         bodyMissingCandidateSurfaces: Number(s.nepl_obj_candidate_body_missing_surfaces || 0),
         lastOutcomeCode: Number(s.nepl_meta_materialized_compile_last_outcome_code || 0),
         lastFallbackReasonCode: Number(s.nepl_meta_materialized_compile_last_fallback_reason_code || 0),
+        lastFallbackDiagnosticCode: String(s.nepl_meta_materialized_compile_last_fallback_diagnostic_code || ''),
         lastAttemptedSurfaces: Number(s.nepl_meta_materialized_compile_last_attempted_surfaces || 0),
         lastBodyMissingCandidateSurfaces: Number(s.nepl_obj_candidate_last_body_missing_surfaces || 0),
     };
@@ -216,7 +218,7 @@ fn main <()->i32> ():
         );
         assert.deepEqual(
             neplMetaMaterializedCompileStats(cacheSession),
-            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, bodyMissingCandidateSurfaces: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastAttemptedSurfaces: 0, lastBodyMissingCandidateSurfaces: 0 },
+            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, bodyMissingCandidateSurfaces: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastFallbackDiagnosticCode: '', lastAttemptedSurfaces: 0, lastBodyMissingCandidateSurfaces: 0 },
             'first compile must expose materialized compile stats without attempting body skip',
         );
         assert.notEqual(
@@ -247,7 +249,7 @@ fn main <()->i32> ():
         );
         assert.deepEqual(
             neplMetaMaterializedCompileStats(cacheSession),
-            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, bodyMissingCandidateSurfaces: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastAttemptedSurfaces: 0, lastBodyMissingCandidateSurfaces: 0 },
+            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, bodyMissingCandidateSurfaces: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastFallbackDiagnosticCode: '', lastAttemptedSurfaces: 0, lastBodyMissingCandidateSurfaces: 0 },
             'compiled-output cache hit must not reuse the previous materialized compile observation as a fresh attempt',
         );
         assert.deepEqual(
@@ -422,6 +424,11 @@ fn main %fn unit i32 \\unit:
         assert.ok(
             thirdMaterializedCompile.lastFallbackReasonCode > 0,
             'source fallback must expose a typed reason code instead of relying on error text parsing',
+        );
+        assert.match(
+            thirdMaterializedCompile.lastFallbackDiagnosticCode,
+            /^[a-z0-9_.]+$/,
+            'source fallback must expose the primary compiler diagnostic code that caused fallback',
         );
         if (
             thirdMaterializedCompile.lastFallbackReasonCode

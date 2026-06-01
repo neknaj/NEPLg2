@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 
 use crate::ast::{Effect, Visibility};
 use crate::backend_scalar_type::BackendScalarType;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::span::Span;
 use crate::types::{
     EnumVariantInfo, NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeId, TypeKind,
@@ -30,6 +31,7 @@ use super::traits::{
     BoundEnv, ImplInfo, ImplKind, TraitApplication, TraitBound, TraitCapability, TraitId,
     TraitInfo, TraitStableIdentity, TypeParamId,
 };
+use super::FieldAccessorKind;
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
@@ -185,12 +187,95 @@ pub enum PublicSurfaceMaterializeRejectReason {
     DropImplTargetCopy,
 }
 
+impl PublicSurfaceMaterializeRejectReason {
+    pub fn diagnostic_code(&self) -> TypeDiagnosticCode {
+        match self {
+            Self::EntryKindMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerEntryKindMismatch
+            }
+            Self::UnsupportedSurfaceKind { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerUnsupportedSurfaceKind
+            }
+            Self::MissingCallableLinkSymbol => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableMissingLinkSymbol
+            }
+            Self::CallableLinkNameMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableLinkNameMismatch
+            }
+            Self::CallableTypeExpected => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableTypeExpected
+            }
+            Self::CallableArityMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableArityMismatch
+            }
+            Self::CallableEffectMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableEffectMismatch
+            }
+            Self::CallableSignatureHashMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableSignatureHashMismatch
+            }
+            Self::FieldAccessorUnsupported { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported
+            }
+            Self::TypeParamBoundsUnsupported => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerTypeParamBoundsUnsupported
+            }
+            Self::DuplicateLinkSymbolConflict { .. }
+            | Self::NonCallableNameConflict
+            | Self::NoShadowConflict => TypeDiagnosticCode::PublicSurfaceMaterializerConflict,
+            Self::UnboundGenericParam { .. }
+            | Self::UnboundGenericParamTerm { .. }
+            | Self::UnboundTraitBoundTarget { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerGenericUnsupported
+            }
+            Self::TraitSelfUnsupported => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerTraitSelfUnsupported
+            }
+            Self::NamedTypeUnsupported { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerNamedTypeUnsupported
+            }
+            Self::ApplyUnsupported => TypeDiagnosticCode::PublicSurfaceMaterializerApplyUnsupported,
+            Self::MissingNominalTypeIdentity { .. }
+            | Self::NominalTypeIdentityKindMismatch { .. }
+            | Self::NominalTypeIdentityNameMismatch { .. }
+            | Self::NominalTypeIdentityArityMismatch { .. }
+            | Self::NominalTypeIdentityConflict { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerNominalIdentityRejected
+            }
+            Self::NominalDefinitionHashUnavailable
+            | Self::NominalDefinitionHashMismatch { .. }
+            | Self::DuplicateStructField { .. }
+            | Self::DuplicateEnumVariant { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerNominalDefinitionRejected
+            }
+            Self::MissingTraitIdentity
+            | Self::TraitIdentityNameMismatch { .. }
+            | Self::TraitIdentityArityMismatch { .. }
+            | Self::TraitDefinitionHashMismatch { .. }
+            | Self::TraitIdentityConflict { .. }
+            | Self::DuplicateTraitMethod { .. }
+            | Self::MissingTraitRefIdentity { .. }
+            | Self::TraitRefIdentityNameMismatch { .. }
+            | Self::TraitRefIdentityConflict { .. }
+            | Self::TraitRefArityMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerTraitIdentityRejected
+            }
+            Self::UnsupportedImplKind
+            | Self::DuplicateImplConflict
+            | Self::CopyImplRequiresClone
+            | Self::DropImplTargetCopy => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerImplRejected
+            }
+        }
+    }
+}
+
 /// public callable surface を `Env` に注入する内部 materializer。
 ///
 /// この checkpoint は依存 module の body を読まずに callable 候補を復元するための
 /// 最小単位である。primitive / tuple / function / generic parameter / box / reference
-/// 型は復元するが、名義型、trait bound、field accessor、impl lookup はまだ別 materializer
-/// の authority が必要なので拒否する。
+/// 型は復元するが、名義型、trait bound、impl lookup はまだ別 materializer の authority が
+/// 必要なので拒否する。
 #[allow(dead_code)]
 pub(super) fn materialize_public_surface_mvp(
     ctx: &mut TypeCtx,
@@ -1553,11 +1638,18 @@ fn stage_callable_surface(
             },
         ));
     }
-    if let Some(kind) = surface.field_accessor {
-        return Err(reject(
-            entry,
-            PublicSurfaceMaterializeRejectReason::FieldAccessorUnsupported { kind },
-        ));
+    let field_accessor = surface.field_accessor.map(field_accessor_from_public);
+    if let Some(field_accessor) = field_accessor {
+        let expected_arity = field_accessor.argument_count();
+        if surface.arity as usize != expected_arity {
+            return Err(reject(
+                entry,
+                PublicSurfaceMaterializeRejectReason::CallableArityMismatch {
+                    surface_arity: surface.arity,
+                    parameter_count: expected_arity,
+                },
+            ));
+        }
     }
     if !surface.type_param_bounds.is_empty() {
         return Err(reject(
@@ -1644,7 +1736,7 @@ fn stage_callable_surface(
             effect: effect_from_public(surface.effect),
             arity: surface.arity as usize,
             builtin: None,
-            field_accessor: None,
+            field_accessor,
             type_param_bounds: bounds,
             captures: Vec::new(),
         },
@@ -1840,6 +1932,14 @@ fn effect_from_public(effect: PublicEffect) -> Effect {
     }
 }
 
+fn field_accessor_from_public(kind: PublicFieldAccessorKind) -> FieldAccessorKind {
+    match kind {
+        PublicFieldAccessorKind::Get => FieldAccessorKind::Get,
+        PublicFieldAccessorKind::GetRef => FieldAccessorKind::GetRef,
+        PublicFieldAccessorKind::Put => FieldAccessorKind::Put,
+    }
+}
+
 fn stable_callable_symbol(symbol: &PublicCallableLinkSymbol) -> String {
     format!(
         "neplmeta${}${:016x}${:016x}",
@@ -1893,6 +1993,7 @@ mod tests {
     use alloc::vec::Vec;
 
     use crate::ast::Visibility;
+    use crate::diagnostic_codes::TypeDiagnosticCode;
     use crate::span::Span;
     use crate::typecheck::materializer::{
         materialize_public_surface_mvp, materialize_public_surface_with_semantics_mvp,
@@ -1908,6 +2009,7 @@ mod tests {
         PublicTraitSurface, PublicTypeParam, PublicTypeParamRef, PublicTypeTerm,
         TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
     };
+    use crate::typecheck::FieldAccessorKind;
     use crate::types::{TypeCtx, TypeKind};
 
     use super::super::env::{
@@ -1920,6 +2022,68 @@ mod tests {
 
     fn link_symbol(name: &str, ty: &PublicTypeTerm) -> PublicCallableLinkSymbol {
         link_symbol_with_path("stdlib/core/math.nepl", name, ty)
+    }
+
+    #[test]
+    fn materializer_reject_reason_maps_to_stable_diagnostic_code() {
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::MissingCallableLinkSymbol.diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableMissingLinkSymbol,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::CallableLinkNameMismatch {
+                link_name: String::from("old")
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableLinkNameMismatch,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::CallableTypeExpected.diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableTypeExpected,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::CallableArityMismatch {
+                surface_arity: 1,
+                parameter_count: 2,
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableArityMismatch,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::CallableEffectMismatch {
+                surface_effect: PublicEffect::Pure,
+                type_effect: PublicEffect::Impure,
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableEffectMismatch,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::CallableSignatureHashMismatch {
+                expected: 1,
+                actual: 2,
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableSignatureHashMismatch,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::FieldAccessorUnsupported {
+                kind: PublicFieldAccessorKind::Get,
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::NamedTypeUnsupported {
+                name: String::from("Item"),
+                identity: None,
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerNamedTypeUnsupported,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::DuplicateImplConflict.diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerImplRejected,
+        );
     }
 
     fn link_symbol_with_path(
@@ -2069,6 +2233,50 @@ mod tests {
             effect: PublicEffect::Pure,
             field_accessor: None,
             link_symbol,
+            type_param_bounds: Vec::new(),
+        }
+    }
+
+    fn field_accessor_ty(kind: PublicFieldAccessorKind) -> PublicTypeTerm {
+        let field_ref = PublicTypeTerm::Reference {
+            inner: Box::new(PublicTypeTerm::I32),
+            mutable: false,
+        };
+        match kind {
+            PublicFieldAccessorKind::Get => PublicTypeTerm::Function {
+                type_params: Vec::new(),
+                params: Vec::from([PublicTypeTerm::I32, PublicTypeTerm::Str]),
+                result: Box::new(PublicTypeTerm::I32),
+                effect: PublicEffect::Pure,
+            },
+            PublicFieldAccessorKind::GetRef => PublicTypeTerm::Function {
+                type_params: Vec::new(),
+                params: Vec::from([field_ref.clone(), PublicTypeTerm::Str]),
+                result: Box::new(field_ref),
+                effect: PublicEffect::Pure,
+            },
+            PublicFieldAccessorKind::Put => PublicTypeTerm::Function {
+                type_params: Vec::new(),
+                params: Vec::from([PublicTypeTerm::I32, PublicTypeTerm::Str, PublicTypeTerm::I32]),
+                result: Box::new(PublicTypeTerm::Unit),
+                effect: PublicEffect::Pure,
+            },
+        }
+    }
+
+    fn field_accessor_surface(name: &str, kind: PublicFieldAccessorKind) -> PublicCallableSurface {
+        let ty = field_accessor_ty(kind);
+        let arity = match &ty {
+            PublicTypeTerm::Function { params, .. } => params.len() as u32,
+            _ => 0,
+        };
+        PublicCallableSurface {
+            ty: ty.clone(),
+            no_shadow: false,
+            arity,
+            effect: PublicEffect::Pure,
+            field_accessor: Some(kind),
+            link_symbol: Some(link_symbol(name, &ty)),
             type_param_bounds: Vec::new(),
         }
     }
@@ -2950,7 +3158,55 @@ mod tests {
     }
 
     #[test]
-    fn materializer_mvp_rejects_field_accessor_and_bounds() {
+    fn materializer_mvp_materializes_field_accessor_callable() {
+        let cases = Vec::from([
+            ("get", PublicFieldAccessorKind::Get, FieldAccessorKind::Get, 2usize),
+            (
+                "get_ref",
+                PublicFieldAccessorKind::GetRef,
+                FieldAccessorKind::GetRef,
+                2usize,
+            ),
+            ("put", PublicFieldAccessorKind::Put, FieldAccessorKind::Put, 3usize),
+        ]);
+        let table = TypedPublicSurfaceTable::new(
+            cases
+                .iter()
+                .map(|(name, public_kind, _, _)| {
+                    callable_entry(name, field_accessor_surface(name, *public_kind))
+                })
+                .collect(),
+        );
+        let mut ctx = TypeCtx::new();
+        let mut env = Env::new();
+
+        let report =
+            materialize_public_surface_mvp(&mut ctx, &mut env, &table, Span::dummy()).unwrap();
+
+        assert_eq!(report.callables_inserted, cases.len());
+        for (name, _, expected_kind, expected_arity) in cases {
+            let binding = env.lookup_all_callables(name)[0];
+            let BindingKind::Func {
+                arity,
+                field_accessor,
+                def_id,
+                ..
+            } = &binding.kind
+            else {
+                panic!("materialized field accessor must be callable");
+            };
+            assert_eq!(*arity, expected_arity);
+            assert_eq!(*field_accessor, Some(expected_kind));
+            assert!(def_id.is_none());
+            assert_eq!(
+                resolved_function_value_identity(binding, binding.ty, Vec::new()),
+                Err(FunctionValueIdentityReject::UnresolvedIdentity)
+            );
+        }
+    }
+
+    #[test]
+    fn materializer_mvp_rejects_field_accessor_arity_mismatch_and_bounds() {
         let mut field_surface = primitive_answer_surface(Some(primitive_answer_link("get_x")));
         field_surface.field_accessor = Some(PublicFieldAccessorKind::Get);
         let table =
@@ -2962,8 +3218,9 @@ mod tests {
             materialize_public_surface_mvp(&mut ctx, &mut env, &table, Span::dummy()).unwrap_err();
         assert_eq!(
             reject.reason,
-            PublicSurfaceMaterializeRejectReason::FieldAccessorUnsupported {
-                kind: PublicFieldAccessorKind::Get
+            PublicSurfaceMaterializeRejectReason::CallableArityMismatch {
+                surface_arity: 1,
+                parameter_count: 2
             }
         );
 

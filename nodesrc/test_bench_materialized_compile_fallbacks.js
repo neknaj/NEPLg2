@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
     SCHEMA,
+    fallbackDiagnosticCodeCounts,
     publicRunShape,
     sourceForValue,
     summarizeBenchmarkRuns,
@@ -34,6 +35,7 @@ const shaped = publicRunShape('candidate', {
         },
         compiler_session_cache_after: {
             nepl_meta_materialized_compile_last_fallback_reason_code: 1,
+            nepl_meta_materialized_compile_last_fallback_diagnostic_code: 'backend.codegen.materialized_function_body_missing',
             nepl_meta_materialized_compile_last_attempted_surfaces: 3,
             nepl_obj_candidate_last_body_missing_surfaces: 3,
             compile_stage_timings: [
@@ -50,6 +52,7 @@ assert.equal(shaped.compile_ms, 120);
 assert.equal(shaped.materialized_compile.attempts_delta, 1);
 assert.equal(shaped.materialized_compile.body_missing_candidate_surfaces_delta, 3);
 assert.equal(shaped.materialized_compile.last_fallback_reason_code, 1);
+assert.equal(shaped.materialized_compile.last_fallback_diagnostic_code, 'backend.codegen.materialized_function_body_missing');
 assert.equal(shaped.materialized_compile.last_body_missing_candidate_surfaces, 3);
 assert.equal(shaped.stages_ms.resource_static_check, 70);
 
@@ -64,6 +67,7 @@ const summary = summarizeBenchmarkRuns([
             source_fallbacks_delta: 0,
             body_missing_fallbacks_delta: 0,
             body_missing_candidate_surfaces_delta: 0,
+            last_fallback_diagnostic_code: '',
         },
     },
 ]);
@@ -75,5 +79,22 @@ assert.equal(summary.materialized_attempts_delta_sum, 1);
 assert.equal(summary.materialized_body_missing_fallbacks_delta_sum, 1);
 assert.equal(summary.materialized_non_body_missing_fallbacks_delta_sum, 0);
 assert.equal(summary.neplobj_candidate_body_missing_surfaces_delta_sum, 3);
+assert.deepEqual(summary.materialized_fallback_diagnostic_code_counts, {
+    'backend.codegen.materialized_function_body_missing': 1,
+});
+assert.deepEqual(fallbackDiagnosticCodeCounts([
+    shaped,
+    {
+        ...shaped,
+        materialized_compile: {
+            ...shaped.materialized_compile,
+            source_fallbacks_delta: 2,
+            last_fallback_diagnostic_code: 'type.public_surface.materializer_rejected',
+        },
+    },
+]), {
+    'backend.codegen.materialized_function_body_missing': 1,
+    'type.public_surface.materializer_rejected': 2,
+});
 
 console.log('materialized compile fallback benchmark helper regression passed');

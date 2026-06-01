@@ -3533,6 +3533,15 @@ impl NeplMetaMaterializedCompileFallbackReason {
             _ => Self::OtherCoreError,
         }
     }
+
+    fn primary_diagnostic_code_from_core_error(error: &CoreError) -> Option<DiagnosticCode> {
+        match error {
+            CoreError::Diagnostics(diagnostics) => {
+                diagnostics.first().map(|diagnostic| diagnostic.code)
+            }
+            _ => None,
+        }
+    }
 }
 
 /// 1 compile 呼び出し内の materialized dependency compile 観測値。
@@ -3544,6 +3553,7 @@ struct NeplMetaMaterializedCompileStats {
     attempted_surfaces: usize,
     outcome: NeplMetaMaterializedCompileOutcome,
     fallback_reason: NeplMetaMaterializedCompileFallbackReason,
+    fallback_primary_diagnostic_code: Option<DiagnosticCode>,
 }
 
 impl NeplMetaMaterializedCompileStats {
@@ -3551,16 +3561,27 @@ impl NeplMetaMaterializedCompileStats {
         self.attempted_surfaces += surface_count;
         self.outcome = NeplMetaMaterializedCompileOutcome::Accepted;
         self.fallback_reason = NeplMetaMaterializedCompileFallbackReason::None;
+        self.fallback_primary_diagnostic_code = None;
     }
 
-    fn record_fallback_succeeded(&mut self, reason: NeplMetaMaterializedCompileFallbackReason) {
+    fn record_fallback_succeeded(
+        &mut self,
+        reason: NeplMetaMaterializedCompileFallbackReason,
+        primary_diagnostic_code: Option<DiagnosticCode>,
+    ) {
         self.outcome = NeplMetaMaterializedCompileOutcome::FallbackSucceeded;
         self.fallback_reason = reason;
+        self.fallback_primary_diagnostic_code = primary_diagnostic_code;
     }
 
-    fn record_fallback_failed(&mut self, reason: NeplMetaMaterializedCompileFallbackReason) {
+    fn record_fallback_failed(
+        &mut self,
+        reason: NeplMetaMaterializedCompileFallbackReason,
+        primary_diagnostic_code: Option<DiagnosticCode>,
+    ) {
         self.outcome = NeplMetaMaterializedCompileOutcome::FallbackFailed;
         self.fallback_reason = reason;
+        self.fallback_primary_diagnostic_code = primary_diagnostic_code;
     }
 
     fn attempted(self) -> bool {
@@ -3744,6 +3765,10 @@ fn compile_wasm_with_bundled_sources_and_cache(
         Ok(artifact) => (artifact, loaded_nepl_meta_edge_probes),
         Err(err) if !loaded_materialized_public_surfaces.is_empty() => {
             let fallback_reason = NeplMetaMaterializedCompileFallbackReason::from_core_error(&err);
+            let fallback_primary_diagnostic_code =
+                NeplMetaMaterializedCompileFallbackReason::primary_diagnostic_code_from_core_error(
+                    &err,
+                );
             let mut fallback_loader = Loader::new(stdlib_root.clone());
             let fallback_loaded = if let Some(cache) = loader_cache.as_deref_mut() {
                 fallback_loader.load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
@@ -3761,7 +3786,10 @@ fn compile_wasm_with_bundled_sources_and_cache(
             }
             .map_err(|e| {
                 if let Some(stats) = nepl_meta_materialized_compile_stats.as_deref_mut() {
-                    stats.record_fallback_failed(fallback_reason);
+                    stats.record_fallback_failed(
+                        fallback_reason,
+                        fallback_primary_diagnostic_code,
+                    );
                 }
                 render_loader_error(e, fallback_loader.source_map())
             })?;
@@ -3783,13 +3811,19 @@ fn compile_wasm_with_bundled_sources_and_cache(
             let artifact = match fallback_artifact {
                 Ok(artifact) => {
                     if let Some(stats) = nepl_meta_materialized_compile_stats.as_deref_mut() {
-                        stats.record_fallback_succeeded(fallback_reason);
+                        stats.record_fallback_succeeded(
+                            fallback_reason,
+                            fallback_primary_diagnostic_code,
+                        );
                     }
                     artifact
                 }
                 Err(err) => {
                     if let Some(stats) = nepl_meta_materialized_compile_stats.as_deref_mut() {
-                        stats.record_fallback_failed(fallback_reason);
+                        stats.record_fallback_failed(
+                            fallback_reason,
+                            fallback_primary_diagnostic_code,
+                        );
                     }
                     return Err(render_core_error(err, &fallback_source_map));
                 }
@@ -3883,6 +3917,8 @@ pub struct CompilerSession {
     last_nepl_meta_materialized_compile_outcome: RefCell<NeplMetaMaterializedCompileOutcome>,
     last_nepl_meta_materialized_compile_fallback_reason:
         RefCell<NeplMetaMaterializedCompileFallbackReason>,
+    last_nepl_meta_materialized_compile_fallback_primary_diagnostic_code:
+        RefCell<Option<DiagnosticCode>>,
     last_nepl_meta_materialized_compile_attempted_surfaces: RefCell<usize>,
     last_nepl_obj_candidate_body_missing_surfaces: RefCell<usize>,
     last_compile_stage_timing_status: RefCell<&'static str>,
@@ -3932,6 +3968,9 @@ impl CompilerSession {
             ),
             last_nepl_meta_materialized_compile_fallback_reason: RefCell::new(
                 NeplMetaMaterializedCompileFallbackReason::None,
+            ),
+            last_nepl_meta_materialized_compile_fallback_primary_diagnostic_code: RefCell::new(
+                None,
             ),
             last_nepl_meta_materialized_compile_attempted_surfaces: RefCell::new(0),
             last_nepl_obj_candidate_body_missing_surfaces: RefCell::new(0),
@@ -4566,6 +4605,14 @@ impl CompilerSession {
                 .code()
                 .to_string(),
         );
+        out.push_str(",\"nepl_meta_materialized_compile_last_fallback_diagnostic_code\":\"");
+        if let Some(code) = *self
+            .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_code
+            .borrow()
+        {
+            out.push_str(code.as_str());
+        }
+        out.push('"');
         out.push_str(",\"nepl_meta_materialized_compile_last_attempted_surfaces\":");
         out.push_str(
             &self
@@ -4641,6 +4688,9 @@ impl CompilerSession {
             .last_nepl_meta_materialized_compile_fallback_reason
             .borrow_mut() = NeplMetaMaterializedCompileFallbackReason::None;
         *self
+            .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_code
+            .borrow_mut() = None;
+        *self
             .last_nepl_meta_materialized_compile_attempted_surfaces
             .borrow_mut() = 0;
         *self
@@ -4660,6 +4710,9 @@ impl CompilerSession {
         *self
             .last_nepl_meta_materialized_compile_fallback_reason
             .borrow_mut() = stats.fallback_reason;
+        *self
+            .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_code
+            .borrow_mut() = stats.fallback_primary_diagnostic_code;
         *self
             .last_nepl_meta_materialized_compile_attempted_surfaces
             .borrow_mut() = stats.attempted_surfaces;
