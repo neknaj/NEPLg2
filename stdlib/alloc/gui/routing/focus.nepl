@@ -1,0 +1,116 @@
+//: # alloc/gui/routing/focus
+//: focus/key routing command の pure data contract
+//:
+//: ### [目的/もくてき]
+//: - platform raw key code、ANSI sequence、DOM event ではなく、`FocusRouteCommand` と current focus id だけで focus movement / action emission を[表/あらわ]します。
+//: - focus movement は `FocusRouteResult::MoveFocus`、widget activation は `FocusRouteResult::Emit` として[分/わ]け、application 側が state 更新と event 処理を明示的に[選/えら]べるようにします。
+//:
+//: ### [契約/けいやく]
+//: - `Next` / `Previous` は `alloc/gui/focus` の traversal を[使/つか]い、移動先がない場合は `Ignored` を[返/かえ]します。
+//: - `Activate` は current focus id が指す widget の action event だけを[返/かえ]し、disabled、non-action、stale current は panic せず `Ignored` になります。
+//: - OS、terminal raw input、DOM へ[依存/いぞん]しません。
+//:
+//: neplg2:test
+//: ret: 9
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/routing/focus" as *
+//:| #import "alloc/gui/tree" as *
+//:| #import "alloc/gui/widget" as *
+//:| #import "alloc/gui/app" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root %WidgetDescriptor widget_label (widget_id 1) "title" (layout_hint_fixed 8 1)
+//:     let first %WidgetDescriptor widget_button (button_config (widget_id 7) "Run" (action_id 2)) (layout_hint_fixed 6 1)
+//:     let second %WidgetDescriptor widget_button (button_config (widget_id 9) "Save" (action_id 3)) (layout_hint_fixed 6 1)
+//:     let tree1 %ViewTree unwrap_ok view_tree_add_child (view_tree_single root) first
+//:     let tree2 %ViewTree unwrap_ok view_tree_add_child tree1 second
+//:     match route_focus_command &tree2 (some (widget_id 7)) FocusRouteCommand::Next:
+//:         FocusRouteResult::MoveFocus id:
+//:             widget_id_value id
+//:         _:
+//:             0
+//: ```
+
+#indent 4
+
+#import "alloc/gui/app" as *
+#import "alloc/gui/focus" as *
+#import "alloc/gui/routing/types" as *
+#import "alloc/gui/tree" as *
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+
+//: FocusRouteCommand: platform 境界で解釈済みの focus routing command
+//:
+//: [目的/もくてき]:
+//: - raw key code や escape sequence を stdlib 内へ[持/も]ち[込/こ]まず、focus traversal と activation に必要な intent だけを data として[渡/わた]します。
+pub enum FocusRouteCommand:
+    Next
+    Previous
+    Activate
+
+impl Clone for FocusRouteCommand:
+    fn clone %fn &FocusRouteCommand FocusRouteCommand \command:
+        *command
+
+impl Copy for FocusRouteCommand:
+    fn copy_mark %fn FocusRouteCommand FocusRouteCommand \command:
+        command
+
+//: FocusRouteResult: focus routing の結果
+//:
+//: [目的/もくてき]:
+//: - focus state を[動/うご]かす結果と application event を[発行/はっこう]する結果を、呼び出し側が誤って同一視しないように[分/わ]けます。
+pub enum FocusRouteResult:
+    Ignored
+    MoveFocus %WidgetId
+    Emit %GuiEvent
+
+impl Clone for FocusRouteResult:
+    fn clone %fn &FocusRouteResult FocusRouteResult \result:
+        *result
+
+impl Copy for FocusRouteResult:
+    fn copy_mark %fn FocusRouteResult FocusRouteResult \result:
+        result
+
+//: focus_route_move_result: focus traversal の Option を routing result に[変換/へんかん]する
+fn focus_route_move_result %fn Option WidgetId FocusRouteResult \target:
+    match target:
+        Option::Some id:
+            FocusRouteResult::MoveFocus id
+        Option::None:
+            FocusRouteResult::Ignored
+
+//: focus_route_emit_result: action event の Option を routing result に[変換/へんかん]する
+fn focus_route_emit_result %fn Option GuiEvent FocusRouteResult \event:
+    match event:
+        Option::Some value:
+            FocusRouteResult::Emit value
+        Option::None:
+            FocusRouteResult::Ignored
+
+//: route_focus_command: focus command を ViewTree と current focus id へ[適用/てきよう]する
+//:
+//: [仕様/しよう]:
+//: - `Next` / `Previous` は focus traversal の結果だけを `MoveFocus` として[返/かえ]します。
+//: - `Activate` は current focus id がある場合だけ action routing を[試/こころ]みます。current が `none`、古い id、disabled widget、action を[持/も]たない widget は `Ignored` です。
+//:
+//: [計算量/けいさんりょう]:
+//: - bounded `ViewTree` の root と child 2 個だけを[調/しら]べるため O(1) です。
+pub fn route_focus_command %fn &ViewTree fn Option WidgetId fn FocusRouteCommand FocusRouteResult \tree\current\command:
+    match command:
+        FocusRouteCommand::Next:
+            focus_route_move_result focus_next_in_tree tree current
+        FocusRouteCommand::Previous:
+            focus_route_move_result focus_previous_in_tree tree current
+        FocusRouteCommand::Activate:
+            match current:
+                Option::Some id:
+                    focus_route_emit_result route_action_for_widget tree id
+                Option::None:
+                    FocusRouteResult::Ignored
