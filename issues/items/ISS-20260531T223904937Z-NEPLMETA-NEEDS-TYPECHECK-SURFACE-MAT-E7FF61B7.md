@@ -141,3 +141,38 @@ projection と `typecheck/materializer` を接続する。
 追加検証:
 
 - `cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`
+
+## 2026-06-01 artifact store checkpoint
+
+`NeplMetaArtifactStore` を追加し、target `.neplmeta` artifact を module path keyed に保持してから
+header compatibility と import projection を再確認する in-memory store 境界を実装した。
+
+今回の受け入れ範囲:
+
+- `NeplMetaModuleSurface::canonical_module_path` を持つ artifact。
+- payload consistency が header と一致する artifact。
+- 保存済み artifact に対する compatible header。
+- `materializer_import_public_surface_mvp` が受け入れる Open / simple named import projection。
+
+今回の fail-closed 範囲:
+
+- missing artifact。
+- module surface 欠落。
+- canonical module path 欠落。
+- payload consistency mismatch。
+- compiler / target / profile / dependency public surface / schema などの compatibility mismatch。
+- import projection unsupported。
+
+store は `NeplMetaArtifactStoreStats` を持ち、store、store reject、hit、miss、payload reject、
+compatibility reject、projection reject を文字列解析なしに区別する。性能改善の計測で
+「cache が存在しない」のか「存在するが安全条件で拒否された」のかを確認するための authority である。
+
+この checkpoint は body skip 完了ではない。現行 loader/typecheck は依存 module AST の merge と
+SourceMap/FileId 由来の visibility に依存しているため、次は `CompilerSession` / loader boundary へ
+store を接続する前に、`def_id=None` の callable が `@func` / `memo_call @func` のような
+function identity 必須経路へ流れない guard を追加する。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`

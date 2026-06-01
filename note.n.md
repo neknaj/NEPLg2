@@ -1,3 +1,14 @@
+# 2026-06-01 .neplmeta artifact store checkpoint
+
+- Zenn 記事の core/no_std 分離、Result/enum による fail-closed な境界、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は前 checkpoint `d44f556f Strengthen private cache operation authority` まで同期・push 済みで、branch `work/neplmeta-artifact-store-20260601` はその `main` から作成した。
+- subagent review で、`.neplmeta` body skip を急ぐ前に module path keyed な artifact store、header compatibility、payload consistency、projection reject reason、統計を 1 つの fail-closed 境界として固めるべきと確認した。
+- `NeplMetaArtifactStore` と `NeplMetaArtifactStoreStats` を追加し、`NeplMetaModuleSurface::canonical_module_path` で artifact を保存する in-memory store を実装した。永続 codec や body skip そのものではなく、`CompilerSession` など長寿命 session が安全に artifact を再利用するための staging authority である。
+- store は module surface 欠落、module identity 欠落、payload consistency mismatch を保存時点で拒否する。取り出し時は missing artifact、payload mismatch、header compatibility mismatch、projection unsupported を enum reason と統計で区別する。
+- `materializer_import_public_surface_mvp` は `.neplmeta` artifact から import clause 可視の `TypedPublicSurfaceTable` だけを返す。current session の `TypeCtx` / `Env` への注入はまだ行わず、`typecheck/materializer` へ渡す直前の guarded input に留める。
+- この checkpoint は body skip 完了ではない。loader はまだ依存 module AST を merge しており、import visibility も SourceMap/FileId と結び付いているため、次は store を `CompilerSession` / loader boundary へ接続する前に `def_id=None` callable が function identity 必須経路へ流れない guard を入れる。
+- 検証: `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`、`cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`node nodesrc/issues.js check --dir issues`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-artifact-store-20260601.json`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 PrivateCache operation authority checkpoint
 
 - Zenn 記事の試作段階方針、静的検査を enum / match で網羅する方針、Pure を外部観測可能 effect がないこととして扱う方針を再確認した。`plan.md` は変更していない。

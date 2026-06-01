@@ -6,6 +6,7 @@ use crate::typecheck::{
     PublicSurfaceMaterializerBlockerReason, TypedPublicSignatureKind,
     TypedPublicSignatureTable, TypedPublicSurfaceTable,
 };
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -683,6 +684,136 @@ impl NeplMetaArtifact {
     }
 }
 
+/// `.neplmeta` artifact store の累積統計。
+///
+/// store は compile session 内で artifact を再利用できるかどうかを判定する staging
+/// authority であり、typecheck body skip そのものではない。統計は「hit したが
+/// compatibility / payload / projection で拒否された」場合を区別し、性能調査で
+/// cache が効いていない理由を文字列解析なしに確認できるようにする。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NeplMetaArtifactStoreStats {
+    pub stores: usize,
+    pub store_rejects: usize,
+    pub hits: usize,
+    pub misses: usize,
+    pub payload_rejects: usize,
+    pub compatibility_rejects: usize,
+    pub projection_rejects: usize,
+}
+
+/// module path keyed な `.neplmeta` artifact store。
+///
+/// この store は永続 codec ではなく、`CompilerSession` などの長寿命 session が
+/// artifact を安全に再利用するための in-memory 境界である。artifact は
+/// `NeplMetaModuleSurface::canonical_module_path` で保存し、取り出し時に header
+/// compatibility と import projection を再確認する。`TypeId`、`Span`、`SourceMap`、
+/// typed HIR、Resource IR は store key や payload authority にしない。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct NeplMetaArtifactStore {
+    artifacts: BTreeMap<String, NeplMetaArtifact>,
+    stats: NeplMetaArtifactStoreStats,
+}
+
+impl NeplMetaArtifactStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn stats(&self) -> NeplMetaArtifactStoreStats {
+        self.stats
+    }
+
+    pub fn len(&self) -> usize {
+        self.artifacts.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.artifacts.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.artifacts.clear();
+        self.stats = NeplMetaArtifactStoreStats::default();
+    }
+
+    pub fn store(
+        &mut self,
+        artifact: NeplMetaArtifact,
+    ) -> Result<(), NeplMetaArtifactStoreReject> {
+        let module_path = match artifact.module_surface() {
+            Some(surface) if !surface.canonical_module_path.is_empty() => {
+                surface.canonical_module_path.clone()
+            }
+            Some(_) => {
+                self.stats.store_rejects += 1;
+                return Err(NeplMetaArtifactStoreReject::MissingModuleIdentity);
+            }
+            None => {
+                self.stats.store_rejects += 1;
+                return Err(NeplMetaArtifactStoreReject::MissingModuleSurface);
+            }
+        };
+        if let Some(reject) = artifact.payload_consistency_reject() {
+            self.stats.store_rejects += 1;
+            self.stats.payload_rejects += 1;
+            return Err(NeplMetaArtifactStoreReject::PayloadConsistency(reject));
+        }
+        self.stats.stores += 1;
+        self.artifacts.insert(module_path, artifact);
+        Ok(())
+    }
+
+    /// compatible artifact から import clause 可視の materializer 入力だけを返す。
+    ///
+    /// ここで返る `TypedPublicSurfaceTable` は、まだ current session の `TypeCtx` / `Env`
+    /// に注入された結果ではない。caller はこの後 `typecheck/materializer` に渡し、
+    /// `def_id=None` の callable が function identity 必須経路へ流れないよう、通常
+    /// source fallback と組み合わせて扱う。
+    pub fn materializer_import_public_surface_mvp(
+        &mut self,
+        module_path: &str,
+        expected_header: NeplMetaArtifactHeader,
+        import_clause: Option<&NeplMetaImportClause>,
+    ) -> Result<TypedPublicSurfaceTable, NeplMetaArtifactStoreReject> {
+        let Some(artifact) = self.artifacts.get(module_path) else {
+            self.stats.misses += 1;
+            return Err(NeplMetaArtifactStoreReject::MissingArtifact {
+                module_path: String::from(module_path),
+            });
+        };
+        self.stats.hits += 1;
+        if let Some(reject) = artifact.payload_consistency_reject() {
+            self.stats.payload_rejects += 1;
+            return Err(NeplMetaArtifactStoreReject::PayloadConsistency(reject));
+        }
+        if let Some(reject) = artifact.compatibility_reject(expected_header) {
+            self.stats.compatibility_rejects += 1;
+            return Err(NeplMetaArtifactStoreReject::Compatibility(reject));
+        }
+        match artifact.materializer_import_public_surface_mvp(import_clause) {
+            Ok(table) => Ok(table),
+            Err(reject) => {
+                self.stats.projection_rejects += 1;
+                Err(NeplMetaArtifactStoreReject::Projection(reject))
+            }
+        }
+    }
+}
+
+/// `.neplmeta` artifact store が materializer 入力を返せなかった理由。
+///
+/// この enum は fallback のための分岐点であり、診断文の一部ではない。body skip
+/// 接続時はこれをそのまま統計・デバッグ表示へ流し、推測で artifact を使わない。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NeplMetaArtifactStoreReject {
+    MissingArtifact { module_path: String },
+    MissingModuleSurface,
+    MissingModuleIdentity,
+    PayloadConsistency(NeplMetaArtifactPayloadReject),
+    Compatibility(NeplMetaArtifactCompatibilityReject),
+    Projection(NeplMetaMaterializerProjectionReject),
+}
+
 /// `.neplmeta` payload 自体が header と矛盾している理由。
 ///
 /// compatibility check は payload decode 前の fail-closed 判定で使う。payload を読んだ後は、
@@ -1071,9 +1202,11 @@ mod tests {
     use super::{
         nepl_meta_artifact_header_for_public_surface, NeplMetaArtifact,
         NeplMetaArtifactCompatibilityReject, NeplMetaArtifactHeader, NeplMetaArtifactPayloadReject,
-        NeplMetaExportKind, NeplMetaExportSurface, NeplMetaImportClause, NeplMetaImportItem,
-        NeplMetaMaterializerMvpReject, NeplMetaModuleDependencyEdge,
-        NeplMetaModuleDependencyKind, NeplMetaModuleSurface, NeplMetaVisibility,
+        NeplMetaArtifactStore, NeplMetaArtifactStoreReject, NeplMetaExportKind,
+        NeplMetaExportSurface, NeplMetaImportClause, NeplMetaImportItem,
+        NeplMetaMaterializerMvpReject, NeplMetaMaterializerProjectionReject,
+        NeplMetaModuleDependencyEdge, NeplMetaModuleDependencyKind, NeplMetaModuleSurface,
+        NeplMetaVisibility,
     };
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::typecheck::{
@@ -1460,6 +1593,124 @@ mod tests {
             artifact.materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Merge)),
             Err(super::NeplMetaMaterializerProjectionReject::UnsupportedMerge)
         );
+    }
+
+    #[test]
+    fn neplmeta_store_projects_compatible_open_import_surface() {
+        let artifact = artifact_for_materializer_with_names(
+            module_surface_without_edges("/stdlib/core/math.nepl"),
+            materializable_multi_surface_table(&["answer", "zero"]),
+            &["answer", "zero"],
+        );
+        let expected_header = artifact.header();
+        let mut store = NeplMetaArtifactStore::new();
+
+        store.store(artifact).unwrap();
+        let projected = store
+            .materializer_import_public_surface_mvp(
+                "/stdlib/core/math.nepl",
+                expected_header,
+                Some(&NeplMetaImportClause::Open),
+            )
+            .unwrap();
+
+        let names = projected
+            .entries
+            .iter()
+            .map(|entry| entry.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(names, Vec::from(["answer", "zero"]));
+        assert_eq!(store.stats().stores, 1);
+        assert_eq!(store.stats().hits, 1);
+        assert_eq!(store.stats().misses, 0);
+    }
+
+    #[test]
+    fn neplmeta_store_rejects_missing_artifact_and_stale_header() {
+        let artifact = artifact_for_materializer(
+            module_surface_without_edges("/stdlib/core/math.nepl"),
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+        let mut stale_header = artifact.header();
+        stale_header.profile_hash ^= 1;
+        let mut store = NeplMetaArtifactStore::new();
+
+        assert_eq!(
+            store.materializer_import_public_surface_mvp(
+                "/stdlib/core/missing.nepl",
+                artifact.header(),
+                Some(&NeplMetaImportClause::Open),
+            ),
+            Err(NeplMetaArtifactStoreReject::MissingArtifact {
+                module_path: "/stdlib/core/missing.nepl".into(),
+            })
+        );
+
+        store.store(artifact).unwrap();
+        assert_eq!(
+            store.materializer_import_public_surface_mvp(
+                "/stdlib/core/math.nepl",
+                stale_header,
+                Some(&NeplMetaImportClause::Open),
+            ),
+            Err(NeplMetaArtifactStoreReject::Compatibility(
+                NeplMetaArtifactCompatibilityReject::Profile
+            ))
+        );
+        assert_eq!(store.stats().misses, 1);
+        assert_eq!(store.stats().compatibility_rejects, 1);
+    }
+
+    #[test]
+    fn neplmeta_store_rejects_payload_and_projection_without_mutating_surface() {
+        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_surface = materializable_surface_table("answer", PublicTypeTerm::I32);
+        let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
+        let mut stale_header = test_header(
+            &public_signatures,
+            Some(&module_surface),
+            &public_surface,
+            None,
+        );
+        stale_header.structured_public_surface_entry_count += 1;
+        let stale_artifact = NeplMetaArtifact::new(
+            stale_header,
+            public_signatures,
+            Some(module_surface),
+            Some(export_surface),
+            public_surface,
+        );
+        let mut store = NeplMetaArtifactStore::new();
+
+        assert_eq!(
+            store.store(stale_artifact),
+            Err(NeplMetaArtifactStoreReject::PayloadConsistency(
+                NeplMetaArtifactPayloadReject::StructuredPublicSurfaceEntryCount
+            ))
+        );
+        assert_eq!(store.len(), 0);
+        assert_eq!(store.stats().store_rejects, 1);
+        assert_eq!(store.stats().payload_rejects, 1);
+
+        let artifact = artifact_for_materializer(
+            module_surface_without_edges("/stdlib/core/math.nepl"),
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+        let expected_header = artifact.header();
+        store.store(artifact).unwrap();
+        assert_eq!(
+            store.materializer_import_public_surface_mvp(
+                "/stdlib/core/math.nepl",
+                expected_header,
+                Some(&NeplMetaImportClause::Alias("math".into())),
+            ),
+            Err(NeplMetaArtifactStoreReject::Projection(
+                NeplMetaMaterializerProjectionReject::UnsupportedAlias
+            ))
+        );
+        assert_eq!(store.stats().projection_rejects, 1);
     }
 
     /// dependency aggregate public surface が違う場合、同じ module の public signature でも
