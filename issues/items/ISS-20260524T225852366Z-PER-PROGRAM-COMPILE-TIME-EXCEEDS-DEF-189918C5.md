@@ -228,6 +228,22 @@ bundled artifact へ接続する。
 `684ms / 159ms` から `374ms / 109ms` へ改善した。ただし raw-init、`str_trim` final check、
 owner summary の固定費が残るため、この issue は open のまま維持する。
 
+2026-06-02 の追加 followup では、`str_trim` と `apply_op` の op timing から、path-sensitive replay
+増殖ではなく `CellTable::availability_state_by` の control-flow merge 固定費を削った。ancestor /
+descendant entry の一時 `Vec` clone と複数回走査を、同じ優先順位を保つ allocation-free な単一走査へ
+置き換えた。native release RPN stage-only は同一 followup baseline の `resource_static_check=7865ms`
+から、変更後の単独計測で `6267ms / 6381ms` まで下がった。`resource_initialized_moves` は
+`6756ms` から `5208ms / 5484ms`、per-function timing では `str_trim` final check が `895ms`、
+`apply_op` raw-init summary が `552ms` になった。
+
+remote/main の GUI 関連変更を取り込んだ main 上で release CLI を再ビルドした後の確認値は、
+`resource_static_check=6937ms`、`resource_initialized_moves=5876ms`、
+`resource_initialized_raw_init_summaries=2378ms`、`resource_initialized_function_checks=1905ms` だった。
+
+これは探索構造の改善であり、base 0.5 秒未満を達成するものではない。RPN / stdlib-heavy workload の
+主経路は引き続き bundled / persistent `.neplproof` preseed、stdlib proof template、changed-expression
+query cache である。
+
 ## 検証
 
 - `trunk build`

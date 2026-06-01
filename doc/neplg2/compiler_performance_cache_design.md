@@ -2960,6 +2960,25 @@ Map 化後の native RPN では、`resource_initialized_i32_scalar_summaries` �
 未満には届かない。これは短期の探索構造改善として採用するが、根本対応は引き続き bundled /
 persistent `.neplproof` preseed と stdlib prechecked artifact である。
 
+2026-06-02 の追加 followup では、`str_trim` と `apply_op` の op timing をさらに分解した。`str_trim`
+は final initialized check の branch / loop、`apply_op` raw-init summary は branch / match が支配的で、
+path-sensitive replay の指数増殖ではなく、control-flow merge 内の `CellTable::availability_state_by`
+固定費が見えていた。同関数は ancestor / descendant entry を一時 `Vec<CellStateEntry>` に clone し、
+exact state と非 initialized flow を複数回走査していたため、exact non-initialized、ancestor、
+descendant、raw-cell、exact initialized、initialized flow の優先順位を保ったまま allocation-free な
+単一走査へ整理した。
+
+同一 followup の clean baseline は `resource_static_check=7865ms`、`resource_initialized_moves=6756ms`、
+`resource_initialized_raw_init_summaries=3113ms`、`resource_initialized_function_checks=2130ms` だった。
+変更後の native release RPN stage-only 単独測定では `resource_static_check=6267ms` / `6381ms`、
+`resource_initialized_moves=5208ms` / `5484ms` である。per-function timing では `str_trim` final check が
+`895ms`、`apply_op` raw-init summary が `552ms` まで下がった。過去 checkpoint の最良値とは
+測定揺れがあるため、この数値は同一 followup baseline からの改善として扱う。
+
+remote/main の GUI 関連変更を取り込んだ main 上で release CLI を再ビルドした後の確認値は、
+`resource_static_check=6937ms`、`resource_initialized_moves=5876ms`、
+`resource_initialized_raw_init_summaries=2378ms`、`resource_initialized_function_checks=1905ms` だった。
+
 次の根本対応は、`.neplproof` を persistent / bundled artifact として初回 compile 前に preseed
 できるようにすることである。既存の `ResourceSummaryProofArtifact` は in-memory export/preseed と
 fail-closed header 照合を持つが、`ResourceSummaryProofSnapshot` は serialization schema ではなく、
