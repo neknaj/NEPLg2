@@ -134,11 +134,31 @@ pub struct CompilationArtifact {
     /// header だけを載せる。Web / CLI 側はこの header と現在の cache snapshot を組み合わせて、
     /// `.neplproof` 相当の in-memory artifact を作る。
     pub resource_summary_proof_header: Option<crate::resource::ResourceSummaryProofArtifactHeader>,
+    /// `.neplproof` artifact を現在 compile の Resource summary cache へ preseed した結果。
+    ///
+    /// これは観測用の情報であり、静的検査の根拠ではない。実際に preseed entry が使えるかは、
+    /// 各 Resource summary replay が現在の型境界と source capability へ再投影できるかで
+    /// fail-closed に決まる。
+    pub resource_summary_proof_preseed_report: Option<ResourceSummaryProofArtifactPreseedReport>,
     /// full/source compile から生成できた `.neplobj` direct-call fragment。
     ///
     /// これは direct-call MVP の optimization artifact であり、生成できない function は単に
     /// 省略する。`memo_call`、function value、indirect call、raw body などの proof は含めない。
     pub neplobj_direct_call_fragments: Vec<crate::artifact::NeplObjDirectCallFragmentArtifact>,
+}
+
+/// `.neplproof` artifact preseed の観測結果。
+///
+/// artifact が存在しない場合や Resource summary cache が無い経路では report を生成しない。
+/// artifact が存在して header が一致しない場合は `compatibility_reject` だけを記録し、
+/// payload は cache へ混ぜない。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ResourceSummaryProofArtifactPreseedReport {
+    pub accepted_entries: usize,
+    pub existing_matching_entries: usize,
+    pub rejected_conflict_entries: usize,
+    pub compatibility_reject:
+        Option<crate::resource::ResourceSummaryProofArtifactCompatibilityReject>,
 }
 
 /// Resource summary proof artifact を compile pipeline へ接続するための入力。
@@ -148,10 +168,10 @@ pub struct CompilationArtifact {
 /// 再実装してはならない。この options は host が持つ optional な artifact と stdlib content
 /// hash だけを渡し、target/profile/source-capability/private-effect policy は core compiler が
 /// canonical な形で組み立てる。
-#[derive(Debug, Clone, Copy)]
 pub struct ResourceSummaryProofArtifactCacheOptions<'a> {
     pub preseed_artifact: Option<&'a crate::resource::ResourceSummaryProofArtifact>,
     pub stdlib_content_hash: Option<u64>,
+    pub preseed_report_out: Option<&'a mut Option<ResourceSummaryProofArtifactPreseedReport>>,
 }
 
 impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
@@ -159,6 +179,7 @@ impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
         Self {
             preseed_artifact: None,
             stdlib_content_hash: None,
+            preseed_report_out: None,
         }
     }
 
@@ -169,6 +190,19 @@ impl<'a> ResourceSummaryProofArtifactCacheOptions<'a> {
         Self {
             preseed_artifact: Some(artifact),
             stdlib_content_hash,
+            preseed_report_out: None,
+        }
+    }
+
+    pub fn preseed_with_report(
+        artifact: &'a crate::resource::ResourceSummaryProofArtifact,
+        stdlib_content_hash: Option<u64>,
+        preseed_report_out: &'a mut Option<ResourceSummaryProofArtifactPreseedReport>,
+    ) -> Self {
+        Self {
+            preseed_artifact: Some(artifact),
+            stdlib_content_hash,
+            preseed_report_out: Some(preseed_report_out),
         }
     }
 }
@@ -672,6 +706,8 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
     let profile = options
         .profile
         .unwrap_or(BuildProfile::default_source_profile());
+    let resource_summary_proof_stdlib_content_hash =
+        resource_summary_proof_options.stdlib_content_hash;
     let prepared = prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
         &module,
         target,
@@ -709,9 +745,10 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
         artifact_options.include_wat_comments,
         prepared.nepl_meta_artifact,
         Some(prepared.resource_summary_proof_header),
+        prepared.resource_summary_proof_preseed_report,
         public_interface_artifacts.neplobj_direct_call_fragments,
         public_interface_artifacts.neplobj_direct_call_export_requests,
-        resource_summary_proof_options.stdlib_content_hash,
+        resource_summary_proof_stdlib_content_hash,
         stage_recorder,
     )
 }
@@ -849,6 +886,7 @@ pub struct PreparedProgram {
     pub nepl_meta_artifact: crate::artifact::NeplMetaArtifact,
     pub resource_summary_cache_namespace_key: ResourceSummaryCacheNamespaceKey,
     pub resource_summary_proof_header: crate::resource::ResourceSummaryProofArtifactHeader,
+    pub resource_summary_proof_preseed_report: Option<ResourceSummaryProofArtifactPreseedReport>,
     pub resource_drop_elaboration_plan: crate::resource::ResourceDropElaborationPlan,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -4199,7 +4237,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     source_map: Option<&SourceMap>,
     public_interface_artifacts: PublicInterfaceArtifactInputs<'_>,
     mut resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
-    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
+    mut resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
     stage_recorder: &mut CompileStageRecorder<'_>,
 ) -> Result<PreparedProgram, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
@@ -4261,10 +4299,27 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     } else {
         None
     };
-    if let Some(artifact) = resource_summary_proof_options.preseed_artifact {
-        if let Some(cache) = resource_summary_value_cache.as_deref_mut() {
-            let _ = cache.preseed_neplproof_artifact(artifact, resource_summary_proof_header);
-        }
+    let resource_summary_proof_preseed_report =
+        if let Some(artifact) = resource_summary_proof_options.preseed_artifact {
+            resource_summary_value_cache.as_deref_mut().map(|cache| {
+                match cache.preseed_neplproof_artifact(artifact, resource_summary_proof_header) {
+                    Ok(stats) => ResourceSummaryProofArtifactPreseedReport {
+                        accepted_entries: stats.accepted_entries(),
+                        existing_matching_entries: stats.existing_matching_entries(),
+                        rejected_conflict_entries: stats.rejected_conflict_entries(),
+                        compatibility_reject: None,
+                    },
+                    Err(reject) => ResourceSummaryProofArtifactPreseedReport {
+                        compatibility_reject: Some(reject),
+                        ..ResourceSummaryProofArtifactPreseedReport::default()
+                    },
+                }
+            })
+        } else {
+            None
+        };
+    if let Some(report_out) = resource_summary_proof_options.preseed_report_out.as_mut() {
+        **report_out = resource_summary_proof_preseed_report;
     }
     let neplobj_direct_call_symbols = neplobj_direct_call_fragment_symbol_set(
         public_interface_artifacts.neplobj_direct_call_fragments,
@@ -4379,6 +4434,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
         nepl_meta_artifact,
         resource_summary_cache_namespace_key,
         resource_summary_proof_header,
+        resource_summary_proof_preseed_report,
         resource_drop_elaboration_plan,
         diagnostics,
     })
@@ -4771,6 +4827,7 @@ fn emit_wasm(
     include_wat_comments: bool,
     nepl_meta_artifact: crate::artifact::NeplMetaArtifact,
     resource_summary_proof_header: Option<crate::resource::ResourceSummaryProofArtifactHeader>,
+    resource_summary_proof_preseed_report: Option<ResourceSummaryProofArtifactPreseedReport>,
     neplobj_direct_call_fragments: &[crate::artifact::NeplObjDirectCallFragmentArtifact],
     neplobj_direct_call_export_requests: &[crate::artifact::NeplObjDirectCallFragmentExportRequest],
     stdlib_content_hash: Option<u64>,
@@ -4861,6 +4918,7 @@ fn emit_wasm(
         wat_comments,
         nepl_meta_artifact,
         resource_summary_proof_header,
+        resource_summary_proof_preseed_report,
         neplobj_direct_call_fragments: exported_neplobj_direct_call_fragments,
     })
 }

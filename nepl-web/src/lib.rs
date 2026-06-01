@@ -36,7 +36,7 @@ use nepl_core::span::{FileId, Span};
 use nepl_core::typecheck::{typecheck, MaterializedPublicSurfaceInput, PublicSurfaceShape};
 use nepl_core::{
     BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileTarget,
-    ResourceSummaryProofArtifactCacheOptions,
+    ResourceSummaryProofArtifactCacheOptions, ResourceSummaryProofArtifactPreseedReport,
 };
 use wasmprinter::print_bytes;
 use wasm_bindgen::{prelude::*, JsCast};
@@ -3030,6 +3030,7 @@ fn compile_outputs_with_bundled_sources_and_cache(
         None,
         None,
         None,
+        None,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
     compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
@@ -3202,6 +3203,7 @@ struct CompiledWasm {
     wat_comments: String,
     nepl_meta_artifact: NeplMetaArtifact,
     resource_summary_proof_artifact: Option<ResourceSummaryProofArtifact>,
+    resource_summary_proof_preseed_report: Option<ResourceSummaryProofArtifactPreseedReport>,
     stdlib_overlay_used: bool,
 }
 
@@ -3300,6 +3302,7 @@ fn compile_wasm_with_bundled_sources(
         stdlib_vfs,
         profile,
         include_wat_comments,
+        None,
         None,
         None,
         None,
@@ -3763,6 +3766,8 @@ fn compile_wasm_with_bundled_sources_and_cache(
     loader_cache: Option<&mut LoaderSessionCache>,
     resource_summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     preseed_resource_summary_proof_artifact: Option<&ResourceSummaryProofArtifact>,
+    mut resource_summary_proof_preseed_report_out:
+        Option<&mut Option<ResourceSummaryProofArtifactPreseedReport>>,
     stage_timings: Option<&mut CompileStageTimings>,
     nepl_meta_artifact_store: Option<&mut NeplMetaArtifactStore>,
     nepl_obj_direct_call_fragment_store: Option<&mut NeplObjDirectCallFragmentStore>,
@@ -3913,18 +3918,6 @@ fn compile_wasm_with_bundled_sources_and_cache(
     }
     let proof_artifact_enabled =
         resource_summary_value_cache.is_some() && stdlib_content_hash.is_some();
-    let resource_summary_proof_options = ResourceSummaryProofArtifactCacheOptions {
-        preseed_artifact: if proof_artifact_enabled {
-            preseed_resource_summary_proof_artifact
-        } else {
-            None
-        },
-        stdlib_content_hash: if proof_artifact_enabled {
-            stdlib_content_hash
-        } else {
-            None
-        },
-    };
     let mut stage_timings = stage_timings;
     let loaded_source_map = loaded.source_map;
     let loaded_nepl_meta_edge_probes = loaded.nepl_meta_edge_probes;
@@ -3972,7 +3965,19 @@ fn compile_wasm_with_bundled_sources_and_cache(
         &neplobj_direct_call_fragments,
         &[],
         resource_summary_value_cache.as_deref_mut(),
-        resource_summary_proof_options,
+        ResourceSummaryProofArtifactCacheOptions {
+            preseed_artifact: if proof_artifact_enabled {
+                preseed_resource_summary_proof_artifact
+            } else {
+                None
+            },
+            stdlib_content_hash: if proof_artifact_enabled {
+                stdlib_content_hash
+            } else {
+                None
+            },
+            preseed_report_out: resource_summary_proof_preseed_report_out.as_deref_mut(),
+        },
         stage_timings.as_deref_mut(),
     );
     let (artifact, nepl_meta_edge_probes) = match artifact_attempt {
@@ -4036,7 +4041,19 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 &[],
                 &fallback_neplobj_direct_call_export_requests,
                 resource_summary_value_cache.as_deref_mut(),
-                resource_summary_proof_options,
+                ResourceSummaryProofArtifactCacheOptions {
+                    preseed_artifact: if proof_artifact_enabled {
+                        preseed_resource_summary_proof_artifact
+                    } else {
+                        None
+                    },
+                    stdlib_content_hash: if proof_artifact_enabled {
+                        stdlib_content_hash
+                    } else {
+                        None
+                    },
+                    preseed_report_out: resource_summary_proof_preseed_report_out.as_deref_mut(),
+                },
                 stage_timings.as_deref_mut(),
             );
             let artifact = match fallback_artifact {
@@ -4102,6 +4119,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
         wat_comments: artifact.wat_comments,
         nepl_meta_artifact: artifact.nepl_meta_artifact,
         resource_summary_proof_artifact,
+        resource_summary_proof_preseed_report: artifact.resource_summary_proof_preseed_report,
         stdlib_overlay_used: overlay_overrides_stdlib,
     })
 }
@@ -4144,6 +4162,13 @@ pub struct CompilerSession {
     compiled_output_cache_stores: RefCell<usize>,
     resource_summary_proof_artifact_preseed_candidates: RefCell<usize>,
     resource_summary_proof_artifact_stores: RefCell<usize>,
+    resource_summary_proof_artifact_preseed_accepted_entries: RefCell<usize>,
+    resource_summary_proof_artifact_preseed_existing_matching_entries: RefCell<usize>,
+    resource_summary_proof_artifact_preseed_rejected_conflict_entries: RefCell<usize>,
+    last_resource_summary_proof_artifact_preseed_accepted_entries: RefCell<usize>,
+    last_resource_summary_proof_artifact_preseed_existing_matching_entries: RefCell<usize>,
+    last_resource_summary_proof_artifact_preseed_rejected_conflict_entries: RefCell<usize>,
+    last_resource_summary_proof_artifact_preseed_reject: RefCell<&'static str>,
     prewarm_surface_hits: RefCell<usize>,
     prewarm_surface_stores: RefCell<usize>,
     nepl_meta_materialized_compile_attempts: RefCell<usize>,
@@ -4178,6 +4203,41 @@ struct CompiledOutputCacheEntry {
 
 const COMPILED_OUTPUT_CACHE_LIMIT: usize = 8;
 
+fn resource_summary_proof_preseed_reject_tag(
+    reject: Option<nepl_core::resource::ResourceSummaryProofArtifactCompatibilityReject>,
+) -> &'static str {
+    match reject {
+        None => "none",
+        Some(nepl_core::resource::ResourceSummaryProofArtifactCompatibilityReject::SchemaVersion) => {
+            "schema_version"
+        }
+        Some(nepl_core::resource::ResourceSummaryProofArtifactCompatibilityReject::CompilerIdentity) => {
+            "compiler_identity"
+        }
+        Some(nepl_core::resource::ResourceSummaryProofArtifactCompatibilityReject::Target) => {
+            "target"
+        }
+        Some(nepl_core::resource::ResourceSummaryProofArtifactCompatibilityReject::Profile) => {
+            "profile"
+        }
+        Some(nepl_core::resource::ResourceSummaryProofArtifactCompatibilityReject::StdlibContent) => {
+            "stdlib_content"
+        }
+        Some(
+            nepl_core::resource::ResourceSummaryProofArtifactCompatibilityReject::DependencyPublicSurface,
+        ) => "dependency_public_surface",
+        Some(
+            nepl_core::resource::ResourceSummaryProofArtifactCompatibilityReject::ResourceSummaryNamespace,
+        ) => "resource_summary_namespace",
+        Some(
+            nepl_core::resource::ResourceSummaryProofArtifactCompatibilityReject::SourceCapabilityPolicySet,
+        ) => "source_capability_policy_set",
+        Some(nepl_core::resource::ResourceSummaryProofArtifactCompatibilityReject::PrivateEffectPolicy) => {
+            "private_effect_policy"
+        }
+    }
+}
+
 #[wasm_bindgen]
 impl CompilerSession {
     #[wasm_bindgen(constructor)]
@@ -4203,6 +4263,13 @@ impl CompilerSession {
             compiled_output_cache_stores: RefCell::new(0),
             resource_summary_proof_artifact_preseed_candidates: RefCell::new(0),
             resource_summary_proof_artifact_stores: RefCell::new(0),
+            resource_summary_proof_artifact_preseed_accepted_entries: RefCell::new(0),
+            resource_summary_proof_artifact_preseed_existing_matching_entries: RefCell::new(0),
+            resource_summary_proof_artifact_preseed_rejected_conflict_entries: RefCell::new(0),
+            last_resource_summary_proof_artifact_preseed_accepted_entries: RefCell::new(0),
+            last_resource_summary_proof_artifact_preseed_existing_matching_entries: RefCell::new(0),
+            last_resource_summary_proof_artifact_preseed_rejected_conflict_entries: RefCell::new(0),
+            last_resource_summary_proof_artifact_preseed_reject: RefCell::new("none"),
             prewarm_surface_hits: RefCell::new(0),
             prewarm_surface_stores: RefCell::new(0),
             nepl_meta_materialized_compile_attempts: RefCell::new(0),
@@ -5002,6 +5069,51 @@ impl CompilerSession {
                 .borrow()
                 .to_string(),
         );
+        out.push_str(",\"resource_summary_proof_artifact_preseed_accepted_entries\":");
+        out.push_str(
+            &self
+                .resource_summary_proof_artifact_preseed_accepted_entries
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"resource_summary_proof_artifact_preseed_existing_matching_entries\":");
+        out.push_str(
+            &self
+                .resource_summary_proof_artifact_preseed_existing_matching_entries
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"resource_summary_proof_artifact_preseed_rejected_conflict_entries\":");
+        out.push_str(
+            &self
+                .resource_summary_proof_artifact_preseed_rejected_conflict_entries
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"resource_summary_proof_artifact_last_preseed_accepted_entries\":");
+        out.push_str(
+            &self
+                .last_resource_summary_proof_artifact_preseed_accepted_entries
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"resource_summary_proof_artifact_last_preseed_existing_matching_entries\":");
+        out.push_str(
+            &self
+                .last_resource_summary_proof_artifact_preseed_existing_matching_entries
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"resource_summary_proof_artifact_last_preseed_rejected_conflict_entries\":");
+        out.push_str(
+            &self
+                .last_resource_summary_proof_artifact_preseed_rejected_conflict_entries
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"resource_summary_proof_artifact_last_preseed_reject\":\"");
+        out.push_str(*self.last_resource_summary_proof_artifact_preseed_reject.borrow());
+        out.push('"');
         out.push_str(",\"resource_summary_proof_artifact_total_entries\":");
         out.push_str(&proof_counts.total_entries().to_string());
         out.push_str(",\"resource_summary_proof_artifact_drop_traversal_forall_leaf_entries\":");
@@ -5161,6 +5273,53 @@ impl CompilerSession {
         }
     }
 
+    /// 1 compile 呼び出しの `.neplproof` preseed 結果を累積統計へ反映する。
+    ///
+    /// accepted / existing / conflict は preseed map へ入れた段階の観測値であり、実際の
+    /// proof reuse は後続 summary replay の再投影で決まる。ここでは artifact が
+    /// header mismatch で拒否されたか、cache へ何件候補を入れられたかだけを記録する。
+    fn record_resource_summary_proof_preseed_report(
+        &self,
+        report: Option<ResourceSummaryProofArtifactPreseedReport>,
+    ) {
+        let Some(report) = report else {
+            *self
+                .last_resource_summary_proof_artifact_preseed_accepted_entries
+                .borrow_mut() = 0;
+            *self
+                .last_resource_summary_proof_artifact_preseed_existing_matching_entries
+                .borrow_mut() = 0;
+            *self
+                .last_resource_summary_proof_artifact_preseed_rejected_conflict_entries
+                .borrow_mut() = 0;
+            *self
+                .last_resource_summary_proof_artifact_preseed_reject
+                .borrow_mut() = "none";
+            return;
+        };
+        *self
+            .last_resource_summary_proof_artifact_preseed_accepted_entries
+            .borrow_mut() = report.accepted_entries;
+        *self
+            .last_resource_summary_proof_artifact_preseed_existing_matching_entries
+            .borrow_mut() = report.existing_matching_entries;
+        *self
+            .last_resource_summary_proof_artifact_preseed_rejected_conflict_entries
+            .borrow_mut() = report.rejected_conflict_entries;
+        *self
+            .last_resource_summary_proof_artifact_preseed_reject
+            .borrow_mut() = resource_summary_proof_preseed_reject_tag(report.compatibility_reject);
+        *self
+            .resource_summary_proof_artifact_preseed_accepted_entries
+            .borrow_mut() += report.accepted_entries;
+        *self
+            .resource_summary_proof_artifact_preseed_existing_matching_entries
+            .borrow_mut() += report.existing_matching_entries;
+        *self
+            .resource_summary_proof_artifact_preseed_rejected_conflict_entries
+            .borrow_mut() += report.rejected_conflict_entries;
+    }
+
     /// Loader cache を明示的に空にする。
     ///
     /// 通常の Web session では artifact refresh 時に Worker ごと作り直すが、
@@ -5182,6 +5341,16 @@ impl CompilerSession {
             .resource_summary_proof_artifact_preseed_candidates
             .borrow_mut() = 0;
         *self.resource_summary_proof_artifact_stores.borrow_mut() = 0;
+        *self
+            .resource_summary_proof_artifact_preseed_accepted_entries
+            .borrow_mut() = 0;
+        *self
+            .resource_summary_proof_artifact_preseed_existing_matching_entries
+            .borrow_mut() = 0;
+        *self
+            .resource_summary_proof_artifact_preseed_rejected_conflict_entries
+            .borrow_mut() = 0;
+        self.record_resource_summary_proof_preseed_report(None);
         *self.prewarm_surface_hits.borrow_mut() = 0;
         *self.prewarm_surface_stores.borrow_mut() = 0;
         *self.nepl_meta_materialized_compile_attempts.borrow_mut() = 0;
@@ -5355,6 +5524,7 @@ impl CompilerSession {
         *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
         *self.last_compile_stage_timings.borrow_mut() = None;
         self.reset_last_nepl_meta_materialized_compile_stats();
+        self.record_resource_summary_proof_preseed_report(None);
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
         let key = compiled_output_cache_key(entry_path, source, &vfs, false, profile);
@@ -5372,6 +5542,7 @@ impl CompilerSession {
             *self.compiled_output_cache_hits.borrow_mut() += 1;
             *self.last_compile_stage_timing_status.borrow_mut() = "cache_hit";
             *self.last_compile_stage_timings.borrow_mut() = Some(String::from("[]"));
+            self.record_resource_summary_proof_preseed_report(None);
             return Ok(compiled.wasm);
         }
         let preseed_artifact = self.resource_summary_proof_artifact.borrow().clone();
@@ -5382,6 +5553,7 @@ impl CompilerSession {
         }
         let mut stage_timings = CompileStageTimings::new();
         let mut materialized_compile_stats = NeplMetaMaterializedCompileStats::default();
+        let mut proof_preseed_report = None;
         let compiled = {
             let mut cache = self.loader_cache.borrow_mut();
             let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
@@ -5402,6 +5574,7 @@ impl CompilerSession {
                 Some(&mut cache),
                 Some(&mut resource_summary_value_cache),
                 preseed_artifact.as_ref(),
+                Some(&mut proof_preseed_report),
                 Some(&mut stage_timings),
                 Some(&mut nepl_meta_artifact_store),
                 Some(&mut nepl_obj_direct_call_fragment_store),
@@ -5414,11 +5587,15 @@ impl CompilerSession {
                     *self.last_compile_stage_timing_status.borrow_mut() = "failed";
                     *self.last_compile_stage_timings.borrow_mut() =
                         Some(stage_timings.to_json_array());
+                    self.record_resource_summary_proof_preseed_report(proof_preseed_report);
                     return Err(JsValue::from_str(&msg));
                 }
             }
         };
         self.record_nepl_meta_materialized_compile_stats(materialized_compile_stats);
+        self.record_resource_summary_proof_preseed_report(
+            compiled.resource_summary_proof_preseed_report,
+        );
         if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
             *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
             *self.resource_summary_proof_artifact_stores.borrow_mut() += 1;
@@ -5444,6 +5621,7 @@ impl CompilerSession {
         *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
         *self.last_compile_stage_timings.borrow_mut() = None;
         self.reset_last_nepl_meta_materialized_compile_stats();
+        self.record_resource_summary_proof_preseed_report(None);
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
         self.loader_cache.borrow_mut().record_stdlib_override_bypass();
@@ -5459,6 +5637,7 @@ impl CompilerSession {
             Some(stdlib_vfs),
             Some(parsed),
             false,
+            None,
             None,
             None,
             None,
@@ -5516,6 +5695,7 @@ impl CompilerSession {
             *self.compiled_output_cache_hits.borrow_mut() += 1;
             *self.last_compile_stage_timing_status.borrow_mut() = "cache_hit";
             *self.last_compile_stage_timings.borrow_mut() = Some(String::from("[]"));
+            self.record_resource_summary_proof_preseed_report(None);
             return compile_outputs_from_compiled(
                 &compiled,
                 entry_path,
@@ -5532,6 +5712,7 @@ impl CompilerSession {
         }
         let mut stage_timings = CompileStageTimings::new();
         let mut materialized_compile_stats = NeplMetaMaterializedCompileStats::default();
+        let mut proof_preseed_report = None;
         let compiled = {
             let mut loader_cache = self.loader_cache.borrow_mut();
             let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
@@ -5552,6 +5733,7 @@ impl CompilerSession {
                 Some(&mut loader_cache),
                 Some(&mut resource_summary_value_cache),
                 preseed_artifact.as_ref(),
+                Some(&mut proof_preseed_report),
                 Some(&mut stage_timings),
                 Some(&mut nepl_meta_artifact_store),
                 Some(&mut nepl_obj_direct_call_fragment_store),
@@ -5564,11 +5746,15 @@ impl CompilerSession {
                     *self.last_compile_stage_timing_status.borrow_mut() = "failed";
                     *self.last_compile_stage_timings.borrow_mut() =
                         Some(stage_timings.to_json_array());
+                    self.record_resource_summary_proof_preseed_report(proof_preseed_report);
                     return Err(JsValue::from_str(&msg));
                 }
             }
         };
         self.record_nepl_meta_materialized_compile_stats(materialized_compile_stats);
+        self.record_resource_summary_proof_preseed_report(
+            compiled.resource_summary_proof_preseed_report,
+        );
         if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
             *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
             *self.resource_summary_proof_artifact_stores.borrow_mut() += 1;

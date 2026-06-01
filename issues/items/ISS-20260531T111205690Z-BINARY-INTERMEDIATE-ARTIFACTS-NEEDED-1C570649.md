@@ -703,3 +703,43 @@ warm store probe `compile_ms=23`、body edit repeat `compile_ms=23` だった。
 `.neplmeta` codec、bundled stdlib artifact embedding、`.neplproof` preseed、generic/string/raw body
 を含む `.neplobj` の永続化、function value / memoized function value backend、`memo_call` PrivateCache
 proof である。
+
+## 2026-06-02 RPN `.neplproof` cold-base checkpoint
+
+RPN cold base の再測定により、`.neplmeta` / `.neplobj` の小 fixture 改善だけでは
+stdlib-heavy workload の初回 compile 目標に届かないことを再確認した。
+
+`examples/rpn.nepl` の native release check は `resource_static_check=6172ms` で、その内訳は
+`resource_initialized_moves=5320ms`、`resource_initialized_i32_scalar_summaries=1330ms`、
+`resource_initialized_raw_init_summaries=2315ms`、`resource_initialized_function_checks=1609ms`、
+`resource_owner_obligations=736ms` だった。release Web cold base は `compile_ms=9283` で、
+`resource_static_initialized_moves=6626.938ms` と `resource_static_owner_obligations=1455.416ms`
+が支配的だった。
+
+局所的な leaf pruning 試行では、enum variant projection の不可能 i32 scalar facts を落としても
+RPN native release が `resource_static_check=7455ms` へ悪化した。したがって、この issue の次段階は
+proof 探索を少しずつ削ることではなく、既に same-session で再利用できる Resource summary proof を
+cross-session / cold-start の `.neplproof` artifact として利用できる形にすることである。
+
+永続 `.neplproof` codec は、現在の in-memory `ResourceSummaryProofSnapshot` をそのまま binary に
+するものではない。snapshot は serialization schema ではなく、stable entry map も private payload である。
+必要な境界は次である。
+
+- header を先に decode し、schema / compiler identity / target / profile / stdlib hash /
+  dependency public surface / Resource summary namespace / source capability policy / private effect policy
+  が一致しない artifact では payload を読まない。
+- stable entry は `TypeId`、`Span`、`FileId`、`SourceMap`、diagnostic、compile-local replay plan を
+  含めず、既存 replay API が現在の `TypeCtx` と source capability policy へ再投影できる単位だけにする。
+- generic type argument key と function body hash を entry key に含め、stdlib generic の具体化違いで
+  stale proof を共有しない。
+- Web は IndexedDB / bundled artifact、CLI は disk cache を host storage とし、`nepl-core` は
+  serialization format ではなく decoded artifact の header / stable entry を fail-closed に検査する。
+
+この checkpoint は `.neplproof` 永続 codec の実装前設計であり、issue は open のまま維持する。
+
+2026-06-02 の `.neplproof` preseed report checkpoint で、same-session preseed の accepted /
+existing / conflict / compatibility reject を `CompilationArtifact` と Web `CompilerSession` stats へ
+公開した。これは永続 codec そのものではないが、header mismatch や cache hit / stdlib overlay bypass
+で stale な preseed 観測値を残さないための artifact boundary である。persistent / bundled
+`.neplproof` を実装する際は、この report を disk / IndexedDB / build-time bundled artifact の
+reject visibility へ接続する。

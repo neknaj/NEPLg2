@@ -19,6 +19,38 @@ function cacheStores(session) {
     return Number(stats(session).compiled_output_cache_stores || 0);
 }
 
+function neplProofPreseedStats(session) {
+    const s = stats(session);
+    const keys = [
+        'resource_summary_proof_artifact_preseed_candidates',
+        'resource_summary_proof_artifact_stores',
+        'resource_summary_proof_artifact_preseed_accepted_entries',
+        'resource_summary_proof_artifact_preseed_existing_matching_entries',
+        'resource_summary_proof_artifact_preseed_rejected_conflict_entries',
+        'resource_summary_proof_artifact_last_preseed_accepted_entries',
+        'resource_summary_proof_artifact_last_preseed_existing_matching_entries',
+        'resource_summary_proof_artifact_last_preseed_rejected_conflict_entries',
+        'resource_summary_proof_artifact_last_preseed_reject',
+    ];
+    for (const key of keys) {
+        assert.ok(
+            Object.prototype.hasOwnProperty.call(s, key),
+            `.neplproof preseed stats must expose ${key}`,
+        );
+    }
+    return {
+        candidates: Number(s.resource_summary_proof_artifact_preseed_candidates || 0),
+        stores: Number(s.resource_summary_proof_artifact_stores || 0),
+        accepted: Number(s.resource_summary_proof_artifact_preseed_accepted_entries || 0),
+        existing: Number(s.resource_summary_proof_artifact_preseed_existing_matching_entries || 0),
+        rejectedConflicts: Number(s.resource_summary_proof_artifact_preseed_rejected_conflict_entries || 0),
+        lastAccepted: Number(s.resource_summary_proof_artifact_last_preseed_accepted_entries || 0),
+        lastExisting: Number(s.resource_summary_proof_artifact_last_preseed_existing_matching_entries || 0),
+        lastRejectedConflicts: Number(s.resource_summary_proof_artifact_last_preseed_rejected_conflict_entries || 0),
+        lastReject: String(s.resource_summary_proof_artifact_last_preseed_reject || ''),
+    };
+}
+
 function neplMetaStoreStats(session) {
     const s = stats(session);
     return {
@@ -703,6 +735,92 @@ fn main %fn unit i32 \\unit:
         assert.ok(
             neplObjHitMaterialized.attempts > neplObjCandidateMaterialized.attempts,
             'object candidate availability must keep the materialized compile probe open instead of hiding it behind the body-missing skip cache',
+        );
+
+        const proofPreseedSession = newSession(api);
+        assert.deepEqual(
+            neplProofPreseedStats(proofPreseedSession),
+            {
+                candidates: 0,
+                stores: 0,
+                accepted: 0,
+                existing: 0,
+                rejectedConflicts: 0,
+                lastAccepted: 0,
+                lastExisting: 0,
+                lastRejectedConflicts: 0,
+                lastReject: 'none',
+            },
+            'a fresh CompilerSession must expose empty .neplproof preseed stats',
+        );
+        proofPreseedSession.compile_outputs_with_vfs(
+            '/virtual/neplproof_preseed_char_dependency.nepl',
+            charDependencyBodySource(11),
+            {},
+            ['wasm'],
+            false,
+        );
+        const proofFirst = neplProofPreseedStats(proofPreseedSession);
+        assert.ok(
+            proofFirst.stores > 0,
+            'first source compile must export a same-session .neplproof artifact for later preseed',
+        );
+        proofPreseedSession.compile_outputs_with_vfs(
+            '/virtual/neplproof_preseed_char_dependency.nepl',
+            charDependencyBodySource(12),
+            {},
+            ['wasm'],
+            false,
+        );
+        const proofSecond = neplProofPreseedStats(proofPreseedSession);
+        assert.ok(
+            proofSecond.candidates > proofFirst.candidates,
+            'second source compile must try to preseed the previous .neplproof artifact',
+        );
+        assert.equal(
+            proofSecond.lastReject,
+            'none',
+            'matching same-session .neplproof preseed must not be rejected by the compile-context header',
+        );
+        assert.ok(
+            proofSecond.lastAccepted + proofSecond.lastExisting > 0,
+            'matching same-session .neplproof preseed must report usable stable proof entries',
+        );
+        proofPreseedSession.compile_outputs_with_vfs(
+            '/virtual/neplproof_preseed_char_dependency.nepl',
+            charDependencyBodySource(12),
+            {},
+            ['wasm'],
+            false,
+        );
+        const proofCacheHit = neplProofPreseedStats(proofPreseedSession);
+        assert.equal(
+            proofCacheHit.lastAccepted + proofCacheHit.lastExisting + proofCacheHit.lastRejectedConflicts,
+            0,
+            'compiled-output cache hit must clear last .neplproof preseed stats for the current call',
+        );
+        proofPreseedSession.compile_source_with_vfs_stdlib_and_profile(
+            '/virtual/neplproof_overlay_reset.nepl',
+            `#entry main
+fn main %fn unit i32 \\unit:
+    0
+`,
+            {},
+            {
+                '/stdlib/std/prelude_base.nepl': '',
+            },
+            'debug',
+        );
+        const proofOverlay = neplProofPreseedStats(proofPreseedSession);
+        assert.equal(
+            proofOverlay.lastAccepted + proofOverlay.lastExisting + proofOverlay.lastRejectedConflicts,
+            0,
+            'stdlib overlay compile must clear last .neplproof preseed stats because proof preseed is disabled',
+        );
+        assert.equal(
+            proofOverlay.lastReject,
+            'none',
+            'stdlib overlay compile must not leave a stale .neplproof reject reason from an earlier call',
         );
 
         const preseedSession = newSession(api);

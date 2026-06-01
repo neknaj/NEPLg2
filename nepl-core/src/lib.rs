@@ -92,6 +92,6 @@ pub use compiler::{
     resource_summary_proof_target_hash, resource_summary_source_capability_policy_set_hash,
     BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions,
     CompileStageTimings, CompileTarget, PublicInterfaceArtifactInputs,
-    ResourceSummaryProofArtifactCacheOptions,
+    ResourceSummaryProofArtifactCacheOptions, ResourceSummaryProofArtifactPreseedReport,
 };
 pub use error::CoreError;

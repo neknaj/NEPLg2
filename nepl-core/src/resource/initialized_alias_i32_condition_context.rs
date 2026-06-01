@@ -1,3 +1,4 @@
+use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use super::initialized_alias_i32_condition_memo::{
@@ -8,32 +9,27 @@ use super::model::{I32ValueCondition, Place};
 #[derive(Default)]
 pub(super) struct I32ConditionQueryContext {
     active: Vec<I32ConditionQuery>,
-    memo: Vec<I32ConditionMemo>,
-    value_memo: Vec<I32ValueMemo>,
-    pub(super) scalar_alias_memo: Vec<ScalarAliasMemo>,
-    pub(super) offset_source_memo: Vec<I32OffsetSourceMemo>,
-    pub(super) offset_target_memo: Vec<I32OffsetTargetMemo>,
-    pub(super) offset_reachable_memo: Vec<I32OffsetReachableMemo>,
+    memo: BTreeMap<I32ConditionMemoKey, Option<bool>>,
+    value_memo: BTreeMap<Place, Option<i32>>,
+    pub(super) scalar_alias_memo: ScalarAliasMemo,
+    pub(super) offset_source_memo: I32OffsetSourceMemo,
+    pub(super) offset_target_memo: I32OffsetTargetMemo,
+    pub(super) offset_reachable_memo: I32OffsetReachableMemo,
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct I32ConditionQuery {
     place: Place,
     condition: I32ValueCondition,
     derive_false: bool,
 }
 
-#[derive(Clone, PartialEq, Eq)]
-struct I32ConditionMemo {
-    query: I32ConditionQuery,
-    depth: usize,
-    result: Option<bool>,
-}
-
-#[derive(Clone, PartialEq, Eq)]
-struct I32ValueMemo {
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct I32ConditionMemoKey {
     place: Place,
-    result: Option<i32>,
+    condition: I32ValueCondition,
+    depth: usize,
+    derive_false: bool,
 }
 
 impl I32ConditionQueryContext {
@@ -67,14 +63,13 @@ impl I32ConditionQueryContext {
         derive_false: bool,
     ) -> Option<Option<bool>> {
         self.memo
-            .iter()
-            .find(|entry| {
-                entry.depth == depth
-                    && entry.query.place == *place
-                    && entry.query.condition == condition
-                    && entry.query.derive_false == derive_false
+            .get(&I32ConditionMemoKey {
+                place: place.clone(),
+                condition,
+                depth,
+                derive_false,
             })
-            .map(|entry| entry.result)
+            .copied()
     }
 
     pub(super) fn memoize(
@@ -85,29 +80,23 @@ impl I32ConditionQueryContext {
         derive_false: bool,
         result: Option<bool>,
     ) {
-        self.memo.push(I32ConditionMemo {
-            query: I32ConditionQuery {
+        self.memo.insert(
+            I32ConditionMemoKey {
                 place: place.clone(),
                 condition,
+                depth,
                 derive_false,
             },
-            depth,
             result,
-        });
+        );
     }
 
     pub(super) fn value_result(&self, place: &Place) -> Option<Option<i32>> {
-        self.value_memo
-            .iter()
-            .find(|entry| entry.place == *place)
-            .map(|entry| entry.result)
+        self.value_memo.get(place).copied()
     }
 
     pub(super) fn memoize_value(&mut self, place: &Place, result: Option<i32>) {
-        self.value_memo.push(I32ValueMemo {
-            place: place.clone(),
-            result,
-        });
+        self.value_memo.insert(place.clone(), result);
     }
 }
 
