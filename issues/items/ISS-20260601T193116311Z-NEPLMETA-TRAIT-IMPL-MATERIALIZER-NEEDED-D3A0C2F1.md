@@ -79,3 +79,21 @@ support surface として `.neplmeta` に保持する境界を追加した。`Ty
 この issue の trait identity 部分は前進したが、trait/impl materializer はまだ完了していない。
 次の作業では、nominal type identity / type application を復元したうえで、validated `TraitInfo`
 と `ImplInfo` を current session の semantic registry へ注入する必要がある。
+
+## 2026-06-01 unsupported export kind checkpoint
+
+backend scalar named terms を `BackendScalarType` domain で復元し、`i128` / `u128` の capability
+impl を `core/math/int128/types` へ移したことで、`std/prelude_base` の stored dependency artifact は
+`MissingNamedTypeIdentity` で止まらず一部 projection success まで進むようになった。
+
+残る reject は `PublicSurfaceBlocker` ではなく `UnsupportedExportKind` (`reject_code=11`) である。
+これは `.neplmeta` projection が callable export だけを materializer 入力として受け入れる MVP
+境界に到達したことを示す。`Clone` / `Copy` trait、`i128` / `u128` struct、関連 impl のような
+non-callable surface を `Env` の visible export と semantic registry へ分けて復元する必要がある。
+
+したがって、この issue の次の実装単位は以下である。
+
+- `Trait` / `Struct` / `Enum` export kind を名前空間へ安全に投影する。
+- semantic-only `Impl` を public export に混ぜず、validated `ImplInfo` と capability registration へ注入する。
+- `PublicTypeTerm::Named { identity: Some(...) }` と `Apply` の復元を先に通し、impl target を名前だけで対応させない。
+- `UnsupportedExportKind` の stats は public surface blocker ではないため、blocker reason / entry kind code を 0 のまま保つ。

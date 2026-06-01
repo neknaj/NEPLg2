@@ -5,6 +5,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{Effect, Visibility};
+use crate::backend_scalar_type::BackendScalarType;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId};
 
@@ -339,13 +340,20 @@ impl<'a> TypeTermMaterializer<'a> {
                 entry,
                 PublicSurfaceMaterializeRejectReason::TraitSelfUnsupported,
             )),
-            PublicTypeTerm::Named { name, identity } => Err(reject(
-                entry,
-                PublicSurfaceMaterializeRejectReason::NamedTypeUnsupported {
-                    name: name.clone(),
-                    identity: identity.clone(),
-                },
-            )),
+            PublicTypeTerm::Named { name, identity } => {
+                if identity.is_none() {
+                    if let Some(scalar) = BackendScalarType::from_name(name.as_str()) {
+                        return Ok(scalar.type_id(self.ctx));
+                    }
+                }
+                Err(reject(
+                    entry,
+                    PublicSurfaceMaterializeRejectReason::NamedTypeUnsupported {
+                        name: name.clone(),
+                        identity: identity.clone(),
+                    },
+                ))
+            }
             PublicTypeTerm::GenericParam(param_ref) => self.generic_param(entry, param_ref),
             PublicTypeTerm::UnboundGenericParam(param) => Err(reject(
                 entry,
@@ -727,6 +735,47 @@ mod tests {
                 identity: Some(identity)
             }
         );
+    }
+
+    #[test]
+    fn materializer_mvp_accepts_backend_scalar_named_types() {
+        let ty = PublicTypeTerm::Function {
+            type_params: Vec::new(),
+            params: Vec::from([PublicTypeTerm::Named {
+                name: String::from("i64"),
+                identity: None,
+            }]),
+            result: Box::new(PublicTypeTerm::Named {
+                name: String::from("u64"),
+                identity: None,
+            }),
+            effect: PublicEffect::Pure,
+        };
+        let table = TypedPublicSurfaceTable::new(Vec::from([callable_entry(
+            "wide_id",
+            PublicCallableSurface {
+                ty: ty.clone(),
+                no_shadow: false,
+                arity: 1,
+                effect: PublicEffect::Pure,
+                field_accessor: None,
+                link_symbol: Some(link_symbol("wide_id", &ty)),
+                type_param_bounds: Vec::new(),
+            },
+        )]));
+        let mut ctx = TypeCtx::new();
+        let mut env = Env::new();
+
+        materialize_public_surface_mvp(&mut ctx, &mut env, &table, Span::dummy()).unwrap();
+
+        let binding = env.lookup_all_callables("wide_id")[0];
+        match ctx.get(binding.ty) {
+            TypeKind::Function { params, result, .. } => {
+                assert_eq!(ctx.get(params[0]), TypeKind::Named(String::from("i64")));
+                assert_eq!(ctx.get(result), TypeKind::Named(String::from("u64")));
+            }
+            other => panic!("unexpected materialized backend scalar callable type: {:?}", other),
+        }
     }
 
     #[test]

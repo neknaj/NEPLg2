@@ -8,6 +8,7 @@
 //:
 //: [注意/ちゅうい]:
 //: - `MemPtr .T` など stdlib [型/がた]の impl は、この file ではなく上位 facade の `core/traits/copy` 側に[置/お]きます。
+//: - `i128` / `u128` は `core/math/int128/types` が[所有/しょゆう]する struct なので、Copy / Clone impl もその[型/かた]の module に[置/お]きます。
 //: - prelude は[全/すべ]ての program で[暗黙/あんもく]に[読/よ]まれるため、ここへ heavy module を import してはいけません。
 //:
 //: [計算量/けいさんりょう]:
@@ -88,24 +89,6 @@ impl Clone for i64:
 
 impl Copy for i64:
     fn copy_mark %fn i64 i64 \x:
-        x
-
-//: i128 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-impl Clone for i128:
-    fn clone %fn &i128 i128 \x:
-        *x
-
-impl Copy for i128:
-    fn copy_mark %fn i128 i128 \x:
-        x
-
-//: u128 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
-impl Clone for u128:
-    fn clone %fn &u128 u128 \x:
-        *x
-
-impl Copy for u128:
-    fn copy_mark %fn u128 u128 \x:
         x
 
 //: u8 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ

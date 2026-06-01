@@ -30,3 +30,36 @@ pub struct u128:
 pub struct i128:
     hi %i64
     lo %i64
+
+//: u128 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
+//:
+//: [目的/もくてき]:
+//: - `u128` は `hi` / `lo` の 2 word だけで[構成/こうせい]される[値/あたい]型なので、move ではなく copy として[扱/あつか]えることを[明示/めいじ]します。
+//: - capability impl を[型/かた]の[定義/ていぎ] module に[置/お]き、prelude の primitive capability module が `u128` の名義型 identity を推測しないようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - clone / copy marker は値をそのまま返すだけなので O(1) です。
+impl Clone for u128:
+    fn clone %fn &u128 u128 \x:
+        *x
+
+impl Copy for u128:
+    fn copy_mark %fn u128 u128 \x:
+        x
+
+//: i128 は `Clone` / `Copy` の[両方/りょうほう]を[持/も]つ
+//:
+//: [目的/もくてき]:
+//: - `i128` は `u128` と同じ 2 word [表現/ひょうげん]を符号付き 2 の補数として[解釈/かいしゃく]する[値/あたい]型です。
+//: - [所有権/しょゆうけん]を[持/も]つ外部 resource を[含/ふく]まないため、copy capability を[安全/あんぜん]に[与/あた]えます。
+//: - impl を[型/かた]の[定義/ていぎ]と同じ module に[閉/と]じ、`.neplmeta` が stable nominal identity から capability surface を[復元/ふくげん]できるようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - clone / copy marker は値をそのまま返すだけなので O(1) です。
+impl Clone for i128:
+    fn clone %fn &i128 i128 \x:
+        *x
+
+impl Copy for i128:
+    fn copy_mark %fn i128 i128 \x:
+        x

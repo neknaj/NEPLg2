@@ -7,6 +7,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{Effect, Visibility};
+use crate::backend_scalar_type::BackendScalarType;
 use crate::source_map::SourceMap;
 use crate::types::{NominalStableTypeKind, TypeCtx, TypeId, TypeKind};
 
@@ -592,13 +593,15 @@ fn collect_type_term_materializer_blockers(
         }
         PublicTypeTerm::Named { name, identity } => {
             if identity.is_none() {
-                push_materializer_blocker(
-                    entry,
-                    PublicSurfaceMaterializerBlockerReason::MissingNamedTypeIdentity {
-                        type_name: name.clone(),
-                    },
-                    blockers,
-                );
+                if BackendScalarType::from_name(name.as_str()).is_none() {
+                    push_materializer_blocker(
+                        entry,
+                        PublicSurfaceMaterializerBlockerReason::MissingNamedTypeIdentity {
+                            type_name: name.clone(),
+                        },
+                        blockers,
+                    );
+                }
             }
         }
         PublicTypeTerm::UnboundGenericParam(param) => {
@@ -2573,6 +2576,41 @@ mod tests {
                 type_name: String::from("Item"),
             }
         );
+    }
+
+    /// backend scalar は `i64` / `u64` / `f64` / `u32` のように `TypeKind::Named` で
+    /// 表現されるが、ユーザー定義の名義型ではない。これらは compiler-defined scalar
+    /// domain の安定名を authority として持つため、nominal identity 欠落 blocker にはしない。
+    #[test]
+    fn materializer_preflight_accepts_backend_scalar_named_terms() {
+        let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Callable,
+            name: String::from("wide_id"),
+            exported: true,
+            surface: PublicSurfaceShape::Callable(PublicCallableSurface {
+                ty: PublicTypeTerm::Function {
+                    type_params: Vec::new(),
+                    params: Vec::from([PublicTypeTerm::Named {
+                        name: String::from("i64"),
+                        identity: None,
+                    }]),
+                    result: Box::new(PublicTypeTerm::Named {
+                        name: String::from("u64"),
+                        identity: None,
+                    }),
+                    effect: PublicEffect::Pure,
+                },
+                no_shadow: false,
+                arity: 1,
+                effect: PublicEffect::Pure,
+                field_accessor: None,
+                link_symbol: Some(test_link_symbol("wide_id")),
+                type_param_bounds: Vec::new(),
+            }),
+        }]));
+
+        assert!(table.is_materializer_preflight_ready());
+        assert!(table.materializer_blockers().is_empty());
     }
 
     /// 対応 binder を確定できない generic parameter や、stable identity を持たない

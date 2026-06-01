@@ -2143,6 +2143,32 @@ export surface は `TypedPublicSurfaceEntry.exported=true` の entry だけを l
 する。semantic-only trait は import 先の visible namespace には出さず、後続の trait /
 impl materializer が impl header を復元するための authority としてだけ扱う。
 
+### 2026-06-01 `.neplmeta` backend scalar and local int128 capability checkpoint
+
+`.neplmeta` materializer preflight は、compiler-defined backend scalar と user-defined
+nominal type を分けて扱うようになった。`i64` / `u64` / `f64` / `u32` は
+`BackendScalarType` が所有する named scalar domain なので、stable nominal identity がなくても
+`MissingNamedTypeIdentity` にはしない。materializer 本体も同じ enum domain から `TypeCtx` の
+backend scalar `TypeId` を復元する。文字列の再列挙ではなく、layout / wasm / LLVM / Resource
+stable key と同じ authority を使うため、support set の drift を Rust 側の enum 境界へ集約できる。
+
+一方で `i128` / `u128` は backend scalar ではない。これらは `core/math/int128/types` が
+所有する public struct であり、`copy/primitive` に primitive capability impl を置くと、
+default prelude の `.neplmeta` surface が型定義を持たないまま name-only nominal term を
+持ってしまう。そこで `i128` / `u128` の `Clone` / `Copy` impl は型定義 module へ移し、
+prelude の primitive capability module は本当に primitive な型だけを所有する形に戻した。
+
+この checkpoint 後、`std/prelude_base` の dependency edge probe では一部の stored stdlib
+artifact が projection success まで進む。残る reject は `PublicSurfaceBlocker` ではなく
+`UnsupportedExportKind` (`reject_code=11`) であり、non-callable export / semantic trait・impl
+surface を current session の registry へ復元する段階が次の root gap である。
+`UnsupportedExportKind` では blocker reason / entry kind code は 0 のままにし、古い
+`MissingNamedTypeIdentity` 詳細を stats に残さない。
+
+この変更は `i128` / `u128` を backend scalar として扱うものではない。同名 user nominal と
+backend scalar の衝突は、今後 `.neplmeta` の type term に compiler-owned scalar tag を持たせるか、
+backend scalar 名を予約型名として診断する設計でさらに固定する必要がある。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

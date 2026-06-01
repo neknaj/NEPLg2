@@ -48876,3 +48876,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - structured public surface hash namespace を `neplg2-typed-public-surface-v7`、`.neplmeta` schema / artifact hash / compiler identity を v8 に上げた。
 - `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。次の残件は reexport / prelude edge と module canonical path、fail-closed materializer 本体である。
 - focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` backend scalar / int128 locality checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-nominal-type-materializer-20260601` branch で、`.neplmeta` materializer の named type blocker を続けた。`plan.md` は変更していない。
+- Zenn の静的検査・性能追求・試作段階でも設計負債を残さない方針を再確認し、backend scalar と user-defined nominal type を同じ文字列 fallback で扱わない方針にした。
+- subagent review では、`BackendScalarType` を唯一の authority にすること、`i128` / `u128` を backend scalar と誤分類しないこと、memo_call / PrivateCache はこの branch に混ぜないことを確認した。
+- `PublicTypeTerm::Named { identity: None }` のうち `BackendScalarType` が知っている `i64` / `u64` / `f64` / `u32` だけを materializer preflight blocker から外し、materializer 本体も同じ enum domain から `TypeCtx` へ復元するようにした。
+- `i128` / `u128` は `core/math/int128/types` が所有する public struct なので、`copy/primitive` から `Clone` / `Copy` impl を外して型定義 module へ移した。prelude primitive capability module が型定義を持たない nominal impl surface を抱え込まないようにするためである。
+- `std/prelude_base` dependency artifact probe は、`MissingNamedTypeIdentity` / `Impl` ではなく `UnsupportedExportKind` (`reject_code=11`) まで進んだ。一部 stored stdlib artifact は projection success しており、次の root gap は callable-only projection から trait/struct/enum export と semantic impl registry materializer へ移った。
+- focused verification は `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo test -p nepl-core materializer_mvp_accepts_backend_scalar_named_types --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`trunk build --release`、`node tests\compiler\tree\run.js` を通した。全体 verification はこの checkpoint の最終確認で実施する。

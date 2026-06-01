@@ -47,3 +47,21 @@ target: "nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/mate
 - `cargo test -p nepl-core materializer --lib -- --nocapture`
 - `cargo test -p nepl-core neplmeta --lib -- --nocapture`
 - `node tests\compiler\tree\run.js`
+
+## 2026-06-01 backend scalar / int128 locality checkpoint
+
+`PublicTypeTerm::Named` のうち `i64` / `u64` / `f64` / `u32` は
+`BackendScalarType` domain から復元できるようにした。これらは `TypeKind::Named` として流れるが、
+user-defined nominal type ではなく compiler-owned backend scalar なので、stable nominal identity
+欠落 blocker にはしない。
+
+`i128` / `u128` は backend scalar ではなく `core/math/int128/types` の public struct である。
+そのため `copy/primitive` から `i128` / `u128` の `Clone` / `Copy` impl を外し、型定義 module へ
+移した。これにより、prelude の primitive capability artifact が型定義を持たない `i128` / `u128`
+impl surface を抱え込まない。
+
+この checkpoint 後の `std/prelude_base` edge probe は、少なくとも一部の stored stdlib artifact を
+projection success まで進める。残る reject は `MissingNamedTypeIdentity` ではなく
+`UnsupportedExportKind` (`reject_code=11`) であり、non-callable export と semantic trait / impl
+registry materializer が次の実装単位になった。この issue は、stable nominal identity を持つ
+`Named` / `Apply` を materializer 本体で復元する残件として引き続き open とする。

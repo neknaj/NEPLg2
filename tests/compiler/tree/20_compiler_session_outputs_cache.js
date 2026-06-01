@@ -233,8 +233,8 @@ fn main <()->i32> ():
         );
         assert.deepEqual(
             neplMetaPreTypecheckProbeStats(cacheSession),
-            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 1, rejectKind: 4, rejectCode: 6, projectionBlockerReasonCode: 3, projectionBlockerEntryKindCode: 5 },
-            'dependency body-only edit must still report a projection blocker instead of treating a root artifact hit as body-skip ready',
+            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 1, rejectKind: 4, rejectCode: 11, projectionBlockerReasonCode: 0, projectionBlockerEntryKindCode: 0 },
+            'dependency body-only edit must still report unsupported non-callable export projection instead of treating a root artifact hit as body-skip ready',
         );
         const dependencyEditEdgeProbe = neplMetaPreTypecheckEdgeProbeStats(cacheSession);
         assert.ok(
@@ -320,17 +320,26 @@ fn main %fn unit i32 \\unit:
         );
         assert.ok(
             thirdStdlibEdgeProbe.projectionRejects > 0,
-            'stored stdlib dependency artifacts must report explicit projection blockers until materializer support is added',
+            'stored stdlib dependency artifacts must report explicit projection rejects until materializer support is added',
+        );
+        assert.ok(
+            thirdStdlibEdgeProbe.projected > 0,
+            'backend scalar and local int128 capability cleanup must let at least one stored stdlib artifact project successfully',
+        );
+        assert.equal(
+            thirdStdlibEdgeProbe.rejectCode,
+            11,
+            'remaining stdlib dependency artifacts now pass named-type blockers and stop at unsupported non-callable export projection',
         );
         assert.equal(
             thirdStdlibEdgeProbe.projectionBlockerReasonCode,
-            3,
-            'stdlib prelude_base dependency artifacts now pass trait identity and stop at MissingNamedTypeIdentity, which is the next materializer root gap',
+            0,
+            'unsupported export kind is a projection boundary rather than a public surface blocker',
         );
         assert.equal(
             thirdStdlibEdgeProbe.projectionBlockerEntryKindCode,
-            5,
-            'the first stdlib edge blocker is an impl surface, so trait/impl materialization must be the next root fix',
+            0,
+            'unsupported export kind must not carry stale public surface blocker details',
         );
 
         const stdlibOverlaySession = newSession(api);
