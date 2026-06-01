@@ -2251,6 +2251,26 @@ artifact MVP gate の `UnsupportedImplLookup` は外し、impl surface を含む
 - materialized dependency surface を実際の import / prelude typecheck body skip 経路へ接続し、base
   compile time の実測を更新する必要がある。
 
+### 2026-06-01 `.neplmeta` typecheck materialized surface input checkpoint
+
+typecheck driver に、artifact projection 済みの dependency `TypedPublicSurfaceTable` を source body
+検査前に注入する入力境界を追加した。これにより、loader / web が `.neplmeta` store から得た surface を
+通常の source declaration と同じ `Env` / nominal table / trait table / impl table へ戻せる。
+
+この入力は `module_path` と `file_id` を必須にする。`SourceMap` 上の `file_id` が同じ path を指して
+いない場合は fail-closed に拒否する。import visibility は binding span の file id に依存するため、
+dependency body を省略しても target file slot は現在 compile の `SourceMap` に存在しなければならない。
+
+materialized dependency は名前解決と semantic registry へ使うが、現在 module の public signature /
+public surface には含めない。`StructInfo` / `EnumInfo` / `ImplInfo` に origin span を持たせ、typecheck
+結果の public artifact 生成時に materialized file id を除外する。これにより、root module の
+`.neplmeta` が import した dependency API を local export として再配布する事故を避ける。
+
+この checkpoint でも body skip は完了していない。直接呼び出される dependency function body を
+codegen 入力から落とすには、`.neplobj` / codegen fragment 相当の authority か、依存 callable を
+使う case では source fallback する判定が必要である。次の実装では prelude capability のように
+型検査だけで必要な surface から先に materialize し、実行 body が必要な dependency は安全側に戻す。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-06-01
 updated: 2026-06-01
-target: "nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/artifact.rs; nepl-web/src/lib.rs"
+target: "nepl-core/src/typecheck/driver.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/artifact.rs; nepl-web/src/lib.rs"
 ---
 
 # ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1: .neplmeta trait and impl materializer needed for prelude capability surface
@@ -157,3 +157,29 @@ prelude の通常 typecheck body skip 経路へ接続して base compile time �
 - `std/prelude_base` edge probe の `UnsupportedImplLookup` 解消後の次 blocker と base compile time を
   実測する。
 - `memo_call` / private cache proof / function value identity はこの materializer で bypass しない。
+
+## 2026-06-01 typecheck materialized dependency surface checkpoint
+
+`TypedPublicSurfaceTable` を source body 検査前の `Env` / nominal table / trait table / impl table へ
+注入できる typecheck API を追加した。これにより、loader が dependency artifact projection を
+検証済み入力として渡せる最小境界ができた。
+
+この API は `module_path` と `file_id` を要求し、現在の `SourceMap` 上で同じ path を持つ file と
+一致しない場合は fail-closed に拒否する。import visibility は binding の `file_id` に依存するため、
+body skip でも dependency target file slot を予約する契約を先に固定する必要がある。
+
+また、materialized dependency は root module の public signature / public surface には混ぜない。
+`StructInfo` / `EnumInfo` / `ImplInfo` に origin span を持たせ、materialized file id を export 生成時に
+除外することで、「名前解決と semantic registry には使うが、現在 module の `.neplmeta` export には
+しない」境界を固定した。
+
+この checkpoint でも issue は open のまま維持する。理由は、loader / web 側で実際に import /
+prelude body merge を省く経路は未接続であり、直接呼び出される dependency function body を落とすには
+`.neplobj` / codegen fragment 相当の authority か source fallback 判定が必要だからである。
+
+残件:
+
+- loader が dependency source body を merge せず、target file id と projected surface だけを渡す経路を作る。
+- callable body が codegen に必要な dependency は `.neplobj` ができるまで source fallback する。
+- prelude capability だけを materialize する case で base compile time を実測する。
+- `memo_call` / private cache proof / function value identity は引き続き `.neplmeta` materializer で bypass しない。

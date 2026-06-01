@@ -405,6 +405,7 @@ fn stage_public_surface_with_semantics(
                     &staged_impls,
                     entry,
                     surface,
+                    origin_span,
                 )? {
                     ImplMaterializeOutcome::Staged(info) => {
                         staged_impls.push(info);
@@ -758,6 +759,7 @@ fn stage_struct_surface(
         info: StructInfo {
             ty,
             visibility: Visibility::Pub,
+            span: origin_span,
             type_params,
             fields,
             field_names,
@@ -850,6 +852,7 @@ fn stage_enum_surface(
         info: EnumInfo {
             ty,
             visibility: Visibility::Pub,
+            span: origin_span,
             type_params,
             variants,
         },
@@ -941,6 +944,7 @@ fn stage_impl_surface(
     staged_impls: &[ImplInfo],
     entry: &TypedPublicSurfaceEntry,
     surface: &PublicImplSurface,
+    origin_span: Span,
 ) -> Result<ImplMaterializeOutcome, PublicSurfaceMaterializeReject> {
     if entry.kind != TypedPublicSignatureKind::Impl {
         return Err(reject(
@@ -989,6 +993,7 @@ fn stage_impl_surface(
         type_param_bounds,
         kind,
         target_ty,
+        span: origin_span,
     };
     if impls
         .iter()

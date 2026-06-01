@@ -1,6 +1,6 @@
 extern crate alloc;
 
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -136,13 +136,33 @@ pub(super) fn build_typed_public_signature_table(
     traits: &BTreeMap<String, TraitInfo>,
     impls: &[ImplInfo],
 ) -> TypedPublicSignatureTable {
+    build_typed_public_signature_table_excluding_files(
+        ctx,
+        env,
+        structs,
+        enums,
+        traits,
+        impls,
+        &BTreeSet::new(),
+    )
+}
+
+pub(super) fn build_typed_public_signature_table_excluding_files(
+    ctx: &TypeCtx,
+    env: &Env,
+    structs: &BTreeMap<String, StructInfo>,
+    enums: &BTreeMap<String, EnumInfo>,
+    traits: &BTreeMap<String, TraitInfo>,
+    impls: &[ImplInfo],
+    excluded_files: &BTreeSet<u32>,
+) -> TypedPublicSignatureTable {
     let mut entries = Vec::new();
     if let Some(global_scope) = env.scopes.first() {
-        for binding in global_scope
-            .callables
-            .iter()
-            .filter(|binding| binding.defined && binding.visibility == Visibility::Pub)
-        {
+        for binding in global_scope.callables.iter().filter(|binding| {
+            binding.defined
+                && binding.visibility == Visibility::Pub
+                && !excluded_files.contains(&binding.span.file_id.0)
+        }) {
             entries.push(TypedPublicSignatureEntry::new(
                 TypedPublicSignatureKind::Callable,
                 binding.name.clone(),
@@ -151,10 +171,9 @@ pub(super) fn build_typed_public_signature_table(
             ));
         }
     }
-    for (name, info) in structs
-        .iter()
-        .filter(|(_, info)| info.visibility == Visibility::Pub)
-    {
+    for (name, info) in structs.iter().filter(|(_, info)| {
+        info.visibility == Visibility::Pub && !excluded_files.contains(&info.span.file_id.0)
+    }) {
         entries.push(TypedPublicSignatureEntry::new(
             TypedPublicSignatureKind::Struct,
             name.clone(),
@@ -162,10 +181,9 @@ pub(super) fn build_typed_public_signature_table(
             false,
         ));
     }
-    for (name, info) in enums
-        .iter()
-        .filter(|(_, info)| info.visibility == Visibility::Pub)
-    {
+    for (name, info) in enums.iter().filter(|(_, info)| {
+        info.visibility == Visibility::Pub && !excluded_files.contains(&info.span.file_id.0)
+    }) {
         entries.push(TypedPublicSignatureEntry::new(
             TypedPublicSignatureKind::Enum,
             name.clone(),
@@ -173,10 +191,9 @@ pub(super) fn build_typed_public_signature_table(
             false,
         ));
     }
-    for (name, info) in traits
-        .iter()
-        .filter(|(_, info)| info.visibility == Visibility::Pub)
-    {
+    for (name, info) in traits.iter().filter(|(_, info)| {
+        info.visibility == Visibility::Pub && !excluded_files.contains(&info.span.file_id.0)
+    }) {
         entries.push(TypedPublicSignatureEntry::new(
             TypedPublicSignatureKind::Trait,
             name.clone(),
@@ -184,7 +201,10 @@ pub(super) fn build_typed_public_signature_table(
             false,
         ));
     }
-    for impl_info in impls {
+    for impl_info in impls
+        .iter()
+        .filter(|impl_info| !excluded_files.contains(&impl_info.span.file_id.0))
+    {
         entries.push(TypedPublicSignatureEntry::new(
             TypedPublicSignatureKind::Impl,
             impl_public_name(ctx, impl_info),

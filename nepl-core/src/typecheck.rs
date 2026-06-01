@@ -61,21 +61,24 @@ use function_check::check_function;
 use model::{AssignKind, FieldIdx, ScalarMatchKind, StackEntry};
 use traits::BoundEnv;
 
-pub use driver::{typecheck, TypeCheckResult};
-pub use public_signature::{
-    TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
+pub use driver::{
+    typecheck, typecheck_with_materialized_public_surfaces, MaterializedPublicSurfaceInput,
+    TypeCheckResult,
 };
 pub use materializer::{
     PublicSurfaceMaterializeReject, PublicSurfaceMaterializeRejectReason,
     PublicSurfaceMaterializeReport,
 };
+pub use public_signature::{
+    TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
+};
 pub use public_surface::{
     PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicEnumSurface,
     PublicEnumVariantSurface, PublicFieldAccessorKind, PublicFieldSurface, PublicImplKind,
     PublicImplSurface, PublicNominalTypeIdentity, PublicNominalTypeKind,
-    PublicStructConstructorPolicy, PublicStructSurface, PublicSurfaceShape, PublicTraitCapability,
+    PublicStructConstructorPolicy, PublicStructSurface, PublicSurfaceMaterializerBlocker,
+    PublicSurfaceMaterializerBlockerReason, PublicSurfaceShape, PublicTraitCapability,
     PublicTraitIdentity, PublicTraitMethodSurface, PublicTraitRef, PublicTraitSurface,
-    PublicSurfaceMaterializerBlocker, PublicSurfaceMaterializerBlockerReason, PublicTypeParam,
-    PublicTypeParamBoundTarget, PublicTypeParamBounds, PublicTypeParamRef, PublicTypeTerm,
-    TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
+    PublicTypeParam, PublicTypeParamBoundTarget, PublicTypeParamBounds, PublicTypeParamRef,
+    PublicTypeTerm, TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
 };

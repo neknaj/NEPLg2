@@ -153,6 +153,7 @@ pub enum TypeDiagnosticCode {
     MemoCallUnsupportedKey,
     MemoCallUnsupportedValue,
     MemoCallBoundaryRestricted,
+    PublicSurfaceMaterializerRejected,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -456,6 +457,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::MemoCallUnsupportedKey),
     DiagnosticCode::Type(TypeDiagnosticCode::MemoCallUnsupportedValue),
     DiagnosticCode::Type(TypeDiagnosticCode::MemoCallBoundaryRestricted),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerRejected),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
         ResourceBorrowDiagnosticCode::ReturnEscape,
     )),
@@ -920,6 +922,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::MemoCallUnsupportedKey => "type.memo_call.unsupported_key",
             TypeDiagnosticCode::MemoCallUnsupportedValue => "type.memo_call.unsupported_value",
             TypeDiagnosticCode::MemoCallBoundaryRestricted => "type.memo_call.boundary_restricted",
+            TypeDiagnosticCode::PublicSurfaceMaterializerRejected => {
+                "type.public_surface.materializer_rejected"
+            }
         }
     }
 
@@ -1097,6 +1102,9 @@ impl TypeDiagnosticCode {
             }
             TypeDiagnosticCode::MemoCallBoundaryRestricted => {
                 "memo_call is restricted to its compiler-known boundary"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerRejected => {
+                "public surface artifact could not be materialized"
             }
         }
     }

@@ -150,6 +150,7 @@ pub(super) struct ImplInfo {
     pub(super) type_param_bounds: BoundEnv,
     pub(super) kind: ImplKind,
     pub(super) target_ty: TypeId,
+    pub(super) span: Span,
 }
 
 impl ImplInfo {

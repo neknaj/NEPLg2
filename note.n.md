@@ -48917,3 +48917,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `Copy` impl は対応する `Clone` impl がなければ reject し、`Drop` impl は copyable target と重なる場合に reject する。duplicate impl は trait application と target type pattern の重なりで検出する。
 - artifact MVP gate の `UnsupportedImplLookup` は外した。残る root gap は、この materializer を dependency import / prelude body skip 経路へ接続し、base compile time を実測することである。
 - focused verification は `cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` typecheck materialized surface input checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-import-body-skip-20260601` branch で、dependency `.neplmeta` projection を typecheck body 検査前へ注入する API を追加した。`plan.md` は変更していない。
+- Zenn の試作段階方針、静的検査方針、純粋 query cache 方針を再確認し、loader/web 側で場当たりに body skip するのではなく、core の typecheck 境界へ明示入力を作る形にした。
+- subagent review では、materialized dependency を root module の public surface へ混ぜる危険と、`origin_span` だけでは import visibility の file identity 契約が弱いことを確認した。
+- `MaterializedPublicSurfaceInput` は `TypedPublicSurfaceTable` に加え、`module_path` と `file_id` を要求する。`SourceMap` 上で同じ path の file slot が存在しない場合は fail-closed に拒否する。
+- `StructInfo` / `EnumInfo` / `ImplInfo` に origin span を持たせた。materialized dependency file は名前解決と semantic registry には使うが、current module の typed public signature / typed public surface 生成からは除外する。
+- regression では、dependency body を root AST に merge しなくても materialized callable で root body を typecheck できること、かつ dependency export が root の public signature / public surface に混ざらないことを固定した。
+- この checkpoint でも body skip は完了ではない。direct call される dependency function body を codegen 入力から落とすには `.neplobj` / codegen fragment 相当の authority が必要であり、それまでは source fallback 判定を維持する必要がある。
+- focused verification は `cargo test -p nepl-core materialized_public_surface_typechecks_imported_callable_without_dependency_body --lib -- --nocapture`、`cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml` を通した。全体 verification はこの checkpoint の最終確認で実施する。

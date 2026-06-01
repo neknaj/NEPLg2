@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T12:15:59.891Z",
+  "generated_at": "2026-06-01T12:47:07.160Z",
   "counts": {
     "total": 1303,
     "open": 32,
@@ -484,7 +484,7 @@
       "type": "architecture",
       "created": "2026-06-01",
       "updated": "2026-06-01",
-      "target": "nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/artifact.rs; nepl-web/src/lib.rs",
+      "target": "nepl-core/src/typecheck/driver.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/artifact.rs; nepl-web/src/lib.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md"

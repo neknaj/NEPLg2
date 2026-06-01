@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -1108,14 +1108,36 @@ pub(super) fn build_typed_public_surface_table(
     traits: &BTreeMap<String, TraitInfo>,
     impls: &[ImplInfo],
 ) -> TypedPublicSurfaceTable {
+    build_typed_public_surface_table_excluding_files(
+        ctx,
+        source_map,
+        env,
+        structs,
+        enums,
+        traits,
+        impls,
+        &BTreeSet::new(),
+    )
+}
+
+pub(super) fn build_typed_public_surface_table_excluding_files(
+    ctx: &TypeCtx,
+    source_map: Option<&SourceMap>,
+    env: &Env,
+    structs: &BTreeMap<String, StructInfo>,
+    enums: &BTreeMap<String, EnumInfo>,
+    traits: &BTreeMap<String, TraitInfo>,
+    impls: &[ImplInfo],
+    excluded_files: &BTreeSet<u32>,
+) -> TypedPublicSurfaceTable {
     let mut entries = Vec::new();
     let mut semantic_trait_names = BTreeMap::new();
     if let Some(global_scope) = env.scopes.first() {
-        for binding in global_scope
-            .callables
-            .iter()
-            .filter(|binding| binding.defined && binding.visibility == Visibility::Pub)
-        {
+        for binding in global_scope.callables.iter().filter(|binding| {
+            binding.defined
+                && binding.visibility == Visibility::Pub
+                && !excluded_files.contains(&binding.span.file_id.0)
+        }) {
             if let BindingKind::Func {
                 effect,
                 arity,
@@ -1149,10 +1171,9 @@ pub(super) fn build_typed_public_surface_table(
             }
         }
     }
-    for (name, info) in structs
-        .iter()
-        .filter(|(_, info)| info.visibility == Visibility::Pub)
-    {
+    for (name, info) in structs.iter().filter(|(_, info)| {
+        info.visibility == Visibility::Pub && !excluded_files.contains(&info.span.file_id.0)
+    }) {
         entries.push(TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Struct,
             name: name.clone(),
@@ -1160,10 +1181,9 @@ pub(super) fn build_typed_public_surface_table(
             surface: PublicSurfaceShape::Struct(public_struct_surface(ctx, info)),
         });
     }
-    for (name, info) in enums
-        .iter()
-        .filter(|(_, info)| info.visibility == Visibility::Pub)
-    {
+    for (name, info) in enums.iter().filter(|(_, info)| {
+        info.visibility == Visibility::Pub && !excluded_files.contains(&info.span.file_id.0)
+    }) {
         entries.push(TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Enum,
             name: name.clone(),
@@ -1171,9 +1191,10 @@ pub(super) fn build_typed_public_surface_table(
             surface: PublicSurfaceShape::Enum(public_enum_surface(ctx, info)),
         });
     }
-    collect_impl_trait_names(impls, &mut semantic_trait_names);
+    collect_impl_trait_names_excluding_files(impls, excluded_files, &mut semantic_trait_names);
     for (name, info) in traits.iter().filter(|(name, info)| {
-        info.visibility == Visibility::Pub || semantic_trait_names.contains_key(*name)
+        !excluded_files.contains(&info.span.file_id.0)
+            && (info.visibility == Visibility::Pub || semantic_trait_names.contains_key(*name))
     }) {
         entries.push(TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Trait,
@@ -1182,7 +1203,10 @@ pub(super) fn build_typed_public_surface_table(
             surface: PublicSurfaceShape::Trait(public_trait_surface(ctx, source_map, name, info)),
         });
     }
-    for impl_info in impls {
+    for impl_info in impls
+        .iter()
+        .filter(|impl_info| !excluded_files.contains(&impl_info.span.file_id.0))
+    {
         entries.push(TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Impl,
             name: impl_public_name(ctx, impl_info),
@@ -1195,8 +1219,15 @@ pub(super) fn build_typed_public_surface_table(
     TypedPublicSurfaceTable::new(entries)
 }
 
-fn collect_impl_trait_names(impls: &[ImplInfo], out: &mut BTreeMap<String, ()>) {
+fn collect_impl_trait_names_excluding_files(
+    impls: &[ImplInfo],
+    excluded_files: &BTreeSet<u32>,
+    out: &mut BTreeMap<String, ()>,
+) {
     for info in impls {
+        if excluded_files.contains(&info.span.file_id.0) {
+            continue;
+        }
         collect_bound_env_trait_names(&info.type_param_bounds, out);
         if let ImplKind::Trait { application, .. } = &info.kind {
             out.insert(String::from(application.trait_id.as_str()), ());
