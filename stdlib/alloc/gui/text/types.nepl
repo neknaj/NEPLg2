@@ -1,0 +1,154 @@
+//: # alloc/gui/text/types
+//: platform 非依存 text buffer の data contract
+//:
+//: ### [目的/もくてき]
+//: - `TextBufferId` と `TextBuffer` を、backend resource ではなく alloc [層/そう]の data として[定義/ていぎ]します。
+//: - buffer 本文は `str` として[保持/ほじ]し、insert / replace / delete は新しい buffer を[返/かえ]す純粋な storage 操作にします。
+//:
+//: ### [契約/けいやく]
+//: - index は byte index です。UTF-8 文字境界でない位置や範囲外 index は `GuiError::InvalidCommand` を[返/かえ]します。
+//: - 文字列確保に失敗した場合は `GuiError::ResourceExhausted` を[返/かえ]します。
+//: - `TextMeasurer`、host API、platform handle には[依存/いぞん]しません。
+//:
+//: neplg2:test
+//: ret: 5
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/text/types" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let buffer %TextBuffer text_buffer_new (text_buffer_id_new 1) "abc"
+//:     match text_buffer_replace buffer 1 2 "XYZ":
+//:         Result::Ok next:
+//:             text_buffer_len &next
+//:         Result::Err _error:
+//:             0
+//: ```
+
+#indent 4
+
+#import "alloc/string/access" as *
+#import "alloc/string/concat" as *
+#import "alloc/string/search" as *
+#import "alloc/string/slice" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: TextBufferId: alloc [層/そう]の text buffer を[識別/しきべつ]する id
+//:
+//: [目的/もくてき]:
+//: - platform resource id と[混同/こんどう]せず、application data の参照 key として[扱/あつか]います。
+pub struct TextBufferId:
+    raw %i32
+
+impl Clone for TextBufferId:
+    fn clone %fn &TextBufferId TextBufferId \id:
+        *id
+
+impl Copy for TextBufferId:
+    fn copy_mark %fn TextBufferId TextBufferId \id:
+        id
+
+//: TextBuffer: text buffer の immutable snapshot
+//:
+//: [目的/もくてき]:
+//: - 本文 `str` と buffer id だけを[保持/ほじ]し、測定結果や platform handle は[含/ふく]めません。
+pub struct TextBuffer:
+    id %TextBufferId
+    text %str
+
+//: text_buffer_id_new: raw value から TextBufferId を[作/つく]る
+pub fn text_buffer_id_new %fn i32 TextBufferId \raw:
+    TextBufferId raw
+
+//: text_buffer_id_raw: TextBufferId の raw value を[読/よ]む
+pub fn text_buffer_id_raw %fn &TextBufferId i32 \id:
+    *field::get_ref id "raw"
+
+//: text_buffer_new: id と本文から TextBuffer を[作/つく]る
+pub fn text_buffer_new %fn TextBufferId fn str TextBuffer \id\text:
+    TextBuffer id text
+
+//: text_buffer_id: buffer id を[読/よ]む
+pub fn text_buffer_id %fn &TextBuffer TextBufferId \buffer:
+    *field::get_ref buffer "id"
+
+//: text_buffer_text: buffer 本文を[読/よ]む
+pub fn text_buffer_text %fn &TextBuffer str \buffer:
+    *field::get_ref buffer "text"
+
+//: text_buffer_len: buffer 本文の byte 長を[返/かえ]す
+pub fn text_buffer_len %fn &TextBuffer i32 \buffer:
+    len text_buffer_text buffer
+
+//: text_buffer_byte_index_is_valid: byte index が本文境界として使えるか[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - 範囲外 index と UTF-8 continuation byte の途中を、同じ invalid command として[扱/あつか]います。
+fn text_buffer_byte_index_is_valid %fn str fn i32 bool \text\index:
+    let n %i32 len text
+    if lt index 0:
+        then false
+        else if lt n index:
+            then false
+            else str_utf8_is_boundary text index
+
+//: text_buffer_range_is_valid: byte range が本文編集に使えるか[確認/かくにん]する
+fn text_buffer_range_is_valid %fn str fn i32 fn i32 bool \text\start\end:
+    if lt end start:
+        then false
+        else and text_buffer_byte_index_is_valid text start text_buffer_byte_index_is_valid text end
+
+//: text_buffer_concat3_result: 3 つの str を確保失敗付きで[連結/れんけつ]する
+fn text_buffer_concat3_result %fn str fn str fn str Result str GuiError \prefix\middle\suffix:
+    match concat_result prefix middle:
+        Result::Ok left:
+            match concat_result left suffix:
+                Result::Ok out:
+                    Result::Ok out
+                Result::Err _e:
+                    Result::Err GuiError::ResourceExhausted
+        Result::Err _e:
+            Result::Err GuiError::ResourceExhausted
+
+//: text_buffer_replace_range: checked range を replacement で[置/お]き[換/か]える
+//:
+//: [実装/じっそう]:
+//: - 範囲検査後、prefix / suffix を UTF-8 境界付き slice として切り出し、replacement と[連結/れんけつ]します。
+fn text_buffer_replace_range %fn TextBuffer fn i32 fn i32 fn str Result TextBuffer GuiError \buffer\start\end\replacement:
+    let old %str text_buffer_text &buffer
+    if not text_buffer_range_is_valid old start end:
+        then Result::Err GuiError::InvalidCommand
+        else:
+            match str_slice_result old 0 start:
+                Result::Ok prefix:
+                    match str_slice_result old end (len old):
+                        Result::Ok suffix:
+                            match text_buffer_concat3_result prefix replacement suffix:
+                                Result::Ok next_text:
+                                    Result::Ok TextBuffer (text_buffer_id &buffer) next_text
+                                Result::Err error:
+                                    Result::Err error
+                        Result::Err _e:
+                            Result::Err GuiError::ResourceExhausted
+                Result::Err _e:
+                    Result::Err GuiError::ResourceExhausted
+
+//: text_buffer_insert: byte index に text を[挿入/そうにゅう]する
+//:
+//: [注意/ちゅうい]:
+//: - index は UTF-8 byte index です。文字単位 index ではありません。
+pub fn text_buffer_insert %fn TextBuffer fn i32 fn str Result TextBuffer GuiError \buffer\index\text:
+    text_buffer_replace_range buffer index index text
+
+//: text_buffer_replace: byte range を text で[置/お]き[換/か]える
+pub fn text_buffer_replace %fn TextBuffer fn i32 fn i32 fn str Result TextBuffer GuiError \buffer\start\end\text:
+    text_buffer_replace_range buffer start end text
+
+//: text_buffer_delete: byte range を[削除/さくじょ]する
+pub fn text_buffer_delete %fn TextBuffer fn i32 fn i32 Result TextBuffer GuiError \buffer\start\end:
+    text_buffer_replace_range buffer start end ""

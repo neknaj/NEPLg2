@@ -1,0 +1,26 @@
+//: # alloc/gui/text
+//: GUI / TUI 共通 text buffer data facade
+//:
+//: ### [目的/もくてき]
+//: - platform handle や `TextMeasurer` に[依存/いぞん]しない text storage を alloc [層/そう]で[提供/ていきょう]します。
+//: - text buffer の[編集/へんしゅう]は `Result` で[境界/きょうかい]を[返/かえ]し、panic や sentinel value に[頼/たよ]りません。
+//:
+//: neplg2:test
+//: ret: 3
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/text" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let buffer %TextBuffer text_buffer_new (text_buffer_id_new 1) "ac"
+//:     match text_buffer_insert buffer 1 "b":
+//:         Result::Ok next:
+//:             text_buffer_len &next
+//:         Result::Err _error:
+//:             0
+//: ```
+
+#indent 4
+
+pub #import "alloc/gui/text/types" as *
