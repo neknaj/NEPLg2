@@ -188,6 +188,7 @@ const MATERIALIZED_COMPILE_DELTA_COUNTERS = [
     ['source_fallback_successes_delta', 'source_fallback_successes'],
     ['source_fallback_failures_delta', 'source_fallback_failures'],
     ['body_missing_fallbacks_delta', 'body_missing_fallbacks'],
+    ['body_missing_candidate_surfaces_delta', 'body_missing_candidate_surfaces'],
 ];
 
 function materializedCompileDelta(result, counterName) {
@@ -332,6 +333,10 @@ function buildDelta(base, next) {
                 bt.timing.materialized_compile.body_missing_fallbacks_delta.sum,
                 nt.timing.materialized_compile.body_missing_fallbacks_delta.sum,
             ),
+            materialized_compile_body_missing_candidate_surfaces_delta_sum: deltaNumber(
+                bt.timing.materialized_compile.body_missing_candidate_surfaces_delta.sum,
+                nt.timing.materialized_compile.body_missing_candidate_surfaces_delta.sum,
+            ),
         } : null,
         metrics: {
             files: deltaNumber(bm.files, nm.files),
@@ -413,6 +418,7 @@ function renderMarkdown(report) {
             m ? fmt(m.source_fallback_successes_delta.sum, 0) : '-',
             m ? fmt(m.source_fallback_failures_delta.sum, 0) : '-',
             m ? fmt(m.body_missing_fallbacks_delta.sum, 0) : '-',
+            m ? fmt(m.body_missing_candidate_surfaces_delta.sum, 0) : '-',
         ];
     });
     parts.push('', '## Materialized Compile', '', markdownTable(
@@ -426,6 +432,7 @@ function renderMarkdown(report) {
             'source_fallback_successes_delta_sum',
             'source_fallback_failures_delta_sum',
             'body_missing_fallbacks_delta_sum',
+            'body_missing_candidate_surfaces_delta_sum',
         ],
         materializedRows,
     ));
@@ -456,6 +463,7 @@ function renderMarkdown(report) {
             d.tests ? fmt(d.tests.materialized_compile_source_fallback_successes_delta_sum, 0) : '-',
             d.tests ? fmt(d.tests.materialized_compile_source_fallback_failures_delta_sum, 0) : '-',
             d.tests ? fmt(d.tests.materialized_compile_body_missing_fallbacks_delta_sum, 0) : '-',
+            d.tests ? fmt(d.tests.materialized_compile_body_missing_candidate_surfaces_delta_sum, 0) : '-',
         ]);
         parts.push('', '## Materialized Compile Delta from first ref', '', markdownTable(
             [
@@ -467,6 +475,7 @@ function renderMarkdown(report) {
                 'source_fallback_successes_delta_sum',
                 'source_fallback_failures_delta_sum',
                 'body_missing_fallbacks_delta_sum',
+                'body_missing_candidate_surfaces_delta_sum',
             ],
             materializedDeltaRows,
         ));

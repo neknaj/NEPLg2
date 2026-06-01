@@ -275,3 +275,22 @@ Markdown には `Materialized Compile` table を出す。これにより、base 
 この checkpoint も fallback を減らす実装ではない。次は report で body missing fallback が増える
 surface を `.neplobj` candidate として抽出し、bundled stdlib `.neplmeta` preseed と object/link artifact の
 実装順序を決める。
+
+## 2026-06-01 `.neplobj` candidate surface counter checkpoint
+
+materialized compile fallback stats に `.neplobj` candidate surface counter を追加した。
+`MaterializedFunctionBodyMissing` を理由に source fallback した compile では、attempted surface 数を
+`nepl_obj_candidate_body_missing_surfaces` へ加算し、last compile の値を
+`nepl_obj_candidate_last_body_missing_surfaces` として出す。
+
+`run_test.js` と `compare_git_versions.js` はこの値を compile 単位の delta として扱い、
+`body_missing_candidate_surfaces_delta_sum` を Markdown report に出す。これにより、fallback compile
+件数だけでなく、`.neplobj` が解決すべき materialized surface 数を実測できる。
+
+この checkpoint では symbol や function identity を保存しない。`.neplobj` stable link symbol、
+selected callable body hash、generic instantiation hash の設計が固まるまでは、`TypeId` / `Span` /
+`SourceMap` 由来の情報を永続化しない方針を維持する。
+
+同じ checkpoint で、同一 `CompilerSession` の cold / warm / body edit sequence を固定する
+`nodesrc/bench_materialized_compile_fallbacks.js` を追加した。通常 test runner の worker 分散に
+依存せず、`compile_ms` と candidate surface delta と stage timing を同じ JSON に出すための実測入口である。

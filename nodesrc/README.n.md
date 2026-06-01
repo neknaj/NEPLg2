@@ -71,6 +71,15 @@ Node.js から compiler/runtime を[呼/よ]び[出/だ]す CLI です。
 - `.nepl` を[単発/たんぱつ]で[実行/じっこう]
 - tests.js / run_doctest.js [内部/ないぶ]の[共通/きょうつう][経路/けいろ]
 
+## `bench_materialized_compile_fallbacks.js`
+
+同じ `CompilerSession` で `.neplmeta` store を[温/あたた]めながら cold / warm edit compile を[順番/じゅんばん]に[実行/じっこう]し、materialized compile fallback と `.neplobj` candidate surface [数/すう]を JSON で[出力/しゅつりょく]します。
+
+### [主/おも]な[用途/ようと]
+
+- `body_missing_candidate_surfaces_delta_sum` が[増/ふ]える compile を[探/さが]し、`.neplobj` の[最初/さいしょ]の[対象/たいしょう]を[決/き]める
+- `compile_ms` と `resource_static_check` / `resource_typecheck` / `wasm_codegen` の stage timing を、同じ session の artifact [温度/おんど]と[一緒/いっしょ]に[確認/かくにん]する
+
 ## `compiler_loader.js`
 
 `nepl-web` の build [成果物/せいかぶつ]を[読/よ]み[込/こ]み、Node.js から compiler を[使/つか]えるようにする helper です。

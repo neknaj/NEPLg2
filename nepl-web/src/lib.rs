@@ -3879,10 +3879,12 @@ pub struct CompilerSession {
     nepl_meta_materialized_compile_source_fallback_successes: RefCell<usize>,
     nepl_meta_materialized_compile_source_fallback_failures: RefCell<usize>,
     nepl_meta_materialized_compile_body_missing_fallbacks: RefCell<usize>,
+    nepl_obj_candidate_body_missing_surfaces: RefCell<usize>,
     last_nepl_meta_materialized_compile_outcome: RefCell<NeplMetaMaterializedCompileOutcome>,
     last_nepl_meta_materialized_compile_fallback_reason:
         RefCell<NeplMetaMaterializedCompileFallbackReason>,
     last_nepl_meta_materialized_compile_attempted_surfaces: RefCell<usize>,
+    last_nepl_obj_candidate_body_missing_surfaces: RefCell<usize>,
     last_compile_stage_timing_status: RefCell<&'static str>,
     last_compile_stage_timings: RefCell<Option<String>>,
 }
@@ -3924,6 +3926,7 @@ impl CompilerSession {
             nepl_meta_materialized_compile_source_fallback_successes: RefCell::new(0),
             nepl_meta_materialized_compile_source_fallback_failures: RefCell::new(0),
             nepl_meta_materialized_compile_body_missing_fallbacks: RefCell::new(0),
+            nepl_obj_candidate_body_missing_surfaces: RefCell::new(0),
             last_nepl_meta_materialized_compile_outcome: RefCell::new(
                 NeplMetaMaterializedCompileOutcome::NotAttempted,
             ),
@@ -3931,6 +3934,7 @@ impl CompilerSession {
                 NeplMetaMaterializedCompileFallbackReason::None,
             ),
             last_nepl_meta_materialized_compile_attempted_surfaces: RefCell::new(0),
+            last_nepl_obj_candidate_body_missing_surfaces: RefCell::new(0),
             last_compile_stage_timing_status: RefCell::new("not_started"),
             last_compile_stage_timings: RefCell::new(None),
         }
@@ -4539,6 +4543,13 @@ impl CompilerSession {
                 .borrow()
                 .to_string(),
         );
+        out.push_str(",\"nepl_obj_candidate_body_missing_surfaces\":");
+        out.push_str(
+            &self
+                .nepl_obj_candidate_body_missing_surfaces
+                .borrow()
+                .to_string(),
+        );
         out.push_str(",\"nepl_meta_materialized_compile_last_outcome_code\":");
         out.push_str(
             &self
@@ -4559,6 +4570,13 @@ impl CompilerSession {
         out.push_str(
             &self
                 .last_nepl_meta_materialized_compile_attempted_surfaces
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_obj_candidate_last_body_missing_surfaces\":");
+        out.push_str(
+            &self
+                .last_nepl_obj_candidate_body_missing_surfaces
                 .borrow()
                 .to_string(),
         );
@@ -4625,6 +4643,9 @@ impl CompilerSession {
         *self
             .last_nepl_meta_materialized_compile_attempted_surfaces
             .borrow_mut() = 0;
+        *self
+            .last_nepl_obj_candidate_body_missing_surfaces
+            .borrow_mut() = 0;
     }
 
     /// 1 compile 呼び出しの materialized dependency compile 観測値を累積統計へ反映する。
@@ -4642,6 +4663,16 @@ impl CompilerSession {
         *self
             .last_nepl_meta_materialized_compile_attempted_surfaces
             .borrow_mut() = stats.attempted_surfaces;
+        let body_missing_candidate_surfaces = if stats.fallback_reason
+            == NeplMetaMaterializedCompileFallbackReason::MaterializedFunctionBodyMissing
+        {
+            stats.attempted_surfaces
+        } else {
+            0
+        };
+        *self
+            .last_nepl_obj_candidate_body_missing_surfaces
+            .borrow_mut() = body_missing_candidate_surfaces;
         if !stats.attempted() {
             return;
         }
@@ -4667,6 +4698,9 @@ impl CompilerSession {
                     *self
                         .nepl_meta_materialized_compile_body_missing_fallbacks
                         .borrow_mut() += 1;
+                    *self
+                        .nepl_obj_candidate_body_missing_surfaces
+                        .borrow_mut() += stats.attempted_surfaces;
                 }
             }
             NeplMetaMaterializedCompileOutcome::FallbackFailed => {
@@ -4682,6 +4716,9 @@ impl CompilerSession {
                     *self
                         .nepl_meta_materialized_compile_body_missing_fallbacks
                         .borrow_mut() += 1;
+                    *self
+                        .nepl_obj_candidate_body_missing_surfaces
+                        .borrow_mut() += stats.attempted_surfaces;
                 }
             }
         }
@@ -4724,6 +4761,9 @@ impl CompilerSession {
             .borrow_mut() = 0;
         *self
             .nepl_meta_materialized_compile_body_missing_fallbacks
+            .borrow_mut() = 0;
+        *self
+            .nepl_obj_candidate_body_missing_surfaces
             .borrow_mut() = 0;
         self.reset_last_nepl_meta_materialized_compile_stats();
         *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
