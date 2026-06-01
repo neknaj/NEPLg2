@@ -204,3 +204,169 @@ fn main %fn unit i32 \unit:
                 _:
                     2
 ```
+
+## layout_view_tree_arena_stack_places_siblings_under_same_parent
+
+[目的/もくてき]:
+- stack layout が global arena order ではなく、同じ parent を持つ sibling だけを previous sibling の size と spacing で積むことを確認します。
+- `WidgetId` と arena index を混同しないよう、id は arena index と異なる値にします。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main %fn unit i32 \unit:
+    let root_id %WidgetId widget_id 100
+    let root_hint %LayoutHint layout_hint_fixed 20 10
+    let root %WidgetDescriptor widget_label root_id "root" root_hint
+    let first_id %WidgetId widget_id 10
+    let first_hint %LayoutHint layout_hint_fixed 4 2
+    let first %WidgetDescriptor widget_label first_id "first" first_hint
+    let second_id %WidgetId widget_id 20
+    let second_hint %LayoutHint layout_hint_fixed 4 2
+    let second %WidgetDescriptor widget_label second_id "second" second_hint
+    let view0 %ViewTreeArena unwrap_ok view_tree_arena_single root
+    let view1 %ViewTreeArena unwrap_ok view_tree_arena_add_child view0 0 first
+    let view %ViewTreeArena unwrap_ok view_tree_arena_add_child view1 0 second
+    let constraints %LayoutConstraints layout_constraints 0 0 100 100
+    let scale %GuiScaleFactor gui_scale_factor_new 1 1
+    let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
+    let ctx %LayoutContext MockTextMeasurer layout_context constraints scale measurer gui_capabilities_text_grid
+    let policy %StackLayoutPolicy stack_layout_vertical 1
+    match layout_view_tree_arena_stack &ctx &view policy:
+        Result::Ok layout:
+            let check %bool:
+                match layout_tree_arena_get_node &layout 2:
+                    Option::Some node:
+                        let parent_index %i32 layout_tree_arena_node_parent_index &node
+                        let depth %i32 layout_tree_arena_node_depth &node
+                        let placed %LayoutNode layout_tree_arena_node_layout &node
+                        let bounds %GuiRect layout_node_bounds &placed
+                        let y %i32 gui_rect_y &bounds
+                        and:
+                            and eq parent_index 0 eq depth 1
+                            eq y 3
+                    Option::None:
+                        false
+            layout_tree_arena_free layout
+            view_tree_arena_free view
+            if check:
+                then 0
+                else 9
+        Result::Err _error:
+            view_tree_arena_free view
+            1
+```
+
+## layout_view_tree_arena_stack_resets_offset_for_nested_parent
+
+[目的/もくてき]:
+- nested child が root sibling の cursor ではなく、自分の parent の local stack offset から配置されることを確認します。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn main %fn unit i32 \unit:
+    let root_id %WidgetId widget_id 100
+    let root_hint %LayoutHint layout_hint_fixed 20 10
+    let root %WidgetDescriptor widget_label root_id "root" root_hint
+    let first_id %WidgetId widget_id 10
+    let first_hint %LayoutHint layout_hint_fixed 4 2
+    let first %WidgetDescriptor widget_label first_id "first" first_hint
+    let second_id %WidgetId widget_id 20
+    let second_hint %LayoutHint layout_hint_fixed 4 2
+    let second %WidgetDescriptor widget_label second_id "second" second_hint
+    let nested_id %WidgetId widget_id 30
+    let nested_hint %LayoutHint layout_hint_fixed 3 1
+    let nested %WidgetDescriptor widget_label nested_id "nested" nested_hint
+    let view0 %ViewTreeArena unwrap_ok view_tree_arena_single root
+    let view1 %ViewTreeArena unwrap_ok view_tree_arena_add_child view0 0 first
+    let view2 %ViewTreeArena unwrap_ok view_tree_arena_add_child view1 0 second
+    let view %ViewTreeArena unwrap_ok view_tree_arena_add_child view2 1 nested
+    let constraints %LayoutConstraints layout_constraints 0 0 100 100
+    let scale %GuiScaleFactor gui_scale_factor_new 1 1
+    let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
+    let ctx %LayoutContext MockTextMeasurer layout_context constraints scale measurer gui_capabilities_text_grid
+    let policy %StackLayoutPolicy stack_layout_vertical 1
+    match layout_view_tree_arena_stack &ctx &view policy:
+        Result::Ok layout:
+            let check %bool:
+                match layout_tree_arena_get_node &layout 3:
+                    Option::Some node:
+                        let parent_index %i32 layout_tree_arena_node_parent_index &node
+                        let depth %i32 layout_tree_arena_node_depth &node
+                        let placed %LayoutNode layout_tree_arena_node_layout &node
+                        let bounds %GuiRect layout_node_bounds &placed
+                        let y %i32 gui_rect_y &bounds
+                        and:
+                            and eq parent_index 1 eq depth 2
+                            eq y 0
+                    Option::None:
+                        false
+            layout_tree_arena_free layout
+            view_tree_arena_free view
+            if check:
+                then 0
+                else 9
+        Result::Err _error:
+            view_tree_arena_free view
+            1
+```
+
+## layout_view_tree_arena_stack_invalid_policy_is_result_error
+
+[目的/もくてき]:
+- negative spacing が panic や silent no-op ではなく `GuiError::InvalidGeometry` として返ることを確認します。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+
+fn main %fn unit i32 \unit:
+    let root_id %WidgetId widget_id 100
+    let root_hint %LayoutHint layout_hint_fixed 20 10
+    let root %WidgetDescriptor widget_label root_id "root" root_hint
+    let view %ViewTreeArena unwrap_ok view_tree_arena_single root
+    let constraints %LayoutConstraints layout_constraints 0 0 100 100
+    let scale %GuiScaleFactor gui_scale_factor_new 1 1
+    let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
+    let ctx %LayoutContext MockTextMeasurer layout_context constraints scale measurer gui_capabilities_text_grid
+    let negative_spacing %i32 sub 0 1
+    let policy %StackLayoutPolicy stack_layout_vertical negative_spacing
+    match layout_view_tree_arena_stack &ctx &view policy:
+        Result::Ok layout:
+            layout_tree_arena_free layout
+            view_tree_arena_free view
+            1
+        Result::Err error:
+            view_tree_arena_free view
+            match error:
+                GuiError::InvalidGeometry:
+                    0
+                _:
+                    2
+```

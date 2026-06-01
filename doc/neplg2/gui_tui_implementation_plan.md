@@ -11,7 +11,7 @@
 ## 現状
 
 - 明示的な GUI 標準ライブラリは存在し、`core/gui`、`alloc/gui`、`std/gui`、`platforms/gui/terminal` の初期 checkpoint まで進んでいる。
-- 現在の実装は bounded data contract と flat arena tree の初期 checkpoint を優先した段階であり、arena を使う focus traversal、pointer routing、diff / invalidation、arena order の linear layout connector は実装済みである。stack / flex / grid / scroll layout、stateful pointer routing、real backend present、Web Playground bridge、native/mobile backend はまだ未実装である。
+- 現在の実装は bounded data contract と flat arena tree の初期 checkpoint を優先した段階であり、arena を使う focus traversal、pointer routing、diff / invalidation、arena order の linear layout connector、parent-local stack layout policy は実装済みである。flex / grid / scroll layout、stateful pointer routing、real backend present、Web Playground bridge、native/mobile backend はまだ未実装である。
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl` は real backend なしで GUI substrate の application update と render command stream を確認する headless examples として追加した。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
@@ -134,6 +134,7 @@ stdlib/alloc/gui/tree/types.nepl
 stdlib/alloc/gui/layout.nepl
 stdlib/alloc/gui/layout/types.nepl
 stdlib/alloc/gui/layout/arena.nepl
+stdlib/alloc/gui/layout/stack.nepl
 stdlib/alloc/gui/theme.nepl
 stdlib/alloc/gui/theme/types.nepl
 stdlib/alloc/gui/accessibility.nepl
@@ -159,7 +160,9 @@ Focus routing は traversal とは別に `alloc/gui/routing/focus` へ置く。`
 
 Event routing は `alloc/gui/routing` の pure data contract として扱う。pointer routing は `LayoutTree` hit test で `WidgetId` を得て、`ViewTree` の widget data から `GuiEvent::Action` を導出する。現 checkpoint は bounded root + 2 child、flat arena tree storage、arena focus next / previous traversal、arena pointer hit test / action lowering、half-open `GuiRect`、second child topmost、arena insertion order topmost、disabled widget suppression、layout hit だけで view widget が無い場合の `Option::None`、focus command routing、std keymap、terminal 1 byte input normalization、`ESC [ Z` Shift+Tab normalization、`ESC [ A/B/C/D` arrow key normalization、`ESC [ H/F` と `ESC [ 1/3/4 ~` の Home / End / Delete normalization、`ESC [ 1 ; <modifier> A/B/C/D` xterm modifier arrow normalization までを固定する。pointer capture、gesture、Web / native / mobile raw keyboard normalization、terminal の追加 ANSI / CSI sequence、途中入力 buffering は後続で実装する。TUI では keyboard / focus routing から同じ `FocusRouteCommand` / `GuiEvent::Action` を生成し、raw ANSI input を application が直接扱わないようにする。
 
-Arena layout connector は `alloc/gui/layout/arena` に置く。現 checkpoint の `layout_view_tree_arena_linear` は `LayoutContext`、borrowed `ViewTreeArena`、`LayoutHint`、`LayoutConstraints` だけを使い、owner-consuming な `LayoutTreeArena` を返す。node は arena insertion order で y 方向へ配置し、parent index と depth は `ViewTreeArena` の構造を保つ。invalid constraints は `GuiError::InvalidGeometry`、空 tree や欠落 node は `GuiError::InvalidCommand` を返し、構築途中で失敗した `LayoutTreeArena` owner は connector が内部で解放する。text buffer と arena node の対応付け、stack / flex / grid / scroll policy は後続で実装する。
+Arena layout connector は `alloc/gui/layout/arena` に置く。現 checkpoint の `layout_view_tree_arena_linear` は `LayoutContext`、borrowed `ViewTreeArena`、`LayoutHint`、`LayoutConstraints` だけを使い、owner-consuming な `LayoutTreeArena` を返す。node は arena insertion order で y 方向へ配置し、parent index と depth は `ViewTreeArena` の構造を保つ。invalid constraints は `GuiError::InvalidGeometry`、空 tree や欠落 node は `GuiError::InvalidCommand` を返し、構築途中で失敗した `LayoutTreeArena` owner は connector が内部で解放する。
+
+Stack layout policy は `alloc/gui/layout/stack` に置く。現 checkpoint の `layout_view_tree_arena_stack` は `StackLayoutPolicy` の `StackAxis` と spacing を pure data として受け取り、同じ parent を持つ previous sibling の extent と spacing から parent-local offset を計算する。`ViewTreeArena` は borrow-only、成功時だけ `LayoutTreeArena` owner を返す。negative spacing、負 constraints、min > max constraints は `GuiError::InvalidGeometry`、壊れた parent index / 欠落 node は `GuiError::InvalidCommand` とし、途中で作った `LayoutTreeArena` owner は内部で解放する。alignment、flex grow、grid placement、scroll overflow、text buffer と arena node の対応付けは後続で実装する。
 
 Diff / invalidation は `alloc/gui/diff` に置く。ここでは dirty widget / tree / layout などの共通 data contract だけを持ち、terminal line buffer diff、DOM patch、framebuffer dirty rect compression は `platforms/gui/*` の実装詳細にする。現 checkpoint では bounded `ViewTreeDiff` に加え、allocator-backed `ViewTreeArenaDiff` が node count、shape change、content change count、単一 changed `WidgetId` を保持する。arena owner は消費せず、parent index / depth / slot `WidgetId` の変化は `GuiInvalidation::Tree`、単一 content change は `GuiInvalidation::Widget id`、複数 content change は `GuiInvalidation::Tree` へ畳む。
 
@@ -305,6 +308,9 @@ tests/stdlib/gui_layout.n.md
     invalid constraint error
     ViewTreeArena to LayoutTreeArena linear connector
     invalid arena layout constraints
+    StackLayoutPolicy vertical sibling spacing
+    stack nested parent-local offset
+    invalid stack policy error
 
 tests/stdlib/gui_widget.n.md
     Button action event generation

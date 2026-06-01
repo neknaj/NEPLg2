@@ -1,3 +1,16 @@
+# 2026-06-02 GUI/TUI stack layout policy checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` を fetch し、`origin/main` `ebb5609d` が現在の `agent2/gui-library` HEAD に含まれていることを確認してから継続した。
+- Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、`alloc/gui/layout/stack` を追加した。DOM、ANSI、OS font、host window、backend present には触れない。
+- `StackLayoutPolicy` は `StackAxis` と spacing を pure data として保持する。`layout_view_tree_arena_stack` は borrowed `ViewTreeArena` と `LayoutContext` を受け取り、同じ parent を持つ previous sibling の extent と spacing から parent-local offset を計算して `LayoutTreeArena` owner を返す。
+- `ViewTreeArena` の arena index は parent 参照としてだけ扱い、public identity は `WidgetId` のままにした。テストでは `WidgetId` を 100 / 10 / 20 / 30 にし、arena index と混同しないことを固定した。
+- invalid constraints と negative spacing は `GuiError::InvalidGeometry`、壊れた parent index / 欠落 node は `GuiError::InvalidCommand` を返す。途中で `LayoutTreeArena` 構築に失敗した場合は、回収した tree owner を内部で解放してから `Result::Err` を返す。
+- subagent review は、stack layout を `alloc/gui/layout` の pure data policy に閉じること、既存 `layout_view_tree_arena_linear` を壊さないこと、`LayoutTreeArena` owner-consuming API の失敗時 recovery を必ず扱うこと、NEPLg2 executable code では括弧付き call を使わないことを確認した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、stack layout policy 実装済みと、残件が flex / grid / scroll、stack alignment / overflow、text buffer と arena node の対応付け、stateful pointer routing、backend 接続であることに合わせて更新した。
+- focused 検証: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_layout.n.md -i stdlib/alloc/gui/layout/stack.nepl --no-tree -o tmp/gui-layout-stack-focused.json -j 1 --dist web/dist --assert-io` は 9/9 pass。`node nodesrc/test_stdlib_gui_layering_policy.js`、`git diff --check`、`rg -n "^[^/\r\n]*[()]" stdlib/alloc/gui/layout/stack.nepl tests/stdlib/gui_layout.n.md` は pass / 該当なし。
+- `trunk build` 後の検証: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-stack-layout.json` は 13/13 pass。`NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_layout.n.md --no-tree -o tmp/gui-layout-stack-after-trunk-180s.json -j 1 --dist web/dist --assert-io` は 8/8 pass。`node nodesrc/tests.js -i stdlib/alloc/gui/layout.nepl -i stdlib/alloc/gui/layout/stack.nepl --no-tree -o tmp/gui-layout-stack-modules.json -j 1 --dist web/dist --assert-io` は 2/2 pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 だが、current HEAD の既存系 warning として stdlib doctest gap、static check boundary、resource checker responsibility、parser backend responsibility、resource gate order、diagnostic code registry の 6 件が残る。
+
 # 2026-06-02 GUI/TUI arena layout connector checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` は取り込み済みで、`agent2/gui-library` の既存 GUI/TUI checkpoint 上で継続した。
