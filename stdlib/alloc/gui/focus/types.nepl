@@ -1,0 +1,243 @@
+//: # alloc/gui/focus/types
+//: retained ViewTree 用 focus traversal の bounded data contract
+//:
+//: ### [目的/もくてき]
+//: - `ViewTree` の tree order から focus target だけを[抜/ぬ]き[出/だ]した `FocusOrder` を[作/つく]ります。
+//: - current focus id が `none` のときは traversal の開始点として[扱/あつか]い、古い id や端にいるときは `none` を[返/かえ]します。
+//:
+//: ### [契約/けいやく]
+//: - focus target は `WidgetDescriptor` が focusable かつ disabled ではない場合だけです。
+//: - callback、`std/platform`、host handle に[依存/いぞん]しません。
+//: - order は root、first child、second child の順で、同じ widget id が複数ある場合は最初に現れた位置を current として[扱/あつか]います。
+//:
+//: neplg2:test
+//: ret: 9
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/focus" as *
+//:| #import "alloc/gui/tree" as *
+//:| #import "alloc/gui/widget" as *
+//:| #import "alloc/gui/app" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root %WidgetDescriptor widget_label (widget_id 1) "title" (layout_hint_fixed 8 1)
+//:     let first %WidgetDescriptor widget_button (button_config (widget_id 7) "Run" (action_id 2)) (layout_hint_fixed 6 1)
+//:     let second %WidgetDescriptor widget_button (button_config (widget_id 9) "Save" (action_id 3)) (layout_hint_fixed 6 1)
+//:     let tree1 %ViewTree unwrap_ok view_tree_add_child (view_tree_single root) first
+//:     let tree2 %ViewTree unwrap_ok view_tree_add_child tree1 second
+//:     match focus_next_in_tree &tree2 (some (widget_id 7)):
+//:         Option::Some id:
+//:             widget_id_value id
+//:         Option::None:
+//:             0
+//: ```
+
+#indent 4
+
+#import "alloc/gui/app" as *
+#import "alloc/gui/tree" as *
+#import "alloc/gui/widget" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+
+//: FocusOrder: focus target id の bounded stable order
+//:
+//: [目的/もくてき]:
+//: - tree traversal 結果を value として[保持/ほじ]し、focus movement を tree shape から[分/わ]けて[検証/けんしょう]できるようにします。
+pub struct FocusOrder:
+    first %Option WidgetId
+    second %Option WidgetId
+    third %Option WidgetId
+    count %i32
+
+impl Clone for FocusOrder:
+    fn clone %fn &FocusOrder FocusOrder \order:
+        *order
+
+impl Copy for FocusOrder:
+    fn copy_mark %fn FocusOrder FocusOrder \order:
+        order
+
+//: focus_order_empty: focus target を[持/も]たない order を[作/つく]る
+pub fn focus_order_empty %fn unit FocusOrder \unit:
+    FocusOrder none none none 0
+
+//: focus_order_one: focus target 1 個の order を[作/つく]る
+pub fn focus_order_one %fn WidgetId FocusOrder \first:
+    FocusOrder (some first) none none 1
+
+//: focus_order_two: focus target 2 個の order を[作/つく]る
+pub fn focus_order_two %fn WidgetId fn WidgetId FocusOrder \first\second:
+    FocusOrder (some first) (some second) none 2
+
+//: focus_order_three: focus target 3 個の order を[作/つく]る
+pub fn focus_order_three %fn WidgetId fn WidgetId fn WidgetId FocusOrder \first\second\third:
+    FocusOrder (some first) (some second) (some third) 3
+
+//: focus_order_count: focus target 数を[読/よ]む
+pub fn focus_order_count %fn &FocusOrder i32 \order:
+    *field::get_ref order "count"
+
+//: focus_order_first: 1 [番目/ばんめ]の focus target を[読/よ]む
+pub fn focus_order_first %fn &FocusOrder Option WidgetId \order:
+    *field::get_ref order "first"
+
+//: focus_order_second: 2 [番目/ばんめ]の focus target を[読/よ]む
+pub fn focus_order_second %fn &FocusOrder Option WidgetId \order:
+    *field::get_ref order "second"
+
+//: focus_order_third: 3 [番目/ばんめ]の focus target を[読/よ]む
+pub fn focus_order_third %fn &FocusOrder Option WidgetId \order:
+    *field::get_ref order "third"
+
+//: focus_widget_id_eq: WidgetId を raw value で[比較/ひかく]する
+fn focus_widget_id_eq %fn WidgetId fn WidgetId bool \left\right:
+    eq (widget_id_value left) (widget_id_value right)
+
+//: focus_candidate_id: descriptor が focus target なら id を[返/かえ]す
+fn focus_candidate_id %fn &WidgetDescriptor Option WidgetId \descriptor:
+    if and (widget_descriptor_is_focusable descriptor) (not (widget_descriptor_is_disabled descriptor)):
+        then some (widget_descriptor_id descriptor)
+        else none
+
+//: focus_order_from_candidates: 最大 3 個の候補から bounded order を[作/つく]る
+fn focus_order_from_candidates %fn Option WidgetId fn Option WidgetId fn Option WidgetId FocusOrder \a\b\c:
+    match a:
+        Option::Some id_a:
+            match b:
+                Option::Some id_b:
+                    match c:
+                        Option::Some id_c:
+                            focus_order_three id_a id_b id_c
+                        Option::None:
+                            focus_order_two id_a id_b
+                Option::None:
+                    match c:
+                        Option::Some id_c:
+                            focus_order_two id_a id_c
+                        Option::None:
+                            focus_order_one id_a
+        Option::None:
+            match b:
+                Option::Some id_b:
+                    match c:
+                        Option::Some id_c:
+                            focus_order_two id_b id_c
+                        Option::None:
+                            focus_order_one id_b
+                Option::None:
+                    match c:
+                        Option::Some id_c:
+                            focus_order_one id_c
+                        Option::None:
+                            focus_order_empty
+
+//: focus_order_from_view_tree: ViewTree の tree order から focus order を[作/つく]る
+//:
+//: [計算量/けいさんりょう]:
+//: - bounded tree の root と child 2 個だけを[読/よ]むため O(1) です。
+pub fn focus_order_from_view_tree %fn &ViewTree FocusOrder \tree:
+    let root %WidgetDescriptor view_tree_root tree
+    let root_id %Option WidgetId focus_candidate_id &root
+    let first_id %Option WidgetId match view_tree_first_child tree:
+        Option::Some child:
+            focus_candidate_id &child
+        Option::None:
+            none
+    let second_id %Option WidgetId match view_tree_second_child tree:
+        Option::Some child:
+            focus_candidate_id &child
+        Option::None:
+            none
+    focus_order_from_candidates root_id first_id second_id
+
+//: focus_order_next_after_id: current id の[次/つぎ]の focus target を[返/かえ]す
+fn focus_order_next_after_id %fn &FocusOrder fn WidgetId Option WidgetId \order\current:
+    match focus_order_first order:
+        Option::Some first:
+            if focus_widget_id_eq first current:
+                then focus_order_second order
+                else:
+                    match focus_order_second order:
+                        Option::Some second:
+                            if focus_widget_id_eq second current:
+                                then focus_order_third order
+                                else:
+                                    match focus_order_third order:
+                                        Option::Some third:
+                                            if focus_widget_id_eq third current then none else none
+                                        Option::None:
+                                            none
+                        Option::None:
+                            none
+        Option::None:
+            none
+
+//: focus_order_previous_before_id: current id の[前/まえ]の focus target を[返/かえ]す
+fn focus_order_previous_before_id %fn &FocusOrder fn WidgetId Option WidgetId \order\current:
+    match focus_order_first order:
+        Option::Some first:
+            if focus_widget_id_eq first current:
+                then none
+                else:
+                    match focus_order_second order:
+                        Option::Some second:
+                            if focus_widget_id_eq second current:
+                                then some first
+                                else:
+                                    match focus_order_third order:
+                                        Option::Some third:
+                                            if focus_widget_id_eq third current then some second else none
+                                        Option::None:
+                                            none
+                        Option::None:
+                            none
+        Option::None:
+            none
+
+//: focus_order_next: current focus から[次/つぎ]の focus target を[返/かえ]す
+//:
+//: [仕様/しよう]:
+//: - `current` が `none` の場合は order の先頭を[返/かえ]します。
+//: - `current` が order に[無/な]い場合、または最後の target の場合は `none` を[返/かえ]します。
+pub fn focus_order_next %fn &FocusOrder fn Option WidgetId Option WidgetId \order\current:
+    match current:
+        Option::Some id:
+            focus_order_next_after_id order id
+        Option::None:
+            focus_order_first order
+
+//: focus_order_previous: current focus から[前/まえ]の focus target を[返/かえ]す
+//:
+//: [仕様/しよう]:
+//: - `current` が `none` の場合は order の末尾を[返/かえ]します。
+//: - `current` が order に[無/な]い場合、または先頭の target の場合は `none` を[返/かえ]します。
+pub fn focus_order_previous %fn &FocusOrder fn Option WidgetId Option WidgetId \order\current:
+    match current:
+        Option::Some id:
+            focus_order_previous_before_id order id
+        Option::None:
+            match focus_order_third order:
+                Option::Some third:
+                    some third
+                Option::None:
+                    match focus_order_second order:
+                        Option::Some second:
+                            some second
+                        Option::None:
+                            focus_order_first order
+
+//: focus_next_in_tree: ViewTree と current id から[次/つぎ]の focus target を[返/かえ]す
+pub fn focus_next_in_tree %fn &ViewTree fn Option WidgetId Option WidgetId \tree\current:
+    let order %FocusOrder focus_order_from_view_tree tree
+    focus_order_next &order current
+
+//: focus_previous_in_tree: ViewTree と current id から[前/まえ]の focus target を[返/かえ]す
+pub fn focus_previous_in_tree %fn &ViewTree fn Option WidgetId Option WidgetId \tree\current:
+    let order %FocusOrder focus_order_from_view_tree tree
+    focus_order_previous &order current

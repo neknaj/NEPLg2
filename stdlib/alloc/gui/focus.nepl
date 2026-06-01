@@ -1,0 +1,18 @@
+//: # alloc/gui/focus
+//: GUI / TUI 共通 focus traversal facade
+//:
+//: ### [目的/もくてき]
+//: - retained `ViewTree` から focus target の stable order を[作/つく]り、current id から[次/つぎ]または[前/まえ]の focus 先を[計算/けいさん]します。
+//: - callback や platform API に[依存/いぞん]せず、pure data API として focus movement を[扱/あつか]います。
+//:
+//: ### [現状/げんじょう]
+//: - `ViewTree` と同じく root と最大 2 個の child を[対象/たいしょう]にする bounded order です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/focus" as *
+//: ```
+
+#indent 4
+
+pub #import "alloc/gui/focus/types" as *
