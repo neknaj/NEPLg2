@@ -1,21 +1,10 @@
-export type GuiPreviewKind = 'mandelbrot' | 'life' | 'counter';
+import {
+    GuiPreviewDrawCommand,
+    GuiPreviewKind,
+    guiPreviewRgb,
+} from './commands.js';
 
-export type GuiPreviewRectCommand = {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    color: string;
-};
-
-export type GuiPreviewTextCommand = {
-    x: number;
-    y: number;
-    text: string;
-    color: string;
-    size: number;
-    align?: CanvasTextAlign;
-};
+export type { GuiPreviewKind } from './commands.js';
 
 export type GuiPreviewHitTarget = {
     x: number;
@@ -25,29 +14,44 @@ export type GuiPreviewHitTarget = {
     action: 'increment-counter';
 };
 
-export type GuiPreviewMetrics = {
-    commandCount: number;
-    insideCount?: number;
-    liveCells?: number;
-    checksum?: number;
-    counterValue?: number;
-    actionId?: number;
-    redrawTarget?: number;
-};
+export type GuiPreviewMetrics =
+    | {
+        kind: 'mandelbrot';
+        commandCount: number;
+        insideCount: number;
+    }
+    | {
+        kind: 'life';
+        commandCount: number;
+        liveCells: number;
+        checksum: number;
+    }
+    | {
+        kind: 'counter';
+        commandCount: number;
+        counterValue: number;
+        actionId: number;
+        redrawTarget: number;
+    };
 
 export type GuiPreviewScene = {
     kind: GuiPreviewKind;
     title: string;
     width: number;
     height: number;
-    rects: GuiPreviewRectCommand[];
-    texts: GuiPreviewTextCommand[];
+    commands: GuiPreviewDrawCommand[];
     hitTargets: GuiPreviewHitTarget[];
     metrics: GuiPreviewMetrics;
 };
 
-export function guiPreviewKindFromPath(path: string | null | undefined): GuiPreviewKind {
-    const normalized = String(path || '').toLowerCase();
+export type GuiPreviewSceneOptions =
+    | { kind: 'default' }
+    | { kind: 'counter'; counterValue: number };
+
+const defaultSceneOptions: GuiPreviewSceneOptions = { kind: 'default' };
+
+export function guiPreviewKindFromPath(path: string): GuiPreviewKind {
+    const normalized = path.toLowerCase();
     if (normalized.includes('gui_life')) {
         return 'life';
     }
@@ -57,31 +61,38 @@ export function guiPreviewKindFromPath(path: string | null | undefined): GuiPrev
     return 'mandelbrot';
 }
 
-export function createGuiPreviewScene(kind: GuiPreviewKind, options: { counterValue?: number } = {}): GuiPreviewScene {
+export function createGuiPreviewScene(kind: GuiPreviewKind, options: GuiPreviewSceneOptions = defaultSceneOptions): GuiPreviewScene {
     if (kind === 'life') {
         return createLifeScene();
     }
     if (kind === 'counter') {
-        return createCounterScene(options.counterValue || 0);
+        return createCounterScene(counterValueFromOptions(options));
     }
     return createMandelbrotScene();
 }
 
 export function summarizeGuiPreviewScene(scene: GuiPreviewScene): string {
-    if (scene.kind === 'mandelbrot') {
+    if (scene.metrics.kind === 'mandelbrot') {
         return `commands ${scene.metrics.commandCount} / inside ${scene.metrics.insideCount}`;
     }
-    if (scene.kind === 'life') {
+    if (scene.metrics.kind === 'life') {
         return `commands ${scene.metrics.commandCount} / live ${scene.metrics.liveCells} / checksum ${scene.metrics.checksum}`;
     }
     return `action ${scene.metrics.actionId} / value ${scene.metrics.counterValue} / redraw ${scene.metrics.redrawTarget}`;
+}
+
+function counterValueFromOptions(options: GuiPreviewSceneOptions): number {
+    if (options.kind === 'counter') {
+        return options.counterValue;
+    }
+    return 0;
 }
 
 function createMandelbrotScene(): GuiPreviewScene {
     const width = 8;
     const height = 8;
     const cellSize = 18;
-    const rects: GuiPreviewRectCommand[] = [];
+    const commands: GuiPreviewDrawCommand[] = [];
     let insideCount = 0;
 
     for (let y = 0; y < height; y += 1) {
@@ -90,11 +101,14 @@ function createMandelbrotScene(): GuiPreviewScene {
             if (iter === mandelbrotLimit()) {
                 insideCount += 1;
             }
-            rects.push({
-                x: x * cellSize,
-                y: y * cellSize,
-                width: cellSize,
-                height: cellSize,
+            commands.push({
+                kind: 'fill-rect',
+                rect: {
+                    x: x * cellSize,
+                    y: y * cellSize,
+                    width: cellSize,
+                    height: cellSize,
+                },
                 color: mandelbrotColor(iter),
             });
         }
@@ -105,11 +119,11 @@ function createMandelbrotScene(): GuiPreviewScene {
         title: 'GUI Mandelbrot',
         width: width * cellSize,
         height: height * cellSize,
-        rects,
-        texts: [],
+        commands,
         hitTargets: [],
         metrics: {
-            commandCount: rects.length,
+            kind: 'mandelbrot',
+            commandCount: commands.length,
             insideCount,
         },
     };
@@ -148,12 +162,12 @@ function mandelbrotCellIter(x: number, y: number): number {
     return iter;
 }
 
-function mandelbrotColor(iter: number): string {
+function mandelbrotColor(iter: number) {
     if (iter === mandelbrotLimit()) {
-        return '#000000';
+        return guiPreviewRgb(0, 0, 0);
     }
     const shade = Math.max(0, Math.min(255, iter * 10));
-    return rgb(shade, shade, 255);
+    return guiPreviewRgb(shade, shade, 255);
 }
 
 function createLifeScene(): GuiPreviewScene {
@@ -161,7 +175,7 @@ function createLifeScene(): GuiPreviewScene {
     const height = 5;
     const step = 3;
     const cellSize = 28;
-    const rects: GuiPreviewRectCommand[] = [];
+    const commands: GuiPreviewDrawCommand[] = [];
     let liveCells = 0;
     let checksum = 0;
 
@@ -172,12 +186,15 @@ function createLifeScene(): GuiPreviewScene {
                 liveCells += 1;
                 checksum += (x + 1) * (y + 1);
             }
-            rects.push({
-                x: x * cellSize,
-                y: y * cellSize,
-                width: cellSize - 2,
-                height: cellSize - 2,
-                color: alive ? '#00b4b4' : '#181818',
+            commands.push({
+                kind: 'fill-rect',
+                rect: {
+                    x: x * cellSize,
+                    y: y * cellSize,
+                    width: cellSize - 2,
+                    height: cellSize - 2,
+                },
+                color: alive ? guiPreviewRgb(0, 180, 180) : guiPreviewRgb(24, 24, 24),
             });
         }
     }
@@ -187,11 +204,11 @@ function createLifeScene(): GuiPreviewScene {
         title: 'GUI Life Step 3',
         width: width * cellSize - 2,
         height: height * cellSize - 2,
-        rects,
-        texts: [],
+        commands,
         hitTargets: [],
         metrics: {
-            commandCount: rects.length,
+            kind: 'life',
+            commandCount: commands.length,
             liveCells,
             checksum,
         },
@@ -246,14 +263,38 @@ function lifeNeighborCount(grid: boolean[][], x: number, y: number): number {
 
 function createCounterScene(counterValue: number): GuiPreviewScene {
     const value = Math.max(0, Math.trunc(counterValue));
-    const rects: GuiPreviewRectCommand[] = [
-        { x: 0, y: 0, width: 220, height: 142, color: '#101820' },
-        { x: 18, y: 20, width: 184, height: 50, color: '#1d2b35' },
-        { x: 18, y: 88, width: 184, height: 34, color: '#2d7d6f' },
-    ];
-    const texts: GuiPreviewTextCommand[] = [
-        { x: 110, y: 36, text: String(value), color: '#f2f7f5', size: 28, align: 'center' },
-        { x: 110, y: 97, text: 'Increment', color: '#f2f7f5', size: 14, align: 'center' },
+    const commands: GuiPreviewDrawCommand[] = [
+        {
+            kind: 'fill-rect',
+            rect: { x: 0, y: 0, width: 220, height: 142 },
+            color: guiPreviewRgb(16, 24, 32),
+        },
+        {
+            kind: 'fill-rect',
+            rect: { x: 18, y: 20, width: 184, height: 50 },
+            color: guiPreviewRgb(29, 43, 53),
+        },
+        {
+            kind: 'fill-rect',
+            rect: { x: 18, y: 88, width: 184, height: 34 },
+            color: guiPreviewRgb(45, 125, 111),
+        },
+        {
+            kind: 'text-run',
+            origin: { x: 110, y: 36 },
+            text: String(value),
+            color: guiPreviewRgb(242, 247, 245),
+            size: 28,
+            align: 'center',
+        },
+        {
+            kind: 'text-run',
+            origin: { x: 110, y: 97 },
+            text: 'Increment',
+            color: guiPreviewRgb(242, 247, 245),
+            size: 14,
+            align: 'center',
+        },
     ];
 
     return {
@@ -261,13 +302,13 @@ function createCounterScene(counterValue: number): GuiPreviewScene {
         title: 'GUI Counter',
         width: 220,
         height: 142,
-        rects,
-        texts,
+        commands,
         hitTargets: [
             { x: 18, y: 88, width: 184, height: 34, action: 'increment-counter' },
         ],
         metrics: {
-            commandCount: rects.length,
+            kind: 'counter',
+            commandCount: commands.length,
             counterValue: value,
             actionId: 1,
             redrawTarget: 0,
@@ -277,9 +318,4 @@ function createCounterScene(counterValue: number): GuiPreviewScene {
 
 function divS(value: number, divisor: number): number {
     return Math.trunc(value / divisor);
-}
-
-function rgb(red: number, green: number, blue: number): string {
-    const toHex = (value: number) => value.toString(16).padStart(2, '0');
-    return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
 }

@@ -1,3 +1,15 @@
+# 2026-06-02 Agent2 Web GUI command bridge checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` を fetch し、local `main` と `origin/main` が 0/0 で同期済みであることを確認してから `agent2/gui-web-command-bridge` を作成した。
+- Zenn 記事の platform 依存隔離、`null` / `undefined` 禁止、enum / struct による静的検査、契約と現状実装の分離方針に従い、Web GUI preview の scene model を Canvas 直結 DTO から typed command stream へ寄せた。
+- `web/src/gui-preview/commands.ts` は `fill-rect` / `text-run` の discriminated union、`rgba8888` 相当の color struct、text align enum を持つ。`web/src/gui-preview/renderer.ts` は `commands` と `mandelbrot` / `life` / `counter` metrics union を返し、`CanvasTextAlign`、CSS color string、`null | undefined`、optional metric field を持たない。
+- `web/src/gui-preview/canvas-renderer.ts` だけが `CanvasRenderingContext2D` と CSS color 変換を所有し、`panel.ts` は `renderGuiPreviewSceneToCanvas` を呼ぶ。DOM / Canvas は Web frontend backend detail のままで、`core/gui`、`alloc/gui`、`std/gui` の public type には入れていない。
+- `nodesrc/test_web_gui_preview_renderer.js` は metric contract に加えて、`commands.ts` / `renderer.ts` に Canvas / DOM 型、`null | undefined`、optional field を戻さない source policy を検査するように強化した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、typed preview command DTO と Canvas adapter 実装済み、formal NEPL/Wasm `DrawCommand` host bridge は未実装という状態に合わせて更新した。
+- focused 検証: `npm --prefix web run build:ts`、`node nodesrc/test_web_gui_preview_renderer.js`、`node nodesrc/test_web_gui_floating_window_source.js`、`node nodesrc/playground_workspace_test_runner.js`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-command-bridge.json` は pass。playground editor JSON は `caseCount=13`、`passedCount=13`、`failedCount=0`。
+- `node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 だが、既存 warning として stdlib doctest gap、static check boundary、resource checker responsibility、parser backend responsibility、resource gate order、diagnostic code registry の 6 件が残る。
+- subagent review は、preview command DTO が typed で `null | undefined` / optional metric field に依存しないこと、Canvas 固有処理が `canvas-renderer.ts` に隔離されていること、formal NEPL/Wasm host bridge が残件として docs / todo / note で一貫していることを確認し、blocking なしで `MERGE_APPROVED`。
+
 # 2026-06-02 Agent2 Web Playground floating GUI window checkpoint
 
 - `plan.md` は変更していない。最新要求に合わせ、Web Playground の GUI 表示を editor panel layout 内の pane 依存から、layout の上に重ねる independent floating window layer へ移した。

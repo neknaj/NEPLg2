@@ -1,16 +1,13 @@
 import {
     createGuiPreviewScene,
     GuiPreviewKind,
-    GuiPreviewScene,
     guiPreviewKindFromPath,
     summarizeGuiPreviewScene,
 } from './renderer.js';
-
-type SceneViewport = {
-    left: number;
-    top: number;
-    scale: number;
-};
+import {
+    GuiPreviewCanvasViewport,
+    renderGuiPreviewSceneToCanvas,
+} from './canvas-renderer.js';
 
 export type GuiPreviewSource =
     | { kind: 'none' }
@@ -36,7 +33,7 @@ export class GuiPreviewPanel {
     source: GuiPreviewSource;
     counterValue: number;
     fontSize: number;
-    viewport: SceneViewport;
+    viewport: GuiPreviewCanvasViewport;
     onKindChange: (kind: GuiPreviewKind) => void;
 
     constructor(contentEl: HTMLElement, options: GuiPreviewPanelOptions = {}) {
@@ -135,55 +132,19 @@ export class GuiPreviewPanel {
     }
 
     render() {
-        const scene = createGuiPreviewScene(this.kind, { counterValue: this.counterValue });
+        const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
         const width = this.canvas.clientWidth || Math.max(1, this.canvas.width);
         const height = this.canvas.clientHeight || Math.max(1, this.canvas.height);
         this.ctx.clearRect(0, 0, width, height);
         this.ctx.fillStyle = '#0d1117';
         this.ctx.fillRect(0, 0, width, height);
-        this.drawScene(scene, width, height);
+        const rendered = renderGuiPreviewSceneToCanvas(this.ctx, scene, width, height, { fontSize: this.fontSize });
+        this.viewport = rendered.viewport;
         this.metricsEl.textContent = summarizeGuiPreviewScene(scene);
     }
 
-    drawScene(scene: GuiPreviewScene, width: number, height: number) {
-        const padding = 18;
-        const availableWidth = Math.max(1, width - padding * 2);
-        const availableHeight = Math.max(1, height - padding * 2);
-        const scale = Math.min(availableWidth / scene.width, availableHeight / scene.height);
-        const sceneWidth = scene.width * scale;
-        const sceneHeight = scene.height * scale;
-        const left = Math.floor((width - sceneWidth) / 2);
-        const top = Math.floor((height - sceneHeight) / 2);
-        this.viewport = { left, top, scale };
-
-        this.ctx.fillStyle = '#101820';
-        this.ctx.fillRect(left - 1, top - 1, sceneWidth + 2, sceneHeight + 2);
-        for (const rect of scene.rects) {
-            this.ctx.fillStyle = rect.color;
-            this.ctx.fillRect(
-                left + rect.x * scale,
-                top + rect.y * scale,
-                Math.max(1, rect.width * scale),
-                Math.max(1, rect.height * scale),
-            );
-        }
-
-        this.ctx.textBaseline = 'top';
-        for (const text of scene.texts) {
-            this.ctx.fillStyle = text.color;
-            this.ctx.font = `${Math.max(8, text.size * scale)}px "HackGenConsoleNF", "JetBrains Mono", Consolas, monospace`;
-            this.ctx.textAlign = text.align || 'left';
-            this.ctx.fillText(text.text, left + text.x * scale, top + text.y * scale);
-        }
-
-        this.ctx.textAlign = 'left';
-        this.ctx.fillStyle = '#9fb1c1';
-        this.ctx.font = `${Math.max(11, this.fontSize - 1)}px "HackGenConsoleNF", "JetBrains Mono", Consolas, monospace`;
-        this.ctx.fillText(scene.title, 12, 10);
-    }
-
     handleCanvasClick(event: MouseEvent) {
-        const scene = createGuiPreviewScene(this.kind, { counterValue: this.counterValue });
+        const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
         const point = this.toScenePoint(event);
         const hit = scene.hitTargets.find((target) => (
             point.x >= target.x
@@ -201,7 +162,7 @@ export class GuiPreviewPanel {
     }
 
     handleCanvasPointer(event: MouseEvent) {
-        const scene = createGuiPreviewScene(this.kind, { counterValue: this.counterValue });
+        const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
         const point = this.toScenePoint(event);
         const hasHit = scene.hitTargets.some((target) => (
             point.x >= target.x
