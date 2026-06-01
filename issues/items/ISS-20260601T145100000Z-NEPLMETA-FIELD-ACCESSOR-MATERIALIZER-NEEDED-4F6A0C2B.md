@@ -2,8 +2,8 @@
 id: ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B
 title: ".neplmeta field accessor materializer needed for stdlib body skip"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-06-01
@@ -59,6 +59,16 @@ field accessor callable surface を通常 callable と同一視せず、`PublicF
 - `.neplmeta` 由来 field accessor は direct call では使えるが、function value identity には使えない。
 - field accessor kind の mismatch、signature hash mismatch、arity/effect mismatch は fail-closed に拒否される。
 - `memo_call` / private cache proof / `.neplobj` code fragment reuse はこの issue では変更しない。
+
+## 解決
+
+`PublicFieldAccessorKind` を `.neplmeta` materializer 内で `FieldAccessorKind` へ明示変換し、`BindingKind::Func.field_accessor` に復元するようにした。
+
+この復元は direct call 専用であり、`def_id=None` のまま保持する。したがって `@func`、indirect call、`memo_call @func` のような function value identity 必須経路は、既存の `FunctionValueIdentityReject::UnresolvedIdentity` で fail-closed に残る。
+
+`get` / `get_ref` / `put` はそれぞれ kind 固有の arity も検査する。materializer は field offset や HIR を推測せず、既存の selected call path と `field_apply` に渡す metadata だけを復元する。
+
+実測では `tmp/materialized-field-accessor-20260601.json` の warm compile 3 回で `type.public_surface.materializer.field_accessor_unsupported` が消え、次の blocker は `type.public_surface.materializer.callable_rejected` へ進んだ。これは `.neplobj` body missing ではなく、次の callable metadata reject をさらに分解する必要があることを示す。
 
 ## 検証
 

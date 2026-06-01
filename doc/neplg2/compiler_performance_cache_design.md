@@ -2445,6 +2445,27 @@ symbol や signature が一致しても、`get` / `get_ref` / `put` の accessor
 `BindingKind::Func.field_accessor` として復元しなければならない。`@func`、`memo_call`、
 indirect call への function value identity はこの checkpoint では広げない。
 
+## 2026-06-01 field accessor materializer checkpoint
+
+`PublicCallableSurface.field_accessor` を `.neplmeta` materializer で `FieldAccessorKind` へ戻し、
+`BindingKind::Func.field_accessor` として current session の callable environment へ復元した。
+
+materializer は field accessor の HIR や field offset を作らない。型 authority は structured public
+surface の function type と signature hash に置き、direct call 時の aggregate layout / selector 解決は
+既存の selected call path と `field_apply` に委ねる。
+
+`def_id` は引き続き `None` である。これは `.neplmeta` が public interface artifact であり、source body
+や Resource proof / codegen fragment ではないためである。したがって direct call は field accessor
+metadata で `get_field` / `get_field_ref` / `set_field` intrinsic へ落とせるが、`@func`、indirect call、
+`memo_call @func` のような function value identity 必須経路は fail-closed のままにする。
+
+`tmp/materialized-field-accessor-20260601.json` の実測では、warm compile 3 回の
+`type.public_surface.materializer.field_accessor_unsupported` は消えた。次の blocker は
+`type.public_surface.materializer.callable_rejected` であり、`.neplobj` body missing にはまだ到達して
+いない。したがって次 checkpoint は callable reject の詳細 code 化であり、missing link symbol、name
+mismatch、callable type mismatch、arity mismatch、effect mismatch、signature hash mismatch を同じ
+coarse diagnostic に畳み込まない必要がある。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
@@ -2462,3 +2483,4 @@ indirect call への function value identity はこの checkpoint では広げ�
 - [ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649](../../issues/items/ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649.md)
 - [ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1](../../issues/items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md)
 - [ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B](../../issues/items/ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B.md)
+- [ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61](../../issues/items/ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61.md)
