@@ -233,12 +233,16 @@ fn eval_line %impure fn i32 impure fn str unit \tape_len\code:
 
                             if:
                                 eq cmd 43 // '+'
-                                then: v::replace &tape ptr_idx cell_inc cell
+                                then:
+                                    let next_cell %i32 cell_inc cell
+                                    v::replace &tape ptr_idx next_cell
                                 else: unit
 
                             if:
                                 eq cmd 45 // '-'
-                                then: v::replace &tape ptr_idx cell_dec cell
+                                then:
+                                    let prev_cell %i32 cell_dec cell
+                                    v::replace &tape ptr_idx prev_cell
                                 else: unit
 
                             if:

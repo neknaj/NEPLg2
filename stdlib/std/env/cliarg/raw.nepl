@@ -175,9 +175,9 @@ pub fn cliarg_get_checked %impure fn i32 Option str \idx:
                                         Result::Err _:
                                             match dealloc_region<u8> argv_region:
                                                 Result::Ok _:
-                                                unit
-                                            Result::Err _:
-                                                unit
+                                                    unit
+                                                Result::Err _:
+                                                    unit
                                             none
                                         Result::Ok argv_buf_region:
                                             let argv_buf %MemPtr u8 region_ptr &argv_buf_region

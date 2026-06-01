@@ -6,8 +6,9 @@ use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_summary_leaf::owner_leaf_places;
 use super::owner_transfer::free_owner_state;
-use super::place_utils::should_track;
+use super::place_utils::{should_track, type_can_seed_raw_address_alias};
 use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 
@@ -155,10 +156,16 @@ impl ResourceOwnerCheckEngine<'_> {
         raw_aliases: &RawCellAddressAliases,
         place: &Place,
     ) -> bool {
-        storage_origins.expects_owned(place)
+        let origin_expects_owned = storage_origins.expects_owned(place)
             || storage_origins.expects_owned_under(place)
             || raw_aliases.aliases_for(place).iter().any(|alias| {
                 storage_origins.expects_owned(alias) || storage_origins.expects_owned_under(alias)
-            })
+            });
+        if !origin_expects_owned {
+            return false;
+        }
+        raw_aliases.contains_marked_alias(place)
+            || type_can_seed_raw_address_alias(self.types, place.ty)
+            || !owner_leaf_places(self.types, place).is_empty()
     }
 }

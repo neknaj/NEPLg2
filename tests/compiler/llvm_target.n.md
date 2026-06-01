@@ -10,7 +10,7 @@ neplg2:test[llvm_cli]
 #entry main
 #indent 4
 #llvmir:
-    define i32 @mainunit {
+    define i32 @main() {
     entry:
         ret i32 7
     }
@@ -51,7 +51,7 @@ neplg2:test[llvm_cli]
 #import "core/math" as *
 
 #llvmir:
-    define i32 @mainunit {
+    define i32 @main() {
     entry:
         %x = call i32 @add(i32 20, i32 22)
         ret i32 %x
@@ -70,7 +70,7 @@ neplg2:test[llvm_cli]
 #import "core/math" as *
 
 #llvmir:
-    define i32 @mainunit {
+    define i32 @main() {
     entry:
         %p = add i32 16, 0
         call void @store_i32(i32 %p, i32 77)

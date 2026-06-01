@@ -16,6 +16,7 @@ use super::owner_check_utils::{direct_raw_memory_effect, raw_owner_alias_moves_i
 use super::owner_extent::PendingOwnerExtentRequirement;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_summary_leaf::owner_leaf_places;
 use super::owner_summary_parameters::seed_owner_check_parameter_raw_address_aliases;
 use super::owner_variant::PendingVariantOwnerEffects;
 use super::place_utils::{
@@ -246,6 +247,18 @@ impl ResourceOwnerCheckEngine<'_> {
             } => {
                 let source_is_copy = self.types.is_copy(source.ty);
                 let source_is_raw_pointer = type_is_raw_pointer(self.types, source.ty);
+                let source_has_transferable_owner =
+                    self.has_transferable_owner(owners, raw_aliases, source);
+                let source_copy_owner_payload = source_is_copy
+                    && source_has_transferable_owner
+                    && !type_can_seed_raw_address_alias(self.types, source.ty)
+                    && !owner_leaf_places(self.types, source).is_empty();
+                // `str` や `Option str` は型として Copy view を持てるが、同じ型の値が
+                // allocation-backed owner payload を運ぶ場合もある。一方で raw address
+                // carrier の `i32` metadata は ownership proof の補助情報であり、通常の
+                // read で消費してはならない。型の Copy 性だけでなく、実際の owner leaf
+                // と raw-address carrier 性を見て move / copy を分ける。
+                let read_moves_owner = !source_is_copy || source_copy_owner_payload;
                 variant_owner_effects.reject_reserved_source_use(
                     self,
                     owners,
@@ -254,9 +267,9 @@ impl ResourceOwnerCheckEngine<'_> {
                     ResourceOwnerOperation::Read,
                     *span,
                 );
-                if !source_is_copy {
+                if read_moves_owner {
                     raw_aliases.copy_scalar_facts_if_tracked(source, output);
-                    if source_is_raw_pointer {
+                    if source_is_raw_pointer && !source_has_transferable_owner {
                         raw_aliases.copy_alias_if_tracked(source, output);
                         storage_origins.copy_origin(source, output);
                     } else {
@@ -288,7 +301,7 @@ impl ResourceOwnerCheckEngine<'_> {
                 }
                 function_aliases.copy_alias(source, output);
                 raw_views.copy(source, output);
-                if !source_is_copy && !source_is_raw_pointer {
+                if read_moves_owner && !source_is_raw_pointer {
                     raw_views.clear(source);
                 }
                 pending_reallocs.copy_result(source, output);

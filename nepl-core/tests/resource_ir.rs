@@ -10861,6 +10861,93 @@ fn resource_ir_owner_check_consumes_non_returned_owner_call_argument() {
     assert_eq!(report.diagnostics, vec![]);
 }
 
+/// `StorageOrigin::Owned` は owner identity の由来を表す補助 metadata であり、
+/// それ単独で raw address owner や aggregate owner の消費義務を作ってはならない。
+///
+/// Copy scalar は collection slot や owner-backed aggregate から読み出されても通常の値として
+/// 算術に渡される。raw address alias marker や owner leaf がない scalar まで call argument の
+/// free obligation と見なすと、`Vec<i32>` の copy replacement が誤って拒否される。
+#[test]
+fn resource_ir_owner_check_does_not_consume_storage_origin_only_scalar_argument() {
+    let types = TypeCtx::new();
+    let unit_ty = types.unit();
+    let i32_ty = types.i32();
+    let span = Span::dummy();
+    let helper_param = Place::local("p".to_string(), i32_ty);
+    let scalar = Place::temporary(ResourceId(0), i32_ty);
+    let call_result = Place::temporary(ResourceId(1), unit_ty);
+    let resource = ResourceModule {
+        functions: vec![
+            ResourceFunction {
+                name: "consume_raw_i32".to_string(),
+                origin_name: "consume_raw_i32".to_string(),
+                type_params: Vec::new(),
+                params: vec![ResourceLocal {
+                    name: "p".to_string(),
+                    ty: i32_ty,
+                    mutable: false,
+                    place: helper_param.clone(),
+                }],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(0),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(0),
+                    ops: vec![ResourceOp::RawMemory {
+                        operation: RawMemoryOp::Dealloc,
+                        output: Place::temporary(ResourceId(10), unit_ty),
+                        args: vec![helper_param],
+                        span,
+                    }],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+            ResourceFunction {
+                name: "main".to_string(),
+                origin_name: "main".to_string(),
+                type_params: Vec::new(),
+                params: vec![],
+                result: unit_ty,
+                effect: Effect::Pure,
+                entry_block: ResourceBlockId(1),
+                blocks: vec![ResourceBlock {
+                    id: ResourceBlockId(1),
+                    ops: vec![
+                        ResourceOp::StorageOrigin {
+                            target: scalar.clone(),
+                            origin: StorageOrigin::Owned,
+                            span,
+                        },
+                        ResourceOp::Call {
+                            output: call_result,
+                            target: ResourceCallTarget::User {
+                                name: "consume_raw_i32".to_string(),
+                                type_args: vec![],
+                            },
+                            args: vec![scalar],
+                            effect: EffectOp::UserCall {
+                                name: "consume_raw_i32".to_string(),
+                                effect: Effect::Pure,
+                            },
+                            span,
+                        },
+                    ],
+                    terminator: ResourceTerminator::Return { value: None, span },
+                    span,
+                }],
+                span,
+            },
+        ],
+        entry: Some("main".to_string()),
+        string_literals: vec![],
+    };
+
+    let report = check_resource_owner_obligations(&resource, &types);
+    assert_eq!(report.diagnostics, vec![]);
+}
+
 #[test]
 fn resource_ir_owner_check_lets_direct_raw_memory_op_consume_argument() {
     let types = TypeCtx::new();
