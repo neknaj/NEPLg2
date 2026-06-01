@@ -465,3 +465,14 @@ source fallback / body-missing に倒れる。`.neplobj` key は codegen fragmen
 
 direct call key は `MaterializedCodegenDependencyKind::DirectCall` にだけ適用し、function value、
 indirect call、`memo_call` は同じ symbol が key に存在しても解決しない。
+
+## 2026-06-01 selected body hash authority checkpoint
+
+`.neplobj` key の `selected_callable_body_hash` が使う authority として、
+`resource_function_body_stable_hash` を Resource API から公開した。これは既存の Resource summary
+value cache が使う Resource IR body hash を wrapper として公開するものであり、object key 側で
+`TypeId` / `Span` / 一時値 ID / storage ID の正規化を再実装しない。
+
+source body を skip した `.neplmeta` compile ではこの hash は得られない。object store は source fallback
+または full compile で selected callable を Resource IR へ下げたときに hash を作り、次回の
+direct-call availability key に保存する。

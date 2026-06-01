@@ -2604,6 +2604,22 @@ resolver は `HirExprKind::Call` の direct call のみを対象にする。同�
 この制約により、function value identity、indirect table lowering、`memo_call` の PrivateCache proof を
 `.neplobj` direct-call MVP が暗黙に許可しない。
 
+## 2026-06-01 selected body hash authority checkpoint
+
+direct-call `.neplobj` key の `selected_callable_body_hash` は、Resource summary value cache が使う
+Resource IR body hash と同じ authority から取得する方針にした。`resource_function_body_stable_hash`
+を public Resource API として公開し、object key 側が `TypeId`、`Span`、一時値 ID、storage ID の
+正規化規則を再実装しないようにする。
+
+この hash は typed HIR body や raw source text ではなく、Resource IR の関数本文から作る。そのため
+source body が `.neplmeta` で skip されている compile では自然には得られない。`.neplobj` store は
+source fallback / full compile で selected dependency body を Resource IR まで下げた時点でこの hash を
+作り、次回以降の direct-call availability key へ入れる。
+
+raw wasm / LLVM body については、Resource IR body hash だけで本文文字列を識別しない。caller は
+source capability policy hash、source key、backend feature set を合わせて `.neplobj` key を作り、
+不確かな場合は fail-closed に通常 source fallback へ戻す。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

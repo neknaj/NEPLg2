@@ -597,6 +597,7 @@ pub use report::{
     ResourceOwnerFunctionCheck, ResourceOwnerOperation, ResourceSafetyShadowReport,
 };
 pub use resource_summary_value_cache::{
+    resource_function_body_stable_hash,
     ResourceSummaryProofArtifact, ResourceSummaryProofArtifactCompatibilityReject,
     ResourceSummaryProofArtifactHeader, ResourceSummaryProofSnapshot,
     ResourceSummaryProofSnapshotCounts, ResourceSummaryProofSnapshotMergeStats,

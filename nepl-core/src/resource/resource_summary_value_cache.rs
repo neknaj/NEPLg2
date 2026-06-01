@@ -48,6 +48,23 @@ use self::stable_mirror::{
 };
 pub(in crate::resource) use self::summary_plan::ResourceSummaryReplayPlan;
 
+/// Resource IR 関数本文を artifact key 用の安定 hash へ変換する。
+///
+/// `.neplproof` と `.neplobj` はどちらも、`TypeId`、`Span`、一時値 ID、storage ID のような
+/// session-local 値を永続 key に入れてはならない。この関数は Resource summary cache が使う
+/// body hash と同じ authority を公開し、direct-call `.neplobj` が selected callable body hash を
+/// 再発明しないようにする。
+///
+/// raw wasm / LLVM body の本文文字列は `ResourceFunction` に残らないため、この hash だけで
+/// raw body の再利用可否を決めてはならない。caller は source capability policy hash や
+/// backend feature set と組み合わせて fail-closed に扱う。
+pub fn resource_function_body_stable_hash(
+    types: &TypeCtx,
+    function: &ResourceFunction,
+) -> Option<u64> {
+    body_hash::resource_function_body_hash(types, function)
+}
+
 /// Resource IR summary value cache の累積統計。
 ///
 /// この統計は compiled-output cache とは別に、Resource IR の証明結果を stable value

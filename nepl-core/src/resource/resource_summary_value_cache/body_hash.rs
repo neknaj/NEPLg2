@@ -1184,6 +1184,17 @@ mod tests {
     }
 
     #[test]
+    fn resource_function_body_stable_hash_uses_body_hash_authority() {
+        let types = TypeCtx::new();
+        let function = simple_function(&types, 0, 1, 0);
+
+        assert_eq!(
+            super::super::resource_function_body_stable_hash(&types, &function),
+            resource_function_body_hash(&types, &function)
+        );
+    }
+
+    #[test]
     fn resource_function_body_hash_normalizes_function_local_ids() {
         let types = TypeCtx::new();
         let first = simple_function(&types, 7, 1, 0);
