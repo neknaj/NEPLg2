@@ -353,3 +353,22 @@ direct call、function value、memoized function value の use kind 付きで作
 trait / impl materializer の issue では、この分類を使って direct call だけを `.neplobj` resolver へ
 進ませる。function value、indirect call、`memo_call` は、引き続きこの materializer issue で
 bypass しない。
+
+## 2026-06-01 direct-call `.neplobj` availability input checkpoint
+
+`PublicInterfaceArtifactInputs` に direct call 用 `.neplobj` key 入力を足し、body-missing dependency を
+diagnostic に落とす前に structured resolver を通すようにした。
+
+trait / impl materializer 側では、これはまだ codegen fragment payload の接続ではない。key を渡せるのは
+対応する direct-call body fragment が backend に接続済みである場合だけであり、function value、
+indirect call、`memo_call` は direct-call key では解決しない。
+
+## 2026-06-01 selected body hash authority checkpoint
+
+direct-call `.neplobj` key の selected body hash は、Resource summary value cache と同じ
+`resource_function_body_stable_hash` を使う。trait / impl materializer で callable body を別の
+文字列 hash や typed HIR hash に分岐させず、Resource IR まで下げた後の安定 body hash を object
+store の authority にする。
+
+この issue では、body hash があっても function value、indirect call、`memo_call` を解決しない。
+高階関数と memoization は別途 backend representation と PrivateCache proof が必要である。

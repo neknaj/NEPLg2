@@ -185,6 +185,13 @@ pub struct PublicInterfaceArtifactInputs<'a> {
     pub dependency_public_surface_hash: Option<u64>,
     pub module_surface: Option<&'a crate::artifact::NeplMetaModuleSurface>,
     pub materialized_public_surfaces: &'a [crate::typecheck::MaterializedPublicSurfaceInput],
+    /// direct call 用 `.neplobj` body fragment が利用可能であることを示す key。
+    ///
+    /// この slice は単なる metadata cache hit ではなく、caller が対応する backend body
+    /// fragment も同じ compile に接続できる場合だけ渡す。key だけで body-missing を消すと
+    /// wasm / LLVM codegen が未知 symbol を受け取るため、現在の `CompilerSession` は空 slice を
+    /// 渡して fail-closed の source fallback を維持する。
+    pub nepl_obj_direct_call_keys: &'a [crate::artifact::NeplObjDirectCallKey],
 }
 
 impl<'a> PublicInterfaceArtifactInputs<'a> {
@@ -193,6 +200,7 @@ impl<'a> PublicInterfaceArtifactInputs<'a> {
             dependency_public_surface_hash: None,
             module_surface: None,
             materialized_public_surfaces: &[],
+            nepl_obj_direct_call_keys: &[],
         }
     }
 
@@ -205,6 +213,21 @@ impl<'a> PublicInterfaceArtifactInputs<'a> {
             dependency_public_surface_hash,
             module_surface,
             materialized_public_surfaces,
+            nepl_obj_direct_call_keys: &[],
+        }
+    }
+
+    pub fn with_nepl_obj_direct_call_keys(
+        dependency_public_surface_hash: Option<u64>,
+        module_surface: Option<&'a crate::artifact::NeplMetaModuleSurface>,
+        materialized_public_surfaces: &'a [crate::typecheck::MaterializedPublicSurfaceInput],
+        nepl_obj_direct_call_keys: &'a [crate::artifact::NeplObjDirectCallKey],
+    ) -> Self {
+        Self {
+            dependency_public_surface_hash,
+            module_surface,
+            materialized_public_surfaces,
+            nepl_obj_direct_call_keys,
         }
     }
 }
@@ -1093,6 +1116,7 @@ struct MaterializedCodegenDependency {
 
 fn materialized_codegen_dependency_diagnostics(
     hir_module: &crate::hir::HirModule,
+    nepl_obj_direct_call_keys: &[crate::artifact::NeplObjDirectCallKey],
 ) -> Vec<Diagnostic> {
     let mut dependencies = Vec::new();
     for function in &hir_module.functions {
@@ -1100,6 +1124,12 @@ fn materialized_codegen_dependency_diagnostics(
     }
     dependencies
         .into_iter()
+        .filter(|dependency| {
+            !materialized_codegen_dependency_has_available_body(
+                dependency,
+                nepl_obj_direct_call_keys,
+            )
+        })
         .map(|dependency| {
             Diagnostic::error_with_code(
                 DiagnosticCode::Backend(BackendDiagnosticCode::MaterializedFunctionBodyMissing),
@@ -1112,6 +1142,21 @@ fn materialized_codegen_dependency_diagnostics(
             )
         })
         .collect()
+}
+
+fn materialized_codegen_dependency_has_available_body(
+    dependency: &MaterializedCodegenDependency,
+    nepl_obj_direct_call_keys: &[crate::artifact::NeplObjDirectCallKey],
+) -> bool {
+    // `.neplobj` direct-call MVP は通常の直接呼び出しだけを解決する。
+    // function value、indirect call、memoized function value は body fragment だけでは
+    // identity / table / PrivateCache proof が不足するため、同じ symbol に見えても解決しない。
+    if dependency.kind != MaterializedCodegenDependencyKind::DirectCall {
+        return false;
+    }
+    nepl_obj_direct_call_keys
+        .iter()
+        .any(|key| key.materialized_symbol == dependency.symbol)
 }
 
 fn collect_materialized_codegen_dependencies_in_body(
@@ -2390,7 +2435,7 @@ mod tests {
             impls: Vec::new(),
         };
 
-        let diagnostics = materialized_codegen_dependency_diagnostics(&module);
+        let diagnostics = materialized_codegen_dependency_diagnostics(&module, &[]);
 
         assert_eq!(diagnostics.len(), 3);
         assert!(diagnostics
@@ -2459,7 +2504,7 @@ mod tests {
             impls: Vec::new(),
         };
 
-        let diagnostics = materialized_codegen_dependency_diagnostics(&module);
+        let diagnostics = materialized_codegen_dependency_diagnostics(&module, &[]);
 
         assert_eq!(diagnostics.len(), 1);
         assert!(diagnostics[0].message.contains("neplmeta$indirect$1$2"));
@@ -2521,7 +2566,7 @@ mod tests {
             impls: Vec::new(),
         };
 
-        let diagnostics = materialized_codegen_dependency_diagnostics(&module);
+        let diagnostics = materialized_codegen_dependency_diagnostics(&module, &[]);
 
         assert_eq!(diagnostics.len(), 2);
         assert!(diagnostics.iter().any(|diagnostic| diagnostic
@@ -2532,6 +2577,131 @@ mod tests {
             .message
             .contains("neplmeta$arg$1$2")
             && diagnostic.message.contains("for function value")));
+    }
+
+    fn test_neplobj_direct_call_key(
+        name: &str,
+        signature_hash: u64,
+    ) -> crate::artifact::NeplObjDirectCallKey {
+        let link_symbol = crate::typecheck::PublicCallableLinkSymbol {
+            source_path: String::from("project/dep.nepl"),
+            name: String::from(name),
+            signature_hash,
+        };
+        crate::artifact::NeplObjDirectCallKey::new(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(0x10),
+            link_symbol,
+            0x20,
+            0x30,
+            crate::artifact::nepl_obj_empty_generic_instantiation_hash(),
+            0x40,
+            0x50,
+        )
+    }
+
+    /// `.neplobj` direct-call availability は diagnostic 化の前に structured dependency を
+    /// 消費する。実際の caller は、対応する codegen fragment payload を同時に接続できる
+    /// 場合だけ key を渡す。
+    #[test]
+    fn materialized_body_missing_diagnostics_resolve_available_direct_call_key() {
+        let ty = crate::types::TypeId(0);
+        let span = Span::dummy();
+        let key = test_neplobj_direct_call_key("dep_value", 0x1234);
+        let module = crate::hir::HirModule {
+            functions: Vec::from([crate::hir::HirFunction {
+                doc: None,
+                name: String::from("main"),
+                origin_name: String::from("main"),
+                func_ty: ty,
+                params: Vec::new(),
+                result: ty,
+                effect: ast::Effect::Pure,
+                body: crate::hir::HirBody::Block(crate::hir::HirBlock {
+                    lines: Vec::from([crate::hir::HirLine {
+                        expr: crate::hir::HirExpr {
+                            ty,
+                            kind: crate::hir::HirExprKind::Call {
+                                callee: crate::hir::FuncRef::User(
+                                    key.materialized_symbol.clone(),
+                                    Vec::new(),
+                                    None,
+                                ),
+                                args: Vec::new(),
+                            },
+                            span,
+                        },
+                        drop_result: true,
+                    }]),
+                    ty,
+                    span,
+                }),
+                span,
+            }]),
+            entry: Some(String::from("main")),
+            externs: Vec::new(),
+            string_literals: Vec::new(),
+            traits: Vec::new(),
+            impls: Vec::new(),
+        };
+
+        let diagnostics =
+            materialized_codegen_dependency_diagnostics(&module, core::slice::from_ref(&key));
+
+        assert!(diagnostics.is_empty());
+    }
+
+    /// direct-call key は function value / indirect / memoization の証明を代替しない。
+    /// 同じ materialized symbol に見える場合でも、function value として使われた依存は
+    /// body-missing に残す。
+    #[test]
+    fn materialized_body_missing_diagnostics_do_not_resolve_function_value_key() {
+        let ty = crate::types::TypeId(0);
+        let span = Span::dummy();
+        let key = test_neplobj_direct_call_key("dep_value", 0x5678);
+        let identity = crate::function_identity::FunctionValueIdentity::new(
+            key.materialized_symbol.clone(),
+            None,
+            ty,
+            ast::Effect::Pure,
+            Vec::new(),
+        );
+        let module = crate::hir::HirModule {
+            functions: Vec::from([crate::hir::HirFunction {
+                doc: None,
+                name: String::from("main"),
+                origin_name: String::from("main"),
+                func_ty: ty,
+                params: Vec::new(),
+                result: ty,
+                effect: ast::Effect::Pure,
+                body: crate::hir::HirBody::Block(crate::hir::HirBlock {
+                    lines: Vec::from([crate::hir::HirLine {
+                        expr: crate::hir::HirExpr {
+                            ty,
+                            kind: crate::hir::HirExprKind::FnValue(identity),
+                            span,
+                        },
+                        drop_result: true,
+                    }]),
+                    ty,
+                    span,
+                }),
+                span,
+            }]),
+            entry: Some(String::from("main")),
+            externs: Vec::new(),
+            string_literals: Vec::new(),
+            traits: Vec::new(),
+            impls: Vec::new(),
+        };
+
+        let diagnostics =
+            materialized_codegen_dependency_diagnostics(&module, core::slice::from_ref(&key));
+
+        assert_eq!(diagnostics.len(), 1);
+        assert!(diagnostics[0].message.contains("for function value"));
     }
 
     #[test]
@@ -3938,8 +4108,10 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
         .materialized_public_surfaces
         .is_empty()
     {
-        let materialized_codegen_diags =
-            materialized_codegen_dependency_diagnostics(&resource_tc.module);
+        let materialized_codegen_diags = materialized_codegen_dependency_diagnostics(
+            &resource_tc.module,
+            public_interface_artifacts.nepl_obj_direct_call_keys,
+        );
         if !materialized_codegen_diags.is_empty() {
             diagnostics.extend(materialized_codegen_diags);
             return Err(CoreError::from_diagnostics(diagnostics));
@@ -4023,7 +4195,10 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
         .materialized_public_surfaces
         .is_empty()
     {
-        let materialized_codegen_diags = materialized_codegen_dependency_diagnostics(&hir_module);
+        let materialized_codegen_diags = materialized_codegen_dependency_diagnostics(
+            &hir_module,
+            public_interface_artifacts.nepl_obj_direct_call_keys,
+        );
         if !materialized_codegen_diags.is_empty() {
             diagnostics.extend(materialized_codegen_diags);
             return Err(CoreError::from_diagnostics(diagnostics));

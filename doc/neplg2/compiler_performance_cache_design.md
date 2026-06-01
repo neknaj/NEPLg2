@@ -2588,6 +2588,38 @@ source fallback / body-missing へ残す。これは `memo_call` の PrivateCach
 value identity の stable backend representation を未実装のまま pure / object reuse 境界を
 広げないための fail-closed 条件である。
 
+## 2026-06-01 direct-call `.neplobj` availability input checkpoint
+
+`PublicInterfaceArtifactInputs` に direct call 用 `NeplObjDirectCallKey` の入力を追加し、
+materialized callable body-missing dependency を diagnostic に変換する前に availability を見る
+境界を作った。
+
+現時点の実 compiler session はまだ key を渡さないため、通常の compile 挙動は fail-closed のままである。
+これは意図的である。`.neplobj` key が存在するだけでは wasm / LLVM backend が実際に呼べる body
+fragment を持つことを意味しない。caller は codegen fragment payload を同時に接続できる場合だけ
+`nepl_obj_direct_call_keys` を渡す。
+
+resolver は `HirExprKind::Call` の direct call のみを対象にする。同じ materialized symbol を持つ
+`FnValue`、`MemoizedFunctionValue`、`CallIndirect` の callee は direct call key では解決しない。
+この制約により、function value identity、indirect table lowering、`memo_call` の PrivateCache proof を
+`.neplobj` direct-call MVP が暗黙に許可しない。
+
+## 2026-06-01 selected body hash authority checkpoint
+
+direct-call `.neplobj` key の `selected_callable_body_hash` は、Resource summary value cache が使う
+Resource IR body hash と同じ authority から取得する方針にした。`resource_function_body_stable_hash`
+を public Resource API として公開し、object key 側が `TypeId`、`Span`、一時値 ID、storage ID の
+正規化規則を再実装しないようにする。
+
+この hash は typed HIR body や raw source text ではなく、Resource IR の関数本文から作る。そのため
+source body が `.neplmeta` で skip されている compile では自然には得られない。`.neplobj` store は
+source fallback / full compile で selected dependency body を Resource IR まで下げた時点でこの hash を
+作り、次回以降の direct-call availability key へ入れる。
+
+raw wasm / LLVM body については、Resource IR body hash だけで本文文字列を識別しない。caller は
+source capability policy hash、source key、backend feature set を合わせて `.neplobj` key を作り、
+不確かな場合は fail-closed に通常 source fallback へ戻す。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
