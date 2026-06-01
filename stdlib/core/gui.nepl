@@ -9,7 +9,7 @@
 //: - `core/gui/geometry` は[座標/ざひょう]、[矩形/くけい]、[余白/よはく]を[扱/あつか]います。
 //: - `core/gui/color` と `core/gui/pixel` は pixel backend [向/む]けの[軽量/けいりょう] value を[扱/あつか]います。
 //: - `core/gui/capability` は backend [差異/さい]を enum と struct で[表/あらわ]します。
-//: - `core/gui/event`、`core/gui/render_command`、`core/gui/dirty_region` は GUI/TUI [共通/きょうつう]の input/output と no_alloc [再描画/さいびょうが][境界/きょうかい]を[定義/ていぎ]します。
+//: - `core/gui/event`、`core/gui/render_command`、`core/gui/dirty_region`、`core/gui/dirty_region_set` は GUI/TUI [共通/きょうつう]の input/output と no_alloc [再描画/さいびょうが][境界/きょうかい]を[定義/ていぎ]します。
 //: - `core/gui/draw_target`、`render_target`、`text_measure` は backend [実装/じっそう]を[注入/ちゅうにゅう]する contract を[定義/ていぎ]します。
 //:
 //: ### [注意/ちゅうい]
@@ -35,6 +35,7 @@ pub #import "./gui/error" as @merge
 pub #import "./gui/event" as @merge
 pub #import "./gui/render_command" as @merge
 pub #import "./gui/dirty_region" as @merge
+pub #import "./gui/dirty_region_set" as @merge
 pub #import "./gui/text_measure" as @merge
 pub #import "./gui/draw_target" as @merge
 pub #import "./gui/render_target" as @merge

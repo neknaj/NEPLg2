@@ -3,10 +3,11 @@
 //:
 //: ### [目的/もくてき]
 //: - `LayoutTree` の hit test と `ViewTree` の widget data を[組/く]み[合/あ]わせ、pointer 位置から `GuiEvent` を[導出/どうしゅつ]します。
+//: - focus/key routing では raw key code を[扱/あつか]わず、解釈済み command から focus movement または action event を[返/かえ]します。
 //: - DOM event、terminal raw input、OS message は[扱/あつか]わず、platform boundary で変換済みの data だけを[扱/あつか]います。
 //:
 //: ### [現状/げんじょう]
-//: - bounded root + 2 child tree を[対象/たいしょう]にした O(1) routing です。
+//: - bounded root + 2 child tree を[対象/たいしょう]にした O(1) pointer / focus routing です。
 //:
 //: neplg2:test
 //: ret: 7
@@ -37,3 +38,4 @@
 #indent 4
 
 pub #import "alloc/gui/routing/types" as *
+pub #import "alloc/gui/routing/focus" as *

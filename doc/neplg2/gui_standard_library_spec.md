@@ -178,7 +178,23 @@ WidgetDescriptor
 
 Pointer hit test は `GuiRect` の half-open bounds を使う。つまり left/top は含み、right/bottom は含まない。bounded checkpoint では child が root より前面にあり、second child は first child より前面にある。disabled widget は hit しても `Option::None` を返し、panic や silent raw event にはしない。
 
-この routing は callback を呼ばず、clipboard、window、terminal、DOM、OS API に触れない。pointer capture、gesture recognition、pointer cancel、IME focus、accessibility focus、keyboard focus traversal は `std/gui` / `platforms/gui/*` と連携する上位状態であり、現 checkpoint では未実装である。ただし TUI でも keyboard / focus routing は最終的に `GuiEvent::Action` を生成し、application が raw ANSI sequence を直接 `match` する経路を作らない。
+Focus traversal と focus routing は別契約である。`alloc/gui/focus` は `ViewTree` から `FocusOrder` を作り、current focus id から next / previous focus target を返すだけで、application event は発行しない。`alloc/gui/routing/focus` は platform 境界で解釈済みの `FocusRouteCommand` を受け取り、結果を次の enum で返す。
+
+```text
+FocusRouteCommand:
+    Next
+    Previous
+    Activate
+
+FocusRouteResult:
+    Ignored
+    MoveFocus WidgetId
+    Emit GuiEvent
+```
+
+`Next` / `Previous` は focus 移動だけを `MoveFocus` として返す。`Activate` は current focus id が指す widget の action event だけを `Emit` として返す。current focus が `None`、古い `WidgetId`、disabled widget、action を持たない widget、端で移動先がない traversal は `Ignored` になる。Tab、Shift+Tab、Enter、Space、terminal raw escape sequence、DOM keyboard event などを `FocusRouteCommand` へ変換する責務は `std/gui` または `platforms/gui/*` に置く。
+
+この routing は callback を呼ばず、clipboard、window、terminal、DOM、OS API に触れない。pointer capture、gesture recognition、pointer cancel、IME focus、accessibility focus、recursive tree traversal は `std/gui` / `platforms/gui/*` と連携する上位状態であり、現 checkpoint では未実装である。ただし TUI でも keyboard / focus routing は最終的に `FocusRouteCommand` と `GuiEvent::Action` を使い、application が raw ANSI sequence を直接 `match` する経路を作らない。
 
 ## Capability Model
 
@@ -229,12 +245,18 @@ core/gui/dirty_region
     DirtyRegion
     no_alloc framebuffer / embedded 向け rect dirty contract
 
+core/gui/dirty_region_set
+    DirtyRegionSet
+    no_alloc fixed-capacity rect set contract
+
 platforms/gui/*
     DOM patch、terminal line diff、GPU surface damage、framebuffer compression
     backend implementation detail
 ```
 
-`GuiInvalidation` は widget tree や layout tree のどこが古くなったかを表す。`DirtyRegion` は `GuiRect` を使い、embedded / framebuffer backend が redraw area を allocator なしで表すための値である。現 checkpoint の `DirtyRegion` は `Empty` / `Rect` / `Full` のみを持ち、複数 rect は保持せず、Rect 同士の merge は bounding rect へ O(1) で畳む。負の width / height は `GuiError::InvalidGeometry` として拒否し、x / y の負値は相対座標として許容する。DOM patch、terminal line diff、dirty rect compression は standard API の semantic diff ではなく backend detail とする。
+`GuiInvalidation` は widget tree や layout tree のどこが古くなったかを表す。`DirtyRegion` は `GuiRect` を使い、embedded / framebuffer backend が redraw area を allocator なしで表すための値である。現 checkpoint の `DirtyRegion` は `Empty` / `Rect` / `Full` のみを持ち、複数 rect は保持せず、Rect 同士の merge は bounding rect へ O(1) で畳む。
+
+`DirtyRegionSet` は embedded / framebuffer 向けの fixed-capacity no_alloc rect set contract である。現 checkpoint は最大 2 個の `GuiRect` を保持し、3 個目の追加は silent no-op や panic ではなく `Full` 状態への昇格として表す。負の width / height は `GuiError::InvalidGeometry` として拒否し、x / y の負値は相対座標として許容する。zero-size rect は有効な `GuiRect` として扱い、必要なら backend 側が present 時に無視できる。DOM patch、terminal line diff、GPU surface damage compression は standard API の semantic diff ではなく backend detail とする。
 
 ## Text Model
 
@@ -378,6 +400,8 @@ core/gui:
     GuiRect
     GuiInsets
     GuiScaleFactor
+    WidgetId
+    ActionId
     BinaryColor
     Gray8
     Rgb565
@@ -387,6 +411,7 @@ core/gui:
     DrawTarget
     FlushTarget
     DirtyRegion
+    DirtyRegionSet
     DrawCommand
     RenderTarget
     GuiEvent
@@ -395,8 +420,8 @@ core/gui:
 
 alloc/gui:
     ViewTree
-    WidgetId
-    ActionId
+    WidgetId semantics and re-export
+    ActionId semantics and re-export
     LayoutTree
     Routing
     Theme
@@ -438,16 +463,18 @@ platforms/gui:
 | `core/gui/geometry` | `GuiPoint`、`GuiSize`、`GuiRect`、`GuiInsets`、`GuiScaleFactor` | constructor / accessor / basic arithmetic を実装済み |
 | `core/gui/color` | `BinaryColor`、`Gray8`、`Rgb565`、`Rgb888`、`Rgba8888`、`GuiColor` | constructor / accessor を実装済み |
 | `core/gui/event` | `GuiEvent`、`ActionId`、`WidgetId`、pointer / keyboard / lifecycle data | initial data contract を実装済み |
+| `core/gui/error` | enum-based GUI/TUI error data | `Unsupported`、`InvalidGeometry`、`ResourceExhausted`、`InvalidCommand` を実装済み。`SurfaceUnavailable` など mobile lifecycle extension error は未実装 |
 | `core/gui/text_measure` | `TextMeasurer` contract、request/result、font id | borrowed `&Self` contract と fixed-cell `MockTextMeasurer` を実装済み。host font 実装は `std/gui` / platform 側で継続 |
 | `core/gui/draw_target` | `DrawTarget`、`FlushTarget`、pixel-level drawing | `MockDrawTarget` と O(1) contract test を実装済み。iterator stream と rasterizer は未実装 |
 | `core/gui/render_target` | streaming `RenderTarget` | `MockRenderTarget` を実装済み。command list / fallback rasterizer は未実装 |
-| `core/gui/dirty_region` | no_alloc `DirtyRegion`、checked rect constructor、O(1) merge | `Empty` / `Rect` / `Full` と bounding rect merge を実装済み。fixed-capacity multiple rect list は未実装 |
+| `core/gui/dirty_region` | no_alloc `DirtyRegion`、checked rect constructor、O(1) merge | `Empty` / `Rect` / `Full` と bounding rect merge を実装済み |
+| `core/gui/dirty_region_set` | no_alloc fixed-capacity rect set | 最大 2 rect の `DirtyRegionSet`、overflow to Full、checked push を実装済み。generic capacity と backend damage compression は未実装 |
 | `alloc/gui/app` | callback-free app model、`ViewNode`、`GuiEffect`、`Update` | leaf view、button config、redraw/title effect、bounded `GuiEffectBatch` を実装済み。将来の `Vec GuiEffect` へ置換する境界は `Update.effects` に固定 |
 | `alloc/gui/layout` | `LayoutContext`、constraints、text measurement injection、measure/place result | `TextMeasurer` 注入、constraint validation、fixed text measure、place-at helper を実装済み。tree layout と flex/grid/scroll は未実装 |
 | `alloc/gui/widget` | callback-free widget descriptor、action event、semantic lowering、measure bridge | button / label descriptor、`ActionId` event 生成、semantic node 生成、layout measure bridge、focusable accessor を実装済み |
 | `alloc/gui/tree` | retained `ViewTree` / `LayoutTree`、bounded child、focus target query | root + 2 child の bounded tree、capacity error、first focusable id、focusable count を実装済み。allocator-backed recursive tree は未実装 |
 | `alloc/gui/focus` | platform 非依存 focus order / next / previous traversal | bounded `ViewTree` から `FocusOrder` を作り、current id から next / previous focus target を `Option WidgetId` で返す実装を追加済み。wrap policy と recursive tree traversal は未実装 |
-| `alloc/gui/routing` | `LayoutTree` hit test、`WidgetId` lookup、widget action lowering | bounded root + 2 child の pointer action routing を実装済み。pointer capture、gesture、keyboard/focus routing、recursive tree traversal は未実装 |
+| `alloc/gui/routing` | `LayoutTree` hit test、`WidgetId` lookup、widget action lowering、focus command routing | bounded root + 2 child の pointer action routing と `FocusRouteCommand` / `FocusRouteResult` を実装済み。pointer capture、gesture、raw keyboard mapping、recursive tree traversal は未実装 |
 | `alloc/gui/diff` | retained tree diff / invalidation data contract | bounded `ViewTree` の slot diff、`GuiInvalidation::Clean` / `Widget` / `Tree` を実装済み。terminal line diff、DOM patch、dirty rect compression は platform 側で未実装 |
 | `alloc/gui/text` | platform 非依存 `TextBuffer` / checked edit storage | `TextBufferId`、`TextBuffer`、checked insert / replace / delete を `Result TextBuffer GuiError` で実装済み。`TextLayout`、line break、cached layout は未実装 |
 | `alloc/gui/theme` | typed theme scheme / color role / metric role、fallible color/metric helper | `GuiColor` palette、`ThemeMetrics` validation、`Option FontId`、text-cell style helper を実装済み。full typography / component style は未実装 |
@@ -455,7 +482,7 @@ platforms/gui:
 | `std/gui` | host/runtime/window/timer/text/IME/accessibility/error display contract | typed data contract、core `TextMeasurer` host wrapper、`GuiEffectBatch -> GuiRuntimeCommandBatch` 解釈、capability unsupported error を実装済み。platform 実行は未実装 |
 | `platforms/gui/terminal` | terminal as `SurfaceKind::TextGrid` backend | `TerminalProfile` と core `TextCellRun` based frame を実装済み。custom capability と grid size は `Result` で検証し、TextGrid 以外や負 size を拒否する。ANSI / TTY present は未実装 |
 
-この表にない Web / native / mobile / embedded backend、allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、recursive event routing、pointer capture / gesture / keyboard focus routing、`TextLayout` / cached layout、resource loading、real host presentation は未実装である。
+この表にない Web / native / mobile / embedded backend、allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、recursive event routing、pointer capture / gesture、raw keyboard mapping、`TextLayout` / cached layout、resource loading、real host presentation は未実装である。
 
 ## TUI Migration Contract
 

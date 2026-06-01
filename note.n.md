@@ -1,3 +1,15 @@
+# 2026-06-01 GUI/TUI focus routing dirty set checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、GUI/TUI 共通 substrate の focus/key routing と no_alloc dirty region set を追加した。
+- doc review subagent は、実装計画の「明示的な GUI 標準ライブラリはまだ存在しない」が古いこと、keyboard/focus routing の契約不足、focus traversal と focus routing の用語混同、fixed-capacity dirty region set の所属層曖昧さ、`WidgetId` / `ActionId` ownership 表の矛盾、mobile lifecycle/error の契約と現状実装の分離不足を指摘した。
+- focus routing worker は commit `06060251 Add GUI focus routing commands` で `stdlib/alloc/gui/routing/focus.nepl` と `tests/stdlib/gui_focus_routing.n.md` を追加した。`FocusRouteCommand::Next` / `Previous` / `Activate` と `FocusRouteResult::Ignored` / `MoveFocus` / `Emit` により、focus movement と action emission を分離した。
+- dirty region set worker は完了前に停止したため、生成済み write scope を main integration 側で検証し、commit `fba32f28 Add fixed GUI dirty region set` として `stdlib/core/gui/dirty_region_set.nepl` と `tests/stdlib/gui_dirty_region_set.n.md` を追加した。最大 2 rect を保持し、3 個目は silent no-op ではなく `Full` へ昇格する。
+- integration で `stdlib/core/gui.nepl` / `stdlib/core/gui/prelude.nepl` へ `dirty_region_set` を再公開し、`stdlib/alloc/gui/routing.nepl` へ `routing/focus` を再公開した。
+- `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` は、`FocusOrder` と `FocusRouteCommand` の責務分離、`DirtyRegion` と `DirtyRegionSet` の責務分離、`WidgetId` / `ActionId` が `core/gui/event` 所有で alloc 側は semantic/re-export を担うこと、mobile lifecycle extension error が未実装であることに合わせて更新した。
+- `todo.md` は実装済みの fixed-capacity dirty region set と focus command routing を残件から外し、残件を recursive event routing、pointer capture / gesture、raw keyboard mapping、generic dirty capacity / backend compression、real backend adapter へ絞った。
+- 検証: `trunk build --release`、GUI/TUI focused suite (`gui_core` / `gui_dirty_region` / `gui_dirty_region_set` / `gui_app` / `gui_layout` / `gui_widget` / `gui_tree` / `gui_focus` / `gui_routing` / `gui_focus_routing` / `gui_diff` / `gui_text` / `gui_theme` / `gui_accessibility` / `gui_std` / `gui_terminal` / `features_tui`) 54/54、new module/facade doctest 6/6、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-focus-dirty-set.json` 13/13、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`nodesrc/test_stdlib_gui_layering_policy.js` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warn-only 警告として stdlib documentation baseline、static check responsibility、resource checker responsibility、resource gate order が残る。documentation warning は今回も `stdlib module doctest gaps increased: 306 > 305` で、前 checkpoint から悪化していない。
+
 # 2026-06-01 GUI/TUI routing dirty region checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、GUI/TUI 共通 substrate の routing と embedded/no_alloc dirty region を追加した。

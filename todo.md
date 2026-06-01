@@ -1,11 +1,11 @@
 2026-06-01 GUI/TUI standard library
 
-- `alloc/gui` の allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、TextLayout / cached layout、recursive event routing、pointer capture / gesture / keyboard focus routing を追加する
+- `alloc/gui` の allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、TextLayout / cached layout、recursive event routing、pointer capture / gesture、raw keyboard mapping を追加する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える
 - Web Playground backend を `platforms/gui/web` と TypeScript host bridge へ接続し、Canvas / DOM-backed surface の smoke test を追加する
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する
 - `features/tui` を互換 path として保ちながら、内部を `features/gui` + terminal backend へ差し替える
-- embedded backend の fixed-capacity multiple dirty region、display adapter、optional `FlushTarget`、polling input を追加して no_alloc contract を実機風に検査する
+- embedded backend の dirty region generic capacity / compression、display adapter、optional `FlushTarget`、polling input を追加して no_alloc contract を実機風に検査する
 
 2026-04-26 NEPLg2 Self-host
 
