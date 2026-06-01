@@ -640,3 +640,38 @@ store の実運用 regression を追加した。fixture は `core/char` の `cha
 store hit 後は lookup hit / returned fragment が増え、body-missing fallback は増えないことを確認する。
 これにより body-missing skip cache が object hit を隠さず、direct-call `.neplobj` fragment が
 `PublicInterfaceArtifactInputs` へ渡ることを Web 側から固定する。
+
+## 2026-06-02 fallback root-cause checkpoint
+
+same-session `.neplobj` direct-call store の実運用経路を通した後、materialized compile は
+`backend.codegen.materialized_function_body_missing` 以外の blocker を露出した。今回の checkpoint では
+diagnostic を丸めず、各 blocker を artifact authority の不整合として修正した。
+
+修正した境界:
+
+- `TypeKind::Named` が stable nominal identity を持つ場合、nominal definition hash は
+  `stable_key_component()` を使う。これにより `.neplmeta` materializer が forward nominal
+  placeholder を含む surface を `NominalDefinitionHashUnavailable` として拒否しない。
+- loader の import/prelude edge は、再帰ロード中に見つかった child artifact をただちに root の
+  materialized input へ漏らさない。parent edge の materialize が成功した場合は staged child
+  artifact を discard し、parent edge が source fallback した場合だけ commit する。
+- typecheck driver は materialized public surface の `source_path` を使い、同じ source file の
+  source AST 定義を file id だけでなく path boundary でも skip する。impl surface も
+  `source_path` を持ち、source impl と materialized impl の二重登録を防ぐ。
+- `.neplobj` direct-call fragment store lookup は relocation dependency closure を返す。callee
+  fragment が欠ける caller fragment は返さず、link invalid ではなく source fallback に戻る。
+- wasm `.neplobj` producer は call / call_indirect を含まない raw wasm body を relocation-free leaf
+  fragment として保存できる。raw wasm body に call boundary がある場合は引き続き fail-closed にする。
+
+`tmp/materialized-raw-wasm-neplobj-20260602-rerun.json` では、`core/char` fixture の
+cold base `compile_ms=387`、warm store probe `compile_ms=221`、body edit candidate `compile_ms=21`、
+body edit repeat `compile_ms=21` になった。fallback は
+`backend.codegen.materialized_function_body_missing` の 1 件だけで、
+`type.public_surface.materializer.nominal_definition_rejected`、`resolve.item.name_conflict`、
+`backend.wasm.neplobj_direct_call_link_invalid` は出ていない。
+
+この issue は open のまま維持する。今回の変更は same-session direct-call `.neplobj` と
+materialized public surface の fallback blocker を取り除く checkpoint であり、persistent
+`.nepl...` codec、bundled stdlib `.neplmeta` / `.neplproof` preseed、generic instantiation hash、
+string/data relocation、raw LLVM body、function value / memoized function value backend、
+`memo_call` PrivateCache proof は未完了である。

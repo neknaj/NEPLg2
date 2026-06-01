@@ -2833,6 +2833,50 @@ materialized compile を次の blocker まで進める境界を固定する。
 base compile_ms の追加短縮は bundled stdlib `.neplmeta` / `.neplproof` preseed と persistent artifact
 codec の実装で継続する。
 
+## 2026-06-02 `.neplmeta` / `.neplobj` fallback root-cause checkpoint
+
+materialized dependency compile では、artifact が存在することだけで source body を置き換えてはいけない。
+置き換える artifact set は、loader / typecheck / backend の各段階で同じ authority を満たす必要がある。
+今回の checkpoint では、`.neplmeta` materializer と `.neplobj` direct-call store の実測 fallback から
+次の不変条件を追加した。
+
+1. import/prelude edge の materialization は edge-local に commit / rollback する。
+   `load_file_with` の再帰中に見つかった child artifact は、parent edge の materialize 成否が決まるまで
+   staging に置く。parent edge が materialize 成功した場合、child artifact は root input へ漏らさない。
+   parent edge が source fallback した場合だけ、source body が必要とする child artifact を commit する。
+   `include` は引き続き textual/source merge boundary であり、artifact edge にはしない。
+
+2. source AST と materialized surface の二重登録は、`FileId` だけでなく source path boundary でも防ぐ。
+   `.neplmeta` impl surface は `source_path` を持ち、同じ source path 由来の source impl が AST に残っても
+   typecheck driver は二重登録しない。`FileId` は source map session-local であり、artifact replacement
+   の永続 authority ではない。
+
+3. nominal definition hash は stable nominal identity 付き placeholder を扱う。
+   materializer は nominal type を先に placeholder として predeclare するため、field / variant type が
+   `TypeKind::Named` placeholder を参照した状態で definition hash を検証する場合がある。このとき
+   stable identity がある `Named` は backend scalar fallback ではなく stable key を hash する。
+
+4. `.neplobj` direct-call lookup は relocation dependency closure を返す。
+   caller fragment だけを返して callee fragment が欠ける状態は、link invalid ではなく object miss として
+   source fallback に戻す。link validation は最後の fail-closed guard であり、store lookup の不足を
+   diagnostic で丸めるための境界ではない。
+
+5. raw wasm body は relocation-free leaf の場合だけ direct-call fragment にできる。
+   call / call_indirect を含まない raw wasm body は、public direct-call relocation target として保存できる。
+   raw wasm body が別 callable を呼ぶ場合は、raw wasm text から stable relocation を復元する設計が入るまで
+   fail-closed に残す。
+
+`tmp/materialized-raw-wasm-neplobj-20260602-rerun.json` では、`core/char` fixture の cold base
+`compile_ms=387`、warm store probe `compile_ms=221`、body edit candidate `compile_ms=21`、
+body edit repeat `compile_ms=21` だった。`materialized_non_body_missing_fallbacks_delta_sum=0` で、
+残る fallback code は `.neplobj` artifact がまだない初回の `backend.codegen.materialized_function_body_missing`
+だけである。
+
+この結果は対象 fixture の warm edit を 0.1 秒未満に入れたことを示すが、永続 artifact codec や
+bundled stdlib preseed の完成を意味しない。base compile_ms の一般化には、`.neplmeta` / `.neplproof`
+preseed、persistent `.nepl...` codec、generic instantiation、string/data relocation、raw LLVM body、
+function value / memoized function value backend、`memo_call` PrivateCache proof を別境界として進める。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

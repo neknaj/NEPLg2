@@ -76,11 +76,7 @@ mod tests {
             let shifted = Span::new(crate::span::FileId(operation as u32), 11, 21);
             let mut sink = TestProofSink::default();
 
-            collect_private_cache_boundary_evidence(
-                &mut sink,
-                operation.intrinsic_name(),
-                span,
-            );
+            collect_private_cache_boundary_evidence(&mut sink, operation.intrinsic_name(), span);
 
             let capabilities = sink.proof.into_source_capabilities();
             assert!(capabilities.allows_private_cache_boundary_in_region_at(

@@ -490,7 +490,9 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableTypeExpected),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableArityMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableEffectMismatch),
-    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableSignatureHashMismatch),
+    DiagnosticCode::Type(
+        TypeDiagnosticCode::PublicSurfaceMaterializerCallableSignatureHashMismatch,
+    ),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerTypeParamBoundsUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerConflict),

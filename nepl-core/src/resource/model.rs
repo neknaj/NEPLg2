@@ -483,10 +483,19 @@ pub enum BorrowKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EffectOp {
     Pure,
-    UserCall { name: String, effect: Effect },
-    IndirectCall { effect: Effect },
-    InternalAlloc { operation: RawMemoryOp },
-    UnsafeMemory { operation: RawMemoryOp },
+    UserCall {
+        name: String,
+        effect: Effect,
+    },
+    IndirectCall {
+        effect: Effect,
+    },
+    InternalAlloc {
+        operation: RawMemoryOp,
+    },
+    UnsafeMemory {
+        operation: RawMemoryOp,
+    },
     PrivateState {
         operation: PrivateStateOp,
         region: PrivateEffectRegion,
@@ -495,9 +504,15 @@ pub enum EffectOp {
         operation: PrivateCacheOp,
         region: PrivateEffectRegion,
     },
-    ExternalIo { operation: ExternalIoOp },
-    Nondet { operation: NondetOp },
-    Unknown { reason: UnknownEffectReason },
+    ExternalIo {
+        operation: ExternalIoOp,
+    },
+    Nondet {
+        operation: NondetOp,
+    },
+    Unknown {
+        reason: UnknownEffectReason,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

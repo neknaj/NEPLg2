@@ -17,15 +17,14 @@ use super::env::{same_callable_signature_and_bounds, Binding, BindingKind, Env};
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
 use super::public_signature::TypedPublicSignatureKind;
 use super::public_surface::{
-    materialized_callable_symbol_for_link_symbol,
-    public_enum_definition_hash, public_struct_definition_hash, public_trait_definition_hash,
-    public_type_term_stable_hash, PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect,
-    PublicEnumSurface, PublicFieldAccessorKind, PublicImplKind, PublicImplSurface,
-    PublicNominalTypeIdentity, PublicNominalTypeKind, PublicStructConstructorPolicy,
-    PublicStructSurface, PublicSurfaceShape, PublicTraitCapability, PublicTraitIdentity,
-    PublicTraitRef, PublicTraitSurface, PublicTypeParam, PublicTypeParamBoundTarget,
-    PublicTypeParamBounds, PublicTypeParamRef, PublicTypeTerm, TypedPublicSurfaceEntry,
-    TypedPublicSurfaceTable,
+    materialized_callable_symbol_for_link_symbol, public_enum_definition_hash,
+    public_struct_definition_hash, public_trait_definition_hash, public_type_term_stable_hash,
+    PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicEnumSurface,
+    PublicFieldAccessorKind, PublicImplKind, PublicImplSurface, PublicNominalTypeIdentity,
+    PublicNominalTypeKind, PublicStructConstructorPolicy, PublicStructSurface, PublicSurfaceShape,
+    PublicTraitCapability, PublicTraitIdentity, PublicTraitRef, PublicTraitSurface,
+    PublicTypeParam, PublicTypeParamBoundTarget, PublicTypeParamBounds, PublicTypeParamRef,
+    PublicTypeTerm, TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
 };
 use super::struct_shape::StructConstructorShape;
 use super::traits::{
@@ -261,9 +260,7 @@ impl PublicSurfaceMaterializeRejectReason {
             Self::UnsupportedImplKind
             | Self::DuplicateImplConflict
             | Self::CopyImplRequiresClone
-            | Self::DropImplTargetCopy => {
-                TypeDiagnosticCode::PublicSurfaceMaterializerImplRejected
-            }
+            | Self::DropImplTargetCopy => TypeDiagnosticCode::PublicSurfaceMaterializerImplRejected,
         }
     }
 }
@@ -2225,7 +2222,11 @@ mod tests {
             },
             PublicFieldAccessorKind::Put => PublicTypeTerm::Function {
                 type_params: Vec::new(),
-                params: Vec::from([PublicTypeTerm::I32, PublicTypeTerm::Str, PublicTypeTerm::I32]),
+                params: Vec::from([
+                    PublicTypeTerm::I32,
+                    PublicTypeTerm::Str,
+                    PublicTypeTerm::I32,
+                ]),
                 result: Box::new(PublicTypeTerm::Unit),
                 effect: PublicEffect::Pure,
             },
@@ -2400,6 +2401,52 @@ mod tests {
     }
 
     #[test]
+    fn materializer_mvp_hashes_forward_nominal_placeholders_by_stable_identity() {
+        let item_fields = Vec::from([PublicFieldSurface {
+            name: String::from("value"),
+            ty: PublicTypeTerm::I32,
+        }]);
+        let item_identity = struct_identity_for_fields("Item", &Vec::new(), &item_fields);
+        let holder_fields = Vec::from([PublicFieldSurface {
+            name: String::from("item"),
+            ty: PublicTypeTerm::Named {
+                name: String::from("Item"),
+                identity: Some(item_identity),
+            },
+        }]);
+        let table = TypedPublicSurfaceTable::new(Vec::from([
+            struct_entry("Holder", holder_fields),
+            struct_entry("Item", item_fields),
+        ]));
+        let mut ctx = TypeCtx::new();
+        let mut env = Env::new();
+        let mut structs = BTreeMap::new();
+        let mut enums = BTreeMap::new();
+        let mut traits = BTreeMap::new();
+        let mut impls = Vec::new();
+
+        let report = materialize_public_surface_with_semantics_mvp(
+            &mut ctx,
+            &mut env,
+            &mut structs,
+            &mut enums,
+            &mut traits,
+            &mut impls,
+            &table,
+            Span::dummy(),
+        )
+        .unwrap();
+
+        assert_eq!(report.structs_inserted, 2);
+        let item_ty = ctx.lookup_named("Item").expect("Item type");
+        let holder = structs.get("Holder").expect("Holder surface");
+        assert_eq!(
+            ctx.resolve_named_type_id(holder.fields[0]),
+            ctx.resolve_named_type_id(item_ty)
+        );
+    }
+
+    #[test]
     fn materializer_mvp_rolls_back_nominal_definitions_when_later_entry_rejects() {
         let table = TypedPublicSurfaceTable::new(Vec::from([
             struct_entry(
@@ -2567,6 +2614,7 @@ mod tests {
                 name: String::from("impl Clone for Item"),
                 exported: false,
                 surface: PublicSurfaceShape::Impl(PublicImplSurface {
+                    source_path: String::from("stdlib/core/item.nepl"),
                     type_params: Vec::new(),
                     type_param_bounds: Vec::new(),
                     kind: PublicImplKind::Trait {
@@ -2630,6 +2678,7 @@ mod tests {
                 name: String::from("impl Clone for Item"),
                 exported: false,
                 surface: PublicSurfaceShape::Impl(PublicImplSurface {
+                    source_path: String::from("stdlib/core/item.nepl"),
                     type_params: Vec::new(),
                     type_param_bounds: Vec::new(),
                     kind: PublicImplKind::Trait {
@@ -3128,14 +3177,24 @@ mod tests {
     #[test]
     fn materializer_mvp_materializes_field_accessor_callable() {
         let cases = Vec::from([
-            ("get", PublicFieldAccessorKind::Get, FieldAccessorKind::Get, 2usize),
+            (
+                "get",
+                PublicFieldAccessorKind::Get,
+                FieldAccessorKind::Get,
+                2usize,
+            ),
             (
                 "get_ref",
                 PublicFieldAccessorKind::GetRef,
                 FieldAccessorKind::GetRef,
                 2usize,
             ),
-            ("put", PublicFieldAccessorKind::Put, FieldAccessorKind::Put, 3usize),
+            (
+                "put",
+                PublicFieldAccessorKind::Put,
+                FieldAccessorKind::Put,
+                3usize,
+            ),
         ]);
         let table = TypedPublicSurfaceTable::new(
             cases

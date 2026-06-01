@@ -126,9 +126,10 @@ pub fn generate_wasm(ctx: &TypeCtx, module: &HirModule) -> Result<CodegenResult,
 /// full/source compile で確認済みの HIR から direct-call `.neplobj` fragment を作る。
 ///
 /// producer は public callable link symbol を持つ direct call だけを relocation として記録する。
-/// indirect call、function value、`memo_call`、string literal、raw wasm/LLVM body は、table /
-/// data / private-cache proof が別に必要なためここでは省略する。省略は cache miss と同じ扱いで
-/// あり、compile 成功や診断を変えない。
+/// indirect call、function value、`memo_call`、string literal、LLVM body は、table / data /
+/// private-cache proof が別に必要なためここでは省略する。raw wasm body は direct call を含まない
+/// leaf body だけを relocation なし fragment として扱う。省略は cache miss と同じ扱いであり、
+/// compile 成功や診断を変えない。
 pub fn export_neplobj_direct_call_fragments_for_wasm(
     ctx: &TypeCtx,
     module: &HirModule,
@@ -300,19 +301,35 @@ fn neplobj_wasm_direct_call_relocation_targets(
         Option<crate::typecheck::PublicCallableLinkSymbol>,
     >,
 ) -> Option<BTreeMap<String, crate::typecheck::PublicCallableLinkSymbol>> {
-    let HirBody::Block(block) = &function.body else {
-        return None;
-    };
-    let mut direct_call_targets = BTreeMap::new();
-    if neplobj_wasm_collect_direct_call_targets_from_block(
-        block,
-        link_symbols_by_function_name,
-        &mut direct_call_targets,
-    ) {
-        Some(direct_call_targets)
-    } else {
-        None
+    match &function.body {
+        HirBody::Block(block) => {
+            let mut direct_call_targets = BTreeMap::new();
+            if neplobj_wasm_collect_direct_call_targets_from_block(
+                block,
+                link_symbols_by_function_name,
+                &mut direct_call_targets,
+            ) {
+                Some(direct_call_targets)
+            } else {
+                None
+            }
+        }
+        HirBody::Wasm(wasm) => {
+            if neplobj_wasm_raw_body_is_leaf(wasm) {
+                Some(BTreeMap::new())
+            } else {
+                None
+            }
+        }
+        HirBody::LlvmIr(_) => None,
     }
+}
+
+fn neplobj_wasm_raw_body_is_leaf(wasm: &crate::ast::WasmBlock) -> bool {
+    wasm.lines.iter().all(|line| {
+        let first = line.split_whitespace().next().unwrap_or("");
+        first != "call" && first != "call_indirect"
+    })
 }
 
 fn neplobj_wasm_collect_direct_call_targets_from_block(
@@ -3282,7 +3299,7 @@ mod tests {
         NeplObjDirectCallKey, NeplObjWasmDirectCallFragment, NeplObjWasmDirectCallRelocation,
         NeplObjWasmValType,
     };
-    use crate::ast::Effect;
+    use crate::ast::{Effect, WasmBlock};
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::function_identity::FunctionValueIdentity;
     use crate::hir::{
@@ -3482,6 +3499,40 @@ mod tests {
         )
     }
 
+    fn dep_i32_module_with_raw_wasm(
+        types: &mut TypeCtx,
+        name: &str,
+        span: Span,
+        lines: Vec<&str>,
+    ) -> (HirModule, TypeId) {
+        let i32_ty = types.i32();
+        let fn_ty = types.function(Vec::new(), Vec::new(), i32_ty, Effect::Pure);
+        (
+            HirModule {
+                functions: Vec::from([HirFunction {
+                    doc: None,
+                    name: String::from(name),
+                    origin_name: String::from(name),
+                    func_ty: fn_ty,
+                    params: Vec::new(),
+                    result: i32_ty,
+                    effect: Effect::Pure,
+                    body: HirBody::Wasm(WasmBlock {
+                        lines: lines.into_iter().map(String::from).collect(),
+                        span,
+                    }),
+                    span,
+                }]),
+                entry: None,
+                externs: Vec::new(),
+                string_literals: Vec::new(),
+                traits: Vec::new(),
+                impls: Vec::new(),
+            },
+            i32_ty,
+        )
+    }
+
     fn empty_i32_module(types: &mut TypeCtx) -> (HirModule, TypeId) {
         let i32_ty = types.i32();
         let fn_ty = types.function(Vec::new(), Vec::new(), i32_ty, Effect::Pure);
@@ -3644,6 +3695,38 @@ mod tests {
             !wasm_fragment.function_body_bytes().is_empty(),
             "producer must return the wasm function body bytes generated from the checked HIR"
         );
+    }
+
+    /// raw `#wasm` body は、direct call を含まない leaf body に限って `.neplobj`
+    /// fragment として保存できる。
+    ///
+    /// stdlib の小さな arithmetic wrapper は raw wasm body を使うことが多い。caller
+    /// fragment がその wrapper を relocation target に持つ場合、target fragment を保存できないと
+    /// link 時に dangling relocation になるため、raw leaf body を relocation なし payload にする。
+    #[test]
+    fn neplobj_wasm_export_produces_raw_wasm_leaf_fragment() {
+        let mut types = TypeCtx::new();
+        let (source_map, file) = source_map_for_math_module();
+        let span = Span::new(file, 0, 0);
+        let (module, _) =
+            dep_i32_module_with_raw_wasm(&mut types, "raw_value", span, Vec::from(["i32.const 7"]));
+        let symbol = link_symbol("raw_value", 0x21);
+
+        let fragments = export_neplobj_direct_call_fragments_for_wasm(
+            &types,
+            &module,
+            &source_map,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(0x5a),
+            &[direct_call_export_request(symbol.clone())],
+        );
+
+        assert_eq!(fragments.len(), 1);
+        assert_eq!(fragments[0].key().link_symbol, symbol);
+        let NeplObjDirectCallBackendFragment::Wasm(wasm_fragment) = fragments[0].backend();
+        assert!(wasm_fragment.direct_call_relocations().is_empty());
+        assert!(!wasm_fragment.function_body_bytes().is_empty());
     }
 
     /// direct call だけを含む checked HIR は、call immediate を後段 linker が解決できる

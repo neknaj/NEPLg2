@@ -2474,9 +2474,7 @@ mod tests {
             .any(|diagnostic| diagnostic.message.contains("for function value")));
         assert!(diagnostics
             .iter()
-            .any(|diagnostic| diagnostic
-                .message
-                .contains("for memoized function value")));
+            .any(|diagnostic| diagnostic.message.contains("for memoized function value")));
     }
 
     /// indirect call は function value を呼び出す形であり、direct call 用 `.neplobj`
@@ -2601,10 +2599,10 @@ mod tests {
             .message
             .contains("neplmeta$direct_nested$1$2")
             && diagnostic.message.contains("for direct call")));
-        assert!(diagnostics.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("neplmeta$arg$1$2")
-            && diagnostic.message.contains("for function value")));
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("neplmeta$arg$1$2")
+                && diagnostic.message.contains("for function value")));
     }
 
     fn test_neplobj_direct_call_key(
@@ -2804,8 +2802,7 @@ mod tests {
         let available = neplobj_direct_call_fragment_symbol_set(&[fragment]);
 
         let diagnostics = materialized_codegen_dependency_diagnostics_with_available_direct_calls(
-            &module,
-            &available,
+            &module, &available,
         );
 
         assert_eq!(diagnostics.len(), 3);
@@ -2821,7 +2818,8 @@ mod tests {
     /// 同じ materialized symbol に見える場合でも、function value として使われた依存は
     /// body-missing に残す。
     #[test]
-    fn materialized_body_missing_diagnostics_keep_function_value_until_backend_identity_is_linked() {
+    fn materialized_body_missing_diagnostics_keep_function_value_until_backend_identity_is_linked()
+    {
         let ty = crate::types::TypeId(0);
         let span = Span::dummy();
         let key = test_neplobj_direct_call_key("dep_value", 0x5678);
@@ -4834,20 +4832,19 @@ fn emit_wasm(
         diagnostics.push(diag);
         return Err(CoreError::from_diagnostics(diagnostics));
     }
-    let exported_neplobj_direct_call_fragments =
-        if let Some(source_map) = source_map {
-            codegen_wasm::export_neplobj_direct_call_fragments_for_wasm(
-                types,
-                hir_module,
-                source_map,
-                target,
-                profile,
-                stdlib_content_hash,
-                neplobj_direct_call_export_requests,
-            )
-        } else {
-            Vec::new()
-        };
+    let exported_neplobj_direct_call_fragments = if let Some(source_map) = source_map {
+        codegen_wasm::export_neplobj_direct_call_fragments_for_wasm(
+            types,
+            hir_module,
+            source_map,
+            target,
+            profile,
+            stdlib_content_hash,
+            neplobj_direct_call_export_requests,
+        )
+    } else {
+        Vec::new()
+    };
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let stage_start_ms = stage_recorder.start();

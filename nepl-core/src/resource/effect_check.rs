@@ -17,8 +17,7 @@ use super::effect_summary::{RawIdentityReturnSummaryIndex, RawPointerReturnSumma
 use super::function_alias::{construct_function_alias_fields, FunctionAliasTable};
 use super::model::{
     EffectOp, Place, PrivateCacheOp, PrivateEffectRegion, RawAddressAliasKind, RawAddressViewKind,
-    RawMemoryOp, ResourceBlock, ResourceExprKind, ResourceFunction, ResourceOp,
-    ResourceTerminator,
+    RawMemoryOp, ResourceBlock, ResourceExprKind, ResourceFunction, ResourceOp, ResourceTerminator,
 };
 use super::place_utils::{raw_address_view_candidate_bases, reference_target_place};
 use super::private_cache_mask::PrivateCacheMaskProofIndex;
@@ -678,11 +677,9 @@ impl ResourceEffectBoundaryEngine<'_> {
                 self.counts.private_cache_ops += 1;
                 self.report_private_cache_boundary_use(*operation, *region, span);
                 if matches!(self.effect, Effect::Pure)
-                    && !self.private_cache_mask_proofs.allows(
-                        self.function,
-                        *operation,
-                        *region,
-                    )
+                    && !self
+                        .private_cache_mask_proofs
+                        .allows(self.function, *operation, *region)
                 {
                     self.diagnostics.push(
                         ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
@@ -752,13 +749,14 @@ impl ResourceEffectBoundaryEngine<'_> {
         region: PrivateEffectRegion,
         span: Span,
     ) {
-        self.diagnostics
-            .push(ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+        self.diagnostics.push(
+            ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
                 function: String::from(self.function),
                 operation,
                 region,
                 span,
-            });
+            },
+        );
     }
 
     fn report_private_cache_region_escape(

@@ -236,6 +236,7 @@ pub struct PublicTraitMethodSurface {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicImplSurface {
+    pub source_path: String,
     pub type_params: Vec<PublicTypeParam>,
     pub type_param_bounds: Vec<PublicTypeParamBounds>,
     pub kind: PublicImplKind,
@@ -380,7 +381,7 @@ pub enum PublicStructConstructorPolicy {
 
 fn typed_public_surface_hash(entries: &[TypedPublicSurfaceEntry]) -> u64 {
     let mut hash = FNV1A64_OFFSET;
-    hash_str(&mut hash, "neplg2-typed-public-surface-v8");
+    hash_str(&mut hash, "neplg2-typed-public-surface-v9");
     for entry in entries {
         hash_str(&mut hash, entry.kind.as_str());
         hash_str(&mut hash, entry.name.as_str());
@@ -455,6 +456,7 @@ fn hash_public_surface_shape(hash: &mut u64, shape: &PublicSurfaceShape) {
         }
         PublicSurfaceShape::Impl(surface) => {
             hash_str(hash, "impl");
+            hash_str(hash, surface.source_path.as_str());
             hash_public_type_params(hash, &surface.type_params);
             hash_public_type_param_bounds(hash, &surface.type_param_bounds);
             hash_public_type_term(hash, &surface.target);
@@ -1453,7 +1455,12 @@ fn public_impl_surface(
     let (type_params, generics) = public_type_params(ctx, &info.type_params);
     let type_param_bounds =
         public_type_param_bounds(ctx, source_map, traits, &info.type_param_bounds, &generics);
+    let source_path = source_map
+        .and_then(|source_map| source_map.path(info.span.file_id))
+        .map(|path| String::from(path.as_str()))
+        .unwrap_or_default();
     PublicImplSurface {
+        source_path,
         type_params,
         type_param_bounds,
         kind: match &info.kind {
