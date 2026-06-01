@@ -1,0 +1,18 @@
+//: # gui
+//: GUI / TUI を共通 UI substrate として扱う public facade
+//:
+//: ### [目的/もくてき]
+//: - GUI と TUI を別系統の API として育てず、terminal も text-cell surface を持つ backend として公開します。
+//: - 利用者は terminal backend の初期型を `features/gui` から import でき、将来 `core/gui` が入っても入口を固定できます。
+//:
+//: ### [実装/じっそう]
+//: - 現段階では `platforms/gui/terminal` を公開 merge import する薄い facade です。
+//: - DOM、OS、ANSI escape、TTY raw mode には依存せず、backend capability と frame 境界だけを再公開します。
+//:
+//: ### [注意/ちゅうい]
+//: - 既存 `features/tui` との互換差し替えは後続 phase で行います。この file は新 substrate 側の入口です。
+//: - `core/gui` が追加された後は、共通型をそちらへ移し、この facade は import path を保つために再公開します。
+
+#indent 4
+
+pub #import "platforms/gui/terminal" as @merge

@@ -1,0 +1,174 @@
+//: # platforms/gui/terminal/text_grid
+//: TextGrid surface の座標と cell run
+//:
+//: ### [目的/もくてき]
+//: - terminal backend が受け取る text-cell command の最小型を定義します。
+//: - text の内容、描画開始位置、cell style を構造化し、ANSI escape sequence を application model へ漏らさないようにします。
+//:
+//: ### [設計/せっけい]
+//: - `TextGridPoint` は pixel ではなく cell 座標です。
+//: - `TextCellRun` は同一 style の連続した text を表す render command fragment です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor、accessor、座標の平行移動は O(1) です。
+
+#indent 4
+
+#import "core/field" as *
+#import "core/math" as *
+#import "core/traits/copy" as *
+
+//: TextCellWeight: terminal text cell の強調度
+//:
+//: [目的/もくてき]:
+//: - 強調を raw ANSI code ではなく enum として保持します。
+pub enum TextCellWeight:
+    Regular
+    Bold
+
+impl Clone for TextCellWeight:
+    fn clone %fn &TextCellWeight TextCellWeight \weight:
+        *weight
+
+impl Copy for TextCellWeight:
+    fn copy_mark %fn TextCellWeight TextCellWeight \weight:
+        weight
+
+//: TextCellStyle: TextGrid cell run の抽象 style
+//:
+//: [目的/もくてき]:
+//: - terminal の色・装飾を raw escape sequence ではなく、backend が後で解釈できる小さな値として保持します。
+//:
+//: [注意/ちゅうい]:
+//: - 初期実装では `inverted` と `weight` のみを持ちます。色、underline、hyperlink は後続の style model で拡張します。
+pub struct TextCellStyle:
+    inverted %bool
+    weight %TextCellWeight
+
+impl Clone for TextCellStyle:
+    fn clone %fn &TextCellStyle TextCellStyle \style:
+        *style
+
+impl Copy for TextCellStyle:
+    fn copy_mark %fn TextCellStyle TextCellStyle \style:
+        style
+
+//: text_cell_style: text cell style を構築する
+pub fn text_cell_style %fn bool fn TextCellWeight TextCellStyle \inverted\weight:
+    TextCellStyle inverted weight
+
+//: text_cell_plain_style: 既定の text cell style を返す
+pub fn text_cell_plain_style %fn unit TextCellStyle \unit:
+    text_cell_style false TextCellWeight::Regular
+
+//: text_cell_bold_style: bold の text cell style を返す
+pub fn text_cell_bold_style %fn unit TextCellStyle \unit:
+    text_cell_style false TextCellWeight::Bold
+
+//: text_cell_style_is_inverted: 反転表示か返す
+pub fn text_cell_style_is_inverted %fn &TextCellStyle bool \style:
+    *get_ref style "inverted"
+
+//: text_cell_style_weight: text cell style の強調度を返す
+pub fn text_cell_style_weight %fn &TextCellStyle TextCellWeight \style:
+    *get_ref style "weight"
+
+//: text_cell_weight_is_bold: weight が Bold か判定する
+pub fn text_cell_weight_is_bold %fn TextCellWeight bool \weight:
+    match weight:
+        TextCellWeight::Regular:
+            false
+        TextCellWeight::Bold:
+            true
+
+//: TextGridPoint: TextGrid surface 上の cell 座標
+//:
+//: [目的/もくてき]:
+//: - `col` と `row` を i32 の組ではなく名前付き struct として保持し、x/y や pixel 座標との混同を避けます。
+//:
+//: [注意/ちゅうい]:
+//: - 原点は左上で、`col` は右方向、`row` は下方向に増える前提です。
+pub struct TextGridPoint:
+    col %i32
+    row %i32
+
+impl Clone for TextGridPoint:
+    fn clone %fn &TextGridPoint TextGridPoint \point:
+        *point
+
+impl Copy for TextGridPoint:
+    fn copy_mark %fn TextGridPoint TextGridPoint \point:
+        point
+
+//: text_grid_point: TextGridPoint を構築する
+pub fn text_grid_point %fn i32 fn i32 TextGridPoint \col\row:
+    TextGridPoint col row
+
+//: text_grid_origin: 左上原点の TextGridPoint を返す
+pub fn text_grid_origin %fn unit TextGridPoint \unit:
+    text_grid_point 0 0
+
+//: text_grid_point_col: cell 列を返す
+pub fn text_grid_point_col %fn &TextGridPoint i32 \point:
+    *get_ref point "col"
+
+//: text_grid_point_row: cell 行を返す
+pub fn text_grid_point_row %fn &TextGridPoint i32 \point:
+    *get_ref point "row"
+
+//: text_grid_point_translate: cell 座標を平行移動する
+//:
+//: [目的/もくてき]:
+//: - layout 結果や scroll offset を適用した新しい cell 座標を作ります。
+pub fn text_grid_point_translate %fn TextGridPoint fn i32 fn i32 TextGridPoint \point\dcol\drow:
+    text_grid_point add text_grid_point_col &point dcol add text_grid_point_row &point drow
+
+//: TextCellRun: 同一 style の text-cell run
+//:
+//: [目的/もくてき]:
+//: - terminal render target へ渡す最小 command fragment として、開始位置、text、style をまとめます。
+//:
+//: [注意/ちゅうい]:
+//: - `text` は raw ANSI を含まない plain text とします。backend が style から表示形式へ変換します。
+pub struct TextCellRun:
+    origin %TextGridPoint
+    text %str
+    style %TextCellStyle
+
+impl Clone for TextCellRun:
+    fn clone %fn &TextCellRun TextCellRun \run:
+        *run
+
+impl Copy for TextCellRun:
+    fn copy_mark %fn TextCellRun TextCellRun \run:
+        run
+
+//: text_cell_run: TextCellRun を明示的に構築する
+pub fn text_cell_run %fn TextGridPoint fn str fn TextCellStyle TextCellRun \origin\text\style:
+    TextCellRun origin text style
+
+//: text_cell_plain_run: 既定 style の TextCellRun を構築する
+pub fn text_cell_plain_run %fn TextGridPoint fn str TextCellRun \origin\text:
+    text_cell_run origin text text_cell_plain_style
+
+//: text_cell_run_origin: TextCellRun の開始 cell 座標を返す
+pub fn text_cell_run_origin %fn &TextCellRun TextGridPoint \run:
+    *get_ref run "origin"
+
+//: text_cell_run_text: TextCellRun の text を返す
+pub fn text_cell_run_text %fn &TextCellRun str \run:
+    *get_ref run "text"
+
+//: text_cell_run_style: TextCellRun の style を返す
+pub fn text_cell_run_style %fn &TextCellRun TextCellStyle \run:
+    *get_ref run "style"
+
+//: text_cell_run_col: TextCellRun の開始列を返す
+pub fn text_cell_run_col %fn &TextCellRun i32 \run:
+    let origin %TextGridPoint text_cell_run_origin run
+    text_grid_point_col &origin
+
+//: text_cell_run_row: TextCellRun の開始行を返す
+pub fn text_cell_run_row %fn &TextCellRun i32 \run:
+    let origin %TextGridPoint text_cell_run_origin run
+    text_grid_point_row &origin
