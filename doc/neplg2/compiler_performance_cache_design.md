@@ -1588,7 +1588,24 @@ root function binder の `PublicTypeParamRef` で表す。binder が確定でき
 として扱わない。
 
 まだ `PublicTypeTerm::Named { identity: None }`、`PublicTypeTerm::UnboundGenericParam`、
-`PublicTypeParamBoundTarget::Unbound` を materializer で fail-closed に拒否する実装が必要である。
+`PublicTypeParamBoundTarget::Unbound` を materializer 本体の body-skip 判定へ接続する実装が必要である。
+
+### 2026-06-01 `.neplmeta` materializer preflight checkpoint
+
+`TypedPublicSurfaceTable` に materializer preflight を追加した。これは `.neplmeta`
+materializer 本体ではなく、structured public surface を現在 compile の `TypeCtx` / `Env`
+へ投影する前に、body skip してはいけない surface を fail-closed に列挙する境界である。
+
+preflight は primitive だけで構成された callable surface を通す。一方で、name-only
+nominal type、対応 binder を持たない generic parameter、対応 binder を持たない trait
+bound target、stable trait identity を持たない trait reference、identity を持たない
+public struct / enum surface は blocker として返す。
+
+これにより、`.neplmeta` materializer の実装が進んだ段階でも、`Named(String)` や
+`UnboundGenericParam` を推測で current session の型へ対応付ける経路を作らない。今後は
+trait stable identity、field accessor surface、stable public ABI/link symbol、generic impl
+bound、reexport / prelude edge と module canonical path を追加し、preflight blocker を
+減らしていく。
 trait identity、field accessor surface、stable public ABI / link symbol、generic impl bound、
 reexport / prelude edge と module canonical path も引き続き dependency body skip の前提として残る。
 

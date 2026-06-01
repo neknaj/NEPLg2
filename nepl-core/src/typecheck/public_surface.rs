@@ -40,6 +40,52 @@ impl TypedPublicSurfaceTable {
             stable_hash,
         }
     }
+
+    /// `.neplmeta` materializer が安全に使えない entry を列挙する。
+    ///
+    /// この関数は materializer そのものではない。artifact の structured public surface を
+    /// 現在 compile の `TypeCtx` / `Env` へ投影する前に、名前だけの nominal type や
+    /// 対応 binder のない generic parameter を検出し、dependency body skip を fail-closed
+    /// に止めるための preflight である。
+    pub fn materializer_blockers(&self) -> Vec<PublicSurfaceMaterializerBlocker> {
+        let mut blockers = Vec::new();
+        for entry in &self.entries {
+            collect_surface_shape_materializer_blockers(entry, &entry.surface, &mut blockers);
+        }
+        blockers
+    }
+
+    /// structured public surface が materializer preflight を通過できるかを返す。
+    ///
+    /// `true` は「この table だけで body skip してよい」という意味ではない。module graph、
+    /// import visibility、ABI symbol、trait/impl lookup、artifact header の整合性など、
+    /// materializer 全体の他の条件は別途検査する。
+    pub fn is_materializer_preflight_ready(&self) -> bool {
+        self.materializer_blockers().is_empty()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PublicSurfaceMaterializerBlocker {
+    pub entry_kind: TypedPublicSignatureKind,
+    pub entry_name: String,
+    pub reason: PublicSurfaceMaterializerBlockerReason,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PublicSurfaceMaterializerBlockerReason {
+    /// public struct surface 自体に stable nominal identity がない。
+    MissingStructIdentity,
+    /// public enum surface 自体に stable nominal identity がない。
+    MissingEnumIdentity,
+    /// named type term が name だけを持ち、module/source identity を持たない。
+    MissingNamedTypeIdentity { type_name: String },
+    /// generic parameter term を binder depth / index へ対応付けられなかった。
+    UnboundGenericParam { param_name: String },
+    /// trait bound target を binder depth / index へ対応付けられなかった。
+    UnboundTraitBoundTarget { param_name: String },
+    /// trait reference が stable trait identity ではなく name だけで表されている。
+    MissingTraitIdentity { trait_name: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -328,6 +374,178 @@ fn hash_public_surface_shape(hash: &mut u64, shape: &PublicSurfaceShape) {
             }
         }
     }
+}
+
+fn collect_surface_shape_materializer_blockers(
+    entry: &TypedPublicSurfaceEntry,
+    shape: &PublicSurfaceShape,
+    blockers: &mut Vec<PublicSurfaceMaterializerBlocker>,
+) {
+    match shape {
+        PublicSurfaceShape::Callable(surface) => {
+            collect_type_term_materializer_blockers(entry, &surface.ty, blockers);
+            for bounds in &surface.type_param_bounds {
+                collect_type_param_bound_target_materializer_blockers(
+                    entry,
+                    &bounds.param,
+                    blockers,
+                );
+                for bound in &bounds.bounds {
+                    collect_trait_ref_materializer_blockers(entry, bound, blockers);
+                }
+            }
+        }
+        PublicSurfaceShape::Struct(surface) => {
+            if surface.identity.is_none() {
+                push_materializer_blocker(
+                    entry,
+                    PublicSurfaceMaterializerBlockerReason::MissingStructIdentity,
+                    blockers,
+                );
+            }
+            for field in &surface.fields {
+                collect_type_term_materializer_blockers(entry, &field.ty, blockers);
+            }
+        }
+        PublicSurfaceShape::Enum(surface) => {
+            if surface.identity.is_none() {
+                push_materializer_blocker(
+                    entry,
+                    PublicSurfaceMaterializerBlockerReason::MissingEnumIdentity,
+                    blockers,
+                );
+            }
+            for variant in &surface.variants {
+                if let Some(payload) = &variant.payload {
+                    collect_type_term_materializer_blockers(entry, payload, blockers);
+                }
+            }
+        }
+        PublicSurfaceShape::Trait(surface) => {
+            for method in &surface.methods {
+                collect_type_term_materializer_blockers(entry, &method.ty, blockers);
+            }
+        }
+        PublicSurfaceShape::Impl(surface) => {
+            collect_type_term_materializer_blockers(entry, &surface.target, blockers);
+            match &surface.kind {
+                PublicImplKind::Inherent => {}
+                PublicImplKind::Trait {
+                    application,
+                    self_ty,
+                } => {
+                    collect_trait_ref_materializer_blockers(entry, application, blockers);
+                    collect_type_term_materializer_blockers(entry, self_ty, blockers);
+                }
+            }
+        }
+    }
+}
+
+fn collect_type_param_bound_target_materializer_blockers(
+    entry: &TypedPublicSurfaceEntry,
+    target: &PublicTypeParamBoundTarget,
+    blockers: &mut Vec<PublicSurfaceMaterializerBlocker>,
+) {
+    match target {
+        PublicTypeParamBoundTarget::Ref(_) => {}
+        PublicTypeParamBoundTarget::Unbound(param) => {
+            push_materializer_blocker(
+                entry,
+                PublicSurfaceMaterializerBlockerReason::UnboundTraitBoundTarget {
+                    param_name: param.name.clone(),
+                },
+                blockers,
+            );
+        }
+    }
+}
+
+fn collect_trait_ref_materializer_blockers(
+    entry: &TypedPublicSurfaceEntry,
+    trait_ref: &PublicTraitRef,
+    blockers: &mut Vec<PublicSurfaceMaterializerBlocker>,
+) {
+    push_materializer_blocker(
+        entry,
+        PublicSurfaceMaterializerBlockerReason::MissingTraitIdentity {
+            trait_name: trait_ref.name.clone(),
+        },
+        blockers,
+    );
+    for arg in &trait_ref.args {
+        collect_type_term_materializer_blockers(entry, arg, blockers);
+    }
+}
+
+fn collect_type_term_materializer_blockers(
+    entry: &TypedPublicSurfaceEntry,
+    term: &PublicTypeTerm,
+    blockers: &mut Vec<PublicSurfaceMaterializerBlocker>,
+) {
+    match term {
+        PublicTypeTerm::Unit
+        | PublicTypeTerm::I32
+        | PublicTypeTerm::U8
+        | PublicTypeTerm::F32
+        | PublicTypeTerm::Bool
+        | PublicTypeTerm::Char
+        | PublicTypeTerm::Str
+        | PublicTypeTerm::Never
+        | PublicTypeTerm::GenericParam(_) => {}
+        PublicTypeTerm::Named { name, identity } => {
+            if identity.is_none() {
+                push_materializer_blocker(
+                    entry,
+                    PublicSurfaceMaterializerBlockerReason::MissingNamedTypeIdentity {
+                        type_name: name.clone(),
+                    },
+                    blockers,
+                );
+            }
+        }
+        PublicTypeTerm::UnboundGenericParam(param) => {
+            push_materializer_blocker(
+                entry,
+                PublicSurfaceMaterializerBlockerReason::UnboundGenericParam {
+                    param_name: param.name.clone(),
+                },
+                blockers,
+            );
+        }
+        PublicTypeTerm::Tuple(items) => {
+            for item in items {
+                collect_type_term_materializer_blockers(entry, item, blockers);
+            }
+        }
+        PublicTypeTerm::Function { params, result, .. } => {
+            for param in params {
+                collect_type_term_materializer_blockers(entry, param, blockers);
+            }
+            collect_type_term_materializer_blockers(entry, result, blockers);
+        }
+        PublicTypeTerm::Apply { base, args } => {
+            collect_type_term_materializer_blockers(entry, base, blockers);
+            for arg in args {
+                collect_type_term_materializer_blockers(entry, arg, blockers);
+            }
+        }
+        PublicTypeTerm::Boxed(inner) | PublicTypeTerm::Reference { inner, .. } => {
+            collect_type_term_materializer_blockers(entry, inner, blockers);
+        }
+    }
+}
+
+fn push_materializer_blocker(
+    entry: &TypedPublicSurfaceEntry,
+    reason: PublicSurfaceMaterializerBlockerReason,
+    blockers: &mut Vec<PublicSurfaceMaterializerBlocker>,
+) {
+    blockers.push(PublicSurfaceMaterializerBlocker {
+        entry_kind: entry.kind,
+        entry_name: entry.name.clone(),
+        reason,
+    });
 }
 
 fn hash_public_type_params(hash: &mut u64, params: &[PublicTypeParam]) {
@@ -925,6 +1143,7 @@ fn usize_to_u32_saturating(value: usize) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
     use alloc::string::String;
     use alloc::vec::Vec;
 
@@ -938,8 +1157,11 @@ mod tests {
     use crate::types::TypeCtx;
 
     use super::{
-        public_type_params, public_type_term, PublicNominalTypeKind, PublicSurfaceShape,
-        PublicTypeParamBoundTarget, PublicTypeParamRef, PublicTypeTerm, TypedPublicSignatureKind,
+        public_type_params, public_type_term, PublicCallableSurface, PublicEffect,
+        PublicNominalTypeKind, PublicSurfaceMaterializerBlockerReason, PublicSurfaceShape,
+        PublicTraitRef, PublicTypeParam, PublicTypeParamBoundTarget, PublicTypeParamBounds,
+        PublicTypeParamRef, PublicTypeTerm, TypedPublicSignatureKind, TypedPublicSurfaceEntry,
+        TypedPublicSurfaceTable,
     };
 
     fn typecheck_source(source: &str) -> TypeCheckResult {
@@ -1257,5 +1479,123 @@ mod tests {
                 index: 0,
             })
         );
+    }
+
+    /// primitive だけで構成された callable surface は、materializer preflight では
+    /// blocker を持たない。実際の body skip には module graph や artifact header の
+    /// 検査がさらに必要だが、型 term 自体は current session へ投影できる。
+    #[test]
+    fn materializer_preflight_accepts_primitive_callable_surface() {
+        let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Callable,
+            name: String::from("answer"),
+            surface: PublicSurfaceShape::Callable(PublicCallableSurface {
+                ty: PublicTypeTerm::Function {
+                    type_params: Vec::new(),
+                    params: Vec::from([PublicTypeTerm::Unit]),
+                    result: Box::new(PublicTypeTerm::I32),
+                    effect: PublicEffect::Pure,
+                },
+                no_shadow: false,
+                arity: 1,
+                effect: PublicEffect::Pure,
+                type_param_bounds: Vec::new(),
+            }),
+        }]));
+
+        assert!(table.is_materializer_preflight_ready());
+        assert!(table.materializer_blockers().is_empty());
+    }
+
+    /// name だけの nominal type は、別 module の同名型と誤対応する危険がある。
+    /// materializer preflight はこれを authority として使わず、fail-closed に拒否する。
+    #[test]
+    fn materializer_preflight_rejects_named_type_without_identity() {
+        let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Callable,
+            name: String::from("make_item"),
+            surface: PublicSurfaceShape::Callable(PublicCallableSurface {
+                ty: PublicTypeTerm::Function {
+                    type_params: Vec::new(),
+                    params: Vec::from([PublicTypeTerm::Unit]),
+                    result: Box::new(PublicTypeTerm::Named {
+                        name: String::from("Item"),
+                        identity: None,
+                    }),
+                    effect: PublicEffect::Pure,
+                },
+                no_shadow: false,
+                arity: 1,
+                effect: PublicEffect::Pure,
+                type_param_bounds: Vec::new(),
+            }),
+        }]));
+
+        let blockers = table.materializer_blockers();
+        assert!(!table.is_materializer_preflight_ready());
+        assert_eq!(blockers.len(), 1);
+        assert_eq!(blockers[0].entry_name, "make_item");
+        assert_eq!(
+            blockers[0].reason,
+            PublicSurfaceMaterializerBlockerReason::MissingNamedTypeIdentity {
+                type_name: String::from("Item"),
+            }
+        );
+    }
+
+    /// 対応 binder を確定できない generic parameter や、stable identity を持たない
+    /// trait reference は materializer の推測で補ってはいけない。preflight は
+    /// それぞれを blocker として列挙し、通常の source typecheck へ戻せるようにする。
+    #[test]
+    fn materializer_preflight_rejects_unbound_generics_and_trait_refs() {
+        let param = PublicTypeParam {
+            name: String::from(".T"),
+            copy_cap: true,
+            clone_cap: false,
+            drop_cap: false,
+        };
+        let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Callable,
+            name: String::from("show_like"),
+            surface: PublicSurfaceShape::Callable(PublicCallableSurface {
+                ty: PublicTypeTerm::Function {
+                    type_params: Vec::from([param.clone()]),
+                    params: Vec::from([PublicTypeTerm::UnboundGenericParam(param.clone())]),
+                    result: Box::new(PublicTypeTerm::I32),
+                    effect: PublicEffect::Pure,
+                },
+                no_shadow: false,
+                arity: 1,
+                effect: PublicEffect::Pure,
+                type_param_bounds: Vec::from([PublicTypeParamBounds {
+                    param: PublicTypeParamBoundTarget::Unbound(param),
+                    bounds: Vec::from([PublicTraitRef {
+                        name: String::from("Show"),
+                        args: Vec::new(),
+                    }]),
+                }]),
+            }),
+        }]));
+
+        let blockers = table.materializer_blockers();
+        assert!(!table.is_materializer_preflight_ready());
+        assert!(blockers.iter().any(|blocker| {
+            blocker.reason
+                == PublicSurfaceMaterializerBlockerReason::UnboundGenericParam {
+                    param_name: String::from(".T"),
+                }
+        }));
+        assert!(blockers.iter().any(|blocker| {
+            blocker.reason
+                == PublicSurfaceMaterializerBlockerReason::UnboundTraitBoundTarget {
+                    param_name: String::from(".T"),
+                }
+        }));
+        assert!(blockers.iter().any(|blocker| {
+            blocker.reason
+                == PublicSurfaceMaterializerBlockerReason::MissingTraitIdentity {
+                    trait_name: String::from("Show"),
+                }
+        }));
     }
 }

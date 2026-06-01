@@ -142,3 +142,23 @@ structured public surface hash namespace は `neplg2-typed-public-surface-v3` �
 - callable surface に field accessor kind と stable public ABI/link symbol を追加する。ただし span-derived `mangle_function_symbol_for_def` は保存しない。
 - generic impl parameter / bound を round-trip できるようにするか、materializer では fail-closed に拒否する。
 - reexport / prelude edge と module canonical path を per-module `.neplmeta` surface に追加する。
+
+## 2026-06-01 materializer preflight checkpoint
+
+`TypedPublicSurfaceTable::materializer_blockers` と `TypedPublicSurfaceTable::is_materializer_preflight_ready` を追加した。
+
+これは materializer 本体ではなく、structured public surface を current compile の `TypeCtx` / `Env` へ投影する前に、body skip してはいけない surface を fail-closed に検出する preflight である。preflight は primitive だけで構成された callable surface を通すが、次の surface を blocker として列挙する。
+
+- `PublicTypeTerm::Named { identity: None }`
+- `PublicTypeTerm::UnboundGenericParam`
+- `PublicTypeParamBoundTarget::Unbound`
+- `PublicTraitRef` の name-only reference
+- identity を持たない public struct / enum surface
+
+これにより、materializer 実装前に残っていた「名前だけの nominal type や対応 binder のない generic を推測で materialize する経路」をコード上で閉じた。trait reference はまだ stable trait identity を持たないため、現 checkpoint では name-only trait reference を明示的 blocker として扱う。
+
+検証:
+
+- `cargo check -p nepl-core -p nepl-language`
+- `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`
+- `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`

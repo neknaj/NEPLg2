@@ -1,3 +1,15 @@
+# 2026-06-01 .neplmeta materializer preflight checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、責務分割、性能追求、試作段階でも品質を落とさない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `adea8699` まで同期済みで、現在 branch `perf/neplmeta-materializer-preflight-20260601` の基点は `origin/main` と一致している。main CI run `26730696164` は確認時点で in progress だった。
+- subagent 2 件で性能改善候補と `memo_call` / 中間ファイル設計を独立レビューした。性能側は `nm_inline_to_html`、inline gloss 処理、`document_to_json` が次の root hot path と確認した。設計側は `PrivateCache` を `Pure` と同一視せず、sealed fresh region proof と non-escape proof が入るまで fail-closed を維持する方針に矛盾がないと確認した。
+- `stdlib/nm/html_inline.nepl` の helper 分割と `nm_inline_to_html_into` 案を試したが、trunk build 後の bundled stdlib で `examples/nm.nepl` compile が `16710ms` 前後へ悪化したため採用しなかった。Web playground の base compile を優先し、今回の commit には stdlib 分割差分を残していない。
+- `.neplmeta` structured public surface に `materializer_blockers` と `is_materializer_preflight_ready` を追加した。これは materializer 本体ではなく、dependency body skip 前に name-only nominal type、unbound generic parameter、unbound trait bound target、stable identity を持たない trait reference を fail-closed に拒否する preflight である。
+- primitive だけで構成された callable surface は preflight を通し、`PublicTypeTerm::Named { identity: None }`、`PublicTypeTerm::UnboundGenericParam`、`PublicTypeParamBoundTarget::Unbound`、`PublicTraitRef` の name-only reference は blocker として列挙する regression を追加した。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/test_playground_compiler_session_policy.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-materializer-preflight-20260601.json`、`node nodesrc/tests.js -i examples -o tmp\examples-local-parallel-preflight.json -j 4`、`node nodesrc/issues.js check --dir issues`、`git diff --cached --check` は pass。`cargo fmt -p nepl-core --check` は今回触っていない既存の `compiler.rs` / `effects.rs` / `loader.rs` / `resource/*` / `typecheck/*` の format 差分を報告するため、全体 format 変更は入れていない。
+- CI: main run `26730696164` は tutorials / nm-compile / LLVM doctests などは通ったが、`examples/nm.nepl::doctest#1` が CI の parallel examples job で 20 秒 timeout し、dual LLVM full verification も outer timeout で failure だった。ローカルの `node nodesrc/tests.js -i examples -j 4` は pass したが、CI runner では余裕がないため、base compile 改善と CI 負荷分割を継続する。
+- 残件: base compile はまだ 0.5 秒未満に届いていない。次は `.neplmeta` materializer で trait stable identity、field accessor surface、stable public ABI/link symbol、generic impl bound、reexport / prelude edge と module canonical path を整えるか、Resource static check の固定費削減へ進む。`memo_call` は sealed private region identity、non-escape proof、memoized function backend 表現、`.neplproof` private mask proof version を次の設計・実装単位として扱う。
+
 # 2026-06-01 CI doctest / examples timeout follow-up checkpoint
 
 - Zenn 記事の試作段階方針、静的検査を削らず根本原因を直す方針、性能追求方針を再確認した。`plan.md` は変更していない。
