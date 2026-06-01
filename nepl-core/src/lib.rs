@@ -65,7 +65,9 @@ pub use artifact::{
     NeplMetaExportEntry, NeplMetaExportKind, NeplMetaExportSurface, NeplMetaImportClause,
     NeplMetaImportItem, NeplMetaMaterializerMvpReject, NeplMetaMaterializerProjectionReject,
     NeplMetaModuleDependencyEdge, NeplMetaModuleDependencyKind, NeplMetaModuleSurface,
-    NeplMetaReexportProjection, NeplMetaVisibility, NeplObjDirectCallKey,
+    NeplMetaReexportProjection, NeplMetaVisibility, NeplObjDirectCallBackendFragment,
+    NeplObjDirectCallFragmentArtifact, NeplObjDirectCallFragmentReject, NeplObjDirectCallKey,
+    NeplObjWasmDirectCallFragment, NeplObjWasmDirectCallRelocation, NeplObjWasmValType,
 };
 pub use compiler::{
     check_module, check_module_with_source_map, compile_module,
@@ -83,5 +85,10 @@ pub use compiler::{
     BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions,
     CompileStageTimings, CompileTarget, PublicInterfaceArtifactInputs,
     ResourceSummaryProofArtifactCacheOptions,
+};
+pub use codegen_wasm::{
+    generate_wasm_with_neplobj_direct_call_fragments, plan_neplobj_direct_call_fragments_for_wasm,
+    NeplObjWasmDirectCallLinkPlanReject, NeplObjWasmDirectCallLinkPlanToken,
+    NeplObjWasmResolvedDirectCallRelocation,
 };
 pub use error::CoreError;

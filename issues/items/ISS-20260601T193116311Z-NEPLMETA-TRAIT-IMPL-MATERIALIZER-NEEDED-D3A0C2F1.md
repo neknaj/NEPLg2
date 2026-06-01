@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-06-01
-updated: 2026-06-01
+updated: 2026-06-02
 target: "nepl-core/src/typecheck/driver.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/artifact.rs; nepl-web/src/lib.rs"
 ---
 
@@ -356,12 +356,41 @@ bypass しない。
 
 ## 2026-06-01 direct-call `.neplobj` availability input checkpoint
 
-`PublicInterfaceArtifactInputs` に direct call 用 `.neplobj` key 入力を足し、body-missing dependency を
+`PublicInterfaceArtifactInputs` に direct call 用 `.neplobj` availability 入力を足し、body-missing dependency を
 diagnostic に落とす前に structured resolver を通すようにした。
 
-trait / impl materializer 側では、これはまだ codegen fragment payload の接続ではない。key を渡せるのは
-対応する direct-call body fragment が backend に接続済みである場合だけであり、function value、
-indirect call、`memo_call` は direct-call key では解決しない。
+trait / impl materializer 側では、これはまだ `CompilerSession` の object store 接続ではない。
+availability を渡せるのは対応する direct-call body fragment payload が backend に接続済みである場合
+だけであり、function value、indirect call、`memo_call` は direct-call fragment では解決しない。
+
+この key-only availability 入口は、backend が payload を消費しないまま diagnostic だけを消す危険が
+あるため、2026-06-02 checkpoint で破棄した。trait / impl materializer は引き続き public surface
+のみを提供し、codegen body の authority は `.neplobj` / `.nepllink` 側で別に証明する。
+
+## 2026-06-02 direct-call `.neplobj` fragment payload checkpoint
+
+key-only availability を使う代わりに、`NeplObjDirectCallFragmentArtifact` を追加した。`.neplmeta`
+trait / impl materializer は公開 surface を materialize できても、backend body を持たないため、それ
+だけでは direct call の body-missing を消してはならない。
+
+`NeplObjDirectCallFragmentArtifact` は `NeplObjDirectCallKey` と backend payload を同じ artifact に
+まとめる。Wasm payload では signature、function body bytes、direct-call relocation を保持し、final
+module assembly で relocation を解決する。これにより、key-only hit で unknown function symbol を
+隠す経路を閉じるための payload 境界を固定した。現 checkpoint ではまだ diagnostic を消さず、backend
+登録済み token ができるまで source fallback を維持する。
+
+この checkpoint でも function value、indirect call、`memo_call` は解決しない。高階関数と
+memoization には、別途 function value backend representation と PrivateCache proof が必要である。
+
+## 2026-06-02 wasm direct-call link-plan token checkpoint
+
+`.neplmeta` materialized callable の direct call を安全に通す前段として、wasm backend 側で
+`.neplobj` fragment payload の link-plan token を作れるようにした。これは trait / impl materializer の
+surface projection ではなく、backend が function index 空間と relocation target を確認する境界である。
+
+この token は direct call fragment 専用であり、function value、indirect call、`memo_call` は扱わない。
+そのため、この issue の trait / impl materializer は引き続き public surface の復元に集中し、codegen body
+availability は binary intermediate artifact issue の `.neplobj` / `.nepllink` 側で扱う。
 
 ## 2026-06-01 selected body hash authority checkpoint
 

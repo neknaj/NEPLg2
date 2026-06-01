@@ -49283,10 +49283,11 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 
 ## 2026-06-01 Agent direct-call `.neplobj` availability input checkpoint
 
-- `perf/neplobj-direct-call-availability-20260601` branch で、`PublicInterfaceArtifactInputs` に `nepl_obj_direct_call_keys` を追加した。`plan.md` は変更していない。
-- materialized callable body-missing dependency は diagnostic 化の前に direct-call key と照合する。key が対応する direct call に存在する場合、その direct call の body-missing diagnostic は作らない。
+- `perf/neplobj-direct-call-availability-20260601` branch で、`PublicInterfaceArtifactInputs` に direct-call `.neplobj` availability 入力を追加した。`plan.md` は変更していない。
+- materialized callable body-missing dependency を diagnostic 化の前に direct-call availability と照合する入口を試作した。対応する direct call の body-missing diagnostic を消す設計だったが、backend payload 消費と結びついていないため後続 checkpoint で破棄した。
 - function value、memoized function value、indirect call の callee は同じ materialized symbol に対する key が存在しても解決しない。direct-call `.neplobj` MVP が高階関数や `memo_call` の PrivateCache proof を代替しないための fail-closed 境界である。
 - 現時点の `CompilerSession` はまだ key を渡さないため、通常 compile の behavior は変えていない。次は object availability store と codegen fragment payload を同時に接続し、key だけで wasm codegen の unknown function を隠さないようにする。
+- この key-only availability 入力は、2026-06-02 の fragment payload checkpoint で破棄した。backend が payload を消費しないまま diagnostic だけを消す設計は不十分であるため、backend 登録済み token ができるまで body-missing は fail-closed に残す。
 - focused verification は `cargo test -p nepl-core materialized_body_missing_diagnostics --lib` を通した。全体 verification は `cargo check -p nepl-core -p nepl-language`、`cargo check -p nepl-web --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_bench_materialized_compile_fallbacks.js`、`node nodesrc\test_run_test_compiler_session_stats_delta.js`、`node nodesrc\bench_materialized_compile_fallbacks.js --out tmp\neplobj-direct-call-availability-20260601.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` を通した。
 
 ## 2026-06-01 Agent selected body hash authority checkpoint
@@ -49295,3 +49296,34 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `resource_function_body_stable_hash` は既存 Resource summary value cache の body hash authority を wrapper として公開する。object key 側で `TypeId` / `Span` / 一時値 ID / storage ID の正規化を再実装しないための境界である。
 - source body skip 中はこの hash は得られない。次は source fallback / full compile で selected callable を Resource IR へ下げた時点で `.neplobj` fragment store へ保存する。
 - focused verification は `cargo test -p nepl-core resource_function_body_stable_hash --lib` を通した。全体 verification は `cargo check -p nepl-core -p nepl-language`、`cargo check -p nepl-web --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_bench_materialized_compile_fallbacks.js`、`node nodesrc\test_run_test_compiler_session_stats_delta.js`、`node nodesrc\bench_materialized_compile_fallbacks.js --out tmp\neplobj-body-hash-boundary-20260601.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` を通した。
+
+## 2026-06-02 Agent direct-call `.neplobj` fragment payload checkpoint
+
+- remote/main と同期済みの `perf/neplobj-fragment-payload-20260602` branch で、direct-call `.neplobj` の key + backend payload artifact として `NeplObjDirectCallFragmentArtifact` を追加した。`plan.md` は変更していない。
+- Zenn の試作段階方針、性能追求方針、静的検査を削らない方針を再確認し、key だけで body-missing を消して backend に unknown symbol を渡す設計を残さないようにした。
+- subagent review では、key + payload wrapper でも backend が payload を消費しないまま diagnostic だけを消すなら key-only 問題が残ると指摘された。そのため `PublicInterfaceArtifactInputs` から `.neplobj` availability 入力を外し、backend 登録済み token ができるまで source fallback / body-missing を維持する。
+- `NeplObjDirectCallFragmentArtifact` は `NeplObjDirectCallKey` と `NeplObjDirectCallBackendFragment` を保持し、fragment stable hash は key stable hash、Wasm signature、function body bytes、direct-call relocation を含む。
+- `NeplObjWasmDirectCallFragment` は params / results / function body bytes / direct-call relocation を持つ。relocation は final module assembly で function index を解決するための情報であり、fragment 作成時に安定順へ正規化する。重複 relocation offset と body 範囲外 offset は artifact 作成時点で拒否する。
+- function value、indirect call、`memo_call` は `.neplobj` direct-call fragment schema では解決しない。高階関数と memoization は別途 backend representation と PrivateCache proof が必要である。
+- focused verification は `cargo test -p nepl-core neplobj_direct_call_fragment --lib` を通した。全体 verification は commit 前に `cargo check`、Web build、bench、issue check、`git diff --check` で確認する。
+
+## 2026-06-02 Agent wasm direct-call `.neplobj` link-plan token checkpoint
+
+- remote/main と同期済みの `perf/neplobj-backend-token-20260602` branch で、`.neplobj` direct-call fragment payload が wasm backend の function index 空間へ登録可能かを検査する `plan_neplobj_direct_call_fragments_for_wasm` を追加した。`plan.md` は変更していない。
+- `NeplObjWasmDirectCallLinkPlanToken` は materialized symbol、direct-call key hash、fragment hash、assigned function index、resolved relocation、backend feature set hash を保持する。
+- この token は body-missing diagnostic を消す最終許可ではない。raw body bytes を `CodeSection` へ入れ、relocation を patch する実装が接続されるまでは、source fallback / body-missing を維持する。
+- plan は既存 extern / user function と materialized fragment の symbol 衝突、backend feature set mismatch、relocation target missing を拒否する。
+- subagent review では、token は `.neplobj` key hit ではなく wasm codegen の function set / `name_to_index` / relocation へ実際に登録されたことを表す必要があると確認した。
+- 次は source fallback / full compile から fragment payload を same-session store へ保存し、その後 actual code insertion / relocation patch と token 生成を同じ backend 境界へ統合する。
+- focused verification は `cargo test -p nepl-core neplobj_wasm_link_plan --lib` を通した。全体 verification は commit 前に `cargo check`、Web build、bench、issue check、`git diff --check` で確認する。
+
+## 2026-06-02 Agent wasm direct-call `.neplobj` fragment insertion checkpoint
+
+- remote/main と同期済みの `perf/incremental-memo-cache-20260602` branch で、`.neplobj` direct-call fragment payload を wasm backend が実際に消費できる最小 API へ進めた。`plan.md` は変更していない。
+- Zenn の試作段階方針と性能方針を再確認し、key / token だけで body-missing diagnostic を消すのではなく、`FunctionSection` / `CodeSection` への実投入と relocation patch が同じ backend 境界で成功した場合だけ direct-call body を利用する方針にした。
+- subagent 調査では、base compile_ms には bundled stdlib の `.neplmeta` / `.neplproof` preseed が最も効く一方、現在の未完了差分として `.neplobj` actual body insertion が直近の安全境界だと確認した。memo_call は型検査 primitive と HIR / Resource IR 表現まではあるが、backend PrivateCache と sealed region proof 生成は未接続なので、この branch では direct-call `.neplobj` と混ぜない。
+- `generate_wasm_with_neplobj_direct_call_fragments` を追加し、`plan_neplobj_direct_call_fragments_for_wasm` の token で解決した function index を fragment body bytes の call immediate へ patch してから `CodeSection::raw` へ投入するようにした。
+- relocation patch は call opcode 直後の LEB128 immediate だけを対象にし、index が 127 を超えて encoded width が伸びる場合も後方から差し替える。古い function index を固定した object をそのまま使わないための境界である。
+- `PublicInterfaceArtifactInputs` は `NeplObjDirectCallFragmentArtifact` slice を受け取れるようになった。body-missing 抑制は direct call だけに限定し、function value、indirect call、`memo_call` / memoized function value は同じ symbol でも source fallback に残す。
+- 残る root gap は source fallback / full compile で selected dependency body から fragment payload を作り、same-session object store 経由で Web / loader から `PublicInterfaceArtifactInputs` へ渡す処理である。base compile_ms 改善には、これと並行して bundled stdlib `.neplmeta` / `.neplproof` preseed を進める必要がある。
+- focused verification は `cargo test -p nepl-core neplobj_wasm --lib`、`cargo test -p nepl-core materialized_body_missing_diagnostics --lib`、`cargo test -p nepl-core diagnostic_codes_have_unique_serialized_names --lib`、`cargo check -p nepl-core -p nepl-language`、`cargo check -p nepl-web --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_bench_materialized_compile_fallbacks.js`、`node nodesrc\test_run_test_compiler_session_stats_delta.js`、`node nodesrc\bench_materialized_compile_fallbacks.js --out tmp\neplobj-fragment-insertion-20260602.json`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplobj-fragment-insertion-20260602.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` を通した。bench では cold base `compile_ms=1477`、body edit repeat `compile_ms=758` で、base compile_ms の追加短縮には bundled stdlib preseed と object store 接続が必要である。

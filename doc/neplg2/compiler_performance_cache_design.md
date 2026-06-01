@@ -2590,19 +2590,84 @@ value identity の stable backend representation を未実装のまま pure / ob
 
 ## 2026-06-01 direct-call `.neplobj` availability input checkpoint
 
-`PublicInterfaceArtifactInputs` に direct call 用 `NeplObjDirectCallKey` の入力を追加し、
+`PublicInterfaceArtifactInputs` に direct call 用 `.neplobj` availability 入力を追加し、
 materialized callable body-missing dependency を diagnostic に変換する前に availability を見る
 境界を作った。
 
 現時点の実 compiler session はまだ key を渡さないため、通常の compile 挙動は fail-closed のままである。
 これは意図的である。`.neplobj` key が存在するだけでは wasm / LLVM backend が実際に呼べる body
 fragment を持つことを意味しない。caller は codegen fragment payload を同時に接続できる場合だけ
-`nepl_obj_direct_call_keys` を渡す。
+direct-call availability を渡す。
 
 resolver は `HirExprKind::Call` の direct call のみを対象にする。同じ materialized symbol を持つ
 `FnValue`、`MemoizedFunctionValue`、`CallIndirect` の callee は direct call key では解決しない。
 この制約により、function value identity、indirect table lowering、`memo_call` の PrivateCache proof を
 `.neplobj` direct-call MVP が暗黙に許可しない。
+
+## 2026-06-02 direct-call `.neplobj` fragment payload checkpoint
+
+2026-06-01 の key-only availability 入力は、backend payload を消費しないまま diagnostic だけを
+消す危険があるため、backend 接続より先に使う設計としては破棄した。現 checkpoint では
+`PublicInterfaceArtifactInputs` から `.neplobj` availability 入力を外し、body-missing diagnostic は
+引き続き source fallback を要求する。
+
+代わりに、次段階で backend/linker が実際に消費する payload 境界として
+`NeplObjDirectCallFragmentArtifact` を追加した。key は
+「どの direct-call body か」を判定する invalidation 境界であり、backend が実際に呼べる body を
+提供しない。key だけで body-missing diagnostic を消すと、後続の wasm / LLVM backend は unknown
+function symbol を受け取るため、`.neplobj` direct-call availability は key と backend payload を
+不可分に扱う必要がある。
+
+Wasm payload は `NeplObjWasmDirectCallFragment` として、params / results / function body bytes /
+direct-call relocation を持つ。final module の function index は assembly 時点で決まるため、body
+bytes だけに固定せず relocation を保持する。relocation は fragment 作成時に安定順へ正規化し、
+同じ payload が入力順だけで別 cache key にならないようにした。重複 relocation offset と body 範囲外
+offset は artifact 作成時点で拒否する。
+
+次の実装では、source fallback / full compile で生成された `.neplobj` fragment payload を session
+object store に保存したうえで、`PreparedProgram` / wasm codegen がその payload を function body set
+と relocation map に登録する。diagnostic 抑制は、この backend 登録済み token が存在する場合にだけ
+行う。
+
+## 2026-06-02 wasm direct-call link-plan token checkpoint
+
+`.neplobj` fragment payload を body-missing diagnostic 抑制へ直結させず、まず wasm backend の
+function index 空間に登録できることを検査する link-plan token API を追加した。
+
+`plan_neplobj_direct_call_fragments_for_wasm` は、現在の `HirModule` が持つ extern / user function と
+同じ index 割当規則で `.neplobj` fragment を追加した場合に、次を確認する。
+
+- fragment の materialized symbol が既存 function / import と衝突しない。
+- fragment の backend feature set が現在 compiler の wasm backend feature set と一致する。
+- direct-call relocation target が、既存 function または同じ plan 内の別 fragment として解決できる。
+
+成功時は `NeplObjWasmDirectCallLinkPlanToken` を返す。この token は assigned function index、
+direct-call key hash、fragment hash、resolved relocation を保持する。ただし、raw body bytes を
+`CodeSection` へ投入し relocation を実際に patch する実装はまだないため、この token だけでは
+body-missing diagnostic を消さない。次の段階では、token と function body insertion / relocation patch
+を同じ backend 境界にまとめる。
+
+## 2026-06-02 wasm direct-call fragment insertion checkpoint
+
+`generate_wasm_with_neplobj_direct_call_fragments` は、通常の HIR function と `.neplobj`
+direct-call fragment を同じ wasm module assembly に並べる。`plan_neplobj_direct_call_fragments_for_wasm`
+で得た token を authority とし、fragment の signature は `TypeSection` / `FunctionSection` へ、
+body bytes は `CodeSection::raw` へ投入する。
+
+direct-call relocation は final module の function index を使って call immediate を patch する。
+relocation offset は call opcode の直後であることを確認し、既存 immediate の LEB128 幅を読んでから
+新しい function index の LEB128 encoding に差し替える。差し替えは後方から行うため、index が 127 を
+超えて immediate が 1 byte から 2 byte 以上へ伸びる場合でも後続 relocation offset を壊さない。
+
+`PublicInterfaceArtifactInputs` は `.neplobj` direct-call fragment payload を受け取れる。ただし、
+body-missing diagnostic から外すのは `HirExprKind::Call` の direct call だけである。`FnValue`、
+`CallIndirect`、`MemoizedFunctionValue` は function identity、table lowering、PrivateCache proof が
+必要なので、direct-call fragment が同じ materialized symbol を持っていても引き続き fail-closed に
+source fallback を要求する。
+
+残る work は、source fallback / full compile で selected dependency body から fragment payload を
+生成して same-session object store へ保存し、Web / loader の import edge が次回 compile でその store
+を `PublicInterfaceArtifactInputs` へ渡すことである。
 
 ## 2026-06-01 selected body hash authority checkpoint
 

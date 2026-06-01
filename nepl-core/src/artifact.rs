@@ -293,6 +293,154 @@ pub struct NeplObjDirectCallKey {
     pub stable_hash: u64,
 }
 
+/// direct call 用 `.neplobj` の backend payload。
+///
+/// key は「どの body fragment か」を判定する metadata であり、backend が実際に呼べる
+/// body を提供しない。この artifact は key と payload を同じ値にまとめ、compiler pipeline が
+/// key-only availability で未知 symbol を隠さないようにする。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NeplObjDirectCallFragmentArtifact {
+    key: NeplObjDirectCallKey,
+    backend: NeplObjDirectCallBackendFragment,
+    stable_hash: u64,
+}
+
+impl NeplObjDirectCallFragmentArtifact {
+    pub fn new(
+        key: NeplObjDirectCallKey,
+        backend: NeplObjDirectCallBackendFragment,
+    ) -> Self {
+        let stable_hash = nepl_obj_direct_call_fragment_hash(&key, &backend);
+        Self {
+            key,
+            backend,
+            stable_hash,
+        }
+    }
+
+    pub fn stable_hash(&self) -> u64 {
+        self.stable_hash
+    }
+
+    pub fn key(&self) -> &NeplObjDirectCallKey {
+        &self.key
+    }
+
+    pub fn backend(&self) -> &NeplObjDirectCallBackendFragment {
+        &self.backend
+    }
+
+    pub fn materialized_symbol(&self) -> &str {
+        self.key.materialized_symbol.as_str()
+    }
+
+    pub fn matches_direct_call_key(&self, key: &NeplObjDirectCallKey) -> bool {
+        self.key.stable_hash == key.stable_hash
+            && self.key.materialized_symbol == key.materialized_symbol
+    }
+}
+
+/// `.neplobj` direct-call payload の backend 別表現。
+///
+/// Wasm backend は最終 module の function index / table / data layout に依存するため、
+/// 完成済み code section bytes だけでは安全な再利用単位にならない。Wasm payload は
+/// body bytes と、後で linker が解決する direct-call relocation を分けて保持する。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NeplObjDirectCallBackendFragment {
+    Wasm(NeplObjWasmDirectCallFragment),
+}
+
+/// Wasm direct-call fragment の relocatable payload。
+///
+/// `function_body_bytes` は wasm-encoder の `Function` 相当の body bytes を保持するための
+/// field である。direct call 先の function index は final module assembly で決まるため、
+/// `direct_call_relocations` に symbol と byte offset を残し、payload 作成時点では固定しない。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NeplObjWasmDirectCallFragment {
+    params: Vec<NeplObjWasmValType>,
+    results: Vec<NeplObjWasmValType>,
+    function_body_bytes: Vec<u8>,
+    direct_call_relocations: Vec<NeplObjWasmDirectCallRelocation>,
+}
+
+impl NeplObjWasmDirectCallFragment {
+    pub fn new(
+        params: Vec<NeplObjWasmValType>,
+        results: Vec<NeplObjWasmValType>,
+        function_body_bytes: Vec<u8>,
+        mut direct_call_relocations: Vec<NeplObjWasmDirectCallRelocation>,
+    ) -> Result<Self, NeplObjDirectCallFragmentReject> {
+        let body_len = function_body_bytes.len();
+        direct_call_relocations.sort();
+        let mut previous_offset = None;
+        for relocation in &direct_call_relocations {
+            if relocation.byte_offset as usize >= body_len {
+                return Err(NeplObjDirectCallFragmentReject::RelocationOffsetOutOfRange {
+                    byte_offset: relocation.byte_offset,
+                    body_len: usize_to_u32_saturating(body_len),
+                });
+            }
+            if previous_offset == Some(relocation.byte_offset) {
+                return Err(NeplObjDirectCallFragmentReject::DuplicateRelocationOffset {
+                    byte_offset: relocation.byte_offset,
+                });
+            }
+            previous_offset = Some(relocation.byte_offset);
+        }
+        Ok(Self {
+            params,
+            results,
+            function_body_bytes,
+            direct_call_relocations,
+        })
+    }
+
+    pub fn params(&self) -> &[NeplObjWasmValType] {
+        &self.params
+    }
+
+    pub fn results(&self) -> &[NeplObjWasmValType] {
+        &self.results
+    }
+
+    pub fn function_body_bytes(&self) -> &[u8] {
+        &self.function_body_bytes
+    }
+
+    pub fn direct_call_relocations(&self) -> &[NeplObjWasmDirectCallRelocation] {
+        &self.direct_call_relocations
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum NeplObjWasmValType {
+    I32,
+    I64,
+    F32,
+    F64,
+}
+
+/// Wasm body 内の direct-call index relocation。
+///
+/// `byte_offset` は encoded body 中で call index immediate が始まる位置を指す。payload
+/// consumer はこの offset を盲目的に信用せず、backend feature set と body encoding version が
+/// 一致する場合だけ再配置する。
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NeplObjWasmDirectCallRelocation {
+    pub byte_offset: u32,
+    pub target: PublicCallableLinkSymbol,
+}
+
+/// `.neplobj` direct-call fragment を artifact boundary で拒否する理由。
+///
+/// backend/linker に渡す前に明らかに不正な relocation を落とすことで、cache hit が
+/// diagnostic 抑制や unsafe な再配置に進まないようにする。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NeplObjDirectCallFragmentReject {
+    DuplicateRelocationOffset { byte_offset: u32 },
+    RelocationOffsetOutOfRange { byte_offset: u32, body_len: u32 },
+}
+
 impl NeplObjDirectCallKey {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -1976,6 +2124,55 @@ fn nepl_obj_direct_call_key_hash(
     hash
 }
 
+fn nepl_obj_direct_call_fragment_hash(
+    key: &NeplObjDirectCallKey,
+    backend: &NeplObjDirectCallBackendFragment,
+) -> u64 {
+    let mut hash = FNV1A64_OFFSET;
+    hash_str(&mut hash, NEPL_OBJ_DIRECT_CALL_HASH_VERSION);
+    hash_str(&mut hash, "fragment");
+    hash_u64(&mut hash, key.stable_hash);
+    match backend {
+        NeplObjDirectCallBackendFragment::Wasm(fragment) => {
+            hash_str(&mut hash, "wasm");
+            hash_wasm_val_type_list(&mut hash, &fragment.params);
+            hash_wasm_val_type_list(&mut hash, &fragment.results);
+            hash_u32(
+                &mut hash,
+                usize_to_u32_saturating(fragment.function_body_bytes.len()),
+            );
+            hash_bytes(&mut hash, &fragment.function_body_bytes);
+            hash_u32(
+                &mut hash,
+                usize_to_u32_saturating(fragment.direct_call_relocations.len()),
+            );
+            for relocation in &fragment.direct_call_relocations {
+                hash_u32(&mut hash, relocation.byte_offset);
+                hash_u64(
+                    &mut hash,
+                    public_callable_link_symbol_stable_hash(&relocation.target),
+                );
+            }
+        }
+    }
+    hash
+}
+
+fn hash_wasm_val_type_list(hash: &mut u64, values: &[NeplObjWasmValType]) {
+    hash_u32(hash, usize_to_u32_saturating(values.len()));
+    for value in values {
+        hash_u8(
+            hash,
+            match value {
+                NeplObjWasmValType::I32 => 1,
+                NeplObjWasmValType::I64 => 2,
+                NeplObjWasmValType::F32 => 3,
+                NeplObjWasmValType::F64 => 4,
+            },
+        );
+    }
+}
+
 fn hash_str(hash: &mut u64, value: &str) {
     hash_bytes(hash, value.as_bytes());
     hash_bytes(hash, &[0]);
@@ -2036,7 +2233,9 @@ mod tests {
         NeplMetaImportClause, NeplMetaImportItem, NeplMetaMaterializerMvpReject,
         NeplMetaMaterializerProjectionReject, NeplMetaModuleDependencyEdge,
         NeplMetaModuleDependencyKind, NeplMetaModuleSurface, NeplMetaVisibility,
-        NeplObjDirectCallKey,
+        NeplObjDirectCallBackendFragment, NeplObjDirectCallFragmentArtifact,
+        NeplObjDirectCallFragmentReject, NeplObjDirectCallKey, NeplObjWasmDirectCallFragment,
+        NeplObjWasmDirectCallRelocation, NeplObjWasmValType,
     };
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::source_map::SourceMap;
@@ -2164,6 +2363,26 @@ mod tests {
             generic_instantiation_hash,
             0x70,
             0x80,
+        )
+    }
+
+    fn neplobj_direct_call_fragment(
+        key: NeplObjDirectCallKey,
+        results: Vec<NeplObjWasmValType>,
+        function_body_bytes: Vec<u8>,
+        direct_call_relocations: Vec<NeplObjWasmDirectCallRelocation>,
+    ) -> NeplObjDirectCallFragmentArtifact {
+        NeplObjDirectCallFragmentArtifact::new(
+            key,
+            NeplObjDirectCallBackendFragment::Wasm(
+                NeplObjWasmDirectCallFragment::new(
+                    Vec::new(),
+                    results,
+                    function_body_bytes,
+                    direct_call_relocations,
+                )
+                .expect("test fixture uses a valid wasm direct-call fragment"),
+            ),
         )
     }
 
@@ -3496,6 +3715,159 @@ mod tests {
 
         assert!(key.materialized_symbol.starts_with("neplmeta$read_value$"));
         assert_ne!(key.link_symbol_hash, 0);
+    }
+
+    /// `.neplobj` fragment は key だけでなく backend payload を hash する。body bytes や
+    /// result 型が変わった場合、同じ direct-call key に見えても codegen 再利用単位は別物である。
+    #[test]
+    fn neplobj_direct_call_fragment_tracks_backend_payload() {
+        let key = neplobj_direct_call_key(
+            callable_link_symbol("answer", 0x10),
+            0x20,
+            0x30,
+            super::nepl_obj_empty_generic_instantiation_hash(),
+        );
+        let first = neplobj_direct_call_fragment(
+            key.clone(),
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x41, 0x01, 0x0b]),
+            Vec::new(),
+        );
+        let body_edit = neplobj_direct_call_fragment(
+            key.clone(),
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x41, 0x02, 0x0b]),
+            Vec::new(),
+        );
+        let signature_edit = neplobj_direct_call_fragment(
+            key,
+            Vec::from([NeplObjWasmValType::I64]),
+            Vec::from([0x00, 0x41, 0x01, 0x0b]),
+            Vec::new(),
+        );
+
+        assert_ne!(first.stable_hash(), body_edit.stable_hash());
+        assert_ne!(first.stable_hash(), signature_edit.stable_hash());
+    }
+
+    /// direct call relocation は final module assembly で function index を埋めるための
+    /// payload である。入力順に依存して cache key が揺れると同じ body を重複保存するため、
+    /// fragment 作成時点で安定順へ正規化する。
+    #[test]
+    fn neplobj_direct_call_fragment_normalizes_relocations() {
+        let key = neplobj_direct_call_key(
+            callable_link_symbol("answer", 0x10),
+            0x20,
+            0x30,
+            super::nepl_obj_empty_generic_instantiation_hash(),
+        );
+        let target_a = callable_link_symbol("callee_a", 0x21);
+        let target_b = callable_link_symbol("callee_b", 0x22);
+        let relocation_a = NeplObjWasmDirectCallRelocation {
+            byte_offset: 4,
+            target: target_a,
+        };
+        let relocation_b = NeplObjWasmDirectCallRelocation {
+            byte_offset: 2,
+            target: target_b,
+        };
+        let first = neplobj_direct_call_fragment(
+            key.clone(),
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x10, 0x00, 0x10, 0x01, 0x0b]),
+            Vec::from([relocation_a.clone(), relocation_b.clone()]),
+        );
+        let reordered = neplobj_direct_call_fragment(
+            key,
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x10, 0x00, 0x10, 0x01, 0x0b]),
+            Vec::from([relocation_b, relocation_a]),
+        );
+
+        assert_eq!(first.stable_hash(), reordered.stable_hash());
+        match first.backend() {
+            NeplObjDirectCallBackendFragment::Wasm(fragment) => {
+                assert_eq!(fragment.direct_call_relocations()[0].byte_offset, 2);
+                assert_eq!(fragment.direct_call_relocations()[1].byte_offset, 4);
+            }
+        }
+    }
+
+    /// relocation offset が wasm body の外を指す artifact は、linker へ届く前に拒否する。
+    /// cache 由来の payload は信頼済み source ではなく、明白な不整合を artifact boundary で
+    /// fail-closed に落とす必要がある。
+    #[test]
+    fn neplobj_direct_call_fragment_rejects_out_of_range_relocation() {
+        let result = NeplObjWasmDirectCallFragment::new(
+            Vec::new(),
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x10, 0x00, 0x0b]),
+            Vec::from([NeplObjWasmDirectCallRelocation {
+                byte_offset: 4,
+                target: callable_link_symbol("callee", 0x21),
+            }]),
+        );
+
+        assert_eq!(
+            result,
+            Err(NeplObjDirectCallFragmentReject::RelocationOffsetOutOfRange {
+                byte_offset: 4,
+                body_len: 4,
+            })
+        );
+    }
+
+    /// 同じ byte offset を複数 relocation が所有すると、final module assembly でどちらの
+    /// symbol を書くべきか曖昧になる。offset 重複は payload 作成時点で拒否する。
+    #[test]
+    fn neplobj_direct_call_fragment_rejects_duplicate_relocation_offset() {
+        let result = NeplObjWasmDirectCallFragment::new(
+            Vec::new(),
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x10, 0x00, 0x0b]),
+            Vec::from([
+                NeplObjWasmDirectCallRelocation {
+                    byte_offset: 2,
+                    target: callable_link_symbol("callee_a", 0x21),
+                },
+                NeplObjWasmDirectCallRelocation {
+                    byte_offset: 2,
+                    target: callable_link_symbol("callee_b", 0x22),
+                },
+            ]),
+        );
+
+        assert_eq!(
+            result,
+            Err(NeplObjDirectCallFragmentReject::DuplicateRelocationOffset { byte_offset: 2 })
+        );
+    }
+
+    /// availability 判定は direct-call key の一致を要求する。materialized symbol が同じでも
+    /// body hash などが異なる fragment は、別の payload として扱い source fallback を残す。
+    #[test]
+    fn neplobj_direct_call_fragment_matches_complete_key() {
+        let key = neplobj_direct_call_key(
+            callable_link_symbol("answer", 0x10),
+            0x20,
+            0x30,
+            super::nepl_obj_empty_generic_instantiation_hash(),
+        );
+        let body_edit_key = neplobj_direct_call_key(
+            callable_link_symbol("answer", 0x10),
+            0x20,
+            0x31,
+            super::nepl_obj_empty_generic_instantiation_hash(),
+        );
+        let fragment = neplobj_direct_call_fragment(
+            key.clone(),
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x0b]),
+            Vec::new(),
+        );
+
+        assert!(fragment.matches_direct_call_key(&key));
+        assert!(!fragment.matches_direct_call_key(&body_edit_key));
     }
 
     /// merge / alias / glob は target export artifact を読んだうえで衝突や曖昧性を

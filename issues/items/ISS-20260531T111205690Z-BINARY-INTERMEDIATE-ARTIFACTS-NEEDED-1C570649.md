@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-01
+updated: 2026-06-02
 target: "nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md"
 ---
 
@@ -456,7 +456,7 @@ message に use kind を含める。
 
 ## 2026-06-01 direct-call `.neplobj` availability input checkpoint
 
-`PublicInterfaceArtifactInputs` に `NeplObjDirectCallKey` の slice を追加し、materialized callable
+`PublicInterfaceArtifactInputs` に direct-call `.neplobj` availability slice を追加し、materialized callable
 body-missing dependency を diagnostic 化する前に direct-call availability を見る境界を作った。
 
 この checkpoint では compiler session から key を渡していないため、通常 compile は引き続き
@@ -465,6 +465,63 @@ source fallback / body-missing に倒れる。`.neplobj` key は codegen fragmen
 
 direct call key は `MaterializedCodegenDependencyKind::DirectCall` にだけ適用し、function value、
 indirect call、`memo_call` は同じ symbol が key に存在しても解決しない。
+
+この availability slice は、2026-06-02 の payload checkpoint で破棄した。backend が payload を
+消費しないまま diagnostic だけを消す経路になるため、backend/linker 登録済み token ができるまで
+core pipeline は body-missing を fail-closed に維持する。
+
+## 2026-06-02 direct-call `.neplobj` fragment payload checkpoint
+
+key-only availability を使う代わりに、backend が呼び出せる body を表す
+`NeplObjDirectCallFragmentArtifact` を追加した。`.neplobj` direct-call key は invalidation boundary であり、
+backend が呼び出せる body ではない。key だけで body-missing を消すと、final codegen は materialized
+symbol の body を持たないまま進むため、key と backend payload を同じ artifact にまとめた。
+
+Wasm payload は `NeplObjWasmDirectCallFragment` として、params / results / function body bytes /
+direct-call relocation を保持する。relocation は final module assembly で解決されるため、payload
+作成時点では function index を固定しない。fragment hash は key stable hash、Wasm signature、body
+bytes、正規化済み relocation を含める。重複 relocation offset と body 範囲外 offset は artifact
+作成時点で拒否する。
+
+この checkpoint でも `.neplobj` fragment は body-missing diagnostic を解決しない。次の作業は source
+fallback / full compile で作った payload を same-session object store へ保存し、`PreparedProgram` /
+wasm codegen が payload を function body set と relocation map に登録した場合だけ diagnostic を
+消す backend 登録済み token を導入することである。
+
+## 2026-06-02 wasm direct-call link-plan token checkpoint
+
+`nepl-core::codegen_wasm` に `plan_neplobj_direct_call_fragments_for_wasm` を追加した。これは
+`.neplobj` fragment payload を diagnostic 抑制へ使う API ではなく、現在の wasm assembly plan に
+登録できるかを検査する backend authority である。
+
+この plan は、`HirModule` の extern / user function から作る function index 空間へ `.neplobj`
+fragment を追加したと仮定し、materialized symbol 衝突、backend feature set mismatch、relocation
+target missing を拒否する。成功時は assigned function index、direct-call key hash、fragment hash、
+resolved relocation を持つ `NeplObjWasmDirectCallLinkPlanToken` を返す。
+
+raw body bytes を `CodeSection` へ投入し relocation を patch する実装はまだないため、この token は
+body-missing を消さない。次の作業は、source fallback / full compile で作った payload を session store
+へ保存し、その後 token と actual code insertion を同じ backend 境界にまとめることである。
+
+## 2026-06-02 checkpoint 6
+
+`generate_wasm_with_neplobj_direct_call_fragments` を追加し、`.neplobj` direct-call fragment を
+Wasm backend の `FunctionSection` / `CodeSection` へ実際に投入できる最小境界を実装した。
+
+この API は `plan_neplobj_direct_call_fragments_for_wasm` で symbol 衝突、backend feature set、
+relocation target、周辺 HIR / extern signature を確認したうえで、resolved relocation の function
+index を fragment body bytes の call immediate へ patch する。LEB128 immediate は長さが変わる場合も
+後方から差し替え、fragment が古い function index を固定した object にならないようにした。
+
+`PublicInterfaceArtifactInputs` は `NeplObjDirectCallFragmentArtifact` slice を受け取れるようになった。
+materialized callable body-missing の抑制は direct call だけに限定し、function value、indirect call、
+`memo_call` / memoized function value は同じ materialized symbol を持っていても source fallback に残す。
+これは高階関数 identity と private cache proof を `.neplobj` direct-call MVP が暗黙に代替しないための
+fail-closed 境界である。
+
+この checkpoint でも issue は open のまま維持する。まだ source fallback / full compile から
+`NeplObjDirectCallFragmentArtifact` を session object store へ保存する経路と、Web / loader から
+`PublicInterfaceArtifactInputs` へ渡す実運用経路は未接続である。
 
 ## 2026-06-01 selected body hash authority checkpoint
 
