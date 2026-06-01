@@ -10,6 +10,7 @@
 - stdlib doctest 検証: `stdlib/core/gui/dirty_region.nepl`、`dirty_region_set.nepl`、`alloc/gui/layout/types.nepl` は各 1/1 pass。追加 doctest group は `accessibility` / `diff` / `focus` など 6/6、`routing` / `routing/types` / `routing/focus` / `text` は 4/4、`text/types` / `theme` / `tree` / `widget/types` / `std/gui/text_measure` は 5/5 pass。
 - 最終検証: `trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-no-parentheses-cleanup.json` 13/13、`node nodesrc/test_stdlib_gui_layering_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
 - `trunk build` 後の `nodesrc/tests.js` 既定 60 秒 timeout では `gui_app.n.md` の cold compile が timeout したため、`node nodesrc/run_doctest.js -i tests/stdlib/gui_app.n.md -n 1 --dist web/dist` で実行成功を確認し、`NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_app.n.md --no-tree -o tmp/gui-app-after-trunk-no-parens-180s.json -j 1 --dist web/dist --assert-io` で 3/3 pass を確認した。
+- `origin/main` が `c251d629` まで進んでいたため merge した。merge 後の `trunk build --release`、playground editor 13/13、GUI layering policy、issues check、no-parentheses scan、`git diff --check` は pass。`NEPL_TEST_CASE_TIMEOUT_MS=180000` での GUI/TUI group A は 20/20 pass、group C は timeout までに 10/10 pass した。group B / D は merge 後の compiler cold compile が重く 10 分 timeout で未完了だが、merge 前の同一 GUI/TUI source では group B 16/16、group D 17/17 pass 済みである。
 
 # 2026-06-01 GUI/TUI arena focus traversal checkpoint
 
