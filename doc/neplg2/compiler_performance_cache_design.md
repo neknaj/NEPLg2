@@ -2685,6 +2685,44 @@ raw wasm / LLVM body については、Resource IR body hash だけで本文文�
 source capability policy hash、source key、backend feature set を合わせて `.neplobj` key を作り、
 不確かな場合は fail-closed に通常 source fallback へ戻す。
 
+## 2026-06-02 content-addressed stdlib dependency aggregate cache checkpoint
+
+`LoaderSessionCache` は、通常の mutable provider session と、stdlib 全体の content hash を
+namespace に使う bundled stdlib session を分けるようにした。Web `CompilerSession` は後者を使うため、
+同一 session 内で同じ bundled stdlib source を読む場合、dependency aggregate public surface hash を
+path/source hash から再利用できる。
+
+通常の dependency aggregate key は module public surface hash と child aggregate hash を含むため、
+hit 判定の前に依存先 source を parse して module public surface を再計算する必要がある。今回追加した
+source-level key は source hash と child aggregate hash を含み、source token と依存閉包が同じ場合に
+full parse / module clone を省く。さらに bundled stdlib 用の closed-source key は child aggregate hash を
+含めないが、これは namespace が stdlib 全体の content hash であり、どれか 1 ファイルでも変われば
+別 `LoaderSessionCache` へ分離される場合だけ有効にする。
+
+この境界は `SourceMap`、typed HIR、Resource IR、codegen fragment を保存しない。保持するのは
+path/hash keyed な public surface hash だけであり、stdlib overlay が指定された場合は従来どおり loader
+cache と Resource summary artifact preseed を bypass する。mutable provider、test provider、
+non-stdlib edge では child hash 付き key だけを使うため、依存先の公開面変更を closed-source key で
+隠すことはない。
+
+`tmp/artifact-closed-source-aggregate-cache-20260602-r3.json` では、materialized compile fallback bench が
+次の結果になった。
+
+- cold base `compile_ms=423`
+- warm store probe `compile_ms=230`
+- body edit candidate `compile_ms=206`
+- body edit repeat `compile_ms=185`
+- `materialized_body_missing_fallbacks_delta_sum=1`
+- `neplobj_candidate_body_missing_surfaces_delta_sum=5`
+- `body_missing_skip_hits_delta_sum=10`
+
+同じ branch の direct probe では prewarm 側の dependency aggregate traversal が `dep_delta=838` まで
+下がった。これは base compile の固定費を削る checkpoint であり、`.neplobj` object store、
+bundled stdlib `.neplmeta` / `.neplproof` preseed、persistent `.nepl...` file format、
+`memo_call` の PrivateCache proof を完了させるものではない。特に body edit の 0.1 秒目標にはまだ届かず、
+次の root task は selected dependency body から `.neplobj` fragment を生成して same-session object
+store へ保存する経路と、stdlib preseed artifact の初回 compile 投入である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

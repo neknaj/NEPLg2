@@ -133,9 +133,14 @@ pub struct LoaderSessionCacheStats {
 #[derive(Debug)]
 pub struct LoaderSessionCache {
     namespace_hash: String,
+    content_addressed_stdlib_namespace: bool,
     parsed_modules: BTreeMap<LoaderParsedModuleKey, CachedParsedModule>,
     arity_surfaces: BTreeMap<LoaderAritySurfaceKey, CachedAritySurface>,
     dependency_aggregate_public_surfaces: BTreeMap<LoaderDependencyAggregatePublicSurfaceKey, u64>,
+    dependency_aggregate_public_surfaces_by_source:
+        BTreeMap<LoaderDependencyAggregatePublicSurfaceSourceKey, u64>,
+    dependency_aggregate_public_surfaces_by_closed_source:
+        BTreeMap<LoaderDependencyAggregatePublicSurfaceClosedSourceKey, u64>,
     stats: LoaderSessionCacheStats,
 }
 
@@ -143,11 +148,25 @@ impl LoaderSessionCache {
     pub fn new(namespace_hash: impl Into<String>) -> Self {
         Self {
             namespace_hash: namespace_hash.into(),
+            content_addressed_stdlib_namespace: false,
             parsed_modules: BTreeMap::new(),
             arity_surfaces: BTreeMap::new(),
             dependency_aggregate_public_surfaces: BTreeMap::new(),
+            dependency_aggregate_public_surfaces_by_source: BTreeMap::new(),
+            dependency_aggregate_public_surfaces_by_closed_source: BTreeMap::new(),
             stats: LoaderSessionCacheStats::default(),
         }
+    }
+
+    /// stdlib 全体の content hash を namespace に使う session cache を作る。
+    ///
+    /// bundled stdlib のように provider が不変で、どれか 1 ファイルでも変われば namespace
+    /// 自体が変わる場合、dependency aggregate は child closure を毎回再帰確認しなくても
+    /// path/source hash で安全に再利用できる。この constructor はその追加 cache を有効化する。
+    pub fn new_content_addressed_stdlib(namespace_hash: impl Into<String>) -> Self {
+        let mut cache = Self::new(namespace_hash);
+        cache.content_addressed_stdlib_namespace = true;
+        cache
     }
 
     pub fn stats(&self) -> LoaderSessionCacheStats {
@@ -158,6 +177,8 @@ impl LoaderSessionCache {
         self.parsed_modules.clear();
         self.arity_surfaces.clear();
         self.dependency_aggregate_public_surfaces.clear();
+        self.dependency_aggregate_public_surfaces_by_source.clear();
+        self.dependency_aggregate_public_surfaces_by_closed_source.clear();
         self.stats = LoaderSessionCacheStats::default();
     }
 
@@ -262,6 +283,41 @@ impl LoaderSessionCache {
         }
     }
 
+    fn dependency_aggregate_public_surface_source_key_for(
+        &self,
+        stdlib_root: &PathBuf,
+        canon: &PathBuf,
+        source_hash: u64,
+        dependency_aggregate_public_surface_hash: u64,
+    ) -> LoaderDependencyAggregatePublicSurfaceSourceKey {
+        // dependency aggregate の再計算では、child aggregate が同一で source token も同一なら、
+        // module public surface hash を得るための full parse / module clone を繰り返す必要がない。
+        // ただし child hash を key に含め、依存先の公開面変更を必ず stale miss にする。
+        LoaderDependencyAggregatePublicSurfaceSourceKey {
+            cache_version: String::from(LOADER_SESSION_CACHE_VERSION),
+            namespace_hash: self.namespace_hash.clone(),
+            stdlib_root: canonicalize_path(stdlib_root),
+            path: canon.clone(),
+            source_hash,
+            dependency_aggregate_public_surface_hash,
+        }
+    }
+
+    fn dependency_aggregate_public_surface_closed_source_key_for(
+        &self,
+        stdlib_root: &PathBuf,
+        canon: &PathBuf,
+        source_hash: u64,
+    ) -> LoaderDependencyAggregatePublicSurfaceClosedSourceKey {
+        LoaderDependencyAggregatePublicSurfaceClosedSourceKey {
+            cache_version: String::from(LOADER_SESSION_CACHE_VERSION),
+            namespace_hash: self.namespace_hash.clone(),
+            stdlib_root: canonicalize_path(stdlib_root),
+            path: canon.clone(),
+            source_hash,
+        }
+    }
+
     fn get_dependency_aggregate_public_surface(
         &mut self,
         key: &LoaderDependencyAggregatePublicSurfaceKey,
@@ -275,6 +331,33 @@ impl LoaderSessionCache {
         }
     }
 
+    fn get_dependency_aggregate_public_surface_by_source(
+        &mut self,
+        key: &LoaderDependencyAggregatePublicSurfaceSourceKey,
+    ) -> Option<u64> {
+        if let Some(hash) = self.dependency_aggregate_public_surfaces_by_source.get(key) {
+            self.stats.dependency_aggregate_public_surface_hash_hits += 1;
+            Some(*hash)
+        } else {
+            None
+        }
+    }
+
+    fn get_dependency_aggregate_public_surface_by_closed_source(
+        &mut self,
+        key: &LoaderDependencyAggregatePublicSurfaceClosedSourceKey,
+    ) -> Option<u64> {
+        if let Some(hash) = self
+            .dependency_aggregate_public_surfaces_by_closed_source
+            .get(key)
+        {
+            self.stats.dependency_aggregate_public_surface_hash_hits += 1;
+            Some(*hash)
+        } else {
+            None
+        }
+    }
+
     fn store_dependency_aggregate_public_surface(
         &mut self,
         key: LoaderDependencyAggregatePublicSurfaceKey,
@@ -282,6 +365,24 @@ impl LoaderSessionCache {
     ) {
         self.stats.dependency_aggregate_public_surface_hash_stores += 1;
         self.dependency_aggregate_public_surfaces.insert(key, hash);
+    }
+
+    fn store_dependency_aggregate_public_surface_source(
+        &mut self,
+        key: LoaderDependencyAggregatePublicSurfaceSourceKey,
+        hash: u64,
+    ) {
+        self.dependency_aggregate_public_surfaces_by_source
+            .insert(key, hash);
+    }
+
+    fn store_dependency_aggregate_public_surface_closed_source(
+        &mut self,
+        key: LoaderDependencyAggregatePublicSurfaceClosedSourceKey,
+        hash: u64,
+    ) {
+        self.dependency_aggregate_public_surfaces_by_closed_source
+            .insert(key, hash);
     }
 
     fn record_dependency_aggregate_public_surface_bypass(&mut self) {
@@ -315,6 +416,38 @@ struct LoaderDependencyAggregatePublicSurfaceKey {
     path: PathBuf,
     module_public_surface_hash: u64,
     dependency_aggregate_public_surface_hash: u64,
+}
+
+/// dependency aggregate の full key を作る前に使う source-level key。
+///
+/// 通常の aggregate key は module public surface hash を含むため、hit 判定の前に
+/// module を parse して public surface を再計算する必要がある。この key は source token
+/// hash と child aggregate hash を組み合わせ、source と依存閉包が同じ場合だけ parse 前に
+/// hit できるようにする。body-only edit では source hash が変わるため保守的に miss し、
+/// その後の既存 aggregate key が public surface 不変性を確認して再利用する。
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct LoaderDependencyAggregatePublicSurfaceSourceKey {
+    cache_version: String,
+    namespace_hash: String,
+    stdlib_root: PathBuf,
+    path: PathBuf,
+    source_hash: u64,
+    dependency_aggregate_public_surface_hash: u64,
+}
+
+/// content-addressed stdlib namespace でだけ使う dependency aggregate key。
+///
+/// この key は child aggregate hash を含まない。安全に使えるのは、cache namespace が stdlib
+/// 全体の内容 hash であり、依存先ファイルの変更が必ず新しい `LoaderSessionCache` へ分離される
+/// 場合だけである。通常の mutable provider / test cache では使わず、従来の child hash 付き
+/// key で依存閉包の変更を検出する。
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct LoaderDependencyAggregatePublicSurfaceClosedSourceKey {
+    cache_version: String,
+    namespace_hash: String,
+    stdlib_root: PathBuf,
+    path: PathBuf,
+    source_hash: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -1629,6 +1762,25 @@ impl Loader {
         }
 
         let src = provider(canon)?;
+        let source_hash = fnv1a64(src.as_bytes());
+        let closed_source_key =
+            if session_cache.content_addressed_stdlib_namespace {
+                let key = session_cache.dependency_aggregate_public_surface_closed_source_key_for(
+                    &self.stdlib_root,
+                    canon,
+                    source_hash,
+                );
+                if let Some(hash) =
+                    session_cache.get_dependency_aggregate_public_surface_by_closed_source(&key)
+                {
+                    visiting.remove(canon);
+                    computed.insert(canon.clone(), hash);
+                    return Ok(hash);
+                }
+                Some(key)
+            } else {
+                None
+            };
         let mut sm = SourceMap::new();
         let file_id = sm.add_with_capabilities(
             path_to_source_label(canon),
@@ -1648,6 +1800,20 @@ impl Loader {
         fnv1a64_update(&mut child_hash, LOADER_SESSION_CACHE_VERSION.as_bytes());
         hash_str(&mut child_hash, "dependency-public-surface-children-v1");
         hash_dependency_aggregate_public_surface_entries(&mut child_hash, &dependencies);
+
+        let source_key = session_cache.dependency_aggregate_public_surface_source_key_for(
+            &self.stdlib_root,
+            canon,
+            source_hash,
+            child_hash,
+        );
+        if let Some(hash) = session_cache.get_dependency_aggregate_public_surface_by_source(
+            &source_key,
+        ) {
+            visiting.remove(canon);
+            computed.insert(canon.clone(), hash);
+            return Ok(hash);
+        }
 
         let mut module_sm = SourceMap::new();
         let module_file_id = module_sm.add_with_capabilities(
@@ -1689,6 +1855,14 @@ impl Loader {
             child_hash,
         );
         if let Some(hash) = session_cache.get_dependency_aggregate_public_surface(&key) {
+            session_cache.store_dependency_aggregate_public_surface_source(source_key, hash);
+            if let Some(closed_source_key) = closed_source_key {
+                session_cache
+                    .store_dependency_aggregate_public_surface_closed_source(
+                        closed_source_key,
+                        hash,
+                    );
+            }
             visiting.remove(canon);
             computed.insert(canon.clone(), hash);
             return Ok(hash);
@@ -1702,6 +1876,15 @@ impl Loader {
         hash_u64(&mut aggregate_hash, child_hash);
         hash_dependency_aggregate_public_surface_entries(&mut aggregate_hash, &dependencies);
         session_cache.store_dependency_aggregate_public_surface(key, aggregate_hash);
+        session_cache
+            .store_dependency_aggregate_public_surface_source(source_key, aggregate_hash);
+        if let Some(closed_source_key) = closed_source_key {
+            session_cache
+                .store_dependency_aggregate_public_surface_closed_source(
+                    closed_source_key,
+                    aggregate_hash,
+                );
+        }
         visiting.remove(canon);
         computed.insert(canon.clone(), aggregate_hash);
         Ok(aggregate_hash)
@@ -3985,6 +4168,31 @@ mod tests {
             "body-only edits should reuse aggregate public-surface entries keyed by the stable public surface",
         );
 
+        let before_repeat = cache.stats();
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(&canonicalize_path(path))
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {}", path.display())))
+        };
+        let repeated_body_edit_hash = loader
+            .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+                entry_path.clone(),
+                root_source,
+                &mut provider,
+                &mut cache,
+            )
+            .expect("repeated body edit dependency surface should hash");
+        let after_repeat = cache.stats();
+        assert_eq!(
+            body_edit_hash, repeated_body_edit_hash,
+            "repeated dependency body edit hash should remain stable",
+        );
+        assert_eq!(
+            before_repeat.parsed_module_hits, after_repeat.parsed_module_hits,
+            "source-level aggregate hits should avoid reparsing unchanged dependency source",
+        );
+
         sources.insert(
             types_path,
             "pub fn exported %fn unit u8 \\unit:\n    1\n".to_string(),
@@ -4006,6 +4214,106 @@ mod tests {
         assert_ne!(
             first_hash, signature_edit_hash,
             "dependency aggregate hash must change when a re-exported public signature changes",
+        );
+    }
+
+    #[test]
+    fn content_addressed_stdlib_dependency_aggregate_uses_namespace_as_closure_identity() {
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let loader = Loader::new(stdlib_root.clone());
+        let entry_path = PathBuf::from("C:/nepl-test/user/main.nepl");
+        let facade_path = canonicalize_path(&stdlib_path(&stdlib_root, &["facade.nepl"]));
+        let types_path = canonicalize_path(&stdlib_path(&stdlib_root, &["types.nepl"]));
+        let root_source =
+            "#no_prelude\n#import \"facade\" as *\nfn main %fn unit i32 \\unit:\n    exported unit\n";
+        let facade_source = "#import pub \"types\" as *\n";
+
+        let mut cache_a = LoaderSessionCache::new_content_addressed_stdlib("stdlib-content-a");
+        let mut sources = BTreeMap::new();
+        sources.insert(facade_path.clone(), facade_source.to_string());
+        sources.insert(
+            types_path.clone(),
+            "pub fn exported %fn unit i32 \\unit:\n    1\n".to_string(),
+        );
+        let mut reads = BTreeMap::<PathBuf, usize>::new();
+        let first_hash = {
+            let mut provider = |path: &PathBuf| {
+                let canon = canonicalize_path(path);
+                *reads.entry(canon.clone()).or_insert(0) += 1;
+                sources.get(&canon).cloned().ok_or_else(|| {
+                    LoaderError::Io(format!("missing test source: {}", path.display()))
+                })
+            };
+            loader
+                .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+                    entry_path.clone(),
+                    root_source,
+                    &mut provider,
+                    &mut cache_a,
+                )
+                .expect("first content-addressed dependency surface should hash")
+        };
+        let first_types_reads = reads.get(&types_path).copied().unwrap_or(0);
+        let before_repeat = cache_a.stats();
+
+        let repeated_hash = {
+            let mut provider = |path: &PathBuf| {
+                let canon = canonicalize_path(path);
+                *reads.entry(canon.clone()).or_insert(0) += 1;
+                sources.get(&canon).cloned().ok_or_else(|| {
+                    LoaderError::Io(format!("missing test source: {}", path.display()))
+                })
+            };
+            loader
+                .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+                    entry_path.clone(),
+                    root_source,
+                    &mut provider,
+                    &mut cache_a,
+                )
+                .expect("repeated content-addressed dependency surface should hash")
+        };
+        let after_repeat = cache_a.stats();
+        let repeated_types_reads = reads.get(&types_path).copied().unwrap_or(0);
+
+        assert_eq!(
+            first_hash, repeated_hash,
+            "same stdlib content namespace should reuse the same dependency aggregate hash",
+        );
+        assert_eq!(
+            first_types_reads, repeated_types_reads,
+            "closed-source aggregate hit should avoid walking child dependencies in an unchanged content namespace",
+        );
+        assert!(
+            after_repeat.dependency_aggregate_public_surface_hash_hits
+                > before_repeat.dependency_aggregate_public_surface_hash_hits,
+            "closed-source aggregate reuse should be visible as an aggregate hash hit",
+        );
+
+        sources.insert(
+            types_path,
+            "pub fn exported %fn unit u8 \\unit:\n    1\n".to_string(),
+        );
+        let mut cache_b = LoaderSessionCache::new_content_addressed_stdlib("stdlib-content-b");
+        let mut provider = |path: &PathBuf| {
+            let canon = canonicalize_path(path);
+            sources
+                .get(&canon)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {}", path.display())))
+        };
+        let signature_edit_hash = loader
+            .root_dependency_aggregate_public_surface_hash_for_source_with_cache(
+                entry_path,
+                root_source,
+                &mut provider,
+                &mut cache_b,
+            )
+            .expect("new content namespace should recompute dependency surface");
+
+        assert_ne!(
+            first_hash, signature_edit_hash,
+            "changing a re-exported child signature is safe because the stdlib content namespace changes",
         );
     }
 

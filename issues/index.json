@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T18:04:16.053Z",
+  "generated_at": "2026-06-01T18:44:12.020Z",
   "counts": {
     "total": 1306,
     "open": 32,
@@ -183,7 +183,7 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-05-24",
-      "updated": "2026-06-01",
+      "updated": "2026-06-02",
       "target": "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio",
       "legacy_id": "",
       "source": "",
@@ -379,7 +379,7 @@
       "type": "architecture",
       "created": "2026-05-31",
       "updated": "2026-06-02",
-      "target": "nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md",
+      "target": "nepl-core/src/loader.rs; nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649.md"

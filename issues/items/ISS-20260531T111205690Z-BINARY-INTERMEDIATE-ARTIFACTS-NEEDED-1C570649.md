@@ -8,7 +8,7 @@ priority: P1
 type: architecture
 created: 2026-05-31
 updated: 2026-06-02
-target: "nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md"
+target: "nepl-core/src/loader.rs; nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md"
 ---
 
 # ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649: binary intermediate artifacts needed for incremental compile
@@ -19,7 +19,7 @@ target: "nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_per
 
 ## 対象
 
-- `nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md`
+- `nepl-core/src/loader.rs; nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md`
 
 ## 根拠
 
@@ -533,3 +533,26 @@ value cache が使う Resource IR body hash を wrapper として公開するも
 source body を skip した `.neplmeta` compile ではこの hash は得られない。object store は source fallback
 または full compile で selected callable を Resource IR へ下げたときに hash を作り、次回の
 direct-call availability key に保存する。
+
+## 2026-06-02 content-addressed stdlib dependency aggregate cache checkpoint
+
+`LoaderSessionCache` に、通常 session と bundled stdlib の content-addressed session を分ける境界を
+追加した。Web `CompilerSession` は bundled stdlib 全体の content hash を cache namespace に使うため、
+同一 session 内で同じ stdlib source を読む dependency aggregate query は path/source hash だけで
+閉じた結果を再利用できる。
+
+通常 session では従来どおり source hash と child aggregate hash、または module public surface hash と
+child aggregate hash を key に含める。closed-source key は child hash を持たないが、stdlib content hash
+namespace が変わらない限り依存先内容も変わらない Web bundled stdlib にだけ opt-in する。
+stdlib overlay、non-stdlib edge、mutable provider ではこの shortcut を使わない。
+
+この checkpoint は loader-level の固定費削減であり、永続 `.nepl...` artifact format や `.neplobj`
+object store の完成ではない。issue は open のまま維持する。残件は source fallback / full compile から
+`NeplObjDirectCallFragmentArtifact` を same-session object store へ保存し、Web / loader が次回 compile で
+`PublicInterfaceArtifactInputs` へ渡す経路、bundled stdlib `.neplmeta` / `.neplproof` preseed、persistent
+artifact codec、そして `memo_call` の PrivateCache proof である。
+
+`tmp/artifact-closed-source-aggregate-cache-20260602-r3.json` では、cold base `compile_ms=423`、
+warm store probe `compile_ms=230`、body edit candidate `compile_ms=206`、body edit repeat
+`compile_ms=185` だった。body edit はまだ 0.1 秒以下ではないため、`.neplobj` / `.nepllink` と
+stdlib preseed artifact の残件を継続する。
