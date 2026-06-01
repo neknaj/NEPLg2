@@ -43,8 +43,8 @@
 #indent 4
 
 #import "alloc/gui/app" as *
-#import "alloc/gui/layout" as *
-#import "alloc/gui/widget" as *
+#import "alloc/gui/layout/types" as *
+#import "alloc/gui/widget/types" as *
 #import "alloc/collections/vec" as vec
 #import "core/field" as field
 #import "core/gui" as *
@@ -400,7 +400,13 @@ pub fn layout_tree_add_child %fn LayoutTree fn LayoutNode Result LayoutTree GuiE
 
 //: layout_tree_arena_node: allocator-backed LayoutTree node を[作/つく]る
 pub fn layout_tree_arena_node %fn i32 fn i32 fn LayoutNode LayoutTreeArenaNode \parent_index\depth\node:
-    LayoutTreeArenaNode parent_index depth node
+    let id %WidgetId field::get node "id"
+    let x %i32 field::get node "x"
+    let y %i32 field::get node "y"
+    let width %i32 field::get node "width"
+    let height %i32 field::get node "height"
+    let stored %LayoutNode LayoutNode id x y width height
+    LayoutTreeArenaNode parent_index depth stored
 
 //: layout_tree_arena_node_parent_index: parent index を[読/よ]む
 pub fn layout_tree_arena_node_parent_index %fn &LayoutTreeArenaNode i32 \node:
@@ -428,6 +434,13 @@ pub fn layout_tree_arena_add_child_error_child %fn &LayoutTreeArenaAddChildError
 
 //: layout_tree_arena_add_child_error_tree: add child 失敗で戻された tree owner を[取/と]り[出/だ]す
 pub fn layout_tree_arena_add_child_error_tree %fn LayoutTreeArenaAddChildError LayoutTreeArena \error:
+    let child %LayoutNode field::get error "child"
+    let _child_id %WidgetId field::get child "id"
+    let _child_x %i32 field::get child "x"
+    let _child_y %i32 field::get child "y"
+    let _child_width %i32 field::get child "width"
+    let _child_height %i32 field::get child "height"
+    let _kind %GuiError field::get error "error"
     field::get error "tree"
 
 //: layout_tree_arena_len: allocator-backed LayoutTree の node 数を[返/かえ]す
@@ -442,10 +455,34 @@ pub fn layout_tree_arena_get_node %fn &LayoutTreeArena fn i32 Option LayoutTreeA
 
 //: layout_tree_arena_single: root だけを持つ allocator-backed LayoutTree を[作/つく]る
 pub fn layout_tree_arena_single %fn LayoutNode Result LayoutTreeArena GuiError \root:
+    let root_id %WidgetId field::get root "id"
+    let root_x %i32 field::get root "x"
+    let root_y %i32 field::get root "y"
+    let root_width %i32 field::get root "width"
+    let root_height %i32 field::get root "height"
     match vec::with_capacity<LayoutTreeArenaNode> 4:
         Result::Ok nodes0:
             let no_parent %i32 sub 0 1
-            let root_node %LayoutTreeArenaNode layout_tree_arena_node no_parent 0 root
+            let root_node_value %LayoutNode LayoutNode root_id root_x root_y root_width root_height
+            let root_node %LayoutTreeArenaNode layout_tree_arena_node no_parent 0 root_node_value
+            match vec::push nodes0 root_node:
+                Result::Ok nodes:
+                    Result::Ok LayoutTreeArena nodes
+                Result::Err e:
+                    vec::free vec::vec_push_error_vec e
+                    Result::Err GuiError::ResourceExhausted
+        Result::Err _e:
+            Result::Err GuiError::ResourceExhausted
+
+//: layout_tree_arena_single_fields: scalar layout payload から root だけの arena を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - caller が `LayoutNode` local を[保持/ほじ]せず、owner-consuming arena へ直接 layout payload を[渡/わた]せるようにします。
+pub fn layout_tree_arena_single_fields %fn WidgetId fn i32 fn i32 fn i32 fn i32 Result LayoutTreeArena GuiError \id\x\y\width\height:
+    match vec::with_capacity<LayoutTreeArenaNode> 4:
+        Result::Ok nodes0:
+            let no_parent %i32 sub 0 1
+            let root_node %LayoutTreeArenaNode LayoutTreeArenaNode no_parent 0 LayoutNode id x y width height
             match vec::push nodes0 root_node:
                 Result::Ok nodes:
                     Result::Ok LayoutTreeArena nodes
@@ -460,24 +497,65 @@ pub fn layout_tree_arena_single %fn LayoutNode Result LayoutTreeArena GuiError \
 //: [注意/ちゅうい]:
 //: - この関数は tree owner を消費します。Err には元の tree owner と storage に入らなかった child が[戻/もど]るため、caller が cleanup できます。
 pub fn layout_tree_arena_add_child %fn LayoutTreeArena fn i32 fn LayoutNode Result LayoutTreeArena LayoutTreeArenaAddChildError \tree\parent_index\child:
+    let child_id %WidgetId field::get child "id"
+    let child_x %i32 field::get child "x"
+    let child_y %i32 field::get child "y"
+    let child_width %i32 field::get child "width"
+    let child_height %i32 field::get child "height"
     let count %i32 layout_tree_arena_len &tree
     let parent_too_low %bool lt parent_index 0
     let parent_too_high %bool le count parent_index
     if or parent_too_low parent_too_high:
-        then Result::Err LayoutTreeArenaAddChildError tree child GuiError::InvalidCommand
+        then:
+            let returned_child %LayoutNode LayoutNode child_id child_x child_y child_width child_height
+            Result::Err LayoutTreeArenaAddChildError tree returned_child GuiError::InvalidCommand
         else:
             match layout_tree_arena_get_node &tree parent_index:
                 Option::Some parent:
                     let parent_depth %i32 layout_tree_arena_node_depth &parent
                     let child_depth %i32 add parent_depth 1
                     let nodes %Vec LayoutTreeArenaNode field::get tree "nodes"
-                    let child_node %LayoutTreeArenaNode layout_tree_arena_node parent_index child_depth child
+                    let child_for_node %LayoutNode LayoutNode child_id child_x child_y child_width child_height
+                    let child_node %LayoutTreeArenaNode layout_tree_arena_node parent_index child_depth child_for_node
                     match vec::push nodes child_node:
                         Result::Ok next_nodes:
                             Result::Ok LayoutTreeArena next_nodes
                         Result::Err e:
                             let returned_nodes %Vec LayoutTreeArenaNode vec::vec_push_error_vec e
                             let returned_tree %LayoutTreeArena LayoutTreeArena returned_nodes
-                            Result::Err LayoutTreeArenaAddChildError returned_tree child GuiError::ResourceExhausted
+                            let returned_child %LayoutNode LayoutNode child_id child_x child_y child_width child_height
+                            Result::Err LayoutTreeArenaAddChildError returned_tree returned_child GuiError::ResourceExhausted
                 Option::None:
-                    Result::Err LayoutTreeArenaAddChildError tree child GuiError::InvalidCommand
+                    let returned_child %LayoutNode LayoutNode child_id child_x child_y child_width child_height
+                    Result::Err LayoutTreeArenaAddChildError tree returned_child GuiError::InvalidCommand
+
+//: layout_tree_arena_add_child_fields: scalar layout payload を parent index の下に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - layout phase が `LayoutNode` local を経由せず、測定済み scalar をそのまま arena owner へ[移/うつ]せるようにします。
+pub fn layout_tree_arena_add_child_fields %fn LayoutTreeArena fn i32 fn WidgetId fn i32 fn i32 fn i32 fn i32 Result LayoutTreeArena LayoutTreeArenaAddChildError \tree\parent_index\id\x\y\width\height:
+    let count %i32 layout_tree_arena_len &tree
+    let parent_too_low %bool lt parent_index 0
+    let parent_too_high %bool le count parent_index
+    if or parent_too_low parent_too_high:
+        then:
+            let returned_child %LayoutNode LayoutNode id x y width height
+            Result::Err LayoutTreeArenaAddChildError tree returned_child GuiError::InvalidCommand
+        else:
+            match layout_tree_arena_get_node &tree parent_index:
+                Option::Some parent:
+                    let parent_depth %i32 layout_tree_arena_node_depth &parent
+                    let child_depth %i32 add parent_depth 1
+                    let nodes %Vec LayoutTreeArenaNode field::get tree "nodes"
+                    let child_node %LayoutTreeArenaNode LayoutTreeArenaNode parent_index child_depth LayoutNode id x y width height
+                    match vec::push nodes child_node:
+                        Result::Ok next_nodes:
+                            Result::Ok LayoutTreeArena next_nodes
+                        Result::Err e:
+                            let returned_nodes %Vec LayoutTreeArenaNode vec::vec_push_error_vec e
+                            let returned_tree %LayoutTreeArena LayoutTreeArena returned_nodes
+                            let returned_child %LayoutNode LayoutNode id x y width height
+                            Result::Err LayoutTreeArenaAddChildError returned_tree returned_child GuiError::ResourceExhausted
+                Option::None:
+                    let returned_child %LayoutNode LayoutNode id x y width height
+                    Result::Err LayoutTreeArenaAddChildError tree returned_child GuiError::InvalidCommand

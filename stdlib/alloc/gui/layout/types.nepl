@@ -145,8 +145,8 @@ pub fn layout_context_text_measurer_ref <.TextMeasurerImpl: Copy> %fn &LayoutCon
 
 //: measured_node: measure result を[作/つく]る
 pub fn measured_node %fn WidgetId fn GuiSize MeasuredNode \id\size:
-    let width %i32 gui_size_width &size
-    let height %i32 gui_size_height &size
+    let width %i32 field::get size "width"
+    let height %i32 field::get size "height"
     MeasuredNode id width height
 
 //: measured_node_id: measured node id を[読/よ]む
@@ -169,10 +169,10 @@ pub fn measured_node_height %fn &MeasuredNode i32 \node:
 
 //: layout_node: layout result を[作/つく]る
 pub fn layout_node %fn WidgetId fn GuiRect LayoutNode \id\bounds:
-    let x %i32 gui_rect_x &bounds
-    let y %i32 gui_rect_y &bounds
-    let width %i32 gui_rect_width &bounds
-    let height %i32 gui_rect_height &bounds
+    let x %i32 field::get bounds "x"
+    let y %i32 field::get bounds "y"
+    let width %i32 field::get bounds "width"
+    let height %i32 field::get bounds "height"
     LayoutNode id x y width height
 
 //: layout_node_bounds: layout bounds を[読/よ]む
@@ -258,11 +258,13 @@ pub fn layout_measure_text_width <.TextMeasurerImpl: TextMeasurer&Copy> %fn &Lay
 
 //: layout_place_at: measured node を指定位置に[配置/はいち]する
 pub fn layout_place_at %fn MeasuredNode fn GuiPoint LayoutNode \node\origin:
-    let size %GuiSize measured_node_size &node
+    let id %WidgetId field::get node "id"
+    let width %i32 field::get node "width"
+    let height %i32 field::get node "height"
     layout_node:
-        measured_node_id &node
+        id
         gui_rect_new:
             gui_point_x &origin
             gui_point_y &origin
-            gui_size_width &size
-            gui_size_height &size
+            width
+            height

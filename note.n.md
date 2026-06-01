@@ -1,3 +1,14 @@
+# 2026-06-02 GUI/TUI arena layout connector checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` は取り込み済みで、`agent2/gui-library` の既存 GUI/TUI checkpoint 上で継続した。
+- Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、`alloc/gui/layout/arena` に allocator-backed `ViewTreeArena` から `LayoutTreeArena` へ変換する初期 linear layout connector を追加した。DOM、terminal raw sequence、OS handle、backend present には触れない。
+- `layout_view_tree_arena_linear` は `LayoutContext` と borrowed `ViewTreeArena`、`LayoutHint`、`LayoutConstraints` だけを使う。arena insertion order で y 方向へ配置し、parent index と depth は `ViewTreeArena` の構造を保持する。invalid constraints は `GuiError::InvalidGeometry`、空 tree / 欠落 node は `GuiError::InvalidCommand` を返す。
+- owner-consuming な `LayoutTreeArena` の途中構築で失敗した場合は、connector が回収した tree owner を解放してから `Result::Err` を返す。`LayoutTreeArenaAddChildError` は tree owner と child payload を保持し、owner を失わない。
+- Resource IR 上、i32 を引数に取り分岐でそのまま返す汎用 clamp helper は raw owner かもしれない scalar summary と衝突しやすいため、arena layout connector では `LayoutHint` / `LayoutConstraints` の参照元から直接 size を選ぶ形にした。あわせて owner-token 判定が `Named` alias を越えて解決できることを `nepl-core` の単体テストで固定した。
+- subagent review は、arena layout は `ViewTreeArena` を借用して `LayoutTreeArena` owner を返すこと、arena index と `WidgetId` を混同しないこと、DOM / ANSI / platform backend を混ぜないこと、失敗時に layout tree owner を失わないことを確認した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、初期 arena layout connector 実装済みと、残件が stack / flex / grid / scroll、text buffer と arena node の対応付け、stateful pointer routing、backend 接続であることに合わせて更新した。
+- focused 検証: `cargo test -p nepl-core type_contains_owner_token_resolves_named_aliases` は pass。`trunk build` は pass。`node nodesrc/tests.js -i tests/stdlib/gui_layout.n.md --no-tree -o tmp/gui-layout-arena.json -j 1 --dist web/dist --assert-io` は 5/5 pass。`node nodesrc/tests.js -i tests/stdlib/gui_layout.n.md -i tests/stdlib/gui_tree.n.md -i tests/stdlib/gui_routing.n.md -i tests/stdlib/gui_focus.n.md --no-tree -o tmp/gui-arena-layout-focused.json -j 1 --dist web/dist --assert-io` は 20/20 pass。
+
 # 2026-06-02 GUI/TUI arena diff invalidation checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` と作業 branch の同期状態を確認した。検証前の final sync で `origin/main` 10df8ce5 を merge し、remote/main の変更を取り込んだ。

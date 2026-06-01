@@ -6,7 +6,7 @@
 //: - browser、OS font、terminal escape sequence はここで[呼/よ]ばず、測定能力だけを context として[受/う]け[取/と]ります。
 //:
 //: ### [現状/げんじょう]
-//: - 初期 checkpoint では constraints、layout context、単一 node の measure/place helper を[固定/こてい]します。
+//: - 現 checkpoint では constraints、layout context、単一 node の measure/place helper、arena order の[縦/たて][積/づ]み layout connector を[固定/こてい]します。
 //:
 //: neplg2:test
 //: ret: 10
@@ -22,3 +22,4 @@
 #indent 4
 
 pub #import "alloc/gui/layout/types" as *
+pub #import "alloc/gui/layout/arena" as *

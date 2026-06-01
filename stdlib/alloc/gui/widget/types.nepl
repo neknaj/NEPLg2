@@ -29,7 +29,7 @@
 
 #import "alloc/gui/accessibility" as *
 #import "alloc/gui/app" as *
-#import "alloc/gui/layout" as *
+#import "alloc/gui/layout/types" as *
 #import "core/field" as field
 #import "core/gui" as *
 #import "core/option" as *
