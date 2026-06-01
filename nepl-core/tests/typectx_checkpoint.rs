@@ -21,6 +21,29 @@ fn checkpoint_rolls_back_bindings_and_temporary_arena_entries() {
 }
 
 #[test]
+fn checkpoint_commit_keeps_bindings_and_closes_snapshot_scope() {
+    let mut ctx = TypeCtx::new();
+    let var = ctx.fresh_var(None);
+    let i32_ty = ctx.i32();
+    let checkpoint = ctx.checkpoint();
+
+    assert!(ctx.unify(var, i32_ty).is_ok());
+    ctx.commit(checkpoint);
+
+    assert!(ctx.same_type(var, i32_ty));
+
+    let rollback_after_commit = ctx.checkpoint();
+    let temp = ctx.fresh_var(None);
+    let fn_ty = ctx.function(Vec::new(), vec![temp], i32_ty, Effect::Pure);
+    let speculative = ctx.fresh_var(None);
+    assert!(ctx.unify(speculative, fn_ty).is_ok());
+    ctx.rollback(rollback_after_commit);
+
+    assert!(ctx.same_type(var, i32_ty));
+    assert_eq!(ctx.fresh_var(None), temp);
+}
+
+#[test]
 fn checkpoint_rolls_back_named_and_trait_model_state() {
     let mut ctx = TypeCtx::new();
     let checkpoint = ctx.checkpoint();

@@ -28,10 +28,10 @@ function assertContains(haystack, needle, message) {
 
 const llvmDualJob = jobBlock("llvm-dual-test");
 for (const suite of ["tests", "stdlib"]) {
-    for (const shard of [1, 2, 3, 4]) {
+    for (const shard of [1, 2, 3, 4, 5, 6, 7, 8]) {
         const id = `${suite}-shard-${shard}`;
         assertContains(llvmDualJob, `                    - id: ${id}`, `llvm-dual-test must include ${id}`);
-        assertContains(llvmDualJob, `                      shard: "${shard}/4"`, `${id} must pass a stable shard spec`);
+        assertContains(llvmDualJob, `                      shard: "${shard}/8"`, `${id} must pass a stable shard spec`);
         assertContains(llvmDualJob, `                      output: tests-dual-${suite}-shard-${shard}.json`, `${id} must write a unique JSON output`);
     }
 }
@@ -43,6 +43,11 @@ assertContains(
 assertContains(llvmDualJob, "                  name: llvm-dual-${{ matrix.id }}", "llvm-dual artifacts must be unique per shard");
 
 const pagesFinalBundle = jobBlock("pages-final-bundle");
+assertContains(
+    pagesFinalBundle,
+    "            - name: Checkout repository\n              uses: actions/checkout@v4",
+    "pages-final-bundle must checkout repository sources before running merge scripts",
+);
 assertContains(
     pagesFinalBundle,
     "node nodesrc/merge_doctest_json.js -o dist/tests/tests-dual-tests.json artifacts/llvm-dual/tests-dual-tests-shard-*.json",

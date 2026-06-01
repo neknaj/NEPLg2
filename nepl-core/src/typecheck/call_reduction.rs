@@ -228,7 +228,13 @@ impl<'a> BlockChecker<'a> {
                 expectation.call_result_expectation_after_args(stack.len(), args_to_take)
             });
             let outer_expected = self
-                .infer_expected_from_outer_consumer(stack, func_pos, min_func_pos)
+                .infer_expected_from_outer_consumer(
+                    stack,
+                    func_pos,
+                    min_func_pos,
+                    args_to_take,
+                    expected,
+                )
                 .map(|target| TypeExpectation::outer_consumer_argument(target, 0));
             let expected_ret = expected_ret.or(outer_expected);
 

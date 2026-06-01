@@ -361,6 +361,19 @@ impl TypeCtx {
         self.active_snapshots = checkpoint.active_snapshots;
     }
 
+    /// Keep the changes made after a checkpoint and close that checkpoint.
+    ///
+    /// The undo log is still retained when an outer checkpoint exists, because
+    /// the outer rollback must be able to undo the committed inner changes. If
+    /// there is no outer checkpoint, the speculative undo entries can be
+    /// discarded while the arena and binding changes remain committed.
+    pub fn commit(&mut self, checkpoint: TypeCtxCheckpoint) {
+        if checkpoint.active_snapshots == 0 {
+            self.undo_log.truncate(checkpoint.undo_len);
+        }
+        self.active_snapshots = checkpoint.active_snapshots;
+    }
+
     fn record_arena_update(&mut self, id: TypeId) {
         if self.active_snapshots == 0 || id.0 >= self.arena.len() {
             return;

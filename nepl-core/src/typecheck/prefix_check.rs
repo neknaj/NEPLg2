@@ -2105,7 +2105,13 @@ impl<'a> BlockChecker<'a> {
                     // Treat blocks uniformly; parser now desugars `if:`/`if <cond>:`
                     // layout forms into ordinary prefix items, so the checker
                     // should not special-case `if` here.
-                    let (blk, val_ty) = self.check_block(b, 0, true, None)?;
+                    let block_expected = pending_ascription.and_then(|expectation| {
+                        (expectation.base_depth() == stack.len()).then_some(expectation.target())
+                    });
+                    let (blk, val_ty) = self.check_block(b, 0, true, block_expected)?;
+                    if block_expected.is_some() {
+                        pending_ascription = None;
+                    }
                     if let Some(ty) = val_ty {
                         stack.push(StackEntry {
                             ty,
@@ -2144,8 +2150,21 @@ impl<'a> BlockChecker<'a> {
                         .rposition(|e| e.assign.is_some())
                         .map(|p| base_depth.max(p + 1))
                         .unwrap_or(base_depth);
-                    let pipe_base =
-                        self.pipe_pending_base(stack.as_slice(), &open_calls, default_pipe_base);
+                    // A block or expression result expectation belongs to the
+                    // whole pipe chain. Before the pipe target is known, the
+                    // left segment may be underconstrained, so keep the full
+                    // segment intact and let pipe injection reduce it with the
+                    // target input or final expected type.
+                    let pipe_base = if pending_ascription.is_some()
+                        && !is_local_pending_ascription(
+                            stack.as_slice(),
+                            pending_ascription,
+                            base_depth,
+                        ) {
+                        default_pipe_base
+                    } else {
+                        self.pipe_pending_base(stack.as_slice(), &open_calls, default_pipe_base)
+                    };
                     if stack.len() == pipe_base {
                         self.diagnostics.push(type_error(
                             TypeDiagnosticCode::PipeInvalid,
@@ -2253,7 +2272,14 @@ impl<'a> BlockChecker<'a> {
                             && (next_is_pipe || has_more_items)
                     })
                     .unwrap_or(false);
-            if !delay_overloaded_nullary && !defer_unresolved_overload {
+            // Non-local expectations describe the final value of the pipe
+            // chain, not necessarily the current left segment. Deferring keeps
+            // generic constructor selection from failing before the pipe target
+            // can provide the correct input type.
+            let defer_for_pipe_expected = next_is_pipe
+                && pending_ascription.is_some()
+                && !is_local_pending_ascription(stack.as_slice(), pending_ascription, base_depth);
+            if !delay_overloaded_nullary && !defer_unresolved_overload && !defer_for_pipe_expected {
                 let mut pending_base =
                     pending_ascription.map(|expectation| expectation.base_depth());
                 let mut pipe_guard = false;

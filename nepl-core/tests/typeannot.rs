@@ -148,6 +148,97 @@ fn main %fn unit i32 \unit:
 }
 
 #[test]
+fn test_neplg21_expected_result_flows_through_generic_consumer_argument() {
+    // The Vec result annotation must flow through `unwrap_ok` before `new` is
+    // reduced, because `new` needs the expected `Result<Vec<i32>, E>` shape to
+    // infer its generic payload type without the removed postfix type syntax.
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+fn main %fn unit i32 \unit:
+    let v %Vec i32 unwrap_ok new
+    free v;
+    0
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
+
+#[test]
+fn test_neplg21_block_result_flows_through_generic_consumer_argument() {
+    // A block type annotation must reach the block's final expression before
+    // nested calls are reduced, otherwise generic constructors inside a pipe
+    // chain cannot infer the payload type that was written on the block result.
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+fn main %fn unit i32 \unit:
+    let v %Vec i32:
+        unwrap_ok new
+        |> push 1
+        |> unwrap_ok
+    free v;
+    0
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
+
+#[test]
+fn test_neplg21_expected_result_flows_through_outer_consumer_after_inner_args() {
+    // The outer expected result is checked after the inner call has collapsed
+    // its own function and arguments into one value. This covers constructors
+    // such as `with_capacity 2`, where using the current stack length would miss
+    // the outer `unwrap_ok` result position.
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+fn main %fn unit i32 \unit:
+    let v %Vec i32 unwrap_ok with_capacity 2
+    free v;
+    0
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
+
+#[test]
+fn test_neplg21_block_pipe_result_flows_into_pending_segment_constructor() {
+    // A leading pipe line reduces the left segment before the pipe target is
+    // complete. The block result type is still the only available concrete
+    // owner type, so it must be used to reduce the pending segment safely.
+    let src = r#"
+#entry main
+#indent 4
+#target wasm
+#import "alloc/collections/vec" as *
+#import "core/result" as *
+
+fn main %fn unit i32 \unit:
+    let v %Vec i32:
+        unwrap_ok with_capacity 2
+        |> push 1
+        |> unwrap_ok
+    free v;
+    0
+"#;
+    let v = run_main_i32(src);
+    assert_eq!(v, 0);
+}
+
+#[test]
 fn test_neplg21_prefix_type_arity_preload_reads_cyclic_facade_exports() {
     let dir = tempfile::tempdir().expect("create temporary NEPL entry directory");
     fs::write(

@@ -30,6 +30,11 @@ const examplesJob = jobBlock("examples-test");
 assertContains(examplesJob, "        needs: build", "examples-test must reuse bootstrap build artifacts");
 assertContains(
     examplesJob,
+    "            - name: Checkout repository\n              uses: actions/checkout@v4",
+    "examples-test must checkout repository sources before running nodesrc/tests.js",
+);
+assertContains(
+    examplesJob,
     '                  NEPL_TEST_CASE_TIMEOUT_MS: "60000"',
     "examples-test must keep enough per-case timeout headroom for current nm base compile",
 );

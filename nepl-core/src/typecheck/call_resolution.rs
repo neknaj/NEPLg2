@@ -10,6 +10,7 @@ use crate::types::{TypeId, TypeKind};
 
 use super::env::{Binding, BindingKind};
 use super::traits::insert_substitution_mapping;
+use super::type_expectation::TypeExpectation;
 use super::{BlockChecker, StackEntry};
 
 impl<'a> BlockChecker<'a> {
@@ -254,7 +255,11 @@ impl<'a> BlockChecker<'a> {
         expected
     }
 
-    fn merge_expected_argument_type(&mut self, left: TypeId, right: TypeId) -> Option<TypeId> {
+    pub(super) fn merge_expected_argument_type(
+        &mut self,
+        left: TypeId,
+        right: TypeId,
+    ) -> Option<TypeId> {
         // The merged type is a lower-information expectation: common structure
         // is preserved, while positions that differ between outer overloads are
         // replaced by fresh variables so the inner producer can still solve
@@ -344,6 +349,8 @@ impl<'a> BlockChecker<'a> {
         stack: &[StackEntry],
         inner_pos: usize,
         min_func_pos: usize,
+        inner_args_to_take: usize,
+        expected: Option<TypeExpectation>,
     ) -> Option<TypeId> {
         for j in (min_func_pos..inner_pos).rev() {
             if self.is_unresolved_overloaded_callable_entry(&stack[j]) {
@@ -365,7 +372,7 @@ impl<'a> BlockChecker<'a> {
             if !stack[j].auto_call {
                 continue;
             }
-            let Some((params, _result, _effect)) = self.function_signature_for_entry(&stack[j])
+            let Some((params, result, _effect)) = self.function_signature_for_entry(&stack[j])
             else {
                 continue;
             };
@@ -388,6 +395,30 @@ impl<'a> BlockChecker<'a> {
             let arg_idx = capture_len + user_arg_idx;
             if arg_idx >= total_arity {
                 continue;
+            }
+            let consume_unit_sugar = arity == 0
+                && stack
+                    .get(j + 1)
+                    .map(|entry| matches!(entry.expr.kind, HirExprKind::Unit))
+                    .unwrap_or(false);
+            let args_to_take = arity + if consume_unit_sugar { 1 } else { 0 };
+            // The expected type attached to the complete outer call can refine
+            // generic return variables before we ask that same call for the
+            // expected type of the inner argument currently being reduced. A
+            // failed speculative unification must be rolled back so an
+            // unrelated outer call cannot leave partial type bindings behind.
+            if let Some(expectation) = expected.and_then(|expectation| {
+                expectation.call_result_expectation_after_args(
+                    stack.len().saturating_sub(inner_args_to_take),
+                    args_to_take,
+                )
+            }) {
+                let checkpoint = self.ctx.checkpoint();
+                if self.ctx.unify(result, expectation.target()).is_ok() {
+                    self.ctx.commit(checkpoint);
+                } else {
+                    self.ctx.rollback(checkpoint);
+                }
             }
             // Slots after the current argument may still be arguments to the
             // nested callable being reduced, not siblings of the outer call.

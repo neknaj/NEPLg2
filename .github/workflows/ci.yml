@@ -400,44 +400,84 @@ jobs:
                 include:
                     - id: tests-shard-1
                       inputs: "-i tests"
-                      shard: "1/4"
+                      shard: "1/8"
                       tree_flag: "--with-tree"
                       output: tests-dual-tests-shard-1.json
                     - id: tests-shard-2
                       inputs: "-i tests"
-                      shard: "2/4"
+                      shard: "2/8"
                       tree_flag: "--no-tree"
                       output: tests-dual-tests-shard-2.json
                     - id: tests-shard-3
                       inputs: "-i tests"
-                      shard: "3/4"
+                      shard: "3/8"
                       tree_flag: "--no-tree"
                       output: tests-dual-tests-shard-3.json
                     - id: tests-shard-4
                       inputs: "-i tests"
-                      shard: "4/4"
+                      shard: "4/8"
                       tree_flag: "--no-tree"
                       output: tests-dual-tests-shard-4.json
+                    - id: tests-shard-5
+                      inputs: "-i tests"
+                      shard: "5/8"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-tests-shard-5.json
+                    - id: tests-shard-6
+                      inputs: "-i tests"
+                      shard: "6/8"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-tests-shard-6.json
+                    - id: tests-shard-7
+                      inputs: "-i tests"
+                      shard: "7/8"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-tests-shard-7.json
+                    - id: tests-shard-8
+                      inputs: "-i tests"
+                      shard: "8/8"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-tests-shard-8.json
                     - id: stdlib-shard-1
                       inputs: "-i stdlib"
-                      shard: "1/4"
+                      shard: "1/8"
                       tree_flag: "--no-tree"
                       output: tests-dual-stdlib-shard-1.json
                     - id: stdlib-shard-2
                       inputs: "-i stdlib"
-                      shard: "2/4"
+                      shard: "2/8"
                       tree_flag: "--no-tree"
                       output: tests-dual-stdlib-shard-2.json
                     - id: stdlib-shard-3
                       inputs: "-i stdlib"
-                      shard: "3/4"
+                      shard: "3/8"
                       tree_flag: "--no-tree"
                       output: tests-dual-stdlib-shard-3.json
                     - id: stdlib-shard-4
                       inputs: "-i stdlib"
-                      shard: "4/4"
+                      shard: "4/8"
                       tree_flag: "--no-tree"
                       output: tests-dual-stdlib-shard-4.json
+                    - id: stdlib-shard-5
+                      inputs: "-i stdlib"
+                      shard: "5/8"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-stdlib-shard-5.json
+                    - id: stdlib-shard-6
+                      inputs: "-i stdlib"
+                      shard: "6/8"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-stdlib-shard-6.json
+                    - id: stdlib-shard-7
+                      inputs: "-i stdlib"
+                      shard: "7/8"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-stdlib-shard-7.json
+                    - id: stdlib-shard-8
+                      inputs: "-i stdlib"
+                      shard: "8/8"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-stdlib-shard-8.json
 
         env:
             LLVM_VERSION: "21.1.0"
@@ -575,6 +615,9 @@ jobs:
         timeout-minutes: 10
 
         steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
             - name: Download bootstrap build artifacts
               uses: actions/download-artifact@v4
               with:
