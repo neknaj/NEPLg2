@@ -5260,6 +5260,91 @@ impl CompilerSession {
         Ok(warmed)
     }
 
+    /// entry source から到達する bundled stdlib dependency の `.neplmeta` を作る。
+    ///
+    /// `prewarm_loader_cache_for_source` は parser / loader query だけを warm する軽量な
+    /// API である。一方、この API は import / prelude edge probe を収集し、対象 stdlib
+    /// module を typecheck して public interface artifact を `NeplMetaArtifactStore` へ
+    /// 保存する。Resource IR proof、typed HIR、codegen fragment は生成しない。
+    ///
+    /// これは明示 preseed API であり、通常 compile path から暗黙には呼ばない。初回
+    /// compile の前に artifact を用意する将来の disk / IndexedDB backed `.neplmeta`
+    /// 実装と同じ invalidation 境界を、既存 in-memory store で先に検証するためである。
+    pub fn preseed_nepl_meta_artifacts_for_source(
+        &self,
+        entry_path: &str,
+        source: &str,
+    ) -> Result<usize, JsValue> {
+        self.preseed_nepl_meta_artifacts_for_source_and_profile(
+            entry_path,
+            source,
+            BuildProfile::default_source_profile(),
+        )
+    }
+
+    /// profile を指定して bundled stdlib dependency の `.neplmeta` を作る。
+    ///
+    /// `.neplmeta` header は profile を key に含むため、debug compile 用と release compile
+    /// 用の artifact は別物として扱う。現在の store は module path ごとに 1 artifact を
+    /// 保持するため、この API は呼び出し元が次に実行する compile profile と同じ profile を
+    /// 指定する前提で使う。
+    pub fn preseed_nepl_meta_artifacts_for_source_with_profile(
+        &self,
+        entry_path: &str,
+        source: &str,
+        profile: &str,
+    ) -> Result<usize, JsValue> {
+        let profile = parse_profile(profile)
+            .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
+        self.preseed_nepl_meta_artifacts_for_source_and_profile(entry_path, source, profile)
+    }
+
+    fn preseed_nepl_meta_artifacts_for_source_and_profile(
+        &self,
+        entry_path: &str,
+        source: &str,
+        profile: BuildProfile,
+    ) -> Result<usize, JsValue> {
+        let stdlib_content_hash = bundled_stdlib_hash_u64();
+        let mut loader = Loader::new(self.stdlib_root.clone());
+        let mut cache = self.loader_cache.borrow_mut();
+        let mut provider = |path: &PathBuf| {
+            self.bundled_sources
+                .get(path)
+                .map(|src| (*src).to_string())
+                .ok_or_else(|| {
+                    nepl_core::loader::LoaderError::Io(format!(
+                        "missing bundled stdlib source during .neplmeta preseed: {}",
+                        path.display()
+                    ))
+                })
+        };
+        let loaded = loader
+            .load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
+                PathBuf::from(entry_path),
+                source.to_string(),
+                &mut provider,
+                &mut cache,
+            )
+            .map_err(|e| JsValue::from_str(&render_loader_error(e, loader.source_map())))?;
+        let before = self.nepl_meta_artifact_store.borrow().len();
+        {
+            let mut store = self.nepl_meta_artifact_store.borrow_mut();
+            populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
+                &mut store,
+                profile,
+                stdlib_content_hash,
+                &self.stdlib_root,
+                &self.bundled_sources,
+                &BTreeMap::new(),
+                Some(&mut cache),
+                &loaded.nepl_meta_edge_probes,
+            );
+        }
+        let after = self.nepl_meta_artifact_store.borrow().len();
+        Ok(after.saturating_sub(before))
+    }
+
     pub fn compile_source_with_vfs_and_profile(
         &self,
         entry_path: &str,

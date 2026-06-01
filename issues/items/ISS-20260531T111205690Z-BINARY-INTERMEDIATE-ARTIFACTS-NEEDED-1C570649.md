@@ -675,3 +675,31 @@ materialized public surface の fallback blocker を取り除く checkpoint で�
 `.nepl...` codec、bundled stdlib `.neplmeta` / `.neplproof` preseed、generic instantiation hash、
 string/data relocation、raw LLVM body、function value / memoized function value backend、
 `memo_call` PrivateCache proof は未完了である。
+
+## 2026-06-02 explicit `.neplmeta` preseed API checkpoint
+
+Web `CompilerSession` に明示 preseed API を追加した。`preseed_nepl_meta_artifacts_for_source` は
+root source の import / prelude edge probe を収集し、到達した bundled stdlib dependency module を
+typecheck して `.neplmeta` public interface artifact を same-session store に保存する。
+`preseed_nepl_meta_artifacts_for_source_with_profile` は同じ処理を debug / release profile 指定で行う。
+
+通常の `prewarm_loader_cache_for_source` は loader / parser query だけを warm する契約のまま維持する。
+preseed は typecheck を伴うため、通常 compile path から暗黙には呼ばない。これは compile 時間を
+prewarm に移しただけの測定を避け、将来の persistent `.neplmeta` codec / IndexedDB / disk artifact が
+同じ invalidation boundary で compile 前に artifact を用意できるかを測るための入口である。
+
+Web regression では、fresh `CompilerSession` が暗黙の `.neplmeta` dependency artifact を持たないこと、
+明示 preseed が store entry を増やすこと、preseed 後の初回 compile が missing artifact ではなく
+pre-typecheck edge projection を試すことを固定した。
+
+`nodesrc/bench_materialized_compile_fallbacks.js` には `--preseed-neplmeta` を追加し、JSON の
+`preseed` に availability、artifact count、elapsed ms、error を出すようにした。実測では
+`tmp/neplmeta-preseed-api-baseline-20260602.json` が cold base `compile_ms=438`、warm store probe
+`compile_ms=229`、body edit repeat `compile_ms=22` で、`tmp/neplmeta-preseed-api-enabled-20260602.json`
+は `preseed.artifact_count=40`、`preseed.elapsed_ms=373`、preseed 後 cold base `compile_ms=261`、
+warm store probe `compile_ms=23`、body edit repeat `compile_ms=23` だった。
+
+この checkpoint は in-memory preseed の入口であり、issue は open のまま維持する。残件は persistent
+`.neplmeta` codec、bundled stdlib artifact embedding、`.neplproof` preseed、generic/string/raw body
+を含む `.neplobj` の永続化、function value / memoized function value backend、`memo_call` PrivateCache
+proof である。

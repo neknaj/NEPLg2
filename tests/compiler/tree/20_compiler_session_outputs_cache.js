@@ -705,6 +705,48 @@ fn main %fn unit i32 \\unit:
             'object candidate availability must keep the materialized compile probe open instead of hiding it behind the body-missing skip cache',
         );
 
+        const preseedSession = newSession(api);
+        assert.equal(
+            typeof preseedSession.preseed_nepl_meta_artifacts_for_source,
+            'function',
+            'CompilerSession must expose an explicit .neplmeta preseed API separate from loader prewarm',
+        );
+        const preseedSource = charDependencyBodySource(9);
+        assert.equal(
+            neplMetaStoreStats(preseedSession).entries,
+            0,
+            'a fresh CompilerSession must start without implicit .neplmeta dependency artifacts',
+        );
+        const preseededArtifacts = preseedSession.preseed_nepl_meta_artifacts_for_source(
+            '/virtual/neplmeta_preseed_char_dependency.nepl',
+            preseedSource,
+        );
+        assert.ok(
+            preseededArtifacts > 0,
+            'explicit preseed must compile reachable bundled stdlib dependency interfaces into the .neplmeta store',
+        );
+        assert.ok(
+            neplMetaStoreStats(preseedSession).entries >= preseededArtifacts,
+            'explicit preseed must store real .neplmeta artifacts before the first compile',
+        );
+        const preseedBeforeCompile = neplMetaPreTypecheckEdgeProbeStats(preseedSession);
+        preseedSession.compile_outputs_with_vfs(
+            '/virtual/neplmeta_preseed_char_dependency.nepl',
+            preseedSource,
+            {},
+            ['wasm'],
+            false,
+        );
+        const preseedAfterCompile = neplMetaPreTypecheckEdgeProbeStats(preseedSession);
+        assert.ok(
+            preseedAfterCompile.attempts > preseedBeforeCompile.attempts,
+            'a preseeded first compile must probe stored .neplmeta artifacts instead of reporting them as absent',
+        );
+        assert.ok(
+            preseedAfterCompile.projected > preseedBeforeCompile.projected,
+            'a preseeded first compile must project at least one bundled stdlib public surface',
+        );
+
         const stdlibOverlaySession = newSession(api);
         const stdlibOverlaySource = `#entry main
 #import "std/prelude_base" as *
@@ -806,6 +848,6 @@ fn main %fn unit i32 \\unit:
             '#include must not be treated as a dependency artifact edge',
         );
 
-        return { checked: 14 };
+        return { checked: 15 };
     },
 };

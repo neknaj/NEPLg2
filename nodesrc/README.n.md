@@ -75,11 +75,14 @@ Node.js から compiler/runtime を[呼/よ]び[出/だ]す CLI です。
 
 同じ `CompilerSession` で `.neplmeta` store を[温/あたた]めながら cold / warm edit compile を[順番/じゅんばん]に[実行/じっこう]し、materialized compile fallback と `.neplobj` candidate surface [数/すう]を JSON で[出力/しゅつりょく]します。
 
+`--preseed-neplmeta` を[付/つ]けると、最初の compile の[前/まえ]に `CompilerSession` の[明示的/めいじてき]な `.neplmeta` preseed API を[呼/よ]びます。[結果/けっか] JSON の `preseed` には、preseed API が[利用/りよう][可能/かのう]だったか、[保存/ほぞん]した artifact [数/すう]、preseed [時間/じかん]、error を[分/わ]けて[出/だ]します。これは compile [本体/ほんたい]の `compile_ms` と、事前 artifact [準備/じゅんび]の[時間/じかん]を[混/ま]ぜないためです。
+
 ### [主/おも]な[用途/ようと]
 
 - `body_missing_candidate_surfaces_delta_sum` が[増/ふ]える compile を[探/さが]し、`.neplobj` の[最初/さいしょ]の[対象/たいしょう]を[決/き]める
 - `materialized_fallback_diagnostic_code_counts` で `.neplobj` body missing ではない source fallback の[原因/げんいん]を typed diagnostic code ごとに[分解/ぶんかい]する
 - `compile_ms` と `resource_static_check` / `resource_typecheck` / `wasm_codegen` の stage timing を、同じ session の artifact [温度/おんど]と[一緒/いっしょ]に[確認/かくにん]する
+- bundled stdlib `.neplmeta` を[初回/しょかい] compile [前/まえ]に[用意/ようい]した[場合/ばあい]の compile [本体/ほんたい]の[短縮/たんしゅく]と、preseed [準備/じゅんび][費用/ひよう]を[別々/べつべつ]に[測/はか]る
 
 ## `compiler_loader.js`
 

@@ -2877,6 +2877,34 @@ bundled stdlib preseed の完成を意味しない。base compile_ms の一般�
 preseed、persistent `.nepl...` codec、generic instantiation、string/data relocation、raw LLVM body、
 function value / memoized function value backend、`memo_call` PrivateCache proof を別境界として進める。
 
+## 2026-06-02 explicit `.neplmeta` preseed API checkpoint
+
+Web `CompilerSession` に `preseed_nepl_meta_artifacts_for_source` と
+`preseed_nepl_meta_artifacts_for_source_with_profile` を追加した。これは通常の
+`prewarm_loader_cache_for_source` とは別の明示 API である。
+
+`prewarm_loader_cache_for_source` は parser / loader query だけを warm し、typed HIR、
+Resource IR proof、codegen fragment、dependency public surface artifact を作らない。新しい preseed
+API は root source から import / prelude edge probe を収集し、対象 bundled stdlib module を
+typecheck して `.neplmeta` public interface artifact を same-session `NeplMetaArtifactStore` へ保存する。
+Resource IR static check や wasm codegen は実行しない。
+
+この API を通常 compile path から暗黙に呼ばない理由は、preseed が typecheck を伴う重い処理だからである。
+Web playground の表示上の compile 時間を下げるために前処理へ時間を移すだけでは性能改善ではない。JSON
+bench では `preseed.elapsed_ms` と各 run の `compile_ms` を分け、永続 `.neplmeta` / IndexedDB / disk
+cache が将来この preseed cost を compile 前に支払えるかを評価する。
+
+`tmp/neplmeta-preseed-api-baseline-20260602.json` では preseed なしの `core/char` fixture が cold base
+`compile_ms=438`、warm store probe `compile_ms=229`、body edit repeat `compile_ms=22` だった。
+`tmp/neplmeta-preseed-api-enabled-20260602.json` では `preseed.artifact_count=40`、
+`preseed.elapsed_ms=373`、preseed 後の cold base `compile_ms=261`、warm store probe
+`compile_ms=23`、body edit repeat `compile_ms=23` だった。
+
+これは、初回 compile 前に `.neplmeta` を用意できれば compile 本体は短くなることを示す。一方で、現状の
+in-memory preseed は同じ処理を compile 直前に実行するため、総時間の目標達成ではない。次の根本対応は
+persistent `.neplmeta` codec、bundled stdlib artifact embedding、`.neplproof` preseed、そして
+`.neplobj` direct-call fragment の persistent store である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
