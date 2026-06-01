@@ -1,3 +1,16 @@
+# 2026-06-01 .neplmeta materializer MVP gate checkpoint
+
+- Zenn 記事の静的検査、enum / struct による authority 明示、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
+- branch `perf/neplmeta-materializer-mvp-20260601` は remote/main の `56252902 Add neplmeta export surface` から作成した。
+- subagent review で、最初の materializer checkpoint は body skip や `TypeCtx` / `Env` 注入へ進まず、artifact-level gate と stats に留めるべきと確認した。
+- `NeplMetaArtifact::materializer_mvp_reject` と `NeplMetaMaterializerMvpReject` を追加し、payload consistency、module surface、export surface、module identity、public surface preflight blocker、unsupported import projection を fail-closed enum reason で判定するようにした。
+- MVP gate は local export、`ImportClause::Open`、alias なし selective import だけを受け入れる。`Include` は AST inline 境界なので拒否し、`Merge`、default alias、alias、glob、`Impl` lookup も通常 typecheck fallback に戻す。
+- Web `CompilerSession` stats JSON に `nepl_meta_artifact_materializer_mvp_ready` と `nepl_meta_artifact_materializer_mvp_reject_code` を追加した。ready は body skip 成功ではなく、次 checkpoint の materializer へ渡せる前提条件だけを表す。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7` に checkpoint を追記した。
+- 現時点の focused verification は `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core source_import_surface_preserves_clause_visibility_and_order --lib -- --nocapture` を通した。
+- `trunk build --release` 後の Node smoke で stats JSON の `nepl_meta_artifact_materializer_mvp_ready=false`、`nepl_meta_artifact_materializer_mvp_reject_code=6`、`nepl_meta_artifact_present=true` を確認した。現時点の minimal program は SourceMap 由来の stable link symbol を持たない surface が残るため、body skip へ進まず preflight blocker で正しく止まっている。
+- 残件: `typecheck/materializer` を追加し、`PublicTypeTerm -> TypeId` 復元、local public callable の `Env` 注入、Open / simple named import projection を小さく実装する。
+
 # 2026-06-01 .neplmeta export surface checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋 query cache、責務分割、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。

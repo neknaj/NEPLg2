@@ -61,8 +61,9 @@ pub use artifact::{
     nepl_meta_profile_hash, nepl_meta_target_hash, NeplMetaArtifact,
     NeplMetaArtifactCompatibilityReject, NeplMetaArtifactHeader, NeplMetaArtifactPayloadReject,
     NeplMetaExportEntry, NeplMetaExportKind, NeplMetaExportSurface, NeplMetaImportClause,
-    NeplMetaImportItem, NeplMetaModuleDependencyEdge, NeplMetaModuleDependencyKind,
-    NeplMetaModuleSurface, NeplMetaReexportProjection, NeplMetaVisibility,
+    NeplMetaImportItem, NeplMetaMaterializerMvpReject, NeplMetaModuleDependencyEdge,
+    NeplMetaModuleDependencyKind, NeplMetaModuleSurface, NeplMetaReexportProjection,
+    NeplMetaVisibility,
 };
 pub use compiler::{
     check_module, check_module_with_source_map, compile_module,

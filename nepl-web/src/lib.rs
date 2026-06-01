@@ -3840,6 +3840,25 @@ impl CompilerSession {
                 .unwrap_or(0)
                 .to_string(),
         );
+        let nepl_meta_materializer_mvp_reject = nepl_meta_artifact
+            .as_ref()
+            .and_then(|artifact| artifact.materializer_mvp_reject());
+        out.push_str(",\"nepl_meta_artifact_materializer_mvp_ready\":");
+        let materializer_mvp_ready =
+            nepl_meta_artifact.is_some() && nepl_meta_materializer_mvp_reject.is_none();
+        out.push_str(if materializer_mvp_ready {
+            "true"
+        } else {
+            "false"
+        });
+        out.push_str(",\"nepl_meta_artifact_materializer_mvp_reject_code\":");
+        out.push_str(
+            &nepl_meta_materializer_mvp_reject
+                .as_ref()
+                .map(|reject| reject.code())
+                .unwrap_or(0)
+                .to_string(),
+        );
         out.push_str(",\"nepl_meta_artifact_structured_public_surface_entries\":");
         out.push_str(
             &nepl_meta_header

@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T05:36:38.667Z",
+  "generated_at": "2026-06-01T05:46:52.871Z",
   "counts": {
     "total": 1300,
     "open": 29,
@@ -423,8 +423,8 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-05-31",
-      "target": "nepl-core/src/typecheck; nepl-core/src/loader.rs",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/typecheck; nepl-core/src/loader.rs; nepl-core/src/artifact.rs; nepl-web/src/lib.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7.md"

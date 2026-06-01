@@ -2,7 +2,10 @@ extern crate alloc;
 
 use crate::compiler::{BuildProfile, CompileTarget};
 use crate::source_map::SourceMap;
-use crate::typecheck::{TypedPublicSignatureTable, TypedPublicSurfaceTable};
+use crate::typecheck::{
+    PublicSurfaceMaterializerBlockerReason, TypedPublicSignatureKind,
+    TypedPublicSignatureTable, TypedPublicSurfaceTable,
+};
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -451,6 +454,60 @@ impl NeplMetaArtifact {
         &self.public_surface
     }
 
+    /// `.neplmeta` を stdlib public surface materializer MVP へ渡せるかを判定する。
+    ///
+    /// この判定は body skip そのものではなく、artifact payload が current compile の
+    /// `TypeCtx` / `Env` へ安全に投影できる最小条件を満たすかを確認する gate である。
+    /// 未対応の import clause や impl lookup は推測で補わず、通常の source load /
+    /// typecheck へ戻すために enum reason として返す。
+    pub fn materializer_mvp_reject(&self) -> Option<NeplMetaMaterializerMvpReject> {
+        if let Some(reject) = self.payload_consistency_reject() {
+            return Some(NeplMetaMaterializerMvpReject::PayloadConsistency(reject));
+        }
+        let module_surface = match self.module_surface.as_ref() {
+            Some(surface) => surface,
+            None => return Some(NeplMetaMaterializerMvpReject::MissingModuleSurface),
+        };
+        if module_surface.canonical_module_path.is_empty() {
+            return Some(NeplMetaMaterializerMvpReject::MissingModuleIdentity);
+        }
+        let export_surface = match self.export_surface.as_ref() {
+            Some(surface) => surface,
+            None => return Some(NeplMetaMaterializerMvpReject::MissingExportSurface),
+        };
+        if let Some(blocker) = self.public_surface.materializer_blockers().into_iter().next() {
+            return Some(NeplMetaMaterializerMvpReject::PublicSurfaceBlocker(
+                blocker.reason,
+            ));
+        }
+        if self
+            .public_surface
+            .entries
+            .iter()
+            .any(|entry| entry.kind == TypedPublicSignatureKind::Impl)
+        {
+            return Some(NeplMetaMaterializerMvpReject::UnsupportedImplLookup);
+        }
+        for edge in &module_surface.dependency_edges {
+            if let Some(reject) =
+                materializer_mvp_reject_for_edge(edge.kind, edge.import_clause.as_ref())
+            {
+                return Some(reject);
+            }
+        }
+        for projection in &export_surface.reexport_projections {
+            if projection.target_module_path.is_empty() {
+                return Some(NeplMetaMaterializerMvpReject::MissingReexportTarget);
+            }
+            if let Some(reject) =
+                materializer_mvp_reject_for_edge(projection.kind, projection.import_clause.as_ref())
+            {
+                return Some(reject);
+            }
+        }
+        None
+    }
+
     pub fn compatibility_reject(
         &self,
         expected_header: NeplMetaArtifactHeader,
@@ -534,6 +591,39 @@ pub enum NeplMetaArtifactPayloadReject {
     StructuredPublicSurfaceEntryCount,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NeplMetaMaterializerMvpReject {
+    PayloadConsistency(NeplMetaArtifactPayloadReject),
+    MissingModuleSurface,
+    MissingExportSurface,
+    MissingModuleIdentity,
+    MissingReexportTarget,
+    PublicSurfaceBlocker(PublicSurfaceMaterializerBlockerReason),
+    UnsupportedInclude,
+    UnsupportedMerge,
+    UnsupportedAlias,
+    UnsupportedGlob,
+    UnsupportedImplLookup,
+}
+
+impl NeplMetaMaterializerMvpReject {
+    pub fn code(&self) -> u32 {
+        match self {
+            Self::PayloadConsistency(_) => 1,
+            Self::MissingModuleSurface => 2,
+            Self::MissingExportSurface => 3,
+            Self::MissingModuleIdentity => 4,
+            Self::MissingReexportTarget => 5,
+            Self::PublicSurfaceBlocker(_) => 6,
+            Self::UnsupportedInclude => 7,
+            Self::UnsupportedMerge => 8,
+            Self::UnsupportedAlias => 9,
+            Self::UnsupportedGlob => 10,
+            Self::UnsupportedImplLookup => 11,
+        }
+    }
+}
+
 pub fn nepl_meta_artifact_header_for_public_surface(
     target: CompileTarget,
     profile: BuildProfile,
@@ -603,6 +693,35 @@ fn nepl_meta_export_surface_hash(
         hash_reexport_projection(&mut hash, projection);
     }
     hash
+}
+
+fn materializer_mvp_reject_for_edge(
+    kind: NeplMetaModuleDependencyKind,
+    import_clause: Option<&NeplMetaImportClause>,
+) -> Option<NeplMetaMaterializerMvpReject> {
+    if kind == NeplMetaModuleDependencyKind::Include {
+        return Some(NeplMetaMaterializerMvpReject::UnsupportedInclude);
+    }
+    match import_clause {
+        Some(NeplMetaImportClause::DefaultAlias | NeplMetaImportClause::Alias(_)) => {
+            Some(NeplMetaMaterializerMvpReject::UnsupportedAlias)
+        }
+        Some(NeplMetaImportClause::Merge) => {
+            Some(NeplMetaMaterializerMvpReject::UnsupportedMerge)
+        }
+        Some(NeplMetaImportClause::Selective(items)) => {
+            for item in items {
+                if item.glob {
+                    return Some(NeplMetaMaterializerMvpReject::UnsupportedGlob);
+                }
+                if item.alias.is_some() {
+                    return Some(NeplMetaMaterializerMvpReject::UnsupportedAlias);
+                }
+            }
+            None
+        }
+        Some(NeplMetaImportClause::Open) | None => None,
+    }
 }
 
 fn hash_export_entry(hash: &mut u64, entry: &NeplMetaExportEntry) {
@@ -773,15 +892,15 @@ mod tests {
     use super::{
         nepl_meta_artifact_header_for_public_surface, NeplMetaArtifact,
         NeplMetaArtifactCompatibilityReject, NeplMetaArtifactHeader, NeplMetaArtifactPayloadReject,
-        NeplMetaExportKind, NeplMetaExportSurface, NeplMetaImportClause,
-        NeplMetaModuleDependencyEdge, NeplMetaModuleDependencyKind, NeplMetaModuleSurface,
-        NeplMetaVisibility,
+        NeplMetaExportKind, NeplMetaExportSurface, NeplMetaImportClause, NeplMetaImportItem,
+        NeplMetaMaterializerMvpReject, NeplMetaModuleDependencyEdge,
+        NeplMetaModuleDependencyKind, NeplMetaModuleSurface, NeplMetaVisibility,
     };
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::typecheck::{
-        PublicCallableSurface, PublicEffect, PublicSurfaceShape, PublicTypeTerm,
-        TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
-        TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
+        PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicSurfaceShape,
+        PublicTypeTerm, TypedPublicSignatureEntry, TypedPublicSignatureKind,
+        TypedPublicSignatureTable, TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
     };
 
     fn signature_table(name: &str, signature: &str) -> TypedPublicSignatureTable {
@@ -814,6 +933,31 @@ mod tests {
         }]))
     }
 
+    fn materializable_surface_table(name: &str, result: PublicTypeTerm) -> TypedPublicSurfaceTable {
+        TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Callable,
+            name: name.into(),
+            surface: PublicSurfaceShape::Callable(PublicCallableSurface {
+                ty: PublicTypeTerm::Function {
+                    type_params: Vec::new(),
+                    params: Vec::from([PublicTypeTerm::Unit]),
+                    result: alloc::boxed::Box::new(result),
+                    effect: PublicEffect::Pure,
+                },
+                no_shadow: false,
+                arity: 1,
+                effect: PublicEffect::Pure,
+                field_accessor: None,
+                link_symbol: Some(PublicCallableLinkSymbol {
+                    source_path: "/stdlib/core/math.nepl".into(),
+                    name: name.into(),
+                    signature_hash: 42,
+                }),
+                type_param_bounds: Vec::new(),
+            }),
+        }]))
+    }
+
     fn test_header(
         public_signatures: &TypedPublicSignatureTable,
         module_surface: Option<&NeplMetaModuleSurface>,
@@ -837,11 +981,8 @@ mod tests {
     }
 
     fn module_surface(path: &str) -> NeplMetaModuleSurface {
-        NeplMetaModuleSurface::new(
-            path.into(),
-            "/stdlib/std/prelude_base.nepl".into(),
-            false,
-            true,
+        module_surface_with_edges(
+            path,
             Vec::from([NeplMetaModuleDependencyEdge {
                 kind: NeplMetaModuleDependencyKind::Import,
                 target_path: "/stdlib/core/result.nepl".into(),
@@ -850,6 +991,40 @@ mod tests {
                 public_reexport: true,
                 source_order: 0,
             }]),
+        )
+    }
+
+    fn module_surface_with_edges(
+        path: &str,
+        edges: Vec<NeplMetaModuleDependencyEdge>,
+    ) -> NeplMetaModuleSurface {
+        NeplMetaModuleSurface::new(
+            path.into(),
+            "/stdlib/std/prelude_base.nepl".into(),
+            false,
+            true,
+            edges,
+        )
+    }
+
+    fn artifact_for_materializer(
+        module_surface: NeplMetaModuleSurface,
+        public_surface: TypedPublicSurfaceTable,
+    ) -> NeplMetaArtifact {
+        let public_signatures = signature_table("answer", "fn unit i32");
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
+        NeplMetaArtifact::new(
+            test_header(
+                &public_signatures,
+                Some(&module_surface),
+                &public_surface,
+                None,
+            ),
+            public_signatures,
+            Some(module_surface),
+            Some(export_surface),
+            public_surface,
         )
     }
 
@@ -1045,6 +1220,109 @@ mod tests {
         assert_eq!(
             artifact.payload_consistency_reject(),
             Some(NeplMetaArtifactPayloadReject::ExportSurfaceHash)
+        );
+    }
+
+    /// materializer MVP gate は artifact 全体の fail-closed 条件を一か所で判定する。
+    /// Open re-export と stable link symbol を持つ primitive callable だけなら、body skip
+    /// の次段階へ進める候補として扱える。
+    #[test]
+    fn neplmeta_materializer_mvp_accepts_open_reexport_and_local_callable() {
+        let artifact = artifact_for_materializer(
+            module_surface("/stdlib/core/math.nepl"),
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+
+        assert_eq!(artifact.materializer_mvp_reject(), None);
+    }
+
+    /// stable link symbol のない callable は、fresh session の ABI symbol へ安全に
+    /// 再投影できない。MVP gate は public surface preflight の blocker をそのまま
+    /// reject reason として返す。
+    #[test]
+    fn neplmeta_materializer_mvp_rejects_public_surface_blocker() {
+        let artifact = artifact_for_materializer(
+            module_surface("/stdlib/core/math.nepl"),
+            surface_table("answer", PublicTypeTerm::I32),
+        );
+
+        assert!(matches!(
+            artifact.materializer_mvp_reject(),
+            Some(NeplMetaMaterializerMvpReject::PublicSurfaceBlocker(_))
+        ));
+    }
+
+    /// include は現行 loader では AST inline 境界であり、import / re-export と同じ
+    /// materializer authority として扱えない。MVP では推測せず通常 load へ戻す。
+    #[test]
+    fn neplmeta_materializer_mvp_rejects_include_edge() {
+        let artifact = artifact_for_materializer(
+            module_surface_with_edges(
+                "/stdlib/core/math.nepl",
+                Vec::from([NeplMetaModuleDependencyEdge {
+                    kind: NeplMetaModuleDependencyKind::Include,
+                    target_path: "/stdlib/core/result.nepl".into(),
+                    visibility: NeplMetaVisibility::Pub,
+                    import_clause: None,
+                    public_reexport: true,
+                    source_order: 0,
+                }]),
+            ),
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+
+        assert_eq!(
+            artifact.materializer_mvp_reject(),
+            Some(NeplMetaMaterializerMvpReject::UnsupportedInclude)
+        );
+    }
+
+    /// merge / alias / glob は target export artifact を読んだうえで衝突や曖昧性を
+    /// 判定する必要がある。MVP gate はこれらを個別 reason で fail-closed にする。
+    #[test]
+    fn neplmeta_materializer_mvp_rejects_unsupported_import_projection() {
+        let alias_artifact = artifact_for_materializer(
+            module_surface_with_edges(
+                "/stdlib/core/math.nepl",
+                Vec::from([NeplMetaModuleDependencyEdge {
+                    kind: NeplMetaModuleDependencyKind::Import,
+                    target_path: "/stdlib/core/result.nepl".into(),
+                    visibility: NeplMetaVisibility::Pub,
+                    import_clause: Some(NeplMetaImportClause::Alias("ResultAlias".into())),
+                    public_reexport: true,
+                    source_order: 0,
+                }]),
+            ),
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+        let glob_artifact = artifact_for_materializer(
+            module_surface_with_edges(
+                "/stdlib/core/math.nepl",
+                Vec::from([NeplMetaModuleDependencyEdge {
+                    kind: NeplMetaModuleDependencyKind::Import,
+                    target_path: "/stdlib/core/result.nepl".into(),
+                    visibility: NeplMetaVisibility::Pub,
+                    import_clause: Some(NeplMetaImportClause::Selective(Vec::from([
+                        NeplMetaImportItem {
+                            name: "Result".into(),
+                            alias: None,
+                            glob: true,
+                        },
+                    ]))),
+                    public_reexport: true,
+                    source_order: 0,
+                }]),
+            ),
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+
+        assert_eq!(
+            alias_artifact.materializer_mvp_reject(),
+            Some(NeplMetaMaterializerMvpReject::UnsupportedAlias)
+        );
+        assert_eq!(
+            glob_artifact.materializer_mvp_reject(),
+            Some(NeplMetaMaterializerMvpReject::UnsupportedGlob)
         );
     }
 }

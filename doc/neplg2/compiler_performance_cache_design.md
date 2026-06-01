@@ -1775,6 +1775,33 @@ export surface hash を追加した。
 `ImportClause::Open`、simple named import を fail-closed に materialize し、未対応の include、
 merge、alias collision、glob ambiguity、impl lookup は通常 load / typecheck へ戻す。
 
+### 2026-06-01 `.neplmeta` materializer MVP gate checkpoint
+
+`.neplmeta` artifact に materializer MVP gate を追加した。
+
+この checkpoint はまだ dependency body skip や `TypeCtx` / `Env` 注入を行わない。目的は、
+body skip の前段で artifact 全体が stdlib public surface materializer へ渡せるかを
+fail-closed な enum reason で判定し、Web / Node の stats JSON から観測できるようにすることである。
+
+`NeplMetaArtifact::materializer_mvp_reject` は、payload consistency、module surface、export
+surface、module identity、public surface preflight blocker、unsupported import projection を
+一か所で確認する。`Impl` は名前 export ではなく trait lookup authority なので、この MVP gate では
+`UnsupportedImplLookup` として通常 typecheck へ戻す。
+
+MVP gate が受け入れる範囲は、local export と `ImportClause::Open`、alias なし selective import である。
+`include` は現行 loader では AST inline 境界なので import と同一視しない。`merge`、default alias、
+alias、glob は target artifact と collision / ambiguity 判定なしに展開できないため、専用 reason で
+拒否する。
+
+Web `CompilerSession` stats JSON には `nepl_meta_artifact_materializer_mvp_ready` と
+`nepl_meta_artifact_materializer_mvp_reject_code` を追加した。現段階では ready が true でも
+「body skip してよい」という意味ではなく、次 checkpoint の `typecheck/materializer` で
+fresh `TypeCtx` / `Env` へ投影する前提条件が揃ったことだけを表す。
+
+次 checkpoint では、artifact-level gate と実際の typecheck materializer を分けたまま、
+`PublicTypeTerm -> TypeId` の復元、local public callable の `Env` 注入、Open / simple named import
+の projection を小さく実装する。
+
 ### 2026-06-01 LLVM dual CI shard checkpoint
 
 GitHub Actions run `26728316260` では、`llvm-dual-test` の `tests` / `stdlib`
