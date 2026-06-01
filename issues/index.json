@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T15:08:07.577Z",
+  "generated_at": "2026-06-01T15:15:23.622Z",
   "counts": {
-    "total": 1305,
+    "total": 1306,
     "open": 33,
-    "resolved": 1272,
+    "resolved": 1273,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -12,9 +12,9 @@
         "resolved": 326
       },
       "core": {
-        "total": 660,
+        "total": 661,
         "open": 26,
-        "resolved": 634
+        "resolved": 635
       },
       "neplg21": {
         "total": 2,
@@ -460,8 +460,8 @@
       "file": "items/ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10.md"
     },
     {
-      "id": "ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61",
-      "title": ".neplmeta callable reject needs fine-grained diagnostic and root fix",
+      "id": "ISS-20260601T151600000Z-NEPLMETA-CALLABLE-ARITY-MISMATCH-BLOCK-5C8E2B91",
+      "title": ".neplmeta callable arity mismatch blocks materialized stdlib body skip",
       "area": "core",
       "status": "open",
       "resolved": false,
@@ -469,10 +469,10 @@
       "type": "architecture",
       "created": "2026-06-01",
       "updated": "2026-06-01",
-      "target": "nepl-core/src/typecheck/materializer.rs; nepl-core/src/diagnostic_codes.rs; nepl-web/src/lib.rs; nodesrc/bench_materialized_compile_fallbacks.js",
+      "target": "nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/driver.rs; nodesrc/bench_materialized_compile_fallbacks.js",
       "legacy_id": "",
       "source": "",
-      "file": "items/ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61.md"
+      "file": "items/ISS-20260601T151600000Z-NEPLMETA-CALLABLE-ARITY-MISMATCH-BLOCK-5C8E2B91.md"
     },
     {
       "id": "ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2",
@@ -10253,6 +10253,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B.md"
+    },
+    {
+      "id": "ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61",
+      "title": ".neplmeta callable reject needs fine-grained diagnostic and root fix",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-01",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/typecheck/materializer.rs; nepl-core/src/diagnostic_codes.rs; nepl-web/src/lib.rs; nodesrc/bench_materialized_compile_fallbacks.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",

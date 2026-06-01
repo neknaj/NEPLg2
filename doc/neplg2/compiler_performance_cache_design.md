@@ -2466,6 +2466,18 @@ metadata で `get_field` / `get_field_ref` / `set_field` intrinsic へ落とせ�
 mismatch、callable type mismatch、arity mismatch、effect mismatch、signature hash mismatch を同じ
 coarse diagnostic に畳み込まない必要がある。
 
+## 2026-06-01 callable reject diagnostic detail checkpoint
+
+`PublicSurfaceMaterializeRejectReason` の callable metadata reject を個別の stable
+`TypeDiagnosticCode` に分けた。既存の `type.public_surface.materializer.callable_rejected` は互換性の
+ため残すが、missing link symbol、link name mismatch、callable type expected、arity mismatch、
+effect mismatch、signature hash mismatch はそれぞれ別 code として観測する。
+
+`tmp/materialized-callable-reject-detail-20260601.json` の実測では、warm compile 3 回すべてが
+`type.public_surface.materializer.callable.arity_mismatch` になった。これにより、次の root gap は
+`.neplobj` body fragment ではなく、`PublicCallableSurface.arity` と
+`PublicTypeTerm::Function.params` の生成 / materialize 境界であると分かった。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
@@ -2484,3 +2496,4 @@ coarse diagnostic に畳み込まない必要がある。
 - [ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1](../../issues/items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md)
 - [ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B](../../issues/items/ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B.md)
 - [ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61](../../issues/items/ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61.md)
+- [ISS-20260601T151600000Z-NEPLMETA-CALLABLE-ARITY-MISMATCH-BLOCK-5C8E2B91](../../issues/items/ISS-20260601T151600000Z-NEPLMETA-CALLABLE-ARITY-MISMATCH-BLOCK-5C8E2B91.md)

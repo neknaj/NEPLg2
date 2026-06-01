@@ -158,6 +158,12 @@ pub enum TypeDiagnosticCode {
     PublicSurfaceMaterializerEntryKindMismatch,
     PublicSurfaceMaterializerUnsupportedSurfaceKind,
     PublicSurfaceMaterializerCallableRejected,
+    PublicSurfaceMaterializerCallableMissingLinkSymbol,
+    PublicSurfaceMaterializerCallableLinkNameMismatch,
+    PublicSurfaceMaterializerCallableTypeExpected,
+    PublicSurfaceMaterializerCallableArityMismatch,
+    PublicSurfaceMaterializerCallableEffectMismatch,
+    PublicSurfaceMaterializerCallableSignatureHashMismatch,
     PublicSurfaceMaterializerFieldAccessorUnsupported,
     PublicSurfaceMaterializerTypeParamBoundsUnsupported,
     PublicSurfaceMaterializerConflict,
@@ -478,6 +484,12 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerEntryKindMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerUnsupportedSurfaceKind),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableRejected),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableMissingLinkSymbol),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableLinkNameMismatch),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableTypeExpected),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableArityMismatch),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableEffectMismatch),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableSignatureHashMismatch),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerTypeParamBoundsUnsupported),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerConflict),
@@ -969,6 +981,24 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::PublicSurfaceMaterializerCallableRejected => {
                 "type.public_surface.materializer.callable_rejected"
             }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableMissingLinkSymbol => {
+                "type.public_surface.materializer.callable.missing_link_symbol"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableLinkNameMismatch => {
+                "type.public_surface.materializer.callable.link_name_mismatch"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableTypeExpected => {
+                "type.public_surface.materializer.callable.type_expected"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableArityMismatch => {
+                "type.public_surface.materializer.callable.arity_mismatch"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableEffectMismatch => {
+                "type.public_surface.materializer.callable.effect_mismatch"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableSignatureHashMismatch => {
+                "type.public_surface.materializer.callable.signature_hash_mismatch"
+            }
             TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported => {
                 "type.public_surface.materializer.field_accessor_unsupported"
             }
@@ -1194,6 +1224,24 @@ impl TypeDiagnosticCode {
             }
             TypeDiagnosticCode::PublicSurfaceMaterializerCallableRejected => {
                 "public callable surface could not be materialized"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableMissingLinkSymbol => {
+                "public callable surface is missing a stable link symbol"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableLinkNameMismatch => {
+                "public callable stable link symbol name does not match the entry"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableTypeExpected => {
+                "public callable surface does not contain a function type"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableArityMismatch => {
+                "public callable surface arity does not match the function type"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableEffectMismatch => {
+                "public callable surface effect does not match the function type"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableSignatureHashMismatch => {
+                "public callable stable link symbol signature hash does not match the type"
             }
             TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported => {
                 "public field accessor surface is not supported by the materializer"

@@ -2,8 +2,8 @@
 id: ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61
 title: ".neplmeta callable reject needs fine-grained diagnostic and root fix"
 area: core
-status: open
-resolved: false
+status: fixed
+resolved: true
 priority: P1
 type: architecture
 created: 2026-06-01
@@ -60,6 +60,21 @@ target: "nepl-core/src/typecheck/materializer.rs; nepl-core/src/diagnostic_codes
 - callable metadata reject が missing link symbol / name mismatch / type expected / arity mismatch / effect mismatch / signature hash mismatch のいずれかの stable diagnostic code として出る。
 - `field_accessor_unsupported` は再発しない。
 - `.neplobj` body missing、memo_call、PrivateCache proof はこの issue では変更しない。
+
+## 解決
+
+`PublicSurfaceMaterializeRejectReason` の callable metadata reject を個別の `TypeDiagnosticCode` に写すようにした。
+
+既存の `type.public_surface.materializer.callable_rejected` は互換性のため残したが、既知の callable metadata reject 6 種は次の stable code へ分かれる。
+
+- `type.public_surface.materializer.callable.missing_link_symbol`
+- `type.public_surface.materializer.callable.link_name_mismatch`
+- `type.public_surface.materializer.callable.type_expected`
+- `type.public_surface.materializer.callable.arity_mismatch`
+- `type.public_surface.materializer.callable.effect_mismatch`
+- `type.public_surface.materializer.callable.signature_hash_mismatch`
+
+実測では `tmp/materialized-callable-reject-detail-20260601.json` の warm compile 3 回すべてが `type.public_surface.materializer.callable.arity_mismatch` になった。したがって次の root gap は arity metadata の生成または materializer 側検査であり、`.neplobj` body missing にはまだ到達していない。
 
 ## 検証
 

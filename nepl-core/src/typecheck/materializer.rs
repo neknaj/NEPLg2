@@ -196,13 +196,23 @@ impl PublicSurfaceMaterializeRejectReason {
             Self::UnsupportedSurfaceKind { .. } => {
                 TypeDiagnosticCode::PublicSurfaceMaterializerUnsupportedSurfaceKind
             }
-            Self::MissingCallableLinkSymbol
-            | Self::CallableLinkNameMismatch { .. }
-            | Self::CallableTypeExpected
-            | Self::CallableArityMismatch { .. }
-            | Self::CallableEffectMismatch { .. }
-            | Self::CallableSignatureHashMismatch { .. } => {
-                TypeDiagnosticCode::PublicSurfaceMaterializerCallableRejected
+            Self::MissingCallableLinkSymbol => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableMissingLinkSymbol
+            }
+            Self::CallableLinkNameMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableLinkNameMismatch
+            }
+            Self::CallableTypeExpected => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableTypeExpected
+            }
+            Self::CallableArityMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableArityMismatch
+            }
+            Self::CallableEffectMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableEffectMismatch
+            }
+            Self::CallableSignatureHashMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableSignatureHashMismatch
             }
             Self::FieldAccessorUnsupported { .. } => {
                 TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported
@@ -2016,6 +2026,45 @@ mod tests {
 
     #[test]
     fn materializer_reject_reason_maps_to_stable_diagnostic_code() {
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::MissingCallableLinkSymbol.diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableMissingLinkSymbol,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::CallableLinkNameMismatch {
+                link_name: String::from("old")
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableLinkNameMismatch,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::CallableTypeExpected.diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableTypeExpected,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::CallableArityMismatch {
+                surface_arity: 1,
+                parameter_count: 2,
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableArityMismatch,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::CallableEffectMismatch {
+                surface_effect: PublicEffect::Pure,
+                type_effect: PublicEffect::Impure,
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableEffectMismatch,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::CallableSignatureHashMismatch {
+                expected: 1,
+                actual: 2,
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableSignatureHashMismatch,
+        );
         assert_eq!(
             PublicSurfaceMaterializeRejectReason::FieldAccessorUnsupported {
                 kind: PublicFieldAccessorKind::Get,
