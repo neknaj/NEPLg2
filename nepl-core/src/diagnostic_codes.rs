@@ -85,6 +85,7 @@ pub enum TypeDiagnosticCode {
     NestedGenericFunctionUnsupported,
     RawBlockInvalidPlacement,
     FunctionValueCapturingUnsupported,
+    FunctionValueUnresolvedIdentity,
     IndirectCallRequiresFunctionValue,
     CallCaptureArityMismatch,
     VariableNotCallable,
@@ -807,6 +808,9 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::FunctionValueCapturingUnsupported => {
                 "type.function_value.capturing_unsupported"
             }
+            TypeDiagnosticCode::FunctionValueUnresolvedIdentity => {
+                "type.function_value.unresolved_identity"
+            }
             TypeDiagnosticCode::IndirectCallRequiresFunctionValue => {
                 "type.indirect_call.requires_function_value"
             }
@@ -953,6 +957,9 @@ impl TypeDiagnosticCode {
             }
             TypeDiagnosticCode::FunctionValueCapturingUnsupported => {
                 "capturing function cannot be used as a function value yet"
+            }
+            TypeDiagnosticCode::FunctionValueUnresolvedIdentity => {
+                "function value requires a resolved function identity"
             }
             TypeDiagnosticCode::IndirectCallRequiresFunctionValue => {
                 "indirect call requires a function value"

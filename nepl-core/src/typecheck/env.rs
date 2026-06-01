@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 
 use crate::ast::{Effect, Visibility};
 use crate::builtins::BuiltinKind;
+use crate::function_identity::FunctionValueIdentity;
 use crate::resolve::DefId;
 use crate::span::Span;
 use crate::types::{TypeCtx, TypeId, TypeKind};
@@ -49,6 +50,55 @@ impl BindingKind {
     pub(super) fn is_callable(&self) -> bool {
         matches!(self, BindingKind::Func { .. })
     }
+}
+
+/// callable binding を高階関数値として扱えない理由。
+///
+/// `.neplmeta` materializer で復元した callable は ABI symbol と型を持つが、現段階では
+/// source body に対応する `DefId` を持たない。そのため通常の直接呼び出し候補としては
+/// 使えても、`@name`、indirect call、`memo_call @name` のように関数値 identity を
+/// 後段へ渡す経路では fail-closed に拒否する必要がある。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum FunctionValueIdentityReject {
+    NotCallable,
+    CapturingUnsupported,
+    UnresolvedIdentity,
+}
+
+/// callable binding から、Resource IR / backend へ渡せる解決済み関数値 identity を作る。
+///
+/// `FunctionValueIdentity` は単なる表示名ではなく、monomorphize、Resource IR summary、
+/// `memo_call` の private cache namespace が参照する型付き identity である。`def_id=None`
+/// の binding をここで許すと、body skip で復元した依存 callable が identity 必須経路へ
+/// 紛れ込み、後段で backend unknown になるまで検出が遅れる。
+pub(super) fn resolved_function_value_identity(
+    binding: &Binding,
+    function_ty: TypeId,
+    type_args: Vec<TypeId>,
+) -> Result<FunctionValueIdentity, FunctionValueIdentityReject> {
+    let BindingKind::Func {
+        symbol,
+        def_id,
+        effect,
+        captures,
+        ..
+    } = &binding.kind
+    else {
+        return Err(FunctionValueIdentityReject::NotCallable);
+    };
+    if !captures.is_empty() {
+        return Err(FunctionValueIdentityReject::CapturingUnsupported);
+    }
+    let Some(def_id) = *def_id else {
+        return Err(FunctionValueIdentityReject::UnresolvedIdentity);
+    };
+    Ok(FunctionValueIdentity::new(
+        symbol.clone(),
+        Some(def_id),
+        function_ty,
+        *effect,
+        type_args,
+    ))
 }
 
 #[derive(Debug, Default)]

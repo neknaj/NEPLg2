@@ -176,3 +176,28 @@ function identity 必須経路へ流れない guard を追加する。
 
 - `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
 - `cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`
+
+## 2026-06-01 function identity guard checkpoint
+
+`.neplmeta` materializer が復元する callable を通常の直接呼び出し候補として使えるようにする一方で、
+`def_id=None` の callable が関数値 identity 必須経路へ流れない guard を追加した。
+
+追加した境界:
+
+- `typecheck/env.rs` に `resolved_function_value_identity` と `FunctionValueIdentityReject` を追加。
+- callable / no capture / `def_id=Some` の場合だけ `FunctionValueIdentity` を構築。
+- 明示 `@name`、期待関数型による callable value 選択、qualified callable 選択、overload fallback、
+  trait method forced value で `def_id=None` を合成しない。
+- higher-order argument coercion と indirect call boundary でも unresolved identity を型診断にする。
+- `FunctionValueUnresolvedIdentity` diagnostic code を追加。
+
+この checkpoint は stable function identity materializer ではない。`.neplmeta` 由来 callable を
+直接呼び出し候補として使う準備であり、`@func`、`memo_call @func`、indirect function value へ進む
+経路は、source body / DefId 相当の stable identity と Resource IR proof boundary が入るまで
+通常 source fallback または型診断で止める。
+
+追加検証:
+
+- `cargo test -p nepl-core materializer --lib -- --nocapture`
+- `cargo test -p nepl-core --test functions -- --nocapture`
+- `cargo check -p nepl-core -p nepl-language`

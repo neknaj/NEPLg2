@@ -523,7 +523,9 @@ mod tests {
     use crate::types::{TypeCtx, TypeKind};
 
     use super::public_type_term_stable_hash;
-    use super::super::env::{Binding, BindingKind, Env};
+    use super::super::env::{
+        resolved_function_value_identity, Binding, BindingKind, Env, FunctionValueIdentityReject,
+    };
 
     fn link_symbol(name: &str, ty: &PublicTypeTerm) -> PublicCallableLinkSymbol {
         link_symbol_with_path("stdlib/core/math.nepl", name, ty)
@@ -623,6 +625,24 @@ mod tests {
             }
             other => panic!("unexpected materialized type: {:?}", other),
         }
+    }
+
+    #[test]
+    fn materializer_mvp_callables_do_not_claim_function_value_identity() {
+        let table = TypedPublicSurfaceTable::new(Vec::from([callable_entry(
+            "answer",
+            primitive_answer_surface(Some(primitive_answer_link("answer"))),
+        )]));
+        let mut ctx = TypeCtx::new();
+        let mut env = Env::new();
+
+        materialize_public_surface_mvp(&mut ctx, &mut env, &table, Span::dummy()).unwrap();
+
+        let binding = env.lookup_all_callables("answer")[0];
+        assert_eq!(
+            resolved_function_value_identity(binding, binding.ty, Vec::new()),
+            Err(FunctionValueIdentityReject::UnresolvedIdentity)
+        );
     }
 
     #[test]

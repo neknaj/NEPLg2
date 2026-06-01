@@ -1,3 +1,15 @@
+# 2026-06-01 .neplmeta function identity guard checkpoint
+
+- Zenn 記事の静的検査、enum/struct による authority 明示、試作段階でも unsafe な shortcut を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は前 checkpoint `9048643c Add neplmeta artifact store` まで同期・push 済みで、branch `work/neplmeta-function-identity-guard-20260601` はその `main` から作成した。
+- subagent review で、materialized callable 自体を拒否するのではなく、Env binding から `FnValue` / `MemoizedFunctionValue` へ変換する identity 必須境界を fail-closed にするのが根本位置と確認した。
+- `resolved_function_value_identity` と `FunctionValueIdentityReject` を `typecheck/env.rs` に追加し、callable / no capture / `def_id=Some` を満たす場合だけ `FunctionValueIdentity` を作るようにした。
+- `prefix_check` の明示 `@name`、期待関数型による callable value 選択、qualified callable 選択、overload fallback、trait method forced value が `def_id=None` を合成しないようにした。
+- `selected_call_apply` の higher-order argument coercion と `indirect_apply` の indirect call boundary でも unresolved function identity を型診断として拒否するようにした。
+- `FunctionValueUnresolvedIdentity` diagnostic code を追加し、`.neplmeta` materializer で復元した `def_id=None` callable が通常直接呼び出し候補にはなっても、`@func` / `memo_call @func` / indirect function value 経路へ流れないことを明示した。
+- この checkpoint は stable function identity materializer の実装ではない。依存先 body skip 後に `@stdlib_func` を許すには、`PublicCallableLinkSymbol` だけでなく source body / DefId 相当の stable identity と Resource IR proof boundary が必要である。
+- 検証: `cargo test -p nepl-core materializer --lib -- --nocapture`、`cargo test -p nepl-core --test functions -- --nocapture`、`cargo test -p nepl-core pure_indirect_impure_function_value_is_rejected --test effects -- --nocapture`、`cargo test -p nepl-core resource_ir_lowering_carries_typechecked_indirect_call_effect --test resource_ir -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`node nodesrc/issues.js check --dir issues`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-function-identity-guard-20260601.json`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta artifact store checkpoint
 
 - Zenn 記事の core/no_std 分離、Result/enum による fail-closed な境界、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
