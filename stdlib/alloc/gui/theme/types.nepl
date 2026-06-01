@@ -1,0 +1,348 @@
+//: # alloc/gui/theme/types
+//: GUI / TUI 共通 theme data contract
+//:
+//: ### [目的/もくてき]
+//: - color role、spacing metric、scheme を enum と struct で[表/あらわ]し、文字列で状態を[運/はこ]ばないようにします。
+//: - 色は `core/gui` の `GuiColor` を[保持/ほじ]し、描画命令が必要とする `Rgba8888` への[読/よ]み[出/だ]しは `Result` で[失敗/しっぱい]を[返/かえ]します。
+//: - 既定 font は `Option FontId` として[持/も]ち、未指定を sentinel value にしません。
+//:
+//: ### [契約/けいやく]
+//: - metrics は 0 以上です。負の値を[含/ふく]む constructor は `ThemeError::InvalidMetric` を[返/かえ]します。
+//: - `theme_text_cell_style` は、指定 role の色が `Rgba8888` として[読/よ]める場合だけ `TextCellStyle` を[返/かえ]します。
+//:
+//: neplg2:test
+//: ret: 6
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/theme/types" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     match theme_metrics_checked 6 2 1 1 2:
+//:         Result::Ok metrics:
+//:             theme_metric_value &metrics ThemeMetricRole::PaddingInline
+//:         Result::Err _error:
+//:             0
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: ThemeScheme: theme の[大/おお]まかな[明暗/めいあん]と contrast 方針
+//:
+//: [目的/もくてき]:
+//: - theme state を `"dark"` のような文字列ではなく enum として[扱/あつか]います。
+pub enum ThemeScheme:
+    Light
+    Dark
+    HighContrast
+
+impl Clone for ThemeScheme:
+    fn clone %fn &ThemeScheme ThemeScheme \scheme:
+        *scheme
+
+impl Copy for ThemeScheme:
+    fn copy_mark %fn ThemeScheme ThemeScheme \scheme:
+        scheme
+
+//: ThemeColorRole: palette [内/ない]の color role
+//:
+//: [目的/もくてき]:
+//: - `foreground` などの文字列 key ではなく、match できる role として color lookup を[固定/こてい]します。
+pub enum ThemeColorRole:
+    Background
+    Surface
+    Text
+    MutedText
+    Accent
+    AccentText
+    Border
+    FocusRing
+
+impl Clone for ThemeColorRole:
+    fn clone %fn &ThemeColorRole ThemeColorRole \role:
+        *role
+
+impl Copy for ThemeColorRole:
+    fn copy_mark %fn ThemeColorRole ThemeColorRole \role:
+        role
+
+//: ThemeMetricRole: theme metric の[種類/しゅるい]
+//:
+//: [目的/もくてき]:
+//: - padding や focus width を文字列で[選/えら]ばず、enum で[参照/さんしょう]します。
+pub enum ThemeMetricRole:
+    PaddingInline
+    PaddingBlock
+    Gap
+    BorderWidth
+    FocusWidth
+
+impl Clone for ThemeMetricRole:
+    fn clone %fn &ThemeMetricRole ThemeMetricRole \role:
+        *role
+
+impl Copy for ThemeMetricRole:
+    fn copy_mark %fn ThemeMetricRole ThemeMetricRole \role:
+        role
+
+//: ThemeError: theme helper の[失敗/しっぱい][分類/ぶんるい]
+pub enum ThemeError:
+    InvalidMetric
+    UnsupportedColorFormat
+
+impl Clone for ThemeError:
+    fn clone %fn &ThemeError ThemeError \error:
+        *error
+
+impl Copy for ThemeError:
+    fn copy_mark %fn ThemeError ThemeError \error:
+        error
+
+//: ThemePalette: role ごとの `GuiColor`
+//:
+//: [目的/もくてき]:
+//: - 描画に[使/つか]う色を semantic role として[保持/ほじ]し、描画形式ごとの変換を caller に[明示/めいじ]させます。
+pub struct ThemePalette:
+    background %GuiColor
+    surface %GuiColor
+    text %GuiColor
+    muted_text %GuiColor
+    accent %GuiColor
+    accent_text %GuiColor
+    border %GuiColor
+    focus_ring %GuiColor
+
+impl Clone for ThemePalette:
+    fn clone %fn &ThemePalette ThemePalette \palette:
+        *palette
+
+impl Copy for ThemePalette:
+    fn copy_mark %fn ThemePalette ThemePalette \palette:
+        palette
+
+//: ThemeMetrics: theme が[持/も]つ最小 spacing contract
+//:
+//: [制約/せいやく]:
+//: - すべての値は 0 以上です。検証が[必要/ひつよう]な入口では `theme_metrics_checked` を[使/つか]います。
+pub struct ThemeMetrics:
+    padding_inline %i32
+    padding_block %i32
+    gap %i32
+    border_width %i32
+    focus_width %i32
+
+impl Clone for ThemeMetrics:
+    fn clone %fn &ThemeMetrics ThemeMetrics \metrics:
+        *metrics
+
+impl Copy for ThemeMetrics:
+    fn copy_mark %fn ThemeMetrics ThemeMetrics \metrics:
+        metrics
+
+//: GuiTheme: palette、metrics、任意の font id を[束/たば]ねた theme snapshot
+pub struct GuiTheme:
+    scheme %ThemeScheme
+    palette %ThemePalette
+    metrics %ThemeMetrics
+    default_font %Option FontId
+
+impl Clone for GuiTheme:
+    fn clone %fn &GuiTheme GuiTheme \theme:
+        *theme
+
+impl Copy for GuiTheme:
+    fn copy_mark %fn GuiTheme GuiTheme \theme:
+        theme
+
+//: theme_palette: role 順に `GuiColor` を[受/う]け[取/と]り palette を[作/つく]る
+pub fn theme_palette %fn GuiColor fn GuiColor fn GuiColor fn GuiColor fn GuiColor fn GuiColor fn GuiColor fn GuiColor ThemePalette \background\surface\text\muted_text\accent\accent_text\border\focus_ring:
+    ThemePalette background surface text muted_text accent accent_text border focus_ring
+
+//: theme_palette_background: background color を[読/よ]む
+pub fn theme_palette_background %fn &ThemePalette GuiColor \palette:
+    *field::get_ref palette "background"
+
+//: theme_palette_surface: surface color を[読/よ]む
+pub fn theme_palette_surface %fn &ThemePalette GuiColor \palette:
+    *field::get_ref palette "surface"
+
+//: theme_palette_text: text color を[読/よ]む
+pub fn theme_palette_text %fn &ThemePalette GuiColor \palette:
+    *field::get_ref palette "text"
+
+//: theme_palette_muted_text: muted text color を[読/よ]む
+pub fn theme_palette_muted_text %fn &ThemePalette GuiColor \palette:
+    *field::get_ref palette "muted_text"
+
+//: theme_palette_accent: accent color を[読/よ]む
+pub fn theme_palette_accent %fn &ThemePalette GuiColor \palette:
+    *field::get_ref palette "accent"
+
+//: theme_palette_accent_text: accent text color を[読/よ]む
+pub fn theme_palette_accent_text %fn &ThemePalette GuiColor \palette:
+    *field::get_ref palette "accent_text"
+
+//: theme_palette_border: border color を[読/よ]む
+pub fn theme_palette_border %fn &ThemePalette GuiColor \palette:
+    *field::get_ref palette "border"
+
+//: theme_palette_focus_ring: focus ring color を[読/よ]む
+pub fn theme_palette_focus_ring %fn &ThemePalette GuiColor \palette:
+    *field::get_ref palette "focus_ring"
+
+//: theme_palette_color: role に[対応/たいおう]する color を[読/よ]む
+pub fn theme_palette_color %fn &ThemePalette fn ThemeColorRole GuiColor \palette\role:
+    match role:
+        ThemeColorRole::Background:
+            theme_palette_background palette
+        ThemeColorRole::Surface:
+            theme_palette_surface palette
+        ThemeColorRole::Text:
+            theme_palette_text palette
+        ThemeColorRole::MutedText:
+            theme_palette_muted_text palette
+        ThemeColorRole::Accent:
+            theme_palette_accent palette
+        ThemeColorRole::AccentText:
+            theme_palette_accent_text palette
+        ThemeColorRole::Border:
+            theme_palette_border palette
+        ThemeColorRole::FocusRing:
+            theme_palette_focus_ring palette
+
+//: theme_metrics: ThemeMetrics を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - この constructor は単純な data assembly です。外部入力を[受/う]ける場合は `theme_metrics_checked` を[使/つか]います。
+pub fn theme_metrics %fn i32 fn i32 fn i32 fn i32 fn i32 ThemeMetrics \padding_inline\padding_block\gap\border_width\focus_width:
+    ThemeMetrics padding_inline padding_block gap border_width focus_width
+
+//: theme_metrics_padding_inline: inline padding を[読/よ]む
+pub fn theme_metrics_padding_inline %fn &ThemeMetrics i32 \metrics:
+    *field::get_ref metrics "padding_inline"
+
+//: theme_metrics_padding_block: block padding を[読/よ]む
+pub fn theme_metrics_padding_block %fn &ThemeMetrics i32 \metrics:
+    *field::get_ref metrics "padding_block"
+
+//: theme_metrics_gap: child 間 gap を[読/よ]む
+pub fn theme_metrics_gap %fn &ThemeMetrics i32 \metrics:
+    *field::get_ref metrics "gap"
+
+//: theme_metrics_border_width: border width を[読/よ]む
+pub fn theme_metrics_border_width %fn &ThemeMetrics i32 \metrics:
+    *field::get_ref metrics "border_width"
+
+//: theme_metrics_focus_width: focus ring width を[読/よ]む
+pub fn theme_metrics_focus_width %fn &ThemeMetrics i32 \metrics:
+    *field::get_ref metrics "focus_width"
+
+//: theme_metric_value: role に[対応/たいおう]する metric を[読/よ]む
+pub fn theme_metric_value %fn &ThemeMetrics fn ThemeMetricRole i32 \metrics\role:
+    match role:
+        ThemeMetricRole::PaddingInline:
+            theme_metrics_padding_inline metrics
+        ThemeMetricRole::PaddingBlock:
+            theme_metrics_padding_block metrics
+        ThemeMetricRole::Gap:
+            theme_metrics_gap metrics
+        ThemeMetricRole::BorderWidth:
+            theme_metrics_border_width metrics
+        ThemeMetricRole::FocusWidth:
+            theme_metrics_focus_width metrics
+
+//: theme_metrics_are_valid: metrics が 0 以上かを[確認/かくにん]する
+pub fn theme_metrics_are_valid %fn &ThemeMetrics bool \metrics:
+    if lt theme_metrics_padding_inline metrics 0:
+        then false
+        else if lt theme_metrics_padding_block metrics 0:
+            then false
+            else if lt theme_metrics_gap metrics 0:
+                then false
+                else if lt theme_metrics_border_width metrics 0:
+                    then false
+                    else if lt theme_metrics_focus_width metrics 0:
+                        then false
+                        else true
+
+//: theme_metrics_checked: metrics を[検証/けんしょう]して[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 不正な spacing を silent clamp せず、`Result` と `ThemeError` で caller に[返/かえ]します。
+pub fn theme_metrics_checked %fn i32 fn i32 fn i32 fn i32 fn i32 Result ThemeMetrics ThemeError \padding_inline\padding_block\gap\border_width\focus_width:
+    let metrics %ThemeMetrics theme_metrics padding_inline padding_block gap border_width focus_width
+    if theme_metrics_are_valid &metrics:
+        then Result::Ok metrics
+        else Result::Err ThemeError::InvalidMetric
+
+//: gui_theme: GuiTheme を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - `metrics` の妥当性が未確認なら `gui_theme_checked` を[使/つか]います。
+pub fn gui_theme %fn ThemeScheme fn ThemePalette fn ThemeMetrics fn Option FontId GuiTheme \scheme\palette\metrics\default_font:
+    GuiTheme scheme palette metrics default_font
+
+//: gui_theme_checked: metrics を[検証/けんしょう]して GuiTheme を[作/つく]る
+pub fn gui_theme_checked %fn ThemeScheme fn ThemePalette fn ThemeMetrics fn Option FontId Result GuiTheme ThemeError \scheme\palette\metrics\default_font:
+    if theme_metrics_are_valid &metrics:
+        then Result::Ok GuiTheme scheme palette metrics default_font
+        else Result::Err ThemeError::InvalidMetric
+
+//: gui_theme_scheme: scheme を[読/よ]む
+pub fn gui_theme_scheme %fn &GuiTheme ThemeScheme \theme:
+    *field::get_ref theme "scheme"
+
+//: gui_theme_palette: palette を[読/よ]む
+pub fn gui_theme_palette %fn &GuiTheme ThemePalette \theme:
+    *field::get_ref theme "palette"
+
+//: gui_theme_metrics: metrics を[読/よ]む
+pub fn gui_theme_metrics %fn &GuiTheme ThemeMetrics \theme:
+    *field::get_ref theme "metrics"
+
+//: gui_theme_default_font: default font を Option で[読/よ]む
+pub fn gui_theme_default_font %fn &GuiTheme Option FontId \theme:
+    *field::get_ref theme "default_font"
+
+//: gui_theme_color: theme palette から role color を[読/よ]む
+pub fn gui_theme_color %fn &GuiTheme fn ThemeColorRole GuiColor \theme\role:
+    let palette %ThemePalette gui_theme_palette theme
+    theme_palette_color &palette role
+
+//: gui_theme_metric: theme metrics から role metric を[読/よ]む
+pub fn gui_theme_metric %fn &GuiTheme fn ThemeMetricRole i32 \theme\role:
+    let metrics %ThemeMetrics gui_theme_metrics theme
+    theme_metric_value &metrics role
+
+//: theme_color_as_rgba8888: GuiColor を `Rgba8888` として[読/よ]み[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - 描画命令が `Rgba8888` を[要求/ようきゅう]する[場面/ばめん]で、対応しない color format を silent conversion せず `ThemeError::UnsupportedColorFormat` として[返/かえ]します。
+pub fn theme_color_as_rgba8888 %fn GuiColor Result Rgba8888 ThemeError \color:
+    match color:
+        GuiColor::Rgba8888 rgba:
+            Result::Ok rgba
+        _:
+            Result::Err ThemeError::UnsupportedColorFormat
+
+//: theme_text_cell_style: palette role から TextCellStyle を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - text cell 描画に[必要/ひつよう]な foreground / background を、role lookup と fallible color extraction の[組/く]み[合/あ]わせで[作/つく]ります。
+pub fn theme_text_cell_style %fn &ThemePalette fn ThemeColorRole fn ThemeColorRole Result TextCellStyle ThemeError \palette\foreground_role\background_role:
+    match theme_color_as_rgba8888 (theme_palette_color palette foreground_role):
+        Result::Ok foreground:
+            match theme_color_as_rgba8888 (theme_palette_color palette background_role):
+                Result::Ok background:
+                    Result::Ok (text_cell_style_new foreground background)
+                Result::Err error:
+                    Result::Err error
+        Result::Err error:
+            Result::Err error
