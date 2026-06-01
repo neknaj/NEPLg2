@@ -1,0 +1,39 @@
+//: # alloc/gui/routing
+//: GUI / TUI 共通 event routing facade
+//:
+//: ### [目的/もくてき]
+//: - `LayoutTree` の hit test と `ViewTree` の widget data を[組/く]み[合/あ]わせ、pointer 位置から `GuiEvent` を[導出/どうしゅつ]します。
+//: - DOM event、terminal raw input、OS message は[扱/あつか]わず、platform boundary で変換済みの data だけを[扱/あつか]います。
+//:
+//: ### [現状/げんじょう]
+//: - bounded root + 2 child tree を[対象/たいしょう]にした O(1) routing です。
+//:
+//: neplg2:test
+//: ret: 7
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root %WidgetDescriptor widget_label (widget_id 1) "root" (layout_hint_fixed 10 4)
+//:     let button_node %WidgetDescriptor widget_button (button_config (widget_id 2) "Run" (action_id 7)) (layout_hint_fixed 4 2)
+//:     let view_tree %ViewTree unwrap_ok view_tree_add_child (view_tree_single root) button_node
+//:     let root_layout %LayoutNode layout_node (widget_id 1) (gui_rect_new 0 0 10 4)
+//:     let button_layout %LayoutNode layout_node (widget_id 2) (gui_rect_new 1 1 4 2)
+//:     let layout_tree %LayoutTree unwrap_ok layout_tree_add_child (layout_tree_single root_layout) button_layout
+//:     match route_pointer_action &view_tree &layout_tree (gui_point_new 2 1):
+//:         Option::Some event:
+//:             match event:
+//:                 GuiEvent::Action action:
+//:                     action_id_value action
+//:                 _:
+//:                     0
+//:         Option::None:
+//:             0
+//: ```
+
+#indent 4
+
+pub #import "alloc/gui/routing/types" as *

@@ -22,6 +22,7 @@ pub #import "./capability" as @merge
 pub #import "./error" as @merge
 pub #import "./event" as @merge
 pub #import "./render_command" as @merge
+pub #import "./dirty_region" as @merge
 pub #import "./text_measure" as @merge
 pub #import "./draw_target" as @merge
 pub #import "./render_target" as @merge

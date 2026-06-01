@@ -1,0 +1,152 @@
+//: # alloc/gui/routing/types
+//: retained tree と layout tree を使う bounded event routing
+//:
+//: ### [目的/もくてき]
+//: - hit test の結果を `WidgetId` として[返/かえ]し、widget data から action event を[生成/せいせい]します。
+//: - routing は callback を[呼/よ]ばず、host API にも[触/ふ]れません。application の `update` が `GuiEvent::Action` を match します。
+//:
+//: ### [契約/けいやく]
+//: - child は root より手前にあるものとして hit test します。
+//: - child 同士が[重/かさ]なる場合、second child を first child より手前として[扱/あつか]います。
+//: - disabled widget は `widget_action_event` により `Option::None` になります。
+//:
+//: neplg2:test
+//: ret: 2
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/routing" as *
+//:| #import "alloc/gui/tree" as *
+//:| #import "alloc/gui/layout" as *
+//:| #import "alloc/gui/app" as *
+//:| #import "alloc/gui/widget" as *
+//:| #import "core/gui" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root %LayoutNode layout_node (widget_id 1) (gui_rect_new 0 0 10 10)
+//:     let child %LayoutNode layout_node (widget_id 2) (gui_rect_new 2 2 3 3)
+//:     let layout_tree %LayoutTree unwrap_ok layout_tree_add_child (layout_tree_single root) child
+//:     match layout_tree_hit_test &layout_tree (gui_point_new 3 3):
+//:         Option::Some id:
+//:             widget_id_value id
+//:         Option::None:
+//:             0
+//: ```
+
+#indent 4
+
+#import "alloc/gui/app" as *
+#import "alloc/gui/layout" as *
+#import "alloc/gui/tree" as *
+#import "alloc/gui/widget" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+
+//: layout_node_contains_point: layout node の bounds が point を[含/ふく]むか[判定/はんてい]する
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn layout_node_contains_point %fn &LayoutNode fn GuiPoint bool \node\point:
+    let bounds %GuiRect layout_node_bounds node
+    gui_rect_contains_point &bounds point
+
+//: layout_tree_hit_test: LayoutTree から pointer 位置の WidgetId を[探/さが]す
+//:
+//: [実装/じっそう]:
+//: - second child、first child、root の順に[調/しら]べます。bounded tree なので O(1) です。
+pub fn layout_tree_hit_test %fn &LayoutTree fn GuiPoint Option WidgetId \tree\point:
+    match layout_tree_second_child tree:
+        Option::Some second:
+            if layout_node_contains_point &second point:
+                then some (layout_node_widget_id &second)
+                else:
+                    match layout_tree_first_child tree:
+                        Option::Some first:
+                            if layout_node_contains_point &first point:
+                                then some (layout_node_widget_id &first)
+                                else:
+                                    let root %LayoutNode layout_tree_root tree
+                                    if layout_node_contains_point &root point:
+                                        then some (layout_node_widget_id &root)
+                                        else none
+                        Option::None:
+                            let root %LayoutNode layout_tree_root tree
+                            if layout_node_contains_point &root point:
+                                then some (layout_node_widget_id &root)
+                                else none
+        Option::None:
+            match layout_tree_first_child tree:
+                Option::Some first:
+                    if layout_node_contains_point &first point:
+                        then some (layout_node_widget_id &first)
+                        else:
+                            let root %LayoutNode layout_tree_root tree
+                            if layout_node_contains_point &root point:
+                                then some (layout_node_widget_id &root)
+                                else none
+                Option::None:
+                    let root %LayoutNode layout_tree_root tree
+                    if layout_node_contains_point &root point:
+                        then some (layout_node_widget_id &root)
+                        else none
+
+//: layout_node_widget_id: LayoutNode の WidgetId を[読/よ]む
+fn layout_node_widget_id %fn &LayoutNode WidgetId \node:
+    *field::get_ref node "id"
+
+//: routing_widget_id_equal: WidgetId を raw value で[比較/ひかく]する
+fn routing_widget_id_equal %fn WidgetId fn WidgetId bool \left\right:
+    eq (widget_id_value left) (widget_id_value right)
+
+//: widget_descriptor_matches_id: descriptor が id に[対応/たいおう]するか[判定/はんてい]する
+fn widget_descriptor_matches_id %fn &WidgetDescriptor fn WidgetId bool \descriptor\id:
+    routing_widget_id_equal (widget_descriptor_id descriptor) id
+
+//: view_tree_find_widget: ViewTree から WidgetId に[対応/たいおう]する widget を[探/さが]す
+//:
+//: [計算量/けいさんりょう]:
+//: - bounded root + 2 child だけを[調/しら]べるため O(1) です。
+pub fn view_tree_find_widget %fn &ViewTree fn WidgetId Option WidgetDescriptor \tree\id:
+    let root %WidgetDescriptor view_tree_root tree
+    if widget_descriptor_matches_id &root id:
+        then some root
+        else:
+            match view_tree_first_child tree:
+                Option::Some first:
+                    if widget_descriptor_matches_id &first id:
+                        then some first
+                        else:
+                            match view_tree_second_child tree:
+                                Option::Some second:
+                                    if widget_descriptor_matches_id &second id then some second else none
+                                Option::None:
+                                    none
+                Option::None:
+                    match view_tree_second_child tree:
+                        Option::Some second:
+                            if widget_descriptor_matches_id &second id then some second else none
+                        Option::None:
+                            none
+
+//: route_action_for_widget: WidgetId から widget action event を[導出/どうしゅつ]する
+pub fn route_action_for_widget %fn &ViewTree fn WidgetId Option GuiEvent \view_tree\id:
+    match view_tree_find_widget view_tree id:
+        Option::Some widget:
+            widget_action_event &widget
+        Option::None:
+            none
+
+//: route_pointer_action: pointer 位置から action event を[導出/どうしゅつ]する
+//:
+//: [注意/ちゅうい]:
+//: - pointer down/up の gesture state はまだ[持/も]たず、現在の hit target が action を[持/も]つ場合だけ `GuiEvent::Action` を[返/かえ]します。
+pub fn route_pointer_action %fn &ViewTree fn &LayoutTree fn GuiPoint Option GuiEvent \view_tree\layout_tree\point:
+    match layout_tree_hit_test layout_tree point:
+        Option::Some id:
+            route_action_for_widget view_tree id
+        Option::None:
+            none

@@ -64,6 +64,7 @@ stdlib/core/gui/pixel.nepl
 stdlib/core/gui/text_measure.nepl
 stdlib/core/gui/draw_target.nepl
 stdlib/core/gui/render_target.nepl
+stdlib/core/gui/dirty_region.nepl
 stdlib/core/gui/capability.nepl
 stdlib/core/gui/error.nepl
 stdlib/core/gui/event.nepl
@@ -133,6 +134,8 @@ stdlib/alloc/gui/theme/types.nepl
 stdlib/alloc/gui/accessibility.nepl
 stdlib/alloc/gui/focus.nepl
 stdlib/alloc/gui/focus/types.nepl
+stdlib/alloc/gui/routing.nepl
+stdlib/alloc/gui/routing/types.nepl
 stdlib/alloc/gui/diff.nepl
 stdlib/alloc/gui/diff/types.nepl
 stdlib/alloc/gui/text.nepl
@@ -140,15 +143,19 @@ stdlib/alloc/gui/text/types.nepl
 stdlib/alloc/gui/test.nepl
 ```
 
-最初は `WidgetId`、`ActionId`、`ViewNode`、`GuiEffect`、`Update`、`LayoutContext`、widget descriptor、retained tree、focus traversal、diff / invalidation、text buffer、theme、semantic tree、mock replay helper を小さく入れる。Closure callback、DOM、terminal raw code、OS handle は入れない。
+最初は `WidgetId`、`ActionId`、`ViewNode`、`GuiEffect`、`Update`、`LayoutContext`、widget descriptor、retained tree、focus traversal、event routing、diff / invalidation、text buffer、theme、semantic tree、mock replay helper を小さく入れる。Closure callback、DOM、terminal raw code、OS handle は入れない。
 
 2026-06-01 checkpoint では、`Update.effects` の境界を `GuiEffectBatch` に変更し、`alloc/gui/layout` の `TextMeasurer` 注入、`alloc/gui/widget` の button / label descriptor、`alloc/gui/tree` の bounded retained tree、`alloc/gui/theme` の typed palette / metrics、`alloc/gui/accessibility` の semantic tree 初期 slice まで実装した。`GuiEffectBatch` は現時点では capacity 2 の bounded data であり、`alloc` collection 側の owner contract が安定した段階で `Vec GuiEffect` へ置き換える。
 
 Focus traversal は `alloc/gui/focus` の platform 非依存 data contract として扱う。順方向 / 逆方向、wrap の有無、現在 focus が tree に存在しない場合の結果、disabled widget の除外を `Option` / enum で表し、host focus や accessibility focus の反映は `std/gui` 以降へ渡す。
 
+Event routing は `alloc/gui/routing` の pure data contract として扱う。pointer routing は `LayoutTree` hit test で `WidgetId` を得て、`ViewTree` の widget data から `GuiEvent::Action` を導出する。現 checkpoint は bounded root + 2 child、half-open `GuiRect`、second child topmost、disabled widget suppression までを固定する。pointer capture、gesture、keyboard/focus routing、recursive traversal は後続で実装する。TUI では keyboard / focus routing から同じ `GuiEvent::Action` を生成し、raw ANSI input を application が直接扱わないようにする。
+
 Diff / invalidation は `alloc/gui/diff` に置く。ここでは dirty widget / tree / layout などの共通 data contract だけを持ち、terminal line buffer diff、DOM patch、framebuffer dirty rect compression は `platforms/gui/*` の実装詳細にする。
 
 Text buffer は `alloc/gui/text` が所有する。`core/gui::TextRunId` は buffer snapshot 内の安定参照 id とし、`std/gui` / platform は測定、IME、font loading を担当する。`core/gui` に `String` 実体を持たせず、terminal backend に text buffer ownership を漏らさない。
+
+`core/gui/dirty_region` は embedded / framebuffer 向け no_alloc redraw contract として扱う。現 checkpoint は `DirtyRegion::Empty` / `Rect` / `Full` と O(1) bounding rect merge までを固定し、複数 rect list や platform-specific compression は `alloc/gui` または `platforms/gui/*` へ置く。
 
 検証:
 
@@ -158,6 +165,7 @@ node nodesrc/tests.js -i tests/stdlib/gui_layout.n.md --no-tree -o tmp/gui-layou
 node nodesrc/tests.js -i tests/stdlib/gui_widget.n.md --no-tree -o tmp/gui-widget-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_tree.n.md --no-tree -o tmp/gui-tree-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_focus.n.md --no-tree -o tmp/gui-focus-phase3.json -j 1 --dist web/dist --assert-io
+node nodesrc/tests.js -i tests/stdlib/gui_routing.n.md --no-tree -o tmp/gui-routing-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_diff.n.md --no-tree -o tmp/gui-diff-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_text.n.md --no-tree -o tmp/gui-text-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_theme.n.md --no-tree -o tmp/gui-theme-phase3.json -j 1 --dist web/dist --assert-io
@@ -235,7 +243,7 @@ nodesrc/tui_regression.js
 目的:
 
 - Phase 1 で固定した `core/gui` no_alloc contract を real-style backend で再検査する。
-- `MockDrawTarget` と fixed-capacity dirty region を用意する。
+- `MockDrawTarget` と `DirtyRegion` を用意する。現 checkpoint の `DirtyRegion` は fixed-capacity list ではなく `Empty` / `Rect` / `Full` の O(1) contract であり、複数 rect list は後続で追加する。
 - Optional `FlushTarget` を確認する。
 
 ## Phase 8: Native / Mobile backend
@@ -293,6 +301,12 @@ tests/stdlib/gui_focus.n.md
     disabled widget exclusion
     missing current focus result
 
+tests/stdlib/gui_routing.n.md
+    LayoutTree hit test
+    button action lowering
+    disabled / outside suppression
+    child z-order
+
 tests/stdlib/gui_diff.n.md
     widget data diff
     tree shape invalidation
@@ -316,6 +330,11 @@ tests/stdlib/gui_terminal.n.md
     TextGrid capability
     terminal event mapping model
     legacy TUI facade bridge
+
+tests/stdlib/gui_dirty_region.n.md
+    Empty / Rect / Full merge
+    bounding rect union
+    invalid geometry error
 ```
 
 Web backend が入った後:

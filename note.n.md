@@ -1,3 +1,14 @@
+# 2026-06-01 GUI/TUI routing dirty region checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、GUI/TUI 共通 substrate の routing と embedded/no_alloc dirty region を追加した。
+- doc review で指摘された `alloc/gui/routing` の契約不足、`DirtyRegion` と `GuiInvalidation` の責務混同、`WidgetId` / `ActionId` の ownership 曖昧さ、TUI の keyboard/focus routing が `GuiEvent` を迂回しないことを `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` に反映した。
+- dirty region worker は commit `dfc6204b Add core GUI dirty region` で `stdlib/core/gui/dirty_region.nepl` と `tests/stdlib/gui_dirty_region.n.md` を追加した。`DirtyRegion::Empty` / `Rect` / `Full`、O(1) bounding rect merge、負 width/height の `GuiError::InvalidGeometry` を no_alloc core contract として固定した。
+- main integration で `stdlib/alloc/gui/routing.nepl`、`stdlib/alloc/gui/routing/types.nepl`、`tests/stdlib/gui_routing.n.md` を追加した。bounded root + 2 child の `LayoutTree` hit test、second child topmost、disabled widget suppression、`WidgetDescriptor` から `GuiEvent::Action` への pure lowering を実装し、DOM / OS / terminal raw input へ依存しない形にした。
+- `stdlib/core/gui.nepl` と `stdlib/core/gui/prelude.nepl` は `core/gui/dirty_region` を re-export するよう更新した。`stdlib/alloc/gui.nepl` は `alloc/gui/routing` を re-export する。
+- `todo.md` は実装済みの初期 routing / dirty region を残件から外し、残件を allocator-backed recursive tree、recursive event routing、pointer capture / gesture / keyboard focus routing、fixed-capacity multiple dirty region、real backend adapter へ絞った。
+- 検証: `trunk build --release`、GUI/TUI focused suite (`gui_core` / `gui_dirty_region` / `gui_app` / `gui_layout` / `gui_widget` / `gui_tree` / `gui_focus` / `gui_routing` / `gui_diff` / `gui_text` / `gui_theme` / `gui_accessibility` / `gui_std` / `gui_terminal` / `features_tui`) 48/48、new module doctest 6/6、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-routing-dirty.json` 13/13、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`nodesrc/test_stdlib_gui_layering_policy.js` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warn-only 警告として stdlib documentation baseline、static check responsibility、resource checker responsibility、resource gate order が残る。documentation warning は基準 commit `77655846` でも `stdlib module doctest gaps increased: 306 > 305` であり、今回の GUI routing / dirty region 追加では悪化していない。
+
 # 2026-06-01 GUI/TUI focus text diff checkpoint
 
 - Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針を再確認した。`plan.md` は変更していない。
