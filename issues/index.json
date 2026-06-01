@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T16:56:31.748Z",
+  "generated_at": "2026-06-01T17:22:23.328Z",
   "counts": {
     "total": 1306,
     "open": 32,
@@ -378,7 +378,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-06-01",
+      "updated": "2026-06-02",
       "target": "nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md",
       "legacy_id": "",
       "source": "",
@@ -483,7 +483,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-06-01",
-      "updated": "2026-06-01",
+      "updated": "2026-06-02",
       "target": "nepl-core/src/typecheck/driver.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/artifact.rs; nepl-web/src/lib.rs",
       "legacy_id": "",
       "source": "",

@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-01
+updated: 2026-06-02
 target: "nepl-core/src/compiler.rs; nepl-web/src/lib.rs; doc/neplg2/compiler_performance_cache_design.md"
 ---
 
@@ -456,7 +456,7 @@ message に use kind を含める。
 
 ## 2026-06-01 direct-call `.neplobj` availability input checkpoint
 
-`PublicInterfaceArtifactInputs` に `NeplObjDirectCallKey` の slice を追加し、materialized callable
+`PublicInterfaceArtifactInputs` に direct-call `.neplobj` availability slice を追加し、materialized callable
 body-missing dependency を diagnostic 化する前に direct-call availability を見る境界を作った。
 
 この checkpoint では compiler session から key を渡していないため、通常 compile は引き続き
@@ -465,6 +465,28 @@ source fallback / body-missing に倒れる。`.neplobj` key は codegen fragmen
 
 direct call key は `MaterializedCodegenDependencyKind::DirectCall` にだけ適用し、function value、
 indirect call、`memo_call` は同じ symbol が key に存在しても解決しない。
+
+この availability slice は、2026-06-02 の payload checkpoint で破棄した。backend が payload を
+消費しないまま diagnostic だけを消す経路になるため、backend/linker 登録済み token ができるまで
+core pipeline は body-missing を fail-closed に維持する。
+
+## 2026-06-02 direct-call `.neplobj` fragment payload checkpoint
+
+key-only availability を使う代わりに、backend が呼び出せる body を表す
+`NeplObjDirectCallFragmentArtifact` を追加した。`.neplobj` direct-call key は invalidation boundary であり、
+backend が呼び出せる body ではない。key だけで body-missing を消すと、final codegen は materialized
+symbol の body を持たないまま進むため、key と backend payload を同じ artifact にまとめた。
+
+Wasm payload は `NeplObjWasmDirectCallFragment` として、params / results / function body bytes /
+direct-call relocation を保持する。relocation は final module assembly で解決されるため、payload
+作成時点では function index を固定しない。fragment hash は key stable hash、Wasm signature、body
+bytes、正規化済み relocation を含める。重複 relocation offset と body 範囲外 offset は artifact
+作成時点で拒否する。
+
+この checkpoint でも `.neplobj` fragment は body-missing diagnostic を解決しない。次の作業は source
+fallback / full compile で作った payload を same-session object store へ保存し、`PreparedProgram` /
+wasm codegen が payload を function body set と relocation map に登録した場合だけ diagnostic を
+消す backend 登録済み token を導入することである。
 
 ## 2026-06-01 selected body hash authority checkpoint
 

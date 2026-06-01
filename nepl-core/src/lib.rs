@@ -65,7 +65,9 @@ pub use artifact::{
     NeplMetaExportEntry, NeplMetaExportKind, NeplMetaExportSurface, NeplMetaImportClause,
     NeplMetaImportItem, NeplMetaMaterializerMvpReject, NeplMetaMaterializerProjectionReject,
     NeplMetaModuleDependencyEdge, NeplMetaModuleDependencyKind, NeplMetaModuleSurface,
-    NeplMetaReexportProjection, NeplMetaVisibility, NeplObjDirectCallKey,
+    NeplMetaReexportProjection, NeplMetaVisibility, NeplObjDirectCallBackendFragment,
+    NeplObjDirectCallFragmentArtifact, NeplObjDirectCallFragmentReject, NeplObjDirectCallKey,
+    NeplObjWasmDirectCallFragment, NeplObjWasmDirectCallRelocation, NeplObjWasmValType,
 };
 pub use compiler::{
     check_module, check_module_with_source_map, compile_module,
