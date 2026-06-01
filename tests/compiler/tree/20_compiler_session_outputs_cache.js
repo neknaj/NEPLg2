@@ -399,56 +399,83 @@ fn main %fn unit i32 \\unit:
             'projection success must be counted separately from materialized compile attempts',
         );
         assert.ok(
-            thirdMaterializedCompile.fallbacks > 0,
-            'metadata-only dependency body skip must report source fallback until .neplobj is available',
-        );
-        assert.equal(
-            thirdMaterializedCompile.fallbackSuccesses,
-            thirdMaterializedCompile.fallbacks,
-            'source fallback after materialized compile attempt must preserve successful compile behavior',
-        );
-        assert.equal(
-            thirdMaterializedCompile.fallbackFailures,
-            0,
-            'materialized attempt fallback must not hide a failing source compile in this regression',
-        );
-        assert.equal(
-            thirdMaterializedCompile.lastOutcomeCode,
-            2,
-            'last materialized compile attempt must end in source fallback success',
+            thirdMaterializedCompile.accepts + thirdMaterializedCompile.fallbacks > 0,
+            'metadata-only dependency body skip must either accept or report a typed source fallback',
         );
         assert.ok(
             thirdMaterializedCompile.lastAttemptedSurfaces > 0,
             'last materialized compile attempt must report how many surfaces entered typecheck',
         );
-        assert.ok(
-            thirdMaterializedCompile.lastFallbackReasonCode > 0,
-            'source fallback must expose a typed reason code instead of relying on error text parsing',
-        );
-        assert.match(
-            thirdMaterializedCompile.lastFallbackDiagnosticCode,
-            /^[a-z0-9_.]+$/,
-            'source fallback must expose the primary compiler diagnostic code that caused fallback',
-        );
-        if (
-            thirdMaterializedCompile.lastFallbackReasonCode
-            === MATERIALIZED_FUNCTION_BODY_MISSING_REASON_CODE
-        ) {
-            assert.ok(
-                thirdMaterializedCompile.bodyMissingCandidateSurfaces
-                    >= thirdMaterializedCompile.lastAttemptedSurfaces,
-                '.neplobj candidate stats must count body-missing materialized surfaces, not only compile attempts',
+        if (thirdMaterializedCompile.fallbacks > 0) {
+            assert.equal(
+                thirdMaterializedCompile.fallbackSuccesses,
+                thirdMaterializedCompile.fallbacks,
+                'source fallback after materialized compile attempt must preserve successful compile behavior',
             );
             assert.equal(
-                thirdMaterializedCompile.lastBodyMissingCandidateSurfaces,
-                thirdMaterializedCompile.lastAttemptedSurfaces,
-                'last .neplobj candidate surface count must match the body-missing materialized compile attempt',
+                thirdMaterializedCompile.fallbackFailures,
+                0,
+                'materialized attempt fallback must not hide a failing source compile in this regression',
             );
+            assert.equal(
+                thirdMaterializedCompile.lastOutcomeCode,
+                2,
+                'last materialized compile fallback must end in source fallback success',
+            );
+            assert.ok(
+                thirdMaterializedCompile.lastFallbackReasonCode > 0,
+                'source fallback must expose a typed reason code instead of relying on error text parsing',
+            );
+            assert.match(
+                thirdMaterializedCompile.lastFallbackDiagnosticCode,
+                /^[a-z0-9_.]+$/,
+                'source fallback must expose the primary compiler diagnostic code that caused fallback',
+            );
+            if (
+                thirdMaterializedCompile.lastFallbackReasonCode
+                === MATERIALIZED_FUNCTION_BODY_MISSING_REASON_CODE
+            ) {
+                assert.ok(
+                    thirdMaterializedCompile.bodyMissingCandidateSurfaces
+                        >= thirdMaterializedCompile.lastAttemptedSurfaces,
+                    '.neplobj candidate stats must count body-missing materialized surfaces, not only compile attempts',
+                );
+                assert.equal(
+                    thirdMaterializedCompile.lastBodyMissingCandidateSurfaces,
+                    thirdMaterializedCompile.lastAttemptedSurfaces,
+                    'last .neplobj candidate surface count must match the body-missing materialized compile attempt',
+                );
+            } else {
+                assert.equal(
+                    thirdMaterializedCompile.lastBodyMissingCandidateSurfaces,
+                    0,
+                    'non-body-missing materialized fallback must not be counted as a .neplobj body candidate',
+                );
+            }
         } else {
+            assert.ok(
+                thirdMaterializedCompile.accepts > 0,
+                'a metadata-only compile with no selected dependency body should be accepted',
+            );
+            assert.equal(
+                thirdMaterializedCompile.lastOutcomeCode,
+                1,
+                'last materialized compile attempt without selected dependency body should be accepted',
+            );
+            assert.equal(
+                thirdMaterializedCompile.lastFallbackReasonCode,
+                0,
+                'accepted materialized compile must not retain a stale fallback reason',
+            );
+            assert.equal(
+                thirdMaterializedCompile.lastFallbackDiagnosticCode,
+                '',
+                'accepted materialized compile must not retain a stale fallback diagnostic code',
+            );
             assert.equal(
                 thirdMaterializedCompile.lastBodyMissingCandidateSurfaces,
                 0,
-                'non-body-missing materialized fallback must not be counted as a .neplobj body candidate',
+                'accepted materialized compile must not be counted as a .neplobj body candidate',
             );
         }
 

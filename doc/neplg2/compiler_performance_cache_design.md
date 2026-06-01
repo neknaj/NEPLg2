@@ -2478,6 +2478,32 @@ effect mismatch、signature hash mismatch はそれぞれ別 code として観�
 `.neplobj` body fragment ではなく、`PublicCallableSurface.arity` と
 `PublicTypeTerm::Function.params` の生成 / materialize 境界であると分かった。
 
+## 2026-06-01 field accessor wrapper arity checkpoint
+
+`type.public_surface.materializer.callable.arity_mismatch` の根本原因は、通常 callable の arity
+正規化ではなく、field accessor metadata の付与条件だった。`detect_field_accessor_fn` は
+`#intrinsic "get_field_ref"` を使う関数を広く field accessor facade と見なしていたため、
+`core/mem/types.region_token_size_ref` のような selector 固定 wrapper まで
+`PublicCallableSurface.field_accessor=GetRef` として保存していた。
+
+`core/field.get_ref` は `obj` と `idx` をそのまま intrinsic へ渡す 2 引数 facade である。一方、
+`region_token_size_ref` は `token` だけを受け取り、selector `"size"` を内部で固定する 1 引数
+wrapper である。この wrapper を `.neplmeta` materializer が `get_ref` ABI として復元すると、
+`FieldAccessorKind::GetRef.argument_count() == 2` と `surface.arity == 1` が衝突する。
+
+修正後の field accessor metadata は、intrinsic 名だけでなく、function parameter 数、intrinsic
+argument 数、そして intrinsic argument が function parameter を同じ順序でそのまま渡していることを
+確認した場合だけ付与する。selector literal を固定する wrapper は通常 callable として保存し、
+selected body が必要になった場合は `.neplobj` が入るまで
+`backend.codegen.materialized_function_body_missing` により source fallback へ戻す。
+
+`tmp/materialized-field-wrapper-arity-20260601.json` の実測では、warm compile 3 回の
+`type.public_surface.materializer.callable.arity_mismatch` は消えた。次の fallback diagnostic は
+`backend.codegen.materialized_function_body_missing` であり、`materialized_body_missing_fallbacks_delta_sum=3`、
+`neplobj_candidate_body_missing_surfaces_delta_sum=15` になった。したがって次の実装対象は
+`.neplobj` / `.nepllink` の stable link symbol、selected callable body hash、generic instantiation
+hash である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
