@@ -189,6 +189,45 @@ workload の base compile と 10ms 級 expression subtree edit はまだ未達�
 stdlib `.neplmeta` / `.neplproof` preseed、persistent `.nepl...` codec、changed-expression query、
 Resource proof template、generic / string-data / raw body `.neplobj` fragment の順に進める。
 
+2026-06-02 の RPN cold base 再測定では、`examples/rpn.nepl` を代表 workload として固定した。
+
+- native release `target\release\nepl-cli.exe --check -i examples\rpn.nepl --target std --stdlib-root stdlib`
+  は成功し、`resource_typecheck=147ms`、`resource_static_check=6172ms`、
+  `resource_initialized_moves=5320ms`、`resource_initialized_i32_scalar_summaries=1330ms`、
+  `resource_initialized_raw_init_summaries=2315ms`、`resource_initialized_function_checks=1609ms`、
+  `resource_owner_obligations=736ms` だった。
+- release Web cold base は `NEPL_RUN_TEST_SKIP_COMPILER_WARMUP=1` の `nodesrc/run_test.js` で
+  `compile_ms=9283`、`wasm_call_ms=8640`、`total_ms=9313` だった。stage timing では
+  `resource_static_initialized_moves=6626.938ms`、`resource_static_owner_obligations=1455.416ms`、
+  `resource_static_check=8237.881ms` が支配的である。
+- per-function timing では `str_trim` final initialized check が約 0.8-0.9 秒、
+  `sb_append_result` i32 scalar summary が約 0.65-0.85 秒、`apply_op` / `dealloc_raw` /
+  `byte_builder_*` raw-init summary が 0.1-0.5 秒台に分散している。
+- `str_trim` の op timing では loop / branch の clone / merge が支配的であり、
+  path-sensitive alternatives の指数増殖は確認されなかった。
+- enum variant projection の不可能 leaf を i32 scalar return fact 収集時に削る試行は、
+  native RPN の `resource_static_check` が `7455ms` へ悪化したため採用しない。
+- branch / loop merge 前の `CellTable` / raw alias / slot table clone を借用版 merge API へ置き換える
+  試行も、native RPN の `resource_static_check=7933ms`、`resource_initialized_moves=6949ms` へ
+  悪化したため採用しない。局所 clone 削減ではなく、Resource proof の初回構築固定費を
+  artifact preseed で避ける必要がある。
+
+この結果から、RPN cold base を 0.5 秒未満へ近づける主経路は、局所 leaf pruning ではなく、
+stdlib-heavy Resource proof を初回 compile 前から利用できる bundled / persistent `.neplproof`
+preseed である。既存の in-memory `ResourceSummaryProofArtifact` は header 照合と same-session
+preseed を持つが、`ResourceSummaryProofSnapshot` は serialization schema ではない。次の実装は
+`.neplproof` stable entry codec、header first decode、generic type-argument key、source capability
+policy set hash、private effect policy hash を fail-closed に固定し、disk / IndexedDB / build-time
+bundled artifact へ接続する。
+
+2026-06-02 の追加 profiling では、`sb_append_result` の i32 scalar summary が return fact 収集で
+重く、`I32ConditionQueryContext` の memo が `Vec` 線形探索になっていることを確認した。`Place` は
+`Ord` を持つため、同じ純粋 query の memo を `BTreeMap` 化し、検査規則を変えず探索構造だけを
+改善した。native RPN では `resource_initialized_i32_scalar_summaries=1421ms / 1189ms`、
+`resource_static_check=7389ms / 7053ms` まで下がり、`sb_append_result` の `collect_facts` は
+`684ms / 159ms` から `374ms / 109ms` へ改善した。ただし raw-init、`str_trim` final check、
+owner summary の固定費が残るため、この issue は open のまま維持する。
+
 ## 検証
 
 - `trunk build`
