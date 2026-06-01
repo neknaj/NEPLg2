@@ -1,4 +1,5 @@
 import { createPlaygroundEditor, PlaygroundEditor } from '../editor-core/browser-adapter.js';
+import { GuiPreviewPanel } from '../gui-preview/panel.js';
 import { FileExplorer } from '../library/explorer.js';
 import { TabManager } from '../library/tabs.js';
 import { CanvasTerminal } from '../terminal/terminal.js';
@@ -11,7 +12,9 @@ import {
     createLeaf,
     DropZone,
     findNode,
+    GuiPreviewKind,
     hydratePanelCounter,
+    isGuiPreviewKind,
     moveLeaf,
     normalizeTree,
     PanelKind,
@@ -63,7 +66,17 @@ type ExplorerRuntime = {
     explorer: FileExplorer;
 };
 
-type LeafRuntime = EditorRuntime | TerminalRuntime | ExplorerRuntime;
+type GuiPreviewRuntime = {
+    leafId: string;
+    panelKind: 'gui-preview';
+    rootEl: HTMLElement;
+    headerTitleEl: HTMLElement;
+    contentEl: HTMLElement;
+    zoomBadgeEl: HTMLElement;
+    preview: GuiPreviewPanel;
+};
+
+type LeafRuntime = EditorRuntime | TerminalRuntime | ExplorerRuntime | GuiPreviewRuntime;
 
 type PanelManagerOptions = {
     root: HTMLElement;
@@ -173,6 +186,9 @@ export class PlaygroundPanelManager {
                 leaf.activePath = null;
                 if (runtime.panelKind === 'terminal') {
                     leaf.zoom = this.resolveLeafZoom(leaf.id);
+                } else if (runtime.panelKind === 'gui-preview') {
+                    leaf.zoom = this.resolveLeafZoom(leaf.id);
+                    leaf.previewKind = runtime.preview.kind;
                 }
             }
         }
@@ -197,6 +213,8 @@ export class PlaygroundPanelManager {
             }
             if (runtime.panelKind === 'terminal') {
                 runtime.terminal.dispose();
+            } else if (runtime.panelKind === 'gui-preview') {
+                runtime.preview.dispose();
             }
             this.leafRuntimeMap.delete(leafId);
         }
@@ -248,6 +266,8 @@ export class PlaygroundPanelManager {
             runtime = this.createEditorRuntime(leaf);
         } else if (leaf.panelKind === 'terminal') {
             runtime = this.createTerminalRuntime(leaf);
+        } else if (leaf.panelKind === 'gui-preview') {
+            runtime = this.createGuiPreviewRuntime(leaf);
         } else {
             runtime = this.createExplorerRuntime(leaf);
         }
@@ -351,6 +371,16 @@ export class PlaygroundPanelManager {
             this.saveWorkspaceSnapshot();
             return true;
         }
+        if (leaf.panelKind === 'gui-preview') {
+            leaf.zoom = clampedZoom;
+            const previewRuntime = runtime as GuiPreviewRuntime;
+            previewRuntime.preview.setFontSize(Math.round(this.currentFontSize * clampedZoom));
+            if (options.showBadge !== false) {
+                this.showZoomBadge(leafId, clampedZoom);
+            }
+            this.saveWorkspaceSnapshot();
+            return true;
+        }
         return false;
     }
 
@@ -393,6 +423,15 @@ export class PlaygroundPanelManager {
             const runtime = this.leafRuntimeMap.get(leafId);
             if (runtime && runtime.panelKind === 'terminal') {
                 runtime.terminal.setFontSize(Math.round(this.currentFontSize * zoom));
+                if (options.showBadge) {
+                    this.showZoomBadge(leafId, zoom);
+                }
+            }
+        }
+        if (leaf.panelKind === 'gui-preview') {
+            const runtime = this.leafRuntimeMap.get(leafId);
+            if (runtime && runtime.panelKind === 'gui-preview') {
+                runtime.preview.setFontSize(Math.round(this.currentFontSize * zoom));
                 if (options.showBadge) {
                     this.showZoomBadge(leafId, zoom);
                 }
@@ -582,6 +621,7 @@ export class PlaygroundPanelManager {
                 if (this.snapshot.focusedLeafId === leaf.id) {
                     this.syncStatusBar();
                 }
+                this.syncGuiPreviewToEditorRuntime(runtime);
             },
             onActiveTabChange: () => {
                 const targetLeaf = findNode(this.snapshot.root, leaf.id)?.node;
@@ -589,12 +629,14 @@ export class PlaygroundPanelManager {
                     targetLeaf.zoom = runtime.tabManager.getActiveZoom();
                 }
                 this.applyLeafZoom(leaf.id);
+                this.syncGuiPreviewToEditorRuntime(runtime);
             },
             onTabDragStart: ({ path, event }) => {
                 this.setDragPayload(event, { kind: 'editor-tab', leafId: leaf.id, path });
             },
         });
 
+        shell.actions.appendChild(this.createPanelButton('G', 'Open GUI preview', () => this.showGuiPreviewForActiveFile()));
         shell.actions.appendChild(this.createPanelButton('R', 'Split right', () => this.splitPanel(leaf.id, 'h')));
         shell.actions.appendChild(this.createPanelButton('D', 'Split down', () => this.splitPanel(leaf.id, 'v')));
         shell.actions.appendChild(this.createPanelButton('x', 'Close panel', () => this.closePanel(leaf.id)));
@@ -641,6 +683,32 @@ export class PlaygroundPanelManager {
         shell.actions.appendChild(this.createPanelButton('D', 'Split down', () => this.splitPanel(leaf.id, 'v')));
         shell.actions.appendChild(this.createPanelButton('x', 'Close panel', () => this.closePanel(leaf.id)));
         terminal.setFontSize(Math.round(this.currentFontSize * this.resolveLeafZoom(leaf.id)));
+        return runtime;
+    }
+
+    createGuiPreviewRuntime(leaf: Extract<WorkspaceNode, { kind: 'leaf' }>): GuiPreviewRuntime {
+        const shell = this.createLeafRoot(leaf.id, 'gui-preview', 'GUI Preview');
+        const contentEl = document.createElement('div');
+        contentEl.className = 'panel-content gui-preview-content';
+        shell.rootEl.appendChild(contentEl);
+
+        const initialKind: GuiPreviewKind = isGuiPreviewKind(leaf.previewKind) ? leaf.previewKind : 'mandelbrot';
+        const preview = new GuiPreviewPanel(contentEl, { kind: initialKind });
+        preview.setFontSize(Math.round(this.currentFontSize * this.resolveLeafZoom(leaf.id)));
+
+        const runtime: GuiPreviewRuntime = {
+            leafId: leaf.id,
+            panelKind: 'gui-preview',
+            rootEl: shell.rootEl,
+            headerTitleEl: shell.titleEl,
+            contentEl,
+            zoomBadgeEl: shell.zoomBadgeEl,
+            preview,
+        };
+
+        shell.actions.appendChild(this.createPanelButton('R', 'Split right', () => this.splitPanel(leaf.id, 'h')));
+        shell.actions.appendChild(this.createPanelButton('D', 'Split down', () => this.splitPanel(leaf.id, 'v')));
+        shell.actions.appendChild(this.createPanelButton('x', 'Close panel', () => this.closePanel(leaf.id)));
         return runtime;
     }
 
@@ -730,6 +798,8 @@ export class PlaygroundPanelManager {
                 runtime.editor.resizeEditor();
             } else if (runtime.panelKind === 'terminal') {
                 runtime.terminal.resizeEditor();
+            } else if (runtime.panelKind === 'gui-preview') {
+                runtime.preview.resizeEditor();
             }
         }
     }
@@ -779,6 +849,19 @@ export class PlaygroundPanelManager {
         return null;
     }
 
+    getFocusedGuiPreviewRuntime(): GuiPreviewRuntime | null {
+        const focused = this.snapshot.focusedLeafId ? this.leafRuntimeMap.get(this.snapshot.focusedLeafId) : null;
+        if (focused && focused.panelKind === 'gui-preview') {
+            return focused;
+        }
+        for (const runtime of this.leafRuntimeMap.values()) {
+            if (runtime.panelKind === 'gui-preview') {
+                return runtime;
+            }
+        }
+        return null;
+    }
+
     ensureEditorLeaf(): string {
         const existing = this.getFirstEditorRuntime();
         if (existing) {
@@ -806,6 +889,42 @@ export class PlaygroundPanelManager {
         return newLeaf.id;
     }
 
+    ensureGuiPreviewLeaf(): string {
+        const existing = this.getFocusedGuiPreviewRuntime();
+        if (existing) {
+            return existing.leafId;
+        }
+        const editor = this.getFocusedEditorRuntime() || this.getFirstEditorRuntime();
+        const targetId = editor ? editor.leafId : this.ensureEditorLeaf();
+        const newLeaf = createLeaf('gui-preview');
+        newLeaf.previewKind = 'mandelbrot';
+        this.snapshot.root = splitLeaf(this.snapshot.root, targetId, 'h', newLeaf, 'after');
+        this.snapshot.focusedLeafId = newLeaf.id;
+        this.redraw();
+        return newLeaf.id;
+    }
+
+    showGuiPreviewForActiveFile() {
+        const previewLeafId = this.ensureGuiPreviewLeaf();
+        const runtime = this.leafRuntimeMap.get(previewLeafId);
+        if (!runtime || runtime.panelKind !== 'gui-preview') {
+            return;
+        }
+        const path = this.getActiveEditorTabPath();
+        runtime.preview.setSourcePath(path);
+        this.setFocusedLeaf(previewLeafId);
+        this.saveWorkspaceSnapshot();
+    }
+
+    syncGuiPreviewToEditorRuntime(editorRuntime: EditorRuntime) {
+        const preview = this.getFocusedGuiPreviewRuntime();
+        if (!preview) {
+            return;
+        }
+        preview.preview.setSourcePath(editorRuntime.tabManager.activeTab?.path || null);
+        this.saveWorkspaceSnapshot();
+    }
+
     openFileInFocusedEditor(path: string) {
         const editorRuntime = this.getFocusedEditorRuntime() || this.leafRuntimeMap.get(this.ensureEditorLeaf());
         if (!editorRuntime || editorRuntime.panelKind !== 'editor') {
@@ -825,6 +944,8 @@ export class PlaygroundPanelManager {
         newLeaf.zoom = this.resolveLeafZoom(leafId);
         if (location.node.panelKind === 'editor' && location.node.activePath) {
             newLeaf.pathZooms = { [location.node.activePath]: this.resolveLeafZoom(leafId) };
+        } else if (location.node.panelKind === 'gui-preview') {
+            newLeaf.previewKind = isGuiPreviewKind(location.node.previewKind) ? location.node.previewKind : 'mandelbrot';
         }
         const activePath = location.node.activePath || null;
         this.snapshot.root = splitLeaf(this.snapshot.root, leafId, dir, newLeaf, 'after');

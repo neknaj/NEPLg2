@@ -73,6 +73,7 @@ const checks = [
     "nodesrc/test_neplg21_core_mem_positive_doc_postfix_cleanup.js",
     "nodesrc/test_features_tui_report_contract.js",
     "nodesrc/test_stdlib_gui_layering_policy.js",
+    "nodesrc/test_web_gui_preview_renderer.js",
     "nodesrc/test_stdlib_nm_parser_no_inline_unwraps.js",
     "nodesrc/test_stdlib_nm_parser_no_block_unwraps.js",
     "nodesrc/test_stdlib_diag_error_no_unsafe_unwraps.js",

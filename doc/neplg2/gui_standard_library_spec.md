@@ -422,6 +422,22 @@ world gui-app {
 
 TUI terminal backend は同じ world の surface implementation として `TextGrid` surface を提供する。Raw mode、TTY state、ANSI cursor movement、alternate screen は backend detail である。
 
+## Current Display Smoke Backends
+
+2026-06-02 checkpoint では、正式な `neknaj:gui` host ABI へ到達する前の表示 smoke backend として、次を実装している。
+
+```text
+web/src/gui-preview
+    Web Playground の workspace pane と Canvas2D renderer
+
+nepl-gui-native
+    minifb feature 付き native framebuffer renderer
+```
+
+これらは `examples/gui_mandelbrot.nepl`、`examples/gui_life.nepl`、`examples/gui_counter.nepl` の現行 contract と同じ metric を持つデモを表示する。Mandelbrot は command count 64 / inside count 8、Life は command count 25 / live cells 5 / checksum 45、Counter は `ActionId` 1 と redraw target 0 を維持する。
+
+ただし、この checkpoint はまだ NEPLg2 program から `DrawCommand` stream を JS / native host へ直接 export する ABI ではない。`CanvasRenderingContext2D` と `minifb` は backend implementation detail であり、`core/gui`、`alloc/gui`、`std/gui` の public type には入れない。次の段階で `platforms/gui/web` と `platforms/gui/native` が `present-commands` / streaming frame boundary を受け取り、Web Playground pane と native framebuffer がその command stream を表示する。
+
 ## Public Module Contract
 
 最小契約は次である。

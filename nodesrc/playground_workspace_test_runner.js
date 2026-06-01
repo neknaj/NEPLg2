@@ -21,33 +21,45 @@ async function runWorkspaceRegression() {
     assert.ok(editor);
     assert.ok(terminal);
     assert.equal(layout.countLeavesByKind(snapshot.root, 'editor'), 1);
+    assert.equal(layout.countLeavesByKind(snapshot.root, 'gui-preview'), 0);
 
     const secondEditor = layout.createLeaf('editor');
     snapshot.root = layout.splitLeaf(snapshot.root, editor.id, 'h', secondEditor, 'after');
     assert.equal(layout.countLeavesByKind(snapshot.root, 'editor'), 2);
 
+    const guiPreview = layout.createLeaf('gui-preview');
+    guiPreview.previewKind = 'life';
+    snapshot.root = layout.splitLeaf(snapshot.root, secondEditor.id, 'v', guiPreview, 'after');
+    assert.equal(layout.countLeavesByKind(snapshot.root, 'gui-preview'), 1);
+
     const moved = layout.moveLeaf(snapshot.root, secondEditor.id, terminal.id, 'bottom');
     assert.equal(layout.countLeavesByKind(moved, 'editor'), 2);
+    assert.equal(layout.countLeavesByKind(moved, 'gui-preview'), 1);
 
     const afterClose = layout.closeLeaf(moved, secondEditor.id);
     assert.equal(layout.countLeavesByKind(afterClose, 'editor'), 1);
+    assert.equal(layout.countLeavesByKind(afterClose, 'gui-preview'), 1);
 
     const clone = layout.cloneWorkspaceSnapshot({ root: afterClose, focusedLeafId: editor.id });
     assert.equal(clone.focusedLeafId, editor.id);
     assert.equal(layout.countLeavesByKind(clone.root, 'explorer'), 1);
     assert.equal(layout.countLeavesByKind(clone.root, 'terminal'), 1);
+    assert.equal(layout.countLeavesByKind(clone.root, 'gui-preview'), 1);
 
     editor.zoom = 1.4;
     editor.pathZooms = { '/examples/demo.nepl': 1.4 };
     const normalizedLeaf = layout.normalizeTree(editor);
     assert.equal(normalizedLeaf.zoom, 1.4);
     assert.equal(normalizedLeaf.pathZooms['/examples/demo.nepl'], 1.4);
+    const normalizedPreview = layout.normalizeTree(guiPreview);
+    assert.equal(normalizedPreview.previewKind, 'life');
 
     return {
         ok: true,
         checks: [
             'default workspace contains explorer, editor, and terminal leaves',
             'editor leaves can be split and moved in the tree',
+            'GUI preview leaves preserve their selected preview kind',
             'closing a leaf normalizes the split tree',
             'workspace snapshots can be cloned without losing panel kinds',
             'leaf zoom state survives normalize and clone operations',

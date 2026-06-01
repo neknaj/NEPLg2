@@ -233,6 +233,10 @@ tests/gui_playground/**
 - browser canvas / DOM-backed surface を `RenderTarget` として実装する。
 - CLI で headless smoke test を走らせる。
 
+2026-06-02 checkpoint では、Web Playground workspace に `gui-preview` pane を追加し、editor header の `G` button から Canvas2D preview を開けるようにした。`web/src/gui-preview/renderer.ts` は `examples/gui_mandelbrot.nepl`、`examples/gui_life.nepl`、`examples/gui_counter.nepl` と同じ metric contract を持つ scene を生成し、`web/src/gui-preview/panel.ts` が pane 内 Canvas に描画する。これは user が GUI example を視覚確認するための表示 smoke であり、まだ NEPL/Wasm から `DrawCommand` stream を export する TypeScript host bridge ではない。
+
+次の Web checkpoint では `platforms/gui/web` の `present-commands` / `begin-frame` / `push-command` / `end-frame` 境界を TypeScript host bridge と接続し、GUI example が実際に生成した command stream を `gui-preview` pane へ渡す。現在の preview renderer は、その接続後に smoke fixture として残す。
+
 ## Phase 6: Terminal backend replacement
 
 対象:
@@ -273,6 +277,10 @@ Native:
 
 - window / surface / clipboard / timer / cursor を `std/gui` host contract に接続する。
 - File dialog、menu、tray、drag-and-drop は extension module に分ける。
+
+2026-06-02 checkpoint では、workspace member `nepl-gui-native` を追加し、pure framebuffer renderer と minifb window runner を分けて実装した。CI / headless 環境では `cargo test -p nepl-gui-native --lib` が framebuffer 変換と metric contract だけを検査する。実 window は target-specific optional dependency の `window` feature で有効化し、`cargo run -p nepl-gui-native --features window -- mandelbrot` のように明示実行する。
+
+この crate も現時点では正式な `std/gui::GuiHost` 実装ではない。次の native checkpoint では `std/gui` の host contract が固まった後、`nepl-gui-native` の framebuffer renderer を `platforms/gui/native` 側の `present` 実装へ寄せる。
 
 Mobile:
 

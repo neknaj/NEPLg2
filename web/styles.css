@@ -415,6 +415,58 @@ body.is-resizing-panels * {
     background: var(--bg-canvas);
 }
 
+.gui-preview-content {
+    background: #0d1117;
+}
+
+.gui-preview-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.gui-preview-toolbar {
+    height: 34px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(16, 23, 32, 0.94);
+}
+
+.gui-preview-select {
+    height: 24px;
+    min-width: 124px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    background: #121b25;
+    color: var(--text-primary);
+    font-size: 12px;
+}
+
+.gui-preview-metrics {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.gui-preview-canvas {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    cursor: default;
+}
+
 canvas {
     display: block;
     width: 100%;
