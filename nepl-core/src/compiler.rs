@@ -365,6 +365,7 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         options,
         artifact_options,
         dependency_public_surface_hash,
+        None,
         resource_summary_value_cache,
         ResourceSummaryProofArtifactCacheOptions::none(),
         &mut stage_recorder,
@@ -392,6 +393,31 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         options,
         artifact_options,
         dependency_public_surface_hash,
+        None,
+        resource_summary_value_cache,
+        resource_summary_proof_options,
+        &mut stage_recorder,
+    )
+}
+
+pub fn compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_and_neplproof(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    dependency_public_surface_hash: Option<u64>,
+    module_surface: Option<&crate::artifact::NeplMetaModuleSurface>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
+) -> Result<CompilationArtifact, CoreError> {
+    let mut stage_recorder = CompileStageRecorder::disabled();
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        module,
+        source_map,
+        options,
+        artifact_options,
+        dependency_public_surface_hash,
+        module_surface,
         resource_summary_value_cache,
         resource_summary_proof_options,
         &mut stage_recorder,
@@ -420,6 +446,7 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         options,
         artifact_options,
         dependency_public_surface_hash,
+        None,
         resource_summary_value_cache,
         ResourceSummaryProofArtifactCacheOptions::none(),
         &mut stage_recorder,
@@ -449,6 +476,33 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         options,
         artifact_options,
         dependency_public_surface_hash,
+        None,
+        resource_summary_value_cache,
+        resource_summary_proof_options,
+        &mut stage_recorder,
+    )
+}
+
+pub fn compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_neplproof_and_stage_timings(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    dependency_public_surface_hash: Option<u64>,
+    module_surface: Option<&crate::artifact::NeplMetaModuleSurface>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
+    stage_timings: &mut CompileStageTimings,
+    now_ms: CompileStageNow,
+) -> Result<CompilationArtifact, CoreError> {
+    let mut stage_recorder = CompileStageRecorder::enabled(stage_timings, now_ms);
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        module,
+        source_map,
+        options,
+        artifact_options,
+        dependency_public_surface_hash,
+        module_surface,
         resource_summary_value_cache,
         resource_summary_proof_options,
         &mut stage_recorder,
@@ -461,6 +515,7 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
     options: CompileOptions,
     artifact_options: CompilationArtifactOptions,
     dependency_public_surface_hash: Option<u64>,
+    module_surface: Option<&crate::artifact::NeplMetaModuleSurface>,
     resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
     resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
     stage_recorder: &mut CompileStageRecorder<'_>,
@@ -489,6 +544,7 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
         profile,
         source_map,
         dependency_public_surface_hash,
+        module_surface,
         resource_summary_value_cache,
         resource_summary_proof_options,
         stage_recorder,
@@ -1326,6 +1382,7 @@ fn resource_borrow_conflict_message(
 mod tests {
     use super::*;
     use crate::diagnostic_codes::EffectDiagnosticCode;
+    use crate::effects::PrivateEffectRegion;
     use crate::resource::{
         BorrowState, CellState, OwnerState, Place, PrivateCacheOp, RawAddressAliasKind,
         RawAddressViewKind, RawMemoryOp, ResourceBorrowDiagnostic, ResourceBorrowOperation,
@@ -1333,7 +1390,6 @@ mod tests {
         ResourceEffectCallKind, ResourceId, ResourceOwnerDiagnostic, ResourceOwnerOperation,
         StorageId,
     };
-    use crate::effects::PrivateEffectRegion;
     use crate::source_map::{
         SourceCapabilities, SourceCapabilitySpan, SourceCapabilityUseSite, SourceMap,
     };
@@ -2994,6 +3050,7 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
         profile,
         source_map,
         dependency_public_surface_hash,
+        None,
         resource_summary_value_cache,
         ResourceSummaryProofArtifactCacheOptions::none(),
         &mut stage_recorder,
@@ -3006,6 +3063,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
     dependency_public_surface_hash: Option<u64>,
+    module_surface: Option<&crate::artifact::NeplMetaModuleSurface>,
     mut resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
     resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
     stage_recorder: &mut CompileStageRecorder<'_>,
@@ -3036,15 +3094,17 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     let mut types = resource_tc.types;
     let public_signatures = resource_tc.public_signatures;
     let public_surface = resource_tc.public_surface;
-    let nepl_meta_artifact = crate::artifact::NeplMetaArtifact::from_public_surface(
-        target,
-        profile,
-        resource_summary_proof_options.stdlib_content_hash,
-        dependency_public_surface_hash,
-        source_map,
-        public_signatures.clone(),
-        public_surface.clone(),
-    );
+    let nepl_meta_artifact =
+        crate::artifact::NeplMetaArtifact::from_public_surface_and_module_surface(
+            target,
+            profile,
+            resource_summary_proof_options.stdlib_content_hash,
+            dependency_public_surface_hash,
+            source_map,
+            public_signatures.clone(),
+            module_surface.cloned(),
+            public_surface.clone(),
+        );
     let resource_summary_cache_namespace_key = ResourceSummaryCacheNamespaceKey::new(
         target,
         profile,

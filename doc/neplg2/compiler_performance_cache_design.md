@@ -1722,6 +1722,30 @@ contract として扱わない。
 prelude edge と module canonical path を per-module surface に加えたうえで、fail-closed
 materializer を import / prelude boundary へ接続する。
 
+### 2026-06-01 `.neplmeta` module edge surface checkpoint
+
+`.neplmeta` payload に module edge surface を追加した。これは loader が既に持っている
+root module の import / prelude / include surface を、artifact materializer が使える
+arena 非依存 payload として保存するための checkpoint である。
+
+module edge surface は canonical module path、default prelude path、`#no_prelude`、
+implicit default prelude の有無、direct dependency edge を持つ。edge は
+`Prelude` / `Import` / `Include`、resolved canonical target path、visibility、import clause、
+public re-export eligible flag、source order を保持する。`PathBuf`、`FileId`、`Span`、
+`ImportResolution`、typed HIR、Resource IR は保存しない。
+
+`.neplmeta` header には `module_surface_hash` と `module_dependency_edge_count` を追加した。
+payload consistency check も module surface hash / edge count を検証するため、artifact decode 後に
+header と payload がずれた module edge authority を受け入れない。
+
+この payload 形状変更に合わせ、`.neplmeta` schema / artifact hash / compiler identity は v9
+へ上げた。Web `CompilerSession` は loader の `LoadResult` から module surface を受け取り、
+compile result の `.neplmeta` artifact と stats JSON へ反映する。
+
+この checkpoint は export / re-export table の完全 materializer ではない。次は re-export された
+public entry の origin module / origin name / exported name / kind を module identity ベースで保存し、
+target artifact missing や dependency mismatch を enum reason で fail-closed に拒否する。
+
 ### 2026-06-01 LLVM dual CI shard checkpoint
 
 GitHub Actions run `26728316260` では、`llvm-dual-test` の `tests` / `stdlib`

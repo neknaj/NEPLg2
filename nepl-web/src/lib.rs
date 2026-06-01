@@ -7,8 +7,8 @@ use nepl_core::ast::{
     Block, Directive, FnBody, MatchArm, MatchPattern, PrefixExpr, PrefixItem, Stmt, Symbol,
 };
 use nepl_core::compiler::{
-    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_neplproof,
-    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_neplproof_and_stage_timings,
+    compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_and_neplproof,
+    compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_neplproof_and_stage_timings,
     CompileStageTimings,
 };
 use nepl_core::diagnostic::{Diagnostic, Severity};
@@ -3379,6 +3379,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
     let artifact_options = CompilationArtifactOptions {
         include_wat_comments,
     };
+    let module_surface = loaded.module_surface.clone();
     let stdlib_content_hash = bundled_stdlib_hash_u64();
     let proof_artifact_enabled =
         resource_summary_value_cache.is_some() && stdlib_content_hash.is_some();
@@ -3395,24 +3396,26 @@ fn compile_wasm_with_bundled_sources_and_cache(
         },
     };
     let artifact = if let Some(stage_timings) = stage_timings {
-        compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_neplproof_and_stage_timings(
+        compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_neplproof_and_stage_timings(
             loaded.module,
             Some(&loaded.source_map),
             options,
             artifact_options,
             dependency_public_surface_hash,
+            module_surface.as_ref(),
             resource_summary_value_cache.as_deref_mut(),
             resource_summary_proof_options,
             stage_timings,
             compile_stage_now_ms,
         )
     } else {
-        compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_resource_summary_value_cache_and_neplproof(
+        compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_and_neplproof(
             loaded.module,
             Some(&loaded.source_map),
             options,
             artifact_options,
             dependency_public_surface_hash,
+            module_surface.as_ref(),
             resource_summary_value_cache.as_deref_mut(),
             resource_summary_proof_options,
         )
@@ -3799,6 +3802,20 @@ impl CompilerSession {
         out.push_str(
             &nepl_meta_header
                 .map(|header| header.typed_public_signature_hash)
+                .unwrap_or(0)
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_module_dependency_edges\":");
+        out.push_str(
+            &nepl_meta_header
+                .and_then(|header| header.module_dependency_edge_count)
+                .unwrap_or(0)
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_module_surface_hash\":");
+        out.push_str(
+            &nepl_meta_header
+                .and_then(|header| header.module_surface_hash)
                 .unwrap_or(0)
                 .to_string(),
         );

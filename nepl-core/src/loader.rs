@@ -1,3 +1,7 @@
+use crate::artifact::{
+    NeplMetaImportClause, NeplMetaImportItem, NeplMetaModuleDependencyEdge,
+    NeplMetaModuleDependencyKind, NeplMetaModuleSurface, NeplMetaVisibility,
+};
 use crate::ast::{
     remap_module_file_id, Directive, Effect, EnumDef, FnAlias, FnDef, ImplDef, ImportClause,
     Module, Stmt, StructDef, TraitCapability, TraitDef, TraitRef, TypeExpr, TypeParam, Visibility,
@@ -60,6 +64,7 @@ impl From<CoreError> for LoaderError {
 pub struct LoadResult {
     pub module: Module,
     pub source_map: SourceMap,
+    pub module_surface: Option<NeplMetaModuleSurface>,
 }
 
 /// Cumulative counters for a loader session cache.
@@ -329,6 +334,24 @@ impl SourceImportEdge {
             SourceImportEdgeKind::Prelude => false,
         }
     }
+
+    fn to_nepl_meta_edge(&self) -> NeplMetaModuleDependencyEdge {
+        NeplMetaModuleDependencyEdge {
+            kind: match self.kind {
+                SourceImportEdgeKind::Prelude => NeplMetaModuleDependencyKind::Prelude,
+                SourceImportEdgeKind::Import => NeplMetaModuleDependencyKind::Import,
+                SourceImportEdgeKind::Include => NeplMetaModuleDependencyKind::Include,
+            },
+            target_path: canonical_path_string(&self.target_path),
+            visibility: match self.visibility {
+                Visibility::Pub => NeplMetaVisibility::Pub,
+                Visibility::Private => NeplMetaVisibility::Private,
+            },
+            import_clause: self.import_clause.as_ref().map(nepl_meta_import_clause),
+            public_reexport: self.public_reexport_eligible(),
+            source_order: usize_to_u32_saturating(self.source_order),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -396,6 +419,24 @@ impl CachedAritySurface {
         }
         paths
     }
+
+    fn to_nepl_meta_module_surface(
+        &self,
+        canonical_module_path: &PathBuf,
+    ) -> NeplMetaModuleSurface {
+        let edges = self
+            .edges
+            .iter()
+            .map(SourceImportEdge::to_nepl_meta_edge)
+            .collect::<Vec<_>>();
+        NeplMetaModuleSurface::new(
+            canonical_path_string(canonical_module_path),
+            canonical_path_string(&self.default_prelude_path),
+            self.no_prelude,
+            self.implicit_default_prelude,
+            edges,
+        )
+    }
 }
 
 /// Loader that builds a single merged module from an entry file,
@@ -421,6 +462,7 @@ impl Loader {
 
     /// Load an already-provided source string as a pseudo file (for stdin use).
     pub fn load_inline(&mut self, path: PathBuf, src: String) -> Result<LoadResult, LoaderError> {
+        let module_surface = self.nepl_meta_module_surface_for_source(&path, &src, None);
         let mut sm = SourceMap::new();
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
@@ -446,6 +488,7 @@ impl Loader {
         Ok(LoadResult {
             module,
             source_map: sm,
+            module_surface: Some(module_surface),
         })
     }
 
@@ -456,6 +499,7 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
     ) -> Result<LoadResult, LoaderError> {
         loader_log!("[Loader] load_inline_with_provider: path={:?}", path);
+        let module_surface = self.nepl_meta_module_surface_for_source(&path, &src, None);
         let mut sm = SourceMap::new();
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
@@ -488,6 +532,7 @@ impl Loader {
         Ok(LoadResult {
             module,
             source_map: sm,
+            module_surface: Some(module_surface),
         })
     }
 
@@ -502,6 +547,8 @@ impl Loader {
             "[Loader] load_inline_with_provider_and_cache: path={:?}",
             path
         );
+        let module_surface =
+            self.nepl_meta_module_surface_for_source(&path, &src, Some(session_cache));
         let mut sm = SourceMap::new();
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
@@ -537,6 +584,7 @@ impl Loader {
         Ok(LoadResult {
             module,
             source_map: sm,
+            module_surface: Some(module_surface),
         })
     }
 
@@ -665,6 +713,30 @@ impl Loader {
         (hash, roots)
     }
 
+    /// Build the `.neplmeta` module edge surface for a root source.
+    ///
+    /// This query mirrors the loader prewarm surface, but returns structured
+    /// payload instead of a hash. The result contains canonical paths and enum
+    /// import clauses only; it does not retain parser spans, source-map file ids,
+    /// or typed state.
+    pub fn nepl_meta_module_surface_for_source(
+        &self,
+        entry_path: &PathBuf,
+        source: &str,
+        mut session_cache: Option<&mut LoaderSessionCache>,
+    ) -> NeplMetaModuleSurface {
+        let canon = canonicalize_path(entry_path);
+        let mut sm = SourceMap::new();
+        let file_id = sm.add_with_capabilities(
+            path_to_source_label(&canon),
+            source.to_string(),
+            SourceCapabilities::none(),
+        );
+        let surface =
+            self.source_arity_surface(&canon, file_id, source, session_cache.as_deref_mut());
+        surface.to_nepl_meta_module_surface(&canon)
+    }
+
     /// Compute the public surface hash of stdlib dependencies reachable from a root source.
     ///
     /// This query is a loader-level staging artifact for future typed public
@@ -708,6 +780,10 @@ impl Loader {
     }
 
     pub fn load(&mut self, entry: &PathBuf) -> Result<LoadResult, LoaderError> {
+        let module_surface = match read_file_to_string(&canonicalize_path(entry)) {
+            Ok(source) => Some(self.nepl_meta_module_surface_for_source(entry, &source, None)),
+            Err(_) => None,
+        };
         let mut sm = SourceMap::new();
         let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
         let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
@@ -732,6 +808,7 @@ impl Loader {
         Ok(LoadResult {
             module,
             source_map: sm,
+            module_surface,
         })
     }
 
@@ -2035,6 +2112,37 @@ fn push_unique_canonical_path(
     }
 }
 
+fn nepl_meta_import_clause(clause: &ImportClause) -> NeplMetaImportClause {
+    match clause {
+        ImportClause::DefaultAlias => NeplMetaImportClause::DefaultAlias,
+        ImportClause::Alias(name) => NeplMetaImportClause::Alias(name.clone()),
+        ImportClause::Open => NeplMetaImportClause::Open,
+        ImportClause::Selective(items) => NeplMetaImportClause::Selective(
+            items
+                .iter()
+                .map(|item| NeplMetaImportItem {
+                    name: item.name.clone(),
+                    alias: item.alias.clone(),
+                    glob: item.glob,
+                })
+                .collect(),
+        ),
+        ImportClause::Merge => NeplMetaImportClause::Merge,
+    }
+}
+
+fn canonical_path_string(path: &PathBuf) -> String {
+    canonicalize_path(path).to_string_lossy().into_owned()
+}
+
+fn usize_to_u32_saturating(value: usize) -> u32 {
+    if value > u32::MAX as usize {
+        u32::MAX
+    } else {
+        value as u32
+    }
+}
+
 /// Merge dependency arity hints while preserving the latest known declaration.
 ///
 /// Import graphs can expose the same constructor through multiple facades. The
@@ -3103,6 +3211,31 @@ mod tests {
             matches!(import_edge.import_clause, Some(ImportClause::Selective(_))),
             "logical import graph groundwork must preserve import clauses instead of reducing them to path-only edges",
         );
+
+        let module_surface = surface.to_nepl_meta_module_surface(&path);
+        assert_eq!(module_surface.dependency_edges.len(), 3);
+        assert_eq!(
+            module_surface.canonical_module_path,
+            canonical_path_string(&path)
+        );
+        assert_eq!(
+            module_surface.default_prelude_path,
+            canonical_path_string(&stdlib_path(&stdlib_root, &["std", "prelude_base.nepl"]))
+        );
+        let meta_import = module_surface
+            .dependency_edges
+            .iter()
+            .find(|edge| edge.kind == NeplMetaModuleDependencyKind::Import)
+            .expect("module surface should retain the import edge");
+        assert_eq!(meta_import.visibility, NeplMetaVisibility::Pub);
+        assert!(meta_import.public_reexport);
+        assert!(
+            matches!(
+                meta_import.import_clause,
+                Some(NeplMetaImportClause::Selective(_))
+            ),
+            ".neplmeta module surface must retain selective import projection authority",
+        );
     }
 
     #[test]
@@ -3921,10 +4054,7 @@ mod tests {
 
         assert!(capabilities.allows_private_cache_boundary(PrivateCacheOp::Lookup));
         assert!(
-            capabilities.allows_private_cache_boundary_at(
-                PrivateCacheOp::Lookup,
-                intrinsic_span
-            ),
+            capabilities.allows_private_cache_boundary_at(PrivateCacheOp::Lookup, intrinsic_span),
             "private cache authority must attach to the exact compiler-owned intrinsic use site"
         );
         assert!(
@@ -3933,8 +4063,7 @@ mod tests {
             "private cache authority must use the Resource IR effect expression span, not the intrinsic-name token span"
         );
         assert!(
-            !capabilities
-                .allows_private_cache_boundary_at(PrivateCacheOp::Lookup, unrelated_span),
+            !capabilities.allows_private_cache_boundary_at(PrivateCacheOp::Lookup, unrelated_span),
             "private cache authority must not become file-wide"
         );
         assert!(

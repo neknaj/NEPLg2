@@ -225,6 +225,31 @@ structured public surface hash namespace は `neplg2-typed-public-surface-v7`、
 - `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`
 - `cargo test -p nepl-core neplmeta --lib -- --nocapture`
 
+## 2026-06-01 module edge surface checkpoint
+
+`.neplmeta` payload に module edge surface を追加した。
+
+これまでは loader の `SourceImportEdge` と `CachedAritySurface` が import / prelude / include
+edge を保持し、`module_public_surface_hash` がそれを hash していた。しかし `.neplmeta` artifact
+自体は module canonical path や edge list を持たず、materializer が依存 module の visibility /
+re-export 境界を構造として復元できなかった。
+
+新しい module surface は canonical module path、default prelude path、`#no_prelude`、
+implicit default prelude、direct dependency edges を持つ。edge は kind、canonical target path、
+visibility、import clause、public re-export eligible flag、source order を保存する。
+`PathBuf`、`FileId`、`Span`、`ImportResolution`、typed HIR、Resource IR は保存しない。
+
+`.neplmeta` header には `module_surface_hash` と `module_dependency_edge_count` を追加し、
+payload consistency check でも module surface hash / edge count の不一致を拒否する。
+payload 形状変更に合わせて schema / artifact hash / compiler identity は v9 に上げた。
+
+残件:
+
+- export / re-export table を module identity ベースの structured payload として追加する。
+- target artifact missing、dependency hash mismatch、unsupported include、missing module identity を
+  materializer の enum reject reason として分ける。
+- fail-closed materializer を import / prelude boundary へ接続する。
+
 ## 2026-06-01 generic impl surface checkpoint
 
 `ImplInfo` に impl header 自身の generic binder と bound environment を保持し、structured public surface の `PublicImplSurface` へ投影するようにした。

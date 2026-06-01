@@ -1,3 +1,14 @@
+# 2026-06-01 .neplmeta module edge surface checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、DAG 化、cache artifact の authority を型付き payload に分ける方針を再確認した。`plan.md` は変更していない。
+- remote/main に merge 済みの `9f5c62e0 Add neplmeta trait self surface` から branch `perf/neplmeta-module-edge-surface-20260601` を作成して作業した。
+- subagent review で、hash だけではなく module identity / module edge / export re-export authority を `.neplmeta` に structured payload として持たせるべきと確認した。今回の checkpoint はそのうち direct module edge authority を先に固定する。
+- `NeplMetaModuleSurface` と `NeplMetaModuleDependencyEdge` を追加し、canonical module path、default prelude path、`#no_prelude`、implicit default prelude、direct dependency edges を `.neplmeta` payload に載せるようにした。
+- module edge は `Prelude` / `Import` / `Include`、canonical target path、visibility、import clause、public re-export eligible flag、source order を保持する。`PathBuf`、`FileId`、`Span`、`ImportResolution`、typed HIR、Resource IR は保存しない。
+- `.neplmeta` header に `module_surface_hash` と `module_dependency_edge_count` を追加し、payload consistency check でも module surface hash / edge count の不一致を拒否する。payload 形状変更に合わせて `.neplmeta` schema / artifact hash / compiler identity は v9 に上げた。
+- Web `CompilerSession` は `LoadResult` の module surface を compile pipeline へ渡し、stats JSON に module edge count / module surface hash を出すようにした。
+- 残件: export / re-export table の origin module / origin name / exported name / kind、materializer reject reason、import / prelude boundary への fail-closed materializer 接続は次 checkpoint で継続する。
+
 # 2026-06-01 .neplmeta materializer preflight checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋性、責務分割、性能追求、試作段階でも品質を落とさない方針を再確認した。`plan.md` は変更していない。
