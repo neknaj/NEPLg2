@@ -1,0 +1,259 @@
+//: # core/gui/event
+//: GUI/TUI [共通/きょうつう] input event の no_alloc [表現/ひょうげん]
+//:
+//: ### [目的/もくてき]
+//: - pointer、keyboard、text input、window、timer、lifecycle、accessibility、action を 1 つの `GuiEvent` enum で[扱/あつか]います。
+//: - terminal raw input、DOM event、OS message は backend [境界/きょうかい]でこの[型/かた]へ[変換/へんかん]し、application model は platform raw value を[直接/ちょくせつ][扱/あつか]いません。
+//:
+//: ### [注意/ちゅうい]
+//: - text input は Phase 1 では 1 scalar value だけを[保持/ほじ]します。IME composition や grapheme buffer は alloc/std [層/そう]で[拡張/かくちょう]します。
+//: - 使わない event がある backend でも、型体系上 event を[削/けず]らず、`GuiCapabilities` で[有無/うむ]を[示/しめ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor と accessor は O(1) です。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/geometry" as *
+#import "core/traits/copy" as *
+
+//: ActionId: widget/action を application update へ[渡/わた]す id
+pub struct ActionId:
+    raw %i32
+
+impl Clone for ActionId:
+    fn clone %fn &ActionId ActionId \id:
+        *id
+
+impl Copy for ActionId:
+    fn copy_mark %fn ActionId ActionId \id:
+        id
+
+//: WidgetId: view tree [内/ない]の widget id
+pub struct WidgetId:
+    raw %i32
+
+impl Clone for WidgetId:
+    fn clone %fn &WidgetId WidgetId \id:
+        *id
+
+impl Copy for WidgetId:
+    fn copy_mark %fn WidgetId WidgetId \id:
+        id
+
+//: PointerEventKind: pointer event の[種類/しゅるい]
+pub enum PointerEventKind:
+    Move
+    Down
+    Up
+    Cancel
+
+impl Clone for PointerEventKind:
+    fn clone %fn &PointerEventKind PointerEventKind \kind:
+        *kind
+
+impl Copy for PointerEventKind:
+    fn copy_mark %fn PointerEventKind PointerEventKind \kind:
+        kind
+
+//: PointerButton: pointer button の[種類/しゅるい]
+pub enum PointerButton:
+    None
+    Primary
+    Secondary
+    Middle
+
+impl Clone for PointerButton:
+    fn clone %fn &PointerButton PointerButton \button:
+        *button
+
+impl Copy for PointerButton:
+    fn copy_mark %fn PointerButton PointerButton \button:
+        button
+
+//: PointerEvent: pointer/touch [境界/きょうかい]の[軽量/けいりょう] event
+pub struct PointerEvent:
+    kind %PointerEventKind
+    pointer_id %i32
+    position %GuiPoint
+    button %PointerButton
+
+impl Clone for PointerEvent:
+    fn clone %fn &PointerEvent PointerEvent \event:
+        *event
+
+impl Copy for PointerEvent:
+    fn copy_mark %fn PointerEvent PointerEvent \event:
+        event
+
+//: KeyboardEventKind: keyboard event の[種類/しゅるい]
+pub enum KeyboardEventKind:
+    KeyDown
+    KeyUp
+
+impl Clone for KeyboardEventKind:
+    fn clone %fn &KeyboardEventKind KeyboardEventKind \kind:
+        *kind
+
+impl Copy for KeyboardEventKind:
+    fn copy_mark %fn KeyboardEventKind KeyboardEventKind \kind:
+        kind
+
+//: KeyModifiers: keyboard modifier bitset
+//:
+//: [注意/ちゅうい]:
+//: - bit の[意味/いみ]は std/platform [層/そう]で[文書化/ぶんしょか]します。core では opaque な i32 として[保持/ほじ]します。
+pub struct KeyModifiers:
+    bits %i32
+
+impl Clone for KeyModifiers:
+    fn clone %fn &KeyModifiers KeyModifiers \m:
+        *m
+
+impl Copy for KeyModifiers:
+    fn copy_mark %fn KeyModifiers KeyModifiers \m:
+        m
+
+//: KeyboardEvent: key code と modifier を[持/も]つ event
+pub struct KeyboardEvent:
+    kind %KeyboardEventKind
+    key_code %i32
+    modifiers %KeyModifiers
+
+impl Clone for KeyboardEvent:
+    fn clone %fn &KeyboardEvent KeyboardEvent \event:
+        *event
+
+impl Copy for KeyboardEvent:
+    fn copy_mark %fn KeyboardEvent KeyboardEvent \event:
+        event
+
+//: TextInputEvent: text input scalar event
+pub struct TextInputEvent:
+    value %char
+
+impl Clone for TextInputEvent:
+    fn clone %fn &TextInputEvent TextInputEvent \event:
+        *event
+
+impl Copy for TextInputEvent:
+    fn copy_mark %fn TextInputEvent TextInputEvent \event:
+        event
+
+//: WindowEventKind: window/surface lifecycle event の[種類/しゅるい]
+pub enum WindowEventKind:
+    Resized
+    Focused
+    Unfocused
+    CloseRequested
+
+impl Clone for WindowEventKind:
+    fn clone %fn &WindowEventKind WindowEventKind \kind:
+        *kind
+
+impl Copy for WindowEventKind:
+    fn copy_mark %fn WindowEventKind WindowEventKind \kind:
+        kind
+
+//: WindowEvent: window/surface event
+pub struct WindowEvent:
+    kind %WindowEventKind
+    size %GuiSize
+
+impl Clone for WindowEvent:
+    fn clone %fn &WindowEvent WindowEvent \event:
+        *event
+
+impl Copy for WindowEvent:
+    fn copy_mark %fn WindowEvent WindowEvent \event:
+        event
+
+//: TimerEvent: timer tick event
+pub struct TimerEvent:
+    timer_id %i32
+    tick %i32
+
+impl Clone for TimerEvent:
+    fn clone %fn &TimerEvent TimerEvent \event:
+        *event
+
+impl Copy for TimerEvent:
+    fn copy_mark %fn TimerEvent TimerEvent \event:
+        event
+
+//: LifecycleEvent: application lifecycle event
+pub enum LifecycleEvent:
+    Started
+    Suspended
+    Resumed
+    Stopped
+    LowMemory
+
+impl Clone for LifecycleEvent:
+    fn clone %fn &LifecycleEvent LifecycleEvent \event:
+        *event
+
+impl Copy for LifecycleEvent:
+    fn copy_mark %fn LifecycleEvent LifecycleEvent \event:
+        event
+
+//: AccessibilityEvent: accessibility [関連/かんれん] event の[種類/しゅるい]
+pub enum AccessibilityEvent:
+    FocusRequested
+    ScreenReaderChanged
+
+impl Clone for AccessibilityEvent:
+    fn clone %fn &AccessibilityEvent AccessibilityEvent \event:
+        *event
+
+impl Copy for AccessibilityEvent:
+    fn copy_mark %fn AccessibilityEvent AccessibilityEvent \event:
+        event
+
+//: GuiEvent: platform raw event を[抽象化/ちゅうしょうか]した application input
+pub enum GuiEvent:
+    Pointer %PointerEvent
+    Keyboard %KeyboardEvent
+    TextInput %TextInputEvent
+    Window %WindowEvent
+    Timer %TimerEvent
+    Lifecycle %LifecycleEvent
+    Accessibility %AccessibilityEvent
+    Action %ActionId
+
+impl Clone for GuiEvent:
+    fn clone %fn &GuiEvent GuiEvent \event:
+        *event
+
+impl Copy for GuiEvent:
+    fn copy_mark %fn GuiEvent GuiEvent \event:
+        event
+
+//: action_id_new: action id を[作/つく]る
+pub fn action_id_new %fn i32 ActionId \raw:
+    ActionId raw
+
+//: action_id_raw: action id の raw value を[読/よ]む
+pub fn action_id_raw %fn &ActionId i32 \id:
+    *field::get_ref id "raw"
+
+//: widget_id_new: widget id を[作/つく]る
+pub fn widget_id_new %fn i32 WidgetId \raw:
+    WidgetId raw
+
+//: key_modifiers_new: modifier bitset を[作/つく]る
+pub fn key_modifiers_new %fn i32 KeyModifiers \bits:
+    KeyModifiers bits
+
+//: text_input_event_new: text input event を[作/つく]る
+pub fn text_input_event_new %fn char TextInputEvent \value:
+    TextInputEvent value
+
+//: gui_event_lifecycle: lifecycle event を `GuiEvent` に[包/つつ]む
+pub fn gui_event_lifecycle %fn LifecycleEvent GuiEvent \event:
+    GuiEvent::Lifecycle event
+
+//: gui_event_action: action id を `GuiEvent` に[包/つつ]む
+pub fn gui_event_action %fn ActionId GuiEvent \action:
+    GuiEvent::Action action

@@ -1,0 +1,43 @@
+//: # core/gui/pixel
+//: no_alloc pixel drawing [向/む]けの[最小/さいしょう] value
+//:
+//: ### [目的/もくてき]
+//: - embedded framebuffer や software fallback が[扱/あつか]う 1 pixel を、[位置/いち]と[色/いろ]の pair として[定義/ていぎ]します。
+//: - DrawTarget trait 本体は Phase 1 では[広/ひろ]げず、pixel stream の[要素/ようそ]だけを[固定/こてい]します。
+//:
+//: ### [注意/ちゅうい]
+//: - `.Color` は backend ごとの color value です。`Rgba8888`、`BinaryColor`、`Gray8` などを[指定/してい]できます。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor と accessor は O(1) です。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/geometry" as *
+#import "core/traits/copy" as *
+
+//: Pixel: 位置と色を[持/も]つ 1 pixel
+pub struct Pixel<.Color>:
+    point %GuiPoint
+    color %.Color
+
+impl<.Color: Copy> Clone for Pixel<.Color>:
+    fn clone %fn &Pixel .Color Pixel .Color \p:
+        *p
+
+impl<.Color: Copy> Copy for Pixel<.Color>:
+    fn copy_mark %fn Pixel .Color Pixel .Color \p:
+        p
+
+//: pixel_new: pixel value を[作/つく]る
+pub fn pixel_new <.Color> %fn GuiPoint fn .Color Pixel .Color \point\color:
+    Pixel point color
+
+//: pixel_point: pixel の[位置/いち]を[読/よ]む
+pub fn pixel_point <.Color: Copy> %fn &Pixel .Color GuiPoint \p:
+    *field::get_ref p "point"
+
+//: pixel_color: pixel の[色/いろ]を[読/よ]む
+pub fn pixel_color <.Color: Copy> %fn &Pixel .Color .Color \p:
+    *field::get_ref p "color"

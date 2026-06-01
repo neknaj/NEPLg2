@@ -1,0 +1,186 @@
+//: # core/gui/color
+//: GUI/TUI [共通/きょうつう] substrate の[色/いろ] value
+//:
+//: ### [目的/もくてき]
+//: - backend が[扱/あつか]う color format と、render command に[載/の]せる[軽量/けいりょう] color value を no_alloc で[定義/ていぎ]します。
+//: - terminal、embedded、pixel framebuffer、command surface の[差異/さい]を enum と struct で[表/あらわ]し、数値 sentinel を public API に[出/だ]しません。
+//:
+//: ### [注意/ちゅうい]
+//: - channel は `u8` を[使/つか]い、0..255 の[範囲/はんい]を[型/かた]で[表/あらわ]します。
+//: - 色名、theme、CSS color、terminal palette [変換/へんかん]は alloc/std/platform [層/そう]で[扱/あつか]います。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor と accessor はすべて O(1) です。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/traits/copy" as *
+
+//: ColorFormat: backend が[標準/ひょうじゅん]で[扱/あつか]える color format
+pub enum ColorFormat:
+    FormatBinary
+    FormatGray8
+    FormatRgb565
+    FormatRgb888
+    FormatRgba8888
+
+impl Clone for ColorFormat:
+    fn clone %fn &ColorFormat ColorFormat \f:
+        *f
+
+impl Copy for ColorFormat:
+    fn copy_mark %fn ColorFormat ColorFormat \f:
+        f
+
+//: BinaryColor: 1 bit surface の[色/いろ]
+pub enum BinaryColor:
+    Off
+    On
+
+impl Clone for BinaryColor:
+    fn clone %fn &BinaryColor BinaryColor \c:
+        *c
+
+impl Copy for BinaryColor:
+    fn copy_mark %fn BinaryColor BinaryColor \c:
+        c
+
+//: Gray8: 8 bit grayscale
+pub struct Gray8:
+    value %u8
+
+impl Clone for Gray8:
+    fn clone %fn &Gray8 Gray8 \c:
+        *c
+
+impl Copy for Gray8:
+    fn copy_mark %fn Gray8 Gray8 \c:
+        c
+
+//: Rgb565: RGB565 [生/なま] value
+//:
+//: [注意/ちゅうい]:
+//: - `raw` は下位 16 bit を[使/つか]います。u16 primitive がないため i32 で[保持/ほじ]します。
+pub struct Rgb565:
+    raw %i32
+
+impl Clone for Rgb565:
+    fn clone %fn &Rgb565 Rgb565 \c:
+        *c
+
+impl Copy for Rgb565:
+    fn copy_mark %fn Rgb565 Rgb565 \c:
+        c
+
+//: Rgb888: 8 bit x 3 channel の RGB
+pub struct Rgb888:
+    r %u8
+    g %u8
+    b %u8
+
+impl Clone for Rgb888:
+    fn clone %fn &Rgb888 Rgb888 \c:
+        *c
+
+impl Copy for Rgb888:
+    fn copy_mark %fn Rgb888 Rgb888 \c:
+        c
+
+//: Rgba8888: 8 bit x 4 channel の RGBA
+pub struct Rgba8888:
+    r %u8
+    g %u8
+    b %u8
+    a %u8
+
+impl Clone for Rgba8888:
+    fn clone %fn &Rgba8888 Rgba8888 \c:
+        *c
+
+impl Copy for Rgba8888:
+    fn copy_mark %fn Rgba8888 Rgba8888 \c:
+        c
+
+//: GuiColor: [代表的/だいひょうてき]な color value の tagged union
+//:
+//: [目的/もくてき]:
+//: - render command が backend の color format と[異/こと]なる value を[受/う]け[取/と]る[場合/ばあい]でも、enum の match で[明示的/めいじてき]に[変換/へんかん]できるようにします。
+pub enum GuiColor:
+    Binary %BinaryColor
+    Gray8 %Gray8
+    Rgb565 %Rgb565
+    Rgb888 %Rgb888
+    Rgba8888 %Rgba8888
+
+impl Clone for GuiColor:
+    fn clone %fn &GuiColor GuiColor \c:
+        *c
+
+impl Copy for GuiColor:
+    fn copy_mark %fn GuiColor GuiColor \c:
+        c
+
+//: gray8_new: grayscale value を[作/つく]る
+pub fn gray8_new %fn u8 Gray8 \value:
+    Gray8 value
+
+//: gray8_value: grayscale channel を[読/よ]む
+pub fn gray8_value %fn &Gray8 u8 \c:
+    *field::get_ref c "value"
+
+//: rgb565_new: RGB565 value を[作/つく]る
+pub fn rgb565_new %fn i32 Rgb565 \raw:
+    Rgb565 raw
+
+//: rgb565_raw: RGB565 raw value を[読/よ]む
+pub fn rgb565_raw %fn &Rgb565 i32 \c:
+    *field::get_ref c "raw"
+
+//: rgb888_new: RGB value を[作/つく]る
+pub fn rgb888_new %fn u8 fn u8 fn u8 Rgb888 \r\g\b:
+    Rgb888 r g b
+
+//: rgb888_r: red channel を[読/よ]む
+pub fn rgb888_r %fn &Rgb888 u8 \c:
+    *field::get_ref c "r"
+
+//: rgb888_g: green channel を[読/よ]む
+pub fn rgb888_g %fn &Rgb888 u8 \c:
+    *field::get_ref c "g"
+
+//: rgb888_b: blue channel を[読/よ]む
+pub fn rgb888_b %fn &Rgb888 u8 \c:
+    *field::get_ref c "b"
+
+//: rgba8888_new: RGBA value を[作/つく]る
+pub fn rgba8888_new %fn u8 fn u8 fn u8 fn u8 Rgba8888 \r\g\b\a:
+    Rgba8888 r g b a
+
+//: rgba8888_from_rgb: RGB value に alpha を[加/くわ]える
+pub fn rgba8888_from_rgb %fn Rgb888 fn u8 Rgba8888 \rgb\a:
+    Rgba8888:
+        rgb888_r &rgb
+        rgb888_g &rgb
+        rgb888_b &rgb
+        a
+
+//: rgba8888_r: red channel を[読/よ]む
+pub fn rgba8888_r %fn &Rgba8888 u8 \c:
+    *field::get_ref c "r"
+
+//: rgba8888_g: green channel を[読/よ]む
+pub fn rgba8888_g %fn &Rgba8888 u8 \c:
+    *field::get_ref c "g"
+
+//: rgba8888_b: blue channel を[読/よ]む
+pub fn rgba8888_b %fn &Rgba8888 u8 \c:
+    *field::get_ref c "b"
+
+//: rgba8888_a: alpha channel を[読/よ]む
+pub fn rgba8888_a %fn &Rgba8888 u8 \c:
+    *field::get_ref c "a"
+
+//: gui_color_rgba8888: RGBA value を tagged color に[包/つつ]む
+pub fn gui_color_rgba8888 %fn Rgba8888 GuiColor \c:
+    GuiColor::Rgba8888 c

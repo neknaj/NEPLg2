@@ -1,0 +1,204 @@
+//: # core/gui/geometry
+//: GUI/TUI [共通/きょうつう] substrate の[座標/ざひょう]と[矩形/くけい]
+//:
+//: ### [目的/もくてき]
+//: - pixel surface、command surface、text grid surface が[共有/きょうゆう]する[基本/きほん] geometry を no_alloc value として[定義/ていぎ]します。
+//: - OS window や DOM element の[実体/じったい]ではなく、layout と render command が[交換/こうかん]する[純粋/じゅんすい]な[値/あたい]だけを[扱/あつか]います。
+//:
+//: ### [注意/ちゅうい]
+//: - [座標系/ざひょうけい]の origin や DPI [変換/へんかん]は backend [側/がわ]の contract です。この module は i32 の[相対/そうたい][演算/えんざん]だけを[提供/ていきょう]します。
+//: - [負/ふ]の width/height を[禁止/きんし]する[検査/けんさ]は caller または layout [層/そう]で `GuiError::InvalidGeometry` として[扱/あつか]います。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor、accessor、加減算 helper はすべて O(1) です。
+
+#indent 4
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/traits/copy" as *
+
+//: GuiPoint: 2 次元[位置/いち]
+//:
+//: [目的/もくてき]:
+//: - pixel、layout、pointer event の[位置/いち]を x/y の i32 として[保持/ほじ]します。
+pub struct GuiPoint:
+    x %i32
+    y %i32
+
+impl Clone for GuiPoint:
+    fn clone %fn &GuiPoint GuiPoint \p:
+        *p
+
+impl Copy for GuiPoint:
+    fn copy_mark %fn GuiPoint GuiPoint \p:
+        p
+
+//: GuiSize: 2 次元[大/おお]きさ
+//:
+//: [目的/もくてき]:
+//: - surface、layout box、texture limit の width/height を i32 として[保持/ほじ]します。
+pub struct GuiSize:
+    width %i32
+    height %i32
+
+impl Clone for GuiSize:
+    fn clone %fn &GuiSize GuiSize \s:
+        *s
+
+impl Copy for GuiSize:
+    fn copy_mark %fn GuiSize GuiSize \s:
+        s
+
+//: GuiRect: x/y/width/height で[表/あらわ]す[矩形/くけい]
+//:
+//: [目的/もくてき]:
+//: - clipping、fill、layout result の[範囲/はんい]を 1 つの value として[渡/わた]します。
+pub struct GuiRect:
+    x %i32
+    y %i32
+    width %i32
+    height %i32
+
+impl Clone for GuiRect:
+    fn clone %fn &GuiRect GuiRect \r:
+        *r
+
+impl Copy for GuiRect:
+    fn copy_mark %fn GuiRect GuiRect \r:
+        r
+
+//: GuiInsets: [上下左右/じょうげさゆう]の[余白/よはく]
+//:
+//: [目的/もくてき]:
+//: - padding、margin、safe area のような[外側/そとがわ]・[内側/うちがわ]の[余白/よはく]を[表/あらわ]します。
+pub struct GuiInsets:
+    left %i32
+    top %i32
+    right %i32
+    bottom %i32
+
+impl Clone for GuiInsets:
+    fn clone %fn &GuiInsets GuiInsets \i:
+        *i
+
+impl Copy for GuiInsets:
+    fn copy_mark %fn GuiInsets GuiInsets \i:
+        i
+
+//: GuiScaleFactor: fixed-point [拡大率/かくだいりつ]
+//:
+//: [目的/もくてき]:
+//: - DPI や terminal cell scale を no_alloc で[受/う]け[渡/わた]すため、numerator/denominator の[比/ひ]として[保持/ほじ]します。
+//:
+//: [注意/ちゅうい]:
+//: - denominator が 0 でないことは caller contract です。検証付き constructor は layout/error [層/そう]で追加します。
+pub struct GuiScaleFactor:
+    numerator %i32
+    denominator %i32
+
+impl Clone for GuiScaleFactor:
+    fn clone %fn &GuiScaleFactor GuiScaleFactor \s:
+        *s
+
+impl Copy for GuiScaleFactor:
+    fn copy_mark %fn GuiScaleFactor GuiScaleFactor \s:
+        s
+
+//: gui_point_new: point を[作/つく]る
+pub fn gui_point_new %fn i32 fn i32 GuiPoint \x\y:
+    GuiPoint x y
+
+//: gui_point_x: point の x を[読/よ]む
+pub fn gui_point_x %fn &GuiPoint i32 \p:
+    *field::get_ref p "x"
+
+//: gui_point_y: point の y を[読/よ]む
+pub fn gui_point_y %fn &GuiPoint i32 \p:
+    *field::get_ref p "y"
+
+//: gui_point_add: point に delta point を[足/た]す
+//:
+//: [目的/もくてき]:
+//: - layout や pointer [差分/さぶん]の[加算/かさん]を名前付き helper として[提供/ていきょう]します。
+pub fn gui_point_add %fn GuiPoint fn GuiPoint GuiPoint \a\b:
+    GuiPoint:
+        add gui_point_x &a gui_point_x &b
+        add gui_point_y &a gui_point_y &b
+
+//: gui_point_sub: point から delta point を[引/ひ]く
+pub fn gui_point_sub %fn GuiPoint fn GuiPoint GuiPoint \a\b:
+    GuiPoint:
+        sub gui_point_x &a gui_point_x &b
+        sub gui_point_y &a gui_point_y &b
+
+//: gui_size_new: size を[作/つく]る
+pub fn gui_size_new %fn i32 fn i32 GuiSize \width\height:
+    GuiSize width height
+
+//: gui_size_width: size の width を[読/よ]む
+pub fn gui_size_width %fn &GuiSize i32 \s:
+    *field::get_ref s "width"
+
+//: gui_size_height: size の height を[読/よ]む
+pub fn gui_size_height %fn &GuiSize i32 \s:
+    *field::get_ref s "height"
+
+//: gui_size_add: size どうしを[足/た]す
+pub fn gui_size_add %fn GuiSize fn GuiSize GuiSize \a\b:
+    GuiSize:
+        add gui_size_width &a gui_size_width &b
+        add gui_size_height &a gui_size_height &b
+
+//: gui_rect_new: rect を[作/つく]る
+pub fn gui_rect_new %fn i32 fn i32 fn i32 fn i32 GuiRect \x\y\width\height:
+    GuiRect x y width height
+
+//: gui_rect_x: rect の x を[読/よ]む
+pub fn gui_rect_x %fn &GuiRect i32 \r:
+    *field::get_ref r "x"
+
+//: gui_rect_y: rect の y を[読/よ]む
+pub fn gui_rect_y %fn &GuiRect i32 \r:
+    *field::get_ref r "y"
+
+//: gui_rect_width: rect の width を[読/よ]む
+pub fn gui_rect_width %fn &GuiRect i32 \r:
+    *field::get_ref r "width"
+
+//: gui_rect_height: rect の height を[読/よ]む
+pub fn gui_rect_height %fn &GuiRect i32 \r:
+    *field::get_ref r "height"
+
+//: gui_rect_right: rect の[右端/みぎはし] x を[返/かえ]す
+pub fn gui_rect_right %fn &GuiRect i32 \r:
+    add gui_rect_x r gui_rect_width r
+
+//: gui_rect_bottom: rect の[下端/したはし] y を[返/かえ]す
+pub fn gui_rect_bottom %fn &GuiRect i32 \r:
+    add gui_rect_y r gui_rect_height r
+
+//: gui_rect_translate: rect を point delta だけ[平行移動/へいこういどう]する
+pub fn gui_rect_translate %fn GuiRect fn GuiPoint GuiRect \r\delta:
+    GuiRect:
+        add gui_rect_x &r gui_point_x &delta
+        add gui_rect_y &r gui_point_y &delta
+        gui_rect_width &r
+        gui_rect_height &r
+
+//: gui_rect_contains_point: rect が point を[含/ふく]むか[判定/はんてい]する
+//:
+//: [注意/ちゅうい]:
+//: - [右端/みぎはし]と[下端/したはし]は half-open として[含/ふく]みません。
+pub fn gui_rect_contains_point %fn &GuiRect fn GuiPoint bool \r\p:
+    and:
+        and ge gui_point_x &p gui_rect_x r lt gui_point_x &p gui_rect_right r
+        and ge gui_point_y &p gui_rect_y r lt gui_point_y &p gui_rect_bottom r
+
+//: gui_insets_new: insets を[作/つく]る
+pub fn gui_insets_new %fn i32 fn i32 fn i32 fn i32 GuiInsets \left\top\right\bottom:
+    GuiInsets left top right bottom
+
+//: gui_scale_factor_new: scale factor を[作/つく]る
+pub fn gui_scale_factor_new %fn i32 fn i32 GuiScaleFactor \numerator\denominator:
+    GuiScaleFactor numerator denominator
