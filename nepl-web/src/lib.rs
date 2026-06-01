@@ -4036,7 +4036,9 @@ impl CompilerSession {
         CompilerSession {
             stdlib_root,
             bundled_sources,
-            loader_cache: RefCell::new(LoaderSessionCache::new(stdlib_hash())),
+            loader_cache: RefCell::new(LoaderSessionCache::new_content_addressed_stdlib(
+                stdlib_hash(),
+            )),
             resource_summary_value_cache: RefCell::new(ResourceSummaryValueCache::new()),
             nepl_meta_artifact: RefCell::new(None),
             nepl_meta_artifact_store: RefCell::new(NeplMetaArtifactStore::new()),

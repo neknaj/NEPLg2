@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-05-24
-updated: 2026-06-01
+updated: 2026-06-02
 target: "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio"
 ---
 
@@ -160,6 +160,19 @@ raw-init preseed は実際に fixed-point worklist を skip するため、funct
 その上で、`NEPL_COMPILE_STAGE_TIMING=1` の native timing と wasm doctest の `timing.compile_ms` を対応付ける。候補は Resource IR summary propagation、stdlib import graph の解析範囲、diagnostic materialization、型推論候補展開、WAT/comment 補助生成である。timeout 延長、coverage 削除、旧記法のままの失敗を性能改善として扱うことはしない。
 
 2026-05-25 の追加調査により、raw initialization summary の単純な relevance pruning は却下した。次の候補は、summary builder が reference parameter / raw address alias / initialized-cell seed をどの関数で必要とするかを明示的な fact category に分け、その category ごとに worklist を分けることである。`RawMemory` を持つ関数だけを残すのではなく、reference deref の可用性を証明する lightweight summary と raw byte/cell mutation summary を分ける必要がある。
+
+2026-06-02 の content-addressed stdlib dependency aggregate cache checkpoint では、Web bundled stdlib の
+session cache namespace を stdlib 全体の content hash として扱い、同一 session 内の dependency
+aggregate public surface query を path/source hash で再利用できるようにした。これは stdlib overlay を
+含む mutable provider には適用せず、closed-source stdlib でだけ child closure traversal を省く境界である。
+
+`tmp/artifact-closed-source-aggregate-cache-20260602-r3.json` では、`core/char` materialized compile fallback
+bench の cold base が `compile_ms=423`、warm store probe が `compile_ms=230`、body edit candidate が
+`compile_ms=206`、body edit repeat が `compile_ms=185` になった。直前の fragment insertion checkpoint の
+cold base `compile_ms=1477` / body edit repeat `compile_ms=758` からは改善したが、目標である
+base 0.5 秒未満と edit 0.1 秒未満を一般 case で達成したとは扱わない。次は bundled stdlib
+`.neplmeta` / `.neplproof` preseed、`.neplobj` same-session object store、Resource proof template を
+継続する。
 
 ## 検証
 
