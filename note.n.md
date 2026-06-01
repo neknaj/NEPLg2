@@ -1,3 +1,13 @@
+# 2026-06-01 memo_call sealed private cache region proof issue checkpoint
+
+- Zenn 記事の試作段階方針、静的検査、Pure を外部観測可能 effect がないこととして扱う方針を再確認した。`plan.md` は変更していない。
+- remote/main は直前 checkpoint `634a7d1e Track neplmeta pretypecheck probe outcomes` まで同期・push 済みで、branch `work/memo-sealed-cache-proof-issue-20260601` はその `main` から作成した。
+- subagent review を受け、`memo_call` の sealed private cache region proof を新規 issue `ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7` として分離した。
+- この issue は `SourceCapability` exact use-site proof、`PrivateEffect` fold/hash、memoized backend representation、`memo_call` Phase 1 accepted path の横断境界をまとめ、各既存 issue には依存 checkpoint を追記した。
+- `UnsealedIntrinsic` は trusted intrinsic provenance であって mask 済み region ではない。sealed fresh region と Resource IR non-escape proof が入るまで、SourceCapability 単独では `PrivateCacheInPureFunction` を suppress しない。
+- `doc/neplg2/private_effect_memoization_purity_design.md` の対象 issue と region provenance section に sealed proof split を追記した。
+- 検証: `node nodesrc\issues.js index --dir issues`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta pre-typecheck probe observation checkpoint
 
 - Zenn 記事の enum / Result による静的検査、core/no_std 境界、純粋 query cache による探索空間削減方針を再確認した。`plan.md` は変更していない。

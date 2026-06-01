@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T07:11:45.947Z",
+  "generated_at": "2026-06-01T08:09:09.621Z",
   "counts": {
-    "total": 1300,
-    "open": 29,
+    "total": 1301,
+    "open": 30,
     "resolved": 1271,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 326
       },
       "core": {
-        "total": 655,
-        "open": 22,
+        "total": 656,
+        "open": 23,
         "resolved": 633
       },
       "neplg21": {
@@ -428,6 +428,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7.md"
+    },
+    {
+      "id": "ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7",
+      "title": "memo_call sealed private cache region proof",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-01",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/resource/effect_check.rs; nepl-core/src/effects.rs; nepl-core/src/resource/model.rs; nepl-core/src/typecheck/memo_call.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7.md"
     },
     {
       "id": "ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2",

@@ -17,6 +17,7 @@
 - [ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7](../../issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md)
 - [ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2](../../issues/items/ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2.md)
 - [ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C](../../issues/items/ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C.md)
+- [ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7](../../issues/items/ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7.md)
 
 ## 現行実装の境界
 
@@ -78,6 +79,11 @@ Resource IR、diagnostic、SourceCapability policy hash、Resource summary body 
 function 内では `PrivateCacheInPureFunction` / `PrivateStateInPureFunction` として
 fail closed に拒否する。SourceCapability の exact file / exact span / same operation /
 same region は「trusted use-site である」ことだけを証明し、Pure への mask 権限にはしない。
+
+2026-06-01 の sealed memo cache proof split では、`memo_call` 固有の sealed private cache
+region proof を独立 issue として分離した。SourceCapability exact proof、private effect
+fold/hash、memoized backend representation、Phase 1 accepted syntax はそれぞれ別 authority であり、
+sealed fresh region と non-escape proof が揃うまで `PrivateCache` は Pure に mask しない。
 
 surface fold は次の規則にする。
 

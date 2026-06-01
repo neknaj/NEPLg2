@@ -82,3 +82,13 @@ Resource summary body hash は private effect operation に加えて region prov
 - `UnsealedIntrinsic` ではなく fresh private region id を発行する backend/cache representation。
 - region が public type、return value、global/public field、raw pointer、stats/clear/ref API へ escape しないことの Resource IR proof。
 - proof 済み region だけを Pure へ mask する accepted regression。
+
+## 2026-06-01 sealed memo cache proof dependency
+
+`memo_call` 向けの sealed private cache region proof は
+`ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7` に分離した。
+
+Resource summary body hash / private effect policy hash には、sealed region policy version、
+region kind、region provenance、private cache operation を含める。session-local region id そのものは
+長寿命 cache key にしない。`UnsealedIntrinsic` と sealed fresh region が同じ key へ落ちないことを、
+proof artifact 永続化前の受け入れ条件にする。

@@ -145,3 +145,13 @@ source capability policy hash は private cache operation と span に加えて 
 - `cargo test -p nepl-core private_cache --lib -- --nocapture`
 - `cargo test -p nepl-core private_effect --lib -- --nocapture`
 - `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`
+
+## 2026-06-01 sealed memo cache proof dependency
+
+sealed private cache region proof は
+`ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7` に分離した。
+
+SourceCapability は exact file / span / operation / region の trusted use-site proof だけを担当する。
+sealed region 導入後も、SourceCapability 単独では `PrivateCacheInPureFunction` を suppress しない。
+same operation / same span でも region が異なる場合は `PrivateCacheOutsideBoundary` を拒否する
+regression を、sealed backend region 導入時に追加する。
