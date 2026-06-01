@@ -1,0 +1,26 @@
+//: # alloc/gui/diff
+//: GUI / TUI 共通 retained tree diff facade
+//:
+//: ### [目的/もくてき]
+//: - `ViewTree` の値同士を[比較/ひかく]し、backend 非依存の invalidation data を[作/つく]ります。
+//: - DOM、ANSI、window handle、framebuffer を[持/も]たず、差分判定だけを alloc layer に[閉/と]じます。
+//:
+//: ### [現状/げんじょう]
+//: - bounded `ViewTree` の root + 2 child を[対象/たいしょう]にします。
+//:
+//: neplg2:test
+//: ret: 1
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui" as *
+//: fn main %fn unit i32 \unit:
+//:     let old_root %WidgetDescriptor widget_label (widget_id 1) "old" (layout_hint_fixed 4 1)
+//:     let new_root %WidgetDescriptor widget_label (widget_id 1) "new" (layout_hint_fixed 4 1)
+//:     let diff %ViewTreeDiff view_tree_diff &(view_tree_single old_root) &(view_tree_single new_root)
+//:     if view_tree_diff_root_changed &diff then 1 else 0
+//: ```
+
+#indent 4
+
+pub #import "alloc/gui/diff/types" as *

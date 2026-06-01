@@ -401,13 +401,16 @@ platforms/gui:
 | `alloc/gui/app` | callback-free app model、`ViewNode`、`GuiEffect`、`Update` | leaf view、button config、redraw/title effect、bounded `GuiEffectBatch` を実装済み。将来の `Vec GuiEffect` へ置換する境界は `Update.effects` に固定 |
 | `alloc/gui/layout` | `LayoutContext`、constraints、text measurement injection、measure/place result | `TextMeasurer` 注入、constraint validation、fixed text measure、place-at helper を実装済み。tree layout と flex/grid/scroll は未実装 |
 | `alloc/gui/widget` | callback-free widget descriptor、action event、semantic lowering、measure bridge | button / label descriptor、`ActionId` event 生成、semantic node 生成、layout measure bridge、focusable accessor を実装済み。full event routing は未実装 |
-| `alloc/gui/tree` | retained `ViewTree` / `LayoutTree`、bounded child、focus target query | root + 2 child の bounded tree、capacity error、first focusable id、focusable count を実装済み。allocator-backed recursive tree と diff は未実装 |
+| `alloc/gui/tree` | retained `ViewTree` / `LayoutTree`、bounded child、focus target query | root + 2 child の bounded tree、capacity error、first focusable id、focusable count を実装済み。allocator-backed recursive tree は未実装 |
+| `alloc/gui/focus` | platform 非依存 focus order / next / previous traversal | bounded `ViewTree` から `FocusOrder` を作り、current id から next / previous focus target を `Option WidgetId` で返す実装を追加済み。wrap policy と recursive tree traversal は未実装 |
+| `alloc/gui/diff` | retained tree diff / invalidation data contract | bounded `ViewTree` の slot diff、`GuiInvalidation::Clean` / `Widget` / `Tree` を実装済み。terminal line diff、DOM patch、dirty rect compression は platform 側で未実装 |
+| `alloc/gui/text` | platform 非依存 `TextBuffer` / checked edit storage | `TextBufferId`、`TextBuffer`、checked insert / replace / delete を `Result TextBuffer GuiError` で実装済み。`TextLayout`、line break、cached layout は未実装 |
 | `alloc/gui/theme` | typed theme scheme / color role / metric role、fallible color/metric helper | `GuiColor` palette、`ThemeMetrics` validation、`Option FontId`、text-cell style helper を実装済み。full typography / component style は未実装 |
 | `alloc/gui/accessibility` | semantic node / role / state / action tree | bounded semantic tree の初期 slice を実装済み。host accessibility bridge は `std/gui` / platform 側で継続 |
 | `std/gui` | host/runtime/window/timer/text/IME/accessibility/error display contract | typed data contract、core `TextMeasurer` host wrapper、`GuiEffectBatch -> GuiRuntimeCommandBatch` 解釈、capability unsupported error を実装済み。platform 実行は未実装 |
 | `platforms/gui/terminal` | terminal as `SurfaceKind::TextGrid` backend | `TerminalProfile` と core `TextCellRun` based frame を実装済み。custom capability と grid size は `Result` で検証し、TextGrid 以外や負 size を拒否する。ANSI / TTY present は未実装 |
 
-この表にない Web / native / mobile / embedded backend、allocator-backed recursive `ViewTree` / `LayoutTree`、diff / invalidation、text buffer、resource loading、real host presentation は未実装である。
+この表にない Web / native / mobile / embedded backend、allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、`TextLayout` / cached layout、resource loading、real host presentation は未実装である。
 
 ## TUI Migration Contract
 

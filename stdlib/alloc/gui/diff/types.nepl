@@ -1,0 +1,235 @@
+//: # alloc/gui/diff/types
+//: retained ViewTree diff と invalidation の data contract
+//:
+//: ### [目的/もくてき]
+//: - widget tree の[変化/へんか]を `bool` 群と enum invalidation で[表/あらわ]し、runtime や backend が redraw 範囲を[判断/はんだん]できる基礎を[作/つく]ります。
+//: - platform [固有/こゆう]の dirty rectangle 実装や DOM diff へ[進/すす]む前に、標準 library 側の差分 contract を[固定/こてい]します。
+//:
+//: ### [契約/けいやく]
+//: - child count が[変/か]わる場合は subtree shape が[変/か]わるため `GuiInvalidation::Tree` を[返/かえ]します。
+//: - widget の id が同じで内容だけが[変/か]わる場合は `GuiInvalidation::Widget id` を[返/かえ]します。
+//:
+//: neplg2:test
+//: ret: 2
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root %WidgetDescriptor widget_label (widget_id 1) "root" (layout_hint_fixed 4 1)
+//:     let child %WidgetDescriptor widget_button (button_config (widget_id 2) "Run" (action_id 3)) (layout_hint_fixed 4 1)
+//:     let old_tree %ViewTree view_tree_single root
+//:     let new_tree %ViewTree unwrap_ok view_tree_add_child old_tree child
+//:     match view_tree_invalidation &old_tree &new_tree:
+//:         GuiInvalidation::Tree:
+//:             2
+//:         _:
+//:             9
+//: ```
+
+#indent 4
+
+#import "alloc/gui/tree" as *
+#import "alloc/gui/widget" as *
+#import "alloc/gui/app" as *
+#import "alloc/string" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+
+//: GuiInvalidation: backend に redraw / relayout の[必要/ひつよう]を[伝/つた]える最小 enum
+pub enum GuiInvalidation:
+    Clean
+    Widget %WidgetId
+    Tree
+
+impl Clone for GuiInvalidation:
+    fn clone %fn &GuiInvalidation GuiInvalidation \invalidation:
+        *invalidation
+
+impl Copy for GuiInvalidation:
+    fn copy_mark %fn GuiInvalidation GuiInvalidation \invalidation:
+        invalidation
+
+//: ViewTreeDiff: bounded `ViewTree` の slot 単位 diff
+pub struct ViewTreeDiff:
+    root_changed %bool
+    child0_changed %bool
+    child1_changed %bool
+    child_count_changed %bool
+
+impl Clone for ViewTreeDiff:
+    fn clone %fn &ViewTreeDiff ViewTreeDiff \diff:
+        *diff
+
+impl Copy for ViewTreeDiff:
+    fn copy_mark %fn ViewTreeDiff ViewTreeDiff \diff:
+        diff
+
+//: view_tree_diff_new: slot diff を[作/つく]る
+pub fn view_tree_diff_new %fn bool fn bool fn bool fn bool ViewTreeDiff \root_changed\child0_changed\child1_changed\child_count_changed:
+    ViewTreeDiff root_changed child0_changed child1_changed child_count_changed
+
+//: view_tree_diff_root_changed: root slot の[変化/へんか]を[読/よ]む
+pub fn view_tree_diff_root_changed %fn &ViewTreeDiff bool \diff:
+    *field::get_ref diff "root_changed"
+
+//: view_tree_diff_first_child_changed: 1 [番目/ばんめ] child slot の[変化/へんか]を[読/よ]む
+pub fn view_tree_diff_first_child_changed %fn &ViewTreeDiff bool \diff:
+    *field::get_ref diff "child0_changed"
+
+//: view_tree_diff_second_child_changed: 2 [番目/ばんめ] child slot の[変化/へんか]を[読/よ]む
+pub fn view_tree_diff_second_child_changed %fn &ViewTreeDiff bool \diff:
+    *field::get_ref diff "child1_changed"
+
+//: view_tree_diff_child_count_changed: child count の[変化/へんか]を[読/よ]む
+pub fn view_tree_diff_child_count_changed %fn &ViewTreeDiff bool \diff:
+    *field::get_ref diff "child_count_changed"
+
+//: gui_invalidation_is_dirty: invalidation が redraw 対象を[持/も]つか[判定/はんてい]する
+pub fn gui_invalidation_is_dirty %fn GuiInvalidation bool \invalidation:
+    match invalidation:
+        GuiInvalidation::Clean:
+            false
+        _:
+            true
+
+//: gui_invalidation_widget_id: widget invalidation の id を Option で[読/よ]む
+pub fn gui_invalidation_widget_id %fn GuiInvalidation Option WidgetId \invalidation:
+    match invalidation:
+        GuiInvalidation::Widget id:
+            some id
+        _:
+            none
+
+//: widget_id_equal: WidgetId を raw value で[比較/ひかく]する
+fn widget_id_equal %fn WidgetId fn WidgetId bool \a\b:
+    eq (widget_id_value a) (widget_id_value b)
+
+//: action_id_equal: ActionId を raw value で[比較/ひかく]する
+fn action_id_equal %fn ActionId fn ActionId bool \a\b:
+    eq (action_id_value a) (action_id_value b)
+
+//: bool_equal: bool を[比較/ひかく]する
+fn bool_equal %fn bool fn bool bool \a\b:
+    if a:
+        then b
+        else not b
+
+//: gui_size_equal: layout hint の size を[比較/ひかく]する
+fn gui_size_equal %fn GuiSize fn GuiSize bool \a\b:
+    and:
+        eq (gui_size_width &a) (gui_size_width &b)
+        eq (gui_size_height &a) (gui_size_height &b)
+
+//: layout_hint_equal: LayoutHint を[比較/ひかく]する
+fn layout_hint_equal %fn LayoutHint fn LayoutHint bool \a\b:
+    and:
+        gui_size_equal (layout_hint_min_size &a) (layout_hint_min_size &b)
+        gui_size_equal (layout_hint_max_size &a) (layout_hint_max_size &b)
+
+//: button_config_equal: ButtonConfig を[比較/ひかく]する
+fn button_config_equal %fn ButtonConfig fn ButtonConfig bool \a\b:
+    and:
+        and:
+            widget_id_equal (button_config_id &a) (button_config_id &b)
+            action_id_equal (button_config_action &a) (button_config_action &b)
+        str_eq (button_config_text &a) (button_config_text &b)
+
+//: view_node_equal: ViewNode を semantic data として[比較/ひかく]する
+fn view_node_equal %fn ViewNode fn ViewNode bool \a\b:
+    match a:
+        ViewNode::Empty:
+            match b:
+                ViewNode::Empty:
+                    true
+                _:
+                    false
+        ViewNode::Label text_a:
+            match b:
+                ViewNode::Label text_b:
+                    str_eq text_a text_b
+                _:
+                    false
+        ViewNode::Button config_a:
+            match b:
+                ViewNode::Button config_b:
+                    button_config_equal config_a config_b
+                _:
+                    false
+
+//: widget_descriptor_equal: WidgetDescriptor の public data を[比較/ひかく]する
+fn widget_descriptor_equal %fn WidgetDescriptor fn WidgetDescriptor bool \a\b:
+    and:
+        and:
+            and:
+                widget_id_equal (widget_descriptor_id &a) (widget_descriptor_id &b)
+                view_node_equal (widget_descriptor_view &a) (widget_descriptor_view &b)
+            layout_hint_equal (widget_descriptor_layout_hint &a) (widget_descriptor_layout_hint &b)
+        and:
+            and:
+                bool_equal (widget_descriptor_is_focusable &a) (widget_descriptor_is_focusable &b)
+                bool_equal (widget_descriptor_is_disabled &a) (widget_descriptor_is_disabled &b)
+            str_eq (widget_descriptor_label &a) (widget_descriptor_label &b)
+
+//: widget_option_equal: child slot の Option WidgetDescriptor を[比較/ひかく]する
+fn widget_option_equal %fn Option WidgetDescriptor fn Option WidgetDescriptor bool \a\b:
+    match a:
+        Option::Some widget_a:
+            match b:
+                Option::Some widget_b:
+                    widget_descriptor_equal widget_a widget_b
+                Option::None:
+                    false
+        Option::None:
+            match b:
+                Option::Some _widget_b:
+                    false
+                Option::None:
+                    true
+
+//: changed_widget_id_or_tree: child slot [変化/へんか]の invalidation 対象を[決/き]める
+fn changed_widget_id_or_tree %fn Option WidgetDescriptor fn Option WidgetDescriptor GuiInvalidation \old_child\new_child:
+    match new_child:
+        Option::Some widget:
+            GuiInvalidation::Widget (widget_descriptor_id &widget)
+        Option::None:
+            match old_child:
+                Option::Some _old:
+                    GuiInvalidation::Tree
+                Option::None:
+                    GuiInvalidation::Clean
+
+//: view_tree_diff: old/new tree の slot diff を[作/つく]る
+pub fn view_tree_diff %fn &ViewTree fn &ViewTree ViewTreeDiff \old_tree\new_tree:
+    let old_root %WidgetDescriptor view_tree_root old_tree
+    let new_root %WidgetDescriptor view_tree_root new_tree
+    let root_changed %bool not (widget_descriptor_equal old_root new_root)
+    let first_changed %bool not (widget_option_equal (view_tree_first_child old_tree) (view_tree_first_child new_tree))
+    let second_changed %bool not (widget_option_equal (view_tree_second_child old_tree) (view_tree_second_child new_tree))
+    let child_count_changed %bool not (eq (view_tree_child_count old_tree) (view_tree_child_count new_tree))
+    ViewTreeDiff root_changed first_changed second_changed child_count_changed
+
+//: view_tree_diff_any: diff が 1 つでも[変化/へんか]を[持/も]つか[判定/はんてい]する
+pub fn view_tree_diff_any %fn &ViewTreeDiff bool \diff:
+    or:
+        or (view_tree_diff_root_changed diff) (view_tree_diff_first_child_changed diff)
+        or (view_tree_diff_second_child_changed diff) (view_tree_diff_child_count_changed diff)
+
+//: view_tree_invalidation: tree diff を最小 invalidation enum へ[畳/たた]む
+pub fn view_tree_invalidation %fn &ViewTree fn &ViewTree GuiInvalidation \old_tree\new_tree:
+    let diff %ViewTreeDiff view_tree_diff old_tree new_tree
+    if view_tree_diff_child_count_changed &diff:
+        then GuiInvalidation::Tree
+        else if view_tree_diff_root_changed &diff:
+            then:
+                let root %WidgetDescriptor view_tree_root new_tree
+                GuiInvalidation::Widget (widget_descriptor_id &root)
+            else if view_tree_diff_first_child_changed &diff:
+                then changed_widget_id_or_tree (view_tree_first_child old_tree) (view_tree_first_child new_tree)
+                else if view_tree_diff_second_child_changed &diff:
+                    then changed_widget_id_or_tree (view_tree_second_child old_tree) (view_tree_second_child new_tree)
+                    else GuiInvalidation::Clean

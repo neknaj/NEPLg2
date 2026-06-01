@@ -90,8 +90,8 @@ stdlib/features/gui.nepl
 stdlib/features/tui.nepl
 stdlib/platforms/gui/terminal.nepl
 stdlib/platforms/gui/terminal/capability.nepl
-stdlib/platforms/gui/terminal/text_cell.nepl
-stdlib/platforms/gui/terminal/render_target.nepl
+stdlib/platforms/gui/terminal/text_grid.nepl
+stdlib/platforms/gui/terminal/frame.nepl
 ```
 
 目的:
@@ -102,6 +102,8 @@ stdlib/platforms/gui/terminal/render_target.nepl
 - terminal 固有の cols / rows は `TerminalProfile` に置き、共通 capability と text-cell command は `core/gui` の型を再利用する。custom capability を受ける helper は `Result` を返し、`SurfaceKind::TextGrid` 以外を拒否する。
 - 既存 `line_top` / `line_box` / `buffer_present_diff` などを一気に消さず、terminal backend の compatibility helper として段階的に移す。
 - この Phase は terminal backend の型境界を先に作るための橋渡しであり、最初の complete backend は Web Playground のままとする。
+
+2026-06-01 checkpoint では、terminal backend は `TerminalProfile`、`TextGridCapability`、`TerminalFrame` と core `TextCellRun` の橋渡しまでを実装済みである。`TextGridRenderTarget` や real `GuiHost.present` はまだ実装していない。旧 `features/tui` / `platforms/wasix/tui` の raw line buffer diff は compatibility path に残し、共通 substrate の public diff contract にはしない。
 
 検証:
 
@@ -129,12 +131,24 @@ stdlib/alloc/gui/layout/types.nepl
 stdlib/alloc/gui/theme.nepl
 stdlib/alloc/gui/theme/types.nepl
 stdlib/alloc/gui/accessibility.nepl
+stdlib/alloc/gui/focus.nepl
+stdlib/alloc/gui/focus/types.nepl
+stdlib/alloc/gui/diff.nepl
+stdlib/alloc/gui/diff/types.nepl
+stdlib/alloc/gui/text.nepl
+stdlib/alloc/gui/text/types.nepl
 stdlib/alloc/gui/test.nepl
 ```
 
-最初は `WidgetId`、`ActionId`、`ViewNode`、`GuiEffect`、`Update`、`LayoutContext`、widget descriptor、retained tree、theme、semantic tree、mock replay helper を小さく入れる。Closure callback、DOM、terminal raw code、OS handle は入れない。
+最初は `WidgetId`、`ActionId`、`ViewNode`、`GuiEffect`、`Update`、`LayoutContext`、widget descriptor、retained tree、focus traversal、diff / invalidation、text buffer、theme、semantic tree、mock replay helper を小さく入れる。Closure callback、DOM、terminal raw code、OS handle は入れない。
 
 2026-06-01 checkpoint では、`Update.effects` の境界を `GuiEffectBatch` に変更し、`alloc/gui/layout` の `TextMeasurer` 注入、`alloc/gui/widget` の button / label descriptor、`alloc/gui/tree` の bounded retained tree、`alloc/gui/theme` の typed palette / metrics、`alloc/gui/accessibility` の semantic tree 初期 slice まで実装した。`GuiEffectBatch` は現時点では capacity 2 の bounded data であり、`alloc` collection 側の owner contract が安定した段階で `Vec GuiEffect` へ置き換える。
+
+Focus traversal は `alloc/gui/focus` の platform 非依存 data contract として扱う。順方向 / 逆方向、wrap の有無、現在 focus が tree に存在しない場合の結果、disabled widget の除外を `Option` / enum で表し、host focus や accessibility focus の反映は `std/gui` 以降へ渡す。
+
+Diff / invalidation は `alloc/gui/diff` に置く。ここでは dirty widget / tree / layout などの共通 data contract だけを持ち、terminal line buffer diff、DOM patch、framebuffer dirty rect compression は `platforms/gui/*` の実装詳細にする。
+
+Text buffer は `alloc/gui/text` が所有する。`core/gui::TextRunId` は buffer snapshot 内の安定参照 id とし、`std/gui` / platform は測定、IME、font loading を担当する。`core/gui` に `String` 実体を持たせず、terminal backend に text buffer ownership を漏らさない。
 
 検証:
 
@@ -143,6 +157,9 @@ node nodesrc/tests.js -i tests/stdlib/gui_app.n.md --no-tree -o tmp/gui-app-phas
 node nodesrc/tests.js -i tests/stdlib/gui_layout.n.md --no-tree -o tmp/gui-layout-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_widget.n.md --no-tree -o tmp/gui-widget-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_tree.n.md --no-tree -o tmp/gui-tree-phase3.json -j 1 --dist web/dist --assert-io
+node nodesrc/tests.js -i tests/stdlib/gui_focus.n.md --no-tree -o tmp/gui-focus-phase3.json -j 1 --dist web/dist --assert-io
+node nodesrc/tests.js -i tests/stdlib/gui_diff.n.md --no-tree -o tmp/gui-diff-phase3.json -j 1 --dist web/dist --assert-io
+node nodesrc/tests.js -i tests/stdlib/gui_text.n.md --no-tree -o tmp/gui-text-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_theme.n.md --no-tree -o tmp/gui-theme-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_accessibility.n.md --no-tree -o tmp/gui-accessibility-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/issues.js check --dir issues
@@ -205,6 +222,7 @@ nodesrc/tui_regression.js
 
 - `platforms/wasix/tui` の raw storage / ANSI / TTY helper を terminal backend implementation detail に押し下げる。
 - `buffer_new` / `buffer_present_diff` の raw handle API を `TextGridRenderTarget` / `TerminalFrame` / `GuiHost.present` へ置き換える。
+- 現 checkpoint の `TerminalFrame` は単一 `TextCellRun` frame 境界である。`TextGridRenderTarget` は diff / present 実装時に追加し、terminal-specific line diff は `platforms/gui/terminal` に閉じる。
 - `features/tui` の利用者向け path は壊さず、内部を新 substrate に差し替える。
 
 互換維持:
@@ -269,6 +287,21 @@ tests/stdlib/gui_tree.n.md
     bounded ViewTree child insertion
     first focusable WidgetId
     LayoutTree child insertion
+
+tests/stdlib/gui_focus.n.md
+    next / previous focus traversal
+    disabled widget exclusion
+    missing current focus result
+
+tests/stdlib/gui_diff.n.md
+    widget data diff
+    tree shape invalidation
+    child widget invalidation id
+
+tests/stdlib/gui_text.n.md
+    TextBuffer storage
+    checked insert / replace / delete
+    TextRunId mapping boundary
 
 tests/stdlib/gui_theme.n.md
     typed color role lookup

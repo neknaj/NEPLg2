@@ -1,3 +1,17 @@
+# 2026-06-01 GUI/TUI focus text diff checkpoint
+
+- Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針を再確認した。`plan.md` は変更していない。
+- doc review subagent は、terminal backend replacement docs の実 module 名とのズレ、diff / invalidation の共通 contract 不足、text buffer ownership 境界、focus traversal contract の不足を指摘した。
+- review 指摘に対応し、`doc/neplg2/gui_tui_implementation_plan.md` で terminal checkpoint を `TerminalFrame` + core `TextCellRun` までと明記し、`TextGridRenderTarget` / real `GuiHost.present` は後続実装に分離した。
+- focus traversal worker は commit `e4da0ffb Add bounded GUI focus traversal` で `alloc/gui/focus` と `tests/stdlib/gui_focus.n.md` を追加した。bounded `ViewTree` から `FocusOrder` を作り、current id から next / previous focus target を `Option WidgetId` で返す。
+- text buffer worker は commit `7dd95d1c Add alloc gui text buffer` で `alloc/gui/text` と `tests/stdlib/gui_text.n.md` を追加した。`TextBuffer` の insert / replace / delete は `Result TextBuffer GuiError` を返し、`TextMeasurer` や platform API には依存しない。
+- main integration で `alloc/gui/diff` と `tests/stdlib/gui_diff.n.md` を追加した。bounded `ViewTree` の slot diff と `GuiInvalidation::Clean` / `Widget` / `Tree` を定義し、terminal line buffer diff、DOM patch、dirty rect compression は platform detail として分離した。
+- `alloc/gui` facade は focus / diff / text を再公開するよう更新した。
+- `doc/neplg2/gui_standard_library_spec.md` と `todo.md` は、bounded focus / diff / text buffer 実装済みと、残件が allocator-backed recursive tree、recursive diff、TextLayout / cached layout、full event routing であることに合わせて更新した。
+- 最終検証: `trunk build --release`、GUI/TUI focused suite (`gui_core` / `gui_app` / `gui_layout` / `gui_widget` / `gui_tree` / `gui_focus` / `gui_diff` / `gui_text` / `gui_theme` / `gui_accessibility` / `gui_std` / `gui_terminal` / `features_tui`) 42/42、new alloc gui module doctest 7/7、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-focus-text-diff.json` 13/13、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`nodesrc/test_stdlib_gui_layering_policy.js` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は GUI layering policy を含めて走り、GUI policy は pass。warn-only の既存警告として stdlib documentation baseline、static check responsibility、resource checker responsibility、resource gate order の 4 件は残っている。
+- 残件: allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、`TextLayout` / cached layout、full event routing、Web Playground backend、既存 `features/tui` の内部差し替え、embedded real-style backend、DrawCommand fallback rasterizer を継続する。
+
 # 2026-06-01 GUI/TUI core contract and std host checkpoint
 
 - Zenn 記事の core/no_std 的分離、platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離、試作段階でも雑な設計を残さない方針を再確認した。`plan.md` は変更していない。
