@@ -1,24 +1,42 @@
 //: # std/gui/text_measure
-//: host text measurement の request/response contract
+//: core TextMeasurer contract を host 境界へ[接続/せつぞく]する wrapper
 //:
 //: ### [目的/もくてき]
-//: - font stack や browser/native text API を std/gui host boundary の[外側/そとがわ]へ[押/お]し出し、stdlib 側では request と metrics だけを[扱/あつか]います。
-//: - core/gui に `TextMeasurer` trait が[未実装/みじっそう]の段階でも、既存の `GuiError` と typed value で host text measurement の[境界/きょうかい]を[固定/こてい]します。
+//: - `core/gui` の `TextMeasureRequest` / `TextMeasureResult` / `TextMeasurer` を std layer の host contract として[使/つか]います。
+//: - browser、native font stack、terminal cell width などの実測定は platform module が[所有/しょゆう]し、この module は fallback 用の typed wrapper だけを[提供/ていきょう]します。
 //:
-//: neplg2:test[skip]
+//: neplg2:test
+//: ret: 24
 //: ```neplg2
+//:| #entry main
+//:| #target std
 //:| #import "std/gui/text_measure" as *
+//:| #import "core/gui" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let measurer %HostTextMeasurer host_text_measurer_fixed gui_capabilities_text_grid 8 16 12
+//:     let request %TextMeasureRequest text_measure_request_new (text_run_id_new 1) (font_id_new 1) 40 3
+//:     match measure_text &measurer request:
+//:         Result::Ok metrics:
+//:             text_measure_result_width &metrics
+//:         Result::Err _error:
+//:             0
 //: ```
 
 #indent 4
 
 #import "core/field" as field
 #import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
 #import "core/traits/copy" as *
 
 //: HostTextMeasurer: platform text stack を[参照/さんしょう]する opaque contract
 pub struct HostTextMeasurer:
     capabilities %GuiCapabilities
+    cell_width %i32
+    line_height %i32
+    baseline %i32
 
 impl Clone for HostTextMeasurer:
     fn clone %fn &HostTextMeasurer HostTextMeasurer \measurer:
@@ -28,55 +46,37 @@ impl Copy for HostTextMeasurer:
     fn copy_mark %fn HostTextMeasurer HostTextMeasurer \measurer:
         measurer
 
-//: HostTextMeasureRequest: text measurement request
-pub struct HostTextMeasureRequest:
-    text %str
-    font_id %i32
-    size_px %i32
-    max_width %i32
-
-impl Clone for HostTextMeasureRequest:
-    fn clone %fn &HostTextMeasureRequest HostTextMeasureRequest \request:
-        *request
-
-impl Copy for HostTextMeasureRequest:
-    fn copy_mark %fn HostTextMeasureRequest HostTextMeasureRequest \request:
-        request
-
-//: TextMetrics: host が[返/かえ]す text metrics
-pub struct TextMetrics:
-    width %i32
-    height %i32
-    baseline %i32
-
-impl Clone for TextMetrics:
-    fn clone %fn &TextMetrics TextMetrics \metrics:
-        *metrics
-
-impl Copy for TextMetrics:
-    fn copy_mark %fn TextMetrics TextMetrics \metrics:
-        metrics
-
 //: host_text_measurer: HostTextMeasurer contract を[作/つく]る
 pub fn host_text_measurer %fn GuiCapabilities HostTextMeasurer \capabilities:
-    HostTextMeasurer capabilities
+    HostTextMeasurer capabilities 8 16 12
 
-//: host_text_measure_request: HostTextMeasureRequest を[作/つく]る
-pub fn host_text_measure_request %fn str fn i32 fn i32 fn i32 HostTextMeasureRequest \text\font_id\size_px\max_width:
-    HostTextMeasureRequest text font_id size_px max_width
+//: host_text_measurer_fixed: fixed-cell fallback 用 HostTextMeasurer を[作/つく]る
+pub fn host_text_measurer_fixed %fn GuiCapabilities fn i32 fn i32 fn i32 HostTextMeasurer \capabilities\cell_width\line_height\baseline:
+    HostTextMeasurer capabilities cell_width line_height baseline
 
-//: text_metrics: TextMetrics を[作/つく]る
-pub fn text_metrics %fn i32 fn i32 fn i32 TextMetrics \width\height\baseline:
-    TextMetrics width height baseline
+//: host_text_measurer_capabilities: capability を[読/よ]む
+pub fn host_text_measurer_capabilities %fn &HostTextMeasurer GuiCapabilities \measurer:
+    *field::get_ref measurer "capabilities"
 
-//: text_metrics_width: measured width を[読/よ]む
-pub fn text_metrics_width %fn &TextMetrics i32 \metrics:
-    *field::get_ref metrics "width"
+//: host_text_measurer_cell_width: fallback cell width を[読/よ]む
+pub fn host_text_measurer_cell_width %fn &HostTextMeasurer i32 \measurer:
+    *field::get_ref measurer "cell_width"
 
-//: text_metrics_height: measured height を[読/よ]む
-pub fn text_metrics_height %fn &TextMetrics i32 \metrics:
-    *field::get_ref metrics "height"
+//: host_text_measurer_line_height: fallback line height を[読/よ]む
+pub fn host_text_measurer_line_height %fn &HostTextMeasurer i32 \measurer:
+    *field::get_ref measurer "line_height"
 
-//: text_metrics_baseline: baseline を[読/よ]む
-pub fn text_metrics_baseline %fn &TextMetrics i32 \metrics:
-    *field::get_ref metrics "baseline"
+//: host_text_measurer_baseline: fallback baseline を[読/よ]む
+pub fn host_text_measurer_baseline %fn &HostTextMeasurer i32 \measurer:
+    *field::get_ref measurer "baseline"
+
+impl TextMeasurer for HostTextMeasurer:
+    fn measure_text %fn &HostTextMeasurer fn TextMeasureRequest Result TextMeasureResult GuiError \measurer\request:
+        let width %i32 mul (host_text_measurer_cell_width measurer) (text_measure_request_cell_count_hint &request)
+        let clamped %i32 if gt width text_measure_request_max_width &request:
+            then text_measure_request_max_width &request
+            else width
+        Result::Ok TextMeasureResult:
+            clamped
+            host_text_measurer_line_height measurer
+            host_text_measurer_baseline measurer

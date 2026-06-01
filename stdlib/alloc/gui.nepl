@@ -6,7 +6,7 @@
 //: - GUI と TUI を別々の framework として分けず、どちらも `ViewNode` と `GuiEffect` を通して backend へ接続できるようにします。
 //:
 //: ### [実装/じっそう]
-//: - 現 checkpoint では app model、layout context、widget descriptor、accessibility semantic tree を公開します。
+//: - 現 checkpoint では app model、layout context、widget descriptor、retained tree、theme、accessibility semantic tree を公開します。
 //:
 //: ### [注意/ちゅうい]
 //: - この facade は OS window、DOM、ANSI escape、clipboard を直接扱いません。それらは `std/gui` と `platforms/gui/*` が所有します。
@@ -22,4 +22,6 @@ pub #import "core/gui" as *
 pub #import "alloc/gui/app" as *
 pub #import "alloc/gui/layout" as *
 pub #import "alloc/gui/widget" as *
+pub #import "alloc/gui/tree" as *
+pub #import "alloc/gui/theme" as *
 pub #import "alloc/gui/accessibility" as *

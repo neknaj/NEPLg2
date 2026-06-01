@@ -122,10 +122,22 @@ pub fn gui_capabilities_color_format %fn &GuiCapabilities ColorFormat \caps:
 pub fn gui_capabilities_requires_flush %fn &GuiCapabilities bool \caps:
     *field::get_ref caps "requires_flush"
 
+//: gui_capabilities_has_windowing: windowing capability を[読/よ]む
+pub fn gui_capabilities_has_windowing %fn &GuiCapabilities bool \caps:
+    *field::get_ref caps "has_windowing"
+
 //: surface_kind_is_text_grid: text grid surface か[判定/はんてい]する
 pub fn surface_kind_is_text_grid %fn SurfaceKind bool \kind:
     match kind:
         SurfaceKind::TextGrid:
+            true
+        _:
+            false
+
+//: surface_kind_is_headless: render surface を[持/も]たない backend か[判定/はんてい]する
+pub fn surface_kind_is_headless %fn SurfaceKind bool \kind:
+    match kind:
+        SurfaceKind::Headless:
             true
         _:
             false

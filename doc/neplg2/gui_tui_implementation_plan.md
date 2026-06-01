@@ -122,15 +122,19 @@ stdlib/alloc/gui/app.nepl
 stdlib/alloc/gui/app/types.nepl
 stdlib/alloc/gui/widget.nepl
 stdlib/alloc/gui/widget/types.nepl
+stdlib/alloc/gui/tree.nepl
+stdlib/alloc/gui/tree/types.nepl
 stdlib/alloc/gui/layout.nepl
 stdlib/alloc/gui/layout/types.nepl
+stdlib/alloc/gui/theme.nepl
+stdlib/alloc/gui/theme/types.nepl
 stdlib/alloc/gui/accessibility.nepl
 stdlib/alloc/gui/test.nepl
 ```
 
-最初は `WidgetId`、`ActionId`、`ViewNode`、`GuiEffect`、`Update`、`LayoutContext`、widget descriptor、semantic tree、mock replay helper を小さく入れる。Closure callback、DOM、terminal raw code、OS handle は入れない。
+最初は `WidgetId`、`ActionId`、`ViewNode`、`GuiEffect`、`Update`、`LayoutContext`、widget descriptor、retained tree、theme、semantic tree、mock replay helper を小さく入れる。Closure callback、DOM、terminal raw code、OS handle は入れない。
 
-2026-06-01 checkpoint では、`Update.effects` の境界を `GuiEffectBatch` に変更し、`alloc/gui/layout` の `TextMeasurer` 注入、`alloc/gui/widget` の button / label descriptor、`alloc/gui/accessibility` の semantic tree 初期 slice まで実装した。`GuiEffectBatch` は現時点では capacity 2 の bounded data であり、`alloc` collection 側の owner contract が安定した段階で `Vec GuiEffect` へ置き換える。
+2026-06-01 checkpoint では、`Update.effects` の境界を `GuiEffectBatch` に変更し、`alloc/gui/layout` の `TextMeasurer` 注入、`alloc/gui/widget` の button / label descriptor、`alloc/gui/tree` の bounded retained tree、`alloc/gui/theme` の typed palette / metrics、`alloc/gui/accessibility` の semantic tree 初期 slice まで実装した。`GuiEffectBatch` は現時点では capacity 2 の bounded data であり、`alloc` collection 側の owner contract が安定した段階で `Vec GuiEffect` へ置き換える。
 
 検証:
 
@@ -138,6 +142,8 @@ stdlib/alloc/gui/test.nepl
 node nodesrc/tests.js -i tests/stdlib/gui_app.n.md --no-tree -o tmp/gui-app-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_layout.n.md --no-tree -o tmp/gui-layout-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_widget.n.md --no-tree -o tmp/gui-widget-phase3.json -j 1 --dist web/dist --assert-io
+node nodesrc/tests.js -i tests/stdlib/gui_tree.n.md --no-tree -o tmp/gui-tree-phase3.json -j 1 --dist web/dist --assert-io
+node nodesrc/tests.js -i tests/stdlib/gui_theme.n.md --no-tree -o tmp/gui-theme-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/tests.js -i tests/stdlib/gui_accessibility.n.md --no-tree -o tmp/gui-accessibility-phase3.json -j 1 --dist web/dist --assert-io
 node nodesrc/issues.js check --dir issues
 git diff --check
@@ -258,6 +264,16 @@ tests/stdlib/gui_widget.n.md
     Button action event generation
     disabled action suppression
     semantic node generation
+
+tests/stdlib/gui_tree.n.md
+    bounded ViewTree child insertion
+    first focusable WidgetId
+    LayoutTree child insertion
+
+tests/stdlib/gui_theme.n.md
+    typed color role lookup
+    metric validation
+    Option FontId
 
 tests/stdlib/gui_accessibility.n.md
     Semantic node state

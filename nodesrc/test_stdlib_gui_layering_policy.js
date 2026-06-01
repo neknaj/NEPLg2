@@ -94,6 +94,26 @@ assertNoMatch(
     "core/gui must not publish terminal-specific default TextCellStyle",
 );
 
+const stdGuiRoot = path.join(repoRoot, "stdlib", "std", "gui");
+for (const filePath of [
+    path.join(repoRoot, "stdlib", "std", "gui.nepl"),
+    ...walkNeplFiles(stdGuiRoot),
+]) {
+    const relPath = path.relative(repoRoot, filePath).split(path.sep).join("/");
+    const text = fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n");
+    const source = withoutComments(text);
+    assertNoMatch(
+        source,
+        /^\s*#import\s+"platforms\//m,
+        `${relPath} must not import concrete platform modules`,
+    );
+    assertNoMatch(
+        source,
+        /\b(?:DOM|Canvas|ANSI|TTY|WASIX|Win32|UIKit|AndroidView|HtmlCanvas)\b/,
+        `${relPath} must not expose concrete platform names in std/gui`,
+    );
+}
+
 const terminalCapability = read("stdlib/platforms/gui/terminal/capability.nepl");
 assertMatch(
     terminalCapability,
@@ -109,6 +129,11 @@ assertMatch(
     terminalCapability,
     /surface_kind_is_text_grid\s+gui_capabilities_surface_kind\s+&capabilities[\s\S]*Result::Err\s+GuiError::Unsupported/,
     "terminal_profile_full must reject non-TextGrid capabilities explicitly",
+);
+assertMatch(
+    terminalCapability,
+    /or\s+lt\s+cols\s+0\s+lt\s+rows\s+0[\s\S]*Result::Err\s+GuiError::InvalidGeometry/,
+    "terminal_profile_full must reject negative grid sizes explicitly",
 );
 
 const terminalTextGrid = read("stdlib/platforms/gui/terminal/text_grid.nepl");

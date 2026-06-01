@@ -11,18 +11,19 @@ DOM、OS、ANSI escape、TTY raw mode には触れず、GUI substrate の backen
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "Checked [ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n"
+stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n[7] ok\n"
 ```neplg2
 #entry main
 #indent 4
 #target std
 
 #import "features/gui" as *
+#import "core/math" as *
 #import "core/result" as *
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let cap %TextGridCapability text_grid_capability 80 24
+    let cap %TextGridCapability unwrap_ok text_grid_capability 80 24
     let kind %SurfaceKind text_grid_capability_kind &cap
     let cols %i32 text_grid_capability_cols &cap
     let rows %i32 text_grid_capability_rows &cap
@@ -37,6 +38,16 @@ fn main %impure fn unit i32 \unit:
                 true
             _:
                 false
+    let invalid_size_rejected %bool:
+        match text_grid_capability (sub 0 1) 24:
+            Result::Err error:
+                match error:
+                    GuiError::InvalidGeometry:
+                        true
+                    _:
+                        false
+            Result::Ok _cap:
+                false
     let checks:
         checks_new
         |> checks_push assert "surface is TextGrid" surface_ok
@@ -46,6 +57,7 @@ fn main %impure fn unit i32 \unit:
         |> checks_push assert "text input capability" text_input_ok
         |> checks_push assert "non-negative size" size_ok
         |> checks_push assert "rejects non-TextGrid profile" rejected
+        |> checks_push assert "rejects negative size" invalid_size_rejected
     let shown checks_print_report checks
     checks_exit_code shown
 ```
@@ -65,10 +77,11 @@ stdout: "Checked [ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\
 #target std
 
 #import "features/gui" as *
+#import "core/result" as *
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let profile %TerminalProfile terminal_profile 40 10
+    let profile %TerminalProfile unwrap_ok terminal_profile 40 10
     let base %TextGridPoint terminal_text_grid_point 2 3
     let point %TextGridPoint terminal_text_grid_point_translate base 5 7
     let run_id %TextRunId text_run_id_new 9

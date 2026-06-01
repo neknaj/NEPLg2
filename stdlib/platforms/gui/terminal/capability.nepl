@@ -8,6 +8,7 @@
 //: ### [契約/けいやく]
 //: - `TerminalProfile` は必ず `SurfaceKind::TextGrid` capability だけを[保持/ほじ]します。
 //: - `terminal_profile_full` は TextGrid ではない capability を `GuiError::Unsupported` として[拒否/きょひ]します。
+//: - 負の cols / rows は `GuiError::InvalidGeometry` として[拒否/きょひ]します。
 //: - ANSI escape sequence、TTY raw mode、WASIX handle はこの payload に[入/い]れません。
 //:
 //: ### [計算量/けいさんりょう]
@@ -42,13 +43,15 @@ impl Copy for TerminalProfile:
 
 //: terminal_profile_full: TextGrid capability から terminal profile を[作/つく]る
 pub fn terminal_profile_full %fn i32 fn i32 fn GuiCapabilities Result TerminalProfile GuiError \cols\rows\capabilities:
-    if surface_kind_is_text_grid gui_capabilities_surface_kind &capabilities:
-        then Result::Ok TerminalProfile capabilities cols rows
-        else Result::Err GuiError::Unsupported
+    if not surface_kind_is_text_grid gui_capabilities_surface_kind &capabilities:
+        then Result::Err GuiError::Unsupported
+        else if or lt cols 0 lt rows 0:
+            then Result::Err GuiError::InvalidGeometry
+            else Result::Ok TerminalProfile capabilities cols rows
 
 //: terminal_profile: terminal TextGrid profile を[標準/ひょうじゅん] capability で[作/つく]る
-pub fn terminal_profile %fn i32 fn i32 TerminalProfile \cols\rows:
-    TerminalProfile gui_capabilities_text_grid cols rows
+pub fn terminal_profile %fn i32 fn i32 Result TerminalProfile GuiError \cols\rows:
+    terminal_profile_full cols rows gui_capabilities_text_grid
 
 //: terminal_profile_capabilities: 共通 GuiCapabilities を[読/よ]む
 pub fn terminal_profile_capabilities %fn &TerminalProfile GuiCapabilities \profile:
@@ -98,8 +101,12 @@ impl Copy for TextGridCapability:
         cap
 
 //: text_grid_capability: 互換 helper として terminal profile を[包/つつ]む
-pub fn text_grid_capability %fn i32 fn i32 TextGridCapability \cols\rows:
-    TextGridCapability terminal_profile cols rows
+pub fn text_grid_capability %fn i32 fn i32 Result TextGridCapability GuiError \cols\rows:
+    match terminal_profile cols rows:
+        Result::Ok profile:
+            Result::Ok TextGridCapability profile
+        Result::Err error:
+            Result::Err error
 
 //: text_grid_capability_profile: 互換 payload から profile を[読/よ]む
 pub fn text_grid_capability_profile %fn &TextGridCapability TerminalProfile \cap:

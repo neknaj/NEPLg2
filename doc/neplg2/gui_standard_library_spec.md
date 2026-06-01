@@ -400,12 +400,14 @@ platforms/gui:
 | `core/gui/render_target` | streaming `RenderTarget` | `MockRenderTarget` を実装済み。command list / fallback rasterizer は未実装 |
 | `alloc/gui/app` | callback-free app model、`ViewNode`、`GuiEffect`、`Update` | leaf view、button config、redraw/title effect、bounded `GuiEffectBatch` を実装済み。将来の `Vec GuiEffect` へ置換する境界は `Update.effects` に固定 |
 | `alloc/gui/layout` | `LayoutContext`、constraints、text measurement injection、measure/place result | `TextMeasurer` 注入、constraint validation、fixed text measure、place-at helper を実装済み。tree layout と flex/grid/scroll は未実装 |
-| `alloc/gui/widget` | callback-free widget descriptor、action event、semantic lowering、measure bridge | button / label descriptor、`ActionId` event 生成、semantic node 生成、layout measure bridge を実装済み。retained tree と event routing は未実装 |
+| `alloc/gui/widget` | callback-free widget descriptor、action event、semantic lowering、measure bridge | button / label descriptor、`ActionId` event 生成、semantic node 生成、layout measure bridge、focusable accessor を実装済み。full event routing は未実装 |
+| `alloc/gui/tree` | retained `ViewTree` / `LayoutTree`、bounded child、focus target query | root + 2 child の bounded tree、capacity error、first focusable id、focusable count を実装済み。allocator-backed recursive tree と diff は未実装 |
+| `alloc/gui/theme` | typed theme scheme / color role / metric role、fallible color/metric helper | `GuiColor` palette、`ThemeMetrics` validation、`Option FontId`、text-cell style helper を実装済み。full typography / component style は未実装 |
 | `alloc/gui/accessibility` | semantic node / role / state / action tree | bounded semantic tree の初期 slice を実装済み。host accessibility bridge は `std/gui` / platform 側で継続 |
-| `std/gui` | host/runtime/window/timer/text/IME/accessibility/error display contract | typed data contract と `GuiEffect -> GuiRuntimeCommand` 解釈を実装済み。platform 実行は未実装 |
-| `platforms/gui/terminal` | terminal as `SurfaceKind::TextGrid` backend | `TerminalProfile` と core `TextCellRun` based frame を実装済み。custom capability は `Result` で検証し、TextGrid 以外を拒否する。ANSI / TTY present は未実装 |
+| `std/gui` | host/runtime/window/timer/text/IME/accessibility/error display contract | typed data contract、core `TextMeasurer` host wrapper、`GuiEffectBatch -> GuiRuntimeCommandBatch` 解釈、capability unsupported error を実装済み。platform 実行は未実装 |
+| `platforms/gui/terminal` | terminal as `SurfaceKind::TextGrid` backend | `TerminalProfile` と core `TextCellRun` based frame を実装済み。custom capability と grid size は `Result` で検証し、TextGrid 以外や負 size を拒否する。ANSI / TTY present は未実装 |
 
-この表にない Web / native / mobile / embedded backend、allocator-backed retained `ViewTree` / `LayoutTree`、diff / invalidation、theme、text buffer、resource loading、real host presentation は未実装である。
+この表にない Web / native / mobile / embedded backend、allocator-backed recursive `ViewTree` / `LayoutTree`、diff / invalidation、text buffer、resource loading、real host presentation は未実装である。
 
 ## TUI Migration Contract
 

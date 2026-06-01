@@ -132,6 +132,10 @@ pub fn text_measure_request_new %fn TextRunId fn FontId fn i32 fn i32 TextMeasur
 pub fn text_measure_request_cell_count_hint %fn &TextMeasureRequest i32 \request:
     *field::get_ref request "cell_count_hint"
 
+//: text_measure_request_max_width: measurement max width を[読/よ]む
+pub fn text_measure_request_max_width %fn &TextMeasureRequest i32 \request:
+    *field::get_ref request "max_width"
+
 //: text_measure_result_width: 測定結果の width を[読/よ]む
 pub fn text_measure_result_width %fn &TextMeasureResult i32 \result:
     *field::get_ref result "width"

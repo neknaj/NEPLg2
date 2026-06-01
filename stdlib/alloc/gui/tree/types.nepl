@@ -1,0 +1,183 @@
+//: # alloc/gui/tree/types
+//: retained ViewTree / LayoutTree の bounded data contract
+//:
+//: ### [目的/もくてき]
+//: - `WidgetDescriptor` を stable order で[保持/ほじ]し、backend 非依存の event routing と focus traversal の基礎を[作/つく]ります。
+//: - `LayoutNode` を同じ bounded tree として[保持/ほじ]し、render command stream へ渡す配置結果の最小形を[定義/ていぎ]します。
+//:
+//: ### [契約/けいやく]
+//: - capacity を[超/こ]える child 追加は panic ではなく `GuiError::ResourceExhausted` を[返/かえ]します。
+//: - focus target は focusable かつ disabled ではない widget だけです。
+//:
+//: neplg2:test
+//: ret: 7
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root %WidgetDescriptor widget_label (widget_id 1) "title" (layout_hint_fixed 8 1)
+//:     let button_node %WidgetDescriptor widget_button (button_config (widget_id 7) "Run" (action_id 2)) (layout_hint_fixed 6 1)
+//:     match view_tree_add_child (view_tree_single root) button_node:
+//:         Result::Ok tree:
+//:             match view_tree_first_focusable_id &tree:
+//:                 Option::Some id:
+//:                     widget_id_value id
+//:                 Option::None:
+//:                     0
+//:         Result::Err _error:
+//:             1
+//: ```
+
+#indent 4
+
+#import "alloc/gui/app" as *
+#import "alloc/gui/layout" as *
+#import "alloc/gui/widget" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: ViewTree: retained widget tree の bounded snapshot
+pub struct ViewTree:
+    root %WidgetDescriptor
+    child0 %Option WidgetDescriptor
+    child1 %Option WidgetDescriptor
+    child_count %i32
+
+impl Clone for ViewTree:
+    fn clone %fn &ViewTree ViewTree \tree:
+        *tree
+
+impl Copy for ViewTree:
+    fn copy_mark %fn ViewTree ViewTree \tree:
+        tree
+
+//: LayoutTree: layout result tree の bounded snapshot
+pub struct LayoutTree:
+    root %LayoutNode
+    child0 %Option LayoutNode
+    child1 %Option LayoutNode
+    child_count %i32
+
+impl Clone for LayoutTree:
+    fn clone %fn &LayoutTree LayoutTree \tree:
+        *tree
+
+impl Copy for LayoutTree:
+    fn copy_mark %fn LayoutTree LayoutTree \tree:
+        tree
+
+//: view_tree_single: root だけを[持/も]つ ViewTree を[作/つく]る
+pub fn view_tree_single %fn WidgetDescriptor ViewTree \root:
+    ViewTree root none none 0
+
+//: view_tree_root: root widget を[読/よ]む
+pub fn view_tree_root %fn &ViewTree WidgetDescriptor \tree:
+    *field::get_ref tree "root"
+
+//: view_tree_child_count: child count を[読/よ]む
+pub fn view_tree_child_count %fn &ViewTree i32 \tree:
+    *field::get_ref tree "child_count"
+
+//: view_tree_first_child: 1 [番目/ばんめ]の child を Option で[読/よ]む
+pub fn view_tree_first_child %fn &ViewTree Option WidgetDescriptor \tree:
+    *field::get_ref tree "child0"
+
+//: view_tree_second_child: 2 [番目/ばんめ]の child を Option で[読/よ]む
+pub fn view_tree_second_child %fn &ViewTree Option WidgetDescriptor \tree:
+    *field::get_ref tree "child1"
+
+//: view_tree_add_child: bounded ViewTree に child を[追加/ついか]する
+pub fn view_tree_add_child %fn ViewTree fn WidgetDescriptor Result ViewTree GuiError \tree\child:
+    let count %i32 view_tree_child_count &tree
+    if eq count 0:
+        then Result::Ok ViewTree (view_tree_root &tree) (some child) none 1
+        else if eq count 1:
+            then Result::Ok ViewTree (view_tree_root &tree) (view_tree_first_child &tree) (some child) 2
+            else Result::Err GuiError::ResourceExhausted
+
+//: widget_descriptor_is_focus_target: focus traversal の対象か[判定/はんてい]する
+fn widget_descriptor_is_focus_target %fn &WidgetDescriptor bool \descriptor:
+    and (widget_descriptor_is_focusable descriptor) (not widget_descriptor_is_disabled descriptor)
+
+//: view_tree_focus_candidate_id: focus target なら WidgetId を[返/かえ]す
+fn view_tree_focus_candidate_id %fn &WidgetDescriptor Option WidgetId \descriptor:
+    if widget_descriptor_is_focus_target descriptor:
+        then some (widget_descriptor_id descriptor)
+        else none
+
+//: view_tree_first_focusable_id: tree order の最初の focus target を[返/かえ]す
+pub fn view_tree_first_focusable_id %fn &ViewTree Option WidgetId \tree:
+    let root %WidgetDescriptor view_tree_root tree
+    match view_tree_focus_candidate_id &root:
+        Option::Some id:
+            some id
+        Option::None:
+            match view_tree_first_child tree:
+                Option::Some first:
+                    match view_tree_focus_candidate_id &first:
+                        Option::Some first_id:
+                            some first_id
+                        Option::None:
+                            match view_tree_second_child tree:
+                                Option::Some second:
+                                    view_tree_focus_candidate_id &second
+                                Option::None:
+                                    none
+                Option::None:
+                    match view_tree_second_child tree:
+                        Option::Some second:
+                            view_tree_focus_candidate_id &second
+                        Option::None:
+                            none
+
+//: view_tree_focusable_count: focus target 数を[数/かぞ]える
+pub fn view_tree_focusable_count %fn &ViewTree i32 \tree:
+    let root %WidgetDescriptor view_tree_root tree
+    let root_count %i32 if widget_descriptor_is_focus_target &root then 1 else 0
+    let first_count %i32 match view_tree_first_child tree:
+        Option::Some first:
+            if widget_descriptor_is_focus_target &first then 1 else 0
+        Option::None:
+            0
+    let second_count %i32 match view_tree_second_child tree:
+        Option::Some second:
+            if widget_descriptor_is_focus_target &second then 1 else 0
+        Option::None:
+            0
+    add (add root_count first_count) second_count
+
+//: layout_tree_single: root だけを[持/も]つ LayoutTree を[作/つく]る
+pub fn layout_tree_single %fn LayoutNode LayoutTree \root:
+    LayoutTree root none none 0
+
+//: layout_tree_root: root layout node を[読/よ]む
+pub fn layout_tree_root %fn &LayoutTree LayoutNode \tree:
+    *field::get_ref tree "root"
+
+//: layout_tree_child_count: child count を[読/よ]む
+pub fn layout_tree_child_count %fn &LayoutTree i32 \tree:
+    *field::get_ref tree "child_count"
+
+//: layout_tree_first_child: 1 [番目/ばんめ]の child を Option で[読/よ]む
+pub fn layout_tree_first_child %fn &LayoutTree Option LayoutNode \tree:
+    *field::get_ref tree "child0"
+
+//: layout_tree_second_child: 2 [番目/ばんめ]の child を Option で[読/よ]む
+pub fn layout_tree_second_child %fn &LayoutTree Option LayoutNode \tree:
+    *field::get_ref tree "child1"
+
+//: layout_tree_add_child: bounded LayoutTree に child を[追加/ついか]する
+pub fn layout_tree_add_child %fn LayoutTree fn LayoutNode Result LayoutTree GuiError \tree\child:
+    let count %i32 layout_tree_child_count &tree
+    if eq count 0:
+        then Result::Ok LayoutTree (layout_tree_root &tree) (some child) none 1
+        else if eq count 1:
+            then Result::Ok LayoutTree (layout_tree_root &tree) (layout_tree_first_child &tree) (some child) 2
+            else Result::Err GuiError::ResourceExhausted

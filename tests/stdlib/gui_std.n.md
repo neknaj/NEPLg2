@@ -18,6 +18,7 @@ exit_code: 0
 
 #import "core/result" as *
 #import "std/gui" as *
+#import "core/result" as *
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
@@ -53,16 +54,18 @@ exit_code: 0
 #target std
 
 #import "std/gui" as *
+#import "core/result" as *
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
     let win %WindowId window_id 4
     let timer %TimerRequest timer_request win timer_id 2 1000 true
-    let metrics %TextMetrics text_metrics 80 16 12
+    let measurer %HostTextMeasurer host_text_measurer_fixed gui_capabilities_text_grid 8 16 12
+    let metrics %TextMeasureResult unwrap_ok measure_text &measurer (text_measure_request_new (text_run_id_new 1) (font_id_new 1) 80 10)
     let ime %ImeStateRequest ime_state_request win ImeState::Enabled
     let root %AccessibilityNodeSnapshot accessibility_node_snapshot accessibility_node_id 1 AccessibilityRole::Button "Run" true
     let check0 assert_eq_i32 1000 timer_request_interval_ms &timer
-    let check1 assert_eq_i32 80 text_metrics_width &metrics
+    let check1 assert_eq_i32 80 text_measure_result_width &metrics
     let check2 assert accessibility_node_is_focused &root
     let check3 match ime_state_request_state &ime:
         ImeState::Enabled:
@@ -76,6 +79,75 @@ fn main %impure fn unit i32 \unit:
     let checks checks_push checks3 check3
     let shown checks_print_report checks
     checks_exit_code shown
+```
+
+## gui_runtime_interprets_update_effect_batch
+
+[目的/もくてき]:
+- `Update.effects` の 2 個目以降を runtime が落とさず、command batch として保持することを確認します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "Checked [ok,ok]\n[0] ok\n[1] ok\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui" as *
+#import "std/test" as *
+
+fn main %impure fn unit i32 \unit:
+    let host %GuiHost gui_host_new gui_capabilities_text_grid window_id 9
+    let batch0 %GuiEffectBatch gui_effect_batch_empty
+    let batch1 %GuiEffectBatch unwrap_ok gui_effect_batch_push batch0 request_redraw 1
+    let batch2 %GuiEffectBatch unwrap_ok gui_effect_batch_push batch1 request_redraw 2
+    let update %Update i32 update_result_batch 0 batch2
+    let commands %GuiRuntimeCommandBatch unwrap_ok gui_runtime_interpret_update &host update
+    let count_check assert_eq_i32 2 gui_runtime_command_batch_count &commands
+    let second_check match gui_runtime_command_batch_second &commands:
+        Option::Some command:
+            match command:
+                GuiRuntimeCommand::RequestRedraw window:
+                    assert_eq_i32 2 window_id_raw &window
+                _:
+                    assert false
+        Option::None:
+            assert false
+    let checks checks_push (checks_push checks_new count_check) second_check
+    let shown checks_print_report checks
+    checks_exit_code shown
+```
+
+## gui_runtime_rejects_unsupported_capability
+
+[目的/もくてき]:
+- surface を持たない headless host に対する redraw request が silent no-op ではなく `GuiError::Unsupported` になることを確認します。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/result" as *
+#import "std/gui" as *
+
+fn main %fn unit i32 \unit:
+    let host %GuiHost gui_host_headless
+    match gui_runtime_interpret_effect &host request_redraw 1:
+        Result::Ok _command:
+            1
+        Result::Err error:
+            match error:
+                GuiError::Unsupported:
+                    0
+                _:
+                    2
 ```
 
 ## gui_error_display_keeps_typed_error

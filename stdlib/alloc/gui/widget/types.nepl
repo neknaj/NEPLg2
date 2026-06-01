@@ -115,6 +115,10 @@ pub fn widget_descriptor_layout_hint %fn &WidgetDescriptor LayoutHint \descripto
 pub fn widget_descriptor_is_disabled %fn &WidgetDescriptor bool \descriptor:
     *field::get_ref descriptor "disabled"
 
+//: widget_descriptor_is_focusable: focusable flag を[読/よ]む
+pub fn widget_descriptor_is_focusable %fn &WidgetDescriptor bool \descriptor:
+    *field::get_ref descriptor "focusable"
+
 //: widget_descriptor_label: semantic label を[読/よ]む
 pub fn widget_descriptor_label %fn &WidgetDescriptor str \descriptor:
     *field::get_ref descriptor "semantic_label"
