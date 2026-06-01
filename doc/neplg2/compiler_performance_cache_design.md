@@ -1864,20 +1864,21 @@ artifact slot だけを持ち、module path keyed な依存 artifact map や dis
 まだ接続しない。今回の目的は、target artifact が存在する場合でも「何を `Env` へ注入してよいか」
 を artifact layer の純粋関数として固定することである。
 
-追加した境界:
+現在の境界:
 
-- `materializer_local_export_public_surface_mvp` は local callable export だけを投影する。
-- `materializer_import_public_surface_mvp` は `Open` / clause なしでは local callable export 全体、
-  alias なし selective import では指定名だけを投影する。
+- `materializer_local_export_public_surface_mvp` は local export を kind 付きで投影する。
+- `materializer_import_public_surface_mvp` は `Open` / clause なしでは local export 全体、
+  alias なし selective import では指定名の export だけを投影する。
 - alias、glob、merge、default alias は visible name 書き換えや衝突判定が必要なので拒否する。
 - re-export projection はさらに target artifact を読む必要があるため、この checkpoint では
   `UnsupportedReexportProjection` として拒否する。
-- struct / enum / trait export は named type / trait materializer が未実装なので拒否する。
+- `Struct` / `Enum` / `Trait` export は projection で保持する。ただし current session への
+  登録は named type / trait materializer が別に fail-closed に判定する。
 - missing selective name は「存在しない」と推測せず、re-export 未展開の可能性も含めて専用 reason で
   fail-closed にする。
 
 この projection により、前 checkpoint の `typecheck/materializer` は、artifact 全体ではなく
-import clause で見える callable subset だけを受け取れるようになった。次の段階では、module path
+import clause で見える export subset だけを受け取れるようになった。次の段階では、module path
 keyed な `.neplmeta` artifact store を `CompilerSession` / loader cache に持たせ、target artifact
 header compatibility と dependency public surface hash を確認したうえで、この projection と
 typecheck materializer を import / prelude boundary に接続する。
@@ -2158,16 +2159,41 @@ default prelude の `.neplmeta` surface が型定義を持たないまま name-o
 持ってしまう。そこで `i128` / `u128` の `Clone` / `Copy` impl は型定義 module へ移し、
 prelude の primitive capability module は本当に primitive な型だけを所有する形に戻した。
 
-この checkpoint 後、`std/prelude_base` の dependency edge probe では一部の stored stdlib
-artifact が projection success まで進む。残る reject は `PublicSurfaceBlocker` ではなく
-`UnsupportedExportKind` (`reject_code=11`) であり、non-callable export / semantic trait・impl
-surface を current session の registry へ復元する段階が次の root gap である。
+この checkpoint 時点では、`std/prelude_base` の dependency edge probe で一部の stored stdlib
+artifact が projection success まで進み、残る projection reject は `PublicSurfaceBlocker` ではなく
+`UnsupportedExportKind` (`reject_code=11`) になった。これは non-callable export / semantic trait・impl
+surface を current session の registry へ復元する段階が次の root gap であることを示していた。
 `UnsupportedExportKind` では blocker reason / entry kind code は 0 のままにし、古い
 `MissingNamedTypeIdentity` 詳細を stats に残さない。
 
 この変更は `i128` / `u128` を backend scalar として扱うものではない。同名 user nominal と
 backend scalar の衝突は、今後 `.neplmeta` の type term に compiler-owned scalar tag を持たせるか、
 backend scalar 名を予約型名として診断する設計でさらに固定する必要がある。
+
+### 2026-06-01 `.neplmeta` non-callable export projection checkpoint
+
+`.neplmeta` projection は、local export を callable だけに制限せず、artifact が保持する
+export kind と同じ `TypedPublicSignatureKind` の structured public surface entry を返すようにした。
+`Callable` / `Struct` / `Enum` / `Trait` は projection できる。`Impl` は visible export ではなく、
+semantic-only support surface として後段の trait / impl materializer が扱う。
+
+この checkpoint も body skip 完了ではない。projection は artifact payload を
+`TypedPublicSurfaceTable` に戻す純粋な境界であり、current session の `TypeCtx` / `Env` へ
+何を登録できるかは `typecheck/materializer` が別に判定する。現時点の materializer 本体は
+callable 以外をまだ `UnsupportedSurfaceKind` として fail-closed に扱う。
+
+tree regression では、dependency body-only edit の root pre-typecheck probe が
+`UnsupportedExportKind` reject ではなく projection success まで進むようになった。また、
+stored stdlib dependency artifact の edge probe でも複数 artifact が projection success し、
+last reject code は 0 に戻る。残る root gap は、artifact MVP gate の `UnsupportedImplLookup`
+および non-callable surface を semantic registry / visible namespace へ安全に materialize する処理である。
+
+次の作業単位:
+
+- `Struct` / `Enum` / `Trait` surface を stable nominal / trait identity から `TypeCtx` と trait table へ復元する。
+- semantic-only `Impl` を visible export に混ぜず、validated impl registry と capability registration へ注入する。
+- `PublicTypeTerm::Named { identity: Some(...) }` と `Apply` を実体化してから impl target / trait application を復元する。
+- re-export projection は target artifact chain と衝突判定が必要なので、引き続き fail-closed に残す。
 
 ## safety contract
 

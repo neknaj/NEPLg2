@@ -65,3 +65,15 @@ projection success まで進める。残る reject は `MissingNamedTypeIdentity
 `UnsupportedExportKind` (`reject_code=11`) であり、non-callable export と semantic trait / impl
 registry materializer が次の実装単位になった。この issue は、stable nominal identity を持つ
 `Named` / `Apply` を materializer 本体で復元する残件として引き続き open とする。
+
+## 2026-06-01 non-callable export projection checkpoint
+
+`.neplmeta` projection は `Callable` だけでなく `Struct` / `Enum` / `Trait` local export も
+kind を保って `TypedPublicSurfaceTable` へ戻せるようになった。これにより、root probe と一部の
+stdlib edge probe は `UnsupportedExportKind` projection reject を越えて success まで進む。
+
+ただし、この issue はまだ解決していない。projection は artifact の stable public surface を
+復元するだけであり、`PublicTypeTerm::Named { identity: Some(...) }` と `Apply` を
+`TypeCtx` へ materialize する本体は未実装である。`MemPtr .T` のような impl target を
+名前だけで対応させないため、この issue は stable nominal identity materializer の残件として
+open のまま維持する。

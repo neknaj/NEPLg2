@@ -91,9 +91,25 @@ impl を `core/math/int128/types` へ移したことで、`std/prelude_base` の
 境界に到達したことを示す。`Clone` / `Copy` trait、`i128` / `u128` struct、関連 impl のような
 non-callable surface を `Env` の visible export と semantic registry へ分けて復元する必要がある。
 
-したがって、この issue の次の実装単位は以下である。
+この checkpoint 時点では、次の実装単位を以下のように見積もっていた。
 
 - `Trait` / `Struct` / `Enum` export kind を名前空間へ安全に投影する。
 - semantic-only `Impl` を public export に混ぜず、validated `ImplInfo` と capability registration へ注入する。
 - `PublicTypeTerm::Named { identity: Some(...) }` と `Apply` の復元を先に通し、impl target を名前だけで対応させない。
 - `UnsupportedExportKind` の stats は public surface blocker ではないため、blocker reason / entry kind code を 0 のまま保つ。
+
+## 2026-06-01 non-callable export projection checkpoint
+
+`Trait` / `Struct` / `Enum` local export は `.neplmeta` projection で kind を保ったまま
+`TypedPublicSurfaceTable` へ戻せるようになった。これにより、`UnsupportedExportKind` は
+root pre-typecheck probe と一部 stdlib edge probe の主要 blocker ではなくなった。
+
+この checkpoint は projection 層の前進であり、trait / impl materializer 完了ではない。
+`typecheck/materializer` はまだ callable 以外の `PublicSurfaceShape` を current session の
+`TypeCtx` / trait table / impl table へ登録しない。また、artifact MVP gate は `Impl` surface を
+含む場合 `UnsupportedImplLookup` に残る。したがって、この issue の残件は以下へ絞られた。
+
+- `PublicTraitSurface` を stable identity で trait table へ復元する。
+- `PublicStructSurface` / `PublicEnumSurface` を stable nominal identity で `TypeCtx` へ復元する。
+- semantic-only `PublicImplSurface` を visible export に混ぜず、validated impl registry と capability registration へ注入する。
+- impl target / trait application の `Named` / `Apply` materialize は、nominal issue と同期して進める。

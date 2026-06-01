@@ -116,11 +116,12 @@ artifact を引き、local export / Open / simple named import projection をこ
 target `.neplmeta` artifact を読めた後、import clause で見える public surface だけを
 typecheck materializer へ渡す projection API を `artifact.rs` に追加した。
 
-今回の受け入れ範囲:
+現在の受け入れ範囲:
 
-- local callable export。
-- `Open` / clause なしの local callable export 全体。
-- alias なし selective import の指定 callable export。
+- local export。
+- `Open` / clause なしの local export 全体。
+- alias なし selective import の指定 export。
+- `Callable` / `Struct` / `Enum` / `Trait` export。
 
 今回の fail-closed 範囲:
 
@@ -129,7 +130,6 @@ typecheck materializer へ渡す projection API を `artifact.rs` に追加し�
 - public surface blocker。
 - re-export projection。さらに target artifact が必要なのでこの checkpoint では展開しない。
 - alias、glob、merge、default alias。
-- struct / enum / trait export。
 - selective import の missing name。
 - export entry と structured public surface の不一致。
 
@@ -141,6 +141,16 @@ projection と `typecheck/materializer` を接続する。
 追加検証:
 
 - `cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`
+
+## 2026-06-01 non-callable export projection checkpoint
+
+`NeplMetaExportKind` と `TypedPublicSignatureKind` の対応を projection 層でも明示し、
+`Struct` / `Enum` / `Trait` export を callable と同じく `TypedPublicSurfaceTable` へ戻せるようにした。
+
+この issue はまだ解決していない。projection は stable public surface を復元するだけであり、
+`typecheck/materializer` は non-callable surface を current session の `TypeCtx` / trait table /
+impl table へまだ登録しない。次の残件は `Named` / `Apply` の nominal materializer と、
+trait / impl semantic registry materializer である。
 
 ## 2026-06-01 artifact store checkpoint
 

@@ -233,8 +233,8 @@ fn main <()->i32> ():
         );
         assert.deepEqual(
             neplMetaPreTypecheckProbeStats(cacheSession),
-            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 1, rejectKind: 4, rejectCode: 11, projectionBlockerReasonCode: 0, projectionBlockerEntryKindCode: 0 },
-            'dependency body-only edit must still report unsupported non-callable export projection instead of treating a root artifact hit as body-skip ready',
+            { attempts: 1, projected: 1, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0, projectionBlockerReasonCode: 0, projectionBlockerEntryKindCode: 0 },
+            'dependency body-only edit may project the root artifact surface but must still compile against changed dependency content',
         );
         const dependencyEditEdgeProbe = neplMetaPreTypecheckEdgeProbeStats(cacheSession);
         assert.ok(
@@ -328,18 +328,18 @@ fn main %fn unit i32 \\unit:
         );
         assert.equal(
             thirdStdlibEdgeProbe.rejectCode,
-            11,
-            'remaining stdlib dependency artifacts now pass named-type blockers and stop at unsupported non-callable export projection',
+            0,
+            'non-callable export projection support lets the last stdlib edge probe end in a successful projection',
         );
         assert.equal(
             thirdStdlibEdgeProbe.projectionBlockerReasonCode,
             0,
-            'unsupported export kind is a projection boundary rather than a public surface blocker',
+            'successful projection must not report stale public surface blocker details',
         );
         assert.equal(
             thirdStdlibEdgeProbe.projectionBlockerEntryKindCode,
             0,
-            'unsupported export kind must not carry stale public surface blocker details',
+            'successful projection must not report stale public surface blocker entry details',
         );
 
         const stdlibOverlaySession = newSession(api);

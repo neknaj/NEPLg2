@@ -190,6 +190,17 @@ pub enum NeplMetaExportKind {
     Trait,
 }
 
+impl NeplMetaExportKind {
+    fn typed_public_signature_kind(self) -> TypedPublicSignatureKind {
+        match self {
+            Self::Callable => TypedPublicSignatureKind::Callable,
+            Self::Struct => TypedPublicSignatureKind::Struct,
+            Self::Enum => TypedPublicSignatureKind::Enum,
+            Self::Trait => TypedPublicSignatureKind::Trait,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NeplMetaReexportProjection {
     pub source_order: u32,
@@ -618,9 +629,10 @@ impl NeplMetaArtifact {
     /// local export を `.neplmeta` typecheck materializer へ渡す public surface に絞る。
     ///
     /// この関数は source body skip を実行しない。export surface が示す公開名と structured
-    /// public surface の entry を照合し、現在の materializer MVP が扱える callable だけを
-    /// `TypedPublicSurfaceTable` として返す。struct / enum / trait export や re-export は
-    /// 別 authority が揃うまで fail-closed にする。
+    /// public surface の entry を照合し、import clause から見える local export を
+    /// `TypedPublicSurfaceTable` として返す。projection は artifact の安定表現を
+    /// typed public surface へ戻す責務だけを持ち、`TypeCtx` / `Env` への登録可否は
+    /// 後段の materializer が改めて fail-closed に判定する。
     pub fn materializer_local_export_public_surface_mvp(
         &self,
     ) -> Result<TypedPublicSurfaceTable, NeplMetaMaterializerProjectionReject> {
@@ -629,9 +641,10 @@ impl NeplMetaArtifact {
 
     /// import clause で見える target artifact の public surface を materializer 入力へ絞る。
     ///
-    /// `Open` / clause なしは local callable export 全体、alias なし selective import は指定名だけを
-    /// 受け入れる。alias、glob、merge、default alias、re-export projection は target artifact
-    /// 以外の authority や衝突判定が必要なので、ここでは推測せず通常 source load へ戻す。
+    /// `Open` / clause なしは local export 全体、alias なし selective import は指定名だけを
+    /// kind を保ったまま受け入れる。alias、glob、merge、default alias、
+    /// re-export projection は target artifact 以外の authority や衝突判定が必要なので、
+    /// ここでは推測せず通常 source load へ戻す。
     pub fn materializer_import_public_surface_mvp(
         &self,
         import_clause: Option<&NeplMetaImportClause>,
@@ -819,19 +832,14 @@ impl NeplMetaArtifact {
                     },
                 );
             }
-            if export.kind != NeplMetaExportKind::Callable {
-                return Err(NeplMetaMaterializerProjectionReject::UnsupportedExportKind {
-                    exported_name: export.exported_name,
-                    kind: export.kind,
-                });
-            }
+            let expected_entry_kind = export.kind.typed_public_signature_kind();
             let Some(entry) = self
                 .public_surface
                 .entries
                 .iter()
                 .find(|entry| {
                     entry.exported
-                        && entry.kind == TypedPublicSignatureKind::Callable
+                        && entry.kind == expected_entry_kind
                         && entry.name == export.origin_name
                 })
             else {
@@ -1871,7 +1879,9 @@ mod tests {
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::source_map::SourceMap;
     use crate::typecheck::{
-        PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicSurfaceShape,
+        PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicEnumSurface,
+        PublicEnumVariantSurface, PublicNominalTypeIdentity, PublicNominalTypeKind,
+        PublicStructConstructorPolicy, PublicStructSurface, PublicSurfaceShape,
         PublicTraitCapability, PublicTraitIdentity, PublicTraitSurface, PublicTypeTerm,
         TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
         TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
@@ -1895,6 +1905,24 @@ mod tests {
                         TypedPublicSignatureKind::Callable,
                         (*name).into(),
                         "fn unit i32".into(),
+                        false,
+                    )
+                })
+                .collect(),
+        )
+    }
+
+    fn signature_table_for_kinds(
+        entries: &[(TypedPublicSignatureKind, &str, &str)],
+    ) -> TypedPublicSignatureTable {
+        TypedPublicSignatureTable::new(
+            entries
+                .iter()
+                .map(|(kind, name, signature)| {
+                    TypedPublicSignatureEntry::new(
+                        *kind,
+                        (*name).into(),
+                        (*signature).into(),
                         false,
                     )
                 })
@@ -1998,6 +2026,54 @@ mod tests {
                 methods: Vec::new(),
             }),
         }
+    }
+
+    fn exported_struct_entry(name: &str) -> TypedPublicSurfaceEntry {
+        TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Struct,
+            name: name.into(),
+            exported: true,
+            surface: PublicSurfaceShape::Struct(PublicStructSurface {
+                identity: Some(PublicNominalTypeIdentity {
+                    kind: PublicNominalTypeKind::Struct,
+                    source_path: "/stdlib/core/data.nepl".into(),
+                    name: name.into(),
+                    arity: 0,
+                    definition_hash: 11,
+                }),
+                type_params: Vec::new(),
+                fields: Vec::new(),
+                constructor_policy: PublicStructConstructorPolicy::Public,
+            }),
+        }
+    }
+
+    fn exported_enum_entry(name: &str) -> TypedPublicSurfaceEntry {
+        TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Enum,
+            name: name.into(),
+            exported: true,
+            surface: PublicSurfaceShape::Enum(PublicEnumSurface {
+                identity: Some(PublicNominalTypeIdentity {
+                    kind: PublicNominalTypeKind::Enum,
+                    source_path: "/stdlib/core/data.nepl".into(),
+                    name: name.into(),
+                    arity: 0,
+                    definition_hash: 13,
+                }),
+                type_params: Vec::new(),
+                variants: Vec::from([PublicEnumVariantSurface {
+                    name: "Some".into(),
+                    payload: Some(PublicTypeTerm::I32),
+                }]),
+            }),
+        }
+    }
+
+    fn exported_trait_entry(name: &str) -> TypedPublicSurfaceEntry {
+        let mut entry = semantic_trait_entry(name);
+        entry.exported = true;
+        entry
     }
 
     fn test_header(
@@ -2317,7 +2393,7 @@ mod tests {
     }
 
     /// target artifact が読めた後でも、materializer へ渡すのは import clause から見える
-    /// local callable export だけである。Open import は callable local export 全体を投影する。
+    /// local export だけである。Open import は local callable export 全体を投影する。
     #[test]
     fn neplmeta_projection_open_import_keeps_local_callable_exports() {
         let artifact = artifact_for_materializer_with_names(
@@ -2333,6 +2409,56 @@ mod tests {
         assert_eq!(projected.entries.len(), 2);
         assert!(projected.entries.iter().any(|entry| entry.name == "answer"));
         assert!(projected.entries.iter().any(|entry| entry.name == "double"));
+    }
+
+    /// projection は callable に限らず、artifact が保持する local export surface を kind
+    /// 付きで復元する。nominal type や trait をここで落とすと、dependency source を
+    /// 読まない経路では型名や trait bound の候補を再構成できなくなる。
+    #[test]
+    fn neplmeta_projection_open_import_keeps_local_nominal_and_trait_exports() {
+        let module_surface = module_surface_without_edges("/stdlib/core/data.nepl");
+        let public_surface = TypedPublicSurfaceTable::new(Vec::from([
+            exported_struct_entry("Box"),
+            exported_enum_entry("Option"),
+            exported_trait_entry("Show"),
+        ]));
+        let public_signatures = signature_table_for_kinds(&[
+            (TypedPublicSignatureKind::Struct, "Box", ";fields=;constructor=public"),
+            (TypedPublicSignatureKind::Enum, "Option", ";variants=Some:i32"),
+            (TypedPublicSignatureKind::Trait, "Show", ";capabilities=;methods="),
+        ]);
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
+        let artifact = NeplMetaArtifact::new(
+            test_header(
+                &public_signatures,
+                Some(&module_surface),
+                &public_surface,
+                None,
+            ),
+            public_signatures,
+            Some(module_surface),
+            Some(export_surface),
+            public_surface,
+        );
+
+        let projected = artifact
+            .materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Open))
+            .expect("open import projection with nominal and trait exports");
+
+        assert_eq!(projected.entries.len(), 3);
+        assert!(projected
+            .entries
+            .iter()
+            .any(|entry| entry.name == "Box" && entry.kind == TypedPublicSignatureKind::Struct));
+        assert!(projected
+            .entries
+            .iter()
+            .any(|entry| entry.name == "Option" && entry.kind == TypedPublicSignatureKind::Enum));
+        assert!(projected
+            .entries
+            .iter()
+            .any(|entry| entry.name == "Show" && entry.kind == TypedPublicSignatureKind::Trait));
     }
 
     /// import projection では visible export に加えて semantic-only support entry を保持する。
@@ -2385,6 +2511,50 @@ mod tests {
 
         assert_eq!(projected.entries.len(), 1);
         assert_eq!(projected.entries[0].name, "double");
+    }
+
+    /// selective import でも要求された名前の export kind を保つ。callable だけに絞ると、
+    /// `#import "core/option" { Option }` のような型だけを読む差分経路が source fallback
+    /// へ戻り続ける。
+    #[test]
+    fn neplmeta_projection_selective_import_keeps_requested_nominal_export() {
+        let module_surface = module_surface_without_edges("/stdlib/core/data.nepl");
+        let public_surface = TypedPublicSurfaceTable::new(Vec::from([
+            exported_struct_entry("Box"),
+            exported_enum_entry("Option"),
+        ]));
+        let public_signatures = signature_table_for_kinds(&[
+            (TypedPublicSignatureKind::Struct, "Box", ";fields=;constructor=public"),
+            (TypedPublicSignatureKind::Enum, "Option", ";variants=Some:i32"),
+        ]);
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
+        let artifact = NeplMetaArtifact::new(
+            test_header(
+                &public_signatures,
+                Some(&module_surface),
+                &public_surface,
+                None,
+            ),
+            public_signatures,
+            Some(module_surface),
+            Some(export_surface),
+            public_surface,
+        );
+
+        let projected = artifact
+            .materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Selective(
+                Vec::from([NeplMetaImportItem {
+                    name: "Option".into(),
+                    alias: None,
+                    glob: false,
+                }]),
+            )))
+            .expect("selective import projection with nominal export");
+
+        assert_eq!(projected.entries.len(), 1);
+        assert_eq!(projected.entries[0].name, "Option");
+        assert_eq!(projected.entries[0].kind, TypedPublicSignatureKind::Enum);
     }
 
     /// selective import が要求する名前が local export にない場合、re-export か欠落かを
