@@ -154,7 +154,7 @@ Focus traversal は `alloc/gui/focus` の platform 非依存 data contract と�
 
 Focus routing は traversal とは別に `alloc/gui/routing/focus` へ置く。`FocusRouteCommand::Next` / `Previous` は focus movement だけを返し、`Activate` は current focus id の widget action だけを `GuiEvent::Action` として返す。戻り値は `FocusRouteResult::Ignored` / `MoveFocus WidgetId` / `Emit GuiEvent` で分ける。Tab、Shift+Tab、Enter、Space の portable default mapping は `std/gui/keymap` が `KeyboardEvent` と `FocusKeyMap` から `Option FocusRouteCommand` へ変換する。ANSI escape sequence、DOM keyboard event、OS virtual key は platform backend が `KeyboardEvent` へ正規化し、application は raw key sequence を直接扱わない。
 
-Event routing は `alloc/gui/routing` の pure data contract として扱う。pointer routing は `LayoutTree` hit test で `WidgetId` を得て、`ViewTree` の widget data から `GuiEvent::Action` を導出する。現 checkpoint は bounded root + 2 child、half-open `GuiRect`、second child topmost、disabled widget suppression、focus command routing、std keymap、terminal 1 byte input normalization までを固定する。pointer capture、gesture、Web / native / mobile raw keyboard normalization、terminal ESC sequence / modifier decoding、recursive traversal は後続で実装する。TUI では keyboard / focus routing から同じ `FocusRouteCommand` / `GuiEvent::Action` を生成し、raw ANSI input を application が直接扱わないようにする。
+Event routing は `alloc/gui/routing` の pure data contract として扱う。pointer routing は `LayoutTree` hit test で `WidgetId` を得て、`ViewTree` の widget data から `GuiEvent::Action` を導出する。現 checkpoint は bounded root + 2 child、half-open `GuiRect`、second child topmost、disabled widget suppression、focus command routing、std keymap、terminal 1 byte input normalization、`ESC [ Z` Shift+Tab normalization までを固定する。pointer capture、gesture、Web / native / mobile raw keyboard normalization、terminal の広い ANSI / CSI sequence と modifier decoding、recursive traversal は後続で実装する。TUI では keyboard / focus routing から同じ `FocusRouteCommand` / `GuiEvent::Action` を生成し、raw ANSI input を application が直接扱わないようにする。
 
 Diff / invalidation は `alloc/gui/diff` に置く。ここでは dirty widget / tree / layout などの共通 data contract だけを持ち、terminal line buffer diff、DOM patch、framebuffer dirty rect compression は `platforms/gui/*` の実装詳細にする。
 
@@ -242,14 +242,14 @@ nodesrc/tui_regression.js
 - `platforms/wasix/tui` の raw storage / ANSI / TTY helper を terminal backend implementation detail に押し下げる。
 - `buffer_new` / `buffer_present_diff` の raw handle API を `TextGridRenderTarget` / `TerminalFrame` / `GuiHost.present` へ置き換える。
 - 現 checkpoint の `TerminalFrame` は単一 `TextCellRun` frame 境界である。`TextGridRenderTarget` は diff / present 実装時に追加し、terminal-specific line diff は `platforms/gui/terminal` に閉じる。
-- `platforms/gui/terminal/input.nepl` は terminal raw byte を `TerminalInputEvents` へ正規化する。`FocusRouteCommand` や `ActionId` は作らず、`std/gui/keymap` と `alloc/gui/routing/focus` の責務を保つ。
+- `platforms/gui/terminal/input.nepl` は terminal raw byte と最小 3 byte ESC sequence を `TerminalInputEvents` へ正規化する。`ESC [ Z` は Shift+Tab として key code 9、modifier bit 1 へ正規化するが、`FocusRouteCommand` や `ActionId` は作らず、`std/gui/keymap` と `alloc/gui/routing/focus` の責務を保つ。
 - `features/tui` の利用者向け path は壊さず、内部を新 substrate に差し替える。
 
 互換維持:
 
 - `features_tui.n.md` は当面維持する。
 - 新規 test は `tests/stdlib/gui_terminal.n.md` に追加し、旧 TUI helper と新 TextGrid backend の対応を固定する。
-- input normalization は `tests/stdlib/gui_terminal_input.n.md` に分け、Tab / LF / CR / Space / printable ASCII / invalid byte / unsupported control byte を固定する。
+- input normalization は `tests/stdlib/gui_terminal_input.n.md` に分け、Tab / LF / CR / Space / printable ASCII / invalid byte / unsupported control byte / Shift+Tab ESC sequence / unknown ESC sequence を固定する。
 
 ## Phase 7: Embedded backend
 
@@ -357,6 +357,7 @@ tests/stdlib/gui_terminal.n.md
 tests/stdlib/gui_terminal_input.n.md
     terminal byte to KeyboardEvent / TextInputEvent normalization
     Space as both key and text
+    ESC [ Z as Shift+Tab keyboard normalization
     invalid byte and unsupported control byte handling
 
 tests/stdlib/gui_dirty_region.n.md

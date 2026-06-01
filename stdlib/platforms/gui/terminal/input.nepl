@@ -2,13 +2,15 @@
 //: terminal raw byte input を typed GUI input event へ[正規化/せいきか]する platform adapter
 //:
 //: ### [目的/もくてき]
-//: - terminal raw mode から[届/とど]く 1 byte を、`KeyboardEvent` と `TextInputEvent` の組へ[変換/へんかん]します。
+//: - terminal raw mode から[届/とど]く 1 byte、または[最小/さいしょう] 3 byte ESC sequence を、`KeyboardEvent` と `TextInputEvent` の組へ[変換/へんかん]します。
 //: - raw byte は platform [層/そう]で[閉/と]じ、alloc/gui や application code へは std key code contract と text input event だけを[渡/わた]します。
 //:
 //: ### [現在/げんざい]の[契約/けいやく]
-//: - ANSI escape sequence や modifier sequence はまだ[解釈/かいしゃく]せず、単独 byte の ASCII subset だけを[扱/あつか]います。
+//: - 単独 byte の ASCII subset と、`ESC [ Z` の Shift+Tab checkpoint だけを[扱/あつか]います。
 //: - Tab / Enter / Space の keyboard event は `std/gui/keymap::keyboard_event_from_key_code` で[作/つく]り、focus routing と同じ key code contract を[共有/きょうゆう]します。
+//: - `ESC [ Z` は key code 9、modifier bit 1 の `KeyDown` へ[正規化/せいきか]し、focus routing command などの application action はここでは[作/つく]りません。
 //: - printable ASCII の text は `core/char::char_from_i32_result` で[検査/けんさ]してから `TextInputEvent` にします。
+//: - その他の ESC sequence、4 byte 以上の sequence、途中入力の buffering はまだ[未対応/みたいおう]であり、別 slice で[扱/あつか]います。
 //:
 //: ### [計算量/けいさんりょう]
 //: - 入力 byte を定数回だけ[分岐/ぶんき]するため O(1) です。
@@ -97,8 +99,14 @@ pub fn terminal_text_input_event_value %fn &TextInputEvent char \event:
 fn terminal_keyboard_key_down %fn i32 KeyboardEvent \key_code:
     keyboard_event_from_key_code KeyboardEventKind::KeyDown key_code 0
 
+fn terminal_keyboard_key_down_with_modifiers %fn i32 fn i32 KeyboardEvent \key_code\modifier_bits:
+    keyboard_event_from_key_code KeyboardEventKind::KeyDown key_code modifier_bits
+
 fn terminal_input_keyboard_only %fn i32 TerminalInputEvents \key_code:
     terminal_input_events (some terminal_keyboard_key_down key_code) none
+
+fn terminal_input_keyboard_only_with_modifiers %fn i32 fn i32 TerminalInputEvents \key_code\modifier_bits:
+    terminal_input_events (some terminal_keyboard_key_down_with_modifiers key_code modifier_bits) none
 
 fn terminal_input_text_only %fn TextInputEvent TerminalInputEvents \event:
     terminal_input_events none some event
@@ -159,3 +167,31 @@ pub fn terminal_input_events_from_byte %fn i32 Result TerminalInputEvents GuiErr
     if or (lt byte 0) (gt byte 255):
         then Result::Err GuiError::InvalidCommand
         else terminal_input_events_from_checked_byte byte
+
+fn terminal_input_byte_is_invalid %fn i32 bool \byte:
+    or (lt byte 0) (gt byte 255)
+
+fn terminal_input_escape3_is_shift_tab %fn i32 fn i32 fn i32 bool \first\second\third:
+    and (eq first 27) (and (eq second 91) (eq third 90))
+
+//: terminal_input_events_from_escape3: 3 byte terminal ESC sequence を typed GUI input event へ[正規化/せいきか]する
+//:
+//: [仕様/しよう]:
+//: - いずれかの byte が 0 未満または 255 超過なら `GuiError::InvalidCommand` です。
+//: - `ESC [ Z`、つまり byte `27 91 90` は Shift+Tab として key code 9、modifier bit 1 の `KeyDown` を[返/かえ]します。
+//: - text input は[返/かえ]しません。
+//: - その他の範囲内 3 byte sequence は、未対応または未完了の platform sequence として error ではなく event なしを[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - ここでは `FocusRouteCommand`、`GuiEvent::Action`、`ActionId` は[作/つく]りません。上位層が `std/gui/keymap` で `KeyboardEvent` を application command へ[写像/しゃぞう]します。
+//: - 4 byte 以上の sequence、CSI parameter、Alt modifier などはまだ[未対応/みたいおう]です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn terminal_input_events_from_escape3 %fn i32 fn i32 fn i32 Result TerminalInputEvents GuiError \first\second\third:
+    if or (terminal_input_byte_is_invalid first) (or (terminal_input_byte_is_invalid second) (terminal_input_byte_is_invalid third)):
+        then Result::Err GuiError::InvalidCommand
+        else:
+            if terminal_input_escape3_is_shift_tab first second third:
+                then Result::Ok terminal_input_keyboard_only_with_modifiers 9 1
+                else Result::Ok terminal_input_events_empty

@@ -1,3 +1,14 @@
+# 2026-06-01 GUI/TUI terminal ESC input checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、terminal の最小 ESC sequence / modifier decoding slice を `platforms/gui/terminal/input` に追加した。
+- doc review subagent は、未知の in-range ESC sequence は `GuiError::Unsupported` や `GuiError::InvalidCommand` ではなく event なしとして扱い、範囲外 numeric input だけを `InvalidCommand` にする方針が現 contract と一致すると指摘した。
+- implementation worker は `terminal_input_events_from_escape3` を追加した。`ESC [ Z`、つまり byte `27 91 90` は Shift+Tab として key code 9、modifier bit 1、text input なしの `KeyboardEvent` へ正規化する。未知の範囲内 3 byte sequence は `TerminalInputEvents` empty、範囲外 byte を含む sequence は `GuiError::InvalidCommand` を返す。
+- terminal layer は `FocusRouteCommand`、`GuiEvent::Action`、application-specific `ActionId` を作らず、`std/gui/keymap` と `alloc/gui/routing/focus` の責務境界を維持する。test では keymap 経由で `FocusRouteCommand::Previous` へ写像できることだけを確認した。
+- `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` は、terminal 1 byte input と `ESC [ Z` Shift+Tab normalization が実装済みで、広い ANSI / CSI sequence と modifier decoding は残件であることに合わせて更新した。
+- `todo.md` は terminal ESC sequence 全体を残件にする表現から、terminal の広い ANSI / CSI sequence と modifier decoding が残件である表現へ絞った。
+- 検証: `trunk build --release`、terminal input focused doctest 2/2、GUI/TUI focused suite (`gui_core` / `gui_dirty_region` / `gui_dirty_region_set` / `gui_app` / `gui_layout` / `gui_widget` / `gui_tree` / `gui_focus` / `gui_routing` / `gui_focus_routing` / `gui_keymap` / `gui_terminal_input` / `gui_diff` / `gui_text` / `gui_theme` / `gui_accessibility` / `gui_std` / `gui_terminal` / `features_tui`) 58/58、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-terminal-escape-input.json` 13/13、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/test_stdlib_gui_layering_policy.js` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warn-only 警告として stdlib documentation baseline、static check responsibility、resource checker responsibility、resource gate order が残る。documentation warning は今回も `stdlib module doctest gaps increased: 306 > 305` で、前 checkpoint から悪化していない。
+
 # 2026-06-01 GUI/TUI terminal input normalization checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、terminal raw byte input を `platforms/gui/terminal/input` で typed GUI input event へ正規化する境界を追加した。

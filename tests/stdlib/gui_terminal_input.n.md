@@ -8,9 +8,11 @@
 - Tab / LF / CR / Space が std key code contract の `KeyboardEvent` になり、`std/gui/keymap` の focus command と同じ契約で解釈できることを確認します。
 - Space は keyboard activation と text input の両方を返し、上位 state が focus activation と文字入力を分離できることを固定します。
 - printable ASCII は text input のみ、範囲外 byte は `GuiError::InvalidCommand`、範囲内の未対応 control byte は event なしになることを確認します。
+- `ESC [ Z` は Shift+Tab として key code contract に正規化され、`std/gui/keymap` 経由で `Previous` へ写像できることを確認します。
+- 未対応の範囲内 3 byte sequence は event なし、範囲外 byte を含む 3 byte sequence は `GuiError::InvalidCommand` になることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n[7] ok\n[8] ok\n[9] ok\n[10] ok\n[11] ok\n"
+stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n[7] ok\n[8] ok\n[9] ok\n[10] ok\n[11] ok\n[12] ok\n[13] ok\n[14] ok\n[15] ok\n[16] ok\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -31,6 +33,17 @@ fn command_is_next %fn Option FocusRouteCommand bool \command:
         Option::Some value:
             match value:
                 FocusRouteCommand::Next:
+                    true
+                _:
+                    false
+        Option::None:
+            false
+
+fn command_is_previous %fn Option FocusRouteCommand bool \command:
+    match command:
+        Option::Some value:
+            match value:
+                FocusRouteCommand::Previous:
                     true
                 _:
                     false
@@ -83,6 +96,9 @@ fn main %impure fn unit i32 \unit:
     let printable %TerminalInputEvents unwrap_ok terminal_input_events_from_byte 65
     let control %TerminalInputEvents unwrap_ok terminal_input_events_from_byte 1
     let invalid %Result TerminalInputEvents GuiError terminal_input_events_from_byte 256
+    let shift_tab %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 90
+    let unknown_escape %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 65
+    let invalid_escape %Result TerminalInputEvents GuiError terminal_input_events_from_escape3 27 91 300
     let tab_has_keyboard %bool terminal_input_events_has_keyboard &tab
     let tab_focus_next %bool command_is_next events_focus_command &key_map tab
     let tab_has_no_text %bool is_none terminal_input_events_text_input &tab
@@ -95,6 +111,11 @@ fn main %impure fn unit i32 \unit:
     let printable_text_value %bool text_value_is printable 65
     let invalid_rejected %bool result_error_is_invalid_command invalid
     let control_has_no_events %bool and (not terminal_input_events_has_keyboard &control) (not terminal_input_events_has_text_input &control)
+    let shift_tab_has_keyboard %bool terminal_input_events_has_keyboard &shift_tab
+    let shift_tab_focus_previous %bool command_is_previous events_focus_command &key_map shift_tab
+    let shift_tab_has_no_text %bool is_none terminal_input_events_text_input &shift_tab
+    let unknown_escape_has_no_events %bool and (not terminal_input_events_has_keyboard &unknown_escape) (not terminal_input_events_has_text_input &unknown_escape)
+    let invalid_escape_rejected %bool result_error_is_invalid_command invalid_escape
     let checks:
         checks_new
         |> checks_push assert "tab has keyboard" tab_has_keyboard
@@ -109,6 +130,11 @@ fn main %impure fn unit i32 \unit:
         |> checks_push assert "printable text value" printable_text_value
         |> checks_push assert "invalid byte rejected" invalid_rejected
         |> checks_push assert "control byte has no events" control_has_no_events
+        |> checks_push assert "shift tab has keyboard" shift_tab_has_keyboard
+        |> checks_push assert "shift tab focus previous" shift_tab_focus_previous
+        |> checks_push assert "shift tab has no text" shift_tab_has_no_text
+        |> checks_push assert "unknown escape has no events" unknown_escape_has_no_events
+        |> checks_push assert "invalid escape rejected" invalid_escape_rejected
     let shown checks_print_report checks
     checks_exit_code shown
 ```

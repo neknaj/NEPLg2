@@ -209,7 +209,7 @@ FocusRouteResult::Emit
 
 `FocusRouteCommand` は focus intent だけを表す。application 固有の action の意味は application `update` が `GuiEvent::Action` を `match` して決める。focus state の保持と `MoveFocus` の反映は runtime または application model の上位状態が担当し、`alloc/gui/routing/focus` 自体は純粋関数として状態を変更しない。
 
-Terminal input の現 checkpoint は 1 byte ASCII subset のみを扱う。Tab(9) は key code 9、LF(10) / CR(13) は key code 13、Space(32) は key code 32 と text input `' '`、printable ASCII(33..126) は text input のみへ正規化する。範囲外 byte は `GuiError::InvalidCommand`、範囲内で未対応の control byte は event なしとして扱う。ESC から始まる multi-byte sequence、Shift+Tab、modifier decoding、IME/text-edit context による Enter / Tab の text 化は後続 slice で実装する。
+Terminal input の現 checkpoint は 1 byte ASCII subset と最小 3 byte ESC sequence を扱う。Tab(9) は key code 9、LF(10) / CR(13) は key code 13、Space(32) は key code 32 と text input `' '`、printable ASCII(33..126) は text input のみへ正規化する。`ESC [ Z` は Shift+Tab として key code 9、modifier bit 1、text input なしの `KeyboardEvent` へ正規化する。範囲外 byte は `GuiError::InvalidCommand`、範囲内で未対応の control byte や未知の 3 byte sequence は event なしとして扱う。4 byte 以上の ANSI / CSI sequence、一般化された modifier decoding、IME/text-edit context による Enter / Tab の text 化は後続 slice で実装する。
 
 この routing は callback を呼ばず、clipboard、window、terminal、DOM、OS API に触れない。pointer capture、gesture recognition、pointer cancel、IME focus、accessibility focus、recursive tree traversal は `std/gui` / `platforms/gui/*` と連携する上位状態であり、現 checkpoint では未実装である。ただし TUI でも keyboard / focus routing は最終的に `FocusRouteCommand` と `GuiEvent::Action` を使い、application が raw ANSI sequence を直接 `match` する経路を作らない。
 
@@ -499,10 +499,10 @@ platforms/gui:
 | `alloc/gui/text` | platform 非依存 `TextBuffer` / checked edit storage | `TextBufferId`、`TextBuffer`、checked insert / replace / delete を `Result TextBuffer GuiError` で実装済み。`TextLayout`、line break、cached layout は未実装 |
 | `alloc/gui/theme` | typed theme scheme / color role / metric role、fallible color/metric helper | `GuiColor` palette、`ThemeMetrics` validation、`Option FontId`、text-cell style helper を実装済み。full typography / component style は未実装 |
 | `alloc/gui/accessibility` | semantic node / role / state / action tree | bounded semantic tree の初期 slice を実装済み。host accessibility bridge は `std/gui` / platform 側で継続 |
-| `std/gui` | host/runtime/window/timer/text/IME/accessibility/error display/keymap contract | typed data contract、core `TextMeasurer` host wrapper、`GuiEffectBatch -> GuiRuntimeCommandBatch` 解釈、capability unsupported error、`FocusKeyMap` による Tab / Shift+Tab / Enter / Space から `FocusRouteCommand` への変換を実装済み。platform 実行と raw input normalization は未実装 |
-| `platforms/gui/terminal` | terminal as `SurfaceKind::TextGrid` backend and terminal input normalization | `TerminalProfile` と core `TextCellRun` based frame、1 byte ASCII subset から `TerminalInputEvents` への正規化を実装済み。custom capability と grid size は `Result` で検証し、TextGrid 以外や負 size を拒否する。ANSI / TTY present、ESC sequence / modifier decoding は未実装 |
+| `std/gui` | host/runtime/window/timer/text/IME/accessibility/error display/keymap contract | typed data contract、core `TextMeasurer` host wrapper、`GuiEffectBatch -> GuiRuntimeCommandBatch` 解釈、capability unsupported error、`FocusKeyMap` による Tab / Shift+Tab / Enter / Space から `FocusRouteCommand` への変換を実装済み。platform 実行は未実装。raw input normalization は `platforms/gui/*` 側で継続 |
+| `platforms/gui/terminal` | terminal as `SurfaceKind::TextGrid` backend and terminal input normalization | `TerminalProfile` と core `TextCellRun` based frame、1 byte ASCII subset と `ESC [ Z` から `TerminalInputEvents` への正規化を実装済み。custom capability と grid size は `Result` で検証し、TextGrid 以外や負 size を拒否する。ANSI / TTY present、広い ANSI / CSI sequence と modifier decoding は未実装 |
 
-この表にない Web / native / mobile / embedded backend、allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、recursive event routing、pointer capture / gesture、Web / native / mobile raw keyboard normalization、terminal ESC sequence / modifier decoding、`TextLayout` / cached layout、resource loading、real host presentation は未実装である。
+この表にない Web / native / mobile / embedded backend、allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、recursive event routing、pointer capture / gesture、Web / native / mobile raw keyboard normalization、terminal の広い ANSI / CSI sequence と modifier decoding、`TextLayout` / cached layout、resource loading、real host presentation は未実装である。
 
 ## TUI Migration Contract
 
