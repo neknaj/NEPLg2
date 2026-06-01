@@ -711,8 +711,12 @@ impl fmt::Display for PrivateStateOp {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct PrivateEffectRegionId(pub u32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum PrivateEffectRegion {
     UnsealedIntrinsic,
+    SealedCompilerPrivateCache(PrivateEffectRegionId),
 }
 
 impl PrivateEffectRegion {
@@ -724,13 +728,24 @@ impl PrivateEffectRegion {
     pub const fn as_str(self) -> &'static str {
         match self {
             PrivateEffectRegion::UnsealedIntrinsic => "unsealed_intrinsic",
+            PrivateEffectRegion::SealedCompilerPrivateCache(_) => "sealed_compiler_private_cache",
+        }
+    }
+
+    pub const fn numeric_id(self) -> Option<u32> {
+        match self {
+            PrivateEffectRegion::UnsealedIntrinsic => None,
+            PrivateEffectRegion::SealedCompilerPrivateCache(id) => Some(id.0),
         }
     }
 }
 
 impl fmt::Display for PrivateEffectRegion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
+        match self.numeric_id() {
+            Some(id) => write!(f, "{}:{id}", self.as_str()),
+            None => f.write_str(self.as_str()),
+        }
     }
 }
 

@@ -70,3 +70,29 @@ Negative Resource IR tests must reject unsealed PrivateCache in pure functions, 
 - sealed region 由来の raw pointer / reference / owner token を return する Resource IR fixture を拒否する。
 - cache stats / clear / ref のような観測 API を mask 対象外として拒否する。
 - `memo_call @pure_named_func` の accepted matrix を維持し、即時適用や unresolved / impure / capturing / generic function value は拒否する。
+
+## 2026-06-01 region exactness checkpoint
+
+`PrivateEffectRegionId` と `PrivateEffectRegion::SealedCompilerPrivateCache(id)` を追加し、sealed private cache region を `UnsealedIntrinsic` と区別できるようにした。
+
+この checkpoint は sealed region を発行する memo backend や Pure mask accepted path ではない。目的は、将来 sealed region proof を導入したときに SourceCapability と Resource summary cache が region identity を潰さないよう、先に fail-closed 境界を固定することである。
+
+実装した境界:
+
+- SourceCapability policy hash は private cache region の variant と numeric id を hash する。
+- Resource summary body hash は `PrivateState` / `PrivateCache` effect の region variant と numeric id を hash する。
+- Resource function body hash namespace は `neplg2-resource-function-body-v4` に上げた。
+- Resource effect boundary gate は same file / same span / same operation でも region mismatch を拒否する。
+- `UnsealedIntrinsic` capability は `SealedCompilerPrivateCache(id)` の diagnostic を許可せず、sealed capability も別 id や `UnsealedIntrinsic` を許可しない。
+
+追加 regression:
+
+- `resource_effect_gate_rejects_private_cache_region_mismatch`
+- `resource_function_body_hash_tracks_private_cache_region_identity`
+- SourceCapability policy hash が sealed region id の差を追跡する regression
+
+残件:
+
+- compiler-known `memo_call` backend が sealed fresh region を発行する実装。
+- sealed region の cache storage、reference、raw pointer、owner token、stats、clear、hit/miss observation が外部へ escape しない Resource IR proof。
+- proof 済み sealed region のみを `PrivateCacheInPureFunction` から Pure mask 候補へ進める fold/checker 実装。

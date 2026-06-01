@@ -1,3 +1,16 @@
+# 2026-06-01 memo_call private cache region exactness checkpoint
+
+- Zenn 記事の静的検査、純粋性、キャッシュによる探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `c4b11b97 Probe neplmeta root pretypecheck reuse` まで同期済みで、branch `work/memo-private-cache-region-exact-20260601` はその `main` から作成した。
+- subagent review で、現 checkpoint は runtime backend や Pure mask へ進まず、same file / same span / same operation でも別 sealed region を拒否する fail-closed regression と hash invalidation を先に固定するべきと確認した。
+- `PrivateEffectRegionId` と `PrivateEffectRegion::SealedCompilerPrivateCache(id)` を追加し、`UnsealedIntrinsic` と sealed compiler-owned region identity を型で区別できるようにした。
+- SourceCapability policy hash と Resource summary body hash は sealed region の variant だけでなく numeric id も hash する。Resource function body hash namespace は `neplg2-resource-function-body-v4` に上げた。
+- Resource effect boundary gate の regression と SourceCapability regression により、sealed region id が違う capability / diagnostic を互換扱いしないことを固定した。
+- この checkpoint は sealed region を発行する memo backend、non-escape proof、`PrivateCacheInPureFunction` の Pure mask accepted path は実装しない。
+- `.neplmeta` loader edge probe についても subagent review を受けたが、これは import/prelude edge hook の別 checkpoint として扱い、今回の memo_call region exactness commit には混ぜない。
+- 検証: `cargo test -p nepl-core resource_effect_gate_rejects_private_cache_region_mismatch --lib -- --nocapture`、`cargo test -p nepl-core resource_function_body_hash_tracks_private_cache_region_identity --lib -- --nocapture`、`cargo test -p nepl-core source_capability_policy_hash_tracks_source_and_use_site_inputs --lib -- --nocapture`、`cargo test -p nepl-core private_cache --lib -- --nocapture`、`cargo test -p nepl-core private_effect --lib -- --nocapture`、`cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`、`cargo test -p nepl-core source_capability --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-memo-region-exact-20260601.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+- 補足: `cargo fmt --check -p nepl-core` は既存の広範囲 formatting 差分を検出するため、今回の checkpoint では無関係な整形差分を広げない方針にした。
+
 # 2026-06-01 .neplmeta session root pre-typecheck probe checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋 query cache による探索空間削減、試作段階でも設計品質を落とさない方針を再確認した。`plan.md` は変更していない。

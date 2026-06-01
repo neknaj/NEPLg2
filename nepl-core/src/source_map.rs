@@ -690,7 +690,7 @@ fn source_capability_use_site_hash(hash: &mut u64, use_site: &SourceCapabilityUs
         } => {
             source_capability_policy_hash_str(hash, "private-cache");
             source_capability_policy_hash_str(hash, operation.as_str());
-            source_capability_policy_hash_str(hash, region.as_str());
+            source_capability_private_effect_region_hash(hash, *region);
             source_capability_span_hash(hash, *span);
         }
     }
@@ -771,9 +771,17 @@ fn source_capability_scoped_use_site_hash(
         } => {
             source_capability_policy_hash_str(hash, "private-cache");
             source_capability_policy_hash_str(hash, operation.as_str());
-            source_capability_policy_hash_str(hash, region.as_str());
+            source_capability_private_effect_region_hash(hash, *region);
             source_capability_relative_span_hash(hash, *span, scope_start);
         }
+    }
+}
+
+#[allow(dead_code)]
+fn source_capability_private_effect_region_hash(hash: &mut u64, region: PrivateEffectRegion) {
+    source_capability_policy_hash_str(hash, region.as_str());
+    if let Some(id) = region.numeric_id() {
+        source_capability_policy_hash_u64(hash, u64::from(id));
     }
 }
 
@@ -908,7 +916,8 @@ mod tests {
     use alloc::string::String;
 
     use crate::effects::{
-        PrivateCacheOp, PrivateEffectRegion, RawBodyMemoryOp, RawMemoryOp, WasmRawBodyMemoryOp,
+        PrivateCacheOp, PrivateEffectRegion, PrivateEffectRegionId, RawBodyMemoryOp, RawMemoryOp,
+        WasmRawBodyMemoryOp,
     };
     use crate::span::{FileId, Span};
 
@@ -1058,9 +1067,41 @@ mod tests {
             span: SourceCapabilitySpan::from_span(proven),
         });
         assert!(private_cache.allows_private_cache_boundary_at(PrivateCacheOp::Lookup, proven));
+        assert!(private_cache.allows_private_cache_boundary_in_region_at(
+            PrivateCacheOp::Lookup,
+            PrivateEffectRegion::UnsealedIntrinsic,
+            proven
+        ));
+        assert!(!private_cache.allows_private_cache_boundary_in_region_at(
+            PrivateCacheOp::Lookup,
+            PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
+            proven
+        ));
         assert!(!private_cache.allows_private_cache_boundary_at(PrivateCacheOp::Lookup, other));
         assert!(!private_cache.allows_private_cache_boundary_at(PrivateCacheOp::Insert, proven));
         assert!(!private_cache.allows_raw_memory_operation_boundary_at(RawMemoryOp::Load, proven));
+
+        let sealed_private_cache =
+            use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
+                operation: PrivateCacheOp::Lookup,
+                region: PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
+                span: SourceCapabilitySpan::from_span(proven),
+            });
+        assert!(sealed_private_cache.allows_private_cache_boundary_in_region_at(
+            PrivateCacheOp::Lookup,
+            PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
+            proven
+        ));
+        assert!(!sealed_private_cache.allows_private_cache_boundary_in_region_at(
+            PrivateCacheOp::Lookup,
+            PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(2)),
+            proven
+        ));
+        assert!(!sealed_private_cache.allows_private_cache_boundary_in_region_at(
+            PrivateCacheOp::Lookup,
+            PrivateEffectRegion::UnsealedIntrinsic,
+            proven
+        ));
     }
 
     #[test]
@@ -1164,6 +1205,18 @@ mod tests {
                 region: PrivateEffectRegion::UnsealedIntrinsic,
                 span: SourceCapabilitySpan::from_span(proven),
             });
+        let sealed_private_cache_1 =
+            use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
+                operation: PrivateCacheOp::Lookup,
+                region: PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
+                span: SourceCapabilitySpan::from_span(proven),
+            });
+        let sealed_private_cache_2 =
+            use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
+                operation: PrivateCacheOp::Lookup,
+                region: PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(2)),
+                span: SourceCapabilitySpan::from_span(proven),
+            });
 
         assert_ne!(
             base.stable_policy_hash("core/mem.nepl", 7),
@@ -1184,6 +1237,10 @@ mod tests {
         assert_ne!(
             base.stable_policy_hash("core/mem.nepl", 7),
             private_cache_operation.stable_policy_hash("core/mem.nepl", 7)
+        );
+        assert_ne!(
+            sealed_private_cache_1.stable_policy_hash("core/mem.nepl", 7),
+            sealed_private_cache_2.stable_policy_hash("core/mem.nepl", 7)
         );
     }
 

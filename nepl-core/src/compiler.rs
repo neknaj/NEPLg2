@@ -1382,7 +1382,7 @@ fn resource_borrow_conflict_message(
 mod tests {
     use super::*;
     use crate::diagnostic_codes::EffectDiagnosticCode;
-    use crate::effects::PrivateEffectRegion;
+    use crate::effects::{PrivateEffectRegion, PrivateEffectRegionId};
     use crate::resource::{
         BorrowState, CellState, OwnerState, Place, PrivateCacheOp, RawAddressAliasKind,
         RawAddressViewKind, RawMemoryOp, ResourceBorrowDiagnostic, ResourceBorrowOperation,
@@ -1415,9 +1415,21 @@ mod tests {
     }
 
     fn private_cache_capabilities(operation: PrivateCacheOp, span: Span) -> SourceCapabilities {
+        private_cache_capabilities_in_region(
+            operation,
+            PrivateEffectRegion::UnsealedIntrinsic,
+            span,
+        )
+    }
+
+    fn private_cache_capabilities_in_region(
+        operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
+        span: Span,
+    ) -> SourceCapabilities {
         use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
             operation,
-            region: crate::effects::PrivateEffectRegion::UnsealedIntrinsic,
+            region,
             span: SourceCapabilitySpan::from_span(span),
         })
     }
@@ -2444,6 +2456,58 @@ mod tests {
         assert!(
             !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 &span_mismatch,
+                Some(&source_map),
+            )
+        );
+    }
+
+    /// sealed private cache region は proof identity であり、file / span /
+    /// operation が一致しても別 region の境界へ拡張してはならない。
+    #[test]
+    fn resource_effect_gate_rejects_private_cache_region_mismatch() {
+        let mut source_map = SourceMap::new();
+        let cache_file = source_map.add("stdlib/core/memo/internal.nepl", String::new());
+        let span = Span::new(cache_file, 10, 30);
+        source_map.set_capabilities(
+            cache_file,
+            private_cache_capabilities_in_region(
+                PrivateCacheOp::Lookup,
+                PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
+                span,
+            ),
+        );
+        let matching_region = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("memo_backend_lookup"),
+            operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
+            span,
+        };
+        let mismatched_region = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("memo_backend_lookup"),
+            operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(2)),
+            span,
+        };
+        let unsealed_region = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("memo_backend_lookup"),
+            operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::UnsealedIntrinsic,
+            span,
+        };
+
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &matching_region,
+            Some(&source_map),
+        ));
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &mismatched_region,
+                Some(&source_map),
+            )
+        );
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &unsealed_region,
                 Some(&source_map),
             )
         );

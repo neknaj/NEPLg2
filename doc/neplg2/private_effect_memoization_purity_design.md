@@ -85,6 +85,18 @@ region proof を独立 issue として分離した。SourceCapability exact proo
 fold/hash、memoized backend representation、Phase 1 accepted syntax はそれぞれ別 authority であり、
 sealed fresh region と non-escape proof が揃うまで `PrivateCache` は Pure に mask しない。
 
+2026-06-01 の private cache region exactness checkpoint では、
+`PrivateEffectRegionId` と `PrivateEffectRegion::SealedCompilerPrivateCache(id)` を追加した。
+これは compiler-owned memo backend が将来発行する sealed region proof の identity を
+`UnsealedIntrinsic` と区別するための表現であり、現時点では sealed proof の minting や
+non-escape proof までは実装しない。
+
+SourceCapability policy hash と Resource summary body hash は、sealed region の variant だけで
+なく numeric id も hash する。これにより、`SealedCompilerPrivateCache(1)` と
+`SealedCompilerPrivateCache(2)` が同じ proof artifact として stale reuse される経路を閉じる。
+Resource effect boundary gate も exact file / exact span / same operation / same region だけを
+trusted use-site として扱い、same operation / same span でも region mismatch は拒否する。
+
 surface fold は次の規則にする。
 
 | internal effect | surface fold | 条件 |

@@ -155,3 +155,20 @@ SourceCapability は exact file / span / operation / region の trusted use-site
 sealed region 導入後も、SourceCapability 単独では `PrivateCacheInPureFunction` を suppress しない。
 same operation / same span でも region が異なる場合は `PrivateCacheOutsideBoundary` を拒否する
 regression を、sealed backend region 導入時に追加する。
+
+## 2026-06-01 sealed region exactness checkpoint
+
+`ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7` の一部として、sealed private cache region の numeric id を SourceCapability policy hash に含めるようにした。
+
+`PrivateEffectRegion::SealedCompilerPrivateCache(1)` と `SealedCompilerPrivateCache(2)` は同じ variant でも別 proof identity であるため、policy hash と `allows_private_cache_boundary_in_region_at` の両方で区別する。`UnsealedIntrinsic` は引き続き intrinsic provenance であり、sealed region proof と互換にしない。
+
+追加 regression:
+
+- unsealed private cache boundary は `UnsealedIntrinsic` だけを許可し、sealed region は許可しない。
+- sealed private cache boundary は同じ id だけを許可し、別 id と `UnsealedIntrinsic` は許可しない。
+- sealed private cache boundary の policy hash は id が変わると変わる。
+
+残件:
+
+- compiler-known memo backend で sealed region proof を発行する。
+- SourceCapability が trusted use-site だけを証明し、non-escape proof と Pure mask authority を持たない境界を維持する。
