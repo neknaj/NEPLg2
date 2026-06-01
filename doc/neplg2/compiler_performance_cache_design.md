@@ -2391,6 +2391,32 @@ source fallback 率を同じ report で確認できる。
 body がないため source fallback した compile を、issue / benchmark / CI の JSON から継続的に見えるように
 することである。特に `body_missing_fallbacks` が増える case は、`.neplobj` の最初の対象候補である。
 
+### 2026-06-01 `.neplobj` candidate surface counter checkpoint
+
+`CompilerSession.loader_cache_stats_json()` に `nepl_obj_candidate_body_missing_surfaces` と
+`nepl_obj_candidate_last_body_missing_surfaces` を追加した。これは `MaterializedFunctionBodyMissing`
+を理由に source fallback した compile で、compile pipeline に渡された materialized public surface 数を
+`.neplobj` candidate として数える counter である。
+
+この counter は function body や `TypeId`、`Span`、`SourceMap` を保存しない。`.neplmeta` projection
+success 後に「いくつの materialized surface が executable body を要求したか」だけを観測する。symbol
+単位・direct call / function value / memo_call / indirect call 単位の分類は、`.neplobj` stable link
+symbol と backend fragment key を設計してから追加する。
+
+`run_test.js` と `compare_git_versions.js` は、この counter も compile 単位の delta として扱い、
+Markdown report では `body_missing_candidate_surfaces_delta_sum` として出す。これにより、compile
+attempt 数ではなく、`.neplobj` が解決すべき surface 数を base / warm edit compile time と同じ report
+で追える。
+
+同じ checkpoint で、`nodesrc/bench_materialized_compile_fallbacks.js` を追加した。この script は単一
+`CompilerSession` に対して cold base、warm store probe、body edit candidate、body edit repeat を順に
+compile し、各 run の `compile_ms`、materialized compile delta、`resource_typecheck` /
+`resource_static_check` / `wasm_codegen` の stage timing を JSON に出す。
+
+通常の doctest suite は worker 分散と fixture 順序により session の温度が混ざる。したがって、
+`.neplobj` candidate surface の実測は専用 benchmark script で行い、CI regression は helper と stats
+shape を固定する。性能値そのものを brittle な閾値として test に埋め込まない。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

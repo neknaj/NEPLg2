@@ -351,3 +351,25 @@ delta を `compile_ms` と同じ report に集計し、Markdown に `Materialize
 この checkpoint は object/link artifact の payload codec ではない。`TypeId`、`Span`、`SourceMap` を
 artifact に保存しないという方針、header-first decode、selected callable body hash / generic
 instantiation hash / backend feature set を key に含める方針は checkpoint 13 のまま維持する。
+
+## 2026-06-01 checkpoint 15
+
+`CompilerSession` stats に `.neplobj` candidate surface counter を追加した。
+
+- `nepl_obj_candidate_body_missing_surfaces`
+- `nepl_obj_candidate_last_body_missing_surfaces`
+
+これは `MaterializedFunctionBodyMissing` を理由に source fallback した compile で、実際に compile
+pipeline へ渡された materialized public surface 数を数える。compile attempt 1 件につき複数 surface が
+入る場合があるため、`.neplobj` 実装の対象規模は fallback compile 件数だけでは判断しない。
+
+この counter はまだ symbol / function / call-kind 単位ではない。`TypeId`、`Span`、`SourceMap`、typed
+HIR を artifact 化せず、既存の `.neplmeta` projection 境界と fallback reason enum だけから surface 数を
+観測するための最小 checkpoint である。`compare_git_versions.js` は
+`body_missing_candidate_surfaces_delta_sum` として report に出す。
+
+`nodesrc/bench_materialized_compile_fallbacks.js` も追加した。通常の tree / doctest suite では worker
+単位の `CompilerSession` 温度や fixture 順序が混ざるため、`.neplobj` candidate の実測は専用 script で
+cold / warm / body edit sequence を固定する。この script は timing threshold ではなく、`compile_ms`、
+materialized compile delta、`resource_typecheck` / `resource_static_check` / `wasm_codegen` の stage
+timing を JSON に保存する。

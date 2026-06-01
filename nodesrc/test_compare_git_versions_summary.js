@@ -43,6 +43,7 @@ const tests = summarizeTestsJson({
                         source_fallback_successes: { before: 0, after: 1, delta: 1 },
                         source_fallback_failures: { before: 0, after: 0, delta: 0 },
                         body_missing_fallbacks: { before: 0, after: 1, delta: 1 },
+                        body_missing_candidate_surfaces: { before: 0, after: 2, delta: 2 },
                     },
                 },
             },
@@ -64,6 +65,7 @@ const tests = summarizeTestsJson({
                         source_fallback_successes: { before: 1, after: 1, delta: 0 },
                         source_fallback_failures: { before: 0, after: 0, delta: 0 },
                         body_missing_fallbacks: { before: 1, after: 1, delta: 0 },
+                        body_missing_candidate_surfaces: { before: 2, after: 2, delta: 0 },
                     },
                 },
             },
@@ -88,6 +90,7 @@ assert.equal(tests.timing.materialized_compile.source_fallbacks_delta.sum, 1);
 assert.equal(tests.timing.materialized_compile.source_fallback_successes_delta.sum, 1);
 assert.equal(tests.timing.materialized_compile.source_fallback_failures_delta.sum, 0);
 assert.equal(tests.timing.materialized_compile.body_missing_fallbacks_delta.sum, 1);
+assert.equal(tests.timing.materialized_compile.body_missing_candidate_surfaces_delta.sum, 2);
 
 const metrics = summarizeMetricsJson({
     byArea: [
@@ -147,6 +150,10 @@ const next = {
                     ...tests.timing.materialized_compile.body_missing_fallbacks_delta,
                     sum: 2,
                 },
+                body_missing_candidate_surfaces_delta: {
+                    ...tests.timing.materialized_compile.body_missing_candidate_surfaces_delta,
+                    sum: 5,
+                },
             },
         },
     },
@@ -165,6 +172,7 @@ assert.equal(delta.tests.materialized_compile_source_fallbacks_delta_sum, 1);
 assert.equal(delta.tests.materialized_compile_source_fallback_successes_delta_sum, 1);
 assert.equal(delta.tests.materialized_compile_source_fallback_failures_delta_sum, 0);
 assert.equal(delta.tests.materialized_compile_body_missing_fallbacks_delta_sum, 1);
+assert.equal(delta.tests.materialized_compile_body_missing_candidate_surfaces_delta_sum, 3);
 assert.equal(delta.metrics.lines, 25);
 assert.equal(delta.metrics.source, 15);
 
@@ -178,5 +186,6 @@ assert.match(markdown, /base -> next/);
 assert.match(markdown, /compile_ms_sum/);
 assert.match(markdown, /Materialized Compile/);
 assert.match(markdown, /source_fallbacks_delta_sum/);
+assert.match(markdown, /body_missing_candidate_surfaces_delta_sum/);
 
 console.log('compare_git_versions summary regression passed');

@@ -108,9 +108,11 @@ function neplMetaMaterializedCompileStats(session) {
         'nepl_meta_materialized_compile_source_fallback_successes',
         'nepl_meta_materialized_compile_source_fallback_failures',
         'nepl_meta_materialized_compile_body_missing_fallbacks',
+        'nepl_obj_candidate_body_missing_surfaces',
         'nepl_meta_materialized_compile_last_outcome_code',
         'nepl_meta_materialized_compile_last_fallback_reason_code',
         'nepl_meta_materialized_compile_last_attempted_surfaces',
+        'nepl_obj_candidate_last_body_missing_surfaces',
     ];
     for (const key of keys) {
         assert.ok(
@@ -126,11 +128,15 @@ function neplMetaMaterializedCompileStats(session) {
         fallbackSuccesses: Number(s.nepl_meta_materialized_compile_source_fallback_successes || 0),
         fallbackFailures: Number(s.nepl_meta_materialized_compile_source_fallback_failures || 0),
         bodyMissingFallbacks: Number(s.nepl_meta_materialized_compile_body_missing_fallbacks || 0),
+        bodyMissingCandidateSurfaces: Number(s.nepl_obj_candidate_body_missing_surfaces || 0),
         lastOutcomeCode: Number(s.nepl_meta_materialized_compile_last_outcome_code || 0),
         lastFallbackReasonCode: Number(s.nepl_meta_materialized_compile_last_fallback_reason_code || 0),
         lastAttemptedSurfaces: Number(s.nepl_meta_materialized_compile_last_attempted_surfaces || 0),
+        lastBodyMissingCandidateSurfaces: Number(s.nepl_obj_candidate_last_body_missing_surfaces || 0),
     };
 }
+
+const MATERIALIZED_FUNCTION_BODY_MISSING_REASON_CODE = 1;
 
 function neplMetaArtifactStats(session) {
     const s = stats(session);
@@ -210,7 +216,7 @@ fn main <()->i32> ():
         );
         assert.deepEqual(
             neplMetaMaterializedCompileStats(cacheSession),
-            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastAttemptedSurfaces: 0 },
+            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, bodyMissingCandidateSurfaces: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastAttemptedSurfaces: 0, lastBodyMissingCandidateSurfaces: 0 },
             'first compile must expose materialized compile stats without attempting body skip',
         );
         assert.notEqual(
@@ -241,7 +247,7 @@ fn main <()->i32> ():
         );
         assert.deepEqual(
             neplMetaMaterializedCompileStats(cacheSession),
-            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastAttemptedSurfaces: 0 },
+            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, bodyMissingCandidateSurfaces: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastAttemptedSurfaces: 0, lastBodyMissingCandidateSurfaces: 0 },
             'compiled-output cache hit must not reuse the previous materialized compile observation as a fresh attempt',
         );
         assert.deepEqual(
@@ -417,6 +423,27 @@ fn main %fn unit i32 \\unit:
             thirdMaterializedCompile.lastFallbackReasonCode > 0,
             'source fallback must expose a typed reason code instead of relying on error text parsing',
         );
+        if (
+            thirdMaterializedCompile.lastFallbackReasonCode
+            === MATERIALIZED_FUNCTION_BODY_MISSING_REASON_CODE
+        ) {
+            assert.ok(
+                thirdMaterializedCompile.bodyMissingCandidateSurfaces
+                    >= thirdMaterializedCompile.lastAttemptedSurfaces,
+                '.neplobj candidate stats must count body-missing materialized surfaces, not only compile attempts',
+            );
+            assert.equal(
+                thirdMaterializedCompile.lastBodyMissingCandidateSurfaces,
+                thirdMaterializedCompile.lastAttemptedSurfaces,
+                'last .neplobj candidate surface count must match the body-missing materialized compile attempt',
+            );
+        } else {
+            assert.equal(
+                thirdMaterializedCompile.lastBodyMissingCandidateSurfaces,
+                0,
+                'non-body-missing materialized fallback must not be counted as a .neplobj body candidate',
+            );
+        }
 
         const stdlibOverlaySession = newSession(api);
         const stdlibOverlaySource = `#entry main

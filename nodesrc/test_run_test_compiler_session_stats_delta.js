@@ -11,6 +11,7 @@ const before = {
     nepl_meta_materialized_compile_source_fallback_successes: 1,
     nepl_meta_materialized_compile_source_fallback_failures: 0,
     nepl_meta_materialized_compile_body_missing_fallbacks: 1,
+    nepl_obj_candidate_body_missing_surfaces: 2,
 };
 const after = {
     nepl_meta_materialized_compile_attempts: 3,
@@ -20,6 +21,7 @@ const after = {
     nepl_meta_materialized_compile_source_fallback_successes: 2,
     nepl_meta_materialized_compile_source_fallback_failures: 0,
     nepl_meta_materialized_compile_body_missing_fallbacks: 2,
+    nepl_obj_candidate_body_missing_surfaces: 7,
 };
 
 const delta = compilerSessionStatsDelta(before, after);
@@ -31,6 +33,7 @@ assert.equal(delta.materialized_compile.source_fallbacks.delta, 1);
 assert.equal(delta.materialized_compile.source_fallback_successes.delta, 1);
 assert.equal(delta.materialized_compile.source_fallback_failures.delta, 0);
 assert.equal(delta.materialized_compile.body_missing_fallbacks.delta, 1);
+assert.equal(delta.materialized_compile.body_missing_candidate_surfaces.delta, 5);
 
 const missing = compilerSessionStatsDelta(before, {
     ...after,
