@@ -2126,6 +2126,23 @@ trait table、impl table、capability registration を `.neplmeta` から fail-c
 materializer の authority ではないため、`.neplmeta` 由来 callable は引き続き `def_id=None`
 の direct call 専用に留める。
 
+### 2026-06-01 `.neplmeta` semantic trait surface checkpoint
+
+`.neplmeta` structured public surface は、export される public API と、dependency
+typecheck に必要な semantic support surface を分けて保持するようになった。private
+`Clone` / `Copy` trait は public export にはしないが、impl header や callable bound が
+参照する場合は stable trait identity 付きで artifact に残す。
+
+これにより `std/prelude_base` dependency artifact probe の最初の blocker は
+`MissingTraitIdentity` (`reason_code=7`) から `MissingNamedTypeIdentity`
+(`reason_code=3`) へ進んだ。entry kind は引き続き `Impl` (`entry_kind_code=5`) である。
+つまり trait identity の欠落は解消し、次の root gap は `MemPtr .T` などの nominal type
+application を current session の `TypeCtx` へ安全に materialize することである。
+
+export surface は `TypedPublicSurfaceEntry.exported=true` の entry だけを local export に
+する。semantic-only trait は import 先の visible namespace には出さず、後続の trait /
+impl materializer が impl header を復元するための authority としてだけ扱う。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

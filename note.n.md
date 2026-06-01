@@ -48856,6 +48856,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。次の残件は reexport / prelude edge と module canonical path、fail-closed materializer 本体である。
 - focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。
 
+## 2026-06-01 Agent `.neplmeta` semantic trait surface checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-trait-impl-materializer-20260601` branch で、`std/prelude_base` edge probe の `MissingTraitIdentity` blocker を根本から進めた。`plan.md` は変更していない。
+- Zenn の試作段階方針と静的検査方針を再確認し、private `Clone` / `Copy` trait を `pub trait` にするのではなく、public export と semantic support surface を分ける設計にした。
+- subagent review では、private capability trait を `TypedPublicSurfaceEntry` に足すだけでは `NeplMetaExportSurface` が public export と誤認すること、trait/impl materializer は `traits` / `impls` semantic registry へ注入する必要があることを確認した。
+- `TypedPublicSurfaceEntry.exported` を追加し、export surface は `exported=true` の entry だけを local export にするようにした。semantic-only trait は import 先の visible namespace に出さず、impl header / callable bound の復元 authority として残す。
+- private trait reference でも `PublicTraitIdentity` を保持するようにし、`Clone` / `Copy` impl surface の `MissingTraitIdentity` blocker を解消した。structured public surface hash namespace は `neplg2-typed-public-surface-v8`、`.neplmeta` schema / artifact hash / compiler identity は v12 に上げた。
+- tree regression では `std/prelude_base` dependency artifact probe の blocker が `MissingTraitIdentity` (`reason_code=7`) から `MissingNamedTypeIdentity` (`reason_code=3`) へ進んだ。entry kind は引き続き `Impl` (`entry_kind_code=5`) である。
+- `ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10` を追加し、次の root gap を `MemPtr .T` などの nominal type application materializer として切り出した。
+- focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`trunk build --release` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
 ## 2026-06-01 Agent `.neplmeta` trait Self surface checkpoint
 
 - remote/main と同期済みの `perf/neplmeta-trait-self-surface-20260601` branch で、trait method signature 内の `Self` を structured public surface authority として扱う修正を進めた。`plan.md` は変更していない。

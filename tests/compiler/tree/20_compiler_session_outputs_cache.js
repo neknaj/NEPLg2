@@ -233,7 +233,7 @@ fn main <()->i32> ():
         );
         assert.deepEqual(
             neplMetaPreTypecheckProbeStats(cacheSession),
-            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 1, rejectKind: 4, rejectCode: 6, projectionBlockerReasonCode: 7, projectionBlockerEntryKindCode: 5 },
+            { attempts: 1, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 1, rejectKind: 4, rejectCode: 6, projectionBlockerReasonCode: 3, projectionBlockerEntryKindCode: 5 },
             'dependency body-only edit must still report a projection blocker instead of treating a root artifact hit as body-skip ready',
         );
         const dependencyEditEdgeProbe = neplMetaPreTypecheckEdgeProbeStats(cacheSession);
@@ -324,8 +324,8 @@ fn main %fn unit i32 \\unit:
         );
         assert.equal(
             thirdStdlibEdgeProbe.projectionBlockerReasonCode,
-            7,
-            'stdlib prelude_base dependency artifacts currently stop at MissingTraitIdentity, which is the next materializer root gap',
+            3,
+            'stdlib prelude_base dependency artifacts now pass trait identity and stop at MissingNamedTypeIdentity, which is the next materializer root gap',
         );
         assert.equal(
             thirdStdlibEdgeProbe.projectionBlockerEntryKindCode,

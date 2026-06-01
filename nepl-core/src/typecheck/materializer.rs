@@ -547,6 +547,7 @@ mod tests {
         TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Callable,
             name: String::from(name),
+            exported: true,
             surface: PublicSurfaceShape::Callable(surface),
         }
     }
@@ -987,6 +988,7 @@ mod tests {
         let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Struct,
             name: String::from("answer"),
+            exported: true,
             surface: PublicSurfaceShape::Callable(primitive_answer_surface(Some(
                 primitive_answer_link("answer"),
             ))),

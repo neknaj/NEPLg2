@@ -65,3 +65,17 @@ Trait / impl materializer を callable materializer とは別 authority とし�
 - `cargo test -p nepl-core materializer --lib -- --nocapture`
 - `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
 - `node tests\compiler\tree\run.js`
+
+## 2026-06-01 semantic trait surface checkpoint
+
+`Clone` / `Copy` のような private capability trait を public export に昇格せず、semantic
+support surface として `.neplmeta` に保持する境界を追加した。`TypedPublicSurfaceEntry` は
+`exported` flag を持ち、export surface は `exported=true` の entry だけを local export として扱う。
+
+この変更により、`std/prelude_base` edge probe の blocker は `MissingTraitIdentity`
+(`reason_code=7`) から `MissingNamedTypeIdentity` (`reason_code=3`) へ進んだ。entry kind は
+引き続き `Impl` (`entry_kind_code=5`) である。
+
+この issue の trait identity 部分は前進したが、trait/impl materializer はまだ完了していない。
+次の作業では、nominal type identity / type application を復元したうえで、validated `TraitInfo`
+と `ImplInfo` を current session の semantic registry へ注入する必要がある。

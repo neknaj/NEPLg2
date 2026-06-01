@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T10:33:16.404Z",
+  "generated_at": "2026-06-01T10:52:00.055Z",
   "counts": {
-    "total": 1302,
-    "open": 31,
+    "total": 1303,
+    "open": 32,
     "resolved": 1271,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 326
       },
       "core": {
-        "total": 657,
-        "open": 24,
+        "total": 658,
+        "open": 25,
         "resolved": 633
       },
       "neplg21": {
@@ -443,6 +443,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7.md"
+    },
+    {
+      "id": "ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10",
+      "title": ".neplmeta nominal type materializer needed for impl target surface",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-01",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/types.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10.md"
     },
     {
       "id": "ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2",

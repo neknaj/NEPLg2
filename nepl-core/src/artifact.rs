@@ -13,12 +13,12 @@ use alloc::vec::Vec;
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
-const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 11;
-const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v11";
+const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 12;
+const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v12";
 const NEPL_META_COMPILER_IDENTITY_INPUT: &str = concat!(
     "neplg2-compiler:",
     env!("CARGO_PKG_VERSION"),
-    ":neplmeta-v11"
+    ":neplmeta-v12"
 );
 
 /// `.neplmeta` が保持する module dependency surface。
@@ -140,6 +140,7 @@ impl NeplMetaExportSurface {
         let local_exports = public_surface
             .entries
             .iter()
+            .filter(|entry| entry.exported)
             .filter_map(|entry| {
                 let kind = match entry.kind {
                     crate::typecheck::TypedPublicSignatureKind::Callable => {
@@ -828,7 +829,11 @@ impl NeplMetaArtifact {
                 .public_surface
                 .entries
                 .iter()
-                .find(|entry| entry.kind == TypedPublicSignatureKind::Callable && entry.name == export.origin_name)
+                .find(|entry| {
+                    entry.exported
+                        && entry.kind == TypedPublicSignatureKind::Callable
+                        && entry.name == export.origin_name
+                })
             else {
                 return Err(NeplMetaMaterializerProjectionReject::ExportedSurfaceMissing {
                     exported_name: export.exported_name,
@@ -841,6 +846,9 @@ impl NeplMetaArtifact {
                     origin_name: entry.name.clone(),
                 });
             }
+            projected.push(entry.clone());
+        }
+        for entry in self.public_surface.entries.iter().filter(|entry| !entry.exported) {
             projected.push(entry.clone());
         }
         Ok(TypedPublicSurfaceTable::new(projected))
@@ -1864,8 +1872,9 @@ mod tests {
     use crate::source_map::SourceMap;
     use crate::typecheck::{
         PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicSurfaceShape,
-        PublicTypeTerm, TypedPublicSignatureEntry, TypedPublicSignatureKind,
-        TypedPublicSignatureTable, TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
+        PublicTraitCapability, PublicTraitIdentity, PublicTraitSurface, PublicTypeTerm,
+        TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
+        TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
     };
 
     fn signature_table(name: &str, signature: &str) -> TypedPublicSignatureTable {
@@ -1897,6 +1906,7 @@ mod tests {
         TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Callable,
             name: name.into(),
+            exported: true,
             surface: PublicSurfaceShape::Callable(PublicCallableSurface {
                 ty: PublicTypeTerm::Function {
                     type_params: Vec::new(),
@@ -1918,6 +1928,7 @@ mod tests {
         TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Callable,
             name: name.into(),
+            exported: true,
             surface: PublicSurfaceShape::Callable(PublicCallableSurface {
                 ty: PublicTypeTerm::Function {
                     type_params: Vec::new(),
@@ -1946,6 +1957,7 @@ mod tests {
                 .map(|name| TypedPublicSurfaceEntry {
                     kind: TypedPublicSignatureKind::Callable,
                     name: (*name).into(),
+                    exported: true,
                     surface: PublicSurfaceShape::Callable(PublicCallableSurface {
                         ty: PublicTypeTerm::Function {
                             type_params: Vec::new(),
@@ -1967,6 +1979,25 @@ mod tests {
                 })
                 .collect(),
         )
+    }
+
+    fn semantic_trait_entry(name: &str) -> TypedPublicSurfaceEntry {
+        TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Trait,
+            name: name.into(),
+            exported: false,
+            surface: PublicSurfaceShape::Trait(PublicTraitSurface {
+                identity: Some(PublicTraitIdentity {
+                    source_path: "/stdlib/core/traits/copy/primitive.nepl".into(),
+                    name: name.into(),
+                    arity: 0,
+                    definition_hash: 7,
+                }),
+                type_params: Vec::new(),
+                capabilities: Vec::from([PublicTraitCapability::Copy]),
+                methods: Vec::new(),
+            }),
+        }
     }
 
     fn test_header(
@@ -2265,6 +2296,26 @@ mod tests {
         );
     }
 
+    /// semantic-only trait は dependency typecheck の復元材料であり、import 先の visible
+    /// namespace へ export してはいけない。export surface は `exported=true` の entry だけを
+    /// local export として扱い、private capability trait を public API に昇格しない。
+    #[test]
+    fn neplmeta_export_surface_excludes_semantic_only_trait_entries() {
+        let module_surface = module_surface_without_edges("/stdlib/core/traits/copy/primitive.nepl");
+        let mut entries = materializable_surface_table("clone_i32", PublicTypeTerm::I32).entries;
+        entries.push(semantic_trait_entry("Clone"));
+        let public_surface = TypedPublicSurfaceTable::new(entries);
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
+
+        assert_eq!(export_surface.local_exports.len(), 1);
+        assert_eq!(export_surface.local_exports[0].exported_name, "clone_i32");
+        assert!(export_surface
+            .local_exports
+            .iter()
+            .all(|entry| entry.exported_name != "Clone"));
+    }
+
     /// target artifact が読めた後でも、materializer へ渡すのは import clause から見える
     /// local callable export だけである。Open import は callable local export 全体を投影する。
     #[test]
@@ -2282,6 +2333,33 @@ mod tests {
         assert_eq!(projected.entries.len(), 2);
         assert!(projected.entries.iter().any(|entry| entry.name == "answer"));
         assert!(projected.entries.iter().any(|entry| entry.name == "double"));
+    }
+
+    /// import projection では visible export に加えて semantic-only support entry を保持する。
+    /// private capability trait は利用者の名前空間には出ないが、後続の trait/impl
+    /// materializer が impl header を復元するために必要になる。
+    #[test]
+    fn neplmeta_projection_keeps_semantic_support_entries_outside_export_set() {
+        let module_surface = module_surface_without_edges("/stdlib/core/traits/copy/primitive.nepl");
+        let mut public_surface = materializable_surface_table("clone_i32", PublicTypeTerm::I32);
+        public_surface.entries.push(semantic_trait_entry("Clone"));
+        public_surface = TypedPublicSurfaceTable::new(public_surface.entries);
+        let artifact =
+            artifact_for_materializer_with_names(module_surface, public_surface, &["clone_i32"]);
+
+        let projected = artifact
+            .materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Open))
+            .expect("open import projection with semantic support");
+
+        assert_eq!(projected.entries.len(), 2);
+        assert!(projected
+            .entries
+            .iter()
+            .any(|entry| entry.name == "clone_i32" && entry.exported));
+        assert!(projected
+            .entries
+            .iter()
+            .any(|entry| entry.name == "Clone" && !entry.exported));
     }
 
     /// selective import は alias や glob を使わない名前だけを受け入れ、該当する callable

@@ -1,0 +1,49 @@
+---
+id: ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10
+title: ".neplmeta nominal type materializer needed for impl target surface"
+area: core
+status: open
+resolved: false
+priority: P1
+type: architecture
+created: 2026-06-01
+updated: 2026-06-01
+target: "nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/types.rs"
+---
+
+# ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10: .neplmeta nominal type materializer needed for impl target surface
+
+## 概要
+
+`.neplmeta` semantic trait surface により、`std/prelude_base` edge probe の最初の blocker は `MissingTraitIdentity` から `MissingNamedTypeIdentity` へ進んだ。残っている blocker は `Impl` surface 内の target type / trait argument に現れる nominal type application を current session の `TypeCtx` へ安全に復元できないことである。
+
+## 根拠
+
+- `last_pre_typecheck_edge_probe_projection_blocker_reason_code=3` は `MissingNamedTypeIdentity` を示す。
+- `last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code=5` は blocker が `Impl` surface 由来であることを示す。
+- `core/traits/copy` は `core/mem/types` を import し、`MemPtr .T` の `Clone` / `Copy` impl を定義する。
+- trait identity は semantic surface として保持できるようになったため、次は nominal type identity と `Apply` の materialize が必要である。
+
+## 問題
+
+現行 materializer は primitive / tuple / function / box / reference / generic parameter だけを `TypeCtx` へ戻せる。`PublicTypeTerm::Named` と `PublicTypeTerm::Apply` は fail-closed に拒否されるため、`MemPtr .T` のような impl target を持つ capability impl を `.neplmeta` から復元できない。
+
+名前だけで `MemPtr` や `RegionToken` を再構築すると、別 module の同名型や異なる definition hash の型を誤対応させる。したがって、source path、kind、arity、definition hash を持つ `PublicNominalTypeIdentity` を authority として使う必要がある。
+
+## 修正方針
+
+- `PublicTypeTerm::Named { identity: Some(...) }` を `TypeCtx` の stable nominal registry へ復元する materializer を追加する。
+- `PublicTypeTerm::Apply` は base nominal identity と type argument list を materialize して復元する。
+- identity が欠落した named type や unsupported application は引き続き fail-closed にする。
+- semantic-only nominal type surface が必要な場合は、public export と混同しない形で `.neplmeta` に保持する。
+- trait/impl materializer では、nominal type 復元後に `ImplInfo` を validated semantic registry へ注入する。
+
+## 検証
+
+- `std/prelude_base` edge probe が `MissingNamedTypeIdentity` / `Impl` blocker を解消し、次の未対応 blocker または projection success まで進む。
+- 同名 struct / enum が別 source path にある場合、definition hash mismatch で拒否される。
+- `MemPtr .T` の `Clone` / `Copy` impl target が stable nominal identity と generic argument で復元される。
+- semantic-only nominal type が public export に混ざらない。
+- `cargo test -p nepl-core materializer --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `node tests\compiler\tree\run.js`
