@@ -17,6 +17,7 @@ use super::env::{same_callable_signature_and_bounds, Binding, BindingKind, Env};
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
 use super::public_signature::TypedPublicSignatureKind;
 use super::public_surface::{
+    materialized_callable_symbol_for_link_symbol,
     public_enum_definition_hash, public_struct_definition_hash, public_trait_definition_hash,
     public_type_term_stable_hash, PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect,
     PublicEnumSurface, PublicFieldAccessorKind, PublicImplKind, PublicImplSurface,
@@ -32,9 +33,6 @@ use super::traits::{
     TraitInfo, TraitStableIdentity, TypeParamId,
 };
 use super::FieldAccessorKind;
-
-const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
-const FNV1A64_PRIME: u64 = 0x100000001b3;
 
 /// `.neplmeta` の public surface を現在 session の typecheck 環境へ投影した結果。
 ///
@@ -1941,37 +1939,7 @@ fn field_accessor_from_public(kind: PublicFieldAccessorKind) -> FieldAccessorKin
 }
 
 fn stable_callable_symbol(symbol: &PublicCallableLinkSymbol) -> String {
-    format!(
-        "neplmeta${}${:016x}${:016x}",
-        stable_symbol_component(&symbol.name),
-        fnv1a64(symbol.source_path.as_str()),
-        symbol.signature_hash
-    )
-}
-
-fn stable_symbol_component(text: &str) -> String {
-    let mut out = String::new();
-    for ch in text.chars() {
-        if ch.is_ascii_alphanumeric() || ch == '_' {
-            out.push(ch);
-        } else {
-            out.push('_');
-        }
-    }
-    if out.is_empty() {
-        String::from("_")
-    } else {
-        out
-    }
-}
-
-fn fnv1a64(text: &str) -> u64 {
-    let mut hash = FNV1A64_OFFSET;
-    for byte in text.as_bytes() {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(FNV1A64_PRIME);
-    }
-    hash
+    materialized_callable_symbol_for_link_symbol(symbol)
 }
 
 fn reject(

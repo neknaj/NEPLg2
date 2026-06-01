@@ -2539,6 +2539,42 @@ compile へ渡していない。
 限定した selected callable `.neplobj` key schema と availability resolver を入れ、function value /
 `memo_call` / indirect call は stable codegen artifact と Resource proof が揃うまで fail-closed に残すこと。
 
+## 2026-06-01 direct-call `.neplobj` key schema checkpoint
+
+direct call に限定した `.neplobj` の最小 key schema を `NeplObjDirectCallKey` として
+`nepl-core::artifact` に追加した。この checkpoint は object payload や linker ではなく、
+後続の availability resolver / fragment store が使う invalidation boundary を先に固定する。
+
+key に含める情報:
+
+- compiler identity hash
+- target / profile hash
+- stdlib content hash
+- backend feature set hash
+- public callable stable link symbol
+- materialized `neplmeta$...` symbol
+- target source key hash
+- selected callable body hash
+- generic instantiation hash
+- dependency public surface hash
+- source capability policy hash
+- private effect policy hash
+
+`TypeId`、`Span`、`FileId`、`SourceMap`、typed HIR body は引き続き key に含めない。
+`.neplmeta` の link symbol は公開 signature と source path を識別するが、body-only edit や
+generic 具体化は識別しないため、`.neplobj` key では selected callable body hash と
+generic instantiation hash を必須にする。
+
+`materialized_callable_symbol_for_link_symbol` と `public_callable_link_symbol_stable_hash` を
+`typecheck/public_surface.rs` の stable helper として公開し、materializer と `.neplobj` key が
+同じ symbol 規則を使うようにした。これにより、`neplmeta$...` 文字列の生成規則が
+materializer private helper に閉じず、object artifact 側でも同じ authority を参照できる。
+
+この checkpoint でも function value、indirect call、`memo_call` は許可しない。`.neplobj`
+availability resolver は次段階で direct call のみを対象にし、function value identity や
+PrivateCache proof が必要な経路は stable backend representation と Resource proof が入るまで
+fail-closed に維持する。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

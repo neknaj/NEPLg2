@@ -423,3 +423,23 @@ attempt を再実行しないための fail-closed 境界である。`.neplobj` 
 - direct call に限定した `.neplobj` selected callable body key を設計する。
 - `stable link symbol`、selected callable body hash、generic instantiation hash、backend feature set を key に含める。
 - function value / indirect call / `memo_call` は stable codegen artifact と Resource proof が揃うまで fail-closed に残す。
+
+## 2026-06-01 direct-call `.neplobj` key schema checkpoint
+
+`nepl-core::artifact` に `NeplObjDirectCallKey` を追加し、direct call に限定した
+`.neplobj` selected callable body artifact の invalidation boundary を固定した。
+
+key は `TypeId`、`Span`、`FileId`、`SourceMap`、typed HIR body を含めない。代わりに、
+compiler identity、target/profile、stdlib content hash、backend feature set、stable link symbol、
+materialized `neplmeta$...` symbol、target source key hash、selected callable body hash、
+generic instantiation hash、dependency public surface hash、source capability policy hash、
+private effect policy hash を含める。
+
+`typecheck/public_surface.rs` には `materialized_callable_symbol_for_link_symbol` と
+`public_callable_link_symbol_stable_hash` を追加し、materializer と `.neplobj` key が同じ
+stable link symbol 規則を使うようにした。
+
+この checkpoint は availability resolver / codegen fragment payload / `.nepllink` 実装ではない。
+次は `NeplObjDirectCallKey` を `CompilerSession` の object availability store と
+`PublicInterfaceArtifactInputs` の direct-call body resolver へ接続する。function value、indirect call、
+`memo_call` は stable backend representation と Resource proof が揃うまで fail-closed のまま維持する。

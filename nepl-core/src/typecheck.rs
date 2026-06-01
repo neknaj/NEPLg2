@@ -73,6 +73,7 @@ pub use public_signature::{
     TypedPublicSignatureEntry, TypedPublicSignatureKind, TypedPublicSignatureTable,
 };
 pub use public_surface::{
+    materialized_callable_symbol_for_link_symbol, public_callable_link_symbol_stable_hash,
     PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicEnumSurface,
     PublicEnumVariantSurface, PublicFieldAccessorKind, PublicFieldSurface, PublicImplKind,
     PublicImplSurface, PublicNominalTypeIdentity, PublicNominalTypeKind,

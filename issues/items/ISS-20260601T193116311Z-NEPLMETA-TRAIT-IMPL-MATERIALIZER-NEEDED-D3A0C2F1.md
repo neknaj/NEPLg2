@@ -329,3 +329,18 @@ materialized compile へ投機投入しないようにした。`.neplobj` がな
 この issue の残件は trait / impl materializer と direct-call `.neplobj` の境界を分けたまま維持する。
 function value / indirect call / `memo_call` は、stable codegen artifact と Resource proof が揃うまで
 `.neplmeta` callable だけでは許可しない。
+
+## 2026-06-01 direct-call `.neplobj` key schema checkpoint
+
+direct-call `.neplobj` 側の最初の実装として、`NeplObjDirectCallKey` を追加した。
+これは trait / impl materializer の責務ではなく、`.neplmeta` projection 後に direct call body が
+必要になった場合の backend artifact key である。
+
+key は stable link symbol だけに依存しない。selected callable body hash と generic instantiation hash を
+含めるため、公開 signature が同じ body-only edit や generic 具体化違いを誤って同じ codegen fragment に
+しない。source capability policy hash と private effect policy hash も含め、SourceCapability や
+private effect mask policy の変更では古い object を fail-closed に捨てる。
+
+この checkpoint では `.neplmeta` callable を function value、indirect call、`memo_call` へ入れる経路を
+広げていない。次は direct call resolver / availability store だけを接続し、高階関数と memoization は
+別 issue の private cache proof と backend representation が揃うまで継続して拒否する。
