@@ -7,6 +7,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{Effect, Visibility};
+use crate::source_map::SourceMap;
 use crate::types::{NominalStableTypeKind, TypeCtx, TypeId, TypeKind};
 
 use super::env::{BindingKind, Env};
@@ -84,7 +85,7 @@ pub enum PublicSurfaceMaterializerBlockerReason {
     UnboundGenericParam { param_name: String },
     /// trait bound target を binder depth / index へ対応付けられなかった。
     UnboundTraitBoundTarget { param_name: String },
-    /// trait reference が stable trait identity ではなく name だけで表されている。
+    /// trait surface または trait reference が stable trait identity を持たない。
     MissingTraitIdentity { trait_name: String },
 }
 
@@ -148,6 +149,7 @@ pub struct PublicEnumVariantSurface {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicTraitSurface {
+    pub identity: Option<PublicTraitIdentity>,
     pub type_params: Vec<PublicTypeParam>,
     pub capabilities: Vec<PublicTraitCapability>,
     pub methods: Vec<PublicTraitMethodSurface>,
@@ -177,7 +179,16 @@ pub enum PublicImplKind {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicTraitRef {
     pub name: String,
+    pub identity: Option<PublicTraitIdentity>,
     pub args: Vec<PublicTypeTerm>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PublicTraitIdentity {
+    pub source_path: String,
+    pub name: String,
+    pub arity: u32,
+    pub definition_hash: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -289,7 +300,7 @@ pub enum PublicStructConstructorPolicy {
 
 fn typed_public_surface_hash(entries: &[TypedPublicSurfaceEntry]) -> u64 {
     let mut hash = FNV1A64_OFFSET;
-    hash_str(&mut hash, "neplg2-typed-public-surface-v3");
+    hash_str(&mut hash, "neplg2-typed-public-surface-v4");
     for entry in entries {
         hash_str(&mut hash, entry.kind.as_str());
         hash_str(&mut hash, entry.name.as_str());
@@ -347,6 +358,7 @@ fn hash_public_surface_shape(hash: &mut u64, shape: &PublicSurfaceShape) {
         }
         PublicSurfaceShape::Trait(surface) => {
             hash_str(hash, "trait");
+            hash_optional_public_trait_identity(hash, surface.identity.as_ref());
             hash_public_type_params(hash, &surface.type_params);
             hash_u32(hash, surface.capabilities.len() as u32);
             for capability in &surface.capabilities {
@@ -422,6 +434,15 @@ fn collect_surface_shape_materializer_blockers(
             }
         }
         PublicSurfaceShape::Trait(surface) => {
+            if surface.identity.is_none() {
+                push_materializer_blocker(
+                    entry,
+                    PublicSurfaceMaterializerBlockerReason::MissingTraitIdentity {
+                        trait_name: entry.name.clone(),
+                    },
+                    blockers,
+                );
+            }
             for method in &surface.methods {
                 collect_type_term_materializer_blockers(entry, &method.ty, blockers);
             }
@@ -466,13 +487,15 @@ fn collect_trait_ref_materializer_blockers(
     trait_ref: &PublicTraitRef,
     blockers: &mut Vec<PublicSurfaceMaterializerBlocker>,
 ) {
-    push_materializer_blocker(
-        entry,
-        PublicSurfaceMaterializerBlockerReason::MissingTraitIdentity {
-            trait_name: trait_ref.name.clone(),
-        },
-        blockers,
-    );
+    if trait_ref.identity.is_none() {
+        push_materializer_blocker(
+            entry,
+            PublicSurfaceMaterializerBlockerReason::MissingTraitIdentity {
+                trait_name: trait_ref.name.clone(),
+            },
+            blockers,
+        );
+    }
     for arg in &trait_ref.args {
         collect_type_term_materializer_blockers(entry, arg, blockers);
     }
@@ -564,6 +587,7 @@ fn hash_public_type_param(hash: &mut u64, param: &PublicTypeParam) {
 
 fn hash_public_trait_ref(hash: &mut u64, trait_ref: &PublicTraitRef) {
     hash_str(hash, trait_ref.name.as_str());
+    hash_optional_public_trait_identity(hash, trait_ref.identity.as_ref());
     hash_u32(hash, trait_ref.args.len() as u32);
     for arg in &trait_ref.args {
         hash_public_type_term(hash, arg);
@@ -674,6 +698,19 @@ fn hash_optional_public_nominal_identity(
     }
 }
 
+fn hash_optional_public_trait_identity(hash: &mut u64, identity: Option<&PublicTraitIdentity>) {
+    match identity {
+        Some(identity) => {
+            hash_bool(hash, true);
+            hash_str(hash, identity.source_path.as_str());
+            hash_str(hash, identity.name.as_str());
+            hash_u32(hash, identity.arity);
+            hash_u64(hash, identity.definition_hash);
+        }
+        None => hash_bool(hash, false),
+    }
+}
+
 fn public_nominal_type_kind_tag(kind: PublicNominalTypeKind) -> &'static str {
     match kind {
         PublicNominalTypeKind::Enum => "enum",
@@ -763,6 +800,7 @@ fn public_struct_constructor_policy_tag(policy: PublicStructConstructorPolicy) -
 
 pub(super) fn build_typed_public_surface_table(
     ctx: &TypeCtx,
+    source_map: Option<&SourceMap>,
     env: &Env,
     structs: &BTreeMap<String, StructInfo>,
     enums: &BTreeMap<String, EnumInfo>,
@@ -793,6 +831,8 @@ pub(super) fn build_typed_public_surface_table(
                         effect: public_effect_from_ast(*effect),
                         type_param_bounds: public_type_param_bounds(
                             ctx,
+                            source_map,
+                            traits,
                             type_param_bounds,
                             &public_function_root_generics(ctx, binding.ty),
                         ),
@@ -828,14 +868,16 @@ pub(super) fn build_typed_public_surface_table(
         entries.push(TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Trait,
             name: name.clone(),
-            surface: PublicSurfaceShape::Trait(public_trait_surface(ctx, info)),
+            surface: PublicSurfaceShape::Trait(public_trait_surface(ctx, source_map, name, info)),
         });
     }
     for impl_info in impls {
         entries.push(TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Impl,
             name: impl_public_name(ctx, impl_info),
-            surface: PublicSurfaceShape::Impl(public_impl_surface(ctx, impl_info)),
+            surface: PublicSurfaceShape::Impl(public_impl_surface(
+                ctx, source_map, traits, impl_info,
+            )),
         });
     }
     TypedPublicSurfaceTable::new(entries)
@@ -877,7 +919,12 @@ fn public_enum_surface(ctx: &TypeCtx, info: &EnumInfo) -> PublicEnumSurface {
     }
 }
 
-fn public_trait_surface(ctx: &TypeCtx, info: &TraitInfo) -> PublicTraitSurface {
+fn public_trait_surface(
+    ctx: &TypeCtx,
+    source_map: Option<&SourceMap>,
+    name: &str,
+    info: &TraitInfo,
+) -> PublicTraitSurface {
     let (type_params, generics) = public_type_params(ctx, &info.type_params);
     let mut capabilities = info
         .capabilities
@@ -895,14 +942,27 @@ fn public_trait_surface(ctx: &TypeCtx, info: &TraitInfo) -> PublicTraitSurface {
         })
         .collect::<Vec<_>>();
     methods.sort();
+    let definition_hash = public_trait_definition_hash(&type_params, &capabilities, &methods);
     PublicTraitSurface {
+        identity: public_trait_identity(
+            source_map,
+            info.span,
+            name,
+            type_params.len(),
+            definition_hash,
+        ),
         type_params,
         capabilities,
         methods,
     }
 }
 
-fn public_impl_surface(ctx: &TypeCtx, info: &ImplInfo) -> PublicImplSurface {
+fn public_impl_surface(
+    ctx: &TypeCtx,
+    source_map: Option<&SourceMap>,
+    traits: &BTreeMap<String, TraitInfo>,
+    info: &ImplInfo,
+) -> PublicImplSurface {
     let generics = BTreeMap::new();
     PublicImplSurface {
         kind: match &info.kind {
@@ -911,7 +971,13 @@ fn public_impl_surface(ctx: &TypeCtx, info: &ImplInfo) -> PublicImplSurface {
                 application,
                 self_ty,
             } => PublicImplKind::Trait {
-                application: public_trait_ref_from_application(ctx, application, &generics),
+                application: public_trait_ref_from_application(
+                    ctx,
+                    source_map,
+                    traits,
+                    application,
+                    &generics,
+                ),
                 self_ty: public_type_term(ctx, *self_ty, &generics),
             },
         },
@@ -921,6 +987,8 @@ fn public_impl_surface(ctx: &TypeCtx, info: &ImplInfo) -> PublicImplSurface {
 
 fn public_type_param_bounds(
     ctx: &TypeCtx,
+    source_map: Option<&SourceMap>,
+    traits: &BTreeMap<String, TraitInfo>,
     bounds: &BoundEnv,
     generics: &BTreeMap<TypeId, PublicTypeParamRef>,
 ) -> Vec<PublicTypeParamBounds> {
@@ -930,7 +998,15 @@ fn public_type_param_bounds(
             param: public_type_param_bound_target(ctx, type_param.type_id(), generics),
             bounds: trait_bounds
                 .iter()
-                .map(|bound| public_trait_ref_from_application(ctx, &bound.application, generics))
+                .map(|bound| {
+                    public_trait_ref_from_application(
+                        ctx,
+                        source_map,
+                        traits,
+                        &bound.application,
+                        generics,
+                    )
+                })
                 .collect(),
         })
         .collect::<Vec<_>>();
@@ -951,11 +1027,18 @@ fn public_type_param_bound_target(
 
 fn public_trait_ref_from_application(
     ctx: &TypeCtx,
+    source_map: Option<&SourceMap>,
+    traits: &BTreeMap<String, TraitInfo>,
     application: &TraitApplication,
     generics: &BTreeMap<TypeId, PublicTypeParamRef>,
 ) -> PublicTraitRef {
+    let trait_name = application.trait_id.as_str();
     PublicTraitRef {
-        name: String::from(application.trait_id.as_str()),
+        name: String::from(trait_name),
+        identity: traits
+            .get(trait_name)
+            .filter(|info| info.visibility == Visibility::Pub)
+            .and_then(|info| public_trait_identity_for_info(ctx, source_map, trait_name, info)),
         args: application
             .args
             .iter()
@@ -1040,6 +1123,76 @@ fn public_nominal_type_kind(kind: NominalStableTypeKind) -> PublicNominalTypeKin
         NominalStableTypeKind::Enum => PublicNominalTypeKind::Enum,
         NominalStableTypeKind::Struct => PublicNominalTypeKind::Struct,
     }
+}
+
+fn public_trait_identity_for_info(
+    ctx: &TypeCtx,
+    source_map: Option<&SourceMap>,
+    name: &str,
+    info: &TraitInfo,
+) -> Option<PublicTraitIdentity> {
+    let (type_params, generics) = public_type_params(ctx, &info.type_params);
+    let mut capabilities = info
+        .capabilities
+        .iter()
+        .copied()
+        .map(public_trait_capability_from_model)
+        .collect::<Vec<_>>();
+    capabilities.sort();
+    let mut methods = info
+        .methods
+        .iter()
+        .map(|(method_name, method)| PublicTraitMethodSurface {
+            name: method_name.clone(),
+            ty: public_type_term(ctx, *method, &generics),
+        })
+        .collect::<Vec<_>>();
+    methods.sort();
+    Some(public_trait_identity(
+        source_map,
+        info.span,
+        name,
+        type_params.len(),
+        public_trait_definition_hash(&type_params, &capabilities, &methods),
+    )?)
+}
+
+fn public_trait_identity(
+    source_map: Option<&SourceMap>,
+    span: crate::span::Span,
+    name: &str,
+    arity: usize,
+    definition_hash: u64,
+) -> Option<PublicTraitIdentity> {
+    let source_path = source_map?
+        .path(span.file_id)
+        .map(|path| String::from(path.as_str()))?;
+    Some(PublicTraitIdentity {
+        source_path,
+        name: String::from(name),
+        arity: usize_to_u32_saturating(arity),
+        definition_hash,
+    })
+}
+
+fn public_trait_definition_hash(
+    type_params: &[PublicTypeParam],
+    capabilities: &[PublicTraitCapability],
+    methods: &[PublicTraitMethodSurface],
+) -> u64 {
+    let mut hash = FNV1A64_OFFSET;
+    hash_str(&mut hash, "neplg2-public-trait-definition-v1");
+    hash_public_type_params(&mut hash, type_params);
+    hash_u32(&mut hash, capabilities.len() as u32);
+    for capability in capabilities {
+        hash_str(&mut hash, public_trait_capability_tag(*capability));
+    }
+    hash_u32(&mut hash, methods.len() as u32);
+    for method in methods {
+        hash_str(&mut hash, method.name.as_str());
+        hash_public_type_term(&mut hash, &method.ty);
+    }
+    hash
 }
 
 fn public_type_term(
@@ -1157,11 +1310,11 @@ mod tests {
     use crate::types::TypeCtx;
 
     use super::{
-        public_type_params, public_type_term, PublicCallableSurface, PublicEffect,
+        public_type_params, public_type_term, PublicCallableSurface, PublicEffect, PublicImplKind,
         PublicNominalTypeKind, PublicSurfaceMaterializerBlockerReason, PublicSurfaceShape,
-        PublicTraitRef, PublicTypeParam, PublicTypeParamBoundTarget, PublicTypeParamBounds,
-        PublicTypeParamRef, PublicTypeTerm, TypedPublicSignatureKind, TypedPublicSurfaceEntry,
-        TypedPublicSurfaceTable,
+        PublicTraitIdentity, PublicTraitRef, PublicTypeParam, PublicTypeParamBoundTarget,
+        PublicTypeParamBounds, PublicTypeParamRef, PublicTypeTerm, TypedPublicSignatureKind,
+        TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
     };
 
     fn typecheck_source(source: &str) -> TypeCheckResult {
@@ -1429,6 +1582,225 @@ mod tests {
         );
         assert_eq!(callable.type_param_bounds[0].bounds.len(), 1);
         assert_eq!(callable.type_param_bounds[0].bounds[0].name, "Show");
+        assert!(callable.type_param_bounds[0].bounds[0].identity.is_none());
+    }
+
+    /// SourceMap がある compile では trait definition と trait bound reference に
+    /// stable identity を付与する。materializer は trait 名だけではなく、この identity を
+    /// authority として使うことで、別 module の同名 trait への誤対応を避けられる。
+    #[test]
+    fn typed_public_surface_keeps_stable_trait_identity_on_trait_refs() {
+        let checked = typecheck_source_with_path(
+            "project/core/show.nepl",
+            "pub trait Show:\n    fn show %fn Self i32 \\x:\n        0\npub fn call_show <.T: Show> %fn .T i32 \\x:\n    0\n",
+        );
+
+        let show = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Trait && entry.name == "Show")
+            .expect("Show public trait surface");
+        let PublicSurfaceShape::Trait(show_surface) = &show.surface else {
+            panic!("Show must be a structured trait surface");
+        };
+        let trait_identity = show_surface
+            .identity
+            .as_ref()
+            .expect("Show stable trait identity");
+        assert_eq!(trait_identity.source_path, "project/core/show.nepl");
+        assert_eq!(trait_identity.name, "Show");
+        assert_eq!(trait_identity.arity, 0);
+        assert_ne!(trait_identity.definition_hash, 0);
+
+        let call_show = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Callable && entry.name == "call_show"
+            })
+            .expect("call_show public surface");
+        let PublicSurfaceShape::Callable(callable) = &call_show.surface else {
+            panic!("call_show must be a callable surface");
+        };
+        let bound_identity = callable.type_param_bounds[0].bounds[0]
+            .identity
+            .as_ref()
+            .expect("Show bound stable trait identity");
+        assert_eq!(bound_identity, trait_identity);
+        assert!(checked
+            .public_surface
+            .materializer_blockers()
+            .iter()
+            .all(|blocker| !matches!(
+                &blocker.reason,
+                PublicSurfaceMaterializerBlockerReason::MissingTraitIdentity { trait_name }
+                    if trait_name == "Show"
+            )));
+    }
+
+    /// public callable が private trait bound を持つ場合、`.neplmeta` の public surface
+    /// だけでは dependency 側がその trait definition を復元できない。名前と SourceMap が
+    /// 取れても public trait identity としては扱わず、preflight は fail-closed に止める。
+    #[test]
+    fn typed_public_surface_keeps_private_trait_bound_fail_closed() {
+        let checked = typecheck_source_with_path(
+            "project/core/private_show.nepl",
+            "trait Show:\n    fn show %fn Self i32 \\x:\n        0\npub fn call_show <.T: Show> %fn .T i32 \\x:\n    0\n",
+        );
+
+        let call_show = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Callable && entry.name == "call_show"
+            })
+            .expect("call_show public surface");
+        let PublicSurfaceShape::Callable(callable) = &call_show.surface else {
+            panic!("call_show must be a callable surface");
+        };
+        assert!(callable.type_param_bounds[0].bounds[0].identity.is_none());
+        assert!(checked
+            .public_surface
+            .materializer_blockers()
+            .iter()
+            .any(|blocker| matches!(
+                &blocker.reason,
+                PublicSurfaceMaterializerBlockerReason::MissingTraitIdentity { trait_name }
+                    if trait_name == "Show"
+            )));
+    }
+
+    /// impl header の trait application も name だけではなく trait identity を持つ。
+    /// callable bound と同じ identity 形状を使うことで、materializer は impl lookup の
+    /// authority を trait 名の文字列比較へ戻さずに済む。
+    #[test]
+    fn typed_public_surface_keeps_stable_trait_identity_on_impl_refs() {
+        let checked = typecheck_source_with_path(
+            "project/core/show_impl.nepl",
+            "pub trait Show:\n    fn show %fn Self i32 \\x:\n        0\nimpl Show for i32:\n    fn show %fn i32 i32 \\x:\n        x\n",
+        );
+
+        let show = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Trait && entry.name == "Show")
+            .expect("Show public trait surface");
+        let PublicSurfaceShape::Trait(show_surface) = &show.surface else {
+            panic!("Show must be a structured trait surface");
+        };
+        let trait_identity = show_surface
+            .identity
+            .as_ref()
+            .expect("Show stable trait identity");
+
+        let impl_entry = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Impl)
+            .expect("Show impl surface");
+        let PublicSurfaceShape::Impl(impl_surface) = &impl_entry.surface else {
+            panic!("impl entry must be a structured impl surface");
+        };
+        let PublicImplKind::Trait { application, .. } = &impl_surface.kind else {
+            panic!("impl entry must be a trait impl surface");
+        };
+        assert_eq!(
+            application
+                .identity
+                .as_ref()
+                .expect("impl trait application identity"),
+            trait_identity
+        );
+    }
+
+    /// 同じ trait 名でも source path が異なれば別 identity になる。これは dependency
+    /// artifact を別 module から materialize するとき、同名 trait を誤って共有しないための
+    /// invalidation boundary である。
+    #[test]
+    fn typed_public_surface_trait_identity_distinguishes_source_paths() {
+        let source = "pub trait Show:\n    fn show %fn Self i32 \\x:\n        0\n";
+        let first = typecheck_source_with_path("project/a/show.nepl", source);
+        let second = typecheck_source_with_path("project/b/show.nepl", source);
+
+        assert_ne!(
+            first.public_surface.stable_hash,
+            second.public_surface.stable_hash
+        );
+
+        let first_identity = first
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Trait && entry.name == "Show")
+            .and_then(|entry| match &entry.surface {
+                PublicSurfaceShape::Trait(surface) => surface.identity.as_ref(),
+                _ => None,
+            })
+            .expect("first Show identity");
+        let second_identity = second
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Trait && entry.name == "Show")
+            .and_then(|entry| match &entry.surface {
+                PublicSurfaceShape::Trait(surface) => surface.identity.as_ref(),
+                _ => None,
+            })
+            .expect("second Show identity");
+        assert_ne!(first_identity, second_identity);
+    }
+
+    /// trait definition hash は method body や doc comment ではなく、method signature と
+    /// capability などの public contract だけで変わる。body-only edit を `.neplmeta`
+    /// invalidation として扱わない一方、signature edit は必ず検出する。
+    #[test]
+    fn typed_public_surface_trait_identity_tracks_trait_contract_edits_only() {
+        let base = typecheck_source_with_path(
+            "project/core/show.nepl",
+            "/// base docs\npub trait Show:\n    fn show %fn Self i32 \\x:\n        0\n",
+        );
+        let body_and_doc_edit = typecheck_source_with_path(
+            "project/core/show.nepl",
+            "/// edited docs\npub trait Show:\n    fn show %fn Self i32 \\x:\n        1\n",
+        );
+        let signature_edit = typecheck_source_with_path(
+            "project/core/show.nepl",
+            "/// base docs\npub trait Show:\n    fn show %fn Self bool \\x:\n        true\n",
+        );
+
+        assert_eq!(
+            base.public_surface.stable_hash,
+            body_and_doc_edit.public_surface.stable_hash
+        );
+        assert_ne!(
+            base.public_surface.stable_hash,
+            signature_edit.public_surface.stable_hash
+        );
+    }
+
+    /// trait capability は呼び出し側の所有権・clone/copy/drop 検査に影響する public
+    /// contract なので、definition hash に含める。method signature が同じでも capability
+    /// が変われば古い `.neplmeta` surface は再利用できない。
+    #[test]
+    fn typed_public_surface_trait_identity_tracks_capability_edits() {
+        let without_capability = typecheck_source_with_path(
+            "project/core/show.nepl",
+            "pub trait Show:\n    fn show %fn Self i32 \\x:\n        0\n",
+        );
+        let with_capability = typecheck_source_with_path(
+            "project/core/show.nepl",
+            "pub trait Show:\n    #capability clone\n    fn show %fn Self i32 \\x:\n        0\n",
+        );
+
+        assert_ne!(
+            without_capability.public_surface.stable_hash,
+            with_capability.public_surface.stable_hash
+        );
     }
 
     /// nested generic function type に入ると、その function の type parameter list が
@@ -1507,6 +1879,56 @@ mod tests {
         assert!(table.materializer_blockers().is_empty());
     }
 
+    /// stable identity を持つ trait reference は materializer が current session の trait
+    /// definition に対応付けるための authority になる。generic bound の対象も binder-indexed
+    /// ref で閉じている場合、trait 名だけを理由に body skip を止める必要はない。
+    #[test]
+    fn materializer_preflight_accepts_stable_trait_ref_bound() {
+        let param = PublicTypeParam {
+            name: String::from(".T"),
+            copy_cap: false,
+            clone_cap: false,
+            drop_cap: false,
+        };
+        let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Callable,
+            name: String::from("call_show"),
+            surface: PublicSurfaceShape::Callable(PublicCallableSurface {
+                ty: PublicTypeTerm::Function {
+                    type_params: Vec::from([param.clone()]),
+                    params: Vec::from([PublicTypeTerm::GenericParam(PublicTypeParamRef {
+                        binder_depth: 0,
+                        index: 0,
+                    })]),
+                    result: Box::new(PublicTypeTerm::I32),
+                    effect: PublicEffect::Pure,
+                },
+                no_shadow: false,
+                arity: 1,
+                effect: PublicEffect::Pure,
+                type_param_bounds: Vec::from([PublicTypeParamBounds {
+                    param: PublicTypeParamBoundTarget::Ref(PublicTypeParamRef {
+                        binder_depth: 0,
+                        index: 0,
+                    }),
+                    bounds: Vec::from([PublicTraitRef {
+                        name: String::from("Show"),
+                        identity: Some(PublicTraitIdentity {
+                            source_path: String::from("project/core/show.nepl"),
+                            name: String::from("Show"),
+                            arity: 0,
+                            definition_hash: 1,
+                        }),
+                        args: Vec::new(),
+                    }]),
+                }]),
+            }),
+        }]));
+
+        assert!(table.is_materializer_preflight_ready());
+        assert!(table.materializer_blockers().is_empty());
+    }
+
     /// name だけの nominal type は、別 module の同名型と誤対応する危険がある。
     /// materializer preflight はこれを authority として使わず、fail-closed に拒否する。
     #[test]
@@ -1571,6 +1993,7 @@ mod tests {
                     param: PublicTypeParamBoundTarget::Unbound(param),
                     bounds: Vec::from([PublicTraitRef {
                         name: String::from("Show"),
+                        identity: None,
                         args: Vec::new(),
                     }]),
                 }]),

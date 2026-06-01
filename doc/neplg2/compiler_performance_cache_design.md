@@ -1618,8 +1618,32 @@ public struct / enum surface は blocker として返す。
 trait stable identity、field accessor surface、stable public ABI/link symbol、generic impl
 bound、reexport / prelude edge と module canonical path を追加し、preflight blocker を
 減らしていく。
-trait identity、field accessor surface、stable public ABI / link symbol、generic impl bound、
-reexport / prelude edge と module canonical path も引き続き dependency body skip の前提として残る。
+field accessor surface、stable public ABI / link symbol、generic impl bound、reexport /
+prelude edge と module canonical path も引き続き dependency body skip の前提として残る。
+
+### 2026-06-01 `.neplmeta` stable trait surface checkpoint
+
+structured public surface に `PublicTraitIdentity` を追加した。trait surface 自体と、
+callable bound / trait impl header に現れる `PublicTraitRef` は、SourceMap がある場合に
+source path、trait name、arity、definition hash を保持する。
+
+definition hash は trait type parameter、capability、method name、method type surface から
+作る。doc comment、method body、Span、TypeId、typed HIR、Resource IR は含めない。これにより
+trait method body や doc だけの編集では `.neplmeta` surface を捨てず、method signature、
+capability、source path、trait name、arity が変わった場合は stale artifact として扱える。
+
+`PublicTraitRef` は identity がある場合、materializer preflight の
+`MissingTraitIdentity` blocker にならない。SourceMap がない compile では identity は `None`
+のままで、従来どおり fail-closed に body skip を止める。
+
+この payload 形状変更に合わせ、structured surface hash namespace は
+`neplg2-typed-public-surface-v4`、`.neplmeta` schema / artifact hash / compiler identity は v5
+へ上げた。trait identity を持たない古い `.neplmeta` artifact を同じ contract として扱わない。
+
+この checkpoint でも `.neplmeta` materializer 本体はまだ未実装である。次は field accessor
+surface と stable public ABI / link symbol、generic impl parameter / bound、reexport /
+prelude edge、module canonical path を揃えてから、fail-closed materializer を import /
+prelude boundary へ接続する。
 
 ### 2026-06-01 LLVM dual CI shard checkpoint
 

@@ -31,9 +31,7 @@ use super::driver_span::{span_key, top_level_definition_span};
 use super::env::{Binding, BindingKind, Env};
 use super::extern_import::ExternImportModule;
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
-use super::public_signature::{
-    build_typed_public_signature_table, TypedPublicSignatureTable,
-};
+use super::public_signature::{build_typed_public_signature_table, TypedPublicSignatureTable};
 use super::public_surface::{build_typed_public_surface_table, TypedPublicSurfaceTable};
 use super::signature::{
     contains_same_type, function_signature_string, mangle_function_symbol,
@@ -1733,7 +1731,7 @@ pub fn typecheck(
     let public_surface = if has_error {
         TypedPublicSurfaceTable::default()
     } else {
-        build_typed_public_surface_table(&ctx, &env, &structs, &enums, &traits, &impls)
+        build_typed_public_surface_table(&ctx, source_map, &env, &structs, &enums, &traits, &impls)
     };
 
     TypeCheckResult {

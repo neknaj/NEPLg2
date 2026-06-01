@@ -48586,3 +48586,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - CI 側では `examples-test` と `pages-final-bundle` が repository checkout なしで `nodesrc` script / source file を参照する経路を確認し、checkout step を追加した。LLVM dual workload は 4 shard ではまだ 18 分 timeout に近いため、`tests` / `stdlib` を各 8 shard へ拡張した。
 - verification は `cargo test -p nepl-core --test typeannot -- --nocapture`、`cargo test -p nepl-core --test overload -- --nocapture`、`cargo test -p nepl-core --test typectx_checkpoint -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`trunk build --release`、`node nodesrc/test_ci_llvm_dual_shard_job.js`、`node nodesrc/test_ci_examples_doctest_job.js`、`node nodesrc/test_type_expectation_model_policy.js`、`node nodesrc/test_tests_js_shard_policy.js`、`node nodesrc/test_merge_doctest_json.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
 - release Web bundle で pipe 付き `with_capacity` 再現は成功したが、debug compile は小さい入力でも `compile_ms` 相当で約 3.8 秒だった。edit compile は改善している一方、base compile は引き続き `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` と `.neplmeta` / `.neplproof` prechecked artifact 側で削る必要がある。
+
+## 2026-06-01 Agent `.neplmeta` stable trait surface checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-trait-identity-20260601` branch で、`.neplmeta` structured public surface の trait identity 残件を進めた。`plan.md` は変更していない。
+- Zenn の静的検査、純粋 query cache、試作段階でも暫定雑設計を避ける方針を再確認し、trait 名だけを materializer authority にする経路を閉じる設計にした。
+- subagent review では、`PublicTraitRef.name` だけでは同名 trait を誤対応させるため、trait surface 自体と callable bound / impl header の trait application に stable identity を持たせ、SourceMap がない場合は fail-closed にする必要があると確認した。
+- `PublicTraitIdentity` を追加し、source path、trait name、arity、definition hash を `.neplmeta` surface に保持するようにした。definition hash は trait type parameter、capability、method name、method type surface から作り、doc comment、method body、Span、TypeId、typed HIR、Resource IR は含めない。
+- `PublicTraitSurface` と `PublicTraitRef` は identity を持てるようになった。identity がある trait reference は `MissingTraitIdentity` blocker にならず、SourceMap がない compile では従来どおり identity が `None` なので body skip は fail-closed に止まる。
+- structured public surface hash namespace を `neplg2-typed-public-surface-v4`、`.neplmeta` schema / artifact hash / compiler identity を v5 に上げた。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。field accessor surface、stable ABI/link symbol、generic impl bound、reexport/prelude edge、module canonical path は materializer 前の残件として維持する。
+- focused verification は `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。

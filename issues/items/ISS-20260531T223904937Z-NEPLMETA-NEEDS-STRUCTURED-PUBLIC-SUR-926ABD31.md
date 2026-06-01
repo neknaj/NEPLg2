@@ -137,7 +137,6 @@ structured public surface hash namespace は `neplg2-typed-public-surface-v3` �
 残件:
 
 - `PublicTypeTerm::Named` の identity が `None` の entry を materializer で fail-closed に拒否する。
-- trait identity はまだ `PublicTraitRef.name` に依存しているため、trait definition の stable identity を導入する。
 - `PublicTypeTerm::UnboundGenericParam` と `PublicTypeParamBoundTarget::Unbound` を materializer で fail-closed に拒否する。
 - callable surface に field accessor kind と stable public ABI/link symbol を追加する。ただし span-derived `mangle_function_symbol_for_def` は保存しない。
 - generic impl parameter / bound を round-trip できるようにするか、materializer では fail-closed に拒否する。
@@ -162,3 +161,26 @@ structured public surface hash namespace は `neplg2-typed-public-surface-v3` �
 - `cargo check -p nepl-core -p nepl-language`
 - `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`
 - `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
+
+## 2026-06-01 stable trait surface checkpoint
+
+`PublicTraitIdentity` を追加し、trait surface 自体と `PublicTraitRef` が SourceMap 由来の stable identity を保持できるようにした。
+
+identity は source path、trait name、arity、definition hash で構成する。definition hash は trait type parameter、capability、method name、method type surface から作り、doc comment、method body、Span、TypeId、typed HIR、Resource IR は含めない。
+
+callable bound と trait impl header の trait application は、この stable identity を持つ場合、`MissingTraitIdentity` blocker にならない。SourceMap がない compile では identity は `None` のままなので、materializer preflight は引き続き fail-closed に拒否する。
+
+structured public surface hash namespace は `neplg2-typed-public-surface-v4` に上げた。payload 形状が変わったため `.neplmeta` schema、artifact hash version、compiler identity は v5 に上げた。
+
+残件:
+
+- `PublicTypeTerm::UnboundGenericParam` と `PublicTypeParamBoundTarget::Unbound` を materializer 本体の body-skip 判定へ接続する。
+- callable surface に field accessor kind と stable public ABI/link symbol を追加する。ただし span-derived `mangle_function_symbol_for_def` は保存しない。
+- generic impl parameter / bound を round-trip できるようにするか、materializer では fail-closed に拒否する。
+- reexport / prelude edge と module canonical path を per-module `.neplmeta` surface に追加する。
+
+検証:
+
+- `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`
+- `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
