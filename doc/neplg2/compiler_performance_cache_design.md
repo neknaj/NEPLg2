@@ -2575,6 +2575,19 @@ availability resolver は次段階で direct call のみを対象にし、functi
 PrivateCache proof が必要な経路は stable backend representation と Resource proof が入るまで
 fail-closed に維持する。
 
+## 2026-06-01 materialized body-missing kind checkpoint
+
+`.neplobj` availability resolver の直前準備として、materialized callable body-missing の
+収集結果を codegen use kind 付きで保持するようにした。現在の診断 code は同じ
+`backend.codegen.materialized_function_body_missing` のままだが、message では direct call、
+function value、memoized function value を区別する。
+
+この分類により、次段階の resolver は `HirExprKind::Call` の direct call だけを対象にできる。
+`FnValue`、`MemoizedFunctionValue`、`CallIndirect` へ到達する materialized callable は、従来通り
+source fallback / body-missing へ残す。これは `memo_call` の PrivateCache proof や function
+value identity の stable backend representation を未実装のまま pure / object reuse 境界を
+広げないための fail-closed 条件である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

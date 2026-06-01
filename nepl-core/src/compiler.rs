@@ -1067,6 +1067,30 @@ fn extend_unresolved_trait_call_diagnostics(
 
 const MATERIALIZED_CALLABLE_SYMBOL_PREFIX: &str = "neplmeta$";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MaterializedCodegenDependencyKind {
+    DirectCall,
+    FunctionValue,
+    MemoizedFunctionValue,
+}
+
+impl MaterializedCodegenDependencyKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::DirectCall => "direct call",
+            Self::FunctionValue => "function value",
+            Self::MemoizedFunctionValue => "memoized function value",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MaterializedCodegenDependency {
+    symbol: String,
+    span: Span,
+    kind: MaterializedCodegenDependencyKind,
+}
+
 fn materialized_codegen_dependency_diagnostics(
     hir_module: &crate::hir::HirModule,
 ) -> Vec<Diagnostic> {
@@ -1076,14 +1100,15 @@ fn materialized_codegen_dependency_diagnostics(
     }
     dependencies
         .into_iter()
-        .map(|(symbol, span)| {
+        .map(|dependency| {
             Diagnostic::error_with_code(
                 DiagnosticCode::Backend(BackendDiagnosticCode::MaterializedFunctionBodyMissing),
                 format!(
-                    "materialized callable '{}' needs source fallback because no code artifact is available yet",
-                    symbol
+                    "materialized callable '{}' needs source fallback for {} because no code artifact is available yet",
+                    dependency.symbol,
+                    dependency.kind.as_str()
                 ),
-                span,
+                dependency.span,
             )
         })
         .collect()
@@ -1091,7 +1116,7 @@ fn materialized_codegen_dependency_diagnostics(
 
 fn collect_materialized_codegen_dependencies_in_body(
     body: &crate::hir::HirBody,
-    dependencies: &mut Vec<(String, Span)>,
+    dependencies: &mut Vec<MaterializedCodegenDependency>,
 ) {
     if let crate::hir::HirBody::Block(block) = body {
         collect_materialized_codegen_dependencies_in_block(block, dependencies);
@@ -1100,32 +1125,59 @@ fn collect_materialized_codegen_dependencies_in_body(
 
 fn collect_materialized_codegen_dependencies_in_block(
     block: &crate::hir::HirBlock,
-    dependencies: &mut Vec<(String, Span)>,
+    dependencies: &mut Vec<MaterializedCodegenDependency>,
 ) {
     for line in &block.lines {
         collect_materialized_codegen_dependencies_in_expr(&line.expr, dependencies);
     }
 }
 
-fn record_materialized_symbol(symbol: &str, span: Span, dependencies: &mut Vec<(String, Span)>) {
+fn record_materialized_symbol(
+    symbol: &str,
+    span: Span,
+    kind: MaterializedCodegenDependencyKind,
+    dependencies: &mut Vec<MaterializedCodegenDependency>,
+) {
     if symbol.starts_with(MATERIALIZED_CALLABLE_SYMBOL_PREFIX) {
-        dependencies.push((String::from(symbol), span));
+        dependencies.push(MaterializedCodegenDependency {
+            symbol: String::from(symbol),
+            span,
+            kind,
+        });
     }
 }
 
 fn collect_materialized_codegen_dependencies_in_expr(
     expr: &crate::hir::HirExpr,
-    dependencies: &mut Vec<(String, Span)>,
+    dependencies: &mut Vec<MaterializedCodegenDependency>,
 ) {
     use crate::hir::{FuncRef, HirExprKind};
 
     match &expr.kind {
-        HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
-            record_materialized_symbol(identity.symbol(), expr.span, dependencies);
+        HirExprKind::FnValue(identity) => {
+            record_materialized_symbol(
+                identity.symbol(),
+                expr.span,
+                MaterializedCodegenDependencyKind::FunctionValue,
+                dependencies,
+            );
+        }
+        HirExprKind::MemoizedFunctionValue(identity) => {
+            record_materialized_symbol(
+                identity.symbol(),
+                expr.span,
+                MaterializedCodegenDependencyKind::MemoizedFunctionValue,
+                dependencies,
+            );
         }
         HirExprKind::Call { callee, args } => {
             if let FuncRef::User(symbol, _, _) = callee {
-                record_materialized_symbol(symbol, expr.span, dependencies);
+                record_materialized_symbol(
+                    symbol,
+                    expr.span,
+                    MaterializedCodegenDependencyKind::DirectCall,
+                    dependencies,
+                );
             }
             for arg in args {
                 collect_materialized_codegen_dependencies_in_expr(arg, dependencies);
@@ -2258,6 +2310,228 @@ mod tests {
             "diagnostics should contain materialized function body fallback code: {:?}",
             diagnostics
         );
+    }
+
+    /// `.neplobj` availability resolver は direct call だけを段階的に許可する。
+    ///
+    /// function value、memoized function value、indirect call は Resource proof と backend
+    /// representation が揃うまで fail-closed に残す必要があるため、body-missing 収集時点で
+    /// direct call と同一視しない。
+    #[test]
+    fn materialized_body_missing_diagnostics_classify_codegen_use_kind() {
+        let ty = crate::types::TypeId(0);
+        let span = Span::dummy();
+        let plain_identity = crate::function_identity::FunctionValueIdentity::new(
+            String::from("neplmeta$dep$1$2"),
+            None,
+            ty,
+            ast::Effect::Pure,
+            Vec::new(),
+        );
+        let memo_identity = crate::function_identity::FunctionValueIdentity::new(
+            String::from("neplmeta$memo_dep$1$2"),
+            None,
+            ty,
+            ast::Effect::Pure,
+            Vec::new(),
+        );
+        let module = crate::hir::HirModule {
+            functions: Vec::from([crate::hir::HirFunction {
+                doc: None,
+                name: String::from("main"),
+                origin_name: String::from("main"),
+                func_ty: ty,
+                params: Vec::new(),
+                result: ty,
+                effect: ast::Effect::Pure,
+                body: crate::hir::HirBody::Block(crate::hir::HirBlock {
+                    lines: Vec::from([
+                        crate::hir::HirLine {
+                            expr: crate::hir::HirExpr {
+                                ty,
+                                kind: crate::hir::HirExprKind::Call {
+                                    callee: crate::hir::FuncRef::User(
+                                        String::from("neplmeta$direct$1$2"),
+                                        Vec::new(),
+                                        None,
+                                    ),
+                                    args: Vec::new(),
+                                },
+                                span,
+                            },
+                            drop_result: true,
+                        },
+                        crate::hir::HirLine {
+                            expr: crate::hir::HirExpr {
+                                ty,
+                                kind: crate::hir::HirExprKind::FnValue(plain_identity),
+                                span,
+                            },
+                            drop_result: true,
+                        },
+                        crate::hir::HirLine {
+                            expr: crate::hir::HirExpr {
+                                ty,
+                                kind: crate::hir::HirExprKind::MemoizedFunctionValue(memo_identity),
+                                span,
+                            },
+                            drop_result: true,
+                        },
+                    ]),
+                    ty,
+                    span,
+                }),
+                span,
+            }]),
+            entry: Some(String::from("main")),
+            externs: Vec::new(),
+            string_literals: Vec::new(),
+            traits: Vec::new(),
+            impls: Vec::new(),
+        };
+
+        let diagnostics = materialized_codegen_dependency_diagnostics(&module);
+
+        assert_eq!(diagnostics.len(), 3);
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("for direct call")));
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("for function value")));
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic
+                .message
+                .contains("for memoized function value")));
+    }
+
+    /// indirect call は function value を呼び出す形であり、direct call 用 `.neplobj`
+    /// availability の対象ではない。
+    #[test]
+    fn materialized_body_missing_diagnostics_keep_indirect_callee_as_function_value() {
+        let ty = crate::types::TypeId(0);
+        let span = Span::dummy();
+        let identity = crate::function_identity::FunctionValueIdentity::new(
+            String::from("neplmeta$indirect$1$2"),
+            None,
+            ty,
+            ast::Effect::Pure,
+            Vec::new(),
+        );
+        let module = crate::hir::HirModule {
+            functions: Vec::from([crate::hir::HirFunction {
+                doc: None,
+                name: String::from("main"),
+                origin_name: String::from("main"),
+                func_ty: ty,
+                params: Vec::new(),
+                result: ty,
+                effect: ast::Effect::Pure,
+                body: crate::hir::HirBody::Block(crate::hir::HirBlock {
+                    lines: Vec::from([crate::hir::HirLine {
+                        expr: crate::hir::HirExpr {
+                            ty,
+                            kind: crate::hir::HirExprKind::CallIndirect {
+                                callee: Box::new(crate::hir::HirExpr {
+                                    ty,
+                                    kind: crate::hir::HirExprKind::FnValue(identity),
+                                    span,
+                                }),
+                                params: Vec::new(),
+                                result: ty,
+                                effect: ast::Effect::Pure,
+                                args: Vec::new(),
+                            },
+                            span,
+                        },
+                        drop_result: true,
+                    }]),
+                    ty,
+                    span,
+                }),
+                span,
+            }]),
+            entry: Some(String::from("main")),
+            externs: Vec::new(),
+            string_literals: Vec::new(),
+            traits: Vec::new(),
+            impls: Vec::new(),
+        };
+
+        let diagnostics = materialized_codegen_dependency_diagnostics(&module);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert!(diagnostics[0].message.contains("neplmeta$indirect$1$2"));
+        assert!(diagnostics[0].message.contains("for function value"));
+        assert!(!diagnostics[0].message.contains("for direct call"));
+    }
+
+    /// direct call の引数に materialized function value が入る場合、direct call 自体と
+    /// 高階関数依存は別々に扱う。
+    #[test]
+    fn materialized_body_missing_diagnostics_do_not_mask_nested_function_value() {
+        let ty = crate::types::TypeId(0);
+        let span = Span::dummy();
+        let identity = crate::function_identity::FunctionValueIdentity::new(
+            String::from("neplmeta$arg$1$2"),
+            None,
+            ty,
+            ast::Effect::Pure,
+            Vec::new(),
+        );
+        let module = crate::hir::HirModule {
+            functions: Vec::from([crate::hir::HirFunction {
+                doc: None,
+                name: String::from("main"),
+                origin_name: String::from("main"),
+                func_ty: ty,
+                params: Vec::new(),
+                result: ty,
+                effect: ast::Effect::Pure,
+                body: crate::hir::HirBody::Block(crate::hir::HirBlock {
+                    lines: Vec::from([crate::hir::HirLine {
+                        expr: crate::hir::HirExpr {
+                            ty,
+                            kind: crate::hir::HirExprKind::Call {
+                                callee: crate::hir::FuncRef::User(
+                                    String::from("neplmeta$direct_nested$1$2"),
+                                    Vec::new(),
+                                    None,
+                                ),
+                                args: Vec::from([crate::hir::HirExpr {
+                                    ty,
+                                    kind: crate::hir::HirExprKind::FnValue(identity),
+                                    span,
+                                }]),
+                            },
+                            span,
+                        },
+                        drop_result: true,
+                    }]),
+                    ty,
+                    span,
+                }),
+                span,
+            }]),
+            entry: Some(String::from("main")),
+            externs: Vec::new(),
+            string_literals: Vec::new(),
+            traits: Vec::new(),
+            impls: Vec::new(),
+        };
+
+        let diagnostics = materialized_codegen_dependency_diagnostics(&module);
+
+        assert_eq!(diagnostics.len(), 2);
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("neplmeta$direct_nested$1$2")
+            && diagnostic.message.contains("for direct call")));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic
+            .message
+            .contains("neplmeta$arg$1$2")
+            && diagnostic.message.contains("for function value")));
     }
 
     #[test]
