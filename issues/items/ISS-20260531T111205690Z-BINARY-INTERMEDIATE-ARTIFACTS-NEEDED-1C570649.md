@@ -443,3 +443,13 @@ stable link symbol 規則を使うようにした。
 次は `NeplObjDirectCallKey` を `CompilerSession` の object availability store と
 `PublicInterfaceArtifactInputs` の direct-call body resolver へ接続する。function value、indirect call、
 `memo_call` は stable backend representation と Resource proof が揃うまで fail-closed のまま維持する。
+
+## 2026-06-01 materialized body-missing kind checkpoint
+
+`backend.codegen.materialized_function_body_missing` の収集結果を direct call、function value、
+memoized function value に分類するようにした。diagnostic code は既存の body-missing code を維持し、
+message に use kind を含める。
+
+この checkpoint は `.neplobj` availability resolver そのものではない。次の resolver は direct call
+だけを候補にし、function value、indirect call、`memo_call` は stable codegen artifact と Resource proof が
+揃うまで body-missing / source fallback に残す。

@@ -344,3 +344,12 @@ private effect mask policy の変更では古い object を fail-closed に捨�
 この checkpoint では `.neplmeta` callable を function value、indirect call、`memo_call` へ入れる経路を
 広げていない。次は direct call resolver / availability store だけを接続し、高階関数と memoization は
 別 issue の private cache proof と backend representation が揃うまで継続して拒否する。
+
+## 2026-06-01 materialized body-missing kind checkpoint
+
+`.neplmeta` materialized callable が codegen 入力へ到達した場合の body-missing 診断を、
+direct call、function value、memoized function value の use kind 付きで作るようにした。
+
+trait / impl materializer の issue では、この分類を使って direct call だけを `.neplobj` resolver へ
+進ませる。function value、indirect call、`memo_call` は、引き続きこの materializer issue で
+bypass しない。
