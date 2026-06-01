@@ -87,7 +87,9 @@ fn keyboard_key_code_is %fn TerminalInputEvents fn i32 bool \events\expected:
 fn keyboard_modifier_has %fn TerminalInputEvents fn i32 bool \events\mask:
     match terminal_input_events_keyboard &events:
         Option::Some keyboard:
-            eq mask (and (keyboard_event_modifier_bits &keyboard) mask)
+            let modifier_bits %i32 keyboard_event_modifier_bits &keyboard
+            let masked_bits %i32 and modifier_bits mask
+            eq mask masked_bits
         Option::None:
             false
 
@@ -134,7 +136,11 @@ fn main %impure fn unit i32 \unit:
     let printable_has_no_keyboard %bool is_none terminal_input_events_keyboard &printable
     let printable_text_value %bool text_value_is printable 65
     let invalid_rejected %bool result_error_is_invalid_command invalid
-    let control_has_no_events %bool and (not terminal_input_events_has_keyboard &control) (not terminal_input_events_has_text_input &control)
+    let control_has_keyboard %bool terminal_input_events_has_keyboard &control
+    let control_has_text %bool terminal_input_events_has_text_input &control
+    let control_no_keyboard %bool not control_has_keyboard
+    let control_no_text %bool not control_has_text
+    let control_has_no_events %bool and control_no_keyboard control_no_text
     let shift_tab_has_keyboard %bool terminal_input_events_has_keyboard &shift_tab
     let shift_tab_focus_previous %bool command_is_previous events_focus_command &key_map shift_tab
     let shift_tab_has_no_text %bool is_none terminal_input_events_text_input &shift_tab
@@ -142,13 +148,21 @@ fn main %impure fn unit i32 \unit:
     let arrow_down_key_code %bool keyboard_key_code_is arrow_down key_code_arrow_down
     let arrow_right_key_code %bool keyboard_key_code_is arrow_right key_code_arrow_right
     let arrow_left_key_code %bool keyboard_key_code_is arrow_left key_code_arrow_left
-    let unknown_escape_has_no_events %bool and (not terminal_input_events_has_keyboard &unknown_escape) (not terminal_input_events_has_text_input &unknown_escape)
+    let unknown_escape_has_keyboard %bool terminal_input_events_has_keyboard &unknown_escape
+    let unknown_escape_has_text %bool terminal_input_events_has_text_input &unknown_escape
+    let unknown_escape_no_keyboard %bool not unknown_escape_has_keyboard
+    let unknown_escape_no_text %bool not unknown_escape_has_text
+    let unknown_escape_has_no_events %bool and unknown_escape_no_keyboard unknown_escape_no_text
     let invalid_escape_rejected %bool result_error_is_invalid_command invalid_escape
     let modified_arrow_up_key_code %bool keyboard_key_code_is modified_arrow_up key_code_arrow_up
     let modified_arrow_up_has_shift %bool keyboard_modifier_has modified_arrow_up key_modifier_shift_bit
     let modified_arrow_left_key_code %bool keyboard_key_code_is modified_arrow_left key_code_arrow_left
     let modified_arrow_left_has_control %bool keyboard_modifier_has modified_arrow_left key_modifier_control_bit
-    let unknown_csi_has_no_events %bool and (not terminal_input_events_has_keyboard &unknown_csi) (not terminal_input_events_has_text_input &unknown_csi)
+    let unknown_csi_has_keyboard %bool terminal_input_events_has_keyboard &unknown_csi
+    let unknown_csi_has_text %bool terminal_input_events_has_text_input &unknown_csi
+    let unknown_csi_no_keyboard %bool not unknown_csi_has_keyboard
+    let unknown_csi_no_text %bool not unknown_csi_has_text
+    let unknown_csi_has_no_events %bool and unknown_csi_no_keyboard unknown_csi_no_text
     let invalid_modifier_rejected %bool result_error_is_invalid_command invalid_modifier
     let invalid_csi_rejected %bool result_error_is_invalid_command invalid_csi
     let checks:
@@ -181,6 +195,88 @@ fn main %impure fn unit i32 \unit:
         |> checks_push assert "unknown csi has no events" unknown_csi_has_no_events
         |> checks_push assert "invalid modifier rejected" invalid_modifier_rejected
         |> checks_push assert "invalid csi rejected" invalid_csi_rejected
+    let shown checks_print_report checks
+    checks_exit_code shown
+```
+
+## gui_terminal_input_normalizes_home_end_delete_csi
+
+[目的/もくてき]:
+- `ESC [ H/F` と `ESC [ 1/3/4 ~` が raw CSI ではなく typed `KeyboardEvent` として返ることを確認します。
+- terminal backend は `TerminalInputEvents` だけを返し、`FocusRouteCommand` や `ActionId` を作らない責務境界を維持します。
+- `ESC [ <digit> ~` の未知 numeric parameter は event なし、numeric parameter として不正な byte は `GuiError::InvalidCommand` になることを確認します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n[7] ok\n[8] ok\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "platforms/gui/terminal/input" as *
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui/keymap" as *
+#import "std/test" as *
+
+fn keyboard_key_code_is %fn TerminalInputEvents fn i32 bool \events\expected:
+    match terminal_input_events_keyboard &events:
+        Option::Some keyboard:
+            eq expected keyboard_event_key_code &keyboard
+        Option::None:
+            false
+
+fn result_error_is_invalid_command %fn Result TerminalInputEvents GuiError bool \result:
+    match result:
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+        Result::Ok _events:
+            false
+
+fn no_events %fn TerminalInputEvents bool \events:
+    let has_keyboard %bool terminal_input_events_has_keyboard &events
+    let has_text %bool terminal_input_events_has_text_input &events
+    let no_keyboard %bool not has_keyboard
+    let no_text %bool not has_text
+    and no_keyboard no_text
+
+fn main %impure fn unit i32 \unit:
+    let home_h %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 72
+    let end_f %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 70
+    let home_tilde %TerminalInputEvents unwrap_ok terminal_input_events_from_csi4 27 91 49 126
+    let delete_tilde %TerminalInputEvents unwrap_ok terminal_input_events_from_csi4 27 91 51 126
+    let end_tilde %TerminalInputEvents unwrap_ok terminal_input_events_from_csi4 27 91 52 126
+    let insert_tilde %TerminalInputEvents unwrap_ok terminal_input_events_from_csi4 27 91 50 126
+    let invalid_param %Result TerminalInputEvents GuiError terminal_input_events_from_csi4 27 91 58 126
+    let unknown_final %TerminalInputEvents unwrap_ok terminal_input_events_from_csi4 27 91 49 88
+    let invalid_byte %Result TerminalInputEvents GuiError terminal_input_events_from_csi4 27 91 49 300
+    let check0 assert "home ESC[H key code" keyboard_key_code_is home_h terminal_key_code_home
+    let check1 assert "end ESC[F key code" keyboard_key_code_is end_f terminal_key_code_end
+    let check2 assert "home tilde key code" keyboard_key_code_is home_tilde terminal_key_code_home
+    let check3 assert "delete tilde key code" keyboard_key_code_is delete_tilde terminal_key_code_delete
+    let check4 assert "end tilde key code" keyboard_key_code_is end_tilde terminal_key_code_end
+    let check5 assert "unknown numeric tilde has no events" no_events insert_tilde
+    let check6 assert "invalid numeric param rejected" result_error_is_invalid_command invalid_param
+    let check7 assert "unknown final has no events" no_events unknown_final
+    let check8 assert "invalid csi4 byte rejected" result_error_is_invalid_command invalid_byte
+    let checks:
+        checks_new
+        |> checks_push check0
+        |> checks_push check1
+        |> checks_push check2
+        |> checks_push check3
+        |> checks_push check4
+        |> checks_push check5
+        |> checks_push check6
+        |> checks_push check7
+        |> checks_push check8
     let shown checks_print_report checks
     checks_exit_code shown
 ```
