@@ -384,6 +384,27 @@ Resource effect boundary gate は、`PrivateCacheOutsideBoundary` を exact Sour
 capability が存在しても、`PrivateCacheInPureFunction` は `PrivateCache rho` の region proof
 が実装されるまで拒否される。
 
+2026-06-01 の mask proof / taint checkpoint では、`PrivateCacheMaskProofIndex` を Resource
+effect checker の入力として追加した。通常 compile path は空 index を渡すため、sealed proof
+がない `PrivateCache` はこれまで通り fail closed に拒否される。proof は function name、
+sealed region、operation の完全一致を要求し、`UnsealedIntrinsic` は proof entry があっても
+mask しない。
+
+同 checkpoint では、sealed private cache region 由来の値を `Place` 単位で追跡する
+`PrivateCacheRegionTaintTable` も追加した。この表は `Create` operation の出力を sealed
+region taint として記録し、declare / read / move / borrow / assign / construct / branch /
+loop / match を通じて伝播する。戻り値に tainted place が現れた場合は
+`PrivateCacheRegionEscape` として拒否する。
+
+typed effect check では、checked MemPtr がない関数を軽量経路へ落とす既存最適化がある。
+private cache taint seed を持つ関数はこの軽量経路へ落とさず、sealed cache handle の return
+escape を typed compile path でも検出する。これにより performance optimization が private
+effect non-escape proof を無効化しない。
+
+この taint は Pure mask proof の必要条件であって十分条件ではない。cache hit/miss、stats、
+clear、lookup result の owned/copy 性、impure call への引き渡し、public field / global state
+への保存は、後続 checkpoint で追加検査する。
+
 private cache use-site の span は Resource IR の `CallEffect` span と一致させる。HIR に
 intrinsic name token span を運搬して Resource IR 側を name span に寄せる案もあり得るが、
 現行 Resource IR は call/effect use-site を expression span で表すため、SourceCapability proof
@@ -484,10 +505,10 @@ mask boundary がない pure function では dedicated diagnostic により fail
 
 ## 現時点の未実装
 
-- private region id の導入箇所。
 - function value identity を public pure API から禁止する typed diagnostic。
 - closure capture と Resource IR function alias tracking の接続。
 - trusted `stdlib/memo` backend の sealed private cache representation。
 - cache lookup result が owned/clone/copy value であることの Resource IR 証明。
-- `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape proof。
+- `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape proof の自動発行。
+- sealed private cache taint の impure call / unknown call / public field / global state escape 診断。
 - `private_cache_*` intrinsic の typecheck signature と stdlib memo backend integration regression。

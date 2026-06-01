@@ -43,6 +43,12 @@ pub enum ResourceEffectBoundaryDiagnostic {
         region: PrivateEffectRegion,
         span: Span,
     },
+    PrivateCacheRegionEscape {
+        function: String,
+        region: PrivateEffectRegion,
+        place: Place,
+        span: Span,
+    },
     RawMemoryOutsideBoundary {
         function: String,
         operation: RawMemoryOp,
@@ -105,6 +111,11 @@ impl ResourceEffectBoundaryDiagnostic {
                 ))
             }
             ResourceEffectBoundaryDiagnostic::RawAddressEscapeFromInternalAlloc { .. } => {
+                DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
+                    ResourceRawDiagnosticCode::IdentityEscape,
+                ))
+            }
+            ResourceEffectBoundaryDiagnostic::PrivateCacheRegionEscape { .. } => {
                 DiagnosticCode::Resource(ResourceDiagnosticCode::Raw(
                     ResourceRawDiagnosticCode::IdentityEscape,
                 ))

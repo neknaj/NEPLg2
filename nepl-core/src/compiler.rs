@@ -2755,6 +2755,10 @@ fn resource_effect_boundary_diagnostic_span(
             span,
             ..
         }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheRegionEscape {
+            span,
+            ..
+        }
         | crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect { span, .. } => {
             Some(*span)
         }
@@ -2847,6 +2851,9 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
         } => source_map
             .map(|map| raw_identity_escape_allowed(*operation, *origin_span, map))
             .unwrap_or(false),
+        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheRegionEscape { .. } => {
+            false
+        }
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,
         crate::resource::ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
             ..
@@ -3027,6 +3034,19 @@ fn resource_effect_boundary_diagnostic_to_error(
             format!(
                 "pure function '{}' returns raw address identity from internal {:?}",
                 function, operation
+            ),
+            *span,
+        ),
+        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheRegionEscape {
+            function,
+            region,
+            place,
+            span,
+        } => Diagnostic::error_with_code(
+            code,
+            format!(
+                "function '{}' lets private cache region '{}' escape through returned place {:?}",
+                function, region, place
             ),
             *span,
         ),

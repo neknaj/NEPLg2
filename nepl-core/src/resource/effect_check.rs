@@ -21,6 +21,10 @@ use super::model::{
     ResourceTerminator,
 };
 use super::place_utils::{raw_address_view_candidate_bases, reference_target_place};
+use super::private_cache_mask::PrivateCacheMaskProofIndex;
+use super::private_cache_taint::{
+    construct_private_cache_taint_fields, PrivateCacheRegionTaintTable,
+};
 
 pub(super) struct ResourceEffectBoundaryEngine<'a> {
     pub(super) function: &'a str,
@@ -30,6 +34,7 @@ pub(super) struct ResourceEffectBoundaryEngine<'a> {
     pub(super) types: Option<&'a TypeCtx>,
     pub(super) track_alloc_identities: bool,
     pub(super) propagate_return_provenance: bool,
+    pub(super) private_cache_mask_proofs: &'a PrivateCacheMaskProofIndex,
     pub(super) diagnostics: Vec<ResourceEffectBoundaryDiagnostic>,
     pub(super) counts: ResourceEffectCounts,
 }
@@ -40,12 +45,14 @@ impl ResourceEffectBoundaryEngine<'_> {
         let mut pointer_aliases = RawPointerAliasTable::default();
         let mut function_aliases = FunctionAliasTable::default();
         let mut raw_memory_identities = RawMemoryIdentityTable::default();
+        let mut private_cache_taints = PrivateCacheRegionTaintTable::default();
         for block in &function.blocks {
             self.check_block(
                 &mut identities,
                 &mut pointer_aliases,
                 &mut function_aliases,
                 &mut raw_memory_identities,
+                &mut private_cache_taints,
                 block,
             );
         }
@@ -57,6 +64,7 @@ impl ResourceEffectBoundaryEngine<'_> {
         pointer_aliases: &mut RawPointerAliasTable,
         function_aliases: &mut FunctionAliasTable,
         raw_memory_identities: &mut RawMemoryIdentityTable,
+        private_cache_taints: &mut PrivateCacheRegionTaintTable,
         block: &ResourceBlock,
     ) {
         self.check_ops(
@@ -64,10 +72,15 @@ impl ResourceEffectBoundaryEngine<'_> {
             pointer_aliases,
             function_aliases,
             raw_memory_identities,
+            private_cache_taints,
             &block.ops,
         );
         match &block.terminator {
-            ResourceTerminator::Return { .. } => {}
+            ResourceTerminator::Return { value, span } => {
+                if let Some(value) = value {
+                    self.report_private_cache_region_escape(private_cache_taints, value, *span);
+                }
+            }
             ResourceTerminator::Unreachable { .. } | ResourceTerminator::RawBody { .. } => {}
         }
     }
@@ -78,6 +91,7 @@ impl ResourceEffectBoundaryEngine<'_> {
         pointer_aliases: &mut RawPointerAliasTable,
         function_aliases: &mut FunctionAliasTable,
         raw_memory_identities: &mut RawMemoryIdentityTable,
+        private_cache_taints: &mut PrivateCacheRegionTaintTable,
         ops: &[ResourceOp],
     ) {
         for op in ops {
@@ -86,6 +100,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                 pointer_aliases,
                 function_aliases,
                 raw_memory_identities,
+                private_cache_taints,
                 op,
             );
         }
@@ -97,6 +112,7 @@ impl ResourceEffectBoundaryEngine<'_> {
         pointer_aliases: &mut RawPointerAliasTable,
         function_aliases: &mut FunctionAliasTable,
         raw_memory_identities: &mut RawMemoryIdentityTable,
+        private_cache_taints: &mut PrivateCacheRegionTaintTable,
         op: &ResourceOp,
     ) {
         if !self.propagate_return_provenance {
@@ -135,20 +151,24 @@ impl ResourceEffectBoundaryEngine<'_> {
                     identities.copy_identity(initializer, place);
                     copy_pointer_alias(pointer_aliases, raw_memory_identities, initializer, place);
                     function_aliases.copy_alias(initializer, place);
+                    private_cache_taints.copy_taint(initializer, place);
                 }
             }
             ResourceOp::Read { source, output, .. } => {
                 identities.copy_identity(source, output);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, output);
                 function_aliases.copy_alias(source, output);
+                private_cache_taints.copy_taint(source, output);
             }
             ResourceOp::Move { source, output, .. } => {
                 if self.types.is_some_and(|types| types.is_copy(source.ty)) {
                     identities.copy_identity(source, output);
                     copy_pointer_alias(pointer_aliases, raw_memory_identities, source, output);
+                    private_cache_taints.copy_taint(source, output);
                 } else {
                     identities.move_identity(source, output);
                     move_pointer_alias(pointer_aliases, raw_memory_identities, source, output);
+                    private_cache_taints.move_taint(source, output);
                 }
                 function_aliases.copy_alias(source, output);
             }
@@ -157,6 +177,8 @@ impl ResourceEffectBoundaryEngine<'_> {
                 identities.copy_identity(source, &target);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, &target);
                 function_aliases.copy_alias(source, &target);
+                private_cache_taints.copy_taint(source, output);
+                private_cache_taints.copy_taint(source, &target);
             }
             ResourceOp::RawAddressAlias {
                 source,
@@ -167,6 +189,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                 self.report_raw_address_alias_boundary_use(*kind, *span);
                 identities.copy_identity(source, target);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, target);
+                private_cache_taints.copy_taint(source, target);
             }
             ResourceOp::RawAddressView {
                 source,
@@ -178,6 +201,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                 identities.clear(target);
                 for candidate in raw_address_view_candidate_bases(source) {
                     identities.merge_identity(&candidate, target);
+                    private_cache_taints.merge_taint(&candidate, target);
                 }
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, source, target);
             }
@@ -186,6 +210,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                 identities.copy_identity(value, target);
                 copy_pointer_alias(pointer_aliases, raw_memory_identities, value, target);
                 function_aliases.copy_alias(value, target);
+                private_cache_taints.copy_taint(value, target);
             }
             ResourceOp::Construct {
                 output,
@@ -203,6 +228,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                     inputs,
                 );
                 construct_function_alias_fields(function_aliases, output, kind, inputs);
+                construct_private_cache_taint_fields(private_cache_taints, output, kind, inputs);
             }
             ResourceOp::Call {
                 output,
@@ -212,6 +238,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                 span,
                 ..
             } => {
+                self.mark_private_cache_call_output(private_cache_taints, output, effect);
                 self.report_unproven_checked_mem_ptr_access(
                     identities,
                     pointer_aliases,
@@ -266,11 +293,14 @@ impl ResourceEffectBoundaryEngine<'_> {
                 let mut else_function_aliases = function_aliases.clone();
                 let mut then_raw_memory_identities = raw_memory_identities.clone();
                 let mut else_raw_memory_identities = raw_memory_identities.clone();
+                let mut then_private_cache_taints = private_cache_taints.clone();
+                let mut else_private_cache_taints = private_cache_taints.clone();
                 self.check_ops(
                     &mut then_identities,
                     &mut then_pointer_aliases,
                     &mut then_function_aliases,
                     &mut then_raw_memory_identities,
+                    &mut then_private_cache_taints,
                     then_ops,
                 );
                 self.check_ops(
@@ -278,6 +308,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                     &mut else_pointer_aliases,
                     &mut else_function_aliases,
                     &mut else_raw_memory_identities,
+                    &mut else_private_cache_taints,
                     else_ops,
                 );
                 then_identities.copy_identity(then_value, output);
@@ -296,6 +327,8 @@ impl ResourceEffectBoundaryEngine<'_> {
                 );
                 then_function_aliases.copy_alias(then_value, output);
                 else_function_aliases.copy_alias(else_value, output);
+                then_private_cache_taints.copy_taint(then_value, output);
+                else_private_cache_taints.copy_taint(else_value, output);
                 *identities = RawIdentityTable::merge_paths(&[then_identities, else_identities]);
                 *pointer_aliases = RawPointerAliasTable::merge_paths(&[
                     then_pointer_aliases,
@@ -309,6 +342,10 @@ impl ResourceEffectBoundaryEngine<'_> {
                     then_raw_memory_identities,
                     else_raw_memory_identities,
                 ]);
+                *private_cache_taints = PrivateCacheRegionTaintTable::merge_paths(&[
+                    then_private_cache_taints,
+                    else_private_cache_taints,
+                ]);
             }
             ResourceOp::Loop {
                 condition_ops,
@@ -319,22 +356,26 @@ impl ResourceEffectBoundaryEngine<'_> {
                 let mut condition_pointer_aliases = pointer_aliases.clone();
                 let mut condition_function_aliases = function_aliases.clone();
                 let mut condition_raw_memory_identities = raw_memory_identities.clone();
+                let mut condition_private_cache_taints = private_cache_taints.clone();
                 self.check_ops(
                     &mut condition_identities,
                     &mut condition_pointer_aliases,
                     &mut condition_function_aliases,
                     &mut condition_raw_memory_identities,
+                    &mut condition_private_cache_taints,
                     condition_ops,
                 );
                 let mut body_identities = condition_identities.clone();
                 let mut body_pointer_aliases = condition_pointer_aliases.clone();
                 let mut body_function_aliases = condition_function_aliases.clone();
                 let mut body_raw_memory_identities = condition_raw_memory_identities.clone();
+                let mut body_private_cache_taints = condition_private_cache_taints.clone();
                 self.check_ops(
                     &mut body_identities,
                     &mut body_pointer_aliases,
                     &mut body_function_aliases,
                     &mut body_raw_memory_identities,
+                    &mut body_private_cache_taints,
                     body_ops,
                 );
                 *identities =
@@ -351,6 +392,10 @@ impl ResourceEffectBoundaryEngine<'_> {
                     condition_raw_memory_identities,
                     body_raw_memory_identities,
                 ]);
+                *private_cache_taints = PrivateCacheRegionTaintTable::merge_paths(&[
+                    condition_private_cache_taints,
+                    body_private_cache_taints,
+                ]);
             }
             ResourceOp::Match {
                 output,
@@ -362,11 +407,13 @@ impl ResourceEffectBoundaryEngine<'_> {
                 let mut pointer_alias_paths = Vec::new();
                 let mut function_alias_paths = Vec::new();
                 let mut raw_memory_identity_paths = Vec::new();
+                let mut private_cache_taint_paths = Vec::new();
                 for arm in arms {
                     let mut arm_identities = identities.clone();
                     let mut arm_pointer_aliases = pointer_aliases.clone();
                     let mut arm_function_aliases = function_aliases.clone();
                     let mut arm_raw_memory_identities = raw_memory_identities.clone();
+                    let mut arm_private_cache_taints = private_cache_taints.clone();
                     copy_match_payload_bind_identity(
                         &mut arm_identities,
                         &mut arm_pointer_aliases,
@@ -380,6 +427,7 @@ impl ResourceEffectBoundaryEngine<'_> {
                         &mut arm_pointer_aliases,
                         &mut arm_function_aliases,
                         &mut arm_raw_memory_identities,
+                        &mut arm_private_cache_taints,
                         &arm.ops,
                     );
                     arm_identities.copy_identity(&arm.value, output);
@@ -390,10 +438,12 @@ impl ResourceEffectBoundaryEngine<'_> {
                         output,
                     );
                     arm_function_aliases.copy_alias(&arm.value, output);
+                    arm_private_cache_taints.copy_taint(&arm.value, output);
                     arm_paths.push(arm_identities);
                     pointer_alias_paths.push(arm_pointer_aliases);
                     function_alias_paths.push(arm_function_aliases);
                     raw_memory_identity_paths.push(arm_raw_memory_identities);
+                    private_cache_taint_paths.push(arm_private_cache_taints);
                 }
                 if !arm_paths.is_empty() {
                     *identities = RawIdentityTable::merge_paths(&arm_paths);
@@ -401,6 +451,8 @@ impl ResourceEffectBoundaryEngine<'_> {
                     *function_aliases = FunctionAliasTable::merge_paths(&function_alias_paths);
                     *raw_memory_identities =
                         RawMemoryIdentityTable::merge_paths(&raw_memory_identity_paths);
+                    *private_cache_taints =
+                        PrivateCacheRegionTaintTable::merge_paths(&private_cache_taint_paths);
                 }
             }
             ResourceOp::FunctionValue {
@@ -427,6 +479,21 @@ impl ResourceEffectBoundaryEngine<'_> {
             | ResourceOp::CollectionStorageRelocate { .. }
             | ResourceOp::CollectionSlotDropTraversal { .. }
             | ResourceOp::CollectionSlotTransformRange { .. } => {}
+        }
+    }
+
+    fn mark_private_cache_call_output(
+        &self,
+        private_cache_taints: &mut PrivateCacheRegionTaintTable,
+        output: &Place,
+        effect: &EffectOp,
+    ) {
+        if let EffectOp::PrivateCache {
+            operation: PrivateCacheOp::Create,
+            region,
+        } = effect
+        {
+            private_cache_taints.mark(output, *region);
         }
     }
 
@@ -610,7 +677,13 @@ impl ResourceEffectBoundaryEngine<'_> {
             EffectOp::PrivateCache { operation, region } => {
                 self.counts.private_cache_ops += 1;
                 self.report_private_cache_boundary_use(*operation, *region, span);
-                if matches!(self.effect, Effect::Pure) {
+                if matches!(self.effect, Effect::Pure)
+                    && !self.private_cache_mask_proofs.allows(
+                        self.function,
+                        *operation,
+                        *region,
+                    )
+                {
                     self.diagnostics.push(
                         ResourceEffectBoundaryDiagnostic::PrivateCacheInPureFunction {
                             function: String::from(self.function),
@@ -686,6 +759,23 @@ impl ResourceEffectBoundaryEngine<'_> {
                 region,
                 span,
             });
+    }
+
+    fn report_private_cache_region_escape(
+        &mut self,
+        private_cache_taints: &PrivateCacheRegionTaintTable,
+        place: &Place,
+        span: Span,
+    ) {
+        for region in private_cache_taints.regions(place) {
+            self.diagnostics
+                .push(ResourceEffectBoundaryDiagnostic::PrivateCacheRegionEscape {
+                    function: String::from(self.function),
+                    region,
+                    place: place.clone(),
+                    span,
+                });
+        }
     }
 
     fn report_raw_address_view_boundary_use(&mut self, kind: RawAddressViewKind, span: Span) {

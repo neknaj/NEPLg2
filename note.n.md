@@ -1,3 +1,16 @@
+# 2026-06-01 memo_call sealed private cache mask / taint checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、パフォーマンス追求、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は直前 checkpoint `f2d6b6fd Probe neplmeta import edges before typecheck` まで同期・push 済みで、branch `work/memo-nonescape-proof-scaffold-20260601` はその `main` から作業している。
+- subagent review では、SourceCapability exact use-site proof と Resource IR non-escape proof を混同せず、`PrivateCacheInPureFunction` を SourceCapability だけで抑制しないことを確認した。
+- `PrivateCacheMaskProofIndex` を追加し、Resource effect checker が `PrivateCacheInPureFunction` を抑制できる authority を SourceCapability から分離した。通常 compile path は空 proof index を渡すため、sealed proof がない private cache は従来通り fail-closed に拒否される。
+- mask proof は function name、sealed private cache region、operation の完全一致を要求する。`UnsealedIntrinsic` は proof entry があっても mask しない。
+- `PrivateCacheRegionTaintTable` を追加し、sealed `PrivateCache::Create` output 由来の place taint を declare / read / move / borrow / assign / construct / branch / loop / match で伝播するようにした。
+- 戻り値に sealed private cache region 由来の tainted place が現れた場合は `PrivateCacheRegionEscape` を出す。これは cache handle / reference / raw pointer / owner token が public result へ漏れる経路を閉じるための最初の non-escape proof 足場である。
+- checked MemPtr がない関数を軽量経路へ落とす typed effect check の最適化が private cache taint を落とさないよう、sealed `PrivateCache::Create` seed を持つ関数は effect provenance 追跡へ入れるようにした。
+- この checkpoint では `memo_call` backend の sealed region 発行、lookup result が owned/copy value であることの proof、impure call / unknown call / public field / global state への escape 診断、accepted memoization path はまだ実装しない。
+- 検証: `cargo test -p nepl-core private_cache --lib -- --nocapture`、`cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`、`cargo test -p nepl-core private_effect --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-memo-mask-taint-20260601.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta import/prelude edge pre-typecheck probe checkpoint
 
 - Zenn 記事の core/no_std 境界、静的検査、純粋 query cache による探索空間削減、試作段階でも設計品質を落とさない方針を再確認した。`plan.md` は変更していない。

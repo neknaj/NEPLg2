@@ -96,3 +96,53 @@ Negative Resource IR tests must reject unsealed PrivateCache in pure functions, 
 - compiler-known `memo_call` backend が sealed fresh region を発行する実装。
 - sealed region の cache storage、reference、raw pointer、owner token、stats、clear、hit/miss observation が外部へ escape しない Resource IR proof。
 - proof 済み sealed region のみを `PrivateCacheInPureFunction` から Pure mask 候補へ進める fold/checker 実装。
+
+## 2026-06-01 mask proof index scaffold checkpoint
+
+`PrivateCacheMaskProofIndex` を追加し、Resource effect checker が `PrivateCacheInPureFunction` を
+抑制するための authority を SourceCapability から分離した。
+
+この checkpoint でも通常 compile path は空の proof index だけを使う。したがって、
+`UnsealedIntrinsic` の `PrivateCache` や sealed proof がない `PrivateCache` は従来通り
+`PrivateCacheInPureFunction` として fail-closed に拒否される。
+
+実装した境界:
+
+- mask proof は function name、sealed private cache region、operation の完全一致を要求する。
+- `UnsealedIntrinsic` は proof entry があっても mask しない。
+- proof が一致しても `PrivateCacheOutsideBoundary` は残す。SourceCapability exact use-site proof と
+  Resource IR non-escape proof は別 authority のままである。
+- Resource effect checker の summary helper 経路も空 proof index を渡し、既存 summary / provenance
+  計算で private cache を暗黙に pure 扱いしない。
+
+この checkpoint は non-escape proof の保存先と、sealed private cache handle が戻り値へ
+escape しないことを検査する最初の taint propagation を追加する。まだ proof を自動発行して
+accepted memoization path へ接続する段階ではない。
+
+追加 regression:
+
+- `private_cache_mask_proof_requires_exact_sealed_region_and_operation`
+- `private_cache_mask_proof_never_allows_unsealed_intrinsic_region`
+- `private_cache_mask_proof_suppresses_only_pure_context_diagnostic`
+- `private_cache_mask_proof_rejects_unproven_region`
+- `taint_table_tracks_exact_sealed_region_through_copy_and_move`
+- `taint_table_ignores_unsealed_intrinsic_region`
+- `aggregate_taint_is_visible_from_the_whole_output_place`
+- `sealed_private_cache_create_output_cannot_escape_through_return`
+- `typed_effect_check_tracks_private_cache_taint_without_checked_mem_ptr_access`
+
+追加検証:
+
+- `cargo test -p nepl-core private_cache --lib -- --nocapture`
+- `cargo test -p nepl-core private_cache_mask --lib -- --nocapture`
+- `cargo test -p nepl-core private_cache_effect_boundary --lib -- --nocapture`
+- `cargo check -p nepl-core -p nepl-language`
+
+残件:
+
+- tainted cache handle / reference / raw pointer / owner token を impure call、unknown call、
+  public field、global state へ渡す escape 診断。
+- `PrivateCacheMaskProofIndex` を手動 test fixture ではなく、Resource IR の non-escape proof
+  生成結果から作る実装。
+- `memo_call` backend が sealed fresh region と private cache operation を発行する実装。
+- lookup result が cache 内部参照ではなく owned / copied value であることの proof。

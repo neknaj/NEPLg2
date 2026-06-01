@@ -738,6 +738,10 @@ impl PrivateEffectRegion {
             PrivateEffectRegion::SealedCompilerPrivateCache(id) => Some(id.0),
         }
     }
+
+    pub const fn is_sealed(self) -> bool {
+        matches!(self, PrivateEffectRegion::SealedCompilerPrivateCache(_))
+    }
 }
 
 impl fmt::Display for PrivateEffectRegion {

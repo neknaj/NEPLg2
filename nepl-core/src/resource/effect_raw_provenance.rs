@@ -5,7 +5,7 @@ use crate::{ast::Effect, types::TypeCtx};
 use super::effect_diagnostic::ResourceEffectBoundaryDiagnostic;
 use super::effect_return_escape::raw_identity_return_projection_is_escape;
 use super::effect_summary::RawIdentityReturnSummary;
-use super::model::{EffectOp, Place, ResourceFunction, ResourceId, ResourceOp};
+use super::model::{EffectOp, Place, PrivateCacheOp, ResourceFunction, ResourceId, ResourceOp};
 use super::place_utils::{checked_mem_ptr_wrapper_arg_indices, place_with_checked_suffix};
 
 pub(super) fn report_internal_alloc_escapes_from_summary(
@@ -49,7 +49,7 @@ pub(super) fn report_internal_alloc_escapes_from_summary(
     }
 }
 
-pub(super) fn function_needs_raw_provenance_tracking(
+pub(super) fn function_needs_effect_provenance_tracking(
     function: &ResourceFunction,
     types: Option<&TypeCtx>,
 ) -> bool {
@@ -57,6 +57,7 @@ pub(super) fn function_needs_raw_provenance_tracking(
         return true;
     };
     function_contains_checked_mem_ptr_access(function, types)
+        || function_contains_private_cache_taint_seed(function)
 }
 
 fn function_contains_checked_mem_ptr_access(function: &ResourceFunction, types: &TypeCtx) -> bool {
@@ -124,6 +125,58 @@ fn ops_contain_checked_mem_ptr_access(ops: &[ResourceOp], types: &TypeCtx) -> bo
             | ResourceOp::CollectionSlotDropTraversal { .. }
             | ResourceOp::CollectionSlotTransformRange { .. }
             | ResourceOp::Construct { .. } => {}
+        }
+    }
+    false
+}
+
+fn function_contains_private_cache_taint_seed(function: &ResourceFunction) -> bool {
+    function
+        .blocks
+        .iter()
+        .any(|block| ops_contain_private_cache_taint_seed(&block.ops))
+}
+
+fn ops_contain_private_cache_taint_seed(ops: &[ResourceOp]) -> bool {
+    for op in ops {
+        match op {
+            ResourceOp::Call {
+                effect:
+                    EffectOp::PrivateCache {
+                        operation: PrivateCacheOp::Create,
+                        region,
+                    },
+                ..
+            } if region.is_sealed() => return true,
+            ResourceOp::Branch {
+                then_ops, else_ops, ..
+            } => {
+                if ops_contain_private_cache_taint_seed(then_ops)
+                    || ops_contain_private_cache_taint_seed(else_ops)
+                {
+                    return true;
+                }
+            }
+            ResourceOp::Loop {
+                condition_ops,
+                body_ops,
+                ..
+            } => {
+                if ops_contain_private_cache_taint_seed(condition_ops)
+                    || ops_contain_private_cache_taint_seed(body_ops)
+                {
+                    return true;
+                }
+            }
+            ResourceOp::Match { arms, .. } => {
+                if arms
+                    .iter()
+                    .any(|arm| ops_contain_private_cache_taint_seed(&arm.ops))
+                {
+                    return true;
+                }
+            }
+            _ => {}
         }
     }
     false
