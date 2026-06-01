@@ -2812,6 +2812,27 @@ string/data relocation、raw wasm/LLVM body、function value / memoized function
 `memo_call` PrivateCache mask proof、persistent `.neplobj` codec は未完了である。base compile_ms の
 追加短縮には、これらと並行して bundled stdlib `.neplmeta` / `.neplproof` preseed を進める。
 
+## 2026-06-02 Web `.neplobj` direct-call store regression checkpoint
+
+Web `CompilerSession` の tree regression に、same-session `.neplobj` direct-call fragment store の
+実運用経路を追加した。fixture は `core/char` の `char_utf8_cont_byte` を使い、同じ session で
+小さな body edit を繰り返す。
+
+1. 初回 compile は store が空なので `.neplobj` lookup を行わない。
+2. 依存 artifact が projection された後、materialized compile が body-missing で source fallback へ戻る。
+3. fallback full/source compile は selected dependency body から direct-call fragment を export し、store へ保存する。
+4. 次の body edit では store lookup が hit し、fragment が `PublicInterfaceArtifactInputs` へ渡る。
+
+regression は `nepl_obj_direct_call_fragment_store_lookup_hits` と
+`nepl_obj_direct_call_fragment_store_lookup_fragments_returned` の増加を確認し、同時に
+`nepl_meta_materialized_compile_body_missing_fallbacks` が増えないことを確認する。これにより、
+body-missing negative skip cache が object hit を隠さず、direct-call `.neplobj` availability が
+materialized compile を次の blocker まで進める境界を固定する。
+
+この checkpoint は性能値そのものを更新するものではない。対象は regression coverage であり、
+base compile_ms の追加短縮は bundled stdlib `.neplmeta` / `.neplproof` preseed と persistent artifact
+codec の実装で継続する。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

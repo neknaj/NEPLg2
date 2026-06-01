@@ -622,3 +622,21 @@ relocation offset は wasm body bytes を後から scan して作らない。`lo
 string/data relocation、raw wasm/LLVM body の relocatable representation、persistent `.neplobj` codec、
 function value / memoized function value backend、`memo_call` PrivateCache mask proof accepted path、
 bundled stdlib `.neplmeta` / `.neplproof` preseed である。
+
+## 2026-06-02 Web `.neplobj` direct-call store regression checkpoint
+
+`tests/compiler/tree/20_compiler_session_outputs_cache.js` に same-session `.neplobj` direct-call fragment
+store の実運用 regression を追加した。fixture は `core/char` の `char_utf8_cont_byte` を使い、body edit
+を繰り返して materialized body-missing fallback から fragment store、次回 lookup hit まで進める。
+
+検査する counter:
+
+- `nepl_obj_direct_call_fragment_store_stores`
+- `nepl_obj_direct_call_fragment_store_lookup_hits`
+- `nepl_obj_direct_call_fragment_store_lookup_fragments_returned`
+- `nepl_meta_materialized_compile_body_missing_fallbacks`
+- `nepl_obj_candidate_last_body_missing_surfaces`
+
+store hit 後は lookup hit / returned fragment が増え、body-missing fallback は増えないことを確認する。
+これにより body-missing skip cache が object hit を隠さず、direct-call `.neplobj` fragment が
+`PublicInterfaceArtifactInputs` へ渡ることを Web 側から固定する。
