@@ -54,6 +54,24 @@ async function runWorkspaceRegression() {
     const normalizedPreview = layout.normalizeTree(guiPreview);
     assert.equal(normalizedPreview.previewKind, 'life');
 
+    const badSnapshot = layout.normalizeWorkspaceSnapshot({
+        root: {
+            kind: 'leaf',
+            id: 'bad-panel',
+            panelKind: 'unknown-panel-kind',
+            paths: ['/examples/demo.nepl'],
+            activePath: '/examples/missing.nepl',
+            previewKind: 'unknown-preview-kind',
+            zoom: Number.NaN,
+        },
+        focusedLeafId: 'missing-panel',
+    });
+    assert.equal(badSnapshot.root.panelKind, 'editor');
+    assert.equal(badSnapshot.root.previewKind, null);
+    assert.equal(badSnapshot.root.activePath, '/examples/demo.nepl');
+    assert.equal(badSnapshot.root.zoom, 1);
+    assert.equal(badSnapshot.focusedLeafId, 'bad-panel');
+
     return {
         ok: true,
         checks: [
@@ -63,6 +81,7 @@ async function runWorkspaceRegression() {
             'closing a leaf normalizes the split tree',
             'workspace snapshots can be cloned without losing panel kinds',
             'leaf zoom state survives normalize and clone operations',
+            'invalid persisted panel kinds, preview kinds, and focus ids are normalized',
         ],
     };
 }

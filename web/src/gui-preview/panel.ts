@@ -12,6 +12,18 @@ type SceneViewport = {
     scale: number;
 };
 
+export type GuiPreviewSource =
+    | { kind: 'none' }
+    | { kind: 'path'; path: string };
+
+const ignoreKindChange = (_kind: GuiPreviewKind) => {};
+
+export type GuiPreviewPanelOptions = {
+    kind?: GuiPreviewKind;
+    source?: GuiPreviewSource;
+    onKindChange?: (kind: GuiPreviewKind) => void;
+};
+
 export class GuiPreviewPanel {
     contentEl: HTMLElement;
     rootEl: HTMLElement;
@@ -21,12 +33,13 @@ export class GuiPreviewPanel {
     canvas: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;
     kind: GuiPreviewKind;
-    sourcePath: string | null;
+    source: GuiPreviewSource;
     counterValue: number;
     fontSize: number;
     viewport: SceneViewport;
+    onKindChange: (kind: GuiPreviewKind) => void;
 
-    constructor(contentEl: HTMLElement, options: { kind?: GuiPreviewKind; sourcePath?: string | null } = {}) {
+    constructor(contentEl: HTMLElement, options: GuiPreviewPanelOptions = {}) {
         this.contentEl = contentEl;
         this.rootEl = document.createElement('div');
         this.rootEl.className = 'gui-preview-panel';
@@ -44,10 +57,11 @@ export class GuiPreviewPanel {
         }
         this.ctx = ctx;
         this.kind = options.kind || 'mandelbrot';
-        this.sourcePath = options.sourcePath || null;
+        this.source = options.source || { kind: 'none' };
         this.counterValue = 0;
         this.fontSize = 14;
         this.viewport = { left: 0, top: 0, scale: 1 };
+        this.onKindChange = options.onKindChange || ignoreKindChange;
 
         this.mountToolbar();
         this.rootEl.appendChild(this.toolbarEl);
@@ -61,6 +75,10 @@ export class GuiPreviewPanel {
         this.canvas.addEventListener('mousemove', (event) => this.handleCanvasPointer(event));
         this.syncSelect();
         this.resizeEditor();
+    }
+
+    setOnKindChange(handler: (kind: GuiPreviewKind) => void) {
+        this.onKindChange = handler;
     }
 
     mountToolbar() {
@@ -79,15 +97,21 @@ export class GuiPreviewPanel {
         this.toolbarEl.appendChild(this.metricsEl);
     }
 
-    setSourcePath(path: string | null | undefined) {
-        this.sourcePath = path || null;
+    setSourcePath(path: string) {
+        this.source = { kind: 'path', path };
         this.setKind(guiPreviewKindFromPath(path));
+    }
+
+    clearSourcePath() {
+        this.source = { kind: 'none' };
+        this.setKind('mandelbrot');
     }
 
     setKind(kind: GuiPreviewKind) {
         this.kind = kind;
         this.syncSelect();
         this.render();
+        this.onKindChange(kind);
     }
 
     setFontSize(size: number) {

@@ -1,3 +1,12 @@
+# 2026-06-02 Agent2 Web Playground floating GUI window checkpoint
+
+- `plan.md` は変更していない。最新要求に合わせ、Web Playground の GUI 表示を editor panel layout 内の pane 依存から、layout の上に重ねる independent floating window layer へ移した。
+- Zenn 記事の platform 依存分離方針に従い、DOM / Canvas / pointer 操作は `web/src/gui-preview/*` と `web/src/workspace/*` に閉じ込め、`core/gui`、`alloc/gui`、`std/gui` の public type には入れていない。
+- `GuiFloatingWindowManager` は minimize、maximize / restore、drag move、edge / corner resize、dock restore を持つ。window source は `source-path` / `preview-kind`、transient move state は `idle` / `drag` / `resize`、window mode は `normal` / `minimized previousMode` / `maximized restoreRect`、dock button は `none` / `mounted` 形式の union で表し、maximize 中に minimize しても original restore rect を失わないようにした。今回追加した manager / panel 範囲では `null` / `undefined` / non-null assertion に依存しない。
+- `nodesrc/test_web_gui_floating_window_source.js` を追加し、floating layer の存在、editor GUI action が floating window を開くこと、minimize / maximize / drag / resize handler、union state、manager / panel での `null` / `undefined` / non-null assertion の再導入禁止を source policy regression として固定した。
+- workspace snapshot 復元は `normalizeWorkspaceSnapshot` を追加し、不正な panel kind、preview kind、stale focused leaf id を normalization で落とすようにした。review 指摘の preview kind 保存漏れは `GuiPreviewPanel` の `onKindChange` を workspace snapshot へ反映する形で修正した。
+- 検証途中結果: `npm --prefix web run build:ts`、`node nodesrc/test_web_gui_floating_window_source.js`、`node nodesrc/test_web_gui_preview_renderer.js`、`node nodesrc/playground_workspace_test_runner.js` は pass。
+
 # 2026-06-02 GUI/TUI stack alignment and overflow checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` を fetch し、現在の `agent2/gui-library` が `origin/main` を含む状態であることを確認してから継続した。

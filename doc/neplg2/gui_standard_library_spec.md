@@ -428,7 +428,7 @@ TUI terminal backend は同じ world の surface implementation として `TextG
 
 ```text
 web/src/gui-preview
-    Web Playground の workspace pane と Canvas2D renderer
+    Web Playground の floating GUI window layer と Canvas2D renderer
 
 nepl-gui-native
     minifb feature 付き native framebuffer renderer
@@ -436,7 +436,9 @@ nepl-gui-native
 
 これらは `examples/gui_mandelbrot.nepl`、`examples/gui_life.nepl`、`examples/gui_counter.nepl` の現行 contract と同じ metric を持つデモを表示する。Mandelbrot は command count 64 / inside count 8、Life は command count 25 / live cells 5 / checksum 45、Counter は `ActionId` 1 と redraw target 0 を維持する。
 
-ただし、この checkpoint はまだ NEPLg2 program から `DrawCommand` stream を JS / native host へ直接 export する ABI ではない。`CanvasRenderingContext2D` と `minifb` は backend implementation detail であり、`core/gui`、`alloc/gui`、`std/gui` の public type には入れない。次の段階で `platforms/gui/web` と `platforms/gui/native` が `present-commands` / streaming frame boundary を受け取り、Web Playground pane と native framebuffer がその command stream を表示する。
+Web Playground の表示 smoke は editor の panel layout の上に独立した DOM layer を置き、`GuiFloatingWindowManager` が minimize、maximize / restore、drag move、edge / corner resize、dock restore を扱う。これは native window と同等の基本操作を browser 上で検査するための backend UI であり、標準 API の window model ではない。`GuiFloatingWindowManager` の move state、source、window mode、dock state は discriminated union で表す。`minimized` mode は previous mode を保持するため、maximized window を minimize / restore しても original restore rect は失われない。`window-manager.ts` と `panel.ts` が `null` / `undefined` / non-null assertion に頼らないことを source policy regression で固定する。
+
+ただし、この checkpoint はまだ NEPLg2 program から `DrawCommand` stream を JS / native host へ直接 export する ABI ではない。`CanvasRenderingContext2D`、DOM element、minifb は backend implementation detail であり、`core/gui`、`alloc/gui`、`std/gui` の public type には入れない。次の段階で `platforms/gui/web` と `platforms/gui/native` が `present-commands` / streaming frame boundary を受け取り、Web Playground floating window と native framebuffer がその command stream を表示する。
 
 ## Public Module Contract
 
@@ -533,6 +535,7 @@ platforms/gui:
 | `alloc/gui/accessibility` | semantic node / role / state / action tree | bounded semantic tree の初期 slice を実装済み。host accessibility bridge は `std/gui` / platform 側で継続 |
 | `std/gui` | host/runtime/window/timer/text/IME/accessibility/error display/keymap contract | typed data contract、core `TextMeasurer` host wrapper、`GuiEffectBatch -> GuiRuntimeCommandBatch` 解釈、capability unsupported error、`FocusKeyMap` による Tab / Shift+Tab / Enter / Space から `FocusRouteCommand` への変換、std navigation key code と modifier bit accessor を実装済み。platform 実行は未実装。raw input normalization は `platforms/gui/*` 側で継続 |
 | `platforms/gui/terminal` | terminal as `SurfaceKind::TextGrid` backend and terminal input normalization | `TerminalProfile` と core `TextCellRun` based frame、1 byte ASCII subset、`ESC [ Z`、`ESC [ A/B/C/D/H/F`、`ESC [ 1/3/4 ~`、`ESC [ 1 ; <modifier> A/B/C/D` から `TerminalInputEvents` への正規化を実装済み。custom capability と grid size は `Result` で検証し、TextGrid 以外や負 size を拒否する。ANSI / TTY present、Function key などの追加 CSI sequence、途中入力 buffering は未実装 |
+| `web/src/gui-preview` | Web Playground display smoke backend | editor panel layout の上に floating GUI window layer を描画し、Mandelbrot / Life / Counter preview を Canvas2D へ表示する。window manager は source / move / window mode / dock 状態を union で表し、`null` / `undefined` / non-null assertion の再導入を source policy で拒否する。formal `DrawCommand` host bridge は未実装 |
 
 この表にない Web / native / mobile / embedded backend、flex / grid / scroll layout policy、text buffer と arena node の対応付け、stateful pointer capture / gesture、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence と途中入力 buffering、text line break / text hash based cache invalidation、resource loading、real host presentation は未実装である。
 

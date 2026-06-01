@@ -159,6 +159,7 @@ select:hover {
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    position: relative;
 }
 
 .workspace,
@@ -465,6 +466,208 @@ body.is-resizing-panels * {
     min-width: 0;
     min-height: 0;
     cursor: default;
+}
+
+.gui-window-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.gui-floating-window {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    min-width: 240px;
+    min-height: 180px;
+    border: 1px solid rgba(130, 194, 255, 0.36);
+    border-radius: 8px;
+    background: #0d1117;
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.48);
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.gui-floating-window.is-active {
+    border-color: rgba(130, 194, 255, 0.78);
+    box-shadow: 0 22px 58px rgba(0, 0, 0, 0.58), 0 0 0 1px rgba(74, 163, 255, 0.28);
+}
+
+.gui-floating-window.is-minimized {
+    display: none;
+}
+
+.gui-floating-window.is-maximized {
+    border-radius: 6px;
+}
+
+.gui-window-titlebar {
+    height: 32px;
+    flex: 0 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 8px 0 10px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(18, 25, 33, 0.98);
+    cursor: move;
+    user-select: none;
+}
+
+.gui-window-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.gui-window-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+.gui-window-control {
+    width: 24px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.gui-window-control:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.gui-window-content {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: #0d1117;
+}
+
+.gui-window-resize {
+    position: absolute;
+    z-index: 2;
+    pointer-events: auto;
+}
+
+.gui-window-resize-n,
+.gui-window-resize-s {
+    left: 8px;
+    right: 8px;
+    height: 7px;
+    cursor: ns-resize;
+}
+
+.gui-window-resize-n {
+    top: -3px;
+}
+
+.gui-window-resize-s {
+    bottom: -3px;
+}
+
+.gui-window-resize-e,
+.gui-window-resize-w {
+    top: 8px;
+    bottom: 8px;
+    width: 7px;
+    cursor: ew-resize;
+}
+
+.gui-window-resize-e {
+    right: -3px;
+}
+
+.gui-window-resize-w {
+    left: -3px;
+}
+
+.gui-window-resize-ne,
+.gui-window-resize-nw,
+.gui-window-resize-se,
+.gui-window-resize-sw {
+    width: 12px;
+    height: 12px;
+}
+
+.gui-window-resize-ne {
+    top: -4px;
+    right: -4px;
+    cursor: nesw-resize;
+}
+
+.gui-window-resize-nw {
+    top: -4px;
+    left: -4px;
+    cursor: nwse-resize;
+}
+
+.gui-window-resize-se {
+    right: -4px;
+    bottom: -4px;
+    cursor: nwse-resize;
+}
+
+.gui-window-resize-sw {
+    left: -4px;
+    bottom: -4px;
+    cursor: nesw-resize;
+}
+
+.gui-window-dock {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 0;
+    pointer-events: none;
+}
+
+.gui-window-dock-item {
+    max-width: min(220px, 48vw);
+    padding: 6px 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border: 1px solid rgba(130, 194, 255, 0.32);
+    border-radius: 8px;
+    background: rgba(12, 18, 24, 0.94);
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.gui-window-dock-item:hover {
+    border-color: rgba(130, 194, 255, 0.68);
+    background: rgba(22, 32, 44, 0.96);
+}
+
+body.is-moving-gui-window *,
+body.is-resizing-gui-window * {
+    user-select: none !important;
 }
 
 canvas {

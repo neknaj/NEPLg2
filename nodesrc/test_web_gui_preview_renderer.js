@@ -24,8 +24,8 @@ async function runWebGuiPreviewRendererRegression() {
     assert.equal(life.metrics.checksum, 45);
     assert.equal(renderer.guiPreviewKindFromPath("/examples/gui_life.nepl"), "life");
 
-    const counter = renderer.createGuiPreviewScene("counter", { counterValue: 3 });
-    assert.equal(counter.metrics.counterValue, 3);
+    const counter = renderer.createGuiPreviewScene("counter", { counterValue: 1 });
+    assert.equal(counter.metrics.counterValue, 1);
     assert.equal(counter.metrics.actionId, 1);
     assert.equal(counter.metrics.redrawTarget, 0);
     assert.equal(counter.hitTargets.length, 1);

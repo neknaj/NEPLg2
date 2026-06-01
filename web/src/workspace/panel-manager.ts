@@ -1,5 +1,6 @@
 import { createPlaygroundEditor, PlaygroundEditor } from '../editor-core/browser-adapter.js';
 import { GuiPreviewPanel } from '../gui-preview/panel.js';
+import { GuiFloatingWindowManager } from '../gui-preview/window-manager.js';
 import { FileExplorer } from '../library/explorer.js';
 import { TabManager } from '../library/tabs.js';
 import { CanvasTerminal } from '../terminal/terminal.js';
@@ -16,6 +17,7 @@ import {
     hydratePanelCounter,
     isGuiPreviewKind,
     moveLeaf,
+    normalizeWorkspaceSnapshot,
     normalizeTree,
     PanelKind,
     splitLeaf,
@@ -80,6 +82,7 @@ type LeafRuntime = EditorRuntime | TerminalRuntime | ExplorerRuntime | GuiPrevie
 
 type PanelManagerOptions = {
     root: HTMLElement;
+    guiWindowLayer: HTMLElement;
     popup: HTMLElement;
     vfs: any;
     createNeplProvider: () => any;
@@ -92,6 +95,7 @@ const WORKSPACE_STORAGE_KEY = 'neplg2-playground-workspace-v1';
 
 export class PlaygroundPanelManager {
     root: HTMLElement;
+    floatingGui: GuiFloatingWindowManager;
     popup: HTMLElement;
     vfs: any;
     createNeplProvider: () => any;
@@ -109,6 +113,7 @@ export class PlaygroundPanelManager {
 
     constructor(options: PanelManagerOptions) {
         this.root = options.root;
+        this.floatingGui = new GuiFloatingWindowManager(options.guiWindowLayer);
         this.popup = options.popup;
         this.vfs = options.vfs;
         this.createNeplProvider = options.createNeplProvider;
@@ -146,9 +151,7 @@ export class PlaygroundPanelManager {
             const raw = localStorage.getItem(WORKSPACE_STORAGE_KEY);
             if (raw) {
                 const parsed = JSON.parse(raw) as WorkspaceSnapshot;
-                parsed.root = normalizeTree(parsed.root)!;
-                hydratePanelCounter(parsed.root);
-                return parsed;
+                return normalizeWorkspaceSnapshot(parsed);
             }
         } catch (error) {
             console.warn('[Playground] Failed to restore workspace snapshot', error);
@@ -693,7 +696,16 @@ export class PlaygroundPanelManager {
         shell.rootEl.appendChild(contentEl);
 
         const initialKind: GuiPreviewKind = isGuiPreviewKind(leaf.previewKind) ? leaf.previewKind : 'mandelbrot';
-        const preview = new GuiPreviewPanel(contentEl, { kind: initialKind });
+        const preview = new GuiPreviewPanel(contentEl, {
+            kind: initialKind,
+            onKindChange: (kind) => {
+                const targetLeaf = findNode(this.snapshot.root, leaf.id)?.node;
+                if (targetLeaf && targetLeaf.kind === 'leaf') {
+                    targetLeaf.previewKind = kind;
+                }
+                this.saveWorkspaceSnapshot();
+            },
+        });
         preview.setFontSize(Math.round(this.currentFontSize * this.resolveLeafZoom(leaf.id)));
 
         const runtime: GuiPreviewRuntime = {
@@ -802,6 +814,7 @@ export class PlaygroundPanelManager {
                 runtime.preview.resizeEditor();
             }
         }
+        this.floatingGui.resizeAll();
     }
 
     setFontSize(size: number) {
@@ -809,6 +822,7 @@ export class PlaygroundPanelManager {
         for (const runtime of this.leafRuntimeMap.values()) {
             this.applyLeafZoom(runtime.leafId);
         }
+        this.floatingGui.setFontSize(size);
     }
 
     focusDefaultEditor() {
@@ -905,14 +919,20 @@ export class PlaygroundPanelManager {
     }
 
     showGuiPreviewForActiveFile() {
-        const previewLeafId = this.ensureGuiPreviewLeaf();
-        const runtime = this.leafRuntimeMap.get(previewLeafId);
-        if (!runtime || runtime.panelKind !== 'gui-preview') {
-            return;
-        }
         const path = this.getActiveEditorTabPath();
-        runtime.preview.setSourcePath(path);
-        this.setFocusedLeaf(previewLeafId);
+        if (path) {
+            this.floatingGui.openWindowForSourcePath(path);
+        } else {
+            this.floatingGui.openWindowForKind('mandelbrot');
+        }
+        const paneRuntime = this.getFocusedGuiPreviewRuntime();
+        if (paneRuntime) {
+            if (path) {
+                paneRuntime.preview.setSourcePath(path);
+            } else {
+                paneRuntime.preview.clearSourcePath();
+            }
+        }
         this.saveWorkspaceSnapshot();
     }
 
@@ -921,7 +941,12 @@ export class PlaygroundPanelManager {
         if (!preview) {
             return;
         }
-        preview.preview.setSourcePath(editorRuntime.tabManager.activeTab?.path || null);
+        const path = editorRuntime.tabManager.activeTab?.path;
+        if (path) {
+            preview.preview.setSourcePath(path);
+        } else {
+            preview.preview.clearSourcePath();
+        }
         this.saveWorkspaceSnapshot();
     }
 
@@ -936,6 +961,7 @@ export class PlaygroundPanelManager {
     }
 
     splitPanel(leafId: string, dir: 'h' | 'v') {
+        this.syncSnapshotFromRuntimes();
         const location = findNode(this.snapshot.root, leafId);
         if (!location || location.node.kind !== 'leaf' || location.node.panelKind === 'explorer') {
             return;

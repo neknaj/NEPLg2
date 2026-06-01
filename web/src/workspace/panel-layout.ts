@@ -172,6 +172,26 @@ export function normalizeTree(root: WorkspaceNode | null): WorkspaceNode | null 
     return root;
 }
 
+export function normalizeWorkspaceSnapshot(snapshot: Partial<WorkspaceSnapshot> | null | undefined): WorkspaceSnapshot {
+    if (!snapshot || !snapshot.root) {
+        const fallback = createDefaultWorkspace();
+        hydratePanelCounter(fallback.root);
+        return fallback;
+    }
+    const root = normalizeTree(snapshot.root) || createDefaultWorkspace().root;
+    hydratePanelCounter(root);
+    const requestedFocus = typeof snapshot.focusedLeafId === 'string' ? snapshot.focusedLeafId : null;
+    const focusedLeafId = requestedFocus && findNode(root, requestedFocus)
+        ? requestedFocus
+        : resolveDefaultFocusedLeafId(root);
+    return { root, focusedLeafId };
+}
+
+export function resolveDefaultFocusedLeafId(root: WorkspaceNode | null): string | null {
+    const leaves = collectLeaves(root);
+    return leaves.find((leaf) => leaf.panelKind === 'editor')?.id || leaves[0]?.id || null;
+}
+
 export function splitLeaf(
     root: WorkspaceNode,
     targetLeafId: string,
