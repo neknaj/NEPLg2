@@ -277,3 +277,36 @@ materializer 接続を開始しない。
 次の `.neplmeta` 作業は、subagent review に従い `Loader::process_directives_with` の import/prelude
 edge 単位の probe hook へ進める。そこでは prelude は `import_clause=None`、import は loader が持つ
 `NeplMetaImportClause` を渡し、`Include` は引き続き artifact 境界にしない。
+
+## 2026-06-01 checkpoint 12
+
+Web `CompilerSession` に stdlib dependency `.neplmeta` artifact producer を追加した。
+
+この producer は、store が空でない compile で収集された import/prelude edge probe を入力にする。
+初回 compile では edge probe を収集しないため、base compile の固定費を増やさない。二回目以降の
+compile で edge target が missing artifact として観測された後、compile 成功時にその bundled stdlib
+module を non-root dependency として読み直し、typecheck までで止めた `.neplmeta` artifact を store へ
+追加する。
+
+重要な境界:
+
+- `compile_nepl_meta_artifact_with_source_identity` は Resource IR、drop 挿入、wasm codegen を実行しない。
+  `.neplmeta` は公開 interface artifact であり、body safety proof や executable object ではない。
+- target source key と source capability policy は root `SourceMap` からではなく、edge probe が target
+  source 単位で計算した値を header へ固定する。
+- `std/prelude_base` を root として読み直すと既定 prelude 注入により自己循環するため、
+  `Loader::load_dependency_inline_with_provider_and_cache` で non-root load する。
+- stdlib overlay / `/stdlib` VFS override、non-stdlib import、`#include` は producer 対象にしない。
+- store に同じ pre-typecheck envelope と互換な artifact が既にある場合は、統計を汚さず再 typecheck を
+  避ける。
+
+この checkpoint でも `TypedPublicSurfaceTable` の `TypeCtx` / `Env` 注入、依存 module AST inline 省略、
+Resource IR skip、codegen skip は行わない。固定した観測は、三回目の同一 edge probe で missing artifact が
+増えず、現在の materializer MVP の未対応 surface が projection reject として見えることである。
+
+追加検証:
+
+- `cargo check -p nepl-core -p nepl-language`
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `trunk build --release`
+- `node tests\compiler\tree\run.js`

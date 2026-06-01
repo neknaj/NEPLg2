@@ -573,6 +573,66 @@ impl Loader {
         )
     }
 
+    /// provider-backed source を dependency module として読み込む。
+    ///
+    /// root source として読み込む通常入口は、`#no_prelude` がない場合に既定 prelude を
+    /// 自動注入する。`.neplmeta` dependency artifact producer は import/prelude edge の
+    /// target を単体で検査するが、その target は元の root compile では非 root module として
+    /// 読み込まれている。ここで root 扱いにすると、`std/prelude_base` 自身へ既定 prelude を
+    /// 再注入して循環を作るため、明示的に non-root load として処理する。
+    pub fn load_dependency_inline_with_provider_and_cache(
+        &mut self,
+        path: PathBuf,
+        src: String,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: Option<&mut LoaderSessionCache>,
+    ) -> Result<LoadResult, LoaderError> {
+        loader_log!(
+            "[Loader] load_dependency_inline_with_provider_and_cache: path={:?}",
+            path
+        );
+        let module_surface = self.nepl_meta_module_surface_for_source(&path, &src, None);
+        let mut sm = SourceMap::new();
+        let mut cache: BTreeMap<PathBuf, Module> = BTreeMap::new();
+        let mut processing: BTreeSet<PathBuf> = BTreeSet::new();
+        let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
+        let mut shallow_type_arity_cache = BTreeMap::new();
+        let module = match self.load_from_contents_with(
+            path,
+            src,
+            &mut sm,
+            &mut cache,
+            &mut processing,
+            &mut imported,
+            &mut shallow_type_arity_cache,
+            false,
+            provider,
+            session_cache,
+            None,
+        ) {
+            Ok(m) => m,
+            Err(e) => {
+                loader_log!(
+                    "[Loader] load_dependency_inline_with_provider_and_cache: failed: {:?}",
+                    e
+                );
+                self.source_map = sm.clone();
+                return Err(e);
+            }
+        };
+        loader_log!(
+            "[Loader] load_dependency_inline_with_provider_and_cache: success. cache_size={}",
+            cache.len()
+        );
+        self.source_map = sm.clone();
+        Ok(LoadResult {
+            module,
+            source_map: sm,
+            module_surface: Some(module_surface),
+            nepl_meta_edge_probes: Vec::new(),
+        })
+    }
+
     /// `.neplmeta` dependency artifact を検査する呼び出し元だけが edge probe を収集する。
     ///
     /// 通常の compile path では root source と実際に使われる stdlib module の load だけで

@@ -538,6 +538,62 @@ impl NeplMetaArtifact {
         )
     }
 
+    /// loader が module 単位で検証した source identity から `.neplmeta` を作る。
+    ///
+    /// dependency artifact producer は、target module を typecheck するために依存先も
+    /// `SourceMap` へ読み込む。しかし pre-typecheck edge probe の互換性境界は、呼び出し元の
+    /// root や同時に読み込まれた依存 module ではなく、target module 自身の source key と
+    /// capability policy に閉じなければならない。そのため、この constructor は `SourceMap`
+    /// 全体から source identity を再計算せず、loader が target source から作った安定値を
+    /// header へ固定する。
+    pub fn from_public_surface_and_module_surface_with_source_identity(
+        target: CompileTarget,
+        profile: BuildProfile,
+        stdlib_content_hash: Option<u64>,
+        dependency_public_surface_hash: Option<u64>,
+        source_key_hash: u64,
+        source_capability_policy_set_hash: Option<u64>,
+        public_signatures: TypedPublicSignatureTable,
+        module_surface: Option<NeplMetaModuleSurface>,
+        public_surface: TypedPublicSurfaceTable,
+    ) -> Self {
+        let export_surface = module_surface.as_ref().map(|surface| {
+            NeplMetaExportSurface::from_module_and_public_surface(surface, &public_surface)
+        });
+        let header = NeplMetaArtifactHeader::new(
+            nepl_meta_compiler_identity_hash(),
+            nepl_meta_target_hash(target),
+            nepl_meta_profile_hash(profile),
+            stdlib_content_hash,
+            Some(source_key_hash),
+            dependency_public_surface_hash,
+            public_signatures.stable_hash,
+            usize_to_u32_saturating(public_signatures.entries.len()),
+            module_surface.as_ref().map(|surface| surface.stable_hash),
+            module_surface
+                .as_ref()
+                .map(|surface| usize_to_u32_saturating(surface.dependency_edges.len())),
+            export_surface.as_ref().map(|surface| surface.stable_hash),
+            export_surface
+                .as_ref()
+                .map(|surface| usize_to_u32_saturating(surface.local_exports.len())),
+            export_surface
+                .as_ref()
+                .map(|surface| usize_to_u32_saturating(surface.reexport_projections.len())),
+            public_surface.stable_hash,
+            usize_to_u32_saturating(public_surface.entries.len()),
+            source_capability_policy_set_hash,
+            Some(crate::compiler::resource_summary_private_effect_policy_hash()),
+        );
+        Self::new(
+            header,
+            public_signatures,
+            module_surface,
+            export_surface,
+            public_surface,
+        )
+    }
+
     pub fn header(&self) -> NeplMetaArtifactHeader {
         self.header
     }
@@ -1024,6 +1080,29 @@ impl NeplMetaArtifactStore {
     pub fn clear(&mut self) {
         self.artifacts.clear();
         self.stats = NeplMetaArtifactStoreStats::default();
+    }
+
+    /// 指定 module の artifact が現在の pre-typecheck envelope と互換かを統計なしで確認する。
+    ///
+    /// dependency artifact producer は、store が既に同じ source/profile/stdlib 境界の artifact を
+    /// 持っている場合に再 typecheck を避けたい。一方で、ここで通常 probe 統計を増やすと
+    /// 「実際に materializer が試した回数」と「producer が重複生成を避けた回数」が混ざる。
+    /// そのため、この判定は store 内容の鮮度確認だけを行い、hit/miss/reject 統計は更新しない。
+    pub fn has_pre_typecheck_compatible_artifact(
+        &self,
+        module_path: &str,
+        expected_envelope: NeplMetaArtifactPreTypecheckEnvelope,
+    ) -> bool {
+        let Some(artifact) = self.artifacts.get(module_path) else {
+            return false;
+        };
+        if artifact.payload_consistency_reject().is_some() {
+            return false;
+        }
+        artifact
+            .header()
+            .pre_typecheck_compatibility_reject(expected_envelope)
+            .is_none()
     }
 
     pub fn store(

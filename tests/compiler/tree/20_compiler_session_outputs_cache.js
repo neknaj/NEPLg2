@@ -214,10 +214,9 @@ fn main <()->i32> ():
             'changed imported VFS content must not be treated as a compiled-output cache hit',
         );
         assert.equal(cacheStores(cacheSession), firstStores + 1, 'changed VFS content must store a new output');
-        assert.equal(
-            neplMetaStoreStats(cacheSession).stores,
-            firstMetaStore.stores + 1,
-            'changed VFS content compile must refresh the .neplmeta store',
+        assert.ok(
+            neplMetaStoreStats(cacheSession).stores > firstMetaStore.stores,
+            'changed VFS content compile must refresh the root .neplmeta store and may populate stdlib dependency artifacts',
         );
         assert.notDeepEqual(
             wasmBytes(changedOutput),
@@ -238,6 +237,78 @@ fn main <()->i32> ():
             dependencyEditEdgeProbe.missing,
             dependencyEditEdgeProbe.attempts,
             'edge probe must report missing target artifacts instead of treating dependency edges as reusable',
+        );
+
+        const stdlibDependencyArtifactSession = newSession(api);
+        const stdlibDependencySourceOne = `#entry main
+#import "std/prelude_base" as *
+fn main %fn unit i32 \\unit:
+    1
+`;
+        const stdlibDependencySourceTwo = `#entry main
+#import "std/prelude_base" as *
+fn main %fn unit i32 \\unit:
+    2
+`;
+        const stdlibDependencySourceThree = `#entry main
+#import "std/prelude_base" as *
+fn main %fn unit i32 \\unit:
+    3
+`;
+        stdlibDependencyArtifactSession.compile_outputs_with_vfs(
+            '/virtual/stdlib_dependency_artifact.nepl',
+            stdlibDependencySourceOne,
+            {},
+            ['wasm'],
+            false,
+        );
+        assert.deepEqual(
+            neplMetaPreTypecheckEdgeProbeStats(stdlibDependencyArtifactSession),
+            { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0 },
+            'the initial compile must not expand the empty .neplmeta store into dependency edge probes',
+        );
+        stdlibDependencyArtifactSession.compile_outputs_with_vfs(
+            '/virtual/stdlib_dependency_artifact.nepl',
+            stdlibDependencySourceTwo,
+            {},
+            ['wasm'],
+            false,
+        );
+        const secondStdlibEdgeProbe = neplMetaPreTypecheckEdgeProbeStats(stdlibDependencyArtifactSession);
+        const secondStdlibMetaStore = neplMetaStoreStats(stdlibDependencyArtifactSession);
+        assert.ok(
+            secondStdlibEdgeProbe.attempts > 0,
+            'the first real edge probe must observe stdlib dependency artifact candidates',
+        );
+        assert.equal(
+            secondStdlibEdgeProbe.missing,
+            secondStdlibEdgeProbe.attempts,
+            'before dependency artifacts are produced, every stdlib edge probe must fail by missing artifact',
+        );
+        assert.ok(
+            secondStdlibMetaStore.entries > 1,
+            'a successful compile with edge probes must populate .neplmeta artifacts for stdlib dependencies',
+        );
+        stdlibDependencyArtifactSession.compile_outputs_with_vfs(
+            '/virtual/stdlib_dependency_artifact.nepl',
+            stdlibDependencySourceThree,
+            {},
+            ['wasm'],
+            false,
+        );
+        const thirdStdlibEdgeProbe = neplMetaPreTypecheckEdgeProbeStats(stdlibDependencyArtifactSession);
+        assert.ok(
+            thirdStdlibEdgeProbe.attempts > secondStdlibEdgeProbe.attempts,
+            'a later body edit must keep probing the same stdlib dependency edges',
+        );
+        assert.equal(
+            thirdStdlibEdgeProbe.missing,
+            secondStdlibEdgeProbe.missing,
+            'after dependency artifact production, later edge probes must not add more missing-artifact results',
+        );
+        assert.ok(
+            thirdStdlibEdgeProbe.missing < thirdStdlibEdgeProbe.attempts,
+            'stored stdlib dependency artifacts must move later edge probes beyond the missing-artifact boundary',
         );
 
         const stdlibOverlaySession = newSession(api);
@@ -341,6 +412,6 @@ fn main %fn unit i32 \\unit:
             '#include must not be treated as a dependency artifact edge',
         );
 
-        return { checked: 12 };
+        return { checked: 13 };
     },
 };

@@ -1,3 +1,17 @@
+# 2026-06-01 .neplmeta stdlib dependency artifact producer checkpoint
+
+- Zenn 記事の core/no_std 境界、静的検査、純粋 query cache、パフォーマンス追求、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `08b8bbb5 Track sealed memo cache escape proof` まで同期済みで、branch `perf/neplmeta-stdlib-producer-20260601` はその `main` から作成した。
+- subagent review で、今回の最小安全単位は dependency body skip や `TypeCtx` / `Env` 注入ではなく、stdlib dependency `.neplmeta` artifact を store に供給し、次回 edge probe が missing artifact から compatibility / projection reason へ進むことだと確認した。
+- `compile_nepl_meta_artifact_with_source_identity` を追加し、依存 module の `.neplmeta` を typecheck までで生成できるようにした。Resource IR static check、drop 挿入、wasm codegen は実行しない。
+- `NeplMetaArtifact::from_public_surface_and_module_surface_with_source_identity` を追加し、edge probe が target source 単位で作った source key / source capability policy を header に固定できるようにした。root compile 全体の `SourceMap` hash は dependency artifact の互換性境界にしない。
+- `Loader::load_dependency_inline_with_provider_and_cache` を追加し、producer が edge target を non-root module として読み直せるようにした。`std/prelude_base` を root として読み直すと既定 prelude 注入で自己循環するため、root load 経路とは分離した。
+- Web `CompilerSession` は、store が空でない compile で収集した edge probe から bundled stdlib dependency artifact を生成して store へ入れる。初回 compile では edge probe を収集しないため、base compile の固定費は増やさない。
+- `has_pre_typecheck_compatible_artifact` を追加し、既に同じ pre-typecheck envelope と互換な artifact がある場合は再 typecheck しない。この鮮度確認は実 materializer probe 統計とは混ぜない。
+- regression では、1 回目 compile は edge probe 0、2 回目 compile は missing artifact を観測しつつ dependency artifact を store、3 回目 compile は missing artifact を増やさず projection reject まで進むことを固定した。
+- この checkpoint では `TypedPublicSurfaceTable` の `TypeCtx` / `Env` 注入、依存 module AST inline 省略、Resource IR skip、codegen skip は行わない。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta_store --lib -- --nocapture`、`cargo test -p nepl-core neplmeta_edge_probe_uses_target_source_policy_boundary --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer --lib -- --nocapture`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-stdlib-producer-20260601.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 memo_call sealed private cache mask / taint checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋性、パフォーマンス追求、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。

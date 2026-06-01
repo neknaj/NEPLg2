@@ -605,6 +605,61 @@ pub fn check_module_with_source_map(
     Ok(())
 }
 
+/// 依存 module 用の `.neplmeta` interface artifact だけを生成する。
+///
+/// この経路は typecheck までで止まり、Resource IR 検査、drop 挿入、wasm codegen は実行しない。
+/// `.neplmeta` は依存側の名前解決・型検査へ渡す公開 interface を保存する artifact であり、
+/// body の安全性 proof や実行コードの authority ではないためである。source identity は
+/// loader が target module 単位で計算した値を受け取り、dependency edge probe と同じ
+/// invalidation 境界に固定する。
+pub fn compile_nepl_meta_artifact_with_source_identity(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    dependency_public_surface_hash: Option<u64>,
+    module_surface: Option<&crate::artifact::NeplMetaModuleSurface>,
+    stdlib_content_hash: Option<u64>,
+    source_key_hash: u64,
+    source_capability_policy_set_hash: Option<u64>,
+) -> Result<crate::artifact::NeplMetaArtifact, CoreError> {
+    crate::log::set_verbose(options.verbose);
+    let target = resolve_target(&module, options)?;
+    if matches!(target, CompileTarget::Llvm) {
+        let mut diags = Vec::new();
+        diags.push(Diagnostic::error_with_code(
+            DiagnosticCode::Backend(BackendDiagnosticCode::TargetRequiresCli),
+            "llvm target is CLI-only and does not produce wasm-session .neplmeta artifacts",
+            Span::dummy(),
+        ));
+        return Err(CoreError::from_diagnostics(diags));
+    }
+    let profile = options
+        .profile
+        .unwrap_or(BuildProfile::default_source_profile());
+    let precheck_diags =
+        crate::target_precheck::precheck_module_before_codegen(&module, target, profile);
+    if precheck_diags
+        .iter()
+        .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error))
+    {
+        return Err(CoreError::from_diagnostics(precheck_diags));
+    }
+    let typed = run_typecheck(&module, target, profile, source_map)?;
+    Ok(
+        crate::artifact::NeplMetaArtifact::from_public_surface_and_module_surface_with_source_identity(
+            target,
+            profile,
+            stdlib_content_hash,
+            dependency_public_surface_hash,
+            source_key_hash,
+            source_capability_policy_set_hash,
+            typed.public_signatures,
+            module_surface.cloned(),
+            typed.public_surface,
+        ),
+    )
+}
+
 /// ソーステキストから wasm を生成する。
 ///
 /// lexer/parser の診断がある場合は早期にエラーを返し、

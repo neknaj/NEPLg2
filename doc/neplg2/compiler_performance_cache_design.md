@@ -2051,6 +2051,46 @@ body skip や stdlib prechecked artifact の実利用は、edge probe の fallba
 - loader 単体 regression では、edge probe の source capability policy hash が root compile 全体の
   `SourceMap` hash ではなく target module file 単体の hash であることを固定した。
 
+### 2026-06-01 `.neplmeta` stdlib dependency artifact producer checkpoint
+
+Web `CompilerSession` に、import/prelude edge probe で見つかった bundled stdlib dependency の
+`.neplmeta` artifact を生成して store へ入れる producer を追加した。これは typecheck body skip ではなく、
+次回以降の edge probe が `MissingArtifact` で止まらず、compatibility / projection reason まで進めるための
+中間 artifact 供給段階である。
+
+producer は `compile_nepl_meta_artifact_with_source_identity` を使い、target module を typecheck した時点で
+止まる。Resource IR static check、drop 挿入、wasm codegen は行わない。`.neplmeta` は依存側の公開 interface
+authority であり、実行 body や Resource proof の authority ではないためである。source key と source
+capability policy は root compile の `SourceMap` から再計算せず、loader の edge probe が target source 単位で
+計算した値を header へ固定する。
+
+stdlib dependency を root として読み直すと、`std/prelude_base` のような module に root 専用の既定 prelude
+注入がかかり、自己循環 import を作る。そのため `Loader::load_dependency_inline_with_provider_and_cache` を追加し、
+producer では edge target を non-root module として読み直す。これは元の root compile で import/prelude target が
+読まれた条件に合わせるための loader 境界であり、通常の root compile path は変更しない。
+
+安全境界:
+
+- `.neplmeta` store が空の初回 compile では edge probe を収集しない。base compile の固定費を増やさないため、
+  dependency artifact producer は二回目以降、edge probe 材料が既にある compile でだけ動く。
+- stdlib overlay / `/stdlib` VFS override では producer も store lookup も従来通り bypass し、bundled stdlib
+  artifact と overlay artifact を混ぜない。
+- target path は bundled stdlib root 配下に限定し、non-stdlib import や `#include` は dependency artifact
+  producer の対象にしない。
+- store に同じ pre-typecheck envelope と互換な artifact が既にある場合は再 typecheck しない。この確認は
+  `has_pre_typecheck_compatible_artifact` で行い、実 materializer probe の hit/miss 統計とは混ぜない。
+- 生成した artifact は store へ入れるだけで、`TypedPublicSurfaceTable` を `TypeCtx` / `Env` へ注入しない。
+  dependency AST inline 省略、Resource IR skip、codegen skip は次 checkpoint 以降の別作業である。
+
+固定した観測:
+
+- 1 回目 compile は root `.neplmeta` だけを store し、edge probe attempts は 0 のままである。
+- 2 回目 compile は stdlib edge probe を実行し、probe 自体は既存どおり missing artifact として fallback する。
+  compile 成功後に、その edge target の `.neplmeta` artifact を store へ追加する。
+- 3 回目 compile は同じ edge probe で missing artifact を増やさず、現在の MVP materializer が対応していない
+  public surface について projection reject まで進む。これにより、次に直すべき理由が「artifact 未生成」ではなく
+  「materializer が未対応」に移る。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

@@ -7,6 +7,7 @@ use nepl_core::ast::{
     Block, Directive, FnBody, MatchArm, MatchPattern, PrefixExpr, PrefixItem, Stmt, Symbol,
 };
 use nepl_core::compiler::{
+    compile_nepl_meta_artifact_with_source_identity,
     compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_and_neplproof,
     compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_neplproof_and_stage_timings,
     CompileStageTimings,
@@ -3326,6 +3327,84 @@ fn probe_nepl_meta_dependency_edges_pre_typecheck(
     }
 }
 
+fn populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
+    store: &mut NeplMetaArtifactStore,
+    profile: BuildProfile,
+    stdlib_content_hash: Option<u64>,
+    stdlib_root: &PathBuf,
+    bundled_sources: &BTreeMap<PathBuf, &'static str>,
+    overlay_sources: &BTreeMap<PathBuf, String>,
+    mut loader_cache: Option<&mut LoaderSessionCache>,
+    probes: &[NeplMetaDependencyEdgePreTypecheckProbe],
+) {
+    for probe in probes {
+        let target_path = PathBuf::from(probe.target_module_path.as_str());
+        if !target_path.starts_with(stdlib_root) {
+            continue;
+        }
+        let envelope =
+            nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity(
+                CompileTarget::Wasm,
+                profile,
+                stdlib_content_hash,
+                Some(probe.dependency_public_surface_hash),
+                probe.target_source_key_hash,
+                probe.target_source_capability_policy_set_hash,
+                &probe.target_module_surface,
+            );
+        if store.has_pre_typecheck_compatible_artifact(
+            probe.target_module_path.as_str(),
+            envelope,
+        ) {
+            continue;
+        }
+        let Some(target_source) = lookup_web_source(bundled_sources, overlay_sources, &target_path)
+        else {
+            continue;
+        };
+        let mut dependency_loader = Loader::new(stdlib_root.clone());
+        let mut provider = |path: &PathBuf| {
+            lookup_web_source(bundled_sources, overlay_sources, path).ok_or_else(|| {
+                nepl_core::loader::LoaderError::Io(format!(
+                    "missing bundled stdlib source during .neplmeta producer: {}",
+                    path.display()
+                ))
+            })
+        };
+        let loaded = dependency_loader.load_dependency_inline_with_provider_and_cache(
+            target_path.clone(),
+            target_source,
+            &mut provider,
+            loader_cache.as_deref_mut(),
+        );
+        let Ok(loaded) = loaded else {
+            continue;
+        };
+        if loaded.module_surface.as_ref() != Some(&probe.target_module_surface) {
+            continue;
+        }
+        let options = CompileOptions {
+            target: Some(CompileTarget::Wasm),
+            verbose: false,
+            profile: Some(profile),
+        };
+        let artifact = compile_nepl_meta_artifact_with_source_identity(
+            loaded.module,
+            Some(&loaded.source_map),
+            options,
+            Some(probe.dependency_public_surface_hash),
+            Some(&probe.target_module_surface),
+            stdlib_content_hash,
+            probe.target_source_key_hash,
+            probe.target_source_capability_policy_set_hash,
+        );
+        let Ok(artifact) = artifact else {
+            continue;
+        };
+        let _ = store.store(artifact);
+    }
+}
+
 fn compile_wasm_with_bundled_sources_and_cache(
     entry_path: &str,
     source: &str,
@@ -3341,6 +3420,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
     stage_timings: Option<&mut CompileStageTimings>,
     nepl_meta_artifact_store: Option<&mut NeplMetaArtifactStore>,
 ) -> Result<CompiledWasm, String> {
+    let mut nepl_meta_artifact_store = nepl_meta_artifact_store;
     let mut overlay_sources = BTreeMap::new();
     // stdlib 差し替えが指定された場合は、先に上書きで適用する
     merge_vfs_sources(&mut overlay_sources, stdlib_vfs);
@@ -3429,7 +3509,10 @@ fn compile_wasm_with_bundled_sources_and_cache(
     };
     let module_surface = loaded.module_surface.clone();
     let stdlib_content_hash = bundled_stdlib_hash_u64();
-    if let (Some(store), Some(surface)) = (nepl_meta_artifact_store, module_surface.as_ref()) {
+    if let (Some(store), Some(surface)) = (
+        nepl_meta_artifact_store.as_deref_mut(),
+        module_surface.as_ref(),
+    ) {
         if !store.is_empty() {
             let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
             if let Ok(envelope) = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
@@ -3508,6 +3591,20 @@ fn compile_wasm_with_bundled_sources_and_cache(
     } else {
         None
     };
+    if let Some(store) = nepl_meta_artifact_store.as_deref_mut() {
+        if !overlay_overrides_stdlib && !loaded.nepl_meta_edge_probes.is_empty() {
+            populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
+                store,
+                profile.unwrap_or(BuildProfile::default_source_profile()),
+                stdlib_content_hash,
+                stdlib_root,
+                bundled_sources,
+                &overlay_sources,
+                loader_cache.as_deref_mut(),
+                &loaded.nepl_meta_edge_probes,
+            );
+        }
+    }
     Ok(CompiledWasm {
         wasm: artifact.wasm,
         wat_comments: artifact.wat_comments,
