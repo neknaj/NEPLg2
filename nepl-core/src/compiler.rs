@@ -174,6 +174,47 @@ impl<'a> Default for ResourceSummaryProofArtifactCacheOptions<'a> {
     }
 }
 
+/// compile pipeline へ渡す public interface artifact 群。
+///
+/// `.neplmeta` は依存先の公開 surface を arena-independent に保持する。一方で、
+/// dependency public surface hash と root module surface は Resource proof namespace や
+/// artifact header の invalidation 境界にも使う。これらを同じ入力としてまとめることで、
+/// loader / Web session 側は body skip の有無にかかわらず同じ authority を core に渡せる。
+#[derive(Debug, Clone, Copy)]
+pub struct PublicInterfaceArtifactInputs<'a> {
+    pub dependency_public_surface_hash: Option<u64>,
+    pub module_surface: Option<&'a crate::artifact::NeplMetaModuleSurface>,
+    pub materialized_public_surfaces: &'a [crate::typecheck::MaterializedPublicSurfaceInput],
+}
+
+impl<'a> PublicInterfaceArtifactInputs<'a> {
+    pub fn none() -> Self {
+        Self {
+            dependency_public_surface_hash: None,
+            module_surface: None,
+            materialized_public_surfaces: &[],
+        }
+    }
+
+    pub fn new(
+        dependency_public_surface_hash: Option<u64>,
+        module_surface: Option<&'a crate::artifact::NeplMetaModuleSurface>,
+        materialized_public_surfaces: &'a [crate::typecheck::MaterializedPublicSurfaceInput],
+    ) -> Self {
+        Self {
+            dependency_public_surface_hash,
+            module_surface,
+            materialized_public_surfaces,
+        }
+    }
+}
+
+impl<'a> Default for PublicInterfaceArtifactInputs<'a> {
+    fn default() -> Self {
+        Self::none()
+    }
+}
+
 /// コンパイル pipeline の 1 stage にかかった時間。
 ///
 /// Web / Node の same-session 性能測定では、標準エラーへ出す native timing だけでは
@@ -364,8 +405,7 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         source_map,
         options,
         artifact_options,
-        dependency_public_surface_hash,
-        None,
+        PublicInterfaceArtifactInputs::new(dependency_public_surface_hash, None, &[]),
         resource_summary_value_cache,
         ResourceSummaryProofArtifactCacheOptions::none(),
         &mut stage_recorder,
@@ -392,8 +432,7 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         source_map,
         options,
         artifact_options,
-        dependency_public_surface_hash,
-        None,
+        PublicInterfaceArtifactInputs::new(dependency_public_surface_hash, None, &[]),
         resource_summary_value_cache,
         resource_summary_proof_options,
         &mut stage_recorder,
@@ -416,8 +455,36 @@ pub fn compile_module_with_source_map_artifact_options_dependency_public_surface
         source_map,
         options,
         artifact_options,
-        dependency_public_surface_hash,
-        module_surface,
+        PublicInterfaceArtifactInputs::new(dependency_public_surface_hash, module_surface, &[]),
+        resource_summary_value_cache,
+        resource_summary_proof_options,
+        &mut stage_recorder,
+    )
+}
+
+/// `.neplmeta` 由来の public surface を typecheck 入力に含める artifact pipeline。
+///
+/// この経路は dependency body skip のための core 側 boundary である。materialized callable が
+/// 実際の codegen 入力として必要になった場合は、`.neplobj` / code fragment artifact ができるまで
+/// caller が source fallback へ戻る必要がある。
+pub fn compile_module_with_source_map_artifact_options_public_interface_artifacts_resource_summary_value_cache_neplproof_and_stage_timings(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    public_interface_artifacts: PublicInterfaceArtifactInputs<'_>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
+    stage_timings: &mut CompileStageTimings,
+    now_ms: CompileStageNow,
+) -> Result<CompilationArtifact, CoreError> {
+    let mut stage_recorder = CompileStageRecorder::enabled(stage_timings, now_ms);
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        module,
+        source_map,
+        options,
+        artifact_options,
+        public_interface_artifacts,
         resource_summary_value_cache,
         resource_summary_proof_options,
         &mut stage_recorder,
@@ -445,8 +512,7 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         source_map,
         options,
         artifact_options,
-        dependency_public_surface_hash,
-        None,
+        PublicInterfaceArtifactInputs::new(dependency_public_surface_hash, None, &[]),
         resource_summary_value_cache,
         ResourceSummaryProofArtifactCacheOptions::none(),
         &mut stage_recorder,
@@ -475,8 +541,7 @@ pub fn compile_module_with_source_map_artifact_options_and_dependency_public_sur
         source_map,
         options,
         artifact_options,
-        dependency_public_surface_hash,
-        None,
+        PublicInterfaceArtifactInputs::new(dependency_public_surface_hash, None, &[]),
         resource_summary_value_cache,
         resource_summary_proof_options,
         &mut stage_recorder,
@@ -501,8 +566,7 @@ pub fn compile_module_with_source_map_artifact_options_dependency_public_surface
         source_map,
         options,
         artifact_options,
-        dependency_public_surface_hash,
-        module_surface,
+        PublicInterfaceArtifactInputs::new(dependency_public_surface_hash, module_surface, &[]),
         resource_summary_value_cache,
         resource_summary_proof_options,
         &mut stage_recorder,
@@ -514,8 +578,7 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
     source_map: Option<&SourceMap>,
     options: CompileOptions,
     artifact_options: CompilationArtifactOptions,
-    dependency_public_surface_hash: Option<u64>,
-    module_surface: Option<&crate::artifact::NeplMetaModuleSurface>,
+    public_interface_artifacts: PublicInterfaceArtifactInputs<'_>,
     resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
     resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
     stage_recorder: &mut CompileStageRecorder<'_>,
@@ -543,8 +606,7 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
         target,
         profile,
         source_map,
-        dependency_public_surface_hash,
-        module_surface,
+        public_interface_artifacts,
         resource_summary_value_cache,
         resource_summary_proof_options,
         stage_recorder,
@@ -644,7 +706,7 @@ pub fn compile_nepl_meta_artifact_with_source_identity(
     {
         return Err(CoreError::from_diagnostics(precheck_diags));
     }
-    let typed = run_typecheck(&module, target, profile, source_map)?;
+    let typed = run_typecheck(&module, target, profile, source_map, &[])?;
     Ok(
         crate::artifact::NeplMetaArtifact::from_public_surface_and_module_surface_with_source_identity(
             target,
@@ -938,8 +1000,15 @@ fn run_typecheck(
     target: CompileTarget,
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
+    materialized_public_surfaces: &[crate::typecheck::MaterializedPublicSurfaceInput],
 ) -> Result<TypedProgram, CoreError> {
-    let tc = typecheck::typecheck(module, target, profile, source_map);
+    let tc = typecheck::typecheck_with_materialized_public_surfaces(
+        module,
+        target,
+        profile,
+        source_map,
+        materialized_public_surfaces,
+    );
     match tc.module {
         Some(m) => Ok(TypedProgram {
             types: tc.types,
@@ -966,6 +1035,136 @@ fn extend_unresolved_trait_call_diagnostics(
             call.span,
         )
     }));
+}
+
+const MATERIALIZED_CALLABLE_SYMBOL_PREFIX: &str = "neplmeta$";
+
+fn materialized_codegen_dependency_diagnostics(
+    hir_module: &crate::hir::HirModule,
+) -> Vec<Diagnostic> {
+    let mut dependencies = Vec::new();
+    for function in &hir_module.functions {
+        collect_materialized_codegen_dependencies_in_body(&function.body, &mut dependencies);
+    }
+    dependencies
+        .into_iter()
+        .map(|(symbol, span)| {
+            Diagnostic::error_with_code(
+                DiagnosticCode::Backend(BackendDiagnosticCode::MaterializedFunctionBodyMissing),
+                format!(
+                    "materialized callable '{}' needs source fallback because no code artifact is available yet",
+                    symbol
+                ),
+                span,
+            )
+        })
+        .collect()
+}
+
+fn collect_materialized_codegen_dependencies_in_body(
+    body: &crate::hir::HirBody,
+    dependencies: &mut Vec<(String, Span)>,
+) {
+    if let crate::hir::HirBody::Block(block) = body {
+        collect_materialized_codegen_dependencies_in_block(block, dependencies);
+    }
+}
+
+fn collect_materialized_codegen_dependencies_in_block(
+    block: &crate::hir::HirBlock,
+    dependencies: &mut Vec<(String, Span)>,
+) {
+    for line in &block.lines {
+        collect_materialized_codegen_dependencies_in_expr(&line.expr, dependencies);
+    }
+}
+
+fn record_materialized_symbol(symbol: &str, span: Span, dependencies: &mut Vec<(String, Span)>) {
+    if symbol.starts_with(MATERIALIZED_CALLABLE_SYMBOL_PREFIX) {
+        dependencies.push((String::from(symbol), span));
+    }
+}
+
+fn collect_materialized_codegen_dependencies_in_expr(
+    expr: &crate::hir::HirExpr,
+    dependencies: &mut Vec<(String, Span)>,
+) {
+    use crate::hir::{FuncRef, HirExprKind};
+
+    match &expr.kind {
+        HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
+            record_materialized_symbol(identity.symbol(), expr.span, dependencies);
+        }
+        HirExprKind::Call { callee, args } => {
+            if let FuncRef::User(symbol, _, _) = callee {
+                record_materialized_symbol(symbol, expr.span, dependencies);
+            }
+            for arg in args {
+                collect_materialized_codegen_dependencies_in_expr(arg, dependencies);
+            }
+        }
+        HirExprKind::CallIndirect { callee, args, .. } => {
+            collect_materialized_codegen_dependencies_in_expr(callee, dependencies);
+            for arg in args {
+                collect_materialized_codegen_dependencies_in_expr(arg, dependencies);
+            }
+        }
+        HirExprKind::If {
+            cond,
+            then_branch,
+            else_branch,
+        } => {
+            collect_materialized_codegen_dependencies_in_expr(cond, dependencies);
+            collect_materialized_codegen_dependencies_in_expr(then_branch, dependencies);
+            collect_materialized_codegen_dependencies_in_expr(else_branch, dependencies);
+        }
+        HirExprKind::While { cond, body } => {
+            collect_materialized_codegen_dependencies_in_expr(cond, dependencies);
+            collect_materialized_codegen_dependencies_in_expr(body, dependencies);
+        }
+        HirExprKind::Match { scrutinee, arms } => {
+            collect_materialized_codegen_dependencies_in_expr(scrutinee, dependencies);
+            for arm in arms {
+                collect_materialized_codegen_dependencies_in_expr(&arm.body, dependencies);
+            }
+        }
+        HirExprKind::EnumConstruct { payload, .. } => {
+            if let Some(payload) = payload {
+                collect_materialized_codegen_dependencies_in_expr(payload, dependencies);
+            }
+        }
+        HirExprKind::StructConstruct { fields, .. } => {
+            for field in fields {
+                collect_materialized_codegen_dependencies_in_expr(field, dependencies);
+            }
+        }
+        HirExprKind::TupleConstruct { items } => {
+            for item in items {
+                collect_materialized_codegen_dependencies_in_expr(item, dependencies);
+            }
+        }
+        HirExprKind::Block(block) => {
+            collect_materialized_codegen_dependencies_in_block(block, dependencies);
+        }
+        HirExprKind::Let { value, .. } | HirExprKind::Set { value, .. } => {
+            collect_materialized_codegen_dependencies_in_expr(value, dependencies);
+        }
+        HirExprKind::Intrinsic { args, .. } => {
+            for arg in args {
+                collect_materialized_codegen_dependencies_in_expr(arg, dependencies);
+            }
+        }
+        HirExprKind::AddrOf(inner) | HirExprKind::Deref(inner) => {
+            collect_materialized_codegen_dependencies_in_expr(inner, dependencies);
+        }
+        HirExprKind::LiteralI32(_)
+        | HirExprKind::LiteralF32(_)
+        | HirExprKind::LiteralBool(_)
+        | HirExprKind::LiteralStr(_)
+        | HirExprKind::Unit
+        | HirExprKind::Var(_)
+        | HirExprKind::Drop { .. } => {}
+    }
 }
 
 fn run_resource_static_check(
@@ -1586,8 +1785,7 @@ mod tests {
         }
     }
 
-    fn parse_test_module(source: &str) -> ast::Module {
-        let file_id = FileId(0);
+    fn parse_test_module_for_file(file_id: FileId, source: &str) -> ast::Module {
         let lex = lexer::lex(file_id, source);
         assert!(
             lex.diagnostics.is_empty(),
@@ -1601,6 +1799,10 @@ mod tests {
             parsed.diagnostics
         );
         parsed.module.expect("parser should produce a module")
+    }
+
+    fn parse_test_module(source: &str) -> ast::Module {
+        parse_test_module_for_file(FileId(0), source)
     }
 
     fn prepared_resource_summary_cache_namespace_key(
@@ -1913,6 +2115,120 @@ mod tests {
                 .header()
                 .dependency_public_surface_hash,
             Some(123)
+        );
+    }
+
+    fn materialized_dependency_surface(
+        path: &str,
+        source: &str,
+    ) -> crate::typecheck::TypedPublicSurfaceTable {
+        let mut source_map = SourceMap::new();
+        let file = source_map.add(path, String::from(source));
+        let module = parse_test_module_for_file(file, source);
+        let checked = crate::typecheck::typecheck(
+            &module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&source_map),
+        );
+        assert!(
+            checked.diagnostics.is_empty(),
+            "dependency diagnostics: {:?}",
+            checked.diagnostics
+        );
+        checked.public_surface
+    }
+
+    /// unused callable surface は名前解決にだけ存在し、codegen body を要求しない。
+    ///
+    /// loader が prelude / import body を artifact に置き換える最初の安全圏はこの形である。
+    /// 依存先の callable が実際に選択されない限り、root module の HIR / Resource IR / wasm
+    /// 生成は root body だけで閉じる。
+    #[test]
+    fn prepare_accepts_unused_materialized_callable_without_dependency_body() {
+        let dep_source = "pub fn dep_value %fn unit i32 \\unit:\n    7\n";
+        let dep_surface = materialized_dependency_surface("project/dep.nepl", dep_source);
+        let root_source =
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit i32 \\unit:\n    1\n";
+        let mut root_source_map = SourceMap::new();
+        let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
+        let dep_file = root_source_map.add("project/dep.nepl", String::from(dep_source));
+        let root_module = parse_test_module_for_file(root_file, root_source);
+        let materialized = [crate::typecheck::MaterializedPublicSurfaceInput {
+            table: dep_surface,
+            module_path: String::from("project/dep.nepl"),
+            file_id: dep_file,
+        }];
+
+        let prepared =
+            prepare_module_for_codegen_with_public_interface_artifacts_and_resource_summary_value_cache(
+                &root_module,
+                CompileTarget::Wasm,
+                BuildProfile::Debug,
+                Some(&root_source_map),
+                PublicInterfaceArtifactInputs::new(Some(44), None, &materialized),
+                None,
+            )
+            .expect("unused materialized callable should not require source fallback");
+
+        assert!(
+            prepared
+                .hir_module
+                .functions
+                .iter()
+                .all(|function| !function
+                    .name
+                    .starts_with(MATERIALIZED_CALLABLE_SYMBOL_PREFIX)),
+            "unused materialized dependency must not be emitted as a codegen function"
+        );
+    }
+
+    /// selected materialized callable は `.neplobj` ができるまで source fallback へ戻す。
+    ///
+    /// `.neplmeta` は名前解決・型検査の authority であり、関数本体や Resource proof を
+    /// 保存しない。直接呼び出しが root HIR に残った場合は、未知 wasm symbol になる前に
+    /// backend 診断で停止する。
+    #[test]
+    fn prepare_rejects_selected_materialized_callable_without_code_artifact() {
+        let dep_source = "pub fn dep_value %fn unit i32 \\unit:\n    7\n";
+        let dep_surface = materialized_dependency_surface("project/dep.nepl", dep_source);
+        let root_source =
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit i32 \\unit:\n    dep_value\n";
+        let mut root_source_map = SourceMap::new();
+        let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
+        let dep_file = root_source_map.add("project/dep.nepl", String::from(dep_source));
+        let root_module = parse_test_module_for_file(root_file, root_source);
+        let materialized = [crate::typecheck::MaterializedPublicSurfaceInput {
+            table: dep_surface,
+            module_path: String::from("project/dep.nepl"),
+            file_id: dep_file,
+        }];
+
+        let result =
+            prepare_module_for_codegen_with_public_interface_artifacts_and_resource_summary_value_cache(
+                &root_module,
+                CompileTarget::Wasm,
+                BuildProfile::Debug,
+                Some(&root_source_map),
+                PublicInterfaceArtifactInputs::new(Some(44), None, &materialized),
+                None,
+            );
+        let Err(err) = result else {
+            panic!("selected materialized callable must require source fallback");
+        };
+        let CoreError::Diagnostics(diagnostics) = err else {
+            panic!("expected diagnostics for materialized callable fallback");
+        };
+
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.code
+                    == DiagnosticCode::Backend(
+                        BackendDiagnosticCode::MaterializedFunctionBodyMissing,
+                    )
+            }),
+            "diagnostics should contain materialized function body fallback code: {:?}",
+            diagnostics
         );
     }
 
@@ -2906,9 +3222,7 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
         } => source_map
             .map(|map| raw_identity_escape_allowed(*operation, *origin_span, map))
             .unwrap_or(false),
-        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheRegionEscape { .. } => {
-            false
-        }
+        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheRegionEscape { .. } => false,
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,
         crate::resource::ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
             ..
@@ -3211,8 +3525,33 @@ pub fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash
         target,
         profile,
         source_map,
-        dependency_public_surface_hash,
-        None,
+        PublicInterfaceArtifactInputs::new(dependency_public_surface_hash, None, &[]),
+        resource_summary_value_cache,
+        ResourceSummaryProofArtifactCacheOptions::none(),
+        &mut stage_recorder,
+    )
+}
+
+/// `.neplmeta` 由来の dependency surface を含めて prepare phase を実行する。
+///
+/// materialized surface は source body を持たないため、直接呼び出しの codegen body が必要な
+/// 場合はこの phase で診断に倒す。loader / Web session はその診断を source fallback の根拠に
+/// し、`.neplobj` が未実装の段階でも未知 symbol を backend へ渡さない。
+pub fn prepare_module_for_codegen_with_public_interface_artifacts_and_resource_summary_value_cache(
+    module: &ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    source_map: Option<&SourceMap>,
+    public_interface_artifacts: PublicInterfaceArtifactInputs<'_>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+) -> Result<PreparedProgram, CoreError> {
+    let mut stage_recorder = CompileStageRecorder::disabled();
+    prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        module,
+        target,
+        profile,
+        source_map,
+        public_interface_artifacts,
         resource_summary_value_cache,
         ResourceSummaryProofArtifactCacheOptions::none(),
         &mut stage_recorder,
@@ -3224,8 +3563,7 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     target: CompileTarget,
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
-    dependency_public_surface_hash: Option<u64>,
-    module_surface: Option<&crate::artifact::NeplMetaModuleSurface>,
+    public_interface_artifacts: PublicInterfaceArtifactInputs<'_>,
     mut resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
     resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
     stage_recorder: &mut CompileStageRecorder<'_>,
@@ -3247,7 +3585,13 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let stage_start_ms = stage_recorder.start();
-    let resource_tc = run_typecheck(module, target, profile, source_map);
+    let resource_tc = run_typecheck(
+        module,
+        target,
+        profile,
+        source_map,
+        public_interface_artifacts.materialized_public_surfaces,
+    );
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("resource_typecheck", stage_start);
     stage_recorder.finish("resource_typecheck", stage_start_ms);
@@ -3261,17 +3605,17 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
             target,
             profile,
             resource_summary_proof_options.stdlib_content_hash,
-            dependency_public_surface_hash,
+            public_interface_artifacts.dependency_public_surface_hash,
             source_map,
             public_signatures.clone(),
-            module_surface.cloned(),
+            public_interface_artifacts.module_surface.cloned(),
             public_surface.clone(),
         );
     let resource_summary_cache_namespace_key = ResourceSummaryCacheNamespaceKey::new(
         target,
         profile,
         public_signatures.stable_hash,
-        dependency_public_surface_hash,
+        public_interface_artifacts.dependency_public_surface_hash,
     );
     let resource_summary_proof_header = resource_summary_cache_namespace_key
         .resource_summary_proof_header(
@@ -3286,6 +3630,17 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     if let Some(artifact) = resource_summary_proof_options.preseed_artifact {
         if let Some(cache) = resource_summary_value_cache.as_deref_mut() {
             let _ = cache.preseed_neplproof_artifact(artifact, resource_summary_proof_header);
+        }
+    }
+    if !public_interface_artifacts
+        .materialized_public_surfaces
+        .is_empty()
+    {
+        let materialized_codegen_diags =
+            materialized_codegen_dependency_diagnostics(&resource_tc.module);
+        if !materialized_codegen_diags.is_empty() {
+            diagnostics.extend(materialized_codegen_diags);
+            return Err(CoreError::from_diagnostics(diagnostics));
         }
     }
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
@@ -3361,6 +3716,16 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
     if !unresolved_trait_calls.is_empty() {
         extend_unresolved_trait_call_diagnostics(&mut diagnostics, unresolved_trait_calls);
         return Err(CoreError::from_diagnostics(diagnostics));
+    }
+    if !public_interface_artifacts
+        .materialized_public_surfaces
+        .is_empty()
+    {
+        let materialized_codegen_diags = materialized_codegen_dependency_diagnostics(&hir_module);
+        if !materialized_codegen_diags.is_empty() {
+            diagnostics.extend(materialized_codegen_diags);
+            return Err(CoreError::from_diagnostics(diagnostics));
+        }
     }
     Ok(PreparedProgram {
         types,

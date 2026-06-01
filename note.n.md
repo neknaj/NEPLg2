@@ -49076,3 +49076,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - regression では、dependency body を root AST に merge しなくても materialized callable で root body を typecheck できること、かつ dependency export が root の public signature / public surface に混ざらないことを固定した。
 - この checkpoint でも body skip は完了ではない。direct call される dependency function body を codegen 入力から落とすには `.neplobj` / codegen fragment 相当の authority が必要であり、それまでは source fallback 判定を維持する必要がある。
 - focused verification は `cargo test -p nepl-core materialized_public_surface_typechecks_imported_callable_without_dependency_body --lib -- --nocapture`、`cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` compiler public-interface pipeline checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-compiler-surface-pipeline-20260601` branch で、`.neplmeta` materialized surface を compile / prepare pipeline へ渡す core 側入口を追加した。`plan.md` は変更していない。
+- Zenn の静的検査、純粋 query cache、試作段階でも暫定雑設計を避ける方針を再確認し、artifact projection 成功をそのまま body skip 成功と見なさない fail-closed 方針にした。
+- subagent review では、`.neplmeta` は名前解決・型検査用 public interface であり、selected dependency callable body には `.neplobj` / source fallback が必要であること、また `.neplmeta` callable を `memo_call` / function value identity へ入れてはいけないことを確認した。
+- `PublicInterfaceArtifactInputs` を追加し、dependency public surface hash、root module surface、`MaterializedPublicSurfaceInput` 群を同じ compile pipeline 入力として渡せるようにした。既存 wrapper は空 materialized surface を渡すため、通常 source compile の挙動は変えない。
+- materialized surface を使う prepare では、`neplmeta$...` callable が HIR の直接呼び出し、function value、memoized function value、indirect call として codegen 入力に残った場合、`backend.codegen.materialized_function_body_missing` 診断で止める。これは `.neplobj` 実装まで source fallback へ戻すための境界である。
+- loader の `NeplMetaDependencyEdgePreTypecheckProbe` に `target_file_id` を追加した。後続の Web bridge は `MaterializedPublicSurfaceInput` の `module_path` / `file_id` 契約を、loader が現在 `SourceMap` に登録した file slot で満たせる。
+- regression では、unused materialized callable surface は prepare / Resource / codegen を通過できること、selected materialized callable は code artifact 不足診断で停止することを固定した。
+- focused verification は `cargo check -p nepl-core`、`cargo test -p nepl-core prepare_accepts_unused_materialized_callable_without_dependency_body --lib -- --nocapture`、`cargo test -p nepl-core prepare_rejects_selected_materialized_callable_without_code_artifact --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo test -p nepl-core neplmeta_edge_probe_uses_target_source_policy_boundary --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。
