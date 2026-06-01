@@ -6,12 +6,18 @@ import {
 } from './renderer.js';
 import {
     GuiPreviewCanvasViewport,
+    renderGuiPreviewFrameToCanvas,
     renderGuiPreviewSceneToCanvas,
 } from './canvas-renderer.js';
+import type { GuiPreviewCommandFrame } from './commands.js';
 
 export type GuiPreviewSource =
     | { kind: 'none' }
     | { kind: 'path'; path: string };
+
+type GuiHostFrameState =
+    | { kind: 'none' }
+    | { kind: 'presented'; frame: GuiPreviewCommandFrame };
 
 const ignoreKindChange = (_kind: GuiPreviewKind) => {};
 
@@ -35,6 +41,7 @@ export class GuiPreviewPanel {
     fontSize: number;
     viewport: GuiPreviewCanvasViewport;
     onKindChange: (kind: GuiPreviewKind) => void;
+    hostFrame: GuiHostFrameState;
 
     constructor(contentEl: HTMLElement, options: GuiPreviewPanelOptions = {}) {
         this.contentEl = contentEl;
@@ -59,6 +66,7 @@ export class GuiPreviewPanel {
         this.fontSize = 14;
         this.viewport = { left: 0, top: 0, scale: 1 };
         this.onKindChange = options.onKindChange || ignoreKindChange;
+        this.hostFrame = { kind: 'none' };
 
         this.mountToolbar();
         this.rootEl.appendChild(this.toolbarEl);
@@ -95,20 +103,30 @@ export class GuiPreviewPanel {
     }
 
     setSourcePath(path: string) {
+        this.hostFrame = { kind: 'none' };
         this.source = { kind: 'path', path };
         this.setKind(guiPreviewKindFromPath(path));
     }
 
     clearSourcePath() {
+        this.hostFrame = { kind: 'none' };
         this.source = { kind: 'none' };
         this.setKind('mandelbrot');
     }
 
     setKind(kind: GuiPreviewKind) {
+        this.hostFrame = { kind: 'none' };
+        this.selectEl.disabled = false;
         this.kind = kind;
         this.syncSelect();
         this.render();
         this.onKindChange(kind);
+    }
+
+    presentHostFrame(frame: GuiPreviewCommandFrame) {
+        this.hostFrame = { kind: 'presented', frame };
+        this.selectEl.disabled = true;
+        this.render();
     }
 
     setFontSize(size: number) {
@@ -138,12 +156,21 @@ export class GuiPreviewPanel {
         this.ctx.clearRect(0, 0, width, height);
         this.ctx.fillStyle = '#0d1117';
         this.ctx.fillRect(0, 0, width, height);
+        if (this.hostFrame.kind === 'presented') {
+            const rendered = renderGuiPreviewFrameToCanvas(this.ctx, this.hostFrame.frame, width, height, { fontSize: this.fontSize });
+            this.viewport = rendered.viewport;
+            this.metricsEl.textContent = `host commands ${this.hostFrame.frame.commands.length}`;
+            return;
+        }
         const rendered = renderGuiPreviewSceneToCanvas(this.ctx, scene, width, height, { fontSize: this.fontSize });
         this.viewport = rendered.viewport;
         this.metricsEl.textContent = summarizeGuiPreviewScene(scene);
     }
 
     handleCanvasClick(event: MouseEvent) {
+        if (this.hostFrame.kind === 'presented') {
+            return;
+        }
         const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
         const point = this.toScenePoint(event);
         const hit = scene.hitTargets.find((target) => (
@@ -162,6 +189,10 @@ export class GuiPreviewPanel {
     }
 
     handleCanvasPointer(event: MouseEvent) {
+        if (this.hostFrame.kind === 'presented') {
+            this.canvas.style.cursor = 'default';
+            return;
+        }
         const scene = createGuiPreviewScene(this.kind, { kind: 'counter', counterValue: this.counterValue });
         const point = this.toScenePoint(event);
         const hasHit = scene.hitTargets.some((target) => (

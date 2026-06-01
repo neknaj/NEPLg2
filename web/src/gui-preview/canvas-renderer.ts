@@ -1,5 +1,6 @@
 import type {
     GuiPreviewColor,
+    GuiPreviewCommandFrame,
     GuiPreviewDrawCommand,
     GuiPreviewTextAlign,
 } from './commands.js';
@@ -19,9 +20,9 @@ export type GuiPreviewCanvasRenderResult = {
     viewport: GuiPreviewCanvasViewport;
 };
 
-export function renderGuiPreviewSceneToCanvas(
+export function renderGuiPreviewFrameToCanvas(
     ctx: CanvasRenderingContext2D,
-    scene: GuiPreviewScene,
+    frame: GuiPreviewCommandFrame,
     width: number,
     height: number,
     options: GuiPreviewCanvasRenderOptions,
@@ -29,9 +30,9 @@ export function renderGuiPreviewSceneToCanvas(
     const padding = 18;
     const availableWidth = Math.max(1, width - padding * 2);
     const availableHeight = Math.max(1, height - padding * 2);
-    const scale = Math.min(availableWidth / scene.width, availableHeight / scene.height);
-    const sceneWidth = scene.width * scale;
-    const sceneHeight = scene.height * scale;
+    const scale = Math.min(availableWidth / frame.width, availableHeight / frame.height);
+    const sceneWidth = frame.width * scale;
+    const sceneHeight = frame.height * scale;
     const left = Math.floor((width - sceneWidth) / 2);
     const top = Math.floor((height - sceneHeight) / 2);
     const viewport = { left, top, scale };
@@ -40,16 +41,26 @@ export function renderGuiPreviewSceneToCanvas(
     ctx.fillRect(left - 1, top - 1, sceneWidth + 2, sceneHeight + 2);
     ctx.textBaseline = 'top';
 
-    for (const command of scene.commands) {
+    for (const command of frame.commands) {
         renderGuiPreviewCommand(ctx, command, viewport);
     }
 
     ctx.textAlign = 'left';
     ctx.fillStyle = '#9fb1c1';
     ctx.font = `${Math.max(11, options.fontSize - 1)}px "HackGenConsoleNF", "JetBrains Mono", Consolas, monospace`;
-    ctx.fillText(scene.title, 12, 10);
+    ctx.fillText(frame.title, 12, 10);
 
     return { viewport };
+}
+
+export function renderGuiPreviewSceneToCanvas(
+    ctx: CanvasRenderingContext2D,
+    scene: GuiPreviewScene,
+    width: number,
+    height: number,
+    options: GuiPreviewCanvasRenderOptions,
+): GuiPreviewCanvasRenderResult {
+    return renderGuiPreviewFrameToCanvas(ctx, scene, width, height, options);
 }
 
 function renderGuiPreviewCommand(

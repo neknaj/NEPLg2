@@ -37,6 +37,13 @@ export type GuiPreviewDrawCommand =
         align: GuiPreviewTextAlign;
     };
 
+export type GuiPreviewCommandFrame = {
+    title: string;
+    width: number;
+    height: number;
+    commands: GuiPreviewDrawCommand[];
+};
+
 export function guiPreviewRgb(red: number, green: number, blue: number): GuiPreviewColor {
     return guiPreviewRgba(red, green, blue, 255);
 }

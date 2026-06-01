@@ -1,3 +1,16 @@
+# 2026-06-02 Agent2 Web GUI host bridge checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` を fetch し、local `main` と `origin/main` が 0/0 で同期済みであることを確認してから `agent2/gui-web-host-bridge` を作成した。
+- Zenn 記事の platform 依存隔離、`null` / `undefined` 禁止、enum / struct による静的検査、契約と現状実装の分離方針に従い、Web GUI preview に TypeScript 側 host frame decode / present 境界を追加した。
+- `web/src/gui-preview/host-bridge.ts` は unknown input を `GuiWebHostResult` の `ok` / `err` union で decode し、invalid frame、invalid command、invalid rect、invalid color、invalid text、unsupported command を typed error として返す。decode logic は Canvas / DOM 型や throw に依存しない。
+- `web/src/gui-preview/commands.ts` に command frame 型を追加し、`canvas-renderer.ts` は scene 専用ではなく command frame を描画できるようにした。`panel.ts` は `presentHostFrame` を持ち、host frame 表示中は preview kind select を無効化し、host frame の command count を metrics として表示する。
+- `web/src/gui-preview/window-manager.ts` は `host-frame` source と `presentHostFrame input` を追加し、host `windowId` ごとに floating window を再利用して decoded command frame を表示できる。
+- `nodesrc/test_web_gui_host_bridge.js` を追加し、valid present frame、invalid color byte、unsupported command、floating window present boundary、host bridge に Canvas / DOM 型、`| null` / `| undefined`、`any`、throw を入れないことを固定した。`nodesrc/run_source_policy_regressions.js` にも接続した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、TypeScript host frame decode / present 境界は実装済み、NEPL/Wasm runtime からの direct export / import 接続は未実装という状態に合わせて更新した。
+- focused 検証: `npm --prefix web run build:ts`、`node nodesrc/test_web_gui_host_bridge.js`、`node nodesrc/test_web_gui_preview_renderer.js`、`node nodesrc/test_web_gui_floating_window_source.js`、`node nodesrc/playground_workspace_test_runner.js`、`trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-host-bridge.json` は pass。playground editor JSON は 13/13 pass。
+- `node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 だが、既存 warning として stdlib doctest gap、static check boundary、resource checker responsibility、parser backend responsibility、resource gate order、diagnostic code registry の 6 件が残る。
+- subagent review は、`host-bridge.ts` が DOM / Canvas 型、`any`、throw、nullable union に依存せず typed `GuiWebHostResult` error を返すこと、Canvas / DOM が panel / canvas / window surface に閉じていること、docs / todo が TypeScript decode / present 境界と NEPL/Wasm direct bridge 残件を正しく分けていることを確認し、findings なしで `MERGE_APPROVED`。
+
 # 2026-06-02 Agent2 Web GUI command bridge checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` を fetch し、local `main` と `origin/main` が 0/0 で同期済みであることを確認してから `agent2/gui-web-command-bridge` を作成した。

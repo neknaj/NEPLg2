@@ -1,5 +1,7 @@
 import { GuiPreviewPanel } from './panel.js';
 import { GuiPreviewKind, guiPreviewKindFromPath } from './renderer.js';
+import { decodeGuiWebHostPresentedFrame } from './host-bridge.js';
+import type { GuiWebHostResult } from './host-bridge.js';
 
 type GuiWindowRect = {
     left: number;
@@ -10,7 +12,8 @@ type GuiWindowRect = {
 
 type GuiWindowSource =
     | { kind: 'source-path'; path: string }
-    | { kind: 'preview-kind'; previewKind: GuiPreviewKind };
+    | { kind: 'preview-kind'; previewKind: GuiPreviewKind }
+    | { kind: 'host-frame'; windowId: number; title: string };
 
 type DockButtonState =
     | { kind: 'none' }
@@ -98,6 +101,36 @@ export class GuiFloatingWindowManager {
 
     openWindowForKind(previewKind: GuiPreviewKind): string {
         return this.openWindow({ kind: 'preview-kind', previewKind });
+    }
+
+    presentHostFrame(input: unknown): GuiWebHostResult<string> {
+        const decoded = decodeGuiWebHostPresentedFrame(input);
+        if (decoded.kind === 'err') {
+            return decoded;
+        }
+        const source: GuiWindowSource = {
+            kind: 'host-frame',
+            windowId: decoded.value.windowId,
+            title: decoded.value.frame.title,
+        };
+        const id = this.openWindow(source);
+        const lookup = this.lookupWindow(id);
+        if (lookup.kind === 'missing') {
+            return {
+                kind: 'err',
+                error: {
+                    kind: 'invalid-frame',
+                    path: '$.windowId',
+                    expected: 'mounted GUI window',
+                    actual: id,
+                },
+            };
+        }
+        lookup.windowState.preview.presentHostFrame(decoded.value.frame);
+        lookup.windowState.source = source;
+        this.updateTitle(lookup.windowState);
+        this.focusWindow(id);
+        return { kind: 'ok', value: id };
     }
 
     private openWindow(source: GuiWindowSource): string {
@@ -200,13 +233,16 @@ export class GuiFloatingWindowManager {
         if (source.kind === 'source-path') {
             return guiPreviewKindFromPath(source.path);
         }
+        if (source.kind === 'host-frame') {
+            return 'mandelbrot';
+        }
         return source.previewKind;
     }
 
     private applySource(windowState: FloatingGuiWindow, source: GuiWindowSource) {
         if (source.kind === 'source-path') {
             windowState.preview.setSourcePath(source.path);
-        } else {
+        } else if (source.kind === 'preview-kind') {
             windowState.preview.setKind(source.previewKind);
         }
         windowState.previewKind = windowState.preview.kind;
@@ -216,6 +252,9 @@ export class GuiFloatingWindowManager {
     private sourceMatches(windowState: FloatingGuiWindow, source: GuiWindowSource, previewKind: GuiPreviewKind): boolean {
         if (source.kind === 'source-path' && windowState.source.kind === 'source-path') {
             return windowState.source.path === source.path;
+        }
+        if (source.kind === 'host-frame' && windowState.source.kind === 'host-frame') {
+            return windowState.source.windowId === source.windowId;
         }
         return source.kind === 'preview-kind'
             && windowState.source.kind === 'preview-kind'
@@ -489,6 +528,9 @@ export class GuiFloatingWindowManager {
                 : 'Counter';
         if (windowState.source.kind === 'preview-kind') {
             return `GUI ${label}`;
+        }
+        if (windowState.source.kind === 'host-frame') {
+            return windowState.source.title;
         }
         const parts = windowState.source.path.split('/');
         return `GUI ${label} - ${parts[parts.length - 1] || windowState.source.path}`;
