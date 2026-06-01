@@ -86,4 +86,8 @@ pub use compiler::{
     CompileStageTimings, CompileTarget, PublicInterfaceArtifactInputs,
     ResourceSummaryProofArtifactCacheOptions,
 };
+pub use codegen_wasm::{
+    plan_neplobj_direct_call_fragments_for_wasm, NeplObjWasmDirectCallLinkPlanReject,
+    NeplObjWasmDirectCallLinkPlanToken, NeplObjWasmResolvedDirectCallRelocation,
+};
 pub use error::CoreError;

@@ -3730,19 +3730,19 @@ mod tests {
         let first = neplobj_direct_call_fragment(
             key.clone(),
             Vec::from([NeplObjWasmValType::I32]),
-            Vec::from([0x41, 0x01, 0x0b]),
+            Vec::from([0x00, 0x41, 0x01, 0x0b]),
             Vec::new(),
         );
         let body_edit = neplobj_direct_call_fragment(
             key.clone(),
             Vec::from([NeplObjWasmValType::I32]),
-            Vec::from([0x41, 0x02, 0x0b]),
+            Vec::from([0x00, 0x41, 0x02, 0x0b]),
             Vec::new(),
         );
         let signature_edit = neplobj_direct_call_fragment(
             key,
             Vec::from([NeplObjWasmValType::I64]),
-            Vec::from([0x41, 0x01, 0x0b]),
+            Vec::from([0x00, 0x41, 0x01, 0x0b]),
             Vec::new(),
         );
 
@@ -3764,7 +3764,7 @@ mod tests {
         let target_a = callable_link_symbol("callee_a", 0x21);
         let target_b = callable_link_symbol("callee_b", 0x22);
         let relocation_a = NeplObjWasmDirectCallRelocation {
-            byte_offset: 8,
+            byte_offset: 4,
             target: target_a,
         };
         let relocation_b = NeplObjWasmDirectCallRelocation {
@@ -3774,13 +3774,13 @@ mod tests {
         let first = neplobj_direct_call_fragment(
             key.clone(),
             Vec::from([NeplObjWasmValType::I32]),
-            Vec::from([0x10, 0x00, 0x10, 0x01, 0x41, 0x00, 0x41, 0x01, 0x0b]),
+            Vec::from([0x00, 0x10, 0x00, 0x10, 0x01, 0x0b]),
             Vec::from([relocation_a.clone(), relocation_b.clone()]),
         );
         let reordered = neplobj_direct_call_fragment(
             key,
             Vec::from([NeplObjWasmValType::I32]),
-            Vec::from([0x10, 0x00, 0x10, 0x01, 0x41, 0x00, 0x41, 0x01, 0x0b]),
+            Vec::from([0x00, 0x10, 0x00, 0x10, 0x01, 0x0b]),
             Vec::from([relocation_b, relocation_a]),
         );
 
@@ -3788,7 +3788,7 @@ mod tests {
         match first.backend() {
             NeplObjDirectCallBackendFragment::Wasm(fragment) => {
                 assert_eq!(fragment.direct_call_relocations()[0].byte_offset, 2);
-                assert_eq!(fragment.direct_call_relocations()[1].byte_offset, 8);
+                assert_eq!(fragment.direct_call_relocations()[1].byte_offset, 4);
             }
         }
     }
@@ -3801,9 +3801,9 @@ mod tests {
         let result = NeplObjWasmDirectCallFragment::new(
             Vec::new(),
             Vec::from([NeplObjWasmValType::I32]),
-            Vec::from([0x10, 0x00, 0x0b]),
+            Vec::from([0x00, 0x10, 0x00, 0x0b]),
             Vec::from([NeplObjWasmDirectCallRelocation {
-                byte_offset: 3,
+                byte_offset: 4,
                 target: callable_link_symbol("callee", 0x21),
             }]),
         );
@@ -3811,8 +3811,8 @@ mod tests {
         assert_eq!(
             result,
             Err(NeplObjDirectCallFragmentReject::RelocationOffsetOutOfRange {
-                byte_offset: 3,
-                body_len: 3,
+                byte_offset: 4,
+                body_len: 4,
             })
         );
     }
@@ -3824,14 +3824,14 @@ mod tests {
         let result = NeplObjWasmDirectCallFragment::new(
             Vec::new(),
             Vec::from([NeplObjWasmValType::I32]),
-            Vec::from([0x10, 0x00, 0x0b]),
+            Vec::from([0x00, 0x10, 0x00, 0x0b]),
             Vec::from([
                 NeplObjWasmDirectCallRelocation {
-                    byte_offset: 1,
+                    byte_offset: 2,
                     target: callable_link_symbol("callee_a", 0x21),
                 },
                 NeplObjWasmDirectCallRelocation {
-                    byte_offset: 1,
+                    byte_offset: 2,
                     target: callable_link_symbol("callee_b", 0x22),
                 },
             ]),
@@ -3839,7 +3839,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Err(NeplObjDirectCallFragmentReject::DuplicateRelocationOffset { byte_offset: 1 })
+            Err(NeplObjDirectCallFragmentReject::DuplicateRelocationOffset { byte_offset: 2 })
         );
     }
 
@@ -3862,7 +3862,7 @@ mod tests {
         let fragment = neplobj_direct_call_fragment(
             key.clone(),
             Vec::from([NeplObjWasmValType::I32]),
-            Vec::from([0x0b]),
+            Vec::from([0x00, 0x0b]),
             Vec::new(),
         );
 

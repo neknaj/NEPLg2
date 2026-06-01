@@ -382,6 +382,16 @@ module assembly で relocation を解決する。これにより、key-only hit 
 この checkpoint でも function value、indirect call、`memo_call` は解決しない。高階関数と
 memoization には、別途 function value backend representation と PrivateCache proof が必要である。
 
+## 2026-06-02 wasm direct-call link-plan token checkpoint
+
+`.neplmeta` materialized callable の direct call を安全に通す前段として、wasm backend 側で
+`.neplobj` fragment payload の link-plan token を作れるようにした。これは trait / impl materializer の
+surface projection ではなく、backend が function index 空間と relocation target を確認する境界である。
+
+この token は direct call fragment 専用であり、function value、indirect call、`memo_call` は扱わない。
+そのため、この issue の trait / impl materializer は引き続き public surface の復元に集中し、codegen body
+availability は binary intermediate artifact issue の `.neplobj` / `.nepllink` 側で扱う。
+
 ## 2026-06-01 selected body hash authority checkpoint
 
 direct-call `.neplobj` key の selected body hash は、Resource summary value cache と同じ

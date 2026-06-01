@@ -49085,3 +49085,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `NeplObjWasmDirectCallFragment` は params / results / function body bytes / direct-call relocation を持つ。relocation は final module assembly で function index を解決するための情報であり、fragment 作成時に安定順へ正規化する。重複 relocation offset と body 範囲外 offset は artifact 作成時点で拒否する。
 - function value、indirect call、`memo_call` は `.neplobj` direct-call fragment schema では解決しない。高階関数と memoization は別途 backend representation と PrivateCache proof が必要である。
 - focused verification は `cargo test -p nepl-core neplobj_direct_call_fragment --lib` を通した。全体 verification は commit 前に `cargo check`、Web build、bench、issue check、`git diff --check` で確認する。
+
+## 2026-06-02 Agent wasm direct-call `.neplobj` link-plan token checkpoint
+
+- remote/main と同期済みの `perf/neplobj-backend-token-20260602` branch で、`.neplobj` direct-call fragment payload が wasm backend の function index 空間へ登録可能かを検査する `plan_neplobj_direct_call_fragments_for_wasm` を追加した。`plan.md` は変更していない。
+- `NeplObjWasmDirectCallLinkPlanToken` は materialized symbol、direct-call key hash、fragment hash、assigned function index、resolved relocation、backend feature set hash を保持する。
+- この token は body-missing diagnostic を消す最終許可ではない。raw body bytes を `CodeSection` へ入れ、relocation を patch する実装が接続されるまでは、source fallback / body-missing を維持する。
+- plan は既存 extern / user function と materialized fragment の symbol 衝突、backend feature set mismatch、relocation target missing を拒否する。
+- subagent review では、token は `.neplobj` key hit ではなく wasm codegen の function set / `name_to_index` / relocation へ実際に登録されたことを表す必要があると確認した。
+- 次は source fallback / full compile から fragment payload を same-session store へ保存し、その後 actual code insertion / relocation patch と token 生成を同じ backend 境界へ統合する。
+- focused verification は `cargo test -p nepl-core neplobj_wasm_link_plan --lib` を通した。全体 verification は commit 前に `cargo check`、Web build、bench、issue check、`git diff --check` で確認する。

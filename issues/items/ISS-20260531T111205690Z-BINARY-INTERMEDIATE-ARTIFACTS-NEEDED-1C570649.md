@@ -488,6 +488,21 @@ fallback / full compile で作った payload を same-session object store へ�
 wasm codegen が payload を function body set と relocation map に登録した場合だけ diagnostic を
 消す backend 登録済み token を導入することである。
 
+## 2026-06-02 wasm direct-call link-plan token checkpoint
+
+`nepl-core::codegen_wasm` に `plan_neplobj_direct_call_fragments_for_wasm` を追加した。これは
+`.neplobj` fragment payload を diagnostic 抑制へ使う API ではなく、現在の wasm assembly plan に
+登録できるかを検査する backend authority である。
+
+この plan は、`HirModule` の extern / user function から作る function index 空間へ `.neplobj`
+fragment を追加したと仮定し、materialized symbol 衝突、backend feature set mismatch、relocation
+target missing を拒否する。成功時は assigned function index、direct-call key hash、fragment hash、
+resolved relocation を持つ `NeplObjWasmDirectCallLinkPlanToken` を返す。
+
+raw body bytes を `CodeSection` へ投入し relocation を patch する実装はまだないため、この token は
+body-missing を消さない。次の作業は、source fallback / full compile で作った payload を session store
+へ保存し、その後 token と actual code insertion を同じ backend 境界にまとめることである。
+
 ## 2026-06-01 selected body hash authority checkpoint
 
 `.neplobj` key の `selected_callable_body_hash` が使う authority として、

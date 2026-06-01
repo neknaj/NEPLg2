@@ -2629,6 +2629,24 @@ object store に保存したうえで、`PreparedProgram` / wasm codegen がそ�
 と relocation map に登録する。diagnostic 抑制は、この backend 登録済み token が存在する場合にだけ
 行う。
 
+## 2026-06-02 wasm direct-call link-plan token checkpoint
+
+`.neplobj` fragment payload を body-missing diagnostic 抑制へ直結させず、まず wasm backend の
+function index 空間に登録できることを検査する link-plan token API を追加した。
+
+`plan_neplobj_direct_call_fragments_for_wasm` は、現在の `HirModule` が持つ extern / user function と
+同じ index 割当規則で `.neplobj` fragment を追加した場合に、次を確認する。
+
+- fragment の materialized symbol が既存 function / import と衝突しない。
+- fragment の backend feature set が現在 compiler の wasm backend feature set と一致する。
+- direct-call relocation target が、既存 function または同じ plan 内の別 fragment として解決できる。
+
+成功時は `NeplObjWasmDirectCallLinkPlanToken` を返す。この token は assigned function index、
+direct-call key hash、fragment hash、resolved relocation を保持する。ただし、raw body bytes を
+`CodeSection` へ投入し relocation を実際に patch する実装はまだないため、この token だけでは
+body-missing diagnostic を消さない。次の段階では、token と function body insertion / relocation patch
+を同じ backend 境界にまとめる。
+
 ## 2026-06-01 selected body hash authority checkpoint
 
 direct-call `.neplobj` key の `selected_callable_body_hash` は、Resource summary value cache が使う
