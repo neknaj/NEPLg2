@@ -252,6 +252,7 @@ pub enum BackendDiagnosticCode {
     Llvm(LlvmDiagnosticCode),
     TraitCallUnresolved,
     TargetRequiresCli,
+    MaterializedFunctionBodyMissing,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -622,6 +623,7 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     )),
     DiagnosticCode::Backend(BackendDiagnosticCode::TraitCallUnresolved),
     DiagnosticCode::Backend(BackendDiagnosticCode::TargetRequiresCli),
+    DiagnosticCode::Backend(BackendDiagnosticCode::MaterializedFunctionBodyMissing),
 ];
 
 impl DiagnosticCode {
@@ -1417,6 +1419,9 @@ impl BackendDiagnosticCode {
             BackendDiagnosticCode::Llvm(code) => code.as_str(),
             BackendDiagnosticCode::TraitCallUnresolved => "backend.codegen.trait_call_unresolved",
             BackendDiagnosticCode::TargetRequiresCli => "backend.codegen.target_requires_cli",
+            BackendDiagnosticCode::MaterializedFunctionBodyMissing => {
+                "backend.codegen.materialized_function_body_missing"
+            }
         }
     }
 
@@ -1428,6 +1433,9 @@ impl BackendDiagnosticCode {
                 "unresolved trait call remained after monomorphize"
             }
             BackendDiagnosticCode::TargetRequiresCli => "target requires CLI backend",
+            BackendDiagnosticCode::MaterializedFunctionBodyMissing => {
+                "materialized callable requires source fallback or a code artifact"
+            }
         }
     }
 }

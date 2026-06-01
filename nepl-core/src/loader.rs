@@ -78,6 +78,7 @@ pub struct LoadResult {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NeplMetaDependencyEdgePreTypecheckProbe {
     pub target_module_path: String,
+    pub target_file_id: FileId,
     pub target_module_surface: NeplMetaModuleSurface,
     pub target_source_key_hash: u64,
     pub target_source_capability_policy_set_hash: Option<u64>,
@@ -2089,6 +2090,14 @@ impl Loader {
         if !self.configured_stdlib_source_path(&target) {
             return;
         }
+        let target_label = path_to_source_label(&target);
+        let Some(target_file_id) = sm
+            .iter_paths()
+            .find(|(_, path)| path.as_str() == target_label)
+            .map(|(file_id, _)| file_id)
+        else {
+            return;
+        };
         let Ok(source) = provider(&target) else {
             return;
         };
@@ -2115,6 +2124,7 @@ impl Loader {
         let target_module_surface = target_surface.to_nepl_meta_module_surface(&target);
         probes.push(NeplMetaDependencyEdgePreTypecheckProbe {
             target_module_path: target_module_surface.canonical_module_path.clone(),
+            target_file_id,
             target_module_surface,
             target_source_key_hash,
             target_source_capability_policy_set_hash,

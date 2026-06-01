@@ -2271,6 +2271,34 @@ codegen 入力から落とすには、`.neplobj` / codegen fragment 相当の au
 使う case では source fallback する判定が必要である。次の実装では prelude capability のように
 型検査だけで必要な surface から先に materialize し、実行 body が必要な dependency は安全側に戻す。
 
+### 2026-06-01 `.neplmeta` compiler public-interface pipeline checkpoint
+
+compile / prepare pipeline に `PublicInterfaceArtifactInputs` を追加し、dependency public surface hash、
+root module surface、materialized dependency surface を同じ authority として渡せるようにした。
+従来 wrapper は空の materialized surface を渡すため、通常 compile の挙動は変えない。
+
+materialized surface がある場合、typecheck は `typecheck_with_materialized_public_surfaces` を通る。
+ただし `.neplmeta` は関数本体、Resource IR proof、backend code fragment を持たないため、
+`neplmeta$...` stable callable symbol が HIR の直接呼び出し、function value、`memo_call` value、
+indirect call の codegen 入力へ到達した場合は `backend.codegen.materialized_function_body_missing`
+で fail-closed に止める。loader / Web session はこの診断を source fallback の根拠にできる。
+
+loader の edge probe には `target_file_id` を追加した。`MaterializedPublicSurfaceInput` は
+`module_path` と `file_id` の一致を検査するため、後続の Web bridge は loader が現在 compile の
+`SourceMap` へ登録した target file slot をそのまま使える。
+
+この checkpoint で安全に扱える範囲:
+
+- import / prelude の dependency surface が名前解決や capability 判定にだけ必要な場合。
+- selected callable body が不要で、root HIR / Resource IR / codegen が root source 内で閉じる場合。
+- selected callable body が必要になった場合に、`.neplobj` 実装まで source fallback へ戻す場合。
+
+まだ残る範囲:
+
+- Web / loader が artifact projection 成功時に dependency body merge を省く本線接続。
+- selected materialized callable を source fallback ではなく `.neplobj` / `.nepllink` で解決する backend artifact。
+- `memo_call` / function value identity へ `.neplmeta` callable を入れるための stable function identity と Resource proof。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

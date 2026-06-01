@@ -183,3 +183,31 @@ prelude body merge を省く経路は未接続であり、直接呼び出され�
 - callable body が codegen に必要な dependency は `.neplobj` ができるまで source fallback する。
 - prelude capability だけを materialize する case で base compile time を実測する。
 - `memo_call` / private cache proof / function value identity は引き続き `.neplmeta` materializer で bypass しない。
+
+## 2026-06-01 compiler public-interface pipeline checkpoint
+
+compile / prepare pipeline は `PublicInterfaceArtifactInputs` を受け取れるようになった。
+この入力は dependency public surface hash、root module surface、artifact projection 済み
+`MaterializedPublicSurfaceInput` をまとめる。既存 wrapper は空の materialized surface を渡すため、
+通常の source compile は従来どおりである。
+
+`.neplmeta` 由来 callable は stable link symbol を持つが、関数本体、Resource proof、
+backend code fragment を持たない。したがって materialized surface を使った prepare では、
+`neplmeta$...` callable が HIR の直接呼び出し、function value、memoized function value、indirect call
+として codegen 入力へ到達した場合、`backend.codegen.materialized_function_body_missing` 診断で止める。
+これは `.neplobj` が入るまでの source fallback boundary である。
+
+loader の `NeplMetaDependencyEdgePreTypecheckProbe` には `target_file_id` を追加した。
+`MaterializedPublicSurfaceInput` は SourceMap 上の `module_path` / `file_id` 一致を authority にするため、
+後続の Web bridge は path 文字列を再探索せず、loader が登録した target file slot を使える。
+
+この checkpoint でも issue は open のまま維持する。Web / loader の通常 import / prelude body merge を
+実際に省く接続は未完了であり、selected dependency callable が必要な case は `.neplobj` 実装まで
+source fallback へ戻す必要がある。
+
+残件:
+
+- `.neplmeta` store projection 成功結果を Web / loader で `MaterializedPublicSurfaceInput` へ変換する。
+- import / prelude edge の body skip を artifact-ready かつ selected callable body 不要な case から本線化する。
+- fallback rate と base compile time を `CompilerSession` stats / Node JSON で実測する。
+- `.neplobj` / `.nepllink` がない状態では materialized callable を `memo_call` / function value identity へ入れない。
