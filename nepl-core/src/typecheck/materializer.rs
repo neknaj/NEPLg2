@@ -18,13 +18,18 @@ use super::public_signature::TypedPublicSignatureKind;
 use super::public_surface::{
     public_enum_definition_hash, public_struct_definition_hash, public_trait_definition_hash,
     public_type_term_stable_hash, PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect,
-    PublicEnumSurface, PublicFieldAccessorKind, PublicNominalTypeIdentity, PublicNominalTypeKind,
-    PublicStructConstructorPolicy, PublicStructSurface, PublicSurfaceShape, PublicTraitCapability,
-    PublicTraitIdentity, PublicTraitSurface, PublicTypeParam, PublicTypeParamRef, PublicTypeTerm,
-    TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
+    PublicEnumSurface, PublicFieldAccessorKind, PublicImplKind, PublicImplSurface,
+    PublicNominalTypeIdentity, PublicNominalTypeKind, PublicStructConstructorPolicy,
+    PublicStructSurface, PublicSurfaceShape, PublicTraitCapability, PublicTraitIdentity,
+    PublicTraitRef, PublicTraitSurface, PublicTypeParam, PublicTypeParamBoundTarget,
+    PublicTypeParamBounds, PublicTypeParamRef, PublicTypeTerm, TypedPublicSurfaceEntry,
+    TypedPublicSurfaceTable,
 };
 use super::struct_shape::StructConstructorShape;
-use super::traits::{BoundEnv, TraitCapability, TraitInfo, TraitStableIdentity};
+use super::traits::{
+    BoundEnv, ImplInfo, ImplKind, TraitApplication, TraitBound, TraitCapability, TraitId,
+    TraitInfo, TraitStableIdentity, TypeParamId,
+};
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
@@ -45,6 +50,8 @@ pub struct PublicSurfaceMaterializeReport {
     pub enums_skipped_existing: usize,
     pub traits_inserted: usize,
     pub traits_skipped_existing: usize,
+    pub impls_inserted: usize,
+    pub impls_skipped_existing: usize,
 }
 
 /// `.neplmeta` public surface を typecheck 環境へ戻せなかった理由。
@@ -154,6 +161,28 @@ pub enum PublicSurfaceMaterializeRejectReason {
     DuplicateTraitMethod {
         method_name: String,
     },
+    UnsupportedImplKind,
+    MissingTraitRefIdentity {
+        trait_name: String,
+    },
+    TraitRefIdentityNameMismatch {
+        trait_name: String,
+        identity_name: String,
+    },
+    TraitRefIdentityConflict {
+        trait_name: String,
+    },
+    TraitRefArityMismatch {
+        trait_name: String,
+        expected: u32,
+        actual: u32,
+    },
+    UnboundTraitBoundTarget {
+        param_name: String,
+    },
+    DuplicateImplConflict,
+    CopyImplRequiresClone,
+    DropImplTargetCopy,
 }
 
 /// public callable surface を `Env` に注入する内部 materializer。
@@ -182,12 +211,14 @@ pub(super) fn materialize_public_surface_mvp(
     let mut structs = BTreeMap::new();
     let mut enums = BTreeMap::new();
     let mut traits = BTreeMap::new();
+    let mut impls = Vec::new();
     materialize_public_surface_with_semantics_mvp(
         ctx,
         env,
         &mut structs,
         &mut enums,
         &mut traits,
+        &mut impls,
         table,
         origin_span,
     )
@@ -199,6 +230,7 @@ pub(super) fn materialize_public_surface_with_semantics_mvp(
     structs: &mut BTreeMap<String, StructInfo>,
     enums: &mut BTreeMap<String, EnumInfo>,
     traits: &mut BTreeMap<String, TraitInfo>,
+    impls: &mut Vec<ImplInfo>,
     table: &TypedPublicSurfaceTable,
     origin_span: Span,
 ) -> Result<PublicSurfaceMaterializeReport, PublicSurfaceMaterializeReject> {
@@ -209,6 +241,7 @@ pub(super) fn materialize_public_surface_with_semantics_mvp(
         structs,
         enums,
         traits,
+        impls,
         table,
         origin_span,
     ) {
@@ -228,6 +261,13 @@ pub(super) fn materialize_public_surface_with_semantics_mvp(
     for (name, info) in staged.traits {
         traits.insert(name, info);
     }
+    if has_copy_capability_trait(traits) {
+        ctx.set_copy_trait_enabled(true);
+    }
+    for info in staged.impls {
+        register_impl_capability_target(ctx, traits, &info);
+        impls.push(info);
+    }
     for binding in staged.bindings {
         env.insert_global(binding);
     }
@@ -240,6 +280,7 @@ struct PublicSurfaceStaging {
     structs: BTreeMap<String, StructInfo>,
     enums: BTreeMap<String, EnumInfo>,
     traits: BTreeMap<String, TraitInfo>,
+    impls: Vec<ImplInfo>,
 }
 
 fn stage_public_surface_with_semantics(
@@ -248,6 +289,7 @@ fn stage_public_surface_with_semantics(
     structs: &BTreeMap<String, StructInfo>,
     enums: &BTreeMap<String, EnumInfo>,
     traits: &BTreeMap<String, TraitInfo>,
+    impls: &[ImplInfo],
     table: &TypedPublicSurfaceTable,
     origin_span: Span,
 ) -> Result<PublicSurfaceStaging, PublicSurfaceMaterializeReject> {
@@ -256,6 +298,7 @@ fn stage_public_surface_with_semantics(
     let mut staged_structs = BTreeMap::new();
     let mut staged_enums = BTreeMap::new();
     let mut staged_traits = BTreeMap::new();
+    let mut staged_impls = Vec::new();
 
     for entry in table.entries.iter() {
         match &entry.surface {
@@ -353,15 +396,40 @@ fn stage_public_surface_with_semantics(
                     }
                 }
             }
-            _ => {
-                return Err(reject(
+            PublicSurfaceShape::Impl(surface) => {
+                match stage_impl_surface(
+                    ctx,
+                    traits,
+                    &staged_traits,
+                    impls,
+                    &staged_impls,
                     entry,
-                    PublicSurfaceMaterializeRejectReason::UnsupportedSurfaceKind {
-                        kind: entry.kind,
-                    },
-                ));
+                    surface,
+                )? {
+                    ImplMaterializeOutcome::Staged(info) => {
+                        staged_impls.push(info);
+                        report.impls_inserted += 1;
+                    }
+                    ImplMaterializeOutcome::AlreadyPresent => {
+                        report.impls_skipped_existing += 1;
+                    }
+                }
             }
         }
+    }
+    if let Some(entry) = table
+        .entries
+        .iter()
+        .find(|entry| matches!(entry.surface, PublicSurfaceShape::Impl(_)))
+    {
+        validate_impl_capability_contracts(
+            ctx,
+            traits,
+            &staged_traits,
+            impls,
+            &staged_impls,
+            entry,
+        )?;
     }
     Ok(PublicSurfaceStaging {
         report,
@@ -369,6 +437,7 @@ fn stage_public_surface_with_semantics(
         structs: staged_structs,
         enums: staged_enums,
         traits: staged_traits,
+        impls: staged_impls,
     })
 }
 
@@ -397,6 +466,11 @@ enum EnumMaterializeOutcome {
 
 enum TraitMaterializeOutcome {
     Staged { name: String, info: TraitInfo },
+    AlreadyPresent,
+}
+
+enum ImplMaterializeOutcome {
+    Staged(ImplInfo),
     AlreadyPresent,
 }
 
@@ -857,6 +931,368 @@ fn stage_trait_surface(
             stable_identity: Some(stable_identity),
         },
     })
+}
+
+fn stage_impl_surface(
+    ctx: &mut TypeCtx,
+    traits: &BTreeMap<String, TraitInfo>,
+    staged_traits: &BTreeMap<String, TraitInfo>,
+    impls: &[ImplInfo],
+    staged_impls: &[ImplInfo],
+    entry: &TypedPublicSurfaceEntry,
+    surface: &PublicImplSurface,
+) -> Result<ImplMaterializeOutcome, PublicSurfaceMaterializeReject> {
+    if entry.kind != TypedPublicSignatureKind::Impl {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::EntryKindMismatch {
+                expected: TypedPublicSignatureKind::Impl,
+                actual: entry.kind,
+            },
+        ));
+    }
+    let mut materializer = TypeTermMaterializer::new(ctx);
+    let type_params = materializer.fresh_type_params(&surface.type_params);
+    materializer.push_binder(type_params.clone());
+    let type_param_bounds = materialize_public_type_param_bounds(
+        &mut materializer,
+        traits,
+        staged_traits,
+        entry,
+        &surface.type_param_bounds,
+    )?;
+    let target_ty = materializer.materialize(entry, &surface.target)?;
+    let kind = match &surface.kind {
+        PublicImplKind::Inherent => {
+            return Err(reject(
+                entry,
+                PublicSurfaceMaterializeRejectReason::UnsupportedImplKind,
+            ));
+        }
+        PublicImplKind::Trait { application } => {
+            let (application, self_ty) = materialize_public_trait_application(
+                &mut materializer,
+                traits,
+                staged_traits,
+                entry,
+                application,
+            )?;
+            ImplKind::Trait {
+                application,
+                self_ty,
+            }
+        }
+    };
+    materializer.pop_binder();
+    let candidate = ImplInfo {
+        type_params,
+        type_param_bounds,
+        kind,
+        target_ty,
+    };
+    if impls
+        .iter()
+        .chain(staged_impls.iter())
+        .any(|imp| same_materialized_impl(materializer.ctx, imp, &candidate))
+    {
+        return Ok(ImplMaterializeOutcome::AlreadyPresent);
+    }
+    if impls
+        .iter()
+        .chain(staged_impls.iter())
+        .any(|imp| overlapping_trait_impl(materializer.ctx, imp, &candidate))
+    {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::DuplicateImplConflict,
+        ));
+    }
+    Ok(ImplMaterializeOutcome::Staged(candidate))
+}
+
+fn same_materialized_impl(ctx: &TypeCtx, left: &ImplInfo, right: &ImplInfo) -> bool {
+    same_materialized_impl_kind(ctx, &left.kind, &right.kind)
+        && ctx.type_pattern_matches(left.target_ty, right.target_ty)
+        && ctx.type_pattern_matches(right.target_ty, left.target_ty)
+        && left.type_param_bounds.signature_equivalent(
+            ctx,
+            &left.type_params,
+            &right.type_param_bounds,
+            &right.type_params,
+        )
+}
+
+fn same_materialized_impl_kind(ctx: &TypeCtx, left: &ImplKind, right: &ImplKind) -> bool {
+    match (left, right) {
+        (ImplKind::Inherent, ImplKind::Inherent) => true,
+        (
+            ImplKind::Trait {
+                application: left_application,
+                self_ty: left_self_ty,
+            },
+            ImplKind::Trait {
+                application: right_application,
+                self_ty: right_self_ty,
+            },
+        ) => {
+            left_self_ty == right_self_ty
+                && left_application.matches_parts(
+                    ctx,
+                    &right_application.trait_id,
+                    &right_application.args,
+                )
+                && right_application.matches_parts(
+                    ctx,
+                    &left_application.trait_id,
+                    &left_application.args,
+                )
+        }
+        _ => false,
+    }
+}
+
+fn overlapping_trait_impl(ctx: &TypeCtx, existing: &ImplInfo, candidate: &ImplInfo) -> bool {
+    match &candidate.kind {
+        ImplKind::Inherent => false,
+        ImplKind::Trait {
+            application,
+            self_ty,
+        } => {
+            existing.matches_same_trait_impl(ctx, application, *self_ty)
+                && (ctx.type_pattern_matches(existing.target_ty, candidate.target_ty)
+                    || ctx.type_pattern_matches(candidate.target_ty, existing.target_ty))
+        }
+    }
+}
+
+fn materialize_public_type_param_bounds(
+    materializer: &mut TypeTermMaterializer<'_>,
+    traits: &BTreeMap<String, TraitInfo>,
+    staged_traits: &BTreeMap<String, TraitInfo>,
+    entry: &TypedPublicSurfaceEntry,
+    bounds: &[PublicTypeParamBounds],
+) -> Result<BoundEnv, PublicSurfaceMaterializeReject> {
+    let mut out = BoundEnv::new();
+    for bound_set in bounds {
+        let target = match &bound_set.param {
+            PublicTypeParamBoundTarget::Ref(param_ref) => {
+                materializer.generic_param(entry, param_ref)?
+            }
+            PublicTypeParamBoundTarget::Unbound(param) => {
+                return Err(reject(
+                    entry,
+                    PublicSurfaceMaterializeRejectReason::UnboundTraitBoundTarget {
+                        param_name: param.name.clone(),
+                    },
+                ));
+            }
+        };
+        let mut trait_bounds = Vec::new();
+        for bound in &bound_set.bounds {
+            let (application, trait_self_ty) = materialize_public_trait_application(
+                materializer,
+                traits,
+                staged_traits,
+                entry,
+                bound,
+            )?;
+            trait_bounds.push(TraitBound {
+                application,
+                trait_self_ty,
+            });
+        }
+        if !trait_bounds.is_empty() {
+            out.insert(TypeParamId::new(target), trait_bounds);
+        }
+    }
+    Ok(out)
+}
+
+fn materialize_public_trait_application(
+    materializer: &mut TypeTermMaterializer<'_>,
+    traits: &BTreeMap<String, TraitInfo>,
+    staged_traits: &BTreeMap<String, TraitInfo>,
+    entry: &TypedPublicSurfaceEntry,
+    trait_ref: &PublicTraitRef,
+) -> Result<(TraitApplication, TypeId), PublicSurfaceMaterializeReject> {
+    let info = trait_info_for_ref(traits, staged_traits, entry, trait_ref)?;
+    let expected_arity = info.type_params.len() as u32;
+    let actual_arity = trait_ref.args.len() as u32;
+    if expected_arity != actual_arity {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::TraitRefArityMismatch {
+                trait_name: trait_ref.name.clone(),
+                expected: expected_arity,
+                actual: actual_arity,
+            },
+        ));
+    }
+    let args = materializer.materialize_list(entry, &trait_ref.args)?;
+    Ok((
+        TraitApplication {
+            trait_id: TraitId::from_name(trait_ref.name.as_str()),
+            args,
+        },
+        info.self_ty,
+    ))
+}
+
+fn trait_info_for_ref<'a>(
+    traits: &'a BTreeMap<String, TraitInfo>,
+    staged_traits: &'a BTreeMap<String, TraitInfo>,
+    entry: &TypedPublicSurfaceEntry,
+    trait_ref: &PublicTraitRef,
+) -> Result<&'a TraitInfo, PublicSurfaceMaterializeReject> {
+    let Some(identity) = trait_ref.identity.as_ref() else {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::MissingTraitRefIdentity {
+                trait_name: trait_ref.name.clone(),
+            },
+        ));
+    };
+    if identity.name != trait_ref.name {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::TraitRefIdentityNameMismatch {
+                trait_name: trait_ref.name.clone(),
+                identity_name: identity.name.clone(),
+            },
+        ));
+    }
+    let Some(info) = staged_traits
+        .get(&trait_ref.name)
+        .or_else(|| traits.get(&trait_ref.name))
+    else {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::MissingTraitRefIdentity {
+                trait_name: trait_ref.name.clone(),
+            },
+        ));
+    };
+    if info.stable_identity.as_ref() != Some(&trait_identity_from_public(identity)) {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::TraitRefIdentityConflict {
+                trait_name: trait_ref.name.clone(),
+            },
+        ));
+    }
+    let actual_arity = trait_ref.args.len() as u32;
+    if identity.arity != actual_arity {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::TraitRefArityMismatch {
+                trait_name: trait_ref.name.clone(),
+                expected: identity.arity,
+                actual: actual_arity,
+            },
+        ));
+    }
+    Ok(info)
+}
+
+fn register_impl_capability_target(
+    ctx: &mut TypeCtx,
+    traits: &BTreeMap<String, TraitInfo>,
+    info: &ImplInfo,
+) {
+    let Some(trait_self_ty) = info.trait_self_ty() else {
+        return;
+    };
+    for capability in trait_capabilities_for_self_ty(ctx, traits, &BTreeMap::new(), trait_self_ty) {
+        match capability {
+            TraitCapability::Copy => ctx.register_copy_impl_target(info.target_ty),
+            TraitCapability::Clone => ctx.register_clone_impl_target(info.target_ty),
+            TraitCapability::Drop => ctx.register_drop_impl_target(info.target_ty),
+        }
+    }
+}
+
+fn validate_impl_capability_contracts(
+    ctx: &TypeCtx,
+    traits: &BTreeMap<String, TraitInfo>,
+    staged_traits: &BTreeMap<String, TraitInfo>,
+    impls: &[ImplInfo],
+    staged_impls: &[ImplInfo],
+    entry: &TypedPublicSurfaceEntry,
+) -> Result<(), PublicSurfaceMaterializeReject> {
+    for imp in staged_impls {
+        if impl_has_capability(ctx, traits, staged_traits, imp, TraitCapability::Copy) {
+            let has_clone_impl = impls.iter().chain(staged_impls.iter()).any(|candidate| {
+                impl_has_capability(
+                    ctx,
+                    traits,
+                    staged_traits,
+                    candidate,
+                    TraitCapability::Clone,
+                ) && type_patterns_overlap(ctx, candidate.target_ty, imp.target_ty)
+            });
+            if !has_clone_impl {
+                return Err(reject(
+                    entry,
+                    PublicSurfaceMaterializeRejectReason::CopyImplRequiresClone,
+                ));
+            }
+        }
+        if impl_has_capability(ctx, traits, staged_traits, imp, TraitCapability::Drop) {
+            let overlaps_copy_impl = impls.iter().chain(staged_impls.iter()).any(|candidate| {
+                impl_has_capability(ctx, traits, staged_traits, candidate, TraitCapability::Copy)
+                    && type_patterns_overlap(ctx, candidate.target_ty, imp.target_ty)
+            });
+            if ctx.is_copy(imp.target_ty) || overlaps_copy_impl {
+                return Err(reject(
+                    entry,
+                    PublicSurfaceMaterializeRejectReason::DropImplTargetCopy,
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn impl_has_capability(
+    ctx: &TypeCtx,
+    traits: &BTreeMap<String, TraitInfo>,
+    staged_traits: &BTreeMap<String, TraitInfo>,
+    info: &ImplInfo,
+    capability: TraitCapability,
+) -> bool {
+    let Some(trait_self_ty) = info.trait_self_ty() else {
+        return false;
+    };
+    trait_capabilities_for_self_ty(ctx, traits, staged_traits, trait_self_ty).contains(&capability)
+}
+
+fn trait_capabilities_for_self_ty(
+    ctx: &TypeCtx,
+    traits: &BTreeMap<String, TraitInfo>,
+    staged_traits: &BTreeMap<String, TraitInfo>,
+    self_ty: TypeId,
+) -> Vec<TraitCapability> {
+    let mut capabilities = Vec::new();
+    for info in traits.values().chain(staged_traits.values()) {
+        if ctx.resolve_id(info.self_ty) == ctx.resolve_id(self_ty) {
+            for capability in info.capabilities.iter().copied() {
+                if !capabilities.contains(&capability) {
+                    capabilities.push(capability);
+                }
+            }
+        }
+    }
+    capabilities
+}
+
+fn type_patterns_overlap(ctx: &TypeCtx, lhs: TypeId, rhs: TypeId) -> bool {
+    ctx.type_pattern_matches(lhs, rhs) || ctx.type_pattern_matches(rhs, lhs)
+}
+
+fn has_copy_capability_trait(traits: &BTreeMap<String, TraitInfo>) -> bool {
+    traits
+        .values()
+        .any(|info| info.capabilities.contains(&TraitCapability::Copy))
 }
 
 fn validate_trait_surface_definition(
@@ -1460,11 +1896,12 @@ mod tests {
     use crate::typecheck::public_signature::TypedPublicSignatureKind;
     use crate::typecheck::public_surface::{
         PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicEnumSurface,
-        PublicEnumVariantSurface, PublicFieldAccessorKind, PublicFieldSurface,
-        PublicNominalTypeIdentity, PublicNominalTypeKind, PublicStructConstructorPolicy,
-        PublicStructSurface, PublicSurfaceShape, PublicTraitCapability, PublicTraitIdentity,
-        PublicTraitMethodSurface, PublicTraitSurface, PublicTypeParam, PublicTypeParamRef,
-        PublicTypeTerm, TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
+        PublicEnumVariantSurface, PublicFieldAccessorKind, PublicFieldSurface, PublicImplKind,
+        PublicImplSurface, PublicNominalTypeIdentity, PublicNominalTypeKind,
+        PublicStructConstructorPolicy, PublicStructSurface, PublicSurfaceShape,
+        PublicTraitCapability, PublicTraitIdentity, PublicTraitMethodSurface, PublicTraitRef,
+        PublicTraitSurface, PublicTypeParam, PublicTypeParamRef, PublicTypeTerm,
+        TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
     };
     use crate::types::{TypeCtx, TypeKind};
 
@@ -1576,22 +2013,31 @@ mod tests {
     fn trait_entry(name: &str, methods: Vec<PublicTraitMethodSurface>) -> TypedPublicSurfaceEntry {
         let type_params = Vec::new();
         let capabilities = Vec::from([PublicTraitCapability::Clone]);
-        let definition_hash = public_trait_definition_hash(&type_params, &capabilities, &methods);
+        let identity = trait_identity_for_contract(name, &type_params, &capabilities, &methods);
         TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Trait,
             name: String::from(name),
             exported: true,
             surface: PublicSurfaceShape::Trait(PublicTraitSurface {
-                identity: Some(PublicTraitIdentity {
-                    source_path: String::from("stdlib/core/data.nepl"),
-                    name: String::from(name),
-                    arity: type_params.len() as u32,
-                    definition_hash,
-                }),
+                identity: Some(identity),
                 type_params,
                 capabilities,
                 methods,
             }),
+        }
+    }
+
+    fn trait_identity_for_contract(
+        name: &str,
+        type_params: &[PublicTypeParam],
+        capabilities: &[PublicTraitCapability],
+        methods: &[PublicTraitMethodSurface],
+    ) -> PublicTraitIdentity {
+        PublicTraitIdentity {
+            source_path: String::from("stdlib/core/data.nepl"),
+            name: String::from(name),
+            arity: type_params.len() as u32,
+            definition_hash: public_trait_definition_hash(type_params, capabilities, methods),
         }
     }
 
@@ -1737,6 +2183,7 @@ mod tests {
         let mut structs = BTreeMap::new();
         let mut enums = BTreeMap::new();
         let mut traits = BTreeMap::new();
+        let mut impls = Vec::new();
 
         let report = materialize_public_surface_with_semantics_mvp(
             &mut ctx,
@@ -1744,6 +2191,7 @@ mod tests {
             &mut structs,
             &mut enums,
             &mut traits,
+            &mut impls,
             &table,
             Span::dummy(),
         )
@@ -1787,6 +2235,7 @@ mod tests {
         let mut structs = BTreeMap::new();
         let mut enums = BTreeMap::new();
         let mut traits = BTreeMap::new();
+        let mut impls = Vec::new();
 
         let reject = materialize_public_surface_with_semantics_mvp(
             &mut ctx,
@@ -1794,6 +2243,7 @@ mod tests {
             &mut structs,
             &mut enums,
             &mut traits,
+            &mut impls,
             &table,
             Span::dummy(),
         )
@@ -1842,6 +2292,7 @@ mod tests {
         let mut structs = BTreeMap::new();
         let mut enums = BTreeMap::new();
         let mut traits = BTreeMap::new();
+        let mut impls = Vec::new();
 
         let reject = materialize_public_surface_with_semantics_mvp(
             &mut ctx,
@@ -1849,6 +2300,7 @@ mod tests {
             &mut structs,
             &mut enums,
             &mut traits,
+            &mut impls,
             &table,
             Span::dummy(),
         )
@@ -1891,6 +2343,7 @@ mod tests {
         let mut structs = BTreeMap::new();
         let mut enums = BTreeMap::new();
         let mut traits = BTreeMap::new();
+        let mut impls = Vec::new();
 
         let reject = materialize_public_surface_with_semantics_mvp(
             &mut ctx,
@@ -1898,6 +2351,7 @@ mod tests {
             &mut structs,
             &mut enums,
             &mut traits,
+            &mut impls,
             &table,
             Span::dummy(),
         )
@@ -1909,6 +2363,137 @@ mod tests {
                 method_name: String::from("show")
             }
         );
+        assert!(traits.is_empty());
+    }
+
+    #[test]
+    fn materializer_mvp_materializes_trait_impl_and_registers_capability_target() {
+        let item_fields = Vec::from([PublicFieldSurface {
+            name: String::from("value"),
+            ty: PublicTypeTerm::I32,
+        }]);
+        let item_identity = struct_identity_for_fields("Item", &Vec::new(), &item_fields);
+        let clone_trait = trait_entry("Clone", Vec::new());
+        let clone_identity = match &clone_trait.surface {
+            PublicSurfaceShape::Trait(surface) => surface.identity.as_ref().unwrap().clone(),
+            _ => panic!("Clone must be trait surface"),
+        };
+        let table = TypedPublicSurfaceTable::new(Vec::from([
+            struct_entry("Item", item_fields),
+            clone_trait,
+            TypedPublicSurfaceEntry {
+                kind: TypedPublicSignatureKind::Impl,
+                name: String::from("impl Clone for Item"),
+                exported: false,
+                surface: PublicSurfaceShape::Impl(PublicImplSurface {
+                    type_params: Vec::new(),
+                    type_param_bounds: Vec::new(),
+                    kind: PublicImplKind::Trait {
+                        application: PublicTraitRef {
+                            name: String::from("Clone"),
+                            identity: Some(clone_identity),
+                            args: Vec::new(),
+                        },
+                    },
+                    target: PublicTypeTerm::Named {
+                        name: String::from("Item"),
+                        identity: Some(item_identity),
+                    },
+                }),
+            },
+        ]));
+        let mut ctx = TypeCtx::new();
+        let mut env = Env::new();
+        let mut structs = BTreeMap::new();
+        let mut enums = BTreeMap::new();
+        let mut traits = BTreeMap::new();
+        let mut impls = Vec::new();
+
+        let report = materialize_public_surface_with_semantics_mvp(
+            &mut ctx,
+            &mut env,
+            &mut structs,
+            &mut enums,
+            &mut traits,
+            &mut impls,
+            &table,
+            Span::dummy(),
+        )
+        .unwrap();
+
+        assert_eq!(report.impls_inserted, 1);
+        assert_eq!(impls.len(), 1);
+        let item_ty = ctx.lookup_named("Item").expect("Item type");
+        assert!(ctx.has_clone_impl_target(item_ty));
+    }
+
+    #[test]
+    fn materializer_mvp_rejects_impl_trait_identity_mismatch_without_pollution() {
+        let item_fields = Vec::from([PublicFieldSurface {
+            name: String::from("value"),
+            ty: PublicTypeTerm::I32,
+        }]);
+        let item_identity = struct_identity_for_fields("Item", &Vec::new(), &item_fields);
+        let clone_trait = trait_entry("Clone", Vec::new());
+        let wrong_identity = trait_identity_for_contract(
+            "OtherClone",
+            &Vec::new(),
+            &[PublicTraitCapability::Clone],
+            &[],
+        );
+        let table = TypedPublicSurfaceTable::new(Vec::from([
+            struct_entry("Item", item_fields),
+            clone_trait,
+            TypedPublicSurfaceEntry {
+                kind: TypedPublicSignatureKind::Impl,
+                name: String::from("impl Clone for Item"),
+                exported: false,
+                surface: PublicSurfaceShape::Impl(PublicImplSurface {
+                    type_params: Vec::new(),
+                    type_param_bounds: Vec::new(),
+                    kind: PublicImplKind::Trait {
+                        application: PublicTraitRef {
+                            name: String::from("Clone"),
+                            identity: Some(wrong_identity),
+                            args: Vec::new(),
+                        },
+                    },
+                    target: PublicTypeTerm::Named {
+                        name: String::from("Item"),
+                        identity: Some(item_identity),
+                    },
+                }),
+            },
+        ]));
+        let mut ctx = TypeCtx::new();
+        let mut env = Env::new();
+        let mut structs = BTreeMap::new();
+        let mut enums = BTreeMap::new();
+        let mut traits = BTreeMap::new();
+        let mut impls = Vec::new();
+
+        let reject = materialize_public_surface_with_semantics_mvp(
+            &mut ctx,
+            &mut env,
+            &mut structs,
+            &mut enums,
+            &mut traits,
+            &mut impls,
+            &table,
+            Span::dummy(),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            reject.reason,
+            PublicSurfaceMaterializeRejectReason::TraitRefIdentityNameMismatch {
+                trait_name: String::from("Clone"),
+                identity_name: String::from("OtherClone")
+            }
+        );
+        assert!(ctx.lookup_named("Item").is_none());
+        assert!(impls.is_empty());
+        assert!(structs.is_empty());
         assert!(traits.is_empty());
     }
 

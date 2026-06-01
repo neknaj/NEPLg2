@@ -48907,3 +48907,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - post-implementation subagent review で、artifact が名乗る `definition_hash` を materializer 側で再検証していない問題が見つかったため修正した。`Struct` / `Enum` は public surface から nominal definition hash を再計算し、登録直前の materialized `TypeKind` hash とも照合する。trait は capability / method surface の hash を再計算し、重複 method 名を拒否する。
 - 残る root gap は semantic-only `PublicImplSurface` を visible export に混ぜず `ImplInfo` / capability registration へ materialize する処理である。`memo_call` / `PrivateCache` proof には今回触れていない。
 - focused verification は `cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` semantic impl materializer checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-impl-materializer-20260601` branch で、semantic-only `PublicImplSurface` materializer を進めている。`plan.md` は変更していない。
+- subagent review では、source typecheck 経路が trait definition 収集、`TraitSemantics::detect`、impl collection、copy/clone/drop 整合性検査、capability target registration の順に進むことを確認した。
+- `materialize_public_surface_with_semantics_mvp` は `impls: &mut Vec<ImplInfo>` も受け取り、`PublicImplSurface` を staging できるようになった。全 entry 成功後だけ impl registry と capability target を更新する。
+- trait application と generic bound は `PublicTraitRef.identity` を必須にし、`TraitInfo.stable_identity` と一致する場合だけ `TraitApplication` / `TraitBound` へ戻す。impl target は stable nominal identity 付き `Named` / `Apply` と binder-indexed generic reference を使う。
+- `Copy` impl は対応する `Clone` impl がなければ reject し、`Drop` impl は copyable target と重なる場合に reject する。duplicate impl は trait application と target type pattern の重なりで検出する。
+- artifact MVP gate の `UnsupportedImplLookup` は外した。残る root gap は、この materializer を dependency import / prelude body skip 経路へ接続し、base compile time を実測することである。
+- focused verification は `cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language` を通した。全体 verification はこの checkpoint の最終確認で実施する。

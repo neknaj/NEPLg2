@@ -679,14 +679,6 @@ impl NeplMetaArtifact {
         if let Some(blocker) = self.public_surface.materializer_blockers().into_iter().next() {
             return Some(NeplMetaMaterializerMvpReject::PublicSurfaceBlocker(blocker));
         }
-        if self
-            .public_surface
-            .entries
-            .iter()
-            .any(|entry| entry.kind == TypedPublicSignatureKind::Impl)
-        {
-            return Some(NeplMetaMaterializerMvpReject::UnsupportedImplLookup);
-        }
         for edge in &module_surface.dependency_edges {
             if let Some(reject) =
                 materializer_mvp_reject_for_edge(edge.kind, edge.import_clause.as_ref())

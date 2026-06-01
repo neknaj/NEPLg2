@@ -132,9 +132,28 @@ trait surface は `PublicTraitIdentity.definition_hash` をそのまま採用せ
 から再計算して照合する。重複 method 名は `BTreeMap` への投入で潰さず、materializer reject として
 扱う。
 
+## 2026-06-01 semantic impl materializer checkpoint
+
+semantic table を渡す `.neplmeta` materializer 入口で、`PublicImplSurface` を `ImplInfo` へ
+staging できるようになった。impl は public export へ混ぜず、artifact の semantic support surface として
+扱う。`PublicTraitRef.identity` は必須であり、`TraitInfo.stable_identity` と source path / name /
+arity / definition hash が一致する場合だけ `TraitApplication` へ戻す。
+
+`Clone` / `Copy` / `Drop` capability target は、staging 中ではなく全 entry 成功後にだけ
+`TypeCtx` へ登録する。`Copy` impl は対応する `Clone` impl がなければ reject し、`Drop` impl は
+copyable target と重なる場合に reject する。duplicate impl は同一 trait application と target type
+pattern の重なりとして検出し、同一 impl の再投影は `AlreadyPresent` として扱う。
+
+artifact MVP gate の `UnsupportedImplLookup` は外した。これにより、impl surface を含む `.neplmeta`
+artifact も projection / preflight を越えられる。
+
+この issue はまだ open のまま維持する。理由は、materializer の部品は揃ったが、dependency import /
+prelude の通常 typecheck body skip 経路へ接続して base compile time を更新する作業が未完了である。
+
 残件:
 
-- semantic-only `PublicImplSurface` を visible export に混ぜず、validated impl registry へ staging する。
-- `Clone` / `Copy` / `Drop` capability registration を materialized impl から更新する。
-- impl duplicate、trait application identity、generic bound の照合を fail-closed に実装する。
+- dependency artifact から得た `TypedPublicSurfaceTable` を import / prelude の `Env` / semantic registry
+  構築へ接続する。
+- `std/prelude_base` edge probe の `UnsupportedImplLookup` 解消後の次 blocker と base compile time を
+  実測する。
 - `memo_call` / private cache proof / function value identity はこの materializer で bypass しない。

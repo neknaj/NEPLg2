@@ -2223,12 +2223,33 @@ trait definition を扱う。
 definition order に依存せず named type を解決できる。enum variant constructor と struct constructor
 binding も source typecheck と同じ `Env` 経路へ staging する。
 
+### 2026-06-01 `.neplmeta` semantic impl materializer checkpoint
+
+`.neplmeta` semantic table 付き materializer は、`PublicImplSurface` を validated `ImplInfo`
+として staging し、全 entry が成功した後にだけ impl registry と capability target を更新するようにした。
+artifact MVP gate の `UnsupportedImplLookup` は外し、impl surface を含む artifact も projection / preflight
+を通過できる。
+
+この checkpoint で追加した境界:
+
+- `PublicImplKind::Trait` だけを受け入れる。inherent impl は source 側でも unsupported なので
+  fail-closed に残す。
+- trait application と generic bound は `PublicTraitRef.identity` を必須 authority とし、
+  `TraitInfo.stable_identity` と source path / name / arity / definition hash が一致する場合だけ戻す。
+- impl target と trait argument は既存の `TypeTermMaterializer` を使い、stable nominal identity 付き
+  `Named` / `Apply` / binder-indexed generic parameter から復元する。
+- duplicate impl は、trait application と target type pattern が重なる場合に拒否する。同一 impl の
+  再投影は `AlreadyPresent` として扱う。
+- `Clone` / `Copy` / `Drop` capability target は staging 中に直接更新せず、全体成功後にだけ
+  `TypeCtx` へ登録する。`Copy` impl は対応する `Clone` impl がなければ拒否し、`Drop` impl は
+  copyable target と重なる場合に拒否する。
+
 まだ残る範囲:
 
-- `PublicImplSurface` はまだ `UnsupportedSurfaceKind` / artifact MVP gate の `UnsupportedImplLookup` に残す。
-- capability registration はまだ `.neplmeta` materializer 経由では更新しない。
 - field accessor callable と function value identity は引き続き stable callable identity の別 issue に残す。
 - re-export projection は target artifact chain と衝突判定が必要なので fail-closed のままにする。
+- materialized dependency surface を実際の import / prelude typecheck body skip 経路へ接続し、base
+  compile time の実測を更新する必要がある。
 
 ## safety contract
 
