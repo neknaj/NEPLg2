@@ -337,3 +337,17 @@ source fallback へ戻る。この fallback は safety 上の正常経路であ�
 - `cargo check --manifest-path nepl-web\Cargo.toml`
 - `trunk build --release`
 - `node tests\compiler\tree\20_compiler_session_outputs_cache.js`
+
+## 2026-06-01 checkpoint 14
+
+`nodesrc/run_test.js` の timing に `compiler_session_stats` を追加し、`.neplmeta` materialized compile
+counter の before / after / delta を compile 単位で出すようにした。`compare_git_versions.js` はこの
+delta を `compile_ms` と同じ report に集計し、Markdown に `Materialized Compile` table を追加する。
+
+この checkpoint により、`.neplmeta` projection が成功した後に body missing で source fallback した
+件数を、base / warm edit compile time と同じ JSON / Markdown で追える。`.neplobj` は、まず
+`body_missing_fallbacks_delta_sum` が増える callable surface を候補として設計する。
+
+この checkpoint は object/link artifact の payload codec ではない。`TypeId`、`Span`、`SourceMap` を
+artifact に保存しないという方針、header-first decode、selected callable body hash / generic
+instantiation hash / backend feature set を key に含める方針は checkpoint 13 のまま維持する。

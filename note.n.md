@@ -1,3 +1,14 @@
+# 2026-06-01 .neplmeta materialized compile performance report checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、cache による探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は確認し、変更していない。
+- remote/main は作業開始時点で同期済みで、branch `perf/neplmeta-compile-report-20260601` はその `main` から作成した。
+- subagent review では、`CompilerSession` stats が累積値であるため、performance report 側で after snapshot を直接集計せず、runner 側で before / after / delta を固定するべきと確認した。
+- `nodesrc/run_test.js` の `timing.compiler_session_stats` に、materialized compile counter の before / after / delta を追加した。stats が取れない場合は `available=false` と reason を出し、欠落と実際の 0 を混同しない。
+- `nodesrc/compare_git_versions.js` は、`compile_ms` と同じ revision summary に materialized compile delta を集計し、Markdown report に `Materialized Compile` table と delta table を追加する。
+- `.neplmeta` projection 成功後に body missing で source fallback した件数を `body_missing_fallbacks_delta_sum` として追えるため、次の `.neplobj` / `.nepllink` candidate を実測に基づいて絞れる。
+- この checkpoint は `.neplobj` / `.nepllink` 実装でも `memo_call` proof accepted path でもない。`memo_call` は sealed private cache region non-escape proof と stable codegen artifact が揃うまで別 issue のまま fail-closed に維持する。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node nodesrc\test_run_test_compiler_session_stats_delta.js`、`node nodesrc\test_compare_git_versions_summary.js`、`node tests\compiler\tree\20_compiler_session_outputs_cache.js`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\run_test.js` smoke、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-compile-report-20260601.json`、`node nodesrc\issues.js index --dir issues`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta materialized compile fallback stats checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋性、cache による探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。

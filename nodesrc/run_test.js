@@ -441,6 +441,76 @@ function compilerSessionCacheStats(compilerApi) {
     }
 }
 
+const COMPILER_SESSION_MATERIALIZED_COMPILE_COUNTERS = [
+    ['attempts', 'nepl_meta_materialized_compile_attempts'],
+    ['attempted_surfaces', 'nepl_meta_materialized_compile_attempted_surfaces'],
+    ['accepts', 'nepl_meta_materialized_compile_accepts'],
+    ['source_fallbacks', 'nepl_meta_materialized_compile_source_fallbacks'],
+    ['source_fallback_successes', 'nepl_meta_materialized_compile_source_fallback_successes'],
+    ['source_fallback_failures', 'nepl_meta_materialized_compile_source_fallback_failures'],
+    ['body_missing_fallbacks', 'nepl_meta_materialized_compile_body_missing_fallbacks'],
+];
+
+function compilerSessionCounterValue(snapshot, key) {
+    if (!snapshot || typeof snapshot !== 'object') {
+        return { ok: false, reason: 'missing_snapshot', counter: key };
+    }
+    if (Object.prototype.hasOwnProperty.call(snapshot, 'parse_error')) {
+        return { ok: false, reason: 'stats_parse_error', counter: key };
+    }
+    if (!Object.prototype.hasOwnProperty.call(snapshot, key)) {
+        return { ok: false, reason: 'missing_counter', counter: key };
+    }
+    const value = Number(snapshot[key]);
+    if (!Number.isFinite(value)) {
+        return { ok: false, reason: 'invalid_counter', counter: key };
+    }
+    return { ok: true, value };
+}
+
+function compilerSessionCounterDeltas(before, after, counters) {
+    const out = {};
+    for (const [name, key] of counters) {
+        const beforeValue = compilerSessionCounterValue(before, key);
+        if (!beforeValue.ok) return beforeValue;
+        const afterValue = compilerSessionCounterValue(after, key);
+        if (!afterValue.ok) return afterValue;
+        const delta = afterValue.value - beforeValue.value;
+        if (delta < 0) {
+            return { ok: false, reason: 'counter_decreased', counter: key };
+        }
+        out[name] = {
+            before: beforeValue.value,
+            after: afterValue.value,
+            delta,
+        };
+    }
+    return { ok: true, value: out };
+}
+
+function compilerSessionStatsDelta(before, after) {
+    if (!before || !after) {
+        return { available: false, reason: 'missing_snapshot' };
+    }
+    const materializedCompile = compilerSessionCounterDeltas(
+        before,
+        after,
+        COMPILER_SESSION_MATERIALIZED_COMPILE_COUNTERS,
+    );
+    if (!materializedCompile.ok) {
+        return {
+            available: false,
+            reason: materializedCompile.reason,
+            counter: materializedCompile.counter || null,
+        };
+    }
+    return {
+        available: true,
+        reason: 'ok',
+        materialized_compile: materializedCompile.value,
+    };
+}
+
 function callCompilerForTiming(fn, metrics = null, compilerApi = null) {
     const start = Date.now();
     if (metrics && compilerApi) {
@@ -453,6 +523,10 @@ function callCompilerForTiming(fn, metrics = null, compilerApi = null) {
             metrics.wasm_call_ms = (metrics.wasm_call_ms || 0) + (Date.now() - start);
             if (compilerApi) {
                 metrics.compiler_session_cache_after = compilerSessionCacheStats(compilerApi);
+                metrics.compiler_session_stats = compilerSessionStatsDelta(
+                    metrics.compiler_session_cache_before,
+                    metrics.compiler_session_cache_after,
+                );
             }
         }
     }
@@ -566,6 +640,7 @@ function warmCompiler(api, meta) {
         stdlib_vfs_mode: null,
         stdlib_vfs_ms: 0,
         compiler_session: false,
+        compiler_session_stats: { available: false, reason: 'not_started' },
         compiler_session_cache_before: null,
         compiler_session_cache_after: null,
         compiler_session_prewarm_ms: 0,
@@ -702,6 +777,7 @@ async function runSingle(req, preloaded, onProgress = null) {
         stdlib_vfs_ms: 0,
         stdlib_vfs_mode: null,
         compiler_session: false,
+        compiler_session_stats: { available: false, reason: 'not_started' },
         compiler_session_cache_before: null,
         compiler_session_cache_after: null,
         compiler_session_prewarm_ms: 0,
@@ -761,6 +837,7 @@ async function runSingle(req, preloaded, onProgress = null) {
             stdlib_vfs_mode: null,
             stdlib_vfs_ms: 0,
             compiler_session: false,
+            compiler_session_stats: { available: false, reason: 'not_started' },
             compiler_session_cache_before: null,
             compiler_session_cache_after: null,
             compiler_session_prewarm_ms: 0,
@@ -794,6 +871,7 @@ async function runSingle(req, preloaded, onProgress = null) {
             timing.stdlib_vfs_mode = compileMetrics.stdlib_vfs_mode;
             timing.stdlib_vfs_ms = compileMetrics.stdlib_vfs_ms;
             timing.compiler_session = compileMetrics.compiler_session;
+            timing.compiler_session_stats = compileMetrics.compiler_session_stats;
             timing.compiler_session_cache_before = compileMetrics.compiler_session_cache_before;
             timing.compiler_session_cache_after = compileMetrics.compiler_session_cache_after;
             timing.compiler_session_prewarm_ms = compileMetrics.compiler_session_prewarm_ms;
@@ -932,6 +1010,7 @@ if (require.main === module) {
 
 module.exports = {
     createRunner,
+    compilerSessionStatsDelta,
     ensureWasiScratchDir,
     isWasmerExecutableMissing,
     runWasixBytes,

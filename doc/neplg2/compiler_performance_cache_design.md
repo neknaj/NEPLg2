@@ -2365,6 +2365,32 @@ base `compile_ms` と warm edit `compile_ms` は、既存の timing JSON とこ�
 読む。`loader_cache_stats_json` 側に elapsed time を重複保持せず、処理時間と compiler-internal reason を
 別の authority として扱う。
 
+### 2026-06-01 `.neplmeta` materialized compile performance report checkpoint
+
+Node runner の `timing` に `compiler_session_stats` を追加し、`compiler_session_cache_before` /
+`compiler_session_cache_after` の累積値から、この compile で増えた materialized compile counter だけを
+delta として固定するようにした。これにより、長寿命 `CompilerSession` の累積 counter を performance
+report 側で直接集計してしまう誤読を避ける。
+
+`compiler_session_stats.materialized_compile` で扱う delta は次である。
+
+- `attempts`
+- `attempted_surfaces`
+- `accepts`
+- `source_fallbacks`
+- `source_fallback_successes`
+- `source_fallback_failures`
+- `body_missing_fallbacks`
+
+`compare_git_versions.js` は `compile_ms` / `run_ms` / `duration_ms` と同じ revision summary に
+materialized compile delta summary を追加する。Markdown report では `Materialized Compile` table と
+`Materialized Compile Delta from first ref` table を別に出し、base / warm edit compile time と
+source fallback 率を同じ report で確認できる。
+
+この report は `.neplobj` / `.nepllink` の実装ではない。目的は、`.neplmeta` projection は成功したが
+body がないため source fallback した compile を、issue / benchmark / CI の JSON から継続的に見えるように
+することである。特に `body_missing_fallbacks` が増える case は、`.neplobj` の最初の対象候補である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

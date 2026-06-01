@@ -235,7 +235,7 @@ source fallback を持つ段階であり、base compile time を恒常的に下�
 - bundled stdlib `.neplmeta` を初回 compile 前から preseed し、base compile でも projection を使えるようにする。
 - dependency source を読み込まず interface artifact だけから `SourceMap` file slot と semantic surface を復元する。
 - selected materialized callable body を `.neplobj` / `.nepllink` で解決し、direct call case の source fallback を減らす。
-- fallback rate、base `compile_ms`、warm edit `compile_ms` を Node JSON / `CompilerSession` stats で継続的に実測する。
+- fallback rate、base `compile_ms`、warm edit `compile_ms` の report を使って、`.neplobj` / `.nepllink` の対象を絞る。
 - `memo_call` / private cache proof / function value identity は、stable codegen artifact と Resource proof が揃うまで `.neplmeta` callable だけでは許可しない。
 
 ## 2026-06-01 materialized compile fallback stats checkpoint
@@ -257,7 +257,21 @@ source fallback を持つ段階であり、base compile time を恒常的に下�
 この issue は引き続き open のまま維持する。今回の checkpoint は fallback rate の実測基盤であり、
 実際に fallback を減らすには次が必要である。
 
-- base / warm edit `compile_ms` と今回の counter delta を組み合わせた継続的な性能レポートを作る。
 - bundled stdlib `.neplmeta` preseed により base compile でも projection を使えるようにする。
 - `.neplobj` / `.nepllink` を導入し、selected materialized callable body を source fallback なしで解決する。
 - `memo_call` / function value identity は `.neplmeta` projection stats ではなく、stable codegen artifact と Resource proof が揃った後に別 issue で開く。
+
+## 2026-06-01 materialized compile performance report checkpoint
+
+Node runner の `timing` に `compiler_session_stats` を追加し、materialized compile counter を before /
+after snapshot ではなく compile 単位の delta として出すようにした。`available=false` の場合は
+`missing_snapshot`、`missing_counter`、`invalid_counter`、`counter_decreased` などの reason を出し、
+欠落と実際の 0 を混同しない。
+
+`compare_git_versions.js` は `compile_ms` と同じ revision summary に materialized compile delta を集計し、
+Markdown には `Materialized Compile` table を出す。これにより、base / warm edit `compile_ms` と
+`source_fallbacks_delta_sum` / `body_missing_fallbacks_delta_sum` を同じ report で比較できる。
+
+この checkpoint も fallback を減らす実装ではない。次は report で body missing fallback が増える
+surface を `.neplobj` candidate として抽出し、bundled stdlib `.neplmeta` preseed と object/link artifact の
+実装順序を決める。

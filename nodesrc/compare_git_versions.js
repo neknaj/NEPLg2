@@ -180,6 +180,45 @@ function numeric(value) {
     return Number.isFinite(n) ? n : null;
 }
 
+const MATERIALIZED_COMPILE_DELTA_COUNTERS = [
+    ['attempts_delta', 'attempts'],
+    ['attempted_surfaces_delta', 'attempted_surfaces'],
+    ['accepts_delta', 'accepts'],
+    ['source_fallbacks_delta', 'source_fallbacks'],
+    ['source_fallback_successes_delta', 'source_fallback_successes'],
+    ['source_fallback_failures_delta', 'source_fallback_failures'],
+    ['body_missing_fallbacks_delta', 'body_missing_fallbacks'],
+];
+
+function materializedCompileDelta(result, counterName) {
+    const stats = result?.timing?.compiler_session_stats;
+    if (!stats || stats.available !== true) return null;
+    return numeric(stats?.materialized_compile?.[counterName]?.delta);
+}
+
+function summarizeMaterializedCompile(results) {
+    const reasonCounts = {};
+    let available = 0;
+    for (const result of results) {
+        const stats = result?.timing?.compiler_session_stats;
+        if (stats && stats.available === true) {
+            available += 1;
+            continue;
+        }
+        const reason = stats && stats.reason ? String(stats.reason) : 'missing_stats';
+        reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
+    }
+    const out = {
+        available_results: available,
+        unavailable_results: results.length - available,
+        unavailable_reasons: reasonCounts,
+    };
+    for (const [summaryName, counterName] of MATERIALIZED_COMPILE_DELTA_COUNTERS) {
+        out[summaryName] = statNumbers(results.map((r) => materializedCompileDelta(r, counterName)));
+    }
+    return out;
+}
+
 function summarizeTestsJson(testJson) {
     if (!testJson) return null;
     const results = Array.isArray(testJson.results) ? testJson.results : [];
@@ -198,6 +237,7 @@ function summarizeTestsJson(testJson) {
             compile_ms: statNumbers(results.map((r) => numeric(r?.timing?.compile_ms))),
             run_ms: statNumbers(results.map((r) => numeric(r?.timing?.run_ms))),
             duration_ms: statNumbers(results.map((r) => numeric(r?.duration_ms))),
+            materialized_compile: summarizeMaterializedCompile(results),
         },
         top_issues: Array.isArray(testJson.top_issues) ? testJson.top_issues : [],
     };
@@ -268,6 +308,30 @@ function buildDelta(base, next) {
             run_ms_avg: deltaNumber(bt.timing.run_ms.avg, nt.timing.run_ms.avg),
             duration_ms_sum: deltaNumber(bt.timing.duration_ms.sum, nt.timing.duration_ms.sum),
             duration_ms_avg: deltaNumber(bt.timing.duration_ms.avg, nt.timing.duration_ms.avg),
+            materialized_compile_available_results: deltaNumber(
+                bt.timing.materialized_compile.available_results,
+                nt.timing.materialized_compile.available_results,
+            ),
+            materialized_compile_attempts_delta_sum: deltaNumber(
+                bt.timing.materialized_compile.attempts_delta.sum,
+                nt.timing.materialized_compile.attempts_delta.sum,
+            ),
+            materialized_compile_source_fallbacks_delta_sum: deltaNumber(
+                bt.timing.materialized_compile.source_fallbacks_delta.sum,
+                nt.timing.materialized_compile.source_fallbacks_delta.sum,
+            ),
+            materialized_compile_source_fallback_successes_delta_sum: deltaNumber(
+                bt.timing.materialized_compile.source_fallback_successes_delta.sum,
+                nt.timing.materialized_compile.source_fallback_successes_delta.sum,
+            ),
+            materialized_compile_source_fallback_failures_delta_sum: deltaNumber(
+                bt.timing.materialized_compile.source_fallback_failures_delta.sum,
+                nt.timing.materialized_compile.source_fallback_failures_delta.sum,
+            ),
+            materialized_compile_body_missing_fallbacks_delta_sum: deltaNumber(
+                bt.timing.materialized_compile.body_missing_fallbacks_delta.sum,
+                nt.timing.materialized_compile.body_missing_fallbacks_delta.sum,
+            ),
         } : null,
         metrics: {
             files: deltaNumber(bm.files, nm.files),
@@ -337,6 +401,34 @@ function renderMarkdown(report) {
             rows,
         ),
     ];
+    const materializedRows = report.revisions.map((r) => {
+        const m = r.tests?.timing?.materialized_compile;
+        return [
+            r.ref,
+            r.commit.slice(0, 12),
+            m ? fmt(m.available_results, 0) : '-',
+            m ? fmt(m.unavailable_results, 0) : '-',
+            m ? fmt(m.attempts_delta.sum, 0) : '-',
+            m ? fmt(m.source_fallbacks_delta.sum, 0) : '-',
+            m ? fmt(m.source_fallback_successes_delta.sum, 0) : '-',
+            m ? fmt(m.source_fallback_failures_delta.sum, 0) : '-',
+            m ? fmt(m.body_missing_fallbacks_delta.sum, 0) : '-',
+        ];
+    });
+    parts.push('', '## Materialized Compile', '', markdownTable(
+        [
+            'ref',
+            'commit',
+            'available_results',
+            'unavailable_results',
+            'attempts_delta_sum',
+            'source_fallbacks_delta_sum',
+            'source_fallback_successes_delta_sum',
+            'source_fallback_failures_delta_sum',
+            'body_missing_fallbacks_delta_sum',
+        ],
+        materializedRows,
+    ));
     if (report.deltas.length > 0) {
         const deltaRows = report.deltas.map((d) => [
             `${d.base_ref} -> ${d.ref}`,
@@ -354,6 +446,29 @@ function renderMarkdown(report) {
         parts.push('', '## Delta from first ref', '', markdownTable(
             ['range', 'commit', 'passed', 'failed', 'pass_rate', 'compile_ms_sum', 'run_ms_sum', 'lines', 'source', 'doc_comment', 'test_lines'],
             deltaRows,
+        ));
+        const materializedDeltaRows = report.deltas.map((d) => [
+            `${d.base_ref} -> ${d.ref}`,
+            d.commit.slice(0, 12),
+            d.tests ? fmt(d.tests.materialized_compile_available_results, 0) : '-',
+            d.tests ? fmt(d.tests.materialized_compile_attempts_delta_sum, 0) : '-',
+            d.tests ? fmt(d.tests.materialized_compile_source_fallbacks_delta_sum, 0) : '-',
+            d.tests ? fmt(d.tests.materialized_compile_source_fallback_successes_delta_sum, 0) : '-',
+            d.tests ? fmt(d.tests.materialized_compile_source_fallback_failures_delta_sum, 0) : '-',
+            d.tests ? fmt(d.tests.materialized_compile_body_missing_fallbacks_delta_sum, 0) : '-',
+        ]);
+        parts.push('', '## Materialized Compile Delta from first ref', '', markdownTable(
+            [
+                'range',
+                'commit',
+                'available_results',
+                'attempts_delta_sum',
+                'source_fallbacks_delta_sum',
+                'source_fallback_successes_delta_sum',
+                'source_fallback_failures_delta_sum',
+                'body_missing_fallbacks_delta_sum',
+            ],
+            materializedDeltaRows,
         ));
     }
     return `${parts.join('\n')}\n`;
