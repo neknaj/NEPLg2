@@ -1,3 +1,17 @@
+# 2026-06-02 GUI/TUI stack alignment and overflow checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` を fetch し、現在の `agent2/gui-library` が `origin/main` を含む状態であることを確認してから継続した。
+- Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、`alloc/gui/layout/stack` の policy を enum ベースで拡張した。DOM、ANSI、OS font、host window、backend present には触れない。
+- `StackLayoutPolicy` は既存 constructor の `axis + spacing` 呼び出しを保ちつつ、`StackCrossAlignment` と `StackOverflowPolicy` を保持する。既存の `stack_layout_vertical` / `stack_layout_horizontal` は `Start` + `Allow` を既定値として埋める互換 wrapper のままにした。
+- `StackCrossAlignment::Center` / `End` は parent cross size と child size から offset を計算し、`Stretch` は vertical stack の width または horizontal stack の height を parent cross size に合わせる。
+- `StackOverflowPolicy::Allow` は現状互換として parent bounds 外の配置を許し、clip / scroll は後続 layer に委ねる。`Reject` は child rect が parent bounds 外へ出る場合に `GuiError::InvalidGeometry` を返す。途中失敗時の `LayoutTreeArena` owner は内部で解放する。
+- subagent review は、既存 constructor 互換、enum/value による public API、`Result` による validation、`LayoutTreeArena` owner を消費する前に scalar を決めること、NEPLg2 executable code で括弧付き call を使わないことを確認した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、stack alignment / overflow rejection 実装済みと、残件が flex / grid / scroll、text buffer と arena node の対応付け、stateful pointer routing、backend 接続であることに合わせて更新した。
+- focused 検証: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_layout.n.md -i stdlib/alloc/gui/layout/stack.nepl --no-tree -o tmp/gui-layout-stack-alignment-focused.json -j 1 --dist web/dist --assert-io` は 13/13 pass。
+- 層境界 / issue / source policy: `node nodesrc/test_stdlib_gui_layering_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`rg -n "^[^/\r\n]*[()]" stdlib/alloc/gui/layout/stack.nepl tests/stdlib/gui_layout.n.md` は該当なし。`node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0 だが、既存 warning として stdlib doctest gap、static check boundary、resource checker responsibility、parser backend responsibility、resource gate order、diagnostic code registry の 6 件が残る。
+- `trunk build` 後の検証: `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-stack-alignment.json` は 13/13 pass。`NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_layout.n.md --no-tree -o tmp/gui-layout-stack-alignment-after-trunk-180s.json -j 1 --dist web/dist --assert-io` は 12/12 pass。`NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/layout.nepl -i stdlib/alloc/gui/layout/stack.nepl --no-tree -o tmp/gui-layout-stack-alignment-modules-after-trunk.json -j 1 --dist web/dist --assert-io` は 2/2 pass。
+- final sync 前に `origin/main` が `dbc1b569` まで進んでいることを確認した。current checkpoint を commit してから merge し、再検証する。
+
 # 2026-06-02 GUI/TUI stack layout policy checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` を fetch し、`origin/main` `ebb5609d` が現在の `agent2/gui-library` HEAD に含まれていることを確認してから継続した。

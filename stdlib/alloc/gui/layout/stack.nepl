@@ -79,13 +79,51 @@ impl Copy for StackAxis:
     fn copy_mark %fn StackAxis StackAxis \axis:
         axis
 
+//: StackCrossAlignment: stack layout の cross-axis [配置/はいち]
+//:
+//: [目的/もくてき]:
+//: - vertical stack では x / width、horizontal stack では y / height の[扱/あつか]いを enum で[表/あらわ]します。
+//: - raw integer や bool ではなく enum にすることで、後続の layout policy 追加時にも `match` の[網羅性/もうらせい][検査/けんさ]が[効/き]く形にします。
+pub enum StackCrossAlignment:
+    Start
+    Center
+    End
+    Stretch
+
+impl Clone for StackCrossAlignment:
+    fn clone %fn &StackCrossAlignment StackCrossAlignment \alignment:
+        *alignment
+
+impl Copy for StackCrossAlignment:
+    fn copy_mark %fn StackCrossAlignment StackCrossAlignment \alignment:
+        alignment
+
+//: StackOverflowPolicy: stack layout が parent bounds を[超/こ]える child をどう[扱/あつか]うか
+//:
+//: [目的/もくてき]:
+//: - `Allow` は現状互換の配置を保ち、clip や scroll は後続 render / scroll layer に[委/ゆだ]ねます。
+//: - `Reject` は parent bounds 外へ出る配置を `GuiError::InvalidGeometry` として[拒否/きょひ]します。
+pub enum StackOverflowPolicy:
+    Allow
+    Reject
+
+impl Clone for StackOverflowPolicy:
+    fn clone %fn &StackOverflowPolicy StackOverflowPolicy \policy:
+        *policy
+
+impl Copy for StackOverflowPolicy:
+    fn copy_mark %fn StackOverflowPolicy StackOverflowPolicy \policy:
+        policy
+
 //: StackLayoutPolicy: stack layout の pure data policy
 //:
 //: [目的/もくてき]:
-//: - axis と spacing を raw bool や sentinel ではなく名前付き value として[保持/ほじ]します。
+//: - axis、spacing、cross-axis alignment、overflow policy を raw bool や sentinel ではなく名前付き value として[保持/ほじ]します。
 pub struct StackLayoutPolicy:
     axis %StackAxis
     spacing %i32
+    alignment %StackCrossAlignment
+    overflow %StackOverflowPolicy
 
 impl Clone for StackLayoutPolicy:
     fn clone %fn &StackLayoutPolicy StackLayoutPolicy \policy:
@@ -97,15 +135,27 @@ impl Copy for StackLayoutPolicy:
 
 //: stack_layout_policy: axis と spacing から policy を[作/つく]る
 pub fn stack_layout_policy %fn StackAxis fn i32 StackLayoutPolicy \axis\spacing:
-    StackLayoutPolicy axis spacing
+    stack_layout_policy_full axis spacing StackCrossAlignment::Start StackOverflowPolicy::Allow
+
+//: stack_layout_policy_full: stack layout policy の全 field を[明示/めいじ]して[作/つく]る
+pub fn stack_layout_policy_full %fn StackAxis fn i32 fn StackCrossAlignment fn StackOverflowPolicy StackLayoutPolicy \axis\spacing\alignment\overflow:
+    StackLayoutPolicy axis spacing alignment overflow
 
 //: stack_layout_vertical: vertical stack policy を[作/つく]る
 pub fn stack_layout_vertical %fn i32 StackLayoutPolicy \spacing:
-    StackLayoutPolicy StackAxis::Vertical spacing
+    stack_layout_policy_full StackAxis::Vertical spacing StackCrossAlignment::Start StackOverflowPolicy::Allow
 
 //: stack_layout_horizontal: horizontal stack policy を[作/つく]る
 pub fn stack_layout_horizontal %fn i32 StackLayoutPolicy \spacing:
-    StackLayoutPolicy StackAxis::Horizontal spacing
+    stack_layout_policy_full StackAxis::Horizontal spacing StackCrossAlignment::Start StackOverflowPolicy::Allow
+
+//: stack_layout_vertical_aligned: vertical stack policy を cross-axis alignment 付きで[作/つく]る
+pub fn stack_layout_vertical_aligned %fn i32 fn StackCrossAlignment StackLayoutPolicy \spacing\alignment:
+    stack_layout_policy_full StackAxis::Vertical spacing alignment StackOverflowPolicy::Allow
+
+//: stack_layout_horizontal_aligned: horizontal stack policy を cross-axis alignment 付きで[作/つく]る
+pub fn stack_layout_horizontal_aligned %fn i32 fn StackCrossAlignment StackLayoutPolicy \spacing\alignment:
+    stack_layout_policy_full StackAxis::Horizontal spacing alignment StackOverflowPolicy::Allow
 
 //: stack_layout_policy_axis: policy の axis を[読/よ]む
 pub fn stack_layout_policy_axis %fn &StackLayoutPolicy StackAxis \policy:
@@ -114,6 +164,14 @@ pub fn stack_layout_policy_axis %fn &StackLayoutPolicy StackAxis \policy:
 //: stack_layout_policy_spacing: policy の spacing を[読/よ]む
 pub fn stack_layout_policy_spacing %fn &StackLayoutPolicy i32 \policy:
     *field::get_ref policy "spacing"
+
+//: stack_layout_policy_alignment: policy の cross-axis alignment を[読/よ]む
+pub fn stack_layout_policy_alignment %fn &StackLayoutPolicy StackCrossAlignment \policy:
+    *field::get_ref policy "alignment"
+
+//: stack_layout_policy_overflow: policy の overflow policy を[読/よ]む
+pub fn stack_layout_policy_overflow %fn &StackLayoutPolicy StackOverflowPolicy \policy:
+    *field::get_ref policy "overflow"
 
 //: stack_layout_policy_is_valid: policy が geometry として[有効/ゆうこう]か[確認/かくにん]する
 pub fn stack_layout_policy_is_valid %fn &StackLayoutPolicy bool \policy:
@@ -159,6 +217,43 @@ fn layout_stack_axis_extent %fn StackAxis fn &GuiRect i32 \axis\bounds:
             gui_rect_height bounds
         StackAxis::Horizontal:
             gui_rect_width bounds
+
+//: layout_stack_cross_offset: cross-axis alignment から parent-local offset を[計算/けいさん]する
+fn layout_stack_cross_offset %fn StackCrossAlignment fn i32 fn i32 i32 \alignment\parent_extent\child_extent:
+    match alignment:
+        StackCrossAlignment::Start:
+            0
+        StackCrossAlignment::Center:
+            let remaining %i32 sub parent_extent child_extent
+            div_s remaining 2
+        StackCrossAlignment::End:
+            sub parent_extent child_extent
+        StackCrossAlignment::Stretch:
+            0
+
+//: layout_stack_child_width: policy によって child width を[決/き]める
+fn layout_stack_child_width %fn StackAxis fn StackCrossAlignment fn &GuiRect fn i32 i32 \axis\alignment\parent_bounds\measured_width:
+    match axis:
+        StackAxis::Vertical:
+            match alignment:
+                StackCrossAlignment::Stretch:
+                    gui_rect_width parent_bounds
+                _:
+                    measured_width
+        StackAxis::Horizontal:
+            measured_width
+
+//: layout_stack_child_height: policy によって child height を[決/き]める
+fn layout_stack_child_height %fn StackAxis fn StackCrossAlignment fn &GuiRect fn i32 i32 \axis\alignment\parent_bounds\measured_height:
+    match axis:
+        StackAxis::Vertical:
+            measured_height
+        StackAxis::Horizontal:
+            match alignment:
+                StackCrossAlignment::Stretch:
+                    gui_rect_height parent_bounds
+                _:
+                    measured_height
 
 //: layout_stack_parent_bounds: parent layout bounds を[取/と]り[出/だ]す
 fn layout_stack_parent_bounds %fn &LayoutTreeArena fn i32 Result GuiRect GuiError \layout_tree\parent_index:
@@ -208,20 +303,54 @@ fn layout_stack_previous_sibling_offset_with_spacing_loop %fn &ViewTreeArena fn 
                     Result::Err GuiError::InvalidCommand
 
 //: layout_stack_child_position_x: child の x を policy と parent bounds から[決/き]める
-fn layout_stack_child_position_x %fn StackAxis fn &GuiRect fn i32 i32 \axis\parent_bounds\offset:
+fn layout_stack_child_position_x %fn StackAxis fn StackCrossAlignment fn &GuiRect fn i32 fn i32 i32 \axis\alignment\parent_bounds\offset\child_width:
     match axis:
         StackAxis::Vertical:
-            gui_rect_x parent_bounds
+            let parent_x %i32 gui_rect_x parent_bounds
+            let parent_width %i32 gui_rect_width parent_bounds
+            let cross_offset %i32 layout_stack_cross_offset alignment parent_width child_width
+            add parent_x cross_offset
         StackAxis::Horizontal:
             add gui_rect_x parent_bounds offset
 
 //: layout_stack_child_position_y: child の y を policy と parent bounds から[決/き]める
-fn layout_stack_child_position_y %fn StackAxis fn &GuiRect fn i32 i32 \axis\parent_bounds\offset:
+fn layout_stack_child_position_y %fn StackAxis fn StackCrossAlignment fn &GuiRect fn i32 fn i32 i32 \axis\alignment\parent_bounds\offset\child_height:
     match axis:
         StackAxis::Vertical:
             add gui_rect_y parent_bounds offset
         StackAxis::Horizontal:
-            gui_rect_y parent_bounds
+            let parent_y %i32 gui_rect_y parent_bounds
+            let parent_height %i32 gui_rect_height parent_bounds
+            let cross_offset %i32 layout_stack_cross_offset alignment parent_height child_height
+            add parent_y cross_offset
+
+//: layout_stack_child_geometry_is_valid: overflow policy に従って child bounds を[検査/けんさ]する
+fn layout_stack_child_geometry_is_valid %fn StackOverflowPolicy fn &GuiRect fn i32 fn i32 fn i32 fn i32 bool \overflow\parent_bounds\x\y\width\height:
+    let child_right %i32 add x width
+    let child_bottom %i32 add y height
+    let parent_x %i32 gui_rect_x parent_bounds
+    let parent_y %i32 gui_rect_y parent_bounds
+    let parent_right %i32 gui_rect_right parent_bounds
+    let parent_bottom %i32 gui_rect_bottom parent_bounds
+    let width_non_negative %bool not lt width 0
+    let height_non_negative %bool not lt height 0
+    let right_not_wrapped %bool ge child_right x
+    let bottom_not_wrapped %bool ge child_bottom y
+    let non_negative_size %bool and width_non_negative height_non_negative
+    let no_coordinate_wrap %bool and right_not_wrapped bottom_not_wrapped
+    match overflow:
+        StackOverflowPolicy::Allow:
+            and non_negative_size no_coordinate_wrap
+        StackOverflowPolicy::Reject:
+            let x_inside %bool ge x parent_x
+            let y_inside %bool ge y parent_y
+            let right_inside %bool le child_right parent_right
+            let bottom_inside %bool le child_bottom parent_bottom
+            let size_and_wrap_ok %bool and non_negative_size no_coordinate_wrap
+            let start_inside %bool and x_inside y_inside
+            let end_inside %bool and right_inside bottom_inside
+            let bounds_inside %bool and start_inside end_inside
+            and size_and_wrap_ok bounds_inside
 
 //: layout_view_tree_arena_stack_loop: stack policy で arena node を[配置/はいち]する
 fn layout_view_tree_arena_stack_loop %fn StackLayoutPolicy fn &ViewTreeArena fn LayoutTreeArena fn LayoutConstraints fn i32 fn i32 Result LayoutTreeArena GuiError \policy\view_tree\layout_tree\constraints\count\index:
@@ -232,25 +361,34 @@ fn layout_view_tree_arena_stack_loop %fn StackLayoutPolicy fn &ViewTreeArena fn 
                 Option::Some view_node:
                     let descriptor %WidgetDescriptor view_tree_arena_node_descriptor &view_node
                     let id %WidgetId widget_descriptor_id &descriptor
-                    let width %i32 layout_stack_hint_width &constraints &descriptor
-                    let height %i32 layout_stack_hint_height &constraints &descriptor
+                    let measured_width %i32 layout_stack_hint_width &constraints &descriptor
+                    let measured_height %i32 layout_stack_hint_height &constraints &descriptor
                     let parent_index %i32 view_tree_arena_node_parent_index &view_node
                     match layout_stack_parent_bounds &layout_tree parent_index:
                         Result::Ok parent_bounds:
                             match layout_stack_previous_sibling_offset view_tree &layout_tree policy parent_index index:
                                 Result::Ok offset:
                                     let axis %StackAxis stack_layout_policy_axis &policy
-                                    let x %i32 layout_stack_child_position_x axis &parent_bounds offset
-                                    let y %i32 layout_stack_child_position_y axis &parent_bounds offset
-                                    match layout_tree_arena_add_child_fields layout_tree parent_index id x y width height:
-                                        Result::Ok next_tree:
-                                            let next_index %i32 add index 1
-                                            layout_view_tree_arena_stack_loop policy view_tree next_tree constraints count next_index
-                                        Result::Err add_error:
-                                            let kind %GuiError layout_tree_arena_add_child_error_kind &add_error
-                                            let recovered %LayoutTreeArena layout_tree_arena_add_child_error_tree add_error
-                                            layout_tree_arena_free recovered
-                                            Result::Err kind
+                                    let alignment %StackCrossAlignment stack_layout_policy_alignment &policy
+                                    let overflow %StackOverflowPolicy stack_layout_policy_overflow &policy
+                                    let width %i32 layout_stack_child_width axis alignment &parent_bounds measured_width
+                                    let height %i32 layout_stack_child_height axis alignment &parent_bounds measured_height
+                                    let x %i32 layout_stack_child_position_x axis alignment &parent_bounds offset width
+                                    let y %i32 layout_stack_child_position_y axis alignment &parent_bounds offset height
+                                    if not layout_stack_child_geometry_is_valid overflow &parent_bounds x y width height:
+                                        then:
+                                            layout_tree_arena_free layout_tree
+                                            Result::Err GuiError::InvalidGeometry
+                                        else:
+                                            match layout_tree_arena_add_child_fields layout_tree parent_index id x y width height:
+                                                Result::Ok next_tree:
+                                                    let next_index %i32 add index 1
+                                                    layout_view_tree_arena_stack_loop policy view_tree next_tree constraints count next_index
+                                                Result::Err add_error:
+                                                    let kind %GuiError layout_tree_arena_add_child_error_kind &add_error
+                                                    let recovered %LayoutTreeArena layout_tree_arena_add_child_error_tree add_error
+                                                    layout_tree_arena_free recovered
+                                                    Result::Err kind
                                 Result::Err error:
                                     layout_tree_arena_free layout_tree
                                     Result::Err error
@@ -267,7 +405,7 @@ fn layout_view_tree_arena_stack_loop %fn StackLayoutPolicy fn &ViewTreeArena fn 
 //: - linear connector より一段上の layout policy として、親ごとの sibling stacking を[提供/ていきょう]します。
 //:
 //: [制約/せいやく]:
-//: - 現 checkpoint は alignment、flex grow、grid、scroll overflow を[扱/あつか]いません。
+//: - 現 checkpoint は cross-axis alignment と overflow rejection を[扱/あつか]います。flex grow、grid、scroll state は後続 phase で[追加/ついか]します。
 //: - widget size は `LayoutHint.min_size` を constraints へ clamp して[決/き]めます。text buffer と node の対応付けは後続 phase で[追加/ついか]します。
 pub fn layout_view_tree_arena_stack <.TextMeasurerImpl: Copy> %fn &LayoutContext .TextMeasurerImpl fn &ViewTreeArena fn StackLayoutPolicy Result LayoutTreeArena GuiError \context\view_tree\policy:
     let count %i32 view_tree_arena_len view_tree

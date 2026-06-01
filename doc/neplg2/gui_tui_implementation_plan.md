@@ -11,7 +11,7 @@
 ## 現状
 
 - 明示的な GUI 標準ライブラリは存在し、`core/gui`、`alloc/gui`、`std/gui`、`platforms/gui/terminal` の初期 checkpoint まで進んでいる。
-- 現在の実装は bounded data contract と flat arena tree の初期 checkpoint を優先した段階であり、arena を使う focus traversal、pointer routing、diff / invalidation、arena order の linear layout connector、parent-local stack layout policy は実装済みである。flex / grid / scroll layout、stateful pointer routing、real backend present、Web Playground bridge、native/mobile backend はまだ未実装である。
+- 現在の実装は bounded data contract と flat arena tree の初期 checkpoint を優先した段階であり、arena を使う focus traversal、pointer routing、diff / invalidation、arena order の linear layout connector、parent-local stack layout policy、stack cross-axis alignment、overflow rejection は実装済みである。flex / grid / scroll layout、stateful pointer routing、real backend present、Web Playground bridge、native/mobile backend はまだ未実装である。
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl` は real backend なしで GUI substrate の application update と render command stream を確認する headless examples として追加した。
 - GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
@@ -162,7 +162,7 @@ Event routing は `alloc/gui/routing` の pure data contract として扱う。p
 
 Arena layout connector は `alloc/gui/layout/arena` に置く。現 checkpoint の `layout_view_tree_arena_linear` は `LayoutContext`、borrowed `ViewTreeArena`、`LayoutHint`、`LayoutConstraints` だけを使い、owner-consuming な `LayoutTreeArena` を返す。node は arena insertion order で y 方向へ配置し、parent index と depth は `ViewTreeArena` の構造を保つ。invalid constraints は `GuiError::InvalidGeometry`、空 tree や欠落 node は `GuiError::InvalidCommand` を返し、構築途中で失敗した `LayoutTreeArena` owner は connector が内部で解放する。
 
-Stack layout policy は `alloc/gui/layout/stack` に置く。現 checkpoint の `layout_view_tree_arena_stack` は `StackLayoutPolicy` の `StackAxis` と spacing を pure data として受け取り、同じ parent を持つ previous sibling の extent と spacing から parent-local offset を計算する。`ViewTreeArena` は borrow-only、成功時だけ `LayoutTreeArena` owner を返す。negative spacing、負 constraints、min > max constraints は `GuiError::InvalidGeometry`、壊れた parent index / 欠落 node は `GuiError::InvalidCommand` とし、途中で作った `LayoutTreeArena` owner は内部で解放する。alignment、flex grow、grid placement、scroll overflow、text buffer と arena node の対応付けは後続で実装する。
+Stack layout policy は `alloc/gui/layout/stack` に置く。現 checkpoint の `layout_view_tree_arena_stack` は `StackLayoutPolicy` の `StackAxis`、spacing、`StackCrossAlignment`、`StackOverflowPolicy` を pure data として受け取り、同じ parent を持つ previous sibling の extent と spacing から parent-local offset を計算する。`Start` / `Center` / `End` は cross-axis position を決め、`Stretch` は vertical stack なら child width、horizontal stack なら child height を parent cross size にそろえる。overflow policy の `Allow` は現状互換の配置を維持し、clip / scroll は後続 layer に委ねる。`Reject` は parent bounds 外へ出る配置を `GuiError::InvalidGeometry` として拒否する。`ViewTreeArena` は borrow-only、成功時だけ `LayoutTreeArena` owner を返す。negative spacing、負 constraints、min > max constraints は `GuiError::InvalidGeometry`、壊れた parent index / 欠落 node は `GuiError::InvalidCommand` とし、途中で作った `LayoutTreeArena` owner は内部で解放する。flex grow、grid placement、scroll state、text buffer と arena node の対応付けは後続で実装する。
 
 Diff / invalidation は `alloc/gui/diff` に置く。ここでは dirty widget / tree / layout などの共通 data contract だけを持ち、terminal line buffer diff、DOM patch、framebuffer dirty rect compression は `platforms/gui/*` の実装詳細にする。現 checkpoint では bounded `ViewTreeDiff` に加え、allocator-backed `ViewTreeArenaDiff` が node count、shape change、content change count、単一 changed `WidgetId` を保持する。arena owner は消費せず、parent index / depth / slot `WidgetId` の変化は `GuiInvalidation::Tree`、単一 content change は `GuiInvalidation::Widget id`、複数 content change は `GuiInvalidation::Tree` へ畳む。
 
@@ -311,6 +311,10 @@ tests/stdlib/gui_layout.n.md
     StackLayoutPolicy vertical sibling spacing
     stack nested parent-local offset
     invalid stack policy error
+    stack vertical center alignment
+    stack vertical stretch alignment
+    stack horizontal end alignment
+    stack reject overflow error
 
 tests/stdlib/gui_widget.n.md
     Button action event generation
