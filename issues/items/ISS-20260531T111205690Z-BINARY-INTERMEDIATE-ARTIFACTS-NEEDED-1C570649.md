@@ -596,3 +596,29 @@ request がある場合だけ final codegen HIR を Resource IR へ lowering し
 generic instantiation hash、string/data relocation、raw wasm/LLVM body の relocatable representation、
 persistent `.neplobj` codec、function value / memoized function value backend、`memo_call` PrivateCache
 mask proof accepted path である。
+
+## 2026-06-02 direct-call `.neplobj` relocation producer checkpoint
+
+direct-call `.neplobj` producer を call relocation 付き function へ広げた。producer は request された
+public callable link symbol と full/source compile 済み HIR の function name を対応付け、callee が
+同じ request set に含まれる public direct call の場合だけ placeholder function index を割り当てる。
+private helper、unrequested callable、builtin、trait dispatch は stable public relocation target を
+持たないため fragment を生成しない。
+
+relocation offset は wasm body bytes を後から scan して作らない。`lower_user` が作る
+`Instruction::Call(placeholder_index)` を `wasm_encoder::Function` へ emit する直前に
+`byte_len() + 1` を記録し、call immediate offset と target `PublicCallableLinkSymbol` を
+`NeplObjWasmDirectCallRelocation` に保存する。consumer 側は引き続き offset 直前が call opcode かを
+検査し、壊れた persistent payload を fail-closed に拒否する。
+
+追加 regression:
+
+- `neplobj_wasm_export_produces_direct_call_relocation_fragment`
+- `neplobj_wasm_export_rejects_direct_call_to_unrequested_target`
+- `neplobj_wasm_export_rejects_non_direct_call_leaf_boundaries`
+- `neplobj_wasm_codegen_rejects_relocation_offset_without_call_opcode`
+
+この checkpoint でも issue は open のまま維持する。残件は generic instantiation hash、
+string/data relocation、raw wasm/LLVM body の relocatable representation、persistent `.neplobj` codec、
+function value / memoized function value backend、`memo_call` PrivateCache mask proof accepted path、
+bundled stdlib `.neplmeta` / `.neplproof` preseed である。

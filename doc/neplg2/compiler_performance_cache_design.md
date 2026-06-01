@@ -2775,6 +2775,43 @@ body-missing skip cache と object availability が同じ edge context で衝突
 string/data relocation、raw wasm/LLVM body の relocatable representation、persistent `.neplobj` codec、
 そして function value / memoized value / `memo_call` PrivateCache proof の別 backend である。
 
+## 2026-06-02 direct-call `.neplobj` relocation producer checkpoint
+
+direct-call `.neplobj` producer を leaf function から public direct call を含む function へ広げた。
+producer は request された public callable link symbol と、source fallback / full compile 済み HIR の
+function name を対応付け、direct call の callee が同じ request set に含まれる場合だけ placeholder
+function index を割り当てる。private helper、unrequested callable、builtin、trait dispatch は stable
+link symbol を持つ `.neplobj` relocation target ではないため fail-closed にする。
+
+relocation offset は wasm body bytes を後から scan して作らない。`lower_user` の HIR lowering を
+`LoweredUserWasmInstructionStream` へ分け、producer は `wasm_encoder::Function` へ
+`Instruction::Call(placeholder_index)` を emit する直前の `byte_len() + 1` を call immediate offset として
+記録する。これにより offset は backend lowering が直接作った direct call と placeholder symbol の対応から
+得られ、payload consumer の opcode check は壊れた cache payload を拒否する防衛境界に留まる。
+
+`FnValue`、`MemoizedFunctionValue`、`CallIndirect`、string literal、private-cache intrinsic は引き続き
+producer の対象外である。direct call の引数や block 内の nested expression にこれらが含まれる場合も
+fragment は出さない。高階関数 identity、function table、memoized function の PrivateCache proof は
+direct-call fragment では代替できないため、別 artifact / proof 境界として扱う。
+
+追加 regression は次を固定する。
+
+- `neplobj_wasm_export_produces_direct_call_relocation_fragment`: `dep_caller -> dep_target` の
+  relocation を producer が作り、既存 `.neplobj` linker / patcher で実行結果が full body と一致する。
+- `neplobj_wasm_export_rejects_direct_call_to_unrequested_target`: request set にない callee への
+  direct call は fragment を生成しない。
+- `neplobj_wasm_export_rejects_non_direct_call_leaf_boundaries`: direct call support 後も
+  `FnValue` / `MemoizedFunctionValue` / `CallIndirect` / private-cache intrinsic / string literal /
+  nested function value argument を拒否する。
+- `neplobj_wasm_codegen_rejects_relocation_offset_without_call_opcode`: 永続 payload の offset が
+  call immediate でない場合は consumer 側で `NeplObjDirectCallLinkInvalid` にする。
+
+この checkpoint により direct-call dependency body は same-session `.neplobj` store から再利用できる
+対象が leaf function から public direct-call graph へ広がった。ただし generic instantiation hash、
+string/data relocation、raw wasm/LLVM body、function value / memoized function value backend、
+`memo_call` PrivateCache mask proof、persistent `.neplobj` codec は未完了である。base compile_ms の
+追加短縮には、これらと並行して bundled stdlib `.neplmeta` / `.neplproof` preseed を進める。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
