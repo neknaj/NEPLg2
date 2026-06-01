@@ -9,10 +9,11 @@
 - Space は keyboard activation と text input の両方を返し、上位 state が focus activation と文字入力を分離できることを固定します。
 - printable ASCII は text input のみ、範囲外 byte は `GuiError::InvalidCommand`、範囲内の未対応 control byte は event なしになることを確認します。
 - `ESC [ Z` は Shift+Tab として key code contract に正規化され、`std/gui/keymap` 経由で `Previous` へ写像できることを確認します。
-- 未対応の範囲内 3 byte sequence は event なし、範囲外 byte を含む 3 byte sequence は `GuiError::InvalidCommand` になることを確認します。
+- `ESC [ A/B/C/D` は std navigation key code に正規化され、未対応の範囲内 3 byte sequence は event なし、範囲外 byte を含む 3 byte sequence は `GuiError::InvalidCommand` になることを確認します。
+- `ESC [ 1 ; <modifier> A/B/C/D` は xterm style modifier 付き arrow key として正規化され、未知 final は event なし、arrow key に対する不正 modifier parameter は `GuiError::InvalidCommand` になることを確認します。
 
 neplg2:test[stdio, normalize_newlines]
-stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n[7] ok\n[8] ok\n[9] ok\n[10] ok\n[11] ok\n[12] ok\n[13] ok\n[14] ok\n[15] ok\n[16] ok\n"
+stdout: "Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n[4] ok\n[5] ok\n[6] ok\n[7] ok\n[8] ok\n[9] ok\n[10] ok\n[11] ok\n[12] ok\n[13] ok\n[14] ok\n[15] ok\n[16] ok\n[17] ok\n[18] ok\n[19] ok\n[20] ok\n[21] ok\n[22] ok\n[23] ok\n[24] ok\n[25] ok\n[26] ok\n[27] ok\n"
 exit_code: 0
 ```neplg2
 #entry main
@@ -76,6 +77,20 @@ fn text_value_is %fn TerminalInputEvents fn i32 bool \events\expected:
         Option::None:
             false
 
+fn keyboard_key_code_is %fn TerminalInputEvents fn i32 bool \events\expected:
+    match terminal_input_events_keyboard &events:
+        Option::Some keyboard:
+            eq expected keyboard_event_key_code &keyboard
+        Option::None:
+            false
+
+fn keyboard_modifier_has %fn TerminalInputEvents fn i32 bool \events\mask:
+    match terminal_input_events_keyboard &events:
+        Option::Some keyboard:
+            eq mask (and (keyboard_event_modifier_bits &keyboard) mask)
+        Option::None:
+            false
+
 fn result_error_is_invalid_command %fn Result TerminalInputEvents GuiError bool \result:
     match result:
         Result::Err error:
@@ -97,8 +112,17 @@ fn main %impure fn unit i32 \unit:
     let control %TerminalInputEvents unwrap_ok terminal_input_events_from_byte 1
     let invalid %Result TerminalInputEvents GuiError terminal_input_events_from_byte 256
     let shift_tab %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 90
-    let unknown_escape %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 65
+    let arrow_up %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 65
+    let arrow_down %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 66
+    let arrow_right %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 67
+    let arrow_left %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 68
+    let unknown_escape %TerminalInputEvents unwrap_ok terminal_input_events_from_escape3 27 91 81
     let invalid_escape %Result TerminalInputEvents GuiError terminal_input_events_from_escape3 27 91 300
+    let modified_arrow_up %TerminalInputEvents unwrap_ok terminal_input_events_from_csi6 27 91 49 59 50 65
+    let modified_arrow_left %TerminalInputEvents unwrap_ok terminal_input_events_from_csi6 27 91 49 59 53 68
+    let unknown_csi %TerminalInputEvents unwrap_ok terminal_input_events_from_csi6 27 91 49 59 50 90
+    let invalid_modifier %Result TerminalInputEvents GuiError terminal_input_events_from_csi6 27 91 49 59 57 65
+    let invalid_csi %Result TerminalInputEvents GuiError terminal_input_events_from_csi6 27 91 49 59 50 300
     let tab_has_keyboard %bool terminal_input_events_has_keyboard &tab
     let tab_focus_next %bool command_is_next events_focus_command &key_map tab
     let tab_has_no_text %bool is_none terminal_input_events_text_input &tab
@@ -114,8 +138,19 @@ fn main %impure fn unit i32 \unit:
     let shift_tab_has_keyboard %bool terminal_input_events_has_keyboard &shift_tab
     let shift_tab_focus_previous %bool command_is_previous events_focus_command &key_map shift_tab
     let shift_tab_has_no_text %bool is_none terminal_input_events_text_input &shift_tab
+    let arrow_up_key_code %bool keyboard_key_code_is arrow_up key_code_arrow_up
+    let arrow_down_key_code %bool keyboard_key_code_is arrow_down key_code_arrow_down
+    let arrow_right_key_code %bool keyboard_key_code_is arrow_right key_code_arrow_right
+    let arrow_left_key_code %bool keyboard_key_code_is arrow_left key_code_arrow_left
     let unknown_escape_has_no_events %bool and (not terminal_input_events_has_keyboard &unknown_escape) (not terminal_input_events_has_text_input &unknown_escape)
     let invalid_escape_rejected %bool result_error_is_invalid_command invalid_escape
+    let modified_arrow_up_key_code %bool keyboard_key_code_is modified_arrow_up key_code_arrow_up
+    let modified_arrow_up_has_shift %bool keyboard_modifier_has modified_arrow_up key_modifier_shift_bit
+    let modified_arrow_left_key_code %bool keyboard_key_code_is modified_arrow_left key_code_arrow_left
+    let modified_arrow_left_has_control %bool keyboard_modifier_has modified_arrow_left key_modifier_control_bit
+    let unknown_csi_has_no_events %bool and (not terminal_input_events_has_keyboard &unknown_csi) (not terminal_input_events_has_text_input &unknown_csi)
+    let invalid_modifier_rejected %bool result_error_is_invalid_command invalid_modifier
+    let invalid_csi_rejected %bool result_error_is_invalid_command invalid_csi
     let checks:
         checks_new
         |> checks_push assert "tab has keyboard" tab_has_keyboard
@@ -133,8 +168,19 @@ fn main %impure fn unit i32 \unit:
         |> checks_push assert "shift tab has keyboard" shift_tab_has_keyboard
         |> checks_push assert "shift tab focus previous" shift_tab_focus_previous
         |> checks_push assert "shift tab has no text" shift_tab_has_no_text
+        |> checks_push assert "arrow up key code" arrow_up_key_code
+        |> checks_push assert "arrow down key code" arrow_down_key_code
+        |> checks_push assert "arrow right key code" arrow_right_key_code
+        |> checks_push assert "arrow left key code" arrow_left_key_code
         |> checks_push assert "unknown escape has no events" unknown_escape_has_no_events
         |> checks_push assert "invalid escape rejected" invalid_escape_rejected
+        |> checks_push assert "modified arrow up key code" modified_arrow_up_key_code
+        |> checks_push assert "modified arrow up has shift" modified_arrow_up_has_shift
+        |> checks_push assert "modified arrow left key code" modified_arrow_left_key_code
+        |> checks_push assert "modified arrow left has control" modified_arrow_left_has_control
+        |> checks_push assert "unknown csi has no events" unknown_csi_has_no_events
+        |> checks_push assert "invalid modifier rejected" invalid_modifier_rejected
+        |> checks_push assert "invalid csi rejected" invalid_csi_rejected
     let shown checks_print_report checks
     checks_exit_code shown
 ```

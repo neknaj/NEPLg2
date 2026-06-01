@@ -150,3 +150,32 @@ fn main %impure fn unit i32 \unit:
     let shown checks_print_report checks
     checks_exit_code shown
 ```
+
+## keyboard_event_accessors_expose_normalized_navigation_contract
+
+[目的/もくてき]:
+- Navigation key code と modifier bit が raw ANSI / DOM / OS value ではなく、std layer の正規化済み contract として公開されることを確認します。
+- platform adapter の test が raw sequence へ戻らず、`KeyboardEvent` の正規化結果を確認できることを固定します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "Checked [ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/gui" as *
+#import "core/math" as *
+#import "std/gui/keymap" as *
+#import "std/test" as *
+
+fn main %impure fn unit i32 \unit:
+    let event %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown key_code_arrow_up (or key_modifier_shift_bit key_modifier_control_bit)
+    let check0 assert eq (keyboard_event_key_code &event) key_code_arrow_up
+    let check1 assert eq (and (keyboard_event_modifier_bits &event) key_modifier_shift_bit) key_modifier_shift_bit
+    let check2 assert eq (and (keyboard_event_modifier_bits &event) key_modifier_control_bit) key_modifier_control_bit
+    let checks checks_push (checks_push (checks_push checks_new check0) check1) check2
+    let shown checks_print_report checks
+    checks_exit_code shown
+```

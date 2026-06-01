@@ -8,6 +8,7 @@
 //: ### [契約/けいやく]
 //: - terminal raw sequence、DOM key 名、OS API の定数はこの module へ[持/も]ち[込/こ]みません。
 //: - `FocusKeyMap` は std layer の portable default contract と platform adapter の差し替え点です。
+//: - navigation key code と modifier bit は platform raw value ではなく、この module の std contract として[扱/あつか]います。
 //: - `KeyDown` だけを command に[変換/へんかん]し、`KeyUp` は `Option::None` です。
 //:
 //: neplg2:test
@@ -82,6 +83,40 @@ pub fn focus_key_map %fn i32 fn i32 fn i32 fn i32 FocusKeyMap \tab_key_code\ente
 pub fn focus_key_map_default %fn unit FocusKeyMap \unit:
     focus_key_map 9 13 32 1
 
+//: key_code_arrow_up: std layer の ArrowUp key code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - terminal CSI、DOM key、OS virtual key などを同じ `KeyboardEvent` contract に[正規化/せいきか]するための値です。
+//:
+//: [注意/ちゅうい]:
+//: - この値は raw ANSI sequence ではありません。platform adapter が raw input を[解析/かいせき]した後に[使/つか]います。
+pub fn key_code_arrow_up %fn unit i32 \unit:
+    1001
+
+//: key_code_arrow_down: std layer の ArrowDown key code を[返/かえ]す
+pub fn key_code_arrow_down %fn unit i32 \unit:
+    1002
+
+//: key_code_arrow_right: std layer の ArrowRight key code を[返/かえ]す
+pub fn key_code_arrow_right %fn unit i32 \unit:
+    1003
+
+//: key_code_arrow_left: std layer の ArrowLeft key code を[返/かえ]す
+pub fn key_code_arrow_left %fn unit i32 \unit:
+    1004
+
+//: key_modifier_shift_bit: std layer の Shift modifier bit を[返/かえ]す
+pub fn key_modifier_shift_bit %fn unit i32 \unit:
+    1
+
+//: key_modifier_alt_bit: std layer の Alt modifier bit を[返/かえ]す
+pub fn key_modifier_alt_bit %fn unit i32 \unit:
+    2
+
+//: key_modifier_control_bit: std layer の Control modifier bit を[返/かえ]す
+pub fn key_modifier_control_bit %fn unit i32 \unit:
+    4
+
 //: keyboard_event_from_key_code: std key code と modifier bit から `KeyboardEvent` を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -100,11 +135,17 @@ fn keyboard_event_kind %fn &KeyboardEvent KeyboardEventKind \event:
     *field::get_ref event "kind"
 
 //: keyboard_event_key_code: keyboard event の key code を[読/よ]む
-fn keyboard_event_key_code %fn &KeyboardEvent i32 \event:
+//:
+//: [目的/もくてき]:
+//: - platform adapter の test や上位 mapping が、raw sequence ではなく正規化済み key code を[確認/かくにん]できるようにします。
+pub fn keyboard_event_key_code %fn &KeyboardEvent i32 \event:
     *field::get_ref event "key_code"
 
 //: keyboard_event_modifier_bits: keyboard event の modifier bitset を[読/よ]む
-fn keyboard_event_modifier_bits %fn &KeyboardEvent i32 \event:
+//:
+//: [目的/もくてき]:
+//: - modifier decoding が std modifier bit contract に[変換/へんかん]されたことを[確認/かくにん]できるようにします。
+pub fn keyboard_event_modifier_bits %fn &KeyboardEvent i32 \event:
     let modifiers %KeyModifiers *field::get_ref event "modifiers"
     *field::get_ref &modifiers "bits"
 

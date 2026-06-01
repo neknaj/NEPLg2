@@ -2,15 +2,16 @@
 //: terminal raw byte input を typed GUI input event へ[正規化/せいきか]する platform adapter
 //:
 //: ### [目的/もくてき]
-//: - terminal raw mode から[届/とど]く 1 byte、または[最小/さいしょう] 3 byte ESC sequence を、`KeyboardEvent` と `TextInputEvent` の組へ[変換/へんかん]します。
+//: - terminal raw mode から[届/とど]く 1 byte、3 byte ESC sequence、または bounded 6 byte CSI sequence を、`KeyboardEvent` と `TextInputEvent` の組へ[変換/へんかん]します。
 //: - raw byte は platform [層/そう]で[閉/と]じ、alloc/gui や application code へは std key code contract と text input event だけを[渡/わた]します。
 //:
 //: ### [現在/げんざい]の[契約/けいやく]
-//: - 単独 byte の ASCII subset と、`ESC [ Z` の Shift+Tab checkpoint だけを[扱/あつか]います。
+//: - 単独 byte の ASCII subset、`ESC [ Z`、`ESC [ A/B/C/D`、`ESC [ 1 ; <modifier> A/B/C/D` を[扱/あつか]います。
 //: - Tab / Enter / Space の keyboard event は `std/gui/keymap::keyboard_event_from_key_code` で[作/つく]り、focus routing と同じ key code contract を[共有/きょうゆう]します。
 //: - `ESC [ Z` は key code 9、modifier bit 1 の `KeyDown` へ[正規化/せいきか]し、focus routing command などの application action はここでは[作/つく]りません。
+//: - Arrow key は `std/gui/keymap` の navigation key code へ[正規化/せいきか]し、xterm style modifier parameter `2..8` は Shift / Alt / Control bitset へ[変換/へんかん]します。
 //: - printable ASCII の text は `core/char::char_from_i32_result` で[検査/けんさ]してから `TextInputEvent` にします。
-//: - その他の ESC sequence、4 byte 以上の sequence、途中入力の buffering はまだ[未対応/みたいおう]であり、別 slice で[扱/あつか]います。
+//: - その他の ESC / CSI sequence、途中入力の buffering はまだ[未対応/みたいおう]であり、別 slice で[扱/あつか]います。
 //:
 //: ### [計算量/けいさんりょう]
 //: - 入力 byte を定数回だけ[分岐/ぶんき]するため O(1) です。
@@ -174,17 +175,76 @@ fn terminal_input_byte_is_invalid %fn i32 bool \byte:
 fn terminal_input_escape3_is_shift_tab %fn i32 fn i32 fn i32 bool \first\second\third:
     and (eq first 27) (and (eq second 91) (eq third 90))
 
+fn terminal_input_escape3_arrow_key_code %fn i32 Option i32 \final_byte:
+    if eq final_byte 65:
+        then some key_code_arrow_up
+        else:
+            if eq final_byte 66:
+                then some key_code_arrow_down
+                else:
+                    if eq final_byte 67:
+                        then some key_code_arrow_right
+                        else:
+                            if eq final_byte 68:
+                                then some key_code_arrow_left
+                                else none
+
+fn terminal_input_escape3_arrow_events %fn i32 Result TerminalInputEvents GuiError \final_byte:
+    match terminal_input_escape3_arrow_key_code final_byte:
+        Option::Some key_code:
+            Result::Ok terminal_input_keyboard_only key_code
+        Option::None:
+            Result::Ok terminal_input_events_empty
+
+fn terminal_input_csi6_has_modifier_arrow_prefix %fn i32 fn i32 fn i32 fn i32 bool \first\second\lead\semicolon:
+    and (eq first 27) (and (eq second 91) (and (eq lead 49) (eq semicolon 59)))
+
+fn terminal_input_csi_modifier_bits_from_byte %fn i32 Result i32 GuiError \modifier:
+    if eq modifier 50:
+        then Result::Ok key_modifier_shift_bit
+        else:
+            if eq modifier 51:
+                then Result::Ok key_modifier_alt_bit
+                else:
+                    if eq modifier 52:
+                        then Result::Ok (or key_modifier_shift_bit key_modifier_alt_bit)
+                        else:
+                            if eq modifier 53:
+                                then Result::Ok key_modifier_control_bit
+                                else:
+                                    if eq modifier 54:
+                                        then Result::Ok (or key_modifier_shift_bit key_modifier_control_bit)
+                                        else:
+                                            if eq modifier 55:
+                                                then Result::Ok (or key_modifier_alt_bit key_modifier_control_bit)
+                                                else:
+                                                    if eq modifier 56:
+                                                        then Result::Ok (or key_modifier_shift_bit (or key_modifier_alt_bit key_modifier_control_bit))
+                                                        else Result::Err GuiError::InvalidCommand
+
+fn terminal_input_csi6_arrow_events %fn i32 fn i32 Result TerminalInputEvents GuiError \modifier\final_byte:
+    match terminal_input_escape3_arrow_key_code final_byte:
+        Option::Some key_code:
+            match terminal_input_csi_modifier_bits_from_byte modifier:
+                Result::Ok modifier_bits:
+                    Result::Ok terminal_input_keyboard_only_with_modifiers key_code modifier_bits
+                Result::Err error:
+                    Result::Err error
+        Option::None:
+            Result::Ok terminal_input_events_empty
+
 //: terminal_input_events_from_escape3: 3 byte terminal ESC sequence を typed GUI input event へ[正規化/せいきか]する
 //:
 //: [仕様/しよう]:
 //: - いずれかの byte が 0 未満または 255 超過なら `GuiError::InvalidCommand` です。
 //: - `ESC [ Z`、つまり byte `27 91 90` は Shift+Tab として key code 9、modifier bit 1 の `KeyDown` を[返/かえ]します。
+//: - `ESC [ A/B/C/D` は ArrowUp / ArrowDown / ArrowRight / ArrowLeft の std key code へ[正規化/せいきか]します。
 //: - text input は[返/かえ]しません。
 //: - その他の範囲内 3 byte sequence は、未対応または未完了の platform sequence として error ではなく event なしを[返/かえ]します。
 //:
 //: [注意/ちゅうい]:
 //: - ここでは `FocusRouteCommand`、`GuiEvent::Action`、`ActionId` は[作/つく]りません。上位層が `std/gui/keymap` で `KeyboardEvent` を application command へ[写像/しゃぞう]します。
-//: - 4 byte 以上の sequence、CSI parameter、Alt modifier などはまだ[未対応/みたいおう]です。
+//: - Modifier 付き arrow key は `terminal_input_events_from_csi6` で[扱/あつか]います。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
@@ -194,4 +254,28 @@ pub fn terminal_input_events_from_escape3 %fn i32 fn i32 fn i32 Result TerminalI
         else:
             if terminal_input_escape3_is_shift_tab first second third:
                 then Result::Ok terminal_input_keyboard_only_with_modifiers 9 1
+                else terminal_input_escape3_arrow_events third
+
+//: terminal_input_events_from_csi6: 6 byte terminal CSI modifier sequence を typed GUI input event へ[正規化/せいきか]する
+//:
+//: [仕様/しよう]:
+//: - いずれかの byte が 0 未満または 255 超過なら `GuiError::InvalidCommand` です。
+//: - `ESC [ 1 ; <modifier> A/B/C/D` を xterm style の modifier 付き arrow key として[扱/あつか]います。
+//: - modifier byte は ASCII `2..8` だけを[認/みと]め、`2 = Shift`、`3 = Alt`、`4 = Shift+Alt`、`5 = Control`、`6 = Shift+Control`、`7 = Alt+Control`、`8 = Shift+Alt+Control` へ[変換/へんかん]します。
+//: - modifier byte が `2..8` ではなく、かつ final key が A/B/C/D の場合は `GuiError::InvalidCommand` です。
+//: - text input は[返/かえ]しません。
+//: - その他の範囲内 6 byte sequence は、未対応または未完了の platform sequence として error ではなく event なしを[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - ここでは `FocusRouteCommand`、`GuiEvent::Action`、`ActionId` は[作/つく]りません。上位層が `std/gui/keymap` で `KeyboardEvent` を application command へ[写像/しゃぞう]します。
+//: - Function key、Delete、Home/End などの CSI sequence はまだ[未対応/みたいおう]です。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn terminal_input_events_from_csi6 %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result TerminalInputEvents GuiError \first\second\lead\semicolon\modifier\final_byte:
+    if or (terminal_input_byte_is_invalid first) (or (terminal_input_byte_is_invalid second) (or (terminal_input_byte_is_invalid lead) (or (terminal_input_byte_is_invalid semicolon) (or (terminal_input_byte_is_invalid modifier) (terminal_input_byte_is_invalid final_byte))))):
+        then Result::Err GuiError::InvalidCommand
+        else:
+            if terminal_input_csi6_has_modifier_arrow_prefix first second lead semicolon:
+                then terminal_input_csi6_arrow_events modifier final_byte
                 else Result::Ok terminal_input_events_empty
