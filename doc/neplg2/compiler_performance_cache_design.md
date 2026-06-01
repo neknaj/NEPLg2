@@ -1645,6 +1645,31 @@ surface と stable public ABI / link symbol、generic impl parameter / bound、r
 prelude edge、module canonical path を揃えてから、fail-closed materializer を import /
 prelude boundary へ接続する。
 
+### 2026-06-01 `.neplmeta` callable authority checkpoint
+
+`PublicCallableSurface` に `PublicFieldAccessorKind` と `PublicCallableLinkSymbol` を追加した。
+field accessor helper は同じ型・effect・arity の普通の関数とは Resource / SourceCapability
+上の意味が異なるため、`get_field` / `get_field_ref` / `set_field` 由来の helper kind を
+structured surface に保存する。
+
+link symbol は span-derived `mangle_function_symbol_for_def` を artifact authority にしない。
+SourceMap がある callable について、source path、public callable name、structured type
+surface の signature hash から stable link symbol payload を作る。body-only edit では
+変わらず、signature edit や source path 変更では変わるため、cross-session materializer が
+Span / FileId に依存せず ABI 境界を確認できる。
+
+materializer preflight は stable link symbol を持たない callable を
+`MissingCallableLinkSymbol` blocker として fail-closed に拒否する。SourceMap がない compile や、
+まだ stable ABI を付けられない artifact は body skip へ進まない。
+
+この payload 形状変更に合わせ、structured surface hash namespace は
+`neplg2-typed-public-surface-v5`、`.neplmeta` schema / artifact hash / compiler identity は v6
+へ上げた。callable authority を持たない古い `.neplmeta` artifact を同じ contract として扱わない。
+
+この checkpoint でも `.neplmeta` materializer 本体はまだ未実装である。generic impl parameter /
+bound、reexport / prelude edge、module canonical path を揃えてから、fail-closed materializer を
+import / prelude boundary へ接続する。
+
 ### 2026-06-01 LLVM dual CI shard checkpoint
 
 GitHub Actions run `26728316260` では、`llvm-dual-test` の `tests` / `stdlib`

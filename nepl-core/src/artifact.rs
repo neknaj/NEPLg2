@@ -6,12 +6,12 @@ use crate::typecheck::{TypedPublicSignatureTable, TypedPublicSurfaceTable};
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
-const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 5;
-const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v5";
+const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 6;
+const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v6";
 const NEPL_META_COMPILER_IDENTITY_INPUT: &str = concat!(
     "neplg2-compiler:",
     env!("CARGO_PKG_VERSION"),
-    ":neplmeta-v5"
+    ":neplmeta-v6"
 );
 
 /// `.neplmeta` artifact の invalidation envelope。
@@ -354,6 +354,8 @@ mod tests {
                 no_shadow: false,
                 arity: 1,
                 effect: PublicEffect::Pure,
+                field_accessor: None,
+                link_symbol: None,
                 type_param_bounds: Vec::new(),
             }),
         }]))

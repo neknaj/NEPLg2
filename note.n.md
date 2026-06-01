@@ -48597,3 +48597,14 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - structured public surface hash namespace を `neplg2-typed-public-surface-v4`、`.neplmeta` schema / artifact hash / compiler identity を v5 に上げた。
 - `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。field accessor surface、stable ABI/link symbol、generic impl bound、reexport/prelude edge、module canonical path は materializer 前の残件として維持する。
 - focused verification は `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` callable authority checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-callable-authority-20260601` branch で、`.neplmeta` materializer に必要な callable surface authority を追加した。`plan.md` は変更していない。
+- subagent review では、field accessor helper を普通の callable と同化させると Resource / SourceCapability 境界が変わり、span-derived `mangle_function_symbol_for_def` を artifact authority にすると fresh session で再現できないと確認した。
+- `PublicCallableSurface` に `PublicFieldAccessorKind` と `PublicCallableLinkSymbol` を追加した。field accessor kind は既存の `BindingKind::Func.field_accessor` から投影し、public surface builder で intrinsic 名を再判定しない。
+- stable link symbol payload は source path、public callable name、structured type surface の signature hash で構成する。body-only edit では変わらず、signature edit と source path 変更では変わる。`Span`、`FileId`、HIR、Resource IR は含めない。
+- materializer preflight は stable link symbol を持たない callable を `MissingCallableLinkSymbol` blocker として fail-closed に拒否する。SourceMap がない compile や不完全 artifact は body skip へ進まない。
+- structured public surface hash namespace を `neplg2-typed-public-surface-v5`、`.neplmeta` schema / artifact hash / compiler identity を v6 に上げた。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。generic impl parameter / bound、reexport / prelude edge、module canonical path は materializer 前の残件として維持する。
+- focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。

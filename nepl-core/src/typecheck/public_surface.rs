@@ -10,11 +10,12 @@ use crate::ast::{Effect, Visibility};
 use crate::source_map::SourceMap;
 use crate::types::{NominalStableTypeKind, TypeCtx, TypeId, TypeKind};
 
-use super::env::{BindingKind, Env};
+use super::env::{Binding, BindingKind, Env};
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
 use super::public_signature::TypedPublicSignatureKind;
 use super::signature::signature_type_string;
 use super::traits::{BoundEnv, ImplInfo, ImplKind, TraitApplication, TraitCapability, TraitInfo};
+use super::FieldAccessorKind;
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
@@ -81,6 +82,8 @@ pub enum PublicSurfaceMaterializerBlockerReason {
     MissingEnumIdentity,
     /// named type term が name だけを持ち、module/source identity を持たない。
     MissingNamedTypeIdentity { type_name: String },
+    /// public callable が stable link symbol を持たない。
+    MissingCallableLinkSymbol { callable_name: String },
     /// generic parameter term を binder depth / index へ対応付けられなかった。
     UnboundGenericParam { param_name: String },
     /// trait bound target を binder depth / index へ対応付けられなかった。
@@ -111,7 +114,16 @@ pub struct PublicCallableSurface {
     pub no_shadow: bool,
     pub arity: u32,
     pub effect: PublicEffect,
+    pub field_accessor: Option<PublicFieldAccessorKind>,
+    pub link_symbol: Option<PublicCallableLinkSymbol>,
     pub type_param_bounds: Vec<PublicTypeParamBounds>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PublicCallableLinkSymbol {
+    pub source_path: String,
+    pub name: String,
+    pub signature_hash: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -291,6 +303,13 @@ pub enum PublicTraitCapability {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PublicFieldAccessorKind {
+    Get,
+    GetRef,
+    Put,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PublicStructConstructorPolicy {
     Public,
     RawMemoryOwnerToken,
@@ -300,7 +319,7 @@ pub enum PublicStructConstructorPolicy {
 
 fn typed_public_surface_hash(entries: &[TypedPublicSurfaceEntry]) -> u64 {
     let mut hash = FNV1A64_OFFSET;
-    hash_str(&mut hash, "neplg2-typed-public-surface-v4");
+    hash_str(&mut hash, "neplg2-typed-public-surface-v5");
     for entry in entries {
         hash_str(&mut hash, entry.kind.as_str());
         hash_str(&mut hash, entry.name.as_str());
@@ -317,6 +336,8 @@ fn hash_public_surface_shape(hash: &mut u64, shape: &PublicSurfaceShape) {
             hash_bool(hash, surface.no_shadow);
             hash_u32(hash, surface.arity);
             hash_public_effect(hash, surface.effect);
+            hash_optional_public_field_accessor_kind(hash, surface.field_accessor);
+            hash_optional_public_callable_link_symbol(hash, surface.link_symbol.as_ref());
             hash_u32(hash, surface.type_param_bounds.len() as u32);
             for bounds in &surface.type_param_bounds {
                 hash_public_type_param_bound_target(hash, &bounds.param);
@@ -395,6 +416,15 @@ fn collect_surface_shape_materializer_blockers(
 ) {
     match shape {
         PublicSurfaceShape::Callable(surface) => {
+            if surface.link_symbol.is_none() {
+                push_materializer_blocker(
+                    entry,
+                    PublicSurfaceMaterializerBlockerReason::MissingCallableLinkSymbol {
+                        callable_name: entry.name.clone(),
+                    },
+                    blockers,
+                );
+            }
             collect_type_term_materializer_blockers(entry, &surface.ty, blockers);
             for bounds in &surface.type_param_bounds {
                 collect_type_param_bound_target_materializer_blockers(
@@ -594,6 +624,31 @@ fn hash_public_trait_ref(hash: &mut u64, trait_ref: &PublicTraitRef) {
     }
 }
 
+fn hash_optional_public_field_accessor_kind(hash: &mut u64, kind: Option<PublicFieldAccessorKind>) {
+    match kind {
+        Some(kind) => {
+            hash_bool(hash, true);
+            hash_str(hash, public_field_accessor_kind_tag(kind));
+        }
+        None => hash_bool(hash, false),
+    }
+}
+
+fn hash_optional_public_callable_link_symbol(
+    hash: &mut u64,
+    symbol: Option<&PublicCallableLinkSymbol>,
+) {
+    match symbol {
+        Some(symbol) => {
+            hash_bool(hash, true);
+            hash_str(hash, symbol.source_path.as_str());
+            hash_str(hash, symbol.name.as_str());
+            hash_u64(hash, symbol.signature_hash);
+        }
+        None => hash_bool(hash, false),
+    }
+}
+
 fn hash_public_type_term(hash: &mut u64, term: &PublicTypeTerm) {
     match term {
         PublicTypeTerm::Unit => hash_str(hash, "unit"),
@@ -772,6 +827,22 @@ fn public_trait_capability_tag(capability: PublicTraitCapability) -> &'static st
     }
 }
 
+fn public_field_accessor_kind_from_model(kind: FieldAccessorKind) -> PublicFieldAccessorKind {
+    match kind {
+        FieldAccessorKind::Get => PublicFieldAccessorKind::Get,
+        FieldAccessorKind::GetRef => PublicFieldAccessorKind::GetRef,
+        FieldAccessorKind::Put => PublicFieldAccessorKind::Put,
+    }
+}
+
+fn public_field_accessor_kind_tag(kind: PublicFieldAccessorKind) -> &'static str {
+    match kind {
+        PublicFieldAccessorKind::Get => "get",
+        PublicFieldAccessorKind::GetRef => "get_ref",
+        PublicFieldAccessorKind::Put => "put",
+    }
+}
+
 fn public_struct_constructor_policy_from_model(
     policy: StructConstructorPolicy,
 ) -> PublicStructConstructorPolicy {
@@ -817,18 +888,22 @@ pub(super) fn build_typed_public_surface_table(
             if let BindingKind::Func {
                 effect,
                 arity,
+                field_accessor,
                 type_param_bounds,
                 ..
             } = &binding.kind
             {
+                let ty = public_type_term(ctx, binding.ty, &BTreeMap::new());
                 entries.push(TypedPublicSurfaceEntry {
                     kind: TypedPublicSignatureKind::Callable,
                     name: binding.name.clone(),
                     surface: PublicSurfaceShape::Callable(PublicCallableSurface {
-                        ty: public_type_term(ctx, binding.ty, &BTreeMap::new()),
+                        ty: ty.clone(),
                         no_shadow: binding.no_shadow,
                         arity: usize_to_u32_saturating(*arity),
                         effect: public_effect_from_ast(*effect),
+                        field_accessor: field_accessor.map(public_field_accessor_kind_from_model),
+                        link_symbol: public_callable_link_symbol(source_map, binding, &ty),
                         type_param_bounds: public_type_param_bounds(
                             ctx,
                             source_map,
@@ -881,6 +956,28 @@ pub(super) fn build_typed_public_surface_table(
         });
     }
     TypedPublicSurfaceTable::new(entries)
+}
+
+fn public_callable_link_symbol(
+    source_map: Option<&SourceMap>,
+    binding: &Binding,
+    ty: &PublicTypeTerm,
+) -> Option<PublicCallableLinkSymbol> {
+    let source_path = source_map?
+        .path(binding.span.file_id)
+        .map(|path| String::from(path.as_str()))?;
+    Some(PublicCallableLinkSymbol {
+        source_path,
+        name: binding.name.clone(),
+        signature_hash: public_type_term_stable_hash(ty),
+    })
+}
+
+fn public_type_term_stable_hash(term: &PublicTypeTerm) -> u64 {
+    let mut hash = FNV1A64_OFFSET;
+    hash_str(&mut hash, "neplg2-public-type-term-v1");
+    hash_public_type_term(&mut hash, term);
+    hash
 }
 
 fn public_struct_surface(ctx: &TypeCtx, info: &StructInfo) -> PublicStructSurface {
@@ -1310,11 +1407,12 @@ mod tests {
     use crate::types::TypeCtx;
 
     use super::{
-        public_type_params, public_type_term, PublicCallableSurface, PublicEffect, PublicImplKind,
-        PublicNominalTypeKind, PublicSurfaceMaterializerBlockerReason, PublicSurfaceShape,
-        PublicTraitIdentity, PublicTraitRef, PublicTypeParam, PublicTypeParamBoundTarget,
-        PublicTypeParamBounds, PublicTypeParamRef, PublicTypeTerm, TypedPublicSignatureKind,
-        TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
+        public_type_params, public_type_term, PublicCallableLinkSymbol, PublicCallableSurface,
+        PublicEffect, PublicFieldAccessorKind, PublicImplKind, PublicNominalTypeKind,
+        PublicSurfaceMaterializerBlockerReason, PublicSurfaceShape, PublicTraitIdentity,
+        PublicTraitRef, PublicTypeParam, PublicTypeParamBoundTarget, PublicTypeParamBounds,
+        PublicTypeParamRef, PublicTypeTerm, TypedPublicSignatureKind, TypedPublicSurfaceEntry,
+        TypedPublicSurfaceTable,
     };
 
     fn typecheck_source(source: &str) -> TypeCheckResult {
@@ -1371,6 +1469,14 @@ mod tests {
         checked
     }
 
+    fn test_link_symbol(name: &str) -> PublicCallableLinkSymbol {
+        PublicCallableLinkSymbol {
+            source_path: String::from("project/core/test.nepl"),
+            name: String::from(name),
+            signature_hash: 1,
+        }
+    }
+
     /// `.neplmeta` structured surface は public signature text と別に、materializer が
     /// `TypeCtx` / `Env` を再構築するための形を保持する。body-only edit では変わらず、
     /// callable result type の変更では変わることを固定する。
@@ -1400,6 +1506,132 @@ mod tests {
                         )
             )
         }));
+    }
+
+    /// SourceMap がある public callable surface は、span-derived symbol ではなく
+    /// source path と signature hash から作る stable link symbol を持つ。body-only edit では
+    /// 変わらず、signature edit では変わるので、materializer は Span を authority にしない。
+    #[test]
+    fn typed_public_surface_keeps_stable_callable_link_symbol() {
+        let first = typecheck_source_with_path(
+            "project/core/math.nepl",
+            "pub fn answer %fn unit i32 \\unit:\n    1\n",
+        );
+        let body_edit = typecheck_source_with_path(
+            "project/core/math.nepl",
+            "pub fn answer %fn unit i32 \\unit:\n    2\n",
+        );
+        let signature_edit = typecheck_source_with_path(
+            "project/core/math.nepl",
+            "pub fn answer %fn unit bool \\unit:\n    true\n",
+        );
+
+        let first_symbol = first
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Callable && entry.name == "answer"
+            })
+            .and_then(|entry| match &entry.surface {
+                PublicSurfaceShape::Callable(callable) => callable.link_symbol.as_ref(),
+                _ => None,
+            })
+            .expect("answer link symbol");
+        let body_symbol = body_edit
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Callable && entry.name == "answer"
+            })
+            .and_then(|entry| match &entry.surface {
+                PublicSurfaceShape::Callable(callable) => callable.link_symbol.as_ref(),
+                _ => None,
+            })
+            .expect("answer link symbol after body edit");
+        let signature_symbol = signature_edit
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Callable && entry.name == "answer"
+            })
+            .and_then(|entry| match &entry.surface {
+                PublicSurfaceShape::Callable(callable) => callable.link_symbol.as_ref(),
+                _ => None,
+            })
+            .expect("answer link symbol after signature edit");
+
+        assert_eq!(first_symbol.source_path, "project/core/math.nepl");
+        assert_eq!(first_symbol.name, "answer");
+        assert_ne!(first_symbol.signature_hash, 0);
+        assert_eq!(first_symbol, body_symbol);
+        assert_ne!(first_symbol, signature_symbol);
+    }
+
+    /// 同名・同signatureの public callable でも source path が異なれば別 link symbol になる。
+    /// cross-file overload disambiguation を Span に頼らず、module/source boundary で分けるための
+    /// public ABI authority である。
+    #[test]
+    fn typed_public_surface_callable_link_symbol_distinguishes_source_paths() {
+        let source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
+        let first = typecheck_source_with_path("project/a/math.nepl", source);
+        let second = typecheck_source_with_path("project/b/math.nepl", source);
+
+        let first_symbol = first
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Callable && entry.name == "answer"
+            })
+            .and_then(|entry| match &entry.surface {
+                PublicSurfaceShape::Callable(callable) => callable.link_symbol.as_ref(),
+                _ => None,
+            })
+            .expect("first answer link symbol");
+        let second_symbol = second
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Callable && entry.name == "answer"
+            })
+            .and_then(|entry| match &entry.surface {
+                PublicSurfaceShape::Callable(callable) => callable.link_symbol.as_ref(),
+                _ => None,
+            })
+            .expect("second answer link symbol");
+
+        assert_ne!(first_symbol, second_symbol);
+        assert_ne!(
+            first.public_surface.stable_hash,
+            second.public_surface.stable_hash
+        );
+    }
+
+    /// field accessor helper は普通の callable と同じ型だけでは materializer 後の Resource /
+    /// SourceCapability 境界を復元できない。structured surface は `get_field` 系 helper の
+    /// accessor kind を保持し、単なる user function と区別できるようにする。
+    #[test]
+    fn typed_public_surface_keeps_field_accessor_kind_for_callable() {
+        let checked = typecheck_source_with_path(
+            "project/core/field.nepl",
+            "pub fn get <.T,.I,.R> %fn .T fn .I .R \\obj\\idx:\n    #intrinsic \"get_field\" <> (obj,idx)\n",
+        );
+
+        let get = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Callable && entry.name == "get")
+            .expect("get public callable surface");
+        let PublicSurfaceShape::Callable(callable) = &get.surface else {
+            panic!("get must be a callable surface");
+        };
+        assert_eq!(callable.field_accessor, Some(PublicFieldAccessorKind::Get));
+        assert!(callable.link_symbol.is_some());
     }
 
     /// structured surface は field 名と型を enum/struct として保持する。stable text を
@@ -1871,12 +2103,48 @@ mod tests {
                 no_shadow: false,
                 arity: 1,
                 effect: PublicEffect::Pure,
+                field_accessor: None,
+                link_symbol: Some(test_link_symbol("answer")),
                 type_param_bounds: Vec::new(),
             }),
         }]));
 
         assert!(table.is_materializer_preflight_ready());
         assert!(table.materializer_blockers().is_empty());
+    }
+
+    /// stable link symbol がない callable surface は、fresh session でどの ABI symbol に
+    /// 対応させるべきかを安全に判断できない。materializer preflight は型が primitive だけでも
+    /// fail-closed に止める。
+    #[test]
+    fn materializer_preflight_rejects_callable_without_link_symbol() {
+        let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Callable,
+            name: String::from("answer"),
+            surface: PublicSurfaceShape::Callable(PublicCallableSurface {
+                ty: PublicTypeTerm::Function {
+                    type_params: Vec::new(),
+                    params: Vec::from([PublicTypeTerm::Unit]),
+                    result: Box::new(PublicTypeTerm::I32),
+                    effect: PublicEffect::Pure,
+                },
+                no_shadow: false,
+                arity: 1,
+                effect: PublicEffect::Pure,
+                field_accessor: None,
+                link_symbol: None,
+                type_param_bounds: Vec::new(),
+            }),
+        }]));
+
+        let blockers = table.materializer_blockers();
+        assert!(!table.is_materializer_preflight_ready());
+        assert_eq!(
+            blockers[0].reason,
+            PublicSurfaceMaterializerBlockerReason::MissingCallableLinkSymbol {
+                callable_name: String::from("answer"),
+            }
+        );
     }
 
     /// stable identity を持つ trait reference は materializer が current session の trait
@@ -1906,6 +2174,8 @@ mod tests {
                 no_shadow: false,
                 arity: 1,
                 effect: PublicEffect::Pure,
+                field_accessor: None,
+                link_symbol: Some(test_link_symbol("call_show")),
                 type_param_bounds: Vec::from([PublicTypeParamBounds {
                     param: PublicTypeParamBoundTarget::Ref(PublicTypeParamRef {
                         binder_depth: 0,
@@ -1949,6 +2219,8 @@ mod tests {
                 no_shadow: false,
                 arity: 1,
                 effect: PublicEffect::Pure,
+                field_accessor: None,
+                link_symbol: Some(test_link_symbol("make_item")),
                 type_param_bounds: Vec::new(),
             }),
         }]));
@@ -1989,6 +2261,8 @@ mod tests {
                 no_shadow: false,
                 arity: 1,
                 effect: PublicEffect::Pure,
+                field_accessor: None,
+                link_symbol: Some(test_link_symbol("show_like")),
                 type_param_bounds: Vec::from([PublicTypeParamBounds {
                     param: PublicTypeParamBoundTarget::Unbound(param),
                     bounds: Vec::from([PublicTraitRef {

@@ -138,7 +138,6 @@ structured public surface hash namespace は `neplg2-typed-public-surface-v3` �
 
 - `PublicTypeTerm::Named` の identity が `None` の entry を materializer で fail-closed に拒否する。
 - `PublicTypeTerm::UnboundGenericParam` と `PublicTypeParamBoundTarget::Unbound` を materializer で fail-closed に拒否する。
-- callable surface に field accessor kind と stable public ABI/link symbol を追加する。ただし span-derived `mangle_function_symbol_for_def` は保存しない。
 - generic impl parameter / bound を round-trip できるようにするか、materializer では fail-closed に拒否する。
 - reexport / prelude edge と module canonical path を per-module `.neplmeta` surface に追加する。
 
@@ -183,4 +182,27 @@ structured public surface hash namespace は `neplg2-typed-public-surface-v4` �
 
 - `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`
 - `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+
+## 2026-06-01 callable authority checkpoint
+
+`PublicCallableSurface` に `PublicFieldAccessorKind` と `PublicCallableLinkSymbol` を追加した。
+
+field accessor helper は普通の public function と同じ型だけでは materializer 後の Resource / SourceCapability 境界を復元できないため、`get_field` / `get_field_ref` / `set_field` 由来の helper kind を structured surface に保持する。
+
+stable link symbol payload は source path、public callable name、structured type surface の signature hash で構成する。span-derived `mangle_function_symbol_for_def` は保存しない。body-only edit では link symbol は変わらず、signature edit や source path 変更では変わる。
+
+materializer preflight は stable link symbol を持たない callable を `MissingCallableLinkSymbol` blocker として fail-closed に拒否する。SourceMap がない compile や、まだ stable ABI を付けられない artifact は body skip へ進まない。
+
+structured public surface hash namespace は `neplg2-typed-public-surface-v5` に上げた。payload 形状が変わったため `.neplmeta` schema、artifact hash version、compiler identity は v6 に上げた。
+
+残件:
+
+- generic impl parameter / bound を round-trip できるようにするか、materializer では fail-closed に拒否する。
+- reexport / prelude edge と module canonical path を per-module `.neplmeta` surface に追加する。
+
+検証:
+
+- `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
+- `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`
 - `cargo test -p nepl-core neplmeta --lib -- --nocapture`
