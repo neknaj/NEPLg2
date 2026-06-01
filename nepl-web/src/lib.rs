@@ -21,6 +21,8 @@ use nepl_core::artifact::{
     nepl_meta_artifact_pre_typecheck_envelope_for_module_surface,
     nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity,
     NeplMetaArtifact, NeplMetaArtifactStore, NeplMetaModuleSurface,
+    NeplObjDirectCallFragmentArtifact, NeplObjDirectCallFragmentLookupProbe,
+    NeplObjDirectCallFragmentStore,
 };
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{
@@ -3027,6 +3029,7 @@ fn compile_outputs_with_bundled_sources_and_cache(
         None,
         None,
         None,
+        None,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
     compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
@@ -3304,6 +3307,7 @@ fn compile_wasm_with_bundled_sources(
         None,
         None,
         None,
+        None,
     )
 }
 
@@ -3423,14 +3427,16 @@ fn compile_loaded_module_with_public_interface_artifacts(
     dependency_public_surface_hash: Option<u64>,
     module_surface: Option<&NeplMetaModuleSurface>,
     materialized_public_surfaces: &[MaterializedPublicSurfaceInput],
+    neplobj_direct_call_fragments: &[NeplObjDirectCallFragmentArtifact],
     resource_summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
     stage_timings: Option<&mut CompileStageTimings>,
 ) -> Result<CompilationArtifact, CoreError> {
-    let public_interface_artifacts = PublicInterfaceArtifactInputs::new(
+    let public_interface_artifacts = PublicInterfaceArtifactInputs::with_neplobj_direct_call_fragments(
         dependency_public_surface_hash,
         module_surface,
         materialized_public_surfaces,
+        neplobj_direct_call_fragments,
     );
     if let Some(stage_timings) = stage_timings {
         compile_module_with_source_map_artifact_options_public_interface_artifacts_resource_summary_value_cache_neplproof_and_stage_timings(
@@ -3678,10 +3684,12 @@ fn compile_wasm_with_bundled_sources_and_cache(
     preseed_resource_summary_proof_artifact: Option<&ResourceSummaryProofArtifact>,
     stage_timings: Option<&mut CompileStageTimings>,
     nepl_meta_artifact_store: Option<&mut NeplMetaArtifactStore>,
+    nepl_obj_direct_call_fragment_store: Option<&mut NeplObjDirectCallFragmentStore>,
     mut nepl_meta_materialized_compile_stats: Option<&mut NeplMetaMaterializedCompileStats>,
     mut nepl_meta_body_missing_skip_set: Option<&mut NeplMetaBodyMissingSkipSet>,
 ) -> Result<CompiledWasm, String> {
     let mut nepl_meta_artifact_store = nepl_meta_artifact_store;
+    let mut nepl_obj_direct_call_fragment_store = nepl_obj_direct_call_fragment_store;
     if let Some(skip_set) = nepl_meta_body_missing_skip_set.as_deref_mut() {
         skip_set.reset_last();
     }
@@ -3731,7 +3739,19 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 let mut edge_materializer =
                     |probe: &NeplMetaDependencyEdgePreTypecheckProbe| {
                         if let Some(skip_set) = nepl_meta_body_missing_skip_set.as_deref_mut() {
-                            if skip_set.should_skip(probe) {
+                            let object_candidate_available = nepl_obj_direct_call_fragment_store
+                                .as_deref()
+                                .is_some_and(|store| {
+                                    store.may_have_fragment_for_probe_context(
+                                        CompileTarget::Wasm,
+                                        active_profile,
+                                        stdlib_content_hash,
+                                        probe.target_source_key_hash,
+                                        probe.target_source_capability_policy_set_hash,
+                                        probe.dependency_public_surface_hash,
+                                    )
+                                });
+                            if !object_candidate_available && skip_set.should_skip(probe) {
                                 return None;
                             }
                         }
@@ -3833,6 +3853,33 @@ fn compile_wasm_with_bundled_sources_and_cache(
             stats.record_attempt(loaded_materialized_public_surfaces.len());
         }
     }
+    let neplobj_direct_call_fragments =
+        if let Some(store) = nepl_obj_direct_call_fragment_store.as_deref_mut() {
+            let lookup_probes = loaded_materialized_public_surfaces
+                .iter()
+                .filter_map(|surface| {
+                    let probe = loaded_nepl_meta_edge_probes
+                        .iter()
+                        .find(|probe| probe.target_module_path == surface.module_path)?;
+                    Some(NeplObjDirectCallFragmentLookupProbe {
+                        module_path: surface.module_path.as_str(),
+                        target_source_key_hash: probe.target_source_key_hash,
+                        source_capability_policy_hash: probe
+                            .target_source_capability_policy_set_hash,
+                        dependency_public_surface_hash: probe.dependency_public_surface_hash,
+                        surface: &surface.table,
+                    })
+                })
+                .collect::<Vec<_>>();
+            store.matching_direct_call_fragments_for_probes(
+                CompileTarget::Wasm,
+                active_profile,
+                stdlib_content_hash,
+                &lookup_probes,
+            )
+        } else {
+            Vec::new()
+        };
     let artifact_attempt = compile_loaded_module_with_public_interface_artifacts(
         loaded.module,
         &loaded_source_map,
@@ -3841,6 +3888,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
         dependency_public_surface_hash,
         module_surface.as_ref(),
         &loaded_materialized_public_surfaces,
+        &neplobj_direct_call_fragments,
         resource_summary_value_cache.as_deref_mut(),
         resource_summary_proof_options,
         stage_timings.as_deref_mut(),
@@ -3896,6 +3944,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 artifact_options,
                 dependency_public_surface_hash,
                 fallback_module_surface.as_ref(),
+                &[],
                 &[],
                 resource_summary_value_cache.as_deref_mut(),
                 resource_summary_proof_options,
@@ -3990,6 +4039,7 @@ pub struct CompilerSession {
     resource_summary_value_cache: RefCell<ResourceSummaryValueCache>,
     nepl_meta_artifact: RefCell<Option<NeplMetaArtifact>>,
     nepl_meta_artifact_store: RefCell<NeplMetaArtifactStore>,
+    nepl_obj_direct_call_fragment_store: RefCell<NeplObjDirectCallFragmentStore>,
     resource_summary_proof_artifact: RefCell<Option<ResourceSummaryProofArtifact>>,
     compiled_output_cache: RefCell<Vec<CompiledOutputCacheEntry>>,
     prewarmed_import_surfaces: RefCell<BTreeMap<u64, usize>>,
@@ -4042,6 +4092,9 @@ impl CompilerSession {
             resource_summary_value_cache: RefCell::new(ResourceSummaryValueCache::new()),
             nepl_meta_artifact: RefCell::new(None),
             nepl_meta_artifact_store: RefCell::new(NeplMetaArtifactStore::new()),
+            nepl_obj_direct_call_fragment_store: RefCell::new(
+                NeplObjDirectCallFragmentStore::new(),
+            ),
             resource_summary_proof_artifact: RefCell::new(None),
             compiled_output_cache: RefCell::new(Vec::new()),
             prewarmed_import_surfaces: RefCell::new(BTreeMap::new()),
@@ -4108,6 +4161,12 @@ impl CompilerSession {
         let nepl_meta_artifact_store = self.nepl_meta_artifact_store.borrow();
         let nepl_meta_artifact_store_stats = nepl_meta_artifact_store.stats();
         let nepl_meta_artifact_store_entries = nepl_meta_artifact_store.len();
+        let nepl_obj_direct_call_fragment_store =
+            self.nepl_obj_direct_call_fragment_store.borrow();
+        let nepl_obj_direct_call_fragment_store_stats =
+            nepl_obj_direct_call_fragment_store.stats();
+        let nepl_obj_direct_call_fragment_store_entries =
+            nepl_obj_direct_call_fragment_store.len();
         let proof_artifact = self.resource_summary_proof_artifact.borrow();
         let nepl_meta_header = nepl_meta_artifact
             .as_ref()
@@ -4486,6 +4545,58 @@ impl CompilerSession {
         out.push_str(&nepl_meta_artifact_store_stats.compatibility_rejects.to_string());
         out.push_str(",\"nepl_meta_artifact_store_projection_rejects\":");
         out.push_str(&nepl_meta_artifact_store_stats.projection_rejects.to_string());
+        out.push_str(",\"nepl_obj_direct_call_fragment_store_entries\":");
+        out.push_str(&nepl_obj_direct_call_fragment_store_entries.to_string());
+        out.push_str(",\"nepl_obj_direct_call_fragment_store_stores\":");
+        out.push_str(&nepl_obj_direct_call_fragment_store_stats.stores.to_string());
+        out.push_str(",\"nepl_obj_direct_call_fragment_store_duplicate_stores\":");
+        out.push_str(
+            &nepl_obj_direct_call_fragment_store_stats
+                .duplicate_stores
+                .to_string(),
+        );
+        out.push_str(",\"nepl_obj_direct_call_fragment_store_rejects\":");
+        out.push_str(
+            &nepl_obj_direct_call_fragment_store_stats
+                .store_rejects
+                .to_string(),
+        );
+        out.push_str(",\"nepl_obj_direct_call_fragment_store_lookup_attempts\":");
+        out.push_str(
+            &nepl_obj_direct_call_fragment_store_stats
+                .lookup_attempts
+                .to_string(),
+        );
+        out.push_str(",\"nepl_obj_direct_call_fragment_store_lookup_hits\":");
+        out.push_str(
+            &nepl_obj_direct_call_fragment_store_stats
+                .lookup_hits
+                .to_string(),
+        );
+        out.push_str(",\"nepl_obj_direct_call_fragment_store_lookup_misses\":");
+        out.push_str(
+            &nepl_obj_direct_call_fragment_store_stats
+                .lookup_misses
+                .to_string(),
+        );
+        out.push_str(",\"nepl_obj_direct_call_fragment_store_lookup_missing_source_policy\":");
+        out.push_str(
+            &nepl_obj_direct_call_fragment_store_stats
+                .lookup_missing_source_policy
+                .to_string(),
+        );
+        out.push_str(",\"nepl_obj_direct_call_fragment_store_lookup_context_rejects\":");
+        out.push_str(
+            &nepl_obj_direct_call_fragment_store_stats
+                .lookup_context_rejects
+                .to_string(),
+        );
+        out.push_str(",\"nepl_obj_direct_call_fragment_store_lookup_fragments_returned\":");
+        out.push_str(
+            &nepl_obj_direct_call_fragment_store_stats
+                .lookup_fragments_returned
+                .to_string(),
+        );
         out.push_str(",\"nepl_meta_artifact_store_pre_typecheck_probe_attempts\":");
         out.push_str(
             &nepl_meta_artifact_store_stats
@@ -4900,6 +5011,7 @@ impl CompilerSession {
         self.resource_summary_value_cache.borrow_mut().clear();
         *self.nepl_meta_artifact.borrow_mut() = None;
         self.nepl_meta_artifact_store.borrow_mut().clear();
+        self.nepl_obj_direct_call_fragment_store.borrow_mut().clear();
         self.nepl_meta_body_missing_skip_set.borrow_mut().clear();
         *self.resource_summary_proof_artifact.borrow_mut() = None;
         self.compiled_output_cache.borrow_mut().clear();
@@ -5029,6 +5141,8 @@ impl CompilerSession {
             let mut cache = self.loader_cache.borrow_mut();
             let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
             let mut nepl_meta_artifact_store = self.nepl_meta_artifact_store.borrow_mut();
+            let mut nepl_obj_direct_call_fragment_store =
+                self.nepl_obj_direct_call_fragment_store.borrow_mut();
             let mut nepl_meta_body_missing_skip_set =
                 self.nepl_meta_body_missing_skip_set.borrow_mut();
             match compile_wasm_with_bundled_sources_and_cache(
@@ -5045,6 +5159,7 @@ impl CompilerSession {
                 preseed_artifact.as_ref(),
                 Some(&mut stage_timings),
                 Some(&mut nepl_meta_artifact_store),
+                Some(&mut nepl_obj_direct_call_fragment_store),
                 Some(&mut materialized_compile_stats),
                 Some(&mut nepl_meta_body_missing_skip_set),
             ) {
@@ -5088,6 +5203,7 @@ impl CompilerSession {
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
         self.loader_cache.borrow_mut().record_stdlib_override_bypass();
         self.nepl_meta_artifact_store.borrow_mut().clear();
+        self.nepl_obj_direct_call_fragment_store.borrow_mut().clear();
         let mut stage_timings = CompileStageTimings::new();
         let compiled = match compile_wasm_with_bundled_sources_and_cache(
             entry_path,
@@ -5102,6 +5218,7 @@ impl CompilerSession {
             None,
             None,
             Some(&mut stage_timings),
+            None,
             None,
             None,
             None,
@@ -5174,6 +5291,8 @@ impl CompilerSession {
             let mut loader_cache = self.loader_cache.borrow_mut();
             let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
             let mut nepl_meta_artifact_store = self.nepl_meta_artifact_store.borrow_mut();
+            let mut nepl_obj_direct_call_fragment_store =
+                self.nepl_obj_direct_call_fragment_store.borrow_mut();
             let mut nepl_meta_body_missing_skip_set =
                 self.nepl_meta_body_missing_skip_set.borrow_mut();
             match compile_wasm_with_bundled_sources_and_cache(
@@ -5190,6 +5309,7 @@ impl CompilerSession {
                 preseed_artifact.as_ref(),
                 Some(&mut stage_timings),
                 Some(&mut nepl_meta_artifact_store),
+                Some(&mut nepl_obj_direct_call_fragment_store),
                 Some(&mut materialized_compile_stats),
                 Some(&mut nepl_meta_body_missing_skip_set),
             ) {

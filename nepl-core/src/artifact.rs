@@ -5,8 +5,8 @@ use crate::source_cache_key::compiled_source_cache_key_part;
 use crate::source_map::SourceMap;
 use crate::typecheck::{
     materialized_callable_symbol_for_link_symbol, public_callable_link_symbol_stable_hash,
-    PublicCallableLinkSymbol, PublicSurfaceMaterializerBlocker, TypedPublicSignatureKind,
-    TypedPublicSignatureTable, TypedPublicSurfaceTable,
+    PublicCallableLinkSymbol, PublicSurfaceMaterializerBlocker, PublicSurfaceShape,
+    TypedPublicSignatureKind, TypedPublicSignatureTable, TypedPublicSurfaceTable,
 };
 use alloc::collections::BTreeMap;
 use alloc::string::String;
@@ -338,6 +338,275 @@ impl NeplObjDirectCallFragmentArtifact {
         self.key.stable_hash == key.stable_hash
             && self.key.materialized_symbol == key.materialized_symbol
     }
+}
+
+/// same-session `.neplobj` direct-call fragment store の観測値。
+///
+/// この store は永続 object codec ではなく、Web playground や長寿命 compiler session が
+/// source fallback / full compile で得た fragment を次回 compile に渡すための staging
+/// boundary である。統計は「保存できたか」と「現在の import edge に対して再利用可能だったか」
+/// を分け、body-missing fallback が残る理由を文字列診断に依存せず確認できるようにする。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct NeplObjDirectCallFragmentStoreStats {
+    pub stores: usize,
+    pub duplicate_stores: usize,
+    pub store_rejects: usize,
+    pub lookup_attempts: usize,
+    pub lookup_hits: usize,
+    pub lookup_misses: usize,
+    pub lookup_missing_source_policy: usize,
+    pub lookup_context_rejects: usize,
+    pub lookup_fragments_returned: usize,
+}
+
+/// `.neplobj` fragment を session store に保存できなかった理由。
+///
+/// 同じ direct-call key に異なる backend payload が入る場合は、cache の入れ替えではなく
+/// compiler/object producer の不整合として扱う。key は source identity、body hash、
+/// generic instantiation、policy を含むため、同じ key の payload は決定的に一致しなければ
+/// ならない。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NeplObjDirectCallFragmentStoreReject {
+    BackendPayloadConflict { key_stable_hash: u64 },
+}
+
+/// `.neplobj` direct-call fragment lookup の import edge 単位の入力。
+///
+/// materialized public surface は関数本体を持たないため、現在 compile が本当に使ってよい
+/// object fragment は loader が作った edge envelope と照合する。`source_capability_policy_hash`
+/// がない edge では raw-memory / private-effect policy を比較できないため、store lookup は
+/// fail-closed に通常 source fallback を残す。
+pub struct NeplObjDirectCallFragmentLookupProbe<'a> {
+    pub module_path: &'a str,
+    pub target_source_key_hash: u64,
+    pub source_capability_policy_hash: Option<u64>,
+    pub dependency_public_surface_hash: u64,
+    pub surface: &'a TypedPublicSurfaceTable,
+}
+
+/// direct-call `.neplobj` fragment の in-memory store。
+///
+/// store key は `NeplObjDirectCallKey::stable_hash` であり、materialized symbol は lookup を
+/// 絞るための secondary index に過ぎない。symbol だけで availability を判断すると、同名
+/// signature の body-only edit や policy 変更を stale object で隠してしまうため、lookup では
+/// target/profile/source/policy/generic 境界をすべて再確認する。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct NeplObjDirectCallFragmentStore {
+    fragments: BTreeMap<u64, NeplObjDirectCallFragmentArtifact>,
+    materialized_index: BTreeMap<String, Vec<u64>>,
+    stats: NeplObjDirectCallFragmentStoreStats,
+}
+
+impl NeplObjDirectCallFragmentStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn stats(&self) -> NeplObjDirectCallFragmentStoreStats {
+        self.stats
+    }
+
+    pub fn len(&self) -> usize {
+        self.fragments.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.fragments.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.fragments.clear();
+        self.materialized_index.clear();
+        self.stats = NeplObjDirectCallFragmentStoreStats::default();
+    }
+
+    pub fn store(
+        &mut self,
+        fragment: NeplObjDirectCallFragmentArtifact,
+    ) -> Result<(), NeplObjDirectCallFragmentStoreReject> {
+        let key_hash = fragment.key().stable_hash();
+        if let Some(existing) = self.fragments.get(&key_hash) {
+            if existing.stable_hash() == fragment.stable_hash() {
+                self.stats.duplicate_stores += 1;
+                return Ok(());
+            }
+            self.stats.store_rejects += 1;
+            return Err(
+                NeplObjDirectCallFragmentStoreReject::BackendPayloadConflict {
+                    key_stable_hash: key_hash,
+                },
+            );
+        }
+        self.stats.stores += 1;
+        self.materialized_index
+            .entry(String::from(fragment.materialized_symbol()))
+            .or_default()
+            .push(key_hash);
+        self.fragments.insert(key_hash, fragment);
+        Ok(())
+    }
+
+    /// body-missing negative cache が materialized edge probe を省略してよいかの保守的判定。
+    ///
+    /// `.neplmeta` materialization を省くと、その edge から使える direct-call fragment も
+    /// compile pipeline へ渡せなくなる。ここでは public surface をまだ投影していないため、
+    /// callable 単位までは判定せず、同じ source / dependency / policy context の fragment が
+    /// 1 つでもある場合は `true` を返して source fallback の再試行を許す。
+    pub fn may_have_fragment_for_probe_context(
+        &self,
+        target: CompileTarget,
+        profile: BuildProfile,
+        stdlib_content_hash: Option<u64>,
+        target_source_key_hash: u64,
+        source_capability_policy_hash: Option<u64>,
+        dependency_public_surface_hash: u64,
+    ) -> bool {
+        let Some(source_capability_policy_hash) = source_capability_policy_hash else {
+            return false;
+        };
+        self.fragments.values().any(|fragment| {
+            let key = fragment.key();
+            key.schema_version == NEPL_OBJ_DIRECT_CALL_SCHEMA_VERSION
+                && key.compiler_identity_hash == nepl_meta_compiler_identity_hash()
+                && key.target_hash == nepl_meta_target_hash(target)
+                && key.profile_hash == nepl_meta_profile_hash(profile)
+                && key.stdlib_content_hash == stdlib_content_hash
+                && key.backend_feature_set_hash == nepl_obj_direct_call_backend_feature_set_hash()
+                && key.target_source_key_hash == target_source_key_hash
+                && key.dependency_public_surface_hash == dependency_public_surface_hash
+                && key.source_capability_policy_hash == source_capability_policy_hash
+                && key.private_effect_policy_hash
+                    == crate::compiler::resource_summary_private_effect_policy_hash()
+        })
+    }
+
+    /// 現在 materialize された import edge に対して安全に使える fragment だけを返す。
+    ///
+    /// この lookup は generic 具体化済み fragment producer がまだない MVP なので、空の generic
+    /// instantiation hash を持つ direct call だけを返す。generic call、function value、
+    /// `memo_call` / PrivateCache lowering は別 proof と backend representation が必要なため、
+    /// ここでは object availability として扱わない。
+    pub fn matching_direct_call_fragments_for_probes(
+        &mut self,
+        target: CompileTarget,
+        profile: BuildProfile,
+        stdlib_content_hash: Option<u64>,
+        probes: &[NeplObjDirectCallFragmentLookupProbe<'_>],
+    ) -> Vec<NeplObjDirectCallFragmentArtifact> {
+        self.stats.lookup_attempts += probes.len();
+        if self.fragments.is_empty() || probes.is_empty() {
+            self.stats.lookup_misses += probes.len();
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        for probe in probes {
+            let Some(source_capability_policy_hash) = probe.source_capability_policy_hash else {
+                self.stats.lookup_missing_source_policy += 1;
+                continue;
+            };
+            let symbols = neplobj_direct_call_link_symbols_from_surface(probe.surface);
+            if symbols.is_empty() {
+                self.stats.lookup_misses += 1;
+                continue;
+            }
+            let before = out.len();
+            for symbol in symbols {
+                let materialized_symbol = materialized_callable_symbol_for_link_symbol(&symbol);
+                let Some(candidate_key_hashes) =
+                    self.materialized_index.get(materialized_symbol.as_str())
+                else {
+                    continue;
+                };
+                for key_hash in candidate_key_hashes {
+                    let Some(fragment) = self.fragments.get(key_hash) else {
+                        self.stats.lookup_context_rejects += 1;
+                        continue;
+                    };
+                    if neplobj_direct_call_fragment_matches_lookup(
+                        fragment,
+                        target,
+                        profile,
+                        stdlib_content_hash,
+                        &symbol,
+                        probe.target_source_key_hash,
+                        probe.dependency_public_surface_hash,
+                        source_capability_policy_hash,
+                    ) {
+                        out.push(fragment.clone());
+                    } else {
+                        self.stats.lookup_context_rejects += 1;
+                    }
+                }
+            }
+            if out.len() == before {
+                self.stats.lookup_misses += 1;
+            } else {
+                self.stats.lookup_hits += 1;
+                self.stats.lookup_fragments_returned += out.len() - before;
+            }
+        }
+        out.sort_by_key(|fragment| fragment.stable_hash());
+        out.dedup_by_key(|fragment| fragment.stable_hash());
+        out
+    }
+}
+
+fn neplobj_direct_call_link_symbols_from_surface(
+    surface: &TypedPublicSurfaceTable,
+) -> Vec<PublicCallableLinkSymbol> {
+    let mut symbols = Vec::new();
+    for entry in &surface.entries {
+        let PublicSurfaceShape::Callable(callable) = &entry.surface else {
+            continue;
+        };
+        if callable.type_param_bounds.is_empty()
+            && neplobj_direct_call_callable_surface_is_monomorphic(callable)
+        {
+            if let Some(symbol) = &callable.link_symbol {
+                symbols.push(symbol.clone());
+            }
+        }
+    }
+    symbols.sort();
+    symbols.dedup();
+    symbols
+}
+
+fn neplobj_direct_call_callable_surface_is_monomorphic(
+    callable: &crate::typecheck::PublicCallableSurface,
+) -> bool {
+    match &callable.ty {
+        crate::typecheck::PublicTypeTerm::Function { type_params, .. } => type_params.is_empty(),
+        _ => false,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn neplobj_direct_call_fragment_matches_lookup(
+    fragment: &NeplObjDirectCallFragmentArtifact,
+    target: CompileTarget,
+    profile: BuildProfile,
+    stdlib_content_hash: Option<u64>,
+    link_symbol: &PublicCallableLinkSymbol,
+    target_source_key_hash: u64,
+    dependency_public_surface_hash: u64,
+    source_capability_policy_hash: u64,
+) -> bool {
+    let key = fragment.key();
+    key.schema_version == NEPL_OBJ_DIRECT_CALL_SCHEMA_VERSION
+        && key.compiler_identity_hash == nepl_meta_compiler_identity_hash()
+        && key.target_hash == nepl_meta_target_hash(target)
+        && key.profile_hash == nepl_meta_profile_hash(profile)
+        && key.stdlib_content_hash == stdlib_content_hash
+        && key.backend_feature_set_hash == nepl_obj_direct_call_backend_feature_set_hash()
+        && key.link_symbol == *link_symbol
+        && key.materialized_symbol == materialized_callable_symbol_for_link_symbol(link_symbol)
+        && key.target_source_key_hash == target_source_key_hash
+        && key.generic_instantiation_hash == nepl_obj_empty_generic_instantiation_hash()
+        && key.dependency_public_surface_hash == dependency_public_surface_hash
+        && key.source_capability_policy_hash == source_capability_policy_hash
+        && key.private_effect_policy_hash
+            == crate::compiler::resource_summary_private_effect_policy_hash()
 }
 
 /// `.neplobj` direct-call payload の backend 別表現。
@@ -2234,8 +2503,10 @@ mod tests {
         NeplMetaMaterializerProjectionReject, NeplMetaModuleDependencyEdge,
         NeplMetaModuleDependencyKind, NeplMetaModuleSurface, NeplMetaVisibility,
         NeplObjDirectCallBackendFragment, NeplObjDirectCallFragmentArtifact,
-        NeplObjDirectCallFragmentReject, NeplObjDirectCallKey, NeplObjWasmDirectCallFragment,
-        NeplObjWasmDirectCallRelocation, NeplObjWasmValType,
+        NeplObjDirectCallFragmentLookupProbe, NeplObjDirectCallFragmentReject,
+        NeplObjDirectCallFragmentStore, NeplObjDirectCallFragmentStoreReject,
+        NeplObjDirectCallKey, NeplObjWasmDirectCallFragment, NeplObjWasmDirectCallRelocation,
+        NeplObjWasmValType,
     };
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::source_map::SourceMap;
@@ -3722,7 +3993,7 @@ mod tests {
     #[test]
     fn neplobj_direct_call_fragment_tracks_backend_payload() {
         let key = neplobj_direct_call_key(
-            callable_link_symbol("answer", 0x10),
+            callable_link_symbol("answer", 42),
             0x20,
             0x30,
             super::nepl_obj_empty_generic_instantiation_hash(),
@@ -3868,6 +4139,131 @@ mod tests {
 
         assert!(fragment.matches_direct_call_key(&key));
         assert!(!fragment.matches_direct_call_key(&body_edit_key));
+    }
+
+    /// same-session `.neplobj` store は materialized symbol だけでなく、target/profile、
+    /// source key、dependency surface、source capability policy まで一致した fragment だけを
+    /// 返す。これにより `.neplmeta` が同じ callable を復元しても、別 source/policy の body を
+    /// 誤って body-missing diagnostic の代替にしない。
+    #[test]
+    fn neplobj_direct_call_fragment_store_matches_lookup_context() {
+        let key = neplobj_direct_call_key(
+            callable_link_symbol("answer", 42),
+            0x20,
+            0x30,
+            super::nepl_obj_empty_generic_instantiation_hash(),
+        );
+        let fragment = neplobj_direct_call_fragment(
+            key,
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x41, 0x07, 0x0b]),
+            Vec::new(),
+        );
+        let surface = materializable_surface_table("answer", PublicTypeTerm::I32);
+        let mut store = NeplObjDirectCallFragmentStore::new();
+        store.store(fragment.clone()).unwrap();
+
+        let found = store.matching_direct_call_fragments_for_probes(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(0x5a),
+            &[NeplObjDirectCallFragmentLookupProbe {
+                module_path: "/stdlib/core/math.nepl",
+                target_source_key_hash: 0x20,
+                source_capability_policy_hash: Some(0x80),
+                dependency_public_surface_hash: 0x70,
+                surface: &surface,
+            }],
+        );
+
+        assert_eq!(found, Vec::from([fragment]));
+        let stats = store.stats();
+        assert_eq!(stats.lookup_hits, 1);
+        assert_eq!(stats.lookup_fragments_returned, 1);
+    }
+
+    /// body-missing negative cache は、同じ edge context の object fragment が存在する場合には
+    /// materialized probe を省略してはいけない。store は public surface を読む前でも使える
+    /// context-level 判定を提供し、将来 fragment producer が追加された時に古い negative cache が
+    /// object hit を隠さないようにする。
+    #[test]
+    fn neplobj_direct_call_fragment_store_keeps_negative_skip_open_for_candidate_context() {
+        let key = neplobj_direct_call_key(
+            callable_link_symbol("answer", 0x10),
+            0x20,
+            0x30,
+            super::nepl_obj_empty_generic_instantiation_hash(),
+        );
+        let fragment = neplobj_direct_call_fragment(
+            key,
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x41, 0x07, 0x0b]),
+            Vec::new(),
+        );
+        let mut store = NeplObjDirectCallFragmentStore::new();
+        store.store(fragment).unwrap();
+
+        assert!(store.may_have_fragment_for_probe_context(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(0x5a),
+            0x20,
+            Some(0x80),
+            0x70,
+        ));
+        assert!(!store.may_have_fragment_for_probe_context(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(0x5a),
+            0x21,
+            Some(0x80),
+            0x70,
+        ));
+        assert!(!store.may_have_fragment_for_probe_context(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(0x5a),
+            0x20,
+            None,
+            0x70,
+        ));
+    }
+
+    /// 同じ `.neplobj` direct-call key に異なる backend payload が保存される場合は、
+    /// 上書きせず reject する。完全 key が一致しているなら backend lowering は決定的に
+    /// 同じ payload になるべきであり、ここを許すと session 内で object authority が揺れる。
+    #[test]
+    fn neplobj_direct_call_fragment_store_rejects_conflicting_payload() {
+        let key = neplobj_direct_call_key(
+            callable_link_symbol("answer", 0x10),
+            0x20,
+            0x30,
+            super::nepl_obj_empty_generic_instantiation_hash(),
+        );
+        let first = neplobj_direct_call_fragment(
+            key.clone(),
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x41, 0x07, 0x0b]),
+            Vec::new(),
+        );
+        let conflict = neplobj_direct_call_fragment(
+            key.clone(),
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x41, 0x08, 0x0b]),
+            Vec::new(),
+        );
+        let mut store = NeplObjDirectCallFragmentStore::new();
+
+        store.store(first).unwrap();
+        assert_eq!(
+            store.store(conflict),
+            Err(
+                NeplObjDirectCallFragmentStoreReject::BackendPayloadConflict {
+                    key_stable_hash: key.stable_hash(),
+                }
+            )
+        );
+        assert_eq!(store.stats().store_rejects, 1);
     }
 
     /// merge / alias / glob は target export artifact を読んだうえで衝突や曖昧性を

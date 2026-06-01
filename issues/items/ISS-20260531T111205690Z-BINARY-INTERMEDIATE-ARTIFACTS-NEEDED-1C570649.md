@@ -556,3 +556,21 @@ artifact codec、そして `memo_call` の PrivateCache proof である。
 warm store probe `compile_ms=230`、body edit candidate `compile_ms=206`、body edit repeat
 `compile_ms=185` だった。body edit はまだ 0.1 秒以下ではないため、`.neplobj` / `.nepllink` と
 stdlib preseed artifact の残件を継続する。
+
+## 2026-06-02 same-session `.neplobj` direct-call fragment store checkpoint
+
+`NeplObjDirectCallFragmentStore` を追加し、direct-call fragment payload を same-session で保持し、
+Web `CompilerSession` から `PublicInterfaceArtifactInputs` へ渡せる経路を接続した。store は
+target/profile、stdlib content hash、target source key、dependency public surface hash、source
+capability policy hash、backend feature set、private effect policy hash、link symbol、空 generic
+instantiation hash を照合する。materialized symbol だけでは hit しない。
+
+body-missing negative skip は、同じ edge context の fragment candidate が store にある場合には
+materialized edge probe を省略しない。これは source fallback / full compile で fragment producer が
+入った後に、古い skip entry が object hit を隠さないための境界である。
+
+この checkpoint でも issue は open のまま維持する。まだ fragment producer は存在せず、
+source fallback / full compile 後に `resource_function_body_stable_hash` と wasm relocatable lowering から
+`NeplObjDirectCallFragmentArtifact` を生成して store へ保存する経路は未実装である。`FnValue`、
+`CallIndirect`、`MemoizedFunctionValue`、`memo_call` は direct-call fragment の対象外として
+fail-closed に残す。

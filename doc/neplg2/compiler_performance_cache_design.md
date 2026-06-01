@@ -2723,6 +2723,30 @@ bundled stdlib `.neplmeta` / `.neplproof` preseed、persistent `.nepl...` file f
 次の root task は selected dependency body から `.neplobj` fragment を生成して same-session object
 store へ保存する経路と、stdlib preseed artifact の初回 compile 投入である。
 
+## 2026-06-02 same-session `.neplobj` direct-call fragment store checkpoint
+
+`NeplObjDirectCallFragmentStore` を追加し、source fallback / full compile で得られる予定の
+direct-call fragment payload を same-session で保持できる境界を作った。この store は永続
+`.neplobj` codec ではなく、Web playground の `CompilerSession` が次回 compile で
+`PublicInterfaceArtifactInputs` へ fragment slice を渡すための in-memory staging authority である。
+
+lookup は materialized symbol だけでは hit しない。target/profile、stdlib content hash、target
+source key、dependency public surface hash、source capability policy hash、backend feature set、
+private effect policy hash、link symbol、空 generic instantiation hash をすべて確認する。source
+capability policy がない edge では raw-memory / private-effect policy を比較できないため、通常
+source fallback に残す。
+
+Web `CompilerSession` は `.neplmeta` projection 後の `MaterializedPublicSurfaceInput` と loader の
+edge probe を突き合わせ、store から一致する direct-call fragment だけを取り出して
+`PublicInterfaceArtifactInputs::with_neplobj_direct_call_fragments` に渡す。body-missing negative skip は、
+同じ edge context の object candidate が store に存在する場合には materialized probe を省略しない。
+これにより、将来 fragment producer が入った後に古い body-missing skip entry が object hit を隠さない。
+
+この checkpoint では fragment producer はまだ実装していない。`FnValue`、`CallIndirect`、
+`MemoizedFunctionValue`、`memo_call` は引き続き direct-call fragment では解決しない。次の作業は、
+source fallback / full compile 後に checked HIR / Resource IR body hash / wasm lowering から
+`NeplObjDirectCallFragmentArtifact` を生成し、store へ保存することである。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
