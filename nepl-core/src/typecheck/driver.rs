@@ -317,7 +317,7 @@ pub fn typecheck_with_materialized_public_surfaces(
     for surface in materialized_public_surfaces {
         if !materialized_public_surface_origin_matches(source_map, surface) {
             diagnostics.push(type_error(
-                TypeDiagnosticCode::PublicSurfaceMaterializerRejected,
+                TypeDiagnosticCode::PublicSurfaceMaterializerOriginMissing,
                 "public surface artifact origin is not present in the current SourceMap",
                 Span::empty(surface.file_id, 0),
             ));
@@ -339,7 +339,7 @@ pub fn typecheck_with_materialized_public_surfaces(
             }
             Err(reject) => {
                 diagnostics.push(type_error(
-                    TypeDiagnosticCode::PublicSurfaceMaterializerRejected,
+                    reject.reason.diagnostic_code(),
                     format!(
                         "public surface artifact materialization failed for '{}'",
                         reject.entry_name

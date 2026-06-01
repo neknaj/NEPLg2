@@ -294,3 +294,20 @@ selected callable body hash、generic instantiation hash の設計が固まる�
 同じ checkpoint で、同一 `CompilerSession` の cold / warm / body edit sequence を固定する
 `nodesrc/bench_materialized_compile_fallbacks.js` を追加した。通常 test runner の worker 分散に
 依存せず、`compile_ms` と candidate surface delta と stage timing を同じ JSON に出すための実測入口である。
+
+## 2026-06-01 materialized fallback diagnostic detail checkpoint
+
+`OtherCoreError` に丸められていた materialized compile fallback の primary diagnostic code を
+`nepl_meta_materialized_compile_last_fallback_diagnostic_code` として出すようにした。
+`PublicSurfaceMaterializeRejectReason` も typed `TypeDiagnosticCode` へ写すため、
+`type.public_surface.materializer_rejected` だけではなく、materializer authority の不足箇所を
+JSON から直接読める。
+
+`core/char` fixture の warm compile では、fallback は `MaterializedFunctionBodyMissing` ではなく
+`type.public_surface.materializer.field_accessor_unsupported` だった。これは trait/impl materializer の
+次に残った root gap が、field accessor callable surface の復元であることを示す。
+
+この issue は trait / impl materializer の親 issue として open のまま維持する。field accessor callable
+materializer は `ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B`
+として分離し、`memo_call` / private cache proof / function value identity は引き続きこの materializer
+で bypass しない。

@@ -154,6 +154,21 @@ pub enum TypeDiagnosticCode {
     MemoCallUnsupportedValue,
     MemoCallBoundaryRestricted,
     PublicSurfaceMaterializerRejected,
+    PublicSurfaceMaterializerOriginMissing,
+    PublicSurfaceMaterializerEntryKindMismatch,
+    PublicSurfaceMaterializerUnsupportedSurfaceKind,
+    PublicSurfaceMaterializerCallableRejected,
+    PublicSurfaceMaterializerFieldAccessorUnsupported,
+    PublicSurfaceMaterializerTypeParamBoundsUnsupported,
+    PublicSurfaceMaterializerConflict,
+    PublicSurfaceMaterializerGenericUnsupported,
+    PublicSurfaceMaterializerTraitSelfUnsupported,
+    PublicSurfaceMaterializerNamedTypeUnsupported,
+    PublicSurfaceMaterializerApplyUnsupported,
+    PublicSurfaceMaterializerNominalIdentityRejected,
+    PublicSurfaceMaterializerNominalDefinitionRejected,
+    PublicSurfaceMaterializerTraitIdentityRejected,
+    PublicSurfaceMaterializerImplRejected,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -459,6 +474,21 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     DiagnosticCode::Type(TypeDiagnosticCode::MemoCallUnsupportedValue),
     DiagnosticCode::Type(TypeDiagnosticCode::MemoCallBoundaryRestricted),
     DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerRejected),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerOriginMissing),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerEntryKindMismatch),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerUnsupportedSurfaceKind),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerCallableRejected),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerTypeParamBoundsUnsupported),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerConflict),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerGenericUnsupported),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerTraitSelfUnsupported),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerNamedTypeUnsupported),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerApplyUnsupported),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerNominalIdentityRejected),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerNominalDefinitionRejected),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerTraitIdentityRejected),
+    DiagnosticCode::Type(TypeDiagnosticCode::PublicSurfaceMaterializerImplRejected),
     DiagnosticCode::Resource(ResourceDiagnosticCode::Borrow(
         ResourceBorrowDiagnosticCode::ReturnEscape,
     )),
@@ -927,6 +957,51 @@ impl TypeDiagnosticCode {
             TypeDiagnosticCode::PublicSurfaceMaterializerRejected => {
                 "type.public_surface.materializer_rejected"
             }
+            TypeDiagnosticCode::PublicSurfaceMaterializerOriginMissing => {
+                "type.public_surface.materializer.origin_missing"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerEntryKindMismatch => {
+                "type.public_surface.materializer.entry_kind_mismatch"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerUnsupportedSurfaceKind => {
+                "type.public_surface.materializer.unsupported_surface_kind"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableRejected => {
+                "type.public_surface.materializer.callable_rejected"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported => {
+                "type.public_surface.materializer.field_accessor_unsupported"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerTypeParamBoundsUnsupported => {
+                "type.public_surface.materializer.type_param_bounds_unsupported"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerConflict => {
+                "type.public_surface.materializer.conflict"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerGenericUnsupported => {
+                "type.public_surface.materializer.generic_unsupported"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerTraitSelfUnsupported => {
+                "type.public_surface.materializer.trait_self_unsupported"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerNamedTypeUnsupported => {
+                "type.public_surface.materializer.named_type_unsupported"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerApplyUnsupported => {
+                "type.public_surface.materializer.apply_unsupported"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerNominalIdentityRejected => {
+                "type.public_surface.materializer.nominal_identity_rejected"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerNominalDefinitionRejected => {
+                "type.public_surface.materializer.nominal_definition_rejected"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerTraitIdentityRejected => {
+                "type.public_surface.materializer.trait_identity_rejected"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerImplRejected => {
+                "type.public_surface.materializer.impl_rejected"
+            }
         }
     }
 
@@ -1107,6 +1182,51 @@ impl TypeDiagnosticCode {
             }
             TypeDiagnosticCode::PublicSurfaceMaterializerRejected => {
                 "public surface artifact could not be materialized"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerOriginMissing => {
+                "public surface artifact origin is not present"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerEntryKindMismatch => {
+                "public surface artifact entry kind does not match its surface"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerUnsupportedSurfaceKind => {
+                "public surface artifact contains an unsupported surface kind"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerCallableRejected => {
+                "public callable surface could not be materialized"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported => {
+                "public field accessor surface is not supported by the materializer"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerTypeParamBoundsUnsupported => {
+                "public callable type parameter bounds are not supported by the materializer"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerConflict => {
+                "public surface artifact conflicts with the current typecheck environment"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerGenericUnsupported => {
+                "public surface artifact contains an unsupported generic reference"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerTraitSelfUnsupported => {
+                "public surface artifact contains unsupported trait Self usage"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerNamedTypeUnsupported => {
+                "public surface artifact contains an unsupported named type"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerApplyUnsupported => {
+                "public surface artifact contains an unsupported type application"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerNominalIdentityRejected => {
+                "public nominal type identity could not be materialized"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerNominalDefinitionRejected => {
+                "public nominal type definition did not match its identity"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerTraitIdentityRejected => {
+                "public trait identity could not be materialized"
+            }
+            TypeDiagnosticCode::PublicSurfaceMaterializerImplRejected => {
+                "public impl surface could not be materialized"
             }
         }
     }

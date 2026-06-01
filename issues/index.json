@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T14:37:02.228Z",
+  "generated_at": "2026-06-01T14:54:55.483Z",
   "counts": {
-    "total": 1303,
-    "open": 32,
+    "total": 1304,
+    "open": 33,
     "resolved": 1271,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 326
       },
       "core": {
-        "total": 658,
-        "open": 25,
+        "total": 659,
+        "open": 26,
         "resolved": 633
       },
       "neplg21": {
@@ -458,6 +458,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10.md"
+    },
+    {
+      "id": "ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B",
+      "title": ".neplmeta field accessor materializer needed for stdlib body skip",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-01",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/field_apply.rs; nepl-core/src/typecheck/public_surface.rs; nepl-web/src/lib.rs; nodesrc/bench_materialized_compile_fallbacks.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B.md"
     },
     {
       "id": "ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2",

@@ -2417,6 +2417,34 @@ compile し、各 run の `compile_ms`、materialized compile delta、`resource_
 `.neplobj` candidate surface の実測は専用 benchmark script で行い、CI regression は helper と stats
 shape を固定する。性能値そのものを brittle な閾値として test に埋め込まない。
 
+### 2026-06-01 materialized fallback diagnostic detail checkpoint
+
+`NeplMetaMaterializedCompileFallbackReason::OtherCoreError` は互換性のため残したまま、
+`CompilerSession.loader_cache_stats_json()` に
+`nepl_meta_materialized_compile_last_fallback_diagnostic_code` を追加した。これは materialized
+compile attempt が source fallback へ戻る直前の primary `DiagnosticCode::as_str()` であり、
+`OtherCoreError` の中身を message 文字列ではなく compiler-owned typed diagnostic registry で観測する。
+
+`nodesrc/bench_materialized_compile_fallbacks.js` は per-run の
+`materialized_compile.last_fallback_diagnostic_code` と summary の
+`materialized_fallback_diagnostic_code_counts` を出す。これにより、`.neplobj` body missing と
+typecheck materializer reject を同じ fallback 数に丸めず、次に直すべき materializer authority を
+JSON だけから判断できる。
+
+同じ checkpoint で、`PublicSurfaceMaterializeRejectReason` を coarse な
+`type.public_surface.materializer_rejected` ではなく、`TypeDiagnosticCode` の stable code へ写す
+helper を追加した。実測では `tmp/materialized-fallback-detail-20260601.json` の warm compile
+3 回すべてが `type.public_surface.materializer.field_accessor_unsupported` であり、
+`MaterializedFunctionBodyMissing` ではなかった。したがって次の root gap は `.neplobj` ではなく、
+field accessor callable surface を current session の `Env` / HIR lowering boundary へ安全に
+materialize することである。
+
+ただし、`.neplmeta` 由来 field accessor callable は通常 callable と同一視しない。field accessor は
+Resource / SourceCapability / HIR lowering と接続する compiler-owned callable なので、stable link
+symbol や signature が一致しても、`get` / `get_ref` / `put` の accessor kind を保持したまま
+`BindingKind::Func.field_accessor` として復元しなければならない。`@func`、`memo_call`、
+indirect call への function value identity はこの checkpoint では広げない。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
@@ -2433,3 +2461,4 @@ shape を固定する。性能値そのものを brittle な閾値として test
 - [ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D](../../issues/items/ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D.md)
 - [ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649](../../issues/items/ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649.md)
 - [ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1](../../issues/items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md)
+- [ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B](../../issues/items/ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B.md)

@@ -67,6 +67,19 @@ function sum(values) {
     return values.reduce((acc, value) => acc + (Number.isFinite(value) ? value : 0), 0);
 }
 
+function fallbackDiagnosticCodeCounts(runs) {
+    const counts = {};
+    for (const run of runs) {
+        const code = String(run.materialized_compile?.last_fallback_diagnostic_code || '');
+        const fallbacks = numeric(run.materialized_compile?.source_fallbacks_delta);
+        if (code === '' || !Number.isFinite(fallbacks) || fallbacks <= 0) {
+            continue;
+        }
+        counts[code] = (counts[code] || 0) + fallbacks;
+    }
+    return counts;
+}
+
 function stageTiming(result, stage) {
     const rows = result?.timing?.compiler_session_cache_after?.compile_stage_timings;
     if (!Array.isArray(rows)) return null;
@@ -87,6 +100,7 @@ function summarizeBenchmarkRuns(runs) {
         materialized_body_missing_fallbacks_delta_sum: bodyMissingFallbacks,
         materialized_non_body_missing_fallbacks_delta_sum: sourceFallbacks - bodyMissingFallbacks,
         neplobj_candidate_body_missing_surfaces_delta_sum: sum(runs.map((run) => numeric(run.materialized_compile?.body_missing_candidate_surfaces_delta))),
+        materialized_fallback_diagnostic_code_counts: fallbackDiagnosticCodeCounts(runs),
     };
 }
 
@@ -108,6 +122,7 @@ function publicRunShape(name, result) {
             body_missing_fallbacks_delta: deltaOf(result, 'body_missing_fallbacks'),
             body_missing_candidate_surfaces_delta: deltaOf(result, 'body_missing_candidate_surfaces'),
             last_fallback_reason_code: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_fallback_reason_code),
+            last_fallback_diagnostic_code: result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_fallback_diagnostic_code || '',
             last_attempted_surfaces: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_attempted_surfaces),
             last_body_missing_candidate_surfaces: numeric(result?.timing?.compiler_session_cache_after?.nepl_obj_candidate_last_body_missing_surfaces),
         },
@@ -173,6 +188,7 @@ if (require.main === module) {
 
 module.exports = {
     SCHEMA,
+    fallbackDiagnosticCodeCounts,
     publicRunShape,
     runBenchmark,
     sourceForValue,

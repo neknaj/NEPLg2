@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 
 use crate::ast::{Effect, Visibility};
 use crate::backend_scalar_type::BackendScalarType;
+use crate::diagnostic_codes::TypeDiagnosticCode;
 use crate::span::Span;
 use crate::types::{
     EnumVariantInfo, NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeId, TypeKind,
@@ -183,6 +184,79 @@ pub enum PublicSurfaceMaterializeRejectReason {
     DuplicateImplConflict,
     CopyImplRequiresClone,
     DropImplTargetCopy,
+}
+
+impl PublicSurfaceMaterializeRejectReason {
+    pub fn diagnostic_code(&self) -> TypeDiagnosticCode {
+        match self {
+            Self::EntryKindMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerEntryKindMismatch
+            }
+            Self::UnsupportedSurfaceKind { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerUnsupportedSurfaceKind
+            }
+            Self::MissingCallableLinkSymbol
+            | Self::CallableLinkNameMismatch { .. }
+            | Self::CallableTypeExpected
+            | Self::CallableArityMismatch { .. }
+            | Self::CallableEffectMismatch { .. }
+            | Self::CallableSignatureHashMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerCallableRejected
+            }
+            Self::FieldAccessorUnsupported { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported
+            }
+            Self::TypeParamBoundsUnsupported => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerTypeParamBoundsUnsupported
+            }
+            Self::DuplicateLinkSymbolConflict { .. }
+            | Self::NonCallableNameConflict
+            | Self::NoShadowConflict => TypeDiagnosticCode::PublicSurfaceMaterializerConflict,
+            Self::UnboundGenericParam { .. }
+            | Self::UnboundGenericParamTerm { .. }
+            | Self::UnboundTraitBoundTarget { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerGenericUnsupported
+            }
+            Self::TraitSelfUnsupported => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerTraitSelfUnsupported
+            }
+            Self::NamedTypeUnsupported { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerNamedTypeUnsupported
+            }
+            Self::ApplyUnsupported => TypeDiagnosticCode::PublicSurfaceMaterializerApplyUnsupported,
+            Self::MissingNominalTypeIdentity { .. }
+            | Self::NominalTypeIdentityKindMismatch { .. }
+            | Self::NominalTypeIdentityNameMismatch { .. }
+            | Self::NominalTypeIdentityArityMismatch { .. }
+            | Self::NominalTypeIdentityConflict { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerNominalIdentityRejected
+            }
+            Self::NominalDefinitionHashUnavailable
+            | Self::NominalDefinitionHashMismatch { .. }
+            | Self::DuplicateStructField { .. }
+            | Self::DuplicateEnumVariant { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerNominalDefinitionRejected
+            }
+            Self::MissingTraitIdentity
+            | Self::TraitIdentityNameMismatch { .. }
+            | Self::TraitIdentityArityMismatch { .. }
+            | Self::TraitDefinitionHashMismatch { .. }
+            | Self::TraitIdentityConflict { .. }
+            | Self::DuplicateTraitMethod { .. }
+            | Self::MissingTraitRefIdentity { .. }
+            | Self::TraitRefIdentityNameMismatch { .. }
+            | Self::TraitRefIdentityConflict { .. }
+            | Self::TraitRefArityMismatch { .. } => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerTraitIdentityRejected
+            }
+            Self::UnsupportedImplKind
+            | Self::DuplicateImplConflict
+            | Self::CopyImplRequiresClone
+            | Self::DropImplTargetCopy => {
+                TypeDiagnosticCode::PublicSurfaceMaterializerImplRejected
+            }
+        }
+    }
 }
 
 /// public callable surface を `Env` に注入する内部 materializer。
@@ -1893,6 +1967,7 @@ mod tests {
     use alloc::vec::Vec;
 
     use crate::ast::Visibility;
+    use crate::diagnostic_codes::TypeDiagnosticCode;
     use crate::span::Span;
     use crate::typecheck::materializer::{
         materialize_public_surface_mvp, materialize_public_surface_with_semantics_mvp,
@@ -1920,6 +1995,29 @@ mod tests {
 
     fn link_symbol(name: &str, ty: &PublicTypeTerm) -> PublicCallableLinkSymbol {
         link_symbol_with_path("stdlib/core/math.nepl", name, ty)
+    }
+
+    #[test]
+    fn materializer_reject_reason_maps_to_stable_diagnostic_code() {
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::FieldAccessorUnsupported {
+                kind: PublicFieldAccessorKind::Get,
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerFieldAccessorUnsupported,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::NamedTypeUnsupported {
+                name: String::from("Item"),
+                identity: None,
+            }
+            .diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerNamedTypeUnsupported,
+        );
+        assert_eq!(
+            PublicSurfaceMaterializeRejectReason::DuplicateImplConflict.diagnostic_code(),
+            TypeDiagnosticCode::PublicSurfaceMaterializerImplRejected,
+        );
     }
 
     fn link_symbol_with_path(
