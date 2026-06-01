@@ -1,0 +1,59 @@
+//: # core/gui/error
+//: GUI/TUI core substrate の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: ### [目的/もくてき]
+//: - backend 差異や invalid command を panic、silent no-op、文字列 sentinel ではなく enum と `Result` で[扱/あつか]います。
+//: - error value と error display を[分離/ぶんり]し、表示文言や[言語/げんご]は std/platform [層/そう]へ[委/ゆだ]ねます。
+//:
+//: ### [注意/ちゅうい]
+//: - Phase 1 では payload を[持/も]たない[軽量/けいりょう] enum に[留/とど]めます。詳細診断や位置情報は alloc/std [層/そう]で[拡張/かくちょう]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor/helper は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/error" as *
+//: ```
+
+#indent 4
+
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiError: GUI/TUI core API の[失敗/しっぱい][分類/ぶんるい]
+pub enum GuiError:
+    Unsupported
+    InvalidGeometry
+    InvalidColor
+    InvalidCommand
+    MissingCapability
+    ResourceExhausted
+    BackendFailure
+
+impl Clone for GuiError:
+    fn clone %fn &GuiError GuiError \e:
+        *e
+
+impl Copy for GuiError:
+    fn copy_mark %fn GuiError GuiError \e:
+        e
+
+//: gui_error_is_unsupported: unsupported operation か[判定/はんてい]する
+pub fn gui_error_is_unsupported %fn GuiError bool \e:
+    match e:
+        GuiError::Unsupported:
+            true
+        _:
+            false
+
+//: gui_unsupported: unsupported operation を `Result` として[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - panic や no-op にせず、caller が `match` できる[失敗/しっぱい] value を[作/つく]ります。
+pub fn gui_unsupported <.T> %fn unit Result .T GuiError \unit:
+    Result::Err GuiError::Unsupported
+
+//: gui_ok: GUI result の[成功/せいこう] value を[作/つく]る
+pub fn gui_ok <.T> %fn .T Result .T GuiError \value:
+    Result::Ok value

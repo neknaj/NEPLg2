@@ -1,0 +1,143 @@
+//: # core/gui/capability
+//: GUI/TUI backend capability の no_alloc [表現/ひょうげん]
+//:
+//: ### [目的/もくてき]
+//: - backend が[提供/ていきょう]する surface、input、windowing、accessibility などの[能力/のうりょく]を enum/struct で[表/あらわ]します。
+//: - 実際に[存在/そんざい]しない[機能/きのう]を呼んだときは `GuiError::Unsupported` を `Result` で[返/かえ]すため、事前[確認/かくにん]に[使/つか]う[値/あたい]です。
+//:
+//: ### [注意/ちゅうい]
+//: - `has_allocator` は backend 側の allocator [有無/うむ]を[示/しめ]すだけで、この module 自体は allocator を[使/つか]いません。
+//: - TUI backend は `SurfaceKind::TextGrid` として[表/あらわ]します。ANSI escape sequence はここには[出/だ]しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor と accessor は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/capability" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/option" as *
+#import "core/traits/copy" as *
+
+//: SurfaceKind: backend surface の[種類/しゅるい]
+pub enum SurfaceKind:
+    Pixel
+    Command
+    TextGrid
+    Headless
+
+impl Clone for SurfaceKind:
+    fn clone %fn &SurfaceKind SurfaceKind \kind:
+        *kind
+
+impl Copy for SurfaceKind:
+    fn copy_mark %fn SurfaceKind SurfaceKind \kind:
+        kind
+
+//: GuiCapabilities: backend が[提供/ていきょう]する UI capability
+pub struct GuiCapabilities:
+    surface_kind %SurfaceKind
+    color_format %ColorFormat
+    has_allocator %bool
+    has_windowing %bool
+    has_multi_window %bool
+    has_pointer %bool
+    has_touch %bool
+    has_keyboard %bool
+    has_text_input %bool
+    has_clipboard %bool
+    has_accessibility %bool
+    requires_flush %bool
+    max_texture_width %Option i32
+    max_texture_height %Option i32
+
+impl Clone for GuiCapabilities:
+    fn clone %fn &GuiCapabilities GuiCapabilities \caps:
+        *caps
+
+impl Copy for GuiCapabilities:
+    fn copy_mark %fn GuiCapabilities GuiCapabilities \caps:
+        caps
+
+//: gui_capabilities_new: capability value を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - backend が[持/も]つ[能力/のうりょく]を 1 つの struct に[集約/しゅうやく]します。
+pub fn gui_capabilities_new %fn SurfaceKind fn ColorFormat fn bool fn bool fn bool fn bool fn bool fn bool fn bool fn bool fn bool fn bool fn Option i32 fn Option i32 GuiCapabilities \surface_kind\color_format\has_allocator\has_windowing\has_multi_window\has_pointer\has_touch\has_keyboard\has_text_input\has_clipboard\has_accessibility\requires_flush\max_texture_width\max_texture_height:
+    GuiCapabilities surface_kind color_format has_allocator has_windowing has_multi_window has_pointer has_touch has_keyboard has_text_input has_clipboard has_accessibility requires_flush max_texture_width max_texture_height
+
+//: gui_capabilities_text_grid: terminal/text grid backend の[標準/ひょうじゅん] capability を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - TUI を GUI と[別/べつ]の public API にせず、text-cell surface を[持/も]つ backend として[表/あらわ]します。
+pub fn gui_capabilities_text_grid %fn unit GuiCapabilities \unit:
+    gui_capabilities_new:
+        SurfaceKind::TextGrid
+        ColorFormat::FormatRgb888
+        false
+        false
+        false
+        false
+        false
+        true
+        true
+        false
+        false
+        true
+        none
+        none
+
+//: gui_capabilities_headless: render surface を[持/も]たない test backend capability を[作/つく]る
+pub fn gui_capabilities_headless %fn unit GuiCapabilities \unit:
+    gui_capabilities_new:
+        SurfaceKind::Headless
+        ColorFormat::FormatRgba8888
+        false
+        false
+        false
+        false
+        false
+        false
+        false
+        false
+        false
+        false
+        none
+        none
+
+//: gui_capabilities_surface_kind: surface kind を[読/よ]む
+pub fn gui_capabilities_surface_kind %fn &GuiCapabilities SurfaceKind \caps:
+    *field::get_ref caps "surface_kind"
+
+//: gui_capabilities_color_format: color format を[読/よ]む
+pub fn gui_capabilities_color_format %fn &GuiCapabilities ColorFormat \caps:
+    *field::get_ref caps "color_format"
+
+//: gui_capabilities_requires_flush: present/flush が[必要/ひつよう]か[読/よ]む
+pub fn gui_capabilities_requires_flush %fn &GuiCapabilities bool \caps:
+    *field::get_ref caps "requires_flush"
+
+//: gui_capabilities_has_windowing: windowing capability を[読/よ]む
+pub fn gui_capabilities_has_windowing %fn &GuiCapabilities bool \caps:
+    *field::get_ref caps "has_windowing"
+
+//: surface_kind_is_text_grid: text grid surface か[判定/はんてい]する
+pub fn surface_kind_is_text_grid %fn SurfaceKind bool \kind:
+    match kind:
+        SurfaceKind::TextGrid:
+            true
+        _:
+            false
+
+//: surface_kind_is_headless: render surface を[持/も]たない backend か[判定/はんてい]する
+pub fn surface_kind_is_headless %fn SurfaceKind bool \kind:
+    match kind:
+        SurfaceKind::Headless:
+            true
+        _:
+            false

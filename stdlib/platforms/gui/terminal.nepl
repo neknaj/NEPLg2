@@ -1,0 +1,23 @@
+//: # platforms/gui/terminal
+//: GUI substrate の terminal backend public facade
+//:
+//: ### [目的/もくてき]
+//: - terminal を raw ANSI helper ではなく、`TextGrid` surface を持つ GUI backend として扱うための型境界を公開します。
+//: - capability、text-cell command、frame を分け、将来の WASIX TTY 実装や ANSI 実装を backend detail として差し替えられるようにします。
+//:
+//: ### [構成/こうせい]
+//: - `terminal/capability` は surface kind と backend capability を持ちます。
+//: - `terminal/text_grid` は cell 座標と text run を持ちます。
+//: - `terminal/frame` は 1 frame 分の TextGrid render input を持ちます。
+//: - `terminal/input` は terminal raw byte input を `KeyboardEvent` / `TextInputEvent` へ[正規化/せいきか]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この facade は DOM、OS、TTY raw mode、ANSI escape sequence を公開しません。
+//: - 既存 `platforms/wasix/tui` は互換層として残し、ここからは import しません。
+
+#indent 4
+
+pub #import "./terminal/capability" as @merge
+pub #import "./terminal/text_grid" as @merge
+pub #import "./terminal/frame" as @merge
+pub #import "./terminal/input" as @merge

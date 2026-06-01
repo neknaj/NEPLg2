@@ -1,0 +1,64 @@
+//: # std/gui/timer
+//: timer request の std/gui contract
+//:
+//: ### [目的/もくてき]
+//: - timer を OS timer handle ではなく opaque id と request value で[表/あらわ]します。
+//: - platform backend はこの request を[解釈/かいしゃく]し、発火時は `core/gui` の `TimerEvent` へ[変換/へんかん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/timer" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "std/gui/window" as *
+
+//: TimerId: host timer を[参照/さんしょう]する opaque id
+pub struct TimerId:
+    raw %i32
+
+impl Clone for TimerId:
+    fn clone %fn &TimerId TimerId \id:
+        *id
+
+impl Copy for TimerId:
+    fn copy_mark %fn TimerId TimerId \id:
+        id
+
+//: TimerRequest: timer 登録 request
+pub struct TimerRequest:
+    window %WindowId
+    timer %TimerId
+    interval_ms %i32
+    repeating %bool
+
+impl Clone for TimerRequest:
+    fn clone %fn &TimerRequest TimerRequest \request:
+        *request
+
+impl Copy for TimerRequest:
+    fn copy_mark %fn TimerRequest TimerRequest \request:
+        request
+
+//: timer_id: raw integer から TimerId を[作/つく]る
+pub fn timer_id %fn i32 TimerId \raw:
+    TimerId raw
+
+//: timer_id_raw: TimerId の raw value を[読/よ]む
+pub fn timer_id_raw %fn &TimerId i32 \id:
+    *field::get_ref id "raw"
+
+//: timer_request: TimerRequest を[作/つく]る
+pub fn timer_request %fn WindowId fn TimerId fn i32 fn bool TimerRequest \window\timer\interval_ms\repeating:
+    TimerRequest window timer interval_ms repeating
+
+//: timer_request_interval_ms: interval を[読/よ]む
+pub fn timer_request_interval_ms %fn &TimerRequest i32 \request:
+    *field::get_ref request "interval_ms"
+
+//: timer_request_repeating: repeating flag を[読/よ]む
+pub fn timer_request_repeating %fn &TimerRequest bool \request:
+    *field::get_ref request "repeating"

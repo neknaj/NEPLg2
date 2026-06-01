@@ -1,0 +1,332 @@
+//: # core/gui/render_command
+//: GUI/TUI [共通/きょうつう] render command の no_alloc [表現/ひょうげん]
+//:
+//: ### [目的/もくてき]
+//: - pixel-only draw target より[高水準/こうすいじゅん]な command stream を、allocator なしで[受/う]け[渡/わた]せる[型/かた]として[定義/ていぎ]します。
+//: - TUI/terminal backend は `TextCellRun` command を[受/う]け、ANSI などの[具体/ぐたい]出力は platform [層/そう]で[処理/しょり]します。
+//:
+//: ### [注意/ちゅうい]
+//: - text/image の[実体/じったい]は `TextRunId` / `ImageId` で[参照/さんしょう]します。文字列 buffer や image buffer は core では[保持/ほじ]しません。
+//: - Phase 1 では command value と constructor だけを[置/お]き、trait-heavy な RenderTarget/DrawTarget 実装は[追加/ついか]しません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor と accessor は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/render_command" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/geometry" as *
+#import "core/traits/copy" as *
+
+//: TextRunId: alloc/std [層/そう]の text run を[参照/さんしょう]する id
+pub struct TextRunId:
+    raw %i32
+
+impl Clone for TextRunId:
+    fn clone %fn &TextRunId TextRunId \id:
+        *id
+
+impl Copy for TextRunId:
+    fn copy_mark %fn TextRunId TextRunId \id:
+        id
+
+//: ImageId: backend [側/がわ]の image resource を[参照/さんしょう]する id
+pub struct ImageId:
+    raw %i32
+
+impl Clone for ImageId:
+    fn clone %fn &ImageId ImageId \id:
+        *id
+
+impl Copy for ImageId:
+    fn copy_mark %fn ImageId ImageId \id:
+        id
+
+//: GuiPaint: fill [用/よう] paint
+pub struct GuiPaint:
+    color %Rgba8888
+
+impl Clone for GuiPaint:
+    fn clone %fn &GuiPaint GuiPaint \paint:
+        *paint
+
+impl Copy for GuiPaint:
+    fn copy_mark %fn GuiPaint GuiPaint \paint:
+        paint
+
+//: GuiStroke: stroke [用/よう] paint と width
+pub struct GuiStroke:
+    color %Rgba8888
+    width %i32
+
+impl Clone for GuiStroke:
+    fn clone %fn &GuiStroke GuiStroke \stroke:
+        *stroke
+
+impl Copy for GuiStroke:
+    fn copy_mark %fn GuiStroke GuiStroke \stroke:
+        stroke
+
+//: TextPaint: text [用/よう] paint
+pub struct TextPaint:
+    color %Rgba8888
+
+impl Clone for TextPaint:
+    fn clone %fn &TextPaint TextPaint \paint:
+        *paint
+
+impl Copy for TextPaint:
+    fn copy_mark %fn TextPaint TextPaint \paint:
+        paint
+
+//: Transform2d: 2D affine transform の fixed-point [係数/けいすう]
+//:
+//: [注意/ちゅうい]:
+//: - 係数の scale contract は render backend [側/がわ]で[決/き]めます。core では 6 つの i32 value として[保持/ほじ]します。
+pub struct Transform2d:
+    m00 %i32
+    m01 %i32
+    m02 %i32
+    m10 %i32
+    m11 %i32
+    m12 %i32
+
+impl Clone for Transform2d:
+    fn clone %fn &Transform2d Transform2d \transform:
+        *transform
+
+impl Copy for Transform2d:
+    fn copy_mark %fn Transform2d Transform2d \transform:
+        transform
+
+//: TextGridPoint: terminal/text grid の cell [位置/いち]
+pub struct TextGridPoint:
+    column %i32
+    row %i32
+
+impl Clone for TextGridPoint:
+    fn clone %fn &TextGridPoint TextGridPoint \point:
+        *point
+
+impl Copy for TextGridPoint:
+    fn copy_mark %fn TextGridPoint TextGridPoint \point:
+        point
+
+//: TextCellStyle: text grid cell の[色/いろ] style
+pub struct TextCellStyle:
+    foreground %Rgba8888
+    background %Rgba8888
+
+impl Clone for TextCellStyle:
+    fn clone %fn &TextCellStyle TextCellStyle \style:
+        *style
+
+impl Copy for TextCellStyle:
+    fn copy_mark %fn TextCellStyle TextCellStyle \style:
+        style
+
+//: TextCellRun: text grid surface へ[渡/わた]す cell run
+//:
+//: [目的/もくてき]:
+//: - terminal backend が[表示/ひょうじ]する text run id、開始 cell、cell count、style を 1 value に[束/たば]ねます。
+pub struct TextCellRun:
+    point %TextGridPoint
+    run_id %TextRunId
+    cell_count %i32
+    style %TextCellStyle
+
+impl Clone for TextCellRun:
+    fn clone %fn &TextCellRun TextCellRun \run:
+        *run
+
+impl Copy for TextCellRun:
+    fn copy_mark %fn TextCellRun TextCellRun \run:
+        run
+
+pub struct FillRectCommand:
+    rect %GuiRect
+    paint %GuiPaint
+
+impl Clone for FillRectCommand:
+    fn clone %fn &FillRectCommand FillRectCommand \command:
+        *command
+
+impl Copy for FillRectCommand:
+    fn copy_mark %fn FillRectCommand FillRectCommand \command:
+        command
+
+pub struct StrokeRectCommand:
+    rect %GuiRect
+    stroke %GuiStroke
+
+impl Clone for StrokeRectCommand:
+    fn clone %fn &StrokeRectCommand StrokeRectCommand \command:
+        *command
+
+impl Copy for StrokeRectCommand:
+    fn copy_mark %fn StrokeRectCommand StrokeRectCommand \command:
+        command
+
+pub struct LineCommand:
+    start %GuiPoint
+    end %GuiPoint
+    stroke %GuiStroke
+
+impl Clone for LineCommand:
+    fn clone %fn &LineCommand LineCommand \command:
+        *command
+
+impl Copy for LineCommand:
+    fn copy_mark %fn LineCommand LineCommand \command:
+        command
+
+pub struct TextRunCommand:
+    run_id %TextRunId
+    position %GuiPoint
+    paint %TextPaint
+
+impl Clone for TextRunCommand:
+    fn clone %fn &TextRunCommand TextRunCommand \command:
+        *command
+
+impl Copy for TextRunCommand:
+    fn copy_mark %fn TextRunCommand TextRunCommand \command:
+        command
+
+pub struct ImageRectCommand:
+    image_id %ImageId
+    rect %GuiRect
+
+impl Clone for ImageRectCommand:
+    fn clone %fn &ImageRectCommand ImageRectCommand \command:
+        *command
+
+impl Copy for ImageRectCommand:
+    fn copy_mark %fn ImageRectCommand ImageRectCommand \command:
+        command
+
+pub struct TextCellRunCommand:
+    run %TextCellRun
+
+impl Clone for TextCellRunCommand:
+    fn clone %fn &TextCellRunCommand TextCellRunCommand \command:
+        *command
+
+impl Copy for TextCellRunCommand:
+    fn copy_mark %fn TextCellRunCommand TextCellRunCommand \command:
+        command
+
+//: RenderCommand: backend へ[渡/わた]す command stream の 1 command
+pub enum RenderCommand:
+    FillRect %FillRectCommand
+    StrokeRect %StrokeRectCommand
+    Line %LineCommand
+    TextRun %TextRunCommand
+    ImageRect %ImageRectCommand
+    PushClip %GuiRect
+    PopClip
+    PushTransform %Transform2d
+    PopTransform
+    TextCellRun %TextCellRunCommand
+
+impl Clone for RenderCommand:
+    fn clone %fn &RenderCommand RenderCommand \command:
+        *command
+
+impl Copy for RenderCommand:
+    fn copy_mark %fn RenderCommand RenderCommand \command:
+        command
+
+//: text_run_id_new: text run id を[作/つく]る
+pub fn text_run_id_new %fn i32 TextRunId \raw:
+    TextRunId raw
+
+//: image_id_new: image id を[作/つく]る
+pub fn image_id_new %fn i32 ImageId \raw:
+    ImageId raw
+
+//: gui_paint_solid: solid fill paint を[作/つく]る
+pub fn gui_paint_solid %fn Rgba8888 GuiPaint \color:
+    GuiPaint color
+
+//: gui_stroke_new: stroke を[作/つく]る
+pub fn gui_stroke_new %fn Rgba8888 fn i32 GuiStroke \color\width:
+    GuiStroke color width
+
+//: text_paint_solid: text paint を[作/つく]る
+pub fn text_paint_solid %fn Rgba8888 TextPaint \color:
+    TextPaint color
+
+//: transform2d_identity: identity transform を[返/かえ]す
+pub fn transform2d_identity %fn unit Transform2d \unit:
+    Transform2d 1 0 0 0 1 0
+
+//: text_grid_point_new: text grid point を[作/つく]る
+pub fn text_grid_point_new %fn i32 fn i32 TextGridPoint \column\row:
+    TextGridPoint column row
+
+//: text_grid_point_column: text grid point の column を[読/よ]む
+pub fn text_grid_point_column %fn &TextGridPoint i32 \point:
+    *field::get_ref point "column"
+
+//: text_grid_point_row: text grid point の row を[読/よ]む
+pub fn text_grid_point_row %fn &TextGridPoint i32 \point:
+    *field::get_ref point "row"
+
+//: text_cell_style_new: text cell style を[作/つく]る
+pub fn text_cell_style_new %fn Rgba8888 fn Rgba8888 TextCellStyle \foreground\background:
+    TextCellStyle foreground background
+
+//: text_cell_style_foreground: foreground color を[読/よ]む
+pub fn text_cell_style_foreground %fn &TextCellStyle Rgba8888 \style:
+    *field::get_ref style "foreground"
+
+//: text_cell_style_background: background color を[読/よ]む
+pub fn text_cell_style_background %fn &TextCellStyle Rgba8888 \style:
+    *field::get_ref style "background"
+
+//: text_cell_run_new: text cell run を[作/つく]る
+pub fn text_cell_run_new %fn TextGridPoint fn TextRunId fn i32 fn TextCellStyle TextCellRun \point\run_id\cell_count\style:
+    TextCellRun point run_id cell_count style
+
+//: text_cell_run_point: text cell run の[開始/かいし] point を[読/よ]む
+pub fn text_cell_run_point %fn &TextCellRun TextGridPoint \run:
+    *field::get_ref run "point"
+
+//: text_cell_run_id: text cell run の text run id を[読/よ]む
+pub fn text_cell_run_id %fn &TextCellRun TextRunId \run:
+    *field::get_ref run "run_id"
+
+//: text_cell_run_cell_count: text cell run の cell count を[読/よ]む
+pub fn text_cell_run_cell_count %fn &TextCellRun i32 \run:
+    *field::get_ref run "cell_count"
+
+//: text_cell_run_style: text cell run の style を[読/よ]む
+pub fn text_cell_run_style %fn &TextCellRun TextCellStyle \run:
+    *field::get_ref run "style"
+
+//: render_command_fill_rect: fill rect command を[作/つく]る
+pub fn render_command_fill_rect %fn GuiRect fn GuiPaint RenderCommand \rect\paint:
+    RenderCommand::FillRect FillRectCommand rect paint
+
+//: render_command_text_cell_run: text cell run command を[作/つく]る
+pub fn render_command_text_cell_run %fn TextCellRun RenderCommand \run:
+    RenderCommand::TextCellRun TextCellRunCommand run
+
+//: render_command_is_text_cell_run: text cell command か[判定/はんてい]する
+pub fn render_command_is_text_cell_run %fn RenderCommand bool \command:
+    match command:
+        RenderCommand::TextCellRun _run:
+            true
+        _:
+            false
+
+//: text_run_id_raw: text run id の raw value を[読/よ]む
+pub fn text_run_id_raw %fn &TextRunId i32 \id:
+    *field::get_ref id "raw"

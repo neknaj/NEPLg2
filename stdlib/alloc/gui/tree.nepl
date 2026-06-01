@@ -1,0 +1,27 @@
+//: # alloc/gui/tree
+//: GUI / TUI 共通 retained tree facade
+//:
+//: ### [目的/もくてき]
+//: - widget snapshot と layout result を、platform handle を[持/も]たない bounded tree として[扱/あつか]います。
+//: - event routing、focus traversal、差分更新の前提になる stable id order を[固定/こてい]します。
+//:
+//: ### [現状/げんじょう]
+//: - 初期 checkpoint では root と最大 2 個の child を[持/も]つ fixed capacity tree です。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui" as *
+//: fn main %fn unit i32 \unit:
+//:     let id %WidgetId widget_id 1
+//:     let hint %LayoutHint layout_hint_fixed 4 1
+//:     let root %WidgetDescriptor widget_label id "root" hint
+//:     let tree %ViewTree view_tree_single root
+//:     view_tree_child_count &tree
+//: ```
+
+#indent 4
+
+pub #import "alloc/gui/tree/types" as *

@@ -1,0 +1,26 @@
+//: # alloc/gui/layout
+//: GUI / TUI 共通 layout contract の public facade
+//:
+//: ### [目的/もくてき]
+//: - `core/gui` の geometry と `TextMeasurer` を[使/つか]い、platform API に[依存/いぞん]しない layout data を[提供/ていきょう]します。
+//: - browser、OS font、terminal escape sequence はここで[呼/よ]ばず、測定能力だけを context として[受/う]け[取/と]ります。
+//:
+//: ### [現状/げんじょう]
+//: - 現 checkpoint では constraints、layout context、単一 node の measure/place helper、arena order の[縦/たて][積/づ]み layout connector、parent-local stack layout policy を[固定/こてい]します。
+//:
+//: neplg2:test
+//: ret: 10
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/layout" as *
+//: fn main %fn unit i32 \unit:
+//:     let constraints %LayoutConstraints layout_constraints 0 0 10 20
+//:     layout_constraints_max_width &constraints
+//: ```
+
+#indent 4
+
+pub #import "alloc/gui/layout/types" as *
+pub #import "alloc/gui/layout/arena" as *
+pub #import "alloc/gui/layout/stack" as *

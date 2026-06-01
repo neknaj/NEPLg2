@@ -1,5 +1,5 @@
 [workspace]
-members = ["nepl-core", "nepl-cli", "nepl-language", "nepl-lsp"]
+members = ["nepl-core", "nepl-cli", "nepl-language", "nepl-lsp", "nepl-gui-native"]
 resolver = "2"
 
 [workspace.package]

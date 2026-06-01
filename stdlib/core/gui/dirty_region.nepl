@@ -1,0 +1,169 @@
+//: # core/gui/dirty_region
+//: embedded/no_alloc backend [向/む]け dirty region contract
+//:
+//: ### [目的/もくてき]
+//: - [再描画/さいびょうが]が[必要/ひつよう]な[範囲/はんい]を、allocator や platform API に[依存/いぞん]しない value として[表/あらわ]します。
+//: - small embedded surface では[複数/ふくすう] rect を[保持/ほじ]せず、Empty / Rect / Full の 3 [状態/じょうたい]だけで dirty contract を[固定/こてい]します。
+//:
+//: ### [契約/けいやく]
+//: - `DirtyRegion::Rect` は `GuiRect` を[使/つか]い、width/height が[負/ふ]の rect は `GuiError::InvalidGeometry` として[拒否/きょひ]します。
+//: - 2 つの Rect を merge すると、個別 rect list ではなく bounding rect へ O(1) で[畳/たた]みます。
+//: - Full は surface [全体/ぜんたい] dirty を[表/あらわ]し、merge では[常/つね]に Full を[優先/ゆうせん]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor、query、merge はすべて O(1) です。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//: #entry main
+//: #target core
+//: #indent 4
+//:
+//: #import "core/gui/dirty_region" as *
+//: #import "core/gui/geometry" as *
+//: #import "core/result" as *
+//:
+//: fn main %fn unit i32 \unit:
+//:     let rect %GuiRect gui_rect_new 0 0 1 1
+//:     match dirty_region_rect_checked rect:
+//:         Result::Ok region:
+//:             let full %DirtyRegion dirty_region_full
+//:             match dirty_region_merge region full:
+//:                 DirtyRegion::Full:
+//:                     0
+//:                 _:
+//:                     1
+//:         Result::Err _error:
+//:             2
+//: ```
+
+#indent 4
+
+#import "core/gui/error" as *
+#import "core/gui/geometry" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: DirtyRegion: no_alloc dirty region の[最小/さいしょう][表現/ひょうげん]
+//:
+//: [目的/もくてき]:
+//: - Empty は dirty なし、Rect は 1 つの bounding rect、Full は surface [全体/ぜんたい] dirty を[表/あらわ]します。
+//:
+//: [注意/ちゅうい]:
+//: - 複数 rect の list は[持/も]ちません。Rect 同士の merge は bounding rect へ[広/ひろ]げます。
+pub enum DirtyRegion:
+    Empty
+    Rect %GuiRect
+    Full
+
+impl Clone for DirtyRegion:
+    fn clone %fn &DirtyRegion DirtyRegion \region:
+        *region
+
+impl Copy for DirtyRegion:
+    fn copy_mark %fn DirtyRegion DirtyRegion \region:
+        region
+
+//: dirty_region_empty: dirty なし region を[作/つく]る
+pub fn dirty_region_empty %fn unit DirtyRegion \unit:
+    DirtyRegion::Empty
+
+//: dirty_region_full: surface [全体/ぜんたい] dirty region を[作/つく]る
+pub fn dirty_region_full %fn unit DirtyRegion \unit:
+    DirtyRegion::Full
+
+//: dirty_region_rect_unchecked: 検査済み rect から dirty region を[作/つく]る
+//:
+//: [注意/ちゅうい]:
+//: - caller が width/height の[非負/ひふ]を[保証/ほしょう]しているときだけ[使/つか]います。
+//: - 外部入力や layout 計算結果には `dirty_region_rect_checked` を[使/つか]います。
+pub fn dirty_region_rect_unchecked %fn GuiRect DirtyRegion \rect:
+    DirtyRegion::Rect rect
+
+//: dirty_region_rect_is_valid: rect の dirty region contract を[満/み]たすか[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - `GuiRect` 自体は相対座標として[負/ふ]の x/y を[許/ゆる]すため、ここでは width/height だけを[検査/けんさ]します。
+pub fn dirty_region_rect_is_valid %fn &GuiRect bool \rect:
+    let width %i32 gui_rect_width rect
+    let height %i32 gui_rect_height rect
+    and:
+        ge width 0
+        ge height 0
+
+//: dirty_region_rect_checked: rect を[検査/けんさ]して dirty region を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - width/height が[負/ふ]の rect を panic や silent no-op にせず、`GuiError::InvalidGeometry` として[返/かえ]します。
+pub fn dirty_region_rect_checked %fn GuiRect Result DirtyRegion GuiError \rect:
+    if dirty_region_rect_is_valid &rect:
+        then:
+            let region %DirtyRegion DirtyRegion::Rect rect
+            Result::Ok region
+        else Result::Err GuiError::InvalidGeometry
+
+//: dirty_region_is_empty: dirty なし region か[判定/はんてい]する
+pub fn dirty_region_is_empty %fn DirtyRegion bool \region:
+    match region:
+        DirtyRegion::Empty:
+            true
+        _:
+            false
+
+//: dirty_region_is_full: full dirty region か[判定/はんてい]する
+pub fn dirty_region_is_full %fn DirtyRegion bool \region:
+    match region:
+        DirtyRegion::Full:
+            true
+        _:
+            false
+
+//: dirty_region_rect_union: 2 つの rect を bounding rect に[畳/たた]む
+//:
+//: [実装/じっそう]:
+//: - left/top は min、right/bottom は max を[取/と]り、その[差/さ]から width/height を[作/つく]ります。
+fn dirty_region_rect_union %fn GuiRect fn GuiRect GuiRect \a\b:
+    let a_x %i32 gui_rect_x &a
+    let b_x %i32 gui_rect_x &b
+    let a_y %i32 gui_rect_y &a
+    let b_y %i32 gui_rect_y &b
+    let a_right %i32 gui_rect_right &a
+    let b_right %i32 gui_rect_right &b
+    let a_bottom %i32 gui_rect_bottom &a
+    let b_bottom %i32 gui_rect_bottom &b
+    let left %i32 if lt a_x b_x:
+        then a_x
+        else b_x
+    let top %i32 if lt a_y b_y:
+        then a_y
+        else b_y
+    let right %i32 if gt a_right b_right:
+        then a_right
+        else b_right
+    let bottom %i32 if gt a_bottom b_bottom:
+        then a_bottom
+        else b_bottom
+    GuiRect left top sub right left sub bottom top
+
+//: dirty_region_merge: 2 つの dirty region を O(1) で[畳/たた]む
+//:
+//: [目的/もくてき]:
+//: - Empty は[相手/あいて]をそのまま[返/かえ]し、Full は Full を[返/かえ]します。
+//: - Rect 同士は list を[作/つく]らず、1 つの bounding rect に[広/ひろ]げます。
+pub fn dirty_region_merge %fn DirtyRegion fn DirtyRegion DirtyRegion \a\b:
+    match a:
+        DirtyRegion::Full:
+            DirtyRegion::Full
+        DirtyRegion::Empty:
+            b
+        DirtyRegion::Rect rect_a:
+            match b:
+                DirtyRegion::Full:
+                    DirtyRegion::Full
+                DirtyRegion::Empty:
+                    a
+                DirtyRegion::Rect rect_b:
+                    let merged %GuiRect dirty_region_rect_union rect_a rect_b
+                    DirtyRegion::Rect merged

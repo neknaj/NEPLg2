@@ -1,0 +1,151 @@
+//: # alloc/gui/layout/arena
+//: retained ViewTreeArena を LayoutTreeArena へ[変換/へんかん]する layout connector
+//:
+//: ### [目的/もくてき]
+//: - `ViewTreeArena` に[保持/ほじ]された widget snapshot を、platform API に[触/ふ]れず `LayoutTreeArena` へ[配置/はいち]します。
+//: - 初期 contract では arena order の[縦/たて][積/づ]み layout を[提供/ていきょう]し、後続の stack / flex / grid layout が同じ tree contract を[使/つか]えるようにします。
+//:
+//: ### [契約/けいやく]
+//: - 現 checkpoint の arena connector は `LayoutHint` と `LayoutConstraints` だけを[使/つか]い、text buffer と node の対応付けは後続 phase へ[分/わ]けます。
+//: - layout tree の構築途中で失敗した場合、内部で確保した `LayoutTreeArena` はこの module が[解放/かいほう]してから `Result::Err` を[返/かえ]します。
+//: - parent index と depth は `ViewTreeArena` と同じ insertion order を[保/たも]ちます。
+//:
+//: neplg2:test
+//: ret: 1
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root_id %WidgetId widget_id 1
+//:     let root_hint %LayoutHint layout_hint_fixed 8 1
+//:     let root %WidgetDescriptor widget_label root_id "root" root_hint
+//:     let child_id %WidgetId widget_id 2
+//:     let child_hint %LayoutHint layout_hint_fixed 8 1
+//:     let child %WidgetDescriptor widget_label child_id "child" child_hint
+//:     let view0 %ViewTreeArena unwrap_ok view_tree_arena_single root
+//:     let view %ViewTreeArena unwrap_ok view_tree_arena_add_child view0 0 child
+//:     let constraints %LayoutConstraints layout_constraints 0 0 80 80
+//:     let scale %GuiScaleFactor gui_scale_factor_new 1 1
+//:     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
+//:     let ctx %LayoutContext MockTextMeasurer layout_context constraints scale measurer gui_capabilities_text_grid
+//:     let run_id %TextRunId text_run_id_new 1
+//:     let font_id %FontId font_id_new 1
+//:     match layout_view_tree_arena_linear &ctx &view run_id font_id 2:
+//:         Result::Ok layout:
+//:             let y %i32:
+//:                 match layout_tree_arena_get_node &layout 1:
+//:                     Option::Some node:
+//:                         let placed %LayoutNode layout_tree_arena_node_layout &node
+//:                         let bounds %GuiRect layout_node_bounds &placed
+//:                         gui_rect_y &bounds
+//:                     Option::None:
+//:                         99
+//:             layout_tree_arena_free layout
+//:             view_tree_arena_free view
+//:             y
+//:         Result::Err _error:
+//:             view_tree_arena_free view
+//:             1
+//: ```
+
+#indent 4
+
+#import "alloc/gui/layout/types" as *
+#import "alloc/gui/tree/types" as *
+#import "alloc/gui/widget/types" as *
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: layout_arena_hint_width: widget の layout hint から width を[決/き]める
+fn layout_arena_hint_width %fn &LayoutConstraints fn &WidgetDescriptor i32 \constraints\descriptor:
+    let hint %LayoutHint widget_descriptor_layout_hint descriptor
+    let min_size %GuiSize layout_hint_min_size &hint
+    let width %i32 gui_size_width &min_size
+    let min_width %i32 layout_constraints_min_width constraints
+    let max_width %i32 layout_constraints_max_width constraints
+    if lt width min_width:
+        then min_width
+        else if gt width max_width:
+            then max_width
+            else width
+
+//: layout_arena_hint_height: widget の layout hint から height を[決/き]める
+fn layout_arena_hint_height %fn &LayoutConstraints fn &WidgetDescriptor i32 \constraints\descriptor:
+    let hint %LayoutHint widget_descriptor_layout_hint descriptor
+    let min_size %GuiSize layout_hint_min_size &hint
+    let height %i32 gui_size_height &min_size
+    let min_height %i32 layout_constraints_min_height constraints
+    let max_height %i32 layout_constraints_max_height constraints
+    if lt height min_height:
+        then min_height
+        else if gt height max_height:
+            then max_height
+            else height
+
+//: layout_view_tree_arena_linear_loop: arena order で child node を[測定/そくてい]し[縦/たて]に[配置/はいち]する
+//:
+//: [注意/ちゅうい]:
+//: - `layout_tree` owner を[受/う]け[取/と]り、成功時だけ次の owner として[返/かえ]します。
+//: - 失敗時は owner を[解放/かいほう]してから error を[返/かえ]します。
+fn layout_view_tree_arena_linear_loop %fn &ViewTreeArena fn LayoutTreeArena fn LayoutConstraints fn i32 fn i32 fn i32 Result LayoutTreeArena GuiError \view_tree\layout_tree\constraints\count\index\cursor_y:
+    if ge index count:
+        then Result::Ok layout_tree
+        else:
+            match view_tree_arena_get_node view_tree index:
+                Option::Some view_node:
+                    let descriptor %WidgetDescriptor view_tree_arena_node_descriptor &view_node
+                    let id %WidgetId widget_descriptor_id &descriptor
+                    let width %i32 layout_arena_hint_width &constraints &descriptor
+                    let height %i32 layout_arena_hint_height &constraints &descriptor
+                    let parent_index %i32 view_tree_arena_node_parent_index &view_node
+                    match layout_tree_arena_add_child_fields layout_tree parent_index id 0 cursor_y width height:
+                        Result::Ok next_tree:
+                            let next_y %i32 add cursor_y height
+                            let next_index %i32 add index 1
+                            layout_view_tree_arena_linear_loop view_tree next_tree constraints count next_index next_y
+                        Result::Err add_error:
+                            let kind %GuiError layout_tree_arena_add_child_error_kind &add_error
+                            let recovered %LayoutTreeArena layout_tree_arena_add_child_error_tree add_error
+                            layout_tree_arena_free recovered
+                            Result::Err kind
+                Option::None:
+                    layout_tree_arena_free layout_tree
+                    Result::Err GuiError::InvalidCommand
+
+//: layout_view_tree_arena_linear: `ViewTreeArena` を arena order の[縦/たて][積/づ]み `LayoutTreeArena` に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - allocator-backed retained tree と layout phase を[接続/せつぞく]し、event routing / diff / render の後続 phase が同じ layout tree を[参照/さんしょう]できるようにします。
+//:
+//: [制約/せいやく]:
+//: - 現 checkpoint は stack / flex / grid の本実装ではありません。各 widget の `LayoutHint` を constraints へ clamp し、root から順に y 方向へ[並/なら]べます。
+//: - `TextRunId` / `FontId` / cell count hint は API compatibility のため[受/う]け[取/と]ります。text buffer と arena node の対応付けは後続 phase で[追加/ついか]します。
+//: - full layout policy は `alloc/gui/layout/stack` 以降でこの contract の上に[追加/ついか]します。
+pub fn layout_view_tree_arena_linear <.TextMeasurerImpl: Copy> %fn &LayoutContext .TextMeasurerImpl fn &ViewTreeArena fn TextRunId fn FontId fn i32 Result LayoutTreeArena GuiError \context\view_tree\_run_id\_font_id\_cell_count:
+    let count %i32 view_tree_arena_len view_tree
+    if le count 0:
+        then Result::Err GuiError::InvalidCommand
+        else:
+            let constraints %LayoutConstraints layout_context_constraints context
+            if not layout_constraints_are_valid &constraints:
+                then Result::Err GuiError::InvalidGeometry
+                else:
+                    match view_tree_arena_get_node view_tree 0:
+                        Option::Some root_view_node:
+                            let root_descriptor %WidgetDescriptor view_tree_arena_node_descriptor &root_view_node
+                            let root_id %WidgetId widget_descriptor_id &root_descriptor
+                            let root_width %i32 layout_arena_hint_width &constraints &root_descriptor
+                            let root_height %i32 layout_arena_hint_height &constraints &root_descriptor
+                            match layout_tree_arena_single_fields root_id 0 0 root_width root_height:
+                                Result::Ok layout_tree:
+                                    layout_view_tree_arena_linear_loop view_tree layout_tree constraints count 1 root_height
+                                Result::Err error:
+                                    Result::Err error
+                        Option::None:
+                            Result::Err GuiError::InvalidCommand

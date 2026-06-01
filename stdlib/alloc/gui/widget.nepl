@@ -1,0 +1,23 @@
+//: # alloc/gui/widget
+//: GUI / TUI 共通 widget data facade
+//:
+//: ### [目的/もくてき]
+//: - widget を callback や platform handle ではなく、`ViewNode`、layout hint、semantic metadata の data として[扱/あつか]います。
+//: - action dispatch と accessibility semantic node 生成を、DOM / ANSI / OS API から[分離/ぶんり]します。
+//:
+//: neplg2:test
+//: ret: 4
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/widget" as *
+//:| #import "core/gui" as *
+//: fn main %fn unit i32 \unit:
+//:     let hint %LayoutHint layout_hint_fixed 4 2
+//:     let min_size %GuiSize layout_hint_min_size &hint
+//:     gui_size_width &min_size
+//: ```
+
+#indent 4
+
+pub #import "alloc/gui/widget/types" as *

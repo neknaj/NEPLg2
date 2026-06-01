@@ -1,0 +1,56 @@
+//: # platforms/gui/terminal/text_grid
+//: core TextGrid command helper for terminal backend
+//:
+//: ### [目的/もくてき]
+//: - terminal backend が `core/gui` の `TextGridPoint` / `TextCellStyle` / `TextCellRun` を[受/う]ける adapter helper を[提供/ていきょう]します。
+//: - raw ANSI、TTY state、文字列 buffer はここに[置/お]かず、`TextRunId` と cell count を[持/も]つ core command を[正/せい]とします。
+//:
+//: ### [契約/けいやく]
+//: - この module は TextGrid 型を[再定義/さいていぎ]しません。同名の platform [固有/こゆう]型を[増/ふ]やすと共通 substrate が[崩/くず]れるためです。
+//:
+//: ### [計算量/けいさんりょう]
+//: - helper は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "platforms/gui/terminal/text_grid" as *
+//: ```
+
+#indent 4
+
+#import "core/cast" as *
+#import "core/gui" as *
+#import "core/math" as *
+
+//: terminal_text_grid_point: terminal backend 用に core TextGridPoint を[作/つく]る
+pub fn terminal_text_grid_point %fn i32 fn i32 TextGridPoint \col\row:
+    text_grid_point_new col row
+
+//: terminal_text_grid_origin: TextGrid の[左上/ひだりうえ] origin を[返/かえ]す
+pub fn terminal_text_grid_origin %fn unit TextGridPoint \unit:
+    text_grid_point_new 0 0
+
+//: terminal_text_grid_point_translate: core TextGridPoint を cell delta で[移動/いどう]する
+pub fn terminal_text_grid_point_translate %fn TextGridPoint fn i32 fn i32 TextGridPoint \point\dcol\drow:
+    text_grid_point_new:
+        add text_grid_point_column &point dcol
+        add text_grid_point_row &point drow
+
+//: terminal_text_cell_run: core TextCellRun を terminal backend 用に[作/つく]る
+pub fn terminal_text_cell_run %fn TextGridPoint fn TextRunId fn i32 fn TextCellStyle TextCellRun \origin\run_id\cell_count\style:
+    text_cell_run_new origin run_id cell_count style
+
+//: terminal_text_cell_style_default: terminal backend の default cell style を[返/かえ]す
+//:
+//: [注意/ちゅうい]:
+//: - white-on-black は terminal backend profile の default であり、core/gui の TextCellStyle contract には[含/ふく]めません。
+pub fn terminal_text_cell_style_default %fn unit TextCellStyle \unit:
+    let zero %u8 cast 0
+    let full %u8 cast 255
+    text_cell_style_new:
+        rgba8888_new full full full full
+        rgba8888_new zero zero zero full
+
+//: terminal_text_cell_default_run: default style の core TextCellRun を[作/つく]る
+pub fn terminal_text_cell_default_run %fn TextGridPoint fn TextRunId fn i32 TextCellRun \origin\run_id\cell_count:
+    text_cell_run_new origin run_id cell_count terminal_text_cell_style_default

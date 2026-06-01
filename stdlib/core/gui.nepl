@@ -1,0 +1,41 @@
+//: # core/gui
+//: GUI/TUI [共通/きょうつう] UI substrate の no_alloc core facade
+//:
+//: ### [目的/もくてき]
+//: - GUI、TUI、embedded display、headless test backend が[共有/きょうゆう]する[最小/さいしょう]の[型/かた]を[提供/ていきょう]します。
+//: - platform、OS、DOM、allocator、terminal escape sequence へ[依存/いぞん]しない[境界/きょうかい]として、geometry、color、event、capability、render command を[公開/こうかい]します。
+//:
+//: ### [構成/こうせい]
+//: - `core/gui/geometry` は[座標/ざひょう]、[矩形/くけい]、[余白/よはく]を[扱/あつか]います。
+//: - `core/gui/color` と `core/gui/pixel` は pixel backend [向/む]けの[軽量/けいりょう] value を[扱/あつか]います。
+//: - `core/gui/capability` は backend [差異/さい]を enum と struct で[表/あらわ]します。
+//: - `core/gui/event`、`core/gui/render_command`、`core/gui/dirty_region`、`core/gui/dirty_region_set` は GUI/TUI [共通/きょうつう]の input/output と no_alloc [再描画/さいびょうが][境界/きょうかい]を[定義/ていぎ]します。
+//: - `core/gui/draw_target`、`render_target`、`text_measure` は backend [実装/じっそう]を[注入/ちゅうにゅう]する contract を[定義/ていぎ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この facade は no_alloc core [基盤/きばん]です。文字列 buffer、DOM handle、OS handle、terminal raw byte sequence は[保持/ほじ]しません。
+//: - TUI は `SurfaceKind::TextGrid` を[持/も]つ backend として[扱/あつか]い、GUI と[別系統/べつけいとう]の public API へ[分離/ぶんり]しません。
+//: - [失敗/しっぱい]は `GuiError` と `Result` で[表/あらわ]し、unsupported operation を panic や silent no-op にしません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - facade の import は O(1) です。各 helper は submodule の[説明/せつめい]に[従/したが]います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui" as *
+//: ```
+
+#indent 4
+
+pub #import "./gui/geometry" as @merge
+pub #import "./gui/color" as @merge
+pub #import "./gui/pixel" as @merge
+pub #import "./gui/capability" as @merge
+pub #import "./gui/error" as @merge
+pub #import "./gui/event" as @merge
+pub #import "./gui/render_command" as @merge
+pub #import "./gui/dirty_region" as @merge
+pub #import "./gui/dirty_region_set" as @merge
+pub #import "./gui/text_measure" as @merge
+pub #import "./gui/draw_target" as @merge
+pub #import "./gui/render_target" as @merge

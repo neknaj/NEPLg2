@@ -1,0 +1,69 @@
+//: # platforms/gui/terminal/frame
+//: terminal TextGrid frame boundary
+//:
+//: ### [目的/もくてき]
+//: - core の `TextCellRun` と terminal profile を 1 frame の presentation input として[束/たば]ねます。
+//: - ANSI 出力、raw mode、TTY handle、buffer diff は frame ではなく backend implementation detail として[扱/あつか]います。
+//:
+//: ### [契約/けいやく]
+//: - `TerminalFrame` は core `TextCellRun` を[保持/ほじ]します。terminal [固有/こゆう]の直接 `str` run は[保持/ほじ]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "platforms/gui/terminal/frame" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/traits/copy" as *
+#import "platforms/gui/terminal/capability" as *
+#import "platforms/gui/terminal/text_grid" as *
+
+//: TerminalFrame: terminal backend に[渡/わた]す 1 frame 分の TextGrid 入力
+pub struct TerminalFrame:
+    profile %TerminalProfile
+    run %TextCellRun
+
+impl Clone for TerminalFrame:
+    fn clone %fn &TerminalFrame TerminalFrame \frame:
+        *frame
+
+impl Copy for TerminalFrame:
+    fn copy_mark %fn TerminalFrame TerminalFrame \frame:
+        frame
+
+//: terminal_frame: profile と core TextCellRun から TerminalFrame を[作/つく]る
+pub fn terminal_frame %fn TerminalProfile fn TextCellRun TerminalFrame \profile\run:
+    TerminalFrame profile run
+
+//: terminal_frame_empty: 空 text run を[持/も]つ TerminalFrame を[作/つく]る
+pub fn terminal_frame_empty %fn TerminalProfile TerminalFrame \profile:
+    let origin %TextGridPoint terminal_text_grid_origin
+    let run_id %TextRunId text_run_id_new 0
+    let run %TextCellRun terminal_text_cell_default_run origin run_id 0
+    terminal_frame profile run
+
+//: terminal_frame_profile: frame の terminal profile を[返/かえ]す
+pub fn terminal_frame_profile %fn &TerminalFrame TerminalProfile \frame:
+    *field::get_ref frame "profile"
+
+//: terminal_frame_run: frame の core TextCellRun を[返/かえ]す
+pub fn terminal_frame_run %fn &TerminalFrame TextCellRun \frame:
+    *field::get_ref frame "run"
+
+//: terminal_frame_cols: frame の grid cols を[返/かえ]す
+pub fn terminal_frame_cols %fn &TerminalFrame i32 \frame:
+    let profile %TerminalProfile terminal_frame_profile frame
+    terminal_profile_cols &profile
+
+//: terminal_frame_rows: frame の grid rows を[返/かえ]す
+pub fn terminal_frame_rows %fn &TerminalFrame i32 \frame:
+    let profile %TerminalProfile terminal_frame_profile frame
+    terminal_profile_rows &profile
+
+//: terminal_frame_surface_is_text_grid: frame の surface kind が TextGrid か[判定/はんてい]する
+pub fn terminal_frame_surface_is_text_grid %fn &TerminalFrame bool \frame:
+    let profile %TerminalProfile terminal_frame_profile frame
+    terminal_profile_is_text_grid &profile

@@ -1,0 +1,150 @@
+//: # platforms/gui/terminal/capability
+//: terminal backend profile capability
+//:
+//: ### [目的/もくてき]
+//: - terminal を GUI substrate の `SurfaceKind::TextGrid` backend として[表/あらわ]します。
+//: - 共通 capability は `core/gui::GuiCapabilities` を[使/つか]い、terminal [固有/こゆう]の cols / rows だけを profile payload として[保持/ほじ]します。
+//:
+//: ### [契約/けいやく]
+//: - `TerminalProfile` は必ず `SurfaceKind::TextGrid` capability だけを[保持/ほじ]します。
+//: - `terminal_profile_full` は TextGrid ではない capability を `GuiError::Unsupported` として[拒否/きょひ]します。
+//: - 負の cols / rows は `GuiError::InvalidGeometry` として[拒否/きょひ]します。
+//: - ANSI escape sequence、TTY raw mode、WASIX handle はこの payload に[入/い]れません。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor と accessor は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "platforms/gui/terminal/capability" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: TerminalProfile: TextGrid backend の terminal [固有/こゆう]情報
+pub struct TerminalProfile:
+    capabilities %GuiCapabilities
+    cols %i32
+    rows %i32
+
+impl Clone for TerminalProfile:
+    fn clone %fn &TerminalProfile TerminalProfile \profile:
+        *profile
+
+impl Copy for TerminalProfile:
+    fn copy_mark %fn TerminalProfile TerminalProfile \profile:
+        profile
+
+//: terminal_profile_full: TextGrid capability から terminal profile を[作/つく]る
+pub fn terminal_profile_full %fn i32 fn i32 fn GuiCapabilities Result TerminalProfile GuiError \cols\rows\capabilities:
+    if not surface_kind_is_text_grid gui_capabilities_surface_kind &capabilities:
+        then Result::Err GuiError::Unsupported
+        else if or lt cols 0 lt rows 0:
+            then Result::Err GuiError::InvalidGeometry
+            else Result::Ok TerminalProfile capabilities cols rows
+
+//: terminal_profile: terminal TextGrid profile を[標準/ひょうじゅん] capability で[作/つく]る
+pub fn terminal_profile %fn i32 fn i32 Result TerminalProfile GuiError \cols\rows:
+    terminal_profile_full cols rows gui_capabilities_text_grid
+
+//: terminal_profile_capabilities: 共通 GuiCapabilities を[読/よ]む
+pub fn terminal_profile_capabilities %fn &TerminalProfile GuiCapabilities \profile:
+    *field::get_ref profile "capabilities"
+
+//: terminal_profile_cols: grid cols を[読/よ]む
+pub fn terminal_profile_cols %fn &TerminalProfile i32 \profile:
+    *field::get_ref profile "cols"
+
+//: terminal_profile_rows: grid rows を[読/よ]む
+pub fn terminal_profile_rows %fn &TerminalProfile i32 \profile:
+    *field::get_ref profile "rows"
+
+//: terminal_profile_surface_kind: terminal profile の共通 surface kind を[読/よ]む
+pub fn terminal_profile_surface_kind %fn &TerminalProfile SurfaceKind \profile:
+    let caps %GuiCapabilities terminal_profile_capabilities profile
+    gui_capabilities_surface_kind &caps
+
+//: terminal_profile_requires_flush: terminal profile が flush を[要求/ようきゅう]するか[読/よ]む
+pub fn terminal_profile_requires_flush %fn &TerminalProfile bool \profile:
+    let caps %GuiCapabilities terminal_profile_capabilities profile
+    gui_capabilities_requires_flush &caps
+
+//: terminal_profile_has_non_negative_size: grid size が 0 以上か[確認/かくにん]する
+pub fn terminal_profile_has_non_negative_size %fn &TerminalProfile bool \profile:
+    let cols %i32 terminal_profile_cols profile
+    let rows %i32 terminal_profile_rows profile
+    and not lt cols 0 not lt rows 0
+
+//: terminal_profile_is_text_grid: terminal profile が TextGrid surface か[判定/はんてい]する
+pub fn terminal_profile_is_text_grid %fn &TerminalProfile bool \profile:
+    surface_kind_is_text_grid terminal_profile_surface_kind profile
+
+//: TextGridCapability: 旧 terminal bridge 名の互換 alias payload
+//:
+//: [注意/ちゅうい]:
+//: - 新しい code は `TerminalProfile` を[使/つか]います。この alias は初期 bridge test の import path を[壊/こわ]さず、内部表現を `GuiCapabilities` [中心/ちゅうしん]へ寄せるために[残/のこ]しています。
+pub struct TextGridCapability:
+    profile %TerminalProfile
+
+impl Clone for TextGridCapability:
+    fn clone %fn &TextGridCapability TextGridCapability \cap:
+        *cap
+
+impl Copy for TextGridCapability:
+    fn copy_mark %fn TextGridCapability TextGridCapability \cap:
+        cap
+
+//: text_grid_capability: 互換 helper として terminal profile を[包/つつ]む
+pub fn text_grid_capability %fn i32 fn i32 Result TextGridCapability GuiError \cols\rows:
+    match terminal_profile cols rows:
+        Result::Ok profile:
+            Result::Ok TextGridCapability profile
+        Result::Err error:
+            Result::Err error
+
+//: text_grid_capability_profile: 互換 payload から profile を[読/よ]む
+pub fn text_grid_capability_profile %fn &TextGridCapability TerminalProfile \cap:
+    *field::get_ref cap "profile"
+
+//: text_grid_capability_kind: 共通 SurfaceKind を[返/かえ]す
+pub fn text_grid_capability_kind %fn &TextGridCapability SurfaceKind \cap:
+    let profile %TerminalProfile text_grid_capability_profile cap
+    terminal_profile_surface_kind &profile
+
+//: text_grid_capability_cols: grid cols を[返/かえ]す
+pub fn text_grid_capability_cols %fn &TextGridCapability i32 \cap:
+    let profile %TerminalProfile text_grid_capability_profile cap
+    terminal_profile_cols &profile
+
+//: text_grid_capability_rows: grid rows を[返/かえ]す
+pub fn text_grid_capability_rows %fn &TextGridCapability i32 \cap:
+    let profile %TerminalProfile text_grid_capability_profile cap
+    terminal_profile_rows &profile
+
+//: text_grid_capability_has_keyboard: keyboard capability を[返/かえ]す
+pub fn text_grid_capability_has_keyboard %fn &TextGridCapability bool \cap:
+    true
+
+//: text_grid_capability_has_text_input: text input capability を[返/かえ]す
+pub fn text_grid_capability_has_text_input %fn &TextGridCapability bool \cap:
+    true
+
+//: text_grid_capability_requires_flush: flush 要否を[返/かえ]す
+pub fn text_grid_capability_requires_flush %fn &TextGridCapability bool \cap:
+    let profile %TerminalProfile text_grid_capability_profile cap
+    terminal_profile_requires_flush &profile
+
+//: terminal_surface_is_text_grid: 共通 SurfaceKind が TextGrid か[判定/はんてい]する
+pub fn terminal_surface_is_text_grid %fn SurfaceKind bool \kind:
+    surface_kind_is_text_grid kind
+
+//: text_grid_capability_has_non_negative_size: grid size が 0 以上か[確認/かくにん]する
+pub fn text_grid_capability_has_non_negative_size %fn &TextGridCapability bool \cap:
+    let profile %TerminalProfile text_grid_capability_profile cap
+    terminal_profile_has_non_negative_size &profile

@@ -1,4 +1,5 @@
-export type PanelKind = 'explorer' | 'editor' | 'terminal';
+export type PanelKind = 'explorer' | 'editor' | 'terminal' | 'gui-preview';
+export type GuiPreviewKind = 'mandelbrot' | 'life' | 'counter';
 export type SplitDirection = 'h' | 'v';
 export type DropZone = 'left' | 'right' | 'top' | 'bottom' | 'center';
 
@@ -10,6 +11,7 @@ export interface LeafPanelSnapshot {
     paths?: string[];
     zoom?: number;
     pathZooms?: Record<string, number>;
+    previewKind?: GuiPreviewKind | null;
 }
 
 export interface SplitNodeSnapshot {
@@ -38,6 +40,16 @@ export const MIN_SPLIT_RATIO = 0.18;
 export const MAX_SPLIT_RATIO = 0.82;
 
 let panelCounter = 0;
+const PANEL_KINDS = new Set<string>(['explorer', 'editor', 'terminal', 'gui-preview']);
+const GUI_PREVIEW_KINDS = new Set<string>(['mandelbrot', 'life', 'counter']);
+
+export function isPanelKind(value: unknown): value is PanelKind {
+    return typeof value === 'string' && PANEL_KINDS.has(value);
+}
+
+export function isGuiPreviewKind(value: unknown): value is GuiPreviewKind {
+    return typeof value === 'string' && GUI_PREVIEW_KINDS.has(value);
+}
 
 export function hydratePanelCounter(root: WorkspaceNode | null): void {
     let maxValue = panelCounter;
@@ -136,10 +148,16 @@ export function normalizeTree(root: WorkspaceNode | null): WorkspaceNode | null 
         return null;
     }
     if (root.kind === 'leaf') {
+        if (!isPanelKind(root.panelKind)) {
+            root.panelKind = 'editor';
+        }
         root.paths = Array.isArray(root.paths) ? root.paths.filter(Boolean) : [];
         root.activePath = root.activePath && root.paths.includes(root.activePath) ? root.activePath : (root.paths[0] || null);
         root.zoom = Number.isFinite(root.zoom) ? Number(root.zoom) : 1;
         root.pathZooms = root.pathZooms && typeof root.pathZooms === 'object' ? { ...root.pathZooms } : {};
+        root.previewKind = root.panelKind === 'gui-preview' && isGuiPreviewKind(root.previewKind)
+            ? root.previewKind
+            : null;
         return root;
     }
     root.first = normalizeTree(root.first)!;
@@ -152,6 +170,26 @@ export function normalizeTree(root: WorkspaceNode | null): WorkspaceNode | null 
         return root.first;
     }
     return root;
+}
+
+export function normalizeWorkspaceSnapshot(snapshot: Partial<WorkspaceSnapshot> | null | undefined): WorkspaceSnapshot {
+    if (!snapshot || !snapshot.root) {
+        const fallback = createDefaultWorkspace();
+        hydratePanelCounter(fallback.root);
+        return fallback;
+    }
+    const root = normalizeTree(snapshot.root) || createDefaultWorkspace().root;
+    hydratePanelCounter(root);
+    const requestedFocus = typeof snapshot.focusedLeafId === 'string' ? snapshot.focusedLeafId : null;
+    const focusedLeafId = requestedFocus && findNode(root, requestedFocus)
+        ? requestedFocus
+        : resolveDefaultFocusedLeafId(root);
+    return { root, focusedLeafId };
+}
+
+export function resolveDefaultFocusedLeafId(root: WorkspaceNode | null): string | null {
+    const leaves = collectLeaves(root);
+    return leaves.find((leaf) => leaf.panelKind === 'editor')?.id || leaves[0]?.id || null;
 }
 
 export function splitLeaf(

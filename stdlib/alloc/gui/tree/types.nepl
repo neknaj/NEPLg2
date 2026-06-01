@@ -1,0 +1,561 @@
+//: # alloc/gui/tree/types
+//: retained ViewTree / LayoutTree の bounded / allocator-backed data contract
+//:
+//: ### [目的/もくてき]
+//: - `WidgetDescriptor` を stable order で[保持/ほじ]し、backend 非依存の event routing と focus traversal の基礎を[作/つく]ります。
+//: - `LayoutNode` を同じ bounded tree として[保持/ほじ]し、render command stream へ渡す配置結果の最小形を[定義/ていぎ]します。
+//: - allocator-backed tree では parent index と depth を持つ flat arena を使い、recursive UI を platform handle なしで[表/あらわ]します。
+//:
+//: ### [契約/けいやく]
+//: - capacity を[超/こ]える child 追加は panic ではなく `GuiError::ResourceExhausted` を[返/かえ]します。
+//: - focus target は focusable かつ disabled ではない widget だけです。
+//: - `ViewTreeArena` / `LayoutTreeArena` の owner-consuming `*_add_child` は、失敗時に error payload へ tree owner と rejected child を[戻/もど]します。呼び出し側は owner を[回収/かいしゅう]して cleanup できます。
+//:
+//: neplg2:test
+//: ret: 7
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root_id %WidgetId widget_id 1
+//:     let root_hint %LayoutHint layout_hint_fixed 8 1
+//:     let root %WidgetDescriptor widget_label root_id "title" root_hint
+//:     let button_id %WidgetId widget_id 7
+//:     let button_action %ActionId action_id 2
+//:     let button_config0 %ButtonConfig button_config button_id "Run" button_action
+//:     let button_hint %LayoutHint layout_hint_fixed 6 1
+//:     let button_node %WidgetDescriptor widget_button button_config0 button_hint
+//:     let tree0 %ViewTree view_tree_single root
+//:     match view_tree_add_child tree0 button_node:
+//:         Result::Ok tree:
+//:             match view_tree_first_focusable_id &tree:
+//:                 Option::Some id:
+//:                     widget_id_value id
+//:                 Option::None:
+//:                     0
+//:         Result::Err _error:
+//:             1
+//: ```
+
+#indent 4
+
+#import "alloc/gui/app" as *
+#import "alloc/gui/layout/types" as *
+#import "alloc/gui/widget/types" as *
+#import "alloc/collections/vec" as vec
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: ViewTree: retained widget tree の bounded snapshot
+pub struct ViewTree:
+    root %WidgetDescriptor
+    child0 %Option WidgetDescriptor
+    child1 %Option WidgetDescriptor
+    child_count %i32
+
+impl Clone for ViewTree:
+    fn clone %fn &ViewTree ViewTree \tree:
+        *tree
+
+impl Copy for ViewTree:
+    fn copy_mark %fn ViewTree ViewTree \tree:
+        tree
+
+//: LayoutTree: layout result tree の bounded snapshot
+pub struct LayoutTree:
+    root %LayoutNode
+    child0 %Option LayoutNode
+    child1 %Option LayoutNode
+    child_count %i32
+
+impl Clone for LayoutTree:
+    fn clone %fn &LayoutTree LayoutTree \tree:
+        *tree
+
+impl Copy for LayoutTree:
+    fn copy_mark %fn LayoutTree LayoutTree \tree:
+        tree
+
+//: ViewTreeArenaNode: allocator-backed ViewTree の flat node
+//:
+//: [目的/もくてき]:
+//: - recursive child relationship を parent index と depth で[表/あらわ]し、`Vec` storage 上の stable traversal order を[保/たも]ちます。
+pub struct ViewTreeArenaNode:
+    parent_index %i32
+    depth %i32
+    descriptor %WidgetDescriptor
+
+impl Clone for ViewTreeArenaNode:
+    fn clone %fn &ViewTreeArenaNode ViewTreeArenaNode \node:
+        *node
+
+impl Copy for ViewTreeArenaNode:
+    fn copy_mark %fn ViewTreeArenaNode ViewTreeArenaNode \node:
+        node
+
+//: ViewTreeArena: allocator-backed retained widget tree
+//:
+//: [目的/もくてき]:
+//: - bounded checkpoint の root + 2 child 制約を[超/こ]え、任意 depth の tree を parent-index arena として[保持/ほじ]します。
+pub struct ViewTreeArena:
+    nodes %Vec ViewTreeArenaNode
+
+//: ViewTreeArenaAddChildError: allocator-backed ViewTree update の owner recovery error
+//:
+//: [目的/もくてき]:
+//: - `ViewTreeArena` owner と storage へ入らなかった child を同じ payload に[戻/もど]し、失敗時 cleanup と retry を API 型で[表/あらわ]します。
+pub struct ViewTreeArenaAddChildError:
+    tree %ViewTreeArena
+    child %WidgetDescriptor
+    error %GuiError
+
+//: LayoutTreeArenaNode: allocator-backed LayoutTree の flat node
+pub struct LayoutTreeArenaNode:
+    parent_index %i32
+    depth %i32
+    node %LayoutNode
+
+impl Clone for LayoutTreeArenaNode:
+    fn clone %fn &LayoutTreeArenaNode LayoutTreeArenaNode \node:
+        *node
+
+impl Copy for LayoutTreeArenaNode:
+    fn copy_mark %fn LayoutTreeArenaNode LayoutTreeArenaNode \node:
+        node
+
+//: LayoutTreeArena: allocator-backed layout result tree
+pub struct LayoutTreeArena:
+    nodes %Vec LayoutTreeArenaNode
+
+//: LayoutTreeArenaAddChildError: allocator-backed LayoutTree update の owner recovery error
+pub struct LayoutTreeArenaAddChildError:
+    tree %LayoutTreeArena
+    child %LayoutNode
+    error %GuiError
+
+//: view_tree_single: root だけを[持/も]つ ViewTree を[作/つく]る
+pub fn view_tree_single %fn WidgetDescriptor ViewTree \root:
+    ViewTree root none none 0
+
+//: view_tree_root: root widget を[読/よ]む
+pub fn view_tree_root %fn &ViewTree WidgetDescriptor \tree:
+    *field::get_ref tree "root"
+
+//: view_tree_child_count: child count を[読/よ]む
+pub fn view_tree_child_count %fn &ViewTree i32 \tree:
+    *field::get_ref tree "child_count"
+
+//: view_tree_first_child: 1 [番目/ばんめ]の child を Option で[読/よ]む
+pub fn view_tree_first_child %fn &ViewTree Option WidgetDescriptor \tree:
+    *field::get_ref tree "child0"
+
+//: view_tree_second_child: 2 [番目/ばんめ]の child を Option で[読/よ]む
+pub fn view_tree_second_child %fn &ViewTree Option WidgetDescriptor \tree:
+    *field::get_ref tree "child1"
+
+//: view_tree_add_child: bounded ViewTree に child を[追加/ついか]する
+pub fn view_tree_add_child %fn ViewTree fn WidgetDescriptor Result ViewTree GuiError \tree\child:
+    let count %i32 view_tree_child_count &tree
+    if eq count 0:
+        then:
+            let root %WidgetDescriptor view_tree_root &tree
+            let child0 %Option WidgetDescriptor some child
+            let next %ViewTree ViewTree root child0 none 1
+            Result::Ok next
+        else if eq count 1:
+            then:
+                let root %WidgetDescriptor view_tree_root &tree
+                let child0 %Option WidgetDescriptor view_tree_first_child &tree
+                let child1 %Option WidgetDescriptor some child
+                let next %ViewTree ViewTree root child0 child1 2
+                Result::Ok next
+            else Result::Err GuiError::ResourceExhausted
+
+//: view_tree_arena_node: allocator-backed tree node を[作/つく]る
+pub fn view_tree_arena_node %fn i32 fn i32 fn WidgetDescriptor ViewTreeArenaNode \parent_index\depth\descriptor:
+    ViewTreeArenaNode parent_index depth descriptor
+
+//: view_tree_arena_node_parent_index: parent index を[読/よ]む
+pub fn view_tree_arena_node_parent_index %fn &ViewTreeArenaNode i32 \node:
+    *field::get_ref node "parent_index"
+
+//: view_tree_arena_node_depth: depth を[読/よ]む
+pub fn view_tree_arena_node_depth %fn &ViewTreeArenaNode i32 \node:
+    *field::get_ref node "depth"
+
+//: view_tree_arena_node_descriptor: widget descriptor を[読/よ]む
+pub fn view_tree_arena_node_descriptor %fn &ViewTreeArenaNode WidgetDescriptor \node:
+    *field::get_ref node "descriptor"
+
+//: view_tree_arena_free: allocator-backed ViewTree の backing storage を[閉/と]じる
+pub fn view_tree_arena_free %fn ViewTreeArena unit \tree:
+    vec::free field::get tree "nodes"
+
+//: view_tree_arena_add_child_error_kind: add child 失敗の分類を owner を動かさず[読/よ]む
+pub fn view_tree_arena_add_child_error_kind %fn &ViewTreeArenaAddChildError GuiError \error:
+    *field::get_ref error "error"
+
+//: view_tree_arena_add_child_error_child: storage に入らなかった child を[読/よ]む
+pub fn view_tree_arena_add_child_error_child %fn &ViewTreeArenaAddChildError WidgetDescriptor \error:
+    *field::get_ref error "child"
+
+//: view_tree_arena_add_child_error_tree: add child 失敗で戻された tree owner を[取/と]り[出/だ]す
+pub fn view_tree_arena_add_child_error_tree %fn ViewTreeArenaAddChildError ViewTreeArena \error:
+    field::get error "tree"
+
+//: view_tree_arena_len: allocator-backed ViewTree の node 数を[返/かえ]す
+pub fn view_tree_arena_len %fn &ViewTreeArena i32 \tree:
+    let nodes %&Vec ViewTreeArenaNode field::get_ref tree "nodes"
+    vec::len nodes
+
+//: view_tree_arena_get_node: index の node を Option で[読/よ]む
+pub fn view_tree_arena_get_node %fn &ViewTreeArena fn i32 Option ViewTreeArenaNode \tree\index:
+    let nodes %&Vec ViewTreeArenaNode field::get_ref tree "nodes"
+    vec::get nodes index
+
+//: view_tree_arena_single: root だけを持つ allocator-backed ViewTree を[作/つく]る
+pub fn view_tree_arena_single %fn WidgetDescriptor Result ViewTreeArena GuiError \root:
+    match vec::with_capacity<ViewTreeArenaNode> 4:
+        Result::Ok nodes0:
+            let no_parent %i32 sub 0 1
+            let root_node %ViewTreeArenaNode view_tree_arena_node no_parent 0 root
+            match vec::push nodes0 root_node:
+                Result::Ok nodes:
+                    Result::Ok ViewTreeArena nodes
+                Result::Err e:
+                    vec::free vec::vec_push_error_vec e
+                    Result::Err GuiError::ResourceExhausted
+        Result::Err _e:
+            Result::Err GuiError::ResourceExhausted
+
+//: view_tree_arena_add_child: parent index の下に child を[追加/ついか]する
+//:
+//: [注意/ちゅうい]:
+//: - この関数は tree owner を消費します。Err には元の tree owner と storage に入らなかった child が[戻/もど]るため、caller が cleanup できます。
+pub fn view_tree_arena_add_child %fn ViewTreeArena fn i32 fn WidgetDescriptor Result ViewTreeArena ViewTreeArenaAddChildError \tree\parent_index\child:
+    let count %i32 view_tree_arena_len &tree
+    let parent_too_low %bool lt parent_index 0
+    let parent_too_high %bool le count parent_index
+    if or parent_too_low parent_too_high:
+        then Result::Err ViewTreeArenaAddChildError tree child GuiError::InvalidCommand
+        else:
+            match view_tree_arena_get_node &tree parent_index:
+                Option::Some parent:
+                    let parent_depth %i32 view_tree_arena_node_depth &parent
+                    let child_depth %i32 add parent_depth 1
+                    let nodes %Vec ViewTreeArenaNode field::get tree "nodes"
+                    let child_node %ViewTreeArenaNode view_tree_arena_node parent_index child_depth child
+                    match vec::push nodes child_node:
+                        Result::Ok next_nodes:
+                            Result::Ok ViewTreeArena next_nodes
+                        Result::Err e:
+                            let returned_nodes %Vec ViewTreeArenaNode vec::vec_push_error_vec e
+                            let returned_tree %ViewTreeArena ViewTreeArena returned_nodes
+                            Result::Err ViewTreeArenaAddChildError returned_tree child GuiError::ResourceExhausted
+                Option::None:
+                    Result::Err ViewTreeArenaAddChildError tree child GuiError::InvalidCommand
+
+//: widget_descriptor_is_focus_target: focus traversal の対象か[判定/はんてい]する
+fn widget_descriptor_is_focus_target %fn &WidgetDescriptor bool \descriptor:
+    let focusable %bool widget_descriptor_is_focusable descriptor
+    let disabled %bool widget_descriptor_is_disabled descriptor
+    let enabled %bool not disabled
+    and focusable enabled
+
+//: view_tree_focus_candidate_id: focus target なら WidgetId を[返/かえ]す
+fn view_tree_focus_candidate_id %fn &WidgetDescriptor Option WidgetId \descriptor:
+    if widget_descriptor_is_focus_target descriptor:
+        then:
+            let id %WidgetId widget_descriptor_id descriptor
+            some id
+        else none
+
+//: view_tree_first_focusable_id: tree order の最初の focus target を[返/かえ]す
+pub fn view_tree_first_focusable_id %fn &ViewTree Option WidgetId \tree:
+    let root %WidgetDescriptor view_tree_root tree
+    match view_tree_focus_candidate_id &root:
+        Option::Some id:
+            some id
+        Option::None:
+            match view_tree_first_child tree:
+                Option::Some first:
+                    match view_tree_focus_candidate_id &first:
+                        Option::Some first_id:
+                            some first_id
+                        Option::None:
+                            match view_tree_second_child tree:
+                                Option::Some second:
+                                    view_tree_focus_candidate_id &second
+                                Option::None:
+                                    none
+                Option::None:
+                    match view_tree_second_child tree:
+                        Option::Some second:
+                            view_tree_focus_candidate_id &second
+                        Option::None:
+                            none
+
+//: view_tree_focusable_count: focus target 数を[数/かぞ]える
+pub fn view_tree_focusable_count %fn &ViewTree i32 \tree:
+    let root %WidgetDescriptor view_tree_root tree
+    let root_count %i32 if widget_descriptor_is_focus_target &root then 1 else 0
+    let first_count %i32 match view_tree_first_child tree:
+        Option::Some first:
+            if widget_descriptor_is_focus_target &first then 1 else 0
+        Option::None:
+            0
+    let second_count %i32 match view_tree_second_child tree:
+        Option::Some second:
+            if widget_descriptor_is_focus_target &second then 1 else 0
+        Option::None:
+            0
+    let prefix_count %i32 add root_count first_count
+    add prefix_count second_count
+
+//: view_tree_arena_first_focusable_id_loop: arena order で最初の focus target を[探/さが]す
+fn view_tree_arena_first_focusable_id_loop %fn &ViewTreeArena fn i32 fn i32 Option WidgetId \tree\count\index:
+    if ge index count:
+        then none
+        else:
+            match view_tree_arena_get_node tree index:
+                Option::Some node:
+                    let descriptor %WidgetDescriptor view_tree_arena_node_descriptor &node
+                    match view_tree_focus_candidate_id &descriptor:
+                        Option::Some id:
+                            some id
+                        Option::None:
+                            let next_index %i32 add index 1
+                            view_tree_arena_first_focusable_id_loop tree count next_index
+                Option::None:
+                    none
+
+//: view_tree_arena_first_focusable_id: arena order の最初の focus target を[返/かえ]す
+pub fn view_tree_arena_first_focusable_id %fn &ViewTreeArena Option WidgetId \tree:
+    let count %i32 view_tree_arena_len tree
+    view_tree_arena_first_focusable_id_loop tree count 0
+
+//: view_tree_arena_focusable_count_loop: arena order の focus target 数を[数/かぞ]える
+fn view_tree_arena_focusable_count_loop %fn &ViewTreeArena fn i32 fn i32 fn i32 i32 \tree\count\index\acc:
+    if ge index count:
+        then acc
+        else:
+            match view_tree_arena_get_node tree index:
+                Option::Some node:
+                    let descriptor %WidgetDescriptor view_tree_arena_node_descriptor &node
+                    let next_acc %i32 if widget_descriptor_is_focus_target &descriptor then add acc 1 else acc
+                    let next_index %i32 add index 1
+                    view_tree_arena_focusable_count_loop tree count next_index next_acc
+                Option::None:
+                    acc
+
+//: view_tree_arena_focusable_count: allocator-backed tree の focus target 数を[数/かぞ]える
+pub fn view_tree_arena_focusable_count %fn &ViewTreeArena i32 \tree:
+    let count %i32 view_tree_arena_len tree
+    view_tree_arena_focusable_count_loop tree count 0 0
+
+//: layout_tree_single: root だけを[持/も]つ LayoutTree を[作/つく]る
+pub fn layout_tree_single %fn LayoutNode LayoutTree \root:
+    LayoutTree root none none 0
+
+//: layout_tree_root: root layout node を[読/よ]む
+pub fn layout_tree_root %fn &LayoutTree LayoutNode \tree:
+    *field::get_ref tree "root"
+
+//: layout_tree_child_count: child count を[読/よ]む
+pub fn layout_tree_child_count %fn &LayoutTree i32 \tree:
+    *field::get_ref tree "child_count"
+
+//: layout_tree_first_child: 1 [番目/ばんめ]の child を Option で[読/よ]む
+pub fn layout_tree_first_child %fn &LayoutTree Option LayoutNode \tree:
+    *field::get_ref tree "child0"
+
+//: layout_tree_second_child: 2 [番目/ばんめ]の child を Option で[読/よ]む
+pub fn layout_tree_second_child %fn &LayoutTree Option LayoutNode \tree:
+    *field::get_ref tree "child1"
+
+//: layout_tree_add_child: bounded LayoutTree に child を[追加/ついか]する
+pub fn layout_tree_add_child %fn LayoutTree fn LayoutNode Result LayoutTree GuiError \tree\child:
+    let count %i32 layout_tree_child_count &tree
+    if eq count 0:
+        then:
+            let root %LayoutNode layout_tree_root &tree
+            let child0 %Option LayoutNode some child
+            let next %LayoutTree LayoutTree root child0 none 1
+            Result::Ok next
+        else if eq count 1:
+            then:
+                let root %LayoutNode layout_tree_root &tree
+                let child0 %Option LayoutNode layout_tree_first_child &tree
+                let child1 %Option LayoutNode some child
+                let next %LayoutTree LayoutTree root child0 child1 2
+                Result::Ok next
+            else Result::Err GuiError::ResourceExhausted
+
+//: layout_tree_arena_node: allocator-backed LayoutTree node を[作/つく]る
+pub fn layout_tree_arena_node %fn i32 fn i32 fn LayoutNode LayoutTreeArenaNode \parent_index\depth\node:
+    let id %WidgetId field::get node "id"
+    let x %i32 field::get node "x"
+    let y %i32 field::get node "y"
+    let width %i32 field::get node "width"
+    let height %i32 field::get node "height"
+    let stored %LayoutNode LayoutNode id x y width height
+    LayoutTreeArenaNode parent_index depth stored
+
+//: layout_tree_arena_node_parent_index: parent index を[読/よ]む
+pub fn layout_tree_arena_node_parent_index %fn &LayoutTreeArenaNode i32 \node:
+    *field::get_ref node "parent_index"
+
+//: layout_tree_arena_node_depth: depth を[読/よ]む
+pub fn layout_tree_arena_node_depth %fn &LayoutTreeArenaNode i32 \node:
+    *field::get_ref node "depth"
+
+//: layout_tree_arena_node_layout: LayoutNode を[読/よ]む
+pub fn layout_tree_arena_node_layout %fn &LayoutTreeArenaNode LayoutNode \node:
+    *field::get_ref node "node"
+
+//: layout_tree_arena_free: allocator-backed LayoutTree の backing storage を[閉/と]じる
+pub fn layout_tree_arena_free %fn LayoutTreeArena unit \tree:
+    vec::free field::get tree "nodes"
+
+//: layout_tree_arena_add_child_error_kind: add child 失敗の分類を owner を動かさず[読/よ]む
+pub fn layout_tree_arena_add_child_error_kind %fn &LayoutTreeArenaAddChildError GuiError \error:
+    *field::get_ref error "error"
+
+//: layout_tree_arena_add_child_error_child: storage に入らなかった layout child を[読/よ]む
+pub fn layout_tree_arena_add_child_error_child %fn &LayoutTreeArenaAddChildError LayoutNode \error:
+    *field::get_ref error "child"
+
+//: layout_tree_arena_add_child_error_tree: add child 失敗で戻された tree owner を[取/と]り[出/だ]す
+pub fn layout_tree_arena_add_child_error_tree %fn LayoutTreeArenaAddChildError LayoutTreeArena \error:
+    let child %LayoutNode field::get error "child"
+    let _child_id %WidgetId field::get child "id"
+    let _child_x %i32 field::get child "x"
+    let _child_y %i32 field::get child "y"
+    let _child_width %i32 field::get child "width"
+    let _child_height %i32 field::get child "height"
+    let _kind %GuiError field::get error "error"
+    field::get error "tree"
+
+//: layout_tree_arena_len: allocator-backed LayoutTree の node 数を[返/かえ]す
+pub fn layout_tree_arena_len %fn &LayoutTreeArena i32 \tree:
+    let nodes %&Vec LayoutTreeArenaNode field::get_ref tree "nodes"
+    vec::len nodes
+
+//: layout_tree_arena_get_node: index の layout node を Option で[読/よ]む
+pub fn layout_tree_arena_get_node %fn &LayoutTreeArena fn i32 Option LayoutTreeArenaNode \tree\index:
+    let nodes %&Vec LayoutTreeArenaNode field::get_ref tree "nodes"
+    vec::get nodes index
+
+//: layout_tree_arena_single: root だけを持つ allocator-backed LayoutTree を[作/つく]る
+pub fn layout_tree_arena_single %fn LayoutNode Result LayoutTreeArena GuiError \root:
+    let root_id %WidgetId field::get root "id"
+    let root_x %i32 field::get root "x"
+    let root_y %i32 field::get root "y"
+    let root_width %i32 field::get root "width"
+    let root_height %i32 field::get root "height"
+    match vec::with_capacity<LayoutTreeArenaNode> 4:
+        Result::Ok nodes0:
+            let no_parent %i32 sub 0 1
+            let root_node_value %LayoutNode LayoutNode root_id root_x root_y root_width root_height
+            let root_node %LayoutTreeArenaNode layout_tree_arena_node no_parent 0 root_node_value
+            match vec::push nodes0 root_node:
+                Result::Ok nodes:
+                    Result::Ok LayoutTreeArena nodes
+                Result::Err e:
+                    vec::free vec::vec_push_error_vec e
+                    Result::Err GuiError::ResourceExhausted
+        Result::Err _e:
+            Result::Err GuiError::ResourceExhausted
+
+//: layout_tree_arena_single_fields: scalar layout payload から root だけの arena を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - caller が `LayoutNode` local を[保持/ほじ]せず、owner-consuming arena へ直接 layout payload を[渡/わた]せるようにします。
+pub fn layout_tree_arena_single_fields %fn WidgetId fn i32 fn i32 fn i32 fn i32 Result LayoutTreeArena GuiError \id\x\y\width\height:
+    match vec::with_capacity<LayoutTreeArenaNode> 4:
+        Result::Ok nodes0:
+            let no_parent %i32 sub 0 1
+            let root_node %LayoutTreeArenaNode LayoutTreeArenaNode no_parent 0 LayoutNode id x y width height
+            match vec::push nodes0 root_node:
+                Result::Ok nodes:
+                    Result::Ok LayoutTreeArena nodes
+                Result::Err e:
+                    vec::free vec::vec_push_error_vec e
+                    Result::Err GuiError::ResourceExhausted
+        Result::Err _e:
+            Result::Err GuiError::ResourceExhausted
+
+//: layout_tree_arena_add_child: parent index の下に layout child を[追加/ついか]する
+//:
+//: [注意/ちゅうい]:
+//: - この関数は tree owner を消費します。Err には元の tree owner と storage に入らなかった child が[戻/もど]るため、caller が cleanup できます。
+pub fn layout_tree_arena_add_child %fn LayoutTreeArena fn i32 fn LayoutNode Result LayoutTreeArena LayoutTreeArenaAddChildError \tree\parent_index\child:
+    let child_id %WidgetId field::get child "id"
+    let child_x %i32 field::get child "x"
+    let child_y %i32 field::get child "y"
+    let child_width %i32 field::get child "width"
+    let child_height %i32 field::get child "height"
+    let count %i32 layout_tree_arena_len &tree
+    let parent_too_low %bool lt parent_index 0
+    let parent_too_high %bool le count parent_index
+    if or parent_too_low parent_too_high:
+        then:
+            let returned_child %LayoutNode LayoutNode child_id child_x child_y child_width child_height
+            Result::Err LayoutTreeArenaAddChildError tree returned_child GuiError::InvalidCommand
+        else:
+            match layout_tree_arena_get_node &tree parent_index:
+                Option::Some parent:
+                    let parent_depth %i32 layout_tree_arena_node_depth &parent
+                    let child_depth %i32 add parent_depth 1
+                    let nodes %Vec LayoutTreeArenaNode field::get tree "nodes"
+                    let child_for_node %LayoutNode LayoutNode child_id child_x child_y child_width child_height
+                    let child_node %LayoutTreeArenaNode layout_tree_arena_node parent_index child_depth child_for_node
+                    match vec::push nodes child_node:
+                        Result::Ok next_nodes:
+                            Result::Ok LayoutTreeArena next_nodes
+                        Result::Err e:
+                            let returned_nodes %Vec LayoutTreeArenaNode vec::vec_push_error_vec e
+                            let returned_tree %LayoutTreeArena LayoutTreeArena returned_nodes
+                            let returned_child %LayoutNode LayoutNode child_id child_x child_y child_width child_height
+                            Result::Err LayoutTreeArenaAddChildError returned_tree returned_child GuiError::ResourceExhausted
+                Option::None:
+                    let returned_child %LayoutNode LayoutNode child_id child_x child_y child_width child_height
+                    Result::Err LayoutTreeArenaAddChildError tree returned_child GuiError::InvalidCommand
+
+//: layout_tree_arena_add_child_fields: scalar layout payload を parent index の下に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - layout phase が `LayoutNode` local を経由せず、測定済み scalar をそのまま arena owner へ[移/うつ]せるようにします。
+pub fn layout_tree_arena_add_child_fields %fn LayoutTreeArena fn i32 fn WidgetId fn i32 fn i32 fn i32 fn i32 Result LayoutTreeArena LayoutTreeArenaAddChildError \tree\parent_index\id\x\y\width\height:
+    let count %i32 layout_tree_arena_len &tree
+    let parent_too_low %bool lt parent_index 0
+    let parent_too_high %bool le count parent_index
+    if or parent_too_low parent_too_high:
+        then:
+            let returned_child %LayoutNode LayoutNode id x y width height
+            Result::Err LayoutTreeArenaAddChildError tree returned_child GuiError::InvalidCommand
+        else:
+            match layout_tree_arena_get_node &tree parent_index:
+                Option::Some parent:
+                    let parent_depth %i32 layout_tree_arena_node_depth &parent
+                    let child_depth %i32 add parent_depth 1
+                    let nodes %Vec LayoutTreeArenaNode field::get tree "nodes"
+                    let child_node %LayoutTreeArenaNode LayoutTreeArenaNode parent_index child_depth LayoutNode id x y width height
+                    match vec::push nodes child_node:
+                        Result::Ok next_nodes:
+                            Result::Ok LayoutTreeArena next_nodes
+                        Result::Err e:
+                            let returned_nodes %Vec LayoutTreeArenaNode vec::vec_push_error_vec e
+                            let returned_tree %LayoutTreeArena LayoutTreeArena returned_nodes
+                            let returned_child %LayoutNode LayoutNode id x y width height
+                            Result::Err LayoutTreeArenaAddChildError returned_tree returned_child GuiError::ResourceExhausted
+                Option::None:
+                    let returned_child %LayoutNode LayoutNode id x y width height
+                    Result::Err LayoutTreeArenaAddChildError tree returned_child GuiError::InvalidCommand

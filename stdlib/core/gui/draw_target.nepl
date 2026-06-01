@@ -1,0 +1,172 @@
+//: # core/gui/draw_target
+//: no_alloc pixel drawing target contract
+//:
+//: ### [目的/もくてき]
+//: - embedded display、framebuffer、image、software fallback が[共有/きょうゆう]できる pixel-level drawing contract を[提供/ていきょう]します。
+//: - `DrawTarget` は「[描/か]けること」だけを[表/あらわ]し、presentation / flush は `FlushTarget` に[分離/ぶんり]します。
+//:
+//: ### [契約/けいやく]
+//: - `draw_pixel`、`fill_solid`、`clear` は成功時に[更新後/こうしんご]の target value を[返/かえ]します。
+//: - unsupported operation は `GuiError::Unsupported` を[返/かえ]します。
+//: - target [外/そと]の pixel を破棄するか error にするかは backend contract で[決/き]めます。`MockDrawTarget` は out-of-bounds pixel を破棄します。
+//:
+//: ### [現状/げんじょう]
+//: - 初期 checkpoint では iterator-based API へ進む前に、1 pixel / solid fill / clear の contract と mock target を[固定/こてい]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `MockDrawTarget` の helper は O(1) です。実 backend の fill / clear は backend に[依存/いぞん]します。
+//:
+//: neplg2:test
+//: ret: 1
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target core
+//:| #import "core/gui/draw_target" as *
+//: fn main %impure fn unit i32 \unit:
+//:     let target %MockDrawTarget mock_draw_target_new 1 1
+//:     mock_draw_target_width &target
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/color" as *
+#import "core/gui/error" as *
+#import "core/gui/geometry" as *
+#import "core/gui/pixel" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: DrawTarget: pixel-level drawing [能力/のうりょく]
+trait DrawTarget<.Color>:
+    fn draw_pixel %fn Self fn Pixel .Color Result Self GuiError \target\pixel:
+        Result::Err GuiError::Unsupported
+
+    fn fill_solid %fn Self fn GuiRect fn .Color Result Self GuiError \target\rect\color:
+        Result::Err GuiError::Unsupported
+
+    fn clear %fn Self fn .Color Result Self GuiError \target\color:
+        Result::Err GuiError::Unsupported
+
+//: FlushTarget: drawing result を display [面/めん]へ[反映/はんえい]できる[能力/のうりょく]
+trait FlushTarget:
+    fn flush %fn Self Result Self GuiError \target:
+        Result::Err GuiError::Unsupported
+
+//: MockDrawTarget: no_alloc drawing contract test [用/よう] target
+//:
+//: [目的/もくてき]:
+//: - 実 display や framebuffer を[使/つか]わず、pixel / fill / clear の contract を[検査/けんさ]します。
+pub struct MockDrawTarget:
+    width %i32
+    height %i32
+    pixel_count %i32
+    fill_count %i32
+    clear_count %i32
+    flush_count %i32
+
+impl Clone for MockDrawTarget:
+    fn clone %fn &MockDrawTarget MockDrawTarget \target:
+        *target
+
+impl Copy for MockDrawTarget:
+    fn copy_mark %fn MockDrawTarget MockDrawTarget \target:
+        target
+
+impl DrawTarget<Rgba8888> for MockDrawTarget:
+    fn draw_pixel %fn MockDrawTarget fn Pixel Rgba8888 Result MockDrawTarget GuiError \target\pixel:
+        if mock_draw_target_contains_point &target pixel_point &pixel:
+            then Result::Ok:
+                MockDrawTarget:
+                    mock_draw_target_width &target
+                    mock_draw_target_height &target
+                    add mock_draw_target_pixel_count &target 1
+                    mock_draw_target_fill_count &target
+                    mock_draw_target_clear_count &target
+                    mock_draw_target_flush_count &target
+            else Result::Ok target
+
+    fn fill_solid %fn MockDrawTarget fn GuiRect fn Rgba8888 Result MockDrawTarget GuiError \target\rect\color:
+        if or lt gui_rect_width &rect 0 lt gui_rect_height &rect 0:
+            then Result::Err GuiError::InvalidGeometry
+            else Result::Ok:
+                MockDrawTarget:
+                    mock_draw_target_width &target
+                    mock_draw_target_height &target
+                    mock_draw_target_pixel_count &target
+                    add mock_draw_target_fill_count &target 1
+                    mock_draw_target_clear_count &target
+                    mock_draw_target_flush_count &target
+
+    fn clear %fn MockDrawTarget fn Rgba8888 Result MockDrawTarget GuiError \target\color:
+        Result::Ok:
+            MockDrawTarget:
+                mock_draw_target_width &target
+                mock_draw_target_height &target
+                mock_draw_target_pixel_count &target
+                mock_draw_target_fill_count &target
+                add mock_draw_target_clear_count &target 1
+                mock_draw_target_flush_count &target
+
+impl FlushTarget for MockDrawTarget:
+    fn flush %fn MockDrawTarget Result MockDrawTarget GuiError \target:
+        Result::Ok:
+            MockDrawTarget:
+                mock_draw_target_width &target
+                mock_draw_target_height &target
+                mock_draw_target_pixel_count &target
+                mock_draw_target_fill_count &target
+                mock_draw_target_clear_count &target
+                add mock_draw_target_flush_count &target 1
+
+//: mock_draw_target_new: mock target を[作/つく]る
+pub fn mock_draw_target_new %fn i32 fn i32 MockDrawTarget \width\height:
+    MockDrawTarget width height 0 0 0 0
+
+//: mock_draw_target_width: width を[読/よ]む
+pub fn mock_draw_target_width %fn &MockDrawTarget i32 \target:
+    *field::get_ref target "width"
+
+//: mock_draw_target_height: height を[読/よ]む
+pub fn mock_draw_target_height %fn &MockDrawTarget i32 \target:
+    *field::get_ref target "height"
+
+//: mock_draw_target_pixel_count: accepted pixel count を[読/よ]む
+pub fn mock_draw_target_pixel_count %fn &MockDrawTarget i32 \target:
+    *field::get_ref target "pixel_count"
+
+//: mock_draw_target_fill_count: fill count を[読/よ]む
+pub fn mock_draw_target_fill_count %fn &MockDrawTarget i32 \target:
+    *field::get_ref target "fill_count"
+
+//: mock_draw_target_clear_count: clear count を[読/よ]む
+pub fn mock_draw_target_clear_count %fn &MockDrawTarget i32 \target:
+    *field::get_ref target "clear_count"
+
+//: mock_draw_target_flush_count: flush count を[読/よ]む
+pub fn mock_draw_target_flush_count %fn &MockDrawTarget i32 \target:
+    *field::get_ref target "flush_count"
+
+//: mock_draw_target_contains_point: point が target bounds [内/ない]か[判定/はんてい]する
+pub fn mock_draw_target_contains_point %fn &MockDrawTarget fn GuiPoint bool \target\point:
+    and:
+        and ge gui_point_x &point 0 lt gui_point_x &point mock_draw_target_width target
+        and ge gui_point_y &point 0 lt gui_point_y &point mock_draw_target_height target
+
+//: draw_pixel: `DrawTarget` trait [経由/けいゆ]で pixel を[描/か]く
+pub fn draw_pixel <.Target: DrawTarget<.Color>, .Color> %fn .Target fn Pixel .Color Result .Target GuiError \target\pixel:
+    DrawTarget::draw_pixel target pixel
+
+//: fill_solid: `DrawTarget` trait [経由/けいゆ]で solid rect を[描/か]く
+pub fn fill_solid <.Target: DrawTarget<.Color>, .Color> %fn .Target fn GuiRect fn .Color Result .Target GuiError \target\rect\color:
+    DrawTarget::fill_solid target rect color
+
+//: clear: `DrawTarget` trait [経由/けいゆ]で target を[消去/しょうきょ]する
+pub fn clear <.Target: DrawTarget<.Color>, .Color> %fn .Target fn .Color Result .Target GuiError \target\color:
+    DrawTarget::clear target color
+
+//: flush: `FlushTarget` trait [経由/けいゆ]で presentation flush を[行/おこな]う
+pub fn flush <.Target: FlushTarget> %fn .Target Result .Target GuiError \target:
+    FlushTarget::flush target

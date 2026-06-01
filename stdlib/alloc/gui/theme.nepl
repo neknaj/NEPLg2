@@ -1,0 +1,48 @@
+//: # alloc/gui/theme
+//: GUI / TUI 共通 theme data facade
+//:
+//: ### [目的/もくてき]
+//: - `GuiColor`、寸法、既定 font の参照を `GuiTheme` としてまとめます。
+//: - 表示方式ごとの名前や実体参照を[持/も]たず、描画命令へ[渡/わた]せる data contract だけを[公開/こうかい]します。
+//:
+//: ### [現状/げんじょう]
+//: - 初期 checkpoint では scheme、palette、metrics、任意の font id、RGBA へ[読/よ]み[出/だ]す fallible helper を[提供/ていきょう]します。
+//:
+//: neplg2:test
+//: ret: 70
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/theme" as *
+//:| #import "core/cast" as *
+//:| #import "core/gui" as *
+//:| #import "core/result" as *
+//: fn rgba_color %fn i32 fn i32 fn i32 GuiColor \r\g\b:
+//:     let rr %u8 cast r
+//:     let gg %u8 cast g
+//:     let bb %u8 cast b
+//:     let aa %u8 cast 255
+//:     let rgba %Rgba8888 rgba8888_new rr gg bb aa
+//:     gui_color_rgba8888 rgba
+//:
+//: fn main %fn unit i32 \unit:
+//:     let palette %ThemePalette theme_palette:
+//:         rgba_color 10 20 30
+//:         rgba_color 20 30 40
+//:         rgba_color 30 40 50
+//:         rgba_color 40 50 60
+//:         rgba_color 50 60 70
+//:         rgba_color 60 70 80
+//:         rgba_color 70 80 90
+//:         rgba_color 80 90 100
+//:     let color %GuiColor theme_palette_color &palette ThemeColorRole::Accent
+//:     match theme_color_as_rgba8888 color:
+//:         Result::Ok rgba:
+//:             cast rgba8888_b &rgba
+//:         Result::Err _error:
+//:             0
+//: ```
+
+#indent 4
+
+pub #import "alloc/gui/theme/types" as *

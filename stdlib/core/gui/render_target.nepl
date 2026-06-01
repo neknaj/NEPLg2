@@ -1,0 +1,80 @@
+//: # core/gui/render_target
+//: command-level render target contract
+//:
+//: ### [目的/もくてき]
+//: - Web、native、mobile、terminal の backend が pixel stream へ[展開/てんかい]せず、高水準 `RenderCommand` を[受/う]け[取/と]れる contract を[提供/ていきょう]します。
+//: - embedded や software backend は後続で `RenderCommand -> DrawTarget` fallback を[実装/じっそう]できます。
+//:
+//: ### [契約/けいやく]
+//: - `render_one` は 1 command を[受/う]け[取/と]り、成功時に[更新後/こうしんご]の target value を[返/かえ]します。
+//: - command list allocation は必須ではありません。no_alloc target は command を streaming で[受/う]け[取/と]ります。
+//:
+//: ### [現状/げんじょう]
+//: - 初期 checkpoint では 1 command streaming contract と `MockRenderTarget` を[固定/こてい]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `MockRenderTarget` は O(1) です。実 backend の command 処理は backend に[依存/いぞん]します。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target core
+//:| #import "core/gui/render_target" as *
+//: fn main %impure fn unit i32 \unit:
+//:     let target %MockRenderTarget mock_render_target_new
+//:     mock_render_target_command_count &target
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/gui/render_command" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: RenderTarget: command-level rendering [能力/のうりょく]
+trait RenderTarget:
+    fn render_one %fn Self fn RenderCommand Result Self GuiError \target\command:
+        Result::Err GuiError::Unsupported
+
+//: MockRenderTarget: command stream contract test [用/よう] target
+pub struct MockRenderTarget:
+    command_count %i32
+    text_cell_count %i32
+
+impl Clone for MockRenderTarget:
+    fn clone %fn &MockRenderTarget MockRenderTarget \target:
+        *target
+
+impl Copy for MockRenderTarget:
+    fn copy_mark %fn MockRenderTarget MockRenderTarget \target:
+        target
+
+impl RenderTarget for MockRenderTarget:
+    fn render_one %fn MockRenderTarget fn RenderCommand Result MockRenderTarget GuiError \target\command:
+        Result::Ok:
+            MockRenderTarget:
+                add mock_render_target_command_count &target 1
+                if render_command_is_text_cell_run command:
+                    then add mock_render_target_text_cell_count &target 1
+                    else mock_render_target_text_cell_count &target
+
+//: mock_render_target_new: mock render target を[作/つく]る
+pub fn mock_render_target_new %fn unit MockRenderTarget \unit:
+    MockRenderTarget 0 0
+
+//: mock_render_target_command_count: accepted command count を[読/よ]む
+pub fn mock_render_target_command_count %fn &MockRenderTarget i32 \target:
+    *field::get_ref target "command_count"
+
+//: mock_render_target_text_cell_count: text cell command count を[読/よ]む
+pub fn mock_render_target_text_cell_count %fn &MockRenderTarget i32 \target:
+    *field::get_ref target "text_cell_count"
+
+//: render_one: `RenderTarget` trait [経由/けいゆ]で 1 command を[描画/びょうが]する
+pub fn render_one <.Target: RenderTarget> %fn .Target fn RenderCommand Result .Target GuiError \target\command:
+    RenderTarget::render_one target command

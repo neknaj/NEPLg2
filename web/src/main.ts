@@ -73,10 +73,12 @@ function startApp() {
     }
 
     const workspaceRoot = document.getElementById('workspace-root') as HTMLElement;
+    const guiWindowLayer = document.getElementById('gui-window-layer') as HTMLElement;
     const popup = document.getElementById('general-popup') as HTMLElement;
     const fontSizeSelect = document.getElementById('font-size-select') as HTMLSelectElement;
     const runBtn = document.getElementById('run-button') as HTMLButtonElement;
     const compileBtn = document.getElementById('compile-button') as HTMLButtonElement;
+    const guiBtn = document.getElementById('gui-button') as HTMLButtonElement;
     const helpBtn = document.getElementById('help-button') as HTMLButtonElement;
     const editorHelpBtn = document.getElementById('editor-help-button') as HTMLButtonElement;
     const resetLayoutBtn = document.getElementById('reset-layout-button') as HTMLButtonElement;
@@ -92,6 +94,7 @@ function startApp() {
 
     const panelManager = new PlaygroundPanelManager({
         root: workspaceRoot,
+        guiWindowLayer,
         popup,
         vfs,
         createNeplProvider: () => new NEPLg2LanguageProvider(),
@@ -135,6 +138,10 @@ function startApp() {
 
     runBtn.addEventListener('click', runCurrentFile);
     compileBtn.addEventListener('click', compileCurrentFile);
+    guiBtn.addEventListener('click', () => {
+        panelManager.saveFocusedEditorTab();
+        panelManager.showGuiPreviewForActiveFile();
+    });
     helpBtn.addEventListener('click', () => executeCommand('help'));
     editorHelpBtn.addEventListener('click', (event) => {
         event.stopPropagation();

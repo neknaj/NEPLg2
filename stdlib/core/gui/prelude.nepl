@@ -1,0 +1,29 @@
+//: # core/gui/prelude
+//: core/gui [利用者/りようしゃ][向/む]け no_alloc prelude
+//:
+//: ### [目的/もくてき]
+//: - GUI/TUI core substrate の[主要/しゅよう]な[型/かた]と helper をまとめて import できるようにします。
+//: - root facade と[同/おな]じ public surface を[持/も]ち、backend や application [層/そう]が[必要/ひつよう]な[型/かた]だけを submodule から import することもできます。
+//:
+//: ### [注意/ちゅうい]
+//: - prelude は allocator、std、platforms を import しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/prelude" as *
+//: ```
+
+#indent 4
+
+pub #import "./geometry" as @merge
+pub #import "./color" as @merge
+pub #import "./pixel" as @merge
+pub #import "./capability" as @merge
+pub #import "./error" as @merge
+pub #import "./event" as @merge
+pub #import "./render_command" as @merge
+pub #import "./dirty_region" as @merge
+pub #import "./dirty_region_set" as @merge
+pub #import "./text_measure" as @merge
+pub #import "./draw_target" as @merge
+pub #import "./render_target" as @merge

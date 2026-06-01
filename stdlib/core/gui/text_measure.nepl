@@ -1,0 +1,169 @@
+//: # core/gui/text_measure
+//: GUI/TUI [共通/きょうつう] text measurement contract
+//:
+//: ### [目的/もくてき]
+//: - layout [層/そう]が text の[幅/はば]や[高/たか]さを[必要/ひつよう]とするとき、browser、OS font API、terminal escape sequence に[依存/いぞん]しない contract を[提供/ていきょう]します。
+//: - `TextMeasurer` は core [側/がわ]の trait であり、host font や terminal cell width の[具体/ぐたい]実装は `std/gui` または `platforms/gui/*` が[提供/ていきょう]します。
+//:
+//: ### [契約/けいやく]
+//: - `measure_text` は `TextMeasureRequest` を[受/う]け[取/と]り、成功時は `TextMeasureResult` を[返/かえ]します。
+//: - 測定できない backend は panic や silent no-op ではなく `GuiError::Unsupported` を[返/かえ]します。
+//: - `text_run_id` は text buffer の[実体/じったい]ではありません。文字列 buffer や font loading は core で[保持/ほじ]しません。
+//:
+//: ### [現状/げんじょう]
+//: - 初期 checkpoint では fixed-cell の `MockTextMeasurer` を[用意/ようい]し、terminal / embedded [向/む]けの単純な測定 contract を[検証/けんしょう]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - `MockTextMeasurer` は O(1) です。host implementation の計算量は backend に[依存/いぞん]します。
+//:
+//: neplg2:test
+//: ret: 16
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target core
+//:| #import "core/gui/text_measure" as *
+//: fn main %impure fn unit i32 \unit:
+//:     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
+//:     mock_text_measurer_line_height &measurer
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/gui/render_command" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: FontId: host または alloc [層/そう]の font resource を[参照/さんしょう]する id
+pub struct FontId:
+    raw %i32
+
+impl Clone for FontId:
+    fn clone %fn &FontId FontId \id:
+        *id
+
+impl Copy for FontId:
+    fn copy_mark %fn FontId FontId \id:
+        id
+
+//: TextMeasureRequest: text measurement の[入力/にゅうりょく]
+//:
+//: [目的/もくてき]:
+//: - text run、font、layout [制約/せいやく]、terminal cell count hint を 1 つの data value として[渡/わた]します。
+//:
+//: [注意/ちゅうい]:
+//: - `cell_count_hint` は terminal / bitmap font [向/む]けの保守的な fallback hint です。complex shaping backend は text run の実体を host [側/がわ]で[参照/さんしょう]できます。
+pub struct TextMeasureRequest:
+    run_id %TextRunId
+    font_id %FontId
+    max_width %i32
+    cell_count_hint %i32
+
+impl Clone for TextMeasureRequest:
+    fn clone %fn &TextMeasureRequest TextMeasureRequest \request:
+        *request
+
+impl Copy for TextMeasureRequest:
+    fn copy_mark %fn TextMeasureRequest TextMeasureRequest \request:
+        request
+
+//: TextMeasureResult: text measurement の[結果/けっか]
+pub struct TextMeasureResult:
+    width %i32
+    height %i32
+    baseline %i32
+
+impl Clone for TextMeasureResult:
+    fn clone %fn &TextMeasureResult TextMeasureResult \result:
+        *result
+
+impl Copy for TextMeasureResult:
+    fn copy_mark %fn TextMeasureResult TextMeasureResult \result:
+        result
+
+//: TextMeasurer: text measurement [能力/のうりょく]
+//:
+//: [目的/もくてき]:
+//: - `alloc/gui/layout` が `std/gui` へ[依存/いぞん]せず、測定能力だけを[受/う]け[取/と]れるようにします。
+pub trait TextMeasurer:
+    fn measure_text %fn &Self fn TextMeasureRequest Result TextMeasureResult GuiError \measurer\request:
+        Result::Err GuiError::Unsupported
+
+//: MockTextMeasurer: fixed-cell の test [用/よう] measurer
+//:
+//: [目的/もくてき]:
+//: - browser font stack や terminal API を[使/つか]わず、layout test が deterministic に text size を[得/え]られるようにします。
+pub struct MockTextMeasurer:
+    cell_width %i32
+    line_height %i32
+    baseline %i32
+
+impl Clone for MockTextMeasurer:
+    fn clone %fn &MockTextMeasurer MockTextMeasurer \measurer:
+        *measurer
+
+impl Copy for MockTextMeasurer:
+    fn copy_mark %fn MockTextMeasurer MockTextMeasurer \measurer:
+        measurer
+
+impl TextMeasurer for MockTextMeasurer:
+    fn measure_text %fn &MockTextMeasurer fn TextMeasureRequest Result TextMeasureResult GuiError \measurer\request:
+        let width %i32 mul mock_text_measurer_cell_width measurer text_measure_request_cell_count_hint &request
+        let height %i32 mock_text_measurer_line_height measurer
+        let baseline %i32 mock_text_measurer_baseline measurer
+        Result::Ok TextMeasureResult width height baseline
+
+//: font_id_new: font id を[作/つく]る
+pub fn font_id_new %fn i32 FontId \raw:
+    FontId raw
+
+//: font_id_raw: font id の raw value を[読/よ]む
+pub fn font_id_raw %fn &FontId i32 \id:
+    *field::get_ref id "raw"
+
+//: text_measure_request_new: text measurement request を[作/つく]る
+pub fn text_measure_request_new %fn TextRunId fn FontId fn i32 fn i32 TextMeasureRequest \run_id\font_id\max_width\cell_count_hint:
+    TextMeasureRequest run_id font_id max_width cell_count_hint
+
+//: text_measure_request_cell_count_hint: fallback cell count hint を[読/よ]む
+pub fn text_measure_request_cell_count_hint %fn &TextMeasureRequest i32 \request:
+    *field::get_ref request "cell_count_hint"
+
+//: text_measure_request_max_width: measurement max width を[読/よ]む
+pub fn text_measure_request_max_width %fn &TextMeasureRequest i32 \request:
+    *field::get_ref request "max_width"
+
+//: text_measure_result_width: 測定結果の width を[読/よ]む
+pub fn text_measure_result_width %fn &TextMeasureResult i32 \result:
+    *field::get_ref result "width"
+
+//: text_measure_result_height: 測定結果の height を[読/よ]む
+pub fn text_measure_result_height %fn &TextMeasureResult i32 \result:
+    *field::get_ref result "height"
+
+//: text_measure_result_baseline: 測定結果の baseline を[読/よ]む
+pub fn text_measure_result_baseline %fn &TextMeasureResult i32 \result:
+    *field::get_ref result "baseline"
+
+//: mock_text_measurer_new: fixed-cell measurer を[作/つく]る
+pub fn mock_text_measurer_new %fn i32 fn i32 fn i32 MockTextMeasurer \cell_width\line_height\baseline:
+    MockTextMeasurer cell_width line_height baseline
+
+//: mock_text_measurer_cell_width: fixed cell width を[読/よ]む
+pub fn mock_text_measurer_cell_width %fn &MockTextMeasurer i32 \measurer:
+    *field::get_ref measurer "cell_width"
+
+//: mock_text_measurer_line_height: fixed line height を[読/よ]む
+pub fn mock_text_measurer_line_height %fn &MockTextMeasurer i32 \measurer:
+    *field::get_ref measurer "line_height"
+
+//: mock_text_measurer_baseline: fixed baseline を[読/よ]む
+pub fn mock_text_measurer_baseline %fn &MockTextMeasurer i32 \measurer:
+    *field::get_ref measurer "baseline"
+
+//: measure_text: `TextMeasurer` trait [経由/けいゆ]で text を[測/はか]る
+pub fn measure_text <.M: TextMeasurer> %fn &.M fn TextMeasureRequest Result TextMeasureResult GuiError \measurer\request:
+    TextMeasurer::measure_text measurer request

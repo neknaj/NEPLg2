@@ -1,0 +1,50 @@
+//: # std/gui/host
+//: GUI host の typed boundary
+//:
+//: ### [目的/もくてき]
+//: - host の capability と既定 window を value として[保持/ほじ]し、runtime helper が effect を解釈するための[入口/いりぐち]を[定義/ていぎ]します。
+//: - host 実装そのものは platform module が[所有/しょゆう]します。この module は DOM、ANSI、OS handle、clipboard 実体を[含/ふく]みません。
+//:
+//: ### [注意/ちゅうい]
+//: - `GuiHost` は application が直接操作する object ではありません。application は `GuiEffect` を[返/かえ]し、runtime がこの contract に[従/したが]って dispatch value を[作/つく]ります。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/host" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/traits/copy" as *
+#import "std/gui/window" as *
+
+//: GuiHost: std/gui runtime が[参照/さんしょう]する host contract value
+pub struct GuiHost:
+    capabilities %GuiCapabilities
+    default_window %WindowId
+
+impl Clone for GuiHost:
+    fn clone %fn &GuiHost GuiHost \host:
+        *host
+
+impl Copy for GuiHost:
+    fn copy_mark %fn GuiHost GuiHost \host:
+        host
+
+//: gui_host_new: capability と既定 window から GuiHost contract を[作/つく]る
+pub fn gui_host_new %fn GuiCapabilities fn WindowId GuiHost \capabilities\default_window:
+    GuiHost capabilities default_window
+
+//: gui_host_headless: test/headless 用 host contract を[作/つく]る
+pub fn gui_host_headless %fn unit GuiHost \unit:
+    gui_host_new gui_capabilities_headless window_id 0
+
+//: gui_host_capabilities: host capability を[読/よ]む
+pub fn gui_host_capabilities %fn &GuiHost GuiCapabilities \host:
+    *field::get_ref host "capabilities"
+
+//: gui_host_default_window: 既定 window id を[読/よ]む
+pub fn gui_host_default_window %fn &GuiHost WindowId \host:
+    *field::get_ref host "default_window"

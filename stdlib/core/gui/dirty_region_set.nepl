@@ -1,0 +1,232 @@
+//: # core/gui/dirty_region_set
+//: embedded/no_alloc backend [向/む]け fixed-capacity dirty region set
+//:
+//: ### [目的/もくてき]
+//: - allocator を[使/つか]わずに、[最大/さいだい] 2 つの `GuiRect` を dirty region として[保持/ほじ]します。
+//: - 3 つ[目/め]の rect が[追加/ついか]されたときは silent no-op にせず、surface [全体/ぜんたい] dirty を[表/あらわ]す Full [状態/じょうたい]へ[昇格/しょうかく]します。
+//:
+//: ### [契約/けいやく]
+//: - `DirtyRegion` とは[別/べつ]の multiple region contract です。2 rect までは rect list として[保持/ほじ]し、それを[超/こ]えると Full として[扱/あつか]います。
+//: - rect の x/y は[相対/そうたい][座標/ざひょう]として[負/ふ]を[許容/きょよう]します。
+//: - rect の width/height が[負/ふ]なら `GuiError::InvalidGeometry` を[返/かえ]します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor、push、state/query はすべて O(1) です。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//: #entry main
+//: #target core
+//: #indent 4
+//:
+//: #import "core/gui/dirty_region_set" as *
+//: #import "core/gui/geometry" as *
+//: #import "core/option" as *
+//: #import "core/result" as *
+//:
+//: fn main %fn unit i32 \unit:
+//:     let regions0 %DirtyRegionSet dirty_regions_empty
+//:     let rect %GuiRect gui_rect_new 0 0 1 1
+//:     match dirty_regions_push_checked regions0 rect:
+//:         Result::Ok regions1:
+//:             match dirty_regions_rect_at regions1 0:
+//:                 Option::Some rect:
+//:                     if dirty_regions_is_one regions1:
+//:                         then 0
+//:                         else 2
+//:                 Option::None:
+//:                     3
+//:         Result::Err _error:
+//:             4
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/gui/geometry" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: DirtyRegionSetState: fixed-capacity dirty region set の[状態/じょうたい]
+//:
+//: [目的/もくてき]:
+//: - Empty は dirty なし、One/Two は[保持/ほじ]している rect [数/すう]、Full は surface [全体/ぜんたい] dirty を[表/あらわ]します。
+pub enum DirtyRegionSetState:
+    Empty
+    One
+    Two
+    Full
+
+impl Clone for DirtyRegionSetState:
+    fn clone %fn &DirtyRegionSetState DirtyRegionSetState \state:
+        *state
+
+impl Copy for DirtyRegionSetState:
+    fn copy_mark %fn DirtyRegionSetState DirtyRegionSetState \state:
+        state
+
+//: DirtyRegionSet: allocator を[使/つか]わない[最大/さいだい] 2 rect の dirty region set
+//:
+//: [目的/もくてき]:
+//: - embedded backend が[小/ちい]さい dirty rect list を O(1) で[受/う]け[渡/わた]せるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - `state` が Full のとき `first` / `second` は[無視/むし]されます。
+pub struct DirtyRegionSet:
+    state %DirtyRegionSetState
+    first %GuiRect
+    second %GuiRect
+
+impl Clone for DirtyRegionSet:
+    fn clone %fn &DirtyRegionSet DirtyRegionSet \regions:
+        *regions
+
+impl Copy for DirtyRegionSet:
+    fn copy_mark %fn DirtyRegionSet DirtyRegionSet \regions:
+        regions
+
+//: dirty_regions_state: dirty region set の[状態/じょうたい]を[読/よ]む
+pub fn dirty_regions_state %fn &DirtyRegionSet DirtyRegionSetState \regions:
+    *field::get_ref regions "state"
+
+//: dirty_regions_first: 1 [番目/ばんめ]の rect slot を[読/よ]む
+//:
+//: [注意/ちゅうい]:
+//: - slot が[有効/ゆうこう]かどうかは `dirty_regions_state` または `dirty_regions_rect_at` で[確認/かくにん]します。
+pub fn dirty_regions_first %fn &DirtyRegionSet GuiRect \regions:
+    *field::get_ref regions "first"
+
+//: dirty_regions_second: 2 [番目/ばんめ]の rect slot を[読/よ]む
+//:
+//: [注意/ちゅうい]:
+//: - slot が[有効/ゆうこう]かどうかは `dirty_regions_state` または `dirty_regions_rect_at` で[確認/かくにん]します。
+pub fn dirty_regions_second %fn &DirtyRegionSet GuiRect \regions:
+    *field::get_ref regions "second"
+
+//: dirty_regions_empty: dirty なし set を[作/つく]る
+pub fn dirty_regions_empty %fn unit DirtyRegionSet \unit:
+    DirtyRegionSet:
+        DirtyRegionSetState::Empty
+        gui_rect_new 0 0 0 0
+        gui_rect_new 0 0 0 0
+
+//: dirty_regions_full: surface [全体/ぜんたい] dirty set を[作/つく]る
+pub fn dirty_regions_full %fn unit DirtyRegionSet \unit:
+    DirtyRegionSet:
+        DirtyRegionSetState::Full
+        gui_rect_new 0 0 0 0
+        gui_rect_new 0 0 0 0
+
+//: dirty_regions_is_empty: dirty なし set か[判定/はんてい]する
+pub fn dirty_regions_is_empty %fn DirtyRegionSet bool \regions:
+    match dirty_regions_state &regions:
+        DirtyRegionSetState::Empty:
+            true
+        _:
+            false
+
+//: dirty_regions_is_one: rect を 1 つ[保持/ほじ]しているか[判定/はんてい]する
+pub fn dirty_regions_is_one %fn DirtyRegionSet bool \regions:
+    match dirty_regions_state &regions:
+        DirtyRegionSetState::One:
+            true
+        _:
+            false
+
+//: dirty_regions_is_two: rect を 2 つ[保持/ほじ]しているか[判定/はんてい]する
+pub fn dirty_regions_is_two %fn DirtyRegionSet bool \regions:
+    match dirty_regions_state &regions:
+        DirtyRegionSetState::Two:
+            true
+        _:
+            false
+
+//: dirty_regions_is_full: Full [状態/じょうたい]か[判定/はんてい]する
+pub fn dirty_regions_is_full %fn DirtyRegionSet bool \regions:
+    match dirty_regions_state &regions:
+        DirtyRegionSetState::Full:
+            true
+        _:
+            false
+
+//: dirty_regions_rect_is_valid: rect を dirty region set に[入/い]れられるか[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - x/y の[負/ふ]は[相対/そうたい][座標/ざひょう]として[許容/きょよう]し、width/height の[非負/ひふ]だけを[検査/けんさ]します。
+pub fn dirty_regions_rect_is_valid %fn &GuiRect bool \rect:
+    let width %i32 gui_rect_width rect
+    let height %i32 gui_rect_height rect
+    and:
+        ge width 0
+        ge height 0
+
+//: dirty_regions_push_unchecked: 検査済み rect を O(1) で[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - Empty -> One、One -> Two、Two -> Full と[状態/じょうたい]を[進/すす]めます。
+//: - Full に rect を[追加/ついか]しても Full のままです。
+//:
+//: [注意/ちゅうい]:
+//: - caller が width/height の[非負/ひふ]を[保証/ほしょう]しているときだけ[使/つか]います。
+pub fn dirty_regions_push_unchecked %fn DirtyRegionSet fn GuiRect DirtyRegionSet \regions\rect:
+    match dirty_regions_state &regions:
+        DirtyRegionSetState::Empty:
+            DirtyRegionSet:
+                DirtyRegionSetState::One
+                rect
+                gui_rect_new 0 0 0 0
+        DirtyRegionSetState::One:
+            DirtyRegionSet:
+                DirtyRegionSetState::Two
+                dirty_regions_first &regions
+                rect
+        DirtyRegionSetState::Two:
+            DirtyRegionSet:
+                DirtyRegionSetState::Full
+                dirty_regions_first &regions
+                dirty_regions_second &regions
+        DirtyRegionSetState::Full:
+            regions
+
+//: dirty_regions_push_checked: rect を[検査/けんさ]して O(1) で[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - width/height が[負/ふ]の rect は `GuiError::InvalidGeometry` として[返/かえ]します。
+//: - capacity overflow は error ではなく Full [状態/じょうたい]への[明示/めいじ]された[昇格/しょうかく]として[返/かえ]します。
+pub fn dirty_regions_push_checked %fn DirtyRegionSet fn GuiRect Result DirtyRegionSet GuiError \regions\rect:
+    if dirty_regions_rect_is_valid &rect:
+        then:
+            let next %DirtyRegionSet dirty_regions_push_unchecked regions rect
+            Result::Ok next
+        else Result::Err GuiError::InvalidGeometry
+
+//: dirty_regions_rect_at: index で rect を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - 0 は first、1 は second を[返/かえ]します。
+//: - Empty、Full、範囲外 index は `Option::None` を[返/かえ]します。
+pub fn dirty_regions_rect_at %fn DirtyRegionSet fn i32 Option GuiRect \regions\index:
+    match dirty_regions_state &regions:
+        DirtyRegionSetState::One:
+            if eq index 0:
+                then:
+                    let first %GuiRect dirty_regions_first &regions
+                    Option::Some first
+                else Option::None
+        DirtyRegionSetState::Two:
+            if eq index 0:
+                then:
+                    let first %GuiRect dirty_regions_first &regions
+                    Option::Some first
+                else:
+                    if eq index 1:
+                        then:
+                            let second %GuiRect dirty_regions_second &regions
+                            Option::Some second
+                        else Option::None
+        _:
+            Option::None

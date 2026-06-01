@@ -1,0 +1,264 @@
+//: # alloc/gui/accessibility
+//: GUI / TUI 共通の accessibility semantic tree
+//:
+//: ### [目的/もくてき]
+//: - visual tree や draw command とは[別/べつ]に、screen reader や keyboard focus が[読む/よむ] semantic tree を[表/あらわ]します。
+//: - platform accessibility API の handle は[持/も]たず、node id、role、label、state、action を data として[保持/ほじ]します。
+//:
+//: ### [契約/けいやく]
+//: - この module は `std`、`platforms`、DOM、terminal escape sequence を import しません。
+//: - [容量/ようりょう]を[超/こ]える tree [構築/こうちく]は panic や silent no-op ではなく `Result::Err` で[返/かえ]します。
+//:
+//: ### [現状/げんじょう]
+//: - 最初の accessibility slice では root と最大 2 個の child を[持/も]つ bounded tree に[限定/げんてい]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/accessibility" as *
+//:| #import "core/option" as *
+//:| #import "core/result" as *
+//: fn main %fn unit i32 \unit:
+//:     let root_id %SemanticNodeId semantic_node_id 1
+//:     let child_id %SemanticNodeId semantic_node_id 2
+//:     let child_state %SemanticState semantic_state true false false
+//:     let root %SemanticNode semantic_node root_id SemanticRole::Window "app" semantic_state_default SemanticAction::None
+//:     let child %SemanticNode semantic_node child_id SemanticRole::Button "Run" child_state SemanticAction::Activate
+//:     let tree0 %AccessibilityTree accessibility_tree_single root
+//:     match accessibility_tree_add_child tree0 child:
+//:         Result::Ok tree:
+//:             match accessibility_tree_first_child &tree:
+//:                 Option::Some node:
+//:                     if semantic_node_is_button &node then 0 else 1
+//:                 Option::None:
+//:                     2
+//:         Result::Err _error:
+//:             3
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: SemanticNodeId: semantic tree [内/ない]の node identity
+//:
+//: [目的/もくてき]:
+//: - visual widget id や platform handle と[混/ま]ぜず、accessibility tree [専用/せんよう]の stable id を[表/あらわ]します。
+//:
+//: [計算量/けいさんりょう]:
+//: - [生成/せいせい]と[読/よ]み[取/と]りは O(1) です。
+pub struct SemanticNodeId:
+    raw %i32
+
+impl Clone for SemanticNodeId:
+    fn clone %fn &SemanticNodeId SemanticNodeId \id:
+        *id
+
+impl Copy for SemanticNodeId:
+    fn copy_mark %fn SemanticNodeId SemanticNodeId \id:
+        id
+
+//: SemanticRole: semantic node の[役割/やくわり]
+//:
+//: [目的/もくてき]:
+//: - backend [固有/こゆう]の accessibility role 名ではなく、stdlib が[扱/あつか]う最小 role set を enum で[固定/こてい]します。
+pub enum SemanticRole:
+    Window
+    Label
+    Button
+    TextInput
+
+impl Clone for SemanticRole:
+    fn clone %fn &SemanticRole SemanticRole \role:
+        *role
+
+impl Copy for SemanticRole:
+    fn copy_mark %fn SemanticRole SemanticRole \role:
+        role
+
+//: SemanticAction: semantic node が host へ[公開/こうかい]する action
+//:
+//: [目的/もくてき]:
+//: - button activation や focus request を callback ではなく data として[表/あらわ]します。
+pub enum SemanticAction:
+    None
+    Activate
+    Focus
+
+impl Clone for SemanticAction:
+    fn clone %fn &SemanticAction SemanticAction \action:
+        *action
+
+impl Copy for SemanticAction:
+    fn copy_mark %fn SemanticAction SemanticAction \action:
+        action
+
+//: SemanticState: accessibility semantic state の最小集合
+//:
+//: [目的/もくてき]:
+//: - focused、disabled、hidden を draw state から[推測/すいそく]せず、semantic tree [側/がわ]の data として[保持/ほじ]します。
+pub struct SemanticState:
+    focused %bool
+    disabled %bool
+    hidden %bool
+
+impl Clone for SemanticState:
+    fn clone %fn &SemanticState SemanticState \state:
+        *state
+
+impl Copy for SemanticState:
+    fn copy_mark %fn SemanticState SemanticState \state:
+        state
+
+//: SemanticNode: accessibility semantic tree の node
+//:
+//: [目的/もくてき]:
+//: - role、label、state、action を[一体/いったい]の snapshot として[持/も]ち、render command stream とは[独立/どくりつ]して host へ[渡/わた]せる形にします。
+//:
+//: [注意/ちゅうい]:
+//: - child relation は `AccessibilityTree` が[持/も]ちます。node [自体/じたい]に recursive child list は[持/も]たせません。
+pub struct SemanticNode:
+    id %SemanticNodeId
+    role %SemanticRole
+    label %str
+    state %SemanticState
+    action %SemanticAction
+
+impl Clone for SemanticNode:
+    fn clone %fn &SemanticNode SemanticNode \node:
+        *node
+
+impl Copy for SemanticNode:
+    fn copy_mark %fn SemanticNode SemanticNode \node:
+        node
+
+//: AccessibilityTreeError: accessibility tree [構築/こうちく]の[失敗/しっぱい][分類/ぶんるい]
+pub enum AccessibilityTreeError:
+    CapacityExceeded
+
+impl Clone for AccessibilityTreeError:
+    fn clone %fn &AccessibilityTreeError AccessibilityTreeError \error:
+        *error
+
+impl Copy for AccessibilityTreeError:
+    fn copy_mark %fn AccessibilityTreeError AccessibilityTreeError \error:
+        error
+
+//: AccessibilityTree: bounded semantic tree snapshot
+//:
+//: [目的/もくてき]:
+//: - layout tree や draw command とは[別/べつ]に、root と child semantic node を[保持/ほじ]します。
+//:
+//: [制約/せいやく]:
+//: - 現 checkpoint の child capacity は 2 です。capacity を[超/こ]える[追加/ついか]は `CapacityExceeded` を[返/かえ]します。
+pub struct AccessibilityTree:
+    root %SemanticNode
+    child0 %Option SemanticNode
+    child1 %Option SemanticNode
+    child_count %i32
+
+impl Clone for AccessibilityTree:
+    fn clone %fn &AccessibilityTree AccessibilityTree \tree:
+        *tree
+
+impl Copy for AccessibilityTree:
+    fn copy_mark %fn AccessibilityTree AccessibilityTree \tree:
+        tree
+
+//: semantic_node_id: raw integer から SemanticNodeId を[作/つく]る
+pub fn semantic_node_id %fn i32 SemanticNodeId \raw:
+    SemanticNodeId raw
+
+//: semantic_node_id_raw: SemanticNodeId の raw value を[読/よ]む
+pub fn semantic_node_id_raw %fn &SemanticNodeId i32 \id:
+    *field::get_ref id "raw"
+
+//: semantic_state: focused / disabled / hidden state を[作/つく]る
+pub fn semantic_state %fn bool fn bool fn bool SemanticState \focused\disabled\hidden:
+    SemanticState focused disabled hidden
+
+//: semantic_state_default: default semantic state を[返/かえ]す
+pub fn semantic_state_default %fn unit SemanticState \unit:
+    SemanticState false false false
+
+//: semantic_state_is_focused: focused flag を[読/よ]む
+pub fn semantic_state_is_focused %fn &SemanticState bool \state:
+    *field::get_ref state "focused"
+
+//: semantic_state_is_disabled: disabled flag を[読/よ]む
+pub fn semantic_state_is_disabled %fn &SemanticState bool \state:
+    *field::get_ref state "disabled"
+
+//: semantic_state_is_hidden: hidden flag を[読/よ]む
+pub fn semantic_state_is_hidden %fn &SemanticState bool \state:
+    *field::get_ref state "hidden"
+
+//: semantic_node: semantic node snapshot を[作/つく]る
+pub fn semantic_node %fn SemanticNodeId fn SemanticRole fn str fn SemanticState fn SemanticAction SemanticNode \id\role\label\state\action:
+    SemanticNode id role label state action
+
+//: semantic_node_label: semantic node の label を[読/よ]む
+pub fn semantic_node_label %fn &SemanticNode str \node:
+    *field::get_ref node "label"
+
+//: semantic_node_state: semantic node の state を[読/よ]む
+pub fn semantic_node_state %fn &SemanticNode SemanticState \node:
+    *field::get_ref node "state"
+
+//: semantic_node_is_button: node role が Button かを[調/しら]べる
+pub fn semantic_node_is_button %fn &SemanticNode bool \node:
+    match *field::get_ref node "role":
+        SemanticRole::Button:
+            true
+        _:
+            false
+
+//: accessibility_tree_single: child を[持/も]たない semantic tree を[作/つく]る
+pub fn accessibility_tree_single %fn SemanticNode AccessibilityTree \root:
+    AccessibilityTree root none none 0
+
+//: accessibility_tree_root: tree root を[読/よ]む
+pub fn accessibility_tree_root %fn &AccessibilityTree SemanticNode \tree:
+    *field::get_ref tree "root"
+
+//: accessibility_tree_child_count: child count を[読/よ]む
+pub fn accessibility_tree_child_count %fn &AccessibilityTree i32 \tree:
+    *field::get_ref tree "child_count"
+
+//: accessibility_tree_first_child: 1 [番目/ばんめ]の child を Option で[返/かえ]す
+pub fn accessibility_tree_first_child %fn &AccessibilityTree Option SemanticNode \tree:
+    *field::get_ref tree "child0"
+
+//: accessibility_tree_second_child: 2 [番目/ばんめ]の child を Option で[返/かえ]す
+pub fn accessibility_tree_second_child %fn &AccessibilityTree Option SemanticNode \tree:
+    *field::get_ref tree "child1"
+
+//: accessibility_tree_add_child: bounded tree に child を[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - tree capacity を型の外で[隠/かく]さず、追加できない場合は `Result::Err AccessibilityTreeError::CapacityExceeded` を[返/かえ]します。
+//:
+//: [実装/じっそう]:
+//: - child count が 0 なら first slot、1 なら second slot に[格納/かくのう]します。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1) です。
+pub fn accessibility_tree_add_child %fn AccessibilityTree fn SemanticNode Result AccessibilityTree AccessibilityTreeError \tree\child:
+    let count %i32 accessibility_tree_child_count &tree
+    if eq count 0:
+        then:
+            let root %SemanticNode accessibility_tree_root &tree
+            let first %Option SemanticNode some child
+            Result::Ok AccessibilityTree root first none 1
+        else if eq count 1:
+            then:
+                let root %SemanticNode accessibility_tree_root &tree
+                let first %Option SemanticNode accessibility_tree_first_child &tree
+                let second %Option SemanticNode some child
+                Result::Ok AccessibilityTree root first second 2
+            else Result::Err AccessibilityTreeError::CapacityExceeded
