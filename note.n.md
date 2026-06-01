@@ -1,3 +1,13 @@
+# 2026-06-02 GUI/TUI arena pointer routing checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` と作業 branch の同期状態を確認した。検証前の final sync で `origin/main` 745cfaaa を merge し、remote/main の変更を取り込んだ。
+- Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、`alloc/gui/routing` に `LayoutTreeArena` / `ViewTreeArena` を借用する pointer routing を追加した。arena owner は消費せず、platform raw input、DOM、terminal raw sequence、OS handle は扱わない。
+- `layout_tree_arena_hit_test` は `GuiRect` の half-open bounds を維持し、arena insertion order の後方を前面として末尾から走査する。`view_tree_arena_find_widget` は arena index ではなく `WidgetId` identity で widget descriptor を探す。disabled widget と、layout hit だけで view 側に widget が無い場合は `Option::None` にする。
+- subagent review は、bounded routing の second-child topmost を arena では末尾優先に一般化し、`WidgetId` を public routing identity にして parent index / storage index を漏らさないこと、pointer capture / gesture / raw input normalization を混ぜないことを確認した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、arena pointer routing 実装済みと、残件が diff / layout integration、stateful pointer routing、backend 接続であることに合わせて更新した。
+- focused 検証: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_routing.n.md -i stdlib/alloc/gui/routing.nepl -i stdlib/alloc/gui/routing/types.nepl --no-tree -o tmp/gui-arena-routing-focused.json -j 1 --dist web/dist --assert-io` は 7/7 pass。merge 後の同一 focused 検証 `tmp/gui-arena-routing-focused-after-merge.json` も 7/7 pass。
+- 最終検証: `trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-arena-routing.json` 13/13、`node nodesrc/test_stdlib_gui_layering_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+
 # 2026-06-02 GUI/TUI no-parenthesized-call cleanup checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` と作業 branch の同期状態を確認し、`origin/main` は既に取り込み済みだった。

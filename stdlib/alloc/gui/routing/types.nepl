@@ -6,8 +6,9 @@
 //: - routing は callback を[呼/よ]ばず、host API にも[触/ふ]れません。application の `update` が `GuiEvent::Action` を match します。
 //:
 //: ### [契約/けいやく]
-//: - child は root より手前にあるものとして hit test します。
-//: - child 同士が[重/かさ]なる場合、second child を first child より手前として[扱/あつか]います。
+//: - bounded tree では child は root より手前にあるものとして hit test します。
+//: - bounded tree で child 同士が[重/かさ]なる場合、second child を first child より手前として[扱/あつか]います。
+//: - allocator-backed arena では後から追加された layout node を手前として[扱/あつか]います。
 //: - disabled widget は `widget_action_event` により `Option::None` になります。
 //:
 //: neplg2:test
@@ -114,6 +115,42 @@ pub fn layout_tree_hit_test %fn &LayoutTree fn GuiPoint Option WidgetId \tree\po
                             some id
                         else none
 
+//: layout_tree_arena_hit_test_loop: arena の layout node を z-order の逆順で[調/しら]べる
+//:
+//: [実装/じっそう]:
+//: - flat arena の追加順を paint order とみなし、末尾から先頭へ[走査/そうさ]します。
+//: - `layout_tree_arena_get_node` が `Option::None` を返した場合は壊れた index として panic せず、次の index へ進みます。
+fn layout_tree_arena_hit_test_loop %fn &LayoutTreeArena fn GuiPoint fn i32 Option WidgetId \tree\point\index:
+    if lt index 0:
+        then none
+        else:
+            match layout_tree_arena_get_node tree index:
+                Option::Some arena_node:
+                    let layout %LayoutNode layout_tree_arena_node_layout &arena_node
+                    if layout_node_contains_point &layout point:
+                        then:
+                            let id %WidgetId layout_node_widget_id &layout
+                            some id
+                        else:
+                            let next_index %i32 sub index 1
+                            layout_tree_arena_hit_test_loop tree point next_index
+                Option::None:
+                    let next_index %i32 sub index 1
+                    layout_tree_arena_hit_test_loop tree point next_index
+
+//: layout_tree_arena_hit_test: LayoutTreeArena から pointer 位置の WidgetId を[探/さが]す
+//:
+//: [計算量/けいさんりょう]:
+//: - arena node 数を n として O(n) です。
+//:
+//: [契約/けいやく]:
+//: - 後から追加された layout node を前面として[扱/あつか]います。
+//: - pointer capture や gesture state は[扱/あつか]わず、現在位置の hit target だけを[返/かえ]します。
+pub fn layout_tree_arena_hit_test %fn &LayoutTreeArena fn GuiPoint Option WidgetId \tree\point:
+    let count %i32 layout_tree_arena_len tree
+    let start %i32 sub count 1
+    layout_tree_arena_hit_test_loop tree point start
+
 //: layout_node_widget_id: LayoutNode の WidgetId を[読/よ]む
 fn layout_node_widget_id %fn &LayoutNode WidgetId \node:
     *field::get_ref node "id"
@@ -155,9 +192,45 @@ pub fn view_tree_find_widget %fn &ViewTree fn WidgetId Option WidgetDescriptor \
                         Option::None:
                             none
 
+//: view_tree_arena_find_widget_loop: arena order で WidgetId に[対応/たいおう]する widget を[探/さが]す
+fn view_tree_arena_find_widget_loop %fn &ViewTreeArena fn WidgetId fn i32 fn i32 Option WidgetDescriptor \tree\id\count\index:
+    if ge index count:
+        then none
+        else:
+            match view_tree_arena_get_node tree index:
+                Option::Some arena_node:
+                    let descriptor %WidgetDescriptor view_tree_arena_node_descriptor &arena_node
+                    if widget_descriptor_matches_id &descriptor id:
+                        then some descriptor
+                        else:
+                            let next_index %i32 add index 1
+                            view_tree_arena_find_widget_loop tree id count next_index
+                Option::None:
+                    let next_index %i32 add index 1
+                    view_tree_arena_find_widget_loop tree id count next_index
+
+//: view_tree_arena_find_widget: ViewTreeArena から WidgetId に[対応/たいおう]する widget を[探/さが]す
+//:
+//: [計算量/けいさんりょう]:
+//: - arena node 数を n として O(n) です。
+//:
+//: [契約/けいやく]:
+//: - `WidgetId` は arena index ではなく widget identity として[比較/ひかく]します。
+pub fn view_tree_arena_find_widget %fn &ViewTreeArena fn WidgetId Option WidgetDescriptor \tree\id:
+    let count %i32 view_tree_arena_len tree
+    view_tree_arena_find_widget_loop tree id count 0
+
 //: route_action_for_widget: WidgetId から widget action event を[導出/どうしゅつ]する
 pub fn route_action_for_widget %fn &ViewTree fn WidgetId Option GuiEvent \view_tree\id:
     match view_tree_find_widget view_tree id:
+        Option::Some widget:
+            widget_action_event &widget
+        Option::None:
+            none
+
+//: route_action_for_arena_widget: arena の WidgetId から widget action event を[導出/どうしゅつ]する
+pub fn route_action_for_arena_widget %fn &ViewTreeArena fn WidgetId Option GuiEvent \view_tree\id:
+    match view_tree_arena_find_widget view_tree id:
         Option::Some widget:
             widget_action_event &widget
         Option::None:
@@ -171,5 +244,17 @@ pub fn route_pointer_action %fn &ViewTree fn &LayoutTree fn GuiPoint Option GuiE
     match layout_tree_hit_test layout_tree point:
         Option::Some id:
             route_action_for_widget view_tree id
+        Option::None:
+            none
+
+//: route_pointer_action_in_arena: arena tree の pointer 位置から action event を[導出/どうしゅつ]する
+//:
+//: [注意/ちゅうい]:
+//: - `ViewTreeArena` / `LayoutTreeArena` owner は消費しません。
+//: - pointer capture、drag gesture、double click などの stateful routing は上位 runtime の責務です。
+pub fn route_pointer_action_in_arena %fn &ViewTreeArena fn &LayoutTreeArena fn GuiPoint Option GuiEvent \view_tree\layout_tree\point:
+    match layout_tree_arena_hit_test layout_tree point:
+        Option::Some id:
+            route_action_for_arena_widget view_tree id
         Option::None:
             none

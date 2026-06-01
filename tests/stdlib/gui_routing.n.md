@@ -167,3 +167,143 @@ fn main %fn unit i32 \unit:
         Option::None:
             0
 ```
+
+## route_pointer_action_in_arena_hits_nested_front_node
+
+[目的/もくてき]:
+- allocator-backed `ViewTreeArena` / `LayoutTreeArena` で nested child の pointer routing が action event を返すことを確認します。
+- arena hit test は後から追加された layout node を前面として扱い、root や parent button より nested button を優先することを確認します。
+
+neplg2:test
+ret: 30
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui" as *
+#import "alloc/gui/routing" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn gui_event_action_value %fn Option GuiEvent i32 \event:
+    match event:
+        Option::Some value:
+            match value:
+                GuiEvent::Action action:
+                    action_id_value action
+                _:
+                    0
+        Option::None:
+            0
+
+fn main %fn unit i32 \unit:
+    let root_id %WidgetId widget_id 1
+    let parent_id %WidgetId widget_id 2
+    let nested_id %WidgetId widget_id 3
+    let parent_action %ActionId action_id 10
+    let nested_action %ActionId action_id 30
+    let root_hint %LayoutHint layout_hint_fixed 12 8
+    let button_hint %LayoutHint layout_hint_fixed 6 4
+    let nested_hint %LayoutHint layout_hint_fixed 3 2
+    let root %WidgetDescriptor widget_label root_id "root" root_hint
+    let parent_config %ButtonConfig button_config parent_id "Parent" parent_action
+    let parent %WidgetDescriptor widget_button parent_config button_hint
+    let nested_config %ButtonConfig button_config nested_id "Nested" nested_action
+    let nested %WidgetDescriptor widget_button nested_config nested_hint
+    let view0 %ViewTreeArena unwrap_ok view_tree_arena_single root
+    let view1 %ViewTreeArena unwrap_ok view_tree_arena_add_child view0 0 parent
+    let view2 %ViewTreeArena unwrap_ok view_tree_arena_add_child view1 1 nested
+    let root_rect %GuiRect gui_rect_new 0 0 12 8
+    let parent_rect %GuiRect gui_rect_new 1 1 6 4
+    let nested_rect %GuiRect gui_rect_new 2 2 3 2
+    let root_layout %LayoutNode layout_node root_id root_rect
+    let parent_layout %LayoutNode layout_node parent_id parent_rect
+    let nested_layout %LayoutNode layout_node nested_id nested_rect
+    let layout0 %LayoutTreeArena unwrap_ok layout_tree_arena_single root_layout
+    let layout1 %LayoutTreeArena unwrap_ok layout_tree_arena_add_child layout0 0 parent_layout
+    let layout2 %LayoutTreeArena unwrap_ok layout_tree_arena_add_child layout1 1 nested_layout
+    let point %GuiPoint gui_point_new 2 2
+    let hit_value %i32:
+        match layout_tree_arena_hit_test &layout2 point:
+            Option::Some id:
+                widget_id_value id
+            Option::None:
+                0
+    let action_value %i32 gui_event_action_value route_pointer_action_in_arena &view2 &layout2 point
+    view_tree_arena_free view2
+    layout_tree_arena_free layout2
+    let hit_ok %bool eq hit_value 3
+    let action_ok %bool eq action_value 30
+    if and hit_ok action_ok:
+        then 30
+        else 0
+```
+
+## route_pointer_action_in_arena_ignores_disabled_missing_and_outside
+
+[目的/もくてき]:
+- arena routing でも disabled widget は action event を返さないことを確認します。
+- layout hit があっても対応する `WidgetId` が `ViewTreeArena` に無い場合は `Option::None` になることを確認します。
+- bounds 外の pointer は `Option::None` になることを確認します。
+
+neplg2:test
+ret: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui" as *
+#import "alloc/gui/routing" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+
+fn is_none_event %fn Option GuiEvent bool \value:
+    match value:
+        Option::Some _event:
+            false
+        Option::None:
+            true
+
+fn main %fn unit i32 \unit:
+    let root_id %WidgetId widget_id 1
+    let disabled_id %WidgetId widget_id 2
+    let missing_id %WidgetId widget_id 3
+    let disabled_action %ActionId action_id 20
+    let root_hint %LayoutHint layout_hint_fixed 20 10
+    let button_hint %LayoutHint layout_hint_fixed 4 3
+    let root %WidgetDescriptor widget_label root_id "root" root_hint
+    let disabled_config %ButtonConfig button_config disabled_id "Disabled" disabled_action
+    let disabled_node %ViewNode button disabled_config
+    let disabled %WidgetDescriptor widget_descriptor disabled_id disabled_node button_hint true true "Disabled"
+    let view0 %ViewTreeArena unwrap_ok view_tree_arena_single root
+    let view1 %ViewTreeArena unwrap_ok view_tree_arena_add_child view0 0 disabled
+    let root_rect %GuiRect gui_rect_new 0 0 20 10
+    let disabled_rect %GuiRect gui_rect_new 1 1 4 3
+    let missing_rect %GuiRect gui_rect_new 10 1 4 3
+    let root_layout %LayoutNode layout_node root_id root_rect
+    let disabled_layout %LayoutNode layout_node disabled_id disabled_rect
+    let missing_layout %LayoutNode layout_node missing_id missing_rect
+    let layout0 %LayoutTreeArena unwrap_ok layout_tree_arena_single root_layout
+    let layout1 %LayoutTreeArena unwrap_ok layout_tree_arena_add_child layout0 0 disabled_layout
+    let layout2 %LayoutTreeArena unwrap_ok layout_tree_arena_add_child layout1 0 missing_layout
+    let disabled_point %GuiPoint gui_point_new 2 2
+    let missing_point %GuiPoint gui_point_new 11 2
+    let outside_point %GuiPoint gui_point_new 30 30
+    let disabled_none %bool is_none_event route_pointer_action_in_arena &view1 &layout2 disabled_point
+    let missing_none %bool is_none_event route_pointer_action_in_arena &view1 &layout2 missing_point
+    let outside_none %bool is_none_event route_pointer_action_in_arena &view1 &layout2 outside_point
+    view_tree_arena_free view1
+    layout_tree_arena_free layout2
+    let all_none %bool and:
+        disabled_none
+        and:
+            missing_none
+            outside_none
+    if all_none:
+        then 0
+        else 9
+```
