@@ -1771,8 +1771,10 @@ mod tests {
     }
 
     /// prepare phase は `.neplmeta` の public interface artifact も生成する。
-    /// `.neplmeta` は typed public signature table と compile context hash だけを持ち、
-    /// typed HIR や `TypeId` を保存しないため、body-only edit では hash が変わらない。
+    /// `.neplmeta` は typed public signature と compile context hash だけを持つ。
+    /// typed HIR や `TypeId` を保存しないため、body-only edit では public signature hash が
+    /// 変わらない。loader 由来の module surface がない prepare path では source key を
+    /// 作らず、materializer / body skip 側で fail-closed に扱う。
     #[test]
     fn prepare_exposes_neplmeta_artifact_for_public_interface() {
         let first_source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
@@ -1819,6 +1821,8 @@ mod tests {
                 .header()
                 .typed_public_signature_hash
         );
+        assert_eq!(first.nepl_meta_artifact.header().source_key_hash, None);
+        assert_eq!(second.nepl_meta_artifact.header().source_key_hash, None);
         assert_eq!(
             first
                 .nepl_meta_artifact

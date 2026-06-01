@@ -3812,6 +3812,13 @@ impl CompilerSession {
                 .unwrap_or(0)
                 .to_string(),
         );
+        out.push_str(",\"nepl_meta_artifact_source_key_hash\":");
+        out.push_str(
+            &nepl_meta_header
+                .and_then(|header| header.source_key_hash)
+                .unwrap_or(0)
+                .to_string(),
+        );
         out.push_str(",\"nepl_meta_artifact_module_dependency_edges\":");
         out.push_str(
             &nepl_meta_header

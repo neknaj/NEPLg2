@@ -1227,7 +1227,7 @@ public interface artifact を固定し、その上へ typed / proof / backend ar
 
 | artifact | 役割 | 主な key |
 |---|---|---|
-| `.neplmeta` | import graph、exported type/function/trait impl surface、effect signature、typed public signature、source capability policy surface を保持する。依存側の名前解決・型検査がまず読む authority である。 | module path、source public surface hash、typed public signature hash、dependency public surface hash、stdlib hash、compiler schema version |
+| `.neplmeta` | import graph、exported type/function/trait impl surface、effect signature、typed public signature、source capability policy surface を保持する。依存側の名前解決・型検査がまず読む authority である。 | module path、source key hash、source public surface hash、typed public signature hash、dependency public surface hash、stdlib hash、compiler schema version |
 | `.neplhir` | stable lexical path id、typed HIR、typed diagnostics enum、local binding shape、expected type boundary を保持する。MVP では同一 session cache に限定し、永続化は stable typed id 導入後に行う。 | function identity、body semantic hash、scope shape hash、callable candidate set、effect expectation |
 | `.neplproof` | Resource IR lowering 結果、initialized/owner/borrow/drop/effect summary、private effect mask proof を stable mirror として保持する。 | typed HIR function hash、source capability policy hash、type/effect boundary hash、generic type arguments、summary kind |
 | `.neplobj` | wasm / LLVM の function body fragment、signature table entry、function table entry、data segment、relocation metadata を保持する。 | monomorphized function identity、lowered body hash、target/profile、backend feature set |
@@ -1909,6 +1909,36 @@ scan metadata を残すため、timeout や partial report が混じった場合
 `resource_static_initialized_moves` / `resource_static_check` は別途、`.neplmeta` と Resource
 summary cache / proof template の設計で削る必要がある。この shard は、現在の重い compiler を
 CI 上で観測し続けるための workload boundary 修正である。
+
+### 2026-06-01 `.neplmeta` source key invalidation checkpoint
+
+`.neplmeta` header に `source_key_hash` を追加した。これは typed public signature や
+structured public surface の hash とは別に、保存済み artifact が現在の module source に
+由来するかを typecheck 前に確認するための境界である。
+
+`source_key_hash` は既存の `compiled_source_cache_key_part` から作る。この source key は
+lexer token stream 由来であり、通常コメント、doc comment、span だけの変更は無視する。一方で、
+literal、identifier、directive、indent / dedent、raw wasm / llvm text など、compile 結果に
+影響し得る token は保持する。したがって、dependency body skip や import materializer へ進む時に、
+public signature が同じまま式 body だけが変わった artifact を誤って受け入れる経路を閉じられる。
+
+body skip の前段では、typed public signature や structured public surface をまだ作れない。
+そのため `NeplMetaArtifactPreTypecheckEnvelope` を別に追加し、target/profile、stdlib content、
+dependency public surface、module surface、source capability policy、private effect policy、
+source key だけで payload decode 前の照合を行えるようにした。typed public signature と
+structured public surface は、この pre-typecheck envelope を通過した後の payload consistency
+と materializer の責務として残す。
+
+`SourceMap` または `.neplmeta` の canonical module path がない場合、`source_key_hash` は
+`None` になる。これは「安全に再利用できる」という意味ではなく、body skip の前提を証明できない
+artifact として通常 load / typecheck へ戻すための fail-closed 値である。`NeplMetaArtifactStore`
+と materializer MVP は `source_key_hash=None` の artifact を拒否する。将来 disk / IndexedDB
+codec を追加する場合も、payload decode や materializer 実行より前に pre-typecheck envelope と
+header の `source_key_hash` を照合する。
+
+Web `CompilerSession` の stats JSON には `nepl_meta_artifact_source_key_hash` を追加した。
+値が 0 の場合は artifact がない、または source key を作れないことを表す観測値であり、
+artifact payload 本体や source text は公開しない。
 
 ## safety contract
 

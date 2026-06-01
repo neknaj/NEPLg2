@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use crate::compiler::{BuildProfile, CompileTarget};
+use crate::source_cache_key::compiled_source_cache_key_part;
 use crate::source_map::SourceMap;
 use crate::typecheck::{
     PublicSurfaceMaterializerBlockerReason, TypedPublicSignatureKind,
@@ -12,12 +13,12 @@ use alloc::vec::Vec;
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
-const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 10;
-const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v10";
+const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 11;
+const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v11";
 const NEPL_META_COMPILER_IDENTITY_INPUT: &str = concat!(
     "neplg2-compiler:",
     env!("CARGO_PKG_VERSION"),
-    ":neplmeta-v10"
+    ":neplmeta-v11"
 );
 
 /// `.neplmeta` が保持する module dependency surface。
@@ -209,6 +210,7 @@ pub struct NeplMetaArtifactHeader {
     pub target_hash: u64,
     pub profile_hash: u64,
     pub stdlib_content_hash: Option<u64>,
+    pub source_key_hash: Option<u64>,
     pub dependency_public_surface_hash: Option<u64>,
     pub typed_public_signature_hash: u64,
     pub public_entry_count: u32,
@@ -223,12 +225,43 @@ pub struct NeplMetaArtifactHeader {
     pub private_effect_policy_hash: Option<u64>,
 }
 
+/// `.neplmeta` payload を読まずに照合できる pre-typecheck envelope。
+///
+/// import materializer や dependency body skip は、target module の body を typecheck する前に
+/// 保存済み artifact が現在 source と同じ compile context に属するかを確認する必要がある。
+/// そのため、この envelope は typed public signature や structured public surface を含めず、
+/// loader / source map / compile option だけで作れる field に限定する。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NeplMetaArtifactPreTypecheckEnvelope {
+    pub schema_version: u32,
+    pub compiler_identity_hash: u64,
+    pub target_hash: u64,
+    pub profile_hash: u64,
+    pub stdlib_content_hash: Option<u64>,
+    pub source_key_hash: u64,
+    pub dependency_public_surface_hash: Option<u64>,
+    pub module_surface_hash: Option<u64>,
+    pub module_dependency_edge_count: Option<u32>,
+    pub source_capability_policy_set_hash: Option<u64>,
+    pub private_effect_policy_hash: Option<u64>,
+}
+
+/// `.neplmeta` pre-typecheck envelope を作れない理由。
+///
+/// source key を作れない状態は「再利用できる」ではなく、body skip の前提を証明できない
+/// 状態である。caller は通常 load / typecheck fallback に戻す。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NeplMetaArtifactPreTypecheckEnvelopeReject {
+    MissingSourceKey,
+}
+
 impl NeplMetaArtifactHeader {
     pub fn new(
         compiler_identity_hash: u64,
         target_hash: u64,
         profile_hash: u64,
         stdlib_content_hash: Option<u64>,
+        source_key_hash: Option<u64>,
         dependency_public_surface_hash: Option<u64>,
         typed_public_signature_hash: u64,
         public_entry_count: u32,
@@ -248,6 +281,7 @@ impl NeplMetaArtifactHeader {
             target_hash,
             profile_hash,
             stdlib_content_hash,
+            source_key_hash,
             dependency_public_surface_hash,
             typed_public_signature_hash,
             public_entry_count,
@@ -281,6 +315,9 @@ impl NeplMetaArtifactHeader {
         }
         if self.stdlib_content_hash != expected.stdlib_content_hash {
             return Some(NeplMetaArtifactCompatibilityReject::StdlibContent);
+        }
+        if self.source_key_hash != expected.source_key_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::SourceKey);
         }
         if self.dependency_public_surface_hash != expected.dependency_public_surface_hash {
             return Some(NeplMetaArtifactCompatibilityReject::DependencyPublicSurface);
@@ -322,6 +359,46 @@ impl NeplMetaArtifactHeader {
         }
         None
     }
+
+    pub fn pre_typecheck_compatibility_reject(
+        &self,
+        expected: NeplMetaArtifactPreTypecheckEnvelope,
+    ) -> Option<NeplMetaArtifactCompatibilityReject> {
+        if self.schema_version != expected.schema_version {
+            return Some(NeplMetaArtifactCompatibilityReject::SchemaVersion);
+        }
+        if self.compiler_identity_hash != expected.compiler_identity_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::CompilerIdentity);
+        }
+        if self.target_hash != expected.target_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::Target);
+        }
+        if self.profile_hash != expected.profile_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::Profile);
+        }
+        if self.stdlib_content_hash != expected.stdlib_content_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::StdlibContent);
+        }
+        if self.source_key_hash != Some(expected.source_key_hash) {
+            return Some(NeplMetaArtifactCompatibilityReject::SourceKey);
+        }
+        if self.dependency_public_surface_hash != expected.dependency_public_surface_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::DependencyPublicSurface);
+        }
+        if self.module_surface_hash != expected.module_surface_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::ModuleSurface);
+        }
+        if self.module_dependency_edge_count != expected.module_dependency_edge_count {
+            return Some(NeplMetaArtifactCompatibilityReject::ModuleDependencyEdgeCount);
+        }
+        if self.source_capability_policy_set_hash != expected.source_capability_policy_set_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::SourceCapabilityPolicySet);
+        }
+        if self.private_effect_policy_hash != expected.private_effect_policy_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::PrivateEffectPolicy);
+        }
+        None
+    }
 }
 
 /// `.neplmeta` artifact header が現在 compile と一致しない理由。
@@ -335,6 +412,7 @@ pub enum NeplMetaArtifactCompatibilityReject {
     Target,
     Profile,
     StdlibContent,
+    SourceKey,
     DependencyPublicSurface,
     TypedPublicSignature,
     PublicEntryCount,
@@ -489,6 +567,9 @@ impl NeplMetaArtifact {
         if let Some(reject) = self.payload_consistency_reject() {
             return Some(NeplMetaMaterializerMvpReject::PayloadConsistency(reject));
         }
+        if self.header.source_key_hash.is_none() {
+            return Some(NeplMetaMaterializerMvpReject::MissingSourceKey);
+        }
         let module_surface = match self.module_surface.as_ref() {
             Some(surface) => surface,
             None => return Some(NeplMetaMaterializerMvpReject::MissingModuleSurface),
@@ -605,6 +686,9 @@ impl NeplMetaArtifact {
             return Err(NeplMetaMaterializerProjectionReject::PayloadConsistency(
                 reject,
             ));
+        }
+        if self.header.source_key_hash.is_none() {
+            return Err(NeplMetaMaterializerProjectionReject::MissingSourceKey);
         }
         let module_surface = self
             .module_surface
@@ -758,6 +842,10 @@ impl NeplMetaArtifactStore {
             self.stats.payload_rejects += 1;
             return Err(NeplMetaArtifactStoreReject::PayloadConsistency(reject));
         }
+        if artifact.header().source_key_hash.is_none() {
+            self.stats.store_rejects += 1;
+            return Err(NeplMetaArtifactStoreReject::MissingSourceKey);
+        }
         self.stats.stores += 1;
         self.artifacts.insert(module_path, artifact);
         Ok(())
@@ -786,6 +874,10 @@ impl NeplMetaArtifactStore {
             self.stats.payload_rejects += 1;
             return Err(NeplMetaArtifactStoreReject::PayloadConsistency(reject));
         }
+        if artifact.header().source_key_hash.is_none() {
+            self.stats.compatibility_rejects += 1;
+            return Err(NeplMetaArtifactStoreReject::MissingSourceKey);
+        }
         if let Some(reject) = artifact.compatibility_reject(expected_header) {
             self.stats.compatibility_rejects += 1;
             return Err(NeplMetaArtifactStoreReject::Compatibility(reject));
@@ -809,6 +901,7 @@ pub enum NeplMetaArtifactStoreReject {
     MissingArtifact { module_path: String },
     MissingModuleSurface,
     MissingModuleIdentity,
+    MissingSourceKey,
     PayloadConsistency(NeplMetaArtifactPayloadReject),
     Compatibility(NeplMetaArtifactCompatibilityReject),
     Projection(NeplMetaMaterializerProjectionReject),
@@ -835,6 +928,7 @@ pub enum NeplMetaArtifactPayloadReject {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NeplMetaMaterializerMvpReject {
     PayloadConsistency(NeplMetaArtifactPayloadReject),
+    MissingSourceKey,
     MissingModuleSurface,
     MissingExportSurface,
     MissingModuleIdentity,
@@ -855,6 +949,7 @@ pub enum NeplMetaMaterializerMvpReject {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NeplMetaMaterializerProjectionReject {
     PayloadConsistency(NeplMetaArtifactPayloadReject),
+    MissingSourceKey,
     MissingModuleSurface,
     MissingExportSurface,
     MissingModuleIdentity,
@@ -898,6 +993,7 @@ impl NeplMetaMaterializerMvpReject {
             Self::UnsupportedAlias => 9,
             Self::UnsupportedGlob => 10,
             Self::UnsupportedImplLookup => 11,
+            Self::MissingSourceKey => 12,
         }
     }
 }
@@ -950,6 +1046,7 @@ pub fn nepl_meta_artifact_header_for_public_surface(
         nepl_meta_target_hash(target),
         nepl_meta_profile_hash(profile),
         stdlib_content_hash,
+        nepl_meta_source_key_hash(source_map, module_surface),
         dependency_public_surface_hash,
         public_signatures.stable_hash,
         usize_to_u32_saturating(public_signatures.entries.len()),
@@ -963,6 +1060,61 @@ pub fn nepl_meta_artifact_header_for_public_surface(
         crate::compiler::resource_summary_source_capability_policy_set_hash(source_map),
         Some(crate::compiler::resource_summary_private_effect_policy_hash()),
     )
+}
+
+pub fn nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+    target: CompileTarget,
+    profile: BuildProfile,
+    stdlib_content_hash: Option<u64>,
+    dependency_public_surface_hash: Option<u64>,
+    source_map: Option<&SourceMap>,
+    module_surface: &NeplMetaModuleSurface,
+) -> Result<NeplMetaArtifactPreTypecheckEnvelope, NeplMetaArtifactPreTypecheckEnvelopeReject> {
+    let source_key_hash = nepl_meta_source_key_hash(source_map, Some(module_surface))
+        .ok_or(NeplMetaArtifactPreTypecheckEnvelopeReject::MissingSourceKey)?;
+    Ok(NeplMetaArtifactPreTypecheckEnvelope {
+        schema_version: NEPL_META_ARTIFACT_SCHEMA_VERSION,
+        compiler_identity_hash: nepl_meta_compiler_identity_hash(),
+        target_hash: nepl_meta_target_hash(target),
+        profile_hash: nepl_meta_profile_hash(profile),
+        stdlib_content_hash,
+        source_key_hash,
+        dependency_public_surface_hash,
+        module_surface_hash: Some(module_surface.stable_hash),
+        module_dependency_edge_count: Some(usize_to_u32_saturating(
+            module_surface.dependency_edges.len(),
+        )),
+        source_capability_policy_set_hash:
+            crate::compiler::resource_summary_source_capability_policy_set_hash(source_map),
+        private_effect_policy_hash: Some(crate::compiler::resource_summary_private_effect_policy_hash()),
+    })
+}
+
+/// `.neplmeta` artifact の source-level invalidation key を作る。
+///
+/// この hash は依存 module の body を typecheck する前に、artifact が同じ source に由来するか
+/// を判定するための境界である。値は lexer token stream 由来の `compiled_source_cache_key_part`
+/// から作るため、コメントや位置だけの変更では同じ key になり、構文 token や directive の
+/// 変更では変わる。`SourceMap` や module identity がない場合は artifact を事前再利用できない
+/// ので `None` にし、将来の body skip は fail-closed に通常 load/typecheck へ戻る。
+fn nepl_meta_source_key_hash(
+    source_map: Option<&SourceMap>,
+    module_surface: Option<&NeplMetaModuleSurface>,
+) -> Option<u64> {
+    let source_map = source_map?;
+    let module_path = module_surface?.canonical_module_path.as_str();
+    let mut matched_source = None;
+    for (file_id, path) in source_map.iter_paths() {
+        if path.as_str() == module_path {
+            matched_source = source_map.get(file_id);
+            break;
+        }
+    }
+    let source = matched_source?;
+    Some(nepl_meta_hash_tag(
+        "source-key",
+        compiled_source_cache_key_part(source).as_str(),
+    ))
 }
 
 fn nepl_meta_module_surface_hash(
@@ -1200,15 +1352,17 @@ mod tests {
     use alloc::vec::Vec;
 
     use super::{
-        nepl_meta_artifact_header_for_public_surface, NeplMetaArtifact,
+        nepl_meta_artifact_header_for_public_surface,
+        nepl_meta_artifact_pre_typecheck_envelope_for_module_surface, NeplMetaArtifact,
         NeplMetaArtifactCompatibilityReject, NeplMetaArtifactHeader, NeplMetaArtifactPayloadReject,
-        NeplMetaArtifactStore, NeplMetaArtifactStoreReject, NeplMetaExportKind,
-        NeplMetaExportSurface, NeplMetaImportClause, NeplMetaImportItem,
-        NeplMetaMaterializerMvpReject, NeplMetaMaterializerProjectionReject,
-        NeplMetaModuleDependencyEdge, NeplMetaModuleDependencyKind, NeplMetaModuleSurface,
-        NeplMetaVisibility,
+        NeplMetaArtifactPreTypecheckEnvelopeReject, NeplMetaArtifactStore,
+        NeplMetaArtifactStoreReject, NeplMetaExportKind, NeplMetaExportSurface,
+        NeplMetaImportClause, NeplMetaImportItem, NeplMetaMaterializerMvpReject,
+        NeplMetaMaterializerProjectionReject, NeplMetaModuleDependencyEdge,
+        NeplMetaModuleDependencyKind, NeplMetaModuleSurface, NeplMetaVisibility,
     };
     use crate::compiler::{BuildProfile, CompileTarget};
+    use crate::source_map::SourceMap;
     use crate::typecheck::{
         PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicSurfaceShape,
         PublicTypeTerm, TypedPublicSignatureEntry, TypedPublicSignatureKind,
@@ -1325,12 +1479,19 @@ mod tests {
         let export_surface = module_surface.map(|surface| {
             NeplMetaExportSurface::from_module_and_public_surface(surface, public_surface)
         });
+        let mut source_map = SourceMap::new();
+        if let Some(surface) = module_surface {
+            source_map.add(
+                surface.canonical_module_path.as_str(),
+                "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+            );
+        }
         nepl_meta_artifact_header_for_public_surface(
             CompileTarget::Wasm,
             BuildProfile::Debug,
             Some(7),
             dependency_hash,
-            None,
+            module_surface.map(|_| &source_map),
             public_signatures,
             module_surface,
             export_surface.as_ref(),
@@ -1439,6 +1600,137 @@ mod tests {
         assert_eq!(artifact.compatibility_reject(header), None);
         assert_eq!(artifact.payload_consistency_reject(), None);
         assert_eq!(artifact.entry_count(), 1);
+    }
+
+    /// source key hash は `.neplmeta` を import boundary で使う前の stale artifact
+    /// 検出に使う。通常コメントだけの編集では同じ source key になり、public signature が
+    /// 同じでも式 token が変わる編集では compatibility check が fail-closed に拒否する。
+    #[test]
+    fn neplmeta_header_tracks_source_key_without_comment_noise() {
+        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_surface = surface_table("answer", PublicTypeTerm::I32);
+        let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
+        let mut base_map = SourceMap::new();
+        base_map.add("/stdlib/core/math.nepl", "pub fn answer %fn unit i32 \\:\n    1\n".into());
+        let mut comment_map = SourceMap::new();
+        comment_map.add(
+            "/stdlib/core/math.nepl",
+            "// ordinary comment\npub fn answer %fn unit i32 \\:\n    1 // trailing\n".into(),
+        );
+        let mut edited_map = SourceMap::new();
+        edited_map.add("/stdlib/core/math.nepl", "pub fn answer %fn unit i32 \\:\n    2\n".into());
+
+        let base = nepl_meta_artifact_header_for_public_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            Some(&base_map),
+            &public_signatures,
+            Some(&module_surface),
+            Some(&export_surface),
+            &public_surface,
+        );
+        let comment = nepl_meta_artifact_header_for_public_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            Some(&comment_map),
+            &public_signatures,
+            Some(&module_surface),
+            Some(&export_surface),
+            &public_surface,
+        );
+        let edited = nepl_meta_artifact_header_for_public_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            Some(&edited_map),
+            &public_signatures,
+            Some(&module_surface),
+            Some(&export_surface),
+            &public_surface,
+        );
+
+        assert!(base.source_key_hash.is_some());
+        assert_eq!(base.source_key_hash, comment.source_key_hash);
+        assert_eq!(
+            base.compatibility_reject(comment),
+            None,
+            "comment-only edits must not invalidate source-level interface artifacts"
+        );
+        assert_ne!(base.source_key_hash, edited.source_key_hash);
+        assert_eq!(
+            base.compatibility_reject(edited),
+            Some(NeplMetaArtifactCompatibilityReject::SourceKey)
+        );
+    }
+
+    /// pre-typecheck envelope は typed public surface を要求しない。
+    /// 依存先 body を typecheck する前に、現在 source の token-level key だけで stale artifact
+    /// を拒否できることを固定する。
+    #[test]
+    fn neplmeta_pre_typecheck_envelope_rejects_body_token_edit() {
+        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_surface = surface_table("answer", PublicTypeTerm::I32);
+        let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
+        let mut stored_map = SourceMap::new();
+        stored_map.add("/stdlib/core/math.nepl", "pub fn answer %fn unit i32 \\:\n    1\n".into());
+        let mut current_map = SourceMap::new();
+        current_map.add("/stdlib/core/math.nepl", "pub fn answer %fn unit i32 \\:\n    2\n".into());
+        let stored_header = nepl_meta_artifact_header_for_public_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            Some(&stored_map),
+            &public_signatures,
+            Some(&module_surface),
+            Some(&export_surface),
+            &public_surface,
+        );
+        let current_envelope = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            Some(&current_map),
+            &module_surface,
+        )
+        .expect("current source should produce pre-typecheck envelope");
+
+        assert_eq!(
+            stored_header.pre_typecheck_compatibility_reject(current_envelope),
+            Some(NeplMetaArtifactCompatibilityReject::SourceKey)
+        );
+    }
+
+    /// source key を作れない artifact は body skip の authority にしない。
+    /// `None == None` を compatible として扱うと、SourceMap や module path が欠落した artifact が
+    /// import materializer へ流れるため、pre-typecheck envelope 作成時点で fail-closed にする。
+    #[test]
+    fn neplmeta_pre_typecheck_envelope_requires_source_key() {
+        let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
+        let mut wrong_map = SourceMap::new();
+        wrong_map.add("/stdlib/core/other.nepl", "pub fn answer %fn unit i32 \\:\n    1\n".into());
+
+        assert_eq!(
+            nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+                CompileTarget::Wasm,
+                BuildProfile::Debug,
+                Some(7),
+                None,
+                Some(&wrong_map),
+                &module_surface,
+            ),
+            Err(NeplMetaArtifactPreTypecheckEnvelopeReject::MissingSourceKey)
+        );
     }
 
     /// export surface は local public entry と pub re-export projection を別々に保存する。
@@ -1659,6 +1951,50 @@ mod tests {
         );
         assert_eq!(store.stats().misses, 1);
         assert_eq!(store.stats().compatibility_rejects, 1);
+    }
+
+    /// SourceMap や canonical path の不足で source key を作れない artifact は、
+    /// typed public surface が整っていても materializer/store へ流さない。
+    #[test]
+    fn neplmeta_materializer_and_store_reject_missing_source_key() {
+        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_surface = materializable_surface_table("answer", PublicTypeTerm::I32);
+        let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
+        let header = nepl_meta_artifact_header_for_public_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            None,
+            &public_signatures,
+            Some(&module_surface),
+            Some(&export_surface),
+            &public_surface,
+        );
+        let artifact = NeplMetaArtifact::new(
+            header,
+            public_signatures,
+            Some(module_surface),
+            Some(export_surface),
+            public_surface,
+        );
+        let mut store = NeplMetaArtifactStore::new();
+
+        assert_eq!(
+            artifact.materializer_mvp_reject(),
+            Some(NeplMetaMaterializerMvpReject::MissingSourceKey)
+        );
+        assert_eq!(
+            artifact.materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Open)),
+            Err(NeplMetaMaterializerProjectionReject::MissingSourceKey)
+        );
+        assert_eq!(
+            store.store(artifact),
+            Err(NeplMetaArtifactStoreReject::MissingSourceKey)
+        );
+        assert_eq!(store.stats().store_rejects, 1);
     }
 
     #[test]

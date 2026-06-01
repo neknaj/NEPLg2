@@ -1,3 +1,18 @@
+# 2026-06-01 .neplmeta source key invalidation checkpoint
+
+- Zenn 記事の core/no_std 分離、純粋 query cache、静的検査境界を enum / struct と fail-closed な key で明示する方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `059e45e3` まで同期済みで、branch `work/neplmeta-import-materializer-session-20260601` の基点は `origin/main` と一致している。
+- subagent review で、`.neplmeta` import materializer や body skip に進む前に、保存済み artifact が現在 source と対応していることを source-level key で確認する境界が必要だと確認した。
+- `NeplMetaArtifactHeader` に `source_key_hash` を追加し、schema / artifact hash / compiler identity を v11 に上げた。typed public signature が同じでも式 body token が変わった artifact は compatibility check で `SourceKey` reject になる。
+- `source_key_hash` は `compiled_source_cache_key_part` から作る。通常コメント、doc comment、span だけの変更は key に入れず、literal、identifier、directive、indent / dedent、raw wasm / llvm text など compile 結果に影響し得る token は key に残す。
+- `SourceMap` または canonical module path がない場合は `source_key_hash=None` にし、将来の body skip では通常 load / typecheck fallback へ戻す。これは reusable という意味ではなく、source identity を証明できない fail-closed 値である。
+- follow-up review で、full typed header は依存先 body typecheck 後にしか作れないため body skip 前 gate には不十分、かつ `None == None` を compatible にしてはならないと指摘された。これを受けて `NeplMetaArtifactPreTypecheckEnvelope` を追加し、typed public surface を要求しない payload decode 前の照合境界を分離した。
+- `source_key_hash=None` の artifact は `NeplMetaArtifactStore` と materializer MVP が `MissingSourceKey` として拒否する。これにより SourceMap / canonical path 欠落 artifact が import materializer へ流れる経路を閉じた。
+- Web `CompilerSession` stats JSON に `nepl_meta_artifact_source_key_hash` を追加した。payload 本体や source text は公開せず、stale-hit 防止境界だけを観測する。
+- `doc/neplg2/compiler_performance_cache_design.md`、中間 artifact issue、`.neplmeta` materializer issue に checkpoint を追記した。
+- この checkpoint は loader/import boundary への body skip 接続ではない。次は target artifact store lookup と expected header compatibility を import/prelude boundary で先に確認し、通った場合だけ projection と `typecheck/materializer` へ渡す。
+- 検証: `cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer --lib -- --nocapture`、`cargo test -p nepl-core --test functions -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-source-key-20260601-rerun.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta session store checkpoint
 
 - Zenn 記事の core/no_std 分離、長寿命 session cache、静的検査境界を型付き artifact と統計で観測可能にする方針を再確認した。`plan.md` は変更していない。

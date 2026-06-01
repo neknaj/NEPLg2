@@ -28,6 +28,14 @@ function neplMetaStoreStats(session) {
     };
 }
 
+function neplMetaArtifactStats(session) {
+    const s = stats(session);
+    return {
+        sourceKeyHash: String(s.nepl_meta_artifact_source_key_hash || 0),
+        typedPublicSignatureHash: String(s.nepl_meta_artifact_typed_public_signature_hash || 0),
+    };
+}
+
 function wasmBytes(outputs) {
     assert.ok(outputs && outputs.wasm instanceof Uint8Array, 'compile output must include wasm bytes');
     return Array.from(outputs.wasm);
@@ -86,6 +94,11 @@ fn main <()->i32> ():
         assert.equal(firstMetaStore.entries, 1, 'first compile must store one .neplmeta artifact');
         assert.equal(firstMetaStore.stores, 1, 'first compile must count one .neplmeta store');
         assert.equal(firstMetaStore.rejects, 0, 'valid .neplmeta artifact must not be rejected');
+        assert.notEqual(
+            neplMetaArtifactStats(cacheSession).sourceKeyHash,
+            '0',
+            '.neplmeta stats must expose a non-zero source key hash for normal source-backed artifacts',
+        );
 
         const orderOnlyOutput = cacheSession.compile_outputs_with_vfs(
             '/virtual/session_cache.nepl',
@@ -166,6 +179,42 @@ fn main %fn unit i32 \\unit:
             'stdlib overlay compile must not count a .neplmeta store',
         );
 
-        return { checked: 5 };
+        const sourceKeySession = newSession(api);
+        const sourceKeyOne = `#entry main
+fn main <()->i32> ():
+    1
+`;
+        const sourceKeyTwo = `#entry main
+fn main <()->i32> ():
+    2
+`;
+        sourceKeySession.compile_outputs_with_vfs(
+            '/virtual/source_key.nepl',
+            sourceKeyOne,
+            {},
+            ['wasm'],
+            false,
+        );
+        const firstArtifactStats = neplMetaArtifactStats(sourceKeySession);
+        sourceKeySession.compile_outputs_with_vfs(
+            '/virtual/source_key.nepl',
+            sourceKeyTwo,
+            {},
+            ['wasm'],
+            false,
+        );
+        const secondArtifactStats = neplMetaArtifactStats(sourceKeySession);
+        assert.equal(
+            firstArtifactStats.typedPublicSignatureHash,
+            secondArtifactStats.typedPublicSignatureHash,
+            'body-only token edit must keep the same typed public signature hash',
+        );
+        assert.notEqual(
+            firstArtifactStats.sourceKeyHash,
+            secondArtifactStats.sourceKeyHash,
+            'body-only token edit must change .neplmeta source key hash',
+        );
+
+        return { checked: 6 };
     },
 };

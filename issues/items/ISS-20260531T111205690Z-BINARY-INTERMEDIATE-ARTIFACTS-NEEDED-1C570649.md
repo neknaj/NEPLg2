@@ -177,3 +177,32 @@ subagent review により、`.neplmeta` から base compile time を下げる次
 artifact 形状が変わったため `.neplmeta` schema / hash / compiler identity は v2 にした。Web stats では structured public surface hash と entry count を観測できるが、payload 本体は公開しない。
 
 この checkpoint は body skip ではない。subagent review の指摘に基づき、`Named(String)`、名前だけの generic param、span-derived callable symbol は materializer authority にしない。次は stable nominal identity、binder-indexed generic parameter reference、stable public ABI/link symbol、field accessor surface を足してから typecheck materializer へ進む。
+
+## 2026-06-01 checkpoint 8
+
+`.neplmeta` header に `source_key_hash` を追加した。これは public surface や typed public signature が
+変わらない body-only edit でも、保存済み artifact が現在 source に由来しない場合は import
+materializer や body skip へ進まないようにする invalidation 境界である。
+
+`source_key_hash` は `compiled_source_cache_key_part` から作るため、通常コメントや doc comment、
+span だけの変更では同じ値になる。一方で literal、identifier、directive、indent / dedent、
+raw wasm / llvm text など compile 結果に影響し得る token が変わると値が変わる。
+
+`SourceMap` または canonical module path がない artifact は `source_key_hash=None` になり、
+body skip の authority にはしない。Web stats には `nepl_meta_artifact_source_key_hash` を追加し、
+payload や source text を出さずに stale-hit 防止境界だけを観測できるようにした。
+
+追加修正として、typed public signature / structured public surface を要求しない
+`NeplMetaArtifactPreTypecheckEnvelope` を追加した。body skip 前は依存先 body をまだ typecheck
+していないため、expected header を full typed artifact から作れない。この envelope は
+target/profile、stdlib、dependency public surface、module surface、source capability policy、
+private effect policy、source key だけを照合し、payload decode 前の fail-closed gate として使う。
+
+また、`source_key_hash=None` の artifact は `NeplMetaArtifactStore` と materializer MVP が
+`MissingSourceKey` として拒否する。これにより `None == None` で source identity を証明できない
+artifact が compatible 扱いになる経路を閉じた。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `node tests\compiler\tree\run.js`

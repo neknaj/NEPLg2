@@ -232,3 +232,34 @@ projection API 未接続なので hits/misses は 0 のままでよく、まず�
 - `node tests\compiler\tree\run.js`
 - `node nodesrc/test_run_test_compiler_session.js`
 - `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-session-store-20260601.json`
+
+## 2026-06-01 source key invalidation checkpoint
+
+`.neplmeta` を import materializer の入力へ使う前提として、header に `source_key_hash` を追加した。
+これは dependency body skip を始める前に、artifact が現在の module source と同じ token-level
+source に由来することを確認するための boundary である。
+
+この hash は typed public signature hash を置き換えない。public signature が変わらない式 body
+変更では typed public signature は同じままになり得るため、`source_key_hash` が別途必要になる。
+通常コメントや doc comment だけの変更は source key に入れず、literal や directive など compile
+結果に影響する token は key に残す。
+
+`source_key_hash=None` は reusable artifact ではなく、現在 compile で source identity を証明
+できない状態として扱う。次に loader/import boundary へ store を接続するときは、payload decode、
+projection、`typecheck/materializer` 実行より先に expected header とこの field を照合する。
+
+subagent review を受け、expected header を full typed artifact からしか作れない問題も分けた。
+新しい `NeplMetaArtifactPreTypecheckEnvelope` は typed public signature / structured public surface
+を要求せず、loader と source map で得られる field だけを照合する。body skip の入口ではこの
+pre-typecheck envelope を先に通し、その後で payload consistency、projection、
+`typecheck/materializer` の順に進める。
+
+`source_key_hash=None` の artifact は store と materializer MVP で `MissingSourceKey` として拒否する。
+SourceMap や canonical module path が欠落した artifact は、通常 source load / typecheck fallback
+に戻す。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `cargo test -p nepl-core materializer --lib -- --nocapture`
+- `node tests\compiler\tree\run.js`
