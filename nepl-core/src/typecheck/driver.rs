@@ -1970,4 +1970,107 @@ mod tests {
             "dependency signatures must not be re-exported as root public signature"
         );
     }
+
+    /// NEPLg2.1 の `fn A fn B C` 表層記法は、部分適用を表すものではなく
+    /// 二引数 callable の公開 interface として扱う。materialized surface でも
+    /// `BindingKind::Func.arity` と function type の `params` が同じ二引数境界を
+    /// 保つことを確認する。
+    #[test]
+    fn materialized_public_surface_typechecks_two_arg_callable_without_dependency_body() {
+        let dep_source = "pub fn dep_first %fn i32 fn i32 i32 \\a\\b:\n    a\n";
+        let mut dep_source_map = SourceMap::new();
+        let dep_file = dep_source_map.add("project/dep.nepl", String::from(dep_source));
+        let dep_module = parse_source(dep_file, dep_source);
+        let dep_checked = typecheck(
+            &dep_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&dep_source_map),
+        );
+        assert!(
+            dep_checked.diagnostics.is_empty(),
+            "dependency diagnostics: {:?}",
+            dep_checked.diagnostics
+        );
+
+        let root_source =
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit i32 \\unit:\n    dep_first 1 2\n";
+        let mut root_source_map = SourceMap::new();
+        let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
+        let materialized_dep_file =
+            root_source_map.add("project/dep.nepl", String::from(dep_source));
+        let root_module = parse_source(root_file, root_source);
+        let checked = typecheck_with_materialized_public_surfaces(
+            &root_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&root_source_map),
+            &[MaterializedPublicSurfaceInput {
+                table: dep_checked.public_surface,
+                module_path: String::from("project/dep.nepl"),
+                file_id: materialized_dep_file,
+            }],
+        );
+
+        assert!(
+            checked.diagnostics.is_empty(),
+            "root diagnostics: {:?}",
+            checked.diagnostics
+        );
+        assert!(
+            checked.module.is_some(),
+            "two-argument materialized callable should typecheck"
+        );
+    }
+
+    /// public struct constructor は struct surface と callable surface の両方に現れる。
+    /// `.neplmeta` import projection では名前順に constructor callable が先に来る場合が
+    /// あるため、predeclare 済みの nominal identity と二引数 constructor arity が
+    /// body なし import でも崩れないことを固定する。
+    #[test]
+    fn materialized_public_surface_typechecks_struct_constructor_without_dependency_body() {
+        let dep_source = "pub struct Pair:\n    left %i32\n    right %i32\n";
+        let mut dep_source_map = SourceMap::new();
+        let dep_file = dep_source_map.add("project/dep.nepl", String::from(dep_source));
+        let dep_module = parse_source(dep_file, dep_source);
+        let dep_checked = typecheck(
+            &dep_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&dep_source_map),
+        );
+        assert!(
+            dep_checked.diagnostics.is_empty(),
+            "dependency diagnostics: {:?}",
+            dep_checked.diagnostics
+        );
+
+        let root_source = "#no_prelude\n#import \"dep\" as *\nfn main %fn unit Pair \\unit:\n    Pair 1 2\n";
+        let mut root_source_map = SourceMap::new();
+        let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
+        let materialized_dep_file =
+            root_source_map.add("project/dep.nepl", String::from(dep_source));
+        let root_module = parse_source(root_file, root_source);
+        let checked = typecheck_with_materialized_public_surfaces(
+            &root_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&root_source_map),
+            &[MaterializedPublicSurfaceInput {
+                table: dep_checked.public_surface,
+                module_path: String::from("project/dep.nepl"),
+                file_id: materialized_dep_file,
+            }],
+        );
+
+        assert!(
+            checked.diagnostics.is_empty(),
+            "root diagnostics: {:?}",
+            checked.diagnostics
+        );
+        assert!(
+            checked.module.is_some(),
+            "materialized struct constructor should typecheck"
+        );
+    }
 }

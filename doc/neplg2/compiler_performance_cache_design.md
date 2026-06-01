@@ -2478,6 +2478,67 @@ effect mismatch、signature hash mismatch はそれぞれ別 code として観�
 `.neplobj` body fragment ではなく、`PublicCallableSurface.arity` と
 `PublicTypeTerm::Function.params` の生成 / materialize 境界であると分かった。
 
+## 2026-06-01 field accessor wrapper arity checkpoint
+
+`type.public_surface.materializer.callable.arity_mismatch` の根本原因は、通常 callable の arity
+正規化ではなく、field accessor metadata の付与条件だった。`detect_field_accessor_fn` は
+`#intrinsic "get_field_ref"` を使う関数を広く field accessor facade と見なしていたため、
+`core/mem/types.region_token_size_ref` のような selector 固定 wrapper まで
+`PublicCallableSurface.field_accessor=GetRef` として保存していた。
+
+`core/field.get_ref` は `obj` と `idx` をそのまま intrinsic へ渡す 2 引数 facade である。一方、
+`region_token_size_ref` は `token` だけを受け取り、selector `"size"` を内部で固定する 1 引数
+wrapper である。この wrapper を `.neplmeta` materializer が `get_ref` ABI として復元すると、
+`FieldAccessorKind::GetRef.argument_count() == 2` と `surface.arity == 1` が衝突する。
+
+修正後の field accessor metadata は、intrinsic 名だけでなく、function parameter 数、intrinsic
+argument 数、そして intrinsic argument が function parameter を同じ順序でそのまま渡していることを
+確認した場合だけ付与する。selector literal を固定する wrapper は通常 callable として保存し、
+selected body が必要になった場合は `.neplobj` が入るまで
+`backend.codegen.materialized_function_body_missing` により source fallback へ戻す。
+
+`tmp/materialized-field-wrapper-arity-20260601.json` の実測では、warm compile 3 回の
+`type.public_surface.materializer.callable.arity_mismatch` は消えた。次の fallback diagnostic は
+`backend.codegen.materialized_function_body_missing` であり、`materialized_body_missing_fallbacks_delta_sum=3`、
+`neplobj_candidate_body_missing_surfaces_delta_sum=15` になった。したがって次の実装対象は
+`.neplobj` / `.nepllink` の stable link symbol、selected callable body hash、generic instantiation
+hash である。
+
+## 2026-06-01 body-missing skip checkpoint
+
+`.neplobj` がまだ存在しない状態で、同じ `CompilerSession` が同じ dependency edge を毎回
+`.neplmeta` materialized compile へ投機投入すると、必ず `MaterializedFunctionBodyMissing` に戻る
+edge でも compile pipeline と source fallback を二重に走らせてしまう。
+
+そこで、`CompilerSession` に source-hash scoped な body-missing skip set を追加した。この set は
+`target_module_path`、`target_source_key_hash`、`dependency_public_surface_hash` を authority にする。
+materialized compile が `backend.codegen.materialized_function_body_missing` で source fallback した場合だけ、
+その compile で投機投入された dependency edge を記録し、次回同じ source / dependency surface なら
+`.neplmeta` projection を行わず通常 source merge へ戻す。
+
+この checkpoint は `.neplobj` の代替ではない。むしろ `.neplobj` 未実装の間、確実に body が必要になる
+edge を繰り返し失敗させないための negative cache である。`.neplobj` / `.nepllink` 実装後は、この同じ
+key 境界で「skip」ではなく object fragment availability を見るように置き換える。
+
+追加した観測値:
+
+- `nepl_meta_body_missing_skip_entries`
+- `nepl_meta_body_missing_skip_hits`
+- `nepl_meta_body_missing_skip_stores`
+- `nepl_meta_body_missing_skip_stale_entries`
+- `nepl_meta_body_missing_skip_last_hits`
+- `nepl_meta_body_missing_skip_last_stores`
+
+`tmp/neplmeta-body-missing-skip-20260601.json` では、`materialized_body_missing_fallbacks_delta_sum` が
+3 から 1 へ、`neplobj_candidate_body_missing_surfaces_delta_sum` が 15 から 5 へ下がった。後続の body edit
+2 回では `body_missing_skip_hits_delta_sum=10` となり、既知の body-missing edge を再度 materialized
+compile へ渡していない。
+
+一方で `body_edit_candidate` / `body_edit_repeat` の `compile_ms` はまだ 1 秒前後であり、これは
+`.neplobj` body fragment や stdlib preseed artifact がまだないためである。次の根本対応は、direct call に
+限定した selected callable `.neplobj` key schema と availability resolver を入れ、function value /
+`memo_call` / indirect call は stable codegen artifact と Resource proof が揃うまで fail-closed に残すこと。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

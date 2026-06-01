@@ -31,6 +31,9 @@ const shaped = publicRunShape('candidate', {
                 source_fallback_failures: { delta: 0 },
                 body_missing_fallbacks: { delta: 1 },
                 body_missing_candidate_surfaces: { delta: 3 },
+                body_missing_skip_hits: { delta: 0 },
+                body_missing_skip_stores: { delta: 3 },
+                body_missing_skip_stale_entries: { delta: 0 },
             },
         },
         compiler_session_cache_after: {
@@ -38,6 +41,8 @@ const shaped = publicRunShape('candidate', {
             nepl_meta_materialized_compile_last_fallback_diagnostic_code: 'backend.codegen.materialized_function_body_missing',
             nepl_meta_materialized_compile_last_attempted_surfaces: 3,
             nepl_obj_candidate_last_body_missing_surfaces: 3,
+            nepl_meta_body_missing_skip_last_hits: 0,
+            nepl_meta_body_missing_skip_last_stores: 3,
             compile_stage_timings: [
                 { stage: 'resource_typecheck', elapsed_ms: 20.5 },
                 { stage: 'resource_static_check', elapsed_ms: 70 },
@@ -51,6 +56,8 @@ assert.equal(shaped.name, 'candidate');
 assert.equal(shaped.compile_ms, 120);
 assert.equal(shaped.materialized_compile.attempts_delta, 1);
 assert.equal(shaped.materialized_compile.body_missing_candidate_surfaces_delta, 3);
+assert.equal(shaped.materialized_compile.body_missing_skip_stores_delta, 3);
+assert.equal(shaped.materialized_compile.last_body_missing_skip_stores, 3);
 assert.equal(shaped.materialized_compile.last_fallback_reason_code, 1);
 assert.equal(shaped.materialized_compile.last_fallback_diagnostic_code, 'backend.codegen.materialized_function_body_missing');
 assert.equal(shaped.materialized_compile.last_body_missing_candidate_surfaces, 3);
@@ -67,6 +74,8 @@ const summary = summarizeBenchmarkRuns([
             source_fallbacks_delta: 0,
             body_missing_fallbacks_delta: 0,
             body_missing_candidate_surfaces_delta: 0,
+            body_missing_skip_hits_delta: 3,
+            body_missing_skip_stores_delta: 0,
             last_fallback_diagnostic_code: '',
         },
     },
@@ -79,6 +88,8 @@ assert.equal(summary.materialized_attempts_delta_sum, 1);
 assert.equal(summary.materialized_body_missing_fallbacks_delta_sum, 1);
 assert.equal(summary.materialized_non_body_missing_fallbacks_delta_sum, 0);
 assert.equal(summary.neplobj_candidate_body_missing_surfaces_delta_sum, 3);
+assert.equal(summary.body_missing_skip_hits_delta_sum, 3);
+assert.equal(summary.body_missing_skip_stores_delta_sum, 3);
 assert.deepEqual(summary.materialized_fallback_diagnostic_code_counts, {
     'backend.codegen.materialized_function_body_missing': 1,
 });

@@ -3026,6 +3026,7 @@ fn compile_outputs_with_bundled_sources_and_cache(
         None,
         None,
         None,
+        None,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
     compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
@@ -3296,6 +3297,7 @@ fn compile_wasm_with_bundled_sources(
         stdlib_vfs,
         profile,
         include_wat_comments,
+        None,
         None,
         None,
         None,
@@ -3589,6 +3591,79 @@ impl NeplMetaMaterializedCompileStats {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct NeplMetaBodyMissingSkipEntry {
+    source_key_hash: u64,
+    dependency_public_surface_hash: u64,
+}
+
+#[derive(Debug, Default)]
+struct NeplMetaBodyMissingSkipSet {
+    entries: BTreeMap<String, NeplMetaBodyMissingSkipEntry>,
+    hits: usize,
+    stores: usize,
+    stale_entries: usize,
+    last_hits: usize,
+    last_stores: usize,
+}
+
+impl NeplMetaBodyMissingSkipSet {
+    fn clear(&mut self) {
+        *self = Self::default();
+    }
+
+    fn reset_last(&mut self) {
+        self.last_hits = 0;
+        self.last_stores = 0;
+    }
+
+    fn should_skip(&mut self, probe: &NeplMetaDependencyEdgePreTypecheckProbe) -> bool {
+        let Some(entry) = self.entries.get(probe.target_module_path.as_str()).copied() else {
+            return false;
+        };
+        if entry.source_key_hash == probe.target_source_key_hash
+            && entry.dependency_public_surface_hash == probe.dependency_public_surface_hash
+        {
+            self.hits += 1;
+            self.last_hits += 1;
+            return true;
+        }
+        self.entries.remove(probe.target_module_path.as_str());
+        self.stale_entries += 1;
+        false
+    }
+
+    fn remember_attempted_surfaces(
+        &mut self,
+        probes: &[NeplMetaDependencyEdgePreTypecheckProbe],
+        surfaces: &[MaterializedPublicSurfaceInput],
+    ) {
+        let mut remembered = BTreeMap::new();
+        for surface in surfaces {
+            let Some(probe) = probes
+                .iter()
+                .find(|probe| probe.target_module_path == surface.module_path)
+            else {
+                continue;
+            };
+            remembered.insert(
+                probe.target_module_path.clone(),
+                NeplMetaBodyMissingSkipEntry {
+                    source_key_hash: probe.target_source_key_hash,
+                    dependency_public_surface_hash: probe.dependency_public_surface_hash,
+                },
+            );
+        }
+        let store_count = remembered.len();
+        if store_count == 0 {
+            return;
+        }
+        self.entries.extend(remembered);
+        self.stores += store_count;
+        self.last_stores += store_count;
+    }
+}
+
 fn compile_wasm_with_bundled_sources_and_cache(
     entry_path: &str,
     source: &str,
@@ -3604,8 +3679,12 @@ fn compile_wasm_with_bundled_sources_and_cache(
     stage_timings: Option<&mut CompileStageTimings>,
     nepl_meta_artifact_store: Option<&mut NeplMetaArtifactStore>,
     mut nepl_meta_materialized_compile_stats: Option<&mut NeplMetaMaterializedCompileStats>,
+    mut nepl_meta_body_missing_skip_set: Option<&mut NeplMetaBodyMissingSkipSet>,
 ) -> Result<CompiledWasm, String> {
     let mut nepl_meta_artifact_store = nepl_meta_artifact_store;
+    if let Some(skip_set) = nepl_meta_body_missing_skip_set.as_deref_mut() {
+        skip_set.reset_last();
+    }
     let mut overlay_sources = BTreeMap::new();
     // stdlib 差し替えが指定された場合は、先に上書きで適用する
     merge_vfs_sources(&mut overlay_sources, stdlib_vfs);
@@ -3651,6 +3730,11 @@ fn compile_wasm_with_bundled_sources_and_cache(
             Some(store) if !store.is_empty() => {
                 let mut edge_materializer =
                     |probe: &NeplMetaDependencyEdgePreTypecheckProbe| {
+                        if let Some(skip_set) = nepl_meta_body_missing_skip_set.as_deref_mut() {
+                            if skip_set.should_skip(probe) {
+                                return None;
+                            }
+                        }
                         materialize_nepl_meta_dependency_edge_pre_typecheck(
                             store,
                             active_profile,
@@ -3769,6 +3853,15 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 NeplMetaMaterializedCompileFallbackReason::primary_diagnostic_code_from_core_error(
                     &err,
                 );
+            if fallback_reason == NeplMetaMaterializedCompileFallbackReason::MaterializedFunctionBodyMissing
+            {
+                if let Some(skip_set) = nepl_meta_body_missing_skip_set.as_deref_mut() {
+                    skip_set.remember_attempted_surfaces(
+                        &loaded_nepl_meta_edge_probes,
+                        &loaded_materialized_public_surfaces,
+                    );
+                }
+            }
             let mut fallback_loader = Loader::new(stdlib_root.clone());
             let fallback_loaded = if let Some(cache) = loader_cache.as_deref_mut() {
                 fallback_loader.load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
@@ -3914,6 +4007,7 @@ pub struct CompilerSession {
     nepl_meta_materialized_compile_source_fallback_failures: RefCell<usize>,
     nepl_meta_materialized_compile_body_missing_fallbacks: RefCell<usize>,
     nepl_obj_candidate_body_missing_surfaces: RefCell<usize>,
+    nepl_meta_body_missing_skip_set: RefCell<NeplMetaBodyMissingSkipSet>,
     last_nepl_meta_materialized_compile_outcome: RefCell<NeplMetaMaterializedCompileOutcome>,
     last_nepl_meta_materialized_compile_fallback_reason:
         RefCell<NeplMetaMaterializedCompileFallbackReason>,
@@ -3963,6 +4057,7 @@ impl CompilerSession {
             nepl_meta_materialized_compile_source_fallback_failures: RefCell::new(0),
             nepl_meta_materialized_compile_body_missing_fallbacks: RefCell::new(0),
             nepl_obj_candidate_body_missing_surfaces: RefCell::new(0),
+            nepl_meta_body_missing_skip_set: RefCell::new(NeplMetaBodyMissingSkipSet::default()),
             last_nepl_meta_materialized_compile_outcome: RefCell::new(
                 NeplMetaMaterializedCompileOutcome::NotAttempted,
             ),
@@ -4589,6 +4684,21 @@ impl CompilerSession {
                 .borrow()
                 .to_string(),
         );
+        {
+            let body_missing_skip_set = self.nepl_meta_body_missing_skip_set.borrow();
+            out.push_str(",\"nepl_meta_body_missing_skip_entries\":");
+            out.push_str(&body_missing_skip_set.entries.len().to_string());
+            out.push_str(",\"nepl_meta_body_missing_skip_hits\":");
+            out.push_str(&body_missing_skip_set.hits.to_string());
+            out.push_str(",\"nepl_meta_body_missing_skip_stores\":");
+            out.push_str(&body_missing_skip_set.stores.to_string());
+            out.push_str(",\"nepl_meta_body_missing_skip_stale_entries\":");
+            out.push_str(&body_missing_skip_set.stale_entries.to_string());
+            out.push_str(",\"nepl_meta_body_missing_skip_last_hits\":");
+            out.push_str(&body_missing_skip_set.last_hits.to_string());
+            out.push_str(",\"nepl_meta_body_missing_skip_last_stores\":");
+            out.push_str(&body_missing_skip_set.last_stores.to_string());
+        }
         out.push_str(",\"nepl_meta_materialized_compile_last_outcome_code\":");
         out.push_str(
             &self
@@ -4696,6 +4806,7 @@ impl CompilerSession {
         *self
             .last_nepl_obj_candidate_body_missing_surfaces
             .borrow_mut() = 0;
+        self.nepl_meta_body_missing_skip_set.borrow_mut().reset_last();
     }
 
     /// 1 compile 呼び出しの materialized dependency compile 観測値を累積統計へ反映する。
@@ -4787,6 +4898,7 @@ impl CompilerSession {
         self.resource_summary_value_cache.borrow_mut().clear();
         *self.nepl_meta_artifact.borrow_mut() = None;
         self.nepl_meta_artifact_store.borrow_mut().clear();
+        self.nepl_meta_body_missing_skip_set.borrow_mut().clear();
         *self.resource_summary_proof_artifact.borrow_mut() = None;
         self.compiled_output_cache.borrow_mut().clear();
         self.prewarmed_import_surfaces.borrow_mut().clear();
@@ -4915,6 +5027,8 @@ impl CompilerSession {
             let mut cache = self.loader_cache.borrow_mut();
             let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
             let mut nepl_meta_artifact_store = self.nepl_meta_artifact_store.borrow_mut();
+            let mut nepl_meta_body_missing_skip_set =
+                self.nepl_meta_body_missing_skip_set.borrow_mut();
             match compile_wasm_with_bundled_sources_and_cache(
                 entry_path,
                 source,
@@ -4930,6 +5044,7 @@ impl CompilerSession {
                 Some(&mut stage_timings),
                 Some(&mut nepl_meta_artifact_store),
                 Some(&mut materialized_compile_stats),
+                Some(&mut nepl_meta_body_missing_skip_set),
             ) {
                 Ok(compiled) => compiled,
                 Err(msg) => {
@@ -4985,6 +5100,7 @@ impl CompilerSession {
             None,
             None,
             Some(&mut stage_timings),
+            None,
             None,
             None,
         ) {
@@ -5056,6 +5172,8 @@ impl CompilerSession {
             let mut loader_cache = self.loader_cache.borrow_mut();
             let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
             let mut nepl_meta_artifact_store = self.nepl_meta_artifact_store.borrow_mut();
+            let mut nepl_meta_body_missing_skip_set =
+                self.nepl_meta_body_missing_skip_set.borrow_mut();
             match compile_wasm_with_bundled_sources_and_cache(
                 entry_path,
                 source,
@@ -5071,6 +5189,7 @@ impl CompilerSession {
                 Some(&mut stage_timings),
                 Some(&mut nepl_meta_artifact_store),
                 Some(&mut materialized_compile_stats),
+                Some(&mut nepl_meta_body_missing_skip_set),
             ) {
                 Ok(compiled) => compiled,
                 Err(msg) => {

@@ -395,3 +395,31 @@ surface を current session の typecheck environment へ安全に materialize �
 この root gap は
 `ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B`
 として分離した。
+
+## 2026-06-01 body-missing skip checkpoint
+
+`.neplmeta` projection 後に `backend.codegen.materialized_function_body_missing` で fallback した dependency
+edge を、同一 `CompilerSession` 内の source-hash scoped negative cache に記録するようにした。
+
+この cache は `.neplobj` の代替ではない。`target_module_path`、`target_source_key_hash`、
+`dependency_public_surface_hash` が一致する間だけ、`.neplobj` 未実装で必ず失敗する materialized compile
+attempt を再実行しないための fail-closed 境界である。`.neplobj` availability resolver が入った後は、
+同じ key 境界で skip ではなく object fragment 解決へ置き換える。
+
+追加した counter:
+
+- `nepl_meta_body_missing_skip_entries`
+- `nepl_meta_body_missing_skip_hits`
+- `nepl_meta_body_missing_skip_stores`
+- `nepl_meta_body_missing_skip_stale_entries`
+- `nepl_meta_body_missing_skip_last_hits`
+- `nepl_meta_body_missing_skip_last_stores`
+
+`tmp/neplmeta-body-missing-skip-20260601.json` では、warm 3 回の body-missing fallback が 3 から 1 へ減り、
+後続 body edit 2 回は `body_missing_skip_hits_delta_sum=10` で materialized compile attempt を避けた。
+
+残る作業:
+
+- direct call に限定した `.neplobj` selected callable body key を設計する。
+- `stable link symbol`、selected callable body hash、generic instantiation hash、backend feature set を key に含める。
+- function value / indirect call / `memo_call` は stable codegen artifact と Resource proof が揃うまで fail-closed に残す。

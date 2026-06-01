@@ -2,7 +2,7 @@ use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-use crate::ast::{FnBody, FnDef, PrefixItem, Stmt};
+use crate::ast::{FnBody, FnDef, PrefixExpr, PrefixItem, Stmt, Symbol};
 use crate::diagnostic::Diagnostic;
 use crate::diagnostic_codes::ResolveDiagnosticCode;
 use crate::resolve::ImportResolution;
@@ -202,8 +202,30 @@ pub(super) fn detect_field_accessor_fn(def: &FnDef) -> Option<FieldAccessorKind>
     };
     match expr.items.as_slice() {
         [PrefixItem::Intrinsic(intrin, _)] => {
-            FieldAccessorKind::from_intrinsic_name(intrin.name.as_str())
+            let kind = FieldAccessorKind::from_intrinsic_name(intrin.name.as_str())?;
+            if kind.argument_count() != def.params.len() || intrin.args.len() != def.params.len() {
+                return None;
+            }
+            if intrin
+                .args
+                .iter()
+                .zip(def.params.iter())
+                .all(|(arg, param)| intrinsic_arg_is_same_param(arg, param.name.as_str()))
+            {
+                Some(kind)
+            } else {
+                None
+            }
         }
         _ => None,
+    }
+}
+
+fn intrinsic_arg_is_same_param(arg: &PrefixExpr, param_name: &str) -> bool {
+    match arg.items.as_slice() {
+        [PrefixItem::Symbol(Symbol::Ident(ident, type_args, forced_value))] => {
+            ident.name == param_name && type_args.is_empty() && !*forced_value
+        }
+        _ => false,
     }
 }

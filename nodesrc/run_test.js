@@ -450,6 +450,9 @@ const COMPILER_SESSION_MATERIALIZED_COMPILE_COUNTERS = [
     ['source_fallback_failures', 'nepl_meta_materialized_compile_source_fallback_failures'],
     ['body_missing_fallbacks', 'nepl_meta_materialized_compile_body_missing_fallbacks'],
     ['body_missing_candidate_surfaces', 'nepl_obj_candidate_body_missing_surfaces'],
+    ['body_missing_skip_hits', 'nepl_meta_body_missing_skip_hits'],
+    ['body_missing_skip_stores', 'nepl_meta_body_missing_skip_stores'],
+    ['body_missing_skip_stale_entries', 'nepl_meta_body_missing_skip_stale_entries'],
 ];
 
 function compilerSessionCounterValue(snapshot, key) {

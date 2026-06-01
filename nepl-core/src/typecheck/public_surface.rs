@@ -1895,6 +1895,42 @@ mod tests {
         }));
     }
 
+    /// `\unit` は値引数ではなく 0 引数 lambda の表層記法であり、
+    /// `%fn unit i32` も 0 引数 function type として正規化される。
+    /// `.neplmeta` はこの canonical surface を保存し、旧 `()` 表記から
+    /// `unit` keyword へ移した後も callable arity と型 boundary を崩さない。
+    #[test]
+    fn typed_public_surface_keeps_nullary_unit_callable_arity_separate_from_type_shape() {
+        let checked = typecheck_source("pub fn answer %fn unit i32 \\unit:\n    1\n");
+        let callable = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Callable && entry.name == "answer"
+            })
+            .and_then(|entry| match &entry.surface {
+                PublicSurfaceShape::Callable(callable) => Some(callable),
+                _ => None,
+            })
+            .expect("answer callable surface");
+
+        assert_eq!(callable.arity, 0);
+        match &callable.ty {
+            PublicTypeTerm::Function {
+                params,
+                result,
+                effect,
+                ..
+            } => {
+                assert!(params.is_empty());
+                assert!(matches!(result.as_ref(), PublicTypeTerm::I32));
+                assert_eq!(*effect, PublicEffect::Pure);
+            }
+            other => panic!("unexpected callable type surface: {:?}", other),
+        }
+    }
+
     /// SourceMap がある public callable surface は、span-derived symbol ではなく
     /// source path と signature hash から作る stable link symbol を持つ。body-only edit では
     /// 変わらず、signature edit では変わるので、materializer は Span を authority にしない。
@@ -2018,7 +2054,38 @@ mod tests {
             panic!("get must be a callable surface");
         };
         assert_eq!(callable.field_accessor, Some(PublicFieldAccessorKind::Get));
+        assert_eq!(callable.arity, 2);
+        match &callable.ty {
+            PublicTypeTerm::Function { params, .. } => assert_eq!(params.len(), 2),
+            other => panic!("unexpected get type surface: {:?}", other),
+        }
         assert!(callable.link_symbol.is_some());
+    }
+
+    /// `#intrinsic "get_field_ref"` を使っていても、selector を固定した specialized wrapper は
+    /// field accessor facade ではない。`.neplmeta` がこれを accessor として復元すると、
+    /// `get_ref` の 2 引数 ABI と wrapper の 1 引数 API が衝突するため、metadata は付けない。
+    #[test]
+    fn typed_public_surface_does_not_mark_specialized_field_ref_wrapper_as_accessor() {
+        let checked = typecheck_source_with_path(
+            "project/core/mem/types.nepl",
+            "pub struct RegionToken<.T>:\n    raw %i32\n    size %i32\npub fn region_token_size_ref <.T> %fn &RegionToken .T &i32 \\token:\n    #intrinsic \"get_field_ref\" <> (token,\"size\")\n",
+        );
+
+        let entry = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| {
+                entry.kind == TypedPublicSignatureKind::Callable
+                    && entry.name == "region_token_size_ref"
+            })
+            .expect("region_token_size_ref public callable surface");
+        let PublicSurfaceShape::Callable(callable) = &entry.surface else {
+            panic!("region_token_size_ref must be a callable surface");
+        };
+        assert_eq!(callable.arity, 1);
+        assert_eq!(callable.field_accessor, None);
     }
 
     /// structured surface は field 名と型を enum/struct として保持する。stable text を

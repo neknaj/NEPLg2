@@ -1,10 +1,10 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T15:15:23.622Z",
+  "generated_at": "2026-06-01T16:04:29.879Z",
   "counts": {
     "total": 1306,
-    "open": 33,
-    "resolved": 1273,
+    "open": 32,
+    "resolved": 1274,
     "by_area": {
       "stdlib": {
         "total": 331,
@@ -13,8 +13,8 @@
       },
       "core": {
         "total": 661,
-        "open": 26,
-        "resolved": 635
+        "open": 25,
+        "resolved": 636
       },
       "neplg21": {
         "total": 2,
@@ -458,21 +458,6 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10.md"
-    },
-    {
-      "id": "ISS-20260601T151600000Z-NEPLMETA-CALLABLE-ARITY-MISMATCH-BLOCK-5C8E2B91",
-      "title": ".neplmeta callable arity mismatch blocks materialized stdlib body skip",
-      "area": "core",
-      "status": "open",
-      "resolved": false,
-      "priority": "P1",
-      "type": "architecture",
-      "created": "2026-06-01",
-      "updated": "2026-06-01",
-      "target": "nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/driver.rs; nodesrc/bench_materialized_compile_fallbacks.js",
-      "legacy_id": "",
-      "source": "",
-      "file": "items/ISS-20260601T151600000Z-NEPLMETA-CALLABLE-ARITY-MISMATCH-BLOCK-5C8E2B91.md"
     },
     {
       "id": "ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2",
@@ -10268,6 +10253,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260601T150700000Z-NEPLMETA-CALLABLE-REJECT-NEEDS-FINE-GRA-9D4F2A61.md"
+    },
+    {
+      "id": "ISS-20260601T151600000Z-NEPLMETA-CALLABLE-ARITY-MISMATCH-BLOCK-5C8E2B91",
+      "title": ".neplmeta callable arity mismatch blocks materialized stdlib body skip",
+      "area": "core",
+      "status": "fixed",
+      "resolved": true,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-01",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/driver.rs; nodesrc/bench_materialized_compile_fallbacks.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260601T151600000Z-NEPLMETA-CALLABLE-ARITY-MISMATCH-BLOCK-5C8E2B91.md"
     },
     {
       "id": "ISS-20260512T085522724Z-RESOURCE-OWNER-STORAGE-ORIGIN-CROSSE-180392ED",
