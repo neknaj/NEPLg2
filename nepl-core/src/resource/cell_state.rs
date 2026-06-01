@@ -53,34 +53,48 @@ impl CellTable {
         types: Option<&TypeCtx>,
         type_matches: &impl Fn(TypeId, TypeId) -> bool,
     ) -> CellState {
-        if let Some(state) = self.state(place) {
+        let exact_state = self
+            .cells
+            .iter()
+            .find(|entry| entry.place == *place)
+            .map(|entry| entry.state.clone());
+        if let Some(state) = exact_state.as_ref() {
             if !matches!(state, CellState::Initialized(_)) {
-                return state;
+                return state.clone();
             }
         }
-        for entry in self.ancestor_entries(place) {
-            if !matches!(entry.state, CellState::Initialized(_))
-                && cell_descendant_state_flows(&entry.place, place)
-            {
-                return entry.state;
-            }
-        }
-        for entry in self.descendant_entries(place) {
-            if !matches!(entry.state, CellState::Initialized(_))
-                && cell_descendant_state_flows(place, &entry.place)
-            {
-                return entry.state;
-            }
-        }
+        let mut ancestor_state = None;
+        let mut descendant_state = None;
+        let mut raw_cell_state = None;
         for entry in &self.cells {
-            if entry.place != *place
-                && !matches!(entry.state, CellState::Initialized(_))
-                && raw_cell_state_flows_to_query(&entry.place, place)
-            {
-                return entry.state.clone();
+            if entry.place != *place && !matches!(entry.state, CellState::Initialized(_)) {
+                if ancestor_state.is_none()
+                    && place_suffix_after_prefix(place, &entry.place).is_some()
+                    && cell_descendant_state_flows(&entry.place, place)
+                {
+                    ancestor_state = Some(entry.state.clone());
+                }
+                if descendant_state.is_none()
+                    && place_suffix_after_prefix(&entry.place, place).is_some()
+                    && cell_descendant_state_flows(place, &entry.place)
+                {
+                    descendant_state = Some(entry.state.clone());
+                }
+                if raw_cell_state.is_none() && raw_cell_state_flows_to_query(&entry.place, place) {
+                    raw_cell_state = Some(entry.state.clone());
+                }
             }
         }
-        if let Some(state @ CellState::Initialized(_)) = self.state(place) {
+        if let Some(state) = ancestor_state {
+            return state;
+        }
+        if let Some(state) = descendant_state {
+            return state;
+        }
+        if let Some(state) = raw_cell_state {
+            return state;
+        }
+        if let Some(state @ CellState::Initialized(_)) = exact_state {
             return state;
         }
         for entry in &self.cells {
@@ -333,33 +347,6 @@ impl CellTable {
                 .external_raw_storage_roots
                 .iter()
                 .any(|root| external_raw_cell_suffix_after_storage_root(place, root).is_some())
-    }
-
-    fn state(&self, place: &Place) -> Option<CellState> {
-        self.cells
-            .iter()
-            .find(|entry| entry.place == *place)
-            .map(|entry| entry.state.clone())
-    }
-
-    fn ancestor_entries(&self, place: &Place) -> Vec<CellStateEntry> {
-        self.cells
-            .iter()
-            .filter(|entry| {
-                entry.place != *place && place_suffix_after_prefix(place, &entry.place).is_some()
-            })
-            .cloned()
-            .collect()
-    }
-
-    fn descendant_entries(&self, prefix: &Place) -> Vec<CellStateEntry> {
-        self.cells
-            .iter()
-            .filter(|entry| {
-                entry.place != *prefix && place_suffix_after_prefix(&entry.place, prefix).is_some()
-            })
-            .cloned()
-            .collect()
     }
 
     fn clear_descendants(&mut self, prefix: &Place) {
