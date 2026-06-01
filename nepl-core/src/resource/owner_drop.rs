@@ -3,12 +3,13 @@ extern crate alloc;
 use crate::span::Span;
 
 use super::initialized_alias::RawCellAddressAliases;
-use super::model::Place;
+use super::model::{OwnerState, Place};
+use super::owner_alias::resolve_owner_alias_place;
 use super::owner_check::ResourceOwnerCheckEngine;
 use super::owner_raw_view::RawAddressViewTable;
 use super::owner_state::OwnerTable;
+use super::owner_transfer::move_owner_state_out;
 use super::raw_realloc::PendingRawReallocs;
-use super::report::ResourceOwnerOperation;
 use super::storage_origin::StorageOriginTable;
 
 impl ResourceOwnerCheckEngine<'_> {
@@ -20,18 +21,9 @@ impl ResourceOwnerCheckEngine<'_> {
         storage_origins: &mut StorageOriginTable,
         pending_reallocs: &mut PendingRawReallocs,
         place: &Place,
-        span: Span,
+        _span: Span,
     ) {
-        if self.has_transferable_owner(owners, raw_aliases, place) {
-            self.move_owner_out(
-                owners,
-                raw_aliases,
-                storage_origins,
-                place,
-                ResourceOwnerOperation::Drop,
-                span,
-            );
-        }
+        self.close_owner_obligations_for_drop(owners, raw_aliases, storage_origins, place);
         raw_aliases.clear(place);
         raw_views.clear(place);
         storage_origins.clear(place);
@@ -66,6 +58,38 @@ impl ResourceOwnerCheckEngine<'_> {
                 &place,
                 span,
             );
+        }
+    }
+
+    fn close_owner_obligations_for_drop(
+        &mut self,
+        owners: &mut OwnerTable,
+        raw_aliases: &mut RawCellAddressAliases,
+        storage_origins: &mut StorageOriginTable,
+        place: &Place,
+    ) {
+        let resolved_place = resolve_owner_alias_place(owners, raw_aliases, place);
+        let mut entries = owners.live_entries_under(&resolved_place);
+        if entries.is_empty() && resolved_place != *place {
+            entries = owners.live_entries_under(place);
+        }
+        if entries.is_empty() {
+            return;
+        }
+
+        for entry in entries {
+            match entry.state {
+                OwnerState::Live { .. } | OwnerState::MaybeFreed { .. } => {
+                    move_owner_state_out(owners, raw_aliases, storage_origins, &entry.place);
+                    raw_aliases.clear(&entry.place);
+                }
+                OwnerState::Reserved { .. } => {
+                    owners.set_state(&entry.place, OwnerState::Moved);
+                    raw_aliases.clear(&entry.place);
+                    storage_origins.clear(&entry.place);
+                }
+                OwnerState::NoFreeObligation | OwnerState::Moved | OwnerState::Freed => {}
+            }
         }
     }
 }

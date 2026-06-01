@@ -21,7 +21,8 @@ use super::initialized::ResourceCheckEngine;
 use super::initialized_alias::RawCellAddressAliases;
 use super::initialized_control_slot_transfer::transfer_control_value_slots as transfer_slots;
 use super::initialized_path_state::{
-    merge_path_alternatives_into, ResourceCheckState, ResourcePathAlternatives,
+    log_path_state_replay_reason, merge_path_alternatives_into, path_states_need_replay,
+    ResourceCheckState, ResourcePathAlternatives,
 };
 use super::initialized_scalar_flow_ops::propagate_i32_scalar_ops;
 use super::initialized_str_layout::seed_str_storage_layout;
@@ -167,16 +168,24 @@ impl ResourceCheckEngine<'_> {
                 pending_reallocs,
                 variant_initializations,
             );
-            self.path_alternatives = ResourcePathAlternatives::from_states(branch_paths);
+            if path_states_need_replay(&branch_paths) {
+                log_path_state_replay_reason(self.function, "branch", &branch_paths);
+                self.path_alternatives = ResourcePathAlternatives::from_states(branch_paths);
+            }
         }
         if paths_available && has_branch_paths {
             cells.set_state(output, CellState::Initialized(output.ty));
             seed_str_storage_layout(self.types, cells, raw_aliases, output);
         } else {
+            invalidate_control_output_state(
+                cells,
+                raw_aliases,
+                function_aliases,
+                pending_reallocs,
+                variant_initializations,
+                output,
+            );
             invalidate_control_output_path_states(&mut self.path_alternatives, output);
-            raw_aliases.clear(output);
-            pending_reallocs.clear_result(output);
-            variant_initializations.clear_result(output);
         }
     }
 
@@ -278,19 +287,24 @@ impl ResourceCheckEngine<'_> {
             &backedge_requirements,
         );
 
-        let mut cell_paths = Vec::with_capacity(body_states.len() + 1);
-        let mut collection_slot_paths = Vec::with_capacity(body_states.len() + 1);
-        let mut alias_paths = Vec::with_capacity(body_states.len() + 1);
-        let mut function_alias_paths = Vec::with_capacity(body_states.len() + 1);
-        let mut pending_realloc_paths = Vec::with_capacity(body_states.len() + 1);
-        let mut variant_initialization_paths = Vec::with_capacity(body_states.len() + 1);
-        cell_paths.push(exit_cells);
-        collection_slot_paths.push(exit_collection_slots);
-        alias_paths.push(exit_aliases);
-        function_alias_paths.push(condition_function_aliases);
-        pending_realloc_paths.push(exit_pending_reallocs);
-        variant_initialization_paths.push(condition_variant_initializations);
-        for state in &body_states {
+        let mut loop_paths = Vec::with_capacity(body_states.len() + 1);
+        loop_paths.push(ResourceCheckState::new(
+            exit_cells,
+            exit_collection_slots,
+            exit_aliases,
+            condition_function_aliases,
+            exit_pending_reallocs,
+            condition_variant_initializations,
+        ));
+        loop_paths.extend(body_states);
+
+        let mut cell_paths = Vec::with_capacity(loop_paths.len());
+        let mut collection_slot_paths = Vec::with_capacity(loop_paths.len());
+        let mut alias_paths = Vec::with_capacity(loop_paths.len());
+        let mut function_alias_paths = Vec::with_capacity(loop_paths.len());
+        let mut pending_realloc_paths = Vec::with_capacity(loop_paths.len());
+        let mut variant_initialization_paths = Vec::with_capacity(loop_paths.len());
+        for state in &loop_paths {
             cell_paths.push(state.cells.clone());
             collection_slot_paths.push(state.collection_slots.clone());
             alias_paths.push(state.raw_aliases.clone());
@@ -316,6 +330,10 @@ impl ResourceCheckEngine<'_> {
         *pending_reallocs = PendingRawReallocs::merge_paths(&pending_realloc_paths);
         *variant_initializations =
             PendingVariantRawCellInitializations::merge_paths(&variant_initialization_paths);
+        if path_states_need_replay(&loop_paths) {
+            log_path_state_replay_reason(self.function, "loop", &loop_paths);
+            self.path_alternatives = ResourcePathAlternatives::from_states(loop_paths);
+        }
     }
 
     fn report_loop_backedge_entry_conflicts(
@@ -472,16 +490,24 @@ impl ResourceCheckEngine<'_> {
                 pending_reallocs,
                 variant_initializations,
             );
-            self.path_alternatives = ResourcePathAlternatives::from_states(match_paths);
+            if path_states_need_replay(&match_paths) {
+                log_path_state_replay_reason(self.function, "match", &match_paths);
+                self.path_alternatives = ResourcePathAlternatives::from_states(match_paths);
+            }
         }
         if scrutinee_available && arms_available {
             cells.set_state(output, CellState::Initialized(output.ty));
             seed_str_storage_layout(self.types, cells, raw_aliases, output);
         } else {
+            invalidate_control_output_state(
+                cells,
+                raw_aliases,
+                function_aliases,
+                pending_reallocs,
+                variant_initializations,
+                output,
+            );
             invalidate_control_output_path_states(&mut self.path_alternatives, output);
-            raw_aliases.clear(output);
-            pending_reallocs.clear_result(output);
-            variant_initializations.clear_result(output);
         }
     }
 
@@ -528,11 +554,14 @@ impl ResourceCheckEngine<'_> {
                     output,
                 );
             } else {
-                state.cells.set_state(output, CellState::Uninit);
-                state.raw_aliases.clear(output);
-                state.function_aliases.clear_alias(output);
-                state.pending_reallocs.clear_result(output);
-                state.variant_initializations.clear_result(output);
+                invalidate_control_output_state(
+                    &mut state.cells,
+                    &mut state.raw_aliases,
+                    &mut state.function_aliases,
+                    &mut state.pending_reallocs,
+                    &mut state.variant_initializations,
+                    output,
+                );
             }
         }
         states
@@ -631,14 +660,33 @@ fn invalidate_control_output_path_states(
         ResourcePathAlternatives::None => {}
         ResourcePathAlternatives::Feasible(states) => {
             for state in states {
-                state.cells.set_state(output, CellState::Uninit);
-                state.raw_aliases.clear(output);
-                state.function_aliases.clear_alias(output);
-                state.pending_reallocs.clear_result(output);
-                state.variant_initializations.clear_result(output);
+                invalidate_control_output_state(
+                    &mut state.cells,
+                    &mut state.raw_aliases,
+                    &mut state.function_aliases,
+                    &mut state.pending_reallocs,
+                    &mut state.variant_initializations,
+                    output,
+                );
             }
         }
     }
+}
+
+fn invalidate_control_output_state(
+    cells: &mut CellTable,
+    raw_aliases: &mut RawCellAddressAliases,
+    function_aliases: &mut FunctionAliasTable,
+    pending_reallocs: &mut PendingRawReallocs,
+    variant_initializations: &mut PendingVariantRawCellInitializations,
+    output: &Place,
+) {
+    cells.set_state(output, CellState::Uninit);
+    cells.clear_initialized_raw_byte_ranges_through_value(output);
+    raw_aliases.clear(output);
+    function_aliases.clear_alias(output);
+    pending_reallocs.clear_result(output);
+    variant_initializations.clear_result(output);
 }
 
 fn record_initialized_condition_fact(

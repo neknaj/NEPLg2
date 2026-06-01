@@ -94,7 +94,9 @@ impl ResourceOwnerCheckEngine<'_> {
     ) {
         for local in locals.iter().rev() {
             for leaf in owner_leaf_places(self.types, local) {
-                if self.state_only_leaf_can_auto_drop(leaf.place.ty) {
+                if self.state_only_leaf_can_auto_drop(leaf.place.ty)
+                    || self.scope_leaf_has_owner_obligation(owners, raw_aliases, &leaf.place)
+                {
                     self.push_owned_leaf_drop_place(
                         owners,
                         raw_aliases,
@@ -143,11 +145,26 @@ impl ResourceOwnerCheckEngine<'_> {
     ) {
         if planned_drop_covers(drop_places, &place)
             || scope_result_preserves_place(owners, raw_aliases, storage_origins, result, &place)
-            || !self.has_transferable_owner(owners, raw_aliases, &place)
+            || !self.scope_leaf_has_owner_obligation(owners, raw_aliases, &place)
         {
             return;
         }
         push_unique_drop_place(drop_places, place);
+    }
+
+    fn scope_leaf_has_owner_obligation(
+        &self,
+        owners: &OwnerTable,
+        raw_aliases: &RawCellAddressAliases,
+        place: &Place,
+    ) -> bool {
+        if self.has_transferable_owner(owners, raw_aliases, place)
+            || !owners.live_entries_under(place).is_empty()
+        {
+            return true;
+        }
+        let resolved = resolve_owner_alias_place(owners, raw_aliases, place);
+        resolved != *place && !owners.live_entries_under(&resolved).is_empty()
     }
 
     fn state_only_leaf_can_auto_drop(&self, ty: TypeId) -> bool {

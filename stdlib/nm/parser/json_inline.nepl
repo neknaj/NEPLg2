@@ -44,6 +44,108 @@ fn nm_json_inline_byte_or_end %fn str fn i32 i32 \s\idx:
         Option::None:
             -1
 
+//: nm_json_comma_if_needed: 既存要素がある場合だけ comma を追加する
+//:
+//: [目的/もくてき]:
+//: - inline JSON array の要素追加前に必要な `,` を一箇所で扱います。
+//: - marker ごとの serializer が comma 条件を重複して持たないようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - O(1)
+fn nm_json_comma_if_needed %fn StringBuilder fn bool StringBuilder \sb\has:
+    if has then sb_append sb "," else sb
+
+//: nm_json_append_text_range: 指定範囲の text node を必要なら追加する
+//:
+//: [目的/もくてき]:
+//: - marker の直前までに溜まった通常 text を JSON text object として追加します。
+//: - 空範囲では builder をそのまま返し、呼び出し側の `has` 更新と対応させます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 追加する text の長さを k として O(k)
+fn nm_json_append_text_range %fn StringBuilder fn str fn i32 fn i32 fn bool StringBuilder \sb\s\start\end\has:
+    let seg %str str_slice s start end;
+    if:
+        gt len seg 0
+        then:
+            let mut out %StringBuilder nm_json_comma_if_needed sb has;
+            set out sb_append out "{\"t\":\"text\",\"s\":\"";
+            set out json::json_escape_into out seg;
+            sb_append out "\"}"
+        else:
+            sb
+
+//: nm_json_append_math_range: math node を追加する
+//:
+//: [目的/もくてき]:
+//: - `$...$` / `$$...$$` の範囲を delimiter ごと JSON math object として追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - math 範囲の長さを k として O(k)
+fn nm_json_append_math_range %fn StringBuilder fn str fn i32 fn i32 fn bool StringBuilder \sb\s\start\end\has:
+    let m %str str_slice s start end;
+    let mut out %StringBuilder nm_json_comma_if_needed sb has;
+    set out sb_append out "{\"t\":\"math\",\"s\":\"";
+    set out json::json_escape_into out m;
+    sb_append out "\"}"
+
+//: nm_json_append_ruby_range: ruby node を追加する
+//:
+//: [目的/もくてき]:
+//: - `[base/ruby]` marker を JSON ruby object として追加します。
+//:
+//: [計算量/けいさんりょう]:
+//: - base と ruby の合計長を k として O(k)
+fn nm_json_append_ruby_range %fn StringBuilder fn str fn i32 fn i32 fn i32 fn bool StringBuilder \sb\s\start\slash\close\has:
+    let base %str str_slice s add start 1 slash;
+    let rub %str str_slice s add slash 1 close;
+    let mut out %StringBuilder nm_json_comma_if_needed sb has;
+    set out sb_append out "{\"t\":\"ruby\",\"base\":\"";
+    set out json::json_escape_into out base;
+    set out sb_append out "\",\"ruby\":\"";
+    set out json::json_escape_into out rub;
+    sb_append out "\"}"
+
+//: nm_json_append_gloss_range: gloss node を追加する
+//:
+//: [目的/もくてき]:
+//: - `{main/sub...}` marker を JSON gloss object として追加します。
+//: - sub list の slash 走査を inline dispatch loop から分離し、本文側の状態を小さく保ちます。
+//:
+//: [計算量/けいさんりょう]:
+//: - gloss 範囲の長さを k として O(k)
+fn nm_json_append_gloss_range %fn StringBuilder fn str fn i32 fn i32 fn i32 fn bool StringBuilder \sb\s\start\first_slash\close\has:
+    let main %str str_slice s add start 1 first_slash;
+    let mut out %StringBuilder nm_json_comma_if_needed sb has;
+    set out sb_append out "{\"t\":\"gloss\",\"main\":\"";
+    set out json::json_escape_into out main;
+    set out sb_append out "\",\"subs\":[";
+    let mut sub_start %i32 add first_slash 1;
+    let mut k %i32 sub_start;
+    let mut sub_has %bool false;
+    while lt k close:
+        do:
+            let next_slash %i32 scan::nm_find_gloss_slash s k close;
+            let part_end %i32:
+                if:
+                    ge next_slash 0
+                    then next_slash
+                    else close
+            let part %str str_slice s sub_start part_end;
+            if sub_has then set out sb_append out "," else unit;
+            set out sb_append out "\"";
+            set out json::json_escape_into out part;
+            set out sb_append out "\"";
+            set sub_has true;
+            if:
+                ge next_slash 0
+                then:
+                    set sub_start add next_slash 1;
+                    set k sub_start
+                else:
+                    set k close
+    sb_append out "]}"
+
 //: nm_inline_to_json_into: inline markup を JSON array として builder へ追加する
 //:
 //: [目的/もくてき]:
@@ -76,22 +178,11 @@ pub fn nm_inline_to_json_into %fn StringBuilder fn str StringBuilder \out\s:
                     if:
                         ge math_end 0
                         then:
-                            let seg %str str_slice s text_start i;
-                            if:
-                                gt len seg 0
-                                then:
-                                    if has then set sb sb_append sb "," else unit
-                                    set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
-                                    set sb json::json_escape_into sb seg;
-                                    set sb sb_append sb "\"}";
-                                    set has true
-                                else unit
+                            let had_text %bool gt len str_slice s text_start i 0;
+                            set sb nm_json_append_text_range sb s text_start i has;
+                            if had_text then set has true else unit;
                             let endpos %i32 add math_end delim;
-                            let m %str str_slice s i endpos;
-                            if has then set sb sb_append sb "," else unit
-                            set sb sb_append sb "{\"t\":\"math\",\"s\":\"";
-                            set sb json::json_escape_into sb m;
-                            set sb sb_append sb "\"}";
+                            set sb nm_json_append_math_range sb s i endpos has;
                             set has true;
                             set i endpos;
                             set text_start endpos
@@ -112,24 +203,10 @@ pub fn nm_inline_to_json_into %fn StringBuilder fn str StringBuilder \out\s:
                     if:
                         and ge close 0 and ge slash 0 not next_is_paren
                         then:
-                            let seg %str str_slice s text_start i;
-                            if:
-                                gt len seg 0
-                                then:
-                                    if has then set sb sb_append sb "," else unit
-                                    set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
-                                    set sb json::json_escape_into sb seg;
-                                    set sb sb_append sb "\"}";
-                                    set has true
-                                else unit
-                            let base %str str_slice s add i 1 slash;
-                            let rub %str str_slice s add slash 1 close;
-                            if has then set sb sb_append sb "," else unit
-                            set sb sb_append sb "{\"t\":\"ruby\",\"base\":\"";
-                            set sb json::json_escape_into sb base;
-                            set sb sb_append sb "\",\"ruby\":\"";
-                            set sb json::json_escape_into sb rub;
-                            set sb sb_append sb "\"}";
+                            let had_text %bool gt len str_slice s text_start i 0;
+                            set sb nm_json_append_text_range sb s text_start i has;
+                            if had_text then set has true else unit;
+                            set sb nm_json_append_ruby_range sb s i slash close has;
                             set has true;
                             set i add close 1;
                             set text_start i
@@ -145,46 +222,10 @@ pub fn nm_inline_to_json_into %fn StringBuilder fn str StringBuilder \out\s:
                     if:
                         and ge close 0 ge first_slash 0
                         then:
-                            let seg %str str_slice s text_start i;
-                            if:
-                                gt len seg 0
-                                then:
-                                    if has then set sb sb_append sb "," else unit
-                                    set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
-                                    set sb json::json_escape_into sb seg;
-                                    set sb sb_append sb "\"}";
-                                    set has true
-                                else unit
-                            let main %str str_slice s add i 1 first_slash;
-                            if has then set sb sb_append sb "," else unit
-                            set sb sb_append sb "{\"t\":\"gloss\",\"main\":\"";
-                            set sb json::json_escape_into sb main;
-                            set sb sb_append sb "\",\"subs\":[";
-                            let mut sub_start %i32 add first_slash 1;
-                            let mut k %i32 sub_start;
-                            let mut sub_has %bool false;
-                            while lt k close:
-                                do:
-                                    let next_slash %i32 scan::nm_find_gloss_slash s k close;
-                                    let part_end %i32:
-                                        if:
-                                            ge next_slash 0
-                                            then next_slash
-                                            else close
-                                    let part %str str_slice s sub_start part_end;
-                                    if sub_has then set sb sb_append sb "," else unit
-                                    set sb sb_append sb "\"";
-                                    set sb json::json_escape_into sb part;
-                                    set sb sb_append sb "\"";
-                                    set sub_has true;
-                                    if:
-                                        ge next_slash 0
-                                        then:
-                                            set sub_start add next_slash 1;
-                                            set k sub_start
-                                        else:
-                                            set k close
-                            set sb sb_append sb "]}";
+                            let had_text %bool gt len str_slice s text_start i 0;
+                            set sb nm_json_append_text_range sb s text_start i has;
+                            if had_text then set has true else unit;
+                            set sb nm_json_append_gloss_range sb s i first_slash close has;
                             set has true;
                             set i add close 1;
                             set text_start i
@@ -192,15 +233,7 @@ pub fn nm_inline_to_json_into %fn StringBuilder fn str StringBuilder \out\s:
                             set i add i 1
                 _:
                     set i add i 1
-    let tail %str str_slice s text_start n;
-    if:
-        gt len tail 0
-        then:
-            if has then set sb sb_append sb "," else unit
-            set sb sb_append sb "{\"t\":\"text\",\"s\":\"";
-            set sb json::json_escape_into sb tail;
-            set sb sb_append sb "\"}"
-        else unit
+    set sb nm_json_append_text_range sb s text_start n has;
     set sb sb_append sb "]";
     sb
 

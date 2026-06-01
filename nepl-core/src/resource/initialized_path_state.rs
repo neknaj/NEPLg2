@@ -59,6 +59,59 @@ pub(super) enum ResourcePathAlternatives {
     Feasible(Vec<ResourceCheckState>),
 }
 
+pub(super) fn path_states_need_replay(states: &[ResourceCheckState]) -> bool {
+    let Some(first) = states.first() else {
+        return false;
+    };
+    // CellTable / RawCellAddressAliases は join 時点で conservative merge 済みなので、
+    // それだけの差分では後続 op を path ごとに再実行しない。path replay は、
+    // collection slot transfer、indirect callee alias、realloc result、variant raw-cell
+    // initialization のように、複数の表を同じ feasible path として対応付ける必要が
+    // ある state に限定する。
+    states.iter().skip(1).any(|state| {
+        state.collection_slots != first.collection_slots
+            || state.function_aliases != first.function_aliases
+            || state.pending_reallocs != first.pending_reallocs
+            || state.variant_initializations != first.variant_initializations
+    })
+}
+
+#[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
+pub(super) fn log_path_state_replay_reason(function: &str, label: &str, states: &[ResourceCheckState]) {
+    let Some(filter) = std::env::var("NEPL_RESOURCE_PATH_REPLAY_DEBUG_FUNCTION")
+        .ok()
+        .filter(|filter| function.contains(filter))
+    else {
+        return;
+    };
+    let _ = filter;
+    let Some(first) = states.first() else {
+        return;
+    };
+    for (index, state) in states.iter().enumerate().skip(1) {
+        std::eprintln!(
+            "[resource-path-replay] function={} label={} path={} cells={} collection_slots={} raw_aliases={} function_aliases={} pending_reallocs={} variant_initializations={}",
+            function,
+            label,
+            index,
+            state.cells != first.cells,
+            state.collection_slots != first.collection_slots,
+            state.raw_aliases != first.raw_aliases,
+            state.function_aliases != first.function_aliases,
+            state.pending_reallocs != first.pending_reallocs,
+            state.variant_initializations != first.variant_initializations,
+        );
+    }
+}
+
+#[cfg(any(target_os = "none", target_arch = "wasm32"))]
+pub(super) fn log_path_state_replay_reason(
+    _function: &str,
+    _label: &str,
+    _states: &[ResourceCheckState],
+) {
+}
+
 impl ResourcePathAlternatives {
     pub(super) fn from_states(mut states: Vec<ResourceCheckState>) -> Self {
         if states.len() > MAX_PATH_SENSITIVE_ALTERNATIVES {

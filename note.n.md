@@ -1,3 +1,17 @@
+# 2026-06-01 CI doctest / examples timeout follow-up checkpoint
+
+- Zenn 記事の試作段階方針、静的検査を削らず根本原因を直す方針、性能追求方針を再確認した。`plan.md` は変更していない。
+- GitHub Actions run `26728316260` の `tutorials-test` job では、`tutorials/getting_started/24_project_byte_output.n.md::doctest#1` が `resource.owner.maybe_leak` で失敗していた。原因は tutorial 側の明示 cleanup 不足ではなく、match / scope 終了後に enum payload 由来の owner obligation が drop 対象として閉じきれない Resource owner check 側にあった。
+- `drop_owner_obligation` は `has_transferable_owner` だけに依存せず、resolved owner alias 配下の live / maybe-freed / reserved obligation を drop で閉じるようにした。scope auto-drop も scalar-looking leaf であっても owner obligation が残っている場合は drop 候補に含める。
+- `EndScope` 後に scoped local の `variant_owner_effects` result を消し、スコープ外の match bind payload effect が後続で復活しないようにした。
+- `examples/nm.nepl::doctest#1` の compile timeout は `resource_static_initialized_moves` の path replay と大きな inline JSON serializer が主因だった。`str_line_end` の branch/loop では、join 済みの `CellTable` / `RawCellAddressAliases` 差分だけで後続 op を path ごとに再実行しないようにし、path replay は collection slot / function alias / pending realloc / variant raw-cell initialization のような path 対応が必要な state に限定した。
+- path alternatives を保持しない場合でも、branch / match の condition や arm が無効なときに output を initialized として残さないよう、merged state と alternatives の両方で control output の cell / raw alias / function alias / realloc / variant init を無効化する helper に統一した。
+- `stdlib/nm/parser/json_inline.nepl` の `nm_inline_to_json_into` は、`StringBuilder` owner を値で受け取り値で返す helper へ JSON 片追記を分離した。`StringBuilder` を参照 mutation 風に扱わず、部分適用なしの fully-saturated helper にして pure / owner check の境界を保った。
+- 実測: native release `examples/nm.nepl` は `resource_static_check=22971ms` / `resource_initialized_moves=21793ms` から、path replay 抑制と JSON helper 分割後に `resource_static_check=12937ms` / `resource_initialized_moves=11947ms` へ改善した。`str_line_end` final check は release で `22ms` になり、`nm_inline_to_json_into` は `4619ms` から `1994ms` へ下がった。
+- bundled dist の Node runner では `examples/nm.nepl::doctest#1` が `compile_ms=26041` から `compile_ms=15097` へ改善し、CI の 20 秒 timeout を下回る見込みになった。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`trunk build --release`、`node nodesrc/tests.js -i tutorials/getting_started/24_project_byte_output.n.md -o tmp\tutorial-byte-output-after-trunk-json-inline-split.json -j 1`、`node nodesrc/tests.js -i stdlib/nm/parser/json_inline.nepl -o tmp\json-inline-after-split.json -j 1`、`node nodesrc/tests.js -i examples/nm.nepl -o tmp\nm-tests-after-trunk-json-inline-split.json -j 1`、`node nodesrc/tests.js -i examples -o tmp\examples-after-ci-fix.json -j 1`、`cargo test -p nepl-core resource_ir_branch_path_alternatives_do_not_keep_invalid_output_initialized --test resource_ir -- --nocapture`、`cargo test -p nepl-core resource_ir_collection_slot_indirect_return_summary_preserves_path_correlation --test resource_ir -- --nocapture`、`cargo test -p nepl-core resource_ir_owner_check_forwards_byte_builder_owner_through_text_result_mapping --test resource_ir -- --nocapture` は pass。
+- 残件: base compile はまだ 0.5 秒未満に届いていない。`document_to_json`、`nm_inline_to_html`、`str_trim` など同じ構造の大きな loop / branch 関数と、raw-init / i32-scalar summary の固定費削減を継続する。
+
 # 2026-06-01 .neplmeta binder-indexed generic surface checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋性、DAG 化、キャッシュによる探索空間削減、試作段階でも品質を落とさない方針を再確認した。

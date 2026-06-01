@@ -714,6 +714,9 @@ impl ResourceOwnerCheckEngine<'_> {
                     result.as_ref(),
                     *span,
                 );
+                for local in locals {
+                    variant_owner_effects.clear_result(local);
+                }
             }
             ResourceOp::CallEffect { .. }
             | ResourceOp::CollectionSlotLifecycle { .. }
