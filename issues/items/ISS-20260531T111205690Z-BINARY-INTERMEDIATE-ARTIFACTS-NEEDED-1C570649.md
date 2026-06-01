@@ -310,3 +310,30 @@ Resource IR skip、codegen skip は行わない。固定した観測は、三回
 - `cargo check --manifest-path nepl-web\Cargo.toml`
 - `trunk build --release`
 - `node tests\compiler\tree\run.js`
+
+## 2026-06-01 checkpoint 13
+
+`.neplmeta` projection 成功後の materialized compile attempt と source fallback を `CompilerSession`
+stats で観測できるようにした。
+
+この checkpoint は `.neplobj` / `.nepllink` 実装ではない。`.neplmeta` は metadata-only artifact なので、
+materialized callable が HIR / codegen 入力へ到達した場合は `MaterializedFunctionBodyMissing` を理由に
+source fallback へ戻る。この fallback は safety 上の正常経路であり、性能改善の失敗ではなく
+「次に object/link artifact が必要な箇所」を示す観測値として扱う。
+
+`.neplobj` / `.nepllink` へ進む前の注意点:
+
+- `.neplobj` key には `.neplmeta` / `.neplproof` の header 境界に加え、backend feature set、
+  WAT comment mode、ABI / link symbol version、function table / data segment layout version、
+  relocation schema version、selected callable body hash、generic instantiation hash を含める。
+- `.nepllink` key には object fragment 集合 hash だけでなく、symbol resolution order、
+  table index allocation policy、data offset allocation policy、entry / export set、target / profile /
+  backend feature set を含める。
+- artifact decoder は header を先に decode / compare し、mismatch artifact では payload を読まない。
+- projection success と compile fallback は別 layer なので、cache stats も別 counter として維持する。
+
+追加検証:
+
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `trunk build --release`
+- `node tests\compiler\tree\20_compiler_session_outputs_cache.js`

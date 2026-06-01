@@ -237,3 +237,27 @@ source fallback を持つ段階であり、base compile time を恒常的に下�
 - selected materialized callable body を `.neplobj` / `.nepllink` で解決し、direct call case の source fallback を減らす。
 - fallback rate、base `compile_ms`、warm edit `compile_ms` を Node JSON / `CompilerSession` stats で継続的に実測する。
 - `memo_call` / private cache proof / function value identity は、stable codegen artifact と Resource proof が揃うまで `.neplmeta` callable だけでは許可しない。
+
+## 2026-06-01 materialized compile fallback stats checkpoint
+
+`CompilerSession` stats に、projection 成功後の materialized compile attempt と source fallback を
+分けて観測する counter を追加した。これにより、`.neplmeta` store の projection stats だけでは見えなかった
+「metadata は使えたが `.neplobj` / `.nepllink` がないため source fallback へ戻った」case を
+文字列 error 解析なしで追える。
+
+追加した境界:
+
+- materialized surface を compile pipeline へ渡した compile だけを attempt として数える。
+- attempted surface 数を累積し、last compile の surface 数も別に出す。
+- source fallback の成功 / 失敗を分ける。
+- `backend.codegen.materialized_function_body_missing` は enum reason code として記録する。
+- compiled-output cache hit や stdlib overlay compile では last outcome を `NotAttempted` に戻し、
+  前回の fallback 状態を最新 compile の結果として扱わない。
+
+この issue は引き続き open のまま維持する。今回の checkpoint は fallback rate の実測基盤であり、
+実際に fallback を減らすには次が必要である。
+
+- base / warm edit `compile_ms` と今回の counter delta を組み合わせた継続的な性能レポートを作る。
+- bundled stdlib `.neplmeta` preseed により base compile でも projection を使えるようにする。
+- `.neplobj` / `.nepllink` を導入し、selected materialized callable body を source fallback なしで解決する。
+- `memo_call` / function value identity は `.neplmeta` projection stats ではなく、stable codegen artifact と Resource proof が揃った後に別 issue で開く。

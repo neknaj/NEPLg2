@@ -14,7 +14,7 @@ use nepl_core::compiler::{
     PublicInterfaceArtifactInputs,
 };
 use nepl_core::diagnostic::{Diagnostic, Severity};
-use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
+use nepl_core::diagnostic_codes::{BackendDiagnosticCode, DiagnosticCode, LoaderDiagnosticCode};
 use nepl_core::error::CoreError;
 use nepl_core::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine};
 use nepl_core::artifact::{
@@ -3025,6 +3025,7 @@ fn compile_outputs_with_bundled_sources_and_cache(
         None,
         None,
         None,
+        None,
     )
     .map_err(|msg| JsValue::from_str(&msg))?;
     compile_outputs_from_compiled(&compiled, entry_path, source, emit_list, attach_source)
@@ -3300,6 +3301,7 @@ fn compile_wasm_with_bundled_sources(
         None,
         None,
         None,
+        None,
     )
 }
 
@@ -3453,6 +3455,119 @@ fn compile_loaded_module_with_public_interface_artifacts(
     }
 }
 
+/// `.neplmeta` materialized dependency compile attempt の結果分類。
+///
+/// projection stats は artifact store が surface を作れたかを示す。一方、この enum は
+/// materialized surface を実際の compile pipeline へ渡した後、`.neplobj` 未実装のため
+/// source fallback へ戻ったかどうかを表す。性能調査ではこの境界を分けないと、
+/// projection 成功と compile time 改善を誤って同一視してしまう。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NeplMetaMaterializedCompileOutcome {
+    NotAttempted,
+    Accepted,
+    FallbackSucceeded,
+    FallbackFailed,
+}
+
+impl Default for NeplMetaMaterializedCompileOutcome {
+    fn default() -> Self {
+        Self::NotAttempted
+    }
+}
+
+impl NeplMetaMaterializedCompileOutcome {
+    fn code(self) -> u32 {
+        match self {
+            Self::NotAttempted => 0,
+            Self::Accepted => 1,
+            Self::FallbackSucceeded => 2,
+            Self::FallbackFailed => 3,
+        }
+    }
+}
+
+/// materialized compile attempt が source fallback へ戻った直接理由。
+///
+/// 現在は `.neplobj` が未実装なので `MaterializedFunctionBodyMissing` は安全側の
+/// 正常な fallback 理由である。その他の core error で fallback した場合も現時点では
+/// correctness のため source compile を再試行するが、性能改善の判断では区別して扱う。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NeplMetaMaterializedCompileFallbackReason {
+    None,
+    MaterializedFunctionBodyMissing,
+    OtherCoreError,
+}
+
+impl Default for NeplMetaMaterializedCompileFallbackReason {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl NeplMetaMaterializedCompileFallbackReason {
+    fn code(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::MaterializedFunctionBodyMissing => 1,
+            Self::OtherCoreError => 2,
+        }
+    }
+
+    fn from_core_error(error: &CoreError) -> Self {
+        match error {
+            CoreError::Diagnostics(diagnostics) => {
+                let has_materialized_body_missing = diagnostics.iter().any(|diagnostic| {
+                    matches!(
+                        diagnostic.code,
+                        DiagnosticCode::Backend(
+                            BackendDiagnosticCode::MaterializedFunctionBodyMissing
+                        )
+                    )
+                });
+                if has_materialized_body_missing {
+                    Self::MaterializedFunctionBodyMissing
+                } else {
+                    Self::OtherCoreError
+                }
+            }
+            _ => Self::OtherCoreError,
+        }
+    }
+}
+
+/// 1 compile 呼び出し内の materialized dependency compile 観測値。
+///
+/// 累積 counter は `CompilerSession` 側に保持し、この構造体は `compile_wasm...` が
+/// pure に近い戻り値境界で「今回何が起きたか」だけを返すために使う。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct NeplMetaMaterializedCompileStats {
+    attempted_surfaces: usize,
+    outcome: NeplMetaMaterializedCompileOutcome,
+    fallback_reason: NeplMetaMaterializedCompileFallbackReason,
+}
+
+impl NeplMetaMaterializedCompileStats {
+    fn record_attempt(&mut self, surface_count: usize) {
+        self.attempted_surfaces += surface_count;
+        self.outcome = NeplMetaMaterializedCompileOutcome::Accepted;
+        self.fallback_reason = NeplMetaMaterializedCompileFallbackReason::None;
+    }
+
+    fn record_fallback_succeeded(&mut self, reason: NeplMetaMaterializedCompileFallbackReason) {
+        self.outcome = NeplMetaMaterializedCompileOutcome::FallbackSucceeded;
+        self.fallback_reason = reason;
+    }
+
+    fn record_fallback_failed(&mut self, reason: NeplMetaMaterializedCompileFallbackReason) {
+        self.outcome = NeplMetaMaterializedCompileOutcome::FallbackFailed;
+        self.fallback_reason = reason;
+    }
+
+    fn attempted(self) -> bool {
+        self.attempted_surfaces > 0
+    }
+}
+
 fn compile_wasm_with_bundled_sources_and_cache(
     entry_path: &str,
     source: &str,
@@ -3467,6 +3582,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
     preseed_resource_summary_proof_artifact: Option<&ResourceSummaryProofArtifact>,
     stage_timings: Option<&mut CompileStageTimings>,
     nepl_meta_artifact_store: Option<&mut NeplMetaArtifactStore>,
+    mut nepl_meta_materialized_compile_stats: Option<&mut NeplMetaMaterializedCompileStats>,
 ) -> Result<CompiledWasm, String> {
     let mut nepl_meta_artifact_store = nepl_meta_artifact_store;
     let mut overlay_sources = BTreeMap::new();
@@ -3607,6 +3723,11 @@ fn compile_wasm_with_bundled_sources_and_cache(
     let loaded_source_map = loaded.source_map;
     let loaded_nepl_meta_edge_probes = loaded.nepl_meta_edge_probes;
     let loaded_materialized_public_surfaces = loaded.materialized_public_surfaces;
+    if !loaded_materialized_public_surfaces.is_empty() {
+        if let Some(stats) = nepl_meta_materialized_compile_stats.as_deref_mut() {
+            stats.record_attempt(loaded_materialized_public_surfaces.len());
+        }
+    }
     let artifact_attempt = compile_loaded_module_with_public_interface_artifacts(
         loaded.module,
         &loaded_source_map,
@@ -3621,7 +3742,8 @@ fn compile_wasm_with_bundled_sources_and_cache(
     );
     let (artifact, nepl_meta_edge_probes) = match artifact_attempt {
         Ok(artifact) => (artifact, loaded_nepl_meta_edge_probes),
-        Err(_) if !loaded_materialized_public_surfaces.is_empty() => {
+        Err(err) if !loaded_materialized_public_surfaces.is_empty() => {
+            let fallback_reason = NeplMetaMaterializedCompileFallbackReason::from_core_error(&err);
             let mut fallback_loader = Loader::new(stdlib_root.clone());
             let fallback_loaded = if let Some(cache) = loader_cache.as_deref_mut() {
                 fallback_loader.load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
@@ -3637,11 +3759,16 @@ fn compile_wasm_with_bundled_sources_and_cache(
                     &mut provider,
                 )
             }
-            .map_err(|e| render_loader_error(e, fallback_loader.source_map()))?;
+            .map_err(|e| {
+                if let Some(stats) = nepl_meta_materialized_compile_stats.as_deref_mut() {
+                    stats.record_fallback_failed(fallback_reason);
+                }
+                render_loader_error(e, fallback_loader.source_map())
+            })?;
             let fallback_module_surface = fallback_loaded.module_surface.clone();
             let fallback_source_map = fallback_loaded.source_map;
             let fallback_nepl_meta_edge_probes = fallback_loaded.nepl_meta_edge_probes;
-            let artifact = compile_loaded_module_with_public_interface_artifacts(
+            let fallback_artifact = compile_loaded_module_with_public_interface_artifacts(
                 fallback_loaded.module,
                 &fallback_source_map,
                 options,
@@ -3652,8 +3779,21 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 resource_summary_value_cache.as_deref_mut(),
                 resource_summary_proof_options,
                 stage_timings.as_deref_mut(),
-            )
-            .map_err(|e| render_core_error(e, &fallback_source_map))?;
+            );
+            let artifact = match fallback_artifact {
+                Ok(artifact) => {
+                    if let Some(stats) = nepl_meta_materialized_compile_stats.as_deref_mut() {
+                        stats.record_fallback_succeeded(fallback_reason);
+                    }
+                    artifact
+                }
+                Err(err) => {
+                    if let Some(stats) = nepl_meta_materialized_compile_stats.as_deref_mut() {
+                        stats.record_fallback_failed(fallback_reason);
+                    }
+                    return Err(render_core_error(err, &fallback_source_map));
+                }
+            };
             (artifact, fallback_nepl_meta_edge_probes)
         }
         Err(err) => return Err(render_core_error(err, &loaded_source_map)),
@@ -3732,6 +3872,17 @@ pub struct CompilerSession {
     resource_summary_proof_artifact_stores: RefCell<usize>,
     prewarm_surface_hits: RefCell<usize>,
     prewarm_surface_stores: RefCell<usize>,
+    nepl_meta_materialized_compile_attempts: RefCell<usize>,
+    nepl_meta_materialized_compile_attempted_surfaces: RefCell<usize>,
+    nepl_meta_materialized_compile_accepts: RefCell<usize>,
+    nepl_meta_materialized_compile_source_fallbacks: RefCell<usize>,
+    nepl_meta_materialized_compile_source_fallback_successes: RefCell<usize>,
+    nepl_meta_materialized_compile_source_fallback_failures: RefCell<usize>,
+    nepl_meta_materialized_compile_body_missing_fallbacks: RefCell<usize>,
+    last_nepl_meta_materialized_compile_outcome: RefCell<NeplMetaMaterializedCompileOutcome>,
+    last_nepl_meta_materialized_compile_fallback_reason:
+        RefCell<NeplMetaMaterializedCompileFallbackReason>,
+    last_nepl_meta_materialized_compile_attempted_surfaces: RefCell<usize>,
     last_compile_stage_timing_status: RefCell<&'static str>,
     last_compile_stage_timings: RefCell<Option<String>>,
 }
@@ -3766,6 +3917,20 @@ impl CompilerSession {
             resource_summary_proof_artifact_stores: RefCell::new(0),
             prewarm_surface_hits: RefCell::new(0),
             prewarm_surface_stores: RefCell::new(0),
+            nepl_meta_materialized_compile_attempts: RefCell::new(0),
+            nepl_meta_materialized_compile_attempted_surfaces: RefCell::new(0),
+            nepl_meta_materialized_compile_accepts: RefCell::new(0),
+            nepl_meta_materialized_compile_source_fallbacks: RefCell::new(0),
+            nepl_meta_materialized_compile_source_fallback_successes: RefCell::new(0),
+            nepl_meta_materialized_compile_source_fallback_failures: RefCell::new(0),
+            nepl_meta_materialized_compile_body_missing_fallbacks: RefCell::new(0),
+            last_nepl_meta_materialized_compile_outcome: RefCell::new(
+                NeplMetaMaterializedCompileOutcome::NotAttempted,
+            ),
+            last_nepl_meta_materialized_compile_fallback_reason: RefCell::new(
+                NeplMetaMaterializedCompileFallbackReason::None,
+            ),
+            last_nepl_meta_materialized_compile_attempted_surfaces: RefCell::new(0),
             last_compile_stage_timing_status: RefCell::new("not_started"),
             last_compile_stage_timings: RefCell::new(None),
         }
@@ -4335,6 +4500,68 @@ impl CompilerSession {
                 .last_pre_typecheck_edge_probe_projected_entries
                 .to_string(),
         );
+        out.push_str(",\"nepl_meta_materialized_compile_attempts\":");
+        out.push_str(&self.nepl_meta_materialized_compile_attempts.borrow().to_string());
+        out.push_str(",\"nepl_meta_materialized_compile_attempted_surfaces\":");
+        out.push_str(
+            &self
+                .nepl_meta_materialized_compile_attempted_surfaces
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_materialized_compile_accepts\":");
+        out.push_str(&self.nepl_meta_materialized_compile_accepts.borrow().to_string());
+        out.push_str(",\"nepl_meta_materialized_compile_source_fallbacks\":");
+        out.push_str(
+            &self
+                .nepl_meta_materialized_compile_source_fallbacks
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_materialized_compile_source_fallback_successes\":");
+        out.push_str(
+            &self
+                .nepl_meta_materialized_compile_source_fallback_successes
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_materialized_compile_source_fallback_failures\":");
+        out.push_str(
+            &self
+                .nepl_meta_materialized_compile_source_fallback_failures
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_materialized_compile_body_missing_fallbacks\":");
+        out.push_str(
+            &self
+                .nepl_meta_materialized_compile_body_missing_fallbacks
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_materialized_compile_last_outcome_code\":");
+        out.push_str(
+            &self
+                .last_nepl_meta_materialized_compile_outcome
+                .borrow()
+                .code()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_materialized_compile_last_fallback_reason_code\":");
+        out.push_str(
+            &self
+                .last_nepl_meta_materialized_compile_fallback_reason
+                .borrow()
+                .code()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_materialized_compile_last_attempted_surfaces\":");
+        out.push_str(
+            &self
+                .last_nepl_meta_materialized_compile_attempted_surfaces
+                .borrow()
+                .to_string(),
+        );
         out.push_str(",\"resource_summary_proof_artifact_present\":");
         out.push_str(if proof_artifact.is_some() { "true" } else { "false" });
         out.push_str(",\"resource_summary_proof_artifact_preseed_candidates\":");
@@ -4384,6 +4611,82 @@ impl CompilerSession {
         out
     }
 
+    /// 最後の materialized dependency compile 観測値を「未実行」に戻す。
+    ///
+    /// compiled-output cache hit や stdlib override compile では core pipeline が
+    /// materialized surface を使わないため、前回 compile の fallback 状態を最新状態として
+    /// 表示し続けないようにする。
+    fn reset_last_nepl_meta_materialized_compile_stats(&self) {
+        *self.last_nepl_meta_materialized_compile_outcome.borrow_mut() =
+            NeplMetaMaterializedCompileOutcome::NotAttempted;
+        *self
+            .last_nepl_meta_materialized_compile_fallback_reason
+            .borrow_mut() = NeplMetaMaterializedCompileFallbackReason::None;
+        *self
+            .last_nepl_meta_materialized_compile_attempted_surfaces
+            .borrow_mut() = 0;
+    }
+
+    /// 1 compile 呼び出しの materialized dependency compile 観測値を累積統計へ反映する。
+    ///
+    /// projection 成功、materialized compile attempt、source fallback は別レイヤである。
+    /// ここでは compile pipeline へ実際に materialized surface を渡した場合だけ分母を増やす。
+    fn record_nepl_meta_materialized_compile_stats(
+        &self,
+        stats: NeplMetaMaterializedCompileStats,
+    ) {
+        *self.last_nepl_meta_materialized_compile_outcome.borrow_mut() = stats.outcome;
+        *self
+            .last_nepl_meta_materialized_compile_fallback_reason
+            .borrow_mut() = stats.fallback_reason;
+        *self
+            .last_nepl_meta_materialized_compile_attempted_surfaces
+            .borrow_mut() = stats.attempted_surfaces;
+        if !stats.attempted() {
+            return;
+        }
+        *self.nepl_meta_materialized_compile_attempts.borrow_mut() += 1;
+        *self
+            .nepl_meta_materialized_compile_attempted_surfaces
+            .borrow_mut() += stats.attempted_surfaces;
+        match stats.outcome {
+            NeplMetaMaterializedCompileOutcome::NotAttempted => {}
+            NeplMetaMaterializedCompileOutcome::Accepted => {
+                *self.nepl_meta_materialized_compile_accepts.borrow_mut() += 1;
+            }
+            NeplMetaMaterializedCompileOutcome::FallbackSucceeded => {
+                *self
+                    .nepl_meta_materialized_compile_source_fallbacks
+                    .borrow_mut() += 1;
+                *self
+                    .nepl_meta_materialized_compile_source_fallback_successes
+                    .borrow_mut() += 1;
+                if stats.fallback_reason
+                    == NeplMetaMaterializedCompileFallbackReason::MaterializedFunctionBodyMissing
+                {
+                    *self
+                        .nepl_meta_materialized_compile_body_missing_fallbacks
+                        .borrow_mut() += 1;
+                }
+            }
+            NeplMetaMaterializedCompileOutcome::FallbackFailed => {
+                *self
+                    .nepl_meta_materialized_compile_source_fallbacks
+                    .borrow_mut() += 1;
+                *self
+                    .nepl_meta_materialized_compile_source_fallback_failures
+                    .borrow_mut() += 1;
+                if stats.fallback_reason
+                    == NeplMetaMaterializedCompileFallbackReason::MaterializedFunctionBodyMissing
+                {
+                    *self
+                        .nepl_meta_materialized_compile_body_missing_fallbacks
+                        .borrow_mut() += 1;
+                }
+            }
+        }
+    }
+
     /// Loader cache を明示的に空にする。
     ///
     /// 通常の Web session では artifact refresh 時に Worker ごと作り直すが、
@@ -4405,6 +4708,24 @@ impl CompilerSession {
         *self.resource_summary_proof_artifact_stores.borrow_mut() = 0;
         *self.prewarm_surface_hits.borrow_mut() = 0;
         *self.prewarm_surface_stores.borrow_mut() = 0;
+        *self.nepl_meta_materialized_compile_attempts.borrow_mut() = 0;
+        *self
+            .nepl_meta_materialized_compile_attempted_surfaces
+            .borrow_mut() = 0;
+        *self.nepl_meta_materialized_compile_accepts.borrow_mut() = 0;
+        *self
+            .nepl_meta_materialized_compile_source_fallbacks
+            .borrow_mut() = 0;
+        *self
+            .nepl_meta_materialized_compile_source_fallback_successes
+            .borrow_mut() = 0;
+        *self
+            .nepl_meta_materialized_compile_source_fallback_failures
+            .borrow_mut() = 0;
+        *self
+            .nepl_meta_materialized_compile_body_missing_fallbacks
+            .borrow_mut() = 0;
+        self.reset_last_nepl_meta_materialized_compile_stats();
         *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
         *self.last_compile_stage_timings.borrow_mut() = None;
     }
@@ -4469,6 +4790,7 @@ impl CompilerSession {
     ) -> Result<Vec<u8>, JsValue> {
         *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
         *self.last_compile_stage_timings.borrow_mut() = None;
+        self.reset_last_nepl_meta_materialized_compile_stats();
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
         let key = compiled_output_cache_key(entry_path, source, &vfs, false, profile);
@@ -4495,6 +4817,7 @@ impl CompilerSession {
                 .borrow_mut() += 1;
         }
         let mut stage_timings = CompileStageTimings::new();
+        let mut materialized_compile_stats = NeplMetaMaterializedCompileStats::default();
         let compiled = {
             let mut cache = self.loader_cache.borrow_mut();
             let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
@@ -4513,9 +4836,11 @@ impl CompilerSession {
                 preseed_artifact.as_ref(),
                 Some(&mut stage_timings),
                 Some(&mut nepl_meta_artifact_store),
+                Some(&mut materialized_compile_stats),
             ) {
                 Ok(compiled) => compiled,
                 Err(msg) => {
+                    self.record_nepl_meta_materialized_compile_stats(materialized_compile_stats);
                     *self.last_compile_stage_timing_status.borrow_mut() = "failed";
                     *self.last_compile_stage_timings.borrow_mut() =
                         Some(stage_timings.to_json_array());
@@ -4523,6 +4848,7 @@ impl CompilerSession {
                 }
             }
         };
+        self.record_nepl_meta_materialized_compile_stats(materialized_compile_stats);
         if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
             *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
             *self.resource_summary_proof_artifact_stores.borrow_mut() += 1;
@@ -4547,6 +4873,7 @@ impl CompilerSession {
     ) -> Result<Vec<u8>, JsValue> {
         *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
         *self.last_compile_stage_timings.borrow_mut() = None;
+        self.reset_last_nepl_meta_materialized_compile_stats();
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
         self.loader_cache.borrow_mut().record_stdlib_override_bypass();
@@ -4565,6 +4892,7 @@ impl CompilerSession {
             None,
             None,
             Some(&mut stage_timings),
+            None,
             None,
         ) {
             Ok(compiled) => compiled,
@@ -4597,6 +4925,7 @@ impl CompilerSession {
     ) -> Result<JsValue, JsValue> {
         *self.last_compile_stage_timing_status.borrow_mut() = "not_started";
         *self.last_compile_stage_timings.borrow_mut() = None;
+        self.reset_last_nepl_meta_materialized_compile_stats();
         let emit_list = parse_emit_list(emit)?;
         let include_wat_comments = emit_list.iter().any(|kind| kind == "wat");
         let key = compiled_output_cache_key(entry_path, source, &vfs, include_wat_comments, "debug");
@@ -4629,6 +4958,7 @@ impl CompilerSession {
                 .borrow_mut() += 1;
         }
         let mut stage_timings = CompileStageTimings::new();
+        let mut materialized_compile_stats = NeplMetaMaterializedCompileStats::default();
         let compiled = {
             let mut loader_cache = self.loader_cache.borrow_mut();
             let mut resource_summary_value_cache = self.resource_summary_value_cache.borrow_mut();
@@ -4647,9 +4977,11 @@ impl CompilerSession {
                 preseed_artifact.as_ref(),
                 Some(&mut stage_timings),
                 Some(&mut nepl_meta_artifact_store),
+                Some(&mut materialized_compile_stats),
             ) {
                 Ok(compiled) => compiled,
                 Err(msg) => {
+                    self.record_nepl_meta_materialized_compile_stats(materialized_compile_stats);
                     *self.last_compile_stage_timing_status.borrow_mut() = "failed";
                     *self.last_compile_stage_timings.borrow_mut() =
                         Some(stage_timings.to_json_array());
@@ -4657,6 +4989,7 @@ impl CompilerSession {
                 }
             }
         };
+        self.record_nepl_meta_materialized_compile_stats(materialized_compile_stats);
         if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
             *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
             *self.resource_summary_proof_artifact_stores.borrow_mut() += 1;

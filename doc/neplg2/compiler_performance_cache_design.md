@@ -2325,6 +2325,46 @@ source body parse を行わず interface artifact から file slot と surface �
 typecheck / Resource IR / codegen が root source と materialized semantic surface だけで進める case である。
 projection や body 欠落が残る case は source fallback に戻るため、正確性は fail-closed に保たれる。
 
+### 2026-06-01 `.neplmeta` materialized compile fallback stats checkpoint
+
+Web `CompilerSession` に、`.neplmeta` projection 成功後の materialized compile attempt と
+source fallback を分けて観測する counter を追加した。既存の artifact store stats は
+missing / compatibility / payload / projection reject を扱う。今回の counter は、その後段で
+`MaterializedPublicSurfaceInput` を実際に compile pipeline へ渡したか、渡した結果として source
+fallback へ戻ったかを記録する。
+
+追加した観測値:
+
+- `nepl_meta_materialized_compile_attempts`
+- `nepl_meta_materialized_compile_attempted_surfaces`
+- `nepl_meta_materialized_compile_accepts`
+- `nepl_meta_materialized_compile_source_fallbacks`
+- `nepl_meta_materialized_compile_source_fallback_successes`
+- `nepl_meta_materialized_compile_source_fallback_failures`
+- `nepl_meta_materialized_compile_body_missing_fallbacks`
+- `nepl_meta_materialized_compile_last_outcome_code`
+- `nepl_meta_materialized_compile_last_fallback_reason_code`
+- `nepl_meta_materialized_compile_last_attempted_surfaces`
+
+fallback reason は enum code として公開する。`MaterializedFunctionBodyMissing` は、`.neplobj` /
+`.nepllink` が未実装であるため source fallback へ戻る正常な安全側経路である。その他の core error も
+現段階では correctness のため source fallback へ戻すが、performance 判断では別 reason として扱う。
+
+compiled-output cache hit や stdlib overlay compile では materialized compile attempt を実行しないため、
+last outcome は `NotAttempted` に戻す。これにより、前回 compile の fallback 状態を cache hit の最新状態と
+誤読しない。
+
+この checkpoint により、Node / Web の JSON から次を分けて計測できる。
+
+- artifact が存在しないため projection へ進めない。
+- projection は成功したが materialized compile が source fallback へ戻る。
+- materialized compile が fallback なしで通る。
+- source fallback 自体が失敗している。
+
+base `compile_ms` と warm edit `compile_ms` は、既存の timing JSON とこの counter の delta を組み合わせて
+読む。`loader_cache_stats_json` 側に elapsed time を重複保持せず、処理時間と compiler-internal reason を
+別の authority として扱う。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

@@ -1,3 +1,15 @@
+# 2026-06-01 .neplmeta materialized compile fallback stats checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、cache による探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `282f021f Connect neplmeta web materialized inputs` まで同期済みで、branch `perf/neplmeta-fallback-stats-20260601` はその `main` から作成した。
+- subagent review で、既存 `.neplmeta` store stats は projection までの統計であり、projection 成功後に compile pipeline が source fallback へ戻ったかどうかは別 counter として観測するべきと確認した。
+- `CompilerSession` stats に materialized compile attempt / attempted surfaces / accepted / source fallback success/failure / body-missing fallback / last outcome / last fallback reason を追加した。
+- fallback reason は `CoreError::Diagnostics` の `DiagnosticCode::Backend(BackendDiagnosticCode::MaterializedFunctionBodyMissing)` を見て分類する。文字列 error 解析には依存しない。
+- compiled-output cache hit と stdlib overlay compile では materialized compile attempt は発生しないため、last outcome を `NotAttempted` に戻すようにした。これにより前回 compile の fallback 状態を cache hit の最新結果として誤読しない。
+- regression では、projection success と materialized compile attempt が別 counter であること、metadata-only body skip は `.neplobj` 未実装のため source fallback success として数えられること、fallback reason code が公開されることを固定した。
+- この checkpoint は `.neplobj` / `.nepllink` 実装ではない。次はこの counter delta と base / warm edit `compile_ms` を同じ性能レポートで読み、fallback を減らす artifact を実装する。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\20_compiler_session_outputs_cache.js`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-fallback-stats-20260601.json`、`node nodesrc\issues.js index --dir issues`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta Web materialized body-skip checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋性、キャッシュによる探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
