@@ -38,7 +38,11 @@ impl PrivateCacheRegionTaintTable {
     pub(super) fn regions(&self, place: &Place) -> Vec<PrivateEffectRegion> {
         let mut regions = Vec::new();
         for group in &self.groups {
-            if group.places.iter().any(|existing| places_overlap(existing, place)) {
+            if group
+                .places
+                .iter()
+                .any(|existing| places_overlap(existing, place))
+            {
                 push_unique_regions(&mut regions, &group.regions);
             }
         }
@@ -222,15 +226,13 @@ mod tests {
         let region = PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(4));
         let input = Place::local(String::from("cache"), TypeId(0));
         let output = Place::local(String::from("pair"), TypeId(1));
-        let field = output
-            .clone()
-            .with_projection(
-                PlaceProjection::TupleField {
-                    index: 0,
-                    offset_bytes: 0,
-                },
-                TypeId(0),
-            );
+        let field = output.clone().with_projection(
+            PlaceProjection::TupleField {
+                index: 0,
+                offset_bytes: 0,
+            },
+            TypeId(0),
+        );
 
         let mut taints = PrivateCacheRegionTaintTable::default();
         taints.mark(&input, region);

@@ -77,7 +77,11 @@ pub(super) fn path_states_need_replay(states: &[ResourceCheckState]) -> bool {
 }
 
 #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
-pub(super) fn log_path_state_replay_reason(function: &str, label: &str, states: &[ResourceCheckState]) {
+pub(super) fn log_path_state_replay_reason(
+    function: &str,
+    label: &str,
+    states: &[ResourceCheckState],
+) {
     let Some(filter) = std::env::var("NEPL_RESOURCE_PATH_REPLAY_DEBUG_FUNCTION")
         .ok()
         .filter(|filter| function.contains(filter))

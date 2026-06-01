@@ -308,9 +308,8 @@ mod tests {
     fn sealed_private_cache_create_output_cannot_escape_through_return() {
         let region = PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(11));
         let cache = Place::temporary(super::super::model::ResourceId(0), TypeId(0));
-        let report = check_resource_effect_boundaries(
-            &module_returning_private_cache_create_output(region),
-        );
+        let report =
+            check_resource_effect_boundaries(&module_returning_private_cache_create_output(region));
 
         assert_eq!(
             report.diagnostics,

@@ -719,10 +719,15 @@ impl TypeCtx {
                 Some(())
             }
             TypeKind::Named(name) => {
-                let scalar = BackendScalarType::from_name(name.as_str())?;
-                hash.write_str("backend-scalar");
-                hash.write_str(scalar.source_name());
-                Some(())
+                if let Some(identity) = self.nominal_stable_identity(resolved) {
+                    hash.write_str(identity.stable_key_component().as_str());
+                    Some(())
+                } else {
+                    let scalar = BackendScalarType::from_name(name.as_str())?;
+                    hash.write_str("backend-scalar");
+                    hash.write_str(scalar.source_name());
+                    Some(())
+                }
             }
             TypeKind::Enum { .. } | TypeKind::Struct { .. } => {
                 let identity = self.nominal_stable_identity(resolved)?;

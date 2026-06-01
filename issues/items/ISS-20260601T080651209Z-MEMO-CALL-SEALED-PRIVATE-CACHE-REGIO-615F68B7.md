@@ -146,3 +146,19 @@ accepted memoization path へ接続する段階ではない。
   生成結果から作る実装。
 - `memo_call` backend が sealed fresh region と private cache operation を発行する実装。
 - lookup result が cache 内部参照ではなく owned / copied value であることの proof。
+
+## 2026-06-02 `.neplobj` direct-call boundary review
+
+`.neplobj` direct-call fragment の same-session reuse は、`FnValue`、`CallIndirect`、
+`MemoizedFunctionValue`、`memo_call` を解決しない境界を維持している。direct-call fragment は
+materialized callable の raw body を wasm backend へ渡す artifact であり、function identity、
+closure identity、PrivateCache region、non-escape proof、cache lookup result ownership を証明する
+artifact ではない。
+
+subagent review でも、中間ファイル再利用によって `memo_call` / private cache pure check が直ちに
+壊れる経路は見つからなかった。現在の通常 compile path は空の `PrivateCacheMaskProofIndex` を使うため、
+sealed proof がない `PrivateCache` は `PrivateCacheInPureFunction` として fail-closed に残る。
+
+今後 `.neplproof` に private cache mask proof を保存する場合は、function identity、sealed region、
+operation、source capability policy、private effect policy hash、non-escape proof boundary が一致しない
+artifact を payload decode 前または proof merge 前に拒否する必要がある。

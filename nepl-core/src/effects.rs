@@ -809,8 +809,12 @@ pub fn private_cache_op_from_name(name: &str) -> Option<PrivateCacheOp> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InternalEffect {
     Pure,
-    InternalAlloc { operation: RawMemoryOp },
-    UnsafeMemory { operation: RawMemoryOp },
+    InternalAlloc {
+        operation: RawMemoryOp,
+    },
+    UnsafeMemory {
+        operation: RawMemoryOp,
+    },
     PrivateState {
         operation: PrivateStateOp,
         region: PrivateEffectRegion,
@@ -819,8 +823,12 @@ pub enum InternalEffect {
         operation: PrivateCacheOp,
         region: PrivateEffectRegion,
     },
-    ExternalIo { operation: ExternalIoOp },
-    Nondet { operation: NondetOp },
+    ExternalIo {
+        operation: ExternalIoOp,
+    },
+    Nondet {
+        operation: NondetOp,
+    },
 }
 
 impl InternalEffect {

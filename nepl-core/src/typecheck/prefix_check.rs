@@ -56,7 +56,9 @@ fn function_value_identity_from_binding(
 
 fn function_value_identity_reject_message(reason: FunctionValueIdentityReject) -> &'static str {
     match reason {
-        FunctionValueIdentityReject::NotCallable => "only callable symbols can be referenced with '@'",
+        FunctionValueIdentityReject::NotCallable => {
+            "only callable symbols can be referenced with '@'"
+        }
         FunctionValueIdentityReject::CapturingUnsupported => {
             "capturing function cannot be used as a function value yet"
         }

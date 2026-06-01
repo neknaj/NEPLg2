@@ -174,6 +174,21 @@ base 0.5 秒未満と edit 0.1 秒未満を一般 case で達成したとは扱�
 `.neplmeta` / `.neplproof` preseed、`.neplobj` same-session object store、Resource proof template を
 継続する。
 
+2026-06-02 の `.neplmeta` / `.neplobj` fallback root-cause checkpoint では、同じ `core/char`
+fixture の warm edit が 0.1 秒未満に入った。`tmp/materialized-raw-wasm-neplobj-20260602-rerun.json`
+では cold base `compile_ms=387`、warm store probe `compile_ms=221`、body edit candidate
+`compile_ms=21`、body edit repeat `compile_ms=21` である。
+
+この改善は、nominal placeholder hash、loader artifact staging、source path based source definition
+skip、raw wasm leaf fragment、relocation dependency closure を合わせて、materialized compile の
+non-body-missing fallback を消した結果である。`materialized_non_body_missing_fallbacks_delta_sum=0`
+になり、fallback code は `backend.codegen.materialized_function_body_missing` だけになった。
+
+ただし、この issue は解決しない。対象 fixture の base は 0.5 秒未満に入ったが、RPN / stdlib-heavy
+workload の base compile と 10ms 級 expression subtree edit はまだ未達である。次の作業は、bundled
+stdlib `.neplmeta` / `.neplproof` preseed、persistent `.nepl...` codec、changed-expression query、
+Resource proof template、generic / string-data / raw body `.neplobj` fragment の順に進める。
+
 ## 検証
 
 - `trunk build`

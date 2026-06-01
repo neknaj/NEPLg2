@@ -338,10 +338,7 @@ impl<'a> BlockChecker<'a> {
                         let mut ambiguous = false;
                         for cb in callables {
                             let captures_len = match &cb.kind {
-                                BindingKind::Func {
-                                    captures,
-                                    ..
-                                } => captures.len(),
+                                BindingKind::Func { captures, .. } => captures.len(),
                                 _ => continue,
                             };
                             if captures_len != 0 {

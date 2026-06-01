@@ -919,10 +919,7 @@ fn hash_effect_op(hash: &mut ResourceSummaryStableHasher, effect: &EffectOp) {
     }
 }
 
-fn hash_private_effect_region(
-    hash: &mut ResourceSummaryStableHasher,
-    region: PrivateEffectRegion,
-) {
+fn hash_private_effect_region(hash: &mut ResourceSummaryStableHasher, region: PrivateEffectRegion) {
     hash.write_str(region.as_str());
     if let Some(id) = region.numeric_id() {
         hash.write_u64(u64::from(id));

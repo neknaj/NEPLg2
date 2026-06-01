@@ -134,6 +134,11 @@ pub struct CompilationArtifact {
     /// header だけを載せる。Web / CLI 側はこの header と現在の cache snapshot を組み合わせて、
     /// `.neplproof` 相当の in-memory artifact を作る。
     pub resource_summary_proof_header: Option<crate::resource::ResourceSummaryProofArtifactHeader>,
+    /// full/source compile から生成できた `.neplobj` direct-call fragment。
+    ///
+    /// これは direct-call MVP の optimization artifact であり、生成できない function は単に
+    /// 省略する。`memo_call`、function value、indirect call、raw body などの proof は含めない。
+    pub neplobj_direct_call_fragments: Vec<crate::artifact::NeplObjDirectCallFragmentArtifact>,
 }
 
 /// Resource summary proof artifact を compile pipeline へ接続するための入力。
@@ -186,6 +191,8 @@ pub struct PublicInterfaceArtifactInputs<'a> {
     pub module_surface: Option<&'a crate::artifact::NeplMetaModuleSurface>,
     pub materialized_public_surfaces: &'a [crate::typecheck::MaterializedPublicSurfaceInput],
     pub neplobj_direct_call_fragments: &'a [crate::artifact::NeplObjDirectCallFragmentArtifact],
+    pub neplobj_direct_call_export_requests:
+        &'a [crate::artifact::NeplObjDirectCallFragmentExportRequest],
 }
 
 impl<'a> PublicInterfaceArtifactInputs<'a> {
@@ -195,6 +202,7 @@ impl<'a> PublicInterfaceArtifactInputs<'a> {
             module_surface: None,
             materialized_public_surfaces: &[],
             neplobj_direct_call_fragments: &[],
+            neplobj_direct_call_export_requests: &[],
         }
     }
 
@@ -208,6 +216,7 @@ impl<'a> PublicInterfaceArtifactInputs<'a> {
             module_surface,
             materialized_public_surfaces,
             neplobj_direct_call_fragments: &[],
+            neplobj_direct_call_export_requests: &[],
         }
     }
 
@@ -222,6 +231,23 @@ impl<'a> PublicInterfaceArtifactInputs<'a> {
             module_surface,
             materialized_public_surfaces,
             neplobj_direct_call_fragments,
+            neplobj_direct_call_export_requests: &[],
+        }
+    }
+
+    pub fn with_neplobj_direct_call_fragments_and_export_requests(
+        dependency_public_surface_hash: Option<u64>,
+        module_surface: Option<&'a crate::artifact::NeplMetaModuleSurface>,
+        materialized_public_surfaces: &'a [crate::typecheck::MaterializedPublicSurfaceInput],
+        neplobj_direct_call_fragments: &'a [crate::artifact::NeplObjDirectCallFragmentArtifact],
+        neplobj_direct_call_export_requests: &'a [crate::artifact::NeplObjDirectCallFragmentExportRequest],
+    ) -> Self {
+        Self {
+            dependency_public_surface_hash,
+            module_surface,
+            materialized_public_surfaces,
+            neplobj_direct_call_fragments,
+            neplobj_direct_call_export_requests,
         }
     }
 }
@@ -676,11 +702,16 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
     emit_wasm(
         &prepared.types,
         &prepared.hir_module,
+        source_map,
+        target,
+        profile,
         prepared.diagnostics,
         artifact_options.include_wat_comments,
         prepared.nepl_meta_artifact,
         Some(prepared.resource_summary_proof_header),
         public_interface_artifacts.neplobj_direct_call_fragments,
+        public_interface_artifacts.neplobj_direct_call_export_requests,
+        resource_summary_proof_options.stdlib_content_hash,
         stage_recorder,
     )
 }
@@ -2443,9 +2474,7 @@ mod tests {
             .any(|diagnostic| diagnostic.message.contains("for function value")));
         assert!(diagnostics
             .iter()
-            .any(|diagnostic| diagnostic
-                .message
-                .contains("for memoized function value")));
+            .any(|diagnostic| diagnostic.message.contains("for memoized function value")));
     }
 
     /// indirect call は function value を呼び出す形であり、direct call 用 `.neplobj`
@@ -2570,10 +2599,10 @@ mod tests {
             .message
             .contains("neplmeta$direct_nested$1$2")
             && diagnostic.message.contains("for direct call")));
-        assert!(diagnostics.iter().any(|diagnostic| diagnostic
-            .message
-            .contains("neplmeta$arg$1$2")
-            && diagnostic.message.contains("for function value")));
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("neplmeta$arg$1$2")
+                && diagnostic.message.contains("for function value")));
     }
 
     fn test_neplobj_direct_call_key(
@@ -2681,6 +2710,20 @@ mod tests {
             ast::Effect::Pure,
             Vec::new(),
         );
+        let memoized_identity = crate::function_identity::FunctionValueIdentity::new(
+            key.materialized_symbol.clone(),
+            None,
+            ty,
+            ast::Effect::Pure,
+            Vec::new(),
+        );
+        let indirect_identity = crate::function_identity::FunctionValueIdentity::new(
+            key.materialized_symbol.clone(),
+            None,
+            ty,
+            ast::Effect::Pure,
+            Vec::new(),
+        );
         let module = crate::hir::HirModule {
             functions: Vec::from([crate::hir::HirFunction {
                 doc: None,
@@ -2715,6 +2758,34 @@ mod tests {
                             },
                             drop_result: true,
                         },
+                        crate::hir::HirLine {
+                            expr: crate::hir::HirExpr {
+                                ty,
+                                kind: crate::hir::HirExprKind::MemoizedFunctionValue(
+                                    memoized_identity,
+                                ),
+                                span,
+                            },
+                            drop_result: true,
+                        },
+                        crate::hir::HirLine {
+                            expr: crate::hir::HirExpr {
+                                ty,
+                                kind: crate::hir::HirExprKind::CallIndirect {
+                                    callee: Box::new(crate::hir::HirExpr {
+                                        ty,
+                                        kind: crate::hir::HirExprKind::FnValue(indirect_identity),
+                                        span,
+                                    }),
+                                    params: Vec::new(),
+                                    result: ty,
+                                    effect: ast::Effect::Pure,
+                                    args: Vec::new(),
+                                },
+                                span,
+                            },
+                            drop_result: true,
+                        },
                     ]),
                     ty,
                     span,
@@ -2731,19 +2802,24 @@ mod tests {
         let available = neplobj_direct_call_fragment_symbol_set(&[fragment]);
 
         let diagnostics = materialized_codegen_dependency_diagnostics_with_available_direct_calls(
-            &module,
-            &available,
+            &module, &available,
         );
 
-        assert_eq!(diagnostics.len(), 1);
-        assert!(diagnostics[0].message.contains("for function value"));
+        assert_eq!(diagnostics.len(), 3);
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("for function value")));
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("for memoized function value")));
     }
 
     /// direct-call artifact schema は function value / indirect / memoization の証明を代替しない。
     /// 同じ materialized symbol に見える場合でも、function value として使われた依存は
     /// body-missing に残す。
     #[test]
-    fn materialized_body_missing_diagnostics_keep_function_value_until_backend_identity_is_linked() {
+    fn materialized_body_missing_diagnostics_keep_function_value_until_backend_identity_is_linked()
+    {
         let ty = crate::types::TypeId(0);
         let span = Span::dummy();
         let key = test_neplobj_direct_call_key("dep_value", 0x5678);
@@ -4688,11 +4764,16 @@ fn collect_called_functions_from_expr(
 fn emit_wasm(
     types: &crate::types::TypeCtx,
     hir_module: &crate::hir::HirModule,
+    source_map: Option<&SourceMap>,
+    target: CompileTarget,
+    profile: BuildProfile,
     mut diagnostics: Vec<Diagnostic>,
     include_wat_comments: bool,
     nepl_meta_artifact: crate::artifact::NeplMetaArtifact,
     resource_summary_proof_header: Option<crate::resource::ResourceSummaryProofArtifactHeader>,
     neplobj_direct_call_fragments: &[crate::artifact::NeplObjDirectCallFragmentArtifact],
+    neplobj_direct_call_export_requests: &[crate::artifact::NeplObjDirectCallFragmentExportRequest],
+    stdlib_content_hash: Option<u64>,
     stage_recorder: &mut CompileStageRecorder<'_>,
 ) -> Result<CompilationArtifact, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
@@ -4751,6 +4832,19 @@ fn emit_wasm(
         diagnostics.push(diag);
         return Err(CoreError::from_diagnostics(diagnostics));
     }
+    let exported_neplobj_direct_call_fragments = if let Some(source_map) = source_map {
+        codegen_wasm::export_neplobj_direct_call_fragments_for_wasm(
+            types,
+            hir_module,
+            source_map,
+            target,
+            profile,
+            stdlib_content_hash,
+            neplobj_direct_call_export_requests,
+        )
+    } else {
+        Vec::new()
+    };
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let stage_start_ms = stage_recorder.start();
@@ -4767,6 +4861,7 @@ fn emit_wasm(
         wat_comments,
         nepl_meta_artifact,
         resource_summary_proof_header,
+        neplobj_direct_call_fragments: exported_neplobj_direct_call_fragments,
     })
 }
 

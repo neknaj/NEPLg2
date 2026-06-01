@@ -21,8 +21,8 @@ use nepl_core::artifact::{
     nepl_meta_artifact_pre_typecheck_envelope_for_module_surface,
     nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity,
     NeplMetaArtifact, NeplMetaArtifactStore, NeplMetaModuleSurface,
-    NeplObjDirectCallFragmentArtifact, NeplObjDirectCallFragmentLookupProbe,
-    NeplObjDirectCallFragmentStore,
+    NeplObjDirectCallFragmentArtifact, NeplObjDirectCallFragmentExportRequest,
+    NeplObjDirectCallFragmentLookupProbe, NeplObjDirectCallFragmentStore,
 };
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{
@@ -33,7 +33,7 @@ use nepl_core::resource::{ResourceSummaryProofArtifact, ResourceSummaryValueCach
 use nepl_core::resolve::DefId;
 use nepl_core::source_cache_key::compiled_source_cache_key_part;
 use nepl_core::span::{FileId, Span};
-use nepl_core::typecheck::{typecheck, MaterializedPublicSurfaceInput};
+use nepl_core::typecheck::{typecheck, MaterializedPublicSurfaceInput, PublicSurfaceShape};
 use nepl_core::{
     BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileTarget,
     ResourceSummaryProofArtifactCacheOptions,
@@ -3419,6 +3419,41 @@ fn populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
     }
 }
 
+fn neplobj_direct_call_export_requests_for_materialized_surfaces(
+    probes: &[NeplMetaDependencyEdgePreTypecheckProbe],
+    materialized_public_surfaces: &[MaterializedPublicSurfaceInput],
+) -> Vec<NeplObjDirectCallFragmentExportRequest> {
+    let mut requests = Vec::new();
+    for surface in materialized_public_surfaces {
+        let Some(probe) = probes
+            .iter()
+            .find(|probe| probe.target_module_path == surface.module_path)
+        else {
+            continue;
+        };
+        let Some(source_capability_policy_hash) =
+            probe.target_source_capability_policy_set_hash
+        else {
+            continue;
+        };
+        for entry in &surface.table.entries {
+            let PublicSurfaceShape::Callable(callable) = &entry.surface else {
+                continue;
+            };
+            let Some(link_symbol) = callable.link_symbol.as_ref() else {
+                continue;
+            };
+            requests.push(NeplObjDirectCallFragmentExportRequest {
+                link_symbol: link_symbol.clone(),
+                target_source_key_hash: probe.target_source_key_hash,
+                dependency_public_surface_hash: probe.dependency_public_surface_hash,
+                source_capability_policy_hash,
+            });
+        }
+    }
+    requests
+}
+
 fn compile_loaded_module_with_public_interface_artifacts(
     module: nepl_core::ast::Module,
     source_map: &SourceMap,
@@ -3428,16 +3463,19 @@ fn compile_loaded_module_with_public_interface_artifacts(
     module_surface: Option<&NeplMetaModuleSurface>,
     materialized_public_surfaces: &[MaterializedPublicSurfaceInput],
     neplobj_direct_call_fragments: &[NeplObjDirectCallFragmentArtifact],
+    neplobj_direct_call_export_requests: &[NeplObjDirectCallFragmentExportRequest],
     resource_summary_value_cache: Option<&mut ResourceSummaryValueCache>,
     resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
     stage_timings: Option<&mut CompileStageTimings>,
 ) -> Result<CompilationArtifact, CoreError> {
-    let public_interface_artifacts = PublicInterfaceArtifactInputs::with_neplobj_direct_call_fragments(
-        dependency_public_surface_hash,
-        module_surface,
-        materialized_public_surfaces,
-        neplobj_direct_call_fragments,
-    );
+    let public_interface_artifacts =
+        PublicInterfaceArtifactInputs::with_neplobj_direct_call_fragments_and_export_requests(
+            dependency_public_surface_hash,
+            module_surface,
+            materialized_public_surfaces,
+            neplobj_direct_call_fragments,
+            neplobj_direct_call_export_requests,
+        );
     if let Some(stage_timings) = stage_timings {
         compile_module_with_source_map_artifact_options_public_interface_artifacts_resource_summary_value_cache_neplproof_and_stage_timings(
             module,
@@ -3542,26 +3580,69 @@ impl NeplMetaMaterializedCompileFallbackReason {
         }
     }
 
-    fn primary_diagnostic_code_from_core_error(error: &CoreError) -> Option<DiagnosticCode> {
-        match error {
-            CoreError::Diagnostics(diagnostics) => {
-                diagnostics.first().map(|diagnostic| diagnostic.code)
-            }
-            _ => None,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct NeplMetaMaterializedCompilePrimaryDiagnostic {
+    code: Option<DiagnosticCode>,
+    message: String,
+    path: String,
+    start: u32,
+    end: u32,
+}
+
+impl NeplMetaMaterializedCompilePrimaryDiagnostic {
+    fn from_core_error(error: &CoreError, source_map: &SourceMap) -> Self {
+        let CoreError::Diagnostics(diagnostics) = error else {
+            return Self::default();
+        };
+        let Some(diagnostic) = diagnostics.first() else {
+            return Self::default();
+        };
+        let path = source_map
+            .path(diagnostic.primary.span.file_id)
+            .map(|path| String::from(path.as_str()))
+            .unwrap_or_default();
+        Self {
+            code: Some(diagnostic.code),
+            message: diagnostic.message.clone(),
+            path,
+            start: diagnostic.primary.span.start,
+            end: diagnostic.primary.span.end,
         }
     }
+}
+
+fn push_json_string(out: &mut String, value: &str) {
+    use std::fmt::Write as _;
+
+    out.push('"');
+    for ch in value.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c <= '\u{1f}' => {
+                let _ = write!(out, "\\u{:04x}", c as u32);
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
 }
 
 /// 1 compile 呼び出し内の materialized dependency compile 観測値。
 ///
 /// 累積 counter は `CompilerSession` 側に保持し、この構造体は `compile_wasm...` が
 /// pure に近い戻り値境界で「今回何が起きたか」だけを返すために使う。
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct NeplMetaMaterializedCompileStats {
     attempted_surfaces: usize,
     outcome: NeplMetaMaterializedCompileOutcome,
     fallback_reason: NeplMetaMaterializedCompileFallbackReason,
-    fallback_primary_diagnostic_code: Option<DiagnosticCode>,
+    fallback_primary_diagnostic: NeplMetaMaterializedCompilePrimaryDiagnostic,
 }
 
 impl NeplMetaMaterializedCompileStats {
@@ -3569,30 +3650,30 @@ impl NeplMetaMaterializedCompileStats {
         self.attempted_surfaces += surface_count;
         self.outcome = NeplMetaMaterializedCompileOutcome::Accepted;
         self.fallback_reason = NeplMetaMaterializedCompileFallbackReason::None;
-        self.fallback_primary_diagnostic_code = None;
+        self.fallback_primary_diagnostic = NeplMetaMaterializedCompilePrimaryDiagnostic::default();
     }
 
     fn record_fallback_succeeded(
         &mut self,
         reason: NeplMetaMaterializedCompileFallbackReason,
-        primary_diagnostic_code: Option<DiagnosticCode>,
+        primary_diagnostic: NeplMetaMaterializedCompilePrimaryDiagnostic,
     ) {
         self.outcome = NeplMetaMaterializedCompileOutcome::FallbackSucceeded;
         self.fallback_reason = reason;
-        self.fallback_primary_diagnostic_code = primary_diagnostic_code;
+        self.fallback_primary_diagnostic = primary_diagnostic;
     }
 
     fn record_fallback_failed(
         &mut self,
         reason: NeplMetaMaterializedCompileFallbackReason,
-        primary_diagnostic_code: Option<DiagnosticCode>,
+        primary_diagnostic: NeplMetaMaterializedCompilePrimaryDiagnostic,
     ) {
         self.outcome = NeplMetaMaterializedCompileOutcome::FallbackFailed;
         self.fallback_reason = reason;
-        self.fallback_primary_diagnostic_code = primary_diagnostic_code;
+        self.fallback_primary_diagnostic = primary_diagnostic;
     }
 
-    fn attempted(self) -> bool {
+    fn attempted(&self) -> bool {
         self.attempted_surfaces > 0
     }
 }
@@ -3889,6 +3970,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
         module_surface.as_ref(),
         &loaded_materialized_public_surfaces,
         &neplobj_direct_call_fragments,
+        &[],
         resource_summary_value_cache.as_deref_mut(),
         resource_summary_proof_options,
         stage_timings.as_deref_mut(),
@@ -3897,9 +3979,10 @@ fn compile_wasm_with_bundled_sources_and_cache(
         Ok(artifact) => (artifact, loaded_nepl_meta_edge_probes),
         Err(err) if !loaded_materialized_public_surfaces.is_empty() => {
             let fallback_reason = NeplMetaMaterializedCompileFallbackReason::from_core_error(&err);
-            let fallback_primary_diagnostic_code =
-                NeplMetaMaterializedCompileFallbackReason::primary_diagnostic_code_from_core_error(
+            let fallback_primary_diagnostic =
+                NeplMetaMaterializedCompilePrimaryDiagnostic::from_core_error(
                     &err,
+                    &loaded_source_map,
                 );
             if fallback_reason == NeplMetaMaterializedCompileFallbackReason::MaterializedFunctionBodyMissing
             {
@@ -3929,7 +4012,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 if let Some(stats) = nepl_meta_materialized_compile_stats.as_deref_mut() {
                     stats.record_fallback_failed(
                         fallback_reason,
-                        fallback_primary_diagnostic_code,
+                        fallback_primary_diagnostic.clone(),
                     );
                 }
                 render_loader_error(e, fallback_loader.source_map())
@@ -3937,6 +4020,11 @@ fn compile_wasm_with_bundled_sources_and_cache(
             let fallback_module_surface = fallback_loaded.module_surface.clone();
             let fallback_source_map = fallback_loaded.source_map;
             let fallback_nepl_meta_edge_probes = fallback_loaded.nepl_meta_edge_probes;
+            let fallback_neplobj_direct_call_export_requests =
+                neplobj_direct_call_export_requests_for_materialized_surfaces(
+                    &loaded_nepl_meta_edge_probes,
+                    &loaded_materialized_public_surfaces,
+                );
             let fallback_artifact = compile_loaded_module_with_public_interface_artifacts(
                 fallback_loaded.module,
                 &fallback_source_map,
@@ -3946,6 +4034,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 fallback_module_surface.as_ref(),
                 &[],
                 &[],
+                &fallback_neplobj_direct_call_export_requests,
                 resource_summary_value_cache.as_deref_mut(),
                 resource_summary_proof_options,
                 stage_timings.as_deref_mut(),
@@ -3955,7 +4044,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                     if let Some(stats) = nepl_meta_materialized_compile_stats.as_deref_mut() {
                         stats.record_fallback_succeeded(
                             fallback_reason,
-                            fallback_primary_diagnostic_code,
+                            fallback_primary_diagnostic.clone(),
                         );
                     }
                     artifact
@@ -3964,7 +4053,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
                     if let Some(stats) = nepl_meta_materialized_compile_stats.as_deref_mut() {
                         stats.record_fallback_failed(
                             fallback_reason,
-                            fallback_primary_diagnostic_code,
+                            fallback_primary_diagnostic.clone(),
                         );
                     }
                     return Err(render_core_error(err, &fallback_source_map));
@@ -3998,6 +4087,14 @@ fn compile_wasm_with_bundled_sources_and_cache(
                 loader_cache.as_deref_mut(),
                 &nepl_meta_edge_probes,
             );
+        }
+    }
+    let neplobj_direct_call_fragments = artifact.neplobj_direct_call_fragments.clone();
+    if !overlay_overrides_stdlib {
+        if let Some(store) = nepl_obj_direct_call_fragment_store.as_deref_mut() {
+            for fragment in &neplobj_direct_call_fragments {
+                let _ = store.store(fragment.clone());
+            }
         }
     }
     Ok(CompiledWasm {
@@ -4063,6 +4160,10 @@ pub struct CompilerSession {
         RefCell<NeplMetaMaterializedCompileFallbackReason>,
     last_nepl_meta_materialized_compile_fallback_primary_diagnostic_code:
         RefCell<Option<DiagnosticCode>>,
+    last_nepl_meta_materialized_compile_fallback_primary_diagnostic_message: RefCell<String>,
+    last_nepl_meta_materialized_compile_fallback_primary_diagnostic_path: RefCell<String>,
+    last_nepl_meta_materialized_compile_fallback_primary_diagnostic_start: RefCell<u32>,
+    last_nepl_meta_materialized_compile_fallback_primary_diagnostic_end: RefCell<u32>,
     last_nepl_meta_materialized_compile_attempted_surfaces: RefCell<usize>,
     last_nepl_obj_candidate_body_missing_surfaces: RefCell<usize>,
     last_compile_stage_timing_status: RefCell<&'static str>,
@@ -4122,6 +4223,13 @@ impl CompilerSession {
             last_nepl_meta_materialized_compile_fallback_primary_diagnostic_code: RefCell::new(
                 None,
             ),
+            last_nepl_meta_materialized_compile_fallback_primary_diagnostic_message:
+                RefCell::new(String::new()),
+            last_nepl_meta_materialized_compile_fallback_primary_diagnostic_path:
+                RefCell::new(String::new()),
+            last_nepl_meta_materialized_compile_fallback_primary_diagnostic_start:
+                RefCell::new(0),
+            last_nepl_meta_materialized_compile_fallback_primary_diagnostic_end: RefCell::new(0),
             last_nepl_meta_materialized_compile_attempted_surfaces: RefCell::new(0),
             last_nepl_obj_candidate_body_missing_surfaces: RefCell::new(0),
             last_compile_stage_timing_status: RefCell::new("not_started"),
@@ -4836,6 +4944,34 @@ impl CompilerSession {
             out.push_str(code.as_str());
         }
         out.push('"');
+        out.push_str(",\"nepl_meta_materialized_compile_last_fallback_diagnostic_message\":");
+        push_json_string(
+            &mut out,
+            &self
+                .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_message
+                .borrow(),
+        );
+        out.push_str(",\"nepl_meta_materialized_compile_last_fallback_diagnostic_path\":");
+        push_json_string(
+            &mut out,
+            &self
+                .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_path
+                .borrow(),
+        );
+        out.push_str(",\"nepl_meta_materialized_compile_last_fallback_diagnostic_start\":");
+        out.push_str(
+            &self
+                .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_start
+                .borrow()
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_materialized_compile_last_fallback_diagnostic_end\":");
+        out.push_str(
+            &self
+                .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_end
+                .borrow()
+                .to_string(),
+        );
         out.push_str(",\"nepl_meta_materialized_compile_last_attempted_surfaces\":");
         out.push_str(
             &self
@@ -4913,6 +5049,18 @@ impl CompilerSession {
         *self
             .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_code
             .borrow_mut() = None;
+        self.last_nepl_meta_materialized_compile_fallback_primary_diagnostic_message
+            .borrow_mut()
+            .clear();
+        self.last_nepl_meta_materialized_compile_fallback_primary_diagnostic_path
+            .borrow_mut()
+            .clear();
+        *self
+            .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_start
+            .borrow_mut() = 0;
+        *self
+            .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_end
+            .borrow_mut() = 0;
         *self
             .last_nepl_meta_materialized_compile_attempted_surfaces
             .borrow_mut() = 0;
@@ -4936,7 +5084,19 @@ impl CompilerSession {
             .borrow_mut() = stats.fallback_reason;
         *self
             .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_code
-            .borrow_mut() = stats.fallback_primary_diagnostic_code;
+            .borrow_mut() = stats.fallback_primary_diagnostic.code;
+        *self
+            .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_message
+            .borrow_mut() = stats.fallback_primary_diagnostic.message.clone();
+        *self
+            .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_path
+            .borrow_mut() = stats.fallback_primary_diagnostic.path.clone();
+        *self
+            .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_start
+            .borrow_mut() = stats.fallback_primary_diagnostic.start;
+        *self
+            .last_nepl_meta_materialized_compile_fallback_primary_diagnostic_end
+            .borrow_mut() = stats.fallback_primary_diagnostic.end;
         *self
             .last_nepl_meta_materialized_compile_attempted_surfaces
             .borrow_mut() = stats.attempted_surfaces;
@@ -5098,6 +5258,91 @@ impl CompilerSession {
             .insert(surface_hash, warmed);
         *self.prewarm_surface_stores.borrow_mut() += 1;
         Ok(warmed)
+    }
+
+    /// entry source から到達する bundled stdlib dependency の `.neplmeta` を作る。
+    ///
+    /// `prewarm_loader_cache_for_source` は parser / loader query だけを warm する軽量な
+    /// API である。一方、この API は import / prelude edge probe を収集し、対象 stdlib
+    /// module を typecheck して public interface artifact を `NeplMetaArtifactStore` へ
+    /// 保存する。Resource IR proof、typed HIR、codegen fragment は生成しない。
+    ///
+    /// これは明示 preseed API であり、通常 compile path から暗黙には呼ばない。初回
+    /// compile の前に artifact を用意する将来の disk / IndexedDB backed `.neplmeta`
+    /// 実装と同じ invalidation 境界を、既存 in-memory store で先に検証するためである。
+    pub fn preseed_nepl_meta_artifacts_for_source(
+        &self,
+        entry_path: &str,
+        source: &str,
+    ) -> Result<usize, JsValue> {
+        self.preseed_nepl_meta_artifacts_for_source_and_profile(
+            entry_path,
+            source,
+            BuildProfile::default_source_profile(),
+        )
+    }
+
+    /// profile を指定して bundled stdlib dependency の `.neplmeta` を作る。
+    ///
+    /// `.neplmeta` header は profile を key に含むため、debug compile 用と release compile
+    /// 用の artifact は別物として扱う。現在の store は module path ごとに 1 artifact を
+    /// 保持するため、この API は呼び出し元が次に実行する compile profile と同じ profile を
+    /// 指定する前提で使う。
+    pub fn preseed_nepl_meta_artifacts_for_source_with_profile(
+        &self,
+        entry_path: &str,
+        source: &str,
+        profile: &str,
+    ) -> Result<usize, JsValue> {
+        let profile = parse_profile(profile)
+            .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
+        self.preseed_nepl_meta_artifacts_for_source_and_profile(entry_path, source, profile)
+    }
+
+    fn preseed_nepl_meta_artifacts_for_source_and_profile(
+        &self,
+        entry_path: &str,
+        source: &str,
+        profile: BuildProfile,
+    ) -> Result<usize, JsValue> {
+        let stdlib_content_hash = bundled_stdlib_hash_u64();
+        let mut loader = Loader::new(self.stdlib_root.clone());
+        let mut cache = self.loader_cache.borrow_mut();
+        let mut provider = |path: &PathBuf| {
+            self.bundled_sources
+                .get(path)
+                .map(|src| (*src).to_string())
+                .ok_or_else(|| {
+                    nepl_core::loader::LoaderError::Io(format!(
+                        "missing bundled stdlib source during .neplmeta preseed: {}",
+                        path.display()
+                    ))
+                })
+        };
+        let loaded = loader
+            .load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
+                PathBuf::from(entry_path),
+                source.to_string(),
+                &mut provider,
+                &mut cache,
+            )
+            .map_err(|e| JsValue::from_str(&render_loader_error(e, loader.source_map())))?;
+        let before = self.nepl_meta_artifact_store.borrow().len();
+        {
+            let mut store = self.nepl_meta_artifact_store.borrow_mut();
+            populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
+                &mut store,
+                profile,
+                stdlib_content_hash,
+                &self.stdlib_root,
+                &self.bundled_sources,
+                &BTreeMap::new(),
+                Some(&mut cache),
+                &loaded.nepl_meta_edge_probes,
+            );
+        }
+        let after = self.nepl_meta_artifact_store.borrow().len();
+        Ok(after.saturating_sub(before))
     }
 
     pub fn compile_source_with_vfs_and_profile(

@@ -17,6 +17,7 @@ function parseArgs(argv) {
     const args = {
         out: '',
         distHint: '',
+        preseedNeplMeta: false,
     };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -24,6 +25,8 @@ function parseArgs(argv) {
             args.out = argv[++i];
         } else if (arg === '--dist-hint' && i + 1 < argv.length) {
             args.distHint = argv[++i];
+        } else if (arg === '--preseed-neplmeta') {
+            args.preseedNeplMeta = true;
         } else if (arg === '-h' || arg === '--help') {
             return { ...args, help: true };
         } else {
@@ -35,7 +38,7 @@ function parseArgs(argv) {
 
 function usage() {
     return [
-        'Usage: node nodesrc/bench_materialized_compile_fallbacks.js [--out tmp/report.json] [--dist-hint web/dist]',
+        'Usage: node nodesrc/bench_materialized_compile_fallbacks.js [--out tmp/report.json] [--dist-hint web/dist] [--preseed-neplmeta]',
         '',
         'Runs a fixed same-session compile sequence and reports materialized compile fallback deltas.',
     ].join('\n');
@@ -128,6 +131,10 @@ function publicRunShape(name, result) {
             body_missing_skip_stale_entries_delta: deltaOf(result, 'body_missing_skip_stale_entries'),
             last_fallback_reason_code: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_fallback_reason_code),
             last_fallback_diagnostic_code: result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_fallback_diagnostic_code || '',
+            last_fallback_diagnostic_message: result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_fallback_diagnostic_message || '',
+            last_fallback_diagnostic_path: result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_fallback_diagnostic_path || '',
+            last_fallback_diagnostic_start: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_fallback_diagnostic_start),
+            last_fallback_diagnostic_end: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_fallback_diagnostic_end),
             last_attempted_surfaces: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_attempted_surfaces),
             last_body_missing_candidate_surfaces: numeric(result?.timing?.compiler_session_cache_after?.nepl_obj_candidate_last_body_missing_surfaces),
             last_body_missing_skip_hits: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_body_missing_skip_last_hits),
@@ -143,6 +150,34 @@ function publicRunShape(name, result) {
 
 async function runBenchmark(args) {
     const loaded = await createRunner(args.distHint || '');
+    const session = loaded?.meta?.compilerSession;
+    const preseedAvailable =
+        Boolean(session)
+        && typeof session.preseed_nepl_meta_artifacts_for_source === 'function';
+    const preseed = {
+        enabled: Boolean(args.preseedNeplMeta),
+        available: preseedAvailable,
+        artifact_count: null,
+        elapsed_ms: null,
+        error: null,
+    };
+    if (args.preseedNeplMeta) {
+        if (preseedAvailable) {
+            const start = Date.now();
+            try {
+                preseed.artifact_count = session.preseed_nepl_meta_artifacts_for_source(
+                    '/virtual/entry.nepl',
+                    sourceForValue(1),
+                );
+            } catch (error) {
+                preseed.error = String(error && error.message ? error.message : error);
+            } finally {
+                preseed.elapsed_ms = Date.now() - start;
+            }
+        } else {
+            preseed.error = 'missing CompilerSession.preseed_nepl_meta_artifacts_for_source';
+        }
+    }
     const steps = [
         ['cold_base', 1],
         ['warm_store_probe', 2],
@@ -163,6 +198,7 @@ async function runBenchmark(args) {
     return {
         schema: SCHEMA,
         generated_at: new Date().toISOString(),
+        preseed,
         summary: summarizeBenchmarkRuns(runs),
         runs,
     };

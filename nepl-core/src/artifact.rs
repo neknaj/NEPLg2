@@ -8,7 +8,7 @@ use crate::typecheck::{
     PublicCallableLinkSymbol, PublicSurfaceMaterializerBlocker, PublicSurfaceShape,
     TypedPublicSignatureKind, TypedPublicSignatureTable, TypedPublicSurfaceTable,
 };
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -149,7 +149,9 @@ impl NeplMetaExportSurface {
                     crate::typecheck::TypedPublicSignatureKind::Callable => {
                         NeplMetaExportKind::Callable
                     }
-                    crate::typecheck::TypedPublicSignatureKind::Struct => NeplMetaExportKind::Struct,
+                    crate::typecheck::TypedPublicSignatureKind::Struct => {
+                        NeplMetaExportKind::Struct
+                    }
                     crate::typecheck::TypedPublicSignatureKind::Enum => NeplMetaExportKind::Enum,
                     crate::typecheck::TypedPublicSignatureKind::Trait => NeplMetaExportKind::Trait,
                     crate::typecheck::TypedPublicSignatureKind::Impl => return None,
@@ -293,6 +295,20 @@ pub struct NeplObjDirectCallKey {
     pub stable_hash: u64,
 }
 
+/// full/source compile 成功時に direct-call `.neplobj` fragment の作成を依頼する入力。
+///
+/// producer はこの request を「最適化の依頼」として扱い、現在の HIR / backend から安全に
+/// relocatable body を作れない場合は fragment を返さない。`target_source_key_hash` と
+/// `source_capability_policy_hash` は loader edge probe が計算した source identity であり、
+/// core は function の `SourceMap` path と link symbol を照合したうえで key に写す。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NeplObjDirectCallFragmentExportRequest {
+    pub link_symbol: PublicCallableLinkSymbol,
+    pub target_source_key_hash: u64,
+    pub dependency_public_surface_hash: u64,
+    pub source_capability_policy_hash: u64,
+}
+
 /// direct call 用 `.neplobj` の backend payload。
 ///
 /// key は「どの body fragment か」を判定する metadata であり、backend が実際に呼べる
@@ -306,10 +322,7 @@ pub struct NeplObjDirectCallFragmentArtifact {
 }
 
 impl NeplObjDirectCallFragmentArtifact {
-    pub fn new(
-        key: NeplObjDirectCallKey,
-        backend: NeplObjDirectCallBackendFragment,
-    ) -> Self {
+    pub fn new(key: NeplObjDirectCallKey, backend: NeplObjDirectCallBackendFragment) -> Self {
         let stable_hash = nepl_obj_direct_call_fragment_hash(&key, &backend);
         Self {
             key,
@@ -547,7 +560,64 @@ impl NeplObjDirectCallFragmentStore {
         }
         out.sort_by_key(|fragment| fragment.stable_hash());
         out.dedup_by_key(|fragment| fragment.stable_hash());
+        self.extend_direct_call_fragment_dependency_closure(
+            target,
+            profile,
+            stdlib_content_hash,
+            &mut out,
+        );
         out
+    }
+
+    fn extend_direct_call_fragment_dependency_closure(
+        &mut self,
+        target: CompileTarget,
+        profile: BuildProfile,
+        stdlib_content_hash: Option<u64>,
+        out: &mut Vec<NeplObjDirectCallFragmentArtifact>,
+    ) {
+        // materialized surface は入口 callable だけを表すが、`.neplobj` payload には direct
+        // call relocation が残る。linker が fragment body を挿入するには relocation target の
+        // fragment も同じ compile attempt に渡す必要があるため、store 内で到達 closure を補う。
+        let mut seen = out
+            .iter()
+            .map(|fragment| fragment.stable_hash())
+            .collect::<BTreeSet<_>>();
+        let mut queue = out.clone();
+        while let Some(fragment) = queue.pop() {
+            for symbol in neplobj_direct_call_relocation_link_symbols(&fragment) {
+                let materialized_symbol = materialized_callable_symbol_for_link_symbol(&symbol);
+                let Some(candidate_key_hashes) =
+                    self.materialized_index.get(materialized_symbol.as_str())
+                else {
+                    continue;
+                };
+                for key_hash in candidate_key_hashes.clone() {
+                    let Some(candidate) = self.fragments.get(&key_hash) else {
+                        self.stats.lookup_context_rejects += 1;
+                        continue;
+                    };
+                    if !neplobj_direct_call_fragment_matches_relocation_closure(
+                        candidate,
+                        target,
+                        profile,
+                        stdlib_content_hash,
+                        &symbol,
+                    ) {
+                        self.stats.lookup_context_rejects += 1;
+                        continue;
+                    }
+                    if seen.insert(candidate.stable_hash()) {
+                        let candidate = candidate.clone();
+                        out.push(candidate.clone());
+                        queue.push(candidate);
+                        self.stats.lookup_fragments_returned += 1;
+                    }
+                }
+            }
+        }
+        out.sort_by_key(|fragment| fragment.stable_hash());
+        out.dedup_by_key(|fragment| fragment.stable_hash());
     }
 }
 
@@ -581,6 +651,22 @@ fn neplobj_direct_call_callable_surface_is_monomorphic(
     }
 }
 
+fn neplobj_direct_call_relocation_link_symbols(
+    fragment: &NeplObjDirectCallFragmentArtifact,
+) -> Vec<PublicCallableLinkSymbol> {
+    let mut symbols = Vec::new();
+    match fragment.backend() {
+        NeplObjDirectCallBackendFragment::Wasm(wasm_fragment) => {
+            for relocation in wasm_fragment.direct_call_relocations() {
+                symbols.push(relocation.target.clone());
+            }
+        }
+    }
+    symbols.sort();
+    symbols.dedup();
+    symbols
+}
+
 #[allow(clippy::too_many_arguments)]
 fn neplobj_direct_call_fragment_matches_lookup(
     fragment: &NeplObjDirectCallFragmentArtifact,
@@ -605,6 +691,27 @@ fn neplobj_direct_call_fragment_matches_lookup(
         && key.generic_instantiation_hash == nepl_obj_empty_generic_instantiation_hash()
         && key.dependency_public_surface_hash == dependency_public_surface_hash
         && key.source_capability_policy_hash == source_capability_policy_hash
+        && key.private_effect_policy_hash
+            == crate::compiler::resource_summary_private_effect_policy_hash()
+}
+
+fn neplobj_direct_call_fragment_matches_relocation_closure(
+    fragment: &NeplObjDirectCallFragmentArtifact,
+    target: CompileTarget,
+    profile: BuildProfile,
+    stdlib_content_hash: Option<u64>,
+    link_symbol: &PublicCallableLinkSymbol,
+) -> bool {
+    let key = fragment.key();
+    key.schema_version == NEPL_OBJ_DIRECT_CALL_SCHEMA_VERSION
+        && key.compiler_identity_hash == nepl_meta_compiler_identity_hash()
+        && key.target_hash == nepl_meta_target_hash(target)
+        && key.profile_hash == nepl_meta_profile_hash(profile)
+        && key.stdlib_content_hash == stdlib_content_hash
+        && key.backend_feature_set_hash == nepl_obj_direct_call_backend_feature_set_hash()
+        && key.link_symbol == *link_symbol
+        && key.materialized_symbol == materialized_callable_symbol_for_link_symbol(link_symbol)
+        && key.generic_instantiation_hash == nepl_obj_empty_generic_instantiation_hash()
         && key.private_effect_policy_hash
             == crate::compiler::resource_summary_private_effect_policy_hash()
 }
@@ -644,10 +751,12 @@ impl NeplObjWasmDirectCallFragment {
         let mut previous_offset = None;
         for relocation in &direct_call_relocations {
             if relocation.byte_offset as usize >= body_len {
-                return Err(NeplObjDirectCallFragmentReject::RelocationOffsetOutOfRange {
-                    byte_offset: relocation.byte_offset,
-                    body_len: usize_to_u32_saturating(body_len),
-                });
+                return Err(
+                    NeplObjDirectCallFragmentReject::RelocationOffsetOutOfRange {
+                        byte_offset: relocation.byte_offset,
+                        body_len: usize_to_u32_saturating(body_len),
+                    },
+                );
             }
             if previous_offset == Some(relocation.byte_offset) {
                 return Err(NeplObjDirectCallFragmentReject::DuplicateRelocationOffset {
@@ -1207,7 +1316,12 @@ impl NeplMetaArtifact {
             Some(surface) => surface,
             None => return Some(NeplMetaMaterializerMvpReject::MissingExportSurface),
         };
-        if let Some(blocker) = self.public_surface.materializer_blockers().into_iter().next() {
+        if let Some(blocker) = self
+            .public_surface
+            .materializer_blockers()
+            .into_iter()
+            .next()
+        {
             return Some(NeplMetaMaterializerMvpReject::PublicSurfaceBlocker(blocker));
         }
         for edge in &module_surface.dependency_edges {
@@ -1260,8 +1374,10 @@ impl NeplMetaArtifact {
         if self.header.module_dependency_edge_count != actual_module_edge_count {
             return Some(NeplMetaArtifactPayloadReject::ModuleDependencyEdgeCount);
         }
-        let actual_export_surface_hash =
-            self.export_surface.as_ref().map(|surface| surface.stable_hash);
+        let actual_export_surface_hash = self
+            .export_surface
+            .as_ref()
+            .map(|surface| surface.stable_hash);
         if self.header.export_surface_hash != actual_export_surface_hash {
             return Some(NeplMetaArtifactPayloadReject::ExportSurfaceHash);
         }
@@ -1320,7 +1436,12 @@ impl NeplMetaArtifact {
         if !export_surface.reexport_projections.is_empty() {
             return Err(NeplMetaMaterializerProjectionReject::UnsupportedReexportProjection);
         }
-        if let Some(blocker) = self.public_surface.materializer_blockers().into_iter().next() {
+        if let Some(blocker) = self
+            .public_surface
+            .materializer_blockers()
+            .into_iter()
+            .next()
+        {
             return Err(NeplMetaMaterializerProjectionReject::PublicSurfaceBlocker(
                 blocker,
             ));
@@ -1356,30 +1477,34 @@ impl NeplMetaArtifact {
                 );
             }
             let expected_entry_kind = export.kind.typed_public_signature_kind();
-            let Some(entry) = self
-                .public_surface
-                .entries
-                .iter()
-                .find(|entry| {
-                    entry.exported
-                        && entry.kind == expected_entry_kind
-                        && entry.name == export.origin_name
-                })
-            else {
-                return Err(NeplMetaMaterializerProjectionReject::ExportedSurfaceMissing {
-                    exported_name: export.exported_name,
-                    origin_name: export.origin_name,
-                });
+            let Some(entry) = self.public_surface.entries.iter().find(|entry| {
+                entry.exported
+                    && entry.kind == expected_entry_kind
+                    && entry.name == export.origin_name
+            }) else {
+                return Err(
+                    NeplMetaMaterializerProjectionReject::ExportedSurfaceMissing {
+                        exported_name: export.exported_name,
+                        origin_name: export.origin_name,
+                    },
+                );
             };
             if export.exported_name != entry.name {
-                return Err(NeplMetaMaterializerProjectionReject::ExportAliasUnsupported {
-                    exported_name: export.exported_name,
-                    origin_name: entry.name.clone(),
-                });
+                return Err(
+                    NeplMetaMaterializerProjectionReject::ExportAliasUnsupported {
+                        exported_name: export.exported_name,
+                        origin_name: entry.name.clone(),
+                    },
+                );
             }
             projected.push(entry.clone());
         }
-        for entry in self.public_surface.entries.iter().filter(|entry| !entry.exported) {
+        for entry in self
+            .public_surface
+            .entries
+            .iter()
+            .filter(|entry| !entry.exported)
+        {
             projected.push(entry.clone());
         }
         Ok(TypedPublicSurfaceTable::new(projected))
@@ -1461,7 +1586,10 @@ enum NeplMetaArtifactPreTypecheckProbeScope {
 }
 
 impl NeplMetaArtifactStoreStats {
-    fn record_pre_typecheck_probe_attempt(&mut self, scope: NeplMetaArtifactPreTypecheckProbeScope) {
+    fn record_pre_typecheck_probe_attempt(
+        &mut self,
+        scope: NeplMetaArtifactPreTypecheckProbeScope,
+    ) {
         match scope {
             NeplMetaArtifactPreTypecheckProbeScope::Root => {
                 self.pre_typecheck_probe_attempts += 1;
@@ -1670,10 +1798,7 @@ impl NeplMetaArtifactStore {
             .is_none()
     }
 
-    pub fn store(
-        &mut self,
-        artifact: NeplMetaArtifact,
-    ) -> Result<(), NeplMetaArtifactStoreReject> {
+    pub fn store(&mut self, artifact: NeplMetaArtifact) -> Result<(), NeplMetaArtifactStoreReject> {
         let module_path = match artifact.module_surface() {
             Some(surface) if !surface.canonical_module_path.is_empty() => {
                 surface.canonical_module_path.clone()
@@ -1791,7 +1916,8 @@ impl NeplMetaArtifactStore {
         self.stats.record_pre_typecheck_probe_attempt(scope);
         let Some(artifact) = self.artifacts.get(module_path) else {
             self.stats.misses += 1;
-            self.stats.record_pre_typecheck_probe_missing_artifact(scope);
+            self.stats
+                .record_pre_typecheck_probe_missing_artifact(scope);
             return Err(NeplMetaArtifactStoreReject::MissingArtifact {
                 module_path: String::from(module_path),
             });
@@ -2074,15 +2200,17 @@ pub fn nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
 ) -> Result<NeplMetaArtifactPreTypecheckEnvelope, NeplMetaArtifactPreTypecheckEnvelopeReject> {
     let source_key_hash = nepl_meta_source_key_hash(source_map, Some(module_surface))
         .ok_or(NeplMetaArtifactPreTypecheckEnvelopeReject::MissingSourceKey)?;
-    Ok(nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity(
-        target,
-        profile,
-        stdlib_content_hash,
-        dependency_public_surface_hash,
-        source_key_hash,
-        crate::compiler::resource_summary_source_capability_policy_set_hash(source_map),
-        module_surface,
-    ))
+    Ok(
+        nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity(
+            target,
+            profile,
+            stdlib_content_hash,
+            dependency_public_surface_hash,
+            source_key_hash,
+            crate::compiler::resource_summary_source_capability_policy_set_hash(source_map),
+            module_surface,
+        ),
+    )
 }
 
 /// 事前に検証済みの target source identity から pre-typecheck envelope を作る。
@@ -2112,7 +2240,9 @@ pub fn nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_
             module_surface.dependency_edges.len(),
         )),
         source_capability_policy_set_hash,
-        private_effect_policy_hash: Some(crate::compiler::resource_summary_private_effect_policy_hash()),
+        private_effect_policy_hash: Some(
+            crate::compiler::resource_summary_private_effect_policy_hash(),
+        ),
     }
 }
 
@@ -2205,9 +2335,7 @@ fn materializer_mvp_reject_for_edge(
         Some(NeplMetaImportClause::DefaultAlias | NeplMetaImportClause::Alias(_)) => {
             Some(NeplMetaMaterializerMvpReject::UnsupportedAlias)
         }
-        Some(NeplMetaImportClause::Merge) => {
-            Some(NeplMetaMaterializerMvpReject::UnsupportedMerge)
-        }
+        Some(NeplMetaImportClause::Merge) => Some(NeplMetaMaterializerMvpReject::UnsupportedMerge),
         Some(NeplMetaImportClause::Selective(items)) => {
             for item in items {
                 if item.glob {
@@ -2497,16 +2625,14 @@ mod tests {
         nepl_meta_artifact_pre_typecheck_envelope_for_module_surface, NeplMetaArtifact,
         NeplMetaArtifactCompatibilityReject, NeplMetaArtifactHeader, NeplMetaArtifactPayloadReject,
         NeplMetaArtifactPreTypecheckEnvelopeReject, NeplMetaArtifactProbeRejectKind,
-        NeplMetaArtifactStore,
-        NeplMetaArtifactStoreReject, NeplMetaExportKind, NeplMetaExportSurface,
-        NeplMetaImportClause, NeplMetaImportItem, NeplMetaMaterializerMvpReject,
-        NeplMetaMaterializerProjectionReject, NeplMetaModuleDependencyEdge,
-        NeplMetaModuleDependencyKind, NeplMetaModuleSurface, NeplMetaVisibility,
-        NeplObjDirectCallBackendFragment, NeplObjDirectCallFragmentArtifact,
+        NeplMetaArtifactStore, NeplMetaArtifactStoreReject, NeplMetaExportKind,
+        NeplMetaExportSurface, NeplMetaImportClause, NeplMetaImportItem,
+        NeplMetaMaterializerMvpReject, NeplMetaMaterializerProjectionReject,
+        NeplMetaModuleDependencyEdge, NeplMetaModuleDependencyKind, NeplMetaModuleSurface,
+        NeplMetaVisibility, NeplObjDirectCallBackendFragment, NeplObjDirectCallFragmentArtifact,
         NeplObjDirectCallFragmentLookupProbe, NeplObjDirectCallFragmentReject,
-        NeplObjDirectCallFragmentStore, NeplObjDirectCallFragmentStoreReject,
-        NeplObjDirectCallKey, NeplObjWasmDirectCallFragment, NeplObjWasmDirectCallRelocation,
-        NeplObjWasmValType,
+        NeplObjDirectCallFragmentStore, NeplObjDirectCallFragmentStoreReject, NeplObjDirectCallKey,
+        NeplObjWasmDirectCallFragment, NeplObjWasmDirectCallRelocation, NeplObjWasmValType,
     };
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::source_map::SourceMap;
@@ -2898,14 +3024,20 @@ mod tests {
         let export_surface =
             NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
         let mut base_map = SourceMap::new();
-        base_map.add("/stdlib/core/math.nepl", "pub fn answer %fn unit i32 \\:\n    1\n".into());
+        base_map.add(
+            "/stdlib/core/math.nepl",
+            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+        );
         let mut comment_map = SourceMap::new();
         comment_map.add(
             "/stdlib/core/math.nepl",
             "// ordinary comment\npub fn answer %fn unit i32 \\:\n    1 // trailing\n".into(),
         );
         let mut edited_map = SourceMap::new();
-        edited_map.add("/stdlib/core/math.nepl", "pub fn answer %fn unit i32 \\:\n    2\n".into());
+        edited_map.add(
+            "/stdlib/core/math.nepl",
+            "pub fn answer %fn unit i32 \\:\n    2\n".into(),
+        );
 
         let base = nepl_meta_artifact_header_for_public_surface(
             CompileTarget::Wasm,
@@ -2966,9 +3098,15 @@ mod tests {
         let export_surface =
             NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
         let mut stored_map = SourceMap::new();
-        stored_map.add("/stdlib/core/math.nepl", "pub fn answer %fn unit i32 \\:\n    1\n".into());
+        stored_map.add(
+            "/stdlib/core/math.nepl",
+            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+        );
         let mut current_map = SourceMap::new();
-        current_map.add("/stdlib/core/math.nepl", "pub fn answer %fn unit i32 \\:\n    2\n".into());
+        current_map.add(
+            "/stdlib/core/math.nepl",
+            "pub fn answer %fn unit i32 \\:\n    2\n".into(),
+        );
         let stored_header = nepl_meta_artifact_header_for_public_surface(
             CompileTarget::Wasm,
             BuildProfile::Debug,
@@ -3003,7 +3141,10 @@ mod tests {
     fn neplmeta_pre_typecheck_envelope_requires_source_key() {
         let module_surface = module_surface_without_edges("/stdlib/core/math.nepl");
         let mut wrong_map = SourceMap::new();
-        wrong_map.add("/stdlib/core/other.nepl", "pub fn answer %fn unit i32 \\:\n    1\n".into());
+        wrong_map.add(
+            "/stdlib/core/other.nepl",
+            "pub fn answer %fn unit i32 \\:\n    1\n".into(),
+        );
 
         assert_eq!(
             nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
@@ -3035,7 +3176,10 @@ mod tests {
             "/stdlib/core/math.nepl"
         );
         assert_eq!(export_surface.local_exports[0].origin_name, "answer");
-        assert_eq!(export_surface.local_exports[0].kind, NeplMetaExportKind::Callable);
+        assert_eq!(
+            export_surface.local_exports[0].kind,
+            NeplMetaExportKind::Callable
+        );
         assert_eq!(export_surface.reexport_projections.len(), 1);
         assert_eq!(
             export_surface.reexport_projections[0].target_module_path,
@@ -3056,7 +3200,8 @@ mod tests {
     /// local export として扱い、private capability trait を public API に昇格しない。
     #[test]
     fn neplmeta_export_surface_excludes_semantic_only_trait_entries() {
-        let module_surface = module_surface_without_edges("/stdlib/core/traits/copy/primitive.nepl");
+        let module_surface =
+            module_surface_without_edges("/stdlib/core/traits/copy/primitive.nepl");
         let mut entries = materializable_surface_table("clone_i32", PublicTypeTerm::I32).entries;
         entries.push(semantic_trait_entry("Clone"));
         let public_surface = TypedPublicSurfaceTable::new(entries);
@@ -3102,9 +3247,21 @@ mod tests {
             exported_trait_entry("Show"),
         ]));
         let public_signatures = signature_table_for_kinds(&[
-            (TypedPublicSignatureKind::Struct, "Box", ";fields=;constructor=public"),
-            (TypedPublicSignatureKind::Enum, "Option", ";variants=Some:i32"),
-            (TypedPublicSignatureKind::Trait, "Show", ";capabilities=;methods="),
+            (
+                TypedPublicSignatureKind::Struct,
+                "Box",
+                ";fields=;constructor=public",
+            ),
+            (
+                TypedPublicSignatureKind::Enum,
+                "Option",
+                ";variants=Some:i32",
+            ),
+            (
+                TypedPublicSignatureKind::Trait,
+                "Show",
+                ";capabilities=;methods=",
+            ),
         ]);
         let export_surface =
             NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
@@ -3145,7 +3302,8 @@ mod tests {
     /// materializer が impl header を復元するために必要になる。
     #[test]
     fn neplmeta_projection_keeps_semantic_support_entries_outside_export_set() {
-        let module_surface = module_surface_without_edges("/stdlib/core/traits/copy/primitive.nepl");
+        let module_surface =
+            module_surface_without_edges("/stdlib/core/traits/copy/primitive.nepl");
         let mut public_surface = materializable_surface_table("clone_i32", PublicTypeTerm::I32);
         public_surface.entries.push(semantic_trait_entry("Clone"));
         public_surface = TypedPublicSurfaceTable::new(public_surface.entries);
@@ -3203,8 +3361,16 @@ mod tests {
             exported_enum_entry("Option"),
         ]));
         let public_signatures = signature_table_for_kinds(&[
-            (TypedPublicSignatureKind::Struct, "Box", ";fields=;constructor=public"),
-            (TypedPublicSignatureKind::Enum, "Option", ";variants=Some:i32"),
+            (
+                TypedPublicSignatureKind::Struct,
+                "Box",
+                ";fields=;constructor=public",
+            ),
+            (
+                TypedPublicSignatureKind::Enum,
+                "Option",
+                ";variants=Some:i32",
+            ),
         ]);
         let export_surface =
             NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
@@ -3275,9 +3441,7 @@ mod tests {
 
         assert_eq!(
             artifact.materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Open)),
-            Err(
-                super::NeplMetaMaterializerProjectionReject::UnsupportedReexportProjection
-            )
+            Err(super::NeplMetaMaterializerProjectionReject::UnsupportedReexportProjection)
         );
     }
 
@@ -3298,13 +3462,13 @@ mod tests {
             Err(super::NeplMetaMaterializerProjectionReject::UnsupportedAlias)
         );
         assert_eq!(
-            artifact.materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Selective(
-                Vec::from([NeplMetaImportItem {
+            artifact.materializer_import_public_surface_mvp(Some(
+                &NeplMetaImportClause::Selective(Vec::from([NeplMetaImportItem {
                     name: "answer".into(),
                     alias: None,
                     glob: true,
-                }]),
-            ))),
+                }]),)
+            )),
             Err(super::NeplMetaMaterializerProjectionReject::UnsupportedGlob)
         );
         assert_eq!(
@@ -3487,16 +3651,15 @@ mod tests {
         );
 
         let changed_module_surface = module_surface("/stdlib/core/math.nepl");
-        let module_surface_mismatch =
-            nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
-                CompileTarget::Wasm,
-                BuildProfile::Debug,
-                Some(7),
-                None,
-                Some(&source_map),
-                &changed_module_surface,
-            )
-            .expect("same source with different module surface should produce envelope");
+        let module_surface_mismatch = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(7),
+            None,
+            Some(&source_map),
+            &changed_module_surface,
+        )
+        .expect("same source with different module surface should produce envelope");
         let artifact = artifact_for_materializer(
             stored_module_surface,
             materializable_surface_table("answer", PublicTypeTerm::I32),
@@ -3820,8 +3983,10 @@ mod tests {
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let header_surface = module_surface("/stdlib/core/math.nepl");
         let payload_surface = module_surface("/stdlib/core/other.nepl");
-        let payload_export_surface =
-            NeplMetaExportSurface::from_module_and_public_surface(&payload_surface, &public_surface);
+        let payload_export_surface = NeplMetaExportSurface::from_module_and_public_surface(
+            &payload_surface,
+            &public_surface,
+        );
         let artifact = NeplMetaArtifact::new(
             test_header(
                 &public_signatures,
@@ -4081,10 +4246,12 @@ mod tests {
 
         assert_eq!(
             result,
-            Err(NeplObjDirectCallFragmentReject::RelocationOffsetOutOfRange {
-                byte_offset: 4,
-                body_len: 4,
-            })
+            Err(
+                NeplObjDirectCallFragmentReject::RelocationOffsetOutOfRange {
+                    byte_offset: 4,
+                    body_len: 4,
+                }
+            )
         );
     }
 
@@ -4180,6 +4347,72 @@ mod tests {
         let stats = store.stats();
         assert_eq!(stats.lookup_hits, 1);
         assert_eq!(stats.lookup_fragments_returned, 1);
+    }
+
+    /// lookup surface に直接含まれない callable でも、返却 fragment の relocation target は
+    /// 同じ compile attempt へ渡す必要がある。
+    ///
+    /// surface だけで caller fragment を返すと Wasm linker が missing target で source
+    /// fallback するため、store は payload から direct-call dependency closure を補完する。
+    #[test]
+    fn neplobj_direct_call_fragment_store_returns_relocation_dependency_closure() {
+        let caller_symbol = callable_link_symbol("caller", 42);
+        let callee_symbol = callable_link_symbol("callee", 0x24);
+        let caller = neplobj_direct_call_fragment(
+            neplobj_direct_call_key(
+                caller_symbol,
+                0x20,
+                0x30,
+                super::nepl_obj_empty_generic_instantiation_hash(),
+            ),
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x10, 0x00, 0x0b]),
+            Vec::from([NeplObjWasmDirectCallRelocation {
+                byte_offset: 2,
+                target: callee_symbol.clone(),
+            }]),
+        );
+        let callee = neplobj_direct_call_fragment(
+            neplobj_direct_call_key(
+                callee_symbol,
+                0x21,
+                0x31,
+                super::nepl_obj_empty_generic_instantiation_hash(),
+            ),
+            Vec::from([NeplObjWasmValType::I32]),
+            Vec::from([0x00, 0x41, 0x07, 0x0b]),
+            Vec::new(),
+        );
+        let surface = materializable_surface_table("caller", PublicTypeTerm::I32);
+        let mut store = NeplObjDirectCallFragmentStore::new();
+        store.store(caller.clone()).unwrap();
+        store.store(callee.clone()).unwrap();
+
+        let found = store.matching_direct_call_fragments_for_probes(
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(0x5a),
+            &[NeplObjDirectCallFragmentLookupProbe {
+                module_path: "/stdlib/core/math.nepl",
+                target_source_key_hash: 0x20,
+                source_capability_policy_hash: Some(0x80),
+                dependency_public_surface_hash: 0x70,
+                surface: &surface,
+            }],
+        );
+
+        assert_eq!(found.len(), 2);
+        assert!(
+            found.iter().any(|fragment| fragment == &caller),
+            "surface lookup should still include the directly requested caller"
+        );
+        assert!(
+            found.iter().any(|fragment| fragment == &callee),
+            "closure lookup should add the caller's relocation target"
+        );
+        let stats = store.stats();
+        assert_eq!(stats.lookup_hits, 1);
+        assert_eq!(stats.lookup_fragments_returned, 2);
     }
 
     /// body-missing negative cache は、同じ edge context の object fragment が存在する場合には

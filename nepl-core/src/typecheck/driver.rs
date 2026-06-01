@@ -38,7 +38,7 @@ use super::public_signature::{
 };
 use super::public_surface::{
     build_typed_public_surface_table, build_typed_public_surface_table_excluding_files,
-    TypedPublicSurfaceTable,
+    PublicSurfaceShape, TypedPublicSurfaceTable,
 };
 use super::signature::{
     contains_same_type, function_signature_string, mangle_function_symbol,
@@ -169,6 +169,100 @@ fn materialized_public_surface_origin_matches(
         .and_then(|source_map| source_map.path(surface.file_id))
         .map(|path| path.as_str() == surface.module_path.as_str())
         .unwrap_or(false)
+}
+
+/// `.neplmeta` 由来の semantic surface が同じ file の top-level 定義を置き換える境界。
+///
+/// loader の materialized body skip は dependency body を root module へ入れない設計だが、
+/// include/import の共有経路では同じ source item が一時的に AST に残る場合がある。型検査は
+/// artifact と source body を同時に authority として登録せず、artifact 側へ一本化する。
+fn materialized_public_surface_definition_file(
+    item: &Stmt,
+    materialized_public_surface_files: &BTreeSet<u32>,
+) -> bool {
+    top_level_definition_span(item)
+        .map(|span| materialized_public_surface_files.contains(&span.file_id.0))
+        .unwrap_or(false)
+}
+
+/// `.neplmeta` 内の source path と現在 session の `SourceMap` path を照合する。
+///
+/// artifact は別 platform/session で作られるため、path separator や先頭 `/` の有無は
+/// authority ではない。module graph 上の論理 path が同じなら、source body と
+/// materialized entry は同じ定義面を指す。
+fn source_paths_match_for_materialized_public_surface(left: &str, right: &str) -> bool {
+    let left = left.replace('\\', "/");
+    let right = right.replace('\\', "/");
+    left == right || left.trim_start_matches('/') == right.trim_start_matches('/')
+}
+
+/// materialized table に含まれる entry の実体 source path を集める。
+///
+/// projection target file と entry の実体 file は一致しないことがある。たとえば facade や
+/// re-export の `.neplmeta` は、別 file の callable/nominal/trait surface を現在の
+/// import edge に投影する。その場合、source body skip は table 単位 file_id ではなく
+/// entry の stable source identity から決める必要がある。
+fn materialized_public_surface_definition_source_paths(
+    table: &TypedPublicSurfaceTable,
+) -> BTreeSet<String> {
+    let mut paths = BTreeSet::new();
+    for entry in &table.entries {
+        match &entry.surface {
+            PublicSurfaceShape::Callable(surface) => {
+                if let Some(symbol) = &surface.link_symbol {
+                    paths.insert(symbol.source_path.clone());
+                }
+            }
+            PublicSurfaceShape::Struct(surface) => {
+                if let Some(identity) = &surface.identity {
+                    paths.insert(identity.source_path.clone());
+                }
+            }
+            PublicSurfaceShape::Enum(surface) => {
+                if let Some(identity) = &surface.identity {
+                    paths.insert(identity.source_path.clone());
+                }
+            }
+            PublicSurfaceShape::Trait(surface) => {
+                if let Some(identity) = &surface.identity {
+                    paths.insert(identity.source_path.clone());
+                }
+            }
+            PublicSurfaceShape::Impl(surface) => {
+                if !surface.source_path.is_empty() {
+                    paths.insert(surface.source_path.clone());
+                }
+            }
+        }
+    }
+    paths
+}
+
+/// materialized surface が置き換える source definition file を skip set へ追加する。
+///
+/// `surface.file_id` は import edge の target file を表す。加えて、entry ごとの source
+/// identity を `SourceMap` に投影し、既に root AST へ混入している dependency source body
+/// を後続の declaration/callable/body collection から除外する。
+fn add_materialized_public_surface_definition_files(
+    materialized_public_surface_files: &mut BTreeSet<u32>,
+    source_map: Option<&SourceMap>,
+    surface: &MaterializedPublicSurfaceInput,
+) {
+    materialized_public_surface_files.insert(surface.file_id.0);
+    let Some(source_map) = source_map else {
+        return;
+    };
+    let entry_source_paths = materialized_public_surface_definition_source_paths(&surface.table);
+    if entry_source_paths.is_empty() {
+        return;
+    }
+    for (file_id, path) in source_map.iter_paths() {
+        if entry_source_paths.iter().any(|entry_path| {
+            source_paths_match_for_materialized_public_surface(path.as_str(), entry_path.as_str())
+        }) {
+            materialized_public_surface_files.insert(file_id.0);
+        }
+    }
 }
 
 pub fn typecheck_with_materialized_public_surfaces(
@@ -335,7 +429,11 @@ pub fn typecheck_with_materialized_public_surfaces(
             origin_span,
         ) {
             Ok(_) => {
-                materialized_public_surface_files.insert(surface.file_id.0);
+                add_materialized_public_surface_definition_files(
+                    &mut materialized_public_surface_files,
+                    source_map,
+                    surface,
+                );
             }
             Err(reject) => {
                 diagnostics.push(type_error(
@@ -367,6 +465,9 @@ pub fn typecheck_with_materialized_public_surfaces(
         let allowed = pending_if.unwrap_or(true);
         pending_if = None;
         if !allowed {
+            continue;
+        }
+        if materialized_public_surface_definition_file(item, &materialized_public_surface_files) {
             continue;
         }
         if let Some(span) = top_level_definition_span(item) {
@@ -757,6 +858,9 @@ pub fn typecheck_with_materialized_public_surfaces(
         if !allowed {
             continue;
         }
+        if materialized_public_surface_definition_file(item, &materialized_public_surface_files) {
+            continue;
+        }
         if let Some(span) = top_level_definition_span(item) {
             if !seen_impl_collection_spans.insert(span_key(span)) {
                 continue;
@@ -983,6 +1087,9 @@ pub fn typecheck_with_materialized_public_surfaces(
         let allowed = pending_if.unwrap_or(true);
         pending_if = None;
         if !allowed {
+            continue;
+        }
+        if materialized_public_surface_definition_file(item, &materialized_public_surface_files) {
             continue;
         }
         if let Some(span) = top_level_definition_span(item) {
@@ -1400,6 +1507,9 @@ pub fn typecheck_with_materialized_public_surfaces(
         if !allowed {
             continue;
         }
+        if materialized_public_surface_definition_file(item, &materialized_public_surface_files) {
+            continue;
+        }
         if let Some(span) = top_level_definition_span(item) {
             if !seen_function_body_spans.insert(span_key(span)) {
                 continue;
@@ -1571,6 +1681,9 @@ pub fn typecheck_with_materialized_public_surfaces(
         let allowed = pending_if.unwrap_or(true);
         pending_if = None;
         if !allowed {
+            continue;
+        }
+        if materialized_public_surface_definition_file(item, &materialized_public_surface_files) {
             continue;
         }
         if let Some(span) = top_level_definition_span(item) {
@@ -2045,7 +2158,8 @@ mod tests {
             dep_checked.diagnostics
         );
 
-        let root_source = "#no_prelude\n#import \"dep\" as *\nfn main %fn unit Pair \\unit:\n    Pair 1 2\n";
+        let root_source =
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit Pair \\unit:\n    Pair 1 2\n";
         let mut root_source_map = SourceMap::new();
         let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
         let materialized_dep_file =
@@ -2071,6 +2185,183 @@ mod tests {
         assert!(
             checked.module.is_some(),
             "materialized struct constructor should typecheck"
+        );
+    }
+
+    /// materialized dependency file の source 定義が AST に残っていても、同じ file の
+    /// public surface を二重登録してはならない。
+    ///
+    /// loader は artifact projection 成功時に dependency body merge を省くが、recursive
+    /// import/include の共有経路では、同じ file の top-level 定義が後段へ残る場合がある。
+    /// 型検査器は `file_id` を authority として、materialized surface と source body の
+    /// 二重登録を防ぐ。
+    #[test]
+    fn materialized_public_surface_skips_same_file_source_definitions_left_in_ast() {
+        let dep_source = "pub struct Pair:\n    left %i32\n    right %i32\n";
+        let root_source =
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit Pair \\unit:\n    Pair 1 2\n";
+        let mut source_map = SourceMap::new();
+        let dep_file = source_map.add("project/dep.nepl", String::from(dep_source));
+        let root_file = source_map.add("project/root.nepl", String::from(root_source));
+        let dep_module = parse_source(dep_file, dep_source);
+        let dep_checked = typecheck(
+            &dep_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&source_map),
+        );
+        assert!(
+            dep_checked.diagnostics.is_empty(),
+            "dependency diagnostics: {:?}",
+            dep_checked.diagnostics
+        );
+        let mut root_module = parse_source(root_file, root_source);
+        let mut merged_items = dep_module.root.items.clone();
+        merged_items.extend(root_module.root.items.clone());
+        root_module.root.items = merged_items;
+
+        let checked = typecheck_with_materialized_public_surfaces(
+            &root_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&source_map),
+            &[MaterializedPublicSurfaceInput {
+                table: dep_checked.public_surface,
+                module_path: String::from("project/dep.nepl"),
+                file_id: dep_file,
+            }],
+        );
+
+        assert!(
+            checked.diagnostics.is_empty(),
+            "root diagnostics: {:?}",
+            checked.diagnostics
+        );
+        assert!(
+            checked.module.is_some(),
+            "materialized surface should replace same-file source definitions"
+        );
+    }
+
+    /// facade / re-export projection は、artifact の target file と entry の実体 source file が
+    /// 異なる場合がある。
+    ///
+    /// 型検査器は `surface.file_id` だけではなく、entry の stable source path も見て
+    /// source body を除外する。これにより、materialized callable と同じ public 関数が
+    /// dependency AST に残っていても二重登録しない。
+    #[test]
+    fn materialized_public_surface_skips_source_definitions_from_entry_source_path() {
+        let dep_source = "pub fn dep_value %fn i32 i32 \\x:\n    x\n";
+        let root_source =
+            "#no_prelude\n#import \"facade\" as *\nfn main %fn unit i32 \\unit:\n    dep_value 9\n";
+        let mut source_map = SourceMap::new();
+        let dep_file = source_map.add("project/dep.nepl", String::from(dep_source));
+        let facade_file = source_map.add("project/facade.nepl", String::new());
+        let root_file = source_map.add("project/root.nepl", String::from(root_source));
+        let dep_module = parse_source(dep_file, dep_source);
+        let dep_checked = typecheck(
+            &dep_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&source_map),
+        );
+        assert!(
+            dep_checked.diagnostics.is_empty(),
+            "dependency diagnostics: {:?}",
+            dep_checked.diagnostics
+        );
+        let mut root_module = parse_source(root_file, root_source);
+        let mut merged_items = dep_module.root.items.clone();
+        merged_items.extend(root_module.root.items.clone());
+        root_module.root.items = merged_items;
+
+        let checked = typecheck_with_materialized_public_surfaces(
+            &root_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&source_map),
+            &[MaterializedPublicSurfaceInput {
+                table: dep_checked.public_surface,
+                module_path: String::from("project/facade.nepl"),
+                file_id: facade_file,
+            }],
+        );
+
+        assert!(
+            checked.diagnostics.is_empty(),
+            "root diagnostics: {:?}",
+            checked.diagnostics
+        );
+        assert!(
+            checked.module.is_some(),
+            "materialized entry source path should replace leftover source definitions"
+        );
+    }
+
+    /// impl surface も callable/nominal/trait と同じ source identity を持つ。
+    ///
+    /// source path が欠けていると、facade projection で materialized impl が登録された後に
+    /// dependency AST に残った同じ impl を再登録し、duplicate impl として fallback する。
+    #[test]
+    fn materialized_public_surface_skips_impls_from_entry_source_path() {
+        let dep_source = concat!(
+            "#indent 4\n",
+            "\n",
+            "pub struct Item:\n",
+            "    value %i32\n",
+            "\n",
+            "trait Clone:\n",
+            "    #capability clone\n",
+            "    fn clone %fn &Self Self \\x:\n",
+            "        *x\n",
+            "\n",
+            "impl Clone for Item:\n",
+            "    fn clone %fn &Item Item \\x:\n",
+            "        *x\n",
+        );
+        let root_source =
+            "#no_prelude\n#import \"facade\" as *\nfn main %fn unit Item \\unit:\n    Item 1\n";
+        let mut source_map = SourceMap::new();
+        let dep_file = source_map.add("project/dep.nepl", String::from(dep_source));
+        let facade_file = source_map.add("project/facade.nepl", String::new());
+        let root_file = source_map.add("project/root.nepl", String::from(root_source));
+        let dep_module = parse_source(dep_file, dep_source);
+        let dep_checked = typecheck(
+            &dep_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&source_map),
+        );
+        assert!(
+            dep_checked.diagnostics.is_empty(),
+            "dependency diagnostics: {:?}",
+            dep_checked.diagnostics
+        );
+        let mut root_module = parse_source(root_file, root_source);
+        let mut merged_items = dep_module.root.items.clone();
+        merged_items.extend(root_module.root.items.clone());
+        root_module.root.items = merged_items;
+
+        let checked = typecheck_with_materialized_public_surfaces(
+            &root_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&source_map),
+            &[MaterializedPublicSurfaceInput {
+                table: dep_checked.public_surface,
+                module_path: String::from("project/facade.nepl"),
+                file_id: facade_file,
+            }],
+        );
+
+        assert!(
+            checked.diagnostics.is_empty(),
+            "root diagnostics: {:?}",
+            checked.diagnostics
+        );
+        assert!(
+            checked.module.is_some(),
+            "materialized impl source path should replace leftover source impls"
         );
     }
 }

@@ -98,6 +98,40 @@ function neplMetaPreTypecheckEdgeProbeStats(session) {
     };
 }
 
+function neplObjDirectCallFragmentStoreStats(session) {
+    const s = stats(session);
+    const keys = [
+        'nepl_obj_direct_call_fragment_store_entries',
+        'nepl_obj_direct_call_fragment_store_stores',
+        'nepl_obj_direct_call_fragment_store_duplicate_stores',
+        'nepl_obj_direct_call_fragment_store_rejects',
+        'nepl_obj_direct_call_fragment_store_lookup_attempts',
+        'nepl_obj_direct_call_fragment_store_lookup_hits',
+        'nepl_obj_direct_call_fragment_store_lookup_misses',
+        'nepl_obj_direct_call_fragment_store_lookup_missing_source_policy',
+        'nepl_obj_direct_call_fragment_store_lookup_context_rejects',
+        'nepl_obj_direct_call_fragment_store_lookup_fragments_returned',
+    ];
+    for (const key of keys) {
+        assert.ok(
+            Object.prototype.hasOwnProperty.call(s, key),
+            `.neplobj direct-call fragment store stats must expose ${key}`,
+        );
+    }
+    return {
+        entries: Number(s.nepl_obj_direct_call_fragment_store_entries || 0),
+        stores: Number(s.nepl_obj_direct_call_fragment_store_stores || 0),
+        duplicateStores: Number(s.nepl_obj_direct_call_fragment_store_duplicate_stores || 0),
+        rejects: Number(s.nepl_obj_direct_call_fragment_store_rejects || 0),
+        lookupAttempts: Number(s.nepl_obj_direct_call_fragment_store_lookup_attempts || 0),
+        lookupHits: Number(s.nepl_obj_direct_call_fragment_store_lookup_hits || 0),
+        lookupMisses: Number(s.nepl_obj_direct_call_fragment_store_lookup_misses || 0),
+        lookupMissingSourcePolicy: Number(s.nepl_obj_direct_call_fragment_store_lookup_missing_source_policy || 0),
+        lookupContextRejects: Number(s.nepl_obj_direct_call_fragment_store_lookup_context_rejects || 0),
+        lookupFragmentsReturned: Number(s.nepl_obj_direct_call_fragment_store_lookup_fragments_returned || 0),
+    };
+}
+
 function neplMetaMaterializedCompileStats(session) {
     const s = stats(session);
     const keys = [
@@ -570,6 +604,149 @@ fn main %fn unit i32 \\unit:
             );
         }
 
+        const neplObjStoreSession = newSession(api);
+        function charDependencyBodySource(value) {
+            return `#entry main
+#import "core/char" as *
+fn main %fn unit i32 \\unit:
+    char_utf8_cont_byte ${Number(value) | 0}
+`;
+        }
+        neplObjStoreSession.compile_outputs_with_vfs(
+            '/virtual/neplobj_char_dependency.nepl',
+            charDependencyBodySource(1),
+            {},
+            ['wasm'],
+            false,
+        );
+        assert.deepEqual(
+            neplObjDirectCallFragmentStoreStats(neplObjStoreSession),
+            {
+                entries: 0,
+                stores: 0,
+                duplicateStores: 0,
+                rejects: 0,
+                lookupAttempts: 0,
+                lookupHits: 0,
+                lookupMisses: 0,
+                lookupMissingSourcePolicy: 0,
+                lookupContextRejects: 0,
+                lookupFragmentsReturned: 0,
+            },
+            'initial compile must expose an empty .neplobj direct-call fragment store',
+        );
+        neplObjStoreSession.compile_outputs_with_vfs(
+            '/virtual/neplobj_char_dependency.nepl',
+            charDependencyBodySource(2),
+            {},
+            ['wasm'],
+            false,
+        );
+        assert.equal(
+            neplObjDirectCallFragmentStoreStats(neplObjStoreSession).stores,
+            0,
+            'dependency artifacts must be projected before a source fallback can export .neplobj fragments',
+        );
+        neplObjStoreSession.compile_outputs_with_vfs(
+            '/virtual/neplobj_char_dependency.nepl',
+            charDependencyBodySource(3),
+            {},
+            ['wasm'],
+            false,
+        );
+        const neplObjCandidateMaterialized = neplMetaMaterializedCompileStats(neplObjStoreSession);
+        const neplObjCandidateStore = neplObjDirectCallFragmentStoreStats(neplObjStoreSession);
+        assert.ok(
+            neplObjCandidateMaterialized.bodyMissingFallbacks > 0,
+            'body-missing materialized fallback must occur before the first .neplobj fragment can be stored',
+        );
+        assert.ok(
+            neplObjCandidateMaterialized.bodyMissingSkipStores > 0,
+            'body-missing fallback must still store negative skip entries for edges without object fragments',
+        );
+        assert.ok(
+            neplObjCandidateStore.stores > 0,
+            'source fallback must export at least one direct-call .neplobj fragment into the same-session store',
+        );
+        assert.equal(
+            neplObjCandidateStore.lookupHits,
+            0,
+            'the compile that creates the first direct-call fragment must not count it as an earlier lookup hit',
+        );
+        neplObjStoreSession.compile_outputs_with_vfs(
+            '/virtual/neplobj_char_dependency.nepl',
+            charDependencyBodySource(4),
+            {},
+            ['wasm'],
+            false,
+        );
+        const neplObjHitMaterialized = neplMetaMaterializedCompileStats(neplObjStoreSession);
+        const neplObjHitStore = neplObjDirectCallFragmentStoreStats(neplObjStoreSession);
+        assert.ok(
+            neplObjHitStore.lookupHits > neplObjCandidateStore.lookupHits,
+            'later body edit must look up and hit the same-session direct-call .neplobj fragment store',
+        );
+        assert.ok(
+            neplObjHitStore.lookupFragmentsReturned > neplObjCandidateStore.lookupFragmentsReturned,
+            'direct-call .neplobj store hit must return a fragment to PublicInterfaceArtifactInputs',
+        );
+        assert.equal(
+            neplObjHitMaterialized.bodyMissingFallbacks,
+            neplObjCandidateMaterialized.bodyMissingFallbacks,
+            'object fragment availability must prevent another materialized function-body-missing fallback',
+        );
+        assert.equal(
+            neplObjHitMaterialized.lastBodyMissingCandidateSurfaces,
+            0,
+            'the last materialized fallback after object lookup must not be counted as a body-missing .neplobj candidate',
+        );
+        assert.ok(
+            neplObjHitMaterialized.attempts > neplObjCandidateMaterialized.attempts,
+            'object candidate availability must keep the materialized compile probe open instead of hiding it behind the body-missing skip cache',
+        );
+
+        const preseedSession = newSession(api);
+        assert.equal(
+            typeof preseedSession.preseed_nepl_meta_artifacts_for_source,
+            'function',
+            'CompilerSession must expose an explicit .neplmeta preseed API separate from loader prewarm',
+        );
+        const preseedSource = charDependencyBodySource(9);
+        assert.equal(
+            neplMetaStoreStats(preseedSession).entries,
+            0,
+            'a fresh CompilerSession must start without implicit .neplmeta dependency artifacts',
+        );
+        const preseededArtifacts = preseedSession.preseed_nepl_meta_artifacts_for_source(
+            '/virtual/neplmeta_preseed_char_dependency.nepl',
+            preseedSource,
+        );
+        assert.ok(
+            preseededArtifacts > 0,
+            'explicit preseed must compile reachable bundled stdlib dependency interfaces into the .neplmeta store',
+        );
+        assert.ok(
+            neplMetaStoreStats(preseedSession).entries >= preseededArtifacts,
+            'explicit preseed must store real .neplmeta artifacts before the first compile',
+        );
+        const preseedBeforeCompile = neplMetaPreTypecheckEdgeProbeStats(preseedSession);
+        preseedSession.compile_outputs_with_vfs(
+            '/virtual/neplmeta_preseed_char_dependency.nepl',
+            preseedSource,
+            {},
+            ['wasm'],
+            false,
+        );
+        const preseedAfterCompile = neplMetaPreTypecheckEdgeProbeStats(preseedSession);
+        assert.ok(
+            preseedAfterCompile.attempts > preseedBeforeCompile.attempts,
+            'a preseeded first compile must probe stored .neplmeta artifacts instead of reporting them as absent',
+        );
+        assert.ok(
+            preseedAfterCompile.projected > preseedBeforeCompile.projected,
+            'a preseeded first compile must project at least one bundled stdlib public surface',
+        );
+
         const stdlibOverlaySession = newSession(api);
         const stdlibOverlaySource = `#entry main
 #import "std/prelude_base" as *
@@ -671,6 +848,6 @@ fn main %fn unit i32 \\unit:
             '#include must not be treated as a dependency artifact edge',
         );
 
-        return { checked: 13 };
+        return { checked: 15 };
     },
 };

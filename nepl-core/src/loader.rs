@@ -178,7 +178,8 @@ impl LoaderSessionCache {
         self.arity_surfaces.clear();
         self.dependency_aggregate_public_surfaces.clear();
         self.dependency_aggregate_public_surfaces_by_source.clear();
-        self.dependency_aggregate_public_surfaces_by_closed_source.clear();
+        self.dependency_aggregate_public_surfaces_by_closed_source
+            .clear();
         self.stats = LoaderSessionCacheStats::default();
     }
 
@@ -1763,24 +1764,23 @@ impl Loader {
 
         let src = provider(canon)?;
         let source_hash = fnv1a64(src.as_bytes());
-        let closed_source_key =
-            if session_cache.content_addressed_stdlib_namespace {
-                let key = session_cache.dependency_aggregate_public_surface_closed_source_key_for(
-                    &self.stdlib_root,
-                    canon,
-                    source_hash,
-                );
-                if let Some(hash) =
-                    session_cache.get_dependency_aggregate_public_surface_by_closed_source(&key)
-                {
-                    visiting.remove(canon);
-                    computed.insert(canon.clone(), hash);
-                    return Ok(hash);
-                }
-                Some(key)
-            } else {
-                None
-            };
+        let closed_source_key = if session_cache.content_addressed_stdlib_namespace {
+            let key = session_cache.dependency_aggregate_public_surface_closed_source_key_for(
+                &self.stdlib_root,
+                canon,
+                source_hash,
+            );
+            if let Some(hash) =
+                session_cache.get_dependency_aggregate_public_surface_by_closed_source(&key)
+            {
+                visiting.remove(canon);
+                computed.insert(canon.clone(), hash);
+                return Ok(hash);
+            }
+            Some(key)
+        } else {
+            None
+        };
         let mut sm = SourceMap::new();
         let file_id = sm.add_with_capabilities(
             path_to_source_label(canon),
@@ -1807,9 +1807,9 @@ impl Loader {
             source_hash,
             child_hash,
         );
-        if let Some(hash) = session_cache.get_dependency_aggregate_public_surface_by_source(
-            &source_key,
-        ) {
+        if let Some(hash) =
+            session_cache.get_dependency_aggregate_public_surface_by_source(&source_key)
+        {
             visiting.remove(canon);
             computed.insert(canon.clone(), hash);
             return Ok(hash);
@@ -1857,11 +1857,10 @@ impl Loader {
         if let Some(hash) = session_cache.get_dependency_aggregate_public_surface(&key) {
             session_cache.store_dependency_aggregate_public_surface_source(source_key, hash);
             if let Some(closed_source_key) = closed_source_key {
-                session_cache
-                    .store_dependency_aggregate_public_surface_closed_source(
-                        closed_source_key,
-                        hash,
-                    );
+                session_cache.store_dependency_aggregate_public_surface_closed_source(
+                    closed_source_key,
+                    hash,
+                );
             }
             visiting.remove(canon);
             computed.insert(canon.clone(), hash);
@@ -1876,14 +1875,12 @@ impl Loader {
         hash_u64(&mut aggregate_hash, child_hash);
         hash_dependency_aggregate_public_surface_entries(&mut aggregate_hash, &dependencies);
         session_cache.store_dependency_aggregate_public_surface(key, aggregate_hash);
-        session_cache
-            .store_dependency_aggregate_public_surface_source(source_key, aggregate_hash);
+        session_cache.store_dependency_aggregate_public_surface_source(source_key, aggregate_hash);
         if let Some(closed_source_key) = closed_source_key {
-            session_cache
-                .store_dependency_aggregate_public_surface_closed_source(
-                    closed_source_key,
-                    aggregate_hash,
-                );
+            session_cache.store_dependency_aggregate_public_surface_closed_source(
+                closed_source_key,
+                aggregate_hash,
+            );
         }
         visiting.remove(canon);
         computed.insert(canon.clone(), aggregate_hash);
@@ -2178,6 +2175,19 @@ impl Loader {
         for path in prelude_paths {
             let target = self.resolve_path(&base, &path);
             if import_not_seen(imported_once, &target) {
+                let mut staged_nepl_meta_edge_probes = Vec::new();
+                let mut staged_materialized_public_surfaces = Vec::new();
+                let staged_nepl_meta_edge_probes_out = if nepl_meta_edge_probes.is_some() {
+                    Some(&mut staged_nepl_meta_edge_probes)
+                } else {
+                    None
+                };
+                let staged_materialized_public_surfaces_out =
+                    if materialized_public_surfaces.is_some() {
+                        Some(&mut staged_materialized_public_surfaces)
+                    } else {
+                        None
+                    };
                 let imp_mod = self.load_file_with(
                     &target,
                     sm,
@@ -2188,9 +2198,9 @@ impl Loader {
                     false,
                     provider,
                     session_cache.as_deref_mut(),
-                    nepl_meta_edge_probes.as_deref_mut(),
+                    staged_nepl_meta_edge_probes_out,
                     edge_materializer.as_deref_mut(),
-                    materialized_public_surfaces.as_deref_mut(),
+                    staged_materialized_public_surfaces_out,
                 )?;
                 let probe = self.push_nepl_meta_dependency_edge_probe_with(
                     &target,
@@ -2198,14 +2208,38 @@ impl Loader {
                     sm,
                     provider,
                     session_cache.as_deref_mut(),
-                    nepl_meta_edge_probes.as_deref_mut(),
+                    None,
                 );
+                let mut materialized_surface = Vec::new();
+                let mut materialized_surface_out = if materialized_public_surfaces.is_some() {
+                    Some(&mut materialized_surface)
+                } else {
+                    None
+                };
                 if try_materialize_nepl_meta_dependency_edge(
                     probe.as_ref(),
                     &mut edge_materializer,
-                    &mut materialized_public_surfaces,
+                    &mut materialized_surface_out,
                 ) {
+                    if let Some(probe) = probe {
+                        push_loader_artifact(&mut nepl_meta_edge_probes, probe);
+                    }
+                    commit_staged_loader_artifacts(
+                        &mut materialized_public_surfaces,
+                        materialized_surface,
+                    );
                     continue;
+                }
+                commit_staged_loader_artifacts(
+                    &mut nepl_meta_edge_probes,
+                    staged_nepl_meta_edge_probes,
+                );
+                commit_staged_loader_artifacts(
+                    &mut materialized_public_surfaces,
+                    staged_materialized_public_surfaces,
+                );
+                if let Some(probe) = probe {
+                    push_loader_artifact(&mut nepl_meta_edge_probes, probe);
                 }
                 for d in imp_mod.directives.clone() {
                     if let Directive::Entry { .. } = d {
@@ -2238,6 +2272,19 @@ impl Loader {
                 Stmt::Directive(Directive::Import { path, .. }) => {
                     let target = self.resolve_path(&base, path);
                     if import_not_seen(imported_once, &target) {
+                        let mut staged_nepl_meta_edge_probes = Vec::new();
+                        let mut staged_materialized_public_surfaces = Vec::new();
+                        let staged_nepl_meta_edge_probes_out = if nepl_meta_edge_probes.is_some() {
+                            Some(&mut staged_nepl_meta_edge_probes)
+                        } else {
+                            None
+                        };
+                        let staged_materialized_public_surfaces_out =
+                            if materialized_public_surfaces.is_some() {
+                                Some(&mut staged_materialized_public_surfaces)
+                            } else {
+                                None
+                            };
                         let imp_mod = self.load_file_with(
                             &target,
                             sm,
@@ -2248,9 +2295,9 @@ impl Loader {
                             false,
                             provider,
                             session_cache.as_deref_mut(),
-                            nepl_meta_edge_probes.as_deref_mut(),
+                            staged_nepl_meta_edge_probes_out,
                             edge_materializer.as_deref_mut(),
-                            materialized_public_surfaces.as_deref_mut(),
+                            staged_materialized_public_surfaces_out,
                         )?;
                         let import_clause = match &stmt {
                             Stmt::Directive(Directive::Import { clause, .. }) => Some(clause),
@@ -2262,14 +2309,39 @@ impl Loader {
                             sm,
                             provider,
                             session_cache.as_deref_mut(),
-                            nepl_meta_edge_probes.as_deref_mut(),
+                            None,
                         );
+                        let mut materialized_surface = Vec::new();
+                        let mut materialized_surface_out = if materialized_public_surfaces.is_some()
+                        {
+                            Some(&mut materialized_surface)
+                        } else {
+                            None
+                        };
                         if try_materialize_nepl_meta_dependency_edge(
                             probe.as_ref(),
                             &mut edge_materializer,
-                            &mut materialized_public_surfaces,
+                            &mut materialized_surface_out,
                         ) {
+                            if let Some(probe) = probe {
+                                push_loader_artifact(&mut nepl_meta_edge_probes, probe);
+                            }
+                            commit_staged_loader_artifacts(
+                                &mut materialized_public_surfaces,
+                                materialized_surface,
+                            );
                             continue;
+                        }
+                        commit_staged_loader_artifacts(
+                            &mut nepl_meta_edge_probes,
+                            staged_nepl_meta_edge_probes,
+                        );
+                        commit_staged_loader_artifacts(
+                            &mut materialized_public_surfaces,
+                            staged_materialized_public_surfaces,
+                        );
+                        if let Some(probe) = probe {
+                            push_loader_artifact(&mut nepl_meta_edge_probes, probe);
                         }
                         for d in imp_mod.directives.clone() {
                             if let Directive::Entry { .. } = d {
@@ -2666,6 +2738,18 @@ fn try_materialize_nepl_meta_dependency_edge(
         file_id: probe.target_file_id,
     });
     true
+}
+
+fn commit_staged_loader_artifacts<T>(target: &mut Option<&mut Vec<T>>, staged: Vec<T>) {
+    if let Some(target) = target.as_deref_mut() {
+        target.extend(staged);
+    }
+}
+
+fn push_loader_artifact<T>(target: &mut Option<&mut Vec<T>>, value: T) {
+    if let Some(target) = target.as_deref_mut() {
+        target.push(value);
+    }
 }
 
 fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> bool {
@@ -3692,6 +3776,161 @@ mod tests {
                 .iter()
                 .any(|stmt| { matches!(stmt, Stmt::FnDef(def) if def.name.name == "foo") }),
             "materialized dependency body must not be merged into the root AST"
+        );
+    }
+
+    #[test]
+    fn neplmeta_parent_materialized_edge_discards_staged_child_surfaces() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
+        let bar_path = canonicalize_path(&stdlib_path(&stdlib_root, &["bar.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    1\n",
+        );
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            foo_path.clone(),
+            String::from("#import \"bar\" as *\npub fn foo %fn unit i32 \\unit:\n    bar unit\n"),
+        );
+        sources.insert(
+            bar_path.clone(),
+            String::from("pub fn bar %fn unit i32 \\unit:\n    1\n"),
+        );
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+        let mut loader = Loader::new(stdlib_root);
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+        let mut projected_edges = Vec::new();
+        let mut edge_materializer = |probe: &NeplMetaDependencyEdgePreTypecheckProbe| {
+            projected_edges.push(probe.target_module_path.clone());
+            Some(crate::typecheck::TypedPublicSurfaceTable::default())
+        };
+
+        let loaded = loader
+            .load_inline_with_provider_and_cache_materializing_nepl_meta_edge_probes(
+                entry_path,
+                entry_source,
+                &mut provider,
+                &mut session_cache,
+                &mut edge_materializer,
+            )
+            .expect("provider-backed load should accept materialized parent edge");
+
+        assert!(
+            projected_edges
+                .iter()
+                .any(|path| path.ends_with("bar.nepl")),
+            "child edge should be explored before the parent projection is decided"
+        );
+        assert!(
+            projected_edges
+                .iter()
+                .any(|path| path.ends_with("foo.nepl")),
+            "parent edge should also be projected"
+        );
+        assert_eq!(
+            loaded.materialized_public_surfaces.len(),
+            1,
+            "parent projection should discard child surfaces staged inside the skipped body"
+        );
+        assert_eq!(
+            loaded.nepl_meta_edge_probes.len(),
+            1,
+            "only the actually skipped parent edge should be committed for root artifact work"
+        );
+        assert!(
+            loaded
+                .materialized_public_surfaces
+                .iter()
+                .all(|surface| surface.module_path.ends_with("foo.nepl")),
+            "root compile should see the parent surface, not the parent's private child surface"
+        );
+        assert!(
+            !loaded.module.root.items.iter().any(|stmt| {
+                matches!(stmt, Stmt::FnDef(def) if def.name.name == "foo" || def.name.name == "bar")
+            }),
+            "source body of the materialized parent edge must not be merged"
+        );
+    }
+
+    #[test]
+    fn neplmeta_parent_source_fallback_commits_staged_child_surfaces() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
+        let bar_path = canonicalize_path(&stdlib_path(&stdlib_root, &["bar.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    foo unit\n",
+        );
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            foo_path.clone(),
+            String::from("#import \"bar\" as *\npub fn foo %fn unit i32 \\unit:\n    bar unit\n"),
+        );
+        sources.insert(
+            bar_path.clone(),
+            String::from("pub fn bar %fn unit i32 \\unit:\n    1\n"),
+        );
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+        let mut loader = Loader::new(stdlib_root);
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+        let mut edge_materializer = |probe: &NeplMetaDependencyEdgePreTypecheckProbe| {
+            if probe.target_module_path.ends_with("bar.nepl") {
+                Some(crate::typecheck::TypedPublicSurfaceTable::default())
+            } else {
+                None
+            }
+        };
+
+        let loaded = loader
+            .load_inline_with_provider_and_cache_materializing_nepl_meta_edge_probes(
+                entry_path,
+                entry_source,
+                &mut provider,
+                &mut session_cache,
+                &mut edge_materializer,
+            )
+            .expect("provider-backed load should accept source fallback parent edge");
+
+        assert_eq!(
+            loaded.materialized_public_surfaces.len(),
+            1,
+            "parent source fallback should commit the child surface used by the source body"
+        );
+        assert!(
+            loaded
+                .materialized_public_surfaces
+                .iter()
+                .all(|surface| surface.module_path.ends_with("bar.nepl")),
+            "only the materialized child edge should be committed"
+        );
+        assert!(
+            loaded
+                .module
+                .root
+                .items
+                .iter()
+                .any(|stmt| matches!(stmt, Stmt::FnDef(def) if def.name.name == "foo")),
+            "source fallback parent body should still be merged"
+        );
+        assert!(
+            !loaded
+                .module
+                .root
+                .items
+                .iter()
+                .any(|stmt| matches!(stmt, Stmt::FnDef(def) if def.name.name == "bar")),
+            "materialized child body should stay skipped"
         );
     }
 

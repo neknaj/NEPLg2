@@ -1087,21 +1087,27 @@ mod tests {
                 region: PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
                 span: SourceCapabilitySpan::from_span(proven),
             });
-        assert!(sealed_private_cache.allows_private_cache_boundary_in_region_at(
-            PrivateCacheOp::Lookup,
-            PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
-            proven
-        ));
-        assert!(!sealed_private_cache.allows_private_cache_boundary_in_region_at(
-            PrivateCacheOp::Lookup,
-            PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(2)),
-            proven
-        ));
-        assert!(!sealed_private_cache.allows_private_cache_boundary_in_region_at(
-            PrivateCacheOp::Lookup,
-            PrivateEffectRegion::UnsealedIntrinsic,
-            proven
-        ));
+        assert!(
+            sealed_private_cache.allows_private_cache_boundary_in_region_at(
+                PrivateCacheOp::Lookup,
+                PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
+                proven
+            )
+        );
+        assert!(
+            !sealed_private_cache.allows_private_cache_boundary_in_region_at(
+                PrivateCacheOp::Lookup,
+                PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(2)),
+                proven
+            )
+        );
+        assert!(
+            !sealed_private_cache.allows_private_cache_boundary_in_region_at(
+                PrivateCacheOp::Lookup,
+                PrivateEffectRegion::UnsealedIntrinsic,
+                proven
+            )
+        );
     }
 
     #[test]

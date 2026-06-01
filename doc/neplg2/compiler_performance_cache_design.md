@@ -2747,6 +2747,164 @@ edge probe を突き合わせ、store から一致する direct-call fragment �
 source fallback / full compile 後に checked HIR / Resource IR body hash / wasm lowering から
 `NeplObjDirectCallFragmentArtifact` を生成し、store へ保存することである。
 
+## 2026-06-02 direct-call `.neplobj` leaf fragment producer checkpoint
+
+full/source compile 成功時に direct-call `.neplobj` fragment を生成する最初の producer を追加した。
+producer 入力は `NeplObjDirectCallFragmentExportRequest` であり、Web `CompilerSession` は
+materialized public surface と loader edge probe から link symbol、target source key、
+dependency public surface hash、source capability policy hash を渡す。
+
+producer は request が空でない場合だけ動く。通常の base compile や `.neplmeta` materialized compile
+attempt では追加の Resource IR lowering を行わない。request がある fallback/full compile では、final
+codegen HIR を Resource IR へ lowering し、`resource_function_body_stable_hash` から
+`selected_callable_body_hash` を作る。HIR そのもの、`TypeId`、`Span`、temporary id、`FileId` は
+`.neplobj` key authority にしない。
+
+現 checkpoint の export 対象は call relocation を持たない leaf function に限定する。direct call、
+indirect call、function value、memoized function value、string literal、private-cache intrinsic、
+generic function、raw wasm/LLVM body は fragment を返さず通常 source fallback と同じ扱いにする。
+これは performance のために high-order function identity や PrivateCache proof を direct-call artifact で
+代替しないための fail-closed 境界である。
+
+Web `CompilerSession` は source fallback / full compile で生成された fragment を same-session
+`NeplObjDirectCallFragmentStore` へ保存する。stdlib overlay compile では保存しない。次回 compile では
+既存 store lookup が完全 key に一致した fragment だけを `PublicInterfaceArtifactInputs` へ渡すため、
+body-missing skip cache と object availability が同じ edge context で衝突しない。
+
+残件は、direct-call relocation を backend lowering plan から作る producer、generic instantiation hash、
+string/data relocation、raw wasm/LLVM body の relocatable representation、persistent `.neplobj` codec、
+そして function value / memoized value / `memo_call` PrivateCache proof の別 backend である。
+
+## 2026-06-02 direct-call `.neplobj` relocation producer checkpoint
+
+direct-call `.neplobj` producer を leaf function から public direct call を含む function へ広げた。
+producer は request された public callable link symbol と、source fallback / full compile 済み HIR の
+function name を対応付け、direct call の callee が同じ request set に含まれる場合だけ placeholder
+function index を割り当てる。private helper、unrequested callable、builtin、trait dispatch は stable
+link symbol を持つ `.neplobj` relocation target ではないため fail-closed にする。
+
+relocation offset は wasm body bytes を後から scan して作らない。`lower_user` の HIR lowering を
+`LoweredUserWasmInstructionStream` へ分け、producer は `wasm_encoder::Function` へ
+`Instruction::Call(placeholder_index)` を emit する直前の `byte_len() + 1` を call immediate offset として
+記録する。これにより offset は backend lowering が直接作った direct call と placeholder symbol の対応から
+得られ、payload consumer の opcode check は壊れた cache payload を拒否する防衛境界に留まる。
+
+`FnValue`、`MemoizedFunctionValue`、`CallIndirect`、string literal、private-cache intrinsic は引き続き
+producer の対象外である。direct call の引数や block 内の nested expression にこれらが含まれる場合も
+fragment は出さない。高階関数 identity、function table、memoized function の PrivateCache proof は
+direct-call fragment では代替できないため、別 artifact / proof 境界として扱う。
+
+追加 regression は次を固定する。
+
+- `neplobj_wasm_export_produces_direct_call_relocation_fragment`: `dep_caller -> dep_target` の
+  relocation を producer が作り、既存 `.neplobj` linker / patcher で実行結果が full body と一致する。
+- `neplobj_wasm_export_rejects_direct_call_to_unrequested_target`: request set にない callee への
+  direct call は fragment を生成しない。
+- `neplobj_wasm_export_rejects_non_direct_call_leaf_boundaries`: direct call support 後も
+  `FnValue` / `MemoizedFunctionValue` / `CallIndirect` / private-cache intrinsic / string literal /
+  nested function value argument を拒否する。
+- `neplobj_wasm_codegen_rejects_relocation_offset_without_call_opcode`: 永続 payload の offset が
+  call immediate でない場合は consumer 側で `NeplObjDirectCallLinkInvalid` にする。
+
+この checkpoint により direct-call dependency body は same-session `.neplobj` store から再利用できる
+対象が leaf function から public direct-call graph へ広がった。ただし generic instantiation hash、
+string/data relocation、raw wasm/LLVM body、function value / memoized function value backend、
+`memo_call` PrivateCache mask proof、persistent `.neplobj` codec は未完了である。base compile_ms の
+追加短縮には、これらと並行して bundled stdlib `.neplmeta` / `.neplproof` preseed を進める。
+
+## 2026-06-02 Web `.neplobj` direct-call store regression checkpoint
+
+Web `CompilerSession` の tree regression に、same-session `.neplobj` direct-call fragment store の
+実運用経路を追加した。fixture は `core/char` の `char_utf8_cont_byte` を使い、同じ session で
+小さな body edit を繰り返す。
+
+1. 初回 compile は store が空なので `.neplobj` lookup を行わない。
+2. 依存 artifact が projection された後、materialized compile が body-missing で source fallback へ戻る。
+3. fallback full/source compile は selected dependency body から direct-call fragment を export し、store へ保存する。
+4. 次の body edit では store lookup が hit し、fragment が `PublicInterfaceArtifactInputs` へ渡る。
+
+regression は `nepl_obj_direct_call_fragment_store_lookup_hits` と
+`nepl_obj_direct_call_fragment_store_lookup_fragments_returned` の増加を確認し、同時に
+`nepl_meta_materialized_compile_body_missing_fallbacks` が増えないことを確認する。これにより、
+body-missing negative skip cache が object hit を隠さず、direct-call `.neplobj` availability が
+materialized compile を次の blocker まで進める境界を固定する。
+
+この checkpoint は性能値そのものを更新するものではない。対象は regression coverage であり、
+base compile_ms の追加短縮は bundled stdlib `.neplmeta` / `.neplproof` preseed と persistent artifact
+codec の実装で継続する。
+
+## 2026-06-02 `.neplmeta` / `.neplobj` fallback root-cause checkpoint
+
+materialized dependency compile では、artifact が存在することだけで source body を置き換えてはいけない。
+置き換える artifact set は、loader / typecheck / backend の各段階で同じ authority を満たす必要がある。
+今回の checkpoint では、`.neplmeta` materializer と `.neplobj` direct-call store の実測 fallback から
+次の不変条件を追加した。
+
+1. import/prelude edge の materialization は edge-local に commit / rollback する。
+   `load_file_with` の再帰中に見つかった child artifact は、parent edge の materialize 成否が決まるまで
+   staging に置く。parent edge が materialize 成功した場合、child artifact は root input へ漏らさない。
+   parent edge が source fallback した場合だけ、source body が必要とする child artifact を commit する。
+   `include` は引き続き textual/source merge boundary であり、artifact edge にはしない。
+
+2. source AST と materialized surface の二重登録は、`FileId` だけでなく source path boundary でも防ぐ。
+   `.neplmeta` impl surface は `source_path` を持ち、同じ source path 由来の source impl が AST に残っても
+   typecheck driver は二重登録しない。`FileId` は source map session-local であり、artifact replacement
+   の永続 authority ではない。
+
+3. nominal definition hash は stable nominal identity 付き placeholder を扱う。
+   materializer は nominal type を先に placeholder として predeclare するため、field / variant type が
+   `TypeKind::Named` placeholder を参照した状態で definition hash を検証する場合がある。このとき
+   stable identity がある `Named` は backend scalar fallback ではなく stable key を hash する。
+
+4. `.neplobj` direct-call lookup は relocation dependency closure を返す。
+   caller fragment だけを返して callee fragment が欠ける状態は、link invalid ではなく object miss として
+   source fallback に戻す。link validation は最後の fail-closed guard であり、store lookup の不足を
+   diagnostic で丸めるための境界ではない。
+
+5. raw wasm body は relocation-free leaf の場合だけ direct-call fragment にできる。
+   call / call_indirect を含まない raw wasm body は、public direct-call relocation target として保存できる。
+   raw wasm body が別 callable を呼ぶ場合は、raw wasm text から stable relocation を復元する設計が入るまで
+   fail-closed に残す。
+
+`tmp/materialized-raw-wasm-neplobj-20260602-rerun.json` では、`core/char` fixture の cold base
+`compile_ms=387`、warm store probe `compile_ms=221`、body edit candidate `compile_ms=21`、
+body edit repeat `compile_ms=21` だった。`materialized_non_body_missing_fallbacks_delta_sum=0` で、
+残る fallback code は `.neplobj` artifact がまだない初回の `backend.codegen.materialized_function_body_missing`
+だけである。
+
+この結果は対象 fixture の warm edit を 0.1 秒未満に入れたことを示すが、永続 artifact codec や
+bundled stdlib preseed の完成を意味しない。base compile_ms の一般化には、`.neplmeta` / `.neplproof`
+preseed、persistent `.nepl...` codec、generic instantiation、string/data relocation、raw LLVM body、
+function value / memoized function value backend、`memo_call` PrivateCache proof を別境界として進める。
+
+## 2026-06-02 explicit `.neplmeta` preseed API checkpoint
+
+Web `CompilerSession` に `preseed_nepl_meta_artifacts_for_source` と
+`preseed_nepl_meta_artifacts_for_source_with_profile` を追加した。これは通常の
+`prewarm_loader_cache_for_source` とは別の明示 API である。
+
+`prewarm_loader_cache_for_source` は parser / loader query だけを warm し、typed HIR、
+Resource IR proof、codegen fragment、dependency public surface artifact を作らない。新しい preseed
+API は root source から import / prelude edge probe を収集し、対象 bundled stdlib module を
+typecheck して `.neplmeta` public interface artifact を same-session `NeplMetaArtifactStore` へ保存する。
+Resource IR static check や wasm codegen は実行しない。
+
+この API を通常 compile path から暗黙に呼ばない理由は、preseed が typecheck を伴う重い処理だからである。
+Web playground の表示上の compile 時間を下げるために前処理へ時間を移すだけでは性能改善ではない。JSON
+bench では `preseed.elapsed_ms` と各 run の `compile_ms` を分け、永続 `.neplmeta` / IndexedDB / disk
+cache が将来この preseed cost を compile 前に支払えるかを評価する。
+
+`tmp/neplmeta-preseed-api-baseline-20260602.json` では preseed なしの `core/char` fixture が cold base
+`compile_ms=438`、warm store probe `compile_ms=229`、body edit repeat `compile_ms=22` だった。
+`tmp/neplmeta-preseed-api-enabled-20260602.json` では `preseed.artifact_count=40`、
+`preseed.elapsed_ms=373`、preseed 後の cold base `compile_ms=261`、warm store probe
+`compile_ms=23`、body edit repeat `compile_ms=23` だった。
+
+これは、初回 compile 前に `.neplmeta` を用意できれば compile 本体は短くなることを示す。一方で、現状の
+in-memory preseed は同じ処理を compile 直前に実行するため、総時間の目標達成ではない。次の根本対応は
+persistent `.neplmeta` codec、bundled stdlib artifact embedding、`.neplproof` preseed、そして
+`.neplobj` direct-call fragment の persistent store である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

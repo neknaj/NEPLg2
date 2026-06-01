@@ -325,11 +325,7 @@ fn memo_phase1_type_supported_inner(
     }
     let kind = ctx.get_ref(resolved).clone();
     let result = match kind {
-        TypeKind::Unit
-        | TypeKind::I32
-        | TypeKind::U8
-        | TypeKind::Bool
-        | TypeKind::Char => true,
+        TypeKind::Unit | TypeKind::I32 | TypeKind::U8 | TypeKind::Bool | TypeKind::Char => true,
         TypeKind::F32 => matches!(role, MemoPhase1TypeRole::Value),
         TypeKind::Tuple { items } => items
             .iter()
@@ -429,6 +425,5 @@ fn memo_phase1_trait_defined_in_stdlib(source_map: Option<&SourceMap>, span: Spa
         return false;
     };
     let normalized = path.as_str().replace('\\', "/");
-    normalized == "stdlib/core/traits/memo.nepl"
-        || normalized.ends_with(MEMO_TRAITS_STDLIB_SUFFIX)
+    normalized == "stdlib/core/traits/memo.nepl" || normalized.ends_with(MEMO_TRAITS_STDLIB_SUFFIX)
 }
