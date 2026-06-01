@@ -1,3 +1,15 @@
+# 2026-06-01 GUI/TUI alloc text layout cache checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`TextMeasurer` 注入、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、`alloc/gui/text` に platform 非依存の `TextLayout` / `CachedTextLayout` checkpoint を追加した。
+- doc review subagent は、`alloc/gui/text` が `std/gui`、platform modules、DOM、terminal、OS font API に依存しないこと、`TextBufferId` だけでは cache key として不足するため snapshot shape を key に含めること、negative constraint は `GuiError::InvalidGeometry`、measurer error はそのまま伝播することを指摘した。
+- implementation worker は `TextLayout` / `CachedTextLayout` の初期実装を追加した。main integration では重複定義を単一 contract に整理し、cache key に buffer id、run id、font id、max width、byte length、char count を含めた。
+- `text_layout_measure` は `TextBuffer`、`TextRunId`、`FontId`、max width、injected `TextMeasurer` から `Result TextLayout GuiError` を返す。`max_width < 0` は `GuiError::InvalidGeometry`、`TextMeasurer` が返した `GuiError::Unsupported` などは変換せず伝播する。
+- fallback `cell_count_hint` は byte length ではなく `str_char_count` を使う。現 checkpoint では `cell_count == char_count` であり、grapheme cluster、East Asian width、line break、text hash / revision based invalidation、complex shaping cache は後続で実装する。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、minimal `TextLayout` / `CachedTextLayout` が実装済みで、残件が line break と text hash / revision based cache invalidation であることに合わせて更新した。
+- focused 検証: `node nodesrc/tests.js -i tests/stdlib/gui_text.n.md -i stdlib/alloc/gui/text.nepl -i stdlib/alloc/gui/text/types.nepl --no-tree -o tmp/gui-text-layout-cache-focused.json -j 1 --dist web/dist --assert-io` は 8/8 pass。
+- 最終検証: `trunk build --release`、GUI/TUI focused suite (`gui_core` / `gui_dirty_region` / `gui_dirty_region_set` / `gui_app` / `gui_layout` / `gui_widget` / `gui_tree` / `gui_focus` / `gui_routing` / `gui_focus_routing` / `gui_keymap` / `gui_terminal_input` / `gui_diff` / `gui_text` / `gui_theme` / `gui_accessibility` / `gui_std` / `gui_terminal` / `features_tui`) 62/62、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-text-layout-cache.json` 13/13、`node nodesrc/issues.js check --dir issues`、`node nodesrc/test_stdlib_gui_layering_policy.js`、`git diff --check` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warn-only 警告として stdlib documentation baseline、static check responsibility、resource checker responsibility、resource gate order が残る。documentation warning は今回も `stdlib module doctest gaps increased: 306 > 305` で、前 checkpoint から悪化していない。
+
 # 2026-06-01 GUI/TUI terminal CSI arrow input checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の platform 依存隔離、std/keymap contract、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、terminal ANSI / CSI input の次 slice を `platforms/gui/terminal/input` に追加した。

@@ -2,13 +2,14 @@
 //: platform 非依存 text buffer の data contract
 //:
 //: ### [目的/もくてき]
-//: - `TextBufferId` と `TextBuffer` を、backend resource ではなく alloc [層/そう]の data として[定義/ていぎ]します。
+//: - `TextBufferId`、`TextBuffer`、`TextLayout`、`CachedTextLayout` を、backend resource ではなく alloc [層/そう]の data として[定義/ていぎ]します。
 //: - buffer 本文は `str` として[保持/ほじ]し、insert / replace / delete は新しい buffer を[返/かえ]す純粋な storage 操作にします。
+//: - text layout は注入された `TextMeasurer` の結果と deterministic cache key だけを[保持/ほじ]し、platform handle は[含/ふく]めません。
 //:
 //: ### [契約/けいやく]
 //: - index は byte index です。UTF-8 文字境界でない位置や範囲外 index は `GuiError::InvalidCommand` を[返/かえ]します。
 //: - 文字列確保に失敗した場合は `GuiError::ResourceExhausted` を[返/かえ]します。
-//: - `TextMeasurer`、host API、platform handle には[依存/いぞん]しません。
+//: - `TextMeasurer` は core trait として注入され、host API、platform handle、`std/gui` には[依存/いぞん]しません。
 //:
 //: neplg2:test
 //: ret: 5
@@ -32,6 +33,7 @@
 #import "alloc/string/concat" as *
 #import "alloc/string/search" as *
 #import "alloc/string/slice" as *
+#import "alloc/string/slice/char" as *
 #import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
@@ -61,6 +63,70 @@ pub struct TextBuffer:
     id %TextBufferId
     text %str
 
+//: TextLayout: text buffer snapshot を測定した platform 非依存 layout data
+//:
+//: [目的/もくてき]:
+//: - buffer / run / font / max width と測定結果を 1 つの値にまとめ、rendering や cache 判定が raw string や host handle へ[依存/いぞん]しないようにします。
+//:
+//: [注意/ちゅうい]:
+//: - `byte_len` は buffer 本文の byte 長、`char_count` は Unicode scalar value 数です。
+//: - `cell_count` は現 checkpoint では `char_count` と同じ fallback hint です。将来 grapheme / East Asian width を導入すると分かれる可能性があります。
+pub struct TextLayout:
+    buffer_id %TextBufferId
+    run_id %TextRunId
+    font_id %FontId
+    byte_len %i32
+    char_count %i32
+    cell_count %i32
+    width %i32
+    height %i32
+    baseline %i32
+    max_width %i32
+
+impl Clone for TextLayout:
+    fn clone %fn &TextLayout TextLayout \layout:
+        *layout
+
+impl Copy for TextLayout:
+    fn copy_mark %fn TextLayout TextLayout \layout:
+        layout
+
+//: TextLayoutCacheKey: text layout cache の deterministic key
+//:
+//: [目的/もくてき]:
+//: - platform cache handle や pointer ではなく、buffer id / run id / font id / max width / byte length / char count から layout cache の同一性を[表/あらわ]します。
+//:
+//: [注意/ちゅうい]:
+//: - 現 checkpoint の key は text 内容 hash を[持/も]ちません。本文変更の正確な検出は後続の hash / version field で[拡張/かくちょう]します。
+pub struct TextLayoutCacheKey:
+    buffer_id %TextBufferId
+    run_id %TextRunId
+    font_id %FontId
+    max_width %i32
+    byte_len %i32
+    char_count %i32
+
+impl Clone for TextLayoutCacheKey:
+    fn clone %fn &TextLayoutCacheKey TextLayoutCacheKey \key:
+        *key
+
+impl Copy for TextLayoutCacheKey:
+    fn copy_mark %fn TextLayoutCacheKey TextLayoutCacheKey \key:
+        key
+
+//: CachedTextLayout: cache key と layout を対応させた pure data
+pub struct CachedTextLayout:
+    key %TextLayoutCacheKey
+    layout %TextLayout
+
+impl Clone for CachedTextLayout:
+    fn clone %fn &CachedTextLayout CachedTextLayout \cached:
+        *cached
+
+impl Copy for CachedTextLayout:
+    fn copy_mark %fn CachedTextLayout CachedTextLayout \cached:
+        cached
+
 //: text_buffer_id_new: raw value から TextBufferId を[作/つく]る
 pub fn text_buffer_id_new %fn i32 TextBufferId \raw:
     TextBufferId raw
@@ -84,6 +150,150 @@ pub fn text_buffer_text %fn &TextBuffer str \buffer:
 //: text_buffer_len: buffer 本文の byte 長を[返/かえ]す
 pub fn text_buffer_len %fn &TextBuffer i32 \buffer:
     len text_buffer_text buffer
+
+//: text_layout: 測定済み layout data を[作/つく]る
+pub fn text_layout %fn TextBufferId fn TextRunId fn FontId fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 TextLayout \buffer_id\run_id\font_id\byte_len\char_count\cell_count\width\height\baseline\max_width:
+    TextLayout buffer_id run_id font_id byte_len char_count cell_count width height baseline max_width
+
+//: text_layout_buffer_id: layout の buffer id を[読/よ]む
+pub fn text_layout_buffer_id %fn &TextLayout TextBufferId \layout:
+    *field::get_ref layout "buffer_id"
+
+//: text_layout_run_id: layout の text run id を[読/よ]む
+pub fn text_layout_run_id %fn &TextLayout TextRunId \layout:
+    *field::get_ref layout "run_id"
+
+//: text_layout_font_id: layout の font id を[読/よ]む
+pub fn text_layout_font_id %fn &TextLayout FontId \layout:
+    *field::get_ref layout "font_id"
+
+//: text_layout_byte_len: layout の source byte length を[読/よ]む
+pub fn text_layout_byte_len %fn &TextLayout i32 \layout:
+    *field::get_ref layout "byte_len"
+
+//: text_layout_char_count: layout の Unicode scalar value 数を[読/よ]む
+pub fn text_layout_char_count %fn &TextLayout i32 \layout:
+    *field::get_ref layout "char_count"
+
+//: text_layout_cell_count: layout の fallback cell count hint を[読/よ]む
+pub fn text_layout_cell_count %fn &TextLayout i32 \layout:
+    *field::get_ref layout "cell_count"
+
+//: text_layout_width: layout の measured width を[読/よ]む
+pub fn text_layout_width %fn &TextLayout i32 \layout:
+    *field::get_ref layout "width"
+
+//: text_layout_height: layout の measured height を[読/よ]む
+pub fn text_layout_height %fn &TextLayout i32 \layout:
+    *field::get_ref layout "height"
+
+//: text_layout_baseline: layout の measured baseline を[読/よ]む
+pub fn text_layout_baseline %fn &TextLayout i32 \layout:
+    *field::get_ref layout "baseline"
+
+//: text_layout_max_width: 測定に使った max width を[読/よ]む
+pub fn text_layout_max_width %fn &TextLayout i32 \layout:
+    *field::get_ref layout "max_width"
+
+//: text_layout_cache_key: layout cache key を[作/つく]る
+pub fn text_layout_cache_key %fn TextBufferId fn TextRunId fn FontId fn i32 fn i32 fn i32 TextLayoutCacheKey \buffer_id\run_id\font_id\max_width\byte_len\char_count:
+    TextLayoutCacheKey buffer_id run_id font_id max_width byte_len char_count
+
+//: text_layout_cache_key_from_layout: layout から deterministic cache key を[作/つく]る
+pub fn text_layout_cache_key_from_layout %fn &TextLayout TextLayoutCacheKey \layout:
+    text_layout_cache_key (text_layout_buffer_id layout) (text_layout_run_id layout) (text_layout_font_id layout) (text_layout_max_width layout) (text_layout_byte_len layout) (text_layout_char_count layout)
+
+//: text_layout_cache_key_buffer_id: cache key の buffer id を[読/よ]む
+pub fn text_layout_cache_key_buffer_id %fn &TextLayoutCacheKey TextBufferId \key:
+    *field::get_ref key "buffer_id"
+
+//: text_layout_cache_key_font_id: cache key の font id を[読/よ]む
+pub fn text_layout_cache_key_font_id %fn &TextLayoutCacheKey FontId \key:
+    *field::get_ref key "font_id"
+
+//: text_layout_cache_key_run_id: cache key の run id を[読/よ]む
+pub fn text_layout_cache_key_run_id %fn &TextLayoutCacheKey TextRunId \key:
+    *field::get_ref key "run_id"
+
+//: text_layout_cache_key_max_width: cache key の max width を[読/よ]む
+pub fn text_layout_cache_key_max_width %fn &TextLayoutCacheKey i32 \key:
+    *field::get_ref key "max_width"
+
+//: text_layout_cache_key_byte_len: cache key の byte length を[読/よ]む
+pub fn text_layout_cache_key_byte_len %fn &TextLayoutCacheKey i32 \key:
+    *field::get_ref key "byte_len"
+
+//: text_layout_cache_key_char_count: cache key の char count を[読/よ]む
+pub fn text_layout_cache_key_char_count %fn &TextLayoutCacheKey i32 \key:
+    *field::get_ref key "char_count"
+
+//: text_layout_cache_key_eq: cache key が同じか[判定/はんてい]する
+pub fn text_layout_cache_key_eq %fn &TextLayoutCacheKey fn &TextLayoutCacheKey bool \left\right:
+    let left_buffer %TextBufferId text_layout_cache_key_buffer_id left
+    let right_buffer %TextBufferId text_layout_cache_key_buffer_id right
+    let left_run %TextRunId text_layout_cache_key_run_id left
+    let right_run %TextRunId text_layout_cache_key_run_id right
+    let left_font %FontId text_layout_cache_key_font_id left
+    let right_font %FontId text_layout_cache_key_font_id right
+    and:
+        and (eq (text_buffer_id_raw &left_buffer) (text_buffer_id_raw &right_buffer)) (eq (text_run_id_raw &left_run) (text_run_id_raw &right_run))
+        and (eq (font_id_raw &left_font) (font_id_raw &right_font)) (and (eq (text_layout_cache_key_max_width left) (text_layout_cache_key_max_width right)) (and (eq (text_layout_cache_key_byte_len left) (text_layout_cache_key_byte_len right)) (eq (text_layout_cache_key_char_count left) (text_layout_cache_key_char_count right))))
+
+//: cached_text_layout: key と layout を[組/く]み[合/あ]わせる
+pub fn cached_text_layout %fn TextLayoutCacheKey fn TextLayout CachedTextLayout \key\layout:
+    CachedTextLayout key layout
+
+//: cached_text_layout_from_layout: layout から cache key 付き layout を[作/つく]る
+pub fn cached_text_layout_from_layout %fn TextLayout CachedTextLayout \layout:
+    cached_text_layout (text_layout_cache_key_from_layout &layout) layout
+
+//: cached_text_layout_key: cached layout の key を[読/よ]む
+pub fn cached_text_layout_key %fn &CachedTextLayout TextLayoutCacheKey \cached:
+    *field::get_ref cached "key"
+
+//: cached_text_layout_layout: cached layout の layout を[読/よ]む
+pub fn cached_text_layout_layout %fn &CachedTextLayout TextLayout \cached:
+    *field::get_ref cached "layout"
+
+//: cached_text_layout_value: cached layout の layout を[読/よ]む
+pub fn cached_text_layout_value %fn &CachedTextLayout TextLayout \cached:
+    cached_text_layout_layout cached
+
+//: text_layout_measure: TextBuffer を注入された TextMeasurer で[測/はか]り、TextLayout を[作/つく]る
+//:
+//: [仕様/しよう]:
+//: - `max_width` が負の場合は `GuiError::InvalidGeometry` を[返/かえ]します。
+//: - `cell_count_hint` には byte length ではなく `str_char_count` を使います。
+//: - measurer が返した error はそのまま[伝播/でんぱ]します。
+pub fn text_layout_measure <.TextMeasurerImpl: TextMeasurer> %fn &TextBuffer fn TextRunId fn FontId fn i32 fn &.TextMeasurerImpl Result TextLayout GuiError \buffer\run_id\font_id\max_width\measurer:
+    if lt max_width 0:
+        then Result::Err GuiError::InvalidGeometry
+        else:
+            let text %str text_buffer_text buffer
+            let byte_len %i32 len text
+            let char_count %i32 str_char_count text
+            let request %TextMeasureRequest text_measure_request_new run_id font_id max_width char_count
+            match measure_text measurer request:
+                Result::Ok metrics:
+                    Result::Ok text_layout (text_buffer_id buffer) run_id font_id byte_len char_count char_count (text_measure_result_width &metrics) (text_measure_result_height &metrics) (text_measure_result_baseline &metrics) max_width
+                Result::Err error:
+                    Result::Err error
+
+//: cached_text_layout_measure: TextBuffer を[測/はか]って cache key 付き layout を[返/かえ]す
+pub fn cached_text_layout_measure <.TextMeasurerImpl: TextMeasurer> %fn &TextBuffer fn TextRunId fn FontId fn i32 fn &.TextMeasurerImpl Result CachedTextLayout GuiError \buffer\run_id\font_id\max_width\measurer:
+    match text_layout_measure buffer run_id font_id max_width measurer:
+        Result::Ok layout:
+            Result::Ok cached_text_layout_from_layout layout
+        Result::Err error:
+            Result::Err error
+
+//: text_layout_from_buffer: injected measurer で text buffer を[測定/そくてい]する
+pub fn text_layout_from_buffer <.TextMeasurerImpl: TextMeasurer> %fn &.TextMeasurerImpl fn &TextBuffer fn TextRunId fn FontId fn i32 Result TextLayout GuiError \measurer\buffer\run_id\font_id\max_width:
+    text_layout_measure buffer run_id font_id max_width measurer
+
+//: cached_text_layout_from_buffer: text layout を[測定/そくてい]し cache key と[組/く]みにする
+pub fn cached_text_layout_from_buffer <.TextMeasurerImpl: TextMeasurer> %fn &.TextMeasurerImpl fn &TextBuffer fn TextRunId fn FontId fn i32 Result CachedTextLayout GuiError \measurer\buffer\run_id\font_id\max_width:
+    cached_text_layout_measure buffer run_id font_id max_width measurer
 
 //: text_buffer_byte_index_is_valid: byte index が本文境界として使えるか[確認/かくにん]する
 //:
