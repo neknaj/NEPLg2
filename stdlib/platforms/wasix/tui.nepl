@@ -1,9 +1,9 @@
 //: # platforms/wasix/tui
-//: WASIX TUI 描画補助 library の public facade
+//: WASIX TUI 描画補助 library の互換 facade
 //:
 //: ### 目的
 //: - 既存の `platforms/wasix/tui` import path から、TTY、ANSI 出力、表示幅 helper、box、style、行バッファを公開します。
-//: - TTY ABI と raw buffer storage、pure text helper、styled string helper を submodule に分け、TUI 全体の修正範囲を追いやすくします。
+//: - 新しい GUI/TUI 共通 substrate へ移行するまで、既存 helper の互換性を保ちます。
 //:
 //: ### 実装
 //: - `tui/tty` は WASIX `tty_get` / `tty_set` と raw mode を所有します。
@@ -15,6 +15,7 @@
 //:
 //: ### 注意
 //: - ここは互換 import path のための facade です。処理本体は submodule に置きます。
+//: - 今後の再設計では、raw ANSI、TTY state、行バッファ差分描画を `platforms/gui/terminal` backend detail へ押し下げます。
 //: - 表示幅計算は厳密な East Asian Width 判定ではなく、UTF-8 先頭バイトに基づく近似です。
 
 #indent 4

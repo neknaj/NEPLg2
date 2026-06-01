@@ -18,6 +18,11 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - facade の import は O(1) です。各 helper は submodule の[説明/せつめい]に[従/したが]います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui" as *
+//: ```
 
 #indent 4
 

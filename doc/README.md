@@ -25,6 +25,8 @@
 | [lsp_api.md](./lsp_api.md) | Language Server Protocol API（NEPLg2 現行） |
 | [editor_extensions.md](./editor_extensions.md) | エディタ拡張方針 |
 | [llvm_ir_setup.md](./llvm_ir_setup.md) | LLVM IR セットアップ |
+| [neplg2/gui_standard_library_spec.md](./neplg2/gui_standard_library_spec.md) | GUI / TUI を共通 UI substrate として扱う標準ライブラリ仕様 |
+| [neplg2/gui_tui_implementation_plan.md](./neplg2/gui_tui_implementation_plan.md) | `core/gui` / `alloc/gui` / `std/gui` / platform backend と既存 TUI 再設計の実装計画 |
 | [testing.md](./testing.md) | テスト（NEPLg2 現行） |
 | [../issues/](../issues/README.md) | 新 Issue 管理（旧 review20260425 から移行済み） |
 | [review20260425/](./review20260425/issues.md) | NEPLg2 実装レビュー Issue 台帳（履歴スナップショット） |

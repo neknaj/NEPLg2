@@ -1,0 +1,18 @@
+//: # alloc/gui/app
+//: GUI / TUI application model の public facade
+//:
+//: ### [目的/もくてき]
+//: - `WidgetId`、`ActionId`、`ViewNode`、`GuiEffect`、`Update` を公開します。
+//: - widget に closure を保持せず、action identifier と `update` の `match` で application logic を表す設計を支えます。
+//:
+//: ### [注意/ちゅうい]
+//: - runtime、window、timer、clipboard の実行はここでは行いません。`GuiEffect` は表層 runtime が解釈する data です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app" as *
+//: ```
+
+#indent 4
+
+pub #import "alloc/gui/app/types" as *

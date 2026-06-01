@@ -11,6 +11,11 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - constructor と accessor は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/event" as *
+//: ```
 
 #indent 4
 
@@ -241,6 +246,10 @@ pub fn action_id_raw %fn &ActionId i32 \id:
 //: widget_id_new: widget id を[作/つく]る
 pub fn widget_id_new %fn i32 WidgetId \raw:
     WidgetId raw
+
+//: widget_id_raw: widget id の raw value を[読/よ]む
+pub fn widget_id_raw %fn &WidgetId i32 \id:
+    *field::get_ref id "raw"
 
 //: key_modifiers_new: modifier bitset を[作/つく]る
 pub fn key_modifiers_new %fn i32 KeyModifiers \bits:

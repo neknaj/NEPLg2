@@ -7,6 +7,11 @@
 //:
 //: ### [注意/ちゅうい]
 //: - prelude は allocator、std、platforms を import しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/prelude" as *
+//: ```
 
 #indent 4
 

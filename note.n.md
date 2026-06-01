@@ -1,3 +1,20 @@
+# 2026-06-01 GUI/TUI standard library substrate checkpoint
+
+- Zenn 設計指針の platform 依存隔離、`Option` / `Result` / enum による静的検査、契約と現状実装の分離、試作段階でも雑な境界を残さない方針を GUI/TUI 標準ライブラリ設計の制約として再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `84751896 Add neplmeta materializer MVP gate` と同期済みで、branch `agent2/gui-library` を作成して作業した。
+- agent2 として Discord に初期状況を報告した。現状では明示的な GUI 標準ライブラリはなく、近い資産は `features/tui` / `platforms/wasix/tui` と Web Playground であることを共有した。
+- `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` を追加し、GUI と TUI を別系統 framework ではなく共通 UI substrate として扱う仕様・実装順序を記述した。TUI は text-cell surface を持つ terminal backend とし、raw ANSI / TTY helper は backend detail へ押し下げる方針にした。
+- subagent review で、`alloc/gui/layout` が `std/gui/text_measure` に依存してしまう設計、Host ABI の capability / typed error / accessibility / lifecycle / IME 不足、embedded no_alloc 検査の遅れ、既存 TUI comment が公式 facade と読める問題を指摘された。
+- review 指摘を反映し、`TextMeasurer` contract は `core/gui` 側へ置き、`std/gui/text_measure` は host 実装を扱う形に修正した。Host ABI は typed `gui-error`、capability query、accessibility tree 更新、IME state、streaming frame path を持つ WIT-like schema へ寄せた。
+- core/gui 実装 subagent は commit `ae53317a Add core gui no-alloc substrate` で `geometry`、`color`、`pixel`、`capability`、`error`、`event`、`render_command` と `tests/stdlib/gui_core.n.md` を追加した。
+- terminal backend 実装 subagent は commit `fb945e12 Add terminal TextGrid GUI bridge` で `features/gui` facade、`platforms/gui/terminal` の TextGrid capability / frame / helper と `tests/stdlib/gui_terminal.n.md` を追加した。
+- main integration では `alloc/gui` の初期 application model を追加し、`ButtonConfig`、`ViewNode`、`GuiEffect`、`Update` を closure callback なしの data flow として定義した。`ActionId` / `WidgetId` は重複定義を避けて `core/gui` の event 境界を再利用する。
+- 既存 `features/tui` / `platforms/wasix/tui` の module comment は互換 facade と明記し、新規 UI application は `features/gui` / `alloc/gui` / `std/gui` 側へ寄せる方針を追記した。
+- local `web/dist` が古い状態では既存 `features_tui.n.md` も `%fn` lexer error になったため、GUI doctest は `trunk build --release` 後の bundled dist で検証する。
+- 検証: `trunk build --release`、`node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp/gui-core-main2.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i tests/stdlib/gui_terminal.n.md --no-tree -o tmp/gui-terminal-main2.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i tests/stdlib/gui_app.n.md --no-tree -o tmp/gui-app-main4.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-gui-main2.json -j 1 --dist web/dist --assert-io`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-library.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は完走したが、既存の source-policy warning として stdlib documentation baseline、static check responsibility、resource checker responsibility、resource gate order が残っている。今回追加した `core/gui` / `alloc/gui` module には module-level doctest marker を追加済みである。
+- 残件: `DrawTarget` / `RenderTarget` trait 本体、`core/gui/text_measure` の実装、`alloc/gui/layout` / accessibility、`std/gui` runtime / host、Web Playground backend、既存 TUI の terminal backend 差し替え、embedded no_alloc real-style backend を継続する。
+
 # 2026-06-01 .neplmeta materializer MVP gate checkpoint
 
 - Zenn 記事の静的検査、enum / struct による authority 明示、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。

@@ -10,6 +10,11 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - constructor/helper は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/error" as *
+//: ```
 
 #indent 4
 

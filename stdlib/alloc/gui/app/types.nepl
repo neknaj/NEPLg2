@@ -1,0 +1,173 @@
+//: # alloc/gui/app/types
+//: GUI / TUI 共通 application model の軽量 data 型
+//:
+//: ### [目的/もくてき]
+//: - widget identity、action identity、view description、host effect、update result を値として表します。
+//: - callback-heavy widget を避け、`Model + GuiEvent -> Update Model` の data flow を静的検査しやすい形にします。
+//:
+//: ### [契約/けいやく]
+//: - `WidgetId` と `ActionId` は `core/gui` の event 境界で定義される識別子です。
+//: - `GuiEffect` は実行そのものではなく、`std/gui/runtime` が解釈する要求値です。
+//: - この module は DOM、ANSI、OS window handle、clipboard API を直接呼びません。
+//:
+//: ### [現状/げんじょう]
+//: - 最初の checkpoint では `Empty` / `Label` / `Button` と、redraw / title だけを持つ小さな surface に留めています。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app/types" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/traits/copy" as *
+
+//: widget_id: raw integer から WidgetId を作る
+//:
+//: [目的/もくてき]:
+//: - test や小さな application が stable id を明示できるようにします。
+pub fn widget_id %fn i32 WidgetId \value:
+    widget_id_new value
+
+//: widget_id_value: WidgetId の比較用 raw value を読む
+pub fn widget_id_value %fn WidgetId i32 \id:
+    widget_id_raw &id
+
+//: action_id: raw integer から ActionId を作る
+pub fn action_id %fn i32 ActionId \value:
+    action_id_new value
+
+//: action_id_value: ActionId の比較用 raw value を読む
+pub fn action_id_value %fn ActionId i32 \id:
+    action_id_raw &id
+
+//: ButtonConfig: action を持つ button view の設定
+//:
+//: [目的/もくてき]:
+//: - button が closure を持たず、id、表示 text、action id だけで application logic と接続できるようにします。
+//:
+//: [注意/ちゅうい]:
+//: - style と layout hint は後続 checkpoint で別 struct として追加します。
+pub struct ButtonConfig:
+    id %WidgetId
+    text %str
+    action %ActionId
+
+impl Clone for ButtonConfig:
+    fn clone %fn &ButtonConfig ButtonConfig \config:
+        *config
+
+impl Copy for ButtonConfig:
+    fn copy_mark %fn ButtonConfig ButtonConfig \config:
+        config
+
+//: button_config: ButtonConfig を作る
+pub fn button_config %fn WidgetId fn str fn ActionId ButtonConfig \id\text\action:
+    ButtonConfig id text action
+
+//: ViewNode: retained view tree の最小 node
+//:
+//: [目的/もくてき]:
+//: - GUI と TUI が共有する view description を enum として表します。
+//:
+//: [現状/げんじょう]:
+//: - 最初の checkpoint では leaf node だけを持ちます。container、layout、accessibility は後続 checkpoint で追加します。
+pub enum ViewNode:
+    Empty
+    Label %str
+    Button %ButtonConfig
+
+impl Clone for ViewNode:
+    fn clone %fn &ViewNode ViewNode \node:
+        *node
+
+impl Copy for ViewNode:
+    fn copy_mark %fn ViewNode ViewNode \node:
+        node
+
+//: empty_view: 空 view node を返す
+pub fn empty_view %fn unit ViewNode \unit:
+    ViewNode::Empty
+
+//: label: text label view node を返す
+pub fn label %fn str ViewNode \text:
+    ViewNode::Label text
+
+//: button: ButtonConfig から button view node を返す
+pub fn button %fn ButtonConfig ViewNode \config:
+    ViewNode::Button config
+
+//: RequestRedrawEffect: redraw request の payload
+pub struct RequestRedrawEffect:
+    target %i32
+
+impl Clone for RequestRedrawEffect:
+    fn clone %fn &RequestRedrawEffect RequestRedrawEffect \effect:
+        *effect
+
+impl Copy for RequestRedrawEffect:
+    fn copy_mark %fn RequestRedrawEffect RequestRedrawEffect \effect:
+        effect
+
+//: SetTitleEffect: title 変更 request の payload
+pub struct SetTitleEffect:
+    target %i32
+    title %str
+
+impl Clone for SetTitleEffect:
+    fn clone %fn &SetTitleEffect SetTitleEffect \effect:
+        *effect
+
+impl Copy for SetTitleEffect:
+    fn copy_mark %fn SetTitleEffect SetTitleEffect \effect:
+        effect
+
+//: GuiEffect: runtime が解釈する host effect request
+//:
+//: [目的/もくてき]:
+//: - `update` が window や clipboard を直接操作せず、要求値を返せるようにします。
+//:
+pub enum GuiEffect:
+    None
+    RequestRedraw %RequestRedrawEffect
+    SetTitle %SetTitleEffect
+
+//: gui_effect_none: effect なしを返す
+pub fn gui_effect_none %fn unit GuiEffect \unit:
+    GuiEffect::None
+
+//: request_redraw: redraw request effect を作る
+pub fn request_redraw %fn i32 GuiEffect \target:
+    GuiEffect::RequestRedraw RequestRedrawEffect target
+
+//: set_title: title request effect を作る
+pub fn set_title %fn i32 fn str GuiEffect \target\title:
+    GuiEffect::SetTitle SetTitleEffect target title
+
+//: Update: application update result
+//:
+//: [目的/もくてき]:
+//: - 新しい model と、runtime が実行する effect request をまとめます。
+//:
+//: [注意/ちゅうい]:
+//: - `.Model` は application が所有します。stdlib は model の field や lifecycle を解釈しません。
+pub struct Update<.Model>:
+    model %.Model
+    effect %GuiEffect
+
+//: update_result: model と effect から Update を作る
+pub fn update_result <.Model> %fn .Model fn GuiEffect Update .Model \model\effect:
+    Update model effect
+
+//: update_model: Update から model を取り出す
+pub fn update_model <.Model> %fn Update .Model .Model \update:
+    field::get update "model"
+
+//: update_effect: Update から effect を取り出す
+//:
+//: [注意/ちゅうい]:
+//: - 現 checkpoint では値で取り出します。model と effect を同時に分解する helper は、`Vec GuiEffect` 版の `Update` と合わせて後続で追加します。
+pub fn update_effect <.Model> %fn Update .Model GuiEffect \update:
+    field::get update "effect"

@@ -1,17 +1,18 @@
 //: # tui
-//: TUI / terminal UI の公式 facade
+//: TUI / terminal UI の互換 facade
 //:
 //: ### [目的/もくてき]
-//: - TUI は `std` ではなく `features` 層で扱う、という reboot 方針に合わせて、利用者向け入口を提供します。
-//: - 現在の WASIX 実装詳細は `platforms/wasix/tui` に閉じ込め、この file から再公開します。
+//: - 既存の `features/tui` import path を維持し、利用中の terminal helper を壊さずに提供します。
+//: - 新しい GUI/TUI 共通 substrate では、TUI は `platforms/gui/terminal` backend として再設計します。この facade は移行期間の互換入口です。
 //:
 //: ### [実装/じっそう]
 //: - 現段階では `platforms/wasix/tui` を公開 merge import する薄い facade です。
-//: - 将来 target ごとの差分実装が増えても、利用者側の import path は `features/tui` に固定できます。
+//: - 将来は内部実装を `features/gui` と terminal backend へ寄せ、raw ANSI helper は backend detail に押し下げます。
 //:
 //: ### [注意/ちゅうい]
 //: - 実行には現在 `#target wasix` を前提とします。
 //: - 端末制御や ANSI 描画の具体的な制約は `platforms/wasix/tui` 側の各 API comment に従います。
+//: - 新規の UI application は、可能な範囲で `features/gui` / `alloc/gui` 側の ActionId、GuiEvent、GuiEffect に合わせて設計します。
 //:
 //: neplg2:test[skip]
 //: ```neplg2

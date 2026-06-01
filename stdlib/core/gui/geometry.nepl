@@ -11,6 +11,11 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - constructor、accessor、加減算 helper はすべて O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/geometry" as *
+//: ```
 
 #indent 4
 

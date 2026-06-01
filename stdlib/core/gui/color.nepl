@@ -11,6 +11,11 @@
 //:
 //: ### [計算量/けいさんりょう]
 //: - constructor と accessor はすべて O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/color" as *
+//: ```
 
 #indent 4
 
