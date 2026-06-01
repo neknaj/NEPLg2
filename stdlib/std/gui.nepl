@@ -24,5 +24,6 @@ pub #import "./gui/text_measure" as *
 pub #import "./gui/ime" as *
 pub #import "./gui/accessibility_host" as *
 pub #import "./gui/host" as *
+pub #import "./gui/keymap" as *
 pub #import "./gui/runtime" as *
 pub #import "./gui/error_display" as *

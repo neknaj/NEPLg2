@@ -1,3 +1,14 @@
+# 2026-06-01 GUI/TUI std keymap checkpoint
+
+- `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、platform raw keyboard input と `alloc/gui/routing/focus` の間に `std/gui/keymap` を追加した。
+- doc review subagent は、keyboard mapping の責務が `std/gui` / `platforms/gui/*` のどちらか曖昧であること、public contract に keymap 境界がないこと、`KeyboardEvent` / `TextInputEvent` / `Action` / `FocusRouteCommand` の変換順序が混同されていること、focus state 反映の所有者が未記述であることを指摘した。
+- keymap worker は commit `e8662aaf Add std GUI focus keymap` で `stdlib/std/gui/keymap.nepl` と `tests/stdlib/gui_keymap.n.md` を追加した。`FocusKeyMap` は default で Tab 9、Enter 13、Space 32、Shift mask 1 を使い、`KeyDown` の Tab / Shift+Tab / Enter / Space だけを `Option FocusRouteCommand` へ変換する。`KeyUp` と unknown key は `Option::None` で返す。
+- integration では `stdlib/std/gui.nepl` へ keymap を再公開し、公開 helper 名を `keyboard_event_from_key_code` に直した。raw sequence parsing は platform backend の責務であり、この helper は std key code contract に正規化済みの値だけを受け取る。
+- `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` は、`platform raw input -> KeyboardEvent / TextInputEvent -> FocusKeyMap -> FocusRouteCommand -> FocusRouteResult -> GuiEvent::Action` の段階、`FocusRouteCommand` が focus intent だけを表すこと、`MoveFocus` の反映は runtime または application model の上位状態が担当することに合わせて更新した。
+- `todo.md` は実装済みの std keymap を raw keyboard mapping 残件から外し、残件を platform raw keyboard normalization へ絞った。
+- 検証: `trunk build --release`、keymap module/facade doctest 5/5、GUI/TUI focused suite (`gui_core` / `gui_dirty_region` / `gui_dirty_region_set` / `gui_app` / `gui_layout` / `gui_widget` / `gui_tree` / `gui_focus` / `gui_routing` / `gui_focus_routing` / `gui_keymap` / `gui_diff` / `gui_text` / `gui_theme` / `gui_accessibility` / `gui_std` / `gui_terminal` / `features_tui`) 57/57、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-keymap.json` 13/13、`node nodesrc/issues.js check --dir issues`、`git diff --check`、`node nodesrc/test_stdlib_gui_layering_policy.js` は pass。
+- `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warn-only 警告として stdlib documentation baseline、static check responsibility、resource checker responsibility、resource gate order が残る。documentation warning は今回も `stdlib module doctest gaps increased: 306 > 305` で、前 checkpoint から悪化していない。
+
 # 2026-06-01 GUI/TUI focus routing dirty set checkpoint
 
 - `plan.md` は変更していない。Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、GUI/TUI 共通 substrate の focus/key routing と no_alloc dirty region set を追加した。

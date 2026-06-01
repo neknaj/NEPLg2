@@ -152,9 +152,9 @@ stdlib/alloc/gui/test.nepl
 
 Focus traversal は `alloc/gui/focus` の platform 非依存 data contract として扱う。順方向 / 逆方向、wrap の有無、現在 focus が tree に存在しない場合の結果、disabled widget の除外を `Option` / enum で表し、host focus や accessibility focus の反映は `std/gui` 以降へ渡す。
 
-Focus routing は traversal とは別に `alloc/gui/routing/focus` へ置く。`FocusRouteCommand::Next` / `Previous` は focus movement だけを返し、`Activate` は current focus id の widget action だけを `GuiEvent::Action` として返す。戻り値は `FocusRouteResult::Ignored` / `MoveFocus WidgetId` / `Emit GuiEvent` で分ける。Tab、Shift+Tab、Enter、Space、ANSI escape sequence、DOM keyboard event は platform 境界で `FocusRouteCommand` に変換し、application は raw key sequence を直接扱わない。
+Focus routing は traversal とは別に `alloc/gui/routing/focus` へ置く。`FocusRouteCommand::Next` / `Previous` は focus movement だけを返し、`Activate` は current focus id の widget action だけを `GuiEvent::Action` として返す。戻り値は `FocusRouteResult::Ignored` / `MoveFocus WidgetId` / `Emit GuiEvent` で分ける。Tab、Shift+Tab、Enter、Space の portable default mapping は `std/gui/keymap` が `KeyboardEvent` と `FocusKeyMap` から `Option FocusRouteCommand` へ変換する。ANSI escape sequence、DOM keyboard event、OS virtual key は platform backend が `KeyboardEvent` へ正規化し、application は raw key sequence を直接扱わない。
 
-Event routing は `alloc/gui/routing` の pure data contract として扱う。pointer routing は `LayoutTree` hit test で `WidgetId` を得て、`ViewTree` の widget data から `GuiEvent::Action` を導出する。現 checkpoint は bounded root + 2 child、half-open `GuiRect`、second child topmost、disabled widget suppression、focus command routing までを固定する。pointer capture、gesture、raw keyboard mapping、recursive traversal は後続で実装する。TUI では keyboard / focus routing から同じ `FocusRouteCommand` / `GuiEvent::Action` を生成し、raw ANSI input を application が直接扱わないようにする。
+Event routing は `alloc/gui/routing` の pure data contract として扱う。pointer routing は `LayoutTree` hit test で `WidgetId` を得て、`ViewTree` の widget data から `GuiEvent::Action` を導出する。現 checkpoint は bounded root + 2 child、half-open `GuiRect`、second child topmost、disabled widget suppression、focus command routing、std keymap までを固定する。pointer capture、gesture、platform raw keyboard normalization、recursive traversal は後続で実装する。TUI では keyboard / focus routing から同じ `FocusRouteCommand` / `GuiEvent::Action` を生成し、raw ANSI input を application が直接扱わないようにする。
 
 Diff / invalidation は `alloc/gui/diff` に置く。ここでは dirty widget / tree / layout などの共通 data contract だけを持ち、terminal line buffer diff、DOM patch、framebuffer dirty rect compression は `platforms/gui/*` の実装詳細にする。
 
@@ -193,6 +193,7 @@ stdlib/std/gui/runtime.nepl
 stdlib/std/gui/window.nepl
 stdlib/std/gui/timer.nepl
 stdlib/std/gui/text_measure.nepl
+stdlib/std/gui/keymap.nepl
 stdlib/std/gui/ime.nepl
 stdlib/std/gui/accessibility_host.nepl
 stdlib/std/gui/error_display.nepl
@@ -204,6 +205,7 @@ stdlib/std/gui/error_display.nepl
 - application は `GuiHost` を直接呼ばず、`GuiEffect` を runtime が解釈する。
 - capability unsupported を `GuiError::Unsupported` として返す。
 - `TextMeasurer` contract は `core/gui` に置き、ここでは host font / browser / terminal / native text stack へ接続する実装を扱う。
+- `FocusKeyMap` は `KeyboardEvent` を `FocusRouteCommand` へ O(1) で変換し、`alloc/gui/routing/focus` に platform raw key code を漏らさない。
 
 ## Phase 5: Web Playground backend
 
@@ -320,6 +322,11 @@ tests/stdlib/gui_focus_routing.n.md
     focused widget action emission
     disabled / non-action / stale focus ignored
 
+tests/stdlib/gui_keymap.n.md
+    default Tab / Shift+Tab / Enter / Space mapping
+    KeyUp and unknown key ignored
+    custom FocusKeyMap contract
+
 tests/stdlib/gui_diff.n.md
     widget data diff
     tree shape invalidation
@@ -341,7 +348,7 @@ tests/stdlib/gui_accessibility.n.md
 
 tests/stdlib/gui_terminal.n.md
     TextGrid capability
-    terminal event mapping model
+    terminal frame model
     legacy TUI facade bridge
 
 tests/stdlib/gui_dirty_region.n.md

@@ -3,7 +3,7 @@
 //:
 //: ### [目的/もくてき]
 //: - platform 境界から来た `KeyboardEvent` の key code と modifier bit を、application へそのまま[渡/わた]さず `FocusRouteCommand` へ[変換/へんかん]します。
-//: - `alloc/gui/routing/focus` は raw key code や modifier bit を[知/し]らず、解釈済みの focus command だけを[受/う]け[取/と]ります。
+//: - `alloc/gui/routing/focus` は platform-specific raw key code や modifier bit を[知/し]らず、解釈済みの focus command だけを[受/う]け[取/と]ります。
 //:
 //: ### [契約/けいやく]
 //: - terminal raw sequence、DOM key 名、OS API の定数はこの module へ[持/も]ち[込/こ]みません。
@@ -19,7 +19,7 @@
 //:| #import "core/gui" as *
 //:| #import "core/option" as *
 //: fn main %fn unit i32 \unit:
-//:     let event %KeyboardEvent keyboard_event_raw KeyboardEventKind::KeyDown 9 1
+//:     let event %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 9 1
 //:     match keyboard_event_to_focus_route_command &focus_key_map_default event:
 //:         Option::Some command:
 //:             match command:
@@ -82,17 +82,17 @@ pub fn focus_key_map %fn i32 fn i32 fn i32 fn i32 FocusKeyMap \tab_key_code\ente
 pub fn focus_key_map_default %fn unit FocusKeyMap \unit:
     focus_key_map 9 13 32 1
 
-//: keyboard_event_raw: raw key code と modifier bit から `KeyboardEvent` を[作/つく]る
+//: keyboard_event_from_key_code: std key code と modifier bit から `KeyboardEvent` を[作/つく]る
 //:
 //: [目的/もくてき]:
 //: - platform adapter や test が、std layer の key code contract に[沿/そ]った `KeyboardEvent` を明示的に[作/つく]れるようにします。
 //:
 //: [注意/ちゅうい]:
-//: - raw sequence parsing はここでは[行/おこな]いません。すでに key code と modifier bit に[分解/ぶんかい]された値だけを[受/う]け[取/と]ります。
+//: - raw sequence parsing はここでは[行/おこな]いません。すでに std key code と modifier bit に[正規化/せいきか]された値だけを[受/う]け[取/と]ります。
 //:
 //: [計算量/けいさんりょう]:
 //: - O(1) です。
-pub fn keyboard_event_raw %fn KeyboardEventKind fn i32 fn i32 KeyboardEvent \kind\key_code\modifier_bits:
+pub fn keyboard_event_from_key_code %fn KeyboardEventKind fn i32 fn i32 KeyboardEvent \kind\key_code\modifier_bits:
     KeyboardEvent kind key_code key_modifiers_new modifier_bits
 
 //: keyboard_event_kind: keyboard event kind を[読/よ]む

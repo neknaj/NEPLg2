@@ -1,12 +1,12 @@
 # std/gui keymap
 
-このファイルは `KeyboardEvent` の raw key code と modifier bit が application へ直接渡らず、std layer で `FocusRouteCommand` へ写像されることを固定します。
+このファイルは platform-specific raw keyboard input が application へ直接渡らず、std layer の key code contract から `FocusRouteCommand` へ写像されることを固定します。
 
 ## keyboard_event_to_focus_route_command_maps_default_focus_keys
 
 [目的/もくてき]:
 - portable default map が Tab / Shift+Tab / Enter / Space を focus routing command へ変換することを確認します。
-- `alloc/gui/routing/focus` は raw key code や modifier bit を知らず、変換後の `FocusRouteCommand` だけを受け取る契約を固定します。
+- `alloc/gui/routing/focus` は platform-specific raw key code や modifier bit を知らず、変換後の `FocusRouteCommand` だけを受け取る契約を固定します。
 
 neplg2:test[stdio, normalize_newlines]
 stdout: "Checked [ok,ok,ok,ok]\n[0] ok\n[1] ok\n[2] ok\n[3] ok\n"
@@ -56,10 +56,10 @@ fn command_is_activate %fn Option FocusRouteCommand bool \command:
 
 fn main %impure fn unit i32 \unit:
     let key_map %FocusKeyMap focus_key_map_default
-    let tab %KeyboardEvent keyboard_event_raw KeyboardEventKind::KeyDown 9 0
-    let shift_tab %KeyboardEvent keyboard_event_raw KeyboardEventKind::KeyDown 9 1
-    let enter %KeyboardEvent keyboard_event_raw KeyboardEventKind::KeyDown 13 0
-    let space %KeyboardEvent keyboard_event_raw KeyboardEventKind::KeyDown 32 0
+    let tab %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 9 0
+    let shift_tab %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 9 1
+    let enter %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 13 0
+    let space %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 32 0
     let check0 assert command_is_next keyboard_event_to_focus_route_command &key_map tab
     let check1 assert command_is_previous keyboard_event_to_focus_route_command &key_map shift_tab
     let check2 assert command_is_activate keyboard_event_to_focus_route_command &key_map enter
@@ -90,8 +90,8 @@ exit_code: 0
 
 fn main %impure fn unit i32 \unit:
     let key_map %FocusKeyMap focus_key_map_default
-    let key_up %KeyboardEvent keyboard_event_raw KeyboardEventKind::KeyUp 9 1
-    let unknown %KeyboardEvent keyboard_event_raw KeyboardEventKind::KeyDown 65 0
+    let key_up %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyUp 9 1
+    let unknown %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 65 0
     let check0 assert is_none keyboard_event_to_focus_route_command &key_map key_up
     let check1 assert is_none keyboard_event_to_focus_route_command &key_map unknown
     let checks checks_push (checks_push checks_new check0) check1
@@ -142,8 +142,8 @@ fn command_is_activate %fn Option FocusRouteCommand bool \command:
 
 fn main %impure fn unit i32 \unit:
     let key_map %FocusKeyMap focus_key_map 100 101 102 4
-    let shift_tab %KeyboardEvent keyboard_event_raw KeyboardEventKind::KeyDown 100 4
-    let space %KeyboardEvent keyboard_event_raw KeyboardEventKind::KeyDown 102 0
+    let shift_tab %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 100 4
+    let space %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 102 0
     let check0 assert command_is_previous keyboard_event_to_focus_route_command &key_map shift_tab
     let check1 assert command_is_activate keyboard_event_to_focus_route_command &key_map space
     let checks checks_push (checks_push checks_new check0) check1

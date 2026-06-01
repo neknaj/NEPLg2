@@ -1,6 +1,6 @@
 2026-06-01 GUI/TUI standard library
 
-- `alloc/gui` の allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、TextLayout / cached layout、recursive event routing、pointer capture / gesture、raw keyboard mapping を追加する
+- `alloc/gui` の allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、TextLayout / cached layout、recursive event routing、pointer capture / gesture と、platform raw keyboard normalization を追加する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える
 - Web Playground backend を `platforms/gui/web` と TypeScript host bridge へ接続し、Canvas / DOM-backed surface の smoke test を追加する
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する

@@ -159,7 +159,7 @@ GuiEvent:
 
 Mobile では `LifecycleEvent` が必須である。Native desktop では一部だけ使う。Embedded や TUI では多くを使わない場合があるが、使わない event があることと、型体系上 event を持たないことは別である。標準 API は全 platform を表現できる event enum を持ち、実際の有無は `GuiCapabilities` で示す。
 
-TUI は keyboard event と text input event の両方を持つ。raw key sequence は backend が `KeyboardEvent` / `TextInputEvent` / `Action` へ変換する。application model は ANSI byte sequence を直接扱わない。
+TUI は keyboard event と text input event の両方を持つ。raw key sequence は backend が `KeyboardEvent` / `TextInputEvent` へ正規化し、focus 移動や activate は `std/gui/keymap` が `KeyboardEvent` と `FocusKeyMap` から `Option FocusRouteCommand` へ変換する。`GuiEvent::Action` は `alloc/gui/routing/focus` が current focus と widget descriptor を見て発行する。application model は ANSI byte sequence や DOM key string を直接扱わない。
 
 ## Routing Model
 
@@ -178,7 +178,7 @@ WidgetDescriptor
 
 Pointer hit test は `GuiRect` の half-open bounds を使う。つまり left/top は含み、right/bottom は含まない。bounded checkpoint では child が root より前面にあり、second child は first child より前面にある。disabled widget は hit しても `Option::None` を返し、panic や silent raw event にはしない。
 
-Focus traversal と focus routing は別契約である。`alloc/gui/focus` は `ViewTree` から `FocusOrder` を作り、current focus id から next / previous focus target を返すだけで、application event は発行しない。`alloc/gui/routing/focus` は platform 境界で解釈済みの `FocusRouteCommand` を受け取り、結果を次の enum で返す。
+Focus traversal、keyboard mapping、focus routing は別契約である。`alloc/gui/focus` は `ViewTree` から `FocusOrder` を作り、current focus id から next / previous focus target を返すだけで、application event は発行しない。`std/gui/keymap` は platform raw input から切り離された `KeyboardEvent` を `FocusRouteCommand` へ変換する。`alloc/gui/routing/focus` は解釈済みの `FocusRouteCommand` を受け取り、結果を次の enum で返す。
 
 ```text
 FocusRouteCommand:
@@ -192,7 +192,22 @@ FocusRouteResult:
     Emit GuiEvent
 ```
 
-`Next` / `Previous` は focus 移動だけを `MoveFocus` として返す。`Activate` は current focus id が指す widget の action event だけを `Emit` として返す。current focus が `None`、古い `WidgetId`、disabled widget、action を持たない widget、端で移動先がない traversal は `Ignored` になる。Tab、Shift+Tab、Enter、Space、terminal raw escape sequence、DOM keyboard event などを `FocusRouteCommand` へ変換する責務は `std/gui` または `platforms/gui/*` に置く。
+`Next` / `Previous` は focus 移動だけを `MoveFocus` として返す。`Activate` は current focus id が指す widget の action event だけを `Emit` として返す。current focus が `None`、古い `WidgetId`、disabled widget、action を持たない widget、端で移動先がない traversal は `Ignored` になる。Tab、Shift+Tab、Enter、Space の portable default mapping は `std/gui/keymap` の `FocusKeyMap` が所有する。terminal raw escape sequence、DOM keyboard event、OS virtual key は platform backend が `KeyboardEvent` へ正規化し、platform から `FocusRouteCommand` や application-specific `ActionId` を直接作らない。
+
+標準の keyboard focus 経路は次で固定する。
+
+```text
+platform raw input
+    -> KeyboardEvent / TextInputEvent
+KeyboardEvent + FocusKeyMap
+    -> Option FocusRouteCommand
+FocusRouteCommand + FocusOrder + ViewTree
+    -> FocusRouteResult
+FocusRouteResult::Emit
+    -> GuiEvent::Action
+```
+
+`FocusRouteCommand` は focus intent だけを表す。application 固有の action の意味は application `update` が `GuiEvent::Action` を `match` して決める。focus state の保持と `MoveFocus` の反映は runtime または application model の上位状態が担当し、`alloc/gui/routing/focus` 自体は純粋関数として状態を変更しない。
 
 この routing は callback を呼ばず、clipboard、window、terminal、DOM、OS API に触れない。pointer capture、gesture recognition、pointer cancel、IME focus、accessibility focus、recursive tree traversal は `std/gui` / `platforms/gui/*` と連携する上位状態であり、現 checkpoint では未実装である。ただし TUI でも keyboard / focus routing は最終的に `FocusRouteCommand` と `GuiEvent::Action` を使い、application が raw ANSI sequence を直接 `match` する経路を作らない。
 
@@ -439,6 +454,8 @@ std/gui:
     WindowId
     SurfaceId
     Runtime
+    FocusKeyMap
+    KeyboardEvent to FocusRouteCommand mapping
     HostTextMeasurer
     ResourceHandle
     Clipboard
@@ -474,15 +491,15 @@ platforms/gui:
 | `alloc/gui/widget` | callback-free widget descriptor、action event、semantic lowering、measure bridge | button / label descriptor、`ActionId` event 生成、semantic node 生成、layout measure bridge、focusable accessor を実装済み |
 | `alloc/gui/tree` | retained `ViewTree` / `LayoutTree`、bounded child、focus target query | root + 2 child の bounded tree、capacity error、first focusable id、focusable count を実装済み。allocator-backed recursive tree は未実装 |
 | `alloc/gui/focus` | platform 非依存 focus order / next / previous traversal | bounded `ViewTree` から `FocusOrder` を作り、current id から next / previous focus target を `Option WidgetId` で返す実装を追加済み。wrap policy と recursive tree traversal は未実装 |
-| `alloc/gui/routing` | `LayoutTree` hit test、`WidgetId` lookup、widget action lowering、focus command routing | bounded root + 2 child の pointer action routing と `FocusRouteCommand` / `FocusRouteResult` を実装済み。pointer capture、gesture、raw keyboard mapping、recursive tree traversal は未実装 |
+| `alloc/gui/routing` | `LayoutTree` hit test、`WidgetId` lookup、widget action lowering、focus command routing | bounded root + 2 child の pointer action routing と `FocusRouteCommand` / `FocusRouteResult` を実装済み。pointer capture、gesture、recursive tree traversal は未実装 |
 | `alloc/gui/diff` | retained tree diff / invalidation data contract | bounded `ViewTree` の slot diff、`GuiInvalidation::Clean` / `Widget` / `Tree` を実装済み。terminal line diff、DOM patch、dirty rect compression は platform 側で未実装 |
 | `alloc/gui/text` | platform 非依存 `TextBuffer` / checked edit storage | `TextBufferId`、`TextBuffer`、checked insert / replace / delete を `Result TextBuffer GuiError` で実装済み。`TextLayout`、line break、cached layout は未実装 |
 | `alloc/gui/theme` | typed theme scheme / color role / metric role、fallible color/metric helper | `GuiColor` palette、`ThemeMetrics` validation、`Option FontId`、text-cell style helper を実装済み。full typography / component style は未実装 |
 | `alloc/gui/accessibility` | semantic node / role / state / action tree | bounded semantic tree の初期 slice を実装済み。host accessibility bridge は `std/gui` / platform 側で継続 |
-| `std/gui` | host/runtime/window/timer/text/IME/accessibility/error display contract | typed data contract、core `TextMeasurer` host wrapper、`GuiEffectBatch -> GuiRuntimeCommandBatch` 解釈、capability unsupported error を実装済み。platform 実行は未実装 |
+| `std/gui` | host/runtime/window/timer/text/IME/accessibility/error display/keymap contract | typed data contract、core `TextMeasurer` host wrapper、`GuiEffectBatch -> GuiRuntimeCommandBatch` 解釈、capability unsupported error、`FocusKeyMap` による Tab / Shift+Tab / Enter / Space から `FocusRouteCommand` への変換を実装済み。platform 実行と raw input normalization は未実装 |
 | `platforms/gui/terminal` | terminal as `SurfaceKind::TextGrid` backend | `TerminalProfile` と core `TextCellRun` based frame を実装済み。custom capability と grid size は `Result` で検証し、TextGrid 以外や負 size を拒否する。ANSI / TTY present は未実装 |
 
-この表にない Web / native / mobile / embedded backend、allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、recursive event routing、pointer capture / gesture、raw keyboard mapping、`TextLayout` / cached layout、resource loading、real host presentation は未実装である。
+この表にない Web / native / mobile / embedded backend、allocator-backed recursive `ViewTree` / `LayoutTree`、recursive diff / invalidation、recursive event routing、pointer capture / gesture、platform raw keyboard normalization、`TextLayout` / cached layout、resource loading、real host presentation は未実装である。
 
 ## TUI Migration Contract
 
