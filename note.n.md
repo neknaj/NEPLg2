@@ -1,3 +1,14 @@
+# 2026-06-02 GUI/TUI arena diff invalidation checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` と作業 branch の同期状態を確認した。検証前の final sync で `origin/main` 10df8ce5 を merge し、remote/main の変更を取り込んだ。
+- Zenn 記事の platform 依存隔離、`Option` / `Result` / enum、契約と現状実装の分離方針に従い、`alloc/gui/diff` に allocator-backed `ViewTreeArenaDiff` と `view_tree_arena_diff` / `view_tree_arena_invalidation` を追加した。arena owner は消費せず、DOM、terminal line diff、framebuffer damage、host redraw request は扱わない。
+- arena diff は node count、parent index、depth、slot の `WidgetId` を tree shape / order として扱い、arena storage index を invalidation payload にしない。単一 content change は `GuiInvalidation::Widget id`、node count / shape / id 対応変更と複数 content change は `GuiInvalidation::Tree` に畳む。
+- subagent review は、`GuiInvalidation` が複数 widget id を表せないため複数 content change を `Tree` に倒すこと、`WidgetId` を public identity として扱い parent index / storage index を漏らさないこと、terminal / DOM / dirty rect compression を `alloc/gui/diff` に混ぜないことを確認した。
+- `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` は、arena diff / invalidation 実装済みと、残件が arena layout integration、stateful pointer routing、backend 接続であることに合わせて更新した。
+- focused 検証: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_diff.n.md -i stdlib/alloc/gui/diff.nepl -i stdlib/alloc/gui/diff/types.nepl --no-tree -o tmp/gui-arena-diff-focused.json -j 1 --dist web/dist --assert-io` は 20/20 pass。
+- merge 後の focused 検証 `tmp/gui-arena-diff-focused-after-merge.json` も 20/20 pass。最終検証: `trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-arena-diff.json` 13/13、`node nodesrc/test_stdlib_gui_layering_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+- `node nodesrc/test_stdlib_documentation_contract.js` は current HEAD の既存 baseline 差分 `stdlib module doctest gaps increased: 306 > 305` で失敗する。今回変更した `stdlib/alloc/gui/diff/types.nepl` の宣言 doctest gap は HEAD 比で増えていないことを確認した。
+
 # 2026-06-02 GUI/TUI arena pointer routing checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` と作業 branch の同期状態を確認した。検証前の final sync で `origin/main` 745cfaaa を merge し、remote/main の変更を取り込んだ。

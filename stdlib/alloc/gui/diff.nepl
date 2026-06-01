@@ -6,7 +6,7 @@
 //: - DOM、ANSI、window handle、framebuffer を[持/も]たず、差分判定だけを alloc layer に[閉/と]じます。
 //:
 //: ### [現状/げんじょう]
-//: - bounded `ViewTree` の root + 2 child を[対象/たいしょう]にします。
+//: - bounded `ViewTree` の root + 2 child diff と、allocator-backed `ViewTreeArena` の summary diff / invalidation を[対象/たいしょう]にします。
 //:
 //: neplg2:test
 //: ret: 1

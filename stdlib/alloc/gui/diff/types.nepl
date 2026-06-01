@@ -8,6 +8,8 @@
 //: ### [契約/けいやく]
 //: - child count が[変/か]わる場合は subtree shape が[変/か]わるため `GuiInvalidation::Tree` を[返/かえ]します。
 //: - widget の id が同じで内容だけが[変/か]わる場合は `GuiInvalidation::Widget id` を[返/かえ]します。
+//: - allocator-backed arena では node 数、parent index、depth、slot の `WidgetId` が[変/か]わる場合は tree shape / order の[変化/へんか]として `GuiInvalidation::Tree` を[返/かえ]します。
+//: - allocator-backed arena で内容変更が複数ある場合、最小 enum では複数 widget を表せないため `GuiInvalidation::Tree` を[返/かえ]します。
 //:
 //: neplg2:test
 //: ret: 2
@@ -75,9 +77,27 @@ impl Copy for ViewTreeDiff:
     fn copy_mark %fn ViewTreeDiff ViewTreeDiff \diff:
         diff
 
+//: ViewTreeArenaDiff: allocator-backed `ViewTreeArena` の summary diff
+//:
+//: [目的/もくてき]:
+//: - arena 全体を `GuiInvalidation` へ畳む前に、node count、shape、content change の分類を enum / typed field として[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+pub struct ViewTreeArenaDiff:
+    node_count_changed %bool
+    shape_changed %bool
+    changed_widget_count %i32
+    changed_widget_id %Option WidgetId
+
 //: view_tree_diff_new: slot diff を[作/つく]る
 pub fn view_tree_diff_new %fn bool fn bool fn bool fn bool ViewTreeDiff \root_changed\child0_changed\child1_changed\child_count_changed:
     ViewTreeDiff root_changed child0_changed child1_changed child_count_changed
+
+//: view_tree_arena_diff_new: arena diff summary を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn view_tree_arena_diff_new %fn bool fn bool fn i32 fn Option WidgetId ViewTreeArenaDiff \node_count_changed\shape_changed\changed_widget_count\changed_widget_id:
+    ViewTreeArenaDiff node_count_changed shape_changed changed_widget_count changed_widget_id
 
 //: view_tree_diff_root_changed: root slot の[変化/へんか]を[読/よ]む
 pub fn view_tree_diff_root_changed %fn &ViewTreeDiff bool \diff:
@@ -94,6 +114,30 @@ pub fn view_tree_diff_second_child_changed %fn &ViewTreeDiff bool \diff:
 //: view_tree_diff_child_count_changed: child count の[変化/へんか]を[読/よ]む
 pub fn view_tree_diff_child_count_changed %fn &ViewTreeDiff bool \diff:
     *field::get_ref diff "child_count_changed"
+
+//: view_tree_arena_diff_node_count_changed: arena node count の[変化/へんか]を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn view_tree_arena_diff_node_count_changed %fn &ViewTreeArenaDiff bool \diff:
+    *field::get_ref diff "node_count_changed"
+
+//: view_tree_arena_diff_shape_changed: arena parent/depth/id 対応の[変化/へんか]を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn view_tree_arena_diff_shape_changed %fn &ViewTreeArenaDiff bool \diff:
+    *field::get_ref diff "shape_changed"
+
+//: view_tree_arena_diff_changed_widget_count: content change の widget 数を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn view_tree_arena_diff_changed_widget_count %fn &ViewTreeArenaDiff i32 \diff:
+    *field::get_ref diff "changed_widget_count"
+
+//: view_tree_arena_diff_changed_widget_id: 単一 content change の WidgetId を Option で[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn view_tree_arena_diff_changed_widget_id %fn &ViewTreeArenaDiff Option WidgetId \diff:
+    *field::get_ref diff "changed_widget_id"
 
 //: gui_invalidation_is_dirty: invalidation が redraw 対象を[持/も]つか[判定/はんてい]する
 pub fn gui_invalidation_is_dirty %fn GuiInvalidation bool \invalidation:
@@ -293,3 +337,132 @@ pub fn view_tree_invalidation %fn &ViewTree fn &ViewTree GuiInvalidation \old_tr
                         let new_second %Option WidgetDescriptor view_tree_second_child new_tree
                         changed_widget_id_or_tree old_second new_second
                     else GuiInvalidation::Clean
+
+//: view_tree_arena_diff_shape: shape change summary を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn view_tree_arena_diff_shape %fn bool ViewTreeArenaDiff \node_count_changed:
+    view_tree_arena_diff_new node_count_changed true 0 none
+
+//: view_tree_arena_diff_result: accumulated content change を diff summary に[変換/へんかん]する
+//:
+//: neplg2:test[skip]
+fn view_tree_arena_diff_result %fn i32 fn Option WidgetId ViewTreeArenaDiff \changed_count\changed_id:
+    view_tree_arena_diff_new false false changed_count changed_id
+
+//: view_tree_arena_diff_loop: arena node を stable order で[比較/ひかく]する
+//:
+//: [実装/じっそう]:
+//: - parent index、depth、slot id は tree shape / order の一部として[扱/あつか]います。
+//: - 内容変更は 2 件目まで数え、`GuiInvalidation` へ畳む時に複数変更を `Tree` にします。
+//:
+//: neplg2:test[skip]
+fn view_tree_arena_diff_loop %fn &ViewTreeArena fn &ViewTreeArena fn i32 fn i32 fn i32 fn Option WidgetId ViewTreeArenaDiff \old_tree\new_tree\count\index\changed_count\changed_id:
+    if ge index count:
+        then view_tree_arena_diff_result changed_count changed_id
+        else:
+            match view_tree_arena_get_node old_tree index:
+                Option::Some old_node:
+                    match view_tree_arena_get_node new_tree index:
+                        Option::Some new_node:
+                            let old_parent %i32 view_tree_arena_node_parent_index &old_node
+                            let new_parent %i32 view_tree_arena_node_parent_index &new_node
+                            let old_depth %i32 view_tree_arena_node_depth &old_node
+                            let new_depth %i32 view_tree_arena_node_depth &new_node
+                            let parent_same %bool eq old_parent new_parent
+                            let depth_same %bool eq old_depth new_depth
+                            if not and parent_same depth_same:
+                                then view_tree_arena_diff_shape false
+                                else:
+                                    let old_descriptor %WidgetDescriptor view_tree_arena_node_descriptor &old_node
+                                    let new_descriptor %WidgetDescriptor view_tree_arena_node_descriptor &new_node
+                                    let old_id %WidgetId widget_descriptor_id &old_descriptor
+                                    let new_id %WidgetId widget_descriptor_id &new_descriptor
+                                    if not widget_id_equal old_id new_id:
+                                        then view_tree_arena_diff_shape false
+                                        else:
+                                            let same_descriptor %bool widget_descriptor_equal old_descriptor new_descriptor
+                                            if same_descriptor:
+                                                then:
+                                                    let next_index %i32 add index 1
+                                                    view_tree_arena_diff_loop old_tree new_tree count next_index changed_count changed_id
+                                                else:
+                                                    if ge changed_count 1:
+                                                        then:
+                                                            let next_count %i32 add changed_count 1
+                                                            view_tree_arena_diff_result next_count changed_id
+                                                        else:
+                                                            let next_changed %Option WidgetId some new_id
+                                                            let next_count %i32 add changed_count 1
+                                                            let next_index %i32 add index 1
+                                                            view_tree_arena_diff_loop old_tree new_tree count next_index next_count next_changed
+                        Option::None:
+                            view_tree_arena_diff_shape false
+                Option::None:
+                    view_tree_arena_diff_shape false
+
+//: view_tree_arena_diff: old/new arena tree の summary diff を[作/つく]る
+//:
+//: [計算量/けいさんりょう]:
+//: - arena node 数を n として O(n) です。
+//:
+//: [契約/けいやく]:
+//: - arena owner は消費しません。
+//: - node 数、parent index、depth、slot の `WidgetId` は shape / order として[扱/あつか]います。
+//: - `changed_widget_id` は content change が 1 件だけの時に意味を[持/も]ちます。
+//:
+//: neplg2:test[skip]
+pub fn view_tree_arena_diff %fn &ViewTreeArena fn &ViewTreeArena ViewTreeArenaDiff \old_tree\new_tree:
+    let old_count %i32 view_tree_arena_len old_tree
+    let new_count %i32 view_tree_arena_len new_tree
+    if not eq old_count new_count:
+        then view_tree_arena_diff_new true false 0 none
+        else view_tree_arena_diff_loop old_tree new_tree old_count 0 0 none
+
+//: view_tree_arena_diff_any: arena diff が 1 つでも[変化/へんか]を[持/も]つか[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+pub fn view_tree_arena_diff_any %fn &ViewTreeArenaDiff bool \diff:
+    let count_changed %bool view_tree_arena_diff_node_count_changed diff
+    let shape_changed %bool view_tree_arena_diff_shape_changed diff
+    let changed_count %i32 view_tree_arena_diff_changed_widget_count diff
+    let has_widget_change %bool gt changed_count 0
+    or:
+        or count_changed shape_changed
+        has_widget_change
+
+//: view_tree_arena_invalidation_from_diff: arena diff summary を最小 invalidation enum へ[畳/たた]む
+//:
+//: neplg2:test[skip]
+pub fn view_tree_arena_invalidation_from_diff %fn &ViewTreeArenaDiff GuiInvalidation \diff:
+    let count_changed %bool view_tree_arena_diff_node_count_changed diff
+    let shape_changed %bool view_tree_arena_diff_shape_changed diff
+    if or count_changed shape_changed:
+        then GuiInvalidation::Tree
+        else:
+            let changed_count %i32 view_tree_arena_diff_changed_widget_count diff
+            if eq changed_count 0:
+                then GuiInvalidation::Clean
+                else if eq changed_count 1:
+                    then:
+                        match view_tree_arena_diff_changed_widget_id diff:
+                            Option::Some id:
+                                GuiInvalidation::Widget id
+                            Option::None:
+                                GuiInvalidation::Tree
+                    else GuiInvalidation::Tree
+
+//: view_tree_arena_invalidation: allocator-backed tree diff を最小 invalidation enum へ[畳/たた]む
+//:
+//: [計算量/けいさんりょう]:
+//: - arena node 数を n として O(n) です。
+//:
+//: [契約/けいやく]:
+//: - arena owner は消費しません。
+//: - 同じ slot の `WidgetId` が同じで内容だけが 1 件[変/か]わる場合は `GuiInvalidation::Widget id` です。
+//: - node 数、parent index、depth、slot の `WidgetId`、または複数 content が[変/か]わる場合は `GuiInvalidation::Tree` です。
+//:
+//: neplg2:test[skip]
+pub fn view_tree_arena_invalidation %fn &ViewTreeArena fn &ViewTreeArena GuiInvalidation \old_tree\new_tree:
+    let diff %ViewTreeArenaDiff view_tree_arena_diff old_tree new_tree
+    view_tree_arena_invalidation_from_diff &diff
