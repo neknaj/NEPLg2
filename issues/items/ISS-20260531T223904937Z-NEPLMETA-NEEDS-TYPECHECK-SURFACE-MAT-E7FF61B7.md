@@ -110,3 +110,34 @@ artifact を引き、local export / Open / simple named import projection をこ
 追加検証:
 
 - `cargo test -p nepl-core materializer --lib -- --nocapture`
+
+## 2026-06-01 import projection checkpoint
+
+target `.neplmeta` artifact を読めた後、import clause で見える public surface だけを
+typecheck materializer へ渡す projection API を `artifact.rs` に追加した。
+
+今回の受け入れ範囲:
+
+- local callable export。
+- `Open` / clause なしの local callable export 全体。
+- alias なし selective import の指定 callable export。
+
+今回の fail-closed 範囲:
+
+- payload consistency mismatch。
+- module/export surface 欠落、module identity 欠落。
+- public surface blocker。
+- re-export projection。さらに target artifact が必要なのでこの checkpoint では展開しない。
+- alias、glob、merge、default alias。
+- struct / enum / trait export。
+- selective import の missing name。
+- export entry と structured public surface の不一致。
+
+この checkpoint も body skip 完了ではない。現在の `CompilerSession` は module path keyed な
+`.neplmeta` artifact store を持たないため、loader の import / prelude boundary にはまだ接続しない。
+次は target artifact store、header compatibility、dependency public surface hash の確認を入れてから、
+projection と `typecheck/materializer` を接続する。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`

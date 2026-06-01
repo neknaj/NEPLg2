@@ -1853,6 +1853,35 @@ primitive / generic callable に限って typecheck candidate として復元で
 Open / simple named import projection をこの materializer へ渡すこと、および named type /
 trait bound / field accessor / function value identity を専用 authority で順に追加することである。
 
+### 2026-06-01 `.neplmeta` import projection checkpoint
+
+target `.neplmeta` artifact を読めた後に、import clause で見える public surface だけを
+typecheck materializer へ渡す projection API を追加した。
+
+この checkpoint もまだ dependency body skip ではない。現時点の `CompilerSession` は直近 compile
+artifact slot だけを持ち、module path keyed な依存 artifact map や disk / IndexedDB codec を
+持っていない。そのため、loader が import / prelude boundary で target artifact を引く処理へは
+まだ接続しない。今回の目的は、target artifact が存在する場合でも「何を `Env` へ注入してよいか」
+を artifact layer の純粋関数として固定することである。
+
+追加した境界:
+
+- `materializer_local_export_public_surface_mvp` は local callable export だけを投影する。
+- `materializer_import_public_surface_mvp` は `Open` / clause なしでは local callable export 全体、
+  alias なし selective import では指定名だけを投影する。
+- alias、glob、merge、default alias は visible name 書き換えや衝突判定が必要なので拒否する。
+- re-export projection はさらに target artifact を読む必要があるため、この checkpoint では
+  `UnsupportedReexportProjection` として拒否する。
+- struct / enum / trait export は named type / trait materializer が未実装なので拒否する。
+- missing selective name は「存在しない」と推測せず、re-export 未展開の可能性も含めて専用 reason で
+  fail-closed にする。
+
+この projection により、前 checkpoint の `typecheck/materializer` は、artifact 全体ではなく
+import clause で見える callable subset だけを受け取れるようになった。次の段階では、module path
+keyed な `.neplmeta` artifact store を `CompilerSession` / loader cache に持たせ、target artifact
+header compatibility と dependency public surface hash を確認したうえで、この projection と
+typecheck materializer を import / prelude boundary に接続する。
+
 ### 2026-06-01 LLVM dual CI shard checkpoint
 
 GitHub Actions run `26728316260` では、`llvm-dual-test` の `tests` / `stdlib`

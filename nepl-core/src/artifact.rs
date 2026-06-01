@@ -454,6 +454,30 @@ impl NeplMetaArtifact {
         &self.public_surface
     }
 
+    /// local export を `.neplmeta` typecheck materializer へ渡す public surface に絞る。
+    ///
+    /// この関数は source body skip を実行しない。export surface が示す公開名と structured
+    /// public surface の entry を照合し、現在の materializer MVP が扱える callable だけを
+    /// `TypedPublicSurfaceTable` として返す。struct / enum / trait export や re-export は
+    /// 別 authority が揃うまで fail-closed にする。
+    pub fn materializer_local_export_public_surface_mvp(
+        &self,
+    ) -> Result<TypedPublicSurfaceTable, NeplMetaMaterializerProjectionReject> {
+        self.project_materializer_public_surface_mvp(None)
+    }
+
+    /// import clause で見える target artifact の public surface を materializer 入力へ絞る。
+    ///
+    /// `Open` / clause なしは local callable export 全体、alias なし selective import は指定名だけを
+    /// 受け入れる。alias、glob、merge、default alias、re-export projection は target artifact
+    /// 以外の authority や衝突判定が必要なので、ここでは推測せず通常 source load へ戻す。
+    pub fn materializer_import_public_surface_mvp(
+        &self,
+        import_clause: Option<&NeplMetaImportClause>,
+    ) -> Result<TypedPublicSurfaceTable, NeplMetaMaterializerProjectionReject> {
+        self.project_materializer_public_surface_mvp(import_clause)
+    }
+
     /// `.neplmeta` を stdlib public surface materializer MVP へ渡せるかを判定する。
     ///
     /// この判定は body skip そのものではなく、artifact payload が current compile の
@@ -571,6 +595,92 @@ impl NeplMetaArtifact {
     pub fn entry_count(&self) -> usize {
         self.public_signatures.entries.len()
     }
+
+    fn project_materializer_public_surface_mvp(
+        &self,
+        import_clause: Option<&NeplMetaImportClause>,
+    ) -> Result<TypedPublicSurfaceTable, NeplMetaMaterializerProjectionReject> {
+        if let Some(reject) = self.payload_consistency_reject() {
+            return Err(NeplMetaMaterializerProjectionReject::PayloadConsistency(
+                reject,
+            ));
+        }
+        let module_surface = self
+            .module_surface
+            .as_ref()
+            .ok_or(NeplMetaMaterializerProjectionReject::MissingModuleSurface)?;
+        if module_surface.canonical_module_path.is_empty() {
+            return Err(NeplMetaMaterializerProjectionReject::MissingModuleIdentity);
+        }
+        let export_surface = self
+            .export_surface
+            .as_ref()
+            .ok_or(NeplMetaMaterializerProjectionReject::MissingExportSurface)?;
+        if !export_surface.reexport_projections.is_empty() {
+            return Err(NeplMetaMaterializerProjectionReject::UnsupportedReexportProjection);
+        }
+        if let Some(blocker) = self.public_surface.materializer_blockers().into_iter().next() {
+            return Err(NeplMetaMaterializerProjectionReject::PublicSurfaceBlocker(
+                blocker.reason,
+            ));
+        }
+        let requested_names = requested_materializer_export_names(import_clause)?;
+        let export_entries = match requested_names {
+            MaterializerExportNames::All => export_surface.local_exports.clone(),
+            MaterializerExportNames::Named(names) => {
+                let mut out = Vec::new();
+                for requested in names {
+                    let Some(entry) = export_surface
+                        .local_exports
+                        .iter()
+                        .find(|entry| entry.exported_name == requested)
+                    else {
+                        return Err(NeplMetaMaterializerProjectionReject::ExportedNameMissing {
+                            name: requested,
+                        });
+                    };
+                    out.push(entry.clone());
+                }
+                out
+            }
+        };
+        let mut projected = Vec::new();
+        for export in export_entries {
+            if export.origin_module_path != module_surface.canonical_module_path {
+                return Err(
+                    NeplMetaMaterializerProjectionReject::ExportOriginModuleMismatch {
+                        exported_name: export.exported_name,
+                        origin_module_path: export.origin_module_path,
+                    },
+                );
+            }
+            if export.kind != NeplMetaExportKind::Callable {
+                return Err(NeplMetaMaterializerProjectionReject::UnsupportedExportKind {
+                    exported_name: export.exported_name,
+                    kind: export.kind,
+                });
+            }
+            let Some(entry) = self
+                .public_surface
+                .entries
+                .iter()
+                .find(|entry| entry.kind == TypedPublicSignatureKind::Callable && entry.name == export.origin_name)
+            else {
+                return Err(NeplMetaMaterializerProjectionReject::ExportedSurfaceMissing {
+                    exported_name: export.exported_name,
+                    origin_name: export.origin_name,
+                });
+            };
+            if export.exported_name != entry.name {
+                return Err(NeplMetaMaterializerProjectionReject::ExportAliasUnsupported {
+                    exported_name: export.exported_name,
+                    origin_name: entry.name.clone(),
+                });
+            }
+            projected.push(entry.clone());
+        }
+        Ok(TypedPublicSurfaceTable::new(projected))
+    }
 }
 
 /// `.neplmeta` payload 自体が header と矛盾している理由。
@@ -606,6 +716,43 @@ pub enum NeplMetaMaterializerMvpReject {
     UnsupportedImplLookup,
 }
 
+/// `.neplmeta` export surface を materializer 入力へ投影できなかった理由。
+///
+/// `NeplMetaMaterializerMvpReject` は artifact 全体の前提条件を判定する。こちらは、
+/// target artifact を読めた後に、現在の import clause で見える名前だけを
+/// `TypedPublicSurfaceTable` へ絞る段階の拒否理由である。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NeplMetaMaterializerProjectionReject {
+    PayloadConsistency(NeplMetaArtifactPayloadReject),
+    MissingModuleSurface,
+    MissingExportSurface,
+    MissingModuleIdentity,
+    PublicSurfaceBlocker(PublicSurfaceMaterializerBlockerReason),
+    UnsupportedReexportProjection,
+    UnsupportedAlias,
+    UnsupportedMerge,
+    UnsupportedGlob,
+    UnsupportedExportKind {
+        exported_name: String,
+        kind: NeplMetaExportKind,
+    },
+    ExportedNameMissing {
+        name: String,
+    },
+    ExportedSurfaceMissing {
+        exported_name: String,
+        origin_name: String,
+    },
+    ExportOriginModuleMismatch {
+        exported_name: String,
+        origin_module_path: String,
+    },
+    ExportAliasUnsupported {
+        exported_name: String,
+        origin_name: String,
+    },
+}
+
 impl NeplMetaMaterializerMvpReject {
     pub fn code(&self) -> u32 {
         match self {
@@ -620,6 +767,38 @@ impl NeplMetaMaterializerMvpReject {
             Self::UnsupportedAlias => 9,
             Self::UnsupportedGlob => 10,
             Self::UnsupportedImplLookup => 11,
+        }
+    }
+}
+
+enum MaterializerExportNames {
+    All,
+    Named(Vec<String>),
+}
+
+fn requested_materializer_export_names(
+    import_clause: Option<&NeplMetaImportClause>,
+) -> Result<MaterializerExportNames, NeplMetaMaterializerProjectionReject> {
+    match import_clause {
+        None | Some(NeplMetaImportClause::Open) => Ok(MaterializerExportNames::All),
+        Some(NeplMetaImportClause::DefaultAlias | NeplMetaImportClause::Alias(_)) => {
+            Err(NeplMetaMaterializerProjectionReject::UnsupportedAlias)
+        }
+        Some(NeplMetaImportClause::Merge) => {
+            Err(NeplMetaMaterializerProjectionReject::UnsupportedMerge)
+        }
+        Some(NeplMetaImportClause::Selective(items)) => {
+            let mut names = Vec::new();
+            for item in items {
+                if item.glob {
+                    return Err(NeplMetaMaterializerProjectionReject::UnsupportedGlob);
+                }
+                if item.alias.is_some() {
+                    return Err(NeplMetaMaterializerProjectionReject::UnsupportedAlias);
+                }
+                names.push(item.name.clone());
+            }
+            Ok(MaterializerExportNames::Named(names))
         }
     }
 }
@@ -912,6 +1091,22 @@ mod tests {
         )]))
     }
 
+    fn signature_table_for_names(names: &[&str]) -> TypedPublicSignatureTable {
+        TypedPublicSignatureTable::new(
+            names
+                .iter()
+                .map(|name| {
+                    TypedPublicSignatureEntry::new(
+                        TypedPublicSignatureKind::Callable,
+                        (*name).into(),
+                        "fn unit i32".into(),
+                        false,
+                    )
+                })
+                .collect(),
+        )
+    }
+
     fn surface_table(name: &str, result: PublicTypeTerm) -> TypedPublicSurfaceTable {
         TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Callable,
@@ -958,6 +1153,36 @@ mod tests {
         }]))
     }
 
+    fn materializable_multi_surface_table(names: &[&str]) -> TypedPublicSurfaceTable {
+        TypedPublicSurfaceTable::new(
+            names
+                .iter()
+                .map(|name| TypedPublicSurfaceEntry {
+                    kind: TypedPublicSignatureKind::Callable,
+                    name: (*name).into(),
+                    surface: PublicSurfaceShape::Callable(PublicCallableSurface {
+                        ty: PublicTypeTerm::Function {
+                            type_params: Vec::new(),
+                            params: Vec::from([PublicTypeTerm::Unit]),
+                            result: alloc::boxed::Box::new(PublicTypeTerm::I32),
+                            effect: PublicEffect::Pure,
+                        },
+                        no_shadow: false,
+                        arity: 1,
+                        effect: PublicEffect::Pure,
+                        field_accessor: None,
+                        link_symbol: Some(PublicCallableLinkSymbol {
+                            source_path: "/stdlib/core/math.nepl".into(),
+                            name: (*name).into(),
+                            signature_hash: 42,
+                        }),
+                        type_param_bounds: Vec::new(),
+                    }),
+                })
+                .collect(),
+        )
+    }
+
     fn test_header(
         public_signatures: &TypedPublicSignatureTable,
         module_surface: Option<&NeplMetaModuleSurface>,
@@ -994,6 +1219,10 @@ mod tests {
         )
     }
 
+    fn module_surface_without_edges(path: &str) -> NeplMetaModuleSurface {
+        module_surface_with_edges(path, Vec::new())
+    }
+
     fn module_surface_with_edges(
         path: &str,
         edges: Vec<NeplMetaModuleDependencyEdge>,
@@ -1012,6 +1241,28 @@ mod tests {
         public_surface: TypedPublicSurfaceTable,
     ) -> NeplMetaArtifact {
         let public_signatures = signature_table("answer", "fn unit i32");
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
+        NeplMetaArtifact::new(
+            test_header(
+                &public_signatures,
+                Some(&module_surface),
+                &public_surface,
+                None,
+            ),
+            public_signatures,
+            Some(module_surface),
+            Some(export_surface),
+            public_surface,
+        )
+    }
+
+    fn artifact_for_materializer_with_names(
+        module_surface: NeplMetaModuleSurface,
+        public_surface: TypedPublicSurfaceTable,
+        signature_names: &[&str],
+    ) -> NeplMetaArtifact {
+        let public_signatures = signature_table_for_names(signature_names);
         let export_surface =
             NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
         NeplMetaArtifact::new(
@@ -1087,6 +1338,127 @@ mod tests {
         assert_eq!(
             export_surface.reexport_projections[0].import_clause,
             Some(NeplMetaImportClause::Open)
+        );
+    }
+
+    /// target artifact が読めた後でも、materializer へ渡すのは import clause から見える
+    /// local callable export だけである。Open import は callable local export 全体を投影する。
+    #[test]
+    fn neplmeta_projection_open_import_keeps_local_callable_exports() {
+        let artifact = artifact_for_materializer_with_names(
+            module_surface_without_edges("/stdlib/core/math.nepl"),
+            materializable_multi_surface_table(&["answer", "double"]),
+            &["answer", "double"],
+        );
+
+        let projected = artifact
+            .materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Open))
+            .expect("open import projection");
+
+        assert_eq!(projected.entries.len(), 2);
+        assert!(projected.entries.iter().any(|entry| entry.name == "answer"));
+        assert!(projected.entries.iter().any(|entry| entry.name == "double"));
+    }
+
+    /// selective import は alias や glob を使わない名前だけを受け入れ、該当する callable
+    /// surface だけを materializer へ渡す。これにより不要な overload 候補を依存側 `Env` へ
+    /// 注入しない。
+    #[test]
+    fn neplmeta_projection_selective_import_keeps_requested_callable_only() {
+        let artifact = artifact_for_materializer_with_names(
+            module_surface_without_edges("/stdlib/core/math.nepl"),
+            materializable_multi_surface_table(&["answer", "double"]),
+            &["answer", "double"],
+        );
+
+        let projected = artifact
+            .materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Selective(
+                Vec::from([NeplMetaImportItem {
+                    name: "double".into(),
+                    alias: None,
+                    glob: false,
+                }]),
+            )))
+            .expect("selective import projection");
+
+        assert_eq!(projected.entries.len(), 1);
+        assert_eq!(projected.entries[0].name, "double");
+    }
+
+    /// selective import が要求する名前が local export にない場合、re-export か欠落かを
+    /// target artifact 単体では推測しない。missing name は専用 reason で fail-closed にする。
+    #[test]
+    fn neplmeta_projection_rejects_missing_selective_name() {
+        let artifact = artifact_for_materializer_with_names(
+            module_surface_without_edges("/stdlib/core/math.nepl"),
+            materializable_multi_surface_table(&["answer"]),
+            &["answer"],
+        );
+
+        let reject = artifact
+            .materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Selective(
+                Vec::from([NeplMetaImportItem {
+                    name: "missing".into(),
+                    alias: None,
+                    glob: false,
+                }]),
+            )))
+            .unwrap_err();
+
+        assert_eq!(
+            reject,
+            super::NeplMetaMaterializerProjectionReject::ExportedNameMissing {
+                name: "missing".into()
+            }
+        );
+    }
+
+    /// re-export projection はさらに target artifact を読む必要がある。Open import でもこの
+    /// checkpoint では展開せず、通常 source load / typecheck fallback へ戻す。
+    #[test]
+    fn neplmeta_projection_rejects_reexport_projection_until_target_artifact_exists() {
+        let artifact = artifact_for_materializer(
+            module_surface("/stdlib/core/math.nepl"),
+            materializable_surface_table("answer", PublicTypeTerm::I32),
+        );
+
+        assert_eq!(
+            artifact.materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Open)),
+            Err(
+                super::NeplMetaMaterializerProjectionReject::UnsupportedReexportProjection
+            )
+        );
+    }
+
+    /// alias / glob / merge は依存側の visible name と衝突判定が必要である。MVP projection は
+    /// surface を書き換えず、unsupported reason で fail-closed にする。
+    #[test]
+    fn neplmeta_projection_rejects_alias_glob_and_merge() {
+        let artifact = artifact_for_materializer_with_names(
+            module_surface_without_edges("/stdlib/core/math.nepl"),
+            materializable_multi_surface_table(&["answer"]),
+            &["answer"],
+        );
+
+        assert_eq!(
+            artifact.materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Alias(
+                "Math".into()
+            ))),
+            Err(super::NeplMetaMaterializerProjectionReject::UnsupportedAlias)
+        );
+        assert_eq!(
+            artifact.materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Selective(
+                Vec::from([NeplMetaImportItem {
+                    name: "answer".into(),
+                    alias: None,
+                    glob: true,
+                }]),
+            ))),
+            Err(super::NeplMetaMaterializerProjectionReject::UnsupportedGlob)
+        );
+        assert_eq!(
+            artifact.materializer_import_public_surface_mvp(Some(&NeplMetaImportClause::Merge)),
+            Err(super::NeplMetaMaterializerProjectionReject::UnsupportedMerge)
         );
     }
 

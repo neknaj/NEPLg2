@@ -1,3 +1,15 @@
+# 2026-06-01 .neplmeta import projection checkpoint
+
+- Zenn 記事の core/no_std 分離、enum/struct による静的検査、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `cece442b Add neplmeta typecheck materializer callable MVP` まで同期済みで、現在 branch `perf/neplmeta-import-projection-20260601` の基点は `origin/main` と一致している。
+- `NeplMetaArtifact::materializer_local_export_public_surface_mvp` と `materializer_import_public_surface_mvp` を追加し、target `.neplmeta` artifact を読めた後に materializer へ渡す public surface subset を純粋に作れるようにした。
+- projection は local callable export、`Open` / clause なしの local callable export 全体、alias なし selective import の指定 callable export だけを受け入れる。
+- re-export projection はさらに target artifact が必要なので拒否する。alias、glob、merge、default alias、struct / enum / trait export、missing selective name、export entry と structured public surface の不一致も fail-closed enum reason で拒否する。
+- この checkpoint は body skip 完了ではない。現在の `CompilerSession` は module path keyed な `.neplmeta` artifact store を持たないため、loader import / prelude boundary へはまだ接続しない。次は target artifact store、header compatibility、dependency public surface hash の確認を入れてから projection と `typecheck/materializer` を接続する。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7` に checkpoint を追記した。
+- 現時点の focused verification は `cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer --lib -- --nocapture` を通した。
+- memo_call 側は今回混ぜず、sealed fresh private region / non-escape proof の Resource IR checkpoint として分離する。
+
 # 2026-06-01 .neplmeta typecheck materializer callable MVP checkpoint
 
 - Zenn 記事の static check、enum/struct による authority 明示、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
