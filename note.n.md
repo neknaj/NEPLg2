@@ -1,3 +1,15 @@
+# 2026-06-01 .neplmeta session store checkpoint
+
+- Zenn 記事の core/no_std 分離、長寿命 session cache、静的検査境界を型付き artifact と統計で観測可能にする方針を再確認した。`plan.md` は変更していない。
+- remote/main は前 checkpoint `8ba0beba Guard unresolved function value identities` まで同期・push 済みで、branch `work/neplmeta-session-store-20260601` はその `main` から作成した。
+- `CompilerSession` に `NeplMetaArtifactStore` を追加し、通常 compile 成功時に `.neplmeta` artifact を module path keyed store へ保存するようにした。
+- compiled-output cache hit は新しい compile artifact ではないため、last artifact は更新するが store 統計は増やさない。これにより output cache hit と `.neplmeta` store refresh を分けて観測できる。
+- stdlib override compile では、通常 stdlib 用の future materializer と取り違えないよう `.neplmeta` store を clear し、override artifact は store へ入れない。通常 VFS でも `/stdlib/...` を上書きした場合は同じ bypass として扱う。
+- `loader_cache_stats_json` に `.neplmeta` store entries / stores / rejects / hits / misses / payload rejects / compatibility rejects / projection rejects を追加した。現 checkpoint では hits/misses は projection API 接続前なので 0 のままでよい。
+- `tests/compiler/tree/20_compiler_session_outputs_cache.js` に、初回 compile で store が増え、compiled-output cache hit では store count が増えず、VFS content change compile で store が refresh される regression を追加した。
+- この checkpoint は dependency body skip 完了ではない。次は loader/import boundary で target module artifact を探し、header compatibility と projection を通した場合だけ `typecheck/materializer` へ渡す接続を検討する。
+- focused verification は `cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-session-store-20260601.json`、`git diff --check` を通した。
+
 # 2026-06-01 .neplmeta function identity guard checkpoint
 
 - Zenn 記事の静的検査、enum/struct による authority 明示、試作段階でも unsafe な shortcut を残さない方針を再確認した。`plan.md` は変更していない。

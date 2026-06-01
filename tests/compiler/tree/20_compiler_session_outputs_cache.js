@@ -19,6 +19,15 @@ function cacheStores(session) {
     return Number(stats(session).compiled_output_cache_stores || 0);
 }
 
+function neplMetaStoreStats(session) {
+    const s = stats(session);
+    return {
+        entries: Number(s.nepl_meta_artifact_store_entries || 0),
+        stores: Number(s.nepl_meta_artifact_store_stores || 0),
+        rejects: Number(s.nepl_meta_artifact_store_rejects || 0),
+    };
+}
+
 function wasmBytes(outputs) {
     assert.ok(outputs && outputs.wasm instanceof Uint8Array, 'compile output must include wasm bytes');
     return Array.from(outputs.wasm);
@@ -72,7 +81,11 @@ fn main <()->i32> ():
             false,
         );
         const firstStores = cacheStores(cacheSession);
+        const firstMetaStore = neplMetaStoreStats(cacheSession);
         assert.equal(firstStores, 1, 'first compile must store one compiled output cache entry');
+        assert.equal(firstMetaStore.entries, 1, 'first compile must store one .neplmeta artifact');
+        assert.equal(firstMetaStore.stores, 1, 'first compile must count one .neplmeta store');
+        assert.equal(firstMetaStore.rejects, 0, 'valid .neplmeta artifact must not be rejected');
 
         const orderOnlyOutput = cacheSession.compile_outputs_with_vfs(
             '/virtual/session_cache.nepl',
@@ -88,6 +101,11 @@ fn main <()->i32> ():
             cacheHits(cacheSession),
             1,
             'VFS object key order must not prevent compiled-output cache reuse',
+        );
+        assert.equal(
+            neplMetaStoreStats(cacheSession).stores,
+            firstMetaStore.stores,
+            'compiled-output cache hit must not count as a fresh .neplmeta store',
         );
         assert.deepEqual(
             wasmBytes(orderOnlyOutput),
@@ -111,10 +129,41 @@ fn main <()->i32> ():
             'changed imported VFS content must not be treated as a compiled-output cache hit',
         );
         assert.equal(cacheStores(cacheSession), firstStores + 1, 'changed VFS content must store a new output');
+        assert.equal(
+            neplMetaStoreStats(cacheSession).stores,
+            firstMetaStore.stores + 1,
+            'changed VFS content compile must refresh the .neplmeta store',
+        );
         assert.notDeepEqual(
             wasmBytes(changedOutput),
             wasmBytes(firstOutput),
             'changed imported VFS content must change the compiled wasm instead of returning stale bytes',
+        );
+
+        const stdlibOverlaySession = newSession(api);
+        const stdlibOverlaySource = `#entry main
+#import "std/prelude_base" as *
+fn main %fn unit i32 \\unit:
+    0
+`;
+        stdlibOverlaySession.compile_outputs_with_vfs(
+            '/virtual/stdlib_overlay.nepl',
+            stdlibOverlaySource,
+            {
+                '/stdlib/std/prelude_base.nepl': '',
+            },
+            ['wasm'],
+            false,
+        );
+        assert.equal(
+            neplMetaStoreStats(stdlibOverlaySession).entries,
+            0,
+            'stdlib overlay compile must not store .neplmeta artifact for normal bundled stdlib reuse',
+        );
+        assert.equal(
+            neplMetaStoreStats(stdlibOverlaySession).stores,
+            0,
+            'stdlib overlay compile must not count a .neplmeta store',
         );
 
         return { checked: 5 };

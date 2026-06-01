@@ -201,3 +201,34 @@ function identity 必須経路へ流れない guard を追加する。
 - `cargo test -p nepl-core materializer --lib -- --nocapture`
 - `cargo test -p nepl-core --test functions -- --nocapture`
 - `cargo check -p nepl-core -p nepl-language`
+
+## 2026-06-01 session store checkpoint
+
+Web `CompilerSession` に `NeplMetaArtifactStore` を追加し、通常 compile 成功時の `.neplmeta`
+artifact を session 内 store へ保存するようにした。
+
+今回の受け入れ範囲:
+
+- 通常 compile 成功時に生成された `.neplmeta` artifact。
+- payload consistency が store により確認できる artifact。
+- module path keyed に上書きできる in-memory store。
+
+今回の fail-closed 範囲:
+
+- compiled-output cache hit は新しい compile artifact ではないため store count を増やさない。
+- stdlib override compile と `/stdlib/...` を含む通常 VFS overlay は、通常 stdlib artifact と
+  取り違えないよう store を clear し、override artifact を store へ入れない。
+- store hit / miss / projection はまだ loader import boundary へ接続しない。
+
+`loader_cache_stats_json` には `.neplmeta` store entries、stores、rejects、hits、misses、
+payload rejects、compatibility rejects、projection rejects を追加した。現 checkpoint では
+projection API 未接続なので hits/misses は 0 のままでよく、まず「session が artifact を安全に保持
+できているか」を観測する。
+
+追加検証:
+
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `trunk build --release`
+- `node tests\compiler\tree\run.js`
+- `node nodesrc/test_run_test_compiler_session.js`
+- `node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-session-store-20260601.json`

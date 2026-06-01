@@ -15,7 +15,7 @@ use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
 use nepl_core::error::CoreError;
 use nepl_core::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine};
-use nepl_core::artifact::NeplMetaArtifact;
+use nepl_core::artifact::{NeplMetaArtifact, NeplMetaArtifactStore};
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{Loader, LoaderError, LoaderSessionCache, SourceMap};
 use nepl_core::parser::parse_tokens;
@@ -3188,6 +3188,7 @@ struct CompiledWasm {
     wat_comments: String,
     nepl_meta_artifact: NeplMetaArtifact,
     resource_summary_proof_artifact: Option<ResourceSummaryProofArtifact>,
+    stdlib_overlay_used: bool,
 }
 
 fn compile_wasm_with_entry_and_comments(
@@ -3438,6 +3439,7 @@ fn compile_wasm_with_bundled_sources_and_cache(
         wat_comments: artifact.wat_comments,
         nepl_meta_artifact: artifact.nepl_meta_artifact,
         resource_summary_proof_artifact,
+        stdlib_overlay_used: overlay_overrides_stdlib,
     })
 }
 
@@ -3470,6 +3472,7 @@ pub struct CompilerSession {
     loader_cache: RefCell<LoaderSessionCache>,
     resource_summary_value_cache: RefCell<ResourceSummaryValueCache>,
     nepl_meta_artifact: RefCell<Option<NeplMetaArtifact>>,
+    nepl_meta_artifact_store: RefCell<NeplMetaArtifactStore>,
     resource_summary_proof_artifact: RefCell<Option<ResourceSummaryProofArtifact>>,
     compiled_output_cache: RefCell<Vec<CompiledOutputCacheEntry>>,
     prewarmed_import_surfaces: RefCell<BTreeMap<u64, usize>>,
@@ -3503,6 +3506,7 @@ impl CompilerSession {
             loader_cache: RefCell::new(LoaderSessionCache::new(stdlib_hash())),
             resource_summary_value_cache: RefCell::new(ResourceSummaryValueCache::new()),
             nepl_meta_artifact: RefCell::new(None),
+            nepl_meta_artifact_store: RefCell::new(NeplMetaArtifactStore::new()),
             resource_summary_proof_artifact: RefCell::new(None),
             compiled_output_cache: RefCell::new(Vec::new()),
             prewarmed_import_surfaces: RefCell::new(BTreeMap::new()),
@@ -3546,6 +3550,9 @@ impl CompilerSession {
         let stats = self.loader_cache.borrow().stats();
         let resource_stats = self.resource_summary_value_cache.borrow().stats();
         let nepl_meta_artifact = self.nepl_meta_artifact.borrow();
+        let nepl_meta_artifact_store = self.nepl_meta_artifact_store.borrow();
+        let nepl_meta_artifact_store_stats = nepl_meta_artifact_store.stats();
+        let nepl_meta_artifact_store_entries = nepl_meta_artifact_store.len();
         let proof_artifact = self.resource_summary_proof_artifact.borrow();
         let nepl_meta_header = nepl_meta_artifact
             .as_ref()
@@ -3885,6 +3892,22 @@ impl CompilerSession {
                 "false"
             },
         );
+        out.push_str(",\"nepl_meta_artifact_store_entries\":");
+        out.push_str(&nepl_meta_artifact_store_entries.to_string());
+        out.push_str(",\"nepl_meta_artifact_store_stores\":");
+        out.push_str(&nepl_meta_artifact_store_stats.stores.to_string());
+        out.push_str(",\"nepl_meta_artifact_store_rejects\":");
+        out.push_str(&nepl_meta_artifact_store_stats.store_rejects.to_string());
+        out.push_str(",\"nepl_meta_artifact_store_hits\":");
+        out.push_str(&nepl_meta_artifact_store_stats.hits.to_string());
+        out.push_str(",\"nepl_meta_artifact_store_misses\":");
+        out.push_str(&nepl_meta_artifact_store_stats.misses.to_string());
+        out.push_str(",\"nepl_meta_artifact_store_payload_rejects\":");
+        out.push_str(&nepl_meta_artifact_store_stats.payload_rejects.to_string());
+        out.push_str(",\"nepl_meta_artifact_store_compatibility_rejects\":");
+        out.push_str(&nepl_meta_artifact_store_stats.compatibility_rejects.to_string());
+        out.push_str(",\"nepl_meta_artifact_store_projection_rejects\":");
+        out.push_str(&nepl_meta_artifact_store_stats.projection_rejects.to_string());
         out.push_str(",\"resource_summary_proof_artifact_present\":");
         out.push_str(if proof_artifact.is_some() { "true" } else { "false" });
         out.push_str(",\"resource_summary_proof_artifact_preseed_candidates\":");
@@ -3943,6 +3966,7 @@ impl CompilerSession {
         self.loader_cache.borrow_mut().clear();
         self.resource_summary_value_cache.borrow_mut().clear();
         *self.nepl_meta_artifact.borrow_mut() = None;
+        self.nepl_meta_artifact_store.borrow_mut().clear();
         *self.resource_summary_proof_artifact.borrow_mut() = None;
         self.compiled_output_cache.borrow_mut().clear();
         self.prewarmed_import_surfaces.borrow_mut().clear();
@@ -4028,7 +4052,7 @@ impl CompilerSession {
             .find(|entry| entry.key == key)
             .map(|entry| entry.compiled.clone())
         {
-            *self.nepl_meta_artifact.borrow_mut() = Some(compiled.nepl_meta_artifact.clone());
+            self.remember_nepl_meta_artifact(compiled.nepl_meta_artifact.clone(), false);
             if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
                 *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
             }
@@ -4072,7 +4096,10 @@ impl CompilerSession {
             *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
             *self.resource_summary_proof_artifact_stores.borrow_mut() += 1;
         }
-        *self.nepl_meta_artifact.borrow_mut() = Some(compiled.nepl_meta_artifact.clone());
+        self.remember_nepl_meta_artifact(
+            compiled.nepl_meta_artifact.clone(),
+            !compiled.stdlib_overlay_used,
+        );
         *self.last_compile_stage_timing_status.borrow_mut() = "compiled";
         *self.last_compile_stage_timings.borrow_mut() = Some(stage_timings.to_json_array());
         self.store_compiled_output_cache_entry(key, compiled.clone());
@@ -4092,6 +4119,7 @@ impl CompilerSession {
         let parsed = parse_profile(profile)
             .ok_or_else(|| JsValue::from_str("invalid profile (expected 'debug' or 'release')"))?;
         self.loader_cache.borrow_mut().record_stdlib_override_bypass();
+        self.nepl_meta_artifact_store.borrow_mut().clear();
         let mut stage_timings = CompileStageTimings::new();
         let compiled = match compile_wasm_with_bundled_sources_and_cache(
             entry_path,
@@ -4117,7 +4145,7 @@ impl CompilerSession {
         };
         *self.last_compile_stage_timing_status.borrow_mut() = "compiled";
         *self.last_compile_stage_timings.borrow_mut() = Some(stage_timings.to_json_array());
-        *self.nepl_meta_artifact.borrow_mut() = Some(compiled.nepl_meta_artifact.clone());
+        self.remember_nepl_meta_artifact(compiled.nepl_meta_artifact.clone(), false);
         Ok(compiled.wasm)
     }
 
@@ -4147,7 +4175,7 @@ impl CompilerSession {
             .find(|entry| entry.key == key)
             .map(|entry| entry.compiled.clone())
         {
-            *self.nepl_meta_artifact.borrow_mut() = Some(compiled.nepl_meta_artifact.clone());
+            self.remember_nepl_meta_artifact(compiled.nepl_meta_artifact.clone(), false);
             if let Some(artifact) = compiled.resource_summary_proof_artifact.clone() {
                 *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
             }
@@ -4197,7 +4225,10 @@ impl CompilerSession {
             *self.resource_summary_proof_artifact.borrow_mut() = Some(artifact);
             *self.resource_summary_proof_artifact_stores.borrow_mut() += 1;
         }
-        *self.nepl_meta_artifact.borrow_mut() = Some(compiled.nepl_meta_artifact.clone());
+        self.remember_nepl_meta_artifact(
+            compiled.nepl_meta_artifact.clone(),
+            !compiled.stdlib_overlay_used,
+        );
         *self.last_compile_stage_timing_status.borrow_mut() = "compiled";
         *self.last_compile_stage_timings.borrow_mut() = Some(stage_timings.to_json_array());
         self.store_compiled_output_cache_entry(key, compiled.clone());
@@ -4211,6 +4242,24 @@ impl CompilerSession {
         }
         cache.push(CompiledOutputCacheEntry { key, compiled });
         *self.compiled_output_cache_stores.borrow_mut() += 1;
+    }
+
+    /// 最後に生成または再利用した `.neplmeta` artifact を session に記録する。
+    ///
+    /// `store=true` の場合だけ module path keyed store へ保存する。compiled-output cache hit は
+    /// 新しい compile artifact ではないため、store 統計を増やさず last artifact だけ更新する。
+    /// stdlib override compile では将来の import materializer が通常 stdlib と取り違えないよう、
+    /// store を clear してから last artifact だけ更新する。
+    fn remember_nepl_meta_artifact(&self, artifact: NeplMetaArtifact, store: bool) {
+        if store {
+            let _ = self.nepl_meta_artifact_store.borrow_mut().store(artifact.clone());
+        } else if artifact
+            .module_surface()
+            .is_some_and(|surface| surface.canonical_module_path.starts_with("/stdlib"))
+        {
+            self.nepl_meta_artifact_store.borrow_mut().clear();
+        }
+        *self.nepl_meta_artifact.borrow_mut() = Some(artifact);
     }
 }
 
