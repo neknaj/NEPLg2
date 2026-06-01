@@ -48895,3 +48895,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - Rust regression では open import と selective import の `Struct` / `Enum` / `Trait` projection を追加した。semantic-only `Impl` は export surface に出さず、private capability surface と同じく non-exported support entry として残す。
 - tree regression では dependency body-only edit の root pre-typecheck probe が projection success まで進み、stored stdlib dependency edge probe でも複数 artifact が projection success するようになった。残る root gap は `UnsupportedImplLookup` と、non-callable `PublicSurfaceShape` を current session の semantic registry へ materialize する処理である。
 - focused verification は `cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`、`cargo test -p nepl-core neplmeta_materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`trunk build --release`、`node tests\compiler\tree\run.js` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` nominal / trait definition materializer checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-nominal-trait-materializer-20260601` branch で、projection 後の `Struct` / `Enum` / `Trait` definition materializer を進めた。`plan.md` は変更していない。
+- subagent review では、`Impl` registry へ踏み込む前に stable identity 付き nominal / trait definition だけを staging + rollback で登録し、同名再利用は identity 一致時だけに制限するのが最小単位だと確認した。
+- `materialize_public_surface_with_semantics_mvp` を追加し、semantic table を渡した場合だけ `Struct` / `Enum` / `Trait` surface を current session へ復元できるようにした。既存の callable-only wrapper は non-callable surface を受け取らない境界として維持した。
+- `TypeCtx::checkpoint` / `rollback` を使い、途中 entry が reject した場合に named table、nominal identity、constructor binding、semantic table を汚さない regression を追加した。
+- `PublicTypeTerm::Named { identity: Some(...) }` と `Apply` は、predeclare 済み nominal definition と stable identity が一致する場合だけ materialize する。trait method 内の `TraitSelf` は trait materializer の内側でのみ `self_ty` へ戻す。
+- `TraitInfo` は `.neplmeta` 由来の `TraitStableIdentity` を保持できるようになった。source typecheck 由来 trait は従来どおり `SourceMap` から public identity を作る。
+- post-implementation subagent review で、artifact が名乗る `definition_hash` を materializer 側で再検証していない問題が見つかったため修正した。`Struct` / `Enum` は public surface から nominal definition hash を再計算し、登録直前の materialized `TypeKind` hash とも照合する。trait は capability / method surface の hash を再計算し、重複 method 名を拒否する。
+- 残る root gap は semantic-only `PublicImplSurface` を visible export に混ぜず `ImplInfo` / capability registration へ materialize する処理である。`memo_call` / `PrivateCache` proof には今回触れていない。
+- focused verification は `cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language` を通した。全体 verification はこの checkpoint の最終確認で実施する。

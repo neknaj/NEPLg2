@@ -2195,6 +2195,41 @@ last reject code は 0 に戻る。残る root gap は、artifact MVP gate の `
 - `PublicTypeTerm::Named { identity: Some(...) }` と `Apply` を実体化してから impl target / trait application を復元する。
 - re-export projection は target artifact chain と衝突判定が必要なので、引き続き fail-closed に残す。
 
+### 2026-06-01 `.neplmeta` nominal and trait definition materializer checkpoint
+
+`typecheck/materializer` に、projection 済み `Struct` / `Enum` / `Trait` surface を current session の
+semantic table へ staging する入口を追加した。既存の callable-only wrapper は non-callable
+surface を受け取らないまま維持し、semantic table を渡す新しい materializer だけが nominal /
+trait definition を扱う。
+
+この checkpoint で追加した境界:
+
+- `TypeCtx::checkpoint` / `rollback` を使い、途中 entry が reject した場合は named table、
+  nominal identity、constructor binding、semantic table を汚さない。
+- `Struct` / `Enum` は `PublicNominalTypeIdentity` を必須 authority とし、同名型が既にある場合は
+  stable identity が一致するときだけ再利用する。
+- artifact 内の identity はそのまま信頼しない。`Struct` / `Enum` は surface の type parameter、
+  field / variant、type term から nominal definition hash を再計算し、`TypeCtx` へ登録する直前にも
+  materialized `TypeKind` の hash と照合する。trait も capability / method surface から
+  definition hash を再計算し、重複 method 名は fail-closed に拒否する。
+- `PublicTypeTerm::Named { identity: Some(...) }` は、predeclare 済み nominal type と stable identity が
+  一致する場合だけ `TypeId` へ戻す。
+- `PublicTypeTerm::Apply` は base / args を materialize したうえで `TypeCtx::apply` へ戻す。
+- `PublicTraitSurface` は `PublicTraitIdentity` を必須 authority とし、`TraitInfo` に
+  `TraitStableIdentity` を保持して idempotent reuse と同名 trait conflict を区別する。
+- trait method surface 内の `TraitSelf` は trait materializer 内だけで `self_ty` へ戻す。
+
+この変更により、callable が後続の `Struct` entry を参照していても、predeclare pass により
+definition order に依存せず named type を解決できる。enum variant constructor と struct constructor
+binding も source typecheck と同じ `Env` 経路へ staging する。
+
+まだ残る範囲:
+
+- `PublicImplSurface` はまだ `UnsupportedSurfaceKind` / artifact MVP gate の `UnsupportedImplLookup` に残す。
+- capability registration はまだ `.neplmeta` materializer 経由では更新しない。
+- field accessor callable と function value identity は引き続き stable callable identity の別 issue に残す。
+- re-export projection は target artifact chain と衝突判定が必要なので fail-closed のままにする。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

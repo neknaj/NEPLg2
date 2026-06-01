@@ -612,6 +612,7 @@ pub fn typecheck(
                         methods,
                         self_ty,
                         span: t.name.span,
+                        stable_identity: None,
                     },
                 );
             }

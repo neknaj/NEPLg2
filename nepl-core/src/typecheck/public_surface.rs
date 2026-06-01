@@ -856,6 +856,177 @@ fn hash_bytes(hash: &mut u64, bytes: &[u8]) {
     }
 }
 
+struct PublicNominalDefinitionHasher {
+    state: u64,
+}
+
+impl PublicNominalDefinitionHasher {
+    fn new(namespace: &str) -> Self {
+        let mut hasher = Self {
+            state: FNV1A64_OFFSET,
+        };
+        hasher.write_str(namespace);
+        hasher
+    }
+
+    fn write_str(&mut self, value: &str) {
+        self.write_usize(value.len());
+        for byte in value.as_bytes() {
+            self.write_u8(*byte);
+        }
+    }
+
+    fn write_usize(&mut self, value: usize) {
+        self.write_u64(value as u64);
+    }
+
+    fn write_u64(&mut self, value: u64) {
+        for byte in value.to_le_bytes() {
+            self.write_u8(byte);
+        }
+    }
+
+    fn write_bool(&mut self, value: bool) {
+        self.write_u8(u8::from(value));
+    }
+
+    fn write_u8(&mut self, value: u8) {
+        self.state ^= u64::from(value);
+        self.state = self.state.wrapping_mul(FNV1A64_PRIME);
+    }
+
+    fn finish(self) -> u64 {
+        self.state
+    }
+}
+
+fn hash_public_nominal_type_params(
+    hash: &mut PublicNominalDefinitionHasher,
+    params: &[PublicTypeParam],
+) -> Option<()> {
+    hash.write_usize(params.len());
+    for param in params {
+        hash_public_nominal_type_param(hash, param);
+    }
+    Some(())
+}
+
+fn hash_public_nominal_type_param(
+    hash: &mut PublicNominalDefinitionHasher,
+    param: &PublicTypeParam,
+) {
+    hash.write_str("var");
+    hash.write_str(param.name.as_str());
+    hash.write_bool(param.copy_cap);
+    hash.write_bool(param.clone_cap);
+    hash.write_bool(param.drop_cap);
+}
+
+fn hash_public_nominal_type_list<'a>(
+    hash: &mut PublicNominalDefinitionHasher,
+    items: &'a [PublicTypeTerm],
+    binders: &mut Vec<&'a [PublicTypeParam]>,
+) -> Option<()> {
+    hash.write_usize(items.len());
+    for item in items {
+        hash_public_nominal_type_surface(hash, item, binders)?;
+    }
+    Some(())
+}
+
+fn hash_public_nominal_type_surface<'a>(
+    hash: &mut PublicNominalDefinitionHasher,
+    term: &'a PublicTypeTerm,
+    binders: &mut Vec<&'a [PublicTypeParam]>,
+) -> Option<()> {
+    match term {
+        PublicTypeTerm::Unit => hash.write_str("unit"),
+        PublicTypeTerm::I32 => hash.write_str("i32"),
+        PublicTypeTerm::U8 => hash.write_str("u8"),
+        PublicTypeTerm::F32 => hash.write_str("f32"),
+        PublicTypeTerm::Bool => hash.write_str("bool"),
+        PublicTypeTerm::Char => hash.write_str("char"),
+        PublicTypeTerm::Str => hash.write_str("str"),
+        PublicTypeTerm::Never => hash.write_str("never"),
+        PublicTypeTerm::TraitSelf | PublicTypeTerm::UnboundGenericParam(_) => return None,
+        PublicTypeTerm::Named { name, identity } => match identity {
+            Some(identity) => {
+                hash.write_str(public_nominal_identity_stable_key_component(identity).as_str());
+            }
+            None => {
+                let scalar = BackendScalarType::from_name(name.as_str())?;
+                hash.write_str("backend-scalar");
+                hash.write_str(scalar.source_name());
+            }
+        },
+        PublicTypeTerm::GenericParam(param_ref) => {
+            let param = public_nominal_type_param_ref(binders, param_ref)?;
+            hash_public_nominal_type_param(hash, param);
+        }
+        PublicTypeTerm::Tuple(items) => {
+            hash.write_str("tuple");
+            hash_public_nominal_type_list(hash, items, binders)?;
+        }
+        PublicTypeTerm::Function {
+            type_params,
+            params,
+            result,
+            effect,
+        } => {
+            hash.write_str("fn");
+            hash.write_str(match effect {
+                PublicEffect::Pure => "pure",
+                PublicEffect::Impure => "impure",
+            });
+            hash_public_nominal_type_params(hash, type_params)?;
+            binders.push(type_params);
+            hash_public_nominal_type_list(hash, params, binders)?;
+            hash_public_nominal_type_surface(hash, result, binders)?;
+            binders.pop();
+        }
+        PublicTypeTerm::Apply { base, args } => {
+            hash.write_str("apply");
+            hash_public_nominal_type_surface(hash, base, binders)?;
+            hash_public_nominal_type_list(hash, args, binders)?;
+        }
+        PublicTypeTerm::Boxed(inner) => {
+            hash.write_str("box");
+            hash_public_nominal_type_surface(hash, inner, binders)?;
+        }
+        PublicTypeTerm::Reference { inner, mutable } => {
+            hash.write_str("ref");
+            hash.write_bool(*mutable);
+            hash_public_nominal_type_surface(hash, inner, binders)?;
+        }
+    }
+    Some(())
+}
+
+fn public_nominal_type_param_ref<'a>(
+    binders: &'a [&[PublicTypeParam]],
+    param_ref: &PublicTypeParamRef,
+) -> Option<&'a PublicTypeParam> {
+    let binder_depth = param_ref.binder_depth as usize;
+    let index = param_ref.index as usize;
+    let binder_index = binders.len().checked_sub(1 + binder_depth)?;
+    binders.get(binder_index)?.get(index)
+}
+
+fn public_nominal_identity_stable_key_component(identity: &PublicNominalTypeIdentity) -> String {
+    format!(
+        "nominal(kind={},path={},name={},arity={},hash={:016x})",
+        public_nominal_type_kind_tag(identity.kind),
+        public_stable_text_component(identity.source_path.as_str()),
+        public_stable_text_component(identity.name.as_str()),
+        identity.arity,
+        identity.definition_hash
+    )
+}
+
+fn public_stable_text_component(text: &str) -> String {
+    format!("{}:{text}", text.len())
+}
+
 fn public_effect_from_ast(effect: Effect) -> PublicEffect {
     match effect {
         Effect::Pure => PublicEffect::Pure,
@@ -1063,6 +1234,44 @@ pub(super) fn public_type_term_stable_hash(term: &PublicTypeTerm) -> u64 {
     hash
 }
 
+pub(super) fn public_struct_definition_hash<'a>(
+    type_params: &'a [PublicTypeParam],
+    fields: &'a [PublicFieldSurface],
+) -> Option<u64> {
+    let mut hash = PublicNominalDefinitionHasher::new("neplg2-nominal-definition-surface-v1");
+    hash.write_str("struct");
+    hash_public_nominal_type_params(&mut hash, type_params)?;
+    hash.write_usize(fields.len());
+    let mut binders = Vec::from([type_params]);
+    for field in fields {
+        hash.write_str(field.name.as_str());
+        hash_public_nominal_type_surface(&mut hash, &field.ty, &mut binders)?;
+    }
+    Some(hash.finish())
+}
+
+pub(super) fn public_enum_definition_hash<'a>(
+    type_params: &'a [PublicTypeParam],
+    variants: &'a [PublicEnumVariantSurface],
+) -> Option<u64> {
+    let mut hash = PublicNominalDefinitionHasher::new("neplg2-nominal-definition-surface-v1");
+    hash.write_str("enum");
+    hash_public_nominal_type_params(&mut hash, type_params)?;
+    hash.write_usize(variants.len());
+    let mut binders = Vec::from([type_params]);
+    for variant in variants {
+        hash.write_str(variant.name.as_str());
+        match &variant.payload {
+            Some(payload) => {
+                hash.write_bool(true);
+                hash_public_nominal_type_surface(&mut hash, payload, &mut binders)?;
+            }
+            None => hash.write_bool(false),
+        }
+    }
+    Some(hash.finish())
+}
+
 fn public_struct_surface(ctx: &TypeCtx, info: &StructInfo) -> PublicStructSurface {
     let (type_params, generics) = public_type_params(ctx, &info.type_params);
     PublicStructSurface {
@@ -1124,13 +1333,24 @@ fn public_trait_surface(
     methods.sort();
     let definition_hash = public_trait_definition_hash(&type_params, &capabilities, &methods);
     PublicTraitSurface {
-        identity: public_trait_identity(
-            source_map,
-            info.span,
-            name,
-            type_params.len(),
-            definition_hash,
-        ),
+        identity: info
+            .stable_identity
+            .as_ref()
+            .map(|identity| PublicTraitIdentity {
+                source_path: identity.source_path.clone(),
+                name: identity.name.clone(),
+                arity: identity.arity,
+                definition_hash: identity.definition_hash,
+            })
+            .or_else(|| {
+                public_trait_identity(
+                    source_map,
+                    info.span,
+                    name,
+                    type_params.len(),
+                    definition_hash,
+                )
+            }),
         type_params,
         capabilities,
         methods,
@@ -1354,7 +1574,7 @@ fn public_trait_identity(
     })
 }
 
-fn public_trait_definition_hash(
+pub(super) fn public_trait_definition_hash(
     type_params: &[PublicTypeParam],
     capabilities: &[PublicTraitCapability],
     methods: &[PublicTraitMethodSurface],

@@ -23,6 +23,20 @@ pub(super) struct TraitInfo {
     pub(super) methods: BTreeMap<String, TypeId>,
     pub(super) self_ty: TypeId,
     pub(super) span: Span,
+    pub(super) stable_identity: Option<TraitStableIdentity>,
+}
+
+/// `.neplmeta` から trait definition を復元するときに使う stable identity。
+///
+/// `TraitInfo` は通常の source typecheck でも使われるため、`TypeId` や `Span` ではなく
+/// source path / name / arity / definition hash だけを保存する。これにより、別 session の
+/// trait surface を既存 trait と同名だからという理由だけで再利用することを避ける。
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) struct TraitStableIdentity {
+    pub(super) source_path: String,
+    pub(super) name: String,
+    pub(super) arity: u32,
+    pub(super) definition_hash: u64,
 }
 
 #[derive(Debug, Clone, Default)]

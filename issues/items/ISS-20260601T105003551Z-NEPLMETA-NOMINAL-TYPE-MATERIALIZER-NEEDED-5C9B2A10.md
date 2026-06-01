@@ -77,3 +77,23 @@ stdlib edge probe は `UnsupportedExportKind` projection reject を越えて suc
 `TypeCtx` へ materialize する本体は未実装である。`MemPtr .T` のような impl target を
 名前だけで対応させないため、この issue は stable nominal identity materializer の残件として
 open のまま維持する。
+
+## 2026-06-01 nominal definition materializer checkpoint
+
+`typecheck/materializer` は、semantic table を受け取る入口では `Struct` / `Enum` surface を
+`PublicNominalTypeIdentity` から `TypeCtx` へ復元できるようになった。`PublicTypeTerm::Named` は
+同じ stable identity の nominal definition が predeclare 済みのときだけ `TypeId` へ戻し、
+`PublicTypeTerm::Apply` も base / args を materialize して `TypeCtx::apply` へ戻す。
+
+これにより、callable が後続の struct entry を引数に取る場合でも、predeclare pass により
+entry order に依存せず materialize できる。途中で callable link symbol 欠落などの reject が起きた場合は
+`TypeCtx` checkpoint を rollback し、named table や constructor binding を汚さない。
+
+artifact が提示する `PublicNominalTypeIdentity.definition_hash` は、materializer 側でも
+`Struct` / `Enum` surface から再計算して照合するようにした。登録直前には materialized
+`TypeKind` からも hash を再計算し、public surface hash mirror と `TypeCtx` 側 fingerprint が
+ずれた場合も fail-closed に拒否する。
+
+この issue はまだ open のまま維持する。理由は、`PublicImplSurface` の target / trait application を
+validated impl registry へ注入する経路が未実装であり、`MemPtr .T` のような impl target が
+実際の capability registration に届くところまでは完了していないためである。

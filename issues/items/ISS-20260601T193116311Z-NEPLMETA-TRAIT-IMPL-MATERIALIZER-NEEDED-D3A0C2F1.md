@@ -113,3 +113,28 @@ root pre-typecheck probe と一部 stdlib edge probe の主要 blocker ではな
 - `PublicStructSurface` / `PublicEnumSurface` を stable nominal identity で `TypeCtx` へ復元する。
 - semantic-only `PublicImplSurface` を visible export に混ぜず、validated impl registry と capability registration へ注入する。
 - impl target / trait application の `Named` / `Apply` materialize は、nominal issue と同期して進める。
+
+## 2026-06-01 nominal and trait definition materializer checkpoint
+
+semantic table を渡す `.neplmeta` materializer 入口で、`PublicStructSurface` /
+`PublicEnumSurface` / `PublicTraitSurface` を current session へ staging できるようになった。
+`TraitInfo` は `TraitStableIdentity` を持ち、`.neplmeta` 由来の trait と既存 trait の同名衝突を
+名前だけで握りつぶさない。trait method surface 内の `TraitSelf` は trait materializer の内側でのみ
+`self_ty` へ戻す。
+
+この checkpoint により、trait / struct / enum definition の復元は前進した。ただし、この issue は
+まだ open のまま維持する。`PublicImplSurface` を `ImplInfo` と capability registration へ注入する
+処理は未実装であり、`Clone` / `Copy` capability が `.neplmeta` materializer 経由で実際の copy/clone
+判定に使えるところまでは到達していない。
+
+post-implementation review で見つかった `definition_hash` 信頼境界の穴もこの checkpoint で塞いだ。
+trait surface は `PublicTraitIdentity.definition_hash` をそのまま採用せず、capability と method surface
+から再計算して照合する。重複 method 名は `BTreeMap` への投入で潰さず、materializer reject として
+扱う。
+
+残件:
+
+- semantic-only `PublicImplSurface` を visible export に混ぜず、validated impl registry へ staging する。
+- `Clone` / `Copy` / `Drop` capability registration を materialized impl から更新する。
+- impl duplicate、trait application identity、generic bound の照合を fail-closed に実装する。
+- `memo_call` / private cache proof / function value identity はこの materializer で bypass しない。

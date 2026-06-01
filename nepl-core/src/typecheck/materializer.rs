@@ -1,5 +1,6 @@
 extern crate alloc;
 
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -7,17 +8,23 @@ use alloc::vec::Vec;
 use crate::ast::{Effect, Visibility};
 use crate::backend_scalar_type::BackendScalarType;
 use crate::span::Span;
-use crate::types::{TypeCtx, TypeId};
+use crate::types::{
+    EnumVariantInfo, NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeId, TypeKind,
+};
 
 use super::env::{same_callable_signature_and_bounds, Binding, BindingKind, Env};
+use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
 use super::public_signature::TypedPublicSignatureKind;
 use super::public_surface::{
-    public_type_term_stable_hash,
-    PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicFieldAccessorKind,
-    PublicNominalTypeIdentity, PublicSurfaceShape, PublicTypeParam, PublicTypeParamRef,
-    PublicTypeTerm, TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
+    public_enum_definition_hash, public_struct_definition_hash, public_trait_definition_hash,
+    public_type_term_stable_hash, PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect,
+    PublicEnumSurface, PublicFieldAccessorKind, PublicNominalTypeIdentity, PublicNominalTypeKind,
+    PublicStructConstructorPolicy, PublicStructSurface, PublicSurfaceShape, PublicTraitCapability,
+    PublicTraitIdentity, PublicTraitSurface, PublicTypeParam, PublicTypeParamRef, PublicTypeTerm,
+    TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
 };
-use super::traits::BoundEnv;
+use super::struct_shape::StructConstructorShape;
+use super::traits::{BoundEnv, TraitCapability, TraitInfo, TraitStableIdentity};
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
@@ -32,6 +39,12 @@ pub struct PublicSurfaceMaterializeReport {
     pub entries_seen: usize,
     pub callables_inserted: usize,
     pub callables_skipped_existing: usize,
+    pub structs_inserted: usize,
+    pub structs_skipped_existing: usize,
+    pub enums_inserted: usize,
+    pub enums_skipped_existing: usize,
+    pub traits_inserted: usize,
+    pub traits_skipped_existing: usize,
 }
 
 /// `.neplmeta` public surface を typecheck 環境へ戻せなかった理由。
@@ -53,9 +66,13 @@ pub enum PublicSurfaceMaterializeRejectReason {
         expected: TypedPublicSignatureKind,
         actual: TypedPublicSignatureKind,
     },
-    UnsupportedSurfaceKind { kind: TypedPublicSignatureKind },
+    UnsupportedSurfaceKind {
+        kind: TypedPublicSignatureKind,
+    },
     MissingCallableLinkSymbol,
-    CallableLinkNameMismatch { link_name: String },
+    CallableLinkNameMismatch {
+        link_name: String,
+    },
     CallableTypeExpected,
     CallableArityMismatch {
         surface_arity: u32,
@@ -69,19 +86,74 @@ pub enum PublicSurfaceMaterializeRejectReason {
         expected: u64,
         actual: u64,
     },
-    FieldAccessorUnsupported { kind: PublicFieldAccessorKind },
+    FieldAccessorUnsupported {
+        kind: PublicFieldAccessorKind,
+    },
     TypeParamBoundsUnsupported,
-    DuplicateLinkSymbolConflict { symbol: String },
+    DuplicateLinkSymbolConflict {
+        symbol: String,
+    },
     NonCallableNameConflict,
     NoShadowConflict,
-    UnboundGenericParam { binder_depth: u32, index: u32 },
+    UnboundGenericParam {
+        binder_depth: u32,
+        index: u32,
+    },
     TraitSelfUnsupported,
-    UnboundGenericParamTerm { name: String },
+    UnboundGenericParamTerm {
+        name: String,
+    },
     NamedTypeUnsupported {
         name: String,
         identity: Option<PublicNominalTypeIdentity>,
     },
     ApplyUnsupported,
+    MissingNominalTypeIdentity {
+        kind: TypedPublicSignatureKind,
+    },
+    NominalTypeIdentityKindMismatch {
+        expected: PublicNominalTypeKind,
+        actual: PublicNominalTypeKind,
+    },
+    NominalTypeIdentityNameMismatch {
+        identity_name: String,
+    },
+    NominalTypeIdentityArityMismatch {
+        identity_arity: u32,
+        surface_arity: u32,
+    },
+    NominalDefinitionHashUnavailable,
+    NominalDefinitionHashMismatch {
+        expected: u64,
+        actual: u64,
+    },
+    NominalTypeIdentityConflict {
+        name: String,
+    },
+    DuplicateStructField {
+        field_name: String,
+    },
+    DuplicateEnumVariant {
+        variant_name: String,
+    },
+    MissingTraitIdentity,
+    TraitIdentityNameMismatch {
+        identity_name: String,
+    },
+    TraitIdentityArityMismatch {
+        identity_arity: u32,
+        surface_arity: u32,
+    },
+    TraitDefinitionHashMismatch {
+        expected: u64,
+        actual: u64,
+    },
+    TraitIdentityConflict {
+        name: String,
+    },
+    DuplicateTraitMethod {
+        method_name: String,
+    },
 }
 
 /// public callable surface を `Env` に注入する内部 materializer。
@@ -97,17 +169,184 @@ pub(super) fn materialize_public_surface_mvp(
     table: &TypedPublicSurfaceTable,
     origin_span: Span,
 ) -> Result<PublicSurfaceMaterializeReport, PublicSurfaceMaterializeReject> {
+    if let Some(entry) = table
+        .entries
+        .iter()
+        .find(|entry| !matches!(entry.surface, PublicSurfaceShape::Callable(_)))
+    {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::UnsupportedSurfaceKind { kind: entry.kind },
+        ));
+    }
+    let mut structs = BTreeMap::new();
+    let mut enums = BTreeMap::new();
+    let mut traits = BTreeMap::new();
+    materialize_public_surface_with_semantics_mvp(
+        ctx,
+        env,
+        &mut structs,
+        &mut enums,
+        &mut traits,
+        table,
+        origin_span,
+    )
+}
+
+pub(super) fn materialize_public_surface_with_semantics_mvp(
+    ctx: &mut TypeCtx,
+    env: &mut Env,
+    structs: &mut BTreeMap<String, StructInfo>,
+    enums: &mut BTreeMap<String, EnumInfo>,
+    traits: &mut BTreeMap<String, TraitInfo>,
+    table: &TypedPublicSurfaceTable,
+    origin_span: Span,
+) -> Result<PublicSurfaceMaterializeReport, PublicSurfaceMaterializeReject> {
+    let checkpoint = ctx.checkpoint();
+    let staged = match stage_public_surface_with_semantics(
+        ctx,
+        env,
+        structs,
+        enums,
+        traits,
+        table,
+        origin_span,
+    ) {
+        Ok(staged) => staged,
+        Err(reject) => {
+            ctx.rollback(checkpoint);
+            return Err(reject);
+        }
+    };
+    ctx.commit(checkpoint);
+    for (name, info) in staged.structs {
+        structs.insert(name, info);
+    }
+    for (name, info) in staged.enums {
+        enums.insert(name, info);
+    }
+    for (name, info) in staged.traits {
+        traits.insert(name, info);
+    }
+    for binding in staged.bindings {
+        env.insert_global(binding);
+    }
+    Ok(staged.report)
+}
+
+struct PublicSurfaceStaging {
+    report: PublicSurfaceMaterializeReport,
+    bindings: Vec<Binding>,
+    structs: BTreeMap<String, StructInfo>,
+    enums: BTreeMap<String, EnumInfo>,
+    traits: BTreeMap<String, TraitInfo>,
+}
+
+fn stage_public_surface_with_semantics(
+    ctx: &mut TypeCtx,
+    env: &Env,
+    structs: &BTreeMap<String, StructInfo>,
+    enums: &BTreeMap<String, EnumInfo>,
+    traits: &BTreeMap<String, TraitInfo>,
+    table: &TypedPublicSurfaceTable,
+    origin_span: Span,
+) -> Result<PublicSurfaceStaging, PublicSurfaceMaterializeReject> {
     let mut report = PublicSurfaceMaterializeReport::default();
-    let mut staged = Vec::new();
+    let mut staged_bindings = Vec::new();
+    let mut staged_structs = BTreeMap::new();
+    let mut staged_enums = BTreeMap::new();
+    let mut staged_traits = BTreeMap::new();
+
+    for entry in table.entries.iter() {
+        match &entry.surface {
+            PublicSurfaceShape::Struct(surface) => {
+                predeclare_struct_surface(ctx, entry, surface)?;
+            }
+            PublicSurfaceShape::Enum(surface) => {
+                predeclare_enum_surface(ctx, entry, surface)?;
+            }
+            _ => {}
+        }
+    }
+
     for entry in &table.entries {
         report.entries_seen += 1;
         match &entry.surface {
+            PublicSurfaceShape::Struct(surface) => {
+                match stage_struct_surface(
+                    ctx,
+                    env,
+                    structs,
+                    &staged_structs,
+                    &staged_bindings,
+                    entry,
+                    surface,
+                    origin_span,
+                )? {
+                    StructMaterializeOutcome::Staged {
+                        name,
+                        info,
+                        bindings,
+                    } => {
+                        staged_structs.insert(name, info);
+                        staged_bindings.extend(bindings);
+                        report.structs_inserted += 1;
+                    }
+                    StructMaterializeOutcome::AlreadyPresent => {
+                        report.structs_skipped_existing += 1;
+                    }
+                }
+            }
+            PublicSurfaceShape::Enum(surface) => {
+                match stage_enum_surface(
+                    ctx,
+                    env,
+                    enums,
+                    &staged_enums,
+                    &staged_bindings,
+                    entry,
+                    surface,
+                    origin_span,
+                )? {
+                    EnumMaterializeOutcome::Staged {
+                        name,
+                        info,
+                        bindings,
+                    } => {
+                        staged_enums.insert(name, info);
+                        staged_bindings.extend(bindings);
+                        report.enums_inserted += 1;
+                    }
+                    EnumMaterializeOutcome::AlreadyPresent => {
+                        report.enums_skipped_existing += 1;
+                    }
+                }
+            }
+            PublicSurfaceShape::Trait(surface) => {
+                match stage_trait_surface(ctx, traits, &staged_traits, entry, surface, origin_span)?
+                {
+                    TraitMaterializeOutcome::Staged { name, info } => {
+                        staged_traits.insert(name, info);
+                        report.traits_inserted += 1;
+                    }
+                    TraitMaterializeOutcome::AlreadyPresent => {
+                        report.traits_skipped_existing += 1;
+                    }
+                }
+            }
             PublicSurfaceShape::Callable(surface) => {
-                let outcome =
-                    stage_callable_surface(ctx, env, &staged, entry, surface, origin_span)?;
+                let outcome = stage_callable_surface(
+                    ctx,
+                    env,
+                    &staged_bindings,
+                    entry,
+                    surface,
+                    origin_span,
+                )?;
                 match outcome {
                     CallableMaterializeOutcome::Staged(binding) => {
-                        staged.push(binding);
+                        staged_bindings.push(binding);
+                        report.callables_inserted += 1;
                     }
                     CallableMaterializeOutcome::AlreadyPresent => {
                         report.callables_skipped_existing += 1;
@@ -124,11 +363,13 @@ pub(super) fn materialize_public_surface_mvp(
             }
         }
     }
-    report.callables_inserted = staged.len();
-    for binding in staged {
-        env.insert_global(binding);
-    }
-    Ok(report)
+    Ok(PublicSurfaceStaging {
+        report,
+        bindings: staged_bindings,
+        structs: staged_structs,
+        enums: staged_enums,
+        traits: staged_traits,
+    })
 }
 
 enum CallableMaterializeOutcome {
@@ -136,9 +377,674 @@ enum CallableMaterializeOutcome {
     AlreadyPresent,
 }
 
+enum StructMaterializeOutcome {
+    Staged {
+        name: String,
+        info: StructInfo,
+        bindings: Vec<Binding>,
+    },
+    AlreadyPresent,
+}
+
+enum EnumMaterializeOutcome {
+    Staged {
+        name: String,
+        info: EnumInfo,
+        bindings: Vec<Binding>,
+    },
+    AlreadyPresent,
+}
+
+enum TraitMaterializeOutcome {
+    Staged { name: String, info: TraitInfo },
+    AlreadyPresent,
+}
+
+fn predeclare_struct_surface(
+    ctx: &mut TypeCtx,
+    entry: &TypedPublicSurfaceEntry,
+    surface: &PublicStructSurface,
+) -> Result<TypeId, PublicSurfaceMaterializeReject> {
+    if entry.kind != TypedPublicSignatureKind::Struct {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::EntryKindMismatch {
+                expected: TypedPublicSignatureKind::Struct,
+                actual: entry.kind,
+            },
+        ));
+    }
+    let identity = required_nominal_identity(entry, surface.identity.as_ref())?;
+    if identity.kind != PublicNominalTypeKind::Struct {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalTypeIdentityKindMismatch {
+                expected: PublicNominalTypeKind::Struct,
+                actual: identity.kind,
+            },
+        ));
+    }
+    validate_struct_surface_definition(entry, surface, identity)?;
+    predeclare_nominal_surface(ctx, entry, identity)
+}
+
+fn predeclare_enum_surface(
+    ctx: &mut TypeCtx,
+    entry: &TypedPublicSurfaceEntry,
+    surface: &PublicEnumSurface,
+) -> Result<TypeId, PublicSurfaceMaterializeReject> {
+    if entry.kind != TypedPublicSignatureKind::Enum {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::EntryKindMismatch {
+                expected: TypedPublicSignatureKind::Enum,
+                actual: entry.kind,
+            },
+        ));
+    }
+    let identity = required_nominal_identity(entry, surface.identity.as_ref())?;
+    if identity.kind != PublicNominalTypeKind::Enum {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalTypeIdentityKindMismatch {
+                expected: PublicNominalTypeKind::Enum,
+                actual: identity.kind,
+            },
+        ));
+    }
+    validate_enum_surface_definition(entry, surface, identity)?;
+    predeclare_nominal_surface(ctx, entry, identity)
+}
+
+fn required_nominal_identity<'a>(
+    entry: &TypedPublicSurfaceEntry,
+    identity: Option<&'a PublicNominalTypeIdentity>,
+) -> Result<&'a PublicNominalTypeIdentity, PublicSurfaceMaterializeReject> {
+    let Some(identity) = identity else {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::MissingNominalTypeIdentity { kind: entry.kind },
+        ));
+    };
+    if identity.name != entry.name {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalTypeIdentityNameMismatch {
+                identity_name: identity.name.clone(),
+            },
+        ));
+    }
+    Ok(identity)
+}
+
+fn validate_struct_surface_definition(
+    entry: &TypedPublicSurfaceEntry,
+    surface: &PublicStructSurface,
+    identity: &PublicNominalTypeIdentity,
+) -> Result<(), PublicSurfaceMaterializeReject> {
+    validate_nominal_identity_arity(entry, identity.arity, surface.type_params.len())?;
+    let mut field_names = BTreeSet::new();
+    for field in &surface.fields {
+        if !field_names.insert(field.name.clone()) {
+            return Err(reject(
+                entry,
+                PublicSurfaceMaterializeRejectReason::DuplicateStructField {
+                    field_name: field.name.clone(),
+                },
+            ));
+        }
+    }
+    let Some(actual) = public_struct_definition_hash(&surface.type_params, &surface.fields) else {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalDefinitionHashUnavailable,
+        ));
+    };
+    if actual != identity.definition_hash {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalDefinitionHashMismatch {
+                expected: identity.definition_hash,
+                actual,
+            },
+        ));
+    }
+    Ok(())
+}
+
+fn validate_enum_surface_definition(
+    entry: &TypedPublicSurfaceEntry,
+    surface: &PublicEnumSurface,
+    identity: &PublicNominalTypeIdentity,
+) -> Result<(), PublicSurfaceMaterializeReject> {
+    validate_nominal_identity_arity(entry, identity.arity, surface.type_params.len())?;
+    let mut variant_names = BTreeSet::new();
+    for variant in &surface.variants {
+        if !variant_names.insert(variant.name.clone()) {
+            return Err(reject(
+                entry,
+                PublicSurfaceMaterializeRejectReason::DuplicateEnumVariant {
+                    variant_name: variant.name.clone(),
+                },
+            ));
+        }
+    }
+    let Some(actual) = public_enum_definition_hash(&surface.type_params, &surface.variants) else {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalDefinitionHashUnavailable,
+        ));
+    };
+    if actual != identity.definition_hash {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalDefinitionHashMismatch {
+                expected: identity.definition_hash,
+                actual,
+            },
+        ));
+    }
+    Ok(())
+}
+
+fn validate_nominal_identity_arity(
+    entry: &TypedPublicSurfaceEntry,
+    identity_arity: u32,
+    surface_arity: usize,
+) -> Result<(), PublicSurfaceMaterializeReject> {
+    let surface_arity = surface_arity as u32;
+    if identity_arity != surface_arity {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalTypeIdentityArityMismatch {
+                identity_arity,
+                surface_arity,
+            },
+        ));
+    }
+    Ok(())
+}
+
+fn validate_materialized_nominal_kind_hash(
+    ctx: &TypeCtx,
+    entry: &TypedPublicSurfaceEntry,
+    identity: &PublicNominalTypeIdentity,
+    kind: &TypeKind,
+) -> Result<(), PublicSurfaceMaterializeReject> {
+    let Some(actual) = ctx.nominal_definition_hash(kind) else {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalDefinitionHashUnavailable,
+        ));
+    };
+    if actual != identity.definition_hash {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalDefinitionHashMismatch {
+                expected: identity.definition_hash,
+                actual,
+            },
+        ));
+    }
+    Ok(())
+}
+
+fn predeclare_nominal_surface(
+    ctx: &mut TypeCtx,
+    entry: &TypedPublicSurfaceEntry,
+    identity: &PublicNominalTypeIdentity,
+) -> Result<TypeId, PublicSurfaceMaterializeReject> {
+    let stable_identity = nominal_identity_from_public(identity);
+    if let Some(existing) = existing_nominal_type(ctx, entry, &entry.name, &stable_identity)? {
+        return Ok(existing);
+    }
+    Ok(ctx.register_named_with_stable_identity(
+        entry.name.clone(),
+        TypeKind::Named(entry.name.clone()),
+        stable_identity,
+    ))
+}
+
+fn stage_struct_surface(
+    ctx: &mut TypeCtx,
+    env: &Env,
+    structs: &BTreeMap<String, StructInfo>,
+    staged_structs: &BTreeMap<String, StructInfo>,
+    staged_bindings: &[Binding],
+    entry: &TypedPublicSurfaceEntry,
+    surface: &PublicStructSurface,
+    origin_span: Span,
+) -> Result<StructMaterializeOutcome, PublicSurfaceMaterializeReject> {
+    let identity = required_nominal_identity(entry, surface.identity.as_ref())?;
+    if structs.contains_key(&entry.name) || staged_structs.contains_key(&entry.name) {
+        if existing_nominal_type(
+            ctx,
+            entry,
+            &entry.name,
+            &nominal_identity_from_public(identity),
+        )?
+        .is_none()
+        {
+            return Err(reject(
+                entry,
+                PublicSurfaceMaterializeRejectReason::NominalTypeIdentityConflict {
+                    name: entry.name.clone(),
+                },
+            ));
+        }
+        return Ok(StructMaterializeOutcome::AlreadyPresent);
+    }
+    let ty = predeclare_struct_surface(ctx, entry, surface)?;
+    let mut materializer = TypeTermMaterializer::new(ctx);
+    let type_params = materializer.fresh_type_params(&surface.type_params);
+    materializer.push_binder(type_params.clone());
+    let mut fields = Vec::new();
+    let mut field_names = Vec::new();
+    for field in &surface.fields {
+        field_names.push(field.name.clone());
+        fields.push(materializer.materialize(entry, &field.ty)?);
+    }
+    materializer.pop_binder();
+    let kind = TypeKind::Struct {
+        name: entry.name.clone(),
+        type_params: type_params.clone(),
+        fields: fields.clone(),
+        field_names: field_names.clone(),
+    };
+    validate_materialized_nominal_kind_hash(materializer.ctx, entry, identity, &kind)?;
+    materializer.ctx.register_named_with_stable_identity(
+        entry.name.clone(),
+        kind,
+        nominal_identity_from_public(identity),
+    );
+    let constructor_shape =
+        StructConstructorShape::classify(materializer.ctx, &fields, &field_names);
+    let constructor_policy = struct_constructor_policy_from_public(surface.constructor_policy);
+    let ret_ty = if type_params.is_empty() {
+        ty
+    } else {
+        materializer.ctx.apply(ty, type_params.clone())
+    };
+    let constructor_params = constructor_shape.constructor_params(&fields);
+    let constructor_ty = materializer.ctx.function(
+        type_params.clone(),
+        constructor_params,
+        ret_ty,
+        Effect::Pure,
+    );
+    let binding = constructor_binding(
+        entry.name.clone(),
+        constructor_ty,
+        constructor_shape.constructor_arity(fields.len()),
+        origin_span,
+    );
+    reject_non_callable_name_conflict(env, staged_bindings, entry, &binding)?;
+    Ok(StructMaterializeOutcome::Staged {
+        name: entry.name.clone(),
+        info: StructInfo {
+            ty,
+            visibility: Visibility::Pub,
+            type_params,
+            fields,
+            field_names,
+            constructor_shape,
+            constructor_policy,
+        },
+        bindings: Vec::from([binding]),
+    })
+}
+
+fn stage_enum_surface(
+    ctx: &mut TypeCtx,
+    env: &Env,
+    enums: &BTreeMap<String, EnumInfo>,
+    staged_enums: &BTreeMap<String, EnumInfo>,
+    staged_bindings: &[Binding],
+    entry: &TypedPublicSurfaceEntry,
+    surface: &PublicEnumSurface,
+    origin_span: Span,
+) -> Result<EnumMaterializeOutcome, PublicSurfaceMaterializeReject> {
+    let identity = required_nominal_identity(entry, surface.identity.as_ref())?;
+    if enums.contains_key(&entry.name) || staged_enums.contains_key(&entry.name) {
+        if existing_nominal_type(
+            ctx,
+            entry,
+            &entry.name,
+            &nominal_identity_from_public(identity),
+        )?
+        .is_none()
+        {
+            return Err(reject(
+                entry,
+                PublicSurfaceMaterializeRejectReason::NominalTypeIdentityConflict {
+                    name: entry.name.clone(),
+                },
+            ));
+        }
+        return Ok(EnumMaterializeOutcome::AlreadyPresent);
+    }
+    let ty = predeclare_enum_surface(ctx, entry, surface)?;
+    let mut materializer = TypeTermMaterializer::new(ctx);
+    let type_params = materializer.fresh_type_params(&surface.type_params);
+    materializer.push_binder(type_params.clone());
+    let mut variants = Vec::new();
+    for variant in &surface.variants {
+        variants.push(EnumVariantInfo {
+            name: variant.name.clone(),
+            payload: match &variant.payload {
+                Some(payload) => Some(materializer.materialize(entry, payload)?),
+                None => None,
+            },
+        });
+    }
+    materializer.pop_binder();
+    let kind = TypeKind::Enum {
+        name: entry.name.clone(),
+        type_params: type_params.clone(),
+        variants: variants.clone(),
+    };
+    validate_materialized_nominal_kind_hash(materializer.ctx, entry, identity, &kind)?;
+    materializer.ctx.register_named_with_stable_identity(
+        entry.name.clone(),
+        kind,
+        nominal_identity_from_public(identity),
+    );
+    let mut bindings = Vec::new();
+    for variant in &variants {
+        let params = variant.payload.iter().copied().collect::<Vec<TypeId>>();
+        let ret_ty = if type_params.is_empty() {
+            ty
+        } else {
+            materializer.ctx.apply(ty, type_params.clone())
+        };
+        let func_ty = materializer
+            .ctx
+            .function(type_params.clone(), params, ret_ty, Effect::Pure);
+        let arity = if variant.payload.is_some() { 1 } else { 0 };
+        let simple = constructor_binding(variant.name.clone(), func_ty, arity, origin_span);
+        reject_non_callable_name_conflict(env, staged_bindings, entry, &simple)?;
+        reject_non_callable_name_conflict(env, &bindings, entry, &simple)?;
+        bindings.push(simple);
+        let qualified_name = format!("{}::{}", entry.name, variant.name);
+        let qualified = constructor_binding(qualified_name, func_ty, arity, origin_span);
+        reject_non_callable_name_conflict(env, staged_bindings, entry, &qualified)?;
+        reject_non_callable_name_conflict(env, &bindings, entry, &qualified)?;
+        bindings.push(qualified);
+    }
+    Ok(EnumMaterializeOutcome::Staged {
+        name: entry.name.clone(),
+        info: EnumInfo {
+            ty,
+            visibility: Visibility::Pub,
+            type_params,
+            variants,
+        },
+        bindings,
+    })
+}
+
+fn stage_trait_surface(
+    ctx: &mut TypeCtx,
+    traits: &BTreeMap<String, TraitInfo>,
+    staged_traits: &BTreeMap<String, TraitInfo>,
+    entry: &TypedPublicSurfaceEntry,
+    surface: &PublicTraitSurface,
+    origin_span: Span,
+) -> Result<TraitMaterializeOutcome, PublicSurfaceMaterializeReject> {
+    if entry.kind != TypedPublicSignatureKind::Trait {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::EntryKindMismatch {
+                expected: TypedPublicSignatureKind::Trait,
+                actual: entry.kind,
+            },
+        ));
+    }
+    let identity = required_trait_identity(entry, surface.identity.as_ref())?;
+    validate_trait_surface_definition(entry, surface, identity)?;
+    let stable_identity = trait_identity_from_public(identity);
+    if let Some(existing) = traits.get(&entry.name) {
+        if existing.stable_identity.as_ref() == Some(&stable_identity) {
+            return Ok(TraitMaterializeOutcome::AlreadyPresent);
+        }
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::TraitIdentityConflict {
+                name: entry.name.clone(),
+            },
+        ));
+    }
+    if let Some(existing) = staged_traits.get(&entry.name) {
+        if existing.stable_identity.as_ref() == Some(&stable_identity) {
+            return Ok(TraitMaterializeOutcome::AlreadyPresent);
+        }
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::TraitIdentityConflict {
+                name: entry.name.clone(),
+            },
+        ));
+    }
+    let mut materializer = TypeTermMaterializer::new(ctx);
+    let type_params = materializer.fresh_type_params(&surface.type_params);
+    let self_ty = materializer.ctx.fresh_var(Some(String::from("Self")));
+    materializer.push_binder(type_params.clone());
+    materializer.set_trait_self(Some(self_ty));
+    let mut methods = BTreeMap::new();
+    for method in &surface.methods {
+        methods.insert(
+            method.name.clone(),
+            materializer.materialize(entry, &method.ty)?,
+        );
+    }
+    materializer.set_trait_self(None);
+    materializer.pop_binder();
+    Ok(TraitMaterializeOutcome::Staged {
+        name: entry.name.clone(),
+        info: TraitInfo {
+            doc: None,
+            visibility: Visibility::Pub,
+            type_params,
+            capabilities: surface
+                .capabilities
+                .iter()
+                .copied()
+                .map(trait_capability_from_public)
+                .collect(),
+            methods,
+            self_ty,
+            span: origin_span,
+            stable_identity: Some(stable_identity),
+        },
+    })
+}
+
+fn validate_trait_surface_definition(
+    entry: &TypedPublicSurfaceEntry,
+    surface: &PublicTraitSurface,
+    identity: &PublicTraitIdentity,
+) -> Result<(), PublicSurfaceMaterializeReject> {
+    let surface_arity = surface.type_params.len() as u32;
+    if identity.arity != surface_arity {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::TraitIdentityArityMismatch {
+                identity_arity: identity.arity,
+                surface_arity,
+            },
+        ));
+    }
+    let mut method_names = BTreeSet::new();
+    for method in &surface.methods {
+        if !method_names.insert(method.name.clone()) {
+            return Err(reject(
+                entry,
+                PublicSurfaceMaterializeRejectReason::DuplicateTraitMethod {
+                    method_name: method.name.clone(),
+                },
+            ));
+        }
+    }
+    let actual = public_trait_definition_hash(
+        &surface.type_params,
+        &surface.capabilities,
+        &surface.methods,
+    );
+    if actual != identity.definition_hash {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::TraitDefinitionHashMismatch {
+                expected: identity.definition_hash,
+                actual,
+            },
+        ));
+    }
+    Ok(())
+}
+
+fn required_trait_identity<'a>(
+    entry: &TypedPublicSurfaceEntry,
+    identity: Option<&'a PublicTraitIdentity>,
+) -> Result<&'a PublicTraitIdentity, PublicSurfaceMaterializeReject> {
+    let Some(identity) = identity else {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::MissingTraitIdentity,
+        ));
+    };
+    if identity.name != entry.name {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::TraitIdentityNameMismatch {
+                identity_name: identity.name.clone(),
+            },
+        ));
+    }
+    Ok(identity)
+}
+
+fn nominal_identity_from_public(identity: &PublicNominalTypeIdentity) -> NominalStableTypeIdentity {
+    NominalStableTypeIdentity::new(
+        match identity.kind {
+            PublicNominalTypeKind::Enum => NominalStableTypeKind::Enum,
+            PublicNominalTypeKind::Struct => NominalStableTypeKind::Struct,
+        },
+        identity.source_path.clone(),
+        identity.name.clone(),
+        identity.arity as usize,
+        identity.definition_hash,
+    )
+}
+
+fn existing_nominal_type(
+    ctx: &TypeCtx,
+    entry: &TypedPublicSurfaceEntry,
+    lookup_name: &str,
+    stable_identity: &NominalStableTypeIdentity,
+) -> Result<Option<TypeId>, PublicSurfaceMaterializeReject> {
+    let Some(existing) = ctx.lookup_named(lookup_name) else {
+        return Ok(None);
+    };
+    let Some(existing_identity) = ctx.nominal_stable_identity(existing) else {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalTypeIdentityConflict {
+                name: entry.name.clone(),
+            },
+        ));
+    };
+    if existing_identity != stable_identity {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NominalTypeIdentityConflict {
+                name: entry.name.clone(),
+            },
+        ));
+    }
+    Ok(Some(existing))
+}
+
+fn trait_identity_from_public(identity: &PublicTraitIdentity) -> TraitStableIdentity {
+    TraitStableIdentity {
+        source_path: identity.source_path.clone(),
+        name: identity.name.clone(),
+        arity: identity.arity,
+        definition_hash: identity.definition_hash,
+    }
+}
+
+fn trait_capability_from_public(capability: PublicTraitCapability) -> TraitCapability {
+    match capability {
+        PublicTraitCapability::Copy => TraitCapability::Copy,
+        PublicTraitCapability::Clone => TraitCapability::Clone,
+        PublicTraitCapability::Drop => TraitCapability::Drop,
+    }
+}
+
+fn struct_constructor_policy_from_public(
+    policy: PublicStructConstructorPolicy,
+) -> StructConstructorPolicy {
+    match policy {
+        PublicStructConstructorPolicy::Public => StructConstructorPolicy::Public,
+        PublicStructConstructorPolicy::RawMemoryOwnerToken => {
+            StructConstructorPolicy::RawMemoryBoundaryOnly(RestrictedStructConstructor::OwnerToken)
+        }
+        PublicStructConstructorPolicy::RawMemoryPointer => {
+            StructConstructorPolicy::RawMemoryBoundaryOnly(RestrictedStructConstructor::RawPointer)
+        }
+        PublicStructConstructorPolicy::OwnerBackedAggregate => {
+            StructConstructorPolicy::OwnerBackedAggregateBoundaryOnly
+        }
+    }
+}
+
+fn constructor_binding(name: String, ty: TypeId, arity: usize, origin_span: Span) -> Binding {
+    Binding {
+        name: name.clone(),
+        ty,
+        visibility: Visibility::Pub,
+        mutable: false,
+        no_shadow: false,
+        defined: true,
+        span: origin_span,
+        kind: BindingKind::Func {
+            def_id: None,
+            symbol: name,
+            effect: Effect::Pure,
+            arity,
+            builtin: None,
+            field_accessor: None,
+            type_param_bounds: BoundEnv::new(),
+            captures: Vec::new(),
+        },
+    }
+}
+
+fn reject_non_callable_name_conflict(
+    env: &Env,
+    staged_bindings: &[Binding],
+    entry: &TypedPublicSurfaceEntry,
+    binding: &Binding,
+) -> Result<(), PublicSurfaceMaterializeReject> {
+    if env
+        .lookup_all_any_defined(&binding.name)
+        .iter()
+        .any(|binding| !binding.kind.is_callable())
+        || staged_bindings
+            .iter()
+            .any(|staged| staged.name == binding.name && !staged.kind.is_callable())
+    {
+        return Err(reject(
+            entry,
+            PublicSurfaceMaterializeRejectReason::NonCallableNameConflict,
+        ));
+    }
+    Ok(())
+}
+
 fn stage_callable_surface(
     ctx: &mut TypeCtx,
-    env: &mut Env,
+    env: &Env,
     staged: &[Binding],
     entry: &TypedPublicSurfaceEntry,
     surface: &PublicCallableSurface,
@@ -269,19 +1175,14 @@ fn stage_callable_surface(
             PublicSurfaceMaterializeRejectReason::NonCallableNameConflict,
         ));
     }
-    if env
-        .lookup_all_callables(&entry.name)
-        .iter()
-        .any(|binding| {
-            (binding.no_shadow || surface.no_shadow)
-                && same_callable_signature_and_bounds(ctx, binding, ty, &bounds)
-        })
-        || staged.iter().any(|binding| {
-            binding.name == entry.name
-                && (binding.no_shadow || surface.no_shadow)
-                && same_callable_signature_and_bounds(ctx, binding, ty, &bounds)
-        })
-    {
+    if env.lookup_all_callables(&entry.name).iter().any(|binding| {
+        (binding.no_shadow || surface.no_shadow)
+            && same_callable_signature_and_bounds(ctx, binding, ty, &bounds)
+    }) || staged.iter().any(|binding| {
+        binding.name == entry.name
+            && (binding.no_shadow || surface.no_shadow)
+            && same_callable_signature_and_bounds(ctx, binding, ty, &bounds)
+    }) {
         return Err(reject(
             entry,
             PublicSurfaceMaterializeRejectReason::NoShadowConflict,
@@ -312,6 +1213,7 @@ fn stage_callable_surface(
 struct TypeTermMaterializer<'a> {
     ctx: &'a mut TypeCtx,
     binders: Vec<Vec<TypeId>>,
+    trait_self: Option<TypeId>,
 }
 
 impl<'a> TypeTermMaterializer<'a> {
@@ -319,7 +1221,20 @@ impl<'a> TypeTermMaterializer<'a> {
         Self {
             ctx,
             binders: Vec::new(),
+            trait_self: None,
         }
+    }
+
+    fn push_binder(&mut self, binder: Vec<TypeId>) {
+        self.binders.push(binder);
+    }
+
+    fn pop_binder(&mut self) {
+        self.binders.pop();
+    }
+
+    fn set_trait_self(&mut self, trait_self: Option<TypeId>) {
+        self.trait_self = trait_self;
     }
 
     fn materialize(
@@ -336,23 +1251,40 @@ impl<'a> TypeTermMaterializer<'a> {
             PublicTypeTerm::Char => Ok(self.ctx.char()),
             PublicTypeTerm::Str => Ok(self.ctx.str()),
             PublicTypeTerm::Never => Ok(self.ctx.never()),
-            PublicTypeTerm::TraitSelf => Err(reject(
-                entry,
-                PublicSurfaceMaterializeRejectReason::TraitSelfUnsupported,
-            )),
+            PublicTypeTerm::TraitSelf => self.trait_self.ok_or_else(|| {
+                reject(
+                    entry,
+                    PublicSurfaceMaterializeRejectReason::TraitSelfUnsupported,
+                )
+            }),
             PublicTypeTerm::Named { name, identity } => {
                 if identity.is_none() {
                     if let Some(scalar) = BackendScalarType::from_name(name.as_str()) {
                         return Ok(scalar.type_id(self.ctx));
                     }
                 }
-                Err(reject(
-                    entry,
-                    PublicSurfaceMaterializeRejectReason::NamedTypeUnsupported {
-                        name: name.clone(),
-                        identity: identity.clone(),
-                    },
-                ))
+                let Some(identity) = identity else {
+                    return Err(reject(
+                        entry,
+                        PublicSurfaceMaterializeRejectReason::NamedTypeUnsupported {
+                            name: name.clone(),
+                            identity: None,
+                        },
+                    ));
+                };
+                let stable_identity = nominal_identity_from_public(identity);
+                let Some(existing) =
+                    existing_nominal_type(self.ctx, entry, name.as_str(), &stable_identity)?
+                else {
+                    return Err(reject(
+                        entry,
+                        PublicSurfaceMaterializeRejectReason::NamedTypeUnsupported {
+                            name: name.clone(),
+                            identity: Some(identity.clone()),
+                        },
+                    ));
+                };
+                Ok(existing)
             }
             PublicTypeTerm::GenericParam(param_ref) => self.generic_param(entry, param_ref),
             PublicTypeTerm::UnboundGenericParam(param) => Err(reject(
@@ -390,10 +1322,11 @@ impl<'a> TypeTermMaterializer<'a> {
                     effect_from_public(*effect),
                 ))
             }
-            PublicTypeTerm::Apply { .. } => Err(reject(
-                entry,
-                PublicSurfaceMaterializeRejectReason::ApplyUnsupported,
-            )),
+            PublicTypeTerm::Apply { base, args } => {
+                let base = self.materialize(entry, base)?;
+                let args = self.materialize_list(entry, args)?;
+                Ok(self.ctx.apply(base, args))
+            }
             PublicTypeTerm::Boxed(inner) => {
                 let inner = self.materialize(entry, inner)?;
                 Ok(self.ctx.box_ty(inner))
@@ -514,25 +1447,33 @@ fn reject(
 #[cfg(test)]
 mod tests {
     use alloc::boxed::Box;
+    use alloc::collections::BTreeMap;
     use alloc::string::String;
     use alloc::vec::Vec;
 
     use crate::ast::Visibility;
     use crate::span::Span;
     use crate::typecheck::materializer::{
-        materialize_public_surface_mvp, PublicSurfaceMaterializeRejectReason,
+        materialize_public_surface_mvp, materialize_public_surface_with_semantics_mvp,
+        PublicSurfaceMaterializeRejectReason,
     };
     use crate::typecheck::public_signature::TypedPublicSignatureKind;
     use crate::typecheck::public_surface::{
-        PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicFieldAccessorKind,
-        PublicNominalTypeIdentity, PublicNominalTypeKind, PublicSurfaceShape, PublicTypeParam,
-        PublicTypeParamRef, PublicTypeTerm, TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
+        PublicCallableLinkSymbol, PublicCallableSurface, PublicEffect, PublicEnumSurface,
+        PublicEnumVariantSurface, PublicFieldAccessorKind, PublicFieldSurface,
+        PublicNominalTypeIdentity, PublicNominalTypeKind, PublicStructConstructorPolicy,
+        PublicStructSurface, PublicSurfaceShape, PublicTraitCapability, PublicTraitIdentity,
+        PublicTraitMethodSurface, PublicTraitSurface, PublicTypeParam, PublicTypeParamRef,
+        PublicTypeTerm, TypedPublicSurfaceEntry, TypedPublicSurfaceTable,
     };
     use crate::types::{TypeCtx, TypeKind};
 
-    use super::public_type_term_stable_hash;
     use super::super::env::{
         resolved_function_value_identity, Binding, BindingKind, Env, FunctionValueIdentityReject,
+    };
+    use super::{
+        public_enum_definition_hash, public_struct_definition_hash, public_trait_definition_hash,
+        public_type_term_stable_hash,
     };
 
     fn link_symbol(name: &str, ty: &PublicTypeTerm) -> PublicCallableLinkSymbol {
@@ -560,6 +1501,100 @@ mod tests {
         }
     }
 
+    fn nominal_identity(
+        kind: PublicNominalTypeKind,
+        name: &str,
+        arity: u32,
+        definition_hash: u64,
+    ) -> PublicNominalTypeIdentity {
+        PublicNominalTypeIdentity {
+            kind,
+            source_path: String::from("stdlib/core/data.nepl"),
+            name: String::from(name),
+            arity,
+            definition_hash,
+        }
+    }
+
+    fn struct_identity_for_fields(
+        name: &str,
+        type_params: &[PublicTypeParam],
+        fields: &[PublicFieldSurface],
+    ) -> PublicNominalTypeIdentity {
+        nominal_identity(
+            PublicNominalTypeKind::Struct,
+            name,
+            type_params.len() as u32,
+            public_struct_definition_hash(type_params, fields).expect("struct hash"),
+        )
+    }
+
+    fn enum_identity_for_variants(
+        name: &str,
+        type_params: &[PublicTypeParam],
+        variants: &[PublicEnumVariantSurface],
+    ) -> PublicNominalTypeIdentity {
+        nominal_identity(
+            PublicNominalTypeKind::Enum,
+            name,
+            type_params.len() as u32,
+            public_enum_definition_hash(type_params, variants).expect("enum hash"),
+        )
+    }
+
+    fn struct_entry(name: &str, fields: Vec<PublicFieldSurface>) -> TypedPublicSurfaceEntry {
+        let type_params = Vec::new();
+        let identity = struct_identity_for_fields(name, &type_params, &fields);
+        TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Struct,
+            name: String::from(name),
+            exported: true,
+            surface: PublicSurfaceShape::Struct(PublicStructSurface {
+                identity: Some(identity),
+                type_params,
+                fields,
+                constructor_policy: PublicStructConstructorPolicy::Public,
+            }),
+        }
+    }
+
+    fn enum_entry(name: &str, variants: Vec<PublicEnumVariantSurface>) -> TypedPublicSurfaceEntry {
+        let type_params = Vec::new();
+        let identity = enum_identity_for_variants(name, &type_params, &variants);
+        TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Enum,
+            name: String::from(name),
+            exported: true,
+            surface: PublicSurfaceShape::Enum(PublicEnumSurface {
+                identity: Some(identity),
+                type_params,
+                variants,
+            }),
+        }
+    }
+
+    fn trait_entry(name: &str, methods: Vec<PublicTraitMethodSurface>) -> TypedPublicSurfaceEntry {
+        let type_params = Vec::new();
+        let capabilities = Vec::from([PublicTraitCapability::Clone]);
+        let definition_hash = public_trait_definition_hash(&type_params, &capabilities, &methods);
+        TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Trait,
+            name: String::from(name),
+            exported: true,
+            surface: PublicSurfaceShape::Trait(PublicTraitSurface {
+                identity: Some(PublicTraitIdentity {
+                    source_path: String::from("stdlib/core/data.nepl"),
+                    name: String::from(name),
+                    arity: type_params.len() as u32,
+                    definition_hash,
+                }),
+                type_params,
+                capabilities,
+                methods,
+            }),
+        }
+    }
+
     fn primitive_answer_ty() -> PublicTypeTerm {
         PublicTypeTerm::Function {
             type_params: Vec::new(),
@@ -573,7 +1608,9 @@ mod tests {
         link_symbol(name, &primitive_answer_ty())
     }
 
-    fn primitive_answer_surface(link_symbol: Option<PublicCallableLinkSymbol>) -> PublicCallableSurface {
+    fn primitive_answer_surface(
+        link_symbol: Option<PublicCallableLinkSymbol>,
+    ) -> PublicCallableSurface {
         PublicCallableSurface {
             ty: primitive_answer_ty(),
             no_shadow: false,
@@ -634,6 +1671,245 @@ mod tests {
             }
             other => panic!("unexpected materialized type: {:?}", other),
         }
+    }
+
+    #[test]
+    fn materializer_mvp_materializes_nominal_and_trait_definitions_before_callables() {
+        let item_fields = Vec::from([PublicFieldSurface {
+            name: String::from("value"),
+            ty: PublicTypeTerm::I32,
+        }]);
+        let item_identity = struct_identity_for_fields("Item", &Vec::new(), &item_fields);
+        let take_item_ty = PublicTypeTerm::Function {
+            type_params: Vec::new(),
+            params: Vec::from([PublicTypeTerm::Named {
+                name: String::from("Item"),
+                identity: Some(item_identity.clone()),
+            }]),
+            result: Box::new(PublicTypeTerm::Unit),
+            effect: PublicEffect::Pure,
+        };
+        let table = TypedPublicSurfaceTable::new(Vec::from([
+            callable_entry(
+                "take_item",
+                PublicCallableSurface {
+                    ty: take_item_ty.clone(),
+                    no_shadow: false,
+                    arity: 1,
+                    effect: PublicEffect::Pure,
+                    field_accessor: None,
+                    link_symbol: Some(link_symbol("take_item", &take_item_ty)),
+                    type_param_bounds: Vec::new(),
+                },
+            ),
+            struct_entry("Item", item_fields),
+            enum_entry(
+                "MaybeItem",
+                Vec::from([
+                    PublicEnumVariantSurface {
+                        name: String::from("Some"),
+                        payload: Some(PublicTypeTerm::Named {
+                            name: String::from("Item"),
+                            identity: Some(item_identity),
+                        }),
+                    },
+                    PublicEnumVariantSurface {
+                        name: String::from("None"),
+                        payload: None,
+                    },
+                ]),
+            ),
+            trait_entry(
+                "Show",
+                Vec::from([PublicTraitMethodSurface {
+                    name: String::from("show"),
+                    ty: PublicTypeTerm::Function {
+                        type_params: Vec::new(),
+                        params: Vec::from([PublicTypeTerm::TraitSelf]),
+                        result: Box::new(PublicTypeTerm::I32),
+                        effect: PublicEffect::Pure,
+                    },
+                }]),
+            ),
+        ]));
+        let mut ctx = TypeCtx::new();
+        let mut env = Env::new();
+        let mut structs = BTreeMap::new();
+        let mut enums = BTreeMap::new();
+        let mut traits = BTreeMap::new();
+
+        let report = materialize_public_surface_with_semantics_mvp(
+            &mut ctx,
+            &mut env,
+            &mut structs,
+            &mut enums,
+            &mut traits,
+            &table,
+            Span::dummy(),
+        )
+        .unwrap();
+
+        assert_eq!(report.structs_inserted, 1);
+        assert_eq!(report.enums_inserted, 1);
+        assert_eq!(report.traits_inserted, 1);
+        assert_eq!(report.callables_inserted, 1);
+        let item_ty = ctx.lookup_named("Item").expect("Item type");
+        assert!(structs.contains_key("Item"));
+        assert!(enums.contains_key("MaybeItem"));
+        assert!(traits.contains_key("Show"));
+        assert_eq!(env.lookup_all_callables("Item").len(), 1);
+        assert_eq!(env.lookup_all_callables("MaybeItem::Some").len(), 1);
+        assert_eq!(env.lookup_all_callables("take_item").len(), 1);
+        let take_item = env.lookup_all_callables("take_item")[0];
+        let TypeKind::Function { params, .. } = ctx.get(take_item.ty) else {
+            panic!("take_item must be function");
+        };
+        assert_eq!(
+            ctx.resolve_named_type_id(params[0]),
+            ctx.resolve_named_type_id(item_ty)
+        );
+    }
+
+    #[test]
+    fn materializer_mvp_rolls_back_nominal_definitions_when_later_entry_rejects() {
+        let table = TypedPublicSurfaceTable::new(Vec::from([
+            struct_entry(
+                "Item",
+                Vec::from([PublicFieldSurface {
+                    name: String::from("value"),
+                    ty: PublicTypeTerm::I32,
+                }]),
+            ),
+            callable_entry("bad", primitive_answer_surface(None)),
+        ]));
+        let mut ctx = TypeCtx::new();
+        let mut env = Env::new();
+        let mut structs = BTreeMap::new();
+        let mut enums = BTreeMap::new();
+        let mut traits = BTreeMap::new();
+
+        let reject = materialize_public_surface_with_semantics_mvp(
+            &mut ctx,
+            &mut env,
+            &mut structs,
+            &mut enums,
+            &mut traits,
+            &table,
+            Span::dummy(),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            reject.reason,
+            PublicSurfaceMaterializeRejectReason::MissingCallableLinkSymbol
+        );
+        assert!(ctx.lookup_named("Item").is_none());
+        assert!(structs.is_empty());
+        assert!(enums.is_empty());
+        assert!(traits.is_empty());
+        assert!(env.lookup_all_callables("Item").is_empty());
+    }
+
+    #[test]
+    fn materializer_mvp_rejects_nominal_surface_whose_definition_hash_is_stale() {
+        let mut item = struct_entry(
+            "Item",
+            Vec::from([PublicFieldSurface {
+                name: String::from("value"),
+                ty: PublicTypeTerm::I32,
+            }]),
+        );
+        let expected = match &item.surface {
+            PublicSurfaceShape::Struct(surface) => {
+                surface.identity.as_ref().unwrap().definition_hash
+            }
+            _ => panic!("Item must be struct surface"),
+        };
+        let actual = match &mut item.surface {
+            PublicSurfaceShape::Struct(surface) => {
+                surface.fields.push(PublicFieldSurface {
+                    name: String::from("extra"),
+                    ty: PublicTypeTerm::I32,
+                });
+                public_struct_definition_hash(&surface.type_params, &surface.fields)
+                    .expect("mutated struct hash")
+            }
+            _ => panic!("Item must be struct surface"),
+        };
+        let table = TypedPublicSurfaceTable::new(Vec::from([item]));
+        let mut ctx = TypeCtx::new();
+        let mut env = Env::new();
+        let mut structs = BTreeMap::new();
+        let mut enums = BTreeMap::new();
+        let mut traits = BTreeMap::new();
+
+        let reject = materialize_public_surface_with_semantics_mvp(
+            &mut ctx,
+            &mut env,
+            &mut structs,
+            &mut enums,
+            &mut traits,
+            &table,
+            Span::dummy(),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            reject.reason,
+            PublicSurfaceMaterializeRejectReason::NominalDefinitionHashMismatch {
+                expected,
+                actual
+            }
+        );
+        assert!(ctx.lookup_named("Item").is_none());
+        assert!(structs.is_empty());
+    }
+
+    #[test]
+    fn materializer_mvp_rejects_trait_surface_with_duplicate_methods() {
+        let method_ty = PublicTypeTerm::Function {
+            type_params: Vec::new(),
+            params: Vec::from([PublicTypeTerm::TraitSelf]),
+            result: Box::new(PublicTypeTerm::I32),
+            effect: PublicEffect::Pure,
+        };
+        let table = TypedPublicSurfaceTable::new(Vec::from([trait_entry(
+            "Show",
+            Vec::from([
+                PublicTraitMethodSurface {
+                    name: String::from("show"),
+                    ty: method_ty.clone(),
+                },
+                PublicTraitMethodSurface {
+                    name: String::from("show"),
+                    ty: method_ty,
+                },
+            ]),
+        )]));
+        let mut ctx = TypeCtx::new();
+        let mut env = Env::new();
+        let mut structs = BTreeMap::new();
+        let mut enums = BTreeMap::new();
+        let mut traits = BTreeMap::new();
+
+        let reject = materialize_public_surface_with_semantics_mvp(
+            &mut ctx,
+            &mut env,
+            &mut structs,
+            &mut enums,
+            &mut traits,
+            &table,
+            Span::dummy(),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            reject.reason,
+            PublicSurfaceMaterializeRejectReason::DuplicateTraitMethod {
+                method_name: String::from("show")
+            }
+        );
+        assert!(traits.is_empty());
     }
 
     #[test]
@@ -774,7 +2050,10 @@ mod tests {
                 assert_eq!(ctx.get(params[0]), TypeKind::Named(String::from("i64")));
                 assert_eq!(ctx.get(result), TypeKind::Named(String::from("u64")));
             }
-            other => panic!("unexpected materialized backend scalar callable type: {:?}", other),
+            other => panic!(
+                "unexpected materialized backend scalar callable type: {:?}",
+                other
+            ),
         }
     }
 
@@ -1084,7 +2363,8 @@ mod tests {
     fn materializer_mvp_rejects_field_accessor_and_bounds() {
         let mut field_surface = primitive_answer_surface(Some(primitive_answer_link("get_x")));
         field_surface.field_accessor = Some(PublicFieldAccessorKind::Get);
-        let table = TypedPublicSurfaceTable::new(Vec::from([callable_entry("get_x", field_surface)]));
+        let table =
+            TypedPublicSurfaceTable::new(Vec::from([callable_entry("get_x", field_surface)]));
         let mut ctx = TypeCtx::new();
         let mut env = Env::new();
 
@@ -1100,13 +2380,14 @@ mod tests {
         let mut bounds_surface = primitive_answer_surface(Some(primitive_answer_link("bounded")));
         bounds_surface.type_param_bounds = Vec::from([]);
         let mut non_empty_bounds_surface = bounds_surface;
-        non_empty_bounds_surface.type_param_bounds = Vec::from([crate::typecheck::PublicTypeParamBounds {
-            param: crate::typecheck::PublicTypeParamBoundTarget::Ref(PublicTypeParamRef {
-                binder_depth: 0,
-                index: 0,
-            }),
-            bounds: Vec::new(),
-        }]);
+        non_empty_bounds_surface.type_param_bounds =
+            Vec::from([crate::typecheck::PublicTypeParamBounds {
+                param: crate::typecheck::PublicTypeParamBoundTarget::Ref(PublicTypeParamRef {
+                    binder_depth: 0,
+                    index: 0,
+                }),
+                bounds: Vec::new(),
+            }]);
         let table = TypedPublicSurfaceTable::new(Vec::from([callable_entry(
             "bounded",
             non_empty_bounds_surface,
