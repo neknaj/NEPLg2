@@ -12,6 +12,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const crypto = require('node:crypto');
 const { spawn, spawnSync } = require('node:child_process');
 const { Worker } = require('node:worker_threads');
 const { parseFile } = require('./parser');
@@ -40,6 +41,7 @@ function parseArgs(argv) {
     let llvmCompileOnly = false;
     let changedOnly = false;
     let changedBase = 'HEAD';
+    let shard = null;
 
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
@@ -87,6 +89,10 @@ function parseArgs(argv) {
             changedBase = argv[++i];
             continue;
         }
+        if (a === '--shard' && i + 1 < argv.length) {
+            shard = parseShardSpec(argv[++i]);
+            continue;
+        }
         if ((a === '--runner' || a === '--mode') && i + 1 < argv.length) {
             runner = String(argv[++i] || '').trim();
             continue;
@@ -123,6 +129,7 @@ function parseArgs(argv) {
                 llvmCompileOnly,
                 changedOnly,
                 changedBase,
+                shard,
             };
         }
     }
@@ -154,6 +161,54 @@ function parseArgs(argv) {
         llvmCompileOnly,
         changedOnly,
         changedBase,
+        shard,
+    };
+}
+
+function parseShardSpec(raw) {
+    const spec = String(raw || '').trim();
+    const m = /^(\d+)\/(\d+)$/.exec(spec);
+    if (!m) {
+        throw new Error(`--shard must use INDEX/TOTAL format, got: ${raw}`);
+    }
+    const index = Number(m[1]);
+    const total = Number(m[2]);
+    if (!Number.isInteger(index) || !Number.isInteger(total) || total < 1 || index < 1 || index > total) {
+        throw new Error(`--shard index must be in 1..TOTAL, got: ${raw}`);
+    }
+    return { index, total, spec: `${index}/${total}` };
+}
+
+function hashShardKey(s) {
+    return crypto.createHash('sha256').update(String(s), 'utf8').digest().readUInt32BE(0);
+}
+
+function shardKeyForCase(c) {
+    return `${c.file}::${c.index}::${c.id}`;
+}
+
+function applyCaseShard(cases, shard) {
+    if (!shard || shard.total <= 1) return cases.slice();
+    const expectedRemainder = shard.index - 1;
+    return cases.filter((c) => hashShardKey(shardKeyForCase(c)) % shard.total === expectedRemainder);
+}
+
+function sortCasesForSharding(cases) {
+    return cases.slice().sort((a, b) => {
+        const ak = shardKeyForCase(a).replace(/\\/g, '/');
+        const bk = shardKeyForCase(b).replace(/\\/g, '/');
+        return ak < bk ? -1 : ak > bk ? 1 : 0;
+    });
+}
+
+function shardSummary(shard, totalBefore, totalAfter) {
+    if (!shard) return null;
+    return {
+        spec: shard.spec,
+        index: shard.index,
+        total: shard.total,
+        cases_before: totalBefore,
+        cases_after: totalAfter,
     };
 }
 
@@ -1375,10 +1430,11 @@ async function main() {
         llvmCompileOnly,
         changedOnly,
         changedBase,
+        shard,
     } = parseArgs(process.argv.slice(2));
     printStdlibBuildMessage();
     if (help || (!changedOnly && inputs.length === 0) || !outPath) {
-        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--changed] [--changed-base <gitRef>] [--dist <distDirHint>] [-j N] [--runner wasm|llvm|all] [--llvm-all] [--assert-io] [--strict-dual] [--llvm-compile-only] [--no-stdlib|--with-stdlib] [--no-tree|--with-tree]');
+        console.log('Usage: node nodesrc/tests.js -i <dir_or_file> [-i ...] -o <out.json> [--changed] [--changed-base <gitRef>] [--shard INDEX/TOTAL] [--dist <distDirHint>] [-j N] [--runner wasm|llvm|all] [--llvm-all] [--assert-io] [--strict-dual] [--llvm-compile-only] [--no-stdlib|--with-stdlib] [--no-tree|--with-tree]');
         process.exit(help ? 0 : 2);
     }
 
@@ -1414,6 +1470,7 @@ async function main() {
                 inputs: [],
                 include_stdlib: effectiveIncludeStdlib,
                 include_tree: effectiveIncludeTree,
+                shard: shardSummary(shard, 0, 0),
             },
         };
         const outAbs = path.resolve(outPath);
@@ -1428,7 +1485,7 @@ async function main() {
         return;
     }
 
-    const allCases = [];
+    let allCases = [];
     const scanInputs = effectiveInputs.slice();
     if (effectiveIncludeStdlib && !scanInputs.some((p) => path.resolve(p) === path.resolve('stdlib'))) {
         scanInputs.push('stdlib');
@@ -1436,6 +1493,10 @@ async function main() {
     for (const p of scanInputs) {
         allCases.push(...collectTestsFromPath(p));
     }
+    allCases = sortCasesForSharding(allCases);
+    const allCasesBeforeShard = allCases.length;
+    allCases = applyCaseShard(allCases, shard);
+    const allCasesAfterShard = allCases.length;
 
     const wasmCases = allCases.filter((c) => !isLlvmCase(c) && !skipOnWasmRunner(c));
     const llvmCasesRaw = (llvmAll ? allCases : allCases.filter((c) => isLlvmCase(c)))
@@ -1450,6 +1511,42 @@ async function main() {
         : runner === 'llvm'
             ? llvmCases.length
             : wasmCases.length + llvmCases.length;
+    const shardFilteredEverything = Boolean(shard && allCasesBeforeShard > 0 && allCasesAfterShard === 0);
+    if (runnableCaseCount === 0 && shardFilteredEverything) {
+        const scanSummary = {
+            changed: changedOnly,
+            changed_base: changedBase,
+            inputs: scanInputs.map((p) => path.relative(process.cwd(), path.resolve(p))),
+            include_stdlib: effectiveIncludeStdlib,
+            include_tree: effectiveIncludeTree,
+            shard: shardSummary(shard, allCasesBeforeShard, allCasesAfterShard),
+        };
+        const out = {
+            schema: 'neplg2-doctest/v1',
+            generated_at: new Date().toISOString(),
+            jobs,
+            runner,
+            llvm_all: llvmAll,
+            assert_io: assertIo,
+            strict_dual: strictDual,
+            llvm_compile_only: llvmCompileOnly,
+            dist_hint: distHint || null,
+            resolved_dist_dirs: [],
+            scan: scanSummary,
+            summary: { total: 0, passed: 0, failed: 0, errored: 0 },
+            results: [],
+        };
+        const outAbs = path.resolve(outPath);
+        ensureDir(path.dirname(outAbs));
+        writeJsonFileAtomic(outAbs, out);
+        console.log(JSON.stringify({
+            dist: { hint: distHint || null, resolved: [] },
+            summary: out.summary,
+            scan: out.scan,
+            top_issues: [],
+        }, null, 2));
+        return;
+    }
     if (runnableCaseCount === 0 && !changedOnly) {
         const scanInputLabels = scanInputs.map((p) => path.relative(process.cwd(), path.resolve(p)));
         const error = `no runnable doctests collected for inputs: ${scanInputLabels.join(', ') || '(none)'}`;
@@ -1464,7 +1561,8 @@ async function main() {
             error,
             detail: {
                 runner,
-                all_cases: allCases.length,
+                all_cases: allCasesAfterShard,
+                all_cases_before_shard: allCasesBeforeShard,
                 wasm_cases: wasmCases.length,
                 llvm_cases: llvmCases.length,
             },
@@ -1488,6 +1586,7 @@ async function main() {
                 inputs: scanInputLabels,
                 include_stdlib: effectiveIncludeStdlib,
                 include_tree: effectiveIncludeTree,
+                shard: shardSummary(shard, allCasesBeforeShard, allCasesAfterShard),
             },
             summary,
             results,
@@ -1520,6 +1619,7 @@ async function main() {
         inputs: scanInputs.map((p) => path.relative(process.cwd(), path.resolve(p))),
         include_stdlib: effectiveIncludeStdlib,
         include_tree: effectiveIncludeTree,
+        shard: shardSummary(shard, allCasesBeforeShard, allCasesAfterShard),
     };
     const writePartialOutput = (reason) => {
         ensureDir(path.dirname(outAbs));

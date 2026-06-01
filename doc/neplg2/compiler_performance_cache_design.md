@@ -1621,6 +1621,34 @@ bound、reexport / prelude edge と module canonical path を追加し、preflig
 trait identity、field accessor surface、stable public ABI / link symbol、generic impl bound、
 reexport / prelude edge と module canonical path も引き続き dependency body skip の前提として残る。
 
+### 2026-06-01 LLVM dual CI shard checkpoint
+
+GitHub Actions run `26728316260` では、`llvm-dual-test` の `tests` / `stdlib`
+2 shard がどちらも 18 分の外側 timeout に達し、`exit code 137` で終了した。
+これは LLVM backend の個別失敗ではなく、full dual backend verification の workload が
+CI job boundary に対して大きすぎ、途中結果を残しても job 自体が完了できない構造である。
+
+`nodesrc/tests.js` に `--shard INDEX/TOTAL` を追加した。shard は、入力から集めた元の
+doctest case 集合を stable sort し、case identity を SHA-256 hash してから分割する。
+その後で wasm / LLVM の runnable case を派生するため、`--runner all --llvm-all
+--strict-dual` でも同じ original case が同じ shard に残り、wasm / LLVM の対応関係が
+shard によって分断されない。
+
+`llvm-dual-test` は `tests` 4 shard と `stdlib` 4 shard に分割した。`tests` の tree
+suite は shard 1 だけで実行し、他の shard は `--no-tree` にする。これにより、tree suite
+を全 shard で重複実行せず、full dual backend の主目的である doctest backend 比較に CI 時間を
+使う。
+
+各 shard は個別 JSON を upload し、Pages final bundle で `nodesrc/merge_doctest_json.js`
+を使って `tests-dual-tests.json` / `tests-dual-stdlib.json` へ戻す。merge 後の JSON は
+canonical な Pages input として扱えるが、`shards` field には shard ごとの summary と
+scan metadata を残すため、timeout や partial report が混じった場合もどの shard 由来かを追跡できる。
+
+これは compile performance 自体を改善するものではない。base compile の主要ボトルネックである
+`resource_static_initialized_moves` / `resource_static_check` は別途、`.neplmeta` と Resource
+summary cache / proof template の設計で削る必要がある。この shard は、現在の重い compiler を
+CI 上で観測し続けるための workload boundary 修正である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

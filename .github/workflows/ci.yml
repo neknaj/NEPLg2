@@ -398,14 +398,46 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - id: tests
+                    - id: tests-shard-1
                       inputs: "-i tests"
+                      shard: "1/4"
                       tree_flag: "--with-tree"
-                      output: tests-dual-tests.json
-                    - id: stdlib
-                      inputs: "-i stdlib"
+                      output: tests-dual-tests-shard-1.json
+                    - id: tests-shard-2
+                      inputs: "-i tests"
+                      shard: "2/4"
                       tree_flag: "--no-tree"
-                      output: tests-dual-stdlib.json
+                      output: tests-dual-tests-shard-2.json
+                    - id: tests-shard-3
+                      inputs: "-i tests"
+                      shard: "3/4"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-tests-shard-3.json
+                    - id: tests-shard-4
+                      inputs: "-i tests"
+                      shard: "4/4"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-tests-shard-4.json
+                    - id: stdlib-shard-1
+                      inputs: "-i stdlib"
+                      shard: "1/4"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-stdlib-shard-1.json
+                    - id: stdlib-shard-2
+                      inputs: "-i stdlib"
+                      shard: "2/4"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-stdlib-shard-2.json
+                    - id: stdlib-shard-3
+                      inputs: "-i stdlib"
+                      shard: "3/4"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-stdlib-shard-3.json
+                    - id: stdlib-shard-4
+                      inputs: "-i stdlib"
+                      shard: "4/4"
+                      tree_flag: "--no-tree"
+                      output: tests-dual-stdlib-shard-4.json
 
         env:
             LLVM_VERSION: "21.1.0"
@@ -466,7 +498,7 @@ jobs:
                   clang -dumpmachine | grep -q linux
 
             - name: Full dual backend verification (${{ matrix.id }})
-              run: timeout --signal=KILL 18m node nodesrc/tests.js ${{ matrix.inputs }} -o ${{ matrix.output }} --runner all --llvm-all --assert-io --strict-dual ${{ matrix.tree_flag }} -j 2
+              run: timeout --signal=KILL 18m node nodesrc/tests.js ${{ matrix.inputs }} -o ${{ matrix.output }} --runner all --llvm-all --assert-io --strict-dual --shard ${{ matrix.shard }} ${{ matrix.tree_flag }} -j 2
 
             - name: Upload full dual backend JSON (${{ matrix.id }})
               if: always()
@@ -610,6 +642,12 @@ jobs:
                   cp -f artifacts/llvm/tests-llvm.json dist/tests/tests-llvm.json || true
                   cp -f artifacts/llvm-dual/tests-dual-tests.json dist/tests/tests-dual-tests.json || true
                   cp -f artifacts/llvm-dual/tests-dual-stdlib.json dist/tests/tests-dual-stdlib.json || true
+                  if ls artifacts/llvm-dual/tests-dual-tests-shard-*.json >/dev/null 2>&1; then
+                    node nodesrc/merge_doctest_json.js -o dist/tests/tests-dual-tests.json artifacts/llvm-dual/tests-dual-tests-shard-*.json
+                  fi
+                  if ls artifacts/llvm-dual/tests-dual-stdlib-shard-*.json >/dev/null 2>&1; then
+                    node nodesrc/merge_doctest_json.js -o dist/tests/tests-dual-stdlib.json artifacts/llvm-dual/tests-dual-stdlib-shard-*.json
+                  fi
 
             - name: Write final status summary
               run: |

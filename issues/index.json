@@ -1,6 +1,6 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-05-31T22:55:29.584Z",
+  "generated_at": "2026-06-01T02:37:35.988Z",
   "counts": {
     "total": 1300,
     "open": 29,
@@ -183,7 +183,7 @@
       "priority": "P1",
       "type": "performance",
       "created": "2026-05-24",
-      "updated": "2026-05-31",
+      "updated": "2026-06-01",
       "target": "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio",
       "legacy_id": "",
       "source": "",
@@ -409,7 +409,7 @@
       "type": "architecture",
       "created": "2026-05-31",
       "updated": "2026-06-01",
-      "target": "nepl-core/src/artifact.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/loader.rs",
+      "target": "nepl-core/src/artifact.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/loader.rs",
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31.md"
@@ -1503,7 +1503,7 @@
       "priority": "P1",
       "type": "test",
       "created": "2026-04-25",
-      "updated": "2026-04-26",
+      "updated": "2026-06-01",
       "target": ".github/workflows/ci.yml, nodesrc/tests.js",
       "legacy_id": "RV-CLI-011",
       "source": "doc/review20260425/cli.md#rv-cli-011",
