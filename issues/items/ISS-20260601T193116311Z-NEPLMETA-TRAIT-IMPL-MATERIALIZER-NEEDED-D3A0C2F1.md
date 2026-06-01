@@ -211,3 +211,29 @@ source fallback へ戻す必要がある。
 - import / prelude edge の body skip を artifact-ready かつ selected callable body 不要な case から本線化する。
 - fallback rate と base compile time を `CompilerSession` stats / Node JSON で実測する。
 - `.neplobj` / `.nepllink` がない状態では materialized callable を `memo_call` / function value identity へ入れない。
+
+## 2026-06-01 Web materialized body-skip checkpoint
+
+Web / loader は `.neplmeta` projection 成功結果を `MaterializedPublicSurfaceInput` へ変換し、
+`PublicInterfaceArtifactInputs` から typecheck へ渡せるようになった。loader は projection が成功した
+import / prelude edge について dependency root item merge を省き、target file slot と materialized
+surface を current compile の authority として返す。
+
+この checkpoint で完了した範囲:
+
+- loader-level edge materializer callback を追加し、artifact store を持つ Web / CLI session と
+  source graph / `SourceMap` authority を持つ loader を分離した。
+- materialized edge でも target file id を current `SourceMap` に残し、typecheck の
+  `module_path` / `file_id` 一致検査を維持した。
+- Web `CompilerSession` は warm `.neplmeta` store がある場合だけ materialized load path を使う。
+- materialized compile attempt が失敗した場合は full source load / compile に戻し、
+  metadata-only callable body 欠落や materializer reject をユーザー向け診断として露出させない。
+
+この issue はまだ open のまま維持する。理由は、今回の body skip は speculative optimization として
+source fallback を持つ段階であり、base compile time を恒常的に下げるには次の残件が残るためである。
+
+- bundled stdlib `.neplmeta` を初回 compile 前から preseed し、base compile でも projection を使えるようにする。
+- dependency source を読み込まず interface artifact だけから `SourceMap` file slot と semantic surface を復元する。
+- selected materialized callable body を `.neplobj` / `.nepllink` で解決し、direct call case の source fallback を減らす。
+- fallback rate、base `compile_ms`、warm edit `compile_ms` を Node JSON / `CompilerSession` stats で継続的に実測する。
+- `memo_call` / private cache proof / function value identity は、stable codegen artifact と Resource proof が揃うまで `.neplmeta` callable だけでは許可しない。

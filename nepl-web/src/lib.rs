@@ -8,9 +8,10 @@ use nepl_core::ast::{
 };
 use nepl_core::compiler::{
     compile_nepl_meta_artifact_with_source_identity,
-    compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_and_neplproof,
-    compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_neplproof_and_stage_timings,
+    compile_module_with_source_map_artifact_options_public_interface_artifacts_resource_summary_value_cache_and_neplproof,
+    compile_module_with_source_map_artifact_options_public_interface_artifacts_resource_summary_value_cache_neplproof_and_stage_timings,
     CompileStageTimings,
+    PublicInterfaceArtifactInputs,
 };
 use nepl_core::diagnostic::{Diagnostic, Severity};
 use nepl_core::diagnostic_codes::{DiagnosticCode, LoaderDiagnosticCode};
@@ -19,7 +20,7 @@ use nepl_core::hir::{FuncRef, HirBlock, HirExpr, HirExprKind, HirLine};
 use nepl_core::artifact::{
     nepl_meta_artifact_pre_typecheck_envelope_for_module_surface,
     nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity,
-    NeplMetaArtifact, NeplMetaArtifactStore,
+    NeplMetaArtifact, NeplMetaArtifactStore, NeplMetaModuleSurface,
 };
 use nepl_core::lexer::{lex, Token, TokenKind};
 use nepl_core::loader::{
@@ -30,9 +31,9 @@ use nepl_core::resource::{ResourceSummaryProofArtifact, ResourceSummaryValueCach
 use nepl_core::resolve::DefId;
 use nepl_core::source_cache_key::compiled_source_cache_key_part;
 use nepl_core::span::{FileId, Span};
-use nepl_core::typecheck::typecheck;
+use nepl_core::typecheck::{typecheck, MaterializedPublicSurfaceInput};
 use nepl_core::{
-    BuildProfile, CompilationArtifactOptions, CompileOptions, CompileTarget,
+    BuildProfile, CompilationArtifact, CompilationArtifactOptions, CompileOptions, CompileTarget,
     ResourceSummaryProofArtifactCacheOptions,
 };
 use wasmprinter::print_bytes;
@@ -3302,29 +3303,34 @@ fn compile_wasm_with_bundled_sources(
     )
 }
 
-fn probe_nepl_meta_dependency_edges_pre_typecheck(
+fn materialize_nepl_meta_dependency_edge_pre_typecheck(
     store: &mut NeplMetaArtifactStore,
     profile: BuildProfile,
     stdlib_content_hash: Option<u64>,
-    probes: &[NeplMetaDependencyEdgePreTypecheckProbe],
-) {
-    for probe in probes {
-        let envelope =
-            nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity(
-                CompileTarget::Wasm,
-                profile,
-                stdlib_content_hash,
-                Some(probe.dependency_public_surface_hash),
-                probe.target_source_key_hash,
-                probe.target_source_capability_policy_set_hash,
-                &probe.target_module_surface,
-            );
-        let _ = store.materializer_import_public_surface_pre_typecheck_edge_probe_mvp(
+    stdlib_root: &PathBuf,
+    probe: &NeplMetaDependencyEdgePreTypecheckProbe,
+) -> Option<nepl_core::typecheck::TypedPublicSurfaceTable> {
+    let target_path = PathBuf::from(probe.target_module_path.as_str());
+    if !target_path.starts_with(stdlib_root) {
+        return None;
+    }
+    let envelope =
+        nepl_meta_artifact_pre_typecheck_envelope_for_module_surface_with_source_identity(
+            CompileTarget::Wasm,
+            profile,
+            stdlib_content_hash,
+            Some(probe.dependency_public_surface_hash),
+            probe.target_source_key_hash,
+            probe.target_source_capability_policy_set_hash,
+            &probe.target_module_surface,
+        );
+    store
+        .materializer_import_public_surface_pre_typecheck_edge_probe_mvp(
             probe.target_module_path.as_str(),
             envelope,
             probe.import_clause.as_ref(),
-        );
-    }
+        )
+        .ok()
 }
 
 fn populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
@@ -3405,6 +3411,48 @@ fn populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
     }
 }
 
+fn compile_loaded_module_with_public_interface_artifacts(
+    module: nepl_core::ast::Module,
+    source_map: &SourceMap,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    dependency_public_surface_hash: Option<u64>,
+    module_surface: Option<&NeplMetaModuleSurface>,
+    materialized_public_surfaces: &[MaterializedPublicSurfaceInput],
+    resource_summary_value_cache: Option<&mut ResourceSummaryValueCache>,
+    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
+    stage_timings: Option<&mut CompileStageTimings>,
+) -> Result<CompilationArtifact, CoreError> {
+    let public_interface_artifacts = PublicInterfaceArtifactInputs::new(
+        dependency_public_surface_hash,
+        module_surface,
+        materialized_public_surfaces,
+    );
+    if let Some(stage_timings) = stage_timings {
+        compile_module_with_source_map_artifact_options_public_interface_artifacts_resource_summary_value_cache_neplproof_and_stage_timings(
+            module,
+            Some(source_map),
+            options,
+            artifact_options,
+            public_interface_artifacts,
+            resource_summary_value_cache,
+            resource_summary_proof_options,
+            stage_timings,
+            compile_stage_now_ms,
+        )
+    } else {
+        compile_module_with_source_map_artifact_options_public_interface_artifacts_resource_summary_value_cache_and_neplproof(
+            module,
+            Some(source_map),
+            options,
+            artifact_options,
+            public_interface_artifacts,
+            resource_summary_value_cache,
+            resource_summary_proof_options,
+        )
+    }
+}
+
 fn compile_wasm_with_bundled_sources_and_cache(
     entry_path: &str,
     source: &str,
@@ -3448,6 +3496,8 @@ fn compile_wasm_with_bundled_sources_and_cache(
         preseed_resource_summary_proof_artifact
     };
 
+    let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
+    let stdlib_content_hash = bundled_stdlib_hash_u64();
     let mut loader = Loader::new(stdlib_root.clone());
     let mut provider = |path: &PathBuf| {
         lookup_web_source(&bundled_sources, &overlay_sources, path).ok_or_else(|| {
@@ -3459,25 +3509,33 @@ fn compile_wasm_with_bundled_sources_and_cache(
             nepl_core::loader::LoaderError::Io(msg)
         })
     };
-    let collect_nepl_meta_edge_probes = match nepl_meta_artifact_store.as_ref() {
-        Some(store) => !store.is_empty(),
-        None => false,
-    };
     let loaded = if let Some(cache) = loader_cache.as_deref_mut() {
-        if collect_nepl_meta_edge_probes {
-            loader.load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
+        match nepl_meta_artifact_store.as_deref_mut() {
+            Some(store) if !store.is_empty() => {
+                let mut edge_materializer =
+                    |probe: &NeplMetaDependencyEdgePreTypecheckProbe| {
+                        materialize_nepl_meta_dependency_edge_pre_typecheck(
+                            store,
+                            active_profile,
+                            stdlib_content_hash,
+                            stdlib_root,
+                            probe,
+                        )
+                    };
+                loader.load_inline_with_provider_and_cache_materializing_nepl_meta_edge_probes(
+                    PathBuf::from(entry_path),
+                    source.to_string(),
+                    &mut provider,
+                    cache,
+                    &mut edge_materializer,
+                )
+            }
+            _ => loader.load_inline_with_provider_and_cache(
                 PathBuf::from(entry_path),
                 source.to_string(),
                 &mut provider,
                 cache,
-            )
-        } else {
-            loader.load_inline_with_provider_and_cache(
-                PathBuf::from(entry_path),
-                source.to_string(),
-                &mut provider,
-                cache,
-            )
+            ),
         }
     } else {
         loader.load_inline_with_provider(PathBuf::from(entry_path), source.to_string(), &mut provider)
@@ -3508,13 +3566,11 @@ fn compile_wasm_with_bundled_sources_and_cache(
         include_wat_comments,
     };
     let module_surface = loaded.module_surface.clone();
-    let stdlib_content_hash = bundled_stdlib_hash_u64();
     if let (Some(store), Some(surface)) = (
         nepl_meta_artifact_store.as_deref_mut(),
         module_surface.as_ref(),
     ) {
         if !store.is_empty() {
-            let active_profile = profile.unwrap_or(BuildProfile::default_source_profile());
             if let Ok(envelope) = nepl_meta_artifact_pre_typecheck_envelope_for_module_surface(
                 CompileTarget::Wasm,
                 active_profile,
@@ -3531,12 +3587,6 @@ fn compile_wasm_with_bundled_sources_and_cache(
                     None,
                 );
             }
-            probe_nepl_meta_dependency_edges_pre_typecheck(
-                store,
-                active_profile,
-                stdlib_content_hash,
-                &loaded.nepl_meta_edge_probes,
-            );
         }
     }
     let proof_artifact_enabled =
@@ -3553,32 +3603,61 @@ fn compile_wasm_with_bundled_sources_and_cache(
             None
         },
     };
-    let artifact = if let Some(stage_timings) = stage_timings {
-        compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_neplproof_and_stage_timings(
-            loaded.module,
-            Some(&loaded.source_map),
-            options,
-            artifact_options,
-            dependency_public_surface_hash,
-            module_surface.as_ref(),
-            resource_summary_value_cache.as_deref_mut(),
-            resource_summary_proof_options,
-            stage_timings,
-            compile_stage_now_ms,
-        )
-    } else {
-        compile_module_with_source_map_artifact_options_dependency_public_surface_hash_module_surface_resource_summary_value_cache_and_neplproof(
-            loaded.module,
-            Some(&loaded.source_map),
-            options,
-            artifact_options,
-            dependency_public_surface_hash,
-            module_surface.as_ref(),
-            resource_summary_value_cache.as_deref_mut(),
-            resource_summary_proof_options,
-        )
-    }
-    .map_err(|e| render_core_error(e, &loaded.source_map))?;
+    let mut stage_timings = stage_timings;
+    let loaded_source_map = loaded.source_map;
+    let loaded_nepl_meta_edge_probes = loaded.nepl_meta_edge_probes;
+    let loaded_materialized_public_surfaces = loaded.materialized_public_surfaces;
+    let artifact_attempt = compile_loaded_module_with_public_interface_artifacts(
+        loaded.module,
+        &loaded_source_map,
+        options,
+        artifact_options,
+        dependency_public_surface_hash,
+        module_surface.as_ref(),
+        &loaded_materialized_public_surfaces,
+        resource_summary_value_cache.as_deref_mut(),
+        resource_summary_proof_options,
+        stage_timings.as_deref_mut(),
+    );
+    let (artifact, nepl_meta_edge_probes) = match artifact_attempt {
+        Ok(artifact) => (artifact, loaded_nepl_meta_edge_probes),
+        Err(_) if !loaded_materialized_public_surfaces.is_empty() => {
+            let mut fallback_loader = Loader::new(stdlib_root.clone());
+            let fallback_loaded = if let Some(cache) = loader_cache.as_deref_mut() {
+                fallback_loader.load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes(
+                    PathBuf::from(entry_path),
+                    source.to_string(),
+                    &mut provider,
+                    cache,
+                )
+            } else {
+                fallback_loader.load_inline_with_provider(
+                    PathBuf::from(entry_path),
+                    source.to_string(),
+                    &mut provider,
+                )
+            }
+            .map_err(|e| render_loader_error(e, fallback_loader.source_map()))?;
+            let fallback_module_surface = fallback_loaded.module_surface.clone();
+            let fallback_source_map = fallback_loaded.source_map;
+            let fallback_nepl_meta_edge_probes = fallback_loaded.nepl_meta_edge_probes;
+            let artifact = compile_loaded_module_with_public_interface_artifacts(
+                fallback_loaded.module,
+                &fallback_source_map,
+                options,
+                artifact_options,
+                dependency_public_surface_hash,
+                fallback_module_surface.as_ref(),
+                &[],
+                resource_summary_value_cache.as_deref_mut(),
+                resource_summary_proof_options,
+                stage_timings.as_deref_mut(),
+            )
+            .map_err(|e| render_core_error(e, &fallback_source_map))?;
+            (artifact, fallback_nepl_meta_edge_probes)
+        }
+        Err(err) => return Err(render_core_error(err, &loaded_source_map)),
+    };
     let resource_summary_proof_artifact = if proof_artifact_enabled {
         if let (Some(header), Some(cache)) = (
             artifact.resource_summary_proof_header,
@@ -3592,16 +3671,16 @@ fn compile_wasm_with_bundled_sources_and_cache(
         None
     };
     if let Some(store) = nepl_meta_artifact_store.as_deref_mut() {
-        if !overlay_overrides_stdlib && !loaded.nepl_meta_edge_probes.is_empty() {
+        if !overlay_overrides_stdlib && !nepl_meta_edge_probes.is_empty() {
             populate_nepl_meta_artifacts_for_stdlib_dependency_probes(
                 store,
-                profile.unwrap_or(BuildProfile::default_source_profile()),
+                active_profile,
                 stdlib_content_hash,
                 stdlib_root,
                 bundled_sources,
                 &overlay_sources,
                 loader_cache.as_deref_mut(),
-                &loaded.nepl_meta_edge_probes,
+                &nepl_meta_edge_probes,
             );
         }
     }

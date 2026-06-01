@@ -462,6 +462,34 @@ pub fn compile_module_with_source_map_artifact_options_dependency_public_surface
     )
 }
 
+/// `.neplmeta` 由来の public interface artifact を含める非計測 pipeline。
+///
+/// stage timing を必要としない CLI / Web 呼び出し元でも、body skip 用の
+/// `MaterializedPublicSurfaceInput` と通常の Resource summary / `.neplproof` 入力を
+/// 同じ core boundary に通す。実行 body が必要な materialized callable に到達した場合は、
+/// 呼び出し元が source fallback へ戻る。
+pub fn compile_module_with_source_map_artifact_options_public_interface_artifacts_resource_summary_value_cache_and_neplproof(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    artifact_options: CompilationArtifactOptions,
+    public_interface_artifacts: PublicInterfaceArtifactInputs<'_>,
+    resource_summary_value_cache: Option<&mut crate::resource::ResourceSummaryValueCache>,
+    resource_summary_proof_options: ResourceSummaryProofArtifactCacheOptions<'_>,
+) -> Result<CompilationArtifact, CoreError> {
+    let mut stage_recorder = CompileStageRecorder::disabled();
+    compile_module_with_source_map_artifact_options_and_dependency_public_surface_hash_and_resource_summary_value_cache_internal(
+        module,
+        source_map,
+        options,
+        artifact_options,
+        public_interface_artifacts,
+        resource_summary_value_cache,
+        resource_summary_proof_options,
+        &mut stage_recorder,
+    )
+}
+
 /// `.neplmeta` 由来の public surface を typecheck 入力に含める artifact pipeline。
 ///
 /// この経路は dependency body skip のための core 側 boundary である。materialized callable が

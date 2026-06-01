@@ -1,3 +1,17 @@
+# 2026-06-01 .neplmeta Web materialized body-skip checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、キャッシュによる探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `f293d097 Connect neplmeta public interface pipeline` まで同期済みで、branch `perf/neplmeta-web-materialized-inputs-20260601` はその `main` から作成した。
+- subagent review で、loader は `SourceMap` file id と edge probe 生成の authority だけを持ち、artifact store projection は Web / CLI session callback に委譲する境界を確認した。
+- `Loader::load_inline_with_provider_and_cache_materializing_nepl_meta_edge_probes` を追加し、`.neplmeta` projection が成功した import / prelude edge だけ dependency body の root item merge を省くようにした。
+- materialized edge でも target file slot は current `SourceMap` に残す。`MaterializedPublicSurfaceInput` はこの file id と module path を authority として typecheck に渡される。
+- `#include` は引き続き source merge のままにした。include は translation-unit 境界であり、`.neplmeta` artifact reuse の dependency boundary と混ぜない。
+- Web `CompilerSession` は warm store が空でない compile で edge materializer を有効にし、projection 成功結果を `PublicInterfaceArtifactInputs` へ渡す。materialized callable body が `.neplobj` 未実装のため codegen に必要になった場合や、materializer が fail-closed に拒否した場合は full source load / compile へ戻る。
+- source fallback は materialized compile attempt の任意 error で発火する。現段階の `.neplmeta` body skip は speculative optimization であり、ユーザーに projection / missing body 診断を露出させないことを優先した。
+- `memo_call` / function value identity へ `.neplmeta` callable を渡す経路は広げていない。`.neplobj` と Resource proof が入るまでは、metadata-only callable は direct call でも fallback 対象である。
+- base compile time を下げるには、まだ bundled stdlib `.neplmeta` preseed、`.neplproof` / `.neplobj`、fallback 率低下が必要である。この checkpoint は warm store から body merge を省くための loader / Web / typecheck 接続を固めた段階である。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta_edge_materializer_skips_dependency_body_merge --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materialized --lib -- --nocapture`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-web-materialized-20260601.json`、`node nodesrc\issues.js index --dir issues`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta stdlib dependency artifact producer checkpoint
 
 - Zenn 記事の core/no_std 境界、静的検査、純粋 query cache、パフォーマンス追求、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。

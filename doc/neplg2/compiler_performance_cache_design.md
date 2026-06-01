@@ -2299,6 +2299,32 @@ loader の edge probe には `target_file_id` を追加した。`MaterializedPub
 - selected materialized callable を source fallback ではなく `.neplobj` / `.nepllink` で解決する backend artifact。
 - `memo_call` / function value identity へ `.neplmeta` callable を入れるための stable function identity と Resource proof。
 
+### 2026-06-01 `.neplmeta` Web materialized body-skip checkpoint
+
+Web `CompilerSession` の warm artifact store から、stdlib import / prelude edge の `.neplmeta`
+projection 成功結果を loader の merge 境界へ渡すようにした。loader は対象 module を current
+`SourceMap` に登録し、edge probe から得た `file_id` と `TypedPublicSurfaceTable` を
+`MaterializedPublicSurfaceInput` として返す。typecheck はこの input を source declaration より前に
+semantic registry へ materialize する。
+
+この checkpoint の contract は次である。
+
+- `#import` / prelude edge は `.neplmeta` projection が成功した場合だけ dependency root item merge を省く。
+- `#include` は translation-unit merge として扱い、artifact boundary にしない。
+- projection callback が `None` を返した edge は従来の source merge へ戻る。
+- materialized compile attempt が失敗した場合は、Web session が full source load / compile を再実行する。
+- metadata-only callable が direct call、function value、memoized function value、indirect call の codegen 入力へ到達した場合は、`.neplobj` が入るまで source fallback へ戻す。
+
+この段階では dependency source の parse / module surface 計算を完全には省いていない。loader は
+edge probe の `SourceMap` file id、source identity、dependency public surface hash を安定に作るため、
+target source を読み込む。したがって base compile time を 0.5 秒未満へ近づける本命は、
+bundled stdlib `.neplmeta` preseed、`.neplproof`、`.neplobj` / `.nepllink`、および loader が
+source body parse を行わず interface artifact から file slot と surface を復元する次段である。
+
+現時点で改善されるのは、warm store がある Web session で dependency body を root AST に混ぜず、
+typecheck / Resource IR / codegen が root source と materialized semantic surface だけで進める case である。
+projection や body 欠落が残る case は source fallback に戻るため、正確性は fail-closed に保たれる。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
