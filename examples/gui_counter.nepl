@@ -21,7 +21,7 @@
 #indent 4
 #target std
 
-#import "alloc/gui" as *
+#import "alloc/gui/app" as *
 #import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *

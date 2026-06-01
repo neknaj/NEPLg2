@@ -2299,6 +2299,98 @@ loader の edge probe には `target_file_id` を追加した。`MaterializedPub
 - selected materialized callable を source fallback ではなく `.neplobj` / `.nepllink` で解決する backend artifact。
 - `memo_call` / function value identity へ `.neplmeta` callable を入れるための stable function identity と Resource proof。
 
+### 2026-06-01 `.neplmeta` Web materialized body-skip checkpoint
+
+Web `CompilerSession` の warm artifact store から、stdlib import / prelude edge の `.neplmeta`
+projection 成功結果を loader の merge 境界へ渡すようにした。loader は対象 module を current
+`SourceMap` に登録し、edge probe から得た `file_id` と `TypedPublicSurfaceTable` を
+`MaterializedPublicSurfaceInput` として返す。typecheck はこの input を source declaration より前に
+semantic registry へ materialize する。
+
+この checkpoint の contract は次である。
+
+- `#import` / prelude edge は `.neplmeta` projection が成功した場合だけ dependency root item merge を省く。
+- `#include` は translation-unit merge として扱い、artifact boundary にしない。
+- projection callback が `None` を返した edge は従来の source merge へ戻る。
+- materialized compile attempt が失敗した場合は、Web session が full source load / compile を再実行する。
+- metadata-only callable が direct call、function value、memoized function value、indirect call の codegen 入力へ到達した場合は、`.neplobj` が入るまで source fallback へ戻す。
+
+この段階では dependency source の parse / module surface 計算を完全には省いていない。loader は
+edge probe の `SourceMap` file id、source identity、dependency public surface hash を安定に作るため、
+target source を読み込む。したがって base compile time を 0.5 秒未満へ近づける本命は、
+bundled stdlib `.neplmeta` preseed、`.neplproof`、`.neplobj` / `.nepllink`、および loader が
+source body parse を行わず interface artifact から file slot と surface を復元する次段である。
+
+現時点で改善されるのは、warm store がある Web session で dependency body を root AST に混ぜず、
+typecheck / Resource IR / codegen が root source と materialized semantic surface だけで進める case である。
+projection や body 欠落が残る case は source fallback に戻るため、正確性は fail-closed に保たれる。
+
+### 2026-06-01 `.neplmeta` materialized compile fallback stats checkpoint
+
+Web `CompilerSession` に、`.neplmeta` projection 成功後の materialized compile attempt と
+source fallback を分けて観測する counter を追加した。既存の artifact store stats は
+missing / compatibility / payload / projection reject を扱う。今回の counter は、その後段で
+`MaterializedPublicSurfaceInput` を実際に compile pipeline へ渡したか、渡した結果として source
+fallback へ戻ったかを記録する。
+
+追加した観測値:
+
+- `nepl_meta_materialized_compile_attempts`
+- `nepl_meta_materialized_compile_attempted_surfaces`
+- `nepl_meta_materialized_compile_accepts`
+- `nepl_meta_materialized_compile_source_fallbacks`
+- `nepl_meta_materialized_compile_source_fallback_successes`
+- `nepl_meta_materialized_compile_source_fallback_failures`
+- `nepl_meta_materialized_compile_body_missing_fallbacks`
+- `nepl_meta_materialized_compile_last_outcome_code`
+- `nepl_meta_materialized_compile_last_fallback_reason_code`
+- `nepl_meta_materialized_compile_last_attempted_surfaces`
+
+fallback reason は enum code として公開する。`MaterializedFunctionBodyMissing` は、`.neplobj` /
+`.nepllink` が未実装であるため source fallback へ戻る正常な安全側経路である。その他の core error も
+現段階では correctness のため source fallback へ戻すが、performance 判断では別 reason として扱う。
+
+compiled-output cache hit や stdlib overlay compile では materialized compile attempt を実行しないため、
+last outcome は `NotAttempted` に戻す。これにより、前回 compile の fallback 状態を cache hit の最新状態と
+誤読しない。
+
+この checkpoint により、Node / Web の JSON から次を分けて計測できる。
+
+- artifact が存在しないため projection へ進めない。
+- projection は成功したが materialized compile が source fallback へ戻る。
+- materialized compile が fallback なしで通る。
+- source fallback 自体が失敗している。
+
+base `compile_ms` と warm edit `compile_ms` は、既存の timing JSON とこの counter の delta を組み合わせて
+読む。`loader_cache_stats_json` 側に elapsed time を重複保持せず、処理時間と compiler-internal reason を
+別の authority として扱う。
+
+### 2026-06-01 `.neplmeta` materialized compile performance report checkpoint
+
+Node runner の `timing` に `compiler_session_stats` を追加し、`compiler_session_cache_before` /
+`compiler_session_cache_after` の累積値から、この compile で増えた materialized compile counter だけを
+delta として固定するようにした。これにより、長寿命 `CompilerSession` の累積 counter を performance
+report 側で直接集計してしまう誤読を避ける。
+
+`compiler_session_stats.materialized_compile` で扱う delta は次である。
+
+- `attempts`
+- `attempted_surfaces`
+- `accepts`
+- `source_fallbacks`
+- `source_fallback_successes`
+- `source_fallback_failures`
+- `body_missing_fallbacks`
+
+`compare_git_versions.js` は `compile_ms` / `run_ms` / `duration_ms` と同じ revision summary に
+materialized compile delta summary を追加する。Markdown report では `Materialized Compile` table と
+`Materialized Compile Delta from first ref` table を別に出し、base / warm edit compile time と
+source fallback 率を同じ report で確認できる。
+
+この report は `.neplobj` / `.nepllink` の実装ではない。目的は、`.neplmeta` projection は成功したが
+body がないため source fallback した compile を、issue / benchmark / CI の JSON から継続的に見えるように
+することである。特に `body_missing_fallbacks` が増える case は、`.neplobj` の最初の対象候補である。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

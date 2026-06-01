@@ -27,8 +27,48 @@ const tests = summarizeTestsJson({
     summary: { total: 3, passed: 2, failed: 1, errored: 0 },
     top_issues: [{ id: 'case#3' }],
     results: [
-        { status: 'pass', timing: { compile_ms: 100, run_ms: 5 }, duration_ms: 120 },
-        { status: 'pass', timing: { compile_ms: 80, run_ms: 4 }, duration_ms: 100 },
+        {
+            status: 'pass',
+            timing: {
+                compile_ms: 100,
+                run_ms: 5,
+                compiler_session_stats: {
+                    available: true,
+                    reason: 'ok',
+                    materialized_compile: {
+                        attempts: { before: 0, after: 1, delta: 1 },
+                        attempted_surfaces: { before: 0, after: 2, delta: 2 },
+                        accepts: { before: 0, after: 0, delta: 0 },
+                        source_fallbacks: { before: 0, after: 1, delta: 1 },
+                        source_fallback_successes: { before: 0, after: 1, delta: 1 },
+                        source_fallback_failures: { before: 0, after: 0, delta: 0 },
+                        body_missing_fallbacks: { before: 0, after: 1, delta: 1 },
+                    },
+                },
+            },
+            duration_ms: 120,
+        },
+        {
+            status: 'pass',
+            timing: {
+                compile_ms: 80,
+                run_ms: 4,
+                compiler_session_stats: {
+                    available: true,
+                    reason: 'ok',
+                    materialized_compile: {
+                        attempts: { before: 1, after: 1, delta: 0 },
+                        attempted_surfaces: { before: 2, after: 2, delta: 0 },
+                        accepts: { before: 0, after: 0, delta: 0 },
+                        source_fallbacks: { before: 1, after: 1, delta: 0 },
+                        source_fallback_successes: { before: 1, after: 1, delta: 0 },
+                        source_fallback_failures: { before: 0, after: 0, delta: 0 },
+                        body_missing_fallbacks: { before: 1, after: 1, delta: 0 },
+                    },
+                },
+            },
+            duration_ms: 100,
+        },
         { status: 'fail', timing: { compile_ms: 40, run_ms: null }, duration_ms: 70 },
     ],
 });
@@ -39,6 +79,15 @@ assert.equal(tests.pass_rate, 2 / 3);
 assert.equal(tests.timing.compile_ms.sum, 220);
 assert.equal(tests.timing.run_ms.count, 2);
 assert.equal(tests.timing.duration_ms.max, 120);
+assert.equal(tests.timing.materialized_compile.available_results, 2);
+assert.equal(tests.timing.materialized_compile.unavailable_results, 1);
+assert.equal(tests.timing.materialized_compile.unavailable_reasons.missing_stats, 1);
+assert.equal(tests.timing.materialized_compile.attempts_delta.sum, 1);
+assert.equal(tests.timing.materialized_compile.attempted_surfaces_delta.sum, 2);
+assert.equal(tests.timing.materialized_compile.source_fallbacks_delta.sum, 1);
+assert.equal(tests.timing.materialized_compile.source_fallback_successes_delta.sum, 1);
+assert.equal(tests.timing.materialized_compile.source_fallback_failures_delta.sum, 0);
+assert.equal(tests.timing.materialized_compile.body_missing_fallbacks_delta.sum, 1);
 
 const metrics = summarizeMetricsJson({
     byArea: [
@@ -78,6 +127,27 @@ const next = {
             compile_ms: { ...tests.timing.compile_ms, sum: 180, avg: 60 },
             run_ms: { ...tests.timing.run_ms, sum: 7, avg: 3.5 },
             duration_ms: { ...tests.timing.duration_ms, sum: 250, avg: 83.3333333333 },
+            materialized_compile: {
+                ...tests.timing.materialized_compile,
+                available_results: 3,
+                attempts_delta: { ...tests.timing.materialized_compile.attempts_delta, sum: 3 },
+                source_fallbacks_delta: {
+                    ...tests.timing.materialized_compile.source_fallbacks_delta,
+                    sum: 2,
+                },
+                source_fallback_successes_delta: {
+                    ...tests.timing.materialized_compile.source_fallback_successes_delta,
+                    sum: 2,
+                },
+                source_fallback_failures_delta: {
+                    ...tests.timing.materialized_compile.source_fallback_failures_delta,
+                    sum: 0,
+                },
+                body_missing_fallbacks_delta: {
+                    ...tests.timing.materialized_compile.body_missing_fallbacks_delta,
+                    sum: 2,
+                },
+            },
         },
     },
     metrics: {
@@ -89,6 +159,12 @@ const delta = buildDelta(base, next);
 assert.equal(delta.tests.passed, 1);
 assert.equal(delta.tests.failed, -1);
 assert.equal(delta.tests.compile_ms_sum, -40);
+assert.equal(delta.tests.materialized_compile_available_results, 1);
+assert.equal(delta.tests.materialized_compile_attempts_delta_sum, 2);
+assert.equal(delta.tests.materialized_compile_source_fallbacks_delta_sum, 1);
+assert.equal(delta.tests.materialized_compile_source_fallback_successes_delta_sum, 1);
+assert.equal(delta.tests.materialized_compile_source_fallback_failures_delta_sum, 0);
+assert.equal(delta.tests.materialized_compile_body_missing_fallbacks_delta_sum, 1);
 assert.equal(delta.metrics.lines, 25);
 assert.equal(delta.metrics.source, 15);
 
@@ -100,5 +176,7 @@ const markdown = renderMarkdown({
 assert.match(markdown, /NEPLg2 version comparison/);
 assert.match(markdown, /base -> next/);
 assert.match(markdown, /compile_ms_sum/);
+assert.match(markdown, /Materialized Compile/);
+assert.match(markdown, /source_fallbacks_delta_sum/);
 
 console.log('compare_git_versions summary regression passed');

@@ -98,6 +98,40 @@ function neplMetaPreTypecheckEdgeProbeStats(session) {
     };
 }
 
+function neplMetaMaterializedCompileStats(session) {
+    const s = stats(session);
+    const keys = [
+        'nepl_meta_materialized_compile_attempts',
+        'nepl_meta_materialized_compile_attempted_surfaces',
+        'nepl_meta_materialized_compile_accepts',
+        'nepl_meta_materialized_compile_source_fallbacks',
+        'nepl_meta_materialized_compile_source_fallback_successes',
+        'nepl_meta_materialized_compile_source_fallback_failures',
+        'nepl_meta_materialized_compile_body_missing_fallbacks',
+        'nepl_meta_materialized_compile_last_outcome_code',
+        'nepl_meta_materialized_compile_last_fallback_reason_code',
+        'nepl_meta_materialized_compile_last_attempted_surfaces',
+    ];
+    for (const key of keys) {
+        assert.ok(
+            Object.prototype.hasOwnProperty.call(s, key),
+            `.neplmeta materialized compile stats must expose ${key}`,
+        );
+    }
+    return {
+        attempts: Number(s.nepl_meta_materialized_compile_attempts || 0),
+        attemptedSurfaces: Number(s.nepl_meta_materialized_compile_attempted_surfaces || 0),
+        accepts: Number(s.nepl_meta_materialized_compile_accepts || 0),
+        fallbacks: Number(s.nepl_meta_materialized_compile_source_fallbacks || 0),
+        fallbackSuccesses: Number(s.nepl_meta_materialized_compile_source_fallback_successes || 0),
+        fallbackFailures: Number(s.nepl_meta_materialized_compile_source_fallback_failures || 0),
+        bodyMissingFallbacks: Number(s.nepl_meta_materialized_compile_body_missing_fallbacks || 0),
+        lastOutcomeCode: Number(s.nepl_meta_materialized_compile_last_outcome_code || 0),
+        lastFallbackReasonCode: Number(s.nepl_meta_materialized_compile_last_fallback_reason_code || 0),
+        lastAttemptedSurfaces: Number(s.nepl_meta_materialized_compile_last_attempted_surfaces || 0),
+    };
+}
+
 function neplMetaArtifactStats(session) {
     const s = stats(session);
     return {
@@ -174,6 +208,11 @@ fn main <()->i32> ():
             { attempts: 0, projected: 0, missing: 0, compatibilityRejects: 0, projectionRejects: 0, rejectKind: 0, rejectCode: 0, projectionBlockerReasonCode: 0, projectionBlockerEntryKindCode: 0 },
             'first compile must expose edge probe stats without probing an empty artifact store',
         );
+        assert.deepEqual(
+            neplMetaMaterializedCompileStats(cacheSession),
+            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastAttemptedSurfaces: 0 },
+            'first compile must expose materialized compile stats without attempting body skip',
+        );
         assert.notEqual(
             neplMetaArtifactStats(cacheSession).sourceKeyHash,
             '0',
@@ -199,6 +238,11 @@ fn main <()->i32> ():
             neplMetaStoreStats(cacheSession).stores,
             firstMetaStore.stores,
             'compiled-output cache hit must not count as a fresh .neplmeta store',
+        );
+        assert.deepEqual(
+            neplMetaMaterializedCompileStats(cacheSession),
+            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastAttemptedSurfaces: 0 },
+            'compiled-output cache hit must not reuse the previous materialized compile observation as a fresh attempt',
         );
         assert.deepEqual(
             wasmBytes(orderOnlyOutput),
@@ -340,6 +384,38 @@ fn main %fn unit i32 \\unit:
             thirdStdlibEdgeProbe.projectionBlockerEntryKindCode,
             0,
             'successful projection must not report stale public surface blocker entry details',
+        );
+        const thirdMaterializedCompile = neplMetaMaterializedCompileStats(stdlibDependencyArtifactSession);
+        assert.ok(
+            thirdMaterializedCompile.attempts > 0,
+            'projection success must be counted separately from materialized compile attempts',
+        );
+        assert.ok(
+            thirdMaterializedCompile.fallbacks > 0,
+            'metadata-only dependency body skip must report source fallback until .neplobj is available',
+        );
+        assert.equal(
+            thirdMaterializedCompile.fallbackSuccesses,
+            thirdMaterializedCompile.fallbacks,
+            'source fallback after materialized compile attempt must preserve successful compile behavior',
+        );
+        assert.equal(
+            thirdMaterializedCompile.fallbackFailures,
+            0,
+            'materialized attempt fallback must not hide a failing source compile in this regression',
+        );
+        assert.equal(
+            thirdMaterializedCompile.lastOutcomeCode,
+            2,
+            'last materialized compile attempt must end in source fallback success',
+        );
+        assert.ok(
+            thirdMaterializedCompile.lastAttemptedSurfaces > 0,
+            'last materialized compile attempt must report how many surfaces entered typecheck',
+        );
+        assert.ok(
+            thirdMaterializedCompile.lastFallbackReasonCode > 0,
+            'source fallback must expose a typed reason code instead of relying on error text parsing',
         );
 
         const stdlibOverlaySession = newSession(api);

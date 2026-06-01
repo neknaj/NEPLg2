@@ -3,12 +3,13 @@
 - `plan.md` は変更していない。GUI/TUI substrate の現状に合わせ、実 window backend ではなく headless に application update と render command stream を確認する examples を追加した。
 - `examples/gui_mandelbrot.nepl` は 8 x 8 の fixed point Mandelbrot preview を `FillRect` command stream へ変換し、`MockRenderTarget` で 64 command と inside cell count を確認する。
 - `examples/gui_life.nepl` は 5 x 5 の glider を step 3 まで純粋関数で進め、live/dead cell を `FillRect` command として描画し、25 command、live count、state checksum を確認する。
-- `examples/gui_counter.nepl` は `ButtonConfig` の `ActionId` を `GuiEvent::Action` と `counter_update` へ渡し、`Update` の model と redraw effect を確認する。closure callback や platform host は使わない。
+- `examples/gui_counter.nepl` は `ButtonConfig` の `ActionId` を `GuiEvent::Action` と `counter_update` へ渡し、`Update` の model と redraw effect を確認する。closure callback や platform host は使わない。`origin/main` merge 後の compile timeout を避けるため、example の責務に合わせて import は `alloc/gui/app` に絞った。
 - subagent review は、新規 GUI examples を real backend があるように見せず、`MockRenderTarget` と `GuiEvent::Action` で substrate contract を示す方針、括弧を使わず `let` で中間値を分ける方針を妥当と確認した。
 - `doc/examples.md` に GUI examples 3 件を追記し、`doc/neplg2/gui_tui_implementation_plan.md` の現状に headless examples を追加した。`todo.md` は、今回の examples 追加で新しい未実装項目を作らないため変更していない。
 - NEPLg2 code では括弧を使わない方針に合わせ、新規 examples の executable 行に parenthesized call がないことを `rg -n "^[^/\r\n]*[()]" examples/gui_mandelbrot.nepl examples/gui_life.nepl examples/gui_counter.nepl` で確認した。
 - 検証: `node nodesrc/tests.js -i examples/gui_mandelbrot.nepl -i examples/gui_life.nepl -i examples/gui_counter.nepl --no-tree -o tmp/gui-examples-focused.json -j 1 --dist web/dist --assert-io` は 3/3 pass。
 - 最終検証: `trunk build --release`、`node nodesrc/tests.js -i examples --no-tree -o tmp/examples-gui-samples.json -j 2 --dist web/dist --assert-io` 15/15、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-examples.json` 13/13、`node nodesrc/test_stdlib_gui_layering_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+- `origin/main` の `.neplmeta` compile report checkpoint を merge し、`note.n.md` conflict は GUI/TUI 作業ログと remote main 側ログの両方を残して解消した。merge 後の再検証は `trunk build --release`、GUI examples focused 3/3、playground editor 13/13、GUI layering policy、issues check、`git diff --check` が pass。`node nodesrc/tests.js -i examples --no-tree -o tmp/examples-gui-samples-after-merge-j1.json -j 1 --dist web/dist --assert-io` は 13/15 で、残り 2 件は既存 `examples/bf.nepl` の compile timeout である。
 
 # 2026-06-01 GUI/TUI arena tree and terminal Home-End-Delete input checkpoint
 
@@ -159,6 +160,44 @@
 - 検証: `trunk build --release`、`node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp/gui-core-main2.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i tests/stdlib/gui_terminal.n.md --no-tree -o tmp/gui-terminal-main2.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i tests/stdlib/gui_app.n.md --no-tree -o tmp/gui-app-main4.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-gui-main2.json -j 1 --dist web/dist --assert-io`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-library.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は完走したが、既存の source-policy warning として stdlib documentation baseline、static check responsibility、resource checker responsibility、resource gate order が残っている。今回追加した `core/gui` / `alloc/gui` module には module-level doctest marker を追加済みである。
 - 残件: `DrawTarget` / `RenderTarget` trait 本体、`core/gui/text_measure` の実装、`alloc/gui/layout` / accessibility、`std/gui` runtime / host、Web Playground backend、既存 TUI の terminal backend 差し替え、embedded no_alloc real-style backend を継続する。
+
+# 2026-06-01 .neplmeta materialized compile performance report checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、cache による探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は確認し、変更していない。
+- remote/main は作業開始時点で同期済みで、branch `perf/neplmeta-compile-report-20260601` はその `main` から作成した。
+- subagent review では、`CompilerSession` stats が累積値であるため、performance report 側で after snapshot を直接集計せず、runner 側で before / after / delta を固定するべきと確認した。
+- `nodesrc/run_test.js` の `timing.compiler_session_stats` に、materialized compile counter の before / after / delta を追加した。stats が取れない場合は `available=false` と reason を出し、欠落と実際の 0 を混同しない。
+- `nodesrc/compare_git_versions.js` は、`compile_ms` と同じ revision summary に materialized compile delta を集計し、Markdown report に `Materialized Compile` table と delta table を追加する。
+- `.neplmeta` projection 成功後に body missing で source fallback した件数を `body_missing_fallbacks_delta_sum` として追えるため、次の `.neplobj` / `.nepllink` candidate を実測に基づいて絞れる。
+- この checkpoint は `.neplobj` / `.nepllink` 実装でも `memo_call` proof accepted path でもない。`memo_call` は sealed private cache region non-escape proof と stable codegen artifact が揃うまで別 issue のまま fail-closed に維持する。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node nodesrc\test_run_test_compiler_session_stats_delta.js`、`node nodesrc\test_compare_git_versions_summary.js`、`node tests\compiler\tree\20_compiler_session_outputs_cache.js`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\run_test.js` smoke、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-compile-report-20260601.json`、`node nodesrc\issues.js index --dir issues`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
+# 2026-06-01 .neplmeta materialized compile fallback stats checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、cache による探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `282f021f Connect neplmeta web materialized inputs` まで同期済みで、branch `perf/neplmeta-fallback-stats-20260601` はその `main` から作成した。
+- subagent review で、既存 `.neplmeta` store stats は projection までの統計であり、projection 成功後に compile pipeline が source fallback へ戻ったかどうかは別 counter として観測するべきと確認した。
+- `CompilerSession` stats に materialized compile attempt / attempted surfaces / accepted / source fallback success/failure / body-missing fallback / last outcome / last fallback reason を追加した。
+- fallback reason は `CoreError::Diagnostics` の `DiagnosticCode::Backend(BackendDiagnosticCode::MaterializedFunctionBodyMissing)` を見て分類する。文字列 error 解析には依存しない。
+- compiled-output cache hit と stdlib overlay compile では materialized compile attempt は発生しないため、last outcome を `NotAttempted` に戻すようにした。これにより前回 compile の fallback 状態を cache hit の最新結果として誤読しない。
+- regression では、projection success と materialized compile attempt が別 counter であること、metadata-only body skip は `.neplobj` 未実装のため source fallback success として数えられること、fallback reason code が公開されることを固定した。
+- この checkpoint は `.neplobj` / `.nepllink` 実装ではない。次はこの counter delta と base / warm edit `compile_ms` を同じ性能レポートで読み、fallback を減らす artifact を実装する。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\20_compiler_session_outputs_cache.js`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-fallback-stats-20260601.json`、`node nodesrc\issues.js index --dir issues`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
+# 2026-06-01 .neplmeta Web materialized body-skip checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、キャッシュによる探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `f293d097 Connect neplmeta public interface pipeline` まで同期済みで、branch `perf/neplmeta-web-materialized-inputs-20260601` はその `main` から作成した。
+- subagent review で、loader は `SourceMap` file id と edge probe 生成の authority だけを持ち、artifact store projection は Web / CLI session callback に委譲する境界を確認した。
+- `Loader::load_inline_with_provider_and_cache_materializing_nepl_meta_edge_probes` を追加し、`.neplmeta` projection が成功した import / prelude edge だけ dependency body の root item merge を省くようにした。
+- materialized edge でも target file slot は current `SourceMap` に残す。`MaterializedPublicSurfaceInput` はこの file id と module path を authority として typecheck に渡される。
+- `#include` は引き続き source merge のままにした。include は translation-unit 境界であり、`.neplmeta` artifact reuse の dependency boundary と混ぜない。
+- Web `CompilerSession` は warm store が空でない compile で edge materializer を有効にし、projection 成功結果を `PublicInterfaceArtifactInputs` へ渡す。materialized callable body が `.neplobj` 未実装のため codegen に必要になった場合や、materializer が fail-closed に拒否した場合は full source load / compile へ戻る。
+- source fallback は materialized compile attempt の任意 error で発火する。現段階の `.neplmeta` body skip は speculative optimization であり、ユーザーに projection / missing body 診断を露出させないことを優先した。
+- `memo_call` / function value identity へ `.neplmeta` callable を渡す経路は広げていない。`.neplobj` と Resource proof が入るまでは、metadata-only callable は direct call でも fallback 対象である。
+- base compile time を下げるには、まだ bundled stdlib `.neplmeta` preseed、`.neplproof` / `.neplobj`、fallback 率低下が必要である。この checkpoint は warm store から body merge を省くための loader / Web / typecheck 接続を固めた段階である。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta_edge_materializer_skips_dependency_body_merge --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materialized --lib -- --nocapture`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-web-materialized-20260601.json`、`node nodesrc\issues.js index --dir issues`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
 # 2026-06-01 .neplmeta stdlib dependency artifact producer checkpoint
 
 - Zenn 記事の core/no_std 境界、静的検査、純粋 query cache、パフォーマンス追求、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。

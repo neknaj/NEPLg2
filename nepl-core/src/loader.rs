@@ -67,6 +67,7 @@ pub struct LoadResult {
     pub source_map: SourceMap,
     pub module_surface: Option<NeplMetaModuleSurface>,
     pub nepl_meta_edge_probes: Vec<NeplMetaDependencyEdgePreTypecheckProbe>,
+    pub materialized_public_surfaces: Vec<crate::typecheck::MaterializedPublicSurfaceInput>,
 }
 
 /// `.neplmeta` import/prelude edge probe に必要な loader-level envelope 入力。
@@ -85,6 +86,16 @@ pub struct NeplMetaDependencyEdgePreTypecheckProbe {
     pub dependency_public_surface_hash: u64,
     pub import_clause: Option<NeplMetaImportClause>,
 }
+
+/// `.neplmeta` edge probe を typecheck materializer 入力へ変換する host callback。
+///
+/// loader は source path、FileId、source identity、dependency hash までを安定に計算できる。
+/// 実際に artifact store を持つのは Web / CLI session なので、projection の成否はこの
+/// callback に委譲する。`None` は通常 source merge fallback を意味する。
+pub type NeplMetaDependencyEdgeMaterializer<'a> = dyn FnMut(
+        &NeplMetaDependencyEdgePreTypecheckProbe,
+    ) -> Option<crate::typecheck::TypedPublicSurfaceTable>
+    + 'a;
 
 /// Cumulative counters for a loader session cache.
 ///
@@ -509,6 +520,7 @@ impl Loader {
             source_map: sm,
             module_surface: Some(module_surface),
             nepl_meta_edge_probes: Vec::new(),
+            materialized_public_surfaces: Vec::new(),
         })
     }
 
@@ -537,6 +549,8 @@ impl Loader {
             provider,
             None,
             None,
+            None,
+            None,
         ) {
             Ok(m) => m,
             Err(e) => {
@@ -555,6 +569,7 @@ impl Loader {
             source_map: sm,
             module_surface: Some(module_surface),
             nepl_meta_edge_probes: Vec::new(),
+            materialized_public_surfaces: Vec::new(),
         })
     }
 
@@ -571,6 +586,7 @@ impl Loader {
             provider,
             session_cache,
             false,
+            None,
         )
     }
 
@@ -610,6 +626,8 @@ impl Loader {
             provider,
             session_cache,
             None,
+            None,
+            None,
         ) {
             Ok(m) => m,
             Err(e) => {
@@ -631,6 +649,7 @@ impl Loader {
             source_map: sm,
             module_surface: Some(module_surface),
             nepl_meta_edge_probes: Vec::new(),
+            materialized_public_surfaces: Vec::new(),
         })
     }
 
@@ -653,6 +672,30 @@ impl Loader {
             provider,
             session_cache,
             true,
+            None,
+        )
+    }
+
+    /// `.neplmeta` edge projection が成功した import/prelude body を materialized surface に置換する。
+    ///
+    /// この入口は Web playground の warm compile 用である。loader は対象 source を通常通り
+    /// current `SourceMap` に登録し、projection callback が成功した edge だけ依存 body の
+    /// root item merge を省く。callback が `None` を返す edge は従来通り source merge へ戻る。
+    pub fn load_inline_with_provider_and_cache_materializing_nepl_meta_edge_probes(
+        &mut self,
+        path: PathBuf,
+        src: String,
+        provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
+        session_cache: &mut LoaderSessionCache,
+        edge_materializer: &mut NeplMetaDependencyEdgeMaterializer<'_>,
+    ) -> Result<LoadResult, LoaderError> {
+        self.load_inline_with_provider_and_cache_maybe_collecting_nepl_meta_edge_probes(
+            path,
+            src,
+            provider,
+            session_cache,
+            true,
+            Some(edge_materializer),
         )
     }
 
@@ -663,6 +706,7 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         session_cache: &mut LoaderSessionCache,
         collect_nepl_meta_edge_probes: bool,
+        mut edge_materializer: Option<&mut NeplMetaDependencyEdgeMaterializer<'_>>,
     ) -> Result<LoadResult, LoaderError> {
         loader_log!(
             "[Loader] load_inline_with_provider_and_cache: path={:?}",
@@ -676,8 +720,15 @@ impl Loader {
         let mut imported: BTreeSet<PathBuf> = BTreeSet::new();
         let mut shallow_type_arity_cache = BTreeMap::new();
         let mut nepl_meta_edge_probes = Vec::new();
-        let nepl_meta_edge_probes_out = if collect_nepl_meta_edge_probes {
-            Some(&mut nepl_meta_edge_probes)
+        let mut materialized_public_surfaces = Vec::new();
+        let nepl_meta_edge_probes_out =
+            if collect_nepl_meta_edge_probes || edge_materializer.is_some() {
+                Some(&mut nepl_meta_edge_probes)
+            } else {
+                None
+            };
+        let materialized_public_surfaces_out = if edge_materializer.is_some() {
+            Some(&mut materialized_public_surfaces)
         } else {
             None
         };
@@ -693,6 +744,8 @@ impl Loader {
             provider,
             Some(session_cache),
             nepl_meta_edge_probes_out,
+            edge_materializer.as_deref_mut(),
+            materialized_public_surfaces_out,
         ) {
             Ok(m) => m,
             Err(e) => {
@@ -714,6 +767,7 @@ impl Loader {
             source_map: sm,
             module_surface: Some(module_surface),
             nepl_meta_edge_probes,
+            materialized_public_surfaces,
         })
     }
 
@@ -764,6 +818,8 @@ impl Loader {
                 false,
                 provider,
                 Some(session_cache),
+                None,
+                None,
                 None,
             )?;
             warmed += 1;
@@ -966,6 +1022,7 @@ impl Loader {
             source_map: sm,
             module_surface,
             nepl_meta_edge_probes: Vec::new(),
+            materialized_public_surfaces: Vec::new(),
         })
     }
 
@@ -1040,6 +1097,10 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
         mut nepl_meta_edge_probes: Option<&mut Vec<NeplMetaDependencyEdgePreTypecheckProbe>>,
+        mut edge_materializer: Option<&mut NeplMetaDependencyEdgeMaterializer<'_>>,
+        mut materialized_public_surfaces: Option<
+            &mut Vec<crate::typecheck::MaterializedPublicSurfaceInput>,
+        >,
     ) -> Result<Module, LoaderError> {
         let canon = canonicalize_path(&path);
         loader_log!(
@@ -1092,6 +1153,8 @@ impl Loader {
             provider,
             session_cache.as_deref_mut(),
             nepl_meta_edge_probes.as_deref_mut(),
+            edge_materializer.as_deref_mut(),
+            materialized_public_surfaces.as_deref_mut(),
         )?;
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
@@ -1172,6 +1235,10 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
         mut nepl_meta_edge_probes: Option<&mut Vec<NeplMetaDependencyEdgePreTypecheckProbe>>,
+        mut edge_materializer: Option<&mut NeplMetaDependencyEdgeMaterializer<'_>>,
+        mut materialized_public_surfaces: Option<
+            &mut Vec<crate::typecheck::MaterializedPublicSurfaceInput>,
+        >,
     ) -> Result<Module, LoaderError> {
         let canon = canonicalize_path(&path);
         if let Some(m) = cache.get(&canon) {
@@ -1228,6 +1295,8 @@ impl Loader {
             provider,
             session_cache.as_deref_mut(),
             nepl_meta_edge_probes.as_deref_mut(),
+            edge_materializer.as_deref_mut(),
+            materialized_public_surfaces.as_deref_mut(),
         )?;
         processing.remove(&canon);
         cache.insert(canon.clone(), module.clone());
@@ -1904,6 +1973,10 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         mut session_cache: Option<&mut LoaderSessionCache>,
         mut nepl_meta_edge_probes: Option<&mut Vec<NeplMetaDependencyEdgePreTypecheckProbe>>,
+        mut edge_materializer: Option<&mut NeplMetaDependencyEdgeMaterializer<'_>>,
+        mut materialized_public_surfaces: Option<
+            &mut Vec<crate::typecheck::MaterializedPublicSurfaceInput>,
+        >,
     ) -> Result<Module, LoaderError> {
         let mut directives = module.directives.clone();
         let mut items = Vec::new();
@@ -1933,8 +2006,10 @@ impl Loader {
                     provider,
                     session_cache.as_deref_mut(),
                     nepl_meta_edge_probes.as_deref_mut(),
+                    edge_materializer.as_deref_mut(),
+                    materialized_public_surfaces.as_deref_mut(),
                 )?;
-                self.push_nepl_meta_dependency_edge_probe_with(
+                let probe = self.push_nepl_meta_dependency_edge_probe_with(
                     &target,
                     None,
                     sm,
@@ -1942,6 +2017,13 @@ impl Loader {
                     session_cache.as_deref_mut(),
                     nepl_meta_edge_probes.as_deref_mut(),
                 );
+                if try_materialize_nepl_meta_dependency_edge(
+                    probe.as_ref(),
+                    &mut edge_materializer,
+                    &mut materialized_public_surfaces,
+                ) {
+                    continue;
+                }
                 for d in imp_mod.directives.clone() {
                     if let Directive::Entry { .. } = d {
                         continue;
@@ -1984,12 +2066,14 @@ impl Loader {
                             provider,
                             session_cache.as_deref_mut(),
                             nepl_meta_edge_probes.as_deref_mut(),
+                            edge_materializer.as_deref_mut(),
+                            materialized_public_surfaces.as_deref_mut(),
                         )?;
                         let import_clause = match &stmt {
                             Stmt::Directive(Directive::Import { clause, .. }) => Some(clause),
                             _ => None,
                         };
-                        self.push_nepl_meta_dependency_edge_probe_with(
+                        let probe = self.push_nepl_meta_dependency_edge_probe_with(
                             &target,
                             import_clause,
                             sm,
@@ -1997,6 +2081,13 @@ impl Loader {
                             session_cache.as_deref_mut(),
                             nepl_meta_edge_probes.as_deref_mut(),
                         );
+                        if try_materialize_nepl_meta_dependency_edge(
+                            probe.as_ref(),
+                            &mut edge_materializer,
+                            &mut materialized_public_surfaces,
+                        ) {
+                            continue;
+                        }
                         for d in imp_mod.directives.clone() {
                             if let Directive::Entry { .. } = d {
                                 continue;
@@ -2036,6 +2127,8 @@ impl Loader {
                         provider,
                         session_cache.as_deref_mut(),
                         nepl_meta_edge_probes.as_deref_mut(),
+                        edge_materializer.as_deref_mut(),
+                        materialized_public_surfaces.as_deref_mut(),
                     )?;
                     for d in inc_mod.directives.clone() {
                         if let Directive::Entry { .. } = d {
@@ -2079,16 +2172,13 @@ impl Loader {
         provider: &mut dyn FnMut(&PathBuf) -> Result<String, LoaderError>,
         session_cache: Option<&mut LoaderSessionCache>,
         probes: Option<&mut Vec<NeplMetaDependencyEdgePreTypecheckProbe>>,
-    ) {
+    ) -> Option<NeplMetaDependencyEdgePreTypecheckProbe> {
         let Some(session_cache) = session_cache else {
-            return;
-        };
-        let Some(probes) = probes else {
-            return;
+            return None;
         };
         let target = canonicalize_path(target);
         if !self.configured_stdlib_source_path(&target) {
-            return;
+            return None;
         }
         let target_label = path_to_source_label(&target);
         let Some(target_file_id) = sm
@@ -2096,10 +2186,10 @@ impl Loader {
             .find(|(_, path)| path.as_str() == target_label)
             .map(|(file_id, _)| file_id)
         else {
-            return;
+            return None;
         };
         let Ok(source) = provider(&target) else {
-            return;
+            return None;
         };
         let target_source_key_hash = nepl_meta_source_key_hash_for_source(source.as_str());
         let target_source_capability_policy_set_hash =
@@ -2119,10 +2209,10 @@ impl Loader {
                 session_cache,
             )
         else {
-            return;
+            return None;
         };
         let target_module_surface = target_surface.to_nepl_meta_module_surface(&target);
-        probes.push(NeplMetaDependencyEdgePreTypecheckProbe {
+        let probe = NeplMetaDependencyEdgePreTypecheckProbe {
             target_module_path: target_module_surface.canonical_module_path.clone(),
             target_file_id,
             target_module_surface,
@@ -2130,7 +2220,11 @@ impl Loader {
             target_source_capability_policy_set_hash,
             dependency_public_surface_hash,
             import_clause: import_clause.map(nepl_meta_import_clause),
-        });
+        };
+        if let Some(probes) = probes {
+            probes.push(probe.clone());
+        }
+        Some(probe)
     }
 
     fn nepl_meta_source_capability_policy_set_hash_for_loaded_target(
@@ -2362,6 +2456,33 @@ fn strip_windows_verbatim_prefix(path: PathBuf) -> PathBuf {
 
 fn path_to_source_label(path: &PathBuf) -> String {
     path.to_string_lossy().into_owned()
+}
+
+fn try_materialize_nepl_meta_dependency_edge(
+    probe: Option<&NeplMetaDependencyEdgePreTypecheckProbe>,
+    edge_materializer: &mut Option<&mut NeplMetaDependencyEdgeMaterializer<'_>>,
+    materialized_public_surfaces: &mut Option<
+        &mut Vec<crate::typecheck::MaterializedPublicSurfaceInput>,
+    >,
+) -> bool {
+    let Some(probe) = probe else {
+        return false;
+    };
+    let Some(edge_materializer) = edge_materializer.as_deref_mut() else {
+        return false;
+    };
+    let Some(materialized_public_surfaces) = materialized_public_surfaces.as_deref_mut() else {
+        return false;
+    };
+    let Some(table) = edge_materializer(probe) else {
+        return false;
+    };
+    materialized_public_surfaces.push(crate::typecheck::MaterializedPublicSurfaceInput {
+        table,
+        module_path: probe.target_module_path.clone(),
+        file_id: probe.target_file_id,
+    });
+    true
 }
 
 fn import_not_seen(imported_once: &mut BTreeSet<PathBuf>, target: &PathBuf) -> bool {
@@ -3322,6 +3443,72 @@ mod tests {
             probe.target_source_capability_policy_set_hash,
             Some(root_compile_policy_set_hash),
             "root source-map scoped policy hash would make dependency artifacts root-dependent",
+        );
+    }
+
+    #[test]
+    fn neplmeta_edge_materializer_skips_dependency_body_merge() {
+        let entry_path = canonicalize_path(&PathBuf::from("C:/nepl-test/user/main.nepl"));
+        let stdlib_root = PathBuf::from("C:/nepl-test/stdlib");
+        let foo_path = canonicalize_path(&stdlib_path(&stdlib_root, &["foo.nepl"]));
+        let entry_source = String::from(
+            "#no_prelude\n#import \"foo\" as *\nfn main %fn unit i32 \\unit:\n    1\n",
+        );
+        let foo_source = String::from("pub fn foo %fn unit i32 \\unit:\n    1\n");
+        let mut sources = BTreeMap::new();
+        sources.insert(foo_path.clone(), foo_source);
+        let mut session_cache = LoaderSessionCache::new("test-stdlib");
+        let mut loader = Loader::new(stdlib_root);
+        let mut provider = |path: &PathBuf| {
+            sources
+                .get(path)
+                .cloned()
+                .ok_or_else(|| LoaderError::Io(format!("missing test source: {:?}", path)))
+        };
+        let mut projected_edges = 0usize;
+        let mut edge_materializer = |probe: &NeplMetaDependencyEdgePreTypecheckProbe| {
+            assert!(
+                probe.target_module_path.ends_with("foo.nepl"),
+                "the test import should be the only materialized edge"
+            );
+            projected_edges += 1;
+            Some(crate::typecheck::TypedPublicSurfaceTable::default())
+        };
+
+        let loaded = loader
+            .load_inline_with_provider_and_cache_materializing_nepl_meta_edge_probes(
+                entry_path,
+                entry_source,
+                &mut provider,
+                &mut session_cache,
+                &mut edge_materializer,
+            )
+            .expect("provider-backed load should accept materialized stdlib edge");
+
+        assert_eq!(
+            projected_edges, 1,
+            "the loader should ask the host materializer for the import edge"
+        );
+        assert_eq!(
+            loaded.materialized_public_surfaces.len(),
+            1,
+            "successful projection should become one typecheck materialized input"
+        );
+        assert!(
+            loaded
+                .source_map
+                .iter_paths()
+                .any(|(_, path)| path.as_str() == path_to_source_label(&foo_path)),
+            "body skip must still reserve the dependency file in the current SourceMap"
+        );
+        assert!(
+            !loaded
+                .module
+                .root
+                .items
+                .iter()
+                .any(|stmt| { matches!(stmt, Stmt::FnDef(def) if def.name.name == "foo") }),
+            "materialized dependency body must not be merged into the root AST"
         );
     }
 
