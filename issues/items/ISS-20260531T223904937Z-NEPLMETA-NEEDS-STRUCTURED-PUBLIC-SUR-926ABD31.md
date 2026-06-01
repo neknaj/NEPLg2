@@ -250,6 +250,40 @@ payload 形状変更に合わせて schema / artifact hash / compiler identity �
   materializer の enum reject reason として分ける。
 - fail-closed materializer を import / prelude boundary へ接続する。
 
+## 2026-06-01 export surface checkpoint
+
+`.neplmeta` payload に public export surface と re-export projection surface を追加した。
+
+local export は `exported_name`、`origin_module_path`、`origin_name`、kind を保存する。kind は
+`Callable` / `Struct` / `Enum` / `Trait` に限定し、`Impl` は名前 export ではなく trait lookup
+authority として structured public surface 側に残す。
+
+re-export projection は `pub #import` / `#import pub` 由来の source order、target module path、
+edge kind、import clause を保存する。`Open`、selective import、glob、merge はこの段階で推測展開せず、
+target artifact を取得できた materializer だけが fail-closed に展開する。
+
+`.neplmeta` header には `export_surface_hash`、`local_export_count`、
+`reexport_projection_count` を追加し、payload consistency check でも export surface hash / count の
+不一致を拒否する。payload 形状変更に合わせて schema / artifact hash / compiler identity は v10 に
+上げた。Web `CompilerSession` stats JSON には local export count、re-export projection count、
+export surface hash を追加した。
+
+残件:
+
+- `.neplmeta` materializer MVP を stdlib public surface へ接続する。
+- target artifact missing、dependency hash mismatch、unsupported include、unsupported merge、
+  duplicate export、alias / glob ambiguity を materializer の enum reject reason として分ける。
+- public impl / trait lookup authority は export table ではなく structured public surface と
+  module visibility map で復元する。
+
+検証:
+
+- `cargo check -p nepl-core -p nepl-language`
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`
+- `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
+
 ## 2026-06-01 generic impl surface checkpoint
 
 `ImplInfo` に impl header 自身の generic binder と bound environment を保持し、structured public surface の `PublicImplSurface` へ投影するようにした。

@@ -8,12 +8,12 @@ use alloc::vec::Vec;
 
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
-const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 9;
-const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v9";
+const NEPL_META_ARTIFACT_SCHEMA_VERSION: u32 = 10;
+const NEPL_META_ARTIFACT_HASH_VERSION: &str = "neplg2-neplmeta-artifact-v10";
 const NEPL_META_COMPILER_IDENTITY_INPUT: &str = concat!(
     "neplg2-compiler:",
     env!("CARGO_PKG_VERSION"),
-    ":neplmeta-v9"
+    ":neplmeta-v10"
 );
 
 /// `.neplmeta` が保持する module dependency surface。
@@ -98,6 +98,100 @@ pub struct NeplMetaImportItem {
     pub glob: bool,
 }
 
+/// `.neplmeta` が保持する public export / re-export projection surface。
+///
+/// local export は現在 module が直接公開している名前を表す。re-export projection は
+/// `pub #import` / `#import pub` / include 由来の公開投影を表し、target artifact を読んだ
+/// materializer が後段で展開する。glob や merge をここで推測展開せず、構造として保存して
+/// fail-closed materializer の入力にする。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NeplMetaExportSurface {
+    pub local_exports: Vec<NeplMetaExportEntry>,
+    pub reexport_projections: Vec<NeplMetaReexportProjection>,
+    pub stable_hash: u64,
+}
+
+impl NeplMetaExportSurface {
+    pub fn new(
+        mut local_exports: Vec<NeplMetaExportEntry>,
+        mut reexport_projections: Vec<NeplMetaReexportProjection>,
+    ) -> Self {
+        local_exports.sort();
+        local_exports.dedup();
+        reexport_projections.sort();
+        reexport_projections.dedup();
+        let stable_hash = nepl_meta_export_surface_hash(&local_exports, &reexport_projections);
+        Self {
+            local_exports,
+            reexport_projections,
+            stable_hash,
+        }
+    }
+
+    pub fn from_module_and_public_surface(
+        module_surface: &NeplMetaModuleSurface,
+        public_surface: &TypedPublicSurfaceTable,
+    ) -> Self {
+        let local_exports = public_surface
+            .entries
+            .iter()
+            .filter_map(|entry| {
+                let kind = match entry.kind {
+                    crate::typecheck::TypedPublicSignatureKind::Callable => {
+                        NeplMetaExportKind::Callable
+                    }
+                    crate::typecheck::TypedPublicSignatureKind::Struct => NeplMetaExportKind::Struct,
+                    crate::typecheck::TypedPublicSignatureKind::Enum => NeplMetaExportKind::Enum,
+                    crate::typecheck::TypedPublicSignatureKind::Trait => NeplMetaExportKind::Trait,
+                    crate::typecheck::TypedPublicSignatureKind::Impl => return None,
+                };
+                Some(NeplMetaExportEntry {
+                    exported_name: entry.name.clone(),
+                    origin_module_path: module_surface.canonical_module_path.clone(),
+                    origin_name: entry.name.clone(),
+                    kind,
+                })
+            })
+            .collect::<Vec<_>>();
+        let reexport_projections = module_surface
+            .dependency_edges
+            .iter()
+            .filter(|edge| edge.public_reexport)
+            .map(|edge| NeplMetaReexportProjection {
+                source_order: edge.source_order,
+                target_module_path: edge.target_path.clone(),
+                kind: edge.kind,
+                import_clause: edge.import_clause.clone(),
+            })
+            .collect::<Vec<_>>();
+        Self::new(local_exports, reexport_projections)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NeplMetaExportEntry {
+    pub exported_name: String,
+    pub origin_module_path: String,
+    pub origin_name: String,
+    pub kind: NeplMetaExportKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum NeplMetaExportKind {
+    Callable,
+    Struct,
+    Enum,
+    Trait,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NeplMetaReexportProjection {
+    pub source_order: u32,
+    pub target_module_path: String,
+    pub kind: NeplMetaModuleDependencyKind,
+    pub import_clause: Option<NeplMetaImportClause>,
+}
+
 /// `.neplmeta` artifact の invalidation envelope。
 ///
 /// `.neplmeta` は依存側の名前解決・型検査に必要な public interface を保存するための
@@ -116,6 +210,9 @@ pub struct NeplMetaArtifactHeader {
     pub public_entry_count: u32,
     pub module_surface_hash: Option<u64>,
     pub module_dependency_edge_count: Option<u32>,
+    pub export_surface_hash: Option<u64>,
+    pub local_export_count: Option<u32>,
+    pub reexport_projection_count: Option<u32>,
     pub structured_public_surface_hash: u64,
     pub structured_public_surface_entry_count: u32,
     pub source_capability_policy_set_hash: Option<u64>,
@@ -133,6 +230,9 @@ impl NeplMetaArtifactHeader {
         public_entry_count: u32,
         module_surface_hash: Option<u64>,
         module_dependency_edge_count: Option<u32>,
+        export_surface_hash: Option<u64>,
+        local_export_count: Option<u32>,
+        reexport_projection_count: Option<u32>,
         structured_public_surface_hash: u64,
         structured_public_surface_entry_count: u32,
         source_capability_policy_set_hash: Option<u64>,
@@ -149,6 +249,9 @@ impl NeplMetaArtifactHeader {
             public_entry_count,
             module_surface_hash,
             module_dependency_edge_count,
+            export_surface_hash,
+            local_export_count,
+            reexport_projection_count,
             structured_public_surface_hash,
             structured_public_surface_entry_count,
             source_capability_policy_set_hash,
@@ -190,6 +293,15 @@ impl NeplMetaArtifactHeader {
         if self.module_dependency_edge_count != expected.module_dependency_edge_count {
             return Some(NeplMetaArtifactCompatibilityReject::ModuleDependencyEdgeCount);
         }
+        if self.export_surface_hash != expected.export_surface_hash {
+            return Some(NeplMetaArtifactCompatibilityReject::ExportSurface);
+        }
+        if self.local_export_count != expected.local_export_count {
+            return Some(NeplMetaArtifactCompatibilityReject::LocalExportCount);
+        }
+        if self.reexport_projection_count != expected.reexport_projection_count {
+            return Some(NeplMetaArtifactCompatibilityReject::ReexportProjectionCount);
+        }
         if self.structured_public_surface_hash != expected.structured_public_surface_hash {
             return Some(NeplMetaArtifactCompatibilityReject::StructuredPublicSurface);
         }
@@ -224,6 +336,9 @@ pub enum NeplMetaArtifactCompatibilityReject {
     PublicEntryCount,
     ModuleSurface,
     ModuleDependencyEdgeCount,
+    ExportSurface,
+    LocalExportCount,
+    ReexportProjectionCount,
     StructuredPublicSurface,
     StructuredPublicSurfaceEntryCount,
     SourceCapabilityPolicySet,
@@ -241,6 +356,7 @@ pub struct NeplMetaArtifact {
     header: NeplMetaArtifactHeader,
     public_signatures: TypedPublicSignatureTable,
     module_surface: Option<NeplMetaModuleSurface>,
+    export_surface: Option<NeplMetaExportSurface>,
     public_surface: TypedPublicSurfaceTable,
 }
 
@@ -249,12 +365,14 @@ impl NeplMetaArtifact {
         header: NeplMetaArtifactHeader,
         public_signatures: TypedPublicSignatureTable,
         module_surface: Option<NeplMetaModuleSurface>,
+        export_surface: Option<NeplMetaExportSurface>,
         public_surface: TypedPublicSurfaceTable,
     ) -> Self {
         Self {
             header,
             public_signatures,
             module_surface,
+            export_surface,
             public_surface,
         }
     }
@@ -290,6 +408,9 @@ impl NeplMetaArtifact {
         module_surface: Option<NeplMetaModuleSurface>,
         public_surface: TypedPublicSurfaceTable,
     ) -> Self {
+        let export_surface = module_surface.as_ref().map(|surface| {
+            NeplMetaExportSurface::from_module_and_public_surface(surface, &public_surface)
+        });
         let header = nepl_meta_artifact_header_for_public_surface(
             target,
             profile,
@@ -298,9 +419,16 @@ impl NeplMetaArtifact {
             source_map,
             &public_signatures,
             module_surface.as_ref(),
+            export_surface.as_ref(),
             &public_surface,
         );
-        Self::new(header, public_signatures, module_surface, public_surface)
+        Self::new(
+            header,
+            public_signatures,
+            module_surface,
+            export_surface,
+            public_surface,
+        )
     }
 
     pub fn header(&self) -> NeplMetaArtifactHeader {
@@ -313,6 +441,10 @@ impl NeplMetaArtifact {
 
     pub fn module_surface(&self) -> Option<&NeplMetaModuleSurface> {
         self.module_surface.as_ref()
+    }
+
+    pub fn export_surface(&self) -> Option<&NeplMetaExportSurface> {
+        self.export_surface.as_ref()
     }
 
     pub fn public_surface(&self) -> &TypedPublicSurfaceTable {
@@ -349,6 +481,25 @@ impl NeplMetaArtifact {
         if self.header.module_dependency_edge_count != actual_module_edge_count {
             return Some(NeplMetaArtifactPayloadReject::ModuleDependencyEdgeCount);
         }
+        let actual_export_surface_hash =
+            self.export_surface.as_ref().map(|surface| surface.stable_hash);
+        if self.header.export_surface_hash != actual_export_surface_hash {
+            return Some(NeplMetaArtifactPayloadReject::ExportSurfaceHash);
+        }
+        let actual_local_export_count = self
+            .export_surface
+            .as_ref()
+            .map(|surface| usize_to_u32_saturating(surface.local_exports.len()));
+        if self.header.local_export_count != actual_local_export_count {
+            return Some(NeplMetaArtifactPayloadReject::LocalExportCount);
+        }
+        let actual_reexport_projection_count = self
+            .export_surface
+            .as_ref()
+            .map(|surface| usize_to_u32_saturating(surface.reexport_projections.len()));
+        if self.header.reexport_projection_count != actual_reexport_projection_count {
+            return Some(NeplMetaArtifactPayloadReject::ReexportProjectionCount);
+        }
         if self.header.structured_public_surface_hash != self.public_surface.stable_hash {
             return Some(NeplMetaArtifactPayloadReject::StructuredPublicSurfaceHash);
         }
@@ -376,6 +527,9 @@ pub enum NeplMetaArtifactPayloadReject {
     PublicEntryCount,
     ModuleSurfaceHash,
     ModuleDependencyEdgeCount,
+    ExportSurfaceHash,
+    LocalExportCount,
+    ReexportProjectionCount,
     StructuredPublicSurfaceHash,
     StructuredPublicSurfaceEntryCount,
 }
@@ -388,6 +542,7 @@ pub fn nepl_meta_artifact_header_for_public_surface(
     source_map: Option<&SourceMap>,
     public_signatures: &TypedPublicSignatureTable,
     module_surface: Option<&NeplMetaModuleSurface>,
+    export_surface: Option<&NeplMetaExportSurface>,
     public_surface: &TypedPublicSurfaceTable,
 ) -> NeplMetaArtifactHeader {
     NeplMetaArtifactHeader::new(
@@ -400,6 +555,9 @@ pub fn nepl_meta_artifact_header_for_public_surface(
         usize_to_u32_saturating(public_signatures.entries.len()),
         module_surface.map(|surface| surface.stable_hash),
         module_surface.map(|surface| usize_to_u32_saturating(surface.dependency_edges.len())),
+        export_surface.map(|surface| surface.stable_hash),
+        export_surface.map(|surface| usize_to_u32_saturating(surface.local_exports.len())),
+        export_surface.map(|surface| usize_to_u32_saturating(surface.reexport_projections.len())),
         public_surface.stable_hash,
         usize_to_u32_saturating(public_surface.entries.len()),
         crate::compiler::resource_summary_source_capability_policy_set_hash(source_map),
@@ -425,6 +583,63 @@ fn nepl_meta_module_surface_hash(
         hash_module_dependency_edge(&mut hash, edge);
     }
     hash
+}
+
+fn nepl_meta_export_surface_hash(
+    local_exports: &[NeplMetaExportEntry],
+    reexport_projections: &[NeplMetaReexportProjection],
+) -> u64 {
+    let mut hash = FNV1A64_OFFSET;
+    hash_str(&mut hash, "export-surface-v1");
+    hash_u32(&mut hash, usize_to_u32_saturating(local_exports.len()));
+    for entry in local_exports {
+        hash_export_entry(&mut hash, entry);
+    }
+    hash_u32(
+        &mut hash,
+        usize_to_u32_saturating(reexport_projections.len()),
+    );
+    for projection in reexport_projections {
+        hash_reexport_projection(&mut hash, projection);
+    }
+    hash
+}
+
+fn hash_export_entry(hash: &mut u64, entry: &NeplMetaExportEntry) {
+    hash_str(hash, "local-export");
+    hash_str(hash, &entry.exported_name);
+    hash_str(hash, &entry.origin_module_path);
+    hash_str(hash, &entry.origin_name);
+    hash_u8(
+        hash,
+        match entry.kind {
+            NeplMetaExportKind::Callable => 1,
+            NeplMetaExportKind::Struct => 2,
+            NeplMetaExportKind::Enum => 3,
+            NeplMetaExportKind::Trait => 4,
+        },
+    );
+}
+
+fn hash_reexport_projection(hash: &mut u64, projection: &NeplMetaReexportProjection) {
+    hash_str(hash, "reexport-projection");
+    hash_u32(hash, projection.source_order);
+    hash_str(hash, &projection.target_module_path);
+    hash_u8(
+        hash,
+        match projection.kind {
+            NeplMetaModuleDependencyKind::Prelude => 1,
+            NeplMetaModuleDependencyKind::Import => 2,
+            NeplMetaModuleDependencyKind::Include => 3,
+        },
+    );
+    match &projection.import_clause {
+        Some(clause) => {
+            hash_u8(hash, 1);
+            hash_import_clause(hash, clause);
+        }
+        None => hash_u8(hash, 0),
+    }
 }
 
 fn hash_module_dependency_edge(hash: &mut u64, edge: &NeplMetaModuleDependencyEdge) {
@@ -558,8 +773,9 @@ mod tests {
     use super::{
         nepl_meta_artifact_header_for_public_surface, NeplMetaArtifact,
         NeplMetaArtifactCompatibilityReject, NeplMetaArtifactHeader, NeplMetaArtifactPayloadReject,
-        NeplMetaImportClause, NeplMetaModuleDependencyEdge, NeplMetaModuleDependencyKind,
-        NeplMetaModuleSurface, NeplMetaVisibility,
+        NeplMetaExportKind, NeplMetaExportSurface, NeplMetaImportClause,
+        NeplMetaModuleDependencyEdge, NeplMetaModuleDependencyKind, NeplMetaModuleSurface,
+        NeplMetaVisibility,
     };
     use crate::compiler::{BuildProfile, CompileTarget};
     use crate::typecheck::{
@@ -604,6 +820,9 @@ mod tests {
         public_surface: &TypedPublicSurfaceTable,
         dependency_hash: Option<u64>,
     ) -> NeplMetaArtifactHeader {
+        let export_surface = module_surface.map(|surface| {
+            NeplMetaExportSurface::from_module_and_public_surface(surface, public_surface)
+        });
         nepl_meta_artifact_header_for_public_surface(
             CompileTarget::Wasm,
             BuildProfile::Debug,
@@ -612,6 +831,7 @@ mod tests {
             None,
             public_signatures,
             module_surface,
+            export_surface.as_ref(),
             public_surface,
         )
     }
@@ -641,6 +861,8 @@ mod tests {
         let public_signatures = signature_table("answer", "fn unit i32");
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let module_surface = module_surface("/stdlib/core/math.nepl");
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
         let header = test_header(
             &public_signatures,
             Some(&module_surface),
@@ -651,12 +873,46 @@ mod tests {
             header,
             public_signatures,
             Some(module_surface),
+            Some(export_surface),
             public_surface,
         );
 
         assert_eq!(artifact.compatibility_reject(header), None);
         assert_eq!(artifact.payload_consistency_reject(), None);
         assert_eq!(artifact.entry_count(), 1);
+    }
+
+    /// export surface は local public entry と pub re-export projection を別々に保存する。
+    /// glob や open import をこの段階で展開すると target artifact 欠落時に誤ったauthorityを
+    /// 作るため、`.neplmeta` には projection として保持して materializer が fail-closed に扱う。
+    #[test]
+    fn neplmeta_export_surface_preserves_local_exports_and_reexport_projection() {
+        let public_surface = surface_table("answer", PublicTypeTerm::I32);
+        let module_surface = module_surface("/stdlib/core/math.nepl");
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
+
+        assert_eq!(export_surface.local_exports.len(), 1);
+        assert_eq!(export_surface.local_exports[0].exported_name, "answer");
+        assert_eq!(
+            export_surface.local_exports[0].origin_module_path,
+            "/stdlib/core/math.nepl"
+        );
+        assert_eq!(export_surface.local_exports[0].origin_name, "answer");
+        assert_eq!(export_surface.local_exports[0].kind, NeplMetaExportKind::Callable);
+        assert_eq!(export_surface.reexport_projections.len(), 1);
+        assert_eq!(
+            export_surface.reexport_projections[0].target_module_path,
+            "/stdlib/core/result.nepl"
+        );
+        assert_eq!(
+            export_surface.reexport_projections[0].kind,
+            NeplMetaModuleDependencyKind::Import
+        );
+        assert_eq!(
+            export_surface.reexport_projections[0].import_clause,
+            Some(NeplMetaImportClause::Open)
+        );
     }
 
     /// dependency aggregate public surface が違う場合、同じ module の public signature でも
@@ -667,6 +923,8 @@ mod tests {
         let public_signatures = signature_table("answer", "fn unit i32");
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let module_surface = module_surface("/stdlib/core/math.nepl");
+        let export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&module_surface, &public_surface);
         let artifact = NeplMetaArtifact::new(
             test_header(
                 &public_signatures,
@@ -676,6 +934,7 @@ mod tests {
             ),
             public_signatures.clone(),
             Some(module_surface.clone()),
+            Some(export_surface),
             public_surface.clone(),
         );
         let expected = test_header(
@@ -702,6 +961,7 @@ mod tests {
             test_header(&header_signatures, None, &public_surface, None),
             payload_signatures,
             None,
+            None,
             public_surface,
         );
 
@@ -720,6 +980,7 @@ mod tests {
             test_header(&public_signatures, None, &header_surface, None),
             public_signatures,
             None,
+            None,
             payload_surface,
         );
 
@@ -735,6 +996,8 @@ mod tests {
         let public_surface = surface_table("answer", PublicTypeTerm::I32);
         let header_surface = module_surface("/stdlib/core/math.nepl");
         let payload_surface = module_surface("/stdlib/core/other.nepl");
+        let payload_export_surface =
+            NeplMetaExportSurface::from_module_and_public_surface(&payload_surface, &public_surface);
         let artifact = NeplMetaArtifact::new(
             test_header(
                 &public_signatures,
@@ -744,12 +1007,44 @@ mod tests {
             ),
             public_signatures,
             Some(payload_surface),
+            Some(payload_export_surface),
             public_surface,
         );
 
         assert_eq!(
             artifact.payload_consistency_reject(),
             Some(NeplMetaArtifactPayloadReject::ModuleSurfaceHash)
+        );
+    }
+
+    /// header と payload の export surface は structured public surface とは別に検証する。
+    /// local export や re-export projection が stale になると、materializer が依存側環境へ
+    /// 存在しない名前を注入し得るため、hash mismatch は専用理由で fail-closed にする。
+    #[test]
+    fn neplmeta_payload_consistency_rejects_mismatched_export_surface() {
+        let public_signatures = signature_table("answer", "fn unit i32");
+        let public_surface = surface_table("answer", PublicTypeTerm::I32);
+        let module_surface = module_surface("/stdlib/core/math.nepl");
+        let payload_export_surface = NeplMetaExportSurface::from_module_and_public_surface(
+            &module_surface,
+            &surface_table("other", PublicTypeTerm::I32),
+        );
+        let artifact = NeplMetaArtifact::new(
+            test_header(
+                &public_signatures,
+                Some(&module_surface),
+                &public_surface,
+                None,
+            ),
+            public_signatures,
+            Some(module_surface),
+            Some(payload_export_surface),
+            public_surface,
+        );
+
+        assert_eq!(
+            artifact.payload_consistency_reject(),
+            Some(NeplMetaArtifactPayloadReject::ExportSurfaceHash)
         );
     }
 }

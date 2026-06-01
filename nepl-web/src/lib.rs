@@ -3819,6 +3819,27 @@ impl CompilerSession {
                 .unwrap_or(0)
                 .to_string(),
         );
+        out.push_str(",\"nepl_meta_artifact_local_exports\":");
+        out.push_str(
+            &nepl_meta_header
+                .and_then(|header| header.local_export_count)
+                .unwrap_or(0)
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_reexport_projections\":");
+        out.push_str(
+            &nepl_meta_header
+                .and_then(|header| header.reexport_projection_count)
+                .unwrap_or(0)
+                .to_string(),
+        );
+        out.push_str(",\"nepl_meta_artifact_export_surface_hash\":");
+        out.push_str(
+            &nepl_meta_header
+                .and_then(|header| header.export_surface_hash)
+                .unwrap_or(0)
+                .to_string(),
+        );
         out.push_str(",\"nepl_meta_artifact_structured_public_surface_entries\":");
         out.push_str(
             &nepl_meta_header

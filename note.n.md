@@ -1,3 +1,18 @@
+# 2026-06-01 .neplmeta export surface checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋 query cache、責務分割、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `35c98638 Add neplmeta module edge surface` まで同期済みで、branch `perf/neplmeta-export-surface-20260601` の基点は `origin/main` と一致している。
+- subagent review で、module edge hash だけではなく local export と `pub #import` 由来の re-export projection を `.neplmeta` payload に持たせるべきと確認した。別subagent review では、base compile 短縮の次 checkpoint は `.neplmeta materializer MVP for stdlib public surface` が妥当と確認した。
+- `NeplMetaExportSurface`、`NeplMetaExportEntry`、`NeplMetaExportKind`、`NeplMetaReexportProjection` を追加し、local public export と re-export projection を arena 非依存 payload として保存するようにした。
+- local export は exported name、origin module path、origin name、kind (`Callable` / `Struct` / `Enum` / `Trait`) を持つ。`Impl` は名前 export ではなく trait lookup authority なので local export には入れず、structured public surface 側に残す。
+- re-export projection は source order、target module path、edge kind、import clause を持つ。`Open`、selective import、glob、merge をここで推測展開せず、target artifact を読めた materializer が fail-closed に扱う。
+- `.neplmeta` header に `export_surface_hash`、`local_export_count`、`reexport_projection_count` を追加し、payload consistency check でも export surface hash / count の不一致を拒否する。payload 形状変更に合わせて `.neplmeta` schema / artifact hash / compiler identity は v10 に上げた。
+- Web `CompilerSession` stats JSON に local export count、re-export projection count、export surface hash を追加した。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。
+- memo_call subagent review では、現状は fail-closed で正しく、次は `PrivateEffectRegion::UnsealedIntrinsic` とは別の sealed fresh region id と non-escape proof を実装するのが先と確認した。backend cache representation はその後に分ける。
+- 現時点の focused verification は `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture` を通した。
+- 残件: `.neplmeta materializer MVP` を stdlib public surface へ接続し、target artifact missing、dependency mismatch、unsupported include / merge、duplicate export、alias / glob ambiguity を enum reject reason で fail-closed に分ける。
+
 # 2026-06-01 .neplmeta module edge surface checkpoint
 
 - Zenn 記事の core/no_std 分離、静的検査、純粋性、DAG 化、cache artifact の authority を型付き payload に分ける方針を再確認した。`plan.md` は変更していない。

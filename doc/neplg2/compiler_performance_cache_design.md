@@ -1746,6 +1746,35 @@ compile result の `.neplmeta` artifact と stats JSON へ反映する。
 public entry の origin module / origin name / exported name / kind を module identity ベースで保存し、
 target artifact missing や dependency mismatch を enum reason で fail-closed に拒否する。
 
+### 2026-06-01 `.neplmeta` export surface checkpoint
+
+`.neplmeta` payload に public export surface と re-export projection surface を追加した。
+
+これまでは structured public surface が callable / struct / enum / trait / impl header を保持し、
+module edge surface が import / prelude / include edge を保持していた。しかし local public name と
+`pub #import` 由来の公開投影を結ぶ surface がなかったため、materializer は依存 module の body を
+読まずに export authority を復元できなかった。
+
+新しい export surface は local export と re-export projection を分けて保持する。local export は
+exported name、origin module path、origin name、kind (`Callable` / `Struct` / `Enum` / `Trait`) を
+持つ。`Impl` は名前 export ではなく trait lookup authority なので local export には入れず、
+structured public surface の impl header と visibility map で扱う。
+
+re-export projection は source order、target module path、edge kind、import clause を保持する。
+`Open`、selective import、glob、merge をこの段階で推測展開せず、target `.neplmeta` artifact を
+読めた materializer だけが fail-closed に展開する。`PathBuf`、`FileId`、`Span`、
+`ImportResolution`、typed HIR、Resource IR は保存しない。
+
+`.neplmeta` header には `export_surface_hash`、`local_export_count`、
+`reexport_projection_count` を追加し、payload consistency check でも export surface hash / count の
+不一致を拒否する。payload 形状変更に合わせて schema / artifact hash / compiler identity は v10 に
+上げた。Web `CompilerSession` stats JSON には local export count、re-export projection count、
+export surface hash を追加した。
+
+次 checkpoint は `.neplmeta` materializer MVP である。stdlib public surface のうち local export、
+`ImportClause::Open`、simple named import を fail-closed に materialize し、未対応の include、
+merge、alias collision、glob ambiguity、impl lookup は通常 load / typecheck へ戻す。
+
 ### 2026-06-01 LLVM dual CI shard checkpoint
 
 GitHub Actions run `26728316260` では、`llvm-dual-test` の `tests` / `stdlib`
