@@ -2504,6 +2504,41 @@ selected body が必要になった場合は `.neplobj` が入るまで
 `.neplobj` / `.nepllink` の stable link symbol、selected callable body hash、generic instantiation
 hash である。
 
+## 2026-06-01 body-missing skip checkpoint
+
+`.neplobj` がまだ存在しない状態で、同じ `CompilerSession` が同じ dependency edge を毎回
+`.neplmeta` materialized compile へ投機投入すると、必ず `MaterializedFunctionBodyMissing` に戻る
+edge でも compile pipeline と source fallback を二重に走らせてしまう。
+
+そこで、`CompilerSession` に source-hash scoped な body-missing skip set を追加した。この set は
+`target_module_path`、`target_source_key_hash`、`dependency_public_surface_hash` を authority にする。
+materialized compile が `backend.codegen.materialized_function_body_missing` で source fallback した場合だけ、
+その compile で投機投入された dependency edge を記録し、次回同じ source / dependency surface なら
+`.neplmeta` projection を行わず通常 source merge へ戻す。
+
+この checkpoint は `.neplobj` の代替ではない。むしろ `.neplobj` 未実装の間、確実に body が必要になる
+edge を繰り返し失敗させないための negative cache である。`.neplobj` / `.nepllink` 実装後は、この同じ
+key 境界で「skip」ではなく object fragment availability を見るように置き換える。
+
+追加した観測値:
+
+- `nepl_meta_body_missing_skip_entries`
+- `nepl_meta_body_missing_skip_hits`
+- `nepl_meta_body_missing_skip_stores`
+- `nepl_meta_body_missing_skip_stale_entries`
+- `nepl_meta_body_missing_skip_last_hits`
+- `nepl_meta_body_missing_skip_last_stores`
+
+`tmp/neplmeta-body-missing-skip-20260601.json` では、`materialized_body_missing_fallbacks_delta_sum` が
+3 から 1 へ、`neplobj_candidate_body_missing_surfaces_delta_sum` が 15 から 5 へ下がった。後続の body edit
+2 回では `body_missing_skip_hits_delta_sum=10` となり、既知の body-missing edge を再度 materialized
+compile へ渡していない。
+
+一方で `body_edit_candidate` / `body_edit_repeat` の `compile_ms` はまだ 1 秒前後であり、これは
+`.neplobj` body fragment や stdlib preseed artifact がまだないためである。次の根本対応は、direct call に
+限定した selected callable `.neplobj` key schema と availability resolver を入れ、function value /
+`memo_call` / indirect call は stable codegen artifact と Resource proof が揃うまで fail-closed に残すこと。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

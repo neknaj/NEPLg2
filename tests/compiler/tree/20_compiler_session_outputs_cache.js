@@ -109,6 +109,12 @@ function neplMetaMaterializedCompileStats(session) {
         'nepl_meta_materialized_compile_source_fallback_failures',
         'nepl_meta_materialized_compile_body_missing_fallbacks',
         'nepl_obj_candidate_body_missing_surfaces',
+        'nepl_meta_body_missing_skip_entries',
+        'nepl_meta_body_missing_skip_hits',
+        'nepl_meta_body_missing_skip_stores',
+        'nepl_meta_body_missing_skip_stale_entries',
+        'nepl_meta_body_missing_skip_last_hits',
+        'nepl_meta_body_missing_skip_last_stores',
         'nepl_meta_materialized_compile_last_outcome_code',
         'nepl_meta_materialized_compile_last_fallback_reason_code',
         'nepl_meta_materialized_compile_last_fallback_diagnostic_code',
@@ -130,6 +136,12 @@ function neplMetaMaterializedCompileStats(session) {
         fallbackFailures: Number(s.nepl_meta_materialized_compile_source_fallback_failures || 0),
         bodyMissingFallbacks: Number(s.nepl_meta_materialized_compile_body_missing_fallbacks || 0),
         bodyMissingCandidateSurfaces: Number(s.nepl_obj_candidate_body_missing_surfaces || 0),
+        bodyMissingSkipEntries: Number(s.nepl_meta_body_missing_skip_entries || 0),
+        bodyMissingSkipHits: Number(s.nepl_meta_body_missing_skip_hits || 0),
+        bodyMissingSkipStores: Number(s.nepl_meta_body_missing_skip_stores || 0),
+        bodyMissingSkipStaleEntries: Number(s.nepl_meta_body_missing_skip_stale_entries || 0),
+        lastBodyMissingSkipHits: Number(s.nepl_meta_body_missing_skip_last_hits || 0),
+        lastBodyMissingSkipStores: Number(s.nepl_meta_body_missing_skip_last_stores || 0),
         lastOutcomeCode: Number(s.nepl_meta_materialized_compile_last_outcome_code || 0),
         lastFallbackReasonCode: Number(s.nepl_meta_materialized_compile_last_fallback_reason_code || 0),
         lastFallbackDiagnosticCode: String(s.nepl_meta_materialized_compile_last_fallback_diagnostic_code || ''),
@@ -218,7 +230,27 @@ fn main <()->i32> ():
         );
         assert.deepEqual(
             neplMetaMaterializedCompileStats(cacheSession),
-            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, bodyMissingCandidateSurfaces: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastFallbackDiagnosticCode: '', lastAttemptedSurfaces: 0, lastBodyMissingCandidateSurfaces: 0 },
+            {
+                attempts: 0,
+                attemptedSurfaces: 0,
+                accepts: 0,
+                fallbacks: 0,
+                fallbackSuccesses: 0,
+                fallbackFailures: 0,
+                bodyMissingFallbacks: 0,
+                bodyMissingCandidateSurfaces: 0,
+                bodyMissingSkipEntries: 0,
+                bodyMissingSkipHits: 0,
+                bodyMissingSkipStores: 0,
+                bodyMissingSkipStaleEntries: 0,
+                lastOutcomeCode: 0,
+                lastFallbackReasonCode: 0,
+                lastFallbackDiagnosticCode: '',
+                lastAttemptedSurfaces: 0,
+                lastBodyMissingCandidateSurfaces: 0,
+                lastBodyMissingSkipHits: 0,
+                lastBodyMissingSkipStores: 0,
+            },
             'first compile must expose materialized compile stats without attempting body skip',
         );
         assert.notEqual(
@@ -249,7 +281,27 @@ fn main <()->i32> ():
         );
         assert.deepEqual(
             neplMetaMaterializedCompileStats(cacheSession),
-            { attempts: 0, attemptedSurfaces: 0, accepts: 0, fallbacks: 0, fallbackSuccesses: 0, fallbackFailures: 0, bodyMissingFallbacks: 0, bodyMissingCandidateSurfaces: 0, lastOutcomeCode: 0, lastFallbackReasonCode: 0, lastFallbackDiagnosticCode: '', lastAttemptedSurfaces: 0, lastBodyMissingCandidateSurfaces: 0 },
+            {
+                attempts: 0,
+                attemptedSurfaces: 0,
+                accepts: 0,
+                fallbacks: 0,
+                fallbackSuccesses: 0,
+                fallbackFailures: 0,
+                bodyMissingFallbacks: 0,
+                bodyMissingCandidateSurfaces: 0,
+                bodyMissingSkipEntries: 0,
+                bodyMissingSkipHits: 0,
+                bodyMissingSkipStores: 0,
+                bodyMissingSkipStaleEntries: 0,
+                lastOutcomeCode: 0,
+                lastFallbackReasonCode: 0,
+                lastFallbackDiagnosticCode: '',
+                lastAttemptedSurfaces: 0,
+                lastBodyMissingCandidateSurfaces: 0,
+                lastBodyMissingSkipHits: 0,
+                lastBodyMissingSkipStores: 0,
+            },
             'compiled-output cache hit must not reuse the previous materialized compile observation as a fresh attempt',
         );
         assert.deepEqual(
@@ -314,6 +366,11 @@ fn main %fn unit i32 \\unit:
 #import "std/prelude_base" as *
 fn main %fn unit i32 \\unit:
     3
+`;
+        const stdlibDependencySourceFour = `#entry main
+#import "std/prelude_base" as *
+fn main %fn unit i32 \\unit:
+    4
 `;
         stdlibDependencyArtifactSession.compile_outputs_with_vfs(
             '/virtual/stdlib_dependency_artifact.nepl',
@@ -476,6 +533,40 @@ fn main %fn unit i32 \\unit:
                 thirdMaterializedCompile.lastBodyMissingCandidateSurfaces,
                 0,
                 'accepted materialized compile must not be counted as a .neplobj body candidate',
+            );
+        }
+        const beforeFourthMaterializedCompile = neplMetaMaterializedCompileStats(stdlibDependencyArtifactSession);
+        if (beforeFourthMaterializedCompile.bodyMissingSkipStores > 0) {
+            stdlibDependencyArtifactSession.compile_outputs_with_vfs(
+                '/virtual/stdlib_dependency_artifact.nepl',
+                stdlibDependencySourceFour,
+                {},
+                ['wasm'],
+                false,
+            );
+            const fourthMaterializedCompile = neplMetaMaterializedCompileStats(stdlibDependencyArtifactSession);
+            assert.ok(
+                fourthMaterializedCompile.bodyMissingSkipHits > beforeFourthMaterializedCompile.bodyMissingSkipHits,
+                'a repeated body edit must skip known body-missing .neplmeta edges until .neplobj can satisfy them',
+            );
+            assert.equal(
+                fourthMaterializedCompile.attempts,
+                beforeFourthMaterializedCompile.attempts,
+                'body-missing skip cache must avoid a repeated materialized compile attempt for the same dependency body boundary',
+            );
+            assert.equal(
+                fourthMaterializedCompile.fallbacks,
+                beforeFourthMaterializedCompile.fallbacks,
+                'body-missing skip cache must avoid a repeated source fallback caused only by missing .neplobj body',
+            );
+            assert.ok(
+                fourthMaterializedCompile.bodyMissingSkipEntries > 0,
+                'body-missing skip cache must keep source-hash scoped entries for later .neplobj replacement',
+            );
+            assert.equal(
+                fourthMaterializedCompile.lastOutcomeCode,
+                0,
+                'a skipped materialized attempt must reset last attempt outcome instead of replaying stale fallback state',
             );
         }
 

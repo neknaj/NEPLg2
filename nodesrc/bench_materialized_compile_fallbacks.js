@@ -100,6 +100,8 @@ function summarizeBenchmarkRuns(runs) {
         materialized_body_missing_fallbacks_delta_sum: bodyMissingFallbacks,
         materialized_non_body_missing_fallbacks_delta_sum: sourceFallbacks - bodyMissingFallbacks,
         neplobj_candidate_body_missing_surfaces_delta_sum: sum(runs.map((run) => numeric(run.materialized_compile?.body_missing_candidate_surfaces_delta))),
+        body_missing_skip_hits_delta_sum: sum(runs.map((run) => numeric(run.materialized_compile?.body_missing_skip_hits_delta))),
+        body_missing_skip_stores_delta_sum: sum(runs.map((run) => numeric(run.materialized_compile?.body_missing_skip_stores_delta))),
         materialized_fallback_diagnostic_code_counts: fallbackDiagnosticCodeCounts(runs),
     };
 }
@@ -121,10 +123,15 @@ function publicRunShape(name, result) {
             source_fallback_failures_delta: deltaOf(result, 'source_fallback_failures'),
             body_missing_fallbacks_delta: deltaOf(result, 'body_missing_fallbacks'),
             body_missing_candidate_surfaces_delta: deltaOf(result, 'body_missing_candidate_surfaces'),
+            body_missing_skip_hits_delta: deltaOf(result, 'body_missing_skip_hits'),
+            body_missing_skip_stores_delta: deltaOf(result, 'body_missing_skip_stores'),
+            body_missing_skip_stale_entries_delta: deltaOf(result, 'body_missing_skip_stale_entries'),
             last_fallback_reason_code: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_fallback_reason_code),
             last_fallback_diagnostic_code: result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_fallback_diagnostic_code || '',
             last_attempted_surfaces: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_materialized_compile_last_attempted_surfaces),
             last_body_missing_candidate_surfaces: numeric(result?.timing?.compiler_session_cache_after?.nepl_obj_candidate_last_body_missing_surfaces),
+            last_body_missing_skip_hits: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_body_missing_skip_last_hits),
+            last_body_missing_skip_stores: numeric(result?.timing?.compiler_session_cache_after?.nepl_meta_body_missing_skip_last_stores),
         },
         stages_ms: {
             resource_typecheck: stageTiming(result, 'resource_typecheck'),

@@ -311,3 +311,21 @@ JSON から直接読める。
 materializer は `ISS-20260601T145100000Z-NEPLMETA-FIELD-ACCESSOR-MATERIALIZER-NEEDED-4F6A0C2B`
 として分離し、`memo_call` / private cache proof / function value identity は引き続きこの materializer
 で bypass しない。
+
+## 2026-06-01 body-missing skip checkpoint
+
+field accessor wrapper arity 修正後、`core/char` fixture は `backend.codegen.materialized_function_body_missing`
+まで到達した。これは typecheck materializer の blocker ではなく、`.neplobj` / `.nepllink` が未実装で
+selected callable body を供給できないための fail-closed fallback である。
+
+この checkpoint では、同じ `CompilerSession` 内で一度 body-missing になった dependency edge を
+`target_source_key_hash` と `dependency_public_surface_hash` で記録し、同じ boundary では再度
+materialized compile へ投機投入しないようにした。`.neplobj` がない間は source merge へ戻し、`.neplobj`
+実装後は同じ key 境界で object fragment availability を見る。
+
+`tmp/neplmeta-body-missing-skip-20260601.json` の実測では、body-missing fallback は warm 3 回中 1 回に
+減り、後続 2 回は `body_missing_skip_hits_delta_sum=10` で既知 body-missing edge を避けた。
+
+この issue の残件は trait / impl materializer と direct-call `.neplobj` の境界を分けたまま維持する。
+function value / indirect call / `memo_call` は、stable codegen artifact と Resource proof が揃うまで
+`.neplmeta` callable だけでは許可しない。
