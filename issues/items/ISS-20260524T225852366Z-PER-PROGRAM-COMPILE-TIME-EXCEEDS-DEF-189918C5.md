@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: performance
 created: 2026-05-24
-updated: 2026-05-31
+updated: 2026-06-01
 target: "nepl-core static check; nodesrc/tests.js; nodesrc/run_doctest.js; tests/stdlib/kp.n.md; stdlib/std/streamio; stdlib/std/stdio"
 ---
 
@@ -96,6 +96,21 @@ Create a fixed per-program benchmark corpus, keep compile_ms and run_ms evidence
 - 同 checkpoint の native release RPN stage-only 測定は `resource_initialized_i32_scalar_summaries=1568ms`、`resource_initialized_raw_init_summaries=2705ms`、`resource_initialized_function_checks=1994ms`、`resource_static_check=7299ms`。前 checkpoint の `resource_static_check=7841ms` から改善したが、初回 0.5 秒未満には引き続き Resource summary value cache と raw init/function check 側の再利用が必要である。
 
 RPN では同一入力の再compileは 10ms 未満になったが、初回 compile はまだ 0.5 秒未満から遠い。次の根本対応は raw init summary / function check の path-sensitive exploration を function hash と dependency aggregate public surface hash で再利用する Resource IR summary cache である。
+
+2026-06-01 の NM CI timeout 調査では、`examples/nm.nepl::doctest#1` の release Web compile が
+`compile_ms=16927`、`resource_static_initialized_moves=14207.1ms`、`resource_static_check=16213.979ms`
+だった。native release stage timing でも `resource_initialized_function_checks` が約 7.5s、
+`resource_initialized_moves` が約 12.6s を占め、`nm_inline_to_json_into`、`nm_inline_to_html`、
+`document_to_json`、`str_trim` などの branch / match / loop を持つ文字列処理が上位に出た。
+これは CI timeout 値だけの問題ではなく、初回 compile の Resource IR initialized-state 探索が
+base compile 目標から大きく外れていることを示す。
+
+同調査では `CellTable::availability_state_by` の ancestor / descendant clone を直接走査へ置き換える
+試行も行ったが、native release の `resource_initialized_moves` が約 12.92s へ悪化したため採用しなかった。
+次の候補は、単一 table の局所 clone 削減ではなく、branch / loop / match の状態 merge と
+summary fixed-point を compile-local bundle / relevance / prechecked artifact 境界へ寄せることである。
+CI の examples doctest は当面 `-j 2` と per-case timeout 60s で headroom を確保するが、これは
+この issue の解決条件ではない。
 
 2026-05-28 の semantic source key checkpoint で、RPN same-session の ordinary comment-only edit は `compile_ms=2`、doccomment text edit は `compile_ms=1` になった。コメント追加・修正は compiled-output cache で 10ms 未満に入ったが、code edit は `compile_ms=8347` の full compile になり、初回 / 実コード微小変更の目標は未達である。
 

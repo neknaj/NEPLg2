@@ -278,7 +278,9 @@ jobs:
                   path: .
 
             - name: Run examples doctests
-              run: timeout --signal=KILL 10m node nodesrc/tests.js -i examples -o examples-tests.json -j 4
+              env:
+                  NEPL_TEST_CASE_TIMEOUT_MS: "60000"
+              run: timeout --signal=KILL 10m node nodesrc/tests.js -i examples -o examples-tests.json -j 2
 
             - name: Upload examples test JSON
               if: always()

@@ -13,6 +13,18 @@
 - stdlib は、generic の具体化以外をできるだけ事前検査済み artifact として扱い、通常 compile では link / instantiate に近い形に寄せる。
 - cache は純粋な query result として扱い、入力 hash、compiler version、target、profile、stdlib artifact hash を key にする。
 
+## CI timeout headroom
+
+CI の timeout や worker 並列度は、性能改善そのものではない。現在の `examples/nm.nepl` は
+初回 compile の `resource_static_initialized_moves` が 10 秒台を占めるため、GitHub Actions の
+`examples-test` では wasm compiler worker を過剰に並列実行すると 20 秒の per-case timeout に
+近づきすぎる。
+
+2026-06-01 の checkpoint では、`examples-test` を `-j 2`、`NEPL_TEST_CASE_TIMEOUT_MS=60000`
+へ変更し、現在の base compile が不安定な CI failure で隠れないようにした。この変更は
+0.5 秒未満 compile 目標の達成ではなく、`ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5`
+の継続作業中に CI の観測面を保つための headroom である。
+
 ## 判明した根本原因
 
 ### Resource IR が未到達 stdlib 関数まで検査していた

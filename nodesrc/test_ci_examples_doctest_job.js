@@ -30,8 +30,13 @@ const examplesJob = jobBlock("examples-test");
 assertContains(examplesJob, "        needs: build", "examples-test must reuse bootstrap build artifacts");
 assertContains(
     examplesJob,
-    "              run: timeout --signal=KILL 10m node nodesrc/tests.js -i examples -o examples-tests.json -j 4",
-    "examples-test must run examples doctests through nodesrc/tests.js",
+    '                  NEPL_TEST_CASE_TIMEOUT_MS: "60000"',
+    "examples-test must keep enough per-case timeout headroom for current nm base compile",
+);
+assertContains(
+    examplesJob,
+    "              run: timeout --signal=KILL 10m node nodesrc/tests.js -i examples -o examples-tests.json -j 2",
+    "examples-test must run examples doctests through nodesrc/tests.js with limited compiler concurrency",
 );
 assertContains(examplesJob, "                  name: bootstrap-build", "examples-test must download bootstrap-build");
 assertContains(examplesJob, "                  name: examples-tests", "examples-test must upload examples-tests artifact");

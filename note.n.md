@@ -48527,6 +48527,15 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `ISS-20260531T035345811Z-SOURCECAPABILITY-NEEDS-PRIVATE-CACHE-5CC3FACF`、`doc/neplg2/private_effect_memoization_purity_design.md`、`doc/neplg2/compiler_performance_cache_design.md`、`todo.md` を更新し、完了した exact use-site 照合と残る fresh region / non-escape proof を分けた。
 - `cargo test -p nepl-core private_cache --lib -- --nocapture` と `cargo test -p nepl-core resource_effect_gate --lib -- --nocapture` は通過した。全体検証はこの checkpoint の最終 verification で実施する。
 
+## 2026-06-01 Agent NM examples CI timeout headroom checkpoint
+
+- remote/main と同期済みの `perf/nm-ci-timeout-headroom-20260601` branch で、GitHub Actions `examples-test` の `examples/nm.nepl::doctest#1` timeout を確認した。`plan.md` は変更していない。
+- Zenn の性能追求方針と試作段階方針を再確認し、timeout 変更を性能改善とは扱わず、初回 compile の Resource IR 探索削減を継続する前提で CI headroom として分離した。
+- subagent review では、`resource_static_initialized_moves` の内部は raw alias / i32 scalar / raw init / collection slot summary と final function check の複合 stage であり、cold compile では cache hit ではなく探索空間削減が必要だと確認した。別 review では `memo_call` は accepted path 拡張より先に private region / non-escape / sealed backend representation の設計を進めるべきだと確認した。
+- local release Web 測定では、`examples/nm.nepl::doctest#1` が `compile_ms=16927`、`resource_static_initialized_moves=14207.1ms`、`resource_static_check=16213.979ms` だった。native release stage timing でも `resource_initialized_function_checks` が約 7.5s、`resource_initialized_moves` が約 12.6s を占め、`nm_inline_to_json_into`、`nm_inline_to_html`、`document_to_json`、`str_trim` などの branch / match / loop を持つ文字列処理が上位だった。
+- `CellTable::availability_state_by` の ancestor / descendant clone を直接走査へ置き換える試行は、`cargo test -p nepl-core cell_state --lib -- --nocapture` は通ったものの、native release の `resource_initialized_moves` が約 12.92s へ悪化したため採用せず戻した。
+- CI 側では `examples-test` だけ `NEPL_TEST_CASE_TIMEOUT_MS=60000` と `-j 2` にし、現在の NM base compile が 20 秒 per-case timeout と `-j 4` の CPU contention で不安定に落ちないようにした。これは `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` の解決ではなく、根本改善を継続するための観測面維持である。
+
 ## 2026-06-01 Agent PrivateCache actual span integration checkpoint
 
 - remote/main と同期済みの `memo/private-cache-span-integration-20260601` branch で、PrivateCache SourceCapability proof span と Resource IR `CallEffect` span の統合を進めた。`plan.md` は変更していない。
