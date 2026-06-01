@@ -5,6 +5,7 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 
 use crate::ast::Effect;
+use crate::effects::PrivateEffectRegion;
 use crate::function_identity::FunctionValueIdentity;
 use crate::types::{TypeCtx, TypeId};
 
@@ -54,7 +55,7 @@ pub(super) fn resource_function_body_hash(
     function: &ResourceFunction,
 ) -> Option<u64> {
     let mut ctx = ResourceFunctionBodyHashContext::new(types, function)?;
-    let mut hash = ResourceSummaryStableHasher::new("neplg2-resource-function-body-v3");
+    let mut hash = ResourceSummaryStableHasher::new("neplg2-resource-function-body-v4");
 
     hash_type_list(&mut hash, &ctx, &function.type_params)?;
     hash_resource_locals(&mut hash, &mut ctx, &function.params)?;
@@ -896,12 +897,12 @@ fn hash_effect_op(hash: &mut ResourceSummaryStableHasher, effect: &EffectOp) {
         EffectOp::PrivateState { operation, region } => {
             hash.write_str("private_state");
             hash.write_str(operation.as_str());
-            hash.write_str(region.as_str());
+            hash_private_effect_region(hash, *region);
         }
         EffectOp::PrivateCache { operation, region } => {
             hash.write_str("private_cache");
             hash.write_str(operation.as_str());
-            hash.write_str(region.as_str());
+            hash_private_effect_region(hash, *region);
         }
         EffectOp::ExternalIo { operation } => {
             hash.write_str("external_io");
@@ -915,6 +916,16 @@ fn hash_effect_op(hash: &mut ResourceSummaryStableHasher, effect: &EffectOp) {
             hash.write_str("unknown");
             hash.write_str(reason.as_str());
         }
+    }
+}
+
+fn hash_private_effect_region(
+    hash: &mut ResourceSummaryStableHasher,
+    region: PrivateEffectRegion,
+) {
+    hash.write_str(region.as_str());
+    if let Some(id) = region.numeric_id() {
+        hash.write_u64(u64::from(id));
     }
 }
 
@@ -1013,6 +1024,7 @@ mod tests {
     use alloc::vec;
     use alloc::vec::Vec;
 
+    use crate::effects::{PrivateCacheOp, PrivateEffectRegion, PrivateEffectRegionId};
     use crate::span::{FileId, Span};
 
     use super::super::super::model::StorageId;
@@ -1122,6 +1134,31 @@ mod tests {
         }
     }
 
+    fn call_effect_body(types: &TypeCtx, effect: EffectOp) -> ResourceFunction {
+        ResourceFunction {
+            name: "effect_holder".into(),
+            origin_name: "effect_holder".into(),
+            type_params: Vec::new(),
+            params: Vec::new(),
+            result: types.i32(),
+            effect: Effect::Pure,
+            entry_block: ResourceBlockId(0),
+            blocks: vec![super::super::super::model::ResourceBlock {
+                id: ResourceBlockId(0),
+                ops: vec![ResourceOp::CallEffect {
+                    effect,
+                    span: Span::dummy(),
+                }],
+                terminator: ResourceTerminator::Return {
+                    value: None,
+                    span: Span::dummy(),
+                },
+                span: Span::dummy(),
+            }],
+            span: Span::dummy(),
+        }
+    }
+
     #[test]
     fn resource_function_body_hash_ignores_spans() {
         let types = TypeCtx::new();
@@ -1153,6 +1190,32 @@ mod tests {
         let second = simple_function(&types, 99, 1, 0);
 
         assert_eq!(
+            resource_function_body_hash(&types, &first),
+            resource_function_body_hash(&types, &second)
+        );
+    }
+
+    /// Resource summary proof の再利用では、operation と Resource IR body が同じでも
+    /// sealed private cache region が違えば別 proof として扱う必要がある。
+    #[test]
+    fn resource_function_body_hash_tracks_private_cache_region_identity() {
+        let types = TypeCtx::new();
+        let first = call_effect_body(
+            &types,
+            EffectOp::PrivateCache {
+                operation: PrivateCacheOp::Lookup,
+                region: PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
+            },
+        );
+        let second = call_effect_body(
+            &types,
+            EffectOp::PrivateCache {
+                operation: PrivateCacheOp::Lookup,
+                region: PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(2)),
+            },
+        );
+
+        assert_ne!(
             resource_function_body_hash(&types, &first),
             resource_function_body_hash(&types, &second)
         );

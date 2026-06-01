@@ -605,6 +605,61 @@ pub fn check_module_with_source_map(
     Ok(())
 }
 
+/// 依存 module 用の `.neplmeta` interface artifact だけを生成する。
+///
+/// この経路は typecheck までで止まり、Resource IR 検査、drop 挿入、wasm codegen は実行しない。
+/// `.neplmeta` は依存側の名前解決・型検査へ渡す公開 interface を保存する artifact であり、
+/// body の安全性 proof や実行コードの authority ではないためである。source identity は
+/// loader が target module 単位で計算した値を受け取り、dependency edge probe と同じ
+/// invalidation 境界に固定する。
+pub fn compile_nepl_meta_artifact_with_source_identity(
+    module: ast::Module,
+    source_map: Option<&SourceMap>,
+    options: CompileOptions,
+    dependency_public_surface_hash: Option<u64>,
+    module_surface: Option<&crate::artifact::NeplMetaModuleSurface>,
+    stdlib_content_hash: Option<u64>,
+    source_key_hash: u64,
+    source_capability_policy_set_hash: Option<u64>,
+) -> Result<crate::artifact::NeplMetaArtifact, CoreError> {
+    crate::log::set_verbose(options.verbose);
+    let target = resolve_target(&module, options)?;
+    if matches!(target, CompileTarget::Llvm) {
+        let mut diags = Vec::new();
+        diags.push(Diagnostic::error_with_code(
+            DiagnosticCode::Backend(BackendDiagnosticCode::TargetRequiresCli),
+            "llvm target is CLI-only and does not produce wasm-session .neplmeta artifacts",
+            Span::dummy(),
+        ));
+        return Err(CoreError::from_diagnostics(diags));
+    }
+    let profile = options
+        .profile
+        .unwrap_or(BuildProfile::default_source_profile());
+    let precheck_diags =
+        crate::target_precheck::precheck_module_before_codegen(&module, target, profile);
+    if precheck_diags
+        .iter()
+        .any(|d| matches!(d.severity, crate::diagnostic::Severity::Error))
+    {
+        return Err(CoreError::from_diagnostics(precheck_diags));
+    }
+    let typed = run_typecheck(&module, target, profile, source_map)?;
+    Ok(
+        crate::artifact::NeplMetaArtifact::from_public_surface_and_module_surface_with_source_identity(
+            target,
+            profile,
+            stdlib_content_hash,
+            dependency_public_surface_hash,
+            source_key_hash,
+            source_capability_policy_set_hash,
+            typed.public_signatures,
+            module_surface.cloned(),
+            typed.public_surface,
+        ),
+    )
+}
+
 /// ソーステキストから wasm を生成する。
 ///
 /// lexer/parser の診断がある場合は早期にエラーを返し、
@@ -830,6 +885,23 @@ pub fn resource_summary_source_capability_policy_set_hash(
         resource_summary_cache_hash_u64(&mut hash, policy_hash);
     }
     Some(hash)
+}
+
+/// 1つの source file だけを対象にした capability policy set hash を作る。
+///
+/// dependency edge artifact の事前照合では、root compile 全体の `SourceMap` ではなく target
+/// module file の source capability policy だけを boundary にする。dependency の公開面変更は
+/// `dependency_public_surface_hash` で別に invalidation する。
+pub fn resource_summary_source_capability_policy_set_hash_for_single_file(
+    path: &str,
+    policy_hash: u64,
+) -> u64 {
+    let mut hash = 0xcbf29ce484222325;
+    resource_summary_cache_hash_str(&mut hash, RESOURCE_SUMMARY_PROOF_HEADER_HASH_VERSION);
+    resource_summary_cache_hash_str(&mut hash, "source-capability-policy-set");
+    resource_summary_cache_hash_str(&mut hash, path);
+    resource_summary_cache_hash_u64(&mut hash, policy_hash);
+    hash
 }
 
 fn resource_summary_proof_hash_tag(domain: &str, value: &str) -> u64 {
@@ -1382,7 +1454,7 @@ fn resource_borrow_conflict_message(
 mod tests {
     use super::*;
     use crate::diagnostic_codes::EffectDiagnosticCode;
-    use crate::effects::PrivateEffectRegion;
+    use crate::effects::{PrivateEffectRegion, PrivateEffectRegionId};
     use crate::resource::{
         BorrowState, CellState, OwnerState, Place, PrivateCacheOp, RawAddressAliasKind,
         RawAddressViewKind, RawMemoryOp, ResourceBorrowDiagnostic, ResourceBorrowOperation,
@@ -1415,9 +1487,21 @@ mod tests {
     }
 
     fn private_cache_capabilities(operation: PrivateCacheOp, span: Span) -> SourceCapabilities {
+        private_cache_capabilities_in_region(
+            operation,
+            PrivateEffectRegion::UnsealedIntrinsic,
+            span,
+        )
+    }
+
+    fn private_cache_capabilities_in_region(
+        operation: PrivateCacheOp,
+        region: PrivateEffectRegion,
+        span: Span,
+    ) -> SourceCapabilities {
         use_site_capabilities(SourceCapabilityUseSite::PrivateCacheBoundary {
             operation,
-            region: crate::effects::PrivateEffectRegion::UnsealedIntrinsic,
+            region,
             span: SourceCapabilitySpan::from_span(span),
         })
     }
@@ -1771,8 +1855,10 @@ mod tests {
     }
 
     /// prepare phase は `.neplmeta` の public interface artifact も生成する。
-    /// `.neplmeta` は typed public signature table と compile context hash だけを持ち、
-    /// typed HIR や `TypeId` を保存しないため、body-only edit では hash が変わらない。
+    /// `.neplmeta` は typed public signature と compile context hash だけを持つ。
+    /// typed HIR や `TypeId` を保存しないため、body-only edit では public signature hash が
+    /// 変わらない。loader 由来の module surface がない prepare path では source key を
+    /// 作らず、materializer / body skip 側で fail-closed に扱う。
     #[test]
     fn prepare_exposes_neplmeta_artifact_for_public_interface() {
         let first_source = "pub fn answer %fn unit i32 \\unit:\n    1\n";
@@ -1819,6 +1905,8 @@ mod tests {
                 .header()
                 .typed_public_signature_hash
         );
+        assert_eq!(first.nepl_meta_artifact.header().source_key_hash, None);
+        assert_eq!(second.nepl_meta_artifact.header().source_key_hash, None);
         assert_eq!(
             first
                 .nepl_meta_artifact
@@ -2386,24 +2474,26 @@ mod tests {
 
     #[test]
     fn resource_effect_gate_allows_private_cache_inside_exact_private_cache_boundary() {
-        let mut source_map = SourceMap::new();
-        let cache_file = source_map.add("stdlib/core/memo/internal.nepl", String::new());
-        let span = Span::new(cache_file, 10, 30);
-        source_map.set_capabilities(
-            cache_file,
-            private_cache_capabilities(PrivateCacheOp::Lookup, span),
-        );
-        let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
-            function: String::from("memo_backend_lookup"),
-            operation: PrivateCacheOp::Lookup,
-            region: PrivateEffectRegion::UnsealedIntrinsic,
-            span,
-        };
+        for operation in PrivateCacheOp::ALL {
+            let mut source_map = SourceMap::new();
+            let cache_file = source_map.add("stdlib/core/memo/internal.nepl", String::new());
+            let span = Span::new(cache_file, 10, 30);
+            source_map.set_capabilities(cache_file, private_cache_capabilities(operation, span));
+            let diagnostic = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+                function: String::from("memo_backend"),
+                operation,
+                region: PrivateEffectRegion::UnsealedIntrinsic,
+                span,
+            };
 
-        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
-            &diagnostic,
-            Some(&source_map),
-        ));
+            assert!(
+                resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                    &diagnostic,
+                    Some(&source_map),
+                ),
+                "{operation} must be allowed only by its exact private-cache boundary"
+            );
+        }
     }
 
     #[test]
@@ -2438,6 +2528,58 @@ mod tests {
         assert!(
             !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
                 &span_mismatch,
+                Some(&source_map),
+            )
+        );
+    }
+
+    /// sealed private cache region は proof identity であり、file / span /
+    /// operation が一致しても別 region の境界へ拡張してはならない。
+    #[test]
+    fn resource_effect_gate_rejects_private_cache_region_mismatch() {
+        let mut source_map = SourceMap::new();
+        let cache_file = source_map.add("stdlib/core/memo/internal.nepl", String::new());
+        let span = Span::new(cache_file, 10, 30);
+        source_map.set_capabilities(
+            cache_file,
+            private_cache_capabilities_in_region(
+                PrivateCacheOp::Lookup,
+                PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
+                span,
+            ),
+        );
+        let matching_region = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("memo_backend_lookup"),
+            operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(1)),
+            span,
+        };
+        let mismatched_region = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("memo_backend_lookup"),
+            operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::SealedCompilerPrivateCache(PrivateEffectRegionId(2)),
+            span,
+        };
+        let unsealed_region = ResourceEffectBoundaryDiagnostic::PrivateCacheOutsideBoundary {
+            function: String::from("memo_backend_lookup"),
+            operation: PrivateCacheOp::Lookup,
+            region: PrivateEffectRegion::UnsealedIntrinsic,
+            span,
+        };
+
+        assert!(resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+            &matching_region,
+            Some(&source_map),
+        ));
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &mismatched_region,
+                Some(&source_map),
+            )
+        );
+        assert!(
+            !resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
+                &unsealed_region,
                 Some(&source_map),
             )
         );
@@ -2668,6 +2810,10 @@ fn resource_effect_boundary_diagnostic_span(
             span,
             ..
         }
+        | crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheRegionEscape {
+            span,
+            ..
+        }
         | crate::resource::ResourceEffectBoundaryDiagnostic::UnknownEffect { span, .. } => {
             Some(*span)
         }
@@ -2760,6 +2906,9 @@ fn resource_effect_boundary_diagnostic_is_raw_boundary_allowed(
         } => source_map
             .map(|map| raw_identity_escape_allowed(*operation, *origin_span, map))
             .unwrap_or(false),
+        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheRegionEscape { .. } => {
+            false
+        }
         crate::resource::ResourceEffectBoundaryDiagnostic::ImpureCallInPureFunction { .. } => false,
         crate::resource::ResourceEffectBoundaryDiagnostic::PrivateStateInPureFunction {
             ..
@@ -2940,6 +3089,19 @@ fn resource_effect_boundary_diagnostic_to_error(
             format!(
                 "pure function '{}' returns raw address identity from internal {:?}",
                 function, operation
+            ),
+            *span,
+        ),
+        crate::resource::ResourceEffectBoundaryDiagnostic::PrivateCacheRegionEscape {
+            function,
+            region,
+            place,
+            span,
+        } => Diagnostic::error_with_code(
+            code,
+            format!(
+                "function '{}' lets private cache region '{}' escape through returned place {:?}",
+                function, region, place
             ),
             *span,
         ),

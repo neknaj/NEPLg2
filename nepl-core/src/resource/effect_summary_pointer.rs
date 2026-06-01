@@ -15,6 +15,8 @@ use super::effect_summary_seed::parameter_summary_seed_places;
 use super::function_alias::FunctionAliasTable;
 use super::model::{Place, ResourceFunction, ResourceModule, ResourceTerminator};
 use super::place_utils::place_suffix_after_prefix;
+use super::private_cache_mask::PrivateCacheMaskProofIndex;
+use super::private_cache_taint::PrivateCacheRegionTaintTable;
 use super::raw_pointer_type::type_can_carry_raw_pointer_alias_summary;
 use super::summary_worklist::SummaryWorklist;
 use crate::types::TypeCtx;
@@ -158,12 +160,14 @@ fn function_returned_pointer_alias_projections(
         types,
         track_alloc_identities: false,
         propagate_return_provenance: true,
+        private_cache_mask_proofs: &PrivateCacheMaskProofIndex::empty(),
         diagnostics: Vec::new(),
         counts: ResourceEffectCounts::default(),
     };
     let mut identities = RawIdentityTable::default();
     let mut function_aliases = FunctionAliasTable::default();
     let mut raw_memory_identities = RawMemoryIdentityTable::default();
+    let mut private_cache_taints = PrivateCacheRegionTaintTable::default();
     let mut projections = Vec::new();
     for block in &function.blocks {
         engine.check_ops(
@@ -171,6 +175,7 @@ fn function_returned_pointer_alias_projections(
             &mut pointer_aliases,
             &mut function_aliases,
             &mut raw_memory_identities,
+            &mut private_cache_taints,
             &block.ops,
         );
         if let ResourceTerminator::Return {

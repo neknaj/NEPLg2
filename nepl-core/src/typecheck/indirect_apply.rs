@@ -19,6 +19,14 @@ pub(super) fn apply_indirect_function_call(
 ) -> Option<StackEntry> {
     let allow_indirect = match &func.expr.kind {
         HirExprKind::FnValue(identity) | HirExprKind::MemoizedFunctionValue(identity) => {
+            if identity.def_id.is_none() {
+                checker.diagnostics.push(type_error(
+                    TypeDiagnosticCode::FunctionValueUnresolvedIdentity,
+                    "function value requires a resolved named function identity",
+                    func.expr.span,
+                ));
+                return None;
+            }
             let has_capture = checker
                 .env
                 .lookup_all_callables_by_symbol(identity.symbol())
@@ -41,6 +49,23 @@ pub(super) fn apply_indirect_function_call(
             if !matches!(checker.ctx.get(func.ty), TypeKind::Function { .. }) {
                 false
             } else {
+                if checker.env.lookup_value(name).is_none() {
+                    let has_unresolved_identity =
+                        checker.env.lookup_all_callables(name).iter().any(|b| {
+                            matches!(
+                                &b.kind,
+                                BindingKind::Func { def_id: None, captures, .. } if captures.is_empty()
+                            )
+                        });
+                    if has_unresolved_identity {
+                        checker.diagnostics.push(type_error(
+                            TypeDiagnosticCode::FunctionValueUnresolvedIdentity,
+                            "function value requires a resolved named function identity",
+                            func.expr.span,
+                        ));
+                        return None;
+                    }
+                }
                 let has_capture = checker
                     .env
                     .lookup_all_callables(name)

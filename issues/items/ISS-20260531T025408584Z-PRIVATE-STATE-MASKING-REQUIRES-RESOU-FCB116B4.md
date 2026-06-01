@@ -47,6 +47,17 @@ Add a Resource IR proof domain for fresh private regions, derived pointer/refere
 - `PrivateCache rho` は `rho` が fresh / non-escaping と証明されるまで `Pure` へ fold しない。
 - raw memory operation は直接 `Pure` へ戻さず、trusted private capability と provenance によって `PrivateCache rho` へ分類できる場合だけ mask 対象にする。
 
+## 2026-06-01 sealed memo cache proof split
+
+`memo_call` の sealed private cache region proof を子 issue
+`ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7` として分離した。
+
+この親 issue は一般の private state masking を扱う umbrella として open のまま維持する。
+`UnsealedIntrinsic` は trusted use-site provenance であり、mask 済み region ではない。
+`PrivateCache` を Pure へ fold できるのは、sealed fresh region が return value、global、
+public field、reference、raw pointer、owner token、function identity、stats / clear / hit-miss
+observation へ escape しないことを Resource IR が証明した場合だけである。
+
 ## 検証
 
 Focused Resource IR tests that accept non-escaping private cache operations and reject returning cache, cache references, raw pointers, stats, clear handles, or passing private cache to impure/unknown calls.

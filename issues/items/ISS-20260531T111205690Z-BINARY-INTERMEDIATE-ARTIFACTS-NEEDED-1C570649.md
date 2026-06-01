@@ -177,3 +177,136 @@ subagent review により、`.neplmeta` から base compile time を下げる次
 artifact 形状が変わったため `.neplmeta` schema / hash / compiler identity は v2 にした。Web stats では structured public surface hash と entry count を観測できるが、payload 本体は公開しない。
 
 この checkpoint は body skip ではない。subagent review の指摘に基づき、`Named(String)`、名前だけの generic param、span-derived callable symbol は materializer authority にしない。次は stable nominal identity、binder-indexed generic parameter reference、stable public ABI/link symbol、field accessor surface を足してから typecheck materializer へ進む。
+
+## 2026-06-01 checkpoint 8
+
+`.neplmeta` header に `source_key_hash` を追加した。これは public surface や typed public signature が
+変わらない body-only edit でも、保存済み artifact が現在 source に由来しない場合は import
+materializer や body skip へ進まないようにする invalidation 境界である。
+
+`source_key_hash` は `compiled_source_cache_key_part` から作るため、通常コメントや doc comment、
+span だけの変更では同じ値になる。一方で literal、identifier、directive、indent / dedent、
+raw wasm / llvm text など compile 結果に影響し得る token が変わると値が変わる。
+
+`SourceMap` または canonical module path がない artifact は `source_key_hash=None` になり、
+body skip の authority にはしない。Web stats には `nepl_meta_artifact_source_key_hash` を追加し、
+payload や source text を出さずに stale-hit 防止境界だけを観測できるようにした。
+
+追加修正として、typed public signature / structured public surface を要求しない
+`NeplMetaArtifactPreTypecheckEnvelope` を追加した。body skip 前は依存先 body をまだ typecheck
+していないため、expected header を full typed artifact から作れない。この envelope は
+target/profile、stdlib、dependency public surface、module surface、source capability policy、
+private effect policy、source key だけを照合し、payload decode 前の fail-closed gate として使う。
+
+また、`source_key_hash=None` の artifact は `NeplMetaArtifactStore` と materializer MVP が
+`MissingSourceKey` として拒否する。これにより `None == None` で source identity を証明できない
+artifact が compatible 扱いになる経路を閉じた。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `node tests\compiler\tree\run.js`
+
+## 2026-06-01 checkpoint 9
+
+`.neplmeta` store projection に pre-typecheck envelope 用 API を追加した。
+`materializer_import_public_surface_pre_typecheck_mvp` は full typed header を要求せず、
+loader/source map 由来の `NeplMetaArtifactPreTypecheckEnvelope` で artifact header を先に照合する。
+
+この API は `.neplmeta` を body skip に使う実装ではない。成功時に返すのは materializer 入力の
+`TypedPublicSurfaceTable` だけであり、依存 module AST inline、typecheck、Resource IR proof は
+従来通り実行される。目的は、loader/import/prelude boundary で「この edge の public callable
+surface は artifact から復元可能か」を fail-closed に観測することである。
+
+source key、dependency public surface、module surface の mismatch は
+`NeplMetaArtifactCompatibilityReject` の enum reason として拒否する。projection unsupported や
+payload inconsistency も既存 reason で区別する。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
+
+## 2026-06-01 checkpoint 10
+
+`.neplmeta` pre-typecheck projection probe の観測統計を追加した。store 全体の `hits` は
+「artifact が module path で見つかった」ことだけを表すため、performance 判断では
+projection success と reject reason を別に見る必要がある。
+
+追加した統計:
+
+- `pre_typecheck_probe_attempts`
+- `pre_typecheck_probe_projected`
+- `pre_typecheck_probe_missing_artifacts`
+- `pre_typecheck_probe_payload_rejects`
+- `pre_typecheck_probe_compatibility_rejects`
+- `pre_typecheck_probe_projection_rejects`
+- `pre_typecheck_probe_projected_entries`
+- `last_pre_typecheck_probe_reject_kind`
+- `last_pre_typecheck_probe_reject_code`
+- `last_pre_typecheck_probe_projected_entries`
+
+compatibility / payload / projection reject enum には stable code を追加した。これは disk / IndexedDB
+codec や Web benchmark から、fallback reason を文字列に依存せず集計するための中間 artifact
+仕様である。通常 compile path はまだ probe を呼ばないため、今回の変更は body skip や import
+materializer 接続を開始しない。
+
+追加検証:
+
+- `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`
+- `cargo test -p nepl-core neplmeta --lib -- --nocapture`
+- `node tests\compiler\tree\run.js`
+
+## 2026-06-01 checkpoint 11
+
+`.neplmeta` pre-typecheck projection probe を Web `CompilerSession` の実 compile path へ接続した。
+
+現段階では root module artifact だけを観測する。compile 成功時に store 済みの前回 root artifact が
+存在する場合、loader/source-map 由来の `NeplMetaArtifactPreTypecheckEnvelope` を作り、
+`materializer_import_public_surface_pre_typecheck_mvp` で compatibility と projection を確認する。
+結果は stats にだけ反映し、依存 module AST inline 省略や typecheck materializer 接続は行わない。
+
+この checkpoint の意味:
+
+- 中間 artifact が「存在するだけ」では高速化の根拠にならないため、pre-typecheck envelope で
+  再利用可能性を測る実 compile path の観測点を作った。
+- dependency body-only edit では、root source key と dependency public surface が不変でも、
+  現 payload の materializer blocker が残る artifact は projection reject として数えられる。
+- root source literal edit では typed public signature が不変でも source key mismatch で拒否され、
+  projection 判定へ進まない。
+
+次の `.neplmeta` 作業は、subagent review に従い `Loader::process_directives_with` の import/prelude
+edge 単位の probe hook へ進める。そこでは prelude は `import_clause=None`、import は loader が持つ
+`NeplMetaImportClause` を渡し、`Include` は引き続き artifact 境界にしない。
+
+## 2026-06-01 checkpoint 12
+
+Web `CompilerSession` に stdlib dependency `.neplmeta` artifact producer を追加した。
+
+この producer は、store が空でない compile で収集された import/prelude edge probe を入力にする。
+初回 compile では edge probe を収集しないため、base compile の固定費を増やさない。二回目以降の
+compile で edge target が missing artifact として観測された後、compile 成功時にその bundled stdlib
+module を non-root dependency として読み直し、typecheck までで止めた `.neplmeta` artifact を store へ
+追加する。
+
+重要な境界:
+
+- `compile_nepl_meta_artifact_with_source_identity` は Resource IR、drop 挿入、wasm codegen を実行しない。
+  `.neplmeta` は公開 interface artifact であり、body safety proof や executable object ではない。
+- target source key と source capability policy は root `SourceMap` からではなく、edge probe が target
+  source 単位で計算した値を header へ固定する。
+- `std/prelude_base` を root として読み直すと既定 prelude 注入により自己循環するため、
+  `Loader::load_dependency_inline_with_provider_and_cache` で non-root load する。
+- stdlib overlay / `/stdlib` VFS override、non-stdlib import、`#include` は producer 対象にしない。
+- store に同じ pre-typecheck envelope と互換な artifact が既にある場合は、統計を汚さず再 typecheck を
+  避ける。
+
+この checkpoint でも `TypedPublicSurfaceTable` の `TypeCtx` / `Env` 注入、依存 module AST inline 省略、
+Resource IR skip、codegen skip は行わない。固定した観測は、三回目の同一 edge probe で missing artifact が
+増えず、現在の materializer MVP の未対応 surface が projection reject として見えることである。
+
+追加検証:
+
+- `cargo check -p nepl-core -p nepl-language`
+- `cargo check --manifest-path nepl-web\Cargo.toml`
+- `trunk build --release`
+- `node tests\compiler\tree\run.js`

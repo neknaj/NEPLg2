@@ -1,12 +1,13 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::ast::{Effect, Visibility};
+use crate::backend_scalar_type::BackendScalarType;
 use crate::source_map::SourceMap;
 use crate::types::{NominalStableTypeKind, TypeCtx, TypeId, TypeKind};
 
@@ -20,12 +21,14 @@ use super::FieldAccessorKind;
 const FNV1A64_OFFSET: u64 = 0xcbf29ce484222325;
 const FNV1A64_PRIME: u64 = 0x100000001b3;
 
-/// Arena-independent public surface used by `.neplmeta`.
+/// Arena-independent semantic surface used by `.neplmeta`.
 ///
-/// This table keeps structured entries that a later materializer can project
-/// into a fresh `TypeCtx` and `Env`. It intentionally avoids `TypeId`, `Span`,
-/// `SourceMap`, HIR, Resource IR, and diagnostics. Those values belong to one
-/// compiler session and must not become persistent artifact authority.
+/// This table keeps exported public entries and the dependency-local semantic
+/// entries that those exports need for typechecking, such as private capability
+/// traits referenced by impl headers. A later materializer can project the table
+/// into a fresh `TypeCtx` and `Env`. The table intentionally avoids `TypeId`,
+/// `Span`, `SourceMap`, HIR, Resource IR, and diagnostics. Those values belong
+/// to one compiler session and must not become persistent artifact authority.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TypedPublicSurfaceTable {
     pub entries: Vec<TypedPublicSurfaceEntry>,
@@ -94,10 +97,35 @@ pub enum PublicSurfaceMaterializerBlockerReason {
     TraitSelfOutsideTraitMethod,
 }
 
+impl PublicSurfaceMaterializerBlockerReason {
+    /// Web playground や regression test が文字列解析なしに blocker を分類するための
+    /// stable code。
+    ///
+    /// この code は user diagnostic の表示文ではなく、`.neplmeta` materializer が
+    /// fail-closed で source fallback へ戻った理由を性能調査用に集計する境界である。
+    pub fn code(&self) -> u32 {
+        match self {
+            Self::MissingStructIdentity => 1,
+            Self::MissingEnumIdentity => 2,
+            Self::MissingNamedTypeIdentity { .. } => 3,
+            Self::MissingCallableLinkSymbol { .. } => 4,
+            Self::UnboundGenericParam { .. } => 5,
+            Self::UnboundTraitBoundTarget { .. } => 6,
+            Self::MissingTraitIdentity { .. } => 7,
+            Self::TraitSelfOutsideTraitMethod => 8,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TypedPublicSurfaceEntry {
     pub kind: TypedPublicSignatureKind,
     pub name: String,
+    /// import 先の visible namespace へ公開できる entry かを示す。
+    ///
+    /// `false` の entry は private capability trait などの semantic support surface である。
+    /// dependency typecheck の復元には必要だが、`.neplmeta` export surface へ出してはならない。
+    pub exported: bool,
     pub surface: PublicSurfaceShape,
 }
 
@@ -321,10 +349,11 @@ pub enum PublicStructConstructorPolicy {
 
 fn typed_public_surface_hash(entries: &[TypedPublicSurfaceEntry]) -> u64 {
     let mut hash = FNV1A64_OFFSET;
-    hash_str(&mut hash, "neplg2-typed-public-surface-v7");
+    hash_str(&mut hash, "neplg2-typed-public-surface-v8");
     for entry in entries {
         hash_str(&mut hash, entry.kind.as_str());
         hash_str(&mut hash, entry.name.as_str());
+        hash_bool(&mut hash, entry.exported);
         hash_public_surface_shape(&mut hash, &entry.surface);
     }
     hash
@@ -564,13 +593,15 @@ fn collect_type_term_materializer_blockers(
         }
         PublicTypeTerm::Named { name, identity } => {
             if identity.is_none() {
-                push_materializer_blocker(
-                    entry,
-                    PublicSurfaceMaterializerBlockerReason::MissingNamedTypeIdentity {
-                        type_name: name.clone(),
-                    },
-                    blockers,
-                );
+                if BackendScalarType::from_name(name.as_str()).is_none() {
+                    push_materializer_blocker(
+                        entry,
+                        PublicSurfaceMaterializerBlockerReason::MissingNamedTypeIdentity {
+                            type_name: name.clone(),
+                        },
+                        blockers,
+                    );
+                }
             }
         }
         PublicTypeTerm::UnboundGenericParam(param) => {
@@ -825,6 +856,177 @@ fn hash_bytes(hash: &mut u64, bytes: &[u8]) {
     }
 }
 
+struct PublicNominalDefinitionHasher {
+    state: u64,
+}
+
+impl PublicNominalDefinitionHasher {
+    fn new(namespace: &str) -> Self {
+        let mut hasher = Self {
+            state: FNV1A64_OFFSET,
+        };
+        hasher.write_str(namespace);
+        hasher
+    }
+
+    fn write_str(&mut self, value: &str) {
+        self.write_usize(value.len());
+        for byte in value.as_bytes() {
+            self.write_u8(*byte);
+        }
+    }
+
+    fn write_usize(&mut self, value: usize) {
+        self.write_u64(value as u64);
+    }
+
+    fn write_u64(&mut self, value: u64) {
+        for byte in value.to_le_bytes() {
+            self.write_u8(byte);
+        }
+    }
+
+    fn write_bool(&mut self, value: bool) {
+        self.write_u8(u8::from(value));
+    }
+
+    fn write_u8(&mut self, value: u8) {
+        self.state ^= u64::from(value);
+        self.state = self.state.wrapping_mul(FNV1A64_PRIME);
+    }
+
+    fn finish(self) -> u64 {
+        self.state
+    }
+}
+
+fn hash_public_nominal_type_params(
+    hash: &mut PublicNominalDefinitionHasher,
+    params: &[PublicTypeParam],
+) -> Option<()> {
+    hash.write_usize(params.len());
+    for param in params {
+        hash_public_nominal_type_param(hash, param);
+    }
+    Some(())
+}
+
+fn hash_public_nominal_type_param(
+    hash: &mut PublicNominalDefinitionHasher,
+    param: &PublicTypeParam,
+) {
+    hash.write_str("var");
+    hash.write_str(param.name.as_str());
+    hash.write_bool(param.copy_cap);
+    hash.write_bool(param.clone_cap);
+    hash.write_bool(param.drop_cap);
+}
+
+fn hash_public_nominal_type_list<'a>(
+    hash: &mut PublicNominalDefinitionHasher,
+    items: &'a [PublicTypeTerm],
+    binders: &mut Vec<&'a [PublicTypeParam]>,
+) -> Option<()> {
+    hash.write_usize(items.len());
+    for item in items {
+        hash_public_nominal_type_surface(hash, item, binders)?;
+    }
+    Some(())
+}
+
+fn hash_public_nominal_type_surface<'a>(
+    hash: &mut PublicNominalDefinitionHasher,
+    term: &'a PublicTypeTerm,
+    binders: &mut Vec<&'a [PublicTypeParam]>,
+) -> Option<()> {
+    match term {
+        PublicTypeTerm::Unit => hash.write_str("unit"),
+        PublicTypeTerm::I32 => hash.write_str("i32"),
+        PublicTypeTerm::U8 => hash.write_str("u8"),
+        PublicTypeTerm::F32 => hash.write_str("f32"),
+        PublicTypeTerm::Bool => hash.write_str("bool"),
+        PublicTypeTerm::Char => hash.write_str("char"),
+        PublicTypeTerm::Str => hash.write_str("str"),
+        PublicTypeTerm::Never => hash.write_str("never"),
+        PublicTypeTerm::TraitSelf | PublicTypeTerm::UnboundGenericParam(_) => return None,
+        PublicTypeTerm::Named { name, identity } => match identity {
+            Some(identity) => {
+                hash.write_str(public_nominal_identity_stable_key_component(identity).as_str());
+            }
+            None => {
+                let scalar = BackendScalarType::from_name(name.as_str())?;
+                hash.write_str("backend-scalar");
+                hash.write_str(scalar.source_name());
+            }
+        },
+        PublicTypeTerm::GenericParam(param_ref) => {
+            let param = public_nominal_type_param_ref(binders, param_ref)?;
+            hash_public_nominal_type_param(hash, param);
+        }
+        PublicTypeTerm::Tuple(items) => {
+            hash.write_str("tuple");
+            hash_public_nominal_type_list(hash, items, binders)?;
+        }
+        PublicTypeTerm::Function {
+            type_params,
+            params,
+            result,
+            effect,
+        } => {
+            hash.write_str("fn");
+            hash.write_str(match effect {
+                PublicEffect::Pure => "pure",
+                PublicEffect::Impure => "impure",
+            });
+            hash_public_nominal_type_params(hash, type_params)?;
+            binders.push(type_params);
+            hash_public_nominal_type_list(hash, params, binders)?;
+            hash_public_nominal_type_surface(hash, result, binders)?;
+            binders.pop();
+        }
+        PublicTypeTerm::Apply { base, args } => {
+            hash.write_str("apply");
+            hash_public_nominal_type_surface(hash, base, binders)?;
+            hash_public_nominal_type_list(hash, args, binders)?;
+        }
+        PublicTypeTerm::Boxed(inner) => {
+            hash.write_str("box");
+            hash_public_nominal_type_surface(hash, inner, binders)?;
+        }
+        PublicTypeTerm::Reference { inner, mutable } => {
+            hash.write_str("ref");
+            hash.write_bool(*mutable);
+            hash_public_nominal_type_surface(hash, inner, binders)?;
+        }
+    }
+    Some(())
+}
+
+fn public_nominal_type_param_ref<'a>(
+    binders: &'a [&[PublicTypeParam]],
+    param_ref: &PublicTypeParamRef,
+) -> Option<&'a PublicTypeParam> {
+    let binder_depth = param_ref.binder_depth as usize;
+    let index = param_ref.index as usize;
+    let binder_index = binders.len().checked_sub(1 + binder_depth)?;
+    binders.get(binder_index)?.get(index)
+}
+
+fn public_nominal_identity_stable_key_component(identity: &PublicNominalTypeIdentity) -> String {
+    format!(
+        "nominal(kind={},path={},name={},arity={},hash={:016x})",
+        public_nominal_type_kind_tag(identity.kind),
+        public_stable_text_component(identity.source_path.as_str()),
+        public_stable_text_component(identity.name.as_str()),
+        identity.arity,
+        identity.definition_hash
+    )
+}
+
+fn public_stable_text_component(text: &str) -> String {
+    format!("{}:{text}", text.len())
+}
+
 fn public_effect_from_ast(effect: Effect) -> PublicEffect {
     match effect {
         Effect::Pure => PublicEffect::Pure,
@@ -906,13 +1108,36 @@ pub(super) fn build_typed_public_surface_table(
     traits: &BTreeMap<String, TraitInfo>,
     impls: &[ImplInfo],
 ) -> TypedPublicSurfaceTable {
+    build_typed_public_surface_table_excluding_files(
+        ctx,
+        source_map,
+        env,
+        structs,
+        enums,
+        traits,
+        impls,
+        &BTreeSet::new(),
+    )
+}
+
+pub(super) fn build_typed_public_surface_table_excluding_files(
+    ctx: &TypeCtx,
+    source_map: Option<&SourceMap>,
+    env: &Env,
+    structs: &BTreeMap<String, StructInfo>,
+    enums: &BTreeMap<String, EnumInfo>,
+    traits: &BTreeMap<String, TraitInfo>,
+    impls: &[ImplInfo],
+    excluded_files: &BTreeSet<u32>,
+) -> TypedPublicSurfaceTable {
     let mut entries = Vec::new();
+    let mut semantic_trait_names = BTreeMap::new();
     if let Some(global_scope) = env.scopes.first() {
-        for binding in global_scope
-            .callables
-            .iter()
-            .filter(|binding| binding.defined && binding.visibility == Visibility::Pub)
-        {
+        for binding in global_scope.callables.iter().filter(|binding| {
+            binding.defined
+                && binding.visibility == Visibility::Pub
+                && !excluded_files.contains(&binding.span.file_id.0)
+        }) {
             if let BindingKind::Func {
                 effect,
                 arity,
@@ -922,9 +1147,11 @@ pub(super) fn build_typed_public_surface_table(
             } = &binding.kind
             {
                 let ty = public_type_term(ctx, binding.ty, &BTreeMap::new());
+                collect_bound_env_trait_names(type_param_bounds, &mut semantic_trait_names);
                 entries.push(TypedPublicSurfaceEntry {
                     kind: TypedPublicSignatureKind::Callable,
                     name: binding.name.clone(),
+                    exported: true,
                     surface: PublicSurfaceShape::Callable(PublicCallableSurface {
                         ty: ty.clone(),
                         no_shadow: binding.no_shadow,
@@ -944,46 +1171,76 @@ pub(super) fn build_typed_public_surface_table(
             }
         }
     }
-    for (name, info) in structs
-        .iter()
-        .filter(|(_, info)| info.visibility == Visibility::Pub)
-    {
+    for (name, info) in structs.iter().filter(|(_, info)| {
+        info.visibility == Visibility::Pub && !excluded_files.contains(&info.span.file_id.0)
+    }) {
         entries.push(TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Struct,
             name: name.clone(),
+            exported: true,
             surface: PublicSurfaceShape::Struct(public_struct_surface(ctx, info)),
         });
     }
-    for (name, info) in enums
-        .iter()
-        .filter(|(_, info)| info.visibility == Visibility::Pub)
-    {
+    for (name, info) in enums.iter().filter(|(_, info)| {
+        info.visibility == Visibility::Pub && !excluded_files.contains(&info.span.file_id.0)
+    }) {
         entries.push(TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Enum,
             name: name.clone(),
+            exported: true,
             surface: PublicSurfaceShape::Enum(public_enum_surface(ctx, info)),
         });
     }
-    for (name, info) in traits
-        .iter()
-        .filter(|(_, info)| info.visibility == Visibility::Pub)
-    {
+    collect_impl_trait_names_excluding_files(impls, excluded_files, &mut semantic_trait_names);
+    for (name, info) in traits.iter().filter(|(name, info)| {
+        !excluded_files.contains(&info.span.file_id.0)
+            && (info.visibility == Visibility::Pub || semantic_trait_names.contains_key(*name))
+    }) {
         entries.push(TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Trait,
             name: name.clone(),
+            exported: info.visibility == Visibility::Pub,
             surface: PublicSurfaceShape::Trait(public_trait_surface(ctx, source_map, name, info)),
         });
     }
-    for impl_info in impls {
+    for impl_info in impls
+        .iter()
+        .filter(|impl_info| !excluded_files.contains(&impl_info.span.file_id.0))
+    {
         entries.push(TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Impl,
             name: impl_public_name(ctx, impl_info),
+            exported: false,
             surface: PublicSurfaceShape::Impl(public_impl_surface(
                 ctx, source_map, traits, impl_info,
             )),
         });
     }
     TypedPublicSurfaceTable::new(entries)
+}
+
+fn collect_impl_trait_names_excluding_files(
+    impls: &[ImplInfo],
+    excluded_files: &BTreeSet<u32>,
+    out: &mut BTreeMap<String, ()>,
+) {
+    for info in impls {
+        if excluded_files.contains(&info.span.file_id.0) {
+            continue;
+        }
+        collect_bound_env_trait_names(&info.type_param_bounds, out);
+        if let ImplKind::Trait { application, .. } = &info.kind {
+            out.insert(String::from(application.trait_id.as_str()), ());
+        }
+    }
+}
+
+fn collect_bound_env_trait_names(bounds: &BoundEnv, out: &mut BTreeMap<String, ()>) {
+    for (_type_param, trait_bounds) in bounds.iter() {
+        for bound in trait_bounds {
+            out.insert(String::from(bound.application.trait_id.as_str()), ());
+        }
+    }
 }
 
 fn public_callable_link_symbol(
@@ -1001,11 +1258,49 @@ fn public_callable_link_symbol(
     })
 }
 
-fn public_type_term_stable_hash(term: &PublicTypeTerm) -> u64 {
+pub(super) fn public_type_term_stable_hash(term: &PublicTypeTerm) -> u64 {
     let mut hash = FNV1A64_OFFSET;
     hash_str(&mut hash, "neplg2-public-type-term-v1");
     hash_public_type_term(&mut hash, term);
     hash
+}
+
+pub(super) fn public_struct_definition_hash<'a>(
+    type_params: &'a [PublicTypeParam],
+    fields: &'a [PublicFieldSurface],
+) -> Option<u64> {
+    let mut hash = PublicNominalDefinitionHasher::new("neplg2-nominal-definition-surface-v1");
+    hash.write_str("struct");
+    hash_public_nominal_type_params(&mut hash, type_params)?;
+    hash.write_usize(fields.len());
+    let mut binders = Vec::from([type_params]);
+    for field in fields {
+        hash.write_str(field.name.as_str());
+        hash_public_nominal_type_surface(&mut hash, &field.ty, &mut binders)?;
+    }
+    Some(hash.finish())
+}
+
+pub(super) fn public_enum_definition_hash<'a>(
+    type_params: &'a [PublicTypeParam],
+    variants: &'a [PublicEnumVariantSurface],
+) -> Option<u64> {
+    let mut hash = PublicNominalDefinitionHasher::new("neplg2-nominal-definition-surface-v1");
+    hash.write_str("enum");
+    hash_public_nominal_type_params(&mut hash, type_params)?;
+    hash.write_usize(variants.len());
+    let mut binders = Vec::from([type_params]);
+    for variant in variants {
+        hash.write_str(variant.name.as_str());
+        match &variant.payload {
+            Some(payload) => {
+                hash.write_bool(true);
+                hash_public_nominal_type_surface(&mut hash, payload, &mut binders)?;
+            }
+            None => hash.write_bool(false),
+        }
+    }
+    Some(hash.finish())
 }
 
 fn public_struct_surface(ctx: &TypeCtx, info: &StructInfo) -> PublicStructSurface {
@@ -1069,13 +1364,24 @@ fn public_trait_surface(
     methods.sort();
     let definition_hash = public_trait_definition_hash(&type_params, &capabilities, &methods);
     PublicTraitSurface {
-        identity: public_trait_identity(
-            source_map,
-            info.span,
-            name,
-            type_params.len(),
-            definition_hash,
-        ),
+        identity: info
+            .stable_identity
+            .as_ref()
+            .map(|identity| PublicTraitIdentity {
+                source_path: identity.source_path.clone(),
+                name: identity.name.clone(),
+                arity: identity.arity,
+                definition_hash: identity.definition_hash,
+            })
+            .or_else(|| {
+                public_trait_identity(
+                    source_map,
+                    info.span,
+                    name,
+                    type_params.len(),
+                    definition_hash,
+                )
+            }),
         type_params,
         capabilities,
         methods,
@@ -1162,7 +1468,6 @@ fn public_trait_ref_from_application(
         name: String::from(trait_name),
         identity: traits
             .get(trait_name)
-            .filter(|info| info.visibility == Visibility::Pub)
             .and_then(|info| public_trait_identity_for_info(ctx, source_map, trait_name, info)),
         args: application
             .args
@@ -1300,7 +1605,7 @@ fn public_trait_identity(
     })
 }
 
-fn public_trait_definition_hash(
+pub(super) fn public_trait_definition_hash(
     type_params: &[PublicTypeParam],
     capabilities: &[PublicTraitCapability],
     methods: &[PublicTraitMethodSurface],
@@ -1973,15 +2278,30 @@ mod tests {
             )));
     }
 
-    /// public callable が private trait bound を持つ場合、`.neplmeta` の public surface
-    /// だけでは dependency 側がその trait definition を復元できない。名前と SourceMap が
-    /// 取れても public trait identity としては扱わず、preflight は fail-closed に止める。
+    /// public callable が private trait bound を持つ場合でも、その trait は dependency
+    /// 側の型検査に必要な semantic surface である。public export としては公開しないが、
+    /// `.neplmeta` には stable identity 付きで保持し、名前だけの trait lookup に戻さない。
     #[test]
-    fn typed_public_surface_keeps_private_trait_bound_fail_closed() {
+    fn typed_public_surface_keeps_private_trait_bound_as_semantic_surface() {
         let checked = typecheck_source_with_path(
             "project/core/private_show.nepl",
             "trait Show:\n    fn show %fn Self i32 \\x:\n        0\npub fn call_show <.T: Show> %fn .T i32 \\x:\n    0\n",
         );
+
+        let private_show = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Trait && entry.name == "Show")
+            .expect("private Show semantic trait surface");
+        assert!(!private_show.exported);
+        let PublicSurfaceShape::Trait(private_show_surface) = &private_show.surface else {
+            panic!("private Show must be carried as a trait semantic surface");
+        };
+        let trait_identity = private_show_surface
+            .identity
+            .as_ref()
+            .expect("private Show stable trait identity");
 
         let call_show = checked
             .public_surface
@@ -1994,15 +2314,77 @@ mod tests {
         let PublicSurfaceShape::Callable(callable) = &call_show.surface else {
             panic!("call_show must be a callable surface");
         };
-        assert!(callable.type_param_bounds[0].bounds[0].identity.is_none());
+        assert_eq!(
+            callable.type_param_bounds[0].bounds[0]
+                .identity
+                .as_ref()
+                .expect("private Show bound stable trait identity"),
+            trait_identity
+        );
         assert!(checked
             .public_surface
             .materializer_blockers()
             .iter()
-            .any(|blocker| matches!(
+            .all(|blocker| !matches!(
                 &blocker.reason,
                 PublicSurfaceMaterializerBlockerReason::MissingTraitIdentity { trait_name }
                     if trait_name == "Show"
+            )));
+    }
+
+    /// private capability trait の impl は、public API ではなくても型検査 semantics に影響する。
+    /// impl surface の trait application は semantic trait surface の identity を参照するため、
+    /// `Copy` / `Clone` のような capability impl を artifact 境界で名前だけに落とさない。
+    #[test]
+    fn typed_public_surface_keeps_private_capability_impl_trait_identity() {
+        let checked = typecheck_source_with_path(
+            "project/core/copy_like.nepl",
+            "trait Clone:\n    #capability clone\n    fn clone %fn &Self Self \\x:\n        *x\ntrait Copy:\n    #capability copy\n    fn copy_mark %fn Self Self \\x:\n        x\nimpl Clone for i32:\n    fn clone %fn &i32 i32 \\x:\n        *x\nimpl Copy for i32:\n    fn copy_mark %fn i32 i32 \\x:\n        x\n",
+        );
+
+        let copy_trait = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Trait && entry.name == "Copy")
+            .expect("private Copy semantic trait surface");
+        assert!(!copy_trait.exported);
+        let PublicSurfaceShape::Trait(copy_trait_surface) = &copy_trait.surface else {
+            panic!("Copy must be carried as a trait semantic surface");
+        };
+        let copy_identity = copy_trait_surface
+            .identity
+            .as_ref()
+            .expect("Copy stable trait identity");
+
+        let copy_impl = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Impl && entry.name == "Copy")
+            .expect("Copy impl surface");
+        assert!(!copy_impl.exported);
+        let PublicSurfaceShape::Impl(copy_impl_surface) = &copy_impl.surface else {
+            panic!("Copy impl must be a structured impl surface");
+        };
+        let PublicImplKind::Trait { application } = &copy_impl_surface.kind else {
+            panic!("Copy impl must be a trait impl surface");
+        };
+        assert_eq!(
+            application
+                .identity
+                .as_ref()
+                .expect("Copy impl stable trait identity"),
+            copy_identity
+        );
+        assert!(checked
+            .public_surface
+            .materializer_blockers()
+            .iter()
+            .all(|blocker| !matches!(
+                &blocker.reason,
+                PublicSurfaceMaterializerBlockerReason::MissingTraitIdentity { trait_name }
+                    if trait_name == "Copy" || trait_name == "Clone"
             )));
     }
 
@@ -2299,6 +2681,7 @@ mod tests {
         let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Callable,
             name: String::from("answer"),
+            exported: true,
             surface: PublicSurfaceShape::Callable(PublicCallableSurface {
                 ty: PublicTypeTerm::Function {
                     type_params: Vec::new(),
@@ -2327,6 +2710,7 @@ mod tests {
         let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Callable,
             name: String::from("answer"),
+            exported: true,
             surface: PublicSurfaceShape::Callable(PublicCallableSurface {
                 ty: PublicTypeTerm::Function {
                     type_params: Vec::new(),
@@ -2367,6 +2751,7 @@ mod tests {
         let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Callable,
             name: String::from("call_show"),
+            exported: true,
             surface: PublicSurfaceShape::Callable(PublicCallableSurface {
                 ty: PublicTypeTerm::Function {
                     type_params: Vec::from([param.clone()]),
@@ -2412,6 +2797,7 @@ mod tests {
         let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Callable,
             name: String::from("make_item"),
+            exported: true,
             surface: PublicSurfaceShape::Callable(PublicCallableSurface {
                 ty: PublicTypeTerm::Function {
                     type_params: Vec::new(),
@@ -2443,6 +2829,41 @@ mod tests {
         );
     }
 
+    /// backend scalar は `i64` / `u64` / `f64` / `u32` のように `TypeKind::Named` で
+    /// 表現されるが、ユーザー定義の名義型ではない。これらは compiler-defined scalar
+    /// domain の安定名を authority として持つため、nominal identity 欠落 blocker にはしない。
+    #[test]
+    fn materializer_preflight_accepts_backend_scalar_named_terms() {
+        let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
+            kind: TypedPublicSignatureKind::Callable,
+            name: String::from("wide_id"),
+            exported: true,
+            surface: PublicSurfaceShape::Callable(PublicCallableSurface {
+                ty: PublicTypeTerm::Function {
+                    type_params: Vec::new(),
+                    params: Vec::from([PublicTypeTerm::Named {
+                        name: String::from("i64"),
+                        identity: None,
+                    }]),
+                    result: Box::new(PublicTypeTerm::Named {
+                        name: String::from("u64"),
+                        identity: None,
+                    }),
+                    effect: PublicEffect::Pure,
+                },
+                no_shadow: false,
+                arity: 1,
+                effect: PublicEffect::Pure,
+                field_accessor: None,
+                link_symbol: Some(test_link_symbol("wide_id")),
+                type_param_bounds: Vec::new(),
+            }),
+        }]));
+
+        assert!(table.is_materializer_preflight_ready());
+        assert!(table.materializer_blockers().is_empty());
+    }
+
     /// 対応 binder を確定できない generic parameter や、stable identity を持たない
     /// trait reference は materializer の推測で補ってはいけない。preflight は
     /// それぞれを blocker として列挙し、通常の source typecheck へ戻せるようにする。
@@ -2457,6 +2878,7 @@ mod tests {
         let table = TypedPublicSurfaceTable::new(Vec::from([TypedPublicSurfaceEntry {
             kind: TypedPublicSignatureKind::Callable,
             name: String::from("show_like"),
+            exported: true,
             surface: PublicSurfaceShape::Callable(PublicCallableSurface {
                 ty: PublicTypeTerm::Function {
                     type_params: Vec::from([param.clone()]),

@@ -10,7 +10,7 @@ use crate::diagnostic_codes::{ResolveDiagnosticCode, TypeDiagnosticCode};
 use crate::hir::*;
 use crate::resolve::{DefId, ImportResolution};
 use crate::source_map::{CompilerMemoryType, SourceMap};
-use crate::span::Span;
+use crate::span::{FileId, Span};
 use crate::types::{
     EnumVariantInfo, NominalStableTypeIdentity, NominalStableTypeKind, TypeCtx, TypeId, TypeKind,
 };
@@ -30,9 +30,16 @@ use super::driver_entry::resolve_entry_function;
 use super::driver_span::{span_key, top_level_definition_span};
 use super::env::{Binding, BindingKind, Env};
 use super::extern_import::ExternImportModule;
+use super::materializer::materialize_public_surface_with_semantics_mvp;
 use super::model::{EnumInfo, RestrictedStructConstructor, StructConstructorPolicy, StructInfo};
-use super::public_signature::{build_typed_public_signature_table, TypedPublicSignatureTable};
-use super::public_surface::{build_typed_public_surface_table, TypedPublicSurfaceTable};
+use super::public_signature::{
+    build_typed_public_signature_table, build_typed_public_signature_table_excluding_files,
+    TypedPublicSignatureTable,
+};
+use super::public_surface::{
+    build_typed_public_surface_table, build_typed_public_surface_table_excluding_files,
+    TypedPublicSurfaceTable,
+};
 use super::signature::{
     contains_same_type, function_signature_string, mangle_function_symbol,
     mangle_function_symbol_for_def, mangle_impl_method, push_unique_type, same_function_signature,
@@ -132,11 +139,44 @@ pub struct TypeCheckResult {
     pub public_surface: TypedPublicSurfaceTable,
 }
 
+/// `.neplmeta` の import projection を通過した dependency public surface。
+///
+/// 型検査器は source declaration を読む前にこの surface を materialize する。`module_path`
+/// と `file_id` は import visibility と current-module export 除外の authority であり、
+/// caller はこの file が現在の `SourceMap` 上で import target として予約済みであることを
+/// 保証する必要がある。
+#[derive(Debug, Clone)]
+pub struct MaterializedPublicSurfaceInput {
+    pub table: TypedPublicSurfaceTable,
+    pub module_path: String,
+    pub file_id: FileId,
+}
+
 pub fn typecheck(
     module: &crate::ast::Module,
     target: CompileTarget,
     profile: BuildProfile,
     source_map: Option<&SourceMap>,
+) -> TypeCheckResult {
+    typecheck_with_materialized_public_surfaces(module, target, profile, source_map, &[])
+}
+
+fn materialized_public_surface_origin_matches(
+    source_map: Option<&SourceMap>,
+    surface: &MaterializedPublicSurfaceInput,
+) -> bool {
+    source_map
+        .and_then(|source_map| source_map.path(surface.file_id))
+        .map(|path| path.as_str() == surface.module_path.as_str())
+        .unwrap_or(false)
+}
+
+pub fn typecheck_with_materialized_public_surfaces(
+    module: &crate::ast::Module,
+    target: CompileTarget,
+    profile: BuildProfile,
+    source_map: Option<&SourceMap>,
+    materialized_public_surfaces: &[MaterializedPublicSurfaceInput],
 ) -> TypeCheckResult {
     let mut ctx = TypeCtx::new();
     let mut label_env = LabelEnv::new();
@@ -155,6 +195,7 @@ pub fn typecheck(
     let mut pending_drop_copy_checks: Vec<(TypeId, Span)> = Vec::new();
     let mut rejected_impl_spans: BTreeSet<(u32, u32, u32)> = BTreeSet::new();
     let import_resolution = ImportResolution::from_module(module, source_map);
+    let mut materialized_public_surface_files = BTreeSet::new();
 
     let mut entry: Option<(String, Span)> = None;
     let mut externs: Vec<HirExtern> = Vec::new();
@@ -273,6 +314,42 @@ pub fn typecheck(
         apply_directive(d, allowed);
     }
 
+    for surface in materialized_public_surfaces {
+        if !materialized_public_surface_origin_matches(source_map, surface) {
+            diagnostics.push(type_error(
+                TypeDiagnosticCode::PublicSurfaceMaterializerRejected,
+                "public surface artifact origin is not present in the current SourceMap",
+                Span::empty(surface.file_id, 0),
+            ));
+            continue;
+        }
+        let origin_span = Span::empty(surface.file_id, 0);
+        match materialize_public_surface_with_semantics_mvp(
+            &mut ctx,
+            &mut env,
+            &mut structs,
+            &mut enums,
+            &mut traits,
+            &mut impls,
+            &surface.table,
+            origin_span,
+        ) {
+            Ok(_) => {
+                materialized_public_surface_files.insert(surface.file_id.0);
+            }
+            Err(reject) => {
+                diagnostics.push(type_error(
+                    TypeDiagnosticCode::PublicSurfaceMaterializerRejected,
+                    format!(
+                        "public surface artifact materialization failed for '{}'",
+                        reject.entry_name
+                    ),
+                    origin_span,
+                ));
+            }
+        }
+    }
+
     // Builtins are defined in stdlib (e.g. std/mem) or via #extern.
 
     // Collect top-level function signatures (hoist)
@@ -364,6 +441,7 @@ pub fn typecheck(
                     EnumInfo {
                         ty,
                         visibility: e.vis,
+                        span: e.name.span,
                         type_params: tps.clone(),
                         variants: vars.clone(),
                     },
@@ -523,6 +601,7 @@ pub fn typecheck(
                     StructInfo {
                         ty,
                         visibility: s.vis,
+                        span: s.name.span,
                         type_params: tps,
                         fields: fs,
                         field_names: f_names,
@@ -612,6 +691,7 @@ pub fn typecheck(
                         methods,
                         self_ty,
                         span: t.name.span,
+                        stable_identity: None,
                     },
                 );
             }
@@ -802,6 +882,7 @@ pub fn typecheck(
                     self_ty: trait_self_ty,
                 },
                 target_ty,
+                span: i.span,
             });
         }
     }
@@ -1727,13 +1808,34 @@ pub fn typecheck(
 
     let public_signatures = if has_error {
         TypedPublicSignatureTable::default()
-    } else {
+    } else if materialized_public_surface_files.is_empty() {
         build_typed_public_signature_table(&ctx, &env, &structs, &enums, &traits, &impls)
+    } else {
+        build_typed_public_signature_table_excluding_files(
+            &ctx,
+            &env,
+            &structs,
+            &enums,
+            &traits,
+            &impls,
+            &materialized_public_surface_files,
+        )
     };
     let public_surface = if has_error {
         TypedPublicSurfaceTable::default()
-    } else {
+    } else if materialized_public_surface_files.is_empty() {
         build_typed_public_surface_table(&ctx, source_map, &env, &structs, &enums, &traits, &impls)
+    } else {
+        build_typed_public_surface_table_excluding_files(
+            &ctx,
+            source_map,
+            &env,
+            &structs,
+            &enums,
+            &traits,
+            &impls,
+            &materialized_public_surface_files,
+        )
     };
 
     TypeCheckResult {
@@ -1769,5 +1871,103 @@ fn struct_constructor_policy(
         CompilerMemoryType::OwnerToken => {
             StructConstructorPolicy::RawMemoryBoundaryOnly(RestrictedStructConstructor::OwnerToken)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::String;
+
+    use crate::compiler::{BuildProfile, CompileTarget};
+    use crate::lexer;
+    use crate::parser;
+    use crate::source_map::SourceMap;
+
+    use super::MaterializedPublicSurfaceInput;
+    use super::{typecheck, typecheck_with_materialized_public_surfaces};
+
+    fn parse_source(file_id: crate::span::FileId, source: &str) -> crate::ast::Module {
+        let lex = lexer::lex(file_id, source);
+        assert!(
+            lex.diagnostics.is_empty(),
+            "lexer diagnostics: {:?}",
+            lex.diagnostics
+        );
+        let parsed = parser::parse_tokens(file_id, lex);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "parser diagnostics: {:?}",
+            parsed.diagnostics
+        );
+        parsed.module.expect("parser should produce a module")
+    }
+
+    /// materialized dependency surface だけで imported callable を解決できる境界を固定する。
+    ///
+    /// dependency body は意図的に root AST へ入れない。loader が body skip を接続する前に、
+    /// 型検査器が artifact 由来の semantic surface を source body と同じ registry で扱える
+    /// ことを確認する。
+    #[test]
+    fn materialized_public_surface_typechecks_imported_callable_without_dependency_body() {
+        let dep_source = "pub fn dep_value %fn unit i32 \\unit:\n    7\n";
+        let mut dep_source_map = SourceMap::new();
+        let dep_file = dep_source_map.add("project/dep.nepl", String::from(dep_source));
+        let dep_module = parse_source(dep_file, dep_source);
+        let dep_checked = typecheck(
+            &dep_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&dep_source_map),
+        );
+        assert!(
+            dep_checked.diagnostics.is_empty(),
+            "dependency diagnostics: {:?}",
+            dep_checked.diagnostics
+        );
+
+        let root_source =
+            "#no_prelude\n#import \"dep\" as *\nfn main %fn unit i32 \\unit:\n    dep_value\n";
+        let mut root_source_map = SourceMap::new();
+        let root_file = root_source_map.add("project/root.nepl", String::from(root_source));
+        let materialized_dep_file =
+            root_source_map.add("project/dep.nepl", String::from(dep_source));
+        let root_module = parse_source(root_file, root_source);
+        let checked = typecheck_with_materialized_public_surfaces(
+            &root_module,
+            CompileTarget::Wasm,
+            BuildProfile::Debug,
+            Some(&root_source_map),
+            &[MaterializedPublicSurfaceInput {
+                table: dep_checked.public_surface,
+                module_path: String::from("project/dep.nepl"),
+                file_id: materialized_dep_file,
+            }],
+        );
+
+        assert!(
+            checked.diagnostics.is_empty(),
+            "root diagnostics: {:?}",
+            checked.diagnostics
+        );
+        assert!(
+            checked.module.is_some(),
+            "materialized public surface should be sufficient for typechecking"
+        );
+        assert!(
+            !checked
+                .public_surface
+                .entries
+                .iter()
+                .any(|entry| entry.name == "dep_value"),
+            "dependency exports must not be re-exported as root public surface"
+        );
+        assert!(
+            !checked
+                .public_signatures
+                .entries
+                .iter()
+                .any(|entry| entry.name == "dep_value"),
+            "dependency signatures must not be re-exported as root public signature"
+        );
     }
 }

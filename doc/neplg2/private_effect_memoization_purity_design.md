@@ -17,6 +17,7 @@
 - [ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7](../../issues/items/ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7.md)
 - [ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2](../../issues/items/ISS-20260531T035410851Z-PRIVATE-EFFECTS-NEED-FOLD-AND-RESOUR-6DF550D2.md)
 - [ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C](../../issues/items/ISS-20260531T060756264Z-MEMO-CALL-PHASE1-NEEDS-COMPILER-KNOW-2DB7C53C.md)
+- [ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7](../../issues/items/ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7.md)
 
 ## 現行実装の境界
 
@@ -78,6 +79,23 @@ Resource IR、diagnostic、SourceCapability policy hash、Resource summary body 
 function 内では `PrivateCacheInPureFunction` / `PrivateStateInPureFunction` として
 fail closed に拒否する。SourceCapability の exact file / exact span / same operation /
 same region は「trusted use-site である」ことだけを証明し、Pure への mask 権限にはしない。
+
+2026-06-01 の sealed memo cache proof split では、`memo_call` 固有の sealed private cache
+region proof を独立 issue として分離した。SourceCapability exact proof、private effect
+fold/hash、memoized backend representation、Phase 1 accepted syntax はそれぞれ別 authority であり、
+sealed fresh region と non-escape proof が揃うまで `PrivateCache` は Pure に mask しない。
+
+2026-06-01 の private cache region exactness checkpoint では、
+`PrivateEffectRegionId` と `PrivateEffectRegion::SealedCompilerPrivateCache(id)` を追加した。
+これは compiler-owned memo backend が将来発行する sealed region proof の identity を
+`UnsealedIntrinsic` と区別するための表現であり、現時点では sealed proof の minting や
+non-escape proof までは実装しない。
+
+SourceCapability policy hash と Resource summary body hash は、sealed region の variant だけで
+なく numeric id も hash する。これにより、`SealedCompilerPrivateCache(1)` と
+`SealedCompilerPrivateCache(2)` が同じ proof artifact として stale reuse される経路を閉じる。
+Resource effect boundary gate も exact file / exact span / same operation / same region だけを
+trusted use-site として扱い、same operation / same span でも region mismatch は拒否する。
 
 surface fold は次の規則にする。
 
@@ -366,6 +384,27 @@ Resource effect boundary gate は、`PrivateCacheOutsideBoundary` を exact Sour
 capability が存在しても、`PrivateCacheInPureFunction` は `PrivateCache rho` の region proof
 が実装されるまで拒否される。
 
+2026-06-01 の mask proof / taint checkpoint では、`PrivateCacheMaskProofIndex` を Resource
+effect checker の入力として追加した。通常 compile path は空 index を渡すため、sealed proof
+がない `PrivateCache` はこれまで通り fail closed に拒否される。proof は function name、
+sealed region、operation の完全一致を要求し、`UnsealedIntrinsic` は proof entry があっても
+mask しない。
+
+同 checkpoint では、sealed private cache region 由来の値を `Place` 単位で追跡する
+`PrivateCacheRegionTaintTable` も追加した。この表は `Create` operation の出力を sealed
+region taint として記録し、declare / read / move / borrow / assign / construct / branch /
+loop / match を通じて伝播する。戻り値に tainted place が現れた場合は
+`PrivateCacheRegionEscape` として拒否する。
+
+typed effect check では、checked MemPtr がない関数を軽量経路へ落とす既存最適化がある。
+private cache taint seed を持つ関数はこの軽量経路へ落とさず、sealed cache handle の return
+escape を typed compile path でも検出する。これにより performance optimization が private
+effect non-escape proof を無効化しない。
+
+この taint は Pure mask proof の必要条件であって十分条件ではない。cache hit/miss、stats、
+clear、lookup result の owned/copy 性、impure call への引き渡し、public field / global state
+への保存は、後続 checkpoint で追加検査する。
+
 private cache use-site の span は Resource IR の `CallEffect` span と一致させる。HIR に
 intrinsic name token span を運搬して Resource IR 側を name span に寄せる案もあり得るが、
 現行 Resource IR は call/effect use-site を expression span で表すため、SourceCapability proof
@@ -466,10 +505,10 @@ mask boundary がない pure function では dedicated diagnostic により fail
 
 ## 現時点の未実装
 
-- private region id の導入箇所。
 - function value identity を public pure API から禁止する typed diagnostic。
 - closure capture と Resource IR function alias tracking の接続。
 - trusted `stdlib/memo` backend の sealed private cache representation。
 - cache lookup result が owned/clone/copy value であることの Resource IR 証明。
-- `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape proof。
+- `PrivateCacheInPureFunction` を Pure へ mask できる fresh region / non-escape proof の自動発行。
+- sealed private cache taint の impure call / unknown call / public field / global state escape 診断。
 - `private_cache_*` intrinsic の typecheck signature と stdlib memo backend integration regression。

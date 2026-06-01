@@ -135,7 +135,191 @@
 - 検証: `trunk build --release`、`node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp/gui-core-main2.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i tests/stdlib/gui_terminal.n.md --no-tree -o tmp/gui-terminal-main2.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i tests/stdlib/gui_app.n.md --no-tree -o tmp/gui-app-main4.json -j 1 --dist web/dist --assert-io`、`node nodesrc/tests.js -i tests/stdlib/features_tui.n.md --no-tree -o tmp/features-tui-gui-main2.json -j 1 --dist web/dist --assert-io`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-library.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
 - `node nodesrc/run_source_policy_regressions.js --warn-only` は完走したが、既存の source-policy warning として stdlib documentation baseline、static check responsibility、resource checker responsibility、resource gate order が残っている。今回追加した `core/gui` / `alloc/gui` module には module-level doctest marker を追加済みである。
 - 残件: `DrawTarget` / `RenderTarget` trait 本体、`core/gui/text_measure` の実装、`alloc/gui/layout` / accessibility、`std/gui` runtime / host、Web Playground backend、既存 TUI の terminal backend 差し替え、embedded no_alloc real-style backend を継続する。
+# 2026-06-01 .neplmeta stdlib dependency artifact producer checkpoint
 
+- Zenn 記事の core/no_std 境界、静的検査、純粋 query cache、パフォーマンス追求、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `08b8bbb5 Track sealed memo cache escape proof` まで同期済みで、branch `perf/neplmeta-stdlib-producer-20260601` はその `main` から作成した。
+- subagent review で、今回の最小安全単位は dependency body skip や `TypeCtx` / `Env` 注入ではなく、stdlib dependency `.neplmeta` artifact を store に供給し、次回 edge probe が missing artifact から compatibility / projection reason へ進むことだと確認した。
+- `compile_nepl_meta_artifact_with_source_identity` を追加し、依存 module の `.neplmeta` を typecheck までで生成できるようにした。Resource IR static check、drop 挿入、wasm codegen は実行しない。
+- `NeplMetaArtifact::from_public_surface_and_module_surface_with_source_identity` を追加し、edge probe が target source 単位で作った source key / source capability policy を header に固定できるようにした。root compile 全体の `SourceMap` hash は dependency artifact の互換性境界にしない。
+- `Loader::load_dependency_inline_with_provider_and_cache` を追加し、producer が edge target を non-root module として読み直せるようにした。`std/prelude_base` を root として読み直すと既定 prelude 注入で自己循環するため、root load 経路とは分離した。
+- Web `CompilerSession` は、store が空でない compile で収集した edge probe から bundled stdlib dependency artifact を生成して store へ入れる。初回 compile では edge probe を収集しないため、base compile の固定費は増やさない。
+- `has_pre_typecheck_compatible_artifact` を追加し、既に同じ pre-typecheck envelope と互換な artifact がある場合は再 typecheck しない。この鮮度確認は実 materializer probe 統計とは混ぜない。
+- regression では、1 回目 compile は edge probe 0、2 回目 compile は missing artifact を観測しつつ dependency artifact を store、3 回目 compile は missing artifact を増やさず projection reject まで進むことを固定した。
+- この checkpoint では `TypedPublicSurfaceTable` の `TypeCtx` / `Env` 注入、依存 module AST inline 省略、Resource IR skip、codegen skip は行わない。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta_store --lib -- --nocapture`、`cargo test -p nepl-core neplmeta_edge_probe_uses_target_source_policy_boundary --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer --lib -- --nocapture`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-stdlib-producer-20260601.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
+# 2026-06-01 memo_call sealed private cache mask / taint checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋性、パフォーマンス追求、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は直前 checkpoint `f2d6b6fd Probe neplmeta import edges before typecheck` まで同期・push 済みで、branch `work/memo-nonescape-proof-scaffold-20260601` はその `main` から作業している。
+- subagent review では、SourceCapability exact use-site proof と Resource IR non-escape proof を混同せず、`PrivateCacheInPureFunction` を SourceCapability だけで抑制しないことを確認した。
+- `PrivateCacheMaskProofIndex` を追加し、Resource effect checker が `PrivateCacheInPureFunction` を抑制できる authority を SourceCapability から分離した。通常 compile path は空 proof index を渡すため、sealed proof がない private cache は従来通り fail-closed に拒否される。
+- mask proof は function name、sealed private cache region、operation の完全一致を要求する。`UnsealedIntrinsic` は proof entry があっても mask しない。
+- `PrivateCacheRegionTaintTable` を追加し、sealed `PrivateCache::Create` output 由来の place taint を declare / read / move / borrow / assign / construct / branch / loop / match で伝播するようにした。
+- 戻り値に sealed private cache region 由来の tainted place が現れた場合は `PrivateCacheRegionEscape` を出す。これは cache handle / reference / raw pointer / owner token が public result へ漏れる経路を閉じるための最初の non-escape proof 足場である。
+- checked MemPtr がない関数を軽量経路へ落とす typed effect check の最適化が private cache taint を落とさないよう、sealed `PrivateCache::Create` seed を持つ関数は effect provenance 追跡へ入れるようにした。
+- この checkpoint では `memo_call` backend の sealed region 発行、lookup result が owned/copy value であることの proof、impure call / unknown call / public field / global state への escape 診断、accepted memoization path はまだ実装しない。
+- 検証: `cargo test -p nepl-core private_cache --lib -- --nocapture`、`cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`、`cargo test -p nepl-core private_effect --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-memo-mask-taint-20260601.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
+# 2026-06-01 .neplmeta import/prelude edge pre-typecheck probe checkpoint
+
+- Zenn 記事の core/no_std 境界、静的検査、純粋 query cache による探索空間削減、試作段階でも設計品質を落とさない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `cb85fd66 Tighten memo private cache region identity` まで同期済みで、branch `perf/neplmeta-edge-probe-20260601` はその `main` から作成した。
+- subagent review で、依存 module 単位の probe は `Loader::process_directives_with` の prelude/import `load_file_with` 成功直後に置き、`#include` は dependency artifact edge として扱わない方針を確認した。
+- `LoadResult` に `nepl_meta_edge_probes` を追加し、実際に load された stdlib prelude/import edge から `NeplMetaDependencyEdgePreTypecheckProbe` を作るようにした。
+- `load_inline_with_provider_and_cache` は通常通り軽量な経路のままにし、`.neplmeta` store が空でない場合だけ `load_inline_with_provider_and_cache_collecting_nepl_meta_edge_probes` を使う。これにより base compile で不要な edge source 再読込や dependency hash 計算を増やさない。
+- subagent 実装レビューで、edge envelope に root compile 全体の `SourceMap` hash を使うと dependency artifact が呼び出し元 root に依存して reject される問題が指摘されたため、probe が target source key と target file 単体の source capability policy hash を運ぶ形に修正した。
+- `NeplMetaArtifactStoreStats` に root probe とは別の edge probe attempts / projected / missing artifact / payload reject / compatibility reject / projection reject / projected entries を追加し、Web `loader_cache_stats_json` から観測できるようにした。
+- edge probe は統計更新だけを行い、`TypedPublicSurfaceTable` を `TypeCtx` / `Env` へ注入せず、通常 load / typecheck / Resource IR / codegen fallback は変えない。
+- regression では、dependency body-only edit 後に stdlib edge probe が missing artifact として数えられること、`#no_prelude` + `#include` のみの compile では二回目でも edge probe attempt が 0 のままであること、edge probe の source capability hash が root `SourceMap` ではなく target file 単体境界であることを固定した。
+- docs と issue には、この checkpoint が body skip ではなく、import/prelude edge ごとの fallback reason を観測するための前段であることを追記した。
+- 検証: `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta_store --lib -- --nocapture`、`cargo test -p nepl-core source_import_surface_preserves_clause_visibility_and_order --lib -- --nocapture`、`cargo test -p nepl-core root_dependency_aggregate_public_surface_hash --lib -- --nocapture`、`cargo test -p nepl-core neplmeta_edge_probe_uses_target_source_policy_boundary --lib -- --nocapture`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-edge-probe-20260601.json` は pass。追加の issue / whitespace / remote sync 検証は commit 前に実行する。
+
+# 2026-06-01 memo_call private cache region exactness checkpoint
+
+- Zenn 記事の静的検査、純粋性、キャッシュによる探索空間削減、試作段階でも雑な暫定設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `c4b11b97 Probe neplmeta root pretypecheck reuse` まで同期済みで、branch `work/memo-private-cache-region-exact-20260601` はその `main` から作成した。
+- subagent review で、現 checkpoint は runtime backend や Pure mask へ進まず、same file / same span / same operation でも別 sealed region を拒否する fail-closed regression と hash invalidation を先に固定するべきと確認した。
+- `PrivateEffectRegionId` と `PrivateEffectRegion::SealedCompilerPrivateCache(id)` を追加し、`UnsealedIntrinsic` と sealed compiler-owned region identity を型で区別できるようにした。
+- SourceCapability policy hash と Resource summary body hash は sealed region の variant だけでなく numeric id も hash する。Resource function body hash namespace は `neplg2-resource-function-body-v4` に上げた。
+- Resource effect boundary gate の regression と SourceCapability regression により、sealed region id が違う capability / diagnostic を互換扱いしないことを固定した。
+- この checkpoint は sealed region を発行する memo backend、non-escape proof、`PrivateCacheInPureFunction` の Pure mask accepted path は実装しない。
+- `.neplmeta` loader edge probe についても subagent review を受けたが、これは import/prelude edge hook の別 checkpoint として扱い、今回の memo_call region exactness commit には混ぜない。
+- 検証: `cargo test -p nepl-core resource_effect_gate_rejects_private_cache_region_mismatch --lib -- --nocapture`、`cargo test -p nepl-core resource_function_body_hash_tracks_private_cache_region_identity --lib -- --nocapture`、`cargo test -p nepl-core source_capability_policy_hash_tracks_source_and_use_site_inputs --lib -- --nocapture`、`cargo test -p nepl-core private_cache --lib -- --nocapture`、`cargo test -p nepl-core private_effect --lib -- --nocapture`、`cargo test -p nepl-core resource_effect_gate --lib -- --nocapture`、`cargo test -p nepl-core source_capability --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-memo-region-exact-20260601.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+- 補足: `cargo fmt --check -p nepl-core` は既存の広範囲 formatting 差分を検出するため、今回の checkpoint では無関係な整形差分を広げない方針にした。
+
+# 2026-06-01 .neplmeta session root pre-typecheck probe checkpoint
+
+- Zenn 記事の core/no_std 分離、静的検査、純粋 query cache による探索空間削減、試作段階でも設計品質を落とさない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `1aa9e264 Track sealed memo cache proof issue` まで同期済みで、branch `work/neplmeta-loader-probe-20260601` はその `main` から作成した。
+- subagent review で、依存 module 単位の本命 probe は `Loader::process_directives_with` の prelude/import `load_file_with` 成功直後に観測専用 hook として置くべきと確認した。
+- 今 checkpoint ではその前段として、Web `CompilerSession` の実 compile path に root `.neplmeta` artifact の pre-typecheck probe を接続した。
+- store が空の初回 compile では probe せず、前回 artifact がある二回目以降だけ `NeplMetaArtifactPreTypecheckEnvelope` を作って `materializer_import_public_surface_pre_typecheck_mvp` を呼ぶ。戻り値は使わず、通常 load / typecheck / Resource IR / codegen は変えない。
+- dependency body-only edit では previous root artifact が存在しても materializer blocker により projection reject として数えられ、root literal edit では source key mismatch の compatibility reject として数えられる regression を追加した。
+- stdlib overlay compile では従来通り `.neplmeta` store を compile path へ渡さず、通常 stdlib artifact と overlay artifact を混ぜない。
+- docs と issue には、この checkpoint が body skip ではなく、次に import/prelude edge hook へ進むための観測境界であることを追記した。
+
+# 2026-06-01 memo_call sealed private cache region proof issue checkpoint
+
+- Zenn 記事の試作段階方針、静的検査、Pure を外部観測可能 effect がないこととして扱う方針を再確認した。`plan.md` は変更していない。
+- remote/main は直前 checkpoint `634a7d1e Track neplmeta pretypecheck probe outcomes` まで同期・push 済みで、branch `work/memo-sealed-cache-proof-issue-20260601` はその `main` から作成した。
+- subagent review を受け、`memo_call` の sealed private cache region proof を新規 issue `ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7` として分離した。
+- この issue は `SourceCapability` exact use-site proof、`PrivateEffect` fold/hash、memoized backend representation、`memo_call` Phase 1 accepted path の横断境界をまとめ、各既存 issue には依存 checkpoint を追記した。
+- `UnsealedIntrinsic` は trusted intrinsic provenance であって mask 済み region ではない。sealed fresh region と Resource IR non-escape proof が入るまで、SourceCapability 単独では `PrivateCacheInPureFunction` を suppress しない。
+- `doc/neplg2/private_effect_memoization_purity_design.md` の対象 issue と region provenance section に sealed proof split を追記した。
+- 検証: `node nodesrc\issues.js index --dir issues`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
+# 2026-06-01 .neplmeta pre-typecheck probe observation checkpoint
+
+- Zenn 記事の enum / Result による静的検査、core/no_std 境界、純粋 query cache による探索空間削減方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `d0f622d4 Add neplmeta pre-typecheck store projection` まで同期済みで、branch `work/neplmeta-probe-observation-20260601` の基点は `origin/main` と一致している。
+- subagent review で、次 checkpoint は body skip へ進まず、pre-typecheck store projection probe の fallback reason を観測可能にすることだと確認した。
+- `NeplMetaArtifactStoreStats` に pre-typecheck probe 専用の attempts / projected / missing artifact / payload reject / compatibility reject / projection reject / projected entries を追加した。
+- `last_pre_typecheck_probe_reject_kind` と `last_pre_typecheck_probe_reject_code` を追加し、store hit を performance hit と誤読せず、`SourceKey` mismatch や unsupported alias/glob を enum code で区別できるようにした。
+- `NeplMetaArtifactCompatibilityReject`、`NeplMetaArtifactPayloadReject`、`NeplMetaMaterializerProjectionReject` に stable code を追加した。これは診断文ではなく Web stats / benchmark / future disk codec 用の小さい観測値である。
+- Web `loader_cache_stats_json` に同じ probe stats を追加した。現 checkpoint では通常 compile path はまだ probe を呼ばないため値は 0 のままで、field の存在を tree test で固定した。
+- `doc/neplg2/compiler_performance_cache_design.md`、中間 artifact issue、`.neplmeta` materializer issue に checkpoint を追記した。
+- 検証: `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc\cli.js -i tests\playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-probe-observation-20260601.json`、`node nodesrc\issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
+# 2026-06-01 .neplmeta pre-typecheck store projection checkpoint
+
+- Zenn 記事の静的検査、enum reason、core/no_std 境界、純粋 query cache による探索空間削減方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `d9d0b95e Add neplmeta source key envelope` まで同期済みで、branch `work/neplmeta-loader-boundary-20260601` の基点は `origin/main` と一致している。
+- subagent review で、body skip へ直行せず「loader が解決した import/prelude edge 1 本について、既存 `.neplmeta` store から pre-typecheck envelope で投影可能かを probe し、必ず通常 load/typecheck fallback を残す」のが次の安全な単位だと確認した。
+- `NeplMetaArtifactStore::materializer_import_public_surface_pre_typecheck_mvp` を追加した。full typed header ではなく `NeplMetaArtifactPreTypecheckEnvelope` を受け取り、body typecheck 前に source key、dependency public surface、module surface、source capability policy、private effect policy を照合する。
+- envelope 通過後も payload consistency と MVP projection を確認する。成功時に返すのは `TypedPublicSurfaceTable` だけであり、`TypeCtx` / `Env` 注入や dependency body skip はまだ行わない。
+- regression では Open import の成功、body token edit による `SourceKey` reject、dependency public surface mismatch、module surface mismatch を固定した。
+- memo_call 側の subagent review では、今回の `.neplmeta` 高速化と混ぜず、次に進めるなら sealed private cache region / non-escape proof の issue/doc/test contract を別 checkpoint にするべきと確認した。
+- `doc/neplg2/compiler_performance_cache_design.md`、中間 artifact issue、`.neplmeta` materializer issue に checkpoint を追記した。
+- 検証: `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-pretypecheck-store-20260601.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
+# 2026-06-01 .neplmeta source key invalidation checkpoint
+
+- Zenn 記事の core/no_std 分離、純粋 query cache、静的検査境界を enum / struct と fail-closed な key で明示する方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `059e45e3` まで同期済みで、branch `work/neplmeta-import-materializer-session-20260601` の基点は `origin/main` と一致している。
+- subagent review で、`.neplmeta` import materializer や body skip に進む前に、保存済み artifact が現在 source と対応していることを source-level key で確認する境界が必要だと確認した。
+- `NeplMetaArtifactHeader` に `source_key_hash` を追加し、schema / artifact hash / compiler identity を v11 に上げた。typed public signature が同じでも式 body token が変わった artifact は compatibility check で `SourceKey` reject になる。
+- `source_key_hash` は `compiled_source_cache_key_part` から作る。通常コメント、doc comment、span だけの変更は key に入れず、literal、identifier、directive、indent / dedent、raw wasm / llvm text など compile 結果に影響し得る token は key に残す。
+- `SourceMap` または canonical module path がない場合は `source_key_hash=None` にし、将来の body skip では通常 load / typecheck fallback へ戻す。これは reusable という意味ではなく、source identity を証明できない fail-closed 値である。
+- follow-up review で、full typed header は依存先 body typecheck 後にしか作れないため body skip 前 gate には不十分、かつ `None == None` を compatible にしてはならないと指摘された。これを受けて `NeplMetaArtifactPreTypecheckEnvelope` を追加し、typed public surface を要求しない payload decode 前の照合境界を分離した。
+- `source_key_hash=None` の artifact は `NeplMetaArtifactStore` と materializer MVP が `MissingSourceKey` として拒否する。これにより SourceMap / canonical path 欠落 artifact が import materializer へ流れる経路を閉じた。
+- Web `CompilerSession` stats JSON に `nepl_meta_artifact_source_key_hash` を追加した。payload 本体や source text は公開せず、stale-hit 防止境界だけを観測する。
+- `doc/neplg2/compiler_performance_cache_design.md`、中間 artifact issue、`.neplmeta` materializer issue に checkpoint を追記した。
+- この checkpoint は loader/import boundary への body skip 接続ではない。次は target artifact store lookup と expected header compatibility を import/prelude boundary で先に確認し、通った場合だけ projection と `typecheck/materializer` へ渡す。
+- 検証: `cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer --lib -- --nocapture`、`cargo test -p nepl-core --test functions -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc\test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-source-key-20260601-rerun.json`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
+# 2026-06-01 .neplmeta session store checkpoint
+
+- Zenn 記事の core/no_std 分離、長寿命 session cache、静的検査境界を型付き artifact と統計で観測可能にする方針を再確認した。`plan.md` は変更していない。
+- remote/main は前 checkpoint `8ba0beba Guard unresolved function value identities` まで同期・push 済みで、branch `work/neplmeta-session-store-20260601` はその `main` から作成した。
+- `CompilerSession` に `NeplMetaArtifactStore` を追加し、通常 compile 成功時に `.neplmeta` artifact を module path keyed store へ保存するようにした。
+- compiled-output cache hit は新しい compile artifact ではないため、last artifact は更新するが store 統計は増やさない。これにより output cache hit と `.neplmeta` store refresh を分けて観測できる。
+- stdlib override compile では、通常 stdlib 用の future materializer と取り違えないよう `.neplmeta` store を clear し、override artifact は store へ入れない。通常 VFS でも `/stdlib/...` を上書きした場合は同じ bypass として扱う。
+- `loader_cache_stats_json` に `.neplmeta` store entries / stores / rejects / hits / misses / payload rejects / compatibility rejects / projection rejects を追加した。現 checkpoint では hits/misses は projection API 接続前なので 0 のままでよい。
+- `tests/compiler/tree/20_compiler_session_outputs_cache.js` に、初回 compile で store が増え、compiled-output cache hit では store count が増えず、VFS content change compile で store が refresh される regression を追加した。
+- この checkpoint は dependency body skip 完了ではない。次は loader/import boundary で target module artifact を探し、header compatibility と projection を通した場合だけ `typecheck/materializer` へ渡す接続を検討する。
+- focused verification は `cargo check --manifest-path nepl-web\Cargo.toml`、`trunk build --release`、`node tests\compiler\tree\run.js`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-session-store-20260601.json`、`git diff --check` を通した。
+
+# 2026-06-01 .neplmeta function identity guard checkpoint
+
+- Zenn 記事の静的検査、enum/struct による authority 明示、試作段階でも unsafe な shortcut を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は前 checkpoint `9048643c Add neplmeta artifact store` まで同期・push 済みで、branch `work/neplmeta-function-identity-guard-20260601` はその `main` から作成した。
+- subagent review で、materialized callable 自体を拒否するのではなく、Env binding から `FnValue` / `MemoizedFunctionValue` へ変換する identity 必須境界を fail-closed にするのが根本位置と確認した。
+- `resolved_function_value_identity` と `FunctionValueIdentityReject` を `typecheck/env.rs` に追加し、callable / no capture / `def_id=Some` を満たす場合だけ `FunctionValueIdentity` を作るようにした。
+- `prefix_check` の明示 `@name`、期待関数型による callable value 選択、qualified callable 選択、overload fallback、trait method forced value が `def_id=None` を合成しないようにした。
+- `selected_call_apply` の higher-order argument coercion と `indirect_apply` の indirect call boundary でも unresolved function identity を型診断として拒否するようにした。
+- `FunctionValueUnresolvedIdentity` diagnostic code を追加し、`.neplmeta` materializer で復元した `def_id=None` callable が通常直接呼び出し候補にはなっても、`@func` / `memo_call @func` / indirect function value 経路へ流れないことを明示した。
+- この checkpoint は stable function identity materializer の実装ではない。依存先 body skip 後に `@stdlib_func` を許すには、`PublicCallableLinkSymbol` だけでなく source body / DefId 相当の stable identity と Resource IR proof boundary が必要である。
+- 検証: `cargo test -p nepl-core materializer --lib -- --nocapture`、`cargo test -p nepl-core --test functions -- --nocapture`、`cargo test -p nepl-core pure_indirect_impure_function_value_is_rejected --test effects -- --nocapture`、`cargo test -p nepl-core resource_ir_lowering_carries_typechecked_indirect_call_effect --test resource_ir -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`node nodesrc/issues.js check --dir issues`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-function-identity-guard-20260601.json`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
+# 2026-06-01 .neplmeta artifact store checkpoint
+
+- Zenn 記事の core/no_std 分離、Result/enum による fail-closed な境界、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は前 checkpoint `d44f556f Strengthen private cache operation authority` まで同期・push 済みで、branch `work/neplmeta-artifact-store-20260601` はその `main` から作成した。
+- subagent review で、`.neplmeta` body skip を急ぐ前に module path keyed な artifact store、header compatibility、payload consistency、projection reject reason、統計を 1 つの fail-closed 境界として固めるべきと確認した。
+- `NeplMetaArtifactStore` と `NeplMetaArtifactStoreStats` を追加し、`NeplMetaModuleSurface::canonical_module_path` で artifact を保存する in-memory store を実装した。永続 codec や body skip そのものではなく、`CompilerSession` など長寿命 session が安全に artifact を再利用するための staging authority である。
+- store は module surface 欠落、module identity 欠落、payload consistency mismatch を保存時点で拒否する。取り出し時は missing artifact、payload mismatch、header compatibility mismatch、projection unsupported を enum reason と統計で区別する。
+- `materializer_import_public_surface_mvp` は `.neplmeta` artifact から import clause 可視の `TypedPublicSurfaceTable` だけを返す。current session の `TypeCtx` / `Env` への注入はまだ行わず、`typecheck/materializer` へ渡す直前の guarded input に留める。
+- この checkpoint は body skip 完了ではない。loader はまだ依存 module AST を merge しており、import visibility も SourceMap/FileId と結び付いているため、次は store を `CompilerSession` / loader boundary へ接続する前に `def_id=None` callable が function identity 必須経路へ流れない guard を入れる。
+- 検証: `cargo test -p nepl-core neplmeta_store --lib -- --nocapture`、`cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`node nodesrc/issues.js check --dir issues`、`trunk build --release`、`node nodesrc/test_run_test_compiler_session.js`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp\playground-editor-neplmeta-artifact-store-20260601.json`、`git diff --check` は pass。`git diff --check` は CRLF 変換 warning のみで whitespace error はない。
+
+# 2026-06-01 PrivateCache operation authority checkpoint
+
+- Zenn 記事の試作段階方針、静的検査を enum / match で網羅する方針、Pure を外部観測可能 effect がないこととして扱う方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `ed8982c9 Add neplmeta import projection MVP` まで同期済みで、branch `work/memo-private-cache-20260601` の基点は `origin/main` と一致している。
+- subagent review で、現段階では `memo_call @func` を実 cache backend へ lower したり `PrivateCache` を Pure へ mask したりせず、`PrivateCacheOp` 全 operation の authority を 1 箇所に集約して fail-closed regression を広げるのが妥当と確認した。
+- `PrivateCacheOp::ALL` と `PrivateCacheOp::intrinsic_name` を追加し、`private_cache_op_from_name`、SourceCapability collector、Resource IR lowering regression が同じ operation 集合を参照するようにした。
+- `private_cache_create` / `private_cache_lookup` / `private_cache_insert` / `private_cache_drop` の全 operation について、intrinsic 分類、SourceCapability exact proof、Resource IR `CallEffect` lowering、Resource effect boundary diagnostic、impure function 内で unknown 扱いにならないことを table-driven regression で固定した。
+- この checkpoint は sealed fresh region、non-escape proof、cache backend representation、Pure mask accepted path を実装しない。`UnsealedIntrinsic` は引き続き mask 済み region ではなく、pure function 内では `PrivateCacheInPureFunction` で fail-closed に拒否する。
+- focused verification は `cargo test -p nepl-core private_cache --lib -- --nocapture`、`cargo test -p nepl-core private_effect --lib -- --nocapture`、`cargo test -p nepl-core resource_effect_gate --lib -- --nocapture` を通した。
+
+# 2026-06-01 .neplmeta import projection checkpoint
+
+- Zenn 記事の core/no_std 分離、enum/struct による静的検査、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `cece442b Add neplmeta typecheck materializer callable MVP` まで同期済みで、現在 branch `perf/neplmeta-import-projection-20260601` の基点は `origin/main` と一致している。
+- `NeplMetaArtifact::materializer_local_export_public_surface_mvp` と `materializer_import_public_surface_mvp` を追加し、target `.neplmeta` artifact を読めた後に materializer へ渡す public surface subset を純粋に作れるようにした。
+- projection は local callable export、`Open` / clause なしの local callable export 全体、alias なし selective import の指定 callable export だけを受け入れる。
+- re-export projection はさらに target artifact が必要なので拒否する。alias、glob、merge、default alias、struct / enum / trait export、missing selective name、export entry と structured public surface の不一致も fail-closed enum reason で拒否する。
+- この checkpoint は body skip 完了ではない。現在の `CompilerSession` は module path keyed な `.neplmeta` artifact store を持たないため、loader import / prelude boundary へはまだ接続しない。次は target artifact store、header compatibility、dependency public surface hash の確認を入れてから projection と `typecheck/materializer` を接続する。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7` に checkpoint を追記した。
+- 現時点の focused verification は `cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer --lib -- --nocapture` を通した。
+- memo_call 側は今回混ぜず、sealed fresh private region / non-escape proof の Resource IR checkpoint として分離する。
+
+# 2026-06-01 .neplmeta typecheck materializer callable MVP checkpoint
+
+- Zenn 記事の static check、enum/struct による authority 明示、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
+- remote/main は作業開始時点で `84751896 Add neplmeta materializer MVP gate` まで同期済みで、現在 branch `perf/neplmeta-typecheck-materializer-20260601` の基点は `origin/main` と一致している。
+- subagent review で、`.neplmeta` typecheck materializer の初回 checkpoint は primitive / function / binder-indexed generic callable に絞り、named type、trait bound、field accessor、impl lookup、function value identity は fail-closed に残すべきと確認した。
+- `nepl-core/src/typecheck/materializer.rs` を追加し、`TypedPublicSurfaceTable` から local public callable を fresh `TypeCtx` / `Env` へ投影する内部 API を実装した。
+- materializer は primitive / tuple / function / generic parameter / box / reference type を復元する。generic parameter は `PublicTypeParamRef { binder_depth, index }` を binder stack で解決し、名前一致では対応付けない。
+- callable は `PublicCallableLinkSymbol` の source path / name / signature hash から決定的な symbol を作る。span-derived mangle は使わず、同じ link symbol の再 materialize は idempotent に skip する。
+- subagent follow-up review で、empty generic binder が外側 generic を隠す問題、malformed callable surface の内部整合性不足、reject 時の `Env` 半端挿入が指摘された。これを受け、empty binder では binder stack を押さず、entry kind / function type / arity / effect / signature hash の整合性を確認し、two-phase staging で全 entry が通るまで `Env` へ挿入しないようにした。
+- fail-closed reason は enum として追加した。callable 以外、entry kind mismatch、malformed callable metadata、link symbol 欠落、link name mismatch、field accessor、trait bound、named type、`TraitSelf`、unbound generic、type application、existing value conflict、`no_shadow` 同signature conflict は通常 source load / typecheck fallback へ戻す。
+- この checkpoint は body skip 完了ではない。`def_id=None` のため `@func` / `memo_call @func` のような function value identity 依存経路は、stable function identity materializer が入るまで対象外にする。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7` に checkpoint を追記した。
+- 現時点の focused verification は `cargo test -p nepl-core materializer --lib -- --nocapture` を通した。
+- 残件: import / prelude boundary で target `.neplmeta` artifact を引き、local export / Open / simple named import projection を materializer へ接続する。named type / trait bound / field accessor / function value identity は専用 authority を追加してから扱う。
 # 2026-06-01 .neplmeta materializer MVP gate checkpoint
 
 - Zenn 記事の静的検査、enum / struct による authority 明示、純粋 query cache、試作段階でも雑設計を残さない方針を再確認した。`plan.md` は変更していない。
@@ -48764,6 +48948,16 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - verification は `cargo test -p nepl-core --test typeannot -- --nocapture`、`cargo test -p nepl-core --test overload -- --nocapture`、`cargo test -p nepl-core --test typectx_checkpoint -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`trunk build --release`、`node nodesrc/test_ci_llvm_dual_shard_job.js`、`node nodesrc/test_ci_examples_doctest_job.js`、`node nodesrc/test_type_expectation_model_policy.js`、`node nodesrc/test_tests_js_shard_policy.js`、`node nodesrc/test_merge_doctest_json.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` を通した。
 - release Web bundle で pipe 付き `with_capacity` 再現は成功したが、debug compile は小さい入力でも `compile_ms` 相当で約 3.8 秒だった。edit compile は改善している一方、base compile は引き続き `ISS-20260524T225852366Z-PER-PROGRAM-COMPILE-TIME-EXCEEDS-DEF-189918C5` と `.neplmeta` / `.neplproof` prechecked artifact 側で削る必要がある。
 
+## 2026-06-01 Agent `.neplmeta` projection blocker detail checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-projection-materializer-20260601` branch で、`.neplmeta` stdlib dependency artifact producer 後に残る projection blocker を調査した。`plan.md` は変更していない。
+- Zenn の試作段階方針、静的検査方針、性能追求方針を再確認し、`rejectCode=6` を場当たりに解消するのではなく、blocker reason と entry kind を stats に残して次の materializer authority を根拠付きで切る方針にした。
+- subagent review では、`.neplmeta` materializer は direct call 用 public surface に留め、`memo_call` / function value identity / `PrivateCache` mask proof / Resource IR proof の authority へ昇格させないことを確認した。
+- `PublicSurfaceMaterializerBlockerReason::code()` と `TypedPublicSignatureKind::code()` を追加し、root probe / edge probe / artifact MVP gate の `PublicSurfaceBlocker` 詳細を Web stats へ出すようにした。
+- 3 回目の `std/prelude_base` dependency artifact probe は `MissingArtifact` を増やさず、`PublicSurfaceBlocker` まで進む。実 blocker は `MissingTraitIdentity` (`reason_code=7`) かつ `Impl` surface (`entry_kind_code=5`) であり、`core/traits/copy` -> `copy/primitive` の `Clone` / `Copy` impl surface が trait identity を要求している。
+- `ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1` を追加し、次の根本対応を trait table / impl table / capability registration materializer として切り出した。`todo.md` と `doc/neplg2/compiler_performance_cache_design.md` も更新した。
+- focused verification は `cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml`、`cargo test -p nepl-core neplmeta_store_pre_typecheck_probe_records_projection_reject_reason --lib -- --nocapture`、`cargo test -p nepl-core neplmeta_materializer_mvp_rejects_public_surface_blocker --lib -- --nocapture`、`cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`trunk build --release`、`node tests\compiler\tree\run.js` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
 ## 2026-06-01 Agent `.neplmeta` stable trait surface checkpoint
 
 - remote/main と同期済みの `perf/neplmeta-trait-identity-20260601` branch で、`.neplmeta` structured public surface の trait identity 残件を進めた。`plan.md` は変更していない。
@@ -48798,6 +48992,17 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。次の残件は reexport / prelude edge と module canonical path、fail-closed materializer 本体である。
 - focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。
 
+## 2026-06-01 Agent `.neplmeta` semantic trait surface checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-trait-impl-materializer-20260601` branch で、`std/prelude_base` edge probe の `MissingTraitIdentity` blocker を根本から進めた。`plan.md` は変更していない。
+- Zenn の試作段階方針と静的検査方針を再確認し、private `Clone` / `Copy` trait を `pub trait` にするのではなく、public export と semantic support surface を分ける設計にした。
+- subagent review では、private capability trait を `TypedPublicSurfaceEntry` に足すだけでは `NeplMetaExportSurface` が public export と誤認すること、trait/impl materializer は `traits` / `impls` semantic registry へ注入する必要があることを確認した。
+- `TypedPublicSurfaceEntry.exported` を追加し、export surface は `exported=true` の entry だけを local export にするようにした。semantic-only trait は import 先の visible namespace に出さず、impl header / callable bound の復元 authority として残す。
+- private trait reference でも `PublicTraitIdentity` を保持するようにし、`Clone` / `Copy` impl surface の `MissingTraitIdentity` blocker を解消した。structured public surface hash namespace は `neplg2-typed-public-surface-v8`、`.neplmeta` schema / artifact hash / compiler identity は v12 に上げた。
+- tree regression では `std/prelude_base` dependency artifact probe の blocker が `MissingTraitIdentity` (`reason_code=7`) から `MissingNamedTypeIdentity` (`reason_code=3`) へ進んだ。entry kind は引き続き `Impl` (`entry_kind_code=5`) である。
+- `ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10` を追加し、次の root gap を `MemPtr .T` などの nominal type application materializer として切り出した。
+- focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`trunk build --release` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
 ## 2026-06-01 Agent `.neplmeta` trait Self surface checkpoint
 
 - remote/main と同期済みの `perf/neplmeta-trait-self-surface-20260601` branch で、trait method signature 内の `Self` を structured public surface authority として扱う修正を進めた。`plan.md` は変更していない。
@@ -48807,3 +49012,55 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - structured public surface hash namespace を `neplg2-typed-public-surface-v7`、`.neplmeta` schema / artifact hash / compiler identity を v8 に上げた。
 - `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。次の残件は reexport / prelude edge と module canonical path、fail-closed materializer 本体である。
 - focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` backend scalar / int128 locality checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-nominal-type-materializer-20260601` branch で、`.neplmeta` materializer の named type blocker を続けた。`plan.md` は変更していない。
+- Zenn の静的検査・性能追求・試作段階でも設計負債を残さない方針を再確認し、backend scalar と user-defined nominal type を同じ文字列 fallback で扱わない方針にした。
+- subagent review では、`BackendScalarType` を唯一の authority にすること、`i128` / `u128` を backend scalar と誤分類しないこと、memo_call / PrivateCache はこの branch に混ぜないことを確認した。
+- `PublicTypeTerm::Named { identity: None }` のうち `BackendScalarType` が知っている `i64` / `u64` / `f64` / `u32` だけを materializer preflight blocker から外し、materializer 本体も同じ enum domain から `TypeCtx` へ復元するようにした。
+- `i128` / `u128` は `core/math/int128/types` が所有する public struct なので、`copy/primitive` から `Clone` / `Copy` impl を外して型定義 module へ移した。prelude primitive capability module が型定義を持たない nominal impl surface を抱え込まないようにするためである。
+- `std/prelude_base` dependency artifact probe は、`MissingNamedTypeIdentity` / `Impl` ではなく `UnsupportedExportKind` (`reject_code=11`) まで進んだ。一部 stored stdlib artifact は projection success しており、次の root gap は callable-only projection から trait/struct/enum export と semantic impl registry materializer へ移った。
+- focused verification は `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`、`cargo test -p nepl-core materializer_mvp_accepts_backend_scalar_named_types --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`trunk build --release`、`node tests\compiler\tree\run.js` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` non-callable export projection checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-noncallable-export-projection-20260601` branch で、`.neplmeta` projection の `UnsupportedExportKind` 境界を進めた。`plan.md` は変更していない。
+- subagent review では、projection 層は `NeplMetaExportKind` と `TypedPublicSignatureKind` の同じ対応で `Callable` / `Struct` / `Enum` / `Trait` を戻し、`Impl` / alias / glob / merge / re-export projection は引き続き fail-closed に残すべきだと確認した。
+- `NeplMetaExportKind::typed_public_signature_kind` を追加し、`project_materializer_public_surface_mvp` が local export の kind を保って structured public surface entry を投影するようにした。これにより、projection は artifact payload を `TypedPublicSurfaceTable` へ戻す責務に集中し、`TypeCtx` / `Env` への登録可否は後段 materializer に残る。
+- Rust regression では open import と selective import の `Struct` / `Enum` / `Trait` projection を追加した。semantic-only `Impl` は export surface に出さず、private capability surface と同じく non-exported support entry として残す。
+- tree regression では dependency body-only edit の root pre-typecheck probe が projection success まで進み、stored stdlib dependency edge probe でも複数 artifact が projection success するようになった。残る root gap は `UnsupportedImplLookup` と、non-callable `PublicSurfaceShape` を current session の semantic registry へ materialize する処理である。
+- focused verification は `cargo test -p nepl-core neplmeta_projection --lib -- --nocapture`、`cargo test -p nepl-core neplmeta_materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`trunk build --release`、`node tests\compiler\tree\run.js` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` nominal / trait definition materializer checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-nominal-trait-materializer-20260601` branch で、projection 後の `Struct` / `Enum` / `Trait` definition materializer を進めた。`plan.md` は変更していない。
+- subagent review では、`Impl` registry へ踏み込む前に stable identity 付き nominal / trait definition だけを staging + rollback で登録し、同名再利用は identity 一致時だけに制限するのが最小単位だと確認した。
+- `materialize_public_surface_with_semantics_mvp` を追加し、semantic table を渡した場合だけ `Struct` / `Enum` / `Trait` surface を current session へ復元できるようにした。既存の callable-only wrapper は non-callable surface を受け取らない境界として維持した。
+- `TypeCtx::checkpoint` / `rollback` を使い、途中 entry が reject した場合に named table、nominal identity、constructor binding、semantic table を汚さない regression を追加した。
+- `PublicTypeTerm::Named { identity: Some(...) }` と `Apply` は、predeclare 済み nominal definition と stable identity が一致する場合だけ materialize する。trait method 内の `TraitSelf` は trait materializer の内側でのみ `self_ty` へ戻す。
+- `TraitInfo` は `.neplmeta` 由来の `TraitStableIdentity` を保持できるようになった。source typecheck 由来 trait は従来どおり `SourceMap` から public identity を作る。
+- post-implementation subagent review で、artifact が名乗る `definition_hash` を materializer 側で再検証していない問題が見つかったため修正した。`Struct` / `Enum` は public surface から nominal definition hash を再計算し、登録直前の materialized `TypeKind` hash とも照合する。trait は capability / method surface の hash を再計算し、重複 method 名を拒否する。
+- 残る root gap は semantic-only `PublicImplSurface` を visible export に混ぜず `ImplInfo` / capability registration へ materialize する処理である。`memo_call` / `PrivateCache` proof には今回触れていない。
+- focused verification は `cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` semantic impl materializer checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-impl-materializer-20260601` branch で、semantic-only `PublicImplSurface` materializer を進めている。`plan.md` は変更していない。
+- subagent review では、source typecheck 経路が trait definition 収集、`TraitSemantics::detect`、impl collection、copy/clone/drop 整合性検査、capability target registration の順に進むことを確認した。
+- `materialize_public_surface_with_semantics_mvp` は `impls: &mut Vec<ImplInfo>` も受け取り、`PublicImplSurface` を staging できるようになった。全 entry 成功後だけ impl registry と capability target を更新する。
+- trait application と generic bound は `PublicTraitRef.identity` を必須にし、`TraitInfo.stable_identity` と一致する場合だけ `TraitApplication` / `TraitBound` へ戻す。impl target は stable nominal identity 付き `Named` / `Apply` と binder-indexed generic reference を使う。
+- `Copy` impl は対応する `Clone` impl がなければ reject し、`Drop` impl は copyable target と重なる場合に reject する。duplicate impl は trait application と target type pattern の重なりで検出する。
+- artifact MVP gate の `UnsupportedImplLookup` は外した。残る root gap は、この materializer を dependency import / prelude body skip 経路へ接続し、base compile time を実測することである。
+- focused verification は `cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` typecheck materialized surface input checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-import-body-skip-20260601` branch で、dependency `.neplmeta` projection を typecheck body 検査前へ注入する API を追加した。`plan.md` は変更していない。
+- Zenn の試作段階方針、静的検査方針、純粋 query cache 方針を再確認し、loader/web 側で場当たりに body skip するのではなく、core の typecheck 境界へ明示入力を作る形にした。
+- subagent review では、materialized dependency を root module の public surface へ混ぜる危険と、`origin_span` だけでは import visibility の file identity 契約が弱いことを確認した。
+- `MaterializedPublicSurfaceInput` は `TypedPublicSurfaceTable` に加え、`module_path` と `file_id` を要求する。`SourceMap` 上で同じ path の file slot が存在しない場合は fail-closed に拒否する。
+- `StructInfo` / `EnumInfo` / `ImplInfo` に origin span を持たせた。materialized dependency file は名前解決と semantic registry には使うが、current module の typed public signature / typed public surface 生成からは除外する。
+- regression では、dependency body を root AST に merge しなくても materialized callable で root body を typecheck できること、かつ dependency export が root の public signature / public surface に混ざらないことを固定した。
+- この checkpoint でも body skip は完了ではない。direct call される dependency function body を codegen 入力から落とすには `.neplobj` / codegen fragment 相当の authority が必要であり、それまでは source fallback 判定を維持する必要がある。
+- focused verification は `cargo test -p nepl-core materialized_public_surface_typechecks_imported_callable_without_dependency_body --lib -- --nocapture`、`cargo test -p nepl-core materializer_mvp --lib -- --nocapture`、`cargo test -p nepl-core typed_public_surface --lib -- --nocapture`、`cargo test -p nepl-core neplmeta --lib -- --nocapture`、`cargo check -p nepl-core -p nepl-language`、`cargo check --manifest-path nepl-web\Cargo.toml` を通した。全体 verification はこの checkpoint の最終確認で実施する。

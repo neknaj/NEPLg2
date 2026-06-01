@@ -1227,7 +1227,7 @@ public interface artifact を固定し、その上へ typed / proof / backend ar
 
 | artifact | 役割 | 主な key |
 |---|---|---|
-| `.neplmeta` | import graph、exported type/function/trait impl surface、effect signature、typed public signature、source capability policy surface を保持する。依存側の名前解決・型検査がまず読む authority である。 | module path、source public surface hash、typed public signature hash、dependency public surface hash、stdlib hash、compiler schema version |
+| `.neplmeta` | import graph、exported type/function/trait impl surface、effect signature、typed public signature、source capability policy surface を保持する。依存側の名前解決・型検査がまず読む authority である。 | module path、source key hash、source public surface hash、typed public signature hash、dependency public surface hash、stdlib hash、compiler schema version |
 | `.neplhir` | stable lexical path id、typed HIR、typed diagnostics enum、local binding shape、expected type boundary を保持する。MVP では同一 session cache に限定し、永続化は stable typed id 導入後に行う。 | function identity、body semantic hash、scope shape hash、callable candidate set、effect expectation |
 | `.neplproof` | Resource IR lowering 結果、initialized/owner/borrow/drop/effect summary、private effect mask proof を stable mirror として保持する。 | typed HIR function hash、source capability policy hash、type/effect boundary hash、generic type arguments、summary kind |
 | `.neplobj` | wasm / LLVM の function body fragment、signature table entry、function table entry、data segment、relocation metadata を保持する。 | monomorphized function identity、lowered body hash、target/profile、backend feature set |
@@ -1802,6 +1802,87 @@ fresh `TypeCtx` / `Env` へ投影する前提条件が揃ったことだけを�
 `PublicTypeTerm -> TypeId` の復元、local public callable の `Env` 注入、Open / simple named import
 の projection を小さく実装する。
 
+### 2026-06-01 `.neplmeta` typecheck materializer callable MVP checkpoint
+
+`nepl-core/src/typecheck/materializer.rs` を追加し、`.neplmeta` の structured public surface を
+現在 compile session の fresh `TypeCtx` / `Env` へ投影する最初の内部 API を実装した。
+
+この checkpoint は stdlib dependency body skip そのものではない。目的は、artifact-level gate を
+通過した public callable surface について、依存側の prefix call 解決が読む callable 候補を
+`TypeId` と `Binding` として安全に再構築できるかを固定することである。`TypeId`、`Span`、
+`SourceMap`、typed HIR、Resource IR proof は `.neplmeta` から復元しない。
+
+受け入れる型:
+
+- `unit` / `i32` / `u8` / `f32` / `bool` / `char` / `str` / `never`。
+- tuple。
+- function type。`PublicTypeParamRef { binder_depth, index }` は binder stack で解決する。
+- box / reference type。これは型境界の復元だけであり、owner / borrow proof の再利用ではない。
+
+拒否する surface:
+
+- callable 以外の struct / enum / trait / impl surface。
+- stable link symbol を持たない callable。
+- link symbol name と entry name が一致しない callable。
+- field accessor callable。
+- trait bound を持つ generic callable。
+- name-only または stable identity 付きであっても、まだ名義型 materializer がない named type。
+- `TraitSelf`、unbound generic parameter、type application。
+- 既存 value との name conflict、および `no_shadow` 同signature conflict。
+
+subagent review 後、materializer は two-phase staging にした。table 内の後続 entry で拒否が
+起きた場合、前半で staging した binding は `Env` へ入れない。これにより、artifact materialize
+失敗後に通常 source load / typecheck fallback へ戻っても、半端な imported callable 候補が
+残らない。
+
+また callable surface の内部整合性も materialize 前に確認する。entry kind が callable であること、
+`surface.ty` が function type であること、`arity` と parameter 数、surface effect と function
+type effect、`PublicCallableLinkSymbol.signature_hash` と public type term stable hash が一致する
+ことを検査する。壊れた `.neplmeta` payload が self-consistent な outer hash を持っていても、
+この局所 boundary で fail-closed に止める。
+
+materialized callable symbol は `PublicCallableLinkSymbol` の source path / name / signature hash から
+決定的に作る。span-derived mangle は使わないため、同じ dependency artifact を別 compile
+session で読んでも同じ callable symbol になる。一方で `def_id` は `None` のままであるため、
+`@func` / `memo_call @func` のような function value identity 依存の経路は、stable function
+identity materializer が入るまで通常 source typecheck fallback 側に残す。
+
+この実装により、`.neplmeta` は typed public surface を「保存できる」だけでなく、
+primitive / generic callable に限って typecheck candidate として復元できる段階へ進んだ。
+次の根本対応は、import / prelude boundary で target artifact を引いて local export と
+Open / simple named import projection をこの materializer へ渡すこと、および named type /
+trait bound / field accessor / function value identity を専用 authority で順に追加することである。
+
+### 2026-06-01 `.neplmeta` import projection checkpoint
+
+target `.neplmeta` artifact を読めた後に、import clause で見える public surface だけを
+typecheck materializer へ渡す projection API を追加した。
+
+この checkpoint もまだ dependency body skip ではない。現時点の `CompilerSession` は直近 compile
+artifact slot だけを持ち、module path keyed な依存 artifact map や disk / IndexedDB codec を
+持っていない。そのため、loader が import / prelude boundary で target artifact を引く処理へは
+まだ接続しない。今回の目的は、target artifact が存在する場合でも「何を `Env` へ注入してよいか」
+を artifact layer の純粋関数として固定することである。
+
+現在の境界:
+
+- `materializer_local_export_public_surface_mvp` は local export を kind 付きで投影する。
+- `materializer_import_public_surface_mvp` は `Open` / clause なしでは local export 全体、
+  alias なし selective import では指定名の export だけを投影する。
+- alias、glob、merge、default alias は visible name 書き換えや衝突判定が必要なので拒否する。
+- re-export projection はさらに target artifact を読む必要があるため、この checkpoint では
+  `UnsupportedReexportProjection` として拒否する。
+- `Struct` / `Enum` / `Trait` export は projection で保持する。ただし current session への
+  登録は named type / trait materializer が別に fail-closed に判定する。
+- missing selective name は「存在しない」と推測せず、re-export 未展開の可能性も含めて専用 reason で
+  fail-closed にする。
+
+この projection により、前 checkpoint の `typecheck/materializer` は、artifact 全体ではなく
+import clause で見える export subset だけを受け取れるようになった。次の段階では、module path
+keyed な `.neplmeta` artifact store を `CompilerSession` / loader cache に持たせ、target artifact
+header compatibility と dependency public surface hash を確認したうえで、この projection と
+typecheck materializer を import / prelude boundary に接続する。
+
 ### 2026-06-01 LLVM dual CI shard checkpoint
 
 GitHub Actions run `26728316260` では、`llvm-dual-test` の `tests` / `stdlib`
@@ -1830,6 +1911,366 @@ scan metadata を残すため、timeout や partial report が混じった場合
 summary cache / proof template の設計で削る必要がある。この shard は、現在の重い compiler を
 CI 上で観測し続けるための workload boundary 修正である。
 
+### 2026-06-01 `.neplmeta` source key invalidation checkpoint
+
+`.neplmeta` header に `source_key_hash` を追加した。これは typed public signature や
+structured public surface の hash とは別に、保存済み artifact が現在の module source に
+由来するかを typecheck 前に確認するための境界である。
+
+`source_key_hash` は既存の `compiled_source_cache_key_part` から作る。この source key は
+lexer token stream 由来であり、通常コメント、doc comment、span だけの変更は無視する。一方で、
+literal、identifier、directive、indent / dedent、raw wasm / llvm text など、compile 結果に
+影響し得る token は保持する。したがって、dependency body skip や import materializer へ進む時に、
+public signature が同じまま式 body だけが変わった artifact を誤って受け入れる経路を閉じられる。
+
+body skip の前段では、typed public signature や structured public surface をまだ作れない。
+そのため `NeplMetaArtifactPreTypecheckEnvelope` を別に追加し、target/profile、stdlib content、
+dependency public surface、module surface、source capability policy、private effect policy、
+source key だけで payload decode 前の照合を行えるようにした。typed public signature と
+structured public surface は、この pre-typecheck envelope を通過した後の payload consistency
+と materializer の責務として残す。
+
+`SourceMap` または `.neplmeta` の canonical module path がない場合、`source_key_hash` は
+`None` になる。これは「安全に再利用できる」という意味ではなく、body skip の前提を証明できない
+artifact として通常 load / typecheck へ戻すための fail-closed 値である。`NeplMetaArtifactStore`
+と materializer MVP は `source_key_hash=None` の artifact を拒否する。将来 disk / IndexedDB
+codec を追加する場合も、payload decode や materializer 実行より前に pre-typecheck envelope と
+header の `source_key_hash` を照合する。
+
+Web `CompilerSession` の stats JSON には `nepl_meta_artifact_source_key_hash` を追加した。
+値が 0 の場合は artifact がない、または source key を作れないことを表す観測値であり、
+artifact payload 本体や source text は公開しない。
+
+### 2026-06-01 `.neplmeta` pre-typecheck store projection checkpoint
+
+`NeplMetaArtifactStore` に `materializer_import_public_surface_pre_typecheck_mvp` を追加した。
+この API は body skip そのものではなく、loader/import boundary で target module の source と
+module edge surface が分かった段階で、保存済み `.neplmeta` artifact から materializer 入力を
+取り出せるかを probe するための境界である。
+
+従来の store projection は full `NeplMetaArtifactHeader` を expected value として要求していた。
+しかし full header には typed public signature hash と structured public surface hash が含まれ、
+それらは target module body の typecheck 後にしか得られない。新しい API は
+`NeplMetaArtifactPreTypecheckEnvelope` を受け取り、payload decode 前に確認できる
+schema、compiler identity、target/profile、stdlib content hash、source key、dependency public
+surface hash、module surface hash、source capability policy、private effect policy だけを照合する。
+
+pre-typecheck envelope が通った後も、store は payload consistency と MVP projection を続けて
+確認する。成功時に返るのは `TypedPublicSurfaceTable` だけであり、`TypeCtx` / `Env` への注入や
+依存 module AST inline の省略はまだ行わない。失敗時は `MissingArtifact`、`PayloadConsistency`、
+`Compatibility(SourceKey / DependencyPublicSurface / ModuleSurface / ...)`、
+`Projection(...)` の enum reason で通常 load / typecheck fallback へ戻す。
+
+この checkpoint により、次の loader/import probe は「artifact がない」「source が古い」
+「dependency surface が違う」「import clause が MVP 範囲外」のどれで fallback したかを
+文字列解析なしに区別できる。body skip を有効化する前に、この probe の hit/reject 統計を
+Web `CompilerSession` から観測できるようにする。
+
+### 2026-06-01 `.neplmeta` pre-typecheck probe observation checkpoint
+
+`NeplMetaArtifactStoreStats` に pre-typecheck probe 専用の統計を追加した。既存の
+`hits` は module path keyed store 内に artifact が存在した回数であり、projection 成功や
+安全な body skip を意味しない。そのため、probe の `attempts`、`projected`、missing artifact、
+payload reject、compatibility reject、projection reject、projected entry count を別 field として
+記録する。
+
+last reason は `last_pre_typecheck_probe_reject_kind` と
+`last_pre_typecheck_probe_reject_code` に分けた。kind は missing / payload / compatibility /
+projection の大分類であり、code はそれぞれの enum reason を安定した数値に畳んだ値である。
+これにより Web playground や benchmark で、`SourceKey` mismatch と `UnsupportedAlias` のように
+次に直す場所が違う fallback reason を文字列解析なしに分けられる。
+
+この checkpoint でも compile path の意味は変えない。通常 compile は pre-typecheck probe を
+まだ呼ばないため、Web `loader_cache_stats_json` では probe field が 0 として存在することだけを
+確認する。次の loader/import 接続では、この統計を先に見ながら fallback rate を測り、body skip
+へ進んでよい edge を限定する。
+
+### 2026-06-01 `.neplmeta` session root pre-typecheck probe checkpoint
+
+Web `CompilerSession` の実 compile path に、保存済み root `.neplmeta` artifact を
+pre-typecheck envelope で照合する観測 probe を接続した。これは dependency body skip ではなく、
+現在の loader/source-map 境界で artifact が再投影可能かを測るための安全な staging である。
+
+接続条件:
+
+- `.neplmeta` store が空でない場合だけ probe する。初回 compile は missing artifact として数えず、
+  実際に再利用候補が存在する二回目以降だけを測る。
+- stdlib overlay compile では従来通り loader/resource/proof cache を bypass し、probe store も
+  compile path へ渡さない。
+- probe は `materializer_import_public_surface_pre_typecheck_mvp` の戻り値を使わず、統計だけを
+  更新する。`TypeCtx` / `Env` 注入、依存 module AST inline 省略、Resource IR skip は行わない。
+
+固定した観測:
+
+- import dependency の body-only edit では、root source key と dependency public surface が変わらない
+  場合でも、現 payload の materializer blocker が残る artifact は projection reject として数えられる。
+  store hit を body-skip ready と誤読しないための確認である。
+- root source の literal edit では、typed public signature が変わらなくても source key mismatch で
+  compatibility reject になり、projection 判定へ進まない。
+
+subagent review では、依存 module 単位の本命 probe は `Loader::process_directives_with` の
+prelude/import `load_file_with` 成功直後に置き、`Include` や AST merge を変えず観測専用 hook として
+接続するのが安全と確認した。この checkpoint はその前段であり、次は import/prelude edge ごとの
+module surface と import clause を渡す loader hook へ進む。
+
+### 2026-06-01 `.neplmeta` import/prelude edge pre-typecheck probe checkpoint
+
+Loader が実際に load した stdlib `#prelude` / `#import` edge から、
+`.neplmeta` pre-typecheck envelope 用の観測値を作るようにした。root artifact probe と同じ
+`NeplMetaArtifactStore` compatibility / projection 判定を使うが、統計は root probe と分けて
+`pre_typecheck_edge_probe_*` に記録する。
+
+edge envelope の source identity は root compile の `SourceMap` から作らない。loader は target
+module の source key と、target file 単体の source capability policy set hash を probe に含める。
+root file や同時に load された別 dependency の capability policy を混ぜると、同じ stdlib artifact が
+呼び出し元 root によって compatibility reject されるためである。dependency public surface hash は
+別 field として保持し、target の import/prelude 公開面変更はそちらで invalidation する。
+
+安全境界:
+
+- edge probe は `NeplMetaArtifactStore` が空でない compile だけで収集する。初回 compile や
+  artifact 再投影候補がない compile では、dependency edge ごとの source 再読込や dependency hash
+  計算を走らせず、base compile の固定費を増やさない。
+- `#include` は AST merge 境界であり dependency artifact 境界ではないため、probe 対象にしない。
+- non-stdlib VFS edge は `.neplmeta` store lookup 対象にしない。stdlib overlay compile でも
+  従来通り loader / resource / proof cache と `.neplmeta` store を bypass する。
+- probe は統計だけを更新し、`TypedPublicSurfaceTable` を `TypeCtx` / `Env` に注入しない。
+  dependency AST inline 省略、Resource IR skip、codegen skip も行わない。
+
+この checkpoint で分かるのは「import/prelude target artifact がまだ store にない」
+「store にあるが envelope / projection で拒否された」「projection 可能だった」のどれかである。
+body skip や stdlib prechecked artifact の実利用は、edge probe の fallback reason を十分に観測してから
+次段の materializer 接続で行う。
+
+固定した観測:
+
+- root artifact store が埋まった後の dependency body-only edit では、実際に load された stdlib
+  prelude/import edge だけが edge probe attempt として数えられ、現時点では target artifact が
+  store にないため missing artifact として fallback する。
+- `#no_prelude` + `#include` のみの compile では、store が埋まった二回目でも edge probe attempt は
+  0 のままであり、include を dependency artifact edge と誤認しない。
+- loader 単体 regression では、edge probe の source capability policy hash が root compile 全体の
+  `SourceMap` hash ではなく target module file 単体の hash であることを固定した。
+
+### 2026-06-01 `.neplmeta` stdlib dependency artifact producer checkpoint
+
+Web `CompilerSession` に、import/prelude edge probe で見つかった bundled stdlib dependency の
+`.neplmeta` artifact を生成して store へ入れる producer を追加した。これは typecheck body skip ではなく、
+次回以降の edge probe が `MissingArtifact` で止まらず、compatibility / projection reason まで進めるための
+中間 artifact 供給段階である。
+
+producer は `compile_nepl_meta_artifact_with_source_identity` を使い、target module を typecheck した時点で
+止まる。Resource IR static check、drop 挿入、wasm codegen は行わない。`.neplmeta` は依存側の公開 interface
+authority であり、実行 body や Resource proof の authority ではないためである。source key と source
+capability policy は root compile の `SourceMap` から再計算せず、loader の edge probe が target source 単位で
+計算した値を header へ固定する。
+
+stdlib dependency を root として読み直すと、`std/prelude_base` のような module に root 専用の既定 prelude
+注入がかかり、自己循環 import を作る。そのため `Loader::load_dependency_inline_with_provider_and_cache` を追加し、
+producer では edge target を non-root module として読み直す。これは元の root compile で import/prelude target が
+読まれた条件に合わせるための loader 境界であり、通常の root compile path は変更しない。
+
+安全境界:
+
+- `.neplmeta` store が空の初回 compile では edge probe を収集しない。base compile の固定費を増やさないため、
+  dependency artifact producer は二回目以降、edge probe 材料が既にある compile でだけ動く。
+- stdlib overlay / `/stdlib` VFS override では producer も store lookup も従来通り bypass し、bundled stdlib
+  artifact と overlay artifact を混ぜない。
+- target path は bundled stdlib root 配下に限定し、non-stdlib import や `#include` は dependency artifact
+  producer の対象にしない。
+- store に同じ pre-typecheck envelope と互換な artifact が既にある場合は再 typecheck しない。この確認は
+  `has_pre_typecheck_compatible_artifact` で行い、実 materializer probe の hit/miss 統計とは混ぜない。
+- 生成した artifact は store へ入れるだけで、`TypedPublicSurfaceTable` を `TypeCtx` / `Env` へ注入しない。
+  dependency AST inline 省略、Resource IR skip、codegen skip は次 checkpoint 以降の別作業である。
+
+固定した観測:
+
+- 1 回目 compile は root `.neplmeta` だけを store し、edge probe attempts は 0 のままである。
+- 2 回目 compile は stdlib edge probe を実行し、probe 自体は既存どおり missing artifact として fallback する。
+  compile 成功後に、その edge target の `.neplmeta` artifact を store へ追加する。
+- 3 回目 compile は同じ edge probe で missing artifact を増やさず、現在の MVP materializer が対応していない
+  public surface について projection reject まで進む。これにより、次に直すべき理由が「artifact 未生成」ではなく
+  「materializer が未対応」に移る。
+
+### 2026-06-01 `.neplmeta` projection blocker detail checkpoint
+
+`.neplmeta` store stats に、projection reject が `PublicSurfaceBlocker` だった場合の
+blocker reason code と entry kind code を追加した。これは性能改善そのものではなく、
+次の materializer 実装単位を誤らないための観測 boundary である。
+
+これまで Web stats は `rejectKind=Projection` / `rejectCode=6` までしか持たず、
+`PublicSurfaceBlocker` の中身を失っていた。`MissingTraitIdentity`、`MissingNamedTypeIdentity`、
+`MissingCallableLinkSymbol`、`UnboundGenericParam` などは必要な materializer authority が異なるため、
+同じ code へ丸めると次の高速化作業が根拠を失う。
+
+今回追加した値:
+
+- `nepl_meta_artifact_materializer_mvp_public_surface_blocker_reason_code`
+- `nepl_meta_artifact_materializer_mvp_public_surface_blocker_entry_kind_code`
+- `nepl_meta_artifact_store_last_pre_typecheck_probe_projection_blocker_reason_code`
+- `nepl_meta_artifact_store_last_pre_typecheck_probe_projection_blocker_entry_kind_code`
+- `nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projection_blocker_reason_code`
+- `nepl_meta_artifact_store_last_pre_typecheck_edge_probe_projection_blocker_entry_kind_code`
+
+`std/prelude_base` の dependency artifact は 3 回目 compile で `MissingArtifact` を増やさず、
+`PublicSurfaceBlocker` まで進む。最初の blocker は
+`MissingTraitIdentity` (`reason_code=7`) かつ `Impl` surface (`entry_kind_code=5`) である。
+具体的には `std/prelude_base` が `core/traits/copy` を `@merge` import し、
+そこから `copy/primitive` の `Clone` / `Copy` trait と primitive impl 群が入る。
+これらの trait は public export API ではないが、prelude capability registration には必要な
+semantic surface である。
+
+次の根本対応は、callable-only materializer を拡張して `Clone` / `Copy` を例外的に通すことではない。
+trait table、impl table、capability registration を `.neplmeta` から fail-closed に復元する
+[`.neplmeta trait and impl materializer needed for prelude capability surface`](../../issues/items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md)
+を進める。`memo_call` / private cache purity / function value identity はこの surface
+materializer の authority ではないため、`.neplmeta` 由来 callable は引き続き `def_id=None`
+の direct call 専用に留める。
+
+### 2026-06-01 `.neplmeta` semantic trait surface checkpoint
+
+`.neplmeta` structured public surface は、export される public API と、dependency
+typecheck に必要な semantic support surface を分けて保持するようになった。private
+`Clone` / `Copy` trait は public export にはしないが、impl header や callable bound が
+参照する場合は stable trait identity 付きで artifact に残す。
+
+これにより `std/prelude_base` dependency artifact probe の最初の blocker は
+`MissingTraitIdentity` (`reason_code=7`) から `MissingNamedTypeIdentity`
+(`reason_code=3`) へ進んだ。entry kind は引き続き `Impl` (`entry_kind_code=5`) である。
+つまり trait identity の欠落は解消し、次の root gap は `MemPtr .T` などの nominal type
+application を current session の `TypeCtx` へ安全に materialize することである。
+
+export surface は `TypedPublicSurfaceEntry.exported=true` の entry だけを local export に
+する。semantic-only trait は import 先の visible namespace には出さず、後続の trait /
+impl materializer が impl header を復元するための authority としてだけ扱う。
+
+### 2026-06-01 `.neplmeta` backend scalar and local int128 capability checkpoint
+
+`.neplmeta` materializer preflight は、compiler-defined backend scalar と user-defined
+nominal type を分けて扱うようになった。`i64` / `u64` / `f64` / `u32` は
+`BackendScalarType` が所有する named scalar domain なので、stable nominal identity がなくても
+`MissingNamedTypeIdentity` にはしない。materializer 本体も同じ enum domain から `TypeCtx` の
+backend scalar `TypeId` を復元する。文字列の再列挙ではなく、layout / wasm / LLVM / Resource
+stable key と同じ authority を使うため、support set の drift を Rust 側の enum 境界へ集約できる。
+
+一方で `i128` / `u128` は backend scalar ではない。これらは `core/math/int128/types` が
+所有する public struct であり、`copy/primitive` に primitive capability impl を置くと、
+default prelude の `.neplmeta` surface が型定義を持たないまま name-only nominal term を
+持ってしまう。そこで `i128` / `u128` の `Clone` / `Copy` impl は型定義 module へ移し、
+prelude の primitive capability module は本当に primitive な型だけを所有する形に戻した。
+
+この checkpoint 時点では、`std/prelude_base` の dependency edge probe で一部の stored stdlib
+artifact が projection success まで進み、残る projection reject は `PublicSurfaceBlocker` ではなく
+`UnsupportedExportKind` (`reject_code=11`) になった。これは non-callable export / semantic trait・impl
+surface を current session の registry へ復元する段階が次の root gap であることを示していた。
+`UnsupportedExportKind` では blocker reason / entry kind code は 0 のままにし、古い
+`MissingNamedTypeIdentity` 詳細を stats に残さない。
+
+この変更は `i128` / `u128` を backend scalar として扱うものではない。同名 user nominal と
+backend scalar の衝突は、今後 `.neplmeta` の type term に compiler-owned scalar tag を持たせるか、
+backend scalar 名を予約型名として診断する設計でさらに固定する必要がある。
+
+### 2026-06-01 `.neplmeta` non-callable export projection checkpoint
+
+`.neplmeta` projection は、local export を callable だけに制限せず、artifact が保持する
+export kind と同じ `TypedPublicSignatureKind` の structured public surface entry を返すようにした。
+`Callable` / `Struct` / `Enum` / `Trait` は projection できる。`Impl` は visible export ではなく、
+semantic-only support surface として後段の trait / impl materializer が扱う。
+
+この checkpoint も body skip 完了ではない。projection は artifact payload を
+`TypedPublicSurfaceTable` に戻す純粋な境界であり、current session の `TypeCtx` / `Env` へ
+何を登録できるかは `typecheck/materializer` が別に判定する。現時点の materializer 本体は
+callable 以外をまだ `UnsupportedSurfaceKind` として fail-closed に扱う。
+
+tree regression では、dependency body-only edit の root pre-typecheck probe が
+`UnsupportedExportKind` reject ではなく projection success まで進むようになった。また、
+stored stdlib dependency artifact の edge probe でも複数 artifact が projection success し、
+last reject code は 0 に戻る。残る root gap は、artifact MVP gate の `UnsupportedImplLookup`
+および non-callable surface を semantic registry / visible namespace へ安全に materialize する処理である。
+
+次の作業単位:
+
+- `Struct` / `Enum` / `Trait` surface を stable nominal / trait identity から `TypeCtx` と trait table へ復元する。
+- semantic-only `Impl` を visible export に混ぜず、validated impl registry と capability registration へ注入する。
+- `PublicTypeTerm::Named { identity: Some(...) }` と `Apply` を実体化してから impl target / trait application を復元する。
+- re-export projection は target artifact chain と衝突判定が必要なので、引き続き fail-closed に残す。
+
+### 2026-06-01 `.neplmeta` nominal and trait definition materializer checkpoint
+
+`typecheck/materializer` に、projection 済み `Struct` / `Enum` / `Trait` surface を current session の
+semantic table へ staging する入口を追加した。既存の callable-only wrapper は non-callable
+surface を受け取らないまま維持し、semantic table を渡す新しい materializer だけが nominal /
+trait definition を扱う。
+
+この checkpoint で追加した境界:
+
+- `TypeCtx::checkpoint` / `rollback` を使い、途中 entry が reject した場合は named table、
+  nominal identity、constructor binding、semantic table を汚さない。
+- `Struct` / `Enum` は `PublicNominalTypeIdentity` を必須 authority とし、同名型が既にある場合は
+  stable identity が一致するときだけ再利用する。
+- artifact 内の identity はそのまま信頼しない。`Struct` / `Enum` は surface の type parameter、
+  field / variant、type term から nominal definition hash を再計算し、`TypeCtx` へ登録する直前にも
+  materialized `TypeKind` の hash と照合する。trait も capability / method surface から
+  definition hash を再計算し、重複 method 名は fail-closed に拒否する。
+- `PublicTypeTerm::Named { identity: Some(...) }` は、predeclare 済み nominal type と stable identity が
+  一致する場合だけ `TypeId` へ戻す。
+- `PublicTypeTerm::Apply` は base / args を materialize したうえで `TypeCtx::apply` へ戻す。
+- `PublicTraitSurface` は `PublicTraitIdentity` を必須 authority とし、`TraitInfo` に
+  `TraitStableIdentity` を保持して idempotent reuse と同名 trait conflict を区別する。
+- trait method surface 内の `TraitSelf` は trait materializer 内だけで `self_ty` へ戻す。
+
+この変更により、callable が後続の `Struct` entry を参照していても、predeclare pass により
+definition order に依存せず named type を解決できる。enum variant constructor と struct constructor
+binding も source typecheck と同じ `Env` 経路へ staging する。
+
+### 2026-06-01 `.neplmeta` semantic impl materializer checkpoint
+
+`.neplmeta` semantic table 付き materializer は、`PublicImplSurface` を validated `ImplInfo`
+として staging し、全 entry が成功した後にだけ impl registry と capability target を更新するようにした。
+artifact MVP gate の `UnsupportedImplLookup` は外し、impl surface を含む artifact も projection / preflight
+を通過できる。
+
+この checkpoint で追加した境界:
+
+- `PublicImplKind::Trait` だけを受け入れる。inherent impl は source 側でも unsupported なので
+  fail-closed に残す。
+- trait application と generic bound は `PublicTraitRef.identity` を必須 authority とし、
+  `TraitInfo.stable_identity` と source path / name / arity / definition hash が一致する場合だけ戻す。
+- impl target と trait argument は既存の `TypeTermMaterializer` を使い、stable nominal identity 付き
+  `Named` / `Apply` / binder-indexed generic parameter から復元する。
+- duplicate impl は、trait application と target type pattern が重なる場合に拒否する。同一 impl の
+  再投影は `AlreadyPresent` として扱う。
+- `Clone` / `Copy` / `Drop` capability target は staging 中に直接更新せず、全体成功後にだけ
+  `TypeCtx` へ登録する。`Copy` impl は対応する `Clone` impl がなければ拒否し、`Drop` impl は
+  copyable target と重なる場合に拒否する。
+
+まだ残る範囲:
+
+- field accessor callable と function value identity は引き続き stable callable identity の別 issue に残す。
+- re-export projection は target artifact chain と衝突判定が必要なので fail-closed のままにする。
+- materialized dependency surface を実際の import / prelude typecheck body skip 経路へ接続し、base
+  compile time の実測を更新する必要がある。
+
+### 2026-06-01 `.neplmeta` typecheck materialized surface input checkpoint
+
+typecheck driver に、artifact projection 済みの dependency `TypedPublicSurfaceTable` を source body
+検査前に注入する入力境界を追加した。これにより、loader / web が `.neplmeta` store から得た surface を
+通常の source declaration と同じ `Env` / nominal table / trait table / impl table へ戻せる。
+
+この入力は `module_path` と `file_id` を必須にする。`SourceMap` 上の `file_id` が同じ path を指して
+いない場合は fail-closed に拒否する。import visibility は binding span の file id に依存するため、
+dependency body を省略しても target file slot は現在 compile の `SourceMap` に存在しなければならない。
+
+materialized dependency は名前解決と semantic registry へ使うが、現在 module の public signature /
+public surface には含めない。`StructInfo` / `EnumInfo` / `ImplInfo` に origin span を持たせ、typecheck
+結果の public artifact 生成時に materialized file id を除外する。これにより、root module の
+`.neplmeta` が import した dependency API を local export として再配布する事故を避ける。
+
+この checkpoint でも body skip は完了していない。直接呼び出される dependency function body を
+codegen 入力から落とすには、`.neplobj` / codegen fragment 相当の authority か、依存 callable を
+使う case では source fallback する判定が必要である。次の実装では prelude capability のように
+型検査だけで必要な surface から先に materialize し、実行 body が必要な dependency は安全側に戻す。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。
@@ -1845,3 +2286,4 @@ CI 上で観測し続けるための workload boundary 修正である。
 - [ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92](../../issues/items/ISS-20260527T050120000Z-COMPILER-SESSION-STDLIB-PRECHECK-CACHE-A71E4C92.md)
 - [ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D](../../issues/items/ISS-20260531T073211850Z-EXPRESSION-SUBTREE-INCREMENTAL-QUER-A91F3C2D.md)
 - [ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649](../../issues/items/ISS-20260531T111205690Z-BINARY-INTERMEDIATE-ARTIFACTS-NEEDED-1C570649.md)
+- [ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1](../../issues/items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md)

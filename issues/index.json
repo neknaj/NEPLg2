@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-01T05:46:52.871Z",
+  "generated_at": "2026-06-01T12:47:07.160Z",
   "counts": {
-    "total": 1300,
-    "open": 29,
+    "total": 1303,
+    "open": 32,
     "resolved": 1271,
     "by_area": {
       "stdlib": {
@@ -12,8 +12,8 @@
         "resolved": 326
       },
       "core": {
-        "total": 655,
-        "open": 22,
+        "total": 658,
+        "open": 25,
         "resolved": 633
       },
       "neplg21": {
@@ -430,6 +430,36 @@
       "file": "items/ISS-20260531T223904937Z-NEPLMETA-NEEDS-TYPECHECK-SURFACE-MAT-E7FF61B7.md"
     },
     {
+      "id": "ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7",
+      "title": "memo_call sealed private cache region proof",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-01",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/resource/effect_check.rs; nepl-core/src/effects.rs; nepl-core/src/resource/model.rs; nepl-core/src/typecheck/memo_call.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7.md"
+    },
+    {
+      "id": "ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10",
+      "title": ".neplmeta nominal type materializer needed for impl target surface",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-01",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/types.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260601T105003551Z-NEPLMETA-NOMINAL-TYPE-MATERIALIZER-NEEDED-5C9B2A10.md"
+    },
+    {
       "id": "ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2",
       "title": "Owner return summary needs stable value cache",
       "area": "core",
@@ -443,6 +473,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260601T174500000Z-OWNER-RETURN-SUMMARY-NEEDS-STABLE-CACH-8A7B61D2.md"
+    },
+    {
+      "id": "ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1",
+      "title": ".neplmeta trait and impl materializer needed for prelude capability surface",
+      "area": "core",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "architecture",
+      "created": "2026-06-01",
+      "updated": "2026-06-01",
+      "target": "nepl-core/src/typecheck/driver.rs; nepl-core/src/typecheck/materializer.rs; nepl-core/src/typecheck/public_surface.rs; nepl-core/src/typecheck/public_signature.rs; nepl-core/src/artifact.rs; nepl-web/src/lib.rs",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260601T193116311Z-NEPLMETA-TRAIT-IMPL-MATERIALIZER-NEEDED-D3A0C2F1.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",

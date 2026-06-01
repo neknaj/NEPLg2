@@ -78,3 +78,13 @@ cache region identity や sealed wrapper identity を function value alias に�
 検証:
 
 - `cargo test -p nepl-core function_alias --lib -- --nocapture`
+
+## 2026-06-01 sealed memo cache proof dependency
+
+sealed backend representation は
+`ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7` の proof を下流依存にする。
+
+backend が private cache storage を実際に持つ前に、sealed region が public value、raw address、
+function equality/hash/debug observation、cache stats/clear/ref API へ出ないことを Resource IR 側で
+証明する。`MemoizedFunctionValue` を plain function table value と同じ可観測結果へ lower している
+現 checkpoint は、sealed representation 完了ではなく fail-closed な足場として扱う。

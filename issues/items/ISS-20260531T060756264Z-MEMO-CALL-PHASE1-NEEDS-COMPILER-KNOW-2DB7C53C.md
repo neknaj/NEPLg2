@@ -66,3 +66,13 @@ GitHub CI で `nepl-language` が `HirExprKind::MemoizedFunctionValue` に追従
 すべて `MemoCallRequiresFunctionValue` で拒否する。これにより、直接 `memo_call @pure_named_func`
 だけが accepted path であり、関数値が通常 value path を通った時点で private cache proof を
 持たないことを regression として固定した。
+
+## 2026-06-01 sealed memo cache proof dependency
+
+`memo_call` の accepted syntax / typecheck matrix はこの issue で維持するが、Pure mask と実 cache
+backend の証明は `ISS-20260601T080651209Z-MEMO-CALL-SEALED-PRIVATE-CACHE-REGIO-615F68B7`
+へ分離した。
+
+sealed proof が入るまでは、`memo_call @pure_named_func` の結果は typed HIR / Resource IR 上の
+memoized function value kind を保持するだけであり、`PrivateCache` を Pure へ fold しない。
+即時適用、function literal、alias / pass-through function value を rejected path として維持する。

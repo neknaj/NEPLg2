@@ -482,6 +482,8 @@ mod owner_variant_unreachable;
 mod owner_variant_utils;
 mod owner_variant_value_condition;
 mod place_utils;
+mod private_cache_mask;
+mod private_cache_taint;
 mod raw_cell_lifecycle;
 mod raw_cell_lifecycle_alias;
 #[cfg(test)]

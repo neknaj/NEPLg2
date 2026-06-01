@@ -22,7 +22,9 @@ use crate::types::{TypeId, TypeKind};
 use super::binding_rules::{emit_shadow_warning, shadow_blocked_by_nonshadow};
 use super::control_special::ControlSpecialFunction;
 use super::diagnostics::{effect_error, resolve_error, type_error};
-use super::env::{Binding, BindingKind};
+use super::env::{
+    resolved_function_value_identity, Binding, BindingKind, FunctionValueIdentityReject,
+};
 use super::syntax_helpers::{parse_i32_literal, split_qualified_name};
 use super::trait_check::TraitSelfTypeInference;
 use super::traits::TraitId;
@@ -48,21 +50,31 @@ fn function_value_identity_from_binding(
     binding: &Binding,
     ty: TypeId,
     type_args: Vec<TypeId>,
-) -> Option<FunctionValueIdentity> {
-    match &binding.kind {
-        BindingKind::Func {
-            symbol,
-            def_id,
-            effect,
-            ..
-        } => Some(FunctionValueIdentity::new(
-            symbol.clone(),
-            *def_id,
-            ty,
-            *effect,
-            type_args,
-        )),
-        _ => None,
+) -> Result<FunctionValueIdentity, FunctionValueIdentityReject> {
+    resolved_function_value_identity(binding, ty, type_args)
+}
+
+fn function_value_identity_reject_message(reason: FunctionValueIdentityReject) -> &'static str {
+    match reason {
+        FunctionValueIdentityReject::NotCallable => "only callable symbols can be referenced with '@'",
+        FunctionValueIdentityReject::CapturingUnsupported => {
+            "capturing function cannot be used as a function value yet"
+        }
+        FunctionValueIdentityReject::UnresolvedIdentity => {
+            "function value requires a resolved named function identity"
+        }
+    }
+}
+
+fn function_value_identity_reject_code(reason: FunctionValueIdentityReject) -> TypeDiagnosticCode {
+    match reason {
+        FunctionValueIdentityReject::NotCallable => TypeDiagnosticCode::FunctionRefRequiresCallable,
+        FunctionValueIdentityReject::CapturingUnsupported => {
+            TypeDiagnosticCode::FunctionValueCapturingUnsupported
+        }
+        FunctionValueIdentityReject::UnresolvedIdentity => {
+            TypeDiagnosticCode::FunctionValueUnresolvedIdentity
+        }
     }
 }
 
@@ -924,23 +936,27 @@ impl<'a> BlockChecker<'a> {
                                     }
                                 };
                                 let hir_kind = match &binding.kind {
-                                    BindingKind::Func {
-                                        symbol,
-                                        def_id,
-                                        effect,
-                                        ..
-                                    } if *forced_value
-                                        || expected_function_from_outer
-                                        || selected_from_qualified
-                                        || binding.name != id.name =>
+                                    BindingKind::Func { .. }
+                                        if *forced_value
+                                            || expected_function_from_outer
+                                            || selected_from_qualified
+                                            || binding.name != id.name =>
                                     {
-                                        HirExprKind::FnValue(FunctionValueIdentity::new(
-                                            symbol.clone(),
-                                            *def_id,
+                                        match function_value_identity_from_binding(
+                                            &binding,
                                             ty,
-                                            *effect,
                                             explicit_args.clone(),
-                                        ))
+                                        ) {
+                                            Ok(identity) => HirExprKind::FnValue(identity),
+                                            Err(reason) => {
+                                                self.diagnostics.push(type_error(
+                                                    function_value_identity_reject_code(reason),
+                                                    function_value_identity_reject_message(reason),
+                                                    id.span,
+                                                ));
+                                                return None;
+                                            }
+                                        }
                                     }
                                     _ => HirExprKind::Var(binding.name.clone()),
                                 };
@@ -1048,15 +1064,23 @@ impl<'a> BlockChecker<'a> {
                                         ));
                                     }
                                     let ty = binding.ty;
-                                    let hir_kind = if let Some(identity) =
-                                        function_value_identity_from_binding(
-                                            &binding,
-                                            ty,
-                                            explicit_args.clone(),
-                                        ) {
-                                        HirExprKind::FnValue(identity)
-                                    } else {
-                                        HirExprKind::Var(lookup_name.clone())
+                                    let hir_kind = match function_value_identity_from_binding(
+                                        &binding,
+                                        ty,
+                                        explicit_args.clone(),
+                                    ) {
+                                        Ok(identity) => HirExprKind::FnValue(identity),
+                                        Err(FunctionValueIdentityReject::NotCallable) => {
+                                            HirExprKind::Var(lookup_name.clone())
+                                        }
+                                        Err(reason) => {
+                                            self.diagnostics.push(type_error(
+                                                function_value_identity_reject_code(reason),
+                                                function_value_identity_reject_message(reason),
+                                                id.span,
+                                            ));
+                                            return None;
+                                        }
                                     };
                                     stack.push(StackEntry {
                                         ty,
@@ -1257,20 +1281,21 @@ impl<'a> BlockChecker<'a> {
                                                     }
                                                     let ty = binding.ty;
                                                     let identity =
-                                                        function_value_identity_from_binding(
-                                                            &binding,
+                                                        match function_value_identity_from_binding(
+                                                            binding,
                                                             ty,
                                                             explicit_args.clone(),
-                                                        )
-                                                        .unwrap_or_else(|| {
-                                                            FunctionValueIdentity::new(
-                                                                lookup_name.clone(),
-                                                                None,
-                                                                ty,
-                                                                Effect::Pure,
-                                                                explicit_args.clone(),
-                                                            )
-                                                        });
+                                                        ) {
+                                                            Ok(identity) => identity,
+                                                            Err(reason) => {
+                                                                self.diagnostics.push(type_error(
+                                                                    function_value_identity_reject_code(reason),
+                                                                    function_value_identity_reject_message(reason),
+                                                                    id.span,
+                                                                ));
+                                                                return None;
+                                                            }
+                                                        };
                                                     stack.push(StackEntry {
                                                         ty,
                                                         expr: HirExpr {
@@ -1359,15 +1384,12 @@ impl<'a> BlockChecker<'a> {
                                             expr: HirExpr {
                                                 ty,
                                                 kind: if *forced_value {
-                                                    HirExprKind::FnValue(
-                                                        FunctionValueIdentity::new(
-                                                            call_name.clone(),
-                                                            None,
-                                                            ty,
-                                                            effect,
-                                                            explicit_args.clone(),
-                                                        ),
-                                                    )
+                                                    self.diagnostics.push(type_error(
+                                                        TypeDiagnosticCode::FunctionValueUnresolvedIdentity,
+                                                        "function value requires a resolved named function identity",
+                                                        id.span,
+                                                    ));
+                                                    return None;
                                                 } else {
                                                     HirExprKind::Var(call_name.clone())
                                                 },
@@ -1442,29 +1464,19 @@ impl<'a> BlockChecker<'a> {
                                                 method_self,
                                             );
                                             let inst_ty = self.ctx.substitute(*sig, &mapping);
+                                            if *forced_value {
+                                                self.diagnostics.push(type_error(
+                                                    TypeDiagnosticCode::FunctionValueUnresolvedIdentity,
+                                                    "function value requires a resolved named function identity",
+                                                    id.span,
+                                                ));
+                                                return None;
+                                            }
                                             stack.push(StackEntry {
                                                 ty: inst_ty,
                                                 expr: HirExpr {
                                                     ty: inst_ty,
-                                                    kind: if *forced_value {
-                                                        let effect = match self.ctx.get(inst_ty) {
-                                                            TypeKind::Function {
-                                                                effect, ..
-                                                            } => effect,
-                                                            _ => Effect::Pure,
-                                                        };
-                                                        HirExprKind::FnValue(
-                                                            FunctionValueIdentity::new(
-                                                                id.name.clone(),
-                                                                None,
-                                                                inst_ty,
-                                                                effect,
-                                                                vec![method_self],
-                                                            ),
-                                                        )
-                                                    } else {
-                                                        HirExprKind::Var(id.name.clone())
-                                                    },
+                                                    kind: HirExprKind::Var(id.name.clone()),
                                                     span: id.span,
                                                 },
                                                 type_args: vec![method_self],

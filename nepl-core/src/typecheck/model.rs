@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use crate::ast::Visibility;
 use crate::diagnostic::Diagnostic;
 use crate::hir::{HirExpr, HirFunction};
+use crate::span::Span;
 use crate::types::{EnumVariantInfo, TypeId};
 
 use super::struct_shape::StructConstructorShape;
@@ -39,6 +40,7 @@ pub(super) struct CheckedFunction {
 pub(super) struct EnumInfo {
     pub(super) ty: TypeId,
     pub(super) visibility: Visibility,
+    pub(super) span: Span,
     pub(super) type_params: Vec<TypeId>,
     pub(super) variants: Vec<EnumVariantInfo>,
 }
@@ -47,6 +49,7 @@ pub(super) struct EnumInfo {
 pub(super) struct StructInfo {
     pub(super) ty: TypeId,
     pub(super) visibility: Visibility,
+    pub(super) span: Span,
     pub(super) type_params: Vec<TypeId>,
     pub(super) fields: Vec<TypeId>,
     pub(super) field_names: Vec<String>,

@@ -11,7 +11,9 @@ use crate::types::{TypeId, TypeKind};
 
 use super::constructor_apply::ConstructorApplyResult;
 use super::diagnostics::{effect_error, type_error};
-use super::env::{Binding, BindingKind};
+use super::env::{
+    resolved_function_value_identity, Binding, BindingKind, FunctionValueIdentityReject,
+};
 use super::field_apply::FieldAccessorApplyResult;
 use super::generic_call_constraints::{
     resolve_generic_type_args_from_constraints, GenericCallConstraint,
@@ -332,16 +334,14 @@ impl<'a> BlockChecker<'a> {
                     let callables = self.env.lookup_all_callables(var_name);
                     if !callables.is_empty() {
                         let mut matched_identity: Option<FunctionValueIdentity> = None;
+                        let mut unresolved_identity = false;
                         let mut ambiguous = false;
                         for cb in callables {
-                            let (symbol, def_id, effect, captures_len) = match &cb.kind {
+                            let captures_len = match &cb.kind {
                                 BindingKind::Func {
-                                    symbol,
-                                    def_id,
-                                    effect,
                                     captures,
                                     ..
-                                } => (symbol.clone(), *def_id, *effect, captures.len()),
+                                } => captures.len(),
                                 _ => continue,
                             };
                             if captures_len != 0 {
@@ -352,23 +352,40 @@ impl<'a> BlockChecker<'a> {
                             let matched = self.ctx.unify(cand_ty, *param_ty).is_ok();
                             self.ctx.rollback(checkpoint);
                             if matched {
+                                let identity = match resolved_function_value_identity(
+                                    cb,
+                                    arg_ty,
+                                    Vec::new(),
+                                ) {
+                                    Ok(identity) => identity,
+                                    Err(FunctionValueIdentityReject::UnresolvedIdentity) => {
+                                        unresolved_identity = true;
+                                        continue;
+                                    }
+                                    Err(FunctionValueIdentityReject::CapturingUnsupported) => {
+                                        continue;
+                                    }
+                                    Err(FunctionValueIdentityReject::NotCallable) => continue,
+                                };
                                 if matched_identity.is_some() {
                                     ambiguous = true;
                                     break;
                                 }
-                                matched_identity = Some(FunctionValueIdentity::new(
-                                    symbol,
-                                    def_id,
-                                    arg_ty,
-                                    effect,
-                                    Vec::new(),
-                                ));
+                                matched_identity = Some(identity);
                             }
                         }
                         if ambiguous {
                             self.diagnostics.push(type_error(
                                 TypeDiagnosticCode::OverloadAmbiguous,
                                 "ambiguous overload",
+                                arg_expr.span,
+                            ));
+                            return None;
+                        }
+                        if unresolved_identity && matched_identity.is_none() {
+                            self.diagnostics.push(type_error(
+                                TypeDiagnosticCode::FunctionValueUnresolvedIdentity,
+                                "function value requires a resolved named function identity",
                                 arg_expr.span,
                             ));
                             return None;
