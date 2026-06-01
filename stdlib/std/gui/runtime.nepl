@@ -1,0 +1,80 @@
+//: # std/gui/runtime
+//: GuiEffect を host dispatch value へ[解釈/かいしゃく]する runtime helper
+//:
+//: ### [目的/もくてき]
+//: - application が[返/かえ]した `GuiEffect` を、platform host が[実行/じっこう]できる typed command value へ[変換/へんかん]します。
+//: - 初期 contract では実行を行わず、`Result GuiRuntimeCommand GuiError` を[返/かえ]して unsupported や invalid command を静的に[扱/あつか]えるようにします。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は window title API、redraw API、event loop を直接[呼/よ]びません。platform backend は `GuiRuntimeCommand` を[受/う]けて[解釈/かいしゃく]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/runtime" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/host" as *
+#import "std/gui/window" as *
+
+//: WindowTitleUpdate: title change request の typed payload
+pub struct WindowTitleUpdate:
+    window %WindowId
+    title %str
+
+impl Clone for WindowTitleUpdate:
+    fn clone %fn &WindowTitleUpdate WindowTitleUpdate \update:
+        *update
+
+impl Copy for WindowTitleUpdate:
+    fn copy_mark %fn WindowTitleUpdate WindowTitleUpdate \update:
+        update
+
+//: GuiRuntimeCommand: platform host が[実行/じっこう]する command value
+pub enum GuiRuntimeCommand:
+    Noop
+    RequestRedraw %WindowId
+    SetTitle %WindowTitleUpdate
+
+impl Clone for GuiRuntimeCommand:
+    fn clone %fn &GuiRuntimeCommand GuiRuntimeCommand \command:
+        *command
+
+impl Copy for GuiRuntimeCommand:
+    fn copy_mark %fn GuiRuntimeCommand GuiRuntimeCommand \command:
+        command
+
+//: window_title_update: title change payload を[作/つく]る
+pub fn window_title_update %fn WindowId fn str WindowTitleUpdate \window\title:
+    WindowTitleUpdate window title
+
+//: window_title_update_window: title change target window を[読/よ]む
+pub fn window_title_update_window %fn &WindowTitleUpdate WindowId \update:
+    *field::get_ref update "window"
+
+//: window_title_update_title: title change text を[読/よ]む
+pub fn window_title_update_title %fn &WindowTitleUpdate str \update:
+    *field::get_ref update "title"
+
+//: gui_runtime_interpret_effect: GuiEffect を runtime command に[変換/へんかん]する
+pub fn gui_runtime_interpret_effect %fn &GuiHost fn GuiEffect Result GuiRuntimeCommand GuiError \host\effect:
+    match effect:
+        GuiEffect::None:
+            gui_ok GuiRuntimeCommand::Noop
+        GuiEffect::RequestRedraw payload:
+            let target %i32 field::get payload "target"
+            gui_ok GuiRuntimeCommand::RequestRedraw window_id target
+        GuiEffect::SetTitle payload:
+            let target %i32 field::get payload "target"
+            let title %str field::get payload "title"
+            gui_ok GuiRuntimeCommand::SetTitle window_title_update window_id target title
+
+//: gui_runtime_interpret_update: Update に[含/ふく]まれる effect を runtime command に[変換/へんかん]する
+pub fn gui_runtime_interpret_update <.Model> %fn &GuiHost fn Update .Model Result GuiRuntimeCommand GuiError \host\update:
+    gui_runtime_interpret_effect host update_effect update

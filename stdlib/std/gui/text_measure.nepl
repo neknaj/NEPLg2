@@ -1,0 +1,82 @@
+//: # std/gui/text_measure
+//: host text measurement の request/response contract
+//:
+//: ### [目的/もくてき]
+//: - font stack や browser/native text API を std/gui host boundary の[外側/そとがわ]へ[押/お]し出し、stdlib 側では request と metrics だけを[扱/あつか]います。
+//: - core/gui に `TextMeasurer` trait が[未実装/みじっそう]の段階でも、既存の `GuiError` と typed value で host text measurement の[境界/きょうかい]を[固定/こてい]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/text_measure" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/traits/copy" as *
+
+//: HostTextMeasurer: platform text stack を[参照/さんしょう]する opaque contract
+pub struct HostTextMeasurer:
+    capabilities %GuiCapabilities
+
+impl Clone for HostTextMeasurer:
+    fn clone %fn &HostTextMeasurer HostTextMeasurer \measurer:
+        *measurer
+
+impl Copy for HostTextMeasurer:
+    fn copy_mark %fn HostTextMeasurer HostTextMeasurer \measurer:
+        measurer
+
+//: HostTextMeasureRequest: text measurement request
+pub struct HostTextMeasureRequest:
+    text %str
+    font_id %i32
+    size_px %i32
+    max_width %i32
+
+impl Clone for HostTextMeasureRequest:
+    fn clone %fn &HostTextMeasureRequest HostTextMeasureRequest \request:
+        *request
+
+impl Copy for HostTextMeasureRequest:
+    fn copy_mark %fn HostTextMeasureRequest HostTextMeasureRequest \request:
+        request
+
+//: TextMetrics: host が[返/かえ]す text metrics
+pub struct TextMetrics:
+    width %i32
+    height %i32
+    baseline %i32
+
+impl Clone for TextMetrics:
+    fn clone %fn &TextMetrics TextMetrics \metrics:
+        *metrics
+
+impl Copy for TextMetrics:
+    fn copy_mark %fn TextMetrics TextMetrics \metrics:
+        metrics
+
+//: host_text_measurer: HostTextMeasurer contract を[作/つく]る
+pub fn host_text_measurer %fn GuiCapabilities HostTextMeasurer \capabilities:
+    HostTextMeasurer capabilities
+
+//: host_text_measure_request: HostTextMeasureRequest を[作/つく]る
+pub fn host_text_measure_request %fn str fn i32 fn i32 fn i32 HostTextMeasureRequest \text\font_id\size_px\max_width:
+    HostTextMeasureRequest text font_id size_px max_width
+
+//: text_metrics: TextMetrics を[作/つく]る
+pub fn text_metrics %fn i32 fn i32 fn i32 TextMetrics \width\height\baseline:
+    TextMetrics width height baseline
+
+//: text_metrics_width: measured width を[読/よ]む
+pub fn text_metrics_width %fn &TextMetrics i32 \metrics:
+    *field::get_ref metrics "width"
+
+//: text_metrics_height: measured height を[読/よ]む
+pub fn text_metrics_height %fn &TextMetrics i32 \metrics:
+    *field::get_ref metrics "height"
+
+//: text_metrics_baseline: baseline を[読/よ]む
+pub fn text_metrics_baseline %fn &TextMetrics i32 \metrics:
+    *field::get_ref metrics "baseline"

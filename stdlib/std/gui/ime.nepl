@@ -1,0 +1,67 @@
+//: # std/gui/ime
+//: IME bridge の typed request contract
+//:
+//: ### [目的/もくてき]
+//: - IME composition を DOM event や OS IME handle ではなく、window id と state value の request として[表/あらわ]します。
+//: - platform backend はこの value を[解釈/かいしゃく]し、確定文字は `GuiEvent::TextInput` へ[変換/へんかん]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/ime" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "std/gui/window" as *
+
+//: ImeState: IME の有効状態
+pub enum ImeState:
+    Disabled
+    Enabled
+
+impl Clone for ImeState:
+    fn clone %fn &ImeState ImeState \state:
+        *state
+
+impl Copy for ImeState:
+    fn copy_mark %fn ImeState ImeState \state:
+        state
+
+//: ImeBridge: IME host bridge を[参照/さんしょう]する opaque contract
+pub struct ImeBridge:
+    window %WindowId
+
+impl Clone for ImeBridge:
+    fn clone %fn &ImeBridge ImeBridge \bridge:
+        *bridge
+
+impl Copy for ImeBridge:
+    fn copy_mark %fn ImeBridge ImeBridge \bridge:
+        bridge
+
+//: ImeStateRequest: IME state change request
+pub struct ImeStateRequest:
+    window %WindowId
+    state %ImeState
+
+impl Clone for ImeStateRequest:
+    fn clone %fn &ImeStateRequest ImeStateRequest \request:
+        *request
+
+impl Copy for ImeStateRequest:
+    fn copy_mark %fn ImeStateRequest ImeStateRequest \request:
+        request
+
+//: ime_bridge: window に[紐/ひも]づく IME bridge contract を[作/つく]る
+pub fn ime_bridge %fn WindowId ImeBridge \window:
+    ImeBridge window
+
+//: ime_state_request: IME state request を[作/つく]る
+pub fn ime_state_request %fn WindowId fn ImeState ImeStateRequest \window\state:
+    ImeStateRequest window state
+
+//: ime_state_request_state: request の state を[読/よ]む
+pub fn ime_state_request_state %fn &ImeStateRequest ImeState \request:
+    *field::get_ref request "state"

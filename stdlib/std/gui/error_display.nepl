@@ -1,0 +1,33 @@
+//: # std/gui/error_display
+//: GuiError の std layer display helper
+//:
+//: ### [目的/もくてき]
+//: - core/gui の `GuiError` value と、利用者へ[見/み]せる text を[分離/ぶんり]します。
+//: - 初期 contract では固定の英字 label だけを[返/かえ]し、platform logger や UI 表示は[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/error_display" as *
+//: ```
+
+#indent 4
+
+#import "core/gui" as *
+
+//: gui_error_label: GuiError の安定 label を[返/かえ]す
+pub fn gui_error_label %fn GuiError str \error:
+    match error:
+        GuiError::Unsupported:
+            "unsupported"
+        GuiError::InvalidGeometry:
+            "invalid-geometry"
+        GuiError::InvalidColor:
+            "invalid-color"
+        GuiError::InvalidCommand:
+            "invalid-command"
+        GuiError::MissingCapability:
+            "missing-capability"
+        GuiError::ResourceExhausted:
+            "resource-exhausted"
+        GuiError::BackendFailure:
+            "backend-failure"

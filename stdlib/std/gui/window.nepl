@@ -1,0 +1,76 @@
+//: # std/gui/window
+//: window と surface の opaque id contract
+//:
+//: ### [目的/もくてき]
+//: - std/gui runtime が[扱/あつか]う window、surface、frame を raw platform handle ではなく opaque id として[表/あらわ]します。
+//: - DOM node、OS window pointer、terminal fd は platform backend detail とし、この module の value には[入/い]れません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/window" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/traits/copy" as *
+
+//: WindowId: host window を[参照/さんしょう]する opaque id
+pub struct WindowId:
+    raw %i32
+
+impl Clone for WindowId:
+    fn clone %fn &WindowId WindowId \id:
+        *id
+
+impl Copy for WindowId:
+    fn copy_mark %fn WindowId WindowId \id:
+        id
+
+//: SurfaceId: render surface を[参照/さんしょう]する opaque id
+pub struct SurfaceId:
+    raw %i32
+
+impl Clone for SurfaceId:
+    fn clone %fn &SurfaceId SurfaceId \id:
+        *id
+
+impl Copy for SurfaceId:
+    fn copy_mark %fn SurfaceId SurfaceId \id:
+        id
+
+//: FrameId: streaming render frame を[参照/さんしょう]する opaque id
+pub struct FrameId:
+    raw %i32
+
+impl Clone for FrameId:
+    fn clone %fn &FrameId FrameId \id:
+        *id
+
+impl Copy for FrameId:
+    fn copy_mark %fn FrameId FrameId \id:
+        id
+
+//: window_id: raw integer から WindowId を[作/つく]る
+pub fn window_id %fn i32 WindowId \raw:
+    WindowId raw
+
+//: window_id_raw: WindowId の raw value を[読/よ]む
+pub fn window_id_raw %fn &WindowId i32 \id:
+    *field::get_ref id "raw"
+
+//: surface_id: raw integer から SurfaceId を[作/つく]る
+pub fn surface_id %fn i32 SurfaceId \raw:
+    SurfaceId raw
+
+//: surface_id_raw: SurfaceId の raw value を[読/よ]む
+pub fn surface_id_raw %fn &SurfaceId i32 \id:
+    *field::get_ref id "raw"
+
+//: frame_id: raw integer から FrameId を[作/つく]る
+pub fn frame_id %fn i32 FrameId \raw:
+    FrameId raw
+
+//: frame_id_raw: FrameId の raw value を[読/よ]む
+pub fn frame_id_raw %fn &FrameId i32 \id:
+    *field::get_ref id "raw"

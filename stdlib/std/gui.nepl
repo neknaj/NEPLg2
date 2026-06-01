@@ -1,0 +1,28 @@
+//: # std/gui
+//: GUI / TUI host contract の std layer facade
+//:
+//: ### [目的/もくてき]
+//: - `core/gui` の no_alloc 型と `alloc/gui` の application effect を、std layer の host contract へ[接続/せつぞく]する public [入口/いりぐち]です。
+//: - platform 実装、DOM、ANSI escape、OS handle、clipboard の[実体/じったい]はここへ[置/お]かず、typed request と runtime dispatch value だけを[公開/こうかい]します。
+//:
+//: ### [契約/けいやく]
+//: - application は `GuiHost` を[直接/ちょくせつ][呼/よ]ばず、`Update` に[含/ふく]まれる `GuiEffect` を `gui_runtime_interpret_effect` に[渡/わた]します。
+//: - capability にない[操作/そうさ]は platform 側で黙殺せず、`GuiError::Unsupported` を `Result` で[返/かえ]す[境界/きょうかい]を使います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui" as *
+//: ```
+
+#indent 4
+
+pub #import "core/gui" as *
+pub #import "alloc/gui" as *
+pub #import "./gui/window" as *
+pub #import "./gui/timer" as *
+pub #import "./gui/text_measure" as *
+pub #import "./gui/ime" as *
+pub #import "./gui/accessibility_host" as *
+pub #import "./gui/host" as *
+pub #import "./gui/runtime" as *
+pub #import "./gui/error_display" as *

@@ -1,0 +1,92 @@
+//: # std/gui/accessibility_host
+//: accessibility host update の typed contract
+//:
+//: ### [目的/もくてき]
+//: - accessibility 情報を draw command から[復元/ふくげん]せず、widget/application layer が[作/つく]った semantic snapshot として host へ[渡/わた]します。
+//: - platform accessibility API の object handle は[持/も]たず、node id、role、label、focus の value だけを[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/accessibility_host" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "std/gui/window" as *
+
+//: AccessibilityNodeId: semantic node を[参照/さんしょう]する id
+pub struct AccessibilityNodeId:
+    raw %i32
+
+impl Clone for AccessibilityNodeId:
+    fn clone %fn &AccessibilityNodeId AccessibilityNodeId \id:
+        *id
+
+impl Copy for AccessibilityNodeId:
+    fn copy_mark %fn AccessibilityNodeId AccessibilityNodeId \id:
+        id
+
+//: AccessibilityRole: host へ[渡/わた]す role の最小集合
+pub enum AccessibilityRole:
+    Window
+    Label
+    Button
+    TextInput
+
+impl Clone for AccessibilityRole:
+    fn clone %fn &AccessibilityRole AccessibilityRole \role:
+        *role
+
+impl Copy for AccessibilityRole:
+    fn copy_mark %fn AccessibilityRole AccessibilityRole \role:
+        role
+
+//: AccessibilityNodeSnapshot: semantic node の host update snapshot
+pub struct AccessibilityNodeSnapshot:
+    id %AccessibilityNodeId
+    role %AccessibilityRole
+    label %str
+    focused %bool
+
+impl Clone for AccessibilityNodeSnapshot:
+    fn clone %fn &AccessibilityNodeSnapshot AccessibilityNodeSnapshot \node:
+        *node
+
+impl Copy for AccessibilityNodeSnapshot:
+    fn copy_mark %fn AccessibilityNodeSnapshot AccessibilityNodeSnapshot \node:
+        node
+
+//: AccessibilityTreeUpdate: window 単位の accessibility update
+pub struct AccessibilityTreeUpdate:
+    window %WindowId
+    root %AccessibilityNodeSnapshot
+
+impl Clone for AccessibilityTreeUpdate:
+    fn clone %fn &AccessibilityTreeUpdate AccessibilityTreeUpdate \update:
+        *update
+
+impl Copy for AccessibilityTreeUpdate:
+    fn copy_mark %fn AccessibilityTreeUpdate AccessibilityTreeUpdate \update:
+        update
+
+//: accessibility_node_id: raw integer から AccessibilityNodeId を[作/つく]る
+pub fn accessibility_node_id %fn i32 AccessibilityNodeId \raw:
+    AccessibilityNodeId raw
+
+//: accessibility_node_id_raw: AccessibilityNodeId の raw value を[読/よ]む
+pub fn accessibility_node_id_raw %fn &AccessibilityNodeId i32 \id:
+    *field::get_ref id "raw"
+
+//: accessibility_node_snapshot: semantic node snapshot を[作/つく]る
+pub fn accessibility_node_snapshot %fn AccessibilityNodeId fn AccessibilityRole fn str fn bool AccessibilityNodeSnapshot \id\role\label\focused:
+    AccessibilityNodeSnapshot id role label focused
+
+//: accessibility_tree_update: tree update request を[作/つく]る
+pub fn accessibility_tree_update %fn WindowId fn AccessibilityNodeSnapshot AccessibilityTreeUpdate \window\root:
+    AccessibilityTreeUpdate window root
+
+//: accessibility_node_is_focused: focused flag を[読/よ]む
+pub fn accessibility_node_is_focused %fn &AccessibilityNodeSnapshot bool \node:
+    *field::get_ref node "focused"
