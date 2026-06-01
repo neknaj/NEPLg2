@@ -61,7 +61,10 @@ fn main %impure fn unit i32 \unit:
     let win %WindowId window_id 4
     let timer %TimerRequest timer_request win timer_id 2 1000 true
     let measurer %HostTextMeasurer host_text_measurer_fixed gui_capabilities_text_grid 8 16 12
-    let metrics %TextMeasureResult unwrap_ok measure_text &measurer (text_measure_request_new (text_run_id_new 1) (font_id_new 1) 80 10)
+    let run_id %TextRunId text_run_id_new 1
+    let font_id %FontId font_id_new 1
+    let request %TextMeasureRequest text_measure_request_new run_id font_id 80 10
+    let metrics %TextMeasureResult unwrap_ok measure_text &measurer request
     let ime %ImeStateRequest ime_state_request win ImeState::Enabled
     let root %AccessibilityNodeSnapshot accessibility_node_snapshot accessibility_node_id 1 AccessibilityRole::Button "Run" true
     let check0 assert_eq_i32 1000 timer_request_interval_ms &timer
@@ -117,7 +120,8 @@ fn main %impure fn unit i32 \unit:
                     assert false
         Option::None:
             assert false
-    let checks checks_push (checks_push checks_new count_check) second_check
+    let checks1 checks_push checks_new count_check
+    let checks checks_push checks1 second_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```

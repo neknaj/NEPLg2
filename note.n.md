@@ -1,3 +1,16 @@
+# 2026-06-02 GUI/TUI no-parenthesized-call cleanup checkpoint
+
+- `plan.md` は変更していない。作業前に `origin/main` と作業 branch の同期状態を確認し、`origin/main` は既に取り込み済みだった。
+- ユーザー指摘の「NEPLg2 で括弧は使わない」方針に合わせ、GUI/TUI 関連の executable NEPLg2 code から parenthesized call を除去した。対象は `stdlib/core/gui`、`stdlib/alloc/gui`、`stdlib/std/gui`、`stdlib/platforms/gui`、`stdlib/features/gui.nepl`、`stdlib/features/tui.nepl`、`examples/gui_*.nepl`、stdlib doc-comment doctest、`tests/stdlib/gui_*.n.md`、`tests/stdlib/features_tui.n.md` の code block である。
+- subagent review は、通常文の `O(1)`、WIT sketch、非 NEPL pseudo code の括弧は対象外にし、実行コードでは nested call を単純削除せず中間 `let`、block、pipeline へ分けるべきだと確認した。`sub 0 1`、enum payload、`match f ...`、nested `checks_push`、type annotation 付き generic call が特に危険な変換点だった。
+- 修正では `layout_constraints`、`gui_scale_factor_new`、`text_run_id_new`、`font_id_new`、`widget_id`、`button_config`、`gui_rect_new`、`gui_point_new`、`rgba8888_new`、`some`、`checks_push` などを中間値へ分け、層境界や public contract は変更しなかった。
+- `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` に、GUI/TUI executable NEPLg2 code では括弧付き call を使わず、prose や WIT sketch は対象外にする規約を追記した。`todo.md` にはこの規約を source policy regression へ組み込む残件を追加した。
+- no-parentheses scan: library / examples の executable 行、stdlib GUI/TUI doctest code、`tests/stdlib/gui_*.n.md` / `features_tui.n.md` の NEPLg2 code block に括弧付き call が残っていないことを確認した。
+- focused 検証: `gui_dirty_region.n.md` 3/3、`gui_layout.n.md` 3/3、GUI/TUI group A 14/14、group B 16/16、group C 15/15、group D 17/17 pass。group A-D は `gui_core` / `gui_dirty_region_set` / `gui_app` / `gui_widget` / `gui_tree` / `gui_focus` / `gui_routing` / `gui_focus_routing` / `gui_keymap` / `gui_terminal_input` / `gui_diff` / `gui_text` / `gui_theme` / `gui_accessibility` / `gui_std` / `gui_terminal` / `features_tui` を含む。
+- stdlib doctest 検証: `stdlib/core/gui/dirty_region.nepl`、`dirty_region_set.nepl`、`alloc/gui/layout/types.nepl` は各 1/1 pass。追加 doctest group は `accessibility` / `diff` / `focus` など 6/6、`routing` / `routing/types` / `routing/focus` / `text` は 4/4、`text/types` / `theme` / `tree` / `widget/types` / `std/gui/text_measure` は 5/5 pass。
+- 最終検証: `trunk build --release`、`node nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=tmp/playground-editor-gui-no-parentheses-cleanup.json` 13/13、`node nodesrc/test_stdlib_gui_layering_policy.js`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+- `trunk build` 後の `nodesrc/tests.js` 既定 60 秒 timeout では `gui_app.n.md` の cold compile が timeout したため、`node nodesrc/run_doctest.js -i tests/stdlib/gui_app.n.md -n 1 --dist web/dist` で実行成功を確認し、`NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_app.n.md --no-tree -o tmp/gui-app-after-trunk-no-parens-180s.json -j 1 --dist web/dist --assert-io` で 3/3 pass を確認した。
+
 # 2026-06-01 GUI/TUI arena focus traversal checkpoint
 
 - `plan.md` は変更していない。作業前に `origin/main` の `.neplmeta` / benchmark reporting checkpoint を作業 branch へ merge し、merge conflict はなかった。

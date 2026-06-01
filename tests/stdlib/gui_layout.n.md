@@ -20,8 +20,13 @@ ret: 24
 #import "core/result" as *
 
 fn main %fn unit i32 \unit:
-    let ctx %LayoutContext MockTextMeasurer layout_context (layout_constraints 0 0 24 10) (gui_scale_factor_new 1 1) (mock_text_measurer_new 8 16 12) gui_capabilities_text_grid
-    match layout_measure_text_width &ctx (text_run_id_new 1) (font_id_new 1) 5:
+    let constraints %LayoutConstraints layout_constraints 0 0 24 10
+    let scale %GuiScaleFactor gui_scale_factor_new 1 1
+    let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
+    let ctx %LayoutContext MockTextMeasurer layout_context constraints scale measurer gui_capabilities_text_grid
+    let run_id %TextRunId text_run_id_new 1
+    let font_id %FontId font_id_new 1
+    match layout_measure_text_width &ctx run_id font_id 5:
         Result::Ok width:
             width
         Result::Err _width_error:
@@ -44,8 +49,13 @@ ret: 10
 #import "core/result" as *
 
 fn main %fn unit i32 \unit:
-    let ctx %LayoutContext MockTextMeasurer layout_context (layout_constraints 0 0 24 10) (gui_scale_factor_new 1 1) (mock_text_measurer_new 8 16 12) gui_capabilities_text_grid
-    match layout_measure_text_height &ctx (text_run_id_new 1) (font_id_new 1) 5:
+    let constraints %LayoutConstraints layout_constraints 0 0 24 10
+    let scale %GuiScaleFactor gui_scale_factor_new 1 1
+    let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
+    let ctx %LayoutContext MockTextMeasurer layout_context constraints scale measurer gui_capabilities_text_grid
+    let run_id %TextRunId text_run_id_new 1
+    let font_id %FontId font_id_new 1
+    match layout_measure_text_height &ctx run_id font_id 5:
         Result::Ok height:
             height
         Result::Err _height_error:
@@ -69,8 +79,14 @@ ret: 0
 #import "core/result" as *
 
 fn main %fn unit i32 \unit:
-    let ctx %LayoutContext MockTextMeasurer layout_context (layout_constraints 0 0 (sub 0 1) 10) (gui_scale_factor_new 1 1) (mock_text_measurer_new 8 16 12) gui_capabilities_text_grid
-    match layout_measure_text_width &ctx (text_run_id_new 1) (font_id_new 1) 5:
+    let negative_max_width %i32 sub 0 1
+    let constraints %LayoutConstraints layout_constraints 0 0 negative_max_width 10
+    let scale %GuiScaleFactor gui_scale_factor_new 1 1
+    let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
+    let ctx %LayoutContext MockTextMeasurer layout_context constraints scale measurer gui_capabilities_text_grid
+    let run_id %TextRunId text_run_id_new 1
+    let font_id %FontId font_id_new 1
+    match layout_measure_text_width &ctx run_id font_id 5:
         Result::Ok width:
             width
         Result::Err error:

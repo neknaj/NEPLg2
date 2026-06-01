@@ -25,9 +25,11 @@
 //: #import "core/result" as *
 //:
 //: fn main %fn unit i32 \unit:
-//:     match dirty_region_rect_checked (gui_rect_new 0 0 1 1):
+//:     let rect %GuiRect gui_rect_new 0 0 1 1
+//:     match dirty_region_rect_checked rect:
 //:         Result::Ok region:
-//:             match dirty_region_merge region (dirty_region_full unit):
+//:             let full %DirtyRegion dirty_region_full
+//:             match dirty_region_merge region full:
 //:                 DirtyRegion::Full:
 //:                     0
 //:                 _:
@@ -85,9 +87,11 @@ pub fn dirty_region_rect_unchecked %fn GuiRect DirtyRegion \rect:
 //: [目的/もくてき]:
 //: - `GuiRect` 自体は相対座標として[負/ふ]の x/y を[許/ゆる]すため、ここでは width/height だけを[検査/けんさ]します。
 pub fn dirty_region_rect_is_valid %fn &GuiRect bool \rect:
+    let width %i32 gui_rect_width rect
+    let height %i32 gui_rect_height rect
     and:
-        ge (gui_rect_width rect) 0
-        ge (gui_rect_height rect) 0
+        ge width 0
+        ge height 0
 
 //: dirty_region_rect_checked: rect を[検査/けんさ]して dirty region を[作/つく]る
 //:
@@ -95,7 +99,9 @@ pub fn dirty_region_rect_is_valid %fn &GuiRect bool \rect:
 //: - width/height が[負/ふ]の rect を panic や silent no-op にせず、`GuiError::InvalidGeometry` として[返/かえ]します。
 pub fn dirty_region_rect_checked %fn GuiRect Result DirtyRegion GuiError \rect:
     if dirty_region_rect_is_valid &rect:
-        then Result::Ok (DirtyRegion::Rect rect)
+        then:
+            let region %DirtyRegion DirtyRegion::Rect rect
+            Result::Ok region
         else Result::Err GuiError::InvalidGeometry
 
 //: dirty_region_is_empty: dirty なし region か[判定/はんてい]する
@@ -119,27 +125,27 @@ pub fn dirty_region_is_full %fn DirtyRegion bool \region:
 //: [実装/じっそう]:
 //: - left/top は min、right/bottom は max を[取/と]り、その[差/さ]から width/height を[作/つく]ります。
 fn dirty_region_rect_union %fn GuiRect fn GuiRect GuiRect \a\b:
-    GuiRect:
-        if lt (gui_rect_x &a) (gui_rect_x &b):
-            then gui_rect_x &a
-            else gui_rect_x &b
-        if lt (gui_rect_y &a) (gui_rect_y &b):
-            then gui_rect_y &a
-            else gui_rect_y &b
-        sub:
-            if gt (gui_rect_right &a) (gui_rect_right &b):
-                then gui_rect_right &a
-                else gui_rect_right &b
-            if lt (gui_rect_x &a) (gui_rect_x &b):
-                then gui_rect_x &a
-                else gui_rect_x &b
-        sub:
-            if gt (gui_rect_bottom &a) (gui_rect_bottom &b):
-                then gui_rect_bottom &a
-                else gui_rect_bottom &b
-            if lt (gui_rect_y &a) (gui_rect_y &b):
-                then gui_rect_y &a
-                else gui_rect_y &b
+    let a_x %i32 gui_rect_x &a
+    let b_x %i32 gui_rect_x &b
+    let a_y %i32 gui_rect_y &a
+    let b_y %i32 gui_rect_y &b
+    let a_right %i32 gui_rect_right &a
+    let b_right %i32 gui_rect_right &b
+    let a_bottom %i32 gui_rect_bottom &a
+    let b_bottom %i32 gui_rect_bottom &b
+    let left %i32 if lt a_x b_x:
+        then a_x
+        else b_x
+    let top %i32 if lt a_y b_y:
+        then a_y
+        else b_y
+    let right %i32 if gt a_right b_right:
+        then a_right
+        else b_right
+    let bottom %i32 if gt a_bottom b_bottom:
+        then a_bottom
+        else b_bottom
+    GuiRect left top sub right left sub bottom top
 
 //: dirty_region_merge: 2 つの dirty region を O(1) で[畳/たた]む
 //:
@@ -159,4 +165,5 @@ pub fn dirty_region_merge %fn DirtyRegion fn DirtyRegion DirtyRegion \a\b:
                 DirtyRegion::Empty:
                     a
                 DirtyRegion::Rect rect_b:
-                    DirtyRegion::Rect (dirty_region_rect_union rect_a rect_b)
+                    let merged %GuiRect dirty_region_rect_union rect_a rect_b
+                    DirtyRegion::Rect merged

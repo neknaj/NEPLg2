@@ -21,10 +21,13 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let config %ButtonConfig button_config (widget_id 10) "Run" (action_id 55)
+    let id %WidgetId widget_id 10
+    let action %ActionId action_id 55
+    let config %ButtonConfig button_config id "Run" action
     let hint %LayoutHint layout_hint_fixed 8 2
     let enabled %WidgetDescriptor widget_button config hint
-    let disabled %WidgetDescriptor widget_descriptor (widget_id 10) (button config) hint true true "Run"
+    let button_node %ViewNode button config
+    let disabled %WidgetDescriptor widget_descriptor id button_node hint true true "Run"
     let enabled_check match widget_action_event &enabled:
         Option::Some event:
             match event:
@@ -39,7 +42,8 @@ fn main %impure fn unit i32 \unit:
             assert false
         Option::None:
             assert true
-    let checks checks_push (checks_push checks_new enabled_check) disabled_check
+    let checks1 checks_push checks_new enabled_check
+    let checks checks_push checks1 disabled_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```
@@ -61,7 +65,11 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let descriptor %WidgetDescriptor widget_button (button_config (widget_id 9) "Save" (action_id 4)) (layout_hint_fixed 8 2)
+    let id %WidgetId widget_id 9
+    let action %ActionId action_id 4
+    let config %ButtonConfig button_config id "Save" action
+    let hint %LayoutHint layout_hint_fixed 8 2
+    let descriptor %WidgetDescriptor widget_button config hint
     let semantic %SemanticNode widget_semantic_node &descriptor
     let check assert semantic_node_is_button &semantic
     let checks checks_push checks_new check

@@ -17,8 +17,13 @@
 //:| #import "alloc/gui" as *
 //:| #import "core/result" as *
 //: fn main %impure fn unit i32 \unit:
-//:     let ctx %LayoutContext MockTextMeasurer layout_context (layout_constraints 0 0 200 40) (gui_scale_factor_new 1 1) (mock_text_measurer_new 8 16 12) gui_capabilities_text_grid
-//:     match layout_measure_text_height &ctx (text_run_id_new 2) (font_id_new 3) 2:
+//:     let constraints %LayoutConstraints layout_constraints 0 0 200 40
+//:     let scale %GuiScaleFactor gui_scale_factor_new 1 1
+//:     let measurer %MockTextMeasurer mock_text_measurer_new 8 16 12
+//:     let ctx %LayoutContext MockTextMeasurer layout_context constraints scale measurer gui_capabilities_text_grid
+//:     let run_id %TextRunId text_run_id_new 2
+//:     let font_id %FontId font_id_new 3
+//:     match layout_measure_text_height &ctx run_id font_id 2:
 //:         Result::Ok height:
 //:             height
 //:         Result::Err _err:
@@ -140,7 +145,9 @@ pub fn layout_context_text_measurer_ref <.TextMeasurerImpl: Copy> %fn &LayoutCon
 
 //: measured_node: measure result を[作/つく]る
 pub fn measured_node %fn WidgetId fn GuiSize MeasuredNode \id\size:
-    MeasuredNode id (gui_size_width &size) (gui_size_height &size)
+    let width %i32 gui_size_width &size
+    let height %i32 gui_size_height &size
+    MeasuredNode id width height
 
 //: measured_node_id: measured node id を[読/よ]む
 pub fn measured_node_id %fn &MeasuredNode WidgetId \node:
@@ -148,7 +155,9 @@ pub fn measured_node_id %fn &MeasuredNode WidgetId \node:
 
 //: measured_node_size: measured size を[読/よ]む
 pub fn measured_node_size %fn &MeasuredNode GuiSize \node:
-    GuiSize (*field::get_ref node "width") (*field::get_ref node "height")
+    let width %i32 *field::get_ref node "width"
+    let height %i32 *field::get_ref node "height"
+    GuiSize width height
 
 //: measured_node_width: measured width を[読/よ]む
 pub fn measured_node_width %fn &MeasuredNode i32 \node:
@@ -160,11 +169,19 @@ pub fn measured_node_height %fn &MeasuredNode i32 \node:
 
 //: layout_node: layout result を[作/つく]る
 pub fn layout_node %fn WidgetId fn GuiRect LayoutNode \id\bounds:
-    LayoutNode id (gui_rect_x &bounds) (gui_rect_y &bounds) (gui_rect_width &bounds) (gui_rect_height &bounds)
+    let x %i32 gui_rect_x &bounds
+    let y %i32 gui_rect_y &bounds
+    let width %i32 gui_rect_width &bounds
+    let height %i32 gui_rect_height &bounds
+    LayoutNode id x y width height
 
 //: layout_node_bounds: layout bounds を[読/よ]む
 pub fn layout_node_bounds %fn &LayoutNode GuiRect \node:
-    GuiRect (*field::get_ref node "x") (*field::get_ref node "y") (*field::get_ref node "width") (*field::get_ref node "height")
+    let x %i32 *field::get_ref node "x"
+    let y %i32 *field::get_ref node "y"
+    let width %i32 *field::get_ref node "width"
+    let height %i32 *field::get_ref node "height"
+    GuiRect x y width height
 
 //: layout_clamp_axis: 1 axis の measured size を constraints [内/ない]へ[収/おさ]める
 fn layout_clamp_axis %fn i32 fn i32 fn i32 i32 \value\min_value\max_value:
@@ -181,10 +198,17 @@ pub fn layout_measure_text <.TextMeasurerImpl: TextMeasurer&Copy> %fn &LayoutCon
         then Result::Err GuiError::InvalidGeometry
         else:
             let request %TextMeasureRequest text_measure_request_new run_id font_id layout_constraints_max_width &constraints cell_count
-            match measure_text (layout_context_text_measurer_ref context) request:
+            let measurer layout_context_text_measurer_ref context
+            match measure_text measurer request:
                 Result::Ok metrics:
-                    let width %i32 layout_clamp_axis (text_measure_result_width &metrics) (layout_constraints_min_width &constraints) (layout_constraints_max_width &constraints)
-                    let height %i32 layout_clamp_axis (text_measure_result_height &metrics) (layout_constraints_min_height &constraints) (layout_constraints_max_height &constraints)
+                    let measured_width %i32 text_measure_result_width &metrics
+                    let min_width %i32 layout_constraints_min_width &constraints
+                    let max_width %i32 layout_constraints_max_width &constraints
+                    let width %i32 layout_clamp_axis measured_width min_width max_width
+                    let measured_height %i32 text_measure_result_height &metrics
+                    let min_height %i32 layout_constraints_min_height &constraints
+                    let max_height %i32 layout_constraints_max_height &constraints
+                    let height %i32 layout_clamp_axis measured_height min_height max_height
                     Result::Ok MeasuredNode id width height
                 Result::Err error:
                     Result::Err error
@@ -199,9 +223,14 @@ pub fn layout_measure_text_height <.TextMeasurerImpl: TextMeasurer&Copy> %fn &La
         then Result::Err GuiError::InvalidGeometry
         else:
             let request %TextMeasureRequest text_measure_request_new run_id font_id layout_constraints_max_width &constraints cell_count
-            match measure_text (layout_context_text_measurer_ref context) request:
+            let measurer layout_context_text_measurer_ref context
+            match measure_text measurer request:
                 Result::Ok metrics:
-                    Result::Ok (layout_clamp_axis (text_measure_result_height &metrics) (layout_constraints_min_height &constraints) (layout_constraints_max_height &constraints))
+                    let measured %i32 text_measure_result_height &metrics
+                    let min_value %i32 layout_constraints_min_height &constraints
+                    let max_value %i32 layout_constraints_max_height &constraints
+                    let height %i32 layout_clamp_axis measured min_value max_value
+                    Result::Ok height
                 Result::Err error:
                     Result::Err error
 
@@ -215,9 +244,14 @@ pub fn layout_measure_text_width <.TextMeasurerImpl: TextMeasurer&Copy> %fn &Lay
         then Result::Err GuiError::InvalidGeometry
         else:
             let request %TextMeasureRequest text_measure_request_new run_id font_id layout_constraints_max_width &constraints cell_count
-            match measure_text (layout_context_text_measurer_ref context) request:
+            let measurer layout_context_text_measurer_ref context
+            match measure_text measurer request:
                 Result::Ok metrics:
-                    Result::Ok (layout_clamp_axis (text_measure_result_width &metrics) (layout_constraints_min_width &constraints) (layout_constraints_max_width &constraints))
+                    let measured %i32 text_measure_result_width &metrics
+                    let min_value %i32 layout_constraints_min_width &constraints
+                    let max_value %i32 layout_constraints_max_width &constraints
+                    let width %i32 layout_clamp_axis measured min_value max_value
+                    Result::Ok width
                 Result::Err error:
                     Result::Err error
 

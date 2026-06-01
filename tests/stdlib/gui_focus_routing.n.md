@@ -25,27 +25,41 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let root %WidgetDescriptor widget_label (widget_id 1) "title" (layout_hint_fixed 8 1)
-    let first %WidgetDescriptor widget_button (button_config (widget_id 7) "Run" (action_id 2)) (layout_hint_fixed 6 1)
-    let second %WidgetDescriptor widget_button (button_config (widget_id 9) "Save" (action_id 3)) (layout_hint_fixed 6 1)
-    let tree1 %ViewTree unwrap_ok view_tree_add_child (view_tree_single root) first
+    let root_id %WidgetId widget_id 1
+    let first_id %WidgetId widget_id 7
+    let second_id %WidgetId widget_id 9
+    let first_action %ActionId action_id 2
+    let second_action %ActionId action_id 3
+    let root_hint %LayoutHint layout_hint_fixed 8 1
+    let button_hint %LayoutHint layout_hint_fixed 6 1
+    let first_config %ButtonConfig button_config first_id "Run" first_action
+    let second_config %ButtonConfig button_config second_id "Save" second_action
+    let root %WidgetDescriptor widget_label root_id "title" root_hint
+    let first %WidgetDescriptor widget_button first_config button_hint
+    let second %WidgetDescriptor widget_button second_config button_hint
+    let tree0 %ViewTree view_tree_single root
+    let tree1 %ViewTree unwrap_ok view_tree_add_child tree0 first
     let tree2 %ViewTree unwrap_ok view_tree_add_child tree1 second
     let start_next_check match route_focus_command &tree2 none FocusRouteCommand::Next:
         FocusRouteResult::MoveFocus id:
             assert_eq_i32 7 widget_id_value id
         _:
             assert false
-    let step_next_check match route_focus_command &tree2 (some (widget_id 7)) FocusRouteCommand::Next:
+    let first_current %Option WidgetId some first_id
+    let second_current %Option WidgetId some second_id
+    let step_next_check match route_focus_command &tree2 first_current FocusRouteCommand::Next:
         FocusRouteResult::MoveFocus id:
             assert_eq_i32 9 widget_id_value id
         _:
             assert false
-    let step_previous_check match route_focus_command &tree2 (some (widget_id 9)) FocusRouteCommand::Previous:
+    let step_previous_check match route_focus_command &tree2 second_current FocusRouteCommand::Previous:
         FocusRouteResult::MoveFocus id:
             assert_eq_i32 7 widget_id_value id
         _:
             assert false
-    let checks checks_push (checks_push (checks_push checks_new start_next_check) step_next_check) step_previous_check
+    let checks1 checks_push checks_new start_next_check
+    let checks2 checks_push checks1 step_next_check
+    let checks checks_push checks2 step_previous_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```
@@ -73,10 +87,18 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let root %WidgetDescriptor widget_label (widget_id 1) "title" (layout_hint_fixed 8 1)
-    let button_node %WidgetDescriptor widget_button (button_config (widget_id 7) "Run" (action_id 42)) (layout_hint_fixed 6 1)
-    let tree %ViewTree unwrap_ok view_tree_add_child (view_tree_single root) button_node
-    let action_check match route_focus_command &tree (some (widget_id 7)) FocusRouteCommand::Activate:
+    let root_id %WidgetId widget_id 1
+    let button_id %WidgetId widget_id 7
+    let action %ActionId action_id 42
+    let root_hint %LayoutHint layout_hint_fixed 8 1
+    let button_hint %LayoutHint layout_hint_fixed 6 1
+    let button_config_value %ButtonConfig button_config button_id "Run" action
+    let root %WidgetDescriptor widget_label root_id "title" root_hint
+    let button_node %WidgetDescriptor widget_button button_config_value button_hint
+    let tree0 %ViewTree view_tree_single root
+    let tree %ViewTree unwrap_ok view_tree_add_child tree0 button_node
+    let current %Option WidgetId some button_id
+    let action_check match route_focus_command &tree current FocusRouteCommand::Activate:
         FocusRouteResult::Emit event:
             match event:
                 GuiEvent::Action action:
@@ -120,15 +142,29 @@ fn is_ignored %fn FocusRouteResult bool \result:
             false
 
 fn main %impure fn unit i32 \unit:
-    let root %WidgetDescriptor widget_label (widget_id 1) "title" (layout_hint_fixed 8 1)
-    let config %ButtonConfig button_config (widget_id 7) "Run" (action_id 42)
-    let disabled %WidgetDescriptor widget_descriptor (widget_id 7) (button config) (layout_hint_fixed 6 1) true true "Run"
-    let tree %ViewTree unwrap_ok view_tree_add_child (view_tree_single root) disabled
-    let disabled_check assert is_ignored route_focus_command &tree (some (widget_id 7)) FocusRouteCommand::Activate
-    let label_check assert is_ignored route_focus_command &tree (some (widget_id 1)) FocusRouteCommand::Activate
-    let stale_check assert is_ignored route_focus_command &tree (some (widget_id 99)) FocusRouteCommand::Activate
-    let edge_check assert is_ignored route_focus_command &tree (some (widget_id 7)) FocusRouteCommand::Next
-    let checks checks_push (checks_push (checks_push (checks_push checks_new disabled_check) label_check) stale_check) edge_check
+    let root_id %WidgetId widget_id 1
+    let button_id %WidgetId widget_id 7
+    let stale_id %WidgetId widget_id 99
+    let action %ActionId action_id 42
+    let root_hint %LayoutHint layout_hint_fixed 8 1
+    let button_hint %LayoutHint layout_hint_fixed 6 1
+    let root %WidgetDescriptor widget_label root_id "title" root_hint
+    let config %ButtonConfig button_config button_id "Run" action
+    let disabled_node %ViewNode button config
+    let disabled %WidgetDescriptor widget_descriptor button_id disabled_node button_hint true true "Run"
+    let tree0 %ViewTree view_tree_single root
+    let tree %ViewTree unwrap_ok view_tree_add_child tree0 disabled
+    let button_current %Option WidgetId some button_id
+    let label_current %Option WidgetId some root_id
+    let stale_current %Option WidgetId some stale_id
+    let disabled_check assert is_ignored route_focus_command &tree button_current FocusRouteCommand::Activate
+    let label_check assert is_ignored route_focus_command &tree label_current FocusRouteCommand::Activate
+    let stale_check assert is_ignored route_focus_command &tree stale_current FocusRouteCommand::Activate
+    let edge_check assert is_ignored route_focus_command &tree button_current FocusRouteCommand::Next
+    let checks1 checks_push checks_new disabled_check
+    let checks2 checks_push checks1 label_check
+    let checks3 checks_push checks2 stale_check
+    let checks checks_push checks3 edge_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```

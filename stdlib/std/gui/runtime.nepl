@@ -91,7 +91,8 @@ pub fn gui_runtime_command_batch_count %fn &GuiRuntimeCommandBatch i32 \batch:
 
 //: gui_runtime_command_batch_first: 1 個目の command を Option で[読/よ]む
 pub fn gui_runtime_command_batch_first %fn &GuiRuntimeCommandBatch Option GuiRuntimeCommand \batch:
-    if eq (gui_runtime_command_batch_count batch) 0:
+    let count %i32 gui_runtime_command_batch_count batch
+    if eq count 0:
         then none
         else:
             let first %GuiRuntimeCommand *field::get_ref batch "first"
@@ -99,7 +100,8 @@ pub fn gui_runtime_command_batch_first %fn &GuiRuntimeCommandBatch Option GuiRun
 
 //: gui_runtime_command_batch_second: 2 個目の command を Option で[読/よ]む
 pub fn gui_runtime_command_batch_second %fn &GuiRuntimeCommandBatch Option GuiRuntimeCommand \batch:
-    if lt (gui_runtime_command_batch_count batch) 2:
+    let count %i32 gui_runtime_command_batch_count batch
+    if lt count 2:
         then none
         else:
             let second %GuiRuntimeCommand *field::get_ref batch "second"

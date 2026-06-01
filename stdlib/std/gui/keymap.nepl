@@ -171,7 +171,9 @@ fn focus_key_event_has_shift %fn &FocusKeyMap fn &KeyboardEvent bool \key_map\ev
     let bits %i32 keyboard_event_modifier_bits event
     if eq mask 0:
         then false
-        else ne (and bits mask) 0
+        else:
+            let overlap %i32 and bits mask
+            ne overlap 0
 
 //: focus_key_down_command: KeyDown event の key code を focus command へ[変換/へんかん]する
 fn focus_key_down_command %fn &FocusKeyMap fn &KeyboardEvent Option FocusRouteCommand \key_map\event:

@@ -17,8 +17,14 @@
 //:| #import "alloc/gui" as *
 //:| #import "core/result" as *
 //: fn main %fn unit i32 \unit:
-//:     let root %WidgetDescriptor widget_label (widget_id 1) "root" (layout_hint_fixed 4 1)
-//:     let child %WidgetDescriptor widget_button (button_config (widget_id 2) "Run" (action_id 3)) (layout_hint_fixed 4 1)
+//:     let root_id %WidgetId widget_id 1
+//:     let child_id %WidgetId widget_id 2
+//:     let child_action %ActionId action_id 3
+//:     let root_hint %LayoutHint layout_hint_fixed 4 1
+//:     let child_hint %LayoutHint layout_hint_fixed 4 1
+//:     let child_config %ButtonConfig button_config child_id "Run" child_action
+//:     let root %WidgetDescriptor widget_label root_id "root" root_hint
+//:     let child %WidgetDescriptor widget_button child_config child_hint
 //:     let old_tree %ViewTree view_tree_single root
 //:     let new_tree %ViewTree unwrap_ok view_tree_add_child old_tree child
 //:     match view_tree_invalidation &old_tree &new_tree:
@@ -107,11 +113,15 @@ pub fn gui_invalidation_widget_id %fn GuiInvalidation Option WidgetId \invalidat
 
 //: widget_id_equal: WidgetId を raw value で[比較/ひかく]する
 fn widget_id_equal %fn WidgetId fn WidgetId bool \a\b:
-    eq (widget_id_value a) (widget_id_value b)
+    let a_value %i32 widget_id_value a
+    let b_value %i32 widget_id_value b
+    eq a_value b_value
 
 //: action_id_equal: ActionId を raw value で[比較/ひかく]する
 fn action_id_equal %fn ActionId fn ActionId bool \a\b:
-    eq (action_id_value a) (action_id_value b)
+    let a_value %i32 action_id_value a
+    let b_value %i32 action_id_value b
+    eq a_value b_value
 
 //: bool_equal: bool を[比較/ひかく]する
 fn bool_equal %fn bool fn bool bool \a\b:
@@ -121,23 +131,37 @@ fn bool_equal %fn bool fn bool bool \a\b:
 
 //: gui_size_equal: layout hint の size を[比較/ひかく]する
 fn gui_size_equal %fn GuiSize fn GuiSize bool \a\b:
+    let a_width %i32 gui_size_width &a
+    let b_width %i32 gui_size_width &b
+    let a_height %i32 gui_size_height &a
+    let b_height %i32 gui_size_height &b
     and:
-        eq (gui_size_width &a) (gui_size_width &b)
-        eq (gui_size_height &a) (gui_size_height &b)
+        eq a_width b_width
+        eq a_height b_height
 
 //: layout_hint_equal: LayoutHint を[比較/ひかく]する
 fn layout_hint_equal %fn LayoutHint fn LayoutHint bool \a\b:
+    let a_min %GuiSize layout_hint_min_size &a
+    let b_min %GuiSize layout_hint_min_size &b
+    let a_max %GuiSize layout_hint_max_size &a
+    let b_max %GuiSize layout_hint_max_size &b
     and:
-        gui_size_equal (layout_hint_min_size &a) (layout_hint_min_size &b)
-        gui_size_equal (layout_hint_max_size &a) (layout_hint_max_size &b)
+        gui_size_equal a_min b_min
+        gui_size_equal a_max b_max
 
 //: button_config_equal: ButtonConfig を[比較/ひかく]する
 fn button_config_equal %fn ButtonConfig fn ButtonConfig bool \a\b:
+    let a_id %WidgetId button_config_id &a
+    let b_id %WidgetId button_config_id &b
+    let a_action %ActionId button_config_action &a
+    let b_action %ActionId button_config_action &b
+    let a_text %str button_config_text &a
+    let b_text %str button_config_text &b
+    let id_equal %bool widget_id_equal a_id b_id
+    let action_equal %bool action_id_equal a_action b_action
     and:
-        and:
-            widget_id_equal (button_config_id &a) (button_config_id &b)
-            action_id_equal (button_config_action &a) (button_config_action &b)
-        str_eq (button_config_text &a) (button_config_text &b)
+        and id_equal action_equal
+        str_eq a_text b_text
 
 //: view_node_equal: ViewNode を semantic data として[比較/ひかく]する
 fn view_node_equal %fn ViewNode fn ViewNode bool \a\b:
@@ -163,17 +187,31 @@ fn view_node_equal %fn ViewNode fn ViewNode bool \a\b:
 
 //: widget_descriptor_equal: WidgetDescriptor の public data を[比較/ひかく]する
 fn widget_descriptor_equal %fn WidgetDescriptor fn WidgetDescriptor bool \a\b:
+    let a_id %WidgetId widget_descriptor_id &a
+    let b_id %WidgetId widget_descriptor_id &b
+    let a_view %ViewNode widget_descriptor_view &a
+    let b_view %ViewNode widget_descriptor_view &b
+    let a_hint %LayoutHint widget_descriptor_layout_hint &a
+    let b_hint %LayoutHint widget_descriptor_layout_hint &b
+    let a_focusable %bool widget_descriptor_is_focusable &a
+    let b_focusable %bool widget_descriptor_is_focusable &b
+    let a_disabled %bool widget_descriptor_is_disabled &a
+    let b_disabled %bool widget_descriptor_is_disabled &b
+    let a_label %str widget_descriptor_label &a
+    let b_label %str widget_descriptor_label &b
+    let id_equal %bool widget_id_equal a_id b_id
+    let view_equal %bool view_node_equal a_view b_view
+    let hint_equal %bool layout_hint_equal a_hint b_hint
+    let focusable_equal %bool bool_equal a_focusable b_focusable
+    let disabled_equal %bool bool_equal a_disabled b_disabled
+    let label_equal %bool str_eq a_label b_label
     and:
         and:
-            and:
-                widget_id_equal (widget_descriptor_id &a) (widget_descriptor_id &b)
-                view_node_equal (widget_descriptor_view &a) (widget_descriptor_view &b)
-            layout_hint_equal (widget_descriptor_layout_hint &a) (widget_descriptor_layout_hint &b)
+            and id_equal view_equal
+            hint_equal
         and:
-            and:
-                bool_equal (widget_descriptor_is_focusable &a) (widget_descriptor_is_focusable &b)
-                bool_equal (widget_descriptor_is_disabled &a) (widget_descriptor_is_disabled &b)
-            str_eq (widget_descriptor_label &a) (widget_descriptor_label &b)
+            and focusable_equal disabled_equal
+            label_equal
 
 //: widget_option_equal: child slot の Option WidgetDescriptor を[比較/ひかく]する
 fn widget_option_equal %fn Option WidgetDescriptor fn Option WidgetDescriptor bool \a\b:
@@ -195,7 +233,8 @@ fn widget_option_equal %fn Option WidgetDescriptor fn Option WidgetDescriptor bo
 fn changed_widget_id_or_tree %fn Option WidgetDescriptor fn Option WidgetDescriptor GuiInvalidation \old_child\new_child:
     match new_child:
         Option::Some widget:
-            GuiInvalidation::Widget (widget_descriptor_id &widget)
+            let id %WidgetId widget_descriptor_id &widget
+            GuiInvalidation::Widget id
         Option::None:
             match old_child:
                 Option::Some _old:
@@ -207,17 +246,31 @@ fn changed_widget_id_or_tree %fn Option WidgetDescriptor fn Option WidgetDescrip
 pub fn view_tree_diff %fn &ViewTree fn &ViewTree ViewTreeDiff \old_tree\new_tree:
     let old_root %WidgetDescriptor view_tree_root old_tree
     let new_root %WidgetDescriptor view_tree_root new_tree
-    let root_changed %bool not (widget_descriptor_equal old_root new_root)
-    let first_changed %bool not (widget_option_equal (view_tree_first_child old_tree) (view_tree_first_child new_tree))
-    let second_changed %bool not (widget_option_equal (view_tree_second_child old_tree) (view_tree_second_child new_tree))
-    let child_count_changed %bool not (eq (view_tree_child_count old_tree) (view_tree_child_count new_tree))
+    let root_equal %bool widget_descriptor_equal old_root new_root
+    let root_changed %bool not root_equal
+    let old_first %Option WidgetDescriptor view_tree_first_child old_tree
+    let new_first %Option WidgetDescriptor view_tree_first_child new_tree
+    let first_equal %bool widget_option_equal old_first new_first
+    let first_changed %bool not first_equal
+    let old_second %Option WidgetDescriptor view_tree_second_child old_tree
+    let new_second %Option WidgetDescriptor view_tree_second_child new_tree
+    let second_equal %bool widget_option_equal old_second new_second
+    let second_changed %bool not second_equal
+    let old_count %i32 view_tree_child_count old_tree
+    let new_count %i32 view_tree_child_count new_tree
+    let count_equal %bool eq old_count new_count
+    let child_count_changed %bool not count_equal
     ViewTreeDiff root_changed first_changed second_changed child_count_changed
 
 //: view_tree_diff_any: diff が 1 つでも[変化/へんか]を[持/も]つか[判定/はんてい]する
 pub fn view_tree_diff_any %fn &ViewTreeDiff bool \diff:
+    let root_changed %bool view_tree_diff_root_changed diff
+    let first_changed %bool view_tree_diff_first_child_changed diff
+    let second_changed %bool view_tree_diff_second_child_changed diff
+    let count_changed %bool view_tree_diff_child_count_changed diff
     or:
-        or (view_tree_diff_root_changed diff) (view_tree_diff_first_child_changed diff)
-        or (view_tree_diff_second_child_changed diff) (view_tree_diff_child_count_changed diff)
+        or root_changed first_changed
+        or second_changed count_changed
 
 //: view_tree_invalidation: tree diff を最小 invalidation enum へ[畳/たた]む
 pub fn view_tree_invalidation %fn &ViewTree fn &ViewTree GuiInvalidation \old_tree\new_tree:
@@ -227,9 +280,16 @@ pub fn view_tree_invalidation %fn &ViewTree fn &ViewTree GuiInvalidation \old_tr
         else if view_tree_diff_root_changed &diff:
             then:
                 let root %WidgetDescriptor view_tree_root new_tree
-                GuiInvalidation::Widget (widget_descriptor_id &root)
+                let id %WidgetId widget_descriptor_id &root
+                GuiInvalidation::Widget id
             else if view_tree_diff_first_child_changed &diff:
-                then changed_widget_id_or_tree (view_tree_first_child old_tree) (view_tree_first_child new_tree)
+                then:
+                    let old_first %Option WidgetDescriptor view_tree_first_child old_tree
+                    let new_first %Option WidgetDescriptor view_tree_first_child new_tree
+                    changed_widget_id_or_tree old_first new_first
                 else if view_tree_diff_second_child_changed &diff:
-                    then changed_widget_id_or_tree (view_tree_second_child old_tree) (view_tree_second_child new_tree)
+                    then:
+                        let old_second %Option WidgetDescriptor view_tree_second_child old_tree
+                        let new_second %Option WidgetDescriptor view_tree_second_child new_tree
+                        changed_widget_id_or_tree old_second new_second
                     else GuiInvalidation::Clean

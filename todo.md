@@ -1,6 +1,7 @@
 2026-06-01 GUI/TUI standard library
 
 - `alloc/gui` の allocator-backed `ViewTreeArena` / `LayoutTreeArena` を routing / diff / layout に接続し、recursive diff / invalidation、text line break / text hash based cache invalidation、recursive event routing、pointer capture / gesture と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
+- GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える
 - Web Playground backend を `platforms/gui/web` と TypeScript host bridge へ接続し、Canvas / DOM-backed surface の smoke test を追加する
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する

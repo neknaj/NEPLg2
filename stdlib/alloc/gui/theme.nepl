@@ -22,7 +22,8 @@
 //:     let gg %u8 cast g
 //:     let bb %u8 cast b
 //:     let aa %u8 cast 255
-//:     gui_color_rgba8888 (rgba8888_new rr gg bb aa)
+//:     let rgba %Rgba8888 rgba8888_new rr gg bb aa
+//:     gui_color_rgba8888 rgba
 //:
 //: fn main %fn unit i32 \unit:
 //:     let palette %ThemePalette theme_palette:
@@ -34,7 +35,8 @@
 //:         rgba_color 60 70 80
 //:         rgba_color 70 80 90
 //:         rgba_color 80 90 100
-//:     match theme_color_as_rgba8888 (theme_palette_color &palette ThemeColorRole::Accent):
+//:     let color %GuiColor theme_palette_color &palette ThemeColorRole::Accent
+//:     match theme_color_as_rgba8888 color:
 //:         Result::Ok rgba:
 //:             cast rgba8888_b &rgba
 //:         Result::Err _error:

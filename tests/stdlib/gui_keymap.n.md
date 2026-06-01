@@ -64,7 +64,10 @@ fn main %impure fn unit i32 \unit:
     let check1 assert command_is_previous keyboard_event_to_focus_route_command &key_map shift_tab
     let check2 assert command_is_activate keyboard_event_to_focus_route_command &key_map enter
     let check3 assert command_is_activate keyboard_event_to_focus_route_command &key_map space
-    let checks checks_push (checks_push (checks_push (checks_push checks_new check0) check1) check2) check3
+    let checks1 checks_push checks_new check0
+    let checks2 checks_push checks1 check1
+    let checks3 checks_push checks2 check2
+    let checks checks_push checks3 check3
     let shown checks_print_report checks
     checks_exit_code shown
 ```
@@ -94,7 +97,8 @@ fn main %impure fn unit i32 \unit:
     let unknown %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 65 0
     let check0 assert is_none keyboard_event_to_focus_route_command &key_map key_up
     let check1 assert is_none keyboard_event_to_focus_route_command &key_map unknown
-    let checks checks_push (checks_push checks_new check0) check1
+    let checks1 checks_push checks_new check0
+    let checks checks_push checks1 check1
     let shown checks_print_report checks
     checks_exit_code shown
 ```
@@ -146,7 +150,8 @@ fn main %impure fn unit i32 \unit:
     let space %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown 102 0
     let check0 assert command_is_previous keyboard_event_to_focus_route_command &key_map shift_tab
     let check1 assert command_is_activate keyboard_event_to_focus_route_command &key_map space
-    let checks checks_push (checks_push checks_new check0) check1
+    let checks1 checks_push checks_new check0
+    let checks checks_push checks1 check1
     let shown checks_print_report checks
     checks_exit_code shown
 ```
@@ -171,11 +176,18 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let event %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown key_code_arrow_up (or key_modifier_shift_bit key_modifier_control_bit)
-    let check0 assert eq (keyboard_event_key_code &event) key_code_arrow_up
-    let check1 assert eq (and (keyboard_event_modifier_bits &event) key_modifier_shift_bit) key_modifier_shift_bit
-    let check2 assert eq (and (keyboard_event_modifier_bits &event) key_modifier_control_bit) key_modifier_control_bit
-    let checks checks_push (checks_push (checks_push checks_new check0) check1) check2
+    let modifier_bits %i32 or key_modifier_shift_bit key_modifier_control_bit
+    let event %KeyboardEvent keyboard_event_from_key_code KeyboardEventKind::KeyDown key_code_arrow_up modifier_bits
+    let event_key_code %i32 keyboard_event_key_code &event
+    let event_modifier_bits %i32 keyboard_event_modifier_bits &event
+    let shift_bits %i32 and event_modifier_bits key_modifier_shift_bit
+    let control_bits %i32 and event_modifier_bits key_modifier_control_bit
+    let check0 assert eq event_key_code key_code_arrow_up
+    let check1 assert eq shift_bits key_modifier_shift_bit
+    let check2 assert eq control_bits key_modifier_control_bit
+    let checks1 checks_push checks_new check0
+    let checks2 checks_push checks1 check1
+    let checks checks_push checks2 check2
     let shown checks_print_report checks
     checks_exit_code shown
 ```

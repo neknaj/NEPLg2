@@ -24,21 +24,25 @@ ret: 0
 
 fn main %fn unit i32 \unit:
     let regions0 %DirtyRegionSet dirty_regions_empty
-    match dirty_regions_push_checked regions0 (gui_rect_new (sub 0 3) 4 5 6):
+    let first_x %i32 sub 0 3
+    let second_y %i32 sub 0 8
+    let first_rect %GuiRect gui_rect_new first_x 4 5 6
+    let second_rect %GuiRect gui_rect_new 7 second_y 9 10
+    match dirty_regions_push_checked regions0 first_rect:
         Result::Ok regions1:
-            match dirty_regions_push_checked regions1 (gui_rect_new 7 (sub 0 8) 9 10):
+            match dirty_regions_push_checked regions1 second_rect:
                 Result::Ok regions2:
                     assert dirty_regions_is_two regions2
                     match dirty_regions_rect_at regions2 0:
                         Option::Some first:
                             match dirty_regions_rect_at regions2 1:
                                 Option::Some second:
-                                    assert_eq_i32 (sub 0 3) gui_rect_x &first
+                                    assert_eq_i32 first_x gui_rect_x &first
                                     assert_eq_i32 4 gui_rect_y &first
                                     assert_eq_i32 5 gui_rect_width &first
                                     assert_eq_i32 6 gui_rect_height &first
                                     assert_eq_i32 7 gui_rect_x &second
-                                    assert_eq_i32 (sub 0 8) gui_rect_y &second
+                                    assert_eq_i32 second_y gui_rect_y &second
                                     assert_eq_i32 9 gui_rect_width &second
                                     assert_eq_i32 10 gui_rect_height &second
                                     0
@@ -73,11 +77,14 @@ ret: 0
 
 fn main %fn unit i32 \unit:
     let regions0 %DirtyRegionSet dirty_regions_empty
-    match dirty_regions_push_checked regions0 (gui_rect_new 0 0 1 1):
+    let rect0 %GuiRect gui_rect_new 0 0 1 1
+    let rect1 %GuiRect gui_rect_new 1 1 2 2
+    let rect2 %GuiRect gui_rect_new 2 2 3 3
+    match dirty_regions_push_checked regions0 rect0:
         Result::Ok regions1:
-            match dirty_regions_push_checked regions1 (gui_rect_new 1 1 2 2):
+            match dirty_regions_push_checked regions1 rect1:
                 Result::Ok regions2:
-                    match dirty_regions_push_checked regions2 (gui_rect_new 2 2 3 3):
+                    match dirty_regions_push_checked regions2 rect2:
                         Result::Ok regions3:
                             assert dirty_regions_is_full regions3
                             match dirty_regions_rect_at regions3 0:
@@ -114,13 +121,17 @@ ret: 0
 
 fn main %fn unit i32 \unit:
     let regions %DirtyRegionSet dirty_regions_empty
-    match dirty_regions_push_checked regions (gui_rect_new 0 0 (sub 0 1) 4):
+    let negative_width %i32 sub 0 1
+    let negative_height %i32 sub 0 1
+    let invalid_width_rect %GuiRect gui_rect_new 0 0 negative_width 4
+    let invalid_height_rect %GuiRect gui_rect_new 0 0 4 negative_height
+    match dirty_regions_push_checked regions invalid_width_rect:
         Result::Ok _regions1:
             1
         Result::Err error:
             match error:
                 GuiError::InvalidGeometry:
-                    match dirty_regions_push_checked regions (gui_rect_new 0 0 4 (sub 0 1)):
+                    match dirty_regions_push_checked regions invalid_height_rect:
                         Result::Ok _regions2:
                             2
                         Result::Err error2:

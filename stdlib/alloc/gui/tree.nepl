@@ -15,8 +15,11 @@
 //:| #target std
 //:| #import "alloc/gui" as *
 //: fn main %fn unit i32 \unit:
-//:     let root %WidgetDescriptor widget_label (widget_id 1) "root" (layout_hint_fixed 4 1)
-//:     view_tree_child_count &(view_tree_single root)
+//:     let id %WidgetId widget_id 1
+//:     let hint %LayoutHint layout_hint_fixed 4 1
+//:     let root %WidgetDescriptor widget_label id "root" hint
+//:     let tree %ViewTree view_tree_single root
+//:     view_tree_child_count &tree
 //: ```
 
 #indent 4

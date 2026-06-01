@@ -337,11 +337,14 @@ pub fn theme_color_as_rgba8888 %fn GuiColor Result Rgba8888 ThemeError \color:
 //: [目的/もくてき]:
 //: - text cell 描画に[必要/ひつよう]な foreground / background を、role lookup と fallible color extraction の[組/く]み[合/あ]わせで[作/つく]ります。
 pub fn theme_text_cell_style %fn &ThemePalette fn ThemeColorRole fn ThemeColorRole Result TextCellStyle ThemeError \palette\foreground_role\background_role:
-    match theme_color_as_rgba8888 (theme_palette_color palette foreground_role):
+    let foreground_color %GuiColor theme_palette_color palette foreground_role
+    match theme_color_as_rgba8888 foreground_color:
         Result::Ok foreground:
-            match theme_color_as_rgba8888 (theme_palette_color palette background_role):
+            let background_color %GuiColor theme_palette_color palette background_role
+            match theme_color_as_rgba8888 background_color:
                 Result::Ok background:
-                    Result::Ok (text_cell_style_new foreground background)
+                    let style %TextCellStyle text_cell_style_new foreground background
+                    Result::Ok style
                 Result::Err error:
                     Result::Err error
         Result::Err error:

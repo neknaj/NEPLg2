@@ -21,7 +21,8 @@ ret: 0
 #import "core/result" as *
 
 fn main %fn unit i32 \unit:
-    let initial %TextBuffer text_buffer_new (text_buffer_id_new 42) "ac"
+    let initial_id %TextBufferId text_buffer_id_new 42
+    let initial %TextBuffer text_buffer_new initial_id "ac"
     let inserted %TextBuffer unwrap_ok text_buffer_insert initial 1 "b"
     let replaced %TextBuffer unwrap_ok text_buffer_replace inserted 1 2 "B"
     let deleted %TextBuffer unwrap_ok text_buffer_delete replaced 2 3
@@ -54,7 +55,8 @@ ret: 0
 #import "core/result" as *
 
 fn main %fn unit i32 \unit:
-    let buffer %TextBuffer text_buffer_new (text_buffer_id_new 1) "abc"
+    let buffer_id %TextBufferId text_buffer_id_new 1
+    let buffer %TextBuffer text_buffer_new buffer_id "abc"
     match text_buffer_insert buffer 4 "z":
         Result::Ok _next:
             1
@@ -82,7 +84,8 @@ ret: 0
 #import "core/result" as *
 
 fn main %fn unit i32 \unit:
-    let buffer %TextBuffer text_buffer_new (text_buffer_id_new 1) "aあ"
+    let buffer_id %TextBufferId text_buffer_id_new 1
+    let buffer %TextBuffer text_buffer_new buffer_id "aあ"
     match text_buffer_delete buffer 2 3:
         Result::Ok _next:
             1
@@ -114,9 +117,12 @@ ret: 0
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let buffer %TextBuffer text_buffer_new (text_buffer_id_new 7) "aあ"
+    let buffer_id %TextBufferId text_buffer_id_new 7
+    let run_id %TextRunId text_run_id_new 9
+    let font_id %FontId font_id_new 3
+    let buffer %TextBuffer text_buffer_new buffer_id "aあ"
     let measurer %MockTextMeasurer mock_text_measurer_new 5 11 8
-    let layout %TextLayout unwrap_ok text_layout_from_buffer &measurer &buffer (text_run_id_new 9) (font_id_new 3) 80
+    let layout %TextLayout unwrap_ok text_layout_from_buffer &measurer &buffer run_id font_id 80
     let cached %CachedTextLayout cached_text_layout_from_layout layout
     let key %TextLayoutCacheKey cached_text_layout_key &cached
     let layout_buffer_id %TextBufferId text_layout_buffer_id &layout
@@ -178,9 +184,13 @@ ret: 0
 #import "core/result" as *
 
 fn main %impure fn unit i32 \unit:
-    let buffer %TextBuffer text_buffer_new (text_buffer_id_new 1) "abc"
+    let buffer_id %TextBufferId text_buffer_id_new 1
+    let run_id %TextRunId text_run_id_new 1
+    let font_id %FontId font_id_new 1
+    let invalid_width %i32 sub 0 1
+    let buffer %TextBuffer text_buffer_new buffer_id "abc"
     let measurer %MockTextMeasurer mock_text_measurer_new 5 11 8
-    match text_layout_from_buffer &measurer &buffer (text_run_id_new 1) (font_id_new 1) (sub 0 1):
+    match text_layout_from_buffer &measurer &buffer run_id font_id invalid_width:
         Result::Ok _layout:
             1
         Result::Err error:
@@ -215,9 +225,12 @@ impl TextMeasurer for RejectingTextMeasurer:
         Result::Err GuiError::Unsupported
 
 fn main %impure fn unit i32 \unit:
-    let buffer %TextBuffer text_buffer_new (text_buffer_id_new 1) "abc"
+    let buffer_id %TextBufferId text_buffer_id_new 1
+    let run_id %TextRunId text_run_id_new 1
+    let font_id %FontId font_id_new 1
+    let buffer %TextBuffer text_buffer_new buffer_id "abc"
     let measurer %RejectingTextMeasurer RejectingTextMeasurer 0
-    match text_layout_from_buffer &measurer &buffer (text_run_id_new 1) (font_id_new 1) 40:
+    match text_layout_from_buffer &measurer &buffer run_id font_id 40:
         Result::Ok _layout:
             1
         Result::Err error:

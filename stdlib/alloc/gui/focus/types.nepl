@@ -22,12 +22,23 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %fn unit i32 \unit:
-//:     let root %WidgetDescriptor widget_label (widget_id 1) "title" (layout_hint_fixed 8 1)
-//:     let first %WidgetDescriptor widget_button (button_config (widget_id 7) "Run" (action_id 2)) (layout_hint_fixed 6 1)
-//:     let second %WidgetDescriptor widget_button (button_config (widget_id 9) "Save" (action_id 3)) (layout_hint_fixed 6 1)
-//:     let tree1 %ViewTree unwrap_ok view_tree_add_child (view_tree_single root) first
+//:     let root_id %WidgetId widget_id 1
+//:     let first_id %WidgetId widget_id 7
+//:     let second_id %WidgetId widget_id 9
+//:     let first_action %ActionId action_id 2
+//:     let second_action %ActionId action_id 3
+//:     let root_hint %LayoutHint layout_hint_fixed 8 1
+//:     let button_hint %LayoutHint layout_hint_fixed 6 1
+//:     let first_config %ButtonConfig button_config first_id "Run" first_action
+//:     let second_config %ButtonConfig button_config second_id "Save" second_action
+//:     let root %WidgetDescriptor widget_label root_id "title" root_hint
+//:     let first %WidgetDescriptor widget_button first_config button_hint
+//:     let second %WidgetDescriptor widget_button second_config button_hint
+//:     let tree0 %ViewTree view_tree_single root
+//:     let tree1 %ViewTree unwrap_ok view_tree_add_child tree0 first
 //:     let tree2 %ViewTree unwrap_ok view_tree_add_child tree1 second
-//:     match focus_next_in_tree &tree2 (some (widget_id 7)):
+//:     let current %Option WidgetId some first_id
+//:     match focus_next_in_tree &tree2 current:
 //:         Option::Some id:
 //:             widget_id_value id
 //:         Option::None:
@@ -69,15 +80,21 @@ pub fn focus_order_empty %fn unit FocusOrder \unit:
 
 //: focus_order_one: focus target 1 個の order を[作/つく]る
 pub fn focus_order_one %fn WidgetId FocusOrder \first:
-    FocusOrder (some first) none none 1
+    let first_value %Option WidgetId some first
+    FocusOrder first_value none none 1
 
 //: focus_order_two: focus target 2 個の order を[作/つく]る
 pub fn focus_order_two %fn WidgetId fn WidgetId FocusOrder \first\second:
-    FocusOrder (some first) (some second) none 2
+    let first_value %Option WidgetId some first
+    let second_value %Option WidgetId some second
+    FocusOrder first_value second_value none 2
 
 //: focus_order_three: focus target 3 個の order を[作/つく]る
 pub fn focus_order_three %fn WidgetId fn WidgetId fn WidgetId FocusOrder \first\second\third:
-    FocusOrder (some first) (some second) (some third) 3
+    let first_value %Option WidgetId some first
+    let second_value %Option WidgetId some second
+    let third_value %Option WidgetId some third
+    FocusOrder first_value second_value third_value 3
 
 //: focus_order_count: focus target 数を[読/よ]む
 pub fn focus_order_count %fn &FocusOrder i32 \order:
@@ -97,12 +114,19 @@ pub fn focus_order_third %fn &FocusOrder Option WidgetId \order:
 
 //: focus_widget_id_eq: WidgetId を raw value で[比較/ひかく]する
 fn focus_widget_id_eq %fn WidgetId fn WidgetId bool \left\right:
-    eq (widget_id_value left) (widget_id_value right)
+    let left_value %i32 widget_id_value left
+    let right_value %i32 widget_id_value right
+    eq left_value right_value
 
 //: focus_candidate_id: descriptor が focus target なら id を[返/かえ]す
 fn focus_candidate_id %fn &WidgetDescriptor Option WidgetId \descriptor:
-    if and (widget_descriptor_is_focusable descriptor) (not (widget_descriptor_is_disabled descriptor)):
-        then some (widget_descriptor_id descriptor)
+    let focusable %bool widget_descriptor_is_focusable descriptor
+    let disabled %bool widget_descriptor_is_disabled descriptor
+    let enabled %bool not disabled
+    if and focusable enabled:
+        then:
+            let id %WidgetId widget_descriptor_id descriptor
+            some id
         else none
 
 //: focus_order_from_candidates: 最大 3 個の候補から bounded order を[作/つく]る

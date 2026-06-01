@@ -23,14 +23,17 @@ ret: 0
 fn main %fn unit i32 \unit:
     let rect %GuiRect gui_rect_new 4 5 6 7
     let region %DirtyRegion dirty_region_rect_unchecked rect
-    let merged %DirtyRegion dirty_region_merge (dirty_region_empty unit) region
+    let empty %DirtyRegion dirty_region_empty
+    let merged %DirtyRegion dirty_region_merge empty region
     match merged:
         DirtyRegion::Rect out:
             assert_eq_i32 4 gui_rect_x &out
             assert_eq_i32 5 gui_rect_y &out
             assert_eq_i32 6 gui_rect_width &out
             assert_eq_i32 7 gui_rect_height &out
-            assert dirty_region_is_full (dirty_region_merge merged (dirty_region_full unit))
+            let full %DirtyRegion dirty_region_full
+            let full_merged %DirtyRegion dirty_region_merge merged full
+            assert dirty_region_is_full full_merged
             0
         _:
             1
@@ -55,11 +58,14 @@ ret: 0
 #import "core/test" as *
 
 fn main %fn unit i32 \unit:
-    let a %DirtyRegion dirty_region_rect_unchecked (gui_rect_new 10 20 5 8)
-    let b %DirtyRegion dirty_region_rect_unchecked (gui_rect_new (sub 0 2) 18 4 5)
+    let a_rect %GuiRect gui_rect_new 10 20 5 8
+    let negative_x %i32 sub 0 2
+    let b_rect %GuiRect gui_rect_new negative_x 18 4 5
+    let a %DirtyRegion dirty_region_rect_unchecked a_rect
+    let b %DirtyRegion dirty_region_rect_unchecked b_rect
     match dirty_region_merge a b:
         DirtyRegion::Rect out:
-            assert_eq_i32 (sub 0 2) gui_rect_x &out
+            assert_eq_i32 negative_x gui_rect_x &out
             assert_eq_i32 18 gui_rect_y &out
             assert_eq_i32 17 gui_rect_width &out
             assert_eq_i32 10 gui_rect_height &out
@@ -88,13 +94,18 @@ ret: 0
 #import "core/result" as *
 
 fn main %fn unit i32 \unit:
-    match dirty_region_rect_checked (gui_rect_new 0 0 (sub 0 1) 4):
+    let negative_width %i32 sub 0 1
+    let invalid_rect %GuiRect gui_rect_new 0 0 negative_width 4
+    match dirty_region_rect_checked invalid_rect:
         Result::Ok _region:
             1
         Result::Err error:
             match error:
                 GuiError::InvalidGeometry:
-                    match dirty_region_rect_checked (gui_rect_new (sub 0 10) (sub 0 20) 3 4):
+                    let negative_x %i32 sub 0 10
+                    let negative_y %i32 sub 0 20
+                    let valid_rect %GuiRect gui_rect_new negative_x negative_y 3 4
+                    match dirty_region_rect_checked valid_rect:
                         Result::Ok _valid:
                             0
                         Result::Err _valid_error:

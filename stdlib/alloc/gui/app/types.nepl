@@ -207,7 +207,8 @@ pub fn gui_effect_batch_count %fn &GuiEffectBatch i32 \batch:
 
 //: gui_effect_batch_first: 1 個目の effect を Option で[読/よ]む
 pub fn gui_effect_batch_first %fn &GuiEffectBatch Option GuiEffect \batch:
-    if eq (gui_effect_batch_count batch) 0:
+    let count %i32 gui_effect_batch_count batch
+    if eq count 0:
         then none
         else:
             let first %GuiEffect *field::get_ref batch "first"
@@ -215,7 +216,8 @@ pub fn gui_effect_batch_first %fn &GuiEffectBatch Option GuiEffect \batch:
 
 //: gui_effect_batch_second: 2 個目の effect を Option で[読/よ]む
 pub fn gui_effect_batch_second %fn &GuiEffectBatch Option GuiEffect \batch:
-    if lt (gui_effect_batch_count batch) 2:
+    let count %i32 gui_effect_batch_count batch
+    if lt count 2:
         then none
         else:
             let second %GuiEffect *field::get_ref batch "second"
@@ -250,7 +252,8 @@ pub struct Update<.Model>:
 
 //: update_result: model と effect から Update を作る
 pub fn update_result <.Model> %fn .Model fn GuiEffect Update .Model \model\effect:
-    Update model (gui_effect_batch_one effect)
+    let effects %GuiEffectBatch gui_effect_batch_one effect
+    Update model effects
 
 //: update_result_batch: model と effect batch から Update を[作/つく]る
 pub fn update_result_batch <.Model> %fn .Model fn GuiEffectBatch Update .Model \model\effects:

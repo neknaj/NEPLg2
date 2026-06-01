@@ -25,10 +25,20 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let root %WidgetDescriptor widget_label (widget_id 1) "title" (layout_hint_fixed 8 1)
-    let first %WidgetDescriptor widget_button (button_config (widget_id 7) "Run" (action_id 2)) (layout_hint_fixed 6 1)
-    let second %WidgetDescriptor widget_button (button_config (widget_id 9) "Save" (action_id 3)) (layout_hint_fixed 6 1)
-    let tree1 %ViewTree unwrap_ok view_tree_add_child (view_tree_single root) first
+    let root_id %WidgetId widget_id 1
+    let first_id %WidgetId widget_id 7
+    let second_id %WidgetId widget_id 9
+    let first_action %ActionId action_id 2
+    let second_action %ActionId action_id 3
+    let root_hint %LayoutHint layout_hint_fixed 8 1
+    let button_hint %LayoutHint layout_hint_fixed 6 1
+    let first_config %ButtonConfig button_config first_id "Run" first_action
+    let second_config %ButtonConfig button_config second_id "Save" second_action
+    let root %WidgetDescriptor widget_label root_id "title" root_hint
+    let first %WidgetDescriptor widget_button first_config button_hint
+    let second %WidgetDescriptor widget_button second_config button_hint
+    let tree0 %ViewTree view_tree_single root
+    let tree1 %ViewTree unwrap_ok view_tree_add_child tree0 first
     let tree2 %ViewTree unwrap_ok view_tree_add_child tree1 second
     let order %FocusOrder focus_order_from_view_tree &tree2
     let count_check assert_eq_i32 2 focus_order_count &order
@@ -37,7 +47,8 @@ fn main %impure fn unit i32 \unit:
             assert_eq_i32 7 widget_id_value id
         Option::None:
             assert false
-    let step_next_check match focus_order_next &order (some (widget_id 7)):
+    let first_current %Option WidgetId some first_id
+    let step_next_check match focus_order_next &order first_current:
         Option::Some id:
             assert_eq_i32 9 widget_id_value id
         Option::None:
@@ -47,7 +58,10 @@ fn main %impure fn unit i32 \unit:
             assert_eq_i32 9 widget_id_value id
         Option::None:
             assert false
-    let checks checks_push (checks_push (checks_push (checks_push checks_new count_check) start_next_check) step_next_check) start_previous_check
+    let checks1 checks_push checks_new count_check
+    let checks2 checks_push checks1 start_next_check
+    let checks3 checks_push checks2 step_next_check
+    let checks checks_push checks3 start_previous_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```
@@ -82,26 +96,42 @@ fn is_none_widget_id %fn Option WidgetId bool \value:
             true
 
 fn main %impure fn unit i32 \unit:
-    let root_config %ButtonConfig button_config (widget_id 5) "Root" (action_id 1)
-    let root %WidgetDescriptor widget_button root_config (layout_hint_fixed 8 1)
-    let disabled_config %ButtonConfig button_config (widget_id 6) "Disabled" (action_id 2)
-    let disabled %WidgetDescriptor widget_descriptor (widget_id 6) (button disabled_config) (layout_hint_fixed 8 1) true true "Disabled"
-    let child %WidgetDescriptor widget_button (button_config (widget_id 8) "Child" (action_id 3)) (layout_hint_fixed 8 1)
-    let tree1 %ViewTree unwrap_ok view_tree_add_child (view_tree_single root) disabled
+    let root_id %WidgetId widget_id 5
+    let disabled_id %WidgetId widget_id 6
+    let child_id %WidgetId widget_id 8
+    let stale_id %WidgetId widget_id 99
+    let root_action %ActionId action_id 1
+    let disabled_action %ActionId action_id 2
+    let child_action %ActionId action_id 3
+    let hint %LayoutHint layout_hint_fixed 8 1
+    let root_config %ButtonConfig button_config root_id "Root" root_action
+    let root %WidgetDescriptor widget_button root_config hint
+    let disabled_config %ButtonConfig button_config disabled_id "Disabled" disabled_action
+    let disabled_node %ViewNode button disabled_config
+    let disabled %WidgetDescriptor widget_descriptor disabled_id disabled_node hint true true "Disabled"
+    let child_config %ButtonConfig button_config child_id "Child" child_action
+    let child %WidgetDescriptor widget_button child_config hint
+    let tree0 %ViewTree view_tree_single root
+    let tree1 %ViewTree unwrap_ok view_tree_add_child tree0 disabled
     let tree2 %ViewTree unwrap_ok view_tree_add_child tree1 child
     let first_check match focus_next_in_tree &tree2 none:
         Option::Some id:
             assert_eq_i32 5 widget_id_value id
         Option::None:
             assert false
-    let previous_check match focus_previous_in_tree &tree2 (some (widget_id 8)):
+    let child_current %Option WidgetId some child_id
+    let previous_check match focus_previous_in_tree &tree2 child_current:
         Option::Some id:
             assert_eq_i32 5 widget_id_value id
         Option::None:
             assert false
-    let edge_next_check assert is_none_widget_id focus_next_in_tree &tree2 (some (widget_id 8))
-    let stale_check assert is_none_widget_id focus_previous_in_tree &tree2 (some (widget_id 99))
-    let checks checks_push (checks_push (checks_push (checks_push checks_new first_check) previous_check) edge_next_check) stale_check
+    let stale_current %Option WidgetId some stale_id
+    let edge_next_check assert is_none_widget_id focus_next_in_tree &tree2 child_current
+    let stale_check assert is_none_widget_id focus_previous_in_tree &tree2 stale_current
+    let checks1 checks_push checks_new first_check
+    let checks2 checks_push checks1 previous_check
+    let checks3 checks_push checks2 edge_next_check
+    let checks checks_push checks3 stale_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```

@@ -95,7 +95,9 @@ fn main %impure fn unit i32 \unit:
                     assert true
                 _:
                     assert false
-    let checks checks_push (checks_push (checks_push checks_new first_check) second_check) overflow_check
+    let checks1 checks_push checks_new first_check
+    let checks2 checks_push checks1 second_check
+    let checks checks_push checks2 overflow_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```

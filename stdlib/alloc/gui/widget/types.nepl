@@ -16,8 +16,13 @@
 //:| #target std
 //:| #import "alloc/gui" as *
 //: fn main %fn unit i32 \unit:
-//:     let descriptor %WidgetDescriptor widget_button (button_config (widget_id 9) "Run" (action_id 4)) (layout_hint_fixed 10 2)
-//:     widget_id_value (widget_descriptor_id &descriptor)
+//:     let id %WidgetId widget_id 9
+//:     let action %ActionId action_id 4
+//:     let config %ButtonConfig button_config id "Run" action
+//:     let hint %LayoutHint layout_hint_fixed 10 2
+//:     let descriptor %WidgetDescriptor widget_button config hint
+//:     let descriptor_id %WidgetId widget_descriptor_id &descriptor
+//:     widget_id_value descriptor_id
 //: ```
 
 #indent 4
@@ -97,7 +102,8 @@ pub fn widget_button %fn ButtonConfig fn LayoutHint WidgetDescriptor \config\hin
 
 //: widget_label: label widget snapshot を[作/つく]る
 pub fn widget_label %fn WidgetId fn str fn LayoutHint WidgetDescriptor \id\text\hint:
-    widget_descriptor id (label text) hint false false text
+    let view %ViewNode label text
+    widget_descriptor id view hint false false text
 
 //: widget_descriptor_id: widget id を[読/よ]む
 pub fn widget_descriptor_id %fn &WidgetDescriptor WidgetId \descriptor:
@@ -130,20 +136,25 @@ pub fn widget_action_event %fn &WidgetDescriptor Option GuiEvent \descriptor:
         else:
             match widget_descriptor_view descriptor:
                 ViewNode::Button config:
-                    some (gui_event_action (button_config_action &config))
+                    let action %ActionId button_config_action &config
+                    let event %GuiEvent gui_event_action action
+                    some event
                 _:
                     none
 
 //: widget_semantic_node: widget snapshot から semantic node を[生成/せいせい]する
 pub fn widget_semantic_node %fn &WidgetDescriptor SemanticNode \descriptor:
     let id %WidgetId widget_descriptor_id descriptor
-    let semantic_id %SemanticNodeId semantic_node_id (widget_id_value id)
-    let state %SemanticState semantic_state false (widget_descriptor_is_disabled descriptor) false
+    let raw_id %i32 widget_id_value id
+    let semantic_id %SemanticNodeId semantic_node_id raw_id
+    let disabled %bool widget_descriptor_is_disabled descriptor
+    let state %SemanticState semantic_state false disabled false
+    let label %str widget_descriptor_label descriptor
     match widget_descriptor_view descriptor:
         ViewNode::Button _config:
-            semantic_node semantic_id SemanticRole::Button (widget_descriptor_label descriptor) state SemanticAction::Activate
+            semantic_node semantic_id SemanticRole::Button label state SemanticAction::Activate
         ViewNode::Label _text:
-            semantic_node semantic_id SemanticRole::Label (widget_descriptor_label descriptor) state SemanticAction::None
+            semantic_node semantic_id SemanticRole::Label label state SemanticAction::None
         ViewNode::Empty:
             semantic_node semantic_id SemanticRole::Label "" state SemanticAction::None
 
@@ -152,4 +163,5 @@ pub fn widget_semantic_node %fn &WidgetDescriptor SemanticNode \descriptor:
 //: [注意/ちゅうい]:
 //: - text buffer の[実体/じったい]は alloc/text の後続実装に[委/ゆだ]ねるため、ここでは `TextRunId` と cell count hint を caller から[受/う]け[取/と]ります。
 pub fn widget_measure <.TextMeasurerImpl: TextMeasurer&Copy> %fn &LayoutContext .TextMeasurerImpl fn &WidgetDescriptor fn TextRunId fn FontId fn i32 Result MeasuredNode GuiError \context\descriptor\run_id\font_id\cell_count:
-    layout_measure_text context (widget_descriptor_id descriptor) run_id font_id cell_count
+    let id %WidgetId widget_descriptor_id descriptor
+    layout_measure_text context id run_id font_id cell_count

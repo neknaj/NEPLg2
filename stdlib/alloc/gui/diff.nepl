@@ -15,9 +15,13 @@
 //:| #target std
 //:| #import "alloc/gui" as *
 //: fn main %fn unit i32 \unit:
-//:     let old_root %WidgetDescriptor widget_label (widget_id 1) "old" (layout_hint_fixed 4 1)
-//:     let new_root %WidgetDescriptor widget_label (widget_id 1) "new" (layout_hint_fixed 4 1)
-//:     let diff %ViewTreeDiff view_tree_diff &(view_tree_single old_root) &(view_tree_single new_root)
+//:     let id %WidgetId widget_id 1
+//:     let hint %LayoutHint layout_hint_fixed 4 1
+//:     let old_root %WidgetDescriptor widget_label id "old" hint
+//:     let new_root %WidgetDescriptor widget_label id "new" hint
+//:     let old_tree %ViewTree view_tree_single old_root
+//:     let new_tree %ViewTree view_tree_single new_root
+//:     let diff %ViewTreeDiff view_tree_diff &old_tree &new_tree
 //:     if view_tree_diff_root_changed &diff then 1 else 0
 //: ```
 

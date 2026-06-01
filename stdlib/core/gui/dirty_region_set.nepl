@@ -27,7 +27,8 @@
 //:
 //: fn main %fn unit i32 \unit:
 //:     let regions0 %DirtyRegionSet dirty_regions_empty
-//:     match dirty_regions_push_checked regions0 (gui_rect_new 0 0 1 1):
+//:     let rect %GuiRect gui_rect_new 0 0 1 1
+//:     match dirty_regions_push_checked regions0 rect:
 //:         Result::Ok regions1:
 //:             match dirty_regions_rect_at regions1 0:
 //:                 Option::Some rect:
@@ -157,9 +158,11 @@ pub fn dirty_regions_is_full %fn DirtyRegionSet bool \regions:
 //: [目的/もくてき]:
 //: - x/y の[負/ふ]は[相対/そうたい][座標/ざひょう]として[許容/きょよう]し、width/height の[非負/ひふ]だけを[検査/けんさ]します。
 pub fn dirty_regions_rect_is_valid %fn &GuiRect bool \rect:
+    let width %i32 gui_rect_width rect
+    let height %i32 gui_rect_height rect
     and:
-        ge (gui_rect_width rect) 0
-        ge (gui_rect_height rect) 0
+        ge width 0
+        ge height 0
 
 //: dirty_regions_push_unchecked: 検査済み rect を O(1) で[追加/ついか]する
 //:
@@ -196,7 +199,9 @@ pub fn dirty_regions_push_unchecked %fn DirtyRegionSet fn GuiRect DirtyRegionSet
 //: - capacity overflow は error ではなく Full [状態/じょうたい]への[明示/めいじ]された[昇格/しょうかく]として[返/かえ]します。
 pub fn dirty_regions_push_checked %fn DirtyRegionSet fn GuiRect Result DirtyRegionSet GuiError \regions\rect:
     if dirty_regions_rect_is_valid &rect:
-        then Result::Ok (dirty_regions_push_unchecked regions rect)
+        then:
+            let next %DirtyRegionSet dirty_regions_push_unchecked regions rect
+            Result::Ok next
         else Result::Err GuiError::InvalidGeometry
 
 //: dirty_regions_rect_at: index で rect を[読/よ]む
@@ -208,14 +213,20 @@ pub fn dirty_regions_rect_at %fn DirtyRegionSet fn i32 Option GuiRect \regions\i
     match dirty_regions_state &regions:
         DirtyRegionSetState::One:
             if eq index 0:
-                then Option::Some (dirty_regions_first &regions)
+                then:
+                    let first %GuiRect dirty_regions_first &regions
+                    Option::Some first
                 else Option::None
         DirtyRegionSetState::Two:
             if eq index 0:
-                then Option::Some (dirty_regions_first &regions)
+                then:
+                    let first %GuiRect dirty_regions_first &regions
+                    Option::Some first
                 else:
                     if eq index 1:
-                        then Option::Some (dirty_regions_second &regions)
+                        then:
+                            let second %GuiRect dirty_regions_second &regions
+                            Option::Some second
                         else Option::None
         _:
             Option::None

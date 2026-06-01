@@ -13,6 +13,7 @@
 - 明示的な GUI 標準ライブラリは存在し、`core/gui`、`alloc/gui`、`std/gui`、`platforms/gui/terminal` の初期 checkpoint まで進んでいる。
 - 現在の実装は bounded data contract と flat arena tree の初期 checkpoint を優先した段階であり、arena を使う focus traversal は実装済みである。arena を使う recursive routing / diff / layout integration、real backend present、Web Playground bridge、native/mobile backend はまだ未実装である。
 - `examples/gui_counter.nepl`、`examples/gui_life.nepl`、`examples/gui_mandelbrot.nepl` は real backend なしで GUI substrate の application update と render command stream を確認する headless examples として追加した。
+- GUI/TUI の executable NEPLg2 code、stdlib doctest、`tests/stdlib/gui_*.n.md`、headless GUI examples は、括弧付き call を使わず、中間 `let` と pipeline で式境界を明示する方針に揃えた。prose の `O(1)` や WIT sketch は対象外である。
 - 既存の近い資産は `features/tui` と `platforms/wasix/tui` である。
 - `platforms/wasix/tui` は TTY ABI、ANSI 出力、text width、box line、line buffer、diff present を持つが、raw terminal helper と UI concept が同じ層に混ざっている。
 - Web Playground は browser 上の editor / terminal を持つが、NEPL stdlib の GUI backend としては未接続である。

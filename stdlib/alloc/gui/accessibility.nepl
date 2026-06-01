@@ -20,9 +20,13 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %fn unit i32 \unit:
-//:     let root %SemanticNode semantic_node (semantic_node_id 1) SemanticRole::Window "app" semantic_state_default SemanticAction::None
-//:     let child %SemanticNode semantic_node (semantic_node_id 2) SemanticRole::Button "Run" (semantic_state true false false) SemanticAction::Activate
-//:     match accessibility_tree_add_child (accessibility_tree_single root) child:
+//:     let root_id %SemanticNodeId semantic_node_id 1
+//:     let child_id %SemanticNodeId semantic_node_id 2
+//:     let child_state %SemanticState semantic_state true false false
+//:     let root %SemanticNode semantic_node root_id SemanticRole::Window "app" semantic_state_default SemanticAction::None
+//:     let child %SemanticNode semantic_node child_id SemanticRole::Button "Run" child_state SemanticAction::Activate
+//:     let tree0 %AccessibilityTree accessibility_tree_single root
+//:     match accessibility_tree_add_child tree0 child:
 //:         Result::Ok tree:
 //:             match accessibility_tree_first_child &tree:
 //:                 Option::Some node:
@@ -247,7 +251,14 @@ pub fn accessibility_tree_second_child %fn &AccessibilityTree Option SemanticNod
 pub fn accessibility_tree_add_child %fn AccessibilityTree fn SemanticNode Result AccessibilityTree AccessibilityTreeError \tree\child:
     let count %i32 accessibility_tree_child_count &tree
     if eq count 0:
-        then Result::Ok AccessibilityTree (accessibility_tree_root &tree) (some child) none 1
+        then:
+            let root %SemanticNode accessibility_tree_root &tree
+            let first %Option SemanticNode some child
+            Result::Ok AccessibilityTree root first none 1
         else if eq count 1:
-            then Result::Ok AccessibilityTree (accessibility_tree_root &tree) (accessibility_tree_first_child &tree) (some child) 2
+            then:
+                let root %SemanticNode accessibility_tree_root &tree
+                let first %Option SemanticNode accessibility_tree_first_child &tree
+                let second %Option SemanticNode some child
+                Result::Ok AccessibilityTree root first second 2
             else Result::Err AccessibilityTreeError::CapacityExceeded

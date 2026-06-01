@@ -22,9 +22,13 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let root %SemanticNode semantic_node (semantic_node_id 1) SemanticRole::Window "window" semantic_state_default SemanticAction::None
-    let run_button %SemanticNode semantic_node (semantic_node_id 2) SemanticRole::Button "Run" (semantic_state true false false) SemanticAction::Activate
-    let title %SemanticNode semantic_node (semantic_node_id 3) SemanticRole::Label "Title" semantic_state_default SemanticAction::None
+    let root_id %SemanticNodeId semantic_node_id 1
+    let run_id %SemanticNodeId semantic_node_id 2
+    let title_id %SemanticNodeId semantic_node_id 3
+    let run_state %SemanticState semantic_state true false false
+    let root %SemanticNode semantic_node root_id SemanticRole::Window "window" semantic_state_default SemanticAction::None
+    let run_button %SemanticNode semantic_node run_id SemanticRole::Button "Run" run_state SemanticAction::Activate
+    let title %SemanticNode semantic_node title_id SemanticRole::Label "Title" semantic_state_default SemanticAction::None
     let tree0 %AccessibilityTree accessibility_tree_single root
     let tree1_result %Result AccessibilityTree AccessibilityTreeError accessibility_tree_add_child tree0 run_button
     let checks match tree1_result:
@@ -68,7 +72,8 @@ exit_code: 0
 #import "std/test" as *
 
 fn small_node %fn i32 SemanticNode \id:
-    semantic_node (semantic_node_id id) SemanticRole::Label "node" semantic_state_default SemanticAction::None
+    let node_id %SemanticNodeId semantic_node_id id
+    semantic_node node_id SemanticRole::Label "node" semantic_state_default SemanticAction::None
 
 fn main %impure fn unit i32 \unit:
     let tree0 %AccessibilityTree accessibility_tree_single small_node 1

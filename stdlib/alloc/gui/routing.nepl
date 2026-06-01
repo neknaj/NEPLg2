@@ -18,13 +18,24 @@
 //:| #import "core/option" as *
 //:| #import "core/result" as *
 //: fn main %fn unit i32 \unit:
-//:     let root %WidgetDescriptor widget_label (widget_id 1) "root" (layout_hint_fixed 10 4)
-//:     let button_node %WidgetDescriptor widget_button (button_config (widget_id 2) "Run" (action_id 7)) (layout_hint_fixed 4 2)
-//:     let view_tree %ViewTree unwrap_ok view_tree_add_child (view_tree_single root) button_node
-//:     let root_layout %LayoutNode layout_node (widget_id 1) (gui_rect_new 0 0 10 4)
-//:     let button_layout %LayoutNode layout_node (widget_id 2) (gui_rect_new 1 1 4 2)
-//:     let layout_tree %LayoutTree unwrap_ok layout_tree_add_child (layout_tree_single root_layout) button_layout
-//:     match route_pointer_action &view_tree &layout_tree (gui_point_new 2 1):
+//:     let root_id %WidgetId widget_id 1
+//:     let button_id %WidgetId widget_id 2
+//:     let run_action %ActionId action_id 7
+//:     let root_hint %LayoutHint layout_hint_fixed 10 4
+//:     let button_hint %LayoutHint layout_hint_fixed 4 2
+//:     let button_config_value %ButtonConfig button_config button_id "Run" run_action
+//:     let root %WidgetDescriptor widget_label root_id "root" root_hint
+//:     let button_node %WidgetDescriptor widget_button button_config_value button_hint
+//:     let view0 %ViewTree view_tree_single root
+//:     let view_tree %ViewTree unwrap_ok view_tree_add_child view0 button_node
+//:     let root_rect %GuiRect gui_rect_new 0 0 10 4
+//:     let button_rect %GuiRect gui_rect_new 1 1 4 2
+//:     let root_layout %LayoutNode layout_node root_id root_rect
+//:     let button_layout %LayoutNode layout_node button_id button_rect
+//:     let layout0 %LayoutTree layout_tree_single root_layout
+//:     let layout_tree %LayoutTree unwrap_ok layout_tree_add_child layout0 button_layout
+//:     let point %GuiPoint gui_point_new 2 1
+//:     match route_pointer_action &view_tree &layout_tree point:
 //:         Option::Some event:
 //:             match event:
 //:                 GuiEvent::Action action:

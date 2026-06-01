@@ -38,8 +38,9 @@ fn main %impure fn unit i32 \unit:
                 true
             _:
                 false
+    let invalid_cols %i32 sub 0 1
     let invalid_size_rejected %bool:
-        match text_grid_capability (sub 0 1) 24:
+        match text_grid_capability invalid_cols 24:
             Result::Err error:
                 match error:
                     GuiError::InvalidGeometry:

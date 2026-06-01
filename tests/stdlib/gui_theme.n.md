@@ -27,7 +27,8 @@ fn rgba_color %fn i32 fn i32 fn i32 GuiColor \r\g\b:
     let gg %u8 cast g
     let bb %u8 cast b
     let aa %u8 cast 255
-    gui_color_rgba8888 (rgba8888_new rr gg bb aa)
+    let rgba %Rgba8888 rgba8888_new rr gg bb aa
+    gui_color_rgba8888 rgba
 
 fn sample_palette %fn unit ThemePalette \unit:
     theme_palette:
@@ -42,17 +43,20 @@ fn sample_palette %fn unit ThemePalette \unit:
 
 fn main %impure fn unit i32 \unit:
     let palette %ThemePalette sample_palette
-    let accent_check match theme_color_as_rgba8888 (theme_palette_color &palette ThemeColorRole::Accent):
+    let accent_color %GuiColor theme_palette_color &palette ThemeColorRole::Accent
+    let accent_check match theme_color_as_rgba8888 accent_color:
         Result::Ok rgba:
             assert_eq_i32 50 cast rgba8888_r &rgba
         Result::Err _error:
             assert false
-    let text_check match theme_color_as_rgba8888 (theme_palette_color &palette ThemeColorRole::Text):
+    let text_color %GuiColor theme_palette_color &palette ThemeColorRole::Text
+    let text_check match theme_color_as_rgba8888 text_color:
         Result::Ok rgba:
             assert_eq_i32 31 cast rgba8888_g &rgba
         Result::Err _error:
             assert false
-    let checks checks_push (checks_push checks_new accent_check) text_check
+    let checks1 checks_push checks_new accent_check
+    let checks checks_push checks1 text_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```
@@ -78,7 +82,8 @@ exit_code: 0
 #import "std/test" as *
 
 fn main %impure fn unit i32 \unit:
-    let invalid_check match theme_metrics_checked 2 1 (sub 0 1) 1 1:
+    let invalid_metric %i32 sub 0 1
+    let invalid_check match theme_metrics_checked 2 1 invalid_metric 1 1:
         Result::Ok _metrics:
             assert false
         Result::Err error:
@@ -87,7 +92,8 @@ fn main %impure fn unit i32 \unit:
                     assert true
                 _:
                     assert false
-    let color_check match theme_color_as_rgba8888 (GuiColor::Binary BinaryColor::On):
+    let binary_color %GuiColor GuiColor::Binary BinaryColor::On
+    let color_check match theme_color_as_rgba8888 binary_color:
         Result::Ok _rgba:
             assert false
         Result::Err error:
@@ -96,7 +102,8 @@ fn main %impure fn unit i32 \unit:
                     assert true
                 _:
                     assert false
-    let checks checks_push (checks_push checks_new invalid_check) color_check
+    let checks1 checks_push checks_new invalid_check
+    let checks checks_push checks1 color_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```
@@ -128,7 +135,8 @@ fn rgba_color %fn i32 fn i32 fn i32 GuiColor \r\g\b:
     let gg %u8 cast g
     let bb %u8 cast b
     let aa %u8 cast 255
-    gui_color_rgba8888 (rgba8888_new rr gg bb aa)
+    let rgba %Rgba8888 rgba8888_new rr gg bb aa
+    gui_color_rgba8888 rgba
 
 fn sample_palette %fn unit ThemePalette \unit:
     theme_palette:
@@ -144,7 +152,9 @@ fn sample_palette %fn unit ThemePalette \unit:
 fn main %impure fn unit i32 \unit:
     let palette %ThemePalette sample_palette
     let metrics %ThemeMetrics unwrap_ok theme_metrics_checked 4 2 1 1 3
-    let theme %GuiTheme unwrap_ok gui_theme_checked ThemeScheme::Dark palette metrics (some (font_id_new 7))
+    let font_id %FontId font_id_new 7
+    let default_font %Option FontId some font_id
+    let theme %GuiTheme unwrap_ok gui_theme_checked ThemeScheme::Dark palette metrics default_font
     let font_check match gui_theme_default_font &theme:
         Option::Some font:
             assert_eq_i32 7 font_id_raw &font
@@ -155,12 +165,15 @@ fn main %impure fn unit i32 \unit:
         Result::Ok style:
             let foreground %Rgba8888 text_cell_style_foreground &style
             let background %Rgba8888 text_cell_style_background &style
-            if eq (cast rgba8888_r &foreground) 60:
+            let foreground_r %i32 cast rgba8888_r &foreground
+            if eq foreground_r 60:
                 then assert_eq_i32 10 cast rgba8888_r &background
                 else assert false
         Result::Err _error:
             assert false
-    let checks checks_push (checks_push (checks_push checks_new font_check) metric_check) style_check
+    let checks1 checks_push checks_new font_check
+    let checks2 checks_push checks1 metric_check
+    let checks checks_push checks2 style_check
     let shown checks_print_report checks
     checks_exit_code shown
 ```

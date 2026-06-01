@@ -15,7 +15,9 @@
 //:| #import "core/result" as *
 //: fn main %fn unit i32 \unit:
 //:     let measurer %HostTextMeasurer host_text_measurer_fixed gui_capabilities_text_grid 8 16 12
-//:     let request %TextMeasureRequest text_measure_request_new (text_run_id_new 1) (font_id_new 1) 40 3
+//:     let run_id %TextRunId text_run_id_new 1
+//:     let font_id %FontId font_id_new 1
+//:     let request %TextMeasureRequest text_measure_request_new run_id font_id 40 3
 //:     match measure_text &measurer request:
 //:         Result::Ok metrics:
 //:             text_measure_result_width &metrics
@@ -72,7 +74,9 @@ pub fn host_text_measurer_baseline %fn &HostTextMeasurer i32 \measurer:
 
 impl TextMeasurer for HostTextMeasurer:
     fn measure_text %fn &HostTextMeasurer fn TextMeasureRequest Result TextMeasureResult GuiError \measurer\request:
-        let width %i32 mul (host_text_measurer_cell_width measurer) (text_measure_request_cell_count_hint &request)
+        let cell_width %i32 host_text_measurer_cell_width measurer
+        let cell_count %i32 text_measure_request_cell_count_hint &request
+        let width %i32 mul cell_width cell_count
         let clamped %i32 if gt width text_measure_request_max_width &request:
             then text_measure_request_max_width &request
             else width
