@@ -2647,6 +2647,28 @@ direct-call key hash、fragment hash、resolved relocation を保持する。た
 body-missing diagnostic を消さない。次の段階では、token と function body insertion / relocation patch
 を同じ backend 境界にまとめる。
 
+## 2026-06-02 wasm direct-call fragment insertion checkpoint
+
+`generate_wasm_with_neplobj_direct_call_fragments` は、通常の HIR function と `.neplobj`
+direct-call fragment を同じ wasm module assembly に並べる。`plan_neplobj_direct_call_fragments_for_wasm`
+で得た token を authority とし、fragment の signature は `TypeSection` / `FunctionSection` へ、
+body bytes は `CodeSection::raw` へ投入する。
+
+direct-call relocation は final module の function index を使って call immediate を patch する。
+relocation offset は call opcode の直後であることを確認し、既存 immediate の LEB128 幅を読んでから
+新しい function index の LEB128 encoding に差し替える。差し替えは後方から行うため、index が 127 を
+超えて immediate が 1 byte から 2 byte 以上へ伸びる場合でも後続 relocation offset を壊さない。
+
+`PublicInterfaceArtifactInputs` は `.neplobj` direct-call fragment payload を受け取れる。ただし、
+body-missing diagnostic から外すのは `HirExprKind::Call` の direct call だけである。`FnValue`、
+`CallIndirect`、`MemoizedFunctionValue` は function identity、table lowering、PrivateCache proof が
+必要なので、direct-call fragment が同じ materialized symbol を持っていても引き続き fail-closed に
+source fallback を要求する。
+
+残る work は、source fallback / full compile で selected dependency body から fragment payload を
+生成して same-session object store へ保存し、Web / loader の import edge が次回 compile でその store
+を `PublicInterfaceArtifactInputs` へ渡すことである。
+
 ## 2026-06-01 selected body hash authority checkpoint
 
 direct-call `.neplobj` key の `selected_callable_body_hash` は、Resource summary value cache が使う

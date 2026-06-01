@@ -185,6 +185,7 @@ pub struct PublicInterfaceArtifactInputs<'a> {
     pub dependency_public_surface_hash: Option<u64>,
     pub module_surface: Option<&'a crate::artifact::NeplMetaModuleSurface>,
     pub materialized_public_surfaces: &'a [crate::typecheck::MaterializedPublicSurfaceInput],
+    pub neplobj_direct_call_fragments: &'a [crate::artifact::NeplObjDirectCallFragmentArtifact],
 }
 
 impl<'a> PublicInterfaceArtifactInputs<'a> {
@@ -193,6 +194,7 @@ impl<'a> PublicInterfaceArtifactInputs<'a> {
             dependency_public_surface_hash: None,
             module_surface: None,
             materialized_public_surfaces: &[],
+            neplobj_direct_call_fragments: &[],
         }
     }
 
@@ -205,6 +207,21 @@ impl<'a> PublicInterfaceArtifactInputs<'a> {
             dependency_public_surface_hash,
             module_surface,
             materialized_public_surfaces,
+            neplobj_direct_call_fragments: &[],
+        }
+    }
+
+    pub fn with_neplobj_direct_call_fragments(
+        dependency_public_surface_hash: Option<u64>,
+        module_surface: Option<&'a crate::artifact::NeplMetaModuleSurface>,
+        materialized_public_surfaces: &'a [crate::typecheck::MaterializedPublicSurfaceInput],
+        neplobj_direct_call_fragments: &'a [crate::artifact::NeplObjDirectCallFragmentArtifact],
+    ) -> Self {
+        Self {
+            dependency_public_surface_hash,
+            module_surface,
+            materialized_public_surfaces,
+            neplobj_direct_call_fragments,
         }
     }
 }
@@ -663,6 +680,7 @@ fn compile_module_with_source_map_artifact_options_and_dependency_public_surface
         artifact_options.include_wat_comments,
         prepared.nepl_meta_artifact,
         Some(prepared.resource_summary_proof_header),
+        public_interface_artifacts.neplobj_direct_call_fragments,
         stage_recorder,
     )
 }
@@ -1091,8 +1109,19 @@ struct MaterializedCodegenDependency {
     kind: MaterializedCodegenDependencyKind,
 }
 
+#[cfg(test)]
 fn materialized_codegen_dependency_diagnostics(
     hir_module: &crate::hir::HirModule,
+) -> Vec<Diagnostic> {
+    materialized_codegen_dependency_diagnostics_with_available_direct_calls(
+        hir_module,
+        &BTreeSet::new(),
+    )
+}
+
+fn materialized_codegen_dependency_diagnostics_with_available_direct_calls(
+    hir_module: &crate::hir::HirModule,
+    available_direct_call_symbols: &BTreeSet<String>,
 ) -> Vec<Diagnostic> {
     let mut dependencies = Vec::new();
     for function in &hir_module.functions {
@@ -1100,6 +1129,10 @@ fn materialized_codegen_dependency_diagnostics(
     }
     dependencies
         .into_iter()
+        .filter(|dependency| {
+            dependency.kind != MaterializedCodegenDependencyKind::DirectCall
+                || !available_direct_call_symbols.contains(&dependency.symbol)
+        })
         .map(|dependency| {
             Diagnostic::error_with_code(
                 DiagnosticCode::Backend(BackendDiagnosticCode::MaterializedFunctionBodyMissing),
@@ -1111,6 +1144,15 @@ fn materialized_codegen_dependency_diagnostics(
                 dependency.span,
             )
         })
+        .collect()
+}
+
+fn neplobj_direct_call_fragment_symbol_set(
+    fragments: &[crate::artifact::NeplObjDirectCallFragmentArtifact],
+) -> BTreeSet<String> {
+    fragments
+        .iter()
+        .map(|fragment| String::from(fragment.materialized_symbol()))
         .collect()
 }
 
@@ -2556,6 +2598,23 @@ mod tests {
         )
     }
 
+    fn test_neplobj_direct_call_fragment(
+        key: crate::artifact::NeplObjDirectCallKey,
+    ) -> crate::artifact::NeplObjDirectCallFragmentArtifact {
+        crate::artifact::NeplObjDirectCallFragmentArtifact::new(
+            key,
+            crate::artifact::NeplObjDirectCallBackendFragment::Wasm(
+                crate::artifact::NeplObjWasmDirectCallFragment::new(
+                    Vec::new(),
+                    Vec::from([crate::artifact::NeplObjWasmValType::I32]),
+                    Vec::from([0x00, 0x41, 0x07, 0x0b]),
+                    Vec::new(),
+                )
+                .expect("test fixture uses a valid wasm direct-call fragment"),
+            ),
+        )
+    }
+
     /// `.neplobj` direct-call fragment schema は存在するが、まだ backend/linker の function
     /// body set へ接続されていない。payload を codegen が消費できるまで、direct call も
     /// body-missing に残して source fallback を要求する。
@@ -2605,6 +2664,79 @@ mod tests {
 
         assert_eq!(diagnostics.len(), 1);
         assert!(diagnostics[0].message.contains("for direct call"));
+    }
+
+    /// backend fragment が渡された direct call だけ body-missing 収集から外す。
+    /// function value / memoized function value は同じ symbol でも別の backend identity と
+    /// private-cache proof が必要なので、この段階では引き続き source fallback を要求する。
+    #[test]
+    fn materialized_body_missing_diagnostics_accept_linked_direct_call_fragment_only() {
+        let ty = crate::types::TypeId(0);
+        let span = Span::dummy();
+        let key = test_neplobj_direct_call_key("dep_value", 0x1234);
+        let identity = crate::function_identity::FunctionValueIdentity::new(
+            key.materialized_symbol.clone(),
+            None,
+            ty,
+            ast::Effect::Pure,
+            Vec::new(),
+        );
+        let module = crate::hir::HirModule {
+            functions: Vec::from([crate::hir::HirFunction {
+                doc: None,
+                name: String::from("main"),
+                origin_name: String::from("main"),
+                func_ty: ty,
+                params: Vec::new(),
+                result: ty,
+                effect: ast::Effect::Pure,
+                body: crate::hir::HirBody::Block(crate::hir::HirBlock {
+                    lines: Vec::from([
+                        crate::hir::HirLine {
+                            expr: crate::hir::HirExpr {
+                                ty,
+                                kind: crate::hir::HirExprKind::Call {
+                                    callee: crate::hir::FuncRef::User(
+                                        key.materialized_symbol.clone(),
+                                        Vec::new(),
+                                        None,
+                                    ),
+                                    args: Vec::new(),
+                                },
+                                span,
+                            },
+                            drop_result: true,
+                        },
+                        crate::hir::HirLine {
+                            expr: crate::hir::HirExpr {
+                                ty,
+                                kind: crate::hir::HirExprKind::FnValue(identity),
+                                span,
+                            },
+                            drop_result: true,
+                        },
+                    ]),
+                    ty,
+                    span,
+                }),
+                span,
+            }]),
+            entry: Some(String::from("main")),
+            externs: Vec::new(),
+            string_literals: Vec::new(),
+            traits: Vec::new(),
+            impls: Vec::new(),
+        };
+        let fragment = test_neplobj_direct_call_fragment(key);
+        let available = neplobj_direct_call_fragment_symbol_set(&[fragment]);
+
+        let diagnostics = materialized_codegen_dependency_diagnostics_with_available_direct_calls(
+            &module,
+            &available,
+        );
+
+        assert_eq!(diagnostics.len(), 1);
+        assert!(diagnostics[0].message.contains("for function value"));
     }
 
     /// direct-call artifact schema は function value / indirect / memoization の証明を代替しない。
@@ -4058,12 +4190,18 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
             let _ = cache.preseed_neplproof_artifact(artifact, resource_summary_proof_header);
         }
     }
+    let neplobj_direct_call_symbols = neplobj_direct_call_fragment_symbol_set(
+        public_interface_artifacts.neplobj_direct_call_fragments,
+    );
     if !public_interface_artifacts
         .materialized_public_surfaces
         .is_empty()
     {
         let materialized_codegen_diags =
-            materialized_codegen_dependency_diagnostics(&resource_tc.module);
+            materialized_codegen_dependency_diagnostics_with_available_direct_calls(
+                &resource_tc.module,
+                &neplobj_direct_call_symbols,
+            );
         if !materialized_codegen_diags.is_empty() {
             diagnostics.extend(materialized_codegen_diags);
             return Err(CoreError::from_diagnostics(diagnostics));
@@ -4147,7 +4285,11 @@ fn prepare_module_for_codegen_with_source_map_dependency_public_surface_hash_and
         .materialized_public_surfaces
         .is_empty()
     {
-        let materialized_codegen_diags = materialized_codegen_dependency_diagnostics(&hir_module);
+        let materialized_codegen_diags =
+            materialized_codegen_dependency_diagnostics_with_available_direct_calls(
+                &hir_module,
+                &neplobj_direct_call_symbols,
+            );
         if !materialized_codegen_diags.is_empty() {
             diagnostics.extend(materialized_codegen_diags);
             return Err(CoreError::from_diagnostics(diagnostics));
@@ -4550,12 +4692,17 @@ fn emit_wasm(
     include_wat_comments: bool,
     nepl_meta_artifact: crate::artifact::NeplMetaArtifact,
     resource_summary_proof_header: Option<crate::resource::ResourceSummaryProofArtifactHeader>,
+    neplobj_direct_call_fragments: &[crate::artifact::NeplObjDirectCallFragmentArtifact],
     stage_recorder: &mut CompileStageRecorder<'_>,
 ) -> Result<CompilationArtifact, CoreError> {
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     let stage_start = std::time::Instant::now();
     let stage_start_ms = stage_recorder.start();
-    let cg = codegen_wasm::generate_wasm(types, hir_module);
+    let cg = codegen_wasm::generate_wasm_with_neplobj_direct_call_fragments(
+        types,
+        hir_module,
+        neplobj_direct_call_fragments,
+    );
     #[cfg(all(not(target_os = "none"), not(target_arch = "wasm32")))]
     log_compile_stage_timing("wasm_codegen", stage_start);
     stage_recorder.finish("wasm_codegen", stage_start_ms);

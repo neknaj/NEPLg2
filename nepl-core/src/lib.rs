@@ -87,7 +87,8 @@ pub use compiler::{
     ResourceSummaryProofArtifactCacheOptions,
 };
 pub use codegen_wasm::{
-    plan_neplobj_direct_call_fragments_for_wasm, NeplObjWasmDirectCallLinkPlanReject,
-    NeplObjWasmDirectCallLinkPlanToken, NeplObjWasmResolvedDirectCallRelocation,
+    generate_wasm_with_neplobj_direct_call_fragments, plan_neplobj_direct_call_fragments_for_wasm,
+    NeplObjWasmDirectCallLinkPlanReject, NeplObjWasmDirectCallLinkPlanToken,
+    NeplObjWasmResolvedDirectCallRelocation,
 };
 pub use error::CoreError;

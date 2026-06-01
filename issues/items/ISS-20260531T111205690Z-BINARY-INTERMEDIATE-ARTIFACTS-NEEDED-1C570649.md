@@ -503,6 +503,26 @@ raw body bytes を `CodeSection` へ投入し relocation を patch する実装�
 body-missing を消さない。次の作業は、source fallback / full compile で作った payload を session store
 へ保存し、その後 token と actual code insertion を同じ backend 境界にまとめることである。
 
+## 2026-06-02 checkpoint 6
+
+`generate_wasm_with_neplobj_direct_call_fragments` を追加し、`.neplobj` direct-call fragment を
+Wasm backend の `FunctionSection` / `CodeSection` へ実際に投入できる最小境界を実装した。
+
+この API は `plan_neplobj_direct_call_fragments_for_wasm` で symbol 衝突、backend feature set、
+relocation target、周辺 HIR / extern signature を確認したうえで、resolved relocation の function
+index を fragment body bytes の call immediate へ patch する。LEB128 immediate は長さが変わる場合も
+後方から差し替え、fragment が古い function index を固定した object にならないようにした。
+
+`PublicInterfaceArtifactInputs` は `NeplObjDirectCallFragmentArtifact` slice を受け取れるようになった。
+materialized callable body-missing の抑制は direct call だけに限定し、function value、indirect call、
+`memo_call` / memoized function value は同じ materialized symbol を持っていても source fallback に残す。
+これは高階関数 identity と private cache proof を `.neplobj` direct-call MVP が暗黙に代替しないための
+fail-closed 境界である。
+
+この checkpoint でも issue は open のまま維持する。まだ source fallback / full compile から
+`NeplObjDirectCallFragmentArtifact` を session object store へ保存する経路と、Web / loader から
+`PublicInterfaceArtifactInputs` へ渡す実運用経路は未接続である。
+
 ## 2026-06-01 selected body hash authority checkpoint
 
 `.neplobj` key の `selected_callable_body_hash` が使う authority として、

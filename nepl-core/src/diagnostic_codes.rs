@@ -297,6 +297,7 @@ pub enum WasmDiagnosticCode {
     FieldSelectorUnsupported,
     FieldValueTypeUnsupported,
     LoweredSignatureMissing,
+    NeplObjDirectCallLinkInvalid,
     ValidationFailed,
 }
 
@@ -641,6 +642,9 @@ pub const ALL_DIAGNOSTIC_CODES: &[DiagnosticCode] = &[
     )),
     DiagnosticCode::Backend(BackendDiagnosticCode::Wasm(
         WasmDiagnosticCode::LoweredSignatureMissing,
+    )),
+    DiagnosticCode::Backend(BackendDiagnosticCode::Wasm(
+        WasmDiagnosticCode::NeplObjDirectCallLinkInvalid,
     )),
     DiagnosticCode::Backend(BackendDiagnosticCode::Wasm(
         WasmDiagnosticCode::ValidationFailed,
@@ -1648,6 +1652,9 @@ impl WasmDiagnosticCode {
                 "backend.wasm.field_value_type_unsupported"
             }
             WasmDiagnosticCode::LoweredSignatureMissing => "backend.wasm.lowered_signature_missing",
+            WasmDiagnosticCode::NeplObjDirectCallLinkInvalid => {
+                "backend.wasm.neplobj_direct_call_link_invalid"
+            }
             WasmDiagnosticCode::ValidationFailed => "backend.wasm.validation_failed",
         }
     }
@@ -1694,6 +1701,9 @@ impl WasmDiagnosticCode {
             }
             WasmDiagnosticCode::LoweredSignatureMissing => {
                 "missing lowered wasm function signature"
+            }
+            WasmDiagnosticCode::NeplObjDirectCallLinkInvalid => {
+                ".neplobj direct-call fragment cannot be linked into the wasm module"
             }
             WasmDiagnosticCode::ValidationFailed => "generated wasm failed validation",
         }
