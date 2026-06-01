@@ -203,6 +203,25 @@ structured public surface hash namespace は `neplg2-typed-public-surface-v5` �
 検証:
 
 - `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
+
+## 2026-06-01 trait Self surface checkpoint
+
+trait method signature 内の `Self` を `PublicTypeTerm::TraitSelf` として structured public surface へ保存するようにした。
+
+これまで trait collection では `Self` を fresh type variable として作っていたが、`public_trait_surface` は trait type parameter だけを binder map に入れていた。そのため `pub trait Show: fn show %fn Self i32 ...` の `Self` は `PublicTypeTerm::UnboundGenericParam` になり、stable trait identity があっても materializer preflight では generic blocker が残っていた。
+
+`TraitSelf` は trait method surface 内でだけ許可される implicit receiver type であり、通常の `.T` generic binder とは区別する。trait method 以外の public surface に現れた場合は `TraitSelfOutsideTraitMethod` blocker として fail-closed に扱う。
+
+structured public surface hash namespace は `neplg2-typed-public-surface-v7`、`.neplmeta` schema / artifact hash / compiler identity は v8 に上げた。
+
+残件:
+
+- reexport / prelude edge と module canonical path を per-module `.neplmeta` surface に追加する。
+- fail-closed materializer を import / prelude boundary へ接続する。
+
+検証:
+
+- `cargo test -p nepl-core typed_public_surface --lib -- --nocapture`
 - `cargo test -p nepl-core materializer_preflight --lib -- --nocapture`
 - `cargo test -p nepl-core neplmeta --lib -- --nocapture`
 

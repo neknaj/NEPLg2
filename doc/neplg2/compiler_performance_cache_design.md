@@ -1699,6 +1699,29 @@ session で直接 materialize する対象ではないため structured impl sur
 prelude edge と module canonical path を per-module surface に加えたうえで、fail-closed
 materializer を import / prelude boundary へ接続する。
 
+### 2026-06-01 `.neplmeta` trait Self surface checkpoint
+
+trait method signature 内の `Self` を `PublicTypeTerm::TraitSelf` として structured public
+surface へ保存するようにした。
+
+trait collection は `Self` を fresh type variable として作る。一方で従来の
+`public_trait_surface` は trait type parameter だけを binder map に入れていたため、
+`pub trait Show: fn show %fn Self i32 ...` の `Self` が `UnboundGenericParam` になっていた。
+これでは stable trait identity があっても materializer preflight で generic blocker が残る。
+
+`TraitSelf` は trait method surface 内だけで許可される implicit receiver type であり、通常の
+`.T` generic binder とは別に扱う。trait method 以外の public surface に現れた場合は
+`TraitSelfOutsideTraitMethod` blocker として fail-closed に止める。
+
+この payload 形状変更に合わせ、structured public surface hash namespace は
+`neplg2-typed-public-surface-v7`、`.neplmeta` schema / artifact hash / compiler identity は v8
+へ上げた。trait-local `Self` を unbound generic として保存していた古い artifact を同じ
+contract として扱わない。
+
+この checkpoint でも `.neplmeta` materializer 本体はまだ未実装である。次は reexport /
+prelude edge と module canonical path を per-module surface に加えたうえで、fail-closed
+materializer を import / prelude boundary へ接続する。
+
 ### 2026-06-01 LLVM dual CI shard checkpoint
 
 GitHub Actions run `26728316260` では、`llvm-dual-test` の `tests` / `stdlib`

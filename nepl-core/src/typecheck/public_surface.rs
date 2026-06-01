@@ -90,6 +90,8 @@ pub enum PublicSurfaceMaterializerBlockerReason {
     UnboundTraitBoundTarget { param_name: String },
     /// trait surface または trait reference が stable trait identity を持たない。
     MissingTraitIdentity { trait_name: String },
+    /// trait-local `Self` term が trait method surface の外に現れている。
+    TraitSelfOutsideTraitMethod,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -264,6 +266,7 @@ pub enum PublicTypeTerm {
     Char,
     Str,
     Never,
+    TraitSelf,
     Named {
         name: String,
         identity: Option<PublicNominalTypeIdentity>,
@@ -318,7 +321,7 @@ pub enum PublicStructConstructorPolicy {
 
 fn typed_public_surface_hash(entries: &[TypedPublicSurfaceEntry]) -> u64 {
     let mut hash = FNV1A64_OFFSET;
-    hash_str(&mut hash, "neplg2-typed-public-surface-v6");
+    hash_str(&mut hash, "neplg2-typed-public-surface-v7");
     for entry in entries {
         hash_str(&mut hash, entry.kind.as_str());
         hash_str(&mut hash, entry.name.as_str());
@@ -422,7 +425,7 @@ fn collect_surface_shape_materializer_blockers(
                     blockers,
                 );
             }
-            collect_type_term_materializer_blockers(entry, &surface.ty, blockers);
+            collect_type_term_materializer_blockers(entry, &surface.ty, false, blockers);
             for bounds in &surface.type_param_bounds {
                 collect_type_param_bound_target_materializer_blockers(
                     entry,
@@ -443,7 +446,7 @@ fn collect_surface_shape_materializer_blockers(
                 );
             }
             for field in &surface.fields {
-                collect_type_term_materializer_blockers(entry, &field.ty, blockers);
+                collect_type_term_materializer_blockers(entry, &field.ty, false, blockers);
             }
         }
         PublicSurfaceShape::Enum(surface) => {
@@ -456,7 +459,7 @@ fn collect_surface_shape_materializer_blockers(
             }
             for variant in &surface.variants {
                 if let Some(payload) = &variant.payload {
-                    collect_type_term_materializer_blockers(entry, payload, blockers);
+                    collect_type_term_materializer_blockers(entry, payload, false, blockers);
                 }
             }
         }
@@ -471,7 +474,7 @@ fn collect_surface_shape_materializer_blockers(
                 );
             }
             for method in &surface.methods {
-                collect_type_term_materializer_blockers(entry, &method.ty, blockers);
+                collect_type_term_materializer_blockers(entry, &method.ty, true, blockers);
             }
         }
         PublicSurfaceShape::Impl(surface) => {
@@ -485,7 +488,7 @@ fn collect_surface_shape_materializer_blockers(
                     collect_trait_ref_materializer_blockers(entry, bound, blockers);
                 }
             }
-            collect_type_term_materializer_blockers(entry, &surface.target, blockers);
+            collect_type_term_materializer_blockers(entry, &surface.target, false, blockers);
             match &surface.kind {
                 PublicImplKind::Inherent => {}
                 PublicImplKind::Trait { application } => {
@@ -530,13 +533,14 @@ fn collect_trait_ref_materializer_blockers(
         );
     }
     for arg in &trait_ref.args {
-        collect_type_term_materializer_blockers(entry, arg, blockers);
+        collect_type_term_materializer_blockers(entry, arg, false, blockers);
     }
 }
 
 fn collect_type_term_materializer_blockers(
     entry: &TypedPublicSurfaceEntry,
     term: &PublicTypeTerm,
+    allow_trait_self: bool,
     blockers: &mut Vec<PublicSurfaceMaterializerBlocker>,
 ) {
     match term {
@@ -549,6 +553,15 @@ fn collect_type_term_materializer_blockers(
         | PublicTypeTerm::Str
         | PublicTypeTerm::Never
         | PublicTypeTerm::GenericParam(_) => {}
+        PublicTypeTerm::TraitSelf => {
+            if !allow_trait_self {
+                push_materializer_blocker(
+                    entry,
+                    PublicSurfaceMaterializerBlockerReason::TraitSelfOutsideTraitMethod,
+                    blockers,
+                );
+            }
+        }
         PublicTypeTerm::Named { name, identity } => {
             if identity.is_none() {
                 push_materializer_blocker(
@@ -571,23 +584,23 @@ fn collect_type_term_materializer_blockers(
         }
         PublicTypeTerm::Tuple(items) => {
             for item in items {
-                collect_type_term_materializer_blockers(entry, item, blockers);
+                collect_type_term_materializer_blockers(entry, item, allow_trait_self, blockers);
             }
         }
         PublicTypeTerm::Function { params, result, .. } => {
             for param in params {
-                collect_type_term_materializer_blockers(entry, param, blockers);
+                collect_type_term_materializer_blockers(entry, param, allow_trait_self, blockers);
             }
-            collect_type_term_materializer_blockers(entry, result, blockers);
+            collect_type_term_materializer_blockers(entry, result, allow_trait_self, blockers);
         }
         PublicTypeTerm::Apply { base, args } => {
-            collect_type_term_materializer_blockers(entry, base, blockers);
+            collect_type_term_materializer_blockers(entry, base, allow_trait_self, blockers);
             for arg in args {
-                collect_type_term_materializer_blockers(entry, arg, blockers);
+                collect_type_term_materializer_blockers(entry, arg, allow_trait_self, blockers);
             }
         }
         PublicTypeTerm::Boxed(inner) | PublicTypeTerm::Reference { inner, .. } => {
-            collect_type_term_materializer_blockers(entry, inner, blockers);
+            collect_type_term_materializer_blockers(entry, inner, allow_trait_self, blockers);
         }
     }
 }
@@ -673,6 +686,7 @@ fn hash_public_type_term(hash: &mut u64, term: &PublicTypeTerm) {
         PublicTypeTerm::Char => hash_str(hash, "char"),
         PublicTypeTerm::Str => hash_str(hash, "str"),
         PublicTypeTerm::Never => hash_str(hash, "never"),
+        PublicTypeTerm::TraitSelf => hash_str(hash, "trait-self"),
         PublicTypeTerm::Named { name, identity } => {
             hash_str(hash, "named");
             hash_str(hash, name.as_str());
@@ -1049,7 +1063,7 @@ fn public_trait_surface(
         .iter()
         .map(|(name, method)| PublicTraitMethodSurface {
             name: name.clone(),
-            ty: public_type_term(ctx, *method, &generics),
+            ty: public_type_term_with_trait_self(ctx, *method, &generics, Some(info.self_ty)),
         })
         .collect::<Vec<_>>();
     methods.sort();
@@ -1255,7 +1269,7 @@ fn public_trait_identity_for_info(
         .iter()
         .map(|(method_name, method)| PublicTraitMethodSurface {
             name: method_name.clone(),
-            ty: public_type_term(ctx, *method, &generics),
+            ty: public_type_term_with_trait_self(ctx, *method, &generics, Some(info.self_ty)),
         })
         .collect::<Vec<_>>();
     methods.sort();
@@ -1311,7 +1325,19 @@ fn public_type_term(
     ty: TypeId,
     generics: &BTreeMap<TypeId, PublicTypeParamRef>,
 ) -> PublicTypeTerm {
+    public_type_term_with_trait_self(ctx, ty, generics, None)
+}
+
+fn public_type_term_with_trait_self(
+    ctx: &TypeCtx,
+    ty: TypeId,
+    generics: &BTreeMap<TypeId, PublicTypeParamRef>,
+    trait_self: Option<TypeId>,
+) -> PublicTypeTerm {
     let resolved = ctx.resolve_id(ty);
+    if trait_self.map(|self_ty| ctx.resolve_id(self_ty)) == Some(resolved) {
+        return PublicTypeTerm::TraitSelf;
+    }
     if let Some(param) = generics.get(&resolved) {
         return PublicTypeTerm::GenericParam(param.clone());
     }
@@ -1335,7 +1361,7 @@ fn public_type_term(
         TypeKind::Tuple { items } => PublicTypeTerm::Tuple(
             items
                 .iter()
-                .map(|item| public_type_term(ctx, *item, generics))
+                .map(|item| public_type_term_with_trait_self(ctx, *item, generics, trait_self))
                 .collect(),
         ),
         TypeKind::Function {
@@ -1355,9 +1381,16 @@ fn public_type_term(
                 type_params: function_params,
                 params: params
                     .iter()
-                    .map(|param| public_type_term(ctx, *param, &scoped_generics))
+                    .map(|param| {
+                        public_type_term_with_trait_self(ctx, *param, &scoped_generics, trait_self)
+                    })
                     .collect(),
-                result: Box::new(public_type_term(ctx, result, &scoped_generics)),
+                result: Box::new(public_type_term_with_trait_self(
+                    ctx,
+                    result,
+                    &scoped_generics,
+                    trait_self,
+                )),
                 effect: public_effect_from_ast(effect),
             }
         }
@@ -1368,17 +1401,21 @@ fn public_type_term(
             drop_cap: var.drop_cap,
         }),
         TypeKind::Apply { base, args } => PublicTypeTerm::Apply {
-            base: Box::new(public_type_term(ctx, base, generics)),
+            base: Box::new(public_type_term_with_trait_self(
+                ctx, base, generics, trait_self,
+            )),
             args: args
                 .iter()
-                .map(|arg| public_type_term(ctx, *arg, generics))
+                .map(|arg| public_type_term_with_trait_self(ctx, *arg, generics, trait_self))
                 .collect(),
         },
-        TypeKind::Box(inner) => {
-            PublicTypeTerm::Boxed(Box::new(public_type_term(ctx, inner, generics)))
-        }
+        TypeKind::Box(inner) => PublicTypeTerm::Boxed(Box::new(public_type_term_with_trait_self(
+            ctx, inner, generics, trait_self,
+        ))),
         TypeKind::Reference(inner, mutable) => PublicTypeTerm::Reference {
-            inner: Box::new(public_type_term(ctx, inner, generics)),
+            inner: Box::new(public_type_term_with_trait_self(
+                ctx, inner, generics, trait_self,
+            )),
             mutable,
         },
     }
@@ -1889,6 +1926,16 @@ mod tests {
         assert_eq!(trait_identity.name, "Show");
         assert_eq!(trait_identity.arity, 0);
         assert_ne!(trait_identity.definition_hash, 0);
+        let method = show_surface
+            .methods
+            .iter()
+            .find(|method| method.name == "show")
+            .expect("Show.show method surface");
+        let PublicTypeTerm::Function { params, result, .. } = &method.ty else {
+            panic!("Show.show must have a function type surface");
+        };
+        assert_eq!(params, &[PublicTypeTerm::TraitSelf]);
+        assert_eq!(result.as_ref(), &PublicTypeTerm::I32);
 
         let call_show = checked
             .public_surface
@@ -1914,6 +1961,15 @@ mod tests {
                 &blocker.reason,
                 PublicSurfaceMaterializerBlockerReason::MissingTraitIdentity { trait_name }
                     if trait_name == "Show"
+            )));
+        assert!(checked
+            .public_surface
+            .materializer_blockers()
+            .iter()
+            .all(|blocker| !matches!(
+                &blocker.reason,
+                PublicSurfaceMaterializerBlockerReason::UnboundGenericParam { param_name }
+                    if param_name == "Self"
             )));
     }
 
@@ -2144,6 +2200,45 @@ mod tests {
             without_capability.public_surface.stable_hash,
             with_capability.public_surface.stable_hash
         );
+    }
+
+    /// trait method 内の `Self` は trait type parameter ではなく trait definition 固有の
+    /// implicit receiver type である。structured surface はこれを `TraitSelf` として保持し、
+    /// 通常の `.T` binder と混同しない。
+    #[test]
+    fn typed_public_surface_keeps_trait_self_distinct_from_trait_generics() {
+        let checked = typecheck_source_with_path(
+            "project/core/mapper.nepl",
+            "pub trait Mapper<.T>:\n    fn map %fn Self .T \\x:\n        0\n",
+        );
+
+        let mapper = checked
+            .public_surface
+            .entries
+            .iter()
+            .find(|entry| entry.kind == TypedPublicSignatureKind::Trait && entry.name == "Mapper")
+            .expect("Mapper public trait surface");
+        let PublicSurfaceShape::Trait(surface) = &mapper.surface else {
+            panic!("Mapper must be a structured trait surface");
+        };
+        assert_eq!(surface.type_params.len(), 1);
+        let method = surface
+            .methods
+            .iter()
+            .find(|method| method.name == "map")
+            .expect("Mapper.map method surface");
+        let PublicTypeTerm::Function { params, result, .. } = &method.ty else {
+            panic!("Mapper.map must have a function type surface");
+        };
+        assert_eq!(params, &[PublicTypeTerm::TraitSelf]);
+        assert_eq!(
+            result.as_ref(),
+            &PublicTypeTerm::GenericParam(PublicTypeParamRef {
+                binder_depth: 0,
+                index: 0,
+            })
+        );
+        assert!(checked.public_surface.materializer_blockers().is_empty());
     }
 
     /// nested generic function type に入ると、その function の type parameter list が

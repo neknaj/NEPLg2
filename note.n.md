@@ -48620,3 +48620,13 @@ ode nodesrc/cli.js -i tests/playground_editor --playground-editor-tests -o json=
 - typed public signature hash namespace を `neplg2-typed-public-signature-v2`、structured public surface hash namespace を `neplg2-typed-public-surface-v6`、`.neplmeta` schema / artifact hash / compiler identity を v7 に上げた。
 - `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。次の残件は reexport / prelude edge と module canonical path、fail-closed materializer 本体である。
 - focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。
+
+## 2026-06-01 Agent `.neplmeta` trait Self surface checkpoint
+
+- remote/main と同期済みの `perf/neplmeta-trait-self-surface-20260601` branch で、trait method signature 内の `Self` を structured public surface authority として扱う修正を進めた。`plan.md` は変更していない。
+- subagent review では、`TraitInfo.self_ty` が trait type parameter binder に含まれず、`fn show %fn Self i32` の `Self` が `PublicTypeTerm::UnboundGenericParam` へ落ちるため、stable trait identity があっても materializer preflight blocker が残ると確認した。
+- `PublicTypeTerm::TraitSelf` を追加し、`public_trait_surface` と trait definition hash の method type projection では `TraitInfo.self_ty` をこの term として保存するようにした。
+- `TraitSelf` は trait method surface 内だけで許可する。trait method 外で現れた場合は `TraitSelfOutsideTraitMethod` blocker として fail-closed に止める。
+- structured public surface hash namespace を `neplg2-typed-public-surface-v7`、`.neplmeta` schema / artifact hash / compiler identity を v8 に上げた。
+- `doc/neplg2/compiler_performance_cache_design.md` と `ISS-20260531T223904937Z-NEPLMETA-NEEDS-STRUCTURED-PUBLIC-SUR-926ABD31` に checkpoint を追記した。次の残件は reexport / prelude edge と module canonical path、fail-closed materializer 本体である。
+- focused verification は `cargo test -p nepl-core typed_public_surface --lib -- --nocapture` を通した。全体 verification はこの checkpoint の最終確認で実施する。
