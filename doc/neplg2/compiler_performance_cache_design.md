@@ -2588,6 +2588,22 @@ source fallback / body-missing へ残す。これは `memo_call` の PrivateCach
 value identity の stable backend representation を未実装のまま pure / object reuse 境界を
 広げないための fail-closed 条件である。
 
+## 2026-06-01 direct-call `.neplobj` availability input checkpoint
+
+`PublicInterfaceArtifactInputs` に direct call 用 `NeplObjDirectCallKey` の入力を追加し、
+materialized callable body-missing dependency を diagnostic に変換する前に availability を見る
+境界を作った。
+
+現時点の実 compiler session はまだ key を渡さないため、通常の compile 挙動は fail-closed のままである。
+これは意図的である。`.neplobj` key が存在するだけでは wasm / LLVM backend が実際に呼べる body
+fragment を持つことを意味しない。caller は codegen fragment payload を同時に接続できる場合だけ
+`nepl_obj_direct_call_keys` を渡す。
+
+resolver は `HirExprKind::Call` の direct call のみを対象にする。同じ materialized symbol を持つ
+`FnValue`、`MemoizedFunctionValue`、`CallIndirect` の callee は direct call key では解決しない。
+この制約により、function value identity、indirect table lowering、`memo_call` の PrivateCache proof を
+`.neplobj` direct-call MVP が暗黙に許可しない。
+
 ## safety contract
 
 - call graph が静的に閉じない場合は、performance より正確性を優先して conservative-all にする。

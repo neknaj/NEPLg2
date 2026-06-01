@@ -353,3 +353,12 @@ direct call、function value、memoized function value の use kind 付きで作
 trait / impl materializer の issue では、この分類を使って direct call だけを `.neplobj` resolver へ
 進ませる。function value、indirect call、`memo_call` は、引き続きこの materializer issue で
 bypass しない。
+
+## 2026-06-01 direct-call `.neplobj` availability input checkpoint
+
+`PublicInterfaceArtifactInputs` に direct call 用 `.neplobj` key 入力を足し、body-missing dependency を
+diagnostic に落とす前に structured resolver を通すようにした。
+
+trait / impl materializer 側では、これはまだ codegen fragment payload の接続ではない。key を渡せるのは
+対応する direct-call body fragment が backend に接続済みである場合だけであり、function value、
+indirect call、`memo_call` は direct-call key では解決しない。

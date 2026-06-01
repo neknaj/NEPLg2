@@ -453,3 +453,15 @@ message に use kind を含める。
 この checkpoint は `.neplobj` availability resolver そのものではない。次の resolver は direct call
 だけを候補にし、function value、indirect call、`memo_call` は stable codegen artifact と Resource proof が
 揃うまで body-missing / source fallback に残す。
+
+## 2026-06-01 direct-call `.neplobj` availability input checkpoint
+
+`PublicInterfaceArtifactInputs` に `NeplObjDirectCallKey` の slice を追加し、materialized callable
+body-missing dependency を diagnostic 化する前に direct-call availability を見る境界を作った。
+
+この checkpoint では compiler session から key を渡していないため、通常 compile は引き続き
+source fallback / body-missing に倒れる。`.neplobj` key は codegen fragment payload と同時に渡された
+場合だけ body-missing を解消できる authority として扱う。
+
+direct call key は `MaterializedCodegenDependencyKind::DirectCall` にだけ適用し、function value、
+indirect call、`memo_call` は同じ symbol が key に存在しても解決しない。
